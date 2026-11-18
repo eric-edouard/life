@@ -1,0 +1,144 @@
+{
+  "checks": [
+    {
+      "about": [],
+      "asker": "Orbit",
+      "at": null,
+      "clips": [],
+      "context": "He asked for it by Friday.",
+      "deadline": "2099-01-01T09:00:00.000Z",
+      "draft": {
+        "channel": "whatsapp",
+        "chat": "chat-1",
+        "file": {
+          "mime": "application/pdf",
+          "name": "quote.pdf",
+          "path": "/tmp/quote.pdf",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "size": 52000
+        },
+        "quoted": {
+          "sender": "Kit",
+          "text": "Can you send the quote?"
+        },
+        "text": "Here is the signed quote.",
+        "to": "Kit"
+      },
+      "evidence": null,
+      "group": "decision",
+      "kind": "decision",
+      "likelyPeople": [],
+      "links": ["https://agents.example.test/s/1"],
+      "matter": {
+        "id": "matter_aaaaaaaaaaaa",
+        "name": "Mend Gran's watch"
+      },
+      "onSilence": "no",
+      "options": [
+        {
+          "id": "yes",
+          "label": "Send it",
+          "outgoing": true
+        },
+        {
+          "id": "no",
+          "label": "Not now"
+        }
+      ],
+      "question": "Send Kit the signed quote?",
+      "ref": "dec_000000000001",
+      "ridesOn": {
+        "matters": 0,
+        "observations": 2,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Kit is waiting for the quote."
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [
+        {
+          "at": "2026-10-14T08:00:00.000Z",
+          "audio": {
+            "end": 4.5,
+            "jobId": "job-1",
+            "start": 1.2
+          },
+          "text": "It's the shop, about the watch.",
+          "until": "2026-10-14T08:00:04.000Z"
+        }
+      ],
+      "context": null,
+      "deadline": null,
+      "draft": null,
+      "evidence": null,
+      "group": "voice",
+      "kind": "voice",
+      "likelyPeople": [
+        {
+          "name": "Gran",
+          "person": "person:gran"
+        }
+      ],
+      "links": [],
+      "matter": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "person:gran",
+          "label": "It is Gran"
+        }
+      ],
+      "question": "Who is this?",
+      "ref": "voice:v1",
+      "ridesOn": {
+        "matters": 0,
+        "observations": 2,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "A name Life cannot place"
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": null,
+      "deadline": null,
+      "draft": null,
+      "evidence": null,
+      "group": "name",
+      "kind": "person",
+      "likelyPeople": [],
+      "links": [],
+      "matter": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "skip",
+          "label": "Not now"
+        }
+      ],
+      "question": "Who is Sam?",
+      "ref": "name:sam",
+      "ridesOn": {
+        "matters": 0,
+        "observations": 2,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "A name Life cannot place"
+    }
+  ],
+  "counts": {
+    "decision": 1,
+    "voice": 1,
+    "name": 1
+  },
+  "deadlinesToday": 0,
+  "total": 3
+}

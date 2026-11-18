@@ -1,5 +1,6 @@
 import Incidents
 import Library
+import LifeConnector
 import OwnerSettings
 import PendantProtocol
 import ServerAPI
@@ -15,6 +16,7 @@ struct SettingsView: View {
     let allowNotifications: () -> Void
 
     @Environment(SyncStore.self) private var sync
+    @Environment(LifeStore.self) private var life
     @Environment(CaptureStore.self) private var capture
     @Environment(AppleHealthReader.self) private var appleHealth
     @Bindable private var settings = Settings.shared
@@ -128,7 +130,7 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("pendant.settings.backup")
                     NavigationLink {
-                        PairingView(server: sync.server) { sync.offeredPairing = $0 }
+                        PairingView(server: sync.server) { life.offer($0, sync: sync) }
                     } label: {
                         SettingsLink("Server", value: sync.server?.host() ?? "Not paired")
                     }
@@ -240,7 +242,7 @@ private struct SettingsLink: View {
 struct PairingView: View {
     let server: URL?
     /// Asks to pair, confirmed on screen (`RootView`).
-    let offer: (Pairing) -> Void
+    let offer: (URL) -> Void
 
     @State private var draft = ""
     @State private var result: String?
@@ -256,8 +258,8 @@ struct PairingView: View {
                     .autocorrectionDisabled()
                 Button(server == nil ? "Pair" : "Pair again") {
                     let link = URL(string: draft.trimmingCharacters(in: .whitespacesAndNewlines))
-                    if let pairing = link.flatMap(Pairing.init(link:)) {
-                        offer(pairing)
+                    if let link, Pairing(link: link) != nil || LifePairing(link: link) != nil {
+                        offer(link)
                         result = nil
                     } else {
                         result = "That isn't a pairing link."

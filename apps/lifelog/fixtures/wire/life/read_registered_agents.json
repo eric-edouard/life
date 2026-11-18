@@ -1,0 +1,59 @@
+{
+  "agents": [
+    {
+      "amber": [],
+      "effort": "medium",
+      "id": "agt_000000000001",
+      "lastTurn": {
+        "cause": "start",
+        "endedAt": null,
+        "outcome": null,
+        "startedAt": "2026-10-13T09:00:00.000Z"
+      },
+      "link": "https://agents.example.test/s/1",
+      "model": "model-one",
+      "notes": "Gran's watch: the shop quotes by Friday.",
+      "outcome": null,
+      "project": null,
+      "runtime": "claude",
+      "status": "running",
+      "steps": ["obs_000000000005"],
+      "title": "Get Gran's watch mended",
+      "wait": null,
+      "matter": {
+        "id": "matter_aaaaaaaaaaaa",
+        "name": "Mend Gran's watch",
+        "status": "moving"
+      }
+    },
+    {
+      "amber": [],
+      "effort": "medium",
+      "id": "agt_000000000002",
+      "lastTurn": {
+        "cause": "start",
+        "endedAt": null,
+        "outcome": null,
+        "startedAt": "2026-10-13T09:00:00.000Z"
+      },
+      "link": null,
+      "model": null,
+      "notes": "Gran's watch: the shop quotes by Friday.",
+      "outcome": null,
+      "project": "shop-fit-out",
+      "runtime": "claude",
+      "status": "waiting",
+      "steps": [],
+      "title": "Get Gran's watch mended",
+      "wait": {
+        "isDefault": false,
+        "reason": "his answer",
+        "until": "2026-10-16T09:00:00.000Z"
+      },
+      "matter": null
+    }
+  ],
+  "desk": "ok",
+  "helper": "running",
+  "refused": []
+}

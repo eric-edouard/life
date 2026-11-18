@@ -22,6 +22,8 @@ let package = Package(
         .library(name: "ServerAPI", targets: ["ServerAPI"]),
         .library(name: "Upload", targets: ["Upload"]),
         .library(name: "Health", targets: ["Health"]),
+        // Life's connector: the phone's one client of Life (OAuth, MCP, the reads' models and states).
+        .library(name: "LifeConnector", targets: ["LifeConnector"]),
     ],
     targets: [
         .target(name: "PendantProtocol", exclude: ["PROVENANCE.md"], swiftSettings: settings),
@@ -80,5 +82,9 @@ let package = Package(
         .target(name: "Health", dependencies: ["Capture", "Incidents", "PendantProtocol"], swiftSettings: settings),
         .testTarget(
             name: "HealthTests", dependencies: ["Health", "Capture", "PendantProtocol"], swiftSettings: settings),
+        // Depends on Library only for `UnknownTolerant`.
+        .target(name: "LifeConnector", dependencies: ["Library"], swiftSettings: settings),
+        .testTarget(
+            name: "LifeConnectorTests", dependencies: ["LifeConnector", "Library"], swiftSettings: settings),
     ]
 )
