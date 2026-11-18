@@ -207,11 +207,11 @@ export const refusedSince = (db: Database, since: string) =>
     )
     .all(since, MAX_ACTIVE);
 
-/** The model and effort agent `a` runs with: its own, else its runtime's in the desk's settings, else the runtime's default (none). */
 /** The runtime a start names, else the desk's default. */
 export const runtimeOf = (c: Pick<AgentChange, "runtime">) =>
   c.runtime ?? settings().desk?.defaultRuntime;
 
+/** The model and effort agent `a` runs with: its own, else its runtime's in the desk's settings, else the runtime's default (none). */
 export function modelOf(a: Pick<AgentRow, "effort" | "model" | "runtime">) {
   const runtimes: Partial<Record<string, { effort?: string; model?: string }>> =
     settings().desk?.runtimes ?? {};
