@@ -2,7 +2,7 @@ import { afterEach, expect, setSystemTime, spyOn, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
+import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { take } from "../core/lock";
 import {
   agentOf,
@@ -11,7 +11,6 @@ import {
   holderOf,
   openTurn,
 } from "../host/desk-read";
-import type { Messaging } from "../host/events";
 import { DECISION_ANSWERED, DECISION_LAPSED } from "../host/events";
 import {
   answerDecision,
@@ -19,124 +18,24 @@ import {
   requestDecision,
 } from "../memory/decisions";
 import { LOCK } from "../memory/memory-lock";
-import type { SourceEvent } from "../records/source";
 import { finish, register, setWait, writeNotes } from "./agent-actions";
 import {
   endLostTurns,
   endUnbegunTurns,
   pollAnswers,
   pollMessages,
-  turnEnded,
   wakeDue,
 } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
 import { BEGIN_WITHIN_MS } from "./runtimes/contract";
-import { fakeRuntime } from "./runtimes/fake-runtime";
+import { ANA, advance, ahead, setup, started } from "./test-desk";
 
 // The wait contract's cases (the desk spec, section 6, W1 to W20): a fake runtime, the clock faked, made-up agents and
 // chats. The test plays each agent: its door calls (`setWait`, `finish`) and its turn's end (`turnEnded`).
 
-const T0 = Date.UTC(2026, 10, 18, 9, 0);
-const ANA = { chat: "Test Ana", from_me: false };
-
 afterEach(() => {
   setSystemTime();
 });
-
-const advance = (ms: number) => setSystemTime(new Date(clock().getTime() + ms));
-const ahead = (ms: number) => iso(clock().getTime() + ms);
-
-/** A chat store whose messages are `list`, row by row, as `incoming` and `read` see it. */
-const chatSource = (list: SourceEvent[]) =>
-  ({
-    incoming: (from: number) => ({
-      end: list.length + 1,
-      rows: list
-        .map((e, i) => ({ at: e.at, id: e.id, row: i + 1 }))
-        .filter((r) => r.row >= from),
-    }),
-    kind: "chat",
-    label: "WhatsApp",
-    name: "whatsapp",
-    read: (since: Date) => list.filter((e) => e.at >= since.toISOString()),
-    silentAfter: 0,
-  }) as Messaging;
-
-function setup() {
-  setSystemTime(new Date(T0));
-  const dir = mkdtempSync(join(tmpdir(), "life-desk-"));
-  const fake = fakeRuntime();
-  const messages: SourceEvent[] = [];
-  const path = join(dir, "desk.sqlite");
-  const desk: Desk = {
-    db: openDesk(path),
-    runtimes: { fake: fake.runtime },
-    sources: [chatSource(messages)],
-  };
-  /** A message in a made-up chat, now. */
-  const write = (chat = "Test Ana") => {
-    const id = `whatsapp:m${messages.length + 1}`;
-    messages.push({
-      at: clock().toISOString(),
-      chat,
-      fromMe: false,
-      id,
-      sender: chat,
-      source: "whatsapp",
-      text: "hello",
-    });
-    return id;
-  };
-  /** The agent's turn ends, as its runtime reports it. */
-  const end = async (id: string, failed = false) => {
-    const s = fake.sessions.get(agentOf(desk.db, id)?.session ?? "");
-    if (s) {
-      s.running = false;
-    }
-    await turnEnded(desk, id, failed);
-  };
-  /** A registered agent after its first turn: waiting for Ana's messages until `until`. */
-  const waiting = async (until = HOUR) => {
-    const id = register(desk, {
-      brief: "Test brief: follow up with Ana",
-      folder: dir,
-      runtime: "fake",
-    });
-    await wakeDue(desk);
-    await setWait(desk, id, {
-      events: [ANA],
-      reason: "Ana's reply",
-      until: ahead(until),
-    });
-    await end(id);
-    return id;
-  };
-  const turns = (id: string) =>
-    desk.db
-      .query<{ cause: string; outcome: string | null }, [string]>(
-        "select cause, outcome from turn where agent_id = ? order by id"
-      )
-      .all(id);
-  const queue = (id: string, eventId: string, name = "message.received") =>
-    desk.db.run(
-      "insert into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, '{}', ?)",
-      [id, eventId, name, clock().toISOString()]
-    );
-  const eventRow = (id: string, eventId: string) =>
-    desk.db
-      .query<
-        {
-          consumed_at: string | null;
-          dropped_at: string | null;
-          handed: number;
-        },
-        [string, string]
-      >(
-        "select handed, consumed_at, dropped_at from event where agent_id = ? and event_id = ?"
-      )
-      .get(id, eventId);
-  return { desk, dir, end, eventRow, fake, path, queue, turns, waiting, write };
-}
 
 test("W1: the store refuses an active agent with no deadline", () => {
   const { desk } = setup();
@@ -616,18 +515,6 @@ test("with `desk` unset, the desk helper runs nothing: no lock, no store", () =>
 });
 
 // A first turn that never begins: the agent is ended, not retried (his yes of 18 Nov 2026).
-
-/** A new agent on a made-up matter, its first turn launched. */
-async function started(desk: Desk, step: string) {
-  const id = register(desk, {
-    brief: "Test brief: watch the repair",
-    folder: tmpdir(),
-    runtime: "fake",
-    steps: [step],
-  });
-  await wakeDue(desk);
-  return id;
-}
 
 test("a run reporting begun writes the turn's begun_at once", async () => {
   const { desk, fake } = setup();
