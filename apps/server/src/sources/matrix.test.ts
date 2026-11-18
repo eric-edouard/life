@@ -228,13 +228,23 @@ test("a send joins the room, then puts exactly the text once under its transacti
     synapse: synapseWith({}, [["!r:life.local", "$ev1", 1234]]),
     token: "made-up",
   };
+  const handed: number[] = [];
   try {
     expect(
       await matrixSend("fake", { at, roomsOf: () => (c) => c }).send(
         { chat: "!r:life.local", text: "See you at 8" },
-        "dec_000000000001"
+        "dec_000000000001",
+        () => handed.push(seen.length)
       )
     ).toBe("fake:!r:life.local/1234");
+    // Handed once the PUT returned (join and PUT seen), before the bridge's confirmation.
+    expect(handed).toEqual([2]);
+    expect(
+      matrixSend("fake", { at, roomsOf: () => (c) => c }).limitMs({
+        chat: "!r:life.local",
+        file: { bytes: new Uint8Array(), mime: "text/plain", name: "a.txt" },
+      })
+    ).toBe(2 * 10_000 + 60_000 + 1000);
   } finally {
     server.stop();
   }

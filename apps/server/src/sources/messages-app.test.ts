@@ -109,16 +109,33 @@ test("holds: only chats with a guid; block: readable chat.db", async () => {
 test("text goes into the newest chat of a handle, as argv only, and the matching row confirms", async () => {
   const f = fixture();
   const m = messages(f, { text: 'say "hi"; rm -rf /' });
+  const handed: string[] = [];
   const id = await path(f, m.run).send(
     { chat: "+15550100", text: 'say "hi"; rm -rf /' },
-    "t"
+    "t",
+    () => handed.push("handed")
   );
   expect(id).toBe("imessage:new-11");
+  // Called once, after osascript exited 0.
+  expect(handed).toEqual(["handed"]);
   expect(m.calls[0]?.slice(-2)).toEqual([
     "iMessage;-;+15550100",
     'say "hi"; rm -rf /',
   ]);
   expect(m.calls[0]?.[0]).toBe("osascript");
+});
+
+test("its limit counts one hand-over per tell, and the confirmations", () => {
+  const f = fixture();
+  const p = path(f, messages(f, {}).run);
+  const text = p.limitMs({ chat: "+15550100", text: "hi" });
+  const both = p.limitMs({
+    chat: "+15550100",
+    file: { bytes: new Uint8Array(), mime: "text/plain", name: "a.txt" },
+    text: "hi",
+  });
+  expect(both).toBeGreaterThan(text);
+  expect(text).toBeGreaterThan(0);
 });
 
 test("a row of mine with other text does not confirm; none in time may have gone", async () => {

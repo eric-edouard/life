@@ -57,9 +57,13 @@ const mail = {
 test("a new mail: exact argv, never reply-all, quote, signature or tracking", async () => {
   const g = gog();
   expect(await g.path.refusal(mail)).toBeUndefined();
-  expect(await g.path.send({ ...mail, cc: "bo@example.com" }, "t")).toBe(
-    "gmail:g2"
-  );
+  let handed = 0;
+  expect(
+    await g.path.send({ ...mail, cc: "bo@example.com" }, "t", () => {
+      handed += 1;
+    })
+  ).toBe("gmail:g2");
+  expect(handed).toBe(1);
   const send = g.calls.at(-1) as string[];
   expect(send).toEqual([
     "gog",

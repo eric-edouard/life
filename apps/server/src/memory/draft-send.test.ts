@@ -43,6 +43,7 @@ const source = (
     block: async () =>
       name === "elsewhere" ? "elsewhere's bridge isn't on this Mac" : undefined,
     holds: (chats) => chats.filter((c) => c.startsWith("!")),
+    limitMs: () => 1000,
     opens: opens
       ? async (chat) => (KIT_JID.test(chat) ? "Test Kit" : undefined)
       : undefined,
@@ -260,7 +261,9 @@ test("the send reads the file again, and sends only the bytes he saw: a file cha
     NOW,
     [net]
   );
-  expect(await sendDraft(stored, "dec_000000000001", [net])).toBe("$sent");
+  expect(
+    await sendDraft(stored, "dec_000000000001", { since: NOW }, [net])
+  ).toBe("$sent");
   expect(sent[0]?.[0]).toMatchObject({
     chat: "!ana:life.local",
     file: { mime: "text/plain", name: "menu.txt" },
@@ -268,13 +271,13 @@ test("the send reads the file again, and sends only the bytes he saw: a file cha
   });
   expect(sent[0]?.[1]).toBe("dec_000000000001");
   writeFileSync(path, "dinner menu");
-  await expect(sendDraft(stored, "dec_000000000002", [net])).rejects.toThrow(
-    "not sent: the file changed since the card was asked"
-  );
+  await expect(
+    sendDraft(stored, "dec_000000000002", { since: NOW }, [net])
+  ).rejects.toThrow("not sent: the file changed since the card was asked");
   rmSync(path);
-  await expect(sendDraft(stored, "dec_000000000003", [net])).rejects.toThrow(
-    "not sent: the file is gone"
-  );
+  await expect(
+    sendDraft(stored, "dec_000000000003", { since: NOW }, [net])
+  ).rejects.toThrow("not sent: the file is gone");
   expect(sent).toHaveLength(1);
   rmSync(dir, { force: true, recursive: true });
 });
@@ -288,13 +291,13 @@ test("the chat's refusal is asked again at the send; a stored draft without a ch
     [net]
   );
   refuse = "this chat takes no replies";
-  await expect(sendDraft(stored, "dec_000000000004", [net])).rejects.toThrow(
-    "not sent: this chat takes no replies"
-  );
+  await expect(
+    sendDraft(stored, "dec_000000000004", { since: NOW }, [net])
+  ).rejects.toThrow("not sent: this chat takes no replies");
   const { chat: _, ...asked } = stored;
-  await expect(sendDraft(asked, "dec_000000000005", [net])).rejects.toThrow(
-    "no chat to send into"
-  );
+  await expect(
+    sendDraft(asked, "dec_000000000005", { since: NOW }, [net])
+  ).rejects.toThrow("no chat to send into");
 });
 
 test("a mail draft has no chat: its addresses as given, and a reply quotes the mail it answers with its subject", async () => {
@@ -312,6 +315,7 @@ test("a mail draft has no chat: its addresses as given, and a reply quotes the m
     send: {
       block: async () => undefined,
       holds: () => [],
+      limitMs: () => 1000,
       refusal: (d) => {
         sent.push(d);
         return Promise.resolve(undefined);
@@ -345,5 +349,80 @@ test("a mail draft has no chat: its addresses as given, and a reply quotes the m
   await expect(
     resolveDraft({ ...draft, onMessage: "mail:none@x" }, NOW, [mail])
   ).rejects.toThrow("isn't a message of mail");
-  expect(await sendDraft(reply, "t", [mail])).toBe("g1");
+  expect(await sendDraft(reply, "t", { since: NOW }, [mail])).toBe("g1");
+});
+
+test("a message in the chat since the card (theirs or his own) sends nothing; one before it does not; steps come in order; mail skips the check", async () => {
+  const asked = new Date("2026-11-18T09:00:00.000Z");
+  const at = (iso: string, fromMe = false): SourceEvent => ({
+    ...ana(),
+    at: iso,
+    fromMe,
+    id: iso,
+  });
+  const steps: string[] = [];
+  const sent: string[] = [];
+  const net = (events: SourceEvent[]) =>
+    source(
+      "sendnet",
+      events,
+      false,
+      async () => undefined,
+      (_d, _txn, handed) => {
+        handed?.();
+        sent.push("went");
+        return Promise.resolve("$ev");
+      }
+    );
+  const stored = await resolveDraft(
+    { channel: "sendnet", text: hi, to: "Test Ana" },
+    NOW,
+    [net([ana()])]
+  );
+  const opts = { onStep: (x: string) => steps.push(x), since: asked };
+  for (const late of [
+    at("2026-11-18T09:05:00.000Z"),
+    at("2026-11-18T09:05:00.000Z", true),
+  ]) {
+    // biome-ignore lint/performance/noAwaitInLoops: two refusals, in order
+    await expect(sendDraft(stored, "t1", opts, [net([late])])).rejects.toThrow(
+      "not sent: someone wrote in"
+    );
+  }
+  expect(sent).toEqual([]);
+  expect(steps).toEqual([]);
+  expect(
+    await sendDraft(stored, "t2", opts, [net([at("2026-11-18T08:59:00.000Z")])])
+  ).toBe("$ev");
+  expect(steps).toEqual(["chat_checked", "handed", "confirmed"]);
+  // After his last attempt that went nowhere, only what is newer blocks.
+  expect(
+    await sendDraft(
+      stored,
+      "t3",
+      { since: new Date("2026-11-18T09:10:00.000Z") },
+      [net([at("2026-11-18T09:05:00.000Z")])]
+    )
+  ).toBe("$ev");
+});
+
+test("a send that can never go says so: the file gone, the chat's refusal, a channel that is off", async () => {
+  const net = source("sendnet", [ana()], false, async () => undefined);
+  const stored = await resolveDraft(
+    { channel: "sendnet", text: hi, to: "Test Ana" },
+    NOW,
+    [net]
+  );
+  const off = await sendDraft(stored, "t", { since: NOW }, []).catch((e) => e);
+  expect(off).toMatchObject({ canRetry: false });
+  const blocked = source("sendnet", [ana()], false);
+  blocked.send = {
+    ...(blocked.send as SendPath),
+    block: async () => "the bridge is down",
+  };
+  const later = await sendDraft(stored, "t", { since: NOW }, [blocked]).catch(
+    (e) => e
+  );
+  expect(later.message).toBe("not sent: the bridge is down");
+  expect(later.canRetry).toBeUndefined();
 });

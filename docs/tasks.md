@@ -228,6 +228,10 @@ reads the rest of its settings. How the report and the alerts go out:
   sent row in chat.db), or, for mail, through gog's Gmail from one of his accounts (a new mail or a reply in the thread of one message; never reply-all, quote, signature or tracking; `gog auth add <account> --services=gmail --force-consent` if gog says it lacks Gmail send). What the chat takes is its
   bridge's room features, checked when asked and again before the send; a file is read once more and must match the
   digest the card showed. The outcome (`sent` with the sent message's id, or `send-failed` with why, which may
-  say it may have gone) is written on the decision and reaches its asker in `decision.answered`. A failed send is
-  never retried; nothing goes on silence or with his words added. Networks without a bridge of Life's (LINE, read from
+  say it may have gone) is written on the decision and reaches its asker in `decision.answered`. A send that ended `not sent:`
+  (nothing went) voids his answer: the card is open again, and only his own new answer sends it (once per answer; a
+  repeat of the same tap, by its `answerKey`, returns the stored result and sends nothing); a send that ended `may have
+  gone:` stays answered and is never retried. Nothing is sent when anyone wrote in the chat since the card was asked
+  (or since his last not-sent attempt), his own messages included (the archive's copy can trail the network by its
+  copier's interval); mail has no chat and skips that check. Nothing goes on silence or with his words added. Networks without a bridge of Life's (LINE, read from
   Beeper; mail) don't send.

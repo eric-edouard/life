@@ -8,7 +8,6 @@ import { log } from "../../core/log";
 import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector, settings } from "../../core/settings";
-import { answerCheck } from "../../memory/answer-check";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
 import { readInbox } from "../../memory/checks";
 import { CARD, DecisionRequest, requestDecision } from "../../memory/decisions";
@@ -34,6 +33,7 @@ import { ObservationId } from "../../records/observation";
 import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
 import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
+import { answerWithResult } from "../answer-result";
 import { asksFor } from "../asks";
 import {
   changeDirectoryEntry,
@@ -456,11 +456,11 @@ export function buildServer(readsOnly = false) {
       person: z.string().optional().describe("person:<id>"),
       ref: z.string().describe("The check's `ref`"),
     }),
-    ({ ref, ...a }, agent) => {
+    ({ ref, ...a }, agent, call) => {
       if (agent) {
         throw new Error(NOT_HIS);
       }
-      return answerCheck(ref, a, "connector");
+      return answerWithResult(ref, a, call);
     },
     WRITES
   );

@@ -176,7 +176,7 @@ const HANDLERS: Record<string, Handler> = {
             note: words(note) || undefined,
             options: [option],
             person: values.person,
-          })
+          }).then(({ done, ref: answered }) => ({ done, ref: answered }))
         )
       : usage(),
   appointments: step(() => appointments()),
