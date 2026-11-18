@@ -1,0 +1,27 @@
+{
+  "action": "start",
+  "agent": "agt_000000000001",
+  "ask": "entry_000000000002",
+  "failed": null,
+  "model": null,
+  "nothingRunning": false,
+  "runtime": "claude",
+  "stages": [
+    {
+      "agent": "agt_000000000001",
+      "at": "2026-11-18T10:00:00.000Z",
+      "stage": "runtime_answers"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "link": "fake://agt_000000000001-1",
+      "session": "agt_000000000001-1",
+      "stage": "session_open"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "stage": "turn_begun"
+    }
+  ],
+  "state": "started"
+}

@@ -43,7 +43,7 @@ final class IncidentNotifier: NSObject {
 
     /// Asks once; iOS never shows the prompt again after the owner answers.
     func requestPermission() async {
-        _ = try? await center.requestAuthorization(options: [.alert, .sound])
+        _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
     }
 
     /// The owner asked lifelog (app, Shortcut or control) to pause or resume: its outcome won't notify.

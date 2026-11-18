@@ -1,4 +1,4 @@
-import { clock } from "../core/clock";
+import { clock, MIN } from "../core/clock";
 import { answerCheck, type CheckAnswer } from "../memory/answer-check";
 import { type Check, checksNow, inboxOf } from "../memory/checks";
 import {
@@ -172,6 +172,27 @@ function changedOf(c: Check, a: CheckAnswer, done: unknown[]) {
   };
 }
 
+/** A non-decision answer's result by tap, kept in memory a while: a repeat after a dropped connection gets it, not "no open check". */
+const TAP_MEMORY_MS = 10 * MIN;
+const taps = new Map<string, { at: number; result: Record<string, unknown> }>();
+
+function rememberedTap(key: string) {
+  const tap = taps.get(key);
+  return tap && !(clock().getTime() - tap.at > TAP_MEMORY_MS)
+    ? tap.result
+    : undefined;
+}
+
+function rememberTap(key: string, result: Record<string, unknown>) {
+  const t = clock().getTime();
+  for (const [k, v] of taps) {
+    if (t - v.at > TAP_MEMORY_MS) {
+      taps.delete(k);
+    }
+  }
+  taps.set(key, { at: t, result });
+}
+
 async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
   const { answerKey, report } = call;
   const known = decisionsNow().find((x) => x.id === ref);
@@ -182,6 +203,11 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
       known?.voided?.some((v) => v.answer.answerKey === answerKey))
   ) {
     return decisionResult(ref, report, answerKey);
+  }
+  const tapKey = `${ref}|${answerKey}`;
+  const remembered = answerKey ? rememberedTap(tapKey) : undefined;
+  if (remembered) {
+    return remembered;
   }
   const sends = known?.state === "open" && sendsOn(known, a.options, a.note);
   report({
@@ -204,7 +230,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
   if (check.group === "decision") {
     return decisionResult(ref, report, answerKey);
   }
-  return {
+  const result = {
     asker: { name: "life", told: "recorded" },
     changed: {
       ...changedOf(check, a, done),
@@ -221,6 +247,10 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     ref,
     send: null,
   };
+  if (answerKey) {
+    rememberTap(tapKey, result);
+  }
+  return result;
 }
 
 /** The answers being recorded now, by check, with what each was given. */

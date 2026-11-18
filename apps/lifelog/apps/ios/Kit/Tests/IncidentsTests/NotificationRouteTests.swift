@@ -15,3 +15,10 @@ import Testing
     #expect(NotificationRoute(userInfo: [:]) == nil)
     #expect(NotificationRoute(userInfo: ["lifelog": "processing"]) == nil)
 }
+
+@Test func aNewCardOpensItsCardAndSeveralOpenTheInbox() {
+    let one: [AnyHashable: Any] = ["aps": ["thread-id": "life-cards", "badge": 4], "pushId": "9f2c41d07ab35e68"]
+    #expect(NotificationRoute(userInfo: one) == .card("9f2c41d07ab35e68"))
+    #expect(NotificationRoute(userInfo: ["aps": ["thread-id": "life-cards"]]) == .inbox)
+    #expect(NotificationRoute(userInfo: ["aps": ["thread-id": "other"]]) == nil)
+}

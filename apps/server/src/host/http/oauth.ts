@@ -18,7 +18,7 @@ import { HEADERS, TOKENS, text } from "./http";
 // Life's sign-in for one owner, the only issuer of its tokens: the endpoints ChatGPT and Claude look for, under
 // `<origin>/auth`. An app is approved by a pairing code shown on the Mac (Life's panel, "Pair an app"):
 // whoever holds the Mac approves. PKCE is required, an authorization code serves once, a refresh token is replaced each
-// time it is used, and every token is for this one resource and owner.
+// time it is used (and works one more time within a minute, for an answer that never arrived), and every token is for this one resource and owner.
 
 /** The one subject the issuer signs for. */
 const SUB = "owner";
@@ -27,6 +27,8 @@ const ACCESS_S = 3600;
 const CODE_MS = MIN;
 const PAIRING_MS = 5 * MIN;
 const PAIRING_TRIES = 5;
+/** How long a used refresh token still works, once more: for an app that missed the answer. */
+const GRACE_MS = MIN;
 /** How many registered apps may wait for their pairing at once. */
 const PENDING = 20;
 /** Where a client may be sent back: ChatGPT's and Claude's callbacks, and a desktop app's loopback. */
@@ -59,6 +61,7 @@ const Stored = z.object({
       agent: z.string().optional(),
       client: z.string(),
       expires: z.number(),
+      uses: z.number().optional(),
     })
   ),
 });
@@ -363,11 +366,22 @@ export function createIssuer(
     if (f.grant_type === "refresh_token") {
       const key = hash(f.refresh_token ?? "");
       const r = read().refresh[key];
-      update((s) => {
-        const { [key]: _, ...rest } = s.refresh;
-        return { ...s, refresh: rest };
-      });
-      if (!r || r.expires < now() || r.client !== f.client_id) {
+      // Used, it lives on for a minute and serves once more: an app that missed the answer (a dropped connection) asks again and still has its pairing.
+      const uses = (r?.uses ?? 0) + 1;
+      update((s) => ({
+        ...s,
+        refresh: r
+          ? {
+              ...s.refresh,
+              [key]: {
+                ...r,
+                expires: Math.min(r.expires, now() + GRACE_MS),
+                uses,
+              },
+            }
+          : s.refresh,
+      }));
+      if (!r || uses > 2 || r.expires < now() || r.client !== f.client_id) {
         return Response.json({ error: "invalid_grant" }, { status: 400 });
       }
       return tokens(r.client, r.agent);

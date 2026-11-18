@@ -46,6 +46,19 @@ private func progress(_ token: String, _ message: String) -> String {
     #expect(meta["progressToken"] == nil)
 }
 
+@Test func aTapsKeyTravelsInTheEnvelopeBesideTheProgressToken() async throws {
+    let sent = Mutex<Seen?>(nil)
+    let mcp = client(host: newHost()) { request in
+        sent.withLock { $0 = request }
+        return .json(resultMessage("ok"))
+    }
+    _ = try await mcp.call("answer_check", ["ref": "dec_1"], answerKey: "tap-key") { _ in }
+    let params = try #require(sent.withLock { $0 }?.json["params"] as? [String: Any])
+    let meta = try #require(params["_meta"] as? [String: Any])
+    #expect(meta["life/answerKey"] as? String == "tap-key")
+    #expect(meta["progressToken"] is String)
+}
+
 @Test func aStreamGivesItsProgressThenTheResult() async throws {
     let host = newHost()
     let mcp = client(host: host) { request in
@@ -66,10 +79,10 @@ private func progress(_ token: String, _ message: String) -> String {
 @Test func aStreamThatEndsWithNoResultIsDropped() async throws {
     let host = newHost()
     let mcp = client(host: host) { _ in .stream(progress("x", "one")) }
-    await #expect(throws: MCPError.streamDropped) { try await mcp.call("read_inbox") }
+    await #expect(throws: MCPError.streamDropped) { try await mcp.call("answer_check") { _ in } }
     // Cut mid-event, or by the connection.
     let cut = client(host: newHost()) { _ in .stream("data: {\"jsonrpc\"", failure: .networkConnectionLost) }
-    await #expect(throws: MCPError.streamDropped) { try await cut.call("read_inbox") }
+    await #expect(throws: MCPError.streamDropped) { try await cut.call("answer_check") { _ in } }
 }
 
 @Test func aResultFlaggedAsAnErrorIsRefusedWithItsText() async throws {
@@ -122,4 +135,24 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
         session: LifeSession(store: MemoryStore(), oauth: LifeOAuth(session: session)), urlSession: session)
     await #expect(throws: MCPError.notPaired) { try await mcp.call("read_inbox") }
     #expect(!Stub.requested(host))
+}
+
+/// The inbox at its biggest (about 265 cards, each with a draft and its evidence) must read in well under a second, as the
+/// stub streams it in 16 KB chunks: a read has no progress to give, so it is never parsed byte by byte.
+@Test func aBigInboxReadsFast() async throws {
+    let card =
+        #"{"ref":"dec_000000000001","group":"decision","title":"t","question":"q","asker":"a","options":[],"evidence":{"from":"someone","quote":"\#(String(repeating: "word ", count: 120))"},"context":"\#(String(repeating: "more ", count: 200))"}"#
+    let text =
+        #"{"checks":[\#(Array(repeating: card, count: 265).joined(separator: ","))],"counts":{},"total":265,"deadlinesToday":0}"#
+    let body = Data(resultMessage(text).utf8)
+    let chunks = stride(from: 0, to: body.count, by: 16_384).map { body[$0..<min($0 + 16_384, body.count)] }
+    let mcp = client(host: newHost()) { _ in
+        Reply(headers: ["content-type": "application/json"], chunks: chunks.map { Data($0) })
+    }
+    let started = ContinuousClock.now
+    let read = try await mcp.call("read_inbox")
+    let took = ContinuousClock.now - started
+    print("inbox of \(body.count) bytes read in \(took)")
+    #expect(read == text)
+    #expect(took < .seconds(1))
 }

@@ -70,3 +70,33 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matching("nothing like it").isEmpty)
     #expect(list.statusCounts == [.moving: 1, .waitingOnSomeone: 1])
 }
+
+@Test func theActionsResultsDecode() throws {
+    let sent = try decoded(AnswerResult.self, wireText("life/answer_check_sent.json"))
+    #expect(sent.send?.state == .sent)
+    #expect(sent.send?.to == "Kit Moreau")
+    #expect(sent.asker?.told == "on_its_next_poll")
+    #expect(sent.inbox == AnswerResult.InboxAfter(left: true, total: 0, deadlinesToday: 0))
+    let notSent = try decoded(AnswerResult.self, wireText("life/answer_check_not_sent.json"))
+    #expect(notSent.send?.state == .notSent)
+    #expect(notSent.send?.canRetry == true)
+    #expect(notSent.inbox?.left == false)
+    let started = try decoded(AgentChangeResult.self, wireText("life/change_registered_agent_started.json"))
+    #expect(started.state == .started)
+    #expect(started.stages?.map(\.stage) == ["runtime_answers", "session_open", "turn_begun"])
+    let refused = try decoded(AgentChangeResult.self, wireText("life/change_registered_agent_not_started.json"))
+    #expect(refused.state == .notStarted)
+    #expect(refused.failed?.stage == "runtime_answers")
+    #expect(refused.nothingRunning == true)
+    let future = #"{"action":"x","state":"a_new_state","stages":[{"stage":"s","extra":1}]}"#
+    #expect(try decoded(AgentChangeResult.self, future).state == .unknown)
+}
+
+@Test func aPushOpensTheCardWithItsIdOrTheFirstOneWhenItIsGone() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
+    let wanted = try #require(inbox.checks[1].pushId)
+    #expect(inbox.opening(pushId: wanted) == InboxOpening(check: inbox.checks[1], wasAnswered: false))
+    let gone = inbox.opening(pushId: "ffffffffffffffff")
+    #expect(gone.check == inbox.checks.first)
+    #expect(gone.wasAnswered)
+}
