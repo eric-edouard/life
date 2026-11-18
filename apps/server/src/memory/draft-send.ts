@@ -3,7 +3,7 @@ import { basename } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { digest } from "../core/hash";
 import type { SourceEvent } from "../records/source";
-import type { Outgoing, SendPath } from "../sources/contract";
+import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
 import { directOf } from "./closeness";
 import {
   draftProblemOf,
@@ -66,19 +66,22 @@ async function readVerifiedFile(file: NonNullable<StoredDraft["file"]>) {
 }
 
 /** The draft as a send path takes it. */
-const outgoingOf = (
-  d: StoredDraft & { chat: string },
-  bytes?: Uint8Array
-): Outgoing => ({
-  chat: d.chat,
+const outgoingOf = (d: StoredDraft, bytes?: Uint8Array): Outgoing => ({
+  ...(d.cc ? { cc: d.cc } : {}),
+  chat: d.chat ?? d.to,
   ...(d.file && bytes
     ? { file: { bytes, mime: d.file.mime, name: d.file.name } }
     : {}),
+  ...(d.from ? { from: d.from, to: d.to } : {}),
   ...(d.mentions ? { mentions: d.mentions } : {}),
   ...(d.onMessage ? { onMessage: d.onMessage } : {}),
   ...(d.reaction ? { reaction: d.reaction } : {}),
+  ...(d.subject ? { subject: d.subject } : {}),
   ...(d.text ? { text: d.text } : {}),
 });
+
+/** A source whose messages a draft goes into: chat or mail. */
+type Sending = Descriptor & { kind: "chat" | "mail" };
 
 interface ChatSource {
   name: string;
@@ -124,37 +127,30 @@ async function chatOf(
 }
 
 /**
- * The draft as it is stored when its card is asked: the one chat it names, on the source `channel` names (`to` a chat
- * key there, or a person with exactly one 1:1 chat there the source can send into, else a chat the source can open: a
- * new 1:1 chat by its id), the message it replies to or reacts to, its file as read now, the chat's own refusal of
- * anything it can't take. Throws `Not done: …` in words the asking agent can fix.
+ * Where a draft goes and the message it answers: a chat's (`chatOf`), or a mail's, which has no chat (`to` is
+ * addresses) and reads the source only for the message a reply quotes. `there` are the events a mention may name.
  */
-export async function resolveDraft(
+async function readWhere(
   draft: MessageDraft,
-  now = clock(),
-  sources = enabledSources()
-): Promise<StoredDraft> {
-  const sending = sources.filter((x) => x.send && x.kind === "chat");
-  const s = sending.find((x) => x.name === draft.channel);
-  if (!(s?.send && s.kind === "chat")) {
+  s: Sending,
+  send: SendPath,
+  now: Date
+) {
+  const mail = s.kind === "mail";
+  const { chat, events, name } = mail
+    ? {
+        chat: undefined,
+        events: draft.onMessage
+          ? s.read(new Date(now.getTime() - KNOWN_FOR))
+          : [],
+        name: draft.to,
+      }
+    : await chatOf(draft, s, send, now);
+  const there = mail ? events : events.filter((e) => e.chat === chat);
+  const found = there.find((e) => e.id === draft.onMessage);
+  if (draft.onMessage && !found) {
     throw new Error(
-      `Not done: a draft's \`channel\` is the source it goes through: one of ${sending.map((x) => x.name).join(", ") || "none on this Mac"}.`
-    );
-  }
-  const problem = draftProblemOf(draft, "chat");
-  if (problem) {
-    throw new Error(`Not done: ${problem}.`);
-  }
-  const block = await s.send.block();
-  if (block) {
-    throw new Error(`Not done: ${block}.`);
-  }
-  const { chat, events, name } = await chatOf(draft, s, s.send, now);
-  const there = events.filter((e) => e.chat === chat);
-  const quoted = there.find((e) => e.id === draft.onMessage);
-  if (draft.onMessage && !quoted) {
-    throw new Error(
-      `Not done: \`onMessage\` ${draft.onMessage} isn't a message of ${name}: give an id from \`read_chats\` for that chat.`
+      `Not done: \`onMessage\` ${draft.onMessage} isn't a message of ${mail ? s.label : name}: give an id from \`read_chats\` for that ${mail ? "mail" : "chat"}.`
     );
   }
   const stranger = draft.mentions?.find(
@@ -165,16 +161,52 @@ export async function resolveDraft(
       `Not done: ${stranger.sender} never wrote in ${name}: \`mentions\` takes the \`sender\` of a message there.`
     );
   }
+  const quoted = found && {
+    sender: found.sender,
+    ...(mail && found.chatName ? { subject: found.chatName } : {}),
+    text: found.text.slice(0, 300),
+  };
+  return { chat, name, quoted };
+}
+
+/**
+ * The draft as it is stored when its card is asked: the one chat it names, on the source `channel` names (`to` a chat
+ * key there, or a person with exactly one 1:1 chat there the source can send into, else a chat the source can open: a
+ * new 1:1 chat by its id), the message it replies to or reacts to, its file as read now, the chat's own refusal of
+ * anything it can't take. Throws `Not done: …` in words the asking agent can fix.
+ */
+export async function resolveDraft(
+  draft: MessageDraft,
+  now = clock(),
+  sources = enabledSources()
+): Promise<StoredDraft> {
+  const sending = sources.filter(
+    (x): x is Sending =>
+      Boolean(x.send) && (x.kind === "chat" || x.kind === "mail")
+  );
+  const s = sending.find((x) => x.name === draft.channel);
+  if (!s?.send) {
+    throw new Error(
+      `Not done: a draft's \`channel\` is the source it goes through: one of ${sending.map((x) => x.name).join(", ") || "none on this Mac"}.`
+    );
+  }
+  const problem = draftProblemOf(draft, s.kind === "mail" ? "mail" : "chat");
+  if (problem) {
+    throw new Error(`Not done: ${problem}.`);
+  }
+  const block = await s.send.block();
+  if (block) {
+    throw new Error(`Not done: ${block}.`);
+  }
+  const { chat, name, quoted } = await readWhere(draft, s, s.send, now);
   const { file: path, ...fields } = draft;
   const file = path ? await stampFile(path) : undefined;
-  const stored: StoredDraft & { chat: string } = {
+  const stored: StoredDraft = {
     ...fields,
     channel: s.name,
-    chat,
+    ...(chat ? { chat } : {}),
     ...(file ? { file: file.stamp } : {}),
-    ...(quoted
-      ? { quoted: { sender: quoted.sender, text: quoted.text.slice(0, 300) } }
-      : {}),
+    ...(quoted ? { quoted } : {}),
     to: name,
   };
   const refusal = await s.send.refusal(outgoingOf(stored, file?.bytes));
@@ -194,7 +226,7 @@ export async function sendDraft(
   sources = enabledSources()
 ) {
   const s = sources.find((x) => x.name === draft.channel);
-  if (!(draft.chat && isSendable(draft))) {
+  if (!isSendable(draft)) {
     throw new Error("not sent: the card has no chat to send into");
   }
   if (!s?.send) {
@@ -207,7 +239,7 @@ export async function sendDraft(
     throw new Error(`not sent: ${block}`);
   }
   const outgoing = outgoingOf(
-    { ...draft, chat: draft.chat },
+    draft,
     draft.file && (await readVerifiedFile(draft.file))
   );
   const refusal = await s.send.refusal(outgoing);

@@ -25,6 +25,7 @@ import {
 import { bridgedSource } from "../sources/bridged";
 import type { AppStore, Descriptor } from "../sources/contract";
 import { newestCommit, readEarliestCommit, readGit } from "../sources/git";
+import { gmailSend } from "../sources/gmail";
 import {
   DB,
   handleOf,
@@ -173,6 +174,7 @@ const LISTED: Descriptor[] = [
     newest: newestMail,
     read: (since, before) =>
       readMail(since, undefined, undefined, undefined, before),
+    send: gmailSend(),
     silentAfter: 12 * HOUR,
   },
   {

@@ -458,7 +458,12 @@ interface Row {
 
 /** A message's id, the same in every mailbox holding a copy: its Message-ID header, else Mail's global id. */
 const idOf = (r: Pick<Row, "globalId" | "header">) =>
-  `mail:${r.header?.replace(/^<|>$/g, "") || r.globalId}`;
+  mailIdOf(r.header?.replace(/^<|>$/g, "") || r.globalId);
+
+/** Life's id of a mail by its RFC Message-ID (no angle brackets), and back: none for an id that isn't a mail's. */
+export const mailIdOf = (messageId: string | number) => `mail:${messageId}`;
+export const messageIdOfMail = (id: string) =>
+  id.startsWith("mail:") ? id.slice(5) : undefined;
 
 /**
  * The messages Mail first stored from row `from` on (`incoming`): a copy in another mailbox (Gmail's All Mail, a move)

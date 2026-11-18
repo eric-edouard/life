@@ -258,7 +258,7 @@ outside the lock, schemaVersion 3, by `kind`:
   gives it (replied to, or reacted to); `mentions` (`[{name, sender}]`, each an `@name` of `text`, in order); for mail,
   `from`, `subject`, `cc`, with addresses as `to`. What Life stamps when asked: `chat`, the chat key it resolved (none
   on cards asked before Life could send, which send nothing); `file` as `{path (its real path), name, size, mime,
-  sha256}`; `quoted` as `{sender, text}` (the message `onMessage` names, its first 300 characters). Life sends exactly
+  sha256}`; `quoted` as `{sender, text}`, and for mail `subject` (the message `onMessage` names, its first 300 characters). A mail draft has no `chat`: `from`, `to`, `cc` and `subject` as given are what it sends. Life sends exactly
   what is stored), `options` (2 to 4 `{id, label, outgoing?}`, labels one line, the
   recommended one first; `outgoing: true` when it sends, pays, books, deletes or changes something), `context`
   (4,000 chars), `links`, `deadline` (1 hour to 14 days after `at`, in UTC), `onSilence` (an option id, never an

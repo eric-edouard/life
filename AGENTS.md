@@ -137,7 +137,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments"). The one
   other act is a card's draft, sent on his answer (below).
 - **Life sends only a card's draft exactly as shown, on his answer to its outgoing option, into the one chat named
-  (or a new 1:1 WhatsApp chat by its number), through its own bridges, or Messages.app for iMessage** (his decision of 18 Nov 2026): a draft is
+  (or a new 1:1 WhatsApp chat by its number), through its own bridges, Messages.app for iMessage, or Gmail through gog for mail** (his decision of 18 Nov 2026): a draft is
   text, or one file, or a reaction, with the message it replies or reacts to and the people it mentions
   (`memory/draft.ts`). Life resolves the chat when the card is asked (refused unless exactly one) and stamps what he
   sees: the chat's name, the message quoted, the file's real path, name, size and digest; the send reads only that
@@ -145,7 +145,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   its bridge's own room features (`com.beeper.room_features`, in the homeserver), never a table of Life's and never a
   branch on a network's name: a room with none takes text only, and a feature it can't take is refused when the card
   is asked and again before the send. iMessage has no bridge: Messages.app sends (text, or one file then its text as a
-  second message; no reply, reaction or mention), and the send waits to see that message's row in chat.db. It sends once, on his pick of that option alone through `answer_check` (his app's
+  second message; no reply, reaction or mention), and the send waits to see that message's row in chat.db. Mail has no chat: a card's `from` (one of his mail addresses that gog holds with Gmail), `to`, `cc`, `subject`, text and one file go through `gog gmail send` (`sources/gmail.ts`), a reply into the thread of the message `onMessage` names, found in `from`'s Gmail; never reply-all, a quote, a signature or tracking. It sends once, on his pick of that option alone through `answer_check` (his app's
   token: never a paired agent, a session's command or the desk), by `answerDecision` alone (`scripts/imports.test.ts`
   checks), never on silence, never with his words added, never retried. A file he approved leaves the Mac for its
   network (`SECURITY.md`). Agents hold no send tool. Its only other mail and notifications are to him
@@ -282,7 +282,7 @@ Before adding a helper, use the one that exists:
 | A text's vector for search by meaning (model, prompts, dimensions, the key it is kept under) | `apps/server/src/core/embedder.ts`, lifelog's search and Life's alike |
 | Merging two rankings (by meaning, by words) | `fuse` (`apps/server/src/core/fusion.ts`) |
 | A memory text's vector, the query's | `memory/vectors.ts` (`embedQuery`, `readNearest`; the watcher's `embedNew`); Life reaches Lifelog Host's embedder at `EMBEDDER_URL` (loopback, one constant for lifelog and Life), the one call into lifelog's side that is not its REST contract |
-| Running gog (Google Calendar, Google Tasks) | `gogCall` (`core/gog.ts`): nothing else spawns it |
+| Running gog (Google Calendar, Google Tasks, Gmail send) | `gogCall` (`core/gog.ts`): nothing else spawns it |
 | Running another program | `apps/server/src/core/proc.ts` |
 | Opening a SQLite store to read (an app's store, the archive, the index) | `openReadOnly` (`apps/server/src/core/sqlite.ts`), which waits for a writer |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |

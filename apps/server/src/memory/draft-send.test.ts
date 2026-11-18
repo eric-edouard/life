@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { digest } from "../core/hash";
 import type { SourceEvent } from "../records/source";
-import type { Descriptor, SendPath } from "../sources/contract";
+import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
 import { BRIDGES } from "../sources/matrix";
 import { resolveDraft, sendDraft } from "./draft-send";
 
@@ -295,4 +295,55 @@ test("the chat's refusal is asked again at the send; a stored draft without a ch
   await expect(sendDraft(asked, "dec_000000000005", [net])).rejects.toThrow(
     "no chat to send into"
   );
+});
+
+test("a mail draft has no chat: its addresses as given, and a reply quotes the mail it answers with its subject", async () => {
+  const sent: Outgoing[] = [];
+  const mail: Descriptor = {
+    ...source("mail", [
+      {
+        ...line("thread-1", "Friday?"),
+        id: "mail:abc@mail.example.com",
+        sender: "ana@example.com",
+        text: `Friday?\n${"y".repeat(400)}`,
+      },
+    ]),
+    kind: "mail",
+    send: {
+      block: async () => undefined,
+      holds: () => [],
+      refusal: (d) => {
+        sent.push(d);
+        return Promise.resolve(undefined);
+      },
+      send: async () => "g1",
+    },
+  } as Descriptor;
+  const draft = {
+    channel: "mail",
+    from: "me@example.com",
+    subject: "Re: Friday?",
+    text: "Yes",
+    to: "ana@example.com",
+  };
+  expect(await resolveDraft(draft, NOW, [mail])).toEqual(draft);
+  const reply = await resolveDraft(
+    { ...draft, onMessage: "mail:abc@mail.example.com" },
+    NOW,
+    [mail]
+  );
+  expect(reply.chat).toBeUndefined();
+  expect(reply.quoted).toMatchObject({
+    sender: "ana@example.com",
+    subject: "Friday?",
+  });
+  expect(reply.quoted?.text).toHaveLength(300);
+  expect(sent.at(-1)).toMatchObject({
+    from: "me@example.com",
+    to: "ana@example.com",
+  });
+  await expect(
+    resolveDraft({ ...draft, onMessage: "mail:none@x" }, NOW, [mail])
+  ).rejects.toThrow("isn't a message of mail");
+  expect(await sendDraft(reply, "t", [mail])).toBe("g1");
 });

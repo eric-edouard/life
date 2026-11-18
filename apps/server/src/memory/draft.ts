@@ -60,9 +60,13 @@ export const StoredDraft = MessageDraft.extend({
     })
     .strict()
     .optional(),
-  /** The message `onMessage` names: its sender and its first 300 characters. */
+  /** The message `onMessage` names: its sender, its first 300 characters and, for mail, its subject. */
   quoted: z
-    .object({ sender: z.string(), text: z.string() })
+    .object({
+      sender: z.string(),
+      subject: z.string().optional(),
+      text: z.string(),
+    })
     .strict()
     .optional(),
 }).strict();
