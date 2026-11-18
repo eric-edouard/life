@@ -20,11 +20,12 @@ import {
   readBlock,
   readLogins,
   readOwnerAccount,
+  readYaml,
   SERVER,
   unlinkBridge,
 } from "../sources/matrix";
 import { NETWORKS, type Network } from "../sources/networks";
-import { configPath, needsAppKeys, pendingAppKeys, readYaml } from "./app-keys";
+import { configPath, needsAppKeys, pendingAppKeys } from "./app-keys";
 import { messagingStatus } from "./messaging-status";
 import { hasChrome, signInWithChrome } from "./sign-in-browser";
 

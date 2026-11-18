@@ -2,7 +2,7 @@ import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { enabledSources, SOURCES } from "../memory/sources";
 import { copierOf } from "../sources/bridged";
 import type { Descriptor } from "../sources/contract";
-import { isBridgeAdded, readBlock } from "../sources/matrix";
+import { isBridgeAdded, isBridgeLinked, readBlock } from "../sources/matrix";
 import { NETWORKS, type Network } from "../sources/networks";
 import { needsAppKeys } from "./app-keys";
 
@@ -75,6 +75,17 @@ async function bridgePart(n: Network): Promise<Part | undefined> {
     return;
   }
   const copier = n.readByItsApp ? "bridge" : copierOf(n.name);
+  if (
+    isBridgeAdded(n.name) &&
+    !isBridgeLinked(n.name) &&
+    (await needsAppKeys(n))
+  ) {
+    return {
+      kind: "bridge",
+      ok: false,
+      text: `needs your keys: bun life bridge link ${n.name}`,
+    };
+  }
   if (copier === "beeper") {
     // Added but not linked yet: Beeper is still the one copying, so no gap opens; linking ends its session.
     return {
@@ -96,13 +107,6 @@ async function bridgePart(n: Network): Promise<Part | undefined> {
     };
   }
   const why = await readBlock(n.name);
-  if (why && (await needsAppKeys(n))) {
-    return {
-      kind: "bridge",
-      ok: false,
-      text: `needs your keys: bun life bridge link ${n.name}`,
-    };
-  }
   return why
     ? { kind: "bridge", ok: false, text: why }
     : { kind: "bridge", ok: true, text: "bridge running" };

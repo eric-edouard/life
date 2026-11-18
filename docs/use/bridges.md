@@ -53,3 +53,7 @@ What Beeper copied stays as it is. From your link, each message is read once: Li
 message and the bridge's after it. The bridge fetches the last 50 messages of each active chat when you link, so a
 message that reached LINE after Beeper's last copy is read only if it is among them. Beeper's copy of a message
 deleted or edited after the link is not updated.
+
+Two more limits:
+- A message Beeper had not synced yet when you link, older than its newest copied message, is hidden when the bridge backfills it (it stays in the archive).
+- "Linked" is the bridge's login, which stays after LINE signs it out: if you sign back in to LINE in Beeper, Life keeps reading the dead bridge.

@@ -1,14 +1,12 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execOk } from "../core/proc";
-import { BRIDGES } from "../sources/matrix";
+import { BRIDGES, readYaml } from "../sources/matrix";
 import type { Network } from "../sources/networks";
 
 // A bridge that exits until he fills in his own keys (`appKeys` in `NETWORKS`): which keys are still the example's.
 
-export const readYaml = (path: string) =>
-  Bun.YAML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
 export const configPath = (n: Network) => join(BRIDGES, n.name, "config.yaml");
 
 const valueAt = (c: unknown, path: string) =>

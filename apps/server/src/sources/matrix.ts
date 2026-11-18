@@ -24,11 +24,13 @@ export const OWNER = `@owner:${SERVER}`;
 /** A Matrix user id on the homeserver. */
 export const userOn = (localpart: string) => `@${localpart}:${SERVER}`;
 
+/** A YAML file's content, the one reader of bridge and homeserver configs. */
+export const readYaml = (path: string) =>
+  Bun.YAML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+
 /** A bridge's own config (`config.yaml`), the one place its settings are read from: never copied. */
 export const configOf = (bridge: string) =>
-  Bun.YAML.parse(
-    readFileSync(join(BRIDGES, bridge, "config.yaml"), "utf8")
-  ) as {
+  readYaml(join(BRIDGES, bridge, "config.yaml")) as {
     appservice?: {
       bot?: { username?: string };
       port?: number;
@@ -148,15 +150,12 @@ export const isBridgeAdded = (network: string) =>
   existsSync(join(BRIDGES, network, "config.yaml"));
 
 /** His logins on a bridge, as its own database holds them (the network's ids); none when the bridge isn't on this Mac. */
-export const loginIdsOf = (bridge: string, bridges = BRIDGES) =>
-  withBridgeDb(
-    bridge,
-    (db) =>
-      db
-        .query<{ id: string }, []>("select id from user_login")
-        .all()
-        .map((l) => l.id),
-    bridges
+export const loginIdsOf = (bridge: string) =>
+  withBridgeDb(bridge, (db) =>
+    db
+      .query<{ id: string }, []>("select id from user_login")
+      .all()
+      .map((l) => l.id)
   ) ?? [];
 
 /** Whether he has linked a network's bridge: it holds a login. Until then another copier may still be the one reading it. */
