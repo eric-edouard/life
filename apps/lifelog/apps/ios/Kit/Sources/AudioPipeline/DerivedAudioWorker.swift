@@ -12,8 +12,6 @@ public actor DerivedAudioWorker {
     private let store: SourceStore
     private let output: DerivedAudioDirectory
     private let canRunHeavyWork: @Sendable () -> Bool
-    /// Rebuilds under way, by playback file: a second caller waits for the first instead of writing the same file.
-    private var rebuilds: [URL: Task<Void, any Error>] = [:]
     /// Decoded audio held at once: 30 s.
     static let chunkMillis: Int64 = 30_000
     /// Playback files are kept this long after their audio ends: a week.
@@ -83,8 +81,7 @@ public actor DerivedAudioWorker {
         if !scan.gaps.isEmpty { try output.write(pageGaps: scan.gaps, deviceID: job.deviceID, job: job.indices) }
         let clock = try await ClockModel.load(store, deviceID: job.deviceID, from: job.indices.lowerBound)
         let source = SourceAudio(store: store, deviceID: job.deviceID, pages: scan.pages, clock: clock)
-        // A sidecar without its audio (restored from a backup) is rebuilt, not skipped. An evicted one is finished:
-        // only `rebuildPlayback` writes its file again, so the two never write the same file.
+        // A sidecar without its audio (restored from a backup) is rebuilt, not skipped. An evicted one is finished.
         let done = { [output] (pages: ClosedRange<UInt64>) -> PlaybackSegment? in
             guard let segment = output.segment(job.deviceID, pages: pages),
                 segment.evicted == true
@@ -195,40 +192,5 @@ public actor DerivedAudioWorker {
             }
         }
         return count
-    }
-
-    /// Encodes the evicted playback files overlapping `range` again from the source packs and clears their mark, so
-    /// they play. Their sidecars keep the analysis they had. Runs whatever the device's heat: the owner is waiting.
-    /// Returns how many files were rebuilt.
-    @discardableResult
-    public func rebuildPlayback(deviceID: String, covering range: Range<CaptureInstant>) async throws -> Int {
-        let evicted = try output.manifest(deviceID: deviceID).segments.filter {
-            $0.evicted == true && $0.interval.overlaps(range)
-        }
-        for segment in evicted {
-            let url = output.audioURL(deviceID, pages: segment.pages)
-            if let running = rebuilds[url] {
-                try await running.value
-                continue
-            }
-            // Not cancelled with the caller: a file half rebuilt would be thrown away.
-            let task = Task {
-                let source = try await self.source(deviceID, pages: segment.pages)
-                _ = try await self.writeAudio(segment.pages, segment.interval, from: source)
-                var rebuilt = segment
-                rebuilt.evicted = nil
-                try self.output.write(rebuilt)
-            }
-            rebuilds[url] = task
-            defer { rebuilds[url] = nil }
-            try await task.value
-        }
-        return evicted.count
-    }
-
-    private func source(_ deviceID: String, pages: ClosedRange<UInt64>) async throws -> SourceAudio {
-        let scan = try await PageScan.scan(store, deviceID: deviceID, indices: pages)
-        let clock = try await ClockModel.load(store, deviceID: deviceID, from: pages.lowerBound)
-        return SourceAudio(store: store, deviceID: deviceID, pages: scan.pages, clock: clock)
     }
 }

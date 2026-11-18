@@ -134,17 +134,6 @@ public actor Uploader {
         return UploadStatus(unsent: unsentSpeech, lastError: failure?.message ?? runError)
     }
 
-    /// The audio overlapping `range` the server doesn't have yet: the stored audio from the cursor on.
-    public func unsent(overlapping range: Range<CaptureInstant>) async throws -> [Range<CaptureInstant>] {
-        guard let state = try state() else { return [] }
-        let timeline = try await scanner.timeline()
-        guard let start = try await timeline.start(ofPage: state.nextPage), start < range.upperBound,
-            let end = try await timeline.audioEnd(atOrBefore: CaptureInstant(millis: .max)), start < end,
-            end > range.lowerBound
-        else { return [] }
-        return [start..<end]
-    }
-
     /// Fragments and queued jobs the server withdrew, by source and first page (the feed's removed jobs: a quiet range
     /// touched one before its block closed): the cursor moves back to the first of this source's, so their pages go
     /// again with the range cut out. No request, so the network dropping after the feed's page can't lose it.

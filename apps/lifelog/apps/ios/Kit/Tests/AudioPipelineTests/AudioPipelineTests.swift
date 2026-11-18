@@ -269,23 +269,6 @@ private func derivedArchive() async throws
     #expect(!FileManager.default.fileExists(atPath: output.audioURL(device, pages: old.pages).path))
 }
 
-@Test func rebuildRestoresAnEvictedFileAndClearsTheMark() async throws {
-    let (_, worker, output, old) = try await derivedArchive()
-    try await worker.evictPlayback(now: .now.addingTimeInterval(2 * 86_400))
-    let start = old.interval.lowerBound
-
-    // Two players asking at once share one rebuild.
-    async let first = worker.rebuildPlayback(deviceID: device, covering: start..<start.advanced(by: 1_000))
-    async let second = worker.rebuildPlayback(deviceID: device, covering: start..<start.advanced(by: 1_000))
-    #expect(try await [first, second] == [1, 1])
-    #expect(try await worker.rebuildPlayback(deviceID: device, covering: old.interval) == 0)
-
-    let rebuilt = try #require(output.manifest(deviceID: device).segments.only)
-    #expect(rebuilt == old)
-    let file = try AVAudioFile(forReading: output.audioURL(device, pages: old.pages))
-    #expect(file.length == 12 * 16_000)
-}
-
 /// Samples from an array, starting at `start`.
 private struct ArrayAudio: CaptureAudio {
     let start: CaptureInstant

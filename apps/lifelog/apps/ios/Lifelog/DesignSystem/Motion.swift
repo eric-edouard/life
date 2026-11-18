@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Named motion. Under Reduce Motion, apply these through `motion(_:value:)` so changes land without movement.
 enum Motion {
@@ -28,9 +27,4 @@ private struct ReduceMotionAnimation<Value: Equatable>: ViewModifier {
     func body(content: Content) -> some View {
         content.animation(reduceMotion ? nil : animation, value: value)
     }
-}
-
-/// `withAnimation` that changes at once under Reduce Motion, for changes made in an action rather than a view.
-func withMotion<Result>(_ animation: Animation, _ body: () throws -> Result) rethrows -> Result {
-    try withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : animation, body)
 }

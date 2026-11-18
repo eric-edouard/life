@@ -121,33 +121,3 @@ extension TileFigure where Leading == EmptyView {
         self.init(value: value, caption: caption, emphasis: emphasis, fraction: fraction) { EmptyView() }
     }
 }
-
-/// One fact in a detail list: name on the leading edge, value in mono on the trailing edge.
-struct TileRow: View {
-    let label: String
-    let value: Text
-
-    init(_ label: String, _ value: Text) {
-        self.label = label
-        self.value = value
-    }
-
-    init(_ label: String, _ value: String) {
-        self.init(label, Text(value))
-    }
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(label).foregroundStyle(Palette.muted)
-            Spacer(minLength: 8)
-            value
-                .font(.monoDetail)
-                .foregroundStyle(Palette.fg)
-                .multilineTextAlignment(.trailing)
-        }
-        .font(.small)
-        .padding(.vertical, 9)
-        .overlay(alignment: .top) { Hairline() }
-        .accessibilityElement(children: .combine)
-    }
-}

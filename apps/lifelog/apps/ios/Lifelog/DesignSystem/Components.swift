@@ -64,22 +64,6 @@ extension LabelStyle where Self == DecorativeIconLabelStyle {
     static var decorativeIcon: DecorativeIconLabelStyle { DecorativeIconLabelStyle() }
 }
 
-/// Where something happened, as the server named it: tapping it looks the name up in Maps.
-struct PlaceLink: View {
-    let place: String
-
-    var body: some View {
-        let label = Label(place, systemImage: "mappin").labelStyle(.decorativeIcon)
-        if let maps = URL(string: "https://maps.apple.com/")?.appending(queryItems: [.init(name: "q", value: place)]) {
-            Link(destination: maps) { label }
-                .accessibilityHint("Opens it in Maps")
-                .accessibilityIdentifier("place.maps")
-        } else {
-            label
-        }
-    }
-}
-
 /// A duration in Geist Mono: "58m", "1h 58m", "40s". VoiceOver reads the words.
 struct DurationText: View {
     let duration: Duration
@@ -141,29 +125,6 @@ struct ProcessingBadge: View {
         case .failed:
             Image(systemName: "exclamationmark.triangle").foregroundStyle(Palette.flag).accessibilityHidden(true)
         }
-    }
-}
-
-extension View {
-    /// A tab's large title with its one-line summary under it. The summary keeps its line while it is empty (still
-    /// loading, or nothing to count), so the bar never grows under content already laid out, which would leave the
-    /// content scrolled by that line. At accessibility sizes the bar is inline without a summary, and the screen shows
-    /// the summary in its content instead.
-    func tabTitle(_ title: String, summary: String) -> some View {
-        modifier(TabTitle(title: title, summary: summary))
-    }
-}
-
-private struct TabTitle: ViewModifier {
-    let title: String
-    let summary: String
-    @Environment(\.dynamicTypeSize) private var typeSize
-
-    func body(content: Content) -> some View {
-        content
-            .navigationTitle(title)
-            .navigationSubtitle(typeSize.isAccessibilitySize ? "" : summary.isEmpty ? " " : summary)
-            .navigationBarTitleDisplayMode(typeSize.isAccessibilitySize ? .inline : .automatic)
     }
 }
 
@@ -230,12 +191,5 @@ extension View {
 struct Hairline: View {
     var body: some View {
         Rectangle().fill(Palette.line).frame(height: 0.5)
-    }
-}
-
-extension View {
-    /// At least 44 by 44 points to tap, whatever the size of what is drawn. Apply it to a button's label.
-    func tapTarget() -> some View {
-        frame(minWidth: 44, minHeight: 44).contentShape(.rect)
     }
 }
