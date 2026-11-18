@@ -1,8 +1,12 @@
 import { randomBytes } from "node:crypto";
-import { z } from "zod";
+import type { z } from "zod";
 import { clock } from "../core/clock";
 import { matcherOf } from "../host/events";
-import { Ask, decisionsNow, requestDecision } from "../memory/decisions";
+import {
+  type DecisionRequest,
+  decisionsNow,
+  requestDecision,
+} from "../memory/decisions";
 import { readPeople } from "../memory/who";
 import { waitOf } from "./agent-wait";
 import {
@@ -102,27 +106,13 @@ export function writeNotes(desk: Desk, id: string, text: string) {
 }
 
 /**
- * What an agent gives `request_decision` at the door: an `Ask` less the desk's stamp, or a withdrawal.
- * ponytail: the connector keeps the same shape private in `host/http/mcp.ts` (`RequestDecisionArgs`); step 4 exports one.
- */
-export const DoorAsk = Ask.omit({ agent: true })
-  .partial()
-  .extend({
-    why: Ask.shape.why,
-    withdraw: z
-      .string()
-      .optional()
-      .describe("A decision id you asked, to withdraw it (with `why`)"),
-  });
-
-/**
  * `request_decision`: asks him as the desk, stamped with the agent's id and its session's link first; or withdraws its
  * own decision. `requestDecision` checks the rest, one open decision per agent included.
  */
 export function askDecision(
   desk: Desk,
   id: string,
-  { withdraw, why, ...ask }: z.infer<typeof DoorAsk>
+  { withdraw, why, ...ask }: z.infer<typeof DecisionRequest>
 ) {
   heard(desk, id);
   if (withdraw) {

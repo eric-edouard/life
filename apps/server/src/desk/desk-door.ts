@@ -1,13 +1,13 @@
 import { createHmac } from "node:crypto";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { log } from "../core/log";
 import { same, secretIn } from "../core/secret";
 import { DOOR_PORT, text } from "../host/http/http";
+import { tool, WRITES } from "../host/http/mcp-tool";
+import { DecisionRequest } from "../memory/decisions";
 import { AgentWait } from "../records/registered-agent";
 import {
   askDecision,
-  DoorAsk,
   finish,
   readPacket,
   setWait,
@@ -33,67 +33,62 @@ export const doorOf = (id: string) => ({
 });
 
 /**
- * Agent `id`'s door: its five tools, each with its arguments checked, refused unless the agent is active
- * (`read_packet` aside), each call logged.
- * ponytail: a smaller copy of the connector's private `tool()` (`host/http/mcp.ts`); step 4 exports one helper.
+ * Agent `id`'s door: its five tools, registered as the connector's are (`tool()`), each refused unless the agent is
+ * active (`read_packet` aside).
  */
 function doorServer(desk: Desk, id: string) {
   const server = new McpServer({ name: "desk", version: "1" });
-  const tool = <S extends z.ZodObject>(
+  const door = <S extends z.ZodObject>(
     name: string,
     description: string,
     input: S,
     run: (args: z.infer<S>) => unknown
   ) =>
-    server.registerTool(
+    tool(
+      server,
       name,
-      { description, inputSchema: input.shape },
+      description,
+      input,
       async (args) => {
-        let body: string;
-        let isError = false;
-        try {
-          if (
-            name !== "read_packet" &&
-            agentOf(desk.db, id)?.status !== "active"
-          ) {
-            throw new Error(`Not done: ${id} is not active.`);
-          }
-          const r = (await run(input.parse(args))) ?? "Done.";
-          body = typeof r === "string" ? r : JSON.stringify(r);
-          isError = typeof r === "object" && r !== null && "error" in r;
-        } catch (e) {
-          body = (e as Error).message;
-          isError = true;
+        if (
+          name !== "read_packet" &&
+          agentOf(desk.db, id)?.status !== "active"
+        ) {
+          throw new Error(`Not done: ${id} is not active.`);
         }
-        log("mcp.call", { agent: id, door: true, error: isError, tool: name });
-        return { content: [{ text: body, type: "text" as const }], isError };
-      }
+        const r = await run(args);
+        if (typeof r === "object" && r !== null && "error" in r) {
+          throw new Error(String(r.error));
+        }
+        return (r as string | Record<string, unknown> | undefined) ?? "Done.";
+      },
+      WRITES
     );
-  tool(
+  door(
     "set_wait",
     "Set what you wait for before you stop: `events` (messages: `person`, `channels`, `chat`, `from_me`), `until` (5 minutes to 7 days ahead, ISO), `reason`. The desk wakes you at `until`, on a matching message, or on his answer to your decision.",
     AgentWait,
     (w) => setWait(desk, id, w)
   );
-  tool(
+  door(
     "finish",
     "End your work for good, with its `outcome` in one line; your open decision is withdrawn.",
     z.object({ outcome: z.string().min(1).max(300) }),
     ({ outcome }) => finish(desk, id, outcome)
   );
-  tool(
+  door(
     "write_notes",
     "Replace your notes (6,000 characters): what you did, what you wait on, why. They open your next packet.",
     z.object({ text: z.string().min(1) }),
     ({ text: notes }) => writeNotes(desk, id, notes)
   );
-  tool(
+  door(
     "request_decision",
     "Ask the owner one decision (one open at a time): `question`, 2 to 4 `options` (`id`, `label`), `recommended` (option ids), `why`, `context` (what was done, what each option leads to, the exact text and recipient of any message to approve), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, or null), `subject`. Or `withdraw` (your decision's id) with `why`. His answer wakes you.",
-    DoorAsk,
+    DecisionRequest,
     (ask) => askDecision(desk, id, ask)
   );
-  tool(
+  door(
     "read_packet",
     "Your brief, your notes, the events waiting for you and your open decision.",
     z.object({}),
@@ -116,7 +111,14 @@ export function doorFetch(desk: Desk) {
     if (!(agentOf(desk.db, id) && same(given, keyOf(id)))) {
       return text("unauthorized", 401);
     }
-    return createMcpHandler(() => doorServer(desk, id), {}).fetch(req);
+    return createMcpHandler(() => doorServer(desk, id), {}).fetch(req, {
+      authInfo: {
+        clientId: "door",
+        extra: { agent: id },
+        scopes: [],
+        token: "",
+      },
+    });
   };
 }
 
