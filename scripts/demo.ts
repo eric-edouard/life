@@ -70,14 +70,16 @@ const write = (path: string, rows: object[]) => {
 const hex = (s: string, n: number) =>
   createHash("sha256").update(s).digest("hex").slice(0, n);
 
+// The desk runtime the demo agent runs on: `LIFE_DEMO_RUNTIME=codex bun run e2e:demo` runs it on Codex.
+const RUNTIME = process.env.LIFE_DEMO_RUNTIME ?? "claude";
 writeFileSync(
   join(state, "settings.json"),
   JSON.stringify({
     agents: { Orbit: { wake: ["orbit"] } },
     connector: { origin: `http://127.0.0.1:${PUBLIC_PORT}` },
     desk: {
-      defaultRuntime: "claude",
-      runtimes: { claude: { model: "sonnet" } },
+      defaultRuntime: RUNTIME,
+      runtimes: { [RUNTIME]: RUNTIME === "claude" ? { model: "sonnet" } : {} },
     },
     sources: [],
   })
