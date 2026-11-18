@@ -9,6 +9,7 @@ import { isOn, off } from "../core/outputs";
 import { writeSecret } from "../core/secret";
 import {
   agentNames,
+  connector,
   readSettings,
   type Settings,
   setSettings,
@@ -362,16 +363,23 @@ const commands: Record<string, () => number | Promise<number>> = {
   memory: () => memoryCommand(process.argv.slice(3)),
   /**
    * A code to approve an app's connection to Life's own sign-in (`oauth.ts`), good for 5 minutes: `pair <agent>` pairs it
-   * as that agent; `pair` alone, a plain app, which reads but pulls no asks.
+   * as that agent; `pair` alone, a plain app, which reads but pulls no asks. `--link` prints the link the phone opens
+   * (`lifelog://pair?life=<origin>&code=<code>`) instead of the code.
    */
   pair() {
     const names = agentNames();
-    const [, , , agent] = process.argv;
+    const args = process.argv.slice(3);
+    const agent = args.find((a) => !a.startsWith("--"));
     if (agent && !names.includes(agent)) {
-      console.error(`usage: bun life pair <${names.join("|")}>`);
+      console.error(`usage: bun life pair [--link] <${names.join("|")}>`);
       return Promise.resolve(2);
     }
-    console.log(pair(agent));
+    const code = pair(agent);
+    console.log(
+      args.includes("--link")
+        ? `lifelog://pair?life=${encodeURIComponent(connector().origin)}&code=${code}`
+        : code
+    );
     return Promise.resolve(0);
   },
   /**

@@ -1,5 +1,4 @@
 import Foundation
-import Security
 import ServerAPI
 
 /// The server this phone is paired with and its bearer token: the token in the Keychain (this device only, readable
@@ -20,35 +19,12 @@ nonisolated enum DeviceToken {
         return true
     }
 
-    private static var query: [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            // The app's bundle id (`LIFELOG_BUNDLE_ID`), then ".server".
-            kSecAttrService as String: "\(Bundle.main.bundleIdentifier ?? "lifelog").server",
-            kSecAttrAccount as String: "device-token",
-        ]
-    }
+    private static let account = "device-token"
 
-    static func read() -> String? {
-        var item: CFTypeRef?
-        let search = query.merging([kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]) {
-            $1
-        }
-        guard SecItemCopyMatching(search as CFDictionary, &item) == errSecSuccess, let data = item as? Data else {
-            return nil
-        }
-        return String(decoding: data, as: UTF8.self)
-    }
+    static func read() -> String? { Keychain.read(account) }
 
     @discardableResult
-    static func save(_ token: String) -> Bool {
-        SecItemDelete(query as CFDictionary)
-        let item = query.merging([
-            kSecValueData as String: Data(token.utf8),
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-        ]) { $1 }
-        return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
-    }
+    static func save(_ token: String) -> Bool { Keychain.save(token, account: account) }
 
     #if DEBUG
         /// Development only: launch with `LIFELOG_DEVICE_TOKEN` and `LIFELOG_SERVER_URL` in the environment (for

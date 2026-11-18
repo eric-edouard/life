@@ -111,6 +111,13 @@ On the phone, each piece of state has one owner, and only that owner writes it:
 | `Uploader` | `SyncStore` | `upload.sqlite` | The cursor (the first page not with the server), heard-through sent, the raw backup's progress |
 | `LibraryStore` (cache) | feature stores | `library.sqlite` | The feed's rows under their keys, its cursor and single values, a search index over them |
 | `Outbox` | `SyncStore`, feature stores | `library.sqlite` | The owner's edits (`OwnerIntent`) waiting for the server, in order, and the refused ones |
+| `LifeToken` | `LifeStore` | defaults + Keychain | The pairing with Life (not the lifelog server): its origin and client id, its access and refresh tokens |
+| `ReadCache` | `LifeStore` | `life-reads/` (Application Support) | The last good answer of each of Life's reads, as the tool's JSON text, out of backups |
+
+**Life.** `LifeStore` (built at launch, in the environment) is the phone's side of Life's connector: the inbox, the
+matters, a matter in full and the agents, each a `ReadState` (`LifeConnector`, in Kit). The phone is paired to Life by
+the code its Mac shows, through Life's own sign-in, and calls the connector like any app; the fixtures of what it reads
+are written by Life's server tests (`fixtures/wire/life/`).
 
 **Databases.** `source.sqlite` is the audio itself and gates ACK: losing a row there loses recordings.
 `library.sqlite` is what the owner sees and edits. `timeline.sqlite` is the scanned timeline, and `upload.sqlite` how far uploads went: one cursor;

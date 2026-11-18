@@ -19,14 +19,11 @@ struct LifelogApp: App {
                     guard scenePhase == .active else { return }
                     await appDelegate.capture.resyncWhileActive()
                 }
-                // A pairing code scanned with the Camera (`lifelog://pair?…`), confirmed on screen first.
-                .onOpenURL { url in
-                    if let pairing = Pairing(link: url) { appDelegate.sync.offeredPairing = pairing }
-                }
         }
         .environment(appDelegate.capture)
         .environment(\.library, appDelegate.library)
         .environment(appDelegate.sync)
+        .environment(appDelegate.life)
         .environment(appDelegate.naming)
         .environment(appDelegate.playback)
         .environment(appDelegate.buttons)
@@ -54,6 +51,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     lazy var sync = SyncStore(capture: capture, library: library)
     private let location = LocationRecorder()
     let appleHealth = AppleHealthReader()
+    /// Life's reads (inbox, matters, agents) and its pairing: the phone is one more app of Life's connector.
+    lazy var life = LifeStore()
     /// The voices to name, read by the Library, People and "Who's this?".
     lazy var naming = NamingQueue(library: library, sync: sync)
     /// The Pendant's button: built at launch, so a press that wakes the app in the background is answered.

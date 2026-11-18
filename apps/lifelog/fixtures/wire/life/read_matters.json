@@ -1,0 +1,35 @@
+{
+  "matters": [
+    {
+      "goal": {
+        "by": "life",
+        "text": "Gran has her watch back"
+      },
+      "id": "matter_aaaaaaaaaaaa",
+      "lastStepAt": "2026-10-12T10:00:00.000Z",
+      "name": "Mend Gran's watch",
+      "newestOpenStep": {
+        "day": "2026-10-12",
+        "text": "Call the shop"
+      },
+      "nextStep": {
+        "by": "owner",
+        "kind": "wait_event",
+        "text": "The shop's quote",
+        "waitsOn": "the shop"
+      },
+      "people": {
+        "owedTo": ["gran"],
+        "with": ["partner"]
+      },
+      "projects": ["Shop fit-out"],
+      "status": "moving",
+      "agent": "agt_000000000001"
+    },
+    {
+      "id": "matter_bbbbbbbbbbbb",
+      "name": "Renew the lease",
+      "status": "waiting_on_someone"
+    }
+  ]
+}
