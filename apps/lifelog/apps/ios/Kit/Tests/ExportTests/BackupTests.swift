@@ -69,7 +69,7 @@ private func backup() async throws -> URL {
     let source = try SourceStore(directory: report.location.appending(path: "source"))
     #expect(try await source.pages(deviceID: device, from: 0, limit: 10).map(\.payload) == (0..<3).map(payload))
     let library = try LibraryStore(directory: report.location.appending(path: "library"))
-    #expect(try await library.conversation(conversation)?.shownTitle == "Lunch with Mai")
+    #expect(try await library.conversation(conversation)?.ownerTitle == "Lunch with Mai")
     #expect(!FileManager.default.fileExists(atPath: report.location.appending(path: "derived/pendant/0-2.m4a").path))
 
     let replay = try await Importer.restore(root, into: area)

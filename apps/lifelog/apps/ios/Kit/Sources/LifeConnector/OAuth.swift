@@ -62,10 +62,12 @@ public struct LifeOAuth: Sendable {
             ("client_id", endpoint.clientID), ("resource", endpoint.resource),
         ]
         do {
-            // A lost reply is asked once more: Life serves a used refresh token one more time within a minute.
-            do { return try await tokens(at: endpoint.tokenEndpoint, form: form) } catch MCPError.unreachable {
-                return try await tokens(at: endpoint.tokenEndpoint, form: form)
-            }
+            // A lost reply (no connection, or a proxy's 502 or 524 while Life did rotate it) is asked once more: Life
+            // serves a used refresh token one more time within a minute.
+            do { return try await tokens(at: endpoint.tokenEndpoint, form: form) } catch MCPError.refused(let why) {
+                throw MCPError.refused(why)
+            } catch {}
+            return try await tokens(at: endpoint.tokenEndpoint, form: form)
         } catch MCPError.refused(_) { throw MCPError.notPaired }
     }
 
@@ -164,7 +166,7 @@ public struct LifeOAuth: Sendable {
             // Only Life's own word that the grant is dead ends the pairing; a proxy's 400 or a 502 changes nothing.
             struct Refusal: Decodable { let error: String }
             if response.statusCode == 400, let refusal = try? JSONDecoder().decode(Refusal.self, from: data),
-                refusal.error == "invalid_grant" || refusal.error == "unsupported_grant_type"
+                refusal.error == "invalid_grant"
             {
                 throw MCPError.refused(refusal.error)
             }

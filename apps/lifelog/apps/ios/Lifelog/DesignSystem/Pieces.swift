@@ -1,3 +1,4 @@
+import LifeConnector
 import SwiftUI
 
 /// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette,
@@ -183,16 +184,21 @@ extension View {
 }
 
 /// A line that names the server's limit ("20 seconds at most"): the limit as it was when the action began, kept while it
-/// counts down. `text` gets the phrase, or nil while the server has named none.
+/// counts down. `text` gets the phrase, or nil while the server has named none. Past the limit the action is late, never
+/// failed: the line says so, and the app still waits for Life's answer.
 struct LimitNote: View {
-    let limit: Date?
+    let state: ActionState<ActionProof>
     let text: (String?) -> String
     @State private var seconds: Int?
 
     var body: some View {
-        Text(text(seconds.map { "\($0) seconds at most" }))
-            .onChange(of: limit, initial: true) { _, limit in
-                if seconds == nil, let limit { seconds = max(1, Int(limit.timeIntervalSinceNow.rounded(.up))) }
-            }
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Text(
+                state.isLate(at: context.date)
+                    ? "Taking longer than Life said; still waiting." : text(seconds.map { "\($0) seconds at most" }))
+        }
+        .onChange(of: state.limit, initial: true) { _, limit in
+            if seconds == nil, let limit { seconds = max(1, Int(limit.timeIntervalSinceNow.rounded(.up))) }
+        }
     }
 }

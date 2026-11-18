@@ -17,8 +17,7 @@ public struct PlaybackSegment: Sendable, Equatable, Codable {
     public var decodeGaps: [DecodeGap]
     var windows: [StoredWindow]
     /// The audio file was deleted to save space (`DerivedAudioWorker.evictPlayback`); this sidecar and its analysis
-    /// stay, and `DerivedAudioWorker.rebuildPlayback` encodes the file again from the source packs. `nil` in older
-    /// sidecars.
+    /// stay. `nil` in older sidecars.
     public var evicted: Bool?
 
     public var activity: [ActivityWindow] { windows.map(\.window) }

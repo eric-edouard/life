@@ -22,7 +22,6 @@ private func shown(_ state: ReadState<[Int]>) -> String {
     #expect(shown(state) == "loading")
     state.apply(.started)
     #expect(shown(state) == "loading")
-    #expect(state.isRefreshing)
     state.apply(.failed(.unreachable))
     #expect(shown(state) == "unreachable")
     state.apply(.failed(.refused("no")))
@@ -45,7 +44,23 @@ private func shown(_ state: ReadState<[Int]>) -> String {
     state.apply(.succeeded([1], then))
     state.apply(.started)
     #expect(shown(state) == "loaded [1]")
-    #expect(state.isRefreshing)
+    #expect(state.phase == .loading)
+}
+
+/// Leaving the screen cancels its read: what was shown before stays, never "failed: cancelled".
+@Test func aCancelledReadLeavesTheStateAsItWas() {
+    var state = ReadState<[Int]>()
+    state.apply(.succeeded([1], then))
+    state.apply(.failed(.unreachable))
+    state.apply(.started)
+    state.apply(.failed(.cancelled))
+    #expect(shown(state) == "stale [1] 1000 unreachable")
+    var fresh = ReadState<[Int]>()
+    fresh.apply(.succeeded([2], then))
+    fresh.apply(.started)
+    fresh.apply(.failed(MCPError.of(URLError(.cancelled))))
+    #expect(shown(fresh) == "loaded [2]")
+    #expect(MCPError.of(CancellationError()) == .cancelled)
 }
 
 @Test func aFailureAfterAGoodReadShowsTheValueAsStale() {

@@ -38,6 +38,8 @@ final class CaptureStore {
     private(set) var lastCaughtUp: Date?
     /// Where a tapped notification leads: `RootView` opens it and clears this.
     var routeToOpen: NotificationRoute?
+    /// How many pushes of Life's cards came while the app was in front: `RootView` reads the inbox again on each.
+    private(set) var cardPushes = 0
     /// Free space on the archive's volume, refreshed when a sync settles and when the app comes forward, at most once a
     /// minute (`refreshPhoneFreeSpace`).
     private(set) var phoneFreeBytes: Int64?
@@ -70,8 +72,6 @@ final class CaptureStore {
     @ObservationIgnored let notifier = IncidentNotifier()
     @ObservationIgnored private let health = HealthReporter()
     @ObservationIgnored private let snapshots: SnapshotPublisher
-    /// The Watch's link, for what capture doesn't own .
-    var watch: WatchRelay { snapshots.watch }
     @ObservationIgnored private let root: URL
     @ObservationIgnored private var transport: (any PendantTransport)?
     @ObservationIgnored private var coordinator: DrainCoordinator?
@@ -117,6 +117,7 @@ final class CaptureStore {
     /// Starts capture. Call once at launch, in the foreground or a background relaunch.
     func start() {
         notifier.open = { [weak self] in self?.routeToOpen = $0 }
+        notifier.cardArrived = { [weak self] in self?.cardPushes += 1 }
         // Pause or Resume on the Watch, through the same request as Shortcuts: pending until the Pendant confirms.
         snapshots.watch.setRecording = { [weak self] recording in
             let intent: RecordingIntent = recording ? .resume : .pause

@@ -21,6 +21,7 @@ import {
   projectHolderOf,
   readDesk,
   readStartFacts,
+  runtimeOf,
 } from "./desk-read";
 import type { ToolCall } from "./http/mcp-tool";
 
@@ -154,7 +155,7 @@ async function saveGoal(
 
 /** What the connector reports for a start, in order: the desk's three facts (a matter start's `goal_saved` comes before them). */
 export const START_STAGES = [
-  "runtime_answers",
+  "desk_accepted",
   "session_open",
   "turn_begun",
 ] as const;
@@ -224,7 +225,7 @@ function startResult(
     model: s?.agent ? modelOf(s.agent).model : (change.model ?? null),
     // A subject held by an active agent has one running.
     nothingRunning: state === "not_started" && !isSubjectHeld,
-    runtime: s?.agent?.runtime ?? change.runtime ?? null,
+    runtime: s?.agent?.runtime ?? runtimeOf(change) ?? null,
     stages,
     state,
   };

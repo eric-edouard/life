@@ -33,8 +33,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(found.group == .newMatter)
     #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
     #expect(found.deadline == nil)
-    #expect(found.options.map(found.shown) == ["Start", "Edit goal", "Dismiss"])
-    #expect(found.offeredGoal == "Gran's photo is framed")
+    #expect(found.options.map(\.label) == ["Start", "Edit goal", "Dismiss"])
+    #expect(found.goal == "Gran's photo is framed.")
     #expect(inbox.checks.last?.draft == nil)
 
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
@@ -52,6 +52,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(matter.steps.count == 2)
     #expect(matter.steps[1].ending?.by == .ticked)
     #expect(matter.agents.first?.runtime == "claude")
+    #expect(matter.agents.first?.notStarted == nil)
 
     let agents = try decoded(RegisteredAgents.self, wireText("life/read_registered_agents.json"))
     #expect(agents.desk == .ok)
@@ -78,7 +79,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matching("QUOTE").count == 1)
     #expect(list.matching("  ").count == 2)
     #expect(list.matching("nothing like it").isEmpty)
-    #expect(list.statusCounts == [.moving: 1, .waitingOnSomeone: 1])
 }
 
 @Test func theFiltersCountAndNarrowTheList() throws {
@@ -93,7 +93,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.areaCounts.map(\.area) == ["Home", "Money", "Work"])
     #expect(list.areaCounts.map(\.count) == [2, 1, 1])
     #expect(list.waitCounts == [.decision: 1, .stuck: 1, .ready: 1])
-    #expect(list.agentCount == 1)
     func ids(_ filter: MatterFilter, _ query: String = "") -> [String] {
         list.shown(query: query, filter: filter).map(\.id)
     }
@@ -131,10 +130,11 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(edited.inbox?.left == false)
     let started = try decoded(AgentChangeResult.self, wireText("life/change_registered_agent_started.json"))
     #expect(started.state == .started)
-    #expect(started.stages?.map(\.stage) == ["runtime_answers", "session_open", "turn_begun"])
+    #expect(started.stages?.map(\.stage) == ["desk_accepted", "session_open", "turn_begun"])
     let refused = try decoded(AgentChangeResult.self, wireText("life/change_registered_agent_not_started.json"))
     #expect(refused.state == .notStarted)
-    #expect(refused.failed?.stage == "runtime_answers")
+    #expect(refused.failed?.stage == "desk_accepted")
+    #expect(refused.runtime == "claude")
     #expect(refused.nothingRunning == true)
     let named = #"{"ref":"voice:v1","kind":"voice","changed":{"voices":3,"conversations":2}}"#
     #expect(try decoded(AnswerResult.self, named).changed?.voices == 3)
@@ -150,4 +150,67 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let gone = inbox.opening(pushId: "ffffffffffffffff")
     #expect(gone.check == inbox.checks.first)
     #expect(gone.wasAnswered)
+}
+
+/// Every kind Life sends answers with its own options, as `answer_check` takes them: one tap for an option that takes
+/// nothing more, the person or the name for one that names someone, his words for one that takes a note, and his own
+/// words only where an agent reads them (a decision). Read from the server's own inbox, never a hand-made one.
+@Test func everyKindOfCardAnswersAsLifeTakesIt() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
+    func card(_ group: CheckGroup) throws -> Check { try #require(inbox.checks.first { $0.group == group }) }
+    #expect(Set(inbox.checks.map(\.group)) == Set(CheckGroup.allCases).subtracting([.unknown]))
+
+    let decision = try card(.decision)
+    #expect(decision.answer(decision.options[0]) == AnswerRequest(ref: decision.ref, options: ["yes"]))
+    #expect(decision.answer(words: "Later") == AnswerRequest(ref: decision.ref, options: [], note: "Later"))
+    #expect(decision.takesOwnWords && decision.namingOption == nil)
+
+    let ending = try card(.ending)
+    #expect(ending.options.compactMap(ending.answer).map(\.options) == [["outdated"], ["false"]])
+    #expect(ending.answer(words: "x") == nil && !ending.takesOwnWords)
+
+    let found = try card(.newMatter)
+    let edit = try #require(found.options.first { $0.id == "edit-goal" })
+    #expect(found.answer(edit) == nil)
+    #expect(found.answer(words: "Framed") == AnswerRequest(ref: found.ref, options: ["edit-goal"], note: "Framed"))
+    #expect(found.answer(found.options[0]) == AnswerRequest(ref: found.ref, options: ["start"]))
+
+    for group in [CheckGroup.name, .contactsCard] {
+        let check = try card(group)
+        let only = try #require(check.namingOption)
+        #expect(check.answer(only) == nil, "\(group): its one option needs who it is")
+        #expect(
+            check.answer(naming: .person("person:gran"))
+                == AnswerRequest(ref: check.ref, options: [only.id], person: "person:gran"))
+        // A name he types is someone Life knows: it goes as `person`, which Life reads.
+        #expect(
+            check.answer(naming: .name("Gran")) == AnswerRequest(ref: check.ref, options: [only.id], person: "Gran"))
+        #expect(!check.takesOwnWords)
+    }
+    #expect(try card(.contactsCard).likelyPeople.map(\.person) == ["person:gran", "person:partner"])
+
+    let guess = try card(.guessedPerson)
+    #expect(guess.answer(guess.options[0]) == AnswerRequest(ref: guess.ref, options: ["this-is"]))
+    #expect(guess.namingOption?.id == "same-person")
+
+    let voice = try card(.voice)
+    #expect(voice.namingOption?.id == "this-is")
+    #expect(voice.answer(voice.options[0]) == nil)
+    #expect(
+        voice.answer(naming: .person("person:gran"))
+            == AnswerRequest(ref: voice.ref, options: ["this-is"], person: "person:gran"))
+    #expect(voice.answer(naming: .name("Sam")) == AnswerRequest(ref: voice.ref, options: ["this-is"], name: "Sam"))
+    #expect(voice.options.dropFirst().compactMap(voice.answer).count == 3)
+
+    // No button reads like the words a model is given.
+    #expect(inbox.checks.flatMap(\.options).allSatisfy { !$0.label.contains("`") && $0.label.count < 30 })
+}
+
+@Test func theAskerIsNamedOnce() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
+    let voice = try #require(inbox.checks.first { $0.group == .voice })
+    #expect(voice.askerName(runtime: nil) == "Life, from the pendant")
+    #expect(inbox.checks[0].askerName(runtime: .claude) == "Claude Code")
+    #expect(inbox.checks[0].askerName(runtime: nil) == "Orbit")
+    #expect(inbox.checks[1].askerName(runtime: nil) == "Life")
 }

@@ -372,7 +372,6 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     kind: "new_person",
     likely: [],
     name: null,
-    namedPersonId: null,
     personId: null,
     voices: [
       { conversationId: "c1", jobId: "job-1", speakerLabel: "A" },
@@ -473,7 +472,7 @@ test("a new matter: Start asks the desk with the goal he saw, reports its stages
   ).mockImplementation((_change, c) => {
     c?.report({
       limitSeconds: 20,
-      plan: ["goal_saved", "runtime_answers", "session_open", "turn_begun"],
+      plan: ["goal_saved", "desk_accepted", "session_open", "turn_begun"],
     });
     c?.report({ at: "2026-11-18T10:00:00.000Z", step: "goal_saved" });
     for (const { stage, ...detail } of started.stages) {
@@ -507,14 +506,14 @@ test("a new matter: Start asks the desk with the goal he saw, reports its stages
     expect(reported.map((s) => s.plan ?? s.step)).toEqual([
       [
         "goal_saved",
-        "runtime_answers",
+        "desk_accepted",
         "session_open",
         "turn_begun",
         "recorded",
         "left_inbox",
       ],
       "goal_saved",
-      "runtime_answers",
+      "desk_accepted",
       "session_open",
       "turn_begun",
       "recorded",
@@ -598,7 +597,7 @@ test("a new matter's Start the desk did not start: the result says where it stop
     const refused = await call(newMatter.ref, ["start"], "tap-1").result;
     expect(refused).toMatchObject({
       inbox: { left: false },
-      start: { failed: { stage: "runtime_answers" }, state: "not_started" },
+      start: { failed: { stage: "desk_accepted" }, state: "not_started" },
     });
     expect(guesses).toEqual([newMatter]);
     const again = await call(newMatter.ref, ["start"], "tap-2").result;

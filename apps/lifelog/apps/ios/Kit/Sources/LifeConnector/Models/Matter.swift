@@ -43,11 +43,6 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
         public let told: [String]?
     }
 
-    public struct OpenStep: Decodable, Sendable, Equatable {
-        public let day: String
-        public let text: String
-    }
-
     public let id: String
     public let name: String
     public let status: MatterStatus
@@ -55,8 +50,6 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     public let nextStep: NextStep?
     public let people: People?
     public let areas: [String]?
-    public let projects: [String]?
-    public let newestOpenStep: OpenStep?
     public let lastStepAt: Date?
     /// The id of the registered agent working on it.
     public let agent: String?
@@ -79,11 +72,6 @@ public struct MatterList: Decodable, Sendable, Equatable {
         }
     }
 
-    /// How many matters each status holds.
-    public var statusCounts: [MatterStatus: Int] {
-        matters.reduce(into: [:]) { $0[$1.status, default: 0] += 1 }
-    }
-
     /// The matters `filter` and the search let through, in the list's order.
     public func shown(query: String, filter: MatterFilter) -> [MatterRow] {
         matching(query).filter(filter.passes)
@@ -98,7 +86,6 @@ public struct MatterList: Decodable, Sendable, Equatable {
     public var waitCounts: [MatterWait: Int] {
         matters.reduce(into: [:]) { counts, row in if let wait = row.wait { counts[wait, default: 0] += 1 } }
     }
-    public var agentCount: Int { matters.count { $0.agent != nil } }
 }
 
 /// What a matter waits on, as the filter sheet names it: its next step's kind, or stuck.

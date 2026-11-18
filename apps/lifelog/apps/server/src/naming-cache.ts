@@ -15,14 +15,12 @@ type VoiceMap = ReturnType<typeof readVoiceMap> & { building?: boolean };
 export interface QueueCache {
   items: () => Card[] | Promise<Card[]>;
   map: () => VoiceMap | null;
-  rechecks: () => Card[] | Promise<Card[]>;
 }
 
 export function queueCache(db: Db) {
   let worker: Worker | null = null;
   let map: VoiceMap | null = null;
   let seen: number | null = null;
-  let rechecks: Card[] = [];
   let pending:
     | (ReturnType<typeof Promise.withResolvers<void>> & { revision: number })
     | null = null;
@@ -64,11 +62,11 @@ export function queueCache(db: Db) {
         (w as unknown as { unref: () => void }).unref();
         w.onmessage = ({
           data,
-        }: MessageEvent<{ map: VoiceMap; rechecks: Card[]; seen: number }>) => {
+        }: MessageEvent<{ map: VoiceMap; seen: number }>) => {
           if (worker !== w) {
             return;
           }
-          ({ map, rechecks, seen } = data);
+          ({ map, seen } = data);
           failure = null;
           pending?.resolve();
           pending = null;
@@ -117,9 +115,5 @@ export function queueCache(db: Db) {
         .map(({ scope: _, ...card }) => card);
     },
     map: readMap,
-    async rechecks() {
-      await readSnapshot();
-      return rechecks;
-    },
   };
 }

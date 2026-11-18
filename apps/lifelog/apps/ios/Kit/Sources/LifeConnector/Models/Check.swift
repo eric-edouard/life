@@ -3,7 +3,8 @@ import Library
 
 /// What a check is, for counting and for the card's look (`CheckGroup`, `memory/checks.ts`).
 public enum CheckGroup: String, UnknownTolerant, Sendable {
-    case decision, ending, card, name, voice
+    case decision, ending, name, voice
+    case contactsCard = "contacts card"
     case guessedPerson = "guessed person"
     case newMatter = "new matter"
     case unknown
@@ -14,10 +15,19 @@ public enum CheckGroup: String, UnknownTolerant, Sendable {
 /// failing fixture test.
 public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public struct Option: Decodable, Sendable, Equatable {
+        /// What his answer must carry besides the option (`CheckOption.takes`, `memory/life-checks.ts`).
+        public enum Takes: String, UnknownTolerant, Sendable {
+            case person, note
+            case personOrName = "person or name"
+            case unknown
+        }
+
         public let id: String
+        /// His button's words.
         public let label: String
         /// Choosing it sends, pays, books, deletes or changes something.
         public let outgoing: Bool?
+        public let takes: Takes?
     }
 
     public struct Clip: Decodable, Sendable, Equatable {
@@ -93,6 +103,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let deadline: Date?
     public let onSilence: String?
     public let context: String?
+    /// A new matter's goal, the one Start hands the agent.
+    public let goal: String?
     public let evidence: Evidence?
     public let draft: Draft?
     public let options: [Option]
@@ -105,15 +117,48 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
 }
 
 extension Check {
-    /// An option as its button says it. A new matter's options say what they do after a colon, or how to give the goal in
-    /// brackets: the button keeps the first words (the server's wording, `checks.ts`, tested on `read_inbox.json`).
-    public func shown(_ option: Option) -> String {
-        guard group == .newMatter else { return option.label }
-        return String(option.label.prefix { $0 != ":" && $0 != "(" }).trimmingCharacters(in: .whitespaces)
+    /// Who asks, in his words: the agent's runtime, else Life (a voice from the pendant), else the asker's own name.
+    public func askerName(runtime: RuntimeName?) -> String {
+        if let runtime { return runtime.name }
+        guard asker.caseInsensitiveCompare("life") == .orderedSame else { return asker }
+        return group == .voice ? "Life, from the pendant" : "Life"
     }
 
-    /// The goal a new matter's question offers: "Goal: <goal>. Work on it?".
-    public var offeredGoal: String {
-        question.replacingOccurrences(of: "Goal: ", with: "").replacingOccurrences(of: ". Work on it?", with: "")
+    /// The option he picks by naming someone (`takes` a person, or a person or a name), when the card has one.
+    public var namingOption: Option? { options.first { $0.takes == .person || $0.takes == .personOrName } }
+
+    /// His answer by one tap on `option`: nil when that option needs more than the tap (a person, a name or his words).
+    public func answer(_ option: Option) -> AnswerRequest? {
+        option.takes == nil ? AnswerRequest(ref: ref, options: [option.id]) : nil
     }
+
+    /// His answer naming who it is, through the option that takes it: a person Life knows, or a typed name, which is a
+    /// new person where the option takes a name (a voice) and someone Life knows by it otherwise.
+    public func answer(naming choice: Naming) -> AnswerRequest? {
+        guard let option = namingOption else { return nil }
+        switch choice {
+        case .person(let id): return AnswerRequest(ref: ref, options: [option.id], person: id)
+        case .name(let name) where option.takes == .personOrName:
+            return AnswerRequest(ref: ref, options: [option.id], name: name)
+        case .name(let name): return AnswerRequest(ref: ref, options: [option.id], person: name)
+        }
+    }
+
+    /// His own words: a decision's note (no option), or the option that takes them (a new matter's goal).
+    public func answer(words: String) -> AnswerRequest? {
+        if let option = options.first(where: { $0.takes == .note }) {
+            return AnswerRequest(ref: ref, options: [option.id], note: words)
+        }
+        return group == .decision ? AnswerRequest(ref: ref, options: [], note: words) : nil
+    }
+
+    /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their
+    /// options (a new matter's goal comes through its option that takes a note).
+    public var takesOwnWords: Bool { group == .decision }
+}
+
+/// Who he says it is: someone Life knows, or a new name.
+public enum Naming: Sendable, Equatable {
+    case person(String)
+    case name(String)
 }

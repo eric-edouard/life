@@ -25,6 +25,7 @@
         "to": "Kit"
       },
       "evidence": null,
+      "goal": null,
       "group": "decision",
       "kind": "decision",
       "likelyPeople": [],
@@ -71,6 +72,7 @@
         "from": "an earlier message",
         "quote": "Called them."
       },
+      "goal": null,
       "group": "ending",
       "kind": "ending",
       "likelyPeople": [],
@@ -116,6 +118,7 @@
         "from": "12 Oct",
         "quote": "Gran wants it framed"
       },
+      "goal": "Gran's photo is framed.",
       "group": "new matter",
       "kind": "new matter",
       "likelyPeople": [],
@@ -166,6 +169,7 @@
         "from": "whatsapp, 12 Oct",
         "quote": "\"Sam fixed the strap\" said Gran"
       },
+      "goal": null,
       "group": "name",
       "kind": "person",
       "likelyPeople": [],
@@ -200,9 +204,19 @@
       "deadline": null,
       "draft": null,
       "evidence": null,
+      "goal": null,
       "group": "contacts card",
       "kind": "person",
-      "likelyPeople": [],
+      "likelyPeople": [
+        {
+          "name": "Gran",
+          "person": "person:gran"
+        },
+        {
+          "name": "Robin",
+          "person": "person:partner"
+        }
+      ],
       "links": [],
       "notSent": null,
       "onSilence": null,
@@ -213,7 +227,7 @@
           "takes": "person"
         }
       ],
-      "question": "Life cannot place the Contacts card Lou: its name and handles say person:gran and person:partner",
+      "question": "Life cannot place the Contacts card Lou: its name and handles say Gran and Robin",
       "ref": "person:con_lou",
       "ridesOn": {
         "matters": 0,
@@ -237,6 +251,7 @@
         "from": "whatsapp, 2 Oct",
         "quote": "Kit here, from the shop"
       },
+      "goal": null,
       "group": "guessed person",
       "kind": "person",
       "likelyPeople": [],
@@ -295,6 +310,7 @@
         "from": "a recorded conversation, 14 Oct",
         "quote": "It's the shop, about the watch."
       },
+      "goal": null,
       "group": "voice",
       "kind": "voice",
       "likelyPeople": [

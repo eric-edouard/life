@@ -393,6 +393,7 @@ export const speakerAssignments = sqliteTable(
     // "Several people" before `candidates`: waits in the queue as it is; dropped once none is left.
     mixed: boolean("mixed").notNull().default(false),
     personId: uuid("person_id").references(() => people.id),
+    // No longer written or read (rechecks went): kept, as dropping it is a migration of the archive.
     rechecked: boolean("rechecked").notNull().default(false),
     score: real("score"),
     source: text("source", { enum: assignmentSources }).notNull(),
@@ -415,7 +416,6 @@ export const speakerAssignments = sqliteTable(
 export const suggestionKinds = [
   "new_person",
   "known_person",
-  "recheck",
   "several",
 ] as const;
 export type Candidates = NonNullable<
@@ -430,8 +430,7 @@ export interface Suggestion {
   id: string;
   kind: (typeof suggestionKinds)[number];
   name: string | null;
-  namedPersonId: string | null; // recheck: the person he named
-  personId: string | null; // known_person: who the summaries think it is; recheck: who it sounds like
+  personId: string | null; // known_person: who the summaries think it is
   seconds: number;
   voices: {
     conversationId: string;
@@ -473,7 +472,7 @@ export const conversations = sqliteTable("conversations", {
   // The live conversation that now covers its anchor (or else its range).
   successorId: uuid("successor_id"),
   // What its last finished roll read: its turn keys and whether it was open (runs.ts). A
-  // summary is due when its words differ from it; null: never read, .
+  // summary is due when its words differ from it; null: never read, so it is due.
   turnsFp: text("turns_fp"),
   updatedAt,
   waitingReason: text("waiting_reason", { enum: waitingReasons }),

@@ -7,20 +7,13 @@ import {
   test,
 } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { clock } from "@life/server/src/core/clock";
-import {
-  conversations,
-  people,
-  speakerAssignments,
-  voiceSamples,
-} from "@lifelog/db/schema";
+import { people, speakerAssignments, voiceSamples } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
 import { evaluate, exportVoices } from "../scripts/eval-voices";
 import { createApp } from "./app";
-import { logChange } from "./change-log";
 import { setOwnerTimeZone, sha256Hex } from "./config";
 import { queueCache } from "./naming-cache";
-import { answerVoices, namingQueue } from "./naming-queue";
+import { answerVoices } from "./naming-queue";
 import { assign, keepServerSamples, recognize, weighProfiles } from "./people";
 import { services } from "./services";
 import { profilesWithout, soundsLikeOf } from "./speakers";
@@ -177,7 +170,7 @@ function setup() {
   return { first, second };
 }
 
-test("the existing answer settles either name, through the worker; the map ignores rechecks", async () => {
+test("the existing answer settles either name, through the worker", async () => {
   const { first, second } = setup();
   const same = voice(first, [FIRST, SECOND]);
   const changed = voice(first, [SECOND, SECOND]);
@@ -199,24 +192,6 @@ test("the existing answer settles either name, through the worker; the map ignor
     Authorization: `Bearer ${OWNER_TOKEN}`,
     "Content-Type": "application/json",
   };
-  expect(await queue.rechecks()).toMatchObject([
-    {
-      clips: [expect.any(Object), expect.any(Object)],
-      id: `${changed.jobId}/voice`,
-      kind: "recheck",
-      // Everyone with a voice, the most like this one first.
-      likely: [second, first],
-      namedPersonId: first,
-      personId: second,
-      seconds: 16,
-    },
-    {
-      id: `${same.jobId}/voice`,
-      kind: "recheck",
-      namedPersonId: first,
-      personId: second,
-    },
-  ]);
   expect(evaluate(exportVoices(env.db)).rechecks).toBe(2);
   expect(await queue.items()).toEqual([]);
   expect(queue.map()?.cards).toEqual([]);
@@ -224,7 +199,6 @@ test("the existing answer settles either name, through the worker; the map ignor
     [same, first],
     [changed, second],
   ] as const) {
-    expect(rowOf(held.jobId)?.rechecked).toBe(false);
     // biome-ignore lint/performance/noAwaitInLoops: each answer must publish its successor snapshot
     const response = await app.request("/naming-queue/answer", {
       body: JSON.stringify({
@@ -235,12 +209,8 @@ test("the existing answer settles either name, through the worker; the map ignor
       method: "POST",
     });
     expect(response.status).toBe(200);
-    expect(rowOf(held.jobId)).toMatchObject({ personId, rechecked: true });
-    expect(
-      (await queue.rechecks()).some((c) => c.id === `${held.jobId}/voice`)
-    ).toBe(false);
+    expect(rowOf(held.jobId)).toMatchObject({ personId });
   }
-  expect(await queue.rechecks()).toEqual([]);
   const quiet = voice(null, [THIRD, THIRD]);
   const dismissed = await app.request("/naming-queue/answer", {
     body: JSON.stringify({
@@ -252,62 +222,6 @@ test("the existing answer settles either name, through the worker; the map ignor
   });
   expect(dismissed.status).toBe(200);
   expect(rowOf(quiet.jobId)?.status).toBe("not_relevant");
-});
-
-test("only owner replacement of the same scope sets the mark; recognition never does", () => {
-  const { first } = setup();
-  const held = voice(null, [FIRST, FIRST]);
-  recognize(env.db, held.jobId);
-  expect(rowOf(held.jobId)).toMatchObject({
-    rechecked: false,
-    source: "recognized",
-  });
-  const input = {
-    jobId: held.jobId,
-    speakerLabel: "voice",
-    target: { kind: "person" as const, personId: first },
-    turnIndex: null,
-  };
-  assign(env.db, input);
-  expect(rowOf(held.jobId)?.rechecked).toBe(false);
-  assign(env.db, { ...input, turnIndex: 0 });
-  expect(rowOf(held.jobId, 0)?.rechecked).toBe(false);
-  assign(env.db, { ...input, turnIndex: 0 });
-  expect(rowOf(held.jobId, 0)?.rechecked).toBe(true);
-  expect(rowOf(held.jobId)?.rechecked).toBe(false);
-  assign(env.db, input);
-  recognize(env.db, held.jobId);
-  expect(rowOf(held.jobId)?.rechecked).toBe(true);
-});
-
-test("turn rows are excluded, retired conversations leave, and unchanged builds reuse cards", () => {
-  const { first, second } = setup();
-  const held = voice(first, [FIRST, SECOND, SECOND]);
-  const queue = namingQueue(env.db);
-  expect(queue.rechecks()).toHaveLength(1);
-  expect(queue.rechecks()).toBe(queue.rechecks());
-  assign(env.db, {
-    jobId: held.jobId,
-    speakerLabel: "voice",
-    target: { kind: "person", personId: second },
-    turnIndex: 1,
-  });
-  assign(env.db, {
-    jobId: held.jobId,
-    speakerLabel: "voice",
-    target: { kind: "person", personId: second },
-    turnIndex: 2,
-  });
-  expect(queue.rechecks()).toEqual([]);
-  const retired = voice(first, [SECOND, SECOND]);
-  expect(queue.rechecks()).toHaveLength(1);
-  env.db
-    .update(conversations)
-    .set({ retiredAt: clock() })
-    .where(eq(conversations.id, retired.id))
-    .run();
-  logChange(env.db, "conversation", retired.id);
-  expect(queue.rechecks()).toEqual([]);
 });
 
 test("not relevant: never asked again, its voice kept, never a stranger's, nothing to score", () => {

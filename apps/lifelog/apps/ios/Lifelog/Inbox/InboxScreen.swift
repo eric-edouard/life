@@ -18,32 +18,18 @@ struct InboxScreen: View {
     @State private var sameAsRef: String?
 
     var body: some View {
-        Group {
-            if let taken {
-                let state = life.state(of: taken.key)
-                let next = ordered(life.inbox.value).first { $0.ref != taken.check.ref }?.question
-                CardArrangement(check: taken.check) {
-                    AnswerResultView(taken: taken, state: state, next: next)
-                } bar: {
-                    ResultButtons(
-                        taken: taken, state: state, next: next,
-                        retry: { Task { await life.answer(taken.request) } },
-                        keepForLater: { leave(taken, keep: true) }, nextCard: { leave(taken, keep: false) })
-                }
-            } else {
-                ReadScreen(
-                    shown: life.inbox.shown(isEmpty: { $0.checks.isEmpty }), retry: { await life.refreshInbox() },
-                    loading: { CardPlaceholder() }, empty: { InboxZero(agents: working) },
-                    content: { _ in card })
-            }
-        }
+        ReadScreen(
+            shown: shown, retry: { await life.refreshInbox() },
+            loading: { CardPlaceholder() }, empty: { InboxZero(agents: working) },
+            content: { _ in card }
+        )
         .background(Palette.bg)
         .sheet(item: sameAsCard) { check in
-            SameAsSheet(people: check.likelyPeople) { choice in
-                switch choice {
-                case .person(let id): submit(check, AnswerRequest(ref: check.ref, options: [], person: id))
-                case .name(let name): submit(check, AnswerRequest(ref: check.ref, options: [], name: name))
-                }
+            SameAsSheet(
+                title: check.namingOption?.label ?? "Same as…", people: check.likelyPeople,
+                takesNewName: check.namingOption?.takes == .personOrName
+            ) { choice in
+                if let request = check.answer(naming: choice) { submit(check, request) }
             }
             .presentationPlacement(.trailing)
         }
@@ -62,8 +48,19 @@ struct InboxScreen: View {
         }
     }
 
+    /// The inbox read as shown, except that his tap's result stays up whatever the read did since: the inbox emptied
+    /// (his answer was the last card) or its read failed. Only a new pairing, which clears the inbox, takes it away.
+    private var shown: ReadState<Inbox>.Shown {
+        guard taken != nil, let inbox = life.inbox.value else {
+            return life.inbox.shown(isEmpty: { $0.checks.isEmpty })
+        }
+        return .loaded(inbox)
+    }
+
+    /// The card on show, or his tap's result in its place: one arrangement for both, so the card's context region stays
+    /// as it was until the next card.
     @ViewBuilder private var card: some View {
-        if let check = shownCheck {
+        if let check = taken?.check ?? shownCheck {
             cardView(check)
         } else {
             InboxZero(agents: working)
@@ -80,24 +77,42 @@ struct InboxScreen: View {
         let (position, total) = place(of: check)
         let input = Binding(get: { inputs[check.ref] ?? CardInput() }, set: { inputs[check.ref] = $0 })
         return CardArrangement(check: check) {
-            VStack(spacing: 0) {
-                if let notice {
-                    Text(notice).font(.small).foregroundStyle(Palette.muted).padding(.horizontal, 20).padding(
-                        .vertical, 10
+            if let taken {
+                let state = life.state(of: taken.key)
+                AnswerResultView(taken: taken, state: state, next: next(after: taken))
+            } else {
+                VStack(spacing: 0) {
+                    if let notice {
+                        Text(notice).font(.small).foregroundStyle(Palette.muted).padding(.horizontal, 20).padding(
+                            .vertical, 10
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
+                    }
+                    CheckCard(
+                        check: check, position: position, total: total, runtimeName: runtimeName(of: check),
+                        openMatter: { router.open(matter: $0) }, input: input
                     )
-                    .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
+                    .id(check.ref)
                 }
-                CheckCard(
-                    check: check, position: position, total: total, runtimeName: runtimeName(of: check),
-                    openMatter: { router.open(matter: $0) }, input: input
-                )
-                .id(check.ref)
             }
         } bar: {
-            CheckActions(
-                check: check, runtimeName: runtimeName(of: check), input: input,
-                answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref })
+            if let taken {
+                let state = life.state(of: taken.key)
+                ResultButtons(
+                    taken: taken, state: state, next: next(after: taken),
+                    retry: { Task { await life.answer(taken.request) } },
+                    keepForLater: { leave(taken, keep: true) }, nextCard: { leave(taken, keep: false) })
+            } else {
+                CheckActions(
+                    check: check, runtimeName: runtimeName(of: check), input: input,
+                    answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref })
+            }
         }
+    }
+
+    /// The question of the card that comes after his tap's, when one is waiting.
+    private func next(after taken: Taken) -> String? {
+        ordered(life.inbox.value).first { $0.ref != taken.check.ref }?.question
     }
 
     /// The card whose "Same as…" he opened: that card, even if the inbox reorders under the sheet; gone with it.
@@ -115,7 +130,7 @@ struct InboxScreen: View {
 
     private func runtimeName(of check: Check) -> RuntimeName? {
         guard let matter = check.matter?.id else { return nil }
-        return life.agents.value?.agents.first { $0.matter?.id == matter && $0.status != .ended }?.runtimeName
+        return life.agents.value?.agents.first { $0.matter?.id == matter && !$0.isOver }?.runtimeName
     }
 
     private var working: Int { life.agents.value?.agents.count { $0.status == .running || $0.status == .waiting } ?? 0 }
@@ -134,10 +149,11 @@ struct InboxScreen: View {
         Task { await life.answer(request) }
     }
 
+    /// Back to the cards: the next one, or the same card when it still waits on him (a new matter whose goal he edited).
     private func leave(_ taken: Taken, keep: Bool) {
         life.forget(taken.key)
         if keep { deferred.append(taken.check.ref) }
-        (self.taken, current) = (nil, nil)
+        (self.taken, current) = (nil, taken.staysOpen ? taken.check.ref : nil)
     }
 }
 

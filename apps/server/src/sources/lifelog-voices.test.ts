@@ -12,7 +12,6 @@ const item = {
   kind: "known_person",
   likely: [DANA, KOFI],
   name: null,
-  namedPersonId: null,
   personId: DANA,
   voices: [],
   words: 400,
@@ -35,6 +34,6 @@ test("the naming queue is read; while lifelog fails it the last list stands, nev
 
 test("a voice's guesses: its best guess first, each once", () => {
   expect(
-    namingQueueGuessesOf({ ...item, namedPersonId: KOFI } as never)
+    namingQueueGuessesOf({ ...item, likely: [KOFI, DANA, KOFI] } as never)
   ).toEqual([DANA, KOFI]);
 });

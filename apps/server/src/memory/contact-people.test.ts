@@ -455,3 +455,26 @@ test("a card that loses its birthday keeps the one Life held: no line, the perso
   expect(lost.lines).toEqual([]);
   expect(contactsNow(lost.stored)[0]?.birthday).toBe("--05-02");
 });
+
+test("a reading says which source named the person and whether the name is shared, so a typed answer can refuse a guess", () => {
+  const ana = now("card-ana", "Ana Lopez", ["+33611111111"]);
+  const twin = now("card-ana-2", "Ana Lopez", ["+33688888888"]);
+  const { readingNow } = foldsOf(
+    truth,
+    [{ ...guess("inf_kit", ["Kit"]), name: "Kit" }],
+    [],
+    [ana, twin]
+  );
+  expect(readingNow("Beatrice Roy")).toEqual({
+    by: "truth",
+    isShared: false,
+    ref: "person:bea",
+  });
+  expect(readingNow("Kit")).toEqual({
+    by: "guess",
+    isShared: false,
+    ref: "person:inf_kit",
+  });
+  expect(readingNow("Ana Lopez")).toBeNull();
+  expect(readingNow("+33611111111")).toMatchObject({ by: "contacts" });
+});

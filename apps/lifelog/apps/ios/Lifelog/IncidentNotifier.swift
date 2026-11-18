@@ -18,6 +18,8 @@ final class IncidentNotifier: NSObject {
     private var changes: PendantChangeReducer
     /// Opens what a tapped notification points to. Set by the capture store.
     var open: ((NotificationRoute) -> Void)?
+    /// A push of Life's cards arrived while the app is in front. Set by the capture store.
+    var cardArrived: (() -> Void)?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -140,10 +142,12 @@ final class IncidentNotifier: NSObject {
 }
 
 extension IncidentNotifier: UNUserNotificationCenterDelegate {
-    nonisolated func userNotificationCenter(
+    /// On the main actor, as `didReceive`: a card's push also has the inbox read again.
+    func userNotificationCenter(
         _ center: UNUserNotificationCenter, willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound]
+        if NotificationRoute(userInfo: notification.request.content.userInfo) != nil { cardArrived?() }
+        return [.banner, .list, .sound]
     }
 
     /// On the main actor: iOS calls this method's completion when it returns, and UIKit throws (a crash) when that

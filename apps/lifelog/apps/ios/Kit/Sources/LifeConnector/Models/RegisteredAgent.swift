@@ -75,6 +75,8 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     public let link: String?
     public let notes: String
     public let outcome: String?
+    /// Why its first turn never began (it was ended); nil when it began.
+    public let notStarted: String?
     public let project: String?
     /// The matter its first anchor finds, when its subject is one (not in a matter's own `agents`).
     public let matter: Matter?
@@ -83,6 +85,8 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     public let amber: [String]
 
     public var runtimeName: RuntimeName { RuntimeName(rawValue: runtime) ?? .unknown }
+    /// Ended or handed over: it holds nothing, and its matter can start another.
+    public var isOver: Bool { status == .ended || status == .handedOver }
 }
 
 /// `read_registered_agents`: what the desk keeps, and whether it is on and its helper runs.

@@ -7,7 +7,6 @@ enum ActionCopy {
         var to: String?
         var channel: String?
         var asker: String?
-        var runtimeName: String?
     }
 
     static func channel(_ source: String?) -> String {
@@ -35,7 +34,7 @@ enum ActionCopy {
         case "asker_told": "\(context.asker ?? "The asker") knows, and goes on"
         case "left_inbox": "The card left your inbox"
         case "goal_saved": "Your goal is saved on the matter"
-        case "runtime_answers": "\(context.runtimeName ?? "The runtime") answers"
+        case "desk_accepted": "The desk took the start"
         case "session_open": passed ? "Its session is open" : "Opening its session"
         case "turn_begun": "Its first turn has begun"
         default: step.replacing("_", with: " ").capitalized

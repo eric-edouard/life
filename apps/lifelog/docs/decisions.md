@@ -199,8 +199,8 @@ reverse it, change its entry here in the same commit.
   owner's own device; the server is not, so the rule holds with no exception for speech detection.
 - **Dictation is stored, never processed.** The Mac helper reports when the owner dictates to the Mac; the ranges
   the server makes of it are cut from every job before ElevenLabs, `apps/identity` or a model sees it, checked in the cutter and again in the
-  worker's `claim`. The raw backup holds everything the Pendant heard. One exception: a press of the Pendant's button
-  sends the last minute as it is, because the owner is sending his own words to his own tools.
+  worker's `claim`. The raw backup holds everything the Pendant heard. No exception: the Pendant's button no longer
+  sends anything to an AI.
 
 ## People, places and search
 
@@ -272,8 +272,8 @@ reverse it, change its entry here in the same commit.
   through the server doesn't help: background pushes are throttled and dropped after a force-quit.
 - **Only the Pendant's own changes notify.** A pause or resume the app asked for stays quiet; a lost link waits ten
   minutes before it says so.
-- **The Pendant's button asks an AI.** One press transcribes the last minute at once and offers it to Claude or
-  ChatGPT; nothing of it is stored on the server but its cost.
+- **The Pendant's button asks no AI.** PR 595 cut the press that sent the last minute to Claude or ChatGPT. The server
+  has no code for it.
 
 ## Apple Health
 

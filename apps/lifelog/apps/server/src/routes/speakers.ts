@@ -117,7 +117,6 @@ const QueueItem = z
     // The name the summaries heard; null when none, or when it is already the known person's
     // name or alias.
     name: z.string().nullable(),
-    namedPersonId: z.uuid().nullable(),
     // Who it sounds like, for a known person.
     personId: z.uuid().nullable(),
     seconds: z.number(),
