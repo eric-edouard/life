@@ -95,13 +95,15 @@ test("his app may name the person as he typed it: only one person his truth/ or 
       person: "Kit Moreau",
     });
     expect(answered.recordedAs).toBe("Kit Moreau");
-    for (const typed of ["Kit", "Sam", "Nobody Known"]) {
-      await expect(
-        answerCheck(name, { options: ["this-is"], person: typed })
-      ).rejects.toThrow(
-        `Life doesn't know who "${typed}" is for sure; pick from the card or use their full name`
-      );
-    }
+    await Promise.all(
+      ["Kit", "Sam", "Nobody Known"].map((typed) =>
+        expect(
+          answerCheck(name, { options: ["this-is"], person: typed })
+        ).rejects.toThrow(
+          `Life doesn't know who "${typed}" is for sure; pick from the card or use their full name`
+        )
+      )
+    );
     expect(said()).toEqual([
       { from: card.ref, kind: "same-person", to: "person:kit" },
     ]);
