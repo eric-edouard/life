@@ -43,6 +43,7 @@ import {
   readMail,
 } from "../sources/mail";
 import { matrixSend } from "../sources/matrix";
+import { messagesAppSend } from "../sources/messages-app";
 import { NETWORKS, type Network } from "../sources/networks";
 import { copyNotes, newestNote, readNotes } from "../sources/notes";
 import {
@@ -119,6 +120,7 @@ const LISTED: Descriptor[] = [
     name: "imessage",
     newest: newestImessage,
     read: (since, before) => readImessage(since, undefined, undefined, before),
+    send: messagesAppSend(),
     silentAfter: 24 * HOUR,
   },
   {
