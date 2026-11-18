@@ -16,7 +16,9 @@ import { dayNow } from "./zones";
 // draft he approves when there is one, 2 to 4 options (the recommended one first), its context folded, a deadline.
 // Append-only, one synchronous line each, outside the lock like a correction: `asked` (`requestDecision`), his
 // `answered` (the first wins; his own words alone are his "something else"), the asker's `withdrawn`, and, when his
-// answer was a draft's outgoing option alone, the send's outcome (`sent` or `send-failed`, `draft-send.ts`). Where each
+// answer was a draft's outgoing option alone, the send's outcome (`sent` or `send-failed`, `draft-send.ts`). A send
+// that ended `not sent:` (nothing went) voids its answer: the card is open again and his next answer is the next first
+// (his yes of 18 Nov 2026); `may have gone:` stays answered. Where each
 // stands is worked out when read (`decisionsNow`); the open ones are checks (`checks.ts`), so he sees them in the one
 // list. The file also holds earlier versions' lines: the old decisions page's (schemaVersion 1, before 2 Nov 2026) and
 // the cards before titles (schemaVersion 2, none in his data on 18 Nov 2026): kept, never read.
@@ -86,6 +88,8 @@ const Asked = Ask.extend({
 }).strict();
 const Answered = z
   .object({
+    /** One tap's key, made by his app and kept on every repeat of that tap: a repeat finds this line and sends nothing. Lines before it have none. */
+    answerKey: z.string().min(1).max(100).optional(),
     at: isoDateTime,
     id: DecisionId,
     kind: z.literal("answered"),
@@ -117,7 +121,12 @@ const Sent = z
   })
   .strict();
 const SendFailed = Sent.omit({ eventId: true, kind: true })
-  .extend({ error: z.string().min(1), kind: z.literal("send-failed") })
+  .extend({
+    /** False when the same draft can never go (the file is gone or changed, no chat, the channel is off): his next tap would fail alike. */
+    canRetry: z.literal(false).optional(),
+    error: z.string().min(1),
+    kind: z.literal("send-failed"),
+  })
   .strict();
 const Line = z.discriminatedUnion("kind", [
   Asked,
@@ -133,17 +142,34 @@ const Stored = z.union([Line, Historical]);
 type Asked = z.infer<typeof Asked>;
 type Answered = z.infer<typeof Answered>;
 type Withdrawn = z.infer<typeof Withdrawn>;
-type Send = z.infer<typeof Sent> | z.infer<typeof SendFailed>;
+type SendFailed = z.infer<typeof SendFailed>;
+type Send = z.infer<typeof Sent> | SendFailed;
 
 type DecisionState = "answered" | "lapsed" | "open" | "withdrawn";
 export type Decision = Asked & {
   answer?: Answered;
+  /** The newest `not sent:` outcome, which voided the answer in `voided` (the card is open again). */
+  notSent?: SendFailed;
   send?: Send;
   state: DecisionState;
+  /** Every answer a `not sent:` outcome voided, with that outcome, oldest first: a repeat of any of those taps (its `answerKey`) finds its own here. */
+  voided?: { answer: Answered; notSent: SendFailed }[];
   withdrawn?: Withdrawn;
 };
 
-/** Every decision as stored, by id, in the order asked: the first answer kept. */
+/** `d` with its answer voided by the `not sent:` outcome `l`: the card is open again, the answer kept in `voided`. */
+const voidedBy = (d: Omit<Decision, "state">, l: SendFailed) => ({
+  ...d,
+  answer: undefined,
+  notSent: l,
+  send: undefined,
+  voided: [
+    ...(d.voided ?? []),
+    ...(d.answer ? [{ answer: d.answer, notSent: l }] : []),
+  ],
+});
+
+/** Every decision as stored, by id, in the order asked: the first answer kept, until a `not sent:` outcome voids it. */
 const readAll = () =>
   readAppended(
     DECISIONS,
@@ -160,8 +186,14 @@ const readAll = () =>
         all.set(l.id, { ...d, answer: l });
       } else if (d && l.kind === "withdrawn" && !d.withdrawn) {
         all.set(l.id, { ...d, withdrawn: l });
+      } else if (
+        d &&
+        l.kind === "send-failed" &&
+        l.error.startsWith("not sent:")
+      ) {
+        all.set(l.id, voidedBy(d, l));
       } else if (d && (l.kind === "sent" || l.kind === "send-failed")) {
-        all.set(l.id, { ...d, send: d.send ?? l });
+        all.set(l.id, { ...d, send: l });
       }
     }
   );
@@ -176,15 +208,22 @@ const stateOf = (d: Omit<Decision, "state">, now: Date): DecisionState => {
   return Date.parse(d.deadline) <= now.getTime() ? "lapsed" : "open";
 };
 
-/** Whether his answer sends the card's draft: its one outgoing option picked alone, with no words of his changing it. */
-const isSendDue = (d: Omit<Decision, "state">) =>
+/** Whether an answer sends the card's draft: its one outgoing option picked alone, with no words of his changing it. */
+export const sendsOn = (
+  d: Omit<Decision, "state">,
+  options: string[],
+  note?: string
+) =>
   Boolean(
     isSendable(d.draft) &&
-      d.answer &&
-      !d.answer.note &&
-      d.answer.options.length === 1 &&
-      d.options.find((o) => o.id === d.answer?.options[0])?.outgoing
+      !note &&
+      options.length === 1 &&
+      d.options.find((o) => o.id === options[0])?.outgoing
   );
+
+/** Whether his answer sends the card's draft (`sendsOn`). */
+export const isSendDue = (d: Omit<Decision, "state">) =>
+  Boolean(d.answer && sendsOn(d, d.answer.options, d.answer.note));
 
 /** A send with no outcome this long after his answer never ended (a crash): a send path ends within about 3 minutes, a file's upload and confirmation included (`matrixSend`). */
 const SEND_ENDS_AFTER = 5 * MIN;
@@ -340,20 +379,26 @@ export async function requestDecision(
 
 /**
  * Records his answer to an open decision: option ids, or none with his words. The first answer stands; a second is
- * refused. When it is a draft's outgoing option alone, through his app (`via` connector), Life sends the draft once
- * (`deliver`) and records the outcome: the answer is written first, so a retried or concurrent answer never sends again.
+ * refused, unless its send ended `not sent:` (then the card is open and the next answer is the first). When it is a
+ * draft's outgoing option alone, through his app (`via` connector), Life sends the draft once (`deliver`) and records
+ * the outcome: the answer is written first, so a repeated or concurrent answer never sends again. `onStep` hears
+ * `recorded` and then the send's own steps.
  */
 export async function answerDecision(
   id: string,
   options: string[],
   note?: string,
   {
+    answerKey,
     deliver = sendDraft,
     now = clock(),
+    onStep,
     via = "session",
   }: {
+    answerKey?: string;
     deliver?: typeof sendDraft;
     now?: Date;
+    onStep?: (step: string, detail?: Record<string, unknown>) => void;
     via?: Answered["via"];
   } = {}
 ) {
@@ -377,6 +422,7 @@ export async function answerDecision(
   }
   const line: Answered = {
     at: now.toISOString(),
+    ...(answerKey ? { answerKey } : {}),
     id,
     kind: "answered",
     ...(note ? { note } : {}),
@@ -389,12 +435,19 @@ export async function answerDecision(
   if (!(stored && isDeepStrictEqual(stored.answer, line))) {
     throw new Error(`Not done: ${id} was answered already.`);
   }
+  onStep?.("recorded");
   if (!(isSendDue(stored) && isSendable(stored.draft))) {
     return [line];
   }
-  const outcome = await deliver(stored.draft, id).then(
+  // "Someone wrote since" counts from his last attempt that went nowhere, else from the card.
+  const since = new Date(stored.notSent?.at ?? stored.at);
+  const outcome = await deliver(stored.draft, id, { onStep, since }).then(
     (eventId) => ({ eventId, kind: "sent" as const }),
-    (e: Error) => ({ error: e.message, kind: "send-failed" as const })
+    (e: Error & { canRetry?: false }) => ({
+      error: e.message,
+      kind: "send-failed" as const,
+      ...(e.canRetry === false ? { canRetry: false as const } : {}),
+    })
   );
   const sent = {
     at: clock().toISOString(),
@@ -406,12 +459,26 @@ export async function answerDecision(
   return [line, sent];
 }
 
+/** What his last answer's failed send left, for the app: when, why, and whether another tap could work (not when the card's deadline passed before it ended); null when nothing is left. */
+export const notSentOf = (d: Decision, n = d.notSent) =>
+  n
+    ? {
+        at: n.at,
+        canRetry: n.canRetry !== false && n.at < d.deadline,
+        reason: n.error,
+      }
+    : null;
+
 /**
  * When a decision settled, as its asker hears it: the send's outcome when his answer sent its draft (none while the
  * send runs), else his answer's instant, or the deadline for a lapse.
  */
 export const settledAtOf = (d: Decision) =>
-  d.answer && isSendDue(d) ? d.send?.at : (d.answer?.at ?? d.deadline);
+  d.answer && isSendDue(d)
+    ? d.send?.at
+    : (d.answer?.at ??
+      // A lapse whose answer a `not sent:` voided after the deadline settles then, so a poll past the deadline still sees it.
+      (d.notSent && d.notSent.at > d.deadline ? d.notSent.at : d.deadline));
 
 /**
  * The decisions answered or lapsed in [`from`, `to`), by when they settled (`settledAtOf`; a withdrawal is the asker's

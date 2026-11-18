@@ -57,12 +57,18 @@ export interface SendPath {
   block: () => Promise<string | undefined>;
   /** Of these chats, the ones it can send into today. */
   holds: (chats: string[]) => string[];
+  /** How long a send of this draft may take, at most (its own waits added up): the app draws it. */
+  limitMs: (draft: Outgoing) => number;
   /** For a chat it can open (a new 1:1 chat): its name there, none when it has no such chat. */
   opens?: (chat: string) => Promise<string | undefined>;
   /** What of this draft its chat can't take (a reply, a reaction, a file of this kind or size, a mention), asked again just before the send; none when it takes all. */
   refusal: (draft: Outgoing) => Promise<string | undefined>;
-  /** Sends once per `txn`; the sent message's id once confirmed (Life's own event id where it knows it). Throws `not sent: …` (nothing went) or `may have gone: …`. */
-  send: (draft: Outgoing, txn: string) => Promise<string>;
+  /** Sends once per `txn`; the sent message's id once confirmed (Life's own event id where it knows it). `onHanded` is called when the network or the app has taken it, before the wait to see it. Throws `not sent: …` (nothing went) or `may have gone: …`. */
+  send: (
+    draft: Outgoing,
+    txn: string,
+    onHanded?: () => void
+  ) => Promise<string>;
 }
 
 /** A message as its store first wrote it (`incoming`): its row there, its id as `read` gives it and its time. */

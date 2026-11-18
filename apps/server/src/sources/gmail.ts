@@ -33,6 +33,8 @@ interface Options {
 const MESSAGE_ID = /^\w[\w.#$%&'*+/=?^`~@-]*$/;
 /** Gmail takes 35 MB a message, its encoding included. ponytail: 25 MB of file; raise it if one is ever refused wrongly. */
 const FILE_MAX = 25_000_000;
+/** How long gog is given to send: a file takes longer to upload. */
+const sendMs = (d: Outgoing) => (d.file ? 3 * MIN : 45_000);
 const ADDRESS = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
 const AUTH =
   /auth|token|scope|credential|insufficient|invalid_grant|keyring|permission/i;
@@ -125,6 +127,7 @@ export function gmailSend({
   return {
     block: () => Promise.resolve(undefined),
     holds: () => [],
+    limitMs: sendMs,
     refusal: async (d) => {
       if (d.reaction || d.mentions) {
         return "mail sends text and one file";
@@ -143,7 +146,7 @@ export function gmailSend({
       }
       return (await lookup(d)).problem;
     },
-    send: async (d) => {
+    send: async (d, _txn, onHanded) => {
       const found = await lookup(d);
       if (found.problem) {
         throw new Error(`not sent: ${found.problem}`);
@@ -171,8 +174,11 @@ export function gmailSend({
             ...(found.id ? [`--reply-to-message-id=${found.id}`] : []),
             ...attach,
           ],
-          3 * MIN
+          sendMs(d)
         );
+        if (r.code === 0) {
+          onHanded?.();
+        }
         return answerOf(r, from);
       } finally {
         if (folder) {

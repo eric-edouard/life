@@ -22,6 +22,8 @@ const STAGING = join(HOME, "Pictures", "Life sends");
 const CONFIRM_MS = 20_000;
 const POLL_MS = 500;
 const NO_ACCESS = "-1743";
+/** What osascript is given to hand one message over: it is killed (`may have gone`) after it. */
+const HAND_OVER_MS = 10_000;
 
 interface Run {
   code: number;
@@ -53,7 +55,7 @@ export function messagesAppSend({
   confirmMs = CONFIRM_MS,
   pollMs = POLL_MS,
   db: path = DB,
-  run = (cmd) => exec(cmd),
+  run = (cmd) => exec(cmd, { timeout: HAND_OVER_MS }),
   staging = STAGING,
 }: Options = {}): SendPath {
   const read = <T>(f: (db: ReturnType<typeof openReadOnly>) => T) => {
@@ -119,7 +121,8 @@ export function messagesAppSend({
   /** Tells Messages to send `what` into chat `guid`, and waits to see it. */
   const tell = async (
     guid: string,
-    what: { name: string; path: string } | { text: string }
+    what: { name: string; path: string } | { text: string },
+    onHanded?: () => void
   ) => {
     const from = toAppleNs(clock());
     const file = "path" in what;
@@ -144,6 +147,7 @@ export function messagesAppSend({
         `not sent: ${r.stderr.trim().slice(-300)}${r.stderr.includes(NO_ACCESS) ? " (allow Life to control Messages: System Settings → Privacy & Security → Automation → Life → Messages)" : ""}`
       );
     }
+    onHanded?.();
     return confirmed(
       guid,
       from,
@@ -163,13 +167,21 @@ export function messagesAppSend({
           .all(JSON.stringify(chats))
           .map((r) => r.id)
       ),
+    limitMs: (d) =>
+      ((d.file ? 1 : 0) + (d.text ? 1 : 0)) * HAND_OVER_MS +
+      ((d.file ? 3 : 0) + (d.text ? 1 : 0)) * confirmMs,
     refusal: (d: Outgoing) =>
       Promise.resolve(
         d.onMessage || d.reaction || d.mentions
           ? "iMessage sends text and one file"
           : undefined
       ),
-    send: async (d) => {
+    send: async (d, _txn, handed) => {
+      let onHanded = handed;
+      const once = () => {
+        onHanded?.();
+        onHanded = undefined;
+      };
       const guid = guidOf(d.chat);
       if (!guid) {
         throw new Error("not sent: Messages holds no chat for this handle");
@@ -181,14 +193,14 @@ export function messagesAppSend({
         const name = basename(d.file.name);
         try {
           await Bun.write(join(folder, name), d.file.bytes);
-          last = await tell(guid, { name, path: join(folder, name) });
+          last = await tell(guid, { name, path: join(folder, name) }, once);
         } finally {
           await rm(folder, { force: true, recursive: true });
         }
       }
       if (d.text) {
         try {
-          last = await tell(guid, { text: d.text });
+          last = await tell(guid, { text: d.text }, once);
         } catch (e) {
           if (!d.file) {
             throw e;

@@ -13,6 +13,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". In prompts and what they write, his name: `{{owner}}`, filled by `readOwnerName` (his `called` in `truth/`, else his name's first word), never a pronoun. | |
 | memory language | The language his memory is written in, asked at the first run beside his name: the `memoryLanguage` setting, `{{language}}` in prompts. Absent: English. Quotes stay as said; topic tags stay English. | |
+| action step | One named step of an action as it passes (`recorded`, `chat_checked`, `handed`, `confirmed`, `asker_told`, `left_inbox`), sent as a `notifications/progress` message after the plan (`report`, `mcp-tool.ts`). Not a matter step, not a processing step, not a night step. | |
 | agent | One of the owner's assistants that take his asks (a ChatGPT or Claude agent), known by its name: a key of the `agents` setting (`agentNames`), on its asks (`after.agent`) and its pairing. Nothing branches on a name. The word stored for an agent's source is `AGENT_WORD`, `agent`. | |
 | pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but pulls no asks. `--link` prints the link the iPhone app opens (`lifelog://pair?life=<origin>&code=<code>`). | |
 | speaker | Who said a turn in a recording. | |
@@ -31,6 +32,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
+| answer result | What `answer_check` returns (`answerWithResult`, `host/answer-result.ts`): the lines written (`done`), what `changed`, the `send`'s outcome (`sent`, `not_sent` with `canRetry`, `may_have_gone`), the `asker` and whether it was told, and the `inbox` after. Composed from what each store says, never stored. Not a decision's `answered` line. | |
 | ask | The owner's words handed to the agent: from "hey &lt;agent&gt;" in a recording, or a Claude session. A ledger entry of kind `ask`; the agent pulls its own with `read_agent_asks`. | |
 | onAsk | An agent's own command, in its settings, that Life starts once per new ask so the agent pulls at once. It carries no words: the agent still reads its asks with `read_agent_asks`. Not a step run. | |
 | wide net | What wakes an agent on a matter besides its own wait (his word of 18 Nov 2026, `desk/matter-net.ts`): a new message from one of the matter's people, or a new message or recording of his pendant whose meaning is close to the matter's name, goal, next step or newest steps (`netOf`), by the Mac's embedder at `CLOSE_AT`. Queued as the desk event `matter.related` (its facts, and why: `person` or `meaning` with its similarity), never its words. Not a placement in the matter: the nightly matters step decides that. | |

@@ -171,10 +171,13 @@ function provisioning(bridge: string) {
   return { port: appservice.port, secret: p.shared_secret };
 }
 
+/** A hung bridge fails a call after 10 s; a file's upload gets 60 s. */
+const CALL_MS = 10_000;
+const UPLOAD_MS = 60_000;
+
 async function call(url: string, auth: string, init: RequestInit = {}) {
   const res = await fetch(url, {
-    // A hung bridge fails the call after 10 s.
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(CALL_MS),
     ...init,
     headers: {
       Authorization: `Bearer ${auth}`,
@@ -473,7 +476,8 @@ async function sendEvent(
   d: Outgoing,
   ctx: { target?: string; users: string[] },
   txn: string,
-  at: SendAt
+  at: SendAt,
+  onHanded?: () => void
 ) {
   if (!at.token) {
     throw new Error("not sent: the homeserver holds no account of his");
@@ -504,6 +508,7 @@ async function sendEvent(
     );
   });
   const event = String(sent.event_id);
+  onHanded?.();
   const confirmed = () =>
     withBridgeDb(
       bridge,
@@ -538,7 +543,7 @@ async function upload(file: NonNullable<Outgoing["file"]>, at: SendAt) {
         "Content-Type": file.mime,
       },
       method: "POST",
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(UPLOAD_MS),
     }
   ).catch((e: Error) => {
     throw new Error(`not sent: the file didn't upload: ${e.message}`);
@@ -680,6 +685,8 @@ export function matrixSend(
       const roomOf = roomsOf();
       return chats.filter((c) => roomOf(c));
     },
+    // Join, upload, put, then the bridge's confirmation.
+    limitMs: (d) => 2 * CALL_MS + (d.file ? UPLOAD_MS : 0) + where(d).confirmMs,
     opens: handleOf
       ? async (chat) => {
           if (!handleOf(chat)) {
@@ -710,7 +717,7 @@ export function matrixSend(
         ) ?? (typeof named === "string" ? named : undefined)
       );
     },
-    send: async (d, txn) => {
+    send: async (d, txn, onHanded) => {
       const w = where(d);
       const named = namedBy(d, w);
       if (typeof named === "string") {
@@ -732,7 +739,7 @@ export function matrixSend(
       if (!room) {
         throw new Error(`not sent: ${bridge} holds no room for this chat`);
       }
-      const event = await sendEvent(bridge, room, d, named, txn, w);
+      const event = await sendEvent(bridge, room, d, named, txn, w, onHanded);
       return d.reaction ? event : idOf(d.chat, event, w.bridges, w.synapse);
     },
   };

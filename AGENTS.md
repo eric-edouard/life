@@ -147,7 +147,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   is asked and again before the send. iMessage has no bridge: Messages.app sends (text, or one file then its text as a
   second message; no reply, reaction or mention), and the send waits to see that message's row in chat.db. Mail has no chat: a card's `from` (one of his mail addresses that gog holds with Gmail), `to`, `cc`, `subject`, text and one file go through `gog gmail send` (`sources/gmail.ts`), a reply into the thread of the message `onMessage` names, found in `from`'s Gmail; never reply-all, a quote, a signature or tracking. It sends once, on his pick of that option alone through `answer_check` (his app's
   token: never a paired agent, a session's command or the desk), by `answerDecision` alone (`scripts/imports.test.ts`
-  checks), never on silence, never with his words added, never retried. A file he approved leaves the Mac for its
+  checks), never on silence, never with his words added, never retried by Life: after a `not sent:` outcome (nothing went) the card is open again and only his own new answer sends, never twice; after `may have gone:` it stays answered, never retried (his yes of 18 Nov 2026). Nothing is sent when anyone wrote in the chat since the card was asked, or since his last attempt that went nowhere (his yes of 18 Nov 2026: he rereads, then answers again). A file he approved leaves the Mac for its
   network (`SECURITY.md`). Agents hold no send tool. Its only other mail and notifications are to him
   (`docs/tasks.md`, "The only sends").
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
@@ -292,6 +292,7 @@ Before adding a helper, use the one that exists:
 | Bringing in an export of his (an assistant's, Instagram's) | `bun life import <folder> [--dry]`, the one verb; Instagram's goes into its archive as export rows (`copyInstagramExport`, `sources/instagram-export.ts`), read by `readBridged` like any message (`asReadOf`) |
 | Whether Life is online (worth a run or an alert) | `isOnline` (`models/llm.ts`): his model provider answers; an offline tick runs nothing |
 | Whether a source is healthy | its `missing()` then its `newest()` (the snapshot's source card), never a second check |
+| His answer with its proof (what was written, what a send did, that the asker was told, that the card left) | `answerWithResult` (`apps/server/src/host/answer-result.ts`): composes what each store already says, stores nothing; a tool's live steps are `report` (`host/http/mcp-tool.ts`), never a second tool; one tap's repeat is found by its `answerKey` on the answered line |
 | His payments | `payments()` (`apps/server/src/payments/backend.ts`): nothing else calls `money` |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous); `buildIndex` (one WAL transaction, `writeIndex`) via `reindex`, or `reindexUnits` for units rewritten in place (only while no unit went or was dropped or taken back by a code rule) |

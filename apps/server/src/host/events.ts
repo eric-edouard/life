@@ -12,7 +12,7 @@ import {
   type Source,
 } from "../memory/changes";
 import { directChats } from "../memory/closeness";
-import { decisionsNow, settledBetween } from "../memory/decisions";
+import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
 import { readySources } from "../memory/sources";
 import { isLifeOutput, speakerOf } from "../memory/units";
 import { meant, type People, readPeople } from "../memory/who";
@@ -144,7 +144,7 @@ export function pollDecisions(
   return {
     cursor: decisionCursorOf(now),
     events: settled.map((d) => {
-      const at = d.answer?.at ?? d.deadline;
+      const at = d.answer?.at ?? settledAtOf(d) ?? d.deadline;
       return {
         data: {
           ...(d.answer
