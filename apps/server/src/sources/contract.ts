@@ -42,7 +42,7 @@ export interface Outgoing {
 export interface SendPath {
   /** Why it can't send now (a bridge not added, not linked, not answering); none when it can. */
   block: () => Promise<string | undefined>;
-  /** Of these chats, the ones it can send into today. One read, however many chats. */
+  /** Of these chats, the ones it can send into today. */
   holds: (chats: string[]) => string[];
   /** For a chat it can open (a new 1:1 chat): its name there, none when it has no such chat. */
   opens?: (chat: string) => Promise<string | undefined>;

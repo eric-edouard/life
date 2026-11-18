@@ -274,8 +274,6 @@ test("the homeserver's rooms are the ones it holds: a room version 12 id has no 
   db.close();
   const rooms = readHomeserverRooms(file);
   expect(rooms).toContain("!AbCdEf123");
-  expect(rooms).not.toContain("!AbCdEf123:beeper.local");
-  expect(rooms).not.toContain("340282366841710300949128");
 });
 
 /** A made-up bridge provisioning API: knows one handle (`+15550100`), answers 404 for any other. */

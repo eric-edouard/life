@@ -11,7 +11,7 @@ import type { SendPath } from "./contract";
 
 /** Each bridge's folder: its config (the provisioning secret), its database (its rooms); and the homeserver's. */
 export const BRIDGES = join(MACHINE_DIR, "bridges");
-/** The homeserver's name: every id on it ends `:life.local`. */
+/** The homeserver's name: every user id on it ends `:life.local`. */
 export const SERVER = "life.local";
 /** His account on the homeserver. */
 export const OWNER = `@owner:${SERVER}`;

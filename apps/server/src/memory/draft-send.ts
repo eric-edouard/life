@@ -46,7 +46,8 @@ export async function readDraftChat(
       );
     });
     if (name) {
-      return { chat: draft.to, name, source: s.name };
+      // The id beside the name its owner gave himself: his card shows which account it goes to.
+      return { chat: draft.to, name: `${name} (${draft.to})`, source: s.name };
     }
   }
   if (chats.length !== 1) {

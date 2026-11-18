@@ -1,10 +1,11 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SourceName } from "../core/names";
 import {
+  bridgedSource,
   copierOf,
   copyBeeper,
   copyBridged,
@@ -12,8 +13,8 @@ import {
   openBridged,
   readBridged,
 } from "./bridged";
-import { BRIDGES } from "./matrix";
-import { NETWORKS } from "./networks";
+import { BRIDGES, SYNAPSE } from "./matrix";
+import { NETWORKS, type Network } from "./networks";
 
 const BOT = "@linebot:life.local";
 const ANA = "@line_u1:life.local";
@@ -281,4 +282,21 @@ test("Beeper closed: its store can't be read, so the archive opens Beeper and th
   expect(copierOf("telegram", closed)).toBe("beeper");
   expect(copy()).toBe(1);
   running.close();
+});
+
+// Regression: a room version 12 id has no server part, so a suffix test refused every bridged card (PR 577).
+test("a bridged network sends into the homeserver's own rooms, whatever their id's shape, never a Beeper chat", () => {
+  mkdirSync(join(SYNAPSE, ".."), { recursive: true });
+  const db = new Database(SYNAPSE);
+  db.run("create table rooms (room_id text not null)");
+  db.run("insert into rooms values ('!AbCdEf123')");
+  db.close();
+  try {
+    const instagram = NETWORKS.find((n) => n.name === "instagram") as Network;
+    expect(
+      bridgedSource(instagram).send?.holds(["!AbCdEf123", "!x:beeper.local"])
+    ).toEqual(["!AbCdEf123"]);
+  } finally {
+    rmSync(SYNAPSE);
+  }
 });

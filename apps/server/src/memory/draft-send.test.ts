@@ -104,7 +104,7 @@ test("a chat that doesn't exist yet opens by its id when the source can open it;
     readDraftChat({ channel: "whatsapp", to }, NOW, [wa]);
   expect(await read("66123456@s.whatsapp.net")).toEqual({
     chat: "66123456@s.whatsapp.net",
-    name: "Test Kit",
+    name: "Test Kit (66123456@s.whatsapp.net)",
     source: "whatsapp",
   });
   await expect(read("120@g.us")).rejects.toThrow(
