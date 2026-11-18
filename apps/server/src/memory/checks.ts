@@ -1,8 +1,14 @@
+import type { z } from "zod";
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import { pagedNow } from "./closeness";
-import { type Decision, decisionsNow, isOnMatter } from "./decisions";
+import {
+  type Decision,
+  decisionsNow,
+  isOnMatter,
+  type MessageDraft,
+} from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import { type MatterView, matterBookOf, matterPeopleOf } from "./matter-read";
 import { mattersNow, readMatterRecords, readMatters } from "./matters";
@@ -35,10 +41,11 @@ export type CheckGroup =
   | "card"
   | "name";
 
-/** One answer he can give: its id, as the tool that records it takes it, and what choosing it does. */
+/** One answer he can give: its id, as the tool that records it takes it, what choosing it does, and whether it sends, pays, books, deletes or changes something. */
 export interface CheckOption {
   id: string;
   label: string;
+  outgoing?: true;
 }
 
 /**
@@ -53,10 +60,12 @@ export interface Check {
   asker: string;
   /** When it was asked; null for Life's guesses (worked out when read). */
   at: string | null;
-  /** What the asker says it did and what each option leads to (an agent's words); null for Life's guesses. */
+  /** Why it asks, what was tried, what it rests on: folded on his card. An agent's words, or Life's own for its guesses. */
   context: string | null;
   /** By when he answers; null: no deadline. */
   deadline: string | null;
+  /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none. */
+  draft: z.infer<typeof MessageDraft> | null;
   /** The quoted words a guess of Life's rests on, with where and when they were said; null for a card or a decision. */
   evidence: { from: string; quote: string } | null;
   group: CheckGroup;
@@ -65,20 +74,18 @@ export interface Check {
   links: string[];
   /** The option the agent takes when he does not answer; null: none is taken (Life keeps using its guess, never writing it). */
   onSilence: string | null;
-  /** What he can answer, each with what choosing it does. */
+  /** What he can answer, each with what choosing it does; with two or more, the first is the one recommended (Life: its guess). Besides them he can always answer in his own words (a decision's `note`, else `tell_life`). */
   options: CheckOption[];
-  /** The question, in one sentence (a guess's worded by a template, no model). */
+  /** What he decides, in one sentence (a guess's worded by a template, no model). */
   question: string;
-  /** The option ids the asker recommends (Life: its guess). */
-  recommended: string[];
   /** What his answer acts on: a decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
   ref: string;
   /** What uses it today, counted from what is stored. */
   ridesOn: { matters: number; observations: number; pages: number };
   /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; null: none. */
   subject: string | null;
-  /** Why the recommendation, in one line; null: none. */
-  why: string | null;
+  /** What it is trying to do, in one line. */
+  title: string;
 }
 
 /** A kept line as the checks read it. */
@@ -175,34 +182,54 @@ function ctxOf(c: CheckInputs): Ctx {
   };
 }
 
-/** What he can answer each kind of Life's guesses, and what choosing it does (`answerCheck` writes it); `person`: who it is, as `answer_check` takes it. */
-export const OPTIONS = {
-  card: [
-    {
-      id: "same-person",
-      label: "It is this person (give `person`): the card becomes theirs",
-    },
-  ],
-  ending: [
-    { id: "outdated", label: "Done: the step closes" },
-    { id: "false", label: "Not done: the link goes, the step stays open" },
-  ],
-  "guessed person": [
-    { id: "this-is", label: "It is them: Life keeps the guess as his word" },
-    { id: "not-this-person", label: "Not them: Life drops the guess" },
-    {
-      id: "same-person",
-      label: "Someone Life already knows (give `person`): the two become one",
-    },
-  ],
-  name: [
-    {
-      id: "this-is",
-      label:
-        "It is this person (give `person`): the name reads as them from now on",
-    },
-  ],
-} as const satisfies Record<Exclude<CheckGroup, "decision">, CheckOption[]>;
+/** Each kind of Life's guesses: what it is trying to do (its title), why it asks (its context), and what he can answer, its guess first, each with what choosing it does (`answerCheck` writes it); `person`: who it is, as `answer_check` takes it. */
+export const LIFE_CHECKS = {
+  card: {
+    context:
+      "Its name and handles fit more than one person: Life keeps them apart until you say.",
+    options: [
+      {
+        id: "same-person",
+        label: "It is this person (give `person`): the card becomes theirs",
+      },
+    ],
+    title: "Place a Contacts card",
+  },
+  ending: {
+    context: "A later step seems to show it done.",
+    options: [
+      { id: "outdated", label: "Done: the step closes" },
+      { id: "false", label: "Not done: the link goes, the step stays open" },
+    ],
+    title: "Close what is done",
+  },
+  "guessed person": {
+    context: "Life uses its guess until you say.",
+    options: [
+      { id: "this-is", label: "It is them: Life keeps the guess as his word" },
+      { id: "not-this-person", label: "Not them: Life drops the guess" },
+      {
+        id: "same-person",
+        label: "Someone Life already knows (give `person`): the two become one",
+      },
+    ],
+    title: "Know who someone is",
+  },
+  name: {
+    context: "Life reads the name as no one until you say.",
+    options: [
+      {
+        id: "this-is",
+        label:
+          "It is this person (give `person`): the name reads as them from now on",
+      },
+    ],
+    title: "Place a name",
+  },
+} as const satisfies Record<
+  Exclude<CheckGroup, "decision">,
+  { context: string; options: CheckOption[]; title: string }
+>;
 
 /** The guess of an ending check, in one place: the builder shows it and his answer stores it. */
 export const endingGuessOf = (step: string) =>
@@ -257,10 +284,7 @@ const newest = (lines: Line[]) =>
 function ranked(
   c: Ctx,
   group: Exclude<CheckGroup, "decision">,
-  fields: Pick<Check, "about" | "question" | "ref"> & {
-    /** Life's own guess, when it has one (an option id), and why, when its question does not say. */
-    guessed?: { option: string; why?: string };
-  },
+  fields: Pick<Check, "about" | "question" | "ref">,
   lines: Line[],
   refs: string[],
   evidence: { quote: string; where?: Where } | null
@@ -274,8 +298,9 @@ function ranked(
             about: fields.about,
             asker: "life",
             at: null,
-            context: null,
+            context: LIFE_CHECKS[group].context,
             deadline: null,
+            draft: null,
             evidence: evidence && {
               from: evidence.where ?? "an earlier message",
               quote: evidence.quote,
@@ -284,13 +309,12 @@ function ranked(
             kind,
             links: [],
             onSilence: null,
-            options: [...OPTIONS[group]],
+            options: [...LIFE_CHECKS[group].options],
             question: fields.question,
-            recommended: fields.guessed ? [fields.guessed.option] : [],
             ref: fields.ref,
             ridesOn: rides,
             subject: null,
-            why: fields.guessed?.why ?? null,
+            title: LIFE_CHECKS[group].title,
           },
           day: lines.reduce((m, l) => (l.date > m ? l.date : m), ""),
         },
@@ -316,6 +340,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           at: d.at,
           context: d.context || null,
           deadline: d.deadline,
+          draft: d.draft ?? null,
           evidence: null,
           group: "decision",
           kind: "decision",
@@ -323,7 +348,6 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           onSilence: d.onSilence,
           options: d.options,
           question: d.question,
-          recommended: d.recommended,
           ref: d.id,
           ridesOn: {
             matters: isOnMatter(d.subject)
@@ -333,7 +357,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             pages: 0,
           },
           subject: d.subject ?? null,
-          why: d.why,
+          title: d.title,
         },
         day: d.at,
       })),
@@ -348,10 +372,6 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             "ending",
             {
               about: [],
-              guessed: {
-                option: "outdated",
-                why: "a later step seems to show it done",
-              },
               question: endingGuessOf(o.text),
               ref,
             },
@@ -380,7 +400,6 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             "guessed person",
             {
               about: p.namesAndHandles,
-              guessed: { option: "this-is" },
               question: `Life thinks this is ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure)`,
               ref,
             },

@@ -61,8 +61,7 @@ const ask = (question: string) => ({
     { id: "no", label: "No" },
   ],
   question,
-  recommended: ["yes"],
-  why: "a test",
+  title: "a test",
 });
 
 test("the door refuses a wrong key, another agent's key and an unknown agent alike", async () => {
@@ -76,6 +75,7 @@ test("the door refuses a wrong key, another agent's key and an unknown agent ali
   expect(
     (await call("agt_000000000000", doorOf(id).key, "set_wait", wait)).status
   ).toBe(401);
+  await call(id, doorOf(id).key, "request_decision", ask("Test: plan?"));
   const ok = await call(id, doorOf(id).key, "set_wait", wait);
   expect(ok.result?.isError).toBe(false);
   expect(agentOf(desk.db, id)?.wait_reason).toBe("r");
@@ -104,9 +104,32 @@ test("request_decision asks as the desk, stamped with the agent and its link; on
   expect(decisionsNow().find((d) => d.id === dec)?.state).toBe("withdrawn");
 });
 
+test("a new agent waits or finishes only once it asked its plan", async () => {
+  const id = agent();
+  const { key } = doorOf(id);
+  const wait = { events: [], reason: "r", until: ahead(HOUR) };
+  expect((await call(id, key, "set_wait", wait)).text).toContain(
+    "ask your plan first"
+  );
+  expect(
+    (await call(id, key, "finish", { outcome: "Test: done" })).text
+  ).toContain("ask your plan first");
+  const withdrawn = await call(id, key, "request_decision", ask("Test: plan?"));
+  await call(id, key, "request_decision", {
+    why: "Test: rethought",
+    withdraw: JSON.parse(withdrawn.text ?? "{}").id,
+  });
+  expect((await call(id, key, "set_wait", wait)).text).toContain(
+    "ask your plan first"
+  );
+  await call(id, key, "request_decision", ask("Test: go with the plan?"));
+  expect((await call(id, key, "set_wait", wait)).result?.isError).toBe(false);
+});
+
 test("an agent that finished may read its packet, nothing else", async () => {
   const id = agent();
   const { key } = doorOf(id);
+  await call(id, key, "request_decision", ask("Test: plan?"));
   await call(id, key, "finish", { outcome: "Test: done" });
   const notes = await call(id, key, "write_notes", { text: "late" });
   expect(notes.text).toContain("not active");

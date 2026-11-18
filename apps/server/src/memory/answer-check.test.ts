@@ -112,8 +112,7 @@ test("a decision goes to answerDecision", async () => {
       { id: "wait", label: "Wait" },
     ],
     question: "Book Kit?",
-    recommended: ["yes"],
-    why: "Cheapest.",
+    title: "Cheapest.",
   });
   listed.mockResolvedValue([check(id, "decision")]);
   await answerCheck(id, { options: ["yes"] });

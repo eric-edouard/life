@@ -86,12 +86,13 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
   });
   expect(check?.question).toStartWith("Life thinks this is ");
   expect(check?.question).toContain("the plumber");
-  // Life's guess is its recommendation; on silence nothing is taken.
+  // Life's guess is its recommendation, listed first; on silence nothing is taken; its kind gives the title and context.
   expect(check).toMatchObject({
     asker: "life",
+    context: "Life uses its guess until you say.",
+    draft: null,
     onSilence: null,
-    recommended: ["this-is"],
-    why: null,
+    title: "Know who someone is",
   });
   expect(check?.options.map((o) => o.id)).toEqual([
     "this-is",
@@ -234,11 +235,10 @@ const decision = (id: string, deadline: string, subject?: string) => ({
     { id: "no", label: "No" },
   ],
   question: `Go ahead with ${id}?`,
-  recommended: ["yes"],
-  schemaVersion: 2 as const,
+  schemaVersion: 3 as const,
   state: "open" as const,
   ...(subject ? { subject } : {}),
-  why: "It is due.",
+  title: "It is due.",
 });
 
 test("open decisions come first, soonest deadline first; one on a step leaves with its matter, one on a project stays", () => {
@@ -277,7 +277,6 @@ test("open decisions come first, soonest deadline first; one on a step leaves wi
       { id: "no", label: "No" },
     ],
     question: "Go ahead with dec_00000000000a?",
-    recommended: ["yes"],
     ridesOn: { matters: 1 },
     subject: o.id,
   });

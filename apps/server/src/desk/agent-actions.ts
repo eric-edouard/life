@@ -32,6 +32,10 @@ const NOTES_MAX = 6000;
 const openDecisionOf = (id: string) =>
   decisionsNow().find((d) => d.agent === id && d.state === "open")?.id ?? null;
 
+/** Whether agent `id` has asked him anything it did not withdraw: its first ask is its plan, so the door lets it wait or finish only after. */
+export const hasAsked = (id: string) =>
+  decisionsNow().some((d) => d.agent === id && d.state !== "withdrawn");
+
 /** Writes an agent's subject: its anchors (a matter's steps, in order) or its project, replacing the old one. */
 export function writeSubject(
   { db }: Desk,
@@ -169,13 +173,12 @@ export function askDecision(
     ...ask,
     agent: id,
     links: [...(link ? [link] : []), ...(ask.links ?? [])],
-    why,
   });
 }
 
-/** What every session of a registered agent is told after its brief (the desk spec, 5.4): the door's contract, no rule on its work. */
+/** What every session of a registered agent is told after its brief (the desk spec, 5.4): the door's contract and his gates (what waits on his yes, a plan before any act). */
 const contractOf = (id: string) =>
-  `You are ${id}, a registered agent of the owner's desk. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, call \`set_wait\` (what you wait for, until when) or \`finish\`; ask him only through \`request_decision\`, one at a time, with options and a recommendation; write your notes (\`write_notes\`) before you stop. His own rules apply as in any session of his.`;
+  `You are ${id}, a registered agent of the owner's desk. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, call \`set_wait\` (what you wait for, until when) or \`finish\`; ask him only through \`request_decision\`, one at a time; write your notes (\`write_notes\`) before you stop. His own rules apply as in any session of his. Never send, reply, post or forward to anyone but him, pay, buy, transfer or refund, book, accept, sign or cancel, delete, or change an account or a setting without his yes on that exact thing through \`request_decision\`. Your first turn only reads (\`read_packet\`, your subject) and asks your plan ("Here is what I'll do", options Go, Change, Stop): act only after his Go.`;
 
 /** `read_packet`: what a fresh session starts from: the brief, its subject, its notes, its queued events (facts only), its open decision. */
 export function readPacket({ db }: Desk, id: string) {
