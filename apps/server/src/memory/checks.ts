@@ -99,7 +99,7 @@ export interface Check {
   notSent: { at: string; canRetry: boolean; reason: string } | null;
   /** The option the agent takes when he does not answer; null: none is taken (Life keeps using its guess, never writing it). */
   onSilence: string | null;
-  /** What he can answer, each with what choosing it does; with two or more, the first is the one recommended (Life: its guess). Besides them he can always answer in his own words (a decision's `note`, else `tell_life`). */
+  /** What he can answer (`CheckOption`: his button's label and what his answer takes); with two or more, the first is the one recommended (Life: its guess). Besides them he can always answer in his own words (a decision's `note`, else `tell_life`). */
   options: CheckOption[];
   /** What he decides, in one sentence (a guess's worded by a template, no model). */
   question: string;
