@@ -103,7 +103,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   instruction files (`apps/server/src/models/llm.ts`). The one call given tools is the question cases' agent
   (`scripts/question-cases.ts`, his word of 10 Nov 2026): Codex, with Life's connector serving its reads only, and
   nothing else. An agent reads what it pulls through the connector as data
-  (`SECURITY.md`, "Agents"). The desk wakes an agent on an event's facts (who, where, when), never on its words; what
+  (`SECURITY.md`, "Agents"). The desk wakes an agent on an event's facts (who, where, when), never on its words, with one exception, his word of
+  18 Nov 2026: a wake by meaning on a matter's agent (the wide net, `desk/matter-net.ts`: anything new close to its matter, by the Mac's embedder; the wake still hands only the facts); what
   the agent then reads is the agent's to judge, outside Life's boundary (`SECURITY.md`, "Agents"). A mark (his words to Life, to keep) only keeps a unit read. His Apple Notes and imported
   assistant chats are memory only, never his words for actions.
 - **Life's own output never re-enters memory:** its chat and mail are dropped as `life-output` (`units.ts`). What Life

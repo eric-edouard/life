@@ -616,7 +616,7 @@ brief, runtime, folder (named at its start, else its matter's or project's repo 
 runtime), current session and link, `status` `active`, `stopped`, `handed_over` or `ended`, its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an active agent with no
 `wait_until`), its notes; its open decision is read from `decisions.jsonl` by its id), `session` (every session it had, with its link; append-only), `event` (its
-queued events, one row per agent and event id, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
+queued events, one row per agent and event id, `name` `message.received`, `decision.answered`, `decision.lapsed` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
 cause, its end, its outcome, its tokens), `anchor` (an agent's matter steps, in order), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
 `cursor` (where the message, answer and ask reads stopped). Never deleted by hand.

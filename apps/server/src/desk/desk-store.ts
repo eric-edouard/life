@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { clock } from "../core/clock";
+import type { Embedder } from "../core/embedder";
 import { DESK_STORE } from "../core/paths";
 import type { Messaging } from "../host/events";
 import type { AgentWait } from "../records/registered-agent";
@@ -100,6 +101,8 @@ create index if not exists agent_change_by_applied on agent_change (applied_at);
 /** The desk: its store, the runtimes it drives by name, and the message sources it polls (all that are on, unless a test gives its own). */
 export interface Desk {
   db: Database;
+  /** The wide net's embedder (`matter-net.ts`); none given: Lifelog Host's (`embedderNow`), null: none. */
+  embedder?: Embedder | null;
   runtimes: Record<string, Runtime>;
   sources?: Messaging[];
 }
