@@ -84,8 +84,20 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
     ref: REF,
     ridesOn: { matters: 0, observations: 3, pages: 0 },
   });
-  expect(check?.guess).toStartWith("Life thinks this is ");
-  expect(check?.guess).toContain("the plumber");
+  expect(check?.question).toStartWith("Life thinks this is ");
+  expect(check?.question).toContain("the plumber");
+  // Life's guess is its recommendation, kept on silence.
+  expect(check).toMatchObject({
+    asker: "life",
+    onSilence: "this-is",
+    recommended: ["this-is"],
+    why: "70% sure",
+  });
+  expect(check?.options.map((o) => o.id)).toEqual([
+    "this-is",
+    "not-this-person",
+    "same-person",
+  ]);
   expect(check?.about).toEqual(["+33600000001"]);
   const printed = checksText([check as Check]);
   expect(printed).toContain(`1. [guessed person] ${REF}: Life thinks`);
@@ -258,11 +270,16 @@ test("open decisions come first, soonest deadline first; one on a step leaves wi
     REF,
   ]);
   expect(list[1]).toMatchObject({
-    answers: ["yes", "no"],
-    decision: { asker: "planner", recommended: ["yes"], subject: o.id },
+    asker: "planner",
     group: "decision",
-    guess: "Go ahead with dec_00000000000a?",
+    options: [
+      { id: "yes", label: "Yes" },
+      { id: "no", label: "No" },
+    ],
+    question: "Go ahead with dec_00000000000a?",
+    recommended: ["yes"],
     ridesOn: { matters: 1 },
+    subject: o.id,
   });
   expect(
     checksOf({ ...base, matters: [matter(false)] }).map((c) => c.ref)

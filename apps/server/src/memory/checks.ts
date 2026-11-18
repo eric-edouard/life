@@ -30,38 +30,50 @@ type CheckKind = "decision" | "ending" | "person";
 /** What a check is, for counting: a decision, an ending, a guessed person, a Contacts card Life cannot place, a name it cannot place. */
 type CheckGroup = "decision" | "ending" | "guessed person" | "card" | "name";
 
-/** An open decision as its check carries it: the asked line less what the check's own fields say. */
-type DecisionShown = Omit<
-  Decision,
-  | "answer"
-  | "id"
-  | "kind"
-  | "question"
-  | "schemaVersion"
-  | "state"
-  | "withdrawn"
->;
+/** One answer he can give: its id, as the tool that records it takes it, and what choosing it does. */
+export interface CheckOption {
+  id: string;
+  label: string;
+}
 
-export type Check = CheckFields &
-  (
-    | { kind: Exclude<CheckKind, "decision"> }
-    | { decision: DecisionShown; kind: "decision" }
-  );
-
-interface CheckFields {
-  /** The names and handles the guess is about, as his answer takes them (`nameOrHandle`); none for an ending. */
+/**
+ * One thing waiting on his word, the same shape for every kind: Life's guesses and agents' decisions alike. A field
+ * a kind has nothing for is null or empty. Only open checks exist: his answer and what came of it are kept by each
+ * kind's own store (`decisionsNow`, the fact-check answers, the corrections).
+ */
+export interface Check {
+  /** The names and handles the question is about, as his answer takes them (`nameOrHandle`); none but a person's. */
   about: string[];
-  /** The words of his answer that settle it, as `correct_memory` takes them. */
-  answers: string[];
-  /** The words the guess rests on, with where and when they were said; none for a Contacts card. */
+  /** Who asks: `life` for Life's own guesses, else the agent's pairing or `desk`. */
+  asker: string;
+  /** When it was asked; null for Life's guesses (worked out when read). */
+  at: string | null;
+  /** What the asker says it did and what each option leads to (an agent's words); null for Life's guesses. */
+  context: string | null;
+  /** By when he answers; null: no deadline. */
+  deadline: string | null;
+  /** The quoted words a guess of Life's rests on, with where and when they were said; null for a card or a decision. */
   evidence: { from: string; quote: string } | null;
-  /** The guess, in a sentence worded by a template (no model). */
   group: CheckGroup;
-  guess: string;
-  /** A decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
+  kind: CheckKind;
+  /** Where to look or act (the agent's link first). */
+  links: string[];
+  /** The option taken when he does not answer: Life keeps its guess, or the agent takes the one it named; null: nothing happens. */
+  onSilence: string | null;
+  /** What he can answer, each with what choosing it does. */
+  options: CheckOption[];
+  /** The question, in one sentence (a guess's worded by a template, no model). */
+  question: string;
+  /** The option ids the asker recommends (Life: its guess). */
+  recommended: string[];
+  /** What his answer acts on: a decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
   ref: string;
-  /** What uses the guess today, counted from what is stored. */
+  /** What uses it today, counted from what is stored. */
   ridesOn: { matters: number; observations: number; pages: number };
+  /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; null: none. */
+  subject: string | null;
+  /** Why the recommendation, in one line; null: none. */
+  why: string | null;
 }
 
 /** A kept line as the checks read it. */
@@ -158,10 +170,21 @@ function ctxOf(c: CheckInputs): Ctx {
   };
 }
 
-const ANSWERS = {
-  ending: ["outdated", "false"],
-  person: ["this-is", "not-this-person", "same-person"],
-};
+/** What he can answer a guess of Life's, as `correct_memory` takes it, and what each does. */
+const OPTIONS = {
+  ending: [
+    { id: "outdated", label: "Done: the step closes" },
+    { id: "false", label: "Not done: the link goes, the step stays open" },
+  ],
+  person: [
+    { id: "this-is", label: "It is them: Life records who this is" },
+    { id: "not-this-person", label: "Not them: Life drops the guess" },
+    {
+      id: "same-person",
+      label: "Someone Life already knows: the two become one",
+    },
+  ],
+} satisfies Record<Exclude<CheckKind, "decision">, CheckOption[]>;
 
 /** The guess of an ending check, in one place: the builder shows it and his answer stores it. */
 export const endingGuessOf = (step: string) =>
@@ -176,10 +199,8 @@ export const isEndingOpen = (
 /** An ending check always has its evidence: the later step's words. */
 export const isEndingKind = (
   c: Check
-): c is Check & {
-  evidence: NonNullable<Check["evidence"]>;
-  kind: "ending";
-} => c.kind === "ending";
+): c is Check & { evidence: NonNullable<Check["evidence"]> } =>
+  c.kind === "ending";
 
 const whereOf = (l: Line): Where => `${l.source.channel}, ${plain(l.date)}`;
 
@@ -218,29 +239,41 @@ const newest = (lines: Line[]) =>
 function ranked(
   c: Ctx,
   group: CheckGroup,
-  fields: Pick<Check, "about" | "guess" | "ref">,
+  fields: Pick<Check, "about" | "question" | "ref"> & {
+    /** Life's own guess, when it has one (an option id), and why. */
+    guessed?: { option: string; why: string };
+  },
   lines: Line[],
   refs: string[],
   evidence: { quote: string; where?: Where } | null
 ): Ranked[] {
   const rides = ridesOn(c, lines, refs);
-  const kind: Exclude<CheckKind, "decision"> =
-    group === "ending" ? "ending" : "person";
+  const kind = group === "ending" ? "ending" : "person";
   return rides.matters + rides.observations > 0
     ? [
         {
           check: {
             about: fields.about,
-            answers: ANSWERS[kind],
+            asker: "life",
+            at: null,
+            context: null,
+            deadline: null,
             evidence: evidence && {
               from: evidence.where ?? "an earlier message",
               quote: evidence.quote,
             },
             group,
-            guess: fields.guess,
             kind,
+            links: [],
+            // Life keeps using its guess until he answers.
+            onSilence: fields.guessed?.option ?? null,
+            options: OPTIONS[kind],
+            question: fields.question,
+            recommended: fields.guessed ? [fields.guessed.option] : [],
             ref: fields.ref,
             ridesOn: rides,
+            subject: null,
+            why: fields.guessed?.why ?? null,
           },
           day: lines.reduce((m, l) => (l.date > m ? l.date : m), ""),
         },
@@ -259,37 +292,34 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           c.mattersByStep.has(d.subject) ||
           !c.matterSteps.has(d.subject)
       )
-      .map(
-        ({
-          answer,
-          id,
-          kind,
-          question,
-          schemaVersion,
-          state,
-          withdrawn,
-          ...decision
-        }) => ({
-          check: {
-            about: [],
-            answers: decision.options.map((o) => o.id),
-            decision,
-            evidence: null,
-            group: "decision",
-            guess: question,
-            kind: "decision",
-            ref: id,
-            ridesOn: {
-              matters: isOnMatter(decision.subject)
-                ? (c.mattersByStep.get(decision.subject)?.size ?? 0)
-                : 0,
-              observations: 0,
-              pages: 0,
-            },
+      .map((d) => ({
+        check: {
+          about: [],
+          asker: d.asker,
+          at: d.at,
+          context: d.context || null,
+          deadline: d.deadline,
+          evidence: null,
+          group: "decision",
+          kind: "decision",
+          links: d.links,
+          onSilence: d.onSilence,
+          options: d.options,
+          question: d.question,
+          recommended: d.recommended,
+          ref: d.id,
+          ridesOn: {
+            matters: isOnMatter(d.subject)
+              ? (c.mattersByStep.get(d.subject)?.size ?? 0)
+              : 0,
+            observations: 0,
+            pages: 0,
           },
-          day: decision.at,
-        })
-      ),
+          subject: d.subject ?? null,
+          why: d.why,
+        },
+        day: d.at,
+      })),
   /** Every open step a link says ended and he has not answered. */
   ending: (c) =>
     [...c.endings].flatMap(([ref, link]) => {
@@ -299,7 +329,15 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         ? ranked(
             c,
             "ending",
-            { about: [], guess: endingGuessOf(o.text), ref },
+            {
+              about: [],
+              guessed: {
+                option: "outdated",
+                why: "a later step seems to show it done",
+              },
+              question: endingGuessOf(o.text),
+              ref,
+            },
             [o],
             [],
             {
@@ -325,7 +363,11 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             "guessed person",
             {
               about: p.namesAndHandles,
-              guess: `Life thinks this is ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure)`,
+              guessed: {
+                option: "this-is",
+                why: `${Math.round(p.confidence * 100)}% sure`,
+              },
+              question: `Life thinks this is ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure)`,
               ref,
             },
             byGuess.get(ref) ?? [],
@@ -343,7 +385,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         "card",
         {
           about: people.contacts.find((x) => x.id === a.card)?.handles ?? [],
-          guess: `Life cannot place the Contacts card ${people.names.get(a.card) ?? a.card}: its name and handles say ${a.people.map((p) => people.names.get(p) ?? p).join(" and ")}`,
+          question: `Life cannot place the Contacts card ${people.names.get(a.card) ?? a.card}: its name and handles say ${a.people.map((p) => people.names.get(p) ?? p).join(" and ")}`,
           ref: a.card,
         },
         byRef.get(a.card) ?? [],
@@ -369,7 +411,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         "name",
         {
           about: [...new Set(rows.map((r) => r.nameAsWritten))],
-          guess: `Life cannot tell who "${[...new Set(rows.map((r) => r.nameAsWritten))].join(" / ")}" is`,
+          question: `Life cannot tell who "${[...new Set(rows.map((r) => r.nameAsWritten))].join(" / ")}" is`,
           ref: `name:${key}`,
         },
         lines,
@@ -381,19 +423,15 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
   },
 };
 
-const deadlineOf = (c: Check) =>
-  c.kind === "decision" ? c.decision.deadline : "";
-
-/** The checks: decisions first, soonest deadline first; then most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */
+/** The checks: those with a deadline first (an agent's decisions), soonest first; then most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */
 export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
   return Object.values(BUILDERS)
     .flatMap((build) => build(c))
     .toSorted(
       (a, b) =>
-        Number(b.check.kind === "decision") -
-          Number(a.check.kind === "decision") ||
-        deadlineOf(a.check).localeCompare(deadlineOf(b.check)) ||
+        Number(b.check.deadline !== null) - Number(a.check.deadline !== null) ||
+        (a.check.deadline ?? "").localeCompare(b.check.deadline ?? "") ||
         b.check.ridesOn.matters - a.check.ridesOn.matters ||
         b.check.ridesOn.observations - a.check.ridesOn.observations ||
         b.check.ridesOn.pages - a.check.ridesOn.pages ||
@@ -456,15 +494,30 @@ export async function readInbox() {
   return {
     decisions: list.flatMap((c) =>
       c.kind === "decision"
-        ? [{ id: c.ref, question: c.guess, ...c.decision }]
+        ? [
+            {
+              asker: c.asker,
+              at: c.at,
+              context: c.context ?? "",
+              deadline: c.deadline,
+              id: c.ref,
+              links: c.links,
+              onSilence: c.onSilence,
+              options: c.options,
+              question: c.question,
+              recommended: c.recommended,
+              ...(c.subject ? { subject: c.subject } : {}),
+              why: c.why,
+            },
+          ]
         : []
     ),
     factChecks: list.filter(isEndingKind).map((c) => ({
-      doubts: ["a later step seems to show it done"],
+      doubts: c.why ? [c.why] : [],
       from: c.evidence.from,
       quote: c.evidence.quote,
       ref: c.ref,
-      text: c.guess,
+      text: c.question,
     })),
   };
 }
@@ -488,10 +541,10 @@ export function checksText(list: Check[]) {
     spread(list),
     "",
     ...list.flatMap((c, i) => [
-      `${i + 1}. [${c.group}] ${c.ref}: ${c.guess}`,
+      `${i + 1}. [${c.group}] ${c.ref}: ${c.question}`,
       ...(c.about.length > 0 ? [`   about: ${c.about.join(", ")}`] : []),
       ...(c.evidence ? [`   "${c.evidence.quote}" (${c.evidence.from})`] : []),
-      `   rides on: ${c.ridesOn.observations} observations, ${c.ridesOn.matters} open matters, ${c.ridesOn.pages} pages. His answer: ${c.answers.join(" | ")}`,
+      `   rides on: ${c.ridesOn.observations} observations, ${c.ridesOn.matters} open matters, ${c.ridesOn.pages} pages. His answer: ${c.options.map((o) => o.id).join(" | ")}`,
       "",
     ]),
   ].join("\n");
