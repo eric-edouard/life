@@ -540,9 +540,10 @@ test("the inbox is read again only when what it reads changed: not a unit sync; 
     await checksNow(null);
     expect(reads).toHaveBeenCalledTimes(0);
     // The watcher's sync: today's units written, under the lock.
-    await locked(async () => {
+    await locked(() => {
       mkdirSync(UNITS, { recursive: true });
       writeFileSync(join(UNITS, "2026-11-19.jsonl"), "");
+      return Promise.resolve();
     });
     await checksNow(null);
     expect(reads).toHaveBeenCalledTimes(0);
