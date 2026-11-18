@@ -215,6 +215,10 @@ test("a new matter: Edit goal makes his words its goal, Dismiss is his no, Start
     });
     await answerCheck(matter, { options: ["dismiss"] });
     expect(started).toEqual([]);
+    // Only his app's tap starts an agent: a session's answer (the CLI) cannot.
+    await expect(
+      answerWith(matter, { options: ["start"] }, "session")
+    ).rejects.toThrow("his tap");
     const { done } = await answerCheck(matter, { options: ["start"] });
     expect(started).toEqual(["The boiler is serviced"]);
     expect(done.at(-1)).toEqual({ ask: "entry_000000000001" });

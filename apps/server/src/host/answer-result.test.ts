@@ -506,15 +506,63 @@ test("a new matter: Start saves the goal he saw, asks the desk with it, reports 
   }
 });
 
-/** The desk's answer to a start that began, as the phone's fixture has it. */
-function readStarted() {
+/** The desk's answer to a start, as the phone's fixture has it: one that began, else `not_started`. */
+function readStarted(name = "started") {
   return JSON.parse(
     readFileSync(
       join(
         import.meta.dir,
-        "../../../lifelog/fixtures/wire/life/change_registered_agent_started.json"
+        `../../../lifelog/fixtures/wire/life/change_registered_agent_${name}.json`
       ),
       "utf8"
     )
   ) as { stages: { stage: string }[] };
 }
+
+test("a new matter's Start the desk did not start: the result says where it stopped, the card stays, and his next tap starts again", async () => {
+  const newMatter = asCheck({
+    group: "new matter",
+    matter: { id: "matter_000000000008", name: "Frame the photo" },
+    ref: "matter_000000000008",
+  });
+  guesses = [newMatter];
+  const people = spyOn(
+    await import("../memory/who"),
+    "readPeople"
+  ).mockResolvedValue({} as never);
+  const book = spyOn(
+    await import("../memory/matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    {
+      goal: {
+        at: "2026-11-17T02:00:00Z",
+        by: "owner",
+        text: "The photo is framed",
+      },
+      id: newMatter.ref,
+      steps: [{ ref: "obs_000000000081" }],
+    },
+  ] as never);
+  const desk = spyOn(
+    await import("./change-registered-agent"),
+    "changeRegisteredAgent"
+  )
+    .mockResolvedValueOnce(readStarted("not_started") as never)
+    .mockResolvedValueOnce(readStarted() as never);
+  try {
+    const refused = await call(newMatter.ref, ["start"], "tap-1").result;
+    expect(refused).toMatchObject({
+      inbox: { left: false },
+      start: { failed: { stage: "runtime_answers" }, state: "not_started" },
+    });
+    expect(guesses).toEqual([newMatter]);
+    const again = await call(newMatter.ref, ["start"], "tap-2").result;
+    expect(again).toMatchObject({ start: { state: "started" } });
+    expect(desk).toHaveBeenCalledTimes(2);
+  } finally {
+    desk.mockRestore();
+    book.mockRestore();
+    people.mockRestore();
+  }
+});

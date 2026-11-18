@@ -133,10 +133,12 @@ export const holderOf = (db: Database, steps: string[]) =>
         )
         .get(...steps)?.id ?? null);
 
-/** Every step an agent is anchored on now, in any status (`re_point` drops an agent's old anchors). */
+/** Every step an agent is anchored on now, in any status (`re_point` drops an agent's old anchors), but one that ended before it started: its matter is free for a new start. */
 export const anchoredSteps = (db: Database) =>
   db
-    .query<{ step: string }, []>("select distinct step from anchor")
+    .query<{ step: string }, []>(
+      "select distinct n.step from anchor n join agent a on a.id = n.agent_id where not (a.status = 'ended' and a.outcome like 'not started: %')"
+    )
     .all()
     .map((r) => r.step);
 

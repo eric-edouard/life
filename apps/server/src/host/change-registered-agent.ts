@@ -125,7 +125,7 @@ async function withSubject({
   return change;
 }
 
-/** What the connector reports for a start, in order: the desk's three facts (`goal_saved` is the phone's own call). */
+/** What the connector reports for a start, in order: the desk's three facts (`goal_saved`, before them, is the phone's own call or a new matter's Start writer). */
 export const START_STAGES = [
   "runtime_answers",
   "session_open",

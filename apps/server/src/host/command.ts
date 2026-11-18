@@ -57,7 +57,6 @@ import { dayNow, isDay, lastDays, type Window } from "../memory/zones";
 import { histories, readHistoryWork } from "../personal/histories";
 import { readPerson } from "../personal/person-parts";
 import { personaReadingsOf, personas } from "../personal/personas";
-import { changeRegisteredAgent } from "./change-registered-agent";
 import { inboxNow, openCheckOf } from "./inbox";
 import { nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
@@ -183,18 +182,7 @@ const HANDLERS: Record<string, Handler> = {
                   options: [option],
                   person: values.person,
                 },
-                "session",
-                {
-                  startAgent: async (c, goal) => {
-                    const r = await changeRegisteredAgent({
-                      action: "start",
-                      said: goal,
-                      step: c.ref,
-                    });
-                    console.log(JSON.stringify(r));
-                    return { ask: "ask" in r ? r.ask : "" };
-                  },
-                }
+                "session"
               )
             )
             .then(({ done, ref: answered }) => ({ done, ref: answered }))

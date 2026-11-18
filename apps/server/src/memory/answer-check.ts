@@ -33,11 +33,11 @@ export interface CheckAnswer {
 /** Asks the desk to start an agent on the new matter `c`, its goal as the brief (host: `changeRegisteredAgent`); gives the ask's ledger line id. */
 export type StartAgent = (c: Check, goal: string) => Promise<{ ask: string }>;
 
-/** What a writer is given besides the check and his answer: a voice's queue item, the steps to report, the desk's start. */
+/** What a writer is given besides the check and his answer: a voice's queue item, the steps to report, the desk's start (his app's tap only). */
 interface WriterExtras {
   item?: NamingQueueItem;
   onStep?: (step: string, detail?: Record<string, unknown>) => void;
-  startAgent: StartAgent;
+  startAgent?: StartAgent;
 }
 
 type Writer = (c: Check, a: CheckAnswer, x: WriterExtras) => Promise<unknown[]>;
@@ -191,6 +191,9 @@ const WRITERS: {
     },
     // The goal he saw becomes his word (the phone's start does the same), then the desk is asked with it as the brief.
     start: async (c, _a, x) => {
+      if (!x.startAgent) {
+        throw new Error("Not done: Start is his tap in his app.");
+      }
       const { goal, steps } = await newMatterOf(c);
       const saved =
         goal.by === "owner"
@@ -221,7 +224,8 @@ const WRITERS: {
  * Records his answer to the open check `check` (host finds it: `openCheckOf`) through its kind's writer (a decision's
  * draft is sent only `via` his app); returns the check, the lines written and, for a voice, its queue item. `onStep`
  * hears `recorded` once they are, and a send's or a start's own steps; `answerKey` is his app's key for this tap, kept on a
- * decision's answer; `startAgent` is a new matter's Start. Throws when the option is not one of its own.
+ * decision's answer; `startAgent` is a new matter's Start, given only for his app's tap (`answer_check`). Throws when the
+ * option is not one of its own.
  */
 export async function answerCheck(
   check: Check,
@@ -231,7 +235,7 @@ export async function answerCheck(
     answerKey,
     onStep,
     startAgent,
-  }: Omit<WriterExtras, "item"> & { answerKey?: string }
+  }: Omit<WriterExtras, "item"> & { answerKey?: string } = {}
 ) {
   const { ref } = check;
   if (check.group === "decision") {
