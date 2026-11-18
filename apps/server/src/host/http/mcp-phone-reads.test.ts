@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import type { InboxCheck } from "../../memory/checks";
+import { type InboxCheck, LIFE_CHECKS } from "../../memory/checks";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
 
@@ -142,11 +142,8 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
         kind: "new matter",
         matter: { id: "matter_cccccccccccc", name: "Frame Gran's photo" },
         onSilence: "Nothing starts. Asked until 18 Oct.",
-        options: [
-          { id: "start", label: "Start" },
-          { id: "edit-goal", label: "Edit goal" },
-          { id: "dismiss", label: "Dismiss" },
-        ],
+        // The server's own wording: the phone cuts its buttons from it (Kit's `Check.shown`).
+        options: [...LIFE_CHECKS["new matter"].options],
         question: "Goal: Gran's photo is framed. Work on it?",
         ref: "matter_cccccccccccc",
         title: "Life found a new matter: Frame Gran's photo",
