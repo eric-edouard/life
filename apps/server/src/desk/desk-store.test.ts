@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDesk } from "./desk-store";
 
-test("openDesk adds turn.begun_at to a store made before it, keeping its rows", () => {
+test("openDesk adds turn.begun_at to a store made before it, keeping its rows, its old turns begun when they started", () => {
   const path = join(mkdtempSync(join(tmpdir(), "life-desk-")), "desk.sqlite");
   const old = new Database(path);
   old.run(
@@ -17,7 +17,7 @@ test("openDesk adds turn.begun_at to a store made before it, keeping its rows", 
   old.close();
   const db = openDesk(path);
   expect(db.query("select agent_id, begun_at from turn").all()).toEqual([
-    { agent_id: "agt_000000000001", begun_at: null },
+    { agent_id: "agt_000000000001", begun_at: "2026-11-01T00:00:00.000Z" },
   ]);
   // A second open leaves it be.
   openDesk(path).close();

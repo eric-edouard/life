@@ -32,13 +32,18 @@ export function fakeRuntime() {
     /** Runs inside `send` before it answers: a turn that calls the door before its runtime's CLI returns. */
     duringSend: undefined as (() => Promise<void>) | undefined,
     /** Ends the session's last run, as its process exiting. */
-    exit(ref: string, ok = true) {
+    exit(ref: string, ok = true, isBegunLate = false) {
       const s = sessions.get(ref);
       if (s) {
         s.running = false;
       }
-      begins.get(ref)?.fail(new Error("it ended before it began"));
       runs.get(ref)?.(ok);
+      // A run whose `begun` settles just after `ended`, as a transcript poll does.
+      if (isBegunLate) {
+        begins.get(ref)?.ok();
+      } else {
+        begins.get(ref)?.fail(new Error("it ended before it began"));
+      }
     },
     /** From now on a run is under way only on `begin(ref)` (else it fails on `exit`), not as it is launched. */
     holdBegun() {

@@ -152,7 +152,7 @@ export function startOf(db: Database, ask: string) {
   const one = <T>(sql: string) =>
     (id ? db.query<T, [string]>(sql).get(id) : null) ?? null;
   return {
-    agent: one<AgentRow>("select * from agent where id = ?"),
+    agent: id ? agentOf(db, id) : null,
     change,
     session: one<{ link: string; ref: string; started_at: string }>(
       "select ref, link, started_at from session where agent_id = ? order by rowid desc limit 1"

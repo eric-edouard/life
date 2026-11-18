@@ -52,6 +52,16 @@ const transcriptOf = (ref: string) =>
 const BEGUN_POLL_MS = 250;
 
 /**
+ * Whether a turn has begun, from its transcript's lines (none: Claude wrote none yet): its prompt is in and its last turn
+ * open. A first turn whose run is over (`isOver`) with a transcript began and was done before anyone looked.
+ */
+export const hasBegun = (
+  lines: string | undefined,
+  isFirst: boolean,
+  isOver: boolean
+) => lines !== undefined && ((isFirst && isOver) || isTurnOpen(lines));
+
+/**
  * Settles when the turn's prompt is in the transcript (its last turn open); rejects when the run ended first, except a
  * first turn (`isFirst`) whose transcript exists: it began and was done before this looked.
  */
@@ -68,10 +78,11 @@ async function begunIn(ref: string, isFirst: boolean, ended: Promise<unknown>) {
   for (;;) {
     const path = transcriptOf(ref);
     if (
-      path &&
-      (isFirst && isOver
-        ? true
-        : isTurnOpen(readFileSync(join(PROJECTS, path), "utf8")))
+      hasBegun(
+        path ? readFileSync(join(PROJECTS, path), "utf8") : undefined,
+        isFirst,
+        isOver
+      )
     ) {
       return;
     }

@@ -181,7 +181,9 @@ function startResult(
           stage: STAGES[stages.length] ?? STAGES[2],
         },
     model: s?.agent ? modelOf(s.agent).model : (change.model ?? null),
-    nothingRunning: state === "not_started",
+    // A matter already held by an agent has one running.
+    nothingRunning:
+      state === "not_started" && !reason?.includes("already held"),
     runtime: s?.agent?.runtime ?? change.runtime ?? null,
     stages,
     state,

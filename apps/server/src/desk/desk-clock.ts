@@ -184,20 +184,27 @@ function watchedIn(db: Desk["db"]) {
   return turns;
 }
 
+/** Marks turn `turn` under way, once. */
+const markBegun = (db: Desk["db"], turn: number) =>
+  db.run("update turn set begun_at = ? where id = ? and begun_at is null", [
+    now(),
+    turn,
+  ]);
+
 /** Ends turn `turn` of `id` when `run` does: failed when it did. */
 function watch(desk: Desk, id: string, turn: number, run: Run) {
   watchedIn(desk.db).add(turn);
-  // A run that ends before it begins is `ended`'s to say.
-  run.begun.then(
-    () =>
-      desk.db.run(
-        "update turn set begun_at = ? where id = ? and begun_at is null",
-        [now(), turn]
-      ),
+  // A run that ends before it begins is `ended`'s to say; `begun` settles soon after `ended` at the latest, and is waited
+  // for, so a turn that began and then failed is retried, never ended as not started.
+  const begun = run.begun.then(
+    () => markBegun(desk.db, turn),
     () => undefined
   );
   run.ended
-    .then(({ ok }) => turnEnded(desk, id, !ok))
+    .then(async ({ ok }) => {
+      await begun;
+      return turnEnded(desk, id, !ok);
+    })
     .catch((error: unknown) =>
       log("desk.runtime", {
         agent: id,
@@ -375,13 +382,7 @@ function close(
  * its matter is free for a new start. Its only turn is `t`, which never began.
  */
 function endNotStarted({ db }: Desk, t: TurnRow, why: string) {
-  const isFirst =
-    db
-      .query<{ n: number }, [string]>(
-        "select count(*) as n from turn where agent_id = ?"
-      )
-      .get(t.agent_id)?.n === 1;
-  if (!isFirst || t.begun_at) {
+  if (lastTurns(db, t.agent_id, 2).length !== 1 || t.begun_at) {
     return false;
   }
   db.run(
@@ -468,13 +469,18 @@ export async function endLostTurns(desk: Desk) {
     activeAgents(desk.db).map(async (a) => {
       const t = openTurn(desk.db, a.id);
       const runtime = desk.runtimes[a.runtime];
-      if (
-        t &&
-        !watching.has(t.id) &&
-        (!(t.session && runtime) ||
-          (await runtime.state(t.session).catch(() => "running")) !== "running")
-      ) {
+      if (!t || watching.has(t.id)) {
+        return;
+      }
+      const state =
+        t.session && runtime
+          ? await runtime.state(t.session).catch(() => "running")
+          : "gone";
+      if (state !== "running") {
         await turnEnded(desk, a.id, !t.outcome);
+      } else if (!t.begun_at) {
+        // Running after a restart that lost its watch: it is under way.
+        markBegun(desk.db, t.id);
       }
     })
   );

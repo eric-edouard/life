@@ -152,6 +152,15 @@ test("a desk that does not act within the limit is unconfirmed, at the stage rea
   });
 });
 
+test("a start refused because the matter is already held says something runs there", async () => {
+  const { result } = await start(1, "Test: other words on matter 1");
+  expect(result).toMatchObject({
+    failed: { stage: "runtime_answers" },
+    nothingRunning: false,
+    state: "not_started",
+  });
+});
+
 test("stop answers done, with no stages", async () => {
   const id = (await start(1, "Test: watch matter 1")).result as {
     agent: string;

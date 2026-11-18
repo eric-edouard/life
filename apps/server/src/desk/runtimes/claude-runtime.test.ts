@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { doorOf } from "../desk-door";
-import { argsOf, isTurnOpen, usageOf } from "./claude-runtime";
+import { argsOf, hasBegun, isTurnOpen, usageOf } from "./claude-runtime";
 
 // The claude runtime's pure parts: the command it runs, and a transcript's usage. Made-up transcripts.
 
@@ -119,4 +119,22 @@ test("a session held by an idle process is not running: only an open last turn i
     isTurnOpen(`${transcript(prompt, said("end_turn"))}\n{"type":"us`)
   ).toBe(true);
   expect(isTurnOpen("")).toBe(false);
+});
+
+test("a turn has begun once its prompt is in an open transcript; a first turn done before anyone looked began too", () => {
+  const prompt = JSON.stringify({
+    message: { content: "Brief" },
+    type: "user",
+  });
+  const done = `${prompt}\n${JSON.stringify({ message: { content: [{ type: "text" }], stop_reason: "end_turn" }, type: "assistant" })}`;
+  // No transcript yet: not begun, over or not.
+  expect(hasBegun(undefined, true, false)).toBe(false);
+  expect(hasBegun(undefined, true, true)).toBe(false);
+  // The prompt is in and the turn is open.
+  expect(hasBegun(prompt, false, false)).toBe(true);
+  // A resumed session's last turn is closed: the new prompt is not in yet, unless the run is a first turn.
+  expect(hasBegun(done, false, false)).toBe(false);
+  expect(hasBegun(done, false, true)).toBe(false);
+  expect(hasBegun(done, true, false)).toBe(false);
+  expect(hasBegun(done, true, true)).toBe(true);
 });

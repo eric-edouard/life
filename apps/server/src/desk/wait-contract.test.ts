@@ -678,3 +678,28 @@ test("a restart never ends an agent whose first turn had begun, and ends one who
   expect(agentOf(again.db, never)?.status).toBe("ended");
   expect(agentOf(again.db, did)?.status).toBe("active");
 });
+
+test("a first turn that began in the instant its run failed is retried, not ended as not started", async () => {
+  const { desk, fake, turns } = setup();
+  fake.holdBegun();
+  const id = await started(desk, "obs_00000000b007");
+  const ref = agentOf(desk.db, id)?.session ?? "";
+  // It exits failed and `begun` settles right after `ended`.
+  fake.exit(ref, false, true);
+  await Bun.sleep(5);
+  expect(agentOf(desk.db, id)?.status).toBe("active");
+  expect(turns(id)).toEqual([{ cause: "deadline", outcome: "failed" }]);
+});
+
+test("after a restart a first turn still running is under way: it is not ended as not started when it fails later", async () => {
+  const { desk, fake, path } = setup();
+  fake.holdBegun();
+  const id = await started(desk, "obs_00000000b008");
+  const ref = agentOf(desk.db, id)?.session ?? "";
+  const again: Desk = { ...desk, db: openDesk(path) };
+  await endLostTurns(again);
+  expect(openTurn(again.db, id)?.begun_at).not.toBeNull();
+  fake.exit(ref, false);
+  await endLostTurns(again);
+  expect(agentOf(again.db, id)?.status).toBe("active");
+});
