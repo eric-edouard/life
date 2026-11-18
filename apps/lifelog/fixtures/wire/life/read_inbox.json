@@ -33,6 +33,7 @@
         "id": "matter_aaaaaaaaaaaa",
         "name": "Mend Gran's watch"
       },
+      "notSent": null,
       "onSilence": "no",
       "options": [
         {
@@ -85,6 +86,7 @@
       ],
       "links": [],
       "matter": null,
+      "notSent": null,
       "onSilence": null,
       "options": [
         {
@@ -116,6 +118,7 @@
       "likelyPeople": [],
       "links": [],
       "matter": null,
+      "notSent": null,
       "onSilence": null,
       "options": [
         {

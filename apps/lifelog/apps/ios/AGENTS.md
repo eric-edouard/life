@@ -35,15 +35,15 @@ generates the gitignored `.xcodeproj`. `docs/architecture.md` names every store 
   unanalyzed audio, never skipped (unlabelled audio counts as possible speech); from the cursor on it is rebuilt and
   uploads wait for it (`TimelineScanner.scan`).
 - The owner's edits are `OwnerIntent`s sent with `SyncStore.perform`: queued in the outbox, shown at once as waiting.
-- Pairing goes one way: a `lifelog://pair` link (Camera or pasted) sets `SyncStore.offeredPairing`, `RootView` asks the
-  owner to confirm naming the server, and only then `SyncStore.pair` stores it. A link never repoints the app alone.
+- Pairing goes one way: a `lifelog://pair` link (Camera or pasted) is opened by `RootView`, which asks the
+  owner to confirm naming each server, and only then `SyncStore.pair` or `LifeStore.pair` stores it. A link never repoints the app alone.
 - `SyncStore` is the one driver: uploads, the outbox, the feed and the status. Debug builds pair from
   `LIFELOG_DEVICE_TOKEN` and `LIFELOG_SERVER_URL` in the environment (`DeviceToken.importFromEnvironment`), the one
   debug path.
 - The app talks to Life only through its connector, in Kit's `LifeConnector`: its OAuth (pairing by the code in the
   `life` and `code` of the pairing link), one `MCPClient`, and `LifeAPI`, the only place tool names appear. Every read
   is a `ReadState` (`LifeStore` shows its `shown`), never a bare value. The fixtures in `fixtures/wire/life/` are written
-  by Life's server tests (`WRITE_WIRE=1 bun test apps/server/src/host/http/mcp.test.ts`).
+  by Life's server tests (`WRITE_WIRE=1 bun test apps/server/src/host/http/mcp-phone-reads.test.ts`).
 - A server enum decodes unknown values as `unknown` (`UnknownTolerant`) and belongs in the mirror list of
   `ContractTests.swift`, which also checks every path the client calls.
 - The toolbar API is `toolbarMinimizationBehavior(_:for:)`; the WWDC docs' `toolbarMinimizeBehavior` doesn't compile.

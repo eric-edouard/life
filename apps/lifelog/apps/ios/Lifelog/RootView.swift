@@ -63,16 +63,11 @@ struct RootView: View {
             #endif
             if life.isPaired { await life.refresh() }
         }
-        // A pairing link, from the Camera or pasted in Settings: asked here, over whatever was showing.
-        .onChange(of: sync.offeredPairing) { _, pairing in
-            guard let pairing else { return }
-            sync.offeredPairing = nil
-            dismissSheet { confirming.server = pairing }
-        }
-        .onChange(of: life.offered) { _, pairing in
-            guard let pairing else { return }
-            life.offered = nil
-            dismissSheet { confirming.life = pairing }
+        // A pairing link (`lifelog://pair?…`), from the Camera or pasted in Settings: a link could come from anywhere, so
+        // it is asked here, over whatever was showing, and never repoints the app on its own.
+        .onOpenURL { url in
+            let offer = Offer(server: Pairing(link: url), life: LifePairing(link: url))
+            if !offer.isEmpty { dismissSheet { confirming = offer } }
         }
         .alert(
             "Pair with \(Self.names(confirming))?",

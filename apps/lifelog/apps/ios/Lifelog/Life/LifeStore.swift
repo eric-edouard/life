@@ -1,7 +1,7 @@
 import Foundation
+import Library
 import LifeConnector
 import Observation
-import ServerAPI
 
 /// The phone's side of Life: its four reads, each a `ReadState`, and the pairing that makes them possible. The app
 /// holds no second API: everything goes through Life's connector (`LifeConnector`, in Kit). A cold start fills each
@@ -16,8 +16,6 @@ final class LifeStore {
     private(set) var matter: [String: ReadState<Matter>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
 
-    /// A pairing link opened from outside, waiting for the owner to confirm it: never acted on alone.
-    var offered: LifePairing?
     private(set) var pairingStep: PairingStep?
     private(set) var pairingFailure: String?
 
@@ -35,14 +33,12 @@ final class LifeStore {
         self.api = api ?? MCPLifeAPI(client: MCPClient(session: LifeSession(store: tokens)))
         self.cache = cache
         self.now = now
-        restore(\.inbox, key: Self.inboxKey)
-        restore(\.matters, key: Self.mattersKey)
-        restore(\.agents, key: Self.agentsKey)
+        restore({ self.inbox.apply($0) }, key: Self.inboxKey)
+        restore({ self.matters.apply($0) }, key: Self.mattersKey)
+        restore({ self.agents.apply($0) }, key: Self.agentsKey)
     }
 
     var isPaired: Bool { tokens.load() != nil }
-    /// Life's address as the owner reads it, once paired.
-    var host: String? { tokens.load()?.endpoint.origin.host() }
 
     // MARK: Reads
 
@@ -63,7 +59,11 @@ final class LifeStore {
     }
 
     func refreshMatter(_ id: String) async {
-        await load({ self.matter[id, default: ReadState()].apply($0) }, key: "read_matter-\(id)") {
+        let key = "read_matter-\(id)"
+        let update = { (event: ReadState<Matter>.Event) in self.matter[id, default: ReadState()].apply(event) }
+        // Offline, a matter not read yet since launch still shows what was last read, as stale.
+        if matter[id] == nil { restore(update, key: key) }
+        await load(update, key: key) {
             try await $0.readMatter(id)
         }
     }
@@ -72,11 +72,11 @@ final class LifeStore {
     private static let mattersKey = "read_matters"
     private static let agentsKey = "read_registered_agents"
 
-    private func restore<V: Decodable & Sendable>(
-        _ path: ReferenceWritableKeyPath<LifeStore, ReadState<V>>, key: String
-    ) {
-        guard let kept = cache.load(key), let value = try? LifeCodec.decode(V.self, from: kept.text) else { return }
-        self[keyPath: path].apply(.succeeded(value, kept.at))
+    private func restore<V: Decodable & Sendable>(_ update: (ReadState<V>.Event) -> Void, key: String) {
+        guard let kept = cache.load(key),
+            let value = try? LibraryStore.feedDecoder.decode(V.self, from: Data(kept.text.utf8))
+        else { return }
+        update(.succeeded(value, kept.at))
     }
 
     private func load<V: Decodable & Sendable>(
@@ -86,7 +86,7 @@ final class LifeStore {
         update(.started)
         do {
             let text = try await fetch(api)
-            let value = try LifeCodec.decode(V.self, from: text)
+            let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(text.utf8))
             cache.store(text, key: key)
             update(.succeeded(value, now()))
         } catch let error as MCPError {
@@ -98,16 +98,8 @@ final class LifeStore {
 
     // MARK: Pairing
 
-    /// A pairing link from outside (the Camera, or pasted): its lifelog part goes to `sync`, its Life part here, each
-    /// only when the link carries it. The owner confirms both at once (`RootView`).
-    func offer(_ link: URL, sync: SyncStore) {
-        if let pairing = Pairing(link: link) { sync.offeredPairing = pairing }
-        if let life = LifePairing(link: link) { offered = life }
-    }
-
     /// Registers this app with Life, has the pairing code approve it, then reads the inbox as the first proof.
     func pair(_ link: LifePairing) async {
-        offered = nil
         pairingFailure = nil
         do {
             let credentials = try await LifeOAuth().pair(link) { step in

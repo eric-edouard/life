@@ -49,3 +49,14 @@ import Testing
     #expect(store.load() == nil)
     await #expect(throws: MCPError.notPaired) { try await life.bearer() }
 }
+
+@Test func aRefreshFailingForAnyOtherReasonKeepsThePairing() async throws {
+    for reply in [Reply.json("bad gateway", status: 502), .json("<html>proxy</html>", status: 400)] {
+        let host = newHost()
+        let session = Stub.session(host: host) { _ in reply }
+        let store = MemoryStore(credentials(host: host, expiresIn: 0))
+        let life = LifeSession(store: store, oauth: LifeOAuth(session: session, now: { epoch }), now: { epoch })
+        await #expect(throws: MCPError.failed("Life gave no tokens (\(reply.status)).")) { try await life.bearer() }
+        #expect(store.load() != nil)
+    }
+}

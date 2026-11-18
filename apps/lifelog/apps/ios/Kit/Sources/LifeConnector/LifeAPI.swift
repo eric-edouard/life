@@ -1,6 +1,6 @@
 import Foundation
 
-/// Life's reads, typed: the one place tool names appear. Each gives the tool's JSON text, which `LifeCodec` reads into
+/// Life's reads, typed: the one place tool names appear. Each gives the tool's JSON text, which `LibraryStore.feedDecoder` reads into
 /// the models and `ReadCache` keeps as it came.
 public protocol LifeAPI: Sendable {
     func readInbox() async throws -> String

@@ -19,10 +19,6 @@ struct LifelogApp: App {
                     guard scenePhase == .active else { return }
                     await appDelegate.capture.resyncWhileActive()
                 }
-                // A pairing code scanned with the Camera (`lifelog://pair?…`), confirmed on screen first.
-                .onOpenURL { url in
-                    appDelegate.life.offer(url, sync: appDelegate.sync)
-                }
         }
         .environment(appDelegate.capture)
         .environment(\.library, appDelegate.library)

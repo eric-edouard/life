@@ -1,71 +1,11 @@
 import { expect, spyOn, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  createLocalJWKSet,
-  exportJWK,
-  generateKeyPair,
-  type JWK,
-  SignJWT,
-} from "jose";
-import { connector as settingsOf } from "../../core/settings";
 import type { Check } from "../../memory/checks";
-import { ownerTokens } from "./auth";
-import { createMcp } from "./mcp";
-
-const { origin, resource: RESOURCE } = settingsOf();
-const ISSUER = `${origin}/auth`;
-const NOW = new Date("2026-10-15T10:00:00Z");
-const { privateKey, publicKey } = await generateKeyPair("EdDSA", {
-  extractable: true,
-});
-const jwk: JWK = { ...(await exportJWK(publicKey)), alg: "EdDSA", kid: "k1" };
-const connector = createMcp(
-  ownerTokens({
-    issuer: ISSUER,
-    jwks: createLocalJWKSet({ keys: [jwk] }),
-    now: () => NOW.getTime(),
-    ownerSub: "owner-sub",
-    resource: RESOURCE,
-  }),
-  ISSUER
-);
-
-const SECONDS = Math.floor(NOW.getTime() / 1000);
-const token = () =>
-  new SignJWT({
-    aud: RESOURCE,
-    client_id: "phone",
-    iss: ISSUER,
-    scope: "life:read offline_access",
-    sub: "owner-sub",
-  })
-    .setProtectedHeader({ alg: "EdDSA", kid: "k1" })
-    .setIssuedAt(SECONDS)
-    .setExpirationTime(SECONDS + 3600)
-    .sign(privateKey);
-
-/** One JSON-RPC call to /mcp (the answer may come as JSON or as one server-sent event). */
-async function rpc(bearer: string, method: string, params: object = {}) {
-  const res = await connector.request(
-    new Request(RESOURCE, {
-      body: JSON.stringify({ id: 1, jsonrpc: "2.0", method, params }),
-      headers: {
-        accept: "application/json, text/event-stream",
-        authorization: `Bearer ${bearer}`,
-        "content-type": "application/json",
-        "user-agent": "openai-mcp/1.0.0 (test)",
-      },
-      method: "POST",
-    })
-  );
-  const body = await (res as Response).text();
-  const data = body.split("\n").find((l) => l.startsWith("data:"));
-  return { json: JSON.parse(data ? data.slice(5) : body) };
-}
+import { rpc, token } from "./mcp-test-harness";
 
 // The phone's reads, as real answers: what each read tool says on made-up data is `apps/lifelog/fixtures/wire/life/<tool>.json`,
-// and Kit's `LifeConnector` tests decode the same files. The switch is lifelog's `wire.test.ts`: WRITE_WIRE=1 rewrites them (then `bun run fix`).
+// and Kit's `LifeConnector` tests decode the same files. `WRITE_WIRE=1` rewrites them (as lifelog's `wire.test.ts` does for its own; then `bun run fix`).
 const LIFE_WIRE = join(
   import.meta.dir,
   "../../../../lifelog/fixtures/wire/life"
@@ -101,6 +41,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     likelyPeople: [],
     links: [],
     matter: null,
+    notSent: null,
     onSilence: null,
     options: [{ id: "skip", label: "Not now" }],
     question: "Who is Sam?",
@@ -288,10 +229,28 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
   ];
   try {
     const read = async (name: string, args: object = {}) => {
-      const { json } = await rpc(await token(), "tools/call", {
-        arguments: args,
-        name,
-      });
+      // As the phone calls: the 2026-07-28 headers and the per-request envelope (`LifeConnector`'s `MCPClient`).
+      const { json } = await rpc(
+        await token(),
+        "tools/call",
+        {
+          _meta: {
+            "io.modelcontextprotocol/clientCapabilities": {},
+            "io.modelcontextprotocol/clientInfo": {
+              name: "Life for iPhone",
+              version: "1",
+            },
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          },
+          arguments: args,
+          name,
+        },
+        {
+          "mcp-method": "tools/call",
+          "mcp-name": name,
+          "mcp-protocol-version": "2026-07-28",
+        }
+      );
       expect(json.result.isError).toBe(false);
       return json.result.content[0].text as string;
     };

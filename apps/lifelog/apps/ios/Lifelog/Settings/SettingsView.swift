@@ -16,7 +16,6 @@ struct SettingsView: View {
     let allowNotifications: () -> Void
 
     @Environment(SyncStore.self) private var sync
-    @Environment(LifeStore.self) private var life
     @Environment(CaptureStore.self) private var capture
     @Environment(AppleHealthReader.self) private var appleHealth
     @Bindable private var settings = Settings.shared
@@ -130,7 +129,7 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("pendant.settings.backup")
                     NavigationLink {
-                        PairingView(server: sync.server) { life.offer($0, sync: sync) }
+                        PairingView(server: sync.server)
                     } label: {
                         SettingsLink("Server", value: sync.server?.host() ?? "Not paired")
                     }
@@ -241,8 +240,8 @@ private struct SettingsLink: View {
 /// The server this iPhone is paired with, and a pasted pairing link (confirmed on screen, never shown back).
 struct PairingView: View {
     let server: URL?
-    /// Asks to pair, confirmed on screen (`RootView`).
-    let offer: (URL) -> Void
+    /// A pasted link is opened as the app's own link: the same path as the Camera's (`RootView`'s `onOpenURL`).
+    @Environment(\.openURL) private var openURL
 
     @State private var draft = ""
     @State private var result: String?
@@ -259,7 +258,7 @@ struct PairingView: View {
                 Button(server == nil ? "Pair" : "Pair again") {
                     let link = URL(string: draft.trimmingCharacters(in: .whitespacesAndNewlines))
                     if let link, Pairing(link: link) != nil || LifePairing(link: link) != nil {
-                        offer(link)
+                        openURL(link)
                         result = nil
                     } else {
                         result = "That isn't a pairing link."
@@ -282,7 +281,7 @@ struct PairingView: View {
 
 #if DEBUG
     #Preview("Server") {
-        NavigationStack { PairingView(server: URL(string: "https://mac.example.ts.net")) { _ in } }
+        NavigationStack { PairingView(server: URL(string: "https://mac.example.ts.net")) }
             .preferredColorScheme(.dark)
     }
 #endif

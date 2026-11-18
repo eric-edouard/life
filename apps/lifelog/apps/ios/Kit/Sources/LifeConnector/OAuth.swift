@@ -159,7 +159,13 @@ public struct LifeOAuth: Sendable {
             let expiresIn: Double
         }
         guard response.statusCode == 200, let issued = try? Self.decoder.decode(Issued.self, from: data) else {
-            if response.statusCode == 400 { throw MCPError.refused("invalid_grant") }
+            // Only Life's own word that the grant is dead ends the pairing; a proxy's 400 or a 502 changes nothing.
+            struct Refusal: Decodable { let error: String }
+            if response.statusCode == 400, let refusal = try? JSONDecoder().decode(Refusal.self, from: data),
+                refusal.error == "invalid_grant" || refusal.error == "unsupported_grant_type"
+            {
+                throw MCPError.refused(refusal.error)
+            }
             throw MCPError.failed("Life gave no tokens (\(response.statusCode)).")
         }
         return LifeTokens(
