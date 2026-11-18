@@ -125,11 +125,7 @@ async function mocked() {
     spyOn(who, "readPeople").mockResolvedValue({
       // One voice was folded into Ana since it was heard.
       refOf: (s: string) =>
-        s === "person:ana-voice"
-          ? "person:ana"
-          : s.startsWith("person:")
-            ? s
-            : null,
+        s.startsWith("person:") ? s.replace("-voice", "") : null,
       resolve: (s: string) => (s === "Test Ana" ? "person:ana" : null),
       truth: { people: [] },
     } as never)
