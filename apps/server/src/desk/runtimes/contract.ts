@@ -4,9 +4,12 @@
 export interface Runtime {
   /** Context tokens the session holds now; null when it can't say (a wake then sends into it). */
   contextTokens: (ref: string) => Promise<number | null>;
-  /** Runs `message` in the session now; may answer with a new ref (a copy of a session already running). */
+  /**
+   * Runs `message` in the session now, answering once the turn is under way, never at its end (the desk starts turns
+   * one after another); may answer with a new ref (a copy of a session already running).
+   */
   send: (ref: string, message: string) => Promise<{ ref: string }>;
-  /** Starts a session in `folder` with `brief` as its first message; its ref, and a link that opens it. */
+  /** Starts a session in `folder` with `brief` as its first message, answering once it is under way: its ref, and a link that opens it. */
   start: (
     agent: { folder: string; id: string; title: string },
     brief: string

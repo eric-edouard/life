@@ -270,6 +270,8 @@ export async function turnEnded(desk: Desk, id: string, end: TurnEnd = {}) {
     close(desk, t, t.outcome, end);
     return;
   }
+  // ponytail: a turn ending before `start` answers has no session written yet, so it gets the default wait unreminded;
+  // writing the session as soon as the runtime knows it (step 3's runtimes) closes that.
   if (!t.reminded_at && a.session && desk.runtimes[a.runtime]) {
     // Marked before it is sent, so a turn ending at once is never reminded twice.
     db.run("update turn set reminded_at = ? where id = ?", [now(), t.id]);
