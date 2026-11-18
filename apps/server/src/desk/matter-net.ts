@@ -1,13 +1,24 @@
 import type { Database } from "bun:sqlite";
-import { clock, daysBefore, MIN } from "../core/clock";
+import { daysBefore } from "../core/clock";
 import { closestOf, type Embedder, embedAll } from "../core/embedder";
+import { readChangeStamp } from "../core/files";
 import { packed } from "../core/lists";
 import { log } from "../core/log";
 import { activeAgents, anchorsOf } from "../host/desk-read";
 import type { MessagePayload } from "../host/events";
 import { matterFinderOf, netOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
-import { readUnitsOf } from "../memory/memory-files";
+import {
+  CORRECTIONS,
+  EPISODES,
+  EXTRACTED,
+  LEDGER,
+  LINKS,
+  MATTERS,
+  OBSERVATIONS,
+  readUnitsOf,
+  SUPERSESSIONS,
+} from "../memory/memory-files";
 import { kindOf } from "../memory/sources";
 import { embedderNow } from "../memory/vectors";
 import type { People } from "../memory/who";
@@ -32,12 +43,27 @@ const CLOSE_AT = 0.55;
 const MIN_CHARS = 20;
 /** A recording's new words are compared in parts of at most this many characters (the embedder reads about 2,000 bytes). */
 const PART_CHARS = 1500;
-/** The nets are built again at most this often: a matter changes at night; a new or moved agent shows at once. */
-const NETS_FOR = 10 * MIN;
+/**
+ * What the matter book is read from (its steps, endings, his word, the to-do items): a change to any of them builds the
+ * nets again, so a matter he marks done ends its agent on the next poll. Units are left out, as the checks do: the
+ * watcher writes them every few minutes, and a matter changes only through the files here.
+ */
+const NETS_READ = [
+  CORRECTIONS,
+  EPISODES,
+  EXTRACTED,
+  LEDGER,
+  LINKS,
+  MATTERS,
+  OBSERVATIONS,
+  SUPERSESSIONS,
+];
 
 /** An agent's matter as the net reads it: its people, and its texts' vectors. */
 interface Net {
   agent: string;
+  /** Its matter is done (by his word or its own steps' endings, never a link's "probably"): the desk ends the agent. */
+  isDone: boolean;
   people: ReadonlySet<string>;
   /** When the agent started: nothing said before is new to it. */
   since: string;
@@ -49,7 +75,7 @@ interface Net {
  * ponytail: never pruned; it holds the active agents' matter texts as they change, a few thousand a year at most.
  */
 const queries = new Map<string, number[]>();
-const kept = new WeakMap<Database, { at: number; key: string; nets: Net[] }>();
+const kept = new WeakMap<Database, { key: string; nets: Net[] }>();
 
 const embedderOf = (desk: Desk) =>
   desk.embedder === undefined ? embedderNow() : desk.embedder;
@@ -76,7 +102,8 @@ async function queryVectors(embedder: Embedder | null, texts: string[]) {
 
 /**
  * The nets of the active agents on a matter (an agent on a project has none), its matter found by its anchors. The
- * matter book is read again only once the agents or their anchors change, or `NETS_FOR` passed; a net whose vectors
+ * matter book is read again only once the agents, their anchors, his day or what it is read from (`NETS_READ`, by its
+ * change stamp: stats, no read) changed; a net whose vectors
  * the embedder could not make is not kept, so the next poll tries again.
  */
 export async function netsOf(desk: Desk, people: People) {
@@ -88,10 +115,13 @@ export async function netsOf(desk: Desk, people: People) {
   if (agents.length === 0) {
     return [];
   }
-  const key = JSON.stringify(agents.map(({ a, steps }) => [a.id, steps]));
-  const now = clock().getTime();
+  const key = JSON.stringify([
+    readChangeStamp(NETS_READ),
+    dayNow(),
+    agents.map(({ a, steps }) => [a.id, steps]),
+  ]);
   const was = kept.get(db);
-  if (was?.key === key && now - was.at < NETS_FOR) {
+  if (was?.key === key) {
     return was.nets;
   }
   const find = matterFinderOf(await readMatterBook(people, dayNow()));
@@ -109,13 +139,14 @@ export async function netsOf(desk: Desk, people: People) {
     isWhole &&= vectors !== null;
     nets.push({
       agent: a.id,
+      isDone: v.status === "done",
       people: net.people,
       since: a.created_at,
       vectors: vectors ?? [],
     });
   }
   if (isWhole) {
-    kept.set(db, { at: now, key, nets });
+    kept.set(db, { key, nets });
   }
   return nets;
 }

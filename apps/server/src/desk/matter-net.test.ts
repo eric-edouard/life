@@ -6,6 +6,7 @@ import { clock, DAY, MIN } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { agentOf, queuedEvents } from "../host/desk-read";
 import type { Messaging } from "../host/events";
+import { recordCorrection } from "../memory/memory-files";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { register } from "./agent-actions";
@@ -270,11 +271,31 @@ test("an agent whose matter is done is ended; one only probably done (a link's) 
     s.mockRestore();
   }
   await mocked("done");
-  // Seen on the next poll, though the kept nets (`NETS_FOR`) still hold: his Mark as done must not wait 10 minutes.
+  // His Mark as done records a correction: the next poll sees the change, a minute later, not 10.
   setSystemTime(new Date(T0 + MIN));
+  await recordCorrection({
+    kind: "outdated",
+    note: "done",
+    observations: [STEP],
+  });
   await tick(desk);
   expect(agentOf(desk.db, agent)).toMatchObject({
     outcome: "its matter is done",
     status: "ended",
   });
+});
+
+test("a poll with nothing changed does not read the matter book again", async () => {
+  await mocked();
+  const { agent, desk } = setup();
+  desk.db.run("update agent set wait_until = ? where id = ?", [
+    new Date(T0 + DAY).toISOString(),
+    agent,
+  ]);
+  const [book] = spies;
+  // Two polls a minute apart, every reader of the nets included (messages, recordings, done matters): one read.
+  await tick(desk);
+  setSystemTime(new Date(T0 + MIN));
+  await tick(desk);
+  expect(book?.mock.calls).toHaveLength(1);
 });
