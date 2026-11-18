@@ -12,7 +12,7 @@ import { openReadOnly } from "../core/sqlite";
 import { isTimeZone } from "../core/time-zone";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
-// (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except through `writeLifelog`: `forward` (his explicit corrections), `answerNamingQueue` (his voice answers) and `notifyPhone` (a push). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
+// (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except through `writeLifelog`: `forward` (his explicit corrections), `answerNamingQueue` (his voice answers) and `notifyPhone` (a push, `lifelog-push.ts`). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
 // page's `cursor`. Life folds every page into a small local store (derived/watch/lifelog.sqlite: the conversations, and
 // for every turn only who spoke, when, and when the feed brought it, never its text; plus the hearing's marks) and builds
 // units from that store.
@@ -841,14 +841,4 @@ export async function writeLifelog(...[method, path, body]: Write) {
   const after = await call(path, 60, body, method);
   log("lifelog.write", { after, method, path, phase: "after" });
   return after;
-}
-
-/** A visible push to his phone through lifelog (`POST /notifications`), logged like a correction; nothing without lifelog set up. Never throws: a failure is its log line. */
-export async function notifyPhone(title: string, body: string) {
-  if (lifelogMissing()) {
-    return;
-  }
-  await writeLifelog("POST", "/notifications", { body, title }).catch((e) =>
-    log("lifelog.write", { error: String(e), phase: "failed" })
-  );
 }

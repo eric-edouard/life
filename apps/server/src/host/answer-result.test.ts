@@ -5,7 +5,7 @@ import { dirname } from "node:path";
 import { DAY } from "../core/clock";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
-import type { Check } from "../memory/checks";
+import type { Check, InboxCheck } from "../memory/checks";
 import {
   DECISIONS,
   type Decision,
@@ -43,9 +43,9 @@ const card = (asker = "planner", agent?: string) =>
   );
 
 const asCheck = (c: Partial<Check>) =>
-  ({ about: [], matter: null, ...c }) as Check;
+  ({ about: [], matter: null, pushId: "", ...c }) as InboxCheck;
 /** The inbox as it is: the open decisions, plus made-up guesses. */
-let guesses: Check[] = [];
+let guesses: InboxCheck[] = [];
 let listed: ReturnType<typeof spyOn>;
 let sends: ReturnType<typeof spyOn>;
 beforeEach(async () => {

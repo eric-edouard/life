@@ -84,6 +84,22 @@ const outgoingOf = (d: StoredDraft, bytes?: Uint8Array): Outgoing => ({
   ...(d.text ? { text: d.text } : {}),
 });
 
+/**
+ * The steps a send of `draft` reports, in order, the one place that decides them: a chat is checked for anyone
+ * writing since (`chat_checked`), a mail has no chat; then the network takes it (`handed`) and it is seen (`confirmed`).
+ */
+export const sendStepsOf = (draft: StoredDraft, sources = enabledSources()) => [
+  ...(isChat(sources.find((x) => x.name === draft.channel))
+    ? ["chat_checked"]
+    : []),
+  "handed",
+  "confirmed",
+];
+
+/** Whether a send goes into a chat (checked for writing since), not a mail: the one test the steps and the check share. */
+const isChat = (s?: Descriptor): s is Descriptor & { kind: "chat" } =>
+  s?.kind === "chat";
+
 /** A source whose messages a draft goes into: chat or mail. */
 type Sending = Descriptor & { kind: "chat" | "mail" };
 
@@ -257,7 +273,7 @@ export async function sendDraft(
   if (refusal) {
     throw never(refusal);
   }
-  if (s.kind === "chat") {
+  if (isChat(s)) {
     // ponytail: the archive's copy can trail the network by its copier's interval, so a message written seconds ago may be missed.
     const wrote = s
       .read(since)

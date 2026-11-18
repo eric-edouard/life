@@ -8,8 +8,8 @@ import {
   notSentOf,
   sendsOn,
 } from "../memory/decisions";
-import { sendLimitMs } from "../memory/draft-send";
-import { enabledSources } from "../memory/sources";
+import type { StoredDraft } from "../memory/draft";
+import { sendLimitMs, sendStepsOf } from "../memory/draft-send";
 import { eventHeard, readDesk } from "./desk-read";
 import type { ToolCall } from "./http/mcp-tool";
 
@@ -185,10 +185,6 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     return decisionResult(ref, report, answerKey);
   }
   const sends = known?.state === "open" && sendsOn(known, a.options, a.note);
-  const mail =
-    sends &&
-    enabledSources().find((s) => s.name === known.draft?.channel)?.kind ===
-      "mail";
   report({
     limitSeconds: Math.ceil(
       ((sends && known.draft ? sendLimitMs(known.draft) : 0) + QUICK_MS) / 1000
@@ -196,9 +192,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     plan: known
       ? [
           "recorded",
-          ...(sends
-            ? [...(mail ? [] : ["chat_checked"]), "handed", "confirmed"]
-            : []),
+          ...(sends ? sendStepsOf(known.draft as StoredDraft) : []),
           "asker_told",
           "left_inbox",
         ]

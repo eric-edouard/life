@@ -495,16 +495,3 @@ export const settledBetween = (list: Decision[], from: Date, to: Date) =>
     )
     .toSorted((a, b) => a.at - b.at)
     .map((x) => x.d);
-
-/** When a decision is pushed: as its deadline comes within 24 hours, or when asked if it already has. */
-const pushAtOf = (d: Decision) =>
-  Math.max(Date.parse(d.at), Date.parse(d.deadline) - DAY);
-
-/** The open decisions whose push instant falls in (`since`, `now`]: each is due once. */
-export const pushDueOf = (list: Decision[], since: Date, now: Date) =>
-  list.filter(
-    (d) =>
-      d.state === "open" &&
-      pushAtOf(d) > since.getTime() &&
-      pushAtOf(d) <= now.getTime()
-  );

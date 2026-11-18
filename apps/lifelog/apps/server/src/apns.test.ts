@@ -202,3 +202,61 @@ test("a notice another app asks for is one visible push; an empty or long title 
   expect((await post({ body: "x", title: "t".repeat(101) })).status).toBe(400);
   expect(sent).toHaveLength(1);
 });
+
+test("Life's card pushes: one card names its id, quiet is passive with no sound, a badge alone is silent", async () => {
+  storePushToken(env.db, PUSH_TOKEN);
+  const app = appWith(pusher());
+  const post = (body: unknown) =>
+    app.request("/notifications", {
+      body: JSON.stringify(body),
+      headers: {
+        Authorization: `Bearer ${OWNER_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+  const last = () => JSON.parse(sent.at(-1)?.request.body ?? "");
+  const card = "9f2c41d07ab35e68";
+  expect(
+    (await post({ badge: 42, body: "1 new card", card, title: "Life" })).status
+  ).toBe(200);
+  expect(last()).toEqual({
+    aps: {
+      alert: { body: "1 new card", title: "Life" },
+      badge: 42,
+      "interruption-level": "active",
+      sound: "default",
+      "thread-id": "life-cards",
+    },
+    lifeCard: card,
+  });
+  await post({ badge: 48, body: "7 new cards", quiet: true, title: "Life" });
+  expect(last()).toEqual({
+    aps: {
+      alert: { body: "7 new cards", title: "Life" },
+      badge: 48,
+      "interruption-level": "passive",
+      "thread-id": "life-cards",
+    },
+  });
+  await post({ badge: 41 });
+  expect(last()).toEqual({
+    aps: {
+      badge: 41,
+      "interruption-level": "active",
+      "thread-id": "life-cards",
+    },
+  });
+  expect(sent).toHaveLength(3);
+  const refused = await Promise.all(
+    [
+      { title: "Life" },
+      { body: "x" },
+      { quiet: true },
+      { badge: -1 },
+      { badge: 1, card: "Kit's card" },
+    ].map(async (bad) => (await post(bad)).status)
+  );
+  expect(refused).toEqual([400, 400, 400, 400, 400]);
+  expect(sent).toHaveLength(3);
+});

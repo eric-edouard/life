@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+import { secretIn } from "../core/secret";
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
@@ -588,8 +590,15 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
     });
 };
 
+/** A card's id for a push: 16 hex of an HMAC of its ref under a key that never leaves the Mac. The phone matches it against the inbox; it is never the ref. */
+export const pushIdOf = (ref: string, key = secretIn("pushIdKey")) =>
+  createHmac("sha256", key).update(ref).digest("hex").slice(0, 16);
+
+/** A check as the inbox lists it: with its `pushId`. */
+export type InboxCheck = Check & { pushId: string };
+
 /** What waits on his word now, over what is stored today: read-only, no model call. */
-export async function checksNow(): Promise<Check[]> {
+export async function checksNow(): Promise<InboxCheck[]> {
   const people = await readPeople();
   const [records, unresolved, paged, voices] = await Promise.all([
     readMatterRecords(people),
@@ -601,7 +610,8 @@ export async function checksNow(): Promise<Check[]> {
   const units = readUnitsFor(
     people.inferred.flatMap((p) => p.evidence.map((e) => e.unit))
   );
-  return checksOf({
+  const key = secretIn("pushIdKey");
+  const checks = checksOf({
     answered: new Set(
       [...readFactCheckAnswers()].flatMap(([ref, a]) => (a.answer ? [ref] : []))
     ),
@@ -635,6 +645,7 @@ export async function checksNow(): Promise<Check[]> {
       ]),
     ]),
   });
+  return checks.map((c) => ({ ...c, pushId: pushIdOf(c.ref, key) }));
 }
 
 /** The inbox (`read_inbox`): the first `limit` checks, most pressing first, with how many there are of each group; answered ones leave, so reading again shows the next. */

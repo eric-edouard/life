@@ -63,6 +63,9 @@ const Status = LiveStatus.extend({
   transcription: z.unknown().describe("ElevenLabs' credits and latency"),
 }).openapi("Status");
 
+/** A Life card's opaque push id. */
+const PUSH_ID = /^[0-9a-f]{16}$/;
+
 export function healthRoutes(
   s: Pick<
     Services,
@@ -134,8 +137,10 @@ export function healthRoutes(
     .openapi(
       createRoute({
         description:
-          "A visible push to the phone that another app of the owner's asks for (Life: each voice " +
-          "ask it heard, so a missing one tells him at once it was not). Sent once, recorded as an " +
+          "A push to the phone that another app of the owner's asks for (Life: each voice ask it heard, " +
+          "so a missing one tells him at once it was not; its new cards: a count, a badge and one card's " +
+          "opaque id, `card`, 16 hex). Words (`title` and `body` together) and/or a `badge`; `quiet` is " +
+          "passive, with no sound. Sent once, recorded as an " +
           "`apns.*` event of kind `notice`; `stored` is true even when no push token or key is set.",
         method: "post",
         path: "/notifications",
@@ -143,10 +148,26 @@ export function healthRoutes(
           body: {
             content: {
               "application/json": {
-                schema: z.object({
-                  body: z.string().min(1).max(500),
-                  title: z.string().min(1).max(100),
-                }),
+                schema: z
+                  .object({
+                    badge: z.number().int().min(0).optional(),
+                    body: z.string().min(1).max(500).optional(),
+                    card: z.string().regex(PUSH_ID).optional(),
+                    quiet: z.boolean().optional(),
+                    title: z.string().min(1).max(100).optional(),
+                  })
+                  .refine(
+                    (n) => (n.title === undefined) === (n.body === undefined),
+                    {
+                      message: "title and body come together",
+                    }
+                  )
+                  .refine(
+                    (n) => n.title !== undefined || n.badge !== undefined,
+                    {
+                      message: "an alert (title and body) or a badge",
+                    }
+                  ),
               },
             },
             required: true,
@@ -155,8 +176,7 @@ export function healthRoutes(
         responses: { 200: json(Stored, "Sent, or recorded as skipped") },
       }),
       async (c) => {
-        const { body, title } = c.req.valid("json");
-        await s.notice(title, body);
+        await s.notice(c.req.valid("json"));
         return c.json({ stored: true }, 200);
       }
     )

@@ -1,7 +1,13 @@
 import { expect, test } from "bun:test";
 import type { Correction } from "../records/observation";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
-import { type Check, type CheckInputs, checksOf, checksText } from "./checks";
+import {
+  type Check,
+  type CheckInputs,
+  checksOf,
+  checksText,
+  pushIdOf,
+} from "./checks";
 import { guessTestOf } from "./who";
 
 type Input = Partial<Omit<CheckInputs, "people">> & {
@@ -357,4 +363,14 @@ test("every voice in lifelog's queue is a card of the one inbox, with its clips 
     start: 1,
   });
   expect(byRef("voice:v2")?.evidence?.quote).toBe("See you Friday");
+});
+
+const HEX16 = /^[0-9a-f]{16}$/;
+test("a push id is 16 hex, stable for a ref, and differs under another key", () => {
+  const id = pushIdOf("person:kit", "a".repeat(64));
+  expect(id).toMatch(HEX16);
+  expect(pushIdOf("person:kit", "a".repeat(64))).toBe(id);
+  expect(pushIdOf("person:kit", "b".repeat(64))).not.toBe(id);
+  expect(pushIdOf("person:lou", "a".repeat(64))).not.toBe(id);
+  expect(id).not.toContain("kit");
 });

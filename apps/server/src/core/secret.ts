@@ -31,6 +31,8 @@ export const SECRETS = {
   matrix: join(MACHINE_DIR, "bridges", "owner.json"),
   /** Life's own sign-in: its key, the apps and their tokens. */
   oauth: join(LIFE_STATE_DIR, "oauth", "state.json"),
+  /** The key a card's push id is made with (`pushIdOf`, `memory/checks.ts`); it never leaves the Mac. */
+  pushIdKey: join(LIFE_STATE_DIR, "push-id.key"),
 };
 
 type Secret = keyof typeof SECRETS;
@@ -63,7 +65,7 @@ const KEY = /^[0-9a-f]{64}$/;
  * A random secret in its file, made once, then read: written whole to a file of its own, then linked in place, which
  * fails if another process got there first (its key it is), so no reader ever sees half a key or an empty one.
  */
-export function secretIn(name: "deskKey" | "localKey"): string {
+export function secretIn(name: "deskKey" | "localKey" | "pushIdKey"): string {
   const path = SECRETS[name];
   if (existsSync(path)) {
     const key = readFileSync(path, "utf8");

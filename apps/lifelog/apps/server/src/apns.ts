@@ -208,12 +208,43 @@ export const alertOf = (
   },
 });
 
-// A notice another app of the owner's asks for (Life: each voice ask it heard): a visible push,
-// recorded as kind `notice`. Never throws.
+/** What another app of the owner's asks to push: words (both or neither), a badge, a card's opaque id, and quiet (no sound, passive). */
+export interface NoticeRequest {
+  badge?: number | undefined;
+  body?: string | undefined;
+  card?: string | undefined;
+  quiet?: boolean | undefined;
+  title?: string | undefined;
+}
+
+// A notice another app of the owner's asks for (Life: each voice ask it heard, its new cards): a push recorded as
+// kind `notice`. A badge marks Life's card pushes: they join the thread `life-cards`, passive when quiet, and carry
+// `lifeCard` beside `aps` when one card is named. Quiet and badge-only pushes go at priority 5, as Apple asks of
+// what need not wake him. Never throws.
 export const phoneNotice =
   (db: Db, push: Pusher | null, bundleId: string) =>
-  (title: string, body: string) =>
-    sendPush(db, push, "notice", alertOf(bundleId, title, body));
+  ({ badge, body, card, quiet, title }: NoticeRequest) =>
+    sendPush(db, push, "notice", {
+      body: JSON.stringify({
+        aps: {
+          ...(title && body ? { alert: { body, title } } : {}),
+          ...(badge === undefined
+            ? {}
+            : {
+                badge,
+                "interruption-level": quiet ? "passive" : "active",
+                "thread-id": "life-cards",
+              }),
+          ...(title && !quiet ? { sound: "default" } : {}),
+        },
+        ...(card ? { lifeCard: card } : {}),
+      }),
+      headers: {
+        "apns-priority": quiet || !title ? "5" : "10",
+        "apns-push-type": "alert",
+        "apns-topic": bundleId,
+      },
+    });
 
 export type Notice = ReturnType<typeof phoneNotice>;
 

@@ -6,7 +6,6 @@ import {
   answerDecision,
   DECISIONS,
   decisionsNow,
-  pushDueOf,
   requestDecision,
   settledBetween,
 } from "./decisions";
@@ -422,22 +421,6 @@ test("earlier versions' lines in the file are skipped: the old decisions page's,
   );
   const { id } = await requestDecision("planner", ask(), NOW);
   expect(decisionsNow(NOW).map((d) => d.id)).toEqual([id]);
-});
-
-test("a decision is pushed once, as its deadline comes within 24 hours, or at once when it already has", async () => {
-  await requestDecision("planner", ask(), NOW);
-  await requestDecision(
-    "planner",
-    ask({ deadline: later(3 * HOUR).toISOString() }),
-    NOW
-  );
-  const ids = decisionsNow(NOW).map((d) => d.id);
-  const due = (from: Date, to: Date) =>
-    pushDueOf(decisionsNow(to), from, to).map((d) => d.id);
-  expect(due(later(-60_000), NOW)).toEqual(ids.slice(1));
-  expect(due(NOW, later(DAY - 60_000))).toEqual([]);
-  expect(due(later(DAY - 60_000), later(DAY))).toEqual(ids.slice(0, 1));
-  expect(due(later(DAY), later(DAY + 60_000))).toEqual([]);
 });
 
 test("settled in a half-open window: an answer at a window's end comes in the next, once", async () => {

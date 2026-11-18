@@ -1,0 +1,122 @@
+import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
+import { rmSync } from "node:fs";
+import { clock, DAY } from "../core/clock";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as checks from "../memory/checks";
+import { DECISIONS, requestDecision } from "../memory/decisions";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as lifelog from "../sources/lifelog-push";
+import { PUSHED, pushNewCards, pushNewCardsIfChanged } from "./card-push";
+
+const card = (n: number, asker = "planner") =>
+  ({
+    asker,
+    pushId: n.toString(16).padStart(16, "0"),
+    question: "Pay Kit's invoice?",
+    ref: `dec_${n}`,
+    title: "It is due.",
+  }) as checks.InboxCheck;
+const cards = (n: number, asker?: string) =>
+  Array.from({ length: n }, (_, i) => card(i + 1, asker));
+
+let open = cards(0);
+let look: ReturnType<typeof spyOn<typeof checks, "checksNow">>;
+let push: ReturnType<typeof spyOn<typeof lifelog, "notifyPhone">>;
+const clean = () => {
+  rmSync(PUSHED, { force: true });
+  rmSync(DECISIONS, { force: true });
+};
+beforeEach(() => {
+  clean();
+  look = spyOn(checks, "checksNow").mockImplementation(() =>
+    Promise.resolve(open)
+  );
+  push = spyOn(lifelog, "notifyPhone").mockResolvedValue(undefined);
+});
+afterEach(() => {
+  look.mockRestore();
+  push.mockRestore();
+  clean();
+});
+const later = (days: number) => new Date(clock().getTime() + days * DAY);
+
+test("the first run pushes nothing and sees every open card; a new one pushes with its id and the badge", async () => {
+  open = cards(265);
+  await pushNewCards();
+  expect(push).not.toHaveBeenCalled();
+  open = [...cards(265), card(266)];
+  await pushNewCards();
+  expect(push.mock.calls).toEqual([
+    [
+      {
+        badge: 266,
+        body: "1 new card",
+        card: card(266).pushId,
+        quiet: false,
+        title: "Life",
+      },
+    ],
+  ]);
+  await pushNewCards();
+  expect(push).toHaveBeenCalledTimes(1);
+});
+
+test("several new cards are one push with their count and no card; Life's own are quiet", async () => {
+  open = cards(2);
+  await pushNewCards();
+  open = [...cards(2), ...cards(9, "life").slice(2)];
+  await pushNewCards();
+  expect(push.mock.calls).toEqual([
+    [{ badge: 9, body: "7 new cards", quiet: true, title: "Life" }],
+  ]);
+});
+
+test("an answered card is a badge-only push; nothing changed is none", async () => {
+  open = cards(3);
+  await pushNewCards();
+  open = cards(2);
+  await pushNewCards();
+  await pushNewCards();
+  expect(push.mock.calls).toEqual([[{ badge: 2 }]]);
+});
+
+test("a card gone for 31 days is new when it returns", async () => {
+  open = cards(2);
+  await pushNewCards();
+  open = cards(1);
+  await pushNewCards(later(31));
+  open = cards(2);
+  await pushNewCards(later(32));
+  expect(push.mock.calls.at(-1)?.[0]).toMatchObject({
+    body: "1 new card",
+    card: card(2).pushId,
+  });
+});
+
+test("what goes out holds no ref, title or question", async () => {
+  open = cards(1);
+  await pushNewCards();
+  open = cards(2);
+  await pushNewCards();
+  const sent = JSON.stringify(push.mock.calls);
+  for (const secret of ["dec_", "Pay Kit", "It is due", "planner"]) {
+    expect(sent).not.toContain(secret);
+  }
+});
+
+test("the watcher looks again only when the decisions, corrections or answers gained a line", async () => {
+  await pushNewCardsIfChanged();
+  await pushNewCardsIfChanged();
+  expect(look).toHaveBeenCalledTimes(1);
+  await requestDecision("planner", {
+    deadline: later(2).toISOString(),
+    options: [
+      { id: "yes", label: "Pay Kit" },
+      { id: "no", label: "Wait" },
+    ],
+    question: "Pay Kit's invoice?",
+    title: "It is due.",
+  });
+  await pushNewCardsIfChanged();
+  expect(look).toHaveBeenCalledTimes(2);
+});
