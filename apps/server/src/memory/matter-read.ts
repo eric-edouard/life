@@ -92,7 +92,6 @@ export interface MatterRecords {
 
 /** A matter's goal as it reads now: his latest word, else Life's latest draft; `draft` is Life's latest, whether or not his word replaced it. */
 export interface MatterGoal {
-  at: string;
   by: "life" | "owner";
   draft?: { agentCanMove: boolean; at: string };
   text: string;
@@ -484,7 +483,7 @@ export function goalsOf<V extends Found>(
       v,
       was?.by === "owner" && p.by === "life"
         ? { ...was, ...(draft ? { draft } : {}) }
-        : { at: p.at, by: p.by, ...(draft ? { draft } : {}), text: p.text }
+        : { by: p.by, ...(draft ? { draft } : {}), text: p.text }
     );
   }
   return goals;

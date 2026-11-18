@@ -49,6 +49,9 @@ export const MatterBatch = z
   .strict();
 export type MatterBatch = z.infer<typeof MatterBatch>;
 
+/** A matter's goal in words: one line, where it is going (Life's draft or his word). */
+export const GoalText = z.string().trim().min(1).max(200);
+
 /**
  * A matter's goal as Life drafts it: one line, where the matter is going, and whether an agent could move it forward
  * (not a talk only he can have). Pinned to the matter's steps when drafted (oldest first), never to its id: a re-group
@@ -57,7 +60,7 @@ export type MatterBatch = z.infer<typeof MatterBatch>;
 export const MatterGoalDraft = z
   .object({
     agentCanMove: z.boolean(),
-    goal: z.string().trim().min(1).max(200),
+    goal: GoalText,
     steps: z.array(z.string().min(1)).min(1),
   })
   .strict();

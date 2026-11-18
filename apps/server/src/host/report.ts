@@ -187,7 +187,7 @@ export function successReport(day: string, ms: number, n: Night) {
         `Corrections applied: ${n.paged.corrections}; observations retired: ${n.retired}`,
         ...(checks.length > 0
           ? [
-              "Checks: Life keeps using its guesses; to settle one, tell Life in a chat or the app.",
+              "Checks: Life keeps using its guesses, and starts no agent it offers until you say so; to answer one, tell Life in a chat or the app.",
             ]
           : []),
         ...(n.paged.dropped.length > 0

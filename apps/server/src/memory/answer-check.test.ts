@@ -156,6 +156,15 @@ test("a matter start: Edit goal records his goal, Dismiss his no, Start asks hos
     { answer: "dismiss", kind: "matter-start", steps: ["obs_000000000002"] },
   ]);
   expect(started).toEqual([]);
+  // The desk not starting it (refused, or not yet): nothing written, the check stays.
+  await expect(
+    answerWith(
+      start.ref,
+      { options: ["start"] },
+      { startAgent: () => Promise.reject(new Error("Not done yet: Recorded")) }
+    )
+  ).rejects.toThrow("Not done yet");
+  expect(said()).toHaveLength(2);
   const { done } = await answerCheck(start.ref, { options: ["start"] });
   expect(done[0]).toBe("Done: start agt_000000000001");
   expect(started).toEqual([start]);

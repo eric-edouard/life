@@ -51,7 +51,7 @@ test("a goal is due for a new, open, grouped matter with none: never an old one,
       view("matter_00000000a003", "2026-11-17", { lone: true }),
       view("matter_00000000a004", "2026-11-17", { open: false }),
       view("matter_00000000a005", "2026-11-17", {
-        goal: { at: "2026-11-17T23:00:00.000Z", by: "owner", text: "Done" },
+        goal: { by: "owner", text: "Done" },
       }),
     ],
     TODAY
@@ -143,7 +143,6 @@ test("his goal wins over any draft, before or after; a split leaves the goal wit
     pin("life", "2026-11-12T02:00:00.000Z", [s1, s2, s3], "Draft two"),
   ];
   expect(goalsOf([whole], pins).get(whole)).toEqual({
-    at: "2026-11-11T09:00:00.000Z",
     by: "owner",
     draft: { agentCanMove: true, at: "2026-11-12T02:00:00.000Z" },
     text: "His goal",

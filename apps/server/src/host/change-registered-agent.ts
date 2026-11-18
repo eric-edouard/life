@@ -76,13 +76,14 @@ async function matterNamed(step: string) {
 
 /**
  * Where a new agent's sessions start when he names no folder: the first of its `projects`' repos (`repos:` in his
- * directory, a folder name or `owner/name`) that is on the Mac; none: the desk makes a folder of its own for it.
+ * directory) cloned on the Mac, by its key as the repo map reads it (`owner/name` is on GitHub only); none: the desk
+ * makes a folder of its own for it.
  */
 function repoFolderOf(projects: string[], truth: Truth) {
   const here = new Map(listRepos().map((r) => [r.key, r.path]));
   return projects
     .flatMap((id) => truth.projects.find((p) => p.id === id)?.repos ?? [])
-    .map((repo) => here.get(repo.split("/").at(-1) ?? repo))
+    .map((repo) => here.get(repo))
     .find(Boolean);
 }
 
@@ -140,10 +141,17 @@ export async function changeRegisteredAgent({
 /**
  * His Start on a matter start check (`answer_check`): an agent on the check's matter (its `subject`, a step) with the
  * desk's defaults; his tap, with the question it answered, is his words and its brief (the packet opens with the goal).
+ * Throws unless the desk started it, so the check stays until an agent runs (a second Start is refused while one holds
+ * the matter).
  */
-export const startOnMatter = (c: Pick<Check, "question" | "subject">) =>
-  changeRegisteredAgent({
+export async function startOnMatter(c: Pick<Check, "question" | "subject">) {
+  const done = await changeRegisteredAgent({
     action: "start",
     said: `Start (his answer to: ${c.question})`,
     step: c.subject ?? undefined,
   });
+  if (!done.startsWith("Done")) {
+    throw new Error(`Not done yet: ${done}`);
+  }
+  return done;
+}

@@ -35,7 +35,6 @@ test("read_matters lists the open matters, of one project when asked; read_matte
   ];
   const errand = view({
     goal: {
-      at: "2026-10-13T02:00:00.000Z",
       by: "life",
       text: "Gran has her watch back",
     },

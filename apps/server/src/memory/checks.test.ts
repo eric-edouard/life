@@ -308,7 +308,6 @@ test("a new matter an agent could move asks 'work on it?' while the desk is on, 
   const draft = { agentCanMove: true, at: "2026-11-15T02:00:00.000Z" };
   const matter = {
     goal: {
-      at: draft.at,
       by: "life" as const,
       draft,
       text: "The boiler is serviced",
@@ -354,7 +353,6 @@ test("a new matter an agent could move asks 'work on it?' while the desk is on, 
   const edited = {
     ...matter,
     goal: {
-      at: "2026-11-16T09:00:00.000Z",
       by: "owner" as const,
       draft,
       text: "Serviced and the leak fixed",

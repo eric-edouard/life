@@ -12,6 +12,7 @@ import {
   slug,
   UnitId,
 } from "./fields";
+import { GoalText } from "./matter";
 import { MemoryType } from "./unit";
 
 // Memory's observations (memory/observations/, docs/SCHEMA.md) and what reads or corrects them: extractions,
@@ -237,7 +238,7 @@ export const Correction = z
     z
       .object({
         ...Correcting,
-        goal: z.string().trim().min(1).max(200),
+        goal: GoalText,
         kind: z.literal("matter-goal"),
         steps: MatterSteps,
       })

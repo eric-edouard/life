@@ -19,6 +19,7 @@ import {
 } from "../host/registered-agents";
 import { deskCard } from "../host/status/desk-card";
 import type { AgentChange } from "../records/registered-agent";
+import { readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import { type Desk, openDesk, postReportLine } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
@@ -262,11 +263,25 @@ test("change_registered_agent records his word and answers with what the desk di
       steps: [{ ref: "obs_00000000a201" }, { ref: "obs_00000000a202" }],
     },
     {
+      areas: [],
+      goal: { by: "life", text: "The shop sign is up" },
       id: "matter_00000000a003",
       name: "Test shop sign",
+      owedTo: [],
       projects: ["test-shop"],
       status: "moving",
-      steps: [{ ref: "obs_00000000a301" }],
+      steps: [
+        {
+          day: "2026-11-17",
+          kind: "to_do",
+          quote: "the sign",
+          ref: "obs_00000000a301",
+          text: "Put up the sign",
+        },
+      ],
+      told: [],
+      waitingOn: [],
+      with: [],
     },
   ] as never);
   const readTruth = await import("../memory/read-truth");
@@ -275,7 +290,7 @@ test("change_registered_agent records his word and answers with what the desk di
     ...made,
     projects: [
       ...made.projects,
-      { id: "test-shop", name: "Test shop", repos: ["someone/test-shop-site"] },
+      { id: "test-shop", name: "Test shop", repos: ["test-shop-site"] },
     ],
   } as never);
   const repos = spyOn(
@@ -326,9 +341,14 @@ test("change_registered_agent records his word and answers with what the desk di
       said: "Test: the sign",
       step: "obs_00000000a301",
     });
-    expect(agentOf(desk.db, inRepo.split(" ").at(-1) ?? "")?.folder).toBe(
-      folder
-    );
+    const signer = inRepo.split(" ").at(-1) ?? "";
+    expect(agentOf(desk.db, signer)?.folder).toBe(folder);
+    // Its packet opens with its matter as read now, the goal first.
+    const packet = (await readPacket(desk, signer)).split("\n");
+    expect(packet.slice(1, 3)).toEqual([
+      "matter_00000000a003 Test shop sign [moving]",
+      "Goal: The shop sign is up (Life's draft)",
+    ]);
   } finally {
     book.mockRestore();
     truth.mockRestore();

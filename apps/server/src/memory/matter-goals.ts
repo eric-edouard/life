@@ -3,7 +3,7 @@ import { z } from "zod";
 import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { newestWithin, packed } from "../core/lists";
-import { MatterGoalBatch } from "../records/matter";
+import { MatterGoalBatch, MatterGoalDraft } from "../records/matter";
 import type { MatterView } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { MATTER_GOALS } from "./memory-files";
@@ -55,9 +55,8 @@ const shownOf = (
   })),
 });
 
-const Drafted = z.object({
-  agentCanMove: z.boolean(),
-  goal: z.string().trim().min(1).max(200),
+/** A reply's goal: a draft, by the call's id of its matter. */
+const Drafted = MatterGoalDraft.omit({ steps: true }).extend({
   matter: z.string(),
 });
 
