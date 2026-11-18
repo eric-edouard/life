@@ -586,10 +586,10 @@ export async function readPeople() {
     names,
     /** Everyone outside the directory (`peopleOutsideDirectoryOf`), folded or not: what every listing of people reads. */
     outsideDirectory,
-    /** Who an episode's person ref is as of today: a name since resolved, a person since folded into another. */
-    refOf,
     /** What a name as written reads as now (`resolve`), with which source said so and whether the name is shared. */
     readingNow,
+    /** Who an episode's person ref is as of today: a name since resolved, a person since folded into another. */
+    refOf,
     resolve,
     truth,
   };

@@ -78,10 +78,10 @@ test("a name reads as the person he names, each way it was written; a card becom
 
 test("his app may name the person as he typed it: only one person his truth/ or Contacts name, never a guess or a shared name", async () => {
   const readings: Record<string, object> = {
-    // A unique name in truth/: recorded, and his result shows who.
-    "Kit Moreau": { by: "truth", isShared: false, ref: "person:kit" },
     // Only Life's guess goes by "Kit": refused.
     Kit: { by: "guess", isShared: false, ref: "person:inf_kit" },
+    // A unique name in truth/: recorded, and his result shows who.
+    "Kit Moreau": { by: "truth", isShared: false, ref: "person:kit" },
     // Two people in truth/ or his Contacts share "Sam": refused.
     Sam: { by: "contacts", isShared: true, ref: "person:con_sam" },
   };
