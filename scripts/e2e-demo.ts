@@ -230,16 +230,29 @@ async function run(step: Step) {
   if (step.tap) {
     await device(["press", `label="${step.tap}"`]);
   }
-  if (step.open) {
-    await device(["find", step.open, "click", "--first"]);
+  const row = step.open;
+  if (row) {
+    // A row below a short screen (the iPhone Duo's) is scrolled to first.
+    await device(["find", row, "click", "--first"]).catch(async () => {
+      await device(["scroll", "down"]);
+      await device(["find", row, "click", "--first"]);
+    });
   }
   if (step.back) {
-    await device(["back"]);
+    // The system's back button by name: agent-device's `back` pressed the Pendant pill on the iPhone Duo.
+    await device(["find", "BackButton", "click"]);
   }
   await untilAnswers(
     async () => {
       if (step.refresh) {
-        await device(["home"]);
+        // Another app in front sends the app to the background; Home doesn't on the iPhone Duo.
+        await execOk([
+          "xcrun",
+          "simctl",
+          "launch",
+          sim,
+          "com.apple.Preferences",
+        ]);
         await device(["open", "com.ericedouard.lifelog"]);
       }
       const ok =
@@ -319,10 +332,11 @@ try {
       () => null,
       (e: Error) => e.message
     );
-    await device([
-      "screenshot",
+    // simctl names the display: agent-device's screenshot fails on a phone with two (the iPhone Duo).
+    await exec([
+      ...["xcrun", "simctl", "io", sim, "screenshot", "--display=primary"],
       join(shots, `${n}-${step.name.replace(/\W+/g, "-")}.png`),
-    ]).catch(() => undefined);
+    ]);
     say(
       `${error ? "FAIL" : "PASS"} ${n} ${step.name} (${Math.round((performance.now() - t) / 1000)} s)${error ? `: ${error}` : ""}`
     );
