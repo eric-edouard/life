@@ -72,7 +72,7 @@ export interface Check {
   kind: CheckKind;
   /** Where to look or act (the agent's link first). */
   links: string[];
-  /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`); null: none. */
+  /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done); null: none. */
   matter: { id: string; name: string } | null;
   /** The option the agent takes when he does not answer; null: none is taken (Life keeps using its guess, never writing it). */
   onSilence: string | null;
