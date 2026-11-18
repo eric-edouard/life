@@ -593,9 +593,13 @@ full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict
 ## The desk's store (not in memory/)
 
 `LIFE_STATE_DIR/desk/desk.sqlite` (WAL; backed up whole with Life's state) is the desk's one state, written only by the
-desk helper (`apps/server/src/desk/desk-store.ts` holds its schema): table `agent` (a registered agent: `agt_…`, its
-brief, runtime, folder, current session and link, `status` `active`, `stopped`, `handed_over` or `ended`, its agent
+desk helper (`apps/server/src/desk/desk-store.ts` holds its schema), read by host only read-only
+(`host/desk-read.ts`): table `agent` (a registered agent: `agt_…`, its
+brief, runtime, folder, `project` (its subject when a project), `model` and `effort` (null: the desk's default for its
+runtime), current session and link, `status` `active`, `stopped`, `handed_over` or `ended`, its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an active agent with no
 `wait_until`), its notes; its open decision is read from `decisions.jsonl` by its id), `session` (every session it had, with its link; append-only), `event` (its
 queued events, one row per agent and event id, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
-cause, its end, its outcome, its tokens) and `cursor` (where the message read stopped). Never deleted by hand.
+cause, its end, its outcome, its tokens), `anchor` (an agent's matter steps, in order), `agent_change` (each of his asks
+of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
+`cursor` (where the message, answer and ask reads stopped). Never deleted by hand.

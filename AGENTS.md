@@ -124,13 +124,14 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todoList`
   setting), through `changeTodoItem` alone (`scripts/imports.test.ts` checks), on his clear request or the auto-add permission. What a backend lacks is a capability (`can`),
   never a branch on its name. Asks are his
-  words handed to the agent, never acted on by Life. Details: `docs/tasks.md`. The one other write, his request of 8 Nov
+  words handed to the agent, never acted on by Life; the desk is the one agent built in (`DESK_AGENT`): it applies his
+  asks of it that name a change (`after.agentChange`) in code and keeps its own list. Details: `docs/tasks.md`. The one other write, his request of 8 Nov
   2026: Life's own events in his calendar, the Past calendar and the appointments it reads from his messages (marked
   `(Life)`, free, until an agent confirms one with him; one he deletes is never written again). They are its reading,
   never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments").
 - **Life sends nothing into a chat.** Its only mail and notifications are to him (`docs/tasks.md`, "The only sends").
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
-- **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, records a decision an agent requests (`request_decision`) and his answer to any check (`answer_check`, through each kind's own writer), acts only through `change_todo_item`, and writes his `truth/` only through `change_directory_entry` (by his words).** Never add a
+- **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, records a decision an agent requests (`request_decision`) and his answer to any check (`answer_check`, through each kind's own writer), records his word about a registered agent as an ask of the desk (`change_registered_agent`), acts only through `change_todo_item`, and writes his `truth/` only through `change_directory_entry` (by his words).** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
 - **Life serves no page.** Only `/mcp`, its OAuth, the app's status reads behind the local key, and the desk's door,
@@ -271,7 +272,7 @@ Before adding a helper, use the one that exists:
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous); `buildIndex` (one WAL transaction, `writeIndex`) via `reindex`, or `reindexUnits` for units rewritten in place (only while no unit went or was dropped or taken back by a code rule) |
 | What an agent can wait for | `events.ts` (MCP's Events extension, by poll): computed from each source's `incoming` when polled; Life stores nothing for it, the agent keeps its cursor |
-| A registered agent's wait, turns and queued events | the desk's store (`desk/desk-store.ts`), the one state: the wait contract's rules are `agent-wait.ts`'s, pure; one tick applies them (`desk-clock.ts`), and an agent's door calls are `agent-actions.ts`, served by `desk-door.ts`. A runtime is its `desk/runtimes/contract.ts`: a turn is one run, ended when the run ends (`Run.ended`); its usage is read from the runtime, never stored beside the turn |
+| A registered agent's wait, turns and queued events | the desk's store, the one state, written only by `desk/desk-store.ts`'s writers and read only through `host/desk-read.ts` (the desk's own reads too; host's read-only, `readDesk`, never throws); what his agents are doing is `readRegisteredAgents`: the wait contract's rules are `agent-wait.ts`'s, pure; one tick applies them (`desk-clock.ts`), and an agent's door calls are `agent-actions.ts`, served by `desk-door.ts`. A runtime is its `desk/runtimes/contract.ts`: a turn is one run, ended when the run ends (`Run.ended`); its usage is read from the runtime, never stored beside the turn |
 | A logged run's start and end | `recordRun` (`apps/server/src/memory/run.ts`) |
 | Life's own events in a calendar (the Past calendar, the appointments) | `googleCalendar` (`host/google-calendar.ts`), grouped by `heldOf` and brought in line by `reconcile` (`memory/calendar-events.ts`); each output finds only its own events |
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
