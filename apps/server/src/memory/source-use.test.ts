@@ -108,3 +108,26 @@ test("source use: items and units a day as median and max, reads per unit, a cal
     "By source, last 24 h: whatsapp $0.10 (3 units read), lifelog $0.03 (1 units read), memory $0.00 (5 units read, 1 calls unpriced)",
   ]);
 });
+
+test("source use: one step's single-source calls of a day are each charged to their own source", () => {
+  const events = [
+    run("run.start", "memory.exchange-reads", "2026-11-17T00:40:00.000Z", X),
+    call("2026-11-17T00:41:00.000Z", X, {
+      costUsd: 0.01,
+      reads: { whatsapp: 10 },
+    }),
+    call("2026-11-17T00:42:00.000Z", X, {
+      costUsd: 0.5,
+      reads: { imessage: 1 },
+    }),
+    run("run.end", "memory.exchange-reads", "2026-11-17T00:45:00.000Z", X),
+  ] as LogEvent[];
+  const imessage = {
+    ...chat,
+    label: "iMessage",
+    name: "imessage",
+  } as Descriptor;
+  const use = sourceUseOf(events, [], [chat, imessage], ["2026-11-17"]);
+  expect(use.find((u) => u.source === "whatsapp")?.usdADay).toBeCloseTo(0.01);
+  expect(use.find((u) => u.source === "imessage")?.usdADay).toBeCloseTo(0.5);
+});

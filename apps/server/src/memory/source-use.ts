@@ -91,9 +91,15 @@ function spentOf(events: LogEvent[], days: number) {
     rows.set(source, row);
     return row;
   };
-  // ponytail: a step's calls of one day are split together by their units' share (not each call alone, nor by
-  // characters); split per call if one step's calls read very different sources.
-  const byStepDay = modelCallsOf(events, (e) => `${e.run}|${localDate(e.at)}`);
+  // A step's calls of one day that read the same sources are split together by their units' share, so a call that
+  // read one source is charged to it alone. ponytail: calls over several sources split by units, not characters.
+  const byStepDay = modelCallsOf(
+    events,
+    (e) =>
+      `${e.run}|${localDate(e.at)}|${Object.keys(e.reads ?? {})
+        .toSorted()
+        .join(",")}`
+  );
   for (const [key, c] of byStepDay) {
     const [run = "", date = ""] = key.split("|");
     const reads = Object.entries(c.reads) as [Row, number][];
