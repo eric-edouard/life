@@ -54,7 +54,7 @@ const CODEX_BIN = join(LIFE_CODE_DIR, CODEX);
 // its own (`CODEX_HOME=<this> codex login --device-auth`, once) and no instruction files. The repo's own AGENTS.md is
 // kept out by running in an empty temp folder and `project_doc_max_bytes=0`; `skills.include_instructions=false` drops
 // the skills catalog.
-const CODEX_HOME = join(MACHINE_DIR, "codex");
+export const CODEX_HOME = join(MACHINE_DIR, "codex");
 /** Codex's reasoning effort by tier. */
 const CODEX_EFFORT: Record<Tier, string> = {
   deep: "high",

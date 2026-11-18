@@ -38,6 +38,8 @@ const NETS_FOR = 10 * MIN;
 /** An agent's matter as the net reads it: its people, and its texts' vectors. */
 interface Net {
   agent: string;
+  /** Its matter is done (by his word or its own steps' endings, never a link's "probably"): the desk ends the agent. */
+  isDone: boolean;
   people: ReadonlySet<string>;
   /** When the agent started: nothing said before is new to it. */
   since: string;
@@ -109,6 +111,7 @@ export async function netsOf(desk: Desk, people: People) {
     isWhole &&= vectors !== null;
     nets.push({
       agent: a.id,
+      isDone: v.status === "done",
       people: net.people,
       since: a.created_at,
       vectors: vectors ?? [],

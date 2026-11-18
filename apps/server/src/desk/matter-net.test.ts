@@ -4,12 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, MIN } from "../core/clock";
 import type { Embedder } from "../core/embedder";
-import { queuedEvents } from "../host/desk-read";
+import { agentOf, queuedEvents } from "../host/desk-read";
 import type { Messaging } from "../host/events";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { register } from "./agent-actions";
-import { pollMessages, pollRecordings } from "./desk-clock";
+import {
+  endAgentsOnDoneMatters,
+  pollMessages,
+  pollRecordings,
+} from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 
@@ -117,11 +121,13 @@ afterEach(() => {
   }
 });
 
-async function mocked() {
+async function mocked(status = "moving") {
   const matters = await import("../memory/matters");
   const who = await import("../memory/who");
   spies.push(
-    spyOn(matters, "readMatterBook").mockResolvedValue([matter] as never),
+    spyOn(matters, "readMatterBook").mockResolvedValue([
+      { ...matter, status },
+    ] as never),
     spyOn(who, "readPeople").mockResolvedValue({
       // One voice was folded into Ana since it was heard.
       refOf: (s: string) =>
@@ -247,4 +253,22 @@ test("his pendant's new words close to the matter wake it once, read from where 
   expect(
     JSON.parse(queuedEvents(desk.db, agent).at(-1)?.payload ?? "")
   ).toMatchObject({ why: "person" });
+});
+
+test("an agent whose matter is done is ended; one only probably done (a link's) keeps going", async () => {
+  await mocked("probably_done");
+  const { agent, desk } = setup();
+  await endAgentsOnDoneMatters(desk);
+  expect(agentOf(desk.db, agent)?.status).toBe("active");
+  for (const s of spies.splice(0)) {
+    s.mockRestore();
+  }
+  await mocked("done");
+  // The nets are read again once `NETS_FOR` passed.
+  setSystemTime(new Date(T0 + 11 * MIN));
+  await endAgentsOnDoneMatters(desk);
+  expect(agentOf(desk.db, agent)).toMatchObject({
+    outcome: "its matter is done",
+    status: "ended",
+  });
 });

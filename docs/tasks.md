@@ -111,6 +111,8 @@ Each running matter has a direction: its goal (where it is going) and its next s
 
 An agent that finished a step of a matter closes it itself: a promise, a wait or a to-do note (an observation) with `correct_memory`, kind `outdated`, its id and a note of what was done; one of his to-do items with `change_todo_item`. It shows that night as done (`read_day`'s Done, the email's Done); he is not asked (his decision of 16 Nov 2026: Life should cut his load, and "is this done?" is load). An agent follows a matter by one of its records, never by the matter's id alone: a re-group gives matters new ids, and `read_matter` opens the matter holding a record.
 
+A registered agent's matter that is done (matter status `done`: its steps ended, retired or ticked; never `probably_done`, ended by a link) ends its agent, as if it had called `finish` with "its matter is done" (`endAgentsOnDoneMatters`, `desk/desk-clock.ts`, on the desk's message poll, within the 10 minutes its nets are kept): it is not woken to wrap up, so nothing waits on a matter that is over.
+
 A person's page (`read_person_page`) lists every open matter they are in, whatever its day (`openWithOf`, `read-open-items.ts`),
 and the replies he owes them, ranked the same way
 (`rankedItems`), what he owes first, then what he waits on (`isOwedToHim`).

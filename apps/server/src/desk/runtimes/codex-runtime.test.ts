@@ -9,10 +9,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HOME } from "../../core/platform";
+import { CODEX_HOME } from "../../models/llm";
 import { doorOf } from "../desk-door";
 import {
   codexArgsOf,
+  codexHomeOf,
   codexRuntime,
   hasEvent,
   isRolloutTurnOpen,
@@ -60,6 +61,18 @@ test("the codex runtime puts the door's key in the environment, never the comman
   );
   expect(chosen).toContain("test-model");
   expect(chosen).toContain('model_reasoning_effort="low"');
+});
+
+test("a copy's agent (a Life not his) takes none of his config, MCP servers, instruction files or skills; his own agent runs as before", () => {
+  const copy = codexArgsOf(a, "u-1", "hello", true);
+  expect(copy).toContain("--ignore-user-config");
+  expect(copy).toContain("project_doc_max_bytes=0");
+  expect(copy).toContain("skills.include_instructions=false");
+  // Its door still reaches it.
+  expect(copy).toContain(`mcp_servers.desk.url=${JSON.stringify(a.door.url)}`);
+  const his = codexArgsOf(a, "u-1", "hello", false);
+  expect(his).not.toContain("--ignore-user-config");
+  expect(his.join(" ")).not.toContain("project_doc_max_bytes");
 });
 
 test("a run's events: a type is in when a whole line says so", () => {
@@ -136,7 +149,7 @@ if (cmd === "app-server") {
   }
 } else if (cmd === "exec") {
   const message = process.argv.at(-1);
-  await Bun.write(${JSON.stringify(join(dir, "seen.json"))}, JSON.stringify({ argv: process.argv.slice(2), key: process.env.LIFE_DESK_KEY, cwd: process.cwd() }));
+  await Bun.write(${JSON.stringify(join(dir, "seen.json"))}, JSON.stringify({ argv: process.argv.slice(2), key: process.env.LIFE_DESK_KEY, home: process.env.CODEX_HOME, cwd: process.cwd() }));
   if (message === "never") process.exit(1);
   console.log('{"type":"thread.started","thread_id":"th-fake-1"}');
   console.log('{"type":"turn.started"}');
@@ -165,6 +178,8 @@ test("a start makes the thread, runs its first turn with the key in the environm
     expect(await s.ended).toEqual({ ok: true });
     const seen = fake.seen();
     expect(seen.key).toBe(a.door.key);
+    // A test's Life is a copy: its agent runs in Life's own Codex home, never his.
+    expect(seen.home).toBe(CODEX_HOME);
     expect(seen.argv).toContain("th-fake-1");
     expect(seen.argv.at(-1)).toBe("the brief");
     expect(await codexRuntime.block()).toBeUndefined();
@@ -190,7 +205,7 @@ test("a turn that dies mid-way ended not ok; one that dies before it began never
 });
 
 test("a session is running while its rollout's last turn is open and fresh (his own turn in the app); a compressed rollout is not gone", async () => {
-  const dir = join(HOME, ".codex", "sessions", "2026", "01", "01");
+  const dir = join(codexHomeOf(), "sessions", "2026", "01", "01");
   mkdirSync(dir, { recursive: true });
   const ev = (type: string) =>
     JSON.stringify({ payload: { type }, type: "event_msg" });

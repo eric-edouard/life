@@ -25,7 +25,7 @@ import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
 import { readPeople } from "../memory/who";
 import type { TurnOutcome } from "../records/registered-agent";
-import { readPacket } from "./agent-actions";
+import { finish, readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import {
   ANSWERS,
@@ -130,6 +130,19 @@ export async function pollRecordings(desk: Desk) {
     people
   );
   desk.db.transaction(() => queue(desk.db, MATTER_RELATED, wakes))();
+}
+
+/** Ends each active agent whose matter is done (`netsOf`'s read of the matters): nothing is left for it to do or wait for. */
+export async function endAgentsOnDoneMatters(desk: Desk) {
+  if (activeAgents(desk.db).length === 0) {
+    return;
+  }
+  for (const n of await netsOf(desk, await readPeople())) {
+    if (n.isDone) {
+      // biome-ignore lint/performance/noAwaitInLoops: one agent's decision withdrawn at a time
+      await finish(desk, n.agent, "its matter is done");
+    }
+  }
 }
 
 /**
@@ -329,8 +342,8 @@ export async function wakeDue(desk: Desk) {
 }
 
 /**
- * One tick of the clock: his word about his agents, his answers, then (when their poll is due) the messages, the recordings and the turns lost to a restart, then
- * the turns due.
+ * One tick of the clock: his word about his agents, his answers, then (when their poll is due) the messages, the
+ * recordings, the agents whose matter is done and the turns lost to a restart, then the turns due.
  */
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
@@ -338,6 +351,7 @@ export async function tick(desk: Desk, isPollDue = true) {
   if (isPollDue) {
     await pollMessages(desk);
     await pollRecordings(desk);
+    await endAgentsOnDoneMatters(desk);
     await endLostTurns(desk);
   }
   await wakeDue(desk);

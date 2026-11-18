@@ -3,10 +3,10 @@ import { join } from "node:path";
 import { clock, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { log } from "../../core/log";
-import { DESK_RUNS } from "../../core/paths";
+import { DESK_RUNS, isHis } from "../../core/paths";
 import { cliEnv, HOME } from "../../core/platform";
 import { firstLine, startDetached } from "../../core/proc";
-import { toml } from "../../models/llm";
+import { CODEX_HOME, toml } from "../../models/llm";
 import {
   type Agent,
   begunWhen,
@@ -24,21 +24,45 @@ import {
 // reaches the session by `-c`, its key only through the environment; its tools are approved for the desk server alone
 // (`exec` auto-denies an MCP tool otherwise). Nothing is kept here: running is a process holding the id, idle a
 // rollout on disk.
+// A copy's agent (a demo Life, `isHis` false) runs apart from his setup: in Life's own Codex home (none of his
+// AGENTS.md, config, MCP servers or sessions, so never in his Codex app; a login of its own, as Life's model engine),
+// with no instruction file of its folder and no skills.
 // ponytail: his own turn in the Codex app holds no process with the id; it counts as running while the rollout's last
 // turn is open and was written in the last 10 minutes (`isOpenNow`), so a tool call silent for longer reads idle and the
 // desk may send beside it. And the app holding the thread open while idle keeps its own copy: his next message there may
 // continue from it, missing the desk's turn (as the claude runtime's warm process does).
 
-const SESSIONS = join(HOME, ".codex", "sessions");
+/** The Codex home its sessions run in: his own `~/.codex`, or a copy's Life's own. */
+export const codexHomeOf = () => (isHis() ? join(HOME, ".codex") : CODEX_HOME);
+
+/** Where its sessions' rollouts are. */
+const sessionsDir = () => join(codexHomeOf(), "sessions");
+
+/** What a codex process is given besides `cliEnv`: a copy's Codex home. */
+const homeEnv = (): Record<string, string> => (isHis() ? {} : { CODEX_HOME });
 
 /** The command that runs one turn of session `ref`: its key is never in it. */
-export const codexArgsOf = (a: Agent, ref: string, message: string) => [
+export const codexArgsOf = (
+  a: Agent,
+  ref: string,
+  message: string,
+  isCopy = !isHis()
+) => [
   "codex",
   "exec",
   "resume",
   ref,
   "--json",
   "--skip-git-repo-check",
+  ...(isCopy
+    ? [
+        "--ignore-user-config",
+        "-c",
+        "project_doc_max_bytes=0",
+        "-c",
+        "skills.include_instructions=false",
+      ]
+    : []),
   ...(a.model ? ["-m", a.model] : []),
   ...(a.effort ? ["-c", `model_reasoning_effort=${toml(a.effort)}`] : []),
   "-c",
@@ -86,7 +110,7 @@ function run(a: Agent, ref: string, message: string): Run {
   const path = join(DESK_RUNS, `${ref}-${clock().getTime()}.jsonl`);
   const ended = startDetached(codexArgsOf(a, ref, message), {
     cwd: a.folder,
-    env: { LIFE_DESK_KEY: a.door.key },
+    env: { ...homeEnv(), LIFE_DESK_KEY: a.door.key },
     stdout: path,
   }).then((code) => {
     const lines = linesOf(path);
@@ -125,7 +149,7 @@ async function newThread(folder: string) {
       .map((m) => `${JSON.stringify(m)}\n`)
       .join(""),
     (l) => JSON.parse(l).id === 2,
-    { env: cliEnv(), timeout: 30_000 }
+    { env: { ...cliEnv(), ...homeEnv() }, timeout: 30_000 }
   );
   const answer = line ? JSON.parse(line) : undefined;
   const id: unknown = answer?.result?.thread?.id;
@@ -141,7 +165,7 @@ async function newThread(folder: string) {
 const rolloutOf = (ref: string) => {
   try {
     return new Bun.Glob(`*/*/*/rollout-*-${ref}.jsonl{,.zst}`)
-      .scanSync(SESSIONS)
+      .scanSync(sessionsDir())
       .next().value;
   } catch {
     // no sessions folder yet
@@ -150,7 +174,7 @@ const rolloutOf = (ref: string) => {
 
 /** A rollout's complete lines. */
 function rolloutLines(path: string) {
-  const file = join(SESSIONS, path);
+  const file = join(sessionsDir(), path);
   if (!path.endsWith(".zst")) {
     return linesOf(file);
   }
@@ -176,8 +200,8 @@ export const isRolloutTurnOpen = (lines: string[]) =>
 function isOpenNow(path: string) {
   try {
     return (
-      clock().getTime() - statSync(join(SESSIONS, path)).mtimeMs < OPEN_FOR &&
-      isRolloutTurnOpen(rolloutLines(path))
+      clock().getTime() - statSync(join(sessionsDir(), path)).mtimeMs <
+        OPEN_FOR && isRolloutTurnOpen(rolloutLines(path))
     );
   } catch {
     return false;
