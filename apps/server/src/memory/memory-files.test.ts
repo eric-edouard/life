@@ -603,11 +603,11 @@ test("an episode day is parsed again once rewritten, and an unchanged one hands 
   const path = join(EPISODES, "2026-10-20.jsonl");
   mkdirSync(EPISODES, { recursive: true });
   try {
-    writeFileSync(path, line("Lunch"));
+    writeFileSync(path, dayLine("Lunch"));
     const first = await readEpisodes();
     expect(first.map((m) => m.title)).toEqual(["Lunch"]);
     expect((await readEpisodes())[0]).toBe(first[0]);
-    writeFileSync(path, line("Dinner out"));
+    writeFileSync(path, dayLine("Dinner out"));
     expect((await readEpisodes()).map((m) => m.title)).toEqual(["Dinner out"]);
   } finally {
     rmSync(EPISODES, { force: true, recursive: true });
