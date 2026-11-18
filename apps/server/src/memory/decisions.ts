@@ -6,7 +6,7 @@ import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { isoDateTime } from "../records/fields";
 import { isSendable, MessageDraft, oneLine, StoredDraft } from "./draft";
-import { resolveDraft, sendDraft } from "./draft-send";
+import { resolveDraft, sendDraft, sendLimitMs } from "./draft-send";
 import { readMatterBook } from "./matters";
 import { MEMORY } from "./memory-files";
 import { readPeople } from "./who";
@@ -225,17 +225,20 @@ export const sendsOn = (
 export const isSendDue = (d: Omit<Decision, "state">) =>
   Boolean(d.answer && sendsOn(d, d.answer.options, d.answer.note));
 
-/** A send with no outcome this long after his answer never ended (a crash): a send path ends within about 3 minutes, a file's upload and confirmation included (`matrixSend`). */
-const SEND_ENDS_AFTER = 5 * MIN;
+/** A send with no outcome this long past its path's own limit (`sendLimitMs`) never ended (a crash): the reads before the hand-off and the line's write. */
+const SEND_GRACE = MIN;
 
-/** The send's outcome as stored, or, past `SEND_ENDS_AFTER` with none, one that never ended. */
+/** The send's outcome as stored, or, past its path's limit and `SEND_GRACE` with none, one that never ended. */
 function sendOf(d: Omit<Decision, "state">, now: Date): Send | undefined {
-  const due = d.answer && isSendDue(d) ? Date.parse(d.answer.at) : undefined;
-  if (d.send || due === undefined || now.getTime() < due + SEND_ENDS_AFTER) {
+  const end =
+    d.answer && d.draft && isSendDue(d)
+      ? Date.parse(d.answer.at) + sendLimitMs(d.draft) + SEND_GRACE
+      : undefined;
+  if (d.send || end === undefined || now.getTime() < end) {
     return d.send;
   }
   return {
-    at: new Date(due + SEND_ENDS_AFTER).toISOString(),
+    at: new Date(end).toISOString(),
     error:
       "may have gone: a send started and never ended: read the chat before asking again",
     id: d.id,
