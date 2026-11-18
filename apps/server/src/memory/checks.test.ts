@@ -267,4 +267,10 @@ test("open decisions come first, soonest deadline first; one on a step leaves wi
   expect(
     checksOf({ ...base, matters: [matter(false)] }).map((c) => c.ref)
   ).toEqual(["dec_00000000000b", REF]);
+  // A step no matter holds any more (a re-group) keeps its decision.
+  expect(checksOf({ ...base, matters: [] }).map((c) => c.ref)).toEqual([
+    "dec_00000000000b",
+    "dec_00000000000a",
+    REF,
+  ]);
 });

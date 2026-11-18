@@ -89,6 +89,15 @@ test("a request is checked: deadline 1 hour to 14 days ahead, options its ids, a
   expect(decisionsNow(NOW)).toHaveLength(2);
 });
 
+test("a deadline with an offset is stored in UTC, so deadlines sort as strings", async () => {
+  await requestDecision(
+    "planner",
+    ask({ deadline: "2026-11-19T16:00:00.000+07:00" }),
+    NOW
+  );
+  expect(decisionsNow(NOW)[0]?.deadline).toBe("2026-11-19T09:00:00.000Z");
+});
+
 test("the old decisions page's lines in the file are skipped", async () => {
   mkdirSync(dirname(DECISIONS), { recursive: true });
   appendFileSync(

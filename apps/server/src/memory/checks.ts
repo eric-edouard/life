@@ -129,6 +129,8 @@ interface Ranked {
 /** `CheckInputs` with the lookups every builder shares, made once. */
 interface Ctx extends CheckInputs {
   byId: ReadonlyMap<string, Line>;
+  /** Every step any matter holds, open or not. */
+  matterSteps: ReadonlySet<string>;
   /** The open matters holding a step, by the step's ref, and involving a person, by the person's ref. */
   mattersByPerson: ReadonlyMap<string, Set<object>>;
   mattersByStep: ReadonlyMap<string, Set<object>>;
@@ -150,6 +152,7 @@ function ctxOf(c: CheckInputs): Ctx {
   return {
     ...c,
     byId: new Map(c.lines.map((l) => [l.id, l])),
+    matterSteps: new Set(c.matters.flatMap((m) => m.steps.map((s) => s.ref))),
     mattersByPerson,
     mattersByStep,
   };
@@ -247,10 +250,15 @@ function ranked(
 
 /** Each kind of check, from what is stored. A new kind (a voice, a tie, an appointment, a line with a doubt of its own) is one more entry. */
 const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
-  /** Every open decision; one on a matter step only while an open matter holds it. */
+  /** Every open decision; one on a matter step leaves once the matters holding it have all ended (a step no matter holds now, after a re-group, keeps it). */
   decision: (c) =>
     c.decisions
-      .filter((d) => !isOnMatter(d.subject) || c.mattersByStep.has(d.subject))
+      .filter(
+        (d) =>
+          !isOnMatter(d.subject) ||
+          c.mattersByStep.has(d.subject) ||
+          !c.matterSteps.has(d.subject)
+      )
       .map(
         ({
           answer,

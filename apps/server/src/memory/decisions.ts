@@ -80,7 +80,7 @@ type Asked = z.infer<typeof Asked>;
 type Answered = z.infer<typeof Answered>;
 type Withdrawn = z.infer<typeof Withdrawn>;
 
-export type DecisionState = "answered" | "lapsed" | "open" | "withdrawn";
+type DecisionState = "answered" | "lapsed" | "open" | "withdrawn";
 export type Decision = Asked & {
   answer?: Answered;
   state: DecisionState;
@@ -122,7 +122,7 @@ const stateOf = (d: Omit<Decision, "state">, now: Date): DecisionState => {
 export const decisionsNow = (now = clock()): Decision[] =>
   [...readAll().values()].map((d) => ({ ...d, state: stateOf(d, now) }));
 
-function openOne(id: string, now: Date) {
+function readOpenDecision(id: string, now: Date) {
   const d = decisionsNow(now).find((x) => x.id === id);
   if (!d) {
     throw new Error(`Not done: no decision ${id}.`);
@@ -148,7 +148,7 @@ export async function requestDecision(
 ): Promise<{ id: string }> {
   const at = now.toISOString();
   if ("withdraw" in request) {
-    const d = openOne(request.withdraw, now);
+    const d = readOpenDecision(request.withdraw, now);
     if (d.asker !== asker) {
       throw new Error(`Not done: ${d.id} was asked by another agent.`);
     }
@@ -188,7 +188,16 @@ export async function requestDecision(
   }
   const id = `dec_${randomBytes(6).toString("hex")}`;
   appendJsonl(DECISIONS, Asked, [
-    { ...ask, asker, at, id, kind: "asked", schemaVersion: 2 },
+    {
+      ...ask,
+      asker,
+      at,
+      // In UTC, so deadlines sort as strings (`checksOf`).
+      deadline: new Date(ask.deadline).toISOString(),
+      id,
+      kind: "asked",
+      schemaVersion: 2,
+    },
   ]);
   return { id };
 }
@@ -200,7 +209,7 @@ export function answerDecision(
   note?: string,
   now = clock()
 ) {
-  const d = openOne(id, now);
+  const d = readOpenDecision(id, now);
   const unknown = options.filter((o) => !d.options.some((x) => x.id === o));
   if (unknown.length > 0 || (options.length === 0 && !note)) {
     throw new Error(

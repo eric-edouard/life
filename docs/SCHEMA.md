@@ -253,7 +253,7 @@ outside the lock, schemaVersion 2, by `kind`:
 - `asked` (`requestDecision`): `id` (`dec_` + 12 hex), `at`, `asker` (the agent's pairing, or `desk`), `agent` (`agt_…`,
   a registered agent's, optional), `subject` (a matter step's id, `project:<id>` or `area:<id>`, optional), `question`
   (200 chars), `options` (2 to 4 `{id, label}`), `recommended` (option ids), `why`, `context` (4,000 chars), `links`,
-  `deadline` (1 hour to 14 days after `at`), `onSilence` (an option id or null).
+  `deadline` (1 hour to 14 days after `at`, in UTC), `onSilence` (an option id or null).
 - `answered` (`answerDecision`): `id`, `at`, `options` (ids; none when he answered in words), `note`, `via`
   (`connector`). The first answer stands.
 - `withdrawn` (`requestDecision`, by its asker): `id`, `at`, `why`.
