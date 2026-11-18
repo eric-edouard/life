@@ -123,7 +123,13 @@ async function mocked() {
   spies.push(
     spyOn(matters, "readMatterBook").mockResolvedValue([matter] as never),
     spyOn(who, "readPeople").mockResolvedValue({
-      refOf: (s: string) => (s.startsWith("person:") ? s : null),
+      // One voice was folded into Ana since it was heard.
+      refOf: (s: string) =>
+        s === "person:ana-voice"
+          ? "person:ana"
+          : s.startsWith("person:")
+            ? s
+            : null,
       resolve: (s: string) => (s === "Test Ana" ? "person:ana" : null),
       truth: { people: [] },
     } as never)
@@ -232,9 +238,9 @@ test("his pendant's new words close to the matter wake it once, read from where 
   const n = calls.length;
   await pollRecordings(desk);
   expect(calls.length).toBe(n);
-  // His words read wrong (lifelog down): read again on the next poll.
+  // His words read wrong (lifelog down): read again on the next poll, and Ana's voice, folded into her since, wakes it.
   held = unit(at(12));
-  said = [...said, line(at(12), "the beads, the pickup", "person:ana")];
+  said = [...said, line(at(12), "the beads, the pickup", "person:ana-voice")];
   spoken.mockRejectedValueOnce(new Error("down"));
   await pollRecordings(desk);
   expect(queuedEvents(desk.db, agent)).toHaveLength(1);

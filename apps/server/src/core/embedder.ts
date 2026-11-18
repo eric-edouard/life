@@ -145,11 +145,9 @@ export function nearest(
   query: readonly number[],
   items: Iterable<readonly [string, Float32Array]>
 ) {
-  const length = Math.hypot(...query);
-  const q = Float32Array.from(query, (n) => n / length);
   const best: { id: string; similarity: number }[] = [];
   for (const [id, vector] of items) {
-    const similarity = similarityOf(q, vector);
+    const similarity = similarityOf(query, vector);
     if (!(similarity >= MIN_SIMILARITY)) {
       continue;
     }

@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { clock, daysBefore, MIN } from "../core/clock";
-import { type Embedder, similarityOf } from "../core/embedder";
+import { type Embedder, embedAll, similarityOf } from "../core/embedder";
 import { packed } from "../core/lists";
 import { log } from "../core/log";
 import { activeAgents, anchorsOf } from "../host/desk-read";
@@ -44,7 +44,10 @@ interface Net {
   vectors: number[][];
 }
 
-/** A text's vector as a query, kept per process by its text (no invalidation: the same text, the same vector). */
+/**
+ * A text's vector as a query, kept per process by its text (no invalidation: the same text, the same vector).
+ * ponytail: never pruned; it holds the active agents' matter texts as they change, a few thousand a year at most.
+ */
 const queries = new Map<string, number[]>();
 const kept = new WeakMap<Database, { at: number; key: string; nets: Net[] }>();
 
@@ -140,9 +143,9 @@ async function relatedOf(
   let isWhole = compared.length === 0 || !nets.some((n) => n.vectors.length);
   if (embedder && !isWhole) {
     try {
-      vectors = await embedder.embed(
-        compared.map((t) => t.text),
-        "passage"
+      vectors = await embedAll(
+        embedder,
+        compared.map((t) => t.text)
       );
       isWhole = true;
     } catch (error) {
@@ -243,7 +246,7 @@ export async function relatedRecordings(
       const lines = (spoken.get(u.id) ?? []).filter((l) => l.at > from);
       const parts = packed(lines, PART_CHARS, (l) => l.text.length + 1);
       const { isWhole, related } = await relatedOf(desk, nets, [
-        ...lines.map((l) => ({ person: l.speaker, text: "" })),
+        ...lines.map((l) => ({ person: people.refOf(l.speaker), text: "" })),
         ...parts.map((p) => ({
           person: null,
           text: p.map((l) => l.text).join("\n"),

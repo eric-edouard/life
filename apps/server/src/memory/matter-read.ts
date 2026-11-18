@@ -533,7 +533,7 @@ const NET_STEPS = 8;
  * or recording is compared with in meaning: its name and goal, its next step, its newest steps' words. Pure.
  */
 export const netOf = (v: MatterView) => ({
-  people: new Set([...v.owedTo, ...v.waitingOn, ...v.with, ...v.told]),
+  people: new Set(matterPeopleOf(v)),
   texts: [
     v.goal ? `${v.name}: ${v.goal.text}` : v.name,
     ...(v.nextStep ? [v.nextStep.text] : []),
