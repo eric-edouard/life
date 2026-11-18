@@ -36,11 +36,11 @@ import {
   type Tables,
   tables,
 } from "./sources";
+import { dayUnitId } from "./unit-ids";
 import {
   type Built,
   builtFor,
   clip,
-  dayUnitId,
   isFrozen,
   isLifeOutput,
   lifelogNames,

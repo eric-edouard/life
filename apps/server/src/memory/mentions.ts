@@ -13,7 +13,8 @@ import { MENTIONS, mentionsPath } from "./memory-files";
 import { checkedOf } from "./moves";
 import { READS, readReplies } from "./read-replies";
 import { OWNER } from "./read-truth";
-import { dayUnitId, textOf } from "./units";
+import { dayUnitId } from "./unit-ids";
+import { textOf } from "./units";
 import { localDate } from "./zones";
 
 // The mentions of the mentions read: someone not in the conversation talked about. The replies are stored

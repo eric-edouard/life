@@ -28,6 +28,8 @@ const ChatChunk = z.object({
   usage: z
     .object({
       completion_tokens: z.number(),
+      // What the call cost in dollars (OpenRouter sends it on every reply).
+      cost: z.number().nullish(),
       prompt_tokens: z.number(),
       prompt_tokens_details: z.object({ cached_tokens: z.number() }).nullish(),
     })
@@ -93,7 +95,7 @@ export function routesOf(spec: string, engine: string) {
  * One call through the engine's routes with his keys, at each route's effort, one host at a time, streamed, within
  * MODEL_TIMEOUT_MS. A host that may fail alone (a stall, a cut stream, a reply not JSON like a refusal, a 429, a 5xx, no
  * answer) gives way to the next: a router's own fallback acts only before output begins (29 Oct 2026: refuseless died
- * mid-reply). Any other failure (no key, no credit, another host) skips that router's hosts. Every host's tokens and
+ * mid-reply). Any other failure (no key, no credit, another host) skips that router's hosts. Every host's tokens, cost and
  * refusal are kept, its reply in the call's folder.
  */
 export async function askRoutes(call: ModelCall): Promise<Answer> {
@@ -130,6 +132,7 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
   const deadline = AbortSignal.timeout(MODEL_TIMEOUT_MS);
   const refusals: string[] = [];
   let tokens: Tokens | undefined;
+  let costUsd: number | undefined;
   let answer: Answer = { text: "" };
   const skipped = new Set<Router>();
   for (const route of hosts) {
@@ -162,7 +165,12 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
     }
     const spent = answer.fields?.tokens as Tokens | undefined;
     tokens = spent ? add(tokens ?? NONE, spent) : tokens;
-    answer = { ...answer, fields: { ...answer.fields, effort, tokens } };
+    const cost = answer.fields?.costUsd as number | undefined;
+    costUsd = cost === undefined ? costUsd : (costUsd ?? 0) + cost;
+    answer = {
+      ...answer,
+      fields: { ...answer.fields, costUsd, effort, tokens },
+    };
     if (!answer.refusal) {
       return answer;
     }
@@ -297,6 +305,7 @@ function answerOf({ host, router }: Route, reply: ChatReply): Answer {
       : `${router}: stopped (${reply.finish ?? "cut before it finished"})`;
   return {
     fields: {
+      costUsd: u?.cost ?? undefined,
       host: served,
       tokens: u && {
         cached: u.prompt_tokens_details?.cached_tokens ?? 0,

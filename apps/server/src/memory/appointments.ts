@@ -15,7 +15,7 @@ import {
   type ObservationStatusInputs,
   observationStatusOf,
 } from "./memory-files";
-import { begin, checkedEntries, inputsOf } from "./run";
+import { begin, checkedEntries, inputsOf, readsOf } from "./run";
 import { observationsNow, readPeople } from "./who";
 import { zoneNow } from "./zones";
 
@@ -239,6 +239,9 @@ export async function appointments() {
             dir: step.dir,
             input,
             prompt: APPOINTMENTS_PROMPT,
+            reads: readsOf(
+              ahead.map((o) => ({ source: o.source.channel, unit: o.unit }))
+            ),
           });
           const c = checkedAppointments(reply, {
             held,

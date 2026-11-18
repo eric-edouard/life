@@ -203,6 +203,7 @@ test("an errand over three spans lands in one matter, the call's episode with no
       date: DAYS[i],
       importance: 2,
       quote: f.text,
+      source: { channel: "imessage" },
       speaker: "person:me",
       subjects: [],
       unit: unitId(i + 1),

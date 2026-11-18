@@ -105,6 +105,7 @@ test("what Life holds, by year with the sources, or by month inside one year", a
       id: `unit_00000000000${n}`,
       people: ["person:ana"],
       source: "lifelog",
+      stats: { chars: 0, fromMe: 0, items: 1 },
       title: "t",
     }) as unknown as Unit;
   const units = [

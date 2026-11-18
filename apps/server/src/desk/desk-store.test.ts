@@ -23,3 +23,38 @@ test("openDesk adds turn.begun_at to a store made before it, keeping its rows, i
   openDesk(path).close();
   db.close();
 });
+
+test("openDesk moves an old store's not-started outcomes to agent.why_not_started, keeping an agent's own words as they are", () => {
+  const path = join(mkdtempSync(join(tmpdir(), "life-desk-")), "desk.sqlite");
+  openDesk(path).close();
+  const old = new Database(path);
+  old.run("alter table agent drop column why_not_started");
+  for (const [id, outcome] of [
+    ["agt_000000000001", "not started: claude does not answer"],
+    ["agt_000000000002", "Not started: the client never replied"],
+    ["agt_000000000003", "done"],
+  ]) {
+    old.run(
+      "insert into agent (id, brief, runtime, folder, status, created_at, ended_at, outcome) values (?, 'b', 'claude', '/', 'ended', '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z', ?)",
+      [id as string, outcome as string]
+    );
+  }
+  old.close();
+  const db = openDesk(path);
+  expect(
+    db.query("select id, outcome, why_not_started from agent order by id").all()
+  ).toEqual([
+    {
+      id: "agt_000000000001",
+      outcome: null,
+      why_not_started: "claude does not answer",
+    },
+    {
+      id: "agt_000000000002",
+      outcome: "Not started: the client never replied",
+      why_not_started: null,
+    },
+    { id: "agt_000000000003", outcome: "done", why_not_started: null },
+  ]);
+  db.close();
+});

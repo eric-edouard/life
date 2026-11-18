@@ -1,16 +1,15 @@
 import { join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { clock, daysBefore } from "../core/clock";
 import { readJson, readLineCount, writeJson } from "../core/files";
 import { count } from "../core/lists";
 import { log } from "../core/log";
 import { type InboxCheck, pushIdOf } from "../memory/checks";
 import { DECISIONS, decisionsNow } from "../memory/decisions";
-import { CORRECTIONS, FACT_CHECK_ANSWERS } from "../memory/memory-files";
 import { isLocked } from "../memory/memory-lock";
 import { dayNow } from "../memory/zones";
 import { WATCH } from "../sources/lifelog";
 import { notifyPhone } from "../sources/lifelog-push";
-import { fetchNamingQueue } from "../sources/lifelog-voices";
 import { inboxNow } from "./inbox";
 
 // A push for each new card in his inbox, the only push of cards: the words "1 new card" or "N new cards", the badge (every
@@ -48,7 +47,9 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
     ...open.map((c) => [c.pushId, today]),
   ]);
   // Written before the push, so one that fails is not repeated every look: the inbox and the badge still tell him.
-  writeJson(PUSHED, { badge, seen } satisfies Pushed);
+  if (!isDeepStrictEqual(before, { badge, seen })) {
+    writeJson(PUSHED, { badge, seen } satisfies Pushed);
+  }
   const [one] = fresh;
   if (!(before && one)) {
     if (before && badge !== before.badge) {
@@ -79,45 +80,23 @@ const pushNewDecisions = () =>
       .map((d) => ({ asker: d.asker, pushId: pushIdOf(d.id) }))
   );
 
-/** What the last look saw of what changes the open cards; empty before the first look, and after a run held the lock. */
-let looked = "";
 let decisionsLooked = -1;
-let voices = "";
 /**
- * The watcher's minute: `pushNewCards` only when the decisions, the corrections, his fact-check answers or the voices
- * lifelog queues changed since the last look: never `checksNow` on every tick (the queue is one read of his own lifelog). A
- * run holding the memory lock (a night's writes are half done) is not read: only a new decision still pushes, from its
- * own lines; the run's end shows as the next full look.
+ * The watcher's minute: `pushNewCards`, whose inbox is read again only when what it is read from changed (`checksNow`),
+ * a run's end, a desk start and a new day included. A run holding the memory lock (a night's writes are half done) is not
+ * read: only a new decision still pushes, from its own lines; the run's end shows as the next full look.
  */
 export async function pushNewCardsIfChanged() {
   const decisions = readLineCount(DECISIONS);
-  const held = isLocked();
   const moved = decisions !== decisionsLooked;
   decisionsLooked = decisions;
-  const failed = (e: Error) => {
-    looked = "";
+  const failed = (e: Error) =>
     log("run.error", { error: e.message, step: "watch.cards" });
-  };
-  if (held) {
-    looked = "";
+  if (isLocked()) {
     if (moved) {
       await pushNewDecisions().catch(failed);
     }
     return;
   }
-  // lifelog down: the last list stands, and nothing is logged for it every minute.
-  voices = await fetchNamingQueue()
-    .then((q) => q.map((v) => v.id).join(" "))
-    .catch(() => voices);
-  const now = [
-    decisions,
-    readLineCount(CORRECTIONS),
-    readLineCount(FACT_CHECK_ANSWERS),
-    voices,
-  ].join();
-  if (now === looked) {
-    return;
-  }
-  looked = now;
   await pushNewCards().catch(failed);
 }

@@ -3,8 +3,9 @@ import { rmSync } from "node:fs";
 import { DAY } from "../core/clock";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { answerCheck as answerWith, type CheckAnswer } from "./answer-check";
-import type { Check, CheckGroup, InboxCheck } from "./checks";
+import type { Check, InboxCheck } from "./checks";
 import { DECISIONS, decisionsNow, requestDecision } from "./decisions";
+import type { CheckGroup } from "./life-checks";
 import { CORRECTIONS, readCorrections } from "./memory-files";
 
 const check = (ref: string, group: CheckGroup, about: string[] = []) =>
@@ -14,7 +15,7 @@ const guess = check("person:inf_kit", "guessed person", [
   "+33600000001",
 ]);
 const name = check("name:kit", "name", ["Kit", "kit"]);
-const card = check("person:con_kit", "card");
+const card = check("person:con_kit", "contacts card");
 const ending = check("obs_000000000001", "ending");
 /** The goals a new matter's Start asked the desk to start on. */
 let started: string[] = [];
@@ -190,7 +191,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
   }
 });
 
-test("a new matter: Edit goal makes his words its goal, Dismiss is his no, Start makes the goal he saw his then asks the desk with it", async () => {
+test("a new matter: Edit goal makes his words its goal, Dismiss is his no, Start asks the desk with the goal he saw and writes nothing itself", async () => {
   const steps = ["obs_000000000071", "unit_000000000072"];
   const matter = check("matter_000000000007", "new matter");
   const view = (by: "life" | "owner", text: string) => ({
@@ -218,18 +219,22 @@ test("a new matter: Edit goal makes his words its goal, Dismiss is his no, Start
     // Only his app's tap starts an agent: a session's answer (the CLI) cannot.
     await expect(
       answerWith(matter, { options: ["start"] }, "session")
-    ).rejects.toThrow("his tap");
+    ).rejects.toThrow("his own answer_check");
     const { done } = await answerCheck(matter, { options: ["start"] });
-    expect(started).toEqual(["The boiler is serviced"]);
-    expect(done.at(-1)).toEqual({ ask: "entry_000000000001" });
-    // His own goal is already his word: Start writes nothing more.
-    book.mockResolvedValue([view("owner", "Serviced by Friday")] as never);
-    await answerCheck(matter, { options: ["start"] });
-    expect(started.at(-1)).toBe("Serviced by Friday");
+    expect(done).toEqual([{ ask: "entry_000000000001" }]);
+    // The goal he saw, sent with his tap, wins over one re-drafted since (the desk's start saves it as his).
+    book.mockResolvedValue([view("life", "Re-drafted since")] as never);
+    await answerCheck(matter, {
+      note: "The boiler is serviced",
+      options: ["start"],
+    });
+    expect(started).toEqual([
+      "The boiler is serviced",
+      "The boiler is serviced",
+    ]);
     expect(said()).toEqual([
       { goal: "Serviced and the leak fixed", kind: "matter-direction", steps },
       { kind: "new-matter-dismissed", steps },
-      { goal: "The boiler is serviced", kind: "matter-direction", steps },
     ]);
   } finally {
     book.mockRestore();

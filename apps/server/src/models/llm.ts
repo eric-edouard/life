@@ -8,13 +8,14 @@ import { join } from "node:path";
 import { z } from "zod";
 import { log } from "../core/log";
 import { Engine } from "../core/names";
-import { isHis, LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
-import { CODEX, cliEnv, MACHINE_DIR } from "../core/platform";
+import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
+import { CODEX, cliEnv, isOwnLife, MACHINE_DIR } from "../core/platform";
 import { exec, firstLine } from "../core/proc";
 import { settings } from "../core/settings";
 import {
   type Answer,
   add,
+  type CallReads,
   extractJson,
   imageBlock,
   type Llm,
@@ -54,7 +55,7 @@ const CODEX_BIN = join(LIFE_CODE_DIR, CODEX);
 // its own (`CODEX_HOME=<this> codex login --device-auth`, once) and no instruction files. The repo's own AGENTS.md is
 // kept out by running in an empty temp folder and `project_doc_max_bytes=0`; `skills.include_instructions=false` drops
 // the skills catalog.
-const CODEX_HOME = join(MACHINE_DIR, "codex");
+export const CODEX_HOME = join(MACHINE_DIR, "codex");
 /** Codex's reasoning effort by tier. */
 const CODEX_EFFORT: Record<Tier, string> = {
   deep: "high",
@@ -68,10 +69,10 @@ const CODEX_TOOLS = ["shell_tool", "unified_exec", "code_mode_host"];
 // network), so it keeps that and still has no shell; `apply_patch`, nested there, meets the read-only sandbox. Its
 // nested `clock__curr_time` reads the real time, which is the time its questions are asked at (verified 21 Oct 2026 on
 // codex 0.162.1 against a fake provider, no quota spent).
-const CODEX_AGENT_OFF = ["shell_tool", "unified_exec", "sleep_tool"];
+export const CODEX_AGENT_OFF = ["shell_tool", "unified_exec", "sleep_tool"];
 /** The name a call's one MCP server goes by. */
 const SERVER = "life";
-const CODEX_OFF =
+export const CODEX_OFF =
   "plugins apps browser_use browser_use_external computer_use image_generation multi_agent hooks goals in_app_browser skill_search tool_suggest memories".split(
     " "
   );
@@ -90,9 +91,9 @@ export function llmOverride(
   if (!set) {
     return;
   }
-  if (isHis(data)) {
+  if (isOwnLife(data)) {
     throw new Error(
-      "LIFE_LLM is for a copy of the data (LIFE_OWNER_DATA_DIR), never ~/Life"
+      "LIFE_LLM is for a copy of the data (LIFE_OWNER_DATA_DIR), never his own"
     );
   }
   const [engine = "", ...rest] = set.split("/");
@@ -170,7 +171,6 @@ const ClaudeResult = z.object({
   is_error: z.boolean(),
   num_turns: z.number().optional(),
   result: z.string().default(""),
-  total_cost_usd: z.number().optional(),
   usage: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -277,7 +277,6 @@ async function askClaude({ dir, images, input, llm, system }: ModelCall) {
     JSON.parse(stdout.trim().split("\n").at(-1) ?? "")
   );
   const fields = {
-    costUsd: res.total_cost_usd,
     tokens: claudeTokens(res.usage),
     turns: res.num_turns,
     usage: res.usage,
@@ -535,7 +534,8 @@ export const hasQuota = (engine?: Engine) =>
  * `context` (as JSON) is appended to the system prompt: the same for every call of a run, so it is cached.
  * The input and the reply are kept in `dir`, so anything made from a call can be checked against exactly what the
  * model read. `images` (JPEG or PNG paths) follow the input, in order. Returns the reply's JSON; every call, failed or
- * not, is one `model.run` line.
+ * not, is one `model.run` line, with what it read (`reads`, by source: a call that names none is refused before it is
+ * made) and, when its provider says, what it cost (`costUsd`; a call without it is unpriced).
  */
 export async function askOnce(opts: {
   context?: unknown;
@@ -546,11 +546,18 @@ export async function askOnce(opts: {
   /** The call parts it has on (`models/prompt-parts.ts`): their paragraphs are shown and its name says so. */
   callParts?: readonly string[];
   prompt: string;
+  /** The units it is shown, counted by source (`readsOf`, memory/run.ts). */
+  reads: CallReads;
   run: string;
   /** The one exception to "no tools": Life's connector, reads only, for the question cases' agent. */
   tools?: Tools;
 }) {
-  const { dir, llm } = opts;
+  const { dir, llm, reads } = opts;
+  if (!Object.values(reads).some((n) => (n ?? 0) > 0)) {
+    throw new Error(
+      `a model call names what it reads: ${opts.prompt} named nothing`
+    );
+  }
   if (opts.tools && !PROVIDERS[llm.engine].tools) {
     throw new Error(`${llm.engine} runs no tools: only Codex is given any`);
   }
@@ -562,6 +569,7 @@ export async function askOnce(opts: {
   const made = {
     ...stamp(llm, opts.prompt, opts.run, opts.callParts),
     effort: llm.effort,
+    reads,
   };
   await mkdir(dir, { recursive: true });
   await Bun.write(join(dir, "input.json"), JSON.stringify(opts.input, null, 1));

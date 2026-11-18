@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { clock } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
+import type { CallReads } from "../models/model-call";
 import { isPromptVersion, MAY_KEEP, promptText } from "../models/prompt-parts";
 import { type ReadName, ReadReply } from "../records/read-reply";
 import { READ_REPLIES, readReplyPath } from "./memory-files";
@@ -30,6 +31,8 @@ interface Call {
   firstAt: string;
   input: object;
   keys: string[];
+  /** What the call is shown, counted per source (`readsOf`). */
+  reads: CallReads;
   starts: number[];
 }
 
@@ -166,7 +169,12 @@ export async function makeReplies(
     const ok = await step.attempt(
       async () => {
         const { prompt } = READS[read];
-        const answer = await step.ask({ dir, input: call.input, prompt });
+        const answer = await step.ask({
+          dir,
+          input: call.input,
+          prompt,
+          reads: call.reads,
+        });
         const reply = call.checked ? call.checked(answer) : answer;
         const at = clock().toISOString();
         storeReply(

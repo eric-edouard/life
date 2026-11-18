@@ -9,6 +9,7 @@ import {
   agentChangeOf,
   agentOf,
   holderOf,
+  projectHolderOf,
   readCursor,
 } from "../host/desk-read";
 import { AgentChange } from "../records/registered-agent";
@@ -52,12 +53,14 @@ const runtimeOf = (c: AgentChange) =>
 
 /**
  * Starts an agent on his words (`brief`): his subject, a runtime the desk drives that answers (`blocked`: why it can't
- * now), a folder that exists when one is named. A repeat (the matter already held by an active agent started on the same
- * words) is that agent, not a refusal.
+ * now), a folder that exists when one is named. A repeat (an active agent on the same subject, its matter or its
+ * project, started on the same words) is that agent, not a refusal.
  */
 function start(desk: Desk, c: AgentChange, brief: string, blocked?: string) {
   const runtime = runtimeOf(c);
-  const holder = holderOf(desk.db, c.steps ?? []);
+  const holder = c.project
+    ? projectHolderOf(desk.db, c.project, brief)
+    : holderOf(desk.db, c.steps ?? []);
   if (holder && agentOf(desk.db, holder)?.brief === brief) {
     return { id: holder };
   }
@@ -112,7 +115,7 @@ function apply(
     case "stop":
       refused = refusal(["active"]);
       if (!refused) {
-        // ponytail: a turn under way ends on its own; `Runtime.stop` comes with the handover (step 5).
+        // ponytail: a turn under way ends on its own, with no reminder after; stopping its run (`Runtime.stop`) waits for the handover (step 5).
         db.run("update agent set status = 'stopped' where id = ?", [id]);
       }
       break;

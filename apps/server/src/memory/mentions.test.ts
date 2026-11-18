@@ -18,7 +18,7 @@ import { READS, storeReply } from "./read-replies";
 import { OWNER } from "./read-truth";
 import { said } from "./record-fixtures";
 import { tiesNow } from "./ties";
-import { dayUnitId } from "./units";
+import { dayUnitId } from "./unit-ids";
 import { foldsOf, placementOf } from "./who";
 
 const place = (

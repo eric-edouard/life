@@ -17,7 +17,7 @@ import { exchangesOf } from "./exchanges";
 import { READ_REPLIES } from "./memory-files";
 import { locate } from "./quote-check";
 import { type Asked, makeReplies, READS, readReplies } from "./read-replies";
-import { begin, chunks, type Step } from "./run";
+import { begin, chunks, readsOf, type Step } from "./run";
 import {
   type SpokenPart,
   type SpokenTurn,
@@ -276,6 +276,9 @@ function pendingOf(
             words: maxWordsOf(part.chars),
           },
           keys: part.keys,
+          reads: readsOf(
+            part.units.map((unit) => ({ source: "lifelog", unit }))
+          ),
           starts: [0],
         },
         read: SUMMARY_READ,

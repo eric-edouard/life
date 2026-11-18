@@ -17,7 +17,7 @@ import {
   readLedger,
 } from "../../memory/memory-files";
 import { loadTruth, TRUTH } from "../../memory/read-truth";
-import { runs, SPENDING, type Use, useText } from "../../memory/run-log";
+import { runs, type Use, useText } from "../../memory/run-log";
 import { enabledSources, keptStores, listening } from "../../memory/sources";
 import { clip } from "../../memory/units";
 import { dayStart, wall } from "../../memory/zones";
@@ -248,7 +248,7 @@ async function reads(now: Date) {
     truth,
     contacts,
     sleepList,
-    spendingRuns,
+    recentRuns,
     actions,
     actionChecks,
     newest,
@@ -265,9 +265,9 @@ async function reads(now: Date) {
     cached("truth", MIN, () => truthState()),
     cached("contacts", 10 * MIN, () => safe(() => readContacts().size)),
     safe(() => cached("sleeps", 5 * MIN, () => sleeps(t))),
-    // The runs that can spend, a processing run's steps inside it (its use counts theirs).
-    cached("spending runs", 15_000, async () => {
-      const page = await runs({ limit: 30, steps: SPENDING });
+    // Every run, a processing run's steps inside it (its use counts theirs): a night that failed before its first call shows too.
+    cached("recent runs", 15_000, async () => {
+      const page = await runs({ everyStep: true, limit: 30 });
       return { ...page, items: page.items.filter((x) => !x.processingRun) };
     }),
     readLedger(),
@@ -300,9 +300,9 @@ async function reads(now: Date) {
     now,
     open,
     quotas: of("quota.read", 8),
+    recentRuns,
     sent: of("email.sent", 2),
     sleepList,
-    spendingRuns,
     status,
     t,
     truth,
@@ -810,7 +810,7 @@ function engineCard(r: Reads): Card {
         | { resetsAt?: string; used: number }
         | undefined)
     : undefined;
-  const week = r.spendingRuns.items.filter(
+  const week = r.recentRuns.items.filter(
     (x) => spent(x.use) && r.t - Date.parse(x.startedAt ?? "") < 7 * DAY
   );
   const tokens = week.reduce(
@@ -1097,7 +1097,7 @@ function macCards(r: Reads): Card[] {
 /** The last 24 h: runs, failures (the watcher's retries apart), sends and the Mac's sleeps. */
 function todayOf(r: Reads): Tick[] {
   return [
-    ...r.spendingRuns.items
+    ...r.recentRuns.items
       .filter((x) => x.startedAt && r.t - Date.parse(x.startedAt) < DAY)
       .map((x) => ({
         at: x.startedAt ?? "",

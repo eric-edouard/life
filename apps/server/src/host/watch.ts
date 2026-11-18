@@ -42,7 +42,7 @@ import { lockReport, sendReport } from "./report";
 // builds today's units from every other source the same way (`buildTodayUnits`), with no model call. Health is in
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
-// It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
+// It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `SPEECH_WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`). Each minute, on its own timer, `tick` reads his to-do list: lifelog
 // down never stops it (1 Nov: 20 h without one). Every 10 minutes, on another, what search ranks by meaning is embedded, and on a third the photos with no description are described.
 
@@ -130,7 +130,7 @@ const RETRY_MS = 30_000;
  * ponytail: a recording later than that ends the ask before it (`spansIn` starts at a wake); joining it to the open
  * ask would need a ledger line that extends an ask.
  */
-const WAIT_MS = { complete: 5000, open: MIN };
+const SPEECH_WAIT_MS = { complete: 5000, open: MIN };
 /** A replay of the store (after a restart or an outage) never acts on speech older than a week. */
 const RECENT_MS = 7 * DAY;
 /**
@@ -189,13 +189,16 @@ function fold(
 }
 
 /** Where a conversation's speech stands (`speechIn`). */
-type Speech = (conversation: string, from: string) => keyof typeof WAIT_MS;
+type Speech = (
+  conversation: string,
+  from: string
+) => keyof typeof SPEECH_WAIT_MS;
 
-/** When a pending conversation is due: `WAIT_MS` after its last turn arrived, by where its speech stands. */
+/** When a pending conversation is due: `SPEECH_WAIT_MS` after its last turn arrived, by where its speech stands. */
 const dueAt = (
   [conversation, p]: [string, { at: number; from: string }],
   speech: Speech
-) => p.at + WAIT_MS[speech(conversation, p.from)];
+) => p.at + SPEECH_WAIT_MS[speech(conversation, p.from)];
 
 /**
  * Folds the turns of one poll into `pending` and takes out the conversations due (`dueAt`, measured on arrival, not on

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { doorOf } from "../desk-door";
-import { argsOf, hasBegun, isTurnOpen, usageOf } from "./claude-runtime";
+import { argsOf, hasAnswered, isTurnOpen, usageOf } from "./claude-runtime";
 
 // The claude runtime's pure parts: the command it runs, and a transcript's usage. Made-up transcripts.
 
@@ -15,8 +15,8 @@ test("the claude runtime puts the door's key in the environment, never the comma
     title: "Test",
   };
   const argv = [
-    ...argsOf(a, "hello", { start: "u-1" }),
-    ...argsOf(a, "again", { resume: "u-1" }),
+    ...argsOf(a, "hello", { start: "u-1" }, true),
+    ...argsOf(a, "again", { resume: "u-1" }, true),
   ];
   expect(argv.join(" ")).not.toContain(door.key);
   // biome-ignore lint/suspicious/noTemplateCurlyInString: what Claude expands from the environment
@@ -38,6 +38,16 @@ test("the claude runtime puts the door's key in the environment, never the comma
     "high",
   ]);
   expect(argsOf(a, "x", { resume: "u-1" })).not.toContain("--model");
+  // His own Life's agent runs as he set Claude up; a second Life's (a demo) has its door alone.
+  expect(argv).not.toContain("--strict-mcp-config");
+  const second = argsOf(a, "x", { resume: "u-1" }, false).join(" ");
+  for (const flag of [
+    "--strict-mcp-config",
+    "--setting-sources ",
+    "--tools  --allowedTools mcp__desk",
+  ]) {
+    expect(second).toContain(flag);
+  }
 });
 
 test("a transcript's usage: growth since its first call, and its last turn's calls counted once each", () => {
@@ -121,20 +131,26 @@ test("a session held by an idle process is not running: only an open last turn i
   expect(isTurnOpen("")).toBe(false);
 });
 
-test("a turn has begun once its prompt is in an open transcript; a first turn done before anyone looked began too", () => {
+test("a run has begun once the model answered its own prompt: not at the prompt, not on an earlier turn's answer", () => {
   const prompt = JSON.stringify({
     message: { content: "Brief" },
     type: "user",
   });
-  const done = `${prompt}\n${JSON.stringify({ message: { content: [{ type: "text" }], stop_reason: "end_turn" }, type: "assistant" })}`;
-  // No transcript yet: not begun, over or not.
-  expect(hasBegun(undefined, true, false)).toBe(false);
-  expect(hasBegun(undefined, true, true)).toBe(false);
-  // The prompt is in and the turn is open.
-  expect(hasBegun(prompt, false, false)).toBe(true);
-  // A resumed session's last turn is closed: the new prompt is not in yet, unless the run is a first turn.
-  expect(hasBegun(done, false, false)).toBe(false);
-  expect(hasBegun(done, false, true)).toBe(false);
-  expect(hasBegun(done, true, false)).toBe(false);
-  expect(hasBegun(done, true, true)).toBe(true);
+  const answer = JSON.stringify({
+    message: { content: [{ type: "text" }], stop_reason: "end_turn" },
+    type: "assistant",
+  });
+  // No transcript yet, or only the prompt (a signed-out CLI writes it, then fails): not begun.
+  expect(hasAnswered(undefined, 0)).toBe(false);
+  expect(hasAnswered(prompt, 0)).toBe(false);
+  // The model answered the first turn's prompt.
+  expect(hasAnswered(`${prompt}\n${answer}`, 0)).toBe(true);
+  // A resumed session held one prompt at launch: its old answer is not this run's; the new prompt's answer is.
+  expect(hasAnswered(`${prompt}\n${answer}`, 1)).toBe(false);
+  expect(hasAnswered(`${prompt}\n${answer}\n${prompt}`, 1)).toBe(false);
+  expect(hasAnswered(`${prompt}\n${answer}\n${prompt}\n${answer}`, 1)).toBe(
+    true
+  );
+  // A line still being written is skipped, never thrown.
+  expect(hasAnswered(`${prompt}\n{"type":"assis`, 0)).toBe(false);
 });

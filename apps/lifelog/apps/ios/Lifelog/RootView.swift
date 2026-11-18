@@ -32,8 +32,8 @@ struct RootView: View {
         .environment(router)
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
-            case .pendant: PendantView()
-            case .settings: SettingsSheet()
+            case .pendant: PendantView().presentationPlacement(.trailing)
+            case .settings: SettingsSheet().presentationPlacement(.trailing)
             }
         }
         .preferredColorScheme(appearance.scheme)

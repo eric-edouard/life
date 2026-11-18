@@ -43,7 +43,7 @@ import { answeredBy, checkPeople, unknownIn } from "./people";
 import { staysOf, where } from "./places";
 import { subjectOf } from "./quote-check";
 import { OWNER, type Truth } from "./read-truth";
-import { begin, checkedEntries } from "./run";
+import { begin, checkedEntries, readsOf } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup, areaOf, normalizeTopics } from "./tags";
 import { publishUnits } from "./unit-writer";
@@ -609,6 +609,9 @@ export async function episodes(evidence: Evidence) {
             })),
           },
           prompt: EPISODES_PROMPT,
+          reads: readsOf(
+            shown.map(({ unit }) => ({ source: unit.source, unit: unit.id }))
+          ),
         });
         const reading = parseDay(json, {
           areas,

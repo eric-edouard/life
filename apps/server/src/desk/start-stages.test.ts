@@ -6,6 +6,7 @@ import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import { changeRegisteredAgent } from "../host/change-registered-agent";
 import { expectWire } from "../host/http/wire-fixture";
+import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { ticking } from "./test-ticker";
@@ -35,17 +36,31 @@ const matter = (n: number) => ({
   steps: [{ ref: `obs_00000000c10${n}` }],
 });
 
+/** Matter 5's goal is already his word. */
+const hisGoal = {
+  at: "2026-11-17T02:00:00Z",
+  by: "owner",
+  text: "Test: his goal",
+};
+
+/** The matter-directions recorded, without their stamps. */
+const goalsSaved = () =>
+  readCorrections().map(({ at: _a, schemaVersion: _v, ...c }) => c);
+
 beforeAll(async () => {
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
+  rmSync(CORRECTIONS, { force: true });
   setSettings({ desk: { defaultRuntime: "claude", runtimes: {} } });
   desk = { db: openDesk(), runtimes: { claude: fake.runtime } };
-  spyOn(await import("../memory/matters"), "readMatterBook").mockResolvedValue(
-    [1, 2, 3, 4].map(matter) as never
-  );
+  spyOn(await import("../memory/matters"), "readMatterBook").mockResolvedValue([
+    ...[1, 2, 3, 4].map(matter),
+    { ...matter(5), goal: hisGoal },
+  ] as never);
 });
 
 afterAll(() => {
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
+  rmSync(CORRECTIONS, { force: true });
   setSettings({ desk: null });
 });
 
@@ -67,18 +82,26 @@ async function start(n: number, said: string, limitMs = 5000, after = 300) {
   return { result, steps };
 }
 
-test("a start reports its plan, then each stage as the desk writes it, and answers started", async () => {
+test("a start on a matter reports its plan, saves his words as its goal, then each stage as the desk writes it, and answers started", async () => {
   const { result, steps } = await start(1, "Test: watch matter 1");
   expect(steps.map((s) => s.step ?? "plan")).toEqual([
     "plan",
+    "goal_saved",
     "runtime_answers",
     "session_open",
     "turn_begun",
   ]);
   expect(steps[0]).toEqual({
     limitSeconds: 5,
-    plan: ["runtime_answers", "session_open", "turn_begun"],
+    plan: ["goal_saved", "runtime_answers", "session_open", "turn_begun"],
   });
+  expect(goalsSaved()).toEqual([
+    {
+      goal: "Test: watch matter 1",
+      kind: "matter-direction",
+      steps: ["obs_00000000c101"],
+    },
+  ]);
   expect(result).toMatchObject({
     action: "start",
     failed: null,
@@ -104,6 +127,30 @@ test("a repeat of the same start answers with the same agent's stages and starts
   expect((again.result as { agent: string }).agent).toBe(
     (first.result as { agent: string }).agent
   );
+});
+
+test("a start whose words are already his goal writes no second one (the phone's goal-then-start)", async () => {
+  const before = goalsSaved().length;
+  const { result, steps } = await start(5, hisGoal.text);
+  expect(result).toMatchObject({ state: "started" });
+  expect(steps.map((s) => s.step ?? "plan").slice(0, 2)).toEqual([
+    "plan",
+    "goal_saved",
+  ]);
+  expect(goalsSaved()).toHaveLength(before);
+});
+
+test("a matter start whose words cannot be a goal is refused before the desk is asked", async () => {
+  const before = goalsSaved().length;
+  await expect(
+    changeRegisteredAgent({
+      action: "start",
+      folder,
+      said: "x".repeat(201),
+      step: "obs_00000000c104",
+    })
+  ).rejects.toThrow("at most 200 characters");
+  expect(goalsSaved()).toHaveLength(before);
 });
 
 test("a runtime that does not answer is not_started at its stage, with nothing running", async () => {

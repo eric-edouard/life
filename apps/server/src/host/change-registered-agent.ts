@@ -1,12 +1,15 @@
 import { z } from "zod";
+import { clock } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { off } from "../core/outputs";
 import { matterOfSteps } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
+import { recordCorrection } from "../memory/memory-files";
 import { areaFor } from "../memory/read-area-page";
 import { loadTruth, type Truth } from "../memory/read-truth";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
+import { GoalText } from "../records/matter";
 import { AgentChange } from "../records/registered-agent";
 import { listRepos } from "../sources/git";
 import { ask } from "./asks";
@@ -15,9 +18,9 @@ import {
   agentChangeOf,
   holderOf,
   modelOf,
-  NOT_STARTED,
+  projectHolderOf,
   readDesk,
-  startOf,
+  readStartFacts,
 } from "./desk-read";
 import type { ToolCall } from "./http/mcp-tool";
 
@@ -45,13 +48,15 @@ export const RegisteredAgentChange = AgentChange.omit({ steps: true }).extend({
     "A project id or name of his directory, as its subject"
   ),
   runtime: AgentChange.shape.runtime.describe(
-    "claude, codex or dsh; none: the desk's default"
+    "claude or codex; none: the desk's default"
   ),
   said: z
     .string()
     .min(1)
     .max(8000)
-    .describe("His own words, verbatim: a start's are its brief"),
+    .describe(
+      "His own words, verbatim: a start's are its brief, and on a matter its goal (at most 200 characters)"
+    ),
   step: z
     .string()
     .min(1)
@@ -64,7 +69,7 @@ export type RegisteredAgentChange = z.infer<typeof RegisteredAgentChange>;
 export const WAIT_MS = 20_000;
 const POLL_MS = 500;
 
-/** The matter `step` names (its id, or a step's): its anchors (that step first, then the rest of its steps) and its projects. */
+/** The matter `step` names (its id, or a step's): its anchors (that step first, then the rest of its steps), its steps as listed, its goal and its projects. */
 async function matterNamed(step: string) {
   const v = matterOfSteps(await readMatterBook(await readPeople(), dayNow()), [
     step,
@@ -74,7 +79,9 @@ async function matterNamed(step: string) {
   }
   const refs = v.steps.map((s) => s.ref);
   return {
+    goal: v.goal,
     projects: v.projects,
+    refs,
     steps: refs.includes(step)
       ? [step, ...refs.filter((r) => r !== step)]
       : refs,
@@ -96,12 +103,12 @@ function readRepoFolder(projects: string[], truth: Truth) {
 
 /**
  * His change with its Life-side facts read: his project's id, the matter's anchors and, for a start with no folder,
- * the folder of its project's repo (`readRepoFolder`). Throws when the project or the matter is not his.
+ * the folder of its project's repo (`readRepoFolder`); and the matter named. Throws when the project or the matter is not his.
  */
 async function withSubject({
   step,
   ...rest
-}: Omit<RegisteredAgentChange, "said">): Promise<AgentChange> {
+}: Omit<RegisteredAgentChange, "said">) {
   const change: AgentChange = { ...rest };
   const hasNoFolder = change.action === "start" && !change.folder;
   const truth = rest.project || hasNoFolder ? await loadTruth() : undefined;
@@ -123,18 +130,37 @@ async function withSubject({
       truth
     );
   }
-  return change;
+  return { change, matter };
 }
 
-/** What the connector reports for a start, in order: the desk's three facts (`goal_saved`, before them, is the phone's own call or a new matter's Start writer). */
+/** A matter start's words become his goal for it (his `matter-direction`, pinned to its steps), unless they already are. */
+async function saveGoal(
+  matter: Awaited<ReturnType<typeof matterNamed>>,
+  said: string
+) {
+  if (!GoalText.safeParse(said).success) {
+    throw new Error(
+      "Not done: on a matter, `said` is its goal too: at most 200 characters."
+    );
+  }
+  if (!(matter.goal?.by === "owner" && matter.goal.text === said)) {
+    await recordCorrection({
+      goal: said,
+      kind: "matter-direction",
+      steps: matter.refs,
+    });
+  }
+}
+
+/** What the connector reports for a start, in order: the desk's three facts (a matter start's `goal_saved` comes before them). */
 export const START_STAGES = [
   "runtime_answers",
   "session_open",
   "turn_begun",
 ] as const;
 
-/** The start's stages as the desk's store has written them so far (`startOf`): each with its time and detail. */
-function stagesOf(s: ReturnType<typeof startOf>) {
+/** The start's stages as the desk's store has written them so far (`readStartFacts`): each with its time and detail. */
+function stagesOf(s: ReturnType<typeof readStartFacts>) {
   const { change, session, turn } = s;
   return [
     ...(change?.agent_id && !change.error
@@ -161,20 +187,17 @@ function stagesOf(s: ReturnType<typeof startOf>) {
 }
 
 /** Why a start did not happen, from what the desk wrote: its refusal, or the agent it ended before its first turn began. */
-function startFailure(s: ReturnType<typeof startOf>) {
+function startFailure(s: ReturnType<typeof readStartFacts>) {
   if (s.change?.error) {
     return s.change.error;
   }
-  const outcome = s.agent?.outcome;
-  return s.agent?.status === "ended" && outcome?.startsWith(NOT_STARTED)
-    ? outcome.slice(NOT_STARTED.length)
-    : null;
+  return s.agent?.why_not_started ?? null;
 }
 
 /** A start's answer from the facts read: `started`, `not_started` (refused, or its agent ended before it began) or `unconfirmed`. */
 function startResult(
-  s: ReturnType<typeof startOf> | null,
-  isHeld: boolean,
+  s: ReturnType<typeof readStartFacts> | null,
+  isSubjectHeld: boolean,
   stages: ReturnType<typeof stagesOf>,
   askId: string,
   change: AgentChange,
@@ -199,8 +222,8 @@ function startResult(
           stage: START_STAGES[stages.length] ?? START_STAGES[2],
         },
     model: s?.agent ? modelOf(s.agent).model : (change.model ?? null),
-    // A matter held by an active agent has one running.
-    nothingRunning: state === "not_started" && !isHeld,
+    // A subject held by an active agent has one running.
+    nothingRunning: state === "not_started" && !isSubjectHeld,
     runtime: s?.agent?.runtime ?? change.runtime ?? null,
     stages,
     state,
@@ -214,20 +237,22 @@ async function waitForStart(
   { report }: ToolCall,
   limitMs: number
 ) {
-  report({ limitSeconds: limitMs / 1000, plan: [...START_STAGES] });
   let reported = 0;
   for (let waited = 0; ; waited += POLL_MS) {
     const read = readDesk(
       (db) => ({
-        isHeld: holderOf(db, change.steps ?? []) !== null,
-        s: startOf(db, line.id),
+        isSubjectHeld:
+          (change.project
+            ? projectHolderOf(db, change.project)
+            : holderOf(db, change.steps ?? [])) !== null,
+        s: readStartFacts(db, line.id),
       }),
       null
     );
-    const { isHeld, s } =
+    const { isSubjectHeld, s } =
       read.state === "ok" && read.value
         ? read.value
-        : { isHeld: false, s: null };
+        : { isSubjectHeld: false, s: null };
     const stages = s ? stagesOf(s) : [];
     for (const { stage, ...detail } of stages.slice(reported)) {
       report({ step: stage, ...detail });
@@ -238,7 +263,7 @@ async function waitForStart(
       (s && startFailure(s)) ||
       waited >= limitMs
     ) {
-      return startResult(s, isHeld, stages, line.id, change, limitMs);
+      return startResult(s, isSubjectHeld, stages, line.id, change, limitMs);
     }
     // biome-ignore lint/performance/noAwaitInLoops: polls the desk's facts
     await Bun.sleep(POLL_MS);
@@ -277,7 +302,8 @@ async function waitForChange(
 /**
  * Records his word as an ask of the desk, then reports what the desk did with it (JSON): a start's stages, each as its
  * fact is written (`report`), then `started`, `not_started` or `unconfirmed`; another change `done`, `unconfirmed`, or
- * refused (a throw). Each call is a new ask: a repeated start for a matter its agent already holds answers with that agent.
+ * refused (a throw). A start on a matter first saves his words as its goal (`goal_saved`): the one place a start's goal
+ * is written. Each call is a new ask: a repeated start for a matter its agent already holds answers with that agent.
  */
 export async function changeRegisteredAgent(
   { said, ...rest }: RegisteredAgentChange,
@@ -288,14 +314,25 @@ export async function changeRegisteredAgent(
   if (why) {
     throw new Error(`Not done: ${why}`);
   }
-  const change = await withSubject(rest);
+  const { change, matter } = await withSubject(rest);
+  const isStart = change.action === "start";
+  if (isStart) {
+    call.report({
+      limitSeconds: limitMs / 1000,
+      plan: [...(matter ? ["goal_saved"] : []), ...START_STAGES],
+    });
+    if (matter) {
+      await saveGoal(matter, said);
+      call.report({ at: clock().toISOString(), step: "goal_saved" });
+    }
+  }
   const line = ask(
     requested("connector", said),
     { agent: DESK_AGENT, agentChange: change, confidence: "high" },
     "connector",
     "asked in a chat"
   );
-  return change.action === "start"
+  return isStart
     ? waitForStart(line, change, call, limitMs)
     : waitForChange(line, change, limitMs);
 }

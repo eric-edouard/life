@@ -78,6 +78,15 @@
     "life": null
   },
   {
+    "case": "Life over plain HTTP on this device's loopback (a demo Life on the simulator's Mac)",
+    "link": "lifelog://pair?life=http%3A%2F%2F127.0.0.1%3A46300&code=ABC234",
+    "pairing": null,
+    "life": {
+      "origin": "http://127.0.0.1:46300",
+      "code": "ABC234"
+    }
+  },
+  {
     "case": "Life with no code",
     "link": "lifelog://pair?life=https%3A%2F%2Flife.example.ts.net",
     "pairing": null,

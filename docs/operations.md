@@ -12,7 +12,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 | `OWNER_DATA_DIR` (env `LIFE_OWNER_DATA_DIR`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, each kept whole as an export copy by `bun life import`) | Life.app: `MACHINE_DIR/data`; a checkout: `~/Life` |
 | `LIFE_STATE_DIR` (env too) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE_DIR/state`; a checkout: its own `derived/` |
 | `LIFE_CODE_DIR` (env too) | Life's own files: prompts, assets | Life.app: the helper's resources; a checkout: the checkout |
-| `MACHINE_DIR` | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
+| `MACHINE_DIR` (env `LIFE_MACHINE_DIR`) | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks; a second Life (a demo) sets its own, and `LIFE_PORT` for its ports | |
 
 - `OWNER_DATA_DIR` is a git repository of its own with no remote. The nightly commits there and pushes nothing (`commitMemory`
   refuses a repo with a remote, and a folder that is not a repo's root).
@@ -63,7 +63,7 @@ every Keychain secret in its environment:
 |---|---|
 | `archive` (kept running) | Every 5 s copies WhatsApp, the bridged networks (LINE, Instagram, Messenger, LinkedIn, Telegram, from the bridges' homeserver), and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
 | `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units from where a page touched and their index rows (the whole index when a unit went or a code rule dropped or took one back, or a file under memory/ or truth/ is newer than it; every lifelog unit again after a truth/ edit), hears `hey <agent>`, runs the minute pass, serves the connector. |
-| `desk` (kept running while his `desk` setting is set) | The desk (`apps/server/src/desk/`): every 5 s starts the registered agents' turns that are due (his answer, an event, a deadline, a retry), at most 3 a tick; every 5 s reads his answers to their decisions (and their lapses), every 30 s the new messages and his pendant's new recordings (the voice units of today and yesterday), into their queues (an agent's wait, and the wide net for an agent on a matter: `matter.related`, `desk/matter-net.ts`), and ends the turns a restart left behind. It serves the door on `127.0.0.1:46202`. Its store is `LIFE_STATE_DIR/desk/desk.sqlite`, its key `LIFE_STATE_DIR/desk/desk.key`. Every 5 s it applies his word about his agents (`change_registered_agent`, his asks of `desk`), each once (a start asks its runtime's `block` first; an agent whose first turn never begins is ended, `not started: …`). A scheduled task posts a line for the report with `bun life desk report-line '{"source":…,"line":…,"link":…}'`. A tick over 5 minutes exits it, and the app starts it again. Off, the app starts none. |
+| `desk` (kept running while his `desk` setting is set) | The desk (`apps/server/src/desk/`): every 5 s starts the registered agents' turns that are due (his answer and a new agent's first turn first, then an event, a deadline, a retry), at most 3 a tick, before its polls; every 5 s reads his answers to their decisions (and their lapses), every 30 s the new messages and his pendant's new recordings (the voice units of today and yesterday), into their queues (an agent's wait, and the wide net for an agent on a matter: `matter.related`, `desk/matter-net.ts`), and ends the turns a restart left behind. It serves the door on `127.0.0.1:46202`. Its store is `LIFE_STATE_DIR/desk/desk.sqlite`, its key `LIFE_STATE_DIR/desk/desk.key`. Every 5 s it applies his word about his agents (`change_registered_agent`, his asks of `desk`), each once (a start asks its runtime's `block` first; an agent whose first turn never begins, or not within the desk's begin limit, is ended and its run stopped, why in `why_not_started`). A scheduled task posts a line for the report with `bun life desk report-line '{"source":…,"line":…,"link":…}'`. A tick over 5 minutes exits it, and the app starts it again. Off, the app starts none. |
 | `memory nightly` (every 30 min) | A tick: its schedule (`schedule.ts`) decides what is due (below). |
 
 **One Life per Mac.** The archive, the watcher and the desk each hold a lock in `MACHINE_DIR` (`hold`, `apps/server/src/core/lock.ts`), so a second
@@ -85,6 +85,30 @@ records a ref and title once), the archive after its pass, and the app restarts 
 
 No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the owner's PC over SSH (pending:
 `docs/plans/2026-10-22-platforms.md`, "Verification").
+
+## Demo stress tests
+
+`bun run e2e:demo [scenario]` (`scripts/e2e-demo.ts`) proves the phone app end to end on made-up data: it writes the demo
+Life (`scripts/demo.ts`) to a temporary folder and runs it as a second Life on this Mac, with its own ports (`LIFE_PORT`,
+46500 unless `LIFE_E2E_PORT` says otherwise) and machine folder (`LIFE_MACHINE_DIR`), so the app's Life, ports and locks
+are never touched. Both are refused with his own data (`isOwnLife`: the app's data folder or `~/Life`), and a second Life
+never takes the tailnet name (`bun life connect`). It builds the app in Debug, installs it on a fresh iPhone 17 Pro
+simulator, pairs it by its link (loopback HTTP, which the phone takes only for a Life on its own loopback) and drives a
+scenario's steps with agent-device. `found-to-closed`, the one so far: the inbox offers the new matter, Start, the
+agent's plan card, Go, its work, Mark as done, the matter and its cards gone. Each step writes a numbered screenshot and a
+PASS or FAIL line to the folder it prints; the services, the agent, the simulator and the transcripts are removed, on
+failure, Ctrl-C or SIGTERM too. A scenario is a list of steps in the script: add one beside it.
+
+What the demo's agent can reach: the desk's door (its five tools, approved), and nothing else of his. A second Life's
+Claude agent runs with none of his settings (no hooks, plugins, skills or permissions), no MCP server but the door (none
+of his connectors, which reach his own Life), no built-in tool (no shell, no file read), no CLAUDE.md and no auto
+memory (`claude-runtime.ts`). It still runs as his user, signed in to his Claude account, with `HOME` his (Claude's
+sign-in and transcripts live there); with no tool that reads files, that home is out of its reach. The demo's services
+get only the variables a CLI needs and the demo's own, none of his keys.
+
+Run it after a change to the app's flows, the desk or the inbox, one at a time and with the Mac's load under 20: about
+5 to 10 minutes (most of it the build and the agent's two turns) and two real Claude turns on Sonnet, about $0.40 of his
+subscription per run. It is kept out of `bun run check` and the pre-push hook for that time and cost.
 
 ## The schedule
 
@@ -189,7 +213,7 @@ enabled source is available and the passages' collected windows are complete.
 
 ## The watcher
 
-- New cards: `pushNewCardsIfChanged` (`host/card-push.ts`) runs each minute but reads three line counts; only a change in the decisions, corrections, fact-check answers or queued voices, or a night's end, runs `checksNow` and pushes what is new (the voices lifelog queues count as a change: one read of his lifelog a minute; while a run holds the memory lock only a new decision pushes) (`pushed-cards.json` in the watcher's folder; the first run pushes nothing).
+- New cards: `pushNewCardsIfChanged` (`host/card-push.ts`) runs each minute and pushes what is new in the inbox; `checksNow` reads the inbox again only when its key changed (a file it reads, truth/ included, never units: the watcher's syncs write them; his day, the open decisions, a desk start, the queued voices: one read of his lifelog a minute, whose last list stands while it is down); while a run holds the memory lock only a new decision pushes (`pushed-cards.json` in the watcher's folder, written when it changes; the first run pushes nothing).
 - Lifelog units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per
   conversation and local day; a live conversation with a stored chapter unit keeps its chapters, which go when lifelog
   retires or drops it. Extraction reads today's conversations once lifelog has settled them (`closed`). Only
@@ -240,9 +264,14 @@ late with harm), or spoken asks above about one a day for a month.
   allmodels' abliterated one on Refuseless then Hopper at high (his choice, 8 Nov 2026): about half the price, the abliterated model for what the plain one refuses. `isOnline`
   asks only the first router. allmodels (`ALLMODELS_API_KEY`) runs the abliterated one alone; it ignores `zdr`, so its
   host list is the guarantee. Every host takes images (the files step sends them).
-- Every call logs its tokens on its `model.run` line, with its run; a run's use is the sum of its calls and its steps'
-  (`useOf`, run-log.ts). The nightly email lists every run of the last 24 h that called a model, a processing run's steps under
-  it; the quota lines appear only for an engine that has one (`hasQuota`).
+- Every call logs its tokens, what it read (`reads`: units by source, `readsOf`) and, when its router sends one, its
+  cost (`costUsd`; a call without it is unpriced) on its `model.run` line, with its run. A run's use is the sum of its
+  calls and every step nested in it (`modelCallsOf`, `useOf`, run-log.ts: every logged run is assembled, whatever a reader
+  shows). The nightly email lists every run of the last 24 h that called a model, a processing run's steps under it,
+  then the spend by source; the quota lines appear only for an engine that has one (`hasQuota`).
+- `bun life memory source-use [--days 7] [--json]`: what each source costs a day (items and units, readers, model
+  reads per unit, tokens, dollars), from the window's log days and one indexed query. The desk's agent turns are not
+  in it (his subscriptions).
 - Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model.
 - Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MACHINE_DIR/codex`, with no instruction
   files and one login: `CODEX_HOME="$HOME/Library/Application Support/Life/codex" codex login --device-auth`.

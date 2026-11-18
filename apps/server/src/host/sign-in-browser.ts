@@ -15,7 +15,7 @@ import type { CookieStep } from "../sources/matrix";
 export const hasChrome = () => Boolean(CHROME && existsSync(CHROME));
 
 const LEADING_DOT = /^\./;
-const WAIT_MS = 10 * 60_000;
+const SIGN_IN_WAIT_MS = 10 * 60_000;
 
 type Field = NonNullable<CookieStep["fields"]>[number];
 type Source = NonNullable<Field["sources"]>[number];
@@ -273,7 +273,7 @@ async function collect(step: CookieStep, profile: string, quit: () => boolean) {
     ? new RegExp(step.wait_for_url_pattern)
     : undefined;
   const start = performance.now();
-  while (performance.now() - start < WAIT_MS) {
+  while (performance.now() - start < SIGN_IN_WAIT_MS) {
     if (quit()) {
       throw new Error("Chrome was closed before the sign-in finished");
     }

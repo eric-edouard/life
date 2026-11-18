@@ -19,7 +19,7 @@ import {
   quota,
   quotaOf,
 } from "./llm";
-import { extractJson, TIERS, type Tools } from "./model-call";
+import { type CallReads, extractJson, TIERS, type Tools } from "./model-call";
 import { routesOf } from "./routers";
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
@@ -57,7 +57,7 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
   expect(() => llmOverride("gemini/x", copy)).toThrow();
   expect(() =>
     llmOverride("codex/gpt-6.1-sol", join(homedir(), "Life"))
-  ).toThrow("never ~/Life");
+  ).toThrow("never his own");
 });
 
 test("an API engine: only his hosts, one at a time in his order, streamed; a host cut mid-reply, a garbled reply, a 429 or a 5xx gives way to the next, every host's tokens logged; another host, an unnamed one, a cut reply or an error is refused; a router that fails for good gives way to the next router", async () => {
@@ -92,6 +92,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
   };
   const usage = (output: number) => ({
     completion_tokens: output,
+    cost: 0.25,
     prompt_tokens: 30,
     prompt_tokens_details: { cached_tokens: 20 },
   });
@@ -145,6 +146,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
         model: "x/y@refuseless,hopper",
       },
       prompt: "eval-judge.v3",
+      reads: { memory: 1 } as CallReads,
       run: "r",
     });
   const lastLine = () =>
@@ -172,6 +174,9 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     expect(lastLine()).toContain(
       '"tokens":{"cached":20,"input":30,"output":7}'
     );
+    // What it read and what it cost are on its line.
+    expect(lastLine()).toContain('"reads":{"memory":1}');
+    expect(lastLine()).toContain('"costUsd":0.25');
     // Done is done, even when the connection stays open.
     reply = { ...reply, open: true };
     expect(await ask()).toEqual({ ok: true });
@@ -191,6 +196,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     expect(lastLine()).toContain(
       '"tokens":{"cached":40,"input":60,"output":10}'
     );
+    expect(lastLine()).toContain('"costUsd":0.5');
     reply = { ...reply, cut: ["refuseless", "hopper"] };
     await expect(ask()).rejects.toThrow(
       "refuseless: allmodels: stopped (cut before it finished); hopper: allmodels: stopped (cut before it finished)"
@@ -234,6 +240,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
             "a/b@deepinfra/fp8,morph/fp8=medium allmodels:x/y@refuseless=high",
         },
         prompt: "eval-judge.v3",
+        reads: { memory: 1 } as CallReads,
         run: "r",
       });
     hostsAsked();
@@ -273,9 +280,23 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
         input: {},
         llm: { engine: "allmodels", model: "x/y@" },
         prompt: "eval-judge.v3",
+        reads: { memory: 1 } as CallReads,
         run: "r",
       })
     ).rejects.toThrow("author/model@host[,host]");
+    // A call that names nothing it reads is refused before any host is asked.
+    hostsAsked();
+    await expect(
+      askOnce({
+        dir: mkdtempSync(join(tmpdir(), "life-chat-")),
+        input: {},
+        llm: { engine: "allmodels", model: "x/y@refuseless" },
+        prompt: "eval-judge.v3",
+        reads: { memory: 0 } as CallReads,
+        run: "r",
+      })
+    ).rejects.toThrow("names what it reads");
+    expect(hostsAsked()).toEqual([]);
   } finally {
     fetched.mockRestore();
     delete process.env.ALLMODELS_API_KEY;
@@ -308,7 +329,13 @@ async function spawnBoth(tools?: Tools) {
     if (argv.includes("-o")) {
       writeFileSync(argv[argv.indexOf("-o") + 1] as string, '{"ok": true}');
     }
-    const result = { is_error: false, result: '{"ok": true}', type: "result" };
+    const result = {
+      is_error: false,
+      result: '{"ok": true}',
+      // A notional figure on a subscription, never logged as money.
+      total_cost_usd: 1.5,
+      type: "result",
+    };
     return {
       exited: Promise.resolve(0),
       signalCode: null,
@@ -332,6 +359,7 @@ async function spawnBoth(tools?: Tools) {
         input: { a: 1 },
         llm: { engine, model: "m" },
         prompt: "eval-judge.v3",
+        reads: { memory: 1 } as CallReads,
         run: "r",
         // Only Codex is ever given tools.
         tools: engine === "codex" ? tools : undefined,
@@ -352,6 +380,16 @@ const inside = (dir: string, root: string) => `${dir}/`.startsWith(`${root}/`);
 
 test("a model call has no tools, no MCP, no settings, no secrets, and runs in an empty folder outside the repo and his data", async () => {
   const [claude, codex] = await spawnBoth();
+  // A subscription call is unpriced: claude's notional cost is not logged.
+  const [claudeLine] = readFileSync(
+    join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.jsonl`),
+    "utf8"
+  )
+    .trim()
+    .split("\n")
+    .slice(-2);
+  expect(claudeLine).toContain('"engine":"claude"');
+  expect(claudeLine).not.toContain("costUsd");
   expect(claude.argv[0]).toBe("claude");
   expect(after(claude.argv, "--tools")).toBe("");
   expect(claude.argv).toContain("--strict-mcp-config");
@@ -575,6 +613,7 @@ test("the one call with tools, the question cases' agent: Codex with one MCP ser
       input: {},
       llm: { engine: "claude", model: "m" },
       prompt: "eval-judge.v3",
+      reads: { memory: 1 } as CallReads,
       run: "r",
       tools,
     })

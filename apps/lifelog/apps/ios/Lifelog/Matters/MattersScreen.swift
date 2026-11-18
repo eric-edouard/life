@@ -10,10 +10,13 @@ struct MattersScreen: View {
     @State private var query = ""
     @State private var filter = MatterFilter()
     @State private var showsFilters = false
+    @State private var visibility = NavigationSplitViewVisibility.all
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
+    /// Two columns, the list and the matter: side by side on a regular width, one at a time on a compact one.
     var body: some View {
         @Bindable var router = router
-        NavigationStack(path: $router.matters) {
+        NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.matterColumn) {
             ReadScreen(
                 shown: life.matters.shown(isEmpty: { $0.matters.isEmpty }), retry: { await life.refreshMatters() },
                 loading: { RowsPlaceholder() },
@@ -25,17 +28,54 @@ struct MattersScreen: View {
                 content: { list in content(list) }
             )
             .background(Palette.bg)
-            .navigationDestination(for: String.self) { MatterPage(id: $0) }
             .shellBar("Matters")
+        } detail: {
+            if let id = router.matter {
+                MatterPage(id: id).id(id)
+            } else {
+                Notice(title: "No matter chosen.", detail: "Pick one from the list.").background(Palette.bg)
+            }
         }
+        // Side by side at every regular width, upright too; the system's own sidebar button stays, so the list can never
+        // be lost if the system overlays it anyway.
+        .navigationSplitViewStyle(.balanced)
+        // The split view can drop the selection when it expands: a regular width always shows a matter.
+        .onChange(of: sizeClass, initial: true) { fillSelection() }
+        .onChange(of: life.matters.value) { fillSelection() }
         .onChange(of: router.showsAgentsOnly, initial: true) { _, on in
             guard on else { return }
             filter.withAgent = true
             router.showsAgentsOnly = false
         }
         .sheet(isPresented: $showsFilters) {
-            if let list = life.matters.value { FiltersSheet(list: list, query: query, filter: $filter) }
+            if let list = life.matters.value {
+                FiltersSheet(list: list, query: query, filter: $filter).presentationPlacement(.trailing)
+            }
         }
+        // Here, above both columns, so a fold that collapses the matter's page keeps the sheet and its running start.
+        .sheet(isPresented: startSheetBinding) {
+            if let id = router.startSheetMatter, let matter = life.matter[id]?.value {
+                StartAgentSheet(matter: matter).presentationPlacement(.leading)
+            }
+        }
+    }
+
+    /// Closing the sheet clears the start it showed, so the next opens on the form.
+    private var startSheetBinding: Binding<Bool> {
+        Binding(
+            get: { router.startSheetMatter != nil },
+            set: { isOpen in
+                guard !isOpen, let id = router.startSheetMatter else { return }
+                life.forget(.start(matter: id))
+                router.startSheetMatter = nil
+            })
+    }
+
+    private func fillSelection() {
+        guard sizeClass == .regular else { return }
+        let matters = life.matters.value?.matters
+        let isGone = router.matter == nil || matters?.contains { $0.id == router.matter } == false
+        router.select(matter: isGone ? matters?.first?.id : router.matter)
     }
 
     private func content(_ list: MatterList) -> some View {
@@ -75,12 +115,17 @@ struct MattersScreen: View {
                     .padding(20)
                 }
                 ForEach(Array(rows.enumerated()), id: \.element.id) { offset, row in
-                    NavigationLink(value: row.id) {
+                    let isSelected = sizeClass == .regular && router.matter == row.id
+                    Button {
+                        router.open(matter: row.id)
+                    } label: {
                         MatterRowView(
                             rank: offset + 1, row: row, cards: inbox?.openCount(matter: row.id) ?? 0,
                             agent: life.agents.value?.agents.first { $0.id == row.agent })
                     }
                     .buttonStyle(.plain)
+                    .background(isSelected ? Color.fillTint : .clear)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
             .padding(.bottom, 24)

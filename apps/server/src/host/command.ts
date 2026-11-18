@@ -44,6 +44,7 @@ import { runs } from "../memory/run-log";
 import { weekFrom } from "../memory/schedule";
 import { search } from "../memory/search";
 import { situations } from "../memory/situations";
+import { readSourceUse, sourceUseText } from "../memory/source-use";
 import { tiesNow } from "../memory/ties";
 import { DAYS, gather } from "../memory/units";
 import {
@@ -75,6 +76,7 @@ const OPTIONS = {
   force: { type: "boolean" },
   from: { type: "string" },
   "from-turn": { type: "string" },
+  json: { type: "boolean" },
   latitude: { type: "string" },
   limit: { type: "string" },
   longitude: { type: "string" },
@@ -167,6 +169,8 @@ async function json(answer: Promise<unknown>) {
 const list = (v?: string) => v?.split(",").filter(Boolean);
 const words = (rest: string[]) => rest.join(" ").trim();
 const count = (n?: string) => (n === undefined ? undefined : Number(n));
+/** The longest window `source-use` reads: a day of the log a day back. */
+const MAX_SOURCE_USE_DAYS = 90;
 
 const HANDLERS: Record<string, Handler> = {
   /** `answer-check <ref> <option> [note] [--person person:<id>]`: his answer to an open check (`answerCheck`), through its kind's writer. */
@@ -440,6 +444,16 @@ const HANDLERS: Record<string, Handler> = {
   search: (values, rest) =>
     printed(rest.length > 0 ? search(words(rest), values) : null),
   situations: step(() => situations(personaReadingsOf)),
+  /** `source-use [--days 7] [--json]`: what each source costs a day (items, units, readers, reads per unit, tokens, dollars). */
+  "source-use": (v) => {
+    const days = count(v.days) ?? 7;
+    if (!(Number.isInteger(days) && days >= 1 && days <= MAX_SOURCE_USE_DAYS)) {
+      return usage();
+    }
+    return v.json
+      ? json(readSourceUse(days))
+      : printed(readSourceUse(days).then((u) => sourceUseText(u, days)));
+  },
   status: () => json(lifeStatus()),
   topics: (values, rest) =>
     printed(topicsOf(words(rest) || undefined, values.person)),
@@ -469,7 +483,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | matter-directions [--force] [--all] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | matter-directions [--force] [--all] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | source-use [--days 7] [--json] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

@@ -4,7 +4,7 @@ import type { z } from "zod";
 import { clock } from "../core/clock";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
-import type { Engine } from "../core/names";
+import type { Engine, SourceName } from "../core/names";
 import {
   askOnce,
   callsAtOnceOf,
@@ -14,7 +14,7 @@ import {
   quota,
   stamp,
 } from "../models/llm";
-import type { Tier } from "../models/model-call";
+import type { CallReads, Tier } from "../models/model-call";
 import { hasMayKeep, MAY_KEEP } from "../models/prompt-parts";
 import { OUT, runId } from "./memory-files";
 import { readMayKeep } from "./read-truth";
@@ -199,6 +199,22 @@ export async function begin(
 export const inputsOf = (prompt: string, input: unknown) =>
   digest("sha256", `${prompt}\n${JSON.stringify(input)}`, 16);
 
+/**
+ * What a call is shown, as its `reads`: the distinct units per source. Each unit by its real id (a unit's `id`, an
+ * observation's `unit`, a message's `dayUnitId`, a turn's `voiceUnitId`); Life's own lines are `memory`.
+ */
+export function readsOf(
+  list: readonly { source: SourceName | "memory"; unit: string }[]
+): CallReads {
+  const units = new Map<string, Set<string>>();
+  for (const { source, unit } of list) {
+    units.set(source, (units.get(source) ?? new Set()).add(unit));
+  }
+  return Object.fromEntries(
+    [...units].map(([s, u]) => [s, u.size])
+  ) as CallReads;
+}
+
 /** Whether a rebuilt-whole file is due: none yet, or `after` ms old with new inputs behind it (a rate cap beside the rule). */
 export const isDue = (
   last: { built: string; inputs: string } | null,
@@ -276,10 +292,15 @@ export async function inBatches<T>(
       }
     }
   };
-  await Promise.all(
+  // Every started batch ends before the step does, so no call outlives a refused one (or its lock).
+  const settled = await Promise.allSettled(
     Array.from(
       { length: Math.min(callsAtOnceOf(step.llm), batches.length) },
       work
     )
   );
+  const refused = settled.find((e) => e.status === "rejected");
+  if (refused) {
+    throw refused.reason;
+  }
 }

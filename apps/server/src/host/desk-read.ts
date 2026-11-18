@@ -1,10 +1,11 @@
 import type { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
-import { DAY, HOUR, MIN } from "../core/clock";
+import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { off } from "../core/outputs";
 import { DESK_STORE } from "../core/paths";
 import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
+import { NEW_MATTER_DAYS } from "../memory/checks";
 import type { AgentStatus, MessageFilter } from "../records/registered-agent";
 
 // Every read of the desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`), its rows' shapes and the rules worked out from
@@ -23,6 +24,7 @@ export interface AgentRow {
   link: string | null;
   model: string | null;
   notes: string;
+  /** How it ended, in its own words (`finish`), or the desk's ("its matter is done"); null for one never started. */
   outcome: string | null;
   /** Its subject when it is a project of `truth/` (else its anchors are). */
   project: string | null;
@@ -33,6 +35,8 @@ export interface AgentRow {
   wait_is_default: number;
   wait_reason: string | null;
   wait_until: string | null;
+  /** Why its first turn never began (`endNotStarted`): it was ended, and its matter is free for a new start. */
+  why_not_started: string | null;
 }
 
 /** An agent turn's row; `ended_at` null while it runs. */
@@ -133,16 +137,29 @@ export const holderOf = (db: Database, steps: string[]) =>
         )
         .get(...steps)?.id ?? null);
 
-/** The outcome of an agent ended before its first turn began, followed by why (`endNotStarted`, desk-clock.ts). */
-export const NOT_STARTED = "not started: ";
+/** The active agent on project `project` started on `brief`, else any active agent on it, if one is. */
+export const projectHolderOf = (
+  db: Database,
+  project: string,
+  brief?: string
+) =>
+  db
+    .query<{ id: string }, [string, string | null]>(
+      "select id from agent where status = 'active' and project = ? order by brief = ? desc limit 1"
+    )
+    .get(project, brief ?? null)?.id ?? null;
 
-/** Every step an agent is anchored on now, in any status (`re_point` drops an agent's old anchors), but one that ended before it started: its matter is free for a new start. */
+/**
+ * Every step an agent is anchored on now (`re_point` drops an agent's old anchors), but one never started (its matter is
+ * free for a new start): of every live agent, and of those ended in the last `NEW_MATTER_DAYS` (one ended before holds no
+ * matter a new matter check offers: its matter began before it did).
+ */
 export const anchoredSteps = (db: Database) =>
   db
     .query<{ step: string }, [string]>(
-      "select distinct n.step from anchor n join agent a on a.id = n.agent_id where not (a.status = 'ended' and a.outcome like ?)"
+      "select distinct n.step from anchor n join agent a on a.id = n.agent_id where a.why_not_started is null and (a.status <> 'ended' or a.ended_at >= ?)"
     )
-    .all(`${NOT_STARTED}%`)
+    .all(new Date(clock().getTime() - NEW_MATTER_DAYS * DAY).toISOString())
     .map((r) => r.step);
 
 /** What the desk did with an ask of his (`change_registered_agent`): the agent it touched, or why it refused; null until applied. */
@@ -158,7 +175,7 @@ export const agentChangeOf = (db: Database, ask: string) =>
  * What the desk did with a start (`change_registered_agent`), as facts: the ask's `agent_change` row and, for its agent,
  * its newest session, its first turn and its status, each null until written.
  */
-export function startOf(db: Database, ask: string) {
+export function readStartFacts(db: Database, ask: string) {
   const change = agentChangeOf(db, ask);
   const id = change?.agent_id;
   const one = <T>(sql: string) =>
@@ -242,6 +259,8 @@ export interface AgentNow {
   model: string | null;
   /** The first line of its notes: what it took its subject to be. */
   notes: string;
+  /** Why its first turn never began, when it did not (it was ended). */
+  notStarted: string | null;
   /** How it ended, when it did. */
   outcome: string | null;
   project: string | null;
@@ -293,6 +312,7 @@ function nowOf(db: Database, a: AgentRow, now: number): AgentNow {
       : null,
     link: a.link,
     notes: headOf(a.notes),
+    notStarted: a.why_not_started,
     outcome: a.outcome,
     project: a.project,
     runtime: a.runtime,
