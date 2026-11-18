@@ -231,7 +231,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     const read = async (name: string, args: object = {}) => {
       // As the phone calls: the 2026-07-28 headers and the per-request envelope (`LifeConnector`'s `MCPClient`).
       const { json } = await rpc(
-        await token(),
+        await token({ agent: undefined, client_id: "phone" }),
         "tools/call",
         {
           _meta: {

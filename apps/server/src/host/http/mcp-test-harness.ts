@@ -14,18 +14,18 @@ const settings = settingsOf();
 export const { metadata, resource: RESOURCE } = settings;
 export const ISSUER = `${settings.origin}/auth`;
 
-export const OWNER = "owner-sub";
-export const NOW = new Date("2026-10-15T10:00:00Z");
+const OWNER = "owner-sub";
+const NOW = new Date("2026-10-15T10:00:00Z");
 
 export const { privateKey, publicKey } = await generateKeyPair("EdDSA", {
   extractable: true,
 });
-export const jwk: JWK = {
+const jwk: JWK = {
   ...(await exportJWK(publicKey)),
   alg: "EdDSA",
   kid: "k1",
 };
-export const jwks = createLocalJWKSet({ keys: [jwk] });
+const jwks = createLocalJWKSet({ keys: [jwk] });
 export const verify = ownerTokens({
   issuer: ISSUER,
   jwks,
