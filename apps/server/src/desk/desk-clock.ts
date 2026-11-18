@@ -137,11 +137,10 @@ export async function endAgentsOnDoneMatters(desk: Desk) {
   if (activeAgents(desk.db).length === 0) {
     return;
   }
-  for (const n of await netsOf(desk, await readPeople())) {
-    if (n.isDone) {
-      // biome-ignore lint/performance/noAwaitInLoops: one agent's decision withdrawn at a time
-      await finish(desk, n.agent, "its matter is done");
-    }
+  const nets = await netsOf(desk, await readPeople());
+  for (const n of nets.filter((x) => x.isDone)) {
+    // biome-ignore lint/performance/noAwaitInLoops: one agent's decision withdrawn at a time
+    await finish(desk, n.agent, "its matter is done");
   }
 }
 

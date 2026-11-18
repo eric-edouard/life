@@ -18,6 +18,7 @@ import {
   readRegisteredAgents,
 } from "../host/registered-agents";
 import { deskCard } from "../host/status/desk-card";
+import { CORRECTIONS } from "../memory/memory-files";
 import type { AgentChange } from "../records/registered-agent";
 import { readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
@@ -43,6 +44,8 @@ const desk: Desk = {
 
 afterAll(() => {
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
+  // A start on a matter saves its goal.
+  rmSync(CORRECTIONS, { force: true });
   setSettings({ desk: null });
 });
 
