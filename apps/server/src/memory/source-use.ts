@@ -194,7 +194,7 @@ const kTokens = (x: number) => `${Math.round(x / 1e3)}k`;
 /** The table in words: one line a source, then what it leaves out. */
 export function sourceUseText(use: SourceUse[], days: number) {
   const header = `Source use, last ${days} day${days === 1 ? "" : "s"} (items and units a day: median/max)`;
-  const lines = use.map((u) =>
+  const lines = use.flatMap((u) => [
     [
       u.source.padEnd(13),
       `items ${n1(u.items.median)}/${u.items.max}`.padEnd(16),
@@ -203,12 +203,11 @@ export function sourceUseText(use: SourceUse[], days: number) {
         16
       ),
       `${kTokens(u.tokensADay)} tokens/day`.padEnd(17),
-      `${usd(u.usdADay)}/day (worst ${usd(u.usdWorstDay)})`,
-      u.unpriced > 0 ? `, ${u.unpriced} unpriced` : "",
-      `\n    model-free: ${u.modelFree.join(", ") || "-"}`,
-      `\n    model: ${u.model.map((m) => `${m.step} ×${m.calls}`).join(", ") || "-"}`,
-    ].join(" ")
-  );
+      `${usd(u.usdADay)}/day (worst ${usd(u.usdWorstDay)})${u.unpriced > 0 ? `, ${u.unpriced} unpriced` : ""}`,
+    ].join(" "),
+    `    model-free: ${u.modelFree.join(", ") || "-"}`,
+    `    model: ${u.model.map((m) => `${m.step} ×${m.calls}`).join(", ") || "-"}`,
+  ]);
   return [
     header,
     ...lines,
