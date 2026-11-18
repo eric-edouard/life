@@ -127,6 +127,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day, a device-day, a measurement-day. Id `unit_…`. | |
+| arrival | New lines of a unit that no step has read yet: a burst of a chat's or a thread's messages, or a recorded conversation once lifelog closes it. Only voice, chats, mail and agents' reports arrive; notes, imports and activity are the night's. | |
+| arrival gate | `arrivalsDue` (`memory/arrival-gate.ts`): model-free, it says which of today's units are due for a day pass now, or which rule holds one for the night. It decides when a unit is read, never whether: the night reads what it held. Measured by `scripts/arrival-gate-count.ts`; nothing calls it yet. | |
 | verdict | A unit's judgement: its type, importance and area, with the reason. Only that. | |
 | episode | A stretch of the owner's day that happened, read from the day's units and stays together; never a plan. Called moment before Nov 2026. Id `ep_…`. | |
 | day part | The new units of a day that fit one call, in time order (`dayPartOf`); a day too long for one call is read in parts, each seeing the episodes the one before wrote. | |

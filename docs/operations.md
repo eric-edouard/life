@@ -343,6 +343,14 @@ first.
   timeline (about 40 minutes;
   writes nothing of the owner's). `--models` takes one model per flag (an allmodels host list has commas of its own);
   `--judge` keeps one judge across benches when his engine changes; a store a run could not read fails that run.
+- **Arrival gate:** `bun scripts/arrival-gate-count.ts --from <day> --to <day> [--show "<option>"] [--store <folder>]`
+  replays his sources' events in 2-minute steps through the arrival gate, for every option at once (layer 1 alone or
+  with layer 2 at each threshold, a pass at most every 10, 20 or 30 minutes), and prints counts only: per option the
+  passes a day, how many of the night's promises, waits and to-dos a day pass read, dollars a day, when the limit
+  binds and the minutes to a card; then, for the option `--show` names, arrivals, why the gate held the rest and the
+  asks' fates. Layer 2 embeds the chat and mail lines on the Mac's embedder (Lifelog Host must run). No model, no lock,
+  nothing of his written; run it with `LIFE_STATE_DIR` on a copy of the state (its `settings.json` and a
+  `sqlite3 .backup` of `watch/lifelog.sqlite` set to `journal_mode=delete`), since a failed read logs.
 - **Exchange sizes:** `bun scripts/exchange-sizes.ts [person…]` counts how his chats and mail with people cut into
   exchanges, over every year, by source and year: messages, exchanges, their size, how many have one side only, and
   for the chats both sides wrote in their characters, at most how many tokens that is, and the calls that read them
