@@ -243,23 +243,13 @@ export async function resolveDraft(
   return stored;
 }
 
-/**
- * Sends a stored draft once per `txn` (its decision), exactly as the card showed it: a file's bytes are read now and
- * must hash to its stamp, and a chat nobody wrote in since `since` (the card's asking, or his last attempt that went
- * nowhere; his own messages count) else nothing goes. `onStep` hears `chat_checked` (a chat only), `handed` (the
- * network took it) and `confirmed` (with the event id). Returns the sent message's id (Life's own where the path knows it). Throws why not.
- */
-export async function sendDraft(
+type OnStep = (step: string, detail?: Record<string, unknown>) => void;
+
+/** Everything before the hand-off: the draft as its path takes it, and that path, or why nothing goes (`sendDraft`). */
+async function readySend(
   draft: StoredDraft,
-  txn: string,
-  {
-    onStep,
-    since,
-  }: {
-    onStep?: (step: string, detail?: Record<string, unknown>) => void;
-    since: Date;
-  },
-  sources = enabledSources()
+  { onStep, since }: { onStep?: OnStep; since: Date },
+  sources: Descriptor[]
 ) {
   const s = sources.find((x) => x.name === draft.channel);
   if (!isSendable(draft)) {
@@ -292,8 +282,31 @@ export async function sendDraft(
     }
     onStep?.(STEP.chatChecked);
   }
-  const id = await s.send.send(outgoing, txn, () => onStep?.(STEP.handed));
-  onStep?.(STEP.confirmed, { eventId: id });
+  return { outgoing, path: s.send };
+}
+
+/**
+ * Sends a stored draft once per `txn` (its decision), exactly as the card showed it: a file's bytes are read now and
+ * must hash to its stamp, and a chat nobody wrote in since `since` (the card's asking, or his last attempt that went
+ * nowhere; his own messages count) else nothing goes. `onStep` hears `chat_checked` (a chat only), `handed` (the
+ * network took it) and `confirmed` (with the event id). Returns the sent message's id (Life's own where the path knows it). Throws why not:
+ * anything that fails before the hand-off is `not sent:` (nothing left), whatever it says.
+ */
+export async function sendDraft(
+  draft: StoredDraft,
+  txn: string,
+  steps: { onStep?: OnStep; since: Date },
+  sources = enabledSources()
+) {
+  const { outgoing, path } = await readySend(draft, steps, sources).catch(
+    (e: Error) => {
+      throw e.message.startsWith("not sent:")
+        ? e
+        : new Error(`not sent: ${e.message}`);
+    }
+  );
+  const id = await path.send(outgoing, txn, () => steps.onStep?.(STEP.handed));
+  steps.onStep?.(STEP.confirmed, { eventId: id });
   return id;
 }
 
