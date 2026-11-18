@@ -5,9 +5,10 @@ import {
   namingQueueGuessesOf,
   readNamingQueue,
 } from "../sources/lifelog-voices";
-import type { Check, CheckGroup, LIFE_CHECKS } from "./checks";
+import type { Check } from "./checks";
 import { answerDecision } from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
+import type { CheckGroup, LIFE_CHECKS } from "./life-checks";
 import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";

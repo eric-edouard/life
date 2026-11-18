@@ -3,7 +3,7 @@
     {
       "about": [],
       "asker": "Orbit",
-      "at": null,
+      "at": "2026-10-13T09:00:00.000Z",
       "clips": [],
       "context": "He asked for it by Friday.",
       "deadline": "2099-01-01T09:00:00.000Z",
@@ -29,33 +29,248 @@
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
-      "matter": {
-        "id": "matter_aaaaaaaaaaaa",
-        "name": "Mend Gran's watch"
-      },
       "notSent": null,
       "onSilence": "no",
       "options": [
         {
           "id": "yes",
           "label": "Send it",
-          "outgoing": true
+          "outgoing": true,
+          "takes": null
         },
         {
           "id": "no",
-          "label": "Not now"
+          "label": "Not now",
+          "takes": null
         }
       ],
       "question": "Send Kit the signed quote?",
       "ref": "dec_000000000001",
       "ridesOn": {
-        "matters": 0,
-        "observations": 2,
+        "matters": 1,
+        "observations": 0,
+        "pages": 0
+      },
+      "subject": "obs_000000000005",
+      "title": "Kit is waiting for the quote.",
+      "matter": {
+        "id": "matter_aaaaaaaaaaaa",
+        "name": "Mend Gran's watch"
+      },
+      "pushId": "a23260946067d0fe"
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "A later step seems to show it done.",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "an earlier message",
+        "quote": "Called them."
+      },
+      "group": "ending",
+      "kind": "ending",
+      "likelyPeople": [],
+      "links": [],
+      "notSent": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "outdated",
+          "label": "Done",
+          "takes": null
+        },
+        {
+          "id": "false",
+          "label": "Not done",
+          "takes": null
+        }
+      ],
+      "question": "Life thinks this is done: Call the shop",
+      "ref": "obs_000000000005",
+      "ridesOn": {
+        "matters": 1,
+        "observations": 1,
         "pages": 0
       },
       "subject": null,
-      "title": "Kit is waiting for the quote.",
-      "pushId": "a23260946067d0fe"
+      "title": "Close what is done",
+      "matter": {
+        "id": "matter_aaaaaaaaaaaa",
+        "name": "Mend Gran's watch"
+      },
+      "pushId": "c84c34823f7fa7b0"
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote. Asked until 18 Oct.",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "12 Oct",
+        "quote": "Gran wants it framed"
+      },
+      "group": "new matter",
+      "kind": "new matter",
+      "likelyPeople": [],
+      "links": [],
+      "notSent": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "start",
+          "label": "Start",
+          "takes": null
+        },
+        {
+          "id": "edit-goal",
+          "label": "Edit goal",
+          "takes": "note"
+        },
+        {
+          "id": "dismiss",
+          "label": "Dismiss",
+          "takes": null
+        }
+      ],
+      "question": "Goal: Gran's photo is framed. Work on it?",
+      "ref": "matter_cccccccccccc",
+      "ridesOn": {
+        "matters": 1,
+        "observations": 0,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Life found a new matter: Frame Gran's photo",
+      "matter": {
+        "id": "matter_cccccccccccc",
+        "name": "Frame Gran's photo"
+      },
+      "pushId": "47c2deda3a5b51cd"
+    },
+    {
+      "about": ["Sam"],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "Life reads the name as no one until you say.",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "whatsapp, 12 Oct",
+        "quote": "\"Sam fixed the strap\" said Gran"
+      },
+      "group": "name",
+      "kind": "person",
+      "likelyPeople": [],
+      "links": [],
+      "notSent": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "this-is",
+          "label": "It is this person",
+          "takes": "person"
+        }
+      ],
+      "question": "Life cannot tell who \"Sam\" is",
+      "ref": "name:sam",
+      "ridesOn": {
+        "matters": 0,
+        "observations": 1,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Place a name",
+      "matter": null,
+      "pushId": "134bc106744b3159"
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "Its name and handles fit more than one person: Life keeps them apart until you say.",
+      "deadline": null,
+      "draft": null,
+      "evidence": null,
+      "group": "card",
+      "kind": "person",
+      "likelyPeople": [],
+      "links": [],
+      "notSent": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "same-person",
+          "label": "It is this person",
+          "takes": "person"
+        }
+      ],
+      "question": "Life cannot place the Contacts card Lou: its name and handles say person:gran and person:partner",
+      "ref": "person:con_lou",
+      "ridesOn": {
+        "matters": 0,
+        "observations": 1,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Place a Contacts card",
+      "matter": null,
+      "pushId": "82723bbf297c00df"
+    },
+    {
+      "about": ["+33600000001"],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "Life uses its guess until you say.",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "whatsapp, 2 Oct",
+        "quote": "Kit here, from the shop"
+      },
+      "group": "guessed person",
+      "kind": "person",
+      "likelyPeople": [],
+      "links": [],
+      "notSent": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "this-is",
+          "label": "It is them",
+          "takes": null
+        },
+        {
+          "id": "not-this-person",
+          "label": "Not them",
+          "takes": null
+        },
+        {
+          "id": "same-person",
+          "label": "Someone Life already knows",
+          "takes": "person"
+        }
+      ],
+      "question": "Life thinks this is Kit, the watchmaker (70% sure)",
+      "ref": "person:inf_kit",
+      "ridesOn": {
+        "matters": 0,
+        "observations": 1,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Know who someone is",
+      "matter": null,
+      "pushId": "a789ea3107eed39b"
     },
     {
       "about": [],
@@ -73,10 +288,13 @@
           "until": "2026-10-14T08:00:04.000Z"
         }
       ],
-      "context": null,
+      "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.",
       "deadline": null,
       "draft": null,
-      "evidence": null,
+      "evidence": {
+        "from": "a recorded conversation, 14 Oct",
+        "quote": "It's the shop, about the watch."
+      },
       "group": "voice",
       "kind": "voice",
       "likelyPeople": [
@@ -86,113 +304,52 @@
         }
       ],
       "links": [],
-      "matter": null,
       "notSent": null,
       "onSilence": null,
       "options": [
         {
-          "id": "person:gran",
-          "label": "It is Gran"
+          "id": "this-is",
+          "label": "It is this person",
+          "takes": "person or name"
+        },
+        {
+          "id": "not-anyone-i-know",
+          "label": "Not anyone I know",
+          "takes": null
+        },
+        {
+          "id": "media",
+          "label": "A video or TV playing",
+          "takes": null
+        },
+        {
+          "id": "not-relevant",
+          "label": "Not worth naming",
+          "takes": null
         }
       ],
-      "question": "Who is this?",
+      "question": "Who is this voice?",
       "ref": "voice:v1",
       "ridesOn": {
         "matters": 0,
-        "observations": 2,
+        "observations": 0,
         "pages": 0
       },
       "subject": null,
-      "title": "A name Life cannot place",
-      "pushId": "327284d2a1d53d38"
-    },
-    {
-      "about": [],
-      "asker": "life",
-      "at": null,
-      "clips": [],
-      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote",
-      "deadline": null,
-      "draft": null,
-      "evidence": {
-        "from": "12 Oct",
-        "quote": "Call the shop"
-      },
-      "group": "new matter",
-      "kind": "new matter",
-      "likelyPeople": [],
-      "links": [],
-      "matter": {
-        "id": "matter_cccccccccccc",
-        "name": "Frame Gran's photo"
-      },
-      "notSent": null,
-      "onSilence": "Nothing starts. Asked until 18 Oct.",
-      "options": [
-        {
-          "id": "start",
-          "label": "Start: the goal becomes yours and an agent works toward it, with the goal as its brief"
-        },
-        {
-          "id": "edit-goal",
-          "label": "Edit goal (give your goal as `note`): it becomes the goal; then Start or Dismiss"
-        },
-        {
-          "id": "dismiss",
-          "label": "Dismiss: never asked again for this matter"
-        }
-      ],
-      "question": "Goal: Gran's photo is framed. Work on it?",
-      "ref": "matter_cccccccccccc",
-      "ridesOn": {
-        "matters": 0,
-        "observations": 2,
-        "pages": 0
-      },
-      "subject": null,
-      "title": "Life found a new matter: Frame Gran's photo",
-      "pushId": "47c2deda3a5b51cd"
-    },
-    {
-      "about": [],
-      "asker": "life",
-      "at": null,
-      "clips": [],
-      "context": null,
-      "deadline": null,
-      "draft": null,
-      "evidence": null,
-      "group": "name",
-      "kind": "person",
-      "likelyPeople": [],
-      "links": [],
+      "title": "Name a voice",
       "matter": null,
-      "notSent": null,
-      "onSilence": null,
-      "options": [
-        {
-          "id": "skip",
-          "label": "Not now"
-        }
-      ],
-      "question": "Who is Sam?",
-      "ref": "name:sam",
-      "ridesOn": {
-        "matters": 0,
-        "observations": 2,
-        "pages": 0
-      },
-      "subject": null,
-      "title": "A name Life cannot place",
-      "pushId": "134bc106744b3159"
+      "pushId": "327284d2a1d53d38"
     }
   ],
   "counts": {
     "decision": 1,
-    "voice": 1,
+    "ending": 1,
     "new matter": 1,
-    "name": 1
+    "name": 1,
+    "card": 1,
+    "guessed person": 1,
+    "voice": 1
   },
   "deadlinesToday": 0,
-  "total": 4
+  "total": 7
 }

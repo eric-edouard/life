@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { daysBefore } from "../core/clock";
+import { readLineCount } from "../core/files";
 import { secretIn } from "../core/secret";
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
@@ -11,6 +12,7 @@ import {
 } from "../sources/lifelog-voices";
 import { pagedNow } from "./closeness";
 import {
+  DECISIONS,
   type Decision,
   decisionsNow,
   isOnMatter,
@@ -18,6 +20,7 @@ import {
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import type { StoredDraft } from "./draft";
+import { type CheckGroup, type CheckOption, LIFE_CHECKS } from "./life-checks";
 import {
   isRunning,
   type MatterStepNow,
@@ -29,11 +32,16 @@ import {
 } from "./matter-read";
 import { mattersNow, readMatterRecords, readMatters } from "./matters";
 import {
+  CORRECTIONS,
+  FACT_CHECK_ANSWERS,
+  LEDGER,
   readDismissedMatterPins,
   readFactCheckAnswers,
   readFactChecks,
   readUnitsFor,
 } from "./memory-files";
+import { isLocked, readLastRelease } from "./memory-lock";
+import { truthChangedAt } from "./read-truth";
 import { nameKey } from "./units";
 import {
   type People,
@@ -52,23 +60,6 @@ import { dayNow, localDate } from "./zones";
 // fact-check answer (an ending), his answer to the decision, lifelog's naming queue (a voice), or the desk (a Start).
 
 type CheckKind = "decision" | "ending" | "new matter" | "person" | "voice";
-/** What a check is, for counting: a decision, an ending, a new matter, a guessed person, a Contacts card Life cannot place, a name it cannot place, a voice. */
-export type CheckGroup =
-  | "decision"
-  | "ending"
-  | "new matter"
-  | "guessed person"
-  | "card"
-  | "name"
-  | "voice";
-
-/** One answer he can give: its id, as the tool that records it takes it, what choosing it does, and whether it sends, pays, books, deletes or changes something. */
-export interface CheckOption {
-  id: string;
-  label: string;
-  outgoing?: true;
-}
-
 /**
  * One thing waiting on his word, the same shape for every kind: Life's guesses and agents' decisions alike. A field
  * a kind has nothing for is null or empty. Only open checks exist: his answer and what came of it are kept by each
@@ -240,90 +231,6 @@ function ctxOf(c: CheckInputs): Ctx {
   };
 }
 
-/** Each kind of Life's guesses: what it is trying to do (its title), why it asks (its context), and what he can answer, its guess first, each with what choosing it does (`answerCheck` writes it); `person`: who it is, as `answer_check` takes it. */
-export const LIFE_CHECKS = {
-  card: {
-    context:
-      "Its name and handles fit more than one person: Life keeps them apart until you say.",
-    options: [
-      {
-        id: "same-person",
-        label: "It is this person (give `person`): the card becomes theirs",
-      },
-    ],
-    title: "Place a Contacts card",
-  },
-  ending: {
-    context: "A later step seems to show it done.",
-    options: [
-      { id: "outdated", label: "Done: the step closes" },
-      { id: "false", label: "Not done: the link goes, the step stays open" },
-    ],
-    title: "Close what is done",
-  },
-  "guessed person": {
-    context: "Life uses its guess until you say.",
-    options: [
-      { id: "this-is", label: "It is them: Life keeps the guess as his word" },
-      { id: "not-this-person", label: "Not them: Life drops the guess" },
-      {
-        id: "same-person",
-        label: "Someone Life already knows (give `person`): the two become one",
-      },
-    ],
-    title: "Know who someone is",
-  },
-  name: {
-    context: "Life reads the name as no one until you say.",
-    options: [
-      {
-        id: "this-is",
-        label:
-          "It is this person (give `person`): the name reads as them from now on",
-      },
-    ],
-    title: "Place a name",
-  },
-  "new matter": {
-    context: "Nothing blocks its next step: an agent could move it now.",
-    options: [
-      {
-        id: "start",
-        label:
-          "Start: the goal becomes yours and an agent works toward it, with the goal as its brief",
-      },
-      {
-        id: "edit-goal",
-        label:
-          "Edit goal (give your goal as `note`): it becomes the goal; then Start or Dismiss",
-      },
-      { id: "dismiss", label: "Dismiss: never asked again for this matter" },
-    ],
-    title: "Life found a new matter",
-  },
-  voice: {
-    context:
-      "Heard in conversations: who it is goes to every turn of this voice.",
-    options: [
-      {
-        id: "this-is",
-        label:
-          "It is this person (give `person`, or `name` for someone new): every turn of this voice becomes theirs",
-      },
-      {
-        id: "not-anyone-i-know",
-        label: "Not anyone I know: never asked again",
-      },
-      { id: "media", label: "A video or TV playing" },
-      { id: "not-relevant", label: "Not worth naming" },
-    ],
-    title: "Name a voice",
-  },
-} as const satisfies Record<
-  Exclude<CheckGroup, "decision">,
-  { context: string; options: CheckOption[]; title: string }
->;
-
 /** How many days from its first step a new matter is offered: Life's "Work on it?" lapses after them, and nothing starts. */
 const NEW_MATTER_DAYS = 7;
 /** A goal's own full stop, dropped before the question adds its own. */
@@ -450,7 +357,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           links: d.links,
           notSent: notSentOf(d),
           onSilence: d.onSilence,
-          options: d.options,
+          options: d.options.map((o) => ({ ...o, takes: null })),
           question: d.question,
           ref: d.id,
           ridesOn: {
@@ -699,16 +606,65 @@ export const pushIdOf = (ref: string, key = secretIn("pushIdKey")) =>
 /** A check as the inbox lists it: with its `pushId`. */
 export type InboxCheck = Check & { pushId: string };
 
-/** What waits on his word now, over what is stored today and `anchored` (`CheckInputs`; host's `inboxNow` reads it from the desk): read-only, no model call. */
+/** The last list `checksNow` read, and what it was read from (`checksKeyOf`). */
+let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
+
+/**
+ * What the checks are read from, cheaply: a run's end (`readLastRelease`), the single lines written outside the lock
+ * (decisions, corrections, fact-check answers, the ledger), truth/, his day, the open decisions (one lapses), the steps
+ * agents are anchored on and the voices lifelog queues. The same key, the same list.
+ */
+const checksKeyOf = (
+  anchored: ReadonlySet<string> | null,
+  voices: readonly NamingQueueItem[],
+  decisions: readonly Decision[]
+) =>
+  JSON.stringify([
+    readLastRelease(),
+    [DECISIONS, CORRECTIONS, FACT_CHECK_ANSWERS, LEDGER].map(readLineCount),
+    truthChangedAt(),
+    dayNow(),
+    decisions.map((d) => d.id),
+    anchored && [...anchored],
+    voices,
+  ]);
+
+/**
+ * What waits on his word now, over what is stored today and `anchored` (`CheckInputs`; host's `inboxNow` reads it from
+ * the desk): read-only, no model call. Read again only when what it is read from changed (`checksKeyOf`), and always
+ * while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
+ */
 export async function checksNow(
   anchored: ReadonlySet<string> | null
 ): Promise<InboxCheck[]> {
+  const voices = await readNamingQueue();
+  const decisions = decisionsNow().filter((d) => d.state === "open");
+  if (isLocked()) {
+    return await readChecks(anchored, voices, decisions);
+  }
+  const key = checksKeyOf(anchored, voices, decisions);
+  if (last?.key !== key) {
+    const list = readChecks(anchored, voices, decisions);
+    last = { key, list };
+    list.catch(() => {
+      if (last?.list === list) {
+        last = undefined;
+      }
+    });
+  }
+  return await last.list;
+}
+
+async function readChecks(
+  anchored: ReadonlySet<string> | null,
+  voices: NamingQueueItem[],
+  decisions: Decision[]
+): Promise<InboxCheck[]> {
   const people = await readPeople();
-  const [records, unresolved, paged, voices] = await Promise.all([
+  const [records, unresolved, paged] = await Promise.all([
     readMatterRecords(people),
     readUnresolvedPeople(),
     pagedNow(people),
-    readNamingQueue(),
   ]);
   const matters = matterBookOf(mattersNow(readMatters()), records, dayNow());
   const units = readUnitsFor(
@@ -720,7 +676,7 @@ export async function checksNow(
     answered: new Set(
       [...readFactCheckAnswers()].flatMap(([ref, a]) => (a.answer ? [ref] : []))
     ),
-    decisions: decisionsNow().filter((d) => d.state === "open"),
+    decisions,
     dismissed: readDismissedMatterPins(),
     doubted: new Set(
       readFactChecks()

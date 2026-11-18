@@ -1,9 +1,179 @@
 import { expect, spyOn, test } from "bun:test";
-import { type InboxCheck, LIFE_CHECKS } from "../../memory/checks";
+import type { CheckInputs } from "../../memory/checks";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
 
 // The phone's reads, as real answers (`wire-fixture.ts`).
+
+/** Gran's person in lifelog, a voice's likely speaker. */
+const GRAN_VOICE = "00000000-0000-4000-8000-000000000001";
+const line = (id: string, text: string, over = {}) => ({
+  about: undefined,
+  confidence: 0.9,
+  date: "2026-10-12",
+  id,
+  quote: `"${text}" said Gran`,
+  source: { channel: "whatsapp" as const },
+  subjects: [],
+  text,
+  unit: "unit_000000000001",
+  ...over,
+});
+const lines = [
+  line("obs_000000000005", "Call the shop"),
+  line("obs_000000000006", "Kit sends the quote", {
+    subjects: ["person:inf_kit"],
+  }),
+  line("obs_000000000007", "Lou's number changed", {
+    subjects: ["person:con_lou"],
+  }),
+  line("obs_000000000008", "Sam fixed the strap"),
+];
+const matter = {
+  lone: false,
+  open: true,
+  owedTo: [],
+  status: "moving" as const,
+  told: [],
+  waitingOn: [],
+  with: [],
+};
+/** One check of every kind: a decision with a draft, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
+const madeUpInbox: CheckInputs = {
+  anchored: new Set(["obs_000000000005"]),
+  answered: new Set(),
+  decisions: [
+    {
+      asker: "Orbit",
+      at: "2026-10-13T09:00:00.000Z",
+      context: "He asked for it by Friday.",
+      deadline: "2099-01-01T09:00:00.000Z",
+      draft: {
+        channel: "whatsapp",
+        chat: "chat-1",
+        file: {
+          mime: "application/pdf",
+          name: "quote.pdf",
+          path: "/tmp/quote.pdf",
+          sha256: "0".repeat(64),
+          size: 52_000,
+        },
+        quoted: { sender: "Kit", text: "Can you send the quote?" },
+        text: "Here is the signed quote.",
+        to: "Kit",
+      },
+      id: "dec_000000000001",
+      kind: "asked",
+      links: ["https://agents.example.test/s/1"],
+      onSilence: "no",
+      options: [
+        { id: "yes", label: "Send it", outgoing: true },
+        { id: "no", label: "Not now" },
+      ],
+      question: "Send Kit the signed quote?",
+      schemaVersion: 3,
+      state: "open",
+      subject: "obs_000000000005",
+      title: "Kit is waiting for the quote.",
+    },
+  ],
+  dismissed: [],
+  doubted: new Set(),
+  endings: new Map([
+    ["obs_000000000005", { later: "ep_000000000001", quote: "Called them." }],
+  ]),
+  kept: new Set(lines.map((l) => l.id)),
+  lines,
+  matters: [
+    {
+      ...matter,
+      id: "matter_aaaaaaaaaaaa",
+      name: "Mend Gran's watch",
+      steps: [
+        { day: "2026-10-12", quote: "Call the shop", ref: "obs_000000000005" },
+      ],
+    },
+    {
+      ...matter,
+      goal: {
+        at: "2026-10-13T02:00:00.000Z",
+        by: "life",
+        text: "Gran's photo is framed.",
+      },
+      id: "matter_cccccccccccc",
+      name: "Frame Gran's photo",
+      nextStep: {
+        at: "2026-10-13T02:00:00.000Z",
+        by: "life",
+        kind: "do",
+        text: "Ask the shop for a quote",
+      },
+      steps: [
+        {
+          day: "2026-10-12",
+          quote: "Gran wants it framed",
+          ref: "unit_000000000002",
+        },
+      ],
+    },
+  ],
+  paged: new Set(),
+  people: {
+    ambiguousCards: [
+      { card: "person:con_lou", people: ["person:gran", "person:partner"] },
+    ],
+    contacts: [],
+    inferred: [
+      {
+        at: "2026-10-02T10:00:00.000Z",
+        confidence: 0.7,
+        evidence: [
+          { quote: "Kit here, from the shop", unit: "unit_000000000001" },
+        ],
+        id: "inf_kit",
+        name: "Kit",
+        namesAndHandles: ["+33600000001"],
+        relation: "the watchmaker",
+      },
+    ],
+    isGuess: (ref: string) => ref === "person:inf_kit",
+    nameOf: (r: string) => (r === "person:gran" ? "Gran" : r),
+    names: new Map([["person:con_lou", "Lou"]]),
+    refOf: (r: string) => r,
+    resolve: (s: string) => (s === GRAN_VOICE ? "person:gran" : null),
+  },
+  today: "2026-10-14",
+  unresolved: [{ nameAsWritten: "Sam", observation: "obs_000000000008" }],
+  voices: [
+    {
+      clips: [
+        {
+          at: "2026-10-14T08:00:00.000Z",
+          audio: { end: 4.5, jobId: "job-1", start: 1.2 },
+          text: "It's the shop, about the watch.",
+          until: "2026-10-14T08:00:04.000Z",
+        },
+      ],
+      conversations: 2,
+      evidence: [
+        {
+          at: "2026-10-14T08:00:00.000Z",
+          conversationId: "c1",
+          text: "It's the shop, about the watch.",
+        },
+      ],
+      id: "v1",
+      kind: "new_person",
+      likely: [GRAN_VOICE],
+      name: null,
+      namedPersonId: null,
+      personId: null,
+      voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
+      words: 40,
+    },
+  ],
+  where: new Map([["unit_000000000001", "whatsapp, 2 Oct"]]),
+};
 
 test("the phone's reads: read_inbox, read_matters, read_matter and read_registered_agents answer what Kit's models decode", async () => {
   const checks = await import("../../memory/checks");
@@ -11,31 +181,6 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
   const book = await import("../../memory/matters");
   const items = await import("../../memory/read-open-items");
   const agents = await import("../registered-agents");
-  const check = (over: Partial<InboxCheck>): InboxCheck => ({
-    about: [],
-    asker: "life",
-    at: null,
-    clips: [],
-    context: null,
-    deadline: null,
-    draft: null,
-    evidence: null,
-    group: "name",
-    kind: "person",
-    likelyPeople: [],
-    links: [],
-    matter: null,
-    notSent: null,
-    onSilence: null,
-    options: [{ id: "skip", label: "Not now" }],
-    question: "Who is Sam?",
-    ref: "name:sam",
-    ridesOn: { matters: 0, observations: 2, pages: 0 },
-    subject: null,
-    title: "A name Life cannot place",
-    ...over,
-    pushId: checks.pushIdOf(over.ref ?? "name:sam", "0".repeat(64)),
-  });
   const agent = {
     amber: [],
     effort: "medium",
@@ -86,70 +231,12 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     ...over,
   });
   const spies = [
-    spyOn(checks, "checksNow").mockResolvedValue([
-      check({
-        asker: "Orbit",
-        context: "He asked for it by Friday.",
-        deadline: "2099-01-01T09:00:00.000Z",
-        draft: {
-          channel: "whatsapp",
-          chat: "chat-1",
-          file: {
-            mime: "application/pdf",
-            name: "quote.pdf",
-            path: "/tmp/quote.pdf",
-            sha256: "0".repeat(64),
-            size: 52_000,
-          },
-          quoted: { sender: "Kit", text: "Can you send the quote?" },
-          text: "Here is the signed quote.",
-          to: "Kit",
-        },
-        group: "decision",
-        kind: "decision",
-        links: ["https://agents.example.test/s/1"],
-        matter: { id: "matter_aaaaaaaaaaaa", name: "Mend Gran's watch" },
-        onSilence: "no",
-        options: [
-          { id: "yes", label: "Send it", outgoing: true },
-          { id: "no", label: "Not now" },
-        ],
-        question: "Send Kit the signed quote?",
-        ref: "dec_000000000001",
-        title: "Kit is waiting for the quote.",
-      }),
-      check({
-        clips: [
-          {
-            at: "2026-10-14T08:00:00.000Z",
-            audio: { end: 4.5, jobId: "job-1", start: 1.2 },
-            text: "It's the shop, about the watch.",
-            until: "2026-10-14T08:00:04.000Z",
-          },
-        ],
-        group: "voice",
-        kind: "voice",
-        likelyPeople: [{ name: "Gran", person: "person:gran" }],
-        options: [{ id: "person:gran", label: "It is Gran" }],
-        question: "Who is this?",
-        ref: "voice:v1",
-      }),
-      check({
-        context:
-          "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote",
-        evidence: { from: "12 Oct", quote: "Call the shop" },
-        group: "new matter",
-        kind: "new matter",
-        matter: { id: "matter_cccccccccccc", name: "Frame Gran's photo" },
-        onSilence: "Nothing starts. Asked until 18 Oct.",
-        // The server's own wording: the phone cuts its buttons from it (Kit's `Check.shown`).
-        options: [...LIFE_CHECKS["new matter"].options],
-        question: "Goal: Gran's photo is framed. Work on it?",
-        ref: "matter_cccccccccccc",
-        title: "Life found a new matter: Frame Gran's photo",
-      }),
-      check({ group: "name", ref: "name:sam" }),
-    ]),
+    // Every kind of check, as Life's own builders make them over made-up records (`checksOf`), never by hand.
+    spyOn(checks, "checksNow").mockResolvedValue(
+      checks
+        .checksOf(madeUpInbox)
+        .map((c) => ({ ...c, pushId: checks.pushIdOf(c.ref, "0".repeat(64)) }))
+    ),
     spyOn(who, "readPeople").mockResolvedValue({
       nameOf: (r: string) => r.replace("person:", ""),
       truth: {

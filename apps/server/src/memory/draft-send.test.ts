@@ -436,12 +436,14 @@ test("a failure before the hand-off is not sent, whatever it says: the archive's
     NOW,
     [net]
   );
-  net.read = () => {
-    throw new Error("database is locked");
-  };
-  const failed = await sendDraft(stored, "t", { since: NOW }, [net]).catch(
-    (e: Error) => e
-  );
+  Object.assign(net, {
+    read: () => {
+      throw new Error("database is locked");
+    },
+  });
+  const failed = (await sendDraft(stored, "t", { since: NOW }, [net]).catch(
+    (e: unknown) => e
+  )) as Error;
   expect(failed.message).toBe("not sent: database is locked");
   expect(send).not.toHaveBeenCalled();
 });

@@ -3,8 +3,9 @@ import { rmSync } from "node:fs";
 import { DAY } from "../core/clock";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { answerCheck as answerWith, type CheckAnswer } from "./answer-check";
-import type { Check, CheckGroup, InboxCheck } from "./checks";
+import type { Check, InboxCheck } from "./checks";
 import { DECISIONS, decisionsNow, requestDecision } from "./decisions";
+import type { CheckGroup } from "./life-checks";
 import { CORRECTIONS, readCorrections } from "./memory-files";
 
 const check = (ref: string, group: CheckGroup, about: string[] = []) =>
