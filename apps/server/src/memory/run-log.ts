@@ -320,16 +320,16 @@ export function assembleRuns(events: LogEvent[], lockSince: Date | null) {
 }
 
 /**
- * The model calls (`model.run` lines) summed by run id, or by `keyOf` (the source-use table's run and day): the one
+ * The model calls (`model.run` lines) summed by run id, or by `groupOf` (the source-use table's run and day): the one
  * fold of what calls spent and read. A call with no `costUsd` is unpriced.
  */
 export function modelCallsOf(
   events: LogEvent[],
-  keyOf = (e: LogEvent) => e.run
+  groupOf = (e: LogEvent) => e.run
 ) {
   const by = new Map<string, Calls>();
   for (const e of events) {
-    const key = e.kind === "model.run" && e.run && keyOf(e);
+    const key = e.kind === "model.run" && e.run && groupOf(e);
     if (key) {
       const cost = e.costUsd as number | undefined;
       by.set(
