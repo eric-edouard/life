@@ -17,8 +17,8 @@ import {
   codexArgsOf,
   codexHomeOf,
   codexRuntime,
-  hasAnswered,
   hasEvent,
+  hasModelItem,
   isRolloutTurnOpen,
   rolloutUsageOf,
 } from "./codex-runtime";
@@ -286,9 +286,9 @@ test("a session is running while its rollout's last turn is open and fresh (his 
 
 test("a run begins at the model's first item, not at turn.started; stop ends a hung run and forgets its events; a restart reads begun from the run's file", async () => {
   using fake = fakeCodex();
-  expect(hasAnswered(['{"type":"turn.started"}'])).toBe(false);
+  expect(hasModelItem(['{"type":"turn.started"}'])).toBe(false);
   expect(
-    hasAnswered(['{"type":"turn.started"}', '{"type":"item.started"}'])
+    hasModelItem(['{"type":"turn.started"}', '{"type":"item.started"}'])
   ).toBe(true);
   await codexRuntime.send(a, fake.thread, "hang");
   // Launched, `turn.started` written, no answer: not begun, and its record says so.

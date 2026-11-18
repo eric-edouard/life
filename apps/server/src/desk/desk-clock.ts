@@ -44,7 +44,12 @@ import {
   relatedMessages,
   relatedRecordings,
 } from "./matter-net";
-import type { Run, Agent as SessionAgent, Usage } from "./runtimes/contract";
+import type {
+  Run,
+  Runtime,
+  Agent as SessionAgent,
+  Usage,
+} from "./runtimes/contract";
 
 // The desk's clock (the desk spec, sections 6 and 7): one tick polls his answers and the messages its agents wait for
 // into their queues, then starts the turns that are due; each turn ends when its run does (`Run.ended`). Everything is
@@ -513,6 +518,29 @@ export async function turnEnded(
   })();
 }
 
+/** Runs `f` on each active agent's open desk turn, with its runtime, all at once. */
+const eachOpenTurn = (
+  desk: Desk,
+  f: (a: AgentRow, t: TurnRow, runtime: Runtime | undefined) => Promise<void>
+) =>
+  Promise.all(
+    activeAgents(desk.db).flatMap((a) => {
+      const t = openTurn(desk.db, a.id);
+      return t ? [f(a, t, desk.runtimes[a.runtime])] : [];
+    })
+  );
+
+/** Stops the desk's own run of session `ref` of agent `id` (`Runtime.stop`); a failure is logged. */
+const stopRun = (runtime: Runtime | undefined, id: string, ref: string) =>
+  runtime?.stop(ref).catch((error: unknown) =>
+    log("desk.runtime", {
+      agent: id,
+      error: String(error),
+      ok: false,
+      what: "stop",
+    })
+  );
+
 /**
  * Ends the desk turns this process does not watch and whose runtime runs nothing now (started before the helper or the
  * Mac stopped): by its outcome when it set a wait or finished, else failed and retried; the runtime forgets that run's
@@ -521,36 +549,25 @@ export async function turnEnded(
  */
 export async function endLostTurns(desk: Desk) {
   const watching = watchedIn(desk.db);
-  await Promise.all(
-    activeAgents(desk.db).map(async (a) => {
-      const t = openTurn(desk.db, a.id);
-      const runtime = desk.runtimes[a.runtime];
-      if (!t || watching.has(t.id)) {
-        return;
+  await eachOpenTurn(desk, async (a, t, runtime) => {
+    if (watching.has(t.id)) {
+      return;
+    }
+    const state =
+      t.session && runtime
+        ? await runtime.state(t.session).catch(() => null)
+        : "gone";
+    if (state === "running" && !t.begun_at && t.session && runtime) {
+      if (await runtime.hasBegun(t.session).catch(() => false)) {
+        markBegun(desk.db, t.id);
       }
-      const state =
-        t.session && runtime
-          ? await runtime.state(t.session).catch(() => null)
-          : "gone";
-      if (state === "running" && !t.begun_at && t.session && runtime) {
-        if (await runtime.hasBegun(t.session).catch(() => false)) {
-          markBegun(desk.db, t.id);
-        }
-      } else if (state === "idle" || state === "gone") {
-        await turnEnded(desk, a.id, !t.outcome);
-        if (t.session) {
-          await runtime?.stop(t.session).catch((error: unknown) =>
-            log("desk.runtime", {
-              agent: a.id,
-              error: String(error),
-              ok: false,
-              what: "stop",
-            })
-          );
-        }
+    } else if (state === "idle" || state === "gone") {
+      await turnEnded(desk, a.id, !t.outcome);
+      if (t.session) {
+        await stopRun(runtime, a.id, t.session);
       }
-    })
-  );
+    }
+  });
 }
 
 /**
@@ -560,29 +577,18 @@ export async function endLostTurns(desk: Desk) {
  */
 export async function endUnbegunTurns(desk: Desk) {
   const at = clock().getTime();
-  await Promise.all(
-    activeAgents(desk.db).map(async (a) => {
-      const t = openTurn(desk.db, a.id);
-      const runtime = desk.runtimes[a.runtime];
-      if (!(t && runtime && isBeginLate(t, runtime.beginWithinMs, at))) {
-        return;
-      }
-      await turnEnded(
-        desk,
-        a.id,
-        true,
-        `it did not begin within ${runtime.beginWithinMs / MIN} minutes`
-      );
-      if (t.session) {
-        await runtime.stop(t.session).catch((error: unknown) =>
-          log("desk.runtime", {
-            agent: a.id,
-            error: String(error),
-            ok: false,
-            what: "stop",
-          })
-        );
-      }
-    })
-  );
+  await eachOpenTurn(desk, async (a, t, runtime) => {
+    if (!(runtime && isBeginLate(t, runtime.beginWithinMs, at))) {
+      return;
+    }
+    await turnEnded(
+      desk,
+      a.id,
+      true,
+      `it did not begin within ${runtime.beginWithinMs / MIN} minutes`
+    );
+    if (t.session) {
+      await stopRun(runtime, a.id, t.session);
+    }
+  });
 }

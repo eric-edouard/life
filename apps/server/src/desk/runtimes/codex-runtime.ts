@@ -127,7 +127,7 @@ export const hasEvent = (lines: string[], type: string) =>
   eventsOf(lines).some((e) => e.type === type);
 
 /** Whether the model has answered in a run's events: its first item (a message, a tool call), not `turn.started`, which comes before any model call. */
-export const hasAnswered = (lines: string[]) =>
+export const hasModelItem = (lines: string[]) =>
   eventsOf(lines).some((e) => e.type?.startsWith("item."));
 
 /** The files of session `ref`'s runs, oldest first (one name each: `<ref>-<ms>.jsonl`). */
@@ -158,7 +158,7 @@ function run(a: Agent, ref: string, message: string): Run {
   });
   const begun = begunWhen(
     exited,
-    () => hasAnswered(linesOf(path)),
+    () => hasModelItem(linesOf(path)),
     () => path
   );
   const ended = (async () => {
@@ -309,7 +309,7 @@ export const codexRuntime: Runtime = {
   block: () => cliBlockOf("codex"),
   hasBegun(ref) {
     const last = runFilesOf(ref).at(-1);
-    return Promise.resolve(last ? hasAnswered(linesOf(last)) : false);
+    return Promise.resolve(last ? hasModelItem(linesOf(last)) : false);
   },
   async send(a, ref, message) {
     if ((await codexRuntime.state(ref)) === "running") {
