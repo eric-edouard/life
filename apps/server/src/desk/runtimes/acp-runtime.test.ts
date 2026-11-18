@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,6 +14,9 @@ import type { Row } from "./runtime-rows";
 
 // The ACP runtime against a made-up ACP agent (`fake-acp-agent.ts`), one case per rule the wait contract leans on.
 // Nothing runs a real adapter.
+
+// Each case starts a process: a loaded Mac needs more than the default 5 s.
+setDefaultTimeout(30_000);
 
 const FAKE = join(import.meta.dir, "fake-acp-agent.ts");
 
