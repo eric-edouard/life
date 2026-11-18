@@ -1,6 +1,10 @@
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
+import {
+  type NamingQueueItem,
+  readNamingQueue,
+} from "../sources/lifelog-voices";
 import { pagedNow } from "./closeness";
 import { type Decision, decisionsNow, isOnMatter } from "./decisions";
 import { guessedOf, plain } from "./doubts";
@@ -23,6 +27,7 @@ import {
   readPeople,
   readUnresolvedPeople,
   type Shown,
+  voicePersonOf,
 } from "./who";
 import { dayNow, localDate } from "./zones";
 
@@ -32,14 +37,15 @@ import { dayNow, localDate } from "./zones";
 // listed while open, first. Derived when read, never stored: his answer (`answerCheck`, `answer-check.ts`) is a
 // correction (a person), a fact-check answer (an ending) or his answer to the decision, each in its kind's own store.
 
-type CheckKind = "decision" | "ending" | "person";
+type CheckKind = "decision" | "ending" | "person" | "voice";
 /** What a check is, for counting: a decision, an ending, a guessed person, a Contacts card Life cannot place, a name it cannot place. */
 export type CheckGroup =
   | "decision"
   | "ending"
   | "guessed person"
   | "card"
-  | "name";
+  | "name"
+  | "voice";
 
 /** One answer he can give: its id, as the tool that records it takes it, what choosing it does, and whether it sends, pays, books, deletes or changes something. */
 export interface CheckOption {
@@ -60,6 +66,13 @@ export interface Check {
   asker: string;
   /** When it was asked; null for Life's guesses (worked out when read). */
   at: string | null;
+  /** A voice's spans of recording (`audio` is what the app plays from lifelog), newest first as lifelog gives them; none but a voice's. */
+  clips: {
+    at: string | null;
+    audio: { end: number; jobId: string; start: number } | null;
+    text: string;
+    until: string | null;
+  }[];
   /** Why it asks, what was tried, what it rests on: folded on his card. An agent's words, or Life's own for its guesses. */
   context: string | null;
   /** By when he answers; null: no deadline. */
@@ -70,6 +83,8 @@ export interface Check {
   evidence: { from: string; quote: string } | null;
   group: CheckGroup;
   kind: CheckKind;
+  /** Who a voice may be, as Life knows them; none but a voice's. */
+  likelyPeople: { name: string; person: string }[];
   /** Where to look or act (the agent's link first). */
   links: string[];
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done); null: none. */
@@ -128,7 +143,13 @@ export interface CheckInputs {
   paged: ReadonlySet<string>;
   people: Pick<
     People,
-    "ambiguousCards" | "contacts" | "isGuess" | "names" | "refOf" | "resolve"
+    | "ambiguousCards"
+    | "contacts"
+    | "isGuess"
+    | "nameOf"
+    | "names"
+    | "refOf"
+    | "resolve"
   > & {
     inferred: Pick<
       InferredPerson,
@@ -142,6 +163,8 @@ export interface CheckInputs {
     >[];
   };
   unresolved: readonly Pick<Unresolved, "nameAsWritten" | "observation">[];
+  /** The voices lifelog asks him to name (`readNamingQueue`). */
+  voices: readonly NamingQueueItem[];
   /** Where a record that is not a line was said: units and episodes, by id. */
   where: ReadonlyMap<string, Where>;
 }
@@ -228,6 +251,24 @@ export const LIFE_CHECKS = {
     ],
     title: "Place a name",
   },
+  voice: {
+    context:
+      "Heard in conversations: who it is goes to every turn of this voice.",
+    options: [
+      {
+        id: "this-is",
+        label:
+          "It is this person (give `person`, or `name` for someone new): every turn of this voice becomes theirs",
+      },
+      {
+        id: "not-anyone-i-know",
+        label: "Not anyone I know: never asked again",
+      },
+      { id: "media", label: "A video or TV playing" },
+      { id: "not-relevant", label: "Not worth naming" },
+    ],
+    title: "Name a voice",
+  },
 } as const satisfies Record<
   Exclude<CheckGroup, "decision">,
   { context: string; options: CheckOption[]; title: string }
@@ -300,6 +341,7 @@ function ranked(
             about: fields.about,
             asker: "life",
             at: null,
+            clips: [],
             context: LIFE_CHECKS[group].context,
             deadline: null,
             draft: null,
@@ -309,6 +351,7 @@ function ranked(
             },
             group,
             kind,
+            likelyPeople: [],
             links: [],
             onSilence: null,
             options: [...LIFE_CHECKS[group].options],
@@ -340,12 +383,14 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           about: [],
           asker: d.asker,
           at: d.at,
+          clips: [],
           context: d.context || null,
           deadline: d.deadline,
           draft: d.draft ?? null,
           evidence: null,
           group: "decision",
           kind: "decision",
+          likelyPeople: [],
           links: d.links,
           onSilence: d.onSilence,
           options: d.options,
@@ -456,6 +501,65 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     });
     return [...guessed, ...cards, ...names];
   },
+  /** Every voice lifelog asks him to name, none left out. */
+  voice: (c) =>
+    c.voices.map((item) => {
+      const known = voicePersonOf(c.people.resolve, item.personId, item.name);
+      const likely = [
+        ...new Set([item.personId, ...item.likely].filter((x) => x !== null)),
+      ]
+        .flatMap((id) => {
+          const ref = voicePersonOf(c.people.resolve, id, null);
+          return ref ? [ref] : [];
+        })
+        .filter((ref, i, all) => all.indexOf(ref) === i)
+        .slice(0, 5)
+        .map((ref) => ({ name: c.people.nameOf(ref), person: ref }));
+      const [first] = item.evidence;
+      const who =
+        known && item.kind !== "new_person" && item.kind !== "several"
+          ? c.people.nameOf(known)
+          : null;
+      return {
+        check: {
+          about: item.name ? [item.name] : [],
+          asker: "life",
+          at: null,
+          clips: item.clips.map((k) => ({
+            at: k.at,
+            audio: k.audio,
+            text: k.text,
+            until: k.until,
+          })),
+          context: `${LIFE_CHECKS.voice.context} Heard in ${item.conversations} conversations, ${item.words} words.`,
+          deadline: null,
+          draft: null,
+          evidence: first
+            ? {
+                from: `a recorded conversation, ${first.at ? plain(localDate(first.at)) : "date unknown"}`,
+                quote: first.text,
+              }
+            : null,
+          group: "voice",
+          kind: "voice",
+          likelyPeople: likely,
+          links: [],
+          onSilence: null,
+          options: [...LIFE_CHECKS.voice.options],
+          question: who
+            ? `Is this voice ${who}?`
+            : `Who is this voice?${item.name ? ` It was called "${item.name}".` : ""}`,
+          ref: `voice:${item.id}`,
+          ridesOn: { matters: 0, observations: 0, pages: 0 },
+          subject: null,
+          title: LIFE_CHECKS.voice.title,
+        },
+        day: item.clips.reduce(
+          (m, k) => (k.at && localDate(k.at) > m ? localDate(k.at) : m),
+          ""
+        ),
+      };
+    }),
 };
 
 /** The checks: those with a deadline first (an agent's decisions), soonest first; then most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */
@@ -483,10 +587,11 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
 /** What waits on his word now, over what is stored today: read-only, no model call. */
 export async function checksNow(): Promise<Check[]> {
   const people = await readPeople();
-  const [records, unresolved, paged] = await Promise.all([
+  const [records, unresolved, paged, voices] = await Promise.all([
     readMatterRecords(people),
     readUnresolvedPeople(),
     pagedNow(people),
+    readNamingQueue(),
   ]);
   const matters = matterBookOf(mattersNow(readMatters()), records, dayNow());
   const units = readUnitsFor(
@@ -514,6 +619,7 @@ export async function checksNow(): Promise<Check[]> {
     paged,
     people,
     unresolved,
+    voices,
     where: new Map([
       ...units.map((u): [string, Where] => [
         u.id,

@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { DAY } from "../core/clock";
-import { call, LIVE, parseTurnRef, type Store } from "./lifelog";
+import { log } from "../core/log";
+import {
+  call,
+  LIVE,
+  lifelogMissing,
+  parseTurnRef,
+  type Store,
+  writeLifelog,
+} from "./lifelog";
 
 // What lifelog says of the voices of its recordings: how a conversation's voices were heard (`readVoiceKinds`) and who
 // answered or recognised each (`readVoices`). Read-only.
@@ -160,3 +168,62 @@ export function isTurnNamed(store: Store, ref: string) {
         .get(t.jobId, t.turnIndex)?.n
   );
 }
+
+/** One voice lifelog asks him to name, as `GET /naming-queue` gives it (`QueueItem`): what Life shows of it and sends back. */
+export const NamingQueueItem = z.object({
+  clips: z.array(
+    z.object({
+      at: z.string().nullable(),
+      audio: z
+        .object({ end: z.number(), jobId: z.string(), start: z.number() })
+        .nullable(),
+      text: z.string(),
+      until: z.string().nullable(),
+    })
+  ),
+  conversations: z.number(),
+  evidence: z.array(
+    z.object({
+      at: z.string().nullable(),
+      conversationId: z.string(),
+      text: z.string(),
+    })
+  ),
+  id: z.string(),
+  kind: z.enum(["new_person", "known_person", "recheck", "several"]),
+  likely: z.array(z.string()),
+  name: z.string().nullable(),
+  namedPersonId: z.string().nullable(),
+  personId: z.string().nullable(),
+  voices: z.array(
+    z.object({
+      conversationId: z.string(),
+      jobId: z.string(),
+      speakerLabel: z.string(),
+    })
+  ),
+  words: z.number(),
+});
+export type NamingQueueItem = z.infer<typeof NamingQueueItem>;
+
+/** The voices lifelog asks him to name (`GET /naming-queue`); none when lifelog is not set up or fails (logged), so the inbox never fails with it. */
+export async function readNamingQueue() {
+  if (lifelogMissing()) {
+    return [];
+  }
+  try {
+    return z.array(NamingQueueItem).parse(await call("/naming-queue", 30));
+  } catch (e) {
+    log("run.error", { error: (e as Error).message, step: "naming-queue" });
+    return [];
+  }
+}
+
+/** The owner's answer to a queue item's voices (`POST /naming-queue/answer`): who they are, or that they are not worth naming. */
+export const answerNamingQueue = (
+  voices: { jobId: string; speakerLabel: string }[],
+  answer:
+    | { kind: "confirm"; name: string }
+    | { kind: "assign"; personId: string }
+    | { kind: "ignore" | "media" | "not_relevant" }
+) => writeLifelog("POST", "/naming-queue/answer", { answer, voices });

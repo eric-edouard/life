@@ -30,7 +30,12 @@ import {
 } from "./lifelog";
 import { conversationsWith } from "./lifelog-conversations";
 import { Recorded } from "./lifelog-recorded";
-import { ConversationAnswer, Voices, voiceNamesOf } from "./lifelog-voices";
+import {
+  ConversationAnswer,
+  NamingQueueItem,
+  Voices,
+  voiceNamesOf,
+} from "./lifelog-voices";
 import {
   conversation,
   lifelogServer,
@@ -518,6 +523,12 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
       "conversation"
     ),
     ...drift(ours(Voices), answer("/speakers/voices", "get"), defs, "voices"),
+    ...drift(
+      ours(z.array(NamingQueueItem)),
+      answer("/naming-queue", "get"),
+      defs,
+      "naming-queue"
+    ),
     ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
     ...drift(ours(Recorded), answer("/recorded", "get"), defs, "recorded"),
     ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),

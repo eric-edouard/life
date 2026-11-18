@@ -399,7 +399,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_inbox",
-    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group, `total`, and `deadlinesToday` (how many are due by the end of his day). Every kind in one shape: an agent's decision, a step Life thinks is done (`ending`), who someone is (`guessed person`, a Contacts `card`, a `name`). Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (what Life sends if he approves, exactly as shown: `to`, `text`, a `file` (name, size), the message it replies or reacts to (`quoted`), `mentions`; for mail `from`, `cc`, `subject`), `options` (each saying what choosing it does; with two or more, the first is recommended), `context` (folded detail), `evidence` (the words it rests on), `asker`, `deadline` and `onSilence`, `subject`, `matter` (the matter it belongs to: id, name), `links`. Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
+    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group, `total`, and `deadlinesToday` (how many are due by the end of his day). Every kind in one shape: an agent's decision, a step Life thinks is done (`ending`), who someone is (`guessed person`, a Contacts `card`, a `name`; a voice to name: `voice`, its `clips`, each a span of a recording the app plays from lifelog, and `likelyPeople`). Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (what Life sends if he approves, exactly as shown: `to`, `text`, a `file` (name, size), the message it replies or reacts to (`quoted`), `mentions`; for mail `from`, `cc`, `subject`), `options` (each saying what choosing it does; with two or more, the first is recommended), `context` (folded detail), `evidence` (the words it rests on), `asker`, `deadline` and `onSilence`, `subject`, `matter` (the matter it belongs to: id, name), `links`. Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
     z.object({
       limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
     }),
@@ -443,8 +443,14 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "answer_check",
-    "Record the owner's answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life's own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim), `person` (`person:<id>`, when the option says to give who it is). Life acts on it at once (a decision's asker is told, and his pick of a draft's one outgoing option alone sends that draft, exactly, into its chat: only on his own answer in this chat; a step closes or reopens; who someone is is recorded) and returns the lines written.",
+    "Record the owner's answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life's own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim), `person` (`person:<id>`, when the option says to give who it is), `name` (a voice's new person). Life acts on it at once (a voice is named for every turn of it in lifelog; a decision's asker is told, and his pick of a draft's one outgoing option alone sends that draft, exactly, into its chat: only on his own answer in this chat; a step closes or reopens; who someone is is recorded) and returns the lines written.",
     z.object({
+      name: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe("A voice's new person: their name"),
       note: z.string().min(1).max(4000).optional(),
       options: z.array(z.string()).default([]),
       person: z.string().optional().describe("person:<id>"),
