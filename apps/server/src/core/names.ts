@@ -17,6 +17,13 @@ export type Engine = z.infer<typeof Engine>;
  */
 export const AGENT_WORD = "agent";
 
+/** The built-in agent his words about his registered agents are asked of (`change_registered_agent`): the desk, which keeps its own list. */
+export const DESK_AGENT = "desk";
+
+/** The runtimes the desk drives (`desk/runtimes/`), by name. */
+export const RuntimeName = z.enum(["claude"]);
+export type RuntimeName = z.infer<typeof RuntimeName>;
+
 /** Where a unit or an observation comes from. */
 export const SourceName = z.enum([
   "lifelog",

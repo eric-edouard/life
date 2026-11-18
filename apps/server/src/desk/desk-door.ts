@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { same, secretIn } from "../core/secret";
+import { agentOf } from "../host/desk-read";
 import { DOOR_PORT, text } from "../host/http/http";
 import { tool, WRITES } from "../host/http/mcp-tool";
 import { DecisionRequest } from "../memory/decisions";
@@ -13,7 +14,7 @@ import {
   setWait,
   writeNotes,
 } from "./agent-actions";
-import { agentOf, type Desk } from "./desk-store";
+import type { Desk } from "./desk-store";
 
 // The door (the desk spec, 5.2): the desk's MCP server for its registered agents, on loopback only, at `/mcp/<agt_…>`.
 // An agent is known by its key alone, `HMAC(deskKey, its id)`: derived, never stored, given to its session only in the

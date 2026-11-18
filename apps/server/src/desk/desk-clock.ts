@@ -1,6 +1,18 @@
 import { clock } from "../core/clock";
 import { log } from "../core/log";
 import {
+  type AgentRow,
+  activeAgents,
+  agentOf,
+  type EventRow,
+  filtersOf,
+  lastTurns,
+  openTurn,
+  queuedEvents,
+  readCursor,
+  type TurnRow,
+} from "../host/desk-read";
+import {
   MESSAGE_RECEIVED,
   matcherOf,
   pollDecisions,
@@ -21,21 +33,7 @@ import {
   STARTS_PER_TICK,
 } from "./agent-wait";
 import { doorOf } from "./desk-door";
-import {
-  type AgentRow,
-  activeAgents,
-  agentOf,
-  type Desk,
-  type EventRow,
-  filtersOf,
-  lastTurns,
-  openTurn,
-  queuedEvents,
-  readCursor,
-  saveCursor,
-  type TurnRow,
-  writeWait,
-} from "./desk-store";
+import { type Desk, saveCursor, writeWait } from "./desk-store";
 import type { Run, Agent as SessionAgent, Usage } from "./runtimes/contract";
 
 // The desk's clock (the desk spec, sections 6 and 7): one tick polls his answers and the messages its agents wait for

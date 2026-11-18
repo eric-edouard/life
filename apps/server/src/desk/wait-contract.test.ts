@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { take } from "../core/lock";
+import { agentOf, flagsOf, openTurn } from "../host/desk-read";
 import type { Messaging } from "../host/events";
 import { DECISION_ANSWERED, DECISION_LAPSED } from "../host/events";
 import {
@@ -14,7 +15,6 @@ import {
 import { LOCK } from "../memory/memory-lock";
 import type { SourceEvent } from "../records/source";
 import { finish, register, setWait, writeNotes } from "./agent-actions";
-import { flagsOf } from "./agent-wait";
 import {
   endLostTurns,
   pollAnswers,
@@ -22,7 +22,7 @@ import {
   turnEnded,
   wakeDue,
 } from "./desk-clock";
-import { agentOf, type Desk, openDesk, openTurn } from "./desk-store";
+import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 
 // The wait contract's cases (the desk spec, section 6, W1 to W20): a fake runtime, the clock faked, made-up agents and

@@ -4,15 +4,9 @@ import { changeFeed, encode } from "../../memory/changes";
 import { runs, STEPS, useText } from "../../memory/run-log";
 import { SOURCES } from "../../memory/sources";
 import { clip } from "../../memory/units";
+import type { Tone } from "./card";
 import { sleeps } from "./mac";
-import {
-  cached,
-  callerOf,
-  type LogLine,
-  spent,
-  type Tone,
-  toneOfRun,
-} from "./snapshot";
+import { cached, callerOf, type LogLine, spent, toneOfRun } from "./snapshot";
 
 // A card's detail for the app's status window (apps/server/src/host/http/status-reads.ts serves it): its history, its raw log lines, and a run's steps
 // and what it wrote. Read-only, like the status snapshot (apps/server/src/host/status/snapshot.ts). His words and errors' text are in `content` only.

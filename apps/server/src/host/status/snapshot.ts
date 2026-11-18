@@ -33,6 +33,7 @@ import { backupOld, backupSize, readBackup } from "../backup";
 import { readHealth } from "../health";
 import { connectorHealths, failingParts } from "../messaging-status";
 import { EMAIL_STEP, mailedTo, reportKey } from "../report";
+import { ASK, type Card, type Fact, firstOf, type Tone } from "./card";
 import { lifeStatus } from "./life";
 import { macState, sleeps } from "./mac";
 
@@ -40,33 +41,6 @@ import { macState, sleeps } from "./mac";
 // state now, read from Life's own records and stores, nothing written. A card's colour is `toneOf`'s rule: red only
 // when Life can't read or run a part, grey when it is just quiet, amber when quiet past its source's `silentAfter` (a source with parts: its quietest part). His
 // words and any error's text live only in a card's `content`: the app hides them when its "Show content" is off.
-
-export type Tone = "bad" | "busy" | "idle" | "ok" | "teal" | "warn";
-
-/** One line of a card: a value, or an instant the app shows as "3 min ago". Never his words, never an error's text. */
-export interface Fact {
-  at?: string | null;
-  label: string;
-  value?: string;
-}
-
-export interface Card {
-  /** A sentence to paste into a Claude session, when the part is in trouble. */
-  ask?: string;
-  /** When its headline happened: the app adds "3 h ago". */
-  at?: string | null;
-  /** His words and errors' text on the card: hidden while the app's Show content is off. */
-  content?: string[];
-  facts: Fact[];
-  group: string;
-  headline: string;
-  id: string;
-  name: string;
-  /** A running processing run's processing steps and where it is. */
-  processingSteps?: { name: string; state: "done" | "now" | "todo" }[];
-  tone: Tone;
-  word: string;
-}
 
 export interface Tick {
   at: string;
@@ -235,20 +209,6 @@ export const GROUPS = [
 /** A run that recorded any use: runs from before 21 Oct have no tokens and no readings. */
 export const spent = (u: Use | null | undefined) =>
   !!u && (u.tokens.input > 0 || !!u.quota?.before || !!u.quota?.after);
-
-const ASK = (what: string) => `Life's status shows ${what}: look into it.`;
-
-/** The first state whose condition holds: a card's tone and word (and its ask) by precedence. */
-const firstOf = (
-  ...rules: [
-    boolean | undefined,
-    Pick<Card, "ask" | "tone" | "word"> & Partial<Pick<Card, "headline">>,
-  ][]
-) =>
-  rules.find(([holds]) => holds)?.[1] ?? {
-    tone: "idle" as Tone,
-    word: "unknown",
-  };
 
 /** Every source's newest item (`Descriptor.newest`), each read by its own module. */
 const newestOf = async () =>

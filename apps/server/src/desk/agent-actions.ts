@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { z } from "zod";
 import { clock } from "../core/clock";
+import { agentOf, isFull, openTurn, queuedEvents } from "../host/desk-read";
 import { matcherOf } from "../host/events";
 import {
   type DecisionRequest,
@@ -9,14 +10,7 @@ import {
 } from "../memory/decisions";
 import { readPeople } from "../memory/who";
 import { waitOf } from "./agent-wait";
-import {
-  agentOf,
-  type Desk,
-  isFull,
-  openTurn,
-  queuedEvents,
-  writeWait,
-} from "./desk-store";
+import { type Desk, writeWait } from "./desk-store";
 
 // What a registered agent does at the desk (the door's tools, `desk-door.ts`, which checks it is active) and how one is
 // registered. Each writes its row

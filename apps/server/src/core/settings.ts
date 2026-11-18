@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { Engine, SourceName } from "./names";
+import { Engine, RuntimeName, SourceName } from "./names";
 import { LIFE_STATE_DIR } from "./paths";
 import { HOME } from "./platform";
 
@@ -82,9 +82,26 @@ export const Settings = z
     describePhotos: z.object({ from: z.iso.date() }).strict().optional(),
     /**
      * The desk (`apps/server/src/desk/`): Life starts and wakes his registered agents. Absent means off: the app starts
-     * no desk helper and no desk code runs. Its fields come with the steps that read them.
+     * no desk helper and no desk code runs. `runtimes`: per runtime, the model (and effort) a registered agent runs
+     * with when it names none; none given, the runtime's own default. `defaultRuntime`: a start that names none.
      */
-    desk: z.object({}).strict().optional(),
+    desk: z
+      .object({
+        defaultRuntime: RuntimeName.optional(),
+        runtimes: z
+          .partialRecord(
+            RuntimeName,
+            z
+              .object({
+                effort: z.string().min(1).optional(),
+                model: z.string().min(1).optional(),
+              })
+              .strict()
+          )
+          .default({}),
+      })
+      .strict()
+      .optional(),
     /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
     deviceNames: z.record(z.string().min(1), z.string().min(1)).optional(),
     /** The model runner the memory steps use. */
