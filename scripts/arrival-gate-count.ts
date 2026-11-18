@@ -34,6 +34,7 @@ import {
 } from "@life/server/src/memory/memory-files";
 import { showFiles } from "@life/server/src/memory/message-files";
 import { kindOf, quietly } from "@life/server/src/memory/sources";
+import { voiceUnitId } from "@life/server/src/memory/unit-ids";
 import {
   applyRules,
   type Built,
@@ -42,7 +43,6 @@ import {
   type Resolve,
   readSourceEvents,
   sourceUnitsOf,
-  unitId,
 } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";
 import { dayStart, localDate, time } from "@life/server/src/memory/zones";
@@ -86,7 +86,7 @@ function turnLinesOf(talks: LifelogConversation[]) {
   const lines = new Map<string, string[]>();
   for (const c of talks) {
     for (const t of c.turns) {
-      const id = unitId("lifelog", c.id, localDate(t.at));
+      const id = voiceUnitId(c.id, localDate(t.at));
       lines.set(id, [
         ...(lines.get(id) ?? []),
         turnRef(t.jobId, t.turnIndex, t.at),
