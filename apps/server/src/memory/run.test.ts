@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { llmFor } from "../models/llm";
+import type { ReadCounts } from "../models/model-call";
 import type { SourceEvent } from "../records/source";
 import {
   begin,
@@ -221,7 +222,7 @@ test("his words on what Life may keep reach a call's context only for a prompt w
       dir: plain.dir,
       input: {},
       prompt: "memory-extract.v6",
-      reads: { memory: 1 },
+      reads: readsOf([{ source: "memory", unit: "x" }]),
     });
     expect(asked.mock.calls.at(-1)?.[0].context).toBeUndefined();
     expect(plain.madeBy("memory-extract.v6").prompt).not.toContain("mayKeep");
@@ -236,7 +237,7 @@ test("his words on what Life may keep reach a call's context only for a prompt w
       dir: step.dir,
       input: {},
       prompt: "memory-extract.v6",
-      reads: { memory: 1 },
+      reads: readsOf([{ source: "memory", unit: "x" }]),
     });
     expect(asked.mock.calls.at(-1)?.[0].context).toEqual({
       areas: [],
@@ -248,7 +249,7 @@ test("his words on what Life may keep reach a call's context only for a prompt w
       dir: step.dir,
       input: {},
       prompt: "memory-closeness.v1",
-      reads: { memory: 1 },
+      reads: readsOf([{ source: "memory", unit: "x" }]),
     });
     expect(asked.mock.calls.at(-1)?.[0].context).toBeUndefined();
     expect(step.madeBy("memory-closeness.v1").prompt).toBe(
@@ -267,11 +268,13 @@ test("a call's reads count distinct units per source: a chat-day's messages are 
     message(`2026-11-10T${t}:00.000Z`)
   );
   const unitOf = (e: SourceEvent) => ({ source: e.source, unit: dayUnitId(e) });
-  expect(readsOf(day.map(unitOf))).toEqual({ whatsapp: 1 });
+  // Its counts as plain numbers: only readsOf makes a CallReads.
+  const counted = (r: ReadCounts) => ({ ...r });
+  expect(counted(readsOf(day.map(unitOf)))).toEqual({ whatsapp: 1 });
   expect(
-    readsOf([...day, message("2026-11-11T12:00:00.000Z")].map(unitOf))
+    counted(readsOf([...day, message("2026-11-11T12:00:00.000Z")].map(unitOf)))
   ).toEqual({ whatsapp: 2 });
   expect(
-    readsOf([...day.map(unitOf), { source: "memory", unit: "fact-1" }])
+    counted(readsOf([...day.map(unitOf), { source: "memory", unit: "fact-1" }]))
   ).toEqual({ memory: 1, whatsapp: 1 });
 });

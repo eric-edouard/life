@@ -19,7 +19,7 @@ import {
   quota,
   quotaOf,
 } from "./llm";
-import { extractJson, TIERS, type Tools } from "./model-call";
+import { type CallReads, extractJson, TIERS, type Tools } from "./model-call";
 import { routesOf } from "./routers";
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
@@ -146,7 +146,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
         model: "x/y@refuseless,hopper",
       },
       prompt: "eval-judge.v3",
-      reads: { memory: 1 },
+      reads: { memory: 1 } as CallReads,
       run: "r",
     });
   const lastLine = () =>
@@ -240,7 +240,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
             "a/b@deepinfra/fp8,morph/fp8=medium allmodels:x/y@refuseless=high",
         },
         prompt: "eval-judge.v3",
-        reads: { memory: 1 },
+        reads: { memory: 1 } as CallReads,
         run: "r",
       });
     hostsAsked();
@@ -280,7 +280,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
         input: {},
         llm: { engine: "allmodels", model: "x/y@" },
         prompt: "eval-judge.v3",
-        reads: { memory: 1 },
+        reads: { memory: 1 } as CallReads,
         run: "r",
       })
     ).rejects.toThrow("author/model@host[,host]");
@@ -292,7 +292,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
         input: {},
         llm: { engine: "allmodels", model: "x/y@refuseless" },
         prompt: "eval-judge.v3",
-        reads: { memory: 0 },
+        reads: { memory: 0 } as CallReads,
         run: "r",
       })
     ).rejects.toThrow("names what it reads");
@@ -359,7 +359,7 @@ async function spawnBoth(tools?: Tools) {
         input: { a: 1 },
         llm: { engine, model: "m" },
         prompt: "eval-judge.v3",
-        reads: { memory: 1 },
+        reads: { memory: 1 } as CallReads,
         run: "r",
         // Only Codex is ever given tools.
         tools: engine === "codex" ? tools : undefined,
@@ -613,7 +613,7 @@ test("the one call with tools, the question cases' agent: Codex with one MCP ser
       input: {},
       llm: { engine: "claude", model: "m" },
       prompt: "eval-judge.v3",
-      reads: { memory: 1 },
+      reads: { memory: 1 } as CallReads,
       run: "r",
       tools,
     })

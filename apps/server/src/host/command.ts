@@ -169,6 +169,8 @@ async function json(answer: Promise<unknown>) {
 const list = (v?: string) => v?.split(",").filter(Boolean);
 const words = (rest: string[]) => rest.join(" ").trim();
 const count = (n?: string) => (n === undefined ? undefined : Number(n));
+/** The longest window `source-use` reads: a day of the log a day back. */
+const MAX_SOURCE_USE_DAYS = 90;
 
 const HANDLERS: Record<string, Handler> = {
   /** `answer-check <ref> <option> [note] [--person person:<id>]`: his answer to an open check (`answerCheck`), through its kind's writer. */
@@ -445,6 +447,9 @@ const HANDLERS: Record<string, Handler> = {
   /** `source-use [--days 7] [--json]`: what each source costs a day (items, units, readers, reads per unit, tokens, dollars). */
   "source-use": (v) => {
     const days = count(v.days) ?? 7;
+    if (!(Number.isInteger(days) && days >= 1 && days <= MAX_SOURCE_USE_DAYS)) {
+      return usage();
+    }
     return v.json
       ? json(readSourceUse(days))
       : printed(readSourceUse(days).then((u) => sourceUseText(u, days)));

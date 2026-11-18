@@ -218,6 +218,7 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
   const spent = { cached: 2000, input: 4000, output: 20 };
   // Its calls summed: tokens, dollars, the calls with no cost, the units read by source.
   const calls = {
+    calls: 2,
     costUsd: 0.25,
     reads: { memory: 1, whatsapp: 3 },
     tokens: spent,
@@ -230,7 +231,7 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
   expect(useText(use ?? null)).toBe(
     "+3% of the quota, 4k tokens (2k cached), $0.25, 1 unpriced"
   );
-  const none = { costUsd: 0, reads: {}, unpriced: 0 };
+  const none = { calls: 0, costUsd: 0, reads: {}, unpriced: 0 };
   expect(
     useText({
       ...none,
@@ -275,6 +276,7 @@ const IMPORT_LINE = /^Model use, import of .*: 3k tokens \(0k cached\)$/;
 
 test("spend lines: every run of the window that called a model, oldest first, a processing run's steps under it", () => {
   const t = (input: number) => ({
+    calls: 1,
     costUsd: 0,
     quota: null,
     reads: {},

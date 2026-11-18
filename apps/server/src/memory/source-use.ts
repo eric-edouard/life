@@ -1,10 +1,9 @@
 import { clock, DAY, daysBefore } from "../core/clock";
 import { type LogEvent, logDays } from "../core/log";
 import type { SourceName } from "../core/names";
-import type { Tokens } from "../models/model-call";
 import type { Descriptor } from "../sources/contract";
 import { readIndex } from "./memory-files";
-import { assembleRuns, runEvents } from "./run-log";
+import { assembleRuns, modelCallsOf, runEvents } from "./run-log";
 import { SOURCES, tablesOf } from "./sources";
 import { lastDays, localDate } from "./zones";
 
@@ -92,27 +91,28 @@ function spentOf(events: LogEvent[], days: number) {
     rows.set(source, row);
     return row;
   };
-  for (const e of events.filter((x) => x.kind === "model.run")) {
-    const reads = Object.entries(e.reads ?? {}) as [Row, number][];
+  // ponytail: a step's calls of one day are split together by their units' share (not each call alone, nor by
+  // characters); split per call if one step's calls read very different sources.
+  const byStepDay = modelCallsOf(events, (e) => `${e.run}|${localDate(e.at)}`);
+  for (const [key, c] of byStepDay) {
+    const [run = "", date = ""] = key.split("|");
+    const reads = Object.entries(c.reads) as [Row, number][];
     const total = reads.reduce((n, [, x]) => n + x, 0);
-    const t = (e.tokens ?? { input: 0, output: 0 }) as Tokens;
-    const cost = e.costUsd as number | undefined;
-    const step = stepOf.get(e.run ?? "") ?? "unknown";
-    // ponytail: split by unit share, not characters; switch to characters if one source's units dwarf another's.
+    const step = stepOf.get(run) ?? "unknown";
     for (const [source, n] of reads) {
       const row = rowOf(source);
       const share = n / total;
       row.unitsRead += n;
-      row.tokensADay += ((t.input + t.output) * share) / days;
-      row.usdADay += ((cost ?? 0) * share) / days;
-      row.unpriced += cost === undefined ? 1 : 0;
-      const day = `${source} ${localDate(e.at)}`;
-      usdOn.set(day, (usdOn.get(day) ?? 0) + (cost ?? 0) * share);
+      row.tokensADay += ((c.tokens.input + c.tokens.output) * share) / days;
+      row.usdADay += (c.costUsd * share) / days;
+      row.unpriced += c.unpriced;
+      const day = `${source} ${date}`;
+      usdOn.set(day, (usdOn.get(day) ?? 0) + c.costUsd * share);
       const read = row.model.find((m) => m.step === step);
       if (read) {
-        read.calls += 1;
+        read.calls += c.calls;
       } else {
-        row.model.push({ calls: 1, step });
+        row.model.push({ calls: c.calls, step });
       }
     }
   }

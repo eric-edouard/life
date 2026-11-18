@@ -210,7 +210,9 @@ export function readsOf(
   for (const { source, unit } of list) {
     units.set(source, (units.get(source) ?? new Set()).add(unit));
   }
-  return Object.fromEntries([...units].map(([s, u]) => [s, u.size]));
+  return Object.fromEntries(
+    [...units].map(([s, u]) => [s, u.size])
+  ) as CallReads;
 }
 
 /** Whether a rebuilt-whole file is due: none yet, or `after` ms old with new inputs behind it (a rate cap beside the rule). */

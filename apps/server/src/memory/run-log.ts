@@ -2,7 +2,7 @@ import { z } from "zod";
 import { clock, daysBefore } from "../core/clock";
 import { LOG_DIR, type LogEvent, logDays, logEvents } from "../core/log";
 import type { Quota } from "../models/llm";
-import { add, type CallReads, NONE, type Tokens } from "../models/model-call";
+import { add, NONE, type ReadCounts, type Tokens } from "../models/model-call";
 import { decode, encode, PAGE } from "./changes";
 import { runAt } from "./memory-files";
 import { lockedSince } from "./memory-lock";
@@ -42,22 +42,30 @@ const omit = (e: LogEvent | undefined) => {
   return rest;
 };
 
-/** What model calls spent and read, summed (`modelCallsOf`): tokens, dollars, the calls with no cost (unpriced), units read by source. */
+/** What model calls spent and read, summed (`modelCallsOf`): how many, tokens, dollars, the calls with no cost (unpriced), units read by source. */
 export interface Calls {
+  calls: number;
   costUsd: number;
-  reads: CallReads;
+  reads: ReadCounts;
   tokens: Tokens;
   unpriced: number;
 }
-const NO_CALLS: Calls = { costUsd: 0, reads: {}, tokens: NONE, unpriced: 0 };
-const addReads = (a: CallReads, b: CallReads): CallReads => {
+const NO_CALLS: Calls = {
+  calls: 0,
+  costUsd: 0,
+  reads: {},
+  tokens: NONE,
+  unpriced: 0,
+};
+const addReads = (a: ReadCounts, b: ReadCounts): ReadCounts => {
   const sum = { ...a };
-  for (const [k, n] of Object.entries(b) as [keyof CallReads, number][]) {
+  for (const [k, n] of Object.entries(b) as [keyof ReadCounts, number][]) {
     sum[k] = (sum[k] ?? 0) + n;
   }
   return sum;
 };
 const addCalls = (a: Calls, b: Calls): Calls => ({
+  calls: a.calls + b.calls,
   costUsd: a.costUsd + b.costUsd,
   reads: addReads(a.reads, b.reads),
   tokens: add(a.tokens, b.tokens),
@@ -311,17 +319,25 @@ export function assembleRuns(events: LogEvent[], lockSince: Date | null) {
   return list;
 }
 
-/** The model calls (`model.run` lines) summed by run id: a call with no `costUsd` is unpriced. */
-export function modelCallsOf(events: LogEvent[]) {
+/**
+ * The model calls (`model.run` lines) summed by run id, or by `keyOf` (the source-use table's run and day): the one
+ * fold of what calls spent and read. A call with no `costUsd` is unpriced.
+ */
+export function modelCallsOf(
+  events: LogEvent[],
+  keyOf = (e: LogEvent) => e.run
+) {
   const by = new Map<string, Calls>();
   for (const e of events) {
-    if (e.kind === "model.run" && e.run) {
+    const key = e.kind === "model.run" && e.run && keyOf(e);
+    if (key) {
       const cost = e.costUsd as number | undefined;
       by.set(
-        e.run,
-        addCalls(by.get(e.run) ?? NO_CALLS, {
+        key,
+        addCalls(by.get(key) ?? NO_CALLS, {
+          calls: 1,
           costUsd: cost ?? 0,
-          reads: (e.reads as CallReads | undefined) ?? {},
+          reads: (e.reads as ReadCounts | undefined) ?? {},
           tokens: (e.tokens as Tokens | undefined) ?? NONE,
           unpriced: cost === undefined ? 1 : 0,
         })
