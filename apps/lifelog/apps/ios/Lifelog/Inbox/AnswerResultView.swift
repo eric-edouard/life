@@ -168,8 +168,11 @@ struct AnswerResultView: View {
                     Text(isSend ? "Sending…" : "Saving…")
                 }.buttonStyle(.pill(.quiet)).disabled(true)
                 if isSend {
-                    Text("Stays on this card until \(ActionCopy.channel(taken.check.draft?.channel)) answers.")
-                        .font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
+                    LimitNote(limit: state.limit) {
+                        "Stays on this card until \(ActionCopy.channel(taken.check.draft?.channel)) answers"
+                            + ($0.map { ", \($0)." } ?? ".")
+                    }
+                    .font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
                 }
             }
         }

@@ -19,9 +19,8 @@ struct MatterPage: View {
             content: { matter in page(matter) }
         )
         .background(Palette.bg)
-        .toolbar(.hidden, for: .navigationBar)
         .toolbarVisibility(.hidden, for: .tabBar)
-        .safeAreaInset(edge: .top, spacing: 0) { TopBar(label: "Matter") { router.matters.removeAll { $0 == id } } }
+        .shellBar("Matter", hasSettings: false)
         .task { await life.refreshMatter(id) }
     }
 

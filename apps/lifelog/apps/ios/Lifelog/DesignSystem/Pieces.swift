@@ -181,3 +181,18 @@ extension View {
         frame(maxWidth: width).frame(maxWidth: .infinity)
     }
 }
+
+/// A line that names the server's limit ("20 seconds at most"): the limit as it was when the action began, kept while it
+/// counts down. `text` gets the phrase, or nil while the server has named none.
+struct LimitNote: View {
+    let limit: Date?
+    let text: (String?) -> String
+    @State private var seconds: Int?
+
+    var body: some View {
+        Text(text(seconds.map { "\($0) seconds at most" }))
+            .onChange(of: limit, initial: true) { _, limit in
+                if seconds == nil, let limit { seconds = max(1, Int(limit.timeIntervalSinceNow.rounded(.up))) }
+            }
+    }
+}

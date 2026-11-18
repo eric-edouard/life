@@ -25,6 +25,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let voice = inbox.checks[1]
     #expect(voice.clips.first?.audio?.jobId == "job-1")
     #expect(voice.likelyPeople.first?.name == "Gran")
+    #expect(voice.ridesOn?.observations == 2)
     #expect(inbox.checks[2].draft == nil)
 
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))

@@ -26,8 +26,7 @@ struct MattersScreen: View {
             )
             .background(Palette.bg)
             .navigationDestination(for: String.self) { MatterPage(id: $0) }
-            .toolbar(.hidden, for: .navigationBar)
-            .safeAreaInset(edge: .top, spacing: 0) { TopBar(label: "Matters") }
+            .shellBar("Matters")
         }
         .onChange(of: router.showsAgentsOnly, initial: true) { _, on in
             guard on else { return }

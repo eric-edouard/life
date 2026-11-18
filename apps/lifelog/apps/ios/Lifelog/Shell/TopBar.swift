@@ -3,33 +3,39 @@ import Incidents
 import OwnerSettings
 import SwiftUI
 
-/// The bar over every screen: Settings (or back), where he is, and the Pendant's pill. Drawn here, not by the
-/// navigation bar, so every tab and every page keeps the same bar.
-struct TopBar: View {
+/// The bar over every screen, as the system's own: Settings at the leading edge (a page's back button is the stack's), the
+/// screen's name in the middle, the Pendant's pill at the trailing edge. Real toolbar items, so the system can move them
+/// (into a side column on a foldable) and gives them their glass.
+private struct ShellBar: ViewModifier {
     let label: String
-    var back: (() -> Void)?
+    let hasSettings: Bool
 
     @Environment(AppRouter.self) private var router
 
-    var body: some View {
-        HStack(spacing: 12) {
-            Button {
-                if let back { back() } else { router.sheet = .settings }
-            } label: {
-                Image(systemName: back == nil ? "slider.horizontal.3" : "chevron.left")
-                    .font(.system(size: 17, weight: .medium)).foregroundStyle(Palette.fg)
-                    .frame(width: 44, height: 44)
+    func body(content: Content) -> some View {
+        content
+            .navigationTitle(label)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if hasSettings {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            router.sheet = .settings
+                        } label: {
+                            Image(systemName: "slider.horizontal.3")
+                        }
+                        .accessibilityLabel("Settings")
+                        .accessibilityIdentifier("top.settings")
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) { PendantPill { router.sheet = .pendant } }
             }
-            .glassEffect(.regular.interactive(), in: .circle)
-            .accessibilityLabel(back == nil ? "Settings" : "Back")
-            .accessibilityIdentifier(back == nil ? "top.settings" : "top.back")
-            Text(label).label().foregroundStyle(Palette.muted).accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 8)
-            PendantPill { router.sheet = .pendant }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 6)
-        .background(Palette.bg)
+    }
+}
+
+extension View {
+    func shellBar(_ label: String, hasSettings: Bool = true) -> some View {
+        modifier(ShellBar(label: label, hasSettings: hasSettings))
     }
 }
 
@@ -63,10 +69,7 @@ struct PendantPill: View {
                     }
             }
             .foregroundStyle(Palette.fg)
-            .padding(.horizontal, 18)
-            .frame(minHeight: 44)
         }
-        .glassEffect(.regular.interactive(), in: .capsule)
         .accessibilityLabel("Pendant, \(face.spoken)")
         .accessibilityIdentifier("top.pendant")
     }

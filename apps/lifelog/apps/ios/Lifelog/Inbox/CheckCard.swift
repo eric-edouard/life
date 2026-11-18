@@ -16,6 +16,7 @@ struct CheckCard: View {
     @State private var isWritingOwnWords = false
     @State private var words = ""
     @State private var showsWhy = false
+    @State private var showsSameAs = false
 
     var body: some View {
         ScrollView {
@@ -38,6 +39,14 @@ struct CheckCard: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
+        .sheet(isPresented: $showsSameAs) {
+            SameAsSheet(people: check.likelyPeople) { choice in
+                switch choice {
+                case .person(let id): answer(AnswerRequest(ref: check.ref, options: [], person: id))
+                case .name(let name): answer(AnswerRequest(ref: check.ref, options: [], name: name))
+                }
+            }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             actions.padding(.horizontal, 20).padding(.bottom, 8).readingWidth().background(Palette.bg)
         }
@@ -104,6 +113,9 @@ struct CheckCard: View {
         if let draft = check.draft { DraftBlock(draft: draft) }
         if let evidence = check.evidence { EvidenceBlock(evidence: evidence) }
         if !check.clips.isEmpty { ClipBlock(clips: check.clips) }
+        if let line = ridesOnLine {
+            Text(line).font(.small).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
+        }
         if let context = check.context, !context.isEmpty {
             DisclosureGroup(isExpanded: $showsWhy) {
                 Text(context).font(.body15).foregroundStyle(Palette.muted).frame(
@@ -118,6 +130,18 @@ struct CheckCard: View {
             .overlay(alignment: .top) { Hairline() }
             .overlay(alignment: .bottom) { Hairline() }
         }
+    }
+
+    /// "14 facts and 2 matters rest on it", for the kinds whose answer changes what Life holds; none when nothing does.
+    private var ridesOnLine: String? {
+        guard let rides = check.ridesOn, [.name, .guessedPerson, .voice, .ending].contains(check.group) else {
+            return nil
+        }
+        let parts = [(rides.observations, "fact"), (rides.matters, "matter")].filter { $0.0 > 0 }
+            .map { "\($0.0) \($0.1)\($0.0 == 1 ? "" : "s")" }
+        guard !parts.isEmpty else { return nil }
+        let count = rides.observations + rides.matters
+        return parts.joined(separator: " and ") + (count == 1 ? " rests on it" : " rest on it")
     }
 
     private var whyLabel: String {
@@ -195,16 +219,22 @@ struct CheckCard: View {
             }
             .buttonStyle(.pill(.filled, height: 54))
             let rest = Array(check.options.dropFirst())
-            if !rest.isEmpty {
-                let layout = rest.count > 2 ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
+            if !rest.isEmpty || asksWho {
+                let layout =
+                    rest.count + (asksWho ? 1 : 0) > 2
+                    ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
                 layout {
                     ForEach(rest, id: \.id) { option in
                         Button(option.label) { tap(option) }.buttonStyle(.pill(.quiet, height: 48))
                     }
+                    if asksWho { Button("Same as…") { showsSameAs = true }.buttonStyle(.pill(.quiet, height: 48)) }
                 }
             }
         }
     }
+
+    /// A card about who someone is can name another person, or a new one.
+    private var asksWho: Bool { [.name, .guessedPerson, .voice].contains(check.group) }
 
     private func tap(_ option: Check.Option) {
         answer(AnswerRequest(ref: check.ref, options: [option.id]))

@@ -11,6 +11,7 @@ struct StartAgentSheet: View {
     @Environment(\.openURL) private var openURL
     @State private var goal = ""
     @State private var provider: Provider?
+    @State private var model: Provider.Model?
 
     private var state: ActionState<ActionProof> { life.state(of: .start(matter: matter.row.id)) }
 
@@ -54,6 +55,7 @@ struct StartAgentSheet: View {
                 ForEach(Provider.offered, id: \.self) { option in
                     Button {
                         provider = provider == option ? nil : option
+                        model = nil
                     } label: {
                         Label(option.name, systemImage: "sparkle").font(.manrope(16, weight: 600))
                             .foregroundStyle(provider == option ? Palette.on : Palette.fg)
@@ -61,6 +63,16 @@ struct StartAgentSheet: View {
                             .background(provider == option ? Palette.fg : Color.fillTint, in: .capsule)
                     }
                     .buttonStyle(.plain).accessibilityAddTraits(provider == option ? .isSelected : [])
+                }
+            }
+            if let models = provider?.models, !models.isEmpty {
+                Caps("Model")
+                HStack(spacing: 8) {
+                    ForEach(models, id: \.id) { option in
+                        FilterChip(name: option.name, isOn: model == option, hasMenu: false) {
+                            model = model == option ? nil : option
+                        }
+                    }
                 }
             }
             Text("Pick none and the desk uses its own default.").font(.small).foregroundStyle(Palette.faint)
@@ -85,9 +97,10 @@ struct StartAgentSheet: View {
                 maxWidth: .infinity, alignment: .leading
             )
             .background(Palette.card, in: .rect(cornerRadius: 20))
-            Text(
-                "Each line is checked for real, in a few seconds. If one fails you are told here, and nothing is left half started."
-            )
+            LimitNote(limit: state.limit) {
+                "Each line is checked for real, " + ($0 ?? "in a few seconds")
+                    + ". If one fails you are told here, and nothing is left half started."
+            }
             .font(.body15).foregroundStyle(Palette.muted)
             Button {
             } label: {
@@ -138,7 +151,7 @@ struct StartAgentSheet: View {
                 Button("Try again") { start() }.buttonStyle(.pill(.filled))
                 if let other = Provider.offered.first(where: { $0 != provider }), provider != nil {
                     Button("Use \(other.name)") {
-                        provider = other; start()
+                        provider = other; model = nil; start()
                     }.buttonStyle(.pill(.quiet))
                 }
             } else {
@@ -149,9 +162,11 @@ struct StartAgentSheet: View {
 
     private func start() {
         let runtime = provider?.rawValue
+        let model = model
         Task {
             await life.startAgent(
-                on: matter, goal: goal.trimmingCharacters(in: .whitespacesAndNewlines), runtime: runtime)
+                on: matter, goal: goal.trimmingCharacters(in: .whitespacesAndNewlines), runtime: runtime,
+                model: model?.id)
         }
     }
 }

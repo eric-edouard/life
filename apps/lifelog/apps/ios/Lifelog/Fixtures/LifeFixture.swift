@@ -216,7 +216,8 @@
             matter: [String: Any]? = nil, deadline: String? = nil, context: String? = nil, extra: [String: Any] = [:]
         ) -> [String: Any] {
             var check: [String: Any] = [
-                "ref": ref, "pushId": "push_\(ref)", "group": group, "title": title, "question": question,
+                "ref": ref, "pushId": "push_\(ref)", "ridesOn": ["observations": 14, "matters": 2, "pages": 0],
+                "group": group, "title": title, "question": question,
                 "asker": asker,
                 "options": options, "clips": [], "likelyPeople": [], "links": [],
             ]
@@ -277,8 +278,14 @@
                 check(
                     "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
                     question: "Is this Camille Vance?",
-                    options: [option("yes", "Yes, Camille Vance"), option("no", "No"), option("same", "Same as…")],
-                    extra: ["evidence": ["from": "WhatsApp, Mon 9 Nov", "quote": "Cam: on se voit samedi au marché ?"]]),
+                    options: [option("yes", "Yes, Camille Vance"), option("no", "No")],
+                    extra: [
+                        "evidence": ["from": "WhatsApp, Mon 9 Nov", "quote": "Cam: on se voit samedi au marché ?"],
+                        "likelyPeople": [
+                            ["name": "Idris Benali", "person": "person:idris"],
+                            ["name": "Nora Keller", "person": "person:nora"],
+                        ],
+                    ]),
                 check(
                     "voice_v1", group: "voice", title: "A voice from Saturday, 4 minutes with Sam",
                     question: "Who is this?",
@@ -288,6 +295,7 @@
                     ],
                     context: "Sam called the voice “Jun” twice in the same minute.",
                     extra: [
+                        "likelyPeople": [["name": "Idris Benali", "person": "person:idris"]],
                         "clips": [
                             [
                                 "at": at(14, 10, 2), "until": at(14, 10, 2),
@@ -302,7 +310,7 @@
                                 "at": at(14, 10, 5), "until": at(14, 10, 5), "text": "Je t’envoie l’adresse.",
                                 "audio": ["jobId": "job-1", "start": 40.0, "end": 43.0],
                             ],
-                        ]
+                        ],
                     ]),
                 check(
                     "card_found", group: "card", title: "Life found a new matter: a table for Mum’s 60th",

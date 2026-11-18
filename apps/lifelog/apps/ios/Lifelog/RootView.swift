@@ -24,7 +24,7 @@ struct RootView: View {
     var body: some View {
         TabView(selection: $router.tab) {
             Tab("Inbox", systemImage: "tray", value: AppRouter.Tab.inbox) {
-                InboxScreen().safeAreaInset(edge: .top, spacing: 0) { TopBar(label: "Inbox") }
+                NavigationStack { InboxScreen().shellBar("Inbox") }
             }
             .badge(life.inbox.value?.total ?? 0)
             Tab("Matters", systemImage: "list.bullet.indent", value: AppRouter.Tab.matters) { MattersScreen() }

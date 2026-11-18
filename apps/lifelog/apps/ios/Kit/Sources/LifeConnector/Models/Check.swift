@@ -73,6 +73,13 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let subject: String?
     }
 
+    /// What a card's answer changes: the facts, matters and pages that rest on it.
+    public struct RidesOn: Decodable, Sendable, Equatable {
+        public let observations: Int
+        public let matters: Int
+        public let pages: Int
+    }
+
     public var id: String { ref }
     public let ref: String
     /// An opaque id of this card that a push carries (never its `ref`).
@@ -93,4 +100,5 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let links: [String]
     public let matter: MatterRef?
     public let subject: String?
+    public let ridesOn: RidesOn?
 }

@@ -21,6 +21,22 @@ public enum Provider: String, UnknownTolerant, Sendable {
         }
     }
 
+    /// A model the desk takes for this runtime: its id, and the runtime's own name for it.
+    public struct Model: Sendable, Equatable, Hashable {
+        public let id: String
+        public let name: String
+    }
+
+    /// What the Start sheet lists; none chosen leaves the desk's own default for the runtime.
+    public var models: [Model] {
+        switch self {
+        case .claude:
+            [Model(id: "opus", name: "Opus"), Model(id: "sonnet", name: "Sonnet"), Model(id: "haiku", name: "Haiku")]
+        case .codex: [Model(id: "gpt-5.5", name: "GPT-5.5"), Model(id: "gpt-5.5-mini", name: "GPT-5.5 mini")]
+        case .unknown: []
+        }
+    }
+
     /// What the Start sheet offers (DSH is out of v1).
     public static let offered: [Provider] = [.claude, .codex]
 }
