@@ -319,7 +319,12 @@ const running = new Map<
  * when it gives the same answer; another answer is refused, whatever its key (none, or the same tap's).
  */
 export function answerWithResult(ref: string, a: CheckAnswer, call: ToolCall) {
-  const said = JSON.stringify([a.options, a.note ?? null]);
+  const said = JSON.stringify([
+    a.options,
+    a.note ?? null,
+    a.person ?? null,
+    a.name ?? null,
+  ]);
   const first = running.get(ref);
   if (first) {
     if (first.said !== said) {
