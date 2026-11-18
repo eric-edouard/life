@@ -248,6 +248,21 @@ test("two calls at once on one check: one answer, both get its result", async ()
   expect(sends).toHaveBeenCalledTimes(1);
 });
 
+// 19 Nov 2026 (review A, B2): two keyless calls with different answers: the second was handed the first's result as its own.
+test("two calls at once with different answers: the second is refused, keyed or not; only the first is written", async () => {
+  sends.mockImplementation(
+    () => new Promise((r) => setTimeout(() => r("$e"), 50))
+  );
+  const { id } = await card();
+  const first = call(id, ["send"]).result;
+  await expect(call(id, ["wait"]).result).rejects.toThrow("another answer to");
+  await expect(call(id, ["wait"], "same").result).rejects.toThrow(
+    "another answer to"
+  );
+  expect((await first).changed).toMatchObject({ options: ["send"] });
+  sends.mockReset();
+});
+
 test("a decision without a send: its plan has no send steps", async () => {
   const { id } = await card();
   const { result, steps } = call(id, ["wait"]);
