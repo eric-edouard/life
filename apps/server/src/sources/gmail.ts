@@ -29,8 +29,8 @@ interface Options {
   staging?: string;
 }
 
-/** What a Message-ID may hold in a Gmail search: no space, quote, brace or paren. */
-const MESSAGE_ID = /^[\w.!#$%&'*+/=?^`|~@-]+$/;
+/** What a Message-ID may hold in a Gmail search: no space, quote, brace, paren or search operator (`|`, `!`, a leading `-`). */
+const MESSAGE_ID = /^\w[\w.#$%&'*+/=?^`~@-]*$/;
 /** Gmail takes 35 MB a message, its encoding included. ponytail: 25 MB of file; raise it if one is ever refused wrongly. */
 const FILE_MAX = 25_000_000;
 const ADDRESS = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
@@ -111,8 +111,13 @@ export function gmailSend({
     if (!rfc) {
       return {};
     }
-    const id = (JSON.parse(r.stdout || "{}") as { messages?: { id: string }[] })
-      .messages?.[0]?.id;
+    let id: string | undefined;
+    try {
+      id = (JSON.parse(r.stdout || "{}") as { messages?: { id: string }[] })
+        .messages?.[0]?.id;
+    } catch {
+      return { problem: `gog's answer for ${from}'s Gmail wasn't JSON` };
+    }
     return id
       ? { id }
       : { problem: `${from}'s Gmail has no message ${d.onMessage}` };
