@@ -112,7 +112,9 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     func states(_ file: String) throws -> Set<String> {
         Set(try source(file).matches(of: /state(?: =|:) "([a-z_]+)"/).map { String($0.output.1) })
     }
-    func client<T: UnknownTolerant>(_: T.Type) -> Set<String> { Set(T.allCases.map(\.rawValue)).subtracting(["unknown"]) }
+    func client<T: UnknownTolerant>(_: T.Type) -> Set<String> {
+        Set(T.allCases.map(\.rawValue)).subtracting(["unknown"])
+    }
 
     #expect(try quoted("memory/life-checks.ts", /export type CheckGroup =([^;]*);/) == client(CheckGroup.self))
     #expect(try quoted("memory/life-checks.ts", /takes: ([^;]*);/) == client(Check.Option.Takes.self))

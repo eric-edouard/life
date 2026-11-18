@@ -1,4 +1,5 @@
 import Capture
+import Glance
 import Incidents
 import OwnerSettings
 import SwiftUI
@@ -82,9 +83,11 @@ struct PendantPill: View {
         let hero = HeroReading(status: status, conditions: conditions, now: .now)
         let needs = conditions.filter(\.isCard).count + facts.incidents.count
         if needs > 0 { return Face(symbol: "exclamationmark.circle", badge: needs, spoken: "something needs you") }
-        if let percent = status.batteryPercent?.value, percent < Settings.shared.alerts.lowBatteryPercent,
-            Settings.shared.alerts.lowBattery
-        {
+        // Low as the alert and the Watch decide it: at or below his threshold, from a current reading, not charging.
+        let glance = RecordingGlance(
+            PendantSnapshot(status, previous: nil), sound: nil,
+            lowBatteryPercent: Settings.shared.alerts.lowBatteryPercent, now: .now)
+        if Settings.shared.alerts.lowBattery, glance.batteryIsLow(now: .now), let percent = glance.battery {
             return Face(symbol: "battery.25percent", text: "\(percent)%", spoken: "battery low, \(percent) percent")
         }
         switch hero.mode {

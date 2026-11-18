@@ -45,6 +45,8 @@ final class LifeStore {
 
     private(set) var pairingStep: PairingStep?
     private(set) var pairingFailure: String?
+    /// The Life this phone is paired with: set by a pairing, gone once Life no longer knows it (a read says so).
+    private(set) var pairedOrigin: URL?
 
     private let tokens: any TokenStore
     private let api: any LifeAPI
@@ -70,14 +72,13 @@ final class LifeStore {
         self.cache = cache
         self.now = now
         self.setBadge = setBadge
+        pairedOrigin = tokens.load()?.endpoint.origin
         restore({ self.inbox.apply($0) }, key: Self.inboxKey)
         restore({ self.matters.apply($0) }, key: Self.mattersKey)
         restore({ self.agents.apply($0) }, key: Self.agentsKey)
     }
 
-    var isPaired: Bool { tokens.load() != nil }
-    /// The Life this phone is paired with.
-    var pairedOrigin: URL? { tokens.load()?.endpoint.origin }
+    var isPaired: Bool { pairedOrigin != nil }
     /// What pairing is doing or why it failed, for the screens that show it.
     var pairingNote: String? { pairingFailure ?? pairingStep?.words }
 
@@ -144,7 +145,11 @@ final class LifeStore {
             let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(text.utf8))
             cache.store(text, key: key)
             update(.succeeded(value, now()))
+        } catch _ where Task.isCancelled {
+            // The screen that asked left: the read stands as it was.
+            update(.failed(.cancelled))
         } catch let error as MCPError {
+            if error == .notPaired { pairedOrigin = nil }
             update(.failed(error))
         } catch {
             update(.failed(.failed("Life's answer was not what this app reads.")))
@@ -170,18 +175,16 @@ final class LifeStore {
     func answer(_ request: AnswerRequest) async {
         let key = ActionKey.answer(ref: request.ref)
         guard actions[key]?.isRunning != true else { return }
-        let tap = taps.key(for: request.ref)
+        let tap = taps.key(for: request)
         await perform(key) { [runner] in await runner.answer(request, key: tap, emit: $0) }
-        if let ended = actions[key] { taps.ended(request.ref, as: ended) }
+        if let ended = actions[key] { taps.ended(request, as: ended) }
         await refreshInbox()
     }
 
-    /// Saves `goal` as the matter's goal, then starts an agent on it: `goal_saved`, then the desk's stages.
-    func startAgent(on matter: Matter, goal: String, runtime: String? = nil, model: String? = nil) async {
-        let (id, steps) = (matter.row.id, matter.steps.map(\.ref))
+    /// Starts an agent on a matter with the goal he saw, which Life saves as his: `goal_saved`, then the desk's stages.
+    func startAgent(on id: String, goal: String, runtime: String? = nil, model: String? = nil) async {
         await perform(.start(matter: id)) { [runner] in
-            await runner.startAgent(
-                matter: id, steps: steps, goal: goal, runtime: runtime, model: model, emit: $0)
+            await runner.startAgent(matter: id, goal: goal, runtime: runtime, model: model, emit: $0)
         }
         async let a: Void = refreshMatter(id)
         async let b: Void = refreshAgents()
@@ -203,27 +206,26 @@ final class LifeStore {
         await agents
     }
 
-    /// His goal for a matter (`matter-direction`, pinned to every step `read_matter` lists).
-    func setGoal(of matter: Matter, _ goal: String) async {
-        let (api, steps) = (api, matter.steps.map(\.ref))
-        await edit(matter, .goal) { try await api.setMatterDirection(steps: steps, goal: goal, nextStep: nil) }
+    /// His goal for a matter: Life pins it to the matter's steps.
+    func setGoal(of id: String, _ goal: String) async {
+        let api = api
+        await edit(id, .goal) { try await api.setMatterDirection(matter: id, goal: goal, nextStep: nil) }
     }
 
-    func setNextStep(of matter: Matter, _ nextStep: NextStepRequest) async {
-        let (api, steps) = (api, matter.steps.map(\.ref))
-        await edit(matter, .next) { try await api.setMatterDirection(steps: steps, goal: nil, nextStep: nextStep) }
+    func setNextStep(of id: String, _ nextStep: NextStepRequest) async {
+        let api = api
+        await edit(id, .next) { try await api.setMatterDirection(matter: id, goal: nil, nextStep: nextStep) }
     }
 
-    /// His word that the matter is done: its open steps are outdated.
-    func markDone(_ matter: Matter) async {
-        let (api, open) = (api, matter.steps.filter { $0.ending == nil && $0.ref.hasPrefix("obs_") }.map(\.ref))
-        await edit(matter, .done) { try await api.markDone(observations: open, note: "Marked done in the Life app.") }
+    /// His word that the matter is done: Life decides what of it is open and closes it.
+    func markDone(_ id: String) async {
+        let api = api
+        await edit(id, .done) { try await api.markDone(matter: id, note: "Marked done in the Life app.") }
     }
 
-    private func edit(_ matter: Matter, _ what: ActionKey.Edit, _ change: @escaping @Sendable () async throws -> String)
+    private func edit(_ id: String, _ what: ActionKey.Edit, _ change: @escaping @Sendable () async throws -> String)
         async
     {
-        let id = matter.row.id
         await perform(.edit(matter: id, what)) { [runner] in await runner.record(emit: $0, change) }
         async let a: Void = refreshMatter(id)
         async let b: Void = refreshMatters()
@@ -231,9 +233,11 @@ final class LifeStore {
     }
 
     /// A tapped push: the inbox is read again and the card with that `pushId` is the one opened; one that already
-    /// left (answered elsewhere) opens the first card waiting, marked `wasAnswered`.
+    /// left (answered elsewhere) opens the first card waiting, marked `wasAnswered`. Only a read that just succeeded can
+    /// say so: offline, the cached inbox cannot hold the new card, and the read's own face shows instead.
     func open(pushId: String) async {
         await refreshInbox()
+        guard inbox.phase == .loaded else { return }
         openedCard = inbox.value?.opening(pushId: pushId)
     }
 
@@ -247,6 +251,7 @@ final class LifeStore {
                 await MainActor.run { self.pairingStep = PairingStep(rawValue: step.rawValue) }
             }
             tokens.save(credentials)
+            pairedOrigin = credentials.endpoint.origin
             // Another Life may be this one: nothing of the last one stays.
             cache.clear()
             (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())

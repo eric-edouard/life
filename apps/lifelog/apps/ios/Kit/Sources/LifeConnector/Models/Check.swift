@@ -152,8 +152,9 @@ extension Check {
         return group == .decision ? AnswerRequest(ref: ref, options: [], note: words) : nil
     }
 
-    /// Whether he can answer in his own words here: an agent reads a decision's note; Life's own guesses take none.
-    public var takesWords: Bool { group == .decision || options.contains { $0.takes == .note } }
+    /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their
+    /// options (a new matter's goal comes through its option that takes a note).
+    public var takesOwnWords: Bool { group == .decision }
 }
 
 /// Who he says it is: someone Life knows, or a new name.

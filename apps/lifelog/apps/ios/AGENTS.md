@@ -59,10 +59,14 @@ action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSyst
   as an `ActionState` in `LifeStore.actions`: running with the steps as they stream, succeeded with proof, failed with
   its step, reason and whether a retry is allowed. Only the server ends one; past its `limitSeconds` it is late, never
   failed. An answer carries one `life/answerKey` (made at his tap, kept while the same tap repeats after a dropped
-  connection, new after any result Life gave), so Life sends nothing twice. A tapped push routes by `pushId`
-  (`NotificationRoute.card`) and the badge is the inbox total.
+  connection, new after any result Life gave or for another answer to the same card), so Life sends nothing twice. A
+  card's buttons are its options' `label`s, and what an option `takes` (a person, a name, a note) is what the tap asks
+  for (`Check.answer`); the phone decides nothing Life decides (what is open, a goal's steps): a matter's edits and Mark
+  as done go by its id. A tapped push routes by `pushId` (`NotificationRoute.card`) and opens the Inbox; a push while
+  the app is in front reads the inbox again. The badge is the inbox total.
 - A server enum decodes unknown values as `unknown` (`UnknownTolerant`) and belongs in the mirror list of
-  `ContractTests.swift`, which also checks every path the client calls.
+  `ContractTests.swift` (lifelog's against its `openapi.json`, Life's against `apps/server/src`), which also checks
+  every path the client calls.
 - The toolbar API is `toolbarMinimizationBehavior(_:for:)`; the WWDC docs' `toolbarMinimizeBehavior` doesn't compile.
 - An Omi drains through the same `DrainCoordinator` as the Limitless Pendant, by its `DeviceCodec`. **Any work on the
   Omi starts by reading the latest Omi firmware release notes for the ring-custody fix** (`docs/research/omi.md`,

@@ -139,7 +139,7 @@
             let plan =
                 isNewMatter
                 ? (answer.options == ["start"]
-                    ? ["goal_saved", "runtime_answers", "session_open", "turn_begun", "left_inbox"]
+                    ? ["goal_saved", "desk_accepted", "session_open", "turn_begun", "left_inbox"]
                     : answer.options == ["edit-goal"] ? ["goal_saved"] : ["recorded", "left_inbox"])
                 : draft == nil
                     ? ["recorded", "asker_told", "left_inbox"]
@@ -147,16 +147,16 @@
             onProgress(message(["plan": plan, "limitSeconds": 20]))
             for step in plan {
                 try await Task.sleep(for: .milliseconds(700))
-                if isNewMatter, step == "runtime_answers", LifeFixture.start == "starting" {
+                if isNewMatter, step == "desk_accepted", LifeFixture.start == "starting" {
                     try await Task.sleep(for: .seconds(3_600))
                 }
-                if isNewMatter, step == "runtime_answers", LifeFixture.start == "failed" {
+                if isNewMatter, step == "desk_accepted", LifeFixture.start == "failed" {
                     return json([
                         "ref": answer.ref, "kind": "new matter",
                         "start": [
                             "action": "start", "state": "not_started", "nothingRunning": true,
                             "failed": [
-                                "stage": "runtime_answers", "reason": "Claude Code did not answer within 15 seconds",
+                                "stage": "desk_accepted", "reason": "Claude Code did not answer within 15 seconds",
                             ],
                         ],
                     ])
@@ -191,7 +191,7 @@
             } else if isNewMatter, answer.options == ["start"] {
                 result["start"] = [
                     "action": "start", "state": "started", "nothingRunning": false, "runtime": "claude",
-                    "stages": [["stage": "runtime_answers"], ["stage": "session_open"], ["stage": "turn_begun"]],
+                    "stages": [["stage": "desk_accepted"], ["stage": "session_open"], ["stage": "turn_begun"]],
                 ]
             } else if check?["group"] as? String == "voice" {
                 result["changed"] = ["voices": 3, "conversations": 2]
@@ -205,14 +205,14 @@
             guard change.action == .start else {
                 return json(["action": change.action.rawValue, "state": "done", "agent": change.agent ?? ""])
             }
-            onProgress(message(["plan": ["runtime_answers", "session_open", "turn_begun"], "limitSeconds": 15]))
+            onProgress(message(["plan": ["desk_accepted", "session_open", "turn_begun"], "limitSeconds": 15]))
             try await Task.sleep(for: .milliseconds(900))
-            onProgress(message(["step": "runtime_answers", "at": at(18, 14, 5)]))
+            onProgress(message(["step": "desk_accepted", "at": at(18, 14, 5)]))
             if LifeFixture.start == "starting" { try await Task.sleep(for: .seconds(3_600)) }
             if LifeFixture.start == "failed" {
                 return json([
                     "action": "start", "state": "not_started", "nothingRunning": true,
-                    "failed": ["stage": "runtime_answers", "reason": "Claude Code did not answer within 15 seconds"],
+                    "failed": ["stage": "desk_accepted", "reason": "Claude Code did not answer within 15 seconds"],
                 ])
             }
             try await Task.sleep(for: .milliseconds(900))
@@ -225,20 +225,25 @@
             ])
         }
 
-        func setMatterDirection(steps: [String], goal: String?, nextStep: NextStepRequest?) async throws -> String {
+        func setMatterDirection(matter: String, goal: String?, nextStep: NextStepRequest?) async throws -> String {
             try await Task.sleep(for: .milliseconds(500))
             return "{}"
         }
 
-        func markDone(observations: [String], note: String) async throws -> String {
+        func markDone(matter: String, note: String) async throws -> String {
             try await Task.sleep(for: .milliseconds(500))
             return "{}"
         }
 
         // MARK: Made-up data
 
-        private static func option(_ id: String, _ label: String, outgoing: Bool = false) -> [String: Any] {
-            outgoing ? ["id": id, "label": label, "outgoing": true] : ["id": id, "label": label]
+        private static func option(_ id: String, _ label: String, outgoing: Bool = false, takes: String? = nil)
+            -> [String: Any]
+        {
+            var option: [String: Any] = ["id": id, "label": label]
+            if outgoing { option["outgoing"] = true }
+            if let takes { option["takes"] = takes }
+            return option
         }
 
         private static func check(
@@ -298,7 +303,7 @@
                 check(
                     "end_done", group: "ending", title: "Idris Benali owed Sam the supplier price",
                     question: "Is this done?",
-                    options: [option("done", "Yes, done"), option("open", "No, still open")], matter: kitchen,
+                    options: [option("outdated", "Done"), option("false", "Not done")], matter: kitchen,
                     context: "He wrote the price on Tuesday; nothing in the matter has changed since.",
                     extra: [
                         "evidence": [
@@ -308,8 +313,11 @@
                     ]),
                 check(
                     "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
-                    question: "Is this Camille Vance?",
-                    options: [option("yes", "Yes, Camille Vance"), option("no", "No")],
+                    question: "Life thinks this is Camille Vance, a friend (70% sure)",
+                    options: [
+                        option("this-is", "It is them"), option("not-this-person", "Not them"),
+                        option("same-person", "Someone Life already knows", takes: "person"),
+                    ],
                     extra: [
                         "evidence": ["from": "WhatsApp, Mon 9 Nov", "quote": "Cam: on se voit samedi au marché ?"],
                         "likelyPeople": [
@@ -319,10 +327,11 @@
                     ]),
                 check(
                     "voice_v1", group: "voice", title: "A voice from Saturday, 4 minutes with Sam",
-                    question: "Who is this?",
+                    question: "Who is this voice?",
                     options: [
-                        option("person:jun", "Jun Watanabe"), option("person:camille", "Camille Vance"),
-                        option("nobody", "Nobody I know"),
+                        option("this-is", "It is this person", takes: "person or name"),
+                        option("not-anyone-i-know", "Not anyone I know"), option("media", "A video or TV playing"),
+                        option("not-relevant", "Not worth naming"),
                     ],
                     context: "Sam called the voice “Jun” twice in the same minute.",
                     extra: [
@@ -347,16 +356,24 @@
                     "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
                     question: "Goal: a table for eight at Chez Odile on Friday 27th. Work on it?",
                     options: [
-                        option(
-                            "start",
-                            "Start: the goal becomes yours and an agent works toward it, with the goal as its brief"),
-                        option(
-                            "edit-goal",
-                            "Edit goal (give your goal as `note`): it becomes the goal; then Start or Dismiss"),
-                        option("dismiss", "Dismiss: never asked again for this matter"),
+                        option("start", "Start"), option("edit-goal", "Edit goal", takes: "note"),
+                        option("dismiss", "Dismiss"),
                     ],
                     matter: table,
-                    context: "Camille proposed Chez Odile on Saturday; you said you would handle it."),
+                    context: "Camille proposed Chez Odile on Saturday; you said you would handle it.",
+                    extra: ["goal": "A table for eight at Chez Odile on Friday 27th."]),
+                check(
+                    "person:con_cam", group: "contacts card", title: "Place a Contacts card",
+                    question:
+                        "Life cannot place the Contacts card Cam: its name and handles say Camille Vance and Cam Ortiz",
+                    options: [option("same-person", "It is this person", takes: "person")],
+                    context: "Its name and handles fit more than one person: Life keeps them apart until you say.",
+                    extra: [
+                        "likelyPeople": [
+                            ["name": "Camille Vance", "person": "person:camille"],
+                            ["name": "Cam Ortiz", "person": "person:cam"],
+                        ]
+                    ]),
             ]
             + (7...12).map { number in
                 check(

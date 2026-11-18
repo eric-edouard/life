@@ -61,7 +61,7 @@ struct CheckCard: View {
 
     private var chips: some View {
         HStack(spacing: 8) {
-            Label(asker, systemImage: "sparkle")
+            Label(check.askerName(runtime: runtimeName), systemImage: "sparkle")
                 .labelStyle(.titleAndIcon).font(.chip)
                 .foregroundStyle(Palette.ai).padding(.horizontal, 14).frame(minHeight: 40)
                 .background(Color.fillTint, in: .capsule).lineLimit(1)
@@ -84,14 +84,6 @@ struct CheckCard: View {
                 .accessibilityLabel("Matter: \(matter.name)")
             }
         }
-    }
-
-    /// Who is asking: the agent's runtime, or Life (a voice says it came from the pendant).
-    private var asker: String {
-        if let runtimeName { return runtimeName.name }
-        return check.group == .voice
-            ? "Life, from the pendant"
-            : check.asker.caseInsensitiveCompare("life") == .orderedSame ? "Life" : check.asker
     }
 
     // MARK: Body
@@ -133,7 +125,7 @@ struct CheckCard: View {
 
     private var whyLabel: String {
         switch check.group {
-        case .card, .newMatter: "Where Life found it"
+        case .contactsCard, .newMatter: "Where Life found it"
         case .ending: "What rests on it"
         case .voice: "Why Life thinks so"
         default: "Why, and what it rests on"
@@ -222,6 +214,8 @@ private struct ClipBlock: View {
     /// Fetching the audio, or why it could not be had.
     @State private var isFetching = false
     @State private var failed = false
+    /// The clip being fetched: cancelled when the card goes, so it never plays after.
+    @State private var fetch: Task<Void, Never>?
 
     var body: some View {
         let clip = clips[min(index, clips.count - 1)]
@@ -261,7 +255,10 @@ private struct ClipBlock: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()
-        .onDisappear { playback.stop() }
+        .onDisappear {
+            fetch?.cancel()
+            playback.stop()
+        }
     }
 
     private func caption(_ clip: Check.Clip) -> String {
@@ -275,9 +272,10 @@ private struct ClipBlock: View {
         failed = false
         guard let audio = clip.audio, let job = UUID(uuidString: audio.jobId) else { return failed = true }
         isFetching = true
-        Task {
+        fetch = Task {
             let file = await ClipAudio.file(job)
             isFetching = false
+            guard !Task.isCancelled else { return }
             guard let file else { return failed = true }
             playback.play(file, from: audio.start, for: audio.end - audio.start)
         }

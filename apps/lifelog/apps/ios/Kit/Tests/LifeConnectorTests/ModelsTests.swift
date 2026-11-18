@@ -163,11 +163,11 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let decision = try card(.decision)
     #expect(decision.answer(decision.options[0]) == AnswerRequest(ref: decision.ref, options: ["yes"]))
     #expect(decision.answer(words: "Later") == AnswerRequest(ref: decision.ref, options: [], note: "Later"))
-    #expect(decision.takesWords && decision.namingOption == nil)
+    #expect(decision.takesOwnWords && decision.namingOption == nil)
 
     let ending = try card(.ending)
     #expect(ending.options.compactMap(ending.answer).map(\.options) == [["outdated"], ["false"]])
-    #expect(ending.answer(words: "x") == nil && !ending.takesWords)
+    #expect(ending.answer(words: "x") == nil && !ending.takesOwnWords)
 
     let found = try card(.newMatter)
     let edit = try #require(found.options.first { $0.id == "edit-goal" })
@@ -185,7 +185,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         // A name he types is someone Life knows: it goes as `person`, which Life reads.
         #expect(
             check.answer(naming: .name("Gran")) == AnswerRequest(ref: check.ref, options: [only.id], person: "Gran"))
-        #expect(!check.takesWords)
+        #expect(!check.takesOwnWords)
     }
     #expect(try card(.contactsCard).likelyPeople.map(\.person) == ["person:gran", "person:partner"])
 

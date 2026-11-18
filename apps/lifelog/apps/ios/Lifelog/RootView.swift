@@ -46,6 +46,10 @@ struct RootView: View {
             capture.routeToOpen = nil
             open(route)
         }
+        // A card's push while the app is in front: the inbox is read again, as on coming back to it.
+        .task(id: capture.cardPushes) {
+            if capture.cardPushes > 0 { await life.refresh() }
+        }
         .task(id: scenePhase == .active) {
             guard scenePhase == .active else { return }
             // Here rather than on the scene's phase change, which a cold launch in the foreground never sends.
@@ -110,9 +114,11 @@ struct RootView: View {
         presented.dismiss(animated: true, completion: then)
     }
 
-    /// Closes any sheet first, as Mail and Messages do, so what opens is in view whatever sheet was showing.
+    /// Closes any sheet first, as Mail and Messages do, so what opens is in view whatever sheet was showing: the Inbox,
+    /// at the push's card.
     private func open(_ route: NotificationRoute) {
         dismissSheet {
+            router.tab = .inbox
             switch route {
             case .card(let pushId): Task { await life.open(pushId: pushId) }
             case .inbox: Task { await life.refreshInbox() }

@@ -25,14 +25,16 @@ nonisolated enum Keychain {
         return String(decoding: data, as: UTF8.self)
     }
 
+    /// Replaces the item in one write (never a delete then an add, which a crash between would leave empty), or adds it.
     @discardableResult
     static func save(_ value: String, account: String) -> Bool {
-        delete(account)
-        let item = query(account).merging([
+        let fields: [String: Any] = [
             kSecValueData as String: Data(value.utf8),
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-        ]) { $1 }
-        return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
+        ]
+        let updated = SecItemUpdate(query(account) as CFDictionary, fields as CFDictionary)
+        guard updated == errSecItemNotFound else { return updated == errSecSuccess }
+        return SecItemAdd(query(account).merging(fields) { $1 } as CFDictionary, nil) == errSecSuccess
     }
 
     static func delete(_ account: String) { SecItemDelete(query(account) as CFDictionary) }

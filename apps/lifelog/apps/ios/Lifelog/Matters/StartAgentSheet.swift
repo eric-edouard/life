@@ -43,7 +43,10 @@ struct StartAgentSheet: View {
         }
     }
 
-    private var context: ActionCopy.Context { .init(runtimeName: runtimeName?.name ?? "The agent") }
+    private var context: ActionCopy.Context { .init() }
+
+    /// Life saved the goal he saw (its `goal_saved` passed).
+    private var isGoalSaved: Bool { state.steps.contains { $0.id == "goal_saved" && $0.passedAt != nil } }
 
     private var form: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -97,7 +100,7 @@ struct StartAgentSheet: View {
                 maxWidth: .infinity, alignment: .leading
             )
             .background(Palette.card, in: .rect(cornerRadius: 20))
-            LimitNote(limit: state.limit) {
+            LimitNote(state: state) {
                 "Each line is checked for real, " + ($0 ?? "in a few seconds")
                     + ". If one fails you are told here, and nothing is left half started."
             }
@@ -111,7 +114,12 @@ struct StartAgentSheet: View {
 
     private func started(_ proof: ActionProof) -> some View {
         var link: URL?
-        if case .agent(let result) = proof { link = result.stages?.compactMap(\.link).last.flatMap(URL.init(string:)) }
+        var took = runtimeName
+        if case .agent(let result) = proof {
+            link = result.stages?.compactMap(\.link).last.flatMap(URL.init(string:))
+            // The runtime the desk took: his pick, else its default.
+            took = result.runtime.flatMap(RuntimeName.init(rawValue:)) ?? took
+        }
         return VStack(alignment: .leading, spacing: 16) {
             goalLine
             CheckLines(lines: ActionCopy.lines(state, context)).padding(16).frame(
@@ -126,7 +134,7 @@ struct StartAgentSheet: View {
                 Button {
                     openURL(link)
                 } label: {
-                    Text("Open in \(runtimeName?.name ?? "its app") \(Image(systemName: "arrow.up.right"))")
+                    Text("Open in \(took?.name ?? "its app") \(Image(systemName: "arrow.up.right"))")
                 }
                 .buttonStyle(.pill(.quiet))
             }
@@ -144,7 +152,8 @@ struct StartAgentSheet: View {
             Text(
                 failure.mayHaveHappened
                     ? "Check the matter before starting again: an agent may be running."
-                    : "Nothing was started, and nothing is running in the background. Your goal is kept."
+                    : "Nothing was started, and nothing is running in the background."
+                        + (isGoalSaved ? " Your goal is kept." : "")
             )
             .font(.body15).foregroundStyle(Palette.muted)
             if failure.retry == .allowed && !failure.mayHaveHappened {
@@ -165,7 +174,7 @@ struct StartAgentSheet: View {
         let model = model
         Task {
             await life.startAgent(
-                on: matter, goal: goal.trimmingCharacters(in: .whitespacesAndNewlines), runtime: runtime,
+                on: matter.row.id, goal: goal.trimmingCharacters(in: .whitespacesAndNewlines), runtime: runtime,
                 model: model?.id)
         }
     }
