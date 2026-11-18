@@ -19,7 +19,7 @@ import {
 } from "../memory/decisions";
 import { LOCK } from "../memory/memory-lock";
 import { finish, register, setWait, writeNotes } from "./agent-actions";
-import { BEGIN_WITHIN_MS, growthOf } from "./agent-wait";
+import { BEGIN_WITHIN_MS } from "./agent-wait";
 import {
   endLostTurns,
   pollAnswers,
@@ -762,16 +762,26 @@ test("a turn's context is kept as its run reports it, the session's first call o
   ).toEqual({ context_at_first_call: 30_000 });
 });
 
-test("growthOf: from the first call to the newest kept context; null values skipped; 0 when either is missing", () => {
-  const turns = [
-    { context_used: null },
-    { context_used: 41_000 },
-    { context_used: 20_000 },
-  ];
-  expect(growthOf({ context_at_first_call: 5000 }, turns)).toBe(36_000);
-  expect(growthOf({ context_at_first_call: null }, turns)).toBe(0);
-  expect(growthOf(null, turns)).toBe(0);
+test("a first turn that is reminded still sets the session's first call, from its own run", async () => {
+  const { desk, fake } = setup();
+  const id = await started(desk, "obs_00000000b016");
+  const ref = agentOf(desk.db, id)?.session ?? "";
+  const usage = (n: number) => ({
+    contextFirst: n,
+    contextLast: n + 500,
+    tokensCached: 0,
+    tokensIn: 0,
+    tokensOut: 0,
+  });
+  // Ends with no set_wait: reminded, its run starts later in the conversation.
+  fake.exit(ref, true, { usage: usage(30_000) });
+  await Bun.sleep(5);
+  await setWait(desk, id, { events: [], reason: "r", until: ahead(HOUR) });
+  fake.exit(ref, true, { usage: usage(60_000) });
+  await Bun.sleep(5);
   expect(
-    growthOf({ context_at_first_call: 5000 }, [{ context_used: null }])
-  ).toBe(0);
+    desk.db
+      .query("select context_at_first_call from session where ref = ?")
+      .get(ref)
+  ).toEqual({ context_at_first_call: 30_000 });
 });

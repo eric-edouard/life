@@ -316,7 +316,7 @@ async function launch(
     if (!runtime) {
       throw new Error(`no runtime ${a.runtime}`);
     }
-    const grown = a.session && state === "idle" ? growthIn(db, a.session) : 0;
+    const grown = a.session && state === "idle" ? readGrowth(db, a.session) : 0;
     if (!a.session || state === "gone" || grown >= GROWTH_LIMIT) {
       const s = await runtime.start(
         sessionAgentOf(a),
@@ -373,7 +373,7 @@ async function launch(
 }
 
 /** How much session `ref` has grown (`growthOf`), from what its turns kept. */
-const growthIn = (db: Desk["db"], ref: string) =>
+const readGrowth = (db: Desk["db"], ref: string) =>
   growthOf(
     db
       .query<{ context_at_first_call: number | null }, [string]>(
@@ -382,7 +382,7 @@ const growthIn = (db: Desk["db"], ref: string) =>
       .get(ref),
     db
       .query<{ context_used: number | null }, [string]>(
-        "select context_used from turn where session = ? order by id desc limit 8"
+        "select context_used from turn where session = ? and context_used is not null order by id desc limit 1"
       )
       .all(ref)
   );
@@ -464,13 +464,6 @@ function close(
   if (ended === 0) {
     return false;
   }
-  // The session's first call, once: from its first turn's own run (a reminder's run starts later in the conversation).
-  if (typeof usage?.contextFirst === "number" && t.session && !t.reminded_at) {
-    db.run(
-      "update session set context_at_first_call = ? where ref = ? and context_at_first_call is null and not exists (select 1 from turn where session = ? and id < ?)",
-      [usage.contextFirst, t.session, t.session, t.id]
-    );
-  }
   db.run(
     outcome === "waited" || outcome === "finished"
       ? "update event set consumed_at = ? where agent_id = ? and handed > 0 and consumed_at is null and dropped_at is null"
@@ -515,6 +508,13 @@ export async function turnEnded(desk: Desk, id: string, end: RunEnd) {
     return;
   }
   const { usage } = end;
+  // The session's first call, once: from the first run that reports one, whether or not that turn is reminded.
+  if (typeof usage?.contextFirst === "number" && t.session) {
+    db.run(
+      "update session set context_at_first_call = ? where ref = ? and context_at_first_call is null",
+      [usage.contextFirst, t.session]
+    );
+  }
   if (!end.ok) {
     db.transaction(() => {
       if (
