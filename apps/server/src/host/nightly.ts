@@ -60,7 +60,7 @@ import {
   type RunRecorder,
   trackProcessingSteps,
 } from "../memory/run";
-import { type Run, runs, SPENDING, spendLines } from "../memory/run-log";
+import { type Run, runs, spendLines } from "../memory/run-log";
 import {
   afterNightDue,
   decide,
@@ -449,7 +449,7 @@ async function spent(rec: Metered, now: Quota | undefined) {
   let cursor: string | null = null;
   do {
     // biome-ignore lint/performance/noAwaitInLoops: each page starts where the last ended
-    const page = await runs({ cursor: cursor ?? undefined, steps: SPENDING });
+    const page = await runs({ cursor: cursor ?? undefined, everyStep: true });
     recent.push(...page.items);
     ({ cursor } = page);
   } while (cursor && (recent.at(-1)?.startedAt ?? "") >= since);
