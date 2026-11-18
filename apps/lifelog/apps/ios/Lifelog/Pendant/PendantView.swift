@@ -15,14 +15,12 @@ struct PendantView: View {
     @Environment(SyncStore.self) private var sync
     @Environment(\.scenePhase) private var scenePhase
     @State private var permissions = PermissionsStore()
-    @State private var today: SavedToday?
 
     var body: some View {
         NavigationStack {
             PendantScreen(
                 capture: CaptureFacts(capture, macDictatingSince: sync.macDictatingSince),
                 transcription: TranscriptionFacts(sync),
-                today: today,
                 permissions: permissions,
                 showsNotificationsInvite: permissions.notifications == .notAsked && capture.hasKnownPendant
                     && !Settings.shared.notificationsInviteDismissed,
@@ -35,23 +33,6 @@ struct PendantView: View {
             guard scenePhase == .active else { return }
             await capture.watchLive()
         }
-        .modifier(TodayReload(today: $today))
-    }
-}
-
-/// What was recorded today changes as the server groups new audio: read again whenever the driver changed the
-/// cache. A view of its own, so a change wakes only this, not the
-/// Pendant screen.
-private struct TodayReload: ViewModifier {
-    @Binding var today: SavedToday?
-    @Environment(SyncStore.self) private var sync
-    @Environment(\.library) private var library
-
-    func body(content: Content) -> some View {
-        content.task(id: sync.generation) {
-            guard let library else { return }
-            today = await SavedToday.load(from: library)
-        }
     }
 }
 
@@ -60,10 +41,11 @@ private struct TodayReload: ViewModifier {
 struct PendantScreen: View {
     let capture: CaptureFacts
     let transcription: TranscriptionFacts
-    let today: SavedToday?
     let permissions: PermissionsStore
     let showsNotificationsInvite: Bool
     let actions: PendantActions
+
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         TimelineView(.explicit(capture.boundaries(after: .now))) { timeline in
@@ -106,7 +88,7 @@ struct PendantScreen: View {
                 ToolbarItem(placement: .topBarLeading) {
                     // Text, not a Label: the bar would draw a Label as its icon alone.
                     Text("\(Image(systemName: "laptopcomputer")) Mac dictating")
-                        .font(.subheadline)
+                        .font(.body15)
                         .fixedSize()
                         // The words alone: VoiceOver would read the symbol's name first.
                         .accessibilityLabel("Mac dictating")
@@ -114,12 +96,7 @@ struct PendantScreen: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink {
-                    SettingsView(permissions: permissions, allowNotifications: actions.allowNotifications)
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .accessibilityIdentifier("pendant.settings")
+                Button("Close", systemImage: "xmark") { dismiss() }.accessibilityIdentifier("pendant.close")
             }
         }
     }
@@ -140,7 +117,6 @@ struct PendantScreen: View {
             sync: SyncSummary(status.sync, lastCaughtUp: capture.lastCaughtUp),
             backlog: Fact(status.backlog, connected: connected, now: now), lastCaughtUp: capture.lastCaughtUp,
             lastSaved: capture.lastSaved, phoneFreeBytes: capture.phoneFreeBytes, archiveBytes: capture.archiveBytes,
-            today: today,
             isPaired: transcription.isPaired, batteryLife: capture.batteryLife)
     }
 }

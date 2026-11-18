@@ -7,6 +7,45 @@ public enum AgentStatus: String, UnknownTolerant, Sendable {
     case unknown
 }
 
+/// The runtime an agent works in, by the desk's own name for it (`RuntimeName` in `core/names.ts`, checked by `ContractTests`).
+public enum RuntimeName: String, UnknownTolerant, Sendable {
+    case claude, codex
+    case unknown
+
+    /// What the owner reads: the app's name for the runtime.
+    public var name: String {
+        switch self {
+        case .claude: "Claude Code"
+        case .codex: "Codex"
+        case .unknown: "its runtime"
+        }
+    }
+
+    /// A model the desk takes for this runtime: its id, and the runtime's own name for it.
+    public struct Model: Sendable, Equatable, Hashable {
+        public let id: String
+        public let name: String
+    }
+
+    /// What the Start sheet lists; none chosen leaves the desk's own default for the runtime.
+    /// Refresh here: Codex's from `codex debug models` (the visible list), Claude Code's are the aliases `claude --model` takes.
+    public var models: [Model] {
+        switch self {
+        case .claude:
+            [Model(id: "opus", name: "Opus"), Model(id: "sonnet", name: "Sonnet"), Model(id: "haiku", name: "Haiku")]
+        case .codex:
+            [
+                Model(id: "gpt-6.2-astra", name: "GPT-6.2 Astra"), Model(id: "gpt-6.2-sol", name: "GPT-6.2 Sol"),
+                Model(id: "gpt-6-luna", name: "GPT-6 Luna"),
+            ]
+        case .unknown: []
+        }
+    }
+
+    /// What the Start sheet offers (DSH is out of v1).
+    public static let offered: [RuntimeName] = [.claude, .codex]
+}
+
 /// A registered agent as the desk reads it now (`read_registered_agents`, and `agents` of `read_matter`).
 public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     public struct Wait: Decodable, Sendable, Equatable {
@@ -42,6 +81,8 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     public let wait: Wait?
     public let lastTurn: Turn?
     public let amber: [String]
+
+    public var runtimeName: RuntimeName { RuntimeName(rawValue: runtime) ?? .unknown }
 }
 
 /// `read_registered_agents`: what the desk keeps, and whether it is on and its helper runs.

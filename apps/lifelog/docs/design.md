@@ -8,7 +8,7 @@ top of them.
 Life's brand (`docs/brand.md`, `assets/brand/tokens.css`): dark and light as the system says, Palette's thirteen
 colours (`bg`, `fg`, `card`, `tile`, `sheet`, `paper`, `muted`, `faint`, `line`, `flag`, `ai`, `ok`, `on`), where colour
 always means something. Native Liquid Glass for bars, sheets and floating controls. The type is Manrope in the brand;
-the phone still draws SF, Newsreader and Geist Mono until its screens are redone. State is never shown by color alone.
+the phone bundles it. State is never shown by color alone.
 
 ## Navigation
 

@@ -87,7 +87,7 @@ targets:
         UIBackgroundModes: [bluetooth-central, processing, audio, remote-notification]
         BGTaskSchedulerPermittedIdentifiers: [$(LIFELOG_BUNDLE_ID).processing]
         UILaunchScreen: {}
-        UIAppFonts: [Newsreader.ttf, Newsreader-Italic.ttf, GeistMono.ttf]
+        UIAppFonts: [Manrope.ttf]
         # Limited Photos access: don't offer to pick more photos on every launch.
         PHPhotoLibraryPreventAutomaticLimitedAccessAlert: true
         CFBundleDevelopmentRegion: en

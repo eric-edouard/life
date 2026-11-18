@@ -20,14 +20,11 @@ struct LensLayout<Attention: View>: View {
             }
             .padding(.bottom, 8)
             attention
-            LensSection("Today")
             GlanceGridLayout(columns: columns) {
-                LensSaved(today: glance.today)
                 LensBattery(
                     level: glance.battery, caption: glance.batteryCaption, isLow: glance.batteryIsLow,
                     isCharging: glance.isCharging)
                 LensStorage(storage: glance.storage)
-                LensBacklog(facts: glance)
             }
         }
         .padding(.horizontal, 16)
@@ -70,7 +67,7 @@ private struct LensHeader: View {
             )
             .padding(.top, 22)
             WholeWords(reading.sentence, centered: true)
-                .font(reading.voice == .word ? .statusWord : .statusSentence)
+                .font(reading.voice == .word ? .statusWord : .matterTitle)
                 .italic(reading.voice == .waiting)
                 .foregroundStyle(reading.mode == .live ? Palette.fg : Palette.fg)
                 .id(reading.sentence)
@@ -85,7 +82,7 @@ private struct LensHeader: View {
                         .symbolEffect(
                             .variableColor.iterative, isActive: line.isHearing && !reduceMotion && !isScrolling)
                 }
-                .font(.subheadline)
+                .font(.body15)
                 .foregroundStyle(Palette.fg)
                 .contentTransition(.opacity)
                 .id(line.systemImage)
@@ -96,7 +93,7 @@ private struct LensHeader: View {
                 Text(
                     "Mic on since \(since.moment) · \(Text(.currentDate, format: .offset(to: since, allowedFields: [.hour, .minute], sign: .never)))"
                 )
-                .font(.footnote)
+                .font(.small)
                 .foregroundStyle(Palette.faint)
                 .padding(.top, 6)
             }
@@ -104,7 +101,7 @@ private struct LensHeader: View {
                 Text(
                     "≈ \(Text(left, format: .units(allowed: [.hours, .minutes], width: .abbreviated))) of audio still on the Pendant"
                 )
-                .font(.footnote)
+                .font(.small)
                 .foregroundStyle(Palette.faint)
                 .padding(.top, 6)
             }
@@ -136,23 +133,6 @@ private struct LensHeader: View {
     }
 }
 
-private struct LensSection: View {
-    let title: String
-
-    init(_ title: String) {
-        self.title = title
-    }
-
-    var body: some View {
-        Text(title)
-            .font(.title3.weight(.semibold))
-            .foregroundStyle(Palette.fg)
-            .padding(.top, 20)
-            .padding(.horizontal, 4)
-            .accessibilityAddTraits(.isHeader)
-    }
-}
-
 extension View {
     /// A solid surface: content sits here, glass stays for the controls.
     fileprivate func lensCard(vertical: CGFloat = 16) -> some View {
@@ -171,30 +151,12 @@ private struct LensFact<Figure: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.footnote)
+                .font(.small)
                 .foregroundStyle(Palette.muted)
             figure
         }
         .lensCard()
         .accessibilityElement(children: .combine)
-    }
-}
-
-private struct LensSaved: View {
-    let today: SavedToday?
-
-    var body: some View {
-        LensFact(title: "Saved") {
-            TileFigure(
-                value: today.map {
-                    Text(
-                        $0.recorded,
-                        format: .units(allowed: [.hours, .minutes], width: .narrow, zeroValueUnits: .show(length: 1)))
-                } ?? Text("—"),
-                caption: today.map {
-                    String(AttributedString(localized: "^[\($0.conversations) conversation](inflect: true)").characters)
-                } ?? "Library not open yet")
-        }
     }
 }
 
@@ -232,35 +194,5 @@ private struct LensStorage: View {
         case .lastKnown(_, let at): "Free · last known \(at.moment)"
         case .unknown: "Never reported"
         }
-    }
-}
-
-/// Audio still on the Pendant, in time rather than pages, counting down while it catches up.
-private struct LensBacklog: View {
-    let facts: GlanceFacts
-
-    var body: some View {
-        LensFact(title: "On the Pendant") { figure }
-            .accessibilityIdentifier("pendant.lens.backlog")
-    }
-
-    private var figure: TileFigure<EmptyView> {
-        let estimate = facts.backlog.value?.estimatedDuration
-        if case .catchingUp(let progress) = facts.sync, progress.expected > 0 {
-            let done = Double(min(progress.settled, progress.expected)) / Double(progress.expected)
-            return TileFigure(
-                value: Text(estimate.map { Self.hoursMinutes($0 * (1 - done)) } ?? "—"),
-                caption: "\(done.formatted(.percent.precision(.fractionLength(0)))) brought over", fraction: done)
-        }
-        if !facts.isConnected { return TileFigure(value: Text("?"), caption: "Grows meanwhile") }
-        guard let backlog = facts.backlog.value else { return TileFigure(value: Text("—"), caption: "Checking…") }
-        if backlog.pages == 0 { return TileFigure(value: Text(Self.hoursMinutes(.zero)), caption: "All here") }
-        return TileFigure(value: Text(estimate.map(Self.hoursMinutes) ?? "—"), caption: "To bring over")
-    }
-
-    /// "0m", "8m", "4h 12m".
-    private static func hoursMinutes(_ duration: Duration) -> String {
-        let units: Set<Duration.UnitsFormatStyle.Unit> = duration < .seconds(3_600) ? [.minutes] : [.hours, .minutes]
-        return duration.formatted(.units(allowed: units, width: .narrow, zeroValueUnits: .show(length: 1)))
     }
 }

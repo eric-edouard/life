@@ -40,9 +40,9 @@ import SwiftUI
 
     #Preview("Type") {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Lunch with Julien — French").font(.readerTitle)
-            Text("Standup: Pendant sync bug").font(.rowTitle)
-            Text("Conversation at 13:52").font(.placeholderTitle).foregroundStyle(Palette.fg)
+            Text("Lunch with Julien — French").font(.matterTitle)
+            Text("Standup: Pendant sync bug").font(.rowName)
+            Text("Conversation at 13:52").font(.cardHeadline).foregroundStyle(Palette.fg)
             Text("Pages drop when the phone sleeps; Pim retries reads with backoff by Friday.")
                 .font(.subheadline).foregroundStyle(Palette.muted)
             Text("14:18").font(.monoTime)
@@ -64,13 +64,13 @@ import SwiftUI
                     SectionHeader(title: "Today", detail: "Wed 7 Oct", trailing: "5 conversations")
                     HStack(spacing: Tag.between) {
                         Tag(systemImage: "person", value: Text("Julien, Nok"))
-                        Tag(systemImage: "photo", value: Text("5").font(.monoDetail))
+                        Tag(systemImage: "photo", value: Text("5"))
                     }
                     .font(.caption)
                     .foregroundStyle(Palette.muted)
                     HStack {
                         DurationText(.seconds(40))
-                        DurationText(.seconds(7080), font: .monoTime)
+                        DurationText(.seconds(7080), step: .monoTime)
                     }
                     .foregroundStyle(Palette.faint)
                     VStack(alignment: .leading, spacing: 8) {

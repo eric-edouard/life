@@ -4,15 +4,18 @@
 Swift package with everything that doesn't need UIKit, so it builds and tests on the Mac in seconds. `Watch/` and
 `Widgets/` are the glances; `Shared/` holds code and copy that the app and its extensions share. `project.yml`
 generates the gitignored `.xcodeproj`.
-The app is a minimal shell (the Pendant tab alone) until Life's screens land; the old Library, Conversation, People, Presses and
-Spending screens are cut. `Shared/Palette.swift` is the phone's one copy of Life's brand (`assets/brand/tokens.css`), checked by
+The app is Life's two tabs, Inbox (`Inbox/`: one `CheckCard` at a time and its `AnswerResultView`) and Matters (`Matters/`), with
+the Pendant as a sheet from the pill top right (`Shell/`) and Settings from the gear; the old Library, Conversation, People, Presses and
+Spending screens are cut. Every screen reads through `ReadScreen` (loading, empty, stale, unreachable, failed, not paired) and every
+action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSystem/Typography.swift`). `Shared/Palette.swift` is the phone's one copy of Life's brand (`assets/brand/tokens.css`), checked by
 `scripts/brand.test.ts`: no colour literal elsewhere, except the hardware drawings (`HALLens.swift`, `LightGuide.swift`), which paint the pendant itself. `docs/architecture.md` names every store and owner and says where a new screen or derived value goes.
 
 ## How to
 
 - **Regenerate the project** after editing `project.yml`: `bun run ios:project`.
 - **Test Kit alone**, from Life's root: `swift test --package-path apps/lifelog/apps/ios/Kit --scratch-path .build/kit`.
-- **Run in the simulator.** Debug builds take `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
+- **Run in the simulator.** Debug builds take `-fixtureLife <scenario>` (Life without a Mac: `Fixtures/LifeFixture.swift`, with its
+  `-fixtureCard`, `-fixtureTab`, `-fixtureMatter`, `-fixtureSheet`, `-fixtureAnswer`, `-fixtureStart`), `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
   (see `FakeScenario.swift`) and `-offline`; launch with `xcrun simctl launch <udid> com.ericedouard.lifelog <args>`.
   The device token goes in through `SIMCTL_CHILD_LIFELOG_DEVICE_TOKEN` with `SIMCTL_CHILD_LIFELOG_SERVER_URL`, read from the file without printing it.
 - **Check Release before an install.** The gate builds Debug only and `install:phone` builds Release, so anything

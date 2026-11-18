@@ -37,16 +37,16 @@ struct AttentionCard<Actions: View>: View {
                     .foregroundStyle(Palette.flag)
                     .accessibilityHidden(true)
             }
-            .font(.headline)
+            .font(.leadBold)
             .foregroundStyle(Palette.fg)
             .accessibilityAddTraits(.isHeader)
             Text(detail)
-                .font(.subheadline)
+                .font(.body15)
                 .foregroundStyle(Palette.fg)
                 .fixedSize(horizontal: false, vertical: true)
             if let footnote {
                 Text(footnote)
-                    .font(.caption)
+                    .font(.small)
                     .foregroundStyle(Palette.faint)
             }
             ViewThatFits(in: .horizontal) {

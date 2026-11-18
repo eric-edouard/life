@@ -18,7 +18,6 @@ struct GlanceFacts: Equatable {
     var lastSaved: Date?
     var phoneFreeBytes: Int64?
     var archiveBytes: Int64?
-    var today: SavedToday?
     var isPaired: Bool
     var batteryLife = BatteryLife()
 
@@ -70,25 +69,5 @@ extension GlanceFacts {
             return "\(left.formatted(.units(allowed: units, width: .narrow))) if \(state)"
         }
         return line(recording, "recording") + "\n" + line(paused, "paused")
-    }
-}
-
-/// Today's conversations as the server has grouped them so far, from the cache.
-struct SavedToday: Equatable {
-    var recorded: Duration
-    var conversations: Int
-    var transcribed: Duration
-
-    static func load(from library: LibraryStore, now: Date = .now) async -> SavedToday? {
-        let start = Calendar.current.startOfDay(for: now)
-        guard
-            let conversations = try? await library.conversations(
-                overlapping: CaptureInstant(start)..<CaptureInstant(now)),
-            let facts = try? await library.facts(of: conversations)
-        else { return nil }
-        func length(_ conversation: CachedConversation) -> Duration { .milliseconds(conversation.range.millis) }
-        return SavedToday(
-            recorded: conversations.map(length).reduce(.zero, +), conversations: conversations.count,
-            transcribed: conversations.filter { facts[$0.id]?.hasWords == true }.map(length).reduce(.zero, +))
     }
 }

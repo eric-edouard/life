@@ -95,7 +95,7 @@ struct TileFigure<Leading: View>: View {
                     .contentTransition(.numericText())
             }
             Text(caption)
-                .font(.caption)
+                .font(.small)
                 .foregroundStyle(Palette.faint)
                 .fixedSize(horizontal: false, vertical: true)
             if let fraction {
@@ -145,7 +145,7 @@ struct TileRow: View {
                 .foregroundStyle(Palette.fg)
                 .multilineTextAlignment(.trailing)
         }
-        .font(.footnote)
+        .font(.small)
         .padding(.vertical, 9)
         .overlay(alignment: .top) { Hairline() }
         .accessibilityElement(children: .combine)

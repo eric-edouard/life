@@ -1,5 +1,6 @@
 import Foundation
 import Library
+import LifeConnector
 import Testing
 
 @testable import Upload
@@ -79,6 +80,20 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     let called = Set(literals.map { String($0).replacing(/\\\([a-z][A-Za-z]*(?:\([a-z]+\))?\)/, with: "{}") })
     #expect(called.count > 12, "the parser still finds the client's calls")
     #expect(called.subtracting(paths).isEmpty, "\(called.subtracting(paths).sorted())")
+}
+
+/// The runtimes the Start sheet offers are the ones the server names (`RuntimeName`, `core/names.ts`), each lists at least
+/// one model to launch with, and a runtime the app does not know reads as `unknown`, never a failure.
+@Test func runtimeNamesAreTheServers() throws {
+    let source = try String(
+        contentsOf: apps.deletingLastPathComponent().deletingLastPathComponent().appending(
+            path: "server/src/core/names.ts"), encoding: .utf8)
+    let named = try #require(source.firstMatch(of: /RuntimeName = z\.enum\(\[([^\]]*)\]\)/)).output.1
+    let server = Set(named.matches(of: /"([a-z]+)"/).map { String($0.output.1) })
+    #expect(server == Set(RuntimeName.offered.map(\.rawValue)))
+    #expect(RuntimeName.offered.allSatisfy { !$0.models.isEmpty })
+    #expect(RuntimeName(rawValue: "dsh") == nil)
+    #expect(try JSONDecoder().decode(RuntimeName.self, from: Data(#""dsh""#.utf8)) == .unknown)
 }
 
 @Test func unknownServerValuesNeverFailTheFeedsState() throws {

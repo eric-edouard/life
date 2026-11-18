@@ -51,6 +51,12 @@ public enum ActionState<Proof: Sendable & Equatable>: Sendable, Equatable {
         case failed(ActionFailure)
     }
 
+    /// When the server's limit runs out, while it runs.
+    public var limit: Date? {
+        if case .running(_, let limit) = self { return limit }
+        return nil
+    }
+
     public var isRunning: Bool {
         if case .running = self { return true }
         return false

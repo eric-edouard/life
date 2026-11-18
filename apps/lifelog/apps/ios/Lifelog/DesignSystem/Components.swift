@@ -21,7 +21,7 @@ struct SectionHeader: View {
             if !stacked { Spacer(minLength: 8) }
             if let trailing { Text(trailing).font(.monoDetail).foregroundStyle(Palette.faint) }
         }
-        .font(.subheadline)
+        .font(.body15)
         .lineLimit(stacked ? nil : 1)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
@@ -83,16 +83,16 @@ struct PlaceLink: View {
 /// A duration in Geist Mono: "58m", "1h 58m", "40s". VoiceOver reads the words.
 struct DurationText: View {
     let duration: Duration
-    let font: Font
+    let step: TypeStep
 
-    init(_ duration: Duration, font: Font = .monoDetail) {
+    init(_ duration: Duration, step: TypeStep = .monoDetail) {
         self.duration = duration
-        self.font = font
+        self.step = step
     }
 
     var body: some View {
         Text(Self.string(duration, width: .narrow))
-            .font(font)
+            .font(step)
             .accessibilityLabel(Self.string(duration, width: .wide))
     }
 
@@ -123,7 +123,7 @@ struct ProcessingBadge: View {
             icon
             Text(title)
         }
-        .font(.caption)
+        .font(.small)
         .foregroundStyle(Palette.fg)
         .padding(.vertical, 4)
         .padding(.horizontal, 10)

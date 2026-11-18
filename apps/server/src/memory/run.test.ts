@@ -142,17 +142,29 @@ test("a call's inputs digest is pinned: the one personas, situations and appoint
 });
 
 test("batches run as many at once as their engine takes, the next starting as one ends; a throw starts no new one", async () => {
-  const most = async (engine: "codex" | "openrouter", n: number) => {
+  // Each call holds until as many run as the engine should take (or every one has started), so the count never
+  // depends on how fast the machine is; a cap too low shows as a lower top once the 2 s fallback lets them go.
+  const most = async (
+    engine: "codex" | "openrouter",
+    n: number,
+    cap: number
+  ) => {
     const dir = mkdtempSync(join(tmpdir(), "batches-"));
-    let [now, top] = [0, 0];
+    let [now, top, begun] = [0, 0, 0];
     const ran: number[] = [];
+    const { promise, resolve: release } = Promise.withResolvers<void>();
+    const full = Promise.race([promise, Bun.sleep(2000)]);
     await inBatches(
       Array.from({ length: n }, (_, i) => i),
       { dir, llm: llmFor("main", engine) },
       async (i) => {
         now += 1;
+        begun += 1;
         top = Math.max(top, now);
-        await Bun.sleep(1);
+        if (now >= Math.min(cap, n) || begun === n) {
+          release();
+        }
+        await full;
         ran.push(i);
         now -= 1;
       }
@@ -163,9 +175,9 @@ test("batches run as many at once as their engine takes, the next starting as on
     expect(readdirSync(dir).length).toBe(n);
     return top;
   };
-  expect(await most("openrouter", 100)).toBe(32);
-  expect(await most("codex", 100)).toBe(4);
-  expect(await most("openrouter", 3)).toBe(3);
+  expect(await most("openrouter", 100, 32)).toBe(32);
+  expect(await most("codex", 100, 4)).toBe(4);
+  expect(await most("openrouter", 3, 32)).toBe(3);
 
   const started: number[] = [];
   const failing = inBatches(

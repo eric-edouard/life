@@ -50,7 +50,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     private let location = LocationRecorder()
     let appleHealth = AppleHealthReader()
     /// Life's reads (inbox, matters, agents) and its pairing: the phone is one more app of Life's connector.
-    lazy var life = LifeStore()
+    lazy var life: LifeStore = {
+        #if DEBUG
+            if LifeFixture.isRequested { return LifeFixture.store() }
+        #endif
+        return LifeStore()
+    }()
     /// Plays recorded audio and marks it quiet for the Pendant.
     lazy var playback = PlaybackStore(library: library, sync: sync)
 

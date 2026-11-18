@@ -74,6 +74,13 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let subject: String?
     }
 
+    /// What a card's answer changes: the facts, matters and pages that rest on it.
+    public struct RidesOn: Decodable, Sendable, Equatable {
+        public let observations: Int
+        public let matters: Int
+        public let pages: Int
+    }
+
     public var id: String { ref }
     public let ref: String
     /// An opaque id of this card that a push carries (never its `ref`).
@@ -94,4 +101,19 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let links: [String]
     public let matter: MatterRef?
     public let subject: String?
+    public let ridesOn: RidesOn?
+}
+
+extension Check {
+    /// An option as its button says it. A new matter's options say what they do after a colon, or how to give the goal in
+    /// brackets: the button keeps the first words (the server's wording, `checks.ts`, tested on `read_inbox.json`).
+    public func shown(_ option: Option) -> String {
+        guard group == .newMatter else { return option.label }
+        return String(option.label.prefix { $0 != ":" && $0 != "(" }).trimmingCharacters(in: .whitespaces)
+    }
+
+    /// The goal a new matter's question offers: "Goal: <goal>. Work on it?".
+    public var offeredGoal: String {
+        question.replacingOccurrences(of: "Goal: ", with: "").replacingOccurrences(of: ". Work on it?", with: "")
+    }
 }

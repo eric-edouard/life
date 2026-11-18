@@ -60,7 +60,6 @@
                     // Learned while recording; paused not seen enough yet.
                     batteryLife: BatteryLife(recording: 6), pairedKind: pairedKind),
                 transcription: transcription,
-                today: SavedToday(recorded: .seconds(11_520), conversations: 9, transcribed: .seconds(10_080)),
                 permissions: PermissionsStore(notifications: .notAsked, location: .denied),
                 showsNotificationsInvite: invite, actions: actions)
         }

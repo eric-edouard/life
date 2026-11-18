@@ -6,11 +6,9 @@ import PendantProtocol
 import ServerAPI
 import SwiftUI
 
-/// Settings, pushed from the gear on the Pendant screen: the processing switches and the vocabulary, alerts, the Lock
-/// Screen, the light and your data.
-///
-/// A push rather than a sheet: it has pages of its own (Light guide, Backup, Server), which push in the same
-/// stack with the usual back swipe.
+/// Settings, the sheet over the app: appearance, the Inbox's push and pairing, the processing switches and the
+/// vocabulary, alerts, the light and your data. It has pages of its own (Light guide, Backup, Server), which push in the
+/// sheet's own stack.
 struct SettingsView: View {
     let permissions: PermissionsStore
     let allowNotifications: () -> Void
@@ -18,12 +16,36 @@ struct SettingsView: View {
     @Environment(SyncStore.self) private var sync
     @Environment(CaptureStore.self) private var capture
     @Environment(AppleHealthReader.self) private var appleHealth
+    @Environment(LifeStore.self) private var life
+    @AppStorage("appearance") private var appearance = Appearance.auto
     @Bindable private var settings = Settings.shared
 
     var body: some View {
         let switches = sync.switches
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                SettingsGroup("Appearance") {
+                    Picker("Appearance", selection: $appearance) {
+                        Text("Auto").tag(Appearance.auto)
+                        Text("Light").tag(Appearance.light)
+                        Text("Dark").tag(Appearance.dark)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("settings.appearance")
+                }
+                SettingsGroup("Inbox") {
+                    PermissionRow(
+                        name: "A push for every new card", state: permissions.notifications,
+                        explanation: "The moment something needs you.", ask: allowNotifications)
+                    NavigationLink {
+                        PairingView(
+                            title: "Life", paired: life.pairedOrigin.map(\.hostWords), note: life.pairingNote,
+                            accepts: { LifePairing(link: $0) != nil })
+                    } label: {
+                        SettingsLink("Life", value: life.pairingNote ?? (life.isPaired ? "Paired" : "Not paired"))
+                    }
+                    .accessibilityIdentifier("settings.life")
+                }
                 SettingsGroup("Processing", footer: switchesWaiting ? "Waiting to sync." : nil) {
                     SwitchToggle(
                         title: "Transcription",
@@ -113,7 +135,9 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("pendant.settings.backup")
                     NavigationLink {
-                        PairingView(server: sync.server)
+                        PairingView(
+                            title: "Server", paired: sync.server?.hostWords, note: nil,
+                            accepts: { Pairing(link: $0) != nil })
                     } label: {
                         SettingsLink("Server", value: sync.server?.host() ?? "Not paired")
                     }
@@ -164,7 +188,7 @@ private struct SettingsGroup<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.footnote.weight(.semibold))
+                .font(.small)
                 .foregroundStyle(Palette.muted)
                 .accessibilityAddTraits(.isHeader)
                 .padding(.horizontal, 16)
@@ -186,7 +210,7 @@ private struct SettingsGroup<Content: View>: View {
             .card(radius: Metrics.Radius.group)
             if let footer {
                 Text(footer)
-                    .font(.footnote)
+                    .font(.small)
                     .foregroundStyle(Palette.faint)
                     .padding(.horizontal, 16)
                     .fixedSize(horizontal: false, vertical: true)
@@ -212,7 +236,7 @@ private struct SettingsLink: View {
             Spacer(minLength: 8)
             if let value { Text(value).foregroundStyle(Palette.muted) }
             Image(systemName: "chevron.forward")
-                .font(.footnote.weight(.semibold))
+                .font(.small)
                 .foregroundStyle(Palette.faint)
                 .accessibilityHidden(true)
         }
@@ -222,8 +246,14 @@ private struct SettingsLink: View {
 }
 
 /// The server this iPhone is paired with, and a pasted pairing link (confirmed on screen, never shown back).
+/// Where this phone is paired, and the field to pair it again: for lifelog's server and for Life alike (`accepts` says
+/// which links are its own). `note` is what a pairing in progress says, or why it failed.
 struct PairingView: View {
-    let server: URL?
+    let title: String
+    /// Who it is paired with, nil when not.
+    let paired: String?
+    let note: String?
+    let accepts: (URL) -> Bool
     /// A pasted link is opened as the app's own link: the same path as the Camera's (`RootView`'s `onOpenURL`).
     @Environment(\.openURL) private var openURL
 
@@ -234,14 +264,15 @@ struct PairingView: View {
         Form {
             Section {
                 Label(
-                    server.map { "Paired with \($0.host() ?? $0.absoluteString)" } ?? "Not paired",
-                    systemImage: server == nil ? "link.badge.plus" : "link")
+                    paired.map { "Paired with \($0)" } ?? "Not paired",
+                    systemImage: paired == nil ? "link.badge.plus" : "link")
+                if let note { Text(note).foregroundStyle(Palette.muted) }
                 TextField("Pairing link", text: $draft)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                Button(server == nil ? "Pair" : "Pair again") {
+                Button(paired == nil ? "Pair" : "Pair again") {
                     let link = URL(string: draft.trimmingCharacters(in: .whitespacesAndNewlines))
-                    if let link, Pairing(link: link) != nil || LifePairing(link: link) != nil {
+                    if let link, accepts(link) {
                         openURL(link)
                         result = nil
                     } else {
@@ -250,7 +281,7 @@ struct PairingView: View {
                     draft = ""
                 }
                 .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                if let result { Text(result) }
+                if let result { Text(result).foregroundStyle(Palette.flag) }
             } footer: {
                 Text(
                     "Scan the pairing code on your Mac with the Camera, or paste its link here. The token stays in this iPhone's Keychain and is never shown again."
@@ -259,14 +290,21 @@ struct PairingView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Palette.bg)
-        .navigationTitle("Server")
+        .navigationTitle(title)
     }
+}
+
+extension URL {
+    /// A server as the owner reads it: its host.
+    fileprivate var hostWords: String { host() ?? absoluteString }
 }
 
 #if DEBUG
     #Preview("Server") {
-        NavigationStack { PairingView(server: URL(string: "https://mac.example.ts.net")) }
-            .preferredColorScheme(.dark)
+        NavigationStack {
+            PairingView(title: "Server", paired: "mac.example.ts.net", note: nil, accepts: { _ in true })
+        }
+        .preferredColorScheme(.dark)
     }
 #endif
 
@@ -289,7 +327,7 @@ private struct SwitchToggle: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                 Text(detail)
-                    .font(.footnote)
+                    .font(.small)
                     .foregroundStyle(Palette.faint)
             }
         }
@@ -310,5 +348,30 @@ private struct OpenAppPicker: View {
         }
         .disabled(minutes == nil)
         .accessibilityIdentifier("settings.openAppAfter")
+    }
+}
+
+/// Settings as a sheet: its own stack, a close button, and the permissions it reads.
+struct SettingsSheet: View {
+    @Environment(CaptureStore.self) private var capture
+    @Environment(\.dismiss) private var dismiss
+    @State private var permissions = PermissionsStore()
+
+    var body: some View {
+        NavigationStack {
+            SettingsView(
+                permissions: permissions,
+                allowNotifications: {
+                    Task {
+                        await capture.notifier.requestPermission()
+                        await permissions.refresh()
+                    }
+                }
+            )
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { Button("Close", systemImage: "xmark") { dismiss() } }
+            }
+        }
+        .task { await permissions.refresh() }
     }
 }

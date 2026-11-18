@@ -73,7 +73,7 @@ let package = Package(
         .testTarget(
             name: "UploadTests",
             dependencies: [
-                "AudioPipeline", "Capture", "Library", "PendantProtocol", "ServerAPI",
+                "AudioPipeline", "Capture", "Library", "LifeConnector", "PendantProtocol", "ServerAPI",
                 "SourceStore", "Timeline", "Upload",
             ],
             swiftSettings: settings),

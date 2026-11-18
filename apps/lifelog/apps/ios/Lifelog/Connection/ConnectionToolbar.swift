@@ -37,7 +37,7 @@ struct ConnectionButton: View {
         Button(action: open) {
             if let text = state.toolbarText {
                 // Text, not a Label: the bar would draw a Label as its icon alone.
-                Text("\(Image(systemName: state.systemImage)) \(text)").font(.subheadline).fixedSize()
+                Text("\(Image(systemName: state.systemImage)) \(text)").font(.body15).fixedSize()
             } else {
                 Label(state.title, systemImage: state.systemImage).labelStyle(.iconOnly)
             }

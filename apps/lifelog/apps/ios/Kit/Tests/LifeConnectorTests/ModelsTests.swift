@@ -25,10 +25,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let voice = inbox.checks[1]
     #expect(voice.clips.first?.audio?.jobId == "job-1")
     #expect(voice.likelyPeople.first?.name == "Gran")
+    #expect(voice.ridesOn?.observations == 2)
     let found = inbox.checks[2]
     #expect(found.group == .newMatter)
     #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
     #expect(found.deadline == nil)
+    #expect(found.options.map(found.shown) == ["Start", "Edit goal", "Dismiss"])
+    #expect(found.offeredGoal == "Gran's photo is framed")
     #expect(inbox.checks[3].draft == nil)
 
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
@@ -75,6 +78,37 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.statusCounts == [.moving: 1, .waitingOnSomeone: 1])
 }
 
+@Test func theFiltersCountAndNarrowTheList() throws {
+    let text = #"""
+        {"matters":[
+        {"id":"a","name":"A","status":"moving","areas":["Home","Money"],"agent":"agt_1","nextStep":{"kind":"wait_decision","text":"x"}},
+        {"id":"b","name":"B","status":"stuck","areas":["Home"],"nextStep":{"kind":"do","text":"y"}},
+        {"id":"c","name":"C","status":"moving","areas":["Work"],"nextStep":{"kind":"do","text":"z"}},
+        {"id":"d","name":"D","status":"dormant"}]}
+        """#
+    let list = try decoded(MatterList.self, text)
+    #expect(list.areaCounts.map(\.area) == ["Home", "Money", "Work"])
+    #expect(list.areaCounts.map(\.count) == [2, 1, 1])
+    #expect(list.waitCounts == [.decision: 1, .stuck: 1, .ready: 1])
+    #expect(list.agentCount == 1)
+    func ids(_ filter: MatterFilter, _ query: String = "") -> [String] {
+        list.shown(query: query, filter: filter).map(\.id)
+    }
+    #expect(ids(MatterFilter()) == ["a", "b", "c", "d"])
+    #expect(ids(MatterFilter(area: "Home")) == ["a", "b"])
+    #expect(ids(MatterFilter(area: "Home", waits: [.stuck, .ready])) == ["b"])
+    #expect(ids(MatterFilter(waits: [.decision, .ready])) == ["a", "c"])
+    #expect(ids(MatterFilter(withAgent: true)) == ["a"])
+    #expect(ids(MatterFilter(area: "Work"), "B").isEmpty)
+    #expect(MatterFilter().isEmpty && !MatterFilter(withAgent: true).isEmpty)
+}
+
+@Test func anInboxCountsTheCardsOfAMatter() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
+    #expect(inbox.openCount(matter: "matter_aaaaaaaaaaaa") == 1)
+    #expect(inbox.openCount(matter: "nothing") == 0)
+}
+
 @Test func theActionsResultsDecode() throws {
     let sent = try decoded(AnswerResult.self, wireText("life/answer_check_sent.json"))
     #expect(sent.send?.state == .sent)
@@ -99,6 +133,9 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(refused.state == .notStarted)
     #expect(refused.failed?.stage == "runtime_answers")
     #expect(refused.nothingRunning == true)
+    let named = #"{"ref":"voice:v1","kind":"voice","changed":{"voices":3,"conversations":2}}"#
+    #expect(try decoded(AnswerResult.self, named).changed?.voices == 3)
+    #expect(try decoded(AnswerResult.self, named).changed?.conversations == 2)
     let future = #"{"action":"x","state":"a_new_state","stages":[{"stage":"s","extra":1}]}"#
     #expect(try decoded(AgentChangeResult.self, future).state == .unknown)
 }
