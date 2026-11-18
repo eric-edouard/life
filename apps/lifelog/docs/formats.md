@@ -1,29 +1,7 @@
 # Export format: lifelog-export v1
 
-One format for sharing, backup and import. The code is `apps/ios/Kit/Sources/Export`; the goldens in
-`apps/ios/Kit/Tests/ExportTests/Golden` show every text file byte for byte.
-
-## Layout
-
-```
-manifest.json
-2026-10-07 09.12.03 Lunch with Mai/      one folder per conversation (local start time + title)
-  audio.m4a        AAC, portable        (optional)
-  audio.wav        PCM                  (optional)
-  transcript.txt
-  transcript.md
-  captions.srt
-  captions.vtt
-  conversation.json
-```
-
-Each item has only the files the owner chose: audio only, text only, or both. When the whole export is a single
-file, that file is shared alone, named after its item; anything more, and every backup, is zipped. The ZIP comes
-from the system: a coordinated read of the folder with `NSFileCoordinator` `.forUploading` returns a ZIP of it, on
-iOS and macOS, so there is no ZIP code or dependency. The importer reads the unpacked folder; Files unzips on tap.
-Sharing goes through the native share sheet; nothing is sent until the owner picks a destination.
-
-PDF is not in v1. The export sheet says so rather than offering it.
+The backup format, written and read by `apps/ios/Kit/Sources/Export`. Since PR 595 the phone no longer exports a
+conversation as text or audio; only the backup remains.
 
 ## Times
 
@@ -84,41 +62,15 @@ today (`TimeMap.swift`). A transcript's times are seconds into that prepared aud
 
 The phone (`TimeMap`) and the server (`transcript.ts` `captureMillis`, `keptAt` the other way) both map this way.
 
-## Audio
-
-Both files are 16 kHz mono, exactly as long as the range: `audio.m4a` is AAC at 32 kbps, `audio.wav` is 16-bit
-PCM. They are made in one streaming pass over the 10-minute playback files (`docs/timeline.md`), holding 30 s at a
-time: each stretch is decoded from its file at its offset, and silence is written between. The AAC is re-encoded,
-not passed through: AVFoundation will not splice several AAC files without re-encoding, and a composition drops
-trailing silence, which would make the file too short. 32 kbps, above playback's 24, keeps the loss small.
-
 ## manifest.json
 
 | Field | Meaning |
 | --- | --- |
 | `format`, `version` | `"lifelog-export"`, `1`. |
-| `kind` | `export` or `backup`. |
+| `kind` | `backup`. |
 | `appVersion`, `createdAt` | Who wrote it and when (ISO 8601). |
-| `items[]` | `id`, `folder`, `startCaptureMs`, `endCaptureMs`, and `files[]` with `path`, `bytes`, `sha256`. |
-| `files[]` | Every file outside the item folders except the manifest (backup only), same shape. |
+| `files[]` | Every file except the manifest, same shape. |
 | `unsupported[]` | `item`, `what`, `reason`: anything requested but not included, such as a conversation no longer in the library. |
-
-## conversation.json
-
-Version 2: what the phone's cache holds of the conversation. Keys are sorted and output is stable.
-Every moment is `{ "captureMs", "audioMs" }`.
-
-- `version` (3; 2 had `bookmarks[]`, since removed), `id` (the server's conversation id), `start`, `end`, `startUTC`, `timeZone`, `kind`.
-- `title`: `{ text, source }`, where `source` is `owner` or `generated`. The owner's title always wins.
-- `tldr`, `place`, and `chapters[]` of `{ at, title, summary }`.
-- `transcript[]`: one turn each, `{ speaker, name, personId, start, end, text, language }`, as the server sends it
-  (dictation and media already left out). `speaker` is the provider's label within its job.
-- `transcriptAbsent`: present exactly when there is no text, saying why. An export is never silently empty; the
-  same sentence appears in TXT, Markdown and as the only caption.
-- `locations[]` (fixes with latitude, longitude, accuracy), `unrecorded[]`.
-
-Captions cut a long turn into pieces of up to 84 characters, timed by their share of the turn: the phone keeps no word
-times.
 
 ## Full private backup
 

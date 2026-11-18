@@ -473,7 +473,7 @@ export const conversations = sqliteTable("conversations", {
   // The live conversation that now covers its anchor (or else its range).
   successorId: uuid("successor_id"),
   // What its last finished roll read: its turn keys and whether it was open (runs.ts). A
-  // summary is due when its words differ from it; null: never read, or the owner's Generate.
+  // summary is due when its words differ from it; null: never read, .
   turnsFp: text("turns_fp"),
   updatedAt,
   waitingReason: text("waiting_reason", { enum: waitingReasons }),
@@ -597,7 +597,7 @@ export const macWatch = sqliteTable("mac_watch", {
 // apps/identity. AI: summaries on the Mac. Off, that work waits. No row: both on.
 export const macEngines = ["claude", "codex"] as const;
 export type MacEngine = (typeof macEngines)[number];
-// Two latest observations, not a usage history. Only the Mac's authenticated socket writes these.
+// Two latest observations, not a usage history. No writer since PR 595 (the subscription widgets were cut); a later migration drops the table.
 export const subscriptionUsage = sqliteTable("subscription_usage", {
   engine: text("engine", { enum: macEngines }).primaryKey(),
   reading: json("reading").notNull(),
@@ -880,8 +880,8 @@ export const searchIndex = sqliteTable("search_index", {
   seq: integer("seq"),
 });
 
-// One row per press transcribed at once (POST /quick-transcriptions), written once ElevenLabs answered or might
-// have billed it: what it cost, for spending. Neither its audio nor its text is kept.
+// One row per press transcribed at once, as it was written before PR 595 cut the press and its route: no writer
+// since; a later migration drops the table.
 export const quickTranscriptions = sqliteTable(
   "quick_transcriptions",
   {

@@ -63,10 +63,13 @@ test("the app's colours are tokens.css's, light and dark", async () => {
       dark[token] ?? light[token],
     ]);
   }
-  const statuses = [...swift.matchAll(/case \.(\w+): Color\((0x\w+)\)/g)];
+  const statuses = [
+    ...swift.matchAll(/case \.(\w+): Color\(light: (0x\w+), dark: (0x\w+)\)/g),
+  ];
   expect(statuses.map((m) => m[1]).toSorted()).toEqual(Object.keys(tones));
-  for (const [, tone = "", value = ""] of statuses) {
-    expect([tone, hex(value)]).toEqual([tone, light[tones[tone] ?? ""]]);
+  for (const [, tone = "", l = "", d = ""] of statuses) {
+    const token = tones[tone] ?? "";
+    expect([tone, hex(l), hex(d)]).toEqual([tone, light[token], dark[token]]);
   }
 });
 

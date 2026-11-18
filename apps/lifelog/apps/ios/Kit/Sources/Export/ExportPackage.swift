@@ -2,25 +2,7 @@ import CryptoKit
 import Foundation
 import Library
 
-public enum ExportFormat: String, Sendable, CaseIterable {
-    case txt
-    case markdown
-    case srt
-    case vtt
-    case json
-
-    public var fileName: String {
-        switch self {
-        case .txt: "transcript.txt"
-        case .markdown: "transcript.md"
-        case .srt: "captions.srt"
-        case .vtt: "captions.vtt"
-        case .json: "conversation.json"
-        }
-    }
-}
-
-/// `manifest.json` at the root of every export. See docs/formats.md.
+/// `manifest.json` at the root of every backup. See docs/formats.md.
 public struct Manifest: Codable, Sendable, Equatable {
     public static let format = "lifelog-export"
     public static let currentVersion = 1
@@ -36,15 +18,6 @@ public struct Manifest: Codable, Sendable, Equatable {
         public var path: String
         public var bytes: Int64
         public var sha256: String
-    }
-
-    public struct Item: Codable, Sendable, Equatable {
-        /// The conversation id, as in its `conversation.json`.
-        public var id: String
-        public var folder: String
-        public var startCaptureMs: Int64
-        public var endCaptureMs: Int64
-        public var files: [File]
     }
 
     /// Something asked for but not in this export, said out loud rather than silently dropped.
@@ -65,8 +38,7 @@ public struct Manifest: Codable, Sendable, Equatable {
     public var kind: Kind
     public var appVersion: String
     public var createdAt: Date
-    public var items: [Item]
-    /// Files outside the item folders, other than the manifest (backup only): its JSON files and stores.
+    /// Every file under the root other than the manifest: its JSON files and stores.
     public var files: [File]
     public var unsupported: [Unsupported]
 }
@@ -96,11 +68,6 @@ public struct BackupContents: Sendable {
 }
 
 public enum ExportPackage {
-    /// The app encodes these with AVFoundation into the item folder before `write`; both start at the item's
-    /// range start and run linearly, with silence where nothing was recorded.
-    public static let compressedAudio = "audio.m4a"
-    public static let wavAudio = "audio.wav"
-
     /// "2026-10-08 1432": names an export or a backup readably, sorting by time.
     public static func stamp(_ date: Date, timeZone: TimeZone) -> String {
         var calendar = Calendar(identifier: .gregorian)
@@ -111,60 +78,18 @@ public enum ExportPackage {
             parts.minute ?? 0)
     }
 
-    /// "2026-10-07 09.12.03 Lunch with Mai", in the export's time zone.
-    /// ponytail: two items starting in the same second with the same title would share a folder.
-    public static func folderName(for item: ConversationExport) -> String {
-        let forbidden = CharacterSet(charactersIn: "/\\:?*\"<>|").union(.controlCharacters).union(.newlines)
-        let title = String(item.title.unicodeScalars.filter { !forbidden.contains($0) }.prefix(60))
-            .trimmingCharacters(in: .whitespaces)
-        let time = item.clock(item.range.lowerBound).replacing(":", with: ".")
-        return "\(item.day(item.range.lowerBound)) \(time) \(title)"
-    }
-
-    /// Writes the chosen text formats into one folder per item, hashes every file in those folders (including
-    /// audio the app placed there), adds the backup files, and writes `manifest.json` last.
+    /// Hashes every file under the root, adds the backup's `sources.json`, and writes `manifest.json` last.
     @discardableResult
     public static func write(
-        _ items: [ConversationExport], formats: Set<ExportFormat>, to root: URL, appVersion: String, createdAt: Date,
-        backup: BackupContents? = nil, unsupported: [Manifest.Unsupported] = []
+        to root: URL, appVersion: String, createdAt: Date, backup: BackupContents,
+        unsupported: [Manifest.Unsupported] = []
     ) throws -> Manifest {
-        let files = FileManager.default
-        var entries: [Manifest.Item] = []
-        for item in items {
-            let folder = folderName(for: item)
-            let url = root.appending(path: folder, directoryHint: .isDirectory)
-            try files.createDirectory(at: url, withIntermediateDirectories: true)
-            for format in ExportFormat.allCases where formats.contains(format) {
-                let text =
-                    switch format {
-                    case .txt: item.plainText()
-                    case .markdown: item.markdown()
-                    case .srt: item.srt()
-                    case .vtt: item.vtt()
-                    case .json: try item.json()
-                    }
-                try Data(text.utf8).write(to: url.appending(path: format.fileName), options: .atomic)
-            }
-            let names = try files.contentsOfDirectory(atPath: url.path).sorted()
-            entries.append(
-                Manifest.Item(
-                    id: item.conversation.id.uuidString.lowercased(), folder: folder,
-                    startCaptureMs: item.range.lowerBound.millis, endCaptureMs: item.range.upperBound.millis,
-                    files: try names.map { try entry(root, "\(folder)/\($0)") }))
-        }
-        if let backup {
-            try ConversationDocument.encoder.encode(backup.sources).write(
-                to: root.appending(path: "sources.json"), options: .atomic)
-        }
-        // Everything else under the root (a backup's stores), so every byte shipped is listed and hashed.
-        let itemPaths = Set(entries.flatMap(\.files).map(\.path))
-        let rootFiles = try Self.files(under: root).filter { !itemPaths.contains($0) && $0 != "manifest.json" }
-            .map { try entry(root, $0) }
+        try Manifest.encoder.encode(backup.sources).write(to: root.appending(path: "sources.json"), options: .atomic)
+        let rootFiles = try Self.files(under: root).filter { $0 != "manifest.json" }.map { try entry(root, $0) }
         let manifest = Manifest(
-            format: Manifest.format, version: Manifest.currentVersion, kind: backup == nil ? .export : .backup,
-            appVersion: appVersion, createdAt: createdAt, items: entries, files: rootFiles, unsupported: unsupported)
-        try ConversationDocument.encoder.encode(manifest).write(
-            to: root.appending(path: "manifest.json"), options: .atomic)
+            format: Manifest.format, version: Manifest.currentVersion, kind: .backup, appVersion: appVersion,
+            createdAt: createdAt, files: rootFiles, unsupported: unsupported)
+        try Manifest.encoder.encode(manifest).write(to: root.appending(path: "manifest.json"), options: .atomic)
         return manifest
     }
 
@@ -208,5 +133,21 @@ public enum ExportPackage {
             bytes += Int64(chunk.count)
         }
         return (bytes, hasher.finalize().map { String(format: "%02x", $0) }.joined())
+    }
+}
+
+extension Manifest {
+    /// Sorted keys and ISO 8601 dates, so the same input always gives the same bytes.
+    static var encoder: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }
+
+    static var decoder: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
     }
 }

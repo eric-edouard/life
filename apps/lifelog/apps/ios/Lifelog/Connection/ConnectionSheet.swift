@@ -124,11 +124,9 @@ private struct RefusedEdit: View {
 
     static func name(_ intent: OwnerIntent) -> String {
         switch intent {
-        case .title: "A title"
-        case .speaker: "A speaker's name"
-        case .naming: "A name for a voice"
-        case .renamePerson, .aliases, .mergePerson: "A change to a person"
-        default: "An edit"
+        case .switches: "A setting"
+        case .vocabulary: "The word list"
+        case .playbackQuiet: "A played-out stretch"
         }
     }
 }

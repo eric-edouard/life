@@ -54,20 +54,17 @@ extension Text {
 extension Tone {
   var color: Color {
     switch self {
-    case .ok: Color(0x1d6b58)
-    case .warn: Color(0xb3412b)
-    case .bad: Color(0xb3412b)
-    case .busy: Color(0x33468f)
-    case .teal: Color(0x1d6b58)
-    case .idle: Color(0x6c6964)
+    case .ok: Color(light: 0x1d6b58, dark: 0x74c9a9)
+    case .warn: Color(light: 0xb3412b, dark: 0xf0896f)
+    case .bad: Color(light: 0xb3412b, dark: 0xf0896f)
+    case .busy: Color(light: 0x33468f, dark: 0x9aa8ec)
+    case .teal: Color(light: 0x1d6b58, dark: 0x74c9a9)
+    case .idle: Color(light: 0x6c6964, dark: 0x85817a)
     }
   }
 }
 
 extension Color {
-  /// The same colour in both appearances: a status colour.
-  init(_ hex: UInt32) { self.init(light: hex, dark: hex) }
-
   /// One colour for each appearance, picked by the Mac's light or dark setting.
   init(light: UInt32, dark: UInt32) {
     self.init(

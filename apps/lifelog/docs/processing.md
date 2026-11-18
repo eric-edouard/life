@@ -290,8 +290,7 @@ frozen copy of them, and the gate fails when a change moves its committed counts
 A named voice becomes a recheck when at least half its sampled turns first guess another person,
 without evidence from that voice's conversations; the named person must still have a profile.
 The next answer, even the same name, settles that voice for good through `speaker_assignments.rechecked`.
-Rechecks add nothing to the morning push, badge or voice map. The phone asks them after the voices to name:
-"You named this X", with "Keep X" first and the person it sounds like next.
+Rechecks add nothing to the voice map; `GET /naming-queue/rechecks` is gone with the phone's screen, the queue's `rechecks()` stays for the voice map.
 
 On 9 Nov 2026 the owner replaced the age-based deletion promise: unnamed samples stay available until named or
 rejected, and rejected strangers remain negative references. The full retention rules are in

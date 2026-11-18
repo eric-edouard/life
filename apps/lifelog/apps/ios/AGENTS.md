@@ -6,7 +6,7 @@ Swift package with everything that doesn't need UIKit, so it builds and tests on
 generates the gitignored `.xcodeproj`.
 The app is a minimal shell (the Pendant tab alone) until Life's screens land; the old Library, Conversation, People, Presses and
 Spending screens are cut. `Shared/Palette.swift` is the phone's one copy of Life's brand (`assets/brand/tokens.css`), checked by
-`scripts/brand.test.ts`: no colour literal elsewhere. `docs/architecture.md` names every store and owner and says where a new screen or derived value goes.
+`scripts/brand.test.ts`: no colour literal elsewhere, except the hardware drawings (`HALLens.swift`, `LightGuide.swift`), which paint the pendant itself. `docs/architecture.md` names every store and owner and says where a new screen or derived value goes.
 
 ## How to
 

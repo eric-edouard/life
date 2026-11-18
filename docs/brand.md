@@ -1,9 +1,5 @@
 # Life's brand
 
-<img src="brand/reference.png" alt="Life's brand guide: the wordmark, icon, type, palette, shape and principles" width="512" />
-
-The image is a visual reference; the exact values are the brand guide's and `assets/brand/tokens.css`'s.
-
 A private memory. Calm by nature, personal by design. Everything Life shows follows this page: the nightly email,
 the pairing page, the Mac app (menu-bar panel, status window, settings, first run), the iPhone app and the icons.
 
@@ -17,7 +13,7 @@ that can't read CSS variables copy its values, and `scripts/brand.test.ts` fails
 | --- | --- |
 | The pairing page | `TOKENS` (`apps/server/src/host/http/http.ts`) inlined in its styles (`oauth.ts`) |
 | What the agent makes for the owner | `<origin>/docs/brand.md` and `<origin>/assets/brand/tokens.css`, served open (`apps/server/src/host/http/server.ts`) |
-| Every email (the nightly, the reports, the alerts) | `C`, `RADIUS`, `SERIF`, `SANS` and `MONO` in `apps/server/src/memory/email.ts`, copied (mail takes no variables), light only |
+| Every email (the nightly, the reports, the alerts) | `C`, `RADIUS` and `SANS` in `apps/server/src/memory/email.ts`, copied (mail takes no variables), light only |
 | The Mac app (parked) | `Brand` and `Tone.color` in `apps/mac/Sources/LifeApp/Brand.swift`: its colours copied; its fonts are still the old ones |
 | The iPhone app, widgets and Watch | `Palette` in `apps/lifelog/apps/ios/Shared/Palette.swift`: the thirteen colours, dark and light, copied; the app follows the system's appearance |
 

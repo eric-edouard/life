@@ -14,7 +14,7 @@ enum Metrics {
         static let field: CGFloat = 12
         /// The summary box, the highlighted transcript passage, compact cards.
         static let passage: CGFloat = 16
-        /// Grouped rows and attention cards: Settings, the Pendant's cards, spending.
+        /// Grouped rows and attention cards: Settings and the Pendant's cards.
         static let group: CGFloat = 20
         /// The Pendant's figures.
         static let card: CGFloat = 22

@@ -56,7 +56,6 @@ function listen(port: number, app: Hono) {
  */
 const BRAND = [
   "docs/brand.md",
-  "docs/brand/reference.png",
   "assets/brand/tokens.css",
   "assets/brand/life.svg",
   "assets/icon/icon.svg",

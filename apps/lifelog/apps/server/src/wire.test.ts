@@ -30,8 +30,8 @@ import {
   mapJob,
   OWNER_TOKEN,
   oggOpus,
-  postEdit,
   storedResult,
+  storeEdit,
   testConfig,
   testDb,
 } from "./testing";
@@ -247,25 +247,26 @@ test("GET /changes: a page with each kind and every field, a retired conversatio
     source: "com.apple.dictation",
     startedAt: iso(45),
   });
-  await postEdit(env.db, {
-    at: iso(20),
-    editedAt: iso(400),
+  storeEdit(env.db, {
+    at: new Date(iso(20)),
+    editedAt: new Date(iso(400)),
     id: id(8),
     kind: "split",
   });
   // A merge taken back: its row carries both ends and when it was undone.
-  await postEdit(env.db, {
-    editedAt: iso(410),
-    from: iso(30),
+  storeEdit(env.db, {
+    editedAt: new Date(iso(410)),
+    from: new Date(iso(30)),
     id: id(13),
     kind: "merge",
-    to: iso(150),
+    to: new Date(iso(150)),
+    undoneAt: new Date(iso(420)),
   });
-  await postEdit(env.db, {
-    edit: id(13),
-    editedAt: iso(420),
+  storeEdit(env.db, {
+    editedAt: new Date(iso(420)),
     id: id(14),
     kind: "undo",
+    target: id(13),
   });
   storeHistory(env.db, {
     fixes: [

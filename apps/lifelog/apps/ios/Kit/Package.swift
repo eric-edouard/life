@@ -55,7 +55,6 @@ let package = Package(
             name: "LibraryTests", dependencies: ["Library", "SourceStore", "Timeline"], swiftSettings: settings),
         .testTarget(
             name: "ExportTests", dependencies: ["Export", "AudioPipeline", "Library", "SourceStore", "Timeline"],
-            exclude: ["Golden"],
             swiftSettings: settings),
         .target(
             name: "AudioPipeline", dependencies: ["PendantProtocol", "SourceStore", "Timeline"],

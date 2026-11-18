@@ -37,7 +37,7 @@
       letter-spacing: 0.08em;
     }
     .mono {
-      font-family: ui-monospace, monospace;
+      font-family: var(--font-mono);
       font-size: 12px;
       color: var(--muted);
     }
@@ -143,9 +143,7 @@
     }
     .clock b {
       display: block;
-      font:
-        500 13px ui-monospace,
-        monospace;
+      font: 500 13px var(--font-mono);
       color: var(--fg);
     }
     .clock span {
@@ -180,9 +178,7 @@
     #calendar .hours span {
       position: absolute;
       right: 8px;
-      font:
-        11px ui-monospace,
-        monospace;
+      font: 11px var(--font-mono);
       color: var(--muted);
       transform: translateY(-50%);
     }
