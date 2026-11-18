@@ -96,6 +96,44 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(try JSONDecoder().decode(RuntimeName.self, from: Data(#""dsh""#.utf8)) == .unknown)
 }
 
+/// Life's enums the phone decodes are the ones Life's server writes (`apps/server/src`), read from its sources: a new value
+/// there fails here, instead of reading as `unknown` on the phone (an agent shown "Waiting").
+@Test func lifesEnumsAreTheServers() throws {
+    let server = apps.deletingLastPathComponent().deletingLastPathComponent().appending(path: "server/src")
+    func source(_ file: String) throws -> String {
+        try String(contentsOf: server.appending(path: file), encoding: .utf8)
+    }
+    /// The quoted words of the first match of `block` in `file`.
+    func quoted(_ file: String, _ block: Regex<(Substring, Substring)>) throws -> Set<String> {
+        let found = try #require(try source(file).firstMatch(of: block), "\(file)").output.1
+        return Set(found.matches(of: /"([a-z_ ]+)"/).map { String($0.output.1) })
+    }
+    /// Every value `file` gives a `state` its answer carries.
+    func states(_ file: String) throws -> Set<String> {
+        Set(try source(file).matches(of: /state(?: =|:) "([a-z_]+)"/).map { String($0.output.1) })
+    }
+    func client<T: UnknownTolerant>(_: T.Type) -> Set<String> { Set(T.allCases.map(\.rawValue)).subtracting(["unknown"]) }
+
+    #expect(try quoted("memory/life-checks.ts", /export type CheckGroup =([^;]*);/) == client(CheckGroup.self))
+    #expect(try quoted("memory/life-checks.ts", /takes: ([^;]*);/) == client(Check.Option.Takes.self))
+    #expect(try quoted("memory/matter-read.ts", /const STATUSES = \[([^\]]*)\]/) == client(MatterStatus.self))
+    // `wait_decision` is worked out when read (`nextStepNow`), never stored.
+    #expect(
+        try quoted("records/matter.ts", /NextStepKind = z\.enum\(\[([^\]]*)\]/).union(["wait_decision"])
+            == client(MatterRow.StepKind.self))
+    #expect(try quoted("memory/matter-read.ts", /(?s)type StepEnding = (.*?)\n\);/) == client(MatterStep.Ended.self))
+    #expect(try quoted("memory/matter-read.ts", /export type ByWhom<T> = T & \{([^}]*)\}/) == client(Author.self))
+    // An agent as read: the stored statuses, with `active` read as running or waiting.
+    let stored = try quoted("records/registered-agent.ts", /export type AgentStatus = ([^;]*);/)
+    #expect(stored.subtracting(["active"]).union(["running", "waiting"]) == client(AgentStatus.self))
+    #expect(try states("host/answer-result.ts") == client(AnswerResult.SendState.self))
+    #expect(try states("host/change-registered-agent.ts") == client(AgentChangeResult.State.self))
+    #expect(
+        try quoted("host/desk-read.ts", /(?s)export type DeskRead<T> =(.*?value: T \});/)
+            == client(RegisteredAgents.Desk.self))
+    #expect(try quoted("host/registered-agents.ts", /helper: ([^;]*);/) == client(RegisteredAgents.Helper.self))
+}
+
 @Test func unknownServerValuesNeverFailTheFeedsState() throws {
     let state = Data(
         #"""

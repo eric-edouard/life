@@ -27,7 +27,7 @@ export interface CheckAnswer {
   note?: string;
   /** The option ids he picked: one for a guess of Life's; a decision takes several, or none with `note`. */
   options: string[];
-  /** Who it is (`person:<id>`), for an option that names someone. */
+  /** Who it is (`person:<id>`, or a name Life knows), for an option that names someone. */
   person?: string;
 }
 
@@ -43,13 +43,21 @@ interface WriterExtras {
 
 type Writer = (c: Check, a: CheckAnswer, x: WriterExtras) => Promise<unknown[]>;
 
-/** `person`, checked: the options that name someone need it. */
-function personIn(a: CheckAnswer) {
+/** `person`, checked: the options that name someone need it, as `person:<id>` or a name or handle Life reads as one person (his app types it). */
+async function personIn(a: CheckAnswer) {
   const ref = PersonRef.safeParse(a.person);
-  if (!ref.success) {
-    throw new Error("Not done: give who it is as `person` (person:<id>).");
+  if (ref.success) {
+    return ref.data;
   }
-  return ref.data;
+  const known = a.person ? (await readPeople()).resolve(a.person) : null;
+  if (!known) {
+    throw new Error(
+      a.person
+        ? `Not done: Life knows no one as "${a.person}"; give who it is as \`person\` (person:<id>, or a name Life knows).`
+        : "Not done: give who it is as `person` (person:<id>, or a name Life knows)."
+    );
+  }
+  return known;
 }
 
 const correct = (said: object[], a: CheckAnswer) =>
@@ -95,7 +103,7 @@ async function thisIs(item: NamingQueueItem, c: Check, a: CheckAnswer) {
   if (!a.person) {
     throw new Error(`Not done: give person or name for ${c.ref}.`);
   }
-  const ref = personIn(a);
+  const ref = await personIn(a);
   const people = await readPeople();
   const id = namingQueueGuessesOf(item).find(
     (x) => x && voicePersonOf(people.resolve, x, null) === ref
@@ -124,8 +132,8 @@ const WRITERS: {
   >;
 } = {
   "contacts card": {
-    "same-person": (c, a) =>
-      correct([{ from: c.ref, kind: "same-person", to: personIn(a) }], a),
+    "same-person": async (c, a) =>
+      correct([{ from: c.ref, kind: "same-person", to: await personIn(a) }], a),
   },
   ending: {
     false: async (c, a) => [
@@ -146,8 +154,8 @@ const WRITERS: {
         })),
         a
       ),
-    "same-person": (c, a) =>
-      correct([{ from: c.ref, kind: "same-person", to: personIn(a) }], a),
+    "same-person": async (c, a) =>
+      correct([{ from: c.ref, kind: "same-person", to: await personIn(a) }], a),
     "this-is": (c, a) =>
       correct(
         c.about
@@ -157,8 +165,8 @@ const WRITERS: {
       ),
   },
   name: {
-    "this-is": (c, a) => {
-      const person = personIn(a);
+    "this-is": async (c, a) => {
+      const person = await personIn(a);
       return correct(
         c.about.map((n) => ({ kind: "this-is", nameOrHandle: n, person })),
         a

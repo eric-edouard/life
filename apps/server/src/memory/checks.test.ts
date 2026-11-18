@@ -445,6 +445,7 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
         from: expect.stringContaining("16 Nov"),
         quote: "the boiler is leaking",
       },
+      goal: "The boiler is serviced.",
       group: "new matter",
       kind: "new matter",
       likelyPeople: [],

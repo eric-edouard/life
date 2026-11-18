@@ -17,7 +17,6 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
         public let reason: String?
         /// A `not sent` the same tap may be tried again after; `mayHaveGone` never is.
         public let canRetry: Bool?
-        public let eventId: String?
         public let channel: String?
         public let to: String?
     }

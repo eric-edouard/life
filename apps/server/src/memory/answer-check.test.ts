@@ -76,6 +76,23 @@ test("a name reads as the person he names, each way it was written; a card becom
   ]);
 });
 
+test("his app may name the person as he typed it: Life reads it as the one person it knows by that name, else refuses", async () => {
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
+    resolve: (n: string) => (n === "Kit Moreau" ? "person:kit" : null),
+  } as never);
+  try {
+    await answerCheck(card, { options: ["same-person"], person: "Kit Moreau" });
+    await expect(
+      answerCheck(name, { options: ["this-is"], person: "Nobody Known" })
+    ).rejects.toThrow('Life knows no one as "Nobody Known"');
+    expect(said()).toEqual([
+      { from: card.ref, kind: "same-person", to: "person:kit" },
+    ]);
+  } finally {
+    people.mockRestore();
+  }
+});
+
 test("an ending goes to its fact-check answer", async () => {
   const record = spyOn(
     await import("./fact-checks"),

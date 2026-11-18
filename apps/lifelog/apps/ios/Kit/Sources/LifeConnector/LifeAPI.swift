@@ -58,10 +58,10 @@ public protocol LifeAPI: Sendable {
     func answerCheck(_ answer: AnswerRequest, answerKey: String, onProgress: @escaping @Sendable (Data) -> Void)
         async throws -> String
     func changeAgent(_ change: AgentRequest, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String
-    /// His goal and/or next step for the matter whose steps are `steps` (every step id `read_matter` lists).
-    func setMatterDirection(steps: [String], goal: String?, nextStep: NextStepRequest?) async throws -> String
-    /// His word that these observations (a matter's open steps) are done.
-    func markDone(observations: [String], note: String) async throws -> String
+    /// His goal and/or next step for a matter, by its id: Life pins it to the matter's steps.
+    func setMatterDirection(matter: String, goal: String?, nextStep: NextStepRequest?) async throws -> String
+    /// His word that a matter is done, by its id: Life closes what of it is open.
+    func markDone(matter: String, note: String) async throws -> String
 }
 
 public struct MCPLifeAPI: LifeAPI {
@@ -89,23 +89,23 @@ public struct MCPLifeAPI: LifeAPI {
         try await client.call("change_registered_agent", change, onProgress: onProgress)
     }
 
-    public func setMatterDirection(steps: [String], goal: String?, nextStep: NextStepRequest?) async throws -> String {
+    public func setMatterDirection(matter: String, goal: String?, nextStep: NextStepRequest?) async throws -> String {
         struct Direction: Encodable {
             let kind = "matter-direction"
-            let steps: [String]
+            let matter: String
             let goal: String?
             let nextStep: NextStepRequest?
         }
-        return try await correct(Direction(steps: steps, goal: goal, nextStep: nextStep))
+        return try await correct(Direction(matter: matter, goal: goal, nextStep: nextStep))
     }
 
-    public func markDone(observations: [String], note: String) async throws -> String {
+    public func markDone(matter: String, note: String) async throws -> String {
         struct Outdated: Encodable {
             let kind = "outdated"
-            let observations: [String]
+            let matter: String
             let note: String
         }
-        return try await correct(Outdated(observations: observations, note: note))
+        return try await correct(Outdated(matter: matter, note: note))
     }
 
     private struct Correct<C: Encodable & Sendable>: Encodable, Sendable {

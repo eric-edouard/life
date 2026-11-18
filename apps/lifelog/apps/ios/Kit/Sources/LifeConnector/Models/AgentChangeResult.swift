@@ -25,6 +25,8 @@ public struct AgentChangeResult: Decodable, Sendable, Equatable {
     public let action: String
     public let state: State
     public let agent: String?
+    /// The runtime the desk took for a start: the one he picked, else its default.
+    public let runtime: String?
     public let stages: [Stage]?
     public let failed: Failure?
     /// A start that did not happen left nothing running.
@@ -32,6 +34,6 @@ public struct AgentChangeResult: Decodable, Sendable, Equatable {
 
     public init(action: String, state: State, agent: String?) {
         (self.action, self.state, self.agent) = (action, state, agent)
-        (stages, failed, nothingRunning) = (nil, nil, nil)
+        (runtime, stages, failed, nothingRunning) = (nil, nil, nil, nil)
     }
 }

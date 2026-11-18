@@ -10,7 +10,7 @@ import { loadTruth, type Truth } from "../memory/read-truth";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import { GoalText } from "../records/matter";
-import { AgentChange } from "../records/registered-agent";
+import { AgentChange, runtimeOf } from "../records/registered-agent";
 import { listRepos } from "../sources/git";
 import { ask } from "./asks";
 import { requested } from "./change-todo-item";
@@ -154,7 +154,7 @@ async function saveGoal(
 
 /** What the connector reports for a start, in order: the desk's three facts (a matter start's `goal_saved` comes before them). */
 export const START_STAGES = [
-  "runtime_answers",
+  "desk_accepted",
   "session_open",
   "turn_begun",
 ] as const;
@@ -224,7 +224,7 @@ function startResult(
     model: s?.agent ? modelOf(s.agent).model : (change.model ?? null),
     // A subject held by an active agent has one running.
     nothingRunning: state === "not_started" && !isSubjectHeld,
-    runtime: s?.agent?.runtime ?? change.runtime ?? null,
+    runtime: s?.agent?.runtime ?? runtimeOf(change) ?? null,
     stages,
     state,
   };

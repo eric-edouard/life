@@ -100,16 +100,21 @@ private func life(host: String, code: String = "ABC234") -> @Sendable (Seen) -> 
         guard request.form["grant_type"] == "refresh_token" else { return inner(request) }
         return calls.withLock { n in
             n += 1
-            return n == 1 ? Reply(failure: .networkConnectionLost) : tokenReply(access: "access-9")
+            switch n {
+            case 1: return Reply(failure: .networkConnectionLost)
+            // The tunnel lost Life's answer: a 502, then a 400 that is not Life's word on the grant.
+            case 3: return .json("bad gateway", status: 502)
+            case 5: return .json(#"{"error":"unsupported_grant_type"}"#, status: 400)
+            default: return tokenReply(access: "access-9")
+            }
         }
     }
     let stored = credentials(host: host)
     let oauth = LifeOAuth(session: session, now: { epoch })
-    let again = try await oauth.refresh(
-        LifeCredentials(
-            endpoint: stored.endpoint, tokens: LifeTokens(access: "a", refresh: "refresh-2", expiresAt: epoch)))
-    #expect(again.access == "access-9")
-    #expect(calls.withLock { $0 } == 2)
+    let held = LifeCredentials(
+        endpoint: stored.endpoint, tokens: LifeTokens(access: "a", refresh: "refresh-2", expiresAt: epoch))
+    for _ in 0..<3 { #expect(try await oauth.refresh(held).access == "access-9") }
+    #expect(calls.withLock { $0 } == 6)
 }
 
 @Test func theApprovalsRedirectIsDeclinedNotFollowed() async throws {

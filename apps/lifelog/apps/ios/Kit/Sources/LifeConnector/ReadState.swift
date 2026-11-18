@@ -35,15 +35,18 @@ public struct ReadState<Value: Sendable>: Sendable {
     public private(set) var value: Value?
     public private(set) var loadedAt: Date?
     public private(set) var phase = Phase.idle
+    /// Where the last try ended, which a cancelled one goes back to.
+    private var settled = Phase.idle
 
     public init() {}
 
-    /// A refresh under way, whatever is shown meanwhile.
-    public var isRefreshing: Bool { phase == .loading }
-
     public mutating func apply(_ event: Event) {
         switch event {
-        case .started: phase = .loading
+        case .started:
+            if phase != .loading { settled = phase }
+            phase = .loading
+        // Cancelled (the screen left, the app went to the background): nothing was learned, so the read stands as it was.
+        case .failed(.cancelled): phase = settled
         case .succeeded(let new, let at):
             value = new
             loadedAt = at

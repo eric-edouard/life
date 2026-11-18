@@ -11,7 +11,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     var matter = "{}"
     var corrections = 0
     let keys = Mutex<[String]>([])
-    let directions = Mutex<[[String]]>([])
+    let starts = Mutex<[AgentRequest]>([])
 
     func readInbox() async throws -> String { "{}" }
     func readMatters() async throws -> String { "{}" }
@@ -25,13 +25,13 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
         return try answers.removeFirst()(onProgress)
     }
     func changeAgent(_ change: AgentRequest, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String {
-        try changes.removeFirst()(onProgress)
+        starts.withLock { $0.append(change) }
+        return try changes.removeFirst()(onProgress)
     }
-    func setMatterDirection(steps: [String], goal: String?, nextStep: NextStepRequest?) async throws -> String {
-        directions.withLock { $0.append(steps) }
-        return "Done: memory."
+    func setMatterDirection(matter: String, goal: String?, nextStep: NextStepRequest?) async throws -> String {
+        "Done: memory."
     }
-    func markDone(observations: [String], note: String) async throws -> String { "Done: memory." }
+    func markDone(matter: String, note: String) async throws -> String { "Done: memory." }
 }
 
 private let at = Date(timeIntervalSince1970: 1_800_000_000)
@@ -64,7 +64,6 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
         return
     }
     #expect(result.send?.state == .sent)
-    #expect(result.send?.eventId == "$ev1")
     #expect(result.inbox?.left == true)
     #expect(steps.map(\.id) == ["recorded", "handed", "confirmed", "left_inbox"])
     #expect(steps.map { $0.passedAt != nil } == [true, true, false, false])
@@ -158,18 +157,19 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
 private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
     await run {
         await LifeActions(api: life, now: { at }).startAgent(
-            matter: "matter_aaaaaaaaaaaa", steps: ["obs_000000000005"], goal: "Get it mended", runtime: nil, model: nil,
-            emit: $0)
+            matter: "matter_aaaaaaaaaaaa", goal: "Get it mended", runtime: nil, model: nil, emit: $0)
     }
 }
 
+/// One call: Life saves the goal he saw (`goal_saved`), then the desk's stages, all in Life's own plan.
 @Test func aStartSavesTheGoalThenShowsTheDesksStages() async throws {
     let life = FakeLife()
     let started = try wireText("life/change_registered_agent_started.json")
     life.changes = [
         { report in
-            report(progress(#"{"plan":["runtime_answers","session_open","turn_begun"],"limitSeconds":20}"#))
-            report(progress(#"{"step":"runtime_answers","at":"2026-11-18T10:00:03.000Z"}"#))
+            report(progress(#"{"plan":["goal_saved","desk_accepted","session_open","turn_begun"],"limitSeconds":20}"#))
+            report(progress(#"{"step":"goal_saved","at":"2026-11-18T10:00:02.000Z"}"#))
+            report(progress(#"{"step":"desk_accepted","at":"2026-11-18T10:00:03.000Z"}"#))
             return started
         }
     ]
@@ -180,9 +180,11 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
     }
     #expect(result.state == .started)
     #expect(result.stages?[1].link == "fake://agt_000000000001-1")
-    #expect(steps.map(\.id) == ["goal_saved", "runtime_answers", "session_open", "turn_begun"])
-    #expect(steps.first?.passedAt == at)
-    #expect(life.directions.withLock { $0 } == [["obs_000000000005"]])
+    #expect(steps.map(\.id) == ["goal_saved", "desk_accepted", "session_open", "turn_begun"])
+    #expect(steps.first?.passedAt != nil)
+    #expect(
+        life.starts.withLock { $0 }
+            == [AgentRequest(action: .start, step: "matter_aaaaaaaaaaaa", said: "Get it mended")])
 }
 
 @Test func aStartThatDidNotStartFailsAtItsStageAndMayBeTriedAgain() async throws {
@@ -194,7 +196,7 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
         Issue.record("\(state)")
         return
     }
-    #expect(failure.step == "runtime_answers")
+    #expect(failure.step == "desk_accepted")
     #expect(failure.reason.contains("does not answer"))
     #expect(failure.retry == .allowed)
 }
@@ -227,34 +229,34 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
     #expect(failure.mayHaveHappened)
 }
 
-@Test func aGoalThatCannotBeSavedStopsTheStartWithATryAgain() async {
-    final class Failing: LifeAPI, @unchecked Sendable {
-        func readInbox() async throws -> String { "" }
-        func readMatters() async throws -> String { "" }
-        func readMatter(_ id: String) async throws -> String { "" }
-        func readRegisteredAgents() async throws -> String { "" }
-        func answerCheck(_ a: AnswerRequest, answerKey: String, onProgress: @escaping @Sendable (Data) -> Void)
-            async throws -> String
-        { "" }
-        func changeAgent(_ c: AgentRequest, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String {
-            Issue.record("the agent must not start")
-            return ""
-        }
-        func setMatterDirection(steps: [String], goal: String?, nextStep: NextStepRequest?) async throws -> String {
-            throw MCPError.refused("Not done: no matter")
-        }
-        func markDone(observations: [String], note: String) async throws -> String { "" }
-    }
-    let state = await run {
-        await LifeActions(api: Failing()).startAgent(
-            matter: "m", steps: ["s"], goal: "g", runtime: nil, model: nil, emit: $0)
-    }
-    guard case .failed(let failure, _) = state else {
-        Issue.record("\(state)")
+/// A matter whose last start ended (not started, or finished) holds no proof of a new one: only an agent that has not
+/// ended, the one the desk named when it named one, is.
+@Test func anEndedAgentIsNoProofOfAStart() async throws {
+    var matter = try #require(
+        try JSONSerialization.jsonObject(with: Data(wireText("life/read_matter.json").utf8)) as? [String: Any])
+    var agent = try #require((matter["agents"] as? [[String: Any]])?.first)
+    agent["status"] = "ended"
+    agent["notStarted"] = "claude does not answer"
+    matter["agent"] = nil
+    matter["agents"] = [agent]
+    let ended = String(decoding: try JSONSerialization.data(withJSONObject: matter), as: UTF8.self)
+    let life = FakeLife()
+    life.changes = [{ _ in throw MCPError.streamDropped }]
+    life.matter = ended
+    guard case .failed(let failure, _) = await start(life) else {
+        Issue.record("an ended agent proved the start")
         return
     }
-    #expect(failure.step == "goal_saved")
-    #expect(failure.retry == .allowed)
+    #expect(failure.mayHaveHappened)
+
+    // Unconfirmed, naming a new agent: the running one that is not it proves nothing either.
+    let named = FakeLife()
+    named.changes = [{ _ in #"{"action":"start","state":"unconfirmed","agent":"agt_new","stages":[]}"# }]
+    named.matter = try wireText("life/read_matter.json")
+    guard case .failed = await start(named) else {
+        Issue.record("another agent proved the start")
+        return
+    }
 }
 
 @Test func stoppingAnAgentIsDoneOrNotConfirmed() async {
@@ -282,7 +284,7 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
     let life = FakeLife()
     let state = await run { emit in
         await LifeActions(api: life, now: { at }).record(emit: emit) {
-            try await life.markDone(observations: ["o"], note: "n")
+            try await life.markDone(matter: "m", note: "n")
         }
     }
     guard case .succeeded(.recorded, let steps) = state else {
@@ -307,7 +309,7 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
     let started = try wireText("life/answer_check_new_matter_started.json")
     let refused = #"""
         {"ref":"matter_000000000007","kind":"new matter","send":null,"start":{"action":"start","state":"not_started",
-        "failed":{"stage":"runtime_answers","reason":"claude does not answer"},"nothingRunning":true}}
+        "failed":{"stage":"desk_accepted","reason":"claude does not answer"},"nothingRunning":true}}
         """#
     life.answers = [{ _ in started }, { _ in refused }]
     let actions = LifeActions(api: life, now: { at })
@@ -322,7 +324,7 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
         Issue.record("\(second)")
         return
     }
-    #expect(failure.step == "runtime_answers")
+    #expect(failure.step == "desk_accepted")
     #expect(failure.reason.contains("does not answer"))
     #expect(failure.retry == .allowed)
 }

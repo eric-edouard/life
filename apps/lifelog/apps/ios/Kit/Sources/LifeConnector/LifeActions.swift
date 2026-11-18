@@ -96,21 +96,11 @@ public struct LifeActions: Sendable {
 
     // MARK: Agents
 
-    /// A matter's goal, then an agent started on it, its stages as Life reports them. When Life does not confirm, the
-    /// matter is read: an agent on it is the proof, none is a start that may have happened.
-    public func startAgent(
-        matter: String, steps: [String], goal: String, runtime: String?, model: String?, emit: @escaping Emit
-    ) async {
+    /// An agent started on a matter with `goal`, the goal he saw, as its brief: Life saves it as his goal itself
+    /// (`goal_saved`), then reports the desk's stages. When Life does not confirm, the matter is read: an agent on it
+    /// that has not ended is the proof, none is a start that may have happened.
+    public func startAgent(matter: String, goal: String, runtime: String?, model: String?, emit: @escaping Emit) async {
         emit(.started)
-        emit(.planned(["goal_saved"], limitSeconds: nil, at: now()))
-        do {
-            _ = try await api.setMatterDirection(steps: steps, goal: goal, nextStep: nil)
-        } catch {
-            var failure = ActionFailure(MCPError.of(error), step: "goal_saved")
-            failure.retry = .allowed
-            return emit(.failed(failure))
-        }
-        emit(.passed("goal_saved", at: now(), detail: [:]))
         let request = AgentRequest(action: .start, step: matter, runtime: runtime, model: model, said: goal)
         do {
             let text = try await api.changeAgent(request, onProgress: progress(emit))
@@ -119,7 +109,7 @@ public struct LifeActions: Sendable {
         } catch MCPError.refused(let why) {
             return emit(.failed(ActionFailure(reason: why, retry: .no)))
         } catch {}
-        emit(await resolved(matter: matter))
+        emit(await resolved(matter: matter, agent: nil))
     }
 
     /// How a start ended, as the desk said: started, not started (at its stage), else read from its matter.
@@ -133,15 +123,16 @@ public struct LifeActions: Sendable {
                     step: why?.stage, reason: why?.reason ?? "The agent did not start.",
                     // An agent already holds the matter: starting again would only be refused again.
                     retry: start.nothingRunning == false ? .no : .allowed))
-        default: return await resolved(matter: matter)
+        default: return await resolved(matter: matter, agent: start.agent)
         }
     }
 
-    private func resolved(matter id: String) async -> ActionState<ActionProof>.Event {
+    /// A start Life did not confirm, read from its matter: the agent the desk named, else any on it, that has not ended.
+    private func resolved(matter id: String, agent named: String?) async -> ActionState<ActionProof>.Event {
         if let text = try? await api.readMatter(id), let matter = decode(Matter.self, text),
-            let agent = matter.row.agent ?? matter.agents.first?.id
+            let agent = matter.agents.first(where: { !$0.isOver && (named == nil || $0.id == named) })
         {
-            return .succeeded(.agent(AgentChangeResult(action: "start", state: .started, agent: agent)))
+            return .succeeded(.agent(AgentChangeResult(action: "start", state: .started, agent: agent.id)))
         }
         return .failed(
             ActionFailure(
