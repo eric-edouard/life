@@ -17,6 +17,7 @@ const BARE_IMPORTANCE = /importance\s*(?:[<>=!]=?=?)\s*\d|importance,\s*\d\)/;
 const DIRECT_CLOCK = /Date\.now\(\)|new Date\(\)/;
 const UTC_DAY = /toISOString\(\)\.slice\(0, ?10\)/;
 const LINE_BREAK = /\r?\n/;
+const DESK_IMPORT = /from "[^"]*\/desk\//;
 // Files over Biome's 800 lines (off for them in biome.json), each at its line count: 8 Nov 2026 debt audit (search.ts reached 1592 lines).
 const CAPS: Record<string, number> = {
   "apps/lifelog/apps/server/src/grouping.ts": 832,
@@ -184,6 +185,18 @@ test("a file over 800 lines never grows: its cap in CAPS is its length, lowered 
     JSON.stringify(o.linter).includes('"noExcessiveLinesPerFile":"off"')
   );
   expect(off?.includes).toEqual(Object.keys(CAPS).toSorted());
+});
+
+// The desk is the top layer (AGENTS.md): nothing of Life imports it, so the night, the watcher and the connector run the
+// same with it stopped (the desk spec's W19). Fallow's zones cover the server; this covers the scripts too.
+test("nothing outside the desk imports it", () => {
+  expect(
+    repoFiles(LIFE_CODE_DIR, ["apps/server/src", "scripts"], [".ts"]).filter(
+      (f) =>
+        !f.startsWith("apps/server/src/desk/") &&
+        DESK_IMPORT.test(readFileSync(join(LIFE_CODE_DIR, f), "utf8"))
+    )
+  ).toEqual([]);
 });
 
 test("no two of the server's files share a name, a capability's contract.ts and backend.ts aside", () => {

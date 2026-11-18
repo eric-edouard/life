@@ -13,6 +13,8 @@ export const OUTPUTS = {
   backup: { label: "Backup", on: () => Boolean(settings().backup) },
   /** The connector and its OAuth issuer (`server.ts`). */
   connector: { label: "Connector", on: () => Boolean(settings().connector) },
+  /** The desk, which starts and wakes his registered agents (`apps/server/src/desk/`). */
+  desk: { label: "Desk", on: () => Boolean(settings().desk) },
   /** The episodes on a calendar: Google's through `gog` with an account, else an Apple one through the app's EventKit tool (`host/past-calendar.ts`). */
   pastCalendar: {
     label: "Past calendar",

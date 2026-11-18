@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 import { daysBefore } from "../core/clock";
 import { log } from "../core/log";
 import { Engine } from "../core/names";
-import { off } from "../core/outputs";
+import { isOn, off } from "../core/outputs";
 import { writeSecret } from "../core/secret";
 import {
   agentNames,
@@ -81,6 +81,8 @@ const commands: Record<string, () => number | Promise<number>> = {
       : [];
     console.log(
       JSON.stringify({
+        /** Whether the desk is on: the app starts its helper (`desk`) only then. */
+        desk: isOn("desk"),
         engineKeys: engineKeys(),
         lastReport: reports[0] ?? null,
         reminders: await (async () => {
@@ -400,36 +402,43 @@ const commands: Record<string, () => number | Promise<number>> = {
   watch,
 };
 
-const name = process.argv[2] ?? "";
-const command = commands[name];
-if (!command) {
-  console.error(`usage: bun life <${Object.keys(commands).join("|")}>`);
-  process.exit(2);
-}
-/** A crash of any command, thrown or a promise nobody awaited, is a run error the triage reads, not only stderr.
- * A flag the command doesn't know is a usage mistake, not a crash. */
-const crashed = (e: unknown) => {
-  if (
-    e instanceof Error &&
-    String((e as { code?: unknown }).code).startsWith("ERR_PARSE_ARGS_")
-  ) {
-    console.error(String(e));
+/**
+ * Runs the command `argv[2]`: host's commands, and `more` from the layer above (the desk's, `desk/life-entry.ts`, the
+ * one entry: host never imports the desk).
+ */
+export async function main(more: typeof commands = {}) {
+  const all = { ...commands, ...more };
+  const name = process.argv[2] ?? "";
+  const command = all[name];
+  if (!command) {
+    console.error(`usage: bun life <${Object.keys(all).join("|")}>`);
     process.exit(2);
   }
-  console.error(e);
-  log("run.error", {
-    command: process.argv[2],
-    error: String(e),
-    step: "crash",
-  });
-  process.exit(1);
-};
-process.on("uncaughtException", crashed);
-process.on("unhandledRejection", crashed);
-try {
-  // The settings' core switches gone, before the command reads any (host/migrate.ts).
-  migrateSettings();
-  process.exit(await command());
-} catch (e) {
-  crashed(e);
+  /** A crash of any command, thrown or a promise nobody awaited, is a run error the triage reads, not only stderr.
+   * A flag the command doesn't know is a usage mistake, not a crash. */
+  const crashed = (e: unknown) => {
+    if (
+      e instanceof Error &&
+      String((e as { code?: unknown }).code).startsWith("ERR_PARSE_ARGS_")
+    ) {
+      console.error(String(e));
+      process.exit(2);
+    }
+    console.error(e);
+    log("run.error", {
+      command: process.argv[2],
+      error: String(e),
+      step: "crash",
+    });
+    process.exit(1);
+  };
+  process.on("uncaughtException", crashed);
+  process.on("unhandledRejection", crashed);
+  try {
+    // The settings' core switches gone, before the command reads any (host/migrate.ts).
+    migrateSettings();
+    process.exit(await command());
+  } catch (e) {
+    crashed(e);
+  }
 }
