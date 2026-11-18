@@ -7,7 +7,7 @@ import {
 } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
-import { meant, readPeople } from "./who";
+import { meant, type People, readPeople } from "./who";
 import { dayNow } from "./zones";
 
 // The connector's reads of matters (`read_matters`, `read_matter`): the matters as `matterOf` reads them now, as data
@@ -24,8 +24,8 @@ const ROLES: readonly Role[] = ["owedTo", "told", "waitingOn", "with"];
 
 /**
  * A matter as the readers give it (`read_matters`, `read_matter`; data, the same for his app and the models): where it
- * stands, its goal (`by`: Life's draft or his word) and next step as they read now, its people by role, areas, projects
- * and the instant of its last step. A field with nothing in it is left out: a list of matters stays small for a model.
+ * stands, its goal (`by`: Life's draft or his word) and next step as they read now, its people by role, areas and
+ * projects (by name: the filters `read_matters` takes), and the instant of its last step. A field with nothing in it is left out: a list of matters stays small for a model.
  */
 export interface MatterRow {
   areas?: string[];
@@ -50,9 +50,13 @@ const openDecisions = () => decisionsNow().filter((d) => d.state === "open");
 /** `list`, or nothing when it is empty. */
 const some = <T>(list: T[]) => (list.length > 0 ? list : undefined);
 
+/** An area's or a project's name by its id, from his directory (the id when it names none). */
+const nameIn = (list: { id: string; name: string }[], id: string) =>
+  list.find((x) => x.id === id)?.name ?? id;
+
 function rowOf(
   v: MatterView,
-  nameOf: (ref: string) => string,
+  { nameOf, truth }: Pick<People, "nameOf" | "truth">,
   decisions: ReturnType<typeof openDecisions>
 ): MatterRow {
   const next = nextStepNow(v, decisions);
@@ -62,7 +66,7 @@ function rowOf(
     )
   );
   return {
-    areas: some(v.areas),
+    areas: some(v.areas.map((id) => nameIn(truth.areas, id))),
     goal: v.goal && { by: v.goal.by, text: v.goal.text },
     id: v.id,
     lastStepAt: v.steps.at(-1)?.at,
@@ -78,7 +82,7 @@ function rowOf(
       waitsOn: next.waitsOn,
     },
     people: Object.keys(people).length > 0 ? people : undefined,
-    projects: some(v.projects),
+    projects: some(v.projects.map((id) => nameIn(truth.projects, id))),
     status: v.status,
   };
 }
@@ -128,7 +132,7 @@ export async function openMatters(
       today,
       rankContextOf(people)
     ).map((v) => ({
-      ...rowOf(v, people.nameOf, decisions),
+      ...rowOf(v, people, decisions),
       agent: agentOf(refsOf(v)),
     })),
   };
@@ -148,7 +152,7 @@ export async function oneMatter<A>(
   const v = matterOfSteps(await readMatterBook(people, dayNow()), refs);
   return (
     v && {
-      ...rowOf(v, people.nameOf, openDecisions()),
+      ...rowOf(v, people, openDecisions()),
       agents: agentsOf(refsOf(v)),
       steps: v.steps.map((s) =>
         s.with ? { ...s, with: people.nameOf(s.with) } : s
