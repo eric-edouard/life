@@ -525,6 +525,22 @@ export const isDirectionDue = (
   latest: DirectionPin | undefined
 ) => !v.lone && isRunning(v) && (!(latest && v.goal) || isNewerThan(v, latest));
 
+/** How many of a matter's newest steps its net compares with. */
+const NET_STEPS = 8;
+
+/**
+ * A matter's net (the desk's wide net, `desk/matter-net.ts`): who it is with in any role, and the texts a new message
+ * or recording is compared with in meaning: its name and goal, its next step, its newest steps' words. Pure.
+ */
+export const netOf = (v: MatterView) => ({
+  people: new Set([...v.owedTo, ...v.waitingOn, ...v.with, ...v.told]),
+  texts: [
+    v.goal ? `${v.name}: ${v.goal.text}` : v.name,
+    ...(v.nextStep ? [v.nextStep.text] : []),
+    ...v.steps.slice(-NET_STEPS).map((s) => s.text),
+  ],
+});
+
 /**
  * `v`'s next step as it reads now: waiting on his decision while one he has not answered is about one of its steps
  * (`wait_decision`, never stored), else its `nextStep`. Pure.
