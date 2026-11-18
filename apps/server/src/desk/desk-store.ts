@@ -152,7 +152,7 @@ export const agentOf = (db: Database, id: string) =>
 export const lastTurns = (db: Database, id: string, n = 4) =>
   db
     .query<TurnRow, [string, number]>(
-      "select * from turn where agent_id = ? and outcome is not 'his_own' order by id desc limit ?"
+      "select * from turn where agent_id = ? order by id desc limit ?"
     )
     .all(id, n);
 

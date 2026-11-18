@@ -28,3 +28,5 @@ export const text = (
 export const PUBLIC_PORT = 46_200;
 /** The app's status reads alone, by its local key: no tunnel ever points here. */
 export const LOCAL_PORT = 46_201;
+/** The desk's door (`desk/desk-door.ts`): its registered agents' MCP, on loopback only, one key per agent. */
+export const DOOR_PORT = 46_202;

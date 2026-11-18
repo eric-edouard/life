@@ -41,18 +41,26 @@ export async function exec(
 }
 
 /**
- * Starts `cmd` in its own process group with `cliEnv` (none of Life's secrets) and leaves it: Life never waits for it,
- * reads it or stops it, so how it ends is its own. A command that cannot start is logged, never thrown.
+ * Starts `cmd` in its own process group with `cliEnv` (none of Life's secrets) plus `o.env`, in `o.cwd`, and leaves it
+ * running past this process: Life never reads or stops it. Its exit code when it ends, -1 when it could not start
+ * (logged, never thrown); a caller that only starts it ignores that.
  */
-export function startDetached(cmd: string[]) {
+export function startDetached(
+  cmd: string[],
+  o: { cwd?: string; env?: Record<string, string> } = {}
+) {
   try {
-    Bun.spawn(cmd, {
+    const proc = Bun.spawn(cmd, {
+      cwd: o.cwd,
       detached: true,
-      env: cliEnv(),
+      env: { ...cliEnv(), ...o.env },
       stdio: ["ignore", "ignore", "ignore"],
-    }).unref();
+    });
+    proc.unref();
+    return proc.exited;
   } catch (e) {
     console.error(`${cmd[0]} did not start: ${(e as Error).message}`);
+    return Promise.resolve(-1);
   }
 }
 

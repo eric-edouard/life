@@ -143,13 +143,16 @@ export const isOnMatter = (subject?: string): subject is string =>
 export async function requestDecision(
   asker: string,
   // Partial: an agent's arguments arrive unchecked; `Ask` checks them here.
-  request: Partial<z.input<typeof Ask>> | { why: string; withdraw: string },
+  request:
+    | Partial<z.input<typeof Ask>>
+    | { agent?: string; why: string; withdraw: string },
   now = clock()
 ): Promise<{ id: string }> {
   const at = now.toISOString();
   if ("withdraw" in request) {
     const d = readOpenDecision(request.withdraw, now);
-    if (d.asker !== asker) {
+    // Every registered agent asks as `desk`: its own `agent` tells them apart.
+    if (d.asker !== asker || d.agent !== request.agent) {
       throw new Error(`Not done: ${d.id} was asked by another agent.`);
     }
     appendJsonl(DECISIONS, Withdrawn, [
@@ -174,6 +177,15 @@ export async function requestDecision(
       "the deadline must be 1 hour to 14 days ahead");
   if (problem) {
     throw new Error(`Not done: ${problem}.`);
+  }
+  // A registered agent asks him one thing at a time (an inbox rule, not a limit on its work).
+  const open = ask.agent
+    ? decisionsNow(now).find((d) => d.agent === ask.agent && d.state === "open")
+    : undefined;
+  if (open) {
+    throw new Error(
+      `Not done: ${ask.agent} already asks ${open.id}; withdraw it or wait for his answer.`
+    );
   }
   // A step no open matter holds would never be listed: refused, so no question goes unseen.
   if (
