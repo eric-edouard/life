@@ -63,8 +63,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   day's photo lines: times, Apple's place and address, coordinates to 10 m, scene words, the words Apple found in the
   photos, the names Apple's People gives, his captions and, with `describePhotos` on, Life's own one-paragraph description of each
   photo; never an image, a face or a face print.
-- To a registered agent's runtime (his Claude subscription): its brief and packet (his words, its notes, the facts of
-  its queued events, its open decision) (his yes to the desk, 18 Nov 2026).
+- To a registered agent's runtime (his Claude subscription, or his Codex subscription: OpenAI): its brief and packet
+  (his words, its notes, the facts of its queued events, its open decision) (his yes to the desk, 18 Nov 2026; his
+  yes to Codex as a runtime, 18 Nov 2026).
 - To an assistant he connected, and to his agents: what they read through the connector or on the Mac. The question
   cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex
   subscription (his word, 10 Nov 2026).

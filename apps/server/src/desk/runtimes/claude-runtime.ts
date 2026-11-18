@@ -4,7 +4,13 @@ import { join } from "node:path";
 import { log } from "../../core/log";
 import { HOME, WINDOWS } from "../../core/platform";
 import { exec, startDetached } from "../../core/proc";
-import type { Agent, Run, Runtime, Usage } from "./contract";
+import {
+  type Agent,
+  blockOf,
+  type Run,
+  type Runtime,
+  type Usage,
+} from "./contract";
 
 // The `claude` runtime: Claude Code's CLI, one `claude -p` process per turn (the desk spec, 5.3; its runtime proofs,
 // 18 Nov 2026). The session id is the desk's, chosen before the start, so the ref is known at once; a turn ends when
@@ -231,12 +237,7 @@ export function usageOf(lines: string): Usage | null {
 }
 
 export const claudeRuntime: Runtime = {
-  async block() {
-    const r = await exec(["claude", "--version"], { timeout: 5000 });
-    return r.code === 0
-      ? undefined
-      : `claude --version failed: ${r.stderr.slice(-200) || r.code}`;
-  },
+  block: () => blockOf("claude"),
   async send(a, ref, message) {
     // A turn running beside his would branch the conversation.
     if ((await claudeRuntime.state(ref)) === "running") {

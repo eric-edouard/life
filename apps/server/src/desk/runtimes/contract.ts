@@ -2,6 +2,8 @@
 // `dsh`; one file each). Each turn is one run the runtime starts; its end is that run's end (`ended`), which the desk's
 // clock takes as the turn's end (`turnEnded`, `desk-clock.ts`).
 
+import { exec } from "../../core/proc";
+
 /** A turn the runtime launched: `begun` settles when it is under way (rejects with why when it ended first), `ended` when it ends, `ok` false when it failed. */
 export interface Run {
   begun: Promise<void>;
@@ -41,4 +43,12 @@ export interface Runtime {
   state: (ref: string) => Promise<"running" | "idle" | "gone">;
   /** The session's usage, or null when it can't say (a wake then sends into it). */
   usage: (ref: string) => Promise<Usage | null>;
+}
+
+/** `Runtime.block` for a CLI: why `<program> --version` fails, none when it answers. */
+export async function blockOf(program: string) {
+  const r = await exec([program, "--version"], { timeout: 5000 });
+  return r.code === 0
+    ? undefined
+    : `${program} --version failed: ${r.stderr.slice(-200) || r.code}`;
 }

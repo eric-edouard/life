@@ -8,13 +8,17 @@ import { tick } from "./desk-clock";
 import { openDoor } from "./desk-door";
 import { type Desk, openDesk, postReportLine } from "./desk-store";
 import { claudeRuntime } from "./runtimes/claude-runtime";
+import { codexRuntime } from "./runtimes/codex-runtime";
 import type { Runtime } from "./runtimes/contract";
 
 // The desk's helper, `life desk`: its own process (Life.app's supervisor keeps it while `desk` is set), its own lock in
 // `MACHINE_DIR`, its own store and its door; never the memory lock. Off, it returns before any of them.
 
 /** The runtimes the desk drives, by name. */
-const RUNTIMES: Record<RuntimeName, Runtime> = { claude: claudeRuntime };
+const RUNTIMES: Record<RuntimeName, Runtime> = {
+  claude: claudeRuntime,
+  codex: codexRuntime,
+};
 /** The clock ticks every 5 s (his answer starts a turn within 15 s); the messages are polled every 6th tick, 30 s. */
 const TICK_MS = 5000;
 const POLL_EVERY = 6;

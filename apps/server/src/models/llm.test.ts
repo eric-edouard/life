@@ -419,6 +419,7 @@ test("only llm.ts and the desk's runtimes start the model CLIs", async () => {
     )
   ).toEqual([
     "apps/server/src/desk/runtimes/claude-runtime.ts",
+    "apps/server/src/desk/runtimes/codex-runtime.ts",
     "apps/server/src/models/llm.ts",
   ]);
 });
