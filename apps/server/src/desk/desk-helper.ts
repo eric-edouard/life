@@ -1,13 +1,12 @@
-import { existsSync } from "node:fs";
-import { isAbsolute } from "node:path";
 import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { hold } from "../core/lock";
+import type { RuntimeName } from "../core/names";
 import { off } from "../core/outputs";
-import { register } from "./agent-actions";
+import { dayNow } from "../memory/zones";
 import { tick } from "./desk-clock";
 import { openDoor } from "./desk-door";
-import { type Desk, openDesk } from "./desk-store";
+import { type Desk, openDesk, postReportLine } from "./desk-store";
 import { claudeRuntime } from "./runtimes/claude-runtime";
 import type { Runtime } from "./runtimes/contract";
 
@@ -15,27 +14,26 @@ import type { Runtime } from "./runtimes/contract";
 // `MACHINE_DIR`, its own store and its door; never the memory lock. Off, it returns before any of them.
 
 /** The runtimes the desk drives, by name. */
-const RUNTIMES: Record<string, Runtime> = { claude: claudeRuntime };
+const RUNTIMES: Record<RuntimeName, Runtime> = { claude: claudeRuntime };
 /** The clock ticks every 5 s (his answer starts a turn within 15 s); the messages are polled every 6th tick, 30 s. */
 const TICK_MS = 5000;
 const POLL_EVERY = 6;
 /** A tick past this has hung: the helper exits, and the supervisor starts it again. */
 const HUNG_AFTER = 5 * MIN;
 
-/** What `life desk register` takes: his words as the brief, the folder its sessions start in, its runtime. */
-const Registration = z
+/** What `life desk report-line` takes: who posts it (a scheduled task, a session), the line, its link, its day (today by default). */
+const ReportLinePosted = z
   .object({
-    brief: z.string().min(1),
-    folder: z.string().refine((f) => isAbsolute(f) && existsSync(f), {
-      message: "an absolute folder that exists",
-    }),
-    runtime: z.enum(Object.keys(RUNTIMES) as [string, ...string[]]),
+    day: z.iso.date().optional(),
+    line: z.string().min(1).max(300),
+    link: z.string().min(1).optional(),
+    source: z.string().min(1).max(60),
   })
   .strict();
 
 /**
- * `life desk`: the helper, kept running by the app; `life desk register '<json>'` registers an agent (its first turn
- * starts within a tick). ponytail: register is the developer's door until step 4's `change_registered_agent`.
+ * `life desk`: the helper, kept running by the app; `life desk report-line '<json>'` posts a line for the nightly
+ * report's Agents section (one per source per day: a second replaces it).
  */
 export async function desk() {
   const why = off("desk");
@@ -44,9 +42,9 @@ export async function desk() {
     return 0;
   }
   const [verb, json] = process.argv.slice(3);
-  if (verb === "register") {
-    const r = Registration.parse(JSON.parse(json ?? ""));
-    console.log(register({ db: openDesk(), runtimes: RUNTIMES }, r));
+  if (verb === "report-line") {
+    const r = ReportLinePosted.parse(JSON.parse(json ?? ""));
+    postReportLine(openDesk(), { ...r, day: r.day ?? dayNow() });
     return 0;
   }
   await hold("desk");

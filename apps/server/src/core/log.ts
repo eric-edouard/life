@@ -16,6 +16,7 @@ export const LOG_DIR = join(LIFE_STATE_DIR, "log");
 
 type LogKind =
   | "calendar.write"
+  | "desk.change"
   | "desk.runtime"
   | "email.sent"
   | "file.read"

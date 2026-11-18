@@ -45,3 +45,32 @@ export type AgentStatus = "active" | "stopped" | "handed_over" | "ended";
 
 /** How an agent turn ended: it set a wait or finished, the desk set the default wait, or it failed (its process failed, or ended unheard). */
 export type TurnOutcome = "waited" | "finished" | "default_wait" | "failed";
+
+/**
+ * His word about a registered agent (`change_registered_agent`), as stored in his ask for the desk (`after.agentChange`):
+ * start one on a subject (exactly one of a matter's `steps`, its anchors, or a `project`), stop, resume, re-point,
+ * change its model, or hand it over. The desk applies it once (`desk/agent-changes.ts`).
+ */
+export const AgentChange = z
+  .object({
+    action: z.enum([
+      "start",
+      "stop",
+      "resume",
+      "re_point",
+      "change_model",
+      "hand_over",
+    ]),
+    agent: z
+      .string()
+      .regex(/^agt_[0-9a-f]+$/)
+      .optional(),
+    effort: z.string().min(1).optional(),
+    folder: z.string().min(1).optional(),
+    model: z.string().min(1).optional(),
+    project: z.string().min(1).optional(),
+    runtime: z.string().min(1).optional(),
+    steps: z.array(z.string().min(1)).min(1).optional(),
+  })
+  .strict();
+export type AgentChange = z.infer<typeof AgentChange>;

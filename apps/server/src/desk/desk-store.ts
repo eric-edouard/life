@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { clock } from "../core/clock";
 import { DESK_STORE } from "../core/paths";
 import type { Messaging } from "../host/events";
 import type { AgentWait } from "../records/registered-agent";
@@ -130,4 +131,14 @@ export const writeWait = (
   db.run(
     "update agent set wait_events = ?, wait_until = ?, wait_reason = ?, wait_is_default = ? where id = ?",
     [JSON.stringify(w.events), w.until, w.reason, isDefault ? 1 : 0, id]
+  );
+
+/** Posts a line for the report (`life desk report-line`): one per source per day, a second that day replacing it. */
+export const postReportLine = (
+  db: Database,
+  r: { day: string; line: string; link?: string; source: string }
+) =>
+  db.run(
+    "insert into report_line (source, day, line, link, posted_at) values (?, ?, ?, ?, ?) on conflict (source, day) do update set line = excluded.line, link = excluded.link, posted_at = excluded.posted_at",
+    [r.source, r.day, r.line, r.link ?? null, clock().toISOString()]
   );

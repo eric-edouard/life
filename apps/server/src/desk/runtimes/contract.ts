@@ -15,11 +15,14 @@ export interface Usage {
   tokensOut: number;
 }
 
-/** What the desk gives a session it starts: the agent, where it runs, and its door (its MCP address; the key is the runtime's env). */
+/** What the desk gives a session it starts or wakes: the agent, where it runs, its model, and its door (its MCP address; the key is the runtime's env). */
 export interface Agent {
   door: { key: string; url: string };
+  /** Its effort and model (`modelOf`): null leaves the runtime's own default. */
+  effort: string | null;
   folder: string;
   id: string;
+  model: string | null;
   title: string;
 }
 

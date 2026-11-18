@@ -8,8 +8,8 @@ import type { Agent, Run, Runtime, Usage } from "./contract";
 
 // The `claude` runtime: Claude Code's CLI, one `claude -p` process per turn (the desk spec, 5.3; its runtime proofs,
 // 18 Nov 2026). The session id is the desk's, chosen before the start, so the ref is known at once; a turn ends when
-// its process does. The door reaches the session by `--mcp-config`, its key only through the environment. No model or
-// permission flag: a session runs as he has Claude Code set up. Nothing is kept here: running is a process holding the
+// its process does. The door reaches the session by `--mcp-config`, its key only through the environment. Its model and
+// effort when the agent has them (`--model`, `--effort`); no permission flag: a session runs as he has Claude Code set up. Nothing is kept here: running is a process holding the
 // id, idle a transcript on disk.
 
 const PROJECTS = join(HOME, ".claude", "projects");
@@ -25,6 +25,8 @@ export const argsOf = (
   ...("start" in session
     ? ["--session-id", session.start, "-n", a.title]
     : ["--resume", session.resume]),
+  ...(a.model ? ["--model", a.model] : []),
+  ...(a.effort ? ["--effort", a.effort] : []),
   "--mcp-config",
   JSON.stringify({
     mcpServers: {

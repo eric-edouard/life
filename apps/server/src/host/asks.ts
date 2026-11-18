@@ -10,9 +10,11 @@ import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import { notifyPhone } from "../sources/lifelog";
 import { entryId } from "./change-todo-item";
 
-// His asks of his agents: each "hey <agent>" (`hear.ts`) or `bun life ask` is one `ask` line in memory/ledger.jsonl,
-// and the agent pulls its own (`read_agent_asks`) and keeps its own list. Life keeps no state of an ask past that line
-// (his word, 2 Nov 2026); the agents' updates and replies before it stay as history (`TASK_LINES`).
+// His asks of his agents: each "hey <agent>" (`hear.ts`), `bun life ask` or his word about a registered agent
+// (`change_registered_agent`, an ask of the built-in agent `desk`, `DESK_AGENT`) is one `ask` line in memory/ledger.jsonl,
+// and the agent pulls its own (`read_agent_asks`; the desk, `desk/agent-changes.ts`) and keeps its own list. The rest of
+// Life keeps no state of an ask past that line (his word, 2 Nov 2026); the agents' updates and replies before it stay as
+// history (`TASK_LINES`).
 
 /**
  * Records one ask: his words, where they are (`ref`: the wake turn, the session) and `after` (`agent`, `confidence`;
@@ -21,7 +23,7 @@ import { entryId } from "./change-todo-item";
 export function ask(
   instruction: Instruction,
   after: LedgerEntry["after"] & { agent: string },
-  via: "session" | "watch",
+  via: "connector" | "session" | "watch",
   why: string,
   now = clock().getTime(),
   timing?: LedgerEntry["timing"]
@@ -70,6 +72,7 @@ export function asksFor(agent: string, cursor?: string, limit = PAGE) {
       const a = parseLedgerEntry(line);
       return a?.kind === "ask" && a.instruction && a.after.agent === agent
         ? {
+            agentChange: a.after.agentChange,
             at: a.at,
             confidence: a.after.confidence,
             id: a.id,
