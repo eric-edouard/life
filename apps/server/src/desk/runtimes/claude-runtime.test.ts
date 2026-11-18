@@ -115,5 +115,8 @@ test("a session held by an idle process is not running: only an open last turn i
     )
   ).toBe(true);
   expect(isTurnOpen(transcript(prompt, said(null)))).toBe(true);
+  expect(
+    isTurnOpen(`${transcript(prompt, said("end_turn"))}\n{"type":"us`)
+  ).toBe(true);
   expect(isTurnOpen("")).toBe(false);
 });

@@ -126,12 +126,18 @@ const isInterrupt = (e: Entry) =>
 
 /**
  * Whether a transcript's last turn is still open: its last message is not a finished answer (an assistant message that
- * stopped for a reason other than a tool call) nor his interrupt. A message with no stop reason yet counts as open.
+ * stopped for a reason other than a tool call) nor his interrupt. A message with no stop reason yet, or a line still
+ * being written, counts as open.
  */
 export function isTurnOpen(lines: string) {
-  const last = entriesOf(lines).findLast(
-    (e) => e.type === "user" || e.type === "assistant"
-  );
+  let last: Entry | undefined;
+  try {
+    last = entriesOf(lines).findLast(
+      (e) => e.type === "user" || e.type === "assistant"
+    );
+  } catch {
+    return true;
+  }
   const stop = last?.message?.stop_reason;
   const isAnswer = last?.type === "assistant" && !!stop && stop !== "tool_use";
   return !!last && !(isAnswer || isInterrupt(last));
