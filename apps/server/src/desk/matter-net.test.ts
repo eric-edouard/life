@@ -39,7 +39,7 @@ const matter = {
   goal: {
     at: "2026-11-17T02:00:00.000Z",
     by: "life",
-    text: "Alice has her beads",
+    text: "Ana has her beads",
   },
   id: "matter_00000000e001",
   name: "Bead order",
@@ -49,7 +49,7 @@ const matter = {
     kind: "do",
     text: "Ask the shop for the pickup day of the beads",
   },
-  owedTo: ["person:alice"],
+  owedTo: ["person:ana"],
   steps: [
     {
       day: "2026-11-16",
@@ -124,7 +124,7 @@ async function mocked() {
     spyOn(matters, "readMatterBook").mockResolvedValue([matter] as never),
     spyOn(who, "readPeople").mockResolvedValue({
       refOf: (s: string) => (s.startsWith("person:") ? s : null),
-      resolve: (s: string) => (s === "Test Alice" ? "person:alice" : null),
+      resolve: (s: string) => (s === "Test Ana" ? "person:ana" : null),
       truth: { people: [] },
     } as never)
   );
@@ -133,24 +133,24 @@ async function mocked() {
 test("a matter's agent is woken by its people's messages and by messages close to it in meaning, nothing else; its wait's own match is not doubled", async () => {
   await mocked();
   const { agent, desk, write } = setup();
-  // Its own wait also wants Alice's chat: her message is queued once, as the wait's.
+  // Its own wait also wants Ana's chat: her message is queued once, as the wait's.
   desk.db.run("update agent set wait_events = ? where id = ?", [
-    JSON.stringify([{ chat: "Test Alice", from_me: false }]),
+    JSON.stringify([{ chat: "Test Ana", from_me: false }]),
     agent,
   ]);
   await pollMessages(desk); // the cursor starts now
-  const fromAlice = write("Test Alice", "ok");
+  const fromAna = write("Test Ana", "ok");
   const close = write("Test Shop", "The beads are ready for pickup on Friday");
   write("Test Bob", "Dinner tonight? The plumber came by");
   write("Test Bob", "bead");
   await pollMessages(desk);
   const events = queuedEvents(desk.db, agent);
   expect(events.map((e) => [e.name, e.event_id])).toEqual([
-    ["message.received", fromAlice],
+    ["message.received", fromAna],
     ["matter.related", close],
   ]);
   expect(JSON.parse(events[0]?.payload ?? "")).toMatchObject({
-    person: "person:alice",
+    person: "person:ana",
   });
   expect(JSON.parse(events[1]?.payload ?? "")).toMatchObject({
     why: "meaning",
@@ -164,11 +164,11 @@ test("with no embedder, people still wake it", async () => {
   await mocked();
   const { agent, desk, write } = setup(null);
   await pollMessages(desk);
-  const fromAlice = write("Test Alice", "ok");
+  const fromAna = write("Test Ana", "ok");
   write("Test Shop", "The beads are ready for pickup on Friday");
   await pollMessages(desk);
   expect(queuedEvents(desk.db, agent).map((e) => e.event_id)).toEqual([
-    fromAlice,
+    fromAna,
   ]);
 });
 
@@ -234,7 +234,7 @@ test("his pendant's new words close to the matter wake it once, read from where 
   expect(calls.length).toBe(n);
   // His words read wrong (lifelog down): read again on the next poll.
   held = unit(at(12));
-  said = [...said, line(at(12), "the beads, the pickup", "person:alice")];
+  said = [...said, line(at(12), "the beads, the pickup", "person:ana")];
   spoken.mockRejectedValueOnce(new Error("down"));
   await pollRecordings(desk);
   expect(queuedEvents(desk.db, agent)).toHaveLength(1);
