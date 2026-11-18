@@ -216,9 +216,10 @@ test("Life's card pushes: one card names its id, quiet is passive with no sound,
       method: "POST",
     });
   const last = () => JSON.parse(sent.at(-1)?.request.body ?? "");
-  const card = "9f2c41d07ab35e68";
+  const pushId = "9f2c41d07ab35e68";
   expect(
-    (await post({ badge: 42, body: "1 new card", card, title: "Life" })).status
+    (await post({ badge: 42, body: "1 new card", pushId, title: "Life" }))
+      .status
   ).toBe(200);
   expect(last()).toEqual({
     aps: {
@@ -228,7 +229,7 @@ test("Life's card pushes: one card names its id, quiet is passive with no sound,
       sound: "default",
       "thread-id": "life-cards",
     },
-    lifeCard: card,
+    pushId,
   });
   await post({ badge: 48, body: "7 new cards", quiet: true, title: "Life" });
   expect(last()).toEqual({
@@ -254,7 +255,7 @@ test("Life's card pushes: one card names its id, quiet is passive with no sound,
       { body: "x" },
       { quiet: true },
       { badge: -1 },
-      { badge: 1, card: "Kit's card" },
+      { badge: 1, pushId: "Kit's card" },
     ].map(async (bad) => (await post(bad)).status)
   );
   expect(refused).toEqual([400, 400, 400, 400, 400]);

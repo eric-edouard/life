@@ -90,11 +90,18 @@ const outgoingOf = (d: StoredDraft, bytes?: Uint8Array): Outgoing => ({
  */
 export const sendStepsOf = (draft: StoredDraft, sources = enabledSources()) => [
   ...(isChat(sources.find((x) => x.name === draft.channel))
-    ? ["chat_checked"]
+    ? [STEP.chatChecked]
     : []),
-  "handed",
-  "confirmed",
+  STEP.handed,
+  STEP.confirmed,
 ];
+
+/** The names of a send's steps, as `onStep` hears them and the progress plan lists them: written here only. */
+const STEP = {
+  chatChecked: "chat_checked",
+  confirmed: "confirmed",
+  handed: "handed",
+} as const;
 
 /** Whether a send goes into a chat (checked for writing since), not a mail: the one test the steps and the check share. */
 const isChat = (s?: Descriptor): s is Descriptor & { kind: "chat" } =>
@@ -283,10 +290,10 @@ export async function sendDraft(
         `not sent: someone wrote in ${draft.to} since this card was asked`
       );
     }
-    onStep?.("chat_checked");
+    onStep?.(STEP.chatChecked);
   }
-  const id = await s.send.send(outgoing, txn, () => onStep?.("handed"));
-  onStep?.("confirmed", { eventId: id });
+  const id = await s.send.send(outgoing, txn, () => onStep?.(STEP.handed));
+  onStep?.(STEP.confirmed, { eventId: id });
   return id;
 }
 

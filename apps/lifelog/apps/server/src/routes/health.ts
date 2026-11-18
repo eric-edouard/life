@@ -2,7 +2,7 @@
 // the status the owner's sessions read.
 import { createRoute, z } from "@hono/zod-openapi";
 import { diagnosticKinds } from "@lifelog/db/schema";
-import { storePushToken } from "../apns";
+import { NoticeRequest, storePushToken } from "../apns";
 import {
   Diagnostic,
   DiagnosticUpload,
@@ -62,9 +62,6 @@ const Status = LiveStatus.extend({
   problemsLast24h: z.unknown().describe("Crashes and errors, by kind"),
   transcription: z.unknown().describe("ElevenLabs' credits and latency"),
 }).openapi("Status");
-
-/** A Life card's opaque push id. */
-const PUSH_ID = /^[0-9a-f]{16}$/;
 
 export function healthRoutes(
   s: Pick<
@@ -139,7 +136,7 @@ export function healthRoutes(
         description:
           "A push to the phone that another app of the owner's asks for (Life: each voice ask it heard, " +
           "so a missing one tells him at once it was not; its new cards: a count, a badge and one card's " +
-          "opaque id, `card`, 16 hex). Words (`title` and `body` together) and/or a `badge`; `quiet` is " +
+          "opaque id, `pushId`, 16 hex). Words (`title` and `body` together) and/or a `badge`; `quiet` is " +
           "passive, with no sound. Sent once, recorded as an " +
           "`apns.*` event of kind `notice`; `stored` is true even when no push token or key is set.",
         method: "post",
@@ -148,26 +145,7 @@ export function healthRoutes(
           body: {
             content: {
               "application/json": {
-                schema: z
-                  .object({
-                    badge: z.number().int().min(0).optional(),
-                    body: z.string().min(1).max(500).optional(),
-                    card: z.string().regex(PUSH_ID).optional(),
-                    quiet: z.boolean().optional(),
-                    title: z.string().min(1).max(100).optional(),
-                  })
-                  .refine(
-                    (n) => (n.title === undefined) === (n.body === undefined),
-                    {
-                      message: "title and body come together",
-                    }
-                  )
-                  .refine(
-                    (n) => n.title !== undefined || n.badge !== undefined,
-                    {
-                      message: "an alert (title and body) or a badge",
-                    }
-                  ),
+                schema: NoticeRequest,
               },
             },
             required: true,

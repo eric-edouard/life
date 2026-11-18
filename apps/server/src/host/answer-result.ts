@@ -8,7 +8,6 @@ import {
   notSentOf,
   sendsOn,
 } from "../memory/decisions";
-import type { StoredDraft } from "../memory/draft";
 import { sendLimitMs, sendStepsOf } from "../memory/draft-send";
 import { eventHeard, readDesk } from "./desk-read";
 import type { ToolCall } from "./http/mcp-tool";
@@ -192,7 +191,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     plan: known
       ? [
           "recorded",
-          ...(sends ? sendStepsOf(known.draft as StoredDraft) : []),
+          ...(sends && known.draft ? sendStepsOf(known.draft) : []),
           "asker_told",
           "left_inbox",
         ]

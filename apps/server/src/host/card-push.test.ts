@@ -5,7 +5,11 @@ import { clock, DAY } from "../core/clock";
 import * as checks from "../memory/checks";
 import { DECISIONS, requestDecision } from "../memory/decisions";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as memoryLock from "../memory/memory-lock";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lifelog from "../sources/lifelog-push";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as voices from "../sources/lifelog-voices";
 import { PUSHED, pushNewCards, pushNewCardsIfChanged } from "./card-push";
 
 const card = (n: number, asker = "planner") =>
@@ -51,7 +55,7 @@ test("the first run pushes nothing and sees every open card; a new one pushes wi
       {
         badge: 266,
         body: "1 new card",
-        card: card(266).pushId,
+        pushId: card(266).pushId,
         quiet: false,
         title: "Life",
       },
@@ -89,7 +93,7 @@ test("a card gone for 31 days is new when it returns", async () => {
   await pushNewCards(later(32));
   expect(push.mock.calls.at(-1)?.[0]).toMatchObject({
     body: "1 new card",
-    card: card(2).pushId,
+    pushId: card(2).pushId,
   });
 });
 
@@ -104,11 +108,8 @@ test("what goes out holds no ref, title or question", async () => {
   }
 });
 
-test("the watcher looks again only when the decisions, corrections or answers gained a line", async () => {
-  await pushNewCardsIfChanged();
-  await pushNewCardsIfChanged();
-  expect(look).toHaveBeenCalledTimes(1);
-  await requestDecision("planner", {
+const ask = () =>
+  requestDecision("planner", {
     deadline: later(2).toISOString(),
     options: [
       { id: "yes", label: "Pay Kit" },
@@ -117,6 +118,64 @@ test("the watcher looks again only when the decisions, corrections or answers ga
     question: "Pay Kit's invoice?",
     title: "It is due.",
   });
+let held: ReturnType<typeof spyOn<typeof memoryLock, "isLocked">>;
+let queue: ReturnType<typeof spyOn<typeof voices, "readNamingQueue">>;
+beforeEach(() => {
+  held = spyOn(memoryLock, "isLocked").mockReturnValue(false);
+  queue = spyOn(voices, "readNamingQueue").mockResolvedValue([]);
+});
+afterEach(() => {
+  held.mockRestore();
+  queue.mockRestore();
+});
+/** The watcher's state is the process's: a lock seen held makes its next look a full one. */
+const forget = async () => {
+  held.mockReturnValue(true);
+  await pushNewCardsIfChanged();
+  held.mockReturnValue(false);
+};
+
+test("the watcher looks again only when the decisions, corrections, answers or queued voices changed", async () => {
+  await forget();
+  await pushNewCardsIfChanged();
+  await pushNewCardsIfChanged();
+  expect(look).toHaveBeenCalledTimes(1);
+  queue.mockResolvedValue([{ id: "voice_1" }] as never);
   await pushNewCardsIfChanged();
   expect(look).toHaveBeenCalledTimes(2);
+  await ask();
+  await pushNewCardsIfChanged();
+  expect(look).toHaveBeenCalledTimes(3);
+});
+
+test("the watcher looks again after a run held the memory lock", async () => {
+  await forget();
+  await pushNewCardsIfChanged();
+  held.mockReturnValue(true);
+  await pushNewCardsIfChanged();
+  expect(look).toHaveBeenCalledTimes(1);
+  held.mockReturnValue(false);
+  await pushNewCardsIfChanged();
+  expect(look).toHaveBeenCalledTimes(2);
+});
+
+test("while a run holds the lock a new decision still pushes, from its own lines and without a look", async () => {
+  open = cards(2);
+  await pushNewCards();
+  await forget();
+  held.mockReturnValue(true);
+  const { id } = await ask();
+  await pushNewCardsIfChanged();
+  expect(look).toHaveBeenCalledTimes(1);
+  expect(push.mock.calls).toEqual([
+    [
+      {
+        badge: 3,
+        body: "1 new card",
+        pushId: checks.pushIdOf(id),
+        quiet: false,
+        title: "Life",
+      },
+    ],
+  ]);
 });
