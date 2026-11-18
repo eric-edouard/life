@@ -32,9 +32,9 @@ const NOTES_MAX = 6000;
 const openDecisionOf = (id: string) =>
   decisionsNow().find((d) => d.agent === id && d.state === "open")?.id ?? null;
 
-/** Whether agent `id` has asked him anything yet: its first ask is its plan, so the door lets it wait or finish only after. */
+/** Whether agent `id` has asked him anything it did not withdraw: its first ask is its plan, so the door lets it wait or finish only after. */
 export const hasAsked = (id: string) =>
-  decisionsNow().some((d) => d.agent === id);
+  decisionsNow().some((d) => d.agent === id && d.state !== "withdrawn");
 
 /** Writes an agent's subject: its anchors (a matter's steps, in order) or its project, replacing the old one. */
 export function writeSubject(

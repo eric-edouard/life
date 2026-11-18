@@ -114,6 +114,14 @@ test("a new agent waits or finishes only once it asked its plan", async () => {
   expect(
     (await call(id, key, "finish", { outcome: "Test: done" })).text
   ).toContain("ask your plan first");
+  const withdrawn = await call(id, key, "request_decision", ask("Test: plan?"));
+  await call(id, key, "request_decision", {
+    why: "Test: rethought",
+    withdraw: JSON.parse(withdrawn.text ?? "{}").id,
+  });
+  expect((await call(id, key, "set_wait", wait)).text).toContain(
+    "ask your plan first"
+  );
   await call(id, key, "request_decision", ask("Test: go with the plan?"));
   expect((await call(id, key, "set_wait", wait)).result?.isError).toBe(false);
 });
