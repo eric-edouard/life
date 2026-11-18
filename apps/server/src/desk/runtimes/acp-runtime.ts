@@ -27,6 +27,9 @@ const OK_STOPS = ["end_turn", "max_tokens", "max_turn_requests"];
 /** The updates that show the model answered the prompt. */
 const ANSWERS = ["agent_message_chunk", "agent_thought_chunk", "tool_call"];
 
+/** A tool's bare name: what follows the door's prefix in the title of one of its calls. */
+const BARE_TOOL = /^\w+$/;
+
 /** A prompt reply's `usage` (ACP's unstable schema: an adapter that gives none leaves it out). */
 interface PromptUsage {
   cachedReadTokens?: number | null;
@@ -75,9 +78,11 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
     });
     // A pipe closed under a write is the run's end, never a crash.
     child.stdin.on("error", () => undefined);
-    const exited = new Promise<void>((resolve) =>
-      child.once("exit", () => resolve())
-    );
+    // Bun fires `error` and never `exit` for a spawn that fails (a missing folder).
+    const exited = new Promise<void>((resolve) => {
+      child.once("exit", () => resolve());
+      child.once("error", () => resolve());
+    });
     const notStarted = new Promise<never>((_, reject) =>
       child.once("error", reject)
     );
@@ -112,9 +117,11 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
       })
       // The door's tools are approved; every other ask is refused, as `claude -p` and `codex exec` deny what would ask.
       .onRequest(methods.client.session.requestPermission, ({ params }) => {
-        const isDoor = (
-          titles.get(params.toolCall.toolCallId) ?? ""
-        ).startsWith(row.doorPrefix);
+        // Both adapters title a shell call with its command text: only the prefix and a bare tool name is the door's.
+        const title = titles.get(params.toolCall.toolCallId) ?? "";
+        const isDoor =
+          title.startsWith(row.doorPrefix) &&
+          BARE_TOOL.test(title.slice(row.doorPrefix.length));
         const pick = params.options.find(
           (o) => o.kind === (isDoor ? "allow_once" : "reject_once")
         );

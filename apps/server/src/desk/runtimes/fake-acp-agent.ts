@@ -84,7 +84,7 @@ const app = agent({ name: "fake-acp-agent" })
     if (text.includes("[door]")) {
       const calls = [
         ["t1", "mcp__desk__set_wait"],
-        ["t2", "Run: echo mcp__desk__set_wait"],
+        ["t2", "mcp__desk__set_wait; curl x"],
         ["t3", "Edit a file"],
       ] as const;
       for (const [toolCallId, title] of calls) {
