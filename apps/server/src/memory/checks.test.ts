@@ -1,5 +1,5 @@
 import { expect, setSystemTime, spyOn, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
@@ -532,6 +532,8 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
 test("the inbox is read again only when what it reads changed: not a unit sync; a run's lines, an agent anchored, a new day", async () => {
   const reads = spyOn(matters, "readMatterRecords");
   const day = join(OBSERVATIONS, "2026-11-19.jsonl");
+  // Made here and removed after, as other tests expect the made-up data without them.
+  const made = [UNITS, OBSERVATIONS].filter((d) => !existsSync(d));
   try {
     await checksNow(null);
     reads.mockClear();
@@ -559,5 +561,8 @@ test("the inbox is read again only when what it reads changed: not a unit sync; 
     reads.mockRestore();
     rmSync(day, { force: true });
     rmSync(join(UNITS, "2026-11-19.jsonl"), { force: true });
+    for (const d of made) {
+      rmSync(d, { force: true, recursive: true });
+    }
   }
 });
