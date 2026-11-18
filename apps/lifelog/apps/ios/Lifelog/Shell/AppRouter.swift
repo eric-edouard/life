@@ -12,9 +12,13 @@ final class AppRouter {
     }
 
     var tab = Tab.inbox
-    /// The matters stack: a matter's id per page.
-    var matters: [String] = []
+    /// The matter on show in the Matters tab, by id, and which column a compact width shows: the list or the matter.
+    var matter: String?
+    var matterColumn = NavigationSplitViewColumn.sidebar
     var sheet: Sheet?
+    /// The matter whose "Start an agent" sheet is open: here, not in the matter's page, so a fold that collapses the page
+    /// keeps the sheet and the start it shows.
+    var startSheetMatter: String?
     /// A card the Inbox should show next (a matter's "Answer").
     var focusedCard: String?
     /// "See what they are doing": the Matters list opens filtered to the ones with an agent.
@@ -23,7 +27,13 @@ final class AppRouter {
     func open(matter id: String) {
         sheet = nil
         tab = .matters
-        matters = [id]
+        select(matter: id)
+    }
+
+    /// The one way the matter on show changes: a compact width then shows it too, so a fold keeps it on screen.
+    func select(matter id: String?) {
+        matter = id
+        matterColumn = id == nil ? .sidebar : .detail
     }
 
     func answer(card ref: String) {
