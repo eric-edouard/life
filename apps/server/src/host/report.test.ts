@@ -336,7 +336,10 @@ test("Waiting on you comes first with every open decision; the Checks section ho
   // The Agents section comes second, each row as given.
   n.agents = [
     { name: "agt_000000000001 [waiting] Bakery order", relation: "claude" },
-    { name: "daily-plan · 2026-10-15", relation: "Plan ready · https://example.com/p" },
+    {
+      name: "daily-plan · 2026-10-15",
+      relation: "Plan ready · https://example.com/p",
+    },
   ];
   const withAgents = successReport("2026-10-15", 1000, n).text;
   expect(withAgents).toContain(

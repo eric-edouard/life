@@ -74,11 +74,14 @@ async function applied(change: AgentChange | null, ago = 0) {
 
 const STEP = "obs_00000000a101";
 
-test("his word: start on a matter or a project, stop, resume, re-point, change the model; each applied once, refusals said", async () => {
+/** The agent the first test starts; the next one changes it. */
+let agent = "";
+
+test("his word starts an agent on a matter, with the desk's default runtime and model; a bad start is refused, saying why", async () => {
   const started = await applied({ action: "start", folder, steps: [STEP] });
-  const id = started?.agent_id ?? "";
+  agent = started?.agent_id ?? "";
   expect(started?.error).toBeNull();
-  const a = agentOf(desk.db, id);
+  const a = agentOf(desk.db, agent);
   expect(a?.status).toBe("active");
   expect(a?.brief).toStartWith("Test: change");
   // The runtime's default model, from the desk's settings, until his word changes it.
@@ -86,7 +89,7 @@ test("his word: start on a matter or a project, stop, resume, re-point, change t
 
   expect(
     (await applied({ action: "start", folder, steps: [STEP] }))?.error
-  ).toBe(`that matter is already held by ${id}`);
+  ).toBe(`that matter is already held by ${agent}`);
   expect(
     (
       await applied({
@@ -104,40 +107,42 @@ test("his word: start on a matter or a project, stop, resume, re-point, change t
     (await applied({ action: "start", folder, runtime: "nope", steps: ["x"] }))
       ?.error
   ).toStartWith("name a runtime");
+});
 
+test("his word stops, resumes, re-points and changes the model of an agent, each applied once; a handover, a spoken or a stale ask is refused", async () => {
   await applied({
     action: "change_model",
-    agent: id,
+    agent,
     effort: "high",
     model: "other",
   });
-  const changed = agentOf(desk.db, id);
+  const changed = agentOf(desk.db, agent);
   expect(changed && modelOf(changed)).toEqual({
     effort: "high",
     model: "other",
   });
 
-  expect((await applied({ action: "resume", agent: id }))?.error).toBe(
-    `${id} is active`
+  expect((await applied({ action: "resume", agent }))?.error).toBe(
+    `${agent} is active`
   );
-  await applied({ action: "stop", agent: id });
-  expect(agentOf(desk.db, id)?.status).toBe("stopped");
-  await applied({ action: "re_point", agent: id, project: "test-shop" });
-  expect(agentOf(desk.db, id)?.project).toBe("test-shop");
-  await applied({ action: "resume", agent: id });
-  expect(agentOf(desk.db, id)?.status).toBe("active");
-  await applied({ action: "re_point", agent: id, steps: [STEP] });
-  expect(agentOf(desk.db, id)?.project).toBeNull();
+  await applied({ action: "stop", agent });
+  expect(agentOf(desk.db, agent)?.status).toBe("stopped");
+  await applied({ action: "re_point", agent, project: "test-shop" });
+  expect(agentOf(desk.db, agent)?.project).toBe("test-shop");
+  await applied({ action: "resume", agent });
+  expect(agentOf(desk.db, agent)?.status).toBe("active");
+  await applied({ action: "re_point", agent, steps: [STEP] });
+  expect(agentOf(desk.db, agent)?.project).toBeNull();
 
-  expect((await applied({ action: "hand_over", agent: id }))?.error).toBe(
+  expect((await applied({ action: "hand_over", agent }))?.error).toBe(
     "a handover comes with the desk's next step"
   );
   // A spoken ask (no change yet) and a stale one are refused, not applied late.
   expect((await applied(null))?.error).toStartWith("only a change");
   expect(
-    (await applied({ action: "stop", agent: id }, 11 * MIN))?.error
+    (await applied({ action: "stop", agent }, 11 * MIN))?.error
   ).toStartWith("asked over 10 minutes");
-  expect(agentOf(desk.db, id)?.status).toBe("active");
+  expect(agentOf(desk.db, agent)?.status).toBe("active");
 
   // Applied once: reading again starts nothing new.
   const count = () =>
