@@ -27,7 +27,7 @@
     "host:app": "bun apps/lifelog/scripts/host-app.ts",
     "install:phone": "bun apps/lifelog/scripts/install-phone.ts",
     "ios:project": "cd apps/lifelog/apps/ios && xcodegen generate --quiet",
-    "life": "bun apps/server/src/host/cli.ts",
+    "life": "bun apps/server/src/desk/life-entry.ts",
     "prepare": "git config core.hooksPath .githooks",
     "switches": "bun apps/lifelog/scripts/switches.ts",
     "symbolicate": "bun apps/lifelog/scripts/symbolicate.ts"

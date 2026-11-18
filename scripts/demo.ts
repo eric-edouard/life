@@ -22,9 +22,9 @@ import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 //
 // Their transcripts are Claude Code with Life's read commands on that copy as its only tool:
 //   cd "$(mktemp -d)" && claude -p --setting-sources "" --strict-mcp-config --tools Bash \
-//     --allowedTools "Bash(env LIFE_OWNER_DATA_DIR=<out>/data LIFE_STATE_DIR=<out>/state bun <repo>/apps/server/src/host/cli.ts memory:*)" \
+//     --allowedTools "Bash(env LIFE_OWNER_DATA_DIR=<out>/data LIFE_STATE_DIR=<out>/state bun <repo>/apps/server/src/desk/life-entry.ts memory:*)" \
 //     --append-system-prompt "Read the user's memory only with: env LIFE_OWNER_DATA_DIR=<out>/data LIFE_STATE_DIR=<out>/state \
-//       bun <repo>/apps/server/src/host/cli.ts memory search|person|day …, one command per call. For a broad question about the user, \
+//       bun <repo>/apps/server/src/desk/life-entry.ts memory search|person|day …, one command per call. For a broad question about the user, \
 //       read \`person me\` first. Today is Thursday 22 October 2026. Cite observation and episode ids. Answer concisely." \
 //     "Has my past week been aligned with my goals? What should I change next week?"
 // (The landlord transcript ran on 22 Oct with an earlier, shorter prompt.)
@@ -394,7 +394,7 @@ for (const d of DEMO) {
 await execOk(
   [
     "bun",
-    join(import.meta.dir, "../apps/server/src/host/cli.ts"),
+    join(import.meta.dir, "../apps/server/src/desk/life-entry.ts"),
     "memory",
     "index",
   ],

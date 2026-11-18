@@ -212,7 +212,7 @@ someone else is capped at 0.6 confidence.
 The server's code (`apps/server/src`) is in layers, and dependencies point one way:
 
 ```
-core  ←  records  ←  models, sources, todo-list, payments  ←  memory  ←  personal  ←  host
+core  ←  records  ←  models, sources, todo-list, payments  ←  memory  ←  personal  ←  host  ←  desk
 ```
 
 | Folder | What it holds |
@@ -226,6 +226,7 @@ core  ←  records  ←  models, sources, todo-list, payments  ←  memory  ← 
 | `memory/` | The pipeline (units, episodes, observations, pages), the ledger and its readers, people and places, search, the source registry (`sources.ts`, with the agent's own source) and the nightly email's rendering |
 | `personal/` | The add-ons' code (`docs/glossary.md`, "add-on"): personas, histories and the person read's parts they supply (`person-parts.ts`, with `readPerson`, the person read as the connector and the command give it). Imports `memory/`; `memory/` never imports it, so the core runs with every add-on off |
 | `host/` | What runs, and the only layer that knows which host it is on: the jobs (watch, hear, archive, nightly, backup), the asks (`asks.ts`), `changeTodoItem` and `inbound`, the CLI and its commands (import, export, init, health), `http/` (the connector, the issuer, the brand), `status/` (the status snapshot, Life's status), and the outputs (report, the Past calendar, the appointments) |
+| `desk/` | The desk, which starts and wakes his registered agents: its store, the wait contract, the clock, the runtimes it drives (`runtimes/contract.ts`), its helper, and the command line's entry (`life-entry.ts`, host's commands and the desk's). Nothing imports it |
 | `test-data/` | The made-up data tests read |
 
 What the check enforces is the order: no file imports a layer to its right, fallow's boundary zones (`.fallowrc.json`)

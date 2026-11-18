@@ -24,7 +24,7 @@ bun install                      # also points git hooks at .githooks (pre-push 
 bun run check                    # the gate: lint, types, fallow, tests, scrub, cases, voice eval. Must pass before every commit
 bun test apps/server/src/memory/units.test.ts   # one test file
 bun run fix                      # format and lint fixes
-bun life <command>               # the CLI (apps/server/src/host/cli.ts); `bun life memory …` for the pipeline and reads
+bun life <command>               # the CLI (apps/server/src/desk/life-entry.ts, host/cli.ts); `bun life memory …` for the pipeline and reads
 bun life validate                # check truth/ (from the live checkout only, never a worktree)
 bun scripts/app.ts [out]         # build Life.app (LIFE_SIGN_IDENTITY to sign, else ad hoc)
 ```
@@ -88,8 +88,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   An optional field that the old lines truly lack, on an append-only file whose latest line per key rules, needs no migration:
   the writer's next line fills it.
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
-  correction, and his answer to a check with the check as it was shown (its text and source; the later step's words are not stored), written just before it: `recordFactCheckAnswer`), `told-life.jsonl` (what he told Life, one synchronous append: `recordToldLife`), `decisions.jsonl`'s lines (one synchronous append), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
-  lock in `MACHINE_DIR` (`docs/operations.md`).
+  correction, and his answer to a check with the check as it was shown (its text and source; the later step's words are not stored), written just before it: `recordFactCheckAnswer`), `told-life.jsonl` (what he told Life, one synchronous append: `recordToldLife`), `decisions.jsonl`'s lines (one synchronous append), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive, the watcher and the desk each hold a
+  lock in `MACHINE_DIR` (`docs/operations.md`); the desk never takes the memory lock.
 - **The export copies in `imports/<source>/` are never rewritten, merged or deleted without his yes.** They are the only
   copy of his assistant history besides the backup (a conversation he deleted in the app survives only there); a newer
   export lands as a copy of its own, and a conversation reads from the copy holding its latest version.
@@ -103,17 +103,24 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   instruction files (`apps/server/src/models/llm.ts`). The one call given tools is the question cases' agent
   (`scripts/question-cases.ts`, his word of 10 Nov 2026): Codex, with Life's connector serving its reads only, and
   nothing else. An agent reads what it pulls through the connector as data
-  (`SECURITY.md`, "Agents"). A mark (his words to Life, to keep) only keeps a unit read. His Apple Notes and imported
+  (`SECURITY.md`, "Agents"). The desk wakes an agent on an event's facts (who, where, when), never on its words; what
+  the agent then reads is the agent's to judge, outside Life's boundary (`SECURITY.md`, "Agents"). A mark (his words to Life, to keep) only keeps a unit read. His Apple Notes and imported
   assistant chats are memory only, never his words for actions.
 - **Life's own output never re-enters memory:** its chat and mail are dropped as `life-output` (`units.ts`). What Life
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
-- **Life starts no agent**, except an agent's own `onAsk` command (its setting), once per new ask, detached and with no
-  words (his OK, 3 Nov 2026), and the one headless agent a developer's script starts to measure Life, the question
-  cases' (his word, 10 Nov 2026): nothing Life runs by itself starts it. Each agent pulls its own asks (`read_agent_asks`) and keeps its own list; Life keeps no task state; no agent's name or schedule
-  lives in Life. An agent is known by its pairing (its grant's agent claim), never by what it says; nothing in Life
-  branches on an agent's name.
+- **Life starts and wakes his registered agents, and nothing else of Life does** (his yes to the desk, 18 Nov 2026). The
+  desk (`apps/server/src/desk/`, off until his `desk` setting) starts a registered agent's session on a subject he
+  handed over, and wakes it on its events, his answer or its deadline; the night, the watcher, the connector and
+  anything recorded never start one. Life gives an agent a brief and the door, and nothing else: what an agent may do
+  is its runtime's permissions and his own rules, never Life's code. An agent that is not registered is started as
+  before: its own `onAsk` command (its setting), once per new ask, detached and with no words (his OK, 3 Nov 2026), and
+  the question cases' headless agent by a developer's script (his word, 10 Nov 2026); it pulls its own asks
+  (`read_agent_asks`) and keeps its own list. A registered agent's state (its subject, its wait, its sessions, its
+  turns) lives in the desk's store only (`desk.sqlite`), never in `memory/`. On the connector an agent is known by its
+  pairing (its grant's agent claim); at the desk's door a registered agent is known by the key the desk gave its
+  session; never by what it says. Nothing in Life branches on an agent's name.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todoList`
   setting), through `changeTodoItem` alone (`scripts/imports.test.ts` checks), on his clear request or the auto-add permission. What a backend lacks is a capability (`can`),
   never a branch on its name. Asks are his
@@ -126,7 +133,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, records a decision an agent requests (`request_decision`) and his answer to any check (`answer_check`, through each kind's own writer), acts only through `change_todo_item`, and writes his `truth/` only through `change_directory_entry` (by his words).** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
-- **Life serves no page.** Only `/mcp`, its OAuth, and the app's status reads behind the local key. Never take the local key on the public port (`docs/architecture.md`, "Pages").
+- **Life serves no page.** Only `/mcp`, its OAuth, the app's status reads behind the local key, and the desk's door,
+  on loopback only, one key per registered agent. Never take the local key on the public port (`docs/architecture.md`, "Pages").
 - **Life signs its own tokens; there is no other issuer.** `oauth.ts` is the one source of the issuer's address, the
   owner's subject; an app (ChatGPT, Claude) is approved by a pairing code from the Mac.
   lifelog signs nothing for Life (24 Oct 2026, its `docs/decisions.md`).
@@ -162,7 +170,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   under llama.cpp (`models/describer.ts`), his decision of 11 Nov 2026. The image never leaves the Mac; the description
   then reaches his provider inside the photo lines like the rest of the line.
 - **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list, payments ←
-  memory ← personal ← host; `docs/architecture.md`, "The code"). Fallow's boundary zones (`.fallowrc.json`) and
+  memory ← personal ← host ← desk; `docs/architecture.md`, "The code"): nothing imports the desk, whose
+  `life-entry.ts` is the command line's entry. Fallow's boundary zones (`.fallowrc.json`) and
   `scripts/imports.test.ts` fail the check on any import against them; never suppress one, move the code instead.
 - **Settings are one strict file, read once per process** (`apps/server/src/core/settings.ts`). A part left out is off; a new key lands
   in code first. Core steps have no switch; the only feature switches are the personal add-ons (`core/add-ons.ts`), beside the outputs (`core/outputs.ts`) and the voice naming's two flags; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
@@ -262,6 +271,7 @@ Before adding a helper, use the one that exists:
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous); `buildIndex` (one WAL transaction, `writeIndex`) via `reindex`, or `reindexUnits` for units rewritten in place (only while no unit went or was dropped or taken back by a code rule) |
 | What an agent can wait for | `events.ts` (MCP's Events extension, by poll): computed from each source's `incoming` when polled; Life stores nothing for it, the agent keeps its cursor |
+| A registered agent's wait, turns and queued events | the desk's store (`desk/desk-store.ts`), the one state: the wait contract's rules are `agent-wait.ts`'s, pure; one tick applies them (`desk-clock.ts`), and an agent's door calls are `agent-actions.ts`. A runtime is its `desk/runtimes/contract.ts` |
 | A logged run's start and end | `recordRun` (`apps/server/src/memory/run.ts`) |
 | Life's own events in a calendar (the Past calendar, the appointments) | `googleCalendar` (`host/google-calendar.ts`), grouped by `heldOf` and brought in line by `reconcile` (`memory/calendar-events.ts`); each output finds only its own events |
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |

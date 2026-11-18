@@ -2,7 +2,8 @@ import AppKit
 import Observation
 
 /// What launchd did for the owner's checkout, for the app: the archive and the watcher always running (started again
-/// a few seconds after either stops), and the nightly tick every 30 minutes (its own schedule decides what is due).
+/// a few seconds after either stops), the desk too while it is on, and the nightly tick every 30 minutes (its own
+/// schedule decides what is due).
 @MainActor @Observable
 final class Supervisor {
   /// The helper's last `app` answer: whether Life is set up, its sources, its newest report, its status reads.
@@ -21,7 +22,8 @@ final class Supervisor {
     ) { [weak self] _ in MainActor.assumeIsolated { self?.stop() } }
   }
 
-  static let services = [["archive"], ["watch"]]
+  /// The helpers kept running: the archive, the watcher, and the desk only while `desk` is set.
+  private var kept: [[String]] { [["archive"], ["watch"]] + (info?.desk == true ? [["desk"]] : []) }
   static let tickEvery: TimeInterval = 30 * 60
 
   func refresh() async {
@@ -38,7 +40,7 @@ final class Supervisor {
     await refresh()
     guard info?.started == true else { return }
     if services.isEmpty {
-      for args in Self.services { keep(args) }
+      for args in kept { keep(args) }
     }
     if timer == nil {
       tick()

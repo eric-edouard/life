@@ -15,7 +15,8 @@ import { directChats } from "../memory/closeness";
 import { decisionsNow, settledBetween } from "../memory/decisions";
 import { readySources } from "../memory/sources";
 import { isLifeOutput, speakerOf } from "../memory/units";
-import { meant, readPeople } from "../memory/who";
+import { meant, type People, readPeople } from "../memory/who";
+import { MessageFilter } from "../records/registered-agent";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
 
@@ -57,39 +58,22 @@ const isPattern = (source: string) => {
   }
 };
 
+/** The arguments an agent polls with: a `MessageFilter` (its apps among the sources on now), and a pattern on the text. */
 const argumentsOf = (channels: string[]) =>
-  z
-    .object({
-      channels: z
-        .array(
-          channels.length
-            ? z.enum(channels as [string, ...string[]])
-            : z.never()
-        )
-        .optional()
-        .describe("Only these apps; every one by default"),
-      chat: z
-        .string()
-        .optional()
-        .describe("Only this chat: its key, as `read_chats` gives it"),
-      from_me: z
-        .boolean()
-        .default(false)
-        .describe("His own messages instead of everyone else's"),
-      person: z
-        .string()
-        .optional()
-        .describe(
-          "Who: a name, handle or person id. Matches who wrote it; on his own messages, the other side of a 1:1 chat"
-        ),
-      text_matches: z
-        .string()
-        .max(200)
-        .refine(isPattern, "not a regular expression")
-        .optional()
-        .describe("A regular expression its text must match, any case"),
-    })
-    .strict();
+  MessageFilter.extend({
+    channels: z
+      .array(
+        channels.length ? z.enum(channels as [string, ...string[]]) : z.never()
+      )
+      .optional()
+      .describe("Only these apps; every one by default"),
+    text_matches: z
+      .string()
+      .max(200)
+      .refine(isPattern, "not a regular expression")
+      .optional()
+      .describe("A regular expression its text must match, any case"),
+  }).strict();
 
 const Payload = z.object({
   at: z.iso.datetime(),
@@ -102,6 +86,8 @@ const Payload = z.object({
     .describe("Who wrote it (person:<id>), or the 1:1 chat's for his own"),
   source: z.string(),
 });
+
+export type MessagePayload = z.infer<typeof Payload>;
 
 const DecisionPayload = z.object({
   answer: z
@@ -255,46 +241,49 @@ function readNewMessages(s: Messaging, from: number | undefined) {
   };
 }
 
-/** `events/poll`: the caller's decisions settled since `cursor` (`pollDecisions`), else its messages (`pollMessages`). */
-export const pollEvents = async (
-  p: z.infer<typeof PollParams>,
-  agent: string | undefined
-) =>
-  DECISION_EVENTS.includes(p.name)
-    ? pollDecisions(p.name, p.cursor, agent)
-    : pollMessages(p);
+/**
+ * Whether a message is one `filter` wants, decided here only (the connector's polls and the desk's agent waits): null
+ * when its person is no one Life knows.
+ */
+export function matcherOf(
+  filter: MessageFilter & { text_matches?: string },
+  people: People
+) {
+  const wanted = filter.person ? meant(filter.person, people).known : undefined;
+  if (filter.person && !wanted) {
+    return null;
+  }
+  const text = filter.text_matches
+    ? new RegExp(filter.text_matches, "i")
+    : undefined;
+  return (m: MessagePayload, e: SourceEvent) =>
+    e.fromMe === filter.from_me &&
+    (!filter.channels || filter.channels.includes(m.source)) &&
+    (!filter.chat || m.chat === filter.chat) &&
+    (!wanted || m.person === `person:${wanted}`) &&
+    (!text || text.test(e.text));
+}
 
 /**
- * The messages matching `arguments` past `cursor` (none: start at now). A source that cannot be read keeps its place,
- * so nothing it wrote meanwhile is skipped.
+ * The messages past `cursor` (none: start at now) that `item` makes something of, at most `max`, and the cursor past
+ * them: one read for the connector's polls and the desk's. A source that cannot be read keeps its place, so nothing it
+ * wrote meanwhile is skipped.
  */
-export async function pollMessages(
-  p: z.infer<typeof PollParams>,
+export function readMessageEvents<T>(
+  cursor: string | null | undefined,
+  max: number,
+  people: People,
+  item: (m: MessagePayload, e: SourceEvent) => T | null,
   sources = messaging()
 ) {
-  if (p.name !== MESSAGE_RECEIVED) {
-    throw new ProtocolError(NOT_FOUND, `No event ${p.name}`, { kind: "event" });
-  }
-  const parsed = argumentsOf(sources.map((s) => s.name)).safeParse(p.arguments);
-  if (!parsed.success) {
-    throw new ProtocolError(INVALID_PARAMS, z.prettifyError(parsed.error));
-  }
-  const a = parsed.data;
-  const people = await readPeople();
-  const wanted = a.person ? meant(a.person, people).known : undefined;
-  if (a.person && !wanted) {
-    throw new ProtocolError(INVALID_PARAMS, `No one goes by ${a.person}`);
-  }
-  const text = a.text_matches ? new RegExp(a.text_matches, "i") : undefined;
-  const cursor = parseCursor(p.cursor ?? undefined);
+  const at = parseCursor(cursor ?? undefined);
   let truncated = false;
   let isCut = false;
-  const feeds: (Source<SourceEvent> & { from: number })[] = sources
-    .filter((s) => !a.channels || a.channels.includes(s.name))
-    .flatMap((s) => {
-      const at = cursor[s.name];
+  const feeds: (Source<SourceEvent> & { from: number })[] = sources.flatMap(
+    (s) => {
+      const from = at[s.name];
       try {
-        const r = readNewMessages(s, at);
+        const r = readNewMessages(s, from);
         truncated ||= r.truncated;
         isCut ||= r.isCut;
         return [
@@ -307,13 +296,14 @@ export async function pollMessages(
           source: s.name,
           what: "events",
         });
-        return at === undefined
+        return from === undefined
           ? []
-          : [{ end: at, from: at, name: s.name, rows: () => [] }];
+          : [{ end: from, from, name: s.name, rows: () => [] }];
       }
-    });
+    }
+  );
   // His own message's person: its chat's, when the chat is 1:1 by its id or name alone (never by who else wrote in
-  // this poll), so the same message always matches the same way.
+  // this read), so the same message always matches the same way.
   const personOf = (e: SourceEvent) =>
     e.fromMe
       ? (([who]) => (who ? people.refOf(who) : null))([
@@ -322,38 +312,74 @@ export async function pollMessages(
       : people.refOf(speakerOf("chat", e, people.resolve));
   const page = feedPage(
     feeds,
-    { ...cursor, ...Object.fromEntries(feeds.map((f) => [f.name, f.from])) },
-    p.maxEvents ?? PAGE,
-    (_s, e) => {
-      const person = personOf(e);
-      const match =
-        e.fromMe === a.from_me &&
-        (!a.chat || e.chat === a.chat) &&
-        (!wanted || person === `person:${wanted}`) &&
-        (!text || text.test(e.text));
-      return match
-        ? {
-            data: {
-              at: e.at,
-              chat: e.chat,
-              ...(e.chatName ? { chatName: e.chatName } : {}),
-              id: e.id,
-              person,
-              source: e.source,
-            } satisfies z.infer<typeof Payload>,
-            eventId: e.id,
-            name: MESSAGE_RECEIVED,
-            timestamp: e.at,
-          }
-        : null;
-    }
+    { ...at, ...Object.fromEntries(feeds.map((f) => [f.name, f.from])) },
+    max,
+    (_s, e) =>
+      item(
+        {
+          at: e.at,
+          chat: e.chat,
+          ...(e.chatName ? { chatName: e.chatName } : {}),
+          id: e.id,
+          person: personOf(e),
+          source: e.source,
+        },
+        e
+      )
   );
   return {
     cursor: page.cursor,
-    events: page.items,
     hasMore: page.remaining > 0 || isCut,
+    items: page.items,
+    truncated,
+  };
+}
+
+/** `events/poll`: the caller's decisions settled since `cursor` (`pollDecisions`), else its messages (`pollMessages`). */
+export const pollEvents = async (
+  p: z.infer<typeof PollParams>,
+  agent: string | undefined
+) =>
+  DECISION_EVENTS.includes(p.name)
+    ? pollDecisions(p.name, p.cursor, agent)
+    : pollMessages(p);
+
+/** The messages matching `arguments` past `cursor`. */
+export async function pollMessages(
+  p: z.infer<typeof PollParams>,
+  sources = messaging()
+) {
+  if (p.name !== MESSAGE_RECEIVED) {
+    throw new ProtocolError(NOT_FOUND, `No event ${p.name}`, { kind: "event" });
+  }
+  const parsed = argumentsOf(sources.map((s) => s.name)).safeParse(p.arguments);
+  if (!parsed.success) {
+    throw new ProtocolError(INVALID_PARAMS, z.prettifyError(parsed.error));
+  }
+  const people = await readPeople();
+  const isMatch = matcherOf(parsed.data, people);
+  if (!isMatch) {
+    throw new ProtocolError(
+      INVALID_PARAMS,
+      `No one goes by ${parsed.data.person}`
+    );
+  }
+  const read = readMessageEvents(
+    p.cursor,
+    p.maxEvents ?? PAGE,
+    people,
+    (m, e) =>
+      isMatch(m, e)
+        ? { data: m, eventId: m.id, name: MESSAGE_RECEIVED, timestamp: m.at }
+        : null,
+    sources
+  );
+  return {
+    cursor: read.cursor,
+    events: read.items,
+    hasMore: read.hasMore,
     nextPollMs: NEXT_POLL_MS,
     resultType: "complete",
-    truncated,
+    truncated: read.truncated,
   };
 }

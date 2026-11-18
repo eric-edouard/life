@@ -50,9 +50,9 @@ export function take(path: string, note?: string, retry = true): boolean {
   }
 }
 
-type Service = "archive" | "watch" | "check";
+type Service = "archive" | "watch" | "check" | "desk";
 /** A service's lock: one per Mac, so two installs never run the same service at once (two archivers, two watchers, two
- * `bun run check`s, whose tests time out when several load the Mac). */
+ * desks, two `bun run check`s, whose tests time out when several load the Mac). */
 const serviceLock = (name: Service) => join(MACHINE_DIR, `${name}.lock`);
 
 /** Who runs a service now: its pid, since when, and the state dir it runs on as its note; null when none does. */
