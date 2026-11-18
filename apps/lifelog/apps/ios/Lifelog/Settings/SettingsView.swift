@@ -1,5 +1,6 @@
 import Incidents
 import Library
+import LifeConnector
 import OwnerSettings
 import PendantProtocol
 import ServerAPI
@@ -128,7 +129,7 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("pendant.settings.backup")
                     NavigationLink {
-                        PairingView(server: sync.server) { sync.offeredPairing = $0 }
+                        PairingView(server: sync.server)
                     } label: {
                         SettingsLink("Server", value: sync.server?.host() ?? "Not paired")
                     }
@@ -239,8 +240,8 @@ private struct SettingsLink: View {
 /// The server this iPhone is paired with, and a pasted pairing link (confirmed on screen, never shown back).
 struct PairingView: View {
     let server: URL?
-    /// Asks to pair, confirmed on screen (`RootView`).
-    let offer: (Pairing) -> Void
+    /// A pasted link is opened as the app's own link: the same path as the Camera's (`RootView`'s `onOpenURL`).
+    @Environment(\.openURL) private var openURL
 
     @State private var draft = ""
     @State private var result: String?
@@ -256,8 +257,8 @@ struct PairingView: View {
                     .autocorrectionDisabled()
                 Button(server == nil ? "Pair" : "Pair again") {
                     let link = URL(string: draft.trimmingCharacters(in: .whitespacesAndNewlines))
-                    if let pairing = link.flatMap(Pairing.init(link:)) {
-                        offer(pairing)
+                    if let link, Pairing(link: link) != nil || LifePairing(link: link) != nil {
+                        openURL(link)
                         result = nil
                     } else {
                         result = "That isn't a pairing link."
@@ -280,7 +281,7 @@ struct PairingView: View {
 
 #if DEBUG
     #Preview("Server") {
-        NavigationStack { PairingView(server: URL(string: "https://mac.example.ts.net")) { _ in } }
+        NavigationStack { PairingView(server: URL(string: "https://mac.example.ts.net")) }
             .preferredColorScheme(.dark)
     }
 #endif

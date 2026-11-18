@@ -2,22 +2,12 @@ import { expect, spyOn, test } from "bun:test";
 import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import {
-  createLocalJWKSet,
-  exportJWK,
-  generateKeyPair,
-  type JWK,
-  SignJWT,
-} from "jose";
+import { SignJWT } from "jose";
 import { clock, DAY } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { LOG_DIR } from "../../core/log";
 import { OWNER_DATA_DIR } from "../../core/paths";
-import {
-  setSettings,
-  settings,
-  connector as settingsOf,
-} from "../../core/settings";
+import { setSettings, settings } from "../../core/settings";
 import { DECISIONS } from "../../memory/decisions";
 import { LEDGER } from "../../memory/memory-files";
 import { placesOf } from "../../memory/places";
@@ -30,76 +20,20 @@ import {
   turnFixture,
 } from "../../sources/store-fixtures";
 import { ask } from "../asks";
-import { ownerTokens } from "./auth";
-import { buildServer, createMcp } from "./mcp";
+import { buildServer } from "./mcp";
+import {
+  mcpConnector as connector,
+  ISSUER,
+  metadata,
+  privateKey,
+  RESOURCE,
+  rpc,
+  SECONDS,
+  token,
+  verify,
+} from "./mcp-test-harness";
 
-const { metadata, origin, resource: RESOURCE } = settingsOf();
-const ISSUER = `${origin}/auth`;
-
-const OWNER = "owner-sub";
 const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;
-const NOW = new Date("2026-10-15T10:00:00Z");
-
-const { privateKey, publicKey } = await generateKeyPair("EdDSA", {
-  extractable: true,
-});
-const jwk: JWK = { ...(await exportJWK(publicKey)), alg: "EdDSA", kid: "k1" };
-const jwks = createLocalJWKSet({ keys: [jwk] });
-const verify = ownerTokens({
-  issuer: ISSUER,
-  jwks,
-  now: () => NOW.getTime(),
-  ownerSub: OWNER,
-  resource: RESOURCE,
-});
-const connector = createMcp(verify, ISSUER);
-
-const SECONDS = Math.floor(NOW.getTime() / 1000);
-
-/** A token as the issuer would sign it, unless `over` says otherwise; `lifetime` in seconds from NOW. */
-function token(over: Record<string, unknown> = {}, lifetime = 3600) {
-  return new SignJWT({
-    agent: "Orbit",
-    aud: RESOURCE,
-    client_id: "chatgpt-client",
-    iss: ISSUER,
-    scope: "life:read offline_access",
-    sub: OWNER,
-    ...over,
-  })
-    .setProtectedHeader({ alg: "EdDSA", kid: "k1" })
-    .setIssuedAt(SECONDS)
-    .setExpirationTime(SECONDS + lifetime)
-    .sign(privateKey);
-}
-
-/** One JSON-RPC call to /mcp (the answer may come as JSON or as one server-sent event). */
-async function rpc(
-  bearer: string | null,
-  method: string,
-  params: object = {},
-  headers: Record<string, string> = {}
-) {
-  const res = await connector.request(
-    new Request(RESOURCE, {
-      body: JSON.stringify({ id: 1, jsonrpc: "2.0", method, params }),
-      headers: {
-        accept: "application/json, text/event-stream",
-        ...(bearer ? { authorization: `Bearer ${bearer}` } : {}),
-        "content-type": "application/json",
-        "user-agent": "openai-mcp/1.0.0 (test)",
-        ...headers,
-      },
-      method: "POST",
-    })
-  );
-  const body = res ? await res.text() : "";
-  const data = body.split("\n").find((l) => l.startsWith("data:"));
-  return {
-    json: res?.ok ? JSON.parse(data ? data.slice(5) : body) : null,
-    res: res as Response,
-  };
-}
 
 test("no token: 401 with the challenge that names the metadata", async () => {
   const { res } = await rpc(null, "tools/list");
