@@ -3,7 +3,7 @@ import { clock, daysBefore } from "../core/clock";
 import { readJson, readLineCount, writeJson } from "../core/files";
 import { count } from "../core/lists";
 import { log } from "../core/log";
-import { checksNow, type InboxCheck, pushIdOf } from "../memory/checks";
+import { type InboxCheck, pushIdOf } from "../memory/checks";
 import { DECISIONS, decisionsNow } from "../memory/decisions";
 import { CORRECTIONS, FACT_CHECK_ANSWERS } from "../memory/memory-files";
 import { isLocked } from "../memory/memory-lock";
@@ -11,6 +11,7 @@ import { dayNow } from "../memory/zones";
 import { WATCH } from "../sources/lifelog";
 import { notifyPhone } from "../sources/lifelog-push";
 import { fetchNamingQueue } from "../sources/lifelog-voices";
+import { inboxNow } from "./inbox";
 
 // A push for each new card in his inbox, the only push of cards: the words "1 new card" or "N new cards", the badge (every
 // open card) and, for one card, its `pushId` (an HMAC of its ref under a key that never leaves the Mac). Never a title,
@@ -64,9 +65,9 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
   });
 }
 
-/** Pushes what is new among every open card (`checksNow`). */
+/** Pushes what is new among every open card (`inboxNow`). */
 export async function pushNewCards(now = clock()) {
-  const open = await checksNow();
+  const open = await inboxNow();
   await pushNew(open, open.length, now);
 }
 

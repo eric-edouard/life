@@ -134,6 +134,23 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
         question: "Who is this?",
         ref: "voice:v1",
       }),
+      check({
+        context:
+          "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote",
+        evidence: { from: "12 Oct", quote: "Call the shop" },
+        group: "new matter",
+        kind: "new matter",
+        matter: { id: "matter_cccccccccccc", name: "Frame Gran's photo" },
+        onSilence: "Nothing starts. Asked until 18 Oct.",
+        options: [
+          { id: "start", label: "Start" },
+          { id: "edit-goal", label: "Edit goal" },
+          { id: "dismiss", label: "Dismiss" },
+        ],
+        question: "Goal: Gran's photo is framed. Work on it?",
+        ref: "matter_cccccccccccc",
+        title: "Life found a new matter: Frame Gran's photo",
+      }),
       check({ group: "name", ref: "name:sam" }),
     ]),
     spyOn(who, "readPeople").mockResolvedValue({

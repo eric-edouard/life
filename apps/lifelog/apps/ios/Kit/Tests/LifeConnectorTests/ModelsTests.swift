@@ -13,8 +13,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 /// there first, then here, naming the model.
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 3)
-    #expect(inbox.counts == ["decision": 1, "voice": 1, "name": 1])
+    #expect(inbox.total == 4)
+    #expect(inbox.counts == ["decision": 1, "voice": 1, "new matter": 1, "name": 1])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
     #expect(decision.options.first?.outgoing == true)
@@ -25,7 +25,11 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let voice = inbox.checks[1]
     #expect(voice.clips.first?.audio?.jobId == "job-1")
     #expect(voice.likelyPeople.first?.name == "Gran")
-    #expect(inbox.checks[2].draft == nil)
+    let found = inbox.checks[2]
+    #expect(found.group == .newMatter)
+    #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
+    #expect(found.deadline == nil)
+    #expect(inbox.checks[3].draft == nil)
 
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
     #expect(list.matters.map(\.id) == ["matter_aaaaaaaaaaaa", "matter_bbbbbbbbbbbb"])
@@ -81,6 +85,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(notSent.send?.state == .notSent)
     #expect(notSent.send?.canRetry == true)
     #expect(notSent.inbox?.left == false)
+    let found = try decoded(AnswerResult.self, wireText("life/answer_check_new_matter_started.json"))
+    #expect(found.start?.state == .started)
+    #expect(found.start?.stages?.count == 3)
+    #expect(found.inbox?.left == true)
+    let edited = try decoded(AnswerResult.self, wireText("life/answer_check_new_matter_goal_edited.json"))
+    #expect(edited.start == nil)
+    #expect(edited.inbox?.left == false)
     let started = try decoded(AgentChangeResult.self, wireText("life/change_registered_agent_started.json"))
     #expect(started.state == .started)
     #expect(started.stages?.map(\.stage) == ["runtime_answers", "session_open", "turn_begun"])

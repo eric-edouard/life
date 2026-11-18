@@ -52,6 +52,10 @@ public struct LifeActions: Sendable {
                 guard let result = decode(AnswerResult.self, text) else {
                     return emit(.failed(Self.unreadable))
                 }
+                // A new matter's Start that did not start is a start's failure, never a success.
+                if let start = result.start, start.state != .started {
+                    return emit(await ending(of: start, matter: request.ref))
+                }
                 return emit(Self.ending(of: result))
             } catch MCPError.unreachable {
                 dropped = ActionFailure(.unreachable)
@@ -111,22 +115,26 @@ public struct LifeActions: Sendable {
         do {
             let text = try await api.changeAgent(request, onProgress: progress(emit))
             guard let result = decode(AgentChangeResult.self, text) else { return emit(.failed(Self.unreadable)) }
-            switch result.state {
-            case .started: return emit(.succeeded(.agent(result)))
-            case .notStarted:
-                let why = result.failed
-                return emit(
-                    .failed(
-                        ActionFailure(
-                            step: why?.stage, reason: why?.reason ?? "The agent did not start.",
-                            // An agent already holds the matter: starting again would only be refused again.
-                            retry: result.nothingRunning == false ? .no : .allowed)))
-            default: break
-            }
+            return emit(await ending(of: result, matter: matter))
         } catch MCPError.refused(let why) {
             return emit(.failed(ActionFailure(reason: why, retry: .no)))
         } catch {}
         emit(await resolved(matter: matter))
+    }
+
+    /// How a start ended, as the desk said: started, not started (at its stage), else read from its matter.
+    private func ending(of start: AgentChangeResult, matter: String) async -> ActionState<ActionProof>.Event {
+        switch start.state {
+        case .started: return .succeeded(.agent(start))
+        case .notStarted:
+            let why = start.failed
+            return .failed(
+                ActionFailure(
+                    step: why?.stage, reason: why?.reason ?? "The agent did not start.",
+                    // An agent already holds the matter: starting again would only be refused again.
+                    retry: start.nothingRunning == false ? .no : .allowed))
+        default: return await resolved(matter: matter)
+        }
     }
 
     private func resolved(matter id: String) async -> ActionState<ActionProof>.Event {

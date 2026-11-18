@@ -111,6 +111,53 @@
       "asker": "life",
       "at": null,
       "clips": [],
+      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "12 Oct",
+        "quote": "Call the shop"
+      },
+      "group": "new matter",
+      "kind": "new matter",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_cccccccccccc",
+        "name": "Frame Gran's photo"
+      },
+      "notSent": null,
+      "onSilence": "Nothing starts. Asked until 18 Oct.",
+      "options": [
+        {
+          "id": "start",
+          "label": "Start"
+        },
+        {
+          "id": "edit-goal",
+          "label": "Edit goal"
+        },
+        {
+          "id": "dismiss",
+          "label": "Dismiss"
+        }
+      ],
+      "question": "Goal: Gran's photo is framed. Work on it?",
+      "ref": "matter_cccccccccccc",
+      "ridesOn": {
+        "matters": 0,
+        "observations": 2,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Life found a new matter: Frame Gran's photo",
+      "pushId": "47c2deda3a5b51cd"
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
       "context": null,
       "deadline": null,
       "draft": null,
@@ -143,8 +190,9 @@
   "counts": {
     "decision": 1,
     "voice": 1,
+    "new matter": 1,
     "name": 1
   },
   "deadlinesToday": 0,
-  "total": 3
+  "total": 4
 }

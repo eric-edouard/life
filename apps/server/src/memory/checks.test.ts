@@ -34,17 +34,26 @@ const line = (over: Partial<CheckInputs["lines"][number]> = {}) => {
 };
 const about = (ref: string, over = {}) => line({ subjects: [ref], ...over });
 
+const ASKED_UNTIL_22_NOV = /^Nothing starts\. Asked until .*22 Nov/;
+
+/** A matter's steps, made up: each on 1 Oct with a quote. */
+const stepsOf = (...refs: string[]) =>
+  refs.map((ref) => ({ day: "2026-10-01", quote: "it", ref }));
+
 function inputs(lines: CheckInputs["lines"], over: Input = {}): CheckInputs {
   const isGuess = guessTestOf(over.corrections ?? []);
   return {
+    anchored: new Set(),
     answered: new Set(),
     decisions: [],
+    dismissed: [],
     doubted: new Set(),
     endings: new Map(),
     kept: new Set(lines.map((l) => l.id)),
     lines,
     matters: [],
     paged: new Set(),
+    today: "2026-11-18",
     unresolved: [],
     voices: [],
     where: new Map(),
@@ -163,10 +172,12 @@ test("the order: open matters, then lines, then pages, then the newest", () => {
       matters: [
         {
           id: "matter_aaaaaaaaaaaa",
+          lone: false,
           name: "Fix the gate",
           open: true,
           owedTo: [],
-          steps: [{ ref: a.id }],
+          status: "moving" as const,
+          steps: stepsOf(a.id),
           told: [],
           waitingOn: [],
           with: [],
@@ -210,10 +221,12 @@ test("an ending rides on its open matter and goes with his answer", () => {
   const o = line({ text: "Send the quote." });
   const matter = {
     id: "matter_aaaaaaaaaaaa",
+    lone: false,
     name: "Send the quote",
     open: true,
     owedTo: [],
-    steps: [{ ref: o.id }],
+    status: "moving" as const,
+    steps: stepsOf(o.id),
     told: [],
     waitingOn: [],
     with: [],
@@ -260,10 +273,12 @@ test("open decisions come first, soonest deadline first; one on a step leaves wi
   const o = line();
   const matter = (open: boolean) => ({
     id: "matter_bbbbbbbbbbbb",
+    lone: false,
     name: "Boiler repair",
     open,
     owedTo: [],
-    steps: [{ ref: o.id }],
+    status: "moving" as const,
+    steps: stepsOf(o.id),
     told: [],
     waitingOn: [],
     with: [],
@@ -373,4 +388,131 @@ test("a push id is 16 hex, stable for a ref, and differs under another key", () 
   expect(pushIdOf("person:kit", "b".repeat(64))).not.toBe(id);
   expect(pushIdOf("person:lou", "a".repeat(64))).not.toBe(id);
   expect(id).not.toContain("kit");
+});
+
+test("a new matter an agent could move asks 'Work on it?' for 7 days from its first step, with no deadline, until he answers it", () => {
+  const steps = [
+    {
+      day: "2026-11-16",
+      quote: "the boiler is leaking",
+      ref: "obs_000000000071",
+    },
+    { day: "2026-11-17", quote: "call the plumber", ref: "unit_000000000072" },
+  ];
+  const matter = {
+    goal: {
+      at: "2026-11-17T02:00:00Z",
+      by: "life" as const,
+      text: "The boiler is serviced.",
+    },
+    id: "matter_000000000007",
+    lone: false,
+    name: "Boiler service",
+    nextStep: {
+      at: "2026-11-17T02:00:00Z",
+      by: "life" as const,
+      kind: "do" as const,
+      text: "Book the plumber",
+    },
+    open: true,
+    owedTo: [],
+    status: "moving" as const,
+    steps,
+    told: [],
+    waitingOn: [],
+    with: [],
+  };
+  const base = inputs([], { matters: [matter] });
+  expect(checksOf(base)).toEqual([
+    {
+      about: [],
+      asker: "life",
+      at: null,
+      clips: [],
+      context:
+        "Nothing blocks its next step: an agent could move it now. Next step: Book the plumber",
+      deadline: null,
+      draft: null,
+      evidence: {
+        from: expect.stringContaining("16 Nov"),
+        quote: "the boiler is leaking",
+      },
+      group: "new matter",
+      kind: "new matter",
+      likelyPeople: [],
+      links: [],
+      matter: { id: matter.id, name: "Boiler service" },
+      notSent: null,
+      onSilence: expect.stringMatching(ASKED_UNTIL_22_NOV),
+      options: [
+        expect.objectContaining({ id: "start" }),
+        expect.objectContaining({ id: "edit-goal" }),
+        expect.objectContaining({ id: "dismiss" }),
+      ],
+      question: "Goal: The boiler is serviced. Work on it?",
+      ref: matter.id,
+      ridesOn: { matters: 1, observations: 0, pages: 0 },
+      subject: null,
+      title: "Life found a new matter: Boiler service",
+    },
+  ]);
+  // His goal, once he edits it, is what it asks about.
+  const edited = {
+    ...matter,
+    goal: {
+      ...matter.goal,
+      by: "owner" as const,
+      text: "Serviced and the leak fixed",
+    },
+  };
+  expect(checksOf({ ...base, matters: [edited] })[0]?.question).toBe(
+    "Goal: Serviced and the leak fixed. Work on it?"
+  );
+  // Its last day is the 7th from its first step; it never outranks an agent's decision.
+  expect(checksOf({ ...base, today: "2026-11-22" })).toHaveLength(1);
+  const none = (over: Partial<CheckInputs>) => checksOf({ ...base, ...over });
+  const wait = {
+    ...matter.nextStep,
+    kind: "wait_event" as const,
+    waitsOn: "the plumber",
+  };
+  for (const list of [
+    none({ today: "2026-11-23" }),
+    none({ anchored: null }),
+    none({ anchored: new Set(["unit_000000000072"]) }),
+    none({ dismissed: [["obs_000000000071"]] }),
+    none({ matters: [{ ...matter, goal: undefined }] }),
+    none({ matters: [{ ...matter, nextStep: wait }] }),
+    none({ matters: [{ ...matter, lone: true }] }),
+    none({ matters: [{ ...matter, open: false, status: "done" as const }] }),
+    none({ matters: [{ ...matter, status: "dormant" as const }] }),
+    // An open decision on one of its steps: its next step is his decision.
+    none({
+      decisions: [
+        decision(
+          "dec_00000000000c",
+          "2026-11-25T09:00:00.000Z",
+          "obs_000000000071"
+        ),
+      ],
+    }).filter((c) => c.group === "new matter"),
+  ]) {
+    expect(list).toEqual([]);
+  }
+  // Dismissed, then re-grouped under a new id with one more step: still dismissed.
+  const regrouped = {
+    ...matter,
+    id: "matter_000000000008",
+    steps: [
+      ...steps,
+      { day: "2026-11-18", quote: "plumber booked", ref: "obs_000000000073" },
+    ],
+  };
+  expect(
+    checksOf({
+      ...base,
+      dismissed: [steps.map((s) => s.ref)],
+      matters: [regrouped],
+    })
+  ).toEqual([]);
 });

@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { take } from "../core/lock";
-import { agentOf, flagsOf, holderOf, openTurn } from "../host/desk-read";
+import {
+  agentOf,
+  anchoredSteps,
+  flagsOf,
+  holderOf,
+  openTurn,
+} from "../host/desk-read";
 import type { Messaging } from "../host/events";
 import { DECISION_ANSWERED, DECISION_LAPSED } from "../host/events";
 import {
@@ -641,6 +647,8 @@ test("a runtime that cannot start ends a new agent, not started, and frees its m
     status: "ended",
   });
   expect(holderOf(desk.db, ["obs_00000000b002"])).toBeNull();
+  // Not anchored for the inbox either: the new matter card comes back for another Start.
+  expect(anchoredSteps(desk.db)).not.toContain("obs_00000000b002");
   expect(turns(id)).toEqual([{ cause: "deadline", outcome: "failed" }]);
 });
 

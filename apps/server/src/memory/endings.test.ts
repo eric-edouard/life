@@ -125,7 +125,9 @@ test("an old unanswered doubt line on the same ref gets no ending answer, and ne
     await expect(recordFactCheckAnswer(promise(1), "false")).rejects.toThrow(
       "no open ending check"
     );
-    expect((await checksNow()).some((c) => c.ref === promise(1))).toBe(false);
+    expect((await checksNow(null)).some((c) => c.ref === promise(1))).toBe(
+      false
+    );
   } finally {
     undo();
   }

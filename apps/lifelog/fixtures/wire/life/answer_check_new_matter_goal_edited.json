@@ -1,0 +1,32 @@
+{
+  "asker": {
+    "name": "life",
+    "told": "recorded"
+  },
+  "changed": {
+    "answer": "edit-goal",
+    "matter": {
+      "id": "matter_000000000007",
+      "name": "Boiler service"
+    },
+    "goal": "Serviced and the leak fixed"
+  },
+  "done": [
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "schemaVersion": 1,
+      "goal": "Serviced and the leak fixed",
+      "kind": "matter-direction",
+      "steps": ["obs_000000000071", "unit_000000000072"]
+    }
+  ],
+  "inbox": {
+    "deadlinesToday": 0,
+    "left": false,
+    "total": 1
+  },
+  "kind": "new matter",
+  "ref": "matter_000000000007",
+  "send": null,
+  "start": null
+}

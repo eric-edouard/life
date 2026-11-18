@@ -9,6 +9,7 @@ import {
   filtersOf,
   lastTurns,
   modelOf,
+  NOT_STARTED,
   openTurn,
   queuedEvents,
   readCursor,
@@ -387,7 +388,7 @@ function endNotStarted({ db }: Desk, t: TurnRow, why: string) {
   }
   db.run(
     "update agent set status = 'ended', ended_at = ?, outcome = ? where id = ? and status = 'active'",
-    [now(), `not started: ${why}`, t.agent_id]
+    [now(), `${NOT_STARTED}${why}`, t.agent_id]
   );
   return true;
 }

@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { daysBefore } from "../core/clock";
 import { secretIn } from "../core/secret";
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
@@ -18,13 +19,17 @@ import {
 import { guessedOf, plain } from "./doubts";
 import type { StoredDraft } from "./draft";
 import {
+  isRunning,
+  type MatterStepNow,
   type MatterView,
   matterBookOf,
   matterFinderOf,
   matterPeopleOf,
+  nextStepNow,
 } from "./matter-read";
 import { mattersNow, readMatterRecords, readMatters } from "./matters";
 import {
+  readDismissedMatterPins,
   readFactCheckAnswers,
   readFactChecks,
   readUnitsFor,
@@ -42,14 +47,16 @@ import { dayNow, localDate } from "./zones";
 // The checks: everything waiting on his word, in one shape and one list, with no limit. A check is one guess of Life's
 // that his word would settle, shown with its evidence; it exists only while something rides on the guess (a kept line,
 // an open matter, a page). Life keeps using its guess meanwhile. Or it is a decision an agent asks (`decisions.ts`),
-// listed while open, first. Derived when read, never stored: his answer (`answerCheck`, `answer-check.ts`) is a
-// correction (a person), a fact-check answer (an ending) or his answer to the decision, each in its kind's own store.
+// or a new matter Life offers an agent for ("Work on it?"). Derived when read, never stored: his answer (`answerCheck`,
+// `answer-check.ts`) goes to its kind's own store: a correction (a person, a new matter's goal or dismissal), a
+// fact-check answer (an ending), his answer to the decision, lifelog's naming queue (a voice), or the desk (a Start).
 
-type CheckKind = "decision" | "ending" | "person" | "voice";
-/** What a check is, for counting: a decision, an ending, a guessed person, a Contacts card Life cannot place, a name it cannot place. */
+type CheckKind = "decision" | "ending" | "new matter" | "person" | "voice";
+/** What a check is, for counting: a decision, an ending, a new matter, a guessed person, a Contacts card Life cannot place, a name it cannot place, a voice. */
 export type CheckGroup =
   | "decision"
   | "ending"
+  | "new matter"
   | "guessed person"
   | "card"
   | "name"
@@ -133,10 +140,14 @@ type Where = string;
 
 /** Everything the checks are worked out from; `checksNow` reads it, `checksOf` is pure over it. */
 export interface CheckInputs {
+  /** The steps a registered agent is anchored on now, in any status (from host); null while the desk is off or unreadable: then no new matter is offered. */
+  anchored: ReadonlySet<string> | null;
   /** Refs of the fact-check answers he gave (any answer settles that line's check). */
   answered: ReadonlySet<string>;
   /** The open decisions (`decisionsNow`). */
   decisions: readonly Decision[];
+  /** The matters he dismissed as new matter checks, each as the steps it was pinned to (`readDismissedMatterPins`). */
+  dismissed: readonly (readonly string[])[];
   /** Refs of the old doubt lines drawn before 14 Nov 2026 (stored fact checks that are not ending checks): an answer by ref would land on them. */
   doubted: ReadonlySet<string>;
   /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
@@ -146,9 +157,19 @@ export interface CheckInputs {
   lines: readonly Line[];
   matters: readonly (Pick<
     MatterView,
-    "id" | "name" | "open" | "owedTo" | "told" | "waitingOn" | "with"
+    | "goal"
+    | "id"
+    | "lone"
+    | "name"
+    | "nextStep"
+    | "open"
+    | "owedTo"
+    | "status"
+    | "told"
+    | "waitingOn"
+    | "with"
   > & {
-    steps: { ref: string }[];
+    steps: Pick<MatterStepNow, "day" | "quote" | "ref">[];
   })[];
   paged: ReadonlySet<string>;
   people: Pick<
@@ -172,6 +193,8 @@ export interface CheckInputs {
       | "relation"
     >[];
   };
+  /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
+  today: string;
   unresolved: readonly Pick<Unresolved, "nameAsWritten" | "observation">[];
   /** The voices lifelog asks him to name (`readNamingQueue`). */
   voices: readonly NamingQueueItem[];
@@ -261,6 +284,23 @@ export const LIFE_CHECKS = {
     ],
     title: "Place a name",
   },
+  "new matter": {
+    context: "Nothing blocks its next step: an agent could move it now.",
+    options: [
+      {
+        id: "start",
+        label:
+          "Start: the goal becomes yours and an agent works toward it, with the goal as its brief",
+      },
+      {
+        id: "edit-goal",
+        label:
+          "Edit goal (give your goal as `note`): it becomes the goal; then Start or Dismiss",
+      },
+      { id: "dismiss", label: "Dismiss: never asked again for this matter" },
+    ],
+    title: "Life found a new matter",
+  },
   voice: {
     context:
       "Heard in conversations: who it is goes to every turn of this voice.",
@@ -283,6 +323,11 @@ export const LIFE_CHECKS = {
   Exclude<CheckGroup, "decision">,
   { context: string; options: CheckOption[]; title: string }
 >;
+
+/** How many days from its first step a new matter is offered: Life's "Work on it?" lapses after them, and nothing starts. */
+const NEW_MATTER_DAYS = 7;
+/** A goal's own full stop, dropped before the question adds its own. */
+const FINAL_STOP = /\.$/;
 
 /** The guess of an ending check, in one place: the builder shows it and his answer stores it. */
 export const endingGuessOf = (step: string) =>
@@ -443,6 +488,62 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           )
         : [];
     }),
+  /**
+   * Each running matter he has not answered "Work on it?" for: one that began in the last `NEW_MATTER_DAYS` (its first
+   * step's day), with a goal and a next step he could hand over (`do`, read through `nextStepNow`), no registered agent
+   * anchored on it now and not dismissed; none while the desk is off or unreadable. No deadline: it never outranks an
+   * agent's decision; on silence nothing starts and it leaves after its last day.
+   */
+  "new matter": (c) => {
+    const { anchored } = c;
+    if (!anchored) {
+      return [];
+    }
+    const find = matterFinderOf(c.matters);
+    const dismissed = new Set(c.dismissed.map(find));
+    return c.matters.flatMap((v) => {
+      const [first] = v.steps;
+      const next = nextStepNow(v, c.decisions);
+      const lastDay = first && daysBefore(first.day, 1 - NEW_MATTER_DAYS);
+      return first &&
+        lastDay &&
+        c.today <= lastDay &&
+        v.goal &&
+        next?.kind === "do" &&
+        !v.lone &&
+        isRunning(v) &&
+        !dismissed.has(v) &&
+        !v.steps.some((s) => anchored.has(s.ref))
+        ? [
+            {
+              check: {
+                about: [],
+                asker: "life",
+                at: null,
+                clips: [],
+                context: `${LIFE_CHECKS["new matter"].context} Next step: ${next.text}`,
+                deadline: null,
+                draft: null,
+                evidence: { from: plain(first.day), quote: first.quote },
+                group: "new matter",
+                kind: "new matter",
+                likelyPeople: [],
+                links: [],
+                notSent: null,
+                onSilence: `Nothing starts. Asked until ${plain(lastDay)}.`,
+                options: [...LIFE_CHECKS["new matter"].options],
+                question: `Goal: ${v.goal.text.replace(FINAL_STOP, "")}. Work on it?`,
+                ref: v.id,
+                ridesOn: { matters: 1, observations: 0, pages: 0 },
+                subject: null,
+                title: `${LIFE_CHECKS["new matter"].title}: ${v.name}`,
+              },
+              day: first.day,
+            },
+          ]
+        : [];
+    });
+  },
   /** The three guesses about who someone is: a guessed person, a Contacts card Life cannot place, a name it cannot place. */
   person: (c) => {
     const { people } = c;
@@ -597,8 +698,10 @@ export const pushIdOf = (ref: string, key = secretIn("pushIdKey")) =>
 /** A check as the inbox lists it: with its `pushId`. */
 export type InboxCheck = Check & { pushId: string };
 
-/** What waits on his word now, over what is stored today: read-only, no model call. */
-export async function checksNow(): Promise<InboxCheck[]> {
+/** What waits on his word now, over what is stored today and `anchored` (`CheckInputs`; host's `inboxNow` reads it from the desk): read-only, no model call. */
+export async function checksNow(
+  anchored: ReadonlySet<string> | null
+): Promise<InboxCheck[]> {
   const people = await readPeople();
   const [records, unresolved, paged, voices] = await Promise.all([
     readMatterRecords(people),
@@ -612,10 +715,12 @@ export async function checksNow(): Promise<InboxCheck[]> {
   );
   const key = secretIn("pushIdKey");
   const checks = checksOf({
+    anchored,
     answered: new Set(
       [...readFactCheckAnswers()].flatMap(([ref, a]) => (a.answer ? [ref] : []))
     ),
     decisions: decisionsNow().filter((d) => d.state === "open"),
+    dismissed: readDismissedMatterPins(),
     doubted: new Set(
       readFactChecks()
         .filter((s) => !isEndingCheck(s))
@@ -632,6 +737,7 @@ export async function checksNow(): Promise<InboxCheck[]> {
     matters,
     paged,
     people,
+    today: dayNow(),
     unresolved,
     voices,
     where: new Map([
@@ -646,12 +752,6 @@ export async function checksNow(): Promise<InboxCheck[]> {
     ]),
   });
   return checks.map((c) => ({ ...c, pushId: pushIdOf(c.ref, key) }));
-}
-
-/** The inbox (`read_inbox`): the first `limit` checks, most pressing first, with how many there are of each group; answered ones leave, so reading again shows the next. */
-export async function readInbox(limit: number) {
-  const list = await checksNow();
-  return { checks: list.slice(0, limit), ...inboxOf(list) };
 }
 
 /** What the inbox holds: how many of each group, how many in all, and how many are due by the end of his day (`dayNow`: the app's badge). */
