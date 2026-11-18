@@ -81,7 +81,12 @@ public struct LifeActions: Sendable {
                 ActionFailure(
                     reason: "The send had not ended when Life answered. Check the chat before sending again.",
                     retry: .no, mayHaveHappened: true))
-        case .sent, .unknown: return .succeeded(.answered(result))
+        case .sent: return .succeeded(.answered(result))
+        case .unknown:
+            return .failed(
+                ActionFailure(
+                    reason: "Life answered in a way this app does not read. It may have gone.",
+                    retry: .no, mayHaveHappened: true))
         }
     }
 

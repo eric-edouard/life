@@ -358,9 +358,14 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     "answerNamingQueue"
   ).mockResolvedValue({ personId: "p1" });
   try {
-    const ended = await call("obs_000000000001", ["outdated"], undefined, {
+    const ended = await call("obs_000000000001", ["outdated"], "tap-e", {
       note: "paid",
     }).result;
+    // The same tap again after a dropped connection: its stored result, not "no open check".
+    expect(
+      await call("obs_000000000001", ["outdated"], "tap-e", { note: "paid" })
+        .result
+    ).toBe(ended);
     expect(ended).toMatchObject({
       asker: { told: "recorded" },
       changed: {

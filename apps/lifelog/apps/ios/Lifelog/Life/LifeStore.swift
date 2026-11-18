@@ -33,7 +33,7 @@ final class LifeStore {
     private let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
     /// The key of a tap whose call may have run (its connection failed): the same tap repeats with it, so Life sends nothing twice.
-    private var answerKeys: [String: String] = [:]
+    private var taps = AnswerTaps()
 
     init(
         tokens: any TokenStore = LifeToken(), api: (any LifeAPI)? = nil,
@@ -123,7 +123,7 @@ final class LifeStore {
     private func perform(_ key: String, _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void) async {
         guard actions[key]?.isRunning != true else { return }
         let (events, emit) = AsyncStream.makeStream(of: ActionState<ActionProof>.Event.self)
-        actions[key] = .idle
+        actions[key] = .running(steps: [], limit: nil)
         let consumer = Task { for await event in events { actions[key, default: .idle].apply(event) } }
         await body { emit.yield($0) }
         emit.finish()
@@ -135,10 +135,9 @@ final class LifeStore {
     func answer(_ request: AnswerRequest) async {
         let key = "answer:\(request.ref)"
         guard actions[key]?.isRunning != true else { return }
-        let tap = answerKeys[request.ref] ?? UUID().uuidString
-        answerKeys[request.ref] = tap
+        let tap = taps.key(for: request.ref)
         await perform(key) { [runner] in await runner.answer(request, key: tap, emit: $0) }
-        if case .failed(let failure, _)? = actions[key], failure.isSameTap {} else { answerKeys[request.ref] = nil }
+        if let ended = actions[key] { taps.ended(request.ref, as: ended) }
         await refreshInbox()
     }
 
@@ -187,17 +186,6 @@ final class LifeStore {
     func markDone(_ matter: Matter) async {
         let (api, open) = (api, matter.steps.filter { $0.ending == nil && $0.ref.hasPrefix("obs_") }.map(\.ref))
         await edit(matter, "done") { try await api.markDone(observations: open, note: "Marked done in the Life app.") }
-    }
-
-    /// Ticks one of his to-do items, as he does it on the phone.
-    func tickTodoItem(title: String, target: String) async {
-        let api = api
-        await perform("todo:\(target)") { [runner] in
-            await runner.record(emit: $0) {
-                try await api.changeTodoItem(
-                    kind: "done", title: title, target: target, said: "Ticked in the Life app: \(title)")
-            }
-        }
     }
 
     private func edit(_ matter: Matter, _ what: String, _ change: @escaping @Sendable () async throws -> String) async {

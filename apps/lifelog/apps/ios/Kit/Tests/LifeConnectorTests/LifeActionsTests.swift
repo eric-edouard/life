@@ -32,7 +32,6 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
         return "Done: memory."
     }
     func markDone(observations: [String], note: String) async throws -> String { "Done: memory." }
-    func changeTodoItem(kind: String, title: String, target: String, said: String) async throws -> String { "ok" }
 }
 
 private let at = Date(timeIntervalSince1970: 1_800_000_000)
@@ -98,6 +97,19 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
         return
     }
     #expect(failure.retry == .no)
+    #expect(failure.mayHaveHappened)
+}
+
+@Test func aSendStateThisAppDoesNotKnowIsNeverShownAsSuccess() async throws {
+    let life = FakeLife()
+    let text = try wireText("life/answer_check_sent.json")
+        .replacingOccurrences(of: #""state": "sent""#, with: #""state": "a_new_state""#)
+    life.answers = [{ _ in text }]
+    let state = await run { await LifeActions(api: life).answer(request, key: "k", emit: $0) }
+    guard case .failed(let failure, _) = state else {
+        Issue.record("\(state)")
+        return
+    }
     #expect(failure.mayHaveHappened)
 }
 
@@ -232,7 +244,6 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
             throw MCPError.refused("Not done: no matter")
         }
         func markDone(observations: [String], note: String) async throws -> String { "" }
-        func changeTodoItem(kind: String, title: String, target: String, said: String) async throws -> String { "" }
     }
     let state = await run {
         await LifeActions(api: Failing()).startAgent(

@@ -12,34 +12,23 @@ const LIFE_WIRE = join(
 
 function steady(value: unknown) {
   const seen = new Map<string, string>();
-  const stand =
-    (
-      re: RegExp,
-      make: (n: number, m: string) => string,
-      keyOf = (m: string) => m
-    ) =>
-    (s: string) =>
-      s.replace(re, (m) => {
-        const key = keyOf(m);
-        if (!seen.has(key)) {
-          seen.set(key, make(seen.size + 1, m));
-        }
-        return seen.get(key) as string;
-      });
-  const ids = stand(
-    /\b(dec|agt|entry)_[0-9a-f]{12}\b/g,
-    (n, m) => `${m.slice(0, m.indexOf("_"))}_${String(n).padStart(12, "0")}`
-  );
-  const instants = stand(
-    /\d{4}-\d\d-\d\dT[\d:.]+Z/g,
-    (n) => `2026-11-18T10:00:${String(n).padStart(2, "0")}.000Z`,
-    // Instants a test's run made within the same 5 s are one (a second boundary must not change the fixture).
-    (m) => `t${Math.floor(Date.parse(m) / 5000)}`
-  );
+  const ids = (s: string) =>
+    s.replace(/\b(dec|agt|entry)_[0-9a-f]{12}\b/g, (m) => {
+      if (!seen.has(m)) {
+        seen.set(
+          m,
+          `${m.slice(0, m.indexOf("_"))}_${String(seen.size + 1).padStart(12, "0")}`
+        );
+      }
+      return seen.get(m) as string;
+    });
+  // Every instant is one: the fixture checks the shape, not when the test ran.
+  const instants = (s: string) =>
+    s.replace(/\d{4}-\d\d-\d\dT[\d:.]+Z/g, "2026-11-18T10:00:00.000Z");
   return JSON.parse(instants(ids(JSON.stringify(value))));
 }
 
-/** `isMadeNow`: the answer holds ids and instants made as the test ran (numbered by their first appearance). */
+/** `isMadeNow`: the answer holds ids and instants made as the test ran. */
 export function expectWire(name: string, value: unknown, isMadeNow = false) {
   const file = join(LIFE_WIRE, `${name}.json`);
   const parsed = typeof value === "string" ? JSON.parse(value) : value;

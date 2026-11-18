@@ -63,7 +63,6 @@ public protocol LifeAPI: Sendable {
     /// His word that these observations (a matter's open steps) are done.
     func markDone(observations: [String], note: String) async throws -> String
     /// Ticks (or unticks) one of his to-do items.
-    func changeTodoItem(kind: String, title: String, target: String, said: String) async throws -> String
 }
 
 public struct MCPLifeAPI: LifeAPI {
@@ -73,7 +72,8 @@ public struct MCPLifeAPI: LifeAPI {
         self.client = client
     }
 
-    public func readInbox() async throws -> String { try await client.call("read_inbox") }
+    /// Every card in one read (the server's most), so a tapped push finds its card and the screens count them all.
+    public func readInbox() async throws -> String { try await client.call("read_inbox", ["limit": 500]) }
     public func readMatters() async throws -> String { try await client.call("read_matters") }
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }
@@ -107,11 +107,6 @@ public struct MCPLifeAPI: LifeAPI {
             let note: String
         }
         return try await correct(Outdated(observations: observations, note: note))
-    }
-
-    public func changeTodoItem(kind: String, title: String, target: String, said: String) async throws -> String {
-        try await client.call(
-            "change_todo_item", ["kind": kind, "title": title, "target": target, "said": said])
     }
 
     private struct Correct<C: Encodable & Sendable>: Encodable, Sendable {

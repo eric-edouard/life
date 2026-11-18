@@ -57,13 +57,15 @@ public struct LifeOAuth: Sendable {
     /// New tokens for the refresh token held. Life refuses it for good (`invalid_grant`): `.notPaired`.
     public func refresh(_ credentials: LifeCredentials) async throws -> LifeTokens {
         let endpoint = credentials.endpoint
+        let form = [
+            ("grant_type", "refresh_token"), ("refresh_token", credentials.tokens.refresh),
+            ("client_id", endpoint.clientID), ("resource", endpoint.resource),
+        ]
         do {
-            return try await tokens(
-                at: endpoint.tokenEndpoint,
-                form: [
-                    ("grant_type", "refresh_token"), ("refresh_token", credentials.tokens.refresh),
-                    ("client_id", endpoint.clientID), ("resource", endpoint.resource),
-                ])
+            // A lost reply is asked once more: Life serves a used refresh token one more time within a minute.
+            do { return try await tokens(at: endpoint.tokenEndpoint, form: form) } catch MCPError.unreachable {
+                return try await tokens(at: endpoint.tokenEndpoint, form: form)
+            }
         } catch MCPError.refused(_) { throw MCPError.notPaired }
     }
 

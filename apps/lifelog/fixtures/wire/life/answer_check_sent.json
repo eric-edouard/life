@@ -11,7 +11,7 @@
   "done": [
     {
       "answerKey": "tap-1",
-      "at": "2026-11-18T10:00:02.000Z",
+      "at": "2026-11-18T10:00:00.000Z",
       "id": "dec_000000000001",
       "kind": "answered",
       "options": ["send"],
@@ -19,7 +19,7 @@
       "via": "connector"
     },
     {
-      "at": "2026-11-18T10:00:02.000Z",
+      "at": "2026-11-18T10:00:00.000Z",
       "eventId": "$ev1",
       "id": "dec_000000000001",
       "kind": "sent",
@@ -34,7 +34,7 @@
   "kind": "decision",
   "ref": "dec_000000000001",
   "send": {
-    "at": "2026-11-18T10:00:02.000Z",
+    "at": "2026-11-18T10:00:00.000Z",
     "channel": "whatsapp",
     "eventId": "$ev1",
     "state": "sent",
