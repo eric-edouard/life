@@ -5,6 +5,12 @@
 
 import { parseArgs } from "node:util";
 import { DAY, daysBefore, MIN } from "@life/server/src/core/clock";
+import {
+  EMBEDDER_URL,
+  embedAll,
+  embedderAt,
+  similarityOf,
+} from "@life/server/src/core/embedder";
 import { CONVERSATION_ENDS_AFTER } from "@life/server/src/core/quiet";
 import {
   ARRIVAL_AT_MOST,
@@ -14,6 +20,12 @@ import {
   arrivalsDue,
   isArriving,
 } from "@life/server/src/memory/arrival-gate";
+import { ACTIONABLE, matterBookOf } from "@life/server/src/memory/matter-read";
+import {
+  mattersNow,
+  readMatterRecords,
+  readMatters,
+} from "@life/server/src/memory/matters";
 import {
   readFiles,
   readObservations,
@@ -34,6 +46,7 @@ import {
 } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";
 import { dayStart, localDate, time } from "@life/server/src/memory/zones";
+import { CHARS_PER_TOKEN } from "@life/server/src/models/llm";
 import type { SourceEvent } from "@life/server/src/records/source";
 import { ownerIn } from "@life/server/src/records/truth";
 import { KEEP_AT } from "@life/server/src/records/unit";
@@ -50,10 +63,15 @@ const PASS = 10 * MIN;
 /** Input-equivalent tokens (in + 3 × out) of a pass by how far it goes, and the day's limit (the plan's 3.2, 3.5). */
 const TOKENS = { full: 255_000, light: 120_000, triage: 57_000 };
 const DAY_LIMIT = 6_400_000;
+/** Flash's input price on its no-retention hosts: input-equivalent tokens to dollars (the plan's 3.5). */
+const DOLLARS_PER_TOKEN = 0.078 / 1e6;
+const TURN_TOKENS = 16;
 
 interface Pass {
   at: number;
   day: string;
+  /** The tokens of its units' own words, sent whole. */
+  text: number;
   units: string[];
 }
 
@@ -119,26 +137,43 @@ function arrivedBy(
   };
 }
 
-type Replayed = ReturnType<typeof replayed>;
-const replayed = () => ({
+/** Today's units as the replay last built them, and every unit's lines by id: shared by every option. */
+const building = () => ({
   built: [] as Built[],
-  heldBy: new Map<string, string>(),
   lastBuilt: new Map<string, Built[]>(),
   linesOf: new Map<string, string[]>(),
-  passEnd: 0,
-  passes: [] as Pass[],
-  readByDay: new Set<string>(),
-  // Card sends began on 18 Nov 2026: none in the days measured to keep a chat through.
-  reads: { draftChats: new Set(), lines: new Map() } as Omit<
-    ArrivalReads,
-    "ownerNames"
-  >,
   signature: "",
 });
+type Build = ReturnType<typeof building>;
+
+/** One way to run the passes: one at most every `every`, and layer 2's lines near an ask (absent: the layer is off). */
+export interface Option {
+  every: number;
+  name: string;
+  nearAnAsk?: ReadonlySet<string>;
+}
+
+/** An option's own state through the replay: its passes, when each line was read, the rule that last held the rest. */
+const running = (o: Option, ownerNames: string[]) => ({
+  heldBy: new Map<string, string>(),
+  option: o,
+  passEnd: 0,
+  passes: [] as Pass[],
+  readAt: new Map<string, number>(),
+  reads: {
+    // Card sends began on 18 Nov 2026: none in the days measured to keep a chat through.
+    draftChats: new Set<string>(),
+    lines: new Map<string, number>(),
+    nearAnAsk: o.nearAnAsk,
+    ownerNames,
+  } satisfies ArrivalReads,
+});
+type Run = ReturnType<typeof running>;
+type Replayed = Run & Pick<Build, "lastBuilt" | "linesOf">;
 
 /** Today's units as of a tick, built again only when something arrived or a recording settled; their lines kept by unit. */
 function rebuild(
-  out: Replayed,
+  out: Build,
   day: string,
   { today, voice }: ReturnType<typeof arrivedBy>,
   resolve: Resolve
@@ -164,44 +199,64 @@ function rebuild(
   out.lastBuilt.set(day, out.built);
 }
 
+/** A unit's own words in tokens, as a pass sends them whole: a turn about 16, else its characters (the plan's 3.0). */
+const textTokensOf = (u: Built["unit"]) =>
+  kindOf(u.source) === "voice"
+    ? u.stats.items * TURN_TOKENS
+    : u.stats.chars / CHARS_PER_TOKEN;
+
 /** The gate's word at `t`: each held unit's unread lines remember the rule; a pass starts on what is due when none runs. */
-function tick(out: Replayed, arrivals: Arrival[], t: number, day: string) {
+function tick(
+  run: Run,
+  linesOf: Build["linesOf"],
+  arrivals: Arrival[],
+  { day, t }: { day: string; t: number }
+) {
   const unreadOf = (id: string) =>
-    (out.linesOf.get(id) ?? []).slice(out.reads.lines.get(id) ?? 0);
+    (linesOf.get(id) ?? []).slice(run.reads.lines.get(id) ?? 0);
   for (const a of arrivals) {
     if ("wait" in a) {
       for (const id of unreadOf(a.unit.id)) {
-        out.heldBy.set(id, a.wait);
+        run.heldBy.set(id, a.wait);
       }
     }
   }
   const due = arrivals.flatMap((a) => ("wait" in a ? [] : [a.unit]));
-  if (t < out.passEnd || due.length === 0) {
+  if (t < run.passEnd || due.length === 0) {
     return;
   }
   for (const unit of due) {
     for (const id of unreadOf(unit.id)) {
-      out.readByDay.add(id);
+      run.readAt.set(id, t);
     }
-    out.reads.lines.set(unit.id, unit.stats.items);
+    run.reads.lines.set(unit.id, unit.stats.items);
   }
-  out.passes.push({ at: t, day, units: due.map((u) => u.id) });
-  out.passEnd = t + PASS;
+  run.passes.push({
+    at: t,
+    day,
+    text: due.reduce((n, u) => n + textTokensOf(u), 0),
+    units: due.map((u) => u.id),
+  });
+  run.passEnd = t + Math.max(PASS, run.option.every);
 }
 
 /**
- * The day passes the gate would have run from `start` to `end`: every `STEP` it builds today's units from what had
- * arrived, asks `arrivalsDue`, and when no pass runs starts one on what is due. Returns the passes, the lines a pass
- * read, the rule that last held each line not read, and each day's last units with their lines.
+ * The day passes the gate would have run from `start` to `end`, for each option: every `STEP` it builds today's units
+ * from what had arrived (once for all options), asks `arrivalsDue`, and when no pass runs starts one on what is due.
+ * Returns, per option, the passes, when each line was read, the rule that last held each line not read, and each
+ * day's last units with their lines.
  */
-export function replay(input: {
-  end: number;
-  events: SourceEvent[];
-  ownerNames: string[];
-  resolve: Resolve;
-  start: number;
-  talks: LifelogConversation[];
-}) {
+export function replay(
+  input: {
+    end: number;
+    events: SourceEvent[];
+    ownerNames: string[];
+    resolve: Resolve;
+    start: number;
+    talks: LifelogConversation[];
+  },
+  options: Option[] = [{ every: PASS, name: "gate" }]
+): Replayed[] {
   const eventsOn = Map.groupBy(input.events, (e) => localDate(e.at));
   const talksOn = new Map<string, LifelogConversation[]>();
   for (const c of input.talks) {
@@ -209,8 +264,8 @@ export function replay(input: {
       talksOn.set(day, [...(talksOn.get(day) ?? []), c]);
     }
   }
-  const out = replayed();
-  const reads = { ...out.reads, ownerNames: input.ownerNames };
+  const build = building();
+  const runs = options.map((o) => running(o, input.ownerNames));
   for (let t = input.start; t < input.end; t += STEP) {
     const day = localDate(new Date(t).toISOString());
     const arrived = arrivedBy(
@@ -218,20 +273,26 @@ export function replay(input: {
       eventsOn.get(day) ?? [],
       talksOn.get(day) ?? []
     );
-    rebuild(out, day, arrived, input.resolve);
-    const arrivals = arrivalsDue(
-      { built: out.built, conversations: arrived.voice },
-      reads,
-      new Date(t)
-    );
-    tick(out, arrivals, t, day);
+    rebuild(build, day, arrived, input.resolve);
+    for (const run of runs) {
+      const arrivals = arrivalsDue(
+        { built: build.built, conversations: arrived.voice },
+        run.reads,
+        new Date(t)
+      );
+      tick(run, build.linesOf, arrivals, { day, t });
+    }
   }
-  return out;
+  return runs.map((run) => ({
+    ...run,
+    lastBuilt: build.lastBuilt,
+    linesOf: build.linesOf,
+  }));
 }
 
 /** Nothing when a day pass read the line, else the rule that last held it. */
 const fateOf = (r: Replayed, line: string) =>
-  r.readByDay.has(line) ? undefined : (r.heldBy.get(line) ?? "day-ended");
+  r.readAt.has(line) ? undefined : (r.heldBy.get(line) ?? "day-ended");
 
 interface Row {
   arrivals: number;
@@ -305,7 +366,8 @@ export function passesOn(day: string, r: Replayed, truth: Truth) {
   let tokens = 0;
   let limitAt = "not reached";
   for (const [i, k] of kinds.entries()) {
-    tokens += TOKENS[k];
+    // A pass's words are read twice (episodes, extract): small beside its fixed part, which is the cost.
+    tokens += TOKENS[k] + 2 * (list[i]?.text ?? 0);
     if (tokens >= DAY_LIMIT && limitAt === "not reached") {
       limitAt = time(new Date(list[i]?.at ?? 0).toISOString());
     }
@@ -316,6 +378,7 @@ export function passesOn(day: string, r: Replayed, truth: Truth) {
     light: count("light"),
     limitAt,
     passes: list.length,
+    tokens,
     tokensM: Number((tokens / 1e6).toFixed(2)),
     triage: count("triage"),
   };
@@ -334,6 +397,152 @@ export function missesOf(r: Replayed, truth: Truth, atOf: Map<string, number>) {
     misses.set(key, (misses.get(key) ?? 0) + 1);
   }
   return misses;
+}
+
+/** The share of `sorted` at or below which `share` of it lies. */
+const centile = (sorted: number[], share: number) =>
+  sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * share))] ?? 0;
+
+/**
+ * Minutes from an ask's arrival (its line; a recording's end) to its card: the pass that read it starts, then runs
+ * `PASS`. The median and the 90th centile, over the asks a day pass read.
+ */
+export function latencyOf(
+  r: Replayed,
+  truth: Truth,
+  doneAt: Map<string, number>
+) {
+  const minutes = truth.asks
+    .flatMap((a) => {
+      const read = r.readAt.get(a.ref);
+      const done = doneAt.get(a.ref);
+      return read !== undefined && done !== undefined
+        ? [(read + PASS - done) / MIN]
+        : [];
+    })
+    .toSorted((a, b) => a - b);
+  return {
+    median: Math.round(centile(minutes, 0.5)),
+    p90: Math.round(centile(minutes, 0.9)),
+  };
+}
+
+/** One option in a row: passes a day, recall, dollars a day, the limit's days and earliest hour, latency; over `days`. */
+export function summaryOf(
+  r: Replayed,
+  truth: Truth,
+  days: string[],
+  doneAt: Map<string, number>
+) {
+  const each = days.map((day) => passesOn(day, r, truth));
+  const passes = each.map((d) => d.passes).toSorted((a, b) => a - b);
+  const dollars = each
+    .map((d) => d.tokens * DOLLARS_PER_TOKEN)
+    .toSorted((a, b) => a - b);
+  const hit = each
+    .map((d) => d.limitAt)
+    .filter((h) => h !== "not reached")
+    .toSorted();
+  const read = truth.asks.filter((a) => r.readAt.has(a.ref)).length;
+  const latency = latencyOf(r, truth, doneAt);
+  return {
+    dollarsMedian: Number(centile(dollars, 0.5).toFixed(2)),
+    dollarsWorst: Number((dollars.at(-1) ?? 0).toFixed(2)),
+    latencyMedian: latency.median,
+    latencyP90: latency.p90,
+    limitDays: hit.length,
+    limitEarliest: hit[0] ?? "-",
+    option: r.option.name,
+    passesMedian: centile(passes, 0.5),
+    passesWorst: passes.at(-1) ?? 0,
+    recall: `${read}/${truth.asks.length}`,
+  };
+}
+
+/**
+ * What an ask, a promise, a wait or an answer to one looks like, in the languages he writes (layer 2's examples,
+ * made up). ponytail: kept here while layer 2 is measured; it moves to `prompts/ask-examples.txt` if PR 4b builds it.
+ */
+const ASK_EXAMPLES = [
+  "Can you send me the file before Friday?",
+  "Could you call me back when you have a minute?",
+  "Please remind me to book the tickets tomorrow.",
+  "I'll send it to you tonight, promise.",
+  "I will pay you back next week.",
+  "Let me check and get back to you.",
+  "Waiting for your answer on the contract.",
+  "Did you get a chance to look at my message?",
+  "When can you come to fix it?",
+  "Can we meet on Tuesday at 3?",
+  "Done, I sent the transfer.",
+  "Yes, I can do that for you.",
+  "Tu peux m'envoyer le document avant vendredi ?",
+  "Je te l'envoie ce soir, promis.",
+  "Je te rappelle demain matin.",
+  "N'oublie pas de réserver la table.",
+  "J'attends ta réponse pour le devis.",
+  "On peut se voir mardi à 15h ?",
+  "C'est fait, je t'ai fait le virement.",
+  "Tu as pu regarder mon message ?",
+  "ส่งไฟล์ให้หน่อยได้ไหม",
+  "เดี๋ยวพรุ่งนี้โทรกลับนะ",
+  "รอคำตอบอยู่นะครับ",
+  "โอนเงินให้แล้วนะ",
+];
+/** The open matters' texts shown for a line: their to-dos, promises and waits from the 45 days before its day. */
+const MATTER_DAYS = 45;
+
+/** Texts as queries, a batch at a time (the embedder runs one at a time anyway). */
+async function queryVectors(texts: string[]) {
+  const embedder = embedderAt(EMBEDDER_URL);
+  const vectors: number[][] = [];
+  for (let i = 0; i < texts.length; i += 32) {
+    // biome-ignore lint/performance/noAwaitInLoops: one batch at a time
+    vectors.push(...(await embedder.embed(texts.slice(i, i + 32), "query")));
+  }
+  return vectors;
+}
+
+const closest = (vectors: number[][], v: number[]) =>
+  Math.max(-1, ...vectors.map((x) => similarityOf(x, v)));
+
+/**
+ * Layer 2's scores, by the Mac's embedder (nothing leaves the Mac): for each chat and mail line, how close it is to the
+ * ask examples, and to the open matters' steps of the 45 days before its day that had not ended by then (never a later
+ * step: those were read from these very lines).
+ */
+async function readNearness(
+  events: SourceEvent[],
+  steps: { day: string; endedAt?: string; text: string }[]
+) {
+  const lines = events.filter(
+    (e) => isArriving(e.source) && kindOf(e.source) !== "voice" && e.text
+  );
+  const vectors = await embedAll(
+    embedderAt(EMBEDDER_URL),
+    lines.map((e) => e.text)
+  );
+  const examples = await queryVectors(ASK_EXAMPLES);
+  const stepVectors = await queryVectors(steps.map((x) => x.text));
+  const scores = new Map<string, { asks: number; matters: number }>();
+  for (const [i, e] of lines.entries()) {
+    const day = localDate(e.at);
+    const open = stepVectors.filter((_, j) => {
+      const x = steps[j];
+      return (
+        x !== undefined &&
+        x.day < day &&
+        x.day >= daysBefore(day, MATTER_DAYS) &&
+        !(x.endedAt && x.endedAt < e.at)
+      );
+    });
+    const v = vectors[i] ?? [];
+    scores.set(e.id, {
+      asks: closest(examples, v),
+      matters: closest(open, v),
+    });
+  }
+  return scores;
 }
 
 /** His sources and what the night found over `from`..`to`, read-only. */
@@ -381,6 +590,20 @@ async function readReplayInput(from: string, to: string, store?: string) {
       .filter((v) => v.importance >= KEEP_AT)
       .map((v) => v.unit)
   );
+  const book = matterBookOf(
+    mattersNow(readMatters()),
+    await readMatterRecords(people),
+    to
+  );
+  const steps = book.flatMap((v) =>
+    v.steps
+      .filter((x) => ACTIONABLE.includes(x.kind))
+      .map((x) => ({ day: x.day, endedAt: x.ending?.at, text: x.text }))
+  );
+  // A day's night has run when one of its units has a verdict that kept it.
+  const nightDays = days.filter((d) =>
+    readUnitsOf([d]).some((u) => kept.has(u.id))
+  );
   return {
     days,
     failed,
@@ -396,49 +619,63 @@ async function readReplayInput(from: string, to: string, store?: string) {
       start,
       talks,
     },
+    nightDays,
+    steps,
     truth: { asks: [...asks.values()], kept },
   };
 }
 
-if (import.meta.main) {
-  const { values } = parseArgs({
-    options: {
-      from: { type: "string" },
-      store: { type: "string" },
-      to: { type: "string" },
-    },
-  });
-  const from = values.from ?? "2026-11-05";
-  const to = values.to ?? "2026-11-18";
-  const { days, failed, input, truth } = await readReplayInput(
-    from,
-    to,
-    values.store
-  );
-  const r = replay(input);
-  const atOf = new Map<string, number>([
-    ...input.events.map((e): [string, number] => [e.id, Date.parse(e.at)]),
-    ...input.talks.flatMap((c) =>
-      c.turns.map((x): [string, number] => [
-        turnRef(x.jobId, x.turnIndex, x.at),
-        Date.parse(x.at),
-      ])
-    ),
+/** Layer 2's thresholds tried, and the minutes between passes. */
+const THRESHOLDS = [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6];
+const CADENCES = [10, 20, 30];
+
+/** Every option measured: the gate alone and with layer 2 at each threshold (asks and matters, or asks only), at each cadence. */
+function optionsOf(near: Map<string, { asks: number; matters: number }>) {
+  const above = (
+    at: number,
+    score: (x: { asks: number; matters: number }) => number
+  ) => new Set([...near].filter(([, x]) => score(x) >= at).map(([id]) => id));
+  return CADENCES.flatMap((minutes): Option[] => [
+    { every: minutes * MIN, name: `gate, every ${minutes}` },
+    ...THRESHOLDS.flatMap((at) => [
+      {
+        every: minutes * MIN,
+        name: `near ${at}, every ${minutes}`,
+        nearAnAsk: above(at, (x) => Math.max(x.asks, x.matters)),
+      },
+      {
+        every: minutes * MIN,
+        name: `near asks ${at}, every ${minutes}`,
+        nearAnAsk: above(at, (x) => x.asks),
+      },
+    ]),
   ]);
+}
+
+/** The tables of one option: by day, by day and source, held by rule, the asks' fates. */
+function printDetails(
+  r: Replayed,
+  truth: Truth,
+  days: string[],
+  atOf: Map<string, number>
+) {
   const { held, rows } = arrivalsOf(r, atOf);
   const total = (day: string, key: "arrivals" | "passed") =>
     [...rows]
       .filter(([k]) => k.startsWith(day))
       .reduce((n, [, x]) => n + x[key], 0);
-  const byDay = days.map((day) => ({
-    arrivals: total(day, "arrivals"),
-    day,
-    passed: total(day, "passed"),
-    ...passesOn(day, r, truth),
-  }));
-  const sorted = byDay.map((d) => d.passes).toSorted((a, b) => a - b);
-  console.log(`Arrival gate, ${from} to ${to}: counts only.`);
-  console.table(byDay);
+  console.log(`Details: ${r.option.name}`);
+  console.table(
+    days.map((day) => {
+      const { tokens: _, ...shown } = passesOn(day, r, truth);
+      return {
+        arrivals: total(day, "arrivals"),
+        day,
+        passed: total(day, "passed"),
+        ...shown,
+      };
+    })
+  );
   console.table(
     [...rows].map(([key, x]) => ({
       arrivals: x.arrivals,
@@ -449,9 +686,52 @@ if (import.meta.main) {
   );
   console.table(Object.fromEntries([...held].toSorted((a, b) => b[1] - a[1])));
   console.table(Object.fromEntries([...missesOf(r, truth, atOf)].toSorted()));
+}
+
+if (import.meta.main) {
+  const { values } = parseArgs({
+    options: {
+      from: { type: "string" },
+      show: { type: "string" },
+      store: { type: "string" },
+      to: { type: "string" },
+    },
+  });
+  const from = values.from ?? "2026-11-05";
+  const to = values.to ?? "2026-11-18";
+  const { days, failed, input, nightDays, steps, truth } =
+    await readReplayInput(from, to, values.store);
+  const near = await readNearness(input.events, steps);
+  const runs = replay(input, optionsOf(near));
+  const atOf = new Map<string, number>([
+    ...input.events.map((e): [string, number] => [e.id, Date.parse(e.at)]),
+    ...input.talks.flatMap((c) =>
+      c.turns.map((x): [string, number] => [
+        turnRef(x.jobId, x.turnIndex, x.at),
+        Date.parse(x.at),
+      ])
+    ),
+  ]);
+  // A card can follow a recording only once it ended: its asks' latency counts from there.
+  const doneAt = new Map<string, number>([
+    ...atOf,
+    ...input.talks.flatMap((c) =>
+      c.turns.map((x): [string, number] => [
+        turnRef(x.jobId, x.turnIndex, x.at),
+        Date.parse(c.endedAt),
+      ])
+    ),
+  ]);
   console.log(
-    `Passes a day: median ${sorted[Math.floor(sorted.length / 2)]}, worst ${sorted.at(-1)}.`
+    `Arrival gate, ${from} to ${to}: counts only. Dollars, limit and latency over the ${nightDays.length} days whose night ran.`
   );
+  console.table(runs.map((r) => summaryOf(r, truth, nightDays, doneAt)));
+  const shown = runs.find(
+    (r) => r.option.name === (values.show ?? "gate, every 10")
+  );
+  if (shown) {
+    printDetails(shown, truth, days, atOf);
+  }
   console.log(
     failed.length > 0
       ? `Not read, so missing above: ${failed.join(", ")}`

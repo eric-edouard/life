@@ -126,6 +126,16 @@ test("a receipt from no one he knows and a stranger's message wait; a newsletter
   ).toEqual(["stranger"]);
 });
 
+test("with layer 2 measured, a chat whose new lines are near no ask waits; one near an ask is due", () => {
+  const line = msg();
+  expect(gate([line], reads({ nearAnAsk: new Set() }))).toEqual([
+    "not-near-an-ask",
+  ]);
+  expect(gate([line], reads({ nearAnAsk: new Set([line.id]) }))).toEqual([
+    "due",
+  ]);
+});
+
 test("notes wait for the night whatever they say", () => {
   expect(
     gate([msg({ chat: "note-1", id: "notes:1", source: "notes" })])

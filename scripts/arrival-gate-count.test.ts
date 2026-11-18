@@ -4,6 +4,7 @@ import type { SourceEvent } from "@life/server/src/records/source";
 import {
   arrivalsOf,
   burstsOf,
+  latencyOf,
   missesOf,
   passesOn,
   replay,
@@ -41,7 +42,7 @@ test("replay: one pass at a time; what arrives during a pass waits for the next;
     msg(9, { id: "whatsapp:9b" }),
     msg(30, { chat: stranger, id: "whatsapp:x", sender: stranger }),
   ];
-  const r = replay({
+  const [r] = replay({
     end: START + 2 * HOUR,
     events,
     ownerNames: ["Ozren"],
@@ -49,6 +50,9 @@ test("replay: one pass at a time; what arrives during a pass waits for the next;
     start: START,
     talks: [],
   });
+  if (!r) {
+    throw new Error("one option, one run");
+  }
   // Due at 10:08 (quiet for 2 minutes), then again after the pass that started then, for the line at 10:09.
   expect(r.passes.map((p) => p.at)).toEqual([
     START + 8 * MIN,
@@ -79,4 +83,32 @@ test("replay: one pass at a time; what arrives during a pass waits for the next;
     full: 2,
     passes: 2,
   });
+});
+
+test("cadence: with a pass at most every 20 minutes, the next waits 20 minutes, and the ask's card comes later", () => {
+  const events = [msg(5), msg(9, { id: "whatsapp:9b" })];
+  const input = {
+    end: START + HOUR,
+    events,
+    ownerNames: ["Ozren"],
+    resolve: (h: string) => (h === SAM ? "person:sam" : null),
+    start: START,
+    talks: [],
+  };
+  const [ten, twenty] = replay(input, [
+    { every: 10 * MIN, name: "10" },
+    { every: 20 * MIN, name: "20" },
+  ]);
+  expect(twenty?.passes.map((p) => p.at)).toEqual([
+    START + 8 * MIN,
+    START + 28 * MIN,
+  ]);
+  const truth = {
+    asks: [{ channel: "whatsapp", ref: "whatsapp:9b", unit: "u" }],
+    kept: new Set<string>(),
+  };
+  const doneAt = new Map(events.map((e) => [e.id, Date.parse(e.at)]));
+  // Read at 10:18 or 10:28, then a 10-minute pass: 19 and 29 minutes after it was written.
+  expect(ten && latencyOf(ten, truth, doneAt).median).toBe(19);
+  expect(twenty && latencyOf(twenty, truth, doneAt).median).toBe(29);
 });

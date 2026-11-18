@@ -21,6 +21,11 @@ export interface ArrivalReads {
   draftChats: Set<string>;
   /** How many of a unit's lines (messages or turns, `stats.items`) a pass has read, by unit id. */
   lines: Map<string, number>;
+  /**
+   * Layer 2, when the caller measured it: the ids of the new lines close in meaning (the Mac's embedder) to an ask, a
+   * promise or an open matter. Absent, the layer is off.
+   */
+  nearAnAsk?: ReadonlySet<string>;
   /** His name and aliases: a group's line that names him is for him. */
   ownerNames: string[];
 }
@@ -92,6 +97,13 @@ const RULES: [string, (s: Seen) => boolean][] = [
       isFromStrangers(b),
   ],
   ["stranger", ({ b }) => b.messages.length > 0 && isFromStrangers(b)],
+  [
+    "not-near-an-ask",
+    ({ fresh, read }) =>
+      read.nearAnAsk !== undefined &&
+      fresh.length > 0 &&
+      !fresh.some((m) => read.nearAnAsk?.has(m.id)),
+  ],
 ];
 
 /**
