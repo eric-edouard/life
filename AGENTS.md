@@ -118,7 +118,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   desk (`apps/server/src/desk/`, off until his `desk` setting) starts a registered agent's session on a subject he
   handed over, and wakes it on its events, his answer or its deadline; the night, the watcher, the connector and
   anything recorded never start one. Life gives an agent a brief and the door, and nothing else: what an agent may do
-  is its runtime's permissions and his own rules, never Life's code. The brief carries his gates (nothing outgoing
+  is its runtime's permissions and his own rules, never Life's code (the one flag the desk sets: Codex's `exec` refuses MCP tools unasked, so the Codex runtime approves the desk's own door's tools, `mcp_servers.desk` alone). The brief carries his gates (nothing outgoing
   without his yes on the exact thing, asked as a decision) and the door holds one rule of his (18 Nov 2026): a new
   agent's first turn asks its plan, so the door refuses `set_wait` and `finish` until it has asked a decision. An agent that is not registered is started as
   before: its own `onAsk` command (its setting), once per new ask, detached and with no words (his OK, 3 Nov 2026), and

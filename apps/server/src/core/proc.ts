@@ -43,18 +43,18 @@ export async function exec(
 /**
  * Starts `cmd` in its own process group with `cliEnv` (none of Life's secrets) plus `o.env`, in `o.cwd`, and leaves it
  * running past this process: Life never reads or stops it. Its exit code when it ends, -1 when it could not start
- * (logged, never thrown); a caller that only starts it ignores that.
+ * (logged, never thrown); a caller that only starts it ignores that. Its output goes to the file `o.stdout`, else nowhere.
  */
 export function startDetached(
   cmd: string[],
-  o: { cwd?: string; env?: Record<string, string> } = {}
+  o: { cwd?: string; env?: Record<string, string>; stdout?: string } = {}
 ) {
   try {
     const proc = Bun.spawn(cmd, {
       cwd: o.cwd,
       detached: true,
       env: { ...cliEnv(), ...o.env },
-      stdio: ["ignore", "ignore", "ignore"],
+      stdio: ["ignore", o.stdout ? Bun.file(o.stdout) : "ignore", "ignore"],
     });
     proc.unref();
     return proc.exited;
