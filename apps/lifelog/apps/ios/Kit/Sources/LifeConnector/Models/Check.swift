@@ -223,6 +223,9 @@ extension Check {
     /// The option he picks by naming someone (`takes` a person, or a person or a name), when the card has one.
     public var namingOption: Option? { options.first { $0.takes == .person || $0.takes == .personOrName } }
 
+    /// Whether the card's own answer is the naming one: then its candidates are drawn as people.
+    public var isNamingFilled: Bool { namingOption != nil && filled?.id == namingOption?.id }
+
     /// His answer by one tap on `option`: nil when that option needs more than the tap (a person, a name or his words).
     public func answer(_ option: Option) -> AnswerRequest? {
         option.takes == nil ? AnswerRequest(ref: ref, options: [option.id]) : nil
@@ -253,17 +256,17 @@ extension Check {
     public var takesOwnWords: Bool { group == .decision }
 }
 
-extension Check.Said {
-    /// Where `names` stand in the words as whole words, whatever their case or accents.
+extension String {
+    /// Where `names` stand in these words as whole words, whatever their case or accents.
     public func ranges(ofNames names: [String]) -> [Range<String.Index>] {
         names.filter { !$0.isEmpty }.flatMap { name in
             var found: [Range<String.Index>] = []
-            var from = text.startIndex
-            while let range = text.range(
-                of: name, options: [.caseInsensitive, .diacriticInsensitive], range: from..<text.endIndex)
+            var from = startIndex
+            while let range = range(
+                of: name, options: [.caseInsensitive, .diacriticInsensitive], range: from..<endIndex)
             {
-                let before = range.lowerBound > text.startIndex ? text[text.index(before: range.lowerBound)] : nil
-                let after = range.upperBound < text.endIndex ? text[range.upperBound] : nil
+                let before = range.lowerBound > startIndex ? self[index(before: range.lowerBound)] : nil
+                let after = range.upperBound < endIndex ? self[range.upperBound] : nil
                 if !(before?.isLetter ?? false) && !(after?.isLetter ?? false) { found.append(range) }
                 from = range.upperBound
             }

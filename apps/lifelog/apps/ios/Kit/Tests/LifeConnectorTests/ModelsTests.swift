@@ -223,6 +223,7 @@ private func everyKindOfCheck() throws -> [Check] {
 
     let voice = try card(.voice)
     #expect(voice.namingOption?.id == "this-is")
+    #expect(voice.isNamingFilled && !guess.isNamingFilled && !found.isNamingFilled)
     #expect(voice.answer(voice.options[0]) == nil)
     #expect(
         voice.answer(naming: .person("person:gran"))

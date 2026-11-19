@@ -17,7 +17,7 @@ struct NamedWords: View {
 
     var body: some View {
         var words = AttributedString(said.text)
-        for range in said.ranges(ofNames: names) {
+        for range in said.text.ranges(ofNames: names) {
             if let shown = Range(range, in: words) { words[shown].font = bold.font(at: size) }
         }
         return Text(isQuoted ? AttributedString("“") + words + AttributedString("”") : words).font(regular)
@@ -50,16 +50,11 @@ struct NameBlock: View {
 
     var body: some View {
         if let clip, let audio = clip.audio, let job = UUID(uuidString: audio.jobId) {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                if let line = said?.line(channelName: ActionCopy.channel), !line.isEmpty {
-                    Text(line).font(.small).foregroundStyle(Palette.muted)
-                }
-                SpokenWords(
-                    text: clip.text, words: clip.words, job: job, start: audio.start, end: audio.end, style: .inline,
-                    emphasis: names
-                )
-                .font(.quote)
-            }
+            SpokenWords(
+                text: clip.text, words: clip.words, job: job, start: audio.start, end: audio.end, style: .inline,
+                emphasis: names, caption: said?.line(channelName: ActionCopy.channel)
+            )
+            .font(.quote)
             .frame(maxWidth: .infinity, alignment: .leading)
         } else if let said {
             SaidBlock(said: said, names: names)
@@ -75,8 +70,6 @@ struct VoiceBlock: View {
     @Environment(PlaybackStore.self) private var playback
     @State private var index = 0
     @State private var autoplay = false
-    /// How far the clip got, to tell its end from his stop.
-    @State private var reached = 0.0
 
     private var clip: Check.Clip { clips[min(index, clips.count - 1)] }
     private var job: UUID? { clip.audio.flatMap { UUID(uuidString: $0.jobId) } }
@@ -88,9 +81,9 @@ struct VoiceBlock: View {
                 if let audio = clip.audio, let job {
                     SpokenWords(
                         text: clip.text, words: clip.words, job: job, start: audio.start, end: audio.end,
-                        autoplay: autoplay)
+                        autoplay: autoplay, onEnded: { move(to: index + 1, playing: true) })
                 } else {
-                    WholeWords(clip.text).foregroundStyle(Palette.fg)
+                    WholeWords("“\(clip.text)”").foregroundStyle(Palette.fg)
                 }
             }
             .font(.quote)
@@ -98,13 +91,6 @@ struct VoiceBlock: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .motion(.easeOut(duration: 0.15), value: index)
-        .onChange(of: playback.position) { _, position in if position > 0 { reached = position } }
-        .onChange(of: playback.playingID) { old, new in
-            guard new == nil, let old, let audio = clip.audio, let job, old == "\(job)-\(audio.start)",
-                reached >= audio.end - 0.6
-            else { return }
-            move(to: index + 1, playing: true)
-        }
     }
 
     private var header: some View {
@@ -131,7 +117,6 @@ struct VoiceBlock: View {
 
     private func move(to next: Int, playing: Bool) {
         guard clips.indices.contains(next) else { return }
-        reached = 0
         autoplay = playing
         index = next
     }

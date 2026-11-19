@@ -238,7 +238,7 @@ private struct WhySheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
-                SheetHeader(title: title) { dismiss() }
+                Text(title).font(.sheetHeading).foregroundStyle(Palette.fg)
                 if let context, !context.isEmpty, around == nil {
                     Text(context).font(.body15).foregroundStyle(Palette.fg).fixedSize(
                         horizontal: false, vertical: true)
@@ -268,6 +268,7 @@ private struct WhySheet: View {
             .padding(Metrics.gutter).readingWidth()
         }
         .scrollBounceBehavior(.basedOnSize)
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(role: .close) { dismiss() } } }
         .background(Palette.sheet)
         .presentationDetents([.medium, .large])
     }

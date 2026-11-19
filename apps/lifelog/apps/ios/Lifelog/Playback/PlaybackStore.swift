@@ -27,6 +27,8 @@ final class PlaybackStore {
     @ObservationIgnored private var observers: [Any] = []
     @ObservationIgnored private var statusWatch: Task<Void, Never>?
     @ObservationIgnored private var clipEnd: Task<Void, Never>?
+    /// Where the clip's span ends in the file, to time its end again after a pause.
+    @ObservationIgnored private var spanEnd: Double?
     /// A whole file that plays to its end also lets the audio session go (a clip's span ends through `stop`).
     @ObservationIgnored private var itemEnd: NSObjectProtocol?
     /// Playing out loud, the Pendant hears it: the span is kept from transcription (`PlaybackQuiet`).
@@ -72,13 +74,31 @@ final class PlaybackStore {
         seekStart = start
         if start > 0 { player.seek(to: CMTime(seconds: start, preferredTimescale: 600)) }
         player.play()
+        spanEnd = length.map { start + $0 }
+        endSpan(after: length)
+    }
+
+    /// Stops the clip `seconds` from now (`nil`: it plays to the file's end).
+    private func endSpan(after seconds: Double?) {
         clipEnd?.cancel()
-        clipEnd = length.map { length in
+        clipEnd = seconds.map { seconds in
             Task { [weak self] in
-                try? await Task.sleep(for: .seconds(length))
+                try? await Task.sleep(for: .seconds(seconds))
                 if !Task.isCancelled { self?.stop() }
             }
         }
+    }
+
+    /// Holds the clip where it is: `playingID` and `position` stay, so its words keep their split.
+    func pause() {
+        clipEnd?.cancel()
+        player.pause()
+    }
+
+    /// Goes on from where `pause` held it.
+    func resume() {
+        player.play()
+        endSpan(after: spanEnd.map { max($0 - position, 0) })
     }
 
     func stop() {

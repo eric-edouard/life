@@ -20,6 +20,7 @@ struct TypeStep: Equatable {
     /// The figure on a tile: "82%".
     static let tileFigure = TypeStep(size: 26, weight: 650, style: .title2, hasFixedDigits: true)
     /// A screen's name in a sheet.
+    static let sheetHeading = TypeStep(size: 22, weight: 650, style: .title3)
     static let sheetTitle = TypeStep(size: 30, weight: 250, style: .title1)
     /// A matter's name.
     static let matterTitle = TypeStep(size: 28, weight: 250, style: .title1)

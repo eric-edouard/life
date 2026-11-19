@@ -1,5 +1,4 @@
 #if DEBUG
-    import AVFoundation
     import Foundation
     import Library
     import LifeConnector
@@ -340,23 +339,7 @@
         /// The clips' recordings: a quiet tone of 50 s for each fixture job, put where `ClipAudio` finds it, so a clip plays
         /// with no lifelog behind it.
         private static func seedClipAudio() {
-            for job in [clipJob1, clipJob2, clipJob3] {
-                let file = ClipAudio.folder.appending(path: "\(job.lowercased()).ogg")
-                // Written as .caf (the writer takes no .ogg), then named as `ClipAudio` looks for it; the player reads the bytes.
-                let written = file.deletingPathExtension().appendingPathExtension("caf")
-                try? FileManager.default.createDirectory(at: ClipAudio.folder, withIntermediateDirectories: true)
-                guard !FileManager.default.fileExists(atPath: file.path),
-                    let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1),
-                    let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 22_050 * 50),
-                    let audio = try? AVAudioFile(forWriting: written, settings: format.settings)
-                else { continue }
-                buffer.frameLength = buffer.frameCapacity
-                for frame in 0..<Int(buffer.frameLength) {
-                    buffer.floatChannelData?[0][frame] = 0.05 * sin(Float(frame) * 2 * .pi * 220 / 22_050)
-                }
-                try? audio.write(from: buffer)
-                try? FileManager.default.moveItem(at: written, to: file)
-            }
+            for job in [clipJob1, clipJob2, clipJob3] { ClipAudio.writeTone(job: job, seconds: 50) }
         }
 
         private static func clip(_ at: String, _ text: String, job: String, from: Double, to: Double) -> [String: Any] {

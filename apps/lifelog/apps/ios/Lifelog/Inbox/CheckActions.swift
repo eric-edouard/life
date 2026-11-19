@@ -88,7 +88,7 @@ struct CheckActions: View {
 
     /// The people it may be, each one tap away, when the card fills no answer of its own ("Yes"): a Contacts card, a voice, a name.
     private var people: [Check.Person] {
-        check.namingOption != nil && check.filled?.id == check.namingOption?.id ? check.likelyPeople : []
+        check.isNamingFilled ? check.likelyPeople : []
     }
 
     @ViewBuilder private var options: some View {
@@ -114,9 +114,7 @@ struct CheckActions: View {
     /// The server's words, except the filled naming answer with no candidate drawn: "Name them…" (a voice) or
     /// "Someone I know…" (a name).
     private func label(of option: Check.Option) -> String {
-        guard people.isEmpty, option.id == check.namingOption?.id, option.id == check.filled?.id else {
-            return option.label
-        }
+        guard check.isNamingFilled, people.isEmpty, option.id == check.namingOption?.id else { return option.label }
         switch check.group {
         case .voice: return "Name them…"
         case .name: return "Someone I know…"

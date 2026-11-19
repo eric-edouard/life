@@ -40,9 +40,9 @@ private func said(_ json: String) throws -> Check.Said {
 }
 
 @Test func aNameIsFoundAsAWholeWordWhateverItsCase() throws {
-    let spoken = try said(#"{"text":"Marc passe, et marcus aussi. Dis à MARC."}"#)
-    let found = spoken.ranges(ofNames: ["Marc"]).map { String(spoken.text[$0]) }
-    #expect(found == ["Marc", "MARC"])
+    let text = "Marc passe, et marcus aussi. Dis à MARC, puis à anne marie."
+    #expect(text.ranges(ofNames: ["Marc"]).map { String(text[$0]) } == ["Marc", "MARC"])
+    #expect(text.ranges(ofNames: ["Anne Marie"]).map { String(text[$0]) } == ["anne marie"])
 }
 
 @Test func aClipSaysItsLengthAndOneWithoutAudioSaysNone() throws {
