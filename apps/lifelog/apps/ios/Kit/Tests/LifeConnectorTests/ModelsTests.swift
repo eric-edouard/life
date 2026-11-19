@@ -180,11 +180,14 @@ private func everyKindOfCheck() throws -> [Check] {
 /// An option that takes a note answers with his words on any kind of card, never by one tap.
 @Test func aNoteOptionOnAnyKindTakesHisWords() throws {
     let text = try wireText("life/read_inbox.json").replacingOccurrences(
-        of: "\"label\": \"Not yet\",\n          \"takes\": null", with: "\"label\": \"Not yet\",\n          \"takes\": \"note\"")
+        of: "\"label\": \"Not yet\",\n          \"takes\": null",
+        with: "\"label\": \"Not yet\",\n          \"takes\": \"note\"")
     let ending = try #require(try decoded(Inbox.self, text).checks.first { $0.group == .ending })
     let option = try #require(ending.options.first { $0.takes == .note })
     #expect(ending.answer(option) == nil)
-    #expect(ending.answer(words: "Waiting on Idris") == AnswerRequest(ref: ending.ref, options: ["false"], note: "Waiting on Idris"))
+    #expect(
+        ending.answer(words: "Waiting on Idris")
+            == AnswerRequest(ref: ending.ref, options: ["false"], note: "Waiting on Idris"))
 }
 
 /// Every kind Life sends answers with its own options, as `answer_check` takes them: one tap for an option that takes

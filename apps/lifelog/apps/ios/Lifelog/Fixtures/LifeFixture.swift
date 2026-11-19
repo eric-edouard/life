@@ -655,7 +655,8 @@
                 check(
                     "end_done", group: "ending", title: "Idris Benali owed Sam the supplier price",
                     question: "Is this done?",
-                    options: [option("outdated", "Yes, done"), option("false", "Not yet", takes: "note")], matter: kitchen,
+                    options: [option("outdated", "Yes, done"), option("false", "Not yet", takes: "note")],
+                    matter: kitchen,
                     context: "He wrote the price on Tuesday; nothing in the matter has changed since.",
                     extra: [
                         "said": [
