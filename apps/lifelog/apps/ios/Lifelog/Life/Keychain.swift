@@ -1,13 +1,22 @@
 import Foundation
 import Security
 
-/// One generic-password item of this app's Keychain service (the bundle id, then ".server"): readable after first
+/// One generic-password item of this app's Keychain service (the app's bundle id, then ".server"): readable after first
 /// unlock so background work can use it, this device only, never logged. `DeviceToken` and `LifeToken` each keep one.
+/// The service is named from the app's id (`LifelogBundleID`, project.yml) in every target, so an extension that lists
+/// the app's Keychain group reads the same items.
 nonisolated enum Keychain {
+    private static let service: String = {
+        guard let id = Bundle.main.object(forInfoDictionaryKey: "LifelogBundleID") as? String else {
+            preconditionFailure("LifelogBundleID missing from this target's Info.plist (project.yml)")
+        }
+        return "\(id).server"
+    }()
+
     private static func query(_ account: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "\(Bundle.main.bundleIdentifier ?? "lifelog").server",
+            kSecAttrService as String: service,
             kSecAttrAccount as String: account,
         ]
     }

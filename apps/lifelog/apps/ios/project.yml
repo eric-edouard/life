@@ -94,6 +94,8 @@ targets:
       properties:
         # The app group, read at run time (Shared/AppGroup.swift).
         LifelogAppGroup: group.$(LIFELOG_BUNDLE_ID)
+        # The app's own bundle id, which names its Keychain service in every target that reads it (Keychain.swift).
+        LifelogBundleID: $(LIFELOG_BUNDLE_ID)
         # remote-notification: the server's silent push when a transcript or summary is ready.
         UIBackgroundModes: [bluetooth-central, processing, audio, remote-notification]
         BGTaskSchedulerPermittedIdentifiers: [$(LIFELOG_BUNDLE_ID).processing]
