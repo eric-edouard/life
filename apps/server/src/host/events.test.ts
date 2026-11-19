@@ -6,14 +6,17 @@ import {
   DECISIONS,
   requestDecision,
 } from "../memory/decisions";
+import { readPeople } from "../memory/who";
 import type { SourceEvent } from "../records/source";
 import {
+  callMatcherOf,
   DECISION_ANSWERED,
   DECISION_LAPSED,
   MESSAGE_RECEIVED,
   type Messaging,
   pollEvents,
   pollMessagesReceived,
+  readEndedCalls,
 } from "./events";
 
 /** A source whose store holds `list`, row by row from 1, as `incoming` and `read` see it. */
@@ -325,4 +328,93 @@ test("his answer that sends a card's draft wakes its asker with the send's outco
     setSystemTime();
     rmSync(DECISIONS, { force: true });
   }
+});
+
+/** An hour after `e`: the call has ended and is looked at. */
+const soon = (e: SourceEvent) => Date.parse(e.at) + HOUR;
+const GROUP = { chat: "!room:team", chatName: "Team" };
+
+/** A call of his own in a made-up chat, `seconds` long (null: no end seen). */
+const call = (over: Partial<SourceEvent> = {}, seconds: number | null = 600) =>
+  message("whatsapp", {
+    fromMe: true,
+    phoneCall: seconds === null ? { video: true } : { seconds, video: true },
+    sender: "me",
+    text: "",
+    ...over,
+  });
+
+test("only a picked-up call that ended is a call: a missed one and one with no end seen are not", async () => {
+  const list = [call(), call({}, 0), call({}, null), message("whatsapp")];
+  const first = list[0] as SourceEvent;
+  const found = readEndedCalls(
+    await readPeople(),
+    [fake("whatsapp", list)],
+    soon(first)
+  );
+  expect(found.map((c) => c.id)).toEqual([first.id]);
+  const [one] = found;
+  expect([one?.until, one?.video]).toEqual([
+    new Date(Date.parse(first.at) + 600_000).toISOString(),
+    true,
+  ]);
+  // Nothing past the look-back: a call 13 hours old is not looked at.
+  expect(
+    readEndedCalls(
+      await readPeople(),
+      [fake("whatsapp", list)],
+      soon(first) + 12 * HOUR
+    )
+  ).toEqual([]);
+});
+
+test("a call matches by chat, app and person against who was on it, whoever placed it; his own or text filters match no call", async () => {
+  const people = await readPeople();
+  const placed = call();
+  const joined = call(GROUP);
+  const list = [
+    message("whatsapp", { ...GROUP, sender: "Test Ana" }),
+    placed,
+    joined,
+  ];
+  const [one, group] = readEndedCalls(
+    people,
+    [fake("whatsapp", list)],
+    soon(joined)
+  );
+  if (!(one && group)) {
+    throw new Error("two calls expected");
+  }
+  const match = (f: Parameters<typeof callMatcherOf>[0], c = one) =>
+    callMatcherOf(f, people)?.(c);
+  // His own call to Ana, by the chat (a `from_me: false` filter, as an agent's wait has) and by the person.
+  expect(match({ chat: "Test Ana", from_me: false })).toBe(true);
+  expect(match({ from_me: false, person: "Test Ana" })).toBe(true);
+  // A group call he placed, with Ana in the group: by chat, and by the person who was on it.
+  expect(match({ chat: GROUP.chat, from_me: false }, group)).toBe(true);
+  expect(match({ from_me: false, person: "Test Ana" }, group)).toBe(true);
+  expect(match({ chat: GROUP.chat, from_me: false })).toBe(false);
+  expect(match({ channels: ["telegram"], from_me: false })).toBe(false);
+  // His own messages and their words are not a call.
+  expect(match({ chat: "Test Ana", from_me: true })).toBe(false);
+  expect(
+    callMatcherOf(
+      { chat: "Test Ana", from_me: false, text_matches: "hi" },
+      people
+    )?.(one)
+  ).toBe(false);
+  expect(
+    callMatcherOf({ from_me: false, person: "Nobody Madeup" }, people)
+  ).toBeNull();
+  // Facts only: no text of a message rides on a call.
+  expect(Object.keys(one).sort()).toEqual([
+    "at",
+    "chat",
+    "id",
+    "people",
+    "person",
+    "source",
+    "until",
+    "video",
+  ]);
 });
