@@ -13,7 +13,12 @@ import {
   matterBookOf,
   matterPeopleOf,
 } from "./matter-read";
-import { mattersNow, readMatterRecords, readMatters } from "./matters";
+import {
+  isFullMatter,
+  mattersNow,
+  readMatterRecords,
+  readMatters,
+} from "./matters";
 import { LINKS } from "./memory-files";
 import { foundQuotes } from "./quote-check";
 import { OWNER } from "./read-truth";
@@ -24,7 +29,8 @@ import { dayNow } from "./zones";
 // Links (docs/glossary.md): two records tied. The one relation read so far is "ends": a later record (an observation,
 // or an episode) shows that an open step of a matter (a promise, a wait, a to-do of his) happened or was dropped. One
 // model call per matter is shown its open steps and its later records (`laterRecordsOf`: its own later steps, and since
-// v3 its people's records since its oldest open step that no matter holds, so an ending never ties two matters); code keeps a
+// v3 its people's records since its oldest open step that no matter holds, so an ending never ties two matters, except
+// for a full matter, whose story goes on in other matters: `isOutOfReach`); code keeps a
 // link only when both ends were shown, the later one is later (`isLater`), and the words given are found in the later
 // one's own quote. Each judged batch is one appended line of memory/links.jsonl: the result, and the
 // record of which pairs that prompt judged, so what is due is derived and no prompt pays for a pair twice (a new prompt
@@ -187,8 +193,7 @@ type LaterObservation = Pick<
 /**
  * A matter's later records beyond its own steps: its people's observations (speaker or a subject, as `refOf` reads
  * them now) from its oldest open step's day on, however late (a wait is answered when it is), that no matter holds,
- * never a plan, a condition or a promise, wait or to-do. One held elsewhere is that matter's (September's rent is not
- * ended by November's). No cap: each pair is asked once per prompt (`subjectWorkOf`), so a night asks only what is new.
+ * never a plan, a condition or a promise, wait or to-do. One held elsewhere is that matter's (`isOutOfReach`). No cap: each pair is asked once per prompt (`subjectWorkOf`), so a night asks only what is new.
  */
 export function laterRecordsOf<T extends LaterObservation>(
   open: readonly MatterStepNow[],
@@ -211,6 +216,17 @@ export function laterRecordsOf<T extends LaterObservation>(
       [o.speaker, ...o.subjects].some((r) => people.has(refOf(r)))
   );
 }
+
+/**
+ * Whether another matter's record is out of reach of `m`'s later records: always (an ending never ties two matters:
+ * September's rent is not ended by November's), unless `m` is full. A full matter takes no more steps (`isFullMatter`),
+ * so its story goes on in other matters by design, and only their records can end its open steps. Pure.
+ */
+export const isOutOfReach = (
+  m: Parameters<typeof isFullMatter>[0],
+  held: ReadonlySet<string>,
+  id: string
+) => held.has(id) && !isFullMatter(m);
 
 /**
  * The open matters, each with its open steps (promises, waits and to-dos of his with no ending: a step a link already
@@ -248,7 +264,7 @@ async function readOpenMatters(people: People) {
       open,
       matterPeople,
       records.observations,
-      (id) => held.has(id),
+      (id) => isOutOfReach(m, held, id),
       records.refOf
     ).map(
       (o): Shown => ({

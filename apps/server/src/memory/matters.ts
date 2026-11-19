@@ -502,14 +502,14 @@ export function mattersShownOf(book: readonly MatterView[], to: string) {
 
 /** How a call is shown a matter: `full` (it takes no more steps), else `open` or `done`. */
 const statusShownOf = (v: Pick<MatterView, "areas" | "open" | "steps">) => {
-  if (isFull(v)) {
+  if (isFullMatter(v)) {
     return "full";
   }
   return v.open ? "open" : "done";
 };
 
 /** A matter that takes no more steps: as a reader sees it, `STEPS_MAX` steps or more, or more than `AREAS_MAX` areas. */
-const isFull = (v: Pick<MatterView, "areas" | "steps">) =>
+export const isFullMatter = (v: Pick<MatterView, "areas" | "steps">) =>
   v.steps.length >= STEPS_MAX || v.areas.length > AREAS_MAX;
 
 /**
