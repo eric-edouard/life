@@ -662,7 +662,7 @@ export function applyRules(built: Built[], kept = new Set<string>()) {
 
 type Read = Exclude<Descriptor, { kind: "voice" }>;
 /** A source's events since `since`: a repo's are read with his directory (whose repos are whose, who he is) and carry no files (a commit without a subject is dropped, like any empty message). */
-export const readOf = (
+export const sourceEventsOf = (
   s: Read,
   since: Date,
   map: { me: Person; repos: RepoMap },
@@ -684,7 +684,7 @@ export function builtFor(
     return;
   }
   const events = showFiles(
-    readOf(
+    sourceEventsOf(
       source,
       new Date(unit.start),
       { me, repos },
