@@ -479,7 +479,7 @@ struct RowGroup<Content: View>: View {
                     .foregroundStyle(Palette.fg)
                     .background(surface.fill, in: .rect(cornerRadius: Metrics.Radius.card))
                 }
-                .transition(appears)
+                .appears()
             }
         }
     }
