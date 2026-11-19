@@ -8,28 +8,99 @@ extension Color {
     static let fillTint = Palette.fg.opacity(0.08)
 }
 
-/// The two buttons of a card, a sheet and a result: the filled pill (cream in dark) and the quiet one.
+/// The pill buttons: the filled one (cream in dark) and the quiet one, in two sizes, and busy while an action runs.
 struct PillStyle: ButtonStyle {
     enum Kind { case filled, quiet }
+    /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row.
+    enum Size: CGFloat { case large = 54, compact = 44 }
 
     let kind: Kind
-    var height: CGFloat = 54
+    var size: Size = .large
+    /// The action is running: the quiet fill, a spinner then the label, and no taps.
+    var isBusy = false
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.buttonLabel)
-            .foregroundStyle(kind == .filled ? Palette.on : Palette.fg)
-            .frame(maxWidth: .infinity, minHeight: height)
-            .background(kind == .filled ? Palette.fg : Color.fillTint, in: .capsule)
-            .opacity(isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
-            .contentShape(.capsule)
+        let isFilled = kind == .filled && !isBusy
+        HStack(spacing: 8) {
+            if isBusy { ProgressView().controlSize(.small).tint(Palette.fg).frame(width: 18, height: 18) }
+            configuration.label
+        }
+        .font(.buttonLabel)
+        .foregroundStyle(isFilled ? Palette.on : Palette.fg)
+        .frame(maxWidth: .infinity, minHeight: size.rawValue)
+        .background(isFilled ? Palette.fg : Color.fillTint, in: .capsule)
+        .opacity(isBusy ? 1 : isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
+        .contentShape(.capsule)
+        .allowsHitTesting(!isBusy)
     }
 }
 
 extension ButtonStyle where Self == PillStyle {
-    static func pill(_ kind: PillStyle.Kind, height: CGFloat = 54) -> PillStyle {
-        PillStyle(kind: kind, height: height)
+    static func pill(_ kind: PillStyle.Kind, size: PillStyle.Size = .large, isBusy: Bool = false) -> PillStyle {
+        PillStyle(kind: kind, size: size, isBusy: isBusy)
+    }
+}
+
+/// A count on a tab or a row: 20 high, the flag fill.
+struct CountBadge: View {
+    let count: Int
+
+    var body: some View {
+        Text("\(count)").font(.badge).foregroundStyle(Palette.on)
+            .padding(.horizontal, 6).frame(minWidth: 20, minHeight: 20).background(Palette.flag, in: .capsule)
+    }
+}
+
+/// A 44-high text button: `fg` for an action, `muted` with an arrow for a jump out of the app.
+struct TextLink: View {
+    let title: String
+    var isOutward = false
+    let action: () -> Void
+
+    init(_ title: String, isOutward: Bool = false, action: @escaping () -> Void) {
+        self.title = title
+        self.isOutward = isOutward
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            (isOutward ? Text("\(title) \(Image(systemName: "arrow.up.right"))") : Text(verbatim: title))
+                .font(.smallStrong).foregroundStyle(isOutward ? Palette.muted : Palette.fg)
+                .frame(minHeight: 44)
+        }
+    }
+}
+
+/// Two or three choices in one capsule; tapping the chosen one clears it.
+struct SegmentedChoice<Choice: Hashable>: View {
+    let choices: [Choice]
+    @Binding var selection: Choice?
+    let title: (Choice) -> String
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(choices, id: \.self) { choice in
+                let isChosen = selection == choice
+                Button {
+                    selection = isChosen ? nil : choice
+                } label: {
+                    Text(title(choice)).font(.chip).foregroundStyle(isChosen ? Palette.on : Palette.fg)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(isChosen ? Palette.fg : .clear, in: .capsule)
+                }
+                .buttonStyle(.plain).accessibilityAddTraits(isChosen ? .isSelected : [])
+            }
+        }
+        .background(Palette.tile, in: .capsule)
+    }
+}
+
+extension View {
+    /// A draft, a quote or a clip on paper: the `paper` fill at the passage radius.
+    func paperBox() -> some View {
+        background(Palette.paper, in: .rect(cornerRadius: Metrics.Radius.passage))
     }
 }
 

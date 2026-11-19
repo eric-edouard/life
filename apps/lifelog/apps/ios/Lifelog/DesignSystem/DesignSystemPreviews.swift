@@ -1,3 +1,4 @@
+import LifeConnector
 import SwiftUI
 
 #if DEBUG
@@ -22,11 +23,11 @@ import SwiftUI
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 12) {
                 ForEach(swatches) { swatch in
                     VStack(alignment: .leading, spacing: 6) {
-                        RoundedRectangle(cornerRadius: Metrics.Radius.field)
+                        RoundedRectangle(cornerRadius: Metrics.Radius.tile)
                             .fill(swatch.color)
                             .frame(height: 56)
                             .overlay {
-                                RoundedRectangle(cornerRadius: Metrics.Radius.field).strokeBorder(Palette.line)
+                                RoundedRectangle(cornerRadius: Metrics.Radius.tile).strokeBorder(Palette.line)
                             }
                         Text(swatch.name).font(.caption).foregroundStyle(Palette.muted)
                     }
@@ -58,9 +59,17 @@ import SwiftUI
 
     #Preview("Components") {
         @Previewable @State var playing = false
+        @Previewable @State var runtime: RuntimeName? = .claude
         ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    HStack {
+                        CountBadge(count: 3); TextLink("Retry") {}; TextLink("Open in Claude", isOutward: true) {}
+                    }
+                    Button("Sending…") {}.buttonStyle(.pill(.quiet, size: .compact, isBusy: true))
+                    SegmentedChoice(choices: RuntimeName.offered, selection: $runtime, title: \.name)
+                    Text("A draft on paper").font(.quote).padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                        .paperBox()
                     SectionHeader(title: "Today", detail: "Wed 7 Oct", trailing: "5 conversations")
                     HStack(spacing: Tag.between) {
                         Tag(systemImage: "person", value: Text("Julien, Nok"))
