@@ -135,7 +135,14 @@
           }
         }
       ],
-      "networkIdentity": null,
+      "networkIdentity": {
+        "chat": "33600000001@s.whatsapp.net",
+        "handle": "+33600000001",
+        "network": "WhatsApp",
+        "newest": null,
+        "openUrl": "https://wa.me/33600000001",
+        "shownName": "Kit"
+      },
       "pushId": "a23260946067d0fe",
       "urgency": "blocks"
     },
@@ -303,11 +310,15 @@
       "urgency": "blocks"
     },
     {
-      "about": [],
+      "about": ["+33600000009"],
       "around": null,
       "asker": "life",
       "at": null,
       "clips": [],
+      "contactsCard": {
+        "handles": ["+33600000009"],
+        "name": "Lou"
+      },
       "context": "It is the Contacts card Lou.",
       "deadline": null,
       "draft": null,
