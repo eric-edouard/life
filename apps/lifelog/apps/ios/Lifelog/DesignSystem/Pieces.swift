@@ -26,7 +26,7 @@ struct PillStyle: ButtonStyle {
         let isFilled = kind == .filled && !isBusy
         HStack(spacing: 8) {
             if isBusy { ProgressView().controlSize(.small).tint(Palette.fg).frame(width: 18, height: 18) }
-            configuration.label.multilineTextAlignment(.center)
+            configuration.label.multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
         }
         .font(.buttonLabel)
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)

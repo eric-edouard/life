@@ -351,7 +351,7 @@ private struct ClipBlock: View {
     private func caption(_ clip: Check.Clip) -> String {
         let seconds = clip.audio.map { Int(($0.end - $0.start).rounded()) } ?? 0
         let length = "\(seconds / 60):" + String(format: "%02d", seconds % 60)
-        return "\(length) · \(min(index, clips.count - 1) + 1) of \(clips.count) clip\(clips.count == 1 ? "" : "s")"
+        return clips.count == 1 ? length : "\(length) · \(index + 1) of \(clips.count) clips"
     }
 
     private func toggle(_ clip: Check.Clip) {

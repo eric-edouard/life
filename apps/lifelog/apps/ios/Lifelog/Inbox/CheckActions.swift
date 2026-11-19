@@ -91,10 +91,15 @@ struct CheckActions: View {
         }
     }
 
-    /// The server's words, except a voice with no one suggested: "Name them…".
+    /// The server's words, except the filled naming answer with no candidate drawn: "Name them…" (a voice) or
+    /// "Someone I know…" (a name).
     private func label(of option: Check.Option) -> String {
-        check.group == .voice && check.likelyPeople.isEmpty && option.id == check.namingOption?.id
-            ? "Name them…" : option.label
+        guard option.id == check.namingOption?.id, option.id == check.options.first?.id else { return option.label }
+        switch check.group {
+        case .voice: return "Name them…"
+        case .name: return "Someone I know…"
+        default: return option.label
+        }
     }
 
     /// One row of 44 when there are at most three, each of three words or fewer, and the row holds them; else rows of 48.
