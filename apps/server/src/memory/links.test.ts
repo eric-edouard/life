@@ -386,6 +386,8 @@ test("another matter's record is out of a matter's reach, unless that matter is 
   expect(isOutOfReach(matterOf(12), held, "obs_meeting")).toBe(true);
   expect(isOutOfReach(matterOf(12), held, "obs_unplaced")).toBe(false);
   expect(isOutOfReach(matterOf(40), held, "obs_meeting")).toBe(false);
+  // Its own steps stay out: they are already its later steps.
+  expect(isOutOfReach(matterOf(40), new Set(["obs_0"]), "obs_0")).toBe(true);
   expect(
     isOutOfReach(matterOf(3, ["a", "b", "c", "d"]), held, "obs_meeting")
   ).toBe(false);

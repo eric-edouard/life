@@ -10,6 +10,7 @@ import {
   episodeAt,
   isEnded,
   type MatterStepNow,
+  type MatterView,
   matterBookOf,
   matterPeopleOf,
 } from "./matter-read";
@@ -193,7 +194,8 @@ type LaterObservation = Pick<
 /**
  * A matter's later records beyond its own steps: its people's observations (speaker or a subject, as `refOf` reads
  * them now) from its oldest open step's day on, however late (a wait is answered when it is), that no matter holds,
- * never a plan, a condition or a promise, wait or to-do. One held elsewhere is that matter's (`isOutOfReach`). No cap: each pair is asked once per prompt (`subjectWorkOf`), so a night asks only what is new.
+ * never a plan, a condition or a promise, wait or to-do. One held elsewhere is that matter's, unless this one is full
+ * (`isOutOfReach`). No cap: each pair is asked once per prompt (`subjectWorkOf`), so a night asks only what is new.
  */
 export function laterRecordsOf<T extends LaterObservation>(
   open: readonly MatterStepNow[],
@@ -220,13 +222,14 @@ export function laterRecordsOf<T extends LaterObservation>(
 /**
  * Whether another matter's record is out of reach of `m`'s later records: always (an ending never ties two matters:
  * September's rent is not ended by November's), unless `m` is full. A full matter takes no more steps (`isFullMatter`),
- * so its story goes on in other matters by design, and only their records can end its open steps. Pure.
+ * so its story goes on in other matters by design, and only their records can end its open steps. Its own steps are
+ * always out of reach here: they come in through `splitSteps`. Pure.
  */
 export const isOutOfReach = (
-  m: Parameters<typeof isFullMatter>[0],
+  m: Pick<MatterView, "areas" | "steps">,
   held: ReadonlySet<string>,
   id: string
-) => held.has(id) && !isFullMatter(m);
+) => held.has(id) && (!isFullMatter(m) || m.steps.some((s) => s.ref === id));
 
 /**
  * The open matters, each with its open steps (promises, waits and to-dos of his with no ending: a step a link already
