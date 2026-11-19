@@ -582,7 +582,8 @@ test("read_inbox with a pushId: that one card or none, the whole inbox's counts;
     pushId: checks.pushIdOf(ref, "0".repeat(64)),
     ref,
   });
-  const list = [card("a", "decision"), card("b", "guessed person")];
+  const second = card("b", "guessed person");
+  const list = [card("a", "decision"), second];
   const spy = spyOn(checks, "checksNow").mockResolvedValue(list as never);
   const read = async (arguments_: object) =>
     (
@@ -591,10 +592,6 @@ test("read_inbox with a pushId: that one card or none, the whole inbox's counts;
         name: "read_inbox",
       })
     ).json.result;
-  const second = list[1];
-  if (!second) {
-    throw new Error("the fixture holds two cards");
-  }
   try {
     const one = JSON.parse(
       (await read({ limit: 1, pushId: second.pushId })).content[0].text
