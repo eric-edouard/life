@@ -456,7 +456,6 @@ test("matters v2: a call is shown open, done and full matters of the last 45 day
       projects: [],
       status: "moving",
       steps: [step("2026-10-10", `${id} step`)],
-      told: [],
       waitingOn: [],
       with: [],
       ...over,

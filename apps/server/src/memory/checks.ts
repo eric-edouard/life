@@ -162,7 +162,6 @@ export interface CheckInputs {
     | "open"
     | "owedTo"
     | "status"
-    | "told"
     | "waitingOn"
     | "with"
   > & {

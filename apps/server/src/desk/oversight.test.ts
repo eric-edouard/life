@@ -196,7 +196,6 @@ test("what his agents are doing: each with its matter, status, wait, link and am
           text: "Order the cake",
         },
       ],
-      told: [],
       waitingOn: [],
       with: [],
     },
@@ -306,7 +305,6 @@ const NO_ONE = {
   openSteps: [],
   owedTo: [],
   projects: [],
-  told: [],
   waitingOn: [],
   with: [],
 };

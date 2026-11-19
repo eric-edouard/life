@@ -112,7 +112,7 @@ export interface MatterStepNow {
   text: string;
   urgent?: boolean;
   when?: string;
-  /** The person a to-do, promise or wait is with: its speaker when not him, else the first person it names. */
+  /** The one person a step is with: an observation's speaker when not him, else the first person it names; an episode's first person taking part. */
   with?: string;
 }
 
@@ -136,8 +136,8 @@ export interface MatterView {
   projects: string[];
   status: MatterStatus;
   steps: MatterStepNow[];
-  told: string[];
   waitingOn: string[];
+  /** Every other person its current steps are with (`matterOf`): its open steps, or every step of one with nothing to do. */
   with: string[];
 }
 
@@ -266,10 +266,10 @@ function stepsOf(
   { episodes, items, observations }: ReturnType<typeof recordsOf>,
   rec: MatterRecords
 ): MatterStepNow[] {
+  const isSomeone = (r: string) =>
+    r !== OWNER && isPerson(r) && !rec.isMailer(r);
   const person = (o: StepObservation) =>
-    [o.speaker, ...o.subjects.filter((s) => s !== o.speaker)].find(
-      (r) => r !== OWNER && isPerson(r) && !rec.isMailer(r)
-    );
+    [o.speaker, ...o.subjects.filter((s) => s !== o.speaker)].find(isSomeone);
   const held = new Set(observations.map((o) => o.id));
   const made = new Set(items.map((t) => t.key));
   return [
@@ -281,6 +281,7 @@ function stepsOf(
         quote: m.what,
         ref: m.id,
         text: m.title,
+        with: m.people.find((p) => p.role !== "told" && isSomeone(p.ref))?.ref,
       })
     ),
     ...observations.map(
@@ -364,26 +365,20 @@ export function matterOf(
   const hasAction = steps.some((s) => ACTIONABLE.includes(s.kind));
   const open = hasAction ? openSteps.length > 0 : isGoingOn(steps, today);
   const newestOpenStep = openSteps.at(-1);
-  const roleOf = (
-    kinds: MatterStepNow["kind"][],
-    byOthers: (s: MatterStepNow) => boolean = () => true
-  ) =>
+  // Its people are where it stands now: the people its open steps are with (every step's, for one with nothing to do,
+  // by the rule of `open`). History stays on the steps; an episode's cast (a sitting, on any subject) never counts.
+  const current = hasAction ? openSteps : steps;
+  const roleOf = (isRole: (s: MatterStepNow) => boolean) =>
     uniq(
-      openSteps.flatMap((s) =>
-        s.with && kinds.includes(s.kind) && byOthers(s)
-          ? [rec.refOf(s.with)]
-          : []
-      )
+      current.flatMap((s) => (s.with && isRole(s) ? [rec.refOf(s.with)] : []))
     );
-  const peopleOf = (...roles: string[]) =>
-    uniq(
-      records.episodes.flatMap((m) =>
-        m.people
-          .filter((p) => roles.includes(p.role))
-          .map((p) => rec.refOf(p.ref))
-          .filter((r) => r !== OWNER && !rec.isMailer(r))
-      )
-    );
+  // A to-do is owed to its person only when that person asked it (its speaker), never to whom his own or his agent's names.
+  const owedTo = roleOf(
+    (s) =>
+      s.kind === "promise" ||
+      (s.kind === "to_do" && ix.byId.get(s.ref)?.speaker === s.with)
+  );
+  const waitingOn = roleOf((s) => s.kind === "waiting_on_someone");
   return {
     areas: uniq([
       ...line.areas,
@@ -395,10 +390,7 @@ export function matterOf(
     newestOpenStep,
     open,
     openSteps,
-    owedTo: roleOf(
-      ["promise", "to_do"],
-      (s) => s.kind !== "to_do" || ix.byId.get(s.ref)?.speaker !== OWNER
-    ),
+    owedTo,
     projects: uniq([
       ...line.projects,
       ...records.observations.flatMap((o) =>
@@ -409,16 +401,17 @@ export function matterOf(
     ]),
     status: statusOf(open, steps, newestOpenStep, today),
     steps,
-    told: peopleOf("told"),
-    waitingOn: roleOf(["waiting_on_someone"]),
-    with: peopleOf("with", "organizer"),
+    waitingOn,
+    with: roleOf(() => true).filter(
+      (r) => !(owedTo.includes(r) || waitingOn.includes(r))
+    ),
   };
 }
 
-/** Everyone a matter involves, by role: whom he owes, whom he waits on, who is with it, who was told. */
+/** Everyone a matter involves, by role: whom he owes, whom he waits on, who else is with it. */
 export const matterPeopleOf = (
-  v: Pick<MatterView, "owedTo" | "told" | "waitingOn" | "with">
-) => [...v.owedTo, ...v.waitingOn, ...v.with, ...v.told];
+  v: Pick<MatterView, "owedTo" | "waitingOn" | "with">
+) => uniq([...v.owedTo, ...v.waitingOn, ...v.with]);
 
 /** Running: open and not dormant. What `read_matters` lists. */
 export const isRunning = (v: Pick<MatterView, "open" | "status">) =>

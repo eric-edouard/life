@@ -34,7 +34,6 @@ const matter = {
   open: true,
   owedTo: [],
   status: "moving" as const,
-  told: [],
   waitingOn: [],
   with: [],
 };
@@ -232,7 +231,6 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     openSteps: [],
     owedTo: [],
     projects: [],
-    told: [],
     waitingOn: [],
     with: [],
     ...over,
