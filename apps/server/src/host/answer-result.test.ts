@@ -91,7 +91,7 @@ const call = (
   return { result, steps };
 };
 
-test("a send: the plan first, the steps in order, the lines written, the send, the asker and the inbox after", async () => {
+test("a send: the plan first, the steps in order, the lines written, the send and the asker, no inbox", async () => {
   sends.mockImplementation(
     (
       _d: unknown,
@@ -109,29 +109,19 @@ test("a send: the plan first, the steps in order, the lines written, the send, t
   const r = await result;
   expectWire("answer_check_sent", r, true);
   expect(steps.map((s) => s.plan ?? s.step)).toEqual([
-    [
-      "recorded",
-      "chat_checked",
-      "handed",
-      "confirmed",
-      "asker_told",
-      "left_inbox",
-    ],
+    ["recorded", "chat_checked", "handed", "confirmed"],
     "recorded",
     "chat_checked",
     "handed",
     "confirmed",
-    "asker_told",
-    "left_inbox",
   ]);
-  expect(steps[0]).toMatchObject({ limitSeconds: 50 });
+  expect(steps[0]).toMatchObject({ limitSeconds: 45 });
   expect(steps.find((s) => s.step === "confirmed")).toMatchObject({
     eventId: "$ev1",
   });
   expect(r).toMatchObject({
     asker: { name: "planner", told: "on_its_next_poll" },
     changed: { decision: id, options: ["send"], state: "answered" },
-    inbox: { left: true, total: 0 },
     kind: "decision",
     ref: id,
     send: {
@@ -141,10 +131,40 @@ test("a send: the plan first, the steps in order, the lines written, the send, t
       to: "Kit Moreau",
     },
   });
+  expect(r).not.toHaveProperty("inbox");
   expect(r.done).toMatchObject([
     { answerKey: "tap-1", kind: "answered" },
     { eventId: "$ev1", kind: "sent" },
   ]);
+});
+
+// 19 Nov 2026: the phone showed a failed send that had gone out; the second tap carried a new key and was refused.
+test("an answered decision asked the same answer again under a new key: its first result, nothing sent, nothing written; another answer is refused", async () => {
+  sends.mockResolvedValue("$ev9");
+  const { id } = await card();
+  const first = await call(id, ["send"], "tap-1").result;
+  const lines = readFileSync(DECISIONS, "utf8");
+  expect(await call(id, ["send"], "tap-2").result).toEqual(first);
+  expect(await call(id, ["send"]).result).toEqual(first);
+  expect(sends).toHaveBeenCalledTimes(1);
+  expect(readFileSync(DECISIONS, "utf8")).toBe(lines);
+  await expect(call(id, ["wait"], "tap-3").result).rejects.toThrow(
+    "Not done: no open check"
+  );
+  expect(sends).toHaveBeenCalledTimes(1);
+});
+
+// A registered agent's desk that never queues: the answer once waited 5 s for it.
+test("an asker whose desk never queues is not waited for: the result comes at the proof", async () => {
+  const { id } = await card("desk", "agt_0123456789ab");
+  const started = performance.now();
+  const { result, steps } = call(id, ["wait"], "tap-w");
+  const r = await result;
+  expect(performance.now() - started).toBeLessThan(2000);
+  expect(steps[0]?.plan).toEqual(["recorded"]);
+  expect(steps.map((s) => s.step).filter(Boolean)).toEqual(["recorded"]);
+  expect(r).not.toHaveProperty("inbox");
+  expect(r.asker).toMatchObject({ told: "not_yet" });
 });
 
 test("a not-sent outcome reopens the card: the result says so and whether to try again; the same tap again returns it, a new tap sends once", async () => {
@@ -157,7 +177,6 @@ test("a not-sent outcome reopens the card: the result says so and whether to try
   expect(first).toMatchObject({
     asker: { told: "not_told" },
     changed: { options: ["send"], state: "open" },
-    inbox: { left: false },
     send: {
       canRetry: true,
       reason: expect.stringContaining("someone wrote"),
@@ -232,9 +251,14 @@ test("a never-retryable not-sent says canRetry false; may have gone stays answer
     canRetry: false,
     state: "may_have_gone",
   });
-  await expect(call(id, ["send"], "c").result).rejects.toThrow(
+  // The same answer again is its first result; another answer finds no open check.
+  expect((await call(id, ["send"], "c").result).send).toMatchObject({
+    state: "may_have_gone",
+  });
+  await expect(call(id, ["wait"], "c").result).rejects.toThrow(
     "Not done: no open check"
   );
+  expect(sends).toHaveBeenCalledTimes(2);
 });
 
 test("two calls at once on one check: one answer, both get its result", async () => {
@@ -284,7 +308,7 @@ test("a decision without a send: its plan has no send steps", async () => {
   const { id } = await card();
   const { result, steps } = call(id, ["wait"]);
   const r = await result;
-  expect(steps[0]?.plan).toEqual(["recorded", "asker_told", "left_inbox"]);
+  expect(steps[0]?.plan).toEqual(["recorded"]);
   expect(r.send).toBeNull();
   expect(sends).not.toHaveBeenCalled();
 });
@@ -425,9 +449,8 @@ test("each kind says what changed: an ending, a person (two parallel calls write
       changed: { answer: "media", conversations: 2, person: "p1", voices: 3 },
     });
     expect(steps.map((s) => s.plan ?? s.step)).toEqual([
-      ["recorded", "left_inbox"],
+      ["recorded"],
       "recorded",
-      "left_inbox",
     ]);
     await expect(call("person:none", ["this-is"]).result).rejects.toThrow(
       "Not done: no open check"
@@ -489,7 +512,6 @@ test("a new matter: Start asks the desk with the goal he saw, reports its stages
     expectWire("answer_check_new_matter_goal_edited", edited, true);
     expect(edited).toMatchObject({
       changed: { answer: "edit-goal", goal: "Serviced and the leak fixed" },
-      inbox: { left: false },
       start: null,
     });
     // The goal he saw is his edit, though the matter still reads Life's draft.
@@ -504,29 +526,20 @@ test("a new matter: Start asks the desk with the goal he saw, reports its stages
     const r = await result;
     expectWire("answer_check_new_matter_started", r, true);
     expect(reported.map((s) => s.plan ?? s.step)).toEqual([
-      [
-        "goal_saved",
-        "desk_accepted",
-        "session_open",
-        "turn_begun",
-        "recorded",
-        "left_inbox",
-      ],
+      ["goal_saved", "desk_accepted", "session_open", "turn_begun", "recorded"],
       "goal_saved",
       "desk_accepted",
       "session_open",
       "turn_begun",
       "recorded",
-      "left_inbox",
     ]);
-    expect(reported[0]).toMatchObject({ limitSeconds: 30 });
+    expect(reported[0]).toMatchObject({ limitSeconds: 25 });
     expect(desk.mock.calls[0]?.[0]).toEqual({
       action: "start",
       said: "Serviced and the leak fixed",
       step: newMatter.ref,
     });
     expect(r).toMatchObject({
-      inbox: { left: true },
       kind: "new matter",
       start: { state: "started" },
     });
@@ -596,15 +609,53 @@ test("a new matter's Start the desk did not start: the result says where it stop
   try {
     const refused = await call(newMatter.ref, ["start"], "tap-1").result;
     expect(refused).toMatchObject({
-      inbox: { left: false },
       start: { failed: { stage: "desk_accepted" }, state: "not_started" },
     });
     expect(guesses).toEqual([newMatter]);
+    // The same tap's retry after a dropped stream gets its failed result: the desk is not asked again.
+    expect(await call(newMatter.ref, ["start"], "tap-1").result).toMatchObject({
+      start: { state: "not_started" },
+    });
+    expect(desk).toHaveBeenCalledTimes(1);
     const again = await call(newMatter.ref, ["start"], "tap-2").result;
     expect(again).toMatchObject({ start: { state: "started" } });
     expect(desk).toHaveBeenCalledTimes(2);
   } finally {
     desk.mockRestore();
+    book.mockRestore();
+    people.mockRestore();
+  }
+});
+
+test("goal A, then B, then A again records three times: a fresh answer ends the memory of the earlier ones", async () => {
+  const newMatter = asCheck({
+    group: "new matter",
+    matter: { id: "matter_000000000009", name: "Paint the door" },
+    ref: "matter_000000000009",
+  });
+  guesses = [newMatter];
+  const people = spyOn(
+    await import("../memory/who"),
+    "readPeople"
+  ).mockResolvedValue({} as never);
+  const book = spyOn(
+    await import("../memory/matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    {
+      goal: { at: "2026-11-17T02:00:00Z", by: "owner", text: "Door painted" },
+      id: newMatter.ref,
+      steps: [{ ref: "obs_000000000091" }],
+    },
+  ] as never);
+  try {
+    await call(newMatter.ref, ["edit-goal"], "tap-0", { note: "A" }).result;
+    await call(newMatter.ref, ["edit-goal"], "tap-1", { note: "B" }).result;
+    await call(newMatter.ref, ["edit-goal"], "tap-2", { note: "A" }).result;
+    expect(readCorrections().map((c) => (c as { goal?: string }).goal)).toEqual(
+      ["A", "B", "A"]
+    );
+  } finally {
     book.mockRestore();
     people.mockRestore();
   }

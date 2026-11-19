@@ -59,9 +59,11 @@ public protocol LifeAPI: Sendable {
         async throws -> String
     func changeAgent(_ change: AgentRequest, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String
     /// His goal and/or next step for a matter, by its id: Life pins it to the matter's steps.
-    func setMatterDirection(matter: String, goal: String?, nextStep: NextStepRequest?) async throws -> String
+    func setMatterDirection(
+        matter: String, goal: String?, nextStep: NextStepRequest?, onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String
     /// His word that a matter is done, by its id: Life closes what of it is open.
-    func markDone(matter: String, note: String) async throws -> String
+    func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String
 }
 
 public struct MCPLifeAPI: LifeAPI {
@@ -89,23 +91,27 @@ public struct MCPLifeAPI: LifeAPI {
         try await client.call("change_registered_agent", change, onProgress: onProgress)
     }
 
-    public func setMatterDirection(matter: String, goal: String?, nextStep: NextStepRequest?) async throws -> String {
+    public func setMatterDirection(
+        matter: String, goal: String?, nextStep: NextStepRequest?, onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String {
         struct Direction: Encodable {
             let kind = "matter-direction"
             let matter: String
             let goal: String?
             let nextStep: NextStepRequest?
         }
-        return try await correct(Direction(matter: matter, goal: goal, nextStep: nextStep))
+        return try await correct(Direction(matter: matter, goal: goal, nextStep: nextStep), onProgress)
     }
 
-    public func markDone(matter: String, note: String) async throws -> String {
+    public func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws
+        -> String
+    {
         struct Outdated: Encodable {
             let kind = "outdated"
             let matter: String
             let note: String
         }
-        return try await correct(Outdated(matter: matter, note: note))
+        return try await correct(Outdated(matter: matter, note: note), onProgress)
     }
 
     private struct Correct<C: Encodable & Sendable>: Encodable, Sendable {
@@ -113,7 +119,9 @@ public struct MCPLifeAPI: LifeAPI {
         let correction: C
     }
 
-    private func correct(_ correction: some Encodable & Sendable) async throws -> String {
-        return try await client.call("correct_memory", Correct(correction: correction))
+    private func correct(_ correction: some Encodable & Sendable, _ onProgress: @escaping @Sendable (Data) -> Void)
+        async throws -> String
+    {
+        try await client.call("correct_memory", Correct(correction: correction), onProgress: onProgress)
     }
 }

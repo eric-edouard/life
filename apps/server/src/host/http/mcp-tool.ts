@@ -81,7 +81,7 @@ const unchecked = (s: z.ZodObject) => ({
 /** The servers built to serve reads only (`buildServer(true)`): a tool that is not `READ_ONLY` is never theirs. */
 export const READERS = new WeakSet<McpServer>();
 
-/** Registers one tool. Each call logs who asked (OAuth client, agent claim), the arguments, and what surfaced without its text: length, cited ids, error. */
+/** Registers one tool. Each call logs who asked (OAuth client, agent claim), the arguments, and what surfaced without its text: length, cited ids, error and, for an error, its first 300 chars (`refused`: the reason, never data), and the steps it reported with their ms. */
 export function tool<S extends z.ZodObject>(
   server: McpServer,
   name: string,
@@ -106,9 +106,15 @@ export function tool<S extends z.ZodObject>(
       // The steps go in order, and all before the result.
       let sent = Promise.resolve();
       let progress = 0;
+      // Every step reported, with its ms from the call's start: where a slow action spent its time.
+      const steps: { ms: number; step: unknown }[] = [];
       const call: ToolCall = {
         ...(typeof key === "string" ? { answerKey: key } : {}),
         report: (step) => {
+          steps.push({
+            ms: Math.round(performance.now() - started),
+            step: step.step ?? "plan",
+          });
           if (progressToken !== undefined) {
             progress += 1;
             const params = {
@@ -147,6 +153,8 @@ export function tool<S extends z.ZodObject>(
         error: result.isError,
         ids: [...new Set(body.match(IDS))],
         ms: Math.round(performance.now() - started),
+        ...(result.isError ? { refused: clip(body, 300) } : {}),
+        ...(steps.length ? { steps } : {}),
         tool: name,
       });
       return result;

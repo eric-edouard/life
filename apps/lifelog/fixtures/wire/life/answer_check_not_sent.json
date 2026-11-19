@@ -26,11 +26,6 @@
       "kind": "send-failed"
     }
   ],
-  "inbox": {
-    "deadlinesToday": 0,
-    "left": false,
-    "total": 1
-  },
   "kind": "decision",
   "ref": "dec_000000000001",
   "send": {
