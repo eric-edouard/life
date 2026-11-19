@@ -119,16 +119,24 @@ struct SettingsView: View {
 
     private var connections: some View {
         RowGroup(label: "Connections", surface: .sheet) {
-            Button { pairing = .life } label: {
+            Button {
+                pairing = .life
+            } label: {
                 Row(title: "Life", detail: life.pairedOrigin?.hostWords) {
-                    HStack(spacing: 8) { life.link.mark; RowValue() }
+                    HStack(spacing: 8) {
+                        life.link.mark; RowValue()
+                    }
                 }
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("settings.life")
-            Button { pairing = .server } label: {
+            Button {
+                pairing = .server
+            } label: {
                 Row(title: "Pendant server", detail: sync.server?.hostWords) {
-                    HStack(spacing: 8) { sync.summary.state.link.mark; RowValue() }
+                    HStack(spacing: 8) {
+                        sync.summary.state.link.mark; RowValue()
+                    }
                 }
             }
             .buttonStyle(.plain)
@@ -176,7 +184,11 @@ struct SettingsView: View {
                 Row(title: name, detail: why) { StateMark(glyph: .ok, word: "On") }
             case .notAsked:
                 Row(title: name, detail: why) {
-                    if let ask { RowButton(title: "Allow", action: ask) } else { StateMark(glyph: .off, word: "Not asked") }
+                    if let ask {
+                        RowButton(title: "Allow", action: ask)
+                    } else {
+                        StateMark(glyph: .off, word: "Not asked")
+                    }
                 }
             case .limited(let what):
                 Row(title: name, detail: what) { RowButton(title: "Open", action: openSettings) }
@@ -202,7 +214,10 @@ struct SettingsView: View {
 
     private var pendant: some View {
         RowGroup(label: "Pendant", surface: .sheet) {
-            ServerRow(title: "Transcription", value: serverValue(.transcription, feed: sync.feed.switches, pending: sync.pending)) {
+            ServerRow(
+                title: "Transcription",
+                value: serverValue(.transcription, feed: sync.feed.switches, pending: sync.pending)
+            ) {
                 RowSwitch(title: "Transcription", isOn: $0) { on in
                     Task { await sync.perform(.switches(transcription: on)) }
                 }
@@ -272,7 +287,9 @@ struct SettingsView: View {
     }
 
     /// The menu's choices, and the stored value too when it is none of them.
-    private func choices(_ options: [Int], including stored: Int, name: (Int) -> String) -> [(choice: Int, name: String)] {
+    private func choices(_ options: [Int], including stored: Int, name: (Int) -> String) -> [(
+        choice: Int, name: String
+    )] {
         (options.contains(stored) ? options : (options + [stored]).sorted()).map { ($0, name($0)) }
     }
 
@@ -326,7 +343,8 @@ extension Bundle {
     /// "1.0 (214)": the version and build in Info.plist.
     var versionWords: String {
         let info = infoDictionary
-        return "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))"
+        return
+            "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))"
     }
 }
 

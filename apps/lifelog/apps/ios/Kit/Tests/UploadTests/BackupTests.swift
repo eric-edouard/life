@@ -64,7 +64,8 @@ private func ackState(_ fixture: ScannerFixture) async throws -> [String] {
     #expect(puts(host, "/backup/packs/").isEmpty)
     let snapshot = try #require(puts(host, "/backup/source-db/pendant-1").first)
     #expect(snapshot.sha == hex(snapshot.body))
-    #expect(try await uploader.backupStatus().snapshot?.bytes == Int64(snapshot.body.count), "the newest snapshot shows")
+    #expect(
+        try await uploader.backupStatus().snapshot?.bytes == Int64(snapshot.body.count), "the newest snapshot shows")
     #expect(try await uploader.backupStatus().todo == [0, 0])
 
     // The store rolls to a second pack: the first is sealed and goes once, with its hash.

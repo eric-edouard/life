@@ -27,7 +27,9 @@ struct VocabularyView: View {
                         Text("Used from the next recording.").font(.note).foregroundStyle(Palette.muted)
                         switch words {
                         case .saving:
-                            HStack(spacing: 8) { StateGlyph.busy; Text("Saving…").font(.small).foregroundStyle(Palette.muted) }
+                            HStack(spacing: 8) {
+                                StateGlyph.busy; Text("Saving…").font(.small).foregroundStyle(Palette.muted)
+                            }
                         case .refused(_, let message, _): Text(message).font(.small).foregroundStyle(Palette.flag)
                         case .known, .asking: EmptyView()
                         }
@@ -36,7 +38,9 @@ struct VocabularyView: View {
                         RowGroup(label: terms.count == 1 ? "1 word" : "\(terms.count) words", surface: .sheet) {
                             ForEach(terms, id: \.self) { term in
                                 Row(title: term) {
-                                    Button { save(terms.filter { $0 != term }) } label: {
+                                    Button {
+                                        save(terms.filter { $0 != term })
+                                    } label: {
                                         Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))
                                             .foregroundStyle(Palette.muted).frame(width: 44, height: 44)
                                     }

@@ -204,12 +204,15 @@ public struct SwitchField<T: Sendable & Equatable>: Sendable {
         .init(read: { $0.transcription }, isWrittenBy: { if case .switches(.some, _) = $0 { true } else { false } })
     }
     public static var openAppAfterMinutes: SwitchField<Int> {
-        .init(read: { $0.openAppAfterMinutes }, isWrittenBy: { if case .switches(_, .some) = $0 { true } else { false } })
+        .init(
+            read: { $0.openAppAfterMinutes }, isWrittenBy: { if case .switches(_, .some) = $0 { true } else { false } })
     }
 }
 
 /// A switch's state: the value `switches(over:)` shows, and where it stands. The newest edit touching the field decides.
-public func serverValue<T>(_ field: SwitchField<T>, feed: ServerClient.Switches?, pending: PendingEdits) -> ServerValue<T> {
+public func serverValue<T>(_ field: SwitchField<T>, feed: ServerClient.Switches?, pending: PendingEdits) -> ServerValue<
+    T
+> {
     guard let shown = pending.switches(over: feed) else { return .asking }
     return state(of: field.read(shown), newest: pending.entries.last { field.isWrittenBy($0.intent) })
 }

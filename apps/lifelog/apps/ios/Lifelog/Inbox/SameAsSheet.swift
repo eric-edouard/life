@@ -26,7 +26,8 @@ struct SameAsSheet: View {
                 }
                 Caps(takesNewName ? "Someone else, by name" : "Someone Life knows, by name")
                 Field(
-                    prompt: takesNewName ? "Their name" : "Their name, as Life knows them", text: $name, surface: .sheet)
+                    prompt: takesNewName ? "Their name" : "Their name, as Life knows them", text: $name, surface: .sheet
+                )
                 Button("Use this name") { pick(.name(typed)) }.buttonStyle(.pill(.filled)).disabled(typed.isEmpty)
             }
             .padding(20)

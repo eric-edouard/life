@@ -336,8 +336,10 @@ struct RowValue: View {
     var body: some View {
         HStack(spacing: 8) {
             if let text { Text(text).font(.note).foregroundStyle(Palette.muted) }
-            Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.muted)
-                .accessibilityHidden(true)
+            Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(
+                Palette.muted
+            )
+            .accessibilityHidden(true)
         }
         .frame(minHeight: 44)
     }

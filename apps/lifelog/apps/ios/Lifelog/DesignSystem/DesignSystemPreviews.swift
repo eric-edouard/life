@@ -113,10 +113,16 @@ import SwiftUI
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 RowGroup(label: "Asking, known, saving, saved, not changed", surface: .sheet) {
-                    Row(title: "Transcription", state: .asking) { RowSwitch(title: "Transcription", isOn: true) { _ in } }
+                    Row(title: "Transcription", state: .asking) {
+                        RowSwitch(title: "Transcription", isOn: true) { _ in }
+                    }
                     Row(title: "Transcription") { RowSwitch(title: "Transcription", isOn: true) { _ in } }
-                    Row(title: "Transcription", state: .saving) { RowSwitch(title: "Transcription", isOn: false) { _ in } }
-                    Row(title: "Transcription", state: .saved) { RowSwitch(title: "Transcription", isOn: false) { _ in } }
+                    Row(title: "Transcription", state: .saving) {
+                        RowSwitch(title: "Transcription", isOn: false) { _ in }
+                    }
+                    Row(title: "Transcription", state: .saved) {
+                        RowSwitch(title: "Transcription", isOn: false) { _ in }
+                    }
                     Row(title: "Transcription", state: .refused("Not changed: the server did not answer")) {
                         RowSwitch(title: "Transcription", isOn: true) { _ in }
                     }
