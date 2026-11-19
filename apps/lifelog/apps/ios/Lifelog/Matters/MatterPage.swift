@@ -69,7 +69,7 @@ struct MatterPage: View {
                 Button {
                     router.matterPath.append(check.ref)
                 } label: {
-                    Row(title: check.question, detail: check.deadline.map(byLine)) {
+                    Row(title: check.question, detail: check.deadline.map { DeadlineWords.by($0) }) {
                         StateDot(color: Palette.flag)
                         RowValue()
                     }
@@ -86,10 +86,6 @@ struct MatterPage: View {
         }
         .motion(Motion.standard, value: questions.map(\.ref))
         .motion(Motion.standard, value: life.held)
-    }
-
-    private func byLine(_ deadline: Date) -> String {
-        "By \(deadline.formatted(.dateTime.weekday(.abbreviated).hour().minute()))"
     }
 
     private func header(_ matter: Matter) -> some View {

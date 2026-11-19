@@ -28,7 +28,7 @@ struct CardView: View {
     @State private var sameAsRef: String?
 
     var body: some View {
-        CardArrangement(check: check) {
+        CardArrangement(check: check, runtimeName: runtimeName(of: check), hasBar: notes.taken != nil) {
             if let taken = notes.taken {
                 AnswerResultView(taken: taken, state: life.state(of: taken.key), next: question(after: taken))
             } else {
@@ -49,20 +49,6 @@ struct CardView: View {
                     taken: taken, state: life.state(of: taken.key), next: question(after: taken),
                     retry: { Task { await life.answer(taken.request) } },
                     keepForLater: { leave(taken, true) }, nextCard: { leave(taken, false) })
-            } else if life.state(of: .answer(ref: check.ref)).isRunning {
-                // An answer still running (this screen was rebuilt while its send ran): its busy pill, no second tap.
-                Button {
-                } label: {
-                    Text(check.draft != nil ? "Sending…" : "Saving…")
-                }
-                .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
-            } else if pages.page(on: current) == .boundary {
-                EmptyView()
-            } else {
-                CheckActions(
-                    check: check, runtimeName: runtimeName(of: check), input: input(check.ref),
-                    answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
-                )
             }
         }
         .sheet(item: sameAsCard) { check in
@@ -92,7 +78,10 @@ struct CardView: View {
                                 CheckCard(
                                     check: check, runtimeName: runtimeName(of: check),
                                     openMatter: { router.open(matter: $0) },
-                                    confirm: { request in Task { await life.answer(request) } }, input: input(check.ref)
+                                    confirm: { request in Task { await life.answer(request) } },
+                                    input: input(check.ref),
+                                    isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
+                                    answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
                                 )
                             }
                             .id(page.id)

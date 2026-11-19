@@ -8,11 +8,13 @@ extension Color {
     static let fillTint = Palette.fg.opacity(0.08)
 }
 
-/// The pill buttons: the filled one (cream in dark) and the quiet one, in two sizes, and busy while an action runs.
+/// The pill buttons: the filled one (cream in dark) and the quiet one, in three sizes, and busy while an action runs.
+/// A label that does not fit takes a second line, and the pill grows with it.
 struct PillStyle: ButtonStyle {
     enum Kind { case filled, quiet }
-    /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row.
-    enum Size: CGFloat { case large = 54, compact = 44 }
+    /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row; `row` is one of several
+    /// answers stacked, each on its line.
+    enum Size: CGFloat { case large = 54, row = 48, compact = 44 }
 
     let kind: Kind
     var size: Size = .large
@@ -24,10 +26,11 @@ struct PillStyle: ButtonStyle {
         let isFilled = kind == .filled && !isBusy
         HStack(spacing: 8) {
             if isBusy { ProgressView().controlSize(.small).tint(Palette.fg).frame(width: 18, height: 18) }
-            configuration.label
+            configuration.label.multilineTextAlignment(.center)
         }
         .font(.buttonLabel)
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)
+        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
         .frame(maxWidth: .infinity, minHeight: size.rawValue)
         .background(isFilled ? Palette.fg : Color.fillTint, in: .capsule)
         .opacity(isBusy ? 1 : isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
@@ -70,6 +73,28 @@ struct TextLink: View {
                 .font(.smallStrong).foregroundStyle(isOutward ? Palette.muted : Palette.fg)
                 .frame(minHeight: 44)
         }
+    }
+}
+
+/// A matter's name (a star in `ai` before it when an agent asks) on a `card` capsule 32 high, in a 44 hit area. It never
+/// wraps: a long name is cut with an ellipsis.
+struct InlinePill: View {
+    let name: String
+    var isAgent = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Metrics.Spacing.s) {
+                if isAgent { Image(systemName: "sparkle").foregroundStyle(Palette.ai).accessibilityHidden(true) }
+                Text(name).lineLimit(1)
+            }
+            .font(.smallStrong).foregroundStyle(Palette.fg)
+            .padding(.horizontal, Metrics.Spacing.m).frame(height: 32).background(Palette.card, in: .capsule)
+            .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Matter: \(name)")
     }
 }
 

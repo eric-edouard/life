@@ -357,7 +357,7 @@
                     options: [option("go", "Go"), option("change", "Change"), option("stop", "Stop")], matter: lease,
                     deadline: at(19, 18),
                     context: "Hélène asked twice, the last time on Thursday. The lease ends on 31 December.",
-                    extra: ["onSilence": "stop", "links": ["https://agents.example.test/s/1"]]),
+                    extra: ["onSilence": "go", "links": ["https://agents.example.test/s/1"]]),
                 check(
                     "dec_send", group: "decision", urgency: "blocks",
                     title: "Tell Hélène the signed lease is on its way",
@@ -369,6 +369,14 @@
                     matter: lease, deadline: at(19, 18), context: "She asked on Thursday whether it was signed. It is.",
                     extra: [
                         "onSilence": "no", "links": ["https://agents.example.test/s/1"],
+                        "networkIdentity": [
+                            "network": "WhatsApp", "handle": "+33600000001", "shownName": "Hélène Aubert",
+                            "chat": "33600000001@s.whatsapp.net", "openUrl": "https://wa.me/33600000001",
+                            "newest": [
+                                "at": at(12, 10), "by": "Hélène Aubert",
+                                "text": "Bonjour, avez-vous pu signer le bail ?",
+                            ],
+                        ],
                         "confirm": [guess("guess_helene", name: "Hélène Aubert", handle: "Hélène A.", matter: lease)],
                         "draft": [
                             "to": "Hélène Aubert", "channel": "whatsapp",
@@ -377,6 +385,26 @@
                             "quoted": ["sender": "Hélène Aubert", "text": "Bonjour, avez-vous pu signer le bail ?"],
                         ],
                     ]),
+            ]
+            + [
+                check(
+                    "dec_long", group: "decision", urgency: "blocks", title: "Where Mum’s lunch should be",
+                    question: "Where should Mum’s lunch be?", asker: "Claude Code",
+                    options: [
+                        option("odile", "Chez Odile on Friday, if they have a table"),
+                        option("odile-sat", "Chez Odile, but on Saturday at noon instead"),
+                        option("home", "At home, and Camille cooks for everyone"),
+                        option("else", "Somewhere else, I will tell you where"),
+                    ],
+                    matter: table, deadline: at(20, 12),
+                    extra: [
+                        "onSilence": "odile",
+                        "said": [
+                            "at": at(14, 18), "by": "Camille Vance", "channel": "whatsapp", "to": "Sam",
+                            "text": "On fait ça chez Odile ? Vendredi 27 ou samedi 28 ?",
+                        ],
+                        "onMatters": [table],
+                    ])
             ]
             + (7...12).map { number in
                 check(
@@ -395,12 +423,18 @@
                     ],
                     context: "Sam called the voice “Jun” twice in the same minute.",
                     extra: [
-                        "likelyPeople": [["name": "Idris Benali", "person": "person:idris"]],
+                        "likelyPeople": [
+                            ["name": "Idris Benali", "person": "person:idris", "line": "Supplier, kitchen quote"]
+                        ],
                         "clips": [
                             [
                                 "at": at(14, 10, 2), "until": at(14, 10, 2),
                                 "text": "On se retrouve au marché samedi, vers dix heures ?",
                                 "audio": ["jobId": "job-1", "start": 1.2, "end": 9.2],
+                                "words": [
+                                    [0, 500, 2], [550, 900, 7], [950, 1400, 3], [1450, 1900, 7], [1950, 2300, 5],
+                                    [2350, 2900, 5], [2950, 3300, 5],
+                                ],
                             ],
                             [
                                 "at": at(14, 10, 3), "until": at(14, 10, 3), "text": "D’accord, à samedi.",
@@ -413,15 +447,63 @@
                         ],
                     ]),
                 check(
+                    "voice_long", group: "voice", urgency: "blocks", title: "A voice from Sunday, 12 minutes",
+                    question: "Who is this?",
+                    options: [
+                        option("this-is", "Someone else…", takes: "person or name"),
+                        option("not-relevant", "Don't name"),
+                    ],
+                    extra: [
+                        "clips": [
+                            [
+                                "at": at(15, 9, 40), "until": at(15, 9, 41),
+                                "text":
+                                    "Alors voilà, pour la cuisine il faudrait que je repasse mesurer le mur du fond, parce que les plans ne tiennent pas compte de la gaine, et que Idris me dit que le fournisseur ne livre pas avant mi-janvier si on ne confirme pas cette semaine.",
+                                "audio": ["jobId": "job-3", "start": 3.0, "end": 24.0],
+                            ]
+                        ]
+                    ]),
+                check(
+                    "name_marc", group: "name", urgency: "blocks", title: "A name with no person: “Marc”",
+                    question: "Who is “Marc”?",
+                    options: [option("this-is", "Someone else…", takes: "person")],
+                    matter: table, context: "Camille named him about the table.",
+                    extra: [
+                        "said": [
+                            "at": at(14, 12), "by": "Camille Vance", "channel": "whatsapp", "to": "Sam",
+                            "text": "Marc nous a trouvé une table pour huit chez Odile.",
+                        ],
+                        "around": [
+                            "before": [
+                                [
+                                    "at": at(14, 11, 58), "by": "Sam", "channel": "whatsapp", "to": "Camille Vance",
+                                    "text": "Tu as réussi à réserver ?",
+                                ]
+                            ],
+                            "after": [
+                                [
+                                    "at": at(14, 12, 2), "by": "Sam", "channel": "whatsapp", "to": "Camille Vance",
+                                    "text": "Génial, merci.",
+                                ]
+                            ],
+                        ],
+                        "likelyPeople": [
+                            ["name": "Marc Delmas", "person": "person:marc", "line": "Colleague, Camille’s brother"],
+                            ["name": "Marcus Hale", "person": "person:marcus"],
+                        ],
+                        "onMatters": [table],
+                    ]),
+                check(
                     "person:con_cam", group: "contacts card", urgency: "blocks", title: "Place a Contacts card",
                     question: "Is this Camille or Cam?",
                     options: [option("same-person", "Choose who…", takes: "person")],
                     context: "Its name and handles fit more than one person.",
                     extra: [
+                        "contactsCard": ["name": "Cam", "handles": ["+33600000009"]],
                         "likelyPeople": [
                             ["name": "Camille Vance", "person": "person:camille"],
                             ["name": "Cam Ortiz", "person": "person:cam"],
-                        ]
+                        ],
                     ]),
                 check(
                     "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
@@ -454,10 +536,19 @@
                     options: [option("outdated", "Yes, done"), option("false", "Not yet")], matter: kitchen,
                     context: "He wrote the price on Tuesday; nothing in the matter has changed since.",
                     extra: [
+                        "said": [
+                            "at": at(17, 16), "by": "Idris Benali", "channel": "messenger", "to": "Sam",
+                            "text": "Je t’envoie le prix du fournisseur demain.",
+                        ],
+                        "since": [
+                            "at": at(18, 9), "by": "Idris Benali", "channel": "messenger", "to": "Sam",
+                            "text": "Voilà le prix du fournisseur : 4 200 € posé.",
+                        ],
+                        "onMatters": [kitchen],
                         "evidence": [
                             "from": "Idris Benali, Messenger, Tue 17 Nov",
                             "quote": "Voilà le prix du fournisseur : 4 200 € posé.",
-                        ]
+                        ],
                     ]),
             ]
 
