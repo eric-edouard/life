@@ -102,13 +102,15 @@ struct InboxScreen: View {
                     taken: taken, state: state, next: next(after: taken),
                     retry: { Task { await life.answer(taken.request) } },
                     keepForLater: { leave(taken, keep: true) }, nextCard: { leave(taken, keep: false) })
+            } else if life.state(of: .answer(ref: check.ref)).isRunning {
+                // An answer still running (this screen was rebuilt while its send ran): its busy pill, no second tap.
+                Button {} label: { Text(check.draft != nil ? "Sending…" : "Saving…") }
+                    .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
             } else {
-                // An answer still running (this screen was rebuilt while its send ran) keeps the buttons from a second tap.
                 CheckActions(
                     check: check, runtimeName: runtimeName(of: check), input: input,
                     answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
                 )
-                .disabled(life.state(of: .answer(ref: check.ref)).isRunning)
             }
         }
     }
