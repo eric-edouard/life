@@ -12,6 +12,7 @@ import {
   locate,
   type Point,
   storeHistory,
+  throughOf,
   visitsIn,
   visitsTo,
   whereVisits,
@@ -21,6 +22,7 @@ import { services } from "./services";
 import { OWNER_TOKEN, testConfig, testDb } from "./testing";
 
 const MIN = 60_000;
+const HOUR = 60 * MIN;
 const START = Date.parse("2026-10-01T00:00:00Z");
 const METER = 1 / 111_320; // degrees of latitude
 const HOME = { latitude: 21.03, longitude: 105.85 };
@@ -255,4 +257,32 @@ test("a stay under way has no leftAt, until a point outside or two hours of sile
   storeHistory(env.db, { fixes: [home(0)], visits: [] });
   setSystemTime(START + 10 * MIN);
   expect(whereVisits(env.db, new Date(START + 5 * MIN))[0]?.leftAt).toBe(at(0));
+});
+
+test("circle mode: a fix too coarse to tell does not end a stay under way", () => {
+  const home = (minute: number, accuracyM = 10) => ({
+    accuracyM,
+    ...HOME,
+    observedAt: at(minute),
+  });
+  storeHistory(env.db, { fixes: [home(0), home(5), home(10)], visits: [] });
+  // A 300 m fix, 2 km away: too coarse to tell, so it says nothing either way.
+  storeHistory(env.db, {
+    fixes: [{ ...home(20, 300), latitude: HOME.latitude + 2000 * METER }],
+    visits: [],
+  });
+  setSystemTime(START + 30 * MIN);
+  const found = visitsTo(
+    env.db,
+    { ...HOME, radiusM: 50 },
+    { from: new Date(START), to: new Date(START + 30 * MIN) }
+  );
+  expect(found?.map((v) => v.leftAt)).toEqual([null]);
+});
+
+test("reads go through now only when a stay at the window's end could still be under way", () => {
+  const now = START + 1000 * HOUR;
+  expect(throughOf(now - 3 * HOUR, now)).toBe(now);
+  expect(throughOf(now - 100 * HOUR, now)).toBe(now - 100 * HOUR);
+  expect(throughOf(now + HOUR, now)).toBe(now + HOUR);
 });
