@@ -3,6 +3,7 @@
     import Library
     import LifeConnector
     import Synchronization
+    import Upload
 
     /// Life without a Mac, for the simulator: made-up inbox, matters and agents, and an API that answers as Life would,
     /// slowly, or not at all, so every state of every screen can be put on screen and photographed.
@@ -25,6 +26,16 @@
         nonisolated static let page = value(of: "-fixturePage")
         nonisolated static let pair = value(of: "-fixturePair") ?? "ok"
         nonisolated static let pose = value(of: "-fixturePose")
+        /// `-fixtureUpload settled|behind`: what the phone says is on the Mac, so the Pendant sheet's upload tile
+        /// shows "All on your Mac" or what is still to send (no flag: the phone is still being asked).
+        nonisolated static var uploads: UploadStatus? {
+            let now = Date.now
+            return switch value(of: "-fixtureUpload") {
+            case "settled": UploadStatus(sentThrough: now, heardThrough: now)
+            case "behind": UploadStatus(unsent: .seconds(2_520), sentThrough: now - 3_600, heardThrough: now)
+            default: nil
+            }
+        }
 
         nonisolated private static func value(of flag: String) -> String? {
             let arguments = ProcessInfo.processInfo.arguments
