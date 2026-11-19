@@ -1,4 +1,4 @@
-import type { Check } from "./checks";
+import type { Check } from "./life-checks";
 
 const BIG = 5;
 /** How many ride on an open matter, and of the rest on one line, two to five, more than five. */

@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
+import { shownStepsOf } from "./check-sentences";
 import { urgencyOf } from "./check-urgency";
 import {
-  type Check,
   type CheckInputs,
   checksNow,
   checksOf,
@@ -15,6 +15,7 @@ import {
 } from "./checks";
 import { about, DANA_ID, inputs, line, stepsOf } from "./checks-test-inputs";
 import { checksText } from "./checks-text";
+import type { Check } from "./life-checks";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "./matters";
 import { OBSERVATIONS, UNITS } from "./memory-files";
@@ -191,7 +192,7 @@ test("an ending rides on its open matter and goes with his answer", () => {
     kind: "ending",
     matter: { id: "matter_aaaaaaaaaaaa", name: "Send the quote" },
     // The worded question, with the open step as said (who, to whom, when) and what came since.
-    question: "Is this done?",
+    question: "Is this done? I'll bring it Friday",
     ref: o.id,
     ridesOn: { matters: 1, observations: 0 },
     said: {
@@ -437,7 +438,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
         expect.objectContaining({ id: "edit-goal" }),
         expect.objectContaining({ id: "dismiss" }),
       ],
-      question: "Start an agent on this?",
+      question: "Start an agent on this? The boiler is serviced.",
       ref: matter.id,
       ridesOn: {
         matterIds: [matter.id],
@@ -732,4 +733,20 @@ test("a guessed person's check riding on an open matter through its saved line i
   expect(guess?.matter).toBeNull();
   expect(guess?.ridesOn.matterIds).toEqual([m.id]);
   expect(checksOnMatterOf([guess as Check], m.id)).toEqual([guess as Check]);
+});
+
+test("only the open endings' and the new matters' steps are read for their sentences: a closed ending's or an old matter's never", () => {
+  const link = { later: "obs_b", quote: "it is done" };
+  const matter = (day: string, ref: string) => ({ steps: [{ day, ref }] });
+  const shown = shownStepsOf({
+    answered: new Set(["obs_closed"]),
+    doubted: new Set(),
+    endings: new Map([
+      ["obs_open", link],
+      ["obs_closed", { later: "obs_c", quote: "x" }],
+    ]),
+    matters: [matter("2026-11-17", "obs_new"), matter("2026-10-01", "obs_old")],
+    today: "2026-11-18",
+  });
+  expect([...shown].sort()).toEqual(["obs_b", "obs_new", "obs_open"]);
 });

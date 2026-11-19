@@ -2,11 +2,12 @@ import { expect, spyOn, test } from "bun:test";
 import type { Unit } from "../records/unit";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lifelogVoices from "../sources/lifelog-voices";
+import { readNameContexts } from "./check-sentences";
 import { checksOf } from "./checks";
 import { inputs, line, stepsOf } from "./checks-test-inputs";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as files from "./memory-files";
-import { holdsName, readNameContexts } from "./name-context";
+import { holdsName } from "./units";
 import type { People } from "./who";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as words from "./words";
@@ -48,7 +49,11 @@ const chat = [
 const wanted = [
   {
     key: "bastien",
-    line: { id: "obs_000000000001", unit: "unit_000000000001" },
+    line: {
+      id: "obs_000000000001",
+      quote: "Bastien comes Thursday, are you in?",
+      unit: "unit_000000000001",
+    },
     names: ["Bastien"],
   },
 ];
@@ -239,4 +244,24 @@ test("a name's card shows a line that holds the name, never the newest line when
     ],
     said,
   });
+});
+
+test("a name shows the observation's own sentence, not an earlier line that also names the person", async () => {
+  const units = spyOn(files, "readUnitsFor").mockReturnValue([
+    unit({ hash: "h6" }),
+  ]);
+  const read = spyOn(words, "unitLines").mockResolvedValue({
+    built: {},
+    lines: [
+      turnOf(0, "unknown:Dana", "Bastien called earlier."),
+      ...chat.slice(1),
+    ],
+  } as never);
+  try {
+    const [context] = [...(await readNameContexts(wanted, people)).values()];
+    expect(context?.said.text).toBe("Bastien comes Thursday, are you in?");
+  } finally {
+    units.mockRestore();
+    read.mockRestore();
+  }
 });

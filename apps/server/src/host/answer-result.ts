@@ -5,7 +5,6 @@ import {
   type CheckAnswer,
   type StartAgent,
 } from "../memory/answer-check";
-import type { Check } from "../memory/checks";
 import {
   type Decision,
   decisionsNow,
@@ -14,6 +13,7 @@ import {
   sendsOn,
 } from "../memory/decisions";
 import { sendLimitMs, sendStepsOf } from "../memory/draft-send";
+import type { Check } from "../memory/life-checks";
 import {
   changeRegisteredAgent,
   START_STAGES,

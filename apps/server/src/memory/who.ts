@@ -29,7 +29,7 @@ import { handlesOf, loadTruth, OWNER } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
 import type { Tie } from "./ties";
 import { dayUnitId } from "./unit-ids";
-import { nameKey, PERSON, UNKNOWN } from "./units";
+import { holdsName, nameKey, PERSON, UNKNOWN } from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people his Contacts name, the people Life inferred and the
 // owner's corrections, in that order of trust under his word. Every reader and step resolves people through here.
@@ -538,9 +538,6 @@ export const episodeNow = <E extends { people: { ref: string }[] }>(
 /** An observation as readers get it (`aboutNow`). */
 export type Shown = ReturnType<typeof aboutNow>[number];
 
-/** How many people a name or a Contacts card offers as who it could be. */
-const CANDIDATES = 5;
-
 /**
  * truth/, the people his Contacts name, Life's inferred people and the owner's corrections, read once, with the
  * resolver and the folds over them.
@@ -584,27 +581,22 @@ export async function readPeople() {
     /** The Contacts cards Life cannot place: their whole name and their handles say more than one person (`foldsOf`). */
     ambiguousCards,
     /**
-     * Who a first name or an alias could be, each once, as he knows them: truth/'s people (by name, first name or alias),
-     * then his Contacts and Life's inferred ones (by name or first name), with what each is to him (`relationOf`).
+     * Who a name could be, as he knows them (`nearNames` over `nameable`), with what each is to him (`relationOf`).
      */
-    candidatesFor: (name: string) => {
-      const key = nameKey(name);
-      const holds = (n: string) =>
-        nameKey(n) === key || nameKey(firstNameOf(n)) === key;
-      const found = [
-        ...truth.people
-          .filter((p) => p.id !== ME && [p.name, ...p.aliases].some(holds))
-          .map((p) => `person:${p.id}`),
-        ...outsideDirectory
-          .filter((p) => holds(p.name))
-          .map((p) => `person:${p.id}`),
-      ].map(refOf);
-      return [...new Set(found)].slice(0, CANDIDATES).map((person) => ({
-        line: relationOf(person),
-        name: names.get(person) ?? person,
-        person,
-      }));
-    },
+    candidatesFor: (
+      name: string
+    ): { line: string | null; name: string; person: string }[] =>
+      nearNames(
+        name,
+        nameable({ canon, outsideDirectory, truth }).filter((p) => p.id !== ME)
+      ).map((p) => {
+        const person = refOf(`person:${p.id}`);
+        return {
+          line: relationOf(person),
+          name: names.get(person) ?? p.name,
+          person,
+        };
+      }),
     canon,
     /** The people his Contacts name (`contact-people.ts`), for the folds. */
     contacts,
@@ -789,8 +781,7 @@ export function placementOf(
   people: Pick<People, "resolve">,
   ties: Tie[]
 ) {
-  const words = ` ${nameKey(mention.who)} `;
-  if (!(words.trim() && ` ${nameKey(mention.line)} `.includes(words))) {
+  if (!holdsName(mention.line, [mention.who])) {
     return null;
   }
   const ref = people.resolve(mention.who);

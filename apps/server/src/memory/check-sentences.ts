@@ -3,11 +3,12 @@ import type { Unresolved } from "../records/observation";
 import { parseTurnRef } from "../sources/lifelog";
 import { readTurnClip } from "../sources/lifelog-voices";
 import type { Check, Said } from "./life-checks";
+import { offerEndOf } from "./matter-read";
 import { readUnitsFor } from "./memory-files";
-import type { SourceLine } from "./quote-check";
+import { locate, type SourceLine } from "./quote-check";
 import { OWNER } from "./read-truth";
 import { kindOf } from "./sources";
-import { isFrozen, nameKey } from "./units";
+import { holdsName, isFrozen, nameKey } from "./units";
 import type { People } from "./who";
 import { readEach, spokenLines, unitLines } from "./words";
 
@@ -18,10 +19,6 @@ import { readEach, spokenLines, unitLines } from "./words";
 
 /** How many lines of the unit show before and after the sentence. */
 const AROUND = 3;
-
-/** Whether `text` holds one of `names` as a whole word or words (`nameKey`, so accents and case never matter). */
-export const holdsName = (text: string, names: string[]) =>
-  names.some((n) => ` ${nameKey(text)} `.includes(` ${nameKey(n)} `));
 
 /** What a name check carries of its sentence. */
 export interface NameContext {
@@ -34,7 +31,7 @@ export interface NameContext {
 /** A name check to read: its key, the names as written, and the kept line it shows (the newest holding the name). */
 export interface WantedName {
   key: string;
-  line: { id: string; unit: string };
+  line: { id: string; quote: string; unit: string };
   names: string[];
 }
 
@@ -90,7 +87,12 @@ export async function readNameContexts(
                 unit.id
               ) ?? [])
             : ((await unitLines(unit, people))?.lines ?? []);
-        const at = lines.findIndex((l) => holdsName(l.text, w.names));
+        // The observation's own sentence first; a quote too short or reworded falls back to the first line holding the name.
+        const at =
+          locate(
+            w.line.quote,
+            lines.map((l) => l.text)
+          )?.line ?? lines.findIndex((l) => holdsName(l.text, w.names));
         const found = lines[at];
         if (!found) {
           return null;
@@ -192,29 +194,22 @@ type SaidLine = Pick<SourceLine, "speaker"> & {
 type NameLine = SaidLine & { id: string };
 
 /**
- * What the cards that show a sentence need read: each name's context, and the titles (chat or thread) of the units
- * their lines come from: a name's, the inferred people's evidence, and the first step of each matter and both ends of each ending.
+ * What the cards that show a sentence need read: each name's context, and the titles (chat or thread) of the units the
+ * lines come from: a name's, the inferred people's evidence, and `steps`, the open endings' and new matters' steps.
  */
 export async function readSentences(c: {
-  kept: ReadonlySet<string>;
   lines: readonly NameLine[];
-  matters: readonly { steps: readonly { ref: string }[] }[];
+  names: ReturnType<typeof nameGroupsOf>;
   people: People;
-  unresolved: readonly Pick<Unresolved, "nameAsWritten" | "observation">[];
-  records: { linkEndings: ReadonlyMap<string, { later: string }> };
+  steps: ReadonlySet<string>;
 }) {
-  const names = nameGroupsOf(c);
   const nameContexts = await readNameContexts(
-    names.flatMap(({ key, last, names: as }) =>
-      last ? [{ key, line: last, names: as }] : []
+    c.names.flatMap(({ key, last, names }) =>
+      last ? [{ key, line: last, names }] : []
     ),
     c.people
   );
-  const stepIds = new Set([
-    ...[...c.records.linkEndings].flatMap(([ref, e]) => [ref, e.later]),
-    ...c.matters.flatMap((m) => m.steps.slice(0, 1).map((s) => s.ref)),
-  ]);
-  const said = c.lines.filter((o) => stepIds.has(o.id)).map((o) => o.unit);
+  const said = c.lines.filter((o) => c.steps.has(o.id)).map((o) => o.unit);
   const units = readUnitsFor([
     ...c.people.inferred.flatMap((p) => p.evidence.map((e) => e.unit)),
     ...said,
@@ -227,3 +222,27 @@ export async function readSentences(c: {
     units,
   };
 }
+
+/** Whether an open step with an ending found is an ending check: no old doubt line holds its ref, he has not answered. */
+export const isEndingOpen = (
+  ref: string,
+  c: { answered: ReadonlySet<string>; doubted: ReadonlySet<string> }
+) => !(c.doubted.has(ref) || c.answered.has(ref));
+
+/** The steps a card shows the sentence of: the open endings' (a step and what ended it) and the new matters' first steps; a closed ending's or an old matter's are never read. */
+export const shownStepsOf = (c: {
+  answered: ReadonlySet<string>;
+  doubted: ReadonlySet<string>;
+  endings: ReadonlyMap<string, { later: string }>;
+  today: string;
+  matters: readonly { steps: readonly { day: string; ref: string }[] }[];
+}) =>
+  new Set([
+    ...[...c.endings].flatMap(([ref, e]) =>
+      isEndingOpen(ref, c) ? [ref, e.later] : []
+    ),
+    ...c.matters.flatMap((m) => {
+      const end = offerEndOf(m);
+      return end && c.today <= end && m.steps[0] ? [m.steps[0].ref] : [];
+    }),
+  ]);

@@ -1,4 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
+import { nameGroupsOf } from "../../memory/check-sentences";
 import { urgencyOf } from "../../memory/check-urgency";
 import type { CheckInputs } from "../../memory/checks";
 import { rpc, token } from "./mcp-test-harness";
@@ -41,7 +42,7 @@ const matter = {
   with: [],
 };
 /** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
-const madeUpInbox: CheckInputs = {
+const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   answered: new Set(),
   decisions: [
     {
@@ -258,6 +259,10 @@ const madeUpInbox: CheckInputs = {
     },
   ],
   where: new Map([["unit_000000000001", "whatsapp, 2 Oct"]]),
+};
+const madeUpInbox: CheckInputs = {
+  ...madeUpBase,
+  nameGroups: nameGroupsOf(madeUpBase),
 };
 
 test("the phone's reads: read_inbox, read_matters, read_matter and read_registered_agents answer what Kit's models decode", async () => {

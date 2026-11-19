@@ -11,6 +11,15 @@ import {
   readNamingQueue,
 } from "../sources/lifelog-voices";
 import {
+  isEndingOpen,
+  type NameContext,
+  nameGroupsOf,
+  readSentences,
+  saidOfLine,
+  saidOfQuote,
+  shownStepsOf,
+} from "./check-sentences";
+import {
   blockingCountOf,
   inboxRankOf,
   type Urgency,
@@ -58,13 +67,6 @@ import {
   ZONES,
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
-import {
-  type NameContext,
-  nameGroupsOf,
-  readSentences,
-  saidOfLine,
-  saidOfQuote,
-} from "./name-context";
 import { sourceOf } from "./sources";
 import {
   type People,
@@ -78,11 +80,9 @@ import { dayNow, localDate } from "./zones";
 // The checks: everything waiting on his word, in one shape, with no limit. A check is one guess of Life's
 // that his word would settle, shown with its evidence; it exists only while something rides on the guess (a kept line,
 // an open matter, a page). Life keeps using its guess meanwhile. Or it is a decision an agent asks (`decisions.ts`),
-// or a new matter Life offers an agent for ("Work on it?"). Derived when read, never stored: his answer (`answerCheck`,
+// or a new matter Life offers an agent for ("Start an agent on this?"). Derived when read, never stored: his answer (`answerCheck`,
 // `answer-check.ts`) goes to its kind's own store: a correction (a person, a new matter's goal or dismissal), a
 // fact-check answer (an ending), his answer to the decision, lifelog's naming queue (a voice), or the desk (a Start).
-
-export type { Check } from "./life-checks";
 
 /** A kept line as the checks read it. */
 type Line = Pick<
@@ -145,6 +145,8 @@ export interface CheckInputs {
   })[];
   /** What each name check shows of its sentence, by the name's key (`readNameContexts`); a name whose unit could not be read has none. */
   nameContexts: ReadonlyMap<string, NameContext>;
+  /** The names Life cannot place, one group per name (`nameGroupsOf`), worked out once by the reader. */
+  nameGroups: ReturnType<typeof nameGroupsOf<Line>>;
   paged: ReadonlySet<string>;
   people: Pick<
     People,
@@ -220,15 +222,9 @@ function ctxOf(c: CheckInputs): Ctx {
   };
 }
 
-/** The guess of an ending check, in one place: the builder shows it and his answer stores it. */
+/** The guess an ending check's answer stores in the fact-check line (the card asks "Is this done?" with the step's own sentence). */
 export const endingGuessOf = (step: string) =>
   `Life thinks this is done: ${step}`;
-
-/** Whether an open step with an ending found is an ending check: no old doubt line holds its ref, he has not answered. */
-export const isEndingOpen = (
-  ref: string,
-  c: Pick<CheckInputs, "answered" | "doubted">
-) => !(c.doubted.has(ref) || c.answered.has(ref));
 
 /** An ending check always has its evidence: the later step's words. */
 export const isEndingKind = (
@@ -328,12 +324,6 @@ function ranked(
     : [];
 }
 
-/** The answers a voice's card offers: with a guess in use, "Yes" to it too. */
-const VOICE_OPTIONS: Record<"guess" | "none", string[]> = {
-  guess: ["is-them", "this-is", "not-relevant"],
-  none: ["this-is", "not-relevant"],
-};
-
 /** Each kind of check, from what is stored. A new kind (a voice, a tie, an appointment, a line with a doubt of its own) is one more entry. */
 const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
   /** Every open decision; one on a matter step leaves once the matters holding it have all ended (a step no matter holds now, after a re-group, keeps it). */
@@ -390,7 +380,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             "ending",
             {
               about: [],
-              question: "Is this done?",
+              // until the phone shows `said`: the step stays in the question.
+              question: `Is this done? ${o.quote}`,
               ref,
               said: saidOfLine(o, c.people, c.titles),
               since: later
@@ -407,7 +398,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         : [];
     }),
   /**
-   * Each running matter he has not answered "Work on it?" for: one that began in the last `NEW_MATTER_DAYS` (its first
+   * Each running matter he has not answered "Start an agent on this?" for: one that began in the last `NEW_MATTER_DAYS` (its first
    * step's day), with an open step, not stuck (a passed date), a goal and a next step he could hand over (`do`, read
    * through `nextStepNow`) that is checked (not `isDirectionDue`: a step an outside record may have overtaken waits for
    * its redraft), no registered agent anchored on it or holding its project, and not dismissed; none while the desk is off or unreadable. No deadline: it never outranks an agent's decision; on silence nothing starts and it leaves after its
@@ -460,7 +451,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
                 // Nothing starts on silence: no option is taken.
                 onSilence: null,
                 options: [...LIFE_CHECKS["new matter"].options],
-                question: "Start an agent on this?",
+                // until the phone shows `goal`: the goal stays in the question.
+                question: `Start an agent on this? ${v.goal.text}`,
                 ref: v.id,
                 ridesOn: { ...ridingOf([v]), observations: 0, pages: 0 },
                 said: firstLine
@@ -524,7 +516,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         null
       );
     });
-    const named = nameGroupsOf(c).flatMap(
+    const named = c.nameGroups.flatMap(
       ({ key, last: held, lines, names: as }) => {
         const read = c.nameContexts.get(key);
         return ranked(
@@ -593,8 +585,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             onMatters: [],
             onSilence: null,
             // The people it could be are `likelyPeople`, lifelog's suggestion first; "Yes" only when that suggestion is in use.
-            options: LIFE_CHECKS.voice.options.filter((o) =>
-              VOICE_OPTIONS[who ? "guess" : "none"].includes(o.id)
+            options: LIFE_CHECKS.voice.options.filter(
+              (o) => who || o.id !== "is-them"
             ),
             question: who ? `Is this ${who}?` : "Who is this?",
             ref: `voice:${item.id}`,
@@ -748,26 +740,35 @@ async function readChecks(
       .filter((o) => o.importance >= KEEP_AT && !records.retired.has(o.id))
       .map((o) => o.id)
   );
-  const { nameContexts, titles, units } = await readSentences({
-    kept,
-    lines,
+  const answered = new Set(
+    [...readFactCheckAnswers()].flatMap(([ref, a]) => (a.answer ? [ref] : []))
+  );
+  const doubted = new Set(
+    readFactChecks()
+      .filter((s) => !isEndingCheck(s))
+      .map((s) => s.ref)
+  );
+  const nameGroups = nameGroupsOf({ kept, lines, people, unresolved });
+  const today = dayNow();
+  const steps = shownStepsOf({
+    answered,
+    doubted,
+    endings: records.linkEndings,
     matters,
+    today,
+  });
+  const { nameContexts, titles, units } = await readSentences({
+    lines,
+    names: nameGroups,
     people,
-    records,
-    unresolved,
+    steps,
   });
   const key = secretIn("pushIdKey");
   const checks = checksOf({
-    answered: new Set(
-      [...readFactCheckAnswers()].flatMap(([ref, a]) => (a.answer ? [ref] : []))
-    ),
+    answered,
     decisions,
     dismissed: readDismissedMatterPins(),
-    doubted: new Set(
-      readFactChecks()
-        .filter((s) => !isEndingCheck(s))
-        .map((s) => s.ref)
-    ),
+    doubted,
     endings: records.linkEndings,
     heldByAgents: held,
     isDirectionDue: directionDueOf(matters, records, dayNow()),
@@ -776,10 +777,11 @@ async function readChecks(
     lines,
     matters,
     nameContexts,
+    nameGroups,
     paged,
     people,
     titles,
-    today: dayNow(),
+    today,
     unresolved,
     voices,
     where: new Map([

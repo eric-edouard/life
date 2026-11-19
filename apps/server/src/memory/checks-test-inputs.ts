@@ -1,4 +1,5 @@
 import type { Correction } from "../records/observation";
+import { nameGroupsOf } from "./check-sentences";
 import type { CheckInputs } from "./checks";
 import { guessTestOf } from "./who";
 
@@ -28,10 +29,10 @@ export const line = (over: Partial<CheckInputs["lines"][number]> = {}) => {
 export const about = (ref: string, over = {}) =>
   line({ subjects: [ref], ...over });
 
-export function inputs(
+function withoutGroups(
   lines: CheckInputs["lines"],
-  over: Input = {}
-): CheckInputs {
+  over: Input
+): Omit<CheckInputs, "nameGroups"> {
   const isGuess = guessTestOf(over.corrections ?? []);
   return {
     answered: new Set(),
@@ -81,3 +82,11 @@ export const DANA_ID = "00000000-0000-4000-8000-000000000001";
 /** A matter's steps, made up: each on 1 Oct with a quote. */
 export const stepsOf = (...refs: string[]) =>
   refs.map((ref) => ({ day: "2026-10-01", quote: "it", ref }));
+
+export function inputs(
+  lines: CheckInputs["lines"],
+  over: Input = {}
+): CheckInputs {
+  const base = withoutGroups(lines, over);
+  return { ...base, nameGroups: nameGroupsOf(base) };
+}

@@ -3,7 +3,7 @@ import { clock, MIN } from "../core/clock";
 import { writeJson } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { notifyArgs, WINDOWS } from "../core/platform";
-import type { Check } from "../memory/checks";
+import type { Check } from "../memory/life-checks";
 import { action, madeBy } from "../memory/record-fixtures";
 import { entryLine, LedgerEntry } from "../records/ledger-entry";
 import { HEALTH } from "./health";

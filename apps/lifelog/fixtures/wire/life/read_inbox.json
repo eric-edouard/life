@@ -88,8 +88,8 @@
           "likelyPeople": [],
           "links": [],
           "notSent": null,
-          "onSilence": null,
           "onMatters": [],
+          "onSilence": null,
           "options": [
             {
               "id": "this-is",
@@ -255,8 +255,8 @@
       ],
       "links": [],
       "notSent": null,
-      "onSilence": null,
       "onMatters": [],
+      "onSilence": null,
       "options": [
         {
           "id": "this-is",
@@ -314,8 +314,8 @@
       ],
       "links": [],
       "notSent": null,
-      "onSilence": null,
       "onMatters": [],
+      "onSilence": null,
       "options": [
         {
           "id": "same-person",
@@ -391,7 +391,7 @@
           "takes": null
         }
       ],
-      "question": "Start an agent on this?",
+      "question": "Start an agent on this? Gran's photo is framed.",
       "ref": "matter_cccccccccccc",
       "ridesOn": {
         "matterIds": ["matter_cccccccccccc"],
@@ -428,8 +428,8 @@
       "likelyPeople": [],
       "links": [],
       "notSent": null,
-      "onSilence": null,
       "onMatters": [],
+      "onSilence": null,
       "options": [
         {
           "id": "this-is",
@@ -483,13 +483,13 @@
       "likelyPeople": [],
       "links": [],
       "notSent": null,
-      "onSilence": null,
       "onMatters": [
         {
           "id": "matter_aaaaaaaaaaaa",
           "name": "Mend Gran's watch"
         }
       ],
+      "onSilence": null,
       "options": [
         {
           "id": "outdated",
@@ -502,7 +502,7 @@
           "takes": null
         }
       ],
-      "question": "Is this done?",
+      "question": "Is this done? \"Call the shop\" said Gran",
       "ref": "obs_000000000005",
       "ridesOn": {
         "matterIds": ["matter_aaaaaaaaaaaa"],

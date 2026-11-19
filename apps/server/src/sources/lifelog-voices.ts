@@ -170,7 +170,7 @@ export function isTurnNamed(store: Store, ref: string) {
 }
 
 /** A clip of a recording: where it is in the job's audio (`audio`), when, its words and their timings (`TimedWords`: each word's [start, end] in ms from the clip's start and its length in `text`, with the spacing before it). */
-const Clip = z.object({
+export const Clip = z.object({
   at: z.string().nullable(),
   audio: z
     .object({ end: z.number(), jobId: z.string(), start: z.number() })

@@ -81,7 +81,7 @@ export const LIFE_CHECKS = {
   voice: {
     context:
       "Heard in conversations: who it is goes to every turn of this voice.",
-    // `not-anyone-i-know` and `media` stay accepted (installed builds send them); no card offers them since "Don't name".
+    // The three it offers; "Yes" only when a guess is in use. `not-anyone-i-know` and `media` stay accepted writers only (`answer-check.ts`: installed builds send them).
     options: [
       { id: "is-them", label: "Yes", takes: null },
       {
@@ -90,8 +90,6 @@ export const LIFE_CHECKS = {
         takes: "person or name",
       },
       { id: "not-relevant", label: "Don't name", takes: null },
-      { id: "not-anyone-i-know", label: "A stranger", takes: null },
-      { id: "media", label: "TV or video", takes: null },
     ],
     title: "Name a voice",
   },
@@ -120,7 +118,7 @@ export interface Check {
   asker: string;
   /** When it was asked; null for Life's guesses (worked out when read). */
   at: string | null;
-  /** A voice's spans of recording (`audio` is what the app plays from lifelog), newest first as lifelog gives them; none but a voice's. */
+  /** The spans of recording a card plays (`audio` is what the app plays from lifelog): a voice's, newest first as lifelog gives them, or a spoken name's one clip of its sentence (`check-sentences.ts`); none for every other kind. */
   clips: {
     at: string | null;
     audio: { end: number; jobId: string; start: number } | null;

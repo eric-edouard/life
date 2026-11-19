@@ -321,8 +321,8 @@
                     ]),
                 check(
                     "end_done", group: "ending", title: "Idris Benali owed Sam the supplier price",
-                    question: "Is this done?",
-                    options: [option("outdated", "Done"), option("false", "Not done")], matter: kitchen,
+                    question: "Is this done? Idris Benali owed Sam the supplier price",
+                    options: [option("outdated", "Yes, done"), option("false", "Not yet")], matter: kitchen,
                     context: "He wrote the price on Tuesday; nothing in the matter has changed since.",
                     extra: [
                         "evidence": [
@@ -372,10 +372,10 @@
                     ]),
                 check(
                     "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
-                    question: "Goal: a table for eight at Chez Odile on Friday 27th. Work on it?",
+                    question: "Start an agent on this? A table for eight at Chez Odile on Friday 27th.",
                     options: [
                         option("start", "Start"), option("edit-goal", "Edit goal", takes: "note"),
-                        option("dismiss", "Dismiss"),
+                        option("dismiss", "No"),
                     ],
                     matter: table,
                     context: "Camille proposed Chez Odile on Saturday; you said you would handle it.",
