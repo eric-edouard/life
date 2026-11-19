@@ -34,3 +34,16 @@ private struct ReduceMotionAnimation<Value: Equatable>: ViewModifier {
         content.animation(reduceMotion ? nil : animation, value: value)
     }
 }
+
+private struct Appears: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content.transition(reduceMotion ? .identity : Motion.appears)
+    }
+}
+
+extension View {
+    /// `Motion.appears`, or nothing under Reduce Motion: the one way a row or group comes and goes.
+    func appears() -> some View { modifier(Appears()) }
+}

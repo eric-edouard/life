@@ -10,6 +10,7 @@ import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector, settings } from "../../core/settings";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
+import { blockingCountOf } from "../../memory/check-urgency";
 import { checksOnMatterOf } from "../../memory/checks";
 import { CARD, DecisionRequest, requestDecision } from "../../memory/decisions";
 import { recordCorrection } from "../../memory/memory-files";
@@ -284,7 +285,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matters",
-    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `openChecks` (how many open checks are about it, of every kind: `read_matter` lists them), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: names, from its open steps), `areas` and `projects` (names), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area. `read_matter` opens one.",
+    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `blockingChecks` (how many open checks about it block him: an agent's decision, an unnamed voice, a name nobody is; `read_matter` lists every one), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: names, from its open steps), `areas` and `projects` (names), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area. `read_matter` opens one.",
     z.object({
       area: z.string().optional().describe("Area id or name"),
       person: z.string().optional().describe("Name, alias or id"),
@@ -298,7 +299,7 @@ export function buildServer(readsOnly = false) {
       return {
         matters: matters.map((m) => ({
           ...m,
-          openChecks: checksOnMatterOf(open, m.id).length,
+          blockingChecks: blockingCountOf(checksOnMatterOf(open, m.id)),
         })),
       };
     }
@@ -306,7 +307,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matter",
-    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them, then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link).",
+    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them (`blockingChecks` included), then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link).",
     z.object({
       id: z
         .string()
@@ -320,10 +321,8 @@ export function buildServer(readsOnly = false) {
       if (!matter) {
         throw new Error(`No matter ${id}.`);
       }
-      return {
-        ...matter,
-        checks: checksOnMatterOf(await openChecksNow(), matter.id),
-      };
+      const checks = checksOnMatterOf(await openChecksNow(), matter.id);
+      return { ...matter, blockingChecks: blockingCountOf(checks), checks };
     }
   );
   tool(
