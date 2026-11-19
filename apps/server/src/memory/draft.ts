@@ -76,12 +76,15 @@ export type StoredDraft = z.infer<typeof StoredDraft>;
 export const isSendable = (d?: StoredDraft): d is StoredDraft =>
   Boolean(d?.channel && (d.chat ?? d.from));
 
-/** What breaks a draft's rules for chat or mail only. */
-function kindProblemOf(d: MessageDraft, mail: boolean) {
+/** What breaks a draft's rules for chat or mail only; `subject` is a chat's when it opens with one (a new issue's title). */
+function kindProblemOf(d: MessageDraft, mail: boolean, takesSubject: boolean) {
   if (!mail) {
-    return d.from || d.subject || d.cc
-      ? "`from`, `subject` and `cc` are for mail: a chat takes none"
-      : undefined;
+    if (d.from || d.cc || (d.subject && !takesSubject)) {
+      return takesSubject
+        ? "`from` and `cc` are for mail: a chat takes none"
+        : "`from`, `subject` and `cc` are for mail: a chat takes none";
+    }
+    return;
   }
   if (!(d.from && d.subject)) {
     return "a mail draft needs `from` and `subject`";
@@ -92,7 +95,11 @@ function kindProblemOf(d: MessageDraft, mail: boolean) {
 }
 
 /** What breaks the draft's rules beyond its shape, in words the agent can fix; none when nothing does. */
-export function draftProblemOf(d: MessageDraft, kind: "chat" | "mail") {
+export function draftProblemOf(
+  d: MessageDraft,
+  kind: "chat" | "mail",
+  takesSubject = false
+) {
   if (!(d.text || d.file || d.reaction)) {
     return "a draft needs `text`, a `file` or a `reaction`";
   }
@@ -104,7 +111,7 @@ export function draftProblemOf(d: MessageDraft, kind: "chat" | "mail") {
   if (missing) {
     return `\`mentions\` names ${missing.name}: \`text\` needs \`@${missing.name}\` (whole, as a word), after the mentions before it`;
   }
-  return kindProblemOf(d, kind === "mail");
+  return kindProblemOf(d, kind === "mail", takesSubject);
 }
 
 const sizeWords = (n: number) =>
