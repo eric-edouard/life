@@ -610,7 +610,7 @@ struct SheetHeader: View {
     var title: String?
     var color: Color = Palette.fg
     /// A sheet's heading; a screen shown in a sheet ("Settings") passes `.screenName`.
-    var font: TypeStep = .sheetHeading
+    var font: TypeStep = .sheetQuestion
     let close: () -> Void
 
     /// The title in the content; Close alone in the bar the system draws over the sheet, a toolbar item, so the sheet

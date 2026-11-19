@@ -26,10 +26,13 @@ struct SameAsSheet: View {
                 VStack(spacing: 0) {
                     if takesNewName || !typed.isEmpty { newPerson }
                     ForEach(shown, id: \.person) { person in
-                        Button { pick(.person(person.person)) } label: {
+                        Button {
+                            pick(.person(person.person))
+                        } label: {
                             FlatRow(lead: .person(person.name), detail: person.line) {
                                 Text(person.name).font(.rowName)
-                            } trailing: {}
+                            } trailing: {
+                            }
                         }
                         .buttonStyle(.plain)
                     }
@@ -50,7 +53,8 @@ struct SameAsSheet: View {
         } label: {
             FlatRow(lead: .symbol("plus")) {
                 Text(typed.isEmpty ? "New person" : takesNewName ? "New person: \(typed)" : typed).font(.rowName)
-            } trailing: {}
+            } trailing: {
+            }
         }
         .buttonStyle(.plain)
     }

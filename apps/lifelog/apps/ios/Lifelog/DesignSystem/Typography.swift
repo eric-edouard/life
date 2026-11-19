@@ -20,7 +20,7 @@ struct TypeStep: Equatable {
     /// The figure on a tile: "82%".
     static let tileFigure = TypeStep(size: 26, weight: 650, style: .title2, hasFixedDigits: true)
     /// The first line of a sheet ("Starting", "Who?"): bold.
-    static let sheetHeading = TypeStep(size: 22, weight: 650, style: .title3)
+    static let sheetQuestion = TypeStep(size: 22, weight: 650, style: .title3)
     /// A screen's name where the system's large title would be: "Settings", a matter's name.
     static let screenName = TypeStep(size: 30, weight: 650, style: .title1)
     /// A matter's name: `screenName`, kept until the matter page reads `screenName` itself.

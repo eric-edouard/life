@@ -36,7 +36,8 @@ struct FlatRow<Title: View, Trailing: View>: View {
         case .person(let name): Avatar(name: name, size: Metrics.FlatRow.slot).opacity(isMuted ? 0.45 : 1)
         case .symbol(let symbol):
             Image(systemName: symbol).font(.smallStrong).foregroundStyle(Palette.fg)
-                .frame(width: Metrics.FlatRow.slot, height: Metrics.FlatRow.slot).background(Color.fillTint, in: .circle)
+                .frame(width: Metrics.FlatRow.slot, height: Metrics.FlatRow.slot)
+                .background(Color.fillTint, in: .circle)
                 .opacity(isMuted ? 0.45 : 1).accessibilityHidden(true)
         }
     }
