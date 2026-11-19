@@ -57,7 +57,8 @@ private struct AnyAgents: Decodable {
     #expect(person.apps.isEmpty)
     #expect(person.brokenReason == nil)
     let chat = try waker(
-        #"[{"kind":"message","calls":true,"apps":["whatsapp"],"chat":{"name":"Halden house","app":"whatsapp","group":true}}]"#)
+        #"[{"kind":"message","calls":true,"apps":["whatsapp"],"chat":{"name":"Halden house","app":"whatsapp","group":true}}]"#
+    )
     #expect(chat.who == .chat(name: "Halden house", isGroup: true))
     #expect(chat.apps == ["whatsapp"])
 }
@@ -82,8 +83,9 @@ private struct AnyAgents: Decodable {
     let mail = try clause(#"[{"kind":"message","words":"devis","calls":false,"apps":["mail"]}]"#)
     #expect(mail.text == "A mail contains “devis”")
     #expect(mail.glyph == .mail)
-    #expect(mail.apps == ["mail"])
-    let him = try clause(#"[{"kind":"message","fromHim":true,"calls":false,"chat":{"name":"Carmes building","app":null,"group":true}}]"#)
+    #expect(mail.apps.isEmpty)
+    let him = try clause(
+        #"[{"kind":"message","fromHim":true,"calls":false,"chat":{"name":"Carmes building","app":null,"group":true}}]"#)
     #expect(him.text == "You write in Carmes building")
     #expect(him.glyph == .person)
 }
@@ -91,9 +93,12 @@ private struct AnyAgents: Decodable {
 @Test func paymentsReadAsAClauseFromThePaymentsSource() throws {
     #expect(try clause(#"[{"kind":"payments","quantity":"eur_out","above":500}]"#).text == "A payment is over 500 €")
     #expect(try clause(#"[{"kind":"payments","quantity":"eur_in","above":500}]"#).text == "You receive over 500 €")
-    #expect(try clause(#"[{"kind":"payments","quantity":"eur_out","below":20.5}]"#).text == "A payment is under 20.50 €")
+    #expect(
+        try clause(#"[{"kind":"payments","quantity":"eur_out","below":20.5}]"#).text == "A payment is under 20.50 €")
     #expect(try clause(#"[{"kind":"payments","words":"loyer"}]"#).text == "A payment mentions “loyer”")
-    #expect(try clause(#"[{"kind":"payments","quantity":"eur_out","above":100,"words":"shop"}]"#).text == "A payment is over 100 € and mentions “shop”")
+    #expect(
+        try clause(#"[{"kind":"payments","quantity":"eur_out","above":100,"words":"shop"}]"#).text
+            == "A payment is over 100 € and mentions “shop”")
     let any = try clause(#"[{"kind":"payments"}]"#)
     #expect(any.text == "Any payment")
     #expect(any.source == "Payments")
@@ -116,7 +121,10 @@ private struct AnyAgents: Decodable {
 }
 
 @Test func theGlanceNamesTwoCountsTheRestAndSkipsWhatCanNeverFire() throws {
-    func agent(_ status: String, since: String = "null", wakes: String, until: String = #"{"reason":"r","until":"2026-11-20T18:00:00.000Z","isDefault":false}"#) throws -> RegisteredAgent {
+    func agent(
+        _ status: String, since: String = "null", wakes: String,
+        until: String = #"{"reason":"r","until":"2026-11-20T18:00:00.000Z","isDefault":false}"#
+    ) throws -> RegisteredAgent {
         let json = """
             {"id":"a","title":"t","status":"\(status)","runtime":"claude","model":null,"effort":null,"link":null,"notes":"",
              "outcome":null,"notStarted":null,"project":null,"matter":null,"wait":\(until),"statusSince":\(since),
@@ -137,7 +145,9 @@ private struct AnyAgents: Decodable {
     #expect(none.glance(format: format) == nil)
     let only = try agent("waiting", wakes: #"[{"kind":"wide_net"}]"#)
     #expect(only.glance(format: format) == "Thu 18:00")
-    #expect(try agent("running", since: #""2026-11-19T14:02:00.000Z""#, wakes: "[]", until: "null").glance(format: format) == "Working since 14:02")
+    #expect(
+        try agent("running", since: #""2026-11-19T14:02:00.000Z""#, wakes: "[]", until: "null").glance(format: format)
+            == "Working since 14:02")
     #expect(try agent("stopped", wakes: "[]", until: "null").glance(format: format) == "Stopped")
     #expect(try agent("ended", wakes: "[]", until: "null").glance(format: format) == nil)
 }

@@ -51,10 +51,13 @@ const CAPS: Record<string, Record<string, number>> = {
   "Inbox/SameAsSheet.swift": {
     padding: 1,
   },
+  "Matters/AgentSheet.swift": {
+    padding: 1,
+  },
   "Matters/MatterPage.swift": {
     capsule: 1,
     height: 3,
-    padding: 15,
+    padding: 14,
     width: 3,
   },
   "Matters/MattersScreen.swift": {

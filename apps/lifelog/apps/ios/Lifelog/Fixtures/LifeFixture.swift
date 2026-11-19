@@ -156,7 +156,8 @@
             var matter = row
             let hasAgent = id == "matter_lease" || (id == "matter_table" && started.withLock { $0 })
             let index = ["matter_lease": 0, "matter_kitchen": 1, "matter_table": 2, "matter_nora": 3][id]
-            matter["agents"] = (hasAgent || id == "matter_kitchen" || id == "matter_nora") ? [Self.agent(index ?? 2)] : []
+            matter["agents"] =
+                (hasAgent || id == "matter_kitchen" || id == "matter_nora") ? [Self.agent(index ?? 2)] : []
             if id == "matter_table", started.withLock({ $0 }) { matter["agent"] = "agt_table" }
             matter["steps"] = Self.steps(id)
             // Every open check about it, of every kind, as `read_matter` sends them.
@@ -735,7 +736,7 @@
                 "statusSince": at(19, 14, 2),
                 "wakesOn": [
                     ["kind": "message", "person": "Hélène Aubert", "calls": true],
-                    ["kind": "message", "person": "Camille Roux", "calls": true, "apps": ["whatsapp"]],
+                    ["kind": "message", "person": "Camille Vidal", "calls": true, "apps": ["whatsapp"]],
                     [
                         "kind": "message", "calls": true, "apps": ["whatsapp"],
                         "chat": ["name": "Carmes building", "app": "whatsapp", "group": true],
@@ -744,7 +745,10 @@
                     ["kind": "message", "calls": true, "chat": ["name": NSNull(), "app": "line", "group": NSNull()]],
                     ["kind": "message", "person": "Hélène Aubert", "words": "bail", "calls": false],
                     ["kind": "message", "words": "devis", "calls": false, "apps": ["mail"]],
-                    ["kind": "message", "fromHim": true, "calls": false, "chat": ["name": "Carmes building", "app": "whatsapp", "group": true]],
+                    [
+                        "kind": "message", "fromHim": true, "calls": false,
+                        "chat": ["name": "Carmes building", "app": "whatsapp", "group": true],
+                    ],
                     ["kind": "payments", "quantity": "eur_out", "above": 500],
                     ["kind": "places", "where": "Halden house"],
                     ["kind": "answer", "card": "Go with this plan?", "check": "dec_plan", "deadline": at(19, 18)],

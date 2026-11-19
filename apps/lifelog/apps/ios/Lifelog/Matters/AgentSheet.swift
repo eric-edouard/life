@@ -63,7 +63,14 @@ struct AgentSheet: View {
     @ViewBuilder private func content(_ agent: RegisteredAgent) -> some View {
         if let why = agent.notStarted {
             word("Not started.", color: Palette.flag, note: why)
-            buttons(agent, primary: ("Try again", { router.agentSheetMatter = nil; router.startSheetMatter = matter }))
+            buttons(
+                agent,
+                primary: (
+                    "Try again",
+                    {
+                        router.agentSheetMatter = nil; router.startSheetMatter = matter
+                    }
+                ))
         } else {
             switch agent.status {
             case .waiting, .unknown: waiting(agent)
@@ -74,9 +81,12 @@ struct AgentSheet: View {
                 word("Stopped.", note: agent.statusSince.map { "Since \(WakeFormat.current.full($0))" })
                 buttons(agent, primary: ("Resume", { Task { await life.resumeAgent(agent.id) } }))
             case .ended, .handedOver:
-                word(agent.status == .ended ? "Finished." : "Handed over.", color: Palette.ok,
+                word(
+                    agent.status == .ended ? "Finished." : "Handed over.", color: Palette.ok,
                     note: agent.statusSince.map { WakeFormat.current.full($0) })
-                if let outcome = agent.outcome { Text(outcome).font(.body15).foregroundStyle(Palette.fg).padding(.top, Metrics.Spacing.l) }
+                if let outcome = agent.outcome {
+                    Text(outcome).font(.body15).foregroundStyle(Palette.fg).padding(.top, Metrics.Spacing.l)
+                }
                 buttons(agent, primary: nil)
             }
         }
@@ -95,7 +105,8 @@ struct AgentSheet: View {
     private func waiting(_ agent: RegisteredAgent) -> some View {
         let rows = agent.wakesOn.map { $0.row() }
         let wakers = rows.compactMap { row -> Waker? in if case .waker(let waker) = row { waker } else { nil } }
-        let clauses = rows.compactMap { row -> WakeClause? in if case .clause(let clause) = row { clause } else { nil } }
+        let clauses = rows.compactMap { row -> WakeClause? in if case .clause(let clause) = row { clause } else { nil }
+        }
         return VStack(alignment: .leading, spacing: 0) {
             if let wait = agent.wait, !wait.isDefault {
                 Text("“\(wait.reason)”").font(.body15).foregroundStyle(Palette.fg).padding(.top, Metrics.Spacing.m)
@@ -110,7 +121,9 @@ struct AgentSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if !wakers.isEmpty {
-                        group("Wakes on a message or a call from") { ForEach(Array(wakers.enumerated()), id: \.offset) { WakerRow(waker: $1) } }
+                        group("Wakes on a message or a call from") {
+                            ForEach(Array(wakers.enumerated()), id: \.offset) { WakerRow(waker: $1) }
+                        }
                     }
                     if !clauses.isEmpty {
                         group(wakers.isEmpty ? "Wakes when" : "or when") {
@@ -159,13 +172,15 @@ struct AgentSheet: View {
             if case .failed(let failure, _) = state { Text(failure.reason).font(.small).foregroundStyle(Palette.flag) }
             HStack(spacing: Metrics.Spacing.s) {
                 if let primary {
-                    Button(primary.0, action: primary.1).buttonStyle(.pill(.filled, size: .compact, isBusy: state.isRunning))
+                    Button(primary.0, action: primary.1).buttonStyle(
+                        .pill(.filled, size: .compact, isBusy: state.isRunning))
                 } else if agent.status == .running || agent.status == .waiting {
                     Button("Stop the agent") { Task { await life.stopAgent(agent.id) } }
                         .buttonStyle(.pill(.quiet, size: .compact, isBusy: state.isRunning))
                 }
                 if let link = agent.link.flatMap(URL.init(string:)) {
-                    Button("Open in \(agent.runtimeName.name)") { openURL(link) }.buttonStyle(.pill(.quiet, size: .compact))
+                    Button("Open in \(agent.runtimeName.name)") { openURL(link) }.buttonStyle(
+                        .pill(.quiet, size: .compact))
                 } else if primary != nil {
                     Button("Close") { dismiss() }.buttonStyle(.pill(.quiet, size: .compact))
                 }
@@ -222,12 +237,15 @@ private struct WakerRow: View {
                             Text(name).font(.rowName).lineLimit(1)
                             if isGroup { Text("group").font(.small).foregroundStyle(Palette.muted) }
                         } else {
-                            Text("A chat with no messages yet").font(.rowName).foregroundStyle(Palette.muted).lineLimit(1)
+                            Text("A chat with no messages yet").font(.rowName).foregroundStyle(Palette.muted).lineLimit(
+                                1)
                         }
                     }
                 }
                 .foregroundStyle(isBroken ? Palette.muted : Palette.fg)
-                if let reason = waker.brokenReason { Text(reason).font(.small).foregroundStyle(Palette.flag).lineLimit(1) }
+                if let reason = waker.brokenReason {
+                    Text(reason).font(.small).foregroundStyle(Palette.flag).lineLimit(1)
+                }
             }
             Spacer(minLength: 0)
             if !isBroken {
@@ -269,7 +287,11 @@ private struct ClauseRow: View {
         }
         .frame(minHeight: Metrics.Wake.row)
         if let check = clause.check {
-            Button { open(check) } label: { row.contentShape(.rect) }.buttonStyle(.plain)
+            Button {
+                open(check)
+            } label: {
+                row.contentShape(.rect)
+            }.buttonStyle(.plain)
         } else {
             row.accessibilityElement(children: .combine)
         }

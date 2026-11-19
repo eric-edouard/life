@@ -75,7 +75,8 @@ public struct WakeFormat: Sendable {
     public var full: @Sendable (Date) -> String
 
     public static let current = WakeFormat(
-        weekdayTime: { written($0, "EEE HH:mm") }, time: { written($0, "HH:mm") }, full: { written($0, "EEE d MMM, HH:mm") })
+        weekdayTime: { written($0, "EEE HH:mm") }, time: { written($0, "HH:mm") },
+        full: { written($0, "EEE d MMM, HH:mm") })
 
     /// A date as the design writes it ("Fri 18:00", the 24-hour clock), in English like the rest of the app.
     private static func written(_ date: Date, _ pattern: String) -> String {
@@ -153,12 +154,16 @@ extension WakeLine {
     /// Only a message line that covers calls is a person or a chat row; every other line is a clause.
     public func row(format: WakeFormat = .current) -> WakeRow {
         switch self {
-        case .message(let line): line.calls && (line.chat != nil || line.person != nil) ? .waker(line.waker) : .clause(line.clause)
+        case .message(let line):
+            line.calls && (line.chat != nil || line.person != nil) ? .waker(line.waker) : .clause(line.clause)
         case .payments(let line): .clause(line.clause)
         case .answer(let line): .clause(line.clause(format: format))
         case .wideNet: .clause(.init(pieces: [.plain("Something new touches this matter")], glyph: .nearby))
         case .unknown(let kind):
-            .clause(.init(pieces: [.plain("Something new in "), .figure(kind.replacingOccurrences(of: "_", with: " "))], glyph: .ring))
+            .clause(
+                .init(
+                    pieces: [.plain("Something new in "), .figure(kind.replacingOccurrences(of: "_", with: " "))],
+                    glyph: .ring))
         }
     }
 }
@@ -167,7 +172,9 @@ extension WakeLine.Message {
     var waker: Waker {
         let apps = apps ?? chat?.app.map { [$0] } ?? []
         let reason = broken.map { $0 == .unknownPerson ? "No longer in your people" : "It can never wake the agent" }
-        if let chat { return .init(who: .chat(name: chat.name, isGroup: chat.group == true), apps: apps, brokenReason: reason) }
+        if let chat {
+            return .init(who: .chat(name: chat.name, isGroup: chat.group == true), apps: apps, brokenReason: reason)
+        }
         return .init(who: .person(person ?? ""), apps: apps, brokenReason: reason)
     }
 
@@ -175,7 +182,11 @@ extension WakeLine.Message {
         var pieces: [WakeClause.Piece]
         if fromHim == true {
             pieces = [.plain("You write")]
-            if let name = chat?.name { pieces.append(.plain(" in \(name)")) } else if let person { pieces.append(.plain(" to \(person)")) }
+            if let name = chat?.name {
+                pieces.append(.plain(" in \(name)"))
+            } else if let person {
+                pieces.append(.plain(" to \(person)"))
+            }
             if let words { pieces += [.plain(" "), .figure("“\(words)”")] }
         } else if let person {
             pieces = [.plain("\(person) writes")]
@@ -229,7 +240,8 @@ extension RegisteredAgent {
     /// Finished and the rest have none.
     public func glance(format: WakeFormat = .current) -> String? {
         switch status {
-        case .running: return (statusSince ?? lastTurn?.startedAt).map { "Working since \(format.time($0))" } ?? "Working"
+        case .running:
+            return (statusSince ?? lastTurn?.startedAt).map { "Working since \(format.time($0))" } ?? "Working"
         case .stopped: return "Stopped"
         case .waiting:
             let live = wakesOn.filter { !$0.isBroken }
@@ -243,8 +255,10 @@ extension RegisteredAgent {
             let rest = live.count - first.count
             let head = first.isEmpty ? "" : first.joined(separator: ", ") + (rest > 0 ? " +\(rest)" : "")
             let tail = wait.map { format.weekdayTime($0.until) }
-            return [head, tail.map { head.isEmpty ? $0 : "or \($0)" } ?? ""].filter { !$0.isEmpty }.joined(separator: ", ")
-                .nilIfEmpty
+            return [head, tail.map { head.isEmpty ? $0 : "or \($0)" } ?? ""].filter { !$0.isEmpty }.joined(
+                separator: ", "
+            )
+            .nilIfEmpty
         case .ended, .handedOver, .unknown: return nil
         }
     }
