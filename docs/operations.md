@@ -489,4 +489,4 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
 - `status`, `runs`, `changes`, `observation`: the status reads (`docs/status-reads.md`).
 
 Read a source directly only if the CLI is unavailable: `MACHINE_DIR/archive/` (`whatsapp.sqlite`, `line.sqlite`, `instagram.sqlite`, `messenger.sqlite`,
-`linkedin.sqlite`, `telegram.sqlite`, `notes.sqlite`, each with a `deleted` view, and `screen.sqlite`, Screen Time's records) and `~/Library/Messages/chat.db`, read-only.
+`linkedin.sqlite`, `telegram.sqlite`, `github.sqlite`, `notes.sqlite`, each with a `deleted` view, and `screen.sqlite`, Screen Time's records) and `~/Library/Messages/chat.db`, read-only.

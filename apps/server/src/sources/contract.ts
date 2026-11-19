@@ -28,8 +28,8 @@ export interface AppStore {
   /** The app that writes it, kept open; none for a bridge (the bridges' one job keeps it running). Read each time: a bridged network's is Beeper Desktop while Beeper copies it. */
   app?: string;
   copies: string;
-  /** Copies what is new into the archive (its count, for tests: Life reads none). */
-  copy: () => void;
+  /** Copies what is new into the archive (its count, for tests: Life reads none). A copy over the network is async: the archive never waits on it to copy the other stores. */
+  copy: () => unknown;
   deleted?: { media?: string };
 }
 /**
@@ -59,8 +59,12 @@ export interface SendPath {
   holds: (chats: string[]) => string[];
   /** How long a send of this draft may take, at most (its own waits added up): the app draws it. */
   limitMs: (draft: Outgoing) => number;
-  /** For a chat it can open (a new 1:1 chat): its name there, none when it has no such chat. */
+  /** For a chat it can open (a new 1:1 chat, a new issue): its name there, none when it has no such chat. */
   opens?: (chat: string) => Promise<string | undefined>;
+  /** How `to` names a chat it can open, for the agent asking (with `opens`). */
+  opensHint?: string;
+  /** A chat it opens takes the draft's `subject` (a new issue's title). */
+  opensWithSubject?: true;
   /** What of this draft its chat can't take (a reply, a reaction, a file of this kind or size, a mention), asked again just before the send; none when it takes all. */
   refusal: (draft: Outgoing) => Promise<string | undefined>;
   /** Sends once per `txn`; the sent message's id once confirmed (Life's own event id where it knows it). `onHanded` is called when the network or the app has taken it, before the wait to see it. Throws `not sent: …` (nothing went) or `may have gone: …`. */

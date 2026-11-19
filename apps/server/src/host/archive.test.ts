@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import {
   existsSync,
   mkdirSync,
@@ -23,6 +23,7 @@ import {
   appsToOpen,
   archiveCommand,
   archiveFailing,
+  copyAll,
   openIncidents,
 } from "./archive";
 import { archiveLine } from "./nightly";
@@ -181,4 +182,53 @@ test("an incident opened 10 minutes before a restart is still open at startup, s
   ]).toContain("whatsapp");
   expect(await archiveFailing(Date.now() + 10 * MIN)).toEqual([]);
   log("run.end", { step });
+});
+
+/** A made-up kept store: `copy` is what the pass calls. */
+const kept = (name: string, copy: () => unknown) =>
+  ({ name, store: { copy } }) as never;
+
+test("copyAll: a copy that never ends holds no other store, and the next pass skips it while it runs", () => {
+  let slow = 0;
+  let fast = 0;
+  const stores = [
+    kept("slownet", () => {
+      slow += 1;
+      return new Promise(() => undefined);
+    }),
+    kept("quick", () => {
+      fast += 1;
+    }),
+  ];
+  const failing = new Set<string>();
+  // Not awaited: the first never ends. The sync store was copied all the same.
+  copyAll(failing, stores);
+  expect([slow, fast]).toEqual([1, 1]);
+  copyAll(failing, stores);
+  expect([slow, fast]).toEqual([1, 2]);
+});
+
+test("copyAll: a rejecting async copy opens one incident, however many passes fail, and a later success closes it", async () => {
+  const quiet = spyOn(console, "error").mockImplementation(() => undefined);
+  let works = false as boolean;
+  const net = kept("flaky", () =>
+    works ? Promise.resolve() : Promise.reject(new Error("offline"))
+  );
+  const failing = new Set<string>();
+  await copyAll(failing, [net]);
+  await copyAll(failing, [net]);
+  expect([...failing]).toEqual(["flaky"]);
+  const lines = (await recentEvents(ARCHIVE_LOOKBACK)).filter(
+    (e) => e.step === "archive.flaky"
+  );
+  expect(lines.map((e) => e.kind)).toEqual(["run.error"]);
+  expect(openIncidents(lines).has("flaky")).toBe(true);
+  works = true;
+  await copyAll(failing, [net]);
+  expect(failing.size).toBe(0);
+  const after = (await recentEvents(ARCHIVE_LOOKBACK)).filter(
+    (e) => e.step === "archive.flaky"
+  );
+  expect(after.map((e) => e.kind)).toEqual(["run.error", "run.end"]);
+  quiet.mockRestore();
 });
