@@ -120,7 +120,7 @@ struct PendantScreen: View {
             .motion(Motion.standard, value: reading.state)
             if reading.lowBattery != nil {
                 Text("Charge it soon.").font(.bodyStrong).foregroundStyle(Palette.flag)
-                    .padding(.top, 8)
+                    .padding(.top, Metrics.Spacing.xs * 2)
             }
             ForEach(reading.conditions, id: \.means) { condition in
                 VStack(alignment: .leading, spacing: 4) {
@@ -130,10 +130,10 @@ struct PendantScreen: View {
                         Button(recovery.title) { actions.recover(recovery) }
                             .buttonStyle(.pill(.quiet, size: .compact))
                             .accessibilityIdentifier("pendant.recover.\(recovery)")
-                            .padding(.top, 8)
+                            .padding(.top, Metrics.Spacing.xs * 2)
                     }
                 }
-                .padding(.top, 8)
+                .padding(.top, Metrics.Spacing.xs * 2)
             }
         }
         .motion(Motion.standard, value: reading.conditions.map(\.means))
