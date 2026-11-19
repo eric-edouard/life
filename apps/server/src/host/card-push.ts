@@ -85,6 +85,14 @@ const pushNewDecisions = () =>
   );
 
 let decisionsLooked = -1;
+
+/** Every few seconds: a new decision line pushes at once, whoever asked it (his approval to send is waited on), never a minute later. */
+export function pushNewDecisionsAtOnce() {
+  if (readLineCount(DECISIONS) !== decisionsLooked) {
+    pushNewCardsIfChanged();
+  }
+}
+
 /**
  * The watcher's minute: `pushNewCards`, whose inbox is read again only when what it is read from changed (`checksNow`),
  * a run's end, a desk start and a new day included. A run holding the memory lock (a night's writes are half done) is not

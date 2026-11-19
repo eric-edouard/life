@@ -47,6 +47,15 @@ test("two agents may not share a wake or misheard word, whatever its case and pu
   expect(Settings.safeParse(agents(["or-bit"])).success).toBe(false);
 });
 
+test("no agent takes a role asker's name (owner, desk, life)", () => {
+  expect(
+    Settings.safeParse({ agents: { owner: { wake: ["owner"] } } }).success
+  ).toBe(false);
+  expect(
+    Settings.safeParse({ agents: { Comet: { wake: ["comet"] } } }).success
+  ).toBe(true);
+});
+
 test("the historical engine is optional and strict, independent of the ordinary engine", () => {
   expect(
     Settings.parse({ engine: "openrouter" }).backfillEngine
