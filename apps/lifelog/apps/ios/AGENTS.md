@@ -4,7 +4,7 @@
 Swift package with everything that doesn't need UIKit, so it builds and tests on the Mac in seconds. `Watch/` and
 `Widgets/` are the glances; `Shared/` holds code and copy that the app and its extensions share. `project.yml`
 generates the gitignored `.xcodeproj`.
-The app is Life's two tabs, Inbox (`Inbox/`: the `CheckCard`s, paged by swipe, and its `AnswerResultView`; one ask on show is `AskView`, hosted by the Inbox and by a matter's stack (`AppRouter.matterPath`); the Inbox holds every open ask, what blocks first, and one "The rest can wait." panel between that and what only improves; Life's own questions on a matter page held 4 s for Undo in `LifeStore.held`) and Matters (`Matters/`), with
+The app is Life's two tabs, Inbox (`Inbox/`: the `CheckCard`s, paged by swipe, and its `AnswerResultView`; one ask on show is `CardView`, hosted by the Inbox and by a matter's stack (`AppRouter.matterPath`); the Inbox holds every open ask, what blocks first, and one "The rest can wait." panel between that and what only improves; Life's own questions on a matter page held 4 s for Undo in `LifeStore.held`) and Matters (`Matters/`), with
 the Pendant as a sheet from the pill top right (`Shell/`) and Settings from the gear; the old Library, Conversation, People, Presses and
 Spending screens are cut. Every screen reads through `ReadScreen` (loading, empty, stale, unreachable, failed, not paired) and every
 action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSystem/Typography.swift`). `Shared/Palette.swift` is the phone's one copy of Life's brand (`assets/brand/tokens.css`), checked by
