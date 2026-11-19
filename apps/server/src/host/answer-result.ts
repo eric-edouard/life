@@ -210,11 +210,13 @@ function planOf(
 const saidOf = (a: CheckAnswer) =>
   JSON.stringify([a.options, a.note ?? null, a.person ?? null, a.name ?? null]);
 
-async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
-  const { answerKey, report } = call;
-  const known = decisionsNow().find((x) => x.id === ref);
-  // The same answer again to a decision already answered, under any key: its first result, nothing written, nothing
-  // sent. Another answer falls through and is refused as today.
+/** The stored result of a repeat, or undefined: the same answer again to an answered decision (under any key: nothing written, nothing sent; another answer is refused as before), or a tap a `not sent:` outcome voided. */
+function repeatOf(
+  known: Decision | undefined,
+  ref: string,
+  a: CheckAnswer,
+  answerKey?: string
+) {
   if (
     known?.answer &&
     isDeepStrictEqual(known.answer.options, a.options) &&
@@ -222,12 +224,18 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
   ) {
     return decisionResult(ref, known.answer.answerKey);
   }
-  // A tap a `not sent:` outcome voided, again: its stored result.
-  if (
-    answerKey &&
+  return answerKey &&
     known?.voided?.some((v) => v.answer.answerKey === answerKey)
-  ) {
-    return decisionResult(ref, answerKey);
+    ? decisionResult(ref, answerKey)
+    : undefined;
+}
+
+async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
+  const { answerKey, report } = call;
+  const known = decisionsNow().find((x) => x.id === ref);
+  const repeated = repeatOf(known, ref, a, answerKey);
+  if (repeated) {
+    return repeated;
   }
   const tapKey = `${ref}|${saidOf(a)}`;
   const remembered = rememberedTap(tapKey);
