@@ -65,7 +65,7 @@ struct RootView: View {
             // A first read that did not land tries again while the scene is active; leaving cancels the sleep.
             var attempt = 0
             while life.needsRetry {
-                guard (try? await Task.sleep(for: ReadState<Inbox>.retryDelay(attempt: attempt))) != nil else { return }
+                guard (try? await Task.sleep(for: firstReadRetryDelay(attempt: attempt))) != nil else { return }
                 attempt += 1
                 await life.retryFirstReads()
             }

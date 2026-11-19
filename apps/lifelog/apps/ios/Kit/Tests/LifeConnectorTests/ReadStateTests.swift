@@ -106,6 +106,6 @@ private func shown(_ state: ReadState<[Int]>) -> String {
 }
 
 @Test func theRetryWaitDoublesThenSettlesAtThirtySeconds() {
-    let waits = (0..<8).map { ReadState<[Int]>.retryDelay(attempt: $0) }
+    let waits = (0..<8).map { firstReadRetryDelay(attempt: $0) }
     #expect(waits == [1, 2, 4, 8, 16, 30, 30, 30].map { Duration.seconds($0) })
 }

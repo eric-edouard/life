@@ -67,11 +67,6 @@ public struct ReadState<Value: Sendable>: Sendable {
         }
     }
 
-    /// The wait before retry number `attempt` (from 0): 1, 2, 4, 8, 16 seconds, then every 30.
-    public static func retryDelay(attempt: Int) -> Duration {
-        .seconds(attempt < 5 ? 1 << attempt : 30)
-    }
-
     /// What to show; `isEmpty` says when a loaded value has nothing in it.
     public func shown(isEmpty: (Value) -> Bool = { _ in false }) -> Shown {
         guard let value else {
@@ -90,4 +85,9 @@ public struct ReadState<Value: Sendable>: Sendable {
         case .notPaired: return .notPaired
         }
     }
+}
+
+/// The wait before retry number `attempt` (from 0) of a first read: 1, 2, 4, 8, 16 seconds, then every 30.
+public func firstReadRetryDelay(attempt: Int) -> Duration {
+    .seconds(attempt < 5 ? 1 << attempt : 30)
 }
