@@ -20,16 +20,13 @@ import {
   rankedItems,
 } from "./open-items";
 import { goalProjects } from "./read-truth";
-import { clip } from "./units";
+import { oneLineOf } from "./units";
 import type { People } from "./who";
 import { repliesOwed } from "./words";
 import { dayNow, dayStart, localDate } from "./zones";
 
 // The open items the read path shows, read from the matters and the chats: what `read_day` lists as due and what a
 // person's page lists as open with them. `open-items.ts` times and ranks them.
-
-/** A quote or a note on one line, clipped to `QUOTE_MAX`. */
-const oneLine = (s: string) => clip(s.replace(/\s+/g, " "), QUOTE_MAX);
 
 /** How a step ended, in words, with its day: none while open. */
 const endingWords = ({ ending: e }: Pick<MatterStepNow, "ending">) => {
@@ -38,14 +35,14 @@ const endingWords = ({ ending: e }: Pick<MatterStepNow, "ending">) => {
   }
   const on = localDate(e.at);
   if (e.by === "link") {
-    return ` (probably ended ${on}: "${oneLine(e.quote)}")`;
+    return ` (probably ended ${on}: "${oneLineOf(e.quote, QUOTE_MAX)}")`;
   }
   if (e.by === "ticked") {
     return ` (ticked ${on})`;
   }
   return e.replacedBy
     ? ` (ended ${on}: replaced by ${e.replacedBy})`
-    : ` (ended ${on}: "${oneLine(e.why)}")`;
+    : ` (ended ${on}: "${oneLineOf(e.why, QUOTE_MAX)}")`;
 };
 
 /** An open matter as `read_day` and a person's page list it: its newest open step, who it is with, where it stands. */
@@ -53,7 +50,7 @@ function lineOf(v: MatterView, nameOf: (ref: string) => string) {
   const next = v.newestOpenStep as MatterStepNow;
   const who = (label: string, refs: string[]) =>
     refs.length > 0 ? `; ${label} ${refs.map(nameOf).join(", ")}` : "";
-  return `- ${v.id} ${next.day} ${next.kind}: ${next.text}${next.when ? ` (for ${next.when})` : ""} (${v.name}; ${v.status}${who("owed to", v.owedTo)}${who("waiting on", v.waitingOn)}) "${oneLine(next.quote)}" (${next.ref})`;
+  return `- ${v.id} ${next.day} ${next.kind}: ${next.text}${next.when ? ` (for ${next.when})` : ""} (${v.name}; ${v.status}${who("owed to", v.owedTo)}${who("waiting on", v.waitingOn)}) "${oneLineOf(next.quote, QUOTE_MAX)}" (${next.ref})`;
 }
 
 /**

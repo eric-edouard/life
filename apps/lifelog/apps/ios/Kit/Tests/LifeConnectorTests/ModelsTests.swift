@@ -26,6 +26,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.draft?.quoted?.sender == "Kit")
     #expect(decision.deadline != nil)
     #expect(decision.confirm?.first?.group == .guessedPerson)
+    // The identity ask: who the guess is as WhatsApp shows them, with WhatsApp's own link to the chat.
+    let onNetwork = try #require(decision.confirm?.first?.networkIdentity)
+    #expect(onNetwork.network == "WhatsApp")
+    #expect(onNetwork.handle == "+33600000001")
+    #expect(onNetwork.openUrl == URL(string: "https://wa.me/33600000001"))
+    #expect(onNetwork.newest?.text == "Kit here, from the shop")
+    #expect(decision.networkIdentity == nil)
     #expect(decision.ridesOn?.matters == 1)
 
     #expect(inbox.checks.map(\.group).contains(.newMatter))
@@ -203,6 +210,7 @@ private func everyKindOfCheck() throws -> [Check] {
         #expect(!check.takesOwnWords)
     }
     #expect(try card(.contactsCard).likelyPeople.map(\.person) == ["person:gran", "person:partner"])
+    #expect(try card(.contactsCard).networkIdentity == nil)
 
     let guess = try card(.guessedPerson)
     #expect(guess.answer(guess.options[0]) == AnswerRequest(ref: guess.ref, options: ["this-is"]))

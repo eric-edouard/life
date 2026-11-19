@@ -10,6 +10,7 @@ import {
   namingQueueGuessesOf,
   readNamingQueue,
 } from "../sources/lifelog-voices";
+import { cardAskOf, guessAskOf } from "./check-asks";
 import {
   isEndingOpen,
   type NameContext,
@@ -19,12 +20,7 @@ import {
   saidOfQuote,
   shownStepsOf,
 } from "./check-sentences";
-import {
-  blockingCountOf,
-  inboxRankOf,
-  type Urgency,
-  urgencyOf,
-} from "./check-urgency";
+import { inboxRankOf, type Urgency, urgencyOf } from "./check-urgency";
 import { pagedNow } from "./closeness";
 import {
   DECISIONS,
@@ -62,6 +58,7 @@ import {
   ZONES,
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
+import { withNetworkIdentities } from "./network-identity";
 import { sourceOf } from "./sources";
 import {
   type People,
@@ -272,7 +269,10 @@ function ranked(
   group: Exclude<CheckGroup, "decision">,
   fields: Pick<Check, "about" | "question" | "ref"> &
     Partial<
-      Pick<Check, "around" | "clips" | "likelyPeople" | "said" | "since">
+      Pick<
+        Check,
+        "around" | "clips" | "context" | "likelyPeople" | "said" | "since"
+      >
     >,
   lines: Line[],
   refs: string[],
@@ -289,7 +289,7 @@ function ranked(
             asker: LIFE_ASKER,
             at: null,
             clips: fields.clips ?? [],
-            context: LIFE_CHECKS[group].context,
+            context: fields.context ?? LIFE_CHECKS[group].context,
             deadline: null,
             draft: null,
             evidence: evidence && {
@@ -478,7 +478,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             "guessed person",
             {
               about: p.namesAndHandles,
-              question: `Life thinks this is ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure)`,
+              ...guessAskOf(p),
               ref,
             },
             byGuess.get(ref) ?? [],
@@ -503,7 +503,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         {
           about: people.contacts.find((x) => x.id === a.card)?.handles ?? [],
           likelyPeople,
-          question: `Life cannot place the Contacts card ${people.nameOf(a.card)}: its name and handles say ${likelyPeople.map((p) => p.name).join(" and ")}`,
+          ...cardAskOf(people.nameOf(a.card), likelyPeople),
           ref: a.card,
         },
         byRef.get(a.card) ?? [],
@@ -790,21 +790,9 @@ async function readChecks(
       ]),
     ]),
   });
-  return checks.map((c) => ({
+  return (await withNetworkIdentities(checks, people)).map((c) => ({
     ...c,
     pushId: pushIdOf(c.ref, key),
     urgency: urgencyOf(c),
   }));
 }
-
-/** What the inbox holds: how many of each group, how many in all, how many block (the badge), and how many are due by the end of his day (`dayNow`). */
-export const inboxOf = (list: Check[]) => ({
-  blocking: blockingCountOf(list),
-  counts: Object.fromEntries(
-    [...Map.groupBy(list, (c) => c.group)].map(([g, l]) => [g, l.length])
-  ),
-  deadlinesToday: list.filter(
-    (c) => c.deadline && localDate(c.deadline) <= dayNow()
-  ).length,
-  total: list.length,
-});

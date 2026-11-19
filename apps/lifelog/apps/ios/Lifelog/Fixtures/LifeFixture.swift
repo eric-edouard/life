@@ -343,7 +343,7 @@
                     ]),
                 check(
                     "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
-                    question: "Life thinks this is Camille Vance, a friend (70% sure)",
+                    question: "Is this Camille?",
                     options: [
                         option("this-is", "It is them"), option("not-this-person", "Not them"),
                         option("same-person", "Someone Life already knows", takes: "person"),
@@ -394,7 +394,7 @@
                 check(
                     "person:con_cam", group: "contacts card", title: "Place a Contacts card",
                     question:
-                        "Life cannot place the Contacts card Cam: its name and handles say Camille Vance and Cam Ortiz",
+                        "Is this Camille or Cam?",
                     options: [option("same-person", "Choose who…", takes: "person")],
                     extra: [
                         "likelyPeople": [
