@@ -115,12 +115,13 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
     ref: REF,
     ridesOn: { matters: 0, observations: 3, pages: 0 },
   });
-  expect(check?.question).toStartWith("Life thinks this is ");
-  expect(check?.question).toContain("the plumber");
+  // The identity ask: "Is this <first name>?", and why Life thinks so in one sentence before its kind's context.
+  expect(check?.question).toBe("Is this Kit?");
   // Life's guess is its recommendation, listed first; on silence nothing is taken; its kind gives the title and context.
   expect(check).toMatchObject({
     asker: "life",
-    context: "Life uses its guess until you say.",
+    context:
+      "Life read their messages as Kit inf_kit, the plumber (70% sure). Life uses its guess until you say.",
     draft: null,
     onSilence: null,
     title: "Know who someone is",
@@ -132,7 +133,7 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
   ]);
   expect(check?.about).toEqual(["+33600000001"]);
   const printed = checksText([check as Check]);
-  expect(printed).toContain(`1. [guessed person] ${REF}: Life thinks`);
+  expect(printed).toContain(`1. [guessed person] ${REF}: Is this Kit?`);
   expect(printed).toContain("about: +33600000001");
   expect(check?.evidence?.quote).toBe(`${ID} said hello`);
 });

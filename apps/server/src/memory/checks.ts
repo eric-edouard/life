@@ -54,6 +54,12 @@ import {
   ZONES,
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
+import {
+  cardAskOf,
+  guessAskOf,
+  type NetworkIdentified,
+  withNetworkIdentities,
+} from "./network-identity";
 import { sourceOf } from "./sources";
 import { nameKey } from "./units";
 import {
@@ -78,7 +84,7 @@ type CheckKind = "decision" | "ending" | "new matter" | "person" | "voice";
  * a kind has nothing for is null or empty. Only open checks exist: his answer and what came of it are kept by each
  * kind's own store (`decisionsNow`, the fact-check answers, the corrections).
  */
-export interface Check {
+export interface Check extends NetworkIdentified {
   /** The names and handles the question is about, as his answer takes them (`nameOrHandle`); none but a person's. */
   about: string[];
   /** Who asks: `life` for Life's own guesses, else the agent's pairing or `desk`. */
@@ -329,7 +335,7 @@ function ranked(
   c: Ctx,
   group: Exclude<CheckGroup, "decision">,
   fields: Pick<Check, "about" | "question" | "ref"> &
-    Partial<Pick<Check, "likelyPeople">>,
+    Partial<Pick<Check, "context" | "likelyPeople">>,
   lines: Line[],
   refs: string[],
   evidence: { quote: string; where?: Where } | null
@@ -344,7 +350,7 @@ function ranked(
             asker: LIFE_ASKER,
             at: null,
             clips: [],
-            context: LIFE_CHECKS[group].context,
+            context: fields.context ?? LIFE_CHECKS[group].context,
             deadline: null,
             draft: null,
             evidence: evidence && {
@@ -516,7 +522,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             "guessed person",
             {
               about: p.namesAndHandles,
-              question: `Life thinks this is ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure)`,
+              ...guessAskOf(p),
               ref,
             },
             byGuess.get(ref) ?? [],
@@ -540,7 +546,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         {
           about: people.contacts.find((x) => x.id === a.card)?.handles ?? [],
           likelyPeople,
-          question: `Life cannot place the Contacts card ${people.nameOf(a.card)}: its name and handles say ${likelyPeople.map((p) => p.name).join(" and ")}`,
+          ...cardAskOf(people.nameOf(a.card), likelyPeople),
           ref: a.card,
         },
         byRef.get(a.card) ?? [],
@@ -798,7 +804,7 @@ async function readChecks(
       ]),
     ]),
   });
-  return checks.map((c) => ({
+  return (await withNetworkIdentities(checks, people)).map((c) => ({
     ...c,
     pushId: pushIdOf(c.ref, key),
     urgency: urgencyOf(c),

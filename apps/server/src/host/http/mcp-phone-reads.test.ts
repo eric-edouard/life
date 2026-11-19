@@ -1,6 +1,10 @@
 import { expect, spyOn, test } from "bun:test";
 import { urgencyOf } from "../../memory/check-urgency";
 import type { CheckInputs } from "../../memory/checks";
+import {
+  networkIdentityOf,
+  withNetworkIdentity,
+} from "../../memory/network-identity";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
 
@@ -39,6 +43,36 @@ const matter = {
   waitingOn: [],
   with: [],
 };
+const KIT_CHAT = "33600000001@s.whatsapp.net";
+const kitOnWhatsapp = new Map([
+  [
+    "person:inf_kit",
+    networkIdentityOf(
+      {
+        date: "2026-10-12",
+        end: "2026-10-12T09:05:00.000Z",
+        id: "unit_000000000001",
+        key: KIT_CHAT,
+        source: "whatsapp",
+        start: "2026-10-12T09:00:00.000Z",
+        title: "Kit Watches",
+      },
+      [
+        {
+          at: "2026-10-12T09:05:00.000Z",
+          chat: KIT_CHAT,
+          chatName: "Kit Watches",
+          fromMe: false,
+          id: `whatsapp:${KIT_CHAT}/1`,
+          sender: "+33600000001",
+          source: "whatsapp",
+          text: "Kit here, from the shop",
+        },
+      ],
+      "Alex"
+    ),
+  ],
+]);
 /** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
 const madeUpInbox: CheckInputs = {
   answered: new Set(),
@@ -256,7 +290,8 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     // Every kind of check, as Life's own builders make them over made-up records (`checksOf`), never by hand.
     spyOn(checks, "checksNow").mockResolvedValue(
       checks.checksOf(madeUpInbox).map((c) => ({
-        ...c,
+        // Kit's guess, as its newest WhatsApp chat shows it (`networkIdentityOf` over a made-up chat-day).
+        ...withNetworkIdentity(c, kitOnWhatsapp),
         pushId: checks.pushIdOf(c.ref, "0".repeat(64)),
         urgency: urgencyOf(c),
       }))

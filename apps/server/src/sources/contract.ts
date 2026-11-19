@@ -85,6 +85,8 @@ export type Descriptor = {
   group?: (chat: string) => boolean;
   /** The handle a 1:1 chat's key holds (who wrote a fact that predates `speakerFrom`). */
   handleOf?: (key: string) => string | undefined;
+  /** The network's own link that opens a 1:1 chat with a handle (WhatsApp's `wa.me`); none for a handle it can't open, or a network without one. */
+  chatLinkOf?: (handle: string) => string | undefined;
   /**
    * For a chat or mail source with an ordered store: the messages its store first wrote from row `from` on (none
    * without one), oldest row first, and one past its last row (`events.ts`). An edit, a delete or a second copy of a message is not a new
