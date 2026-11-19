@@ -1,4 +1,5 @@
 import { clock, MIN } from "../core/clock";
+import { LIFE_ASKER, OWNER_ASKER } from "../core/names";
 import {
   answerCheck,
   type CheckAnswer,
@@ -42,6 +43,10 @@ function askerOf(d: Decision) {
   }
   if (isSendDue(d) && !d.send) {
     return { name: d.asker, told: "not_yet", why: "the send has not ended" };
+  }
+  // He asked it himself: his answer is all there is to tell.
+  if (d.asker === OWNER_ASKER) {
+    return { name: d.asker, told: "recorded" };
   }
   const { agent } = d;
   if (!agent) {
@@ -290,7 +295,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     return decisionResult(ref, answerKey);
   }
   const result = {
-    asker: { name: "life", told: "recorded" },
+    asker: { name: LIFE_ASKER, told: "recorded" },
     changed: {
       ...changedOf(check, asRead, done),
       ...(recordedAs ? { recordedAs } : {}),
