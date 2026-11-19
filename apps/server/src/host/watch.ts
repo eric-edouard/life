@@ -34,6 +34,7 @@ import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
 import { inbound } from "./inbound";
+import { openChecksNow } from "./inbox";
 import { lockReport, sendReport } from "./report";
 
 // `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
@@ -347,6 +348,10 @@ export async function watch(): Promise<number> {
     // The watcher matters more than its server: it keeps polling and says why the server is off.
     log("run.error", { error: String(e), step: "watch.serve" });
   }
+  // The first `read_inbox` parses every unit day file (seconds); read it once now, whatever holds the lock, so his phone's first read is warm.
+  openChecksNow().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "watch.warm-inbox" })
+  );
   sayActions();
   minute();
   embedEvery();

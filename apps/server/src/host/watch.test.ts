@@ -18,6 +18,8 @@ import { hear } from "./hear";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as http from "./http/server";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as inbox from "./inbox";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as report from "./report";
 import {
   afterPoll,
@@ -180,15 +182,18 @@ test("lifelog down, the to-do minute still runs (1 Nov: 20 h of failed polls ran
     spyOn(Bun, "sleep").mockResolvedValue(undefined),
     spyOn(http, "serve").mockImplementation(() => undefined),
   ];
+  const warmed = spyOn(inbox, "openChecksNow").mockResolvedValue([]);
   const timer = spyOn(globalThis, "setInterval");
   const cleared = spyOn(globalThis, "clearInterval");
   try {
     expect(await watch()).toBe(0);
+    // The inbox is read once at start, so his phone's first read is warm.
+    expect(warmed).toHaveBeenCalled();
     // Every minute on its own, until new code stops the watcher.
     expect(timer).toHaveBeenCalledWith(expect.any(Function), MIN);
     expect(cleared).toHaveBeenCalledWith(timer.mock.results[0]?.value);
   } finally {
-    for (const s of [...spies, timer, cleared]) {
+    for (const s of [...spies, warmed, timer, cleared]) {
       s.mockRestore();
     }
     server.close();
