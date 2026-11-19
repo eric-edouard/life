@@ -111,6 +111,7 @@
         // MARK: Reads
 
         func readInbox() async throws -> String { try await gate(); return inbox() }
+        func readToConfirm() async throws -> String { try await gate(); return inbox() }
         func readMatters() async throws -> String { try await gate(); return matters() }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
 
@@ -124,6 +125,7 @@
             matter["agents"] = hasAgent ? [Self.agent(id == "matter_lease" ? 0 : 2)] : []
             if id == "matter_table", started.withLock({ $0 }) { matter["agent"] = "agt_table" }
             matter["steps"] = Self.steps(id)
+            matter["checks"] = [Any]()
             return json(matter)
         }
 
@@ -132,6 +134,7 @@
             let checks = scenario == "empty" ? [] : Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
             return json([
                 "checks": checks, "counts": ["decision": checks.count], "total": checks.count, "deadlinesToday": 1,
+                "toConfirm": 0,
             ])
         }
 

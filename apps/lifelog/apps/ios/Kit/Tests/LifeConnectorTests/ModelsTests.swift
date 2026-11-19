@@ -13,11 +13,9 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 /// there first, then here, naming the model.
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 7)
-    #expect(
-        inbox.counts == [
-            "decision": 1, "ending": 1, "new matter": 1, "guessed person": 1, "contacts card": 1, "name": 1, "voice": 1,
-        ])
+    #expect(inbox.total == 1)
+    #expect(inbox.counts == ["decision": 1])
+    #expect(inbox.toConfirm == 5)
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
     #expect(decision.options.first?.outgoing == true)
@@ -25,32 +23,40 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.draft?.file?.name == "quote.pdf")
     #expect(decision.draft?.quoted?.sender == "Kit")
     #expect(decision.deadline != nil)
-    let voice = try #require(inbox.checks.first { $0.group == .voice })
+    #expect(decision.confirm?.first?.group == .guessedPerson)
+    #expect(decision.ridesOn?.matters == 1)
+
+    let toConfirm = try decoded(Inbox.self, wireText("life/read_inbox_to_confirm.json"))
+    #expect(toConfirm.total == 5)
+    #expect(toConfirm.checks.allSatisfy { $0.group != .decision && $0.group != .newMatter })
+    let voice = try #require(toConfirm.checks.first { $0.group == .voice })
     #expect(voice.clips.first?.audio?.jobId == "job-1")
     #expect(voice.likelyPeople.first?.name == "Gran")
-    #expect(inbox.checks.first { $0.group == .ending }?.ridesOn?.matters == 1)
-    let found = try #require(inbox.checks.first { $0.group == .newMatter })
+    #expect(toConfirm.checks.first { $0.group == .ending }?.ridesOn?.matters == 1)
+    let found = try #require(
+        try decoded(Matter.self, wireText("life/read_matter_found.json")).checks.first)
     #expect(found.group == .newMatter)
     #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
     #expect(found.deadline == nil)
     #expect(found.options.map(\.label) == ["Start", "Edit goal", "Dismiss"])
     #expect(found.goal == "Gran's photo is framed.")
-    #expect(inbox.checks.last?.draft == nil)
+    #expect(toConfirm.checks.last?.draft == nil)
 
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
-    #expect(list.matters.map(\.id) == ["matter_aaaaaaaaaaaa", "matter_bbbbbbbbbbbb"])
+    #expect(list.matters.map(\.id) == ["matter_aaaaaaaaaaaa", "matter_cccccccccccc", "matter_bbbbbbbbbbbb"])
     let row = list.matters[0]
     #expect(row.status == .moving)
     #expect(row.goal?.by == .life)
     #expect(row.nextStep?.kind == .waitEvent)
     #expect(row.people?.owedTo == ["gran"])
     #expect(row.agent == "agt_000000000001")
-    #expect(list.matters[1].goal == nil)
+    #expect(list.matters[2].goal == nil)
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
     #expect(matter.row.name == "Mend Gran's watch")
     #expect(matter.steps.count == 2)
     #expect(matter.steps[1].ending?.by == .ticked)
+    #expect(matter.checks.map(\.group) == [.decision, .ending])
     #expect(matter.agents.first?.runtime == "claude")
     #expect(matter.agents.first?.notStarted == nil)
 
@@ -77,7 +83,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
     #expect(list.matching("watch").map(\.name) == ["Mend Gran's watch"])
     #expect(list.matching("QUOTE").count == 1)
-    #expect(list.matching("  ").count == 2)
+    #expect(list.matching("  ").count == 3)
     #expect(list.matching("nothing like it").isEmpty)
 }
 
@@ -107,7 +113,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func anInboxCountsTheCardsOfAMatter() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.openCount(matter: "matter_aaaaaaaaaaaa") == 2)
+    #expect(inbox.openCount(matter: "matter_aaaaaaaaaaaa") == 1)
     #expect(inbox.openCount(matter: "nothing") == 0)
 }
 
@@ -141,20 +147,27 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func aPushOpensTheCardWithItsIdOrTheFirstOneWhenItIsGone() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    let wanted = try #require(inbox.checks[1].pushId)
-    #expect(inbox.opening(pushId: wanted) == InboxOpening(check: inbox.checks[1], wasAnswered: false))
+    let wanted = try #require(inbox.checks[0].pushId)
+    #expect(inbox.opening(pushId: wanted) == InboxOpening(check: inbox.checks[0], wasAnswered: false))
     let gone = inbox.opening(pushId: "ffffffffffffffff")
     #expect(gone.check == inbox.checks.first)
     #expect(gone.wasAnswered)
+}
+
+/// Every kind of check the server makes: his inbox, then "to confirm", then a new matter's, which sits on its matter.
+private func everyKindOfCheck() throws -> [Check] {
+    try decoded(Inbox.self, wireText("life/read_inbox.json")).checks
+        + decoded(Inbox.self, wireText("life/read_inbox_to_confirm.json")).checks
+        + decoded(Matter.self, wireText("life/read_matter_found.json")).checks
 }
 
 /// Every kind Life sends answers with its own options, as `answer_check` takes them: one tap for an option that takes
 /// nothing more, the person or the name for one that names someone, his words for one that takes a note, and his own
 /// words only where an agent reads them (a decision). Read from the server's own inbox, never a hand-made one.
 @Test func everyKindOfCardAnswersAsLifeTakesIt() throws {
-    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    func card(_ group: CheckGroup) throws -> Check { try #require(inbox.checks.first { $0.group == group }) }
-    #expect(Set(inbox.checks.map(\.group)) == Set(CheckGroup.allCases).subtracting([.unknown]))
+    let all = try everyKindOfCheck()
+    func card(_ group: CheckGroup) throws -> Check { try #require(all.first { $0.group == group }) }
+    #expect(Set(all.map(\.group)) == Set(CheckGroup.allCases).subtracting([.unknown]))
 
     let decision = try card(.decision)
     #expect(decision.answer(decision.options[0]) == AnswerRequest(ref: decision.ref, options: ["yes"]))
@@ -199,14 +212,14 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(voice.options.dropFirst().compactMap(voice.answer).count == 3)
 
     // No button reads like the words a model is given.
-    #expect(inbox.checks.flatMap(\.options).allSatisfy { !$0.label.contains("`") && $0.label.count < 30 })
+    #expect(all.flatMap(\.options).allSatisfy { !$0.label.contains("`") && $0.label.count < 30 })
 }
 
 @Test func theAskerIsNamedOnce() throws {
-    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    let voice = try #require(inbox.checks.first { $0.group == .voice })
+    let all = try everyKindOfCheck()
+    let voice = try #require(all.first { $0.group == .voice })
     #expect(voice.askerName(runtime: nil) == "Life, from the pendant")
-    #expect(inbox.checks[0].askerName(runtime: .claude) == "Claude Code")
-    #expect(inbox.checks[0].askerName(runtime: nil) == "Orbit")
-    #expect(inbox.checks[1].askerName(runtime: nil) == "Life")
+    #expect(all[0].askerName(runtime: .claude) == "Claude Code")
+    #expect(all[0].askerName(runtime: nil) == "Orbit")
+    #expect(all[1].askerName(runtime: nil) == "Life")
 }
