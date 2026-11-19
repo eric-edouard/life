@@ -28,7 +28,15 @@ struct CardView: View {
     @State private var sameAsRef: String?
 
     var body: some View {
-        CardArrangement(check: check) {
+        CardArrangement(
+            check: check, runtimeName: runtimeName(of: check),
+            bar: notes.taken.map { taken in
+                ResultButtons(
+                    taken: taken, state: life.state(of: taken.key), next: question(after: taken),
+                    retry: { Task { await life.answer(taken.request) } },
+                    keepForLater: { leave(taken, true) }, nextCard: { leave(taken, false) })
+            }
+        ) {
             if let taken = notes.taken {
                 AnswerResultView(taken: taken, state: life.state(of: taken.key), next: question(after: taken))
             } else {
@@ -42,27 +50,6 @@ struct CardView: View {
                             .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
                     }
                 }
-            }
-        } bar: {
-            if let taken = notes.taken {
-                ResultButtons(
-                    taken: taken, state: life.state(of: taken.key), next: question(after: taken),
-                    retry: { Task { await life.answer(taken.request) } },
-                    keepForLater: { leave(taken, true) }, nextCard: { leave(taken, false) })
-            } else if life.state(of: .answer(ref: check.ref)).isRunning {
-                // An answer still running (this screen was rebuilt while its send ran): its busy pill, no second tap.
-                Button {
-                } label: {
-                    Text(check.draft != nil ? "Sending…" : "Saving…")
-                }
-                .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
-            } else if pages.page(on: current) == .boundary {
-                EmptyView()
-            } else {
-                CheckActions(
-                    check: check, runtimeName: runtimeName(of: check), input: input(check.ref),
-                    answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
-                )
             }
         }
         .sheet(item: sameAsCard) { check in
@@ -92,7 +79,9 @@ struct CardView: View {
                                 CheckCard(
                                     check: check, runtimeName: runtimeName(of: check),
                                     openMatter: { router.open(matter: $0) },
-                                    confirm: { request in Task { await life.answer(request) } }, input: input(check.ref)
+                                    input: input(check.ref),
+                                    isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
+                                    answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
                                 )
                             }
                             .id(page.id)
@@ -108,6 +97,11 @@ struct CardView: View {
             .clipped()
             // A pager made after his tap's result starts on the first ask: put it on the one he is on.
             .onAppear { if let current { proxy.scrollTo(current, anchor: .leading) } }
+            // The one-card read gives way to the whole inbox: stay on the card he is on, not the first page. Only from a
+            // pager of one page, where no swipe of his can be under way.
+            .onChange(of: pages.map(\.id)) { before, ids in
+                if before.count == 1, let current, ids.contains(current) { proxy.scrollTo(current, anchor: .leading) }
+            }
         }
     }
 
