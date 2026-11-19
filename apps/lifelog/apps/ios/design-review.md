@@ -7,7 +7,8 @@ Inputs: the PR or branch, the worktree, and simulator screenshots of every scree
 
 1. Read `~/Life/docs/product/app-design/components.md` (the one inventory), the newest
    `~/Life/docs/product/app-design/decisions-*.md` and `voice.md` beside them if present, and the frames for the
-   touched screens in `~/Life/docs/product/app-design/canvas/project/` (their text and structure).
+   touched screens in `~/Life/docs/product/app-design/canvas/project/` (their text and structure). If these files are
+   missing, stop and end with `Design: unreviewable`.
 2. Read the diff's Swift: screens must use `DesignSystem/` components, type steps, `Palette` and `Metrics`, and draw
    none of their own (a row, a button, a badge, a field, a state mark, a box).
 3. Compare each screenshot with its frame: order, grouping, copy (words, case, punctuation), which component draws

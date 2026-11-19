@@ -1,55 +1,158 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
 import { repoFiles } from "@life/server/src/core/proc";
 
 // The phone's screens draw with the design system (`DesignSystem/`, `Shared/Palette.swift`, `Shared/Metrics.swift`):
-// a type step, a palette colour, a Metrics value, a component. Each rule below counts what a screen draws by hand; its
-// cap is today's count and only goes down (lower it as a screen moves onto the system; never raise it).
+// a type step, a palette colour, a Metrics value, a component. Each rule counts what a screen draws by hand. CAPS holds
+// each file's count per rule; a file not listed may have none. A cap only goes down: lower it as a screen moves onto
+// the system, never raise it.
 const APP = "apps/lifelog/apps/ios/Lifelog";
-// The system itself, the debug fixtures, and the two drawings that paint the pendant (AGENTS.md's colour exception).
-const EXEMPT = [
-  `${APP}/DesignSystem/`,
-  `${APP}/Fixtures/`,
+// The system itself and the debug fixtures.
+const EXEMPT_DIRS = [`${APP}/DesignSystem/`, `${APP}/Fixtures/`];
+// The two drawings that paint the pendant (AGENTS.md's colour exception) and the previews.
+const EXEMPT_FILES = [
   "HALLens.swift",
   "LightGuide.swift",
-  "Previews.swift",
+  "PendantPreviews.swift",
 ];
 
-const RULES: { what: string; pattern: RegExp; cap: number }[] = [
-  {
-    cap: 5,
-    pattern: /\.font\(\.system\(/g,
-    what: "a system font, not a type step",
-  },
-  { cap: 0, pattern: /cornerRadius: *\d/g, what: "a literal corner radius" },
-  {
-    cap: 10,
-    pattern: /Capsule\(\)|in: \.capsule/g,
-    what: "a hand-drawn capsule",
-  },
-  { cap: 0, pattern: /\bColor\(/g, what: "a colour not from the palette" },
-  {
-    cap: 101,
-    pattern: /\.padding\([^)]*\d/g,
-    what: "a spacing number, not Metrics",
-  },
-  { cap: 14, pattern: /frame\([^)]*[Hh]eight: *\d/g, what: "a literal height" },
-  { cap: 1, pattern: /\.opacity\(0\./g, what: "an ad hoc opacity" },
-];
+const NUMBER = String.raw`-?\d+(?:\.\d+)?`;
+const RULES: Record<string, RegExp> = {
+  capsule: /Capsule\(\)|in: \.capsule/g,
+  colour: /\bColor\(/g,
+  font: /\.font\(\.system\(/g,
+  height: new RegExp(String.raw`frame\([^)]*[Hh]eight: *${NUMBER}`, "g"),
+  opacity: /\.opacity\(0\./g,
+  padding: new RegExp(String.raw`\.padding\((?:[^)]*,\s*)?${NUMBER}\s*\)`, "g"),
+  radius: new RegExp(String.raw`cornerRadius: *${NUMBER}`, "g"),
+  width: new RegExp(String.raw`frame\([^)]*[Ww]idth: *${NUMBER}`, "g"),
+};
 
-const screens = repoFiles(LIFE_CODE_DIR, [APP], [".swift"]).filter(
-  (path) => !EXEMPT.some((e) => path.includes(e))
-);
-const texts = screens.map((path) =>
-  readFileSync(join(LIFE_CODE_DIR, path), "utf8")
-);
+const CAPS: Record<string, Record<string, number>> = {
+  "DiagnosticsView.swift": {
+    padding: 2,
+  },
+  "Inbox/AnswerResultView.swift": {
+    capsule: 1,
+    height: 1,
+    padding: 10,
+  },
+  "Inbox/CardArrangement.swift": {
+    padding: 5,
+  },
+  "Inbox/CheckCard.swift": {
+    capsule: 4,
+    font: 3,
+    height: 5,
+    padding: 14,
+    width: 1,
+  },
+  "Inbox/InboxScreen.swift": {
+    padding: 5,
+  },
+  "Inbox/SameAsSheet.swift": {
+    padding: 1,
+  },
+  "Matters/MatterPage.swift": {
+    capsule: 1,
+    height: 3,
+    padding: 17,
+    width: 3,
+  },
+  "Matters/MattersScreen.swift": {
+    height: 1,
+    padding: 13,
+    width: 1,
+  },
+  "Matters/StartAgentSheet.swift": {
+    padding: 5,
+  },
+  "Pendant/AttentionCards.swift": {
+    padding: 1,
+  },
+  "Pendant/GlanceGrid.swift": {
+    capsule: 2,
+    height: 1,
+    padding: 1,
+  },
+  "Pendant/IncidentCards.swift": {
+    padding: 1,
+  },
+  "Pendant/LensLayout.swift": {
+    padding: 9,
+  },
+  "Pendant/StatusHero.swift": {
+    capsule: 2,
+    height: 2,
+    opacity: 1,
+    padding: 1,
+    width: 1,
+  },
+  "Pendant/TranscriptionCards.swift": {
+    padding: 1,
+  },
+  "Settings/ConnectionPage.swift": {
+    padding: 3,
+  },
+  "Settings/PairSheet.swift": {
+    padding: 3,
+  },
+  "Settings/SettingsView.swift": {
+    padding: 3,
+  },
+  "Settings/VocabularyView.swift": {
+    font: 1,
+    height: 1,
+    padding: 2,
+    width: 1,
+  },
+  "Shell/ReadScreen.swift": {
+    padding: 4,
+  },
+  "Shell/TopBar.swift": {
+    font: 1,
+  },
+};
 
-test("screens draw with the design system: each count of hand-drawn styling is at its cap", () => {
-  const counts = RULES.map(({ what, pattern }) => [
-    what,
-    texts.reduce((n, text) => n + (text.match(pattern)?.length ?? 0), 0),
-  ]);
-  expect(counts).toEqual(RULES.map(({ what, cap }) => [what, cap]));
+const countsOf = (text: string) =>
+  Object.fromEntries(
+    Object.entries(RULES)
+      .map(
+        ([rule, pattern]) => [rule, text.match(pattern)?.length ?? 0] as const
+      )
+      .filter(([, n]) => n !== 0)
+  );
+
+test("a rule counts numbers drawn by hand, never a Metrics value", () => {
+  expect(
+    countsOf(
+      ".padding(.top, 8) .padding(12) .padding(.top, Metrics.Gap.s2) .padding(Metrics.gutter)"
+    )
+  ).toEqual({
+    padding: 2,
+  });
+});
+
+test("screens draw with the design system: each file's hand-drawn styling is at its cap", () => {
+  const screens = repoFiles(LIFE_CODE_DIR, [APP], [".swift"]).filter(
+    (path) =>
+      !(
+        EXEMPT_DIRS.some((d) => path.startsWith(d)) ||
+        EXEMPT_FILES.includes(basename(path))
+      )
+  );
+  const counts = Object.fromEntries(
+    screens
+      .map(
+        (path) =>
+          [
+            path.slice(APP.length + 1),
+            countsOf(readFileSync(join(LIFE_CODE_DIR, path), "utf8")),
+          ] as const
+      )
+      .filter(([, c]) => Object.keys(c).length > 0)
+  );
+  expect(counts).toEqual(CAPS);
 });
