@@ -91,27 +91,22 @@ extension CheckGroup {
     }
 }
 
-/// The list's Filter: a system menu, a line icon per row, a check on the chosen one; it lists only the kinds that wait.
+/// The list's Filter: Everything and the kinds that wait, one row each; it rests when there is nothing to choose between.
 struct AskFilterMenu: View {
     let kinds: [CheckGroup]
     @Binding var kind: CheckGroup?
 
     var body: some View {
-        Menu {
+        FilterMenu(isFiltered: kind != nil, identifier: "inbox.filter") {
             Picker("Show", selection: $kind) {
                 Label("Everything", systemImage: "list.bullet").tag(CheckGroup?.none)
                 ForEach(kinds, id: \.self) { kind in
-                    Label(kind.filterName, systemImage: kind == .decision ? "sparkle" : kind.symbol)
-                        .tag(CheckGroup?.some(kind))
+                    Label(kind.filterName, systemImage: kind.symbol).tag(CheckGroup?.some(kind))
                 }
             }
             .pickerStyle(.inline)
-        } label: {
-            Image(systemName: kind == nil ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
         }
-        // Nothing to choose between: the button stays (a toolbar item that comes and goes is unreliable) and rests.
-        .disabled(kinds.count < 2 && kind == nil)
-        .accessibilityLabel("Filter")
-        .accessibilityIdentifier("inbox.filter")
+        // A toolbar item that comes and goes is unreliable: the button stays and rests.
+        .disabled(kinds.count < 2)
     }
 }

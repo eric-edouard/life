@@ -34,8 +34,11 @@ struct InboxScreen: View {
             }
             .background(Palette.bg)
             .navigationSplitViewColumnWidth(min: 280, ideal: 455, max: 455)
-            // The Pendant and Settings are the ask column's, never the list's header.
-            .shellBar(widths.ask < widths.whole - 1 ? "Inbox" : "", hasSettings: false, hasPendant: false)
+            // The Pendant and Settings are the ask column's when it is beside the list; the list alone (compact) has them.
+            .shellBar(
+                widths.ask < widths.whole - 1 ? "Inbox" : "", hasSettings: sizeClass != .regular,
+                hasPendant: sizeClass != .regular
+            )
             .toolbar { ToolbarItem(placement: .topBarLeading) { AskFilterMenu(kinds: all.kinds, kind: $kind) } }
         } detail: {
             ReadScreen(
@@ -77,6 +80,8 @@ struct InboxScreen: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        // The chosen kind has no ask left: the whole list again, so the filter never rests on a kind that is gone.
+        .onChange(of: all.kinds) { _, kinds in if let kind, !kinds.contains(kind) { self.kind = nil } }
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
         // An answer that came back refused is on show again, with its reason above the answers.
         .onChange(of: refusedRef) { _, ref in if let ref { (current, kind) = (ref, nil) } }
