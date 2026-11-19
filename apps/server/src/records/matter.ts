@@ -70,17 +70,34 @@ export const NextStep = z
   .refine((n) => n.kind === "do" || n.waitsOn, "a wait says what it waits on");
 export type NextStep = z.infer<typeof NextStep>;
 
+/** The parts of a direction as Life drafts it (`MatterDirectionDraft`): the goal, then a next step or the records that show the matter is over. */
+export const MatterDirectionFields = z.object({
+  /** The ids of the later records a "looks over" draft cites (a few; none when the matter's own steps show it). */
+  endingRecords: z.array(z.string().min(1)).max(3).optional(),
+  goal: GoalText,
+  nextStep: NextStep.optional(),
+});
+
+/** Whether a draft says exactly one of: what moves the matter now, or that it looks over. */
+export const isNextStepOrOver = (d: {
+  endingRecords?: unknown;
+  nextStep?: unknown;
+}) => (d.nextStep === undefined) !== (d.endingRecords === undefined);
+const ONE_OF =
+  "a direction gives a next step or the records that show it is over";
+
 /**
- * A matter's direction as Life drafts it: its goal and its next step. Pinned to the matter's steps when drafted, never
- * to its id: a re-group keeps it (`directionsOf`).
+ * A matter's direction as Life drafts it: its goal and either its next step or, when the matter looks over, no next
+ * step and `endingRecords`. `laterShown`: the ids of the later records the draft was shown (the newest 12), what
+ * "checked" is worked out from (`isDirectionDue`); lines before v2 have none. Pinned to the matter's steps when drafted,
+ * never to its id: a re-group keeps it (`directionsOf`).
  */
-export const MatterDirectionDraft = z
-  .object({
-    goal: GoalText,
-    nextStep: NextStep,
-    steps: z.array(z.string().min(1)).min(1),
-  })
-  .strict();
+export const MatterDirectionDraft = MatterDirectionFields.extend({
+  laterShown: z.array(z.string().min(1)).max(12).optional(),
+  steps: z.array(z.string().min(1)).min(1),
+})
+  .strict()
+  .refine(isNextStepOrOver, ONE_OF);
 export type MatterDirectionDraft = z.infer<typeof MatterDirectionDraft>;
 
 /** One call's line of memory/matter-directions.jsonl: the directions it drafted. */
@@ -94,11 +111,13 @@ export const MatterDirectionBatch = z
   .strict();
 export type MatterDirectionBatch = z.infer<typeof MatterDirectionBatch>;
 
-/** A direction as stored, pinned to the steps of its matter: Life's draft (both parts), or his word (`matter-direction`: either or both). */
+/** A direction as stored, pinned to the steps of its matter: Life's draft (a goal, and a next step or the records that show it over), or his word (`matter-direction`: either or both). */
 export interface DirectionPin {
   at: string;
   by: "life" | "owner";
+  endingRecords?: readonly string[];
   goal?: string;
+  laterShown?: readonly string[];
   nextStep?: NextStep;
   steps: readonly string[];
 }

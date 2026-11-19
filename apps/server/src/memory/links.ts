@@ -3,11 +3,11 @@ import { z } from "zod";
 import { appendJsonl } from "../core/files";
 import { isPromptVersion } from "../models/prompt-parts";
 import { Link, LinkBatch } from "../records/link";
-import type { Observation } from "../records/observation";
 import { readBatches } from "./endings";
 import {
   ACTIONABLE,
   isEnded,
+  laterRecordsOf,
   type MatterStepNow,
   type MatterView,
   matterBookOf,
@@ -185,50 +185,21 @@ export function splitSteps(
   };
 }
 
-type LaterObservation = Pick<
-  Observation,
-  "at" | "date" | "id" | "modality" | "speaker" | "subjects" | "type"
->;
-
-/**
- * A matter's later records beyond its own steps: its people's observations (speaker or a subject, as `refOf` reads
- * them now) from its oldest open step's day on, however late (a wait is answered when it is), that no matter holds,
- * never a plan, a condition or a promise, wait or to-do. One held elsewhere is that matter's, unless this one is full
- * (`isOutOfReach`). No cap: each pair is asked once per prompt (`subjectWorkOf`), so a night asks only what is new.
- */
-export function laterRecordsOf<T extends LaterObservation>(
-  open: readonly MatterStepNow[],
-  people: ReadonlySet<string>,
-  observations: readonly T[],
-  isHeld: (id: string) => boolean,
-  refOf: (ref: string) => string
-) {
-  const [from] = open.map((s) => s.day).toSorted();
-  if (!from) {
-    return [];
-  }
-  return observations.filter(
-    (o) =>
-      o.date >= from &&
-      !isHeld(o.id) &&
-      !ACTIONABLE.includes(o.type) &&
-      o.modality !== "plan" &&
-      o.modality !== "conditional" &&
-      [o.speaker, ...o.subjects].some((r) => people.has(refOf(r)))
-  );
-}
-
 /**
  * Whether another matter's record is out of reach of `m`'s later records: always (an ending never ties two matters:
- * September's rent is not ended by November's), unless `m` is full. A full matter takes no more steps (`isFullMatter`),
+ * September's rent is not ended by November's), unless `m` is full, or its latest direction cites the record as showing
+ * it over (`endingRecords`: a matter that looks over, its links step then judges the records that show it). A full matter takes no more steps (`isFullMatter`),
  * so its story goes on in other matters by design, and only their records can end its open steps. Its own steps are
  * always out of reach here: they come in through `splitSteps`. Pure.
  */
 export const isOutOfReach = (
-  m: Pick<MatterView, "areas" | "steps">,
+  m: Pick<MatterView, "areas" | "endingRecords" | "steps">,
   held: ReadonlySet<string>,
   id: string
-) => held.has(id) && (!isFullMatter(m) || m.steps.some((s) => s.ref === id));
+) =>
+  held.has(id) &&
+  !m.endingRecords?.includes(id) &&
+  (!isFullMatter(m) || m.steps.some((s) => s.ref === id));
 
 /**
  * The open matters, each with its open steps (promises, waits and to-dos of his with no ending: a step a link already

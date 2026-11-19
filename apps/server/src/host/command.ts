@@ -25,7 +25,6 @@ import {
   callsOf,
   matterLines,
   matters,
-  readMatterBook,
   readMatterRecords,
   readMatterWork,
 } from "../memory/matters";
@@ -333,7 +332,7 @@ const HANDLERS: Record<string, Handler> = {
     return values.force
       ? await matterDirections(people, { all: values.all })
       : {
-          due: dueDirectionsOf(await readMatterBook(people, dayNow())).length,
+          due: (await dueDirectionsOf(people, dayNow())).length,
           failed: 0,
         };
   }),

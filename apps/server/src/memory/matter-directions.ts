@@ -2,27 +2,33 @@ import { join } from "node:path";
 import { z } from "zod";
 import { appendJsonl } from "../core/files";
 import { newestWithin, packed } from "../core/lists";
-import { MatterDirectionBatch, MatterDirectionDraft } from "../records/matter";
 import {
-  directionsOf,
-  isDirectionDue,
+  isNextStepOrOver,
+  MatterDirectionBatch,
+  MatterDirectionFields,
+} from "../records/matter";
+import type { Observation } from "../records/observation";
+import {
+  directionDueOf,
+  laterShownOf,
   type MatterView,
   matterPeopleOf,
 } from "./matter-read";
-import { readMatterBook } from "./matters";
-import { MATTER_DIRECTIONS, readDirectionPins } from "./memory-files";
+import { readMatterBookAndRecords } from "./matters";
+import { MATTER_DIRECTIONS } from "./memory-files";
 import { meContext } from "./model-context";
+import { OWNER } from "./read-truth";
 import { begin, checkedEntries, inBatches, readsOf } from "./run";
 import { clip } from "./units";
 import type { People } from "./who";
 import { dayNow } from "./zones";
 
-// The matters' directions (docs/glossary.md: matter direction): for each running matter with none, or with a step newer
-// than its latest, one model call drafts its goal (where it is going) and its next step (what moves it now, and its
-// kind). Each call is one appended line of memory/matter-directions.jsonl (its only writer), each direction pinned to the
+// The matters' directions (docs/glossary.md: matter direction): for each running matter due one (`isDirectionDue`), one
+// model call drafts its goal (where it is going) and its next step (what moves it now, and its kind), or, when the matter
+// looks over, no next step and the later records that show it (`endingRecords`: the links step then judges them). Each call is one appended line of memory/matter-directions.jsonl (its only writer), each direction pinned to the
 // matter's steps, never its id, so a re-group keeps it. His word (`matter-direction`, a correction) wins (`directionsOf`).
 
-const PROMPT = "memory-matter-directions.v1";
+const PROMPT = "memory-matter-directions.v2";
 /** The most characters of matters a night is shown, those with no direction first, then the newest; and one call. */
 const NIGHT_CHARS = 120_000;
 const CALL_CHARS = 30_000;
@@ -30,13 +36,15 @@ const CALL_CHARS = 30_000;
 const SHOWN_STEPS = 12;
 const SHOWN_CHARS = 200;
 
-/** The matters due a direction in `book` (`isDirectionDue`), each with its latest pinned next step. Pure. */
-export function dueDirectionsOf(book: readonly MatterView[]) {
-  const directions = directionsOf(book, readDirectionPins());
-  return book.flatMap((v) => {
-    const latest = directions.get(v)?.latest;
-    return isDirectionDue(v, latest) ? [{ latest, v }] : [];
-  });
+/** The matters due a direction tonight (`directionDueOf`), each with its later records (`laterShownOf`), and the records read. */
+export async function dueDirectionsOf(people: People, today: string) {
+  const { book, records } = await readMatterBookAndRecords(people, today);
+  const isDue = directionDueOf(book, records, today);
+  return book.flatMap((v) =>
+    isDue(v.id)
+      ? [{ later: laterShownOf(v, records.observations, records.refOf), v }]
+      : []
+  );
 }
 
 /** A matter as a call is shown it: a call-local id, its name, people, projects, newest steps, what is open, its goal now. */
@@ -44,7 +52,11 @@ const shownOf = (
   v: MatterView,
   id: string,
   today: string,
-  nameOf: (ref: string) => string
+  nameOf: (ref: string) => string,
+  later: readonly Pick<
+    Observation,
+    "date" | "id" | "speaker" | "text" | "type"
+  >[]
 ) => ({
   id,
   name: v.name,
@@ -56,6 +68,13 @@ const shownOf = (
         },
       }
     : {}),
+  later: later.map((o) => ({
+    day: o.date,
+    id: o.id,
+    kind: o.type,
+    said_by: o.speaker === OWNER ? "me" : nameOf(o.speaker),
+    text: clip(o.text, SHOWN_CHARS),
+  })),
   open: v.openSteps.map((s) => ({
     ...(s.when ? { due: s.when } : {}),
     kind: s.kind,
@@ -73,9 +92,9 @@ const shownOf = (
 });
 
 /** A reply's direction, by the call's id of its matter. */
-const Drafted = MatterDirectionDraft.omit({ steps: true }).extend({
-  matter: z.string(),
-});
+const Drafted = MatterDirectionFields.extend({ matter: z.string() })
+  .strict()
+  .refine(isNextStepOrOver, "a next step or the records that show it over");
 
 /**
  * Drafts the directions of the matters due tonight (`dueDirectionsOf`) within the night's size, those with none first,
@@ -86,9 +105,10 @@ export async function matterDirections(
   people: People,
   { all = false, today = dayNow() } = {}
 ) {
-  const due = dueDirectionsOf(await readMatterBook(people, today)).map(
-    (d, i) => ({ ...d, shown: shownOf(d.v, `m${i + 1}`, today, people.nameOf) })
-  );
+  const due = (await dueDirectionsOf(people, today)).map((d, i) => ({
+    ...d,
+    shown: shownOf(d.v, `m${i + 1}`, today, people.nameOf, d.later),
+  }));
   if (due.length === 0) {
     return { drafted: 0, due: 0, failed: 0 };
   }
@@ -97,8 +117,9 @@ export async function matterDirections(
     all
       ? due
       : newestWithin(due, NIGHT_CHARS, {
-          // A matter with no direction yet sorts before any drafted one: "~" is after every digit.
-          at: (m) => `${m.latest ? "" : "~"}${m.v.steps.at(-1)?.at ?? ""}`,
+          // A matter with no direction yet sorts before any drafted one: "~" is after every digit. Then the newest of its last step and its newest later record.
+          at: (m) =>
+            `${m.v.goal ? "" : "~"}${[m.v.steps.at(-1)?.at ?? "", m.later.at(-1)?.at ?? ""].toSorted().at(-1)}`,
           size,
         }),
     CALL_CHARS,
@@ -108,7 +129,7 @@ export async function matterDirections(
   let drafted = 0;
   await inBatches(calls, step, async (call, dir) => {
     await step.attempt(async () => {
-      const byId = new Map(call.map((m) => [m.shown.id, m.v]));
+      const byId = new Map(call.map((m) => [m.shown.id, m]));
       const reply = await step.ask({
         context: meContext(people.truth),
         dir: join(dir, "call"),
@@ -116,10 +137,11 @@ export async function matterDirections(
         prompt: PROMPT,
         reads: readsOf(
           call.flatMap((m) =>
-            [...m.v.steps.slice(-SHOWN_STEPS), ...m.v.openSteps].map((s) => ({
-              source: "memory",
-              unit: s.ref,
-            }))
+            [
+              ...m.v.steps.slice(-SHOWN_STEPS).map((s) => s.ref),
+              ...m.v.openSteps.map((s) => s.ref),
+              ...m.later.map((o) => o.id),
+            ].map((unit) => ({ source: "memory", unit }))
           )
         ),
       });
@@ -129,10 +151,23 @@ export async function matterDirections(
         Drafted,
         (d) => d.matter,
         (id) => byId.has(id)
-      ).entries.map(({ matter, ...d }) => ({
-        ...d,
-        steps: byId.get(matter)?.steps.map((s) => s.ref) ?? [],
-      }));
+      ).entries.map(({ matter, ...d }) => {
+        const m = byId.get(matter);
+        const shownIds = m?.later.map((o) => o.id) ?? [];
+        return {
+          ...d,
+          // Only records the call was shown can be cited.
+          ...(d.endingRecords
+            ? {
+                endingRecords: d.endingRecords.filter((id) =>
+                  shownIds.includes(id)
+                ),
+              }
+            : {}),
+          laterShown: shownIds,
+          steps: m?.v.steps.map((s) => s.ref) ?? [],
+        };
+      });
       appendJsonl(MATTER_DIRECTIONS, MatterDirectionBatch, [
         {
           at: step.now.toISOString(),

@@ -466,6 +466,7 @@ write(join(data, "memory/matter-directions.jsonl"), [
     directions: [
       {
         goal: "Get the kitchen tap at the flat fixed",
+        laterShown: [],
         nextStep: {
           kind: "do",
           text: "Find a time with Hans for him to come and fix the tap",

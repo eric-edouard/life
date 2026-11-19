@@ -81,6 +81,7 @@ const madeUpInbox: CheckInputs = {
   endings: new Map([
     ["obs_000000000005", { later: "ep_000000000001", quote: "Called them." }],
   ]),
+  isDirectionDue: () => false,
   kept: new Set(lines.map((l) => l.id)),
   lines,
   matters: [

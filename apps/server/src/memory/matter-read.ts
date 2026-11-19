@@ -1,4 +1,4 @@
-import { DAY } from "../core/clock";
+import { DAY, daysBefore } from "../core/clock";
 import type { Episode } from "../records/episode";
 import {
   entryLine,
@@ -46,6 +46,7 @@ type StepObservation = Pick<
   | "date"
   | "id"
   | "importance"
+  | "modality"
   | "quote"
   | "speaker"
   | "subjects"
@@ -118,6 +119,8 @@ export interface MatterStepNow {
 
 export interface MatterView {
   areas: string[];
+  /** The records its latest direction cites as showing it over (a "looks over" draft has no `nextStep`); within the links step's reach (`isOutOfReach`). */
+  endingRecords?: readonly string[];
   /** Where it is going (`directionsOf`); none until Life drafts one or he says it. */
   goal?: ByWhom<{ text: string }>;
   id: string;
@@ -481,11 +484,74 @@ const isNewerThan = (
     (s) => !pin.steps.includes(s.ref) || (s.ending && s.ending.at > pin.at)
   );
 
+/** How many days from its first step a new matter is offered: Life's "Work on it?" lapses after them, and nothing starts. */
+export const NEW_MATTER_DAYS = 7;
+/** The last day of a matter's offer window (`NEW_MATTER_DAYS` from its first step's day); none for a matter with no step. Pure. */
+export const offerEndOf = (v: { steps: readonly { day: string }[] }) => {
+  const [first] = v.steps;
+  return first && daysBefore(first.day, 1 - NEW_MATTER_DAYS);
+};
+
+/** How many later records a direction is shown, and compared with: the newest. */
+export const LATER_SHOWN = 12;
+
+type LaterObservation = Pick<
+  Observation,
+  "at" | "date" | "id" | "modality" | "speaker" | "subjects" | "type"
+>;
+
+/**
+ * A matter's later records beyond its own steps: its people's observations (speaker or a subject, as `refOf` reads
+ * them now) from its oldest open step's day on, however late (a wait is answered when it is), that are not `isHeld`,
+ * never a plan, a condition or a promise, wait or to-do. The one selection of "what happened since": the links step
+ * (`isHeld`: `isOutOfReach`), the directions and the new matter check (`isHeld`: its own steps). No cap: each links pair
+ * is asked once per prompt, so a night asks only what is new.
+ */
+export function laterRecordsOf<T extends LaterObservation>(
+  open: readonly MatterStepNow[],
+  people: ReadonlySet<string>,
+  observations: readonly T[],
+  isHeld: (id: string) => boolean,
+  refOf: (ref: string) => string
+) {
+  const [from] = open.map((s) => s.day).toSorted();
+  if (!from) {
+    return [];
+  }
+  return observations.filter(
+    (o) =>
+      o.date >= from &&
+      !isHeld(o.id) &&
+      !ACTIONABLE.includes(o.type) &&
+      o.modality !== "plan" &&
+      o.modality !== "conditional" &&
+      [o.speaker, ...o.subjects].some((r) => people.has(refOf(r)))
+  );
+}
+
+/** The newest `LATER_SHOWN` of `v`'s later records from outside it (`laterRecordsOf`: all but its own steps), oldest first: what its direction is drafted against. Pure. */
+export function laterShownOf<T extends LaterObservation>(
+  v: Pick<MatterView, "openSteps" | "owedTo" | "steps" | "waitingOn" | "with">,
+  observations: readonly T[],
+  refOf: (ref: string) => string
+) {
+  const own = new Set(v.steps.map((s) => s.ref));
+  return laterRecordsOf(
+    v.openSteps,
+    new Set(matterPeopleOf(v)),
+    observations,
+    (id) => own.has(id),
+    refOf
+  )
+    .toSorted((a, b) => a.at.localeCompare(b.at))
+    .slice(-LATER_SHOWN);
+}
+
 /**
  * Each matter's goal and next step from the pins as written (`directionsOf`): a pin belongs to the matter its steps find
  * (`matterFinderOf`), so a re-group keeps it. The goal: his latest word, else Life's latest draft. The next step: the
- * latest pin's, his or Life's (Life drafts again only once the matter got a step newer than the latest, `isDirectionDue`).
- * Pure.
+ * latest pin's, his or Life's (a Life draft replaces it even with none: the matter looks over); Life drafts again once
+ * `isDirectionDue`. Pure.
  */
 export function directionsOf<V extends Found>(
   book: readonly V[],
@@ -507,19 +573,71 @@ export function directionsOf<V extends Found>(
         p.goal && !(was.goal?.by === "owner" && p.by === "life")
           ? { at: p.at, by: p.by, text: p.goal }
           : was.goal,
-      ...(p.nextStep
-        ? { latest: p, nextStep: { ...p.nextStep, at: p.at, by: p.by } }
+      ...(p.nextStep || p.by === "life"
+        ? {
+            latest: p,
+            nextStep: p.nextStep && { ...p.nextStep, at: p.at, by: p.by },
+          }
         : { latest: was.latest, nextStep: was.nextStep }),
     });
   }
   return out;
 }
 
-/** Whether Life drafts `v`'s direction: running and grouped, with none yet or a step newer than its latest next step. Pure. */
+/**
+ * Whether Life drafts `v`'s direction: running and grouped, with none yet or a step newer than its latest pin; or, when
+ * that pin is Life's, a blind one (no `laterShown`: drafted before it saw later records) or, while `v` is in its offer
+ * window (`offerEndOf`), one of its newest later records (`later`, read only then) that the draft was not shown. His own
+ * pin is never redrafted over an outside record. Pure.
+ */
 export const isDirectionDue = (
   v: MatterView,
-  latest: DirectionPin | undefined
-) => !v.lone && isRunning(v) && (!(latest && v.goal) || isNewerThan(v, latest));
+  latest: DirectionPin | undefined,
+  later: () => readonly string[],
+  today: string
+) => {
+  if (v.lone || !isRunning(v)) {
+    return false;
+  }
+  if (!(latest && v.goal) || isNewerThan(v, latest)) {
+    return true;
+  }
+  const end = offerEndOf(v);
+  const { laterShown } = latest;
+  return (
+    latest.by === "life" &&
+    (!laterShown ||
+      Boolean(
+        end && today <= end && later().some((id) => !laterShown.includes(id))
+      ))
+  );
+};
+
+/**
+ * The test of "which matters of `book` are due a direction" (`isDirectionDue`), by matter id: for the night's step and
+ * the new matter check. The later records are read (`laterShownOf`) only for a matter in its offer window whose latest
+ * pin is Life's. Pure.
+ */
+export function directionDueOf(
+  book: readonly MatterView[],
+  rec: Pick<MatterRecords, "directions" | "observations" | "refOf">,
+  today: string
+) {
+  const directions = directionsOf(book, rec.directions);
+  const byId = new Map(book.map((v) => [v.id, v]));
+  return (id: string) => {
+    const v = byId.get(id);
+    return (
+      v !== undefined &&
+      isDirectionDue(
+        v,
+        directions.get(v)?.latest,
+        () => laterShownOf(v, rec.observations, rec.refOf).map((o) => o.id),
+        today
+      )
+    );
+  };
+}
 
 /** How many of a matter's newest steps its net compares with. */
 const NET_STEPS = 8;
@@ -610,6 +728,9 @@ export function matterBookOf(
             ...v,
             ...(d.goal ? { goal: d.goal } : {}),
             ...(d.nextStep ? { nextStep: d.nextStep } : {}),
+            ...(d.latest?.endingRecords
+              ? { endingRecords: d.latest.endingRecords }
+              : {}),
           }
         : v;
     })

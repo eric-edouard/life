@@ -58,6 +58,7 @@ function inputs(lines: CheckInputs["lines"], over: Input = {}): CheckInputs {
     dismissed: [],
     doubted: new Set(),
     endings: new Map(),
+    isDirectionDue: () => false,
     kept: new Set(lines.map((l) => l.id)),
     lines,
     matters: [],
@@ -582,4 +583,56 @@ test("the inbox is read again only when what it reads changed: not a unit sync; 
       rmSync(d, { force: true, recursive: true });
     }
   }
+});
+
+// Audit of 19 Nov 2026: 12 of 14 open "Work on it?" cards were for matters long over; the next step was drafted before
+// the answer came from outside the matter. A direction that looks over (no next step), or not checked against what
+// happened since (`isDirectionDue`), is not offered.
+test("a matter whose direction looks over, or is not checked against what happened since, is not offered (stale-2-wait-answered-in-other-matter)", () => {
+  const at = "2026-11-17T02:00:00Z";
+  const matter = {
+    goal: { at, by: "life" as const, text: "The deposit is back." },
+    id: "matter_000000000008",
+    lone: false,
+    name: "Flat deposit",
+    newestOpenStep: {
+      at,
+      day: "2026-11-17",
+      kind: "waiting_on_someone" as const,
+      quote: "waiting for the landlord",
+      ref: "obs_000000000081",
+      text: "waiting for the landlord",
+    },
+    nextStep: {
+      at,
+      by: "life" as const,
+      kind: "do" as const,
+      text: "Ask the landlord for the deposit",
+    },
+    open: true,
+    owedTo: [],
+    status: "moving" as const,
+    steps: [
+      {
+        day: "2026-11-17",
+        quote: "waiting for the landlord",
+        ref: "obs_000000000081",
+      },
+    ],
+    waitingOn: [],
+    with: [],
+  };
+  const offered = (
+    m: typeof matter | Omit<typeof matter, "nextStep">,
+    due = false
+  ) =>
+    checksOf(inputs([], { isDirectionDue: () => due, matters: [m] })).filter(
+      (c) => c.group === "new matter"
+    ).length;
+  expect(offered(matter)).toBe(1);
+  // An outside record since the draft: the next step waits for its redraft.
+  expect(offered(matter, true)).toBe(0);
+  // The draft said it looks over (`directionsOf` leaves no next step).
+  const { nextStep: _gone, ...over } = matter;
+  expect(offered(over)).toBe(0);
 });
