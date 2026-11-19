@@ -64,21 +64,29 @@ private struct IncidentCard: View {
     private var pages: Int { incident.ids.count }
 
     var body: some View {
-        AttentionCard(
-            id: "pendant.card.incident.\(incident.kind.rawValue)", title: title, systemImage: "exclamationmark.octagon",
-            detail: explanation
-                + (incident.kind.holdsPendant
-                    ? " Until you decide, lifelog keeps these pages on the Pendant and clears nothing past them." : "")
-                + (error.map { " That didn't work: \($0)" } ?? ""),
-            footnote: "Found \(incident.recordedAt.moment) · "
-                + (pages == 1 ? "page \(incident.index)" : "pages \(incident.index)–\(incident.lastIndex)")
-        ) {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.bodyStrong).foregroundStyle(Palette.fg).accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("pendant.card.incident.\(incident.kind.rawValue)")
+            Text(
+                explanation
+                    + (incident.kind.holdsPendant
+                        ? " Until you decide, lifelog keeps these pages on the Pendant and clears nothing past them."
+                        : "")
+                    + (error.map { " That didn't work: \($0)" } ?? "")
+            )
+            .font(.note).foregroundStyle(Palette.muted)
+            Text(
+                "Found \(incident.recordedAt.moment) · "
+                    + (pages == 1 ? "page \(incident.index)" : "pages \(incident.index)–\(incident.lastIndex)")
+            )
+            .font(.small).foregroundStyle(Palette.faint)
             ForEach(incident.kind.choices, id: \.self) { resolution in
                 Button(resolution.action(pages: pages)) { choice = resolution }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.pill(.quiet, size: .compact))
                     .accessibilityIdentifier("pendant.incident.\(resolution)")
             }
         }
+        .box()
         // A centered alert, not a popover: a popover anchored to the card spilled over the tab bar, and its button
         // then landed on a tab.
         .alert("Are you sure?", item: $choice) { resolution in

@@ -238,3 +238,70 @@ import Testing
     #expect(machine.handle(.discover) == [.scan])
     #expect(machine.state == .scanning)
 }
+
+@Suite struct Forgetting {
+    private func ready() -> (machine: ConnectionMachine, id: UUID) {
+        var machine = ConnectionMachine()
+        let id = UUID()
+        _ = machine.handle(.availability(.poweredOn))
+        _ = machine.handle(.start(knownDevice: id))
+        _ = machine.handle(.linkUp(id))
+        _ = machine.handle(.ready(id))
+        return (machine, id)
+    }
+
+    @Test func aLivePendantIsLetGoAndTheScanSkipsIt() {
+        var (machine, old) = ready()
+        let generation = machine.generation
+        #expect(
+            machine.handle(.forget) == [.sessionEnded(generation: generation), .disconnect, .scan])
+        #expect(machine.state == .scanning)
+        #expect(machine.device == nil)
+        // The link's own disconnect arriving later changes nothing.
+        #expect(machine.handle(.disconnected(old, .cancelled)).isEmpty)
+        #expect(
+            machine.handle(.discovered(DiscoveredPendant(id: old, name: nil))).isEmpty,
+            "the one let go is never taken again")
+        let new = UUID()
+        #expect(machine.handle(.discovered(DiscoveredPendant(id: new, name: nil))) == [.stopScan, .connect(new)])
+        #expect(machine.device == new)
+    }
+
+    @Test func aPendingConnectIsCancelled() {
+        var machine = ConnectionMachine()
+        let id = UUID()
+        _ = machine.handle(.availability(.poweredOn))
+        _ = machine.handle(.start(knownDevice: id))
+        #expect(machine.state == .connecting(id))
+        #expect(machine.handle(.forget) == [.disconnect, .scan])
+    }
+
+    @Test func withBluetoothOffTheScanWaitsForIt() {
+        var machine = ConnectionMachine()
+        let id = UUID()
+        _ = machine.handle(.start(knownDevice: id))
+        #expect(machine.handle(.forget) == [.disconnect])
+        #expect(machine.state == .idle)
+        #expect(machine.handle(.availability(.poweredOn)) == [.scan])
+    }
+
+    @Test func theSameRememberedPendantCanBeKnownAgain() {
+        var (machine, old) = ready()
+        _ = machine.handle(.forget)
+        #expect(machine.handle(.start(knownDevice: old)) == [.stopScan, .connect(old)])
+    }
+
+    @Test func theCoordinatorDropsWhatItKnewAndKeepsWhatWasSaved() async {
+        let harness = Harness(.observe)
+        await harness.fake.record(pages: 5)
+        await harness.run {
+            #expect(await eventually { await harness.status().sync.isCaughtUp })
+            await harness.coordinator.forget()
+            let status = await harness.status()
+            #expect(status.connection == .scanning)
+            #expect(status.batteryPercent == nil && status.lastReply == nil && status.storage == nil)
+            #expect(await harness.fake.isScanning)
+        }
+        #expect(await harness.sink.pages.count == 5, "what was saved stays saved")
+    }
+}

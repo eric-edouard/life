@@ -13,7 +13,6 @@ struct SettingsTests {
     @Test func existingValuesLoad() throws {
         defaults.set(40, forKey: "lightBrightnessLevel")
         defaults.set("dimmed", forKey: "lightBrightnessCheck")
-        defaults.set(true, forKey: "notificationsInviteDismissed")
         var alerts = AlertSettings()
         alerts.lowBattery = false
         alerts.lowBatteryPercent = 35
@@ -22,7 +21,6 @@ struct SettingsTests {
         let settings = Settings(defaults: defaults, group: group)
         #expect(settings.lightBrightnessLevel == 40)
         #expect(settings.lightBrightnessCheck == .changed)
-        #expect(settings.notificationsInviteDismissed)
         #expect(settings.alerts == alerts)
     }
 
@@ -30,7 +28,6 @@ struct SettingsTests {
         let settings = Settings(defaults: defaults, group: group)
         #expect(settings.lightBrightnessLevel == nil)
         #expect(settings.lightBrightnessCheck == .unasked)
-        #expect(!settings.notificationsInviteDismissed)
         #expect(settings.alerts == AlertSettings())
     }
 
@@ -38,13 +35,11 @@ struct SettingsTests {
         let settings = Settings(defaults: defaults, group: group)
         settings.lightBrightnessLevel = 10
         settings.lightBrightnessCheck = .unchanged
-        settings.notificationsInviteDismissed = true
         settings.alerts.lowBatteryPercent = 15
 
         let relaunched = Settings(defaults: defaults, group: group)
         #expect(relaunched.lightBrightnessLevel == 10)
         #expect(relaunched.lightBrightnessCheck == .unchanged)
-        #expect(relaunched.notificationsInviteDismissed)
         #expect(relaunched.alerts.lowBatteryPercent == 15)
     }
 }

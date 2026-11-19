@@ -77,9 +77,8 @@ Verified on the owner's Pendant, from one drain of 254 pages (about 8 hours, 4 m
 
 ## Sound activity
 
-The Pendant screen says, under "Recording.", whether the Pendant is storing sound now: "Hearing sound · just now",
-"Quiet · listening", or "Last heard 14:02" once the evidence is older than 15 s. Under "Paused." it says "Microphones
-off". The phone never decides it hears anything: only the Pendant's own evidence counts.
+The glance (the pill, the widgets) says whether the Pendant is storing sound now; the Pendant sheet does not. The phone
+never decides it hears anything: only the Pendant's own evidence counts.
 
 - 🟢 The firmware runs a sound detector and stores audio only while it fires, opening a storage session about 120 ms
   before the sound (pre-roll) and closing it about 5 s after (`vad_threshold_ms: 5000`). During those pauses the

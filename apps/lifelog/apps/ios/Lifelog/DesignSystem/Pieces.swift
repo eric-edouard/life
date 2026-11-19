@@ -104,6 +104,46 @@ extension View {
     }
 }
 
+/// "2 of 12" in `label`, a 1 px track filled by how far it got, and an end word (a deadline in `flag`, or a percent).
+struct ProgressLine: View {
+    var label: String?
+    let fraction: Double
+    var end: String?
+    var endColor = Palette.muted
+
+    init(done: Int, of total: Int, end: String? = nil, endColor: Color = Palette.muted) {
+        self.init(
+            label: "\(done) of \(total)", fraction: Double(done) / Double(max(total, 1)), end: end, endColor: endColor)
+    }
+
+    init(label: String? = nil, fraction: Double, end: String? = nil, endColor: Color = Palette.muted) {
+        self.label = label
+        self.fraction = min(max(fraction, 0), 1)
+        self.end = end
+        self.endColor = endColor
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if let label { Caps(label, color: Palette.muted) }
+            Capsule().fill(Palette.line).frame(height: 1)
+                .overlay(alignment: .leading) {
+                    GeometryReader { proxy in Capsule().fill(Palette.fg).frame(width: proxy.size.width * fraction) }
+                }
+            if let end { Caps(end, color: endColor) }
+        }
+        .frame(height: 24)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+extension View {
+    /// A `card` fill at the card radius with 16 of padding: the goal and next step, an agent, a choice waiting.
+    func box() -> some View {
+        padding(16).frame(maxWidth: .infinity, alignment: .leading).card(radius: Metrics.Radius.card)
+    }
+}
+
 /// A small label in capitals over a block.
 struct Caps: View {
     let text: String
@@ -116,6 +156,26 @@ struct Caps: View {
 
     var body: some View {
         Text(text).label().foregroundStyle(color)
+    }
+}
+
+/// The dot beside a state word: filled, in the state's colour; lit and breathing while it is recording.
+struct StateDot: View {
+    var color: Color
+    var isLit = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isDim = false
+
+    var body: some View {
+        Circle().fill(color).frame(width: Metrics.dot, height: Metrics.dot)
+            .shadow(color: isLit ? color.opacity(0.5) : .clear, radius: 4)
+            .opacity(isLit && isDim ? 0.45 : 1)
+            .animation(
+                isLit && !reduceMotion ? .easeInOut(duration: Motion.pulse / 2).repeatForever() : nil, value: isDim
+            )
+            .onAppear { isDim = isLit }
+            .accessibilityHidden(true)
     }
 }
 
@@ -449,13 +509,14 @@ struct Field: View {
 
 /// A sheet's top: its name in thin type and the close button.
 struct SheetHeader: View {
-    let title: String
+    /// `nil` for a sheet whose first line names itself (the pendant's big word is the state).
+    var title: String?
     var color: Color = Palette.fg
     let close: () -> Void
 
     var body: some View {
         HStack {
-            Text(title).font(.sheetTitle).foregroundStyle(color).lit()
+            if let title { Text(title).font(.sheetTitle).foregroundStyle(color) }
             Spacer()
             Button(action: close) {
                 Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.fg)

@@ -9,6 +9,7 @@ import PendantProtocol
 import ServerAPI
 import SourceStore
 import Timeline
+import Upload
 import UIKit
 
 /// Capture feature store: owns the raw source store and the Pendant drain, and publishes what the UI needs as plain facts. Create it once, as early as possible at launch (see
@@ -180,7 +181,11 @@ final class CaptureStore {
     /// A launch already reconnects to the known Pendant, and a sync to an Omi resting between drains; this waits a
     /// little for the link to be ready.
     func waitForLink(upTo limit: Duration = .seconds(10)) async -> Bool {
-        if case .resting = status.connection { await syncNow() }
+        // A resting Omi is reachable: it wakes for a sync and goes back to rest, so it is never `.ready` for long.
+        if case .resting = status.connection {
+            await syncNow()
+            return true
+        }
         return await wait(upTo: limit) {
             if case .ready = self.status.connection { true } else { false }
         }
@@ -212,6 +217,33 @@ final class CaptureStore {
     func watchLive() async { await coordinator?.watchLive() }
     /// Owner retry after "busy elsewhere" or a pairing problem.
     func reconnect() async { await coordinator?.reconnect() }
+    enum ReplaceOutcome: Equatable {
+        case replaced
+        /// Something is not on the Mac yet and the Pendant is in reach: sync again before replacing.
+        case refused(NotOnTheMac)
+        /// Something is not on the Mac and the Pendant cannot be reached: only an explicit `anyway` replaces it.
+        case unreachable(NotOnTheMac)
+    }
+
+    /// The owner replaces the Pendant. Drains it first, for up to a minute, then replaces only when everything is on
+    /// the Mac (`held` reads the uploader too); a lost Pendant can still be replaced `anyway`. Replacing forgets the
+    /// Pendant on this phone only: never its own pairing or its audio.
+    func replacePendant(anyway: Bool = false, held: () -> NotOnTheMac) async -> ReplaceOutcome {
+        let isReachable = await waitForLink()
+        if isReachable && !anyway {
+            Task { await syncNow() }
+            _ = await wait(upTo: .seconds(60)) { held().isEmpty }
+        }
+        let left = held()
+        if !anyway && !left.isEmpty { return isReachable ? .refused(left) : .unreachable(left) }
+        // Forget first: a buffered `.ready(old)` must not save the old pendant again. The kind stays until a pendant of
+        // another model actually pairs (its slot moves then, not now).
+        await coordinator?.forget()
+        UserDefaults.standard.removeObject(forKey: Self.knownDeviceKey)
+        hasKnownPendant = false
+        return .replaced
+    }
+
     /// Returns whether the command reached the Pendant; nothing confirms the light changed.
     func setLightBrightness(_ brightness: LightBrightness) async -> Bool {
         await coordinator?.setLightBrightness(brightness) ?? false

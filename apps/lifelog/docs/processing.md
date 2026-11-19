@@ -153,7 +153,7 @@ bun run switches transcription off    # transcription | ai | all, on | off
 
 The server keeps both in one row (`processing_switches`) and checks them before every call. The phone reads them in
 the feed and sets them through the outbox (`PUT /switches`), like any edit. Turned back on, what waited goes on by
-itself. The Pendant screen shows a card while transcription is off, and no screen offers a summary while AI is.
+itself. The Pendant sheet shows no card for it (Settings does), and no screen offers a summary while AI is.
 
 The same row holds `openAppAfterMinutes`, the delay of the "Open lifelog" alert (Settings, Alerts; 0 is off). It is not
 a switch, but it is set the same way.

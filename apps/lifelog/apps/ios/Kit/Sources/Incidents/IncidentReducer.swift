@@ -55,6 +55,9 @@ public enum IncidentEffect: Sendable, Equatable {
 public struct IncidentReducer: Sendable, Codable, Equatable {
     /// The default Pendant storage threshold, also used by `CaptureCondition`.
     public static let pendantLowBelow = 0.10
+    /// Free storage under this is full: the Pendant stops recording (red ×10, docs/pendant.md).
+    /// ponytail: one fixed threshold; calibrate on hardware.
+    public static let pendantFullBelow = 0.01
     /// Percentage points above a threshold that count as recovered, so a reading hovering on it warns once.
     public static let rearmMargin = 10
     public static let phoneLowBelow: Int64 = 1 << 30

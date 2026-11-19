@@ -43,9 +43,9 @@ const CAPS: Record<string, Record<string, number>> = {
     padding: 5,
   },
   "Inbox/CheckCard.swift": {
-    capsule: 4,
+    capsule: 2,
     font: 3,
-    height: 5,
+    height: 3,
     padding: 14,
     width: 1,
   },
@@ -69,34 +69,10 @@ const CAPS: Record<string, Record<string, number>> = {
   "Matters/StartAgentSheet.swift": {
     padding: 5,
   },
-  "Pendant/AttentionCards.swift": {
-    padding: 1,
-  },
-  "Pendant/GlanceGrid.swift": {
-    capsule: 2,
-    height: 1,
-    padding: 1,
-  },
   "Pendant/IncidentCards.swift": {
     padding: 1,
   },
-  "Pendant/LensLayout.swift": {
-    padding: 9,
-  },
-  "Pendant/StatusHero.swift": {
-    capsule: 2,
-    height: 2,
-    opacity: 1,
-    padding: 1,
-    width: 1,
-  },
-  "Pendant/TranscriptionCards.swift": {
-    padding: 1,
-  },
   "Settings/ConnectionPage.swift": {
-    padding: 3,
-  },
-  "Settings/PairSheet.swift": {
     padding: 3,
   },
   "Settings/SettingsView.swift": {

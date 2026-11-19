@@ -6,6 +6,7 @@
     import ServerAPI
     import SwiftUI
     import Timeline
+    import Upload
 
     private let now = Date.now
 
@@ -36,32 +37,28 @@
         /// Against preview stores: nothing live, nothing saved.
         static func preview() -> PendantActions {
             let capture = CaptureStore.preview()
-            return PendantActions(
-                capture: capture, sync: .preview(capture: capture),
-                permissions: PermissionsStore(notifications: .notAsked, location: .denied))
+            return PendantActions(capture: capture, sync: .preview(capture: capture))
         }
     }
 
     /// Any state of the screen.
     private func pendant(
         _ status: CaptureStatus, connectionSince: Date = now.addingTimeInterval(-3_600),
-        incidents: [IncidentItem] = [], transcription: TranscriptionFacts = TranscriptionFacts(),
-        invite: Bool = false, pairedKind: DeviceKind = .limitless, actions: PendantActions = .preview()
+        incidents: [IncidentItem] = [], uploads: UploadStatus? = UploadStatus(sentThrough: now, heardThrough: now),
+        known: Bool = true, pairedKind: DeviceKind = .limitless, actions: PendantActions = .preview()
     ) -> some View {
-        NavigationStack {
+        Color.clear.sheet(isPresented: .constant(true)) {
             PendantScreen(
                 capture: CaptureFacts(
-                    status: status, context: CaptureContext(connectionSince: connectionSince),
+                    status: status, context: CaptureContext(hasKnownPendant: known, connectionSince: connectionSince),
                     lastCaughtUp: now.addingTimeInterval(-30), lastSaved: now.addingTimeInterval(-40),
                     phoneFreeBytes: 52_000_000_000, archiveBytes: 1_300_000_000, incidents: incidents,
                     recordingSince: status.recordingSince([
                         RecordingChange(.resumed, at: CaptureInstant(now.addingTimeInterval(-1_920)))
                     ]),
                     // Learned while recording; paused not seen enough yet.
-                    batteryLife: BatteryLife(recording: 6), pairedKind: pairedKind),
-                transcription: transcription,
-                permissions: PermissionsStore(notifications: .notAsked, location: .denied),
-                showsNotificationsInvite: invite, actions: actions)
+                    batteryLife: BatteryLife(recording: 6), pairedKind: pairedKind, uploads: uploads),
+                actions: actions)
         }
         .previewSync()
         .environment(CaptureStore.preview())
@@ -111,25 +108,7 @@
 
     #Preview("Recording") { pendant(healthy) }
 
-    #Preview("Recording, hearing sound") {
-        pendant(
-            with {
-                $0.soundActivity = Observed(
-                    .hearing(since: now.addingTimeInterval(-40)), at: now.addingTimeInterval(-2))
-            })
-    }
-
-    #Preview("Recording, report gone stale") {
-        let old = now.addingTimeInterval(-600)
-        pendant(
-            with {
-                $0.recording = .recording(confirmedAt: old)
-                $0.lastKnownRecording = Observed(.recording, at: old)
-                $0.soundActivity = Observed(.hearing(since: old), at: old)
-            })
-    }
-
-    #Preview("Paused on the Pendant") {
+    #Preview("Not recording, paused on the pendant") {
         pendant(
             with {
                 $0.recording = .paused(confirmedAt: now.addingTimeInterval(-20))
@@ -138,56 +117,52 @@
             })
     }
 
-    #Preview("Pause pending") {
-        pendant(with { $0.recording = .pauseRequested(pendingSince: now.addingTimeInterval(-2)) })
-    }
-
-    #Preview("Pause not confirmed") {
-        pendant(with { $0.recording = .failed(.unconfirmed(.pause), at: now) })
-    }
-
-    #Preview("Checking, connected without a report") {
-        pendant(
-            with {
-                $0.recording = .unknown
-                $0.lastKnownRecording = nil
-                $0.lastReply = nil
-            }, connectionSince: now.addingTimeInterval(-3))
-    }
-
-    #Preview("Disconnected, last known") {
+    #Preview("Out of range") {
         let lost = now.addingTimeInterval(-900)
         pendant(
             with {
                 $0.connection = .disconnected(UUID(), .linkLost(nil))
                 $0.recording = .unknown
                 $0.lastKnownRecording = Observed(.recording, at: lost)
-                $0.batteryPercent = Observed(81, at: lost)
-                $0.storage?.at = lost
-                $0.backlog = Observed(Backlog(pages: 0, estimatedDuration: .zero), at: lost)
+                $0.batteryPercent = Observed(82, at: lost)
+                $0.storage = nil
+                $0.backlog = nil
                 $0.lastContact = lost
                 $0.lastReply = lost
             }, connectionSince: lost)
     }
 
-    #Preview("Catching up") {
+    #Preview("Full") {
         pendant(
             with {
-                $0.sync = .downloading(DrainProgress(expected: 3_400, received: 1_500, settled: 1_420))
-                $0.backlog = Observed(Backlog(pages: 3_400, estimatedDuration: .seconds(13_200)), at: now)
+                $0.batteryPercent = Observed(71, at: now.addingTimeInterval(-6))
+                $0.storage = Observed(
+                    StorageState(oldestPage: 0, newestPage: 2_580, session: 1, freePages: 0, totalPages: 40_000),
+                    at: now.addingTimeInterval(-6))
+                $0.sync = .downloading(DrainProgress(expected: 3_400, received: 700, settled: 612))
+                $0.backlog = Observed(Backlog(pages: 3_400, estimatedDuration: .seconds(11_400)), at: now)
             })
     }
 
-    #Preview("Low battery") {
-        pendant(with { $0.batteryPercent = Observed(18, at: now.addingTimeInterval(-6)) })
+    #Preview("Battery low") {
+        pendant(with { $0.batteryPercent = Observed(12, at: now.addingTimeInterval(-6)) })
     }
 
-    #Preview("Charging") {
+    #Preview("Sending audio") {
         pendant(
             with {
-                $0.batteryPercent = Observed(46, at: now.addingTimeInterval(-6))
-                $0.charging = Observed(.charging, at: now.addingTimeInterval(-6))
-            })
+                $0.sync = .downloading(DrainProgress(expected: 3_400, received: 2_300, settled: 2_176))
+                $0.backlog = Observed(Backlog(pages: 3_400, estimatedDuration: .seconds(2_520)), at: now)
+            },
+            uploads: UploadStatus(unsent: .seconds(240), sentThrough: now.addingTimeInterval(-600), heardThrough: now))
+    }
+
+    #Preview("No pendant") {
+        pendant(
+            {
+                var status = CaptureStatus(); status.connection = .scanning; return status
+            }(),
+            uploads: nil, known: false)
     }
 
     #Preview("Bluetooth off") {
@@ -199,51 +174,31 @@
             })
     }
 
-    #Preview("Busy elsewhere") {
-        pendant(
-            with {
-                $0.connection = .busyElsewhere(UUID())
-                $0.recording = .unknown
-            })
-    }
-
-    #Preview("Incident present") {
-        pendant(
-            healthy,
-            incidents: [
-                IncidentItem(
-                    id: 1, kind: .replayConflict, index: 1_204, detail: "device time differs",
-                    recordedAt: now.addingTimeInterval(-600))
-            ])
-    }
-
-    #Preview("Notifications invite") { pendant(healthy, invite: true) }
-
-    #Preview("Omi resting, frees on delivery") {
+    #Preview("Incident and Omi custody") {
         pendant(
             with {
                 $0.connection = .resting(UUID())
                 $0.deviceKind = .omi
                 $0.firmwareRevision = "3.0.21"
-            }, pairedKind: .omi)
+            },
+            incidents: [
+                IncidentItem(
+                    id: 1, kind: .replayConflict, index: 1_204, detail: "device time differs",
+                    recordedAt: now.addingTimeInterval(-600))
+            ], pairedKind: .omi)
     }
 
-    #Preview("Resume pending") {
-        pendant(
-            with {
-                $0.recording = .resumeRequested(pendingSince: now.addingTimeInterval(-2))
-                $0.lastKnownRecording = Observed(.paused, at: now.addingTimeInterval(-20))
-            })
+    #Preview("Replace") {
+        Color.clear.sheet(isPresented: .constant(true)) { ReplaceSheet {} }
+            .environment(CaptureStore.preview())
+            .previewSync()
+            .preferredColorScheme(.dark)
     }
 
-    #Preview("Bluetooth off, large text") {
-        pendant(
-            with {
-                $0.connection = .bluetoothOff
-                $0.recording = .unknown
-            }
-        )
-        .dynamicTypeSize(.accessibility2)
+    #Preview("Pair") {
+        Color.clear.sheet(isPresented: .constant(true)) { PairPendantSheet() }
+            .environment(CaptureStore.preview())
+            .preferredColorScheme(.dark)
     }
 
     #Preview("Interactive, simulated Pendant") {

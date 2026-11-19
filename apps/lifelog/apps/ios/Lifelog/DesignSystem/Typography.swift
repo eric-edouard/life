@@ -29,6 +29,8 @@ struct TypeStep: Equatable {
     static let lead = TypeStep(size: 17, weight: 500, style: .body)
     static let leadBold = TypeStep(size: 17, weight: 600, style: .body)
     static let body15 = TypeStep(size: 15, weight: 450, style: .body)
+    /// Text that matters inside a card or a block: the thing to do.
+    static let bodyStrong = TypeStep(size: 15, weight: 600, style: .body)
     /// Secondary text: a context, what a problem means, a row's value.
     static let note = TypeStep(size: 14, weight: 450, style: .footnote)
     /// Every button's label.
@@ -38,8 +40,8 @@ struct TypeStep: Equatable {
     static let small = TypeStep(size: 13, weight: 500, style: .footnote)
     /// A link: `small` at 600.
     static let smallStrong = TypeStep(size: 13, weight: 600, style: .footnote)
-    /// The small capitals over a block.
-    static let label = TypeStep(size: 11, weight: 600, style: .caption2)
+    /// The small label over a block.
+    static let label = TypeStep(size: 13, weight: 600, style: .footnote)
     /// The number in a badge.
     static let badge = TypeStep(size: 11, weight: 700, style: .caption2)
 
@@ -76,20 +78,19 @@ extension View {
     /// Text in a step of the type scale.
     func font(_ step: TypeStep) -> some View { modifier(TypeModifier(step: step)) }
 
-    /// A small label in capitals with wide letter spacing (11 point, 600, 0.22em).
-    func label(tracking: CGFloat = 0.22) -> some View {
-        font(.label).tracking(tracking * 11).textCase(.uppercase)
-    }
+    /// A small label over a block: sentence case, 13 point, 600.
+    func label() -> some View { font(.label) }
 
-    /// The soft glow of the bold line in dark; none in light.
-    func lit() -> some View { modifier(Lit()) }
+    /// The soft glow of the bold line in dark; none in light, or when `isOn` is false.
+    func lit(_ isOn: Bool = true) -> some View { modifier(Lit(isOn: isOn)) }
 }
 
 private struct Lit: ViewModifier {
+    let isOn: Bool
     @Environment(\.colorScheme) private var scheme
 
     func body(content: Content) -> some View {
-        if scheme == .dark {
+        if isOn && scheme == .dark {
             content.shadow(color: Palette.fg.opacity(0.5), radius: 7).shadow(
                 color: Palette.fg.opacity(0.26), radius: 26)
         } else {
