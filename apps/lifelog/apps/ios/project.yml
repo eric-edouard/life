@@ -14,7 +14,8 @@ settings:
     DEVELOPMENT_TEAM: FA22AU429R
     LIFELOG_BUNDLE_ID: com.ericedouard.lifelog
     CODE_SIGN_STYLE: Automatic
-    # The widget extension's versions must match the app's.
+    # The build number every target's Info.plist reads, so the extensions and the watch match the app. "1" only where
+    # nothing passes one: install-phone.ts passes the UTC build time (YYYYMMDD.HHMM), the one place it is computed.
     CURRENT_PROJECT_VERSION: "1"
     MARKETING_VERSION: "1.0"
     SWIFT_VERSION: "6.0"
