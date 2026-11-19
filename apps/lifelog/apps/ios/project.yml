@@ -36,6 +36,7 @@ targets:
       - target: LifelogWidgets
       - target: LifelogWatch
       - target: LifelogNotificationService
+      - target: LifelogNotificationContent
       - package: LifelogKit
         product: Capture
       - package: LifelogKit
@@ -184,6 +185,31 @@ targets:
         com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
         # The app's own Keychain group, first: the app's tokens are there, and a new item goes to the first listed.
         keychain-access-groups: [$(AppIdentifierPrefix)$(LIFELOG_BUNDLE_ID)]
+  # A card's expanded notification: its own answers as buttons (`NotificationViewController`), from the card it carries.
+  LifelogNotificationContent:
+    type: app-extension
+    platform: iOS
+    sources: [NotificationContent]
+    dependencies:
+      - package: LifelogKit
+        product: LifeConnector
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID).notification-content
+        PRODUCT_NAME: LifelogNotificationContent
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: lifelog
+    info:
+      path: NotificationContent/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: en
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.usernotifications.content-extension
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationViewController
+          NSExtensionAttributes:
+            UNNotificationExtensionCategory: life.card
+            UNNotificationExtensionInitialContentSizeRatio: 0.01
   # The Watch: the glance the iPhone relays (`WatchRelay`), as complications and a remote (Record/Pause, Split).
   LifelogWatch:
     type: application
