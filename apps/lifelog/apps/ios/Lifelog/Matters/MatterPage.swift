@@ -20,20 +20,24 @@ struct MatterPage: View {
         .background(Palette.bg)
         // Back on the left, the Pendant alone on the right; beside the list too, never in the side column.
         .shellBar("Matter", hasSettings: false)
-        .task { await life.refreshMatter(id) }
+        .task(id: life.answersEnded) { await life.refreshMatter(id) }
+        .onDisappear { Task { await life.sendHeld() } }
     }
 
     private func page(_ matter: Matter) -> some View {
         let row = matter.row
-        let open = life.inbox.value?.checks.first { $0.matter?.id == id }
+        // His decisions and Life's offer of an agent open as asks on this page (the ask the inbox shows); Life's other
+        // questions are rows he can answer in place.
+        let opening = matter.checks.filter { $0.group == .decision || $0.group == .newMatter }
+        let questions = matter.checks.filter { $0.group != .decision && $0.group != .newMatter }
         // Life lists the active one first, else the newest past one: an ended agent shows how it ended.
         let agent = matter.agents.first
         let canStart = agent?.isOver ?? true
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(matter)
+                asks(opening: opening, questions: questions)
                 GoalAndNext(matter: matter)
-                if let open { CardLink(check: open) { router.answer(card: open.ref) } }
                 if let agent {
                     AgentBlock(agent: agent, waitsOnYou: row.needsYou)
                 } else {
@@ -55,6 +59,37 @@ struct MatterPage: View {
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth().background(Palette.bg)
         }
+    }
+
+    /// What waits on him here, under the name: each decision, or offer of an agent, as a row that opens its ask on this page, then Life's own
+    /// questions, answered on the row (four seconds to undo) or opened by a tap.
+    @ViewBuilder private func asks(opening: [Check], questions: [Check]) -> some View {
+        RowGroup {
+            ForEach(opening) { check in
+                Button {
+                    router.matterPath.append(check.ref)
+                } label: {
+                    Row(title: check.question, detail: check.deadline.map(byLine)) {
+                        StateDot(color: Palette.flag)
+                        RowValue()
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        RowGroup {
+            ForEach(questions) { check in
+                QuestionRow(check: check, open: { router.matterPath.append(check.ref) }) { option in
+                    if let request = check.answer(option) { life.hold(request, as: option.label) }
+                }
+            }
+        }
+        .motion(Motion.standard, value: questions.map(\.ref))
+        .motion(Motion.standard, value: life.held)
+    }
+
+    private func byLine(_ deadline: Date) -> String {
+        "By \(deadline.formatted(.dateTime.weekday(.abbreviated).hour().minute()))"
     }
 
     private func header(_ matter: Matter) -> some View {
@@ -153,28 +188,6 @@ private struct EditableLine: View {
     }
 }
 
-/// A card of his waiting on this matter.
-private struct CardLink: View {
-    let check: Check
-    let answer: () -> Void
-
-    var body: some View {
-        Button(action: answer) {
-            HStack(spacing: 12) {
-                Caps("1 card", color: Palette.flag)
-                Text(check.question).font(.lead).foregroundStyle(Palette.fg).lineLimit(2)
-                Spacer(minLength: 4)
-                Text("Answer \(Image(systemName: "chevron.right"))").font(.rowName).foregroundStyle(
-                    Palette.fg)
-            }
-            .padding(.horizontal, 18).padding(.vertical, 16)
-            .overlay { RoundedRectangle(cornerRadius: Metrics.Radius.card).strokeBorder(Palette.flag, lineWidth: 1.5) }
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 // MARK: Agent
 
 private struct NoAgent: View {
@@ -185,10 +198,7 @@ private struct NoAgent: View {
                 .font(.body15).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
         }
         .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-        .overlay {
-            RoundedRectangle(cornerRadius: Metrics.Radius.card).strokeBorder(
-                Palette.line, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-        }
+        .background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.card))
     }
 }
 
