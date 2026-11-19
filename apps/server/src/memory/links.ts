@@ -84,7 +84,7 @@ export function subjectWorkOf(
     isLater(o, l) && !judged.has(`${o.id} ${l.id}`);
   const due = later
     .filter((l) => open.some((o) => isDue(o, l)))
-    .toSorted((a, b) => b.at.localeCompare(a.at));
+    .toSorted((a, b) => b.at.localeCompare(a.at) || a.id.localeCompare(b.id));
   const dueOpen = open.filter((o) => due.some((l) => isDue(o, l)));
   return due.length > 0
     ? {
@@ -101,8 +101,11 @@ export function nightOf(work: SubjectWork[]) {
   const callsOf = (w: SubjectWork) => Math.ceil(w.open.length / OPEN_MAX);
   let room = NIGHT_CALLS;
   return work
-    .toSorted((a, b) =>
-      (b.chunks[0]?.[0]?.at ?? "").localeCompare(a.chunks[0]?.[0]?.at ?? "")
+    .toSorted(
+      (a, b) =>
+        (b.chunks[0]?.[0]?.at ?? "").localeCompare(
+          a.chunks[0]?.[0]?.at ?? ""
+        ) || a.subject.localeCompare(b.subject)
     )
     .flatMap((w) => {
       const each = callsOf(w);
