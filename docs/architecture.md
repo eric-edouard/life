@@ -64,8 +64,9 @@ flowchart LR
   its own words, the history it quotes left out (`ownWordsOf`). Apple Health and Photos units can make episodes: each workout
   and night has its own bounds, a photo-day its lines of photos at a place (with a local model's description of each photo, `models/describer.ts`; each photo is also a search passage). They remain activity (`isActivity`): never extracted, importance at most 1.
   Like other episodes, they become Past calendar events and memory claims; episodes are never asked as checks (nothing is drawn any more).
-- **Observations** (`extract.ts`): extraction reads an episode's units together, with earlier facts shown as a reading to
-  correct, never as evidence. Every quote is checked against its source (`quote-check.ts`). Extraction is the only step
+- **Observations** (`extract.ts`): extraction reads an episode's units not read yet together, the ones read already shown as earlier facts, and a chat or
+  mail thread that only grew is read again as text with only the facts of its new lines kept: each unit once, each line
+  once. Earlier facts are a reading to correct, never evidence. Every quote is checked against its source (`quote-check.ts`). Extraction is the only step
   that retires an observation, besides the owner's word that one is outdated (a fact-check answer or an `outdated`
   correction).
 - **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
