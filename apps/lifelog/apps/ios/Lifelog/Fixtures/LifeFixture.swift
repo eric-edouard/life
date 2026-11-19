@@ -350,19 +350,30 @@
             "id": "matter_kitchen", "name": "Kitchen quote, Halden house",
         ]
 
-        /// A guess Life asks beside a draft to a person it only guesses (`confirm`), and about a matter's person.
+        /// A guess Life asks beside a draft to a person it only guesses (`confirm`), and about a matter's person: the
+        /// network's name for them, their number and their newest message, and the words it rests on.
         private static func guess(_ ref: String, name: String, handle: String, matter: [String: Any]? = nil)
             -> [String: Any]
         {
             check(
                 ref, group: "guessed person", title: "A name Life can’t place: “\(handle)”, on WhatsApp",
-                question: "Life thinks this is \(name), a supplier",
+                question: "Is this \(name.split(separator: " ")[0])?",
                 options: [
-                    option("this-is", "It is them"), option("not-this-person", "Not them"),
-                    option("same-person", "Someone Life already knows", takes: "person"),
+                    option("this-is", "Yes"), option("not-this-person", "No"),
+                    option("same-person", "Someone else…", takes: "person"),
                 ],
-                matter: matter,
-                extra: ["evidence": ["from": "~ \(handle), WhatsApp", "quote": "Bonjour, c’est \(handle)."]])
+                matter: matter, context: "The same number is in his mail, and the chat opens with that name.",
+                extra: [
+                    "evidence": ["from": "\(name), mail, 9 Nov", "quote": "Mon numéro pro : 06 39 98 01 23"],
+                    "networkIdentity": [
+                        "network": "WhatsApp", "handle": "+33 6 39 98 01 23", "shownName": handle,
+                        "chat": "33639980123@s.whatsapp.net", "openUrl": "https://wa.me/33639980123",
+                        "newest": [
+                            "at": at(17, 9, 14), "by": handle,
+                            "text": "Bonjour, c’est Idris. Le prix du fournisseur arrive vendredi.",
+                        ],
+                    ],
+                ])
         }
 
         /// In the server's own order (`inboxRankOf`): what blocks (decisions, voices, names, Contacts cards), then what
@@ -516,34 +527,40 @@
                         "onMatters": [table],
                     ]),
                 check(
-                    "person:con_cam", group: "contacts card", urgency: "blocks", title: "Place a Contacts card",
-                    question: "Is this Camille or Cam?",
-                    options: [option("same-person", "Choose who…", takes: "person")],
+                    "person:con_marc", group: "contacts card", urgency: "blocks", title: "Place a Contacts card",
+                    question: "Whose contact is this?",
+                    options: [option("same-person", "Someone else…", takes: "person")],
                     context: "Its name and handles fit more than one person.",
                     extra: [
-                        "contactsCard": ["name": "Cam", "handles": ["+33600000009"]],
+                        "contactsCard": ["name": "Marc", "handles": ["+33 6 39 98 02 14"]],
                         "likelyPeople": [
-                            ["name": "Camille Vance", "person": "person:camille"],
-                            ["name": "Cam Ortiz", "person": "person:cam"],
+                            ["name": "Marc Delmas", "person": "person:marc", "line": "Fitter, works with Idris Benali"],
+                            ["name": "Marc Roux", "person": "person:marc_roux", "line": "Camille’s brother"],
                         ],
                     ]),
                 check(
                     "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
-                    question: "Start an agent on this? A table for eight at Chez Odile on Friday 27th.",
+                    question: "Start an agent on this?",
                     options: [
                         option("start", "Start"), option("edit-goal", "Edit goal", takes: "note"),
                         option("dismiss", "No"),
                     ],
                     matter: table,
                     context: "Camille proposed Chez Odile on Saturday; you said you would handle it.",
-                    extra: ["goal": "A table for eight at Chez Odile on Friday 27th."]),
+                    extra: [
+                        "goal": "A table for eight at Chez Odile on Friday 27th.",
+                        "said": [
+                            "at": at(14, 18), "by": "Camille Vance", "channel": "whatsapp", "to": "Camille Vance",
+                            "text": "On réserve chez Odile vendredi ?",
+                        ],
+                    ]),
                 guess("guess_idris", name: "Idris Benali", handle: "Idris B.", matter: kitchen),
                 check(
                     "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
                     question: "Is this Camille?",
                     options: [
-                        option("this-is", "It is them"), option("not-this-person", "Not them"),
-                        option("same-person", "Someone Life already knows", takes: "person"),
+                        option("this-is", "Yes"), option("not-this-person", "No"),
+                        option("same-person", "Someone else…", takes: "person"),
                     ],
                     extra: [
                         "evidence": ["from": "WhatsApp, Mon 9 Nov", "quote": "Cam: on se voit samedi au marché ?"],
@@ -554,7 +571,7 @@
                     ]),
                 check(
                     "end_done", group: "ending", title: "Idris Benali owed Sam the supplier price",
-                    question: "Is this done? Idris Benali owed Sam the supplier price",
+                    question: "Is this done?",
                     options: [option("outdated", "Yes, done"), option("false", "Not yet")], matter: kitchen,
                     context: "He wrote the price on Tuesday; nothing in the matter has changed since.",
                     extra: [

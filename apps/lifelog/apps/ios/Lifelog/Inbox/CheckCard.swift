@@ -49,7 +49,8 @@ struct CheckCard: View {
         }
         .sheet(isPresented: $input.showsWhy) {
             WhySheet(
-                title: askLinks.first?.title ?? "Why?", context: check.context, around: check.around,
+                title: askLinks.first?.title ?? "Why?", context: check.context,
+                evidence: isIdentityShown ? check.evidence : nil, around: check.around,
                 link: check.links.first, runtime: runtimeName
             )
             .sheetStack()
@@ -64,17 +65,26 @@ struct CheckCard: View {
 
     // MARK: Under the question
 
+    /// A guessed person with the chat the network shows them in: that is the thing, and the words Life read them from
+    /// are behind "Why <name>?".
+    private var isIdentityShown: Bool { check.group == .guessedPerson && check.networkIdentity != nil }
+
+    /// The words the ask rests on, when no sentence or identity already says them.
+    private var shownEvidence: Check.Evidence? { check.said == nil && !isIdentityShown ? check.evidence : nil }
+
+    /// Whether a field of the ask has a body of its own to draw.
+    private var hasBody: Bool {
+        check.draft != nil || shownEvidence != nil || !check.clips.isEmpty || check.said != nil || isIdentityShown
+            || check.contactsCard != nil || (check.group == .newMatter && check.goal != nil)
+    }
+
     /// An ask with nothing of its own to show but its context shows that as the thing.
     private var contextThing: String? {
-        guard check.draft == nil, check.evidence == nil, check.clips.isEmpty, !isContextBeside,
-            let context = check.context, !context.isEmpty
-        else { return nil }
+        guard !hasBody, !isContextBeside, let context = check.context, !context.isEmpty else { return nil }
         return context
     }
 
-    private var hasThing: Bool {
-        check.draft != nil || check.evidence != nil || !check.clips.isEmpty || contextThing != nil
-    }
+    private var hasThing: Bool { hasBody || contextThing != nil }
 
     /// The thing on `tile`: his own words while he writes them, else what the ask is about; no tile when it has nothing.
     /// The tile hugs the thing and scrolls (from its start) only when the thing is taller than the room.
@@ -106,7 +116,19 @@ struct CheckCard: View {
             DraftBlock(
                 draft: draft, identity: check.networkIdentity, isGuess: !(check.confirm ?? []).isEmpty, isBoxed: false)
         }
-        if let evidence = check.evidence { EvidenceBlock(evidence: evidence) }
+        switch check.group {
+        case .ending: EndingBlock(said: check.said, since: check.since)
+        case .newMatter:
+            NewMatterBlock(goal: check.goal, said: check.said) {
+                input.words = check.goal ?? ""
+                input.isWritingOwnWords = true
+            }
+        default:
+            if let said = check.said { SaidBlock(said: said) }
+        }
+        if isIdentityShown, let identity = check.networkIdentity { PersonIdentityBlock(identity: identity) }
+        if let card = check.contactsCard { ContactsCardBlock(card: card) }
+        if let evidence = shownEvidence { EvidenceBlock(evidence: evidence) }
         if !check.clips.isEmpty { ClipBlock(clips: check.clips) }
         if let contextThing {
             Text(contextThing).font(.quote).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
@@ -134,10 +156,14 @@ struct CheckCard: View {
         if check.group == .voice {
             if hasLines { links.append(AskLink(title: "Before and after") { input.showsWhy = true }) }
         } else if !isContextBeside, !check.links.isEmpty || (contextThing == nil && !(check.context ?? "").isEmpty) {
-            links.append(AskLink(title: check.draft == nil ? "Why?" : "Why this reply?") { input.showsWhy = true })
+            links.append(AskLink(title: whyTitle) { input.showsWhy = true })
         }
         if isAgentQuestion { links.append(AskLink(title: "Tell the agent…") { input.isWritingOwnWords = true }) }
         return links
+    }
+
+    private var whyTitle: String {
+        check.draft != nil ? "Why this reply?" : check.personCalled.map { "Why \($0)?" } ?? "Why?"
     }
 
     private var isRowShown: Bool {
@@ -192,6 +218,8 @@ private struct LinkBesideMatter: PreferenceKey {
 private struct WhySheet: View {
     let title: String
     let context: String?
+    /// The words Life read a guessed person from.
+    let evidence: Check.Evidence?
     /// The lines of the conversation around a clip, when its ask holds them.
     let around: Check.Around?
     let link: String?
@@ -208,6 +236,7 @@ private struct WhySheet: View {
                     Text(context).font(.body15).foregroundStyle(Palette.fg).fixedSize(
                         horizontal: false, vertical: true)
                 }
+                if let evidence { EvidenceBlock(evidence: evidence) }
                 if let around {
                     ForEach(Array((around.before + around.after).enumerated()), id: \.offset) { _, said in
                         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
@@ -229,71 +258,6 @@ private struct WhySheet: View {
 }
 
 // MARK: Bodies
-
-/// The exact message he approves: who and where in its head (the network's mark, "Name, WhatsApp", and under it the
-/// number when the name is only Life's guess), the message it answers in a small box, the words.
-struct DraftBlock: View {
-    let draft: Check.Draft
-    /// The chat as its network shows it.
-    var identity: Check.NetworkIdentity?
-    /// The person is only Life's guess: the head shows the network's name for them, with a "~" and the number.
-    var isGuess = false
-    /// On paper of its own (after an answer); in an ask it sits on the thing's `tile` with no box.
-    var isBoxed = true
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            head
-            if let subject = draft.subject {
-                Text(subject).font(.buttonLabel).foregroundStyle(Palette.fg)
-            }
-            if let quoted = draft.quoted {
-                Text("“\(quoted.text)”").font(.body15).foregroundStyle(Palette.muted).lineLimit(3)
-                    .padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.tile))
-            }
-            if let text = draft.text {
-                Text(text).font(.quote).foregroundStyle(Palette.fg).fixedSize(
-                    horizontal: false, vertical: true)
-            }
-            if let reaction = draft.reaction { Text(reaction).font(.system(size: 34)) }
-            if let file = draft.file {
-                Label("\(file.name) · \(file.size.formatted(.byteCount(style: .file)))", systemImage: "doc")
-                    .font(.body15).foregroundStyle(Palette.fg)
-            }
-        }
-        .padding(isBoxed ? Metrics.Spacing.l : 0)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(isBoxed ? Palette.paper : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
-        .accessibilityElement(children: .combine)
-    }
-
-    private var head: some View {
-        let name = isGuess ? "~ " + (identity?.shownName ?? draft.to) : draft.to
-        return HStack(alignment: .top, spacing: Metrics.Spacing.s) {
-            NetworkMark(network: draft.channel)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(name), \(ActionCopy.channel(draft.channel))").font(.buttonLabel).foregroundStyle(Palette.fg)
-                if isGuess, let handle = identity?.handle { Text(handle).font(.small).foregroundStyle(Palette.muted) }
-            }
-        }
-    }
-}
-
-/// The words a card rests on, and where they came from.
-private struct EvidenceBlock: View {
-    let evidence: Check.Evidence
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-            Text(evidence.from).font(.small).foregroundStyle(Palette.muted)
-            Text("“\(evidence.quote)”").font(.quote).foregroundStyle(Palette.fg)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-    }
-}
 
 /// The clips of a voice to name, on the thing's tile, each played from the server's cut of its recording.
 private struct ClipBlock: View {

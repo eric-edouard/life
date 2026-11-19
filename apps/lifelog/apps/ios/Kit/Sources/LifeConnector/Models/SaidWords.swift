@@ -13,6 +13,11 @@ public enum SaidWords {
             + date.formatted(Date.FormatStyle(locale: locale, timeZone: timeZone).hour().minute())
     }
 
+    /// Up to two capitals: "Marc Delmas" gives "MD"; a leading "~" (Life's guess) is not a name.
+    public static func initials(_ name: String) -> String {
+        String(name.split(separator: " ").filter { $0 != "~" }.prefix(2).compactMap(\.first)).uppercased()
+    }
+
     /// An instant (`2026-11-14T10:00:00Z`) or a day (`2026-11-14`) as Life writes `at`.
     static func parse(_ at: String, timeZone: TimeZone) -> (date: Date, isDay: Bool)? {
         if at.count == 10 {
@@ -54,9 +59,4 @@ extension Check {
         guard group == .guessedPerson, question.hasPrefix("Is this "), question.hasSuffix("?") else { return nil }
         return String(question.dropFirst("Is this ".count).dropLast())
     }
-}
-
-extension Check.Person {
-    /// Up to two capitals: "Marc Delmas" gives "MD".
-    public var initials: String { String(name.split(separator: " ").prefix(2).compactMap(\.first)).uppercased() }
 }

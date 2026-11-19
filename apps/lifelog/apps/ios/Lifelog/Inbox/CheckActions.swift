@@ -81,10 +81,28 @@ struct CheckActions: View {
         let run: () -> Void
     }
 
+    /// The options the answers draw: a new matter's goal edit is the goal's pencil, never an answer.
+    private var shown: [Check.Option] {
+        check.options.filter { !(check.group == .newMatter && $0.takes == .note) }
+    }
+
+    /// The people a Contacts card may be, each one tap away.
+    private var people: [Check.Person] { check.group == .contactsCard ? check.likelyPeople : [] }
+
     @ViewBuilder private var options: some View {
-        if let first = check.options.first {
+        if !people.isEmpty {
+            ForEach(people, id: \.person) { person in
+                Button {
+                    if let request = check.answer(naming: .person(person.person)) { answer(request) }
+                } label: {
+                    PersonAnswer(person: person)
+                }
+                .buttonStyle(PersonAnswerStyle())
+            }
+            others(shown.map { option in Choice(id: option.id, label: label(of: option)) { tap(option) } })
+        } else if let first = shown.first {
             Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
-            let rest = check.options.dropFirst().map { option in
+            let rest = shown.dropFirst().map { option in
                 Choice(id: option.id, label: label(of: option)) { tap(option) }
             }
             if !rest.isEmpty { others(rest) }
@@ -123,16 +141,12 @@ struct CheckActions: View {
         }
     }
 
-    /// One tap answers; an option that takes a note opens his words (a new matter's goal, ready to edit), one that names
-    /// someone opens "Same as…".
+    /// One tap answers; an option that names someone opens "Same as…".
     private func tap(_ option: Check.Option) {
         if let request = check.answer(option) { return answer(request) }
         switch option.takes {
-        case .note?:
-            input.words = check.goal ?? ""
-            input.isWritingOwnWords = true
         case .person?, .personOrName?: sameAs()
-        case .unknown?, nil: break
+        case .note?, .unknown?, nil: break
         }
     }
 }

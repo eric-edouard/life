@@ -32,9 +32,9 @@ private func said(_ json: String) throws -> Check.Said {
     #expect(SaidWords.moment(Date(timeIntervalSince1970: 1_795_111_200), locale: english, timeZone: utc) == "Thu 19 Nov, 18:00")
 }
 
-@Test func aPersonIsCalledByTheQuestionAndHasInitials() throws {
-    let json = #"{"name":"Marc Delmas","person":"person:marc"}"#
-    #expect(try JSONDecoder().decode(Check.Person.self, from: Data(json.utf8)).initials == "MD")
+@Test func initialsAreTwoCapitalsWithoutTheGuessMark() {
+    #expect(SaidWords.initials("Marc Delmas") == "MD")
+    #expect(SaidWords.initials("~ Idris B.") == "IB")
 }
 
 @Test func aGuessedPersonQuestionNamesWhoForTheWhyLink() throws {
