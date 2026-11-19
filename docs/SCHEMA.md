@@ -285,7 +285,7 @@ titles (schemaVersion 2, with `recommended` and `why`; none in his data on 18 No
 
 The links step's judged batches (`memory/links.ts`), one line each, append-only:
 `subject` (a matter's id, `matter_<12 hex>`, since v2; the first lines hold a `person:<id>` from v1, still read), `open` (the ids
-of the matter's open steps shown: promises, waits and his to-dos), `offered` (the ids of its later records judged (`laterRecordsOf`; since v3 also its people's notes no matter holds; a full matter's wherever held, `isOutOfReach`)
+of the matter's open steps shown: promises, waits and his to-dos), `offered` (the ids of its later records judged (`laterRecordsOf`, `memory/matter-read.ts`; since v3 also its people's notes no matter holds; a full matter's wherever held, `isOutOfReach`)
 against those), `links` (each `earlier`, `later` (an observation id, or an episode id), `relation` `ends`, and `quote`,
 words found in the later step's own quote), `at`, `madeBy`,
 `schemaVersion`. A pair in a line is not judged again by the same prompt, whatever the subject (`madeBy.prompt`; a new prompt asks every still-open step again). A link deletes nothing: what it ends is worked out when read
@@ -308,9 +308,9 @@ its steps only, never a status. What is open, a matter's status, newest open ste
 
 Life's drafts of the matters' directions (`memory/matter-directions.ts`, its only writer), one line per call,
 append-only: `directions` (each `goal`, one line: where the matter is going; `nextStep`, what moves it now: `kind`
-`do`, `wait_event` or `wait_owner`, `text`, one line, and `waitsOn`, what a wait waits on; `steps`, the matter's step
+`do`, `wait_event` or `wait_owner`, `text`, one line, and `waitsOn`, what a wait waits on (since v2 `nextStep` is optional: a matter that looks over has none and gives `endingRecords` instead, at most 3 ids of later records, possibly none, which the links step then reaches; exactly one of the two); `laterShown` (since v2, optional: the ids of the later records the draft was shown, the newest 12; a line without it is a blind one); `steps`, the matter's step
 ids when drafted: the pin, never its id, so a re-group keeps it), `at`, `madeBy`, `schemaVersion`. A running matter is
-drafted when it has none, or once it has a step, or a step's ending, newer than its latest next step
+drafted when it has none, or once it has a step, or a step's ending, newer than its latest pin, or, when that is Life's, once when it has no `laterShown`, or in its first 7 days (`NEW_MATTER_DAYS`) when one of its newest 12 later records is not in `laterShown`
 (`isDirectionDue`), whatever the prompt version. Read with his `matter-direction` corrections into each matter's
 `goal` and `nextStep` (`directionsOf`, `memory/matter-read.ts`): a pin belongs to the matter holding the most of its
 steps (`matterFinderOf`); his goal wins over every draft, his next step until the next draft. `wait_decision` (his decision open on one of
