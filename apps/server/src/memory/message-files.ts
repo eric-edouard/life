@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { z } from "zod";
+import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
@@ -333,13 +334,24 @@ export async function describeFiles(
   }
 }
 
-/** How many contents the model described on `day`, by their hash (one content met under several refs counts once). */
-const describedOn = (known: ReadonlyMap<string, FileEntry>, day: string) =>
-  new Set(
+/**
+ * How many contents the model described on `day`, by their hash (one content met under several refs counts once). Only
+ * lines whose run id starts within a day of `day` reach `localDate` (a zone can shift the day by one), so a long ledger costs a prefix check each.
+ * The night's runs count too (a 3am night describing yesterday's files spends today's): the limit is a ceiling on a
+ * day's spend, whoever spent it, and the night's leftovers are few.
+ */
+const describedOn = (known: ReadonlyMap<string, FileEntry>, day: string) => {
+  const near = new Set([daysBefore(day, 1), day, daysBefore(day, -1)]);
+  return new Set(
     [...known.values()].flatMap((e) =>
-      e.madeBy && localDate(runAt(e.madeBy.run)) === day ? [e.hash] : []
+      e.madeBy &&
+      near.has(e.madeBy.run.slice(0, 10)) &&
+      localDate(runAt(e.madeBy.run)) === day
+        ? [e.hash]
+        : []
     )
   ).size;
+};
 
 /**
  * The events whose files arrival describes now, cut to those files: readable, with no current line (`known`) and not
@@ -352,15 +364,20 @@ export function filesDueOnArrival(
   attempted: ReadonlySet<string>,
   day = dayNow()
 ) {
+  const due = events.flatMap((e) => {
+    const files = (e.files ?? []).filter(
+      (f) =>
+        readable(f) && !isCurrent(known.get(f.ref)) && !attempted.has(f.ref)
+    );
+    return files.length > 0 ? [{ ...e, files }] : [];
+  });
+  // Nothing due: nothing counted (the ledger is not walked every tick).
   return {
-    atMost: Math.max(0, FILES_ON_ARRIVAL_A_DAY - describedOn(known, day)),
-    due: events.flatMap((e) => {
-      const files = (e.files ?? []).filter(
-        (f) =>
-          readable(f) && !isCurrent(known.get(f.ref)) && !attempted.has(f.ref)
-      );
-      return files.length > 0 ? [{ ...e, files }] : [];
-    }),
+    atMost:
+      due.length === 0
+        ? 0
+        : Math.max(0, FILES_ON_ARRIVAL_A_DAY - describedOn(known, day)),
+    due,
   };
 }
 
@@ -369,7 +386,7 @@ const triedOnArrival = new Set<string>();
 
 /**
  * Describes the files of today's `events` that have no line yet (the watcher, after each publish, never awaited by its
- * tick): nothing when none is due, the day's limit is spent or Life is offline (nothing marked then, no run logged).
+ * tick): nothing when none is due or Life is offline; with the day's limit spent it still reads what costs no model call, and describes no image (nothing marked then, no run logged).
  * ponytail: a failed file is not retried until a restart, the night takes it within its 7 days; a backoff if that matters.
  */
 export async function describeFilesOnArrival(events: SourceEvent[]) {
@@ -378,7 +395,7 @@ export async function describeFilesOnArrival(events: SourceEvent[]) {
     readFiles(),
     triedOnArrival
   );
-  if (due.length === 0 || atMost === 0 || !(await isOnline())) {
+  if (due.length === 0 || !(await isOnline())) {
     return;
   }
   const described = await describeFiles(due, { atMost });

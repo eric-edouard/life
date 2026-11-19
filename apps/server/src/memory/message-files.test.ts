@@ -229,6 +229,30 @@ test("arrival: a video, a file with no path, a known ref and an attempted ref ar
   expect(due(spent).atMost).toBe(0);
 });
 
+test("arrival: with no file due the ledger is not counted (a line the count could not read does not throw)", () => {
+  const bad = new Map([
+    [
+      "z:1",
+      {
+        ...described("z:1", hashOf("z")),
+        madeBy: { ...madeBy, run: "not-a-run" },
+      },
+    ],
+    ["z:known", described("z:known", hashOf("k"))],
+  ]);
+  const r = filesDueOnArrival(
+    [event(photo("z:known", "/a.heic"))],
+    bad,
+    new Set(),
+    DAY
+  );
+  expect(r).toEqual({ atMost: 0, due: [] });
+  // Something due: the count runs, and a line of another day never reaches localDate.
+  expect(() =>
+    filesDueOnArrival([event(photo("z:new", "/b.heic"))], bad, new Set(), DAY)
+  ).not.toThrow();
+});
+
 // A 1-pixel PNG; trailing bytes after its end make a different content that `sips` still reads.
 const PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
@@ -326,6 +350,42 @@ test.skipIf(!Bun.which("sips"))(
       ask.mockRestore();
       online.mockRestore();
       log.mockRestore();
+      rmSync(FILES, { force: true });
+      rmSync(dir, { force: true, recursive: true });
+    }
+  }
+);
+
+test.skipIf(!(Bun.which("sips") && Bun.which("textutil")))(
+  "arrival: with the day's limit spent a document is still read by code and no image goes to a model",
+  async () => {
+    const dir = mkdtempSync(join(tmpdir(), "spent-"));
+    const doc = join(dir, "note.txt");
+    writeFileSync(doc, "Plan for the trip");
+    const png = image(dir, "p.png", "spent");
+    const today = new Date().toISOString().replaceAll(":", "-");
+    writeFileSync(
+      FILES,
+      `${Array.from({ length: FILES_ON_ARRIVAL_A_DAY }, (_, i) =>
+        JSON.stringify(described(`s:${i}`, hashOf(`c${i}`), today))
+      ).join("\n")}\n`
+    );
+    const ask = spyOn(models, "askOnce");
+    const online = spyOn(models, "isOnline").mockResolvedValue(true);
+    try {
+      const r = await describeFilesOnArrival([
+        event(
+          { mime: "text/plain", name: "note.txt", path: doc, ref: "s:doc" },
+          photo("s:png", png)
+        ),
+      ]);
+      expect(ask).not.toHaveBeenCalled();
+      expect(r?.read).toBe(1);
+      expect(readFiles().get("s:doc")?.text).toBe("Plan for the trip");
+      expect(readFiles().has("s:png")).toBe(false);
+    } finally {
+      ask.mockRestore();
+      online.mockRestore();
       rmSync(FILES, { force: true });
       rmSync(dir, { force: true, recursive: true });
     }
