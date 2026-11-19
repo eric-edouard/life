@@ -1,7 +1,7 @@
 import LifeConnector
 import SwiftUI
 
-/// "Work on this": his goal in his words, who works on it, then the start as the desk reports it, stage by stage.
+/// "Work on this": his goal in his words, who works on it, then the start as Life reports it, stage by stage.
 /// The phone has no default of its own: a runtime is sent only when he picks one.
 struct StartAgentSheet: View {
     let matter: Matter

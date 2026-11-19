@@ -100,7 +100,7 @@ struct AgentSheet: View {
                     }
                     if let until = agent.wait?.until {
                         group("At the latest") {
-                            WakeListRow(lead: .symbol("clock")) {
+                            FlatRow(lead: .symbol("clock")) {
                                 Text(SaidWords.moment(until)).font(.leadBold)
                             } trailing: {
                                 Text(until.formatted(.relative(presentation: .numeric, unitsStyle: .wide)))
@@ -127,7 +127,7 @@ struct AgentSheet: View {
     /// A person or a chat: initials or the group glyph, its name, the networks at the right ("any app" for a person).
     private func wakerRow(_ waker: Waker) -> some View {
         let isBroken = waker.brokenReason != nil
-        return WakeListRow(
+        return FlatRow(
             lead: lead(of: waker), detail: waker.brokenReason, detailColor: Palette.flag, isMuted: isBroken
         ) {
             switch waker.who {
@@ -148,7 +148,7 @@ struct AgentSheet: View {
         }
     }
 
-    private func lead(of waker: Waker) -> WakeLead {
+    private func lead(of waker: Waker) -> FlatLead {
         switch waker.who {
         case .person(let name): .person(name)
         case .chat(_, let isGroup): .symbol(isGroup ? "person.2" : "bubble.left")
@@ -157,7 +157,7 @@ struct AgentSheet: View {
 
     /// One condition; his answer opens that ask on the matter, behind the sheet.
     @ViewBuilder private func clauseRow(_ clause: WakeClause) -> some View {
-        let row = WakeListRow(
+        let row = FlatRow(
             lead: .symbol(symbol(of: clause)), detail: clause.brokenReason ?? clause.aside,
             detailColor: clause.brokenReason == nil ? Palette.muted : Palette.flag, isMuted: clause.brokenReason != nil
         ) {

@@ -48,7 +48,6 @@ const CAPS: Record<string, Record<string, number>> = {
   "Inbox/CheckList.swift": {
     padding: 5,
   },
-  "Inbox/SameAsSheet.swift": {
     height: 2,
     padding: 1,
     width: 1,

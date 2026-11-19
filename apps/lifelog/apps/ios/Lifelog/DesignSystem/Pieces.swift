@@ -604,7 +604,7 @@ struct Field: View {
     }
 }
 
-/// A sheet's top: its name in thin type, and its Close.
+/// A sheet's top: its name, and its Close.
 struct SheetHeader: View {
     /// `nil` for a sheet whose first line names itself (the pendant's big word is the state).
     var title: String?

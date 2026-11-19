@@ -105,7 +105,7 @@ struct MatterPage: View {
                 )
                 .font(.body15).foregroundStyle(Palette.muted)
             }
-            Text(row.name).font(.matterTitle).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
+            Text(row.name).font(.screenName).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
         }
         .padding(.top, 8)

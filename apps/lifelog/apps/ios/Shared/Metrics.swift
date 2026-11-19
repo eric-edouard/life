@@ -19,8 +19,8 @@ enum Metrics {
         static let battery: CGFloat = 71
     }
 
-    /// A row of the agent's wake list, and the round slot that leads it.
-    enum Wake {
+    /// A flat list row (the agent's wake list, the people sheet), and the round slot that leads it.
+    enum FlatRow {
         static let row: CGFloat = 48
         static let slot: CGFloat = 32
     }
