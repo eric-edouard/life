@@ -88,6 +88,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - By Gmail, through gog, as a mail from one of his accounts: a card's draft (from, to, cc, subject, text and one file he
   approved), once, on his answer to its outgoing option. It goes to Google's Gmail API, then to its recipients; a file is
   written for a moment to a private temporary folder for gog, and removed after.
+- To GitHub, through `gh` as his account, with the `github` source on: requests for the issues and comments of the repos
+  he listed in `githubRepos`, and nothing else; and a card's draft (a comment's text, or a new issue's title and text),
+  once, on his answer to its outgoing option, into one of those repos (his yes of 19 Nov 2026).
 - To Google, when he set it: the Past calendar, the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026),
   and the to-do items with Google Tasks as the backend.
 - To his own lifelog server: his corrections about recordings, a "heard you" notice for each voice ask (the agent's

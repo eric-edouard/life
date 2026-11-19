@@ -99,7 +99,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   read-only; only the apps of enabled sources are kept open (`keptStores`). The bridges' homeserver is the buffer
   before the archive's copy: its `redaction_retention_period` stays null, its rooms are never purged and its database is
   never made again (the copy counts its event numbers) (his OK of the
-  new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026; `screen.sqlite`, 4 Nov 2026; the table `phone_calls` in `whatsapp.sqlite`, his "any architectural change" for calls, 5 Nov 2026; `phone.sqlite`, table `calls`, 10 Nov 2026; `messenger.sqlite`, his ask for the Messenger bridge, 14 Nov 2026).
+  new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026; `screen.sqlite`, 4 Nov 2026; the table `phone_calls` in `whatsapp.sqlite`, his "any architectural change" for calls, 5 Nov 2026; `phone.sqlite`, table `calls`, 10 Nov 2026; `messenger.sqlite`, his ask for the Messenger bridge, 14 Nov 2026; `github.sqlite`, the issues and comments of the repos he lists, 19 Nov 2026).
 - **Content never runs Life's code.** Recorded text never makes Life's own code act; model calls see no tools and no
   instruction files (`apps/server/src/models/llm.ts`). The one call given tools is the question cases' agent
   (`scripts/question-cases.ts`, his word of 10 Nov 2026): Codex, with Life's connector serving its reads only, and
@@ -138,7 +138,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments"). The one
   other act is a card's draft, sent on his answer (below).
 - **Life sends only a card's draft exactly as shown, on his answer to its outgoing option, into the one chat named
-  (or a new 1:1 WhatsApp chat by its number), through its own bridges, Messages.app for iMessage, or Gmail through gog for mail** (his decision of 18 Nov 2026): a draft is
+  (or a new 1:1 WhatsApp chat by its number), through its own bridges, Messages.app for iMessage, Gmail through gog for mail, or `gh` for an issue of a repo he listed in `githubRepos` (a comment, or a new issue with the subject as title; text only; his yes of 19 Nov 2026)** (his decision of 18 Nov 2026): a draft is
   text, or one file, or a reaction, with the message it replies or reacts to and the people it mentions
   (`memory/draft.ts`). Life resolves the chat when the card is asked (refused unless exactly one) and stamps what he
   sees: the chat's name, the message quoted, the file's real path, name, size and digest; the send reads only that
@@ -291,6 +291,7 @@ Before adding a helper, use the one that exists:
 | Merging two rankings (by meaning, by words) | `fuse` (`apps/server/src/core/fusion.ts`) |
 | A memory text's vector, the query's | `memory/vectors.ts` (`embedQuery`, `readNearest`; the watcher's `embedNew`); Life reaches Lifelog Host's embedder at `EMBEDDER_URL` (loopback, one constant for lifelog and Life), the one call into lifelog's side that is not its REST contract |
 | Running gog (Google Calendar, Google Tasks, Gmail send) | `gogCall` (`core/gog.ts`): nothing else spawns it |
+| Running gh (GitHub issues: the `github` source's copy and send) | `sources/github.ts`: nothing else spawns it, and it asks only the repos in `githubRepos` |
 | Running another program | `apps/server/src/core/proc.ts` |
 | His login shell's environment | `readLoginEnv` (`core/proc.ts`): only an own-Life runtime row; never logged or stored |
 | Opening a SQLite store to write (WAL, the wait first) | `openWritable` (`apps/server/src/core/sqlite.ts`), with its wait (5 s, 30 s for the index, vectors, passages and photo descriptions) |

@@ -124,7 +124,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | cutover | A row of an archive's `cutover` table: an instant from which the bridge's copy is read, appended once for the import of 30 Oct 2026 and once when a bridge takes over from Beeper (Beeper's newest message + 1 ms, `cutOverFromBeeper`). A bridge's version of a message in its own room, about a time before a cutover and written after it, is the earlier copy's and is not read (`asReadOf`). Never a migration: the archive only gains the row. | |
 | export row | A message an export's import wrote into a chat archive (Instagram's own export, `bun life import`), its `eventId` `export:<its millisecond>`: read like any message whatever the cutover, never an arrival (`EXPORT_ROW`, `sources/archived.ts`). Not an export copy: nothing of the export is kept but these rows and the files they name. | |
 | export copy | An assistant export (claude.ai or ChatGPT) Life keeps as it came in `imports/<source>/`, one per import of different bytes, never replaced or merged. Not a Life export, not the archive. | |
-| archive | Life's own copy of the WhatsApp, the bridged networks' and Notes stores, the only live copy of deleted messages and old note versions. | |
+| archive | Life's own copy of the WhatsApp, the bridged networks' and Notes stores, the only live copy of deleted messages and old note versions; also of the GitHub issues he lists. | |
+| issue (GitHub) | A chat of the `github` source: one GitHub issue of a repo in `githubRepos`, key `owner/name#12`, its title and body the first message, each comment one more (`sources/github.ts`). Not a pull request, not one of his to-do items. | |
 
 ## The memory
 
