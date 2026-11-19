@@ -140,6 +140,8 @@ test("the L is one outline: the icons', the wordmark's and the menu bar's are th
   expect([
     await outline("assets/brand/life.svg"),
     await outline("assets/icon/icon.svg"),
-    await outline("apps/lifelog/apps/ios/Lifelog/AppIcon.icon/Assets/glyph.svg"),
+    await outline(
+      "apps/lifelog/apps/ios/Lifelog/AppIcon.icon/Assets/glyph.svg"
+    ),
   ]).toEqual([l, l, l]);
 });
