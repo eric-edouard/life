@@ -75,7 +75,7 @@ function doorServer(desk: Desk, id: string) {
     );
   door(
     "set_wait",
-    "Set what you wait for before you stop: `events` (messages: `person`, `channels`, `chat`, `from_me`), `until` (5 minutes to 7 days ahead, ISO), `reason`. The desk wakes you at `until`, on a matching message, or on his answer to your decision.",
+    "Set what you wait for before you stop: `events` (filters on new messages, any one matching wakes you: `person`, `channels`, `chat`, `from_me`, `text_matches`, a regular expression on the text, any case, 200 characters at most: keep it to plain words, such as `zort|invitation`; a filter with only `text_matches` matches a message from anyone but him), `until` (5 minutes to 7 days ahead, ISO), `reason`. The desk wakes you at `until`, on a matching message, or on his answer to your decision. A wake names the message, never its text: read it yourself.",
     AgentWait,
     (w) => setWait(desk, id, w)
   );

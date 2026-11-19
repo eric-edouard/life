@@ -9,7 +9,7 @@ import { NEW_MATTER_DAYS } from "../memory/matter-read";
 import type {
   AgentChange,
   AgentStatus,
-  MessageFilter,
+  EventFilter,
 } from "../records/registered-agent";
 
 // Every read of the desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`), its rows' shapes and the rules worked out from
@@ -115,7 +115,7 @@ export const queuedEvents = (db: Database, id: string) =>
     .all(id);
 
 export const filtersOf = (a: AgentRow) =>
-  JSON.parse(a.wait_events) as MessageFilter[];
+  JSON.parse(a.wait_events) as EventFilter[];
 
 export const readCursor = (db: Database, name: string) =>
   db
