@@ -83,7 +83,10 @@ export const isNextStepOrOver = (d: {
   endingRecords?: unknown;
   nextStep?: unknown;
 }) => (d.nextStep === undefined) !== (d.endingRecords === undefined);
-const ONE_OF =
+/** How many later records a direction is shown, and compared with: the newest. */
+export const LATER_SHOWN = 12;
+
+export const ONE_OF =
   "a direction gives a next step or the records that show it is over";
 
 /**
@@ -93,7 +96,7 @@ const ONE_OF =
  * never to its id: a re-group keeps it (`directionsOf`).
  */
 export const MatterDirectionDraft = MatterDirectionFields.extend({
-  laterShown: z.array(z.string().min(1)).max(12).optional(),
+  laterShown: z.array(z.string().min(1)).max(LATER_SHOWN).optional(),
   steps: z.array(z.string().min(1)).min(1),
 })
   .strict()

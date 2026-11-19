@@ -6,6 +6,7 @@ import {
   isNextStepOrOver,
   MatterDirectionBatch,
   MatterDirectionFields,
+  ONE_OF,
 } from "../records/matter";
 import type { Observation } from "../records/observation";
 import {
@@ -94,7 +95,7 @@ const shownOf = (
 /** A reply's direction, by the call's id of its matter. */
 const Drafted = MatterDirectionFields.extend({ matter: z.string() })
   .strict()
-  .refine(isNextStepOrOver, "a next step or the records that show it over");
+  .refine(isNextStepOrOver, ONE_OF);
 
 /**
  * Drafts the directions of the matters due tonight (`dueDirectionsOf`) within the night's size, those with none first,

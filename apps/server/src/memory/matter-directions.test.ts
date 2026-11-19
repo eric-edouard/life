@@ -1,6 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
-import type { DirectionPin } from "../records/matter";
+import { type DirectionPin, MatterDirectionBatch } from "../records/matter";
 import { matterDirections } from "./matter-directions";
 import {
   directionDueOf,
@@ -411,4 +411,28 @@ test("a matter that looks over gets no next step: its draft cites only records i
     book.mockRestore();
     ask.mockRestore();
   }
+});
+
+test("a stored line of v1 (a next step, no laterShown) still parses; a draft with both a next step and endingRecords is refused", () => {
+  const draft = {
+    goal: "Sam answers",
+    nextStep: { kind: "do", text: "Ask Sam" },
+    steps: ["obs_000000000001"],
+  };
+  const line = (d: object) => ({
+    at: "2026-11-17T02:00:00.000Z",
+    directions: [d],
+    madeBy: {
+      engine: "claude",
+      model: "m",
+      prompt: "memory-matter-directions.v1",
+      run: "r",
+    },
+    schemaVersion: 1,
+  });
+  expect(MatterDirectionBatch.safeParse(line(draft)).success).toBe(true);
+  expect(
+    MatterDirectionBatch.safeParse(line({ ...draft, endingRecords: [] }))
+      .success
+  ).toBe(false);
 });

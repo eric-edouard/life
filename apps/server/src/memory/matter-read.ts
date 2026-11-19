@@ -6,7 +6,12 @@ import {
   type LedgerEntry,
   stands,
 } from "../records/ledger-entry";
-import type { DirectionPin, Matter, NextStep } from "../records/matter";
+import {
+  type DirectionPin,
+  LATER_SHOWN,
+  type Matter,
+  type NextStep,
+} from "../records/matter";
 import type { Observation } from "../records/observation";
 import { KEEP_AT, TOP_AT } from "../records/unit";
 import {
@@ -491,9 +496,6 @@ export const offerEndOf = (v: { steps: readonly { day: string }[] }) => {
   const [first] = v.steps;
   return first && daysBefore(first.day, 1 - NEW_MATTER_DAYS);
 };
-
-/** How many later records a direction is shown, and compared with: the newest. */
-export const LATER_SHOWN = 12;
 
 type LaterObservation = Pick<
   Observation,

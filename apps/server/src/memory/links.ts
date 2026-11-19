@@ -10,15 +10,9 @@ import {
   laterRecordsOf,
   type MatterStepNow,
   type MatterView,
-  matterBookOf,
   matterPeopleOf,
 } from "./matter-read";
-import {
-  isFullMatter,
-  mattersNow,
-  readMatterRecords,
-  readMatters,
-} from "./matters";
+import { isFullMatter, readMatterBookAndRecords } from "./matters";
 import { LINKS } from "./memory-files";
 import { foundQuotes } from "./quote-check";
 import { OWNER } from "./read-truth";
@@ -207,8 +201,7 @@ export const isOutOfReach = (
  * matter of one has no work. The records are read once, the book built from them.
  */
 async function readOpenMatters(people: People) {
-  const records = await readMatterRecords(people);
-  const book = matterBookOf(mattersNow(readMatters()), records, dayNow());
+  const { book, records } = await readMatterBookAndRecords(people, dayNow());
   const byId = new Map(records.observations.map((o) => [o.id, o]));
   const held = new Set(
     book.flatMap((m) => (m.lone ? [] : m.steps.map((s) => s.ref)))
