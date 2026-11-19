@@ -81,6 +81,9 @@ export const MODEL_ENV = [
   ..."HOME LANG LC_ALL LOGNAME PATH SHELL TERM TMPDIR USER".split(" "),
   ..."APPDATA LOCALAPPDATA PATHEXT SystemRoot TEMP TMP USERPROFILE".split(" "),
 ];
+/** Whether this system has a login shell whose environment can be read (`readLoginEnv`): the Mac; Windows has none. */
+export const HAS_LOGIN_SHELL = !WINDOWS;
+
 /** This process's `MODEL_ENV` variables: what a CLI Life starts gets, and nothing else. */
 export const cliEnv = () =>
   Object.fromEntries(

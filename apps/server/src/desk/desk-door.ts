@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import { isOwnLife } from "../core/platform";
 import { same, secretIn } from "../core/secret";
 import { agentOf } from "../host/desk-read";
 import { DOOR_PORT, text } from "../host/http/http";
@@ -100,7 +101,7 @@ function doorServer(desk: Desk, id: string) {
     "read_packet",
     "Your brief, your notes, the events waiting for you and your open decision.",
     z.object({}),
-    () => readPacket(desk, id)
+    () => readPacket(desk, id, isOwnLife())
   );
   return server;
 }

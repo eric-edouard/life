@@ -36,14 +36,20 @@ Life, unattended, on a message from anyone in its subject, his answer or its dea
 agent on a matter is also woken by anything new related to it (the wide net, his word of 18 Nov 2026): a message from
 one of the matter's people, or a message or recording of his close to the matter in meaning, as the Mac's embedder
 reads it (`desk/matter-net.ts`: no model call, nothing leaves the Mac). The wake hands it only the facts (which
-message or recording, when, why); it reads the words itself, as data. Its
-only guards are its runtime's permissions and his rules; Life adds none (his yes to the desk, 18 Nov 2026). Its door
+message or recording, when, why); it reads the words itself, as data. On
+his Mac and the web an agent of his own Life is free (his decision of 19 Nov 2026): the desk runs it in the runtime's
+no-ask mode, approves every ask, and gives it his login environment. It can run any command, read, change or delete any
+file, install software, browse, read his mail and messages, and read his secrets (his shell's keys, 1Password). Life's
+own Keychain secrets are not handed to it. Its one gate is his rule: anything outward in his name waits for his yes on
+the exact thing. A turn that fails keeps the adapter's last error lines in the desk's store; with his environment passed
+in, those lines may hold whatever the adapter printed. Its door
 is on loopback only; each agent's key is derived from the desk's key and reaches its session only in its environment.
 Besides the desk, Life starts no agent, except an agent's own `onAsk` command, once per new ask, with no words and none of Life's
 secrets (his OK, 3 Nov 2026), and the question cases' agent a developer's script starts to measure Life ("Models",
 above; his word, 10 Nov 2026): each pulls its own asks through the connector. An agent run is outside Life's boundary: it has
-the Mac's access (his files, his accounts). An agent sends as him only on his yes on the exact text, its own rule:
-that is policy, not enforcement, and the risk is his, accepted.
+the Mac's access (his files, his accounts). The risk that remains: an agent acting on text it read can do, alone, anything his keys allow, a send by `gog` or
+`resend` included; the gate is its instruction, not enforcement. Between that and harm stand the model's judgment, wakes
+that hand facts and never words, and Life's own send path (a card's draft, his answer). The risk is his, accepted.
 
 ## Network
 
