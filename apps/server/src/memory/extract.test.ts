@@ -1,17 +1,21 @@
 import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
-import type { Observation } from "../records/observation";
+import type { Extracted, Observation } from "../records/observation";
+import type { SourceEvent } from "../records/source";
 import type { LifelogConversation } from "../sources/lifelog";
 import {
   byDays,
   closedConversations,
+  continuedFrom,
   groupsOf,
+  isReadable,
   lanesOf,
   priorFor,
+  withoutRepeats,
 } from "./extract";
-import { episodesNow } from "./memory-files";
+import { episodesNow, standingReadings } from "./memory-files";
 import { ledger, madeBy, unit, verdict } from "./record-fixtures";
-import type { Built } from "./units";
+import { type Built, linesHashOf, messageUnits } from "./units";
 import { episodeNow } from "./who";
 
 const conversation = (id: string, closed: boolean): LifelogConversation => ({
@@ -35,6 +39,8 @@ const built = (id: string, over: Parameters<typeof unit>[0] = {}): Built => ({
   text: "",
   unit: unit({ date: "2026-10-15", id, ...over }),
 });
+/** A unit is read unless it is one of `pending`. */
+const unread = (pending: Built[]) => (b: Built) => !pending.includes(b);
 const U1 = "unit_000000000001";
 const U2 = "unit_000000000002";
 const U3 = "unit_000000000003";
@@ -80,7 +86,8 @@ test("extraction reads each unit once and no copy ever; pending units in no epis
     [b1, b3, b5],
     [...all, b5],
     ledger([...verdicts.values(), verdict(b5.unit)]),
-    episodesNow(lines, [])
+    episodesNow(lines, []),
+    unread([b1, b3, b5])
   );
   // Activity stays out of extraction even when it makes an episode or has an inflated verdict.
   for (const source of ["git", "screen", "apple-health", "photos"] as const) {
@@ -90,7 +97,8 @@ test("extraction reads each unit once and no copy ever; pending units in no epis
         [b1],
         [b1, activity],
         ledger([verdict(b1.unit), verdict(activity.unit, { importance: 3 })]),
-        episodesNow([episode({ units: [U1, activity.unit.id] })], [])
+        episodesNow([episode({ units: [U1, activity.unit.id] })], []),
+        unread([b1])
       ).groups.map((g) => g.units.map((b) => b.unit.id))
     ).toEqual([[U1]]);
   }
@@ -136,7 +144,7 @@ test("a group over the budget is cut between its days, never within one", () => 
   expect(byDays({ episode: null, sources, units: days }, 1000)).toHaveLength(1);
 });
 
-test("an episode is read whole across its days: the 16 Oct ask goes with the 17 Oct reply (production's ep_fe3f0ff093bb), not with the bigger trip, the drive back or the same-day call", () => {
+test("an episode holds only its units not read yet: the 17 Oct reply (production's ep_fe3f0ff093bb) without its 16 Oct ask, the trip or the drive back", () => {
   const ask = built("unit_e0b92ec800e1", { date: "2026-10-16" });
   const chapter = built("unit_4eecb6d5777c", { date: "2026-10-16" });
   const reply = built("unit_0fdaf120134a", { date: "2026-10-17" });
@@ -184,9 +192,10 @@ test("an episode is read whole across its days: the 16 Oct ask goes with the 17 
       pending,
       all,
       ledger(all.map((b) => verdict(b.unit))),
-      episodesNow(lines, [])
+      episodesNow(lines, []),
+      unread(pending)
     ).groups;
-  // Only the reply is new: the ask, read on 16 Oct, is read again with it.
+  // Only the reply is new: the ask, read on 16 Oct, stays read and comes as earlier facts.
   const groups = read([reply]);
   expect(
     groups.map((g) => [
@@ -194,17 +203,13 @@ test("an episode is read whole across its days: the 16 Oct ask goes with the 17 
       g.episode?.title,
       g.units.map((b) => b.unit.id),
     ])
-  ).toEqual([
-    [
-      pickup,
-      "Pickup",
-      [ask.unit.id, chapter.unit.id, reply.unit.id, drive.unit.id],
-    ],
-  ]);
-  // A long episode is read from the day before its first pending unit: the trip's 12 Oct units wait.
+  ).toEqual([[pickup, "Pickup", [reply.unit.id]]]);
+  // A new day of a long trip does not read the trip again: only its new unit goes in.
   expect(read([trip[4] as Built]).map((g) => ids(g.units))).toEqual([
-    ids(trip.slice(2)),
+    ids([trip[4] as Built]),
   ]);
+  // An episode with two units read and one not: the group holds that one only.
+  expect(read([drive]).map((g) => ids(g.units))).toEqual([ids([drive])]);
 });
 
 test("earlier facts for an episode: its people's from two weeks before, Jean's own from its day and the day before, a fact retired from its own units again", () => {
@@ -344,4 +349,168 @@ test("an episode read with a person folded since (`episodeNow`) offers that pers
     ).map((x) => x.id);
   expect(prior(stored)).toEqual([]);
   expect(prior(episodeNow(stored, fold))).toEqual(["ann-fact"]);
+});
+
+/** A chat unit of `texts`, as it stood when it held that many messages: its hash is the one `chatDay` gives. */
+const chat = (id: string, texts: string[]): Built => {
+  const messages = texts.map((text, n) => ({
+    at: `2026-10-15T0${n}:00:00.000Z`,
+    fromMe: n % 2 === 0,
+    id: `${id}-m${n}`,
+    known: true,
+    sender: "someone",
+    text,
+  }));
+  const b = { messages, text: "", unit: unit({ id, source: "imessage" }) };
+  return { ...b, unit: { ...b.unit, hash: linesHashOf(b, messages.length) } };
+};
+const words = ["a", "b", "c", "d", "e", "f", "g"];
+/** The line a night writes for `b` as it stands, `continues` when it continued an earlier one. */
+const read = (b: Built, over: Partial<Extracted> = {}): Extracted => ({
+  at: "2026-10-15T20:00:00.000Z",
+  lines: b.messages.length,
+  observations: 1,
+  prompt: "memory-extract.v6",
+  run: "r1",
+  schemaVersion: 1,
+  unit: b.unit.id,
+  unitHash: b.unit.hash,
+  ...over,
+});
+const none = new Map<string, string>();
+
+test("a chat read at 4 messages and grown to 7 is continued from 4; an edited earlier message, a voice, an old line or another prompt reads whole", () => {
+  const four = chat(U1, words.slice(0, 4));
+  const seven = chat(U1, words);
+  const from = (b: Built, lines: Extracted[], prompt?: string) =>
+    continuedFrom(b, standingReadings(lines), none, prompt);
+  expect(from(seven, [read(four)])).toBe(4);
+  // Not grown: nothing to continue.
+  expect(from(four, [read(four)])).toBe(0);
+  // Message 2 edited: its first four lines are no longer what was read.
+  expect(from(chat(U1, ["a", "B", ...words.slice(2)]), [read(four)])).toBe(0);
+  // A line before `lines` existed: it cannot be continued.
+  expect(from(seven, [{ ...read(four), lines: undefined }])).toBe(0);
+  expect(from(seven, [read(four, { prompt: "memory-extract.v5" })])).toBe(0);
+  expect(from(seven, [read(four, { unkept: true })])).toBe(0);
+  // His word that it was read wrong, after the reading.
+  expect(
+    continuedFrom(
+      seven,
+      standingReadings([read(four)]),
+      new Map([[U1, "2026-10-16T00:00:00.000Z"]])
+    )
+  ).toBe(0);
+  // A voice unit has no messages and no `lines`: read whole.
+  expect(from(built(U1), [read(built(U1), { lines: undefined })])).toBe(0);
+  // A chain: read at 4, continued to 7, then to 9 from 7.
+  const nine = chat(U1, [...words, "h", "i"]);
+  expect(
+    from(nine, [read(four), read(seven, { continues: true, run: "r2" })])
+  ).toBe(7);
+});
+
+test("a unit whose earlier line changed is read whole and its unchanged sibling in the same run is continued", () => {
+  const stood = [chat(U1, ["a", "b", "c"]), chat(U2, ["x", "y", "z"])];
+  const grown = [
+    chat(U1, ["a", "b", "c", "d"]),
+    chat(U2, ["x", "Y", "z", "w"]),
+  ];
+  const standing = standingReadings(stood.map((b) => read(b)));
+  expect(grown.map((b) => continuedFrom(b, standing, none))).toEqual([3, 0]);
+});
+
+test("a continued unit's facts are all shown as earlier facts, never cut by the episode's slot", () => {
+  const shown = Array.from({ length: 25 }, (_, k) => ({
+    o: {
+      at: `2026-09-01T10:${String(k).padStart(2, "0")}:00.000Z`,
+      date: "2026-09-01",
+      id: `fact-${k}`,
+      madeBy: { ...madeBy, unitHash: "h" },
+      subjects: ["person:bastien"],
+      type: "choice",
+      unit: U4,
+    } as Observation,
+  }));
+  const group = {
+    episode: episode({ units: [U1, U4] }),
+    units: [built(U1, { date: "2026-10-15" })],
+  };
+  const count = (continued: string[]) =>
+    priorFor(group, shown, new Set(), "now", new Set(), 0, new Set(continued))
+      .length;
+  expect(count([])).toBe(20);
+  expect(count([U4])).toBe(25);
+});
+
+test("a fact quoting a line an earlier reading covered is dropped as a repeat, with what hangs on it", () => {
+  const fact = (id: string, ref: string) =>
+    ({ id, source: { ref }, unit: U1 }) as Observation;
+  const old = fact("old", "m1");
+  const fresh = fact("fresh", "m5");
+  const parsed = {
+    observations: [old, fresh],
+    replaced: [
+      { by: old, old: fact("x", "m0") },
+      { by: fresh, old: fact("y", "m0") },
+    ],
+    unresolved: [
+      { nameAsWritten: "n", observation: "old", unit: U1 },
+      { nameAsWritten: "n", observation: "fresh", unit: U1 },
+    ],
+  };
+  const kept = withoutRepeats(parsed, new Map([[U1, new Set(["m0", "m1"])]]));
+  expect(kept.observations.map((o) => o.id)).toEqual(["fresh"]);
+  expect(kept.replaced.map((r) => r.by.id)).toEqual(["fresh"]);
+  expect(kept.unresolved.map((u) => u.observation)).toEqual(["fresh"]);
+  // A unit read whole has nothing covered.
+  expect(withoutRepeats(parsed, new Map())).toEqual(parsed);
+});
+
+test("a chat of today is read at once; an open lifelog conversation of today waits for its closing", () => {
+  const today = "2026-10-16";
+  const closed = new Set(["closed-key"]);
+  const day = (over: Parameters<typeof unit>[0]) => built(U1, over);
+  expect(
+    isReadable(day({ date: today, source: "imessage" }), today, closed)
+  ).toBe(true);
+  expect(
+    isReadable(
+      day({ date: today, key: "open-key", source: "lifelog" }),
+      today,
+      closed
+    )
+  ).toBe(false);
+  expect(
+    isReadable(
+      day({ date: today, key: "closed-key", source: "lifelog" }),
+      today,
+      closed
+    )
+  ).toBe(true);
+  expect(
+    isReadable(
+      day({ date: "2026-10-15", key: "open-key", source: "lifelog" }),
+      today,
+      closed
+    )
+  ).toBe(true);
+});
+
+test("a chat unit's hash is the hash of its first messages as they were: what a later reading continues from", () => {
+  const msg = (n: number): SourceEvent => ({
+    at: `2026-10-09T10:0${n}:00.000Z`,
+    chat: "!chat:matrix",
+    chatName: "Dad",
+    fromMe: n % 2 === 0,
+    id: `m${n}`,
+    sender: "+33600000002",
+    source: "line",
+    text: `Message ${n}`,
+  });
+  const of = (n: number) =>
+    messageUnits([0, 1, 2].slice(0, n).map(msg), () => null)[0] as Built;
+  expect(of(3).unit.hash).not.toBe(of(2).unit.hash);
+  expect(linesHashOf(of(3), 2)).toBe(of(2).unit.hash);
+  expect(linesHashOf(of(3), 3)).toBe(of(3).unit.hash);
 });
