@@ -19,24 +19,24 @@ const EXEMPT = [
 
 const RULES: { what: string; pattern: RegExp; cap: number }[] = [
   {
-    what: "a system font, not a type step",
-    pattern: /\.font\(\.system\(/g,
     cap: 5,
+    pattern: /\.font\(\.system\(/g,
+    what: "a system font, not a type step",
   },
-  { what: "a literal corner radius", pattern: /cornerRadius: *\d/g, cap: 0 },
+  { cap: 0, pattern: /cornerRadius: *\d/g, what: "a literal corner radius" },
   {
-    what: "a hand-drawn capsule",
-    pattern: /Capsule\(\)|in: \.capsule/g,
     cap: 10,
+    pattern: /Capsule\(\)|in: \.capsule/g,
+    what: "a hand-drawn capsule",
   },
-  { what: "a colour not from the palette", pattern: /\bColor\(/g, cap: 0 },
+  { cap: 0, pattern: /\bColor\(/g, what: "a colour not from the palette" },
   {
-    what: "a spacing number, not Metrics",
-    pattern: /\.padding\([^)]*\d/g,
     cap: 101,
+    pattern: /\.padding\([^)]*\d/g,
+    what: "a spacing number, not Metrics",
   },
-  { what: "a literal height", pattern: /frame\([^)]*[Hh]eight: *\d/g, cap: 14 },
-  { what: "an ad hoc opacity", pattern: /\.opacity\(0\./g, cap: 1 },
+  { cap: 14, pattern: /frame\([^)]*[Hh]eight: *\d/g, what: "a literal height" },
+  { cap: 1, pattern: /\.opacity\(0\./g, what: "an ad hoc opacity" },
 ];
 
 const screens = repoFiles(LIFE_CODE_DIR, [APP], [".swift"]).filter(
