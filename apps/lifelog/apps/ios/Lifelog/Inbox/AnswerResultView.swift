@@ -48,8 +48,8 @@ struct AnswerResultView: View {
 
     private var lines: [CheckLine] {
         let all = ActionCopy.lines(state, taken.context)
-        // A send shows only its own three checks.
-        return taken.isSend ? all.filter { ["chat_checked", "handed", "confirmed"].contains($0.id) } : all
+        // A send shows only the steps of its send (`sendStepsOf` on Life's side): its answer line is not one.
+        return taken.isSend ? all.filter { $0.id != "recorded" } : all
     }
 
     // MARK: States

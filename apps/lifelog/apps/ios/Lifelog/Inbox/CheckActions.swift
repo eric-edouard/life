@@ -73,7 +73,8 @@ struct CheckActions: View {
                             horizontal: false, vertical: true)
                     }
                 } else {
-                    Text("Not sent to your Mac.")
+                    // Life's own reason when Life answered; the fixed line only when the connection failed.
+                    Text(failure.isSameTap ? "Not sent to your Mac." : failure.reason)
                         .font(.small).foregroundStyle(Palette.flag)
                 }
             }
