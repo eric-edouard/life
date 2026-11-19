@@ -36,7 +36,7 @@ struct MatterPage: View {
                 GoalAndNext(matter: matter)
                 if let open { CardLink(check: open) { router.answer(card: open.ref) } }
                 if let agent {
-                    AgentBlock(agent: agent, waitsOnYou: open != nil || row.wait == .decision)
+                    AgentBlock(agent: agent, waitsOnYou: row.needsYou)
                 } else {
                     NoAgent()
                 }
@@ -379,5 +379,18 @@ extension MatterStep {
     var whenAndWith: String {
         [at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), with].compactMap(\.self)
             .joined(separator: " · ")
+    }
+}
+
+extension MatterWait {
+    /// The caps line on the page.
+    fileprivate func line(waitsOn: String?) -> String {
+        switch self {
+        case .decision: "Your decision"
+        case .owner: "Waits on you"
+        case .ready: "Ready to do"
+        case .event: waitsOn.map { "Waits on \($0)" } ?? "Waits for something"
+        case .stuck: "Stuck"
+        }
     }
 }

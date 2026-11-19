@@ -27,6 +27,7 @@
     }
   ],
   "steps": [],
+  "blockingChecks": 0,
   "checks": [
     {
       "about": [],

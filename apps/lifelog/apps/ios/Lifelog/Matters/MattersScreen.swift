@@ -1,13 +1,12 @@
 import LifeConnector
 import SwiftUI
 
-/// The running matters, most pressing first, with a search and a filter menu. The filter and the areas are Kit's
+/// The running matters, most pressing first, with a filter menu. The filter and the areas are Kit's
 /// (`MatterFilter`, `MatterList`); this draws them.
 struct MattersScreen: View {
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
 
-    @State private var query = ""
     @State private var filter = MatterFilter.everything
     @State private var visibility = NavigationSplitViewVisibility.all
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -95,10 +94,10 @@ struct MattersScreen: View {
                 }.tag(MatterFilter.agentWorking)
             }
             .pickerStyle(.inline)
-            if let areas = life.matters.value?.areaCounts, !areas.isEmpty {
+            if let areas = life.matters.value?.areasByCount, !areas.isEmpty {
                 Picker("Area", selection: $filter) {
-                    ForEach(areas, id: \.area) { item in
-                        Label(item.area, systemImage: item.area.areaSymbol).tag(MatterFilter.area(item.area))
+                    ForEach(areas, id: \.self) { area in
+                        Label(area, systemImage: area.areaSymbol).tag(MatterFilter.area(area))
                     }
                 }
                 .pickerStyle(.inline)
@@ -113,11 +112,11 @@ struct MattersScreen: View {
     }
 
     private func content(_ list: MatterList) -> some View {
-        let rows = list.shown(query: query, filter: filter)
+        let rows = list.shown(filter: filter)
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 if rows.isEmpty {
-                    Text("No matter fits. Loosen the search or the filter.").font(.body15).foregroundStyle(
+                    Text("No matter fits. Loosen the filter.").font(.body15).foregroundStyle(
                         Palette.muted
                     )
                     .padding(20)
@@ -130,28 +129,14 @@ struct MattersScreen: View {
                         MatterRowView(row: row, isChosen: isSelected)
                     }
                     .buttonStyle(.plain)
-                    .transition(Motion.appears)
+                    .appears()
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
             .padding(.bottom, 24)
             .readingWidth()
         }
-        .searchable(text: $query, prompt: "Search \(list.matters.count) matters")
         .scrollDismissesKeyboard(.interactively)
-    }
-}
-
-extension MatterWait {
-    /// The caps line on a page.
-    func line(waitsOn: String?) -> String {
-        switch self {
-        case .decision: "Your decision"
-        case .owner: "Waits on you"
-        case .ready: "Ready to do"
-        case .event: waitsOn.map { "Waits on \($0)" } ?? "Waits for something"
-        case .stuck: "Stuck"
-        }
     }
 }
 
@@ -161,7 +146,7 @@ private struct MatterRowView: View {
 
     var body: some View {
         Row(
-            title: row.name, icon: (row.areas?.first ?? "").areaSymbol,
+            title: row.name, icon: row.areas?.first.map(\.areaSymbol) ?? String.defaultAreaSymbol,
             iconTint: row.agent != nil ? Palette.ai : Palette.muted, detail: row.nextStep?.text
         ) {
             if row.needsYou {
@@ -170,7 +155,6 @@ private struct MatterRowView: View {
                 ProgressView().controlSize(.small).tint(Palette.ai).accessibilityLabel("An agent is working")
             }
         }
-        .frame(minHeight: Metrics.rowHeight)
         .background(isChosen ? Palette.card : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
         .padding(.horizontal, 8)
         .motion(Motion.standard, value: isChosen)
@@ -179,7 +163,10 @@ private struct MatterRowView: View {
 }
 
 extension String {
-    /// The line icon of an area, by its name; an area it has no icon for gets a plain one.
+    /// What a matter with no area shows.
+    static let defaultAreaSymbol = "folder"
+
+    /// The line icon of an area, by its meaning; an area it has no icon for gets the plain one.
     var areaSymbol: String {
         switch lowercased() {
         case "home": "house"
@@ -187,7 +174,7 @@ extension String {
         case "family": "heart"
         case "papers", "admin": "doc"
         case "money": "banknote"
-        default: "folder"
+        default: Self.defaultAreaSymbol
         }
     }
 }

@@ -53,36 +53,23 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     public let lastStepAt: Date?
     /// The id of the registered agent working on it.
     public let agent: String?
-    /// How many open checks are about it, of every kind (`read_matters` only; `read_matter` lists them as `Matter.checks`).
-    public let openChecks: Int?
+    /// How many open checks about it block him (an agent's decision, a voice, a name); the others only improve the memory.
+    public let blockingChecks: Int?
 }
 
 /// `read_matters`: the running matters, most pressing first.
 public struct MatterList: Decodable, Sendable, Equatable {
     public let matters: [MatterRow]
 
-    /// The matters whose name, goal, next step or people hold `query` (searched on the phone: the list is every running matter).
-    public func matching(_ query: String) -> [MatterRow] {
-        let query = query.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return matters }
-        return matters.filter { row in
-            let people = [row.people?.owedTo, row.people?.waitingOn, row.people?.with, row.people?.told].compactMap(
-                \.self
-            ).flatMap(\.self)
-            return ([row.name, row.goal?.text, row.nextStep?.text].compactMap(\.self) + people)
-                .contains { $0.localizedStandardContains(query) }
-        }
-    }
-
-    /// The matters `filter` and the search let through, in the list's order.
-    public func shown(query: String, filter: MatterFilter) -> [MatterRow] {
-        matching(query).filter(filter.passes)
+    /// The matters `filter` lets through, in the list's order.
+    public func shown(filter: MatterFilter) -> [MatterRow] {
+        matters.filter(filter.passes)
     }
 
     /// The filter menu's areas, over every running matter, most matters first.
-    public var areaCounts: [(area: String, count: Int)] {
+    public var areasByCount: [String] {
         let counts = matters.flatMap { $0.areas ?? [] }.reduce(into: [String: Int]()) { $0[$1, default: 0] += 1 }
-        return counts.sorted { ($1.value, $0.key) < ($0.value, $1.key) }.map { ($0.key, $0.value) }
+        return counts.sorted { ($1.value, $0.key) < ($0.value, $1.key) }.map(\.key)
     }
 }
 
@@ -109,8 +96,8 @@ extension MatterRow {
 }
 
 extension MatterRow {
-    /// Whether it needs him: it waits on him, or a card about it is open. The one test, for the row's dot and the filter.
-    public var needsYou: Bool { wait?.isOnHim == true || (openChecks ?? 0) > 0 }
+    /// Whether it needs him: it waits on him, or a check about it blocks him. The one test, for the row's dot, the filter and the page.
+    public var needsYou: Bool { wait?.isOnHim == true || (blockingChecks ?? 0) > 0 }
 }
 
 /// What the Matters list's filter menu chooses: everything, what needs him, what an agent works on, or one area.
