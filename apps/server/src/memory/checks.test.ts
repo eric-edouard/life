@@ -360,7 +360,7 @@ const voice = (id: string, over: Partial<NamingQueueItem> = {}) =>
     ...over,
   }) satisfies NamingQueueItem;
 
-test("every voice in lifelog's queue is a card of the one inbox, with its clips and the people it may be", () => {
+test("every voice in lifelog's queue is a check in to confirm, with its clips and the people it may be", () => {
   const items = Array.from({ length: 60 }, (_, i) => voice(`v${i}`));
   items[0] = voice("v0", { kind: "known_person", personId: DANA_ID });
   items[1] = voice("v1", { name: "Kofi" });
@@ -633,4 +633,23 @@ test("a decision whose draft goes to a guessed person carries that guess; a matt
     "dec_00000000000d",
   ]);
   expect(checksOnMatterOf(onMatter, "matter_zzzzzzzzzzzz")).toEqual([]);
+});
+
+test("a guessed person's check riding on an open matter through its saved line is found by that matter alone", () => {
+  const o = about(REF);
+  const m = {
+    id: "matter_dddddddddddd",
+    lone: false,
+    name: "Boiler repair",
+    open: true,
+    owedTo: [],
+    status: "moving" as const,
+    steps: stepsOf(o.id),
+    waitingOn: [],
+    with: [],
+  };
+  const [guess] = checksOf(inputs([o], { inferred: [ID], matters: [m] }));
+  expect(guess?.matter).toBeNull();
+  expect(guess?.ridesOn.matterIds).toEqual([m.id]);
+  expect(checksOnMatterOf([guess as Check], m.id)).toEqual([guess as Check]);
 });

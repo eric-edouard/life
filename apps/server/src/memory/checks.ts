@@ -119,6 +119,7 @@ export interface Check {
   ridesOn: {
     /** The ids of those matters (`matters` counts them): `checksOnMatterOf` finds a matter's checks by them. */
     matterIds: string[];
+    // ponytail: remove `matters` once the phone build that reads `matterIds` ships; installed builds need it to decode.
     matters: number;
     observations: number;
     pages: number;

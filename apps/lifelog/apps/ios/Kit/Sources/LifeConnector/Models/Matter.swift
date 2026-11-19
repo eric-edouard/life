@@ -53,6 +53,8 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     public let lastStepAt: Date?
     /// The id of the registered agent working on it.
     public let agent: String?
+    /// How many open checks are about it, of every kind (`read_matters` only; `read_matter` lists them as `Matter.checks`).
+    public let openChecks: Int?
 }
 
 /// `read_matters`: the running matters, most pressing first.

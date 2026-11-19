@@ -7,7 +7,7 @@ import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
 import { settings } from "../core/settings";
-import type { Check } from "../memory/checks";
+import { type Check, whereAskedOf } from "../memory/checks";
 import { draftWords } from "../memory/draft";
 import {
   type Digest,
@@ -170,9 +170,9 @@ export function successReport(day: string, ms: number, n: Night) {
   const { actions: done, problems } = n.acted;
   const a = n.episodes.agreement;
   const decisions = n.checks.flatMap((c) =>
-    c.kind === "decision" ? [waitingRow(c)] : []
+    whereAskedOf(c) === "inbox" ? [waitingRow(c)] : []
   );
-  const checks = n.checks.filter((c) => c.kind !== "decision");
+  const checks = n.checks.filter((c) => whereAskedOf(c) !== "inbox");
   const models = [
     ...new Set([n.episodes, n.extracted, n.paged].map((s) => s.model)),
   ].join(", ");

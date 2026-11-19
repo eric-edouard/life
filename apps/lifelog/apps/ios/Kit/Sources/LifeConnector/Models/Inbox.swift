@@ -18,9 +18,6 @@ public struct InboxOpening: Sendable, Equatable {
 }
 
 extension Inbox {
-    /// The open cards that belong to this matter.
-    public func openCount(matter id: String) -> Int { checks.count { $0.matter?.id == id } }
-
     public func opening(pushId: String) -> InboxOpening {
         guard let check = checks.first(where: { $0.pushId == pushId }) else {
             return InboxOpening(check: checks.first, wasAnswered: true)

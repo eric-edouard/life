@@ -94,7 +94,7 @@ Life (`scripts/demo.ts`) to a temporary folder and runs it as a second Life on t
 are never touched. Both are refused with his own data (`isOwnLife`: the app's data folder or `~/Life`), and a second Life
 never takes the tailnet name (`bun life connect`). It builds the app in Debug, installs it on a fresh simulator
 (the newest iOS runtime's first iPhone), pairs it by its link (loopback HTTP, which the phone takes only for a Life on its own loopback) and drives a
-scenario's steps with agent-device. `found-to-closed`, the one so far: the inbox offers the new matter, Start, the
+scenario's steps with agent-device. `found-to-closed`, the one so far: the matter's page offers the new matter, Start, the
 agent's plan card, Go, its work, Mark as done, the matter and its cards gone. Each step writes a numbered screenshot and a
 PASS or FAIL line to the folder it prints; the services, the agent, the simulator and the transcripts are removed, on
 failure, Ctrl-C or SIGTERM too. A scenario is a list of steps in the script: add one beside it.

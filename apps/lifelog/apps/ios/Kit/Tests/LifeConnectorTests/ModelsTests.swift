@@ -50,6 +50,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.nextStep?.kind == .waitEvent)
     #expect(row.people?.owedTo == ["gran"])
     #expect(row.agent == "agt_000000000001")
+    #expect(row.openChecks == 2)
     #expect(list.matters[2].goal == nil)
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
@@ -109,12 +110,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(ids(MatterFilter(withAgent: true)) == ["a"])
     #expect(ids(MatterFilter(area: "Work"), "B").isEmpty)
     #expect(MatterFilter().isEmpty && !MatterFilter(withAgent: true).isEmpty)
-}
-
-@Test func anInboxCountsTheCardsOfAMatter() throws {
-    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.openCount(matter: "matter_aaaaaaaaaaaa") == 1)
-    #expect(inbox.openCount(matter: "nothing") == 0)
 }
 
 @Test func theActionsResultsDecode() throws {
