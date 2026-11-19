@@ -362,7 +362,7 @@ export async function importInstagramExport(folder: string) {
     readBridged(network, new Date(copied.first)).filter((e) =>
       e.files?.some((f) => f.ref.startsWith(`${network.name}:export:`))
     ),
-    engine
+    { engine }
   );
   return {
     ...copied,

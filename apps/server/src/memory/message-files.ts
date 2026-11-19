@@ -2,25 +2,35 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { z } from "zod";
+import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
 import type { Engine } from "../core/names";
 import { exec } from "../core/proc";
+import { isOnline } from "../models/llm";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
 import { emlxPart } from "../sources/mail";
-import { FILES, readFiles } from "./memory-files";
+import { FILES, readFiles, runAt } from "./memory-files";
 import { begin, chunks, inBatches, readsOf } from "./run";
 import { dayUnitId } from "./unit-ids";
+import { dayNow, localDate } from "./zones";
 
-// A message's files: each read once into memory/files.jsonl (`describeFiles`, from `gather`), then shown as a line of
-// its message (`showFiles`) with what was read off it, so every step, search and the connector see it with no path of
-// their own. Video, voice notes and a file never read on this Mac stay a tag.
+// A message's files: each read once into memory/files.jsonl, when its message arrives (`describeFilesOnArrival`, from
+// the watcher) or at night (`describeFiles`, from `gather`), then shown as a line of its message (`showFiles`) with
+// what was read off it, so every step, search and the connector see it with no path of their own. Video, voice notes
+// and a file never read on this Mac stay a tag.
 
 const MESSAGE_FILE_DESCRIPTION_PROMPT = "message-file-description.v1";
 const PER_CALL = 8;
+/**
+ * The model-described files of one day that arrival describes (about $0.02 a day); the rest stay tags until the night.
+ * The daytime pass (PR 4b) absorbs it by adding today's `memory.files` runs marked `arrival: true` to its day sum, then
+ * this constant goes.
+ */
+export const FILES_ON_ARRIVAL_A_DAY = 100;
 /** The words kept of a file. */
 const TEXT_MAX = 1000;
 /** The long side, in pixels, of the image a model is shown. */
@@ -63,6 +73,25 @@ export const showFiles = (
       .join("\n");
     return text || e.phoneCall ? [{ ...e, text }] : [];
   });
+
+/** Whether a ledger line is of the current prompt (a line of code's own reading has no prompt). */
+const isCurrent = (e: FileEntry | undefined): e is FileEntry =>
+  !!e &&
+  (!e.madeBy ||
+    isPromptVersion(e.madeBy.prompt, MESSAGE_FILE_DESCRIPTION_PROMPT));
+
+/**
+ * Appends the lines whose ref has no current line yet: one line per ref and prompt version, however many passes (the
+ * night, an arrival pass) meet the same file. Read and append are synchronous, so within a process none slips in between.
+ */
+function appendNew(entries: FileEntry[]) {
+  const have = readFiles();
+  appendJsonl(
+    FILES,
+    FileEntry,
+    entries.filter((e) => !isCurrent(have.get(e.ref)))
+  );
+}
 
 type Readable = SourceFile & { path: string };
 /** One content: the file first met with it, by its hash, and every ref it was met under. */
@@ -187,24 +216,27 @@ const Reply = z.object({
 /**
  * Reads each file the window's messages carry that memory/files.jsonl has no line for: a copy of one read before gets
  * its line, a document or a PDF's text layer is read by code, a photo or a scan is described by the fast model, a few
- * per call. A failed call is counted in `failed` and logged; its files stay tags until the next run tries them again.
+ * per call, `atMost` of them (the rest `waiting`; an arrival pass sets it and its run is logged `arrival: true`). A failed
+ * call is counted in `failed` and logged; its files stay tags until the next run tries them again (`failedRefs`).
  * ponytail: unlike the other steps, a failed call does not fail the night (one photo a model refuses would fail every
  * night for a week); the nightly email counts it.
  */
-export async function describeFiles(events: SourceEvent[], engine?: Engine) {
+export async function describeFiles(
+  events: SourceEvent[],
+  { atMost, engine }: { atMost?: number; engine?: Engine } = {}
+) {
   const step = await begin(
     "files",
     "fast",
-    { prompt: MESSAGE_FILE_DESCRIPTION_PROMPT },
+    {
+      prompt: MESSAGE_FILE_DESCRIPTION_PROMPT,
+      ...(atMost === undefined ? {} : { arrival: true }),
+    },
     engine
   );
   const { copies, fresh } = await triage(
     events,
-    [...readFiles().values()].filter(
-      (e) =>
-        !e.madeBy ||
-        isPromptVersion(e.madeBy.prompt, MESSAGE_FILE_DESCRIPTION_PROMPT)
-    )
+    [...readFiles().values()].filter(isCurrent)
   );
   /** The ledger's lines for one content, one per ref it was met under. */
   const lines = (
@@ -227,8 +259,9 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
     const read = prepared.flatMap((p) =>
       "text" in p ? lines(p, p.text ? { text: p.text } : {}) : []
     );
-    await appendJsonl(FILES, FileEntry, [...copies, ...read]);
-    const shown = prepared.filter((p) => "image" in p);
+    appendNew([...copies, ...read]);
+    const images = prepared.filter((p) => "image" in p);
+    const shown = images.slice(0, atMost);
     const madeBy = step.madeBy(MESSAGE_FILE_DESCRIPTION_PROMPT);
     let described = 0;
     /** One call on `batch`; a failed call on several files tries each alone, so a bad image leaves only itself a tag. */
@@ -274,17 +307,100 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
           : [];
       });
       described += entries.length;
-      await appendJsonl(FILES, FileEntry, entries);
+      appendNew(entries);
     };
     await inBatches(chunks(shown, PER_CALL), step, describe);
-    return step.end({
+    const have = readFiles();
+    const waiting = new Set(images.slice(shown.length).flatMap((p) => p.refs));
+    const summary = step.end({
       copied: copies.length,
       described,
       // Without them a PDF or a photo is not read (checked here, not in `checks`: they have nothing to do with acting).
       missing: ["pdftotext", "sips"].filter((b) => !Bun.which(b)),
       read: read.length,
+      waiting: waiting.size,
     });
+    return {
+      ...summary,
+      // The readable files still with no current line, but those left waiting: failed or unreadable, tried again at night.
+      failedRefs: events
+        .flatMap((e) => e.files ?? [])
+        .filter(readable)
+        .map((f) => f.ref)
+        .filter((r) => !(isCurrent(have.get(r)) || waiting.has(r))),
+    };
   } finally {
     await rm(tmp, { force: true, recursive: true });
   }
+}
+
+/**
+ * How many contents the model described on `day`, by their hash (one content met under several refs counts once). Only
+ * lines whose run id starts within a day of `day` reach `localDate` (a zone can shift the day by one), so a long ledger costs a prefix check each.
+ * The night's runs count too (a 3am night describing yesterday's files spends today's): the limit is a ceiling on a
+ * day's spend, whoever spent it, and the night's leftovers are few.
+ */
+const describedOn = (known: ReadonlyMap<string, FileEntry>, day: string) => {
+  const near = new Set([daysBefore(day, 1), day, daysBefore(day, -1)]);
+  return new Set(
+    [...known.values()].flatMap((e) =>
+      e.madeBy &&
+      near.has(e.madeBy.run.slice(0, 10)) &&
+      localDate(runAt(e.madeBy.run)) === day
+        ? [e.hash]
+        : []
+    )
+  ).size;
+};
+
+/**
+ * The events whose files arrival describes now, cut to those files: readable, with no current line (`known`) and not
+ * among `attempted`; and how many contents may still be model-described on `day` (`FILES_ON_ARRIVAL_A_DAY` less
+ * today's, counted from the lines).
+ */
+export function filesDueOnArrival(
+  events: SourceEvent[],
+  known: ReadonlyMap<string, FileEntry>,
+  attempted: ReadonlySet<string>,
+  day = dayNow()
+) {
+  const due = events.flatMap((e) => {
+    const files = (e.files ?? []).filter(
+      (f) =>
+        readable(f) && !isCurrent(known.get(f.ref)) && !attempted.has(f.ref)
+    );
+    return files.length > 0 ? [{ ...e, files }] : [];
+  });
+  // Nothing due: nothing counted (the ledger is not walked every tick).
+  return {
+    atMost:
+      due.length === 0
+        ? 0
+        : Math.max(0, FILES_ON_ARRIVAL_A_DAY - describedOn(known, day)),
+    due,
+  };
+}
+
+/** The refs an arrival pass tried and got no line for: not tried again by this process, the night retries them. */
+const triedOnArrival = new Set<string>();
+
+/**
+ * Describes the files of today's `events` that have no line yet (the watcher, after each publish, never awaited by its
+ * tick): nothing when none is due or Life is offline; with the day's limit spent it still reads what costs no model call, and describes no image (nothing marked then, no run logged).
+ * ponytail: a failed file is not retried until a restart, the night takes it within its 7 days; a backoff if that matters.
+ */
+export async function describeFilesOnArrival(events: SourceEvent[]) {
+  const { atMost, due } = filesDueOnArrival(
+    events,
+    readFiles(),
+    triedOnArrival
+  );
+  if (due.length === 0 || !(await isOnline())) {
+    return;
+  }
+  const described = await describeFiles(due, { atMost });
+  for (const ref of described.failedRefs) {
+    triedOnArrival.add(ref);
+  }
+  return described;
 }
