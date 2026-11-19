@@ -44,10 +44,14 @@ const CAPS: Record<string, Record<string, number>> = {
   },
   "Inbox/CheckCard.swift": {
     capsule: 2,
-    font: 3,
+    font: 2,
     height: 3,
-    padding: 14,
+    padding: 11,
     width: 1,
+  },
+  "Inbox/DraftBlock.swift": {
+    font: 1,
+    padding: 3,
   },
   "Inbox/InboxScreen.swift": {
     padding: 1,
