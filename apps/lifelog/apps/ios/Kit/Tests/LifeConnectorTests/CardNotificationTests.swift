@@ -60,3 +60,34 @@ private func check(
     #expect(cut.count <= 40)
     #expect(CardNotification.clipped(String(repeating: "a", count: 50), to: 40).count == 40)
 }
+
+private let options =
+    #""options":[{"id":"send","label":"Send","outgoing":true},{"id":"later","label":"Not yet"},{"id":"who","label":"Someone else…","takes":"person"}]"#
+
+@Test func aCardsButtonsAreItsOneTapAnswersNeverAnOutwardOne() throws {
+    let check = try #require(
+        CardNotification.card(in: [
+            "card": check(pushId: "0123456789abcdef").replacingOccurrences(of: #""options":[]"#, with: options)
+        ]))
+    #expect(CardNotification.buttons(check).map(\.label) == ["Not yet"])
+    #expect(
+        CardNotification.answer("option:later", typed: nil, to: check)
+            == AnswerRequest(ref: check.ref, options: ["later"]))
+    // An outward option waits for Face ID; one that takes a person opens the card.
+    #expect(CardNotification.answer("option:send", typed: nil, to: check) == nil)
+    #expect(CardNotification.answer("option:who", typed: nil, to: check) == nil)
+    #expect(CardNotification.answer("option:gone", typed: nil, to: check) == nil)
+}
+
+@Test func aReplyIsADecisionsOwnWords() throws {
+    let decision = try #require(CardNotification.card(in: ["card": check(pushId: "0123456789abcdef")]))
+    #expect(
+        CardNotification.answer(CardNotification.reply, typed: "After Friday", to: decision)
+            == AnswerRequest(ref: decision.ref, options: [], note: "After Friday"))
+    #expect(CardNotification.answer(CardNotification.reply, typed: nil, to: decision) == nil)
+    let voice = check(pushId: "0123456789abcdef").replacingOccurrences(
+        of: #""group":"decision""#, with: #""group":"voice""#)
+    let named = try #require(CardNotification.card(in: ["card": voice]))
+    #expect(CardNotification.answer(CardNotification.reply, typed: "Maya", to: named) == nil)
+    #expect(CardNotification.card(in: [:]) == nil)
+}

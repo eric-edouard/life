@@ -1,5 +1,6 @@
 import Foundation
 import Library
+import UserNotifications
 
 /// A card's notification, written on the phone from the card Life sent (`read_inbox`): Life's own words, clipped, never
 /// words of the phone's. The push carried none (`host/card-push.ts`): only the card's `pushId`.
@@ -38,6 +39,52 @@ public struct CardNotification: Sendable, Equatable {
             body: clipped(check.draft.map(drafted) ?? check.question, to: bodyLimit),
             thread: check.matter?.id ?? "life-cards",
             card: card)
+    }
+
+    // MARK: Answering from the notification
+
+    /// The category every card's push names (`alertOf`, lifelog's `apns.ts`).
+    public static let category = "life.card"
+    /// The action that answers in his own words, typed or dictated (a decision's, `Check.takesOwnWords`).
+    public static let reply = "reply"
+    private static let optionPrefix = "option:"
+
+    /// The card kept with its notification (`userInfo["card"]`, written by the service extension).
+    public static func card(in userInfo: [AnyHashable: Any]) -> Check? {
+        guard let text = userInfo["card"] as? String else { return nil }
+        return try? LibraryStore.feedDecoder.decode(Check.self, from: Data(text.utf8))
+    }
+
+    /// The card's answers that are one tap, as its notification's buttons (action id, his button's words). One that
+    /// needs a person, a name or his words opens the card instead; one that acts outward is not offered here.
+    public static func buttons(_ check: Check) -> [(id: String, label: String)] {
+        check.options.filter { $0.takes == nil && $0.outgoing != true }.map { ("\(optionPrefix)\($0.id)", $0.label) }
+    }
+
+    /// Reply…: his own words, typed or dictated. The category's one button, so the Watch shows it.
+    public static var replyAction: UNTextInputNotificationAction {
+        UNTextInputNotificationAction(
+            identifier: reply, title: "Reply…", options: [.authenticationRequired], textInputButtonTitle: "Send",
+            textInputPlaceholder: "Your words")
+    }
+
+    /// The expanded notification's buttons: `buttons`, then Reply… when the card takes his own words. Every answer asks
+    /// for the phone to be unlocked.
+    public static func actions(_ check: Check) -> [UNNotificationAction] {
+        buttons(check).map {
+            UNNotificationAction(identifier: $0.id, title: $0.label, options: [.authenticationRequired])
+        }
+            + (check.takesOwnWords ? [replyAction] : [])
+    }
+
+    /// The answer a tapped action gives: one of `buttons`, or his words through `reply`; nil when the card can't be
+    /// answered that way from its notification.
+    public static func answer(_ action: String, typed: String?, to check: Check) -> AnswerRequest? {
+        if action == reply { return typed.flatMap { check.answer(words: $0) } }
+        guard action.hasPrefix(optionPrefix),
+            let option = check.options.first(where: { "\(optionPrefix)\($0.id)" == action }), option.outgoing != true
+        else { return nil }
+        return check.answer(option)
     }
 
     private static func drafted(_ draft: Check.Draft) -> String {

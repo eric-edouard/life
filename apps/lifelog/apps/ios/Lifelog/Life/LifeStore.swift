@@ -1,4 +1,5 @@
 import Foundation
+import Incidents
 import Library
 import LifeConnector
 import Observation
@@ -96,6 +97,18 @@ final class LifeStore {
         await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
         // The badge is the cards that block him.
         if let badge = inbox.value?.badge { setBadge(badge) }
+        if let open = inbox.value?.checks.compactMap(\.pushId) { await removeNotifications(notIn: Set(open)) }
+    }
+    /// A card answered anywhere (here, in another app, by its deadline) leaves his notifications too.
+    private func removeNotifications(notIn open: Set<String>) async {
+        let center = UNUserNotificationCenter.current()
+        let gone = await center.deliveredNotifications().filter {
+            guard case .card(let pushId)? = NotificationRoute(userInfo: $0.request.content.userInfo) else {
+                return false
+            }
+            return !open.contains(pushId)
+        }
+        center.removeDeliveredNotifications(withIdentifiers: gone.map(\.request.identifier))
     }
     func refreshMatters() async {
         await load({ self.matters.apply($0) }, key: Self.mattersKey) { try await $0.readMatters() }
