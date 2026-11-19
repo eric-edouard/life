@@ -92,6 +92,17 @@ final class LifeStore {
         _ = await (a, b, c)
     }
 
+    /// Whether a first read of the inbox, matters or agents is still missing and worth trying again.
+    var needsRetry: Bool { inbox.needsRetry || matters.needsRetry || agents.needsRetry }
+
+    /// Reads again only what has nothing to show yet.
+    func retryFirstReads() async {
+        async let a: Void = inbox.needsRetry ? refreshInbox() : ()
+        async let b: Void = matters.needsRetry ? refreshMatters() : ()
+        async let c: Void = agents.needsRetry ? refreshAgents() : ()
+        _ = await (a, b, c)
+    }
+
     func refreshInbox() async {
         await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
         // The badge is the cards that block him.

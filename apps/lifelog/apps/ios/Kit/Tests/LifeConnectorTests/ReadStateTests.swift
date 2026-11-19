@@ -80,3 +80,32 @@ private func shown(_ state: ReadState<[Int]>) -> String {
     state.apply(.failed(.notPaired))
     #expect(shown(state) == "notPaired")
 }
+
+@Test func aFirstReadThatDidNotLandNeedsARetry() {
+    var state = ReadState<[Int]>()
+    state.apply(.started)
+    state.apply(.failed(.cancelled))
+    #expect(state.needsRetry)
+    state.apply(.started)
+    #expect(!state.needsRetry)
+    state.apply(.failed(.unreachable))
+    #expect(state.needsRetry)
+    state.apply(.failed(.refused("no")))
+    #expect(state.needsRetry)
+}
+
+@Test func aReadThatLandedOrCannotBePairedNeverRetries() {
+    var state = ReadState<[Int]>()
+    state.apply(.failed(.notPaired))
+    #expect(!state.needsRetry)
+    state.apply(.succeeded([], then))
+    #expect(shown(state) == "empty")
+    #expect(!state.needsRetry)
+    state.apply(.failed(.unreachable))
+    #expect(!state.needsRetry)
+}
+
+@Test func theRetryWaitDoublesThenSettlesAtThirtySeconds() {
+    let waits = (0..<8).map { ReadState<[Int]>.retryDelay(attempt: $0) }
+    #expect(waits == [1, 2, 4, 8, 16, 30, 30, 30].map { Duration.seconds($0) })
+}
