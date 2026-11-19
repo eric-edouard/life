@@ -33,7 +33,7 @@ import type { TurnOutcome } from "../records/registered-agent";
 import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
 import { finish, readPacket } from "./agent-actions";
-import { applyAgentChanges, handOverReplaced } from "./agent-changes";
+import { applyAgentChanges } from "./agent-changes";
 import {
   ANSWERS,
   BEGIN_WITHIN_MS,
@@ -511,7 +511,6 @@ export async function wakeDue(desk: Desk) {
  */
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
-  handOverReplaced(desk);
   pollAnswers(desk);
   await endUnbegunTurns(desk);
   await wakeDue(desk);
