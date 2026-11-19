@@ -88,3 +88,15 @@ test("the renamed settings parse, and the old names are refused", () => {
     expect(() => Settings.parse({ [old]: renamed.todoList })).toThrow();
   }
 });
+
+test("his notification settings name only known kinds and levels", () => {
+  expect(Settings.safeParse({ notifications: { voice: "off" } }).success).toBe(
+    true
+  );
+  expect(Settings.safeParse({ notifications: { calls: "off" } }).success).toBe(
+    false
+  );
+  expect(Settings.safeParse({ notifications: { voice: "loud" } }).success).toBe(
+    false
+  );
+});

@@ -117,6 +117,30 @@ test("his notification settings: off pushes nothing, quiet is passive, urgent is
   }
 });
 
+test("one push for the rest takes the loudest of their levels; an off kind is not counted in it", async () => {
+  setSettings({ notifications: { "guessed person": "quiet", voice: "off" } });
+  try {
+    open = cards(1);
+    await pushNewCards();
+    open = [
+      ...cards(1),
+      ...cards(8, "person").slice(1),
+      card(9, "voice"),
+      card(10, "voice"),
+      { ...card(11, "person"), group: "new matter" } as checks.InboxCheck,
+    ];
+    await pushNewCards();
+    expect(push.mock.calls.at(-1)?.[0]).toEqual({
+      badge: 3,
+      body: "3 more new cards",
+      level: "active",
+      title: "Life",
+    });
+  } finally {
+    setSettings({ notifications: null });
+  }
+});
+
 test("a level: quiet is passive; urgent is time-sensitive with no deadline or within 3 hours, else active", () => {
   const now = clock();
   const at = (hours: number) =>
