@@ -11,10 +11,11 @@ Inputs: the PR or branch and its worktree, or "the whole app" for an audit.
    end with `Design: unreviewable`.
 2. Read the diff's Swift (an audit: the screens' Swift). Screens must use `DesignSystem/` components, type steps,
    `Palette`, `Metrics` and `Motion`, and draw none of their own (a row, a button, a badge, a field, a state mark, a box).
-3. Capture the screens yourself; never take the builder's pictures. From the worktree: `bun run ios:project`, then
-   build for a booted simulator (`xcrun simctl list devices booted` gives the udid; AGENTS.md's xcodebuild line with
-   `-destination id=<udid>` and `-configuration Debug`), install, and launch with `xcrun simctl launch <udid>
-   com.ericedouard.lifelog <args>`. Use an iPhone and the Duo: the Duo's second screen is `--display=1` (`xcrun simctl
+3. Capture the screens yourself; never take the builder's pictures. From `apps/lifelog/apps/ios` in the worktree: `bun run ios:project`, `xcrun simctl list
+   devices booted` for the udid, `xcodebuild -project Lifelog.xcodeproj -scheme Lifelog -configuration Debug
+   -destination id=<udid> -derivedDataPath build -quiet build`, `xcrun simctl install <udid>
+   build/Build/Products/Debug-iphonesimulator/lifelog.app`, then `xcrun simctl launch <udid> com.ericedouard.lifelog
+   <args>`. Use an iPhone and the Duo: the Duo's second screen is `--display=1` (`xcrun simctl
    io <udid> enumerate` lists them), and `-fixturePose wide|upright` draws the open Duo on any simulator. For each
    screen in scope, capture every state (`Fixtures/LifeFixture.swift` lists the scenarios): content `-fixtureLife ok`,
    empty `empty`, loading `loading`, a stale read `stale`, failed `failed` and `unreachable`, offline `-offline`, slow
