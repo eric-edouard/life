@@ -77,7 +77,7 @@ struct StartAgentSheet: View {
     }
 
     private var goalLine: some View {
-        Text(goal).font(.cardQuestion).foregroundStyle(Palette.fg).fixedSize(
+        Text(goal).font(.quote).foregroundStyle(Palette.fg).fixedSize(
             horizontal: false, vertical: true)
     }
 
