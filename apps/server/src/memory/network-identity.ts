@@ -3,7 +3,7 @@ import { redact } from "../core/redact";
 import type { Unit } from "../records/unit";
 import { readIndex, readUnitsFor } from "./memory-files";
 import { OWNER } from "./read-truth";
-import { isDirect, kindOf, sourceOf } from "./sources";
+import { isDirect, kindOf, SOURCES, sourceOf } from "./sources";
 import { type Message, oneLineOf, UNKNOWN } from "./units";
 import type { People } from "./who";
 import { unitLines } from "./words";
@@ -114,21 +114,25 @@ export function chatUnitsFor(
 const refsOf = (c: PersonCheck, refOf: People["refOf"]) =>
   new Set([refOf(c.ref), ...c.about.map((h) => `${UNKNOWN}${h}`)]);
 
-/** The newest `READ` indexed units of these people refs, newest first. */
+/** The sources a 1:1 chat can come from. */
+const CHAT_SOURCES = JSON.stringify(SOURCES.filter((s) => s.kind === "chat").map((s) => s.name));
+
+/** The newest `READ` indexed chat units of these people refs, newest first: mail and other kinds never crowd them out. */
 const readIndexedUnits = (refs: string[]) =>
   readIndex((db) =>
     db
       .query<
         { date: string; id: string; people: string; source: SourceName },
-        [string, number]
+        [string, number, string]
       >(
         `select u.id, u.date, u.source, (select json_group_array(q.person) from unit_people q where q.unit = u.id) as people
            from units u
           where u.id in (select unit from unit_people where person in (select value from json_each(?1)))
+            and u.source in (select value from json_each(?3))
           order by u.date desc
           limit ?2`
       )
-      .all(JSON.stringify(refs), READ)
+      .all(JSON.stringify(refs), READ, CHAT_SOURCES)
       .map((r) => ({ ...r, people: JSON.parse(r.people) as string[] }))
   ) ?? [];
 
