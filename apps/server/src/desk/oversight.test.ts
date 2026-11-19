@@ -258,6 +258,14 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       own,
     ]);
     desk.db.run("update agent set status = 'active' where id = ?", [worker]);
+    // A matter of two projects, each with an active worker, gets the first project's.
+    const farm =
+      (await applied({ action: "start", folder, project: "test-farm" }))
+        ?.agent_id ?? "";
+    const gone = ["obs_00000000a999"];
+    expect(readActiveAgentOf()(gone, ["test-farm", "test-shop"])).toBe(farm);
+    expect(readActiveAgentOf()(gone, ["test-shop", "test-farm"])).toBe(worker);
+    desk.db.run("update agent set status = 'stopped' where id = ?", [farm]);
     // Its packet opens with its matter as read now: its goal and next step first.
     expect(
       JSON.parse(

@@ -143,7 +143,7 @@ export const holderOf = (db: Database, steps: string[]) =>
         )
         .get(...steps)?.id ?? null);
 
-/** The active agent on project `project` started on `brief`, else any active agent on it, if one is. */
+/** The active agent on project `project` started on `brief`, else any active agent on it, if one is: who works on it now. `heldByAgents` also counts stopped and recently ended agents, on purpose. */
 export const projectHolderOf = (
   db: Database,
   project: string,
@@ -156,7 +156,7 @@ export const projectHolderOf = (
     .get(project, brief ?? null)?.id ?? null;
 
 /**
- * What registered agents hold now: the steps they are anchored on (`re_point` drops an agent's old anchors) and the
+ * What registered agents hold now (what stops a second offer; `projectHolderOf` says who works now): the steps they are anchored on (`re_point` drops an agent's old anchors) and the
  * projects they work on, but not those of an agent never started (its matter is free for a new start). One rule for both:
  * every live agent holds, a stopped one still holds its project as it holds its steps, and one ended in the last
  * `NEW_MATTER_DAYS` does too (one ended before holds no matter a new matter check offers: its matter began before it did).
