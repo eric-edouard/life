@@ -19,6 +19,7 @@ import {
 } from "../host/registered-agents";
 import { deskCard } from "../host/status/desk-card";
 import { CORRECTIONS } from "../memory/memory-files";
+import { readPeople } from "../memory/who";
 import type { AgentChange } from "../records/registered-agent";
 import { readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
@@ -78,6 +79,7 @@ async function applied(change: AgentChange | null, ago = 0) {
 }
 
 const STEP = "obs_00000000a101";
+const people = await readPeople();
 
 /** The agent the first test starts; the next one changes it. */
 let agent = "";
@@ -233,7 +235,9 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       project: "test-shop",
     });
 
-    expect(readAgentsOnSteps([STEP, "obs_00000000a999"])[0]).toMatchObject({
+    expect(
+      readAgentsOnSteps([STEP, "obs_00000000a999"], [], people)[0]
+    ).toMatchObject({
       id: onMatter?.id,
       status: "waiting",
     });
@@ -251,18 +255,17 @@ test("what his agents are doing: each with its matter, status, wait, link and am
     expect(readActiveAgentOf()(["obs_00000000a999"], ["test-farm"])).toBe(
       undefined
     );
-    expect(readAgentsOnSteps([STEP], ["test-shop"]).map((a) => a.id)).toEqual([
-      own,
-      worker,
-    ]);
+    expect(
+      readAgentsOnSteps([STEP], ["test-shop"], people).map((a) => a.id)
+    ).toEqual([own, worker]);
     // A stopped worker holds the project for the desk, but works on nothing: no row carries it.
     desk.db.run("update agent set status = 'stopped' where id = ?", [worker]);
     expect(
       readActiveAgentOf()(["obs_00000000a999"], ["test-shop"])
     ).toBeUndefined();
-    expect(readAgentsOnSteps([STEP], ["test-shop"]).map((a) => a.id)).toEqual([
-      own,
-    ]);
+    expect(
+      readAgentsOnSteps([STEP], ["test-shop"], people).map((a) => a.id)
+    ).toEqual([own]);
     desk.db.run("update agent set status = 'active' where id = ?", [worker]);
     // A matter of two projects, each with an active worker, gets the first project's.
     const farm =
@@ -320,7 +323,7 @@ test("the desk off breaks no read: each says so, and his word is refused", async
   setSettings({ desk: null });
   expect((await readRegisteredAgents()).desk).toBe("off");
   expect(await readAgentRows(clock().toISOString())).toEqual([]);
-  expect(readAgentsOnSteps([STEP])).toEqual([]);
+  expect(readAgentsOnSteps([STEP], [], people)).toEqual([]);
   expect(deskCard(clock().getTime())).toMatchObject({
     tone: "idle",
     word: "off",
@@ -473,7 +476,7 @@ test("its store unreadable, the reads say so and the report still has its sectio
   expect(await readAgentRows(clock().toISOString())).toEqual([
     { name: "Desk", relation: "its store could not be read" },
   ]);
-  expect(readAgentsOnSteps([STEP])).toEqual([]);
+  expect(readAgentsOnSteps([STEP], [], people)).toEqual([]);
   expect(deskCard(clock().getTime())).toMatchObject({
     tone: "bad",
     word: "unreadable",

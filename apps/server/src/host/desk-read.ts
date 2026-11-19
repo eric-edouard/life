@@ -11,6 +11,7 @@ import type {
   AgentStatus,
   EventFilter,
 } from "../records/registered-agent";
+import { CALL_ENDED, MESSAGE_RECEIVED } from "./events";
 
 // Every read of the desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`), its rows' shapes and the rules worked out from
 // them: the desk reads through these, and host reads the store read-only (`readDesk`), so the desk off or its store
@@ -291,6 +292,8 @@ export interface AgentNow {
   project: string | null;
   runtime: string;
   status: Exclude<AgentStatus, "active"> | "running" | "waiting";
+  /** When its current status began: its open turn's start (running), its last turn's end (waiting), its end (ended, handed over); null for a stopped agent (no stop time is stored) or one with no turn yet. */
+  statusSince: string | null;
   /** The matter steps it was handed (its anchors), when its subject is a matter. */
   steps: string[];
   /** The first line of his brief. */
@@ -298,21 +301,58 @@ export interface AgentNow {
   wait: { isDefault: boolean; reason: string; until: string } | null;
 }
 
+/** What `wakesOn` is made of, beside an agent as read: its wait's filters, and for each chat they name the name and app of the agent's own newest event there (`seenChatsOf`). Not on the wire. */
+export type AgentRead = AgentNow & {
+  chatsSeen: Record<string, { name: string | null; source: string | null }>;
+  filters: EventFilter[];
+};
+
+/**
+ * For each chat a filter of `a` names: its name and app from the newest event the desk queued for `a` there; none while
+ * none of `a`'s newest `SEEN_EVENTS` came from it. Only for the reads of what wakes an agent.
+ * ponytail: a chat last heard more than `SEEN_EVENTS` events ago shows no name (nothing deletes from `event`); a chat column on `event` would find it.
+ */
+const SEEN_EVENTS = 200;
+function seenChatsOf(db: Database, a: AgentRow) {
+  const chats = new Set(filtersOf(a).flatMap((f) => f.chat ?? []));
+  if (chats.size === 0) {
+    return {};
+  }
+  const recent = db
+    .query<{ payload: string }, [string, number]>(
+      `select payload from event where agent_id = ? and name in ('${MESSAGE_RECEIVED}', '${CALL_ENDED}') order by rowid desc limit ?`
+    )
+    .all(a.id, SEEN_EVENTS)
+    .map(
+      (r) =>
+        JSON.parse(r.payload) as {
+          chat?: string;
+          chatName?: string;
+          source?: string;
+        }
+    );
+  const seen: AgentRead["chatsSeen"] = {};
+  for (const chat of chats) {
+    const e = recent.find((x) => x.chat === chat);
+    if (e) {
+      seen[chat] = { name: e.chatName ?? null, source: e.source ?? null };
+    }
+  }
+  return seen;
+}
+
 const headOf = (s: string) => s.split("\n")[0]?.slice(0, 160) ?? "";
 
-/** Agent `a` as read now (`AgentNow`): its last turn, its anchors and its events dropped in the last day. */
-function nowOf(db: Database, a: AgentRow, now: number): AgentNow {
-  const [last] = lastTurns(db, a.id, 1);
-  const open = last && !last.ended_at ? last : null;
-  const dropped =
-    db
-      .query<{ n: number }, [string, string]>(
-        "select count(*) as n from event where agent_id = ? and dropped_at >= ?"
-      )
-      .get(a.id, new Date(now - DAY).toISOString())?.n ?? 0;
+/** What shows amber for `a` (`AgentNow.amber`): nothing unless it is active. */
+function amberOf(
+  a: AgentRow,
+  last: TurnRow | undefined,
+  open: TurnRow | null,
+  dropped: number,
+  now: number
+) {
   const f = flagsOf(a, open, dropped, now);
-  const isActive = a.status === "active";
-  const amber = isActive
+  return a.status === "active"
     ? [
         ...(f.defaultWait ? ["default wait"] : []),
         ...(f.late ? ["deadline late"] : []),
@@ -321,11 +361,46 @@ function nowOf(db: Database, a: AgentRow, now: number): AgentNow {
         ...(f.dropped > 0 ? [`${f.dropped} events dropped`] : []),
       ]
     : [];
+}
+
+/** When `a`'s current status began (`AgentNow.statusSince`), from its last turn. */
+const statusSinceOf = (
+  a: AgentRow,
+  status: AgentNow["status"],
+  last: TurnRow | undefined
+) =>
+  ({
+    ended: a.ended_at,
+    handed_over: a.ended_at,
+    running: last?.started_at,
+    stopped: null,
+    waiting: last?.ended_at,
+  })[status] ?? null;
+
+/** Agent `a` as read now (`AgentNow`): its last turn, its anchors and its events dropped in the last day. */
+function nowOf(
+  db: Database,
+  a: AgentRow,
+  now: number,
+  isForWakes: boolean
+): AgentRead {
+  const [last] = lastTurns(db, a.id, 1);
+  const open = last && !last.ended_at ? last : null;
+  const dropped =
+    db
+      .query<{ n: number }, [string, string]>(
+        "select count(*) as n from event where agent_id = ? and dropped_at >= ?"
+      )
+      .get(a.id, new Date(now - DAY).toISOString())?.n ?? 0;
+  const amber = amberOf(a, last, open, dropped, now);
+  const isActive = a.status === "active";
   const waiting = open ? "running" : "waiting";
   const status = a.status === "active" ? waiting : a.status;
   return {
     amber,
     ...modelOf(a),
+    chatsSeen: isForWakes && status === "waiting" ? seenChatsOf(db, a) : {},
+    filters: filtersOf(a),
     id: a.id,
     lastTurn: last
       ? {
@@ -342,6 +417,7 @@ function nowOf(db: Database, a: AgentRow, now: number): AgentNow {
     project: a.project,
     runtime: a.runtime,
     status,
+    statusSince: statusSinceOf(a, status, last),
     steps: anchorsOf(db, a.id),
     title: headOf(a.brief),
     wait:
@@ -359,7 +435,7 @@ function nowOf(db: Database, a: AgentRow, now: number): AgentNow {
  * Every registered agent worth showing: the active ones, the newest stopped ones (50 each at most), and those ended in the
  * last 7 days (a handed-over agent is not listed: its successor is).
  */
-export function agentsNow(db: Database, now: number) {
+export function agentsNow(db: Database, now: number, isForWakes = false) {
   const rows = [
     ...activeAgents(db),
     ...db
@@ -373,7 +449,7 @@ export function agentsNow(db: Database, now: number) {
       )
       .all(new Date(now - 7 * DAY).toISOString(), MAX_ACTIVE),
   ];
-  return rows.map((a) => nowOf(db, a, now));
+  return rows.map((a) => nowOf(db, a, now, isForWakes));
 }
 
 /** How many past agents a matter's or a project's read lists, after its active ones. */
@@ -384,7 +460,8 @@ export function agentsOnSteps(
   db: Database,
   steps: string[],
   now: number,
-  projects: string[] = []
+  projects: string[] = [],
+  isForWakes = false
 ) {
   const rows =
     steps.length === 0
@@ -402,7 +479,7 @@ export function agentsOnSteps(
       rows.push(agent);
     }
   }
-  return rows.map((a) => nowOf(db, a, now));
+  return rows.map((a) => nowOf(db, a, now, isForWakes));
 }
 
 /** The agents on any of `projects` (not those handed over), active first, then the newest past ones. */
@@ -419,7 +496,7 @@ export function agentsOnProjects(
       `select * from agent where status <> 'handed_over' and project in (${projects.map(() => "?").join(",")}) order by status = 'active' desc, created_at desc limit ?`
     )
     .all(...projects, MAX_ACTIVE + PAST_SHOWN)
-    .map((a) => nowOf(db, a, now));
+    .map((a) => nowOf(db, a, now, false));
 }
 
 /** A line a scheduled task or a session posted for the report (`bun life desk report-line`): one per source per day. */
