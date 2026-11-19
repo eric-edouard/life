@@ -50,11 +50,11 @@ import {
 import { doorOf } from "./desk-door";
 import { type Desk, saveCursor, writeWait } from "./desk-store";
 import {
+  agentWakesOf,
   pollChannels,
   queue,
   type ReadPeople,
   unreadLinesOf,
-  wakesOf,
 } from "./event-queue";
 import {
   MATTER_RELATED,
@@ -158,7 +158,7 @@ export async function pollCalls(
     return;
   }
   const people = await readPeopleNow();
-  const wakes = wakesOf(
+  const wakes = agentWakesOf(
     db,
     agents,
     people,

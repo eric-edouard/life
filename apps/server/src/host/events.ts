@@ -20,11 +20,7 @@ import { meant, nameRefusalOf, type People, readPeople } from "../memory/who";
 import { EventFilter } from "../records/registered-agent";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
-import {
-  EVENT_CHANNELS,
-  isEventChannel,
-  type Matchable,
-} from "./event-channels";
+import { EVENT_CHANNELS, type Matchable } from "./event-channels";
 
 // Events: what an agent can wait for, MCP's Events extension (SEP-3415, a draft; `io.modelcontextprotocol/events`),
 // served by poll only. The agent picks its own arguments and Life matches them by code. An event is computed when it
@@ -289,9 +285,7 @@ export function matcherOf(filter: EventFilter, people: People) {
   const { above, below, quantity } = filter;
   return (x: Matchable) =>
     (x.fromMe ?? false) === filter.from_me &&
-    (filter.channels
-      ? filter.channels.includes(x.channel)
-      : !isEventChannel(x.channel)) &&
+    (filter.channels ? filter.channels.includes(x.channel) : !x.isNamedOnly) &&
     (!filter.chat || x.chat === filter.chat) &&
     (!wanted || (x.people ?? []).includes(`person:${wanted}`)) &&
     // ponytail: a backtracking pattern stalls the desk's message poll for every agent (200 characters and a compile check bound its size, not its match time; the author is his own agent or paired app). A linear-time engine at this one call if it ever bites.

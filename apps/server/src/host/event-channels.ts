@@ -19,6 +19,8 @@ export interface Matchable {
   channel: string;
   chat?: string;
   fromMe?: boolean;
+  /** An event channel's: matched only by a filter whose `channels` names it. */
+  isNamedOnly?: boolean;
   people?: string[];
   quantities?: Record<string, number>;
   text?: string;
@@ -28,9 +30,9 @@ export interface Matchable {
 export interface ChannelEvent {
   at?: string;
   day: string;
-  facts: Record<string, unknown>;
-  id: string;
+  eventId: string;
   matchable: Matchable;
+  payload: Record<string, unknown>;
 }
 
 export interface EventChannel {
@@ -49,7 +51,6 @@ export interface EventChannel {
   read: (now: number) => Promise<ChannelEvent[]>;
 }
 
-export const PAYMENT_BOOKED = "payment.booked";
 const PAYMENTS_OFF = "payments are off in his settings";
 /** A read of the money app that takes longer fails, so the desk's tick goes on. */
 const READ_WITHIN_MS = 20_000;
@@ -66,7 +67,14 @@ function paymentEventOf(p: Payment): ChannelEvent {
   return {
     ...(at ? { at } : {}),
     day,
-    facts: {
+    eventId: id,
+    matchable: {
+      channel: "payments",
+      isNamedOnly: true,
+      quantities,
+      text: [merchant, category, note].filter(Boolean).join("\n"),
+    },
+    payload: {
       amount: p.amount,
       at: at ?? null,
       category: p.category,
@@ -76,12 +84,6 @@ function paymentEventOf(p: Payment): ChannelEvent {
       source: "payments",
       spending: p.spending,
       ...quantities,
-    },
-    id,
-    matchable: {
-      channel: "payments",
-      quantities,
-      text: [merchant, category, note].filter(Boolean).join("\n"),
     },
   };
 }
@@ -94,7 +96,7 @@ export const paymentsChannelOf = (
     "`text_matches` tests the merchant, the category and his note; read one with `read_payments` on its `day`",
   beat: 5 * MIN,
   block: () => (backend() ? null : PAYMENTS_OFF),
-  event: PAYMENT_BOOKED,
+  event: "payment.booked",
   name: "payments",
   quantities: ["eur_out", "eur_in"],
   read: async (now) => {
@@ -111,7 +113,3 @@ export const paymentsChannelOf = (
 });
 
 export const EVENT_CHANNELS = [paymentsChannelOf(payments)];
-
-/** Whether `name` is an event channel's: its events are matched only by a filter that names it. */
-export const isEventChannel = (name: string) =>
-  EVENT_CHANNELS.some((c) => c.name === name);

@@ -42,7 +42,7 @@ export function queue(
  * Each active agent's wakes by `events`: those its wait wants (`matcherOf`), from after it was created (by the event's
  * instant, else by its day against the agent's local day), not queued for it yet (`eventHeard`).
  */
-export function wakesOf<T>(
+export function agentWakesOf<T>(
   db: Desk["db"],
   agents: AgentRow[],
   people: People,
@@ -81,8 +81,9 @@ function channelReadsIn(db: Desk["db"]) {
 
 /**
  * Reads each event channel some active agent's wait names, when its beat is due, and queues its events for every agent
- * whose wait wants one (`wakesOf`: once per agent and event, the queue the dedupe). A channel no wait names is never
- * read; one that fails queues nothing, stalls nothing, and is said in the next wakes (`unreadLinesOf`).
+ * whose wait wants one (`agentWakesOf`: once per agent and event, the queue the dedupe). A channel no wait names is never
+ * read; one that is off (its `block`) is not read, and one that is off or fails queues nothing, stalls nothing, and is said
+ * in the next wakes (`unreadLinesOf`).
  */
 export async function pollChannels(desk: Desk, readPeopleNow: ReadPeople) {
   const { db } = desk;
@@ -97,24 +98,27 @@ export async function pollChannels(desk: Desk, readPeopleNow: ReadPeople) {
     if (!named.has(c.name) || (last && t - last.at < c.beat)) {
       continue;
     }
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: one channel read at a time, each bounded by its own timeout
-      const events = await c.read(t);
-      reads.set(c.name, { at: t });
-      const wakes = wakesOf(
-        db,
-        agents,
-        await readPeopleNow(),
-        events.map((e) => ({ ...e, eventId: e.id, payload: e.facts }))
-      );
-      db.transaction(() => queue(db, c.event, wakes))();
-    } catch (error) {
-      const why = (error as Error).message;
+    const failed = (why: string) =>
       reads.set(c.name, {
         at: t,
         failedSince: last?.failedSince ?? iso(t),
         why,
       });
+    const blocked = c.block();
+    if (blocked) {
+      failed(blocked);
+      continue;
+    }
+    // biome-ignore lint/performance/noAwaitInLoops: one channel at a time, each read bounded by its own timeout
+    const people = await readPeopleNow();
+    try {
+      const events = await c.read(t);
+      reads.set(c.name, { at: t });
+      const wakes = agentWakesOf(db, agents, people, events);
+      db.transaction(() => queue(db, c.event, wakes))();
+    } catch (error) {
+      const why = (error as Error).message;
+      failed(why);
       log("desk.runtime", { error: why, ok: false, what: c.name });
     }
   }
