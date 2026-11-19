@@ -178,10 +178,8 @@ private struct MatterRowView: View {
                     Text(row.name).font(.quote).foregroundStyle(Palette.fg)
                     Spacer(minLength: 8)
                     if cards > 0 {
-                        Text("\(cards) card\(cards == 1 ? "" : "s")").font(.chip).foregroundStyle(
-                            Palette.on
-                        )
-                        .padding(.horizontal, 12).frame(minHeight: 28).background(Palette.flag, in: .capsule)
+                        CountBadge(count: cards)
+                            .accessibilityLabel("\(cards) card\(cards == 1 ? "" : "s")")
                     }
                 }
                 if let next = row.nextStep {
@@ -253,10 +251,7 @@ private struct FiltersSheet: View {
                 HStack {
                     Text("Filters").font(.sheetTitle).foregroundStyle(Palette.fg)
                     Spacer()
-                    Button("Clear") { filter = MatterFilter() }.font(.rowName).foregroundStyle(
-                        Palette.fg
-                    )
-                    .frame(minHeight: 44).disabled(filter.isEmpty)
+                    TextLink("Clear") { filter = MatterFilter() }.disabled(filter.isEmpty)
                 }
                 Caps("Area")
                 VStack(spacing: 0) {

@@ -8,15 +8,11 @@ enum Metrics {
 
     /// Corner radii, smallest to largest.
     enum Radius {
-        /// Photo tiles and thumbnails.
+        /// A quote inside a draft, photo tiles and thumbnails.
         static let tile: CGFloat = 10
-        /// A small box inside a card: a text field, a swatch.
-        static let field: CGFloat = 12
-        /// The summary box, the highlighted transcript passage, compact cards.
+        /// A draft, a piece of evidence, a clip, a multi-line field.
         static let passage: CGFloat = 16
-        /// Grouped rows and attention cards: Settings and the Pendant's cards.
-        static let group: CGFloat = 20
-        /// The Pendant's figures.
+        /// Every card, row group and box.
         static let card: CGFloat = 22
         /// The floating player.
         static let player: CGFloat = 30

@@ -34,6 +34,8 @@ struct TypeStep: Equatable {
     /// A chip and a count's pill.
     static let chip = TypeStep(size: 14, weight: 600, style: .footnote)
     static let small = TypeStep(size: 13, weight: 500, style: .footnote)
+    /// A link: `small` at 600.
+    static let smallStrong = TypeStep(size: 13, weight: 600, style: .footnote)
     /// The small capitals over a block.
     static let label = TypeStep(size: 11, weight: 600, style: .caption2)
     /// The number in a badge.

@@ -63,9 +63,7 @@ struct PendantPill: View {
                 Image(systemName: face.symbol).font(.system(size: 17, weight: .medium))
                     .overlay(alignment: .topTrailing) {
                         if let badge = face.badge {
-                            Text("\(badge)").font(.badge).foregroundStyle(Palette.on)
-                                .frame(minWidth: 16, minHeight: 16).background(Palette.flag, in: .capsule).offset(
-                                    x: 9, y: -9)
+                            CountBadge(count: badge).offset(x: 9, y: -9)
                         }
                     }
             }

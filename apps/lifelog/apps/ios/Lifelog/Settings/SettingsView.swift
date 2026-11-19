@@ -207,7 +207,7 @@ private struct SettingsGroup<Content: View>: View {
                 }
             }
             .foregroundStyle(Palette.fg)
-            .card(radius: Metrics.Radius.group)
+            .card(radius: Metrics.Radius.card)
             if let footer {
                 Text(footer)
                     .font(.small)

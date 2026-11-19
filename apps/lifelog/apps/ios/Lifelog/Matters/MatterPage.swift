@@ -99,7 +99,7 @@ private struct GoalAndNext: View {
                 state: life.state(of: .edit(matter: matter.row.id, .next)),
                 save: { text in await life.setNextStep(of: matter.row.id, NextStepRequest(kind: "do", text: text)) })
         }
-        .card(radius: 22)
+        .card()
     }
 }
 
@@ -131,12 +131,12 @@ private struct EditableLine: View {
                 TextField(label, text: $draft, axis: .vertical).focused($focused).font(.lead)
                     .foregroundStyle(Palette.fg).lineLimit(1...6)
                 HStack(spacing: 8) {
-                    Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, height: 44))
+                    Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, size: .compact))
                     Button(state.isRunning ? "Saving…" : "Save") {
                         Task { await save(draft.trimmingCharacters(in: .whitespacesAndNewlines)) }
                     }
-                    .buttonStyle(.pill(.filled, height: 44)).disabled(
-                        state.isRunning || draft.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .buttonStyle(.pill(.filled, size: .compact, isBusy: state.isRunning))
+                    .disabled(state.isRunning || draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             } else {
                 Text(text.isEmpty ? "Not set" : text).font(.lead)
@@ -168,7 +168,7 @@ private struct CardLink: View {
                     Palette.fg)
             }
             .padding(.horizontal, 18).padding(.vertical, 16)
-            .overlay { RoundedRectangle(cornerRadius: 22).strokeBorder(Palette.flag, lineWidth: 1.5) }
+            .overlay { RoundedRectangle(cornerRadius: Metrics.Radius.card).strokeBorder(Palette.flag, lineWidth: 1.5) }
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -186,7 +186,7 @@ private struct NoAgent: View {
         }
         .padding(18).frame(maxWidth: .infinity, alignment: .leading)
         .overlay {
-            RoundedRectangle(cornerRadius: 22).strokeBorder(
+            RoundedRectangle(cornerRadius: Metrics.Radius.card).strokeBorder(
                 Palette.line, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
         }
     }
@@ -222,7 +222,7 @@ private struct AgentBlock: View {
                 Text(failure.reason).font(.small).foregroundStyle(Palette.flag)
             }
         }
-        .padding(18).frame(maxWidth: .infinity, alignment: .leading).card(radius: 22)
+        .padding(18).frame(maxWidth: .infinity, alignment: .leading).card()
     }
 
     /// Its session's link, and Stop or Resume while it is not over.
@@ -230,23 +230,20 @@ private struct AgentBlock: View {
         let isStopped = agent.status == .stopped
         return HStack(spacing: 8) {
             if let link = agent.link.flatMap(URL.init(string:)) {
-                Button {
-                    openURL(link)
-                } label: {
-                    Text("Open in \(agent.runtimeName.name) \(Image(systemName: "arrow.up.right"))").lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-                .buttonStyle(.pill(.quiet, height: 48))
+                TextLink("Open in \(agent.runtimeName.name)", isOutward: true) { openURL(link) }
             }
             if !agent.isOver {
                 Button {
                     Task { isStopped ? await life.resumeAgent(agent.id) : await life.stopAgent(agent.id) }
                 } label: {
-                    Label(
-                        state.isRunning ? "Working…" : isStopped ? "Resume" : "Stop",
-                        systemImage: isStopped ? "play" : "stop")
+                    if state.isRunning {
+                        Text("Working…")
+                    } else {
+                        Label(isStopped ? "Resume" : "Stop", systemImage: isStopped ? "play" : "stop")
+                    }
                 }
-                .buttonStyle(.pill(.quiet, height: 48)).disabled(state.isRunning)
+                .buttonStyle(.pill(.quiet, size: .compact, isBusy: state.isRunning))
+                .disabled(state.isRunning)
             }
         }
     }
