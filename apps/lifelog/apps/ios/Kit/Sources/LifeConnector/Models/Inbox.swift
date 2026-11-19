@@ -34,7 +34,9 @@ public struct InboxOrder: Equatable, Sendable {
     /// Where what only improves starts (the list's heading "The rest can wait"); nil when nothing improves.
     public let canWaitFrom: Int?
 
-    public init(checks: [Check] = [], canWaitFrom: Int? = nil) { (self.checks, self.canWaitFrom) = (checks, canWaitFrom) }
+    public init(checks: [Check] = [], canWaitFrom: Int? = nil) {
+        (self.checks, self.canWaitFrom) = (checks, canWaitFrom)
+    }
 
     /// The ask on show: the one he is on, else the first.
     public func check(on ref: String?) -> Check? { checks.first { $0.ref == ref } ?? checks.first }

@@ -38,7 +38,8 @@ extension Check {
     public func listLine(locale: Locale = .current, timeZone: TimeZone = .current) -> String? {
         if let matter { return matter.name }
         if group == .voice, let at {
-            let day = Date.FormatStyle(locale: locale, timeZone: timeZone).weekday(.abbreviated).day().month(.abbreviated)
+            let day = Date.FormatStyle(locale: locale, timeZone: timeZone).weekday(.abbreviated).day().month(
+                .abbreviated)
             return "A voice, " + at.formatted(day)
         }
         let line = [networkIdentity?.shownName ?? draft?.to, networkIdentity?.network ?? draft?.channel]

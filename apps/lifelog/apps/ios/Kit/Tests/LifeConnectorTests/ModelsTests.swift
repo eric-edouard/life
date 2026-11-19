@@ -276,10 +276,13 @@ private func asks(_ urgencies: [(String, Urgency)]) throws -> Inbox {
 }
 
 @Test func anAnswerHeldOrInFlightIsLeftOutSoTheListNeverFlashesItBack() throws {
-    let order = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves)]).ordered(deferred: [], except: ["b1", "i1"])
+    let order = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves)]).ordered(
+        deferred: [], except: ["b1", "i1"])
     #expect(order.checks.map(\.ref) == ["b2"] && order.canWaitFrom == nil)
 }
 
 @Test func theFilledOptionIsTheFirst() throws {
-    #expect(try asks([("b1", .blocks)]).checks[0].filled?.id == #require(asks([("b1", .blocks)]).checks[0].options.first).id)
+    #expect(
+        try asks([("b1", .blocks)]).checks[0].filled?.id == #require(asks([("b1", .blocks)]).checks[0].options.first).id
+    )
 }

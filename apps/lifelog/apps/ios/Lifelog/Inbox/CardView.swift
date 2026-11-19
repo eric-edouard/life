@@ -95,11 +95,15 @@ struct CardView: View {
                 // A pager made after his tap's result starts on the first ask: put it on the one he is on.
                 .task { if let current { await settle(proxy, on: current) } }
                 // A fold or a rotation changes the page's width: stay on the ask he is on, not at the old offset.
-                .onChange(of: box.size.width) { if let at = current ?? checks.first?.ref { Task { await settle(proxy, on: at) } } }
+                .onChange(of: box.size.width) {
+                    if let at = current ?? checks.first?.ref { Task { await settle(proxy, on: at) } }
+                }
                 // The one-card read gives way to the whole inbox: stay on the card he is on, not the first page. Only from
                 // a pager of one page, where no swipe of his can be under way.
                 .onChange(of: checks.map(\.id)) { before, ids in
-                    if before.count == 1, let current, ids.contains(current) { Task { await settle(proxy, on: current) } }
+                    if before.count == 1, let current, ids.contains(current) {
+                        Task { await settle(proxy, on: current) }
+                    }
                 }
             }
         }

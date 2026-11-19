@@ -69,7 +69,8 @@ struct InboxScreen: View {
     /// as it was until the next ask.
     @ViewBuilder private func card(_ order: InboxOrder) -> some View {
         if let check = notes.taken?.check ?? order.check(on: current) {
-            CardView(check: check, checks: order.checks, current: $current, notes: $notes, notice: notice) { taken, keep in
+            CardView(check: check, checks: order.checks, current: $current, notes: $notes, notice: notice) {
+                taken, keep in
                 life.forget(taken.key)
                 notice = nil
                 if keep { deferred.append(taken.check.ref) }
