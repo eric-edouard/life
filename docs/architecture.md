@@ -50,7 +50,7 @@ flowchart LR
 
 - **Sources** (`apps/server/src/sources/`, one descriptor each in `apps/server/src/memory/sources.ts`) return records (`SourceEvent`) with stable ids, so reading
   twice never duplicates anything. Raw data stays in its own app.
-- **Units** (`apps/server/src/memory/units.ts` only, through `gather`): a conversation-day, a chat-day, a mail thread-day, a
+- **Units** (`apps/server/src/memory/units.ts` only, read through `gather`): a conversation-day, a chat-day, a mail thread-day, a
   note-day, a repo-day. Code drops obvious noise (one-time codes, newsletters, Life's own output, mail from no one he
   knows) before any model sees it.
 - **Episodes** (`episodes.ts`): one deep model call per day reads the day from every channel in time order, with where

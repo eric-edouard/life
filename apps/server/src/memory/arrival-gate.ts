@@ -1,14 +1,9 @@
 import { MIN } from "../core/clock";
 import type { Unit } from "../records/unit";
 import { closedConversations } from "./extract";
+import type { Evidence } from "./gather";
 import { isDirect, kindOf } from "./sources";
-import {
-  type Built,
-  type Evidence,
-  isAgentReport,
-  isFromStrangers,
-  nameKey,
-} from "./units";
+import { type Built, isAgentReport, isFromStrangers, nameKey } from "./units";
 
 // The arrival gate (docs/glossary.md): which of today's units hold an arrival (new lines no step has read) worth a day
 // pass now. Model-free and pure: it decides *when* a unit is read, never *whether*; a unit it holds back waits for the
