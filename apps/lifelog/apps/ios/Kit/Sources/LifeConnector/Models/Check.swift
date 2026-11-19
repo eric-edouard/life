@@ -110,7 +110,13 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let subject: String?
     }
 
-    /// Who a person check is about as their network shows them (`NetworkIdentity`, `memory/network-identity.ts`).
+    /// A Contacts card as Life holds it (`contactsCard`, `memory/check-asks.ts`): never a network identity, a card has no chat.
+    public struct ContactsCard: Decodable, Sendable, Equatable {
+        public let name: String
+        public let handles: [String]
+    }
+
+    /// Who a person check is about, or the chat a decision's draft goes into, as the network shows it (`NetworkIdentity`, `memory/network-identity.ts`).
     public struct NetworkIdentity: Decodable, Sendable, Equatable {
         public struct Newest: Decodable, Sendable, Equatable {
             public let at: Date?
@@ -185,19 +191,20 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let matter: MatterRef?
     public let subject: String?
     public let ridesOn: RidesOn?
-    /// Who a person check is about as their network shows them; nil for other kinds, when none was found, or from a Life
-    /// that predates it.
+    /// Who a person check is about, or the chat a decision's draft goes into, as the network shows it; nil for other kinds,
+    /// when none was found, or from a Life that predates it.
     public let networkIdentity: NetworkIdentity?
+    /// A Contacts card's own name and handles; nil for every other kind, or from a Life that predates it.
+    public let contactsCard: ContactsCard?
     /// A decision whose draft goes to someone Life only guesses: that guess, asked beside it. A check holding one is a Check itself, so it is an array.
     public let confirm: [Check]?
 }
 
 extension Check {
-    /// Who asks, in his words: the agent's runtime, else Life (a voice from the pendant), else the asker's own name.
-    public func askerName(runtime: RuntimeName?) -> String {
+    /// The agent that asks, in his words: its runtime, else the asker's own name; nil when Life asks itself.
+    public func agentName(runtime: RuntimeName?) -> String? {
         if let runtime { return runtime.name }
-        guard asker.caseInsensitiveCompare("life") == .orderedSame else { return asker }
-        return group == .voice ? "Life, from the pendant" : "Life"
+        return asker.caseInsensitiveCompare("life") == .orderedSame ? nil : asker
     }
 
     /// The option he picks by naming someone (`takes` a person, or a person or a name), when the card has one.

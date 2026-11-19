@@ -211,7 +211,14 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
             { line: null, name: "Sam Ito", person: "person:sam_ito" },
           ]
         : [],
-    contacts: [],
+    contacts: [
+      {
+        card: "con_lou",
+        handles: ["+33600000009"],
+        id: "person:con_lou",
+        name: "Lou",
+      },
+    ],
     inferred: [
       {
         at: "2026-10-02T10:00:00.000Z",
@@ -347,7 +354,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     spyOn(checks, "checksNow").mockResolvedValue(
       checks.checksOf(madeUpInbox).map((c) => ({
         // Kit's guess, as its newest WhatsApp chat shows it (`networkIdentityOf` over a made-up chat-day).
-        ...withNetworkIdentity(c, kitOnWhatsapp),
+        ...withNetworkIdentity(c, kitOnWhatsapp, "Dana"),
         pushId: checks.pushIdOf(c.ref, "0".repeat(64)),
         urgency: urgencyOf(c),
       }))
@@ -461,7 +468,15 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
       expect(json.result.isError).toBe(false);
       return json.result.content[0].text as string;
     };
-    expectWire("read_inbox", await read("read_inbox"));
+    const inbox = await read("read_inbox");
+    expectWire("read_inbox", inbox);
+    const shown = JSON.parse(inbox).checks as Record<string, unknown>[];
+    expect(
+      shown.find((c) => c.group === "contacts card")?.contactsCard
+    ).toEqual({ handles: ["+33600000009"], name: "Lou" });
+    expect(
+      shown.find((c) => c.kind === "decision" && c.draft)?.networkIdentity
+    ).toMatchObject({ network: "WhatsApp", newest: null, shownName: "Kit" });
     expectWire("read_matters", await read("read_matters"));
     expectWire(
       "read_matter",
