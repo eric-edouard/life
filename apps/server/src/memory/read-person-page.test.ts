@@ -118,9 +118,9 @@ test("what Life holds, by year with the sources, or by month inside one year", a
     path,
     {
       corrections: [],
-      latest: new Map(),
       live: new Set(units.map((u) => u.id)),
       retired: new Map(),
+      standing: new Map(),
     },
     units.map((u) => ({ unit: u }))
   );

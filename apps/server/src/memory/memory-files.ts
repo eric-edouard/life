@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { z } from "zod";
+import { z } from "zod";
 import { clock } from "../core/clock";
 import {
   appendJsonl,
@@ -253,14 +253,35 @@ export const readBy = (episodes: Episode[]) =>
       .flatMap((m) => m.units.map((u) => [u, m] as const))
   );
 
-/** Each unit's latest extraction: its last line in extracted.jsonl. */
-export const latestExtractions = (ledger: Extracted[]) =>
-  latestBy(ledger, (e) => e.unit);
+/**
+ * The readings of each unit that stand, the latest last: its last line in extracted.jsonl and each line before it
+ * while the later one `continues` (a reading that is not a continuation replaces all before it).
+ */
+export const standingReadings = (ledger: Extracted[]) => {
+  const standing = new Map<string, Extracted[]>();
+  for (const e of ledger) {
+    standing.set(
+      e.unit,
+      e.continues ? [...(standing.get(e.unit) ?? []), e] : [e]
+    );
+  }
+  return standing;
+};
+/** A unit's latest reading: the last of its standing ones. */
+export const latestReading = (
+  standing: Map<string, Extracted[]>,
+  unit: string
+) => standing.get(unit)?.at(-1);
 
 /** The units an observation can stand on: in memory/units and not dropped by a code rule. */
-export const liveUnits = (units: Unit[]) =>
+export const liveUnits = (units: Pick<Unit, "drop" | "id">[]) =>
   new Set(units.flatMap((u) => (u.drop ? [] : [u.id])));
-const liveIn = keptReader((path) => liveUnits(rowsOf(path, Unit)));
+/**
+ * A unit line as liveness reads it: its id and drop alone, the rest left unchecked. The whole `Unit` schema on every
+ * day's file was most of the first read's time; the readers that use a unit's content parse it whole.
+ */
+const UnitLiveness = z.object({ drop: Unit.shape.drop, id: Unit.shape.id });
+const liveIn = keptReader((path) => liveUnits(rowsOf(path, UnitLiveness)));
 /** The live units (`liveUnits`), a day's file read again only once it changed (`keptReader`). */
 export const readLiveUnits = async () =>
   new Set((await filesIn(UNITS)).flatMap((n) => [...liveIn(join(UNITS, n))]));
@@ -291,18 +312,19 @@ export const readOrigins = async () =>
   );
 
 /**
- * True when `o`'s unit is live and `o` comes from that unit's latest extraction (its last line in extracted.jsonl), or
+ * True when `o`'s unit is live and `o` comes from one of that unit's standing readings (`standingReadings`), or
  * the unit has none: a unit read again, under another content hash or another prompt version, leaves its older facts
  * in the ledger, replaced; a unit gone (a conversation regrouped) or dropped (a code rule) leaves them all.
  */
 export function isCurrent(
-  { latest, live }: Pick<ObservationStatusInputs, "latest" | "live">,
+  { live, standing }: Pick<ObservationStatusInputs, "live" | "standing">,
   o: Pick<Origin, "madeBy" | "unit">
 ) {
-  const l = latest.get(o.unit);
+  const l = standing.get(o.unit);
   return (
     live.has(o.unit) &&
-    (!l || (l.unitHash === o.madeBy.unitHash && l.run === o.madeBy.run))
+    (!l ||
+      l.some((e) => e.unitHash === o.madeBy.unitHash && e.run === o.madeBy.run))
   );
 }
 
@@ -425,14 +447,15 @@ export const readCorrections = (): Correction[] => [
   ),
 ];
 
-/** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
+/** The ledgers that decide where an observation stands: the owner's corrections, each unit's standing readings, the supersessions. */
 export interface ObservationStatusInputs {
   corrections: Correction[];
   /** Cited only by lines of a section whose add-on is off (`frozenOnlyOf`); left out, none. */
   frozenOnly?: ReadonlySet<string>;
-  latest: Map<string, Extracted>;
   live: Set<string>;
   retired: Map<string, Retirement>;
+  /** Each unit's readings that stand (`standingReadings`), the latest last. */
+  standing: Map<string, Extracted[]>;
 }
 
 /**
@@ -464,7 +487,7 @@ export async function readObservationStatusInputs(
       all.push(s);
     }
   );
-  const c = { latest: latestExtractions(extracted), live };
+  const c = { live, standing: standingReadings(extracted) };
   const current = new Set(
     observations.flatMap((o) => (isCurrent(c, o) ? [o.id] : []))
   );
@@ -559,7 +582,7 @@ export function observationStatusOf(
     return { state: "gone" as const };
   }
   if (!isCurrent(s, o)) {
-    const l = s.latest.get(o.unit);
+    const l = latestReading(s.standing, o.unit);
     return {
       at: l?.at ?? null,
       by: l?.run ?? null,

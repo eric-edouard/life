@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { clock, DAY, HOUR, iso } from "../core/clock";
 import { agentOf } from "../host/desk-read";
 import { decisionsNow } from "../memory/decisions";
-import { register } from "./agent-actions";
+import { readPacket, register } from "./agent-actions";
 import { doorFetch, doorOf } from "./desk-door";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
@@ -136,4 +136,24 @@ test("an agent that finished may read its packet, nothing else", async () => {
   const packet = await call(id, key, "read_packet", {});
   expect(packet.text).toContain("a made-up bakery");
   expect(packet.text).toContain("set_wait");
+  expect(packet.text).toContain("The one gate");
+});
+
+test("the contract: his own Life's agent is told the Mac is its own; a second Life's has its door's tools only; both keep the gate and the first-turn rule", async () => {
+  const id = agent();
+  const own = await readPacket(desk, id, true);
+  const second = await readPacket(desk, id, false);
+  expect(own).toContain("this Mac is yours");
+  expect(own).toContain("1Password");
+  expect(own).toContain("Reaching him");
+  for (const text of [second]) {
+    expect(text).toContain("You have your door's tools only.");
+    expect(text).not.toContain("this Mac is yours");
+    expect(text).not.toContain("1Password");
+    expect(text).not.toContain("Reaching him");
+  }
+  for (const text of [own, second]) {
+    expect(text).toContain("The one gate");
+    expect(text).toContain("act only after his Go");
+  }
 });
