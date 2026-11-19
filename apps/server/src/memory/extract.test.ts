@@ -10,10 +10,12 @@ import {
   groupsOf,
   isReadable,
   lanesOf,
+  ownContinued,
   priorFor,
   withoutRepeats,
 } from "./extract";
 import { episodesNow, standingReadings } from "./memory-files";
+import { locate } from "./quote-check";
 import { ledger, madeBy, unit, verdict } from "./record-fixtures";
 import { type Built, linesHashOf, messageUnits } from "./units";
 import { episodeNow } from "./who";
@@ -443,6 +445,35 @@ test("a continued unit's facts are all shown as earlier facts, never cut by the 
   expect(count([U4])).toBe(25);
 });
 
+test("a call shows the facts of its own continued units only, not those of another group's", () => {
+  const shown = Array.from({ length: 25 }, (_, k) => ({
+    o: {
+      at: `2026-09-01T10:${String(k).padStart(2, "0")}:00.000Z`,
+      date: "2026-09-01",
+      id: `fact-${k}`,
+      madeBy: { ...madeBy, unitHash: "h" },
+      subjects: ["person:bastien"],
+      type: "choice",
+      unit: U4,
+    } as Observation,
+  }));
+  const continued = new Map([[U4, 3]]);
+  const holding = { episode: episode({ units: [U4] }), units: [built(U4)] };
+  const other = { episode: episode({ units: [U1] }), units: [built(U1)] };
+  const count = (g: typeof holding) =>
+    priorFor(
+      g,
+      shown,
+      new Set(),
+      "now",
+      new Set(),
+      0,
+      ownContinued(g, continued)
+    ).length;
+  expect(count(holding)).toBe(25);
+  expect(count(other)).toBe(0);
+});
+
 test("a fact quoting a line an earlier reading covered is dropped as a repeat, with what hangs on it", () => {
   const fact = (id: string, ref: string) =>
     ({ id, source: { ref }, unit: U1 }) as Observation;
@@ -513,4 +544,21 @@ test("a chat unit's hash is the hash of its first messages as they were: what a 
   expect(of(3).unit.hash).not.toBe(of(2).unit.hash);
   expect(linesHashOf(of(3), 2)).toBe(of(2).unit.hash);
   expect(linesHashOf(of(3), 3)).toBe(of(3).unit.hash);
+});
+
+test("a continued unit's quote is looked for from its first new line, where the hint is missing", () => {
+  // A line repeated before and after `from`: with the model's hint the new one is kept; with none, the search
+  // starts at `from`, so the quote no longer lands on its first occurrence (which would drop the fact as a repeat).
+  const lines = [
+    "d'accord ok pour demain",
+    "autre chose",
+    "d'accord ok pour demain",
+  ];
+  expect(locate("d'accord ok pour demain", lines, 2, 1)?.line).toBe(2);
+  expect(locate("d'accord ok pour demain", lines, undefined, 1)?.line).toBe(2);
+  expect(locate("d'accord ok pour demain", lines)?.line).toBe(0);
+  // Said only before `from`: still found, then dropped as a repeat.
+  expect(
+    locate("autre chose", ["autre chose", "x", "y"], undefined, 2)?.line
+  ).toBe(0);
 });

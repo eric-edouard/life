@@ -129,7 +129,7 @@ month of `date`. Append-only: a line is never edited or removed; one a newer obs
 `supersessions.jsonl`. Written by `bun life memory extract` for kept units (importance 2 or 3; a importance-1 unit stays in the
 units, searchable, but is not read in full). From `memory-extract.v3` a kept unit is read with the rest of its episode
 (every unit of it worth a searchable line), and with the earlier facts about the episode's people, which it may retire.
-From `memory-extract.v4` an episode is read across its days, from the day before its first unit to read (since 19 Nov 2026 only its units not read yet, the others coming as earlier facts) and cut
+From `memory-extract.v4` an episode is read across its days (since 19 Nov 2026 only its units not read yet, the others coming as earlier facts) and cut
 between days to fit a call (a unit in several episodes with the one reaching furthest forward, of those the smallest),
 and what the lines show ended is written as what happened, not as still open. From `memory-extract.v5` (20 Oct) the
 `about_a_person` type (then `person`) also holds what is between the owner and someone, in someone's name, and the earlier facts it may retire

@@ -357,6 +357,12 @@ export function continuedFrom(
     : 0;
 }
 
+/** The units of group `g` that are continued: a call shows the facts of its own continued units only. */
+export const ownContinued = (
+  g: Group,
+  continued: ReadonlyMap<string, number>
+) => new Set(g.units.map((b) => b.unit.id).filter((id) => continued.has(id)));
+
 /**
  * A reading with the facts quoting a line an earlier reading covered left out (`covered`: the refs of those lines, by
  * unit), and the replacements and unresolved names that belong to them: a continued unit keeps its earlier readings.
@@ -445,6 +451,9 @@ export async function extract(evidence: Evidence) {
       return n > 0 ? [[b.unit.id, n] as const] : [];
     })
   );
+  const chats = new Set(
+    read.filter((b) => b.messages.length > 0).map((b) => b.unit.id)
+  );
   const reread = new Set(
     [...read, ...copies]
       .map((b) => b.unit.id)
@@ -515,7 +524,7 @@ export async function extract(evidence: Evidence) {
                 step.run,
                 refs.close,
                 undefined,
-                new Set(continued.keys())
+                ownContinued(g, continued)
               )
             )
             .map((o) => [o.id, o])
@@ -573,7 +582,12 @@ export async function extract(evidence: Evidence) {
         madeBy,
         prior: new Map(prior.map((o) => [o.id, o])),
         resolve,
-        sources: new Map(sources.map((x) => [x.unit.id, x])),
+        sources: new Map(
+          sources.map((x) => [
+            x.unit.id,
+            { ...x, from: continued.get(x.unit.id) },
+          ])
+        ),
       });
       const covered = new Map(
         sources.flatMap((x) => {
@@ -657,7 +671,8 @@ export async function extract(evidence: Evidence) {
   await appendJsonl(EXTRACTED, Extracted, [
     ...finished.map(({ lines, unit }) => ({
       ...line(unit, perUnit.get(unit.id) ?? 0),
-      ...(kindOf(unit.source) === "voice" ? {} : { lines: lines.length }),
+      // Only a chat day's hash can match `linesHashOf`, so only it can continue (notes, repos, activity days never).
+      ...(chats.has(unit.id) ? { lines: lines.length } : {}),
       ...(continued.has(unit.id) ? { continues: true as const } : {}),
     })),
     ...copies.map(({ unit }) => line(unit, 0)),
