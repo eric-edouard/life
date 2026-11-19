@@ -28,9 +28,10 @@ struct MattersScreen: View {
             .background(Palette.bg)
             // Beside the matter, the Pendant and Settings are the matter column's (the list's bar keeps its title).
             .shellBar("Matters", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
-            .filterBar(isFiltered: filter != .everything, identifier: "matters.filter", isInColumn: listInColumn && sizeClass != .regular) {
-                filterChoices
-            }
+            .filterBar(
+                isFiltered: filter != .everything, identifier: "matters.filter",
+                isInColumn: listInColumn && sizeClass != .regular
+            ) { filterChoices }
             .reportsSideColumn($listInColumn)
         } detail: {
             if let id = router.matter {
