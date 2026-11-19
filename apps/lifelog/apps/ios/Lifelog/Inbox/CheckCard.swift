@@ -103,11 +103,14 @@ struct CheckCard: View {
 
     @ViewBuilder private var content: some View {
         if let draft = check.draft {
-            DraftBlock(draft: draft, identity: check.networkIdentity, isGuess: !(check.confirm ?? []).isEmpty, isBoxed: false)
+            DraftBlock(
+                draft: draft, identity: check.networkIdentity, isGuess: !(check.confirm ?? []).isEmpty, isBoxed: false)
         }
         if let evidence = check.evidence { EvidenceBlock(evidence: evidence) }
         if !check.clips.isEmpty { ClipBlock(clips: check.clips) }
-        if let contextThing { Text(contextThing).font(.quote).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true) }
+        if let contextThing {
+            Text(contextThing).font(.quote).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private var ownWords: some View {
@@ -173,7 +176,8 @@ struct CheckCard: View {
     private var actions: some View {
         CheckActions(
             check: check, input: $input, isBusy: isBusy,
-            links: isRowShown && isLinkBesideMatter ? Array(askLinks.dropFirst()) : askLinks, answer: answer, sameAs: sameAs
+            links: isRowShown && isLinkBesideMatter ? Array(askLinks.dropFirst()) : askLinks, answer: answer,
+            sameAs: sameAs
         )
         .padding(.bottom, Metrics.Spacing.xs)
     }

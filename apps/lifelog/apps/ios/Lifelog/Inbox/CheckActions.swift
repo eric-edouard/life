@@ -84,7 +84,9 @@ struct CheckActions: View {
     @ViewBuilder private var options: some View {
         if let first = check.options.first {
             Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
-            let rest = check.options.dropFirst().map { option in Choice(id: option.id, label: label(of: option)) { tap(option) } }
+            let rest = check.options.dropFirst().map { option in
+                Choice(id: option.id, label: label(of: option)) { tap(option) }
+            }
             if !rest.isEmpty { others(rest) }
         }
     }

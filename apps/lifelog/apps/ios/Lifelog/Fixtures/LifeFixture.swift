@@ -18,6 +18,8 @@
         nonisolated static let answer = value(of: "-fixtureAnswer") ?? "sent"
         nonisolated static let start = value(of: "-fixtureStart") ?? "started"
         nonisolated static let card = value(of: "-fixtureCard")
+        /// `-fixtureOnly <ref>`: the inbox holds that one card, for a screenshot of a card that is not the first.
+        nonisolated static let only = value(of: "-fixtureOnly")
         nonisolated static let tab = value(of: "-fixtureTab")
         nonisolated static let matter = value(of: "-fixtureMatter")
         nonisolated static let sheet = value(of: "-fixtureSheet")
@@ -168,6 +170,7 @@
             let left = answered.withLock { $0 }
             let open = Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
                 .filter { scenario != "improves" || $0["urgency"] as? String == "improves" }
+                .filter { LifeFixture.only == nil || $0["ref"] as? String == LifeFixture.only }
             let checks = (scenario == "empty" ? [] : open).map { check in
                 // A guess already answered is no longer asked beside its draft.
                 var check = check
@@ -416,6 +419,8 @@
                         option("else", "Somewhere else, I will tell you where"),
                     ],
                     matter: table, deadline: at(20, 12),
+                    context:
+                        "Camille asked Friday or Saturday. Chez Odile holds a table for six until Thursday evening.",
                     extra: [
                         "onSilence": "odile",
                         "said": [
