@@ -84,13 +84,13 @@ test("two to-do items ticked: a plan with a limit, one report per tick, then rec
     },
   ] as never);
   tick.mockImplementation((keys: string[], _said: string, onTicked: never) => {
-    keys.forEach((k, i) =>
+    for (const [i, k] of keys.entries()) {
       (onTicked as (a: number, b: number, c: string) => void)(
         i + 1,
         keys.length,
         k
-      )
-    );
+      );
+    }
     return Promise.resolve([]);
   });
   const reported: Record<string, unknown>[] = [];

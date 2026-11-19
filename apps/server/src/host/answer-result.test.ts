@@ -144,9 +144,8 @@ test("an answered decision asked the same answer again under a new key: its firs
   const { id } = await card();
   const first = await call(id, ["send"], "tap-1").result;
   const lines = readFileSync(DECISIONS, "utf8");
-  for (const key of ["tap-2", undefined]) {
-    expect(await call(id, ["send"], key).result).toEqual(first);
-  }
+  expect(await call(id, ["send"], "tap-2").result).toEqual(first);
+  expect(await call(id, ["send"]).result).toEqual(first);
   expect(sends).toHaveBeenCalledTimes(1);
   expect(readFileSync(DECISIONS, "utf8")).toBe(lines);
   await expect(call(id, ["wait"], "tap-3").result).rejects.toThrow(
@@ -527,13 +526,7 @@ test("a new matter: Start asks the desk with the goal he saw, reports its stages
     const r = await result;
     expectWire("answer_check_new_matter_started", r, true);
     expect(reported.map((s) => s.plan ?? s.step)).toEqual([
-      [
-        "goal_saved",
-        "desk_accepted",
-        "session_open",
-        "turn_begun",
-        "recorded",
-      ],
+      ["goal_saved", "desk_accepted", "session_open", "turn_begun", "recorded"],
       "goal_saved",
       "desk_accepted",
       "session_open",

@@ -62,7 +62,7 @@ export async function correctMatter(
           items,
           note ?? "Marked done (Life's words: he gave none).",
           (done, of, key) =>
-            report({ done, of, key, step: "todo_items_ticked" })
+            report({ done, key, of, step: "todo_items_ticked" })
         )
       : [];
   const written = [
