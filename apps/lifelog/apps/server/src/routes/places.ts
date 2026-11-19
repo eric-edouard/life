@@ -43,7 +43,10 @@ const Visit = z
   .object({
     arrivedAt: z.iso.datetime(),
     latitude: Latitude,
-    leftAt: z.iso.datetime(),
+    leftAt: z.iso
+      .datetime()
+      .nullable()
+      .describe("Null while the stay is under way"),
     longitude: Longitude,
     place: z
       .string()
