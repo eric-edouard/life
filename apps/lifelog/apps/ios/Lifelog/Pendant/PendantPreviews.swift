@@ -189,14 +189,14 @@
     }
 
     #Preview("Replace") {
-        Color.clear.sheet(isPresented: .constant(true)) { ReplaceSheet {} }
+        Color.clear.sheet(isPresented: .constant(true)) { ReplaceSheet {}.sheetStack() }
             .environment(CaptureStore.preview())
             .previewSync()
             .preferredColorScheme(.dark)
     }
 
     #Preview("Pair") {
-        Color.clear.sheet(isPresented: .constant(true)) { PairPendantSheet() }
+        Color.clear.sheet(isPresented: .constant(true)) { PairPendantSheet().sheetStack() }
             .environment(CaptureStore.preview())
             .preferredColorScheme(.dark)
     }

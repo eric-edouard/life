@@ -1,7 +1,14 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { Engine, ROLE_ASKERS, RuntimeName, SourceName } from "./names";
+import {
+  Engine,
+  NotifyKind,
+  NotifyLevel,
+  ROLE_ASKERS,
+  RuntimeName,
+  SourceName,
+} from "./names";
 import { LIFE_STATE_DIR } from "./paths";
 import { HOME } from "./platform";
 
@@ -126,6 +133,11 @@ export const Settings = z
      * (`models/prompt-parts.ts`). Quotes stay as said; topic tags stay English. Absent: English, as before the key.
      */
     memoryLanguage: z.string().min(1).default("English"),
+    /**
+     * How each kind of new card reaches his phone (`pushNewCards`, `host/card-push.ts`): off, quiet, normal or urgent.
+     * The one key whose missing parts are not off: a kind left out takes Life's default (`NOTIFY_DEFAULTS`).
+     */
+    notifications: z.partialRecord(NotifyKind, NotifyLevel).default({}),
     /** The calendar the episodes are projected on (`host/past-calendar.ts`): a Google one through `gog` as `account`, or without one an Apple one through the app's EventKit tool. */
     pastCalendar: z
       .object({ account: z.string().optional(), calendar: z.string() })

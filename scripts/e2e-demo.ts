@@ -38,7 +38,11 @@ interface Step {
 
 /** The new matter the demo holds, found to closed: Start, the plan card's Go, the agent's work, Mark as done. */
 const FOUND_TO_CLOSED: Step[] = [
-  { name: "inbox offers the new matter", refresh: true, until: "Work on it?" },
+  {
+    name: "inbox offers the new matter",
+    refresh: true,
+    until: "Start an agent on this?",
+  },
   {
     name: "Start: goal saved, runtime, session, first turn",
     tap: "Start",
@@ -241,7 +245,7 @@ async function run(step: Step) {
     });
   }
   if (step.back) {
-    // The system's back button by name: agent-device's `back` pressed the Pendant pill on the iPhone Duo.
+    // The system's back button by name: agent-device's `back` pressed the Pendant item on the iPhone Duo.
     await device(["find", "BackButton", "click"]);
   }
   await untilAnswers(

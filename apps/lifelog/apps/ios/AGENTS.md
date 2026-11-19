@@ -4,8 +4,12 @@
 Swift package with everything that doesn't need UIKit, so it builds and tests on the Mac in seconds. `Watch/` and
 `Widgets/` are the glances; `Shared/` holds code and copy that the app and its extensions share. `project.yml`
 generates the gitignored `.xcodeproj`.
-The app is Life's two tabs, Inbox (`Inbox/`: the `CheckCard`s, paged by swipe, and its `AnswerResultView`) and Matters (`Matters/`), with
-the Pendant as a sheet from the pill top right (`Shell/`) and Settings from the gear; the old Library, Conversation, People, Presses and
+The app is Life's two tabs, Inbox (`Inbox/`: the `CheckCard`s, paged by swipe, and its `AnswerResultView`) and Matters (`Matters/`), plus
+the system's search tab (`Shell/SearchScreen.swift`). The bars are two groups of system pieces, declared and never drawn
+(`Shell/TopBar.swift`): on top the Pendant's icon and the Settings gear (Settings only from Inbox and Matters; a pushed
+page has Back and the Pendant; a sheet only its Close, a toolbar item from `SheetHeader` in the sheet's `sheetStack()`),
+at the bottom the tabs. A screen's answers stay in its content, never in a bar. Sheets are centred, the system's
+default: no `presentationPlacement` (`.leading` is missing on iOS 27.0 and crashes). The old Library, Conversation, People, Presses and
 Spending screens are cut. Every screen reads through `ReadScreen` (loading, empty, stale, unreachable, failed, not paired) and every
 action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSystem/Typography.swift`). `Shared/Palette.swift` is the phone's one copy of Life's brand (`assets/brand/tokens.css`), checked by
 `scripts/brand.test.ts`: no colour literal elsewhere, except the hardware drawing (`LightGuide.swift`), which paint the pendant itself. `docs/architecture.md` names every store and owner and says where a new screen or derived value goes.
@@ -17,7 +21,7 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
 - **Regenerate the project** after editing `project.yml`: `bun run ios:project`.
 - **Test Kit alone**, from Life's root: `swift test --package-path apps/lifelog/apps/ios/Kit --scratch-path .build/kit`.
 - **Run in the simulator.** Debug builds take `-fixtureLife <scenario>` (Life without a Mac: `Fixtures/LifeFixture.swift`, with its
-  `-fixtureCard`, `-fixtureTab`, `-fixtureMatter`, `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`, `-fixturePair ok|slow|expired`, `-fixturePage life|server|diagnostics`, `-fixtureAnswer`, `-fixtureStart`, and `-fixturePose wide|upright`, the iPhone Duo open drawn on any simulator), `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
+  `-fixtureCard`, `-fixtureTab matters|search`, `-fixtureMatter`, `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`, `-fixturePair ok|slow|expired`, `-fixturePage life|server|diagnostics`, `-fixtureAnswer`, `-fixtureStart`, and `-fixturePose wide|upright`, the iPhone Duo open drawn on any simulator), `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
   (see `FakeScenario.swift`) `-offline` and `-serverFlaky` (the server times out and every other request is called off); launch with `xcrun simctl launch <udid> com.ericedouard.lifelog <args>`.
   The device token goes in through `SIMCTL_CHILD_LIFELOG_DEVICE_TOKEN` with `SIMCTL_CHILD_LIFELOG_SERVER_URL`, read from the file without printing it.
 - **Check Release before an install.** The gate builds Debug only and `install:phone` builds Release, so anything
@@ -69,7 +73,7 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
   card's buttons are its options' `label`s, and what an option `takes` (a person, a name, a note) is what the tap asks
   for (`Check.answer`); the phone decides nothing Life decides (what is open, a goal's steps): a matter's edits and Mark
   as done go by its id. A tapped push routes by `pushId` (`NotificationRoute.card`) and opens the Inbox; a push while
-  the app is in front reads the inbox again. The badge is the inbox total.
+  the app is in front reads the inbox again. The badge is the count of cards that block him.
 - A server enum decodes unknown values as `unknown` (`UnknownTolerant`) and belongs in the mirror list of
   `ContractTests.swift` (lifelog's against its `openapi.json`, Life's against `apps/server/src`), which also checks
   every path the client calls.

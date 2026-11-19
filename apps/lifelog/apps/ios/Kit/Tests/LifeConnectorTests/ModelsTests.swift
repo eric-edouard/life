@@ -34,13 +34,17 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let clip = try #require(voice.clips.first)
     #expect(clip.words?.spoken(at: 400, in: clip.text) == NSRange(location: 5, length: 3))
     #expect(voice.likelyPeople.first?.name == "Gran")
+    #expect(voice.likelyPeople.first?.line == "Your grandmother")
+    let name = try #require(inbox.checks.first { $0.group == .name })
+    #expect(name.said?.by == "Gran")
+    #expect(name.around?.before.isEmpty == false)
     #expect(inbox.checks.first { $0.group == .ending }?.ridesOn?.matters == 1)
     let found = try #require(
         try decoded(Matter.self, wireText("life/read_matter_found.json")).checks.first)
     #expect(found.group == .newMatter)
     #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
     #expect(found.deadline == nil)
-    #expect(found.options.map(\.label) == ["Start", "Edit goal", "Dismiss"])
+    #expect(found.options.map(\.label) == ["Start", "Edit goal", "No"])
     #expect(found.goal == "Gran's photo is framed.")
     #expect(inbox.checks.last?.draft == nil)
 
@@ -80,6 +84,14 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.status == .unknown)
     #expect(row.nextStep?.kind == .unknown)
     #expect(row.goal?.by == .unknown)
+}
+
+@Test func theListSearchesOnThePhone() throws {
+    let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
+    #expect(list.matching("watch").map(\.name) == ["Mend Gran's watch"])
+    #expect(list.matching("QUOTE").count == 1)
+    #expect(list.matching("  ").count == 3)
+    #expect(list.matching("nothing like it").isEmpty)
 }
 
 @Test func theFiltersNarrowTheListAndAreasComeMostFirst() throws {
@@ -203,7 +215,7 @@ private func everyKindOfCheck() throws -> [Check] {
         voice.answer(naming: .person("person:gran"))
             == AnswerRequest(ref: voice.ref, options: ["this-is"], person: "person:gran"))
     #expect(voice.answer(naming: .name("Sam")) == AnswerRequest(ref: voice.ref, options: ["this-is"], name: "Sam"))
-    #expect(voice.options.dropFirst().compactMap(voice.answer).count == 3)
+    #expect(voice.options.dropFirst().compactMap(voice.answer).count == 1)
 
     // No button reads like the words a model is given.
     #expect(all.flatMap(\.options).allSatisfy { !$0.label.contains("`") && $0.label.count < 30 })

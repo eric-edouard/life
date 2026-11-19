@@ -8,6 +8,7 @@ import { HTTPException } from "hono/http-exception";
 import { byteRange } from "../audio-store";
 import { logChange } from "../change-log";
 import { RECOGNITION } from "../config";
+import { readClip } from "../naming-clips";
 import { answerVoices, severalTarget } from "../naming-queue";
 import { aliasesOf, assign, merge, personRow } from "../people";
 import type { Services } from "../services";
@@ -75,30 +76,35 @@ const Voice = z.object({
   speakerLabel: z.string(),
 });
 
+// One clip a card plays (naming-clips.ts `clipOf`).
+const Clip = z
+  .object({
+    at: z.iso.datetime().nullable(),
+    // Seconds of the job's bucket audio (`GET /transcripts/{jobId}/audio`); null for a job
+    // from before the bucket, which the phone plays from `at` to `until` in its recording.
+    audio: z
+      .object({ end: z.number(), jobId: z.uuid(), start: z.number() })
+      .nullable(),
+    conversationId: z.uuid(),
+    // The turn, for "several people" to name it in place, and who it reads as now.
+    jobId: z.uuid(),
+    personId: z.uuid().nullable(),
+    speakerLabel: z.string().nullable(),
+    // The words said before it is cut.
+    text: z.string(),
+    turnIndex: z.int(),
+    until: z.iso.datetime().nullable(),
+    words: TimedWords,
+  })
+  .openapi("Clip");
+
 const QueueItem = z
   .object({
     // Its clean turns of its voice, best first (naming-queue.ts `cardClips`). Cards with one to play
     // come first.
-    clips: z.array(
-      z.object({
-        at: z.iso.datetime().nullable(),
-        // Seconds of the job's bucket audio (`GET /transcripts/{jobId}/audio`); null for a job
-        // from before the bucket, which the phone plays from `at` to `until` in its recording.
-        audio: z
-          .object({ end: z.number(), jobId: z.uuid(), start: z.number() })
-          .nullable(),
-        conversationId: z.uuid(),
-        // The turn, for "several people" to name it in place, and who it reads as now.
-        jobId: z.uuid(),
-        personId: z.uuid().nullable(),
-        speakerLabel: z.string().nullable(),
-        // The words said before it is cut.
-        text: z.string(),
-        turnIndex: z.int(),
-        until: z.iso.datetime().nullable(),
-        words: TimedWords,
-      })
-    ),
+    // Its clean turns of its voice, best first (naming-queue.ts `cardClips`). Cards with one to play
+    // come first.
+    clips: z.array(Clip),
     conversations: z.int(),
     // Turns where the summaries heard its name.
     evidence: z.array(
@@ -237,6 +243,34 @@ export function speakerRoutes({
       (c) => {
         const { from, to } = c.req.valid("query");
         return c.json(readSpeakerVoices(db, new Date(from), new Date(to)), 200);
+      }
+    )
+    .openapi(
+      createRoute({
+        description:
+          "The clip of one turn of a recording, cut as a naming card's clips are (`audio`, `words`), " +
+          "so a client can play a sentence it quotes. 404 when no live conversation holds that turn.",
+        method: "get",
+        path: "/turns/clip",
+        request: {
+          query: z.object({
+            jobId: z.uuid(),
+            turnIndex: z.coerce.number().int().min(0),
+          }),
+        },
+        responses: {
+          200: json(Clip, "The turn's clip"),
+          404: notFound,
+        },
+      }),
+      (c) => {
+        const found = readClip(db)(c.req.valid("query"));
+        return found
+          ? c.json(found.clip, 200)
+          : c.json(
+              { error: "not_found" as const, message: "no such turn" },
+              404
+            );
       }
     )
     .openapi(

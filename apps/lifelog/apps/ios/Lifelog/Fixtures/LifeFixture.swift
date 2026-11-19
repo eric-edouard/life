@@ -10,7 +10,7 @@
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `loading`, `empty`, `stale`, `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent` decides what a tap on a draft does; `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`
     /// open the screen to show. `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -332,8 +332,8 @@
                     ]),
                 check(
                     "end_done", group: "ending", title: "Idris Benali owed Sam the supplier price",
-                    question: "Is this done?",
-                    options: [option("outdated", "Done"), option("false", "Not done")], matter: kitchen,
+                    question: "Is this done? Idris Benali owed Sam the supplier price",
+                    options: [option("outdated", "Yes, done"), option("false", "Not yet")], matter: kitchen,
                     context: "He wrote the price on Tuesday; nothing in the matter has changed since.",
                     extra: [
                         "evidence": [
@@ -359,9 +359,8 @@
                     "voice_v1", group: "voice", title: "A voice from Saturday, 4 minutes with Sam",
                     question: "Who is this?",
                     options: [
-                        option("this-is", "Name them…", takes: "person or name"),
-                        option("not-anyone-i-know", "A stranger"), option("media", "TV or video"),
-                        option("not-relevant", "Don't care"),
+                        option("this-is", "Someone else…", takes: "person or name"),
+                        option("not-relevant", "Don't name"),
                     ],
                     context: "Sam called the voice “Jun” twice in the same minute.",
                     extra: [
@@ -384,10 +383,10 @@
                     ]),
                 check(
                     "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
-                    question: "Goal: a table for eight at Chez Odile on Friday 27th. Work on it?",
+                    question: "Start an agent on this? A table for eight at Chez Odile on Friday 27th.",
                     options: [
                         option("start", "Start"), option("edit-goal", "Edit goal", takes: "note"),
-                        option("dismiss", "Dismiss"),
+                        option("dismiss", "No"),
                     ],
                     matter: table,
                     context: "Camille proposed Chez Odile on Saturday; you said you would handle it.",
