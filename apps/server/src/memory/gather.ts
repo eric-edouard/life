@@ -37,7 +37,7 @@ import { dayStart, lastDays, localDate, type Window } from "./zones";
 /**
  * The default look-back of every step: yesterday, plus what a sleeping Mac or a late transcript left behind, and the
  * conversations lifelog regroups a few days later (their new hash needs a new verdict). Files are described
- * (`describeFiles`) only on messages of these days: an older one stays a tag.
+ * (`describeFiles`) only on messages of these days: an older one stays a tag. Today's are described on arrival too.
  */
 export const DAYS = 7;
 
@@ -46,8 +46,8 @@ export const DAYS = 7;
  * chats, mail, notes, his commits), cut into units with the code rules applied, senders kept unresolved (`resolve` names them in the text only), in time order across channels; also
  * what the later stages need around them. The one reader of the sources for the memory steps: a processing run gathers once
  * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
- * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
- * files as tags. A repo's units are never extracted nor read for people (extract skips them; the episodes step caps
+ * (`describeFiles`; the watcher's reads leave them, described on arrival), so a unit's hash moves once when its file
+ * is described; an older window (a backfill) keeps its files as tags. A repo's units are never extracted nor read for people (extract skips them; the episodes step caps
  * their importance at 1).
  */
 export async function gather(
@@ -55,7 +55,7 @@ export async function gather(
   { resolve, truth }: { resolve: Resolve; truth: Truth },
   options: {
     engine?: Engine;
-    /** `false`: no files described (an older window keeps them as tags; the watcher's reads cost no model call). */
+    /** `false`: no files described here (an older window keeps them as tags; the watcher describes today's after its publish). */
     files?: false;
     /** How each source read is logged: `safely` every read (a processing run's), `quietly` only a failure (the watcher's). */
     log?: typeof safely;
@@ -103,7 +103,7 @@ export async function gather(
       ? undefined
       : await describeFiles(
           read.flatMap(({ events }) => events).filter((e) => e.at >= recent),
-          options.engine
+          { engine: options.engine }
         );
   const known = readFiles();
   const shown = read.map(({ events, s }) => ({
@@ -126,6 +126,10 @@ export async function gather(
     engine: options.engine,
     events: shown.flatMap(({ events }) => events),
     failed,
+    /** The raw events that carry files: the watcher describes today's on arrival (`describeFilesOnArrival`). */
+    fileEvents: read
+      .flatMap(({ events }) => events)
+      .filter((e) => e.files?.length),
     files,
     // By source, what this gather read (a source it did not read has no key: its units stay as they were).
     read: {

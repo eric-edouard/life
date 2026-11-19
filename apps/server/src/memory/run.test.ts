@@ -111,11 +111,13 @@ test("a processing run's selected engine reaches collection, attachments, episod
     copied: 0,
     described: 0,
     failed: 0,
+    failedRefs: [],
     missing: [],
     model: "codex/test",
     ms: 0,
     read: 0,
     run: "test",
+    waiting: 0,
   });
   const stopped = new Error("engine inspected before model work");
   const started = spyOn(steps, "begin").mockRejectedValue(stopped);
@@ -125,7 +127,7 @@ test("a processing run's selected engine reaches collection, attachments, episod
       await readPeople(),
       { engine: "codex" }
     );
-    expect(described.mock.calls.at(0)?.[1]).toBe("codex");
+    expect(described.mock.calls.at(0)?.[1]).toEqual({ engine: "codex" });
     expect(evidence.engine).toBe("codex");
     await expect(episodes(evidence)).rejects.toThrow(stopped);
     await expect(extract(evidence)).rejects.toThrow(stopped);
