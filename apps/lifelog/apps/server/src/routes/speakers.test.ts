@@ -203,3 +203,17 @@ test("a span with no turns answers nothing, and the call writes nothing", async 
   expect(env.db.$client.serialize()).toEqual(seeded);
   expect(seeded).not.toEqual(before);
 });
+
+test("a turn's clip is cut as a card's is, for one a client quotes; a turn nobody holds is 404", async () => {
+  const { id, jobId } = seedConversation(env.db, [
+    { end: 12, speakerId: "a", start: 0, text: "Ask Bastien about tiles" },
+  ]);
+  const res = await get(`/turns/clip?jobId=${jobId}&turnIndex=0`, OWNER_TOKEN);
+  expect(res.status).toBe(200);
+  const clip = (await res.json()) as { conversationId: string; text: string };
+  expect(clip.conversationId).toBe(id);
+  expect(clip).toHaveProperty("words");
+  expect(
+    (await get(`/turns/clip?jobId=${jobId}&turnIndex=9`, OWNER_TOKEN)).status
+  ).toBe(404);
+});

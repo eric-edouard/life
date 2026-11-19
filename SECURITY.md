@@ -88,13 +88,18 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - By Gmail, through gog, as a mail from one of his accounts: a card's draft (from, to, cc, subject, text and one file he
   approved), once, on his answer to its outgoing option. It goes to Google's Gmail API, then to its recipients; a file is
   written for a moment to a private temporary folder for gog, and removed after.
+- To GitHub, through `gh` as his account, with the `github` source on: requests for the issues and comments of the repos
+  he listed in `githubRepos`, and nothing else; and a card's draft (a comment's text, or a new issue's title and text),
+  once, on his answer to its outgoing option, into one of those repos (his yes of 19 Nov 2026).
 - To Google, when he set it: the Past calendar, the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026),
   and the to-do items with Google Tasks as the backend.
 - To his own lifelog server: his corrections about recordings, a "heard you" notice for each voice ask (the agent's
   name only, never his words), and, for each new card in his
-  inbox, a push (his yes of 18 Nov 2026): the words "1 new card" or "N new cards", the number of cards that block him (the badge)
-  and, for one card, an id of 16 hex characters made with a key that never leaves the Mac (never a ref, a name, a title
-  or a question). Lifelog pushes it to his phone through Apple.
+  inbox, a push (his yes of 18 Nov 2026; every kind of card since 19 Nov 2026): the words "1 new card" or "N more new
+  cards", the number of cards that block him (the badge), the push's level (passive, active or time-sensitive) and,
+  for one card, an id of 16 hex characters made with a key that never leaves the Mac (never a ref, a name, a title or
+  a question). Lifelog pushes it to his phone through Apple; his phone then reads the card from the connector and
+  writes the notification's text itself, shown on his lock screen and his Watch.
 - The encrypted backup, when `backup` is set, to the folder he chose.
 - Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
 

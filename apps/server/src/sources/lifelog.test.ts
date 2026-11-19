@@ -32,6 +32,7 @@ import { conversationsWith } from "./lifelog-conversations";
 import type { Push } from "./lifelog-push";
 import { Recorded } from "./lifelog-recorded";
 import {
+  Clip,
   ConversationAnswer,
   NamingQueueItem,
   Voices,
@@ -530,6 +531,7 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
       defs,
       "naming-queue"
     ),
+    ...drift(ours(Clip), answer("/turns/clip", "get"), defs, "turns-clip"),
     ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
     ...drift(ours(Recorded), answer("/recorded", "get"), defs, "recorded"),
     ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),
@@ -744,6 +746,7 @@ test("a push Life asks lifelog for is shaped as `POST /notifications` takes it: 
   const mine: Required<Push> = {
     badge: 1,
     body: "1 new card",
+    level: "active",
     pushId: "9f2c41d07ab35e68",
     title: "Life",
   };

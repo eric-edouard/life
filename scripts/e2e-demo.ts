@@ -38,7 +38,11 @@ interface Step {
 
 /** The new matter the demo holds, found to closed: Start, the plan card's Go, the agent's work, Mark as done. */
 const FOUND_TO_CLOSED: Step[] = [
-  { name: "inbox offers the new matter", refresh: true, until: "Work on it?" },
+  {
+    name: "inbox offers the new matter",
+    refresh: true,
+    until: "Start an agent on this?",
+  },
   {
     name: "Start: goal saved, runtime, session, first turn",
     tap: "Start",

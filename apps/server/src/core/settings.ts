@@ -1,7 +1,14 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { Engine, ROLE_ASKERS, RuntimeName, SourceName } from "./names";
+import {
+  Engine,
+  NotifyKind,
+  NotifyLevel,
+  ROLE_ASKERS,
+  RuntimeName,
+  SourceName,
+} from "./names";
 import { LIFE_STATE_DIR } from "./paths";
 import { HOME } from "./platform";
 
@@ -109,6 +116,12 @@ export const Settings = z
     deviceNames: z.record(z.string().min(1), z.string().min(1)).optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
+    /** The GitHub repos (`owner/name`) whose issues and comments the `github` source reads and a card's draft may write to: no other repo is ever asked for. */
+    githubRepos: z
+      .array(z.string().regex(/^[\w.-]+\/[\w.-]+$/))
+      .min(1)
+      .max(5)
+      .optional(),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */
     lifeChat: z.string().optional(),
     /** lifelog's server; its token is `LIFELOG_TOKEN`. */
@@ -120,6 +133,11 @@ export const Settings = z
      * (`models/prompt-parts.ts`). Quotes stay as said; topic tags stay English. Absent: English, as before the key.
      */
     memoryLanguage: z.string().min(1).default("English"),
+    /**
+     * How each kind of new card reaches his phone (`pushNewCards`, `host/card-push.ts`): off, quiet, normal or urgent.
+     * The one key whose missing parts are not off: a kind left out takes Life's default (`NOTIFY_DEFAULTS`).
+     */
+    notifications: z.partialRecord(NotifyKind, NotifyLevel).default({}),
     /** The calendar the episodes are projected on (`host/past-calendar.ts`): a Google one through `gog` as `account`, or without one an Apple one through the app's EventKit tool. */
     pastCalendar: z
       .object({ account: z.string().optional(), calendar: z.string() })
