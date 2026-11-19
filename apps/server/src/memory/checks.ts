@@ -10,6 +10,7 @@ import {
   namingQueueGuessesOf,
   readNamingQueue,
 } from "../sources/lifelog-voices";
+import { cardAskOf, guessAskOf } from "./check-asks";
 import { inboxRankOf, type Urgency, urgencyOf } from "./check-urgency";
 import { pagedNow } from "./closeness";
 import {
@@ -50,8 +51,6 @@ import {
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
 import {
-  cardAskOf,
-  guessAskOf,
   type NetworkIdentified,
   withNetworkIdentities,
 } from "./network-identity";
