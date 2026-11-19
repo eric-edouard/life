@@ -82,7 +82,7 @@ struct StaleNote: View {
             Text("Read at \(since.formatted(.dateTime.hour().minute())). \(because)")
                 .font(.small).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-            Button("Retry") { Task { await retry() } }.font(.small).foregroundStyle(Palette.fg).frame(minHeight: 44)
+            TextLink("Retry") { Task { await retry() } }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 2)

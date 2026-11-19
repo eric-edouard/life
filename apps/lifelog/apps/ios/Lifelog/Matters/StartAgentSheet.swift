@@ -52,22 +52,10 @@ struct StartAgentSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             Caps("The goal, in your words")
             TextField("Goal", text: $goal, axis: .vertical).font(.quote).foregroundStyle(Palette.fg)
-                .lineLimit(2...6).padding(16).background(Palette.card, in: .rect(cornerRadius: 20))
+                .lineLimit(2...6).padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))
             Caps("Who works on it")
-            HStack(spacing: 8) {
-                ForEach(RuntimeName.offered, id: \.self) { option in
-                    Button {
-                        runtimeName = runtimeName == option ? nil : option
-                        model = nil
-                    } label: {
-                        Label(option.name, systemImage: "sparkle").font(.rowName)
-                            .foregroundStyle(runtimeName == option ? Palette.on : Palette.fg)
-                            .frame(maxWidth: .infinity, minHeight: 48)
-                            .background(runtimeName == option ? Palette.fg : Color.fillTint, in: .capsule)
-                    }
-                    .buttonStyle(.plain).accessibilityAddTraits(runtimeName == option ? .isSelected : [])
-                }
-            }
+            SegmentedChoice(choices: RuntimeName.offered, selection: $runtimeName, title: \.name)
+                .onChange(of: runtimeName) { model = nil }
             if let models = runtimeName?.models, !models.isEmpty {
                 Caps("Model")
                 HStack(spacing: 8) {
@@ -99,7 +87,7 @@ struct StartAgentSheet: View {
             CheckLines(lines: ActionCopy.lines(state, context)).padding(16).frame(
                 maxWidth: .infinity, alignment: .leading
             )
-            .background(Palette.card, in: .rect(cornerRadius: 20))
+            .background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.card))
             LimitNote(state: state) {
                 "Each line is checked for real, " + ($0 ?? "in a few seconds")
                     + ". If one fails you are told here, and nothing is left half started."
@@ -108,7 +96,7 @@ struct StartAgentSheet: View {
             Button {
             } label: {
                 Text("Starting…")
-            }.buttonStyle(.pill(.quiet)).disabled(true)
+            }.buttonStyle(.pill(.quiet, isBusy: true))
         }
     }
 
@@ -125,18 +113,13 @@ struct StartAgentSheet: View {
             CheckLines(lines: ActionCopy.lines(state, context)).padding(16).frame(
                 maxWidth: .infinity, alignment: .leading
             )
-            .background(Palette.card, in: .rect(cornerRadius: 20))
+            .background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.card))
             Text(
                 "It is writing its plan. The plan reaches you as a card, with a push. Nothing else happens before you say Go."
             )
             .font(.body15).foregroundStyle(Palette.muted)
             if let link {
-                Button {
-                    openURL(link)
-                } label: {
-                    Text("Open in \(took?.name ?? "its app") \(Image(systemName: "arrow.up.right"))")
-                }
-                .buttonStyle(.pill(.quiet))
+                TextLink("Open in \(took?.name ?? "its app")", isOutward: true) { openURL(link) }
             }
             Button("Done") { dismiss() }.buttonStyle(.pill(.filled))
         }
@@ -148,7 +131,7 @@ struct StartAgentSheet: View {
             CheckLines(lines: ActionCopy.lines(state, context)).padding(16).frame(
                 maxWidth: .infinity, alignment: .leading
             )
-            .background(Palette.card, in: .rect(cornerRadius: 20))
+            .background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.card))
             Text(
                 failure.mayHaveHappened
                     ? "Check the matter before starting again: an agent may be running."

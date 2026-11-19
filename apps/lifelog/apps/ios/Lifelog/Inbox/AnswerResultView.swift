@@ -194,7 +194,7 @@ struct ResultButtons: View {
                 Button {
                 } label: {
                     Text(taken.isSend ? "Sending…" : "Saving…")
-                }.buttonStyle(.pill(.quiet)).disabled(true)
+                }.buttonStyle(.pill(.quiet, isBusy: true))
                 LimitNote(state: state) {
                     taken.isSend
                         ? "Stays on this card until \(ActionCopy.channel(taken.check.draft?.channel)) answers"

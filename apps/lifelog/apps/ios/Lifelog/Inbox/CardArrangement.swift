@@ -103,7 +103,7 @@ private struct ContextRegion: View {
                 }
                 .accessibilityElement(children: .combine)
             }
-            Button("Open the matter") { router.open(matter: matter.row.id) }.buttonStyle(.pill(.quiet, height: 48))
+            Button("Open the matter") { router.open(matter: matter.row.id) }.buttonStyle(.pill(.quiet, size: .compact))
         }
     }
 

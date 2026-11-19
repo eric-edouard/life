@@ -33,28 +33,16 @@ struct CheckActions: View {
                 }
                 .buttonStyle(.pill(.filled))
                 .disabled(words.isEmpty)
-                Button("Back to the options") { input.isWritingOwnWords = false }.buttonStyle(.pill(.quiet, height: 48))
+                Button("Back to the options") { input.isWritingOwnWords = false }.buttonStyle(.pill(.quiet))
             } else {
                 options
                 HStack {
                     if check.takesOwnWords {
-                        Button {
-                            input.isWritingOwnWords = true
-                        } label: {
-                            Label("Something else", systemImage: "mic").font(.rowName).foregroundStyle(
-                                Palette.fg
-                            )
-                            .frame(minHeight: 44)
-                        }
+                        TextLink("Something else") { input.isWritingOwnWords = true }
                     }
                     Spacer(minLength: 12)
                     if let link = check.links.first.flatMap(URL.init(string:)) {
-                        Button {
-                            openURL(link)
-                        } label: {
-                            Text("Open in \(runtimeName?.name ?? "its app") \(Image(systemName: "arrow.up.right"))")
-                                .font(.body15).foregroundStyle(Palette.muted).frame(minHeight: 44)
-                        }
+                        TextLink("Open in \(runtimeName?.name ?? "its app")", isOutward: true) { openURL(link) }
                     }
                 }
                 if let line = silence {
@@ -75,12 +63,12 @@ struct CheckActions: View {
                     Text(first.label)
                 }
             }
-            .buttonStyle(.pill(.filled, height: 54))
+            .buttonStyle(.pill(.filled))
             let rest = Array(check.options.dropFirst())
             if !rest.isEmpty {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible())], spacing: 8) {
                     ForEach(rest, id: \.id) { option in
-                        Button(option.label) { tap(option) }.buttonStyle(.pill(.quiet, height: 48))
+                        Button(option.label) { tap(option) }.buttonStyle(.pill(.quiet))
                     }
                 }
             }

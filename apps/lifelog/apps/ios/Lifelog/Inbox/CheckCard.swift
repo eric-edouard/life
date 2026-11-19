@@ -139,7 +139,7 @@ struct CheckCard: View {
                 check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
             )
             .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
-            .padding(16).background(Palette.card, in: .rect(cornerRadius: 20))
+            .padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))
             Text(
                 check.group == .newMatter
                     ? "It becomes the matter's goal. Then Start or Dismiss." : "Your words go to the agent as they are."
@@ -169,7 +169,7 @@ struct DraftBlock: View {
                     Text(quoted.text).font(.body15).foregroundStyle(Palette.muted).lineLimit(3)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.fillTint, in: .rect(cornerRadius: 14))
+                .background(Color.fillTint, in: .rect(cornerRadius: Metrics.Radius.tile))
             }
             if let text = draft.text {
                 Text(text).font(.quote).foregroundStyle(Palette.fg).fixedSize(
@@ -183,7 +183,7 @@ struct DraftBlock: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .card()
+        .paperBox()
         .accessibilityElement(children: .combine)
     }
 }
@@ -200,7 +200,7 @@ private struct EvidenceBlock: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .card()
+        .paperBox()
         .accessibilityElement(children: .combine)
     }
 }
@@ -246,15 +246,14 @@ private struct ClipBlock: View {
                 }
             }
             if clips.count > 1 {
-                Button("Another clip") {
+                TextLink("Another clip") {
                     playback.stop(); index = (index + 1) % clips.count
                 }
-                .font(.buttonLabel).foregroundStyle(Palette.fg).frame(minHeight: 44)
             }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .card()
+        .paperBox()
         .onDisappear {
             fetch?.cancel()
             playback.stop()

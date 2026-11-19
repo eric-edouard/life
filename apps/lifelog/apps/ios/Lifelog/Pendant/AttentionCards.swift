@@ -56,7 +56,7 @@ struct AttentionCard<Actions: View>: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .card(radius: Metrics.Radius.group)
+        .card(radius: Metrics.Radius.card)
         .transition(.blurReplace.combined(with: .scale(0.97)))
     }
 }
