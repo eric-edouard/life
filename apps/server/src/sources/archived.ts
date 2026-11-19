@@ -1,8 +1,8 @@
-import { Database, type SQLQueryBindings } from "bun:sqlite";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { MACHINE_DIR } from "../core/platform";
-import { openReadOnly } from "../core/sqlite";
+import { openReadOnly, openWritable } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
 import type { Newest, NewRow } from "./contract";
 
@@ -189,9 +189,9 @@ export function incomingArchived(
 /** An archive store in `dir`, its tables created and its `deleted` view made again by `schema`. */
 export function openArchive(dir: string, name: string, schema: string) {
   mkdirSync(dir, { recursive: true });
-  const db = new Database(archiveDb(name, dir));
-  db.run("pragma journal_mode = wal");
-  db.run(schema);
+  const db = openWritable(archiveDb(name, dir));
+  // One transaction: its `drop view` and `create view` never show a reader a store with no `deleted` view.
+  db.transaction(() => db.run(schema)).immediate();
   return db;
 }
 

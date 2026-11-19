@@ -1,9 +1,10 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { clock } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { DESK_STORE } from "../core/paths";
+import { openWritable } from "../core/sqlite";
 import type { Messaging } from "../host/events";
 import type { AgentWait } from "../records/registered-agent";
 import type { Runtime } from "./runtimes/contract";
@@ -114,9 +115,7 @@ export interface Desk {
 /** Opens (and makes) the desk's store. */
 export function openDesk(path = DESK_STORE) {
   mkdirSync(dirname(path), { recursive: true });
-  const db = new Database(path, { strict: true });
-  db.run("pragma journal_mode = wal");
-  db.run("pragma busy_timeout = 5000");
+  const db = openWritable(path, 5000, { strict: true });
   db.run(SCHEMA);
   // A store made before `turn.begun_at`: its old turns were under way, so they begin when they started (null means never began).
   const hasBegun = db

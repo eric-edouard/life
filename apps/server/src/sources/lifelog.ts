@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
@@ -8,7 +8,7 @@ import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { settings } from "../core/settings";
-import { openReadOnly } from "../core/sqlite";
+import { openReadOnly, openWritable } from "../core/sqlite";
 import { isTimeZone } from "../core/time-zone";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
@@ -189,10 +189,8 @@ export function openStore(dir = WATCH) {
   if (!existsSync(file)) {
     rmSync(cursor, { force: true });
   }
-  const db = new Database(file);
-  db.run("pragma journal_mode = wal");
   // The watcher writes while the memory steps read.
-  db.run("pragma busy_timeout = 5000");
+  const db = openWritable(file);
   db.run(`create table if not exists conversations (
     id text primary key, start_at text not null, end_at text not null, kind text not null, state text not null,
     successor text, closed integer);
