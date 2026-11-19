@@ -380,15 +380,29 @@ export function agentsNow(db: Database, now: number) {
 const PAST_SHOWN = 10;
 
 /** The agents ever on any of `steps` (a matter's), active first, then the newest past ones. */
-export function agentsOnSteps(db: Database, steps: string[], now: number) {
-  if (steps.length === 0) {
-    return [];
+export function agentsOnSteps(
+  db: Database,
+  steps: string[],
+  now: number,
+  projects: string[] = []
+) {
+  const rows =
+    steps.length === 0
+      ? []
+      : db
+          .query<AgentRow, (string | number)[]>(
+            `select distinct a.* from anchor n join agent a on a.id = n.agent_id where n.step in (${steps.map(() => "?").join(",")}) order by a.status = 'active' desc, a.created_at desc limit ?`
+          )
+          .all(...steps, MAX_ACTIVE + PAST_SHOWN);
+  // After the matter's own agents, the active worker of each of its projects (`projectHolderOf`).
+  for (const p of projects) {
+    const id = projectHolderOf(db, p);
+    const worker =
+      id && !rows.some((a) => a.id === id) ? agentOf(db, id) : null;
+    if (worker) {
+      rows.push(worker);
+    }
   }
-  const rows = db
-    .query<AgentRow, (string | number)[]>(
-      `select distinct a.* from anchor n join agent a on a.id = n.agent_id where n.step in (${steps.map(() => "?").join(",")}) order by a.status = 'active' desc, a.created_at desc limit ?`
-    )
-    .all(...steps, MAX_ACTIVE + PAST_SHOWN);
   return rows.map((a) => nowOf(db, a, now));
 }
 
