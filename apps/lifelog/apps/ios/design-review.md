@@ -11,18 +11,19 @@ Inputs: the PR or branch and its worktree, or "the whole app" for an audit.
    end with `Design: unreviewable`.
 2. Read the diff's Swift (an audit: the screens' Swift). Screens must use `DesignSystem/` components, type steps,
    `Palette`, `Metrics` and `Motion`, and draw none of their own (a row, a button, a badge, a field, a state mark, a box).
-3. Capture the screens yourself; don't take the builder's pictures. Build the branch for the simulator, then launch
-   it with the fixture arguments in `AGENTS.md` ("Run in the simulator"). Use an iPhone and the Duo (screenshots of
-   the Duo need `--display=1`). For each screen in scope, capture every state it has:
-   - loaded with content;
-   - loaded empty;
-   - loading, and a value the server holds that is still unknown;
-   - failed, offline (`-offline`) and slow (`-serverFlaky`);
-   - busy after a tap, and the result: success, and failure.
-4. Record each transition in scope as a video (`xcrun simctl io <udid> recordVideo`): a tap, a swipe, a sheet, a
-   result arriving, a row coming or going. Cut it to frames (`ffmpeg -i v.mp4 -vf fps=15 f%03d.png`) and look at them.
-   Compare against the motion table: what moves, from where, how long; nothing jumps or flickers; nothing blank
-   between two states.
+3. Capture the screens yourself; never take the builder's pictures. From the worktree: `bun run ios:project`, then
+   build for a booted simulator (`xcrun simctl list devices booted` gives the udid; AGENTS.md's xcodebuild line with
+   `-destination id=<udid>` and `-configuration Debug`), install, and launch with `xcrun simctl launch <udid>
+   com.ericedouard.lifelog <args>`. Use an iPhone and the Duo: the Duo's second screen is `--display=1` (`xcrun simctl
+   io <udid> enumerate` lists them), and `-fixturePose wide|upright` draws the open Duo on any simulator. For each
+   screen in scope, capture every state (`Fixtures/LifeFixture.swift` lists the scenarios): content `-fixtureLife ok`,
+   empty `empty`, loading `loading`, a stale read `stale`, failed `failed` and `unreachable`, offline `-offline`, slow
+   `-serverFlaky`, busy and result `-fixtureAnswer sending|sent|notSent` and `-fixtureStart`.
+4. Record each transition in scope (a tap, a swipe, a sheet, a result arriving, a row coming or going): start `xcrun
+   simctl io <udid> recordVideo v.mp4` in the background, perform it, then stop the recording with SIGINT and wait for
+   it to exit. Cut it to frames (`ffmpeg -i v.mp4 -vf fps=15 f%03d.png`) and look at them, against the motion table:
+   what moves, from where, how long; nothing jumps, flickers or stutters; nothing blank between two states; no spinner
+   where the frame shows content.
 5. Compare each capture with its frame:
    - order, grouping and copy (words, case, punctuation);
    - which component draws each part, and the sizes and spacing: content that breathes, never crammed or stuck to an
@@ -31,8 +32,6 @@ Inputs: the PR or branch and its worktree, or "the whole app" for an audit.
    - the states shown.
 
    A state or transition the frames don't draw follows components.md and voice.md; say which rule.
-6. Note anything that feels slow: a swipe or a scroll that stutters in the recording, or a spinner where the frame
-   shows content. Name the screen and the step.
 
 Report each difference as: the screen and its state, what differs, file:line, the fix. Separate **Fix** (breaks the
 design system, the frame, the motion table or a state rule) from **Fact the code can't know** (a frame value no data
