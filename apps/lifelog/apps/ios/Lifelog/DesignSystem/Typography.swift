@@ -23,7 +23,6 @@ struct TypeStep: Equatable {
     static let sheetQuestion = TypeStep(size: 22, weight: 650, style: .title3)
     /// A screen's name where the system's large title would be: "Settings", a matter's name.
     static let screenName = TypeStep(size: 30, weight: 650, style: .title1)
-    /// A matter's name: `screenName`, kept until the matter page reads `screenName` itself.
     /// Words he or someone said, a message, a goal he edits.
     static let quote = TypeStep(size: 19, weight: 450, style: .title3)
     /// A name inside a quote.
