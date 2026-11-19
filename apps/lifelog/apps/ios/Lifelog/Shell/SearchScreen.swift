@@ -14,11 +14,7 @@ struct SearchScreen: View {
         ReadScreen(
             shown: life.matters.shown(isEmpty: { $0.matters.isEmpty }), retry: { await life.refreshMatters() },
             loading: { Placeholder().padding(Metrics.gutter) },
-            empty: {
-                Notice(
-                    title: "No matter is running.",
-                    detail: "Life finds them in your messages, notes and voice. They show here as they appear.")
-            },
+            empty: { NoMattersNotice() },
             content: { list in results(list.matching(query)) }
         )
         .background(Palette.bg)
@@ -31,15 +27,13 @@ struct SearchScreen: View {
                     Text("No matter holds “\(query)”.").font(.body15).foregroundStyle(Palette.muted)
                         .transition(Motion.appears)
                 }
-                RowGroup {
-                    ForEach(rows) { row in
-                        Button {
-                            router.open(matter: row.id)
-                        } label: {
-                            Row(title: row.name, detail: row.nextStep.map { "Next: \($0.text.prefixLowercased)" })
-                        }
-                        .buttonStyle(.plain)
+                ForEach(rows) { row in
+                    Button {
+                        router.open(matter: row.id)
+                    } label: {
+                        MatterRowView(row: row, isChosen: false)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .motion(Motion.standard, value: rows.map(\.id))
