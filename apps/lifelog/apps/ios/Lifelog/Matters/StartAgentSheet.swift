@@ -60,7 +60,7 @@ struct StartAgentSheet: View {
                 Caps("Model")
                 HStack(spacing: 8) {
                     ForEach(models, id: \.id) { option in
-                        FilterChip(name: option.name, isOn: model == option, hasMenu: false) {
+                        FilterChip(name: option.name, isOn: model == option) {
                             model = model == option ? nil : option
                         }
                     }
