@@ -39,13 +39,8 @@ const lifelog = `${tree}/apps/lifelog`;
 const ios = `${lifelog}/apps/ios`;
 const derived = `${lifelog}/.build/device`;
 const products = `${derived}/Build/Products`;
-// CFBundleVersion: the build's UTC date, numeric and rising (App Store rules).
-const buildNumber = new Date()
-  .toISOString()
-  .replace(/\D/g, "")
-  .replace(/^(\d{8})(\d{4}).*/, "$1.$2");
 const build = (scheme: string, udid: string, ...extra: string[]) =>
-  $`xcodebuild -project Lifelog.xcodeproj -scheme ${scheme} -configuration Release -destination ${`id=${udid}`} -derivedDataPath ${derived} -allowProvisioningUpdates ${extra} CURRENT_PROJECT_VERSION=${buildNumber} -quiet build`.cwd(
+  $`xcodebuild -project Lifelog.xcodeproj -scheme ${scheme} -configuration Release -destination ${`id=${udid}`} -derivedDataPath ${derived} -allowProvisioningUpdates ${extra} CURRENT_PROJECT_VERSION=$(date -u +%Y%m%d.%H%M) -quiet build`.cwd(
     ios
   );
 
