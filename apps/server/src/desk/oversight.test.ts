@@ -61,7 +61,9 @@ afterAll(() => {
  * His word, recorded as the connector records it (an ask of the desk), `ago` ms before now; its ask id. An ask's id is its
  * ref's (`via:instant`), and the ledger is shared by every test file of the run: a ref of the connector's own could meet
  * another file's ask at the same millisecond (the ask then returns that one, and its row answers this), so these are
- * their own `via`.
+ * their own `via`. (The asks made through `changeRegisteredAgent` keep the connector's own ref, which production sets: the
+ * id also hashes the ask's title, so a clash needs the same millisecond and the same words in two files, and each
+ * file words its asks its own way. That is the residual risk.)
  */
 let n = 0;
 const said = (change: AgentChange | null, ago = 0) => {

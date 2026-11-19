@@ -13,6 +13,8 @@ private struct OmiHarness {
 
     init(capacity: UInt64 = 10_000, freesOnDelivery: Bool = true, ackBatchSize: Int = 25) {
         fake = FakeOmiTransport(capacity: capacity, freesOnDelivery: freesOnDelivery)
+        // Real time, on purpose: the ring streams at once and a download ends by its silence, so every test would wait
+        // out a longer idle timeout. (A stall past 500 ms on a loaded Mac would end one early: no test here depends on it.)
         coordinator = DrainCoordinator(
             transport: fake, sink: sink, deviceID: { _ in Harness.deviceID },
             configuration: CaptureConfiguration(

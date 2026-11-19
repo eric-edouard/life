@@ -201,17 +201,20 @@ import Testing
         let fake = FakePendantTransport()
         await fake.record(pages: 40)
         await fake.corrupt(index: 110, as: .corrupt)
+        let clock = TestClock()
         let coordinator = DrainCoordinator(
             transport: fake, sink: store, deviceID: { _ in "pendant-test" },
-            configuration: CaptureConfiguration(pageIdleTimeout: .milliseconds(300), resyncInterval: .seconds(3600)))
+            configuration: CaptureConfiguration(pageIdleTimeout: .seconds(45), resyncInterval: .seconds(3600)),
+            now: { clock.date }, clock: clock)
         let runner = Task { await coordinator.run() }
         defer { runner.cancel() }
         await coordinator.reconnect()
-        #expect(await eventually { await coordinator.status.sync.isCaughtUp })
+        // Caught up once the download goes quiet for the idle timeout: pass it.
+        #expect(await clock.eventuallyAfter(.seconds(46)) { await coordinator.status.sync.isCaughtUp })
         // Nothing is ACKed in observe mode, so the next download re-sends the page; it stays one incident.
         await fake.record(pages: 1)
         await coordinator.syncNow()
-        #expect(await eventually { await coordinator.status.sync.isCaughtUp })
+        #expect(await clock.eventuallyAfter(.seconds(46)) { await coordinator.status.sync.isCaughtUp })
 
         let incidents = try await store.incidents().filter { $0.kind == .unreadablePage }
         let incident = try #require(incidents.first)

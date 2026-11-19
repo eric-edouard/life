@@ -151,6 +151,8 @@ extension SourceStore {
 /// to answer, so one fires only when a test passes the time (`advanceClock`), or sets a short one itself.
 struct Harness {
     static let deviceID = "pendant-test"
+    /// Each of those timeouts by default.
+    static let timeout: Duration = .seconds(60)
 
     let fake: FakePendantTransport
     let sink = TestSink()
@@ -158,9 +160,9 @@ struct Harness {
     let clock = TestClock()
 
     init(
-        _ policy: AckPolicy, ackBatchSize: Int = 25, replyTimeout: Duration = .seconds(60),
-        handshakeTimeout: Duration = .seconds(60), confirmationPollInterval: Duration = .milliseconds(100),
-        pageIdleTimeout: Duration = .seconds(60), recordingChangeDelay: Duration = .zero,
+        _ policy: AckPolicy, ackBatchSize: Int = 25, replyTimeout: Duration = Harness.timeout,
+        handshakeTimeout: Duration = Harness.timeout, confirmationPollInterval: Duration = .milliseconds(100),
+        pageIdleTimeout: Duration = Harness.timeout, recordingChangeDelay: Duration = .zero,
         pageInterval: Duration = .zero, hasBatteryService: Bool = true, pushesSealedPages: Bool = true,
         stallTimeout: Duration = .seconds(3600)
     ) {
@@ -205,10 +207,7 @@ struct Harness {
     /// Like `eventually`, passing `step` of the coordinator's time before each look: for a deadline that only passing
     /// time reaches, where passing more than once changes nothing the test looks at.
     func eventuallyAfter(_ step: Duration, _ condition: () async -> Bool) async -> Bool {
-        await eventually {
-            await advanceClock(by: step)
-            return await condition()
-        }
+        await clock.eventuallyAfter(step, condition)
     }
 
     /// Passes `duration` of the coordinator's time once one of its timers is due within `window` from now: the deadline
@@ -255,6 +254,14 @@ final class TestClock: Clock, Sendable {
         // ponytail: polls so an advance wakes it within 5 ms; a sleeper queue if tests ever need exact steps.
         while now < deadline {
             try await Task.sleep(for: min(deadline - now, .milliseconds(5)))
+        }
+    }
+
+    /// `eventually`, passing `step` of this clock's time before each look.
+    func eventuallyAfter(_ step: Duration, _ condition: () async -> Bool) async -> Bool {
+        await eventually {
+            await advance(by: step)
+            return await condition()
         }
     }
 
