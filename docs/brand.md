@@ -46,7 +46,8 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
 - **Icon.** The white L on ink, a rounded square with 22% corners: [`assets/icon/icon.svg`](../assets/icon/icon.svg)
   (the README's, `/icon.svg`, rendered to `icon-512.png`), and `app.svg`, the same on macOS's icon grid.
   `scripts/app.ts` renders `app.svg` into `Life.icns`, and `life-l.svg` (the L alone, the menu bar's) and `life.svg`
-  (the `Wordmark` view's) into template PDFs.
+  (the `Wordmark` view's) into template PDFs. The iPhone's icon (`AppIcon.icon`) is the same L with the lit dot after
+  it, the pendant's light: "L.", ink in every appearance.
 
 ## Principles
 
