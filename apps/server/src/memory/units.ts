@@ -1,25 +1,20 @@
-import { clock, daysBefore } from "../core/clock";
+import { daysBefore } from "../core/clock";
 import { digest } from "../core/hash";
 import { count } from "../core/lists";
-import { log } from "../core/log";
-import type { Engine } from "../core/names";
 import { redact } from "../core/redact";
 import { settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
-import { ownerIn, type Person } from "../records/truth";
+import type { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import type { Descriptor, RepoMap } from "../sources/contract";
-import { repoMap } from "../sources/git";
 import {
   authorOf,
   type LifelogConversation,
   type LifelogTurn,
   liveConversations,
   parseTurnRef,
-  readConversations,
   type Store,
   turnRef,
-  withStore,
 } from "../sources/lifelog";
 import { voiceKey } from "../sources/lifelog-voices";
 import {
@@ -28,25 +23,12 @@ import {
   photoDayText,
 } from "./activity-days";
 import { LIFE_MAIL } from "./email";
-import {
-  keptConversations,
-  readFiles,
-  readInferredRepos,
-  readUnits,
-} from "./memory-files";
-import { describeFiles, showFiles } from "./message-files";
+import { keptConversations, readFiles } from "./memory-files";
+import { showFiles } from "./message-files";
 import { OWNER, type Truth } from "./read-truth";
-import {
-  enabledSources,
-  isDirect,
-  kindOf,
-  readySources,
-  SOURCES,
-  safely,
-  sourceOf,
-} from "./sources";
+import { isDirect, kindOf, sourceOf } from "./sources";
 import { dayUnitId, voiceUnitId } from "./unit-ids";
-import { dayStart, lastDays, localDate, time, type Window } from "./zones";
+import { dayStart, localDate, time } from "./zones";
 
 // Units (docs/architecture.md, "The pipeline"): one conversation-day, chat-day, mail thread-day, note-day or repo-day
 // (and lifelog's chapters, as stored before conversation-days: `isFrozen`). Built by code, nothing judged yet. A unit's
@@ -171,7 +153,7 @@ export const isFrozen = (u: Pick<Unit, "source" | "summary">) =>
   kindOf(u.source) === "voice" && Boolean(u.summary);
 
 /** A stored chapter unit as the steps take it: its text the chapter's title and summary (and `MARKED`), its hash as stored. */
-const frozen = (unit: Unit): Built => ({
+export const frozenBuilt = (unit: Unit): Built => ({
   messages: [],
   text: [unit.title, unit.summary ?? "", ...(unit.marked ? [MARKED] : [])].join(
     "\n"
@@ -332,7 +314,7 @@ export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
 
 /**
  * The units of every source but lifelog, from their events with files shown (`showFiles`), the code rules applied: the
- * night's (`gather`) and the watcher's today (`buildTodayUnits`) alike. Lifelog's are ruled apart; their hashes never
+ * night's (`gather`) and the watcher's today (`publishTodayUnits`) alike. Lifelog's are ruled apart; their hashes never
  * meet these, so the `duplicate` rule is the same either way.
  */
 export const sourceUnitsOf = (shown: SourceEvent[], resolve: Resolve) =>
@@ -680,7 +662,7 @@ export function applyRules(built: Built[], kept = new Set<string>()) {
 
 type Read = Exclude<Descriptor, { kind: "voice" }>;
 /** A source's events since `since`: a repo's are read with his directory (whose repos are whose, who he is) and carry no files (a commit without a subject is dropped, like any empty message). */
-const readOf = (
+export const readOf = (
   s: Read,
   since: Date,
   map: { me: Person; repos: RepoMap },
@@ -722,158 +704,3 @@ export const lifelogNames = (truth: Truth) =>
       p.handles.lifelog ? [[p.handles.lifelog, p.name]] : []
     )
   );
-
-/**
- * The default look-back of every step: yesterday, plus what a sleeping Mac or a late transcript left behind, and the
- * conversations lifelog regroups a few days later (their new hash needs a new verdict). Files are described
- * (`describeFiles`) only on messages of these days: an older one stays a tag.
- */
-export const DAYS = 7;
-
-/**
- * The evidence of a window of local days: every source (lifelog,
- * chats, mail, notes, his commits), cut into units with the code rules applied, senders kept unresolved (`resolve` names them in the text only), in time order across channels; also
- * what the later stages need around them. The one reader of the sources for the memory steps: a processing run gathers once
- * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
- * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
- * files as tags. A repo's units are never extracted nor read for people (extract skips them; the episodes step caps
- * their importance at 1).
- */
-export async function gather(
-  window: Window,
-  { resolve, truth }: { resolve: Resolve; truth: Truth },
-  options: { engine?: Engine; historical?: boolean } = {}
-) {
-  const since = dayStart(window.from);
-  const before = dayStart(daysBefore(window.to, -1));
-  const { failed, read, repos } = await readSourceEvents(since, before, truth);
-  // Lifelog's units come from the watcher's store, cut first as the registry lists it (a chapter unit as stored); every
-  // other source's from its events, in the registry's order. Only the sources he turned on that can be read now; the others' units are kept.
-  const sources = readySources().filter(
-    (s) => !options.historical || s.kind !== "voice"
-  );
-  const skipped = enabledSources().filter((s) => !sources.includes(s));
-  for (const s of skipped) {
-    log("source.read", { ok: true, skipped: s.missing?.(), source: s.name });
-  }
-  // The voice units the watcher writes, composed the same way (`voiceUnits`).
-  let chapters: Unit[] = [];
-  let voice: Built[] = [];
-  const lifelog = sources.some((s) => s.kind === "voice")
-    ? await safely(
-        "lifelog",
-        () =>
-          withStore(async (store) => {
-            const v = await voiceUnits(store, since, truth);
-            ({ chapters } = v);
-            voice = v.built;
-            return v.conversations;
-          }),
-        failed
-      )
-    : [];
-  // The recent messages' files are described, then every message's shown.
-  const recent = dayStart(lastDays(clock(), DAYS).from).toISOString();
-  const files = options.historical
-    ? undefined
-    : await describeFiles(
-        read.flatMap(({ events }) => events).filter((e) => e.at >= recent),
-        options.engine
-      );
-  const known = readFiles();
-  const shown = read.map(({ events, s }) => ({
-    events: showFiles(events, known),
-    s,
-  }));
-  const built = [
-    ...chapters.map(frozen),
-    ...applyRules(voice, keptConversations()),
-    ...sourceUnitsOf(
-      shown.flatMap(({ events }) => events),
-      resolve
-    ),
-  ]
-    .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)
-    .toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
-  return {
-    built,
-    conversations: lifelog,
-    engine: options.engine,
-    events: shown.flatMap(({ events }) => events),
-    failed,
-    files,
-    // By source, what this gather read (a source it did not read has no key: its units stay as they were).
-    read: {
-      ...(sources.some((s) => s.kind === "voice") && {
-        lifelog: lifelog.length,
-      }),
-      ...Object.fromEntries(
-        shown.map(({ events, s }) => [s.name, events.length])
-      ),
-    },
-    repos,
-    /** Sources he turned on that can't be read now: their units stay as they were. */
-    skipped: (options.historical
-      ? SOURCES.filter((s) => !sources.includes(s))
-      : skipped
-    ).map((s) => s.name),
-    truth,
-    window,
-  };
-}
-export type Evidence = Awaited<ReturnType<typeof gather>>;
-
-/**
- * Every readable source's events but lifelog's, from `since` to `before`, in the registry's order, each read through
- * `guard`: `safely` logs every read (a processing run's), `quietly` only a failure (the watcher's, every few minutes). A source
- * that throws is named in `failed` and gives no rows.
- */
-export async function readSourceEvents(
-  since: Date,
-  before: Date | undefined,
-  truth: Truth,
-  guard: typeof safely = safely
-) {
-  const failed: string[] = [];
-  const repos = repoMap(truth, await readInferredRepos());
-  const ctx = { me: ownerIn(truth.people), repos };
-  const read = await Promise.all(
-    readySources()
-      .flatMap((s) => (s.kind === "voice" ? [] : [s]))
-      .map(async (s) => ({
-        events: await guard(
-          s.name,
-          () => readOf(s, since, ctx, before),
-          failed
-        ),
-        s,
-      }))
-  );
-  return { failed, read, repos };
-}
-
-/**
- * The voice units from `since` on, composed once for both writers (`gather`, `syncLifelogUnits`): the conversations
- * lifelog has that end at or after it, built into conversation-days; `have`, the stored voice units they replace (of a
- * conversation read, or ending at or after `since`), read from the earliest day either begins; the frozen chapters
- * among them (`frozenUnits`).
- */
-export async function voiceUnits(store: Store, since: Date, truth: Truth) {
-  const conversations = readConversations(store, since, lifelogNames(truth));
-  const read = new Set(conversations.map((c) => c.id));
-  const from = [since.toISOString(), ...conversations.map((c) => c.startedAt)]
-    .map(localDate)
-    .sort()[0] as string;
-  const have = (await readUnits(from)).filter(
-    (u) =>
-      kindOf(u.source) === "voice" &&
-      (read.has(u.key) || u.end >= since.toISOString())
-  );
-  const chapters = frozenUnits(store, have);
-  return {
-    built: lifelogUnits(conversations, new Set(chapters.map((u) => u.key))),
-    chapters,
-    conversations,
-    have,
-  };
-}

@@ -6,21 +6,12 @@ import type { SourceName } from "../core/names";
 import { Published } from "../records/publication";
 import { Unit } from "../records/unit";
 import type { Store } from "../sources/lifelog";
-import { PUBLICATIONS, readFiles, readUnitsOf, UNITS } from "./memory-files";
-import { showFiles } from "./message-files";
+import { type Evidence, voiceUnits } from "./gather";
+import { PUBLICATIONS, readUnitsOf, UNITS } from "./memory-files";
 import { preparePassages } from "./passages";
 import { loadTruth } from "./read-truth";
-import { kindOf, quietly } from "./sources";
-import {
-  applyRules,
-  type Evidence,
-  isFrozen,
-  readSourceEvents,
-  sourceUnitsOf,
-  voiceUnits,
-} from "./units";
-import { readPeople } from "./who";
-import { dayStart } from "./zones";
+import { kindOf } from "./sources";
+import { applyRules, isFrozen } from "./units";
 
 /** All local days in a window, including empty days. */
 export function unitDays(window: { from: string; to: string }) {
@@ -161,59 +152,37 @@ export function diffUnits(have: Unit[], want: Unit[]) {
   };
 }
 
-/**
- * Today's units from every source but lifelog, built as the night builds them, with no model call: a file sent today
- * stays a tag until the night describes it. Read outside the lock (`publishTodayUnits` writes them under it). A source
- * that throws is logged and keeps its units, like one that can't be read now; the rest are built.
- * ponytail: reads today from every source every few minutes, a per-source cursor (`incoming`) if that ever costs; the
- * `duplicate` rule sees today only (the night's sees 7 days), the night settles it.
- */
-export async function buildTodayUnits(day: string) {
-  const { resolve, truth } = await readPeople();
-  const { failed, read } = await readSourceEvents(
-    dayStart(day),
-    undefined,
-    truth,
-    quietly
-  );
-  const events = showFiles(
-    read.flatMap((r) => r.events),
-    readFiles()
-  );
-  const want = sourceUnitsOf(events, resolve)
-    .map((b) => Unit.parse(b.unit))
-    .filter((u) => u.date === day);
-  return {
-    day,
-    kept: keptToday(
-      read.map((r) => r.s.name),
-      failed
-    ),
-    passages: preparePassages(events, { from: day, to: day }, failed),
-    want,
-  };
-}
-
 /** What today's write keeps as it is: lifelog's units, and those of a source not read now (off, unreadable or failed). */
 export function keptToday(read: string[], failed: string[]) {
   const fresh = new Set(read.filter((name) => !failed.includes(name)));
   return (u: Unit) => !fresh.has(u.source);
 }
 
-/** Writes what `buildTodayUnits` built (under the lock): today's file keeps lifelog's units and those of a source not read. */
-export async function publishTodayUnits(built: {
-  day: string;
-  kept: (u: Unit) => boolean;
-  passages: () => void;
-  want: Unit[];
-}) {
+/**
+ * Writes today's units from every source but lifelog (under the lock), from the evidence of `gather(today, people, {
+ * files: false, log: quietly, voice: false })`: no model call, a file sent today stays a tag until the night describes it.
+ * Today's file keeps lifelog's units and those of a source not read; a source that throws is logged by the read and keeps
+ * its units. The passages are prepared only when a unit changed.
+ * ponytail: reads today from every source every few minutes, a per-source cursor (`incoming`) if that ever costs; the
+ * `duplicate` rule sees today only (the night's sees 7 days), the night settles it.
+ */
+export async function publishTodayUnits(
+  evidence: Pick<Evidence, "built" | "events" | "failed" | "read" | "window">,
+  passages?: () => void
+) {
+  const day = evidence.window.from;
+  const kept = keptToday(Object.keys(evidence.read), evidence.failed);
+  const want = evidence.built.map((b) => Unit.parse(b.unit));
   const diff = diffUnits(
-    readUnitsOf([built.day]).filter((u) => !built.kept(u)),
-    built.want
+    readUnitsOf([day]).filter((u) => !kept(u)),
+    want
   );
   if (diff.dates.length > 0) {
-    built.passages();
-    await writeUnits([built.day], built.want, built.kept);
+    (
+      passages ??
+      preparePassages(evidence.events, evidence.window, evidence.failed)
+    )();
+    await writeUnits([day], want, kept);
   }
   return diff;
 }

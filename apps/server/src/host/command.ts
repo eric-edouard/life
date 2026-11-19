@@ -17,6 +17,7 @@ import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
+import { DAYS, gather } from "../memory/gather";
 import { collectHistorical } from "../memory/historical-collection";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
@@ -45,7 +46,7 @@ import { search } from "../memory/search";
 import { situations } from "../memory/situations";
 import { readSourceUse, sourceUseText } from "../memory/source-use";
 import { tiesNow } from "../memory/ties";
-import { DAYS, gather } from "../memory/units";
+import { publishUnits } from "../memory/unit-writer";
 import {
   readVoiceNamingWork,
   VOICE_NAMING_CALLS,
@@ -243,7 +244,13 @@ const HANDLERS: Record<string, Handler> = {
     }
   },
   day: (_values, [date = ""]) => printed(isDay(date) ? day(date) : null),
-  episodes: step(async (v) => episodes(await gathered(v))),
+  episodes: step(async (v) => {
+    const evidence = await gathered(v);
+    if (evidence.failed.length === 0) {
+      await publishUnits(evidence);
+    }
+    return episodes(evidence);
+  }),
   /** `exchange-counts`: counts every exchange of every year again (the night does; this is its first build and a replay). */
   "exchange-counts": step(async () =>
     writeExchangeCounts(

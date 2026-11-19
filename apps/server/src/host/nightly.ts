@@ -31,6 +31,7 @@ import {
   readExchangeReadWork,
 } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
+import { gather } from "../memory/gather";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
 import { matterDirections } from "../memory/matter-directions";
@@ -74,7 +75,8 @@ import { situations } from "../memory/situations";
 import { readSourceUse, sourceUseLine } from "../memory/source-use";
 import { keptStores } from "../memory/sources";
 import { forReaders } from "../memory/status-inputs";
-import { type Built, gather } from "../memory/units";
+import { publishUnits } from "../memory/unit-writer";
+import type { Built } from "../memory/units";
 import { readVoiceNamingWork, voiceNaming } from "../memory/voice-naming";
 import { observationsNow, readPeople } from "../memory/who";
 import {
@@ -203,7 +205,7 @@ export async function archiveLine(since: string) {
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 05:00, once the day is ok, or after 3 failures (schedule.ts), and
  * a failure email goes once no try is left (`isOutOfTries`). Today, before its night, is the watcher's
- * (`buildTodayUnits`): its units, raw, no episodes or facts until the night (his decision, 11 Nov 2026). Then the daily backup, when it is due
+ * (`publishTodayUnits`): its units, raw, no episodes or facts until the night (his decision, 11 Nov 2026). Then the daily backup, when it is due
  * (`afterNightDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
@@ -511,6 +513,11 @@ export async function runNight(
     // Every source is read once and handed to each step.
     steps.at = "gather";
     const evidence = await gather(window, await readPeople());
+    // Units first (code output, rebuildable but for lifelog's chapter units, which stay as stored: AGENTS.md; kept even
+    // when lifelog isn't read); not when a source failed: the files would lose that source's units.
+    if (evidence.failed.length === 0) {
+      await publishUnits(evidence);
+    }
     const found = await steps.step("episodes", () => episodes(evidence));
     const extracted = await steps.step("extract", () => extract(evidence));
     // The running things of his life. A failure is logged and never stops the night.

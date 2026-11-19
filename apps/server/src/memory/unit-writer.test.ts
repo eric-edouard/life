@@ -2,12 +2,8 @@ import { expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import type { Unit } from "../records/unit";
 import { readUnits, UNITS } from "./memory-files";
-import {
-  diffUnits,
-  keptToday,
-  publishTodayUnits,
-  writeUnits,
-} from "./unit-writer";
+import { diffUnits, publishTodayUnits, writeUnits } from "./unit-writer";
+import type { Built } from "./units";
 
 /** The sources of the units in memory/units/, by day. */
 const sourcesByDay = async () =>
@@ -38,17 +34,22 @@ test("today's sync writes its own sources' units, keeps lifelog's and a failed s
   const chat = unit("unit_00000000000b", "whatsapp");
   const mail = unit("unit_00000000000c", "mail");
   let published = 0;
-  const built = (want: Unit[], failed: string[] = []) => ({
-    day,
-    kept: keptToday(["whatsapp", "mail"], failed),
-    passages: () => {
-      published += 1;
-    },
-    want,
-  });
+  const publish = (want: Unit[], failed: string[] = []) =>
+    publishTodayUnits(
+      {
+        built: want.map((u) => ({ unit: u })) as Built[],
+        events: [],
+        failed,
+        read: { mail: 1, whatsapp: 1 } as never,
+        window: { from: day, to: day },
+      },
+      () => {
+        published += 1;
+      }
+    );
   try {
     await writeUnits([day], [voice, mail]);
-    expect(await publishTodayUnits(built([chat], ["mail"]))).toMatchObject({
+    expect(await publish([chat], ["mail"])).toMatchObject({
       added: 1,
       hasGoneOrBack: false,
       removed: 0,
@@ -57,12 +58,10 @@ test("today's sync writes its own sources' units, keeps lifelog's and a failed s
       [day]: ["lifelog", "whatsapp", "mail"],
     });
     // Nothing new: nothing written, no passages, nothing to index.
-    expect((await publishTodayUnits(built([chat], ["mail"]))).written).toEqual(
-      []
-    );
+    expect((await publish([chat], ["mail"])).written).toEqual([]);
     expect(published).toBe(1);
     // A chat-day whose every message was unsent: its unit goes, and the index is rebuilt whole.
-    expect(await publishTodayUnits(built([], ["mail"]))).toMatchObject({
+    expect(await publish([], ["mail"])).toMatchObject({
       hasGoneOrBack: true,
       removed: 1,
     });

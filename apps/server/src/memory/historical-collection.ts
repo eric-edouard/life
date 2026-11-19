@@ -1,4 +1,5 @@
 import { daysBefore } from "../core/clock";
+import { DAYS, gather } from "./gather";
 import {
   prepareHistoricalZones,
   readHistoricalZones,
@@ -7,7 +8,6 @@ import { reindex } from "./index-writer";
 import { preparePassages } from "./passages";
 import { readySources } from "./sources";
 import { publishUnits, unitDays } from "./unit-writer";
-import { DAYS, gather } from "./units";
 import { readPeople } from "./who";
 import { dayNow, isDay, localDate, monthsOf, type Window, wall } from "./zones";
 
@@ -72,7 +72,10 @@ export async function collectHistorical(
   try {
     for (const month of monthsOf(window)) {
       // biome-ignore lint/performance/noAwaitInLoops: publish one bounded month before reading the next
-      const evidence = await gather(month, people, { historical: true });
+      const evidence = await gather(month, people, {
+        files: false,
+        voice: false,
+      });
       if (evidence.failed.length > 0) {
         return {
           coverage,
