@@ -113,6 +113,8 @@ An agent that finished a step of a matter closes it itself: a promise, a wait or
 
 A registered agent's matter that is done (matter status `done`: its steps ended, retired or ticked; never `probably_done`, ended by a link) ends its agent, as if it had called `finish` with "its matter is done" (`endAgentsOnDoneMatters`, `desk/desk-clock.ts`, on the desk's message poll, on the next poll after a matter changes): it is not woken to wrap up, so nothing waits on a matter that is over. A stopped agent whose project or matter has a newer active agent is handed over to it the same way (`handOverReplaced`, every tick): one agent on a subject.
 
+A registered agent is also woken when a call matching its wait ends and its recording's words are in (`pollCalls`): at the next poll, under the same 10-minute gap, in one turn with the chat's messages.
+
 A person's page (`read_person_page`) lists every open matter they are in, whatever its day (`openWithOf`, `read-open-items.ts`),
 and the replies he owes them, ranked the same way
 (`rankedItems`), what he owes first, then what he waits on (`isOwedToHim`).

@@ -1,10 +1,10 @@
 import {
   LIVE,
   type LifelogTurn,
+  type LifelogTurnRow,
   lifelogTurn,
   nameOf,
   type Store,
-  type TurnRow,
 } from "./lifelog";
 
 // The live conversations Life lists by who spoke or when, each with what its label needs (`conversationLabel`).
@@ -74,7 +74,7 @@ export const conversationsBetween = (
  */
 export const readSpokenTurns = (store: Store, byId: Map<string, string>) =>
   store.db
-    .query<TurnRow, []>(
+    .query<LifelogTurnRow, []>(
       `select t.* from turns t join conversations c on c.id = t.conversation_id where ${LIVE}
         order by t.start_at, t.job_id, t.turn_index`
     )
