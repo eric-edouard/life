@@ -46,33 +46,23 @@ struct AnswerResultView: View {
         .scrollEdgeEffectStyle(.soft, for: .bottom)
     }
 
-    private var lines: [CheckLine] { ActionCopy.lines(state, taken.context) }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // An agent's name is the only thing above the question; Life's own asks have none.
-            if let asker = taken.context.asker { chip(asker, "sparkle", tint: Palette.ai) }
-        }
-    }
-
-    private func chip(_ text: String, _ symbol: String, tint: Color) -> some View {
-        Label(text, systemImage: symbol).font(.chip).foregroundStyle(tint)
-            .lineLimit(1).padding(.horizontal, 14).frame(minHeight: 40).background(Color.fillTint, in: .capsule)
+    private var lines: [CheckLine] {
+        let all = ActionCopy.lines(state, taken.context)
+        // A send shows only its own three checks.
+        return taken.isSend ? all.filter { ["chat_checked", "handed", "confirmed"].contains($0.id) } : all
     }
 
     // MARK: States
 
     @ViewBuilder private var working: some View {
-        header
         Text(taken.check.question).font(.cardQuestion).foregroundStyle(Palette.fg)
-        if let draft = taken.check.draft { DraftBlock(draft: draft) }
+        if let draft = taken.check.draft { DraftBlock(draft: draft, identity: taken.check.networkIdentity, isGuess: taken.isGuess, isBoxed: false) }
         CheckLines(lines: lines.isEmpty ? [CheckLine(id: "asking", text: "Asking Life", mark: .running)] : lines)
             .padding(.top, 8)
     }
 
     @ViewBuilder private func done(_ proof: ActionProof) -> some View {
-        header
-        Text(taken.doneWord).font(.statusWord).foregroundStyle(Palette.fg).lit().padding(.top, 12)
+        Text(taken.doneWord).font(.statusWord).foregroundStyle(Palette.ok).lit().padding(.top, 12)
         Text(taken.summary(proof)).font(.lead).foregroundStyle(Palette.muted)
         CheckLines(lines: lines).padding(.top, 8)
         if let changed = taken.counts(proof) {
@@ -81,13 +71,12 @@ struct AnswerResultView: View {
     }
 
     @ViewBuilder private func failed(_ failure: ActionFailure) -> some View {
-        header
         Text(taken.failedWord(failure)).font(.statusWord).foregroundStyle(Palette.flag).padding(.top, 12)
         if taken.isSend {
             // A send says only Life's reason, then the words that did not go.
             Text(failure.reason).font(.lead).foregroundStyle(Palette.muted)
             if !failure.mayHaveHappened, let draft = taken.check.draft {
-                DraftBlock(draft: draft, identity: taken.check.networkIdentity).padding(.top, 8)
+                DraftBlock(draft: draft, identity: taken.check.networkIdentity, isGuess: taken.isGuess, isBoxed: false).padding(.top, 8)
             }
         } else {
             Text(taken.failedLine(failure, state)).font(.lead).foregroundStyle(Palette.muted)
@@ -158,6 +147,7 @@ extension Taken {
     }
 
     /// Held for Undo: any answer that is not a send, a start or a goal edit (Life has no undo for those).
+    var isGuess: Bool { !(check.confirm ?? []).isEmpty }
     var isHeld: Bool { !isSend && !isStart && !staysOpen }
 
     var doneWord: String {

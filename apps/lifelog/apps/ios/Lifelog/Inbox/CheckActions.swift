@@ -69,10 +69,10 @@ struct CheckActions: View {
                     if let text = wrote.text {
                         let when = wrote.at.map { ", \($0.formatted(.dateTime.hour().minute()))" } ?? ""
                         Text("\(by)\(when)").font(.small).foregroundStyle(Palette.muted)
-                        Text("“\(text)”").font(.body15).foregroundStyle(Palette.fg).lineLimit(3)
+                        Text("“\(text)”").font(.body15).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                     }
                 } else {
-                    Text(failure.isSameTap ? "No answer from Life. Try again." : "Not sent to your Mac.")
+                    Text("Not sent to your Mac.")
                         .font(.small).foregroundStyle(Palette.flag)
                 }
             }

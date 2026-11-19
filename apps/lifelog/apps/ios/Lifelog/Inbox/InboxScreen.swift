@@ -43,14 +43,16 @@ struct InboxScreen: View {
             .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.ask = $0 }
             .shellBar("")
             .navigationBarBackButtonHidden()
-            .motion(Motion.standard, value: life.held)
-            .toolbar {
-                // What he just answered, in the bar's own row: it takes no room from the answers (the held one, for 4 s).
-                ToolbarItem(placement: .principal) {
-                    if let held = life.held.min(by: { $0.key < $1.key }) {
-                        Toast(words: held.value.label) { undo(held.key) }.appears()
+            // What he just answered (the one held last, for 4 s), over the top of the ask: out of its layout, so nothing moves.
+            .overlay(alignment: .top) {
+                ZStack {
+                    if let latest = life.latestHeld {
+                        Toast(words: latest.held.label) { undo(latest.ref) }.appears().id(latest.ref)
                     }
                 }
+                .motion(Motion.standard, value: life.latestHeld?.ref)
+            }
+            .toolbar {
                 if sizeClass != .regular {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Asks", systemImage: "sidebar.left") { router.inboxColumn = .sidebar }

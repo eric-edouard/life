@@ -36,3 +36,12 @@ import Testing
     await holds.sendAll()
     #expect(sent.requests.map(\.ref).sorted() == ["b", "d"])
 }
+
+@MainActor @Test func theLatestHeldIsTheOneHeldLastUntilItIsUndone() {
+    let holds = HeldAnswers(delay: .seconds(60)) { _ in }
+    holds.hold(AnswerRequest(ref: "z", options: ["yes"]), as: "Yes")
+    holds.hold(AnswerRequest(ref: "a", options: ["no"]), as: "No")
+    #expect(holds.latest == "a")
+    holds.undo("a")
+    #expect(holds.latest == "z")
+}
