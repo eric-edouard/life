@@ -1,0 +1,45 @@
+import { afterEach, expect, setSystemTime, test } from "bun:test";
+import { clock, DAY, HOUR, MIN } from "../core/clock";
+import { pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
+import { advance, setup } from "./test-desk";
+
+// A deadline wake says since when to sweep; an event wake and a first turn do not. Made-up agent and chat.
+
+afterEach(() => {
+  setSystemTime();
+});
+
+const SINCE = "since your last turn ended";
+
+test("a deadline wake after an ended turn states when that turn ended", async () => {
+  const { desk, fake, waiting } = setup();
+  await waiting(HOUR);
+  const endedAt = clock().toISOString();
+  advance(HOUR + MIN);
+  await wakeDue(desk);
+  const wake = fake.said.at(-1)?.message ?? "";
+  expect(wake).toContain("Woken by the desk: deadline.");
+  expect(wake).toContain(
+    `Nothing you waited for arrived since your last turn ended, at ${endedAt}: sweep what happened since then on your subject`
+  );
+});
+
+test("an event wake says nothing of it", async () => {
+  const { desk, fake, waiting, write } = setup();
+  await waiting(DAY);
+  await pollMessages(desk, readPeopleOnce());
+  advance(HOUR);
+  write();
+  await pollMessages(desk, readPeopleOnce());
+  await wakeDue(desk);
+  const wake = fake.said.at(-1)?.message ?? "";
+  expect(wake).toContain("Woken by the desk: event.");
+  expect(wake).not.toContain(SINCE);
+});
+
+test("a first turn says nothing of it", async () => {
+  const { desk, fake, waiting } = setup();
+  await waiting(HOUR);
+  expect(fake.said.some((s) => s.message.includes(SINCE))).toBe(false);
+  expect(desk.db.query("select 1 from turn").all()).toHaveLength(1);
+});

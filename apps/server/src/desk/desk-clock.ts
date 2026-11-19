@@ -274,9 +274,17 @@ export function pollAnswers({ db }: Desk) {
   }
 }
 
-/** The message that wakes a session: why, and each queued event's facts (who, where, when, the id to read). */
-const wakeMessageOf = (cause: string, events: EventRow[]) =>
-  [`Woken by the desk: ${cause}.`, ...events.map(eventLineOf)].join("\n");
+/** The message that wakes a session: why, for a deadline wake since when to sweep (`since`: when its last turn ended), and each queued event's facts (who, where, when, the id to read). */
+const wakeMessageOf = (cause: string, events: EventRow[], since?: string) =>
+  [
+    `Woken by the desk: ${cause}.`,
+    ...(since
+      ? [
+          `Nothing you waited for arrived since your last turn ended, at ${since}: sweep what happened since then on your subject (\`read_memory_changes\` with \`since\`, \`read_matters\`, \`read_chats\`).`,
+        ]
+      : []),
+    ...events.map(eventLineOf),
+  ].join("\n");
 
 /** What a session of `a` is given: its door, its folder, a title, the model it runs with. */
 const sessionAgentOf = (a: AgentRow): SessionAgent => ({
@@ -432,7 +440,14 @@ async function launch(
         await runtime.send(
           sessionAgentOf(a),
           a.session,
-          wakeMessageOf(cause, events)
+          wakeMessageOf(
+            cause,
+            events,
+            cause === "deadline"
+              ? (lastTurns(db, a.id).find((t) => t.id < turn && t.ended_at)
+                  ?.ended_at ?? undefined)
+              : undefined
+          )
         )
       );
     }
