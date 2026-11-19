@@ -19,12 +19,16 @@ struct TypeStep: Equatable {
     static let statusWord = TypeStep(size: 40, weight: 250, style: .largeTitle)
     /// The figure on a tile: "82%".
     static let tileFigure = TypeStep(size: 26, weight: 650, style: .title2, hasFixedDigits: true)
+    /// A sheet's heading when it sits in the content: bold.
+    static let sheetHeading = TypeStep(size: 22, weight: 650, style: .title3)
     /// A screen's name in a sheet.
     static let sheetTitle = TypeStep(size: 30, weight: 250, style: .title1)
     /// A matter's name.
     static let matterTitle = TypeStep(size: 28, weight: 250, style: .title1)
     /// Words he or someone said, a message, a goal he edits.
     static let quote = TypeStep(size: 19, weight: 450, style: .title3)
+    /// A name inside a quote.
+    static let quoteBold = TypeStep(size: 19, weight: 700, style: .title3)
     /// A name in a row, a button of a row, a person.
     static let rowName = TypeStep(size: 16, weight: 600, style: .body)
     /// A line that leads a block, and the same bold.
