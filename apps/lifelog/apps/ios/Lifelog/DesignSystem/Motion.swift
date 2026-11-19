@@ -6,6 +6,12 @@ enum Motion {
     static let standard = Animation.smooth(duration: 0.3)
     /// Something arriving: the selection bar, a card appearing.
     static let rise = Animation.spring(duration: 0.35, bounce: 0.12)
+    /// Something going: fades and moves 8 pt the way it came.
+    static let leave = Animation.easeIn(duration: 0.2)
+    /// A row or group that comes or goes: enters with `rise`, leaves with `leave`; `.identity` under Reduce Motion.
+    static let appears = AnyTransition.asymmetric(
+        insertion: .opacity.combined(with: .offset(y: -8)).animation(rise),
+        removal: .opacity.combined(with: .offset(y: -8)).animation(leave))
     /// The transcript scrolling to follow the spoken passage.
     static let follow = Animation.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.7)
     /// One breath of the lit lens.

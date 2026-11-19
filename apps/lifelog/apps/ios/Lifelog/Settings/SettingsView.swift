@@ -44,6 +44,7 @@ struct SettingsView: View {
                 yourData
                 help
             }
+            .motion(Motion.standard, value: needsYouRows)
             .padding(.horizontal, Metrics.gutter)
             .padding(.top, 16)
             .padding(.bottom, 24)
@@ -112,6 +113,15 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    /// What decides the rows of "Needs you", so each one that comes or goes animates.
+    private var needsYouRows: [String] {
+        let waiting = TranscriptionFacts(sync).waiting
+        return [
+            "\(life.link)", "\(sync.link)", "\(waiting[.creditsOut] ?? 0)", "\(waiting[.macAway] ?? 0)",
+            "\(notificationsListed)",
+        ]
     }
 
     /// Notifications' problem is already in "Needs you": its row below keeps only the state.
