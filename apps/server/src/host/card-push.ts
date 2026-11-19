@@ -4,16 +4,17 @@ import { clock, daysBefore } from "../core/clock";
 import { readJson, readLineCount, writeJson } from "../core/files";
 import { count } from "../core/lists";
 import { log } from "../core/log";
+import { blockingOf } from "../memory/check-urgency";
 import { type InboxCheck, pushIdOf } from "../memory/checks";
 import { DECISIONS, decisionsNow } from "../memory/decisions";
 import { isLocked } from "../memory/memory-lock";
 import { dayNow } from "../memory/zones";
 import { WATCH } from "../sources/lifelog";
 import { notifyPhone } from "../sources/lifelog-push";
-import { inboxNow } from "./inbox";
+import { openChecksNow } from "./inbox";
 
-// A push for each new card in his inbox (an agent's decision: Life's own questions never push), the only push of cards: the
-// words "1 new card" or "N new cards", the badge (every open card of his inbox) and, for one card, its `pushId` (an HMAC of its ref under a key that never leaves the Mac). Never a title,
+// A push for each new card in his inbox (an agent's decision alone pushes; the badge counts what blocks him: those, a voice nobody named, a name with no person), the only push of cards: the
+// words "1 new card" or "N new cards", the badge (what blocks him) and, for one card, its `pushId` (an HMAC of its ref under a key that never leaves the Mac). Never a title,
 // a question, a name or a ref: it goes through Apple (SECURITY.md, his yes of 18 Nov 2026). The phone matches the id
 // against `read_inbox`. What was seen is a small state file of the watcher's, outside `memory/`.
 
@@ -65,10 +66,14 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
   });
 }
 
-/** Pushes what is new among the cards of his inbox (`inboxNow`: agents' decisions; Life's own questions never push). */
+/** Pushes what is new among his agents' decisions; the badge counts what blocks him (`blockingOf`). */
 export async function pushNewCards(now = clock()) {
-  const open = await inboxNow();
-  await pushNew(open, open.length, now);
+  const open = await openChecksNow();
+  await pushNew(
+    open.filter((c) => c.kind === "decision"),
+    blockingOf(open),
+    now
+  );
 }
 
 /** Pushes the new open decisions alone, from the decisions' lines: no `checksNow`, for while a run holds the memory lock. */

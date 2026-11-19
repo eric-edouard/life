@@ -212,7 +212,7 @@ enabled source is available and the passages' collected windows are complete.
 
 ## The watcher
 
-- New cards: `pushNewCardsIfChanged` (`host/card-push.ts`) runs each minute and pushes what is new in his inbox (his agents' decisions; Life's own questions never push); `checksNow` reads the checks again only when its key changed (a file it reads, truth/ included, never units: the watcher's syncs write them; his day, the open decisions, a desk start, the queued voices: one read of his lifelog a minute, whose last list stands while it is down); while a run holds the memory lock only a new decision pushes (`pushed-cards.json` in the watcher's folder, written when it changes; the first run pushes nothing).
+- New cards: `pushNewCardsIfChanged` (`host/card-push.ts`) runs each minute and pushes what is new among his agents' decisions (the badge counts what blocks him, `blockingOf`); `checksNow` reads the checks again only when its key changed (a file it reads, truth/ included, never units: the watcher's syncs write them; his day, the open decisions, a desk start, the queued voices: one read of his lifelog a minute, whose last list stands while it is down); while a run holds the memory lock only a new decision pushes (`pushed-cards.json` in the watcher's folder, written when it changes; the first run pushes nothing).
 - Lifelog units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per
   conversation and local day; a live conversation with a stored chapter unit keeps its chapters, which go when lifelog
   retires or drops it. Extraction reads today's conversations once lifelog has settled them (`closed`). Only
