@@ -52,7 +52,6 @@ struct SettingsView: View {
         }
         .tint(Palette.fg)
         .background(Palette.sheet)
-        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(item: $page) { ConnectionPage(connection: $0) }
         .navigationDestination(isPresented: $isDiagnosticsOpen) { DiagnosticsView() }
         #if DEBUG

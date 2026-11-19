@@ -87,9 +87,6 @@ const CAPS: Record<string, Record<string, number>> = {
   "Shell/ReadScreen.swift": {
     padding: 4,
   },
-  "Shell/TopBar.swift": {
-    font: 1,
-  },
 };
 
 const countsOf = (text: string) =>

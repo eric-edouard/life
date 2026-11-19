@@ -77,8 +77,8 @@ struct PendantScreen: View {
         }
         .sheet(item: $sheet) { which in
             switch which {
-            case .replace: ReplaceSheet { sheet = .pair }
-            case .pair: PairPendantSheet()
+            case .replace: ReplaceSheet { sheet = .pair }.sheetStack()
+            case .pair: PairPendantSheet().sheetStack()
             }
         }
         .accessibilityIdentifier("pendant.sheet")

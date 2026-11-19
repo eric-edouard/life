@@ -8,7 +8,6 @@ struct MatterPage: View {
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
-    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         let state = life.matter[id] ?? ReadState()
@@ -19,8 +18,8 @@ struct MatterPage: View {
             content: { matter in page(matter) }
         )
         .background(Palette.bg)
-        // Beside the list the Pendant is already in the list's bar.
-        .shellBar("Matter", hasSettings: false, hasPendant: sizeClass != .regular)
+        // Back on the left, the Pendant alone on the right; beside the list too, never in the side column.
+        .shellBar("Matter", hasSettings: false)
         .task { await life.refreshMatter(id) }
     }
 

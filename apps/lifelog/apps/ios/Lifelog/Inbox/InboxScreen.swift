@@ -31,7 +31,7 @@ struct InboxScreen: View {
             ) { choice in
                 if let request = check.answer(naming: choice) { submit(check, request) }
             }
-            .presentationPlacement(.trailing)
+            .sheetStack()
         }
         .onChange(of: life.openedCard, initial: true) { _, opening in
             guard let opening else { return }

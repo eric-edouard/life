@@ -4,9 +4,10 @@ import Incidents
 import OwnerSettings
 import SwiftUI
 
-/// The bar over every screen, as the system's own: Settings at the leading edge (a page's back button is the stack's), the
-/// screen's name in the middle, the Pendant's pill at the trailing edge. Real toolbar items, so the system can move them
-/// (into a side column on a foldable) and gives them their glass.
+/// The top group, as the system's own toolbar items: the Pendant then Settings (a gear), together on the trailing
+/// edge in one glass capsule. Leading is the stack's Back, or a screen's own item (the Matters filter). Declared, never
+/// drawn, so iOS places them: a bar on a phone, the side column on the iPhone Duo. The content scrolls under the bar
+/// behind a soft edge.
 private struct ShellBar: ViewModifier {
     let label: String
     let hasSettings: Bool
@@ -18,26 +19,31 @@ private struct ShellBar: ViewModifier {
         content
             .navigationTitle(label)
             .navigationBarTitleDisplayMode(.inline)
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .toolbar {
-                if hasSettings {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            router.sheet = .settings
-                        } label: {
-                            Image(systemName: "slider.horizontal.3")
+                if hasPendant || hasSettings {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        if hasPendant { PendantPill { router.sheet = .pendant } }
+                        if hasSettings {
+                            Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
+                                .accessibilityIdentifier("top.settings")
                         }
-                        .accessibilityLabel("Settings")
-                        .accessibilityIdentifier("top.settings")
                     }
                 }
-                if hasPendant { ToolbarItem(placement: .topBarTrailing) { PendantPill { router.sheet = .pendant } } }
             }
     }
 }
 
 extension View {
+    /// The top group of a screen in a tab: Settings only on Inbox and Matters, the Pendant everywhere but in a side
+    /// column (the matter's page beside it has it).
     func shellBar(_ label: String, hasSettings: Bool = true, hasPendant: Bool = true) -> some View {
         modifier(ShellBar(label: label, hasSettings: hasSettings, hasPendant: hasPendant))
+    }
+
+    /// A sheet in its own stack, so its Close (`SheetHeader`) is a toolbar item in the bar the system draws.
+    func sheetStack() -> some View {
+        NavigationStack { self }
     }
 }
 
@@ -60,7 +66,7 @@ struct PendantPill: View {
             HStack(spacing: 8) {
                 Text("Pendant").font(.lead)
                 if let text = face.text { Text(text).font(.monoTime).foregroundStyle(Palette.flag) }
-                Image(systemName: face.symbol).font(.system(size: 17, weight: .medium))
+                Image(systemName: face.symbol).font(.lead)
                     .overlay(alignment: .topTrailing) {
                         if let badge = face.badge {
                             CountBadge(count: badge).offset(x: 9, y: -9)
@@ -68,6 +74,7 @@ struct PendantPill: View {
                     }
             }
             .foregroundStyle(Palette.fg)
+            .motion(Motion.standard, value: face.symbol)
         }
         .accessibilityLabel("Pendant, \(face.spoken)")
         .accessibilityIdentifier("top.pendant")

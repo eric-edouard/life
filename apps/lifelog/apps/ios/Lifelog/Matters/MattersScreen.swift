@@ -28,12 +28,20 @@ struct MattersScreen: View {
                 content: { list in content(list) }
             )
             .background(Palette.bg)
-            .shellBar("Matters")
+            // The Pendant is the matter's, on the right, while the list is the side column of a regular width.
+            .shellBar("Matters", hasPendant: sizeClass != .regular)
+            .toolbar {
+                // The filter's place in the top group; the filter itself is drawn below for now.
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Filter", systemImage: "line.3.horizontal.decrease") { showsFilters = true }
+                }
+            }
         } detail: {
             if let id = router.matter {
                 MatterPage(id: id).id(id)
             } else {
                 Notice(title: "No matter chosen.", detail: "Pick one from the list.").background(Palette.bg)
+                    .shellBar("Matter", hasSettings: false)
             }
         }
         // Side by side on a regular width wide enough (the iPhone Duo open wide). Open upright (669 pt) UIKit overlays the
@@ -53,13 +61,13 @@ struct MattersScreen: View {
         }
         .sheet(isPresented: $showsFilters) {
             if let list = life.matters.value {
-                FiltersSheet(list: list, query: query, filter: $filter).presentationPlacement(.trailing)
+                FiltersSheet(list: list, query: query, filter: $filter)
             }
         }
         // Here, above both columns, so a fold that collapses the matter's page keeps the sheet and its running start.
         .sheet(isPresented: startSheetBinding) {
             if let id = router.startSheetMatter, let matter = life.matter[id]?.value {
-                StartAgentSheet(matter: matter).presentationPlacement(.leading)
+                StartAgentSheet(matter: matter).sheetStack()
             }
         }
     }
