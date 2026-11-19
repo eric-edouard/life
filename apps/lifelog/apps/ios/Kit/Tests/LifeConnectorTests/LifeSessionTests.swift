@@ -50,6 +50,23 @@ import Testing
     await #expect(throws: MCPError.notPaired) { try await life.bearer() }
 }
 
+@Test func aRefusedRefreshKeepsThePairingWhenAnotherProcessSavedNewerTokens() async throws {
+    let host = newHost()
+    let store = MemoryStore(credentials(host: host, expiresIn: 0))
+    // Another process (the notification extension) refreshed first: Life refuses this one, the store holds its tokens.
+    let session = Stub.session(host: host) { _ in
+        store.save(
+            LifeCredentials(
+                endpoint: credentials(host: host).endpoint,
+                tokens: LifeTokens(access: "access-9", refresh: "refresh-9", expiresAt: epoch.addingTimeInterval(3600)))
+        )
+        return .json(#"{"error":"invalid_grant"}"#, status: 400)
+    }
+    let life = LifeSession(store: store, oauth: LifeOAuth(session: session, now: { epoch }), now: { epoch })
+    #expect(try await life.bearer() == "access-9")
+    #expect(store.load()?.tokens.refresh == "refresh-9")
+}
+
 @Test func aRefreshFailingForAnyOtherReasonKeepsThePairing() async throws {
     for reply in [Reply.json("bad gateway", status: 502), .json("<html>proxy</html>", status: 400)] {
         let host = newHost()

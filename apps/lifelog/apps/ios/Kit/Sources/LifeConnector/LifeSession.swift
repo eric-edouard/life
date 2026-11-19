@@ -1,7 +1,9 @@
 import Foundation
 
 /// The bearer every call carries. Life replaces the refresh token each time it is used, so two refreshes at once would
-/// lose the pairing: there is one at a time, and whoever asks meanwhile waits for it.
+/// lose the pairing: there is one at a time in a process, and whoever asks meanwhile waits for it. Another process on
+/// the same store (the notification extension) may still refresh at the same moment: a refused refresh reads the store
+/// again before it ends the pairing.
 public actor LifeSession {
     /// A token with less than this left is replaced before it is used.
     private static let margin: TimeInterval = 60
@@ -49,6 +51,8 @@ public actor LifeSession {
         refreshing = task
         defer { refreshing = nil }
         do { return try await task.value.access } catch MCPError.notPaired {
+            // Refused because another process already used this refresh token: it saved newer tokens, which hold.
+            if let saved = store.load(), saved.tokens.refresh != held.tokens.refresh { return saved.tokens.access }
             store.clear()
             throw MCPError.notPaired
         }
