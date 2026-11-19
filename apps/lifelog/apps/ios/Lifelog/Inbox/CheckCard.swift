@@ -5,8 +5,6 @@ import SwiftUI
 /// group), never from a kind of its own. His taps leave through `answer`; this view keeps nothing of the answer.
 struct CheckCard: View {
     let check: Check
-    let position: Int
-    let total: Int
     /// The runtime of the agent that asked, when the card's matter has one.
     let runtimeName: RuntimeName?
     let openMatter: (String) -> Void
@@ -42,10 +40,11 @@ struct CheckCard: View {
     // MARK: Top
 
     private var meta: some View {
-        ProgressLine(
-            done: position, of: total,
-            end: check.deadline.map { "By \($0.formatted(.dateTime.weekday(.abbreviated).hour().minute()))" },
-            endColor: Palette.flag)
+        Group {
+            if let deadline = check.deadline {
+                Caps("By \(deadline.formatted(.dateTime.weekday(.abbreviated).hour().minute()))", color: Palette.flag)
+            }
+        }
     }
 
     private var chips: some View {

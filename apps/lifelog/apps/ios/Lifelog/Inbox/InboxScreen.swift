@@ -74,12 +74,10 @@ struct InboxScreen: View {
     }
 
     private func cardView(_ check: Check) -> some View {
-        let (position, total) = place(of: check)
-        let input = Binding(get: { inputs[check.ref] ?? CardInput() }, set: { inputs[check.ref] = $0 })
-        return CardArrangement(check: check) {
+        CardArrangement(check: check) {
             if let taken {
                 let state = life.state(of: taken.key)
-                AnswerResultView(taken: taken, state: state, next: next(after: taken))
+                AnswerResultView(taken: taken, state: state, next: question(after: taken))
             } else {
                 VStack(spacing: 0) {
                     if let notice {
@@ -88,18 +86,14 @@ struct InboxScreen: View {
                         )
                         .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
                     }
-                    CheckCard(
-                        check: check, position: position, total: total, runtimeName: runtimeName(of: check),
-                        openMatter: { router.open(matter: $0) }, input: input
-                    )
-                    .id(check.ref)
+                    pager
                 }
             }
         } bar: {
             if let taken {
                 let state = life.state(of: taken.key)
                 ResultButtons(
-                    taken: taken, state: state, next: next(after: taken),
+                    taken: taken, state: state, next: question(after: taken),
                     retry: { Task { await life.answer(taken.request) } },
                     keepForLater: { leave(taken, keep: true) }, nextCard: { leave(taken, keep: false) })
             } else if life.state(of: .answer(ref: check.ref)).isRunning {
@@ -111,16 +105,53 @@ struct InboxScreen: View {
                 .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
             } else {
                 CheckActions(
-                    check: check, runtimeName: runtimeName(of: check), input: input,
+                    check: check, runtimeName: runtimeName(of: check), input: input(check.ref),
                     answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
                 )
             }
         }
     }
 
+    /// The cards side by side: he swipes left for the next, right to come back, and the next one's edge shows at the right.
+    /// Swiping only moves `current`; it never answers, and a card he passes stays where it was.
+    private var pager: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                HStack(spacing: 0) {
+                    ForEach(ordered(life.inbox.value)) { check in
+                        CheckCard(
+                            check: check, runtimeName: runtimeName(of: check), openMatter: { router.open(matter: $0) },
+                            input: input(check.ref)
+                        )
+                        .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.card))
+                        .padding(.leading, Pager.gap)
+                        .containerRelativeFrame(.horizontal) { width, _ in width - Pager.edge - Pager.gap }
+                        .id(check.ref)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollPosition(id: $current, anchor: .leading)
+            .scrollTargetBehavior(.viewAligned)
+            .scrollIndicators(.hidden)
+            // A pager made after his tap's result starts on the first card: put it on the one he is on.
+            .onAppear { if let current { proxy.scrollTo(current, anchor: .leading) } }
+        }
+    }
+
+    private func input(_ ref: String) -> Binding<CardInput> {
+        Binding(get: { inputs[ref] ?? CardInput() }, set: { inputs[ref] = $0 })
+    }
+
+    /// The card after this one, by its place in the list: nothing after the last.
+    private func nextCard(after check: Check) -> Check? {
+        let checks = ordered(life.inbox.value)
+        return checks.firstIndex { $0.ref == check.ref }.flatMap { checks.dropFirst($0 + 1).first }
+    }
+
     /// The question of the card that comes after his tap's, when one is waiting.
-    private func next(after taken: Taken) -> String? {
-        ordered(life.inbox.value).first { $0.ref != taken.check.ref }?.question
+    private func question(after taken: Taken) -> String? {
+        ordered(life.inbox.value).first { $0.ref == taken.nextRef }?.question
     }
 
     /// The card whose "Same as…" he opened: that card, even if the inbox reorders under the sheet; gone with it.
@@ -143,17 +174,10 @@ struct InboxScreen: View {
 
     private var working: Int { life.agents.value?.agents.count { $0.status == .running || $0.status == .waiting } ?? 0 }
 
-    /// Where a card stands in the inbox, as "2 of 5".
-    private func place(of check: Check) -> (position: Int, total: Int) {
-        let checks = ordered(life.inbox.value)
-        return ((checks.firstIndex { $0.ref == check.ref } ?? 0) + 1, checks.count)
-    }
-
     private func submit(_ check: Check, _ request: AnswerRequest) {
-        let (position, total) = place(of: check)
         notice = nil
         taken = Taken(
-            check: check, request: request, position: position, total: total, runtimeName: runtimeName(of: check))
+            check: check, request: request, nextRef: nextCard(after: check)?.ref, runtimeName: runtimeName(of: check))
         Task { await life.answer(request) }
     }
 
@@ -161,8 +185,14 @@ struct InboxScreen: View {
     private func leave(_ taken: Taken, keep: Bool) {
         life.forget(taken.key)
         if keep { deferred.append(taken.check.ref) }
-        (self.taken, current) = (nil, taken.staysOpen ? taken.check.ref : nil)
+        (self.taken, current) = (nil, taken.staysOpen ? taken.check.ref : taken.nextRef)
     }
+}
+
+/// The pager's measures, from the Ask panel: 12 from the sides and between cards, the next card's edge showing 10.
+private enum Pager {
+    static let gap = Metrics.Spacing.xs * 3
+    static let edge = Metrics.Spacing.xs * 2.5
 }
 
 /// Nothing waits: where the agents stand, and how the next card will reach him.
