@@ -39,11 +39,9 @@ struct CheckCard: View {
 
     // MARK: Top
 
-    private var meta: some View {
-        Group {
-            if let deadline = check.deadline {
-                Caps("By \(deadline.formatted(.dateTime.weekday(.abbreviated).hour().minute()))", color: Palette.flag)
-            }
+    @ViewBuilder private var meta: some View {
+        if let deadline = check.deadline {
+            Caps("By \(deadline.formatted(.dateTime.weekday(.abbreviated).hour().minute()))", color: Palette.flag)
         }
     }
 

@@ -129,6 +129,7 @@ struct InboxScreen: View {
                         .id(check.ref)
                     }
                 }
+                .padding(.trailing, Pager.edge + Pager.gap)
                 .scrollTargetLayout()
             }
             .scrollPosition(id: $current, anchor: .leading)
