@@ -19,8 +19,8 @@ const idOf = (list: { id: string; name: string }[], query: string) =>
     (x) => x.id === query || x.name.toLowerCase() === query.toLowerCase()
   )?.id;
 
-type Role = "owedTo" | "told" | "waitingOn" | "with";
-const ROLES: readonly Role[] = ["owedTo", "told", "waitingOn", "with"];
+type Role = "owedTo" | "waitingOn" | "with";
+const ROLES: readonly Role[] = ["owedTo", "waitingOn", "with"];
 
 /**
  * A matter as the readers give it (`read_matters`, `read_matter`; data, the same for his app and the models): where it

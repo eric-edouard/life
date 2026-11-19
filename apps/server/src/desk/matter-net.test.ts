@@ -71,7 +71,6 @@ const matter = {
       text: "Order the beads",
     },
   ],
-  told: [],
   waitingOn: ["person:shop"],
   with: [],
 };

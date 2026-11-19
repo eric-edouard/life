@@ -140,7 +140,7 @@ const stored = (
 const book = (over: Partial<MatterRecords> = {}, today = "2026-10-20") =>
   matterBookOf(stored([line]), records(over), today);
 
-test("the errand: moving, next 'call the shop', owed to Gran, the partner only with", () => {
+test("the errand: moving, next 'call the shop', owed to Gran; the partner's old suggestion and the episodes' casts are not its people", () => {
   const [errand, ...rest] = book();
   expect(rest).toEqual([]);
   expect(errand).toMatchObject({
@@ -150,11 +150,9 @@ test("the errand: moving, next 'call the shop', owed to Gran, the partner only w
     owedTo: [GRAN],
     projects: ["shop-fit-out"],
     status: "moving",
-    told: [SHOP],
     waitingOn: [],
+    with: [],
   });
-  expect(errand?.with).toEqual([GRAN, PARTNER]);
-  expect(errand?.owedTo).not.toContain(PARTNER);
   // Time order; the small fact stays out, the rated-2 one and the placed rated-1 one are in.
   expect(errand?.steps.map((s) => s.text)).toEqual([
     "Gran's watch",
@@ -165,6 +163,57 @@ test("the errand: moving, next 'call the shop', owed to Gran, the partner only w
     "Call the shop",
     "Call to the shop",
   ]);
+});
+
+// His report of 19 Nov 2026: a court case listed a friend from a dinner, a shop colleague and an old helper "with" and
+// "told", because a matter's people were the casts of every episode its steps touched, ended or not. Its people are
+// where it stands now: the people its open steps name.
+test("a matter's people are its open steps' people: never a sitting's cast, never an ended step's person", () => {
+  const [DAD, LAWYER, FRIEND, NEIGHBOUR, HELPER] = [
+    "person:dad",
+    "person:lawyer",
+    "person:friend",
+    "person:neighbour",
+    "person:helper",
+  ];
+  const steps = [
+    // Dad asks him to find a lawyer, on a call.
+    obs(70, "2026-10-12", { speaker: DAD, subjects: [OWNER, DAD] }),
+    // His own to-do: send the report to the lawyer.
+    obs(71, "2026-10-13", { subjects: [OWNER, LAWYER] }),
+    // Said in passing at a dinner with a friend, on other subjects: a fact, not where it stands.
+    obs(72, "2026-10-14", {
+      importance: 2,
+      subjects: [OWNER, DAD],
+      type: "news",
+    }),
+    // A promise to an old helper, ended.
+    obs(73, "2026-10-05", { subjects: [OWNER, HELPER], type: "promise" }),
+  ];
+  const dinner = episode(72, "2026-10-14", "Dinner with a friend", [
+    [FRIEND, "with"],
+    [NEIGHBOUR, "told"],
+  ]);
+  const [court] = matterBookOf(
+    stored([
+      {
+        areas: [],
+        id: "matter_cccccccccccc",
+        name: "Court case",
+        projects: [],
+        steps: steps.map((o) => ({ ref: o.id })),
+      },
+    ]),
+    records({
+      episodeOf: new Map([[dinner.units[0] as string, dinner]]),
+      observations: steps,
+      retired: gone(obs(73, "", {}).id),
+    }),
+    "2026-10-20"
+  );
+  // The dinner stays a step: history is kept on the steps.
+  expect(court?.steps.map((s) => s.text)).toContain("Dinner with a friend");
+  expect(court).toMatchObject({ owedTo: [DAD], waitingOn: [], with: [LAWYER] });
 });
 
 test("a matter's status: done when every open step is ended, stuck when the next step's date passed, waiting, dormant", () => {
@@ -282,23 +331,12 @@ test("a person's page lists the open matters they are in, what he owes first, th
   });
   expect(lines[1]).toStartWith("Open with them");
   expect(lines.join("\n")).toContain("owed to Gran");
-  // The partner is only with: she is in the matter, so it is listed for her too; a stranger has none.
-  expect(
-    openWithOf(PARTNER, {
-      goals: [],
-      items,
-      owner: "Test",
-      today: "2026-10-20",
-    })
-  ).not.toEqual([]);
-  expect(
-    openWithOf("person:cy", {
-      goals: [],
-      items,
-      owner: "Test",
-      today: "2026-10-20",
-    })
-  ).toEqual([]);
+  // The partner only made a suggestion, long settled, and the shop is waited on: neither is listed for the partner.
+  for (const who of [PARTNER, "person:cy"]) {
+    expect(
+      openWithOf(who, { goals: [], items, owner: "Test", today: "2026-10-20" })
+    ).toEqual([]);
+  }
 });
 
 test("a person's open items: the pointer counts what the one cut left out, and is absent when all fit", () => {
@@ -608,7 +646,12 @@ test("matters-study P2: a matter with nothing to do is done once a week has pass
       }),
       today
     )[0];
-  expect(at("2026-10-08")).toMatchObject({ open: true, status: "moving" });
+  // Nothing to do: every step is current, so the people taking part in its episodes are its people.
+  expect(at("2026-10-08")).toMatchObject({
+    open: true,
+    status: "moving",
+    with: [PARTNER],
+  });
   expect(at("2026-10-11")).toMatchObject({ open: false, status: "done" });
   // A date ahead keeps it going until a week after that date.
   expect(at("2026-10-20", { when: "2026-10-18" })?.open).toBe(true);
@@ -616,7 +659,7 @@ test("matters-study P2: a matter with nothing to do is done once a week has pass
 });
 
 // matters-study-2026-11-16 (P5): "owed to" named mail senders: 29 open matters were owed to his agents' report
-// address, 7 to a no-reply sender. A to-do a mailer sent is owed to the person it names, else to no one.
+// address, 7 to a no-reply sender. A to-do is owed only to the person who asked it: one a mailer or his agent sent is owed to no one, with the person it names.
 test("matters-study P5: owed to never names a no-reply sender or his agents' reports", () => {
   const bill = obs(50, "2026-10-18", {
     speaker: "unknown:no-reply@bank.test",
@@ -647,8 +690,7 @@ test("matters-study P5: owed to never names a no-reply sender or his agents' rep
     "2026-10-19"
   );
   expect(views).toEqual([]);
-  expect(view?.owedTo).toEqual([GRAN]);
-  expect(view?.waitingOn).toEqual([]);
+  expect(view).toMatchObject({ owedTo: [], waitingOn: [], with: [GRAN] });
 });
 
 test("matters-study P5: a mailer handle is a no-reply spelling or a failed-payment sender, never a person's address", () => {
