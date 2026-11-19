@@ -73,7 +73,7 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
   card's buttons are its options' `label`s, and what an option `takes` (a person, a name, a note) is what the tap asks
   for (`Check.answer`); the phone decides nothing Life decides (what is open, a goal's steps): a matter's edits and Mark
   as done go by its id. A tapped push routes by `pushId` (`NotificationRoute.card`) and opens the Inbox; a push while
-  the app is in front reads the inbox again. The badge is the inbox total.
+  the app is in front reads the inbox again. The badge is the count of cards that block him.
 - A server enum decodes unknown values as `unknown` (`UnknownTolerant`) and belongs in the mirror list of
   `ContractTests.swift` (lifelog's against its `openapi.json`, Life's against `apps/server/src`), which also checks
   every path the client calls.

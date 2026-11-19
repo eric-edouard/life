@@ -203,7 +203,7 @@ test("a notice another app asks for is one visible push; an empty or long title 
   expect(sent).toHaveLength(1);
 });
 
-test("Life's card pushes: one card names its id, a badge alone is silent", async () => {
+test("Life's card pushes: one card names its id and can be rewritten, a badge alone is silent", async () => {
   storePushToken(env.db, PUSH_TOKEN);
   const app = appWith(pusher());
   const post = (body: unknown) =>
@@ -218,18 +218,29 @@ test("Life's card pushes: one card names its id, a badge alone is silent", async
   const last = () => JSON.parse(sent.at(-1)?.request.body ?? "");
   const pushId = "9f2c41d07ab35e68";
   expect(
-    (await post({ badge: 42, body: "1 new card", pushId, title: "Life" }))
-      .status
+    (
+      await post({
+        badge: 42,
+        body: "1 new card",
+        level: "time-sensitive",
+        pushId,
+        title: "Life",
+      })
+    ).status
   ).toBe(200);
   expect(last()).toEqual({
     aps: {
       alert: { body: "1 new card", title: "Life" },
       badge: 42,
+      category: "life.card",
+      "interruption-level": "time-sensitive",
+      "mutable-content": 1,
       sound: "default",
       "thread-id": "life-cards",
     },
     pushId,
   });
+  expect(sent.at(-1)?.request.headers["apns-collapse-id"]).toBe(pushId);
   await post({ badge: 41 });
   expect(last()).toEqual({
     aps: {
@@ -237,15 +248,31 @@ test("Life's card pushes: one card names its id, a badge alone is silent", async
       "thread-id": "life-cards",
     },
   });
-  expect(sent).toHaveLength(2);
+  expect(sent.at(-1)?.request.headers["apns-collapse-id"]).toBeUndefined();
+  await post({
+    badge: 41,
+    body: "3 more new cards",
+    level: "passive",
+    title: "Life",
+  });
+  expect(last()).toEqual({
+    aps: {
+      alert: { body: "3 more new cards", title: "Life" },
+      badge: 41,
+      "interruption-level": "passive",
+      "thread-id": "life-cards",
+    },
+  });
+  expect(sent).toHaveLength(3);
   const refused = await Promise.all(
     [
       { title: "Life" },
       { body: "x" },
       { badge: -1 },
       { badge: 1, pushId: "Kit's card" },
+      { badge: 1, level: "critical" },
     ].map(async (bad) => (await post(bad)).status)
   );
-  expect(refused).toEqual([400, 400, 400, 400]);
-  expect(sent).toHaveLength(2);
+  expect(refused).toEqual([400, 400, 400, 400, 400]);
+  expect(sent).toHaveLength(3);
 });

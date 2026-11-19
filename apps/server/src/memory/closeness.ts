@@ -441,16 +441,12 @@ export async function closeness({ events, failed, since }: WithPeople) {
     prompt: MEMORY_CLOSENESS_PROMPT,
   });
   const people = await readPeople();
-  const { outsideDirectory, names, resolve, truth } = people;
+  const { names, resolve, truth } = people;
   const today = localDate(step.now.toISOString());
   // A source that could not be read would make everyone in it look distant: no one is judged this night, the levels
   // stand as they were (the night goes on; `unread` and the log say which source).
   const days = chatDays(events, resolve);
   await withStore((store) => voiceDays(store, resolve, since, days));
-  const relation = new Map<string, string>([
-    ...outsideDirectory.map((p) => [`person:${p.id}`, p.relation] as const),
-    ...truth.people.map((p) => [`person:${p.id}`, p.relation ?? ""] as const),
-  ]);
   const waiting = await waitingOf(truth, people.canon);
   const judged = readCloseness();
   // Everyone waiting is judged, even with nothing counted (a relation alone can say close family).
@@ -480,7 +476,7 @@ export async function closeness({ events, failed, since }: WithPeople) {
             people: batch.map(({ ref, t }) => ({
               name: names.get(ref) ?? ref,
               person: ref,
-              relation: relation.get(ref) ?? "",
+              relation: people.relationOf(ref) ?? "",
               ...t,
             })),
             today,

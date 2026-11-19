@@ -136,8 +136,8 @@ export function healthRoutes(
         description:
           "A push to the phone that another app of the owner's asks for (Life: each voice ask it heard, " +
           "so a missing one tells him at once it was not; its new cards: a count, a badge and one card's " +
-          "opaque id, `pushId`, 16 hex). Words (`title` and `body` together) and/or a `badge`; `quiet` is " +
-          "passive, with no sound. Sent once, recorded as an " +
+          "opaque id, `pushId`, 16 hex, which lets the phone rewrite it). Words (`title` and `body` together) " +
+          "and/or a `badge`; `level` is Apple's interruption level (passive makes no sound). Sent once, recorded as an " +
           "`apns.*` event of kind `notice`; `stored` is true even when no push token or key is set.",
         method: "post",
         path: "/notifications",

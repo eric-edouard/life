@@ -23,7 +23,7 @@ import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 // apps/server/src/test-data, plus a week of invented memory: a landlord, a plumber, a friend, runs, a side project and the owner's goals) and builds its search index.
 // It reads no source: its settings turn every source off. `demo.test.ts` checks the ids both cite against it.
 // It also holds a new matter dated from the day it is made (the leaking tap, with a goal and a `do` next step), so its
-// inbox offers "Work on it?", with the desk on and the connector on loopback. Written and run as a second Life on this Mac
+// inbox offers "Start an agent on this?", with the desk on and the connector on loopback. Written and run as a second Life on this Mac
 // with `LIFE_OWNER_DATA_DIR=<out>/data LIFE_STATE_DIR=<out>/state LIFE_MACHINE_DIR=<out>/machine LIFE_PORT=46500`, the
 // phone paired by `bun life pair --link`: `bun run e2e:demo` does all of it.
 //

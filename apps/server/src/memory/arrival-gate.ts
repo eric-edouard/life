@@ -3,7 +3,7 @@ import type { Unit } from "../records/unit";
 import { closedConversations } from "./extract";
 import type { Evidence } from "./gather";
 import { isDirect, kindOf } from "./sources";
-import { type Built, isAgentReport, isFromStrangers, nameKey } from "./units";
+import { type Built, holdsName, isAgentReport, isFromStrangers } from "./units";
 
 // The arrival gate (docs/glossary.md): which of today's units hold an arrival (new lines no step has read) worth a day
 // pass now. Model-free and pure: it decides *when* a unit is read, never *whether*; a unit it holds back waits for the
@@ -41,12 +41,6 @@ interface Seen {
   now: number;
   read: ArrivalReads;
 }
-
-/** Whether `text` holds a name as a whole word run (never inside a longer word); an empty name matches nothing. */
-const isNamed = (text: string, names: string[]) =>
-  names.some(
-    (n) => nameKey(n) && ` ${nameKey(text)} `.includes(` ${nameKey(n)} `)
-  );
 
 /** Arrivals come from voice, chats, mail and agents; notes, imports and activity are the night's (his word, 19 Nov 2026). */
 const ARRIVING = new Set(["agent", "chat", "mail", "voice"]);
@@ -87,7 +81,7 @@ const RULES: [string, (s: Seen) => boolean][] = [
         kindOf(b.unit.source) === "chat" &&
         !isDirect(b.unit.source, b.unit.key, others.size) &&
         !b.messages.some((m) => m.fromMe) &&
-        !fresh.some((m) => isNamed(m.text, read.ownerNames))
+        !fresh.some((m) => holdsName(m.text, read.ownerNames))
       );
     },
   ],

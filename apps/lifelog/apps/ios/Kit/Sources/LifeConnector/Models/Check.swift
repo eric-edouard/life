@@ -51,8 +51,26 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     }
 
     public struct Person: Decodable, Sendable, Equatable {
+        /// Who they are to him, one line (a relation), when Life knows it.
+        public let line: String?
         public let name: String
         public let person: String
+    }
+
+    /// One line said: who, to whom, when, where, verbatim.
+    public struct Said: Decodable, Sendable, Equatable {
+        /// An instant, or a day (`2026-10-12`) when only the day is known.
+        public let at: String?
+        public let by: String?
+        public let channel: String?
+        public let text: String
+        public let to: String?
+    }
+
+    /// The lines of its conversation just before and after the sentence.
+    public struct Around: Decodable, Sendable, Equatable {
+        public let after: [Said]
+        public let before: [Said]
     }
 
     public struct MatterRef: Decodable, Sendable, Equatable {
@@ -117,6 +135,14 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let goal: String?
     public let evidence: Evidence?
     public let draft: Draft?
+    /// The sentence the question is about (a name's line, a step's own sentence), verbatim.
+    public let said: Said?
+    /// An ending: what came since the open step.
+    public let since: Said?
+    /// A name: lines of its conversation before and after the sentence.
+    public let around: Around?
+    /// The matters the answer rides on, by name.
+    public let onMatters: [MatterRef]?
     public let options: [Option]
     public let clips: [Clip]
     public let likelyPeople: [Person]
