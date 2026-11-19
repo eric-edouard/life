@@ -94,24 +94,29 @@ struct Toast: View {
     }
 }
 
-/// The Toast on the closed Duo, where there is no top bar: a 44 x 88 capsule in the side column, no words: the check in
-/// `ok`, then Undo as its glyph in a 44 hit area. VoiceOver reads the answer on the capsule and "Undo" on the button.
-struct ToastColumn: View {
-    let words: String
+/// The Toast in the side column of the closed Duo, where there is no top bar: a capsule two tap targets high, no words:
+/// the check in `ok`, then Undo as its glyph. It is always in the column while the bars are there, and fades with
+/// `answered` (nil: nothing held), so the column never changes shape. VoiceOver reads the answer on the capsule and
+/// "Undo" on the button. Larger than `StateGlyph.ok` (13): the capsule has no words to carry it.
+struct ColumnToast: View {
+    let answered: String?
     let undo: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            Image(systemName: "checkmark").font(.system(size: 20, weight: .semibold)).foregroundStyle(Palette.ok)
-                .frame(width: 44, height: 44).accessibilityHidden(true)
+            Image(systemName: "checkmark").font(.columnGlyph).foregroundStyle(Palette.ok)
+                .frame(width: Metrics.tapTarget, height: Metrics.tapTarget).accessibilityHidden(true)
             Button(action: undo) {
-                Image(systemName: "arrow.uturn.backward").font(.system(size: 20)).foregroundStyle(Palette.fg)
-                    .frame(width: 44, height: 44).contentShape(.rect)
+                Image(systemName: "arrow.uturn.backward").font(.columnGlyph).foregroundStyle(Palette.fg)
+                    .frame(width: Metrics.tapTarget, height: Metrics.tapTarget).contentShape(.rect)
             }
             .buttonStyle(.plain).accessibilityLabel("Undo")
         }
-        .background(Palette.tile, in: .rect(cornerRadius: 22))
-        .accessibilityElement(children: .contain).accessibilityLabel("Answered: \(words)")
+        .background(Palette.tile, in: .capsule)
+        .opacity(answered == nil ? 0 : 1).allowsHitTesting(answered != nil)
+        .motion(Motion.standard, value: answered)
+        .accessibilityElement(children: .contain).accessibilityLabel(answered.map { "Answered: \($0)" } ?? "")
+        .accessibilityHidden(answered == nil)
     }
 }
 

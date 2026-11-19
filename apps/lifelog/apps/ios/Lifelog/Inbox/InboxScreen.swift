@@ -43,11 +43,12 @@ struct InboxScreen: View {
             .background(Palette.bg)
             // Nothing above the question: no title; the gear and the Pendant are the list's when it is beside.
             .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.ask = $0 }
-            // Before the Pendant and Settings: a vertical bar stacks the trailing items bottom-up, so this lands under them.
+            // Declared before the Pendant and Settings: a vertical bar stacks trailing items bottom-up, so the order puts
+            // this one under them; `sharedBackgroundVisibility(.hidden)` keeps it out of their capsule.
             .toolbar {
-                if let latest = life.latestHeld, hasColumn, #available(iOS 27.1, *) {
+                if hasColumn, #available(iOS 27.1, *) {
                     ToolbarItem(placement: .topBarTrailing) {
-                        ToastColumn(words: latest.held.label) { undo(latest.ref) }.appears().id(latest.ref)
+                        ColumnToast(answered: life.latestHeld?.held.label) { life.latestHeld.map { undo($0.ref) } }
                     }
                     .sharedBackgroundVisibility(.hidden).axisBehavior(.verticalPreferred)
                 }
