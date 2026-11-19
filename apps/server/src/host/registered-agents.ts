@@ -117,7 +117,7 @@ const linesOf = (read: DeskRead<AgentNow[]>) => {
   return read.state === "ok" ? read.value.map((a) => `- ${agentLine(a)}`) : [];
 };
 
-/** The Agents part of a matter's read: the agents ever anchored on its steps, active first, then the active worker of each of its `projects`; none while the desk is off or unreadable (`read_registered_agents` says which). */
+/** The Agents part of a matter's read: the agents ever anchored on its steps, active first, then the active agent of each of its `projects`; none while the desk is off or unreadable (`read_registered_agents` says which). */
 export function readAgentsOnSteps(steps: string[], projects: string[] = []) {
   const read = readDesk(
     (db) => agentsOnSteps(db, steps, clock().getTime(), projects),
