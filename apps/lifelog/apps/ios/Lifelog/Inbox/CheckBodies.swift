@@ -5,18 +5,135 @@ import SwiftUI
 // `draft`, `evidence`), drawn on the Ask panel's `tile`. `CheckCard` picks them by what the check holds, never by its
 // group's wording. A sentence's who-and-when is never dimmed; a sentence may be.
 
-/// A sentence as it was said: who, to whom, where and when above, its words under.
+/// A sentence's words with each of `names` in bold: in the `regular` step, the names in the `bold` one.
+struct NamedWords: View {
+    let said: Check.Said
+    let names: [String]
+    var regular = TypeStep.quote
+    var bold = TypeStep.quoteBold
+    var isQuoted = true
+
+    @Environment(\.dynamicTypeSize) private var size
+
+    var body: some View {
+        var words = AttributedString(said.text)
+        for range in said.ranges(ofNames: names) {
+            if let shown = Range(range, in: words) { words[shown].font = bold.font(at: size) }
+        }
+        return Text(isQuoted ? AttributedString("“") + words + AttributedString("”") : words).font(regular)
+    }
+}
+
+/// A sentence as it was said: who, to whom, where and when above, its words under, a name asked about in bold.
 struct SaidBlock: View {
     let said: Check.Said
+    var names: [String] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
             let line = said.line(channelName: ActionCopy.channel)
             if !line.isEmpty { Text(line).font(.small).foregroundStyle(Palette.muted) }
-            Text("“\(said.text)”").font(.quote).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
+            NamedWords(said: said, names: names).foregroundStyle(Palette.fg)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// A name nobody is: the sentence with the name in bold, who to whom and when above; when it was heard, its clip plays
+/// from a 28 Play at the right of the words.
+struct NameBlock: View {
+    let said: Check.Said?
+    let names: [String]
+    let clip: Check.Clip?
+
+    var body: some View {
+        if let clip, let audio = clip.audio, let job = UUID(uuidString: audio.jobId) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                if let line = said?.line(channelName: ActionCopy.channel), !line.isEmpty {
+                    Text(line).font(.small).foregroundStyle(Palette.muted)
+                }
+                SpokenWords(
+                    text: clip.text, words: clip.words, job: job, start: audio.start, end: audio.end, style: .inline,
+                    emphasis: names
+                )
+                .font(.quote)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else if let said {
+            SaidBlock(said: said, names: names)
+        }
+    }
+}
+
+/// A voice to name: when it was heard above the words and its length at the right with the next clip; the clip's words
+/// lit as they are said, and the clips playing on one after another.
+struct VoiceBlock: View {
+    let clips: [Check.Clip]
+
+    @Environment(PlaybackStore.self) private var playback
+    @State private var index = 0
+    @State private var autoplay = false
+    /// How far the clip got, to tell its end from his stop.
+    @State private var reached = 0.0
+
+    private var clip: Check.Clip { clips[min(index, clips.count - 1)] }
+    private var job: UUID? { clip.audio.flatMap { UUID(uuidString: $0.jobId) } }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+            header
+            Group {
+                if let audio = clip.audio, let job {
+                    SpokenWords(
+                        text: clip.text, words: clip.words, job: job, start: audio.start, end: audio.end,
+                        autoplay: autoplay)
+                } else {
+                    WholeWords(clip.text).foregroundStyle(Palette.fg)
+                }
+            }
+            .font(.quote)
+            .id(index).transition(.opacity)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .motion(.easeOut(duration: 0.15), value: index)
+        .onChange(of: playback.position) { _, position in if position > 0 { reached = position } }
+        .onChange(of: playback.playingID) { old, new in
+            guard new == nil, let old, let audio = clip.audio, let job, old == "\(job)-\(audio.start)",
+                reached >= audio.end - 0.6
+            else { return }
+            move(to: index + 1, playing: true)
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: Metrics.Spacing.s) {
+            if let at = clip.at { Text(SaidWords.day(at)).font(.small).foregroundStyle(Palette.muted) }
+            Spacer(minLength: 0)
+            if let length = clip.lengthText { Text(length).font(.monoTime).foregroundStyle(Palette.muted) }
+            if clips.count > 1 {
+                Text("\(index + 1)/\(clips.count)").font(.monoTime).foregroundStyle(Palette.muted)
+                Button {
+                    let wasPlaying = playback.playingID != nil
+                    playback.stop()
+                    move(to: (index + 1) % clips.count, playing: wasPlaying)
+                } label: {
+                    Image(systemName: "forward.end.fill").font(.system(size: 10)).foregroundStyle(Palette.fg)
+                        .frame(width: 28, height: 28).background(Color.fillTint, in: .circle)
+                        .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget)
+                }
+                .buttonStyle(.plain).accessibilityLabel("Next clip")
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func move(to next: Int, playing: Bool) {
+        guard clips.indices.contains(next) else { return }
+        reached = 0
+        autoplay = playing
+        index = next
     }
 }
 

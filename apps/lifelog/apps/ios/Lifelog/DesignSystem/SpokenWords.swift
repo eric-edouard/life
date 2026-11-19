@@ -20,17 +20,26 @@ struct SpokenWords: View {
     let start: Double
     let end: Double
     var style = Style.box
+    /// Plays from the start as it appears (the next clip of a row of clips).
+    var autoplay = false
+    /// Names shown in bold wherever the words say them (a name asked about).
+    var emphasis: [String] = []
 
     /// Each word as shown (with the space after it), made once: `body` runs about 10 times a second while it plays.
     private let pieces: [String]?
 
-    init(text: String, words: [[Int64]]?, job: UUID, start: Double, end: Double, style: Style = .box) {
+    init(
+        text: String, words: [[Int64]]?, job: UUID, start: Double, end: Double, style: Style = .box,
+        autoplay: Bool = false, emphasis: [String] = []
+    ) {
         self.text = text
         self.words = words
         self.job = job
         self.start = start
         self.end = end
         self.style = style
+        self.autoplay = autoplay
+        self.emphasis = emphasis
         pieces = words?.ranges(in: text).map { ranges in
             ranges.enumerated().map { index, range in
                 (text as NSString).substring(with: range) + (index < ranges.count - 1 ? " " : "")
@@ -53,6 +62,7 @@ struct SpokenWords: View {
             spoken
             if style == .inline { playButton }
         }
+        .task { if autoplay { begin(at: 0) } }
         .onDisappear {
             fetch?.cancel()
             if isPlaying { playback.stop() }
@@ -67,7 +77,9 @@ struct SpokenWords: View {
             FlowLayout {
                 // A word's position is its identity: the text is fixed for the view's life.
                 ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
-                    Text(piece)
+                    Group {
+                        if isEmphasised(piece) { Text(piece).font(.quoteBold) } else { Text(piece) }
+                    }
                         .lineLimit(1)
                         .minimumScaleFactor(0.3)
                         .foregroundStyle(isLit(index) ? Palette.fg : Palette.muted)
@@ -81,6 +93,11 @@ struct SpokenWords: View {
         } else {
             WholeWords(text).foregroundStyle(Palette.fg)
         }
+    }
+
+    private func isEmphasised(_ piece: String) -> Bool {
+        let word = piece.trimmingCharacters(in: .whitespaces.union(.punctuationCharacters))
+        return emphasis.contains { $0.compare(word, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }
     }
 
     private var playButton: some View {

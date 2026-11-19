@@ -48,6 +48,14 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let audio: Audio?
         /// Its words as lifelog times them (contract `TimedWords`), lit while it plays through `words.spokenIndex(at:)` and `words.ranges(in:)`.
         public let words: [[Int64]]?
+
+        /// How long it plays, "0:08": from its recording's span; nil when the clip holds no audio.
+        public var lengthText: String? {
+            audio.map { audio in
+                let seconds = Int((audio.end - audio.start).rounded())
+                return "\(seconds / 60):" + String(format: "%02d", seconds % 60)
+            }
+        }
     }
 
     public struct Person: Decodable, Sendable, Equatable {
@@ -176,6 +184,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let goal: String?
     public let evidence: Evidence?
     public let draft: Draft?
+    /// The names a name check asks about, as they were said: shown in bold in `said`.
+    public let about: [String]?
     /// The sentence the question is about (a name's line, a step's own sentence), verbatim.
     public let said: Said?
     /// An ending: what came since the open step.
@@ -241,6 +251,25 @@ extension Check {
     /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their
     /// options (a new matter's goal comes through its option that takes a note).
     public var takesOwnWords: Bool { group == .decision }
+}
+
+extension Check.Said {
+    /// Where `names` stand in the words as whole words, whatever their case or accents.
+    public func ranges(ofNames names: [String]) -> [Range<String.Index>] {
+        names.filter { !$0.isEmpty }.flatMap { name in
+            var found: [Range<String.Index>] = []
+            var from = text.startIndex
+            while let range = text.range(
+                of: name, options: [.caseInsensitive, .diacriticInsensitive], range: from..<text.endIndex)
+            {
+                let before = range.lowerBound > text.startIndex ? text[text.index(before: range.lowerBound)] : nil
+                let after = range.upperBound < text.endIndex ? text[range.upperBound] : nil
+                if !(before?.isLetter ?? false) && !(after?.isLetter ?? false) { found.append(range) }
+                from = range.upperBound
+            }
+            return found
+        }
+    }
 }
 
 /// Who he says it is: someone Life knows, or a new name.

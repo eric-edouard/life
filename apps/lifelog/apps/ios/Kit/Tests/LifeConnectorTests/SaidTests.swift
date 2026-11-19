@@ -38,3 +38,15 @@ private func said(_ json: String) throws -> Check.Said {
     #expect(SaidWords.initials("Marc Delmas") == "MD")
     #expect(SaidWords.initials("~ Idris B.") == "IB")
 }
+
+@Test func aNameIsFoundAsAWholeWordWhateverItsCase() throws {
+    let spoken = try said(#"{"text":"Marc passe, et marcus aussi. Dis à MARC."}"#)
+    let found = spoken.ranges(ofNames: ["Marc"]).map { String(spoken.text[$0]) }
+    #expect(found == ["Marc", "MARC"])
+}
+
+@Test func aClipSaysItsLengthAndOneWithoutAudioSaysNone() throws {
+    let json = #"{"text":"x","audio":{"jobId":"j","start":1.2,"end":9.2}}"#
+    #expect(try JSONDecoder().decode(Check.Clip.self, from: Data(json.utf8)).lengthText == "0:08")
+    #expect(try JSONDecoder().decode(Check.Clip.self, from: Data(#"{"text":"x"}"#.utf8)).lengthText == nil)
+}

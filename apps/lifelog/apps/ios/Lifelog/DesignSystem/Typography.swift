@@ -25,6 +25,8 @@ struct TypeStep: Equatable {
     static let matterTitle = TypeStep(size: 28, weight: 250, style: .title1)
     /// Words he or someone said, a message, a goal he edits.
     static let quote = TypeStep(size: 19, weight: 450, style: .title3)
+    /// A name inside a quote.
+    static let quoteBold = TypeStep(size: 19, weight: 700, style: .title3)
     /// A name in a row, a button of a row, a person.
     static let rowName = TypeStep(size: 16, weight: 600, style: .body)
     /// A line that leads a block, and the same bold.
