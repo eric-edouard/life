@@ -1,7 +1,7 @@
 import Foundation
 import Library
 
-/// What a check is, for counting and for the card's look (`CheckGroup`, `memory/checks.ts`).
+/// What a check is, for counting and for the card's look (`CheckGroup`, `core/names.ts`).
 public enum CheckGroup: String, UnknownTolerant, Sendable {
     case decision, ending, name, voice
     case contactsCard = "contacts card"
