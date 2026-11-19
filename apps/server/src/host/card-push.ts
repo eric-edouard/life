@@ -1,79 +1,148 @@
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { clock, daysBefore } from "../core/clock";
+import { clock, daysBefore, HOUR } from "../core/clock";
 import { readJson, readLineCount, writeJson } from "../core/files";
 import { count } from "../core/lists";
 import { log } from "../core/log";
+import type { NotifyKind, NotifyLevel } from "../core/names";
+import { settings } from "../core/settings";
 import { blockingCountOf } from "../memory/check-urgency";
 import { type InboxCheck, pushIdOf } from "../memory/checks";
 import { DECISIONS, decisionsNow } from "../memory/decisions";
+import type { StoredDraft } from "../memory/draft";
 import { isLocked } from "../memory/memory-lock";
 import { dayNow } from "../memory/zones";
 import { WATCH } from "../sources/lifelog";
-import { notifyPhone } from "../sources/lifelog-push";
+import {
+  notifyPhone,
+  type Push,
+  type PushLevel,
+} from "../sources/lifelog-push";
 import { openChecksNow } from "./inbox";
 
-// A push for each new card in his inbox (an agent's decision alone pushes; the badge counts what blocks him: those, a voice nobody named, a name with no person), the only push of cards: the
-// words "1 new card" or "N new cards", the badge (what blocks him) and, for one card, its `pushId` (an HMAC of its ref under a key that never leaves the Mac). Never a title,
-// a question, a name or a ref: it goes through Apple (SECURITY.md, his yes of 18 Nov 2026). The phone matches the id
-// against `read_inbox`. What was seen is a small state file of the watcher's, outside `memory/`.
+// A push for each new card in his inbox, of every kind, the only push of cards (his answers of 19 Nov 2026): the words
+// "1 new card" (past the first 5 of Life's own checks in one look, one "N more new cards"), the badge (what blocks him),
+// its level (his `notifications` setting for its kind) and, for one card, its `pushId` (an HMAC of its ref under a key
+// that never leaves the Mac). Never a title, a question, a name or a ref: it goes through Apple (SECURITY.md). The
+// phone reads the card from `read_inbox` and writes the notification's text. What was seen is a small state file of
+// the watcher's, outside `memory/`.
 
-export const PUSHED = join(WATCH, "pushed-cards.json");
+export const SEEN = join(WATCH, "seen-cards.json");
 /** A card not open for this many days is forgotten, so one that returns is new again. */
 const FORGET_DAYS = 30;
+/** Of Life's own checks new in one look, how many push alone; the rest share one push. An agent's decision always pushes alone. */
+const ALONE = 5;
+/** Life's level for a kind he left out of `notifications`: full push, an agent's decision urgent. */
+export const NOTIFY_DEFAULTS: Record<NotifyKind, NotifyLevel> = {
+  "contacts card": "normal",
+  decision: "urgent",
+  "decision with a draft": "urgent",
+  ending: "normal",
+  "guessed person": "normal",
+  name: "normal",
+  "new matter": "normal",
+  voice: "normal",
+};
+const URGENT_WITHIN = 3 * HOUR;
 
-interface Pushed {
+interface Seen {
   badge: number;
   /** Each card's `pushId` and the last day it was seen open. */
   seen: Record<string, string>;
 }
 
-type Open = Pick<InboxCheck, "pushId">;
+type Open = Pick<InboxCheck, "deadline" | "group" | "pushId"> & {
+  draft?: StoredDraft | null;
+};
+
+/** The kind his notification settings name a card by. */
+export const notifyKindOf = (c: Pick<Open, "draft" | "group">): NotifyKind =>
+  c.draft ? "decision with a draft" : c.group;
+
+/** The push's level for a card at `setting`: urgent is time-sensitive with no deadline or within 3 hours of it. */
+export const levelOf = (
+  setting: Exclude<NotifyLevel, "off">,
+  deadline: string | null,
+  now: Date
+): PushLevel => {
+  if (setting === "quiet") {
+    return "passive";
+  }
+  const due =
+    deadline === null || Date.parse(deadline) - now.getTime() <= URGENT_WITHIN;
+  return setting === "urgent" && due ? "time-sensitive" : "active";
+};
+
+const LOUDNESS: PushLevel[] = ["passive", "active", "time-sensitive"];
+const loudest = (levels: PushLevel[]) =>
+  LOUDNESS[Math.max(...levels.map((l) => LOUDNESS.indexOf(l)))] ?? "active";
 
 /**
- * Pushes what is new among `open` since the last look, then remembers it; the first run (no state) pushes nothing.
- * `total` is every open card (the badge); without it `open` holds only some kinds, and the badge grows by what is new.
+ * Pushes what is new among `open` (in his inbox's order) since the last look, then remembers it; the first run (no
+ * state) pushes nothing. `total` is every open card (the badge); without it `open` holds only some kinds, and the
+ * badge grows by what is new.
  */
 async function pushNew(open: Open[], total?: number, now = clock()) {
   const today = dayNow(now);
-  const before = readJson<Pushed>(PUSHED);
+  const before = readJson<Seen>(SEEN);
   if (!(before || total !== undefined)) {
     return;
   }
   const cutoff = daysBefore(today, FORGET_DAYS);
-  const fresh = open.filter((c) => !(c.pushId in (before?.seen ?? {})));
-  const badge = total ?? (before?.badge ?? 0) + fresh.length;
+  const badge =
+    total ??
+    (before?.badge ?? 0) +
+      open.filter((c) => !(c.pushId in (before?.seen ?? {}))).length;
   const seen = Object.fromEntries([
     ...Object.entries(before?.seen ?? {}).filter(([, day]) => day > cutoff),
     ...open.map((c) => [c.pushId, today]),
   ]);
   // Written before the push, so one that fails is not repeated every look: the inbox and the badge still tell him.
   if (!isDeepStrictEqual(before, { badge, seen })) {
-    writeJson(PUSHED, { badge, seen } satisfies Pushed);
+    writeJson(SEEN, { badge, seen } satisfies Seen);
   }
-  const [one] = fresh;
-  if (!(before && one)) {
-    if (before && badge !== before.badge) {
-      await notifyPhone({ badge });
-    }
+  if (!before) {
     return;
   }
-  await notifyPhone({
-    badge,
-    body: count(fresh.length, "new card"),
-    ...(fresh.length === 1 ? { pushId: one.pushId } : {}),
-    title: "Life",
+  const levels = settings().notifications;
+  const fresh = open.flatMap((c) => {
+    const kind = notifyKindOf(c);
+    const setting = levels[kind] ?? NOTIFY_DEFAULTS[kind];
+    return c.pushId in before.seen || setting === "off"
+      ? []
+      : [{ ...c, level: levelOf(setting, c.deadline, now) }];
   });
+  const others = fresh.filter((c) => c.group !== "decision");
+  const rest = others.slice(ALONE);
+  const alone = [
+    ...fresh.filter((c) => c.group === "decision"),
+    ...others.slice(0, ALONE),
+  ];
+  if (fresh.length === 0 && badge !== before.badge) {
+    await notifyPhone({ badge });
+  }
+  const pushes: Push[] = alone.map((c) => ({
+    body: "1 new card",
+    level: c.level,
+    pushId: c.pushId,
+  }));
+  if (rest.length > 0) {
+    pushes.push({
+      body: count(rest.length, "more new card"),
+      level: loudest(rest.map((c) => c.level)),
+    });
+  }
+  // One at a time, in his inbox's order: the phone shows them as they come.
+  await pushes.reduce(
+    (sent, p) => sent.then(() => notifyPhone({ badge, title: "Life", ...p })),
+    Promise.resolve()
+  );
 }
 
-/** Pushes what is new among his agents' decisions; the badge counts what blocks him (`blockingCountOf`). */
+/** Pushes what is new in his inbox; the badge counts what blocks him (`blockingCountOf`). */
 export async function pushNewCards(now = clock()) {
   const open = await openChecksNow();
-  await pushNew(
-    open.filter((c) => c.kind === "decision"),
-    blockingCountOf(open),
-    now
-  );
+  await pushNew(open, blockingCountOf(open), now);
 }
 
 /** Pushes the new open decisions alone, from the decisions' lines: no `checksNow`, for while a run holds the memory lock. */
@@ -81,7 +150,12 @@ const pushNewDecisions = () =>
   pushNew(
     decisionsNow()
       .filter((d) => d.state === "open")
-      .map((d) => ({ pushId: pushIdOf(d.id) }))
+      .map((d) => ({
+        deadline: d.deadline,
+        draft: d.draft,
+        group: "decision" as const,
+        pushId: pushIdOf(d.id),
+      }))
   );
 
 let decisionsLooked = -1;

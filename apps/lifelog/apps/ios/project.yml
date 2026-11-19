@@ -112,6 +112,8 @@ targets:
         com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
         # The server's silent push. Builds are development-signed, so APNs is the sandbox (APNS_ENVIRONMENT).
         aps-environment: development
+        # Life's pushes at the level urgent (`levelOf`, card-push.ts): without it iOS lowers them to active.
+        com.apple.developer.usernotifications.time-sensitive: true
         com.apple.developer.healthkit: true
   LifelogWidgets:
     type: app-extension

@@ -1,4 +1,4 @@
-import type { CheckGroup } from "./life-checks";
+import type { CheckGroup } from "../core/names";
 import { dayNow, localDate } from "./zones";
 
 /** `blocks`: a worker waits on him, or Life cannot answer at all; `improves`: Life already uses its guess, or only asks. */

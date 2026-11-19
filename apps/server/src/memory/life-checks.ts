@@ -2,17 +2,8 @@
 // label is his app's button, a few words for him; what choosing it does, in words a model reads, is in `answer_check`'s
 // description (`host/http/mcp.ts`), and what his answer must carry is `takes`.
 
+import type { CheckGroup } from "../core/names";
 import type { StoredDraft } from "./draft";
-
-/** What a check is, for counting: a decision, an ending, a new matter, a guessed person, a Contacts card Life cannot place (`contacts card`), a name it cannot place, a voice. */
-export type CheckGroup =
-  | "decision"
-  | "ending"
-  | "new matter"
-  | "guessed person"
-  | "contacts card"
-  | "name"
-  | "voice";
 
 /**
  * One answer he can give: its id, as `answer_check` takes it; its label, his button's words; whether it sends, pays,

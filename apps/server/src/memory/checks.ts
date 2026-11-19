@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { readChangeStamp } from "../core/files";
-import { LIFE_ASKER, type SourceName } from "../core/names";
+import { type CheckGroup, LIFE_ASKER, type SourceName } from "../core/names";
 import { secretIn } from "../core/secret";
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
@@ -31,12 +31,7 @@ import {
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import type { StoredDraft } from "./draft";
-import {
-  type Check,
-  type CheckGroup,
-  type CheckKind,
-  LIFE_CHECKS,
-} from "./life-checks";
+import { type Check, type CheckKind, LIFE_CHECKS } from "./life-checks";
 import {
   directionDueOf,
   isRunning,

@@ -51,8 +51,6 @@ struct PendantScreen: View {
                 lowBatteryPercent: settings.lowBattery ? settings.lowBatteryPercent : nil, now: now)
             let held = whatIsNotOnTheMac(backlog: capture.status.backlog, uploads: capture.uploads, now: now)
             VStack(alignment: .leading, spacing: 16) {
-                SheetHeader { dismiss() }
-                    .padding(.horizontal, Metrics.gutter)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         status(reading, now: now)
@@ -74,11 +72,12 @@ struct PendantScreen: View {
             .padding(.top, Metrics.Spacing.l)
             .background(Palette.sheet)
             .presentationBackground(Palette.sheet)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(role: .close) { dismiss() } } }
         }
         .sheet(item: $sheet) { which in
             switch which {
-            case .replace: ReplaceSheet { sheet = .pair }
-            case .pair: PairPendantSheet()
+            case .replace: ReplaceSheet { sheet = .pair }.sheetStack()
+            case .pair: PairPendantSheet().sheetStack()
             }
         }
         .accessibilityIdentifier("pendant.sheet")

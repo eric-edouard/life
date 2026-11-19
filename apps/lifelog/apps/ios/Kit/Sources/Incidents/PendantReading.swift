@@ -2,7 +2,7 @@ import Capture
 import Foundation
 import Glance
 
-/// The one reading of the Pendant that the sheet and the top-bar pill share: which state it is in, whether that needs
+/// The one reading of the Pendant that the sheet and the top-bar item share: which state it is in, whether that needs
 /// the owner, and the problems with it, one each. No words: the app says them (`CaptureCondition+Copy`). It is built
 /// from the same glance the Watch and the widgets read (`RecordingGlance.reading`), so it is never fresher than the
 /// Pendant's own reports. The glance says whether it records; this says what state the Pendant is in.
@@ -76,7 +76,7 @@ public struct PendantReading: Sendable, Equatable {
         pausedAt = state == .notRecording ? Self.longPress(status, now: now) : nil
     }
 
-    /// Conditions the owner has to act on, for the pill's badge (`CaptureCondition.needsOwner`).
+    /// Conditions the owner has to act on, for the item's badge (`CaptureCondition.needsOwner`).
     public var needs: Int { conditions.filter(\.needsOwner).count }
 
     private static func state(_ reading: RecordingGlance.Reading, connection: ConnectionState) -> State {

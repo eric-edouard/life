@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { DAY } from "../core/clock";
+import type { CheckGroup } from "../core/names";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { answerCheck as answerWith, type CheckAnswer } from "./answer-check";
 import type { InboxCheck } from "./checks";
 import { DECISIONS, decisionsNow, requestDecision } from "./decisions";
-import type { Check, CheckGroup } from "./life-checks";
+import type { Check } from "./life-checks";
 import { CORRECTIONS, readCorrections } from "./memory-files";
 
 const check = (ref: string, group: CheckGroup, about: string[] = []) =>

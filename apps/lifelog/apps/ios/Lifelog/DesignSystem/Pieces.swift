@@ -504,24 +504,30 @@ struct Field: View {
     }
 }
 
-/// A sheet's top: its name in thin type and the close button.
+/// A sheet's top: its name in thin type, and its Close.
 struct SheetHeader: View {
     /// `nil` for a sheet whose first line names itself (the pendant's big word is the state).
     var title: String?
     var color: Color = Palette.fg
     let close: () -> Void
 
+    /// The title in the content; Close alone in the bar the system draws over the sheet, a toolbar item, so the sheet
+    /// sits in a stack (`sheetStack()`).
     var body: some View {
         HStack {
             if let title { Text(title).font(.sheetTitle).foregroundStyle(color) }
-            Spacer()
-            Button(action: close) {
-                Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.fg)
-                    .frame(width: 44, height: 44).background(Color.fillTint, in: .circle)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close")
+            Spacer(minLength: 0)
         }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { Button(role: .close, action: close) }
+        }
+    }
+}
+
+extension View {
+    /// A sheet in its own stack, so its Close (`SheetHeader`) is a toolbar item in the bar the system draws.
+    func sheetStack() -> some View {
+        NavigationStack { self }
     }
 }
 
@@ -551,6 +557,20 @@ extension View {
     /// column): it fills a narrow container and stops growing in a wide one.
     func readingWidth(_ width: CGFloat = 540) -> some View {
         frame(maxWidth: width).frame(maxWidth: .infinity)
+    }
+
+    /// A scrolling region that ends at any trailing inset (the Duo's column; a phone's notch in landscape), not under
+    /// it: a scroll view's frame runs under the safe area, so the inset is taken as padding.
+    func endsAtColumn() -> some View { modifier(EndsAtColumn()) }
+}
+
+private struct EndsAtColumn: ViewModifier {
+    @State private var inset: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.trailing, inset)
+            .onGeometryChange(for: CGFloat.self, of: { $0.safeAreaInsets.trailing }) { inset = $0 }
     }
 }
 
