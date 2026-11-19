@@ -14,7 +14,7 @@ struct DiagnosticsView: View {
     private var rows: [(title: String, mark: StateMark)] {
         var rows: [(String, StateMark)] = [
             ("Life answers", isChecking ? LinkState.checking.mark : life.link.mark),
-            ("Pendant server answers", isChecking ? LinkState.checking.mark : sync.summary.state.link.mark),
+            ("Pendant server answers", isChecking ? LinkState.checking.mark : sync.link.mark),
         ]
         let isConnected = if case .ready = capture.shown.connection { true } else { false }
         rows.append(("Pendant connected", StateMark(glyph: isConnected ? .ok : .off, word: isConnected ? "Yes" : "No")))

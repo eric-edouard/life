@@ -82,7 +82,7 @@ struct SettingsView: View {
                 }
             case .works, .checking: EmptyView()
             }
-            switch sync.summary.state.link {
+            switch sync.link {
             case .notPaired:
                 Row(title: "Server is not paired", detail: "Recording goes on; nothing is sent.") {
                     RowButton(title: "Pair") { page = .server }
@@ -138,7 +138,7 @@ struct SettingsView: View {
             } label: {
                 Row(title: "Pendant server", detail: sync.server?.addressWords ?? "No server paired") {
                     HStack(spacing: 8) {
-                        sync.summary.state.link.mark; RowValue()
+                        sync.link.mark; RowValue()
                     }
                 }
             }

@@ -295,6 +295,8 @@ final class SyncStore {
 
     /// "Check now": one feed pull, with the long poll going on cut short. A failure shows as the state it makes.
     func checkNow() async {
+        // ponytail: the loop starts a new long poll from the same cursor while this pulls (benign: upserts by key, the
+        // rewind is idempotent); checkNow reusing the loop is the upgrade.
         polling?.cancel()
         do {
             try await pull(wait: 0)

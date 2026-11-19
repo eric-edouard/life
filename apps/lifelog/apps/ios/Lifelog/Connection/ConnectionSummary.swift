@@ -49,8 +49,7 @@ extension SyncStore {
     }
 }
 
-/// How a connection reads, everywhere (Settings' rows, its pages, Diagnostics): the pendant server's is the summary's,
-/// Life's is its inbox read's.
+/// How a connection reads, everywhere (Settings' rows, its pages, Diagnostics): worked out from its `CheckOutcome`.
 enum LinkState: Equatable {
     case works, checking, noAnswer, notPaired
 
@@ -60,17 +59,6 @@ enum LinkState: Equatable {
         case .checking: StateMark(glyph: .busy, word: "Checking")
         case .noAnswer: StateMark(glyph: .flag, word: "No answer")
         case .notPaired: StateMark(glyph: .flag, word: "Not paired")
-        }
-    }
-}
-
-extension ConnectionSummary.State {
-    var link: LinkState {
-        switch self {
-        case .notPaired: .notPaired
-        case .offline: .noAnswer
-        case .upToDate(nil): .checking
-        case .uploading, .editsWaiting, .upToDate(.some): .works
         }
     }
 }

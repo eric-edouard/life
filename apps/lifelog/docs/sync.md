@@ -54,7 +54,7 @@ the top; nothing is lost or sent twice.
 | Mac watermark, Mac LLM state, dictating | Server, live | Phone cache (`feed_state`) | Kept from the last page of a complete pull, with when it ended (`pulledAt`, the last sync the status shows) |
 | Transcription and AI switches, engine, transcriber, minutes before the app asks to be opened | Server (`processing_switches`) | Phone cache | Every feed page; the phone sets them with `PUT /switches`, through the outbox |
 | The owner's vocabulary | Server (`vocabulary`) | Phone cache (`feed_state`) | Every feed page, as one value; the phone sets the whole list with `PUT /vocabulary`, through the outbox |
-| Why a conversation waits | Server (`waiting_reason`) | Phone cache | Feed (`waiting`); the status sheet lists them |
+| Why a conversation waits | Server (`waiting_reason`) | Phone cache | Feed (`waiting`); the server's page in Settings lists them |
 
 The phone keeps no mirror of server state beside the cache (and the two Caches files above). A conversation's state
 is the feed's `state` (Uploaded, Transcribing, Transcribed, Summarized, Failed); the phone adds only Not uploaded

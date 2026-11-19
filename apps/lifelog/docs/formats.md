@@ -130,7 +130,7 @@ clock model moved, a file is gone), it is skipped and logged (`backup.skipped`),
 
 Progress is the `backup` table of `upload.sqlite`: one row per pack, snapshot date or job, with its outcome (`sent`,
 `held` when `GET /backup/{sourceId}` already had it, or `skipped: <why>` after a 4xx or a mismatch). A 5xx or 429 stops
-the round and the item goes next run; no connection stops the driver's run. The status sheet shows what is left.
+the round and the item goes next run; no connection stops the driver's run. The server's page in Settings shows what is left.
 The backup reads the store's files only: nothing it does writes `source.sqlite` or a pack, or reaches
 `PageSink.ackableIndex`.
 

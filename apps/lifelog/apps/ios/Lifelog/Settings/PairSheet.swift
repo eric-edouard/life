@@ -71,7 +71,7 @@ struct PairSheet: View {
         .accessibilityIdentifier("pair.sheet")
         #if DEBUG
             // `-fixtureSheet pairing`: pairs at once, so the checks and the result can be photographed.
-            .task { if LifeFixture.sheet == "pairing" { await pair() } }
+            .task { if LifeFixture.sheet == "pairing" && LifeFixture.scenario != nil { await pair() } }
         #endif
     }
 
@@ -145,19 +145,8 @@ struct PairSheet: View {
             connection == .life
             ? ["The link is valid", "The Mac accepts this phone", "The inbox reads" + cards]
             : ["The link is valid", "The server accepts this phone"]
-        return words.enumerated().map { index, text in
-            let mark: CheckLine.Mark =
-                if index == run.failedAt {
-                    .failed
-                } else if index < run.passed {
-                    .passed
-                } else if index == run.passed && phase == .pairing && run.failedAt == nil {
-                    .running
-                } else {
-                    .waiting
-                }
-            return CheckLine(id: "\(connection.id)-\(index)", text: text, mark: mark)
-        }
+        return CheckLine.lines(
+            connection.id, words, passed: run.passed, failedAt: run.failedAt, isRunning: phase == .pairing)
     }
 
     // MARK: Buttons

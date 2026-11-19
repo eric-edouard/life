@@ -14,11 +14,11 @@ struct ConnectionPage: View {
     @Environment(LifeStore.self) private var life
     @Environment(\.openURL) private var openURL
     @State private var isChecking = false
-    @State private var checked: CheckOutcome?
+    @State private var isChecked = false
     @State private var refusal: String?
 
     private var address: URL? { connection == .life ? life.pairedOrigin : sync.server }
-    private var link: LinkState { connection == .life ? life.link : sync.summary.state.link }
+    private var link: LinkState { connection == .life ? life.link : sync.link }
     private var outcome: CheckOutcome { connection == .life ? life.outcome : sync.outcome }
     private var checkedAt: Date? { connection == .life ? life.inbox.loadedAt : sync.feed.pulledAt }
 
@@ -70,7 +70,7 @@ struct ConnectionPage: View {
     /// The three lines: under way while it checks, then what the state says; none until something was checked or failed.
     private var lines: [CheckLine]? {
         if isChecking { return ConnectionCheck.lines(connection, nil) }
-        if outcome != .works || checked != nil { return ConnectionCheck.lines(connection, outcome) }
+        if outcome != .works || isChecked { return ConnectionCheck.lines(connection, outcome) }
         return nil
     }
 
@@ -161,6 +161,6 @@ struct ConnectionPage: View {
         isChecking = true
         if connection == .life { await life.refreshInbox() } else { await sync.checkNow() }
         isChecking = false
-        checked = outcome
+        isChecked = true
     }
 }

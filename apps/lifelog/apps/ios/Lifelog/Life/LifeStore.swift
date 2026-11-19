@@ -70,15 +70,7 @@ final class LifeStore {
 
     var isPaired: Bool { pairedOrigin != nil }
     /// Whether Life answers: its inbox read, the one every screen starts from.
-    var link: LinkState {
-        guard isPaired else { return .notPaired }
-        return switch inbox.phase {
-        case .unreachable, .failed: .noAnswer
-        case .notPaired: .notPaired
-        case .idle, .loading: inbox.value == nil ? .checking : .works
-        case .loaded: .works
-        }
-    }
+    var link: LinkState { outcome.link(hasRead: inbox.value != nil) }
 
     func state(of key: ActionKey) -> ActionState<ActionProof> { actions[key] ?? .idle }
 
