@@ -588,9 +588,6 @@ test("an agent asks a decision; only he answers it, through answer_check; the ag
     question: "Send Kit the signed quote?",
     title: "He asked for it by Friday.",
   };
-  expect(
-    await call("request_decision", decision, { agent: undefined })
-  ).toMatchObject({ isError: true });
   const asked = await call("request_decision", decision);
   expect(asked.isError).toBe(false);
   const { cursor, id } = JSON.parse(asked.content[0].text);
@@ -635,6 +632,37 @@ test("an agent asks a decision; only he answers it, through answer_check; the ag
     },
   ]);
   expect(await poll({ agent: "Atlas" })).toEqual([]);
+  rmSync(DECISIONS, { force: true });
+});
+
+test("his own app asks a decision as the owner, with no cursor, and answers it itself once he said so in its chat", async () => {
+  rmSync(DECISIONS, { force: true });
+  const call = async (name: string, args: object) =>
+    (
+      await rpc(await token({ agent: undefined }), "tools/call", {
+        arguments: args,
+        name,
+      })
+    ).json.result;
+  const asked = await call("request_decision", {
+    deadline: new Date(Date.now() + DAY).toISOString(),
+    options: [
+      { id: "yes", label: "Send it" },
+      { id: "no", label: "Not now" },
+    ],
+    question: "Send Kit the signed quote?",
+    title: "He asked for it by Friday.",
+  });
+  expect(asked.isError).toBe(false);
+  const reply = JSON.parse(asked.content[0].text);
+  expect(reply.cursor).toBeUndefined();
+  const [listed] = JSON.parse(
+    (await call("read_inbox", {})).content[0].text
+  ).checks;
+  expect(listed).toMatchObject({ asker: "owner", ref: reply.id });
+  expect(
+    await call("answer_check", { options: ["yes"], ref: reply.id })
+  ).toMatchObject({ isError: false });
   rmSync(DECISIONS, { force: true });
 });
 
