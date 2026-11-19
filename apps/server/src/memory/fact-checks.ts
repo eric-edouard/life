@@ -5,7 +5,8 @@ import {
   FactCheckAnswer,
   isEndingCheck,
 } from "../records/fact-check";
-import { endingGuessOf, isEndingOpen } from "./checks";
+import { isEndingOpen } from "./check-sentences";
+import { endingGuessOf } from "./checks";
 import { factCheckKindOf } from "./doubts";
 import { readMatterRecords } from "./matters";
 import {

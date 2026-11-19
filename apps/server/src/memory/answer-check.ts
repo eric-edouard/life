@@ -6,10 +6,9 @@ import {
   namingQueueGuessesOf,
   readNamingQueue,
 } from "../sources/lifelog-voices";
-import type { Check } from "./checks";
 import { answerDecision } from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
-import type { LIFE_CHECKS } from "./life-checks";
+import type { Check, LIFE_CHECKS } from "./life-checks";
 import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
@@ -141,7 +140,9 @@ async function newMatterOf(c: Pick<Check, "ref">) {
 /** What each option of Life's guesses writes, by group; typed by `LIFE_CHECKS`, so every option has its writer. */
 const WRITERS: {
   [G in keyof typeof LIFE_CHECKS]: Record<
-    (typeof LIFE_CHECKS)[G]["options"][number]["id"],
+    | (typeof LIFE_CHECKS)[G]["options"][number]["id"]
+    // Still accepted from installed builds, no longer offered.
+    | (G extends "voice" ? "media" | "not-anyone-i-know" : never),
     Writer
   >;
 } = {
@@ -225,6 +226,11 @@ const WRITERS: {
     },
   },
   voice: {
+    // "Yes" to the guess in use: the person lifelog suggests (the check's `subject`).
+    "is-them": (c, a, { item }) =>
+      answerVoice(c, item, (i) =>
+        thisIs(i, c, { ...a, person: c.subject ?? undefined })
+      ),
     media: (c, _a, { item }) =>
       answerVoice(c, item, async () => ({ kind: "media" })),
     "not-anyone-i-know": (c, _a, { item }) =>

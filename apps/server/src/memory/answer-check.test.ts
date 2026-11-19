@@ -4,8 +4,9 @@ import { DAY } from "../core/clock";
 import type { CheckGroup } from "../core/names";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { answerCheck as answerWith, type CheckAnswer } from "./answer-check";
-import type { Check, InboxCheck } from "./checks";
+import type { InboxCheck } from "./checks";
 import { DECISIONS, decisionsNow, requestDecision } from "./decisions";
+import type { Check } from "./life-checks";
 import { CORRECTIONS, readCorrections } from "./memory-files";
 
 const check = (ref: string, group: CheckGroup, about: string[] = []) =>
@@ -200,6 +201,11 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
       person: "person:kofi",
     });
     await answerCheck(voice, { name: "Zed", options: ["this-is"] });
+    // "Yes" to the guess in use: the check's subject, with nothing else given.
+    await answerCheck(
+      { ...voice, subject: "person:dana" },
+      { options: ["is-them"] }
+    );
     await answerCheck(voice, { options: ["not-anyone-i-know"] });
     await answerCheck(voice, { options: ["media"] });
     await answerCheck(voice, { options: ["not-relevant"] });
@@ -207,11 +213,15 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
       [voices, { kind: "assign", personId: DANA_ID }],
       [voices, { kind: "confirm", name: "Kofi" }],
       [voices, { kind: "confirm", name: "Zed" }],
+      [voices, { kind: "assign", personId: DANA_ID }],
       [voices, { kind: "ignore" }],
       [voices, { kind: "media" }],
       [voices, { kind: "not_relevant" }],
     ]);
     await expect(answerCheck(voice, { options: ["this-is"] })).rejects.toThrow(
+      "give person or name"
+    );
+    await expect(answerCheck(voice, { options: ["is-them"] })).rejects.toThrow(
       "give person or name"
     );
     queue.mockResolvedValue([]);
