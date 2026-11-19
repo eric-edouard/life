@@ -68,5 +68,167 @@
       },
       "with": "partner"
     }
+  ],
+  "checks": [
+    {
+      "about": [],
+      "asker": "Orbit",
+      "at": "2026-10-13T09:00:00.000Z",
+      "clips": [],
+      "context": "He asked for it by Friday.",
+      "deadline": "2099-01-01T09:00:00.000Z",
+      "draft": {
+        "channel": "whatsapp",
+        "chat": "33600000001@s.whatsapp.net",
+        "file": {
+          "mime": "application/pdf",
+          "name": "quote.pdf",
+          "path": "/tmp/quote.pdf",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "size": 52000
+        },
+        "quoted": {
+          "sender": "Kit",
+          "text": "Can you send the quote?"
+        },
+        "text": "Here is the signed quote.",
+        "to": "Kit"
+      },
+      "evidence": null,
+      "goal": null,
+      "group": "decision",
+      "kind": "decision",
+      "likelyPeople": [],
+      "links": ["https://agents.example.test/s/1"],
+      "notSent": null,
+      "onSilence": "no",
+      "options": [
+        {
+          "id": "yes",
+          "label": "Send it",
+          "outgoing": true,
+          "takes": null
+        },
+        {
+          "id": "no",
+          "label": "Not now",
+          "takes": null
+        }
+      ],
+      "question": "Send Kit the signed quote?",
+      "ref": "dec_000000000001",
+      "ridesOn": {
+        "matterIds": ["matter_aaaaaaaaaaaa"],
+        "matters": 1,
+        "observations": 0,
+        "pages": 0
+      },
+      "subject": "obs_000000000005",
+      "title": "Kit is waiting for the quote.",
+      "matter": {
+        "id": "matter_aaaaaaaaaaaa",
+        "name": "Mend Gran's watch"
+      },
+      "confirm": [
+        {
+          "about": ["+33600000001"],
+          "asker": "life",
+          "at": null,
+          "clips": [],
+          "context": "Life uses its guess until you say.",
+          "deadline": null,
+          "draft": null,
+          "evidence": {
+            "from": "whatsapp, 2 Oct",
+            "quote": "Kit here, from the shop"
+          },
+          "goal": null,
+          "group": "guessed person",
+          "kind": "person",
+          "likelyPeople": [],
+          "links": [],
+          "notSent": null,
+          "onSilence": null,
+          "options": [
+            {
+              "id": "this-is",
+              "label": "It is them",
+              "takes": null
+            },
+            {
+              "id": "not-this-person",
+              "label": "Not them",
+              "takes": null
+            },
+            {
+              "id": "same-person",
+              "label": "Someone Life already knows",
+              "takes": "person"
+            }
+          ],
+          "question": "Life thinks this is Kit, the watchmaker (70% sure)",
+          "ref": "person:inf_kit",
+          "ridesOn": {
+            "matterIds": [],
+            "matters": 0,
+            "observations": 1,
+            "pages": 0
+          },
+          "subject": null,
+          "title": "Know who someone is",
+          "matter": null,
+          "confirm": []
+        }
+      ],
+      "pushId": "a23260946067d0fe"
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "A later step seems to show it done.",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "an earlier message",
+        "quote": "Called them."
+      },
+      "goal": null,
+      "group": "ending",
+      "kind": "ending",
+      "likelyPeople": [],
+      "links": [],
+      "notSent": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "outdated",
+          "label": "Done",
+          "takes": null
+        },
+        {
+          "id": "false",
+          "label": "Not done",
+          "takes": null
+        }
+      ],
+      "question": "Life thinks this is done: Call the shop",
+      "ref": "obs_000000000005",
+      "ridesOn": {
+        "matterIds": ["matter_aaaaaaaaaaaa"],
+        "matters": 1,
+        "observations": 1,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Close what is done",
+      "matter": {
+        "id": "matter_aaaaaaaaaaaa",
+        "name": "Mend Gran's watch"
+      },
+      "confirm": [],
+      "pushId": "c84c34823f7fa7b0"
+    }
   ]
 }

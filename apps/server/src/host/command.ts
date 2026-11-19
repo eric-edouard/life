@@ -4,7 +4,7 @@ import { clock, daysBefore } from "../core/clock";
 import { answerCheck } from "../memory/answer-check";
 import { appointments } from "../memory/appointments";
 import { changeFeed, readObservation } from "../memory/changes";
-import { checksText } from "../memory/checks";
+import { checksText } from "../memory/checks-text";
 import { closeness, readWithPeople } from "../memory/closeness";
 import { communicationStyles } from "../memory/communication-styles";
 import { writeContactPeople } from "../memory/contact-people";
@@ -58,7 +58,7 @@ import { dayNow, isDay, lastDays, type Window } from "../memory/zones";
 import { histories, readHistoryWork } from "../personal/histories";
 import { readPerson } from "../personal/person-parts";
 import { personaReadingsOf, personas } from "../personal/personas";
-import { inboxNow, openCheckOf } from "./inbox";
+import { openCheckOf, openChecksNow } from "./inbox";
 import { nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
 
@@ -203,9 +203,9 @@ const HANDLERS: Record<string, Handler> = {
       })
     ),
   chats: (values) => printed(chatsOf(values)),
-  /** `checks`: everything Life would like him to verify (`inboxNow`), counted by kind and by what rides on it, then every row. Read-only. */
+  /** `checks`: everything Life would like him to verify (`openChecksNow`), counted by kind and by what rides on it, then every row. Read-only. */
   async checks() {
-    console.log(checksText(await inboxNow()));
+    console.log(checksText(await openChecksNow()));
     return 0;
   },
   closeness: step(async () => closeness(await readWithPeople())),

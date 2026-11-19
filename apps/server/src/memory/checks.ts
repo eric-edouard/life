@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { daysBefore } from "../core/clock";
 import { readChangeStamp } from "../core/files";
+import type { SourceName } from "../core/names";
 import { secretIn } from "../core/secret";
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
@@ -46,6 +47,7 @@ import {
   ZONES,
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
+import { sourceOf } from "./sources";
 import { nameKey } from "./units";
 import {
   type People,
@@ -56,7 +58,7 @@ import {
 } from "./who";
 import { dayNow, localDate } from "./zones";
 
-// The checks: everything waiting on his word, in one shape and one list, with no limit. A check is one guess of Life's
+// The checks: everything waiting on his word, in one shape, with no limit. A check is one guess of Life's
 // that his word would settle, shown with its evidence; it exists only while something rides on the guess (a kept line,
 // an open matter, a page). Life keeps using its guess meanwhile. Or it is a decision an agent asks (`decisions.ts`),
 // or a new matter Life offers an agent for ("Work on it?"). Derived when read, never stored: his answer (`answerCheck`,
@@ -83,6 +85,8 @@ export interface Check {
     text: string;
     until: string | null;
   }[];
+  /** The guess about who a decision's draft goes to, when Life only guesses who that is: asked beside it, answered on its own; none for every other check. */
+  confirm: Check[];
   /** Why it asks, what was tried, what it rests on: folded on his card. An agent's words, or Life's own for its guesses. */
   context: string | null;
   /** By when he answers; null: no deadline. */
@@ -112,7 +116,13 @@ export interface Check {
   /** What his answer acts on: a decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
   ref: string;
   /** What uses it today, counted from what is stored. */
-  ridesOn: { matters: number; observations: number; pages: number };
+  ridesOn: {
+    /** The ids of those matters (`matters` counts them): `checksOnMatterOf` finds a matter's checks by them. */
+    matterIds: string[];
+    matters: number;
+    observations: number;
+    pages: number;
+  };
   /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; null: none. */
   subject: string | null;
   /** What it is trying to do, in one line. */
@@ -199,10 +209,12 @@ export interface CheckInputs {
 }
 
 interface Ranked {
-  check: Omit<Check, "matter">;
+  check: Omit<Check, "confirm" | "matter">;
   /** The newest day among the lines it rides on, for the order. */
   day: string;
 }
+
+type MatterId = CheckInputs["matters"][number];
 
 /** `CheckInputs` with the lookups every builder shares, made once. */
 interface Ctx extends CheckInputs {
@@ -210,14 +222,14 @@ interface Ctx extends CheckInputs {
   /** Every step any matter holds, open or not. */
   matterSteps: ReadonlySet<string>;
   /** The open matters holding a step, by the step's ref, and involving a person, by the person's ref. */
-  mattersByPerson: ReadonlyMap<string, Set<object>>;
-  mattersByStep: ReadonlyMap<string, Set<object>>;
+  mattersByPerson: ReadonlyMap<string, Set<MatterId>>;
+  mattersByStep: ReadonlyMap<string, Set<MatterId>>;
 }
 
 function ctxOf(c: CheckInputs): Ctx {
-  const mattersByStep = new Map<string, Set<object>>();
-  const mattersByPerson = new Map<string, Set<object>>();
-  const add = (by: Map<string, Set<object>>, ref: string, m: object) =>
+  const mattersByStep = new Map<string, Set<MatterId>>();
+  const mattersByPerson = new Map<string, Set<MatterId>>();
+  const add = (by: Map<string, Set<MatterId>>, ref: string, m: MatterId) =>
     by.set(ref, (by.get(ref) ?? new Set()).add(m));
   for (const m of c.matters.filter((x) => x.open)) {
     for (const s of m.steps) {
@@ -259,6 +271,12 @@ export const isEndingKind = (
 
 const whereOf = (l: Line): Where => `${l.source.channel}, ${plain(l.date)}`;
 
+/** The open matters something rides on: their ids and how many. */
+const ridingOf = (matters: Iterable<MatterId> = []) => {
+  const matterIds = [...matters].map((m) => m.id);
+  return { matterIds, matters: matterIds.length };
+};
+
 /** What rides on a guess: the kept `lines` using it, the open matters holding one of them or one of `refs`, the pages they show on. */
 function ridesOn(c: Ctx, lines: Line[], refs: string[]) {
   const matters = new Set([
@@ -271,7 +289,7 @@ function ridesOn(c: Ctx, lines: Line[], refs: string[]) {
     )
   );
   return {
-    matters: matters.size,
+    ...ridingOf(matters),
     observations: lines.filter((l) => c.kept.has(l.id)).length,
     pages: [...shownOn].filter((r) => c.paged.has(r)).length,
   };
@@ -369,9 +387,9 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           question: d.question,
           ref: d.id,
           ridesOn: {
-            matters: isOnMatter(d.subject)
-              ? (c.mattersByStep.get(d.subject)?.size ?? 0)
-              : 0,
+            ...ridingOf(
+              isOnMatter(d.subject) ? c.mattersByStep.get(d.subject) : []
+            ),
             observations: 0,
             pages: 0,
           },
@@ -451,7 +469,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
                 options: [...LIFE_CHECKS["new matter"].options],
                 question: `Goal: ${v.goal.text.replace(FINAL_STOP, "")}. Work on it?`,
                 ref: v.id,
-                ridesOn: { matters: 1, observations: 0, pages: 0 },
+                ridesOn: { ...ridingOf([v]), observations: 0, pages: 0 },
                 subject: null,
                 title: `${LIFE_CHECKS["new matter"].title}: ${v.name}`,
               },
@@ -581,7 +599,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
               ? `Is this voice ${who}?`
               : `Who is this voice?${item.name ? ` It was called "${item.name}".` : ""}`,
             ref: `voice:${item.id}`,
-            ridesOn: { matters: 0, observations: 0, pages: 0 },
+            ridesOn: { ...ridingOf(), observations: 0, pages: 0 },
             subject: null,
             title: LIFE_CHECKS.voice.title,
           },
@@ -597,7 +615,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
 export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
   const matterOf = matterFinderOf(inputs.matters);
-  return Object.values(BUILDERS)
+  const found = Object.values(BUILDERS)
     .flatMap((build) => build(c))
     .toSorted(
       (a, b) =>
@@ -613,7 +631,47 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
       const m = matterOf([check.subject ?? check.ref]);
       return { ...check, matter: m ? { id: m.id, name: m.name } : null };
     });
+  const guessed = new Map(
+    found
+      .filter((x) => x.group === "guessed person")
+      .map((x) => [c.people.refOf(x.ref), { ...x, confirm: [] }])
+  );
+  return found.map((x) => {
+    const person = x.draft && draftPersonOf(c, x.draft);
+    const guess = person && guessed.get(c.people.refOf(person));
+    return { ...x, confirm: guess ? [guess] : [] };
+  });
 };
+
+/**
+ * Who a decision's draft goes to, as a person ref: its stored chat's handle (its source's `handleOf`), or a mail's `to`,
+ * read through `resolve`. Null for a source whose chat keys hold no handle, a draft not yet resolved to a chat, or a
+ * handle no one has.
+ */
+function draftPersonOf(c: Ctx, d: StoredDraft) {
+  const source = d.channel ? sourceOf(d.channel as SourceName) : undefined;
+  const handle =
+    source?.kind === "mail" ? d.to : d.chat && source?.handleOf?.(d.chat);
+  return handle ? c.people.resolve(handle) : null;
+}
+
+/** Where a check is asked: `inbox`, his agents' decisions (the only ones that push); `to confirm`, Life's own questions about who someone is and whether a step is done, when he likes; `matter`, a new matter, on its matter's page. The one rule, over the kind. */
+export type Asked = "inbox" | "matter" | "to confirm";
+const ASKED: Record<CheckKind, Asked> = {
+  decision: "inbox",
+  ending: "to confirm",
+  "new matter": "matter",
+  person: "to confirm",
+  voice: "to confirm",
+};
+export const whereAskedOf = (c: Pick<Check, "kind">) => ASKED[c.kind];
+
+/** The checks about matter `id`: every kind, open matters they ride on and the one holding their subject (an ending is about a matter that reads probably done). */
+export const checksOnMatterOf = <C extends Pick<Check, "matter" | "ridesOn">>(
+  list: readonly C[],
+  id: string
+) =>
+  list.filter((c) => c.matter?.id === id || c.ridesOn.matterIds.includes(id));
 
 /** A card's id for a push: 16 hex of an HMAC of its ref under a key that never leaves the Mac. The phone matches it against the inbox; it is never the ref. */
 export const pushIdOf = (ref: string, key = secretIn("pushIdKey")) =>
@@ -740,31 +798,3 @@ export const inboxOf = (list: Check[]) => ({
   ).length,
   total: list.length,
 });
-
-const BIG = 5;
-/** How many ride on an open matter, and of the rest on one line, two to five, more than five. */
-const spread = (list: Check[]) => {
-  const rest = list.filter((c) => c.ridesOn.matters === 0);
-  const lines = (from: number, to: number) =>
-    rest.filter(
-      (c) => c.ridesOn.observations >= from && c.ridesOn.observations <= to
-    ).length;
-  return `Riding on: ${list.length - rest.length} on an open matter; of the other ${rest.length}, ${lines(1, 1)} on 1 line, ${lines(2, BIG)} on 2 to ${BIG} lines, ${lines(BIG + 1, Number.POSITIVE_INFINITY)} on more than ${BIG}.`;
-};
-
-/** `bun life memory checks`: the count by kind and by what rides, then every row, most load-bearing first. */
-export function checksText(list: Check[]) {
-  const groups = Map.groupBy(list, (c) => c.group);
-  return [
-    `${list.length} checks: ${[...groups].map(([g, l]) => `${l.length} ${g}`).join(", ") || "none"}.`,
-    spread(list),
-    "",
-    ...list.flatMap((c, i) => [
-      `${i + 1}. [${c.group}] ${c.ref}: ${c.question}`,
-      ...(c.about.length > 0 ? [`   about: ${c.about.join(", ")}`] : []),
-      ...(c.evidence ? [`   "${c.evidence.quote}" (${c.evidence.from})`] : []),
-      `   rides on: ${c.ridesOn.observations} observations, ${c.ridesOn.matters} open matters, ${c.ridesOn.pages} pages. His answer: ${c.options.map((o) => o.id).join(" | ")}`,
-      "",
-    ]),
-  ].join("\n");
-}

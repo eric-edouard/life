@@ -37,7 +37,7 @@ const matter = {
   waitingOn: [],
   with: [],
 };
-/** One check of every kind: a decision with a draft, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
+/** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
 const madeUpInbox: CheckInputs = {
   anchored: new Set(["obs_000000000005"]),
   answered: new Set(),
@@ -49,7 +49,7 @@ const madeUpInbox: CheckInputs = {
       deadline: "2099-01-01T09:00:00.000Z",
       draft: {
         channel: "whatsapp",
-        chat: "chat-1",
+        chat: "33600000001@s.whatsapp.net",
         file: {
           mime: "application/pdf",
           name: "quote.pdf",
@@ -146,7 +146,13 @@ const madeUpInbox: CheckInputs = {
       )[r] ?? r,
     names: new Map([["person:con_lou", "Lou"]]),
     refOf: (r: string) => r,
-    resolve: (s: string) => (s === GRAN_VOICE ? "person:gran" : null),
+    resolve: (s: string) =>
+      (
+        ({
+          [GRAN_VOICE]: "person:gran",
+          "+33600000001": "person:inf_kit",
+        }) as Record<string, string>
+      )[s] ?? null,
   },
   today: "2026-10-14",
   unresolved: [{ nameAsWritten: "Sam", observation: "obs_000000000008" }],
@@ -277,6 +283,12 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
         with: ["person:partner"],
       }),
       view({
+        id: "matter_cccccccccccc",
+        name: "Frame Gran's photo",
+        status: "moving",
+        steps: [],
+      }),
+      view({
         id: "matter_bbbbbbbbbbbb",
         name: "Renew the lease",
         status: "waiting_on_someone",
@@ -346,10 +358,18 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
       return json.result.content[0].text as string;
     };
     expectWire("read_inbox", await read("read_inbox"));
+    expectWire(
+      "read_inbox_to_confirm",
+      await read("read_inbox", { list: "to confirm" })
+    );
     expectWire("read_matters", await read("read_matters"));
     expectWire(
       "read_matter",
       await read("read_matter", { id: "matter_aaaaaaaaaaaa" })
+    );
+    expectWire(
+      "read_matter_found",
+      await read("read_matter", { id: "matter_cccccccccccc" })
     );
     expectWire("read_registered_agents", await read("read_registered_agents"));
   } finally {

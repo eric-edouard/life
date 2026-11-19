@@ -9,6 +9,7 @@ import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector, settings } from "../../core/settings";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
+import { checksOnMatterOf } from "../../memory/checks";
 import { CARD, DecisionRequest, requestDecision } from "../../memory/decisions";
 import { recordCorrection } from "../../memory/memory-files";
 import { openById } from "../../memory/open-by-id";
@@ -58,7 +59,7 @@ import {
   PollParams,
   pollEvents,
 } from "../events";
-import { readInbox } from "../inbox";
+import { openChecksNow, readInbox } from "../inbox";
 import {
   agentLinesOnProjects,
   readActiveAgentOf,
@@ -292,7 +293,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matter",
-    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them, then `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link).",
+    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them, then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link).",
     z.object({
       id: z
         .string()
@@ -306,7 +307,10 @@ export function buildServer(readsOnly = false) {
       if (!matter) {
         throw new Error(`No matter ${id}.`);
       }
-      return matter;
+      return {
+        ...matter,
+        checks: checksOnMatterOf(await openChecksNow(), matter.id),
+      };
     }
   );
   tool(
@@ -411,11 +415,17 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_inbox",
-    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group, `total`, and `deadlinesToday` (how many are due by the end of his day). Every kind in one shape: an agent's decision, a step Life thinks is done (`ending`), a running matter Life found that an agent could move (`new matter`, with its `goal`: start one on it, edit its goal, or dismiss it), who someone is (`guessed person`, a `contacts card` Life cannot place, a `name`; a voice to name: `voice`, its `clips`, each a span of a recording the app plays from lifelog; a voice or a Contacts card's `likelyPeople`, who it may be). Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (what Life sends if he approves, exactly as shown: `to`, `text`, a `file` (name, size), the message it replies or reacts to (`quoted`), `mentions`; for mail `from`, `cc`, `subject`), `options` (`id`, `label`, his button's words, `takes`, what his answer must carry besides it: `person`, `person or name`, `note` or null, and `outgoing` on one that acts outward; with two or more, the first is recommended; what each does: `answer_check`), `context` (folded detail), `evidence` (the words it rests on), `asker`, `deadline` and `onSilence` (the option an agent takes if he doesn't answer; null: nothing is taken), `subject`, `matter` (the matter it belongs to: id, name), `links`. Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
+    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group, `total`, `deadlinesToday` (how many are due by the end of his day) and `toConfirm` (how many Life's own questions wait). By default his inbox: the decisions his agents ask (`decision`). `list` `to confirm` reads instead what Life asks when he likes: a step Life thinks is done (`ending`), who someone is (`guessed person`, a `contacts card` Life cannot place, a `name`; a voice to name: `voice`, its `clips`, each a span of a recording the app plays from lifelog; a voice or a Contacts card's `likelyPeople`, who it may be). A running matter Life found that an agent could move (`new matter`, with its `goal`: start one on it, edit its goal, or dismiss it) is on `read_matter`'s `checks`, not here. Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (what Life sends if he approves, exactly as shown: `to`, `text`, a `file` (name, size), the message it replies or reacts to (`quoted`), `mentions`; for mail `from`, `cc`, `subject`), `confirm` (on a decision whose draft goes to someone Life only guesses: that guess, one check asked beside it), `options` (`id`, `label`, his button's words, `takes`, what his answer must carry besides it: `person`, `person or name`, `note` or null, and `outgoing` on one that acts outward; with two or more, the first is recommended; what each does: `answer_check`), `context` (folded detail), `evidence` (the words it rests on), `asker`, `deadline` and `onSilence` (the option an agent takes if he doesn't answer; null: nothing is taken), `subject`, `matter` (the matter it belongs to: id, name), `links`. Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
     z.object({
       limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
+      list: z
+        .enum(["inbox", "to confirm"])
+        .default("inbox")
+        .describe(
+          "`inbox` (default): his agents' decisions. `to confirm`: Life's own questions."
+        ),
     }),
-    ({ limit = 50 }) => readInbox(limit)
+    ({ limit = 50, list }) => readInbox(limit, list)
   );
   tool(
     server,

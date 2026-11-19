@@ -1,0 +1,269 @@
+{
+  "checks": [
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "A later step seems to show it done.",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "an earlier message",
+        "quote": "Called them."
+      },
+      "goal": null,
+      "group": "ending",
+      "kind": "ending",
+      "likelyPeople": [],
+      "links": [],
+      "notSent": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "outdated",
+          "label": "Done",
+          "takes": null
+        },
+        {
+          "id": "false",
+          "label": "Not done",
+          "takes": null
+        }
+      ],
+      "question": "Life thinks this is done: Call the shop",
+      "ref": "obs_000000000005",
+      "ridesOn": {
+        "matterIds": ["matter_aaaaaaaaaaaa"],
+        "matters": 1,
+        "observations": 1,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Close what is done",
+      "matter": {
+        "id": "matter_aaaaaaaaaaaa",
+        "name": "Mend Gran's watch"
+      },
+      "confirm": [],
+      "pushId": "c84c34823f7fa7b0"
+    },
+    {
+      "about": ["Sam"],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "Life reads the name as no one until you say.",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "whatsapp, 12 Oct",
+        "quote": "\"Sam fixed the strap\" said Gran"
+      },
+      "goal": null,
+      "group": "name",
+      "kind": "person",
+      "likelyPeople": [],
+      "links": [],
+      "notSent": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "this-is",
+          "label": "It is this person",
+          "takes": "person"
+        }
+      ],
+      "question": "Life cannot tell who \"Sam\" is",
+      "ref": "name:sam",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 1,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Place a name",
+      "matter": null,
+      "confirm": [],
+      "pushId": "134bc106744b3159"
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "Its name and handles fit more than one person: Life keeps them apart until you say.",
+      "deadline": null,
+      "draft": null,
+      "evidence": null,
+      "goal": null,
+      "group": "contacts card",
+      "kind": "person",
+      "likelyPeople": [
+        {
+          "name": "Gran",
+          "person": "person:gran"
+        },
+        {
+          "name": "Robin",
+          "person": "person:partner"
+        }
+      ],
+      "links": [],
+      "notSent": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "same-person",
+          "label": "It is this person",
+          "takes": "person"
+        }
+      ],
+      "question": "Life cannot place the Contacts card Lou: its name and handles say Gran and Robin",
+      "ref": "person:con_lou",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 1,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Place a Contacts card",
+      "matter": null,
+      "confirm": [],
+      "pushId": "82723bbf297c00df"
+    },
+    {
+      "about": ["+33600000001"],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "Life uses its guess until you say.",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "whatsapp, 2 Oct",
+        "quote": "Kit here, from the shop"
+      },
+      "goal": null,
+      "group": "guessed person",
+      "kind": "person",
+      "likelyPeople": [],
+      "links": [],
+      "notSent": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "this-is",
+          "label": "It is them",
+          "takes": null
+        },
+        {
+          "id": "not-this-person",
+          "label": "Not them",
+          "takes": null
+        },
+        {
+          "id": "same-person",
+          "label": "Someone Life already knows",
+          "takes": "person"
+        }
+      ],
+      "question": "Life thinks this is Kit, the watchmaker (70% sure)",
+      "ref": "person:inf_kit",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 1,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Know who someone is",
+      "matter": null,
+      "confirm": [],
+      "pushId": "a789ea3107eed39b"
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [
+        {
+          "at": "2026-10-14T08:00:00.000Z",
+          "audio": {
+            "end": 4.5,
+            "jobId": "job-1",
+            "start": 1.2
+          },
+          "text": "It's the shop, about the watch.",
+          "until": "2026-10-14T08:00:04.000Z"
+        }
+      ],
+      "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "a recorded conversation, 14 Oct",
+        "quote": "It's the shop, about the watch."
+      },
+      "goal": null,
+      "group": "voice",
+      "kind": "voice",
+      "likelyPeople": [
+        {
+          "name": "Gran",
+          "person": "person:gran"
+        }
+      ],
+      "links": [],
+      "notSent": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "this-is",
+          "label": "It is this person",
+          "takes": "person or name"
+        },
+        {
+          "id": "not-anyone-i-know",
+          "label": "Not anyone I know",
+          "takes": null
+        },
+        {
+          "id": "media",
+          "label": "A video or TV playing",
+          "takes": null
+        },
+        {
+          "id": "not-relevant",
+          "label": "Not worth naming",
+          "takes": null
+        }
+      ],
+      "question": "Who is this voice?",
+      "ref": "voice:v1",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 0,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Name a voice",
+      "matter": null,
+      "confirm": [],
+      "pushId": "327284d2a1d53d38"
+    }
+  ],
+  "counts": {
+    "ending": 1,
+    "name": 1,
+    "contacts card": 1,
+    "guessed person": 1,
+    "voice": 1
+  },
+  "deadlinesToday": 0,
+  "total": 5,
+  "toConfirm": 5
+}

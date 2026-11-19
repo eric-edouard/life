@@ -151,7 +151,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_area_page(name)",
     "read_chats(before,chat,from,to,who)",
     "read_day(date)",
-    "read_inbox(limit)",
+    "read_inbox(limit,list)",
     "read_life_status()",
     "read_matter(id)",
     "read_matters(area,person,project)",
@@ -538,7 +538,7 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
   }
 });
 
-test("read_inbox: the first checks in the one shape, counts by group, those due by the end of his day and the total", async () => {
+test("read_inbox: his decisions by default, Life's own questions with list; counts by group, those due by the end of his day and the total", async () => {
   const checks = await import("../../memory/checks");
   const check = (
     ref: string,
@@ -547,6 +547,7 @@ test("read_inbox: the first checks in the one shape, counts by group, those due 
   ) => ({
     deadline,
     group,
+    kind: group === "decision" ? "decision" : "person",
     ref,
   });
   const now = clock().toISOString();
@@ -561,10 +562,25 @@ test("read_inbox: the first checks in the one shape, counts by group, those due 
       name: "read_inbox",
     });
     expect(JSON.parse(json.result.content[0].text)).toEqual({
-      checks: [check("a", "decision", now), check("b", "name")],
-      counts: { decision: 2, name: 1 },
+      checks: [
+        check("a", "decision", now),
+        check("c", "decision", "2099-01-01T09:00:00.000Z"),
+      ],
+      counts: { decision: 2 },
       deadlinesToday: 1,
-      total: 3,
+      toConfirm: 1,
+      total: 2,
+    });
+    const { json: confirm } = await rpc(await token(), "tools/call", {
+      arguments: { list: "to confirm" },
+      name: "read_inbox",
+    });
+    expect(JSON.parse(confirm.result.content[0].text)).toEqual({
+      checks: [check("b", "name")],
+      counts: { name: 1 },
+      deadlinesToday: 0,
+      toConfirm: 1,
+      total: 1,
     });
   } finally {
     spy.mockRestore();
