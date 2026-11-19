@@ -39,7 +39,7 @@ extension CaptureCondition {
         case .busyElsewhere:
             "Another app, probably the Limitless app, holds the Pendant. lifelog let go so it doesn't fight it."
         case .checking(let since):
-            "Waiting since \(since.formatted(date: .omitted, time: .shortened)) for its first report. Nothing is confirmed until it answers."
+            "Waiting since \(since.formatted(date: .omitted, time: .shortened)) for its first report."
         case .notReady(let since):
             "Connected since \(since.formatted(date: .omitted, time: .shortened)), but it hasn't finished setting up."
         case .outOfReach: "The phone can't reach it. It keeps recording by itself."

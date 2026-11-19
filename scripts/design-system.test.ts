@@ -72,11 +72,6 @@ const CAPS: Record<string, Record<string, number>> = {
   "Pendant/IncidentCards.swift": {
     padding: 1,
   },
-  "Pendant/PendantView.swift": {
-    height: 2,
-    opacity: 1,
-    width: 1,
-  },
   "Settings/ConnectionPage.swift": {
     padding: 3,
   },

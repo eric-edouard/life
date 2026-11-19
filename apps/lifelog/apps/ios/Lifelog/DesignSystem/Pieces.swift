@@ -106,7 +106,7 @@ extension View {
 
 /// "2 of 12" in `label`, a 1 px track filled by how far it got, and an end word (a deadline in `flag`, or a percent).
 struct ProgressLine: View {
-    let label: String
+    var label: String?
     let fraction: Double
     var end: String?
     var endColor = Palette.muted
@@ -116,7 +116,7 @@ struct ProgressLine: View {
             label: "\(done) of \(total)", fraction: Double(done) / Double(max(total, 1)), end: end, endColor: endColor)
     }
 
-    init(label: String, fraction: Double, end: String? = nil, endColor: Color = Palette.muted) {
+    init(label: String? = nil, fraction: Double, end: String? = nil, endColor: Color = Palette.muted) {
         self.label = label
         self.fraction = min(max(fraction, 0), 1)
         self.end = end
@@ -125,7 +125,7 @@ struct ProgressLine: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Caps(label, color: Palette.muted)
+            if let label { Caps(label, color: Palette.muted) }
             Capsule().fill(Palette.line).frame(height: 1)
                 .overlay(alignment: .leading) {
                     GeometryReader { proxy in Capsule().fill(Palette.fg).frame(width: proxy.size.width * fraction) }
@@ -156,6 +156,26 @@ struct Caps: View {
 
     var body: some View {
         Text(text).label().foregroundStyle(color)
+    }
+}
+
+/// The dot beside a state word: filled, in the state's colour; lit and breathing while it is recording.
+struct StateDot: View {
+    var color: Color
+    var isLit = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isDim = false
+
+    var body: some View {
+        Circle().fill(color).frame(width: Metrics.dot, height: Metrics.dot)
+            .shadow(color: isLit ? color.opacity(0.5) : .clear, radius: 4)
+            .opacity(isLit && isDim ? 0.45 : 1)
+            .animation(
+                isLit && !reduceMotion ? .easeInOut(duration: Motion.pulse / 2).repeatForever() : nil, value: isDim
+            )
+            .onAppear { isDim = isLit }
+            .accessibilityHidden(true)
     }
 }
 
@@ -488,30 +508,15 @@ struct Field: View {
 }
 
 /// A sheet's top: its name in thin type and the close button.
-private struct TitleGlow: ViewModifier {
-    let isOn: Bool
-
-    func body(content: Content) -> some View {
-        if isOn { content.lit() } else { content }
-    }
-}
-
 struct SheetHeader: View {
-    let title: String
+    /// `nil` for a sheet whose first line names itself (the pendant's big word is the state).
+    var title: String?
     var color: Color = Palette.fg
-    /// The pendant's sheet names itself in small capitals: its big word is the state, not the title.
-    var isLabel = false
-    /// The soft glow of the title, only where asked.
-    var isLit = false
     let close: () -> Void
 
     var body: some View {
         HStack {
-            if isLabel {
-                Caps(title).accessibilityAddTraits(.isHeader)
-            } else {
-                Text(title).font(.sheetTitle).foregroundStyle(color).modifier(TitleGlow(isOn: isLit))
-            }
+            if let title { Text(title).font(.sheetTitle).foregroundStyle(color) }
             Spacer()
             Button(action: close) {
                 Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.fg)

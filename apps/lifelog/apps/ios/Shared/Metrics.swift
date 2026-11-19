@@ -6,6 +6,11 @@ enum Metrics {
     static let gutter: CGFloat = 20
     static let cardPadding = Spacing.l
 
+    /// The state dot beside a status word.
+    static let dot: CGFloat = 9
+    /// The smallest tap target.
+    static let tapTarget: CGFloat = 44
+
     /// Corner radii, smallest to largest.
     enum Radius {
         /// A quote inside a draft, photo tiles and thumbnails.

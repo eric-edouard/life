@@ -181,7 +181,11 @@ final class CaptureStore {
     /// A launch already reconnects to the known Pendant, and a sync to an Omi resting between drains; this waits a
     /// little for the link to be ready.
     func waitForLink(upTo limit: Duration = .seconds(10)) async -> Bool {
-        if case .resting = status.connection { await syncNow() }
+        // A resting Omi is reachable: it wakes for a sync and goes back to rest, so it is never `.ready` for long.
+        if case .resting = status.connection {
+            await syncNow()
+            return true
+        }
         return await wait(upTo: limit) {
             if case .ready = self.status.connection { true } else { false }
         }

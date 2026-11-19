@@ -2,7 +2,7 @@ import Capture
 import Incidents
 import SwiftUI
 
-/// Pairing a pendant as a sheet: it looks nearby, then the checks as they pass (found, paired with this phone), then Paired, or Not paired with the reason. The phone takes the first pendant it finds, so nothing is picked.
+/// Pairing a pendant as a sheet: it looks nearby, then the checks as they pass (found, paired with this phone, first sync), then Paired, or Not paired with the reason. The phone takes the first pendant it finds, so nothing is picked.
 struct PairPendantSheet: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(\.dismiss) private var dismiss
@@ -87,26 +87,31 @@ struct PairPendantSheet: View {
             RowGroup(surface: .sheet) { checks(failedAt: nil) }
         case .failed(let reason):
             VStack(alignment: .leading, spacing: 16) {
-                RowGroup(surface: .sheet) { checks(failedAt: foundCount) }
+                RowGroup(surface: .sheet) { checks(failedAt: 1) }
                 Text(reason).font(.note).foregroundStyle(Palette.muted)
             }
         }
     }
 
-    /// How many checks have passed: found, paired with this phone.
+    /// How many checks have passed: found, paired with this phone, first sync.
     private var foundCount: Int {
         switch connection {
-        case .ready, .resting: hasCaughtUp ? 2 : 1
+        case .ready, .resting: hasCaughtUp ? 3 : 2
         case .connecting, .discovering, .pairingPending, .disconnected, .busyElsewhere: 1
         default: 0
         }
     }
 
     private func checks(failedAt: Int?) -> some View {
-        CheckLines(
+        let sync = capture.lastCaughtUp.flatMap { !($0 < startedAt) ? $0 : nil }
+        let words = [
+            "Found", "Paired with this phone",
+            sync.map { "First sync, \($0.formatted(date: .omitted, time: .shortened))" } ?? "First sync",
+        ]
+        // A failure is always the second check: the pendant was found, it did not pair.
+        return CheckLines(
             lines: CheckLine.lines(
-                "pair", ["Found", "Paired with this phone"], passed: foundCount, failedAt: failedAt.map { min($0, 1) },
-                isRunning: failedAt == nil)
+                "pair", words, passed: failedAt == nil ? foundCount : 1, failedAt: failedAt, isRunning: failedAt == nil)
         )
         .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading)
     }

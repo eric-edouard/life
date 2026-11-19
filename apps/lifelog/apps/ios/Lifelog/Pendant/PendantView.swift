@@ -51,7 +51,7 @@ struct PendantScreen: View {
                 lowBatteryPercent: settings.lowBattery ? settings.lowBatteryPercent : nil, now: now)
             let held = whatIsNotOnTheMac(backlog: capture.status.backlog, uploads: capture.uploads, now: now)
             VStack(alignment: .leading, spacing: 16) {
-                SheetHeader(title: "Pendant", isLabel: true) { dismiss() }
+                SheetHeader { dismiss() }
                     .padding(.horizontal, Metrics.gutter)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
@@ -105,10 +105,14 @@ struct PendantScreen: View {
             }
             if let level = reading.lowBattery { Caps("Battery \(level)%", color: Palette.flag) }
             HStack(alignment: .firstTextBaseline, spacing: 14) {
-                dot(reading).alignmentGuide(.firstTextBaseline) { $0[.bottom] + 0 }.offset(y: -14)
+                StateDot(
+                    color: reading.isFlag ? Palette.flag : reading.state == .recording ? Palette.fg : Palette.muted,
+                    isLit: reading.state == .recording && !reading.isFlag
+                )
+                .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 0 }.offset(y: -14)
                 Text(reading.state.word).font(.statusWord)
                     .foregroundStyle(reading.isFlag ? Palette.flag : Palette.fg)
-                    .modifier(GlowWhen(reading.state == .recording))
+                    .lit(reading.state == .recording)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("pendant.status")
             }
@@ -142,28 +146,19 @@ struct PendantScreen: View {
             return reading.pausedAt.map {
                 "Paused on the pendant at \($0.formatted(date: .omitted, time: .shortened))."
             }
-        case .checking: return "Nothing is confirmed until it answers."
         default: return nil
         }
-    }
-
-    private func dot(_ reading: PendantReading) -> some View {
-        Group {
-            if reading.state == .recording && !reading.isFlag {
-                Circle().fill(Palette.fg).shadow(color: Palette.fg.opacity(0.5), radius: 4)
-            } else {
-                Circle().fill(reading.isFlag ? Palette.flag : Palette.muted)
-            }
-        }
-        .frame(width: 9, height: 9)
-        .accessibilityHidden(true)
     }
 
     // MARK: Facts
 
     private func facts(_ reading: PendantReading, now: Date) -> some View {
         let status = capture.status
-        let connected = if case .ready = status.connection { true } else { false }
+        let connected =
+            switch status.connection {
+            case .ready, .resting: true
+            default: false
+            }
         let battery = Fact(status.batteryPercent, connected: connected, now: now)
         let storage = Fact(status.storage, connected: connected, now: now)
         return RowGroup(surface: .sheet) {
@@ -237,22 +232,19 @@ struct PendantScreen: View {
                 Row(title: "Asking…") { StateGlyph.busy }
             }
         } else if let words = held.words {
-            VStack(alignment: .leading, spacing: 8) {
-                Caps("Waiting to upload").padding(.horizontal, Metrics.Spacing.l)
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(words).font(.bodyStrong)
-                    if case .catchingUp(let progress) = SyncSummary(
-                        capture.status.sync, lastCaughtUp: capture.lastCaughtUp)
-                    {
-                        let fraction = Double(progress.settled) / Double(max(progress.expected, 1))
+            RowGroup(label: "Waiting to upload", surface: .sheet) {
+                Row(title: words)
+                if case .catchingUp(let progress) = SyncSummary(
+                    capture.status.sync, lastCaughtUp: capture.lastCaughtUp)
+                {
+                    let fraction = Double(progress.settled) / Double(max(progress.expected, 1))
+                    VStack(alignment: .leading, spacing: 12) {
                         ProgressLine(
-                            label: "To this phone", fraction: fraction,
-                            end: fraction.formatted(.percent.precision(.fractionLength(0))))
+                            fraction: fraction, end: fraction.formatted(.percent.precision(.fractionLength(0))))
                         Text("Keep the app open: it goes faster.").font(.note).foregroundStyle(Palette.muted)
                     }
+                    .padding(Metrics.Spacing.l)
                 }
-                .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading)
-                .background(Surface.sheet.fill, in: .rect(cornerRadius: Metrics.Radius.card))
             }
         }
     }
@@ -276,8 +268,10 @@ struct PendantScreen: View {
                 Button("Pair a pendant") { sheet = .pair }.buttonStyle(.pill(.filled))
                     .accessibilityIdentifier("pendant.pair")
             } else {
-                TextLink("Replace this pendant") { sheet = .replace }.frame(maxWidth: .infinity, minHeight: 44)
-                    .accessibilityIdentifier("pendant.replace")
+                TextLink("Replace this pendant") { sheet = .replace }.frame(
+                    maxWidth: .infinity, minHeight: Metrics.tapTarget
+                )
+                .accessibilityIdentifier("pendant.replace")
             }
         }
         .padding(.horizontal, Metrics.gutter)
@@ -311,14 +305,4 @@ extension DeviceKind {
 
 extension Fact {
     var isCurrent: Bool { if case .current = self { true } else { false } }
-}
-
-/// The glow of the bold line, only where asked.
-private struct GlowWhen: ViewModifier {
-    let isOn: Bool
-    init(_ isOn: Bool) { self.isOn = isOn }
-
-    func body(content: Content) -> some View {
-        if isOn { content.lit() } else { content }
-    }
 }
