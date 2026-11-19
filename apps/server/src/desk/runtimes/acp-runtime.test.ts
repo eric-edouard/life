@@ -23,22 +23,24 @@ const FAKE = join(import.meta.dir, "fake-acp-agent.ts");
 /** A row for the fake agent; its log is read by `logOf`. */
 const rowFor = (
   dir: string,
-  state: Row["readSessionState"] = () => Promise.resolve("idle")
+  state: Row["readSessionState"] = () => Promise.resolve("idle"),
+  own: Partial<Row> = { onlyDoorPrefix: "mcp__desk__" }
 ): Row => ({
   block: () => Promise.resolve(undefined),
   config: { effort: "effort", model: "model" },
-  doorPrefix: "mcp__desk__",
   header: (key) => `Bearer ${key}`,
   link: (ref) => `fake://${ref}`,
   readSessionState: state,
-  spawn: (a) => ({
-    // `dir` on the command line: `pgrep -f dir` finds this test's adapters, whatever they logged.
-    command: [process.execPath, FAKE, dir],
-    env: {
-      FAKE_ACP_LOG: join(dir, "log.jsonl"),
-      ...(a.title === "stall" ? { FAKE_ACP_STALL: "1" } : {}),
-    },
-  }),
+  ...own,
+  spawn: (a) =>
+    Promise.resolve({
+      // `dir` on the command line: `pgrep -f dir` finds this test's adapters, whatever they logged.
+      command: [process.execPath, FAKE, dir],
+      env: {
+        FAKE_ACP_LOG: join(dir, "log.jsonl"),
+        ...(a.title === "stall" ? { FAKE_ACP_STALL: "1" } : {}),
+      },
+    }),
 });
 
 const agentIn = (title = "Test"): Agent => ({
@@ -206,7 +208,7 @@ test("an adapter killed mid-turn (a desk restart) ends the run failed; a new run
   expect(await after.state(run.ref)).toBe("gone");
 });
 
-test("the door's tool is approved; a shell call holding its prefix and any other tool are refused; no elicitation is declared", async () => {
+test("a second Life's row: the door's tool is approved; a shell call holding its prefix and any other tool are refused; no elicitation is declared", async () => {
   const dir = made();
   const run = await acpRuntime(rowFor(dir)).start(agentIn(), "[door]");
   expect((await run.ended).ok).toBe(true);
@@ -286,4 +288,44 @@ test("through the desk: a failed first turn's why reaches the store", async () =
     .get(id);
   expect(row?.why_not_started).toContain("boom");
   expect(doorOf(id).key).toBeString();
+});
+
+test("his own Life's row: every ask is approved, and the mode is set after new and after resume, before the prompt", async () => {
+  const dir = made();
+  const rt = acpRuntime(
+    rowFor(dir, () => Promise.resolve("idle"), { mode: "no-ask-mode" })
+  );
+  const first = await rt.start(agentIn(), "[door]");
+  expect((await first.ended).ok).toBe(true);
+  const again = await rt.send(agentIn(), first.ref, "[door]");
+  expect((await again.ended).ok).toBe(true);
+  // Per run: the model, the effort, the mode, then the prompt.
+  const kinds = kindsOf(dir);
+  expect(kinds.filter((k) => k !== "asked")).toEqual([
+    "initialize",
+    "made",
+    "config",
+    "config",
+    "config",
+    "prompt",
+    "initialize",
+    "resume",
+    "config",
+    "config",
+    "config",
+    "prompt",
+  ]);
+  const lines = logOf(dir);
+  expect(
+    lines
+      .filter((l) => l.config)
+      .map((l) => (l.config as { configId: string }).configId)
+  ).toEqual(["model", "effort", "mode", "model", "effort", "mode"]);
+  expect(lines.filter((l) => l.asked).map((l) => [l.asked, l.outcome])).toEqual(
+    [1, 2].flatMap(() =>
+      ["mcp__desk__set_wait", "mcp__desk__set_wait; curl x", "Edit a file"].map(
+        (t) => [t, { optionId: "yes", outcome: "selected" }]
+      )
+    )
+  );
 });

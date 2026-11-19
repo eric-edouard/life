@@ -28,42 +28,61 @@ const a = {
   title: "Test",
 };
 
-test("the rows put the door's key in the environment, never in a command; each names the adapter, the model and the effort", () => {
-  for (const isOwn of [true, false]) {
-    for (const row of Object.values(runtimeRowsOf(isOwn))) {
-      const { command, env } = row.spawn({
-        ...a,
-        effort: "low",
-        model: "test-model",
-      });
-      expect(command[0]).toBe(process.execPath);
-      expect(command.join(" ")).not.toContain(a.door.key);
-      expect(env.BUN_BE_BUN).toBe("1");
-    }
+test("the rows put the door's key in the environment, never in a command; each names the adapter, the model and the effort", async () => {
+  const spawned = await Promise.all(
+    [true, false].flatMap((isOwn) =>
+      Object.values(runtimeRowsOf(isOwn)).map((row) =>
+        row.spawn({ ...a, effort: "low", model: "test-model" })
+      )
+    )
+  );
+  for (const { command, env } of spawned) {
+    expect(command[0]).toBe(process.execPath);
+    expect(command.join(" ")).not.toContain(a.door.key);
+    expect(env.BUN_BE_BUN).toBe("1");
   }
   const { claude, codex } = runtimeRowsOf(true);
-  expect(claude.spawn(a).env.LIFE_DESK_KEY).toBe(a.door.key);
+  expect((await claude.spawn(a)).env.LIFE_DESK_KEY).toBe(a.door.key);
   // biome-ignore lint/suspicious/noTemplateCurlyInString: what Claude expands from the adapter's environment
   expect(claude.header(a.door.key)).toBe("Bearer ${LIFE_DESK_KEY}");
   expect(codex.header(a.door.key)).toBe(`Bearer ${a.door.key}`);
-  expect(codex.spawn(a).env.LIFE_DESK_KEY).toBeUndefined();
+  expect((await codex.spawn(a)).env.LIFE_DESK_KEY).toBeUndefined();
   expect(
     JSON.parse(
-      codex.spawn({ ...a, effort: "low", model: "test-model" }).env
+      (await codex.spawn({ ...a, effort: "low", model: "test-model" })).env
         .CODEX_CONFIG ?? ""
     )
   ).toEqual({
     model: "test-model",
     model_reasoning_effort: "low",
+    shell_environment_policy: {
+      ignore_default_excludes: true,
+      inherit: "all",
+    },
   });
-  expect(JSON.parse(codex.spawn(a).env.CODEX_CONFIG ?? "")).toEqual({});
-  expect([claude.doorPrefix, codex.doorPrefix]).toEqual([
+  expect([claude.onlyDoorPrefix, codex.onlyDoorPrefix]).toEqual([
+    undefined,
+    undefined,
+  ]);
+  expect([claude.mode, codex.mode]).toEqual(["bypassPermissions", undefined]);
+  expect((await codex.spawn(a)).env.INITIAL_AGENT_MODE).toBe(
+    "agent-full-access"
+  );
+  const second = runtimeRowsOf(false);
+  expect([second.claude.onlyDoorPrefix, second.codex.onlyDoorPrefix]).toEqual([
     "mcp__desk__",
     "mcp.desk.",
   ]);
+  expect([second.claude.mode, second.codex.mode]).toEqual([
+    undefined,
+    undefined,
+  ]);
+  expect((await second.codex.spawn(a)).env.INITIAL_AGENT_MODE).toBe(
+    "workspace-write"
+  );
 });
 
-test("a second Life's agent takes none of his settings, tools or instruction files: its door alone; his own runs as he set the programs up", () => {
+test("a second Life's agent takes none of his settings, tools or instruction files: its door alone; his own runs as he set the programs up", async () => {
   const rows = runtimeRowsOf(false);
   expect(rows.claude.meta).toMatchObject({
     claudeCode: {
@@ -78,25 +97,57 @@ test("a second Life's agent takes none of his settings, tools or instruction fil
   expect(rows.claude.meta).toMatchObject({
     claudeCode: { options: { permissionMode: "default" } },
   });
-  const { env } = rows.claude.spawn(a);
+  const { env } = await rows.claude.spawn(a);
   expect(env.CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe("1");
   expect(env.CLAUDE_CODE_DISABLE_CLAUDE_MDS).toBe("1");
   expect(rows.claude.handOff).toBeUndefined();
-  const second = JSON.parse(rows.codex.spawn(a).env.CODEX_CONFIG ?? "");
+  const second = JSON.parse((await rows.codex.spawn(a)).env.CODEX_CONFIG ?? "");
   expect(second.project_doc_max_bytes).toBe(0);
   for (const f of [...CODEX_OFF, ...CODEX_AGENT_OFF]) {
     expect(second.features[f]).toBe(false);
   }
   expect(second.web_search).toBe("disabled");
   expect(second.skills.include_instructions).toBe(false);
-  expect(rows.codex.spawn(a).env.CODEX_HOME).toBe(CODEX_HOME);
+  expect((await rows.codex.spawn(a)).env.CODEX_HOME).toBe(CODEX_HOME);
   const his = runtimeRowsOf(true);
   expect(his.claude.meta).toBeUndefined();
   expect(
-    his.claude.spawn(a).env.CLAUDE_CODE_DISABLE_AUTO_MEMORY
+    (await his.claude.spawn(a)).env.CLAUDE_CODE_DISABLE_AUTO_MEMORY
   ).toBeUndefined();
-  expect(his.codex.spawn(a).env.CODEX_HOME).toBeUndefined();
-  expect(JSON.parse(his.codex.spawn(a).env.CODEX_CONFIG ?? "")).toEqual({});
+  expect((await his.codex.spawn(a)).env.CODEX_HOME).toBeUndefined();
+});
+
+test("his login shell's environment goes to his own Life's agents only, less the runtime's engine keys; a second Life's gets none of it", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-login-"));
+  const shell = join(dir, "shell.sh");
+  // A made-up login shell: runs the command it is given with made-up variables set.
+  writeFileSync(
+    shell,
+    '#!/bin/sh\nLIFE_TEST_LOGIN=made-up ANTHROPIC_API_KEY=made-up OPENAI_API_KEY=made-up exec sh -c "$2"\n'
+  );
+  chmodSync(shell, 0o755);
+  const was = process.env.SHELL;
+  process.env.SHELL = shell;
+  try {
+    const own = runtimeRowsOf(true);
+    const claude = (await own.claude.spawn(a)).env;
+    const codex = (await own.codex.spawn(a)).env;
+    expect(claude.LIFE_TEST_LOGIN).toBe("made-up");
+    expect(claude.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(claude.OPENAI_API_KEY).toBe("made-up");
+    expect(codex.LIFE_TEST_LOGIN).toBe("made-up");
+    expect(codex.OPENAI_API_KEY).toBeUndefined();
+    const seconds = await Promise.all(
+      Object.values(runtimeRowsOf(false)).map((row) => row.spawn(a))
+    );
+    for (const { env } of seconds) {
+      expect(env.LIFE_TEST_LOGIN).toBeUndefined();
+      expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+      expect(env.OPENAI_API_KEY).toBeUndefined();
+    }
+  } finally {
+    process.env.SHELL = was;
+  }
 });
 
 test("a session held by an idle process is not running: only an open last turn is", () => {

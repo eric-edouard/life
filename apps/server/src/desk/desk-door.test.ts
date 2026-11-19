@@ -136,4 +136,5 @@ test("an agent that finished may read its packet, nothing else", async () => {
   const packet = await call(id, key, "read_packet", {});
   expect(packet.text).toContain("a made-up bakery");
   expect(packet.text).toContain("set_wait");
+  expect(packet.text).toContain("The one gate");
 });
