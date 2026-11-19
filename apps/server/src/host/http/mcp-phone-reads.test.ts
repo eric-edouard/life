@@ -48,24 +48,12 @@ const kitOnWhatsapp = new Map([
   [
     "person:inf_kit",
     networkIdentityOf(
-      {
-        date: "2026-10-12",
-        end: "2026-10-12T09:05:00.000Z",
-        id: "unit_000000000001",
-        key: KIT_CHAT,
-        source: "whatsapp",
-        start: "2026-10-12T09:00:00.000Z",
-        title: "Kit Watches",
-      },
+      { key: KIT_CHAT, source: "whatsapp", title: "Kit Watches" },
       [
         {
           at: "2026-10-12T09:05:00.000Z",
-          chat: KIT_CHAT,
-          chatName: "Kit Watches",
           fromMe: false,
-          id: `whatsapp:${KIT_CHAT}/1`,
           sender: "+33600000001",
-          source: "whatsapp",
           text: "Kit here, from the shop",
         },
       ],

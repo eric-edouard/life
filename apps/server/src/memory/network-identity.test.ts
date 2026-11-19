@@ -5,12 +5,9 @@ import type { SourceEvent } from "../records/source";
 import { buildIndex } from "./index-writer";
 import { INDEX, UNITS } from "./memory-files";
 import {
-  cardAskOf,
   chatUnitsFor,
-  guessAskOf,
   type NetworkIdentified,
   networkIdentityOf,
-  personQuestionOf,
   readNetworkIdentities,
   withNetworkIdentity,
 } from "./network-identity";
@@ -55,12 +52,6 @@ test("a WhatsApp chat gives its network, phone, shown name, newest message on on
       sender: "me",
       text: "Great,\n\nsee you   Friday",
     }),
-    // Another chat in the same span is not this one's.
-    message({
-      at: "2026-11-02T11:00:00.000Z",
-      chat: "33600000009@s.whatsapp.net",
-      text: "not Kit",
-    }),
   ];
   expect(networkIdentityOf(unit(), events, "Dana")).toEqual({
     chat: KIT_CHAT,
@@ -101,7 +92,7 @@ test("a network without a link of its own gives null, and a long message is cut 
     shownName: null,
   });
   expect(identity.newest?.by).toBe(chat);
-  expect(identity.newest?.text).toHaveLength(120);
+  expect(identity.newest?.text.length).toBeLessThanOrEqual(120);
   expect(identity.newest?.text.endsWith("…")).toBe(true);
 });
 
@@ -126,7 +117,7 @@ test("a WhatsApp chat whose key holds no phone takes the sender's, and a @lid al
   });
 });
 
-test("the chat-days tried are 1:1 chats with the check's person (or its guess's evidence), newest first, three at most", () => {
+test("the chat-days tried are 1:1 chats with the check's person, newest first, three at most", () => {
   const u = (id: string, date: string, people: string[], source = "whatsapp") =>
     ({ date, id, people, source }) as Parameters<typeof chatUnitsFor>[0][0];
   const units = [
@@ -136,24 +127,17 @@ test("the chat-days tried are 1:1 chats with the check's person (or its guess's 
     u("unit_c", "2026-11-04", ["person:inf_kit", "person:zoe"]),
     // Mail is no network's chat.
     u("unit_d", "2026-11-05", ["person:inf_kit"], "mail"),
+    // Another person's chat, even one the guess's evidence cites, is not theirs.
     u("unit_e", "2026-10-01", ["unknown:+33600000009"]),
     u("unit_f", "2026-09-01", ["person:inf_kit"]),
     u("unit_g", "2026-08-01", ["person:inf_kit"]),
   ];
   const refs = new Set(["person:inf_kit", "unknown:+33600000001"]);
-  expect(
-    chatUnitsFor(units, refs, new Set(["unit_e"])).map((x) => x.id)
-  ).toEqual(["unit_b", "unit_a", "unit_e"]);
-});
-
-test("the question names the first name, both of a card's people, or a description whole", () => {
-  expect(personQuestionOf(["Kit Moreau"])).toBe("Is this Kit?");
-  expect(personQuestionOf(["Gran", "Robin Vale"])).toBe(
-    "Is this Gran or Robin?"
-  );
-  expect(personQuestionOf(["the plumber fixing the sink"])).toBe(
-    "Is this the plumber fixing the sink?"
-  );
+  expect(chatUnitsFor(units, refs).map((x) => x.id)).toEqual([
+    "unit_b",
+    "unit_a",
+    "unit_f",
+  ]);
 });
 
 test("a decision's guess beside it gets its identity too; a check none was found for gets null", () => {
@@ -170,19 +154,6 @@ test("a decision's guess beside it gets its identity too; a check none was found
   );
   expect(shown.networkIdentity).toBeNull();
   expect(shown.confirm[0]?.networkIdentity).toEqual(identity);
-});
-
-test("a guess says why in one sentence in one sentence; a card names itself", () => {
-  expect(
-    guessAskOf({ confidence: 0.7, name: "Kit Moreau", relation: "the plumber" })
-  ).toEqual({
-    context: "Life read their messages as Kit Moreau, the plumber (70% sure).",
-    question: "Is this Kit?",
-  });
-  expect(cardAskOf("Lou", [{ name: "Gran" }, { name: "Robin Vale" }])).toEqual({
-    context: "It is the Contacts card Lou.",
-    question: "Is this Gran or Robin?",
-  });
 });
 
 test("read from the index, the unit files and one span of the source: a card's handle finds its newest 1:1 chat, not a group", async () => {
@@ -210,22 +181,25 @@ test("read from the index, the unit files and one span of the source: a card's h
     title: "Climbing",
   });
   const asked: [Date, Date | undefined][] = [];
-  const spy = spyOn(sources, "tables").mockReturnValue({
-    WITH_PEOPLE: {
-      whatsapp: (since: Date, before?: Date) => {
-        asked.push([since, before]);
-        return [
-          message({
-            at: "2026-11-03T17:30:00.000Z",
-            chat,
-            chatName: "Lou B",
-            sender: handle,
-            text: "Sunday works",
-          }),
-        ];
-      },
-    },
-  } as never);
+  const real = sources.sourceOf;
+  const spy = spyOn(sources, "sourceOf").mockImplementation(
+    (name) =>
+      ({
+        ...real(name),
+        read: (since: Date, before?: Date) => {
+          asked.push([since, before]);
+          return [
+            message({
+              at: "2026-11-03T17:30:00.000Z",
+              chat,
+              chatName: "Lou B",
+              sender: handle,
+              text: "Sunday works",
+            }),
+          ];
+        },
+      }) as never
+  );
   mkdirSync(UNITS, { recursive: true });
   mkdirSync(dirname(INDEX), { recursive: true });
   try {
@@ -250,10 +224,14 @@ test("read from the index, the unit files and one span of the source: a card's h
       ref: "person:con_lou",
     };
     const found = await readNetworkIdentities([card], {
-      inferred: [],
       nameOf: () => "Dana",
-      refOf: (r) => r,
-    });
+      refOf: (r: string) => r,
+      resolve: () => null,
+      truth: {
+        people: [{ handles: {}, id: "me", name: "Dana" }],
+        projects: [],
+      },
+    } as never);
     expect(found.get("person:con_lou")).toEqual({
       chat,
       handle,

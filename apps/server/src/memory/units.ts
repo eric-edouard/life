@@ -127,6 +127,10 @@ export const clip = (s: string, max = SUMMARY_MAX) =>
     ? s
     : `${s.slice(0, s.lastIndexOf(" ", max - 1) > 0 ? s.lastIndexOf(" ", max - 1) : max - 1)}…`;
 
+/** `s` on one line (its whitespace runs flattened), cut at a word within `max` characters. */
+export const oneLineOf = (s: string, max: number) =>
+  clip(s.replace(/\s+/g, " ").trim(), max);
+
 /** Whether a sender is one of his agents mailing him a report: Life's own sender or the `reports` setting. */
 export const isAgentReport = (sender: string) =>
   sender === LIFE_MAIL.from || settings().agentReportSenders.includes(sender);
