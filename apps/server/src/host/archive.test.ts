@@ -10,8 +10,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MIN } from "../core/clock";
-import { log } from "../core/log";
+import { HOUR, MIN } from "../core/clock";
+import { log, recentEvents } from "../core/log";
 import { MACHINE_DIR, WINDOWS } from "../core/platform";
 import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE } from "../sources/archived";
@@ -19,6 +19,7 @@ import { toAppleS } from "../sources/imessage";
 import { whatsappFixture } from "../sources/store-fixtures";
 import { copyWhatsapp } from "../sources/whatsapp";
 import {
+  ARCHIVE_LOOKBACK,
   appsToOpen,
   archiveCommand,
   archiveFailing,
@@ -64,11 +65,14 @@ test("an archive incident lives in the log: open until its run.end, listed by th
   await Bun.sleep(2);
   // The night after it started: still listed, as still failing.
   const since = new Date().toISOString();
+  const later = Date.now() + HOUR;
   expect(await archiveLine(since)).toMatch(LINE);
-  expect((await archiveFailing()).map(([name]) => name)).toEqual(["line"]);
+  // One failed 5 s pass is no outage: failing only once the incident has been open an hour.
+  expect(await archiveFailing()).toEqual([]);
+  expect((await archiveFailing(later)).map(([name]) => name)).toEqual(["line"]);
   log("run.end", { step });
   expect(await archiveLine(since)).toBe("Archive: no failure");
-  expect(await archiveFailing()).toEqual([]);
+  expect(await archiveFailing(later)).toEqual([]);
   const start = { at: "2026-10-18T10:00:00.000Z", kind: "run.error", step };
   expect(openIncidents([start]).get("line")).toBe(start);
 });
@@ -167,4 +171,14 @@ test("archive whatsapp validates its folder, holds the archive lock and copies o
     rmSync(ARCHIVE, { force: true, recursive: true });
     wa.close();
   }
+});
+
+test("an incident opened 10 minutes before a restart is still open at startup, so its next good pass closes it", async () => {
+  const step = "archive.whatsapp";
+  log("run.error", { error: "busy", step });
+  expect([
+    ...openIncidents(await recentEvents(ARCHIVE_LOOKBACK)).keys(),
+  ]).toContain("whatsapp");
+  expect(await archiveFailing(Date.now() + 10 * MIN)).toEqual([]);
+  log("run.end", { step });
 });

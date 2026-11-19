@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { clock, DAY } from "../core/clock";
+import { clock, DAY, HOUR } from "../core/clock";
 import { hold } from "../core/lock";
 import { type LogEvent, log, recentEvents } from "../core/log";
 import { LIFE_CODE_DIR } from "../core/paths";
@@ -151,12 +151,16 @@ export function openIncidents(lines: LogEvent[]) {
   return started;
 }
 
-/** The stores failing now, by store, from the last 7 days of derived/log. */
-export async function archiveFailing() {
+/** An incident counts as failing once open this long: one failed 5 s pass (a store briefly busy) is not an outage. */
+export const ARCHIVE_FAILING_AFTER = HOUR;
+
+/** The stores failing now (an incident open for `ARCHIVE_FAILING_AFTER`), by store, from the last 7 days of derived/log. */
+export async function archiveFailing(now = clock().getTime()) {
   const kept = new Set(keptStores().map((s) => s.name as string));
   // A store he turned off since has no incident: it is no longer copied, so nothing would ever close it.
   return [...openIncidents(await recentEvents(ARCHIVE_LOOKBACK))].filter(
-    ([name]) => kept.has(name)
+    ([name, e]) =>
+      kept.has(name) && now - new Date(e.at).getTime() >= ARCHIVE_FAILING_AFTER
   );
 }
 
@@ -211,7 +215,9 @@ export async function archiveCommand(args: string[]): Promise<number> {
   const running = codeAt(LIFE_CODE_DIR);
   // A hand `--once` too: while the service runs, it would be a second archiver.
   await hold("archive");
-  const failing = new Set((await archiveFailing()).map(([name]) => name));
+  const failing = new Set(
+    openIncidents(await recentEvents(ARCHIVE_LOOKBACK)).keys()
+  );
   copyAll(failing);
   while (codeAt(LIFE_CODE_DIR) === running) {
     if (args.includes("--once")) {
