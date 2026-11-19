@@ -1,8 +1,8 @@
 import Foundation
 import Library
 
-/// What `answer_check` returns (`host/answer-result.ts`): the proof that his answer was written, what a send did, whether
-/// the asker was told and whether the card left. A field Life adds is ignored.
+/// What `answer_check` returns (`host/answer-result.ts`): the proof that his answer was written, what a send did and
+/// whether the asker was told. A field Life adds is ignored; the inbox is read again after every answer.
 public struct AnswerResult: Decodable, Sendable, Equatable {
     public enum SendState: String, UnknownTolerant, Sendable {
         case sent, pending
@@ -28,12 +28,6 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
         public let why: String?
     }
 
-    public struct InboxAfter: Decodable, Sendable, Equatable {
-        public let left: Bool
-        public let total: Int
-        public let deadlinesToday: Int
-    }
-
     /// What changed, for a voice named: the clips and conversations that now carry the name.
     public struct Changed: Decodable, Sendable, Equatable {
         public let voices: Int?
@@ -48,7 +42,6 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
     /// Nothing to send: absent.
     public let send: Send?
     public let asker: Asker?
-    public let inbox: InboxAfter?
     /// A new matter's Start: the desk's start, as `change_registered_agent` gives it. Nothing started: absent.
     public let start: AgentChangeResult?
 }

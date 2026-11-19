@@ -63,7 +63,8 @@ test("a matter marked done by its id closes every open step as Life reads it: ob
   });
   expect(tick).toHaveBeenCalledWith(
     ["entry_000000000001"],
-    "Marked done in the Life app."
+    "Marked done in the Life app.",
+    expect.any(Function)
   );
   expect(readCorrections()).toMatchObject([
     {
@@ -72,6 +73,53 @@ test("a matter marked done by its id closes every open step as Life reads it: ob
       // The step a link ended becomes his word; the one already retired, and the episode, are left.
       observations: ["obs_000000000001", "obs_000000000002"],
     },
+  ]);
+});
+
+test("two to-do items ticked: a plan with a limit, one report per tick, then recorded", async () => {
+  book.mockResolvedValue([
+    {
+      ...matter,
+      steps: [...matter.steps, step("entry_000000000002", "todo_item")],
+    },
+  ] as never);
+  tick.mockImplementation((keys: string[], _said: string, onTicked: never) => {
+    for (const [i, k] of keys.entries()) {
+      (onTicked as (a: number, b: number, c: string) => void)(
+        i + 1,
+        keys.length,
+        k
+      );
+    }
+    return Promise.resolve([]);
+  });
+  const reported: Record<string, unknown>[] = [];
+  await correct(
+    {
+      correction: { kind: "outdated", matter: "matter_aaaaaaaaaaaa" },
+      kind: "memory",
+    },
+    undefined,
+    { report: (s) => reported.push(s) }
+  );
+  expect(reported[0]).toEqual({
+    limitSeconds: 125,
+    plan: ["todo_items_ticked", "recorded"],
+  });
+  expect(reported.slice(1)).toEqual([
+    {
+      done: 1,
+      key: "entry_000000000001",
+      of: 2,
+      step: "todo_items_ticked",
+    },
+    {
+      done: 2,
+      key: "entry_000000000002",
+      of: 2,
+      step: "todo_items_ticked",
+    },
+    { step: "recorded" },
   ]);
 });
 
@@ -120,7 +168,8 @@ test("with no words of his, the to-do items' ask says the words are Life's, and 
   });
   expect(tick).toHaveBeenCalledWith(
     ["entry_000000000001"],
-    "Marked done (Life's words: he gave none)."
+    "Marked done (Life's words: he gave none).",
+    expect.any(Function)
   );
   expect(readCorrections()[0]?.note).toBeUndefined();
 });

@@ -270,6 +270,7 @@ test("a call logs who asked, the arguments, and what surfaced without its text",
     error: true,
     ids: [id],
     kind: "mcp.call",
+    refused: `no observation ${id}`,
     tool: "read_observation",
   });
 });
@@ -609,6 +610,10 @@ test("an agent asks a decision; only he answers it, through answer_check; the ag
       { agent: undefined }
     )
   ).toMatchObject({ isError: false });
+  expect(logged().at(-1)).toMatchObject({
+    steps: [{ step: "plan" }, { step: "recorded" }],
+    tool: "answer_check",
+  });
   expect(await inbox()).toEqual([]);
   const poll = async (over = {}) =>
     JSON.parse(

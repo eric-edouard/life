@@ -46,7 +46,12 @@ public struct LifeActions: Sendable {
         emit(.started)
         var dropped = ActionFailure(reason: "", retry: .allowed)
         for attempt in 0..<Self.tries {
-            if attempt > 0 { await pause(.seconds(2)) }
+            if attempt > 0 {
+                // The same tap again, with the same key: the screen and the phone's log say it was repeated and why.
+                let detail = ["of": "\(Self.tries)", "try": "\(attempt + 1)", "why": dropped.reason]
+                emit(.passed("connection_retry", at: now(), detail: detail))
+                await pause(.seconds(2))
+            }
             do {
                 let text = try await api.answerCheck(request, answerKey: key, onProgress: progress(emit))
                 guard let result = decode(AnswerResult.self, text) else {
@@ -159,12 +164,16 @@ public struct LifeActions: Sendable {
 
     // MARK: His edits
 
-    /// One recorded change (his goal, next step, a matter done, a to-do item): a single step.
-    public func record(emit: @escaping Emit, _ change: @Sendable () async throws -> String) async {
+    /// One recorded change (his goal, next step, a matter done, a to-do item): no plan of the phone's, only the 10
+    /// seconds Life is first assumed to need; Life's plan and limit come first in its first message, and `recorded`
+    /// is added when an older server sends no plan.
+    public func record(
+        emit: @escaping Emit, _ change: @Sendable (@escaping @Sendable (Data) -> Void) async throws -> String
+    ) async {
         emit(.started)
-        emit(.planned(["recorded"], limitSeconds: nil, at: now()))
+        emit(.planned([], limitSeconds: 10, at: now()))
         do {
-            _ = try await change()
+            _ = try await change(progress(emit))
             emit(.passed("recorded", at: now(), detail: [:]))
             emit(.succeeded(.recorded))
         } catch {
