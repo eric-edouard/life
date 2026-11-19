@@ -12,8 +12,6 @@ struct MattersScreen: View {
     /// What he typed on the asks pushed on a matter: here, above both columns, so a fold keeps it.
     @State private var notes = CardNotes()
     @Environment(\.horizontalSizeClass) private var sizeClass
-    /// The system puts the list's bars in a side column (`reportsSideColumn`): the Filter floats at its bottom left.
-    @State private var listInColumn = false
 
     /// Two columns, the list and the matter: side by side on a regular width, one at a time on a compact one.
     var body: some View {
@@ -28,20 +26,11 @@ struct MattersScreen: View {
             .background(Palette.bg)
             // Beside the matter, the Pendant and Settings are the matter column's (the list's bar keeps its title).
             .shellBar("Matters", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
-            .filterBar(
-                isFiltered: filter != .everything, identifier: "matters.filter",
-                isInColumn: listInColumn && sizeClass != .regular
-            ) { filterChoices }
-            .reportsSideColumn($listInColumn)
+            .filterBar(isFiltered: filter != .everything, identifier: "matters.filter") { filterChoices }
         } detail: {
             if let id = router.matter {
                 NavigationStack(path: $router.matterPath) {
-                    MatterPage(id: id).id(id)
-                        .toolbar {
-                            if sizeClass == .regular, router.matterPath.isEmpty {
-                                ToolbarItem(placement: .topBarTrailing) { SettingsItem() }
-                            }
-                        }
+                    MatterPage(id: id, hasSettings: sizeClass == .regular).id(id)
                         .navigationDestination(for: String.self) { ref in
                             CardPage(
                                 ref: ref, source: life.matter[id]?.value?.checks ?? [], notes: $notes,
@@ -57,6 +46,8 @@ struct MattersScreen: View {
                 }
             } else {
                 Notice(title: "No matter chosen.", detail: "Pick one from the list.").background(Palette.bg)
+                    // Loading, unreachable, no matters: the top group stays.
+                    .shellBar("", hasSettings: sizeClass == .regular)
             }
         }
         // Side by side on a regular width wide enough (the iPhone Duo open wide). Open upright (669 pt) UIKit overlays the

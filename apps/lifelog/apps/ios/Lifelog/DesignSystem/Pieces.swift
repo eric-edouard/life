@@ -276,15 +276,26 @@ struct FilterMenu<Choices: View>: View {
 
 extension View {
     /// A list's Filter, placed by where the system puts the bars: a top-leading toolbar item, or, in the side column
-    /// of the closed Duo (`isInColumn`, `reportsSideColumn`), a round glass button floating at the list's bottom left,
-    /// so the top group stays the Pendant and Settings.
+    /// of the closed Duo (`reportsSideColumn`), a round glass button floating at the list's bottom left, so the top group
+    /// stays the Pendant and Settings. While it floats the list keeps a margin under its last row.
     func filterBar<Choices: View>(
-        isFiltered: Bool, identifier: String, isInColumn: Bool, isResting: Bool = false,
-        @ViewBuilder choices: () -> Choices
+        isFiltered: Bool, identifier: String, isResting: Bool = false, @ViewBuilder choices: () -> Choices
     ) -> some View {
         // A control that comes and goes is unreliable: it stays and rests when there is nothing to choose between.
         let menu = FilterMenu(isFiltered: isFiltered, identifier: identifier, choices: choices).disabled(isResting)
-        return toolbar { if !isInColumn { ToolbarItem(placement: .topBarLeading) { menu } } }
+        return modifier(FilterBar(menu: menu))
+    }
+}
+
+private struct FilterBar<Choice: View>: ViewModifier {
+    let menu: Choice
+    @State private var isInColumn = false
+
+    func body(content: Content) -> some View {
+        content
+            .reportsSideColumn($isInColumn)
+            .toolbar { if !isInColumn { ToolbarItem(placement: .topBarLeading) { menu } } }
+            .contentMargins(.bottom, isInColumn ? 88 : 0, for: .scrollContent)
             .overlay(alignment: .bottomLeading) {
                 ZStack {
                     if isInColumn {
