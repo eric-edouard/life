@@ -9,6 +9,7 @@
 // once it has a job, and covered (its pages held, nothing sent) with neither. The rules the worker
 // shares (`touchesQuiet`, `withdrawRows`) are here too, so jobs.ts calls the cutter and not back.
 
+import { RECORDING_ENDS_ON_SILENCE_AFTER } from "@life/server/src/core/quiet";
 import type { Db } from "@lifelog/db";
 import {
   hasRawPages,
@@ -46,8 +47,8 @@ const CUT_FROM_MS = 90_000;
 // A pause the phone saw closes a block of a minute or more at 5 s.
 const PAUSE_MS = 5000;
 const LONG_MS = 60_000;
-// Otherwise a block closes 30 s after its last speech: nothing came by the server's clock.
-const CLOCK_MS = 30_000;
+// Otherwise a block closes `RECORDING_ENDS_ON_SILENCE_AFTER` (30 s, core/quiet.ts: Life reads a recording as complete
+// by it too) after its last speech: nothing came by the server's clock.
 
 // A fragment as the close rules read it, in epoch ms: its first and last kept instants, and its
 // kept length.
@@ -120,7 +121,10 @@ export function blockFrom(
     if (rule) {
       return { last: k, onSilence: rule === "silence", wakeAt: null };
     }
-    wakeAt ??= silent >= CLOCK_MS ? end + CLOCK_MS : null;
+    wakeAt ??=
+      silent >= RECORDING_ENDS_ON_SILENCE_AFTER
+        ? end + RECORDING_ENDS_ON_SILENCE_AFTER
+        : null;
   }
   return { last: null, onSilence: false, wakeAt };
 }
@@ -128,7 +132,10 @@ export function blockFrom(
 // Rule 3, nothing kept (`silent`) for 30 s by the server's clock (`waited`); rule 2, a pause the
 // phone saw (`seen`) once the block holds a minute. Null: it stays open.
 function closesNow(seen: number, silent: number, kept: number, waited: number) {
-  if (silent >= CLOCK_MS && waited >= CLOCK_MS) {
+  if (
+    silent >= RECORDING_ENDS_ON_SILENCE_AFTER &&
+    waited >= RECORDING_ENDS_ON_SILENCE_AFTER
+  ) {
     return "silence";
   }
   return seen >= PAUSE_MS && kept >= LONG_MS ? "pause" : null;
