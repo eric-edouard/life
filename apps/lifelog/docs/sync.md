@@ -59,7 +59,7 @@ the top; nothing is lost or sent twice.
 The phone keeps no mirror of server state beside the cache (and the two Caches files above). A conversation's state
 is the feed's `state` (Uploaded, Transcribing, Transcribed, Summarized, Failed); the phone adds only Not uploaded
 yet, while audio of it is still only on the phone (`ConversationState`, `Uploader.unsent`). The status every tab
-shows comes from the network path, the uploader, the outbox and the last pull (`ConnectionSummary`): kept speech
+shows comes from the network path, the uploader, the outbox and the pulls (`ConnectionSummary`; the pulls' part is `PullHealth`: a failure shows once it survives a re-check and goes only on a success): kept speech
 past the uploader's cursor counts as Uploading, and the sheet shows why the last fragment failed.
 
 ## Raw pages from a thin phone
