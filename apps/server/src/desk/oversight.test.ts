@@ -57,13 +57,19 @@ afterAll(() => {
   setSettings({ desk: null });
 });
 
-/** His word, recorded as the connector records it (an ask of the desk), `ago` ms before now; its ask id. */
+/**
+ * His word, recorded as the connector records it (an ask of the desk), `ago` ms before now; its ask id. An ask's id is its
+ * ref's (`via:instant`), and the ledger is shared by every test file of the run: a ref of the connector's own could meet
+ * another file's ask at the same millisecond (the ask then returns that one, and its row answers this), so these are
+ * their own `via`. (The asks made through `changeRegisteredAgent` keep the connector's own ref, which production sets, and
+ * the id is the ref's alone: two files' asks there in the same millisecond share one id. That is the residual risk.)
+ */
 let n = 0;
 const said = (change: AgentChange | null, ago = 0) => {
   n += 1;
   return ask(
     requested(
-      "connector",
+      "oversight-test",
       `Test: change ${n}`,
       new Date(clock().getTime() - ago - n * 1000).toISOString()
     ),

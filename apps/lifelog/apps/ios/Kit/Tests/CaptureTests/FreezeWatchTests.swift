@@ -54,7 +54,9 @@ import Testing
         await harness.run {
             #expect(await eventually { harness.coordinator.lastBeat != .distantPast })
             let first = harness.coordinator.lastBeat
-            await harness.advanceClock(by: DrainCoordinator.beatInterval)
+            // The next beat's timer is set just after the first beat is stamped.
+            await harness.passTime(
+                DrainCoordinator.beatInterval, whenATimerIsDueIn: .seconds(20)...DrainCoordinator.beatInterval)
             #expect(await eventually { harness.coordinator.lastBeat > first })
         }
     }

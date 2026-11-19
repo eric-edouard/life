@@ -261,13 +261,13 @@ import Timeline
 
     @Test func firmwareThatIgnoresTheCommandLeavesItUnconfirmed() async {
         // The deadline outlasts the one reply to the confirmation query, and no re-check is in flight when it passes.
-        let harness = Harness(.observe, replyTimeout: .seconds(1), confirmationPollInterval: .seconds(2))
+        let harness = Harness(.observe, confirmationPollInterval: .seconds(120))
         await harness.fake.setIgnoresRecordingCommands(true)
         await harness.run {
             #expect(await eventually { await harness.status().recording.isRecording })
             await harness.coordinator.requestPause()
             #expect(
-                await eventually {
+                await harness.eventuallyAfter(.seconds(61)) {
                     if case .failed(.unconfirmed(.pause), _) = await harness.status().recording { true } else { false }
                 })
             // A re-check answered after the deadline, still recording: it confirms the failure.
@@ -287,12 +287,12 @@ import Timeline
     }
 
     @Test func retryingAFailedPauseClearsTheAlert() async {
-        let harness = Harness(.observe, replyTimeout: .seconds(1), confirmationPollInterval: .seconds(2))
+        let harness = Harness(.observe, confirmationPollInterval: .seconds(120))
         await harness.fake.setIgnoresRecordingCommands(true)
         await harness.run {
             #expect(await eventually { await harness.status().recording.isRecording })
             await harness.coordinator.requestPause()
-            #expect(await eventually { !(await harness.status().incidents.isEmpty) })
+            #expect(await harness.eventuallyAfter(.seconds(61)) { !(await harness.status().incidents.isEmpty) })
             await harness.fake.setIgnoresRecordingCommands(false)
             await harness.coordinator.requestPause()
             #expect(await eventually { await harness.status().recording.isPaused })
