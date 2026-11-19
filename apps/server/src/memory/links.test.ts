@@ -163,8 +163,8 @@ test("a link is kept only when both ends were shown, the later one is later, and
 
 test("a pair is judged once: a later observation is due until a batch holds it with that open thing", () => {
   const work = subjectWorkOf(matter, [promise], [unrelated, sent], []);
-  // Oldest first; an observation from before the open thing is never due for it.
-  expect(work?.chunks).toEqual([[sent, unrelated]]);
+  // Newest first; an observation from before the open thing is never due for it.
+  expect(work?.chunks).toEqual([[unrelated, sent]]);
   expect(work?.open).toEqual([promise]);
   expect(
     subjectWorkOf(
@@ -186,7 +186,7 @@ test("a pair is judged once: a later observation is due until a batch holds it w
     [batch([promise], [sent, unrelated])]
   );
   expect(again?.open).toEqual([second]);
-  expect(again?.chunks).toEqual([[sent, unrelated]]);
+  expect(again?.chunks).toEqual([[unrelated, sent]]);
 });
 
 test("what ends a thing is its first link whose two ends are both current", () => {
@@ -217,25 +217,37 @@ test("what ends a thing is its first link whose two ends are both current", () =
   expect(endingsOf(batches, (id) => id !== promise.id).size).toBe(0);
 });
 
-test("a night takes the oldest due work first and caps each person, so a long backlog neither starves nor is starved", () => {
+test("a night takes the newest due work first and caps each person, so a long backlog neither starves nor is starved", () => {
   const chunk = (at: string) => [step(7, at, "q")];
   const big = {
-    chunks: Array.from({ length: 30 }, () => chunk("2026-01-01T00:00:00.000Z")),
+    chunks: Array.from({ length: 150 }, () =>
+      chunk("2026-01-01T00:00:00.000Z")
+    ),
     name: "Big",
     open: [promise],
     subject: "matter_0000000000b1",
   };
-  const small = {
+  const fresh = {
     chunks: [chunk("2026-10-01T00:00:00.000Z")],
     name: matter.name,
     open: [promise],
     subject: matter.id,
   };
-  const night = nightOf([small, big]);
-  expect(night.map((w) => [w.subject, w.chunks.length])).toEqual([
-    ["matter_0000000000b1", 10],
+  // The reply from today comes before the backlog, which takes what the night has left of its share.
+  expect(
+    nightOf([big, fresh]).map((w) => [w.subject, w.chunks.length])
+  ).toEqual([
     [matter.id, 1],
+    ["matter_0000000000b1", 10],
   ]);
+  // Past the night's cap the fresh matter still has its call, the backlogs share the rest.
+  const backlogs = Array.from({ length: 12 }, (_, i) => ({
+    ...big,
+    subject: `matter_00000000b${String(i).padStart(3, "0")}`,
+  }));
+  const night = nightOf([...backlogs, fresh]);
+  expect(night[0]?.subject).toBe(matter.id);
+  expect(night.reduce((n, w) => n + w.chunks.length, 0)).toBe(100);
   // A matter whose open steps need more calls a chunk than its share still gets one chunk a night.
   const many = {
     chunks: [
