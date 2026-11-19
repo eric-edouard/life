@@ -79,7 +79,7 @@ public struct CardNotification: Sendable, Equatable {
 
     /// Whether a tapped action may go on to be answered: one that acts outward only once `prove` (Face ID or his
     /// passcode, asked at that tap, every time) says so; any other at once.
-    public static func mayAnswer(
+    public static func isAnswerAllowed(
         _ action: String, of check: Check, prove: @Sendable () async -> Bool
     ) async -> Bool {
         guard option(action, in: check)?.outgoing == true else { return true }
@@ -94,7 +94,7 @@ public struct CardNotification: Sendable, Equatable {
     }
 
     /// The expanded notification's buttons: `buttons`, then Reply… when the card takes his own words. Every answer asks
-    /// for the phone to be unlocked; Send also asks Face ID at the tap (`mayAnswer`, in the content extension).
+    /// for the phone to be unlocked; Send also asks Face ID at the tap (`isAnswerAllowed`, in the content extension).
     public static func actions(_ check: Check) -> [UNNotificationAction] {
         buttons(check).map {
             UNNotificationAction(identifier: $0.id, title: $0.label, options: [.authenticationRequired])

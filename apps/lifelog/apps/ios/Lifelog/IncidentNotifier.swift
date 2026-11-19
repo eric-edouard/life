@@ -25,8 +25,9 @@ final class IncidentNotifier: NSObject {
     /// Answers a card from its notification, the way its screen does, and says how it went. Set by the app delegate.
     var answer: ((Check, AnswerRequest) async -> (word: String, line: String))?
 
-    /// Life's cards: Reply… (a decision's own words, the only button the Watch shows); the expanded notification
-    /// adds the card's own one-tap answers (`NotificationContent`). Every answer asks for the phone to be unlocked.
+    /// Life's cards: Reply… (a decision's own words), the only action shown where the expanded notification isn't (the
+    /// Watch, a collapsed one). The expanded one adds the card's one-tap answers and Send (`NotificationContent`), and
+    /// Send goes on only after Face ID there: it is never a category action. Every answer asks for an unlocked phone.
     private static let cardCategory = UNNotificationCategory(
         identifier: CardNotification.category, actions: [CardNotification.replyAction], intentIdentifiers: [],
         options: [.hiddenPreviewsShowTitle])

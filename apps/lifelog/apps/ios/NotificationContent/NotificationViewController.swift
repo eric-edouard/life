@@ -10,27 +10,39 @@ import UserNotificationsUI
 /// nothing from Life: the card came with the notification. Send goes on only after Face ID or his passcode at that tap;
 /// every answer is then given by the app (`IncidentNotifier`).
 final class NotificationViewController: UIViewController, UNNotificationContentExtension {
-    private var check: Check?
+    /// The one draft view: iOS calls `didReceive` again when another card of the same thread arrives while it is open.
+    private let draft = UIHostingController<AnyView?>(rootView: nil)
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        addChild(draft)
+        draft.view.backgroundColor = .clear
+        draft.view.frame = view.bounds
+        draft.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(draft.view)
+        draft.didMove(toParent: self)
         preferredContentSize = .zero
     }
 
     func didReceive(_ notification: UNNotification) {
-        guard let check = CardNotification.card(in: notification.request.content.userInfo) else { return }
-        self.check = check
-        extensionContext?.notificationActions = CardNotification.actions(check)
-        if let draft = check.draft { show(DraftBlock(draft: draft).padding(16)) }
+        let check = CardNotification.card(in: notification.request.content.userInfo)
+        extensionContext?.notificationActions = check.map(CardNotification.actions) ?? []
+        draft.rootView = check?.draft.map { AnyView(DraftBlock(draft: $0).padding(16)) }
+        preferredContentSize =
+            check?.draft == nil
+            ? .zero : draft.sizeThatFits(in: CGSize(width: view.bounds.width, height: .greatestFiniteMagnitude))
     }
 
     func didReceive(
         _ response: UNNotificationResponse,
         completionHandler completion: @escaping (UNNotificationContentExtensionResponseOption) -> Void
     ) {
-        guard let check else { return completion(.dismissAndForwardAction) }
+        // The card the app will answer, read from the response itself, never from what was shown before.
+        guard let check = CardNotification.card(in: response.notification.request.content.userInfo) else {
+            return completion(.dismissAndForwardAction)
+        }
         Task {
-            let proven = await CardNotification.mayAnswer(response.actionIdentifier, of: check) {
+            let proven = await CardNotification.isAnswerAllowed(response.actionIdentifier, of: check) {
                 await Self.askOwner()
             }
             completion(proven ? .dismissAndForwardAction : .doNotDismiss)
@@ -41,16 +53,5 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
     private static func askOwner() async -> Bool {
         (try? await LAContext().evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Send this message"))
             ?? false
-    }
-
-    private func show(_ content: some View) {
-        let host = UIHostingController(rootView: content)
-        addChild(host)
-        host.view.backgroundColor = .clear
-        host.view.frame = view.bounds
-        host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        view.addSubview(host.view)
-        host.didMove(toParent: self)
-        preferredContentSize = host.sizeThatFits(in: CGSize(width: view.bounds.width, height: .greatestFiniteMagnitude))
     }
 }

@@ -116,10 +116,10 @@ private let drafted = check(pushId: "0123456789abcdef", extra: #","draft":{"to":
 
 @Test func sendGoesOnOnlyOnceFaceIDSaysSoAndOtherAnswersNeverAsk() async throws {
     let check = try #require(CardNotification.card(in: ["card": drafted]))
-    #expect(await !CardNotification.mayAnswer("option:send", of: check) { false })
-    #expect(await CardNotification.mayAnswer("option:send", of: check) { true })
+    #expect(await !CardNotification.isAnswerAllowed("option:send", of: check) { false })
+    #expect(await CardNotification.isAnswerAllowed("option:send", of: check) { true })
     #expect(
-        await CardNotification.mayAnswer("option:later", of: check) {
+        await CardNotification.isAnswerAllowed("option:later", of: check) {
             Issue.record("asked Face ID"); return false
         })
 }
