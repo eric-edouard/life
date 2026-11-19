@@ -331,7 +331,8 @@ final class LifeStore {
         } else {
             // A fresh state, so the failure shows alone, never beside a value.
             pushRead = ReadState()
-            pushRead?.apply(inbox.phase == .unreachable ? .failed(.unreachable) : .failed(.failed("Life's inbox was not read.")))
+            pushRead?.apply(
+                inbox.phase == .unreachable ? .failed(.unreachable) : .failed(.failed("Life's inbox was not read.")))
         }
     }
 
