@@ -25,11 +25,13 @@ struct RootView: View {
             Tab("Matters", systemImage: "list.bullet.indent", value: AppRouter.Tab.matters) { MattersScreen() }
             // Its title and symbol are the system's; it sits apart, at the trailing end of the tabs.
             Tab(value: AppRouter.Tab.search, role: .search) {
-                NavigationStack { SearchScreen(query: query).shellBar("Search", hasSettings: false) }
+                // The field belongs to this tab alone: on the tabs it would show on Inbox and Matters too.
+                NavigationStack {
+                    SearchScreen(query: query).shellBar("Search", hasSettings: false)
+                        .searchable(text: $query, prompt: "Search matters")
+                }
             }
         }
-        // On the tabs, so the search tab becomes the search field when chosen.
-        .searchable(text: $query, prompt: "Search matters")
         .environment(router)
         .sheet(item: $router.sheet) { sheet in
             switch sheet {

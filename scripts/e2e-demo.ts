@@ -241,7 +241,7 @@ async function run(step: Step) {
     });
   }
   if (step.back) {
-    // The system's back button by name: agent-device's `back` pressed the Pendant pill on the iPhone Duo.
+    // The system's back button by name: agent-device's `back` pressed the Pendant item on the iPhone Duo.
     await device(["find", "BackButton", "click"]);
   }
   await untilAnswers(

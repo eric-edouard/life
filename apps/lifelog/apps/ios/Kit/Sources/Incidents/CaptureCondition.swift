@@ -134,7 +134,7 @@ public enum CaptureCondition: Sendable, Equatable {
         }
     }
 
-    /// Something the owner has to act on, as the Pendant pill counts it: not a link state (checking, out of reach, a
+    /// Something the owner has to act on, as the Pendant item counts it: not a link state (checking, out of reach, a
     /// pause or resume that did not take) and not one that keeps lifelog from the Pendant (those colour the pill).
     public var needsOwner: Bool {
         switch self {
