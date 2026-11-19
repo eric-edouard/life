@@ -23,7 +23,7 @@ const job = (
   id,
   pages: [[firstPage, firstPage + 1]],
   sourceId: "phone-1",
-  state: "transcribed",
+  state: "completed",
   ...over,
 });
 
@@ -102,17 +102,49 @@ test("a closed conversation counts only when its end reaches the call's end", ()
   expect(recordingsOf(before, FROM, TO)).toBeNull();
 });
 
-test("a withdrawn recording keeps the words pending until the phone sends that page again", () => {
+test("a withdrawn recording inside the call keeps the words pending until a recording holds its page again", () => {
   const s = store();
   put(s, {
     conversations: [conversation("c1", { closed: true, endAt: TO })],
-    jobs: [job("j1", 5)],
-    removed: [{ firstPage: 2, kind: "job", ref: "j0", sourceId: "phone-1" }],
-    turns: [turn("j1", 0, "2026-10-14T10:05:00.000Z")],
+    jobs: [job("j1", 1), job("j2", 5)],
+    removed: [{ firstPage: 3, kind: "job", ref: "j0", sourceId: "phone-1" }],
+    turns: [
+      turn("j1", 0, "2026-10-14T10:02:00.000Z"),
+      turn("j2", 0, "2026-10-14T10:05:00.000Z"),
+    ],
   });
   expect(recordingsOf(s, FROM, TO)).toBeNull();
-  put(s, { jobs: [job("j0b", 2)] });
-  expect(recordingsOf(s, FROM, TO)?.length).toBe(1);
+  // lifelog joins the re-sent pages into a recording that starts at another page.
+  put(s, { jobs: [{ ...job("j0b", 2), pages: [[2, 4]] }] });
+  expect(recordingsOf(s, FROM, TO)).toEqual([
+    { turn: "j1:0@2026-10-14T10:02:00.000Z", turns: 2 },
+  ]);
+});
+
+test("a hole long before the call never holds it back: a withdrawn page sent again or not, a recording stuck queued", () => {
+  const [from, to] = ["2026-10-15T10:00:00.000Z", "2026-10-15T10:10:00.000Z"];
+  const withdrawn = {
+    removed: [{ firstPage: 2, kind: "job", ref: "j0", sourceId: "phone-1" }],
+  };
+  for (const hole of [
+    { ...withdrawn, jobs: [{ ...job("j0b", 1), pages: [[1, 3]] }] },
+    { ...withdrawn, jobs: [] },
+    { jobs: [job("j0", 2, { state: "queued" })] },
+  ]) {
+    const s = store();
+    put(s, {
+      ...hole,
+      conversations: [conversation("c2", { closed: true, endAt: to })],
+      jobs: [...hole.jobs, job("j8", 30), job("j9", 40)],
+      turns: [
+        turn("j8", 0, "2026-10-15T08:00:00.000Z", "c2"),
+        turn("j9", 0, "2026-10-15T10:05:00.000Z", "c2"),
+      ],
+    });
+    expect(recordingsOf(s, from, to)).toEqual([
+      { turn: "j9:0@2026-10-15T10:05:00.000Z", turns: 1 },
+    ]);
+  }
 });
 
 test("one entry per conversation, each with its first turn and its count", () => {
@@ -148,9 +180,16 @@ test("a store made before the recordings' state and pages gains the columns and 
     put(upgraded, { jobs: [job("j1", 3)] });
     expect(
       upgraded.db
-        .query("select state, source_id, first_page from transcription_jobs")
+        .query(
+          "select state, source_id, first_page, last_page from transcription_jobs"
+        )
         .get()
-    ).toEqual({ first_page: 3, source_id: "phone-1", state: "transcribed" });
+    ).toEqual({
+      first_page: 3,
+      last_page: 4,
+      source_id: "phone-1",
+      state: "completed",
+    });
     upgraded.db.close();
   } finally {
     rmSync(dir, { force: true, recursive: true });

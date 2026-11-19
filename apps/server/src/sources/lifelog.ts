@@ -195,12 +195,13 @@ export const storeFiles = (dir = WATCH) => ({
   file: join(dir, "lifelog.sqlite"),
 });
 
-/** The columns added since the first stores (`openStore` adds the missing ones): `closed`, and what `lifelog-speech.ts` reads of a recording. */
+/** The columns added since the first stores: `openStore` adds the ones an older store lacks (`create table if not exists` adds none), and rows fill them as they come again. `closed`, and what `lifelog-speech.ts` reads of a recording. */
 const ADDED_COLUMNS = [
   ["conversations", "closed", "integer"],
   ["transcription_jobs", "state", "text"],
   ["transcription_jobs", "source_id", "text"],
   ["transcription_jobs", "first_page", "integer"],
+  ["transcription_jobs", "last_page", "integer"],
 ] as const;
 
 /** The store and the cursor beside it. The cursor belongs to its store: a new store starts from the beginning. */
@@ -233,10 +234,8 @@ export function openStore(dir = WATCH) {
       throw e;
     }
   }
-  // ponytail: an older store's `chapters` table is no longer written but kept, so an older Life.app rolled back still
-  // finds its chapters (without them it would see every conversation unsummarized and its sync would remove every
-  // chapter unit); drop it once no rollback past this is possible.
-  // The columns an older store lacks (`create table if not exists` adds none): rows fill them as they come again.
+  // ponytail: an older store's `chapters` table is kept unwritten, so a rolled-back Life.app still finds its chapters (else
+  // its sync would remove every chapter unit, all seen unsummarized); drop it once no rollback past this is possible.
   // ponytail: a one-time upgrade of older stores; delete it, and the drop above, once every install has run it.
   for (const [table, column, type] of ADDED_COLUMNS) {
     try {
@@ -363,10 +362,11 @@ const jobRowsOf = (page: Page) => [
     j.state ?? null,
     j.sourceId ?? null,
     j.pages?.[0]?.[0] ?? null,
+    j.pages?.at(-1)?.[1] ?? null,
   ]),
   ...page.removed.flatMap((r) =>
     r.kind === "job" && r.firstPage !== undefined
-      ? [[r.ref, 0, "withdrawn", r.sourceId ?? null, r.firstPage]]
+      ? [[r.ref, 0, "withdrawn", r.sourceId ?? null, r.firstPage, null]]
       : []
   ),
 ];
@@ -394,7 +394,7 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
   db.transaction(() => {
     for (const j of jobRowsOf(page)) {
       db.run(
-        "insert or replace into transcription_jobs (id, ended_on_silence, state, source_id, first_page) values (?, ?, ?, ?, ?)",
+        "insert or replace into transcription_jobs (id, ended_on_silence, state, source_id, first_page, last_page) values (?, ?, ?, ?, ?, ?)",
         j
       );
     }

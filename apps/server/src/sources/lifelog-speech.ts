@@ -55,10 +55,12 @@ interface InsideRow {
  * The words are in when, by lifelog's own signals (no timer of Life's): a turn of the same phone source starts at or
  * after `to`; or the last turn inside belongs to a recording that ended on silence and ended within
  * `RECORDING_ENDS_ON_SILENCE_AFTER` of `to`; or its conversation is closed and its end plus
- * `CONVERSATION_ENDS_AFTER` reaches `to`. In every case no recording of that source with earlier pages may be queued or
- * submitted, and a withdrawn recording stays pending until the phone's pages come back as another.
- * ponytail: a `failed` recording is terminal in lifelog, so its hole never fills: the words are then in with what there
- * is. A recording stuck queued holds back every later call of its source; its 12 hours of looking end it.
+ * `CONVERSATION_ENDS_AFTER` reaches `to`. In every case no recording of that source may be still to come between the
+ * call's and the one the words are read through (`isPendingBefore`).
+ * ponytail: only the last turn's phone source is judged when two record one call (rare). A `failed` recording is
+ * terminal in lifelog, so its hole never fills: the words are then in with what there is. A hole near the call that
+ * never fills (a recording stuck queued, a withdrawn page never sent again) holds that call back until its 12 hours of
+ * looking end (`CALLS_BACK`), never a later call.
  */
 export function recordingsOf(store: Store, from: string, to: string) {
   const { db } = store;
@@ -93,7 +95,13 @@ export function recordingsOf(store: Store, from: string, to: string) {
     (last.closed === 1 && closedBy >= stop);
   // The recording whose pages the words are read through: the later one, else the last inside.
   const through = after ?? (settled ? last : null);
-  if (!through || isPendingBefore(store, last.source_id, through.first_page)) {
+  if (
+    !through ||
+    isPendingBefore(store, last.source_id, from, [
+      inside.find((r) => r.source_id === last.source_id)?.first_page ?? null,
+      through.first_page,
+    ])
+  ) {
     return null;
   }
   return [...Map.groupBy(inside, (r) => r.conversation).values()].flatMap(
@@ -110,22 +118,36 @@ export function recordingsOf(store: Store, from: string, to: string) {
 }
 
 /**
- * Whether a recording of phone source `source` with pages before `page` is still to come: queued or submitted, or
- * withdrawn and not yet sent again (another recording starting at its first page). Nothing is known of a recording with
- * no pages (`page` null).
+ * Whether a recording of phone source `source` with pages before `page` is still to come. Only near the call: queued
+ * or submitted after the recording of the source's last turn before `from` (any, with no turn before), or
+ * withdrawn from the call's first recording on (`callFirst`, its first page) and held by no other recording yet (lifelog sends its pages again, often
+ * joined into a recording that starts at another page). A row stored before `last_page` holds only its first page.
+ * Nothing is known of a recording with no pages (`page` null).
  */
 function isPendingBefore(
-  store: Store,
+  { db }: Store,
   source: string | null,
-  page: number | null
+  from: string,
+  [callFirst, page]: [number | null, number | null]
 ) {
+  const before = db
+    .query<{ first_page: number }, [string | null, string]>(
+      `select j.first_page from turns t join transcription_jobs j on j.id = t.job_id
+        where j.source_id is ?1 and j.first_page is not null and t.start_at < ?2 order by t.start_at desc limit 1`
+    )
+    .get(source, from)?.first_page;
   return Boolean(
-    store.db
-      .query<{ n: number }, [string | null, number | null]>(
-        `select 1 as n from transcription_jobs w where w.source_id is ?1 and w.first_page < ?2 and (w.state in ('queued', 'submitted')
-          or (w.state = 'withdrawn' and not exists (select 1 from transcription_jobs a where a.source_id is ?1
-            and a.first_page = w.first_page and a.state <> 'withdrawn'))) limit 1`
+    db
+      .query<
+        { n: number },
+        [string | null, number | null, number, number | null]
+      >(
+        `select 1 as n from transcription_jobs w where w.source_id is ?1 and w.first_page < ?2 and (
+          (w.state in ('queued', 'submitted') and w.first_page > ?3)
+          or (w.state = 'withdrawn' and w.first_page >= ?4 and not exists (select 1 from transcription_jobs a
+            where a.source_id is ?1 and a.state is not 'withdrawn' and a.first_page <= w.first_page
+            and coalesce(a.last_page, a.first_page) >= w.first_page))) limit 1`
       )
-      .get(source, page)
+      .get(source, page, before ?? -1, callFirst)
   );
 }
