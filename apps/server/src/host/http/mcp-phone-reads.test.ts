@@ -209,6 +209,10 @@ const madeUpInbox: CheckInputs = {
           audio: { end: 4.5, jobId: "job-1", start: 1.2 },
           text: "It's the shop, about the watch.",
           until: "2026-10-14T08:00:04.000Z",
+          words: [
+            [0, 300, 4],
+            [350, 500, 4],
+          ],
         },
       ],
       conversations: 2,

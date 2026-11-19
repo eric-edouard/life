@@ -65,7 +65,7 @@
           "asker": "life",
           "at": null,
           "clips": [],
-          "context": "Life read their messages as Kit, the watchmaker (70% sure). Life uses its guess until you say.",
+          "context": "Life read their messages as Kit, the watchmaker (70% sure). null",
           "deadline": null,
           "draft": null,
           "evidence": {
@@ -139,7 +139,8 @@
             "start": 1.2
           },
           "text": "It's the shop, about the watch.",
-          "until": "2026-10-14T08:00:04.000Z"
+          "until": "2026-10-14T08:00:04.000Z",
+          "words": [[0, 300, 4], [350, 500, 4]]
         }
       ],
       "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.",
@@ -164,26 +165,26 @@
       "options": [
         {
           "id": "this-is",
-          "label": "It is this person",
+          "label": "Name them…",
           "takes": "person or name"
         },
         {
           "id": "not-anyone-i-know",
-          "label": "Not anyone I know",
+          "label": "A stranger",
           "takes": null
         },
         {
           "id": "media",
-          "label": "A video or TV playing",
+          "label": "TV or video",
           "takes": null
         },
         {
           "id": "not-relevant",
-          "label": "Not worth naming",
+          "label": "Don't care",
           "takes": null
         }
       ],
-      "question": "Who is this voice?",
+      "question": "Who is this?",
       "ref": "voice:v1",
       "ridesOn": {
         "matterIds": [],
@@ -204,7 +205,7 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "Life reads the name as no one until you say.",
+      "context": null,
       "deadline": null,
       "draft": null,
       "evidence": {
@@ -246,7 +247,7 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "It is the Contacts card Lou. Its name and handles fit more than one person: Life keeps them apart until you say.",
+      "context": "It is the Contacts card Lou. null",
       "deadline": null,
       "draft": null,
       "evidence": null,
@@ -269,7 +270,7 @@
       "options": [
         {
           "id": "same-person",
-          "label": "It is this person",
+          "label": "Choose who…",
           "takes": "person"
         }
       ],
@@ -349,7 +350,7 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "Life read their messages as Kit, the watchmaker (70% sure). Life uses its guess until you say.",
+      "context": "Life read their messages as Kit, the watchmaker (70% sure). null",
       "deadline": null,
       "draft": null,
       "evidence": {

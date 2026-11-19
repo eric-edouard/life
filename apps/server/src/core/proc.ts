@@ -4,7 +4,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { MIN } from "./clock";
-import { cliEnv } from "./platform";
+import { log } from "./log";
+import { cliEnv, HAS_LOGIN_SHELL } from "./platform";
 
 /**
  * Runs `cmd` to its end: its exit code, output, and the signal that killed it (SIGTERM after `timeout` ms), if any.
@@ -183,4 +184,39 @@ export async function untilAnswers<T>(
     await Bun.sleep(1000);
   }
   throw new Error(`${what} isn't answering`);
+}
+
+const LOGIN_MARK = "LIFE_LOGIN_ENV_MARK";
+const loginEnvs = new Map<string, Record<string, string>>();
+
+/**
+ * The environment of his login shell (his keys, his PATH), read by running it interactive and login: `env -0` between
+ * two markers, so a profile's own output never mixes in. Only an agent of his own Life is given it (`runtime-rows.ts`).
+ * A failure gives `{}` and is logged without a value, and is tried again next time. Values are never logged or stored.
+ * ponytail: read once per desk process, so a change to his shell profile takes effect at the desk's next start;
+ * upgrade path: read again when the profile's mtime changes.
+ */
+export async function readLoginEnv(shell = process.env.SHELL ?? "/bin/zsh") {
+  const known = loginEnvs.get(shell);
+  if (known || !HAS_LOGIN_SHELL) {
+    return known ?? {};
+  }
+  const r = await exec(
+    [shell, "-ilc", `printf ${LOGIN_MARK}; env -0; printf ${LOGIN_MARK}`],
+    { env: cliEnv(), timeout: 15_000 }
+  );
+  const [, body] = r.stdout.split(LOGIN_MARK);
+  if (r.code !== 0 || body === undefined) {
+    log("desk.runtime", { code: r.code, ok: false, what: "login-env" });
+    return {};
+  }
+  const env: Record<string, string> = {};
+  for (const entry of body.split("\0")) {
+    const eq = entry.indexOf("=");
+    if (eq > 0) {
+      env[entry.slice(0, eq)] = entry.slice(eq + 1);
+    }
+  }
+  loginEnvs.set(shell, env);
+  return env;
 }

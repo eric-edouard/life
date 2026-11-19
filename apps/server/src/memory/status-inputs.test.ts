@@ -106,9 +106,9 @@ const o = (id: string) =>
 const inputs = (frozenOnly: Set<string>) => ({
   corrections: [],
   frozenOnly,
-  latest: new Map(),
   live: new Set(["unit_1"]),
   retired: new Map(),
+  standing: new Map(),
 });
 
 test("relationships off: a Between us line and what only it cites show nowhere, and nothing is deleted", async () => {

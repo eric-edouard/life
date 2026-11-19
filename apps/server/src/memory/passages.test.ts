@@ -146,9 +146,9 @@ test("a metadata index rebuild cannot erase passages; word/date candidates use s
   );
   buildIndex([], index, {
     corrections: [],
-    latest: new Map(),
     live: new Set(),
     retired: new Map(),
+    standing: new Map(),
   });
   const found = readPassageCandidates("message 29", {}, false, path, true);
   expect(found.count).toBe(1);

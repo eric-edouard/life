@@ -2,7 +2,6 @@ import type { SourceName } from "../core/names";
 import type { SourceEvent } from "../records/source";
 import { firstNameOf } from "../records/truth";
 import type { Unit } from "../records/unit";
-import { LIFE_CHECKS } from "./life-checks";
 import { readIndex, readUnitsFor } from "./memory-files";
 import { OWNER } from "./read-truth";
 import { isDirect, kindOf, safely, sourceOf, tables } from "./sources";
@@ -73,19 +72,19 @@ const calledOf = (name: string) =>
 export const personQuestionOf = (names: string[]) =>
   `Is this ${names.map(calledOf).join(" or ")}?`;
 
-/** A guessed person's identity ask: "Is this Kit?", and its context, why Life thinks so in one sentence before its kind's. */
+/** A guessed person's identity ask: "Is this Kit?", and its context, why Life thinks so in one sentence. */
 export const guessAskOf = (p: {
   confidence: number;
   name: string;
   relation: string;
 }) => ({
-  context: `Life read their messages as ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure). ${LIFE_CHECKS["guessed person"].context}`,
+  context: `Life read their messages as ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure).`,
   question: personQuestionOf([p.name]),
 });
 
-/** A Contacts card's identity ask: "Is this Gran or Robin?", and its context: which card, then its kind's (whose name and handles fit more than one person: the why). */
+/** A Contacts card's identity ask: "Is this Gran or Robin?", and its context: which card. */
 export const cardAskOf = (card: string, people: { name: string }[]) => ({
-  context: `It is the Contacts card ${card}. ${LIFE_CHECKS["contacts card"].context}`,
+  context: `It is the Contacts card ${card}.`,
   question: personQuestionOf(people.map((p) => p.name)),
 });
 

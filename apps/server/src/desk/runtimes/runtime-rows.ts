@@ -6,17 +6,20 @@ import { log } from "../../core/log";
 import type { RuntimeName } from "../../core/names";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { cliEnv, HOME, isOwnLife, WINDOWS } from "../../core/platform";
-import { exec } from "../../core/proc";
+import { exec, readLoginEnv } from "../../core/proc";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import type { Agent } from "./contract";
 
 // The runtime rows: each runtime's own facts, the one place they live (`acp-runtime.ts` names no runtime). A row is its
-// pinned ACP adapter's command, env and session `_meta`, the config ids of its model and effort, the prefix its door's
-// tools carry, its link, its hand-off, and the small reader of its CLI's own record that tells whether a session of his
+// pinned ACP adapter's command, env and session `_meta`, the config ids of its model and effort, its no-ask mode, the
+// prefix its door's tools carry (a second Life's only), its link, its hand-off, and the small reader of its CLI's own record that tells whether a session of his
 // is running (ACP has no such signal). The adapters are pinned; the CLIs stay his (`CLAUDE_CODE_EXECUTABLE`, `CODEX_PATH`):
 // his apps open these sessions, so the same CLI writes them.
-// A second Life's agent (a demo, `isOwnLife` false) runs apart from his setup, since his connectors and files reach his
-// own Life: its door alone, none of his settings, rules, MCP servers or sessions, and never handed to his apps.
+// An agent of his own Life is held back by nothing (his decision of 19 Nov 2026): his settings, rules, skills and
+// connectors, his login shell's environment (`readLoginEnv`) less the runtime's own engine keys, the runtime's no-ask
+// mode, and every permission ask approved. A second Life's agent (a demo, `isOwnLife` false) runs apart from his setup,
+// since his connectors and files reach his own Life: its door alone, none of his settings, rules, MCP servers, sessions
+// or environment, and never handed to his apps.
 // ponytail: his own turn in the Claude or Codex app starts no process of the desk's: Claude's counts as running while a
 // process holds the session and the transcript's last turn is open, Codex's while the rollout's last turn is open and
 // was written in the last 10 minutes (`isOpenNow`), so a tool call silent for longer reads idle and the desk may send
@@ -30,8 +33,6 @@ export interface Row {
   block: () => Promise<string | undefined>;
   /** The ids of the session's model and effort options (`session/set_config_option`). */
   config: { effort: string; model: string };
-  /** What the title of a door tool's call starts with: the only tools the desk's client approves. */
-  doorPrefix: string;
   /** Opens a first turn's session in his app once no process holds it; none: the app lists it unasked. */
   handOff?: (a: Agent, ref: string) => Promise<void>;
   /** The door's `Authorization` value for `key`: Claude puts the key in its adapter's env and sends the literal `${LIFE_DESK_KEY}`, which it expands. */
@@ -40,10 +41,16 @@ export interface Row {
   link: (ref: string) => string;
   /** The session's `_meta` for `session/new` and `session/resume`. */
   meta?: Record<string, unknown>;
+  /** The runtime's no-ask mode, set after every `session/new` and `session/resume` (`session/set_config_option`, id `mode`); none: the session's own. */
+  mode?: string;
+  /** A second Life's row only: what the title of a door tool's call starts with, the only tools the desk's client approves. None: every ask is approved. */
+  onlyDoorPrefix?: string;
   /** Whether the session runs a turn of his now, from its CLI's own record, when the desk runs none. */
   readSessionState: (ref: string) => Promise<SessionState>;
   /** The adapter's command and env (besides `cliEnv`) for `a`'s turn. */
-  spawn: (a: Agent) => { command: string[]; env: Record<string, string> };
+  spawn: (
+    a: Agent
+  ) => Promise<{ command: string[]; env: Record<string, string> }>;
 }
 
 /**
@@ -187,13 +194,22 @@ async function handOff(a: Agent, ref: string) {
 }
 
 /**
- * A second Life's agent: none of his settings (hooks, plugins, permissions), no MCP server but the door, no built-in tool
+ * His login environment for an agent of his own Life, less `engine`'s keys: passed through, they would move the agent from
+ * his subscription to paid API billing.
+ */
+const loginEnvLess = async (engine: string[]) =>
+  Object.fromEntries(
+    Object.entries(await readLoginEnv()).filter(([k]) => !engine.includes(k))
+  );
+
+/**
+ * His own Life's agent: his settings, rules, skills and connectors as any session of his, in the no-ask mode. A second
+ * Life's agent: none of his settings (hooks, plugins, permissions), no MCP server but the door, no built-in tool
  * (no shell, no file), the door's tools allowed and the mode explicit; none of his CLAUDE.md or memory.
  */
 const claudeRow = (isOwn: boolean): Row => ({
   block: () => readCliBlock("claude"),
   config: { effort: "effort", model: "model" },
-  doorPrefix: "mcp__desk__",
   // ponytail: the Claude app's hand-off is the Mac's; a Windows link waits for a Windows install.
   handOff: isOwn && !WINDOWS ? handOff : undefined,
   // biome-ignore lint/suspicious/noTemplateCurlyInString: Claude expands it from the adapter's environment
@@ -212,6 +228,8 @@ const claudeRow = (isOwn: boolean): Row => ({
           },
         },
       },
+  mode: isOwn ? "bypassPermissions" : undefined,
+  onlyDoorPrefix: isOwn ? undefined : "mcp__desk__",
   async readSessionState(ref) {
     const lines = readTranscript(ref);
     if (
@@ -223,11 +241,18 @@ const claudeRow = (isOwn: boolean): Row => ({
     }
     return lines === undefined ? "gone" : "idle";
   },
-  spawn: (a) => {
+  spawn: async (a) => {
     const adapter = adapterOf("claude-agent-acp");
     return {
       command: adapter.command,
       env: {
+        ...(isOwn
+          ? await loginEnvLess([
+              "ANTHROPIC_API_KEY",
+              "ANTHROPIC_AUTH_TOKEN",
+              "ANTHROPIC_BASE_URL",
+            ])
+          : {}),
         ...adapter.env,
         CLAUDE_CODE_EXECUTABLE: readProgram("claude"),
         LIFE_DESK_KEY: a.door.key,
@@ -264,7 +289,7 @@ export const isRolloutTurnOpen = (lines: string[]) =>
     )?.payload?.type === "task_started";
 
 /**
- * A second Life's agent: Life's own Codex home (a login of its own, as Life's model engine; none of his AGENTS.md,
+ * His own Life's agent: his `~/.codex` and his shell's environment for the commands it runs. A second Life's agent: Life's own Codex home (a login of its own, as Life's model engine; none of his AGENTS.md,
  * config, MCP servers or sessions), no instruction file of its folder, no skill, web search or extra, no shell. The
  * adapter can't pass `--ignore-user-config` or `--ignore-rules`: that home's config and rules apply, and they are Life's.
  */
@@ -315,9 +340,9 @@ const codexRow = (isOwn: boolean): Row => {
   return {
     block: () => readCliBlock("codex"),
     config: { effort: "reasoning_effort", model: "model" },
-    doorPrefix: "mcp.desk.",
     header: (key) => `Bearer ${key}`,
     link: (ref) => `codex://threads/${ref}`,
+    onlyDoorPrefix: isOwn ? undefined : "mcp.desk.",
     readSessionState(ref) {
       const path = rolloutOf(ref);
       if (!path) {
@@ -325,22 +350,33 @@ const codexRow = (isOwn: boolean): Row => {
       }
       return Promise.resolve(isOpenNow(path) ? "running" : "idle");
     },
-    spawn: (a) => {
+    spawn: async (a) => {
       const adapter = adapterOf("codex-acp");
       // The model and effort also go in at spawn: switching them after the session starts costs a turn's tokens.
       const config = {
-        ...(isOwn ? {} : SECOND_LIFE_CODEX),
+        ...(isOwn
+          ? {
+              shell_environment_policy: {
+                ignore_default_excludes: true,
+                inherit: "all",
+              },
+            }
+          : SECOND_LIFE_CODEX),
         ...(a.model ? { model: a.model } : {}),
         ...(a.effort ? { model_reasoning_effort: a.effort } : {}),
       };
       return {
         command: adapter.command,
         env: {
+          ...(isOwn
+            ? await loginEnvLess(["CODEX_API_KEY", "OPENAI_API_KEY"])
+            : {}),
           ...adapter.env,
           CODEX_CONFIG: JSON.stringify(config),
           CODEX_PATH: readProgram("codex"),
-          // Door calls then arrive as permission requests, which Life's client answers (read-only cancels them).
-          INITIAL_AGENT_MODE: "workspace-write",
+          // His own Life's agent starts in full access (nothing asks); a second Life's in workspace-write, where door calls
+          // arrive as permission requests that Life's client answers (read-only cancels them).
+          INITIAL_AGENT_MODE: isOwn ? "agent-full-access" : "workspace-write",
           NO_BROWSER: "1",
           ...(isOwn ? {} : { CODEX_HOME }),
         },

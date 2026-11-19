@@ -1,4 +1,5 @@
-import { checksNow, inboxOf } from "../memory/checks";
+import { inboxOf } from "../memory/check-urgency";
+import { checksNow } from "../memory/checks";
 import { heldByAgents, readDesk } from "./desk-read";
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):

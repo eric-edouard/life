@@ -172,17 +172,15 @@ test("a decision's guess beside it gets its identity too; a check none was found
   expect(shown.confirm[0]?.networkIdentity).toEqual(identity);
 });
 
-test("a guess says why in one sentence before its kind's context; a card names itself", () => {
+test("a guess says why in one sentence in one sentence; a card names itself", () => {
   expect(
     guessAskOf({ confidence: 0.7, name: "Kit Moreau", relation: "the plumber" })
   ).toEqual({
-    context:
-      "Life read their messages as Kit Moreau, the plumber (70% sure). Life uses its guess until you say.",
+    context: "Life read their messages as Kit Moreau, the plumber (70% sure).",
     question: "Is this Kit?",
   });
   expect(cardAskOf("Lou", [{ name: "Gran" }, { name: "Robin Vale" }])).toEqual({
-    context:
-      "It is the Contacts card Lou. Its name and handles fit more than one person: Life keeps them apart until you say.",
+    context: "It is the Contacts card Lou.",
     question: "Is this Gran or Robin?",
   });
 });
@@ -239,9 +237,9 @@ test("read from the index, the unit files and one span of the source: a card's h
       INDEX,
       {
         corrections: [],
-        latest: new Map(),
         live: new Set(),
         retired: new Map(),
+        standing: new Map(),
       },
       [{ unit: direct }, { unit: group }]
     );

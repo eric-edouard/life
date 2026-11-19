@@ -179,6 +179,8 @@ export const NamingQueueItem = z.object({
         .nullable(),
       text: z.string(),
       until: z.string().nullable(),
+      /** `TimedWords`: each word's [start, end] in ms from the clip's start and its length in `text`, with the spacing before it. */
+      words: z.array(z.array(z.number())),
     })
   ),
   conversations: z.number(),
