@@ -94,8 +94,8 @@ final class LifeStore {
 
     func refreshInbox() async {
         await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
-        // The badge is every open card.
-        if let total = inbox.value?.total { setBadge(total) }
+        // The badge is the cards that block him.
+        if let badge = inbox.value?.badge { setBadge(badge) }
     }
     func refreshMatters() async {
         await load({ self.matters.apply($0) }, key: Self.mattersKey) { try await $0.readMatters() }

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
+import { urgencyOf } from "./check-urgency";
 import {
   type Check,
   type CheckInputs,
@@ -11,7 +12,6 @@ import {
   checksOf,
   checksOnMatterOf,
   pushIdOf,
-  whereAskedOf,
 } from "./checks";
 import { checksText } from "./checks-text";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
@@ -364,7 +364,7 @@ const voice = (id: string, over: Partial<NamingQueueItem> = {}) =>
     ...over,
   }) satisfies NamingQueueItem;
 
-test("every voice in lifelog's queue is a check in to confirm, with its clips and the people it may be", () => {
+test("every voice in lifelog's queue is a check in the inbox, with its clips and the people it may be", () => {
   const items = Array.from({ length: 60 }, (_, i) => voice(`v${i}`));
   items[0] = voice("v0", { kind: "known_person", personId: DANA_ID });
   items[1] = voice("v1", { name: "Kofi" });
@@ -389,6 +389,10 @@ test("every voice in lifelog's queue is a check in to confirm, with its clips an
     start: 1,
   });
   expect(byRef("voice:v2")?.evidence?.quote).toBe("See you Friday");
+  // Lifelog ranks likely people for every voice: only its suggestion ("Is this voice Dana?") makes a guess in use.
+  expect(
+    cards.filter((c) => urgencyOf(c) === "improves").map((c) => c.ref)
+  ).toEqual(["voice:v0"]);
 });
 
 const HEX16 = /^[0-9a-f]{16}$/;
@@ -680,14 +684,6 @@ test("a matter whose direction looks over, or is not checked against what happen
   // The draft said it looks over (`directionsOf` leaves no next step).
   const { nextStep: _gone, ...over } = matter;
   expect(offered(over)).toBe(0);
-});
-
-test("each kind of check is asked in one place", () => {
-  expect(
-    (["decision", "ending", "new matter", "person", "voice"] as const).map(
-      (kind) => whereAskedOf({ kind })
-    )
-  ).toEqual(["inbox", "to confirm", "matter", "to confirm", "to confirm"]);
 });
 
 test("a decision whose draft goes to a guessed person carries that guess; a matter finds the checks riding on it", () => {

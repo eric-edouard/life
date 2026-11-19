@@ -180,7 +180,8 @@
           "confirm": []
         }
       ],
-      "pushId": "a23260946067d0fe"
+      "pushId": "a23260946067d0fe",
+      "urgency": "blocks"
     },
     {
       "about": [],
@@ -228,7 +229,8 @@
         "name": "Mend Gran's watch"
       },
       "confirm": [],
-      "pushId": "c84c34823f7fa7b0"
+      "pushId": "c84c34823f7fa7b0",
+      "urgency": "improves"
     }
   ]
 }
