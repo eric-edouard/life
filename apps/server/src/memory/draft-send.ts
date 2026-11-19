@@ -2,6 +2,7 @@ import { realpath, stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { digest } from "../core/hash";
+import { redact } from "../core/redact";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
 import { directOf } from "./closeness";
@@ -11,7 +12,9 @@ import {
   type MessageDraft,
   type StoredDraft,
 } from "./draft";
+import { OWNER } from "./read-truth";
 import { enabledSources } from "./sources";
+import { oneLineOf } from "./units";
 import { readPeople } from "./who";
 
 // A card's draft, sent (AGENTS.md, "Life sends only…"): which chat a draft names and what of it the chat takes, checked
@@ -278,10 +281,20 @@ async function readySend(
     // ponytail: the archive's copy can trail the network by its copier's interval, so a message written seconds ago may be missed.
     const wrote = s
       .read(since)
-      .some((e) => e.chat === draft.chat && e.at > since.toISOString());
+      .filter((e) => e.chat === draft.chat && e.at > since.toISOString())
+      .at(-1);
     if (wrote) {
-      throw new Error(
-        `not sent: someone wrote in ${draft.to} since this card was asked`
+      throw Object.assign(
+        new Error(
+          `not sent: someone wrote in ${draft.to} since this card was asked`
+        ),
+        {
+          wrote: {
+            at: wrote.at,
+            by: wrote.fromMe ? (await readPeople()).nameOf(OWNER) : draft.to,
+            text: oneLineOf(redact(wrote.text), 120),
+          },
+        }
       );
     }
     onStep?.(STEP.chatChecked);

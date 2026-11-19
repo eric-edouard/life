@@ -395,6 +395,14 @@ test("a message in the chat since the card (theirs or his own) sends nothing; on
   }
   expect(sent).toEqual([]);
   expect(steps).toEqual([]);
+  // The refusal carries the message it found, for the card.
+  const refusal = await sendDraft(stored, "t3", opts, [
+    net([at("2026-11-18T09:05:00.000Z")]),
+  ]).catch((e) => e);
+  expect(refusal.wrote).toMatchObject({
+    at: "2026-11-18T09:05:00.000Z",
+    by: "Test Ana",
+  });
   expect(
     await sendDraft(stored, "t2", opts, [net([at("2026-11-18T08:59:00.000Z")])])
   ).toBe("$ev");

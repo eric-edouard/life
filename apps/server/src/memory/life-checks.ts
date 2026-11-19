@@ -120,6 +120,8 @@ export interface Check {
   }[];
   /** The guess about who a decision's draft goes to, when Life only guesses who that is: asked beside it, answered on its own; none for every other check. */
   confirm: Check[];
+  /** A Contacts card's own name and handles, from the one `ContactNow`; null for every other kind. Never a network identity (a card has no chat). */
+  contactsCard?: { handles: string[]; name: string } | null;
   /** Why it asks, what was tried, what it rests on: folded on his card. An agent's words, or Life's own for its guesses. */
   context: string | null;
   /** By when he answers; null: no deadline. */
@@ -139,7 +141,13 @@ export interface Check {
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done); null: none. */
   matter: { id: string; name: string } | null;
   /** A decision whose draft his last answer did not send (nothing went): when, why, and whether the same tap could work again; null: none. */
-  notSent: { at: string; canRetry: boolean; reason: string } | null;
+  notSent: {
+    at: string;
+    canRetry: boolean;
+    reason: string;
+    /** The message that refused the send ("someone wrote since"): when, by whom, its words; null for any other refusal. */
+    wrote: { at: string; by: string; text: string } | null;
+  } | null;
   /** Every open matter it rides on, by name and id (`ridesOn.matterIds`). */
   onMatters: { id: string; name: string }[];
   /** The option the agent takes when he does not answer; null: none is taken (Life keeps using its guess, never writing it). */
