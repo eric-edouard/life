@@ -19,6 +19,8 @@ final class PlaybackStore {
     /// Where the player is in the file, in seconds, about 10 times a second while it plays; the split stays when paused.
     private(set) var position: Double = 0
 
+    /// Where a seek begins: the player reports its time before the seek lands, and the position never shows less.
+    @ObservationIgnored private var seekStart: Double = 0
     @ObservationIgnored private let sync: SyncStore?
     @ObservationIgnored private let library: LibraryStore?
     @ObservationIgnored private let player = PlaybackStore.makePlayer()
@@ -45,7 +47,7 @@ final class PlaybackStore {
         observers.append(
             player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 10), queue: .main) {
                 [weak self] time in
-                MainActor.assumeIsolated { if time.isNumeric { self?.position = time.seconds } }
+                MainActor.assumeIsolated { if let self, time.isNumeric { position = max(time.seconds, seekStart) } }
             })
     }
 
@@ -65,6 +67,7 @@ final class PlaybackStore {
         player.replaceCurrentItem(with: item)
         playingID = id
         position = start
+        seekStart = start
         if start > 0 { player.seek(to: CMTime(seconds: start, preferredTimescale: 600)) }
         player.play()
         clipEnd?.cancel()
@@ -84,6 +87,7 @@ final class PlaybackStore {
         player.replaceCurrentItem(with: nil)
         playingID = nil
         position = 0
+        seekStart = 0
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 

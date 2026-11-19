@@ -20,11 +20,15 @@ private let words: [[Int64]] = [[0, 300, 3], [400, 600, 3], [700, 800, 3], [900,
     #expect(words.spokenIndex(at: 0) == 0)
     #expect(words.spokenIndex(at: 650) == 1)
     #expect(words.spokenIndex(at: 9_999) == 3)
-    #expect(words.spoken(at: 650, in: text) == NSRange(location: 4, length: 2))
 }
 
-@Test func wordsThatDontFitTheTextAreNone() {
+@Test func wordsThatDontCoverTheTextAreNone() {
     #expect(words.ranges(in: "Say hi") == nil)
+    #expect(words.ranges(in: "Say hi to Kit, then") == nil)
+    #expect(words.dropLast().ranges(in: text) == nil)
     #expect([[0, 100]].ranges(in: "Say") == nil)
-    #expect(words.spoken(at: 0, in: "Say hi") == nil)
+}
+
+@Test func aNegativeLengthIsRefused() {
+    #expect([[0, 300, 5], [400, 600, -2]].ranges(in: "Say") == nil)
 }

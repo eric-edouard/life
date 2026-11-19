@@ -21,6 +21,23 @@ struct SpokenWords: View {
     let end: Double
     var style = Style.box
 
+    /// Each word as shown (with the space after it), made once: `body` runs about 10 times a second while it plays.
+    private let pieces: [String]?
+
+    init(text: String, words: [[Int64]]?, job: UUID, start: Double, end: Double, style: Style = .box) {
+        self.text = text
+        self.words = words
+        self.job = job
+        self.start = start
+        self.end = end
+        self.style = style
+        pieces = words?.ranges(in: text).map { ranges in
+            ranges.enumerated().map { index, range in
+                (text as NSString).substring(with: range) + (index < ranges.count - 1 ? " " : "")
+            }
+        }
+    }
+
     @Environment(PlaybackStore.self) private var playback
     @State private var isFetching = false
     /// The audio could not be had: the Play shows it, and a tap tries again.
@@ -43,17 +60,18 @@ struct SpokenWords: View {
     }
 
     @ViewBuilder private var spoken: some View {
-        if let ranges = words?.ranges(in: text), let words, !ranges.isEmpty {
-            // Resting, ended and without a word begun yet are all-`fg` or all-`muted` by the one rule below.
-            let said = isPlaying ? words.spokenIndex(at: Int64((playback.position - start) * 1000)) ?? -1 : .max
+        if let pieces, let words, !pieces.isEmpty {
+            let spokenIndex = words.spokenIndex(at: Int64((playback.position - start) * 1000))
+            // Resting and ended, every word is lit; playing, the words begun.
+            let isLit = { (index: Int) in !isPlaying || (spokenIndex.map { index <= $0 } ?? false) }
             FlowLayout {
                 // A word's position is its identity: the text is fixed for the view's life.
-                ForEach(Array(ranges.enumerated()), id: \.offset) { index, range in
-                    Text((text as NSString).substring(with: range) + (index < ranges.count - 1 ? " " : ""))
+                ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
+                    Text(piece)
                         .lineLimit(1)
                         .minimumScaleFactor(0.3)
-                        .foregroundStyle(index <= said ? Palette.fg : Palette.muted)
-                        .motion(.easeOut(duration: 0.12), value: index <= said)
+                        .foregroundStyle(isLit(index) ? Palette.fg : Palette.muted)
+                        .motion(.easeOut(duration: 0.12), value: isLit(index))
                         .contentShape(.rect)
                         .onTapGesture { begin(at: Double(words[index][0]) / 1000) }
                 }
