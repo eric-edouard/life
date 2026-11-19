@@ -89,7 +89,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   the writer's next line fills it. Nor does one on a line never rewritten, where lacking it is true (a card asked
   before Life could send has no resolved chat, and sends nothing).
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
-  correction, and his answer to a check with the check as it was shown (its text and source; the later step's words are not stored), written just before it: `recordFactCheckAnswer`), `told-life.jsonl` (what he told Life, one synchronous append: `recordToldLife`), `decisions.jsonl`'s lines (one synchronous append), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive, the watcher and the desk each hold a
+  correction, and his answer to a check with the check as it was shown (its text and source; the later step's words are not stored), written just before it: `recordFactCheckAnswer`), `told-life.jsonl` (what he told Life, one synchronous append: `recordToldLife`), `decisions.jsonl`'s lines (one synchronous append), `files.jsonl`'s lines (one synchronous append; one line per ref and prompt version), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive, the watcher and the desk each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`); the desk never takes the memory lock.
 - **The export copies in `imports/<source>/` are never rewritten, merged or deleted without his yes.** They are the only
   copy of his assistant history besides the backup (a conversation he deleted in the app survives only there); a newer
@@ -267,8 +267,8 @@ Before adding a helper, use the one that exists:
 | A duration, an instant as the ledgers write it | `MIN`, `HOUR`, `DAY`, `iso` (`apps/server/src/core/clock.ts`) |
 | A capability's types | its `contract.ts` (`sources/`, `todo-list/`, `payments/`): implementations import it, its registry imports them, never back |
 | A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/memory/sources.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
-| Units for a memory step | `gather` (`units.ts`), once per processing run |
-| Today's units, before its night | the watcher: `syncLifelogUnits` for voice, `buildTodayUnits` every 5 min for the rest, no model call; read raw, no episodes or facts until the night rewrites the day (his decision, 11 Nov 2026: no midday runs) |
+| Units for a memory step | `gather` (`gather.ts`), once per processing run |
+| Today's units, before its night | the watcher: `syncLifelogUnits` for voice, `publishTodayUnits` over `gather` every 5 min for the rest; a file of today's messages is described once on arrival (`describeFilesOnArrival`, the only model call, at most `FILES_ON_ARRIVAL_A_DAY`); no episodes or facts until the night rewrites the day (his decision, 11 Nov 2026: no midday runs) |
 | An activity day's unit (device-day, measurement-day) | `activityDay` over its text (`memory/activity-days.ts`) |
 | A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/message-files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |

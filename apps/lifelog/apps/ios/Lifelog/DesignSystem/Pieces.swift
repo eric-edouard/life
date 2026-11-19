@@ -350,12 +350,19 @@ enum RowState: Equatable {
 /// `RowMenu`, a `RowSwitch`, a `StateMark`, a `RowButton`). The state sets the second line and the spinner.
 struct Row<Trailing: View>: View {
     let title: String
+    /// An SF Symbol in line style, in a 28 slot before the title.
+    var icon: String?
+    var iconTint = Palette.icon
     var detail: String?
     var state = RowState.known
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
         HStack(spacing: 12) {
+            if let icon {
+                Image(systemName: icon).font(.system(size: 22, weight: .regular)).foregroundStyle(iconTint)
+                    .frame(width: 28).accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.rowName).foregroundStyle(Palette.fg)
                 line
@@ -391,8 +398,11 @@ struct Row<Trailing: View>: View {
 }
 
 extension Row where Trailing == EmptyView {
-    init(title: String, detail: String? = nil, state: RowState = .known) {
-        self.init(title: title, detail: detail, state: state) {}
+    init(
+        title: String, icon: String? = nil, iconTint: Color = Palette.icon, detail: String? = nil,
+        state: RowState = .known
+    ) {
+        self.init(title: title, icon: icon, iconTint: iconTint, detail: detail, state: state) {}
     }
 }
 

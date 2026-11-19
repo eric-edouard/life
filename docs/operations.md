@@ -136,9 +136,10 @@ subscription per run. `LIFE_DEMO_RUNTIME=codex bun run e2e:demo` runs the same s
   matters prompt bump the readers see no matter until the re-group runs: run `--since` from the first day straight after
   the install that carries it, before the night. And
   `bun life memory matters list` prints each matter with its areas, projects, steps and newest day.
-- **Today** is no tick's: the watcher builds today's units from every source every 5 minutes, with no model call
-  (`buildTodayUnits`): search finds a message by its words within 5 minutes and by its meaning within 10 more (the
-  embed timer). A file sent today stays a tag, and today has no episodes, facts or Past calendar events, until the
+- **Today** is no tick's: the watcher builds today's units from every source every 5 minutes
+  (`gather`); its one model call describes today's new files (`message-file-description`, at most 100 a day, never
+  awaited by the tick): search finds a message by its words within 5 minutes and by its meaning within 10 more (the
+  embed timer). A file over the limit, failed, or landed after its day stays a tag until the night, and today has no episodes, facts or Past calendar events, until the
   night reads the day (his decision, 11 Nov 2026: the midday runs read each day three times for about 11% of the
   tokens). A source that fails keeps its units and is retried 5 minutes later (`watch.today` in the log).
 - **A day read again** (the night): only its new units go in full, those with no verdict on their current
@@ -164,7 +165,7 @@ subscription per run. `LIFE_DEMO_RUNTIME=codex bun run e2e:demo` runs the same s
   whole night: non-zero exit, nothing committed, a failure email after the 3rd try. A source not turned on, or one that can't be read now (`missing`), is skipped and
   logged, never a failure (`readySources`); one turned on keeps its units in the days rewritten and those days' episodes
   wait for it, shown as "can't read". The report's Actions section and the files step (`describeFiles`: a failed call
-  leaves its files as tags until the next run) never fail the night.
+  leaves its files as tags until the next night) never fail the night.
 
 ## Historical collection
 

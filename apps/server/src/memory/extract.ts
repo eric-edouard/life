@@ -14,6 +14,7 @@ import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
 import { isActivity } from "../sources/contract";
 import type { LifelogConversation } from "../sources/lifelog";
 import { contextPeopleBy, levelsWith, personallyClose } from "./closeness";
+import type { Evidence } from "./gather";
 import {
   EXTRACTED,
   episodesNow,
@@ -37,13 +38,7 @@ import { othersIn } from "./read-truth";
 import { begin, inBatches, readsOf } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup } from "./tags";
-import {
-  type Built,
-  type Evidence,
-  linesHashOf,
-  MARKED,
-  UNKNOWN,
-} from "./units";
+import { type Built, linesHashOf, MARKED, UNKNOWN } from "./units";
 import {
   episodeNow,
   namedIn,
@@ -336,8 +331,9 @@ export function priorFor(
  * of this prompt covers its first `n` lines exactly (its hash is `linesHashOf(b, n)`), none was said read wrong since,
  * and the unit has more lines now. Else 0: read whole, as an edited message, a voice or a reading before `lines` was
  * written is.
- * ponytail: a file described after its message was read changes an earlier line, so that unit is read whole once;
- * continue it by file ref (a ref on `Message`, a hash of its own) if the day passes (PR 4b) make that common.
+ * ponytail: a file described after its message was first read changes an earlier line, so that unit is read whole once
+ * (one described on arrival, before the first read, continues); continue it by file ref (a ref on `Message`, a hash of
+ * its own) if the day passes (PR 4b) make that common.
  */
 export function continuedFrom(
   b: Built,

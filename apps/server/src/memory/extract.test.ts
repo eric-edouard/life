@@ -412,6 +412,16 @@ test("a chat read at 4 messages and grown to 7 is continued from 4; an edited ea
   ).toBe(7);
 });
 
+test("a file described before its unit's first read lets it be continued; one described after makes it read whole once", () => {
+  const tag = "[photo IMG.HEIC, not on this Mac]";
+  const done = "[photo IMG.HEIC, described by Life: a beach]";
+  const stood = (photo: string) => chat(U1, ["a", photo, "c"]);
+  const grown = (photo: string) => chat(U1, ["a", photo, "c", "d"]);
+  const standing = (b: Built) => standingReadings([read(b)]);
+  expect(continuedFrom(grown(done), standing(stood(done)), none)).toBe(3);
+  expect(continuedFrom(grown(done), standing(stood(tag)), none)).toBe(0);
+});
+
 test("a unit whose earlier line changed is read whole and its unchanged sibling in the same run is continued", () => {
   const stood = [chat(U1, ["a", "b", "c"]), chat(U2, ["x", "y", "z"])];
   const grown = [
