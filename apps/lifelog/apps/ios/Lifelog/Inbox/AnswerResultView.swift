@@ -13,7 +13,8 @@ struct Taken: Equatable {
     var key: LifeStore.ActionKey { .answer(ref: check.ref) }
     /// A new matter whose goal he changed is still waiting for Start or Dismiss.
     var staysOpen: Bool { check.group == .newMatter && request.options == ["edit-goal"] }
-    var isSend: Bool { check.draft != nil }
+    /// He picked the option that sends the draft; another answer on a draft's card sends nothing.
+    var isSend: Bool { check.options.contains { $0.outgoing == true && request.options.contains($0.id) } }
     var isStart: Bool { check.group == .newMatter && request.options == ["start"] }
     var context: ActionCopy.Context {
         .init(
@@ -73,10 +74,10 @@ struct AnswerResultView: View {
 
     @ViewBuilder private func done(_ proof: ActionProof) -> some View {
         header
-        Text(taken.isSend ? "Sent." : doneWord).font(.statusWord).foregroundStyle(Palette.fg).lit().padding(.top, 12)
-        Text(summary(proof)).font(.lead).foregroundStyle(Palette.muted)
+        Text(taken.doneWord).font(.statusWord).foregroundStyle(Palette.fg).lit().padding(.top, 12)
+        Text(taken.summary(proof)).font(.lead).foregroundStyle(Palette.muted)
         CheckLines(lines: lines).padding(.top, 8)
-        if let changed = counts(proof) {
+        if let changed = taken.counts(proof) {
             Text(changed).font(.body15).foregroundStyle(Palette.muted)
         }
         if let next {
@@ -87,72 +88,14 @@ struct AnswerResultView: View {
 
     @ViewBuilder private func failed(_ failure: ActionFailure) -> some View {
         header
-        Text(failedWord(failure)).font(.statusWord).foregroundStyle(Palette.flag).padding(.top, 12)
-        Text(failedLine(failure)).font(.lead).foregroundStyle(Palette.muted)
+        Text(taken.failedWord(failure)).font(.statusWord).foregroundStyle(Palette.flag).padding(.top, 12)
+        Text(taken.failedLine(failure, state)).font(.lead).foregroundStyle(Palette.muted)
         // Life's own reason: on the step it stopped at, else on its own (it stopped before Life's plan).
         CheckLines(
             lines: lines.contains { $0.mark == .failed }
                 ? lines : lines + [CheckLine(id: "reason", text: failure.reason, mark: .failed)]
         )
         .padding(.top, 8)
-    }
-
-    private var doneWord: String {
-        switch taken.check.group {
-        case .voice: "Named."
-        case .ending: "Noted."
-        case .contactsCard: "Saved."
-        case .newMatter:
-            taken.request.options == ["edit-goal"]
-                ? "Goal saved." : taken.request.options == ["dismiss"] ? "Dismissed." : "Started."
-        case .name, .guessedPerson: "Saved."
-        case .decision, .unknown: "Answered."
-        }
-    }
-
-    private func summary(_ proof: ActionProof) -> String {
-        guard case .answered(let result) = proof else { return "" }
-        if let send = result.send {
-            let to = [taken.check.draft?.to, send.channel.map(ActionCopy.channel)].compactMap(\.self)
-            let when = send.at.map { ", at \($0.formatted(.dateTime.hour().minute()))" } ?? ""
-            return "To \(to.joined(separator: " on "))\(when)."
-        }
-        if taken.check.group == .newMatter {
-            return taken.request.options == ["start"]
-                ? "An agent works toward the goal."
-                : taken.request.options == ["edit-goal"]
-                    ? "The goal is yours now. Start or Dismiss is still waiting." : "Never asked again for this matter."
-        }
-        if taken.request.options.isEmpty { return "Your words went to \(taken.context.asker ?? "the asker")." }
-        let label = taken.check.options.first { taken.request.options.contains($0.id) }?.label
-        return label.map { "\($0)." } ?? "Your answer is recorded."
-    }
-
-    private func counts(_ proof: ActionProof) -> String? {
-        guard case .answered(let result) = proof, let changed = result.changed else { return nil }
-        if let name = changed.recordedAs { return "Recorded as \(name)" }
-        let parts = [
-            changed.voices.map { "\($0) clip\($0 == 1 ? "" : "s")" },
-            changed.conversations.map { "\($0) conversation\($0 == 1 ? "" : "s")" },
-        ].compactMap(\.self)
-        return parts.isEmpty ? nil : parts.joined(separator: " and ") + " now carry the name"
-    }
-
-    /// Only what Life said: a call that never gave its answer may have run, so it claims nothing.
-    private func failedWord(_ failure: ActionFailure) -> String {
-        if failure.mayHaveHappened { return taken.isSend ? "May have gone." : "Check first." }
-        if failure.isSameTap { return "No answer from Life." }
-        if taken.isStart { return "Not started." }
-        return taken.isSend ? "Not sent." : "Not saved."
-    }
-
-    private func failedLine(_ failure: ActionFailure) -> String {
-        if failure.mayHaveHappened { return "Check before answering again. It stays here." }
-        if failure.isSameTap { return "Life may have it: trying again repeats the same tap. It stays here." }
-        if taken.isStart, state.steps.contains(where: { $0.id == "goal_saved" && $0.passedAt != nil }) {
-            return "Your goal is saved. It stays here."
-        }
-        return "It stays here."
     }
 }
 
@@ -200,5 +143,77 @@ struct ResultButtons: View {
                 .font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
             }
         }
+    }
+}
+
+/// What a card's answer came to, in words: the result screen and the notification it was answered from say the same.
+extension Taken {
+    /// Its word and line once `state` ended (for a notification, which shows one of each).
+    func result(_ state: ActionState<ActionProof>) -> (word: String, line: String) {
+        switch state {
+        case .succeeded(let proof, _): (doneWord, summary(proof))
+        case .failed(let failure, _): (failedWord(failure), failedLine(failure, state))
+        case .running: ("Check first.", "It stays here.")
+        case .idle: ("Not saved.", "It stays here.")
+        }
+    }
+
+    var doneWord: String {
+        if isSend { return "Sent." }
+        return switch check.group {
+        case .voice: "Named."
+        case .ending: "Noted."
+        case .contactsCard: "Saved."
+        case .newMatter:
+            request.options == ["edit-goal"]
+                ? "Goal saved." : request.options == ["dismiss"] ? "Dismissed." : "Started."
+        case .name, .guessedPerson: "Saved."
+        case .decision, .unknown: "Answered."
+        }
+    }
+
+    func summary(_ proof: ActionProof) -> String {
+        guard case .answered(let result) = proof else { return "" }
+        if let send = result.send {
+            let to = [check.draft?.to, send.channel.map(ActionCopy.channel)].compactMap(\.self)
+            let when = send.at.map { ", at \($0.formatted(.dateTime.hour().minute()))" } ?? ""
+            return "To \(to.joined(separator: " on "))\(when)."
+        }
+        if check.group == .newMatter {
+            return request.options == ["start"]
+                ? "An agent works toward the goal."
+                : request.options == ["edit-goal"]
+                    ? "The goal is yours now. Start or Dismiss is still waiting." : "Never asked again for this matter."
+        }
+        if request.options.isEmpty { return "Your words went to \(context.asker ?? "the asker")." }
+        let label = check.options.first { request.options.contains($0.id) }?.label
+        return label.map { "\($0)." } ?? "Your answer is recorded."
+    }
+
+    func counts(_ proof: ActionProof) -> String? {
+        guard case .answered(let result) = proof, let changed = result.changed else { return nil }
+        if let name = changed.recordedAs { return "Recorded as \(name)" }
+        let parts = [
+            changed.voices.map { "\($0) clip\($0 == 1 ? "" : "s")" },
+            changed.conversations.map { "\($0) conversation\($0 == 1 ? "" : "s")" },
+        ].compactMap(\.self)
+        return parts.isEmpty ? nil : parts.joined(separator: " and ") + " now carry the name"
+    }
+
+    /// Only what Life said: a call that never gave its answer may have run, so it claims nothing.
+    func failedWord(_ failure: ActionFailure) -> String {
+        if failure.mayHaveHappened { return isSend ? "May have gone." : "Check first." }
+        if failure.isSameTap { return "No answer from Life." }
+        if isStart { return "Not started." }
+        return isSend ? "Not sent." : "Not saved."
+    }
+
+    func failedLine(_ failure: ActionFailure, _ state: ActionState<ActionProof>) -> String {
+        if failure.mayHaveHappened { return "Check before answering again. It stays here." }
+        if failure.isSameTap { return "Life may have it: trying again repeats the same tap. It stays here." }
+        if isStart, state.steps.contains(where: { $0.id == "goal_saved" && $0.passedAt != nil }) {
+            return "Your goal is saved. It stays here."
+        }
+        return "It stays here."
     }
 }
