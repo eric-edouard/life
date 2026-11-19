@@ -151,7 +151,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_area_page(name)",
     "read_chats(before,chat,from,to,who)",
     "read_day(date)",
-    "read_inbox(limit)",
+    "read_inbox(limit,pushId)",
     "read_life_status()",
     "read_matter(id)",
     "read_matters(area,person,project)",
@@ -569,6 +569,46 @@ test("read_inbox: every open ask; counts by group, those that block, those due b
       deadlinesToday: 1,
       total: 3,
     });
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+test("read_inbox with a pushId: that one card or none, the whole inbox's counts; a malformed id is refused", async () => {
+  const checks = await import("../../memory/checks");
+  const card = (ref: string, group: string) => ({
+    deadline: null,
+    group,
+    pushId: checks.pushIdOf(ref, "0".repeat(64)),
+    ref,
+  });
+  const list = [card("a", "decision"), card("b", "guessed person")];
+  const spy = spyOn(checks, "checksNow").mockResolvedValue(list as never);
+  const read = async (arguments_: object) =>
+    (
+      await rpc(await token(), "tools/call", {
+        arguments: arguments_,
+        name: "read_inbox",
+      })
+    ).json.result;
+  try {
+    const one = JSON.parse(
+      (await read({ limit: 1, pushId: list[1]?.pushId })).content[0].text
+    );
+    expect(one).toEqual({
+      blocking: 1,
+      checks: [list[1]],
+      counts: { decision: 1, "guessed person": 1 },
+      deadlinesToday: 0,
+      total: 2,
+    });
+    const none = JSON.parse(
+      (await read({ pushId: "f".repeat(16) })).content[0].text
+    );
+    expect(none.checks).toEqual([]);
+    expect(none.counts).toEqual(one.counts);
+    expect(none.total).toBe(2);
+    expect((await read({ pushId: "nope" })).isError).toBe(true);
   } finally {
     spy.mockRestore();
   }
