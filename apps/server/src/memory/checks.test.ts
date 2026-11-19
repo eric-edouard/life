@@ -413,6 +413,14 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
     id: "matter_000000000007",
     lone: false,
     name: "Boiler service",
+    newestOpenStep: {
+      at: "2026-11-17T02:00:00Z",
+      day: "2026-11-17",
+      kind: "todo" as const,
+      quote: "call the plumber",
+      ref: "unit_000000000072",
+      text: "call the plumber",
+    },
     nextStep: {
       at: "2026-11-17T02:00:00Z",
       by: "life" as const,
@@ -491,6 +499,18 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
     none({ matters: [{ ...matter, lone: true }] }),
     none({ matters: [{ ...matter, open: false, status: "done" as const }] }),
     none({ matters: [{ ...matter, status: "dormant" as const }] }),
+    // stale-1-finished-matter-offered: nothing left to do (a repair done), though it runs and has a `do` next step.
+    none({ matters: [{ ...matter, newestOpenStep: undefined }] }),
+    // stale-3-plan-past-its-event: its newest open step's date has passed, so it is stuck.
+    none({
+      matters: [
+        {
+          ...matter,
+          newestOpenStep: { ...matter.newestOpenStep, when: "2026-11-17" },
+          status: "stuck" as const,
+        },
+      ],
+    }),
     // An open decision on one of its steps: its next step is his decision.
     none({
       decisions: [
