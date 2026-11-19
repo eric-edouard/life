@@ -11,6 +11,8 @@ import SwiftUI
 struct CardArrangement<Region: View, Bar: View>: View {
     let check: Check
     let runtimeName: RuntimeName?
+    /// False when the card is the whole pane (the Inbox): its why stays inside the card, its matter behind the pill.
+    var hasContext = true
     /// What follows an answer; nil while the card is still open.
     let bar: Bar?
     @ViewBuilder let region: Region
@@ -19,7 +21,7 @@ struct CardArrangement<Region: View, Bar: View>: View {
 
     var body: some View {
         if #available(iOS 27.1, *) {
-            let isBeside = sizeClass == .regular
+            let isBeside = sizeClass == .regular && hasContext
             let row = bar.map(rowOf)
             GeometryReader { arrangement in
                 ArrangementView {

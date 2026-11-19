@@ -18,6 +18,8 @@ struct CardView: View {
     @Binding var current: String?
     @Binding var notes: CardNotes
     var notice: String?
+    /// Whether the ask has a context region of its own beside or below it (a matter's stack does; the Inbox does not).
+    var hasContext = true
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
 
@@ -28,7 +30,7 @@ struct CardView: View {
 
     var body: some View {
         CardArrangement(
-            check: check, runtimeName: runtimeName(of: check),
+            check: check, runtimeName: runtimeName(of: check), hasContext: hasContext,
             bar: notes.taken.map { taken in
                 ResultButtons(
                     taken: taken, state: life.state(of: taken.key), next: question(after: taken),
@@ -92,28 +94,9 @@ struct CardView: View {
                 .scrollPosition(id: $current, anchor: .leading)
                 .scrollTargetBehavior(.paging)
                 .scrollIndicators(.hidden)
-                // A pager made after his tap's result starts on the first ask: put it on the one he is on.
-                .task { if let current { await settle(proxy, on: current) } }
-                // A fold or a rotation changes the page's width: stay on the ask he is on, not at the old offset.
-                .onChange(of: box.size.width) {
-                    if let at = current ?? checks.first?.ref { Task { await settle(proxy, on: at) } }
-                }
-                // The one-card read gives way to the whole inbox: stay on the card he is on, not the first page. Only from
-                // a pager of one page, where no swipe of his can be under way.
-                .onChange(of: checks.map(\.id)) { before, ids in
-                    if before.count == 1, let current, ids.contains(current) {
-                        Task { await settle(proxy, on: current) }
-                    }
-                }
             }
         }
         .clipped()
-    }
-
-    /// Scrolls to an ask once the lazy stack has laid its pages out: a jump made in the same pass lands short.
-    private func settle(_ proxy: ScrollViewProxy, on ref: String) async {
-        try? await Task.sleep(for: .milliseconds(50))
-        proxy.scrollTo(ref, anchor: .leading)
     }
 
     private func input(_ ref: String) -> Binding<CardInput> {

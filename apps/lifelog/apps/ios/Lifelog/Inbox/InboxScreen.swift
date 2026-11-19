@@ -16,6 +16,8 @@ struct InboxScreen: View {
     @State private var current: String?
     @State private var notice: String?
     @State private var visibility = NavigationSplitViewVisibility.all
+    /// The widths of the split view and of the ask's column: the list is beside the ask only when the ask has less.
+    @State private var widths = (whole: CGFloat.zero, ask: CGFloat.zero)
 
     var body: some View {
         @Bindable var router = router
@@ -27,7 +29,9 @@ struct InboxScreen: View {
                 router.inboxColumn = .detail
             }
             .background(Palette.bg)
-            .shellBar("Inbox")
+            .navigationSplitViewColumnWidth(min: 280, ideal: 455, max: 455)
+            // The Pendant and Settings are the ask column's, never the list's header.
+            .shellBar(widths.ask < widths.whole - 1 ? "Inbox" : "", hasSettings: false, hasPendant: false)
         } detail: {
             ReadScreen(
                 shown: shown, retry: { await life.retryInbox() },
@@ -36,9 +40,19 @@ struct InboxScreen: View {
             )
             .background(Palette.bg)
             // Nothing above the question: no title; the gear and the Pendant are the list's when it is beside.
-            .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
+            .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.ask = $0 }
+            .shellBar("")
+            .navigationBarBackButtonHidden()
+            .toolbar {
+                if sizeClass != .regular {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Asks", systemImage: "sidebar.left") { router.inboxColumn = .sidebar }
+                    }
+                }
+            }
         }
         .navigationSplitViewStyle(.balanced)
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
         .onChange(of: life.openedCard, initial: true) { _, opening in
             guard let opening else { return }
             current = opening.check?.ref
@@ -69,7 +83,9 @@ struct InboxScreen: View {
     /// as it was until the next ask.
     @ViewBuilder private func card(_ order: InboxOrder) -> some View {
         if let check = notes.taken?.check ?? order.check(on: current) {
-            CardView(check: check, checks: order.checks, current: $current, notes: $notes, notice: notice) {
+            CardView(
+                check: check, checks: order.checks, current: $current, notes: $notes, notice: notice, hasContext: false
+            ) {
                 taken, keep in
                 life.forget(taken.key)
                 notice = nil
