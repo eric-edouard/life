@@ -8,7 +8,7 @@
     /// Life without a Mac, for the simulator: made-up inbox, matters and agents, and an API that answers as Life would,
     /// slowly, or not at all, so every state of every screen can be put on screen and photographed.
     ///
-    /// `-fixtureLife <scenario>` turns it on: `ok`, `loading`, `empty`, `improves` (only what can wait), `stale`, `unreachable`, `failed`, `notPaired`.
+    /// `-fixtureLife <scenario>` turns it on: `ok`, `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (a tapped push's one-card read takes 5 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent` decides what a tap on a draft does; `-fixtureStart started|starting|failed`
     /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`
     /// open the screen to show. `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).

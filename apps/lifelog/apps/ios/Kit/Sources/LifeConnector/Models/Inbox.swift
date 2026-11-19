@@ -20,16 +20,6 @@ public struct InboxOpening: Sendable, Equatable {
 }
 
 extension Inbox {
-    /// This inbox with a card read alone (`read_inbox` by `pushId`) in front, until the whole inbox is read.
-    public func adding(_ card: Check) -> Inbox {
-        guard !checks.contains(where: { $0.ref == card.ref }) else { return self }
-        var counts = counts
-        counts[card.group.rawValue, default: 0] += 1
-        return Inbox(
-            checks: [card] + checks, counts: counts, total: total + 1, deadlinesToday: deadlinesToday,
-            blocking: blocking.map { $0 + (card.urgency == .improves ? 0 : 1) })
-    }
-
     public func opening(pushId: String) -> InboxOpening {
         guard let check = checks.first(where: { $0.pushId == pushId }) else {
             return InboxOpening(check: checks.first, wasAnswered: true)

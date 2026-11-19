@@ -32,7 +32,17 @@ struct InboxScreen: View {
     /// The inbox read as shown, except that his tap's result stays up whatever the read did since: the inbox emptied
     /// (his answer was the last card) or its read failed. Only a new pairing, which clears the inbox, takes it away.
     private var shown: ReadState<Inbox>.Shown {
-        if let push = life.pushRead { return push.phase == .loaded ? .loading : push.shown() }
+        if let push = life.pushRead?.state {
+            let one = push.shown(isEmpty: { $0.checks.isEmpty })
+            guard case .empty = one else { return one }
+            // The push's card is gone: wait for the whole inbox, or show why it did not come.
+            switch life.inbox.phase {
+            case .failed(let reason): return .failed(reason)
+            case .unreachable: return .unreachable
+            case .notPaired: return .notPaired
+            case .idle, .loading, .loaded: return .loading
+            }
+        }
         guard notes.taken != nil, let inbox = life.inbox.value else {
             return life.inbox.shown(isEmpty: { $0.checks.isEmpty })
         }
@@ -57,7 +67,7 @@ struct InboxScreen: View {
 
     /// What blocks, the boundary, what improves: `Inbox.pages`, the one rule for the pager, the card on show and where
     /// an answer leads.
-    private var pages: [InboxPage] { life.inbox.value?.pages(deferred: deferred) ?? [] }
+    private var pages: [InboxPage] { (life.pushRead?.state.value ?? life.inbox.value)?.pages(deferred: deferred) ?? [] }
 }
 
 /// Nothing waits.

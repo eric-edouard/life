@@ -30,8 +30,7 @@ final class LifeStore {
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
     /// A tapped push's own read, from the tap until its card is on show: the Inbox draws it, never the old cards.
-    private(set) var pushRead: ReadState<Inbox>?
-    private var pushId: String?
+    private(set) var pushRead: PushRead?
 
     /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] in await self?.answer($0) }
@@ -117,6 +116,11 @@ final class LifeStore {
         let before = inbox.loadedAt
         let asked = now()
         await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
+        // A whole read ends the tapped push's own: the opening runs as the inbox says (`wasAnswered` when it is gone).
+        if inbox.loadedAt != before, let push = pushRead {
+            openedCard = inbox.value?.opening(pushId: push.id)
+            pushRead = nil
+        }
         // The badge is the cards that block him.
         if let badge = inbox.value?.badge { setBadge(badge) }
         // Only a whole read made just now says what is no longer open: not a cached, failed, cancelled or cut-off one.
@@ -330,35 +334,19 @@ final class LifeStore {
         _ = await (a, b)
     }
 
-    /// A tapped push: that one card is read alone and opened at once, then the whole inbox is read. A card that already
-    /// left (answered elsewhere) opens the first one waiting, marked `wasAnswered`, once the whole inbox says so. Until
-    /// then (or if a read fails) the Inbox shows `pushRead`'s loading or failure, never the cards it had.
+    /// A tapped push: that one card is read alone and shown at once (`pushRead`), then the whole inbox is read, which
+    /// ends `pushRead` and opens the card (`refreshInbox`). A failed one-card read stays shown, with Try again.
     func open(pushId: String) async {
-        self.pushId = pushId
         openedCard = nil
-        pushRead = ReadState()
-        await load({ self.pushRead?.apply($0) }, key: nil) { try await $0.readInbox(pushId: pushId) }
-        guard let one = pushRead, one.phase == .loaded, let found = one.value else { return }
-        if let card = found.checks.first {
-            inbox.apply(.succeeded(inbox.value?.adding(card) ?? found, now()))
-            (openedCard, pushRead) = (found.opening(pushId: pushId), nil)
-            await refreshInbox()
-            return
-        }
+        pushRead = PushRead(id: pushId)
+        await load({ self.pushRead.apply($0, id: pushId) }, key: nil) { try await $0.readInbox(pushId: pushId) }
+        guard pushRead?.id == pushId, pushRead?.state.phase == .loaded else { return }
         await refreshInbox()
-        if inbox.phase == .loaded {
-            (openedCard, pushRead) = (inbox.value?.opening(pushId: pushId), nil)
-        } else {
-            // A fresh state, so the failure shows alone, never beside a value.
-            pushRead = ReadState()
-            pushRead?.apply(
-                inbox.phase == .unreachable ? .failed(.unreachable) : .failed(.failed("Life's inbox was not read.")))
-        }
     }
 
     /// Reads again what the Inbox shows: the tapped push's card while that is what it waits on, else the inbox.
     func retryInbox() async {
-        if pushRead != nil, let pushId { await open(pushId: pushId) } else { await refreshInbox() }
+        if let push = pushRead { await open(pushId: push.id) } else { await refreshInbox() }
     }
 
     // MARK: Pairing
@@ -381,7 +369,9 @@ final class LifeStore {
     #if DEBUG
         /// Development only (`-fixtureCard`): opens the card with that ref as a tapped push does.
         func open(ref: String) async {
-            await open(pushId: "push_\(ref)")
+            await refreshInbox()
+            guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return }
+            await open(pushId: pushId)
         }
 
         /// Development only: launch with `LIFE_ORIGIN` and `LIFE_PAIRING_CODE` in the environment (for example
