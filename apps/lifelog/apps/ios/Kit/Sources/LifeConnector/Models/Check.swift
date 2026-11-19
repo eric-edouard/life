@@ -46,6 +46,26 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let until: Date?
         public let text: String
         public let audio: Audio?
+        /// Its words with their times in seconds of the job's audio (`audio.start` is the clip's start), to light them while it plays.
+        public let words: [Word]
+
+        public struct Word: Decodable, Sendable, Equatable {
+            public let text: String
+            public let spacing: String
+            public let start: Double
+            public let end: Double
+        }
+
+        private enum CodingKeys: String, CodingKey { case at, until, text, audio, words }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            at = try c.decodeIfPresent(Date.self, forKey: .at)
+            until = try c.decodeIfPresent(Date.self, forKey: .until)
+            text = try c.decode(String.self, forKey: .text)
+            audio = try c.decodeIfPresent(Audio.self, forKey: .audio)
+            words = try c.decodeIfPresent([Word].self, forKey: .words) ?? []
+        }
     }
 
     public struct Person: Decodable, Sendable, Equatable {

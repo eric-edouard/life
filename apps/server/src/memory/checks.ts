@@ -9,6 +9,7 @@ import {
   type NamingQueueItem,
   namingQueueGuessesOf,
   readNamingQueue,
+  withWords,
 } from "../sources/lifelog-voices";
 import {
   blockingCountOf,
@@ -54,6 +55,7 @@ import {
   ZONES,
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
+import { namedOptionsOf } from "./option-labels";
 import { sourceOf } from "./sources";
 import { nameKey } from "./units";
 import {
@@ -91,6 +93,8 @@ export interface Check {
     audio: { end: number; jobId: string; start: number } | null;
     text: string;
     until: string | null;
+    /** Its words with their times in seconds of the job's audio (`audio.start` is the clip's start), for lighting them while it plays; none when it has no audio. */
+    words: { end: number; spacing: string; start: number; text: string }[];
   }[];
   /** The guess about who a decision's draft goes to, when Life only guesses who that is: asked beside it, answered on its own; none for every other check. */
   confirm: Check[];
@@ -598,7 +602,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             about: item.name ? [item.name] : [],
             asker: LIFE_ASKER,
             at: null,
-            clips: item.clips,
+            clips: item.clips.map(withWords),
             context: `${LIFE_CHECKS.voice.context} Heard in ${item.conversations} conversations, ${item.words} words.`,
             deadline: null,
             draft: null,
@@ -616,12 +620,10 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             notSent: null,
             onSilence: null,
             options: [...LIFE_CHECKS.voice.options],
-            question: who
-              ? `Is this voice ${who}?`
-              : `Who is this voice?${item.name ? ` It was called "${item.name}".` : ""}`,
+            question: "Who is this?",
             ref: `voice:${item.id}`,
             ridesOn: { ...ridingOf(), observations: 0, pages: 0 },
-            // The person lifelog suggests ("Is this voice X?"), what makes it a guess in use; null: none (`urgencyOf`).
+            // The person lifelog suggests, what makes it a guess in use; null: none (`urgencyOf`).
             subject: who ? known : null,
             title: LIFE_CHECKS.voice.title,
           },
@@ -652,7 +654,11 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
     )
     .map(({ check }) => {
       const m = matterOf([check.subject ?? check.ref]);
-      return { ...check, matter: m ? { id: m.id, name: m.name } : null };
+      return {
+        ...check,
+        matter: m ? { id: m.id, name: m.name } : null,
+        options: namedOptionsOf(check),
+      };
     });
   const guessed = new Map(
     found

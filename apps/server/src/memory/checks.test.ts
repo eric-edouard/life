@@ -117,10 +117,10 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
   });
   expect(check?.question).toStartWith("Life thinks this is ");
   expect(check?.question).toContain("the plumber");
-  // Life's guess is its recommendation, listed first; on silence nothing is taken; its kind gives the title and context.
+  // Life's guess is its recommendation, listed first; on silence nothing is taken; its kind gives the title.
   expect(check).toMatchObject({
     asker: "life",
-    context: "Life uses its guess until you say.",
+    context: null,
     draft: null,
     onSilence: null,
     title: "Know who someone is",
@@ -344,6 +344,11 @@ const voice = (id: string, over: Partial<NamingQueueItem> = {}) =>
         audio: { end: 4, jobId: "job-1", start: 1 },
         text: "See you Friday",
         until: null,
+        words: [
+          [0, 400, 3],
+          [500, 700, 4],
+          [800, 1400, 7],
+        ],
       },
     ],
     conversations: 3,
@@ -374,12 +379,10 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   ).filter((c) => c.group === "voice");
   expect(cards).toHaveLength(60);
   const byRef = (r: string) => cards.find((c) => c.ref === r);
-  expect(byRef("voice:v0")?.question).toBe("Is this voice Dana?");
-  expect(byRef("voice:v1")?.question).toBe(
-    'Who is this voice? It was called "Kofi".'
-  );
+  expect(byRef("voice:v0")?.question).toBe("Who is this?");
+  expect(byRef("voice:v1")?.question).toBe("Who is this?");
   expect(byRef("voice:v1")?.about).toEqual(["Kofi"]);
-  expect(byRef("voice:v2")?.question).toBe("Who is this voice?");
+  expect(byRef("voice:v2")?.question).toBe("Who is this?");
   expect(byRef("voice:v2")?.likelyPeople).toEqual([
     { name: "Dana", person: "person:dana" },
   ]);
@@ -388,8 +391,25 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
     jobId: "job-1",
     start: 1,
   });
+  expect(byRef("voice:v2")?.clips[0]?.words).toEqual([
+    { end: 1.4, spacing: "", start: 1, text: "See" },
+    { end: 1.7, spacing: " ", start: 1.5, text: "you" },
+    { end: 2.4, spacing: " ", start: 1.8, text: "Friday" },
+  ]);
+  // The button names whom it proposes; with no one to name it keeps its words.
+  expect(byRef("voice:v2")?.options.map((o) => o.label)).toEqual([
+    "Dana",
+    "A stranger",
+    "TV or video",
+    "Don't care",
+  ]);
+  const alone = (over: Partial<NamingQueueItem>) =>
+    checksOf(inputs([], { voices: [voice("a", { likely: [], ...over })] }))[0]
+      ?.options[0]?.label;
+  expect(alone({ name: "Kofi" })).toBe("Kofi");
+  expect(alone({})).toBe("Name them…");
   expect(byRef("voice:v2")?.evidence?.quote).toBe("See you Friday");
-  // Lifelog ranks likely people for every voice: only its suggestion ("Is this voice Dana?") makes a guess in use.
+  // Lifelog ranks likely people for every voice: only its suggestion makes a guess in use.
   expect(
     cards.filter((c) => urgencyOf(c) === "improves").map((c) => c.ref)
   ).toEqual(["voice:v0"]);

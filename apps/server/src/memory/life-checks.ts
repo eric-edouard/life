@@ -28,8 +28,7 @@ export interface CheckOption {
 /** Each kind of Life's guesses: what it is trying to do (its title), why it asks (its context), and what he can answer, its guess first (`answerCheck` writes it). */
 export const LIFE_CHECKS = {
   "contacts card": {
-    context:
-      "Its name and handles fit more than one person: Life keeps them apart until you say.",
+    context: null,
     options: [
       { id: "same-person", label: "It is this person", takes: "person" },
     ],
@@ -44,7 +43,7 @@ export const LIFE_CHECKS = {
     title: "Close what is done",
   },
   "guessed person": {
-    context: "Life uses its guess until you say.",
+    context: null,
     options: [
       { id: "this-is", label: "It is them", takes: null },
       { id: "not-this-person", label: "Not them", takes: null },
@@ -57,7 +56,7 @@ export const LIFE_CHECKS = {
     title: "Know who someone is",
   },
   name: {
-    context: "Life reads the name as no one until you say.",
+    context: null,
     options: [{ id: "this-is", label: "It is this person", takes: "person" }],
     title: "Place a name",
   },
@@ -79,13 +78,13 @@ export const LIFE_CHECKS = {
         label: "It is this person",
         takes: "person or name",
       },
-      { id: "not-anyone-i-know", label: "Not anyone I know", takes: null },
-      { id: "media", label: "A video or TV playing", takes: null },
-      { id: "not-relevant", label: "Not worth naming", takes: null },
+      { id: "not-anyone-i-know", label: "A stranger", takes: null },
+      { id: "media", label: "TV or video", takes: null },
+      { id: "not-relevant", label: "Don't care", takes: null },
     ],
     title: "Name a voice",
   },
 } as const satisfies Record<
   Exclude<CheckGroup, "decision">,
-  { context: string; options: CheckOption[]; title: string }
+  { context: string | null; options: CheckOption[]; title: string }
 >;

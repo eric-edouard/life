@@ -179,6 +179,8 @@ export const NamingQueueItem = z.object({
         .nullable(),
       text: z.string(),
       until: z.string().nullable(),
+      /** Each word as lifelog times it: [start, end] in ms from the clip's start, and its length in `text` (with its spacing, but the first's). */
+      words: z.array(z.tuple([z.number(), z.number(), z.number()])),
     })
   ),
   conversations: z.number(),
@@ -227,6 +229,37 @@ export async function readNamingQueue() {
   }
   return lastQueue;
 }
+
+const LEADING_SPACE = /^\s*/;
+
+/**
+ * A clip's words with their times in seconds of its job's audio (`audio.start` is the clip's start there), cut from its
+ * text by the lengths lifelog gives. None for a clip with no audio to play.
+ */
+function clipWordsOf(clip: NamingQueueItem["clips"][number]) {
+  const base = clip.audio?.start;
+  const secondsOf = (ms: number) => Math.round((base ?? 0) * 1000 + ms) / 1000;
+  let at = 0;
+  return base === undefined
+    ? []
+    : clip.words.map(([start, end, length]) => {
+        const piece = clip.text.slice(at, at + length);
+        at += length;
+        const spacing = LEADING_SPACE.exec(piece)?.[0] ?? "";
+        return {
+          end: secondsOf(end),
+          spacing,
+          start: secondsOf(start),
+          text: piece.slice(spacing.length),
+        };
+      });
+}
+
+/** A clip as a check shows it: its words with their times (`clipWordsOf`) in place of lifelog's raw ones. */
+export const withWords = (clip: NamingQueueItem["clips"][number]) => ({
+  ...clip,
+  words: clipWordsOf(clip),
+});
 
 /** The lifelog people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */
 export const namingQueueGuessesOf = (item: NamingQueueItem) => [

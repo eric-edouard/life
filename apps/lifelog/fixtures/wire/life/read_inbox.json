@@ -65,7 +65,7 @@
           "asker": "life",
           "at": null,
           "clips": [],
-          "context": "Life uses its guess until you say.",
+          "context": null,
           "deadline": null,
           "draft": null,
           "evidence": {
@@ -126,7 +126,21 @@
             "start": 1.2
           },
           "text": "It's the shop, about the watch.",
-          "until": "2026-10-14T08:00:04.000Z"
+          "until": "2026-10-14T08:00:04.000Z",
+          "words": [
+            {
+              "end": 1.5,
+              "spacing": "",
+              "start": 1.2,
+              "text": "It's"
+            },
+            {
+              "end": 1.7,
+              "spacing": " ",
+              "start": 1.55,
+              "text": "the"
+            }
+          ]
         }
       ],
       "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.",
@@ -151,26 +165,26 @@
       "options": [
         {
           "id": "this-is",
-          "label": "It is this person",
+          "label": "Gran",
           "takes": "person or name"
         },
         {
           "id": "not-anyone-i-know",
-          "label": "Not anyone I know",
+          "label": "A stranger",
           "takes": null
         },
         {
           "id": "media",
-          "label": "A video or TV playing",
+          "label": "TV or video",
           "takes": null
         },
         {
           "id": "not-relevant",
-          "label": "Not worth naming",
+          "label": "Don't care",
           "takes": null
         }
       ],
-      "question": "Who is this voice?",
+      "question": "Who is this?",
       "ref": "voice:v1",
       "ridesOn": {
         "matterIds": [],
@@ -190,7 +204,7 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "Life reads the name as no one until you say.",
+      "context": null,
       "deadline": null,
       "draft": null,
       "evidence": {
@@ -207,7 +221,7 @@
       "options": [
         {
           "id": "this-is",
-          "label": "It is this person",
+          "label": "It is Sam",
           "takes": "person"
         }
       ],
@@ -231,7 +245,7 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "Its name and handles fit more than one person: Life keeps them apart until you say.",
+      "context": null,
       "deadline": null,
       "draft": null,
       "evidence": null,
@@ -254,7 +268,7 @@
       "options": [
         {
           "id": "same-person",
-          "label": "It is this person",
+          "label": "It is Gran",
           "takes": "person"
         }
       ],
@@ -332,7 +346,7 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "Life uses its guess until you say.",
+      "context": null,
       "deadline": null,
       "draft": null,
       "evidence": {

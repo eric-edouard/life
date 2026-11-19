@@ -39,6 +39,11 @@ final class PlaybackStore {
 
     /// Plays `file` from `start` seconds, and for `length` seconds when given (a clip is a span of its job's audio).
     func play(_ file: URL, from start: Double = 0, for length: Double? = nil) {
+        // `.playback` plays through the ring/silent switch, which mutes the default `.soloAmbient`; nothing else of the
+        // app plays or records through the session (the Pendant's capture is Bluetooth, not AVAudioSession).
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .spokenAudio)
+        try? session.setActive(true)
         let item = AVPlayerItem(url: file)
         player.replaceCurrentItem(with: item)
         if start > 0 { player.seek(to: CMTime(seconds: start, preferredTimescale: 600)) }
@@ -56,6 +61,7 @@ final class PlaybackStore {
         clipEnd?.cancel()
         player.pause()
         player.replaceCurrentItem(with: nil)
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     /// Speaker, AirPlay or headphones: whether the Pendant hears it.
