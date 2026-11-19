@@ -13,7 +13,11 @@ import type { StoredDraft } from "../memory/draft";
 import { isLocked } from "../memory/memory-lock";
 import { dayNow } from "../memory/zones";
 import { WATCH } from "../sources/lifelog";
-import { notifyPhone, type PushLevel } from "../sources/lifelog-push";
+import {
+  notifyPhone,
+  type Push,
+  type PushLevel,
+} from "../sources/lifelog-push";
 import { openChecksNow } from "./inbox";
 
 // A push for each new card in his inbox, of every kind, the only push of cards (his answers of 19 Nov 2026): the words
@@ -117,23 +121,22 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
   if (fresh.length === 0 && badge !== before.badge) {
     await notifyPhone({ badge });
   }
-  for (const c of alone) {
-    await notifyPhone({
-      badge,
-      body: "1 new card",
-      level: c.level,
-      pushId: c.pushId,
-      title: "Life",
-    });
-  }
+  const pushes: Push[] = alone.map((c) => ({
+    body: "1 new card",
+    level: c.level,
+    pushId: c.pushId,
+  }));
   if (rest.length > 0) {
-    await notifyPhone({
-      badge,
+    pushes.push({
       body: count(rest.length, "more new card"),
       level: loudest(rest.map((c) => c.level)),
-      title: "Life",
     });
   }
+  // One at a time, in his inbox's order: the phone shows them as they come.
+  await pushes.reduce(
+    (sent, p) => sent.then(() => notifyPhone({ badge, title: "Life", ...p })),
+    Promise.resolve()
+  );
 }
 
 /** Pushes what is new in his inbox; the badge counts what blocks him (`blockingCountOf`). */
