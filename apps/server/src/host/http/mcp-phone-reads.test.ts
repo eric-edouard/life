@@ -33,13 +33,13 @@ const matter = {
   lone: false,
   open: true,
   owedTo: [],
+  projects: [] as string[],
   status: "moving" as const,
   waitingOn: [],
   with: [],
 };
 /** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
 const madeUpInbox: CheckInputs = {
-  anchored: new Set(["obs_000000000005"]),
   answered: new Set(),
   decisions: [
     {
@@ -81,6 +81,7 @@ const madeUpInbox: CheckInputs = {
   endings: new Map([
     ["obs_000000000005", { later: "ep_000000000001", quote: "Called them." }],
   ]),
+  heldByAgents: { projects: new Set(), steps: new Set(["obs_000000000005"]) },
   isDirectionDue: () => false,
   kept: new Set(lines.map((l) => l.id)),
   lines,

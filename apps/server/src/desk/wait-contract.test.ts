@@ -6,8 +6,8 @@ import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { take } from "../core/lock";
 import {
   agentOf,
-  anchoredSteps,
   flagsOf,
+  heldByAgents,
   holderOf,
   openTurn,
 } from "../host/desk-read";
@@ -532,8 +532,8 @@ test("a runtime that cannot start ends a new agent, not started, and frees its m
     why_not_started: "cannot start",
   });
   expect(holderOf(desk.db, ["obs_00000000b002"])).toBeNull();
-  // Not anchored for the inbox either: the new matter card comes back for another Start.
-  expect(anchoredSteps(desk.db)).not.toContain("obs_00000000b002");
+  // Not held for the inbox either: the new matter card comes back for another Start.
+  expect(heldByAgents(desk.db).steps).not.toContain("obs_00000000b002");
   expect(turns(id)).toEqual([{ cause: "deadline", outcome: "failed" }]);
 });
 
@@ -622,7 +622,7 @@ test("a first turn not begun within its runtime's limit ends its agent not start
   });
   expect(fake.stopped).toEqual([ref]);
   expect(holderOf(desk.db, ["obs_00000000b010"])).toBeNull();
-  expect(anchoredSteps(desk.db)).not.toContain("obs_00000000b010");
+  expect(heldByAgents(desk.db).steps).not.toContain("obs_00000000b010");
   // An agent that had begun before: its turn that never begins fails and is retried; it stays active.
   advance(HOUR);
   await wakeDue(desk);
@@ -637,17 +637,17 @@ test("an agent that finished in its own words, even 'not started: …', keeps it
   const id = await started(desk, "obs_00000000b011");
   await finish(desk, id, "not started: the client never replied");
   expect(agentOf(desk.db, id)?.why_not_started).toBeNull();
-  expect(anchoredSteps(desk.db)).toContain("obs_00000000b011");
+  expect(heldByAgents(desk.db).steps).toContain("obs_00000000b011");
 });
 
-test("the inbox's anchored steps read live agents and those ended within the new matter window only", async () => {
+test("the inbox's held steps read live agents and those ended within the new matter window only", async () => {
   const { desk } = setup();
   const id = await started(desk, "obs_00000000b012");
   await finish(desk, id, "done");
   advance(6 * DAY);
-  expect(anchoredSteps(desk.db)).toContain("obs_00000000b012");
+  expect(heldByAgents(desk.db).steps).toContain("obs_00000000b012");
   advance(2 * DAY);
-  expect(anchoredSteps(desk.db)).not.toContain("obs_00000000b012");
+  expect(heldByAgents(desk.db).steps).not.toContain("obs_00000000b012");
 });
 
 test("an agent that finished while another's wake was launching gets no turn: each is read again as its turn is written", async () => {

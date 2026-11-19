@@ -156,17 +156,32 @@ export const projectHolderOf = (
     .get(project, brief ?? null)?.id ?? null;
 
 /**
- * Every step an agent is anchored on now (`re_point` drops an agent's old anchors), but one never started (its matter is
- * free for a new start): of every live agent, and of those ended in the last `NEW_MATTER_DAYS` (one ended before holds no
- * matter a new matter check offers: its matter began before it did).
+ * What registered agents hold now: the steps they are anchored on (`re_point` drops an agent's old anchors) and the
+ * projects they work on, but not those of an agent never started (its matter is free for a new start). One rule for both:
+ * every live agent holds, a stopped one still holds its project as it holds its steps, and one ended in the last
+ * `NEW_MATTER_DAYS` does too (one ended before holds no matter a new matter check offers: its matter began before it did).
  */
-export const anchoredSteps = (db: Database) =>
-  db
-    .query<{ step: string }, [string]>(
-      "select distinct n.step from anchor n join agent a on a.id = n.agent_id where a.why_not_started is null and (a.status <> 'ended' or a.ended_at >= ?)"
-    )
-    .all(new Date(clock().getTime() - NEW_MATTER_DAYS * DAY).toISOString())
-    .map((r) => r.step);
+export function heldByAgents(db: Database) {
+  const since = new Date(
+    clock().getTime() - NEW_MATTER_DAYS * DAY
+  ).toISOString();
+  const held =
+    "a.why_not_started is null and (a.status <> 'ended' or a.ended_at >= ?)";
+  return {
+    projects: db
+      .query<{ project: string }, [string]>(
+        `select distinct a.project from agent a where a.project is not null and ${held}`
+      )
+      .all(since)
+      .map((r) => r.project),
+    steps: db
+      .query<{ step: string }, [string]>(
+        `select distinct n.step from anchor n join agent a on a.id = n.agent_id where ${held}`
+      )
+      .all(since)
+      .map((r) => r.step),
+  };
+}
 
 /** What the desk did with an ask of his (`change_registered_agent`): the agent it touched, or why it refused; null until applied. */
 export const agentChangeOf = (db: Database, ask: string) =>

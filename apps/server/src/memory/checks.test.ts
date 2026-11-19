@@ -54,12 +54,12 @@ const stepsOf = (...refs: string[]) =>
 function inputs(lines: CheckInputs["lines"], over: Input = {}): CheckInputs {
   const isGuess = guessTestOf(over.corrections ?? []);
   return {
-    anchored: new Set(),
     answered: new Set(),
     decisions: [],
     dismissed: [],
     doubted: new Set(),
     endings: new Map(),
+    heldByAgents: { projects: new Set(), steps: new Set() },
     isDirectionDue: () => false,
     kept: new Set(lines.map((l) => l.id)),
     lines,
@@ -188,6 +188,7 @@ test("the order: open matters, then lines, then pages, then the newest", () => {
           name: "Fix the gate",
           open: true,
           owedTo: [],
+          projects: [] as string[],
           status: "moving" as const,
           steps: stepsOf(a.id),
           waitingOn: [],
@@ -236,6 +237,7 @@ test("an ending rides on its open matter and goes with his answer", () => {
     name: "Send the quote",
     open: true,
     owedTo: [],
+    projects: [] as string[],
     status: "moving" as const,
     steps: stepsOf(o.id),
     waitingOn: [],
@@ -287,6 +289,7 @@ test("open decisions come first, soonest deadline first; one on a step leaves wi
     name: "Boiler repair",
     open,
     owedTo: [],
+    projects: [] as string[],
     status: "moving" as const,
     steps: stepsOf(o.id),
     waitingOn: [],
@@ -432,6 +435,7 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
     },
     open: true,
     owedTo: [],
+    projects: [] as string[],
     status: "moving" as const,
     steps,
     waitingOn: [],
@@ -492,6 +496,14 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
   );
   // Its last day is the 7th from its first step; it never outranks an agent's decision.
   expect(checksOf({ ...base, today: "2026-11-22" })).toHaveLength(1);
+  // A worker on another project holds nothing of this matter.
+  expect(
+    checksOf({
+      ...base,
+      heldByAgents: { projects: new Set(["test-farm"]), steps: new Set() },
+      matters: [{ ...matter, projects: ["test-shop"] }],
+    })
+  ).toHaveLength(1);
   const none = (over: Partial<CheckInputs>) => checksOf({ ...base, ...over });
   const wait = {
     ...matter.nextStep,
@@ -500,8 +512,22 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
   };
   for (const list of [
     none({ today: "2026-11-23" }),
-    none({ anchored: null }),
-    none({ anchored: new Set(["unit_000000000072"]) }),
+    none({ heldByAgents: null }),
+    none({
+      heldByAgents: {
+        projects: new Set(),
+        steps: new Set(["unit_000000000072"]),
+      },
+    }),
+    // Its project is held by a worker: no second asker.
+    none({
+      heldByAgents: { projects: new Set(["test-shop"]), steps: new Set() },
+      matters: [{ ...matter, projects: ["test-shop"] }],
+    }),
+    none({
+      heldByAgents: { projects: new Set(["test-shop"]), steps: new Set() },
+      matters: [{ ...matter, projects: ["test-farm", "test-shop"] }],
+    }),
     none({ dismissed: [["obs_000000000071"]] }),
     none({ matters: [{ ...matter, goal: undefined }] }),
     none({ matters: [{ ...matter, nextStep: wait }] }),
@@ -554,7 +580,7 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
 // 19 Nov 2026 (review A, B3 and R1): a run that took and let go of the lock between two of the watcher's looks never
 // pushed its cards, and every reader read every episode and observation on every call. Then (PR 600's verdict): a key
 // on the lock's release changed with each of the watcher's unit syncs, every 5 minutes.
-test("the inbox is read again only when what it reads changed: not a unit sync; a run's lines, an agent anchored, a new day", async () => {
+test("the inbox is read again only when what it reads changed: not a unit sync; a run's lines, an agent's hold, a new day", async () => {
   const reads = spyOn(matters, "readMatterRecords");
   const day = join(OBSERVATIONS, "2026-11-19.jsonl");
   // Made here and removed after, as other tests expect the made-up data without them.
@@ -577,11 +603,21 @@ test("the inbox is read again only when what it reads changed: not a unit sync; 
     writeFileSync(day, "");
     await checksNow(null);
     expect(reads).toHaveBeenCalledTimes(1);
-    await checksNow(new Set(["obs_000000000001"]));
+    const held = {
+      projects: new Set<string>(),
+      steps: new Set(["obs_000000000001"]),
+    };
+    await checksNow(held);
     expect(reads).toHaveBeenCalledTimes(2);
-    setSystemTime(new Date(clock().getTime() + DAY));
-    await checksNow(new Set(["obs_000000000001"]));
+    // Same steps, another project held: read again; the same projects in another order: not.
+    const { steps } = held;
+    await checksNow({ projects: new Set(["test-a", "test-b"]), steps });
     expect(reads).toHaveBeenCalledTimes(3);
+    await checksNow({ projects: new Set(["test-b", "test-a"]), steps });
+    expect(reads).toHaveBeenCalledTimes(3);
+    setSystemTime(new Date(clock().getTime() + DAY));
+    await checksNow(held);
+    expect(reads).toHaveBeenCalledTimes(4);
   } finally {
     setSystemTime();
     reads.mockRestore();
@@ -619,6 +655,7 @@ test("a matter whose direction looks over, or is not checked against what happen
     },
     open: true,
     owedTo: [],
+    projects: [] as string[],
     status: "moving" as const,
     steps: [
       {
@@ -661,6 +698,7 @@ test("a decision whose draft goes to a guessed person carries that guess; a matt
     name: "Boiler repair",
     open: true,
     owedTo: [],
+    projects: [] as string[],
     status: "moving" as const,
     steps: stepsOf(o.id),
     waitingOn: [],
@@ -716,6 +754,7 @@ test("a guessed person's check riding on an open matter through its saved line i
     name: "Boiler repair",
     open: true,
     owedTo: [],
+    projects: [] as string[],
     status: "moving" as const,
     steps: stepsOf(o.id),
     waitingOn: [],
