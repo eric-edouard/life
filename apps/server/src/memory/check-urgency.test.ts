@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { blockingOf, inboxRankOf, urgencyOf } from "./check-urgency";
+import { blockingCountOf, inboxRankOf, urgencyOf } from "./check-urgency";
 
-const check = (group: string, likelyPeople: unknown[] = []) =>
-  ({ group, likelyPeople }) as never;
+const check = (group: string, subject: string | null = null) =>
+  ({ group, subject }) as never;
 
 test("the inbox runs decision, unnamed voice, unplaced name or card, then new matter, guesses in use, endings; the first three block", () => {
   const list = [
@@ -12,7 +12,7 @@ test("the inbox runs decision, unnamed voice, unplaced name or card, then new ma
     check("contacts card"),
     check("new matter"),
     check("guessed person"),
-    check("voice", [{}]),
+    check("voice", "person:gran"),
     check("ending"),
   ];
   expect(list.map(inboxRankOf)).toEqual([0, 1, 2, 2, 3, 4, 4, 5]);
@@ -26,5 +26,5 @@ test("the inbox runs decision, unnamed voice, unplaced name or card, then new ma
     "improves",
     "improves",
   ]);
-  expect(blockingOf(list)).toBe(4);
+  expect(blockingCountOf(list)).toBe(4);
 });

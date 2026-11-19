@@ -8,6 +8,8 @@ public struct Inbox: Decodable, Sendable, Equatable {
     public let deadlinesToday: Int
     /// How many block him (the badge); absent in a read kept before Life sent it.
     public let blocking: Int?
+    /// The badge: the cards that block him (every card in a read kept before Life sent `blocking`).
+    public var badge: Int { blocking ?? total }
 }
 
 /// The card a tapped push opens.

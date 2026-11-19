@@ -4,7 +4,7 @@ import { clock, daysBefore } from "../core/clock";
 import { readJson, readLineCount, writeJson } from "../core/files";
 import { count } from "../core/lists";
 import { log } from "../core/log";
-import { blockingOf } from "../memory/check-urgency";
+import { blockingCountOf } from "../memory/check-urgency";
 import { type InboxCheck, pushIdOf } from "../memory/checks";
 import { DECISIONS, decisionsNow } from "../memory/decisions";
 import { isLocked } from "../memory/memory-lock";
@@ -66,12 +66,12 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
   });
 }
 
-/** Pushes what is new among his agents' decisions; the badge counts what blocks him (`blockingOf`). */
+/** Pushes what is new among his agents' decisions; the badge counts what blocks him (`blockingCountOf`). */
 export async function pushNewCards(now = clock()) {
   const open = await openChecksNow();
   await pushNew(
     open.filter((c) => c.kind === "decision"),
-    blockingOf(open),
+    blockingCountOf(open),
     now
   );
 }

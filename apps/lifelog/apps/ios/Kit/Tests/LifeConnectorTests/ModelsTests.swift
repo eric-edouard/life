@@ -14,9 +14,10 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
     #expect(inbox.total == 7)
-    #expect(inbox.blocking == 3)
+    #expect(inbox.blocking == 4)
+    #expect(inbox.badge == 4)
     #expect(inbox.counts.values.reduce(0, +) == 7)
-    #expect(inbox.checks.map(\.urgency) == [.blocks, .blocks, .blocks, .improves, .improves, .improves, .improves])
+    #expect(inbox.checks.map(\.urgency) == [.blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
     #expect(decision.options.first?.outgoing == true)
@@ -214,5 +215,6 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(voice.askerName(runtime: nil) == "Life, from the pendant")
     #expect(all[0].askerName(runtime: .claude) == "Claude Code")
     #expect(all[0].askerName(runtime: nil) == "Orbit")
-    #expect(all[1].askerName(runtime: nil) == "Life")
+    let name = try #require(all.first { $0.group == .name })
+    #expect(name.askerName(runtime: nil) == "Life")
 }

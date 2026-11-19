@@ -10,17 +10,17 @@ import * as memoryLock from "../memory/memory-lock";
 import * as lifelog from "../sources/lifelog-push";
 import { PUSHED, pushNewCards, pushNewCardsIfChanged } from "./card-push";
 
-const card = (n: number, kind = "decision") =>
+const card = (n: number, kind: "decision" | "voice" | "person" = "decision") =>
   ({
-    group: kind,
+    group: kind === "person" ? "guessed person" : kind,
     kind,
-    likelyPeople: [],
     pushId: n.toString(16).padStart(16, "0"),
     question: "Pay Kit's invoice?",
     ref: `dec_${n}`,
+    subject: null,
     title: "It is due.",
-  }) as unknown as checks.InboxCheck;
-const cards = (n: number, kind?: string) =>
+  }) as checks.InboxCheck;
+const cards = (n: number, kind?: "decision" | "voice" | "person") =>
   Array.from({ length: n }, (_, i) => card(i + 1, kind));
 
 let open = cards(0);

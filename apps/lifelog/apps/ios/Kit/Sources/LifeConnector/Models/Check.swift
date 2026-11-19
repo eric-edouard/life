@@ -10,7 +10,7 @@ public enum CheckGroup: String, UnknownTolerant, Sendable {
     case unknown
 }
 
-/// Whether a check blocks (a worker waits on him, or Life cannot answer at all) or only improves (Life already uses its guess, or asks whether a step is done): `urgencyOf`, `memory/checks.ts`.
+/// Whether a check blocks (a worker waits on him, or Life cannot answer at all) or only improves (Life already uses its guess, or asks whether a step is done): `urgencyOf`, `memory/check-urgency.ts`. Kept for the inbox screen, which draws the line between what blocks and what can wait from it.
 public enum Urgency: String, UnknownTolerant, Sendable {
     case blocks, improves
     case unknown

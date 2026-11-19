@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
+import { urgencyOf } from "./check-urgency";
 import {
   type Check,
   type CheckInputs,
@@ -388,6 +389,10 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
     start: 1,
   });
   expect(byRef("voice:v2")?.evidence?.quote).toBe("See you Friday");
+  // Lifelog ranks likely people for every voice: only its suggestion ("Is this voice Dana?") makes a guess in use.
+  expect(
+    cards.filter((c) => urgencyOf(c) === "improves").map((c) => c.ref)
+  ).toEqual(["voice:v0"]);
 });
 
 const HEX16 = /^[0-9a-f]{16}$/;

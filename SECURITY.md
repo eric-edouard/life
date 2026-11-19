@@ -83,7 +83,7 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   and the to-do items with Google Tasks as the backend.
 - To his own lifelog server: his corrections about recordings, a "heard you" notice for each voice ask (the agent's
   name only, never his words), and, for each new card in his
-  inbox, a push (his yes of 18 Nov 2026): the words "1 new card" or "N new cards", the number of open cards (the badge)
+  inbox, a push (his yes of 18 Nov 2026): the words "1 new card" or "N new cards", the number of cards that block him (the badge)
   and, for one card, an id of 16 hex characters made with a key that never leaves the Mac (never a ref, a name, a title
   or a question). Lifelog pushes it to his phone through Apple.
 - The encrypted backup, when `backup` is set, to the folder he chose.

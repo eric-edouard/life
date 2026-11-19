@@ -11,7 +11,7 @@ import {
   readNamingQueue,
 } from "../sources/lifelog-voices";
 import {
-  blockingOf,
+  blockingCountOf,
   inboxRankOf,
   type Urgency,
   urgencyOf,
@@ -621,7 +621,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
               : `Who is this voice?${item.name ? ` It was called "${item.name}".` : ""}`,
             ref: `voice:${item.id}`,
             ridesOn: { ...ridingOf(), observations: 0, pages: 0 },
-            subject: null,
+            // The person lifelog suggests ("Is this voice X?"), what makes it a guess in use; null: none (`urgencyOf`).
+            subject: who ? known : null,
             title: LIFE_CHECKS.voice.title,
           },
           day: item.clips.reduce(
@@ -806,7 +807,7 @@ async function readChecks(
 
 /** What the inbox holds: how many of each group, how many in all, how many block (the badge), and how many are due by the end of his day (`dayNow`). */
 export const inboxOf = (list: Check[]) => ({
-  blocking: blockingOf(list),
+  blocking: blockingCountOf(list),
   counts: Object.fromEntries(
     [...Map.groupBy(list, (c) => c.group)].map(([g, l]) => [g, l.length])
   ),

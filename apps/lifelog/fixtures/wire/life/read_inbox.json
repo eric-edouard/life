@@ -114,6 +114,78 @@
       "urgency": "blocks"
     },
     {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [
+        {
+          "at": "2026-10-14T08:00:00.000Z",
+          "audio": {
+            "end": 4.5,
+            "jobId": "job-1",
+            "start": 1.2
+          },
+          "text": "It's the shop, about the watch.",
+          "until": "2026-10-14T08:00:04.000Z"
+        }
+      ],
+      "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "a recorded conversation, 14 Oct",
+        "quote": "It's the shop, about the watch."
+      },
+      "goal": null,
+      "group": "voice",
+      "kind": "voice",
+      "likelyPeople": [
+        {
+          "name": "Gran",
+          "person": "person:gran"
+        }
+      ],
+      "links": [],
+      "notSent": null,
+      "onSilence": null,
+      "options": [
+        {
+          "id": "this-is",
+          "label": "It is this person",
+          "takes": "person or name"
+        },
+        {
+          "id": "not-anyone-i-know",
+          "label": "Not anyone I know",
+          "takes": null
+        },
+        {
+          "id": "media",
+          "label": "A video or TV playing",
+          "takes": null
+        },
+        {
+          "id": "not-relevant",
+          "label": "Not worth naming",
+          "takes": null
+        }
+      ],
+      "question": "Who is this voice?",
+      "ref": "voice:v1",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 0,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Name a voice",
+      "matter": null,
+      "confirm": [],
+      "pushId": "327284d2a1d53d38",
+      "urgency": "blocks"
+    },
+    {
       "about": ["Sam"],
       "asker": "life",
       "at": null,
@@ -310,78 +382,6 @@
       "about": [],
       "asker": "life",
       "at": null,
-      "clips": [
-        {
-          "at": "2026-10-14T08:00:00.000Z",
-          "audio": {
-            "end": 4.5,
-            "jobId": "job-1",
-            "start": 1.2
-          },
-          "text": "It's the shop, about the watch.",
-          "until": "2026-10-14T08:00:04.000Z"
-        }
-      ],
-      "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.",
-      "deadline": null,
-      "draft": null,
-      "evidence": {
-        "from": "a recorded conversation, 14 Oct",
-        "quote": "It's the shop, about the watch."
-      },
-      "goal": null,
-      "group": "voice",
-      "kind": "voice",
-      "likelyPeople": [
-        {
-          "name": "Gran",
-          "person": "person:gran"
-        }
-      ],
-      "links": [],
-      "notSent": null,
-      "onSilence": null,
-      "options": [
-        {
-          "id": "this-is",
-          "label": "It is this person",
-          "takes": "person or name"
-        },
-        {
-          "id": "not-anyone-i-know",
-          "label": "Not anyone I know",
-          "takes": null
-        },
-        {
-          "id": "media",
-          "label": "A video or TV playing",
-          "takes": null
-        },
-        {
-          "id": "not-relevant",
-          "label": "Not worth naming",
-          "takes": null
-        }
-      ],
-      "question": "Who is this voice?",
-      "ref": "voice:v1",
-      "ridesOn": {
-        "matterIds": [],
-        "matters": 0,
-        "observations": 0,
-        "pages": 0
-      },
-      "subject": null,
-      "title": "Name a voice",
-      "matter": null,
-      "confirm": [],
-      "pushId": "327284d2a1d53d38",
-      "urgency": "improves"
-    },
-    {
-      "about": [],
-      "asker": "life",
-      "at": null,
       "clips": [],
       "context": "A later step seems to show it done.",
       "deadline": null,
@@ -428,14 +428,14 @@
       "urgency": "improves"
     }
   ],
-  "blocking": 3,
+  "blocking": 4,
   "counts": {
     "decision": 1,
+    "voice": 1,
     "name": 1,
     "contacts card": 1,
     "new matter": 1,
     "guessed person": 1,
-    "voice": 1,
     "ending": 1
   },
   "deadlinesToday": 0,
