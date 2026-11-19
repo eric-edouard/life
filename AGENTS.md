@@ -173,7 +173,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   quotes stay as said, topic tags English. A label digested with stored work (`him` in the persona and style inputs) changes
   with its prompt's next version.
 - **Facts are read by episode:** one call per day reads the day, its new units in full (`episodes.ts`), then extraction reads an
-  episode's units together (`extract.ts`), with earlier facts as a reading to correct, never as evidence. Extraction is
+  episode's units not read yet together (`extract.ts`), the ones already read as earlier facts; a chat that grew is read
+  for its new lines (`Extracted.lines`), with earlier facts as a reading to correct, never as evidence. Extraction is
   the only step that retires an observation, besides his word that one is outdated (a fact-check answer or an
   `outdated` correction).
 - **Historical collection is model-free.** `memory historical-units` reads bounded owner-local months, skips voice and file descriptions, and publishes only units and derived passages. An import describes its own files (the Instagram export's photos, by `describeFiles`) before its collection, which leaves old files as tags. Imports and model backfills require `backfillEngine`; no fallback to the ordinary engine. No scheduled model backfill until prompts are frozen. One exception, his OK of 15 Nov 2026: the first run of the conversation summaries (`bun life memory conversation-summaries --from 2026-09-07 --force`, once, no cap, about $1.10 to $1.50) runs on the ordinary `engine`, as the night's step run wider.
@@ -266,8 +267,8 @@ Before adding a helper, use the one that exists:
 | A duration, an instant as the ledgers write it | `MIN`, `HOUR`, `DAY`, `iso` (`apps/server/src/core/clock.ts`) |
 | A capability's types | its `contract.ts` (`sources/`, `todo-list/`, `payments/`): implementations import it, its registry imports them, never back |
 | A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/memory/sources.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
-| Units for a memory step | `gather` (`units.ts`), once per processing run |
-| Today's units, before its night | the watcher: `syncLifelogUnits` for voice, `buildTodayUnits` every 5 min for the rest, no model call; read raw, no episodes or facts until the night rewrites the day (his decision, 11 Nov 2026: no midday runs) |
+| Units for a memory step | `gather` (`gather.ts`), once per processing run |
+| Today's units, before its night | the watcher: `syncLifelogUnits` for voice, `publishTodayUnits` over `gather` every 5 min for the rest, no model call; read raw, no episodes or facts until the night rewrites the day (his decision, 11 Nov 2026: no midday runs) |
 | An activity day's unit (device-day, measurement-day) | `activityDay` over its text (`memory/activity-days.ts`) |
 | A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/message-files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |

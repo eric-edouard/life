@@ -31,6 +31,7 @@ import {
   turnFixture,
 } from "../sources/store-fixtures";
 import { LIFE_MAIL } from "./email";
+import { gather } from "./gather";
 import { IMPORTED, keptConversations, readUnits, UNITS } from "./memory-files";
 import { showFiles } from "./message-files";
 import { loadTruth } from "./read-truth";
@@ -41,7 +42,6 @@ import { syncLifelogUnits, writeUnits } from "./unit-writer";
 import {
   applyRules,
   conversationLabel,
-  gather,
   isFrozen,
   lifeChat,
   lifelogUnits,

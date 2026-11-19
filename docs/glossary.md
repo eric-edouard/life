@@ -129,6 +129,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day, a device-day, a measurement-day. Id `unit_…`. | |
+| standing reading | A unit's last `Extracted` line plus each line before it while the later one `continues`: the readings whose facts are still current (`standingReadings`, `memory/memory-files.ts`; `isCurrent` accepts a fact of any of them). A reading that does not continue replaces the chain. Not a unit's latest line alone. | |
+| continued reading | A reading of a chat day that grew: it covers only the new lines, the earlier ones' facts staying (`Extracted.continues` and `lines`). Chosen by `continuedFrom` (`memory/extract.ts`) only when the first lines are exactly what was read (`linesHashOf`); else the unit is read whole. Not an edit of a line, never a voice or a note. | |
 | arrival | New lines of a unit that no step has read yet: a burst of a chat's or a thread's messages, or a recorded conversation once lifelog closes it. Only voice, chats, mail and agents' reports arrive; notes, imports and activity are the night's. | |
 | arrival gate | `arrivalsDue` (`memory/arrival-gate.ts`): model-free, it says which of today's units are due for a day pass now, or which rule holds one for the night. It decides when a unit is read, never whether: the night reads what it held. Measured by `scripts/arrival-gate-count.ts`; nothing calls it yet. | |
 | verdict | A unit's judgement: its type, importance and area, with the reason. Only that. | |

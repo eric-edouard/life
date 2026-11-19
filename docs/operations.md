@@ -137,14 +137,15 @@ subscription per run. `LIFE_DEMO_RUNTIME=codex bun run e2e:demo` runs the same s
   the install that carries it, before the night. And
   `bun life memory matters list` prints each matter with its areas, projects, steps and newest day.
 - **Today** is no tick's: the watcher builds today's units from every source every 5 minutes, with no model call
-  (`buildTodayUnits`): search finds a message by its words within 5 minutes and by its meaning within 10 more (the
+  (`gather`): search finds a message by its words within 5 minutes and by its meaning within 10 more (the
   embed timer). A file sent today stays a tag, and today has no episodes, facts or Past calendar events, until the
   night reads the day (his decision, 11 Nov 2026: the midday runs read each day three times for about 11% of the
   tokens). A source that fails keeps its units and is retried 5 minutes later (`watch.today` in the log).
 - **A day read again** (the night): only its new units go in full, those with no verdict on their current
   content by the episodes prompt (or `reread` since); the rest go as stubs (title, times, the verdict's reason), never
   fetched. The day's episodes as they stand are the state; the reply adds or changes some and names those gone. A chat-day
-  with one new message is new as a whole (ponytail: per message would need a record of what was read).
+  with one new message is new as a whole for the episodes step (ponytail: per message would need a record of what was
+  read there); extraction has that record (`Extracted.lines`, `continues`) and keeps only the facts of the new lines.
 - **Backup:** once the night is done, or from 09:00 (`afterNightDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
 - **Bridges:** restarted once a day by the same rule (`healBridges`, its tries in `LIFE_STATE_DIR/memory/bridges.json`),
   before the source alert: a restart heals a hung bridge and makes each check its login anew, so a dead session shows

@@ -14,6 +14,7 @@ import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
 import { isActivity } from "../sources/contract";
 import type { LifelogConversation } from "../sources/lifelog";
 import { contextPeopleBy, levelsWith, personallyClose } from "./closeness";
+import type { Evidence } from "./gather";
 import {
   EXTRACTED,
   episodesNow,
@@ -26,6 +27,7 @@ import {
   readVerdicts,
   rereadAt,
   SUPERSESSIONS,
+  standingReadings,
   UNRESOLVED,
   type Verdicts,
   verdictOf,
@@ -36,7 +38,7 @@ import { othersIn } from "./read-truth";
 import { begin, inBatches, readsOf } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup } from "./tags";
-import { type Built, type Evidence, MARKED, UNKNOWN } from "./units";
+import { type Built, linesHashOf, MARKED, UNKNOWN } from "./units";
 import {
   episodeNow,
   namedIn,
@@ -49,9 +51,10 @@ import { chatLines, spokenLines } from "./words";
 import { localTime } from "./zones";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (importance >= KEEP_AT, i.e. 2, episodes.ts),
-// the deep-tier model reads the episode it belongs to (episodes.ts: every unit of it, from every channel and day, from
-// the day before its first unit to read; groupsOf) with
-// the earlier facts about its people, and returns observations; code checks each quote against the source and each
+// the deep-tier model reads the episode it belongs to (episodes.ts: its units not read yet, from every channel and
+// day, the ones already read as earlier facts; groupsOf) with
+// the earlier facts about its people, and returns observations; a chat that grew is read again as text, but only
+// the facts of its new lines are kept (`continuedFrom`); code checks each quote against the source and each
 // entity against the candidate list, then appends them to memory/observations/<yyyy-mm>.jsonl, and the earlier facts
 // the episode's lines show are no longer true to memory/supersessions.jsonl. Nothing is sent.
 
@@ -76,6 +79,15 @@ export const closedConversations = (conversations: LifelogConversation[]) =>
 
 const size = (s: Source) => s.lines.reduce((n, l) => n + l.text.length, 0);
 
+/**
+ * Whether extraction may read a unit now: all but a lifelog conversation of today that is still open (its own signal,
+ * `closed`). A chat of today is read at once; its later lines are read as new ones (`continuedFrom`).
+ */
+export const isReadable = (b: Built, today: string, closed: Set<string>) =>
+  b.unit.date < today ||
+  kindOf(b.unit.source) !== "voice" ||
+  closed.has(b.unit.key);
+
 /** What one episode gives extraction to read: the episode (null for kept units in no episode) and its units. */
 export interface Group {
   episode: Episode | null;
@@ -90,14 +102,16 @@ const peopleOf = (g: Group) => [
 /**
  * What to read, episode by episode (`episodes` as they stand, `episodesNow`): every episode holding a pending unit, with
  * its units worth a searchable line (a copy never, returned apart); then the pending units in no episode, a day at a
- * time. A unit in several episodes is read once, with its episode (`readBy`), so a question is read with its answer and
- * the unit's earlier facts give way to the new reading.
+ * time. A group holds an episode's units not read yet (`isRead`), the ones read already coming as earlier facts
+ * (`priorFor`). A unit in several episodes is read once, with its episode (`readBy`), so a question is read with its
+ * answer and the unit's earlier facts give way to the new reading.
  */
 export function groupsOf(
   pending: Built[],
   built: Built[],
   verdicts: Verdicts,
-  episodes: Episode[]
+  episodes: Episode[],
+  isRead: (b: Built) => boolean
 ) {
   const byId = new Map(built.map((b) => [b.unit.id, b]));
   const waiting = new Set(pending.map((b) => b.unit.id));
@@ -122,16 +136,9 @@ export function groupsOf(
   const claimed = new Set(read.flatMap((r) => r.units.map((b) => b.unit.id)));
   const groups: Group[] = read.flatMap(({ episode, units }) => {
     const own = units.filter((b) => byEpisode.get(b.unit.id) === episode);
-    const first = own.find((b) => waiting.has(b.unit.id))?.unit.date;
-    // Read from the day before its first pending unit, so a new day does not re-read a whole trip: the facts of its
-    // earlier days come as priors (`priorFor`).
-    return first
-      ? [
-          {
-            episode,
-            units: own.filter((b) => b.unit.date >= daysBefore(first, 1)),
-          },
-        ]
+    const fresh = own.filter((b) => !isRead(b));
+    return fresh.some((b) => waiting.has(b.unit.id))
+      ? [{ episode, units: fresh }]
       : [];
   });
   const rest = pending.filter(
@@ -177,7 +184,8 @@ export function byDays<T extends Group & { sources: Source[] }>(
  * owner said a unit was read wrong after it was (`rereads`, his `reread` corrections). Who someone is needs no new
  * reading: the readers resolve a fact's author and subjects as of today (`aboutNow`). `unkept`: units read before
  * that their latest verdict no longer keeps (content changed, or a re-read judged them lower): their facts are
- * replaced by none, so none stays shown; one kept again is read again (its `unkept` line is no reading).
+ * replaced by none, so none stays shown; one kept again is read again (its `unkept` line is no reading). `isRead`: the
+ * one test of whether a unit has a reading on its current content (what `groupsOf` leaves out of a group).
  */
 export function toExtract(
   built: Built[],
@@ -196,7 +204,7 @@ export function toExtract(
     const e = done.get(`${unit.id}|${unit.hash}`);
     return e && !isRereadSince(rereads, unit.id, e.at) ? e : undefined;
   };
-  const readAs = (b: Built) => !!settled(b) && !settled(b)?.unkept;
+  const isRead = (b: Built) => !!settled(b) && !settled(b)?.unkept;
   const readBefore = new Set(ledger.map((e) => e.unit));
   let stale = 0;
   const kept: { b: Built; reason: string }[] = [];
@@ -215,8 +223,8 @@ export function toExtract(
       unkept.push(b);
     }
   }
-  const pending = kept.filter(({ b }) => !readAs(b));
-  return { kept, pending, stale, unkept };
+  const pending = kept.filter(({ b }) => !isRead(b));
+  return { isRead, kept, pending, stale, unkept };
 }
 
 async function appendObservations(list: Observation[]) {
@@ -265,8 +273,8 @@ export function lanesOf<T extends { episode: Episode | null }[]>(calls: T[]) {
  * Earlier facts for a group, newest first, shown to the model as a reading to correct, never as evidence: about its
  * people from the two weeks before it, and about the owner alone from its day and the day before. `shown` are the active
  * facts (with those `run` wrote already), and the retired ones with the unit of what retired them. `reread` are the units
- * this run reads again: their earlier facts are replaced, or about to be, so none is shown, and one they retired is
- * offered again. Beyond those, each in its own slot so recent facts never crowd it out: the facts of the episode's own
+ * this run reads whole: their earlier facts are replaced, or about to be, so none is shown, and one they retired is
+ * offered again; `continued` are the units it reads again for their new lines only, all their facts shown. Beyond those, each in its own slot so recent facts never crowd it out: the facts of the episode's own
  * units at any age, and the `about_a_person` facts of the last year about its people `close` to him (what is between them
  * lasts, and a newer fact must replace it).
  */
@@ -276,7 +284,8 @@ export function priorFor(
   reread: Set<string>,
   run: string,
   close: ReadonlySet<string>,
-  max = PRIOR_MAX
+  max = PRIOR_MAX,
+  continued: ReadonlySet<string> = new Set()
 ) {
   const day = group.units.at(-1)?.unit.date ?? "";
   const people = new Set(othersIn(peopleOf(group)));
@@ -291,6 +300,8 @@ export function priorFor(
     o.date >= daysBefore(day, BOND_DAYS) &&
     o.subjects.some((e) => people.has(e) && close.has(e));
   const slots: [(o: Observation) => boolean, number][] = [
+    // A continued unit's own facts all stay (what it was read for before), never cut or crowded out.
+    [(o) => continued.has(o.unit), Number.POSITIVE_INFINITY],
     [about, max],
     [ofEpisode, EPISODE_MAX],
     [lasting, BOND_MAX],
@@ -315,6 +326,63 @@ export function priorFor(
   });
 }
 
+/**
+ * How many lines of `b` an earlier reading already covered, when it can be continued: the unit's last standing reading
+ * of this prompt covers its first `n` lines exactly (its hash is `linesHashOf(b, n)`), none was said read wrong since,
+ * and the unit has more lines now. Else 0: read whole, as an edited message, a voice or a reading before `lines` was
+ * written is.
+ * ponytail: a file described after its message was read changes an earlier line, so that unit is read whole once;
+ * continue it by file ref (a ref on `Message`, a hash of its own) if the day passes (PR 4b) make that common.
+ */
+export function continuedFrom(
+  b: Built,
+  standing: Map<string, Extracted[]>,
+  rereads: Map<string, string>,
+  prompt = EXTRACT_PROMPT
+) {
+  const last = standing.get(b.unit.id)?.at(-1);
+  const n = last?.lines ?? 0;
+  return last &&
+    !last.unkept &&
+    isPromptVersion(last.prompt, prompt) &&
+    !isRereadSince(rereads, b.unit.id, last.at) &&
+    b.messages.length > n &&
+    linesHashOf(b, n) === last.unitHash
+    ? n
+    : 0;
+}
+
+/** The units of group `g` that are continued: a call shows the facts of its own continued units only. */
+export const ownContinued = (
+  g: Group,
+  continued: ReadonlyMap<string, number>
+) => new Set(g.units.map((b) => b.unit.id).filter((id) => continued.has(id)));
+
+/**
+ * A reading with the facts quoting a line an earlier reading covered left out (`covered`: the refs of those lines, by
+ * unit), and the replacements and unresolved names that belong to them: a continued unit keeps its earlier readings.
+ */
+export function withoutRepeats<
+  P extends Pick<
+    ReturnType<typeof parseObservations>,
+    "observations" | "replaced" | "unresolved"
+  >,
+>(parsed: P, covered: Map<string, Set<string>>): P {
+  const dropped = new Set(
+    parsed.observations
+      .filter((o) => covered.get(o.unit)?.has(o.source.ref))
+      .map((o) => o.id)
+  );
+  return {
+    ...parsed,
+    observations: parsed.observations.filter((o) => !dropped.has(o.id)),
+    replaced: parsed.replaced.filter((r) => !dropped.has(r.by.id)),
+    unresolved: parsed.unresolved.filter(
+      (u) => !(u.observation && dropped.has(u.observation))
+    ),
+  };
+}
+
 /** Extracts the kept units of `evidence` (its window, `gather`) not read yet by this prompt. */
 export async function extract(evidence: Evidence) {
   const step = await begin(
@@ -327,18 +395,13 @@ export async function extract(evidence: Evidence) {
   const { built, conversations, failed, truth } = evidence;
   // A source that could not be read counts as a failure: the night must not commit a partial day.
   step.stats.failed += failed.length;
-  // Today is not over: its chats are still growing, so they wait for tomorrow; only closed lifelog conversations go now.
   const closed = closedConversations(conversations);
   const verdicts = readVerdicts();
   const people = await readPeople();
   const { corrections, refOf, resolve } = people;
   // Who each unit is with as of now: the people the episodes step just inferred included.
   const inWindow = built
-    .filter(
-      (b) =>
-        b.unit.date < today ||
-        (kindOf(b.unit.source) === "voice" && closed.has(b.unit.key))
-    )
+    .filter((b) => isReadable(b, today, closed))
     .map((b) => ({
       ...b,
       unit: unitNow(b.unit, refOf),
@@ -347,12 +410,14 @@ export async function extract(evidence: Evidence) {
     readEpisodes(),
     observationsNow(people),
   ]);
-  const { kept, pending, stale, unkept } = toExtract(
+  const ledger = rowsOf(EXTRACTED, Extracted);
+  const rereads = rereadAt(corrections, written);
+  const { isRead, kept, pending, stale, unkept } = toExtract(
     inWindow,
     verdicts,
-    rowsOf(EXTRACTED, Extracted),
+    ledger,
     EXTRACT_PROMPT,
-    rereadAt(corrections, written)
+    rereads
   );
   const unitOf = new Map(known.map((o) => [o.id, o.unit]));
   const shown = known.flatMap((o) => {
@@ -368,18 +433,34 @@ export async function extract(evidence: Evidence) {
     inWindow,
     verdicts,
     // An episode the owner said is wrong groups nothing; its people are who they are today.
-    episodesNow(written, corrections).map((m) => episodeNow(m, refOf))
+    episodesNow(written, corrections).map((m) => episodeNow(m, refOf)),
+    isRead
   );
 
   const read = groups.flatMap((g) => g.units);
-  const reread = new Set([...read, ...copies].map((b) => b.unit.id));
+  // A unit whose first lines were read already keeps those readings: only its new lines give facts.
+  const standing = standingReadings(ledger);
+  const continued = new Map(
+    read.flatMap((b) => {
+      const n = continuedFrom(b, standing, rereads);
+      return n > 0 ? [[b.unit.id, n] as const] : [];
+    })
+  );
+  const chats = new Set(
+    read.filter((b) => b.messages.length > 0).map((b) => b.unit.id)
+  );
+  const reread = new Set(
+    [...read, ...copies]
+      .map((b) => b.unit.id)
+      .filter((id) => !continued.has(id))
+  );
   const spoken = await spokenLines(
     read.map((b) => b.unit),
     resolve,
     truth
   );
   const sourceOf = (b: Built): Source[] => {
-    // A unit is read whole: one over the budget goes in a call of its own (`packed`).
+    // A unit's lines all go in, a continued one's too: one over the budget goes in a call of its own (`packed`).
     const all =
       kindOf(b.unit.source) === "voice"
         ? (spoken.get(b.unit.id) ?? [])
@@ -415,6 +496,7 @@ export async function extract(evidence: Evidence) {
   const rejects: Reject[] = [];
   const unresolved: Unresolved[] = [];
   const finished: Source[] = [];
+  let repeats = 0;
   const at = now.toISOString();
   // One bad call costs only its units: they are not marked extracted, so the next run retries them.
   const one = (call: (typeof calls)[number], bdir: string) =>
@@ -430,7 +512,15 @@ export async function extract(evidence: Evidence) {
         ...new Map(
           call
             .flatMap((g) =>
-              priorFor(g, standingNow, reread, step.run, refs.close)
+              priorFor(
+                g,
+                standingNow,
+                reread,
+                step.run,
+                refs.close,
+                undefined,
+                ownContinued(g, continued)
+              )
             )
             .map((o) => [o.id, o])
         ).values(),
@@ -481,14 +571,34 @@ export async function extract(evidence: Evidence) {
           sources.map(({ unit }) => ({ source: unit.source, unit: unit.id }))
         ),
       });
-      const parsed = parseObservations(json, {
+      const all = parseObservations(json, {
         areas: areaLookup(truth.areas),
         candidates,
         madeBy,
         prior: new Map(prior.map((o) => [o.id, o])),
         resolve,
-        sources: new Map(sources.map((x) => [x.unit.id, x])),
+        sources: new Map(
+          sources.map((x) => [
+            x.unit.id,
+            { ...x, from: continued.get(x.unit.id) },
+          ])
+        ),
       });
+      const covered = new Map(
+        sources.flatMap((x) => {
+          const n = continued.get(x.unit.id);
+          return n
+            ? [
+                [
+                  x.unit.id,
+                  new Set(x.lines.slice(0, n).map((l) => l.ref)),
+                ] as const,
+              ]
+            : [];
+        })
+      );
+      const parsed = withoutRepeats(all, covered);
+      repeats += all.observations.length - parsed.observations.length;
       observations.push(...parsed.observations);
       rejects.push(...parsed.rejects);
       for (const { by, old } of parsed.replaced) {
@@ -554,9 +664,13 @@ export async function extract(evidence: Evidence) {
     perUnit.set(o.unit, (perUnit.get(o.unit) ?? 0) + 1);
   }
   await appendJsonl(EXTRACTED, Extracted, [
-    ...[...finished, ...copies].map(({ unit }) =>
-      line(unit, perUnit.get(unit.id) ?? 0)
-    ),
+    ...finished.map(({ lines, unit }) => ({
+      ...line(unit, perUnit.get(unit.id) ?? 0),
+      // Only a chat day's hash can match `linesHashOf`, so only it can continue (notes, repos, activity days never).
+      ...(chats.has(unit.id) ? { lines: lines.length } : {}),
+      ...(continued.has(unit.id) ? { continues: true as const } : {}),
+    })),
+    ...copies.map(({ unit }) => line(unit, 0)),
     // An unkept unit's line has no facts: its earlier ones are replaced (`isCurrent`, memory-files.ts).
     ...unkept.map(({ unit }) => ({ ...line(unit, 0), unkept: true as const })),
   ]);
@@ -572,6 +686,7 @@ export async function extract(evidence: Evidence) {
     kept: kept.length,
     read: finished.length,
     rejects: rejects.length,
+    repeats,
     retired: retired.length,
     stale,
     unkept: unkept.length,

@@ -30,6 +30,8 @@ export interface SourceLine {
 }
 
 export interface Source {
+  /** A continued unit's first new line: a quote the model gave no line for is looked for from there first. */
+  from?: number;
   lines: SourceLine[];
   unit: Unit;
 }
@@ -97,14 +99,23 @@ function find(text: string, quote: string) {
  * The quote check: where `quote` sits in the unit's lines, compared without accents, case, quote style or spacing;
  * the hinted line first, then the whole text (a quote may run across lines). Returns the source's own words.
  */
-export function locate(quote: string, lines: string[], hint?: number) {
+export function locate(
+  quote: string,
+  lines: string[],
+  hint?: number,
+  from = 0
+) {
   const hinted = hint === undefined ? undefined : lines[hint];
   const inLine = hinted === undefined ? null : find(hinted, quote);
   if (inLine && hint !== undefined) {
     return { line: hint, verbatim: inLine.verbatim };
   }
   const joined = lines.join("\n");
-  const hit = find(joined, quote);
+  const head = lines.slice(0, from).join("\n").length + (from > 0 ? 1 : 0);
+  const later = head > 0 ? find(joined.slice(head), quote) : null;
+  const hit = later
+    ? { ...later, start: later.start + head }
+    : find(joined, quote);
   if (!hit) {
     return null;
   }
@@ -207,10 +218,12 @@ function cited(
   }
   const o = r.data;
   const named = sources.get(o.unit);
-  const inNamed = named && locate(o.quote, textsOf(named), o.line);
+  const inNamed = named && locate(o.quote, textsOf(named), o.line, named.from);
   const source = inNamed ? named : unitHoldingOf(o.quote, sources);
   // The line hint belongs to the cited unit only.
-  const found = inNamed || (source && locate(o.quote, textsOf(source)));
+  const found =
+    inNamed ||
+    (source && locate(o.quote, textsOf(source), undefined, source.from));
   const line = found && source?.lines[found.line];
   if (!(source && found && line)) {
     return named
