@@ -18,7 +18,7 @@ import { readySources } from "../memory/sources";
 import { isLifeOutput, speakerOf } from "../memory/units";
 import { meant, type People, readPeople } from "../memory/who";
 import { MessageFilter } from "../records/registered-agent";
-import { chatGroups, type SourceEvent } from "../records/source";
+import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
 
 // Events: what an agent can wait for, MCP's Events extension (SEP-3415, a draft; `io.modelcontextprotocol/events`),
@@ -462,7 +462,8 @@ export function readEndedCalls(
       });
       return [];
     }
-    const chats = chatGroups(events);
+    // One source's read: its events' chats are keyed by `chat` alone.
+    const chats = Map.groupBy(events, (e) => e.chat);
     return events.flatMap((e) => {
       if (!e.phoneCall?.seconds) {
         return [];
@@ -476,7 +477,7 @@ export function readEndedCalls(
           ...messagePayloadOf(e, people),
           at,
           people: overlappingPhoneCallsOf(
-            chats.get(`${e.source}|${e.chat}`) ?? [],
+            chats.get(e.chat) ?? [],
             at,
             until,
             people
