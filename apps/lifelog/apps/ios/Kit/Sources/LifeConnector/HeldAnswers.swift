@@ -1,7 +1,8 @@
 import Observation
 
-/// Answers on rows of Life's own questions, held for a few seconds so Undo has something to undo: Life has no undo, so
-/// nothing is sent until the time is up (or the screen goes), then it is an ordinary answer.
+/// Answers held for a few seconds so Undo has something to undo, in the Inbox (any answer but a send or a start) and on
+/// rows of Life's own questions: Life has no undo, so nothing is sent until the time is up (or the screen goes), then it
+/// is an ordinary answer.
 @MainActor @Observable
 public final class HeldAnswers {
     public struct Held: Equatable {

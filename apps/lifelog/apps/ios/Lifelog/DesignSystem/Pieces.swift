@@ -78,6 +78,22 @@ struct TextLink: View {
     }
 }
 
+/// What he just answered, with Undo while it is held: 48 high on `tile`, a check in `ok`, his answer's words. It sits in
+/// a bar, so it takes no room from the answers.
+struct Toast: View {
+    let words: String
+    let undo: () -> Void
+
+    var body: some View {
+        HStack(spacing: Metrics.Spacing.s) {
+            StateGlyph.ok
+            Text(words).font(.buttonLabel).foregroundStyle(Palette.fg).lineLimit(1)
+            TextLink("Undo", isMuted: false, action: undo).padding(.leading, Metrics.Spacing.xs)
+        }
+        .padding(.horizontal, 18).frame(height: 48).background(Palette.tile, in: .capsule)
+    }
+}
+
 /// A matter's name (a star in `ai` before it when an agent asks) on a `card` capsule 32 high, in a 44 hit area. A long
 /// name is cut with an ellipsis, except at an accessibility text size, where it may take two lines.
 struct InlinePill: View {

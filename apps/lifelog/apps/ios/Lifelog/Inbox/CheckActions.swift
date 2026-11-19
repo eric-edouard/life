@@ -28,6 +28,7 @@ struct CheckActions: View {
     let sameAs: () -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(LifeStore.self) private var life
 
     private var words: String { input.words.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -51,8 +52,31 @@ struct CheckActions: View {
                 .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
             } else {
                 line
+                refusal
                 options
             }
+        }
+    }
+
+    /// His last answer to this ask that did not go, in one `flag` line above the same answers; a send that someone wrote
+    /// over names their message too (Life's own word, `wrote`: never decided here).
+    @ViewBuilder private var refusal: some View {
+        if case .failed(let failure, _) = life.state(of: .answer(ref: check.ref)) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                if let wrote = failure.wrote {
+                    let by = wrote.by ?? check.draft?.to ?? "Someone"
+                    Text("Not sent: \(by) wrote since.").font(.small).foregroundStyle(Palette.flag)
+                    if let text = wrote.text {
+                        let when = wrote.at.map { ", \($0.formatted(.dateTime.hour().minute()))" } ?? ""
+                        Text("\(by)\(when)").font(.small).foregroundStyle(Palette.muted)
+                        Text("“\(text)”").font(.body15).foregroundStyle(Palette.fg).lineLimit(3)
+                    }
+                } else {
+                    Text(failure.isSameTap ? "No answer from Life. Try again." : "Not sent to your Mac.")
+                        .font(.small).foregroundStyle(Palette.flag)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading).appears()
         }
     }
 

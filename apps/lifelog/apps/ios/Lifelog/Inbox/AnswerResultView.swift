@@ -27,8 +27,6 @@ struct Taken: Equatable {
 struct AnswerResultView: View {
     let taken: Taken
     let state: ActionState<ActionProof>
-    /// The question of the ask that comes next, when one is waiting.
-    let next: String?
 
     var body: some View {
         ScrollView {
@@ -80,52 +78,51 @@ struct AnswerResultView: View {
         if let changed = taken.counts(proof) {
             Text(changed).font(.body15).foregroundStyle(Palette.muted)
         }
-        if let next {
-            Text("Next: \(Text(next).foregroundStyle(Palette.fg))").font(.body15).foregroundStyle(Palette.faint)
-                .padding(.top, 8)
-        }
     }
 
     @ViewBuilder private func failed(_ failure: ActionFailure) -> some View {
         header
         Text(taken.failedWord(failure)).font(.statusWord).foregroundStyle(Palette.flag).padding(.top, 12)
-        Text(taken.failedLine(failure, state)).font(.lead).foregroundStyle(Palette.muted)
-        // Life's own reason: on the step it stopped at, else on its own (it stopped before Life's plan).
-        CheckLines(
-            lines: lines.contains { $0.mark == .failed }
-                ? lines : lines + [CheckLine(id: "reason", text: failure.reason, mark: .failed)]
-        )
-        .padding(.top, 8)
+        if taken.isSend {
+            // A send says only Life's reason, then the words that did not go.
+            Text(failure.reason).font(.lead).foregroundStyle(Palette.muted)
+            if !failure.mayHaveHappened, let draft = taken.check.draft {
+                DraftBlock(draft: draft, identity: taken.check.networkIdentity).padding(.top, 8)
+            }
+        } else {
+            Text(taken.failedLine(failure, state)).font(.lead).foregroundStyle(Palette.muted)
+            // Life's own reason: on the step it stopped at, else on its own (it stopped before Life's plan).
+            CheckLines(
+                lines: lines.contains { $0.mark == .failed }
+                    ? lines : lines + [CheckLine(id: "reason", text: failure.reason, mark: .failed)]
+            )
+            .padding(.top, 8)
+        }
     }
 }
 
-/// What he can do with an ask's result: the way on, or to try again. Apart from the result so a wide screen can put it at the
-/// bottom of the screen when the regions are stacked.
+/// What he can do with an ask's result when it did not end well: try again, open the chat, or keep it for later. A result
+/// that worked has none: the next ask comes by itself. Apart from the result so a wide screen can put it at the bottom of
+/// the screen when the regions are stacked.
 struct ResultButtons: View {
     let taken: Taken
     let state: ActionState<ActionProof>
-    /// The question of the ask that comes next, when one is waiting.
-    let next: String?
     let retry: () -> Void
     let keepForLater: () -> Void
-    let nextCard: () -> Void
+
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(spacing: 8) {
             switch state {
             case .succeeded:
-                Button(taken.staysOpen ? "Back" : next == nil ? "Done" : "Next", action: nextCard)
-                    .buttonStyle(.pill(.filled))
+                EmptyView()
             case .failed(let failure, _):
                 if failure.retry == .allowed && !failure.mayHaveHappened {
                     Button("Try again", action: retry).buttonStyle(.pill(.filled))
                     Button("Keep for later", action: keepForLater).buttonStyle(.pill(.quiet))
-                    Text(
-                        taken.isSend
-                            ? "Trying again sends the same text once. It is never sent twice."
-                            : "Trying again repeats the same answer once."
-                    )
-                    .font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
+                } else if failure.mayHaveHappened, let url = taken.check.networkIdentity?.openUrl {
+                    Button("Open the chat") { openURL(url) }.buttonStyle(.pill(.filled))
                 } else {
                     Button("Keep for later", action: keepForLater).buttonStyle(.pill(.filled))
                 }
@@ -134,13 +131,6 @@ struct ResultButtons: View {
                 } label: {
                     Text(taken.isSend ? "Sending…" : "Saving…")
                 }.buttonStyle(.pill(.quiet, isBusy: true))
-                LimitNote(state: state) {
-                    taken.isSend
-                        ? "Stays here until \(ActionCopy.channel(taken.check.draft?.channel)) answers"
-                            + ($0.map { ", \($0)." } ?? ".")
-                        : $0.map { "Takes \($0)." } ?? ""
-                }
-                .font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
             }
         }
     }
@@ -157,6 +147,18 @@ extension Taken {
         case .idle: ("Not saved.", "It stays here.")
         }
     }
+
+    /// His answer in its own words, for the toast that holds it: the option's, or who he named, or what he wrote.
+    var heldWords: String {
+        if let option = check.options.first(where: { request.options.contains($0.id) }), option.takes == nil {
+            return option.label
+        }
+        if let person = check.likelyPeople.first(where: { $0.person == request.person }) { return person.name }
+        return request.name ?? (request.note == nil ? "Your answer" : "Your words")
+    }
+
+    /// Held for Undo: any answer that is not a send, a start or a goal edit (Life has no undo for those).
+    var isHeld: Bool { !isSend && !isStart && !staysOpen }
 
     var doneWord: String {
         if isSend { return "Sent." }

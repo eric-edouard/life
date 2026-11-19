@@ -9,7 +9,7 @@
     /// slowly, or not at all, so every state of every screen can be put on screen and photographed.
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (a tapped push's one-card read takes 5 s), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
-    /// `-fixtureAnswer sent|sending|notSent` decides what a tap on a draft does; `-fixtureStart started|starting|failed`
+    /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused); `-fixtureStart started|starting|failed`
     /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`
     /// open the screen to show. `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
@@ -218,6 +218,9 @@
             (try? JSONSerialization.data(withJSONObject: object)) ?? Data()
         }
 
+        /// The `-fixtureAnswer` values where a send ends without going.
+        private static let refused: Set = ["notSent", "wroteSince", "mayHaveGone"]
+
         func answerCheck(_ answer: AnswerRequest, answerKey: String, onProgress: @escaping @Sendable (Data) -> Void)
             async throws -> String
         {
@@ -251,16 +254,33 @@
                 if draft != nil, step == "handed", LifeFixture.answer == "sending" {
                     try await Task.sleep(for: .seconds(3_600))
                 }
-                if draft != nil, step == "confirmed", LifeFixture.answer == "notSent" { break }
+                if draft != nil, step == "confirmed", Self.refused.contains(LifeFixture.answer) { break }
+                if draft == nil, LifeFixture.answer == "failed" { throw MCPError.refused("Your Mac did not take it.") }
                 onProgress(message(["step": step, "at": at(18, 14, 3)]))
             }
-            if draft != nil, LifeFixture.answer == "notSent" {
-                return json([
-                    "ref": answer.ref, "kind": "decision",
-                    "send": [
-                        "state": "not_sent", "reason": "WhatsApp did not confirm within 20 seconds", "canRetry": true,
-                    ],
-                ])
+            if draft != nil, Self.refused.contains(LifeFixture.answer) {
+                let send: [String: Any] =
+                    switch LifeFixture.answer {
+                    case "wroteSince":
+                        [
+                            "state": "not_sent", "canRetry": true,
+                            "reason": "not sent: someone wrote in Hélène Aubert since this card was asked",
+                            "wrote": [
+                                "at": at(18, 17, 52), "by": "Hélène",
+                                "text": "Finalement, pouvez-vous l'envoyer par courrier ?",
+                            ],
+                        ]
+                    case "mayHaveGone":
+                        [
+                            "state": "may_have_gone",
+                            "reason": "WhatsApp did not confirm. Check her chat before sending again.",
+                        ]
+                    default:
+                        [
+                            "state": "not_sent", "reason": "WhatsApp is not linked on your Mac.", "canRetry": true,
+                        ]
+                    }
+                return json(["ref": answer.ref, "kind": "decision", "send": send])
             }
             if isNewMatter, answer.options == ["edit-goal"] {
                 return json(["ref": answer.ref, "kind": "new matter"])

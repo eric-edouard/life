@@ -43,7 +43,14 @@ struct InboxScreen: View {
             .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.ask = $0 }
             .shellBar("")
             .navigationBarBackButtonHidden()
+            .motion(Motion.standard, value: life.held)
             .toolbar {
+                // What he just answered, in the bar's own row: it takes no room from the answers (the held one, for 4 s).
+                ToolbarItem(placement: .principal) {
+                    if let held = life.held.min(by: { $0.key < $1.key }) {
+                        Toast(words: held.value.label) { undo(held.key) }.appears()
+                    }
+                }
                 if sizeClass != .regular {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Asks", systemImage: "sidebar.left") { router.inboxColumn = .sidebar }
@@ -53,6 +60,8 @@ struct InboxScreen: View {
         }
         .navigationSplitViewStyle(.balanced)
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
+        // An answer that came back refused is on show again, with its reason above the answers.
+        .onChange(of: refusedRef) { _, ref in if let ref { current = ref } }
         .onChange(of: life.openedCard, initial: true) { _, opening in
             guard let opening else { return }
             current = opening.check?.ref
@@ -71,6 +80,19 @@ struct InboxScreen: View {
         return .loaded(inbox)
     }
 
+    /// The ask whose answer Life refused, back in the order.
+    private var refusedRef: String? {
+        order.checks.first { check in
+            if case .failed = life.state(of: .answer(ref: check.ref)) { true } else { false }
+        }?.ref
+    }
+
+    /// Undo: the ask is back where it was, and on show.
+    private func undo(_ ref: String) {
+        life.undo(ref)
+        current = ref
+    }
+
     /// What blocks, then what can wait: `Inbox.ordered`, the one rule for the list, the pager, the ask on show and where
     /// an answer leads. An answer held, in flight or shown as his result is no row.
     private var order: InboxOrder {
@@ -84,7 +106,8 @@ struct InboxScreen: View {
     @ViewBuilder private func card(_ order: InboxOrder) -> some View {
         if let check = notes.taken?.check ?? order.check(on: current) {
             CardView(
-                check: check, checks: order.checks, current: $current, notes: $notes, notice: notice
+                check: check, checks: order.checks, current: $current, notes: $notes, notice: notice,
+                holdsAnswers: true
             ) {
                 taken, keep in
                 life.forget(taken.key)
