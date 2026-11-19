@@ -94,7 +94,10 @@ extension CheckGroup {
 /// The list's Filter: Everything and the kinds that wait, one row each.
 extension View {
     func askFilterBar(kinds: [CheckGroup], kind: Binding<CheckGroup?>, isInColumn: Bool) -> some View {
-        filterBar(isFiltered: kind.wrappedValue != nil, identifier: "inbox.filter", isInColumn: isInColumn, isResting: kinds.count < 2) {
+        filterBar(
+            isFiltered: kind.wrappedValue != nil, identifier: "inbox.filter", isInColumn: isInColumn,
+            isResting: kinds.count < 2
+        ) {
             Picker("Show", selection: kind) {
                 Label("Everything", systemImage: "list.bullet").tag(CheckGroup?.none)
                 ForEach(kinds, id: \.self) { kind in

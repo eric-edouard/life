@@ -279,7 +279,8 @@ extension View {
     /// of the closed Duo (`isInColumn`, `reportsSideColumn`), a round glass button floating at the list's bottom left,
     /// so the top group stays the Pendant and Settings.
     func filterBar<Choices: View>(
-        isFiltered: Bool, identifier: String, isInColumn: Bool, isResting: Bool = false, @ViewBuilder choices: () -> Choices
+        isFiltered: Bool, identifier: String, isInColumn: Bool, isResting: Bool = false,
+        @ViewBuilder choices: () -> Choices
     ) -> some View {
         // A control that comes and goes is unreliable: it stays and rests when there is nothing to choose between.
         let menu = FilterMenu(isFiltered: isFiltered, identifier: identifier, choices: choices).disabled(isResting)
