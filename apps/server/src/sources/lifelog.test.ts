@@ -32,6 +32,7 @@ import { conversationsWith } from "./lifelog-conversations";
 import type { Push } from "./lifelog-push";
 import { Recorded } from "./lifelog-recorded";
 import {
+  Clip,
   ConversationAnswer,
   NamingQueueItem,
   Voices,
@@ -530,6 +531,7 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
       defs,
       "naming-queue"
     ),
+    ...drift(ours(Clip), answer("/turns/clip", "get"), defs, "turns-clip"),
     ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
     ...drift(ours(Recorded), answer("/recorded", "get"), defs, "recorded"),
     ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),

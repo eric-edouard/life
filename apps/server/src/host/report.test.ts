@@ -3,7 +3,7 @@ import { clock, MIN } from "../core/clock";
 import { writeJson } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { notifyArgs, WINDOWS } from "../core/platform";
-import type { Check } from "../memory/checks";
+import type { Check } from "../memory/life-checks";
 import { action, madeBy } from "../memory/record-fixtures";
 import { entryLine, LedgerEntry } from "../records/ledger-entry";
 import { HEALTH } from "./health";
@@ -242,6 +242,7 @@ test("the Birthdays section comes first, each name with when; none when no birth
 
 const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
   about: ["+33600000001"],
+  around: null,
   asker: "life",
   at: null,
   clips: [],
@@ -257,6 +258,7 @@ const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
   links: [],
   matter: null,
   notSent: null,
+  onMatters: [],
   onSilence: null,
   options: [
     { id: "this-is", label: "It is them", takes: null },
@@ -265,6 +267,8 @@ const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
   question: guess,
   ref: `person:${guess}`,
   ridesOn,
+  said: null,
+  since: null,
   subject: null,
   title: "Know who someone is",
 });
@@ -302,6 +306,7 @@ test("Waiting on you comes first with every open decision; the Checks section ho
   );
   const decision = (i: number): Check => ({
     about: [],
+    around: null,
     asker: "planner",
     at: "2026-10-15T08:00:00.000Z",
     clips: [],
@@ -317,6 +322,7 @@ test("Waiting on you comes first with every open decision; the Checks section ho
     links: [`https://example.com/session/${i}`],
     matter: null,
     notSent: null,
+    onMatters: [],
     onSilence: null,
     options: [
       { id: "yes", label: "Book it", takes: null },
@@ -325,6 +331,8 @@ test("Waiting on you comes first with every open decision; the Checks section ho
     question: `Book plumber ${i}?`,
     ref: `dec_00000000000${i}`,
     ridesOn: { matterIds: [], matters: 0, observations: 0, pages: 0 },
+    said: null,
+    since: null,
     subject: null,
     title: `Fix the boiler ${i}`,
   });
