@@ -21,13 +21,13 @@ struct SameAsSheet: View {
                 if !people.isEmpty {
                     Caps("Who it may be")
                     ForEach(people, id: \.person) { person in
-                        Button(person.name) { pick(.person(person.person)) }.buttonStyle(.pill(.quiet, height: 48))
+                        Button(person.name) { pick(.person(person.person)) }.buttonStyle(.pill(.quiet))
                     }
                 }
                 Caps(takesNewName ? "Someone else, by name" : "Someone Life knows, by name")
                 TextField(takesNewName ? "Their name" : "Their name, as Life knows them", text: $name).font(.quote)
                     .foregroundStyle(Palette.fg)
-                    .padding(16).background(Palette.card, in: .rect(cornerRadius: 20))
+                    .padding(16).background(Palette.card, in: .capsule)
                 Button("Use this name") { pick(.name(typed)) }.buttonStyle(.pill(.filled)).disabled(typed.isEmpty)
             }
             .padding(20)
