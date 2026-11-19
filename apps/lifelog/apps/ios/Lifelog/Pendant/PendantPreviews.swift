@@ -71,7 +71,8 @@
     #Preview("Settings") {
         NavigationStack {
             SettingsView(
-                permissions: PermissionsStore(notifications: .allowed, location: .denied), allowNotifications: {})
+                permissions: PermissionsStore(notifications: .allowed, location: .denied), allowNotifications: {},
+                close: {})
         }
         .previewSync()
         .environment(CaptureStore.preview())
@@ -81,7 +82,8 @@
     #Preview("Settings, large text") {
         NavigationStack {
             SettingsView(
-                permissions: PermissionsStore(notifications: .notAsked, location: .allowed), allowNotifications: {})
+                permissions: PermissionsStore(notifications: .notAsked, location: .allowed), allowNotifications: {},
+                close: {})
         }
         .previewSync()
         .environment(CaptureStore.preview())
@@ -103,7 +105,7 @@
     }
 
     #Preview("Light guide") {
-        NavigationStack { LightGuideView() }
+        NavigationStack { LightGuideView(isConnected: true, set: { _ in true }) }
             .preferredColorScheme(.dark)
     }
 

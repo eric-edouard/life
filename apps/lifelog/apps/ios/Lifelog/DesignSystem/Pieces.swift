@@ -98,7 +98,7 @@ struct SegmentedChoice<Choice: Hashable>: View {
 }
 
 extension View {
-    /// A draft, a quote or a clip on paper: the `paper` fill at the passage radius.
+    /// A draft, a piece of evidence or a clip on paper: the `paper` fill at the passage radius (a quote sits on `tile`).
     func paperBox() -> some View {
         background(Palette.paper, in: .rect(cornerRadius: Metrics.Radius.passage))
     }
@@ -178,12 +178,12 @@ struct CheckLines: View {
         }
     }
 
-    @ViewBuilder private func mark(_ mark: CheckLine.Mark) -> some View {
+    private func mark(_ mark: CheckLine.Mark) -> some View {
         switch mark {
-        case .passed: Image(systemName: "checkmark").foregroundStyle(Palette.ok).font(.system(size: 13, weight: .bold))
-        case .running: ProgressView().controlSize(.mini).tint(Palette.fg)
-        case .waiting: Circle().fill(Palette.faint).frame(width: 4, height: 4)
-        case .failed: Image(systemName: "xmark").foregroundStyle(Palette.flag).font(.system(size: 13, weight: .bold))
+        case .passed: StateGlyph.ok
+        case .running: StateGlyph.busy
+        case .waiting: StateGlyph.off
+        case .failed: StateGlyph.flag
         }
     }
 
@@ -202,6 +202,228 @@ struct CheckLines: View {
         case .waiting: "waiting"
         case .failed: "failed"
         }
+    }
+}
+
+// MARK: State marks, rows and fields
+
+/// The one table of state glyphs, drawn 16 points: a check that worked, a dot that is off, a mark that needs him, a
+/// spinner. `CheckLines` and `StateMark` both draw from it.
+enum StateGlyph: View {
+    case ok, off, flag, busy
+
+    var color: Color {
+        switch self {
+        case .ok: Palette.ok
+        case .off: Palette.muted
+        case .flag: Palette.flag
+        case .busy: Palette.fg
+        }
+    }
+
+    var body: some View {
+        Group {
+            switch self {
+            case .ok: Image(systemName: "checkmark").font(.system(size: 13, weight: .bold))
+            case .off: Circle().frame(width: 6, height: 6)
+            case .flag: Image(systemName: "exclamationmark.circle").font(.system(size: 14, weight: .semibold))
+            case .busy: ProgressView().controlSize(.small).tint(Palette.fg)
+            }
+        }
+        .foregroundStyle(color)
+        .frame(width: 16, height: 16)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A state as a glyph and a word in the glyph's colour, never a filled pill: "Works", "Off", "No answer".
+struct StateMark: View {
+    let glyph: StateGlyph
+    let word: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            glyph
+            Text(word).font(.smallStrong).foregroundStyle(glyph.color)
+        }
+        .fixedSize()
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// What a surface is, so a fill never clashes with it: a row group or a field is `card` on the page, `tile` on a sheet.
+enum Surface {
+    case page, sheet
+
+    var fill: Color {
+        switch self {
+        case .page: Palette.card
+        case .sheet: Palette.tile
+        }
+    }
+}
+
+/// Where a row's value stands. A value the server holds is never shown as known before it said (`ServerValue`); the
+/// other rows are always `known`. `saved` is view state, shown 2 s after a change was accepted.
+enum RowState: Equatable {
+    case known, asking, saving, saved
+    /// The change did not go: the control is back on the old value, the line says why.
+    case refused(String)
+}
+
+/// One row of a `RowGroup`: a title, an optional second line, and one thing at the trailing edge (a `RowValue`, a
+/// `RowMenu`, a `RowSwitch`, a `StateMark`, a `RowButton`). The state sets the second line and the spinner.
+struct Row<Trailing: View>: View {
+    let title: String
+    var detail: String?
+    var state = RowState.known
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.rowName).foregroundStyle(Palette.fg)
+                line
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 8) {
+                if state == .asking || state == .saving { StateGlyph.busy }
+                if state != .asking { trailing }
+            }
+            .tint(Palette.fg)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .frame(minHeight: state == .known && detail == nil ? 56 : 64)
+        .contentShape(.rect)
+    }
+
+    @ViewBuilder private var line: some View {
+        switch state {
+        case .known:
+            if let detail { Text(detail).font(.small).foregroundStyle(Palette.muted) }
+        case .asking: Text("Asking the server…").font(.small).foregroundStyle(Palette.muted)
+        case .saving: Text("Saving…").font(.small).foregroundStyle(Palette.muted)
+        case .saved:
+            HStack(spacing: 6) {
+                StateGlyph.ok
+                Text("Saved").font(.smallStrong)
+            }
+            .foregroundStyle(Palette.ok)
+        case .refused(let message): Text(message).font(.small).foregroundStyle(Palette.flag)
+        }
+    }
+}
+
+extension Row where Trailing == EmptyView {
+    init(title: String, detail: String? = nil, state: RowState = .known) {
+        self.init(title: title, detail: detail, state: state) {}
+    }
+}
+
+/// A row's value in `note` and a chevron: for a row that opens a page or a menu.
+struct RowValue: View {
+    var text: String?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let text { Text(text).font(.note).foregroundStyle(Palette.muted) }
+            Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(
+                Palette.muted
+            )
+            .accessibilityHidden(true)
+        }
+        .frame(minHeight: 44)
+    }
+}
+
+/// A row's value that is one of a few choices, in the system's menu.
+struct RowMenu<Choice: Hashable>: View {
+    let title: String
+    let choices: [(choice: Choice, name: String)]
+    let selection: Choice
+    let set: (Choice) -> Void
+
+    var body: some View {
+        Menu {
+            Picker(title, selection: Binding(get: { selection }, set: set)) {
+                ForEach(choices, id: \.choice) { Text($0.name).tag($0.choice) }
+            }
+        } label: {
+            RowValue(text: choices.first { $0.choice == selection }?.name)
+        }
+        .accessibilityLabel(title)
+    }
+}
+
+/// A row's switch: the system's, tinted `fg` by the row.
+struct RowSwitch: View {
+    let title: String
+    let isOn: Bool
+    let set: (Bool) -> Void
+
+    var body: some View {
+        Toggle(title, isOn: Binding(get: { isOn }, set: set)).labelsHidden()
+    }
+}
+
+/// A row's quiet button: 44 high, 84 wide at least.
+struct RowButton: View {
+    let title: String
+    var isBusy = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) { Text(title).padding(.horizontal, 18).frame(minWidth: 84) }
+            .buttonStyle(.pill(.quiet, size: .compact, isBusy: isBusy)).fixedSize()
+    }
+}
+
+/// Rows in one filled group with a hairline between them, starting at the text, and a label above.
+struct RowGroup<Content: View>: View {
+    var label: String?
+    var labelColor = Palette.faint
+    var surface = Surface.page
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        Group(subviews: content) { rows in
+            if !rows.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let label {
+                        Caps(label, color: labelColor).padding(.horizontal, 16).accessibilityAddTraits(.isHeader)
+                    }
+                    VStack(spacing: 0) {
+                        ForEach(rows) { row in
+                            row.overlay(alignment: .top) {
+                                if row.id != rows.first?.id { Hairline(color: .fillTint).padding(.leading, 16) }
+                            }
+                        }
+                    }
+                    .foregroundStyle(Palette.fg)
+                    .background(surface.fill, in: .rect(cornerRadius: Metrics.Radius.card))
+                }
+            }
+        }
+    }
+}
+
+/// A one-line field: 48 high capsule, no outline, its fill by the surface it sits on.
+struct Field: View {
+    let prompt: String
+    @Binding var text: String
+    var surface = Surface.page
+    /// A symbol leading the text, as a search field has.
+    var icon: String?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if let icon { Image(systemName: icon).foregroundStyle(Palette.muted).accessibilityHidden(true) }
+            TextField(prompt, text: $text).font(.body15).foregroundStyle(Palette.fg)
+        }
+        .padding(.horizontal, 20)
+        .frame(minHeight: 48)
+        .background(surface.fill, in: .capsule)
     }
 }
 

@@ -33,11 +33,9 @@ public enum Outbox {
 
 /// Something the owner did that the server must apply: the switches, the vocabulary, a playback quiet range.
 public enum OwnerIntent: Sendable, Equatable, Codable {
-    /// The owner turns transcription or AI on or off, picks the AI model, or sets when the server asks him to open the
-    /// app; `nil` leaves one as it is.
-    case switches(
-        transcription: Bool? = nil, ai: Bool? = nil, engine: ServerClient.Switches.Engine? = nil,
-        openAppAfterMinutes: Int? = nil)
+    /// The owner turns transcription on or off, or sets when the server asks him to open the app; `nil` leaves one as
+    /// it is. (`ai` and `engine` are the server's own: no screen writes them.)
+    case switches(transcription: Bool? = nil, openAppAfterMinutes: Int? = nil)
     /// The owner's whole word list (people's names are the server's own).
     case vocabulary([String])
     /// A stretch this app played a recording out loud, padded: never transcription. Its id is the edit's.
@@ -50,10 +48,9 @@ public enum OwnerIntent: Sendable, Equatable, Codable {
         let path: String
         let body: (any Encodable)?
         switch self {
-        case .switches(let transcription, let ai, let engine, let openAppAfterMinutes):
+        case .switches(let transcription, let openAppAfterMinutes):
             path = "switches"
-            body = SwitchesBody(
-                transcription: transcription, ai: ai, engine: engine, openAppAfterMinutes: openAppAfterMinutes)
+            body = SwitchesBody(transcription: transcription, openAppAfterMinutes: openAppAfterMinutes)
         case .vocabulary(let terms):
             path = "vocabulary"
             body = ["terms": terms]
@@ -66,8 +63,6 @@ public enum OwnerIntent: Sendable, Equatable, Codable {
 
     private struct SwitchesBody: Encodable {
         var transcription: Bool?
-        var ai: Bool?
-        var engine: ServerClient.Switches.Engine?
         var openAppAfterMinutes: Int?
     }
 
@@ -153,15 +148,15 @@ extension LibraryStore {
 /// The owner's edits the server hasn't accepted yet, as screens show them at once: a switch or the word list waits with a "waiting to sync" mark. A refused one is shown with the server's message and
 /// is no longer applied: the screen rolls back to what the feed says.
 public struct PendingEdits: Sendable, Equatable {
-    /// Waiting, oldest first.
-    public var waiting: [OutboxEntry]
-    /// Refused by the server, with its message, until the owner dismisses them.
-    public var refused: [OutboxEntry]
+    /// Every edit, refused ones included, in the order made.
+    public let entries: [OutboxEntry]
 
-    public init(_ outbox: [OutboxEntry]) {
-        waiting = outbox.filter { $0.refused == nil }
-        refused = outbox.filter { $0.refused != nil }
-    }
+    public init(_ outbox: [OutboxEntry]) { entries = outbox }
+
+    /// Waiting, oldest first.
+    public var waiting: [OutboxEntry] { entries.filter { $0.refused == nil } }
+    /// Refused by the server, with its message, until the owner dismisses them.
+    public var refused: [OutboxEntry] { entries.filter { $0.refused != nil } }
 
     private var intents: [OwnerIntent] { waiting.map(\.intent) }
 
@@ -173,14 +168,63 @@ public struct PendingEdits: Sendable, Equatable {
     /// The feed's switches with the waiting changes applied, in order; `nil` until the feed said.
     public func switches(over feed: ServerClient.Switches?) -> ServerClient.Switches? {
         intents.reduce(feed) { shown, intent in
-            guard var shown, case .switches(let transcription, let ai, let engine, let openAppAfter) = intent else {
-                return shown
-            }
+            guard var shown, case .switches(let transcription, let openAppAfter) = intent else { return shown }
             shown.transcription = transcription ?? shown.transcription
-            shown.ai = ai ?? shown.ai
-            shown.engine = engine ?? shown.engine
             shown.openAppAfterMinutes = openAppAfter ?? shown.openAppAfterMinutes
             return shown
         }
     }
+}
+
+/// A value the server holds, as a screen says it: never shown as known before the server said.
+public enum ServerValue<T: Sendable & Equatable>: Sendable, Equatable {
+    /// The feed never said: a spinner, never a default.
+    case asking
+    case known(T)
+    /// His change shows at once, waiting for the server.
+    case saving(T)
+    /// The server refused his newest change: the value is the one shown (rolled back).
+    case refused(T, message: String)
+
+    /// What to draw: the value, or nil while asking.
+    public var shown: T? {
+        switch self {
+        case .asking: nil
+        case .known(let value), .saving(let value), .refused(let value, _): value
+        }
+    }
+}
+
+/// A switch the phone writes: where it lives in the server's `Switches`, and whether an intent writes it.
+public struct SwitchField<T: Sendable & Equatable>: Sendable {
+    let read: @Sendable (ServerClient.Switches) -> T
+    let isWrittenBy: @Sendable (OwnerIntent) -> Bool
+
+    public static var transcription: SwitchField<Bool> {
+        .init(read: { $0.transcription }, isWrittenBy: { if case .switches(.some, _) = $0 { true } else { false } })
+    }
+    public static var openAppAfterMinutes: SwitchField<Int> {
+        .init(
+            read: { $0.openAppAfterMinutes }, isWrittenBy: { if case .switches(_, .some) = $0 { true } else { false } })
+    }
+}
+
+/// A switch's state: the value `switches(over:)` shows, and where it stands. The newest edit touching the field decides.
+public func serverValue<T>(_ field: SwitchField<T>, feed: ServerClient.Switches?, pending: PendingEdits) -> ServerValue<
+    T
+> {
+    guard let shown = pending.switches(over: feed) else { return .asking }
+    return state(of: field.read(shown), newest: pending.entries.last { field.isWrittenBy($0.intent) })
+}
+
+/// The word list's state, the same way.
+public func serverVocabulary(feed: [String]?, pending: PendingEdits) -> ServerValue<[String]> {
+    guard let shown = pending.vocabulary ?? feed else { return .asking }
+    return state(of: shown, newest: pending.entries.last { if case .vocabulary = $0.intent { true } else { false } })
+}
+
+private func state<T>(of value: T, newest: OutboxEntry?) -> ServerValue<T> {
+    guard let newest else { return .known(value) }
+    guard let message = newest.refused else { return .saving(value) }
+    return .refused(value, message: message)
 }

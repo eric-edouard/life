@@ -87,47 +87,6 @@ struct DurationText: View {
     }
 }
 
-/// Where processing stands, in words with a glyph, never by color alone.
-struct ProcessingBadge: View {
-    enum Glyph {
-        /// Transcribing, recognizing speakers.
-        case working
-        /// Not uploaded or transcribed yet, or held.
-        case waiting
-        /// Still recording.
-        case recording
-        case failed
-    }
-
-    let title: String
-    let glyph: Glyph
-
-    var body: some View {
-        HStack(spacing: 6) {
-            icon
-            Text(title)
-        }
-        .font(.small)
-        .foregroundStyle(Palette.fg)
-        .padding(.vertical, 4)
-        .padding(.horizontal, 10)
-        .background(Palette.tile, in: .capsule)
-        .overlay { Capsule().strokeBorder(Palette.line, lineWidth: 0.5) }
-        .accessibilityElement(children: .combine)
-    }
-
-    @ViewBuilder private var icon: some View {
-        switch glyph {
-        case .working: ProgressView().controlSize(.mini)
-        case .waiting:
-            Image(systemName: "circle.dashed").foregroundStyle(Palette.muted).accessibilityHidden(true)
-        case .recording: StatusDot(state: .live, size: 7)
-        case .failed:
-            Image(systemName: "exclamationmark.triangle").foregroundStyle(Palette.flag).accessibilityHidden(true)
-        }
-    }
-}
-
 /// Lays views out left to right, starting a new line when the next one doesn't fit (words, chips). A view wider than a
 /// whole line gets the line's width, which a `minimumScaleFactor` can shrink it into. Centered, each line centers in
 /// the width it was given.
@@ -189,7 +148,10 @@ extension View {
 
 /// The half-point rule between rows.
 struct Hairline: View {
+    /// `line` on the page; `fillTint` inside a filled group, where `line` cannot be seen.
+    var color = Palette.line
+
     var body: some View {
-        Rectangle().fill(Palette.line).frame(height: 0.5)
+        Rectangle().fill(color).frame(height: 0.5)
     }
 }

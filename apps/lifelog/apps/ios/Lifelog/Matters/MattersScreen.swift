@@ -87,13 +87,9 @@ struct MattersScreen: View {
         let inbox = life.inbox.value
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 12) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(Palette.muted).accessibilityHidden(true)
-                    TextField("Search \(list.matters.count) matters", text: $query)
-                        .font(.lead).foregroundStyle(Palette.fg).submitLabel(.search)
-                }
-                .padding(.horizontal, 18).frame(minHeight: 52).background(Palette.card, in: .capsule)
-                .padding(.horizontal, 20).padding(.top, 4)
+                Field(prompt: "Search \(list.matters.count) matters", text: $query, icon: "magnifyingglass")
+                    .submitLabel(.search)
+                    .padding(.horizontal, 20).padding(.top, 4)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         FilterChip(name: "Area", value: filter.area ?? "All", isOn: filter.area != nil) {

@@ -64,12 +64,14 @@ private func ackState(_ fixture: ScannerFixture) async throws -> [String] {
     #expect(puts(host, "/backup/packs/").isEmpty)
     let snapshot = try #require(puts(host, "/backup/source-db/pendant-1").first)
     #expect(snapshot.sha == hex(snapshot.body))
-    #expect(try await uploader.backupStatus() == .init(packs: 0, jobs: 0))
+    #expect(
+        try await uploader.backupStatus().snapshot?.bytes == Int64(snapshot.body.count), "the newest snapshot shows")
+    #expect(try await uploader.backupStatus().todo == [0, 0])
 
     // The store rolls to a second pack: the first is sealed and goes once, with its hash.
     let packs = fixture.directory.appending(path: "source/packs")
     try Data("open".utf8).write(to: packs.appending(path: "2.pack"))
-    #expect(try await uploader.backupStatus() == .init(packs: 1, jobs: 0))
+    #expect(try await uploader.backupStatus().todo == [1, 0])
     try await uploader.backUp(library: fixture.library)
     let sent = puts(host, "/backup/packs/")
     #expect(sent.map(\.path) == ["/backup/packs/pendant-1/1"])
@@ -90,10 +92,10 @@ private func ackState(_ fixture: ScannerFixture) async throws -> [String] {
             """
     }
     uploader = try backupUploader(fixture, host: host)
-    #expect(try await uploader.backupStatus() == .init(packs: 1, jobs: 0), "not known before the server is asked")
+    #expect(try await uploader.backupStatus().todo == [1, 0], "not known before the server is asked")
     try await uploader.backUp(library: fixture.library)
     #expect(puts(host, "/backup/").count == 2)
-    #expect(try await uploader.backupStatus() == .init(packs: 0, jobs: 0))
+    #expect(try await uploader.backupStatus().todo == [0, 0])
 
     try FileManager.default.removeItem(at: packs.appending(path: "2.pack"))
     #expect(try await ackState(fixture) == before, "the backup never writes the source store")
@@ -196,4 +198,9 @@ private func writeRecording(_ url: URL, seconds: Int) throws {
     #expect(try await uploader.backUp(library: fixture.library).count == 1)
     try await uploader.backUp(library: fixture.library)
     #expect(puts(host, "/backup/packs/").count == 3)
+}
+
+extension Uploader.BackupStatus {
+    /// What is still to send: packs, then old jobs.
+    var todo: [Int] { [packs, jobs] }
 }

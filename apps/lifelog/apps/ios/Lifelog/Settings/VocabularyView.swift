@@ -3,56 +3,70 @@ import SwiftUI
 
 /// The owner's names and words, sent as hints with each transcription so they come back spelled right. The list is
 /// the feed's (`vocabulary`), so it shows at once and offline. A change goes through the outbox as the whole list and
-/// shows at once, waiting to sync. Nothing can be changed before the feed said: a change replaces the whole list.
+/// shows at once; a refused one goes back with its reason (`ServerValue`). Nothing can be changed before the feed said: a
+/// change replaces the whole list.
 struct VocabularyView: View {
     @Environment(SyncStore.self) private var sync
     @State private var draft = ""
 
-    /// A change waiting for the server wins over what the feed said.
-    private var terms: [String]? { sync.pending.vocabulary ?? sync.feed.vocabulary }
+    private var words: ServerValue<[String]> { serverVocabulary(feed: sync.feed.vocabulary, pending: sync.pending) }
 
     var body: some View {
-        List {
-            if let terms {
-                Section {
-                    TextField("Add a name or word", text: $draft)
-                        .autocorrectionDisabled()
-                        .submitLabel(.done)
-                        .onSubmit { add(to: terms) }
-                        .accessibilityIdentifier("vocabulary.add")
-                    ForEach(terms, id: \.self) { Text($0) }
-                        .onDelete { offsets in
-                            var kept = terms
-                            kept.remove(atOffsets: offsets)
-                            save(kept)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                if let terms = words.shown {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 8) {
+                            Field(prompt: "Add a word or a name", text: $draft, surface: .sheet)
+                                .autocorrectionDisabled()
+                                .submitLabel(.done)
+                                .onSubmit { add(to: terms) }
+                                .accessibilityIdentifier("vocabulary.add")
+                            RowButton(title: "Add") { add(to: terms) }.disabled(typed.isEmpty)
                         }
-                } footer: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if sync.pending.vocabulary != nil {
-                            Label("Waiting to sync", systemImage: "arrow.triangle.2.circlepath")
-                                .labelStyle(.decorativeIcon)
+                        Text("Used from the next recording.").font(.note).foregroundStyle(Palette.muted)
+                        switch words {
+                        case .saving:
+                            HStack(spacing: 8) {
+                                StateGlyph.busy; Text("Saving…").font(.small).foregroundStyle(Palette.muted)
+                            }
+                        case .refused(_, let message): Text(message).font(.small).foregroundStyle(Palette.flag)
+                        case .known, .asking: EmptyView()
                         }
-                        Text(
-                            "Sent with each new transcription so these come back spelled right. The names of your people go on their own. Audio already transcribed keeps its words."
-                        )
                     }
+                    if !terms.isEmpty {
+                        RowGroup(label: terms.count == 1 ? "1 word" : "\(terms.count) words", surface: .sheet) {
+                            ForEach(terms, id: \.self) { term in
+                                Row(title: term) {
+                                    Button {
+                                        save(terms.filter { $0 != term })
+                                    } label: {
+                                        Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Palette.muted).frame(width: 44, height: 44)
+                                    }
+                                    .accessibilityLabel("Remove \(term)")
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    RowGroup(surface: .sheet) { Row(title: "Your words", state: .asking) }
                 }
-            } else {
-                ContentUnavailableView {
-                    Label("Your words aren't here yet", systemImage: "icloud")
-                } description: {
-                    Text("They show once lifelog has synced with the server.")
-                }
-                .listRowBackground(Color.clear)
             }
+            .padding(.horizontal, Metrics.gutter)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
+            .readingWidth()
         }
-        .scrollContentBackground(.hidden)
-        .background(Palette.bg)
+        .scrollDismissesKeyboard(.interactively)
+        .background(Palette.sheet)
         .navigationTitle("Vocabulary")
     }
 
+    private var typed: String { draft.trimmingCharacters(in: .whitespacesAndNewlines) }
+
     private func add(to terms: [String]) {
-        let term = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let term = typed
         draft = ""
         guard !term.isEmpty, !terms.contains(term) else { return }
         save([term] + terms)

@@ -79,6 +79,16 @@ final class LifeStore {
     }
 
     var isPaired: Bool { pairedOrigin != nil }
+    /// Whether Life answers: its inbox read, the one every screen starts from.
+    var link: LinkState {
+        guard isPaired else { return .notPaired }
+        return switch inbox.phase {
+        case .unreachable, .failed: .noAnswer
+        case .notPaired: .notPaired
+        case .idle, .loading: inbox.value == nil ? .checking : .works
+        case .loaded: .works
+        }
+    }
     /// What pairing is doing or why it failed, for the screens that show it.
     var pairingNote: String? { pairingFailure ?? pairingStep?.words }
 

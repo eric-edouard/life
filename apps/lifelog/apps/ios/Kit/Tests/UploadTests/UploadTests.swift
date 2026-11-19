@@ -758,7 +758,7 @@ private func lose(_ fixture: ScannerFixture, where isLost: (UInt64) -> Bool) thr
     var library = try LibraryStore(directory: directory)
     let ids = [UUID(), UUID(), UUID()]
     try await library.enqueue(.playbackQuiet(from: at(1).date, to: at(2).date), id: ids[0])
-    try await library.enqueue(.switches(ai: false), id: ids[1])
+    try await library.enqueue(.switches(transcription: false), id: ids[1])
     try await library.enqueue(.vocabulary(["Oakridge"]), id: ids[2])
     try await library.enqueue(.vocabulary(["Nok"]), id: ids[0])
     RebuildServer.hosts.withLock {
@@ -878,10 +878,10 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
         $0[host]?.holds = []
     }
     await #expect(throws: URLError.self) { try await round.value }
-    #expect(try await uploader.backupStatus() == .init(packs: 1, jobs: 0))
+    #expect(try await uploader.backupStatus().todo == [1, 0])
     try await uploader.backUp(library: fixture.library)
     #expect(RebuildServer.requests(host, "PUT", pack).count == 2)
-    #expect(try await uploader.backupStatus() == .init(packs: 0, jobs: 0))
+    #expect(try await uploader.backupStatus().todo == [0, 0])
 }
 
 // MARK: Fragments in time and heard-through
@@ -981,27 +981,44 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
 @Test func anEditShowsAtOnceAndARefusedOneRollsBack() async throws {
     let library = try LibraryStore(
         directory: FileManager.default.temporaryDirectory.appending(path: "pending-\(UUID().uuidString)"))
-    try await library.enqueue(.switches(ai: false))
+    let feed = ServerClient.Switches(transcription: true, ai: true, openAppAfterMinutes: 15)
+    var pending = try await library.pendingEdits()
+    #expect(serverValue(.transcription, feed: nil, pending: pending) == .asking, "never a default before the feed said")
+    #expect(serverValue(.transcription, feed: feed, pending: pending) == .known(true))
+    #expect(serverVocabulary(feed: nil, pending: pending) == .asking)
+
+    try await library.enqueue(.switches(transcription: false))
     try await library.enqueue(.vocabulary(["Nok"]))
 
-    var pending = try await library.pendingEdits()
+    pending = try await library.pendingEdits()
     #expect(pending.vocabulary == ["Nok"])
-    #expect(pending.switches(over: .init(transcription: true, ai: true, openAppAfterMinutes: 15))?.ai == false)
+    #expect(pending.switches(over: feed)?.transcription == false)
+    #expect(serverValue(.transcription, feed: feed, pending: pending) == .saving(false))
+    #expect(serverValue(.openAppAfterMinutes, feed: feed, pending: pending) == .known(15), "only its own field")
+    #expect(serverVocabulary(feed: ["Old"], pending: pending) == .saving(["Nok"]))
 
     // The server refuses the switch: it shows its message, and the feed's value again.
     let first = try #require(pending.waiting.first)
     try await library.settle(first.id, refused: "no such setting")
     pending = try await library.pendingEdits()
-    #expect(pending.switches(over: .init(transcription: true, ai: true, openAppAfterMinutes: 15))?.ai == true)
+    #expect(pending.switches(over: feed)?.transcription == true)
+    #expect(
+        serverValue(.transcription, feed: feed, pending: pending)
+            == .refused(true, message: "no such setting"))
     #expect(pending.refused.map(\.refused) == ["no such setting"])
     #expect(pending.waiting.count == 1)
+
+    // His next tap on it is the newest edit: saving again, the refusal gone from the row.
+    try await library.enqueue(.switches(transcription: false))
+    pending = try await library.pendingEdits()
+    #expect(serverValue(.transcription, feed: feed, pending: pending) == .saving(false))
 }
 
 @Test func everyIntentKeepsInTheOutboxAndBecomesItsRequestWhenSent() async throws {
     let library = try LibraryStore(
         directory: FileManager.default.temporaryDirectory.appending(path: "intents-\(UUID().uuidString)"))
     let intents: [OwnerIntent] = [
-        .vocabulary(["Nok", "Izipizi"]), .switches(transcription: nil, ai: false, engine: .codex),
+        .vocabulary(["Nok", "Izipizi"]), .switches(transcription: false),
         .playbackQuiet(from: at(1).date, to: at(2).date),
     ]
     for intent in intents { try await library.enqueue(intent) }
@@ -1013,13 +1030,12 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
     }
     #expect(try body(kept[2])["id"] as? String == kept[2].id.uuidString.lowercased(), "the range's id is the edit's")
     let switches = PendingEdits([
-        OutboxEntry(intent: .switches(transcription: false, ai: nil, engine: nil)),
-        OutboxEntry(intent: .switches(transcription: nil, ai: false, engine: nil)),
+        OutboxEntry(intent: .switches(transcription: false)),
         OutboxEntry(intent: .switches(openAppAfterMinutes: 30)),
     ])
     #expect(switches.switches(over: nil) == nil, "nothing shown before the feed said")
     #expect(
         switches.switches(over: .init(transcription: true, ai: true, openAppAfterMinutes: 15))
-            == .init(transcription: false, ai: false, openAppAfterMinutes: 30),
+            == .init(transcription: false, ai: true, openAppAfterMinutes: 30),
         "each waiting change applies over the feed's")
 }

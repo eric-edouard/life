@@ -177,8 +177,9 @@ conversation, people and voice-naming screens are cut and come back as Life's sc
    `docs/sync.md`. A real answer in `fixtures/wire/` checks both sides.
 
 **Something the owner edits.** A case of `OwnerIntent` with the request it becomes (`OwnerIntent.request`), sent
-with `SyncStore.perform`. The outbox keeps the intent itself; screens read it in `PendingEdits` and mark it "waiting
-to sync".
+with `SyncStore.perform`. The outbox keeps the intent itself; screens read it in `PendingEdits`. A value the server
+holds is never shown as known: `serverValue` (`Outbox.swift`) says asking, then the value; a change shows at once as
+saving, then Saved, or goes back with the server's reason.
 
 **A new screen.** Give it an `@Observable` store that the view owns with `@State`, built from the library and
 `SyncStore`; read app-wide stores from the environment. Its rows come from the cache, never from the server (see
@@ -203,8 +204,9 @@ Everything the owner reads is on the phone, so every screen works offline and op
    anything else. It never awaits the server before its first rows.
 2. **Refresh in the background.** Server-only data (the voices to name) shows as last read, then comes
    after and updates rows in place. No spinner while local rows exist.
-3. **Edits show at once.** An edit goes to the outbox and the screen shows it with a "waiting to sync" mark until the
-   server accepts it; a refused one says why (the status sheet) and the screen shows the feed's value again.
+3. **Edits show at once.** An edit goes to the outbox and the screen shows it as saving until the server accepts it
+   (then "Saved"); a refused one says why on its own row (and in the status sheet) and the screen shows the feed's value
+   again. Before the feed said, a server-held value is asking, never a default.
 4. **One status.** Every main tab shows it at the leading end of its bar with `.connectionStatus()`, one state at a
    time: Not paired, Offline, Uploading, N edits waiting, Up to date, or Not synced yet before the first pull
    (`ConnectionSummary`). It reads the pairing, the network path, the uploader, the outbox and the last feed pull,

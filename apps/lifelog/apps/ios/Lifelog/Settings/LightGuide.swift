@@ -2,28 +2,6 @@ import Capture
 import OwnerSettings
 import SwiftUI
 
-/// What the Pendant's light means, each light in its real color blinking its real pattern (docs/pendant.md). It is
-/// the official guide, not what the light shows now. Under Reduce Motion every light holds still.
-struct LightGuide: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        OnScreenTimeline(minimumInterval: LightPattern.frame, paused: reduceMotion) { date in
-            let time = reduceMotion ? nil : date.timeIntervalSinceReferenceDate
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(LightPattern.allCases.filter { !$0.isProblem }) { LightRow(pattern: $0, time: time) }
-                Text("When something's wrong")
-                    .font(.small)
-                    .foregroundStyle(Palette.faint)
-                    .padding(.top, 14)
-                    .padding(.bottom, 4)
-                    .accessibilityAddTraits(.isHeader)
-                ForEach(LightPattern.allCases.filter(\.isProblem)) { LightRow(pattern: $0, time: time) }
-            }
-        }
-    }
-}
-
 /// One light in the guide, in the Pendant's own words.
 enum LightPattern: CaseIterable, Identifiable {
     case recording
@@ -115,91 +93,25 @@ enum LightPattern: CaseIterable, Identifiable {
     }
 }
 
-private struct LightRow: View {
+/// A light as a picture: its real colours, blinking its real pattern, sunk into a faceplate.
+private struct LightPicture: View {
     let pattern: LightPattern
     let time: TimeInterval?
-
-    var body: some View {
-        let (first, second) = pattern.colors
-        let lit = pattern.intensity(at: time)
-        HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(Palette.fg.opacity(0.08))
-                LightDot(color: first, intensity: lit.first)
-                if let second { LightDot(color: second, intensity: lit.second) }
-            }
-            .frame(width: 10, height: 10)
-            .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(pattern.label).font(.body15).foregroundStyle(Palette.fg)
-                Text(pattern.pattern).font(.small).foregroundStyle(Palette.faint)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 9)
-        .overlay(alignment: .top) { Hairline() }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// Every light in a row, as on a hardware panel, each blinking its real pattern; tap one to read what it means. Under
-/// Reduce Motion every light holds still.
-struct LightStrip: View {
-    @State private var selected = LightPattern.recording
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            OnScreenTimeline(minimumInterval: LightPattern.frame, paused: reduceMotion) { date in
-                let time = reduceMotion ? nil : date.timeIntervalSinceReferenceDate
-                HStack(spacing: 0) {
-                    ForEach(LightPattern.allCases) { pattern in
-                        Button {
-                            selected = pattern
-                        } label: {
-                            LightWell(pattern: pattern, time: time, isSelected: pattern == selected)
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .contentShape(.rect)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(pattern.label)
-                        .accessibilityValue(pattern.pattern)
-                        .accessibilityAddTraits(pattern == selected ? .isSelected : [])
-                    }
-                }
-            }
-            .sensoryFeedback(.selection, trigger: selected)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(selected.label).font(.body15).foregroundStyle(Palette.fg)
-                Text(selected.pattern).font(.small).foregroundStyle(Palette.faint)
-            }
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityHidden(true)
-        }
-    }
-}
-
-/// One light of the strip, sunk into the faceplate; ringed while it is the one being read.
-private struct LightWell: View {
-    let pattern: LightPattern
-    let time: TimeInterval?
-    let isSelected: Bool
 
     var body: some View {
         let (first, second) = pattern.colors
         let lit = pattern.intensity(at: time)
         ZStack {
             Circle().fill(Palette.bg)
-            Circle().strokeBorder(
-                isSelected ? Palette.muted : Palette.line, lineWidth: isSelected ? 1.5 : 0.5)
             ZStack {
-                Circle().fill(Palette.fg.opacity(0.08))
+                Circle().fill(Color.fillTint)
                 LightDot(color: first, intensity: lit.first)
                 if let second { LightDot(color: second, intensity: lit.second) }
             }
             .frame(width: 10, height: 10)
         }
         .frame(width: 30, height: 30)
+        .accessibilityHidden(true)
     }
 }
 
@@ -216,38 +128,22 @@ private struct LightDot: View {
     }
 }
 
-/// The recording light's brightness, a Settings row. It changes only while the Pendant is connected, since only then
-/// can it be sent. Nothing is selected until the owner picks: the light's level is never read back.
+/// The recording light's brightness, a row. It changes only while the Pendant is connected, since only then can it be
+/// sent. Nothing is selected until the owner picks: the light's level is never read back.
 struct LightBrightnessRow: View {
     let isConnected: Bool
     let set: (LightBrightness) async -> Bool
 
     @Bindable private var settings = Settings.shared
     @State private var asksIfChanged = false
-    @State private var failed = false
+    @State private var state = RowState.known
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text("Brightness")
-                Spacer(minLength: 8)
-                Picker("Brightness", selection: selection) {
-                    if settings.lightBrightnessLevel == nil { Text("Not set").tag(LightBrightness?.none) }
-                    ForEach(LightBrightness.allCases) { step in
-                        Text(step.name).tag(Optional(step))
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
+        Row(title: "Brightness", detail: caption, state: state) {
+            RowMenu(title: "Brightness", choices: choices, selection: current, set: pick)
                 .disabled(!isConnected)
-                .accessibilityIdentifier("pendant.settings.lightBrightness")
-            }
-            Text(caption)
-                .font(.small)
-                .foregroundStyle(Palette.faint)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.vertical, 12)
+        .accessibilityIdentifier("pendant.settings.lightBrightness")
         .alert("Did the light change?", isPresented: $asksIfChanged) {
             Button("Yes") { settings.lightBrightnessCheck = .changed }
             Button("No") { settings.lightBrightnessCheck = .unchanged }
@@ -256,24 +152,28 @@ struct LightBrightnessRow: View {
         }
     }
 
-    /// A get/set pair on purpose: a pick shows as chosen only once the Pendant took it.
-    private var selection: Binding<LightBrightness?> {
-        Binding {
-            settings.lightBrightnessLevel.flatMap(LightBrightness.init(rawValue:))
-        } set: { step in
-            guard let step else { return }
-            Task {
-                // Shown as chosen only once it reached the Pendant.
-                failed = !(await set(step))
-                guard !failed else { return }
-                settings.lightBrightnessLevel = step.rawValue
-                if settings.lightBrightnessCheck == .unasked { asksIfChanged = true }
+    private var current: LightBrightness? { settings.lightBrightnessLevel.flatMap(LightBrightness.init(rawValue:)) }
+
+    private var choices: [(choice: LightBrightness?, name: String)] {
+        (current == nil ? [(nil, "Not set")] : []) + LightBrightness.allCases.map { (Optional($0), $0.name) }
+    }
+
+    /// A pick shows as chosen only once the Pendant took it.
+    private func pick(_ step: LightBrightness?) {
+        guard let step else { return }
+        state = .saving
+        Task {
+            guard await set(step) else {
+                state = .refused("That didn't reach the Pendant. Try again in a moment.")
+                return
             }
+            state = .known
+            settings.lightBrightnessLevel = step.rawValue
+            if settings.lightBrightnessCheck == .unasked { asksIfChanged = true }
         }
     }
 
     private var caption: String {
-        if failed { return "That didn't reach the Pendant. Try again in a moment." }
         if !isConnected { return "Connect the Pendant to change it." }
         let off = "Off may turn the light off, and then people nearby can't tell it's recording."
         return switch settings.lightBrightnessCheck {
@@ -296,31 +196,39 @@ extension LightBrightness {
     }
 }
 
-/// What the Pendant's light means, pushed from Settings: the strip to tap through, then every light in words.
+/// What the Pendant's light means, pushed from Settings: its brightness, then every light as a row, each in its real
+/// colours blinking its real pattern (docs/pendant.md). It is the official guide, not what the light shows now. Under
+/// Reduce Motion every light holds still.
 struct LightGuideView: View {
+    let isConnected: Bool
+    let set: (LightBrightness) async -> Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Tap a light to read it. They blink as the Pendant does.")
-                        .font(.small)
-                        .foregroundStyle(Palette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                    LightStrip()
+            OnScreenTimeline(minimumInterval: LightPattern.frame, paused: reduceMotion) { date in
+                let time = reduceMotion ? nil : date.timeIntervalSinceReferenceDate
+                VStack(alignment: .leading, spacing: 24) {
+                    RowGroup(surface: .sheet) { LightBrightnessRow(isConnected: isConnected, set: set) }
+                    RowGroup(surface: .sheet) { rows(LightPattern.allCases.filter { !$0.isProblem }, time) }
+                    RowGroup(label: "When something's wrong", surface: .sheet) {
+                        rows(LightPattern.allCases.filter(\.isProblem), time)
+                    }
                 }
-                .padding(Metrics.cardPadding)
-                .card()
-                LightGuide()
-                    .padding(.horizontal, Metrics.cardPadding)
-                    .padding(.bottom, 6)
-                    .card()
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, Metrics.gutter)
             .padding(.top, 8)
             .padding(.bottom, 24)
+            .readingWidth()
         }
-        .background(Palette.bg)
+        .background(Palette.sheet)
         .navigationTitle("Light guide")
         .toolbarTitleDisplayMode(.inline)
+    }
+
+    private func rows(_ patterns: [LightPattern], _ time: TimeInterval?) -> some View {
+        ForEach(patterns) { pattern in
+            Row(title: pattern.label, detail: pattern.pattern) { LightPicture(pattern: pattern, time: time) }
+        }
     }
 }
