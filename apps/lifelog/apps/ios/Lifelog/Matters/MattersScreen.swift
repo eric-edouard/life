@@ -1,14 +1,14 @@
 import LifeConnector
 import SwiftUI
 
-/// The running matters, most pressing first, with a search and three filters. The filter and the counts are Kit's
+/// The running matters, most pressing first, with a search and a filter menu. The filter and the areas are Kit's
 /// (`MatterFilter`, `MatterList`); this draws them.
 struct MattersScreen: View {
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
 
     @State private var query = ""
-    @State private var scope = Scope.everything
+    @State private var filter = MatterFilter.everything
     @State private var visibility = NavigationSplitViewVisibility.all
     @Environment(\.horizontalSizeClass) private var sizeClass
 
@@ -48,7 +48,7 @@ struct MattersScreen: View {
         .onChange(of: life.matters.value) { fillSelection() }
         .onChange(of: router.showsAgentsOnly, initial: true) { _, on in
             guard on else { return }
-            scope = .agent
+            filter = .agentWorking
             router.showsAgentsOnly = false
         }
         // Here, above both columns, so a fold that collapses the matter's page keeps the sheet and its running start.
@@ -77,46 +77,35 @@ struct MattersScreen: View {
         router.select(matter: isGone ? matters?.first?.id : router.matter)
     }
 
-    /// What the filter menu chooses: everything, what needs him, what an agent works on, or one area.
-    private enum Scope: Hashable {
-        case everything, needsYou, agent
-        case area(String)
-
-        var filter: MatterFilter {
-            switch self {
-            case .everything: MatterFilter()
-            case .needsYou: MatterFilter(waits: [.decision, .owner])
-            case .agent: MatterFilter(withAgent: true)
-            case .area(let area): MatterFilter(area: area)
-            }
-        }
-    }
-
     /// A system menu: a line icon per row, a check on the chosen one.
     private var filterMenu: some View {
         Menu {
-            Picker("Show", selection: $scope) {
-                Label("Everything", systemImage: "list.bullet").tag(Scope.everything)
+            Picker("Show", selection: $filter) {
+                Label("Everything", systemImage: "list.bullet").tag(MatterFilter.everything)
                 Label {
                     Text("Needs you")
                 } icon: {
                     Image(systemName: "circle.fill").imageScale(.small).foregroundStyle(Palette.flag)
                 }
-                .tag(Scope.needsYou)
-                Label("Agent working", systemImage: "sparkles").tag(Scope.agent)
+                .tag(MatterFilter.needsYou)
+                Label {
+                    Text("Agent working")
+                } icon: {
+                    Image(systemName: "sparkles").foregroundStyle(Palette.ai)
+                }.tag(MatterFilter.agentWorking)
             }
             .pickerStyle(.inline)
             if let areas = life.matters.value?.areaCounts, !areas.isEmpty {
-                Picker("Area", selection: $scope) {
+                Picker("Area", selection: $filter) {
                     ForEach(areas, id: \.area) { item in
-                        Label(item.area.capitalized, systemImage: item.area.areaSymbol).tag(Scope.area(item.area))
+                        Label(item.area, systemImage: item.area.areaSymbol).tag(MatterFilter.area(item.area))
                     }
                 }
                 .pickerStyle(.inline)
             }
         } label: {
             Image(
-                systemName: scope == .everything
+                systemName: filter == .everything
                     ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
         }
         .accessibilityLabel("Filter")
@@ -124,7 +113,7 @@ struct MattersScreen: View {
     }
 
     private func content(_ list: MatterList) -> some View {
-        let rows = list.shown(query: query, filter: scope.filter)
+        let rows = list.shown(query: query, filter: filter)
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 if rows.isEmpty {
@@ -138,17 +127,15 @@ struct MattersScreen: View {
                     Button {
                         router.open(matter: row.id)
                     } label: {
-                        MatterRowView(
-                            row: row, isChosen: isSelected,
-                            agent: life.agents.value?.agents.first { $0.id == row.agent })
+                        MatterRowView(row: row, isChosen: isSelected)
                     }
                     .buttonStyle(.plain)
+                    .transition(Motion.appears)
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
             .padding(.bottom, 24)
             .readingWidth()
-            .motion(Motion.standard, value: rows.map(\.id))
         }
         .searchable(text: $query, prompt: "Search \(list.matters.count) matters")
         .scrollDismissesKeyboard(.interactively)
@@ -156,25 +143,14 @@ struct MattersScreen: View {
 }
 
 extension MatterWait {
-    /// The filter's words for it.
-    var name: String {
+    /// The caps line on a page.
+    func line(waitsOn: String?) -> String {
         switch self {
         case .decision: "Your decision"
-        case .owner: "You, to do something"
-        case .ready: "Nothing: ready to do"
-        case .event: "Something to arrive"
+        case .owner: "Waits on you"
+        case .ready: "Ready to do"
+        case .event: waitsOn.map { "Waits on \($0)" } ?? "Waits for something"
         case .stuck: "Stuck"
-        }
-    }
-
-    /// The caps line on a row and a page, and whether it needs him.
-    func line(waitsOn: String?) -> (text: String, needsYou: Bool) {
-        switch self {
-        case .decision: ("Your decision", true)
-        case .owner: ("Waits on you", true)
-        case .ready: ("Ready to do", false)
-        case .event: (waitsOn.map { "Waits on \($0)" } ?? "Waits for something", false)
-        case .stuck: ("Stuck", false)
         }
     }
 }
@@ -182,10 +158,6 @@ extension MatterWait {
 private struct MatterRowView: View {
     let row: MatterRow
     let isChosen: Bool
-    let agent: RegisteredAgent?
-
-    /// The flag dot when it needs him (a wait on him, or a card open); the spinner when an agent is working.
-    private var needsYou: Bool { row.wait?.line(waitsOn: nil).needsYou == true || (row.openChecks ?? 0) > 0 }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -200,15 +172,15 @@ private struct MatterRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Group {
-                if needsYou {
+                if row.needsYou {
                     StateDot(color: Palette.flag).accessibilityLabel("Needs you")
-                } else if agent?.status == .running {
+                } else if row.agent != nil {
                     ProgressView().controlSize(.small).tint(Palette.ai).accessibilityLabel("An agent is working")
                 }
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 12)
+        .frame(minHeight: Metrics.rowHeight)
         .background(isChosen ? Palette.card : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
         .padding(.horizontal, 8)
         .motion(Motion.standard, value: isChosen)
@@ -224,7 +196,7 @@ extension String {
         case "home": "house"
         case "work": "briefcase"
         case "family": "heart"
-        case "papers": "doc"
+        case "papers", "admin": "doc"
         case "money": "banknote"
         default: "folder"
         }
@@ -234,7 +206,6 @@ extension String {
 private struct RowsPlaceholder: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            Placeholder(height: 52)
             ForEach(0..<5, id: \.self) { _ in
                 VStack(alignment: .leading, spacing: 10) {
                     Placeholder(width: 220, height: 18)

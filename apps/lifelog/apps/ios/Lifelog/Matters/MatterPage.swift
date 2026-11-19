@@ -63,8 +63,9 @@ struct MatterPage: View {
         let days = matter.steps.first.map { Calendar.current.dateComponents([.day], from: $0.at, to: .now).day ?? 0 }
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
-                if let wait = row.wait?.line(waitsOn: row.nextStep?.waitsOn) {
-                    Text(wait.text).label().foregroundStyle(wait.needsYou ? Palette.flag : Palette.fg)
+                if let wait = row.wait {
+                    Text(wait.line(waitsOn: row.nextStep?.waitsOn)).label()
+                        .foregroundStyle(wait.isOnHim ? Palette.flag : Palette.fg)
                 }
                 Text(
                     ([days.map { "open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self)

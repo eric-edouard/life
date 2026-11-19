@@ -62,7 +62,7 @@ const CAPS: Record<string, Record<string, number>> = {
     width: 3,
   },
   "Matters/MattersScreen.swift": {
-    padding: 6,
+    padding: 5,
     width: 1,
   },
   "Matters/StartAgentSheet.swift": {
