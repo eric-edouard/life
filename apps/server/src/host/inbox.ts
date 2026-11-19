@@ -1,4 +1,9 @@
-import { type Asked, checksNow, inboxOf, whereAskedOf } from "../memory/checks";
+import {
+  checksNow,
+  inboxOf,
+  type WhereAsked,
+  whereAskedOf,
+} from "../memory/checks";
 import { anchoredSteps, readDesk } from "./desk-read";
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
@@ -18,7 +23,7 @@ const askedIn = <
   C extends { kind: Parameters<typeof whereAskedOf>[0]["kind"] },
 >(
   list: C[],
-  where: Asked
+  where: WhereAsked
 ) => list.filter((c) => whereAskedOf(c) === where);
 
 /** His inbox: the open checks asked there (`whereAskedOf`: his agents' decisions). Pushes, the badge and the status's `left` count these. */
@@ -38,7 +43,7 @@ export async function openCheckOf(ref: string) {
 /** `read_inbox`: the first `limit` checks of `list` (his inbox, or the ones Life asks when he likes), most pressing first, with how many there are of each group; and always `toConfirm`, how many wait in that list. Answered ones leave, so reading again shows the next. */
 export async function readInbox(
   limit: number,
-  list: Exclude<Asked, "matter"> = "inbox"
+  list: Exclude<WhereAsked, "matter"> = "inbox"
 ) {
   const open = await openChecksNow();
   const shown = askedIn(open, list);

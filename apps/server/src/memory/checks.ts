@@ -656,8 +656,8 @@ function draftPersonOf(c: Ctx, d: StoredDraft) {
 }
 
 /** Where a check is asked: `inbox`, his agents' decisions (the only ones that push); `to confirm`, Life's own questions about who someone is and whether a step is done, when he likes; `matter`, a new matter, on its matter's page. The one rule, over the kind. */
-export type Asked = "inbox" | "matter" | "to confirm";
-const ASKED: Record<CheckKind, Asked> = {
+export type WhereAsked = "inbox" | "matter" | "to confirm";
+const ASKED: Record<CheckKind, WhereAsked> = {
   decision: "inbox",
   ending: "to confirm",
   "new matter": "matter",
