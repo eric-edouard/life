@@ -63,10 +63,23 @@ targets:
         product: Health
       - package: LifelogKit
         product: LifeConnector
+    # The build's time and commit, written into the built Info.plist (`LifelogBuild`, shown in Settings): every build
+    # and install carries it. The script edits the product, so this target runs unsandboxed.
+    postBuildScripts:
+      - name: Stamp the build
+        # Waits for the built Info.plist, which it edits.
+        inputFiles: [$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)]
+        basedOnDependencyAnalysis: false
+        script: |
+          stamp="$(date '+%-d %b %H:%M') · $(git -C "$SRCROOT" rev-parse --short HEAD 2>/dev/null || echo nogit)"
+          plist="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
+          /usr/libexec/PlistBuddy -c "Delete :LifelogBuild" "$plist" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :LifelogBuild string $stamp" "$plist"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID)
         PRODUCT_NAME: lifelog
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
         # Lifelog/AppIcon.icon, the Icon Composer document (Liquid Glass layers, light/dark/tinted).
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
