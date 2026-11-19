@@ -13,13 +13,22 @@ const isPattern = (source: string) => {
 
 /**
  * Which events an agent waits for: one filter for the connector's poll and a registered agent's wait, matched in one
- * place (`matcherOf`, `host/events.ts`). Today messages (`message.received`): who wrote it, in which apps or chat, his
- * own or others', and a pattern on its text; and the calls that ended in the same chats (`call.ended`). A field an
- * event cannot answer matches nothing (a pattern or `from_me` matches no call). The text is only tested: an event
- * never carries it.
+ * place (`matcherOf` over `Matchable`, `host/events.ts`, whose rules say what a field an event cannot answer does).
+ * Messages (`message.received`): who wrote it, in which apps or chat, his own or others', and a pattern on its text;
+ * the calls that ended in the same chats (`call.ended`); and, for a registered agent's wait, an event channel's
+ * events, by name in `channels`, by `quantity` between `above` and `below`, and by a pattern (a payment's,
+ * `payment.booked`). The connector's poll takes the message keys only.
  */
 export const EventFilter = z
   .object({
+    above: z
+      .number()
+      .optional()
+      .describe("With `quantity`: only when it is more than this"),
+    below: z
+      .number()
+      .optional()
+      .describe("With `quantity`: only when it is less than this"),
     channels: z
       .array(z.string())
       .optional()
@@ -37,6 +46,12 @@ export const EventFilter = z
       .optional()
       .describe(
         "Who: a name, handle or person id. Matches who wrote it; on his own messages, the other side of a 1:1 chat"
+      ),
+    quantity: z
+      .string()
+      .optional()
+      .describe(
+        "The name of a quantity the event holds, compared with `above` and `below`"
       ),
     text_matches: z
       .string()

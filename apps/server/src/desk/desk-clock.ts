@@ -8,7 +8,6 @@ import {
   activeAgents,
   agentOf,
   type EventRow,
-  eventHeard,
   filtersOf,
   lastTurns,
   modelOf,
@@ -19,9 +18,10 @@ import {
 } from "../host/desk-read";
 import {
   CALL_ENDED,
-  callMatcherOf,
+  callMatchableOf,
   MESSAGE_RECEIVED,
   matcherOf,
+  messageMatchableOf,
   pollDecisions,
   readEndedCalls,
   readMessageEvents,
@@ -50,6 +50,13 @@ import {
 import { doorOf } from "./desk-door";
 import { type Desk, saveCursor, writeWait } from "./desk-store";
 import {
+  agentWakesOf,
+  pollChannels,
+  queue,
+  type ReadPeople,
+  unreadLinesOf,
+} from "./event-queue";
+import {
   MATTER_RELATED,
   netsOf,
   relatedMessages,
@@ -72,9 +79,6 @@ const REMINDER =
 
 const now = () => clock().toISOString();
 
-/** Who his people are, read when a poll first needs them: once per poll (`readPeopleOnce`). */
-type ReadPeople = () => Promise<People>;
-
 /** `readPeople`, read at most once however often it is asked. */
 export function readPeopleOnce(): ReadPeople {
   let read: Promise<People> | undefined;
@@ -82,20 +86,6 @@ export function readPeopleOnce(): ReadPeople {
     read ??= readPeople();
     return read;
   };
-}
-
-/** Queues `wakes` (one event each, kept once per agent and id) as `name`. */
-function queue(
-  db: Desk["db"],
-  name: string,
-  wakes: { agent: string; eventId: string; payload: unknown }[]
-) {
-  for (const w of wakes) {
-    db.run(
-      "insert or ignore into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
-      [w.agent, w.eventId, name, JSON.stringify(w.payload), now()]
-    );
-  }
 }
 
 /**
@@ -125,7 +115,9 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
     people,
     (m, e) => {
       const ids = new Set(
-        matchers.filter((x) => x.isMatch(m, e)).map((x) => x.id)
+        matchers
+          .filter((x) => x.isMatch(messageMatchableOf(m, e)))
+          .map((x) => x.id)
       );
       return ids.size || nets.length
         ? { fromMe: e.fromMe, ids, m, text: e.text }
@@ -166,19 +158,17 @@ export async function pollCalls(
     return;
   }
   const people = await readPeopleNow();
-  const calls = readEndedCalls(people, desk.sources, at);
-  const wakes = agents.flatMap((a) => {
-    const matchers = filtersOf(a).flatMap(
-      (f) => callMatcherOf(f, people) ?? []
-    );
-    return calls.flatMap((call) =>
-      call.until >= a.created_at &&
-      matchers.some((isMatch) => isMatch(call)) &&
-      eventHeard(db, a.id, `${call.id}.ended`) === "not_yet"
-        ? [{ agent: a.id, call }]
-        : []
-    );
-  });
+  const wakes = agentWakesOf(
+    db,
+    agents,
+    people,
+    readEndedCalls(people, desk.sources, at).map((call) => ({
+      at: call.until,
+      eventId: `${call.id}.ended`,
+      matchable: callMatchableOf(call),
+      payload: call,
+    }))
+  );
   if (wakes.length === 0) {
     return;
   }
@@ -186,7 +176,7 @@ export async function pollCalls(
     const recordings = await withStore(
       (store) =>
         new Map(
-          wakes.map(({ call }) => [
+          wakes.map(({ payload: call }) => [
             call.id,
             recordingsOf(store, call.at, call.until),
           ])
@@ -197,16 +187,10 @@ export async function pollCalls(
       queue(
         db,
         CALL_ENDED,
-        wakes.flatMap(({ agent, call }) => {
+        wakes.flatMap(({ agent, eventId, payload: call }) => {
           const found = recordings.get(call.id);
           return found
-            ? [
-                {
-                  agent,
-                  eventId: `${call.id}.ended`,
-                  payload: { ...call, recordings: found },
-                },
-              ]
+            ? [{ agent, eventId, payload: { ...call, recordings: found } }]
             : [];
         })
       )
@@ -282,11 +266,17 @@ const sinceLineOf = (since?: string) =>
       ]
     : [];
 
-/** The message that wakes a session: why, `sinceLineOf`, and each queued event's facts (who, where, when, the id to read). */
-const wakeMessageOf = (cause: string, events: EventRow[], since?: string) =>
+/** The message that wakes a session: why, `sinceLineOf`, the channels it waits on that cannot be read (`unreadLinesOf`), and each queued event's facts (who, where, when, the id to read). */
+const wakeMessageOf = (
+  cause: string,
+  events: EventRow[],
+  since: string | undefined,
+  unread: string[]
+) =>
   [
     `Woken by the desk: ${cause}.`,
     ...sinceLineOf(since),
+    ...unread,
     ...events.map(eventLineOf),
   ].join("\n");
 
@@ -412,9 +402,11 @@ async function launch(
     if (!a.session || state === "gone" || grown >= GROWTH_LIMIT) {
       const s = await runtime.start(
         sessionAgentOf(a),
-        [await readPacket(desk, a.id, isOwnLife()), ...sinceLineOf(since)].join(
-          "\n\n"
-        )
+        [
+          await readPacket(desk, a.id, isOwnLife()),
+          ...sinceLineOf(since),
+          ...unreadLinesOf(db, a),
+        ].join("\n\n")
       );
       // Watched first: its process runs, so a failed write below never ends it as not started.
       watch(desk, a.id, turn, s);
@@ -451,7 +443,7 @@ async function launch(
         await runtime.send(
           sessionAgentOf(a),
           a.session,
-          wakeMessageOf(cause, events, since)
+          wakeMessageOf(cause, events, since, unreadLinesOf(db, a))
         )
       );
     }
@@ -515,7 +507,7 @@ export async function wakeDue(desk: Desk) {
 /**
  * One tick of the clock: his word about his agents, his answers, the turns that never began, then the turns due (a new
  * agent's first turn never waits behind the polls), then, when their poll is due, the messages, the calls that ended, the recordings, the
- * agents whose matter is done and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst.
+ * agents whose matter is done and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst; the event channels a wait names after the calls (`pollChannels`).
  */
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
@@ -527,6 +519,7 @@ export async function tick(desk: Desk, isPollDue = true) {
     const people = readPeopleOnce();
     await pollMessages(desk, people);
     await pollCalls(desk, people);
+    await pollChannels(desk, people);
     await pollRecordings(desk, people);
     await endAgentsOnDoneMatters(desk, people);
     await endLostTurns(desk);
