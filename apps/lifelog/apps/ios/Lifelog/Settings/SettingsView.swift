@@ -70,43 +70,51 @@ struct SettingsView: View {
     // MARK: Needs you
 
     /// What needs him, each with its one button; the group is absent when nothing does.
-    @ViewBuilder private var needsYou: some View {
-        let notifications = permissions.notifications
-        let needsNotifications = notifications == .notAsked || notifications == .denied || notifications == .restricted
-        if life.link == .notPaired || life.link == .noAnswer || sync.summary.state.link == .notPaired
-            || sync.summary.state.link == .noAnswer || needsNotifications
-        {
-            RowGroup(label: "Needs you", labelColor: Palette.flag, surface: .sheet) {
-                switch life.link {
-                case .notPaired:
-                    Row(title: "Life is not paired", detail: "Pair it with the link on your Mac.") {
-                        RowButton(title: "Pair") { pairing = .life }
-                    }
-                case .noAnswer:
-                    Row(title: "Life does not answer", detail: lifeSilence) {
-                        RowButton(title: "Check", isBusy: life.inbox.phase == .loading) {
-                            Task { await life.refreshInbox() }
-                        }
-                    }
-                case .works, .checking: EmptyView()
+    private var needsYou: some View {
+        RowGroup(label: "Needs you", labelColor: Palette.flag, surface: .sheet) {
+            switch life.link {
+            case .notPaired:
+                Row(title: "Life is not paired", detail: "Pair it with the link on your Mac.") {
+                    RowButton(title: "Pair") { pairing = .life }
                 }
-                switch sync.summary.state.link {
-                case .notPaired:
-                    Row(title: "Server is not paired", detail: "Recording goes on; nothing is sent.") {
-                        RowButton(title: "Pair") { pairing = .server }
-                    }
-                case .noAnswer:
-                    Row(title: "Server does not answer", detail: "Audio waits on this phone.") {
-                        RowButton(title: "Check") { sync.run() }
-                    }
-                case .works, .checking: EmptyView()
-                }
-                if needsNotifications {
-                    Row(title: "Notifications are off", detail: "Cards can't reach you.") {
-                        RowButton(title: "Turn on") { allow(notifications, ask: allowNotifications) }
+            case .noAnswer:
+                Row(title: "Life does not answer", detail: lifeSilence) {
+                    RowButton(title: "Check", isBusy: life.inbox.phase == .loading) {
+                        Task { await life.refreshInbox() }
                     }
                 }
+            case .works, .checking: EmptyView()
             }
+            switch sync.summary.state.link {
+            case .notPaired:
+                Row(title: "Server is not paired", detail: "Recording goes on; nothing is sent.") {
+                    RowButton(title: "Pair") { pairing = .server }
+                }
+            case .noAnswer:
+                Row(title: "Server does not answer", detail: "Audio waits on this phone.") {
+                    RowButton(title: "Check") { sync.run() }
+                }
+            case .works, .checking: EmptyView()
+            }
+            switch permissions.notifications {
+            case .notAsked:
+                Row(title: "Notifications not allowed yet", detail: "Cards can't reach you.") {
+                    RowButton(title: "Allow", action: allowNotifications)
+                }
+            case .denied, .restricted:
+                Row(title: "Notifications are off", detail: "Cards can't reach you.") {
+                    RowButton(title: "Open", action: openSettings)
+                }
+            case .allowed, .asked, .limited: EmptyView()
+            }
+        }
+    }
+
+    /// Notifications' problem is already in "Needs you": its row below keeps only the state.
+    private var notificationsListed: Bool {
+        switch permissions.notifications {
+        case .notAsked, .denied, .restricted: true
+        case .allowed, .asked, .limited: false
         }
     }
 
@@ -149,7 +157,8 @@ struct SettingsView: View {
     private var allows: some View {
         RowGroup(label: "This phone allows", surface: .sheet) {
             permission(
-                "Notifications", "Inbox cards reach you", permissions.notifications, ask: allowNotifications)
+                "Notifications", "Inbox cards reach you", permissions.notifications, ask: allowNotifications,
+                listed: notificationsListed)
             permission("Bluetooth", "The pendant", bluetooth, ask: nil)
             permission("Location", "Where things were said", permissions.location, ask: permissions.askLocation)
             if AppleHealthReader.isAvailable {
@@ -175,16 +184,19 @@ struct SettingsView: View {
     /// One permission: on, or the one thing to do. Not asked has a button only when the app can ask from here (Bluetooth's
     /// ask comes with pairing a pendant); refused goes to iOS Settings.
     private func permission(
-        _ name: String, _ why: String, _ access: PermissionsStore.Access, ask: (() -> Void)?
+        _ name: String, _ why: String, _ access: PermissionsStore.Access, ask: (() -> Void)?, listed: Bool = false
     ) -> some View {
         let id = "pendant.settings.\(name.lowercased())"
         return Group {
             switch access {
-            case .allowed, .asked:
+            case .allowed:
                 Row(title: name, detail: why) { StateMark(glyph: .ok, word: "On") }
+            case .asked:
+                // iOS never says whether reading was allowed.
+                Row(title: name, detail: why) { StateMark(glyph: .off, word: "Asked") }
             case .notAsked:
                 Row(title: name, detail: why) {
-                    if let ask {
+                    if let ask, !listed {
                         RowButton(title: "Allow", action: ask)
                     } else {
                         StateMark(glyph: .off, word: "Not asked")
@@ -193,9 +205,9 @@ struct SettingsView: View {
             case .limited(let what):
                 Row(title: name, detail: what) { RowButton(title: "Open", action: openSettings) }
             case .denied, .restricted:
-                Row(title: name, detail: "Change it in iOS Settings") {
+                Row(title: name, detail: listed ? why : "Change it in iOS Settings") {
                     StateMark(glyph: .flag, word: "Off")
-                    RowButton(title: "Open", action: openSettings)
+                    if !listed { RowButton(title: "Open", action: openSettings) }
                 }
             }
         }
@@ -272,7 +284,7 @@ struct SettingsView: View {
                 NavigationLink {
                     LightGuideView(isConnected: isConnected, set: capture.setLightBrightness)
                 } label: {
-                    Row("Light guide") { RowValue() }
+                    Row(title: "Light guide") { RowValue() }
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("pendant.settings.lightGuide")
@@ -301,18 +313,24 @@ struct SettingsView: View {
 
     private var yourData: some View {
         RowGroup(label: "Your data", surface: .sheet) {
-            Row("Last backup", detail: lastBackup)
             NavigationLink {
                 BackupView()
             } label: {
-                Row("Backup & restore") { RowValue() }
+                Row(title: "Backup") {
+                    HStack(spacing: 8) {
+                        if backupValue == nil { StateGlyph.busy }
+                        RowValue(text: backupValue)
+                    }
+                }
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("pendant.settings.backup")
         }
     }
 
-    private var lastBackup: String? {
+    /// The backup row's value; nil until the status is read.
+    private var backupValue: String? {
+        guard sync.server != nil else { return "Not paired" }
         guard let backup = sync.backup else { return nil }
         guard let at = backup.snapshot?.recordedAt else { return "None yet" }
         let time = at.formatted(date: .omitted, time: .shortened)
@@ -330,7 +348,7 @@ struct SettingsView: View {
                 NavigationLink {
                     DiagnosticsView()
                 } label: {
-                    Row("Diagnostics") { RowValue() }
+                    Row(title: "Diagnostics") { RowValue() }
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("pendant.settings.diagnostics")
@@ -375,7 +393,7 @@ struct ServerRow<Value: Sendable & Equatable, Trailing: View>: View {
         switch value {
         case .asking: .asking
         case .saving: .saving
-        case .refused(_, let message, _): .refused(message)
+        case .refused(_, let message): .refused(message)
         case .known: isSaved ? .saved : .known
         }
     }

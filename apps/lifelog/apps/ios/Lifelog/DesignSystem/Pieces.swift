@@ -251,16 +251,14 @@ struct StateMark: View {
     }
 }
 
-/// What a surface is, so a fill never clashes with it: a row group or a field is `card` on the page, `tile` on a sheet,
-/// `bg` inside a card.
+/// What a surface is, so a fill never clashes with it: a row group or a field is `card` on the page, `tile` on a sheet.
 enum Surface {
-    case page, sheet, card
+    case page, sheet
 
     var fill: Color {
         switch self {
         case .page: Palette.card
         case .sheet: Palette.tile
-        case .card: Palette.bg
         }
     }
 }
@@ -317,14 +315,8 @@ struct Row<Trailing: View>: View {
     }
 }
 
-extension Row {
-    init(_ title: String, detail: String? = nil, state: RowState = .known, @ViewBuilder trailing: () -> Trailing) {
-        self.init(title: title, detail: detail, state: state, trailing: trailing)
-    }
-}
-
 extension Row where Trailing == EmptyView {
-    init(_ title: String, detail: String? = nil, state: RowState = .known) {
+    init(title: String, detail: String? = nil, state: RowState = .known) {
         self.init(title: title, detail: detail, state: state) {}
     }
 }
@@ -392,28 +384,25 @@ struct RowGroup<Content: View>: View {
     var label: String?
     var labelColor = Palette.faint
     var surface = Surface.page
-    var footer: String?
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let label {
-                Caps(label, color: labelColor).padding(.horizontal, 16).accessibilityAddTraits(.isHeader)
-            }
-            VStack(spacing: 0) {
-                Group(subviews: content) { rows in
-                    ForEach(rows) { row in
-                        row.overlay(alignment: .top) {
-                            if row.id != rows.first?.id { Hairline(color: .fillTint).padding(.leading, 16) }
+        Group(subviews: content) { rows in
+            if !rows.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let label {
+                        Caps(label, color: labelColor).padding(.horizontal, 16).accessibilityAddTraits(.isHeader)
+                    }
+                    VStack(spacing: 0) {
+                        ForEach(rows) { row in
+                            row.overlay(alignment: .top) {
+                                if row.id != rows.first?.id { Hairline(color: .fillTint).padding(.leading, 16) }
+                            }
                         }
                     }
+                    .foregroundStyle(Palette.fg)
+                    .background(surface.fill, in: .rect(cornerRadius: Metrics.Radius.card))
                 }
-            }
-            .foregroundStyle(Palette.fg)
-            .background(surface.fill, in: .rect(cornerRadius: Metrics.Radius.card))
-            if let footer {
-                Text(footer).font(.note).foregroundStyle(Palette.muted).padding(.horizontal, 16)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

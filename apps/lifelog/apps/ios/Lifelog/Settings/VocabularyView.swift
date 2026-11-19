@@ -30,7 +30,7 @@ struct VocabularyView: View {
                             HStack(spacing: 8) {
                                 StateGlyph.busy; Text("Saving…").font(.small).foregroundStyle(Palette.muted)
                             }
-                        case .refused(_, let message, _): Text(message).font(.small).foregroundStyle(Palette.flag)
+                        case .refused(_, let message): Text(message).font(.small).foregroundStyle(Palette.flag)
                         case .known, .asking: EmptyView()
                         }
                     }
@@ -50,8 +50,7 @@ struct VocabularyView: View {
                         }
                     }
                 } else {
-                    Row("Your words", state: .asking)
-                        .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.card))
+                    RowGroup(surface: .sheet) { Row(title: "Your words", state: .asking) }
                 }
             }
             .padding(.horizontal, Metrics.gutter)

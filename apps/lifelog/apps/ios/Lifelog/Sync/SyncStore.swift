@@ -319,7 +319,7 @@ final class SyncStore {
             do {
                 for item in try await uploader.backUp(library: library) { appEvent("backup.skipped", ["item": item]) }
             } catch {
-                noteFailure(error)
+                noteFailure(error, isPull: false)
             }
             backup = (try? await uploader.backupStatus()) ?? backup
             backingUp = nil
@@ -339,13 +339,14 @@ final class SyncStore {
         }
     }
 
-    private func noteFailure(_ error: any Error) {
+    private func noteFailure(_ error: any Error, isPull: Bool = true) {
         if error.isOfflineOrCancelled {
             if let error = error as? URLError { pullFailed = error.isTransient }
             return
         }
         // Not paired: recording and saving go on, and the status says so.
         if error as? ServerClient.ClientError == .notPaired { return }
+        if isPull { pullFailed = true }
         _ = report(error)
     }
 

@@ -183,14 +183,14 @@ public enum ServerValue<T: Sendable & Equatable>: Sendable, Equatable {
     case known(T)
     /// His change shows at once, waiting for the server.
     case saving(T)
-    /// The server refused his newest change: the value is the one shown (rolled back), `editID` dismisses the entry.
-    case refused(T, message: String, editID: UUID)
+    /// The server refused his newest change: the value is the one shown (rolled back).
+    case refused(T, message: String)
 
     /// What to draw: the value, or nil while asking.
     public var shown: T? {
         switch self {
         case .asking: nil
-        case .known(let value), .saving(let value), .refused(let value, _, _): value
+        case .known(let value), .saving(let value), .refused(let value, _): value
         }
     }
 }
@@ -226,5 +226,5 @@ public func serverVocabulary(feed: [String]?, pending: PendingEdits) -> ServerVa
 private func state<T>(of value: T, newest: OutboxEntry?) -> ServerValue<T> {
     guard let newest else { return .known(value) }
     guard let message = newest.refused else { return .saving(value) }
-    return .refused(value, message: message, editID: newest.id)
+    return .refused(value, message: message)
 }

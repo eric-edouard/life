@@ -1004,7 +1004,7 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
     #expect(pending.switches(over: feed)?.transcription == true)
     #expect(
         serverValue(.transcription, feed: feed, pending: pending)
-            == .refused(true, message: "no such setting", editID: first.id))
+            == .refused(true, message: "no such setting"))
     #expect(pending.refused.map(\.refused) == ["no such setting"])
     #expect(pending.waiting.count == 1)
 
