@@ -134,6 +134,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
         try quoted("host/desk-read.ts", /(?s)export type DeskRead<T> =(.*?value: T \});/)
             == client(RegisteredAgents.Desk.self))
     #expect(try quoted("host/registered-agents.ts", /helper: ([^;]*);/) == client(RegisteredAgents.Helper.self))
+    #expect(try quoted("host/registered-agents.ts", /broken\?: ([^;]*);/) == client(WakeLine.Broken.self))
 }
 
 @Test func unknownServerValuesNeverFailTheFeedsState() throws {

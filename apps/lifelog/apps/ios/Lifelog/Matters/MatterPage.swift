@@ -39,7 +39,7 @@ struct MatterPage: View {
                 asks(opening: opening, questions: questions)
                 GoalAndNext(matter: matter)
                 if let agent {
-                    AgentBlock(agent: agent, waitsOnYou: row.needsYou)
+                    AgentRow(agent: agent) { router.matterSheet = .agent(id) }
                 } else {
                     NoAgent()
                 }
@@ -52,7 +52,7 @@ struct MatterPage: View {
         .safeAreaInset(edge: .bottom, spacing: 8) {
             VStack(spacing: 8) {
                 if canStart {
-                    Button(agent == nil ? "Start an agent" : "Start again") { router.startSheetMatter = id }
+                    Button(agent == nil ? "Start an agent" : "Start again") { router.matterSheet = .start(id) }
                         .buttonStyle(.pill(.filled))
                 }
                 DoneButton(id: id)
@@ -200,79 +200,6 @@ private struct NoAgent: View {
     }
 }
 
-private struct AgentBlock: View {
-    let agent: RegisteredAgent
-    /// A card of this matter waits on him, or its next step is his decision.
-    let waitsOnYou: Bool
-    @Environment(LifeStore.self) private var life
-    @Environment(\.openURL) private var openURL
-
-    var body: some View {
-        let state = life.state(of: .agent(agent.id))
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Label(agent.runtimeName.name, systemImage: "sparkle").font(.leadBold).foregroundStyle(
-                    Palette.ai)
-                if let model = agent.model {
-                    Text(model).font(.lead).foregroundStyle(Palette.muted)
-                }
-                Spacer()
-                if waitsOnYou && !agent.isOver { Caps("Waits on you", color: Palette.flag) }
-            }
-            Text(status).font(.leadBold).foregroundStyle(Palette.fg).fixedSize(
-                horizontal: false, vertical: true)
-            if let turn = agent.lastTurn, let outcome = turn.outcome {
-                Text("Last turn, \((turn.endedAt ?? turn.startedAt).formatted(.dateTime.hour().minute())): \(outcome)")
-                    .font(.body15).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
-            }
-            controls(state)
-            if case .failed(let failure, _) = state {
-                Text(failure.reason).font(.small).foregroundStyle(Palette.flag)
-            }
-        }
-        .padding(18).frame(maxWidth: .infinity, alignment: .leading).card()
-    }
-
-    /// Its session's link, and Stop or Resume while it is not over.
-    private func controls(_ state: ActionState<ActionProof>) -> some View {
-        let isStopped = agent.status == .stopped
-        return HStack(spacing: 8) {
-            if let link = agent.link.flatMap(URL.init(string:)) {
-                TextLink("Open in \(agent.runtimeName.name)", isOutward: true) { openURL(link) }
-            }
-            if !agent.isOver {
-                Button {
-                    Task { isStopped ? await life.resumeAgent(agent.id) : await life.stopAgent(agent.id) }
-                } label: {
-                    if state.isRunning {
-                        Text("Working…")
-                    } else {
-                        Label(isStopped ? "Resume" : "Stop", systemImage: isStopped ? "play" : "stop")
-                    }
-                }
-                .buttonStyle(.pill(.quiet, size: .compact, isBusy: state.isRunning))
-                .disabled(state.isRunning)
-            }
-        }
-    }
-
-    private var status: String {
-        if let wait = agent.wait {
-            // The agent's own words for what it waits for, as it wrote them.
-            let until = wait.until.formatted(.dateTime.weekday(.wide).hour().minute())
-            return "\(wait.reason.prefix(1).uppercased())\(wait.reason.dropFirst()), until \(until)"
-        }
-        if let why = agent.notStarted { return "Not started: \(why)" }
-        switch agent.status {
-        case .running: return "Working on it"
-        case .stopped: return "Stopped"
-        case .ended: return agent.outcome ?? "Finished"
-        case .handedOver: return agent.outcome ?? "Handed over"
-        case .waiting, .unknown: return "Waiting"
-        }
-    }
-}
-
 // MARK: People and steps
 
 private struct People: View {
@@ -396,5 +323,32 @@ extension MatterWait {
         case .event: waitsOn.map { "Waits on \($0)" } ?? "Waits for something"
         case .stuck: "Stuck"
         }
+    }
+}
+
+/// The agent's row on a matter: its runtime in `ai`, one line under it (who it listens for and its deadline, or its state;
+/// `flag` when it never started), a chevron. It opens the agent's sheet.
+private struct AgentRow: View {
+    let agent: RegisteredAgent
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            HStack(spacing: Metrics.Spacing.s) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label(agent.runtimeName.name, systemImage: "sparkle").font(.bodyStrong).foregroundStyle(Palette.ai)
+                    if let line = agent.rowLine() {
+                        Text(line).font(.small).foregroundStyle(agent.notStarted == nil ? Palette.muted : Palette.flag)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.smallStrong).foregroundStyle(Palette.muted)
+            }
+            .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m)
+            .frame(maxWidth: .infinity, alignment: .leading).card().contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
     }
 }

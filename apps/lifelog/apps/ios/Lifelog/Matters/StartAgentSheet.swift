@@ -39,7 +39,7 @@ struct StartAgentSheet: View {
         case .idle: "Work on this"
         case .running: "Starting"
         case .succeeded: "Started"
-        case .failed: "Not started"
+        case .failed: AgentWords.notStarted
         }
     }
 
