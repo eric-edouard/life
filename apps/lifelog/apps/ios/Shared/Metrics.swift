@@ -8,7 +8,6 @@ enum Metrics {
 
     /// The state dot beside a status word.
     static let dot: CGFloat = 9
-    /// The least height of a list row (the Matters list).
     /// The smallest tap target.
     static let tapTarget: CGFloat = 44
 
