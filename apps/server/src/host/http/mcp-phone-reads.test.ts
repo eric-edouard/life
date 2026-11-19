@@ -1,4 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
+import { nameGroupsOf } from "../../memory/check-sentences";
 import { urgencyOf } from "../../memory/check-urgency";
 import type { CheckInputs } from "../../memory/checks";
 import {
@@ -19,6 +20,7 @@ const line = (id: string, text: string, over = {}) => ({
   id,
   quote: `"${text}" said Gran`,
   source: { channel: "whatsapp" as const },
+  speaker: "person:gran",
   subjects: [],
   text,
   unit: "unit_000000000001",
@@ -62,7 +64,7 @@ const kitOnWhatsapp = new Map([
   ],
 ]);
 /** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
-const madeUpInbox: CheckInputs = {
+const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   answered: new Set(),
   decisions: [
     {
@@ -149,11 +151,66 @@ const madeUpInbox: CheckInputs = {
       ],
     },
   ],
+  nameContexts: new Map([
+    [
+      "sam",
+      {
+        after: [
+          {
+            at: "2026-10-12T09:01:00.000Z",
+            by: "You",
+            channel: "whatsapp" as const,
+            text: "Great, thanks.",
+            to: "Gran",
+          },
+        ],
+        before: [
+          {
+            at: "2026-10-12T09:00:00.000Z",
+            by: "Gran",
+            channel: "whatsapp" as const,
+            text: "The strap broke again.",
+            to: "Gran",
+          },
+        ],
+        clips: [
+          {
+            at: "2026-10-12T09:00:30.000Z",
+            audio: { end: 3.5, jobId: "job-2", start: 0.5 },
+            text: "Sam fixed the strap.",
+            until: "2026-10-12T09:00:33.000Z",
+            words: [
+              [0, 400, 3],
+              [450, 900, 6],
+            ],
+          },
+        ],
+        said: {
+          at: "2026-10-12T09:00:30.000Z",
+          by: "Gran",
+          channel: "whatsapp" as const,
+          text: "Sam fixed the strap.",
+          to: "Gran",
+        },
+      },
+    ],
+  ]),
   paged: new Set(),
   people: {
     ambiguousCards: [
       { card: "person:con_lou", people: ["person:gran", "person:partner"] },
     ],
+    candidatesFor: (name: string) =>
+      name === "Sam"
+        ? [
+            {
+              line: "The neighbour",
+              name: "Sam Lee",
+              person: "person:sam_lee",
+            },
+            { line: null, name: "Sam Ito", person: "person:sam_ito" },
+          ]
+        : [],
     contacts: [],
     inferred: [
       {
@@ -179,6 +236,8 @@ const madeUpInbox: CheckInputs = {
       )[r] ?? r,
     names: new Map([["person:con_lou", "Lou"]]),
     refOf: (r: string) => r,
+    relationOf: (r: string) =>
+      r === "person:gran" ? "Your grandmother" : null,
     resolve: (s: string) =>
       (
         ({
@@ -187,6 +246,7 @@ const madeUpInbox: CheckInputs = {
         }) as Record<string, string>
       )[s] ?? null,
   },
+  titles: new Map([["unit_000000000001", "Gran"]]),
   today: "2026-10-14",
   unresolved: [{ nameAsWritten: "Sam", observation: "obs_000000000008" }],
   voices: [
@@ -221,6 +281,10 @@ const madeUpInbox: CheckInputs = {
     },
   ],
   where: new Map([["unit_000000000001", "whatsapp, 2 Oct"]]),
+};
+const madeUpInbox: CheckInputs = {
+  ...madeUpBase,
+  nameGroups: nameGroupsOf(madeUpBase),
 };
 
 test("the phone's reads: read_inbox, read_matters, read_matter and read_registered_agents answer what Kit's models decode", async () => {

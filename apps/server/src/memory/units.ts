@@ -119,6 +119,15 @@ export const nameKey = (s: string) =>
     .replace(NOT_NAME, " ")
     .trim();
 
+/** Whether `text` holds one of `names` as a whole word run (never inside a longer word; accents and case never matter); an empty name matches nothing. */
+export const holdsName = (
+  text: string,
+  names: readonly (string | undefined)[]
+) =>
+  names.some(
+    (n) => n && nameKey(n) && ` ${nameKey(text)} `.includes(` ${nameKey(n)} `)
+  );
+
 const SUMMARY_MAX = 300;
 
 /** `s` cut at a word within `max` characters, with an ellipsis. */

@@ -22,7 +22,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 | Field | Clock | From |
 |---|---|---|
 | `capture.lifelogOkAt` | the watcher folds lifelog in as it arrives | `derived/watch/health.json` |
-| `capture.archive.{whatsapp,line,instagram,messenger,linkedin,telegram,notes}` | last copy into Life's archive (a new message or note version), not a health check | each store's newest `seenAt` (`lastCopied`) |
+| `capture.archive.{whatsapp,line,instagram,messenger,linkedin,telegram,github,notes}` | last copy into Life's archive (a new message or note version), not a health check | each store's newest `seenAt` (`lastCopied`) |
 | `capture.lastTriage` | the last run that judged units (the episodes step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
 | `extraction` | nightly | derived/log, `memory.extract` |
 | `consolidation` | pages: nightly (or a hand run) | derived/log, `memory.pages` |

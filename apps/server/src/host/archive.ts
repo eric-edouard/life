@@ -164,25 +164,51 @@ export async function archiveFailing(now = clock().getTime()) {
   );
 }
 
-/** One pass: each kept store copied, its failures opened and closed as incidents. */
-function copyAll(failing: Set<string>) {
-  for (const { name, store } of keptStores()) {
+/** The stores whose copy is still running (an async one, over the network): a pass skips them. */
+const copying = new Set<string>();
+
+/**
+ * One pass: each kept store copied, its failures opened and closed as incidents. A sync copy runs now, in order; an
+ * async one runs on without holding the others, and the next pass skips it until it ends. The promise ends with all.
+ */
+export function copyAll(failing: Set<string>, stores = keptStores()) {
+  const ended = (name: string) => {
+    if (failing.delete(name)) {
+      log("run.end", { step: `archive.${name}` });
+    }
+  };
+  const failed = (name: string, error: unknown) => {
+    console.error(clock().toISOString(), name, error);
+    if (!failing.has(name)) {
+      failing.add(name);
+      log("run.error", {
+        error: (error as Error).message,
+        step: `archive.${name}`,
+      });
+    }
+  };
+  const running: Promise<void>[] = [];
+  for (const { name, store } of stores.filter((s) => !copying.has(s.name))) {
     try {
-      store.copy();
-      if (failing.delete(name)) {
-        log("run.end", { step: `archive.${name}` });
+      const copied = store.copy();
+      if (copied instanceof Promise) {
+        copying.add(name);
+        running.push(
+          copied
+            .then(
+              () => ended(name),
+              (e) => failed(name, e)
+            )
+            .finally(() => copying.delete(name))
+        );
+      } else {
+        ended(name);
       }
     } catch (error) {
-      console.error(clock().toISOString(), name, error);
-      if (!failing.has(name)) {
-        failing.add(name);
-        log("run.error", {
-          error: (error as Error).message,
-          step: `archive.${name}`,
-        });
-      }
+      failed(name, error);
     }
   }
+  return Promise.all(running);
 }
 
 /**
@@ -218,7 +244,7 @@ export async function archiveCommand(args: string[]): Promise<number> {
   const failing = new Set(
     openIncidents(await recentEvents(ARCHIVE_LOOKBACK)).keys()
   );
-  copyAll(failing);
+  await copyAll(failing);
   while (codeAt(LIFE_CODE_DIR) === running) {
     if (args.includes("--once")) {
       return 0;

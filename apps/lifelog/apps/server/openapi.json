@@ -1520,69 +1520,7 @@
           "clips": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "at": {
-                  "type": ["string", "null"],
-                  "format": "date-time"
-                },
-                "audio": {
-                  "type": ["object", "null"],
-                  "properties": {
-                    "end": {
-                      "type": "number"
-                    },
-                    "jobId": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "start": {
-                      "type": "number"
-                    }
-                  },
-                  "required": ["end", "jobId", "start"]
-                },
-                "conversationId": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "jobId": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "personId": {
-                  "type": ["string", "null"],
-                  "format": "uuid"
-                },
-                "speakerLabel": {
-                  "type": ["string", "null"]
-                },
-                "text": {
-                  "type": "string"
-                },
-                "turnIndex": {
-                  "type": "integer"
-                },
-                "until": {
-                  "type": ["string", "null"],
-                  "format": "date-time"
-                },
-                "words": {
-                  "$ref": "#/components/schemas/TimedWords"
-                }
-              },
-              "required": [
-                "at",
-                "audio",
-                "conversationId",
-                "jobId",
-                "personId",
-                "speakerLabel",
-                "text",
-                "turnIndex",
-                "until",
-                "words"
-              ]
+              "$ref": "#/components/schemas/Clip"
             }
           },
           "conversations": {
@@ -1671,6 +1609,71 @@
           "personId",
           "seconds",
           "voices",
+          "words"
+        ]
+      },
+      "Clip": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "audio": {
+            "type": ["object", "null"],
+            "properties": {
+              "end": {
+                "type": "number"
+              },
+              "jobId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "start": {
+                "type": "number"
+              }
+            },
+            "required": ["end", "jobId", "start"]
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "speakerLabel": {
+            "type": ["string", "null"]
+          },
+          "text": {
+            "type": "string"
+          },
+          "turnIndex": {
+            "type": "integer"
+          },
+          "until": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "words": {
+            "$ref": "#/components/schemas/TimedWords"
+          }
+        },
+        "required": [
+          "at",
+          "audio",
+          "conversationId",
+          "jobId",
+          "personId",
+          "speakerLabel",
+          "text",
+          "turnIndex",
+          "until",
           "words"
         ]
       },
@@ -4511,6 +4514,53 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SpeakerVoices"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/turns/clip": {
+      "get": {
+        "description": "The clip of one turn of a recording, cut as a naming card's clips are (`audio`, `words`), so a client can play a sentence it quotes. 404 when no live conversation holds that turn.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "jobId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "required": false,
+            "name": "turnIndex",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The turn's clip",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Clip"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job or transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
