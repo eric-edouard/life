@@ -21,8 +21,8 @@
   --ok: light-dark(#1d6b58, #74c9a9);
   /* Text on a filled button. */
   --on: light-dark(#f3f4f5, #07080a);
-  /* Manrope only: thin (250) for a title, bold (650) for what matters, 15px body, small labels in capitals (11px, 600,
-     0.22em apart). */
+  /* Manrope only: bold (650) for what the person reads or answers, thin (250) for a single state word, 15px body, a
+     list's heading small (13px, 600) in sentence case, no capitals. */
   --sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
   /* Code, figures and the pairing code. */
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
