@@ -160,31 +160,20 @@ private struct MatterRowView: View {
     let isChosen: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: (row.areas?.first ?? "").areaSymbol)
-                .imageScale(.large).foregroundStyle(Palette.muted)
-                .frame(width: 28).accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(row.name).font(.rowName).foregroundStyle(Palette.fg).lineLimit(1)
-                if let next = row.nextStep {
-                    Text(next.text).font(.note).foregroundStyle(Palette.muted).lineLimit(1)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Group {
-                if row.needsYou {
-                    StateDot(color: Palette.flag).accessibilityLabel("Needs you")
-                } else if row.agent != nil {
-                    ProgressView().controlSize(.small).tint(Palette.ai).accessibilityLabel("An agent is working")
-                }
+        Row(
+            title: row.name, icon: (row.areas?.first ?? "").areaSymbol,
+            iconTint: row.agent != nil ? Palette.ai : Palette.muted, detail: row.nextStep?.text
+        ) {
+            if row.needsYou {
+                StateDot(color: Palette.flag).accessibilityLabel("Needs you")
+            } else if row.agent != nil {
+                ProgressView().controlSize(.small).tint(Palette.ai).accessibilityLabel("An agent is working")
             }
         }
-        .padding(.horizontal, 12)
         .frame(minHeight: Metrics.rowHeight)
         .background(isChosen ? Palette.card : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
         .padding(.horizontal, 8)
         .motion(Motion.standard, value: isChosen)
-        .contentShape(.rect)
         .accessibilityElement(children: .combine)
     }
 }
