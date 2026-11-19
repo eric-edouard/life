@@ -262,7 +262,11 @@
         ) -> [String: Any] {
             var check: [String: Any] = [
                 "ref": ref, "pushId": "push_\(ref)",
-                "ridesOn": ["observations": 14, "matterIds": [matter?["id"]].compactMap { $0 }, "pages": 0],
+                "ridesOn": [
+                    "observations": 14, "matterIds": [matter?["id"]].compactMap { $0 },
+                    "matters": matter == nil ? 0 : 1,
+                    "pages": 0,
+                ],
                 "group": group, "title": title, "question": question,
                 "asker": asker,
                 "options": options, "clips": [], "likelyPeople": [], "links": [],
