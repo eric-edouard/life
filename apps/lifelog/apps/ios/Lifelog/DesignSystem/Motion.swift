@@ -8,7 +8,7 @@ enum Motion {
     static let rise = Animation.spring(duration: 0.35, bounce: 0.12)
     /// Something going: fades and moves 8 pt the way it came.
     static let leave = Animation.easeIn(duration: 0.2)
-    /// A row or group that comes or goes: enters with `rise`, leaves with `leave`.
+    /// A row or group that comes or goes: enters with `rise`, leaves with `leave`; `.identity` under Reduce Motion.
     static let appears = AnyTransition.asymmetric(
         insertion: .opacity.combined(with: .offset(y: -8)).animation(rise),
         removal: .opacity.combined(with: .offset(y: -8)).animation(leave))

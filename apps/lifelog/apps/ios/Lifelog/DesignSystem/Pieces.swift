@@ -460,9 +460,11 @@ struct RowGroup<Content: View>: View {
     var labelColor = Palette.faint
     var surface = Surface.page
     @ViewBuilder var content: Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Group(subviews: content) { rows in
+        let appears = reduceMotion ? AnyTransition.identity : Motion.appears
+        return Group(subviews: content) { rows in
             if !rows.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     if let label {
@@ -470,7 +472,7 @@ struct RowGroup<Content: View>: View {
                     }
                     VStack(spacing: 0) {
                         ForEach(rows) { row in
-                            row.transition(Motion.appears).overlay(alignment: .top) {
+                            row.transition(appears).overlay(alignment: .top) {
                                 if row.id != rows.first?.id { Hairline(color: .fillTint).padding(.leading, 16) }
                             }
                         }
@@ -478,7 +480,7 @@ struct RowGroup<Content: View>: View {
                     .foregroundStyle(Palette.fg)
                     .background(surface.fill, in: .rect(cornerRadius: Metrics.Radius.card))
                 }
-                .transition(Motion.appears)
+                .transition(appears)
             }
         }
     }
