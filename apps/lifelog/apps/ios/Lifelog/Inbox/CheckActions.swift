@@ -69,7 +69,8 @@ struct CheckActions: View {
                     if let text = wrote.text {
                         let when = wrote.at.map { ", \($0.formatted(.dateTime.hour().minute()))" } ?? ""
                         Text("\(by)\(when)").font(.small).foregroundStyle(Palette.muted)
-                        Text("“\(text)”").font(.body15).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
+                        Text("“\(text)”").font(.body15).foregroundStyle(Palette.fg).fixedSize(
+                            horizontal: false, vertical: true)
                     }
                 } else {
                     Text("Not sent to your Mac.")

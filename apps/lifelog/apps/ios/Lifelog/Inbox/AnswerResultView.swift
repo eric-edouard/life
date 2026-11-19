@@ -56,7 +56,9 @@ struct AnswerResultView: View {
 
     @ViewBuilder private var working: some View {
         Text(taken.check.question).font(.cardQuestion).foregroundStyle(Palette.fg)
-        if let draft = taken.check.draft { DraftBlock(draft: draft, identity: taken.check.networkIdentity, isGuess: taken.isGuess, isBoxed: false) }
+        if let draft = taken.check.draft {
+            DraftBlock(draft: draft, identity: taken.check.networkIdentity, isGuess: taken.isGuess, isBoxed: false)
+        }
         CheckLines(lines: lines.isEmpty ? [CheckLine(id: "asking", text: "Asking Life", mark: .running)] : lines)
             .padding(.top, 8)
     }
@@ -76,7 +78,8 @@ struct AnswerResultView: View {
             // A send says only Life's reason, then the words that did not go.
             Text(failure.reason).font(.lead).foregroundStyle(Palette.muted)
             if !failure.mayHaveHappened, let draft = taken.check.draft {
-                DraftBlock(draft: draft, identity: taken.check.networkIdentity, isGuess: taken.isGuess, isBoxed: false).padding(.top, 8)
+                DraftBlock(draft: draft, identity: taken.check.networkIdentity, isGuess: taken.isGuess, isBoxed: false)
+                    .padding(.top, 8)
             }
         } else {
             Text(taken.failedLine(failure, state)).font(.lead).foregroundStyle(Palette.muted)

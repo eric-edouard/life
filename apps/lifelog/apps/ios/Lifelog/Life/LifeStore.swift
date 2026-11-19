@@ -36,7 +36,9 @@ final class LifeStore {
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] in await self?.answer($0) }
     var held: [String: HeldAnswers.Held] { holds.held }
     /// The answer held last, which the Inbox's toast names.
-    var latestHeld: (ref: String, held: HeldAnswers.Held)? { holds.latest.flatMap { ref in holds.held[ref].map { (ref, $0) } } }
+    var latestHeld: (ref: String, held: HeldAnswers.Held)? {
+        holds.latest.flatMap { ref in holds.held[ref].map { (ref, $0) } }
+    }
     /// The refs whose answer is held for Undo or on its way: the Inbox's order leaves them out, so none flashes back.
     var answersUnderWay: Set<String> {
         Set(held.keys).union(
