@@ -337,8 +337,8 @@ final class LifeStore {
     }
 
     /// A tapped push: that one card is read alone and shown at once (`pushRead`), then the whole inbox is read, which
-    /// ends `pushRead` (`refreshInbox`). With a cached inbox, a failed one-card read gives way to it, as stale; with none,
-    /// its failure stays shown, with Try again.
+    /// ends `pushRead` (`refreshInbox`). With a cached inbox, a failed one-card read gives way to it, as stale, the
+    /// tapped card open; with none, its failure stays shown, with Try again.
     func open(pushId: String) async {
         openedCard = nil
         pushRead = (pushId, ReadState())
@@ -346,13 +346,14 @@ final class LifeStore {
             try await $0.readInbox(pushId: pushId)
         }
         guard let state = pushRead?.state, pushRead?.id == pushId else { return }
-        if state.phase != .loaded {
-            guard inbox.value != nil else { return }
-            pushRead = nil
-        } else if let found = state.value, !found.checks.isEmpty {
+        let isRead = state.phase == .loaded
+        // A failed one-card read gives way to the cached inbox, if any: its card opens from there.
+        guard isRead || inbox.value != nil else { return }
+        if let found = isRead ? state.value : inbox.value, found.checks.contains(where: { $0.pushId == pushId }) {
             openedCard = found.opening(pushId: pushId)
+            if !isRead { pushRead = nil }
         } else {
-            // Its card is gone: nothing to show but the wait for the whole read, which says so.
+            // Its card is gone, or not cached: nothing to show but the wait for the whole read, which opens it.
             pushRead?.state = ReadState()
             pushRead?.state.apply(.started)
         }
@@ -360,8 +361,9 @@ final class LifeStore {
     }
 
     /// What the Inbox shows: the tapped push's one card while its read is set, else the whole inbox.
-    var inboxShown: ReadState<Inbox>.Shown { (pushRead?.state ?? inbox).shown(isEmpty: { $0.checks.isEmpty }) }
-    var inboxOnShow: Inbox? { (pushRead?.state ?? inbox).value }
+    var inboxShown: ReadState<Inbox>.Shown { readOnShow.shown(isEmpty: { $0.checks.isEmpty }) }
+    var inboxOnShow: Inbox? { readOnShow.value }
+    private var readOnShow: ReadState<Inbox> { pushRead?.state ?? inbox }
 
     /// Reads again what the Inbox shows: the tapped push's card while that is what it waits on, else the inbox.
     func retryInbox() async {
