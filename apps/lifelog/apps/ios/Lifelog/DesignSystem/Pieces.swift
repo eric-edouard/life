@@ -171,30 +171,21 @@ struct StateDot: View {
     }
 }
 
-/// A filter chip: its name, its value, a chevron; filled when it holds a choice.
+/// A filter chip: its name; filled when it holds a choice.
 struct FilterChip: View {
     let name: String
-    var value: String?
     var isOn = false
-    var hasMenu = true
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 7) {
-                Text(name)
-                if let value { Text(value).opacity(isOn ? 0.6 : 1).foregroundStyle(isOn ? Palette.on : Palette.muted) }
-                if hasMenu {
-                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).accessibilityHidden(
-                        true)
-                }
-            }
-            .font(.chip)
-            .foregroundStyle(isOn ? Palette.on : Palette.fg)
-            .padding(.horizontal, 15)
-            .frame(minHeight: 40)
-            .background(isOn ? Palette.fg : Palette.card, in: .capsule)
-            .contentShape(.capsule)
+            Text(name)
+                .font(.chip)
+                .foregroundStyle(isOn ? Palette.on : Palette.fg)
+                .padding(.horizontal, 15)
+                .frame(minHeight: 40)
+                .background(isOn ? Palette.fg : Palette.card, in: .capsule)
+                .contentShape(.capsule)
         }
         .buttonStyle(.plain)
         .fixedSize()
@@ -467,11 +458,9 @@ struct RowGroup<Content: View>: View {
     var labelColor = Palette.faint
     var surface = Surface.page
     @ViewBuilder var content: Content
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let appears = reduceMotion ? AnyTransition.identity : Motion.appears
-        return Group(subviews: content) { rows in
+        Group(subviews: content) { rows in
             if !rows.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     if let label {
@@ -479,7 +468,7 @@ struct RowGroup<Content: View>: View {
                     }
                     VStack(spacing: 0) {
                         ForEach(rows) { row in
-                            row.transition(appears).overlay(alignment: .top) {
+                            row.appears().overlay(alignment: .top) {
                                 if row.id != rows.first?.id { Hairline(color: .fillTint).padding(.leading, 16) }
                             }
                         }
@@ -487,7 +476,7 @@ struct RowGroup<Content: View>: View {
                     .foregroundStyle(Palette.fg)
                     .background(surface.fill, in: .rect(cornerRadius: Metrics.Radius.card))
                 }
-                .transition(appears)
+                .appears()
             }
         }
     }

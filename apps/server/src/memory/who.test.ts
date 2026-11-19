@@ -109,6 +109,17 @@ test("a name means who it resolves to, listed first among those going by it; a n
   expect(ids(mean("Clai", () => null))).toEqual([undefined, []]);
 });
 
+test("a GitHub login is a handle whatever its case: the sender in either case resolves to the person", () => {
+  const rem = Person.parse({
+    handles: { github: "AnaKerr" },
+    id: "ana-gh",
+    name: "Ana Kerr",
+  });
+  const { resolve } = foldsOf([...mapped, rem], [], [], []);
+  expect(resolve("anakerr")).toBe("person:ana-gh");
+  expect(resolve("AnaKerr")).toBe("person:ana-gh");
+});
+
 test("names resolve cheapest first: handles, then names and aliases, else nothing", () => {
   const { resolve } = foldsOf(mapped, [], [], []);
   expect(resolve("+66600000001")).toBe("person:dad");

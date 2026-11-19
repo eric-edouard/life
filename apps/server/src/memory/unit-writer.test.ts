@@ -2,8 +2,9 @@ import { expect, spyOn, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import type { Unit } from "../records/unit";
 import { readUnits, UNITS } from "./memory-files";
+import { showFiles } from "./message-files";
 import { diffUnits, publishTodayUnits, writeUnits } from "./unit-writer";
-import type { Built } from "./units";
+import { type Built, sourceUnitsOf } from "./units";
 
 /** The sources of the units in memory/units/, by day. */
 const sourcesByDay = async () =>
@@ -92,4 +93,54 @@ test("a unit dropped or taken back by a code rule counts as gone or back", () =>
     dates: [],
     hasGoneOrBack: false,
   });
+});
+
+test("today's tick after a file was described writes the unit once with it, then nothing on a repeat", async () => {
+  const event = {
+    at: "2026-10-17T12:00:00.000Z",
+    chat: "g@g.us",
+    files: [{ mime: "image/jpeg", path: "/x.jpg", ref: "whatsapp:g@g.us/P1" }],
+    fromMe: false,
+    id: "whatsapp:g@g.us/P1",
+    sender: "+33600000000",
+    source: "whatsapp" as const,
+    text: "￼",
+  };
+  const prepared = spyOn(
+    await import("./passages"),
+    "preparePassages"
+  ).mockReturnValue((() => undefined) as never);
+  const tick = (files: Parameters<typeof showFiles>[1]) => {
+    const built = sourceUnitsOf(showFiles([event], files), () => null);
+    return publishTodayUnits({
+      built,
+      events: [],
+      failed: [],
+      read: { whatsapp: 1 } as never,
+      window: {
+        from: built[0]?.unit.date as string,
+        to: built[0]?.unit.date as string,
+      },
+    });
+  };
+  const known = new Map([
+    [
+      "whatsapp:g@g.us/P1",
+      {
+        description: "A beach.",
+        hash: "0123456789abcdef",
+        ref: "whatsapp:g@g.us/P1",
+        schemaVersion: 1 as const,
+      },
+    ],
+  ]);
+  try {
+    expect((await tick(new Map())).added).toBe(1);
+    // The description landed after: the next tick changes the unit once.
+    expect((await tick(known)).changed).toBe(1);
+    expect((await tick(known)).written).toEqual([]);
+  } finally {
+    prepared.mockRestore();
+    rmSync(UNITS, { force: true, recursive: true });
+  }
 });
