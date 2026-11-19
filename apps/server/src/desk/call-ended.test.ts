@@ -56,7 +56,7 @@ const job = (id: string, firstPage: number) => ({
   id,
   pages: [[firstPage, firstPage + 1]],
   sourceId: "phone-1",
-  state: "transcribed",
+  state: "completed",
 });
 
 const turn = (jobId: string, index: number, min: number, conv = "c1") => ({
