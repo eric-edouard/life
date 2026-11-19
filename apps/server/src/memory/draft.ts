@@ -80,9 +80,7 @@ export const isSendable = (d?: StoredDraft): d is StoredDraft =>
 function kindProblemOf(d: MessageDraft, mail: boolean, takesSubject: boolean) {
   if (!mail) {
     if (d.from || d.cc || (d.subject && !takesSubject)) {
-      return takesSubject
-        ? "`from` and `cc` are for mail: a chat takes none"
-        : "`from`, `subject` and `cc` are for mail: a chat takes none";
+      return `\`from\`${takesSubject ? "" : ", `subject`"} and \`cc\` are for mail: a chat takes none`;
     }
     return;
   }

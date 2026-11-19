@@ -18,22 +18,8 @@ import type { Outgoing, SendPath } from "./contract";
 // (`owner/name#12`), copied into `archive/github.sqlite` (each version kept, like a bridge's) and read from there. The
 // only place Life runs `gh` (`scripts/imports.test.ts`). Pull requests and their comments are left out.
 
-interface Run {
-  code: number;
-  killed: unknown;
-  stderr: string;
-  stdout: string;
-}
-type Runner = (
-  cmd: string[],
-  o: {
-    env: Record<string, string | undefined>;
-    stdin?: string;
-    timeout: number;
-  }
-) => Promise<Run>;
+type Run = Awaited<ReturnType<typeof exec>>;
 
-const runExec: Runner = (cmd, o) => exec(cmd, o);
 /** How often the copier asks GitHub: 2 calls a repo each time, well under GitHub's 5,000 an hour. */
 const POLL_MS = 20_000;
 /** A failing GitHub is asked again after a pause that doubles up to this. */
@@ -49,7 +35,12 @@ const REFUSED = /\(HTTP 4\d\d\)/;
 const listedRepos = () => settings().githubRepos ?? [];
 
 /** `gh` with the environment a CLI Life starts gets (none of Life's secrets): it holds its own login. */
-const gh = (run: Runner, args: string[], stdin?: string, timeout = GH_MS) =>
+const gh = (
+  run: typeof exec,
+  args: string[],
+  stdin?: string,
+  timeout = GH_MS
+) =>
   run(["gh", ...args], {
     env: { ...cliEnv(), GH_PROMPT_DISABLED: "1", NO_COLOR: "1" },
     stdin,
@@ -57,7 +48,7 @@ const gh = (run: Runner, args: string[], stdin?: string, timeout = GH_MS) =>
   });
 
 /** `gh`'s output, or a throw saying why it failed. */
-async function ghOut(run: Runner, args: string[]) {
+async function ghOut(run: typeof exec, args: string[]) {
   const r = await gh(run, args);
   if (r.killed || r.code !== 0) {
     throw new Error(
@@ -68,7 +59,7 @@ async function ghOut(run: Runner, args: string[]) {
 }
 
 /** The login `gh` acts as: his, the one every message he wrote there is from. */
-const loginOf = async (run: Runner) =>
+const loginOf = async (run: typeof exec) =>
   (await ghOut(run, ["api", "user", "--jq", ".login"])).trim();
 
 const SCHEMA = `${matrixArchive("")};
@@ -154,11 +145,11 @@ function rowOf(repo: string, i: Issue | Comment, me: string, seenAt: string) {
 export function githubCopier({
   archive = ARCHIVE,
   repos = listedRepos,
-  run = runExec,
+  run = exec,
 }: {
   archive?: string;
   repos?: () => string[];
-  run?: Runner;
+  run?: typeof exec;
 } = {}) {
   let next = 0;
   let pause = 0;
@@ -237,6 +228,10 @@ export function githubCopier({
 /** The archive's copier: one for the process, so its pause and cursor pacing hold across passes. */
 export const copyGithub = githubCopier();
 
+/** A message's chat name in SQL (`t` its table's alias): its issue's latest title. */
+const titleOf = (t: string) =>
+  `(select x.chatName from messages x where x.chat = ${t}.chat and x.eventId = 'issue' order by x.rowid desc limit 1)`;
+
 /** A chat's repo (`owner/name#12` → `owner/name`). */
 const repoOf = (chat: string) => ISSUE.exec(chat)?.[1];
 
@@ -250,8 +245,7 @@ export function readGithub(
   const listed = new Set(repos());
   return readArchived(
     "github",
-    `select l.id, l.chat, (select x.chatName from messages x
-        where x.chat = l.chat and x.eventId = 'issue' order by x.rowid desc limit 1) as chatName,
+    `select l.id, l.chat, ${titleOf("l")} as chatName,
       l.sender, l.fromMe, l.at, l.type, l.text, l.deleted
       from (${LATEST_VERSIONS}) l`,
     since,
@@ -266,8 +260,7 @@ export function readGithub(
 export const newestGithub = () =>
   newestArchived(
     "github",
-    `select m.at, coalesce((select x.chatName from messages x
-        where x.chat = m.chat and x.eventId = 'issue' order by x.rowid desc limit 1), '?') || ': ' || m.text as words
+    `select m.at, coalesce(${titleOf("m")}, '?') || ': ' || m.text as words
       from messages m order by m.at desc limit 1`
   );
 
@@ -300,10 +293,10 @@ function answerOf(
  */
 export function githubSend({
   repos = listedRepos,
-  run = runExec,
+  run = exec,
 }: {
   repos?: () => string[];
-  run?: Runner;
+  run?: typeof exec;
 } = {}): SendPath {
   const listed = (repo?: string) => Boolean(repo && repos().includes(repo));
   const isNewIssue = (chat: string) => REPO.test(chat) && listed(chat);
@@ -342,32 +335,23 @@ export function githubSend({
         d.subject ? "a comment takes no `subject`" : undefined
       );
     },
-    send: async (d) => {
+    send: async (d, _txn, onHanded) => {
       const issue = ISSUE.exec(d.chat);
-      if (issue) {
-        const [, repo, n] = issue;
-        const r = await gh(
-          run,
-          [
-            "api",
-            "--method",
-            "POST",
-            `repos/${repo}/issues/${n}/comments`,
-            "--input",
-            "-",
-          ],
-          JSON.stringify({ body: d.text }),
-          SEND_MS
-        );
-        return answerOf(r, (o) => `github:${d.chat}/${o.id}`);
-      }
+      const [path, body] = issue
+        ? [`repos/${issue[1]}/issues/${issue[2]}/comments`, { body: d.text }]
+        : [`repos/${d.chat}/issues`, { body: d.text, title: d.subject }];
       const r = await gh(
         run,
-        ["api", "--method", "POST", `repos/${d.chat}/issues`, "--input", "-"],
-        JSON.stringify({ body: d.text, title: d.subject }),
+        ["api", "--method", "POST", path, "--input", "-"],
+        JSON.stringify(body),
         SEND_MS
       );
-      return answerOf(r, (o) => `github:${d.chat}#${o.number}/0`);
+      if (r.code === 0) {
+        onHanded?.();
+      }
+      return answerOf(r, (o) =>
+        issue ? `github:${d.chat}/${o.id}` : `github:${d.chat}#${o.number}/0`
+      );
     },
   };
 }
