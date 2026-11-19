@@ -19,7 +19,7 @@ import {
   requestDecision,
 } from "../memory/decisions";
 import { oneMatter } from "../memory/read-matters";
-import { readPeople } from "../memory/who";
+import { nameRefusalOf, readPeople } from "../memory/who";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { type Desk, writeWait } from "./desk-store";
 
@@ -126,7 +126,7 @@ export async function setWait(desk: Desk, id: string, input: unknown) {
   const people = await readPeople();
   const unknown = wait.events.find((f) => !matcherOf(f, people));
   if (unknown) {
-    return { error: `No one goes by ${unknown.person}` };
+    return { error: nameRefusalOf(unknown.person ?? "", people) };
   }
   desk.db.transaction(() => {
     writeWait(desk.db, id, wait, false);

@@ -555,20 +555,6 @@ extension View {
     func readingWidth(_ width: CGFloat = 540) -> some View {
         frame(maxWidth: width).frame(maxWidth: .infinity)
     }
-
-    /// A scrolling region that ends at any trailing inset (the Duo's column; a phone's notch in landscape), not under
-    /// it: a scroll view's frame runs under the safe area, so the inset is taken as padding.
-    func endsAtColumn() -> some View { modifier(EndsAtColumn()) }
-}
-
-private struct EndsAtColumn: ViewModifier {
-    @State private var inset: CGFloat = 0
-
-    func body(content: Content) -> some View {
-        content
-            .padding(.trailing, inset)
-            .onGeometryChange(for: CGFloat.self, of: { $0.safeAreaInsets.trailing }) { inset = $0 }
-    }
 }
 
 /// A line that names the server's limit ("20 seconds at most"): the limit as it was when the action began, kept while it
