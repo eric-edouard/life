@@ -20,12 +20,18 @@ struct DiagnosticsView: View {
         rows.append(("Pendant connected", StateMark(glyph: isConnected ? .ok : .off, word: isConnected ? "Yes" : "No")))
         if let uploads = sync.uploads {
             rows.append(
-                ("Uploads", StateMark(glyph: uploads.lastError == nil ? .ok : .flag, word: uploads.lastError == nil ? "Fine" : "Failing")))
+                (
+                    "Uploads",
+                    StateMark(
+                        glyph: uploads.lastError == nil ? .ok : .flag,
+                        word: uploads.lastError == nil ? "Fine" : "Failing")
+                ))
             rows.append(
                 (
                     "Audio waiting on the phone",
                     StateMark(
-                        glyph: .off, word: uploads.unsent > .zero ? DurationText.string(uploads.unsent, width: .wide) : "None")
+                        glyph: .off,
+                        word: uploads.unsent > .zero ? DurationText.string(uploads.unsent, width: .wide) : "None")
                 ))
         }
         return rows
@@ -43,7 +49,8 @@ struct DiagnosticsView: View {
                     Button("Run all checks") { Task { await runAll() } }
                         .buttonStyle(.pill(.filled, isBusy: isChecking))
                     Button(copied ? "Copied" : "Copy report") {
-                        UIPasteboard.general.string = ([version] + rows.map { "\($0.title): \($0.mark.word)" }).joined(separator: "\n")
+                        UIPasteboard.general.string = ([version] + rows.map { "\($0.title): \($0.mark.word)" }).joined(
+                            separator: "\n")
                         copied = true
                     }
                     .buttonStyle(.pill(.quiet))

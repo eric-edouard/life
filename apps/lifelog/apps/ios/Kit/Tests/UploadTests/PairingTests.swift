@@ -54,11 +54,15 @@ private final class Verdict: URLProtocol {
     let kept = Mutex("old-token-0123456789")
     for host in ["refuses.example", "gone.example"] {
         do {
-            try await candidate(host, "new-token-0123456789").pair(session: session) { pairing in kept.withLock { $0 = pairing.token }; return true }
+            try await candidate(host, "new-token-0123456789").pair(session: session) { pairing in
+                kept.withLock { $0 = pairing.token }; return true
+            }
             Issue.record("\(host) was kept")
         } catch {}
         #expect(kept.withLock { $0 } == "old-token-0123456789", "\(host)")
     }
-    try await candidate("accepts.example", "new-token-0123456789").pair(session: session) { pairing in kept.withLock { $0 = pairing.token }; return true }
+    try await candidate("accepts.example", "new-token-0123456789").pair(session: session) { pairing in
+        kept.withLock { $0 = pairing.token }; return true
+    }
     #expect(kept.withLock { $0 } == "new-token-0123456789")
 }

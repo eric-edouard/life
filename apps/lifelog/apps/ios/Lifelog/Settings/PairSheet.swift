@@ -107,7 +107,8 @@ struct PairSheet: View {
             offer.server.flatMap { _ in sync.server.map { "the server at \($0.addressWords)" } },
         ].compactMap(\.self)
         guard !now.isEmpty else { return nil }
-        return "This replaces the pairing this phone has now: \(now.joined(separator: " and ")). Pair only if it moved to the address above."
+        return
+            "This replaces the pairing this phone has now: \(now.joined(separator: " and ")). Pair only if it moved to the address above."
     }
 
     // MARK: Checks
@@ -122,8 +123,12 @@ struct PairSheet: View {
         if phase == .done {
             ForEach(offer.connections) { connection in
                 if let reason = runs[connection]?.reason {
-                    Text(reason + (runs[connection]?.isKept == false && hadPairing(connection) ? " Your old pairing still works." : ""))
-                        .font(.note).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
+                    Text(
+                        reason
+                            + (runs[connection]?.isKept == false && hadPairing(connection)
+                                ? " Your old pairing still works." : "")
+                    )
+                    .font(.note).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
                 }
             }
         }

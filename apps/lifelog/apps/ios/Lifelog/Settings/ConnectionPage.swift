@@ -55,8 +55,9 @@ struct ConnectionPage: View {
             if address == nil {
                 Text(
                     connection == .life
-                        ? "Inbox and Matters need Life on your Mac." : "Recording goes on; nothing is sent.")
-                    .font(.note).foregroundStyle(Palette.muted)
+                        ? "Inbox and Matters need Life on your Mac." : "Recording goes on; nothing is sent."
+                )
+                .font(.note).foregroundStyle(Palette.muted)
             } else if let reason = isChecking ? nil : ConnectionCheck.reason(connection, outcome) {
                 Text(reason).font(.note).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
             } else if let checkedAt {

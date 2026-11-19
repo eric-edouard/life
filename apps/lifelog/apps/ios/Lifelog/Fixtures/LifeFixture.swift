@@ -45,7 +45,8 @@
                 cache.store(api.agents(), key: "read_registered_agents")
             }
             return LifeStore(
-                tokens: FixtureTokens(isPaired: scenario != "notPaired"), api: api, approve: { _ in try await approve() },
+                tokens: FixtureTokens(isPaired: scenario != "notPaired"), api: api,
+                approve: { _ in try await approve() },
                 cache: cache, setBadge: { _ in })
         }
     }
@@ -57,9 +58,10 @@
         case "expired": try await Task.sleep(for: .seconds(1)); throw MCPError.wrongCode
         default: try await Task.sleep(for: .seconds(1))
         }
-        let origin = URL(string: "https://life.example.test")!
+        guard let origin = URL(string: "https://life.example.test") else { throw MCPError.wrongCode }
         return LifeCredentials(
-            endpoint: LifeEndpoint(origin: origin, clientID: "fixture", tokenEndpoint: origin, resource: origin.absoluteString),
+            endpoint: LifeEndpoint(
+                origin: origin, clientID: "fixture", tokenEndpoint: origin, resource: origin.absoluteString),
             tokens: LifeTokens(access: "fixture", refresh: "fixture", expiresAt: .distantFuture))
     }
 
