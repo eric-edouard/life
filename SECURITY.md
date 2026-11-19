@@ -113,6 +113,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   `answer_check` once he approved the exact text in its chat, which sends it (his word of 19 Nov 2026). A page or
   message the client reads could steer it into both: the gate is the client's honesty about his yes, policy not
   enforcement, as for any answer his token records; the card stamps the chat and text, and the send is logged.
+- The phone's notification extension reads the app's tokens (Life's and lifelog's: one Keychain group), to read a card
+  for its notification (`NotificationService`).
 - Full Disk Access makes Life a high-value target on the Mac.
 - Models misread: an observation is a model's reading with a checked quote, not a fact.
 - His agents act with his access (above).

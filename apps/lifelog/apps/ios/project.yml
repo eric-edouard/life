@@ -35,6 +35,7 @@ targets:
     dependencies:
       - target: LifelogWidgets
       - target: LifelogWatch
+      - target: LifelogNotificationService
       - package: LifelogKit
         product: Capture
       - package: LifelogKit
@@ -148,6 +149,41 @@ targets:
       path: Widgets/Widgets.entitlements
       properties:
         com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
+  # Writes a card's push with the card's own words (`NotificationService`): Life's pairing, read with the app's tokens.
+  LifelogNotificationService:
+    type: app-extension
+    platform: iOS
+    sources:
+      - NotificationService
+      - Shared/AppGroup.swift
+      - Lifelog/Life/Keychain.swift
+      - Lifelog/Life/LifeToken.swift
+    dependencies:
+      - package: LifelogKit
+        product: LifeConnector
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID).notification-service
+        PRODUCT_NAME: LifelogNotificationService
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: lifelog
+    info:
+      path: NotificationService/Info.plist
+      properties:
+        # The app group and the app's id, read at run time (Shared/AppGroup.swift, Keychain.swift).
+        LifelogAppGroup: group.$(LIFELOG_BUNDLE_ID)
+        LifelogBundleID: $(LIFELOG_BUNDLE_ID)
+        CFBundleDevelopmentRegion: en
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.usernotifications.service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
+    entitlements:
+      path: NotificationService/NotificationService.entitlements
+      properties:
+        com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
+        # The app's own Keychain group, first: the app's tokens are there, and a new item goes to the first listed.
+        keychain-access-groups: [$(AppIdentifierPrefix)$(LIFELOG_BUNDLE_ID)]
   # The Watch: the glance the iPhone relays (`WatchRelay`), as complications and a remote (Record/Pause, Split).
   LifelogWatch:
     type: application
