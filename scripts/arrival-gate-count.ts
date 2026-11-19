@@ -20,6 +20,7 @@ import {
   type GateAnswer,
   isArriving,
 } from "@life/server/src/memory/arrival-gate";
+import { readSourceEvents } from "@life/server/src/memory/gather";
 import { ACTIONABLE, matterBookOf } from "@life/server/src/memory/matter-read";
 import {
   mattersNow,
@@ -41,7 +42,6 @@ import {
   lifelogNames,
   lifelogUnits,
   type Resolve,
-  readSourceEvents,
   sourceUnitsOf,
 } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";

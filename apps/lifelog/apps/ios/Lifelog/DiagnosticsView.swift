@@ -37,7 +37,7 @@ struct DiagnosticsView: View {
         return rows
     }
 
-    private var version: String { "Life \(Bundle.main.versionWords) · iOS \(UIDevice.current.systemVersion)" }
+    private var version: String { "Build \(Bundle.main.buildWords) · iOS \(UIDevice.current.systemVersion)" }
 
     var body: some View {
         ScrollView {

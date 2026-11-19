@@ -159,9 +159,9 @@ test("a sync of recent days drafts what the whole sync drafts of the episodes en
       }) as unknown as Observation;
     buildIndex([noted(1), noted(2), noted(3)], INDEX, {
       corrections: [],
-      latest: new Map(),
       live: new Set(),
       retired: new Map(),
+      standing: new Map(),
     });
     const since = new Date("2026-10-19T00:00:00Z");
     const recent = await wanted(now, since);

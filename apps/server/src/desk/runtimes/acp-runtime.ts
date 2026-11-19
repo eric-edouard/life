@@ -66,7 +66,7 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
     if (resume) {
       live.set(resume, active);
     }
-    const { command, env } = row.spawn(a);
+    const { command, env } = await row.spawn(a);
     const child = spawn(command[0] ?? "", command.slice(1), {
       cwd: a.folder,
       env: { ...cliEnv(), ...env },
@@ -115,16 +115,21 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
           beginOk();
         }
       })
-      // The door's tools are approved; every other ask is refused, as `claude -p` and `codex exec` deny what would ask.
+      // An agent of his own Life: every ask is approved (the runtime's no-ask mode leaves few). A second Life's (a row
+      // with `onlyDoorPrefix`): the door's tools alone are approved, every other ask refused, as `claude -p` and `codex exec` deny what would ask.
       .onRequest(methods.client.session.requestPermission, ({ params }) => {
         // Both adapters title a shell call with its command text: only the prefix and a bare tool name is the door's.
         const title = titles.get(params.toolCall.toolCallId) ?? "";
-        const isDoor =
-          title.startsWith(row.doorPrefix) &&
-          BARE_TOOL.test(title.slice(row.doorPrefix.length));
-        const pick = params.options.find(
-          (o) => o.kind === (isDoor ? "allow_once" : "reject_once")
-        );
+        const prefix = row.onlyDoorPrefix;
+        const isAllowed =
+          prefix === undefined ||
+          (title.startsWith(prefix) &&
+            BARE_TOOL.test(title.slice(prefix.length)));
+        // `allow_once`; `allow_always` only when it is the one offered, since an adapter may keep it as a rule in his settings.
+        const pick = isAllowed
+          ? (params.options.find((o) => o.kind === "allow_once") ??
+            params.options.find((o) => o.kind.startsWith("allow_")))
+          : params.options.find((o) => o.kind === "reject_once");
         return {
           outcome: pick
             ? { optionId: pick.optionId, outcome: "selected" as const }
@@ -137,6 +142,40 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
           Readable.toWeb(child.stdout) as unknown as ReadableStream<Uint8Array>
         )
       );
+    /**
+     * Sets the session's model, effort and mode, in order, before the prompt. After every resume too: a resumed session
+     * goes back to the program's default model, and takes the mode of whatever last touched it (his own turn in the
+     * app), which would make a connector tool ask.
+     */
+    const setOptions = async (sessionId: string) => {
+      for (const [configId, value] of [
+        [row.config.model, a.model],
+        [row.config.effort, a.effort],
+        ["mode", row.mode],
+      ] as const) {
+        if (value) {
+          try {
+            // biome-ignore lint/performance/noAwaitInLoops: one option at a time, before the prompt
+            await conn.agent.request(methods.agent.session.setConfigOption, {
+              configId,
+              sessionId,
+              value,
+            });
+          } catch (error) {
+            // A mode the adapter refuses is not fatal: its asks are approved all the same. The model and effort stay fatal.
+            if (configId !== "mode") {
+              throw error;
+            }
+            log("desk.runtime", {
+              agent: a.id,
+              error: whyOf(error).slice(-300),
+              ok: false,
+              what: "mode",
+            });
+          }
+        }
+      }
+    };
     const close = async () => {
       conn.close();
       child.stdin.end();
@@ -184,20 +223,7 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
           .sessionId;
         live.set(ref, active);
       }
-      // Set after every resume too: a resumed session goes back to the program's default model.
-      for (const [configId, value] of [
-        [row.config.model, a.model],
-        [row.config.effort, a.effort],
-      ] as const) {
-        if (value) {
-          // biome-ignore lint/performance/noAwaitInLoops: one option at a time, before the prompt
-          await conn.agent.request(methods.agent.session.setConfigOption, {
-            configId,
-            sessionId: ref,
-            value,
-          });
-        }
-      }
+      await setOptions(ref);
       isPrompted = true;
       const prompt = conn.agent.request(methods.agent.session.prompt, {
         prompt: [{ text: message, type: "text" }],

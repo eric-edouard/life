@@ -27,12 +27,13 @@ import { exec, execOk, git, gitOut } from "@life/server/src/core/proc";
 import { memoryLinesNow } from "@life/server/src/memory/doubts";
 import { episodes } from "@life/server/src/memory/episodes";
 import { extract } from "@life/server/src/memory/extract";
+import { gather } from "@life/server/src/memory/gather";
 import { answeredFactChecks } from "@life/server/src/memory/memory-files";
 import { locked } from "@life/server/src/memory/memory-lock";
 import { modelCallsOf } from "@life/server/src/memory/run-log";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import type { tally } from "@life/server/src/memory/tally";
-import { gather } from "@life/server/src/memory/units";
+import { publishUnits } from "@life/server/src/memory/unit-writer";
 import { readPeople } from "@life/server/src/memory/who";
 import { llmFor, llmSpec } from "@life/server/src/models/llm";
 import { add, NONE } from "@life/server/src/models/model-call";
@@ -104,6 +105,7 @@ async function readDays(files: string[]) {
       if (days.failed.length > 0) {
         throw new Error(`could not read ${days.failed.join(", ")}`);
       }
+      await publishUnits(days);
       const m = await episodes(days);
       const e = await extract(days);
       read.calls += m.calls + e.calls;

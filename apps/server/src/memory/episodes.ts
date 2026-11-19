@@ -20,6 +20,7 @@ import {
 import { isActivity } from "../sources/contract";
 import { lifelogMissing } from "../sources/lifelog";
 import { contextPeopleBy, levelsWith, personallyClose } from "./closeness";
+import type { Evidence } from "./gather";
 import {
   appendVerdicts,
   daysOf,
@@ -46,8 +47,7 @@ import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, readsOf } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup, areaOf, normalizeTopics } from "./tags";
-import { publishUnits } from "./unit-writer";
-import { type Built, type Evidence, type Resolve, UNKNOWN } from "./units";
+import { type Built, type Resolve, UNKNOWN } from "./units";
 import { episodeNow, namedIn, nearNames, readPeople, unitNow } from "./who";
 import { voiceText } from "./words";
 import { localTime } from "./zones";
@@ -459,11 +459,6 @@ export async function episodes(evidence: Evidence) {
   // A source that could not be read counts as a failure: the night must not commit a partial day.
   step.stats.failed += failed.length;
   const days = [...new Set(all.map((b) => b.unit.date))].sort();
-  // Units first (code output, rebuildable but for lifelog's chapter units, which stay as stored: AGENTS.md; kept even
-  // when lifelog isn't read); not when a source failed: the files would lose that source's units.
-  if (failed.length === 0) {
-    await publishUnits(evidence);
-  }
   let verdicts = readVerdicts();
   const { outsideDirectory, canon, corrections, inferred, refOf, resolve } =
     await readPeople();

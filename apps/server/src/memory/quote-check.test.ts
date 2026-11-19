@@ -11,7 +11,7 @@ import {
 import type { Unit } from "../records/unit";
 import { toExtract } from "./extract";
 import { buildIndex } from "./index-writer";
-import { isCurrent, latestExtractions } from "./memory-files";
+import { isCurrent, standingReadings } from "./memory-files";
 import { locate, parseObservations, type Source } from "./quote-check";
 import {
   inferred,
@@ -684,9 +684,9 @@ test("the index is rebuilt from observations: search ignores accents, who each i
       path,
       {
         corrections: [],
-        latest: new Map(),
         live: new Set(["unit_000000000001", "unit_000000000002"]),
         retired: new Map(),
+        standing: new Map(),
       },
       indexed
     )
@@ -761,8 +761,8 @@ test("a unit read before and no longer kept is unkept once (its facts replaced b
   // A fact of the earlier reading is no longer current once the unkept line is the latest.
   const fact = { madeBy: { run: read.run, unitHash: lou.hash }, unit: lou.id };
   const statusInputs = (lines: ReturnType<typeof line>[]) => ({
-    latest: latestExtractions(lines),
     live: new Set([lou.id]),
+    standing: standingReadings(lines),
   });
   expect(isCurrent(statusInputs([read]), fact as Observation)).toBe(true);
   expect(isCurrent(statusInputs([read, emptied]), fact as Observation)).toBe(

@@ -21,6 +21,8 @@ nonisolated enum Palette {
     static let ai = token(dark: 0x9aa8ec, light: 0x33468f)
     static let ok = token(dark: 0x74c9a9, light: 0x1d6b58)
     static let on = token(dark: 0x07080a, light: 0xf3f4f5)
+    /// A line icon beside a row (components.md "Settings row"): `fg` at 85%.
+    static let icon = fg.opacity(0.85)
 
     private static func token(dark: UInt32, light: UInt32) -> Color {
         #if os(watchOS)

@@ -74,22 +74,22 @@ struct SettingsView: View {
         RowGroup(label: "Needs you", labelColor: Palette.flag, surface: .sheet) {
             switch life.link {
             case .notPaired:
-                Row(title: "Not paired", detail: "Inbox and Matters need Life on your Mac.") {
+                Row(title: "Not paired", icon: "desktopcomputer", detail: "Inbox and Matters need Life on your Mac.") {
                     RowButton(title: "Pair with Life") { page = .life }
                 }
             case .noAnswer:
-                Row(title: "Life does not answer", detail: lifeSilence) {
+                Row(title: "Life does not answer", icon: "desktopcomputer", detail: lifeSilence) {
                     RowButton(title: "Check") { page = .life }
                 }
             case .works, .checking: EmptyView()
             }
             switch sync.link {
             case .notPaired:
-                Row(title: "Server is not paired", detail: "Recording goes on; nothing is sent.") {
+                Row(title: "Server is not paired", icon: "cloud", detail: "Recording goes on; nothing is sent.") {
                     RowButton(title: "Pair") { page = .server }
                 }
             case .noAnswer:
-                Row(title: "Server does not answer", detail: "Audio waits on this phone.") {
+                Row(title: "Server does not answer", icon: "cloud", detail: "Audio waits on this phone.") {
                     RowButton(title: "Check") { page = .server }
                 }
             case .works, .checking: EmptyView()
@@ -97,16 +97,18 @@ struct SettingsView: View {
             let transcription = TranscriptionFacts(sync)
             if let count = transcription.waiting[.creditsOut] {
                 Row(
-                    title: "ElevenLabs credits are out",
+                    title: "ElevenLabs credits are out", icon: "creditcard",
                     detail: "\(conversationCount(count)) wait for words. Top up ElevenLabs and they go on their own.")
             }
             if let count = transcription.waiting[.macAway] {
-                Row(title: "\(conversationCount(count)) waiting for your Mac", detail: transcription.macDetail)
+                Row(
+                    title: "\(conversationCount(count)) waiting for your Mac", icon: "desktopcomputer",
+                    detail: transcription.macDetail)
             }
             if notificationsListed {
                 let notAsked = permissions.notifications == .notAsked
                 Row(
-                    title: notAsked ? "Notifications not allowed yet" : "Notifications are off",
+                    title: notAsked ? "Notifications not allowed yet" : "Notifications are off", icon: "bell",
                     detail: "Cards can't reach you."
                 ) {
                     RowButton(title: notAsked ? "Allow" : "Open", action: notAsked ? allowNotifications : openSettings)
@@ -144,7 +146,8 @@ struct SettingsView: View {
             Button {
                 page = .life
             } label: {
-                Row(title: "Life", detail: life.pairedOrigin?.addressWords ?? "No Mac paired") {
+                Row(title: "Life", icon: "desktopcomputer", detail: life.pairedOrigin?.addressWords ?? "No Mac paired")
+                {
                     HStack(spacing: 8) {
                         life.link.mark; RowValue()
                     }
@@ -155,7 +158,7 @@ struct SettingsView: View {
             Button {
                 page = .server
             } label: {
-                Row(title: "Pendant server", detail: sync.server?.addressWords ?? "No server paired") {
+                Row(title: "Pendant server", icon: "cloud", detail: sync.server?.addressWords ?? "No server paired") {
                     HStack(spacing: 8) {
                         sync.link.mark; RowValue()
                     }
@@ -171,12 +174,15 @@ struct SettingsView: View {
     private var allows: some View {
         RowGroup(label: "This phone allows", surface: .sheet) {
             permission(
-                "Notifications", "Inbox cards reach you", permissions.notifications, ask: allowNotifications,
+                "Notifications", icon: "bell", "Inbox cards reach you", permissions.notifications,
+                ask: allowNotifications,
                 listed: notificationsListed)
-            permission("Bluetooth", "The pendant", bluetooth, ask: nil)
-            permission("Location", "Where things were said", permissions.location, ask: permissions.askLocation)
+            permission("Bluetooth", icon: "dot.radiowaves.left.and.right", "The pendant", bluetooth, ask: nil)
+            permission(
+                "Location", icon: "location", "Where things were said", permissions.location,
+                ask: permissions.askLocation)
             if AppleHealthReader.isAvailable {
-                permission("Apple Health", "Sleep and workouts", permissions.appleHealth) {
+                permission("Apple Health", icon: "heart", "Sleep and workouts", permissions.appleHealth) {
                     Task {
                         await permissions.askAppleHealth()
                         await appleHealth.sync()
@@ -198,18 +204,19 @@ struct SettingsView: View {
     /// One permission: on, or the one thing to do. Not asked has a button only when the app can ask from here (Bluetooth's
     /// ask comes with pairing a pendant); refused goes to iOS Settings.
     private func permission(
-        _ name: String, _ why: String, _ access: PermissionsStore.Access, ask: (() -> Void)?, listed: Bool = false
+        _ name: String, icon: String, _ why: String, _ access: PermissionsStore.Access, ask: (() -> Void)?,
+        listed: Bool = false
     ) -> some View {
         let id = "pendant.settings.\(name.lowercased())"
         return Group {
             switch access {
             case .allowed:
-                Row(title: name, detail: why) { StateMark(glyph: .ok, word: "On") }
+                Row(title: name, icon: icon, detail: why) { StateMark(glyph: .ok, word: "On") }
             case .asked:
                 // iOS never says whether reading was allowed.
-                Row(title: name, detail: why) { StateMark(glyph: .off, word: "Asked") }
+                Row(title: name, icon: icon, detail: why) { StateMark(glyph: .off, word: "Asked") }
             case .notAsked:
-                Row(title: name, detail: why) {
+                Row(title: name, icon: icon, detail: why) {
                     if let ask, !listed {
                         RowButton(title: "Allow", action: ask)
                     } else {
@@ -217,9 +224,9 @@ struct SettingsView: View {
                     }
                 }
             case .limited(let what):
-                Row(title: name, detail: what) { RowButton(title: "Open", action: openSettings) }
+                Row(title: name, icon: icon, detail: what) { RowButton(title: "Open", action: openSettings) }
             case .denied, .restricted:
-                Row(title: name, detail: listed ? why : "Change it in iOS Settings") {
+                Row(title: name, icon: icon, detail: listed ? why : "Change it in iOS Settings") {
                     StateMark(glyph: .flag, word: "Off")
                     if !listed { RowButton(title: "Open", action: openSettings) }
                 }
@@ -241,21 +248,21 @@ struct SettingsView: View {
     private var pendant: some View {
         RowGroup(label: "Pendant", surface: .sheet) {
             ServerRow(
-                title: "Transcription",
+                title: "Transcribe what it hears", icon: "text.alignleft",
                 value: serverValue(.transcription, feed: sync.feed.switches, pending: sync.pending)
             ) {
-                RowSwitch(title: "Transcription", isOn: $0) { on in
+                RowSwitch(title: "Transcribe what it hears", isOn: $0) { on in
                     Task { await sync.perform(.switches(transcription: on)) }
                 }
             }
             .accessibilityIdentifier("settings.switch.transcription")
             ServerRow(
-                title: "Ask me to open the app", detail: "When audio has waited on the phone",
+                title: "Remind me to open the app", icon: "bell.badge",
                 value: serverValue(.openAppAfterMinutes, feed: sync.feed.switches, pending: sync.pending)
             ) { minutes in
                 RowMenu(
-                    title: "Ask me to open the app",
-                    choices: choices([0, 10, 15, 30, 60], including: minutes) { $0 == 0 ? "Off" : "\($0) min" },
+                    title: "Remind me to open the app",
+                    choices: choices([0, 10, 15, 30, 60], including: minutes) { $0 == 0 ? "Off" : "After \($0) min" },
                     selection: minutes
                 ) { minutes in Task { await sync.perform(.switches(openAppAfterMinutes: minutes)) } }
             }
@@ -265,15 +272,16 @@ struct SettingsView: View {
             } label: {
                 let words = serverVocabulary(feed: sync.feed.vocabulary, pending: sync.pending)
                 Row(
-                    title: "Vocabulary", detail: words.shown.map { $0.count == 1 ? "1 word" : "\($0.count) words" },
+                    title: "Vocabulary", icon: "textformat",
+                    detail: words.shown.map { $0.count == 1 ? "1 word" : "\($0.count) words" },
                     state: words == .asking ? .asking : .known
                 ) { RowValue() }
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("settings.vocabulary")
-            Row(title: "Low battery") {
+            Row(title: "Warn me at low battery", icon: "bolt.batteryblock") {
                 RowMenu(
-                    title: "Low battery",
+                    title: "Warn me at low battery",
                     choices: choices([0, 10, 20, 30], including: lowBattery) { $0 == 0 ? "Off" : "Below \($0)%" },
                     selection: lowBattery
                 ) { percent in
@@ -282,10 +290,10 @@ struct SettingsView: View {
                 }
             }
             .accessibilityIdentifier("pendant.settings.lowBattery")
-            Row(title: "Low storage") {
+            Row(title: "Warn me when storage fills", icon: "internaldrive") {
                 RowMenu(
-                    title: "Low storage",
-                    choices: choices([0, 70, 80, 90], including: lowStorage) { $0 == 0 ? "Off" : "Above \($0)% used" },
+                    title: "Warn me when storage fills",
+                    choices: choices([0, 70, 80, 90], including: lowStorage) { $0 == 0 ? "Off" : "Above \($0)%" },
                     selection: lowStorage
                 ) { used in
                     settings.alerts.lowPendantStorage = used > 0
@@ -298,7 +306,7 @@ struct SettingsView: View {
                 NavigationLink {
                     LightGuideView(isConnected: isConnected, set: capture.setLightBrightness)
                 } label: {
-                    Row(title: "Light guide") { RowValue() }
+                    Row(title: "Light guide", icon: "sun.max") { RowValue() }
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("pendant.settings.lightGuide")
@@ -330,7 +338,7 @@ struct SettingsView: View {
             NavigationLink {
                 BackupView()
             } label: {
-                Row(title: "Backup") {
+                Row(title: "Backup", icon: "square.and.arrow.up") {
                     HStack(spacing: 8) {
                         if backupValue == nil { StateGlyph.busy }
                         RowValue(text: backupValue)
@@ -355,13 +363,13 @@ struct SettingsView: View {
 
     private var help: some View {
         RowGroup(label: "Help", surface: .sheet) {
-            Row(title: "Version") {
-                Text(Bundle.main.versionWords).font(.note).foregroundStyle(Palette.muted)
+            Row(title: "Build", icon: "info.circle") {
+                Text(Bundle.main.buildWords).font(.note).foregroundStyle(Palette.muted)
             }
             Button {
                 isDiagnosticsOpen = true
             } label: {
-                Row(title: "Diagnostics") { RowValue() }
+                Row(title: "Diagnostics", icon: "waveform.path.ecg") { RowValue() }
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("pendant.settings.diagnostics")
@@ -370,11 +378,10 @@ struct SettingsView: View {
 }
 
 extension Bundle {
-    /// "1.0 (214)": the version and build in Info.plist.
-    var versionWords: String {
-        let info = infoDictionary
-        return
-            "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))"
+    /// "19 Nov 17:05 · 0e1a221": the build's time and commit, from `build-stamp.txt` (the build phase in `project.yml`).
+    var buildWords: String {
+        url(forResource: "build-stamp", withExtension: "txt").flatMap { try? String(contentsOf: $0, encoding: .utf8) }?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown"
     }
 }
 
@@ -382,13 +389,14 @@ extension Bundle {
 /// back with the reason.
 struct ServerRow<Value: Sendable & Equatable, Trailing: View>: View {
     let title: String
+    var icon: String?
     var detail: String?
     let value: ServerValue<Value>
     @ViewBuilder let trailing: (Value) -> Trailing
     @State private var isSaved = false
 
     var body: some View {
-        Row(title: title, detail: detail, state: state) {
+        Row(title: title, icon: icon, detail: detail, state: state) {
             if let shown = value.shown { trailing(shown) }
         }
         .onChange(of: value) { old, new in

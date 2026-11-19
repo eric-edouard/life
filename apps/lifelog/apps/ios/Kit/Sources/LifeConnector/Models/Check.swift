@@ -46,6 +46,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let until: Date?
         public let text: String
         public let audio: Audio?
+        /// Its words as lifelog times them (contract `TimedWords`), lit while it plays by `words.spoken(at:in:)`.
+        public let words: [[Int64]]?
     }
 
     public struct Person: Decodable, Sendable, Equatable {
