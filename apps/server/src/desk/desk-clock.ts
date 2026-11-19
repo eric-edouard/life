@@ -274,9 +274,21 @@ export function pollAnswers({ db }: Desk) {
   }
 }
 
-/** The message that wakes a session: why, and each queued event's facts (who, where, when, the id to read). */
-const wakeMessageOf = (cause: string, events: EventRow[]) =>
-  [`Woken by the desk: ${cause}.`, ...events.map(eventLineOf)].join("\n");
+/** A deadline wake's one line of facts: since when to sweep (`since`: when its last turn ended); none for another cause or a first turn. */
+const sinceLineOf = (since?: string) =>
+  since
+    ? [
+        `Your last turn ended at ${since}: sweep what happened since then on your subject (\`read_memory_changes\` with \`since\`, \`read_matters\`, \`read_chats\`).`,
+      ]
+    : [];
+
+/** The message that wakes a session: why, `sinceLineOf`, and each queued event's facts (who, where, when, the id to read). */
+const wakeMessageOf = (cause: string, events: EventRow[], since?: string) =>
+  [
+    `Woken by the desk: ${cause}.`,
+    ...sinceLineOf(since),
+    ...events.map(eventLineOf),
+  ].join("\n");
 
 /** What a session of `a` is given: its door, its folder, a title, the model it runs with. */
 const sessionAgentOf = (a: AgentRow): SessionAgent => ({
@@ -387,6 +399,11 @@ async function launch(
 ) {
   const { db } = desk;
   const runtime = desk.runtimes[a.runtime];
+  const since =
+    cause === "deadline"
+      ? (lastTurns(db, a.id).find((t) => t.id < turn && t.ended_at)?.ended_at ??
+        undefined)
+      : undefined;
   try {
     if (!runtime) {
       throw new Error(`no runtime ${a.runtime}`);
@@ -395,7 +412,9 @@ async function launch(
     if (!a.session || state === "gone" || grown >= GROWTH_LIMIT) {
       const s = await runtime.start(
         sessionAgentOf(a),
-        await readPacket(desk, a.id, isOwnLife())
+        [await readPacket(desk, a.id, isOwnLife()), ...sinceLineOf(since)].join(
+          "\n\n"
+        )
       );
       // Watched first: its process runs, so a failed write below never ends it as not started.
       watch(desk, a.id, turn, s);
@@ -432,7 +451,7 @@ async function launch(
         await runtime.send(
           sessionAgentOf(a),
           a.session,
-          wakeMessageOf(cause, events)
+          wakeMessageOf(cause, events, since)
         )
       );
     }
