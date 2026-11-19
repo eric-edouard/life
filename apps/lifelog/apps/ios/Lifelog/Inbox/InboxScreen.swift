@@ -16,6 +16,8 @@ struct InboxScreen: View {
     /// Asks he kept for later: shown after the others, until the app closes.
     @State private var deferred: [String] = []
     @State private var current: String?
+    /// The kind of ask the list and the pager keep to; nil is everything. Not stored: it ends with the screen.
+    @State private var kind: CheckGroup?
     @State private var notice: String?
     @State private var visibility = NavigationSplitViewVisibility.all
     /// The widths of the split view and of the ask's column: the list is beside the ask only when the ask has less.
@@ -23,7 +25,7 @@ struct InboxScreen: View {
 
     var body: some View {
         @Bindable var router = router
-        let order = order
+        let order = all.only(kind)
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.inboxColumn) {
             CheckList(order: order, chosen: order.check(on: current)?.ref) { ref in
                 if let taken = notes.taken { life.forget(taken.key) }
@@ -34,6 +36,7 @@ struct InboxScreen: View {
             .navigationSplitViewColumnWidth(min: 280, ideal: 455, max: 455)
             // The Pendant and Settings are the ask column's, never the list's header.
             .shellBar(widths.ask < widths.whole - 1 ? "Inbox" : "", hasSettings: false, hasPendant: false)
+            .toolbar { ToolbarItem(placement: .topBarLeading) { AskFilterMenu(kinds: all.kinds, kind: $kind) } }
         } detail: {
             ReadScreen(
                 shown: shown, retry: { await life.retryInbox() },
@@ -76,9 +79,11 @@ struct InboxScreen: View {
         .navigationSplitViewStyle(.balanced)
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
         // An answer that came back refused is on show again, with its reason above the answers.
-        .onChange(of: refusedRef) { _, ref in if let ref { current = ref } }
+        .onChange(of: refusedRef) { _, ref in if let ref { (current, kind) = (ref, nil) } }
         .onChange(of: life.openedCard, initial: true) { _, opening in
             guard let opening else { return }
+            // A push's ask may be of another kind: the whole list, with it on show.
+            kind = nil
             current = opening.check?.ref
             notice =
                 opening.wasAnswered ? "Already answered, here or elsewhere. This is the next one." : nil
@@ -97,7 +102,7 @@ struct InboxScreen: View {
 
     /// The ask whose answer Life refused, back in the order.
     private var refusedRef: String? {
-        order.checks.first { check in
+        all.checks.first { check in
             if case .failed = life.state(of: .answer(ref: check.ref)) { true } else { false }
         }?.ref
     }
@@ -112,8 +117,8 @@ struct InboxScreen: View {
     }
 
     /// What blocks, then what can wait: `Inbox.ordered`, the one rule for the list, the pager, the ask on show and where
-    /// an answer leads. An answer held, in flight or shown as his result is no row.
-    private var order: InboxOrder {
+    /// an answer leads (`only` keeps the chosen kind of it). An answer held, in flight or shown as his result is no row.
+    private var all: InboxOrder {
         life.inboxOnShow?.ordered(
             deferred: deferred, except: life.answersUnderWay.union(notes.taken.map { [$0.check.ref] } ?? []))
             ?? InboxOrder()

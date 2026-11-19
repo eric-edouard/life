@@ -246,11 +246,11 @@ private func everyKindOfCheck() throws -> [Check] {
 }
 
 /// The inbox's checks, made from the server's own read: one ask per ref, with the urgency given.
-private func asks(_ urgencies: [(String, Urgency)]) throws -> Inbox {
+private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [:]) throws -> Inbox {
     let wire = try #require(
         JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
     let first = try #require((wire["checks"] as? [[String: Any]])?.first)
-    let checks = urgencies.map { ref, urgency in first.merging(["ref": ref, "urgency": urgency.rawValue]) { $1 } }
+    let checks = urgencies.map { ref, urgency in first.merging(["ref": ref, "urgency": urgency.rawValue, "group": groups[ref] ?? first["group"] ?? ""]) { $1 } }
     let body = wire.merging(["checks": checks]) { $1 }
     return try decoded(Inbox.self, String(decoding: JSONSerialization.data(withJSONObject: body), as: UTF8.self))
 }
@@ -286,4 +286,17 @@ private func asks(_ urgencies: [(String, Urgency)]) throws -> Inbox {
     #expect(
         try asks([("b1", .blocks)]).checks[0].filled?.id == #require(asks([("b1", .blocks)]).checks[0].options.first).id
     )
+}
+
+@Test func theListsFilterKeepsTheOrderAndNeverEmptiesIt() throws {
+    let order = try asks(
+        [("b1", .blocks), ("v1", .blocks), ("i1", .improves), ("v2", .improves)],
+        groups: ["v1": "voice", "v2": "voice"]
+    ).ordered(deferred: [])
+    #expect(order.kinds.count == 2 && order.kinds.contains(.voice))
+    let voices = order.only(.voice)
+    #expect(voices.checks.map(\.ref) == ["v1", "v2"] && voices.canWaitFrom == 1)
+    #expect(order.only(nil) == order)
+    // A kind with none waiting is no filter at all.
+    #expect(order.only(.newMatter) == order)
 }
