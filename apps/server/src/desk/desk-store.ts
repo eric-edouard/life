@@ -5,6 +5,7 @@ import { clock } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { DESK_STORE } from "../core/paths";
 import { openWritable } from "../core/sqlite";
+import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
 import type { AgentWait } from "../records/registered-agent";
 import type { Runtime } from "./runtimes/contract";
@@ -105,6 +106,8 @@ create index if not exists agent_change_by_applied on agent_change (applied_at);
 
 /** The desk: its store, the runtimes it drives by name, and the message sources it polls (all that are on, unless a test gives its own). */
 export interface Desk {
+  /** The event channels the desk reads; none given: `EVENT_CHANNELS`. */
+  channels?: EventChannel[];
   db: Database;
   /** The wide net's embedder (`matter-net.ts`); none given: Lifelog Host's (`embedderNow`), null: none. */
   embedder?: Embedder | null;

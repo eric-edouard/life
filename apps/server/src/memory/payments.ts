@@ -25,6 +25,10 @@ export interface Placed {
 
 const MINUTE = 60_000;
 
+/** A payment's day: its local day when its instant is known, else its booking day. */
+export const paymentDayOf = (p: Payment) =>
+  p.paidAt ? localDate(p.paidAt) : p.date;
+
 /**
  * Each payment placed among `episodes` and `stays`. Of the episodes holding its time, the shortest (a dinner, not the
  * trip around it), so a payment counts once. One with only its day (Revolut) gets that day and nothing else.
@@ -38,7 +42,7 @@ export function place(
   return all.map((payment) => {
     const { paidAt } = payment;
     if (!paidAt) {
-      return { day: payment.date, payment };
+      return { day: paymentDayOf(payment), payment };
     }
     const t = Date.parse(paidAt);
     const episode = timed
@@ -46,7 +50,7 @@ export function place(
       .sort((x, y) => x.b[1] - x.b[0] - (y.b[1] - y.b[0]))[0]?.m;
     const stay = stayOf(paidAt, new Date(t + MINUTE).toISOString(), stays);
     return {
-      day: localDate(paidAt),
+      day: paymentDayOf(payment),
       ...(episode ? { episode } : {}),
       payment,
       ...(stay ? { stay } : {}),
@@ -75,17 +79,26 @@ export const euros = (n: number) => {
 const amount = (p: Payment) =>
   `${p.amount.toLocaleString("en", { maximumFractionDigits: 2 })} ${p.currency}`;
 
+/** A payment's words, each on one line and clipped: its merchant (a third party's words), its category, its note. */
+export const paymentWordsOf = (p: Payment) => ({
+  category: p.category,
+  merchant: clip(redact(p.merchant.replace(/\s+/g, " ")), 80),
+  note: p.note ? clip(redact(p.note.replace(/\s+/g, " ")), 120) : null,
+});
+
 /** A payment as the read path prints it: when, how much, to whom, its category, what it was, where he was, its episode. */
 // The merchant is a third party's words: one line, clipped.
-export const paymentLine = ({ episode, payment: p, stay }: Placed) =>
-  [
-    `- ${p.paidAt ? time(p.paidAt) : "(time unknown)"} ${amount(p)}${p.currency === "EUR" ? "" : ` (${euros(-p.eur)} paid)`} ${clip(redact(p.merchant.replace(/\s+/g, " ")), 80)}`,
-    p.category ?? "no category yet",
-    ...(p.note ? [`"${clip(redact(p.note.replace(/\s+/g, " ")), 120)}"`] : []),
+export const paymentLine = ({ episode, payment: p, stay }: Placed) => {
+  const words = paymentWordsOf(p);
+  return [
+    `- ${p.paidAt ? time(p.paidAt) : "(time unknown)"} ${amount(p)}${p.currency === "EUR" ? "" : ` (${euros(-p.eur)} paid)`} ${words.merchant}`,
+    words.category ?? "no category yet",
+    ...(words.note ? [`"${words.note}"`] : []),
     ...(p.spending ? [] : ["not spending"]),
     ...(stay ? [`at ${where(stay)}`] : []),
     ...(episode ? [`in ${episode.id}`] : []),
   ].join(" · ");
+};
 
 /**
  * The payments of his days `from` to `to`, placed (`place`): none while payments are off, and the backend's error

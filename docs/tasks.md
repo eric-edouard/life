@@ -115,6 +115,12 @@ A registered agent's matter that is done (matter status `done`: its steps ended,
 
 A wait's filter is the connector poll's (`EventFilter`, `text_matches` included). A registered agent is also woken when a call matching its wait ends and its recording's words are in (`pollCalls`): at the next poll, under the same 10-minute gap, in one turn with the chat's messages.
 
+A wait may also name an event channel (`EVENT_CHANNELS`, `host/event-channels.ts`), today `payments`: the desk reads the
+payments of the last 35 days every 5 minutes while some wait names it, and queues `payment.booked` once per agent for
+each payment its wait wants (by `quantity` `eur_out` or `eur_in` with `above` and `below`, or by `text_matches` on the
+merchant, the category and his note), paid since the agent was created. `set_wait` refuses a channel that is unknown,
+off or cannot be read, and keys its channels cannot answer; a read that fails is said in the agent's next wake.
+
 A person's page (`read_person_page`) lists every open matter they are in, whatever its day (`openWithOf`, `read-open-items.ts`),
 and the replies he owes them, ranked the same way
 (`rankedItems`), what he owes first, then what he waits on (`isOwedToHim`).

@@ -3,7 +3,11 @@ import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
-import { matcherOf, messagePayloadOf } from "../host/events";
+import {
+  matcherOf,
+  messageMatchableOf,
+  messagePayloadOf,
+} from "../host/events";
 import { readPeople } from "../memory/who";
 import type { SourceEvent } from "../records/source";
 import { readPacket, register } from "./agent-actions";
@@ -102,6 +106,8 @@ test("a filter built from a printed key matches an event of that chat", async ()
   ] as const) {
     const match = matcherOf({ chat, from_me: false }, people);
     const e = event(source, chat);
-    expect(match?.(messagePayloadOf(e, people), e)).toBe(true);
+    expect(match?.(messageMatchableOf(messagePayloadOf(e, people), e))).toBe(
+      true
+    );
   }
 });
