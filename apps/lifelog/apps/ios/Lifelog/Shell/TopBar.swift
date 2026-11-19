@@ -93,3 +93,28 @@ struct PendantItem: View {
         }
     }
 }
+
+extension View {
+    /// Tells whether the system puts this screen's bars in a vertical column (the closed iPhone Duo, iOS 27.1).
+    func reportsSideColumn(_ isInColumn: Binding<Bool>) -> some View {
+        modifier(SideColumnReport(isInColumn: isInColumn))
+    }
+}
+
+private struct SideColumnReport: ViewModifier {
+    @Binding var isInColumn: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 27.1, *) { content.modifier(Reader(isInColumn: $isInColumn)) } else { content }
+    }
+
+    @available(iOS 27.1, *)
+    private struct Reader: ViewModifier {
+        @Binding var isInColumn: Bool
+        @Environment(\.toolbarVerticalEdge) private var edge
+
+        func body(content: Content) -> some View {
+            content.onChange(of: edge != nil, initial: true) { _, now in isInColumn = now }
+        }
+    }
+}

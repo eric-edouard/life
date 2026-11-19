@@ -9,6 +9,8 @@ struct InboxScreen: View {
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
     @Environment(\.horizontalSizeClass) private var sizeClass
+    /// The system puts the bars in a side column (`reportsSideColumn`): the toast is a capsule there.
+    @State private var inSideColumn = false
 
     @State private var notes = CardNotes()
     /// Asks he kept for later: shown after the others, until the app closes.
@@ -41,12 +43,22 @@ struct InboxScreen: View {
             .background(Palette.bg)
             // Nothing above the question: no title; the gear and the Pendant are the list's when it is beside.
             .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.ask = $0 }
+            // Before the Pendant and Settings: a vertical bar stacks the trailing items bottom-up, so this lands under them.
+            .toolbar {
+                if let latest = life.latestHeld, hasColumn, #available(iOS 27.1, *) {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        ToastColumn(words: latest.held.label) { undo(latest.ref) }.appears().id(latest.ref)
+                    }
+                    .sharedBackgroundVisibility(.hidden).axisBehavior(.verticalPreferred)
+                }
+            }
             .shellBar("")
+            .reportsSideColumn($inSideColumn)
             .navigationBarBackButtonHidden()
             // What he just answered (the one held last, for 4 s), over the top of the ask: out of its layout, so nothing moves.
             .overlay(alignment: .top) {
                 ZStack {
-                    if let latest = life.latestHeld {
+                    if let latest = life.latestHeld, !hasColumn {
                         Toast(words: latest.held.label) { undo(latest.ref) }.appears().id(latest.ref)
                     }
                 }
@@ -88,6 +100,9 @@ struct InboxScreen: View {
             if case .failed = life.state(of: .answer(ref: check.ref)) { true } else { false }
         }?.ref
     }
+
+    /// The bars are in a side column and the ask is one pane: the toast is then the column's capsule, the same state.
+    private var hasColumn: Bool { inSideColumn && sizeClass != .regular }
 
     /// Undo: the ask is back where it was, and on show.
     private func undo(_ ref: String) {

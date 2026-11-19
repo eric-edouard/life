@@ -94,6 +94,27 @@ struct Toast: View {
     }
 }
 
+/// The Toast on the closed Duo, where there is no top bar: a 44 x 88 capsule in the side column, no words: the check in
+/// `ok`, then Undo as its glyph in a 44 hit area. VoiceOver reads the answer on the capsule and "Undo" on the button.
+struct ToastColumn: View {
+    let words: String
+    let undo: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Image(systemName: "checkmark").font(.system(size: 20, weight: .semibold)).foregroundStyle(Palette.ok)
+                .frame(width: 44, height: 44).accessibilityHidden(true)
+            Button(action: undo) {
+                Image(systemName: "arrow.uturn.backward").font(.system(size: 20)).foregroundStyle(Palette.fg)
+                    .frame(width: 44, height: 44).contentShape(.rect)
+            }
+            .buttonStyle(.plain).accessibilityLabel("Undo")
+        }
+        .background(Palette.tile, in: .rect(cornerRadius: 22))
+        .accessibilityElement(children: .contain).accessibilityLabel("Answered: \(words)")
+    }
+}
+
 /// A matter's name (a star in `ai` before it when an agent asks) on a `card` capsule 32 high, in a 44 hit area. A long
 /// name is cut with an ellipsis, except at an accessibility text size, where it may take two lines.
 struct InlinePill: View {
