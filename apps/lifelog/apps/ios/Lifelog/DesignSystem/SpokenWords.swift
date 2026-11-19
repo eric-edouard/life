@@ -80,12 +80,12 @@ struct SpokenWords: View {
                     Group {
                         if isEmphasised(piece) { Text(piece).font(.quoteBold) } else { Text(piece) }
                     }
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.3)
-                        .foregroundStyle(isLit(index) ? Palette.fg : Palette.muted)
-                        .motion(.easeOut(duration: 0.12), value: isLit(index))
-                        .contentShape(.rect)
-                        .onTapGesture { begin(at: Double(words[index][0]) / 1000) }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.3)
+                    .foregroundStyle(isLit(index) ? Palette.fg : Palette.muted)
+                    .motion(.easeOut(duration: 0.12), value: isLit(index))
+                    .contentShape(.rect)
+                    .onTapGesture { begin(at: Double(words[index][0]) / 1000) }
                 }
             }
             .accessibilityElement(children: .ignore)
@@ -97,7 +97,9 @@ struct SpokenWords: View {
 
     private func isEmphasised(_ piece: String) -> Bool {
         let word = piece.trimmingCharacters(in: .whitespaces.union(.punctuationCharacters))
-        return emphasis.contains { $0.compare(word, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }
+        return emphasis.contains {
+            $0.compare(word, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+        }
     }
 
     private var playButton: some View {

@@ -245,7 +245,8 @@ private struct WhySheet: View {
                 }
                 if let evidence { EvidenceBlock(evidence: evidence) }
                 if let around {
-                    let lines = around.before.map { ($0, false) } + (said.map { [($0, true)] } ?? [])
+                    let lines =
+                        around.before.map { ($0, false) } + (said.map { [($0, true)] } ?? [])
                         + around.after.map { ($0, false) }
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
