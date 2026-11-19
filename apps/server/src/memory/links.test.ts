@@ -5,6 +5,7 @@ import type { Observation } from "../records/observation";
 import { endingsOf } from "./endings";
 import {
   isLater,
+  isOutOfReach,
   keptLinks,
   laterRecordsOf,
   nightOf,
@@ -369,4 +370,25 @@ test("a pair is judged once per prompt: a new prompt asks a still-open step agai
   expect(
     subjectWorkOf(matter, [promise], [sent], [batch([promise], [sent])])
   ).toBeNull();
+});
+
+// His report of 19 Nov 2026: a court case stayed "stuck" on "find a lawyer" weeks after the lawyer came on site. It
+// was full (40 steps), so the matters step put the meeting in other matters, and the links step never shows a matter
+// another matter's records: nothing could end its open steps. A full matter reads its people's records wherever held.
+test("another matter's record is out of a matter's reach, unless that matter is full and its story goes on elsewhere", () => {
+  const held = new Set(["obs_meeting"]);
+  const stepsOf = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ ref: `obs_${i}` }));
+  const matterOf = (steps: number, areas = ["home"]) => ({
+    areas,
+    steps: stepsOf(steps) as MatterStepNow[],
+  });
+  expect(isOutOfReach(matterOf(12), held, "obs_meeting")).toBe(true);
+  expect(isOutOfReach(matterOf(12), held, "obs_unplaced")).toBe(false);
+  expect(isOutOfReach(matterOf(40), held, "obs_meeting")).toBe(false);
+  // Its own steps stay out: they are already its later steps.
+  expect(isOutOfReach(matterOf(40), new Set(["obs_0"]), "obs_0")).toBe(true);
+  expect(
+    isOutOfReach(matterOf(3, ["a", "b", "c", "d"]), held, "obs_meeting")
+  ).toBe(false);
 });
