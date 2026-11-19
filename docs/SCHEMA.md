@@ -129,7 +129,7 @@ month of `date`. Append-only: a line is never edited or removed; one a newer obs
 `supersessions.jsonl`. Written by `bun life memory extract` for kept units (importance 2 or 3; a importance-1 unit stays in the
 units, searchable, but is not read in full). From `memory-extract.v3` a kept unit is read with the rest of its episode
 (every unit of it worth a searchable line), and with the earlier facts about the episode's people, which it may retire.
-From `memory-extract.v4` an episode is read across its days, from the day before its first unit to read and cut
+From `memory-extract.v4` an episode is read across its days, from the day before its first unit to read (since 19 Nov 2026 only its units not read yet, the others coming as earlier facts) and cut
 between days to fit a call (a unit in several episodes with the one reaching furthest forward, of those the smallest),
 and what the lines show ended is written as what happened, not as still open. From `memory-extract.v5` (20 Oct) the
 `about_a_person` type (then `person`) also holds what is between the owner and someone, in someone's name, and the earlier facts it may retire
@@ -158,14 +158,17 @@ people `close: true` (`refContext`, `personallyClose`: a personal level inner, r
 
 ## extracted.jsonl
 
-Which units an extractor version has read: `{schemaVersion: 1, unit, unitHash, prompt, run, observations, at, unkept?}`, one
+Which units an extractor version has read: `{schemaVersion: 1, unit, unitHash, prompt, run, observations, at, unkept?, lines?, continues?}`, one
 line per unit and run, `observations` being how many it kept (often 0); lines of 21 Oct 2026 also carry `people`, ignored. A unit is read again when its `unitHash` or
 the prompt version changes, or when a `reread` correction names it after its last reading (the night reads the last
 7 days, `backfill` older ones). Who someone is needs no new reading: readers resolve a fact's author and subjects as of
 today. A unit read before that its latest verdict no longer keeps (its content changed, or a `reread` judged it below
 `KEEP_AT`) gets a line with `unkept: true` and `observations` 0, nothing read, so its earlier facts stop showing (and
-what they retired shows again, as after any re-read); kept again, it is read again (an `unkept` line is no reading). Only the latest
-extraction of a unit counts: observations from an older one are ignored (`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a conversation
+what they retired shows again, as after any re-read); kept again, it is read again (an `unkept` line is no reading). `lines` is how many of a message unit's lines the reading covered (a voice unit and older lines lack it); a chat or
+mail thread that grew is continued when its first `lines` lines are what was read (its `unitHash` is the hash of those
+lines), and that reading has `continues: true`: it keeps the readings before it and keeps only facts quoting the lines
+after theirs. A unit's readings that stand are its last line and each before it while the later one continues; a
+reading that is not a continuation replaces them all. Only the standing readings of a unit count: observations from an older one are ignored (`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a conversation
 regrouped, Life's own mail).
 
 ## unresolved.jsonl

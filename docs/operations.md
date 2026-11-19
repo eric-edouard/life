@@ -144,7 +144,8 @@ subscription per run. `LIFE_DEMO_RUNTIME=codex bun run e2e:demo` runs the same s
 - **A day read again** (the night): only its new units go in full, those with no verdict on their current
   content by the episodes prompt (or `reread` since); the rest go as stubs (title, times, the verdict's reason), never
   fetched. The day's episodes as they stand are the state; the reply adds or changes some and names those gone. A chat-day
-  with one new message is new as a whole (ponytail: per message would need a record of what was read).
+  with one new message is new as a whole for the episodes step (ponytail: per message would need a record of what was
+  read there); extraction has that record (`Extracted.lines`, `continues`) and keeps only the facts of the new lines.
 - **Backup:** once the night is done, or from 09:00 (`afterNightDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
 - **Bridges:** restarted once a day by the same rule (`healBridges`, its tries in `LIFE_STATE_DIR/memory/bridges.json`),
   before the source alert: a restart heals a hung bridge and makes each check its login anew, so a dead session shows

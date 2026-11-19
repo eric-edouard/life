@@ -172,7 +172,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   quotes stay as said, topic tags English. A label digested with stored work (`him` in the persona and style inputs) changes
   with its prompt's next version.
 - **Facts are read by episode:** one call per day reads the day, its new units in full (`episodes.ts`), then extraction reads an
-  episode's units together (`extract.ts`), with earlier facts as a reading to correct, never as evidence. Extraction is
+  episode's units not read yet together (`extract.ts`), the ones already read as earlier facts; a chat that grew is read
+  for its new lines (`Extracted.lines`), with earlier facts as a reading to correct, never as evidence. Extraction is
   the only step that retires an observation, besides his word that one is outdated (a fact-check answer or an
   `outdated` correction).
 - **Historical collection is model-free.** `memory historical-units` reads bounded owner-local months, skips voice and file descriptions, and publishes only units and derived passages. An import describes its own files (the Instagram export's photos, by `describeFiles`) before its collection, which leaves old files as tags. Imports and model backfills require `backfillEngine`; no fallback to the ordinary engine. No scheduled model backfill until prompts are frozen. One exception, his OK of 15 Nov 2026: the first run of the conversation summaries (`bun life memory conversation-summaries --from 2026-09-07 --force`, once, no cap, about $1.10 to $1.50) runs on the ordinary `engine`, as the night's step run wider.
