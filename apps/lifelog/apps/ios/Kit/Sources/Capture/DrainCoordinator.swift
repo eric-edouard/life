@@ -274,6 +274,17 @@ public actor DrainCoordinator {
         await apply(connection.handle(device.map { .start(knownDevice: $0) } ?? .discover))
     }
 
+    /// The owner replaces the Pendant: ends its session, cancels its link, drops what this phone knew of it (its
+    /// battery, storage and report), and scans for another. Only the phone's memory goes: the Pendant keeps its own
+    /// pairing and its audio, and what was saved stays saved.
+    public func forget() async {
+        await apply(connection.handle(.forget))
+        var fresh = CaptureStatus()
+        fresh.connection = connection.state
+        fresh.saved = status.saved
+        status = fresh
+    }
+
     /// Waits for in-flight page persistence, including work from ended connections.
     func waitForPersistence() async {
         while let task = persistTasks.popLast() { await task.value }

@@ -130,8 +130,10 @@ public actor Uploader {
 
     /// The speech the server doesn't have yet and why the last fragment failed. `nil` before the cutover.
     public func status() throws -> UploadStatus? {
-        guard try state() != nil else { return nil }
-        return UploadStatus(unsent: unsentSpeech, lastError: failure?.message ?? runError)
+        guard let state = try state() else { return nil }
+        return UploadStatus(
+            unsent: unsentSpeech, lastError: failure?.message ?? runError, sentThrough: saidSentThrough?.date,
+            heardThrough: state.heardThrough?.date)
     }
 
     /// Fragments and queued jobs the server withdrew, by source and first page (the feed's removed jobs: a quiet range
@@ -481,10 +483,20 @@ public struct UploadStatus: Sendable, Equatable {
     /// Why speech isn't going, other than the network: the last fragment's failure, or what stopped the last run. The
     /// next run tries again.
     public var lastError: String?
+    /// Where the Mac's copy reaches, as last told to the server (`saidSentThrough`): everything before it was sent or
+    /// decided. `nil` until a pass said so.
+    public var sentThrough: Date?
+    /// How far the phone has heard: its stored audio, analyzed (`FactsBuilder.heardThrough`). Stops where the phone's
+    /// analysis stops, so audio stored past it is not counted here.
+    public var heardThrough: Date?
 
-    public init(unsent: Duration = .zero, lastError: String? = nil) {
+    public init(
+        unsent: Duration = .zero, lastError: String? = nil, sentThrough: Date? = nil, heardThrough: Date? = nil
+    ) {
         self.unsent = unsent
         self.lastError = lastError
+        self.sentThrough = sentThrough
+        self.heardThrough = heardThrough
     }
 }
 
