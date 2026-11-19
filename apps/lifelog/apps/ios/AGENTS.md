@@ -10,7 +10,7 @@ Spending screens are cut. Every screen reads through `ReadScreen` (loading, empt
 action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSystem/Typography.swift`). `Shared/Palette.swift` is the phone's one copy of Life's brand (`assets/brand/tokens.css`), checked by
 `scripts/brand.test.ts`: no colour literal elsewhere, except the hardware drawing (`LightGuide.swift`), which paint the pendant itself. `docs/architecture.md` names every store and owner and says where a new screen or derived value goes.
 
-The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens draw none of their own (badge, link, busy pill, segment, paper box, row, row group, field, state mark); one radius per job (`Metrics.Radius`). `scripts/design-system.test.ts` counts what screens still draw by hand; its caps only go down. A PR that changes a screen gets a design review before its debt verdict: a fresh agent on the cheapest model (haiku) with `design-review.md` and simulator screenshots, never the builder.
+The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens draw none of their own (badge, link, busy pill, segment, paper box, row, row group, field, state mark); one radius per job (`Metrics.Radius`). `scripts/design-system.test.ts` counts what screens still draw by hand; its caps only go down. A PR that changes a screen gets a design review before its debt verdict: a fresh agent on the cheapest model (haiku) with `design-review.md`, never the builder; it captures every state and transition itself. The same file runs as a whole-app audit after a redesign lands.
 
 ## How to
 

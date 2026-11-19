@@ -20,6 +20,8 @@ final class PlaybackStore {
     @ObservationIgnored private var observers: [Any] = []
     @ObservationIgnored private var statusWatch: Task<Void, Never>?
     @ObservationIgnored private var clipEnd: Task<Void, Never>?
+    /// A whole file that plays to its end also lets the audio session go (a clip's span ends through `stop`).
+    @ObservationIgnored private var itemEnd: NSObjectProtocol?
     /// Playing out loud, the Pendant hears it: the span is kept from transcription (`PlaybackQuiet`).
     @ObservationIgnored private var quiet = PlaybackQuiet()
     @ObservationIgnored private var outLoud = PlaybackStore.routeIsOutLoud()
@@ -39,7 +41,16 @@ final class PlaybackStore {
 
     /// Plays `file` from `start` seconds, and for `length` seconds when given (a clip is a span of its job's audio).
     func play(_ file: URL, from start: Double = 0, for length: Double? = nil) {
+        // `.playback` plays through the ring/silent switch, which mutes the default `.soloAmbient`; nothing else of the
+        // app plays or records through the session (the Pendant's capture is Bluetooth, not AVAudioSession).
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .spokenAudio)
+        try? session.setActive(true)
         let item = AVPlayerItem(url: file)
+        itemEnd.map(NotificationCenter.default.removeObserver)
+        itemEnd = NotificationCenter.default.addObserver(
+            forName: AVPlayerItem.didPlayToEndTimeNotification, object: item, queue: .main
+        ) { [weak self] _ in MainActor.assumeIsolated { self?.stop() } }
         player.replaceCurrentItem(with: item)
         if start > 0 { player.seek(to: CMTime(seconds: start, preferredTimescale: 600)) }
         player.play()
@@ -54,8 +65,11 @@ final class PlaybackStore {
 
     func stop() {
         clipEnd?.cancel()
+        itemEnd.map(NotificationCenter.default.removeObserver)
+        itemEnd = nil
         player.pause()
         player.replaceCurrentItem(with: nil)
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     /// Speaker, AirPlay or headphones: whether the Pendant hears it.

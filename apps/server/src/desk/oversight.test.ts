@@ -269,7 +269,7 @@ test("what his agents are doing: each with its matter, status, wait, link and am
     // Its packet opens with its matter as read now: its goal and next step first.
     expect(
       JSON.parse(
-        (await readPacket(desk, onMatter?.id ?? "")).split("\n")[1] ?? ""
+        (await readPacket(desk, onMatter?.id ?? "", true)).split("\n")[1] ?? ""
       )
     ).toMatchObject({
       goal: { text: "The cake is collected" },

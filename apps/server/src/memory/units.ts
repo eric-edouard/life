@@ -94,6 +94,21 @@ export interface Built {
 
 const contentHash = (s: string) => digest("sha256", s, 16);
 
+type Hashed = Pick<Message, "fromMe" | "id" | "text">;
+const messagesHash = (messages: Hashed[], marked: string[]) =>
+  contentHash(
+    messages
+      .map(
+        (e) =>
+          `${e.fromMe ? 1 : 0}${marked.includes(e.id) ? "|kept" : ""}|${e.text}`
+      )
+      .join("\n")
+  );
+
+/** The hash (content only, a mark added to a marked line) a message unit had when it held only its first `n` messages: what an earlier reading of it stored. */
+export const linesHashOf = ({ messages, unit }: Built, n: number) =>
+  messagesHash(messages.slice(0, n), unit.marked ?? []);
+
 /**
  * Lower case, no accents, Latin letters and digits only: the recipe of stored text and ids (observation ids, entry ids,
  * slugs, the passages column, topic tags), never to change. Names are compared with `nameKey`.
@@ -451,14 +466,7 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
       end: last.at,
       // Content only, not ids or times: the same chat seen through two sources hashes the same. A mark is content (a
       // line becomes his to keep when whose the chat is resolves later), added only to a marked line.
-      hash: contentHash(
-        sorted
-          .map(
-            (e) =>
-              `${e.fromMe ? 1 : 0}${marked.includes(e.id) ? "|kept" : ""}|${e.text}`
-          )
-          .join("\n")
-      ),
+      hash: messagesHash(sorted, marked),
       id: dayUnitId(first),
       key: first.chat,
       ...(marked.length > 0 ? { marked } : {}),

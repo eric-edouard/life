@@ -118,8 +118,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   desk (`apps/server/src/desk/`, off until his `desk` setting) starts a registered agent's session on a subject he
   handed over, and wakes it on its events, his answer or its deadline; the night, the watcher, the connector and
   anything recorded never start one. Life gives an agent a brief and the door, and nothing else: what an agent may do
-  is its runtime's permissions and his own rules, never Life's code (what the desk sets: the ACP runtime approves a permission ask only when its tool's title is the row's `doorPrefix` and a bare tool name (the desk's own door's tools), and refuses every other; and a second Life's agent (a demo, `isOwnLife` false), whose runtime as he set it up would reach his own Life, gets its door alone: none of his settings, MCP servers, built-in tools, instruction files or memory, the door's tools approved, never in his Claude or Codex app, in its runtime row, `runtime-rows.ts`; Codex's in Life's own Codex home). The brief carries his gates (nothing outgoing
-  without his yes on the exact thing, asked as a decision) and the door holds one rule of his (18 Nov 2026): a new
+  is its runtime's permissions and his own rules, never Life's code (what the desk sets: an agent of his own Life is held back by nothing (his decision of 19 Nov 2026): its session is one of his own in full (his settings, instruction files, skills, connectors, and his login shell's environment, `readLoginEnv`, less the runtime's own engine keys), in the runtime's no-ask mode set at every start and resume (`Row.mode`; Codex's at spawn), and every permission ask that still arrives is approved; and a second Life's agent (a demo, `isOwnLife` false), whose runtime as he set it up would reach his own Life, gets its door alone: none of his settings, MCP servers, built-in tools, instruction files or memory, only its door's asks approved (`Row.onlyDoorPrefix` and a bare tool name), every other refused, none of his environment, never in his Claude or Codex app, in its runtime row, `runtime-rows.ts`; Codex's in Life's own Codex home). The brief carries his one
+  gate (nothing outward in his name without his yes on the exact thing, asked as a decision; the Mac and the web are
+  free) and the door holds one rule of his (18 Nov 2026): a new
   agent's first turn asks its plan, so the door refuses `set_wait` and `finish` until it has asked a decision. An agent that is not registered is started as
   before: its own `onAsk` command (its setting), once per new ask, detached and with no words (his OK, 3 Nov 2026), and
   the question cases' headless agent by a developer's script (his word, 10 Nov 2026); it pulls its own asks
@@ -172,7 +173,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   quotes stay as said, topic tags English. A label digested with stored work (`him` in the persona and style inputs) changes
   with its prompt's next version.
 - **Facts are read by episode:** one call per day reads the day, its new units in full (`episodes.ts`), then extraction reads an
-  episode's units together (`extract.ts`), with earlier facts as a reading to correct, never as evidence. Extraction is
+  episode's units not read yet together (`extract.ts`), the ones already read as earlier facts; a chat that grew is read
+  for its new lines (`Extracted.lines`), with earlier facts as a reading to correct, never as evidence. Extraction is
   the only step that retires an observation, besides his word that one is outdated (a fact-check answer or an
   `outdated` correction).
 - **Historical collection is model-free.** `memory historical-units` reads bounded owner-local months, skips voice and file descriptions, and publishes only units and derived passages. An import describes its own files (the Instagram export's photos, by `describeFiles`) before its collection, which leaves old files as tags. Imports and model backfills require `backfillEngine`; no fallback to the ordinary engine. No scheduled model backfill until prompts are frozen. One exception, his OK of 15 Nov 2026: the first run of the conversation summaries (`bun life memory conversation-summaries --from 2026-09-07 --force`, once, no cap, about $1.10 to $1.50) runs on the ordinary `engine`, as the night's step run wider.
@@ -290,6 +292,7 @@ Before adding a helper, use the one that exists:
 | A memory text's vector, the query's | `memory/vectors.ts` (`embedQuery`, `readNearest`; the watcher's `embedNew`); Life reaches Lifelog Host's embedder at `EMBEDDER_URL` (loopback, one constant for lifelog and Life), the one call into lifelog's side that is not its REST contract |
 | Running gog (Google Calendar, Google Tasks, Gmail send) | `gogCall` (`core/gog.ts`): nothing else spawns it |
 | Running another program | `apps/server/src/core/proc.ts` |
+| His login shell's environment | `readLoginEnv` (`core/proc.ts`): only an own-Life runtime row; never logged or stored |
 | Opening a SQLite store to write (WAL, the wait first) | `openWritable` (`apps/server/src/core/sqlite.ts`), with its wait (5 s, 30 s for the index, vectors, passages and photo descriptions) |
 | Opening a SQLite store to read (an app's store, the archive, the index) | `openReadOnly` (`apps/server/src/core/sqlite.ts`), which waits for a writer |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |

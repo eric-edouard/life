@@ -20,9 +20,9 @@ test("the index is stale when memory/ (units/ aside) or truth/ changed after its
   expect(readStaleness(path)).toBe("index");
   const statusInputs = {
     corrections: [],
-    latest: new Map(),
     live: new Set<string>(),
     retired: new Map(),
+    standing: new Map(),
   };
   const later = new Date(Date.now() + DAY);
   buildIndex([], path, statusInputs, [], later);
@@ -62,9 +62,9 @@ test("stored search hashes keep the exact ranked text and pre-hash indexes rebui
     path,
     {
       corrections: [],
-      latest: new Map(),
       live: new Set([u.id]),
       retired: new Map(),
+      standing: new Map(),
     },
     [{ unit: u, verdict: v }],
     new Date("2099-01-01")
@@ -107,7 +107,12 @@ test("embedding reads indexed episode text and unit hashes through read-only sto
   buildIndex(
     [],
     INDEX,
-    { corrections: [], latest: new Map(), live: new Set(), retired: new Map() },
+    {
+      corrections: [],
+      live: new Set(),
+      retired: new Map(),
+      standing: new Map(),
+    },
     [{ unit: u }],
     new Date("2099-01-01"),
     [episode]
@@ -151,7 +156,12 @@ test("a conversation summary is indexed under its first turn's ref, with its day
   buildIndex(
     [],
     path,
-    { corrections: [], latest: new Map(), live: new Set(), retired: new Map() },
+    {
+      corrections: [],
+      live: new Set(),
+      retired: new Map(),
+      standing: new Map(),
+    },
     [],
     new Date("2099-01-01"),
     [],
@@ -178,9 +188,9 @@ test("the units hold their items, a window by date reads the date index, and an 
     path,
     {
       corrections: [],
-      latest: new Map(),
       live: new Set([u.id]),
       retired: new Map(),
+      standing: new Map(),
     },
     [{ unit: u, verdict: verdict(u) }],
     new Date("2099-01-01")

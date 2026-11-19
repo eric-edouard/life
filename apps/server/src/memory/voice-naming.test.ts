@@ -341,7 +341,7 @@ const strangerRow = (job: string) =>
 const storedVoices = (where: string) =>
   readReplies(where).flatMap((f) => f.map((l) => l.reply.voices));
 
-test('a voice he answered "Not anyone I know" is stored unknown, whatever the model said or left out', async () => {
+test('a voice he answered "A stranger" is stored unknown, whatever the model said or left out', async () => {
   const named = sceneOf({ voices: (job) => [strangerRow(job)] });
   const { done } = await run(named, () => ({
     voices: [{ confidence: "sure", lines: [1], person: "me", voice: "V1" }],
@@ -358,7 +358,7 @@ test('a voice he answered "Not anyone I know" is stored unknown, whatever the mo
   expect((await workOf(left)).counts.calls).toBe(0);
 });
 
-test('the hidden run hides a voice he answered "Not anyone I know" and does not check it as answered', async () => {
+test('the hidden run hides a voice he answered "A stranger" and does not check it as answered', async () => {
   const s = sceneOf({ voices: (job) => [strangerRow(job)] });
   const found = await readConversationSummaryWork(
     NOW,

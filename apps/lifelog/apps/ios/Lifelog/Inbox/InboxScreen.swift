@@ -26,7 +26,7 @@ struct InboxScreen: View {
         .background(Palette.bg)
         .sheet(item: sameAsCard) { check in
             SameAsSheet(
-                title: check.namingOption?.label ?? "Same as…", people: check.likelyPeople,
+                title: "Same as…", people: check.likelyPeople,
                 takesNewName: check.namingOption?.takes == .personOrName
             ) { choice in
                 if let request = check.answer(naming: choice) { submit(check, request) }
