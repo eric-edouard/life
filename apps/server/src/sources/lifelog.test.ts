@@ -7,9 +7,6 @@ import { z } from "zod";
 import { AppleHealthPage } from "./apple-health";
 import {
   apply,
-  endedOnSilence,
-  Hits,
-  isConversationClosed,
   LifelogStatus,
   newestTurn,
   openStore,
@@ -19,7 +16,6 @@ import {
   readConversations,
   readPhoneZone,
   Stays,
-  searchVoice,
   speakers,
   storeFiles,
   Transcript,
@@ -31,6 +27,8 @@ import {
 import { conversationsWith } from "./lifelog-conversations";
 import type { Push } from "./lifelog-push";
 import { Recorded } from "./lifelog-recorded";
+import { Hits, searchVoice } from "./lifelog-search";
+import { endedOnSilence, isConversationClosed } from "./lifelog-speech";
 import {
   Clip,
   ConversationAnswer,

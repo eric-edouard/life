@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { DESK_AGENT } from "../core/names";
@@ -7,6 +8,7 @@ import {
   activeAgents,
   agentOf,
   type EventRow,
+  eventHeard,
   filtersOf,
   lastTurns,
   modelOf,
@@ -16,15 +18,20 @@ import {
   type TurnRow,
 } from "../host/desk-read";
 import {
+  CALL_ENDED,
+  callMatcherOf,
   MESSAGE_RECEIVED,
   matcherOf,
   pollDecisions,
+  readEndedCalls,
   readMessageEvents,
 } from "../host/events";
 import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
 import { type People, readPeople } from "../memory/who";
 import type { TurnOutcome } from "../records/registered-agent";
+import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
+import { recordingsOf } from "../sources/lifelog-speech";
 import { finish, readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import {
@@ -32,6 +39,7 @@ import {
   BEGIN_WITHIN_MS,
   defaultWaitOf,
   dueOf,
+  eventLineOf,
   failuresOf,
   GROWTH_LIMIT,
   growthOf,
@@ -139,6 +147,75 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
   })();
 }
 
+/**
+ * Queues `call.ended` for each active agent whose wait wants a call that ended in the last 12 hours (`readEndedCalls`),
+ * once lifelog holds the call's words (`recordingsOf`): the chat, the span, who was on it and where its turns are, never
+ * a word. A call with no turn inside (the pendant was off) queues nothing and is looked at again next poll until it is
+ * 12 hours old; one already queued for an agent is not looked at (`eventHeard`), and the queue keeps it once per agent
+ * and call, so no cursor is kept. `at` is the time the polls look back from, passed so a replay can set the evening.
+ */
+export async function pollCalls(
+  desk: Desk,
+  readPeopleNow: ReadPeople,
+  at = clock().getTime(),
+  watchDir = WATCH
+) {
+  const { db } = desk;
+  const agents = activeAgents(db);
+  if (agents.length === 0 || !existsSync(storeFiles(watchDir).file)) {
+    return;
+  }
+  const people = await readPeopleNow();
+  const calls = readEndedCalls(people, desk.sources, at);
+  const wakes = agents.flatMap((a) => {
+    const matchers = filtersOf(a).flatMap(
+      (f) => callMatcherOf(f, people) ?? []
+    );
+    return calls.flatMap((call) =>
+      call.until >= a.created_at &&
+      matchers.some((isMatch) => isMatch(call)) &&
+      eventHeard(db, a.id, `${call.id}.ended`) === "not_yet"
+        ? [{ agent: a.id, call }]
+        : []
+    );
+  });
+  if (wakes.length === 0) {
+    return;
+  }
+  try {
+    const recordings = await withStore(
+      (store) =>
+        new Map(
+          wakes.map(({ call }) => [
+            call.id,
+            recordingsOf(store, call.at, call.until),
+          ])
+        ),
+      () => readStore(watchDir)
+    );
+    db.transaction(() =>
+      queue(
+        db,
+        CALL_ENDED,
+        wakes.flatMap(({ agent, call }) => {
+          const found = recordings.get(call.id);
+          return found
+            ? [
+                {
+                  agent,
+                  eventId: `${call.id}.ended`,
+                  payload: { ...call, recordings: found },
+                },
+              ]
+            : [];
+        })
+      )
+    )();
+  } catch (error) {
+    log("desk.runtime", { error: String(error), ok: false, what: "calls" });
+  }
+}
+
 /** Queues his pendant's new recordings for every agent on a matter they relate to (`relatedRecordings`). */
 export async function pollRecordings(desk: Desk, readPeopleNow: ReadPeople) {
   if (activeAgents(desk.db).length === 0) {
@@ -199,10 +276,7 @@ export function pollAnswers({ db }: Desk) {
 
 /** The message that wakes a session: why, and each queued event's facts (who, where, when, the id to read). */
 const wakeMessageOf = (cause: string, events: EventRow[]) =>
-  [
-    `Woken by the desk: ${cause}.`,
-    ...events.map((e) => `${e.name} ${e.payload}`),
-  ].join("\n");
+  [`Woken by the desk: ${cause}.`, ...events.map(eventLineOf)].join("\n");
 
 /** What a session of `a` is given: its door, its folder, a title, the model it runs with. */
 const sessionAgentOf = (a: AgentRow): SessionAgent => ({
@@ -421,8 +495,8 @@ export async function wakeDue(desk: Desk) {
 
 /**
  * One tick of the clock: his word about his agents, his answers, the turns that never began, then the turns due (a new
- * agent's first turn never waits behind the polls), then, when their poll is due, the messages, the recordings, the
- * agents whose matter is done and the turns lost to a restart (what they queue is woken next tick).
+ * agent's first turn never waits behind the polls), then, when their poll is due, the messages, the calls that ended, the recordings, the
+ * agents whose matter is done and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst.
  */
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
@@ -432,6 +506,7 @@ export async function tick(desk: Desk, isPollDue = true) {
   if (isPollDue) {
     const people = readPeopleOnce();
     await pollMessages(desk, people);
+    await pollCalls(desk, people);
     await pollRecordings(desk, people);
     await endAgentsOnDoneMatters(desk, people);
     await endLostTurns(desk);

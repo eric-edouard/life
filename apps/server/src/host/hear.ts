@@ -1,8 +1,6 @@
 import { clock } from "../core/clock";
 import { asHeard, LIFE_WAKE, type Settings, settings } from "../core/settings";
 import {
-  endedOnSilence,
-  isConversationClosed,
   readTranscript,
   type Store,
   turnRef,
@@ -10,6 +8,7 @@ import {
   whose,
   writeMarks,
 } from "../sources/lifelog";
+import { isSettledAfter } from "../sources/lifelog-speech";
 import { ask } from "./asks";
 
 // Hears "hey <word>" in his recorded speech: his turns that follow are a span. Every span is recorded in the store as a
@@ -141,7 +140,7 @@ export function spansIn(turns: Turn[], from: string) {
 
 /**
  * Where a conversation's speech from `from` on stands for hearing: `complete` once its last turn is someone else's,
- * ends a recording nobody spoke after for 30 s (`endedOnSilence`), or lifelog has settled the conversation (`closed`):
+ * ends a recording nobody spoke after (`endedOnSilence`), or lifelog has settled the conversation (`closed`), as `isSettledAfter` has it:
  * lifelog's own signals, never a timing rule of Life's. Else `open` (the next recording may go on with it).
  */
 export function speechIn(store: Store, conversation: string, from: string) {
@@ -149,8 +148,7 @@ export function speechIn(store: Store, conversation: string, from: string) {
   if (!last || whose(last) === "other") {
     return "complete";
   }
-  return endedOnSilence(store, last.jobId) ||
-    isConversationClosed(store, conversation)
+  return isSettledAfter(store, { conversation, jobId: last.jobId })
     ? "complete"
     : "open";
 }
