@@ -375,7 +375,13 @@ test("change_registered_agent records his word and answers with what the desk di
     ...made,
     projects: [
       ...made.projects,
-      { id: "test-shop", name: "Test shop", repos: ["test-shop-site"] },
+      {
+        chats: [],
+        id: "test-shop",
+        name: "Test shop",
+        people: [],
+        repos: ["test-shop-site"],
+      },
     ],
   } as never);
   const repos = spyOn(

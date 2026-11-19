@@ -79,7 +79,7 @@ export function topTopics(verdicts: Iterable<Verdict>, n = TOPICS_SHOWN) {
     .map(([t]) => t);
 }
 
-/** The areas of the projects a chat belongs to (`Project.chats`), by network chat id and by WhatsApp id. */
+/** The areas of the projects a chat belongs to (`Project.chats`), by the chat's key and by its WhatsApp id. */
 export function chatAreas(truth: Truth) {
   const out = new Map<string, string[]>();
   for (const c of truth.chats) {
