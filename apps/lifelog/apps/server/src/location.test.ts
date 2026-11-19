@@ -1,6 +1,22 @@
-import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  expect,
+  setSystemTime,
+  test,
+} from "bun:test";
 import { createApp } from "./app";
-import { locate, type Point, visitsIn, zonedInstant } from "./location";
+import {
+  locate,
+  type Point,
+  storeHistory,
+  visitsIn,
+  visitsTo,
+  whereVisits,
+  zonedInstant,
+} from "./location";
 import { services } from "./services";
 import { OWNER_TOKEN, testConfig, testDb } from "./testing";
 
@@ -97,6 +113,9 @@ afterAll(() => {
 beforeEach(() => {
   env.reset();
 });
+afterEach(() => {
+  setSystemTime();
+});
 
 const auth = {
   Authorization: `Bearer ${OWNER_TOKEN}`,
@@ -180,4 +199,60 @@ test("the phone's history is stored once, a visit takes its departure, and a rea
   expect((await get("/visits?place=nowhere")).status).toBe(404);
   expect((await get(`/visits?place=home&${around}`)).status).toBe(400);
   expect((await get(`/visits?latitude=${HOME.latitude}`)).status).toBe(400);
+});
+
+// A stay under way has no `leftAt`; it gets one when a later point lies outside or the silence passes MAX_GAP_MS.
+test("a stay under way has no leftAt, until a point outside or two hours of silence end it", () => {
+  const home = (minute: number) => ({
+    accuracyM: 10,
+    ...HOME,
+    observedAt: at(minute),
+  });
+  const away = { ...home(100), latitude: HOME.latitude + 2000 * METER };
+  const range = { from: new Date(START), to: new Date(START + 600 * MIN) };
+  const lefts = () =>
+    visitsTo(env.db, undefined, range)?.map((v) => v.leftAt) ?? [];
+  storeHistory(env.db, { fixes: [home(0), home(5), home(10)], visits: [] });
+
+  setSystemTime(START + 60 * MIN);
+  expect(lefts()).toEqual([null]);
+  expect(whereVisits(env.db, new Date(START + 7 * MIN))[0]?.leftAt).toBeNull();
+
+  // A later point outside the stay ends it, at its last point.
+  storeHistory(env.db, { fixes: [away], visits: [] });
+  expect(lefts()).toEqual([at(10)]);
+
+  // Silence past MAX_GAP_MS ends a stay with no point outside.
+  env.reset();
+  storeHistory(env.db, { fixes: [home(0), home(5), home(10)], visits: [] });
+  setSystemTime(START + 10 * MIN + 2 * 60 * MIN);
+  expect(lefts()).toEqual([null]);
+  setSystemTime(START + 10 * MIN + 2 * 60 * MIN + 1);
+  expect(lefts()).toEqual([at(10)]);
+
+  // A window that ended 3 hours ago: the point outside, after its end, is read through now.
+  env.reset();
+  storeHistory(env.db, {
+    fixes: [
+      home(0),
+      home(5),
+      home(10),
+      home(100),
+      { ...home(170), latitude: HOME.latitude + 2000 * METER },
+    ],
+    visits: [],
+  });
+  setSystemTime(START + 180 * MIN);
+  expect(
+    visitsTo(env.db, undefined, {
+      from: new Date(START),
+      to: new Date(START + 30 * MIN),
+    })?.map((v) => v.leftAt)
+  ).toEqual([at(100)]);
+
+  // A single passing fix keeps its leftAt.
+  env.reset();
+  storeHistory(env.db, { fixes: [home(0)], visits: [] });
+  setSystemTime(START + 10 * MIN);
+  expect(whereVisits(env.db, new Date(START + 5 * MIN))[0]?.leftAt).toBe(at(0));
 });

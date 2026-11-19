@@ -147,7 +147,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | next reads | The last lines of a read part: the refs of its deeper reads, each with what it holds (`nextReads`). | |
 | what | An episode's own account: what happened and what came of it, in one to three sentences. Not a unit's `summary` (lifelog's, of one conversation). | |
 | within | The episode holding another (a dinner within a trip). | |
-| stay | One place his phone stayed, from lifelog's location history (`staysOf`); an episode's stay is the one covering most of it (`stayOf`), derived, never stored. | |
+| stay | One place his phone stayed, from lifelog's location history (`staysOf`); an episode's stay is the one covering most of it (`stayOf`), derived, never stored. A stay under way has no `leftAt`. | |
 | truth set | Days he checked by hand (`docs/evals/truth-*.json` in his data: facts, timeline), what the bench grades against (`TruthSet`, `scripts/timeline.ts`). Not `truth/`, which only he writes. | |
 | unkept | A unit Life read before that its latest verdict no longer keeps: its facts are replaced by none (`unkept` in extracted.jsonl). Not a dropped unit, which a code rule leaves out. | |
 | kept both | A fact the memory both states and contradicts: a contradiction stored, counted apart from wrong by the eval and the bench. | |

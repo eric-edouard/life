@@ -336,11 +336,12 @@ function placeCircles(db: Db, place: string) {
 // ---- Visits -------------------------------------------------------------------
 
 // A stay as `GET /where` and `GET /visits` give it: the phone's name for the place when it has one,
-// the most accurate point, and when the owner arrived and left.
+// the most accurate point, and when the owner arrived and left. A stay still under way has no
+// `leftAt` (null): it is the last one, with a point within MAX_GAP_MS of now.
 export interface Visit {
   arrivedAt: string;
   latitude: number;
-  leftAt: string;
+  leftAt: string | null;
   longitude: number;
   place?: string;
 }
@@ -350,25 +351,36 @@ function visitOf(
   db: Db,
   from: number,
   to: number,
-  at: { latitude: number; longitude: number }
+  at: { latitude: number; longitude: number },
+  underWay = false
 ): Visit {
   const place = placeName(db, from, to);
   return {
     arrivedAt: new Date(from).toISOString(),
     latitude: at.latitude,
-    leftAt: new Date(to).toISOString(),
+    leftAt: underWay ? null : new Date(to).toISOString(),
     longitude: at.longitude,
     ...(place ? { place } : {}),
   };
 }
 
+// A stay is under way when it has a point within MAX_GAP_MS of now and no later point outside it.
+const isUnderWay = (points: Point[], r: Run, now: number) =>
+  now - r.to <= MAX_GAP_MS &&
+  !points.some((p) => p.from >= r.to && !r.points.includes(p));
+
 // Where the owner was at an instant: the stay around it or the nearest point within 30 minutes
 // (none otherwise).
 export function whereVisits(db: Db, at: Date): Visit[] {
   const t = at.getTime();
-  const found = locate(pointsBetween(db, t, t + 24 * HOUR), t);
+  const now = clock().getTime();
+  const points = pointsBetween(db, t, Math.max(t + 24 * HOUR, now));
+  const found = locate(points, t);
   if (found.kind === "stay") {
-    return [visitOf(db, found.run.from, found.run.to, found.run.best)];
+    const { run } = found;
+    return [
+      visitOf(db, run.from, run.to, run.best, isUnderWay(points, run, now)),
+    ];
   }
   return found.kind === "point"
     ? [visitOf(db, found.point.from, found.point.to, found.point)]
@@ -395,13 +407,23 @@ export function visitsTo(
     return null;
   }
   const from = range.from?.getTime() ?? 0;
-  const to = range.to?.getTime() ?? clock().getTime();
-  const points = pointsBetween(db, from, to + MAX_GAP_MS);
+  const now = clock().getTime();
+  const to = range.to?.getTime() ?? now;
+  // A window ending within two gaps of now is read through now: a stay under way ends only by a later point.
+  const points = pointsBetween(
+    db,
+    from,
+    to + 2 * MAX_GAP_MS >= now
+      ? Math.max(now, to + MAX_GAP_MS)
+      : to + MAX_GAP_MS
+  );
   const found = (
     circles ? visitsIn(points, circles) : stays(points).filter(isStay)
   )
     .filter((r) => r.to >= from && r.from < to)
     .reverse()
     .slice(0, MAX_VISITS);
-  return found.map((r) => visitOf(db, r.from, r.to, r.best));
+  return found.map((r) =>
+    visitOf(db, r.from, r.to, r.best, isUnderWay(points, r, now))
+  );
 }
