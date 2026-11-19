@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { z } from "zod";
+import { z } from "zod";
 import { clock } from "../core/clock";
 import {
   appendJsonl,
@@ -274,9 +274,14 @@ export const latestReading = (
 ) => standing.get(unit)?.at(-1);
 
 /** The units an observation can stand on: in memory/units and not dropped by a code rule. */
-export const liveUnits = (units: Unit[]) =>
+export const liveUnits = (units: Pick<Unit, "drop" | "id">[]) =>
   new Set(units.flatMap((u) => (u.drop ? [] : [u.id])));
-const liveIn = keptReader((path) => liveUnits(rowsOf(path, Unit)));
+/**
+ * A unit line as liveness reads it: its id and drop alone, the rest left unchecked. The whole `Unit` schema on every
+ * day's file was most of the first read's time; the readers that use a unit's content parse it whole.
+ */
+const UnitLiveness = z.object({ drop: Unit.shape.drop, id: Unit.shape.id });
+const liveIn = keptReader((path) => liveUnits(rowsOf(path, UnitLiveness)));
 /** The live units (`liveUnits`), a day's file read again only once it changed (`keptReader`). */
 export const readLiveUnits = async () =>
   new Set((await filesIn(UNITS)).flatMap((n) => [...liveIn(join(UNITS, n))]));
