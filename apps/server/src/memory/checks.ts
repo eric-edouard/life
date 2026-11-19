@@ -10,6 +10,12 @@ import {
   namingQueueGuessesOf,
   readNamingQueue,
 } from "../sources/lifelog-voices";
+import {
+  blockingCountOf,
+  inboxRankOf,
+  type Urgency,
+  urgencyOf,
+} from "./check-urgency";
 import { pagedNow } from "./closeness";
 import {
   DECISIONS,
@@ -125,7 +131,7 @@ export interface Check {
     observations: number;
     pages: number;
   };
-  /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; null: none. */
+  /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; for a voice, the person lifelog suggests; null: none. */
   subject: string | null;
   /** What it is trying to do, in one line. */
   title: string;
@@ -615,7 +621,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
               : `Who is this voice?${item.name ? ` It was called "${item.name}".` : ""}`,
             ref: `voice:${item.id}`,
             ridesOn: { ...ridingOf(), observations: 0, pages: 0 },
-            subject: null,
+            // The person lifelog suggests ("Is this voice X?"), what makes it a guess in use; null: none (`urgencyOf`).
+            subject: who ? known : null,
             title: LIFE_CHECKS.voice.title,
           },
           day: item.clips.reduce(
@@ -626,7 +633,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       }),
 };
 
-/** The checks: those with a deadline first (an agent's decisions), soonest first; then most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */
+/** The checks: in his inbox's order (`inboxRankOf`); inside a rank, those with a deadline first (an agent's decisions), soonest first; then most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */
 export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
   const matterOf = matterFinderOf(inputs.matters);
@@ -634,6 +641,7 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
     .flatMap((build) => build(c))
     .toSorted(
       (a, b) =>
+        inboxRankOf(a.check) - inboxRankOf(b.check) ||
         Number(b.check.deadline !== null) - Number(a.check.deadline !== null) ||
         (a.check.deadline ?? "").localeCompare(b.check.deadline ?? "") ||
         b.check.ridesOn.matters - a.check.ridesOn.matters ||
@@ -670,17 +678,6 @@ function draftPersonOf(c: Ctx, d: StoredDraft) {
   return handle ? c.people.resolve(handle) : null;
 }
 
-/** Where a check is asked: `inbox`, his agents' decisions (the only ones that push); `to confirm`, Life's own questions about who someone is and whether a step is done, when he likes; `matter`, a new matter, on its matter's page. The one rule, over the kind. */
-export type WhereAsked = "inbox" | "matter" | "to confirm";
-const ASKED: Record<CheckKind, WhereAsked> = {
-  decision: "inbox",
-  ending: "to confirm",
-  "new matter": "matter",
-  person: "to confirm",
-  voice: "to confirm",
-};
-export const whereAskedOf = (c: Pick<Check, "kind">) => ASKED[c.kind];
-
 /** The checks about matter `id`: every kind, open matters they ride on and the one holding their subject (an ending is about a matter that reads probably done). */
 export const checksOnMatterOf = <C extends Pick<Check, "matter" | "ridesOn">>(
   list: readonly C[],
@@ -692,8 +689,8 @@ export const checksOnMatterOf = <C extends Pick<Check, "matter" | "ridesOn">>(
 export const pushIdOf = (ref: string, key = secretIn("pushIdKey")) =>
   createHmac("sha256", key).update(ref).digest("hex").slice(0, 16);
 
-/** A check as the inbox lists it: with its `pushId`. */
-export type InboxCheck = Check & { pushId: string };
+/** A check as the inbox lists it: with its `pushId` and its `urgency`. */
+export type InboxCheck = Check & { pushId: string; urgency: Urgency };
 
 /** The last list `checksNow` read, and what it was read from (`checksKeyOf`). */
 let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
@@ -722,7 +719,7 @@ const checksKeyOf = (
   ]);
 
 /**
- * What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `inboxNow` reads it from
+ * What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from
  * the desk): read-only, no model call. Read again only when what it is read from changed (`checksKeyOf`), and always
  * while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
  */
@@ -801,11 +798,16 @@ async function readChecks(
       ]),
     ]),
   });
-  return checks.map((c) => ({ ...c, pushId: pushIdOf(c.ref, key) }));
+  return checks.map((c) => ({
+    ...c,
+    pushId: pushIdOf(c.ref, key),
+    urgency: urgencyOf(c),
+  }));
 }
 
-/** What the inbox holds: how many of each group, how many in all, and how many are due by the end of his day (`dayNow`: the app's badge). */
+/** What the inbox holds: how many of each group, how many in all, how many block (the badge), and how many are due by the end of his day (`dayNow`). */
 export const inboxOf = (list: Check[]) => ({
+  blocking: blockingCountOf(list),
   counts: Object.fromEntries(
     [...Map.groupBy(list, (c) => c.group)].map(([g, l]) => [g, l.length])
   ),

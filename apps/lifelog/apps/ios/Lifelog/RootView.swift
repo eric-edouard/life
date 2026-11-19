@@ -19,7 +19,7 @@ struct RootView: View {
             Tab("Inbox", systemImage: "tray", value: AppRouter.Tab.inbox) {
                 NavigationStack { InboxScreen().shellBar("Inbox") }
             }
-            .badge(life.inbox.value?.total ?? 0)
+            .badge(life.inbox.value?.badge ?? 0)
             Tab("Matters", systemImage: "list.bullet.indent", value: AppRouter.Tab.matters) { MattersScreen() }
         }
         .environment(router)

@@ -10,6 +10,12 @@ public enum CheckGroup: String, UnknownTolerant, Sendable {
     case unknown
 }
 
+/// Whether a check blocks (a worker waits on him, or Life cannot answer at all) or only improves (Life already uses its guess, or asks whether a step is done): `urgencyOf`, `memory/check-urgency.ts`. Kept for the inbox screen, which draws the line between what blocks and what can wait from it.
+public enum Urgency: String, UnknownTolerant, Sendable {
+    case blocks, improves
+    case unknown
+}
+
 /// One thing waiting on the owner's word, the same shape for every kind (`Check`, `memory/checks.ts`). Only what a
 /// screen draws or answers with is read; a field Life adds is ignored, one it takes away that is listed here is a
 /// failing fixture test.
@@ -96,6 +102,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// An opaque id of this card that a push carries (never its `ref`).
     public let pushId: String?
     public let group: CheckGroup
+    /// Absent in a fixture or a read kept before Life sent it.
+    public let urgency: Urgency?
     public let title: String
     public let question: String
     public let asker: String

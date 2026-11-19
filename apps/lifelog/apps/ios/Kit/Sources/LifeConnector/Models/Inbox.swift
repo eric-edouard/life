@@ -1,13 +1,15 @@
 import Foundation
 
-/// `read_inbox`: the checks of one list (his inbox, or "to confirm"), most urgent first, with the counts the badge and the tabs show, and how many wait in "to confirm".
+/// `read_inbox`: every open ask, what blocks first then most urgent, with the counts the badge and the tabs show.
 public struct Inbox: Decodable, Sendable, Equatable {
     public let checks: [Check]
     public let counts: [String: Int]
     public let total: Int
     public let deadlinesToday: Int
-    /// How many of Life's own questions wait in "to confirm", whichever list this read holds.
-    public let toConfirm: Int
+    /// How many block him (the badge); absent in a read kept before Life sent it.
+    public let blocking: Int?
+    /// The badge: the cards that block him (every card in a read kept before Life sent `blocking`).
+    public var badge: Int { blocking ?? total }
 }
 
 /// The card a tapped push opens.

@@ -1,4 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
+import { urgencyOf } from "../../memory/check-urgency";
 import type { CheckInputs } from "../../memory/checks";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
@@ -254,9 +255,11 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
   const spies = [
     // Every kind of check, as Life's own builders make them over made-up records (`checksOf`), never by hand.
     spyOn(checks, "checksNow").mockResolvedValue(
-      checks
-        .checksOf(madeUpInbox)
-        .map((c) => ({ ...c, pushId: checks.pushIdOf(c.ref, "0".repeat(64)) }))
+      checks.checksOf(madeUpInbox).map((c) => ({
+        ...c,
+        pushId: checks.pushIdOf(c.ref, "0".repeat(64)),
+        urgency: urgencyOf(c),
+      }))
     ),
     spyOn(who, "readPeople").mockResolvedValue({
       nameOf: (r: string) => r.replace("person:", ""),
@@ -368,10 +371,6 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
       return json.result.content[0].text as string;
     };
     expectWire("read_inbox", await read("read_inbox"));
-    expectWire(
-      "read_inbox_to_confirm",
-      await read("read_inbox", { list: "to confirm" })
-    );
     expectWire("read_matters", await read("read_matters"));
     expectWire(
       "read_matter",

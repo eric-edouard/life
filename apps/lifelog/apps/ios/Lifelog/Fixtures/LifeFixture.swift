@@ -111,7 +111,6 @@
         // MARK: Reads
 
         func readInbox() async throws -> String { try await gate(); return inbox() }
-        func readToConfirm() async throws -> String { try await gate(); return inbox() }
         func readMatters() async throws -> String { try await gate(); return matters() }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
 
@@ -134,7 +133,6 @@
             let checks = scenario == "empty" ? [] : Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
             return json([
                 "checks": checks, "counts": ["decision": checks.count], "total": checks.count, "deadlinesToday": 1,
-                "toConfirm": 0,
             ])
         }
 

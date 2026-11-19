@@ -17,7 +17,7 @@ import {
 import { readPeople } from "./who";
 
 // His fact checks: nothing is drawn. The open ones are the ending checks `checksNow` lists (`checks.ts`), put to him in a
-// chat (`read_inbox`, `list` "to confirm") and answered there (`answer_check`, `answer-check.ts`). A check is written to
+// chat (`read_inbox`) and answered there (`answer_check`, `answer-check.ts`). A check is written to
 // memory/fact-checks.jsonl only with his answer, as it was shown, so the answer reads back the same.
 
 /**
