@@ -13,8 +13,8 @@ struct TypeStep: Equatable {
 
     /// A card's title: thin.
     static let cardHeadline = TypeStep(size: 24, weight: 250, style: .title2)
-    /// What the owner decides: bold, with a soft glow in dark (`View.lit()`).
-    static let cardQuestion = TypeStep(size: 19, weight: 650, style: .title3)
+    /// The question a card puts to him, first on it: bold.
+    static let cardQuestion = TypeStep(size: 26, weight: 650, style: .title2)
     /// A big word that says where something stands: "Recording.", "Sent.".
     static let statusWord = TypeStep(size: 40, weight: 250, style: .largeTitle)
     /// The figure on a tile: "82%".

@@ -55,13 +55,21 @@ struct RootView: View {
             if capture.cardPushes > 0 { await life.refresh() }
         }
         .task(id: scenePhase == .active) {
-            guard scenePhase == .active else { return }
+            // An answer held for Undo goes now: nothing waits in the background.
+            guard scenePhase == .active else { return await sendHeldInBackground() }
             // Here rather than on the scene's phase change, which a cold launch in the foreground never sends.
             sync.becameActive()
             #if DEBUG
                 await life.importFromEnvironment()
             #endif
             await life.refresh()
+            // A first read that did not land tries again while the scene is active; leaving cancels the sleep.
+            var attempt = 0
+            while life.needsRetry {
+                guard (try? await Task.sleep(for: firstReadRetryDelay(attempt: attempt))) != nil else { return }
+                attempt += 1
+                await life.retryFirstReads()
+            }
         }
         // A pairing link (`lifelog://pair?…`), from the Camera or pasted in Settings: a link could come from anywhere, so
         // it is asked here, over whatever was showing, and never repoints the app on its own.
@@ -70,6 +78,16 @@ struct RootView: View {
         }
         .font(.body15)
         .tint(Palette.fg)
+    }
+
+    /// Held answers go now, and the app is kept awake until they are answered: a suspended app would lose them.
+    private func sendHeldInBackground() async {
+        guard !life.held.isEmpty else { return }
+        let app = UIApplication.shared
+        let awake = Awake()
+        awake.id = app.beginBackgroundTask(withName: "held answers") { awake.end() }
+        await life.sendHeld()
+        awake.end()
     }
 
     /// Runs `then` once no sheet is up, dismissing the one that is.
@@ -105,7 +123,10 @@ struct RootView: View {
             default: break
             }
             if let id = LifeFixture.matter { router.open(matter: id) }
-            if let ref = LifeFixture.card { router.answer(card: ref) }
+            // On a matter, the card is the ask pushed on it; alone, the Inbox opens at it, as a push does.
+            if let ref = LifeFixture.card {
+                if LifeFixture.matter == nil { await life.open(ref: ref) } else { router.matterPath = [ref] }
+            }
             if let sheet = LifeFixture.sheet.flatMap(AppRouter.Sheet.init(rawValue:)) { router.sheet = sheet }
             // The pendant sheet's own sheets open from inside it (`PendantScreen`).
             if ["replacePendant", "pairPendant"].contains(LifeFixture.sheet) { router.sheet = .pendant }
@@ -127,5 +148,17 @@ enum Appearance: String {
         case .light: .light
         case .dark: .dark
         }
+    }
+}
+
+/// The background task's id, read by its own expiry handler.
+private final class Awake: @unchecked Sendable {
+    var id = UIBackgroundTaskIdentifier.invalid
+    /// Ends the task once: the expiry handler and the normal end may both come.
+    func end() {
+        guard id != .invalid else { return }
+        let ended = id
+        id = .invalid
+        UIApplication.shared.endBackgroundTask(ended)
     }
 }

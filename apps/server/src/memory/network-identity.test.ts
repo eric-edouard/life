@@ -7,6 +7,7 @@ import { INDEX, UNITS } from "./memory-files";
 import {
   chatUnitsFor,
   type NetworkIdentified,
+  type NetworkIdentity,
   networkIdentityOf,
   readNetworkIdentities,
   withNetworkIdentity,
@@ -150,7 +151,8 @@ test("a decision's guess beside it gets its identity too; a check none was found
   const decision: Shown = { confirm: [guess], ref: "dec_000000000001" };
   const shown = withNetworkIdentity(
     decision,
-    new Map([["person:inf_kit", identity]])
+    new Map([["person:inf_kit", identity]]),
+    "Dana"
   );
   expect(shown.networkIdentity).toBeNull();
   expect(shown.confirm[0]?.networkIdentity).toEqual(identity);
@@ -253,4 +255,30 @@ test("read from the index, the unit files and one span of the source: a card's h
     rmSync(UNITS, { force: true, recursive: true });
     rmSync(INDEX, { force: true });
   }
+});
+
+test("a decision's draft gets its chat as its network shows it, reading nothing; mail and a draft with no chat get null", () => {
+  const draft = {
+    channel: "whatsapp",
+    chat: "33600000001@s.whatsapp.net",
+    to: "Kit Moreau",
+  };
+  const shown = (d: typeof draft | { channel: string; to: string }) =>
+    withNetworkIdentity(
+      { confirm: [], draft: d, ref: "dec_1" } as {
+        confirm: never[];
+        draft: typeof d;
+        networkIdentity?: NetworkIdentity | null;
+        ref: string;
+      },
+      new Map(),
+      "Dana"
+    ).networkIdentity;
+  expect(shown(draft)).toMatchObject({
+    chat: draft.chat,
+    network: "WhatsApp",
+    newest: null,
+    shownName: "Kit Moreau",
+  });
+  expect(shown({ channel: "gmail", to: "kit@example.com" })).toBeNull();
 });
