@@ -109,6 +109,12 @@ export const Settings = z
     deviceNames: z.record(z.string().min(1), z.string().min(1)).optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
+    /** The GitHub repos (`owner/name`) whose issues and comments the `github` source reads and a card's draft may write to: no other repo is ever asked for. */
+    githubRepos: z
+      .array(z.string().regex(/^[\w.-]+\/[\w.-]+$/))
+      .min(1)
+      .max(5)
+      .optional(),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */
     lifeChat: z.string().optional(),
     /** lifelog's server; its token is `LIFELOG_TOKEN`. */

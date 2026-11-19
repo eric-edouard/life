@@ -147,7 +147,7 @@ async function chatOf(
     throw new Error(
       chats.length
         ? `Not done: ${draft.to} has ${chats.length} chats on ${s.name}: give one as \`to\` (${chats.join(", ")}).`
-        : `Not done: no chat of ${draft.to} on ${s.name} that it can send into: give a chat key from \`read_chats\` or a person's name${send.opens ? ", or a new person's id as <digits>@s.whatsapp.net (a group it never saw can't be opened)" : ""}.`
+        : `Not done: no chat of ${draft.to} on ${s.name} that it can send into: give a chat key from \`read_chats\` or a person's name${send.opensHint ? `, or ${send.opensHint}` : ""}.`
     );
   }
   return { chat, events, name };
@@ -217,7 +217,11 @@ export async function resolveDraft(
       `Not done: a draft's \`channel\` is the source it goes through: one of ${sending.map((x) => x.name).join(", ") || "none on this Mac"}.`
     );
   }
-  const problem = draftProblemOf(draft, s.kind === "mail" ? "mail" : "chat");
+  const problem = draftProblemOf(
+    draft,
+    s.kind === "mail" ? "mail" : "chat",
+    Boolean(s.send.opensWithSubject)
+  );
   if (problem) {
     throw new Error(`Not done: ${problem}.`);
   }
