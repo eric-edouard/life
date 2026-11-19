@@ -26,7 +26,7 @@ const RULES: Record<string, RegExp> = {
   height: new RegExp(String.raw`frame\([^)]*[Hh]eight: *${NUMBER}`, "g"),
   opacity: /\.opacity\(0\./g,
   padding: new RegExp(String.raw`\.padding\((?:[^)]*,\s*)?${NUMBER}\s*\)`, "g"),
-  radius: new RegExp(String.raw`cornerRadius: *${NUMBER}`, "g"),
+  radius: new RegExp(`cornerRadius: *${NUMBER}`, "g"),
   width: new RegExp(String.raw`frame\([^)]*[Ww]idth: *${NUMBER}`, "g"),
 };
 
