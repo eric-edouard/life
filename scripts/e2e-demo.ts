@@ -202,8 +202,10 @@ async function setUp() {
   await execOk(["xcrun", "simctl", "openurl", sim, link]);
   await device(["wait", 'label="Open"', "30000"]);
   await device(["press", 'label="Open"']);
-  await device(["wait", 'label="Pair"', "30000"]);
-  await device(["press", 'label="Pair"']);
+  await device(["wait", 'label="Pair this phone"', "30000"]);
+  await device(["press", 'label="Pair this phone"']);
+  await device(["wait", 'label="Done"', "60000"]);
+  await device(["press", 'label="Done"']);
 }
 
 /** The desk's turns that ended, from its store. */

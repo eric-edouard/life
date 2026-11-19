@@ -82,7 +82,6 @@ struct PendantScreen: View {
         .toolbar(removing: .title)
         .toolbarTitleDisplayMode(.inline)
         .refreshable { await actions.refresh() }
-        .connectionStatus()
         .toolbar {
             if capture.macDictatingSince != nil {
                 ToolbarItem(placement: .topBarLeading) {

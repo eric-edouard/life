@@ -9,7 +9,7 @@
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `loading`, `empty`, `stale`, `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent` decides what a tap on a draft does; `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing`
     /// open the screen to show. `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -20,6 +20,10 @@
         nonisolated static let tab = value(of: "-fixtureTab")
         nonisolated static let matter = value(of: "-fixtureMatter")
         nonisolated static let sheet = value(of: "-fixtureSheet")
+        /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).
+        /// `-fixturePage life|server|diagnostics`: Settings opens that page.
+        nonisolated static let page = value(of: "-fixturePage")
+        nonisolated static let pair = value(of: "-fixturePair") ?? "ok"
         nonisolated static let pose = value(of: "-fixturePose")
 
         nonisolated private static func value(of flag: String) -> String? {
@@ -41,8 +45,24 @@
                 cache.store(api.agents(), key: "read_registered_agents")
             }
             return LifeStore(
-                tokens: FixtureTokens(isPaired: scenario != "notPaired"), api: api, cache: cache, setBadge: { _ in })
+                tokens: FixtureTokens(isPaired: scenario != "notPaired"), api: api,
+                approve: { _ in try await approve() },
+                cache: cache, setBadge: { _ in })
         }
+    }
+
+    /// A pairing's approval, as `-fixturePair` says it goes.
+    nonisolated private func approve() async throws -> LifeCredentials {
+        switch LifeFixture.pair {
+        case "slow": try await Task.sleep(for: .seconds(3_600))
+        case "expired": try await Task.sleep(for: .seconds(1)); throw MCPError.wrongCode
+        default: try await Task.sleep(for: .seconds(1))
+        }
+        guard let origin = URL(string: "https://life.example.test") else { throw MCPError.wrongCode }
+        return LifeCredentials(
+            endpoint: LifeEndpoint(
+                origin: origin, clientID: "fixture", tokenEndpoint: origin, resource: origin.absoluteString),
+            tokens: LifeTokens(access: "fixture", refresh: "fixture", expiresAt: .distantFuture))
     }
 
     nonisolated private struct FixtureTokens: TokenStore {

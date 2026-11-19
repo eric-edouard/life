@@ -205,12 +205,12 @@ Everything the owner reads is on the phone, so every screen works offline and op
 2. **Refresh in the background.** Server-only data (the voices to name) shows as last read, then comes
    after and updates rows in place. No spinner while local rows exist.
 3. **Edits show at once.** An edit goes to the outbox and the screen shows it as saving until the server accepts it
-   (then "Saved"); a refused one says why on its own row (and in the status sheet) and the screen shows the feed's value
+   (then "Saved"); a refused one says why on its own row (and on the server's page in Settings) and the screen shows the feed's value
    again. Before the feed said, a server-held value is asking, never a default.
-4. **One status.** Every main tab shows it at the leading end of its bar with `.connectionStatus()`, one state at a
+4. **One status.** Settings shows it on the server's row, one state at a
    time: Not paired, Offline, Uploading, N edits waiting, Up to date, or Not synced yet before the first pull
    (`ConnectionSummary`). It reads the pairing, the network path, the uploader, the outbox and the last feed pull,
-   nothing else; speech the server doesn't have yet counts as Uploading. Tapping it shows what waits and why (the
+   nothing else; speech the server doesn't have yet counts as Uploading. Its page shows what waits and why (the
    audio to upload with its length, why the last upload failed, the feed's `waiting` reasons) and the edits the
    server refused.
 5. **Slow work comes last.** Waveforms, photos and estimates fill in after the rows, newest first.

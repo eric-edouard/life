@@ -18,7 +18,7 @@ import Upload
 /// with a long poll, which a trigger cuts short. A cancelled run loses nothing: the next resumes. The raw backup goes in
 /// a second task beside it (`backUp`), so new speech never waits behind an item that takes minutes.
 ///
-/// It also owns the one status every tab shows (`ConnectionSummary`), read from the uploader, the outbox and the last
+/// It also owns the pendant server's one status (`ConnectionSummary`), read from the uploader, the outbox and the last
 /// pull, nothing else. Screens read again (`generation`) only when a run or a pull
 /// changed something, or the outbox did, and only while the app is in front: once more when it comes forward.
 @Observable
@@ -44,6 +44,8 @@ final class SyncStore {
     private(set) var waiting: [WaitingReason: Int] = [:]
     /// The last pull got no answer from the network.
     private(set) var pullFailed = false
+    /// The server answered 401: it no longer knows this phone's token. Any pull that works clears it.
+    private(set) var tokenRefused = false
     /// The server this phone is paired with (`DeviceToken.paired`); nil until it is.
     private(set) var server: URL?
     var isPaired: Bool { server != nil }
@@ -281,13 +283,26 @@ final class SyncStore {
         return gone
     }
 
-    /// Pairs the phone with a server (a link from its Mac, confirmed): the token into the Keychain, the server beside
-    /// it. Returns whether both were kept.
-    func pair(_ pairing: Pairing) -> Bool {
-        guard DeviceToken.pair(pairing) else { return false }
+    /// Pairs the phone with a server (a link from its Mac, confirmed): the server must accept the token before the
+    /// Keychain keeps it, so a failed pairing leaves the old one working. Throws why it did not.
+    func pair(_ pairing: Pairing, onStep: (PairStep) -> Void = { _ in }) async throws {
+        onStep(.accepting)
+        try await pairing.pair { DeviceToken.pair($0) }
         server = DeviceToken.paired
+        (pullFailed, tokenRefused) = (false, false)
         run()
-        return true
+    }
+
+    /// "Check now": one feed pull, with the long poll going on cut short. A failure shows as the state it makes.
+    func checkNow() async {
+        // ponytail: the loop starts a new long poll from the same cursor while this pulls (benign: upserts by key, the
+        // rewind is idempotent); checkNow reusing the loop is the upgrade.
+        polling?.cancel()
+        do {
+            try await pull(wait: 0)
+        } catch {
+            noteFailure(error)
+        }
     }
 
     nonisolated static let notPaired =
@@ -302,7 +317,7 @@ final class SyncStore {
         var changed = true
         do {
             changed = try await driver.run(capture.status)
-            pullFailed = false
+            (pullFailed, tokenRefused) = (false, false)
             backUp()
         } catch {
             noteFailure(error)
@@ -331,7 +346,7 @@ final class SyncStore {
     private func pull(wait: Int) async throws {
         guard let driver = setUp() else { return }
         let changed = try await driver.pull(wait: wait)
-        pullFailed = false
+        (pullFailed, tokenRefused) = (false, false)
         if changed {
             await readState()
         } else {
@@ -346,6 +361,7 @@ final class SyncStore {
         }
         // Not paired: recording and saving go on, and the status says so.
         if error as? ServerClient.ClientError == .notPaired { return }
+        if case ServerClient.ClientError.server(401, _, _) = error { tokenRefused = true }
         if isPull { pullFailed = true }
         _ = report(error)
     }

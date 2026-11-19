@@ -3,7 +3,7 @@ import Library
 import Network
 import Upload
 
-/// The one status every tab shows (contract "App states"), as a value the toolbar item and its sheet read: from the
+/// The pendant server's one status, as a value Settings and its page read: from the
 /// token, the network path, the uploader, the outbox and the last feed pull (`SyncStore.summary`).
 struct ConnectionSummary: Equatable {
     enum Network: Equatable {
@@ -22,6 +22,8 @@ struct ConnectionSummary: Equatable {
     }
 
     var isPaired = true
+    /// The server refused this phone's token on the last read (`SyncStore.tokenRefused`): as good as not paired.
+    var isRefused = false
     var network = Network.unknown
     /// Recorded speech the server doesn't have yet, or an upload failing (how much waits is then unknown).
     var uploading = false
@@ -30,7 +32,7 @@ struct ConnectionSummary: Equatable {
     var lastPull: Date?
 
     var state: State {
-        if !isPaired { return .notPaired }
+        if !isPaired || isRefused { return .notPaired }
         if network == .none { return .offline }
         if uploading { return .uploading }
         if editsWaiting > 0 { return .editsWaiting(editsWaiting) }
@@ -41,14 +43,13 @@ struct ConnectionSummary: Equatable {
 extension SyncStore {
     var summary: ConnectionSummary {
         ConnectionSummary(
-            isPaired: isPaired, network: pullFailed && network != .none ? .none : network,
+            isPaired: isPaired, isRefused: tokenRefused, network: pullFailed && network != .none ? .none : network,
             uploading: (uploads?.unsent ?? .zero) > .zero || uploads?.lastError != nil,
             editsWaiting: pending.waiting.count, lastPull: feed.pulledAt)
     }
 }
 
-/// How a connection reads in Settings, from the same states the sheets use: the pendant server's is the summary's, Life's is
-/// its inbox read's. "Needs you" and "Connections" both draw from it.
+/// How a connection reads, everywhere (Settings' rows, its pages, Diagnostics): worked out from its `CheckOutcome`.
 enum LinkState: Equatable {
     case works, checking, noAnswer, notPaired
 
@@ -58,60 +59,6 @@ enum LinkState: Equatable {
         case .checking: StateMark(glyph: .busy, word: "Checking")
         case .noAnswer: StateMark(glyph: .flag, word: "No answer")
         case .notPaired: StateMark(glyph: .flag, word: "Not paired")
-        }
-    }
-}
-
-extension ConnectionSummary.State {
-    var link: LinkState {
-        switch self {
-        case .notPaired: .notPaired
-        case .offline: .noAnswer
-        case .upToDate(nil): .checking
-        case .uploading, .editsWaiting, .upToDate(.some): .works
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .notPaired: "Not paired with a server"
-        case .offline: "Offline"
-        case .uploading: "Uploading"
-        case .editsWaiting(let count): count == 1 ? "1 edit waiting" : "\(count) edits waiting"
-        case .upToDate(.some): "Up to date"
-        case .upToDate(nil): "Not synced yet"
-        }
-    }
-
-    /// The words the toolbar shows beside the symbol; `nil` while nothing needs the owner, so only the symbol shows.
-    var toolbarText: String? {
-        switch self {
-        case .notPaired: "Not paired"
-        case .offline, .uploading, .editsWaiting: title
-        case .upToDate: nil
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .notPaired: "key.slash"
-        case .offline: "wifi.slash"
-        case .uploading: "icloud.and.arrow.up"
-        case .editsWaiting: "arrow.triangle.2.circlepath.icloud"
-        case .upToDate(.some): "checkmark.icloud"
-        case .upToDate(nil): "icloud"
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .notPaired: SyncStore.notPaired + " Recording and saving on this phone go on."
-        case .offline:
-            "This phone can't reach the server. Everything on it still works, and what waits goes once it's back."
-        case .uploading: "Sending recorded audio to the server. Its words come back on their own."
-        case .editsWaiting: "Your edits show here already. The server applies them with the next sync."
-        case .upToDate(.some): "The server has everything from this phone."
-        case .upToDate(nil): "This phone hasn't synced with the server yet."
         }
     }
 }
@@ -127,20 +74,9 @@ extension ConnectionSummary.Network {
         ]
         self = kinds.first { path.usesInterfaceType($0.0) }?.1 ?? .other
     }
-
-    var name: String {
-        switch self {
-        case .unknown: "Checking"
-        case .wifi: "Wi-Fi"
-        case .cellular: "Cellular"
-        case .wired: "Wired"
-        case .other: "Connected"
-        case .none: "None"
-        }
-    }
 }
 
-/// Why conversations wait (the feed's `waiting.reason`), as the sheet says it.
+/// Why conversations wait (the feed's `waiting.reason`), as the server's page says it.
 extension WaitingReason {
     var sentence: String {
         switch self {
@@ -149,16 +85,6 @@ extension WaitingReason {
         case .transcriptionOff: "Transcription is off"
         case .phoneQuiet: "Waiting for the Pendant's audio"
         case .unknown: "Waiting"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .macAway: "laptopcomputer"
-        case .creditsOut: "creditcard"
-        case .transcriptionOff: "pause.circle"
-        case .phoneQuiet: "iphone"
-        case .unknown: "hourglass"
         }
     }
 }

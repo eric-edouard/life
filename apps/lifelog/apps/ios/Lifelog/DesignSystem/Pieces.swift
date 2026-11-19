@@ -156,6 +156,26 @@ struct CheckLine: Identifiable, Equatable {
     let id: String
     var text: String
     var mark: Mark
+
+    /// A check's lines: the first `passed` passed, the one that failed (`failedAt`) failed, the next running while
+    /// `isRunning`, the rest waiting.
+    static func lines(_ prefix: some Hashable, _ words: [String], passed: Int, failedAt: Int?, isRunning: Bool = false)
+        -> [CheckLine]
+    {
+        words.enumerated().map { index, text in
+            let mark: Mark =
+                if index == failedAt {
+                    .failed
+                } else if index < passed {
+                    .passed
+                } else if index == passed && isRunning && failedAt == nil {
+                    .running
+                } else {
+                    .waiting
+                }
+            return CheckLine(id: "\(prefix)-\(index)", text: text, mark: mark)
+        }
+    }
 }
 
 struct CheckLines: View {

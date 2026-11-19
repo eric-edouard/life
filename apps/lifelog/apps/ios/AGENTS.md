@@ -17,7 +17,7 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
 - **Regenerate the project** after editing `project.yml`: `bun run ios:project`.
 - **Test Kit alone**, from Life's root: `swift test --package-path apps/lifelog/apps/ios/Kit --scratch-path .build/kit`.
 - **Run in the simulator.** Debug builds take `-fixtureLife <scenario>` (Life without a Mac: `Fixtures/LifeFixture.swift`, with its
-  `-fixtureCard`, `-fixtureTab`, `-fixtureMatter`, `-fixtureSheet`, `-fixtureAnswer`, `-fixtureStart`, and `-fixturePose wide|upright`, the iPhone Duo open drawn on any simulator), `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
+  `-fixtureCard`, `-fixtureTab`, `-fixtureMatter`, `-fixtureSheet pendant|settings|pair|pairing`, `-fixturePair ok|slow|expired`, `-fixturePage life|server|diagnostics`, `-fixtureAnswer`, `-fixtureStart`, and `-fixturePose wide|upright`, the iPhone Duo open drawn on any simulator), `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
   (see `FakeScenario.swift`) and `-offline`; launch with `xcrun simctl launch <udid> com.ericedouard.lifelog <args>`.
   The device token goes in through `SIMCTL_CHILD_LIFELOG_DEVICE_TOKEN` with `SIMCTL_CHILD_LIFELOG_SERVER_URL`, read from the file without printing it.
 - **Check Release before an install.** The gate builds Debug only and `install:phone` builds Release, so anything
@@ -49,8 +49,10 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
 - The owner's edits are `OwnerIntent`s sent with `SyncStore.perform`: queued in the outbox, shown at once. A value the
   server holds is never shown as known: asking, then the value (`serverValue`, `serverVocabulary`); a change shows at
   once, then Saved, or goes back with the reason. Settings draws only `Row` and `RowGroup`.
-- Pairing goes one way: a `lifelog://pair` link (Camera or pasted) is opened by `RootView`, which asks the
-  owner to confirm naming each server, and only then `SyncStore.pair` or `LifeStore.pair` stores it. A link never repoints the app alone.
+- Pairing goes one way: a `lifelog://pair` link (Camera or pasted) is opened by `RootView`, which shows `PairSheet`: it
+  confirms naming each server, and only then `SyncStore.pair` or `LifeStore.pair` stores it. A server's token is checked
+  against the server before it is kept (`Pairing.pair`), so a failed pairing leaves the old one working. A link never
+  repoints the app alone, and a token is never drawn.
 - `SyncStore` is the one driver: uploads, the outbox, the feed and the status. Debug builds pair from
   `LIFELOG_DEVICE_TOKEN` and `LIFELOG_SERVER_URL` in the environment (`DeviceToken.importFromEnvironment`), the one
   debug path.

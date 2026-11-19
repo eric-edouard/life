@@ -33,7 +33,7 @@ pipeline's parts, approvals, passes and per-part states are gone from every scre
 - **Pendant.** 1. Am I recording: the lens, its sentence and evidence, Pause. 2. What needs me:
   capture conditions and incidents, then processing only where the owner can act: the Mac away, a switch off, credits out, not paired. Offline and uploads belong
   to the status, not a card. 3. Today: saved, spent, battery, storage, audio still on the Pendant.
-- **Status sheet.** 1. The one state, with its sentence. 2. What waits and why: audio to upload (its length), uploads
+- **The server's page in Settings.** 1. The one state, with its sentence. 2. What waits and why: audio to upload (its length), uploads
   failing (how many, and the last reason), edits to send, and conversations by the feed's reason, each a sentence with its glyph. 3. Edits the server refused, each with
   OK.
   4. Last sync and network.
