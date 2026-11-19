@@ -243,11 +243,7 @@ async function readOpenMatters(people: People) {
       return [];
     }
     const { later, open } = splitSteps(m.steps, byId);
-    const matterPeople = new Set(
-      [...matterPeopleOf(m), ...open.flatMap((s) => s.with ?? [])].map(
-        records.refOf
-      )
-    );
+    const matterPeople = new Set(matterPeopleOf(m));
     const others = laterRecordsOf(
       open,
       matterPeople,

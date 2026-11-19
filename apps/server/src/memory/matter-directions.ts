@@ -3,7 +3,12 @@ import { z } from "zod";
 import { appendJsonl } from "../core/files";
 import { newestWithin, packed } from "../core/lists";
 import { MatterDirectionBatch, MatterDirectionDraft } from "../records/matter";
-import { directionsOf, isDirectionDue, type MatterView } from "./matter-read";
+import {
+  directionsOf,
+  isDirectionDue,
+  type MatterView,
+  matterPeopleOf,
+} from "./matter-read";
 import { readMatterBook } from "./matters";
 import { MATTER_DIRECTIONS, readDirectionPins } from "./memory-files";
 import { meContext } from "./model-context";
@@ -56,7 +61,7 @@ const shownOf = (
     kind: s.kind,
     text: clip(s.text, SHOWN_CHARS),
   })),
-  people: [...new Set([...v.owedTo, ...v.waitingOn, ...v.with])].map(nameOf),
+  people: matterPeopleOf(v).map(nameOf),
   projects: v.projects,
   steps: v.steps.slice(-SHOWN_STEPS).map((s) => ({
     day: s.day,

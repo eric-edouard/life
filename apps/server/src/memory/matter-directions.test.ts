@@ -38,7 +38,6 @@ const view = (id: string, over: Partial<MatterView> = {}) =>
         }
       ),
     ],
-    told: [],
     waitingOn: [],
     with: [],
     ...over,

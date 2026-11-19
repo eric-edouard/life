@@ -24,7 +24,6 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     openSteps: [],
     owedTo: [],
     projects: [],
-    told: [],
     waitingOn: [],
     with: [],
     ...over,

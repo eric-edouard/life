@@ -187,7 +187,6 @@ test("the order: open matters, then lines, then pages, then the newest", () => {
           owedTo: [],
           status: "moving" as const,
           steps: stepsOf(a.id),
-          told: [],
           waitingOn: [],
           with: [],
         },
@@ -236,7 +235,6 @@ test("an ending rides on its open matter and goes with his answer", () => {
     owedTo: [],
     status: "moving" as const,
     steps: stepsOf(o.id),
-    told: [],
     waitingOn: [],
     with: [],
   };
@@ -288,7 +286,6 @@ test("open decisions come first, soonest deadline first; one on a step leaves wi
     owedTo: [],
     status: "moving" as const,
     steps: stepsOf(o.id),
-    told: [],
     waitingOn: [],
     with: [],
   });
@@ -426,7 +423,6 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
     owedTo: [],
     status: "moving" as const,
     steps,
-    told: [],
     waitingOn: [],
     with: [],
   };

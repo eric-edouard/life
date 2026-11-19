@@ -24,7 +24,6 @@ const NO_ONE = {
   openSteps: [],
   owedTo: [],
   projects: [],
-  told: [],
   waitingOn: [],
   with: [],
 };
