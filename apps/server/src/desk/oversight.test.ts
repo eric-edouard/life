@@ -466,54 +466,59 @@ test("change_registered_agent records his word and answers with what the desk di
   }
 }, 30_000);
 
-test("a start hands over the stopped agents on its subject at once; a pause beside another, a re-point or a repeat does not", async () => {
-  const start = (subject: Partial<AgentChange>) =>
-    applied({
-      action: "start",
-      folder,
-      runtime: "claude",
-      ...subject,
-    } as AgentChange);
-  const stopAt = async (id: string) => {
-    await applied({ action: "stop", agent: id });
-    return agentOf(desk.db, id);
-  };
+/** Starts an agent on `subject` and returns its id; the clock is frozen so a stop time can be compared. */
+async function startedOn(subject: Partial<AgentChange>) {
   setSystemTime(new Date(clock().getTime()));
-  // He stops A, then starts B on its project: A is replaced, no tick needed.
-  const a = (await start({ project: "test-hand" }))?.agent_id ?? "";
-  expect((await stopAt(a))?.stopped_at).toBe(clock().toISOString());
-  const b = (await start({ project: "test-hand" }))?.agent_id ?? "";
+  const r = await applied({
+    action: "start",
+    folder,
+    runtime: "claude",
+    ...subject,
+  } as AgentChange);
+  return r?.agent_id ?? "";
+}
+const stopped = async (id: string) => {
+  await applied({ action: "stop", agent: id });
+  return agentOf(desk.db, id);
+};
+
+test("he stops an agent, then starts another on its project or matter: it is handed over at once", async () => {
+  const a = await startedOn({ project: "test-hand" });
+  expect((await stopped(a))?.stopped_at).toBe(clock().toISOString());
+  const b = await startedOn({ project: "test-hand" });
   expect(agentOf(desk.db, a)).toMatchObject({
     outcome: `replaced by ${b}`,
     status: "handed_over",
   });
-  // A matter: the same, through its step.
-  const m = (await start({ steps: ["obs_00000000a2a1"] }))?.agent_id ?? "";
-  await stopAt(m);
-  const n2 = (await start({ steps: ["obs_00000000a2a1"] }))?.agent_id ?? "";
-  expect(agentOf(desk.db, m)?.outcome).toBe(`replaced by ${n2}`);
-  // A stopped agent re-pointed onto a project with an active agent stays stopped.
-  const c = (await start({ project: "test-other" }))?.agent_id ?? "";
-  await stopAt(c);
+  const m = await startedOn({ steps: ["obs_00000000a2a1"] });
+  await stopped(m);
+  const next = await startedOn({ steps: ["obs_00000000a2a1"] });
+  expect(agentOf(desk.db, m)?.outcome).toBe(`replaced by ${next}`);
+});
+
+test("a stopped agent re-pointed onto a project with an active agent stays stopped; resume clears its stop time", async () => {
+  const c = await startedOn({ project: "test-other" });
+  await stopped(c);
   await applied({ action: "re_point", agent: c, project: "test-hand" });
   expect(agentOf(desk.db, c)?.status).toBe("stopped");
-  // A start that returns the existing agent (an active one, same words) hands nothing over.
-  const d = (await start({ project: "test-repeat" }))?.agent_id ?? "";
-  const e = (await start({ project: "test-repeat" }))?.agent_id ?? "";
-  await stopAt(e);
+  expect((await applied({ action: "resume", agent: c }))?.error).toBeNull();
+  expect(agentOf(desk.db, c)?.stopped_at).toBeNull();
+  await stopped(c);
+  expect(
+    agentsNow(desk.db, clock().getTime()).find((x) => x.id === c)?.statusSince
+  ).toBe(clock().toISOString());
+});
+
+test("a start that returns the existing agent (active, same words) hands nothing over", async () => {
+  const d = await startedOn({ project: "test-repeat" });
+  const e = await startedOn({ project: "test-repeat" });
+  await stopped(e);
   desk.db.run("update agent set brief = ? where id = ?", [
     `Test: change ${n + 1}`,
     d,
   ]);
-  expect((await start({ project: "test-repeat" }))?.agent_id).toBe(d);
+  expect(await startedOn({ project: "test-repeat" })).toBe(d);
   expect(agentOf(desk.db, e)?.status).toBe("stopped");
-  // Resume clears the stop time; the agent reads give it as `statusSince` while stopped.
-  expect((await applied({ action: "resume", agent: c }))?.error).toBeNull();
-  expect(agentOf(desk.db, c)?.stopped_at).toBeNull();
-  await stopAt(c);
-  expect(
-    agentsNow(desk.db, clock().getTime()).find((x) => x.id === c)?.statusSince
-  ).toBe(clock().toISOString());
 });
 
 test("its store unreadable, the reads say so and the report still has its section", async () => {
