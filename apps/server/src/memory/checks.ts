@@ -147,10 +147,14 @@ type Line = Pick<
 /** Where and when a record was said, in words: "whatsapp, 7 Sep". */
 type Where = string;
 
+/** What registered agents hold now (host's `heldByAgents`): the matter steps they are anchored on and the projects they work on. */
+export interface HeldByAgents {
+  projects: ReadonlySet<string>;
+  steps: ReadonlySet<string>;
+}
+
 /** Everything the checks are worked out from; `checksNow` reads it, `checksOf` is pure over it. */
 export interface CheckInputs {
-  /** The steps a registered agent is anchored on now, in any status (from host); null while the desk is off or unreadable: then no new matter is offered. */
-  anchored: ReadonlySet<string> | null;
   /** Refs of the fact-check answers he gave (any answer settles that line's check). */
   answered: ReadonlySet<string>;
   /** The open decisions (`decisionsNow`). */
@@ -161,6 +165,8 @@ export interface CheckInputs {
   doubted: ReadonlySet<string>;
   /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
   endings: ReadonlyMap<string, { later: string; quote: string }>;
+  /** The steps registered agents are anchored on and the projects they work on, in any status (from host); null while the desk is off or unreadable: then no new matter is offered. */
+  heldByAgents: HeldByAgents | null;
   /** Whether a matter's next step is not checked yet (`directionDueOf`, by the matter's id): none is offered while it is due. */
   isDirectionDue: (matter: string) => boolean;
   /** Every observation that shows, and the ids of those that are kept: active, at or above `KEEP_AT`. */
@@ -176,6 +182,7 @@ export interface CheckInputs {
     | "nextStep"
     | "open"
     | "owedTo"
+    | "projects"
     | "status"
     | "waitingOn"
     | "with"
@@ -428,12 +435,12 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
    * Each running matter he has not answered "Work on it?" for: one that began in the last `NEW_MATTER_DAYS` (its first
    * step's day), with an open step, not stuck (a passed date), a goal and a next step he could hand over (`do`, read
    * through `nextStepNow`) that is checked (not `isDirectionDue`: a step an outside record may have overtaken waits for
-   * its redraft), no registered agent anchored on it now and not dismissed; none while the desk is off or unreadable. No deadline: it never outranks an agent's decision; on silence nothing starts and it leaves after its
+   * its redraft), no registered agent anchored on it or holding its project, and not dismissed; none while the desk is off or unreadable. No deadline: it never outranks an agent's decision; on silence nothing starts and it leaves after its
    * last day.
    */
   "new matter": (c) => {
-    const { anchored } = c;
-    if (!anchored) {
+    const held = c.heldByAgents;
+    if (!held) {
       return [];
     }
     const find = matterFinderOf(c.matters);
@@ -452,7 +459,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         !v.lone &&
         isRunning(v) &&
         !dismissed.has(v) &&
-        !v.steps.some((s) => anchored.has(s.ref)) &&
+        !v.steps.some((s) => held.steps.has(s.ref)) &&
+        !v.projects.some((p) => held.projects.has(p)) &&
         !c.isDirectionDue(v.id)
         ? [
             {
@@ -698,10 +706,10 @@ const CHECKS_READ = [...MATTER_BOOK_READS, CLOSENESS, DECISIONS, PAGES, ZONES];
 
 /**
  * What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open
- * decisions (one lapses), the steps agents are anchored on and the voices lifelog queues. The same key, the same list.
+ * decisions (one lapses), what agents hold (their steps and projects) and the voices lifelog queues. The same key, the same list.
  */
 const checksKeyOf = (
-  anchored: ReadonlySet<string> | null,
+  held: HeldByAgents | null,
   voices: readonly NamingQueueItem[],
   decisions: readonly Decision[]
 ) =>
@@ -709,26 +717,26 @@ const checksKeyOf = (
     readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
-    anchored && [...anchored],
+    held && [[...held.steps].sort(), [...held.projects].sort()],
     voices,
   ]);
 
 /**
- * What waits on his word now, over what is stored today and `anchored` (`CheckInputs`; host's `inboxNow` reads it from
+ * What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `inboxNow` reads it from
  * the desk): read-only, no model call. Read again only when what it is read from changed (`checksKeyOf`), and always
  * while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
  */
 export async function checksNow(
-  anchored: ReadonlySet<string> | null
+  held: HeldByAgents | null
 ): Promise<InboxCheck[]> {
   const voices = await readNamingQueue();
   const decisions = decisionsNow().filter((d) => d.state === "open");
   if (isLocked()) {
-    return await readChecks(anchored, voices, decisions);
+    return await readChecks(held, voices, decisions);
   }
-  const key = checksKeyOf(anchored, voices, decisions);
+  const key = checksKeyOf(held, voices, decisions);
   if (last?.key !== key) {
-    const list = readChecks(anchored, voices, decisions);
+    const list = readChecks(held, voices, decisions);
     last = { key, list };
     list.catch(() => {
       if (last?.list === list) {
@@ -740,7 +748,7 @@ export async function checksNow(
 }
 
 async function readChecks(
-  anchored: ReadonlySet<string> | null,
+  held: HeldByAgents | null,
   voices: NamingQueueItem[],
   decisions: Decision[]
 ): Promise<InboxCheck[]> {
@@ -756,7 +764,6 @@ async function readChecks(
   );
   const key = secretIn("pushIdKey");
   const checks = checksOf({
-    anchored,
     answered: new Set(
       [...readFactCheckAnswers()].flatMap(([ref, a]) => (a.answer ? [ref] : []))
     ),
@@ -768,6 +775,7 @@ async function readChecks(
         .map((s) => s.ref)
     ),
     endings: records.linkEndings,
+    heldByAgents: held,
     isDirectionDue: directionDueOf(matters, records, dayNow()),
     // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).
     kept: new Set(

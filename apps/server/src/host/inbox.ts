@@ -4,20 +4,25 @@ import {
   type WhereAsked,
   whereAskedOf,
 } from "../memory/checks";
-import { anchoredSteps, readDesk } from "./desk-read";
+import { heldByAgents, readDesk } from "./desk-read";
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
-// `checksNow` over the steps an agent is anchored on now, read from the desk's store, which memory cannot read. His inbox
+// `checksNow` over what registered agents hold now (their steps and projects), read from the desk's store, which memory cannot read. His inbox
 // is the part asked there (`whereAskedOf`).
 
-/** The steps an agent is anchored on now; null while the desk is off or unreadable (then no new matter is offered). */
-function readAnchoredSteps() {
-  const read = readDesk(anchoredSteps, []);
-  return read.state === "ok" ? new Set(read.value) : null;
+/** The steps and projects registered agents hold now; null while the desk is off or unreadable (then no new matter is offered). */
+function readHeldByAgents() {
+  const read = readDesk(heldByAgents, { projects: [], steps: [] });
+  return read.state === "ok"
+    ? {
+        projects: new Set(read.value.projects),
+        steps: new Set(read.value.steps),
+      }
+    : null;
 }
 
 /** Every open check now (`checksNow`), of every kind: where each is asked is `whereAskedOf`. */
-export const openChecksNow = () => checksNow(readAnchoredSteps());
+export const openChecksNow = () => checksNow(readHeldByAgents());
 
 const askedIn = <
   C extends { kind: Parameters<typeof whereAskedOf>[0]["kind"] },
