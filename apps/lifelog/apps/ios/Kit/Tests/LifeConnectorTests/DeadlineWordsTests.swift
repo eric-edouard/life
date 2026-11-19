@@ -28,7 +28,10 @@ private func check(_ extra: String) throws -> Check {
     #expect(try check("").deadlineLine(locale: english, timeZone: utc) == "Answer by Thu 18:00")
     #expect(
         try check(#","onSilence":"go""#).deadlineLine(locale: english, timeZone: utc)
-            == "After Thu 18:00 it goes with Go")
+            == "After Thu 18:00 it goes ahead")
+    #expect(
+        try check(#","onSilence":"stop""#).deadlineLine(locale: english, timeZone: utc)
+            == "After Thu 18:00 it goes with Stop")
     let draft = #","onSilence":"go","draft":{"to":"Hélène"}"#
     #expect(try check(draft).deadlineLine(locale: english, timeZone: utc) == "Answer by Thu 18:00")
 }

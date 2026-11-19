@@ -55,16 +55,10 @@ struct QuestionRow: View {
     }
 
     @ViewBuilder private var buttons: some View {
-        // Two buttons side by side, or one above the other when a larger text size leaves no room.
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) { choices }
-            VStack(spacing: 8) { choices }
-        }
-    }
-
-    @ViewBuilder private var choices: some View {
-        ForEach(plainOptions, id: \.id) { option in
-            RowButton(title: option.label) { choose(option) }
+        HStack(spacing: 8) {
+            ForEach(plainOptions, id: \.id) { option in
+                RowButton(title: option.label) { choose(option) }
+            }
         }
     }
 

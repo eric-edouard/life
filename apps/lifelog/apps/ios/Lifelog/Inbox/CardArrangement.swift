@@ -11,24 +11,24 @@ import SwiftUI
 struct CardArrangement<Region: View, Bar: View>: View {
     let check: Check
     let runtimeName: RuntimeName?
-    /// Whether the bar has anything to show.
-    let hasBar: Bool
+    /// What follows an answer; nil while the card is still open.
+    let bar: Bar?
     @ViewBuilder let region: Region
-    @ViewBuilder let bar: Bar
 
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         if #available(iOS 27.1, *) {
             let isBeside = sizeClass == .regular
+            let row = bar.map(rowOf)
             GeometryReader { arrangement in
                 ArrangementView {
-                    region.modifier(AnswersRow(row: hasBar ? row : nil, bounds: arrangement.size, isLower: false))
+                    region.modifier(AnswersRow(row: row, bounds: arrangement.size, isLower: false))
                         .environment(\.isContextBeside, isBeside)
                 } secondary: {
                     if isBeside {
                         ContextRegion(check: check, runtimeName: runtimeName)
-                            .modifier(AnswersRow(row: hasBar ? row : nil, bounds: arrangement.size, isLower: true))
+                            .modifier(AnswersRow(row: row, bounds: arrangement.size, isLower: true))
                     } else {
                         Color.clear
                     }
@@ -37,11 +37,11 @@ struct CardArrangement<Region: View, Bar: View>: View {
             }
         } else {
             // iOS 27.0 has no arrangement: the card alone at every width, its context behind the card's "Why" row.
-            region.safeAreaInset(edge: .bottom, spacing: 0) { if hasBar { row.background(Palette.bg) } }
+            region.safeAreaInset(edge: .bottom, spacing: 0) { if let bar { rowOf(bar).background(Palette.bg) } }
         }
     }
 
-    private var row: some View { bar.padding(.horizontal, 20).padding(.bottom, 8).readingWidth() }
+    private func rowOf(_ bar: Bar) -> some View { bar.padding(.horizontal, 20).padding(.bottom, 8).readingWidth() }
 }
 
 extension EnvironmentValues {

@@ -28,7 +28,15 @@ struct CardView: View {
     @State private var sameAsRef: String?
 
     var body: some View {
-        CardArrangement(check: check, runtimeName: runtimeName(of: check), hasBar: notes.taken != nil) {
+        CardArrangement(
+            check: check, runtimeName: runtimeName(of: check),
+            bar: notes.taken.map { taken in
+                ResultButtons(
+                    taken: taken, state: life.state(of: taken.key), next: question(after: taken),
+                    retry: { Task { await life.answer(taken.request) } },
+                    keepForLater: { leave(taken, true) }, nextCard: { leave(taken, false) })
+            }
+        ) {
             if let taken = notes.taken {
                 AnswerResultView(taken: taken, state: life.state(of: taken.key), next: question(after: taken))
             } else {
@@ -42,13 +50,6 @@ struct CardView: View {
                             .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
                     }
                 }
-            }
-        } bar: {
-            if let taken = notes.taken {
-                ResultButtons(
-                    taken: taken, state: life.state(of: taken.key), next: question(after: taken),
-                    retry: { Task { await life.answer(taken.request) } },
-                    keepForLater: { leave(taken, true) }, nextCard: { leave(taken, false) })
             }
         }
         .sheet(item: sameAsCard) { check in
@@ -78,7 +79,6 @@ struct CardView: View {
                                 CheckCard(
                                     check: check, runtimeName: runtimeName(of: check),
                                     openMatter: { router.open(matter: $0) },
-                                    confirm: { request in Task { await life.answer(request) } },
                                     input: input(check.ref),
                                     isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
                                     answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }

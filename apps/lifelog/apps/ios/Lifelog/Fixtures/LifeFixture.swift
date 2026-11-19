@@ -361,7 +361,7 @@
                 check(
                     "dec_send", group: "decision", urgency: "blocks",
                     title: "Tell Hélène the signed lease is on its way",
-                    question: "Send this to her?",
+                    question: "Send this to ~ Hélène A.?",
                     asker: "Claude Code",
                     options: [
                         option("send", "Send", outgoing: true), option("edit", "Edit"), option("no", "Don’t send"),
@@ -370,7 +370,7 @@
                     extra: [
                         "onSilence": "no", "links": ["https://agents.example.test/s/1"],
                         "networkIdentity": [
-                            "network": "WhatsApp", "handle": "+33600000001", "shownName": "Hélène Aubert",
+                            "network": "WhatsApp", "handle": "+33600000001", "shownName": "Hélène A.",
                             "chat": "33600000001@s.whatsapp.net", "openUrl": "https://wa.me/33600000001",
                             "newest": [
                                 "at": at(12, 10), "by": "Hélène Aubert",

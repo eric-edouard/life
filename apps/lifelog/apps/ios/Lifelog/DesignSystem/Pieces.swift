@@ -76,25 +76,41 @@ struct TextLink: View {
     }
 }
 
-/// A matter's name (a star in `ai` before it when an agent asks) on a `card` capsule 32 high, in a 44 hit area. It never
-/// wraps: a long name is cut with an ellipsis.
+/// A matter's name (a star in `ai` before it when an agent asks) on a `card` capsule 32 high, in a 44 hit area. A long
+/// name is cut with an ellipsis, except at an accessibility text size, where it may take two lines.
 struct InlinePill: View {
     let name: String
     var isAgent = false
     let action: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: Metrics.Spacing.s) {
                 if isAgent { Image(systemName: "sparkle").foregroundStyle(Palette.ai).accessibilityHidden(true) }
-                Text(name).lineLimit(1)
+                Text(name).lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
             }
             .font(.smallStrong).foregroundStyle(Palette.fg)
-            .padding(.horizontal, Metrics.Spacing.m).frame(height: 32).background(Palette.card, in: .capsule)
+            .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.xs).frame(minHeight: 32)
+            .background(Palette.card, in: .rect(cornerRadius: 16))
             .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Matter: \(name)")
+    }
+}
+
+/// A network's mark: a small disc in its colour (WhatsApp's green) with a bubble; a network with no colour of its own
+/// gets the `card` fill.
+struct NetworkMark: View {
+    let network: String?
+
+    var body: some View {
+        Image(systemName: "bubble.left.fill").font(.system(size: 11)).foregroundStyle(.white)
+            .frame(width: 22, height: 22)
+            .background(network == "whatsapp" ? Color(red: 0.145, green: 0.827, blue: 0.4) : Palette.faint, in: .circle)
+            .accessibilityHidden(true)
     }
 }
 

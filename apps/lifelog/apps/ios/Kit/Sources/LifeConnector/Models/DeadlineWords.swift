@@ -16,13 +16,13 @@ public enum DeadlineWords {
 
 extension Check {
     /// The one line above an ask's answers: "Answer by Thu 18:00", or, when the agent goes on by itself with one of the
-    /// answers, "After Thu 18:00 it goes with <that answer>". Nil without a deadline. A draft never goes by itself.
+    /// answers, "After Thu 18:00 it goes ahead" (it is the filled one) or "it goes with <that answer>". Nil without a deadline. A draft never goes by itself.
     public func deadlineLine(locale: Locale = .current, timeZone: TimeZone = .current) -> String? {
         guard let deadline else { return nil }
         let when = DeadlineWords.when(deadline, locale: locale, timeZone: timeZone)
         guard draft == nil, let chosen = options.first(where: { $0.id == onSilence }) else {
             return "Answer by \(when)"
         }
-        return "After \(when) it goes with \(chosen.label)"
+        return "After \(when) it goes " + (chosen.id == options.first?.id ? "ahead" : "with \(chosen.label)")
     }
 }

@@ -10,8 +10,6 @@ struct CheckCard: View {
     /// The runtime of the agent that asked, when the card's matter has one.
     let runtimeName: RuntimeName?
     let openMatter: (String) -> Void
-    /// His answer to the guess a draft rests on (`check.confirm`), sent at once; the card stays as it is.
-    let confirm: (AnswerRequest) -> Void
     /// What he has typed or opened on this card: kept by the screen, so folding the phone keeps it.
     @Binding var input: CardInput
     /// His answer is being sent or saved.
@@ -51,7 +49,8 @@ struct CheckCard: View {
         }
         .sheet(isPresented: $input.showsWhy) {
             WhySheet(
-                title: link?.title ?? "Why?", context: check.context, link: check.links.first, runtime: runtimeName
+                title: askLinks.first?.title ?? "Why?", context: check.context, around: check.around,
+                link: check.links.first, runtime: runtimeName
             )
             .sheetStack()
         }
@@ -65,11 +64,20 @@ struct CheckCard: View {
 
     // MARK: Under the question
 
+    /// An ask with nothing of its own to show but its context shows that as the thing.
+    private var contextThing: String? {
+        guard check.draft == nil, check.evidence == nil, check.clips.isEmpty, !isContextBeside,
+            let context = check.context, !context.isEmpty
+        else { return nil }
+        return context
+    }
+
     private var hasThing: Bool {
-        !(check.confirm ?? []).isEmpty || check.draft != nil || check.evidence != nil || !check.clips.isEmpty
+        check.draft != nil || check.evidence != nil || !check.clips.isEmpty || contextThing != nil
     }
 
     /// The thing on `tile`: his own words while he writes them, else what the ask is about; no tile when it has nothing.
+    /// The tile hugs the thing and scrolls (from its start) only when the thing is taller than the room.
     @ViewBuilder private func tile(scrolls: Bool) -> some View {
         if input.isWritingOwnWords || hasThing {
             let thing = VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
@@ -77,9 +85,14 @@ struct CheckCard: View {
             }
             .padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
             if scrolls {
-                ScrollView { thing }.scrollBounceBehavior(.basedOnSize).scrollEdgeEffectStyle(.soft, for: .vertical)
-                    .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
-                    .clipShape(.rect(cornerRadius: Metrics.Radius.passage))
+                ViewThatFits(in: .vertical) {
+                    thing.background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
+                    ScrollView { thing }.scrollBounceBehavior(.basedOnSize)
+                        .scrollEdgeEffectStyle(.soft, for: .vertical)
+                        .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
+                        .clipShape(.rect(cornerRadius: Metrics.Radius.passage))
+                }
+                Spacer(minLength: 0)
             } else {
                 thing.background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
             }
@@ -89,16 +102,12 @@ struct CheckCard: View {
     }
 
     @ViewBuilder private var content: some View {
-        ForEach(check.confirm ?? []) { guess in
-            RowGroup {
-                QuestionRow(check: guess) { option in
-                    if let request = guess.answer(option) { confirm(request) }
-                }
-            }
+        if let draft = check.draft {
+            DraftBlock(draft: draft, identity: check.networkIdentity, isGuess: !(check.confirm ?? []).isEmpty, isBoxed: false)
         }
-        if let draft = check.draft { DraftBlock(draft: draft, isBoxed: false) }
         if let evidence = check.evidence { EvidenceBlock(evidence: evidence) }
         if !check.clips.isEmpty { ClipBlock(clips: check.clips) }
+        if let contextThing { Text(contextThing).font(.quote).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true) }
     }
 
     private var ownWords: some View {
@@ -111,30 +120,36 @@ struct CheckCard: View {
 
     // MARK: The row under the thing, and the link
 
-    private var hasWhy: Bool { !isContextBeside && (!(check.context ?? "").isEmpty || !check.links.isEmpty) }
     /// An agent's open question: his words go to the agent.
     private var isAgentQuestion: Bool { check.takesOwnWords && check.draft == nil }
 
-    /// The ask's one link, by what it opens.
-    private var link: AskLink? {
-        if hasWhy { return AskLink(title: check.draft == nil ? "Why?" : "Why this reply?") { input.showsWhy = true } }
-        if isAgentQuestion { return AskLink(title: "Tell the agent…") { input.isWritingOwnWords = true } }
-        return nil
+    /// The ask's links, by what each opens: "Why?" ("Why this reply?" on a draft), or on a voice "Before and after" when
+    /// its lines around are known; then "Tell the agent…" on an agent's question.
+    private var askLinks: [AskLink] {
+        var links: [AskLink] = []
+        let hasLines = !((check.around?.before ?? []) + (check.around?.after ?? [])).isEmpty
+        if check.group == .voice {
+            if hasLines { links.append(AskLink(title: "Before and after") { input.showsWhy = true }) }
+        } else if !isContextBeside, !check.links.isEmpty || (contextThing == nil && !(check.context ?? "").isEmpty) {
+            links.append(AskLink(title: check.draft == nil ? "Why?" : "Why this reply?") { input.showsWhy = true })
+        }
+        if isAgentQuestion { links.append(AskLink(title: "Tell the agent…") { input.isWritingOwnWords = true }) }
+        return links
     }
 
     private var isRowShown: Bool {
-        !input.isWritingOwnWords && !isContextBeside && (check.matter != nil || link != nil)
+        !input.isWritingOwnWords && !isContextBeside && (check.matter != nil || !askLinks.isEmpty)
     }
 
-    /// The matter as a pill and, at its right, the link; when both do not fit, the pill alone and the link moves to the
-    /// deadline's line above the answers.
+    /// The matter as a pill and, at its right, the first link; when both do not fit, the pill alone and the links move to
+    /// the deadline's line above the answers.
     @ViewBuilder private var matterRow: some View {
         if isRowShown {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: Metrics.Spacing.m) {
                     matterPill.fixedSize()
                     Spacer(minLength: Metrics.Spacing.m)
-                    if let link { TextLink(link.title, action: link.run).fixedSize() }
+                    if let link = askLinks.first { TextLink(link.title, action: link.run).fixedSize() }
                 }
                 .preference(key: LinkBesideMatter.self, value: true)
                 HStack(spacing: 0) {
@@ -158,8 +173,7 @@ struct CheckCard: View {
     private var actions: some View {
         CheckActions(
             check: check, input: $input, isBusy: isBusy,
-            link: isRowShown && isLinkBesideMatter ? nil : link, hasOwnWordsAnswer: isAgentQuestion && hasWhy,
-            answer: answer, sameAs: sameAs
+            links: isRowShown && isLinkBesideMatter ? Array(askLinks.dropFirst()) : askLinks, answer: answer, sameAs: sameAs
         )
         .padding(.bottom, Metrics.Spacing.xs)
     }
@@ -174,6 +188,8 @@ private struct LinkBesideMatter: PreferenceKey {
 private struct WhySheet: View {
     let title: String
     let context: String?
+    /// The lines of the conversation around a clip, when its ask holds them.
+    let around: Check.Around?
     let link: String?
     let runtime: RuntimeName?
 
@@ -187,6 +203,14 @@ private struct WhySheet: View {
                 if let context, !context.isEmpty {
                     Text(context).font(.body15).foregroundStyle(Palette.fg).fixedSize(
                         horizontal: false, vertical: true)
+                }
+                if let around {
+                    ForEach(Array((around.before + around.after).enumerated()), id: \.offset) { _, said in
+                        VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                            Text(said.by ?? "").font(.small).foregroundStyle(Palette.muted)
+                            Text(said.text).font(.body15).foregroundStyle(Palette.fg)
+                        }
+                    }
                 }
                 if let url = link.flatMap(URL.init(string:)) {
                     TextLink("Open in \(runtime?.name ?? "its app")", isOutward: true) { openURL(url) }
@@ -202,28 +226,27 @@ private struct WhySheet: View {
 
 // MARK: Bodies
 
-/// The exact message he approves: who, where, what it answers, the words.
+/// The exact message he approves: who and where in its head (the network's mark, "Name, WhatsApp", and under it the
+/// number when the name is only Life's guess), the message it answers in a small box, the words.
 struct DraftBlock: View {
     let draft: Check.Draft
+    /// The chat as its network shows it.
+    var identity: Check.NetworkIdentity?
+    /// The person is only Life's guess: the head shows the network's name for them, with a "~" and the number.
+    var isGuess = false
     /// On paper of its own (after an answer); in an ask it sits on the thing's `tile` with no box.
     var isBoxed = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("To \(draft.to), on \(ActionCopy.channel(draft.channel))", systemImage: "bubble.left")
-                .font(.body15).foregroundStyle(Palette.muted)
+            head
             if let subject = draft.subject {
                 Text(subject).font(.buttonLabel).foregroundStyle(Palette.fg)
             }
             if let quoted = draft.quoted {
-                VStack(alignment: .leading, spacing: 2) {
-                    Label("Answering \(quoted.sender)’s message", systemImage: "arrowshape.turn.up.left")
-                        .font(.buttonLabel).foregroundStyle(Palette.fg)
-                    Text(quoted.text).font(.body15).foregroundStyle(Palette.muted).lineLimit(3)
-                }
-                .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.m)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.tile))
+                Text("“\(quoted.text)”").font(.body15).foregroundStyle(Palette.muted).lineLimit(3)
+                    .padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.tile))
             }
             if let text = draft.text {
                 Text(text).font(.quote).foregroundStyle(Palette.fg).fixedSize(
@@ -239,6 +262,17 @@ struct DraftBlock: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(isBoxed ? Palette.paper : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
         .accessibilityElement(children: .combine)
+    }
+
+    private var head: some View {
+        let name = isGuess ? "~ " + (identity?.shownName ?? draft.to) : draft.to
+        return HStack(alignment: .top, spacing: Metrics.Spacing.s) {
+            NetworkMark(network: draft.channel)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(name), \(ActionCopy.channel(draft.channel))").font(.buttonLabel).foregroundStyle(Palette.fg)
+                if isGuess, let handle = identity?.handle { Text(handle).font(.small).foregroundStyle(Palette.muted) }
+            }
+        }
     }
 }
 

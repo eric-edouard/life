@@ -8,7 +8,7 @@ struct CardInput: Equatable {
     var showsWhy = false
 }
 
-/// A link on the ask and what it does: "Why this reply?", or "Tell the agent…".
+/// A link on the ask and what it does: "Why?", "Before and after", or "Tell the agent…".
 struct AskLink {
     let title: String
     let run: () -> Void
@@ -16,15 +16,14 @@ struct AskLink {
 
 /// A card's answers inside its panel: the deadline's line, the first option filled, the others in one row when they are
 /// few and short and fit, else each on a row of its own. An option that takes more than a tap asks for it: who it is
-/// ("Same as…"), or his words. `link` is the ask's one link when the row under the thing has no room for it.
+/// ("Same as…"), or his words. `links` are the ask's links that the row under the thing does not hold: at the right end
+/// of the deadline's line.
 struct CheckActions: View {
     let check: Check
     @Binding var input: CardInput
     /// His answer is being sent or saved: its busy pill stands in for the answers.
     let isBusy: Bool
-    let link: AskLink?
-    /// An agent's question has "Tell the agent…" among its answers when its link is taken by "Why?".
-    let hasOwnWordsAnswer: Bool
+    let links: [AskLink]
     let answer: (AnswerRequest) -> Void
     let sameAs: () -> Void
 
@@ -60,7 +59,7 @@ struct CheckActions: View {
     /// The deadline in one line above the answers, with the link at its right end when the row under the thing had none.
     @ViewBuilder private var line: some View {
         let text = check.deadlineLine()
-        if text != nil || link != nil {
+        if text != nil || !links.isEmpty {
             // Under an accessibility size the link goes under the words, not beside them.
             let layout =
                 typeSize.isAccessibilitySize
@@ -68,7 +67,9 @@ struct CheckActions: View {
             layout {
                 if let text { Text(text).font(.small).foregroundStyle(Palette.muted) }
                 if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
-                if let link { TextLink(link.title, action: link.run) }
+                HStack(spacing: Metrics.Spacing.m) {
+                    ForEach(links, id: \.title) { link in TextLink(link.title, action: link.run) }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -82,21 +83,16 @@ struct CheckActions: View {
 
     @ViewBuilder private var options: some View {
         if let first = check.options.first {
-            Button {
-                tap(first)
-            } label: {
-                HStack(spacing: Metrics.Spacing.s) {
-                    if first.outgoing == true { Image(systemName: "arrow.up").accessibilityHidden(true) }
-                    Text(first.label)
-                }
-            }
-            .buttonStyle(.pill(.filled))
-            let rest =
-                check.options.dropFirst().map { option in Choice(id: option.id, label: option.label) { tap(option) } }
-                + (hasOwnWordsAnswer
-                    ? [Choice(id: "own-words", label: "Tell the agent…") { input.isWritingOwnWords = true }] : [])
+            Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
+            let rest = check.options.dropFirst().map { option in Choice(id: option.id, label: label(of: option)) { tap(option) } }
             if !rest.isEmpty { others(rest) }
         }
+    }
+
+    /// The server's words, except a voice with no one suggested: "Name them…".
+    private func label(of option: Check.Option) -> String {
+        check.group == .voice && check.likelyPeople.isEmpty && option.id == check.namingOption?.id
+            ? "Name them…" : option.label
     }
 
     /// One row of 44 when there are at most three, each of three words or fewer, and the row holds them; else rows of 48.
