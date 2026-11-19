@@ -660,9 +660,19 @@ test("his own app asks a decision as the owner, with no cursor, and answers it i
     (await call("read_inbox", {})).content[0].text
   ).checks;
   expect(listed).toMatchObject({ asker: "owner", ref: reply.id });
-  expect(
-    await call("answer_check", { options: ["yes"], ref: reply.id })
-  ).toMatchObject({ isError: false });
+  const withdrawn = await rpc(await token(), "tools/call", {
+    arguments: { why: "mine", withdraw: reply.id },
+    name: "request_decision",
+  });
+  expect(withdrawn.json.result).toMatchObject({ isError: true });
+  const answered = await call("answer_check", {
+    options: ["yes"],
+    ref: reply.id,
+  });
+  expect(answered.isError).toBe(false);
+  expect(JSON.parse(answered.content[0].text)).toMatchObject({
+    asker: { name: "owner", told: "recorded" },
+  });
   rmSync(DECISIONS, { force: true });
 });
 
