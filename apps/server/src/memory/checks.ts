@@ -1,5 +1,4 @@
 import { createHmac } from "node:crypto";
-import { daysBefore } from "../core/clock";
 import { readChangeStamp } from "../core/files";
 import type { SourceName } from "../core/names";
 import { secretIn } from "../core/secret";
@@ -23,6 +22,7 @@ import { guessedOf, plain } from "./doubts";
 import type { StoredDraft } from "./draft";
 import { type CheckGroup, type CheckOption, LIFE_CHECKS } from "./life-checks";
 import {
+  directionDueOf,
   isRunning,
   type MatterStepNow,
   type MatterView,
@@ -30,6 +30,7 @@ import {
   matterFinderOf,
   matterPeopleOf,
   nextStepNow,
+  offerEndOf,
 } from "./matter-read";
 import {
   MATTER_BOOK_READS,
@@ -160,6 +161,8 @@ export interface CheckInputs {
   doubted: ReadonlySet<string>;
   /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
   endings: ReadonlyMap<string, { later: string; quote: string }>;
+  /** Whether a matter's next step is not checked yet (`directionDueOf`, by the matter's id): none is offered while it is due. */
+  isDirectionDue: (matter: string) => boolean;
   /** Every observation that shows, and the ids of those that are kept: active, at or above `KEEP_AT`. */
   kept: ReadonlySet<string>;
   lines: readonly Line[];
@@ -250,8 +253,6 @@ function ctxOf(c: CheckInputs): Ctx {
   };
 }
 
-/** How many days from its first step a new matter is offered: Life's "Work on it?" lapses after them, and nothing starts. */
-export const NEW_MATTER_DAYS = 7;
 /** A goal's own full stop, dropped before the question adds its own. */
 const FINAL_STOP = /\.$/;
 
@@ -426,8 +427,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
   /**
    * Each running matter he has not answered "Work on it?" for: one that began in the last `NEW_MATTER_DAYS` (its first
    * step's day), with an open step, not stuck (a passed date), a goal and a next step he could hand over (`do`, read
-   * through `nextStepNow`), no registered agent anchored on it now and not dismissed; none while the desk is off or
-   * unreadable. No deadline: it never outranks an agent's decision; on silence nothing starts and it leaves after its
+   * through `nextStepNow`) that is checked (not `isDirectionDue`: a step an outside record may have overtaken waits for
+   * its redraft), no registered agent anchored on it now and not dismissed; none while the desk is off or unreadable. No deadline: it never outranks an agent's decision; on silence nothing starts and it leaves after its
    * last day.
    */
   "new matter": (c) => {
@@ -440,7 +441,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     return c.matters.flatMap((v) => {
       const [first] = v.steps;
       const next = nextStepNow(v, c.decisions);
-      const lastDay = first && daysBefore(first.day, 1 - NEW_MATTER_DAYS);
+      const lastDay = offerEndOf(v);
       return first &&
         lastDay &&
         c.today <= lastDay &&
@@ -451,7 +452,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         !v.lone &&
         isRunning(v) &&
         !dismissed.has(v) &&
-        !v.steps.some((s) => anchored.has(s.ref))
+        !v.steps.some((s) => anchored.has(s.ref)) &&
+        !c.isDirectionDue(v.id)
         ? [
             {
               check: {
@@ -766,6 +768,7 @@ async function readChecks(
         .map((s) => s.ref)
     ),
     endings: records.linkEndings,
+    isDirectionDue: directionDueOf(matters, records, dayNow()),
     // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).
     kept: new Set(
       records.observations

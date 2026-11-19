@@ -5,7 +5,7 @@ import { off } from "../core/outputs";
 import { DESK_STORE } from "../core/paths";
 import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
-import { NEW_MATTER_DAYS } from "../memory/checks";
+import { NEW_MATTER_DAYS } from "../memory/matter-read";
 import type {
   AgentChange,
   AgentStatus,

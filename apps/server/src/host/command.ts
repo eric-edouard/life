@@ -19,13 +19,12 @@ import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
 import { collectHistorical } from "../memory/historical-collection";
 import { reindex } from "../memory/index-writer";
-import { links, readEndings, readLinkWork } from "../memory/links";
+import { links, readLinkWork } from "../memory/links";
 import { dueDirectionsOf, matterDirections } from "../memory/matter-directions";
 import {
   callsOf,
   matterLines,
   matters,
-  readMatterBook,
   readMatterRecords,
   readMatterWork,
 } from "../memory/matters";
@@ -314,16 +313,11 @@ const HANDLERS: Record<string, Handler> = {
     return 0;
   },
   /**
-   * `links [<matter id>] [--force]`: what the links step would judge (matters, open steps, calls, a token ceiling), with
-   * no model; with a matter, its open steps and the ending found for each; `--force` judges, as the night does.
+   * `links [--force]`: what the links step would judge (matters, open steps, calls, a token ceiling), with
+   * no model; `--force` judges, as the night does.
    */
   async links(values, rest) {
     const people = await readPeople();
-    const id = words(rest);
-    if (id) {
-      const lines = await readEndings(people, id);
-      return printed(lines.join("\n") || "(no such matter, or nothing open)");
-    }
     return step(async () => {
       const pending = await readLinkWork(people);
       return values.force ? links(pending) : { ...pending.counts, failed: 0 };
@@ -338,7 +332,7 @@ const HANDLERS: Record<string, Handler> = {
     return values.force
       ? await matterDirections(people, { all: values.all })
       : {
-          due: dueDirectionsOf(await readMatterBook(people, dayNow())).length,
+          due: (await dueDirectionsOf(people, dayNow())).length,
           failed: 0,
         };
   }),
@@ -483,7 +477,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | matter-directions [--force] [--all] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | source-use [--days 7] [--json] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [--force] | matters [list] [--force] [--since YYYY-MM-DD] | matter-directions [--force] [--all] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | source-use [--days 7] [--json] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

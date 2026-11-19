@@ -1,9 +1,8 @@
-import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { DAY, HOUR, minutes } from "../core/clock";
-import { openReadOnly } from "../core/sqlite";
+import { openReadOnly, openWritable } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import { isWithin } from "./contract";
 import { call, WATCH } from "./lifelog";
@@ -37,10 +36,8 @@ const copyPathOf = (dir: string) => join(dir, "apple-health.sqlite");
 /** Fold each page into a rebuildable copy; its highest sequence is its cursor. */
 export async function syncAppleHealth(dir = WATCH) {
   mkdirSync(dir, { recursive: true });
-  const db = new Database(copyPathOf(dir));
+  const db = openWritable(copyPathOf(dir));
   try {
-    db.run("pragma journal_mode = wal");
-    db.run("pragma busy_timeout = 5000");
     db.run(`create table if not exists measurements (
       id text primary key, seq integer not null unique, start_at text not null, end_at text not null, body text not null)`);
     db.run(
