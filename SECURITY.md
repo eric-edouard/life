@@ -26,8 +26,10 @@ every quote checked against its source. One call is given tools, and only when a
 cases' agent (`scripts/question-cases.ts`, his word of 10 Nov 2026), Codex on his subscription with Life's connector
 as its only tools, serving its reads and none of its writes. It has no shell, no web and a read-only sandbox, so
 recorded content it reads can steer it to read more, and to nothing else. The text goes to the provider the owner chose (his subscriptions, or
-OpenRouter and allmodels.io with his keys, through the hosts he chose; OpenRouter's only when it lists them as keeping no data). Photo descriptions are written on
-the Mac by a local model (llama.cpp, `describePhotos` setting); no image goes to a provider.
+OpenRouter and allmodels.io with his keys, through the hosts he chose; OpenRouter's only when it lists them as keeping no data). Photos of his Photos library are described on the Mac by
+a local model (llama.cpp, `describePhotos` setting): none of those images goes to a provider. A file inside a
+message (a photo, a PDF's pages) is described by the provider's fast model: that image goes to the provider, once,
+when its message arrives or at night (his word of 19 Nov 2026).
 
 ## Agents
 
@@ -68,7 +70,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   that text includes each day's Apple Health lines (sleep and workouts). With the `photos` source on, it includes each
   day's photo lines: times, Apple's place and address, coordinates to 10 m, scene words, the words Apple found in the
   photos, the names Apple's People gives, his captions and, with `describePhotos` on, Life's own one-paragraph description of each
-  photo; never an image, a face or a face print.
+  photo; never an image, a face or a face print of the Photos source. The images of the files in his messages (a
+  photo, a PDF's pages), once each, when the message arrives or at night (his word of 19 Nov 2026).
 - To a registered agent's runtime (his Claude subscription, or his Codex subscription: OpenAI): its brief and packet
   (his words, its notes, the facts of its queued events, its open decision) (his yes to the desk, 18 Nov 2026; his
   yes to Codex as a runtime, 18 Nov 2026).

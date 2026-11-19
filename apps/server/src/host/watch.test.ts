@@ -6,6 +6,8 @@ import * as proc from "../core/proc";
 import { LEDGER, tasksOf } from "../memory/memory-files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as memoryLock from "../memory/memory-lock";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as messageFiles from "../memory/message-files";
 import { apply } from "../sources/lifelog";
 import {
   turnFixture as fed,
@@ -26,6 +28,7 @@ import {
   mailStuckLock,
   type Pending,
   resumed,
+  startFileDescriptions,
   watch,
 } from "./watch";
 
@@ -216,5 +219,28 @@ test("a run holding the lock over 3 h is mailed by the watcher, never while offl
     for (const s of [held, sent, offline]) {
       s.mockRestore();
     }
+  }
+});
+
+test("a file pass already running: the tick starts no second one; the next starts when it ends", async () => {
+  let release: (() => void) | undefined;
+  const pass = spyOn(messageFiles, "describeFilesOnArrival").mockImplementation(
+    () =>
+      new Promise<undefined>((done) => {
+        release = () => done(undefined);
+      })
+  );
+  try {
+    startFileDescriptions([]);
+    startFileDescriptions([]);
+    expect(pass).toHaveBeenCalledTimes(1);
+    release?.();
+    await Promise.resolve();
+    await Promise.resolve();
+    startFileDescriptions([]);
+    expect(pass).toHaveBeenCalledTimes(2);
+    release?.();
+  } finally {
+    pass.mockRestore();
   }
 });

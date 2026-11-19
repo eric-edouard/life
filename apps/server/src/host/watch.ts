@@ -15,6 +15,7 @@ import {
 } from "../memory/index-writer";
 import { LEDGER, readLedger } from "../memory/memory-files";
 import { isLocked, locked, lockedSince } from "../memory/memory-lock";
+import { describeFilesOnArrival } from "../memory/message-files";
 import { listening, quietly, readySources } from "../memory/sources";
 import { publishTodayUnits, syncLifelogUnits } from "../memory/unit-writer";
 import { embedderNow, embedNew } from "../memory/vectors";
@@ -22,6 +23,7 @@ import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import { isOnline } from "../models/llm";
 import { LedgerEntry } from "../records/ledger-entry";
+import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { syncAppleHealth } from "../sources/apple-health";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
@@ -37,7 +39,8 @@ import { lockReport, sendReport } from "./report";
 // `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rewrites the lifelog units from where it touched and their index rows; the whole index when a unit went
 // or a code rule dropped or took one back, or what the full rebuild reads changed (not while the nightly holds the lock). Every 5 minutes it
-// builds today's units from every other source the same way (`gather`), with no model call. Health is in
+// builds today's units from every other source the same way (`gather`); its one model call describes today's new files
+// (`describeFilesOnArrival`), never awaited by the tick. Health is in
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `SPEECH_WAIT_MS`), `hear` records its asks
@@ -302,7 +305,8 @@ const TODAY_EVERY = 5 * MIN;
 /** How soon a new decision reaches his phone: a stat of its file, cheap. */
 const DECISIONS_EVERY = 3000;
 /**
- * On its own timer, one at a time: today's units read outside the lock, written (passages prepared) and indexed under it. When a run holds
+ * On its own timer, one at a time: today's units read outside the lock, written (passages prepared) and indexed under it,
+ * then the files that arrived described un-awaited (`startFileDescriptions`): the next tick shows them. When a run holds
  * the lock this turn is skipped; the other way round, a night that finds the lock held waits for the next tick.
  */
 async function syncToday() {
@@ -319,9 +323,29 @@ async function syncToday() {
       voice: false,
     });
     await locked(async () => reindexFor(await publishTodayUnits(evidence)));
+    startFileDescriptions(evidence.fileEvents);
   } finally {
     syncing = false;
   }
+}
+
+let describingFiles = false;
+/**
+ * Starts the pass that describes today's new files, un-awaited (a call may take minutes): one at a time, so the day's
+ * limit is exact and no file goes to two calls. A failure is logged and stops nothing; the night takes what it left.
+ */
+export function startFileDescriptions(events: SourceEvent[]) {
+  if (describingFiles) {
+    return;
+  }
+  describingFiles = true;
+  describeFilesOnArrival(events)
+    .catch((e: Error) =>
+      log("run.error", { error: e.message, step: "watch.files" })
+    )
+    .finally(() => {
+      describingFiles = false;
+    });
 }
 
 function todayEvery() {
