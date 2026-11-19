@@ -62,7 +62,15 @@ test("a wait on words is woken by an unknown sender's matching message, any case
     )
     .all();
   expect(queued.map((r) => r.event_id)).toEqual(["whatsapp:w2"]);
-  expect(queued[0]?.payload.toLowerCase()).not.toContain("zort");
+  // Facts only: the payload's keys are a message's facts, with no text under any name.
+  expect(Object.keys(JSON.parse(queued[0]?.payload ?? "{}")).sort()).toEqual([
+    "at",
+    "chat",
+
+    "id",
+    "person",
+    "source",
+  ]);
 });
 
 test("a wait refuses a pattern that does not compile or is over 200 characters", async () => {

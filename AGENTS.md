@@ -100,8 +100,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   before the archive's copy: its `redaction_retention_period` stays null, its rooms are never purged and its database is
   never made again (the copy counts its event numbers) (his OK of the
   new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026; `screen.sqlite`, 4 Nov 2026; the table `phone_calls` in `whatsapp.sqlite`, his "any architectural change" for calls, 5 Nov 2026; `phone.sqlite`, table `calls`, 10 Nov 2026; `messenger.sqlite`, his ask for the Messenger bridge, 14 Nov 2026; `github.sqlite`, the issues and comments of the repos he lists, 19 Nov 2026).
-- **Content never runs Life's code.** Recorded text never makes Life's own code act: the one thing a text can choose is a wake of a registered
-  agent. Model calls see no tools and no
+- **Content never runs Life's code.** Recorded text never makes Life's own code act; model calls see no tools and no
   instruction files (`apps/server/src/models/llm.ts`). The one call given tools is the question cases' agent
   (`scripts/question-cases.ts`, his word of 10 Nov 2026): Codex, with Life's connector serving its reads only, and
   nothing else. An agent reads what it pulls through the connector as data
