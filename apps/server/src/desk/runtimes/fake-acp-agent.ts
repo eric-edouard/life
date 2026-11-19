@@ -61,6 +61,9 @@ const app = agent({ name: "fake-acp-agent" })
   })
   .onRequest(methods.agent.session.setConfigOption, ({ params }) => {
     log({ config: params });
+    if (params.configId === "mode" && process.env.FAKE_ACP_NO_MODE) {
+      throw new Error("no such mode");
+    }
     return { configOptions: [] };
   })
   .onNotification(methods.agent.session.cancel, ({ params }) => {
