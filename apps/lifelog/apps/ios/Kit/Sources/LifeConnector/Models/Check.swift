@@ -110,6 +110,41 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let subject: String?
     }
 
+    /// Who a person check is about as their network shows them (`NetworkIdentity`, `memory/network-identity.ts`).
+    public struct NetworkIdentity: Decodable, Sendable, Equatable {
+        public struct Newest: Decodable, Sendable, Equatable {
+            public let at: Date?
+            public let by: String?
+            public let text: String?
+        }
+        /// WhatsApp, iMessage, LINE…
+        public let network: String?
+        /// The number or id on that network.
+        public let handle: String?
+        /// The name the network shows for the contact or chat.
+        public let shownName: String?
+        /// The chat, as `read_chats` takes it.
+        public let chat: String?
+        public let newest: Newest?
+        /// The network's own link that opens the chat (`wa.me` for WhatsApp); nil when it has none.
+        public let openUrl: URL?
+
+        /// Field by field: one Life sends in a shape this build doesn't know is nil, never a failed inbox.
+        public init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            network = try? c.decodeIfPresent(String.self, forKey: .network)
+            handle = try? c.decodeIfPresent(String.self, forKey: .handle)
+            shownName = try? c.decodeIfPresent(String.self, forKey: .shownName)
+            chat = try? c.decodeIfPresent(String.self, forKey: .chat)
+            newest = try? c.decodeIfPresent(Newest.self, forKey: .newest)
+            openUrl = (try? c.decodeIfPresent(String.self, forKey: .openUrl)).flatMap { $0.flatMap(URL.init(string:)) }
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case network, handle, shownName, chat, newest, openUrl
+        }
+    }
+
     /// What a card's answer changes: the facts, matters and pages that rest on it.
     public struct RidesOn: Decodable, Sendable, Equatable {
         public let observations: Int
@@ -150,6 +185,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let matter: MatterRef?
     public let subject: String?
     public let ridesOn: RidesOn?
+    /// Who a person check is about as their network shows them; nil for other kinds, when none was found, or from a Life
+    /// that predates it.
+    public let networkIdentity: NetworkIdentity?
     /// A decision whose draft goes to someone Life only guesses: that guess, asked beside it. A check holding one is a Check itself, so it is an array.
     public let confirm: [Check]?
 }

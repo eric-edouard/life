@@ -146,7 +146,7 @@
           "asker": "life",
           "at": null,
           "clips": [],
-          "context": null,
+          "context": "Life read their messages as Kit, the watchmaker (70% sure).",
           "deadline": null,
           "draft": null,
           "evidence": {
@@ -178,7 +178,7 @@
               "takes": "person"
             }
           ],
-          "question": "Life thinks this is Kit, the watchmaker (70% sure)",
+          "question": "Is this Kit?",
           "ref": "person:inf_kit",
           "ridesOn": {
             "matterIds": [],
@@ -191,9 +191,22 @@
           "subject": null,
           "title": "Know who someone is",
           "matter": null,
-          "confirm": []
+          "confirm": [],
+          "networkIdentity": {
+            "chat": "33600000001@s.whatsapp.net",
+            "handle": "+33600000001",
+            "network": "WhatsApp",
+            "newest": {
+              "at": "2026-10-12T09:05:00.000Z",
+              "by": "Kit Watches",
+              "text": "Kit here, from the shop"
+            },
+            "openUrl": "https://wa.me/33600000001",
+            "shownName": "Kit Watches"
+          }
         }
       ],
+      "networkIdentity": null,
       "pushId": "a23260946067d0fe",
       "urgency": "blocks"
     },
@@ -264,6 +277,7 @@
         "name": "Mend Gran's watch"
       },
       "confirm": [],
+      "networkIdentity": null,
       "pushId": "c84c34823f7fa7b0",
       "urgency": "improves"
     }

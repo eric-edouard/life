@@ -75,7 +75,7 @@
           "asker": "life",
           "at": null,
           "clips": [],
-          "context": null,
+          "context": "Life read their messages as Kit, the watchmaker (70% sure).",
           "deadline": null,
           "draft": null,
           "evidence": {
@@ -107,7 +107,7 @@
               "takes": "person"
             }
           ],
-          "question": "Life thinks this is Kit, the watchmaker (70% sure)",
+          "question": "Is this Kit?",
           "ref": "person:inf_kit",
           "ridesOn": {
             "matterIds": [],
@@ -120,9 +120,22 @@
           "subject": null,
           "title": "Know who someone is",
           "matter": null,
-          "confirm": []
+          "confirm": [],
+          "networkIdentity": {
+            "chat": "33600000001@s.whatsapp.net",
+            "handle": "+33600000001",
+            "network": "WhatsApp",
+            "newest": {
+              "at": "2026-10-12T09:05:00.000Z",
+              "by": "Kit Watches",
+              "text": "Kit here, from the shop"
+            },
+            "openUrl": "https://wa.me/33600000001",
+            "shownName": "Kit Watches"
+          }
         }
       ],
+      "networkIdentity": null,
       "pushId": "a23260946067d0fe",
       "urgency": "blocks"
     },
@@ -191,6 +204,7 @@
       "title": "Name a voice",
       "matter": null,
       "confirm": [],
+      "networkIdentity": null,
       "pushId": "327284d2a1d53d38",
       "urgency": "blocks"
     },
@@ -284,6 +298,7 @@
       "title": "Place a name",
       "matter": null,
       "confirm": [],
+      "networkIdentity": null,
       "pushId": "134bc106744b3159",
       "urgency": "blocks"
     },
@@ -293,7 +308,7 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": null,
+      "context": "It is the Contacts card Lou.",
       "deadline": null,
       "draft": null,
       "evidence": null,
@@ -323,7 +338,7 @@
           "takes": "person"
         }
       ],
-      "question": "Life cannot place the Contacts card Lou: its name and handles say Gran and Robin",
+      "question": "Is this Gran or Robin?",
       "ref": "person:con_lou",
       "ridesOn": {
         "matterIds": [],
@@ -337,6 +352,7 @@
       "title": "Place a Contacts card",
       "matter": null,
       "confirm": [],
+      "networkIdentity": null,
       "pushId": "82723bbf297c00df",
       "urgency": "blocks"
     },
@@ -406,6 +422,7 @@
         "name": "Frame Gran's photo"
       },
       "confirm": [],
+      "networkIdentity": null,
       "pushId": "47c2deda3a5b51cd",
       "urgency": "improves"
     },
@@ -415,7 +432,7 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": null,
+      "context": "Life read their messages as Kit, the watchmaker (70% sure).",
       "deadline": null,
       "draft": null,
       "evidence": {
@@ -447,7 +464,7 @@
           "takes": "person"
         }
       ],
-      "question": "Life thinks this is Kit, the watchmaker (70% sure)",
+      "question": "Is this Kit?",
       "ref": "person:inf_kit",
       "ridesOn": {
         "matterIds": [],
@@ -461,6 +478,18 @@
       "title": "Know who someone is",
       "matter": null,
       "confirm": [],
+      "networkIdentity": {
+        "chat": "33600000001@s.whatsapp.net",
+        "handle": "+33600000001",
+        "network": "WhatsApp",
+        "newest": {
+          "at": "2026-10-12T09:05:00.000Z",
+          "by": "Kit Watches",
+          "text": "Kit here, from the shop"
+        },
+        "openUrl": "https://wa.me/33600000001",
+        "shownName": "Kit Watches"
+      },
       "pushId": "a789ea3107eed39b",
       "urgency": "improves"
     },
@@ -531,6 +560,7 @@
         "name": "Mend Gran's watch"
       },
       "confirm": [],
+      "networkIdentity": null,
       "pushId": "c84c34823f7fa7b0",
       "urgency": "improves"
     }

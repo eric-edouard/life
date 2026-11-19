@@ -291,6 +291,11 @@ public struct StorageState: Equatable, Sendable {
             freePages: message.varint(4) ?? 0, totalPages: message.varint(5) ?? 0)
     }
 
+    /// How much of the flash is free, 0 to 1; `nil` while the device reports no capacity.
+    public var freeFraction: Double? { totalPages > 0 ? Double(freePages) / Double(totalPages) : nil }
+    /// How much of the flash holds audio, 0 to 1.
+    public var usedFraction: Double? { freeFraction.map { 1 - $0 } }
+
     /// Pages waiting on the device, `newest - oldest + 1`, or 0 when empty.
     public var backlogPages: UInt64 {
         newestPage >= 0 && UInt64(newestPage) >= oldestPage ? UInt64(newestPage) - oldestPage + 1 : 0

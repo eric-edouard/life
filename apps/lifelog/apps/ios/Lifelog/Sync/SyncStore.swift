@@ -33,7 +33,13 @@ final class SyncStore {
     /// third of the app's CPU (Oct 20).
     private(set) var generation = 0
     /// Blocks or maps the server doesn't have yet; `nil` before the cutover.
-    private(set) var uploads: UploadStatus?
+    private(set) var uploads: UploadStatus? = {
+        #if DEBUG
+            LifeFixture.uploads
+        #else
+            nil
+        #endif
+    }()
     /// Raw packs and old jobs' audio the bucket doesn't have yet (`Uploader.backUp`).
     private(set) var backup: Uploader.BackupStatus?
     /// The owner's edits not accepted yet, and the refused ones.

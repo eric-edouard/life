@@ -76,6 +76,7 @@ import {
   whatsappGhostOf,
   whatsappHandleOf,
   whatsappIdOf,
+  whatsappLinkOf,
   whatsappRoomOf,
 } from "../sources/whatsapp";
 import { newestAgent, readAgent, readEarliestAgent } from "./agent-source";
@@ -124,6 +125,7 @@ const LISTED: Descriptor[] = [
   {
     capturesOnItsOwn: true,
     chatDays: 7,
+    chatLinkOf: whatsappLinkOf,
     group: isWhatsappGroup,
     handleOf: phoneOf,
     incoming: (from?: number) => incomingArchived("whatsapp", "id", from),

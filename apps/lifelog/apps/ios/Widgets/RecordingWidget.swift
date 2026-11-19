@@ -219,13 +219,15 @@ struct RecordingWidgetView: View {
 private struct BatteryFigure: View {
     let percent: Int
     let isCurrent: Bool
+    private static let lowAtOrBelow = 20
 
     var body: some View {
+        let isLow = percent <= Self.lowAtOrBelow && isCurrent
         HStack(spacing: Metrics.Spacing.xs) {
-            BatteryGlyph(percent: percent, isCurrent: isCurrent, width: 22)
+            BatteryGlyph(percent: percent, tone: isLow ? Palette.flag : Palette.fg, isCurrent: isCurrent, width: 22)
             Text("\(percent)%")
                 .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(percent <= BatteryGlyph.lowAtOrBelow && isCurrent ? Palette.flag : .secondary)
+                .foregroundStyle(isLow ? Palette.flag : .secondary)
         }
         .accessibilityHidden(true)
     }
