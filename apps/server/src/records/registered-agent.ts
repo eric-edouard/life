@@ -2,11 +2,23 @@ import { z } from "zod";
 
 // The desk's shapes (apps/server/src/desk/, docs/glossary.md): a registered agent's wait and what its turns report.
 
+/** Whether a client's `text_matches` compiles. */
+const isPattern = (source: string) => {
+  try {
+    return Boolean(new RegExp(source));
+  } catch {
+    return false;
+  }
+};
+
 /**
- * Which messages an agent waits for (`message.received`, `host/events.ts`): who wrote it, in which apps or chat, his own
- * or others'. Events carry no text, so no filter reads it.
+ * Which events an agent waits for: one filter for the connector's poll and a registered agent's wait, matched in one
+ * place (`matcherOf`, `host/events.ts`). Today messages (`message.received`): who wrote it, in which apps or chat, his
+ * own or others', and a pattern on its text; and the calls that ended in the same chats (`call.ended`). A field an
+ * event cannot answer matches nothing (a pattern or `from_me` matches no call). The text is only tested: an event
+ * never carries it.
  */
-export const MessageFilter = z
+export const EventFilter = z
   .object({
     channels: z
       .array(z.string())
@@ -26,14 +38,20 @@ export const MessageFilter = z
       .describe(
         "Who: a name, handle or person id. Matches who wrote it; on his own messages, the other side of a 1:1 chat"
       ),
+    text_matches: z
+      .string()
+      .max(200)
+      .refine(isPattern, "not a regular expression")
+      .optional()
+      .describe("A regular expression its text must match, any case"),
   })
   .strict();
-export type MessageFilter = z.infer<typeof MessageFilter>;
+export type EventFilter = z.infer<typeof EventFilter>;
 
 /** What an active registered agent waits for: messages, and one deadline (`until`), with its reason. */
 export const AgentWait = z
   .object({
-    events: z.array(MessageFilter).max(20),
+    events: z.array(EventFilter).max(20),
     reason: z.string().min(1).max(200),
     until: z.iso.datetime(),
   })

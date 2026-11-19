@@ -17,7 +17,7 @@ import { overlappingPhoneCallsOf } from "../memory/naming-context";
 import { readySources } from "../memory/sources";
 import { isLifeOutput, speakerOf } from "../memory/units";
 import { meant, nameRefusalOf, type People, readPeople } from "../memory/who";
-import { MessageFilter } from "../records/registered-agent";
+import { EventFilter } from "../records/registered-agent";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
 
@@ -54,30 +54,15 @@ const messaging = () =>
       (s.kind === "chat" || s.kind === "mail") && Boolean(s.incoming)
   );
 
-/** Whether a client's `text_matches` compiles. */
-const isPattern = (source: string) => {
-  try {
-    return Boolean(new RegExp(source));
-  } catch {
-    return false;
-  }
-};
-
-/** The arguments an agent polls with: a `MessageFilter` (its apps among the sources on now), and a pattern on the text. */
+/** The arguments an agent polls with: an `EventFilter` (its apps among the sources on now). */
 const argumentsOf = (channels: string[]) =>
-  MessageFilter.extend({
+  EventFilter.extend({
     channels: z
       .array(
         channels.length ? z.enum(channels as [string, ...string[]]) : z.never()
       )
       .optional()
       .describe("Only these apps; every one by default"),
-    text_matches: z
-      .string()
-      .max(200)
-      .refine(isPattern, "not a regular expression")
-      .optional()
-      .describe("A regular expression its text must match, any case"),
   }).strict();
 
 const Payload = z.object({
@@ -276,17 +261,14 @@ function readNewMessages(s: Messaging, from: number | undefined) {
 }
 
 /** Who `filter.person` means, as a person id: none when it names no one. */
-const wantedOf = (filter: MessageFilter, people: People) =>
+const wantedOf = (filter: EventFilter, people: People) =>
   filter.person ? meant(filter.person, people).known : undefined;
 
 /**
  * Whether a message is one `filter` wants, decided here only (the connector's polls and the desk's agent waits): null
  * when its person is no one Life knows.
  */
-export function matcherOf(
-  filter: MessageFilter & { text_matches?: string },
-  people: People
-) {
+export function matcherOf(filter: EventFilter, people: People) {
   const wanted = wantedOf(filter, people);
   if (filter.person && !wanted) {
     return null;
@@ -299,6 +281,7 @@ export function matcherOf(
     (!filter.channels || filter.channels.includes(m.source)) &&
     (!filter.chat || m.chat === filter.chat) &&
     (!wanted || m.person === `person:${wanted}`) &&
+    // ponytail: a backtracking pattern stalls the desk's message poll for every agent (200 characters and a compile check bound its size, not its match time; the author is his own agent or paired app). A linear-time engine at this one call if it ever bites.
     (!text || text.test(e.text));
 }
 
@@ -415,10 +398,7 @@ export interface CallPayload extends MessagePayload {
  * was on the call, not who dialed. `from_me` is not asked: a call of his own matches too. A filter on his own messages
  * (`from_me`) or on their words (`text_matches`) matches no call. Null when its person is no one Life knows.
  */
-export function callMatcherOf(
-  filter: MessageFilter & { text_matches?: string },
-  people: People
-) {
+export function callMatcherOf(filter: EventFilter, people: People) {
   const wanted = wantedOf(filter, people);
   if (filter.person && !wanted) {
     return null;

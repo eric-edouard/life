@@ -55,10 +55,10 @@ export const firstNameOf = (name: string) => name.trim().split(" ")[0] ?? "";
 
 export const Chat = z
   .object({
-    // network chat id. Which projects a chat belongs to is in `Project.chats`.
-    id: z.string().startsWith("!"),
+    // The chat's key: a network room id (`!…`) or, for a WhatsApp chat with no room, its id in Life's archive (`<id>@g.us`, `<phone>@s.whatsapp.net` or `<id>@lid`). Which projects a chat belongs to is in `Project.chats`.
+    id: z.string().regex(/^!|@(g\.us|s\.whatsapp\.net|lid)$/),
     name: z.string(),
-    // WhatsApp chats: the chat id in Life's archive (`<phone>@s.whatsapp.net`, `<id>@g.us` or `<id>@lid`).
+    // The WhatsApp id (in Life's archive) of a chat that also has a room id (`<phone>@s.whatsapp.net`, `<id>@g.us` or `<id>@lid`).
     whatsapp: z.string().optional(),
   })
   .strict();
