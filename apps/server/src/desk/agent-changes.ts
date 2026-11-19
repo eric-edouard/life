@@ -50,7 +50,7 @@ function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
 /**
  * Starts an agent on his words (`brief`): his subject, a runtime the desk drives that answers (`blocked`: why it can't
  * now), a folder that exists when one is named. A repeat (an active agent on the same subject, its matter or its
- * project, started on the same words) is that agent, not a refusal.
+ * project, started on the same words) is that agent, not a refusal. A new agent hands over the stopped agents on its subject.
  */
 function start(desk: Desk, c: AgentChange, brief: string, blocked?: string) {
   const runtime = runtimeOf(c);
@@ -74,19 +74,29 @@ function start(desk: Desk, c: AgentChange, brief: string, blocked?: string) {
     return { error: `${runtime} does not answer: ${blocked}` };
   }
   const refused = subjectRefusal(desk, c);
-  return refused
-    ? { error: refused }
-    : {
-        id: register(desk, {
-          brief,
-          effort: c.effort,
-          folder: c.folder,
-          model: c.model,
-          project: c.project,
-          runtime,
-          steps: c.steps,
-        }),
-      };
+  if (refused) {
+    return { error: refused };
+  }
+  const id = register(desk, {
+    brief,
+    effort: c.effort,
+    folder: c.folder,
+    model: c.model,
+    project: c.project,
+    runtime,
+    steps: c.steps,
+  });
+  // He stopped an agent, then started this one on its subject (its project, or a step it is anchored on): it is replaced.
+  desk.db.run(
+    "update agent set status = 'handed_over', stopped_at = null, ended_at = ?, outcome = ? where status = 'stopped' and (project = ? or id in (select agent_id from anchor where step in (select value from json_each(?))))",
+    [
+      now(),
+      `replaced by ${id}`,
+      c.project ?? null,
+      JSON.stringify(c.steps ?? []),
+    ]
+  );
+  return { id };
 }
 
 /** Applies one change in the store; what it touched, or why not. */
@@ -101,7 +111,7 @@ function apply(
   const refusal = (allowed: string[]) => statusRefusal(desk, c.agent, allowed);
   const due = (reason: string) =>
     db.run(
-      "update agent set status = 'active', wait_until = ?, wait_reason = ?, wait_is_default = 0 where id = ?",
+      "update agent set status = 'active', stopped_at = null, wait_until = ?, wait_reason = ?, wait_is_default = 0 where id = ?",
       [now(), reason, id]
     );
   let refused: string | null;
@@ -112,7 +122,10 @@ function apply(
       refused = refusal(["active"]);
       if (!refused) {
         // ponytail: a turn under way ends on its own, with no reminder after; stopping its run (`Runtime.stop`) waits for the handover (step 5).
-        db.run("update agent set status = 'stopped' where id = ?", [id]);
+        db.run(
+          "update agent set status = 'stopped', stopped_at = ? where id = ?",
+          [now(), id]
+        );
       }
       break;
     case "resume":
@@ -174,22 +187,6 @@ function applyAsk(
   } catch (e) {
     return { agent: parsed.data.agent, error: (e as Error).message };
   }
-}
-
-/**
- * His rule, one agent on a subject: a stopped agent whose subject an active agent now has is handed over to it
- * (`handed_over`, over at once, `outcome` naming its successor, the newest active one when several). A subject is its
- * project or a step it is anchored on: `holderOf` counts active agents only, so a start on a matter is not refused
- * while a stopped agent is anchored there, exactly as on a project. Idempotent; run every tick, not an ask of his.
- */
-export function handOverReplaced({ db }: Desk) {
-  const newest = (own: string) =>
-    `(select s.id from agent s where s.status = 'active' and ${own} order by s.created_at desc limit 1)`;
-  const by = `coalesce(${newest("s.project = a.project")}, ${newest("s.id in (select m.agent_id from anchor m join anchor o on o.step = m.step where o.agent_id = a.id)")})`;
-  db.run(
-    `update agent as a set status = 'handed_over', ended_at = ?, outcome = 'replaced by ' || ${by} where a.status = 'stopped' and ${by} is not null`,
-    [now()]
-  );
 }
 
 /**

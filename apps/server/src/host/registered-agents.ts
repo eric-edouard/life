@@ -161,11 +161,11 @@ export function wakesOnOf(
   ];
 }
 
-/** `agents` without what only `wakesOn` is made of, with it: its lines while it waits, none otherwise (running, stopped, ended). `people` is read once by the caller; the wide net is only for an agent whose matter is found (`isOnMatter`, as `netsOf` decides). */
+/** `agents` without what only `wakesOn` is made of, with it: its lines while it waits, none otherwise (running, stopped, ended). `people` is read once by the caller; the wide net is only for an agent whose matter is found (`hasMatter`, as `netsOf` decides). */
 function withWakesOn(
   agents: AgentRead[],
   people: People,
-  isOnMatter: (steps: string[]) => boolean
+  hasMatter: (steps: string[]) => boolean
 ) {
   const open = decisionsNow().filter((d) => d.state === "open");
   return agents.map(({ chatsSeen, filters, ...a }) => {
@@ -181,7 +181,7 @@ function withWakesOn(
                 question: d.question,
               },
               channels: EVENT_CHANNELS,
-              hasNet: isOnMatter(a.steps),
+              hasNet: hasMatter(a.steps),
               people,
               seen: chatsSeen,
             })

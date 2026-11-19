@@ -35,6 +35,7 @@ create table if not exists agent (
   ended_at text,
   outcome text,
   why_not_started text,
+  stopped_at text,
   check (status <> 'active' or wait_until is not null)
 );
 create table if not exists session (
@@ -142,6 +143,13 @@ export function openDesk(path = DESK_STORE) {
         "update agent set why_not_started = substr(outcome, 14), outcome = null where outcome glob 'not started: *'"
       );
     })();
+  }
+  // A store made before `agent.stopped_at`: an agent stopped then has no stop time stored.
+  const hasStoppedAt = db
+    .query("select 1 from pragma_table_info('agent') where name = 'stopped_at'")
+    .get();
+  if (!hasStoppedAt) {
+    db.run("alter table agent add column stopped_at text");
   }
   // A store made before the two context columns (`growthOf`): older sessions and turns have none, so they grow 0.
   for (const [table, column] of [
