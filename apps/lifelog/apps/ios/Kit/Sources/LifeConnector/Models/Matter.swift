@@ -53,6 +53,8 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     public let lastStepAt: Date?
     /// The id of the registered agent working on it.
     public let agent: String?
+    /// How many open checks are about it, of every kind (`read_matters` only; `read_matter` lists them as `Matter.checks`).
+    public let openChecks: Int?
 }
 
 /// `read_matters`: the running matters, most pressing first.
@@ -158,13 +160,16 @@ public struct Matter: Decodable, Sendable, Equatable {
     public let row: MatterRow
     public let steps: [MatterStep]
     public let agents: [RegisteredAgent]
+    /// Every open check about it, of every kind (`checksOnMatterOf`, `memory/checks.ts`).
+    public let checks: [Check]
 
-    private enum Key: String, CodingKey { case steps, agents }
+    private enum Key: String, CodingKey { case steps, agents, checks }
 
     public init(from decoder: any Decoder) throws {
         row = try MatterRow(from: decoder)
         let container = try decoder.container(keyedBy: Key.self)
         steps = try container.decode([MatterStep].self, forKey: .steps)
         agents = try container.decode([RegisteredAgent].self, forKey: .agents)
+        checks = try container.decode([Check].self, forKey: .checks)
     }
 }

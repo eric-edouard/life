@@ -94,7 +94,7 @@ Life (`scripts/demo.ts`) to a temporary folder and runs it as a second Life on t
 are never touched. Both are refused with his own data (`isOwnLife`: the app's data folder or `~/Life`), and a second Life
 never takes the tailnet name (`bun life connect`). It builds the app in Debug, installs it on a fresh simulator
 (the newest iOS runtime's first iPhone), pairs it by its link (loopback HTTP, which the phone takes only for a Life on its own loopback) and drives a
-scenario's steps with agent-device. `found-to-closed`, the one so far: the inbox offers the new matter, Start, the
+scenario's steps with agent-device. `found-to-closed`, the one so far: the matter's page offers the new matter, Start, the
 agent's plan card, Go, its work, Mark as done, the matter and its cards gone. Each step writes a numbered screenshot and a
 PASS or FAIL line to the folder it prints; the services, the agent, the simulator and the transcripts are removed, on
 failure, Ctrl-C or SIGTERM too. A scenario is a list of steps in the script: add one beside it.
@@ -212,7 +212,7 @@ enabled source is available and the passages' collected windows are complete.
 
 ## The watcher
 
-- New cards: `pushNewCardsIfChanged` (`host/card-push.ts`) runs each minute and pushes what is new in the inbox; `checksNow` reads the inbox again only when its key changed (a file it reads, truth/ included, never units: the watcher's syncs write them; his day, the open decisions, a desk start, the queued voices: one read of his lifelog a minute, whose last list stands while it is down); while a run holds the memory lock only a new decision pushes (`pushed-cards.json` in the watcher's folder, written when it changes; the first run pushes nothing).
+- New cards: `pushNewCardsIfChanged` (`host/card-push.ts`) runs each minute and pushes what is new in his inbox (his agents' decisions; Life's own questions never push); `checksNow` reads the checks again only when its key changed (a file it reads, truth/ included, never units: the watcher's syncs write them; his day, the open decisions, a desk start, the queued voices: one read of his lifelog a minute, whose last list stands while it is down); while a run holds the memory lock only a new decision pushes (`pushed-cards.json` in the watcher's folder, written when it changes; the first run pushes nothing).
 - Lifelog units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per
   conversation and local day; a live conversation with a stored chapter unit keeps its chapters, which go when lifelog
   retires or drops it. Extraction reads today's conversations once lifelog has settled them (`closed`). Only

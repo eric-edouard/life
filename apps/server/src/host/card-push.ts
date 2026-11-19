@@ -12,8 +12,8 @@ import { WATCH } from "../sources/lifelog";
 import { notifyPhone } from "../sources/lifelog-push";
 import { inboxNow } from "./inbox";
 
-// A push for each new card in his inbox, the only push of cards: the words "1 new card" or "N new cards", the badge (every
-// open card) and, for one card, its `pushId` (an HMAC of its ref under a key that never leaves the Mac). Never a title,
+// A push for each new card in his inbox (an agent's decision: Life's own questions never push), the only push of cards: the
+// words "1 new card" or "N new cards", the badge (every open card of his inbox) and, for one card, its `pushId` (an HMAC of its ref under a key that never leaves the Mac). Never a title,
 // a question, a name or a ref: it goes through Apple (SECURITY.md, his yes of 18 Nov 2026). The phone matches the id
 // against `read_inbox`. What was seen is a small state file of the watcher's, outside `memory/`.
 
@@ -27,7 +27,7 @@ interface Pushed {
   seen: Record<string, string>;
 }
 
-type Open = Pick<InboxCheck, "asker" | "pushId">;
+type Open = Pick<InboxCheck, "pushId">;
 
 /**
  * Pushes what is new among `open` since the last look, then remembers it; the first run (no state) pushes nothing.
@@ -61,12 +61,11 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
     badge,
     body: count(fresh.length, "new card"),
     ...(fresh.length === 1 ? { pushId: one.pushId } : {}),
-    quiet: fresh.every((c) => c.asker === "life"),
     title: "Life",
   });
 }
 
-/** Pushes what is new among every open card (`inboxNow`). */
+/** Pushes what is new among the cards of his inbox (`inboxNow`: agents' decisions; Life's own questions never push). */
 export async function pushNewCards(now = clock()) {
   const open = await inboxNow();
   await pushNew(open, open.length, now);
@@ -77,7 +76,7 @@ const pushNewDecisions = () =>
   pushNew(
     decisionsNow()
       .filter((d) => d.state === "open")
-      .map((d) => ({ asker: d.asker, pushId: pushIdOf(d.id) }))
+      .map((d) => ({ pushId: pushIdOf(d.id) }))
   );
 
 let decisionsLooked = -1;

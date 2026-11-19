@@ -104,17 +104,12 @@ extension View {
     }
 }
 
-/// "2 of 12" in `label`, a 1 px track filled by how far it got, and an end word (a deadline in `flag`, or a percent).
+/// A `label`, a 1 px track filled by how far it got, and an end word (a deadline in `flag`, or a percent).
 struct ProgressLine: View {
     var label: String?
     let fraction: Double
     var end: String?
     var endColor = Palette.muted
-
-    init(done: Int, of total: Int, end: String? = nil, endColor: Color = Palette.muted) {
-        self.init(
-            label: "\(done) of \(total)", fraction: Double(done) / Double(max(total, 1)), end: end, endColor: endColor)
-    }
 
     init(label: String? = nil, fraction: Double, end: String? = nil, endColor: Color = Palette.muted) {
         self.label = label

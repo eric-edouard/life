@@ -245,6 +245,7 @@ const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
   asker: "life",
   at: null,
   clips: [],
+  confirm: [],
   context: null,
   deadline: null,
   draft: null,
@@ -276,6 +277,7 @@ test("the Checks section lists every row in the order given, after Birthdays, wi
   n.birthdays = [{ name: "Ana", relation: "17 Oct" }];
   n.checks = Array.from({ length: 40 }, (_, i) =>
     check(`Life thinks this is Zed ${i}, a plumber (80% sure)`, {
+      matterIds: [],
       matters: i === 0 ? 2 : 0,
       observations: i === 0 ? 3 : 1,
       pages: 0,
@@ -303,6 +305,7 @@ test("Waiting on you comes first with every open decision; the Checks section ho
     asker: "planner",
     at: "2026-10-15T08:00:00.000Z",
     clips: [],
+    confirm: [],
     context: null,
     deadline: "2026-10-16T08:00:00.000Z",
     draft: i === 0 ? { text: "Can you come Friday?", to: "Kit" } : null,
@@ -321,7 +324,7 @@ test("Waiting on you comes first with every open decision; the Checks section ho
     ],
     question: `Book plumber ${i}?`,
     ref: `dec_00000000000${i}`,
-    ridesOn: { matters: 0, observations: 0, pages: 0 },
+    ridesOn: { matterIds: [], matters: 0, observations: 0, pages: 0 },
     subject: null,
     title: `Fix the boiler ${i}`,
   });
@@ -329,6 +332,7 @@ test("Waiting on you comes first with every open decision; the Checks section ho
   n.checks = [
     ...Array.from({ length: 9 }, (_, i) => decision(i)),
     check("Life thinks this is Zed, a plumber (80% sure)", {
+      matterIds: [],
       matters: 0,
       observations: 1,
       pages: 0,

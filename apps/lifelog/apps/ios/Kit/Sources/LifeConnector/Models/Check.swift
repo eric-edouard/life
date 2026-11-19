@@ -114,6 +114,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let matter: MatterRef?
     public let subject: String?
     public let ridesOn: RidesOn?
+    /// A decision whose draft goes to someone Life only guesses: that guess, asked beside it. A check holding one is a Check itself, so it is an array.
+    public let confirm: [Check]?
 }
 
 extension Check {

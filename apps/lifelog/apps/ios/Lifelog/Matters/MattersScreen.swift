@@ -84,7 +84,6 @@ struct MattersScreen: View {
 
     private func content(_ list: MatterList) -> some View {
         let rows = list.shown(query: query, filter: filter)
-        let inbox = life.inbox.value
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 Field(prompt: "Search \(list.matters.count) matters", text: $query, icon: "magnifyingglass")
@@ -120,7 +119,7 @@ struct MattersScreen: View {
                         router.open(matter: row.id)
                     } label: {
                         MatterRowView(
-                            rank: offset + 1, row: row, cards: inbox?.openCount(matter: row.id) ?? 0,
+                            rank: offset + 1, row: row, cards: row.openChecks ?? 0,
                             agent: life.agents.value?.agents.first { $0.id == row.agent })
                     }
                     .buttonStyle(.plain)

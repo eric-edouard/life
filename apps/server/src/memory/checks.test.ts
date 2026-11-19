@@ -9,9 +9,11 @@ import {
   type CheckInputs,
   checksNow,
   checksOf,
-  checksText,
+  checksOnMatterOf,
   pushIdOf,
+  whereAskedOf,
 } from "./checks";
+import { checksText } from "./checks-text";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "./matters";
 import { OBSERVATIONS, UNITS } from "./memory-files";
@@ -359,7 +361,7 @@ const voice = (id: string, over: Partial<NamingQueueItem> = {}) =>
     ...over,
   }) satisfies NamingQueueItem;
 
-test("every voice in lifelog's queue is a card of the one inbox, with its clips and the people it may be", () => {
+test("every voice in lifelog's queue is a check in to confirm, with its clips and the people it may be", () => {
   const items = Array.from({ length: 60 }, (_, i) => voice(`v${i}`));
   items[0] = voice("v0", { kind: "known_person", personId: DANA_ID });
   items[1] = voice("v1", { name: "Kofi" });
@@ -442,6 +444,7 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
       asker: "life",
       at: null,
       clips: [],
+      confirm: [],
       context: expect.stringMatching(ASKED_UNTIL_22_NOV),
       deadline: null,
       draft: null,
@@ -465,7 +468,12 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
       ],
       question: "Goal: The boiler is serviced. Work on it?",
       ref: matter.id,
-      ridesOn: { matters: 1, observations: 0, pages: 0 },
+      ridesOn: {
+        matterIds: [matter.id],
+        matters: 1,
+        observations: 0,
+        pages: 0,
+      },
       subject: null,
       title: "Life found a new matter: Boiler service",
     },
@@ -635,4 +643,86 @@ test("a matter whose direction looks over, or is not checked against what happen
   // The draft said it looks over (`directionsOf` leaves no next step).
   const { nextStep: _gone, ...over } = matter;
   expect(offered(over)).toBe(0);
+});
+
+test("each kind of check is asked in one place", () => {
+  expect(
+    (["decision", "ending", "new matter", "person", "voice"] as const).map(
+      (kind) => whereAskedOf({ kind })
+    )
+  ).toEqual(["inbox", "to confirm", "matter", "to confirm", "to confirm"]);
+});
+
+test("a decision whose draft goes to a guessed person carries that guess; a matter finds the checks riding on it", () => {
+  const o = line();
+  const m = {
+    id: "matter_cccccccccccc",
+    lone: false,
+    name: "Boiler repair",
+    open: true,
+    owedTo: [],
+    status: "moving" as const,
+    steps: stepsOf(o.id),
+    waitingOn: [],
+    with: [],
+  };
+  const sent = {
+    ...decision("dec_00000000000c", "2026-11-20T09:00:00.000Z"),
+    draft: {
+      channel: "whatsapp",
+      chat: "33600000001@s.whatsapp.net",
+      text: "Friday?",
+      to: "Kit",
+    },
+  };
+  const base = inputs([about(REF)], {
+    decisions: [sent],
+    inferred: [ID],
+    matters: [m],
+  });
+  const list = checksOf({
+    ...base,
+    people: {
+      ...base.people,
+      resolve: (s: string) => (s === "+33600000001" ? REF : null),
+    },
+  });
+  const [asked, guess] = list;
+  expect(asked?.confirm.map((c) => c.ref)).toEqual([REF]);
+  expect(guess?.confirm).toEqual([]);
+  // No handle behind the stored chat: nothing to confirm.
+  expect(
+    checksOf({
+      ...base,
+      decisions: [{ ...sent, draft: { ...sent.draft, chat: "room-1" } }],
+    })[0]?.confirm
+  ).toEqual([]);
+  // A check on a matter by its subject, or by what rides on it.
+  const onMatter = checksOf({
+    ...base,
+    decisions: [decision("dec_00000000000d", "2026-11-20T09:00:00.000Z", o.id)],
+  });
+  expect(checksOnMatterOf(onMatter, m.id).map((c) => c.ref)).toEqual([
+    "dec_00000000000d",
+  ]);
+  expect(checksOnMatterOf(onMatter, "matter_zzzzzzzzzzzz")).toEqual([]);
+});
+
+test("a guessed person's check riding on an open matter through its saved line is found by that matter alone", () => {
+  const o = about(REF);
+  const m = {
+    id: "matter_dddddddddddd",
+    lone: false,
+    name: "Boiler repair",
+    open: true,
+    owedTo: [],
+    status: "moving" as const,
+    steps: stepsOf(o.id),
+    waitingOn: [],
+    with: [],
+  };
+  const [guess] = checksOf(inputs([o], { inferred: [ID], matters: [m] }));
+  expect(guess?.matter).toBeNull();
+  expect(guess?.ridesOn.matterIds).toEqual([m.id]);
+  expect(checksOnMatterOf([guess as Check], m.id)).toEqual([guess as Check]);
 });
