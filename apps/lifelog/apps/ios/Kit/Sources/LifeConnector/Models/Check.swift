@@ -207,6 +207,9 @@ extension Check {
         return asker.caseInsensitiveCompare("life") == .orderedSame ? nil : asker
     }
 
+    /// The option the card fills (the first): the one answer it asks for, the others sit quieter.
+    public var filled: Option? { options.first }
+
     /// The option he picks by naming someone (`takes` a person, or a person or a name), when the card has one.
     public var namingOption: Option? { options.first { $0.takes == .person || $0.takes == .personOrName } }
 

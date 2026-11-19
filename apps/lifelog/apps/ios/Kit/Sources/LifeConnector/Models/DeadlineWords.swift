@@ -8,6 +8,12 @@ public enum DeadlineWords {
         deadline.formatted(Date.FormatStyle(locale: locale, timeZone: timeZone).weekday(.abbreviated).hour().minute())
     }
 
+    /// What VoiceOver reads for a deadline shown as "Thu 18:00": "Answer by Thursday 18:00".
+    public static func spoken(_ deadline: Date, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        "Answer by "
+            + deadline.formatted(Date.FormatStyle(locale: locale, timeZone: timeZone).weekday(.wide).hour().minute())
+    }
+
     /// A matter's row: "By Thu 18:00".
     public static func by(_ deadline: Date, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
         "By " + when(deadline, locale: locale, timeZone: timeZone)
@@ -23,6 +29,20 @@ extension Check {
         guard draft == nil, let chosen = options.first(where: { $0.id == onSilence }) else {
             return "Answer by \(when)"
         }
-        return "After \(when) it goes " + (chosen.id == options.first?.id ? "ahead" : "with \(chosen.label)")
+        return "After \(when) it goes " + (chosen.id == filled?.id ? "ahead" : "with \(chosen.label)")
+    }
+}
+
+extension Check {
+    /// The asks list's second line: the matter, else "A voice, Sat 14 Nov", else the chat or network it comes through.
+    public func listLine(locale: Locale = .current, timeZone: TimeZone = .current) -> String? {
+        if let matter { return matter.name }
+        if group == .voice, let at {
+            let day = Date.FormatStyle(locale: locale, timeZone: timeZone).weekday(.abbreviated).day().month(.abbreviated)
+            return "A voice, " + at.formatted(day)
+        }
+        let line = [networkIdentity?.shownName ?? draft?.to, networkIdentity?.network ?? draft?.channel]
+            .compactMap { $0 }.joined(separator: ", ")
+        return line.isEmpty ? nil : line
     }
 }

@@ -254,23 +254,32 @@ private func asks(_ urgencies: [(String, Urgency)]) throws -> Inbox {
     return try decoded(Inbox.self, String(decoding: JSONSerialization.data(withJSONObject: body), as: UTF8.self))
 }
 
-@Test func theInboxPagesRunWhatBlocksThenTheBoundaryThenWhatImproves() throws {
+@Test func theInboxRunsWhatBlocksThenWhatCanWait() throws {
     let inbox = try asks([("i1", .improves), ("b1", .blocks), ("i2", .improves), ("b2", .blocks)])
-    let pages = inbox.pages(deferred: [])
-    #expect(pages.map(\.id) == ["b1", "b2", InboxPage.boundaryId, "i1", "i2"])
-    // His answer to the last blocking ask lands on the boundary; the boundary shows the next ask's context.
-    #expect(pages.id(after: "b2") == InboxPage.boundaryId)
-    #expect(pages.check(on: InboxPage.boundaryId)?.ref == "i1")
-    #expect(pages.check(on: nil)?.ref == "b1" && pages.check(on: "gone")?.ref == "b1")
+    let order = inbox.ordered(deferred: [])
+    #expect(order.checks.map(\.ref) == ["b1", "b2", "i1", "i2"])
+    #expect(order.canWaitFrom == 2)
+    // His answer to the last blocking ask leads to the first that can wait.
+    #expect(order.checks.ref(after: "b2") == "i1" && order.checks.ref(after: "i2") == nil)
+    #expect(order.check(on: nil)?.ref == "b1" && order.check(on: "gone")?.ref == "b1")
 }
 
-@Test func withNothingBlockingTheBoundaryComesFirstAndWithNothingImprovingThereIsNone() throws {
-    #expect(try asks([("i1", .improves)]).pages(deferred: []).map(\.id) == [InboxPage.boundaryId, "i1"])
-    #expect(try asks([("b1", .blocks)]).pages(deferred: []).map(\.id) == ["b1"])
-    #expect(try asks([]).pages(deferred: []).isEmpty)
+@Test func withNothingBlockingWhatCanWaitStartsFirstAndWithNothingImprovingThereIsNoHeading() throws {
+    #expect(try asks([("i1", .improves)]).ordered(deferred: []).canWaitFrom == 0)
+    #expect(try asks([("b1", .blocks)]).ordered(deferred: []).canWaitFrom == nil)
+    #expect(try asks([]).ordered(deferred: []).checks.isEmpty)
 }
 
 @Test func anAskKeptForLaterStaysInsideItsOwnKind() throws {
     let inbox = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves), ("i2", .improves)])
-    #expect(inbox.pages(deferred: ["b1", "i1"]).map(\.id) == ["b2", "b1", InboxPage.boundaryId, "i2", "i1"])
+    #expect(inbox.ordered(deferred: ["b1", "i1"]).checks.map(\.ref) == ["b2", "b1", "i2", "i1"])
+}
+
+@Test func anAnswerHeldOrInFlightIsLeftOutSoTheListNeverFlashesItBack() throws {
+    let order = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves)]).ordered(deferred: [], except: ["b1", "i1"])
+    #expect(order.checks.map(\.ref) == ["b2"] && order.canWaitFrom == nil)
+}
+
+@Test func theFilledOptionIsTheFirst() throws {
+    #expect(try asks([("b1", .blocks)]).checks[0].filled?.id == #require(asks([("b1", .blocks)]).checks[0].options.first).id)
 }

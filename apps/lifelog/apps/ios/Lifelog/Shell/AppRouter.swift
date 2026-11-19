@@ -17,6 +17,8 @@ final class AppRouter {
     var matterColumn = NavigationSplitViewColumn.sidebar
     /// The asks pushed on the matter on show, by check ref: Back returns to the matter, the tab stays on Matters.
     var matterPath: [String] = []
+    /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
+    var inboxColumn = NavigationSplitViewColumn.detail
     var sheet: Sheet?
     /// The matter whose "Start an agent" sheet is open: here, not in the matter's page, so a fold that collapses the page
     /// keeps the sheet and the start it shows.

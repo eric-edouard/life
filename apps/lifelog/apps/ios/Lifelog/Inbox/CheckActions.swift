@@ -82,7 +82,7 @@ struct CheckActions: View {
     }
 
     @ViewBuilder private var options: some View {
-        if let first = check.options.first {
+        if let first = check.filled {
             Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
             let rest = check.options.dropFirst().map { option in
                 Choice(id: option.id, label: label(of: option)) { tap(option) }
@@ -94,7 +94,7 @@ struct CheckActions: View {
     /// The server's words, except the filled naming answer with no candidate drawn: "Name them…" (a voice) or
     /// "Someone I know…" (a name).
     private func label(of option: Check.Option) -> String {
-        guard option.id == check.namingOption?.id, option.id == check.options.first?.id else { return option.label }
+        guard option.id == check.namingOption?.id, option.id == check.filled?.id else { return option.label }
         switch check.group {
         case .voice: return "Name them…"
         case .name: return "Someone I know…"
