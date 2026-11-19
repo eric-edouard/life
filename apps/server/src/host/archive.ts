@@ -40,7 +40,10 @@ export function lastCopied({ name, store }: Archived, dir = ARCHIVE) {
 const REOPEN_MS = 600_000;
 const openedAt = new Map<string, number>();
 
-/** The kept stores' apps to open: not among `running` (process names) and not opened in the last 10 minutes. */
+/**
+ * The kept stores' apps to open: not among `running` (process names) and not opened in the last 10 minutes. A store
+ * whose app can't be told now (a bridge's database mid-restart) is skipped this pass, never a crash of the archive.
+ */
 export const appsToOpen = (
   running: string[],
   now: number,
@@ -48,7 +51,19 @@ export const appsToOpen = (
   stores = keptStores()
 ) =>
   stores
-    .flatMap((s) => (s.store.app ? [s.store.app] : []))
+    .flatMap((s) => {
+      try {
+        return s.store.app ? [s.store.app] : [];
+      } catch (error) {
+        console.error(
+          clock().toISOString(),
+          s.name,
+          "app unknown this pass",
+          error
+        );
+        return [];
+      }
+    })
     .filter(
       (app) =>
         !running.includes(app) && now - (opened.get(app) ?? 0) >= REOPEN_MS

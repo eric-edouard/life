@@ -108,9 +108,12 @@ extension LibraryStore {
     }
 
     /// Every queued edit in order, refused ones included until the owner dismisses them. One this app can't read is
-    /// left out and reported (`UndecodableRow`).
+    /// reported once (`UndecodableRow`) and deleted, on purpose: builds only move forward, so it is a kind of edit an
+    /// older build queued and this one no longer makes, which nothing could ever send.
     public func outbox() throws -> [OutboxEntry] {
-        try db.query("SELECT id, intent, created_ms, refused FROM outbox ORDER BY seq") { row -> OutboxEntry? in
+        var unreadable: [String] = []
+        let entries = try db.query("SELECT id, intent, created_ms, refused FROM outbox ORDER BY seq") {
+            row -> OutboxEntry? in
             do {
                 return OutboxEntry(
                     id: UUID(uuidString: row.text(0)) ?? UUID(),
@@ -118,9 +121,14 @@ extension LibraryStore {
                     createdAt: CaptureInstant(millis: row.int(2)).date, refused: row.isNull(3) ? nil : row.text(3))
             } catch {
                 report(UndecodableRow(kind: "outbox", key: row.text(0), error: error))
+                unreadable.append(row.text(0))
                 return nil
             }
         }.compactMap(\.self)
+        for id in unreadable {
+            try db.run("DELETE FROM outbox WHERE id = ?1", [.text(id)])
+        }
+        return entries
     }
 
     /// The server answered: accepted (`refused` nil) leaves the outbox; refused stays, with the server's message.
