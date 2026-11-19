@@ -17,11 +17,13 @@ import {
   readCursor,
   type TurnRow,
 } from "../host/desk-read";
+import type { Matchable } from "../host/event-channels";
 import {
   CALL_ENDED,
-  callMatcherOf,
+  callMatchableOf,
   MESSAGE_RECEIVED,
   matcherOf,
+  messageMatchableOf,
   pollDecisions,
   readEndedCalls,
   readMessageEvents,
@@ -125,7 +127,9 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
     people,
     (m, e) => {
       const ids = new Set(
-        matchers.filter((x) => x.isMatch(m, e)).map((x) => x.id)
+        matchers
+          .filter((x) => x.isMatch(messageMatchableOf(m, e)))
+          .map((x) => x.id)
       );
       return ids.size || nets.length
         ? { fromMe: e.fromMe, ids, m, text: e.text }
@@ -148,6 +152,28 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
 }
 
 /**
+ * Each active agent's wakes by `events`: those its wait wants (`matcherOf`), from after it was created (by the event's
+ * instant), not queued for it yet (`eventHeard`).
+ */
+function wakesOf<T>(
+  db: Desk["db"],
+  agents: AgentRow[],
+  people: People,
+  events: { at: string; eventId: string; matchable: Matchable; payload: T }[]
+) {
+  return agents.flatMap((a) => {
+    const matchers = filtersOf(a).flatMap((f) => matcherOf(f, people) ?? []);
+    return events.flatMap((e) =>
+      e.at >= a.created_at &&
+      matchers.some((isMatch) => isMatch(e.matchable)) &&
+      eventHeard(db, a.id, e.eventId) === "not_yet"
+        ? [{ agent: a.id, eventId: e.eventId, payload: e.payload }]
+        : []
+    );
+  });
+}
+
+/**
  * Queues `call.ended` for each active agent whose wait wants a call that ended in the last 12 hours (`readEndedCalls`),
  * once lifelog holds the call's words (`recordingsOf`): the chat, the span, who was on it and where its turns are, never
  * a word. A call with no turn inside (the pendant was off) queues nothing and is looked at again next poll until it is
@@ -166,19 +192,17 @@ export async function pollCalls(
     return;
   }
   const people = await readPeopleNow();
-  const calls = readEndedCalls(people, desk.sources, at);
-  const wakes = agents.flatMap((a) => {
-    const matchers = filtersOf(a).flatMap(
-      (f) => callMatcherOf(f, people) ?? []
-    );
-    return calls.flatMap((call) =>
-      call.until >= a.created_at &&
-      matchers.some((isMatch) => isMatch(call)) &&
-      eventHeard(db, a.id, `${call.id}.ended`) === "not_yet"
-        ? [{ agent: a.id, call }]
-        : []
-    );
-  });
+  const wakes = wakesOf(
+    db,
+    agents,
+    people,
+    readEndedCalls(people, desk.sources, at).map((call) => ({
+      at: call.until,
+      eventId: `${call.id}.ended`,
+      matchable: callMatchableOf(call),
+      payload: call,
+    }))
+  );
   if (wakes.length === 0) {
     return;
   }
@@ -186,7 +210,7 @@ export async function pollCalls(
     const recordings = await withStore(
       (store) =>
         new Map(
-          wakes.map(({ call }) => [
+          wakes.map(({ payload: call }) => [
             call.id,
             recordingsOf(store, call.at, call.until),
           ])
@@ -197,16 +221,10 @@ export async function pollCalls(
       queue(
         db,
         CALL_ENDED,
-        wakes.flatMap(({ agent, call }) => {
+        wakes.flatMap(({ agent, eventId, payload: call }) => {
           const found = recordings.get(call.id);
           return found
-            ? [
-                {
-                  agent,
-                  eventId: `${call.id}.ended`,
-                  payload: { ...call, recordings: found },
-                },
-              ]
+            ? [{ agent, eventId, payload: { ...call, recordings: found } }]
             : [];
         })
       )

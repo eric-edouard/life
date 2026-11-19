@@ -9,11 +9,12 @@ import {
 import { readPeople } from "../memory/who";
 import type { SourceEvent } from "../records/source";
 import {
-  callMatcherOf,
+  callMatchableOf,
   DECISION_ANSWERED,
   DECISION_LAPSED,
   MESSAGE_RECEIVED,
   type Messaging,
+  matcherOf,
   pollEvents,
   pollMessagesReceived,
   readEndedCalls,
@@ -385,8 +386,8 @@ test("a call matches by chat, app and person against who was on it, whoever plac
   if (!(one && group)) {
     throw new Error("two calls expected");
   }
-  const match = (f: Parameters<typeof callMatcherOf>[0], c = one) =>
-    callMatcherOf(f, people)?.(c);
+  const match = (f: Parameters<typeof matcherOf>[0], c = one) =>
+    matcherOf(f, people)?.(callMatchableOf(c));
   // His own call to Ana, by the chat (a `from_me: false` filter, as an agent's wait has) and by the person.
   expect(match({ chat: "Test Ana", from_me: false })).toBe(true);
   expect(match({ from_me: false, person: "Test Ana" })).toBe(true);
@@ -398,13 +399,13 @@ test("a call matches by chat, app and person against who was on it, whoever plac
   // His own messages and their words are not a call.
   expect(match({ chat: "Test Ana", from_me: true })).toBe(false);
   expect(
-    callMatcherOf(
+    matcherOf(
       { chat: "Test Ana", from_me: false, text_matches: "hi" },
       people
-    )?.(one)
+    )?.(callMatchableOf(one))
   ).toBe(false);
   expect(
-    callMatcherOf({ from_me: false, person: "Nobody Madeup" }, people)
+    matcherOf({ from_me: false, person: "Nobody Madeup" }, people)
   ).toBeNull();
   // Facts only: no text of a message rides on a call.
   expect(Object.keys(one).sort()).toEqual([

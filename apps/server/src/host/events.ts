@@ -20,6 +20,7 @@ import { meant, nameRefusalOf, type People, readPeople } from "../memory/who";
 import { EventFilter } from "../records/registered-agent";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
+import type { Matchable } from "./event-channels";
 
 // Events: what an agent can wait for, MCP's Events extension (SEP-3415, a draft; `io.modelcontextprotocol/events`),
 // served by poll only. The agent picks its own arguments and Life matches them by code. An event is computed when it
@@ -265,8 +266,9 @@ const wantedOf = (filter: EventFilter, people: People) =>
   filter.person ? meant(filter.person, people).known : undefined;
 
 /**
- * Whether a message is one `filter` wants, decided here only (the connector's polls and the desk's agent waits): null
- * when its person is no one Life knows.
+ * Whether an event is one `filter` wants, decided here only (the connector's polls and the desk's agent waits), by the
+ * rules of `Matchable`: by app, chat, his own or others', who (a message's writer, or who was on a call, whoever
+ * placed it) and a pattern on its text. Null when its person is no one Life knows.
  */
 export function matcherOf(filter: EventFilter, people: People) {
   const wanted = wantedOf(filter, people);
@@ -276,14 +278,26 @@ export function matcherOf(filter: EventFilter, people: People) {
   const text = filter.text_matches
     ? new RegExp(filter.text_matches, "i")
     : undefined;
-  return (m: MessagePayload, e: SourceEvent) =>
-    e.fromMe === filter.from_me &&
-    (!filter.channels || filter.channels.includes(m.source)) &&
-    (!filter.chat || m.chat === filter.chat) &&
-    (!wanted || m.person === `person:${wanted}`) &&
+  return (x: Matchable) =>
+    (x.fromMe ?? false) === filter.from_me &&
+    (!filter.channels || filter.channels.includes(x.channel)) &&
+    (!filter.chat || x.chat === filter.chat) &&
+    (!wanted || (x.people ?? []).includes(`person:${wanted}`)) &&
     // ponytail: a backtracking pattern stalls the desk's message poll for every agent (200 characters and a compile check bound its size, not its match time; the author is his own agent or paired app). A linear-time engine at this one call if it ever bites.
-    (!text || text.test(e.text));
+    (!text || (x.text !== undefined && text.test(x.text)));
 }
+
+/** A message as a filter sees it: its writer (his own: the 1:1 chat's person, `messagePayloadOf`) and its text. */
+export const messageMatchableOf = (
+  m: MessagePayload,
+  e: SourceEvent
+): Matchable => ({
+  channel: m.source,
+  chat: m.chat,
+  fromMe: e.fromMe,
+  people: m.person ? [m.person] : [],
+  text: e.text,
+});
 
 /**
  * The messages past `cursor` (none: start at now) that `item` makes something of, at most `max`, and the cursor past
@@ -371,7 +385,7 @@ export async function pollMessagesReceived(
     p.maxEvents ?? PAGE,
     people,
     (m, e) =>
-      isMatch(m, e)
+      isMatch(messageMatchableOf(m, e))
         ? { data: m, eventId: m.id, name: MESSAGE_RECEIVED, timestamp: m.at }
         : null,
     sources
@@ -393,22 +407,12 @@ export interface CallPayload extends MessagePayload {
   video: boolean;
 }
 
-/**
- * Whether a call is one `filter` wants, decided here only (the desk's waits): by chat or app, and by person against who
- * was on the call, not who dialed. `from_me` is not asked: a call of his own matches too. A filter on his own messages
- * (`from_me`) or on their words (`text_matches`) matches no call. Null when its person is no one Life knows.
- */
-export function callMatcherOf(filter: EventFilter, people: People) {
-  const wanted = wantedOf(filter, people);
-  if (filter.person && !wanted) {
-    return null;
-  }
-  return (c: CallPayload) =>
-    !(filter.from_me || filter.text_matches) &&
-    (!filter.channels || filter.channels.includes(c.source)) &&
-    (!filter.chat || c.chat === filter.chat) &&
-    (!wanted || c.people.includes(`person:${wanted}`));
-}
+/** A call as a filter sees it: who was on it, never who dialed; not his own message and no text. */
+export const callMatchableOf = (c: CallPayload): Matchable => ({
+  channel: c.source,
+  chat: c.chat,
+  people: c.people,
+});
 
 /** The chat apps that are on and readable: where calls are, whether or not they say what came after a row (the phone's don't). */
 const chatSources = () =>
