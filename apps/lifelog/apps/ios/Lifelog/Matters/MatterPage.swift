@@ -39,7 +39,7 @@ struct MatterPage: View {
                 asks(opening: opening, questions: questions)
                 GoalAndNext(matter: matter)
                 if let agent {
-                    AgentRow(agent: agent) { router.agentSheetMatter = id }
+                    AgentRow(agent: agent) { router.matterSheet = .agent(id) }
                 } else {
                     NoAgent()
                 }
@@ -52,7 +52,7 @@ struct MatterPage: View {
         .safeAreaInset(edge: .bottom, spacing: 8) {
             VStack(spacing: 8) {
                 if canStart {
-                    Button(agent == nil ? "Start an agent" : "Start again") { router.startSheetMatter = id }
+                    Button(agent == nil ? "Start an agent" : "Start again") { router.matterSheet = .start(id) }
                         .buttonStyle(.pill(.filled))
                 }
                 DoneButton(id: id)

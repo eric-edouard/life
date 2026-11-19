@@ -199,7 +199,7 @@ extension Taken {
     func failedWord(_ failure: ActionFailure) -> String {
         if failure.mayHaveHappened { return isSend ? "May have gone." : "Check first." }
         if failure.isSameTap { return "No answer from Life." }
-        if isStart { return "Not started." }
+        if isStart { return AgentWords.notStarted + "." }
         return isSend ? "Not sent." : "Not saved."
     }
 

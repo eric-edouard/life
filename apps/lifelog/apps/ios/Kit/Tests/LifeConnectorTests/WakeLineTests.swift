@@ -9,11 +9,11 @@ private func lines(_ json: String) throws -> [WakeLine] {
     try LibraryStore.feedDecoder.decode([WakeLine].self, from: Data(json.utf8))
 }
 
-private let format = WakeFormat(
-    weekdayTime: { _ in "Thu 18:00" }, time: { _ in "14:02" }, full: { _ in "Thu 19 Nov, 14:02" })
+private let utc = TimeZone(identifier: "UTC")!
+private let english = Locale(identifier: "en_GB")
 
 private func clause(_ json: String) throws -> WakeClause {
-    guard case .clause(let clause) = try #require(try lines(json).first).row(format: format) else {
+    guard case .clause(let clause) = try #require(try lines(json).first).row(locale: english, timeZone: utc) else {
         Issue.record("not a clause")
         throw CancellationError()
     }
@@ -21,7 +21,7 @@ private func clause(_ json: String) throws -> WakeClause {
 }
 
 private func waker(_ json: String) throws -> Waker {
-    guard case .waker(let waker) = try #require(try lines(json).first).row(format: format) else {
+    guard case .waker(let waker) = try #require(try lines(json).first).row(locale: english, timeZone: utc) else {
         Issue.record("not a waker")
         throw CancellationError()
     }
@@ -38,8 +38,8 @@ private func waker(_ json: String) throws -> Waker {
         RegisteredAgents.self, from: Data(wireText("life/read_registered_agents.json").utf8))
     #expect(agents.agents[0].wakesOn.isEmpty)
     #expect(agents.agents[0].statusSince != nil)
-    // Idris-style person, a chat, a broken person (left out of the glance), then 4 other lines.
-    #expect(agents.agents[1].glance(format: format) == "Gran, Shop fit-out +4, or Thu 18:00")
+    // A person, a chat, a broken person (left out of the row line), then 4 other lines.
+    #expect(agents.agents[1].rowLine(locale: english, timeZone: utc) == "Gran, Shop fit-out +4, or Fri 09:00")
 }
 
 /// `read_registered_agents` and `read_matter` both carry `agents`.
@@ -69,6 +69,14 @@ private struct AnyAgents: Decodable {
     #expect(try lines(#"[{"kind":"message","person":"Léa","calls":true,"broken":"unknown_person"}]"#)[0].isBroken)
 }
 
+@Test func aBrokenMessageLineWithWordsStaysAClauseAndSaysWhy() throws {
+    let broken = try clause(
+        #"[{"kind":"message","person":"Léa","words":"prix","calls":false,"broken":"unknown_person"}]"#)
+    #expect(broken.text == "Léa writes “prix”")
+    #expect(broken.brokenReason == "No longer in your people")
+    #expect(try clause(#"[{"kind":"message","person":"Léa","words":"prix","calls":false}]"#).brokenReason == nil)
+}
+
 @Test func aChatWithNoNameYetIsNotAGroup() throws {
     let chat = try waker(#"[{"kind":"message","calls":true,"chat":{"name":null,"app":"line","group":null}}]"#)
     #expect(chat.who == .chat(name: nil, isGroup: false))
@@ -91,14 +99,14 @@ private struct AnyAgents: Decodable {
 }
 
 @Test func paymentsReadAsAClauseFromThePaymentsSource() throws {
-    #expect(try clause(#"[{"kind":"payments","quantity":"eur_out","above":500}]"#).text == "A payment is over 500 €")
-    #expect(try clause(#"[{"kind":"payments","quantity":"eur_in","above":500}]"#).text == "You receive over 500 €")
+    #expect(try clause(#"[{"kind":"payments","quantity":"eur_out","above":500}]"#).text == "A payment is over €500")
+    #expect(try clause(#"[{"kind":"payments","quantity":"eur_in","above":500}]"#).text == "You receive over €500")
     #expect(
-        try clause(#"[{"kind":"payments","quantity":"eur_out","below":20.5}]"#).text == "A payment is under 20.50 €")
+        try clause(#"[{"kind":"payments","quantity":"eur_out","below":20.5}]"#).text == "A payment is under €20.50")
     #expect(try clause(#"[{"kind":"payments","words":"loyer"}]"#).text == "A payment mentions “loyer”")
     #expect(
         try clause(#"[{"kind":"payments","quantity":"eur_out","above":100,"words":"shop"}]"#).text
-            == "A payment is over 100 € and mentions “shop”")
+            == "A payment is over €100 and mentions “shop”")
     let any = try clause(#"[{"kind":"payments"}]"#)
     #expect(any.text == "Any payment")
     #expect(any.source == "Payments")
@@ -120,15 +128,15 @@ private struct AnyAgents: Decodable {
     #expect(try lines(#"[{"kind":"message","calls":true,"person":"A","broken":"someday"}]"#)[0].isBroken)
 }
 
-@Test func theGlanceNamesTwoCountsTheRestAndSkipsWhatCanNeverFire() throws {
+@Test func theRowLineNamesTwoCountsTheRestAndSkipsWhatCanNeverFire() throws {
     func agent(
         _ status: String, since: String = "null", wakes: String,
         until: String = #"{"reason":"r","until":"2026-11-20T18:00:00.000Z","isDefault":false}"#
     ) throws -> RegisteredAgent {
         let json = """
-            {"id":"a","title":"t","status":"\(status)","runtime":"claude","model":null,"effort":null,"link":null,"notes":"",
+            {"id":"a","title":"t","status":"\(status)","runtime":"claude","link":null,"notes":"",
              "outcome":null,"notStarted":null,"project":null,"matter":null,"wait":\(until),"statusSince":\(since),
-             "wakesOn":\(wakes),"lastTurn":null,"amber":[]}
+             "wakesOn":\(wakes),"amber":[]}
             """
         return try LibraryStore.feedDecoder.decode(RegisteredAgent.self, from: Data(json.utf8))
     }
@@ -140,14 +148,36 @@ private struct AnyAgents: Decodable {
              {"kind":"message","calls":true,"chat":{"name":null,"app":null,"group":null}},
              {"kind":"answer","card":"Go?","check":"c","deadline":"2026-11-20T18:00:00.000Z"},{"kind":"wide_net"}]
             """)
-    #expect(dead.glance(format: format) == "Idris +3, or Thu 18:00")
+    #expect(dead.rowLine(locale: english, timeZone: utc) == "Idris +3, or Fri 18:00")
     let none = try agent("waiting", wakes: "[]", until: "null")
-    #expect(none.glance(format: format) == nil)
+    #expect(none.rowLine(locale: english, timeZone: utc) == nil)
     let only = try agent("waiting", wakes: #"[{"kind":"wide_net"}]"#)
-    #expect(only.glance(format: format) == "Thu 18:00")
+    #expect(only.rowLine(locale: english, timeZone: utc) == "Fri 18:00")
     #expect(
-        try agent("running", since: #""2026-11-19T14:02:00.000Z""#, wakes: "[]", until: "null").glance(format: format)
+        try agent("running", since: #""2026-11-19T14:02:00.000Z""#, wakes: "[]", until: "null").rowLine(
+            locale: english, timeZone: utc)
             == "Working since 14:02")
-    #expect(try agent("stopped", wakes: "[]", until: "null").glance(format: format) == "Stopped")
-    #expect(try agent("ended", wakes: "[]", until: "null").glance(format: format) == nil)
+    #expect(try agent("stopped", wakes: "[]", until: "null").rowLine(locale: english, timeZone: utc) == "Stopped")
+    #expect(try agent("ended", wakes: "[]", until: "null").rowLine(locale: english, timeZone: utc) == nil)
+}
+
+@Test func anAgentHasOneStateWordForItsRowAndItsSheet() throws {
+    func agent(_ status: String, notStarted: String = "null", since: String = "null") throws -> RegisteredAgent {
+        let json = """
+            {"id":"a","title":"t","status":"\(status)","runtime":"claude","link":null,"notes":"","outcome":null,
+             "notStarted":\(notStarted),"project":null,"matter":null,"wait":null,"statusSince":\(since),"wakesOn":[],
+             "amber":[]}
+            """
+        return try LibraryStore.feedDecoder.decode(RegisteredAgent.self, from: Data(json.utf8))
+    }
+    #expect(try agent("running").stateWord == "Working")
+    #expect(try agent("stopped").stateWord == "Stopped")
+    #expect(try agent("ended").stateWord == "Finished")
+    #expect(try agent("handed_over").stateWord == "Handed over")
+    #expect(try agent("waiting").stateWord == nil)
+    let refused = try agent("ended", notStarted: #""Codex refused""#)
+    #expect(refused.stateWord == "Not started")
+    #expect(refused.rowLine(locale: english, timeZone: utc) == "Not started: Codex refused")
+    // The server decides when it began: no date, no guess from a turn.
+    #expect(try agent("running").rowLine(locale: english, timeZone: utc) == "Working")
 }

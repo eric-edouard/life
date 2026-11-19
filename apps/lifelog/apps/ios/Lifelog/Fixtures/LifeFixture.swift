@@ -22,6 +22,8 @@
         nonisolated static let tab = value(of: "-fixtureTab")
         nonisolated static let matter = value(of: "-fixtureMatter")
         nonisolated static let sheet = value(of: "-fixtureSheet")
+        /// `-fixtureAgent notStarted`: Nora's agent never began (its runtime refused), for the Try again swap.
+        nonisolated static let agent = value(of: "-fixtureAgent")
         /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).
         /// `-fixturePage life|server|diagnostics`: Settings opens that page.
         nonisolated static let page = value(of: "-fixturePage")
@@ -726,11 +728,10 @@
 
         static func agent(_ index: Int) -> [String: Any] {
             let common: [String: Any] = [
-                "amber": [], "effort": "medium", "steps": [], "project": NSNull(), "outcome": NSNull(),
+                "amber": [], "steps": [], "project": NSNull(), "outcome": NSNull(),
             ]
             let lease: [String: Any] = [
                 "id": "agt_lease", "title": "Get the lease signed and back to Hélène Aubert", "runtime": "claude",
-                "model": "Sonnet",
                 "status": "waiting", "link": "https://agents.example.test/s/1", "notes": "Lease renewal.",
                 "wait": ["isDefault": false, "reason": "Hélène sends the signed lease.", "until": at(21, 18)],
                 "statusSince": at(19, 14, 2),
@@ -754,13 +755,9 @@
                     ["kind": "answer", "card": "Go with this plan?", "check": "dec_plan", "deadline": at(19, 18)],
                     ["kind": "wide_net"],
                 ],
-                "lastTurn": [
-                    "startedAt": at(18, 14, 0), "endedAt": at(18, 14, 2),
-                    "outcome": "drafted the reply to Hélène and asked you to send it",
-                ],
             ]
             let kitchen: [String: Any] = [
-                "id": "agt_kitchen", "title": "Get the kitchen supplier price", "runtime": "codex", "model": "GPT",
+                "id": "agt_kitchen", "title": "Get the kitchen supplier price", "runtime": "codex",
                 "status": "waiting", "link": NSNull(), "notes": "Kitchen quote.",
                 "wait": ["isDefault": true, "reason": "a message", "until": at(20, 18)],
                 "statusSince": at(19, 14, 2),
@@ -772,16 +769,12 @@
                     ["kind": "answer", "card": "Go with this plan?", "check": "dec_plan", "deadline": at(20, 18)],
                     ["kind": "wide_net"],
                 ],
-                "lastTurn": [
-                    "startedAt": at(17, 10, 0), "endedAt": at(17, 10, 4), "outcome": "asked Idris for the price",
-                ],
             ]
             let table: [String: Any] = [
-                "id": "agt_table", "title": "Book Chez Odile", "runtime": "claude", "model": "Sonnet",
+                "id": "agt_table", "title": "Book Chez Odile", "runtime": "claude",
                 "status": "running",
                 "link": "https://agents.example.test/s/9", "notes": "Table.", "wait": NSNull(),
                 "statusSince": at(18, 14, 5), "wakesOn": [],
-                "lastTurn": ["startedAt": at(18, 14, 5), "endedAt": NSNull(), "outcome": NSNull()],
             ]
             let matter: [Int: [String: Any]] = [
                 0: ["id": "matter_lease", "name": "Lease renewal, rue des Carmes", "status": "moving"],
@@ -790,11 +783,15 @@
                 3: ["id": "matter_nora", "name": "Quote for Nora Keller", "status": "moving"],
             ]
             let stopped: [String: Any] = [
-                "id": "agt_nora", "title": "Quote for Nora Keller", "runtime": "claude", "model": "Sonnet",
+                "id": "agt_nora", "title": "Quote for Nora Keller", "runtime": "claude",
                 "status": "stopped", "link": "https://agents.example.test/s/4", "notes": "Quote.", "wait": NSNull(),
-                "statusSince": at(19, 14, 10), "wakesOn": [], "lastTurn": NSNull(),
+                "statusSince": at(19, 14, 10), "wakesOn": [],
             ]
-            let body = [lease, kitchen, table, stopped][index]
+            var body = [lease, kitchen, table, stopped][index]
+            if index == 3, LifeFixture.agent == "notStarted" {
+                body["status"] = "ended"
+                body["notStarted"] = "Codex refused to start."
+            }
             return common.merging(body) { $1 }.merging(["matter": matter[index] ?? NSNull()]) { $1 }
         }
 

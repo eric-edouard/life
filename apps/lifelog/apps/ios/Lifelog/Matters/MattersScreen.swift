@@ -58,31 +58,25 @@ struct MattersScreen: View {
         .onChange(of: sizeClass, initial: true) { fillSelection() }
         .onChange(of: life.matters.value) { fillSelection() }
         // Here, above both columns, so a fold that collapses the matter's page keeps the sheet and its running start.
-        .sheet(isPresented: agentSheetBinding) {
-            if let id = router.agentSheetMatter { AgentSheet(matter: id) }
-        }
-        .sheet(isPresented: startSheetBinding) {
-            if let id = router.startSheetMatter, let matter = life.matter[id]?.value {
-                StartAgentSheet(matter: matter).presentationPlacement(.leading)
+        .sheet(item: matterSheetBinding) { sheet in
+            switch sheet {
+            case .agent(let id): AgentSheet(matter: id)
+            case .start(let id):
+                if let matter = life.matter[id]?.value {
+                    StartAgentSheet(matter: matter).presentationPlacement(.leading)
+                }
             }
         }
     }
 
-    /// Closing the sheet clears the start it showed, so the next opens on the form.
-    private var startSheetBinding: Binding<Bool> {
+    /// Closing the start sheet clears the start it showed, so the next opens on the form.
+    private var matterSheetBinding: Binding<AppRouter.MatterSheet?> {
         Binding(
-            get: { router.startSheetMatter != nil },
-            set: { isOpen in
-                guard !isOpen, let id = router.startSheetMatter else { return }
-                life.forget(.start(matter: id))
-                router.startSheetMatter = nil
+            get: { router.matterSheet },
+            set: { sheet in
+                if sheet == nil, case .start(let id) = router.matterSheet { life.forget(.start(matter: id)) }
+                router.matterSheet = sheet
             })
-    }
-
-    private var agentSheetBinding: Binding<Bool> {
-        Binding(
-            get: { router.agentSheetMatter != nil },
-            set: { if !$0 { router.agentSheetMatter = nil } })
     }
 
     private func fillSelection() {

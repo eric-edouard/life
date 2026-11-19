@@ -11,6 +11,20 @@ final class AppRouter {
         var id: String { rawValue }
     }
 
+    enum MatterSheet: Identifiable, Equatable {
+        /// What wakes the matter's agent.
+        case agent(String)
+        /// "Start an agent" on the matter.
+        case start(String)
+
+        var id: String {
+            switch self {
+            case .agent(let id): "agent-\(id)"
+            case .start(let id): "start-\(id)"
+            }
+        }
+    }
+
     var tab = Tab.inbox
     /// The matter on show in the Matters tab, by id, and which column a compact width shows: the list or the matter.
     var matter: String?
@@ -20,11 +34,9 @@ final class AppRouter {
     /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
     var inboxColumn = NavigationSplitViewColumn.detail
     var sheet: Sheet?
-    /// The matter whose "Start an agent" sheet is open: here, not in the matter's page, so a fold that collapses the page
-    /// keeps the sheet and the start it shows.
-    var startSheetMatter: String?
-    /// The matter whose agent's sheet (what wakes it) is open; held here for the same reason.
-    var agentSheetMatter: String?
+    /// The sheet open over a matter, by its id: here, not in the matter's page, so a fold that collapses the page keeps the
+    /// sheet and the start it shows. One value, so one sheet replaces the other (Try again) in a single update.
+    var matterSheet: MatterSheet?
 
     func open(matter id: String) {
         sheet = nil
