@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { clock } from "../core/clock";
+import { clock, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { LEDGER, readLedger } from "../memory/memory-files";
@@ -161,11 +161,18 @@ export function changeAskedTodoItem(
   });
 }
 
+/** The most one tick takes: both backends' commands are killed after a minute (`exec`'s default). */
+export const TICK_LIMIT_MS = MIN;
+
 /**
  * Ticks the to-do items `keys` (their ledger keys, as a matter's steps name them) on his word `said`, one
- * `changeTodoItem` each, in turn. Refused, ticking none, when one is an item of another list app than this install's.
+ * `changeTodoItem` each, in turn, `onTicked` after each. Refused, ticking none, when one is an item of another list app than this install's.
  */
-export async function tickTodoItems(keys: readonly string[], said: string) {
+export async function tickTodoItems(
+  keys: readonly string[],
+  said: string,
+  onTicked?: (done: number, of: number, key: string) => void
+) {
   const b = backend();
   const items = [...todoItemsOf(await readLedger()).values()].filter((it) =>
     keys.includes(it.key)
@@ -189,6 +196,7 @@ export async function tickTodoItems(keys: readonly string[], said: string) {
         "connector"
       )
     );
+    onTicked?.(ticked.length, items.length, it.key);
   }
   return ticked;
 }
