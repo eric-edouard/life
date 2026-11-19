@@ -6,7 +6,7 @@ Swift package with everything that doesn't need UIKit, so it builds and tests on
 generates the gitignored `.xcodeproj`.
 The app is Life's two tabs, Inbox (`Inbox/`: the `CheckCard`s, paged by swipe, and its `AnswerResultView`) and Matters (`Matters/`), plus
 the system's search tab (`Shell/SearchScreen.swift`). The bars are two groups of system pieces, declared and never drawn
-(`Shell/TopBar.swift`): on top the Pendant's pill and the Settings gear (Settings only from Inbox and Matters; a pushed
+(`Shell/TopBar.swift`): on top the Pendant's icon and the Settings gear (Settings only from Inbox and Matters; a pushed
 page has Back and the Pendant; a sheet only its Close, a toolbar item from `SheetHeader` in the sheet's `sheetStack()`),
 at the bottom the tabs. A screen's answers stay in its content, never in a bar. Sheets are centred, the system's
 default: no `presentationPlacement` (`.leading` is missing on iOS 27.0 and crashes). The old Library, Conversation, People, Presses and

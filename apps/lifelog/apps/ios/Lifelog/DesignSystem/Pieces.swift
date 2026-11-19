@@ -535,6 +535,13 @@ struct SheetHeader: View {
     }
 }
 
+extension View {
+    /// A sheet in its own stack, so its Close (`SheetHeader`) is a toolbar item in the bar the system draws.
+    func sheetStack() -> some View {
+        NavigationStack { self }
+    }
+}
+
 /// The quiet placeholder of a read still loading: a few bars where the content will be, no spinner.
 struct Placeholder: View {
     var width: CGFloat? = nil
@@ -561,6 +568,20 @@ extension View {
     /// column): it fills a narrow container and stops growing in a wide one.
     func readingWidth(_ width: CGFloat = 540) -> some View {
         frame(maxWidth: width).frame(maxWidth: .infinity)
+    }
+
+    /// A scrolling region that ends at any trailing inset (the Duo's column; a phone's notch in landscape), not under
+    /// it: a scroll view's frame runs under the safe area, so the inset is taken as padding.
+    func endsAtColumn() -> some View { modifier(EndsAtColumn()) }
+}
+
+private struct EndsAtColumn: ViewModifier {
+    @State private var inset: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.trailing, inset)
+            .onGeometryChange(for: CGFloat.self, of: { $0.safeAreaInsets.trailing }) { inset = $0 }
     }
 }
 
