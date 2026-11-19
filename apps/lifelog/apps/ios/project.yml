@@ -14,7 +14,8 @@ settings:
     DEVELOPMENT_TEAM: FA22AU429R
     LIFELOG_BUNDLE_ID: com.ericedouard.lifelog
     CODE_SIGN_STYLE: Automatic
-    # The widget extension's versions must match the app's.
+    # The build number every target's Info.plist reads, so the extensions and the watch match the app. "1" only where
+    # nothing passes one: install-phone.ts passes the UTC build time (YYYYMMDD.HHMM), the one place it is computed.
     CURRENT_PROJECT_VERSION: "1"
     MARKETING_VERSION: "1.0"
     SWIFT_VERSION: "6.0"
@@ -65,8 +66,8 @@ targets:
         product: Health
       - package: LifelogKit
         product: LifeConnector
-    # The build's time and commit (a `+` when the tree is dirty), written to `build-stamp.txt` in the app's resources, which
-    # Settings shows: every build and install carries it, and the file is signed with the bundle. The sandbox is off for
+    # The build's commit (a `+` when the tree is dirty), written to `build-stamp.txt` in the app's resources, which
+    # Settings shows beside the version and build date: every build and install carries it, and the file is signed with the bundle. The sandbox is off for
     # this target because git reads `.git`, which sits outside the source folder in a worktree.
     postBuildScripts:
       - name: Stamp the build
@@ -74,7 +75,7 @@ targets:
         basedOnDependencyAnalysis: false
         script: |
           dirty=$(git -C "$SRCROOT" diff --quiet HEAD || echo +)
-          echo "$(LC_ALL=C date '+%-d %b %H:%M') · $(git -C "$SRCROOT" rev-parse --short HEAD 2>/dev/null || echo nogit)$dirty" > "$SCRIPT_OUTPUT_FILE_0"
+          echo "$(git -C "$SRCROOT" rev-parse --short HEAD 2>/dev/null || echo nogit)$dirty" > "$SCRIPT_OUTPUT_FILE_0"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID)
@@ -106,6 +107,8 @@ targets:
         # Limited Photos access: don't offer to pick more photos on every launch.
         PHPhotoLibraryPreventAutomaticLimitedAccessAlert: true
         CFBundleDevelopmentRegion: en
+        # The build's date, passed by the scripts that build (`CURRENT_PROJECT_VERSION=YYYYMMDD.HHMM`); left as a variable so it is never baked in.
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Pairing links from the server's Mac (`lifelog://pair?url=…&token=…`), opened from a QR code.
         CFBundleURLTypes:
           - CFBundleURLName: pairing
@@ -144,6 +147,8 @@ targets:
         # The app group, read at run time (Shared/AppGroup.swift).
         LifelogAppGroup: group.$(LIFELOG_BUNDLE_ID)
         CFBundleDevelopmentRegion: en
+        # The build's date, passed by the scripts that build (`CURRENT_PROJECT_VERSION=YYYYMMDD.HHMM`); left as a variable so it is never baked in.
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
@@ -176,6 +181,8 @@ targets:
         LifelogAppGroup: group.$(LIFELOG_BUNDLE_ID)
         LifelogBundleID: $(LIFELOG_BUNDLE_ID)
         CFBundleDevelopmentRegion: en
+        # The build's date, passed by the scripts that build (`CURRENT_PROJECT_VERSION=YYYYMMDD.HHMM`); left as a variable so it is never baked in.
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
@@ -204,6 +211,8 @@ targets:
       path: NotificationContent/Info.plist
       properties:
         CFBundleDevelopmentRegion: en
+        # The build's date, passed by the scripts that build (`CURRENT_PROJECT_VERSION=YYYYMMDD.HHMM`); left as a variable so it is never baked in.
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.content-extension
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationViewController
@@ -243,6 +252,8 @@ targets:
         # The app group, read at run time (Shared/AppGroup.swift).
         LifelogAppGroup: group.$(LIFELOG_BUNDLE_ID)
         CFBundleDevelopmentRegion: en
+        # The build's date, passed by the scripts that build (`CURRENT_PROJECT_VERSION=YYYYMMDD.HHMM`); left as a variable so it is never baked in.
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         WKApplication: true
     entitlements:
       path: Watch/App/Watch.entitlements
@@ -275,6 +286,8 @@ targets:
         # The app group, read at run time (Shared/AppGroup.swift).
         LifelogAppGroup: group.$(LIFELOG_BUNDLE_ID)
         CFBundleDevelopmentRegion: en
+        # The build's date, passed by the scripts that build (`CURRENT_PROJECT_VERSION=YYYYMMDD.HHMM`); left as a variable so it is never baked in.
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
