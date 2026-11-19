@@ -191,12 +191,6 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let matter: MatterRef?
     public let subject: String?
     public let ridesOn: RidesOn?
-    /// A Contacts card as Life holds it (`contactsCard`, `memory/check-asks.ts`): never a network identity, a card has no chat.
-    public struct ContactsCard: Decodable, Sendable, Equatable {
-        public let name: String
-        public let handles: [String]
-    }
-
     /// Who a person check is about, or the chat a decision's draft goes into, as the network shows it; nil for other kinds,
     /// when none was found, or from a Life that predates it.
     public let networkIdentity: NetworkIdentity?
