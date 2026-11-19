@@ -63,7 +63,7 @@ test("the score counts right and wrong per 100 by voice and by guess, with me, n
   );
 });
 
-test('the score counts the voices he answered "Not anyone I know" that were guessed a person or him, apart from the wrong counts', () => {
+test('the score counts the voices he answered "A stranger" that were guessed a person or him, apart from the wrong counts', () => {
   const stranger = (voice: string, o: Partial<Guessed> = {}) =>
     g(voice, { answer: "unknown", ...o });
   const s = scoreOf([
@@ -79,7 +79,7 @@ test('the score counts the voices he answered "Not anyone I know" that were gues
   expect(s.voices).toBe(1);
   expect(s.byVoice.sure).toEqual({ n: 1, per100: 0, wrong: 0 });
   expect(reportOf(s).join("\n")).toContain(
-    'voices answered "Not anyone I know": 5, guessed as a person or me at sure: 2, at likely: 1'
+    'voices answered "A stranger": 5, guessed as a person or me at sure: 2, at likely: 1'
   );
 });
 

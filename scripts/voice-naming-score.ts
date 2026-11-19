@@ -40,7 +40,7 @@ import {
   voiceNamesOf,
 } from "@life/server/src/sources/lifelog-voices";
 
-/** One guess on one voice, with what is known of the voice now. `answer`: his person ref, `not_relevant`, `unknown` ("Not anyone I know"), or null when he did not answer the whole voice. */
+/** One guess on one voice, with what is known of the voice now. `answer`: his person ref, `not_relevant`, `unknown` ("A stranger"), or null when he did not answer the whole voice. */
 export interface Guessed {
   answer: string | null;
   /** Why an answered voice is left out: lifelog says its sound mixes people, or he answered it turn by turn (no answer on the voice, each turn named). */
@@ -85,7 +85,7 @@ const newestPerVoice = (list: Guessed[]) => [
 /**
  * The score, counts only. Over answered voices (a person, whole voice, not mixed, not turn by turn): wrong per 100 at
  * sure and at likely, by voice (each counted once, by its newest guess) and by guess. `me` guesses, voices with no
- * likeness, guesses on voices answered `not_relevant`, the strangers' ("Not anyone I know": how many were guessed a person or me), the talking words named right, and the doubted names are apart.
+ * likeness, guesses on voices answered `not_relevant`, the strangers' ("A stranger": how many were guessed a person or me), the talking words named right, and the doubted names are apart.
  */
 export function scoreOf(all: Guessed[]) {
   const [left, kept] = [
@@ -164,7 +164,7 @@ export function reportOf(s: ReturnType<typeof scoreOf>) {
     `me guesses (sure or likely, all wrong on a person he answered): ${s.meGuesses}`,
     `talking words named right: ${s.words.right} of ${s.words.all}`,
     `voices answered not relevant: ${s.notRelevant.voices}, guessed as a person: ${s.notRelevant.guessed}`,
-    `voices answered "Not anyone I know": ${s.strangers.voices}, guessed as a person or me at sure: ${s.strangers.sure}, at likely: ${s.strangers.likely}`,
+    `voices answered "A stranger": ${s.strangers.voices}, guessed as a person or me at sure: ${s.strangers.sure}, at likely: ${s.strangers.likely}`,
     `doubted names: ${s.doubted.asked}, named again as the same person: ${s.doubted.sameAsLifelog}`,
     `left out: ${s.leftOut.mixed} mixed, ${s.leftOut.turnByTurn} answered turn by turn`,
   ];
