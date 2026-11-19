@@ -7,12 +7,15 @@ import {
   isLater,
   isOutOfReach,
   keptLinks,
-  laterRecordsOf,
   nightOf,
   splitSteps,
   subjectWorkOf,
 } from "./links";
-import { type MatterStepNow, matterBookOf } from "./matter-read";
+import {
+  laterRecordsOf,
+  type MatterStepNow,
+  matterBookOf,
+} from "./matter-read";
 
 const matter = { id: "matter_0000000000a1", name: "The contract with Ann" };
 const step = (n: number, at: string, quote: string, type = "promise") => ({
@@ -391,4 +394,57 @@ test("another matter's record is out of a matter's reach, unless that matter is 
   expect(
     isOutOfReach(matterOf(3, ["a", "b", "c", "d"]), held, "obs_meeting")
   ).toBe(false);
+});
+
+// 19 Nov 2026 audit: a dated plan stayed open after its event was recorded in another matter. The matter's direction
+// cites the record that shows it over; that record is then within reach and the links step can end the plan with it.
+test("a dated plan whose event is recorded in another matter ends once the matter's direction cites that record (stale-3-plan-past-its-event)", () => {
+  const plan = step(
+    7,
+    "2026-10-01T10:00:00.000Z",
+    "Meeting with the notary on 5 Nov"
+  );
+  const met = {
+    ...step(
+      8,
+      "2026-11-05T15:00:00.000Z",
+      "We signed at the notary today",
+      "event"
+    ),
+    modality: "fact",
+  };
+  const held = new Set([met.id]);
+  const m = { areas: ["home"], steps: [{ ref: plan.id }] as MatterStepNow[] };
+  const reach = (endingRecords?: string[]) =>
+    laterRecordsOf(
+      [{ ...plan, kind: "promise" }] as unknown as MatterStepNow[],
+      new Set(["person:sam"]),
+      [
+        { ...met, date: "2026-11-05", speaker: "person:sam", subjects: [] },
+      ] as never,
+      (id) => isOutOfReach({ ...m, endingRecords }, held, id),
+      (r) => r
+    ).map((o) => o.id);
+  expect(reach()).toEqual([]);
+  expect(reach([met.id])).toEqual([met.id]);
+  // Other records of the other matter stay out of reach.
+  expect(reach(["obs_other"])).toEqual([]);
+  // Judged, the plan ends on the event's own words.
+  expect(
+    keptLinks(
+      {
+        links: [
+          { earlier: plan.id, later: met.id, quote: "signed at the notary" },
+        ],
+      },
+      { later: [met], open: [plan] }
+    )
+  ).toEqual([
+    {
+      earlier: plan.id,
+      later: met.id,
+      quote: "signed at the notary",
+      relation: "ends",
+    },
+  ]);
 });

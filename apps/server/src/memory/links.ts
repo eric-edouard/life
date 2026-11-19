@@ -3,23 +3,16 @@ import { z } from "zod";
 import { appendJsonl } from "../core/files";
 import { isPromptVersion } from "../models/prompt-parts";
 import { Link, LinkBatch } from "../records/link";
-import type { Observation } from "../records/observation";
-import { endingsNow, readBatches } from "./endings";
+import { readBatches } from "./endings";
 import {
   ACTIONABLE,
-  episodeAt,
   isEnded,
+  laterRecordsOf,
   type MatterStepNow,
   type MatterView,
-  matterBookOf,
   matterPeopleOf,
 } from "./matter-read";
-import {
-  isFullMatter,
-  mattersNow,
-  readMatterRecords,
-  readMatters,
-} from "./matters";
+import { isFullMatter, readMatterBookAndRecords } from "./matters";
 import { LINKS } from "./memory-files";
 import { foundQuotes } from "./quote-check";
 import { OWNER } from "./read-truth";
@@ -186,50 +179,21 @@ export function splitSteps(
   };
 }
 
-type LaterObservation = Pick<
-  Observation,
-  "at" | "date" | "id" | "modality" | "speaker" | "subjects" | "type"
->;
-
-/**
- * A matter's later records beyond its own steps: its people's observations (speaker or a subject, as `refOf` reads
- * them now) from its oldest open step's day on, however late (a wait is answered when it is), that no matter holds,
- * never a plan, a condition or a promise, wait or to-do. One held elsewhere is that matter's, unless this one is full
- * (`isOutOfReach`). No cap: each pair is asked once per prompt (`subjectWorkOf`), so a night asks only what is new.
- */
-export function laterRecordsOf<T extends LaterObservation>(
-  open: readonly MatterStepNow[],
-  people: ReadonlySet<string>,
-  observations: readonly T[],
-  isHeld: (id: string) => boolean,
-  refOf: (ref: string) => string
-) {
-  const [from] = open.map((s) => s.day).toSorted();
-  if (!from) {
-    return [];
-  }
-  return observations.filter(
-    (o) =>
-      o.date >= from &&
-      !isHeld(o.id) &&
-      !ACTIONABLE.includes(o.type) &&
-      o.modality !== "plan" &&
-      o.modality !== "conditional" &&
-      [o.speaker, ...o.subjects].some((r) => people.has(refOf(r)))
-  );
-}
-
 /**
  * Whether another matter's record is out of reach of `m`'s later records: always (an ending never ties two matters:
- * September's rent is not ended by November's), unless `m` is full. A full matter takes no more steps (`isFullMatter`),
+ * September's rent is not ended by November's), unless `m` is full, or its latest direction cites the record as showing
+ * it over (`endingRecords`: a matter that looks over, its links step then judges the records that show it). A full matter takes no more steps (`isFullMatter`),
  * so its story goes on in other matters by design, and only their records can end its open steps. Its own steps are
  * always out of reach here: they come in through `splitSteps`. Pure.
  */
 export const isOutOfReach = (
-  m: Pick<MatterView, "areas" | "steps">,
+  m: Pick<MatterView, "areas" | "endingRecords" | "steps">,
   held: ReadonlySet<string>,
   id: string
-) => held.has(id) && (!isFullMatter(m) || m.steps.some((s) => s.ref === id));
+) =>
+  held.has(id) &&
+  !m.endingRecords?.includes(id) &&
+  (!isFullMatter(m) || m.steps.some((s) => s.ref === id));
 
 /**
  * The open matters, each with its open steps (promises, waits and to-dos of his with no ending: a step a link already
@@ -237,8 +201,7 @@ export const isOutOfReach = (
  * matter of one has no work. The records are read once, the book built from them.
  */
 async function readOpenMatters(people: People) {
-  const records = await readMatterRecords(people);
-  const book = matterBookOf(mattersNow(readMatters()), records, dayNow());
+  const { book, records } = await readMatterBookAndRecords(people, dayNow());
   const byId = new Map(records.observations.map((o) => [o.id, o]));
   const held = new Set(
     book.flatMap((m) => (m.lone ? [] : m.steps.map((s) => s.ref)))
@@ -378,33 +341,4 @@ export async function links(pending: LinkWork) {
     }
   });
   return step.end({ links: found, matters: pending.work.length });
-}
-
-/**
- * A matter's open steps, each with the ending the links step found (its words and day) or none: how a link is checked
- * by eye while nothing reads them (`bun life memory links <matter id>`).
- */
-export async function readEndings(people: People, id: string) {
-  const records = await readMatterRecords(people);
-  const { endings } = endingsNow((ref) => records.current.has(ref));
-  const matter = matterBookOf(
-    mattersNow(readMatters()),
-    records,
-    dayNow()
-  ).find((m) => m.id === id);
-  // The later record may be any current one, in this matter or none.
-  const dayOf = new Map([
-    ...records.observations.map((o): [string, string] => [o.id, o.date]),
-    ...records.episodes.map((e): [string, string] => [
-      e.id,
-      episodeAt(e).slice(0, 10),
-    ]),
-  ]);
-  const isObservation = new Set(records.observations.map((o) => o.id));
-  return (matter?.steps ?? [])
-    .filter((s) => isObservation.has(s.ref) && ACTIONABLE.includes(s.kind))
-    .map((s) => {
-      const end = endings.get(s.ref);
-      return `- ${s.ref} ${s.day} ${s.kind}: ${s.text}\n    ${end ? `ended ${dayOf.get(end.later)}: "${end.quote}" (${end.later})` : "no ending found"}`;
-    });
 }

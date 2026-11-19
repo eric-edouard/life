@@ -237,13 +237,18 @@ export const MATTER_BOOK_READS = [
   UNRESOLVED,
 ];
 
+/** Every matter on `today`, as the stored lines and the records say now (`matterBookOf`), with the records it was read from. */
+export async function readMatterBookAndRecords(people: People, today: string) {
+  const records = await readMatterRecords(people);
+  return {
+    book: matterBookOf(mattersNow(readMatters()), records, today),
+    records,
+  };
+}
+
 /** Every matter on `today`, as the stored lines and the records say now (`matterBookOf`). */
 export const readMatterBook = async (people: People, today: string) =>
-  matterBookOf(
-    mattersNow(readMatters()),
-    await readMatterRecords(people),
-    today
-  );
+  (await readMatterBookAndRecords(people, today)).book;
 
 /** The calls a span's work takes: its episodes packed by size, in order, the todoItems with the first. */
 export function callsOf(work: MatterWork) {

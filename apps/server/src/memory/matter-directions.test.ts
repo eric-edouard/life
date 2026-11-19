@@ -1,8 +1,13 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
-import type { DirectionPin } from "../records/matter";
-import { dueDirectionsOf, matterDirections } from "./matter-directions";
-import { directionsOf, type MatterView, nextStepNow } from "./matter-read";
+import { type DirectionPin, MatterDirectionBatch } from "../records/matter";
+import { matterDirections } from "./matter-directions";
+import {
+  directionDueOf,
+  directionsOf,
+  type MatterView,
+  nextStepNow,
+} from "./matter-read";
 import { MATTER_DIRECTIONS, readDirectionPins } from "./memory-files";
 
 const TODAY = "2026-11-18";
@@ -48,6 +53,25 @@ const people = {
   truth: { areas: [], me: { text: "" } },
 } as never;
 
+/** What a reader of the records needs for the directions: the pins as stored, the observations, no merged people. */
+const recordsOf = (directions: DirectionPin[], observations: unknown[] = []) =>
+  ({ directions, observations, refOf: (r: string) => r }) as never;
+
+/** The ids of the matters of `book` due a direction on `today`. */
+const dueIds = (
+  book: MatterView[],
+  directions: DirectionPin[],
+  observations: unknown[] = [],
+  today = TODAY
+) => {
+  const isDue = directionDueOf(
+    book,
+    recordsOf(directions, observations),
+    today
+  );
+  return book.filter((v) => isDue(v.id)).map((v) => v.id);
+};
+
 afterEach(() => rmSync(MATTER_DIRECTIONS, { force: true }));
 
 test("the night drafts each running matter's direction, pinned to its steps; a re-group keeps it; drafted again only on a new step or ending", async () => {
@@ -55,13 +79,16 @@ test("the night drafts each running matter's direction, pinned to its steps; a r
   const models = await import("../models/llm");
   const errand = view("matter_00000000b001");
   const repair = view("matter_00000000b002");
-  const book = spyOn(matters, "readMatterBook").mockResolvedValue([
-    errand,
-    repair,
-    view("matter_00000000b003", { lone: true }),
-    view("matter_00000000b004", { status: "dormant" }),
-    view("matter_00000000b005", { open: false }),
-  ]);
+  const book = spyOn(matters, "readMatterBookAndRecords").mockResolvedValue({
+    book: [
+      errand,
+      repair,
+      view("matter_00000000b003", { lone: true }),
+      view("matter_00000000b004", { status: "dormant" }),
+      view("matter_00000000b005", { open: false }),
+    ],
+    records: recordsOf([]),
+  } as never);
   const ask = spyOn(models, "askOnce").mockResolvedValue({
     directions: [
       {
@@ -115,7 +142,7 @@ test("the night drafts each running matter's direction, pinned to its steps; a r
       "The refund is paid back"
     );
     const now = regrouped.map((v) => ({ ...v, ...read.get(v) }));
-    expect(dueDirectionsOf(now)).toEqual([]);
+    expect(dueIds(now, pins)).toEqual([]);
     // A new step, or an ending after the draft, makes it due again; nothing else does.
     const moved = [
       {
@@ -134,7 +161,7 @@ test("the night drafts each running matter's direction, pinned to its steps; a r
         ),
       },
     ] as MatterView[];
-    expect(dueDirectionsOf(moved).map((d) => d.v.id)).toEqual([
+    expect(dueIds(moved, pins)).toEqual([
       "matter_00000000c001",
       "matter_00000000c002",
     ]);
@@ -259,4 +286,153 @@ test("a direction goes to the matter holding most of its pinned steps, though it
       "The courier calls back"
     );
   }
+});
+
+const wait = (id: string, day = "2026-11-16") =>
+  step(id, `${day}T09:00:00.000Z`, {
+    kind: "waiting_on_someone" as const,
+    quote: "waiting for Sam",
+    text: "Waiting for Sam's answer",
+  });
+
+/** A running matter waiting on Sam, with a direction by Life that Life has drafted. */
+const waiting = (id: string) => {
+  const open = wait(`obs_${id}`);
+  return view(`matter_${id}`, {
+    goal: { at: "2026-11-17T02:00:00.000Z", by: "life", text: "Sam answers" },
+    openSteps: [open],
+    steps: [open],
+    waitingOn: ["person:sam"],
+  });
+};
+const pinOf = (
+  v: MatterView,
+  over: Partial<DirectionPin> = {}
+): DirectionPin => ({
+  at: "2026-11-17T02:00:00.000Z",
+  by: "life",
+  goal: "Sam answers",
+  nextStep: { kind: "wait_event", text: "Sam's answer", waitsOn: "Sam" },
+  steps: v.steps.map((s) => s.ref),
+  ...over,
+});
+/** A record by Sam outside the matter, `n` days into November. */
+const said = (n: number) => ({
+  at: `2026-11-${String(n).padStart(2, "0")}T12:00:00.000Z`,
+  date: `2026-11-${String(n).padStart(2, "0")}`,
+  id: `obs_said${String(n).padStart(8, "0")}`,
+  speaker: "person:sam",
+  subjects: [],
+  text: `Sam said something on the ${n}th`,
+  type: "event",
+});
+
+test("a blind Life pin is due once; his own pin never is, and an outside record only makes a direction due in the offer window", () => {
+  const v = waiting("00000000e001");
+  // Drafted before it saw later records: no `laterShown`.
+  expect(dueIds([v], [pinOf(v)])).toEqual([v.id]);
+  expect(dueIds([v], [pinOf(v, { laterShown: [] })])).toEqual([]);
+  // His own word, with nothing new to the matter, is never drafted over for what happened elsewhere.
+  expect(dueIds([v], [pinOf(v, { by: "owner" })], [said(17)])).toEqual([]);
+  expect(dueIds([v], [pinOf(v, { laterShown: [] })], [said(17)])).toEqual([
+    v.id,
+  ]);
+  // The offer window ends 7 days from the first step's day (16 Nov): the card is gone, so is the reason.
+  expect(
+    dueIds([v], [pinOf(v, { laterShown: [] })], [said(17)], "2026-11-23")
+  ).toEqual([]);
+  // A record the draft was shown is checked.
+  expect(
+    dueIds([v], [pinOf(v, { laterShown: [said(17).id] })], [said(17)])
+  ).toEqual([]);
+});
+
+test("only the newest 12 later records are compared: an older one outside them never keeps a direction due", () => {
+  const v = waiting("00000000e002");
+  const records = Array.from({ length: 13 }, (_, i) => said(i + 17));
+  const newest = records.slice(1).map((o) => o.id);
+  expect(dueIds([v], [pinOf(v, { laterShown: newest })], records)).toEqual([]);
+  // A newer one pushes the oldest shown out and is itself unseen.
+  expect(
+    dueIds([v], [pinOf(v, { laterShown: newest })], [...records, said(30)])
+  ).toEqual([v.id]);
+});
+
+// 19 Nov 2026 audit: "waiting for the landlord" stayed a card after the deposit came back in another matter.
+test("a matter that looks over gets no next step: its draft cites only records it was shown, an unknown id is dropped (stale-2-wait-answered-in-other-matter)", async () => {
+  const matters = await import("./matters");
+  const models = await import("../models/llm");
+  const v = waiting("00000000e003");
+  const book = spyOn(matters, "readMatterBookAndRecords").mockResolvedValue({
+    book: [v],
+    records: recordsOf([], [said(17)]),
+  } as never);
+  const ask = spyOn(models, "askOnce").mockResolvedValue({
+    directions: [
+      {
+        endingRecords: [said(17).id, "obs_neverShown"],
+        goal: "Sam has answered",
+        matter: "m1",
+      },
+    ],
+  } as never);
+  try {
+    await matterDirections(people, { today: TODAY });
+    // The call was shown the record, said by name.
+    expect(JSON.stringify(ask.mock.calls[0])).toContain(said(17).id);
+    const [pin] = readDirectionPins();
+    expect(pin).toMatchObject({
+      endingRecords: [said(17).id],
+      goal: "Sam has answered",
+      laterShown: [said(17).id],
+    });
+    expect(pin?.nextStep).toBeUndefined();
+    // Read back: a Life draft with no next step clears the old one, and its records are the matter's to cite.
+    const read = directionsOf([v], [pinOf(v), ...(pin ? [pin] : [])]).get(v);
+    expect(read?.nextStep).toBeUndefined();
+    expect(read?.latest?.endingRecords).toEqual([said(17).id]);
+    // A draft with both, or neither, is refused whole.
+    ask.mockResolvedValue({
+      directions: [
+        { goal: "x", matter: "m1" },
+        {
+          endingRecords: [],
+          goal: "y",
+          matter: "m1",
+          nextStep: { kind: "do", text: "z" },
+        },
+      ],
+    } as never);
+    rmSync(MATTER_DIRECTIONS, { force: true });
+    expect(await matterDirections(people, { today: TODAY })).toMatchObject({
+      drafted: 0,
+    });
+  } finally {
+    book.mockRestore();
+    ask.mockRestore();
+  }
+});
+
+test("a stored line of v1 (a next step, no laterShown) still parses; a draft with both a next step and endingRecords is refused", () => {
+  const draft = {
+    goal: "Sam answers",
+    nextStep: { kind: "do", text: "Ask Sam" },
+    steps: ["obs_000000000001"],
+  };
+  const line = (d: object) => ({
+    at: "2026-11-17T02:00:00.000Z",
+    directions: [d],
+    madeBy: {
+      engine: "claude",
+      model: "m",
+      prompt: "memory-matter-directions.v1",
+      run: "r",
+    },
+    schemaVersion: 1,
+  });
+  expect(MatterDirectionBatch.safeParse(line(draft)).success).toBe(true);
+  expect(
+    MatterDirectionBatch.safeParse(line({ ...draft, endingRecords: [] }))
+      .success
+  ).toBe(false);
 });
