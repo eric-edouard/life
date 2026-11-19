@@ -103,9 +103,12 @@ struct InboxScreen: View {
                     retry: { Task { await life.answer(taken.request) } },
                     keepForLater: { leave(taken, keep: true) }, nextCard: { leave(taken, keep: false) })
             } else {
+                // An answer still running (this screen was rebuilt while its send ran) keeps the buttons from a second tap.
                 CheckActions(
                     check: check, runtimeName: runtimeName(of: check), input: input,
-                    answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref })
+                    answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
+                )
+                .disabled(life.state(of: .answer(ref: check.ref)).isRunning)
             }
         }
     }

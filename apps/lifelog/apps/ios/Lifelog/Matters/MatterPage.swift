@@ -350,6 +350,8 @@ private struct DoneButton: View {
                 }
             }
             .buttonStyle(.pill(.quiet)).disabled(state.isRunning)
+            LimitNote(state: state) { $0.map { "Life answers in \($0)." } ?? "" }
+                .font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
             if case .failed(let failure, _) = state {
                 Text(failure.reason).font(.small).foregroundStyle(Palette.flag).multilineTextAlignment(.center)
             }
