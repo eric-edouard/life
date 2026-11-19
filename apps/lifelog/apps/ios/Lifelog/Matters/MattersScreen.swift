@@ -36,8 +36,9 @@ struct MattersScreen: View {
                 Notice(title: "No matter chosen.", detail: "Pick one from the list.").background(Palette.bg)
             }
         }
-        // Side by side at every regular width, upright too; the system's own sidebar button stays, so the list can never
-        // be lost if the system overlays it anyway.
+        // Side by side on a regular width wide enough (the iPhone Duo open wide). Open upright (669 pt) UIKit overlays the
+        // list on the matter, whatever the column widths: kept on purpose (the owner's call, 19 Nov 2026); the system's
+        // sidebar button brings the list back.
         .navigationSplitViewStyle(.balanced)
         // The tabs hide while a matter fills a compact width and come back with the list. Set here, above both columns:
         // set on the matter's page, the hidden bar outlived the page, and the Inbox could no longer be reached.
