@@ -24,12 +24,20 @@
       },
       "projects": ["Shop fit-out"],
       "status": "moving",
-      "agent": "agt_000000000001"
+      "agent": "agt_000000000001",
+      "openChecks": 2
+    },
+    {
+      "id": "matter_cccccccccccc",
+      "name": "Frame Gran's photo",
+      "status": "moving",
+      "openChecks": 1
     },
     {
       "id": "matter_bbbbbbbbbbbb",
       "name": "Renew the lease",
-      "status": "waiting_on_someone"
+      "status": "waiting_on_someone",
+      "openChecks": 0
     }
   ]
 }

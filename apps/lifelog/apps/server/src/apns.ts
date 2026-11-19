@@ -192,13 +192,12 @@ function reasonOf(body: string) {
 
 const PUSH_ID = /^[0-9a-f]{16}$/;
 
-/** What another app of the owner's asks to push: words (`title` and `body` together), a badge, a card's opaque `pushId`, and quiet (no sound, passive). */
+/** What another app of the owner's asks to push: words (`title` and `body` together), a badge, a card's opaque `pushId`. */
 export const NoticeRequest = z
   .object({
     badge: z.number().int().min(0).optional(),
     body: z.string().min(1).max(500).optional(),
     pushId: z.string().regex(PUSH_ID).optional(),
-    quiet: z.boolean().optional(),
     title: z.string().min(1).max(100).optional(),
   })
   .refine((n) => (n.title === undefined) === (n.body === undefined), {
@@ -211,17 +210,14 @@ export type NoticeRequest = z.infer<typeof NoticeRequest>;
 
 // A visible push, the one composer: what the owner reads (none for a badge alone), and any of the app's own fields
 // beside `aps` (Life's `pushId`, which the phone routes on). A badge marks Life's
-// card pushes: they join the thread `life-cards`, passive when `quiet`. Quiet and badge-only ones go at priority 5, as
-// Apple asks of what need not wake him; the rest at 10, never held.
+// card pushes: they join the thread `life-cards`. Badge-only ones go at priority 5, as Apple asks of what need not
+// wake him; the rest at 10, never held.
 export const alertOf = (
   bundleId: string,
   title: string | undefined,
   body: string | undefined,
   extra: Record<string, unknown> = {},
-  {
-    badge,
-    quiet,
-  }: { badge?: number | undefined; quiet?: boolean | undefined } = {}
+  { badge }: { badge?: number | undefined } = {}
 ): Omit<PushRequest, "path"> => ({
   body: JSON.stringify({
     aps: {
@@ -230,15 +226,14 @@ export const alertOf = (
         ? {}
         : {
             badge,
-            "interruption-level": quiet ? "passive" : "active",
             "thread-id": "life-cards",
           }),
-      ...(title && !quiet ? { sound: "default" } : {}),
+      ...(title ? { sound: "default" } : {}),
     },
     ...extra,
   }),
   headers: {
-    "apns-priority": quiet || !title ? "5" : "10",
+    "apns-priority": title ? "10" : "5",
     "apns-push-type": "alert",
     "apns-topic": bundleId,
   },
@@ -247,12 +242,12 @@ export const alertOf = (
 // A notice another app of the owner's asks for (Life: each voice ask it heard, its new cards), recorded as kind `notice`. Never throws.
 export const phoneNotice =
   (db: Db, push: Pusher | null, bundleId: string) =>
-  ({ badge, body, pushId, quiet, title }: NoticeRequest) =>
+  ({ badge, body, pushId, title }: NoticeRequest) =>
     sendPush(
       db,
       push,
       "notice",
-      alertOf(bundleId, title, body, pushId ? { pushId } : {}, { badge, quiet })
+      alertOf(bundleId, title, body, pushId ? { pushId } : {}, { badge })
     );
 
 export type Notice = ReturnType<typeof phoneNotice>;

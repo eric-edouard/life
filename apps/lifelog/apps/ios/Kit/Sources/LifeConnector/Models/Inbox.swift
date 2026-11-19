@@ -1,11 +1,13 @@
 import Foundation
 
-/// `read_inbox`: every check, most urgent first, with the counts the badge and the tabs show.
+/// `read_inbox`: the checks of one list (his inbox, or "to confirm"), most urgent first, with the counts the badge and the tabs show, and how many wait in "to confirm".
 public struct Inbox: Decodable, Sendable, Equatable {
     public let checks: [Check]
     public let counts: [String: Int]
     public let total: Int
     public let deadlinesToday: Int
+    /// How many of Life's own questions wait in "to confirm", whichever list this read holds.
+    public let toConfirm: Int
 }
 
 /// The card a tapped push opens.
@@ -16,9 +18,6 @@ public struct InboxOpening: Sendable, Equatable {
 }
 
 extension Inbox {
-    /// The open cards that belong to this matter.
-    public func openCount(matter id: String) -> Int { checks.count { $0.matter?.id == id } }
-
     public func opening(pushId: String) -> InboxOpening {
         guard let check = checks.first(where: { $0.pushId == pushId }) else {
             return InboxOpening(check: checks.first, wasAnswered: true)

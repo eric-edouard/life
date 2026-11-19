@@ -10,16 +10,16 @@ import * as memoryLock from "../memory/memory-lock";
 import * as lifelog from "../sources/lifelog-push";
 import { PUSHED, pushNewCards, pushNewCardsIfChanged } from "./card-push";
 
-const card = (n: number, asker = "planner") =>
+const card = (n: number, kind = "decision") =>
   ({
-    asker,
+    kind,
     pushId: n.toString(16).padStart(16, "0"),
     question: "Pay Kit's invoice?",
     ref: `dec_${n}`,
     title: "It is due.",
   }) as checks.InboxCheck;
-const cards = (n: number, asker?: string) =>
-  Array.from({ length: n }, (_, i) => card(i + 1, asker));
+const cards = (n: number, kind?: string) =>
+  Array.from({ length: n }, (_, i) => card(i + 1, kind));
 
 let open = cards(0);
 let look: ReturnType<typeof spyOn<typeof checks, "checksNow">>;
@@ -54,7 +54,6 @@ test("the first run pushes nothing and sees every open card; a new one pushes wi
         badge: 266,
         body: "1 new card",
         pushId: card(266).pushId,
-        quiet: false,
         title: "Life",
       },
     ],
@@ -63,14 +62,22 @@ test("the first run pushes nothing and sees every open card; a new one pushes wi
   expect(push).toHaveBeenCalledTimes(1);
 });
 
-test("several new cards are one push with their count and no card; Life's own are quiet", async () => {
+test("several new cards are one push with their count and no card", async () => {
   open = cards(2);
   await pushNewCards();
-  open = [...cards(2), ...cards(9, "life").slice(2)];
+  open = cards(9);
   await pushNewCards();
   expect(push.mock.calls).toEqual([
-    [{ badge: 9, body: "7 new cards", quiet: true, title: "Life" }],
+    [{ badge: 9, body: "7 new cards", title: "Life" }],
   ]);
+});
+
+test("Life's own questions push nothing and are not in the badge", async () => {
+  open = cards(2);
+  await pushNewCards();
+  open = [...cards(2), ...cards(9, "person").slice(2)];
+  await pushNewCards();
+  expect(push).not.toHaveBeenCalled();
 });
 
 test("an answered card is a badge-only push; nothing changed is none", async () => {
@@ -155,7 +162,6 @@ test("while a run holds the lock a new decision still pushes, from its own lines
         badge: 3,
         body: "1 new card",
         pushId: checks.pushIdOf(id),
-        quiet: false,
         title: "Life",
       },
     ],
@@ -163,7 +169,7 @@ test("while a run holds the lock a new decision still pushes, from its own lines
   // The lock is released with the decision open: the full look finds it seen, and pushes nothing more.
   open = [
     ...cards(2),
-    { asker: "planner", pushId: checks.pushIdOf(id) },
+    { kind: "decision", pushId: checks.pushIdOf(id) },
   ] as checks.InboxCheck[];
   held.mockReturnValue(false);
   await pushNewCardsIfChanged();
