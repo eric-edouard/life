@@ -151,6 +151,7 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     let retry = state.steps.first { $0.id == "connection_retry" }
     #expect(retry?.passedAt != nil)
     #expect(retry?.detail["try"] == "2")
+    #expect(retry?.detail["of"] == "3")
     #expect(life.keys.withLock { $0 } == ["tap-5", "tap-5"])
 }
 
@@ -165,7 +166,7 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
         Issue.record("\(state)")
         return
     }
-    #expect(steps.map(\.id) == ["recorded", "todo_items_ticked"])
+    #expect(steps.map(\.id) == ["todo_items_ticked", "recorded"])
     // The default limit is 10 seconds before Life's own plan; running past it is late, not failed.
     var running = ActionState<ActionProof>.idle
     running.apply(.started)
@@ -373,4 +374,11 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
     #expect(failure.step == "desk_accepted")
     #expect(failure.reason.contains("does not answer"))
     #expect(failure.retry == .allowed)
+}
+
+@Test func anEditToAnOlderServerThatSendsNoPlanStillShowsItsRecordedStep() async {
+    let state = await run { emit in
+        await LifeActions(api: FakeLife(), now: { at }).record(emit: emit) { _ in "ok" }
+    }
+    #expect(state.steps.map(\.id) == ["recorded"])
 }

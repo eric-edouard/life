@@ -170,7 +170,7 @@ final class LifeStore {
     }
 
     /// One `life.action` event per action that ended: what it was, how it ended, how long it took against its limit, and
-    /// each step with the seconds it passed after the start. Ids, states and counts only; a reason only for a lost connection.
+    /// each step with the seconds it passed after the start. Ids, states and counts only; the kind of a lost connection, never its words.
     private func traceOf(
         _ key: ActionKey, tap: String?, _ ended: ActionState<ActionProof>, began: Date, limit: Date?
     ) {
@@ -196,7 +196,7 @@ final class LifeStore {
         case .succeeded: fields["outcome"] = "succeeded"
         case .failed(let failure, _):
             fields["outcome"] = "failed"
-            fields["reason"] = failure.isSameTap ? failure.reason : failure.step ?? "-"
+            fields["reason"] = failure.isSameTap ? failure.kind : failure.step ?? "-"
             fields["mayHaveHappened"] = failure.mayHaveHappened ? "yes" : "no"
         default: fields["outcome"] = "unfinished"
         }

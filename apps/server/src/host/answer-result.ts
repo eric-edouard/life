@@ -1,4 +1,3 @@
-import { isDeepStrictEqual } from "node:util";
 import { clock, MIN } from "../core/clock";
 import {
   answerCheck,
@@ -30,7 +29,7 @@ import { openCheckOf } from "./inbox";
 // as they pass (`report`, `mcp-tool.ts`) after the plan: the steps to come and the most seconds they may take.
 
 /** What an answer is given on top of its send and its Start: the reads. */
-const QUICK_MS = 5000;
+export const QUICK_MS = 5000;
 const POLL_MS = 500;
 
 const at = () => clock().toISOString();
@@ -181,6 +180,14 @@ function rememberedTap(key: string) {
     : undefined;
 }
 
+function forgetTaps(ref: string) {
+  for (const k of taps.keys()) {
+    if (k.startsWith(`${ref}|`)) {
+      taps.delete(k);
+    }
+  }
+}
+
 function rememberTap(key: string, result: Record<string, unknown>) {
   const t = clock().getTime();
   for (const [k, v] of taps) {
@@ -208,7 +215,7 @@ function planOf(
 
 /** What an answer says, to tell a repeat of it from another answer. */
 const saidOf = (a: CheckAnswer) =>
-  JSON.stringify([a.options, a.note ?? null, a.person ?? null, a.name ?? null]);
+  JSON.stringify([a.options, a.note || null, a.person ?? null, a.name ?? null]);
 
 /** The stored result of a repeat, or undefined: the same answer again to an answered decision (under any key: nothing written, nothing sent; another answer is refused as before), or a tap a `not sent:` outcome voided. */
 function repeatOf(
@@ -217,11 +224,7 @@ function repeatOf(
   a: CheckAnswer,
   answerKey?: string
 ) {
-  if (
-    known?.answer &&
-    isDeepStrictEqual(known.answer.options, a.options) &&
-    (known.answer.note ?? "") === (a.note ?? "")
-  ) {
+  if (known?.answer && saidOf(known.answer) === saidOf(a)) {
     return decisionResult(ref, known.answer.answerKey);
   }
   return answerKey &&
@@ -238,7 +241,9 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     return repeated;
   }
   const tapKey = `${ref}|${saidOf(a)}`;
-  const remembered = rememberedTap(tapKey);
+  const failedKey = `${ref}|${answerKey}`;
+  const remembered =
+    rememberedTap(tapKey) ?? (answerKey ? rememberedTap(failedKey) : undefined);
   if (remembered) {
     return remembered;
   }
@@ -302,9 +307,13 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     send: null,
     start,
   };
-  // A Start the desk did not start stays open for his next tap, which starts again.
+  // A fresh answer ends the earlier ones' memory (A, B, A is three answers). A Start the desk did not start stays
+  // open for his next tap, which starts again; only the same tap's retry (same key) gets this result.
+  forgetTaps(ref);
   if ((start as { state?: string } | null)?.state !== "not_started") {
     rememberTap(tapKey, result);
+  } else if (answerKey) {
+    rememberTap(failedKey, result);
   }
   return result;
 }

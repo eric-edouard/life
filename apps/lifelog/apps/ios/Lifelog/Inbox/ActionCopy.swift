@@ -9,9 +9,6 @@ enum ActionCopy {
         var asker: String?
     }
 
-    /// The most tries of one call (`LifeActions.tries`), for the line that says one was repeated.
-    private static let tries = 3
-
     static func channel(_ source: String?) -> String {
         switch source {
         case "whatsapp": "WhatsApp"
@@ -35,7 +32,8 @@ enum ActionCopy {
             context.to.map { "The chat is \($0)’s, and nobody wrote since the draft" } ?? "The chat is the right one"
         case "handed": "Sending exactly this text"
         case "confirmed": "\(channel(context.channel)) confirms it"
-        case "connection_retry": "The connection dropped; trying again (\(detail["try"] ?? "2") of \(tries))"
+        case "connection_retry":
+            "The connection dropped; trying again (\(detail["try"] ?? "2") of \(detail["of"] ?? "3"))"
         case "todo_items_ticked":
             detail["of"].map { "\(detail["done"] ?? "0") of \($0) to-do items ticked" } ?? "Its to-do items are ticked"
         case "goal_saved": "Your goal is saved on the matter"

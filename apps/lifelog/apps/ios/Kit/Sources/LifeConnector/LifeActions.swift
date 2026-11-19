@@ -48,7 +48,8 @@ public struct LifeActions: Sendable {
         for attempt in 0..<Self.tries {
             if attempt > 0 {
                 // The same tap again, with the same key: the screen and the phone's log say it was repeated and why.
-                emit(.passed("connection_retry", at: now(), detail: ["try": "\(attempt + 1)", "why": dropped.reason]))
+                let detail = ["of": "\(Self.tries)", "try": "\(attempt + 1)", "why": dropped.reason]
+                emit(.passed("connection_retry", at: now(), detail: detail))
                 await pause(.seconds(2))
             }
             do {
@@ -163,13 +164,14 @@ public struct LifeActions: Sendable {
 
     // MARK: His edits
 
-    /// One recorded change (his goal, next step, a matter done, a to-do item): a single step, `recorded`, in the 10
-    /// seconds Life is first assumed to need; Life's own plan and limit replace that when its first message comes.
+    /// One recorded change (his goal, next step, a matter done, a to-do item): no plan of the phone's, only the 10
+    /// seconds Life is first assumed to need; Life's plan and limit come first in its first message, and `recorded`
+    /// is added when an older server sends no plan.
     public func record(
         emit: @escaping Emit, _ change: @Sendable (@escaping @Sendable (Data) -> Void) async throws -> String
     ) async {
         emit(.started)
-        emit(.planned(["recorded"], limitSeconds: 10, at: now()))
+        emit(.planned([], limitSeconds: 10, at: now()))
         do {
             _ = try await change(progress(emit))
             emit(.passed("recorded", at: now(), detail: [:]))

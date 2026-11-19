@@ -3,11 +3,9 @@ import { readMatterBook } from "../memory/matters";
 import { recordCorrection } from "../memory/memory-files";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
+import { QUICK_MS } from "./answer-result";
 import { TICK_LIMIT_MS, tickTodoItems } from "./change-todo-item";
 import type { ToolCall } from "./http/mcp-tool";
-
-/** What the reads and writes beside the ticks are given, in seconds. */
-const SLACK_S = 5;
 
 // His word on a whole matter, by its id (`correct_memory` with `matter`): Life reads which of its steps he means as
 // the matter stands now (`matterOf`), so his app never decides what is open or what a goal is pinned to.
@@ -30,7 +28,7 @@ export async function correctMatter(
     throw new Error(`Not done: no matter ${matter}; give a matter's id.`);
   }
   if (said.kind === "matter-direction") {
-    report({ limitSeconds: SLACK_S, plan: ["recorded"] });
+    report({ limitSeconds: QUICK_MS / 1000, plan: ["recorded"] });
     const written = await recordCorrection({
       ...said,
       steps: v.steps.map((s) => s.ref),
@@ -53,7 +51,8 @@ export async function correctMatter(
   }
   const note = typeof said.note === "string" ? said.note : undefined;
   report({
-    limitSeconds: Math.ceil((items.length * TICK_LIMIT_MS) / 1000) + SLACK_S,
+    limitSeconds:
+      Math.ceil((items.length * TICK_LIMIT_MS) / 1000) + QUICK_MS / 1000,
     plan: [...(items.length > 0 ? ["todo_items_ticked"] : []), "recorded"],
   });
   const ticked =

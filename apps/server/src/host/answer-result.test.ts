@@ -612,11 +612,50 @@ test("a new matter's Start the desk did not start: the result says where it stop
       start: { failed: { stage: "desk_accepted" }, state: "not_started" },
     });
     expect(guesses).toEqual([newMatter]);
+    // The same tap's retry after a dropped stream gets its failed result: the desk is not asked again.
+    expect(await call(newMatter.ref, ["start"], "tap-1").result).toMatchObject({
+      start: { state: "not_started" },
+    });
+    expect(desk).toHaveBeenCalledTimes(1);
     const again = await call(newMatter.ref, ["start"], "tap-2").result;
     expect(again).toMatchObject({ start: { state: "started" } });
     expect(desk).toHaveBeenCalledTimes(2);
   } finally {
     desk.mockRestore();
+    book.mockRestore();
+    people.mockRestore();
+  }
+});
+
+test("goal A, then B, then A again records three times: a fresh answer ends the memory of the earlier ones", async () => {
+  const newMatter = asCheck({
+    group: "new matter",
+    matter: { id: "matter_000000000009", name: "Paint the door" },
+    ref: "matter_000000000009",
+  });
+  guesses = [newMatter];
+  const people = spyOn(
+    await import("../memory/who"),
+    "readPeople"
+  ).mockResolvedValue({} as never);
+  const book = spyOn(
+    await import("../memory/matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    {
+      goal: { at: "2026-11-17T02:00:00Z", by: "owner", text: "Door painted" },
+      id: newMatter.ref,
+      steps: [{ ref: "obs_000000000091" }],
+    },
+  ] as never);
+  try {
+    await call(newMatter.ref, ["edit-goal"], "tap-0", { note: "A" }).result;
+    await call(newMatter.ref, ["edit-goal"], "tap-1", { note: "B" }).result;
+    await call(newMatter.ref, ["edit-goal"], "tap-2", { note: "A" }).result;
+    expect(readCorrections().map((c) => (c as { goal?: string }).goal)).toEqual(
+      ["A", "B", "A"]
+    );
+  } finally {
     book.mockRestore();
     people.mockRestore();
   }
