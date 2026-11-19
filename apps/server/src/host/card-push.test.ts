@@ -8,7 +8,12 @@ import { DECISIONS, requestDecision } from "../memory/decisions";
 import * as memoryLock from "../memory/memory-lock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lifelog from "../sources/lifelog-push";
-import { PUSHED, pushNewCards, pushNewCardsIfChanged } from "./card-push";
+import {
+  PUSHED,
+  pushNewCards,
+  pushNewCardsIfChanged,
+  pushNewDecisionsAtOnce,
+} from "./card-push";
 
 const card = (n: number, kind: "decision" | "voice" | "person" = "decision") =>
   ({
@@ -183,5 +188,26 @@ test("while a run holds the lock a new decision still pushes, from its own lines
   ] as checks.InboxCheck[];
   held.mockReturnValue(false);
   await pushNewCardsIfChanged();
+  expect(push).toHaveBeenCalledTimes(1);
+});
+
+test("a new decision pushes on the seconds' look, once", async () => {
+  open = cards(1);
+  await pushNewCardsIfChanged();
+  open = cards(2);
+  await requestDecision("owner", {
+    deadline: later(1).toISOString(),
+    options: [
+      { id: "yes", label: "Send it" },
+      { id: "no", label: "Not now" },
+    ],
+    question: "Send Kit the quote?",
+    title: "He asked for it.",
+  });
+  pushNewDecisionsAtOnce();
+  await Bun.sleep(0);
+  expect(push).toHaveBeenCalledTimes(1);
+  pushNewDecisionsAtOnce();
+  await Bun.sleep(0);
   expect(push).toHaveBeenCalledTimes(1);
 });

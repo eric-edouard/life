@@ -28,7 +28,7 @@ import type { Unit } from "../records/unit";
 import { syncAppleHealth } from "../sources/apple-health";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
-import { pushNewCardsIfChanged } from "./card-push";
+import { pushNewCardsIfChanged, pushNewDecisionsAtOnce } from "./card-push";
 import { describePhotos } from "./describe-photos";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
@@ -301,6 +301,8 @@ async function reindexFor(
 let syncing = false;
 /** How often today's units from every source but lifelog are built (`buildTodayUnits`), the first a tick after start: search finds a message by its words within this. */
 const TODAY_EVERY = 5 * MIN;
+/** How soon a new decision reaches his phone: a stat of its file, cheap. */
+const DECISIONS_EVERY = 3000;
 /**
  * On its own timer, one at a time: today's units built outside the lock, written and indexed under it. When a run holds
  * the lock this turn is skipped; the other way round, a night that finds the lock held waits for the next tick.
@@ -351,6 +353,7 @@ export async function watch(): Promise<number> {
   describeEvery();
   const timers = [
     setInterval(minute, MIN),
+    setInterval(pushNewDecisionsAtOnce, DECISIONS_EVERY),
     setInterval(embedEvery, EMBED_EVERY),
     setInterval(describeEvery, DESCRIBE_EVERY),
     setInterval(todayEvery, TODAY_EVERY),
