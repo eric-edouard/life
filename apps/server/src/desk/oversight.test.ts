@@ -9,7 +9,13 @@ import { setSettings } from "../core/settings";
 import { ask } from "../host/asks";
 import { changeRegisteredAgent } from "../host/change-registered-agent";
 import { requested } from "../host/change-todo-item";
-import { agentChangeOf, agentOf, agentsNow, modelOf } from "../host/desk-read";
+import {
+  agentChangeOf,
+  agentOf,
+  agentsNow,
+  agentsOnProjects,
+  modelOf,
+} from "../host/desk-read";
 import {
   agentLinesOnProjects,
   readActiveAgentOf,
@@ -489,7 +495,14 @@ test("he stops an agent, then starts another on its project or matter: it is han
   expect(agentOf(desk.db, a)).toMatchObject({
     outcome: `replaced by ${b}`,
     status: "handed_over",
+    stopped_at: null,
   });
+  expect(agentsNow(desk.db, clock().getTime()).map((x) => x.id)).not.toContain(
+    a
+  );
+  expect(
+    agentsOnProjects(desk.db, ["test-hand"], clock().getTime()).map((x) => x.id)
+  ).toEqual([b]);
   const m = await startedOn({ steps: ["obs_00000000a2a1"] });
   await stopped(m);
   const next = await startedOn({ steps: ["obs_00000000a2a1"] });

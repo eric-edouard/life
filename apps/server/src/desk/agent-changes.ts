@@ -88,7 +88,7 @@ function start(desk: Desk, c: AgentChange, brief: string, blocked?: string) {
   });
   // He stopped an agent, then started this one on its subject (its project, or a step it is anchored on): it is replaced.
   desk.db.run(
-    "update agent set status = 'handed_over', ended_at = ?, outcome = ? where status = 'stopped' and (project = ? or id in (select agent_id from anchor where step in (select value from json_each(?))))",
+    "update agent set status = 'handed_over', stopped_at = null, ended_at = ?, outcome = ? where status = 'stopped' and (project = ? or id in (select agent_id from anchor where step in (select value from json_each(?))))",
     [
       now(),
       `replaced by ${id}`,
