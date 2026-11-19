@@ -33,12 +33,19 @@ export interface NetworkIdentified {
   networkIdentity?: NetworkIdentity | null;
 }
 
-/** The parts of a check this reads: only a person check (`kind` `person`) has a network identity. */
+/** The parts of a check this reads: a person check (`kind` `person`) has a network identity, and so does a decision whose draft names a chat. */
 interface PersonCheck {
   about: string[];
   confirm: PersonCheck[];
   kind: string;
   ref: string;
+}
+
+/** A draft as Life stamped it: its resolved chat, the source it sends through and the chat's name (`to`). */
+interface DraftChat {
+  channel?: string;
+  chat?: string;
+  to: string;
 }
 
 /** A chat-day as the index lists it: what picks the newest 1:1 chat before any unit file is read. */
@@ -194,24 +201,37 @@ export async function readNetworkIdentities(
 export function withNetworkIdentity<
   C extends {
     confirm: C[];
+    draft?: DraftChat | null;
     networkIdentity?: NetworkIdentity | null;
     ref: string;
   },
->(c: C, identities: ReadonlyMap<string, NetworkIdentity>): C {
+>(c: C, identities: ReadonlyMap<string, NetworkIdentity>, owner: string): C {
   return {
     ...c,
-    confirm: c.confirm.map((x) => withNetworkIdentity(x, identities)),
-    networkIdentity: identities.get(c.ref) ?? null,
+    confirm: c.confirm.map((x) => withNetworkIdentity(x, identities, owner)),
+    networkIdentity: identities.get(c.ref) ?? draftChatOf(c.draft, owner),
   };
 }
+
+/** A draft's chat as its network shows it, from what the draft stored (`networkIdentityOf` over no messages: reads nothing); null for mail and a draft with no chat. */
+const draftChatOf = (d: DraftChat | null | undefined, owner: string) =>
+  d?.chat && d.channel && SOURCES.some((s) => s.name === d.channel)
+    ? networkIdentityOf(
+        { key: d.chat, source: d.channel as SourceName, title: d.to },
+        [],
+        owner
+      )
+    : null;
 
 /** The checks as the inbox shows them: each with its network identity (`readNetworkIdentities`), null where none. */
 export async function withNetworkIdentities<
   C extends PersonCheck & {
     confirm: C[];
+    draft?: DraftChat | null;
     networkIdentity?: NetworkIdentity | null;
   },
 >(checks: C[], people: People) {
   const identities = await readNetworkIdentities(checks, people);
-  return checks.map((c) => withNetworkIdentity(c, identities));
+  const owner = people.nameOf(OWNER);
+  return checks.map((c) => withNetworkIdentity(c, identities, owner));
 }

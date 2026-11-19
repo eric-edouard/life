@@ -26,8 +26,13 @@ export const guessAskOf = (p: {
   question: personQuestionOf([p.name]),
 });
 
-/** A Contacts card's identity ask: "Is this Gran or Robin?", and its context: which card. */
-export const cardAskOf = (card: string, people: { name: string }[]) => ({
-  context: `It is the Contacts card ${card}.`,
+/** A Contacts card's identity ask: "Is this Gran or Robin?", its context (which card) and the card's own name and handles. */
+export const cardAskOf = (
+  name: string,
+  handles: string[],
+  people: { name: string }[]
+) => ({
+  contactsCard: { handles, name },
+  context: `It is the Contacts card ${name}.`,
   question: personQuestionOf(people.map((p) => p.name)),
 });

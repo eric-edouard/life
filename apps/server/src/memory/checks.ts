@@ -267,13 +267,7 @@ const keptBy = (c: Ctx, refsOf: (l: Line) => string[]) => {
 function ranked(
   c: Ctx,
   group: Exclude<CheckGroup, "decision">,
-  fields: Pick<Check, "about" | "question" | "ref"> &
-    Partial<
-      Pick<
-        Check,
-        "around" | "clips" | "context" | "likelyPeople" | "said" | "since"
-      >
-    >,
+  fields: Pick<Check, "about" | "question" | "ref"> & Partial<Check>,
   lines: Line[],
   refs: string[],
   evidence: { quote: string; where?: Where } | null
@@ -289,6 +283,7 @@ function ranked(
             asker: LIFE_ASKER,
             at: null,
             clips: fields.clips ?? [],
+            contactsCard: fields.contactsCard,
             context: fields.context ?? LIFE_CHECKS[group].context,
             deadline: null,
             draft: null,
@@ -492,6 +487,9 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     );
     const cards = people.ambiguousCards.flatMap((a) => {
       // The people its name and handles say, named once: his answer is one of them.
+      const card = people.contacts.find((x) => x.id === a.card) ?? {
+        handles: [],
+      };
       const likelyPeople = a.people.map((p) => ({
         line: people.relationOf(p),
         name: people.nameOf(p),
@@ -501,9 +499,9 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         c,
         "contacts card",
         {
-          about: people.contacts.find((x) => x.id === a.card)?.handles ?? [],
+          about: card.handles,
           likelyPeople,
-          ...cardAskOf(people.nameOf(a.card), likelyPeople),
+          ...cardAskOf(people.nameOf(a.card), card.handles, likelyPeople),
           ref: a.card,
         },
         byRef.get(a.card) ?? [],
@@ -792,6 +790,7 @@ async function readChecks(
   });
   return (await withNetworkIdentities(checks, people)).map((c) => ({
     ...c,
+    contactsCard: c.contactsCard ?? null,
     pushId: pushIdOf(c.ref, key),
     urgency: urgencyOf(c),
   }));

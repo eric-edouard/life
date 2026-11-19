@@ -127,6 +127,11 @@ const SendFailed = Sent.omit({ eventId: true, kind: true })
     canRetry: z.literal(false).optional(),
     error: z.string().min(1),
     kind: z.literal("send-failed"),
+    /** The message that refused the send ("someone wrote since"): when, by whom, its words on one line. */
+    wrote: z
+      .object({ at: isoDateTime, by: z.string(), text: z.string() })
+      .strict()
+      .optional(),
   })
   .strict();
 const Line = z.discriminatedUnion("kind", [
@@ -461,10 +466,11 @@ export async function answerDecision(
   const since = new Date(stored.notSent?.at ?? stored.at);
   const outcome = await deliver(stored.draft, id, { onStep, since }).then(
     (eventId) => ({ eventId, kind: "sent" as const }),
-    (e: Error & { canRetry?: false }) => ({
+    (e: Error & { canRetry?: false; wrote?: SendFailed["wrote"] }) => ({
       error: e.message,
       kind: "send-failed" as const,
       ...(e.canRetry === false ? { canRetry: false as const } : {}),
+      ...(e.wrote ? { wrote: e.wrote } : {}),
     })
   );
   const sent = {
@@ -484,6 +490,7 @@ export const notSentOf = (d: Decision, n = d.notSent) =>
         at: n.at,
         canRetry: n.canRetry !== false && n.at < d.deadline,
         reason: n.error,
+        wrote: n.wrote ?? null,
       }
     : null;
 
