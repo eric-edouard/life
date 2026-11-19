@@ -26,11 +26,10 @@ struct CardArrangement<Region: View, Bar: View>: View {
                         ContextRegion(check: check)
                             .modifier(AnswersRow(row: row, bounds: arrangement.size, isLower: true))
                     } else {
-                        // An empty region still takes half the screen: a zero-sized one leaves the card alone.
-                        Color.clear.splitArrangementLayoutSize(maxWidth: 0, maxHeight: 0)
+                        Color.clear
                     }
                 }
-                .arrangementViewStyle(.split)
+                .arrangementViewStyle(.split.axes(isBeside ? Axis.Set([.horizontal, .vertical]) : Axis.Set()))
             }
         } else {
             // iOS 27.0 has no arrangement: the card alone at every width, its context behind the card's "Why" row.

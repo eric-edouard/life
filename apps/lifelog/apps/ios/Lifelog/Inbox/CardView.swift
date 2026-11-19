@@ -105,7 +105,7 @@ struct CardView: View {
             .scrollPosition(id: $current, anchor: .leading)
             .scrollTargetBehavior(.viewAligned)
             .scrollIndicators(.hidden)
-            .endsAtColumn()
+            .clipped()
             // A pager made after his tap's result starts on the first ask: put it on the one he is on.
             .onAppear { if let current { proxy.scrollTo(current, anchor: .leading) } }
         }
