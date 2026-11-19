@@ -286,7 +286,7 @@ export const newestTurn = (dir = WATCH) =>
 
 const DIGITS = /^\d+$/;
 
-export function readCursor(store: Store) {
+function readCursor(store: Store) {
   const cursor = readJson<{ cursor?: string }>(store.cursor)?.cursor;
   return cursor && DIGITS.test(cursor) ? cursor : "0";
 }
@@ -480,7 +480,7 @@ export const nameOf = (
   byId: Map<string, string>
 ) => (personId && byId.get(personId)) || personName;
 
-export interface TurnRow {
+export interface LifelogTurnRow {
   conversation_id: string;
   end_at: string | null;
   is_owner: number;
@@ -507,7 +507,7 @@ export function readConversations(
   const from = since.toISOString();
   const turns = Map.groupBy(
     db
-      .query<TurnRow, [string]>(
+      .query<LifelogTurnRow, [string]>(
         `select t.* from turns t where t.conversation_id in (select c.id ${live}) order by t.start_at, t.job_id, t.turn_index`
       )
       .all(from),
@@ -580,7 +580,7 @@ export function turnsBetween(
   byId: Map<string, string> = new Map()
 ): LifelogTurn[] {
   return store.db
-    .query<TurnRow, [string, string, string]>(
+    .query<LifelogTurnRow, [string, string, string]>(
       "select * from turns where conversation_id = ? and start_at >= ? and start_at < ? order by start_at, job_id, turn_index"
     )
     .all(conversationId, start, end)
@@ -599,7 +599,7 @@ export function whose(t: LifelogTurn): "me" | "unknown" | "other" {
   return t.personId || t.name ? "other" : "unknown";
 }
 
-export const lifelogTurn = (t: TurnRow, byId: Map<string, string>) => ({
+export const lifelogTurn = (t: LifelogTurnRow, byId: Map<string, string>) => ({
   at: t.start_at,
   end: t.end_at,
   jobId: t.job_id,
