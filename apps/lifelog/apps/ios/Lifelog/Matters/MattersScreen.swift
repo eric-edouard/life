@@ -11,6 +11,8 @@ struct MattersScreen: View {
     @State private var filter = MatterFilter()
     @State private var showsFilters = false
     @State private var visibility = NavigationSplitViewVisibility.all
+    /// What he typed on the asks pushed on a matter: here, above both columns, so a fold keeps it.
+    @State private var notes = AskNotes()
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     /// Two columns, the list and the matter: side by side on a regular width, one at a time on a compact one.
@@ -31,7 +33,18 @@ struct MattersScreen: View {
             .shellBar("Matters")
         } detail: {
             if let id = router.matter {
-                MatterPage(id: id).id(id)
+                NavigationStack(path: $router.matterPath) {
+                    MatterPage(id: id).id(id)
+                        .navigationDestination(for: String.self) { ref in
+                            AskPage(
+                                ref: ref, source: life.matter[id]?.value?.checks ?? [], notes: $notes,
+                                leave: {
+                                    life.forget(.answer(ref: ref))
+                                    notes.taken = nil
+                                    router.matterPath = []
+                                })
+                        }
+                }
             } else {
                 Notice(title: "No matter chosen.", detail: "Pick one from the list.").background(Palette.bg)
             }

@@ -11,6 +11,8 @@ import UserNotifications
 @MainActor @Observable
 final class LifeStore {
     private(set) var inbox = ReadState<Inbox>()
+    /// Life's own questions, read only when he opens "To confirm" (the list is long and nothing waits on it).
+    private(set) var toConfirm = ReadState<Inbox>()
     private(set) var matters = ReadState<MatterList>()
     private(set) var matter: [String: ReadState<Matter>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
@@ -28,6 +30,16 @@ final class LifeStore {
     private(set) var actions: [ActionKey: ActionState<ActionProof>] = [:]
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
+
+    /// An answer on a "To confirm" row, held for four seconds so Undo has something to undo: Life has no undo, so
+    /// nothing is sent until the time is up (or the screen goes), then it is an ordinary `answer`.
+    struct Held: Equatable {
+        let request: AnswerRequest
+        /// The option he tapped, in its own words, for the row's slim line.
+        let label: String
+    }
+    private(set) var held: [String: Held] = [:]
+    private var holds: [String: Task<Void, Never>] = [:]
 
     /// The Life this phone is paired with: set by a pairing, gone once Life no longer knows it (a read says so).
     private(set) var pairedOrigin: URL?
@@ -64,6 +76,7 @@ final class LifeStore {
         self.setBadge = setBadge
         pairedOrigin = tokens.load()?.endpoint.origin
         restore({ self.inbox.apply($0) }, key: Self.inboxKey)
+        restore({ self.toConfirm.apply($0) }, key: Self.toConfirmKey)
         restore({ self.matters.apply($0) }, key: Self.mattersKey)
         restore({ self.agents.apply($0) }, key: Self.agentsKey)
     }
@@ -97,6 +110,9 @@ final class LifeStore {
         // The badge is every open card.
         if let total = inbox.value?.total { setBadge(total) }
     }
+    func refreshToConfirm() async {
+        await load({ self.toConfirm.apply($0) }, key: Self.toConfirmKey) { try await $0.readToConfirm() }
+    }
     func refreshMatters() async {
         await load({ self.matters.apply($0) }, key: Self.mattersKey) { try await $0.readMatters() }
     }
@@ -115,6 +131,7 @@ final class LifeStore {
     }
 
     private static let inboxKey = "read_inbox"
+    private static let toConfirmKey = "read_inbox-to-confirm"
     private static let mattersKey = "read_matters"
     private static let agentsKey = "read_registered_agents"
 
@@ -211,7 +228,47 @@ final class LifeStore {
         let tap = taps.key(for: request)
         await perform(key, tap: tap) { [runner] in await runner.answer(request, key: tap, emit: $0) }
         if let ended = actions[key] { taps.ended(request, as: ended) }
-        await refreshInbox()
+        await refreshAfterAnswer()
+    }
+
+    /// What an answer changes, read again: the inbox, and every other list he has already opened (nothing else is read
+    /// for it). A matter page draws its asks from its own read, so the pages open since launch are read too.
+    private func refreshAfterAnswer() async {
+        async let inbox: Void = refreshInbox()
+        async let matters: Void = refreshMatters()
+        for id in Array(matter.keys) { await refreshMatter(id) }
+        if toConfirm.value != nil { await refreshToConfirm() }
+        _ = await (inbox, matters)
+    }
+
+    // MARK: Held answers
+
+    /// His answer to a "To confirm" row, sent in four seconds unless he undoes it.
+    func hold(_ request: AnswerRequest, as label: String) {
+        held[request.ref] = Held(request: request, label: label)
+        holds[request.ref]?.cancel()
+        holds[request.ref] = Task {
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            await sendHeld(request.ref)
+        }
+    }
+
+    func undo(_ ref: String) {
+        holds[ref]?.cancel()
+        (holds[ref], held[ref]) = (nil, nil)
+    }
+
+    /// Every held answer, at once: the screen is going, or the app.
+    func sendHeld() {
+        for ref in held.keys { Task { await sendHeld(ref) } }
+    }
+
+    private func sendHeld(_ ref: String) async {
+        holds[ref]?.cancel()
+        holds[ref] = nil
+        guard let sent = held.removeValue(forKey: ref) else { return }
+        await answer(sent.request)
     }
 
     /// Starts an agent on a matter with the goal he saw, which Life saves as his: `goal_saved`, then the desk's stages.
@@ -292,12 +349,20 @@ final class LifeStore {
         pairedOrigin = credentials.endpoint.origin
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
-        (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
+        (inbox, toConfirm, matters, matter, agents) = (ReadState(), ReadState(), ReadState(), [:], ReadState())
+        (held, holds) = ([:], [:])
         onStep(.reading)
         await refresh()
     }
 
     #if DEBUG
+        /// Development only (`-fixtureCard`): opens the card with that ref as a tapped push does.
+        func open(ref: String) async {
+            await refreshInbox()
+            guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return }
+            openedCard = inbox.value?.opening(pushId: pushId)
+        }
+
         /// Development only: launch with `LIFE_ORIGIN` and `LIFE_PAIRING_CODE` in the environment (for example
         /// `SIMCTL_CHILD_LIFE_ORIGIN=… xcrun simctl launch …`) to pair with that Life, http too. Never in release builds.
         func importFromEnvironment() async {

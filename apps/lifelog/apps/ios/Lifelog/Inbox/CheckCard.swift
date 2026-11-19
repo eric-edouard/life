@@ -8,6 +8,8 @@ struct CheckCard: View {
     /// The runtime of the agent that asked, when the card's matter has one.
     let runtimeName: RuntimeName?
     let openMatter: (String) -> Void
+    /// His answer to the guess a draft rests on (`check.confirm`), sent at once; the card stays as it is.
+    let confirm: (AnswerRequest) -> Void
     /// What he has typed or opened on this card: kept by the screen, so folding the phone keeps it.
     @Binding var input: CardInput
 
@@ -75,6 +77,13 @@ struct CheckCard: View {
     // MARK: Body
 
     @ViewBuilder private var content: some View {
+        ForEach(check.confirm ?? []) { guess in
+            RowGroup {
+                ConfirmRow(check: guess) { option in
+                    if let request = guess.answer(option) { confirm(request) }
+                }
+            }
+        }
         if let draft = check.draft { DraftBlock(draft: draft) }
         if let evidence = check.evidence { EvidenceBlock(evidence: evidence) }
         if !check.clips.isEmpty { ClipBlock(clips: check.clips) }
@@ -102,16 +111,16 @@ struct CheckCard: View {
         guard let rides = check.ridesOn, [.name, .guessedPerson, .voice, .ending].contains(check.group) else {
             return nil
         }
-        let parts = [(rides.observations, "fact"), (rides.matters, "matter")].filter { $0.0 > 0 }
+        let parts = [(rides.observations, "fact"), (rides.matterIds.count, "matter")].filter { $0.0 > 0 }
             .map { "\($0.0) \($0.1)\($0.0 == 1 ? "" : "s")" }
         guard !parts.isEmpty else { return nil }
-        let count = rides.observations + rides.matters
+        let count = rides.observations + rides.matterIds.count
         return parts.joined(separator: " and ") + (count == 1 ? " rests on it" : " rest on it")
     }
 
     private var whyLabel: String {
         switch check.group {
-        case .contactsCard, .newMatter: "Where Life found it"
+        case .contactsCard: "Where Life found it"
         case .ending: "What rests on it"
         case .voice: "Why Life thinks so"
         default: "Why, and what it rests on"
@@ -120,16 +129,11 @@ struct CheckCard: View {
 
     private var ownWords: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Caps(check.group == .newMatter ? "Your goal" : "Your answer")
-            TextField(
-                check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
-            )
-            .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
-            .padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))
-            Text(
-                check.group == .newMatter
-                    ? "It becomes the matter's goal. Then Start or Dismiss." : "Your words go to the agent as they are."
-            ).font(.small).foregroundStyle(Palette.faint)
+            Caps("Your answer")
+            TextField("Say it in your own words", text: $input.words, axis: .vertical)
+                .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
+                .padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))
+            Text("Your words go to the agent as they are.").font(.small).foregroundStyle(Palette.faint)
         }
     }
 

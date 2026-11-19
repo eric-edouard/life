@@ -87,7 +87,7 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// What a card's answer changes: the facts, matters and pages that rest on it.
     public struct RidesOn: Decodable, Sendable, Equatable {
         public let observations: Int
-        public let matters: Int
+        public let matterIds: [String]
         public let pages: Int
     }
 

@@ -38,14 +38,26 @@ interface Step {
 
 /** The new matter the demo holds, found to closed: Start, the plan card's Go, the agent's work, Mark as done. */
 const FOUND_TO_CLOSED: Step[] = [
-  { name: "inbox offers the new matter", refresh: true, until: "Work on it?" },
+  {
+    name: "the matters list",
+    refresh: true,
+    tap: "Matters",
+    until: "The leaking kitchen tap",
+  },
+  {
+    name: "the matter's page",
+    open: "The leaking kitchen tap",
+    until: "Start an agent",
+  },
+  { name: "Start an agent", tap: "Start an agent", until: "Start" },
   {
     name: "Start: goal saved, runtime, session, first turn",
     tap: "Start",
     until: "Its first turn has begun, done",
     waitS: 180,
   },
-  { name: "back to the inbox", tap: "Done", until: "Inbox" },
+  { name: "back to the inbox", tap: "Done", until: "Matter" },
+  { name: "the inbox", tap: "Inbox", until: "Inbox" },
   { name: "the agent's first turn ends", turnsEnded: 1, waitS: 600 },
   { name: "its plan card: Go, Change, Stop", refresh: true, until: "Change" },
   { name: "Go", tap: "Go", until: "knows, and goes on, done" },

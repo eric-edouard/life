@@ -111,7 +111,7 @@
         // MARK: Reads
 
         func readInbox() async throws -> String { try await gate(); return inbox() }
-        func readToConfirm() async throws -> String { try await gate(); return inbox() }
+        func readToConfirm() async throws -> String { try await gate(); return inbox(toConfirm: true) }
         func readMatters() async throws -> String { try await gate(); return matters() }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
 
@@ -125,16 +125,31 @@
             matter["agents"] = hasAgent ? [Self.agent(id == "matter_lease" ? 0 : 2)] : []
             if id == "matter_table", started.withLock({ $0 }) { matter["agent"] = "agt_table" }
             matter["steps"] = Self.steps(id)
-            matter["checks"] = [Any]()
+            // Every open check about it, of every kind, as `read_matter` sends them.
+            let left = answered.withLock { $0 }
+            matter["checks"] = Self.checks.filter {
+                ($0["matter"] as? [String: Any])?["id"] as? String == id && !left.contains($0["ref"] as? String ?? "")
+            }
             return json(matter)
         }
 
-        func inbox() -> String {
+        /// Decisions only, or, for "To confirm", Life's own questions: what `read_inbox` sends for each list.
+        func inbox(toConfirm: Bool = false) -> String {
             let left = answered.withLock { $0 }
-            let checks = scenario == "empty" ? [] : Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
+            let isOwn = { (check: [String: Any]) in !["decision", "new matter"].contains(check["group"] as? String) }
+            let open = Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
+            let checks = (toConfirm ? open.filter(isOwn) : open.filter { !isOwn($0) }).map { check in
+                // A guess already answered is no longer asked beside its draft.
+                var check = check
+                check["confirm"] = (check["confirm"] as? [[String: Any]] ?? []).filter {
+                    !left.contains($0["ref"] as? String ?? "")
+                }
+                return check
+            }
+            let shown = scenario == "empty" && !toConfirm ? [] : checks
             return json([
-                "checks": checks, "counts": ["decision": checks.count], "total": checks.count, "deadlinesToday": 1,
-                "toConfirm": 0,
+                "checks": shown, "counts": toConfirm ? [:] : ["decision": shown.count], "total": shown.count,
+                "deadlinesToday": 1, "toConfirm": open.filter(isOwn).count,
             ])
         }
 
@@ -158,30 +173,10 @@
             try await gate()
             let check = Self.checks.first { $0["ref"] as? String == answer.ref }
             let draft = check?["draft"] as? [String: Any]
-            let isNewMatter = check?["group"] as? String == "new matter"
-            let plan =
-                isNewMatter
-                ? (answer.options == ["start"]
-                    ? ["goal_saved", "desk_accepted", "session_open", "turn_begun"]
-                    : answer.options == ["edit-goal"] ? ["goal_saved"] : ["recorded"])
-                : draft == nil ? ["recorded"] : ["recorded", "chat_checked", "handed", "confirmed"]
+            let plan = draft == nil ? ["recorded"] : ["recorded", "chat_checked", "handed", "confirmed"]
             onProgress(message(["plan": plan, "limitSeconds": 20]))
             for step in plan {
                 try await Task.sleep(for: .milliseconds(700))
-                if isNewMatter, step == "desk_accepted", LifeFixture.start == "starting" {
-                    try await Task.sleep(for: .seconds(3_600))
-                }
-                if isNewMatter, step == "desk_accepted", LifeFixture.start == "failed" {
-                    return json([
-                        "ref": answer.ref, "kind": "new matter",
-                        "start": [
-                            "action": "start", "state": "not_started", "nothingRunning": true,
-                            "failed": [
-                                "stage": "desk_accepted", "reason": "Claude Code did not answer within 15 seconds",
-                            ],
-                        ],
-                    ])
-                }
                 if draft != nil, step == "handed", LifeFixture.answer == "sending" {
                     try await Task.sleep(for: .seconds(3_600))
                 }
@@ -196,20 +191,12 @@
                     ],
                 ])
             }
-            if isNewMatter, answer.options == ["edit-goal"] {
-                return json(["ref": answer.ref, "kind": "new matter"])
-            }
             answered.withLock { _ = $0.insert(answer.ref) }
             var result: [String: Any] = [
                 "ref": answer.ref, "kind": "decision", "asker": ["name": "Claude Code", "told": "recorded"],
             ]
             if draft != nil {
                 result["send"] = ["state": "sent", "at": at(18, 14, 3), "channel": "whatsapp", "to": "Hélène Aubert"]
-            } else if isNewMatter, answer.options == ["start"] {
-                result["start"] = [
-                    "action": "start", "state": "started", "nothingRunning": false, "runtime": "claude",
-                    "stages": [["stage": "desk_accepted"], ["stage": "session_open"], ["stage": "turn_begun"]],
-                ]
             } else if check?["group"] as? String == "voice" {
                 result["changed"] = ["voices": 3, "conversations": 2]
             }
@@ -273,7 +260,8 @@
             matter: [String: Any]? = nil, deadline: String? = nil, context: String? = nil, extra: [String: Any] = [:]
         ) -> [String: Any] {
             var check: [String: Any] = [
-                "ref": ref, "pushId": "push_\(ref)", "ridesOn": ["observations": 14, "matters": 2, "pages": 0],
+                "ref": ref, "pushId": "push_\(ref)",
+                "ridesOn": ["observations": 14, "matterIds": ["matter_lease", "matter_kitchen"], "pages": 0],
                 "group": group, "title": title, "question": question,
                 "asker": asker,
                 "options": options, "clips": [], "likelyPeople": [], "links": [],
@@ -287,12 +275,27 @@
         nonisolated(unsafe) private static let lease: [String: Any] = [
             "id": "matter_lease", "name": "Lease renewal, rue des Carmes",
         ]
-        nonisolated(unsafe) private static let table: [String: Any] = [
-            "id": "matter_table", "name": "Table for Mum’s 60th",
+        nonisolated(unsafe) private static let nora: [String: Any] = [
+            "id": "matter_nora", "name": "Quote for Nora Keller",
         ]
         nonisolated(unsafe) private static let kitchen: [String: Any] = [
             "id": "matter_kitchen", "name": "Kitchen quote, Halden house",
         ]
+
+        /// A guess Life asks beside a draft to a person it only guesses (`confirm`), and about a matter's person.
+        private static func guess(_ ref: String, name: String, handle: String, matter: [String: Any]? = nil)
+            -> [String: Any]
+        {
+            check(
+                ref, group: "guessed person", title: "A name Life can’t place: “\(handle)”, on WhatsApp",
+                question: "Life thinks this is \(name), a supplier",
+                options: [
+                    option("this-is", "It is them"), option("not-this-person", "Not them"),
+                    option("same-person", "Someone Life already knows", takes: "person"),
+                ],
+                matter: matter,
+                extra: ["evidence": ["from": "~ \(handle), WhatsApp", "quote": "Bonjour, c’est \(handle)."]])
+        }
 
         nonisolated(unsafe) static let checks: [[String: Any]] =
             [
@@ -314,6 +317,7 @@
                     matter: lease, deadline: at(19, 18), context: "She asked on Thursday whether it was signed. It is.",
                     extra: [
                         "onSilence": "no", "links": ["https://agents.example.test/s/1"],
+                        "confirm": [guess("guess_helene", name: "Hélène Aubert", handle: "Hélène A.", matter: lease)],
                         "draft": [
                             "to": "Hélène Aubert", "channel": "whatsapp",
                             "text":
@@ -332,6 +336,7 @@
                             "quote": "Voilà le prix du fournisseur : 4 200 € posé.",
                         ]
                     ]),
+                guess("guess_idris", name: "Idris Benali", handle: "Idris B.", matter: kitchen),
                 check(
                     "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
                     question: "Life thinks this is Camille Vance, a friend (70% sure)",
@@ -374,16 +379,6 @@
                         ],
                     ]),
                 check(
-                    "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
-                    question: "Goal: a table for eight at Chez Odile on Friday 27th. Work on it?",
-                    options: [
-                        option("start", "Start"), option("edit-goal", "Edit goal", takes: "note"),
-                        option("dismiss", "Dismiss"),
-                    ],
-                    matter: table,
-                    context: "Camille proposed Chez Odile on Saturday; you said you would handle it.",
-                    extra: ["goal": "A table for eight at Chez Odile on Friday 27th."]),
-                check(
                     "person:con_cam", group: "contacts card", title: "Place a Contacts card",
                     question:
                         "Life cannot place the Contacts card Cam: its name and handles say Camille Vance and Cam Ortiz",
@@ -400,7 +395,7 @@
                 check(
                     "dec_\(number)", group: "decision", title: "Quote for Nora Keller, step \(number)",
                     question: "Confirm the start date with Nora?", asker: "Codex",
-                    options: [option("yes", "Yes"), option("no", "Not yet")], matter: kitchen, deadline: at(20, 12))
+                    options: [option("yes", "Yes"), option("no", "Not yet")], matter: nora, deadline: at(20, 12))
             }
 
         nonisolated(unsafe) static let rows: [[String: Any]] = [

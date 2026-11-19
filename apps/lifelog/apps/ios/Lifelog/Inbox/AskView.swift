@@ -1,0 +1,160 @@
+import LifeConnector
+import SwiftUI
+
+/// What he typed on each ask and the answer he gave: kept by the screen that hosts the asks, above the size-class
+/// branch, so folding or unfolding the phone keeps both.
+struct AskNotes: Equatable {
+    var inputs: [String: CardInput] = [:]
+    var taken: Taken?
+}
+
+/// One ask on show, whoever hosts it (the Inbox, a matter's stack, "To confirm"): the ask with its answers, then its
+/// result in its place. `cards` are the asks around it, paged by swipe when there are several; a tap runs through the
+/// store's action and the ask stays, as its own result, until he moves on.
+struct AskView: View {
+    let check: Check
+    let cards: [Check]
+    /// The ask under the pager's leading edge: swiping only moves it, never answers.
+    @Binding var current: String?
+    @Binding var notes: AskNotes
+    var notice: String?
+    /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
+    let leave: (Taken, _ keep: Bool) -> Void
+
+    @Environment(LifeStore.self) private var life
+    @Environment(AppRouter.self) private var router
+    /// The ask whose "Same as…" he opened.
+    @State private var sameAsRef: String?
+
+    var body: some View {
+        CardArrangement(check: check) {
+            if let taken = notes.taken {
+                AnswerResultView(taken: taken, state: life.state(of: taken.key), next: question(after: taken))
+            } else {
+                VStack(spacing: 0) {
+                    if let notice {
+                        Text(notice).font(.small).foregroundStyle(Palette.muted).padding(.horizontal, Metrics.gutter)
+                            .padding(
+                                .vertical, Metrics.Spacing.xs * 2.5
+                            )
+                            .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
+                    }
+                    pager
+                }
+            }
+        } bar: {
+            if let taken = notes.taken {
+                ResultButtons(
+                    taken: taken, state: life.state(of: taken.key), next: question(after: taken),
+                    retry: { Task { await life.answer(taken.request) } },
+                    keepForLater: { leave(taken, true) }, nextCard: { leave(taken, false) })
+            } else if life.state(of: .answer(ref: check.ref)).isRunning {
+                // An answer still running (this screen was rebuilt while its send ran): its busy pill, no second tap.
+                Button {
+                } label: {
+                    Text(check.draft != nil ? "Sending…" : "Saving…")
+                }
+                .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
+            } else {
+                CheckActions(
+                    check: check, runtimeName: runtimeName(of: check), input: input(check.ref),
+                    answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
+                )
+            }
+        }
+        .sheet(item: sameAsCard) { check in
+            SameAsSheet(
+                title: check.namingOption?.label ?? "Same as…", people: check.likelyPeople,
+                takesNewName: check.namingOption?.takes == .personOrName
+            ) { choice in
+                if let request = check.answer(naming: choice) { submit(check, request) }
+            }
+            .presentationPlacement(.trailing)
+        }
+    }
+
+    /// The asks side by side: he swipes left for the next, right to come back, and the next one's edge shows at the right.
+    /// An ask alone has no edge to show. An ask he passes stays where it was.
+    private var pager: some View {
+        let edge = cards.count > 1 ? Pager.edge : 0
+        return ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                HStack(spacing: 0) {
+                    ForEach(cards) { check in
+                        CheckCard(
+                            check: check, runtimeName: runtimeName(of: check), openMatter: { router.open(matter: $0) },
+                            confirm: { request in Task { await life.answer(request) } }, input: input(check.ref)
+                        )
+                        .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.card))
+                        .padding(.leading, Pager.gap)
+                        .containerRelativeFrame(.horizontal) { width, _ in width - edge - Pager.gap }
+                        .id(check.ref)
+                    }
+                }
+                .padding(.trailing, edge + Pager.gap)
+                .scrollTargetLayout()
+            }
+            .scrollPosition(id: $current, anchor: .leading)
+            .scrollTargetBehavior(.viewAligned)
+            .scrollIndicators(.hidden)
+            // A pager made after his tap's result starts on the first ask: put it on the one he is on.
+            .onAppear { if let current { proxy.scrollTo(current, anchor: .leading) } }
+        }
+    }
+
+    private func input(_ ref: String) -> Binding<CardInput> {
+        Binding(get: { notes.inputs[ref] ?? CardInput() }, set: { notes.inputs[ref] = $0 })
+    }
+
+    /// The question of the ask after his tap's, when one is waiting.
+    private func question(after taken: Taken) -> String? { cards.first { $0.ref == taken.nextRef }?.question }
+
+    /// The ask whose "Same as…" he opened: that ask, even if the list reorders under the sheet; gone with it.
+    private var sameAsCard: Binding<Check?> {
+        Binding(
+            get: { sameAsRef.flatMap { ref in cards.first { $0.ref == ref } } },
+            set: { if $0 == nil { sameAsRef = nil } })
+    }
+
+    private func runtimeName(of check: Check) -> RuntimeName? {
+        guard let matter = check.matter?.id else { return nil }
+        return life.agents.value?.agents.first { $0.matter?.id == matter && !$0.isOver }?.runtimeName
+    }
+
+    private func submit(_ check: Check, _ request: AnswerRequest) {
+        let next = cards.firstIndex { $0.ref == check.ref }.flatMap { cards.dropFirst($0 + 1).first }
+        notes.taken = Taken(check: check, request: request, nextRef: next?.ref, runtimeName: runtimeName(of: check))
+        Task { await life.answer(request) }
+    }
+}
+
+/// The pager's measures, from the Ask panel: 12 from the sides and between cards, the next card's edge showing 10.
+private enum Pager {
+    static let gap = Metrics.Spacing.xs * 3
+    static let edge = Metrics.Spacing.xs * 2.5
+}
+
+/// An ask pushed on a stack (a matter's, or "To confirm"): found by its ref among the checks of the list it came from,
+/// or, once answered, the result he is still reading. Gone from both: said so.
+struct AskPage: View {
+    let ref: String
+    let source: [Check]
+    @Binding var notes: AskNotes
+    /// Back to the stack's root: after his answer's result, or when the ask is gone.
+    let leave: () -> Void
+
+    @State private var current: String?
+
+    var body: some View {
+        if let check = notes.taken?.check ?? source.first(where: { $0.ref == ref }) {
+            AskView(check: check, cards: [check], current: $current, notes: $notes) { _, _ in leave() }
+                .background(Palette.bg)
+        } else {
+            Notice(
+                title: "Already answered.", detail: "It was answered, here or elsewhere.",
+                action: ("Back", leave)
+            )
+            .background(Palette.bg)
+        }
+    }
+}

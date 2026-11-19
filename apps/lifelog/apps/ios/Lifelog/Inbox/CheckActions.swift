@@ -29,7 +29,7 @@ struct CheckActions: View {
                 Button {
                     if let request = check.answer(words: words) { answer(request) }
                 } label: {
-                    Text(check.group == .newMatter ? "Save the goal" : "Send my answer")
+                    Text("Send my answer")
                 }
                 .buttonStyle(.pill(.filled))
                 .disabled(words.isEmpty)
@@ -75,16 +75,12 @@ struct CheckActions: View {
         }
     }
 
-    /// One tap answers; an option that takes a note opens his words (a new matter's goal, ready to edit), one that names
-    /// someone opens "Same as…".
+    /// One tap answers; one that names someone opens "Same as…".
     private func tap(_ option: Check.Option) {
         if let request = check.answer(option) { return answer(request) }
         switch option.takes {
-        case .note?:
-            input.words = check.goal ?? ""
-            input.isWritingOwnWords = true
         case .person?, .personOrName?: sameAs()
-        case .unknown?, nil: break
+        case .note?, .unknown?, nil: break
         }
     }
 
@@ -95,7 +91,7 @@ struct CheckActions: View {
         case .voice: return "Until you say, the voice stays unnamed."
         case .name, .guessedPerson: return "Until you say, Life keeps its guess."
         case .contactsCard: return "Until you say, Life keeps them apart."
-        case .newMatter: return "Nothing starts unless you say so."
+        case .newMatter: return nil
         case .decision, .unknown:
             guard let deadline = check.deadline else { return nil }
             let when = deadline.formatted(.dateTime.weekday(.wide).hour().minute())

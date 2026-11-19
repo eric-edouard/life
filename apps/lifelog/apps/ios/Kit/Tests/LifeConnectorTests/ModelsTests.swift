@@ -24,7 +24,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.draft?.quoted?.sender == "Kit")
     #expect(decision.deadline != nil)
     #expect(decision.confirm?.first?.group == .guessedPerson)
-    #expect(decision.ridesOn?.matters == 1)
+    #expect(decision.ridesOn?.matterIds.count == 1)
 
     let toConfirm = try decoded(Inbox.self, wireText("life/read_inbox_to_confirm.json"))
     #expect(toConfirm.total == 5)
@@ -32,7 +32,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let voice = try #require(toConfirm.checks.first { $0.group == .voice })
     #expect(voice.clips.first?.audio?.jobId == "job-1")
     #expect(voice.likelyPeople.first?.name == "Gran")
-    #expect(toConfirm.checks.first { $0.group == .ending }?.ridesOn?.matters == 1)
+    #expect(toConfirm.checks.first { $0.group == .ending }?.ridesOn?.matterIds.count == 1)
     let found = try #require(
         try decoded(Matter.self, wireText("life/read_matter_found.json")).checks.first)
     #expect(found.group == .newMatter)
