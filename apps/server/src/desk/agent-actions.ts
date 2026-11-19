@@ -178,15 +178,15 @@ export function askDecision(
 }
 
 /** What every session of a registered agent is told after its brief (the desk spec, 5.4): the door's contract and his one gate (what waits on his yes, a plan before any act). */
-const contractOf = (id: string) =>
-  `You are ${id}, a registered agent of the owner's desk: one of his own sessions, in full. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included. The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated. Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward). Your first turn only reads and asks your plan ("Here is what I'll do", options Go, Change, Stop): act only after his Go.`;
+const contractOf = (id: string, isOwn: boolean) =>
+  `You are ${id}, a registered agent of the owner's desk${isOwn ? ": one of his own sessions, in full" : ""}. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. ${isOwn ? "Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included." : "You have your door's tools only."} The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated.${isOwn ? " Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward)." : ""} Your first turn only reads and asks your plan ("Here is what I'll do", options Go, Change, Stop): act only after his Go.`;
 
 /**
  * `read_packet`: what a fresh session starts from: its matter as read now (`oneMatter`: where it stands, its goal and
  * next step, its steps so far), or its project; then the brief, the contract, its notes, its queued events (facts only)
  * and its open decision.
  */
-export async function readPacket({ db }: Desk, id: string) {
+export async function readPacket({ db }: Desk, id: string, isOwn: boolean) {
   const a = agentOf(db, id);
   if (!a) {
     return "";
@@ -198,7 +198,7 @@ export async function readPacket({ db }: Desk, id: string) {
       ? `Your subject: the project ${a.project} (\`read_area_page\`).`
       : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify((await oneMatter(steps)) ?? `No matter holds ${steps.join(", ")} now.`)}`,
     a.brief,
-    contractOf(a.id),
+    contractOf(a.id, isOwn),
     `Your notes:\n${a.notes || "(none yet)"}`,
     `Events waiting:\n${events.join("\n") || "(none)"}`,
     `Your open decision: ${openDecisionOf(id) ?? "none"}`,

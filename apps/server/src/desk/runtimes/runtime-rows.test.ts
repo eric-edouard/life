@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import {
   chmodSync,
   mkdirSync,
@@ -18,6 +18,26 @@ import {
 } from "./runtime-rows";
 
 // The runtime rows as data: what each program is given, and how each reads a session's state. Made-up transcripts.
+
+// His real login shell never runs in a test: `SHELL` is a made-up one, which sets made-up variables, for the whole file.
+const CLAUDE_KEYS = [
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+];
+const CODEX_KEYS = ["CODEX_API_KEY", "OPENAI_API_KEY"];
+const ENGINE_KEYS = [...CLAUDE_KEYS, ...CODEX_KEYS];
+const shellWas = process.env.SHELL;
+beforeAll(() => {
+  const shell = join(mkdtempSync(join(tmpdir(), "life-login-")), "shell.sh");
+  const vars = [...ENGINE_KEYS, "LIFE_TEST_LOGIN"].map((k) => `${k}=made-up`);
+  writeFileSync(shell, `#!/bin/sh\n${vars.join(" ")} exec sh -c "$2"\n`);
+  chmodSync(shell, 0o755);
+  process.env.SHELL = shell;
+});
+afterAll(() => {
+  process.env.SHELL = shellWas;
+});
 
 const a = {
   door: doorOf("agt_0123456789ab"),
@@ -118,35 +138,28 @@ test("a second Life's agent takes none of his settings, tools or instruction fil
 });
 
 test("his login shell's environment goes to his own Life's agents only, less the runtime's engine keys; a second Life's gets none of it", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "life-login-"));
-  const shell = join(dir, "shell.sh");
-  // A made-up login shell: runs the command it is given with made-up variables set.
-  writeFileSync(
-    shell,
-    '#!/bin/sh\nLIFE_TEST_LOGIN=made-up ANTHROPIC_API_KEY=made-up OPENAI_API_KEY=made-up exec sh -c "$2"\n'
+  const own = runtimeRowsOf(true);
+  const claude = (await own.claude.spawn(a)).env;
+  const codex = (await own.codex.spawn(a)).env;
+  expect(claude.LIFE_TEST_LOGIN).toBe("made-up");
+  expect(codex.LIFE_TEST_LOGIN).toBe("made-up");
+  // Each runtime keeps the other's keys and loses its own.
+  for (const k of CLAUDE_KEYS) {
+    expect(claude[k]).toBeUndefined();
+    expect(codex[k]).toBe("made-up");
+  }
+  for (const k of CODEX_KEYS) {
+    expect(codex[k]).toBeUndefined();
+    expect(claude[k]).toBe("made-up");
+  }
+  const seconds = await Promise.all(
+    Object.values(runtimeRowsOf(false)).map((row) => row.spawn(a))
   );
-  chmodSync(shell, 0o755);
-  const was = process.env.SHELL;
-  process.env.SHELL = shell;
-  try {
-    const own = runtimeRowsOf(true);
-    const claude = (await own.claude.spawn(a)).env;
-    const codex = (await own.codex.spawn(a)).env;
-    expect(claude.LIFE_TEST_LOGIN).toBe("made-up");
-    expect(claude.ANTHROPIC_API_KEY).toBeUndefined();
-    expect(claude.OPENAI_API_KEY).toBe("made-up");
-    expect(codex.LIFE_TEST_LOGIN).toBe("made-up");
-    expect(codex.OPENAI_API_KEY).toBeUndefined();
-    const seconds = await Promise.all(
-      Object.values(runtimeRowsOf(false)).map((row) => row.spawn(a))
-    );
-    for (const { env } of seconds) {
-      expect(env.LIFE_TEST_LOGIN).toBeUndefined();
-      expect(env.ANTHROPIC_API_KEY).toBeUndefined();
-      expect(env.OPENAI_API_KEY).toBeUndefined();
+  for (const { env } of seconds) {
+    expect(env.LIFE_TEST_LOGIN).toBeUndefined();
+    for (const k of ENGINE_KEYS) {
+      expect(env[k]).toBeUndefined();
     }
-  } finally {
-    process.env.SHELL = was;
   }
 });
 

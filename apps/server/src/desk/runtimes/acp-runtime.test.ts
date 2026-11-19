@@ -39,6 +39,7 @@ const rowFor = (
       env: {
         FAKE_ACP_LOG: join(dir, "log.jsonl"),
         ...(a.title === "stall" ? { FAKE_ACP_STALL: "1" } : {}),
+        ...(a.title === "no-mode" ? { FAKE_ACP_NO_MODE: "1" } : {}),
       },
     }),
 });
@@ -328,4 +329,17 @@ test("his own Life's row: every ask is approved, and the mode is set after new a
       )
     )
   );
+});
+
+test("an adapter that refuses the mode: the turn still ends ok, and its asks are approved", async () => {
+  const dir = made();
+  const run = await acpRuntime(
+    rowFor(dir, () => Promise.resolve("idle"), { mode: "no-ask-mode" })
+  ).start(agentIn("no-mode"), "[door]");
+  expect((await run.ended).ok).toBe(true);
+  expect(
+    logOf(dir)
+      .filter((l) => l.asked)
+      .map((l) => (l.outcome as { optionId: string }).optionId)
+  ).toEqual(["yes", "yes", "yes"]);
 });
