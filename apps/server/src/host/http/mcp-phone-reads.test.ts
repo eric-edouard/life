@@ -182,6 +182,8 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
             words: [
               [0, 400, 3],
               [450, 900, 6],
+              [950, 1100, 4],
+              [1150, 1600, 7],
             ],
           },
         ],
@@ -267,6 +269,10 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
           words: [
             [0, 300, 4],
             [350, 500, 4],
+            [550, 900, 6],
+            [950, 1200, 6],
+            [1250, 1400, 4],
+            [1450, 1900, 7],
           ],
         },
       ],
