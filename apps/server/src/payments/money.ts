@@ -6,8 +6,10 @@ import { Payment, type PaymentsBackend } from "./contract";
 // `money tx` never calls a bank, so a read is local and quick.
 
 export const money: PaymentsBackend = {
-  between: async (from, to) => {
-    const out = await execOk(["money", "tx", "--from", from, "--to", to]);
+  between: async (from, to, o = {}) => {
+    const out = await execOk(["money", "tx", "--from", from, "--to", to], {
+      timeout: o.timeoutMs,
+    });
     const r = z.array(Payment).safeParse(JSON.parse(out));
     if (!r.success) {
       const [first] = r.error.issues;

@@ -8,7 +8,6 @@ import {
   activeAgents,
   agentOf,
   type EventRow,
-  eventHeard,
   filtersOf,
   lastTurns,
   modelOf,
@@ -17,7 +16,6 @@ import {
   readCursor,
   type TurnRow,
 } from "../host/desk-read";
-import type { Matchable } from "../host/event-channels";
 import {
   CALL_ENDED,
   callMatchableOf,
@@ -52,6 +50,13 @@ import {
 import { doorOf } from "./desk-door";
 import { type Desk, saveCursor, writeWait } from "./desk-store";
 import {
+  pollChannels,
+  queue,
+  type ReadPeople,
+  unreadLinesOf,
+  wakesOf,
+} from "./event-queue";
+import {
   MATTER_RELATED,
   netsOf,
   relatedMessages,
@@ -74,9 +79,6 @@ const REMINDER =
 
 const now = () => clock().toISOString();
 
-/** Who his people are, read when a poll first needs them: once per poll (`readPeopleOnce`). */
-type ReadPeople = () => Promise<People>;
-
 /** `readPeople`, read at most once however often it is asked. */
 export function readPeopleOnce(): ReadPeople {
   let read: Promise<People> | undefined;
@@ -84,20 +86,6 @@ export function readPeopleOnce(): ReadPeople {
     read ??= readPeople();
     return read;
   };
-}
-
-/** Queues `wakes` (one event each, kept once per agent and id) as `name`. */
-function queue(
-  db: Desk["db"],
-  name: string,
-  wakes: { agent: string; eventId: string; payload: unknown }[]
-) {
-  for (const w of wakes) {
-    db.run(
-      "insert or ignore into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
-      [w.agent, w.eventId, name, JSON.stringify(w.payload), now()]
-    );
-  }
 }
 
 /**
@@ -149,28 +137,6 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
     queue(db, MATTER_RELATED, related);
     saveCursor(db, MESSAGE_RECEIVED, read.cursor);
   })();
-}
-
-/**
- * Each active agent's wakes by `events`: those its wait wants (`matcherOf`), from after it was created (by the event's
- * instant), not queued for it yet (`eventHeard`).
- */
-function wakesOf<T>(
-  db: Desk["db"],
-  agents: AgentRow[],
-  people: People,
-  events: { at: string; eventId: string; matchable: Matchable; payload: T }[]
-) {
-  return agents.flatMap((a) => {
-    const matchers = filtersOf(a).flatMap((f) => matcherOf(f, people) ?? []);
-    return events.flatMap((e) =>
-      e.at >= a.created_at &&
-      matchers.some((isMatch) => isMatch(e.matchable)) &&
-      eventHeard(db, a.id, e.eventId) === "not_yet"
-        ? [{ agent: a.id, eventId: e.eventId, payload: e.payload }]
-        : []
-    );
-  });
 }
 
 /**
@@ -300,11 +266,17 @@ const sinceLineOf = (since?: string) =>
       ]
     : [];
 
-/** The message that wakes a session: why, `sinceLineOf`, and each queued event's facts (who, where, when, the id to read). */
-const wakeMessageOf = (cause: string, events: EventRow[], since?: string) =>
+/** The message that wakes a session: why, `sinceLineOf`, the channels it waits on that cannot be read (`unreadLinesOf`), and each queued event's facts (who, where, when, the id to read). */
+const wakeMessageOf = (
+  cause: string,
+  events: EventRow[],
+  since: string | undefined,
+  unread: string[]
+) =>
   [
     `Woken by the desk: ${cause}.`,
     ...sinceLineOf(since),
+    ...unread,
     ...events.map(eventLineOf),
   ].join("\n");
 
@@ -430,9 +402,11 @@ async function launch(
     if (!a.session || state === "gone" || grown >= GROWTH_LIMIT) {
       const s = await runtime.start(
         sessionAgentOf(a),
-        [await readPacket(desk, a.id, isOwnLife()), ...sinceLineOf(since)].join(
-          "\n\n"
-        )
+        [
+          await readPacket(desk, a.id, isOwnLife()),
+          ...sinceLineOf(since),
+          ...unreadLinesOf(db, a),
+        ].join("\n\n")
       );
       // Watched first: its process runs, so a failed write below never ends it as not started.
       watch(desk, a.id, turn, s);
@@ -469,7 +443,7 @@ async function launch(
         await runtime.send(
           sessionAgentOf(a),
           a.session,
-          wakeMessageOf(cause, events, since)
+          wakeMessageOf(cause, events, since, unreadLinesOf(db, a))
         )
       );
     }
@@ -533,7 +507,7 @@ export async function wakeDue(desk: Desk) {
 /**
  * One tick of the clock: his word about his agents, his answers, the turns that never began, then the turns due (a new
  * agent's first turn never waits behind the polls), then, when their poll is due, the messages, the calls that ended, the recordings, the
- * agents whose matter is done and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst.
+ * agents whose matter is done and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst; the event channels a wait names after the calls (`pollChannels`).
  */
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
@@ -545,6 +519,7 @@ export async function tick(desk: Desk, isPollDue = true) {
     const people = readPeopleOnce();
     await pollMessages(desk, people);
     await pollCalls(desk, people);
+    await pollChannels(desk, people);
     await pollRecordings(desk, people);
     await endAgentsOnDoneMatters(desk, people);
     await endLostTurns(desk);

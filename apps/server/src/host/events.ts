@@ -14,13 +14,17 @@ import {
 import { directChats } from "../memory/closeness";
 import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
-import { readySources } from "../memory/sources";
+import { readySources, SOURCES } from "../memory/sources";
 import { isLifeOutput, speakerOf } from "../memory/units";
 import { meant, nameRefusalOf, type People, readPeople } from "../memory/who";
 import { EventFilter } from "../records/registered-agent";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
-import type { Matchable } from "./event-channels";
+import {
+  EVENT_CHANNELS,
+  isEventChannel,
+  type Matchable,
+} from "./event-channels";
 
 // Events: what an agent can wait for, MCP's Events extension (SEP-3415, a draft; `io.modelcontextprotocol/events`),
 // served by poll only. The agent picks its own arguments and Life matches them by code. An event is computed when it
@@ -57,14 +61,18 @@ const messaging = () =>
 
 /** The arguments an agent polls with: an `EventFilter` (its apps among the sources on now). */
 const argumentsOf = (channels: string[]) =>
-  EventFilter.extend({
-    channels: z
-      .array(
-        channels.length ? z.enum(channels as [string, ...string[]]) : z.never()
-      )
-      .optional()
-      .describe("Only these apps; every one by default"),
-  }).strict();
+  EventFilter.omit({ above: true, below: true, quantity: true })
+    .extend({
+      channels: z
+        .array(
+          channels.length
+            ? z.enum(channels as [string, ...string[]])
+            : z.never()
+        )
+        .optional()
+        .describe("Only these apps; every one by default"),
+    })
+    .strict();
 
 const Payload = z.object({
   at: z.iso.datetime(),
@@ -267,8 +275,8 @@ const wantedOf = (filter: EventFilter, people: People) =>
 
 /**
  * Whether an event is one `filter` wants, decided here only (the connector's polls and the desk's agent waits), by the
- * rules of `Matchable`: by app, chat, his own or others', who (a message's writer, or who was on a call, whoever
- * placed it) and a pattern on its text. Null when its person is no one Life knows.
+ * rules of `Matchable`: by app or channel, chat, his own or others', who (a message's writer, or who was on a call,
+ * whoever placed it), a pattern on its text and a quantity's range. Null when its person is no one Life knows.
  */
 export function matcherOf(filter: EventFilter, people: People) {
   const wanted = wantedOf(filter, people);
@@ -278,14 +286,24 @@ export function matcherOf(filter: EventFilter, people: People) {
   const text = filter.text_matches
     ? new RegExp(filter.text_matches, "i")
     : undefined;
+  const { above, below, quantity } = filter;
   return (x: Matchable) =>
     (x.fromMe ?? false) === filter.from_me &&
-    (!filter.channels || filter.channels.includes(x.channel)) &&
+    (filter.channels
+      ? filter.channels.includes(x.channel)
+      : !isEventChannel(x.channel)) &&
     (!filter.chat || x.chat === filter.chat) &&
     (!wanted || (x.people ?? []).includes(`person:${wanted}`)) &&
     // ponytail: a backtracking pattern stalls the desk's message poll for every agent (200 characters and a compile check bound its size, not its match time; the author is his own agent or paired app). A linear-time engine at this one call if it ever bites.
-    (!text || (x.text !== undefined && text.test(x.text)));
+    (!text || (x.text !== undefined && text.test(x.text))) &&
+    (!quantity || isInRange(x.quantities?.[quantity], above, below));
 }
+
+/** Whether a quantity is known and lies strictly between `above` and `below` (each optional). */
+const isInRange = (n: number | undefined, above?: number, below?: number) =>
+  n !== undefined &&
+  (above === undefined || n > above) &&
+  (below === undefined || n < below);
 
 /** A message as a filter sees it: its writer (his own: the 1:1 chat's person, `messagePayloadOf`) and its text. */
 export const messageMatchableOf = (
@@ -412,6 +430,27 @@ export const callMatchableOf = (c: CallPayload): Matchable => ({
   channel: c.source,
   chat: c.chat,
   people: c.people,
+});
+
+/**
+ * The channels a wait may name: those Life knows (every chat and mail app, and the event channels) and those on now
+ * (the apps whose messages or calls the desk reads, and the event channels that can be read), so "off" and "unknown"
+ * differ.
+ */
+export const waitChannelsOf = (
+  sources: { name: string }[] = [...messaging(), ...chatSources()],
+  channels = EVENT_CHANNELS
+) => ({
+  known: [
+    ...SOURCES.filter((s) => s.kind === "chat" || s.kind === "mail").map(
+      (s) => s.name
+    ),
+    ...channels.map((c) => c.name),
+  ],
+  on: [
+    ...sources.map((s) => s.name),
+    ...channels.filter((c) => !c.block()).map((c) => c.name),
+  ],
 });
 
 /** The chat apps that are on and readable: where calls are, whether or not they say what came after a row (the phone's don't). */

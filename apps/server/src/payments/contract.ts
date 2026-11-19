@@ -25,6 +25,10 @@ export const Payment = z.object({
 export type Payment = z.infer<typeof Payment>;
 
 export interface PaymentsBackend {
-  /** The payments booked from `from` to `to` (YYYY-MM-DD, both included). */
-  between: (from: string, to: string) => Promise<Payment[]>;
+  /** The payments booked from `from` to `to` (YYYY-MM-DD, both included); a read past `timeoutMs` fails. */
+  between: (
+    from: string,
+    to: string,
+    o?: { timeoutMs?: number }
+  ) => Promise<Payment[]>;
 }
