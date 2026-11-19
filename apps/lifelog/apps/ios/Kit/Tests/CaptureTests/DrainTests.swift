@@ -402,7 +402,8 @@ import Testing
         await harness.fake.setAnswersDeviceInfo(false)
         await harness.fake.record(pages: 5)
         await harness.run {
-            #expect(await harness.eventuallyAfter(.seconds(61)) { await harness.status().sync.isCaughtUp })
+            await harness.passTime(.seconds(61), whenATimerIsDueIn: .seconds(50)...(.seconds(60)))
+            #expect(await eventually { await harness.status().sync.isCaughtUp })
         }
         #expect(await harness.sink.pages.count == 5)
         #expect(await harness.sink.lives == [nil])

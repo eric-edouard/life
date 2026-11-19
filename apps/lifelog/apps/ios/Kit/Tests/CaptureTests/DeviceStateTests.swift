@@ -70,10 +70,9 @@ import Testing
         await harness.fake.record(pages: 5)
         await harness.fake.setBusyWithOtherClient(true)
         await harness.run {
+            await harness.passTime(.seconds(11), whenATimerIsDueIn: .seconds(5)...(.seconds(10)))
             #expect(
-                await harness.eventuallyAfter(.seconds(11)) {
-                    await harness.status().connection == .busyElsewhere(harness.fake.id)
-                })
+                await eventually(.seconds(2)) { await harness.status().connection == .busyElsewhere(harness.fake.id) })
         }
     }
 

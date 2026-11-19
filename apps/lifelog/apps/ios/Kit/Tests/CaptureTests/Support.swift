@@ -202,12 +202,21 @@ struct Harness {
         }
     }
 
-    /// Like `eventually`, passing `step` of the coordinator's time before each look: for what only a timeout brings about.
+    /// Like `eventually`, passing `step` of the coordinator's time before each look: for a deadline that only passing
+    /// time reaches, where passing more than once changes nothing the test looks at.
     func eventuallyAfter(_ step: Duration, _ condition: () async -> Bool) async -> Bool {
         await eventually {
             await advanceClock(by: step)
             return await condition()
         }
+    }
+
+    /// Passes `duration` of the coordinator's time once one of its timers is due within `window` from now: the deadline
+    /// a test means to pass is set by then, so it is never missed (time passed before it is set would not reach it),
+    /// and no other deadline is passed more than once.
+    func passTime(_ duration: Duration, whenATimerIsDueIn window: ClosedRange<Duration>) async {
+        _ = await eventually { clock.hasTimer(dueIn: window) }
+        await advanceClock(by: duration)
     }
 
     var acks: [UInt64] {
@@ -228,6 +237,12 @@ final class TestClock: Clock, Sendable {
 
     var now: ContinuousClock.Instant { .now + state.withLock { $0.skew } }
     var minimumResolution: Duration { .milliseconds(1) }
+    /// Whether a timer is waiting that is due within `window` from now.
+    func hasTimer(dueIn window: ClosedRange<Duration>) -> Bool {
+        let current = now
+        return state.withLock { $0.sleepers.values.contains { window.contains($0 - current) } }
+    }
+
     var date: Date {
         let (seconds, attoseconds) = state.withLock { $0.skew }.components
         return Date() + Double(seconds) + Double(attoseconds) / 1e18
