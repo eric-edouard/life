@@ -2,12 +2,12 @@ import LifeConnector
 import SwiftUI
 
 /// What he tapped, kept while it runs and after: the card as it was (the inbox no longer holds it once answered), the
-/// request to repeat, and where it stood in the list.
+/// request to repeat, and the card that follows it.
 struct Taken: Equatable {
     let check: Check
     let request: AnswerRequest
-    let position: Int
-    let total: Int
+    /// The card after this one in the inbox when he tapped, so the result still knows it once the inbox let it go.
+    let nextRef: String?
     let runtimeName: RuntimeName?
 
     var key: LifeStore.ActionKey { .answer(ref: check.ref) }
@@ -51,7 +51,6 @@ struct AnswerResultView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Caps("\(taken.position) of \(taken.total)", color: Palette.muted)
             HStack(spacing: 8) {
                 chip(taken.context.asker ?? "Life", "sparkle", tint: Palette.ai)
                 if let matter = taken.check.matter { chip(matter.name, "list.bullet.indent", tint: Palette.fg) }

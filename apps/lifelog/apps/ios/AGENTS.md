@@ -4,7 +4,7 @@
 Swift package with everything that doesn't need UIKit, so it builds and tests on the Mac in seconds. `Watch/` and
 `Widgets/` are the glances; `Shared/` holds code and copy that the app and its extensions share. `project.yml`
 generates the gitignored `.xcodeproj`.
-The app is Life's two tabs, Inbox (`Inbox/`: one `CheckCard` at a time and its `AnswerResultView`) and Matters (`Matters/`), with
+The app is Life's two tabs, Inbox (`Inbox/`: the `CheckCard`s, paged by swipe, and its `AnswerResultView`) and Matters (`Matters/`), with
 the Pendant as a sheet from the pill top right (`Shell/`) and Settings from the gear; the old Library, Conversation, People, Presses and
 Spending screens are cut. Every screen reads through `ReadScreen` (loading, empty, stale, unreachable, failed, not paired) and every
 action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSystem/Typography.swift`). `Shared/Palette.swift` is the phone's one copy of Life's brand (`assets/brand/tokens.css`), checked by
