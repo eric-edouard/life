@@ -114,7 +114,10 @@ final class LifeStore {
         await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
         // The badge is the cards that block him.
         if let badge = inbox.value?.badge { setBadge(badge) }
-        if let open = inbox.value?.checks.compactMap(\.pushId) { await removeNotifications(notIn: Set(open)) }
+        // Only a whole, fresh read says what is no longer open: not a cached, failed or cut-off one.
+        if inbox.phase == .loaded, let read = inbox.value, !(read.checks.count < read.total) {
+            await removeNotifications(notIn: Set(read.checks.compactMap(\.pushId)))
+        }
     }
     /// A card answered anywhere (here, in another app, by its deadline) leaves his notifications too.
     private func removeNotifications(notIn open: Set<String>) async {

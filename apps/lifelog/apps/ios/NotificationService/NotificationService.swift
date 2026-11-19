@@ -52,7 +52,7 @@ extension UNNotificationContent {
         content.subtitle = card.subtitle
         content.body = card.body
         content.threadIdentifier = card.thread
-        content.userInfo["card"] = card.card
+        content.userInfo[CardNotification.userInfoKey] = card.card
         return content
     }
 }

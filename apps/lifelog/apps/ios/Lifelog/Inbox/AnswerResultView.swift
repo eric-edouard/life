@@ -148,11 +148,12 @@ struct ResultButtons: View {
 /// What a card's answer came to, in words: the result screen and the notification it was answered from say the same.
 extension Taken {
     /// Its word and line once `state` ended (for a notification, which shows one of each).
-    func result(_ state: ActionState<ActionProof>?) -> (word: String, line: String) {
+    func result(_ state: ActionState<ActionProof>) -> (word: String, line: String) {
         switch state {
         case .succeeded(let proof, _): (doneWord, summary(proof))
-        case .failed(let failure, _): (failedWord(failure), failedLine(failure, state ?? .idle))
-        case .idle, .running, nil: ("Not saved.", "It stays here.")
+        case .failed(let failure, _): (failedWord(failure), failedLine(failure, state))
+        case .running: ("Check first.", "It stays here.")
+        case .idle: ("Not saved.", "It stays here.")
         }
     }
 

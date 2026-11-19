@@ -179,20 +179,25 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
     /// the notification is replaced by how it went, in the result screen's words.
     private func answer(_ response: UNNotificationResponse) async {
         let request = response.notification.request
-        guard let check = CardNotification.card(in: request.content.userInfo) else { return }
+        let check = CardNotification.card(in: request.content.userInfo)
         let typed = (response as? UNTextInputNotificationResponse)?.userText
-        let running = UIApplication.shared.beginBackgroundTask()
-        defer { UIApplication.shared.endBackgroundTask(running) }
+        let awake = Awake()
+        awake.id = UIApplication.shared.beginBackgroundTask(withName: "card answer") { awake.end() }
+        defer { awake.end() }
         let result: (word: String, line: String)
-        if let answering = CardNotification.answer(response.actionIdentifier, typed: typed, to: check), let answer {
+        if let check, let answer,
+            let answering = CardNotification.answer(response.actionIdentifier, typed: typed, to: check)
+        {
             result = await answer(check, answering)
         } else {
             result = ("Open the card to answer.", "This answer can't be given from the notification.")
         }
         let content = UNMutableNotificationContent()
         content.title = result.word
-        content.subtitle = check.title
+        content.subtitle = check?.title ?? ""
         content.body = result.line
+        // Still opens its card when tapped; the card itself is not kept, so it offers no answers again.
+        content.userInfo = request.content.userInfo.filter { $0.key as? String != CardNotification.userInfoKey }
         content.threadIdentifier = request.content.threadIdentifier
         content.interruptionLevel = .passive
         center.removeDeliveredNotifications(withIdentifiers: [request.identifier])

@@ -48,18 +48,23 @@ public struct CardNotification: Sendable, Equatable {
     /// The action that answers in his own words, typed or dictated (a decision's, `Check.takesOwnWords`).
     public static let reply = "reply"
     private static let optionPrefix = "option:"
+    /// Where the service extension keeps the card in its notification's `userInfo`.
+    public static let userInfoKey = "card"
 
-    /// The card kept with its notification (`userInfo["card"]`, written by the service extension).
+    /// The card kept with its notification (`userInfo[userInfoKey]`, written by the service extension).
     public static func card(in userInfo: [AnyHashable: Any]) -> Check? {
-        guard let text = userInfo["card"] as? String else { return nil }
+        guard let text = userInfo[userInfoKey] as? String else { return nil }
         return try? LibraryStore.feedDecoder.decode(Check.self, from: Data(text.utf8))
     }
 
     /// The card's answers that are one tap, as its notification's buttons (action id, his button's words). One that
     /// needs a person, a name or his words opens the card instead; one that acts outward is not offered here.
     public static func buttons(_ check: Check) -> [(id: String, label: String)] {
-        check.options.filter { $0.takes == nil && $0.outgoing != true }.map { ("\(optionPrefix)\($0.id)", $0.label) }
+        check.options.filter(isOneTap).map { ("\(optionPrefix)\($0.id)", $0.label) }
     }
+
+    /// Needs nothing more than the tap, and acts on nothing outward.
+    private static func isOneTap(_ option: Check.Option) -> Bool { option.takes == nil && option.outgoing != true }
 
     /// Reply…: his own words, typed or dictated. The category's one button, so the Watch shows it.
     public static var replyAction: UNTextInputNotificationAction {
@@ -80,9 +85,8 @@ public struct CardNotification: Sendable, Equatable {
     /// The answer a tapped action gives: one of `buttons`, or his words through `reply`; nil when the card can't be
     /// answered that way from its notification.
     public static func answer(_ action: String, typed: String?, to check: Check) -> AnswerRequest? {
-        if action == reply { return typed.flatMap { check.answer(words: $0) } }
-        guard action.hasPrefix(optionPrefix),
-            let option = check.options.first(where: { "\(optionPrefix)\($0.id)" == action }), option.outgoing != true
+        if action == reply { return check.takesOwnWords ? typed.flatMap { check.answer(words: $0) } : nil }
+        guard let option = check.options.first(where: { "\(optionPrefix)\($0.id)" == action }), isOneTap(option)
         else { return nil }
         return check.answer(option)
     }

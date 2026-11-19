@@ -89,5 +89,10 @@ private let options =
         of: #""group":"decision""#, with: #""group":"voice""#)
     let named = try #require(CardNotification.card(in: ["card": voice]))
     #expect(CardNotification.answer(CardNotification.reply, typed: "Maya", to: named) == nil)
+    // The Watch shows Reply… on every card; on a new matter it would edit the goal, so it gives nothing there.
+    let matter = check(pushId: "0123456789abcdef").replacingOccurrences(
+        of: #""group":"decision""#, with: #""group":"new matter""#)
+    let newMatter = try #require(CardNotification.card(in: ["card": matter]))
+    #expect(CardNotification.answer(CardNotification.reply, typed: "Finish by May", to: newMatter) == nil)
     #expect(CardNotification.card(in: [:]) == nil)
 }
