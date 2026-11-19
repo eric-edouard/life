@@ -12,26 +12,13 @@ import Timeline
 struct PendantActions {
     let capture: CaptureStore
     let sync: SyncStore
-    let permissions: PermissionsStore
-
-    func control(_ control: HeroReading.Control) {
-        Task {
-            switch control {
-            case .pause: await capture.pause()
-            case .resume: await capture.resume()
-            case .reconnect: await capture.reconnect()
-            case .none: break
-            }
-        }
-    }
 
     func recover(_ recovery: Recovery) {
         switch recovery {
         case .openSettings:
             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
-        case .pair, .reconnect: Task { await capture.reconnect() }
+        case .reconnect: Task { await capture.reconnect() }
         case .syncNow: Task { await capture.syncNow() }
-        case .resume: Task { await capture.resume() }
         }
     }
 
@@ -40,15 +27,5 @@ struct PendantActions {
         try await capture.resolve(capture.openIncidents.filter { ids.contains($0.id) }, keeping: resolution)
     }
 
-    func allowNotifications() {
-        Task {
-            await capture.notifier.requestPermission()
-            await permissions.refresh()
-        }
-    }
-
-    func dismissNotificationsInvite() { Settings.shared.notificationsInviteDismissed = true }
-
     func refresh() async { await capture.syncNow() }
-
 }

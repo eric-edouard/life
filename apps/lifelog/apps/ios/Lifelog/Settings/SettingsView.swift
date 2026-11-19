@@ -93,6 +93,15 @@ struct SettingsView: View {
                 }
             case .works, .checking: EmptyView()
             }
+            let transcription = TranscriptionFacts(sync)
+            if let count = transcription.waiting[.creditsOut] {
+                Row(
+                    title: "ElevenLabs credits are out",
+                    detail: "\(conversationCount(count)) wait for words. Top up ElevenLabs and they go on their own.")
+            }
+            if let count = transcription.waiting[.macAway] {
+                Row(title: "\(conversationCount(count)) waiting for your Mac", detail: transcription.macDetail)
+            }
             if notificationsListed {
                 let notAsked = permissions.notifications == .notAsked
                 Row(

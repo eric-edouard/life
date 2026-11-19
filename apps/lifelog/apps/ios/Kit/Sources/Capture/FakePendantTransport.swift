@@ -36,7 +36,7 @@
         private var session: Int64 = 1
         /// Pendant RTC minus real time. Pages recorded before a time sync carry it.
         private var clockSkewMillis: Int64 = 0
-        private let totalPages: UInt64 = 120_000
+        private var totalPages: UInt64 = 120_000
         private var storageInstance: UInt64 = 1
         private var batteryPercent = 82
         private var charging = false
@@ -214,6 +214,9 @@
             }
             reachIfPossible()
         }
+
+        /// A flash this small is full once that many pages are recorded.
+        public func setTotalPages(_ pages: UInt64) { totalPages = pages }
 
         public func setInRange(_ near: Bool) {
             inRange = near

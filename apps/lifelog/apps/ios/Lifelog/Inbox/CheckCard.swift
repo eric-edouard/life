@@ -42,21 +42,10 @@ struct CheckCard: View {
     // MARK: Top
 
     private var meta: some View {
-        HStack(spacing: 12) {
-            Caps("\(position) of \(total)", color: Palette.muted)
-            Capsule().fill(Palette.line).frame(height: 1)
-                .overlay(alignment: .leading) {
-                    GeometryReader { proxy in
-                        Capsule().fill(Palette.fg).frame(
-                            width: proxy.size.width * Double(position) / Double(max(total, 1)))
-                    }
-                }
-            if let deadline = check.deadline {
-                Caps("By \(deadline.formatted(.dateTime.weekday(.abbreviated).hour().minute()))", color: Palette.flag)
-            }
-        }
-        .frame(height: 24)
-        .accessibilityElement(children: .combine)
+        ProgressLine(
+            done: position, of: total,
+            end: check.deadline.map { "By \($0.formatted(.dateTime.weekday(.abbreviated).hour().minute()))" },
+            endColor: Palette.flag)
     }
 
     private var chips: some View {

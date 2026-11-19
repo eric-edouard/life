@@ -29,6 +29,9 @@ public enum ConnectionEvent: Sendable, Equatable {
     /// The owner asked to find a Pendant (setup or retry). Only this may start a scan: launching never does,
     /// so a new install can never take the Pendant from another app on its own.
     case discover
+    /// The owner replaces the Pendant: this phone lets go of the remembered one and looks for another, never taking
+    /// that one again. It clears only the phone's own memory of the Pendant, never the Pendant's pairing or its audio.
+    case forget
     case availability(BluetoothAvailability)
     case discovered(DiscoveredPendant)
     case restored(UUID)
@@ -61,6 +64,8 @@ public struct ConnectionMachine: Sendable {
     public private(set) var generation: UInt64 = 0
     private var started = false
     private var discoveryAllowed = false
+    /// The Pendant the owner let go of: a scan skips it, so replacing finds the new one.
+    private var forgotten: UUID?
     private var availability: BluetoothAvailability = .unknown
 
     public init() {}
@@ -70,11 +75,21 @@ public struct ConnectionMachine: Sendable {
         case .start(let known):
             started = true
             device = known ?? device
+            if known != nil { forgotten = nil }
             return resume()
         case .discover:
             started = true
             discoveryAllowed = true
             return resume()
+        case .forget:
+            started = true
+            discoveryAllowed = true
+            let ended = endSession()
+            forgotten = device
+            device = nil
+            state = .idle
+            // The disconnect cancels a live link or a pending connect to the old Pendant, and it is not one for the next.
+            return ended + (forgotten == nil ? [] : [.disconnect]) + resume()
         case .availability(let new):
             guard new != availability else { return [] }
             availability = new
@@ -89,7 +104,7 @@ public struct ConnectionMachine: Sendable {
             return ended
         case .discovered(let pendant):
             // ponytail: auto-picks the first Pendant seen.
-            guard state == .scanning else { return [] }
+            guard state == .scanning, pendant.id != forgotten else { return [] }
             device = pendant.id
             state = .connecting(pendant.id)
             return [.stopScan, .connect(pendant.id)]

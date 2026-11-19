@@ -30,9 +30,9 @@ Settings tab: the few settings live on the Pendant screen.
 What the owner needs first on each screen, from the server's data (the feed, the outbox, the uploader). The old
 pipeline's parts, approvals, passes and per-part states are gone from every screen.
 
-- **Pendant.** 1. Am I recording: the lens, its sentence and evidence, Pause. 2. What needs me:
-  capture conditions and incidents, then processing only where the owner can act: the Mac away, a switch off, credits out, not paired. Offline and uploads belong
-  to the status, not a card. 3. Today: saved, spent, battery, storage, audio still on the Pendant.
+- **Pendant.** 1. Am I recording: the state word and its line. 2. What needs me: the capture
+  conditions and incidents under it. 3. The facts (battery, storage, last sync), then what is not on the Mac yet. The
+  sheet has no Pause and no lens; Replace and Pair open from its footer.
 - **The server's page in Settings.** 1. The one state, with its sentence. 2. What waits and why: audio to upload (its length), uploads
   failing (how many, and the last reason), edits to send, and conversations by the feed's reason, each a sentence with its glyph. 3. Edits the server refused, each with
   OK.
@@ -55,5 +55,4 @@ look the same to the phone: the link drops and says nothing about why.
 
 The default iOS way, done with care: deliberate transitions and small delightful animations, with Reduce Motion,
 Dynamic Type, VoiceOver and Increase Contrast fully supported, and no cost to performance. Nothing on the Pendant
-screen moves while it scrolls (`stillWhileScrolling()`): any animation there redraws the whole screen every frame. The
-lens draws off the main thread.
+screen moves while it scrolls (`stillWhileScrolling()`): any animation there redraws the whole screen every frame.

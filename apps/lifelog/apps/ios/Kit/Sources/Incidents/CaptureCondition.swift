@@ -65,6 +65,8 @@ public enum CaptureCondition: Sendable, Equatable {
     case storageWriteFailed(String)
     case phoneStorageLow(freeBytes: Int64)
     case pendantStorageLow(freeFraction: Double)
+    /// Storage at its end: the Pendant has stopped recording and its audio is leaving it.
+    case pendantStorageFull
     case recordingStopped
     case recordingControlFailed(RecordingFailure)
 
@@ -110,11 +112,35 @@ public enum CaptureCondition: Sendable, Equatable {
         }
         if let storage = status.storage?.value, storage.totalPages > 0 {
             let fraction = Double(storage.freePages) / Double(storage.totalPages)
-            if fraction < IncidentReducer.pendantLowBelow {
+            if fraction < IncidentReducer.pendantFullBelow {
+                conditions.append(.pendantStorageFull)
+            } else if fraction < IncidentReducer.pendantLowBelow {
                 conditions.append(.pendantStorageLow(freeFraction: fraction))
             }
         }
         return conditions
+    }
+
+    /// Conditions that keep lifelog from the Pendant altogether: no recording state can be read through them.
+    public var blocksLink: Bool {
+        switch self {
+        case .protectedDataUnavailable, .archiveUnavailable, .bluetoothPermissionNotDetermined, .bluetoothDenied,
+            .bluetoothRestricted, .bluetoothUnsupported, .bluetoothOff, .neverConfigured, .noPendantFound,
+            .pairingPending, .busyElsewhere, .notReady:
+            true
+        case .checking, .outOfReach, .staleTelemetry, .transferIncomplete, .noReply, .storageWriteFailed,
+            .phoneStorageLow, .pendantStorageLow, .pendantStorageFull, .recordingStopped, .recordingControlFailed:
+            false
+        }
+    }
+
+    /// Something the owner has to act on, as the Pendant pill counts it: not a link state (checking, out of reach, a
+    /// pause or resume that did not take) and not one that keeps lifelog from the Pendant (those colour the pill).
+    public var needsOwner: Bool {
+        switch self {
+        case .checking, .outOfReach, .recordingControlFailed: false
+        default: !blocksLink
+        }
     }
 
     private static func connectionCondition(_ status: CaptureStatus, context: CaptureContext, now: Date)
