@@ -248,11 +248,17 @@ describe("projectPeopleAndChatsOf", () => {
       chats: [
         chat({ id: "!g:example.test", whatsapp: "1203@g.us" }),
         chat({ id: "!r:example.test" }),
+        chat({ id: "1204@g.us" }),
       ],
       people: [person("me"), person("bob"), ana, person("cy")],
       projects: [
         project({
-          chats: ["!r:example.test", "!none:example.test", "!g:example.test"],
+          chats: [
+            "!r:example.test",
+            "!none:example.test",
+            "!g:example.test",
+            "1204@g.us",
+          ],
           people: ["cy", "bob", "ghost"],
         }),
       ],
@@ -265,6 +271,7 @@ describe("projectPeopleAndChatsOf", () => {
     expect(held?.chats).toEqual([
       { isSure: false, key: "!r:example.test", name: "A" },
       { isSure: true, key: "1203@g.us", name: "A" },
+      { isSure: true, key: "1204@g.us", name: "A" },
     ]);
     expect(projectPeopleAndChatsOf(t, "other")).toBeNull();
   });
