@@ -78,15 +78,15 @@ private func ids(_ state: State) -> [String] { state.steps.map(\.id) }
 }
 
 @Test func progressMessagesAreTheirPlanOrAStepWithItsDetail() throws {
-    let plan = try #require(ActionProgress(Data(#"{"plan":["recorded","left_inbox"],"limitSeconds":30}"#.utf8)))
-    #expect(plan == .plan(["recorded", "left_inbox"], limitSeconds: 30))
+    let plan = try #require(ActionProgress(Data(#"{"plan":["recorded","todo_items_ticked"],"limitSeconds":30}"#.utf8)))
+    #expect(plan == .plan(["recorded", "todo_items_ticked"], limitSeconds: 30))
     let step = try #require(
-        ActionProgress(Data(#"{"step":"left_inbox","at":"2026-11-18T10:00:01.500Z","total":41}"#.utf8)))
-    guard case .step("left_inbox", let at?, let detail) = step else {
+        ActionProgress(Data(#"{"step":"todo_items_ticked","at":"2026-11-18T10:00:01.500Z","done":1,"of":2}"#.utf8)))
+    guard case .step("todo_items_ticked", let at?, let detail) = step else {
         Issue.record("not a step")
         return
     }
-    #expect(detail == ["total": "41"])
+    #expect(detail == ["done": "1", "of": "2"])
     #expect(at.timeIntervalSince1970 > 1_700_000_000)
     #expect(ActionProgress(Data("not json".utf8)) == nil)
     #expect(ActionProgress(Data(#"{"other":1}"#.utf8)) == nil)

@@ -28,10 +28,15 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
         starts.withLock { $0.append(change) }
         return try changes.removeFirst()(onProgress)
     }
-    func setMatterDirection(matter: String, goal: String?, nextStep: NextStepRequest?) async throws -> String {
+    func setMatterDirection(
+        matter: String, goal: String?, nextStep: NextStepRequest?, onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String {
         "Done: memory."
     }
-    func markDone(matter: String, note: String) async throws -> String { "Done: memory." }
+    func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String {
+        onProgress(Data(#"{"plan":["todo_items_ticked","recorded"],"limitSeconds":65}"#.utf8))
+        return "Done: memory."
+    }
 }
 
 private let at = Date(timeIntervalSince1970: 1_800_000_000)
@@ -52,7 +57,7 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     let sent = try wireText("life/answer_check_sent.json")
     life.answers = [
         { report in
-            report(progress(#"{"plan":["recorded","handed","confirmed","left_inbox"],"limitSeconds":50}"#))
+            report(progress(#"{"plan":["recorded","handed","confirmed"],"limitSeconds":45}"#))
             report(progress(#"{"step":"recorded","at":"2026-11-18T10:00:01.000Z"}"#))
             report(progress(#"{"step":"handed","at":"2026-11-18T10:00:02.000Z"}"#))
             return sent
@@ -64,9 +69,8 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
         return
     }
     #expect(result.send?.state == .sent)
-    #expect(result.inbox?.left == true)
-    #expect(steps.map(\.id) == ["recorded", "handed", "confirmed", "left_inbox"])
-    #expect(steps.map { $0.passedAt != nil } == [true, true, false, false])
+    #expect(steps.map(\.id) == ["recorded", "handed", "confirmed"])
+    #expect(steps.map { $0.passedAt != nil } == [true, true, false])
 }
 
 @Test func aNotSentAnswerFailsAndItsNextTapIsAFreshOne() async throws {
@@ -124,6 +128,51 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
         return
     }
     #expect(life.keys.withLock { $0 } == ["tap-9", "tap-9", "tap-9"])
+}
+
+// 19 Nov 2026: a send went out, the phone showed it failed, and the second tap was refused.
+@Test func aRepeatOfAnAnsweredCardGetsItsStoredSentResultAsASuccess() async throws {
+    let life = FakeLife()
+    let sent = try wireText("life/answer_check_sent.json")
+    life.answers = [{ _ in throw MCPError.streamDropped }, { _ in sent }]
+    let state = await run { await LifeActions(api: life, pause: noPause).answer(request, key: "tap-1", emit: $0) }
+    guard case .succeeded(.answered(let result), _) = state else {
+        Issue.record("\(state)")
+        return
+    }
+    #expect(result.send?.state == .sent)
+}
+
+@Test func aDroppedStreamThenSuccessShowsAConnectionRetryStepAndKeepsTheKey() async throws {
+    let life = FakeLife()
+    let sent = try wireText("life/answer_check_sent.json")
+    life.answers = [{ _ in throw MCPError.streamDropped }, { _ in sent }]
+    let state = await run { await LifeActions(api: life, pause: noPause).answer(request, key: "tap-5", emit: $0) }
+    let retry = state.steps.first { $0.id == "connection_retry" }
+    #expect(retry?.passedAt != nil)
+    #expect(retry?.detail["try"] == "2")
+    #expect(retry?.detail["of"] == "3")
+    #expect(life.keys.withLock { $0 } == ["tap-5", "tap-5"])
+}
+
+@Test func anEditWithAPlanAndALimitIsLatePastItAndNeverFailed() async {
+    let life = FakeLife()
+    let state = await run { emit in
+        await LifeActions(api: life, now: { at }).record(emit: emit) { onProgress in
+            try await life.markDone(matter: "m", note: "n", onProgress: onProgress)
+        }
+    }
+    guard case .succeeded(.recorded, let steps) = state else {
+        Issue.record("\(state)")
+        return
+    }
+    #expect(steps.map(\.id) == ["todo_items_ticked", "recorded"])
+    // The default limit is 10 seconds before Life's own plan; running past it is late, not failed.
+    var running = ActionState<ActionProof>.idle
+    running.apply(.started)
+    running.apply(.planned(["recorded"], limitSeconds: 10, at: at))
+    #expect(running.isLate(at: at.addingTimeInterval(11)))
+    #expect(running.isRunning)
 }
 
 @Test func aMacThatStaysUnreachableFailsAsTheSameTapToTryAgain() async {
@@ -283,9 +332,7 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
 @Test func anEditIsOneStep() async {
     let life = FakeLife()
     let state = await run { emit in
-        await LifeActions(api: life, now: { at }).record(emit: emit) {
-            try await life.markDone(matter: "m", note: "n")
-        }
+        await LifeActions(api: life, now: { at }).record(emit: emit) { _ in "Done: memory." }
     }
     guard case .succeeded(.recorded, let steps) = state else {
         Issue.record("\(state)")
@@ -293,7 +340,7 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
     }
     #expect(steps.map(\.id) == ["recorded"])
     let refused = await run { emit in
-        await LifeActions(api: life).record(emit: emit) { throw MCPError.refused("no") }
+        await LifeActions(api: life).record(emit: emit) { _ in throw MCPError.refused("no") }
     }
     guard case .failed(let failure, _) = refused else {
         Issue.record("\(refused)")
@@ -327,4 +374,11 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
     #expect(failure.step == "desk_accepted")
     #expect(failure.reason.contains("does not answer"))
     #expect(failure.retry == .allowed)
+}
+
+@Test func anEditToAnOlderServerThatSendsNoPlanStillShowsItsRecordedStep() async {
+    let state = await run { emit in
+        await LifeActions(api: FakeLife(), now: { at }).record(emit: emit) { _ in "ok" }
+    }
+    #expect(state.steps.map(\.id) == ["recorded"])
 }

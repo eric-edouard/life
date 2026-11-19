@@ -66,14 +66,15 @@ export function messagesAppSend({
       db.close();
     }
   };
-  /** The guid of the chat whose identifier is `chat`: the one with the newest message when services share it. */
+  /** The guid of the chat whose identifier is `chat`: its iMessage one when services share it (a handle's SMS chat can hold the newer message), else the one with the newest message. */
   const guidOf = (chat: string) =>
     read(
       (db) =>
         db
           .query<{ guid: string }, [string]>(
             `select guid from chat c where chat_identifier = ? and guid is not null
-              order by (select max(m.date) from chat_message_join j join message m on m.ROWID = j.message_id
+              order by (c.service_name = 'iMessage') desc,
+                       (select max(m.date) from chat_message_join j join message m on m.ROWID = j.message_id
                          where j.chat_id = c.ROWID) desc limit 1`
           )
           .get(chat)?.guid

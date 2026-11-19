@@ -4,7 +4,7 @@ import {
   type CheckAnswer,
   type StartAgent,
 } from "../memory/answer-check";
-import { type Check, inboxOf } from "../memory/checks";
+import type { Check } from "../memory/checks";
 import {
   type Decision,
   decisionsNow,
@@ -20,23 +20,22 @@ import {
 } from "./change-registered-agent";
 import { eventHeard, readDesk } from "./desk-read";
 import type { ToolCall } from "./http/mcp-tool";
-import { inboxNow, openCheckOf } from "./inbox";
+import { openCheckOf } from "./inbox";
 
 // His answer to a check, with proof (`answer_check`): what was written, what changed, what a send did, whether the
-// asker was told, whether the card left. Nothing is stored here: each fact is read again from the store that owns it
-// (the decisions' lines, the desk's event rows, `inboxNow`), so this only composes them. Steps go out as they pass
-// (`report`, `mcp-tool.ts`) after the plan: the steps to come and the most seconds they may take.
+// asker was told. Nothing is stored here: each fact is read again from the store that owns it (the decisions' lines,
+// the desk's event rows), so this only composes them. It returns once the answer line, and the send's outcome if any,
+// is stored: nothing waits for the asker or the inbox (the app reads its inbox again after every answer). Steps go out
+// as they pass (`report`, `mcp-tool.ts`) after the plan: the steps to come and the most seconds they may take.
 
-/** How long the asker's desk is given to queue the answer. */
-const ASKER_WAIT_MS = 5000;
-/** What an answer without a send is given in all: the asker's wait and the reads. */
-const QUICK_MS = ASKER_WAIT_MS + 5000;
+/** What an answer is given on top of its send and its Start: the reads. */
+export const QUICK_MS = 5000;
 const POLL_MS = 500;
 
 const at = () => clock().toISOString();
 
-/** Whether the desk has the answer of decision `d` queued for its registered agent, else why not. */
-async function askerOf(d: Decision) {
+/** Whether the desk has the answer of decision `d` queued for its registered agent (one read, no wait), else why not. */
+function askerOf(d: Decision) {
   // Not answered: a `not sent:` outcome reopened the card, and the asker hears only once it really settles.
   if (!d.answer) {
     return { name: d.asker, told: "not_told" };
@@ -48,32 +47,27 @@ async function askerOf(d: Decision) {
   if (!agent) {
     return { name: d.asker, told: "on_its_next_poll" };
   }
-  const eventId = `${d.id}.answered`;
-  const end = performance.now() + ASKER_WAIT_MS;
-  for (;;) {
-    const read = readDesk((db) => eventHeard(db, agent, eventId), "not_yet");
-    if (read.state !== "ok") {
-      return {
-        agent,
-        name: d.asker,
-        told: "not_yet",
-        why: read.state === "off" ? "the desk is off" : read.why,
-      };
-    }
-    if (read.value !== "not_yet" || performance.now() > end) {
-      return {
-        agent,
-        at: at(),
-        name: d.asker,
-        told: read.value,
-        ...(read.value === "not_yet"
-          ? { why: "the desk has not queued it yet" }
-          : {}),
-      };
-    }
-    // biome-ignore lint/performance/noAwaitInLoops: polling the desk's store
-    await Bun.sleep(POLL_MS);
+  const read = readDesk(
+    (db) => eventHeard(db, agent, `${d.id}.answered`),
+    "not_yet"
+  );
+  if (read.state !== "ok") {
+    return {
+      agent,
+      name: d.asker,
+      told: "not_yet",
+      why: read.state === "off" ? "the desk is off" : read.why,
+    };
   }
+  return {
+    agent,
+    at: at(),
+    name: d.asker,
+    told: read.value,
+    ...(read.value === "not_yet"
+      ? { why: "the desk has not queued it yet" }
+      : {}),
+  };
 }
 
 /** The tap `key` made (the newest without a key): its answer, the outcome of its send, or the one that voided it. */
@@ -112,20 +106,8 @@ function sendResultOf(d: Decision, tap: ReturnType<typeof tapOf>) {
   return tap.answer && isSendDue(d) ? { state: "pending" } : null;
 }
 
-/** The inbox after an answer: whether the card left, how many remain, how many are due today. */
-async function inboxAfter(ref: string, report: ToolCall["report"]) {
-  const list = await inboxNow();
-  const { deadlinesToday, total } = inboxOf(list);
-  report({ at: at(), step: "left_inbox", total });
-  return { deadlinesToday, left: !list.some((c) => c.ref === ref), total };
-}
-
-/** The answer's proof for a decision, composed from what is stored, and the inbox after. */
-async function decisionResult(
-  ref: string,
-  report: ToolCall["report"],
-  key?: string
-) {
+/** The answer's proof for a decision, composed from what is stored. */
+async function decisionResult(ref: string, key?: string) {
   let d = decisionsNow().find((x) => x.id === ref) as Decision;
   // A repeat arrives while the first call's send still runs (a dropped stream): wait for its outcome, never send.
   const end = performance.now() + (d.draft ? sendLimitMs(d.draft) : 0);
@@ -135,17 +117,14 @@ async function decisionResult(
     d = decisionsNow().find((x) => x.id === ref) as Decision;
   }
   const tap = tapOf(d, key);
-  const asker = await askerOf(d);
-  report({ at: at(), step: "asker_told", told: asker.told });
   return {
-    asker,
+    asker: askerOf(d),
     changed: {
       decision: ref,
       options: tap.answer?.options ?? [],
       state: d.state,
     },
     done: [tap.answer, tap.notSent ?? tap.send].filter(Boolean),
-    inbox: await inboxAfter(ref, report),
     kind: "decision",
     ref,
     send: sendResultOf(d, tap),
@@ -190,7 +169,7 @@ function changedOf(c: Check, a: CheckAnswer, done: unknown[]) {
   };
 }
 
-/** A non-decision answer's result by tap, kept in memory a while: a repeat after a dropped connection gets it, not "no open check". */
+/** A non-decision answer's result by check and answer, kept in memory a while: a repeat after a dropped connection gets it, not "no open check". */
 const TAP_MEMORY_MS = 10 * MIN;
 const taps = new Map<string, { at: number; result: Record<string, unknown> }>();
 
@@ -199,6 +178,14 @@ function rememberedTap(key: string) {
   return tap && !(clock().getTime() - tap.at > TAP_MEMORY_MS)
     ? tap.result
     : undefined;
+}
+
+function forgetTaps(ref: string) {
+  for (const k of taps.keys()) {
+    if (k.startsWith(`${ref}|`)) {
+      taps.delete(k);
+    }
+  }
 }
 
 function rememberTap(key: string, result: Record<string, unknown>) {
@@ -221,28 +208,42 @@ function planOf(
     return [
       "recorded",
       ...(sends && known.draft ? sendStepsOf(known.draft) : []),
-      "asker_told",
-      "left_inbox",
     ];
   }
-  return starts
-    ? ["goal_saved", ...START_STAGES, "recorded", "left_inbox"]
-    : ["recorded", "left_inbox"];
+  return starts ? ["goal_saved", ...START_STAGES, "recorded"] : ["recorded"];
+}
+
+/** What an answer says, to tell a repeat of it from another answer. */
+const saidOf = (a: CheckAnswer) =>
+  JSON.stringify([a.options, a.note || null, a.person ?? null, a.name ?? null]);
+
+/** The stored result of a repeat, or undefined: the same answer again to an answered decision (under any key: nothing written, nothing sent; another answer is refused as before), or a tap a `not sent:` outcome voided. */
+function repeatOf(
+  known: Decision | undefined,
+  ref: string,
+  a: CheckAnswer,
+  answerKey?: string
+) {
+  if (known?.answer && saidOf(known.answer) === saidOf(a)) {
+    return decisionResult(ref, known.answer.answerKey);
+  }
+  return answerKey &&
+    known?.voided?.some((v) => v.answer.answerKey === answerKey)
+    ? decisionResult(ref, answerKey)
+    : undefined;
 }
 
 async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
   const { answerKey, report } = call;
   const known = decisionsNow().find((x) => x.id === ref);
-  // The same tap again (his app's key on the answered line, or on one a `not sent:` voided): the stored result, nothing written.
-  if (
-    answerKey &&
-    (known?.answer?.answerKey === answerKey ||
-      known?.voided?.some((v) => v.answer.answerKey === answerKey))
-  ) {
-    return decisionResult(ref, report, answerKey);
+  const repeated = repeatOf(known, ref, a, answerKey);
+  if (repeated) {
+    return repeated;
   }
-  const tapKey = `${ref}|${answerKey}`;
-  const remembered = answerKey ? rememberedTap(tapKey) : undefined;
+  const tapKey = `${ref}|${saidOf(a)}`;
+  const failedKey = `${ref}|${answerKey}`;
+  const remembered =
+    rememberedTap(tapKey) ?? (answerKey ? rememberedTap(failedKey) : undefined);
   if (remembered) {
     return remembered;
   }
@@ -286,7 +287,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     startAgent,
   });
   if (check.group === "decision") {
-    return decisionResult(ref, report, answerKey);
+    return decisionResult(ref, answerKey);
   }
   const result = {
     asker: { name: "life", told: "recorded" },
@@ -301,14 +302,18 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
         : {}),
     },
     done,
-    inbox: await inboxAfter(ref, report),
     kind: check.group,
     ref,
     send: null,
     start,
   };
-  if (answerKey) {
+  // A fresh answer ends the earlier ones' memory (A, B, A is three answers). A Start the desk did not start stays
+  // open for his next tap, which starts again; only the same tap's retry (same key) gets this result.
+  forgetTaps(ref);
+  if ((start as { state?: string } | null)?.state !== "not_started") {
     rememberTap(tapKey, result);
+  } else if (answerKey) {
+    rememberTap(failedKey, result);
   }
   return result;
 }
@@ -321,17 +326,12 @@ const running = new Map<
 
 /**
  * Records his answer to the open check `ref` (`answerCheck`) and returns the proof: `done` (the lines written),
- * `changed`, `send`, `asker`, `inbox`. With the app's key for this tap (`call.answerKey`) a repeat of it returns the
- * stored result and writes and sends nothing. A second call on the same check while one runs gets that one's result
+ * `changed`, `send`, `asker`. A repeat of an answered decision's answer, under any key, returns its first result and
+ * writes and sends nothing (`call.answerKey` finds the tap of a send a `not sent:` outcome voided). A second call on the same check while one runs gets that one's result
  * when it gives the same answer; another answer is refused, whatever its key (none, or the same tap's).
  */
 export function answerWithResult(ref: string, a: CheckAnswer, call: ToolCall) {
-  const said = JSON.stringify([
-    a.options,
-    a.note ?? null,
-    a.person ?? null,
-    a.name ?? null,
-  ]);
+  const said = saidOf(a);
   const first = running.get(ref);
   if (first) {
     if (first.said !== said) {

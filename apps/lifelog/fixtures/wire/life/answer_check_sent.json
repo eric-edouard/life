@@ -26,11 +26,6 @@
       "schemaVersion": 3
     }
   ],
-  "inbox": {
-    "deadlinesToday": 0,
-    "left": true,
-    "total": 0
-  },
   "kind": "decision",
   "ref": "dec_000000000001",
   "send": {

@@ -149,15 +149,58 @@ final class LifeStore {
     // MARK: Actions
 
     /// Runs one action under `key`: its events are applied in the order they came, and a second tap while it runs is ignored.
-    private func perform(_ key: ActionKey, _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void) async
-    {
+    private func perform(
+        _ key: ActionKey, tap: String? = nil, _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void
+    ) async {
         guard actions[key]?.isRunning != true else { return }
         let (events, emit) = AsyncStream.makeStream(of: ActionState<ActionProof>.Event.self)
+        let began = now()
+        var limit: Date?
         actions[key] = .running(steps: [], limit: nil)
-        let consumer = Task { for await event in events { actions[key, default: .idle].apply(event) } }
+        let consumer = Task {
+            for await event in events {
+                actions[key, default: .idle].apply(event)
+                limit = actions[key]?.limit ?? limit
+            }
+        }
         await body { emit.yield($0) }
         emit.finish()
         await consumer.value
+        if let ended = actions[key] { traceOf(key, tap: tap, ended, began: began, limit: limit) }
+    }
+
+    /// One `life.action` event per action that ended: what it was, how it ended, how long it took against its limit, and
+    /// each step with the seconds it passed after the start. Ids, states and counts only; the kind of a lost connection, never its words.
+    private func traceOf(
+        _ key: ActionKey, tap: String?, _ ended: ActionState<ActionProof>, began: Date, limit: Date?
+    ) {
+        let finished = now()
+        var fields = [
+            "seconds": String(format: "%.1f", finished.timeIntervalSince(began)),
+            "steps": ended.steps.map { step in
+                "\(step.id)@" + (step.passedAt.map { String(format: "%.1f", $0.timeIntervalSince(began)) } ?? "-")
+            }.joined(separator: ","),
+        ]
+        switch key {
+        case .answer(let ref): fields["kind"] = "answer"; fields["ref"] = ref
+        case .start(let matter): fields["kind"] = "start"; fields["ref"] = matter
+        case .agent(let agent): fields["kind"] = "agent"; fields["ref"] = agent
+        case .edit(let matter, let what): fields["kind"] = "edit.\(what)"; fields["ref"] = matter
+        }
+        if let tap { fields["key"] = String(tap.prefix(8)) }
+        if let limit {
+            fields["limit"] = String(format: "%.0f", limit.timeIntervalSince(began))
+            fields["late"] = limit < finished ? "yes" : "no"
+        }
+        switch ended {
+        case .succeeded: fields["outcome"] = "succeeded"
+        case .failed(let failure, _):
+            fields["outcome"] = "failed"
+            fields["reason"] = failure.isSameTap ? failure.kind : failure.step ?? "-"
+            fields["mayHaveHappened"] = failure.mayHaveHappened ? "yes" : "no"
+        default: fields["outcome"] = "unfinished"
+        }
+        appEvent("life.action", fields)
     }
 
     /// His answer to a check. A call that failed on the connection is repeated as the same tap; a result Life gave
@@ -166,7 +209,7 @@ final class LifeStore {
         let key = ActionKey.answer(ref: request.ref)
         guard actions[key]?.isRunning != true else { return }
         let tap = taps.key(for: request)
-        await perform(key) { [runner] in await runner.answer(request, key: tap, emit: $0) }
+        await perform(key, tap: tap) { [runner] in await runner.answer(request, key: tap, emit: $0) }
         if let ended = actions[key] { taps.ended(request, as: ended) }
         await refreshInbox()
     }
@@ -199,23 +242,30 @@ final class LifeStore {
     /// His goal for a matter: Life pins it to the matter's steps.
     func setGoal(of id: String, _ goal: String) async {
         let api = api
-        await edit(id, .goal) { try await api.setMatterDirection(matter: id, goal: goal, nextStep: nil) }
+        await edit(id, .goal) {
+            try await api.setMatterDirection(matter: id, goal: goal, nextStep: nil, onProgress: $0)
+        }
     }
 
     func setNextStep(of id: String, _ nextStep: NextStepRequest) async {
         let api = api
-        await edit(id, .next) { try await api.setMatterDirection(matter: id, goal: nil, nextStep: nextStep) }
+        await edit(id, .next) {
+            try await api.setMatterDirection(matter: id, goal: nil, nextStep: nextStep, onProgress: $0)
+        }
     }
 
     /// His word that the matter is done: Life decides what of it is open and closes it.
     func markDone(_ id: String) async {
         let api = api
-        await edit(id, .done) { try await api.markDone(matter: id, note: "Marked done in the Life app.") }
+        await edit(id, .done) {
+            try await api.markDone(matter: id, note: "Marked done in the Life app.", onProgress: $0)
+        }
     }
 
-    private func edit(_ id: String, _ what: ActionKey.Edit, _ change: @escaping @Sendable () async throws -> String)
-        async
-    {
+    private func edit(
+        _ id: String, _ what: ActionKey.Edit,
+        _ change: @escaping @Sendable (@escaping @Sendable (Data) -> Void) async throws -> String
+    ) async {
         await perform(.edit(matter: id, what)) { [runner] in await runner.record(emit: $0, change) }
         async let a: Void = refreshMatter(id)
         async let b: Void = refreshMatters()
