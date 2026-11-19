@@ -5,9 +5,7 @@
   },
   "changed": {
     "decision": "dec_000000000001",
-    "options": [
-      "send"
-    ],
+    "options": ["send"],
     "state": "answered"
   },
   "done": [
@@ -16,9 +14,7 @@
       "at": "2026-11-18T10:00:00.000Z",
       "id": "dec_000000000001",
       "kind": "answered",
-      "options": [
-        "send"
-      ],
+      "options": ["send"],
       "schemaVersion": 3,
       "via": "connector"
     },
