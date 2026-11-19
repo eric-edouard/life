@@ -111,11 +111,12 @@ final class LifeStore {
     }
 
     func refreshInbox() async {
+        let before = inbox.loadedAt
         await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
         // The badge is the cards that block him.
         if let badge = inbox.value?.badge { setBadge(badge) }
-        // Only a whole, fresh read says what is no longer open: not a cached, failed or cut-off one.
-        if inbox.phase == .loaded, let read = inbox.value, !(read.checks.count < read.total) {
+        // Only a whole read made just now says what is no longer open: not a cached, failed, cancelled or cut-off one.
+        if inbox.loadedAt != before, let read = inbox.value, !(read.checks.count < read.total) {
             await removeNotifications(notIn: Set(read.checks.compactMap(\.pushId)))
         }
     }
