@@ -12,6 +12,7 @@ const NAMED = /import\s*\{([^}]*)\}\s*from\s*"([^"]+)"/g;
 const SPACE = /\s+/;
 const REMCTL = /"bin",\s*"remctl"/;
 const GOG = /"gog"/;
+const GH = /"gh"/;
 const GOG_TASKS = /gogCall\(\s*"tasks"/;
 const GOG_GMAIL = /gogCall\(\s*"gmail"/;
 const MONEY = /\["money",/;
@@ -131,6 +132,8 @@ test("only changeTodoItem writes his to-do list: it alone imports the backend, o
   expect(running(GOG_GMAIL)).toEqual(["apps/server/src/sources/gmail.ts"]);
   // Nothing else spawns gog: its name as a literal is in `core/gog.ts` alone.
   expect(running(GOG)).toEqual(["apps/server/src/core/gog.ts"]);
+  // GitHub is read and written through `gh` in one file.
+  expect(running(GH)).toEqual(["apps/server/src/sources/github.ts"]);
 });
 
 // Life sends only a card's draft, on his answer to its outgoing option (AGENTS.md): one path, from his answer to the bridge.
