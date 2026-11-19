@@ -62,6 +62,10 @@ export function waitOf(input: unknown, now: number) {
     : { wait: parsed.data };
 }
 
+/** A queued event as an agent reads it: its name and its facts. */
+export const eventLineOf = (e: Pick<EventRow, "name" | "payload">) =>
+  `${e.name} ${e.payload}`;
+
 /** The default wait: the old filters, 24 hours, flagged. */
 export const defaultWaitOf = (a: AgentRow, now: number): AgentWait => ({
   events: filtersOf(a),
