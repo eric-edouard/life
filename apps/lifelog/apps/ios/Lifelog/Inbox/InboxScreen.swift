@@ -104,8 +104,11 @@ struct InboxScreen: View {
                     keepForLater: { leave(taken, keep: true) }, nextCard: { leave(taken, keep: false) })
             } else if life.state(of: .answer(ref: check.ref)).isRunning {
                 // An answer still running (this screen was rebuilt while its send ran): its busy pill, no second tap.
-                Button {} label: { Text(check.draft != nil ? "Sending…" : "Saving…") }
-                    .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
+                Button {
+                } label: {
+                    Text(check.draft != nil ? "Sending…" : "Saving…")
+                }
+                .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
             } else {
                 CheckActions(
                     check: check, runtimeName: runtimeName(of: check), input: input,
