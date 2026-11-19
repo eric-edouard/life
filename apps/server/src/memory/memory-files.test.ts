@@ -24,6 +24,7 @@ import {
   isCurrent,
   latestExtractions,
   latestFactCheckAnswers,
+  liveUnits,
   newSince,
   OBSERVATIONS,
   type ObservationStatusInputs,
@@ -32,10 +33,12 @@ import {
   readEpisodes,
   readFactCheckAnswers,
   readIndex,
+  readLiveUnits,
   readObservationStatusInputs,
   readObservations,
   readOrigins,
   readUnit,
+  readUnits,
   readUnitsFor,
   retiredBy,
   shownOf,
@@ -469,6 +472,58 @@ test("a fact check is rated only once he was shown it, with his why; the eval re
     undefined,
   ]);
   expect(facts.get(old)?.outdated).toBe(true);
+});
+
+test("the live units read only each line's id and drop: the same set as the whole units parsed, dropped ones left out", async () => {
+  const days = [
+    [
+      unitFixture({ date: "2026-10-01", id: "unit_0000000000a1" }),
+      unitFixture({
+        date: "2026-10-01",
+        drop: "noise",
+        id: "unit_0000000000a2",
+      }),
+      unitFixture({
+        date: "2026-10-01",
+        id: "unit_0000000000a3",
+        marked: ["conv-1#1"],
+      }),
+    ],
+    [
+      unitFixture({
+        date: "2026-10-02",
+        drop: "noise",
+        id: "unit_0000000000b1",
+      }),
+    ],
+    [
+      unitFixture({
+        date: "2026-10-03",
+        id: "unit_0000000000c1",
+        summary: "a chapter",
+      }),
+      unitFixture({ date: "2026-10-03", id: "unit_0000000000c2" }),
+    ],
+  ];
+  mkdirSync(UNITS, { recursive: true });
+  try {
+    for (const units of days) {
+      writeFileSync(
+        join(UNITS, `${units[0]?.date}.jsonl`),
+        `${units.map((u) => JSON.stringify(u)).join("\n\n")}\n`
+      );
+    }
+    const live = await readLiveUnits();
+    expect(live).toEqual(liveUnits(await readUnits()));
+    expect([...live].sort()).toEqual([
+      "unit_0000000000a1",
+      "unit_0000000000a3",
+      "unit_0000000000c1",
+      "unit_0000000000c2",
+    ]);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+  }
 });
 
 test("unit references read only indexed or cited days; a missing index entry checks only recent days; origins preserve standing", async () => {
