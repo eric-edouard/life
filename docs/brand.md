@@ -39,10 +39,12 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   rule line separates rows of a list, never draws a box. Urgency is a `flag` dot and `flag` words, never a ring.
 - **Parked (30 Oct 2026).** The Mac app's UI keeps its old layout and fonts, with the colours above; Android keeps the
   old look (`Brand.kt`, lifelog's `docs/design.md`).
-- **Not yet in code (19 Nov 2026).** The phone still draws capital labels and its earlier icon, and the cards' text
-  that the server writes predates the voice below; each follows with its next change.
+- **Not yet in code (19 Nov 2026).** Four surfaces predate the rules of 19 Nov, and each follows with its next change:
+  the phone's capital labels; the parked Mac app's capital labels and strokes (`Brand.swift`); the pairing page's
+  outlined button and thin title (`oauth.ts`); and the text of the asks the server writes, which predates the wording
+  below.
 
-## The voice
+## Wording
 
 Every word Life shows follows these: a card's text, an agent's question, the app's labels, a push, a mail's subject.
 Removing the person's load comes first (owner, 19 Nov 2026): a word, a label, a number or a control that could go
@@ -61,7 +63,7 @@ without the person answering slower or worse goes.
   amount and a time pass.
 - A thing is said once across title, question and button.
 - The default is never described, unless it costs something at a known time.
-- None of the system's own words: fact, guess, handle, step, turn, desk, episode, card.
+- None of the system's own words in what the person reads: fact, guess, handle, step, turn, desk, episode, card.
 - A name is four words at most. With no name the question is "Who is this?", and the description is one answer.
 - What opens says what is behind it.
 - A result is one word and one line, and the next thing comes by itself. Only what leaves the device (a send, a
@@ -84,9 +86,8 @@ tap; by itself only the recording dot, a spinner and a countdown move. It takes 
 - **Icon.** The white L on ink, a rounded square with 22% corners: [`assets/icon/icon.svg`](../assets/icon/icon.svg)
   (the README's, `/icon.svg`, rendered to `icon-512.png`), and `app.svg`, the same on macOS's icon grid.
   `scripts/app.ts` renders `app.svg` into `Life.icns`, and `life-l.svg` (the L alone, the menu bar's) and `life.svg`
-  (the `Wordmark` view's) into template PDFs. The iPhone app's icon is the same L alone on ink, in light mode too (owner,
-  19 Nov 2026). The iPhone's icon (`AppIcon.icon`) is the same L, cream on ink in every
-  appearance.
+  (the `Wordmark` view's) into template PDFs. The iPhone's icon (`AppIcon.icon`) is the same L, cream on ink in every
+  appearance (owner, 19 Nov 2026).
 
 ## Principles
 
