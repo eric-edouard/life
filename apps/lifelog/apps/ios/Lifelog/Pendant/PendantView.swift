@@ -54,11 +54,11 @@ struct PendantScreen: View {
                 SheetHeader { dismiss() }
                     .padding(.horizontal, Metrics.gutter)
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 20) {
                         status(reading, now: now)
                         if reading.state != .noPendant {
-                            facts(reading, now: now)
-                            upload(held)
+                            tiles(reading, now: now)
+                            upload(held, now: now)
                             boxes
                         }
                     }
@@ -97,62 +97,64 @@ struct PendantScreen: View {
 
     // MARK: Status
 
+    /// The light as a tile and the state word, then what it means and what to do, one `flag` line when it needs him.
     private func status(_ reading: PendantReading, now: Date) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if capture.macDictatingSince != nil {
-                Text("\(Image(systemName: "laptopcomputer")) Mac dictating").font(.small).foregroundStyle(Palette.muted)
-                    .accessibilityLabel("Mac dictating").accessibilityIdentifier("pendant.macDictating")
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 16) {
+                LightTile(isOn: reading.state == .recording && !reading.isFlag)
+                VStack(alignment: .leading, spacing: 6) {
+                    if capture.macDictatingSince != nil {
+                        Text("\(Image(systemName: "laptopcomputer")) Mac dictating").font(.small)
+                            .foregroundStyle(Palette.muted)
+                            .accessibilityLabel("Mac dictating").accessibilityIdentifier("pendant.macDictating")
+                    }
+                    Text(reading.state.word).font(.stateWord)
+                        .foregroundStyle(reading.isFlag ? Palette.flag : Palette.fg)
+                        .lit(reading.state == .recording)
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                        .accessibilityIdentifier("pendant.status")
+                    if let line = line(reading) { Text(line).font(.small).foregroundStyle(Palette.muted) }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            if let level = reading.lowBattery { Caps("Battery \(level)%", color: Palette.flag) }
-            HStack(alignment: .firstTextBaseline, spacing: 14) {
-                StateDot(
-                    color: reading.isFlag ? Palette.flag : reading.state == .recording ? Palette.fg : Palette.muted,
-                    isLit: reading.state == .recording && !reading.isFlag
-                )
-                .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 0 }.offset(y: -14)
-                Text(reading.state.word).font(.statusWord)
-                    .foregroundStyle(reading.isFlag ? Palette.flag : Palette.fg)
-                    .lit(reading.state == .recording)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("pendant.status")
+            .motion(Motion.standard, value: reading.state)
+            if reading.lowBattery != nil {
+                Text("Charge it soon.").font(.bodyStrong).foregroundStyle(Palette.flag)
+                    .padding(.top, 8)
             }
-            if let line = line(reading, now: now) {
-                Text(line).font(.note).foregroundStyle(Palette.muted)
-            }
-            if reading.lowBattery != nil { Text("Charge it.").font(.bodyStrong) }
             ForEach(reading.conditions, id: \.means) { condition in
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(condition.means).font(.note).foregroundStyle(Palette.muted)
                     Text(condition.todo).font(.bodyStrong)
                     if let recovery = condition.recovery {
                         Button(recovery.title) { actions.recover(recovery) }
                             .buttonStyle(.pill(.quiet, size: .compact))
                             .accessibilityIdentifier("pendant.recover.\(recovery)")
+                            .padding(.top, 8)
                     }
                 }
+                .padding(.top, 8)
             }
         }
+        .motion(Motion.standard, value: reading.conditions.map(\.means))
     }
 
     /// A state's own second line, when the conditions do not say it.
-    private func line(_ reading: PendantReading, now: Date) -> String? {
-        if reading.lowBattery != nil {
-            let left = reading.lowBattery.flatMap { capture.batteryLife.timeLeft(recording: true, from: $0) }
-            return (left.map { "About \(Self.about($0)) left. " } ?? "") + "Recording stops when it is empty."
-        }
+    private func line(_ reading: PendantReading) -> String? {
         switch reading.state {
-        case .recording: return reading.since.map { "Since \($0.formatted(date: .omitted, time: .shortened))" }
+        case .recording: reading.since.map { "Since \($0.formatted(date: .omitted, time: .shortened))" }
         case .notRecording:
-            return reading.pausedAt.map {
-                "Paused on the pendant at \($0.formatted(date: .omitted, time: .shortened))."
+            reading.pausedAt.map {
+                "Paused at \($0.formatted(date: .omitted, time: .shortened)). Press its button to record again."
             }
-        default: return nil
+        default: nil
         }
     }
 
-    // MARK: Facts
+    // MARK: Tiles
 
-    private func facts(_ reading: PendantReading, now: Date) -> some View {
+    /// The battery drawn as a battery and the storage as a ring. A figure not heard from now is dimmed and says when.
+    private func tiles(_ reading: PendantReading, now: Date) -> some View {
         let status = capture.status
         let connected =
             switch status.connection {
@@ -161,53 +163,42 @@ struct PendantScreen: View {
             }
         let battery = Fact(status.batteryPercent, connected: connected, now: now)
         let storage = Fact(status.storage, connected: connected, now: now)
-        return RowGroup(surface: .sheet) {
-            Row(title: capture.pairedKind.modelName, detail: connected ? nil : "Not connected")
-            if !connected, let seen = status.lastContact ?? capture.context.lastContact {
-                Row(title: "Last seen") { value(seen.formatted(date: .omitted, time: .shortened)) }
+        let isCharging = battery.isCurrent && status.charging?.value == .charging
+        let percent = battery.value
+        let used = storage.value.flatMap { $0.totalPages > 0 ? $0.usedFraction : nil }
+        return HStack(spacing: 12) {
+            StatTile(
+                figure: percent.map { "\($0)%" } ?? "Unknown",
+                caption: batteryCaption(battery, isCharging: isCharging, reading: reading),
+                figureColor: reading.lowBattery != nil ? Palette.flag : Palette.fg, isDim: !battery.isCurrent
+            ) {
+                BatteryMeter(
+                    fraction: Double(percent ?? 0) / 100,
+                    tone: reading.lowBattery != nil ? Palette.flag : isCharging ? Palette.ok : Palette.fg)
             }
-            Row(title: "Battery") {
-                value(
-                    batteryWords(battery, charging: status.charging?.value == .charging, reading: reading),
-                    isFlag: reading.lowBattery != nil)
+            .accessibilityLabel("Battery")
+            StatTile(
+                figure: used.map { "\(Int(($0 * 100).rounded()))%" } ?? "Unknown",
+                caption: "Used",
+                figureColor: reading.state == .full ? Palette.flag : Palette.fg, isDim: !storage.isCurrent,
+                visualEdge: .topTrailing
+            ) {
+                RingMeter(fraction: used ?? 0, tone: reading.state == .full ? Palette.flag : Palette.fg)
             }
-            Row(title: "Storage") {
-                value(storageWords(storage), isFlag: reading.state == .full)
-            }
-            if connected, let synced = capture.lastCaughtUp {
-                Row(title: "Last sync") {
-                    value(
-                        now.timeIntervalSince(synced) < 60
-                            ? "just now" : synced.formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated))
-                    )
-                }
-            }
+            .accessibilityLabel("Storage")
         }
+        .motion(Motion.standard, value: battery)
     }
 
-    private func value(_ text: String, isFlag: Bool = false) -> some View {
-        Text(text).font(.note).foregroundStyle(isFlag ? Palette.flag : Palette.muted).multilineTextAlignment(.trailing)
-    }
+    private func clock(_ date: Date) -> String { date.formatted(date: .omitted, time: .shortened) }
 
-    private func batteryWords(_ battery: Fact<Int>, charging: Bool, reading: PendantReading) -> String {
+    private func batteryCaption(_ battery: Fact<Int>, isCharging: Bool, reading: PendantReading) -> String {
         switch battery {
         case .current(let percent, _):
-            if charging { return "\(percent)%, charging" }
+            if isCharging { return "Charging" }
             let left = capture.batteryLife.timeLeft(recording: reading.state == .recording, from: percent)
-            return "\(percent)%" + (left.map { ", about \(Self.about($0))" } ?? "")
-        case .lastKnown(let percent, let at): return "\(percent)% at \(at.formatted(date: .omitted, time: .shortened))"
-        case .unknown: return "Unknown"
-        }
-    }
-
-    private func storageWords(_ storage: Fact<StorageState>) -> String {
-        switch storage {
-        case .current(let state, _), .lastKnown(let state, _):
-            guard state.totalPages > 0 else { return "Unknown" }
-            let used = 100 - Int((Double(state.freePages) / Double(state.totalPages) * 100).rounded())
-            return storage.isCurrent
-                ? "\(used)% used" : "\(used)% used at \(storage.at?.formatted(date: .omitted, time: .shortened) ?? "")"
-        case .unknown: return "Unknown"
+            return left.map { "About \(Self.about($0))" } ?? "Battery"
+        case .lastKnown, .unknown: return ""
         }
     }
 
@@ -219,34 +210,60 @@ struct PendantScreen: View {
 
     // MARK: Upload
 
-    @ViewBuilder private func upload(_ held: NotOnTheMac) -> some View {
-        if held.isEmpty {
-            RowGroup(label: "On your Mac", surface: .sheet) {
-                Row(
-                    title: capture.uploads?.sentThrough.map {
-                        "Everything up to \($0.formatted(date: .omitted, time: .shortened))"
-                    } ?? "Everything")
-            }
-        } else if held.isPhoneUnknown {
-            RowGroup(label: "On your Mac", surface: .sheet) {
-                Row(title: "Asking…") { StateGlyph.busy }
-            }
-        } else if let words = held.words {
-            RowGroup(label: "Waiting to upload", surface: .sheet) {
-                Row(title: words)
-                if case .catchingUp(let progress) = SyncSummary(
-                    capture.status.sync, lastCaughtUp: capture.lastCaughtUp)
-                {
-                    let fraction = Double(progress.settled) / Double(max(progress.expected, 1))
-                    VStack(alignment: .leading, spacing: 12) {
-                        ProgressLine(
-                            fraction: fraction, end: fraction.formatted(.percent.precision(.fractionLength(0))))
-                        Text("Keep the app open: it goes faster.").font(.note).foregroundStyle(Palette.muted)
+    /// One tile: everything is on the Mac, or what is catching up (a sweep on the line while it works), or when it was
+    /// last heard from.
+    @ViewBuilder private func upload(_ held: NotOnTheMac, now: Date) -> some View {
+        Group {
+            if held.isPhoneUnknown {
+                TileCard {
+                    HStack(spacing: 10) {
+                        StateGlyph.busy
+                        Text("Asking…").font(.bodyStrong)
                     }
-                    .padding(Metrics.Spacing.l)
                 }
+            } else if let words = held.words {
+                TileCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text("Catching up").font(.bodyStrong)
+                            Spacer()
+                            if let fraction = catchUpFraction {
+                                Text(fraction.formatted(.percent.precision(.fractionLength(0)))).font(.smallStrong)
+                            }
+                        }
+                        ProgressTrack(fraction: catchUpFraction)
+                        Text("\(words). It goes faster with the app open.").font(.small).foregroundStyle(Palette.muted)
+                    }
+                }
+            } else if held.isEmpty {
+                TileCard {
+                    HStack(spacing: 10) {
+                        StateGlyph.ok
+                        Text("All on your Mac").font(.bodyStrong)
+                        Spacer()
+                        if let sent = capture.uploads?.sentThrough {
+                            Text(
+                                now.timeIntervalSince(sent) < 60
+                                    ? "just now"
+                                    : sent.formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated))
+                            )
+                            .font(.small).foregroundStyle(Palette.muted)
+                        }
+                    }
+                }
+            } else if let seen = capture.status.lastContact ?? capture.context.lastContact {
+                TileCard { Text("Last seen \(clock(seen))").font(.bodyStrong) }
             }
         }
+        .transition(Motion.appears)
+        .motion(Motion.rise, value: held)
+    }
+
+    private var catchUpFraction: Double? {
+        guard
+            case .catchingUp(let progress) = SyncSummary(capture.status.sync, lastCaughtUp: capture.lastCaughtUp)
+        else { return nil }
+        return Double(progress.settled) / Double(max(progress.expected, 1))
     }
 
     // MARK: Boxes, footer
@@ -301,6 +318,11 @@ extension DeviceKind {
         case .omi: "Omi"
         }
     }
+}
+
+extension StorageState {
+    /// How much of the Pendant's flash holds audio, 0 to 1.
+    var usedFraction: Double { 1 - Double(freePages) / Double(totalPages) }
 }
 
 extension Fact {

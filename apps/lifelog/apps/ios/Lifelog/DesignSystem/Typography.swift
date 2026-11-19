@@ -17,6 +17,10 @@ struct TypeStep: Equatable {
     static let cardQuestion = TypeStep(size: 19, weight: 650, style: .title3)
     /// A big word that says where something stands: "Recording.", "Sent.".
     static let statusWord = TypeStep(size: 50, weight: 250, style: .largeTitle)
+    /// The Pendant sheet's state word, beside the light's tile.
+    static let stateWord = TypeStep(size: 40, weight: 250, style: .largeTitle)
+    /// The figure on a tile: "82%".
+    static let tileFigure = TypeStep(size: 26, weight: 650, style: .title2)
     /// A screen's name in a sheet.
     static let sheetTitle = TypeStep(size: 30, weight: 250, style: .title1)
     /// A matter's name.
