@@ -48,6 +48,14 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let audio: Audio?
         /// Its words as lifelog times them (contract `TimedWords`), lit while it plays through `words.spokenIndex(at:)` and `words.ranges(in:)`.
         public let words: [[Int64]]?
+
+        /// How long it plays, "0:08": from its recording's span; nil when the clip holds no audio.
+        public var lengthText: String? {
+            audio.map { audio in
+                let seconds = Int((audio.end - audio.start).rounded())
+                return "\(seconds / 60):" + String(format: "%02d", seconds % 60)
+            }
+        }
     }
 
     public struct Person: Decodable, Sendable, Equatable {
@@ -176,6 +184,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let goal: String?
     public let evidence: Evidence?
     public let draft: Draft?
+    /// The names a name check asks about, as they were said: shown in bold in `said`.
+    public let about: [String]?
     /// The sentence the question is about (a name's line, a step's own sentence), verbatim.
     public let said: Said?
     /// An ending: what came since the open step.
@@ -213,6 +223,9 @@ extension Check {
     /// The option he picks by naming someone (`takes` a person, or a person or a name), when the card has one.
     public var namingOption: Option? { options.first { $0.takes == .person || $0.takes == .personOrName } }
 
+    /// Whether the card's own answer is the naming one: then its candidates are drawn as people.
+    public var isNamingFilled: Bool { namingOption != nil && filled?.id == namingOption?.id }
+
     /// His answer by one tap on `option`: nil when that option needs more than the tap (a person, a name or his words).
     public func answer(_ option: Option) -> AnswerRequest? {
         option.takes == nil ? AnswerRequest(ref: ref, options: [option.id]) : nil
@@ -241,6 +254,25 @@ extension Check {
     /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their
     /// options (a new matter's goal comes through its option that takes a note).
     public var takesOwnWords: Bool { group == .decision }
+}
+
+extension String {
+    /// Where `names` stand in these words as whole words, whatever their case or accents.
+    public func ranges(ofNames names: [String]) -> [Range<String.Index>] {
+        names.filter { !$0.isEmpty }.flatMap { name in
+            var found: [Range<String.Index>] = []
+            var from = startIndex
+            while let range = range(
+                of: name, options: [.caseInsensitive, .diacriticInsensitive], range: from..<endIndex)
+            {
+                let before = range.lowerBound > startIndex ? self[index(before: range.lowerBound)] : nil
+                let after = range.upperBound < endIndex ? self[range.upperBound] : nil
+                if !(before?.isLetter ?? false) && !(after?.isLetter ?? false) { found.append(range) }
+                from = range.upperBound
+            }
+            return found
+        }
+    }
 }
 
 /// Who he says it is: someone Life knows, or a new name.

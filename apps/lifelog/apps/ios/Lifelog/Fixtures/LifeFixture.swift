@@ -103,7 +103,10 @@
         private let started = Mutex(false)
         private let wholeReads = Mutex(0)
 
-        init(scenario: String) { self.scenario = scenario }
+        init(scenario: String) {
+            self.scenario = scenario
+            Self.seedClipAudio()
+        }
 
         private func gate() async throws {
             switch scenario {
@@ -353,6 +356,33 @@
             return option
         }
 
+        /// The clips' recordings: a quiet tone of 50 s for each fixture job, put where `ClipAudio` finds it, so a clip plays
+        /// with no lifelog behind it.
+        private static func seedClipAudio() {
+            for job in [clipJob1, clipJob2, clipJob3] { ClipAudio.writeTone(job: job, seconds: 50) }
+        }
+
+        private static func clip(_ at: String, _ text: String, job: String, from: Double, to: Double) -> [String: Any] {
+            [
+                "at": at, "until": at, "text": text, "audio": ["jobId": job, "start": from, "end": to],
+                "words": timed(text),
+            ]
+        }
+
+        nonisolated static let clipJob1 = "00000000-0000-0000-0000-0000000000C1"
+        nonisolated static let clipJob2 = "00000000-0000-0000-0000-0000000000C2"
+        nonisolated static let clipJob3 = "00000000-0000-0000-0000-0000000000C3"
+
+        /// A clip's words timed 0.35 s apiece, each as `TimedWords` has it: start and end in ms, its length with the space before.
+        private static func timed(_ text: String) -> [[Int]] {
+            var from = text.startIndex
+            return text.split(separator: " ", omittingEmptySubsequences: true).enumerated().map { index, word in
+                let end = word.endIndex
+                defer { from = end }
+                return [index * 350, index * 350 + 300, text.utf16.distance(from: from, to: end)]
+            }
+        }
+
         private static func check(
             _ ref: String, group: String, urgency: String = "improves", title: String, question: String,
             asker: String = "life",
@@ -499,23 +529,11 @@
                             ["name": "Idris Benali", "person": "person:idris", "line": "Supplier, kitchen quote"]
                         ],
                         "clips": [
-                            [
-                                "at": at(14, 10, 2), "until": at(14, 10, 2),
-                                "text": "On se retrouve au marché samedi, vers dix heures ?",
-                                "audio": ["jobId": "job-1", "start": 1.2, "end": 9.2],
-                                "words": [
-                                    [0, 500, 2], [550, 900, 7], [950, 1400, 3], [1450, 1900, 7], [1950, 2300, 5],
-                                    [2350, 2900, 5], [2950, 3300, 5],
-                                ],
-                            ],
-                            [
-                                "at": at(14, 10, 3), "until": at(14, 10, 3), "text": "D’accord, à samedi.",
-                                "audio": ["jobId": "job-1", "start": 20.0, "end": 24.0],
-                            ],
-                            [
-                                "at": at(14, 10, 5), "until": at(14, 10, 5), "text": "Je t’envoie l’adresse.",
-                                "audio": ["jobId": "job-1", "start": 40.0, "end": 43.0],
-                            ],
+                            clip(
+                                at(14, 10, 2), "On se retrouve au marché samedi, vers dix heures ?", job: clipJob1,
+                                from: 1.2, to: 9.2),
+                            clip(at(14, 10, 3), "D’accord, à samedi.", job: clipJob1, from: 20.0, to: 24.0),
+                            clip(at(14, 10, 5), "Je t’envoie l’adresse.", job: clipJob1, from: 40.0, to: 43.0),
                         ],
                     ]),
                 check(
@@ -527,12 +545,23 @@
                     ],
                     extra: [
                         "clips": [
-                            [
-                                "at": at(15, 9, 40), "until": at(15, 9, 41),
-                                "text":
-                                    "Alors voilà, pour la cuisine il faudrait que je repasse mesurer le mur du fond, parce que les plans ne tiennent pas compte de la gaine, et que Idris me dit que le fournisseur ne livre pas avant mi-janvier si on ne confirme pas cette semaine.",
-                                "audio": ["jobId": "job-3", "start": 3.0, "end": 24.0],
-                            ]
+                            clip(
+                                at(15, 9, 40),
+                                "Alors voilà, pour la cuisine il faudrait que je repasse mesurer le mur du fond, parce que les plans ne tiennent pas compte de la gaine, et que Idris me dit que le fournisseur ne livre pas avant mi-janvier si on ne confirme pas cette semaine.",
+                                job: clipJob3, from: 3.0, to: 24.0)
+                        ]
+                    ]),
+                check(
+                    "voice_guess", group: "voice", urgency: "blocks", title: "A voice from Sunday, 8 seconds",
+                    question: "Is this Jun Watanabe?",
+                    options: [
+                        option("this-is", "Yes"), option("not-this", "Someone else…", takes: "person or name"),
+                        option("not-relevant", "Don't name"),
+                    ],
+                    extra: [
+                        "clips": [
+                            clip(
+                                at(15, 18, 2), "Je t’envoie le plan demain.", job: clipJob2, from: 5.0, to: 13.0)
                         ]
                     ]),
                 check(
@@ -558,6 +587,12 @@
                                     "text": "Génial, merci.",
                                 ]
                             ],
+                        ],
+                        "about": ["Marc"],
+                        "clips": [
+                            clip(
+                                at(14, 12), "Marc nous a trouvé une table pour huit chez Odile.", job: clipJob2,
+                                from: 16.0, to: 21.0)
                         ],
                         "likelyPeople": [
                             ["name": "Marc Delmas", "person": "person:marc", "line": "Colleague, Camille’s brother"],

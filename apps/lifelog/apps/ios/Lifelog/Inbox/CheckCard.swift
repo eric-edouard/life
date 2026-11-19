@@ -50,7 +50,8 @@ struct CheckCard: View {
         .sheet(isPresented: $input.showsWhy) {
             WhySheet(
                 title: askLinks.first?.title ?? "Why?", context: check.context,
-                evidence: isIdentityShown ? check.evidence : nil, around: check.around,
+                evidence: isIdentityShown ? check.evidence : nil, said: check.said, names: check.about ?? [],
+                around: check.around,
                 link: check.links.first, runtime: runtimeName
             )
             .sheetStack()
@@ -123,13 +124,14 @@ struct CheckCard: View {
                 input.words = check.goal ?? ""
                 input.isWritingOwnWords = true
             }
+        case .name: NameBlock(said: check.said, names: check.about ?? [], clip: check.clips.first)
         default:
             if let said = check.said { SaidBlock(said: said) }
         }
         if isIdentityShown, let identity = check.networkIdentity { PersonIdentityBlock(identity: identity) }
         if let card = check.contactsCard { ContactsCardBlock(card: card) }
         if let evidence = shownEvidence { EvidenceBlock(evidence: evidence) }
-        if !check.clips.isEmpty { ClipBlock(clips: check.clips) }
+        if check.group == .voice, !check.clips.isEmpty { VoiceBlock(clips: check.clips) }
         if let contextThing {
             Text(contextThing).font(.quote).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
         }
@@ -148,14 +150,14 @@ struct CheckCard: View {
     /// An agent's open question: his words go to the agent.
     private var isAgentQuestion: Bool { check.takesOwnWords && check.draft == nil }
 
-    /// The ask's links, by what each opens: "Why?" ("Why this reply?" on a draft), or on a voice "Before and after" when
-    /// its lines around are known; then "Tell the agent…" on an agent's question.
+    /// The ask's links, by what each opens: "Before and after" when the lines around a voice or a name are known, else
+    /// "Why?" ("Why this reply?" on a draft; none on a voice); then "Tell the agent…" on an agent's question.
     private var askLinks: [AskLink] {
         var links: [AskLink] = []
         let hasLines = !((check.around?.before ?? []) + (check.around?.after ?? [])).isEmpty
-        if check.group == .voice {
-            if hasLines { links.append(AskLink(title: "Before and after") { input.showsWhy = true }) }
-        } else if ![.ending, .newMatter].contains(check.group), !isContextBeside,
+        if [.voice, .name].contains(check.group), hasLines {
+            links.append(AskLink(title: "Before and after") { input.showsWhy = true })
+        } else if check.group != .voice, ![.ending, .newMatter].contains(check.group), !isContextBeside,
             !check.links.isEmpty || (contextThing == nil && !(check.context ?? "").isEmpty)
         {
             links.append(AskLink(title: whyTitle) { input.showsWhy = true })
@@ -222,7 +224,10 @@ private struct WhySheet: View {
     let context: String?
     /// The words Life read a guessed person from.
     let evidence: Check.Evidence?
-    /// The lines of the conversation around a clip, when its ask holds them.
+    /// The sentence a name was found in, between the lines around it.
+    let said: Check.Said?
+    let names: [String]
+    /// The lines of the conversation around a voice or a name, when its ask holds them.
     let around: Check.Around?
     let link: String?
     let runtime: RuntimeName?
@@ -233,18 +238,28 @@ private struct WhySheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
-                SheetHeader(title: title) { dismiss() }
-                if let context, !context.isEmpty {
+                SheetHeader(title: nil) { dismiss() }
+                Text(title).font(.sheetHeading).foregroundStyle(Palette.fg)
+                if let context, !context.isEmpty, around == nil {
                     Text(context).font(.body15).foregroundStyle(Palette.fg).fixedSize(
                         horizontal: false, vertical: true)
                 }
                 if let evidence { EvidenceBlock(evidence: evidence) }
                 if let around {
-                    ForEach(Array((around.before + around.after).enumerated()), id: \.offset) { _, said in
+                    let lines =
+                        around.before.map { ($0, false) } + (said.map { [($0, true)] } ?? [])
+                        + around.after.map { ($0, false) }
+                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                            Text(said.by ?? "").font(.small).foregroundStyle(Palette.muted)
-                            Text(said.text).font(.body15).foregroundStyle(Palette.fg)
+                            Text(line.0.line(channelName: ActionCopy.channel)).font(.small)
+                                .foregroundStyle(Palette.muted)
+                            NamedWords(
+                                said: line.0, names: line.1 ? names : [], regular: .body15, bold: .bodyStrong,
+                                isQuoted: false
+                            )
+                            .foregroundStyle(line.1 ? Palette.fg : Palette.muted)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading).accessibilityElement(children: .combine)
                     }
                 }
                 if let url = link.flatMap(URL.init(string:)) {
@@ -256,81 +271,5 @@ private struct WhySheet: View {
         .scrollBounceBehavior(.basedOnSize)
         .background(Palette.sheet)
         .presentationDetents([.medium, .large])
-    }
-}
-
-// MARK: Bodies
-
-/// The clips of a voice to name, on the thing's tile, each played from the server's cut of its recording.
-private struct ClipBlock: View {
-    let clips: [Check.Clip]
-
-    @Environment(PlaybackStore.self) private var playback
-    @State private var index = 0
-    /// Fetching the audio, or why it could not be had.
-    @State private var isFetching = false
-    @State private var failed = false
-    /// The clip being fetched: cancelled when the card goes, so it never plays after.
-    @State private var fetch: Task<Void, Never>?
-
-    var body: some View {
-        let clip = clips[min(index, clips.count - 1)]
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 14) {
-                Button {
-                    toggle(clip)
-                } label: {
-                    Group {
-                        if isFetching {
-                            ProgressView().tint(Palette.on)
-                        } else {
-                            Image(systemName: playback.isPlaying ? "stop.fill" : "play.fill").font(.system(size: 17))
-                        }
-                    }
-                    .foregroundStyle(Palette.on).frame(width: 48, height: 48).background(Palette.fg, in: .circle)
-                }
-                .buttonStyle(.plain).disabled(isFetching)
-                .accessibilityLabel(isFetching ? "Loading the clip" : playback.isPlaying ? "Stop" : "Play the clip")
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("“\(clip.text)”").font(.quote).foregroundStyle(Palette.fg)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(caption(clip)).font(.monoTime).foregroundStyle(Palette.muted)
-                    if failed {
-                        Text("Couldn't load the clip. Tap play to try again.").font(.small).foregroundStyle(
-                            Palette.flag)
-                    }
-                }
-            }
-            if clips.count > 1 {
-                TextLink("Another clip") {
-                    playback.stop(); index = (index + 1) % clips.count
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .onDisappear {
-            fetch?.cancel()
-            playback.stop()
-        }
-    }
-
-    private func caption(_ clip: Check.Clip) -> String {
-        let seconds = clip.audio.map { Int(($0.end - $0.start).rounded()) } ?? 0
-        let length = "\(seconds / 60):" + String(format: "%02d", seconds % 60)
-        return clips.count == 1 ? length : "\(length) · \(index + 1) of \(clips.count) clips"
-    }
-
-    private func toggle(_ clip: Check.Clip) {
-        if playback.isPlaying { return playback.stop() }
-        failed = false
-        guard let audio = clip.audio, let job = UUID(uuidString: audio.jobId) else { return failed = true }
-        isFetching = true
-        fetch = Task {
-            let file = await ClipAudio.file(job)
-            isFetching = false
-            guard !Task.isCancelled else { return }
-            guard let file else { return failed = true }
-            playback.play(file, from: audio.start, for: audio.end - audio.start)
-        }
     }
 }
