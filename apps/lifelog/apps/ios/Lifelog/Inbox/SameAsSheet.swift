@@ -53,8 +53,13 @@ struct SameAsSheet: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Group {
-                    if let symbol { Image(systemName: symbol).font(.smallStrong) } else { Text(initials ?? "").font(.smallStrong) }
+                    if let symbol {
+                        Image(systemName: symbol)
+                    } else {
+                        Text(initials ?? "")
+                    }
                 }
+                .font(.smallStrong)
                 .foregroundStyle(Palette.fg).frame(width: 36, height: 36).background(Color.fillTint, in: .circle)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(name).font(.rowName).foregroundStyle(Palette.fg)
