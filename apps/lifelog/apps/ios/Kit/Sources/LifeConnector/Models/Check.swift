@@ -129,11 +129,10 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
 }
 
 extension Check {
-    /// Who asks, in his words: the agent's runtime, else Life (a voice from the pendant), else the asker's own name.
-    public func askerName(runtime: RuntimeName?) -> String {
+    /// The agent that asks, in his words: its runtime, else the asker's own name; nil when Life asks itself.
+    public func agentName(runtime: RuntimeName?) -> String? {
         if let runtime { return runtime.name }
-        guard asker.caseInsensitiveCompare("life") == .orderedSame else { return asker }
-        return group == .voice ? "Life, from the pendant" : "Life"
+        return asker.caseInsensitiveCompare("life") == .orderedSame ? nil : asker
     }
 
     /// The option he picks by naming someone (`takes` a person, or a person or a name), when the card has one.

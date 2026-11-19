@@ -17,7 +17,7 @@ struct Taken: Equatable {
     var isStart: Bool { check.group == .newMatter && request.options == ["start"] }
     var context: ActionCopy.Context {
         .init(
-            to: check.draft?.to, channel: check.draft?.channel, asker: check.askerName(runtime: runtimeName))
+            to: check.draft?.to, channel: check.draft?.channel, asker: check.agentName(runtime: runtimeName))
     }
 }
 
@@ -65,7 +65,7 @@ struct AnswerResultView: View {
 
     @ViewBuilder private var working: some View {
         header
-        Text(taken.check.question).font(.askQuestion).foregroundStyle(Palette.fg)
+        Text(taken.check.question).font(.cardQuestion).foregroundStyle(Palette.fg)
         if let draft = taken.check.draft { DraftBlock(draft: draft) }
         CheckLines(lines: lines.isEmpty ? [CheckLine(id: "asking", text: "Asking Life", mark: .running)] : lines)
             .padding(.top, 8)

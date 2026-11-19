@@ -12,7 +12,7 @@ struct MattersScreen: View {
     @State private var showsFilters = false
     @State private var visibility = NavigationSplitViewVisibility.all
     /// What he typed on the asks pushed on a matter: here, above both columns, so a fold keeps it.
-    @State private var notes = AskNotes()
+    @State private var notes = CardNotes()
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     /// Two columns, the list and the matter: side by side on a regular width, one at a time on a compact one.
@@ -36,7 +36,7 @@ struct MattersScreen: View {
                 NavigationStack(path: $router.matterPath) {
                     MatterPage(id: id).id(id)
                         .navigationDestination(for: String.self) { ref in
-                            AskPage(
+                            CardPage(
                                 ref: ref, source: life.matter[id]?.value?.checks ?? [], notes: $notes,
                                 leave: { router.matterPath = [] })
                         }

@@ -20,7 +20,7 @@ struct CheckCard: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 agentPill
-                Text(check.question).font(.askQuestion).foregroundStyle(Palette.fg)
+                Text(check.question).font(.cardQuestion).foregroundStyle(Palette.fg)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.bottom, 4)
                     .accessibilityAddTraits(.isHeader)
@@ -40,8 +40,8 @@ struct CheckCard: View {
 
     /// An agent's name, the only thing above the question; Life's own asks have none.
     @ViewBuilder private var agentPill: some View {
-        if runtimeName != nil || check.asker.caseInsensitiveCompare("life") != .orderedSame {
-            Label(check.askerName(runtime: runtimeName), systemImage: "sparkle")
+        if let name = check.agentName(runtime: runtimeName) {
+            Label(name, systemImage: "sparkle")
                 .labelStyle(.titleAndIcon).font(.chip)
                 .foregroundStyle(Palette.ai).padding(.horizontal, 14).frame(minHeight: 40)
                 .background(Color.fillTint, in: .capsule).lineLimit(1)

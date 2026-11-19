@@ -214,11 +214,11 @@ private func everyKindOfCheck() throws -> [Check] {
 @Test func theAskerIsNamedOnce() throws {
     let all = try everyKindOfCheck()
     let voice = try #require(all.first { $0.group == .voice })
-    #expect(voice.askerName(runtime: nil) == "Life, from the pendant")
-    #expect(all[0].askerName(runtime: .claude) == "Claude Code")
-    #expect(all[0].askerName(runtime: nil) == "Orbit")
+    #expect(voice.agentName(runtime: nil) == nil)
+    #expect(all[0].agentName(runtime: .claude) == "Claude Code")
+    #expect(all[0].agentName(runtime: nil) == "Orbit")
     let name = try #require(all.first { $0.group == .name })
-    #expect(name.askerName(runtime: nil) == "Life")
+    #expect(name.agentName(runtime: nil) == nil)
 }
 
 /// The inbox's checks, made from the server's own read: one ask per ref, with the urgency given.

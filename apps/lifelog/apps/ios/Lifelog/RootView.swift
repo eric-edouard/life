@@ -63,16 +63,17 @@ struct RootView: View {
         .tint(Palette.fg)
     }
 
-    /// Runs `then` once no sheet is up, dismissing the one that is.
     /// Held answers go now, and the app is kept awake until they are answered: a suspended app would lose them.
     private func sendHeldInBackground() async {
+        guard !life.held.isEmpty else { return }
         let app = UIApplication.shared
         let awake = Awake()
-        awake.id = app.beginBackgroundTask(withName: "held answers") { app.endBackgroundTask(awake.id) }
+        awake.id = app.beginBackgroundTask(withName: "held answers") { awake.end() }
         await life.sendHeld()
-        app.endBackgroundTask(awake.id)
+        awake.end()
     }
 
+    /// Runs `then` once no sheet is up, dismissing the one that is.
     private func dismissSheet(then: @escaping () -> Void) {
         let presented = UIApplication.shared.connectedScenes.lazy
             .compactMap { ($0 as? UIWindowScene)?.keyWindow?.rootViewController?.presentedViewController }.first
@@ -129,4 +130,13 @@ enum Appearance: String {
 }
 
 /// The background task's id, read by its own expiry handler.
-private final class Awake: @unchecked Sendable { var id = UIBackgroundTaskIdentifier.invalid }
+private final class Awake: @unchecked Sendable {
+    var id = UIBackgroundTaskIdentifier.invalid
+    /// Ends the task once: the expiry handler and the normal end may both come.
+    func end() {
+        guard id != .invalid else { return }
+        let ended = id
+        id = .invalid
+        UIApplication.shared.endBackgroundTask(ended)
+    }
+}

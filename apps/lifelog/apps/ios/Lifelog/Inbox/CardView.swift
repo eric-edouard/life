@@ -3,7 +3,7 @@ import SwiftUI
 
 /// What he typed on each ask and the answer he gave: kept by the screen that hosts the asks, above the size-class
 /// branch, so folding or unfolding the phone keeps both.
-struct AskNotes: Equatable {
+struct CardNotes: Equatable {
     var inputs: [String: CardInput] = [:]
     var taken: Taken?
 }
@@ -12,12 +12,12 @@ struct AskNotes: Equatable {
 /// place. `pages` are the asks around it (and the boundary panel, "The rest can wait.", a page of its own, swiped past
 /// like a card, never an answer), paged by swipe when there are several; a tap runs through the store's action and the
 /// ask stays, as its own result, until he moves on.
-struct AskView: View {
+struct CardView: View {
     let check: Check
     let pages: [InboxPage]
     /// The ask under the pager's leading edge: swiping only moves it, never answers.
     @Binding var current: String?
-    @Binding var notes: AskNotes
+    @Binding var notes: CardNotes
     var notice: String?
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
@@ -161,10 +161,10 @@ private struct BoundaryPanel: View {
 
 /// An ask pushed on a matter's stack: found by its ref among the checks the matter lists, or, once answered, the
 /// result he is still reading. Gone from both: said so.
-struct AskPage: View {
+struct CardPage: View {
     let ref: String
     let source: [Check]
-    @Binding var notes: AskNotes
+    @Binding var notes: CardNotes
     /// Back to the stack's root: after his answer's result, or when the ask is gone.
     let leave: () -> Void
 
@@ -172,8 +172,8 @@ struct AskPage: View {
     @State private var current: String?
 
     var body: some View {
-        if let check = notes.taken?.check ?? source.first(where: { $0.ref == ref }) {
-            AskView(check: check, pages: [.ask(check)], current: $current, notes: $notes) { taken, _ in
+        if let check = notes.taken?.check.ref == ref ? notes.taken?.check : source.first(where: { $0.ref == ref }) {
+            CardView(check: check, pages: [.ask(check)], current: $current, notes: $notes) { taken, _ in
                 // A new matter whose goal he edited still waits for Start or Dismiss: back to the ask, not the matter.
                 if taken.staysOpen {
                     life.forget(taken.key)

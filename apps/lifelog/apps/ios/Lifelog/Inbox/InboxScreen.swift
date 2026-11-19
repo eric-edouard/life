@@ -6,7 +6,7 @@ import SwiftUI
 struct InboxScreen: View {
     @Environment(LifeStore.self) private var life
 
-    @State private var notes = AskNotes()
+    @State private var notes = CardNotes()
     /// Cards he kept for later: shown after the others, until the app closes.
     @State private var deferred: [String] = []
     @State private var current: String?
@@ -42,7 +42,7 @@ struct InboxScreen: View {
     /// as it was until the next card.
     @ViewBuilder private var card: some View {
         if let check = notes.taken?.check ?? pages.check(on: current) {
-            AskView(check: check, pages: pages, current: $current, notes: $notes, notice: notice) { taken, keep in
+            CardView(check: check, pages: pages, current: $current, notes: $notes, notice: notice) { taken, keep in
                 life.forget(taken.key)
                 notice = nil
                 if keep { deferred.append(taken.check.ref) }

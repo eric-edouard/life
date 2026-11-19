@@ -285,6 +285,7 @@
 
         private static func check(
             _ ref: String, group: String, title: String, question: String, asker: String = "life",
+            urgency: String = "improves",
             options: [[String: Any]],
             matter: [String: Any]? = nil, deadline: String? = nil, context: String? = nil, extra: [String: Any] = [:]
         ) -> [String: Any] {
@@ -296,11 +297,9 @@
                     "pages": 0,
                 ],
                 "group": group, "title": title, "question": question,
-                "asker": asker,
+                "asker": asker, "urgency": urgency,
                 "options": options, "clips": [], "likelyPeople": [], "links": [],
             ]
-            // `urgencyOf`: an agent's decision, a voice, a name and an ambiguous card block; the rest only improve.
-            check["urgency"] = ["decision", "voice", "name", "contacts card"].contains(group) ? "blocks" : "improves"
             if let matter { check["matter"] = matter }
             if let deadline { check["deadline"] = deadline }
             if let context { check["context"] = context }
@@ -340,7 +339,8 @@
         nonisolated(unsafe) static let checks: [[String: Any]] =
             [
                 check(
-                    "dec_plan", group: "decision", title: "Get the lease signed and back to Hélène Aubert",
+                    "dec_plan", group: "decision", urgency: "blocks",
+                    title: "Get the lease signed and back to Hélène Aubert",
                     question: "I draft your reply, ask you before sending, then watch for her answer. Go?",
                     asker: "Claude Code",
                     options: [option("go", "Go"), option("change", "Change"), option("stop", "Stop")], matter: lease,
@@ -348,7 +348,8 @@
                     context: "Hélène asked twice, the last time on Thursday. The lease ends on 31 December.",
                     extra: ["onSilence": "stop", "links": ["https://agents.example.test/s/1"]]),
                 check(
-                    "dec_send", group: "decision", title: "Tell Hélène the signed lease is on its way",
+                    "dec_send", group: "decision", urgency: "blocks",
+                    title: "Tell Hélène the signed lease is on its way",
                     question: "Send this to her?",
                     asker: "Claude Code",
                     options: [
@@ -368,13 +369,14 @@
             ]
             + (7...12).map { number in
                 check(
-                    "dec_\(number)", group: "decision", title: "Quote for Nora Keller, step \(number)",
+                    "dec_\(number)", group: "decision", urgency: "blocks",
+                    title: "Quote for Nora Keller, step \(number)",
                     question: "Confirm the start date with Nora?", asker: "Codex",
                     options: [option("yes", "Yes"), option("no", "Not yet")], matter: nora, deadline: at(20, 12))
             }
             + [
                 check(
-                    "voice_v1", group: "voice", title: "A voice from Saturday, 4 minutes with Sam",
+                    "voice_v1", group: "voice", urgency: "blocks", title: "A voice from Saturday, 4 minutes with Sam",
                     question: "Who is this?",
                     options: [
                         option("this-is", "Name them…", takes: "person or name"),
@@ -401,7 +403,7 @@
                         ],
                     ]),
                 check(
-                    "person:con_cam", group: "contacts card", title: "Place a Contacts card",
+                    "person:con_cam", group: "contacts card", urgency: "blocks", title: "Place a Contacts card",
                     question:
                         "Life cannot place the Contacts card Cam: its name and handles say Camille Vance and Cam Ortiz",
                     options: [option("same-person", "Choose who…", takes: "person")],
