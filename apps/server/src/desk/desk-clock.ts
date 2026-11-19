@@ -26,7 +26,7 @@ import { decisionsNow } from "../memory/decisions";
 import { type People, readPeople } from "../memory/who";
 import type { TurnOutcome } from "../records/registered-agent";
 import { finish, readPacket } from "./agent-actions";
-import { applyAgentChanges } from "./agent-changes";
+import { applyAgentChanges, handOverReplaced } from "./agent-changes";
 import {
   ANSWERS,
   BEGIN_WITHIN_MS,
@@ -426,6 +426,7 @@ export async function wakeDue(desk: Desk) {
  */
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
+  handOverReplaced(desk);
   pollAnswers(desk);
   await endUnbegunTurns(desk);
   await wakeDue(desk);

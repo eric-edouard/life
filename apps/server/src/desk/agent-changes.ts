@@ -177,6 +177,22 @@ function applyAsk(
 }
 
 /**
+ * His rule, one agent on a subject: a stopped agent whose subject an active agent now has is handed over to it
+ * (`handed_over`, over at once, `outcome` naming its successor, the newest active one when several). A subject is its
+ * project or a step it is anchored on: `holderOf` counts active agents only, so a start on a matter is not refused
+ * while a stopped agent is anchored there, exactly as on a project. Idempotent; run every tick, not an ask of his.
+ */
+export function handOverReplaced({ db }: Desk) {
+  const newest = (own: string) =>
+    `(select s.id from agent s where s.status = 'active' and ${own} order by s.created_at desc limit 1)`;
+  const by = `coalesce(${newest("s.project = a.project")}, ${newest("s.id in (select m.agent_id from anchor m join anchor o on o.step = m.step where o.agent_id = a.id)")})`;
+  db.run(
+    `update agent as a set status = 'handed_over', ended_at = ?, outcome = 'replaced by ' || ${by} where a.status = 'stopped' and ${by} is not null`,
+    [now()]
+  );
+}
+
+/**
  * Applies his new asks of the desk, each once: a change and its row (`agent_change`) are written in one transaction,
  * so a restart neither applies one twice nor skips one. A stopped agent's open decision is withdrawn after.
  */
