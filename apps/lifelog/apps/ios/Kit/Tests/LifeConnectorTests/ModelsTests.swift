@@ -177,6 +177,16 @@ private func everyKindOfCheck() throws -> [Check] {
         + decoded(Matter.self, wireText("life/read_matter_found.json")).checks
 }
 
+/// An option that takes a note answers with his words on any kind of card, never by one tap.
+@Test func aNoteOptionOnAnyKindTakesHisWords() throws {
+    let text = try wireText("life/read_inbox.json").replacingOccurrences(
+        of: "\"label\": \"Not yet\",\n          \"takes\": null", with: "\"label\": \"Not yet\",\n          \"takes\": \"note\"")
+    let ending = try #require(try decoded(Inbox.self, text).checks.first { $0.group == .ending })
+    let option = try #require(ending.options.first { $0.takes == .note })
+    #expect(ending.answer(option) == nil)
+    #expect(ending.answer(words: "Waiting on Idris") == AnswerRequest(ref: ending.ref, options: ["false"], note: "Waiting on Idris"))
+}
+
 /// Every kind Life sends answers with its own options, as `answer_check` takes them: one tap for an option that takes
 /// nothing more, the person or the name for one that names someone, his words for one that takes a note, and his own
 /// words only where an agent reads them (a decision). Read from the server's own inbox, never a hand-made one.

@@ -169,12 +169,13 @@ struct CheckActions: View {
         }
     }
 
-    /// One tap answers; an option that names someone opens "Same as…".
+    /// One tap answers; an option that names someone opens "Same as…", one that takes a note opens his words.
     private func tap(_ option: Check.Option) {
         if let request = check.answer(option) { return answer(request) }
         switch option.takes {
         case .person?, .personOrName?: sameAs()
-        case .note?, .unknown?, nil: break
+        case .note?: input.isWritingOwnWords = true
+        case .unknown?, nil: break
         }
     }
 }
