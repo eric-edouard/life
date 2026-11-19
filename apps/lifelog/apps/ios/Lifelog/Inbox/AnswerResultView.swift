@@ -47,9 +47,8 @@ struct AnswerResultView: View {
     }
 
     private var lines: [CheckLine] {
-        let all = ActionCopy.lines(state, taken.context)
         // A send shows only the steps of its send (`sendStepsOf` on Life's side): its answer line is not one.
-        return taken.isSend ? all.filter { $0.id != "recorded" } : all
+        ActionCopy.lines(state, taken.context).filter { !taken.isSend || $0.id != "recorded" || $0.mark == .failed }
     }
 
     // MARK: States
@@ -83,12 +82,7 @@ struct AnswerResultView: View {
             }
         } else {
             Text(taken.failedLine(failure, state)).font(.lead).foregroundStyle(Palette.muted)
-            // Life's own reason: on the step it stopped at, else on its own (it stopped before Life's plan).
-            CheckLines(
-                lines: lines.contains { $0.mark == .failed }
-                    ? lines : lines + [CheckLine(id: "reason", text: failure.reason, mark: .failed)]
-            )
-            .padding(.top, 8)
+            CheckLines(lines: lines).padding(.top, 8)
         }
     }
 }

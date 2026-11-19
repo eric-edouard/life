@@ -90,7 +90,7 @@ struct MatterPage: View {
             ([days.map { "Open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self)
             + [(row.areas ?? []).joined(separator: ", ")].filter { !$0.isEmpty }).joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 8) {
-            Text(row.name).font(.matterTitle).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
+            Text(row.name).font(.screenName).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             if !matter.checks.isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
             Text(open).font(.small).foregroundStyle(Palette.muted)

@@ -65,7 +65,7 @@ struct CardView: View {
         }
         .sheet(item: sameAsCard) { check in
             SameAsSheet(
-                title: check.namingOption?.label ?? "Same as…", people: check.likelyPeople,
+                people: check.likelyPeople,
                 takesNewName: check.namingOption?.takes == .personOrName
             ) { choice in
                 if let request = check.answer(naming: choice) { submit(check, request) }
