@@ -69,7 +69,7 @@ const kitOnWhatsapp = new Map([
           text: "Kit here, from the shop",
         },
       ],
-      "Alex"
+      "Dana"
     ),
   ],
 ]);

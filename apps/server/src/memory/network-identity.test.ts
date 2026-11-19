@@ -62,13 +62,13 @@ test("a WhatsApp chat gives its network, phone, shown name, newest message on on
       text: "not Kit",
     }),
   ];
-  expect(networkIdentityOf(unit(), events, "Alex")).toEqual({
+  expect(networkIdentityOf(unit(), events, "Dana")).toEqual({
     chat: KIT_CHAT,
     handle: "+33600000001",
     network: "WhatsApp",
     newest: {
       at: "2026-11-02T10:00:00.000Z",
-      by: "Alex",
+      by: "Dana",
       text: "Great, see you Friday",
     },
     openUrl: "https://wa.me/33600000001",
@@ -91,7 +91,7 @@ test("a network without a link of its own gives null, and a long message is cut 
         text: long,
       }),
     ],
-    "Alex"
+    "Dana"
   );
   expect(identity).toMatchObject({
     handle: chat,
@@ -110,17 +110,17 @@ test("a WhatsApp chat whose key holds no phone takes the sender's, and a @lid al
   const byPhone = networkIdentityOf(
     unit({ key: lid }),
     [message({ chat: lid, sender: "+33 6 00 00 00 03" })],
-    "Alex"
+    "Dana"
   );
   expect(byPhone.openUrl).toBe("https://wa.me/33600000003");
   const none = networkIdentityOf(
     unit({ key: lid }),
     [message({ chat: lid, sender: lid })],
-    "Alex"
+    "Dana"
   );
   expect(none.openUrl).toBeNull();
   // Nothing read of the span: no newest, the unit's title still names it.
-  expect(networkIdentityOf(unit(), [], "Alex")).toMatchObject({
+  expect(networkIdentityOf(unit(), [], "Dana")).toMatchObject({
     newest: null,
     shownName: "Kit Shop",
   });
@@ -157,7 +157,7 @@ test("the question names the first name, both of a card's people, or a descripti
 });
 
 test("a decision's guess beside it gets its identity too; a check none was found for gets null", () => {
-  const identity = networkIdentityOf(unit(), [message({})], "Alex");
+  const identity = networkIdentityOf(unit(), [message({})], "Dana");
   interface Shown extends NetworkIdentified {
     confirm: Shown[];
     ref: string;
@@ -251,7 +251,7 @@ test("read from the index, the unit files and one span of the source: a card's h
     };
     const found = await readNetworkIdentities([card], {
       inferred: [],
-      nameOf: () => "Alex",
+      nameOf: () => "Dana",
       refOf: (r) => r,
     });
     expect(found.get("person:con_lou")).toEqual({
