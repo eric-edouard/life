@@ -89,6 +89,9 @@ import {
 // Built with `readsOnly` (`buildServer(true)`), for the question cases' agent over stdio, it registers only the reads.
 // Auth: a Bearer JWT that the connector's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
+/** A push's card id: 16 hex (`pushIdOf`). */
+const PUSH_ID = /^[0-9a-f]{16}$/;
+
 const SCOPES = [SCOPE, "offline_access"];
 
 const ICONS: Record<string, string> = {
@@ -432,7 +435,7 @@ export function buildServer(readsOnly = false) {
       limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
       pushId: z
         .string()
-        .regex(/^[0-9a-f]{16}$/)
+        .regex(PUSH_ID)
         .optional()
         .describe("A push's card id: only that card"),
     }),
