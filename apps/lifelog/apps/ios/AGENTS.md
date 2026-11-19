@@ -49,8 +49,10 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
 - The owner's edits are `OwnerIntent`s sent with `SyncStore.perform`: queued in the outbox, shown at once. A value the
   server holds is never shown as known: asking, then the value (`serverValue`, `serverVocabulary`); a change shows at
   once, then Saved, or goes back with the reason. Settings draws only `Row` and `RowGroup`.
-- Pairing goes one way: a `lifelog://pair` link (Camera or pasted) is opened by `RootView`, which asks the
-  owner to confirm naming each server, and only then `SyncStore.pair` or `LifeStore.pair` stores it. A link never repoints the app alone.
+- Pairing goes one way: a `lifelog://pair` link (Camera or pasted) is opened by `RootView`, which shows `PairSheet`: it
+  confirms naming each server, and only then `SyncStore.pair` or `LifeStore.pair` stores it. A server's token is checked
+  against the server before it is kept (`Pairing.pair`), so a failed pairing leaves the old one working. A link never
+  repoints the app alone, and a token is never drawn.
 - `SyncStore` is the one driver: uploads, the outbox, the feed and the status. Debug builds pair from
   `LIFELOG_DEVICE_TOKEN` and `LIFELOG_SERVER_URL` in the environment (`DeviceToken.importFromEnvironment`), the one
   debug path.

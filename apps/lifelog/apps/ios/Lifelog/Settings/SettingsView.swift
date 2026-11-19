@@ -8,7 +8,7 @@ import SwiftUI
 
 /// Settings, the sheet over the app, in the order of what breaks the app: what needs him, the two connections, what this
 /// phone allows, the Pendant, appearance, his data, help. It has pages of its own (Vocabulary, Light guide, Backup,
-/// pairing), which push in the sheet's own stack. Drawn only with `Row` and `RowGroup`.
+/// a page per connection), which push in the sheet's own stack. Drawn only with `Row` and `RowGroup`.
 struct SettingsView: View {
     let permissions: PermissionsStore
     let allowNotifications: () -> Void
@@ -21,9 +21,7 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @AppStorage("appearance") private var appearance = Appearance.auto
     @Bindable private var settings = Settings.shared
-    @State private var pairing: PairingTarget?
-
-    private enum PairingTarget: Hashable { case life, server }
+    @State private var page: Connection?
 
     var body: some View {
         ScrollView {
@@ -53,18 +51,7 @@ struct SettingsView: View {
         .tint(Palette.fg)
         .background(Palette.sheet)
         .toolbar(.hidden, for: .navigationBar)
-        .navigationDestination(item: $pairing) { target in
-            switch target {
-            case .life:
-                PairingView(
-                    title: "Life", paired: life.pairedOrigin.map(\.hostWords), note: life.pairingNote,
-                    accepts: { LifePairing(link: $0) != nil })
-            case .server:
-                PairingView(
-                    title: "Server", paired: sync.server?.hostWords, note: nil,
-                    accepts: { Pairing(link: $0) != nil })
-            }
-        }
+        .navigationDestination(item: $page) { ConnectionPage(connection: $0) }
     }
 
     // MARK: Needs you
@@ -74,25 +61,23 @@ struct SettingsView: View {
         RowGroup(label: "Needs you", labelColor: Palette.flag, surface: .sheet) {
             switch life.link {
             case .notPaired:
-                Row(title: "Life is not paired", detail: "Pair it with the link on your Mac.") {
-                    RowButton(title: "Pair") { pairing = .life }
+                Row(title: "Not paired", detail: "Inbox and Matters need Life on your Mac.") {
+                    RowButton(title: "Pair with Life") { page = .life }
                 }
             case .noAnswer:
                 Row(title: "Life does not answer", detail: lifeSilence) {
-                    RowButton(title: "Check", isBusy: life.inbox.phase == .loading) {
-                        Task { await life.refreshInbox() }
-                    }
+                    RowButton(title: "Check") { page = .life }
                 }
             case .works, .checking: EmptyView()
             }
             switch sync.summary.state.link {
             case .notPaired:
                 Row(title: "Server is not paired", detail: "Recording goes on; nothing is sent.") {
-                    RowButton(title: "Pair") { pairing = .server }
+                    RowButton(title: "Pair") { page = .server }
                 }
             case .noAnswer:
                 Row(title: "Server does not answer", detail: "Audio waits on this phone.") {
-                    RowButton(title: "Check") { sync.run() }
+                    RowButton(title: "Check") { page = .server }
                 }
             case .works, .checking: EmptyView()
             }
@@ -126,9 +111,9 @@ struct SettingsView: View {
     private var connections: some View {
         RowGroup(label: "Connections", surface: .sheet) {
             Button {
-                pairing = .life
+                page = .life
             } label: {
-                Row(title: "Life", detail: life.pairedOrigin?.hostWords) {
+                Row(title: "Life", detail: life.pairedOrigin?.addressWords ?? "No Mac paired") {
                     HStack(spacing: 8) {
                         life.link.mark; RowValue()
                     }
@@ -137,9 +122,9 @@ struct SettingsView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("settings.life")
             Button {
-                pairing = .server
+                page = .server
             } label: {
-                Row(title: "Pendant server", detail: sync.server?.hostWords) {
+                Row(title: "Pendant server", detail: sync.server?.addressWords ?? "No server paired") {
                     HStack(spacing: 8) {
                         sync.summary.state.link.mark; RowValue()
                     }
@@ -342,15 +327,13 @@ struct SettingsView: View {
             Row(title: "Version") {
                 Text(Bundle.main.versionWords).font(.note).foregroundStyle(Palette.muted)
             }
-            #if DEBUG
-                NavigationLink {
-                    DiagnosticsView()
-                } label: {
-                    Row(title: "Diagnostics") { RowValue() }
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("pendant.settings.diagnostics")
-            #endif
+            NavigationLink {
+                DiagnosticsView()
+            } label: {
+                Row(title: "Diagnostics") { RowValue() }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("pendant.settings.diagnostics")
         }
     }
 }
@@ -396,69 +379,6 @@ struct ServerRow<Value: Sendable & Equatable, Trailing: View>: View {
         }
     }
 }
-
-/// The server this iPhone is paired with, and a pasted pairing link (confirmed on screen, never shown back).
-/// Where this phone is paired, and the field to pair it again: for lifelog's server and for Life alike (`accepts` says
-/// which links are its own). `note` is what a pairing in progress says, or why it failed.
-struct PairingView: View {
-    let title: String
-    /// Who it is paired with, nil when not.
-    let paired: String?
-    let note: String?
-    let accepts: (URL) -> Bool
-    /// A pasted link is opened as the app's own link: the same path as the Camera's (`RootView`'s `onOpenURL`).
-    @Environment(\.openURL) private var openURL
-
-    @State private var draft = ""
-    @State private var result: String?
-
-    var body: some View {
-        Form {
-            Section {
-                Label(
-                    paired.map { "Paired with \($0)" } ?? "Not paired",
-                    systemImage: paired == nil ? "link.badge.plus" : "link")
-                if let note { Text(note).foregroundStyle(Palette.muted) }
-                TextField("Pairing link", text: $draft)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                Button(paired == nil ? "Pair" : "Pair again") {
-                    let link = URL(string: draft.trimmingCharacters(in: .whitespacesAndNewlines))
-                    if let link, accepts(link) {
-                        openURL(link)
-                        result = nil
-                    } else {
-                        result = "That isn't a pairing link."
-                    }
-                    draft = ""
-                }
-                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                if let result { Text(result).foregroundStyle(Palette.flag) }
-            } footer: {
-                Text(
-                    "Scan the pairing code on your Mac with the Camera, or paste its link here. The token stays in this iPhone's Keychain and is never shown again."
-                )
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .background(Palette.bg)
-        .navigationTitle(title)
-    }
-}
-
-extension URL {
-    /// A server as the owner reads it: its host.
-    fileprivate var hostWords: String { host() ?? absoluteString }
-}
-
-#if DEBUG
-    #Preview("Server") {
-        NavigationStack {
-            PairingView(title: "Server", paired: "mac.example.ts.net", note: nil, accepts: { _ in true })
-        }
-        .preferredColorScheme(.dark)
-    }
-#endif
 
 extension SyncStore {
     /// The owner's switches as every screen shows them: the feed's, with a change waiting in the outbox applied. A

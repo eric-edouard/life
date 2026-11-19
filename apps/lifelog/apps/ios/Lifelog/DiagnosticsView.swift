@@ -1,10 +1,80 @@
-#if DEBUG
-    import Capture
-    import SwiftUI
+import Capture
+import SwiftUI
 
-    /// Debug-only wiring check: raw capture status, the intents, and the simulated Pendant. Replaced by the
-    /// designed UI; no styling on purpose.
-    struct DiagnosticsView: View {
+/// What works, in one place: both connections as their pages say it, the Pendant, the audio waiting on the phone. "Run
+/// all checks" is every connection's "Check now"; "Copy report" puts the same lines on the clipboard, with no token and
+/// no address. The debug build adds the raw capture dump below.
+struct DiagnosticsView: View {
+    @Environment(SyncStore.self) private var sync
+    @Environment(LifeStore.self) private var life
+    @Environment(CaptureStore.self) private var capture
+    @State private var isChecking = false
+    @State private var copied = false
+
+    private var rows: [(title: String, mark: StateMark)] {
+        var rows: [(String, StateMark)] = [
+            ("Life answers", isChecking ? LinkState.checking.mark : life.link.mark),
+            ("Pendant server answers", isChecking ? LinkState.checking.mark : sync.summary.state.link.mark),
+        ]
+        let isConnected = if case .ready = capture.shown.connection { true } else { false }
+        rows.append(("Pendant connected", StateMark(glyph: isConnected ? .ok : .off, word: isConnected ? "Yes" : "No")))
+        if let uploads = sync.uploads {
+            rows.append(
+                ("Uploads", StateMark(glyph: uploads.lastError == nil ? .ok : .flag, word: uploads.lastError == nil ? "Fine" : "Failing")))
+            rows.append(
+                (
+                    "Audio waiting on the phone",
+                    StateMark(
+                        glyph: .off, word: uploads.unsent > .zero ? DurationText.string(uploads.unsent, width: .wide) : "None")
+                ))
+        }
+        return rows
+    }
+
+    private var version: String { "Life \(Bundle.main.versionWords) · iOS \(UIDevice.current.systemVersion)" }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                RowGroup(surface: .sheet) {
+                    ForEach(rows, id: \.title) { row in Row(title: row.title) { row.mark } }
+                }
+                VStack(spacing: 10) {
+                    Button("Run all checks") { Task { await runAll() } }
+                        .buttonStyle(.pill(.filled, isBusy: isChecking))
+                    Button(copied ? "Copied" : "Copy report") {
+                        UIPasteboard.general.string = ([version] + rows.map { "\($0.title): \($0.mark.word)" }).joined(separator: "\n")
+                        copied = true
+                    }
+                    .buttonStyle(.pill(.quiet))
+                }
+                Text(version).font(.note).foregroundStyle(Palette.muted)
+                #if DEBUG
+                    NavigationLink("Capture dump") { CaptureDump() }.font(.note).foregroundStyle(Palette.muted)
+                #endif
+            }
+            .padding(.horizontal, Metrics.gutter)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
+            .readingWidth()
+        }
+        .background(Palette.sheet)
+        .navigationTitle("Diagnostics")
+    }
+
+    private func runAll() async {
+        isChecking = true
+        copied = false
+        async let a: Void = life.refreshInbox()
+        async let b: Void = sync.checkNow()
+        _ = await (a, b)
+        isChecking = false
+    }
+}
+
+#if DEBUG
+    /// Debug-only wiring check: raw capture status, the intents, and the simulated Pendant; no styling on purpose.
+    private struct CaptureDump: View {
         var body: some View {
             List {
                 StatusSection()
@@ -12,7 +82,7 @@
                 WakesSection()
                 FakeSection()
             }
-            .navigationTitle("Capture diagnostics")
+            .navigationTitle("Capture dump")
         }
     }
 

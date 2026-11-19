@@ -10,20 +10,6 @@ import UserNotifications
 /// read from the last good answer, so with no Mac in reach a screen shows it as stale, never blank.
 @MainActor @Observable
 final class LifeStore {
-    /// What the pairing is doing, as it runs (`LifeOAuth.Step`), then reading the inbox.
-    enum PairingStep: String {
-        case registering, approving, exchanging, readingInbox = "reading_inbox"
-
-        var words: String {
-            switch self {
-            case .registering: "Registering with Life…"
-            case .approving: "Waiting for Life to approve the code…"
-            case .exchanging: "Getting access…"
-            case .readingInbox: "Reading your inbox…"
-            }
-        }
-    }
-
     private(set) var inbox = ReadState<Inbox>()
     private(set) var matters = ReadState<MatterList>()
     private(set) var matter: [String: ReadState<Matter>] = [:]
@@ -43,12 +29,14 @@ final class LifeStore {
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
 
-    private(set) var pairingStep: PairingStep?
-    private(set) var pairingFailure: String?
     /// The Life this phone is paired with: set by a pairing, gone once Life no longer knows it (a read says so).
     private(set) var pairedOrigin: URL?
 
+    /// Registers with Life and has the pairing code approve it (`LifeOAuth`); a test or a fixture gives its own.
+    typealias Approve = @Sendable (LifePairing) async throws -> LifeCredentials
+
     private let tokens: any TokenStore
+    private let approve: Approve
     private let api: any LifeAPI
     private let cache: ReadCache
     private let runner: LifeActions
@@ -59,6 +47,7 @@ final class LifeStore {
 
     init(
         tokens: any TokenStore = LifeToken(), api: (any LifeAPI)? = nil,
+        approve: @escaping Approve = { try await LifeOAuth().pair($0) },
         cache: ReadCache = ReadCache(directory: URL.applicationSupportDirectory.appending(path: "lifelog/life-reads")),
         now: @escaping @Sendable () -> Date = { Date() },
         setBadge: @escaping @MainActor (Int) -> Void = { count in
@@ -66,6 +55,7 @@ final class LifeStore {
         }
     ) {
         self.tokens = tokens
+        self.approve = approve
         let api = api ?? MCPLifeAPI(client: MCPClient(session: LifeSession(store: tokens)))
         self.api = api
         runner = LifeActions(api: api, now: now)
@@ -89,8 +79,6 @@ final class LifeStore {
         case .loaded: .works
         }
     }
-    /// What pairing is doing or why it failed, for the screens that show it.
-    var pairingNote: String? { pairingFailure ?? pairingStep?.words }
 
     func state(of key: ActionKey) -> ActionState<ActionProof> { actions[key] ?? .idle }
 
@@ -253,24 +241,18 @@ final class LifeStore {
 
     // MARK: Pairing
 
-    /// Registers this app with Life, has the pairing code approve it, then reads the inbox as the first proof.
-    func pair(_ link: LifePairing) async {
-        pairingFailure = nil
-        do {
-            let credentials = try await LifeOAuth().pair(link) { step in
-                await MainActor.run { self.pairingStep = PairingStep(rawValue: step.rawValue) }
-            }
-            tokens.save(credentials)
-            pairedOrigin = credentials.endpoint.origin
-            // Another Life may be this one: nothing of the last one stays.
-            cache.clear()
-            (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
-            pairingStep = .readingInbox
-            await refresh()
-        } catch {
-            pairingFailure = MCPError.of(error).reason
-        }
-        pairingStep = nil
+    /// Registers this app with Life, has the pairing code approve it, then reads everything as the first proof. The
+    /// tokens are kept only once Life approved: a failed pairing leaves the old one working, and throws why.
+    func pair(_ link: LifePairing, onStep: (PairStep) -> Void = { _ in }) async throws {
+        onStep(.accepting)
+        let credentials = try await approve(link)
+        tokens.save(credentials)
+        pairedOrigin = credentials.endpoint.origin
+        // Another Life may be this one: nothing of the last one stays.
+        cache.clear()
+        (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
+        onStep(.reading)
+        await refresh()
     }
 
     #if DEBUG
@@ -281,7 +263,7 @@ final class LifeStore {
             guard !isPaired, let origin = environment["LIFE_ORIGIN"].flatMap(URL.init(string:)),
                 let code = environment["LIFE_PAIRING_CODE"], !code.isEmpty
             else { return }
-            await pair(LifePairing(origin: origin, code: code))
+            try? await pair(LifePairing(origin: origin, code: code))
         }
     #endif
 }

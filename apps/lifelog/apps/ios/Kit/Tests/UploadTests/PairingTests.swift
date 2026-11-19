@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 
 @testable import ServerAPI
@@ -50,14 +51,14 @@ private final class Verdict: URLProtocol {
         try #require(Pairing(link: URL(string: "lifelog://pair?url=https%3A%2F%2F\(host)&token=\(token)")!))
     }
     Verdict.status = ["refuses.example": 401, "accepts.example": 200]
-    var kept = "old-token-0123456789"
+    let kept = Mutex("old-token-0123456789")
     for host in ["refuses.example", "gone.example"] {
         do {
-            try await candidate(host, "new-token-0123456789").pair(session: session) { kept = $0.token; return true }
+            try await candidate(host, "new-token-0123456789").pair(session: session) { pairing in kept.withLock { $0 = pairing.token }; return true }
             Issue.record("\(host) was kept")
         } catch {}
-        #expect(kept == "old-token-0123456789", "\(host)")
+        #expect(kept.withLock { $0 } == "old-token-0123456789", "\(host)")
     }
-    try await candidate("accepts.example", "new-token-0123456789").pair(session: session) { kept = $0.token; return true }
-    #expect(kept == "new-token-0123456789")
+    try await candidate("accepts.example", "new-token-0123456789").pair(session: session) { pairing in kept.withLock { $0 = pairing.token }; return true }
+    #expect(kept.withLock { $0 } == "new-token-0123456789")
 }

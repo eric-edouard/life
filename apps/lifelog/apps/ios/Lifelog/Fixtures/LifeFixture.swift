@@ -20,6 +20,8 @@
         nonisolated static let tab = value(of: "-fixtureTab")
         nonisolated static let matter = value(of: "-fixtureMatter")
         nonisolated static let sheet = value(of: "-fixtureSheet")
+        /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).
+        nonisolated static let pair = value(of: "-fixturePair") ?? "ok"
         nonisolated static let pose = value(of: "-fixturePose")
 
         nonisolated private static func value(of flag: String) -> String? {
@@ -41,8 +43,22 @@
                 cache.store(api.agents(), key: "read_registered_agents")
             }
             return LifeStore(
-                tokens: FixtureTokens(isPaired: scenario != "notPaired"), api: api, cache: cache, setBadge: { _ in })
+                tokens: FixtureTokens(isPaired: scenario != "notPaired"), api: api, approve: { _ in try await approve() },
+                cache: cache, setBadge: { _ in })
         }
+    }
+
+    /// A pairing's approval, as `-fixturePair` says it goes.
+    nonisolated private func approve() async throws -> LifeCredentials {
+        switch LifeFixture.pair {
+        case "slow": try await Task.sleep(for: .seconds(3_600))
+        case "expired": try await Task.sleep(for: .seconds(1)); throw MCPError.wrongCode
+        default: try await Task.sleep(for: .seconds(1))
+        }
+        let origin = URL(string: "https://life.example.test")!
+        return LifeCredentials(
+            endpoint: LifeEndpoint(origin: origin, clientID: "fixture", tokenEndpoint: origin, resource: origin.absoluteString),
+            tokens: LifeTokens(access: "fixture", refresh: "fixture", expiresAt: .distantFuture))
     }
 
     nonisolated private struct FixtureTokens: TokenStore {
