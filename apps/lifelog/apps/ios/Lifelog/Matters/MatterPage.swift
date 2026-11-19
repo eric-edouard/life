@@ -41,7 +41,7 @@ struct MatterPage: View {
                 asks(opening: opening, questions: questions)
                 GoalAndNext(matter: matter)
                 if let agent {
-                    AgentBlock(agent: agent, waitsOnYou: !decisions.isEmpty || row.wait == .decision)
+                    AgentBlock(agent: agent, waitsOnYou: row.needsYou)
                 } else {
                     NoAgent()
                 }
@@ -99,8 +99,9 @@ struct MatterPage: View {
         let days = matter.steps.first.map { Calendar.current.dateComponents([.day], from: $0.at, to: .now).day ?? 0 }
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
-                if let wait = row.wait?.line(waitsOn: row.nextStep?.waitsOn) {
-                    Text(wait.text).label().foregroundStyle(wait.needsYou ? Palette.flag : Palette.fg)
+                if let wait = row.wait {
+                    Text(wait.line(waitsOn: row.nextStep?.waitsOn)).label()
+                        .foregroundStyle(wait.isOnHim ? Palette.flag : Palette.fg)
                 }
                 Text(
                     ([days.map { "open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self)
@@ -389,5 +390,18 @@ extension MatterStep {
     var whenAndWith: String {
         [at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), with].compactMap(\.self)
             .joined(separator: " · ")
+    }
+}
+
+extension MatterWait {
+    /// The caps line on the page.
+    fileprivate func line(waitsOn: String?) -> String {
+        switch self {
+        case .decision: "Your decision"
+        case .owner: "Waits on you"
+        case .ready: "Ready to do"
+        case .event: waitsOn.map { "Waits on \($0)" } ?? "Waits for something"
+        case .stuck: "Stuck"
+        }
     }
 }

@@ -52,7 +52,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.nextStep?.kind == .waitEvent)
     #expect(row.people?.owedTo == ["gran"])
     #expect(row.agent == "agt_000000000001")
-    #expect(row.openChecks == 2)
+    #expect(row.blockingChecks == 1)
     #expect(list.matters[2].goal == nil)
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
@@ -82,15 +82,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.goal?.by == .unknown)
 }
 
-@Test func theListSearchesAndCountsOnThePhone() throws {
-    let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
-    #expect(list.matching("watch").map(\.name) == ["Mend Gran's watch"])
-    #expect(list.matching("QUOTE").count == 1)
-    #expect(list.matching("  ").count == 3)
-    #expect(list.matching("nothing like it").isEmpty)
-}
-
-@Test func theFiltersCountAndNarrowTheList() throws {
+@Test func theFiltersNarrowTheListAndAreasComeMostFirst() throws {
     let text = #"""
         {"matters":[
         {"id":"a","name":"A","status":"moving","areas":["Home","Money"],"agent":"agt_1","nextStep":{"kind":"wait_decision","text":"x"}},
@@ -99,19 +91,25 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         {"id":"d","name":"D","status":"dormant"}]}
         """#
     let list = try decoded(MatterList.self, text)
-    #expect(list.areaCounts.map(\.area) == ["Home", "Money", "Work"])
-    #expect(list.areaCounts.map(\.count) == [2, 1, 1])
-    #expect(list.waitCounts == [.decision: 1, .stuck: 1, .ready: 1])
-    func ids(_ filter: MatterFilter, _ query: String = "") -> [String] {
-        list.shown(query: query, filter: filter).map(\.id)
-    }
-    #expect(ids(MatterFilter()) == ["a", "b", "c", "d"])
-    #expect(ids(MatterFilter(area: "Home")) == ["a", "b"])
-    #expect(ids(MatterFilter(area: "Home", waits: [.stuck, .ready])) == ["b"])
-    #expect(ids(MatterFilter(waits: [.decision, .ready])) == ["a", "c"])
-    #expect(ids(MatterFilter(withAgent: true)) == ["a"])
-    #expect(ids(MatterFilter(area: "Work"), "B").isEmpty)
-    #expect(MatterFilter().isEmpty && !MatterFilter(withAgent: true).isEmpty)
+    #expect(list.areasByCount == ["Home", "Money", "Work"])
+    func ids(_ filter: MatterFilter) -> [String] { list.shown(filter: filter).map(\.id) }
+    #expect(ids(.everything) == ["a", "b", "c", "d"])
+    #expect(ids(.area("Home")) == ["a", "b"])
+    #expect(ids(.needsYou) == ["a"])
+    #expect(ids(.agentWorking) == ["a"])
+}
+
+@Test func aMatterNeedsHimWhenItWaitsOnHimOrABlockingCheckIsOpen() throws {
+    let text = #"""
+        {"matters":[
+        {"id":"a","name":"A","status":"moving","blockingChecks":1,"nextStep":{"kind":"do","text":"x"}},
+        {"id":"b","name":"B","status":"moving","nextStep":{"kind":"wait_owner","text":"y"}},
+        {"id":"c","name":"C","status":"moving","blockingChecks":0,"nextStep":{"kind":"do","text":"z"}}]}
+        """#
+    let list = try decoded(MatterList.self, text)
+    // A new matter's offer or an ending check improves the memory, never blocks: it counts 0 and needs nothing of him.
+    #expect(list.matters.map(\.needsYou) == [true, true, false])
+    #expect(list.shown(filter: .needsYou).map(\.id) == ["a", "b"])
 }
 
 @Test func theActionsResultsDecode() throws {
