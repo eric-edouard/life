@@ -56,7 +56,7 @@ interface Call {
   later: Shown[];
   open: Shown[];
 }
-/** One matter's due work tonight: its open steps, and its later steps in the chunks to judge, oldest first. `subject` is the matter's id. */
+/** One matter's due work tonight: its open steps, and its later steps in the chunks to judge, newest first. `subject` is the matter's id. */
 export interface SubjectWork {
   chunks: Shown[][];
   name: string;
@@ -66,7 +66,7 @@ export interface SubjectWork {
 
 /**
  * One matter's work: the later steps that some open step has not been judged against yet (a pair is judged once a
- * batch of the current prompt holds the open step in `open` and the later one in `offered`), oldest first, in chunks of `LATER_MAX`, with
+ * batch of the current prompt holds the open step in `open` and the later one in `offered`), newest first, in chunks of `LATER_MAX`, with
  * the open steps they are due for. Nothing when nothing is due.
  */
 export function subjectWorkOf(
@@ -84,7 +84,7 @@ export function subjectWorkOf(
     isLater(o, l) && !judged.has(`${o.id} ${l.id}`);
   const due = later
     .filter((l) => open.some((o) => isDue(o, l)))
-    .toSorted((a, b) => a.at.localeCompare(b.at));
+    .toSorted((a, b) => b.at.localeCompare(a.at));
   const dueOpen = open.filter((o) => due.some((l) => isDue(o, l)));
   return due.length > 0
     ? {
@@ -96,13 +96,13 @@ export function subjectWorkOf(
     : null;
 }
 
-/** The calls a night takes: the matters whose due work is oldest first, each up to `SUBJECT_CALLS`, `NIGHT_CALLS` in all. */
+/** The calls a night takes: the matters whose newest due record is newest first, each up to `SUBJECT_CALLS`, `NIGHT_CALLS` in all. */
 export function nightOf(work: SubjectWork[]) {
   const callsOf = (w: SubjectWork) => Math.ceil(w.open.length / OPEN_MAX);
   let room = NIGHT_CALLS;
   return work
     .toSorted((a, b) =>
-      (a.chunks[0]?.[0]?.at ?? "").localeCompare(b.chunks[0]?.[0]?.at ?? "")
+      (b.chunks[0]?.[0]?.at ?? "").localeCompare(a.chunks[0]?.[0]?.at ?? "")
     )
     .flatMap((w) => {
       const each = callsOf(w);
