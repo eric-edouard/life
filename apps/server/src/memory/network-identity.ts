@@ -115,7 +115,9 @@ const refsOf = (c: PersonCheck, refOf: People["refOf"]) =>
   new Set([refOf(c.ref), ...c.about.map((h) => `${UNKNOWN}${h}`)]);
 
 /** The sources a 1:1 chat can come from. */
-const CHAT_SOURCES = JSON.stringify(SOURCES.filter((s) => s.kind === "chat").map((s) => s.name));
+const CHAT_SOURCES = JSON.stringify(
+  SOURCES.filter((s) => s.kind === "chat").map((s) => s.name)
+);
 
 /** The newest `READ` indexed chat units of these people refs, newest first: mail and other kinds never crowd them out. */
 const readIndexedUnits = (refs: string[]) =>
