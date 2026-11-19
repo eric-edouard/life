@@ -42,8 +42,11 @@ const CAPS: Record<string, Record<string, number>> = {
   "Inbox/CardArrangement.swift": {
     padding: 5,
   },
+  "Inbox/CheckBodies.swift": {
+    font: 1,
+  },
   "Inbox/CheckCard.swift": {
-    font: 2,
+    font: 1,
     height: 1,
     width: 1,
   },

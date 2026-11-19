@@ -9,7 +9,7 @@ import type { People } from "./who";
 import { unitLines } from "./words";
 
 // The network identity (docs/glossary.md): who a person check is about as their messaging network shows them, read from
-// their newest one-to-one chat Life holds. A person check asks "Is this <first name>?" under it, and its context says in
+// their newest one-to-one chat Life holds. A person check asks "Is this <whole name>?" under it, and its context says in
 // one sentence why Life thinks so (the card's "Why X?"). Read when the inbox is read, never stored.
 
 /** Who someone is on their network: their newest 1:1 chat's network, handle, the name it shows, the chat, its newest message and the network's own link to it. */

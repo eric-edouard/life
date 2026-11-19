@@ -59,18 +59,20 @@ struct CountBadge: View {
 struct TextLink: View {
     let title: String
     var isOutward = false
+    var isMuted = true
     let action: () -> Void
 
-    init(_ title: String, isOutward: Bool = false, action: @escaping () -> Void) {
+    init(_ title: String, isOutward: Bool = false, isMuted: Bool = true, action: @escaping () -> Void) {
         self.title = title
         self.isOutward = isOutward
+        self.isMuted = isMuted
         self.action = action
     }
 
     var body: some View {
         Button(action: action) {
             (isOutward ? Text("\(title) \(Image(systemName: "arrow.up.right"))") : Text(verbatim: title))
-                .font(.smallStrong).foregroundStyle(isOutward ? Palette.muted : Palette.fg)
+                .font(.smallStrong).foregroundStyle(isOutward && isMuted ? Palette.muted : Palette.fg)
                 .frame(minHeight: 44)
         }
     }
