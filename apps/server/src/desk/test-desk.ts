@@ -21,7 +21,7 @@ export const advance = (ms: number) =>
 export const ahead = (ms: number) => iso(clock().getTime() + ms);
 
 /** A chat store whose messages are `list`, row by row, as `incoming` and `read` see it. */
-const chatSource = (list: SourceEvent[]) =>
+export const chatSource = (list: SourceEvent[]) =>
   ({
     incoming: (from: number) => ({
       end: list.length + 1,

@@ -158,15 +158,15 @@ export const projectHolderOf = (
 /**
  * What registered agents hold now (what stops a second offer; `projectHolderOf` says who works now): the steps they are anchored on (`re_point` drops an agent's old anchors) and the
  * projects they work on, but not those of an agent never started (its matter is free for a new start). One rule for both:
- * every live agent holds, a stopped one still holds its project as it holds its steps, and one ended in the last
- * `NEW_MATTER_DAYS` does too (one ended before holds no matter a new matter check offers: its matter began before it did).
+ * every live agent holds, a stopped one still holds its project as it holds its steps, and one that is over (it has
+ * `ended_at`: ended, handed over) in the last `NEW_MATTER_DAYS` does too (one ended before holds no matter a new matter check offers: its matter began before it did).
  */
 export function heldByAgents(db: Database) {
   const since = new Date(
     clock().getTime() - NEW_MATTER_DAYS * DAY
   ).toISOString();
   const held =
-    "a.why_not_started is null and (a.status <> 'ended' or a.ended_at >= ?)";
+    "a.why_not_started is null and (a.ended_at is null or a.ended_at >= ?)";
   return {
     projects: db
       .query<{ project: string }, [string]>(
@@ -356,8 +356,8 @@ function nowOf(db: Database, a: AgentRow, now: number): AgentNow {
 }
 
 /**
- * Every registered agent worth showing: the active ones, the newest stopped ones (50 each at most), and those ended or
- * handed over in the last 7 days.
+ * Every registered agent worth showing: the active ones, the newest stopped ones (50 each at most), and those ended in the
+ * last 7 days (a handed-over agent is not listed: its successor is).
  */
 export function agentsNow(db: Database, now: number) {
   const rows = [
@@ -369,7 +369,7 @@ export function agentsNow(db: Database, now: number) {
       .all(MAX_ACTIVE),
     ...db
       .query<AgentRow, [string, number]>(
-        "select * from agent where status in ('ended', 'handed_over') and ended_at >= ? order by ended_at desc limit ?"
+        "select * from agent where status = 'ended' and ended_at >= ? order by ended_at desc limit ?"
       )
       .all(new Date(now - 7 * DAY).toISOString(), MAX_ACTIVE),
   ];
@@ -379,7 +379,7 @@ export function agentsNow(db: Database, now: number) {
 /** How many past agents a matter's or a project's read lists, after its active ones. */
 const PAST_SHOWN = 10;
 
-/** The agents ever on any of `steps` (a matter's), active first, then the newest past ones. */
+/** The agents ever on any of `steps` (a matter's; not those handed over), active first, then the newest past ones. */
 export function agentsOnSteps(
   db: Database,
   steps: string[],
@@ -391,22 +391,21 @@ export function agentsOnSteps(
       ? []
       : db
           .query<AgentRow, (string | number)[]>(
-            `select distinct a.* from anchor n join agent a on a.id = n.agent_id where n.step in (${steps.map(() => "?").join(",")}) order by a.status = 'active' desc, a.created_at desc limit ?`
+            `select distinct a.* from anchor n join agent a on a.id = n.agent_id where a.status <> 'handed_over' and n.step in (${steps.map(() => "?").join(",")}) order by a.status = 'active' desc, a.created_at desc limit ?`
           )
           .all(...steps, MAX_ACTIVE + PAST_SHOWN);
-  // After the matter's own agents, the active worker of each of its projects (`projectHolderOf`).
+  // After the matter's own agents, the active agent of each of its projects (`projectHolderOf`).
   for (const p of projects) {
     const id = projectHolderOf(db, p);
-    const worker =
-      id && !rows.some((a) => a.id === id) ? agentOf(db, id) : null;
-    if (worker) {
-      rows.push(worker);
+    const agent = id && !rows.some((a) => a.id === id) ? agentOf(db, id) : null;
+    if (agent) {
+      rows.push(agent);
     }
   }
   return rows.map((a) => nowOf(db, a, now));
 }
 
-/** The agents on any of `projects`, active first, then the newest past ones. */
+/** The agents on any of `projects` (not those handed over), active first, then the newest past ones. */
 export function agentsOnProjects(
   db: Database,
   projects: string[],
@@ -417,7 +416,7 @@ export function agentsOnProjects(
   }
   return db
     .query<AgentRow, (string | number)[]>(
-      `select * from agent where project in (${projects.map(() => "?").join(",")}) order by status = 'active' desc, created_at desc limit ?`
+      `select * from agent where status <> 'handed_over' and project in (${projects.map(() => "?").join(",")}) order by status = 'active' desc, created_at desc limit ?`
     )
     .all(...projects, MAX_ACTIVE + PAST_SHOWN)
     .map((a) => nowOf(db, a, now));
