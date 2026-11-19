@@ -33,6 +33,7 @@ struct AskView: View {
                 AnswerResultView(taken: taken, state: life.state(of: taken.key), next: question(after: taken))
             } else {
                 VStack(spacing: 0) {
+                    pager
                     if let notice {
                         Text(notice).font(.small).foregroundStyle(Palette.muted).padding(.horizontal, Metrics.gutter)
                             .padding(
@@ -40,7 +41,6 @@ struct AskView: View {
                             )
                             .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
                     }
-                    pager
                 }
             }
         } bar: {

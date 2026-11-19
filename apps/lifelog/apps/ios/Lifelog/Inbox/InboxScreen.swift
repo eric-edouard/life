@@ -23,7 +23,7 @@ struct InboxScreen: View {
             guard let opening else { return }
             current = opening.check?.ref
             notice =
-                opening.wasAnswered ? "That card was already answered, here or elsewhere. This is the next one." : nil
+                opening.wasAnswered ? "Already answered, here or elsewhere. This is the next one." : nil
             notes.taken = nil
             life.clearOpenedCard()
         }
@@ -63,7 +63,7 @@ struct InboxScreen: View {
 private struct InboxZero: View {
     var body: some View {
         Text("Nothing\nto answer.").font(.statusWord).foregroundStyle(Palette.fg).lit()
-            .padding(.horizontal, 20)
+            .padding(.horizontal, Metrics.gutter)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .readingWidth()
     }

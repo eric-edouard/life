@@ -50,7 +50,7 @@ const CAPS: Record<string, Record<string, number>> = {
     width: 1,
   },
   "Inbox/InboxScreen.swift": {
-    padding: 2,
+    padding: 1,
   },
   "Inbox/SameAsSheet.swift": {
     padding: 1,
