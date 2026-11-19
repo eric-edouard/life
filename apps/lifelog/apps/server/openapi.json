@@ -3472,9 +3472,6 @@
                     "type": "string",
                     "pattern": "^[0-9a-f]{16}$"
                   },
-                  "quiet": {
-                    "type": "boolean"
-                  },
                   "title": {
                     "type": "string",
                     "minLength": 1,

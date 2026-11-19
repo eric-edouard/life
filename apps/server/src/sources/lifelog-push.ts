@@ -1,12 +1,11 @@
 import { log } from "../core/log";
 import { lifelogMissing, writeLifelog } from "./lifelog";
 
-/** A push to his phone through lifelog (`POST /notifications`): words (`title` and `body` together) and/or the `badge`, a card's opaque `pushId`, `quiet` for no sound. Never his words or a ref. */
+/** A push to his phone through lifelog (`POST /notifications`): words (`title` and `body` together) and/or the `badge`, a card's opaque `pushId`. Never his words or a ref. */
 export interface Push {
   badge?: number;
   body?: string;
   pushId?: string;
-  quiet?: boolean;
   title?: string;
 }
 

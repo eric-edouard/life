@@ -745,7 +745,6 @@ test("a push Life asks lifelog for is shaped as `POST /notifications` takes it: 
     badge: 1,
     body: "1 new card",
     pushId: "9f2c41d07ab35e68",
-    quiet: true,
     title: "Life",
   };
   expect(Object.keys(theirs).sort()).toEqual(Object.keys(mine).sort());
