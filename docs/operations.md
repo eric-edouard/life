@@ -370,15 +370,15 @@ first.
   counts only. A run spends: on Codex it is refused over the quota reserve, like an eval; an API engine has no such
   reserve, so the dry run's numbers, shown to him first, are the only guard on cash.
 - **Voice naming score:** `bun scripts/voice-naming-score.ts` scores the stored voice guesses against the voices he
-  answered (`basis: owner` in lifelog's `GET /speakers/voices`: a person, `not_relevant` or "Not anyone I know", `ownAnswerOf`); lifelog gives no date, but a
+  answered (`basis: owner` in lifelog's `GET /speakers/voices`: a person, `not_relevant` or "A stranger", `ownAnswerOf`); lifelog gives no date, but a
   guess is only made for a voice no one had answered, so an answer there is since. `--hidden --trial <folder> [--from YYYY-MM-DD] [--run]`
-  asks the naming again for the parts holding a voice he answered (a person, not relevant or "Not anyone I know"), those voices shown as unnamed (`hidden` in `namingOf`:
+  asks the naming again for the parts holding a voice he answered (a person, not relevant or "A stranger"), those voices shown as unnamed (`hidden` in `namingOf`:
   no name on its lines, not counted among the people who could be there; its likeness is lifelog's, which already judges it without the span's own exemplars), into the trial folder, which
   must be outside his data, then scores that folder; without `--run` it prints the parts, calls and voices it would
   ask. Known leak: about 3.5% of lifelog's exemplars carry an older conversation id and can remain in a voice's likeness. Through the REST contract it also cannot hide that other conversations of his answers name the same people (who
   was heard in person before, the briefs), and a stored line's voice rows are today's. It prints counts only: wrong per
   100 at sure and at likely, by voice (each counted once, by its newest guess) and by guess; voices with no
-  likeness apart; `me` guesses; the talking words named right; guesses on voices he answered not relevant; how many voices he answered "Not anyone I know" were guessed a person or him, at sure and at likely; the doubted
+  likeness apart; `me` guesses; the talking words named right; guesses on voices he answered not relevant; how many voices he answered "A stranger" were guessed a person or him, at sure and at likely; the doubted
   names (named by sound, shown unnamed by rule 3, as now recognised) and how many the model named as the same
   person; mixed voices and voices he answered turn by turn (no answer on the voice) are left out and counted apart.
   The calls are the night's (`voiceNaming`, `inBatches`, the engine in settings). Show him the numbers before

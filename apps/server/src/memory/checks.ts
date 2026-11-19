@@ -91,6 +91,8 @@ export interface Check {
     audio: { end: number; jobId: string; start: number } | null;
     text: string;
     until: string | null;
+    /** Its words as lifelog times them (`TimedWords`): [start, end, length] each, in ms from the clip's start and UTF-16 units of `text` with the spacing before it, for lighting them while it plays. */
+    words: number[][];
   }[];
   /** The guess about who a decision's draft goes to, when Life only guesses who that is: asked beside it, answered on its own; none for every other check. */
   confirm: Check[];
@@ -615,13 +617,16 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             links: [],
             notSent: null,
             onSilence: null,
-            options: [...LIFE_CHECKS.voice.options],
-            question: who
-              ? `Is this voice ${who}?`
-              : `Who is this voice?${item.name ? ` It was called "${item.name}".` : ""}`,
+            // His first answer is lifelog's suggestion (or the name it heard) by first name; `likelyPeople` ranks everyone, so it names no one.
+            options: LIFE_CHECKS.voice.options.map((o, i) =>
+              i === 0
+                ? { ...o, label: (who ?? item.name)?.split(" ")[0] ?? o.label }
+                : o
+            ),
+            question: "Who is this?",
             ref: `voice:${item.id}`,
             ridesOn: { ...ridingOf(), observations: 0, pages: 0 },
-            // The person lifelog suggests ("Is this voice X?"), what makes it a guess in use; null: none (`urgencyOf`).
+            // The person lifelog suggests, what makes it a guess in use; null: none (`urgencyOf`).
             subject: who ? known : null,
             title: LIFE_CHECKS.voice.title,
           },
