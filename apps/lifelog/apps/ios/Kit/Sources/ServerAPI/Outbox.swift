@@ -107,9 +107,9 @@ extension LibraryStore {
             [.text(id.uuidString), .blob(try JSONEncoder().encode(intent)), .int(CaptureInstant(now).millis)])
     }
 
-    /// Every queued edit in order, refused ones included until the owner dismisses them. One this app can't read (a
-    /// kind of edit an older build queued and this one no longer makes) can never be sent: it is reported once
-    /// (`UndecodableRow`) and goes.
+    /// Every queued edit in order, refused ones included until the owner dismisses them. One this app can't read is
+    /// reported once (`UndecodableRow`) and deleted, on purpose: builds only move forward, so it is a kind of edit an
+    /// older build queued and this one no longer makes, which nothing could ever send.
     public func outbox() throws -> [OutboxEntry] {
         var unreadable: [String] = []
         let entries = try db.query("SELECT id, intent, created_ms, refused FROM outbox ORDER BY seq") {

@@ -54,7 +54,13 @@ export const appsToOpen = (
     .flatMap((s) => {
       try {
         return s.store.app ? [s.store.app] : [];
-      } catch {
+      } catch (error) {
+        console.error(
+          clock().toISOString(),
+          s.name,
+          "app unknown this pass",
+          error
+        );
         return [];
       }
     })
