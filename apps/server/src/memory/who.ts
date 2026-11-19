@@ -675,6 +675,20 @@ export async function observationsNow({
   return { all, observations, statusInputs };
 }
 
+/**
+ * The refusal for a name no one goes by, in one line, with who it could be (`candidatesFor`) by whole name and id:
+ * either resolves, a part of a name never does.
+ */
+export const nameRefusalOf = (
+  name: string,
+  people: Pick<People, "candidatesFor">
+) => {
+  const near = people
+    .candidatesFor(name)
+    .map((c) => `${c.name} (${c.person.replace(PERSON, "")})`);
+  return `No one goes by ${name}${near.length > 0 ? `; near it: ${near.join(", ")}` : ""}`;
+};
+
 /** Who goes by this name (or id): the people in the directory and the ones Life inferred, by name or alias. */
 export function namedLike<
   T extends { aliases: string[]; id: string; name: string },

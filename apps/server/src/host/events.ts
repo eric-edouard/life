@@ -16,7 +16,7 @@ import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
 import { readySources } from "../memory/sources";
 import { isLifeOutput, speakerOf } from "../memory/units";
-import { meant, type People, readPeople } from "../memory/who";
+import { meant, nameRefusalOf, type People, readPeople } from "../memory/who";
 import { MessageFilter } from "../records/registered-agent";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
@@ -380,7 +380,7 @@ export async function pollMessagesReceived(
   if (!isMatch) {
     throw new ProtocolError(
       INVALID_PARAMS,
-      `No one goes by ${parsed.data.person}`
+      nameRefusalOf(parsed.data.person ?? "", people)
     );
   }
   const read = readMessageEvents(
