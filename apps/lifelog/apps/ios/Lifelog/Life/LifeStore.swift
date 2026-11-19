@@ -30,7 +30,7 @@ final class LifeStore {
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
     /// A tapped push's own read, from the tap until its card is on show: the Inbox draws it, never the old cards.
-    private(set) var pushRead: PushRead?
+    private(set) var pushRead: (id: String, state: ReadState<Inbox>)?
 
     /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] in await self?.answer($0) }
@@ -116,10 +116,12 @@ final class LifeStore {
         let before = inbox.loadedAt
         let asked = now()
         await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
-        // A whole read ends the tapped push's own: the opening runs as the inbox says (`wasAnswered` when it is gone).
-        if inbox.loadedAt != before, let push = pushRead {
-            openedCard = inbox.value?.opening(pushId: push.id)
-            pushRead = nil
+        // A whole read ends the tapped push's own read; one whose card was gone (nothing read) opens as the inbox says,
+        // `wasAnswered`. A failed whole read ends only a read that found nothing: the inbox's own face shows then.
+        if let push = pushRead {
+            let isRead = inbox.loadedAt != before
+            if isRead, push.state.value == nil { openedCard = inbox.value?.opening(pushId: push.id) }
+            if isRead || push.state.value == nil { pushRead = nil }
         }
         // The badge is the cards that block him.
         if let badge = inbox.value?.badge { setBadge(badge) }
@@ -335,14 +337,31 @@ final class LifeStore {
     }
 
     /// A tapped push: that one card is read alone and shown at once (`pushRead`), then the whole inbox is read, which
-    /// ends `pushRead` and opens the card (`refreshInbox`). A failed one-card read stays shown, with Try again.
+    /// ends `pushRead` (`refreshInbox`). With a cached inbox, a failed one-card read gives way to it, as stale; with none,
+    /// its failure stays shown, with Try again.
     func open(pushId: String) async {
         openedCard = nil
-        pushRead = PushRead(id: pushId)
-        await load({ self.pushRead.apply($0, id: pushId) }, key: nil) { try await $0.readInbox(pushId: pushId) }
-        guard pushRead?.id == pushId, pushRead?.state.phase == .loaded else { return }
+        pushRead = (pushId, ReadState())
+        await load({ if self.pushRead?.id == pushId { self.pushRead?.state.apply($0) } }, key: nil) {
+            try await $0.readInbox(pushId: pushId)
+        }
+        guard let state = pushRead?.state, pushRead?.id == pushId else { return }
+        if state.phase != .loaded {
+            guard inbox.value != nil else { return }
+            pushRead = nil
+        } else if let found = state.value, !found.checks.isEmpty {
+            openedCard = found.opening(pushId: pushId)
+        } else {
+            // Its card is gone: nothing to show but the wait for the whole read, which says so.
+            pushRead?.state = ReadState()
+            pushRead?.state.apply(.started)
+        }
         await refreshInbox()
     }
+
+    /// What the Inbox shows: the tapped push's one card while its read is set, else the whole inbox.
+    var inboxShown: ReadState<Inbox>.Shown { (pushRead?.state ?? inbox).shown(isEmpty: { $0.checks.isEmpty }) }
+    var inboxOnShow: Inbox? { (pushRead?.state ?? inbox).value }
 
     /// Reads again what the Inbox shows: the tapped push's card while that is what it waits on, else the inbox.
     func retryInbox() async {
@@ -369,7 +388,6 @@ final class LifeStore {
     #if DEBUG
         /// Development only (`-fixtureCard`): opens the card with that ref as a tapped push does.
         func open(ref: String) async {
-            await refreshInbox()
             guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return }
             await open(pushId: pushId)
         }

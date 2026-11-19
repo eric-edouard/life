@@ -76,7 +76,8 @@ public struct MCPLifeAPI: LifeAPI {
 
     /// Every open ask in one read (the server's most), so a tapped push finds its card and the screens count them all.
     public func readInbox() async throws -> String { try await client.call("read_inbox", ["limit": 500]) }
-    /// Only the card a push names (none once answered), with the inbox's counts: what a notification reads.
+    /// Only the card a push names (none once answered), with the inbox's counts: what a notification reads, and what the
+    /// app reads first when a push is tapped.
     public func readInbox(pushId: String) async throws -> String {
         try await client.call("read_inbox", ["pushId": pushId])
     }
