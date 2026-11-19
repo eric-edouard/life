@@ -75,6 +75,8 @@ struct MatterPage: View {
                     }
                 }
                 .buttonStyle(.plain)
+                // The dot has its words.
+                .accessibilityValue("Needs your answer")
             }
         }
         RowGroup {

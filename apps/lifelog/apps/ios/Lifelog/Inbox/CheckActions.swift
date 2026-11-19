@@ -112,7 +112,7 @@ struct CheckActions: View {
     /// The server's words, except the filled naming answer with no candidate drawn: "Name them…" (a voice) or
     /// "Someone I know…" (a name).
     private func label(of option: Check.Option) -> String {
-        guard option.id == check.namingOption?.id, option.id == check.options.first?.id else { return option.label }
+        guard option.id == check.namingOption?.id, option.id == check.filled?.id else { return option.label }
         switch check.group {
         case .voice: return "Name them…"
         case .name: return "Someone I know…"

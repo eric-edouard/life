@@ -1,30 +1,65 @@
 import LifeConnector
 import SwiftUI
 
-/// The home tab: the cards waiting on him, one at a time, most urgent first. A tap runs through the store's action and
-/// the card stays, as its own result, until he moves on; nothing here decides whether a thing happened.
+/// The home tab: the asks waiting on him, as a list and one ask at a time, what blocks first. Two columns, as Matters:
+/// the list and the ask, side by side on a regular width, one at a time on a compact one (the ask by default; the
+/// system's Back is the list). A tap runs through the store's action and the ask stays, as its own result, until he moves
+/// on; nothing here decides whether a thing happened.
 struct InboxScreen: View {
     @Environment(LifeStore.self) private var life
+    @Environment(AppRouter.self) private var router
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var notes = CardNotes()
-    /// Cards he kept for later: shown after the others, until the app closes.
+    /// Asks he kept for later: shown after the others, until the app closes.
     @State private var deferred: [String] = []
     @State private var current: String?
     @State private var notice: String?
+    @State private var visibility = NavigationSplitViewVisibility.all
+    /// The widths of the split view and of the ask's column: the list is beside the ask only when the ask has less.
+    @State private var widths = (whole: CGFloat.zero, ask: CGFloat.zero)
 
     var body: some View {
-        ReadScreen(
-            shown: shown, retry: { await life.retryInbox() },
-            loading: { CardPlaceholder() }, empty: { InboxZero() },
-            content: { _ in card }
-        )
-        .background(Palette.bg)
+        @Bindable var router = router
+        let order = order
+        NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.inboxColumn) {
+            CheckList(order: order, chosen: order.check(on: current)?.ref) { ref in
+                if let taken = notes.taken { life.forget(taken.key) }
+                (current, notes.taken, notice) = (ref, nil, nil)
+                router.inboxColumn = .detail
+            }
+            .background(Palette.bg)
+            .navigationSplitViewColumnWidth(min: 280, ideal: 455, max: 455)
+            // The Pendant and Settings are the ask column's, never the list's header.
+            .shellBar(widths.ask < widths.whole - 1 ? "Inbox" : "", hasSettings: false, hasPendant: false)
+        } detail: {
+            ReadScreen(
+                shown: shown, retry: { await life.retryInbox() },
+                loading: { InboxLoading() }, empty: { InboxZero() },
+                content: { _ in card(order) }
+            )
+            .background(Palette.bg)
+            // Nothing above the question: no title; the gear and the Pendant are the list's when it is beside.
+            .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.ask = $0 }
+            .shellBar("")
+            .navigationBarBackButtonHidden()
+            .toolbar {
+                if sizeClass != .regular {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Asks", systemImage: "sidebar.left") { router.inboxColumn = .sidebar }
+                    }
+                }
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
         .onChange(of: life.openedCard, initial: true) { _, opening in
             guard let opening else { return }
             current = opening.check?.ref
             notice =
                 opening.wasAnswered ? "Already answered, here or elsewhere. This is the next one." : nil
             notes.taken = nil
+            router.inboxColumn = .detail
             life.clearOpenedCard()
         }
     }
@@ -36,11 +71,22 @@ struct InboxScreen: View {
         return .loaded(inbox)
     }
 
-    /// The card on show, or his tap's result in its place: one arrangement for both, so the card's context region stays
-    /// as it was until the next card.
-    @ViewBuilder private var card: some View {
-        if let check = notes.taken?.check ?? pages.check(on: current) {
-            CardView(check: check, pages: pages, current: $current, notes: $notes, notice: notice) { taken, keep in
+    /// What blocks, then what can wait: `Inbox.ordered`, the one rule for the list, the pager, the ask on show and where
+    /// an answer leads. An answer held, in flight or shown as his result is no row.
+    private var order: InboxOrder {
+        life.inboxOnShow?.ordered(
+            deferred: deferred, except: life.answersUnderWay.union(notes.taken.map { [$0.check.ref] } ?? []))
+            ?? InboxOrder()
+    }
+
+    /// The ask on show, or his tap's result in its place: one arrangement for both, so the ask's context region stays
+    /// as it was until the next ask.
+    @ViewBuilder private func card(_ order: InboxOrder) -> some View {
+        if let check = notes.taken?.check ?? order.check(on: current) {
+            CardView(
+                check: check, checks: order.checks, current: $current, notes: $notes, notice: notice
+            ) {
+                taken, keep in
                 life.forget(taken.key)
                 notice = nil
                 if keep { deferred.append(taken.check.ref) }
@@ -51,10 +97,6 @@ struct InboxScreen: View {
             InboxZero()
         }
     }
-
-    /// What blocks, the boundary, what improves: `Inbox.pages`, the one rule for the pager, the card on show and where
-    /// an answer leads.
-    private var pages: [InboxPage] { life.inboxOnShow?.pages(deferred: deferred) ?? [] }
 }
 
 /// Nothing waits.
@@ -67,20 +109,14 @@ private struct InboxZero: View {
     }
 }
 
-/// A card's shape while the inbox is first read.
-private struct CardPlaceholder: View {
+/// The inbox is first read: a spinner and one line.
+private struct InboxLoading: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Placeholder(width: 160, height: 12)
-            HStack {
-                Placeholder(width: 120, height: 36); Placeholder(width: 150, height: 36)
-            }
-            Placeholder(height: 26)
-            Placeholder(width: 220, height: 26)
-            Placeholder(height: 150)
-            Spacer()
+        VStack(spacing: 12) {
+            ProgressView()
+            Text("Reading your inbox…").font(.note).foregroundStyle(Palette.muted)
         }
-        .padding(20)
-        .accessibilityLabel("Loading the inbox")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }

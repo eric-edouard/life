@@ -8,7 +8,7 @@
     /// Life without a Mac, for the simulator: made-up inbox, matters and agents, and an API that answers as Life would,
     /// slowly, or not at all, so every state of every screen can be put on screen and photographed.
     ///
-    /// `-fixtureLife <scenario>` turns it on: `ok`, `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (a tapped push's one-card read takes 5 s), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
+    /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (a tapped push's one-card read takes 5 s), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent` decides what a tap on a draft does; `-fixtureStart started|starting|failed`
     /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`
     /// open the screen to show. `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
@@ -163,13 +163,32 @@
             return json(matter)
         }
 
-        /// Every open ask, what blocks first, as `read_inbox` sends it; `improves` holds only what can wait (the
-        /// boundary panel first), `empty` nothing.
+        /// Every open ask, what blocks first, as `read_inbox` sends it; `improves` holds only what can wait (the list's
+        /// "The rest can wait" first), `empty` nothing.
         func inbox() -> String {
             let left = answered.withLock { $0 }
-            let open = Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
+            var open = Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
                 .filter { scenario != "improves" || $0["urgency"] as? String == "improves" }
-            let checks = (scenario == "empty" ? [] : open).map { check in
+            // `groups`: a few that block, so the list shows "The rest can wait" and what only improves, in a screen.
+            if scenario == "groups" {
+                var blocking = 0
+                open = open.filter { check in
+                    if check["urgency"] as? String == "improves" { return true }
+                    blocking += 1
+                    return blocking < 4
+                }
+            }
+            // `many`: the same asks again under new refs, 261 in all.
+            var shown = open
+            if scenario == "many" {
+                shown = (0..<261).map { n in
+                    var check = open[n % open.count]
+                    check["ref"] = "\(check["ref"] as? String ?? "")-\(n)"
+                    check["pushId"] = "push-\(n)"
+                    return check
+                }
+            }
+            let checks = (scenario == "empty" ? [] : shown).map { check in
                 // A guess already answered is no longer asked beside its draft.
                 var check = check
                 check["confirm"] = (check["confirm"] as? [[String: Any]] ?? []).filter {

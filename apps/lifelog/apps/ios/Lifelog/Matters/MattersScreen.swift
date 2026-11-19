@@ -157,7 +157,7 @@ struct MatterRowView: View {
             iconTint: row.agent != nil ? Palette.ai : Palette.muted, detail: row.nextStep?.text
         ) {
             if row.needsYou {
-                StateDot(color: Palette.flag).accessibilityLabel("Needs you")
+                StateDot(color: Palette.flag)
             } else if row.agent != nil {
                 ProgressView().controlSize(.small).tint(Palette.ai).accessibilityLabel("An agent is working")
             }
@@ -166,6 +166,8 @@ struct MatterRowView: View {
         .padding(.horizontal, 8)
         .motion(Motion.standard, value: isChosen)
         .accessibilityElement(children: .combine)
+        // The dot has its words: the combined row would drop a hidden dot's label.
+        .accessibilityValue(row.needsYou ? "Needs you" : "")
     }
 }
 

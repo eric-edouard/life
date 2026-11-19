@@ -9,8 +9,9 @@ import SwiftUI
 /// arrangement at every width, so a fold keeps the card's scroll, focus and a playing clip; what he typed and the card
 /// shown live in the screen above.
 struct CardArrangement<Region: View, Bar: View>: View {
-    let check: Check
-    let runtimeName: RuntimeName?
+    /// The region the card rests on, beside or below it; none when the card is the whole pane (the Inbox: its why stays
+    /// inside the card, its matter behind the pill).
+    let context: ContextRegion?
     /// What follows an answer; nil while the card is still open.
     let bar: Bar?
     @ViewBuilder let region: Region
@@ -19,15 +20,15 @@ struct CardArrangement<Region: View, Bar: View>: View {
 
     var body: some View {
         if #available(iOS 27.1, *) {
-            let isBeside = sizeClass == .regular
+            let isBeside = sizeClass == .regular && context != nil
             let row = bar.map(rowOf)
             GeometryReader { arrangement in
                 ArrangementView {
                     region.modifier(AnswersRow(row: row, bounds: arrangement.size, isLower: false))
                         .environment(\.isContextBeside, isBeside)
                 } secondary: {
-                    if isBeside {
-                        ContextRegion(check: check, runtimeName: runtimeName)
+                    if isBeside, let context {
+                        context
                             .modifier(AnswersRow(row: row, bounds: arrangement.size, isLower: true))
                     } else {
                         Color.clear
@@ -70,7 +71,7 @@ private struct AnswersRow<Row: View>: ViewModifier {
 }
 
 /// What a card rests on: why Life asked, then its matter (goal, next step, newest steps) and the way into it.
-private struct ContextRegion: View {
+struct ContextRegion: View {
     let check: Check
     let runtimeName: RuntimeName?
 

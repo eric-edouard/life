@@ -35,6 +35,13 @@ final class LifeStore {
     /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] in await self?.answer($0) }
     var held: [String: HeldAnswers.Held] { holds.held }
+    /// The refs whose answer is held for Undo or on its way: the Inbox's order leaves them out, so none flashes back.
+    var answersUnderWay: Set<String> {
+        Set(held.keys).union(
+            actions.compactMap { key, state in
+                if case .answer(let ref) = key, state.isRunning { ref } else { nil }
+            })
+    }
     /// Answers that have ended: a page that draws asks from its own read reads again when it changes.
     private(set) var answersEnded = 0
 
@@ -404,4 +411,12 @@ final class LifeStore {
             try? await pair(LifePairing(origin: origin, code: code))
         }
     #endif
+}
+
+extension LifeStore {
+    /// The program of the agent working on a check's matter, when one is.
+    func runtimeName(of check: Check) -> RuntimeName? {
+        guard let matter = check.matter?.id else { return nil }
+        return agents.value?.agents.first { $0.matter?.id == matter && !$0.isOver }?.runtimeName
+    }
 }

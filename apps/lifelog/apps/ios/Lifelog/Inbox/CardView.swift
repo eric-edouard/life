@@ -9,16 +9,17 @@ struct CardNotes: Equatable {
 }
 
 /// One ask on show, whoever hosts it (the Inbox, a matter's stack): the ask with its answers, then its result in its
-/// place. `pages` are the asks around it (and the boundary panel, "The rest can wait.", a page of its own, swiped past
-/// like a card, never an answer), paged by swipe when there are several; a tap runs through the store's action and the
-/// ask stays, as its own result, until he moves on.
+/// place. `checks` are the asks around it, paged by swipe when there are several; a tap runs through the store's action
+/// and the ask stays, as its own result, until he moves on.
 struct CardView: View {
     let check: Check
-    let pages: [InboxPage]
+    let checks: [Check]
     /// The ask under the pager's leading edge: swiping only moves it, never answers.
     @Binding var current: String?
     @Binding var notes: CardNotes
     var notice: String?
+    /// The ask's context region beside or below it: a matter's stack gives one, the Inbox none.
+    var context: ContextRegion?
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
 
@@ -29,7 +30,7 @@ struct CardView: View {
 
     var body: some View {
         CardArrangement(
-            check: check, runtimeName: runtimeName(of: check),
+            context: context,
             bar: notes.taken.map { taken in
                 ResultButtons(
                     taken: taken, state: life.state(of: taken.key), next: question(after: taken),
@@ -63,53 +64,39 @@ struct CardView: View {
         }
     }
 
-    /// The pages side by side: he swipes left for the next, right to come back, and the next one's edge shows at the right.
-    /// An ask alone has no edge to show. A page he passes stays where it was.
+    /// The asks side by side, one page each: he swipes left for the next, right to come back, and the next one's edge shows
+    /// at the right. The scroll view is one page wide and its clip is off, so a page's width is the paging step and the
+    /// edge still shows. An ask alone has no edge. An ask he passes stays where it was.
     private var pager: some View {
-        let edge = pages.count > 1 ? Pager.edge : 0
-        return ScrollViewReader { proxy in
-            ScrollView(.horizontal) {
-                HStack(spacing: 0) {
-                    ForEach(pages, id: \.id) { page in
-                        switch page {
-                        case .boundary:
-                            panel(edge: edge) { BoundaryPanel() }.id(page.id)
-                        case .ask(let check):
-                            panel(edge: edge) {
-                                CheckCard(
-                                    check: check, runtimeName: runtimeName(of: check),
-                                    openMatter: { router.open(matter: $0) },
-                                    input: input(check.ref),
-                                    isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
-                                    answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
-                                )
-                            }
-                            .id(page.id)
+        let edge = checks.count > 1 ? Pager.edge : 0
+        return GeometryReader { box in
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: 0) {
+                        ForEach(checks) { check in
+                            CheckCard(
+                                check: check, runtimeName: life.runtimeName(of: check),
+                                openMatter: { router.open(matter: $0) },
+                                input: input(check.ref),
+                                isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
+                                answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
+                            )
+                            .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.card))
+                            .padding(.leading, Pager.gap)
+                            .containerRelativeFrame(.horizontal)
+                            .id(check.ref)
                         }
                     }
+                    .scrollTargetLayout()
                 }
-                .padding(.trailing, edge + Pager.gap)
-                .scrollTargetLayout()
-            }
-            .scrollPosition(id: $current, anchor: .leading)
-            .scrollTargetBehavior(.viewAligned)
-            .scrollIndicators(.hidden)
-            .clipped()
-            // A pager made after his tap's result starts on the first ask: put it on the one he is on.
-            .onAppear { if let current { proxy.scrollTo(current, anchor: .leading) } }
-            // The one-card read gives way to the whole inbox: stay on the card he is on, not the first page. Only from a
-            // pager of one page, where no swipe of his can be under way.
-            .onChange(of: pages.map(\.id)) { before, ids in
-                if before.count == 1, let current, ids.contains(current) { proxy.scrollTo(current, anchor: .leading) }
+                .frame(width: box.size.width - edge - Pager.gap)
+                .scrollClipDisabled()
+                .scrollPosition(id: $current, anchor: .leading)
+                .scrollTargetBehavior(.paging)
+                .scrollIndicators(.hidden)
             }
         }
-    }
-
-    private func panel(edge: CGFloat, @ViewBuilder _ content: () -> some View) -> some View {
-        content()
-            .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.card))
-            .padding(.leading, Pager.gap)
-            .containerRelativeFrame(.horizontal) { width, _ in width - edge - Pager.gap }
+        .clipped()
     }
 
     private func input(_ ref: String) -> Binding<CardInput> {
@@ -117,24 +104,19 @@ struct CardView: View {
     }
 
     /// The question of the ask after his tap's, when one is waiting.
-    private func question(after taken: Taken) -> String? { pages.checks.first { $0.ref == taken.nextRef }?.question }
+    private func question(after taken: Taken) -> String? { checks.first { $0.ref == taken.nextRef }?.question }
 
     /// The ask whose "Same as…" he opened: that ask, even if the list reorders under the sheet; gone with it.
     private var sameAsCard: Binding<Check?> {
         Binding(
-            get: { sameAsRef.flatMap { ref in pages.checks.first { $0.ref == ref } } },
+            get: { sameAsRef.flatMap { ref in checks.first { $0.ref == ref } } },
             set: { if $0 == nil { sameAsRef = nil } })
     }
 
-    private func runtimeName(of check: Check) -> RuntimeName? {
-        guard let matter = check.matter?.id else { return nil }
-        return life.agents.value?.agents.first { $0.matter?.id == matter && !$0.isOver }?.runtimeName
-    }
-
     private func submit(_ check: Check, _ request: AnswerRequest) {
-        // After the last ask that blocks, the next page is the boundary, not the first that can wait.
         notes.taken = Taken(
-            check: check, request: request, nextRef: pages.id(after: check.ref), runtimeName: runtimeName(of: check))
+            check: check, request: request, nextRef: checks.ref(after: check.ref),
+            runtimeName: life.runtimeName(of: check))
         Task { await life.answer(request) }
     }
 }
@@ -143,15 +125,6 @@ struct CardView: View {
 private enum Pager {
     static let gap = Metrics.Spacing.xs * 3
     static let edge = Metrics.Spacing.xs * 2.5
-}
-
-/// "The rest can wait.": between the asks that block him and the ones that only improve what Life knows.
-private struct BoundaryPanel: View {
-    var body: some View {
-        Text("The rest\ncan wait.").font(.statusWord).foregroundStyle(Palette.fg).lit()
-            .padding(Metrics.Spacing.xs * 4.5)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-    }
 }
 
 /// An ask pushed on a matter's stack: found by its ref among the checks the matter lists, or, once answered, the
@@ -168,7 +141,10 @@ struct CardPage: View {
 
     var body: some View {
         if let check = notes.taken?.check.ref == ref ? notes.taken?.check : source.first(where: { $0.ref == ref }) {
-            CardView(check: check, pages: [.ask(check)], current: $current, notes: $notes) { taken, _ in
+            CardView(
+                check: check, checks: [check], current: $current, notes: $notes,
+                context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check))
+            ) { taken, _ in
                 // A new matter whose goal he edited still waits for Start or Dismiss: back to the ask, not the matter.
                 if taken.staysOpen {
                     life.forget(taken.key)
