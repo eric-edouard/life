@@ -82,7 +82,8 @@ struct MatterPage: View {
     private func header(_ matter: Matter) -> some View {
         let row = matter.row
         let days = matter.steps.first.map { Calendar.current.dateComponents([.day], from: $0.at, to: .now).day ?? 0 }
-        let open = ([days.map { "Open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self)
+        let open =
+            ([days.map { "Open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self)
             + [(row.areas ?? []).joined(separator: ", ")].filter { !$0.isEmpty }).joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 8) {
             Text(row.name).font(.matterTitle).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
@@ -182,7 +183,9 @@ private struct People: View {
         ].filter { !$0.1.isEmpty }
         // One person can be in two roles: a row each, the role at the right.
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(groups.flatMap { role, names in names.map { (id: "\(role)/\($0)", role: role, name: $0) } }, id: \.id) {
+            ForEach(
+                groups.flatMap { role, names in names.map { (id: "\(role)/\($0)", role: role, name: $0) } }, id: \.id
+            ) {
                 _, role, name in
                 HStack(spacing: 12) {
                     Avatar(name: name, size: 32)
