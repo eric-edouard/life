@@ -3,6 +3,7 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { daysBefore, iso, MIN } from "../core/clock";
 import { readSettings, setSettings } from "../core/settings";
+import { gather } from "./gather";
 import { collectHistorical, historicalWindow } from "./historical-collection";
 import { reindex } from "./index-writer";
 import {
@@ -17,7 +18,6 @@ import { readPassages } from "./passages";
 import { loadTruth } from "./read-truth";
 import { SOURCES } from "./sources";
 import { publishUnits, unitDays, writeUnits } from "./unit-writer";
-import { gather } from "./units";
 import { dayNow, dayStart, monthsOf } from "./zones";
 
 const window = { from: "2024-01-31", to: "2024-03-02" };
@@ -64,7 +64,7 @@ test("historical collection has no voice/files model step; failed publication le
     const evidence = await gather(
       { from: date, to: date },
       { resolve: () => null, truth: await loadTruth() },
-      { historical: true }
+      { files: false, voice: false }
     );
     expect(evidence.files).toBeUndefined();
     expect(evidence.skipped).toContain("lifelog");

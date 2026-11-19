@@ -132,24 +132,29 @@ test("the night places matters after extraction, with the evidence's failed sour
     contacts: await import("../memory/contact-people"),
     episodes: await import("../memory/episodes"),
     extract: await import("../memory/extract"),
+    gather: await import("../memory/gather"),
     index: await import("../memory/index-writer"),
     matters: await import("../memory/matters"),
     models: await import("../models/llm"),
     recorded: await import("../memory/recorded-days"),
     repos: await import("../memory/repos"),
     settings: await import("../core/settings"),
-    units: await import("../memory/units"),
     who: await import("../memory/who"),
+    writer: await import("../memory/unit-writer"),
   };
   const none = { failed: 0 } as never;
+  const gathered = spyOn(mods.gather, "gather").mockResolvedValue({
+    failed: ["mail"],
+  } as never);
+  const published = spyOn(mods.writer, "publishUnits").mockResolvedValue(
+    undefined as never
+  );
   const spies = [
     spyOn(mods.settings, "settings").mockReturnValue({
       engine: "claude",
     } as never),
     spyOn(mods.who, "readPeople").mockResolvedValue({} as never),
-    spyOn(mods.units, "gather").mockResolvedValue({
-      failed: ["mail"],
-    } as never),
+    gathered,
     spyOn(mods.episodes, "episodes").mockResolvedValue(none),
     spyOn(mods.extract, "extract").mockResolvedValue(none),
     spyOn(mods.index, "reindex").mockResolvedValue(undefined as never),
@@ -169,7 +174,21 @@ test("the night places matters after extraction, with the evidence's failed sour
     await runNight(7, new Date("2026-11-05T03:00:00Z"), "2026-11-05", true);
     expect(work).toHaveBeenCalledTimes(1);
     expect(work.mock.calls[0]?.[2]).toEqual(["mail"]);
+    // A source failed: no units are published.
+    expect(published).not.toHaveBeenCalled();
+    // None failed: the night publishes the units, then the episodes step reads the days.
+    gathered.mockResolvedValue({ failed: [] } as never);
+    await runNight(7, new Date("2026-11-05T03:00:00Z"), "2026-11-05", true);
+    expect(published).toHaveBeenCalledTimes(1);
+    expect(published.mock.invocationCallOrder[0]).toBeLessThan(
+      (
+        mods.episodes.episodes as unknown as {
+          mock: { invocationCallOrder: number[] };
+        }
+      ).mock.invocationCallOrder.at(-1) as number
+    );
   } finally {
+    published.mockRestore();
     work.mockRestore();
     records.mockRestore();
     for (const spy of spies) {
