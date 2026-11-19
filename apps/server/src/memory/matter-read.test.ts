@@ -572,6 +572,12 @@ test("a placed observation brings no episode: only a unit step does", () => {
     "2026-10-20"
   );
   expect(view?.steps.map((s) => s.text)).toEqual(["Call the shop"]);
+  const [byUnit] = matterBookOf(
+    stored([{ ...line, steps: [{ ref: obs(5, "", {}).unit }] }]),
+    records(),
+    "2026-10-20"
+  );
+  expect(byUnit?.steps.map((s) => s.kind)).toContain("episode");
 });
 
 // stale-1-finished-matter-offered, stale-5-second-phantom-of-one-meeting: one voice unit held by two episodes of a day
