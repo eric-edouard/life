@@ -11,6 +11,13 @@ enum Metrics {
     /// The smallest tap target.
     static let tapTarget: CGFloat = 44
 
+    /// The Pendant sheet's tiles: a stat tile's height, the light's square, the storage ring.
+    enum Tile {
+        static let statHeight: CGFloat = 128
+        static let light: CGFloat = 84
+        static let ring: CGFloat = 56
+    }
+
     /// Corner radii, smallest to largest.
     enum Radius {
         /// A quote inside a draft, photo tiles and thumbnails.

@@ -110,8 +110,7 @@ public enum CaptureCondition: Sendable, Equatable {
         if let free = context.phoneFreeBytes, free < IncidentReducer.phoneLowBelow {
             conditions.append(.phoneStorageLow(freeBytes: free))
         }
-        if let storage = status.storage?.value, storage.totalPages > 0 {
-            let fraction = Double(storage.freePages) / Double(storage.totalPages)
+        if let fraction = status.storage?.value.freeFraction {
             if fraction < IncidentReducer.pendantFullBelow {
                 conditions.append(.pendantStorageFull)
             } else if fraction < IncidentReducer.pendantLowBelow {

@@ -158,6 +158,13 @@ private func page(_ message: PendantMessage?) throws -> StorageBuffer {
         #expect(throws: ProtocolError.truncated) { try Fragment(decoding: Data(hex: packet)) }
     }
 
+    @Test func storageFractionsAreNilWithoutCapacity() {
+        let flash = StorageState(oldestPage: 0, newestPage: 0, session: 1, freePages: 30, totalPages: 120)
+        #expect(flash.freeFraction == 0.25 && flash.usedFraction == 0.75)
+        let none = StorageState(oldestPage: 0, newestPage: 0, session: 1, freePages: 0, totalPages: 0)
+        #expect(none.freeFraction == nil && none.usedFraction == nil)
+    }
+
     @Test func deviceStatusStorageState() throws {
         let message = try #require(try decode(fixture("device_status").packets))
         guard case .deviceStatus(let status) = message.content else {

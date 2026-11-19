@@ -129,8 +129,8 @@ public struct IncidentReducer: Sendable, Codable, Equatable {
             }
             if integrity { return .active }
         case .pendantStorageLow:
-            guard settings.lowPendantStorage, let storage = status.storage?.value, storage.totalPages > 0 else { break }
-            let free = Double(storage.freePages) / Double(storage.totalPages) * 100
+            guard settings.lowPendantStorage, let fraction = status.storage?.value.freeFraction else { break }
+            let free = fraction * 100
             if free < Double(settings.lowPendantStoragePercent) { return .active }
             if free >= Double(settings.lowPendantStoragePercent + Self.rearmMargin) { return .recovered }
         case .batteryLow:

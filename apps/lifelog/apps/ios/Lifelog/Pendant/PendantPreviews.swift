@@ -91,8 +91,8 @@
     #Preview("Parts: battery") {
         HStack(spacing: 18) {
             BatteryGlyph(percent: 82)
-            BatteryGlyph(percent: 18)
-            BatteryGlyph(percent: 46, charging: true)
+            BatteryGlyph(percent: 18, tone: Palette.flag)
+            BatteryGlyph(percent: 46, tone: Palette.ok, charging: true)
             BatteryGlyph(percent: 81, isCurrent: false)
             BatteryGlyph(percent: nil, isCurrent: false)
         }

@@ -81,8 +81,14 @@
                     await fake.setInRange(true)
                 }
             case .outOfRange:
-                await fake.record(pages: 20)
-                await fake.setInRange(false)
+                // Heard from, then gone: its last reading (82 % battery, 12 % of its flash used) stays on the sheet.
+                await fake.setTotalPages(3_000)
+                await fake.record(pages: 360)
+                await fake.setBattery(percent: 82, charging: false)
+                Task {
+                    try? await Task.sleep(for: .seconds(6))
+                    await fake.setInRange(false)
+                }
             case .lowBattery:
                 await fake.record(pages: 20)
                 await fake.setBattery(percent: 12, charging: false)

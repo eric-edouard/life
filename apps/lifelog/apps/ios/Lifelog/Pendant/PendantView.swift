@@ -57,8 +57,10 @@ struct PendantScreen: View {
                     VStack(alignment: .leading, spacing: 20) {
                         status(reading, now: now)
                         if reading.state != .noPendant {
-                            tiles(reading, now: now)
-                            upload(held, now: now)
+                            VStack(spacing: 12) {
+                                tiles(reading, now: now)
+                                upload(held, now: now)
+                            }
                             boxes
                         }
                     }
@@ -108,7 +110,7 @@ struct PendantScreen: View {
                             .foregroundStyle(Palette.muted)
                             .accessibilityLabel("Mac dictating").accessibilityIdentifier("pendant.macDictating")
                     }
-                    Text(reading.state.word).font(.stateWord)
+                    Text(reading.state.word).font(.statusWord)
                         .foregroundStyle(reading.isFlag ? Palette.flag : Palette.fg)
                         .lit(reading.state == .recording)
                         .lineLimit(1).minimumScaleFactor(0.6)
@@ -165,40 +167,39 @@ struct PendantScreen: View {
         let storage = Fact(status.storage, connected: connected, now: now)
         let isCharging = battery.isCurrent && status.charging?.value == .charging
         let percent = battery.value
-        let used = storage.value.flatMap { $0.totalPages > 0 ? $0.usedFraction : nil }
+        let used = storage.value?.usedFraction
         return HStack(spacing: 12) {
             StatTile(
-                figure: percent.map { "\($0)%" } ?? "Unknown",
+                name: "Battery", figure: percent.map { "\($0)%" } ?? "Unknown",
                 caption: batteryCaption(battery, isCharging: isCharging, reading: reading),
                 figureColor: reading.lowBattery != nil ? Palette.flag : Palette.fg, isDim: !battery.isCurrent
             ) {
-                BatteryMeter(
-                    fraction: Double(percent ?? 0) / 100,
-                    tone: reading.lowBattery != nil ? Palette.flag : isCharging ? Palette.ok : Palette.fg)
+                BatteryGlyph(
+                    percent: percent,
+                    tone: reading.lowBattery != nil ? Palette.flag : isCharging ? Palette.ok : Palette.fg,
+                    isCurrent: battery.isCurrent, width: 71)
             }
-            .accessibilityLabel("Battery")
             StatTile(
-                figure: used.map { "\(Int(($0 * 100).rounded()))%" } ?? "Unknown",
-                caption: "Used",
+                name: "Storage", figure: used.map { "\(Int(($0 * 100).rounded()))%" } ?? "Unknown", caption: "Used",
                 figureColor: reading.state == .full ? Palette.flag : Palette.fg, isDim: !storage.isCurrent,
                 visualEdge: .topTrailing
             ) {
                 RingMeter(fraction: used ?? 0, tone: reading.state == .full ? Palette.flag : Palette.fg)
             }
-            .accessibilityLabel("Storage")
         }
         .motion(Motion.standard, value: battery)
     }
 
     private func clock(_ date: Date) -> String { date.formatted(date: .omitted, time: .shortened) }
 
-    private func batteryCaption(_ battery: Fact<Int>, isCharging: Bool, reading: PendantReading) -> String {
+    private func batteryCaption(_ battery: Fact<Int>, isCharging: Bool, reading: PendantReading) -> String? {
         switch battery {
         case .current(let percent, _):
             if isCharging { return "Charging" }
             let left = capture.batteryLife.timeLeft(recording: reading.state == .recording, from: percent)
             return left.map { "About \(Self.about($0))" } ?? "Battery"
-        case .lastKnown, .unknown: return ""
+        case .lastKnown(_, let at): return "At \(clock(at))"
+        case .unknown: return nil
         }
     }
 
@@ -210,11 +211,18 @@ struct PendantScreen: View {
 
     // MARK: Upload
 
-    /// One tile: everything is on the Mac, or what is catching up (a sweep on the line while it works), or when it was
+    /// One tile: everything is on the Mac, or what is catching up (a bar that fills as it works), or when it was
     /// last heard from.
     @ViewBuilder private func upload(_ held: NotOnTheMac, now: Date) -> some View {
+        let isConnected =
+            switch capture.status.connection {
+            case .ready, .resting: true
+            default: false
+            }
         Group {
-            if held.isPhoneUnknown {
+            if !isConnected, let seen = capture.status.lastContact ?? capture.context.lastContact {
+                TileCard { Text("Last seen \(clock(seen))").font(.bodyStrong) }
+            } else if held.isPhoneUnknown {
                 TileCard {
                     HStack(spacing: 10) {
                         StateGlyph.busy
@@ -224,21 +232,18 @@ struct PendantScreen: View {
             } else if let words = held.words {
                 TileCard {
                     VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text("Catching up").font(.bodyStrong)
-                            Spacer()
-                            if let fraction = catchUpFraction {
-                                Text(fraction.formatted(.percent.precision(.fractionLength(0)))).font(.smallStrong)
-                            }
+                        Text("Catching up").font(.bodyStrong)
+                        if let fraction = catchUpFraction {
+                            ProgressLine(fraction: fraction)
+                        } else {
+                            ProgressView().controlSize(.small)
                         }
-                        ProgressTrack(fraction: catchUpFraction)
                         Text("\(words). It goes faster with the app open.").font(.small).foregroundStyle(Palette.muted)
                     }
                 }
             } else if held.isEmpty {
                 TileCard {
                     HStack(spacing: 10) {
-                        StateGlyph.ok
                         Text("All on your Mac").font(.bodyStrong)
                         Spacer()
                         if let sent = capture.uploads?.sentThrough {
@@ -251,8 +256,6 @@ struct PendantScreen: View {
                         }
                     }
                 }
-            } else if let seen = capture.status.lastContact ?? capture.context.lastContact {
-                TileCard { Text("Last seen \(clock(seen))").font(.bodyStrong) }
             }
         }
         .transition(Motion.appears)
@@ -318,11 +321,6 @@ extension DeviceKind {
         case .omi: "Omi"
         }
     }
-}
-
-extension StorageState {
-    /// How much of the Pendant's flash holds audio, 0 to 1.
-    var usedFraction: Double { 1 - Double(freePages) / Double(totalPages) }
 }
 
 extension Fact {
