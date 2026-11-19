@@ -1,116 +1,80 @@
 {
-  "fill-specializations" : [
+  "fill-specializations": [
     {
-      "value" : {
-        "linear-gradient" : [
-          "srgb:0.96471,0.94902,0.93333,1.00000",
-          "srgb:0.86667,0.83922,0.80784,1.00000"
+      "value": {
+        "linear-gradient": [
+          "srgb:0.09020,0.09412,0.10980,1.00000",
+          "srgb:0.02745,0.03137,0.03922,1.00000"
         ]
       }
     },
     {
-      "appearance" : "dark",
-      "value" : {
-        "linear-gradient" : [
-          "srgb:0.16471,0.15294,0.14510,1.00000",
-          "srgb:0.04314,0.03922,0.03922,1.00000"
+      "appearance": "dark",
+      "value": {
+        "linear-gradient": [
+          "srgb:0.04314,0.04706,0.05490,1.00000",
+          "srgb:0.00000,0.00000,0.00000,1.00000"
         ]
       }
     }
   ],
-  "groups" : [
+  "groups": [
     {
-      "layers" : [
+      "layers": [
         {
-          "fill-specializations" : [
+          "fill-specializations": [
             {
-              "appearance" : "tinted",
-              "value" : {
-                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              "value": {
+                "solid": "srgb:1.00000,0.97255,0.91765,1.00000"
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:1.00000,0.97255,0.91765,1.00000"
+              }
+            },
+            {
+              "appearance": "tinted",
+              "value": {
+                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
               }
             }
           ],
-          "glass" : true,
-          "image-name" : "light.svg",
-          "name" : "light"
+          "glass": true,
+          "image-name": "glyph.svg",
+          "name": "glyph"
         },
         {
-          "blend-mode" : "plus-lighter",
-          "glass" : false,
-          "image-name" : "glow.svg",
-          "name" : "glow",
-          "opacity-specializations" : [
+          "blend-mode": "plus-lighter",
+          "glass": false,
+          "image-name": "glow.svg",
+          "name": "glow",
+          "opacity-specializations": [
             {
-              "value" : 0.55
+              "value": 1
             },
             {
-              "appearance" : "dark",
-              "value" : 1
+              "appearance": "tinted",
+              "value": 0.35
             }
           ]
         }
       ],
-      "lighting" : "individual",
-      "shadow" : {
-        "kind" : "layer-color",
-        "opacity" : 0.6
+      "lighting": "individual",
+      "shadow": {
+        "kind": "layer-color",
+        "opacity": 0.6
       },
-      "specular" : true,
-      "translucency" : {
-        "enabled" : false,
-        "value" : 0.5
-      }
-    },
-    {
-      "layers" : [
-        {
-          "fill-specializations" : [
-            {
-              "value" : {
-                "solid" : "srgb:0.10980,0.10196,0.09804,1.00000"
-              }
-            },
-            {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "srgb:0.92549,0.90588,0.88235,1.00000"
-              }
-            },
-            {
-              "appearance" : "tinted",
-              "value" : {
-                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
-              }
-            }
-          ],
-          "glass" : true,
-          "image-name" : "ring.svg",
-          "name" : "ring",
-          "opacity-specializations" : [
-            {
-              "value" : 1
-            },
-            {
-              "appearance" : "tinted",
-              "value" : 0.62
-            }
-          ]
-        }
-      ],
-      "lighting" : "combined",
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
-      },
-      "specular" : true,
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.35
+      "specular": true,
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
       }
     }
   ],
-  "supported-platforms" : {
-    "squares" : [
+  "supported-platforms": {
+    "squares": [
       "iOS"
     ]
   }

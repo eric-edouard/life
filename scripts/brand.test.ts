@@ -132,7 +132,7 @@ test("no colour is written anywhere else: every hex colour is in tokens.css or a
   expect(strays).toEqual([]);
 });
 
-test("the L is one outline: the icon's, the wordmark's and the menu bar's are the same", async () => {
+test("the L is one outline: the icons', the wordmark's and the menu bar's are the same", async () => {
   const outline = async (path: string) =>
     (await asset(path)).match(L_OUTLINE)?.[1];
   const l = await outline("assets/brand/life-l.svg");
@@ -140,5 +140,8 @@ test("the L is one outline: the icon's, the wordmark's and the menu bar's are th
   expect([
     await outline("assets/brand/life.svg"),
     await outline("assets/icon/icon.svg"),
-  ]).toEqual([l, l]);
+    await outline(
+      "apps/lifelog/apps/ios/Lifelog/AppIcon.icon/Assets/glyph.svg"
+    ),
+  ]).toEqual([l, l, l]);
 });
