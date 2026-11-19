@@ -39,7 +39,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
     #expect(found.deadline == nil)
     #expect(found.options.map(\.label) == ["Start", "Edit goal", "Dismiss"])
-    #expect(found.goal == "Gran's photo is framed.")
     #expect(toConfirm.checks.last?.draft == nil)
 
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
@@ -174,9 +173,7 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(ending.answer(words: "x") == nil && !ending.takesOwnWords)
 
     let found = try card(.newMatter)
-    let edit = try #require(found.options.first { $0.id == "edit-goal" })
-    #expect(found.answer(edit) == nil)
-    #expect(found.answer(words: "Framed") == AnswerRequest(ref: found.ref, options: ["edit-goal"], note: "Framed"))
+    #expect(found.answer(words: "Framed") == nil)
     #expect(found.answer(found.options[0]) == AnswerRequest(ref: found.ref, options: ["start"]))
 
     for group in [CheckGroup.name, .contactsCard] {

@@ -39,6 +39,8 @@ final class LifeStore {
         let label: String
     }
     private(set) var held: [String: Held] = [:]
+    /// Answers that have ended: a page that draws asks from its own read reads again when it changes.
+    private(set) var answersEnded = 0
     private var holds: [String: Task<Void, Never>] = [:]
 
     /// The Life this phone is paired with: set by a pairing, gone once Life no longer knows it (a read says so).
@@ -107,7 +109,7 @@ final class LifeStore {
 
     func refreshInbox() async {
         await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
-        // The badge is every open card.
+        // The badge counts decisions only: Life's own questions are "To confirm".
         if let total = inbox.value?.total { setBadge(total) }
     }
     func refreshToConfirm() async {
@@ -232,11 +234,11 @@ final class LifeStore {
     }
 
     /// What an answer changes, read again: the inbox, and every other list he has already opened (nothing else is read
-    /// for it). A matter page draws its asks from its own read, so the pages open since launch are read too.
+    /// for it). The matter page on show reads itself again when `answersEnded` changes.
     private func refreshAfterAnswer() async {
+        answersEnded += 1
         async let inbox: Void = refreshInbox()
         async let matters: Void = refreshMatters()
-        for id in Array(matter.keys) { await refreshMatter(id) }
         if toConfirm.value != nil { await refreshToConfirm() }
         _ = await (inbox, matters)
     }

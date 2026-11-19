@@ -25,7 +25,7 @@ struct ToConfirmScreen: View {
 
     /// The kinds, in the order the spec draws them; a kind with no row has no group.
     private static let kinds: [(label: String, groups: [CheckGroup])] = [
-        ("People", [.name, .guessedPerson, .contactsCard]), ("Voices", [.voice]), ("Done?", [.ending]),
+        ("People", [.name, .guessedPerson, .contactsCard]), ("Voices", [.voice]), ("Done", [.ending]),
     ]
 
     private func groups(_ checks: [Check]) -> some View {
@@ -47,17 +47,10 @@ struct ToConfirmScreen: View {
     }
 
     @ViewBuilder private func line(_ check: Check) -> some View {
-        if let held = life.held[check.ref] {
-            Row(title: held.label) { RowButton(title: "Undo") { life.undo(check.ref) } }
-                .transition(.opacity)
-        } else {
-            ConfirmRow(check: check) { option in
-                if let request = check.answer(option) { life.hold(request, as: option.label) }
-            }
-            .onTapGesture { router.inboxPath.append(.ask(check.ref)) }
-            .accessibilityAddTraits(.isButton)
-            .transition(.opacity)
+        ConfirmRow(check: check, open: { router.inboxPath.append(.ask(check.ref)) }) { option in
+            if let request = check.answer(option) { life.hold(request, as: option.label) }
         }
+        .transition(.opacity)
     }
 }
 

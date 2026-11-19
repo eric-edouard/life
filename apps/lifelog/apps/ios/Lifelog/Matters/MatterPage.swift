@@ -21,7 +21,7 @@ struct MatterPage: View {
         .background(Palette.bg)
         // Beside the list the Pendant is already in the list's bar.
         .shellBar("Matter", hasSettings: false, hasPendant: sizeClass != .regular)
-        .task { await life.refreshMatter(id) }
+        .task(id: life.answersEnded) { await life.refreshMatter(id) }
         .onDisappear { life.sendHeld() }
     }
 
@@ -70,28 +70,28 @@ struct MatterPage: View {
                 Button {
                     router.matterPath.append(check.ref)
                 } label: {
-                    Row(
-                        title: check.question,
-                        detail: check.deadline.map {
-                            "By \($0.formatted(.dateTime.weekday(.abbreviated).hour().minute()))"
+                    HStack(spacing: Metrics.Spacing.xs * 3) {
+                        Circle().fill(Palette.flag).frame(width: Metrics.Spacing.xs * 2, height: Metrics.Spacing.xs * 2)
+                            .padding(.leading, Metrics.Spacing.l)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(check.question).font(.rowName).foregroundStyle(Palette.fg)
+                            if let deadline = check.deadline {
+                                Text("By \(deadline.formatted(.dateTime.weekday(.abbreviated).hour().minute()))")
+                                    .font(.small).foregroundStyle(Palette.flag)
+                            }
                         }
-                    ) {
-                        RowValue()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        RowValue().padding(.trailing, Metrics.Spacing.l)
                     }
+                    .padding(.vertical, Metrics.Spacing.xs * 2).frame(minHeight: Metrics.tapTarget).contentShape(.rect)
                 }
                 .buttonStyle(.plain)
             }
         }
         RowGroup {
             ForEach(questions) { check in
-                if let held = life.held[check.ref] {
-                    Row(title: held.label) { RowButton(title: "Undo") { life.undo(check.ref) } }
-                } else {
-                    ConfirmRow(check: check) { option in
-                        if let request = check.answer(option) { life.hold(request, as: option.label) }
-                    }
-                    .onTapGesture { router.matterPath.append(check.ref) }
-                    .accessibilityAddTraits(.isButton)
+                ConfirmRow(check: check, open: { router.matterPath.append(check.ref) }) { option in
+                    if let request = check.answer(option) { life.hold(request, as: option.label) }
                 }
             }
         }

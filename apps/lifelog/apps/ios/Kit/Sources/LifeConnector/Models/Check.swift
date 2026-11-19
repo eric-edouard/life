@@ -103,8 +103,6 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let deadline: Date?
     public let onSilence: String?
     public let context: String?
-    /// A new matter's goal, the one Start hands the agent.
-    public let goal: String?
     public let evidence: Evidence?
     public let draft: Draft?
     public let options: [Option]
@@ -146,16 +144,13 @@ extension Check {
         }
     }
 
-    /// His own words: a decision's note (no option), or the option that takes them (a new matter's goal).
+    /// His own words, a decision's note (no option).
     public func answer(words: String) -> AnswerRequest? {
-        if let option = options.first(where: { $0.takes == .note }) {
-            return AnswerRequest(ref: ref, options: [option.id], note: words)
-        }
-        return group == .decision ? AnswerRequest(ref: ref, options: [], note: words) : nil
+        group == .decision ? AnswerRequest(ref: ref, options: [], note: words) : nil
     }
 
     /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their
-    /// options (a new matter's goal comes through its option that takes a note).
+    /// options.
     public var takesOwnWords: Bool { group == .decision }
 }
 

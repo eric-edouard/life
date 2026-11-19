@@ -120,7 +120,7 @@ export interface Check {
   ridesOn: {
     /** The ids of those matters (`matters` counts them): `checksOnMatterOf` finds a matter's checks by them. */
     matterIds: string[];
-    // ponytail: remove `matters` once the phone build that reads `matterIds` ships; installed builds need it to decode.
+    // Wire only, for installed builds that decode it: the server counts `matterIds`.
     matters: number;
     observations: number;
     pages: number;
@@ -323,7 +323,7 @@ function ranked(
 ): Ranked[] {
   const rides = ridesOn(c, lines, refs);
   const kind = group === "ending" ? "ending" : "person";
-  return rides.matters + rides.observations > 0
+  return rides.matterIds.length + rides.observations > 0
     ? [
         {
           check: {
@@ -628,7 +628,7 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
       (a, b) =>
         Number(b.check.deadline !== null) - Number(a.check.deadline !== null) ||
         (a.check.deadline ?? "").localeCompare(b.check.deadline ?? "") ||
-        b.check.ridesOn.matters - a.check.ridesOn.matters ||
+        b.check.ridesOn.matterIds.length - a.check.ridesOn.matterIds.length ||
         b.check.ridesOn.observations - a.check.ridesOn.observations ||
         b.check.ridesOn.pages - a.check.ridesOn.pages ||
         b.day.localeCompare(a.day) ||

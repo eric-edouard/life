@@ -45,6 +45,7 @@ struct InboxScreen: View {
         if let check = notes.taken?.check ?? shownCheck {
             AskView(check: check, cards: ordered, current: $current, notes: $notes, notice: notice) { taken, keep in
                 life.forget(taken.key)
+                notice = nil
                 if keep { deferred.append(taken.check.ref) }
                 (notes.taken, current) = (nil, taken.nextRef)
             }
@@ -92,7 +93,7 @@ private struct InboxZero: View {
                     Button {
                         router.inboxPath.append(.toConfirm)
                     } label: {
-                        Row(title: "\(count) to confirm, when you like") { RowValue() }
+                        Row(title: "To confirm, when you like") { RowValue() }
                     }
                     .buttonStyle(.plain)
                 }

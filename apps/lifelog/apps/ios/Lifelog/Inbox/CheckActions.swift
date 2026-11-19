@@ -80,7 +80,7 @@ struct CheckActions: View {
         if let request = check.answer(option) { return answer(request) }
         switch option.takes {
         case .person?, .personOrName?: sameAs()
-        case .note?, .unknown?, nil: break
+        default: break
         }
     }
 

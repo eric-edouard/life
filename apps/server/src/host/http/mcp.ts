@@ -296,7 +296,10 @@ export function buildServer(readsOnly = false) {
       return {
         matters: matters.map((m) => ({
           ...m,
-          openChecks: checksOnMatterOf(open, m.id).length,
+          // The page draws no ask for a new matter check (its answer is "Start an agent"): not counted.
+          openChecks: checksOnMatterOf(open, m.id).filter(
+            (c) => c.group !== "new matter"
+          ).length,
         })),
       };
     }

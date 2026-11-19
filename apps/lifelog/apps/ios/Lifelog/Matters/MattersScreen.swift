@@ -38,12 +38,15 @@ struct MattersScreen: View {
                         .navigationDestination(for: String.self) { ref in
                             AskPage(
                                 ref: ref, source: life.matter[id]?.value?.checks ?? [], notes: $notes,
-                                leave: {
-                                    life.forget(.answer(ref: ref))
-                                    notes.taken = nil
-                                    router.matterPath = []
-                                })
+                                leave: { router.matterPath = [] })
                         }
+                }
+                // Back to the matter, by his Done or the system's back: the result he read is forgotten, so the next ask
+                // opens on its own question.
+                .onChange(of: router.matterPath) { _, path in
+                    guard path.isEmpty, let taken = notes.taken else { return }
+                    life.forget(taken.key)
+                    notes.taken = nil
                 }
             } else {
                 Notice(title: "No matter chosen.", detail: "Pick one from the list.").background(Palette.bg)
