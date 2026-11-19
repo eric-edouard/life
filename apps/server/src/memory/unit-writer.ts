@@ -160,7 +160,8 @@ function keptToday(read: string[], failed: string[]) {
 
 /**
  * Writes today's units from every source but lifelog (under the lock), from the evidence of `gather(today, people, {
- * files: false, log: quietly, voice: false })`: no model call, a file sent today stays a tag until the night describes it.
+ * files: false, log: quietly, voice: false })`: no model call; a file sent today is described on arrival by the watcher
+ * (`describeFilesOnArrival`), so a later tick writes its unit with the description.
  * Today's file keeps lifelog's units and those of a source not read; a source that throws is logged by the read and keeps
  * its units. The passages are prepared only when a unit changed.
  * ponytail: reads today from every source every few minutes, a per-source cursor (`incoming`) if that ever costs; the

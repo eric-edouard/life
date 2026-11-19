@@ -1,15 +1,26 @@
-import { expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { expect, spyOn, test } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOUR } from "../core/clock";
 import { digest } from "../core/hash";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as logs from "../core/log";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as models from "../models/llm";
 import type { SourceEvent, SourceFile } from "../records/source";
 import type { FileEntry } from "../records/unit";
 import { readImessage } from "../sources/imessage";
 import { imessageFixture, whatsappFixture } from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
-import { showFiles, triage } from "./message-files";
+import { FILES, readFiles } from "./memory-files";
+import {
+  describeFilesOnArrival,
+  FILES_ON_ARRIVAL_A_DAY,
+  filesDueOnArrival,
+  showFiles,
+  triage,
+} from "./message-files";
 import { locate } from "./quote-check";
 
 const madeBy = {
@@ -166,3 +177,217 @@ test("media rows are files: the archive's copy, a document's name, a photo never
     "https://example.com",
   ]);
 });
+
+const DAY = "2026-10-17";
+const described = (
+  ref: string,
+  hash: string,
+  run = `${DAY}T10-00-00.000Z`
+) => ({
+  ...id,
+  hash,
+  madeBy: { ...madeBy, run },
+  ref,
+});
+
+test("arrival: a video, a file with no path, a known ref and an attempted ref are not due; a file that gains a path is; the day's limit counts contents", () => {
+  const files = [
+    photo("a:new", "/a.heic"),
+    photo("a:known", "/b.heic"),
+    photo("a:tried", "/c.heic"),
+    photo("a:nopath"),
+    { mime: "video/mp4", path: "/v.mp4", ref: "a:video" },
+  ];
+  const known = new Map([["a:known", described("a:known", hashOf("k"))]]);
+  const due = (k: typeof known, tried: string[] = ["a:tried"]) =>
+    filesDueOnArrival([event(...files)], k, new Set(tried), DAY);
+  expect(due(known).due[0]?.files?.map((f) => f.ref)).toEqual(["a:new"]);
+  expect(due(known).atMost).toBe(FILES_ON_ARRIVAL_A_DAY - 1);
+  // It gains a path at a later tick: due then.
+  expect(
+    filesDueOnArrival(
+      [event(photo("a:nopath", "/d.heic"))],
+      known,
+      new Set(),
+      DAY
+    ).due
+  ).toHaveLength(1);
+  // The same content under two refs counts once; a line of an earlier day does not count.
+  const twice = new Map([
+    ["x:1", described("x:1", hashOf("same"))],
+    ["x:2", described("x:2", hashOf("same"))],
+    ["x:3", described("x:3", hashOf("old"), "2026-10-16T10-00-00.000Z")],
+  ]);
+  expect(due(twice).atMost).toBe(FILES_ON_ARRIVAL_A_DAY - 1);
+  // The limit spent: nothing more.
+  const spent = new Map(
+    Array.from({ length: FILES_ON_ARRIVAL_A_DAY }, (_, i) => [
+      `s:${i}`,
+      described(`s:${i}`, hashOf(`c${i}`)),
+    ])
+  );
+  expect(due(spent).atMost).toBe(0);
+});
+
+test("arrival: with no file due the ledger is not counted (a line the count could not read does not throw)", () => {
+  const bad = new Map([
+    [
+      "z:1",
+      {
+        ...described("z:1", hashOf("z")),
+        madeBy: { ...madeBy, run: "not-a-run" },
+      },
+    ],
+    ["z:known", described("z:known", hashOf("k"))],
+  ]);
+  const r = filesDueOnArrival(
+    [event(photo("z:known", "/a.heic"))],
+    bad,
+    new Set(),
+    DAY
+  );
+  expect(r).toEqual({ atMost: 0, due: [] });
+  // Something due: the count runs, and a line of another day never reaches localDate.
+  expect(() =>
+    filesDueOnArrival([event(photo("z:new", "/b.heic"))], bad, new Set(), DAY)
+  ).not.toThrow();
+});
+
+// A 1-pixel PNG; trailing bytes after its end make a different content that `sips` still reads.
+const PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
+const image = (dir: string, name: string, extra = "") => {
+  const path = join(dir, name);
+  writeFileSync(
+    path,
+    Buffer.concat([Buffer.from(PNG, "base64"), Buffer.from(extra)])
+  );
+  return path;
+};
+const lineCount = (ref: string) =>
+  readFileSync(FILES, "utf8")
+    .split("\n")
+    .filter((l) => l.includes(`"ref":"${ref}"`)).length;
+
+test.skipIf(!Bun.which("sips"))(
+  "arrival: one line per ref and prompt version, offline marks nothing, a second pass makes no call and logs no run, a failed file is tried once",
+  async () => {
+    const dir = mkdtempSync(join(tmpdir(), "arrival-"));
+    const files = [
+      photo("t:a", image(dir, "a.png", "a")),
+      photo("t:b", image(dir, "b.png", "b")),
+      photo("t:c", image(dir, "c.png", "c")),
+    ];
+    const events = [event(...files)];
+    let calls = 0;
+    let during: (() => void) | undefined;
+    const ask = spyOn(models, "askOnce").mockImplementation(((o: {
+      input: { files: { id: string }[] };
+    }) => {
+      calls += 1;
+      during?.();
+      return Promise.resolve({
+        files: o.input.files.map((f) => ({
+          description: `d${f.id}`,
+          id: f.id,
+        })),
+      });
+    }) as never);
+    const online = spyOn(models, "isOnline").mockResolvedValue(false);
+    const log = spyOn(logs, "log");
+    const runs = () =>
+      log.mock.calls.filter((c) => c[0] === "run.start").length;
+    try {
+      // Offline: nothing is asked, nothing marked.
+      expect(await describeFilesOnArrival(events)).toBeUndefined();
+      expect(calls).toBe(0);
+      online.mockResolvedValue(true);
+      // Another process writes a line for t:a while the call runs; ours is not appended beside it.
+      during = () => {
+        writeFileSync(
+          FILES,
+          `${JSON.stringify(described("t:a", hashOf("other")))}\n`,
+          { flag: "a" }
+        );
+      };
+      const first = await describeFilesOnArrival(events);
+      expect(calls).toBe(1);
+      expect(first?.described).toBe(3);
+      for (const ref of ["t:a", "t:b", "t:c"]) {
+        expect(lineCount(ref)).toBe(1);
+      }
+      expect(readFiles().get("t:b")?.description).toBeDefined();
+      // Run again: every ref has a line, so no call and no run.
+      const before = runs();
+      expect(await describeFilesOnArrival(events)).toBeUndefined();
+      expect([calls, runs()]).toEqual([1, before]);
+      // A line of an older prompt version is replaced by the new one: latest wins.
+      const newer = [photo("t:d", image(dir, "d.png", "d"))];
+      writeFileSync(
+        FILES,
+        `${JSON.stringify({
+          ...described("t:d", hashOf("old")),
+          madeBy: {
+            ...described("t:d", "x").madeBy,
+            prompt: "message-file-description.v0",
+          },
+        })}\n`,
+        { flag: "a" }
+      );
+      during = undefined;
+      await describeFilesOnArrival([event(...newer)]);
+      expect(lineCount("t:d")).toBe(2);
+      expect(readFiles().get("t:d")?.madeBy?.prompt).toBe(madeBy.prompt);
+      // A call that fails: the file is tried once by this process, not on every tick.
+      ask.mockRejectedValue(new Error("provider down"));
+      const bad = [event(photo("t:e", image(dir, "e.png", "e")))];
+      await describeFilesOnArrival(bad);
+      const tried = calls;
+      await describeFilesOnArrival(bad);
+      expect(calls).toBe(tried);
+      expect(readFiles().has("t:e")).toBe(false);
+    } finally {
+      ask.mockRestore();
+      online.mockRestore();
+      log.mockRestore();
+      rmSync(FILES, { force: true });
+      rmSync(dir, { force: true, recursive: true });
+    }
+  }
+);
+
+test.skipIf(!(Bun.which("sips") && Bun.which("textutil")))(
+  "arrival: with the day's limit spent a document is still read by code and no image goes to a model",
+  async () => {
+    const dir = mkdtempSync(join(tmpdir(), "spent-"));
+    const doc = join(dir, "note.txt");
+    writeFileSync(doc, "Plan for the trip");
+    const png = image(dir, "p.png", "spent");
+    const today = new Date().toISOString().replaceAll(":", "-");
+    writeFileSync(
+      FILES,
+      `${Array.from({ length: FILES_ON_ARRIVAL_A_DAY }, (_, i) =>
+        JSON.stringify(described(`s:${i}`, hashOf(`c${i}`), today))
+      ).join("\n")}\n`
+    );
+    const ask = spyOn(models, "askOnce");
+    const online = spyOn(models, "isOnline").mockResolvedValue(true);
+    try {
+      const r = await describeFilesOnArrival([
+        event(
+          { mime: "text/plain", name: "note.txt", path: doc, ref: "s:doc" },
+          photo("s:png", png)
+        ),
+      ]);
+      expect(ask).not.toHaveBeenCalled();
+      expect(r?.read).toBe(1);
+      expect(readFiles().get("s:doc")?.text).toBe("Plan for the trip");
+      expect(readFiles().has("s:png")).toBe(false);
+    } finally {
+      ask.mockRestore();
+      online.mockRestore();
+      rmSync(FILES, { force: true });
+      rmSync(dir, { force: true, recursive: true });
+    }
+  }
+);

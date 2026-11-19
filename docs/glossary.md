@@ -231,7 +231,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | call reads | The units a model call was shown, counted by source on its `model.run` line (`CallReads`, made only by `readsOf` from the units' real ids; `memory` for Life's own lines), never ids or text. `askOnce` refuses a call that names none. | |
 | unpriced | A model call with no cost from its provider: his subscriptions (claude, codex), or a router that sends none. | |
 | source use | What each source costs a day: its items and units, what reads it with and without a model, model reads per unit, tokens and dollars (`bun life memory source-use`, `memory/source-use.ts`), from the run log and the index. | |
-| watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list; every 5 minutes it builds today's units from the other sources, read raw until the night. | |
+| watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list; every 5 minutes it builds today's units from the other sources and describes their new files; no episodes or facts until the night. | |
 | tick | The watcher's minute. Only that. | |
 | online | Life can reach his model provider (`isOnline`). Offline, nothing scheduled runs or alerts. | |
 | status | Whether Life works and how fresh it is. | |
