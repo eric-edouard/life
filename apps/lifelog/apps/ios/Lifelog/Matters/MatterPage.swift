@@ -29,7 +29,6 @@ struct MatterPage: View {
         let row = matter.row
         // His decisions and Life's offer of an agent open as asks on this page (the ask the inbox shows); Life's other
         // questions are rows he can answer in place.
-        let decisions = matter.checks.filter { $0.group == .decision }
         let opening = matter.checks.filter { $0.group == .decision || $0.group == .newMatter }
         let questions = matter.checks.filter { $0.group != .decision && $0.group != .newMatter }
         // Life lists the active one first, else the newest past one: an ended agent shows how it ended.
