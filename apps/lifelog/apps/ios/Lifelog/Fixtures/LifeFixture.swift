@@ -163,8 +163,8 @@
             return json(matter)
         }
 
-        /// Every open ask, what blocks first, as `read_inbox` sends it; `improves` holds only what can wait (the
-        /// boundary panel first), `empty` nothing.
+        /// Every open ask, what blocks first, as `read_inbox` sends it; `improves` holds only what can wait (the list's
+        /// "The rest can wait" first), `empty` nothing.
         func inbox() -> String {
             let left = answered.withLock { $0 }
             var open = Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
