@@ -29,7 +29,9 @@ private func said(_ json: String) throws -> Check.Said {
 }
 
 @Test func aMessageIsDatedToTheMinute() {
-    #expect(SaidWords.moment(Date(timeIntervalSince1970: 1_795_111_200), locale: english, timeZone: utc) == "Thu 19 Nov, 18:00")
+    #expect(
+        SaidWords.moment(Date(timeIntervalSince1970: 1_795_111_200), locale: english, timeZone: utc)
+            == "Thu 19 Nov, 18:00")
 }
 
 @Test func initialsAreTwoCapitalsWithoutTheGuessMark() {

@@ -534,8 +534,11 @@
                     extra: [
                         "contactsCard": ["name": "Marc", "handles": ["+33 6 39 98 02 14"]],
                         "likelyPeople": [
-                            ["name": "Marc Delmas", "person": "person:marc", "line": "Fitter, works with Idris Benali"],
-                            ["name": "Marc Roux", "person": "person:marc_roux", "line": "Camille’s brother"],
+                            [
+                                "name": "Marc Delmas", "person": "person:marc",
+                                "line": "Fitter, works with Idris Benali",
+                            ],
+                            ["name": "Marc Fenn", "person": "person:marc_fenn", "line": "Camille’s brother"],
                         ],
                     ]),
                 check(

@@ -4,7 +4,8 @@ import Foundation
 public enum SaidWords {
     /// "Sat 14 Nov".
     public static func day(_ date: Date, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
-        date.formatted(Date.FormatStyle(locale: locale, timeZone: timeZone).weekday(.abbreviated).day().month(.abbreviated))
+        date.formatted(
+            Date.FormatStyle(locale: locale, timeZone: timeZone).weekday(.abbreviated).day().month(.abbreviated))
     }
 
     /// "Tue 17 Nov, 09:14".

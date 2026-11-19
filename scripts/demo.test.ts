@@ -52,9 +52,7 @@ test("the demo's inbox offers its new matter, the one `bun run e2e:demo` starts 
     }
   );
   expect(checks.stdout.toString()).toContain("[new matter] matter_");
-  expect(checks.stdout.toString()).toContain(
-    "Start an agent on this?"
-  );
+  expect(checks.stdout.toString()).toContain("Start an agent on this?");
 });
 
 test("the demo refuses a folder inside his own data", () => {
