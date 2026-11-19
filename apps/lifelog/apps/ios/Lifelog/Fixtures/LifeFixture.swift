@@ -155,7 +155,8 @@
             }
             var matter = row
             let hasAgent = id == "matter_lease" || (id == "matter_table" && started.withLock { $0 })
-            matter["agents"] = hasAgent || id == "matter_kitchen" ? [Self.agent(id == "matter_lease" ? 0 : id == "matter_kitchen" ? 1 : 2)] : []
+            let index = ["matter_lease": 0, "matter_kitchen": 1, "matter_table": 2, "matter_nora": 3][id]
+            matter["agents"] = (hasAgent || id == "matter_kitchen" || id == "matter_nora") ? [Self.agent(index ?? 2)] : []
             if id == "matter_table", started.withLock({ $0 }) { matter["agent"] = "agt_table" }
             matter["steps"] = Self.steps(id)
             // Every open check about it, of every kind, as `read_matter` sends them.
@@ -163,6 +164,8 @@
             matter["checks"] = Self.checks.filter {
                 ($0["matter"] as? [String: Any])?["id"] as? String == id && !left.contains($0["ref"] as? String ?? "")
             }
+            // Nora's page stays short, so the agent's row shows above the fold.
+            if id == "matter_nora" { matter["checks"] = Array((matter["checks"] as? [[String: Any]] ?? []).prefix(1)) }
             return json(matter)
         }
 
@@ -754,8 +757,17 @@
             ]
             let kitchen: [String: Any] = [
                 "id": "agt_kitchen", "title": "Get the kitchen supplier price", "runtime": "codex", "model": "GPT",
-                "status": "stopped", "link": NSNull(), "notes": "Kitchen quote.",
-                "wait": NSNull(), "statusSince": at(19, 14, 10), "wakesOn": [],
+                "status": "waiting", "link": NSNull(), "notes": "Kitchen quote.",
+                "wait": ["isDefault": true, "reason": "a message", "until": at(20, 18)],
+                "statusSince": at(19, 14, 2),
+                "wakesOn": [
+                    ["kind": "message", "person": "Idris Benali", "calls": true],
+                    ["kind": "message", "words": "devis", "calls": false, "apps": ["mail"]],
+                    ["kind": "payments", "quantity": "eur_out", "above": 500],
+                    ["kind": "places", "where": "Halden house"],
+                    ["kind": "answer", "card": "Go with this plan?", "check": "dec_plan", "deadline": at(20, 18)],
+                    ["kind": "wide_net"],
+                ],
                 "lastTurn": [
                     "startedAt": at(17, 10, 0), "endedAt": at(17, 10, 4), "outcome": "asked Idris for the price",
                 ],
@@ -771,8 +783,14 @@
                 0: ["id": "matter_lease", "name": "Lease renewal, rue des Carmes", "status": "moving"],
                 1: ["id": "matter_kitchen", "name": "Kitchen quote, Halden house", "status": "waiting_on_someone"],
                 2: ["id": "matter_table", "name": "Table for Mum’s 60th", "status": "moving"],
+                3: ["id": "matter_nora", "name": "Quote for Nora Keller", "status": "moving"],
             ]
-            let body = [lease, kitchen, table][index]
+            let stopped: [String: Any] = [
+                "id": "agt_nora", "title": "Quote for Nora Keller", "runtime": "claude", "model": "Sonnet",
+                "status": "stopped", "link": "https://agents.example.test/s/4", "notes": "Quote.", "wait": NSNull(),
+                "statusSince": at(19, 14, 10), "wakesOn": [], "lastTurn": NSNull(),
+            ]
+            let body = [lease, kitchen, table, stopped][index]
             return common.merging(body) { $1 }.merging(["matter": matter[index] ?? NSNull()]) { $1 }
         }
 

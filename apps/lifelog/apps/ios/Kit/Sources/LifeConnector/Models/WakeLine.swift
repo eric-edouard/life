@@ -75,12 +75,13 @@ public struct WakeFormat: Sendable {
     public var full: @Sendable (Date) -> String
 
     public static let current = WakeFormat(
-        weekdayTime: { written($0, "EEEHHmm") }, time: { written($0, "HHmm") }, full: { written($0, "EEEdMMMHHmm") })
+        weekdayTime: { written($0, "EEE HH:mm") }, time: { written($0, "HH:mm") }, full: { written($0, "EEE d MMM, HH:mm") })
 
-    /// The phone's own wording of a date from a template ("Fri 18:00": the 24-hour clock the design uses).
-    private static func written(_ date: Date, _ template: String) -> String {
+    /// A date as the design writes it ("Fri 18:00", the 24-hour clock), in English like the rest of the app.
+    private static func written(_ date: Date, _ pattern: String) -> String {
         let formatter = DateFormatter()
-        formatter.setLocalizedDateFormatFromTemplate(template)
+        formatter.locale = Locale(identifier: "en_GB")
+        formatter.dateFormat = pattern
         return formatter.string(from: date)
     }
 }
@@ -184,7 +185,8 @@ extension WakeLine.Message {
             pieces = words.map { [.plain("\(head) contains "), .figure("“\($0)”")] } ?? [.plain("Any message")]
         }
         let glyph: WakeClause.Glyph = fromHim == true ? .person : apps == ["mail"] ? .mail : .bubble
-        return .init(pieces: pieces, glyph: glyph, apps: apps ?? [])
+        // Mail's glyph already says it: no network mark beside it.
+        return .init(pieces: pieces, glyph: glyph, apps: apps == ["mail"] ? [] : apps ?? [])
     }
 }
 
