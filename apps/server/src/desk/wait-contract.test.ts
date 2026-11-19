@@ -68,7 +68,22 @@ test("W2: a wait under 5 minutes or over 7 days is refused, and the old wait sta
       until: ahead(HOUR),
     })
   ).toEqual({ error: "No one goes by Nobody Madeup" });
+  // A part of a name resolves no one: the refusal says who it could be, and that whole name is then accepted.
+  expect(
+    await setWait(desk, id, {
+      events: [{ from_me: false, person: "Ana" }],
+      reason: "r",
+      until: ahead(HOUR),
+    })
+  ).toEqual({ error: "No one goes by Ana; near it: Test Ana (test-ana)" });
   expect(agentOf(desk.db, id)?.wait_until).toBe(before);
+  expect(
+    await setWait(desk, id, {
+      events: [{ from_me: false, person: "Test Ana" }],
+      reason: "r",
+      until: ahead(HOUR),
+    })
+  ).toHaveProperty("wait");
 });
 
 test("W3: after set_wait, no turn before the deadline, one right after", async () => {

@@ -8,7 +8,7 @@ import { bounds } from "./episode-span";
 import { episodesWhere } from "./memory-files";
 import { stayOf, staysOf, where } from "./places";
 import { clip } from "./units";
-import { meant, who as named, readPeople } from "./who";
+import { meant, who as named, nameRefusalOf, readPeople } from "./who";
 import { asData } from "./words";
 import { localDate, time } from "./zones";
 
@@ -148,7 +148,7 @@ export async function paymentsOf(q: {
   }
   const ref = q.who && meant(q.who, folks).known;
   if (q.who && !ref) {
-    return `No one goes by ${q.who}.`;
+    return `${nameRefusalOf(q.who, folks)}.`;
   }
   const list = ofDays.list.filter(
     (p) =>
