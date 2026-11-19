@@ -57,14 +57,34 @@ public struct CardNotification: Sendable, Equatable {
         return try? LibraryStore.feedDecoder.decode(Check.self, from: Data(text.utf8))
     }
 
-    /// The card's answers that are one tap, as its notification's buttons (action id, his button's words). One that
-    /// needs a person, a name or his words opens the card instead; one that acts outward is not offered here.
+    /// The card's answers that take one tap, as its notification's buttons (action id, his button's words): its one-tap
+    /// options and its Send. One that needs a person, a name or his words opens the card instead.
     public static func buttons(_ check: Check) -> [(id: String, label: String)] {
-        check.options.filter(isOneTap).map { ("\(optionPrefix)\($0.id)", $0.label) }
+        check.options.filter { isOneTap($0) || isSend($0, of: check) }.map { (actionId($0), $0.label) }
     }
 
     /// Needs nothing more than the tap, and acts on nothing outward.
     private static func isOneTap(_ option: Check.Option) -> Bool { option.takes == nil && option.outgoing != true }
+
+    /// Sends the card's draft, shown whole above it; never on a card that asks who its recipient is (`confirm`).
+    private static func isSend(_ option: Check.Option, of check: Check) -> Bool {
+        option.outgoing == true && option.takes == nil && check.draft != nil && (check.confirm ?? []).isEmpty
+    }
+
+    private static func actionId(_ option: Check.Option) -> String { "\(optionPrefix)\(option.id)" }
+
+    private static func option(_ action: String, in check: Check) -> Check.Option? {
+        check.options.first { actionId($0) == action }
+    }
+
+    /// Whether a tapped action may go on to be answered: one that acts outward only once `prove` (Face ID or his
+    /// passcode, asked at that tap, every time) says so; any other at once.
+    public static func mayAnswer(
+        _ action: String, of check: Check, prove: @Sendable () async -> Bool
+    ) async -> Bool {
+        guard option(action, in: check)?.outgoing == true else { return true }
+        return await prove()
+    }
 
     /// Reply…: his own words, typed or dictated. The category's one button, so the Watch shows it.
     public static var replyAction: UNTextInputNotificationAction {
@@ -74,7 +94,7 @@ public struct CardNotification: Sendable, Equatable {
     }
 
     /// The expanded notification's buttons: `buttons`, then Reply… when the card takes his own words. Every answer asks
-    /// for the phone to be unlocked.
+    /// for the phone to be unlocked; Send also asks Face ID at the tap (`mayAnswer`, in the content extension).
     public static func actions(_ check: Check) -> [UNNotificationAction] {
         buttons(check).map {
             UNNotificationAction(identifier: $0.id, title: $0.label, options: [.authenticationRequired])
@@ -91,8 +111,7 @@ public struct CardNotification: Sendable, Equatable {
             }
             return check.answer(words: typed)
         }
-        guard let option = check.options.first(where: { "\(optionPrefix)\($0.id)" == action }), isOneTap(option)
-        else { return nil }
+        guard let option = option(action, in: check), isOneTap(option) || isSend(option, of: check) else { return nil }
         return check.answer(option)
     }
 

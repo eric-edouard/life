@@ -90,6 +90,7 @@ targets:
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: lifelog notes where you were every few minutes so a conversation can show where it happened.
         INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: lifelog notes where you were every few minutes while your Pendant records, even with the app closed, so each conversation shows where it happened.
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: lifelog shows the photos and screenshots you took during a conversation beside what was said. They stay in your library.
+        INFOPLIST_KEY_NSFaceIDUsageDescription: Life asks for Face ID before it sends a message in your name from a notification.
         INFOPLIST_KEY_NSHealthShareUsageDescription: lifelog reads your sleep and workouts to send them to your own server for Life.
     info:
       path: Lifelog/Info.plist
@@ -189,7 +190,15 @@ targets:
   LifelogNotificationContent:
     type: app-extension
     platform: iOS
-    sources: [NotificationContent]
+    # A draft drawn whole, as on the card's screen: its view and the pieces it is drawn with.
+    sources:
+      - NotificationContent
+      - Lifelog/Inbox/DraftBlock.swift
+      - Lifelog/DesignSystem/Typography.swift
+      - Lifelog/DesignSystem/Fills.swift
+      - Lifelog/DesignSystem/Fonts/Manrope.ttf
+      - Shared/Palette.swift
+      - Shared/Metrics.swift
     dependencies:
       - package: LifelogKit
         product: LifeConnector
@@ -200,10 +209,12 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: lifelog
+        INFOPLIST_KEY_NSFaceIDUsageDescription: Life asks for Face ID before it sends a message in your name from a notification.
     info:
       path: NotificationContent/Info.plist
       properties:
         CFBundleDevelopmentRegion: en
+        UIAppFonts: [Manrope.ttf]
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.content-extension
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationViewController

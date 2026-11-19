@@ -64,7 +64,7 @@ private func check(
 private let options =
     #""options":[{"id":"send","label":"Send","outgoing":true},{"id":"later","label":"Not yet"},{"id":"who","label":"Someone else…","takes":"person"}]"#
 
-@Test func aCardsButtonsAreItsOneTapAnswersNeverAnOutwardOne() throws {
+@Test func aCardWithoutADraftOffersOnlyItsOneTapAnswers() throws {
     let check = try #require(
         CardNotification.card(in: [
             "card": check(pushId: "0123456789abcdef").replacingOccurrences(of: #""options":[]"#, with: options)
@@ -73,7 +73,7 @@ private let options =
     #expect(
         CardNotification.answer("option:later", typed: nil, to: check)
             == AnswerRequest(ref: check.ref, options: ["later"]))
-    // An outward option waits for Face ID; one that takes a person opens the card.
+    // Send is offered only under a draft; one that takes a person opens the card.
     #expect(CardNotification.answer("option:send", typed: nil, to: check) == nil)
     #expect(CardNotification.answer("option:who", typed: nil, to: check) == nil)
     #expect(CardNotification.answer("option:gone", typed: nil, to: check) == nil)
@@ -96,4 +96,30 @@ private let options =
     let newMatter = try #require(CardNotification.card(in: ["card": matter]))
     #expect(CardNotification.answer(CardNotification.reply, typed: "Finish by May", to: newMatter) == nil)
     #expect(CardNotification.card(in: [:]) == nil)
+}
+
+private let drafted = check(pushId: "0123456789abcdef", extra: #","draft":{"to":"Maya","text":"Thursday works"}"#)
+    .replacingOccurrences(of: #""options":[]"#, with: options)
+
+@Test func aDraftsCardOffersSendUnderItsDraftUnlessItAsksWhoItGoesTo() throws {
+    let card = try #require(CardNotification.card(in: ["card": drafted]))
+    #expect(CardNotification.buttons(card).map(\.label) == ["Send", "Not yet"])
+    #expect(
+        CardNotification.answer("option:send", typed: nil, to: card)
+            == AnswerRequest(ref: card.ref, options: ["send"]))
+    let asking = drafted.replacingOccurrences(
+        of: #""draft":"#, with: #""confirm":[\#(check(pushId: "fedcba9876543210"))],"draft":"#)
+    let unsure = try #require(CardNotification.card(in: ["card": asking]))
+    #expect(CardNotification.buttons(unsure).map(\.label) == ["Not yet"])
+    #expect(CardNotification.answer("option:send", typed: nil, to: unsure) == nil)
+}
+
+@Test func sendGoesOnOnlyOnceFaceIDSaysSoAndOtherAnswersNeverAsk() async throws {
+    let check = try #require(CardNotification.card(in: ["card": drafted]))
+    #expect(await !CardNotification.mayAnswer("option:send", of: check) { false })
+    #expect(await CardNotification.mayAnswer("option:send", of: check) { true })
+    #expect(
+        await CardNotification.mayAnswer("option:later", of: check) {
+            Issue.record("asked Face ID"); return false
+        })
 }

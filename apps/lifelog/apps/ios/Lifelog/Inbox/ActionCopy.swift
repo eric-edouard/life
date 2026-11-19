@@ -9,21 +9,6 @@ enum ActionCopy {
         var asker: String?
     }
 
-    static func channel(_ source: String?) -> String {
-        switch source {
-        case "whatsapp": "WhatsApp"
-        case "imessage": "iMessage"
-        case "messenger": "Messenger"
-        case "instagram": "Instagram"
-        case "linkedin": "LinkedIn"
-        case "telegram": "Telegram"
-        case "line": "LINE"
-        case "gmail", "mail": "Mail"
-        case let other?: other.capitalized
-        case nil: "The chat"
-        }
-    }
-
     static func text(of step: String, _ context: Context, passed: Bool = true, detail: [String: String] = [:]) -> String
     {
         switch step {
@@ -31,7 +16,7 @@ enum ActionCopy {
         case "chat_checked":
             context.to.map { "The chat is \($0)’s, and nobody wrote since the draft" } ?? "The chat is the right one"
         case "handed": "Sending exactly this text"
-        case "confirmed": "\(channel(context.channel)) confirms it"
+        case "confirmed": "\(Channel.name(context.channel)) confirms it"
         case "connection_retry":
             "The connection dropped; trying again (\(detail["try"] ?? "2") of \(detail["of"] ?? "3"))"
         case "todo_items_ticked":

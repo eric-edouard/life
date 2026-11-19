@@ -136,7 +136,7 @@ struct ResultButtons: View {
                 }.buttonStyle(.pill(.quiet, isBusy: true))
                 LimitNote(state: state) {
                     taken.isSend
-                        ? "Stays here until \(ActionCopy.channel(taken.check.draft?.channel)) answers"
+                        ? "Stays here until \(Channel.name(taken.check.draft?.channel)) answers"
                             + ($0.map { ", \($0)." } ?? ".")
                         : $0.map { "Takes \($0)." } ?? ""
                 }
@@ -175,7 +175,7 @@ extension Taken {
     func summary(_ proof: ActionProof) -> String {
         guard case .answered(let result) = proof else { return "" }
         if let send = result.send {
-            let to = [check.draft?.to, send.channel.map(ActionCopy.channel)].compactMap(\.self)
+            let to = [check.draft?.to, send.channel.map(Channel.name)].compactMap(\.self)
             let when = send.at.map { ", at \($0.formatted(.dateTime.hour().minute()))" } ?? ""
             return "To \(to.joined(separator: " on "))\(when)."
         }

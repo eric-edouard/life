@@ -231,7 +231,7 @@ reads the rest of its settings. How the report and the alerts go out:
   first run pushes nothing. Never a title, name, question or ref: his phone reads the card and writes the
   notification's text.
 - Into a chat: only a card's draft (text, or a file, a reply, a reaction, mentions, as the chat allows), exactly as shown, into the one chat Life resolved when the card was asked, once, when
-  he picks its one `outgoing` option alone through `answer_check` (`answerDecision`, `memory/draft-send.ts`), through
+  he picks its one `outgoing` option alone through `answer_check` (in the app, or on the card's notification after Face ID) (`answerDecision`, `memory/draft-send.ts`), through
   Life's own bridge for that network (a new 1:1 WhatsApp chat is opened by its number first), or, for iMessage, through
   Messages.app (text, or one file then its text as a second message; no reply, reaction or mention; confirmed by the
   sent row in chat.db), or, for mail, through gog's Gmail from one of his accounts (a new mail or a reply in the thread of one message; never reply-all, quote, signature or tracking; `gog auth add <account> --services=gmail --force-consent` if gog says it lacks Gmail send). What the chat takes is its
