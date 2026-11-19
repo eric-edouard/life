@@ -62,11 +62,6 @@ struct MattersScreen: View {
         // The split view can drop the selection when it expands: a regular width always shows a matter.
         .onChange(of: sizeClass, initial: true) { fillSelection() }
         .onChange(of: life.matters.value) { fillSelection() }
-        .onChange(of: router.showsAgentsOnly, initial: true) { _, on in
-            guard on else { return }
-            filter.withAgent = true
-            router.showsAgentsOnly = false
-        }
         .sheet(isPresented: $showsFilters) {
             if let list = life.matters.value {
                 FiltersSheet(list: list, query: query, filter: $filter).presentationPlacement(.trailing)

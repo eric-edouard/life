@@ -19,15 +19,13 @@ struct CheckCard: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                meta
-                chips
-                Text(check.title).font(.cardHeadline).foregroundStyle(Palette.fg).fixedSize(
-                    horizontal: false, vertical: true
-                )
-                .accessibilityAddTraits(.isHeader)
-                Text(check.question).font(.cardQuestion).foregroundStyle(Palette.fg).lit()
+                agentPill
+                Text(check.question).font(.askQuestion).foregroundStyle(Palette.fg)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.bottom, 4)
+                    .accessibilityAddTraits(.isHeader)
+                meta
+                matterChip
                 if input.isWritingOwnWords { ownWords } else { content }
             }
             .padding(.horizontal, 20)
@@ -47,12 +45,18 @@ struct CheckCard: View {
         }
     }
 
-    private var chips: some View {
-        HStack(spacing: 8) {
+    /// An agent's name, the only thing above the question; Life's own asks have none.
+    @ViewBuilder private var agentPill: some View {
+        if runtimeName != nil || check.asker.caseInsensitiveCompare("life") != .orderedSame {
             Label(check.askerName(runtime: runtimeName), systemImage: "sparkle")
                 .labelStyle(.titleAndIcon).font(.chip)
                 .foregroundStyle(Palette.ai).padding(.horizontal, 14).frame(minHeight: 40)
                 .background(Color.fillTint, in: .capsule).lineLimit(1)
+        }
+    }
+
+    @ViewBuilder private var matterChip: some View {
+        HStack(spacing: 8) {
             if let matter = check.matter {
                 Button {
                     openMatter(matter.id)
@@ -79,7 +83,7 @@ struct CheckCard: View {
     @ViewBuilder private var content: some View {
         ForEach(check.confirm ?? []) { guess in
             RowGroup {
-                ConfirmRow(check: guess) { option in
+                QuestionRow(check: guess) { option in
                     if let request = guess.answer(option) { confirm(request) }
                 }
             }

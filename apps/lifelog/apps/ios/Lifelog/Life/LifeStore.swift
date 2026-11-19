@@ -29,17 +29,11 @@ final class LifeStore {
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
 
-    /// An answer on a row of Life's own question (a matter page's), held for four seconds so Undo has something to undo: Life has no undo, so
-    /// nothing is sent until the time is up (or the screen goes), then it is an ordinary `answer`.
-    struct Held: Equatable {
-        let request: AnswerRequest
-        /// The option he tapped, in its own words, for the row's slim line.
-        let label: String
-    }
-    private(set) var held: [String: Held] = [:]
+    /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
+    @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] in await self?.answer($0) }
+    var held: [String: HeldAnswers.Held] { holds.held }
     /// Answers that have ended: a page that draws asks from its own read reads again when it changes.
     private(set) var answersEnded = 0
-    private var holds: [String: Task<Void, Never>] = [:]
 
     /// The Life this phone is paired with: set by a pairing, gone once Life no longer knows it (a read says so).
     private(set) var pairedOrigin: URL?
@@ -237,32 +231,12 @@ final class LifeStore {
     // MARK: Held answers
 
     /// His answer to such a row, sent in four seconds unless he undoes it.
-    func hold(_ request: AnswerRequest, as label: String) {
-        held[request.ref] = Held(request: request, label: label)
-        holds[request.ref]?.cancel()
-        holds[request.ref] = Task {
-            try? await Task.sleep(for: .seconds(4))
-            guard !Task.isCancelled else { return }
-            await sendHeld(request.ref)
-        }
-    }
+    func hold(_ request: AnswerRequest, as label: String) { holds.hold(request, as: label) }
 
-    func undo(_ ref: String) {
-        holds[ref]?.cancel()
-        (holds[ref], held[ref]) = (nil, nil)
-    }
+    func undo(_ ref: String) { holds.undo(ref) }
 
     /// Every held answer, at once: the screen is going, or the app.
-    func sendHeld() {
-        for ref in held.keys { Task { await sendHeld(ref) } }
-    }
-
-    private func sendHeld(_ ref: String) async {
-        holds[ref]?.cancel()
-        holds[ref] = nil
-        guard let sent = held.removeValue(forKey: ref) else { return }
-        await answer(sent.request)
-    }
+    func sendHeld() async { await holds.sendAll() }
 
     /// Starts an agent on a matter with the goal he saw, which Life saves as his: `goal_saved`, then the desk's stages.
     func startAgent(on id: String, goal: String, runtime: String? = nil, model: String? = nil) async {
@@ -343,7 +317,7 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
-        (held, holds) = ([:], [:])
+        holds.clear()
         onStep(.reading)
         await refresh()
     }

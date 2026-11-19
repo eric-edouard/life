@@ -46,7 +46,7 @@ struct RootView: View {
         }
         .task(id: scenePhase == .active) {
             // An answer held for Undo goes now: nothing waits in the background.
-            guard scenePhase == .active else { return life.sendHeld() }
+            guard scenePhase == .active else { return await sendHeldInBackground() }
             // Here rather than on the scene's phase change, which a cold launch in the foreground never sends.
             sync.becameActive()
             #if DEBUG
@@ -64,6 +64,15 @@ struct RootView: View {
     }
 
     /// Runs `then` once no sheet is up, dismissing the one that is.
+    /// Held answers go now, and the app is kept awake until they are answered: a suspended app would lose them.
+    private func sendHeldInBackground() async {
+        let app = UIApplication.shared
+        let awake = Awake()
+        awake.id = app.beginBackgroundTask(withName: "held answers") { app.endBackgroundTask(awake.id) }
+        await life.sendHeld()
+        app.endBackgroundTask(awake.id)
+    }
+
     private func dismissSheet(then: @escaping () -> Void) {
         let presented = UIApplication.shared.connectedScenes.lazy
             .compactMap { ($0 as? UIWindowScene)?.keyWindow?.rootViewController?.presentedViewController }.first
@@ -118,3 +127,6 @@ enum Appearance: String {
         }
     }
 }
+
+/// The background task's id, read by its own expiry handler.
+private final class Awake: @unchecked Sendable { var id = UIBackgroundTaskIdentifier.invalid }

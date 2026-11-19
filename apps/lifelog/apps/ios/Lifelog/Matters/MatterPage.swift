@@ -22,7 +22,7 @@ struct MatterPage: View {
         // Beside the list the Pendant is already in the list's bar.
         .shellBar("Matter", hasSettings: false, hasPendant: sizeClass != .regular)
         .task(id: life.answersEnded) { await life.refreshMatter(id) }
-        .onDisappear { life.sendHeld() }
+        .onDisappear { Task { await life.sendHeld() } }
     }
 
     private func page(_ matter: Matter) -> some View {
@@ -71,33 +71,27 @@ struct MatterPage: View {
                 Button {
                     router.matterPath.append(check.ref)
                 } label: {
-                    HStack(spacing: Metrics.Spacing.xs * 3) {
-                        Circle().fill(Palette.flag).frame(width: Metrics.Spacing.xs * 2, height: Metrics.Spacing.xs * 2)
-                            .padding(.leading, Metrics.Spacing.l)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(check.question).font(.rowName).foregroundStyle(Palette.fg)
-                            if let deadline = check.deadline {
-                                Text("By \(deadline.formatted(.dateTime.weekday(.abbreviated).hour().minute()))")
-                                    .font(.small).foregroundStyle(Palette.flag)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        RowValue().padding(.trailing, Metrics.Spacing.l)
+                    Row(title: check.question, detail: check.deadline.map(byLine)) {
+                        StateDot(color: Palette.flag)
+                        RowValue()
                     }
-                    .padding(.vertical, Metrics.Spacing.xs * 2).frame(minHeight: Metrics.tapTarget).contentShape(.rect)
                 }
                 .buttonStyle(.plain)
             }
         }
         RowGroup {
             ForEach(questions) { check in
-                ConfirmRow(check: check, open: { router.matterPath.append(check.ref) }) { option in
+                QuestionRow(check: check, open: { router.matterPath.append(check.ref) }) { option in
                     if let request = check.answer(option) { life.hold(request, as: option.label) }
                 }
             }
         }
         .motion(Motion.standard, value: questions.map(\.ref))
         .motion(Motion.standard, value: life.held)
+    }
+
+    private func byLine(_ deadline: Date) -> String {
+        "By \(deadline.formatted(.dateTime.weekday(.abbreviated).hour().minute()))"
     }
 
     private func header(_ matter: Matter) -> some View {
@@ -205,10 +199,7 @@ private struct NoAgent: View {
                 .font(.body15).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
         }
         .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-        .overlay {
-            RoundedRectangle(cornerRadius: Metrics.Radius.card).strokeBorder(
-                Palette.line, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-        }
+        .background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.card))
     }
 }
 

@@ -174,10 +174,30 @@
             try await gate()
             let check = Self.checks.first { $0["ref"] as? String == answer.ref }
             let draft = check?["draft"] as? [String: Any]
-            let plan = draft == nil ? ["recorded"] : ["recorded", "chat_checked", "handed", "confirmed"]
+            let isNewMatter = check?["group"] as? String == "new matter"
+            let plan =
+                isNewMatter
+                ? (answer.options == ["start"]
+                    ? ["goal_saved", "desk_accepted", "session_open", "turn_begun"]
+                    : answer.options == ["edit-goal"] ? ["goal_saved"] : ["recorded"])
+                : draft == nil ? ["recorded"] : ["recorded", "chat_checked", "handed", "confirmed"]
             onProgress(message(["plan": plan, "limitSeconds": 20]))
             for step in plan {
                 try await Task.sleep(for: .milliseconds(700))
+                if isNewMatter, step == "desk_accepted", LifeFixture.start == "starting" {
+                    try await Task.sleep(for: .seconds(3_600))
+                }
+                if isNewMatter, step == "desk_accepted", LifeFixture.start == "failed" {
+                    return json([
+                        "ref": answer.ref, "kind": "new matter",
+                        "start": [
+                            "action": "start", "state": "not_started", "nothingRunning": true,
+                            "failed": [
+                                "stage": "desk_accepted", "reason": "Claude Code did not answer within 15 seconds",
+                            ],
+                        ],
+                    ])
+                }
                 if draft != nil, step == "handed", LifeFixture.answer == "sending" {
                     try await Task.sleep(for: .seconds(3_600))
                 }
@@ -192,12 +212,20 @@
                     ],
                 ])
             }
+            if isNewMatter, answer.options == ["edit-goal"] {
+                return json(["ref": answer.ref, "kind": "new matter"])
+            }
             answered.withLock { _ = $0.insert(answer.ref) }
             var result: [String: Any] = [
                 "ref": answer.ref, "kind": "decision", "asker": ["name": "Claude Code", "told": "recorded"],
             ]
             if draft != nil {
                 result["send"] = ["state": "sent", "at": at(18, 14, 3), "channel": "whatsapp", "to": "Hélène Aubert"]
+            } else if isNewMatter, answer.options == ["start"] {
+                result["start"] = [
+                    "action": "start", "state": "started", "nothingRunning": false, "runtime": "claude",
+                    "stages": [["stage": "desk_accepted"], ["stage": "session_open"], ["stage": "turn_begun"]],
+                ]
             } else if check?["group"] as? String == "voice" {
                 result["changed"] = ["voices": 3, "conversations": 2]
             }
@@ -307,17 +335,9 @@
                 extra: ["evidence": ["from": "~ \(handle), WhatsApp", "quote": "Bonjour, c’est \(handle)."]])
         }
 
-        /// In the server's order (`inboxRankOf`): what blocks, then what improves; as written within a kind.
-        nonisolated(unsafe) static let checks: [[String: Any]] = {
-            let order = ["decision", "voice", "name", "contacts card", "new matter", "guessed person", "ending"]
-            let rank = { (check: [String: Any]) in
-                order.firstIndex(of: check["group"] as? String ?? "") ?? order.count
-            }
-            return written.enumerated().sorted { (rank($0.element), $0.offset) < (rank($1.element), $1.offset) }
-                .map(\.element)
-        }()
-
-        nonisolated(unsafe) private static let written: [[String: Any]] =
+        /// In the server's own order (`inboxRankOf`): what blocks (decisions, voices, names, Contacts cards), then what
+        /// improves (new matters, guessed people, endings).
+        nonisolated(unsafe) static let checks: [[String: Any]] =
             [
                 check(
                     "dec_plan", group: "decision", title: "Get the lease signed and back to Hélène Aubert",
@@ -345,32 +365,14 @@
                             "quoted": ["sender": "Hélène Aubert", "text": "Bonjour, avez-vous pu signer le bail ?"],
                         ],
                     ]),
+            ]
+            + (7...12).map { number in
                 check(
-                    "end_done", group: "ending", title: "Idris Benali owed Sam the supplier price",
-                    question: "Is this done?",
-                    options: [option("outdated", "Done"), option("false", "Not done")], matter: kitchen,
-                    context: "He wrote the price on Tuesday; nothing in the matter has changed since.",
-                    extra: [
-                        "evidence": [
-                            "from": "Idris Benali, Messenger, Tue 17 Nov",
-                            "quote": "Voilà le prix du fournisseur : 4 200 € posé.",
-                        ]
-                    ]),
-                guess("guess_idris", name: "Idris Benali", handle: "Idris B.", matter: kitchen),
-                check(
-                    "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
-                    question: "Life thinks this is Camille Vance, a friend (70% sure)",
-                    options: [
-                        option("this-is", "It is them"), option("not-this-person", "Not them"),
-                        option("same-person", "Someone Life already knows", takes: "person"),
-                    ],
-                    extra: [
-                        "evidence": ["from": "WhatsApp, Mon 9 Nov", "quote": "Cam: on se voit samedi au marché ?"],
-                        "likelyPeople": [
-                            ["name": "Idris Benali", "person": "person:idris"],
-                            ["name": "Nora Keller", "person": "person:nora"],
-                        ],
-                    ]),
+                    "dec_\(number)", group: "decision", title: "Quote for Nora Keller, step \(number)",
+                    question: "Confirm the start date with Nora?", asker: "Codex",
+                    options: [option("yes", "Yes"), option("no", "Not yet")], matter: nora, deadline: at(20, 12))
+            }
+            + [
                 check(
                     "voice_v1", group: "voice", title: "A voice from Saturday, 4 minutes with Sam",
                     question: "Who is this voice?",
@@ -399,6 +401,18 @@
                         ],
                     ]),
                 check(
+                    "person:con_cam", group: "contacts card", title: "Place a Contacts card",
+                    question:
+                        "Life cannot place the Contacts card Cam: its name and handles say Camille Vance and Cam Ortiz",
+                    options: [option("same-person", "It is this person", takes: "person")],
+                    context: "Its name and handles fit more than one person.",
+                    extra: [
+                        "likelyPeople": [
+                            ["name": "Camille Vance", "person": "person:camille"],
+                            ["name": "Cam Ortiz", "person": "person:cam"],
+                        ]
+                    ]),
+                check(
                     "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
                     question: "Goal: a table for eight at Chez Odile on Friday 27th. Work on it?",
                     options: [
@@ -408,25 +422,33 @@
                     matter: table,
                     context: "Camille proposed Chez Odile on Saturday; you said you would handle it.",
                     extra: ["goal": "A table for eight at Chez Odile on Friday 27th."]),
+                guess("guess_idris", name: "Idris Benali", handle: "Idris B.", matter: kitchen),
                 check(
-                    "person:con_cam", group: "contacts card", title: "Place a Contacts card",
-                    question:
-                        "Life cannot place the Contacts card Cam: its name and handles say Camille Vance and Cam Ortiz",
-                    options: [option("same-person", "It is this person", takes: "person")],
-                    context: "Its name and handles fit more than one person: Life keeps them apart until you say.",
+                    "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
+                    question: "Life thinks this is Camille Vance, a friend (70% sure)",
+                    options: [
+                        option("this-is", "It is them"), option("not-this-person", "Not them"),
+                        option("same-person", "Someone Life already knows", takes: "person"),
+                    ],
                     extra: [
+                        "evidence": ["from": "WhatsApp, Mon 9 Nov", "quote": "Cam: on se voit samedi au marché ?"],
                         "likelyPeople": [
-                            ["name": "Camille Vance", "person": "person:camille"],
-                            ["name": "Cam Ortiz", "person": "person:cam"],
+                            ["name": "Idris Benali", "person": "person:idris"],
+                            ["name": "Nora Keller", "person": "person:nora"],
+                        ],
+                    ]),
+                check(
+                    "end_done", group: "ending", title: "Idris Benali owed Sam the supplier price",
+                    question: "Is this done?",
+                    options: [option("outdated", "Done"), option("false", "Not done")], matter: kitchen,
+                    context: "He wrote the price on Tuesday; nothing in the matter has changed since.",
+                    extra: [
+                        "evidence": [
+                            "from": "Idris Benali, Messenger, Tue 17 Nov",
+                            "quote": "Voilà le prix du fournisseur : 4 200 € posé.",
                         ]
                     ]),
             ]
-            + (7...12).map { number in
-                check(
-                    "dec_\(number)", group: "decision", title: "Quote for Nora Keller, step \(number)",
-                    question: "Confirm the start date with Nora?", asker: "Codex",
-                    options: [option("yes", "Yes"), option("no", "Not yet")], matter: nora, deadline: at(20, 12))
-            }
 
         nonisolated(unsafe) static let rows: [[String: Any]] = [
             row(

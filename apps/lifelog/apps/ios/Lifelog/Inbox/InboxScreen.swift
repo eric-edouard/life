@@ -5,7 +5,6 @@ import SwiftUI
 /// the card stays, as its own result, until he moves on; nothing here decides whether a thing happened.
 struct InboxScreen: View {
     @Environment(LifeStore.self) private var life
-    @Environment(AppRouter.self) private var router
 
     @State private var notes = AskNotes()
     /// Cards he kept for later: shown after the others, until the app closes.
@@ -16,7 +15,7 @@ struct InboxScreen: View {
     var body: some View {
         ReadScreen(
             shown: shown, retry: { await life.refreshInbox() },
-            loading: { CardPlaceholder() }, empty: { InboxZero(agents: working) },
+            loading: { CardPlaceholder() }, empty: { InboxZero() },
             content: { _ in card }
         )
         .background(Palette.bg)
@@ -42,10 +41,8 @@ struct InboxScreen: View {
     /// The card on show, or his tap's result in its place: one arrangement for both, so the card's context region stays
     /// as it was until the next card.
     @ViewBuilder private var card: some View {
-        if let check = notes.taken?.check ?? shownCheck {
-            AskView(
-                check: check, cards: ordered, current: $current, notes: $notes, notice: notice, hasBoundary: true
-            ) { taken, keep in
+        if let check = notes.taken?.check ?? pages.check(on: current) {
+            AskView(check: check, pages: pages, current: $current, notes: $notes, notice: notice) { taken, keep in
                 life.forget(taken.key)
                 notice = nil
                 if keep { deferred.append(taken.check.ref) }
@@ -53,54 +50,22 @@ struct InboxScreen: View {
                 (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : taken.nextRef)
             }
         } else {
-            InboxZero(agents: working)
+            InboxZero()
         }
     }
 
-    /// The card on show: the one he opened, else the most urgent. On the boundary panel, the first that can wait.
-    private var shownCheck: Check? {
-        let onBoundary = current == AskView.boundary
-        return ordered.first { $0.ref == current } ?? (onBoundary ? ordered.first { $0.urgency == .improves } : nil)
-            ?? ordered.first
-    }
-
-    /// Most urgent first, as Life sends them: what blocks, then what improves. What he kept for later goes after the
-    /// others of its kind, so the boundary stays where the first group ends.
-    private var ordered: [Check] {
-        guard let checks = life.inbox.value?.checks else { return [] }
-        let kinds = [checks.filter { $0.urgency != .improves }, checks.filter { $0.urgency == .improves }]
-        return kinds.flatMap { kind in
-            kind.filter { !deferred.contains($0.ref) } + kind.filter { deferred.contains($0.ref) }
-        }
-    }
-
-    private var working: Int { life.agents.value?.agents.count { $0.status == .running || $0.status == .waiting } ?? 0 }
+    /// What blocks, the boundary, what improves: `Inbox.pages`, the one rule for the pager, the card on show and where
+    /// an answer leads.
+    private var pages: [InboxPage] { life.inbox.value?.pages(deferred: deferred) ?? [] }
 }
 
-/// Nothing waits: where the agents stand, and how the next card will reach him.
+/// Nothing waits.
 private struct InboxZero: View {
-    let agents: Int
-    @Environment(AppRouter.self) private var router
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Spacer()
-            Text("Nothing\nto answer.").font(.statusWord).foregroundStyle(Palette.fg).lit()
-            Text(
-                "\(agents == 0 ? "No agent is working" : agents == 1 ? "One agent is working" : "\(agents) agents are working"). The next card reaches you by push, the moment it exists."
-            )
-            .font(.body15).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
-            if agents > 0 {
-                Button("See what they are doing") {
-                    router.showsAgentsOnly = true
-                    router.tab = .matters
-                }
-                .buttonStyle(.pill(.quiet)).padding(.top, 8)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .readingWidth()
+        Text("Nothing\nto answer.").font(.statusWord).foregroundStyle(Palette.fg).lit()
+            .padding(.horizontal, 20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .readingWidth()
     }
 }
 

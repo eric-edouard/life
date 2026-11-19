@@ -67,8 +67,7 @@ struct AnswerResultView: View {
 
     @ViewBuilder private var working: some View {
         header
-        Text(taken.check.title).font(.cardHeadline).foregroundStyle(Palette.fg)
-        Text(taken.check.question).font(.cardQuestion).foregroundStyle(Palette.fg).lit()
+        Text(taken.check.question).font(.askQuestion).foregroundStyle(Palette.fg)
         if let draft = taken.check.draft { DraftBlock(draft: draft) }
         CheckLines(lines: lines.isEmpty ? [CheckLine(id: "asking", text: "Asking Life", mark: .running)] : lines)
             .padding(.top, 8)

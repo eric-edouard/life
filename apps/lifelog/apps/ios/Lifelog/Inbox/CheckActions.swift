@@ -35,6 +35,10 @@ struct CheckActions: View {
                 .disabled(words.isEmpty)
                 Button("Back to the options") { input.isWritingOwnWords = false }.buttonStyle(.pill(.quiet))
             } else {
+                if let line = deadlineLine {
+                    Text(line).font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                }
                 options
                 HStack {
                     if check.takesOwnWords {
@@ -44,10 +48,6 @@ struct CheckActions: View {
                     if let link = check.links.first.flatMap(URL.init(string:)) {
                         TextLink("Open in \(runtimeName?.name ?? "its app")", isOutward: true) { openURL(link) }
                     }
-                }
-                if let line = silence {
-                    Text(line).font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
                 }
             }
         }
@@ -88,20 +88,12 @@ struct CheckActions: View {
         }
     }
 
-    /// What happens when he does not answer: Life's own words for the kinds that have a standing rule, the asker's option otherwise.
-    private var silence: String? {
-        switch check.group {
-        case .ending: return "Until you say, Life treats it as probably done."
-        case .voice: return "Until you say, the voice stays unnamed."
-        case .name, .guessedPerson: return "Until you say, Life keeps its guess."
-        case .contactsCard: return "Until you say, Life keeps them apart."
-        case .newMatter: return "Nothing starts unless you say so."
-        case .decision, .unknown:
-            guard let deadline = check.deadline else { return nil }
-            let when = deadline.formatted(.dateTime.weekday(.wide).hour().minute())
-            if check.draft != nil { return "No answer by \(when): nothing is sent." }
-            let chosen = check.options.first { $0.id == check.onSilence }?.label
-            return "No answer by \(when): " + (chosen.map { "“\($0)”." } ?? "nothing happens.")
-        }
+    /// What happens when his deadline passes, above the answers: the only line a card puts near them.
+    private var deadlineLine: String? {
+        guard check.group == .decision || check.group == .unknown, let deadline = check.deadline else { return nil }
+        let when = deadline.formatted(.dateTime.weekday(.wide).hour().minute())
+        if check.draft != nil { return "No answer by \(when): nothing is sent." }
+        let chosen = check.options.first { $0.id == check.onSilence }?.label
+        return "No answer by \(when): " + (chosen.map { "“\($0)”." } ?? "nothing happens.")
     }
 }

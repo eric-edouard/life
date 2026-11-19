@@ -218,3 +218,34 @@ private func everyKindOfCheck() throws -> [Check] {
     let name = try #require(all.first { $0.group == .name })
     #expect(name.askerName(runtime: nil) == "Life")
 }
+
+/// The inbox's checks, made from the server's own read: one ask per ref, with the urgency given.
+private func asks(_ urgencies: [(String, Urgency)]) throws -> Inbox {
+    let wire = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    let first = try #require((wire["checks"] as? [[String: Any]])?.first)
+    let checks = urgencies.map { ref, urgency in first.merging(["ref": ref, "urgency": urgency.rawValue]) { $1 } }
+    let body = wire.merging(["checks": checks]) { $1 }
+    return try decoded(Inbox.self, String(decoding: JSONSerialization.data(withJSONObject: body), as: UTF8.self))
+}
+
+@Test func theInboxPagesRunWhatBlocksThenTheBoundaryThenWhatImproves() throws {
+    let inbox = try asks([("i1", .improves), ("b1", .blocks), ("i2", .improves), ("b2", .blocks)])
+    let pages = inbox.pages(deferred: [])
+    #expect(pages.map(\.id) == ["b1", "b2", InboxPage.boundaryId, "i1", "i2"])
+    // His answer to the last blocking ask lands on the boundary; the boundary shows the next ask's context.
+    #expect(pages.id(after: "b2") == InboxPage.boundaryId)
+    #expect(pages.check(on: InboxPage.boundaryId)?.ref == "i1")
+    #expect(pages.check(on: nil)?.ref == "b1" && pages.check(on: "gone")?.ref == "b1")
+}
+
+@Test func withNothingBlockingTheBoundaryComesFirstAndWithNothingImprovingThereIsNone() throws {
+    #expect(try asks([("i1", .improves)]).pages(deferred: []).map(\.id) == [InboxPage.boundaryId, "i1"])
+    #expect(try asks([("b1", .blocks)]).pages(deferred: []).map(\.id) == ["b1"])
+    #expect(try asks([]).pages(deferred: []).isEmpty)
+}
+
+@Test func anAskKeptForLaterStaysInsideItsOwnKind() throws {
+    let inbox = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves), ("i2", .improves)])
+    #expect(inbox.pages(deferred: ["b1", "i1"]).map(\.id) == ["b2", "b1", InboxPage.boundaryId, "i2", "i1"])
+}

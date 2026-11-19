@@ -4,7 +4,7 @@ import SwiftUI
 /// One of Life's own questions as a row: its question and where it came from, and, when two of its options need nothing
 /// more than a tap, those two as buttons. With `open`, a tap on the row opens the whole ask and an answer is held four
 /// seconds for Undo, drawn here; without it the caller sends at once.
-struct ConfirmRow: View {
+struct QuestionRow: View {
     let check: Check
     var open: (() -> Void)?
     /// His tap on one of the two buttons.
@@ -29,11 +29,19 @@ struct ConfirmRow: View {
                 question(state)
             }
             // Under the question, not beside it: the answers are as long as Life words them.
-            if !state.isRunning && !plainOptions.isEmpty {
+            if isOpen(state) && !plainOptions.isEmpty {
                 buttons.padding(.horizontal, Metrics.Spacing.l).padding(.bottom, Metrics.Spacing.l)
             }
         }
         .motion(Motion.standard, value: state)
+    }
+
+    /// The buttons show while nothing was sent, or when it failed: never after it went.
+    private func isOpen(_ state: ActionState<ActionProof>) -> Bool {
+        switch state {
+        case .idle, .failed: true
+        case .running, .succeeded: false
+        }
     }
 
     private func question(_ state: ActionState<ActionProof>) -> some View {
@@ -58,7 +66,8 @@ struct ConfirmRow: View {
         switch state {
         case .running: .saving
         case .failed(let failure, _): .refused(failure.reason)
-        case .idle, .succeeded: .known
+        case .succeeded: .saved
+        case .idle: .known
         }
     }
 }

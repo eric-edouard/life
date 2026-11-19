@@ -21,8 +21,6 @@ final class AppRouter {
     /// The matter whose "Start an agent" sheet is open: here, not in the matter's page, so a fold that collapses the page
     /// keeps the sheet and the start it shows.
     var startSheetMatter: String?
-    /// "See what they are doing": the Matters list opens filtered to the ones with an agent.
-    var showsAgentsOnly = false
 
     func open(matter id: String) {
         sheet = nil

@@ -9,22 +9,18 @@ struct AskNotes: Equatable {
 }
 
 /// One ask on show, whoever hosts it (the Inbox, a matter's stack): the ask with its answers, then its result in its
-/// place. `cards` are the asks around it, paged by swipe when there are several; a tap runs through the store's action
-/// and the ask stays, as its own result, until he moves on. With `hasBoundary`, one panel between what blocks and what
-/// only improves says "The rest can wait.": a page of its own, swiped past like a card, never an answer.
+/// place. `pages` are the asks around it (and the boundary panel, "The rest can wait.", a page of its own, swiped past
+/// like a card, never an answer), paged by swipe when there are several; a tap runs through the store's action and the
+/// ask stays, as its own result, until he moves on.
 struct AskView: View {
     let check: Check
-    let cards: [Check]
+    let pages: [InboxPage]
     /// The ask under the pager's leading edge: swiping only moves it, never answers.
     @Binding var current: String?
     @Binding var notes: AskNotes
     var notice: String?
-    var hasBoundary = false
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
-
-    /// The boundary panel's place among the cards' refs: what `current` holds while it is on show.
-    static let boundary = "inbox-boundary"
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
@@ -60,7 +56,7 @@ struct AskView: View {
                     Text(check.draft != nil ? "Sending…" : "Saving…")
                 }
                 .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
-            } else if isOnBoundary {
+            } else if pages.page(on: current) == .boundary {
                 EmptyView()
             } else {
                 CheckActions(
@@ -80,24 +76,27 @@ struct AskView: View {
         }
     }
 
-    /// The asks side by side: he swipes left for the next, right to come back, and the next one's edge shows at the right.
-    /// An ask alone has no edge to show. An ask he passes stays where it was.
+    /// The pages side by side: he swipes left for the next, right to come back, and the next one's edge shows at the right.
+    /// An ask alone has no edge to show. A page he passes stays where it was.
     private var pager: some View {
-        let firstImproving = hasBoundary ? cards.first { $0.urgency == .improves }?.ref : nil
-        let edge = cards.count + (firstImproving == nil ? 0 : 1) > 1 ? Pager.edge : 0
+        let edge = pages.count > 1 ? Pager.edge : 0
         return ScrollViewReader { proxy in
             ScrollView(.horizontal) {
                 HStack(spacing: 0) {
-                    ForEach(cards) { check in
-                        if check.ref == firstImproving { panel(edge: edge) { BoundaryPanel() }.id(AskView.boundary) }
-                        panel(edge: edge) {
-                            CheckCard(
-                                check: check, runtimeName: runtimeName(of: check),
-                                openMatter: { router.open(matter: $0) },
-                                confirm: { request in Task { await life.answer(request) } }, input: input(check.ref)
-                            )
+                    ForEach(pages, id: \.id) { page in
+                        switch page {
+                        case .boundary:
+                            panel(edge: edge) { BoundaryPanel() }.id(page.id)
+                        case .ask(let check):
+                            panel(edge: edge) {
+                                CheckCard(
+                                    check: check, runtimeName: runtimeName(of: check),
+                                    openMatter: { router.open(matter: $0) },
+                                    confirm: { request in Task { await life.answer(request) } }, input: input(check.ref)
+                                )
+                            }
+                            .id(page.id)
                         }
-                        .id(check.ref)
                     }
                 }
                 .padding(.trailing, edge + Pager.gap)
@@ -118,22 +117,17 @@ struct AskView: View {
             .containerRelativeFrame(.horizontal) { width, _ in width - edge - Pager.gap }
     }
 
-    /// Whether the boundary panel is the one on show: he swiped to it, or it is first because nothing blocks.
-    private var isOnBoundary: Bool {
-        hasBoundary && (current == AskView.boundary || (current == nil && cards.first?.urgency == .improves))
-    }
-
     private func input(_ ref: String) -> Binding<CardInput> {
         Binding(get: { notes.inputs[ref] ?? CardInput() }, set: { notes.inputs[ref] = $0 })
     }
 
     /// The question of the ask after his tap's, when one is waiting.
-    private func question(after taken: Taken) -> String? { cards.first { $0.ref == taken.nextRef }?.question }
+    private func question(after taken: Taken) -> String? { pages.checks.first { $0.ref == taken.nextRef }?.question }
 
     /// The ask whose "Same as…" he opened: that ask, even if the list reorders under the sheet; gone with it.
     private var sameAsCard: Binding<Check?> {
         Binding(
-            get: { sameAsRef.flatMap { ref in cards.first { $0.ref == ref } } },
+            get: { sameAsRef.flatMap { ref in pages.checks.first { $0.ref == ref } } },
             set: { if $0 == nil { sameAsRef = nil } })
     }
 
@@ -143,12 +137,9 @@ struct AskView: View {
     }
 
     private func submit(_ check: Check, _ request: AnswerRequest) {
-        let next = cards.firstIndex { $0.ref == check.ref }.flatMap { cards.dropFirst($0 + 1).first }
-        // After the last ask that blocks, he lands on the boundary panel, not on the first that can wait.
-        let crosses = hasBoundary && check.urgency != .improves && next?.urgency == .improves
+        // After the last ask that blocks, the next page is the boundary, not the first that can wait.
         notes.taken = Taken(
-            check: check, request: request, nextRef: crosses ? AskView.boundary : next?.ref,
-            runtimeName: runtimeName(of: check))
+            check: check, request: request, nextRef: pages.id(after: check.ref), runtimeName: runtimeName(of: check))
         Task { await life.answer(request) }
     }
 }
@@ -182,7 +173,7 @@ struct AskPage: View {
 
     var body: some View {
         if let check = notes.taken?.check ?? source.first(where: { $0.ref == ref }) {
-            AskView(check: check, cards: [check], current: $current, notes: $notes) { taken, _ in
+            AskView(check: check, pages: [.ask(check)], current: $current, notes: $notes) { taken, _ in
                 // A new matter whose goal he edited still waits for Start or Dismiss: back to the ask, not the matter.
                 if taken.staysOpen {
                     life.forget(taken.key)
