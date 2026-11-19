@@ -416,7 +416,7 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
     newestOpenStep: {
       at: "2026-11-17T02:00:00Z",
       day: "2026-11-17",
-      kind: "todo" as const,
+      kind: "to_do" as const,
       quote: "call the plumber",
       ref: "unit_000000000072",
       text: "call the plumber",
