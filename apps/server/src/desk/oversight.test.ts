@@ -149,6 +149,12 @@ test("his word stops, resumes, re-points and changes the model of an agent, each
   expect((await applied({ action: "hand_over", agent }))?.error).toBe(
     "a handover comes with the desk's next step"
   );
+  // An agent handed over to a newer one is over: it cannot be resumed.
+  desk.db.run("update agent set status = 'handed_over' where id = ?", [agent]);
+  expect((await applied({ action: "resume", agent }))?.error).toBe(
+    `${agent} is handed_over`
+  );
+  desk.db.run("update agent set status = 'active' where id = ?", [agent]);
   // A spoken ask (no change yet) and a stale one are refused, not applied late.
   expect((await applied(null))?.error).toStartWith("only a change");
   expect(

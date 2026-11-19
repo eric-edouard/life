@@ -5,7 +5,7 @@ import SwiftUI
 /// a tapped ask all go the same way, and a fold keeps them.
 @MainActor @Observable
 final class AppRouter {
-    enum Tab: Hashable { case inbox, matters }
+    enum Tab: Hashable { case inbox, matters, search }
     enum Sheet: String, Identifiable {
         case pendant, settings
         var id: String { rawValue }

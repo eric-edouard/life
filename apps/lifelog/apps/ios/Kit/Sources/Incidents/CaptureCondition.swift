@@ -110,8 +110,7 @@ public enum CaptureCondition: Sendable, Equatable {
         if let free = context.phoneFreeBytes, free < IncidentReducer.phoneLowBelow {
             conditions.append(.phoneStorageLow(freeBytes: free))
         }
-        if let storage = status.storage?.value, storage.totalPages > 0 {
-            let fraction = Double(storage.freePages) / Double(storage.totalPages)
+        if let fraction = status.storage?.value.freeFraction {
             if fraction < IncidentReducer.pendantFullBelow {
                 conditions.append(.pendantStorageFull)
             } else if fraction < IncidentReducer.pendantLowBelow {
@@ -134,8 +133,8 @@ public enum CaptureCondition: Sendable, Equatable {
         }
     }
 
-    /// Something the owner has to act on, as the Pendant pill counts it: not a link state (checking, out of reach, a
-    /// pause or resume that did not take) and not one that keeps lifelog from the Pendant (those colour the pill).
+    /// Something the owner has to act on, as the Pendant item counts it: not a link state (checking, out of reach, a
+    /// pause or resume that did not take) and not one that keeps lifelog from the Pendant (those colour the Pendant item).
     public var needsOwner: Bool {
         switch self {
         case .checking, .outOfReach, .recordingControlFailed: false

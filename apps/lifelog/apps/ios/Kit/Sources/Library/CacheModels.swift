@@ -116,7 +116,7 @@ public struct CachedTurn: Sendable, Equatable, Decodable {
     public var text: String
     public var language: String?
     public var speaker: Speaker
-    /// When each word is said (`spoken(at:in:)`); `nil` from a row cached before the feed sent them.
+    /// When each word is said (`spokenIndex(at:)`, `ranges(in:)`); `nil` from a row cached before the feed sent them.
     public var words: [[Int64]]?
 
     public init(
@@ -139,16 +139,25 @@ public struct CachedTurn: Sendable, Equatable, Decodable {
 
 extension [[Int64]] {
     /// Of a passage's timed words (contract `TimedWords`: each `[start, end, length]`, in milliseconds from the
-    /// passage's start and UTF-16 units of its text with the spacing before it), the one spoken `millis` in, the last
-    /// begun, as its range in `text` without that spacing; `nil` before the first, or when the words don't fit the text.
-    public func spoken(at millis: Int64, in text: String) -> NSRange? {
-        guard let index = lastIndex(where: { $0.first ?? .max <= millis }), self[index].count == 3 else { return nil }
-        let from = Int(self[..<index].reduce(0) { $0 + ($1.last ?? 0) })
-        let length = Int(self[index][2])
-        guard from + length <= text.utf16.count else { return nil }
-        let spacing = text.utf16.dropFirst(from).prefix(length)
-            .prefix { Unicode.Scalar($0)?.properties.isWhitespace == true }.count
-        return NSRange(location: from + spacing, length: length - spacing)
+    /// passage's start and UTF-16 units of its text with the spacing before it), each word's range in `text` without
+    /// that spacing; `nil` unless the words cover the whole text. The start of word `i` is `self[i][0]`.
+    public func ranges(in text: String) -> [NSRange]? {
+        var from = 0
+        var ranges: [NSRange] = []
+        for word in self {
+            guard word.count == 3, word[2] >= 0, from + Int(word[2]) <= text.utf16.count else { return nil }
+            let length = Int(word[2])
+            let spacing = text.utf16.dropFirst(from).prefix(length)
+                .prefix { Unicode.Scalar($0)?.properties.isWhitespace == true }.count
+            ranges.append(NSRange(location: from + spacing, length: length - spacing))
+            from += length
+        }
+        return from == text.utf16.count ? ranges : nil
+    }
+
+    /// The index of the word spoken `millis` in, the last begun; `nil` before the first.
+    public func spokenIndex(at millis: Int64) -> Int? {
+        lastIndex { $0.first ?? .max <= millis }
     }
 }
 

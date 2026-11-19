@@ -49,7 +49,7 @@ const FOUND_TO_CLOSED: Step[] = [
   {
     name: "past the boundary: the offer",
     swipeLeft: true,
-    until: "Work on it?",
+    until: "Start an agent on this?",
   },
   {
     name: "Start: goal saved, runtime, session, first turn",
@@ -256,7 +256,7 @@ async function run(step: Step) {
     });
   }
   if (step.back) {
-    // The system's back button by name: agent-device's `back` pressed the Pendant pill on the iPhone Duo.
+    // The system's back button by name: agent-device's `back` pressed the Pendant item on the iPhone Duo.
     await device(["find", "BackButton", "click"]);
   }
   await untilAnswers(

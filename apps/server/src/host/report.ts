@@ -7,7 +7,6 @@ import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
 import { settings } from "../core/settings";
-import type { Check } from "../memory/checks";
 import { draftWords } from "../memory/draft";
 import {
   type Digest,
@@ -17,6 +16,7 @@ import {
 } from "../memory/email";
 import type { episodes } from "../memory/episodes";
 import type { extract } from "../memory/extract";
+import type { Check } from "../memory/life-checks";
 import type { describeFiles } from "../memory/message-files";
 import type { pages } from "../memory/pages";
 import type { mapRepos } from "../memory/repos";
@@ -223,7 +223,7 @@ export function successReport(day: string, ms: number, n: Night) {
           kind: "pairs",
           list: checks.map((c) => ({
             name: c.question,
-            relation: `${c.evidence ? `“${c.evidence.quote}” (${c.evidence.from}) · ` : ""}${ridesText(c.ridesOn)}`,
+            relation: `${c.context ? `${c.context} · ` : ""}${c.evidence ? `“${c.evidence.quote}” (${c.evidence.from}) · ` : ""}${ridesText(c.ridesOn)}`,
           })),
           title: "Checks",
         },

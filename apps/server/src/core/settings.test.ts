@@ -10,6 +10,7 @@ test("a corrupt settings file throws instead of switching engine; a missing one 
     agentReportSenders: [],
     engine: "claude",
     memoryLanguage: "English",
+    notifications: {},
     sources: [],
   });
   writeFileSync(path, '{"engine": "co');
@@ -86,4 +87,16 @@ test("the renamed settings parse, and the old names are refused", () => {
   for (const old of ["todo_list", "repos", "past", "history", "devices"]) {
     expect(() => Settings.parse({ [old]: renamed.todoList })).toThrow();
   }
+});
+
+test("his notification settings name only known kinds and levels", () => {
+  expect(Settings.safeParse({ notifications: { voice: "off" } }).success).toBe(
+    true
+  );
+  expect(Settings.safeParse({ notifications: { calls: "off" } }).success).toBe(
+    false
+  );
+  expect(Settings.safeParse({ notifications: { voice: "loud" } }).success).toBe(
+    false
+  );
 });

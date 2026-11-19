@@ -8,7 +8,6 @@ struct MatterPage: View {
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
-    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         let state = life.matter[id] ?? ReadState()
@@ -19,8 +18,8 @@ struct MatterPage: View {
             content: { matter in page(matter) }
         )
         .background(Palette.bg)
-        // Beside the list the Pendant is already in the list's bar.
-        .shellBar("Matter", hasSettings: false, hasPendant: sizeClass != .regular)
+        // Back on the left, the Pendant alone on the right; beside the list too, never in the side column.
+        .shellBar("Matter", hasSettings: false)
         .task(id: life.answersEnded) { await life.refreshMatter(id) }
         .onDisappear { Task { await life.sendHeld() } }
     }
@@ -29,7 +28,6 @@ struct MatterPage: View {
         let row = matter.row
         // His decisions and Life's offer of an agent open as asks on this page (the ask the inbox shows); Life's other
         // questions are rows he can answer in place.
-        let decisions = matter.checks.filter { $0.group == .decision }
         let opening = matter.checks.filter { $0.group == .decision || $0.group == .newMatter }
         let questions = matter.checks.filter { $0.group != .decision && $0.group != .newMatter }
         // Life lists the active one first, else the newest past one: an ended agent shows how it ended.
@@ -41,7 +39,7 @@ struct MatterPage: View {
                 asks(opening: opening, questions: questions)
                 GoalAndNext(matter: matter)
                 if let agent {
-                    AgentBlock(agent: agent, waitsOnYou: !decisions.isEmpty || row.wait == .decision)
+                    AgentBlock(agent: agent, waitsOnYou: row.needsYou)
                 } else {
                     NoAgent()
                 }
@@ -99,8 +97,9 @@ struct MatterPage: View {
         let days = matter.steps.first.map { Calendar.current.dateComponents([.day], from: $0.at, to: .now).day ?? 0 }
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
-                if let wait = row.wait?.line(waitsOn: row.nextStep?.waitsOn) {
-                    Text(wait.text).label().foregroundStyle(wait.needsYou ? Palette.flag : Palette.fg)
+                if let wait = row.wait {
+                    Text(wait.line(waitsOn: row.nextStep?.waitsOn)).label()
+                        .foregroundStyle(wait.isOnHim ? Palette.flag : Palette.fg)
                 }
                 Text(
                     ([days.map { "open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self)
@@ -389,5 +388,18 @@ extension MatterStep {
     var whenAndWith: String {
         [at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), with].compactMap(\.self)
             .joined(separator: " · ")
+    }
+}
+
+extension MatterWait {
+    /// The caps line on the page.
+    fileprivate func line(waitsOn: String?) -> String {
+        switch self {
+        case .decision: "Your decision"
+        case .owner: "Waits on you"
+        case .ready: "Ready to do"
+        case .event: waitsOn.map { "Waits on \($0)" } ?? "Waits for something"
+        case .stuck: "Stuck"
+        }
     }
 }

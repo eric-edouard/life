@@ -27,8 +27,18 @@
     }
   ],
   "steps": [],
+  "blockingChecks": 0,
   "checks": [
     {
+      "around": null,
+      "said": {
+        "at": "2026-10-12",
+        "by": null,
+        "channel": null,
+        "text": "Gran wants it framed",
+        "to": null
+      },
+      "since": null,
       "about": [],
       "asker": "life",
       "at": null,
@@ -46,6 +56,12 @@
       "likelyPeople": [],
       "links": [],
       "notSent": null,
+      "onMatters": [
+        {
+          "id": "matter_cccccccccccc",
+          "name": "Frame Gran's photo"
+        }
+      ],
       "onSilence": null,
       "options": [
         {
@@ -60,11 +76,11 @@
         },
         {
           "id": "dismiss",
-          "label": "Dismiss",
+          "label": "No",
           "takes": null
         }
       ],
-      "question": "Goal: Gran's photo is framed. Work on it?",
+      "question": "Start an agent on this? Gran's photo is framed.",
       "ref": "matter_cccccccccccc",
       "ridesOn": {
         "matterIds": ["matter_cccccccccccc"],
@@ -79,6 +95,7 @@
         "name": "Frame Gran's photo"
       },
       "confirm": [],
+      "networkIdentity": null,
       "pushId": "47c2deda3a5b51cd",
       "urgency": "improves"
     }

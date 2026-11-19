@@ -101,11 +101,12 @@ export async function loadTruth(data = OWNER_DATA_DIR): Promise<Truth> {
 
 /** Every handle a person has, normalized the way senders are looked up: emails lower-cased. */
 export function handlesOf(p: Person): string[] {
-  const { whatsapp, phone, email, lifelog, telegram } = p.handles;
+  const { whatsapp, phone, email, github, lifelog, telegram } = p.handles;
   return [
     ...whatsapp,
     ...phone,
     ...email.map((h) => h.toLowerCase()),
+    ...(github ? [github.toLowerCase()] : []),
     ...(lifelog ? [lifelog] : []),
     ...(telegram ? [telegram] : []),
   ];

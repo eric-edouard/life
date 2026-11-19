@@ -12,6 +12,7 @@ const NAMED = /import\s*\{([^}]*)\}\s*from\s*"([^"]+)"/g;
 const SPACE = /\s+/;
 const REMCTL = /"bin",\s*"remctl"/;
 const GOG = /"gog"/;
+const GH = /"gh"/;
 const GOG_TASKS = /gogCall\(\s*"tasks"/;
 const GOG_GMAIL = /gogCall\(\s*"gmail"/;
 const MONEY = /\["money",/;
@@ -44,7 +45,7 @@ const CAPS: Record<string, number> = {
   "apps/lifelog/packages/db/src/schema/index.ts": 1077,
   "apps/server/src/host/status/snapshot.ts": 1175,
   "apps/server/src/memory/units.test.ts": 1188,
-  "apps/server/src/sources/lifelog.ts": 842,
+  "apps/server/src/sources/lifelog.ts": 838,
 };
 
 const files = repoFiles(LIFE_CODE_DIR, ["apps/server/src"], [".ts"]).filter(
@@ -131,6 +132,8 @@ test("only changeTodoItem writes his to-do list: it alone imports the backend, o
   expect(running(GOG_GMAIL)).toEqual(["apps/server/src/sources/gmail.ts"]);
   // Nothing else spawns gog: its name as a literal is in `core/gog.ts` alone.
   expect(running(GOG)).toEqual(["apps/server/src/core/gog.ts"]);
+  // GitHub is read and written through `gh` in one file.
+  expect(running(GH)).toEqual(["apps/server/src/sources/github.ts"]);
 });
 
 // Life sends only a card's draft, on his answer to its outgoing option (AGENTS.md): one path, from his answer to the bridge.

@@ -67,8 +67,10 @@ private final class Reports: Sendable {
     #expect(turns.map(\.speaker.displayName) == ["Dave", "Marie-Jo"])
     #expect(turns.allSatisfy { $0.language != nil && $0.speaker.personId != nil })
     // "Remember the plumber.": "the" is spoken from 1 s, without the space before it.
-    #expect(turns[0].words?.spoken(at: 1200, in: turns[0].text) == NSRange(location: 9, length: 3))
-    #expect(turns[0].words?.spoken(at: -1, in: turns[0].text) == nil)
+    let words = try #require(turns[0].words)
+    #expect(
+        words.spokenIndex(at: 1200).flatMap { words.ranges(in: turns[0].text)?[$0] } == NSRange(location: 9, length: 3))
+    #expect(words.spokenIndex(at: -1) == nil)
     #expect(turns[1].words == [])
     #expect(try await library.chapters(of: conversation.id).map(\.title) == ["Plumber"])
     let people = try await library.people()

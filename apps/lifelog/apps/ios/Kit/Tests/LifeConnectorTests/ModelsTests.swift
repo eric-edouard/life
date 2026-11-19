@@ -26,21 +26,35 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.draft?.quoted?.sender == "Kit")
     #expect(decision.deadline != nil)
     #expect(decision.confirm?.first?.group == .guessedPerson)
+    // The identity ask: who the guess is as WhatsApp shows them, with WhatsApp's own link to the chat.
+    let onNetwork = try #require(decision.confirm?.first?.networkIdentity)
+    #expect(onNetwork.network == "WhatsApp")
+    #expect(onNetwork.handle == "+33600000001")
+    #expect(onNetwork.openUrl == URL(string: "https://wa.me/33600000001"))
+    #expect(onNetwork.newest?.text == "Kit here, from the shop")
+    // The draft's own chat, as its network shows it: stored, so no newest message.
+    #expect(decision.networkIdentity?.network == "WhatsApp")
+    #expect(decision.networkIdentity?.newest == nil)
     #expect(decision.ridesOn?.matters == 1)
 
     #expect(inbox.checks.map(\.group).contains(.newMatter))
     let voice = try #require(inbox.checks.first { $0.group == .voice })
     #expect(voice.clips.first?.audio?.jobId == "job-1")
     let clip = try #require(voice.clips.first)
-    #expect(clip.words?.spoken(at: 400, in: clip.text) == NSRange(location: 5, length: 3))
+    let words = try #require(clip.words)
+    #expect(words.spokenIndex(at: 400).flatMap { words.ranges(in: clip.text)?[$0] } == NSRange(location: 5, length: 3))
     #expect(voice.likelyPeople.first?.name == "Gran")
+    #expect(voice.likelyPeople.first?.line == "Your grandmother")
+    let name = try #require(inbox.checks.first { $0.group == .name })
+    #expect(name.said?.by == "Gran")
+    #expect(name.around?.before.isEmpty == false)
     #expect(inbox.checks.first { $0.group == .ending }?.ridesOn?.matters == 1)
     let found = try #require(
         try decoded(Matter.self, wireText("life/read_matter_found.json")).checks.first)
     #expect(found.group == .newMatter)
     #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
     #expect(found.deadline == nil)
-    #expect(found.options.map(\.label) == ["Start", "Edit goal", "Dismiss"])
+    #expect(found.options.map(\.label) == ["Start", "Edit goal", "No"])
     #expect(found.goal == "Gran's photo is framed.")
     #expect(inbox.checks.last?.draft == nil)
 
@@ -52,7 +66,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.nextStep?.kind == .waitEvent)
     #expect(row.people?.owedTo == ["gran"])
     #expect(row.agent == "agt_000000000001")
-    #expect(row.openChecks == 2)
+    #expect(row.blockingChecks == 1)
     #expect(list.matters[2].goal == nil)
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
@@ -82,7 +96,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.goal?.by == .unknown)
 }
 
-@Test func theListSearchesAndCountsOnThePhone() throws {
+@Test func theListSearchesOnThePhone() throws {
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
     #expect(list.matching("watch").map(\.name) == ["Mend Gran's watch"])
     #expect(list.matching("QUOTE").count == 1)
@@ -90,7 +104,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matching("nothing like it").isEmpty)
 }
 
-@Test func theFiltersCountAndNarrowTheList() throws {
+@Test func theFiltersNarrowTheListAndAreasComeMostFirst() throws {
     let text = #"""
         {"matters":[
         {"id":"a","name":"A","status":"moving","areas":["Home","Money"],"agent":"agt_1","nextStep":{"kind":"wait_decision","text":"x"}},
@@ -99,19 +113,25 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         {"id":"d","name":"D","status":"dormant"}]}
         """#
     let list = try decoded(MatterList.self, text)
-    #expect(list.areaCounts.map(\.area) == ["Home", "Money", "Work"])
-    #expect(list.areaCounts.map(\.count) == [2, 1, 1])
-    #expect(list.waitCounts == [.decision: 1, .stuck: 1, .ready: 1])
-    func ids(_ filter: MatterFilter, _ query: String = "") -> [String] {
-        list.shown(query: query, filter: filter).map(\.id)
-    }
-    #expect(ids(MatterFilter()) == ["a", "b", "c", "d"])
-    #expect(ids(MatterFilter(area: "Home")) == ["a", "b"])
-    #expect(ids(MatterFilter(area: "Home", waits: [.stuck, .ready])) == ["b"])
-    #expect(ids(MatterFilter(waits: [.decision, .ready])) == ["a", "c"])
-    #expect(ids(MatterFilter(withAgent: true)) == ["a"])
-    #expect(ids(MatterFilter(area: "Work"), "B").isEmpty)
-    #expect(MatterFilter().isEmpty && !MatterFilter(withAgent: true).isEmpty)
+    #expect(list.areasByCount == ["Home", "Money", "Work"])
+    func ids(_ filter: MatterFilter) -> [String] { list.shown(filter: filter).map(\.id) }
+    #expect(ids(.everything) == ["a", "b", "c", "d"])
+    #expect(ids(.area("Home")) == ["a", "b"])
+    #expect(ids(.needsYou) == ["a"])
+    #expect(ids(.agentWorking) == ["a"])
+}
+
+@Test func aMatterNeedsHimWhenItWaitsOnHimOrABlockingCheckIsOpen() throws {
+    let text = #"""
+        {"matters":[
+        {"id":"a","name":"A","status":"moving","blockingChecks":1,"nextStep":{"kind":"do","text":"x"}},
+        {"id":"b","name":"B","status":"moving","nextStep":{"kind":"wait_owner","text":"y"}},
+        {"id":"c","name":"C","status":"moving","blockingChecks":0,"nextStep":{"kind":"do","text":"z"}}]}
+        """#
+    let list = try decoded(MatterList.self, text)
+    // A new matter's offer or an ending check improves the memory, never blocks: it counts 0 and needs nothing of him.
+    #expect(list.matters.map(\.needsYou) == [true, true, false])
+    #expect(list.shown(filter: .needsYou).map(\.id) == ["a", "b"])
 }
 
 @Test func theActionsResultsDecode() throws {
@@ -193,6 +213,9 @@ private func everyKindOfCheck() throws -> [Check] {
         #expect(!check.takesOwnWords)
     }
     #expect(try card(.contactsCard).likelyPeople.map(\.person) == ["person:gran", "person:partner"])
+    #expect(try card(.contactsCard).networkIdentity == nil)
+    #expect(try card(.contactsCard).contactsCard?.name == "Lou")
+    #expect(try card(.contactsCard).contactsCard?.handles == ["+33600000009"])
 
     let guess = try card(.guessedPerson)
     #expect(guess.answer(guess.options[0]) == AnswerRequest(ref: guess.ref, options: ["this-is"]))
@@ -205,7 +228,7 @@ private func everyKindOfCheck() throws -> [Check] {
         voice.answer(naming: .person("person:gran"))
             == AnswerRequest(ref: voice.ref, options: ["this-is"], person: "person:gran"))
     #expect(voice.answer(naming: .name("Sam")) == AnswerRequest(ref: voice.ref, options: ["this-is"], name: "Sam"))
-    #expect(voice.options.dropFirst().compactMap(voice.answer).count == 3)
+    #expect(voice.options.dropFirst().compactMap(voice.answer).count == 1)
 
     // No button reads like the words a model is given.
     #expect(all.flatMap(\.options).allSatisfy { !$0.label.contains("`") && $0.label.count < 30 })

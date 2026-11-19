@@ -104,27 +104,24 @@ extension View {
     }
 }
 
-/// A `label`, a 1 px track filled by how far it got, and an end word (a deadline in `flag`, or a percent).
+/// A `label`, a 6 pt track filled by how far it got, and an end word. A nil `fraction` is a wait of unknown length: a
+/// still, empty track (nothing here moves on its own).
 struct ProgressLine: View {
     var label: String?
-    let fraction: Double
+    var fraction: Double?
     var end: String?
     var endColor = Palette.muted
-
-    init(label: String? = nil, fraction: Double, end: String? = nil, endColor: Color = Palette.muted) {
-        self.label = label
-        self.fraction = min(max(fraction, 0), 1)
-        self.end = end
-        self.endColor = endColor
-    }
 
     var body: some View {
         HStack(spacing: 12) {
             if let label { Caps(label, color: Palette.muted) }
-            Capsule().fill(Palette.line).frame(height: 1)
+            Capsule().fill(Color.fillTint).frame(height: 6)
                 .overlay(alignment: .leading) {
-                    GeometryReader { proxy in Capsule().fill(Palette.fg).frame(width: proxy.size.width * fraction) }
+                    GeometryReader { proxy in
+                        Capsule().fill(Palette.fg).frame(width: proxy.size.width * min(max(fraction ?? 0, 0), 1))
+                    }
                 }
+                .motion(Motion.standard, value: fraction)
             if let end { Caps(end, color: endColor) }
         }
         .frame(height: 24)
@@ -174,30 +171,21 @@ struct StateDot: View {
     }
 }
 
-/// A filter chip: its name, its value, a chevron; filled when it holds a choice.
+/// A filter chip: its name; filled when it holds a choice.
 struct FilterChip: View {
     let name: String
-    var value: String?
     var isOn = false
-    var hasMenu = true
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 7) {
-                Text(name)
-                if let value { Text(value).opacity(isOn ? 0.6 : 1).foregroundStyle(isOn ? Palette.on : Palette.muted) }
-                if hasMenu {
-                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).accessibilityHidden(
-                        true)
-                }
-            }
-            .font(.chip)
-            .foregroundStyle(isOn ? Palette.on : Palette.fg)
-            .padding(.horizontal, 15)
-            .frame(minHeight: 40)
-            .background(isOn ? Palette.fg : Palette.card, in: .capsule)
-            .contentShape(.capsule)
+            Text(name)
+                .font(.chip)
+                .foregroundStyle(isOn ? Palette.on : Palette.fg)
+                .padding(.horizontal, 15)
+                .frame(minHeight: 40)
+                .background(isOn ? Palette.fg : Palette.card, in: .capsule)
+                .contentShape(.capsule)
         }
         .buttonStyle(.plain)
         .fixedSize()
@@ -470,11 +458,9 @@ struct RowGroup<Content: View>: View {
     var labelColor = Palette.faint
     var surface = Surface.page
     @ViewBuilder var content: Content
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let appears = reduceMotion ? AnyTransition.identity : Motion.appears
-        return Group(subviews: content) { rows in
+        Group(subviews: content) { rows in
             if !rows.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     if let label {
@@ -482,7 +468,7 @@ struct RowGroup<Content: View>: View {
                     }
                     VStack(spacing: 0) {
                         ForEach(rows) { row in
-                            row.transition(appears).overlay(alignment: .top) {
+                            row.appears().overlay(alignment: .top) {
                                 if row.id != rows.first?.id { Hairline(color: .fillTint).padding(.leading, 16) }
                             }
                         }
@@ -490,7 +476,7 @@ struct RowGroup<Content: View>: View {
                     .foregroundStyle(Palette.fg)
                     .background(surface.fill, in: .rect(cornerRadius: Metrics.Radius.card))
                 }
-                .transition(appears)
+                .appears()
             }
         }
     }
@@ -515,24 +501,30 @@ struct Field: View {
     }
 }
 
-/// A sheet's top: its name in thin type and the close button.
+/// A sheet's top: its name in thin type, and its Close.
 struct SheetHeader: View {
     /// `nil` for a sheet whose first line names itself (the pendant's big word is the state).
     var title: String?
     var color: Color = Palette.fg
     let close: () -> Void
 
+    /// The title in the content; Close alone in the bar the system draws over the sheet, a toolbar item, so the sheet
+    /// sits in a stack (`sheetStack()`).
     var body: some View {
         HStack {
             if let title { Text(title).font(.sheetTitle).foregroundStyle(color) }
-            Spacer()
-            Button(action: close) {
-                Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.fg)
-                    .frame(width: 44, height: 44).background(Color.fillTint, in: .circle)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close")
+            Spacer(minLength: 0)
         }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { Button(role: .close, action: close) }
+        }
+    }
+}
+
+extension View {
+    /// A sheet in its own stack, so its Close (`SheetHeader`) is a toolbar item in the bar the system draws.
+    func sheetStack() -> some View {
+        NavigationStack { self }
     }
 }
 
@@ -562,6 +554,20 @@ extension View {
     /// column): it fills a narrow container and stops growing in a wide one.
     func readingWidth(_ width: CGFloat = 540) -> some View {
         frame(maxWidth: width).frame(maxWidth: .infinity)
+    }
+
+    /// A scrolling region that ends at any trailing inset (the Duo's column; a phone's notch in landscape), not under
+    /// it: a scroll view's frame runs under the safe area, so the inset is taken as padding.
+    func endsAtColumn() -> some View { modifier(EndsAtColumn()) }
+}
+
+private struct EndsAtColumn: ViewModifier {
+    @State private var inset: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.trailing, inset)
+            .onGeometryChange(for: CGFloat.self, of: { $0.safeAreaInsets.trailing }) { inset = $0 }
     }
 }
 

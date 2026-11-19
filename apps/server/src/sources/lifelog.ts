@@ -40,12 +40,25 @@ export const Page = z.object({
     })
   ),
   cursor: z.string(),
-  // Each recording, and whether nobody spoke for 30 s after it (`endedOnSilence`; null on older ones).
+  // Each recording: `endedOnSilence` (null on older ones), its `state`, and the phone source and Pendant pages it is of.
   jobs: z.array(
-    z.object({ endedOnSilence: z.boolean().nullish(), id: z.string() })
+    z.object({
+      endedOnSilence: z.boolean().nullish(),
+      id: z.string(),
+      pages: z.array(z.array(z.number())).nullish(),
+      sourceId: z.string().nullish(),
+      state: z.string().nullish(),
+    })
   ),
   more: z.boolean(),
-  removed: z.array(z.object({ kind: z.string(), ref: z.string() })),
+  removed: z.array(
+    z.object({
+      firstPage: z.number().optional(),
+      kind: z.string(),
+      ref: z.string(),
+      sourceId: z.string().optional(),
+    })
+  ),
   turns: z
     .array(
       z.object({
@@ -182,6 +195,15 @@ export const storeFiles = (dir = WATCH) => ({
   file: join(dir, "lifelog.sqlite"),
 });
 
+/** The columns added since the first stores: `openStore` adds the ones an older store lacks (`create table if not exists` adds none), and rows fill them as they come again. `closed`, and what `lifelog-speech.ts` reads of a recording. */
+const ADDED_COLUMNS = [
+  ["conversations", "closed", "integer"],
+  ["transcription_jobs", "state", "text"],
+  ["transcription_jobs", "source_id", "text"],
+  ["transcription_jobs", "first_page", "integer"],
+  ["transcription_jobs", "last_page", "integer"],
+] as const;
+
 /** The store and the cursor beside it. The cursor belongs to its store: a new store starts from the beginning. */
 export function openStore(dir = WATCH) {
   mkdirSync(dir, { recursive: true });
@@ -193,7 +215,7 @@ export function openStore(dir = WATCH) {
   const db = openWritable(file);
   db.run(`create table if not exists conversations (
     id text primary key, start_at text not null, end_at text not null, kind text not null, state text not null,
-    successor text, closed integer);
+    successor text);
   create table if not exists turns (
     job_id text not null, turn_index integer not null, conversation_id text not null, start_at text not null,
     person_id text, person_name text, is_owner integer not null default 0, end_at text, seen_at text,
@@ -212,16 +234,17 @@ export function openStore(dir = WATCH) {
       throw e;
     }
   }
-  // ponytail: an older store's `chapters` table is no longer written but kept, so an older Life.app rolled back still
-  // finds its chapters (without them it would see every conversation unsummarized and its sync would remove every
-  // chapter unit); drop it once no rollback past this is possible.
-  // The contract's `closed`, on a store made before it: rows fill it as they come again.
-  // ponytail: this and the drop above are a one-time upgrade of older stores; delete once every install has run it.
-  const columns = db
-    .query<{ name: string }, []>("pragma table_info(conversations)")
-    .all();
-  if (!columns.some((c) => c.name === "closed")) {
-    db.run("alter table conversations add column closed integer");
+  // ponytail: an older store's `chapters` table is kept unwritten, so a rolled-back Life.app still finds its chapters (else
+  // its sync would remove every chapter unit, all seen unsummarized); drop it once no rollback past this is possible.
+  // ponytail: a one-time upgrade of older stores; delete it, and the drop above, once every install has run it.
+  for (const [table, column, type] of ADDED_COLUMNS) {
+    try {
+      db.run(`alter table ${table} add column ${column} ${type}`);
+    } catch (e) {
+      if (!String(e).includes("duplicate column")) {
+        throw e;
+      }
+    }
   }
   return { cursor, db };
 }
@@ -262,7 +285,7 @@ export const newestTurn = (dir = WATCH) =>
 
 const DIGITS = /^\d+$/;
 
-export function readCursor(store: Store) {
+function readCursor(store: Store) {
   const cursor = readJson<{ cursor?: string }>(store.cursor)?.cursor;
   return cursor && DIGITS.test(cursor) ? cursor : "0";
 }
@@ -331,6 +354,23 @@ function drop(db: Database, r: Page["removed"][number]) {
   }
 }
 
+/** A page's recordings as stored rows. A withdrawn one (a removed `job` with its first page) is kept, not dropped: its pages are not in until the phone sends them again (`lifelog-speech.ts`). */
+const jobRowsOf = (page: Page) => [
+  ...page.jobs.map((j) => [
+    j.id,
+    j.endedOnSilence ? 1 : 0,
+    j.state ?? null,
+    j.sourceId ?? null,
+    j.pages?.[0]?.[0] ?? null,
+    j.pages?.at(-1)?.[1] ?? null,
+  ]),
+  ...page.removed.flatMap((r) =>
+    r.kind === "job" && r.firstPage !== undefined
+      ? [[r.ref, 0, "withdrawn", r.sourceId ?? null, r.firstPage, null]]
+      : []
+  ),
+];
+
 /**
  * Folds one page into the store: whole rows replace the ones with the same key, `removed` ones go. Idempotent. A turn
  * keeps when it was first `seen`: when the hearing could first have heard it. Returns the earliest instant the page
@@ -351,12 +391,12 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
     person_name = excluded.person_name, is_owner = excluded.is_owner, end_at = excluded.end_at,
     seen_at = coalesce(turns.seen_at, excluded.seen_at)`
   );
-  const job = db.prepare(
-    "insert or replace into transcription_jobs values (?, ?)"
-  );
   db.transaction(() => {
-    for (const j of page.jobs) {
-      job.run(j.id, j.endedOnSilence ? 1 : 0);
+    for (const j of jobRowsOf(page)) {
+      db.run(
+        "insert or replace into transcription_jobs (id, ended_on_silence, state, source_id, first_page, last_page) values (?, ?, ?, ?, ?, ?)",
+        j
+      );
     }
     for (const c of page.conversations) {
       starts.push(stored.conversation(c.id), c.startAt);
@@ -440,7 +480,7 @@ export const nameOf = (
   byId: Map<string, string>
 ) => (personId && byId.get(personId)) || personName;
 
-export interface TurnRow {
+export interface LifelogTurnRow {
   conversation_id: string;
   end_at: string | null;
   is_owner: number;
@@ -467,7 +507,7 @@ export function readConversations(
   const from = since.toISOString();
   const turns = Map.groupBy(
     db
-      .query<TurnRow, [string]>(
+      .query<LifelogTurnRow, [string]>(
         `select t.* from turns t where t.conversation_id in (select c.id ${live}) order by t.start_at, t.job_id, t.turn_index`
       )
       .all(from),
@@ -520,14 +560,6 @@ export function readConversations(
     });
 }
 
-/** Whether lifelog says nobody spoke for 30 s after a recording (the contract's `endedOnSilence`). */
-export const endedOnSilence = (store: Store, jobId: string) =>
-  store.db
-    .query<{ ended_on_silence: number | null }, [string]>(
-      "select ended_on_silence from transcription_jobs where id = ?"
-    )
-    .get(jobId)?.ended_on_silence === 1;
-
 /** The ids of the live conversations: a stored chapter unit stays only while its conversation is one (`frozenUnits`). */
 export const liveConversations = (store: Store) =>
   new Set(
@@ -539,14 +571,6 @@ export const liveConversations = (store: Store) =>
       .map((c) => c.id)
   );
 
-/** Whether lifelog has settled a conversation (the contract's `closed`). */
-export const isConversationClosed = (store: Store, conversation: string) =>
-  store.db
-    .query<{ closed: number | null }, [string]>(
-      "select closed from conversations where id = ?"
-    )
-    .get(conversation)?.closed === 1;
-
 /** The turns of a conversation between two instants (a unit's range; the whole conversation by default), in order. */
 export function turnsBetween(
   store: Store,
@@ -556,7 +580,7 @@ export function turnsBetween(
   byId: Map<string, string> = new Map()
 ): LifelogTurn[] {
   return store.db
-    .query<TurnRow, [string, string, string]>(
+    .query<LifelogTurnRow, [string, string, string]>(
       "select * from turns where conversation_id = ? and start_at >= ? and start_at < ? order by start_at, job_id, turn_index"
     )
     .all(conversationId, start, end)
@@ -575,7 +599,7 @@ export function whose(t: LifelogTurn): "me" | "unknown" | "other" {
   return t.personId || t.name ? "other" : "unknown";
 }
 
-export const lifelogTurn = (t: TurnRow, byId: Map<string, string>) => ({
+export const lifelogTurn = (t: LifelogTurnRow, byId: Map<string, string>) => ({
   at: t.start_at,
   end: t.end_at,
   jobId: t.job_id,
@@ -623,34 +647,6 @@ export function speakers(store: Store) {
       "select distinct person_id as id, person_name as name from turns where person_id is not null and person_name is not null"
     )
     .all();
-}
-
-export const Hits = z.object({
-  hits: z.array(
-    z.object({
-      capturedFrom: z.string().nullable(),
-      conversationId: z.string(),
-      firstTurn: z.number(),
-      jobId: z.string(),
-      speakers: z.array(z.string()),
-      text: z.string(),
-    })
-  ),
-});
-
-/** lifelog's search of the exact spoken words, best first. `from` is inclusive, `to` exclusive (ISO instants). */
-export async function searchVoice(
-  query: string,
-  range: { from?: string; to?: string },
-  limit: number
-) {
-  return Hits.parse(
-    await call("/search", 60, {
-      dateRange: range,
-      limit,
-      query,
-    })
-  ).hits;
 }
 
 export const Stays = z.array(

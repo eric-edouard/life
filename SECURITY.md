@@ -34,7 +34,7 @@ when its message arrives or at night (his word of 19 Nov 2026).
 ## Agents
 
 The desk (off until his `desk` setting) starts and wakes his registered agents: a registered agent is started by
-Life, unattended, on a message from anyone in its subject, his answer or its deadline, and acts with his access. An
+Life, unattended, on a message from anyone in its subject, a recorded call with them that ended, his answer or its deadline, and acts with his access. An
 agent on a matter is also woken by anything new related to it (the wide net, his word of 18 Nov 2026): a message from
 one of the matter's people, or a message or recording of his close to the matter in meaning, as the Mac's embedder
 reads it (`desk/matter-net.ts`: no model call, nothing leaves the Mac). The wake hands it only the facts (which
@@ -88,13 +88,18 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - By Gmail, through gog, as a mail from one of his accounts: a card's draft (from, to, cc, subject, text and one file he
   approved), once, on his answer to its outgoing option. It goes to Google's Gmail API, then to its recipients; a file is
   written for a moment to a private temporary folder for gog, and removed after.
+- To GitHub, through `gh` as his account, with the `github` source on: requests for the issues and comments of the repos
+  he listed in `githubRepos`, and nothing else; and a card's draft (a comment's text, or a new issue's title and text),
+  once, on his answer to its outgoing option, into one of those repos (his yes of 19 Nov 2026).
 - To Google, when he set it: the Past calendar, the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026),
   and the to-do items with Google Tasks as the backend.
 - To his own lifelog server: his corrections about recordings, a "heard you" notice for each voice ask (the agent's
   name only, never his words), and, for each new card in his
-  inbox, a push (his yes of 18 Nov 2026): the words "1 new card" or "N new cards", the number of cards that block him (the badge)
-  and, for one card, an id of 16 hex characters made with a key that never leaves the Mac (never a ref, a name, a title
-  or a question). Lifelog pushes it to his phone through Apple.
+  inbox, a push (his yes of 18 Nov 2026; every kind of card since 19 Nov 2026): the words "1 new card" or "N more new
+  cards", the number of cards that block him (the badge), the push's level (passive, active or time-sensitive) and,
+  for one card, an id of 16 hex characters made with a key that never leaves the Mac (never a ref, a name, a title or
+  a question). Lifelog pushes it to his phone through Apple; his phone then reads the card from the connector and
+  writes the notification's text itself, shown on his lock screen and his Watch.
 - The encrypted backup, when `backup` is set, to the folder he chose.
 - Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
 
@@ -108,6 +113,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   `answer_check` once he approved the exact text in its chat, which sends it (his word of 19 Nov 2026). A page or
   message the client reads could steer it into both: the gate is the client's honesty about his yes, policy not
   enforcement, as for any answer his token records; the card stamps the chat and text, and the send is logged.
+- The phone's notification extension reads the app's tokens (Life's and lifelog's: one Keychain group), to read a card
+  for its notification (`NotificationService`).
 - Full Disk Access makes Life a high-value target on the Mac.
 - Models misread: an observation is a model's reading with a checked quote, not a fact.
 - His agents act with his access (above).

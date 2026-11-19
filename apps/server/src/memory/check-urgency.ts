@@ -1,4 +1,5 @@
-import type { CheckGroup } from "./life-checks";
+import type { CheckGroup } from "../core/names";
+import { dayNow, localDate } from "./zones";
 
 /** `blocks`: a worker waits on him, or Life cannot answer at all; `improves`: Life already uses its guess, or only asks. */
 export type Urgency = "blocks" | "improves";
@@ -33,3 +34,15 @@ export const urgencyOf = (c: Rankable): Urgency =>
 /** How many of `list` block him: the app's badge, and the one place to change what it counts. */
 export const blockingCountOf = (list: Rankable[]) =>
   list.filter((c) => urgencyOf(c) === "blocks").length;
+
+/** What the inbox holds: how many of each group, how many in all, how many block (the badge), and how many are due by the end of his day (`dayNow`). */
+export const inboxOf = (list: (Rankable & { deadline: string | null })[]) => ({
+  blocking: blockingCountOf(list),
+  counts: Object.fromEntries(
+    [...Map.groupBy(list, (c) => c.group)].map(([g, l]) => [g, l.length])
+  ),
+  deadlinesToday: list.filter(
+    (c) => c.deadline && localDate(c.deadline) <= dayNow()
+  ).length,
+  total: list.length,
+});

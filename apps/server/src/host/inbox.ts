@@ -1,4 +1,5 @@
-import { checksNow, inboxOf } from "../memory/checks";
+import { inboxOf } from "../memory/check-urgency";
+import { checksNow } from "../memory/checks";
 import { heldByAgents, readDesk } from "./desk-read";
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
@@ -28,8 +29,13 @@ export async function openCheckOf(ref: string) {
   return check;
 }
 
-/** `read_inbox`: the first `limit` checks of his inbox, what blocks first, then most pressing, with how many there are of each group and how many block. Answered ones leave, so reading again shows the next. */
-export async function readInbox(limit: number) {
+/** `read_inbox`: the first `limit` checks of his inbox, what blocks first, then most pressing, with how many there are of each group and how many block. Answered ones leave, so reading again shows the next. With `pushId` (a push's), only that card, or none when it is answered; the counts stay the whole inbox's. */
+export async function readInbox(limit: number, pushId?: string) {
   const shown = await openChecksNow();
-  return { checks: shown.slice(0, limit), ...inboxOf(shown) };
+  return {
+    checks: pushId
+      ? shown.filter((c) => c.pushId === pushId)
+      : shown.slice(0, limit),
+    ...inboxOf(shown),
+  };
 }

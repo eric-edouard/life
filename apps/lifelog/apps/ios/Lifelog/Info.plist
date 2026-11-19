@@ -35,6 +35,8 @@
 	<string>1</string>
 	<key>LifelogAppGroup</key>
 	<string>group.$(LIFELOG_BUNDLE_ID)</string>
+	<key>LifelogBundleID</key>
+	<string>$(LIFELOG_BUNDLE_ID)</string>
 	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
 	<true/>
 	<key>UIAppFonts</key>

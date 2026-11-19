@@ -2,6 +2,7 @@ import { realpath, stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { digest } from "../core/hash";
+import { redact } from "../core/redact";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
 import { directOf } from "./closeness";
@@ -11,7 +12,9 @@ import {
   type MessageDraft,
   type StoredDraft,
 } from "./draft";
+import { OWNER } from "./read-truth";
 import { enabledSources } from "./sources";
+import { oneLineOf } from "./units";
 import { readPeople } from "./who";
 
 // A card's draft, sent (AGENTS.md, "Life sends only…"): which chat a draft names and what of it the chat takes, checked
@@ -147,7 +150,7 @@ async function chatOf(
     throw new Error(
       chats.length
         ? `Not done: ${draft.to} has ${chats.length} chats on ${s.name}: give one as \`to\` (${chats.join(", ")}).`
-        : `Not done: no chat of ${draft.to} on ${s.name} that it can send into: give a chat key from \`read_chats\` or a person's name${send.opens ? ", or a new person's id as <digits>@s.whatsapp.net (a group it never saw can't be opened)" : ""}.`
+        : `Not done: no chat of ${draft.to} on ${s.name} that it can send into: give a chat key from \`read_chats\` or a person's name${send.opensHint ? `, or ${send.opensHint}` : ""}.`
     );
   }
   return { chat, events, name };
@@ -217,7 +220,11 @@ export async function resolveDraft(
       `Not done: a draft's \`channel\` is the source it goes through: one of ${sending.map((x) => x.name).join(", ") || "none on this Mac"}.`
     );
   }
-  const problem = draftProblemOf(draft, s.kind === "mail" ? "mail" : "chat");
+  const problem = draftProblemOf(
+    draft,
+    s.kind === "mail" ? "mail" : "chat",
+    Boolean(s.send.opensWithSubject)
+  );
   if (problem) {
     throw new Error(`Not done: ${problem}.`);
   }
@@ -274,10 +281,21 @@ async function readySend(
     // ponytail: the archive's copy can trail the network by its copier's interval, so a message written seconds ago may be missed.
     const wrote = s
       .read(since)
-      .some((e) => e.chat === draft.chat && e.at > since.toISOString());
+      .filter((e) => e.chat === draft.chat && e.at > since.toISOString())
+      .toSorted((a, b) => a.at.localeCompare(b.at))
+      .at(-1);
     if (wrote) {
-      throw new Error(
-        `not sent: someone wrote in ${draft.to} since this card was asked`
+      throw Object.assign(
+        new Error(
+          `not sent: someone wrote in ${draft.to} since this card was asked`
+        ),
+        {
+          wrote: {
+            at: wrote.at,
+            by: wrote.fromMe ? (await readPeople()).nameOf(OWNER) : draft.to,
+            text: oneLineOf(redact(wrote.text), 120),
+          },
+        }
       );
     }
     onStep?.(STEP.chatChecked);

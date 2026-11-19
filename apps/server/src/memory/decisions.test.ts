@@ -12,7 +12,9 @@ import { DAY, HOUR, MIN } from "../core/clock";
 import {
   answerDecision,
   DECISIONS,
+  type Decision,
   decisionsNow,
+  notSentOf,
   requestDecision,
   settledBetween,
 } from "./decisions";
@@ -101,6 +103,16 @@ test("a request is one card: one-line title and question, a draft only with its 
   await refused({ title: "x".repeat(81) }, "title");
   await refused({ title: "Fix\nthe boiler" }, "one line");
   await refused({ question: "x".repeat(121) }, "question");
+  await refused({ question: "Book Kit to fix the boiler" }, "end in a ?");
+  await refused(
+    {
+      options: [
+        { id: "yes", label: "Book Kit" },
+        { id: "wait", label: "Wait for a second quote from him" },
+      ],
+    },
+    "five words"
+  );
   await refused({ draft: { text: "Can you come Friday?" } }, "to");
   const send = { id: "send", label: "Send it", outgoing: true as const };
   await refused({ draft }, "outgoing");
@@ -337,6 +349,38 @@ test("a not-sent outcome voids its answer: the card is open again, only his next
       via: "connector",
     })
   ).rejects.toThrow("answered");
+});
+
+test("a not-sent that found a message carries it to the card: wrote, else null", async () => {
+  const { id } = await requestDecision(
+    "planner",
+    ask({
+      draft,
+      options: [
+        { id: "send", label: "Send it", outgoing: true },
+        { id: "wait", label: "Wait" },
+      ],
+    }),
+    NOW,
+    readChat
+  );
+  const wrote = { at: later(1).toISOString(), by: "Ana", text: "wait" };
+  await answerDecision(id, ["send"], undefined, {
+    deliver: () =>
+      Promise.reject(
+        Object.assign(new Error("not sent: someone wrote in Ana"), { wrote })
+      ),
+    now: later(2),
+    via: "connector",
+  });
+  const [d] = decisionsNow(later(3));
+  expect(notSentOf(d as Decision)).toMatchObject({ wrote });
+  expect(
+    notSentOf({
+      ...(d as Decision),
+      notSent: { ...d?.notSent, wrote: undefined } as never,
+    })?.wrote
+  ).toBeNull();
 });
 
 test("a lapse whose answer a late not-sent voided settles when it was voided, so a poll past the deadline sees it; never retryable is kept", async () => {

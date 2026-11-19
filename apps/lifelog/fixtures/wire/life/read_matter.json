@@ -69,8 +69,12 @@
       "with": "partner"
     }
   ],
+  "blockingChecks": 1,
   "checks": [
     {
+      "around": null,
+      "said": null,
+      "since": null,
       "about": [],
       "asker": "Orbit",
       "at": "2026-10-13T09:00:00.000Z",
@@ -101,6 +105,12 @@
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
       "notSent": null,
+      "onMatters": [
+        {
+          "id": "matter_aaaaaaaaaaaa",
+          "name": "Mend Gran's watch"
+        }
+      ],
       "onSilence": "no",
       "options": [
         {
@@ -132,10 +142,11 @@
       "confirm": [
         {
           "about": ["+33600000001"],
+          "around": null,
           "asker": "life",
           "at": null,
           "clips": [],
-          "context": null,
+          "context": "Life read their messages as Kit, the watchmaker (70% sure).",
           "deadline": null,
           "draft": null,
           "evidence": {
@@ -148,6 +159,7 @@
           "likelyPeople": [],
           "links": [],
           "notSent": null,
+          "onMatters": [],
           "onSilence": null,
           "options": [
             {
@@ -166,7 +178,7 @@
               "takes": "person"
             }
           ],
-          "question": "Life thinks this is Kit, the watchmaker (70% sure)",
+          "question": "Is this Kit?",
           "ref": "person:inf_kit",
           "ridesOn": {
             "matterIds": [],
@@ -174,17 +186,40 @@
             "observations": 1,
             "pages": 0
           },
+          "said": null,
+          "since": null,
           "subject": null,
           "title": "Know who someone is",
           "matter": null,
-          "confirm": []
+          "confirm": [],
+          "networkIdentity": {
+            "chat": "33600000001@s.whatsapp.net",
+            "handle": "+33600000001",
+            "network": "WhatsApp",
+            "newest": {
+              "at": "2026-10-12T09:05:00.000Z",
+              "by": "Kit Watches",
+              "text": "Kit here, from the shop"
+            },
+            "openUrl": "https://wa.me/33600000001",
+            "shownName": "Kit Watches"
+          }
         }
       ],
+      "networkIdentity": {
+        "chat": "33600000001@s.whatsapp.net",
+        "handle": "+33600000001",
+        "network": "WhatsApp",
+        "newest": null,
+        "openUrl": "https://wa.me/33600000001",
+        "shownName": "Kit"
+      },
       "pushId": "a23260946067d0fe",
       "urgency": "blocks"
     },
     {
       "about": [],
+      "around": null,
       "asker": "life",
       "at": null,
       "clips": [],
@@ -201,26 +236,46 @@
       "likelyPeople": [],
       "links": [],
       "notSent": null,
+      "onMatters": [
+        {
+          "id": "matter_aaaaaaaaaaaa",
+          "name": "Mend Gran's watch"
+        }
+      ],
       "onSilence": null,
       "options": [
         {
           "id": "outdated",
-          "label": "Done",
+          "label": "Yes, done",
           "takes": null
         },
         {
           "id": "false",
-          "label": "Not done",
+          "label": "Not yet",
           "takes": null
         }
       ],
-      "question": "Life thinks this is done: Call the shop",
+      "question": "Is this done? \"Call the shop\" said Gran",
       "ref": "obs_000000000005",
       "ridesOn": {
         "matterIds": ["matter_aaaaaaaaaaaa"],
         "matters": 1,
         "observations": 1,
         "pages": 0
+      },
+      "said": {
+        "at": "2026-10-12",
+        "by": "Gran",
+        "channel": "whatsapp",
+        "text": "\"Call the shop\" said Gran",
+        "to": "Gran"
+      },
+      "since": {
+        "at": null,
+        "by": null,
+        "channel": null,
+        "text": "Called them.",
+        "to": null
       },
       "subject": null,
       "title": "Close what is done",
@@ -229,6 +284,7 @@
         "name": "Mend Gran's watch"
       },
       "confirm": [],
+      "networkIdentity": null,
       "pushId": "c84c34823f7fa7b0",
       "urgency": "improves"
     }

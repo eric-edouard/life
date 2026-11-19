@@ -76,7 +76,7 @@ export const DecisionRequest = Ask.omit({ agent: true })
 
 /** The card's rules in words, for every tool that asks one (the connector's `request_decision`, the door's). */
 export const CARD =
-  "One card: `title` (what you are trying to do, one line, 80 characters), `question` (what he decides, one line, 120), `draft` (the exact message to approve, shown to him in full: `channel` the source it goes through; `to` a chat key from `read_chats`, or a person with one 1:1 chat there (for mail, addresses); `text`, a `file` (an absolute path: he sees its name and size, and Life sends the bytes it reads when you ask), or a `reaction` (an emoji, which needs `onMessage` and nothing else); `onMessage` a message's id (`read_chats`, `read_new_events`; for mail, its id from `search` or `fetch`), replied to (or reacted to); `mentions` (`[{name, sender}]`: each `@name` in `text`, in its order, `sender` the sender id `read_chats` shows for that person in this chat); for mail only `from`, `subject`, `cc`; a feature the chat can't take is refused when you ask; Life sends it exactly as shown when he picks its one `outgoing` option alone (with his words added, or another option, nothing is sent), and `decision.answered` carries `send`, the sent message's id or its error; a failed send is never retried: ask a new card), `options` (2 to 4 `{id, label}`, one line each, the recommended one first, `outgoing: true` on one that sends, pays, books, deletes or changes something), `context` (why, what was tried, what it rests on, with links: folded, about 10 lines), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, never an outgoing one, or null), `subject` (a matter's id or one of its steps': it leaves his list when the matter ends; or `project:<id>`, `area:<id>`). He can always answer in his own words instead (the answer's `note`).";
+  "One card: `title` (what you are trying to do, one line, 80 characters), `question` (what he decides, one line, 120, ending in a ?), `draft` (the exact message to approve, shown to him in full: `channel` the source it goes through; `to` a chat key from `read_chats`, or a person with one 1:1 chat there (for mail, addresses); `text`, a `file` (an absolute path: he sees its name and size, and Life sends the bytes it reads when you ask), or a `reaction` (an emoji, which needs `onMessage` and nothing else); `onMessage` a message's id (`read_chats`, `read_new_events`; for mail, its id from `search` or `fetch`), replied to (or reacted to); `mentions` (`[{name, sender}]`: each `@name` in `text`, in its order, `sender` the sender id `read_chats` shows for that person in this chat); for mail only `from`, `subject`, `cc`; a feature the chat can't take is refused when you ask; Life sends it exactly as shown when he picks its one `outgoing` option alone (with his words added, or another option, nothing is sent), and `decision.answered` carries `send`, the sent message's id or its error; a failed send is never retried: ask a new card), `options` (2 to 4 `{id, label}`, a label at most five words, the recommended one first, `outgoing: true` on one that sends, pays, books, deletes or changes something), `context` (why, what was tried, what it rests on, with links: folded, about 10 lines), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, never an outgoing one, or null), `subject` (a matter's id or one of its steps': it leaves his list when the matter ends; or `project:<id>`, `area:<id>`). He can always answer in his own words instead (the answer's `note`).";
 
 const Asked = Ask.extend({
   asker: z.string().min(1),
@@ -127,6 +127,11 @@ const SendFailed = Sent.omit({ eventId: true, kind: true })
     canRetry: z.literal(false).optional(),
     error: z.string().min(1),
     kind: z.literal("send-failed"),
+    /** The message that refused the send ("someone wrote since"): when, by whom, its words on one line. */
+    wrote: z
+      .object({ at: isoDateTime, by: z.string(), text: z.string() })
+      .strict()
+      .optional(),
   })
   .strict();
 const Line = z.discriminatedUnion("kind", [
@@ -300,6 +305,8 @@ function withdrawDecision(
   return { id: d.id };
 }
 
+const WHITESPACE = /\s+/;
+
 /** What breaks the card's rules beyond its shape, in words the agent can fix; false when nothing does. */
 function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
   const ids = ask.options.map((o) => o.id);
@@ -315,6 +322,9 @@ function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
     (ask.draft &&
       ask.options.filter((o) => o.outgoing).length !== 1 &&
       "a `draft` needs the one option that sends it marked `outgoing`") ||
+    (!ask.question.trim().endsWith("?") && "`question` must end in a ?") ||
+    (ask.options.find((o) => o.label.trim().split(WHITESPACE).length > 5) &&
+      "an option's `label` is at most five words") ||
     ((ahead < HOUR || ahead > 14 * DAY) &&
       "the deadline must be 1 hour to 14 days ahead")
   );
@@ -456,10 +466,11 @@ export async function answerDecision(
   const since = new Date(stored.notSent?.at ?? stored.at);
   const outcome = await deliver(stored.draft, id, { onStep, since }).then(
     (eventId) => ({ eventId, kind: "sent" as const }),
-    (e: Error & { canRetry?: false }) => ({
+    (e: Error & { canRetry?: false; wrote?: SendFailed["wrote"] }) => ({
       error: e.message,
       kind: "send-failed" as const,
       ...(e.canRetry === false ? { canRetry: false as const } : {}),
+      ...(e.wrote ? { wrote: e.wrote } : {}),
     })
   );
   const sent = {
@@ -479,6 +490,7 @@ export const notSentOf = (d: Decision, n = d.notSent) =>
         at: n.at,
         canRetry: n.canRetry !== false && n.at < d.deadline,
         reason: n.error,
+        wrote: n.wrote ?? null,
       }
     : null;
 

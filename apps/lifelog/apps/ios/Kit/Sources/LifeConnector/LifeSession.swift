@@ -1,7 +1,9 @@
 import Foundation
 
 /// The bearer every call carries. Life replaces the refresh token each time it is used, so two refreshes at once would
-/// lose the pairing: there is one at a time, and whoever asks meanwhile waits for it.
+/// lose the pairing: there is one at a time in a process, and whoever asks meanwhile waits for it. Another process on
+/// the same store (the notification extension) may still refresh at the same moment: a refused refresh reads the store
+/// again before it ends the pairing.
 public actor LifeSession {
     /// A token with less than this left is replaced before it is used.
     private static let margin: TimeInterval = 60
@@ -40,17 +42,22 @@ public actor LifeSession {
     private func refreshed(from held: LifeCredentials) async throws -> String {
         if let refreshing { return try await refreshing.value.access }
         let (store, oauth) = (store, oauth)
-        // Kept inside the task: whoever asks after it ends finds the new tokens, never the replaced ones.
+        // Kept inside the task, so every caller waiting on it gets the same end: whoever asks after it ends finds the new
+        // tokens, never the replaced ones.
         let task = Task {
-            let tokens = try await oauth.refresh(held)
-            store.save(LifeCredentials(endpoint: held.endpoint, tokens: tokens))
-            return tokens
+            do {
+                let tokens = try await oauth.refresh(held)
+                store.save(LifeCredentials(endpoint: held.endpoint, tokens: tokens))
+                return tokens
+            } catch MCPError.notPaired {
+                // Refused because another process already used this refresh token: it saved newer tokens, which hold.
+                if let saved = store.load(), saved.tokens.refresh != held.tokens.refresh { return saved.tokens }
+                store.clear()
+                throw MCPError.notPaired
+            }
         }
         refreshing = task
         defer { refreshing = nil }
-        do { return try await task.value.access } catch MCPError.notPaired {
-            store.clear()
-            throw MCPError.notPaired
-        }
+        return try await task.value.access
     }
 }

@@ -99,7 +99,7 @@ private func reading(
         #expect(reading(status).lowBattery == nil)
     }
 
-    @Test func onlyOwnerWorkCountsForThePill() {
+    @Test func onlyOwnerWorkCountsForTheItem() {
         var status = healthy()
         status.sync = .failed(.incomplete(missingFrom: 7))
         #expect(reading(status).needs == 1)

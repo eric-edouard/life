@@ -3,13 +3,14 @@
     import Library
     import LifeConnector
     import Synchronization
+    import Upload
 
     /// Life without a Mac, for the simulator: made-up inbox, matters and agents, and an API that answers as Life would,
     /// slowly, or not at all, so every state of every screen can be put on screen and photographed.
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `loading`, `empty`, `improves` (only what can wait), `stale`, `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent` decides what a tap on a draft does; `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`
     /// open the screen to show. `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -25,6 +26,16 @@
         nonisolated static let page = value(of: "-fixturePage")
         nonisolated static let pair = value(of: "-fixturePair") ?? "ok"
         nonisolated static let pose = value(of: "-fixturePose")
+        /// `-fixtureUpload settled|behind`: what the phone says is on the Mac, so the Pendant sheet's upload tile
+        /// shows "All on your Mac" or what is still to send (no flag: the phone is still being asked).
+        nonisolated static var uploads: UploadStatus? {
+            let now = Date.now
+            return switch value(of: "-fixtureUpload") {
+            case "settled": UploadStatus(sentThrough: now, heardThrough: now)
+            case "behind": UploadStatus(unsent: .seconds(2_520), sentThrough: now - 3_600, heardThrough: now)
+            default: nil
+            }
+        }
 
         nonisolated private static func value(of flag: String) -> String? {
             let arguments = ProcessInfo.processInfo.arguments
@@ -379,9 +390,8 @@
                     "voice_v1", group: "voice", urgency: "blocks", title: "A voice from Saturday, 4 minutes with Sam",
                     question: "Who is this?",
                     options: [
-                        option("this-is", "Name them…", takes: "person or name"),
-                        option("not-anyone-i-know", "A stranger"), option("media", "TV or video"),
-                        option("not-relevant", "Don't care"),
+                        option("this-is", "Someone else…", takes: "person or name"),
+                        option("not-relevant", "Don't name"),
                     ],
                     context: "Sam called the voice “Jun” twice in the same minute.",
                     extra: [
@@ -404,8 +414,7 @@
                     ]),
                 check(
                     "person:con_cam", group: "contacts card", urgency: "blocks", title: "Place a Contacts card",
-                    question:
-                        "Life cannot place the Contacts card Cam: its name and handles say Camille Vance and Cam Ortiz",
+                    question: "Is this Camille or Cam?",
                     options: [option("same-person", "Choose who…", takes: "person")],
                     context: "Its name and handles fit more than one person.",
                     extra: [
@@ -416,10 +425,10 @@
                     ]),
                 check(
                     "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
-                    question: "Goal: a table for eight at Chez Odile on Friday 27th. Work on it?",
+                    question: "Start an agent on this? A table for eight at Chez Odile on Friday 27th.",
                     options: [
                         option("start", "Start"), option("edit-goal", "Edit goal", takes: "note"),
-                        option("dismiss", "Dismiss"),
+                        option("dismiss", "No"),
                     ],
                     matter: table,
                     context: "Camille proposed Chez Odile on Saturday; you said you would handle it.",
@@ -427,7 +436,7 @@
                 guess("guess_idris", name: "Idris Benali", handle: "Idris B.", matter: kitchen),
                 check(
                     "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
-                    question: "Life thinks this is Camille Vance, a friend (70% sure)",
+                    question: "Is this Camille?",
                     options: [
                         option("this-is", "It is them"), option("not-this-person", "Not them"),
                         option("same-person", "Someone Life already knows", takes: "person"),
@@ -441,8 +450,8 @@
                     ]),
                 check(
                     "end_done", group: "ending", title: "Idris Benali owed Sam the supplier price",
-                    question: "Is this done?",
-                    options: [option("outdated", "Done"), option("false", "Not done")], matter: kitchen,
+                    question: "Is this done? Idris Benali owed Sam the supplier price",
+                    options: [option("outdated", "Yes, done"), option("false", "Not yet")], matter: kitchen,
                     context: "He wrote the price on Tuesday; nothing in the matter has changed since.",
                     extra: [
                         "evidence": [

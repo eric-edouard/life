@@ -10,6 +10,7 @@ import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector, settings } from "../../core/settings";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
+import { blockingCountOf } from "../../memory/check-urgency";
 import { checksOnMatterOf } from "../../memory/checks";
 import { CARD, DecisionRequest, requestDecision } from "../../memory/decisions";
 import { recordCorrection } from "../../memory/memory-files";
@@ -87,6 +88,9 @@ import {
 // chat changes his Reminders (`change_todo_item`, through `changeTodoItem`); nothing else. An agent pulls its asks (`read_agent_asks`).
 // Built with `readsOnly` (`buildServer(true)`), for the question cases' agent over stdio, it registers only the reads.
 // Auth: a Bearer JWT that the connector's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
+
+/** A push's card id: 16 hex (`pushIdOf`). */
+const PUSH_ID = /^[0-9a-f]{16}$/;
 
 const SCOPES = [SCOPE, "offline_access"];
 
@@ -284,7 +288,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matters",
-    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `openChecks` (how many open checks are about it, of every kind: `read_matter` lists them), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: names, from its open steps), `areas` and `projects` (names), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area. `read_matter` opens one.",
+    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `blockingChecks` (how many open checks about it block him: an agent's decision, an unnamed voice, a name nobody is; `read_matter` lists every one), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: names, from its open steps), `areas` and `projects` (names), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area. `read_matter` opens one.",
     z.object({
       area: z.string().optional().describe("Area id or name"),
       person: z.string().optional().describe("Name, alias or id"),
@@ -298,7 +302,7 @@ export function buildServer(readsOnly = false) {
       return {
         matters: matters.map((m) => ({
           ...m,
-          openChecks: checksOnMatterOf(open, m.id).length,
+          blockingChecks: blockingCountOf(checksOnMatterOf(open, m.id)),
         })),
       };
     }
@@ -306,7 +310,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matter",
-    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them, then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link).",
+    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them (`blockingChecks` included), then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link).",
     z.object({
       id: z
         .string()
@@ -320,10 +324,8 @@ export function buildServer(readsOnly = false) {
       if (!matter) {
         throw new Error(`No matter ${id}.`);
       }
-      return {
-        ...matter,
-        checks: checksOnMatterOf(await openChecksNow(), matter.id),
-      };
+      const checks = checksOnMatterOf(await openChecksNow(), matter.id);
+      return { ...matter, blockingChecks: blockingCountOf(checks), checks };
     }
   );
   tool(
@@ -428,16 +430,21 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_inbox",
-    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), in order: a decision, an unnamed voice, an unplaced name or card (these block), a new matter, a guess in use, \"is this done?\" (inside each, deadlines first, then what rides on each), `counts` by group, `total`, `blocking` (how many block: the badge), `deadlinesToday` (how many are due by the end of his day). Every open ask is here: the decisions his agents ask (`decision`), who someone is (`guessed person`, a `contacts card` Life cannot place, a `name`; a voice to name: `voice`, its `clips`, each a span of a recording the app plays from lifelog, its `words` ([start, end, length] in ms from the clip start, `TimedWords`); a voice or a Contacts card's `likelyPeople`, who it may be), a step Life thinks is done (`ending`) and a running matter Life found that an agent could move (`new matter`, with its `goal`: start one on it, edit its goal, or dismiss it; also on `read_matter`'s `checks`). Each card's `urgency` is `blocks` (a worker waits on him, or Life cannot answer at all) or `improves` (Life already uses its guess, or asks whether a step is done: lower priority, never hidden). Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (what Life sends if he approves, exactly as shown: `to`, `text`, a `file` (name, size), the message it replies or reacts to (`quoted`), `mentions`; for mail `from`, `cc`, `subject`), `confirm` (on a decision whose draft goes to someone Life only guesses: that guess, one check asked beside it), `options` (`id`, `label`, his button's words, `takes`, what his answer must carry besides it: `person`, `person or name`, `note` or null, and `outgoing` on one that acts outward; with two or more, the first is recommended; what each does: `answer_check`), `context` (folded detail), `evidence` (the words it rests on), `asker`, `deadline` and `onSilence` (the option an agent takes if he doesn't answer; null: nothing is taken), `subject`, `matter` (the matter it belongs to: id, name), `links`. Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
+    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), in order: a decision, an unnamed voice, an unplaced name or card (these block), a new matter, a guess in use, \"is this done?\" (inside each, deadlines first, then what rides on each), `counts` by group, `total`, `blocking` (how many block: the badge), `deadlinesToday` (how many are due by the end of his day). Every open ask is here: the decisions his agents ask (`decision`), who someone is (`guessed person`, a `contacts card` Life cannot place, a `name`; a voice to name: `voice`, its `clips`, each a span of a recording the app plays from lifelog, its `words` ([start, end, length] in ms from the clip start, `TimedWords`); a voice or a Contacts card's `likelyPeople`, who it may be; a person check's `networkIdentity`, who it is as their network shows them, from their newest 1:1 chat (a decision's draft has one too, from the chat it stored, with no message read: its `newest` is null), and a `contacts card`'s own `contactsCard` (`name`, `handles`; null on every other kind): `network`, `handle`, `shownName`, `chat` (as `read_chats` takes it), `newest` message (`by`, `at`, `text`) and `openUrl`, the network's own link to the chat (WhatsApp's `wa.me`), else null), a step Life thinks is done (`ending`) and a running matter Life found that an agent could move (`new matter`, with its `goal`: start one on it, edit its goal, or dismiss it; also on `read_matter`'s `checks`). Each card's `urgency` is `blocks` (a worker waits on him, or Life cannot answer at all) or `improves` (Life already uses its guess, or asks whether a step is done: lower priority, never hidden). Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (what Life sends if he approves, exactly as shown: `to`, `text`, a `file` (name, size), the message it replies or reacts to (`quoted`), `mentions`; for mail `from`, `cc`, `subject`), `confirm` (on a decision whose draft goes to someone Life only guesses: that guess, one check asked beside it), `options` (`id`, `label`, his button's words, `takes`, what his answer must carry besides it: `person`, `person or name`, `note` or null, and `outgoing` on one that acts outward; with two or more, the first is recommended; what each does: `answer_check`), `context` (folded detail), `evidence` (the words it rests on), `asker`, `deadline` and `onSilence` (the option an agent takes if he doesn't answer; null: nothing is taken), `subject`, `matter` (the matter it belongs to: id, name), `links`. Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next. `pushId` (from a push): just that card (none if answered), `limit` ignored.",
     z.object({
       limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
+      pushId: z
+        .string()
+        .regex(PUSH_ID)
+        .optional()
+        .describe("A push's card id: only that card"),
     }),
-    ({ limit = 50 }) => readInbox(limit)
+    ({ limit = 50, pushId }) => readInbox(limit, pushId)
   );
   tool(
     server,
     "read_registered_agents",
-    "What his agents are doing (JSON): every registered agent the desk keeps (active, stopped, and those ended in the last 7 days): what it works on (its matter, or a project), status (running, waiting, stopped, handed_over, ended), its runtime and model, what it waits for and until when, its last turn, its notes' first line, its link (opens its session) and what shows amber. `refused`: his changes (`change_registered_agent`) the desk refused in the last day, and why. `desk` says whether the desk is on and readable, `helper` whether it runs. What waits on him: `read_inbox`.",
+    "What his agents are doing (JSON): every registered agent the desk keeps (active, stopped, and those ended in the last 7 days): what it works on (its matter, or a project), status (running, waiting, stopped, ended), its runtime and model, what it waits for and until when, its last turn, its notes' first line, its link (opens its session) and what shows amber. `refused`: his changes (`change_registered_agent`) the desk refused in the last day, and why. `desk` says whether the desk is on and readable, `helper` whether it runs. What waits on him: `read_inbox`.",
     z.object({}),
     async () => ({ ...(await readRegisteredAgents()) })
   );
@@ -473,7 +480,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "answer_check",
-    "Record the owner's answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life's own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim; on a new matter's `start`, the goal he saw), and what the option `takes`: `person` (`person:<id>`, or a name Life knows), for a voice `person` or `name` (a new person's name), or `note`. Life acts on it at once and returns the lines written. A decision: its asker is told, and his pick of a draft's one outgoing option alone sends that draft, exactly, into its chat (only on his own answer in this chat). An ending: `outdated` closes the step, `false` removes the link and the step stays open. A guessed person: `this-is` keeps Life's guess as his word, `not-this-person` drops it, `same-person` makes the two one. A `contacts card` (`same-person`) or a name (`this-is`): it is that person from now on. A voice: `this-is` names every turn of it in lifelog, `not-anyone-i-know` is never asked again, `media` is a video or TV playing, `not-relevant` is not worth naming. A new matter: `start` makes the goal he saw his and asks the desk to start an agent with it as its brief (its start stages come as it starts), `edit-goal` makes his `note` the goal and keeps the card for Start or Dismiss, `dismiss` never asks again for this matter.",
+    'Record the owner\'s answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life\'s own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim; on a new matter\'s `start`, the goal he saw), and what the option `takes`: `person` (`person:<id>`, or a name Life knows), for a voice `person` or `name` (a new person\'s name), or `note`. Life acts on it at once and returns the lines written. A decision: its asker is told, and his pick of a draft\'s one outgoing option alone sends that draft, exactly, into its chat (only on his own answer in this chat). An ending ("Is this done?"): `outdated` ("Yes, done") closes the step, `false` removes the link and the step stays open. A guessed person: `this-is` keeps Life\'s guess as his word, `not-this-person` drops it, `same-person` makes the two one. A `contacts card` (`same-person`) or a name (`this-is`): it is that person from now on. A voice: `is-them` ("Yes", to "Is this X?") names every turn of it as the guessed person, `this-is` ("Someone else…") names every turn of it in lifelog, `not-relevant` ("Don\'t name") is not worth naming; `not-anyone-i-know` and `media` are still accepted, no longer offered. A new matter: `start` makes the goal he saw his and asks the desk to start an agent with it as its brief (its start stages come as it starts), `edit-goal` makes his `note` the goal and keeps the card for Start or Dismiss, `dismiss` never asks again for this matter.',
     z.object({
       name: z
         .string()

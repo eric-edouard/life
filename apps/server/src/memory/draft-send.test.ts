@@ -12,6 +12,7 @@ import { digest } from "../core/hash";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
 import { BRIDGES } from "../sources/matrix";
+import { draftProblemOf } from "./draft";
 import { resolveDraft, sendDraft } from "./draft-send";
 
 const KIT_JID = /^\d+@s\.whatsapp\.net$/;
@@ -46,6 +47,9 @@ const source = (
     limitMs: () => 1000,
     opens: opens
       ? async (chat) => (KIT_JID.test(chat) ? "Test Kit" : undefined)
+      : undefined,
+    opensHint: opens
+      ? "a new person's id as <digits>@s.whatsapp.net (a group it never saw can't be opened)"
       : undefined,
     refusal,
     send,
@@ -391,6 +395,14 @@ test("a message in the chat since the card (theirs or his own) sends nothing; on
   }
   expect(sent).toEqual([]);
   expect(steps).toEqual([]);
+  // The refusal carries the message it found, for the card.
+  const refusal = await sendDraft(stored, "t3", opts, [
+    net([at("2026-11-18T09:05:00.000Z")]),
+  ]).catch((e) => e);
+  expect(refusal.wrote).toMatchObject({
+    at: "2026-11-18T09:05:00.000Z",
+    by: "Test Ana",
+  });
   expect(
     await sendDraft(stored, "t2", opts, [net([at("2026-11-18T08:59:00.000Z")])])
   ).toBe("$ev");
@@ -446,4 +458,30 @@ test("a failure before the hand-off is not sent, whatever it says: the archive's
   )) as Error;
   expect(failed.message).toBe("not sent: database is locked");
   expect(send).not.toHaveBeenCalled();
+});
+
+test("a subject is a chat's only when its source opens chats with one (a new issue's title); WhatsApp-like chats still refuse it", async () => {
+  const plain = source("sendnet", [ana()]);
+  const issues: Descriptor = {
+    ...plain,
+    send: { ...(plain.send as SendPath), opensWithSubject: true },
+  };
+  const draft = {
+    channel: "sendnet",
+    subject: "Crash",
+    text: hi,
+    to: "Test Ana",
+  };
+  expect(await resolveDraft(draft, NOW, [issues])).toMatchObject({
+    chat: "!ana:life.local",
+    subject: "Crash",
+  });
+  await expect(resolveDraft(draft, NOW, [plain])).rejects.toThrow(
+    "`from`, `subject` and `cc` are for mail"
+  );
+  // `from` and `cc` stay mail's even there.
+  expect(
+    draftProblemOf({ ...draft, from: "a@b.c" } as never, "chat", true)
+  ).toBe("`from` and `cc` are for mail: a chat takes none");
+  expect(draftProblemOf(draft as never, "chat")).toContain("are for mail");
 });

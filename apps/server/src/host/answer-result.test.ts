@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { DAY } from "../core/clock";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
-import type { Check, InboxCheck } from "../memory/checks";
+import type { InboxCheck } from "../memory/checks";
 import {
   DECISIONS,
   type Decision,
@@ -13,6 +13,7 @@ import {
   notSentOf,
   requestDecision,
 } from "../memory/decisions";
+import type { Check } from "../memory/life-checks";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { answerWithResult } from "./answer-result";
