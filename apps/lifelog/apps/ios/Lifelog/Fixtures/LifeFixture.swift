@@ -8,7 +8,7 @@
     /// Life without a Mac, for the simulator: made-up inbox, matters and agents, and an API that answers as Life would,
     /// slowly, or not at all, so every state of every screen can be put on screen and photographed.
     ///
-    /// `-fixtureLife <scenario>` turns it on: `ok`, `loading`, `empty`, `improves` (only what can wait), `stale`, `unreachable`, `failed`, `notPaired`.
+    /// `-fixtureLife <scenario>` turns it on: `ok`, `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (a tapped push's one-card read takes 5 s), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent` decides what a tap on a draft does; `-fixtureStart started|starting|failed`
     /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`
     /// open the screen to show. `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
@@ -100,6 +100,7 @@
         let scenario: String
         private let answered = Mutex(Set<String>())
         private let started = Mutex(false)
+        private let wholeReads = Mutex(0)
 
         init(scenario: String) { self.scenario = scenario }
 
@@ -121,7 +122,25 @@
 
         // MARK: Reads
 
-        func readInbox() async throws -> String { try await gate(); return inbox() }
+        func readInbox() async throws -> String {
+            try await gate()
+            if scenario == "slowInbox",
+                wholeReads.withLock({
+                    $0 += 1; return $0
+                }) > 1
+            {
+                try await Task.sleep(for: .seconds(30))
+            }
+            return inbox()
+        }
+        func readInbox(pushId: String) async throws -> String {
+            try await gate()
+            if scenario == "slowPush" { try await Task.sleep(for: .seconds(5)) }
+            // A push's read: just that card, none once answered.
+            var one = (try? JSONSerialization.jsonObject(with: Data(inbox().utf8))) as? [String: Any] ?? [:]
+            one["checks"] = (one["checks"] as? [[String: Any]] ?? []).filter { $0["pushId"] as? String == pushId }
+            return json(one)
+        }
         func readMatters() async throws -> String { try await gate(); return matters() }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
 

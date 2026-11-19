@@ -14,7 +14,7 @@ struct InboxScreen: View {
 
     var body: some View {
         ReadScreen(
-            shown: shown, retry: { await life.refreshInbox() },
+            shown: shown, retry: { await life.retryInbox() },
             loading: { CardPlaceholder() }, empty: { InboxZero() },
             content: { _ in card }
         )
@@ -32,9 +32,7 @@ struct InboxScreen: View {
     /// The inbox read as shown, except that his tap's result stays up whatever the read did since: the inbox emptied
     /// (his answer was the last card) or its read failed. Only a new pairing, which clears the inbox, takes it away.
     private var shown: ReadState<Inbox>.Shown {
-        guard notes.taken != nil, let inbox = life.inbox.value else {
-            return life.inbox.shown(isEmpty: { $0.checks.isEmpty })
-        }
+        guard notes.taken != nil, let inbox = life.inboxOnShow else { return life.inboxShown }
         return .loaded(inbox)
     }
 
@@ -56,7 +54,7 @@ struct InboxScreen: View {
 
     /// What blocks, the boundary, what improves: `Inbox.pages`, the one rule for the pager, the card on show and where
     /// an answer leads.
-    private var pages: [InboxPage] { life.inbox.value?.pages(deferred: deferred) ?? [] }
+    private var pages: [InboxPage] { life.inboxOnShow?.pages(deferred: deferred) ?? [] }
 }
 
 /// Nothing waits.
