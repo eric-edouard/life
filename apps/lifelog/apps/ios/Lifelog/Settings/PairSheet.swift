@@ -117,7 +117,8 @@ struct PairSheet: View {
         ForEach(offer.connections) { connection in
             let multiple = offer.connections.count > 1
             RowGroup(label: multiple ? connection.name : nil, surface: .sheet) {
-                CheckLines(lines: lines(connection)).padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading)
+                CheckLines(lines: lines(connection)).padding(Metrics.Spacing.l).frame(
+                    maxWidth: .infinity, alignment: .leading)
             }
         }
         if phase == .done {
