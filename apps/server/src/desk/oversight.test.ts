@@ -1,4 +1,4 @@
-import { afterAll, expect, spyOn, test } from "bun:test";
+import { afterAll, expect, setSystemTime, spyOn, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -9,7 +9,13 @@ import { setSettings } from "../core/settings";
 import { ask } from "../host/asks";
 import { changeRegisteredAgent } from "../host/change-registered-agent";
 import { requested } from "../host/change-todo-item";
-import { agentChangeOf, agentOf, modelOf } from "../host/desk-read";
+import {
+  agentChangeOf,
+  agentOf,
+  agentsNow,
+  agentsOnProjects,
+  modelOf,
+} from "../host/desk-read";
 import {
   agentLinesOnProjects,
   readActiveAgentOf,
@@ -44,6 +50,7 @@ const desk: Desk = {
 };
 
 afterAll(() => {
+  setSystemTime();
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
   // A start on a matter saves its goal.
   rmSync(CORRECTIONS, { force: true });
@@ -464,6 +471,68 @@ test("change_registered_agent records his word and answers with what the desk di
     repos.mockRestore();
   }
 }, 30_000);
+
+/** Starts an agent on `subject` and returns its id; the clock is frozen so a stop time can be compared. */
+async function startedOn(subject: Partial<AgentChange>) {
+  setSystemTime(new Date(clock().getTime()));
+  const r = await applied({
+    action: "start",
+    folder,
+    runtime: "claude",
+    ...subject,
+  } as AgentChange);
+  return r?.agent_id ?? "";
+}
+const stopped = async (id: string) => {
+  await applied({ action: "stop", agent: id });
+  return agentOf(desk.db, id);
+};
+
+test("he stops an agent, then starts another on its project or matter: it is handed over at once", async () => {
+  const a = await startedOn({ project: "test-hand" });
+  expect((await stopped(a))?.stopped_at).toBe(clock().toISOString());
+  const b = await startedOn({ project: "test-hand" });
+  expect(agentOf(desk.db, a)).toMatchObject({
+    outcome: `replaced by ${b}`,
+    status: "handed_over",
+    stopped_at: null,
+  });
+  expect(agentsNow(desk.db, clock().getTime()).map((x) => x.id)).not.toContain(
+    a
+  );
+  expect(
+    agentsOnProjects(desk.db, ["test-hand"], clock().getTime()).map((x) => x.id)
+  ).toEqual([b]);
+  const m = await startedOn({ steps: ["obs_00000000a2a1"] });
+  await stopped(m);
+  const next = await startedOn({ steps: ["obs_00000000a2a1"] });
+  expect(agentOf(desk.db, m)?.outcome).toBe(`replaced by ${next}`);
+});
+
+test("a stopped agent re-pointed onto a project with an active agent stays stopped; resume clears its stop time", async () => {
+  const c = await startedOn({ project: "test-other" });
+  await stopped(c);
+  await applied({ action: "re_point", agent: c, project: "test-hand" });
+  expect(agentOf(desk.db, c)?.status).toBe("stopped");
+  expect((await applied({ action: "resume", agent: c }))?.error).toBeNull();
+  expect(agentOf(desk.db, c)?.stopped_at).toBeNull();
+  await stopped(c);
+  expect(
+    agentsNow(desk.db, clock().getTime()).find((x) => x.id === c)?.statusSince
+  ).toBe(clock().toISOString());
+});
+
+test("a start that returns the existing agent (active, same words) hands nothing over", async () => {
+  const d = await startedOn({ project: "test-repeat" });
+  const e = await startedOn({ project: "test-repeat" });
+  await stopped(e);
+  desk.db.run("update agent set brief = ? where id = ?", [
+    `Test: change ${n + 1}`,
+    d,
+  ]);
+  expect(await startedOn({ project: "test-repeat" })).toBe(d);
+  expect(agentOf(desk.db, e)?.status).toBe("stopped");
+});
 
 test("its store unreadable, the reads say so and the report still has its section", async () => {
   desk.db.close();

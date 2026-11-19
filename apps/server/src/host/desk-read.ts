@@ -36,6 +36,8 @@ export interface AgentRow {
   runtime: string;
   session: string | null;
   status: AgentStatus;
+  /** When he stopped it; null unless stopped, and for an agent stopped before the column. */
+  stopped_at: string | null;
   wait_events: string;
   wait_is_default: number;
   wait_reason: string | null;
@@ -292,7 +294,7 @@ export interface AgentNow {
   project: string | null;
   runtime: string;
   status: Exclude<AgentStatus, "active"> | "running" | "waiting";
-  /** When its current status began: its open turn's start (running), its last turn's end (waiting), its end (ended, handed over); null for a stopped agent (no stop time is stored) or one with no turn yet. */
+  /** When its current status began: its open turn's start (running), its last turn's end (waiting), its end (ended, handed over), its stop (stopped); null for a stopped agent stopped before its stop time was stored, or one with no turn yet. */
   statusSince: string | null;
   /** The matter steps it was handed (its anchors), when its subject is a matter. */
   steps: string[];
@@ -373,7 +375,7 @@ const statusSinceOf = (
     ended: a.ended_at,
     handed_over: a.ended_at,
     running: last?.started_at,
-    stopped: null,
+    stopped: a.stopped_at,
     waiting: last?.ended_at,
   })[status] ?? null;
 
@@ -433,7 +435,8 @@ function nowOf(
 
 /**
  * Every registered agent worth showing: the active ones, the newest stopped ones (50 each at most), and those ended in the
- * last 7 days (a handed-over agent is not listed: its successor is).
+ * last 7 days (a handed-over agent is not listed: its successor is). `isForWakes` also reads what only `wakesOn` needs
+ * (the chats a waiting agent has seen).
  */
 export function agentsNow(db: Database, now: number, isForWakes = false) {
   const rows = [

@@ -1,11 +1,6 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY } from "../core/clock";
-import {
-  agentOf,
-  agentsNow,
-  agentsOnProjects,
-  heldByAgents,
-} from "../host/desk-read";
+import { agentOf, agentsNow, heldByAgents } from "../host/desk-read";
 import { register } from "./agent-actions";
 import { tick } from "./desk-clock";
 import { setup, started } from "./test-desk";
@@ -51,36 +46,22 @@ const agentOn = (desk: ReturnType<typeof setup>["desk"], subject: object) =>
 const stop = (desk: ReturnType<typeof setup>["desk"], id: string) =>
   desk.db.run("update agent set status = 'stopped' where id = ?", [id]);
 
-test("a stopped agent whose project or matter step has a newer active agent is handed over, and listed nowhere; one with no successor stays stopped", async () => {
+test("two active agents on one project: stopping one leaves it stopped, listed and resumable after ticks", async () => {
   const { desk } = setup();
-  const onProject = agentOn(desk, { project: "test-p" });
-  const onStep = agentOn(desk, { steps: ["obs_00000000b030"] });
-  const alone = agentOn(desk, { project: "test-alone" });
-  for (const id of [onProject, onStep, alone]) {
-    stop(desk, id);
-  }
-  const newerProject = agentOn(desk, { project: "test-p" });
-  const newerStep = agentOn(desk, { steps: ["obs_00000000b030"] });
+  const first = agentOn(desk, { project: "test-p" });
+  const second = agentOn(desk, { project: "test-p" });
+  stop(desk, first);
+  await tick(desk, false);
   await tick(desk, false);
 
-  for (const [id, by] of [
-    [onProject, newerProject],
-    [onStep, newerStep],
-  ] as const) {
-    expect(agentOf(desk.db, id)).toMatchObject({
-      outcome: `replaced by ${by}`,
-      status: "handed_over",
-    });
-    expect(agentOf(desk.db, id)?.ended_at).toBe(clock().toISOString());
-  }
-  const ids = agentsNow(desk.db, clock().getTime()).map((a) => a.id);
-  expect(ids).not.toContain(onProject);
-  expect(ids).not.toContain(onStep);
-  expect(ids).toContain(alone);
-  expect(
-    agentsOnProjects(desk.db, ["test-p"], clock().getTime()).map((a) => a.id)
-  ).toEqual([newerProject]);
-  expect(agentOf(desk.db, alone)?.status).toBe("stopped");
+  expect(agentOf(desk.db, first)).toMatchObject({
+    ended_at: null,
+    status: "stopped",
+  });
+  expect(agentOf(desk.db, second)?.status).toBe("active");
+  expect(agentsNow(desk.db, clock().getTime()).map((a) => a.id)).toContain(
+    first
+  );
 });
 
 test("an agent that is over holds its project for NEW_MATTER_DAYS only; a stopped one holds for ever", () => {
