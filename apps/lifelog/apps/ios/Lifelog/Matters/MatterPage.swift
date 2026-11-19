@@ -1,6 +1,9 @@
 import LifeConnector
 import SwiftUI
 
+/// The one phrase for what an open ask of a matter is, on the lead line and on the ask rows.
+private let needsYourAnswer = "Needs your answer"
+
 /// One matter in full: where it stands, his goal and next step (editable), the card waiting on him, the agent on it, who
 /// is in it, and its steps, newest first.
 struct MatterPage: View {
@@ -21,7 +24,6 @@ struct MatterPage: View {
         // Back on the left, the Pendant alone on the right; beside the list too, never in the side column.
         .shellBar("", hasSettings: false)
         .task(id: life.answersEnded) { await life.refreshMatter(id) }
-        .onDisappear { Task { await life.sendHeld() } }
     }
 
     private func page(_ matter: Matter) -> some View {
@@ -49,7 +51,7 @@ struct MatterPage: View {
                 VStack(spacing: 8) {
                     if canStart {
                         Button(agent == nil ? "Start an agent" : "Start again") { router.matterSheet = .start(id) }
-                            .buttonStyle(.glassProminent).tint(Palette.fg)
+                            .primaryGlassButton()
                     }
                     DoneButton(id: id)
                 }
@@ -73,7 +75,7 @@ struct MatterPage: View {
                 }
                 .buttonStyle(.plain)
                 // The dot has its words.
-                .accessibilityValue("Needs your answer")
+                .accessibilityValue(needsYourAnswer)
             }
         }
     }
@@ -88,7 +90,7 @@ struct MatterPage: View {
         return VStack(alignment: .leading, spacing: 8) {
             Text(row.name).font(.matterTitle).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            if row.needsYou { Text("Needs your answer").font(.lead).foregroundStyle(Palette.flag) }
+            if !matter.checks.isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
             Text(open).font(.small).foregroundStyle(Palette.muted)
         }
         .padding(.top, 8)
@@ -169,34 +171,23 @@ private struct EditableLine: View {
     }
 }
 
-// MARK: Agent
-
 // MARK: People and steps
 
 private struct People: View {
     let people: MatterRow.People?
 
+    /// One small muted line: "Owed to Hélène Aubert, with Camille Roux".
     var body: some View {
         let groups: [(String, [String])] = [
             ("Owed to", people?.owedTo ?? []), ("Waiting on", people?.waitingOn ?? []),
             ("With", people?.with ?? []), ("Told", people?.told ?? []),
         ].filter { !$0.1.isEmpty }
-        // One person can be in two roles: a row each, the role at the right.
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(
-                groups.flatMap { role, names in names.map { (id: "\(role)/\($0)", role: role, name: $0) } }, id: \.id
-            ) {
-                _, role, name in
-                HStack(spacing: 12) {
-                    Avatar(name: name, size: 32)
-                    Text(name).font(.rowName).foregroundStyle(Palette.fg)
-                    Spacer(minLength: 8)
-                    Text(role).font(.small).foregroundStyle(Palette.muted)
-                }
-                .frame(minHeight: 48)
-                .accessibilityElement(children: .combine)
-            }
+        let line = groups.enumerated().map { offset, group in
+            let words = "\(group.0) \(group.1.joined(separator: ", "))"
+            return offset == 0 ? words : words.prefix(1).lowercased() + words.dropFirst()
         }
+        .joined(separator: ", ")
+        if !line.isEmpty { Text(line).font(.small).foregroundStyle(Palette.muted) }
     }
 }
 
@@ -217,8 +208,9 @@ private struct Steps: View {
                         .frame(width: 22, alignment: .leading).padding(.top, 3)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(step.whenAndWith).font(.body15).foregroundStyle(Palette.muted)
-                        Text(step.kind.replacing("_", with: " ")).label().foregroundStyle(
-                            step.ending == nil ? Palette.fg : Palette.faint)
+                        if step.kind == "todo_item" && step.ending == nil {
+                            Text("Open").font(.smallStrong).foregroundStyle(Palette.flag)
+                        }
                         Text(step.text).font(.leadBold).foregroundStyle(
                             step.ending == nil ? Palette.fg : Palette.muted)
                         if !step.quote.isEmpty { Text(step.quote).font(.body15).foregroundStyle(Palette.muted) }
@@ -278,6 +270,8 @@ extension MatterStep {
             .joined(separator: " · ")
     }
 }
+
+// MARK: Agent
 
 /// The agent's row on a matter: its runtime in `ai`, one line under it (who it listens for and its deadline, or its state;
 /// `flag` when it never started), a chevron. It opens the agent's sheet.

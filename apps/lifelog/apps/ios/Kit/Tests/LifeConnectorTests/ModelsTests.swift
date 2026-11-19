@@ -126,11 +126,12 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         {"matters":[
         {"id":"a","name":"A","status":"moving","blockingChecks":1,"nextStep":{"kind":"do","text":"x"}},
         {"id":"b","name":"B","status":"moving","nextStep":{"kind":"wait_owner","text":"y"}},
-        {"id":"c","name":"C","status":"moving","blockingChecks":0,"nextStep":{"kind":"do","text":"z"}}]}
+        {"id":"c","name":"C","status":"moving","blockingChecks":0,"nextStep":{"kind":"do","text":"z"}},
+        {"id":"d","name":"D","status":"stuck","nextStep":{"kind":"wait_owner","text":"w"}}]}
         """#
     let list = try decoded(MatterList.self, text)
     // A new matter's offer or an ending check improves the memory, never blocks: it counts 0 and needs nothing of him.
-    #expect(list.matters.map(\.needsYou) == [true, true, false])
+    #expect(list.matters.map(\.needsYou) == [true, true, false, false])
     #expect(list.shown(filter: .needsYou).map(\.id) == ["a", "b"])
 }
 
