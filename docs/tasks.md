@@ -223,8 +223,11 @@ reads the rest of its settings. How the report and the alerts go out:
 - Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
 - Each new voice ask: a push to his phone, "<agent> heard you" (`notifyPhone`, through lifelog), so a missing one
   tells him at once it was not heard. Never his words. Voice asks come only from lifelog, so without it there is none to push.
-- Each new card in his inbox (an agent's decision alone pushes; the badge counts what blocks him): a push, "1 new card" or "N new cards" with the badge (every open card that blocks him) and, for one card, its `pushId`
-  (`pushNewCards`, `host/card-push.ts`). The first run pushes nothing. Never a title, name, question or ref.
+- Each new card in his inbox, of every kind: its own push, "1 new card" with the badge (every open card that blocks
+  him) and its `pushId` (`pushNewCards`, `host/card-push.ts`); past the first 5 of Life's own checks in one look, one
+  push "N more new cards" for the rest. Each kind's level is his `notifications` setting (off sends nothing). The
+  first run pushes nothing. Never a title, name, question or ref: his phone reads the card and writes the
+  notification's text.
 - Into a chat: only a card's draft (text, or a file, a reply, a reaction, mentions, as the chat allows), exactly as shown, into the one chat Life resolved when the card was asked, once, when
   he picks its one `outgoing` option alone through `answer_check` (`answerDecision`, `memory/draft-send.ts`), through
   Life's own bridge for that network (a new 1:1 WhatsApp chat is opened by its number first), or, for iMessage, through

@@ -192,11 +192,12 @@ function reasonOf(body: string) {
 
 const PUSH_ID = /^[0-9a-f]{16}$/;
 
-/** What another app of the owner's asks to push: words (`title` and `body` together), a badge, a card's opaque `pushId`. */
+/** What another app of the owner's asks to push: words (`title` and `body` together), a badge, how it interrupts (`level`), a card's opaque `pushId`. */
 export const NoticeRequest = z
   .object({
     badge: z.number().int().min(0).optional(),
     body: z.string().min(1).max(500).optional(),
+    level: z.enum(["passive", "active", "time-sensitive"]).optional(),
     pushId: z.string().regex(PUSH_ID).optional(),
     title: z.string().min(1).max(100).optional(),
   })
@@ -209,15 +210,19 @@ export const NoticeRequest = z
 export type NoticeRequest = z.infer<typeof NoticeRequest>;
 
 // A visible push, the one composer: what the owner reads (none for a badge alone), and any of the app's own fields
-// beside `aps` (Life's `pushId`, which the phone routes on). A badge marks Life's
-// card pushes: they join the thread `life-cards`. Badge-only ones go at priority 5, as Apple asks of what need not
-// wake him; the rest at 10, never held.
+// beside `aps`. A badge marks Life's card pushes: they join the thread `life-cards`. One card's `pushId` (which the
+// phone routes on) lets the phone rewrite it (`mutable-content`, its category `life.card`) and names it among his
+// notifications (`apns-collapse-id`). `level` is Apple's `interruption-level`; a passive one makes no sound.
+// Badge-only ones go at priority 5, as Apple asks of what need not wake him; the rest at 10, never held.
 export const alertOf = (
   bundleId: string,
   title: string | undefined,
   body: string | undefined,
-  extra: Record<string, unknown> = {},
-  { badge }: { badge?: number | undefined } = {}
+  {
+    badge,
+    level,
+    pushId,
+  }: Pick<NoticeRequest, "badge" | "level" | "pushId"> = {}
 ): Omit<PushRequest, "path"> => ({
   body: JSON.stringify({
     aps: {
@@ -228,11 +233,14 @@ export const alertOf = (
             badge,
             "thread-id": "life-cards",
           }),
-      ...(title ? { sound: "default" } : {}),
+      ...(pushId ? { category: "life.card", "mutable-content": 1 } : {}),
+      ...(level ? { "interruption-level": level } : {}),
+      ...(title && level !== "passive" ? { sound: "default" } : {}),
     },
-    ...extra,
+    ...(pushId ? { pushId } : {}),
   }),
   headers: {
+    ...(pushId ? { "apns-collapse-id": pushId } : {}),
     "apns-priority": title ? "10" : "5",
     "apns-push-type": "alert",
     "apns-topic": bundleId,
@@ -242,13 +250,8 @@ export const alertOf = (
 // A notice another app of the owner's asks for (Life: each voice ask it heard, its new cards), recorded as kind `notice`. Never throws.
 export const phoneNotice =
   (db: Db, push: Pusher | null, bundleId: string) =>
-  ({ badge, body, pushId, title }: NoticeRequest) =>
-    sendPush(
-      db,
-      push,
-      "notice",
-      alertOf(bundleId, title, body, pushId ? { pushId } : {}, { badge })
-    );
+  ({ body, title, ...card }: NoticeRequest) =>
+    sendPush(db, push, "notice", alertOf(bundleId, title, body, card));
 
 export type Notice = ReturnType<typeof phoneNotice>;
 

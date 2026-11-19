@@ -1,10 +1,14 @@
 import { log } from "../core/log";
 import { lifelogMissing, writeLifelog } from "./lifelog";
 
-/** A push to his phone through lifelog (`POST /notifications`): words (`title` and `body` together) and/or the `badge`, a card's opaque `pushId`. Never his words or a ref. */
+/** How a push interrupts him: Apple's `interruption-level` (passive: Notification Center only, no sound). */
+export type PushLevel = "passive" | "active" | "time-sensitive";
+
+/** A push to his phone through lifelog (`POST /notifications`): words (`title` and `body` together) and/or the `badge`, its `level`, a card's opaque `pushId`. Never his words or a ref. */
 export interface Push {
   badge?: number;
   body?: string;
+  level?: PushLevel;
   pushId?: string;
   title?: string;
 }
