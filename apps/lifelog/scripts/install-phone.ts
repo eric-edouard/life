@@ -39,8 +39,10 @@ const lifelog = `${tree}/apps/lifelog`;
 const ios = `${lifelog}/apps/ios`;
 const derived = `${lifelog}/.build/device`;
 const products = `${derived}/Build/Products`;
+// The build number, the UTC build time: computed once, so the phone's and the watch's builds carry the same one.
+const stamp = (await $`date -u +%Y%m%d.%H%M`.text()).trim();
 const build = (scheme: string, udid: string, ...extra: string[]) =>
-  $`xcodebuild -project Lifelog.xcodeproj -scheme ${scheme} -configuration Release -destination ${`id=${udid}`} -derivedDataPath ${derived} -allowProvisioningUpdates ${extra} -quiet build`.cwd(
+  $`xcodebuild -project Lifelog.xcodeproj -scheme ${scheme} -configuration Release -destination ${`id=${udid}`} -derivedDataPath ${derived} -allowProvisioningUpdates ${extra} ${`CURRENT_PROJECT_VERSION=${stamp}`} -quiet build`.cwd(
     ios
   );
 

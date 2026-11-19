@@ -377,10 +377,12 @@ struct SettingsView: View {
 }
 
 extension Bundle {
-    /// "19 Nov 17:05 · 0e1a221": the build's time and commit, from `build-stamp.txt` (the build phase in `project.yml`).
+    /// "1.0 (20261120.0412) · 0e1a221": the version, the build's date and its commit (`build-stamp.txt`, the build phase in `project.yml`).
     var buildWords: String {
-        url(forResource: "build-stamp", withExtension: "txt").flatMap { try? String(contentsOf: $0, encoding: .utf8) }?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown"
+        let commit = url(forResource: "build-stamp", withExtension: "txt").flatMap {
+            try? String(contentsOf: $0, encoding: .utf8)
+        }?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return [appVersion, commit].compactMap { $0 }.joined(separator: " · ")
     }
 }
 
