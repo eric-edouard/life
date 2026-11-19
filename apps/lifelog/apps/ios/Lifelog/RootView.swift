@@ -92,7 +92,7 @@ struct RootView: View {
             if let id = LifeFixture.matter { router.open(matter: id) }
             if let ref = LifeFixture.card { router.answer(card: ref) }
             if let sheet = LifeFixture.sheet.flatMap(AppRouter.Sheet.init(rawValue:)) { router.sheet = sheet }
-            if LifeFixture.sheet == "pair" {
+            if ["pair", "pairing"].contains(LifeFixture.sheet) {
                 confirming = URL(string: "lifelog://pair?life=https%3A%2F%2Flife.example.test&code=ABC234").flatMap(
                     PairOffer.init)
             }

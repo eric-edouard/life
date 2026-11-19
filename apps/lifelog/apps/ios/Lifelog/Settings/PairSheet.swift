@@ -69,6 +69,10 @@ struct PairSheet: View {
         .presentationBackground(Palette.sheet)
         .interactiveDismissDisabled(phase == .pairing)
         .accessibilityIdentifier("pair.sheet")
+        #if DEBUG
+            // `-fixtureSheet pairing`: pairs at once, so the checks and the result can be photographed.
+            .task { if LifeFixture.sheet == "pairing" { await pair() } }
+        #endif
     }
 
     private var title: String {

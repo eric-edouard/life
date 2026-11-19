@@ -22,6 +22,7 @@ struct SettingsView: View {
     @AppStorage("appearance") private var appearance = Appearance.auto
     @Bindable private var settings = Settings.shared
     @State private var page: Connection?
+    @State private var isDiagnosticsOpen = false
 
     var body: some View {
         ScrollView {
@@ -52,6 +53,17 @@ struct SettingsView: View {
         .background(Palette.sheet)
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(item: $page) { ConnectionPage(connection: $0) }
+        .navigationDestination(isPresented: $isDiagnosticsOpen) { DiagnosticsView() }
+        #if DEBUG
+            .task {
+                switch LifeFixture.page {
+                case "life": page = .life
+                case "server": page = .server
+                case "diagnostics": isDiagnosticsOpen = true
+                default: break
+                }
+            }
+        #endif
     }
 
     // MARK: Needs you
@@ -327,8 +339,8 @@ struct SettingsView: View {
             Row(title: "Version") {
                 Text(Bundle.main.versionWords).font(.note).foregroundStyle(Palette.muted)
             }
-            NavigationLink {
-                DiagnosticsView()
+            Button {
+                isDiagnosticsOpen = true
             } label: {
                 Row(title: "Diagnostics") { RowValue() }
             }
