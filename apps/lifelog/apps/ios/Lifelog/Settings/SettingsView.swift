@@ -44,6 +44,7 @@ struct SettingsView: View {
                 yourData
                 help
             }
+            .motion(Motion.standard, value: [life.link, sync.link])
             .padding(.horizontal, Metrics.gutter)
             .padding(.top, 16)
             .padding(.bottom, 24)

@@ -42,8 +42,9 @@ final class SyncStore {
     private(set) var feed = ServerClient.FeedState()
     /// Live conversations waiting, by the feed's reason.
     private(set) var waiting: [WaitingReason: Int] = [:]
-    /// The last pull got no answer from the network.
-    private(set) var pullFailed = false
+    /// What the pulls say about the server's answer (`PullHealth`): shown only once established.
+    private(set) var pull = PullHealth()
+    var pullFailed: Bool { pull.hasFailed }
     /// The server answered 401: it no longer knows this phone's token. Any pull that works clears it.
     private(set) var tokenRefused = false
     /// The server this phone is paired with (`DeviceToken.paired`); nil until it is.
@@ -95,7 +96,7 @@ final class SyncStore {
     func followNetwork() async {
         #if DEBUG
             // `-offline` fails every request as if there were no network: show what the owner sees then.
-            if OfflineProtocol.isRequested { return network = .none }
+            if OfflineProtocol.isRequested && !OfflineProtocol.isFlaky { return network = .none }
         #endif
         for await path in NWPathMonitor() {
             let next = ConnectionSummary.Network(path)
@@ -110,6 +111,14 @@ final class SyncStore {
     /// In the background, a run that only new audio asked for starts at least this long after the previous one started:
     /// cheap runs back to back cost CPU for no gain.
     private static let audioGap: TimeInterval = 15
+
+    /// Rest after a failed poll; the flaky fixture retries at once to put the blinking on screen.
+    private static var retryDelay: Double {
+        #if DEBUG
+            if OfflineProtocol.isFlaky { return 1 }
+        #endif
+        return 15
+    }
 
     /// New audio was saved, the server pushed, the owner edited or came back: run now, or once more after the run going
     /// on. A long poll going on stops for it. `audio`: a Bluetooth sync saved pages; in the background that waits out
@@ -155,7 +164,7 @@ final class SyncStore {
                     try await pull(wait: 25)
                 } catch {
                     noteFailure(error)
-                    try? await Task.sleep(for: .seconds(15))
+                    try? await Task.sleep(for: .seconds(Self.retryDelay))
                 }
             }
             polling = poll
@@ -289,7 +298,7 @@ final class SyncStore {
         onStep(.accepting)
         try await pairing.pair { DeviceToken.pair($0) }
         server = DeviceToken.paired
-        (pullFailed, tokenRefused) = (false, false)
+        (pull, tokenRefused) = (PullHealth(), false)
         run()
     }
 
@@ -301,7 +310,7 @@ final class SyncStore {
         do {
             try await pull(wait: 0)
         } catch {
-            noteFailure(error)
+            noteFailure(error, isAsked: true)
         }
     }
 
@@ -317,7 +326,7 @@ final class SyncStore {
         var changed = true
         do {
             changed = try await driver.run(capture.status)
-            (pullFailed, tokenRefused) = (false, false)
+            (pull, tokenRefused) = (PullHealth(), false)
             backUp()
         } catch {
             noteFailure(error)
@@ -346,7 +355,7 @@ final class SyncStore {
     private func pull(wait: Int) async throws {
         guard let driver = setUp() else { return }
         let changed = try await driver.pull(wait: wait)
-        (pullFailed, tokenRefused) = (false, false)
+        (pull, tokenRefused) = (PullHealth(), false)
         if changed {
             await readState()
         } else {
@@ -354,15 +363,15 @@ final class SyncStore {
         }
     }
 
-    private func noteFailure(_ error: any Error, isPull: Bool = true) {
+    private func noteFailure(_ error: any Error, isPull: Bool = true, isAsked: Bool = false) {
         if error.isOfflineOrCancelled {
-            if let error = error as? URLError { pullFailed = error.isTransient }
+            if isPull { pull.failed(error, isAsked: isAsked) }
             return
         }
         // Not paired: recording and saving go on, and the status says so.
         if error as? ServerClient.ClientError == .notPaired { return }
         if case ServerClient.ClientError.server(401, _, _) = error { tokenRefused = true }
-        if isPull { pullFailed = true }
+        if isPull { pull.failed(error, isAsked: isAsked) }
         _ = report(error)
     }
 
@@ -467,12 +476,18 @@ extension ServerClient {
     /// `-offline`: every server request fails as it does with no network, so the simulator shows what the owner sees
     /// offline without cutting the Mac's network. Screens must still show the library (docs/architecture.md).
     nonisolated final class OfflineProtocol: URLProtocol {
-        static let isRequested = ProcessInfo.processInfo.arguments.contains("-offline")
+        /// `-serverFlaky`: the server times out, and every other request is called off, as a trigger cuts a long poll.
+        static let isFlaky = ProcessInfo.processInfo.arguments.contains("-serverFlaky")
+        static let isRequested = isFlaky || ProcessInfo.processInfo.arguments.contains("-offline")
+        nonisolated(unsafe) private static var count = 0
 
         override class func canInit(with request: URLRequest) -> Bool { true }
         override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
         override func startLoading() {
-            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+            Self.count += 1
+            let isCalledOff = Self.isFlaky && Self.count % 2 == 0
+            let code: URLError.Code = isCalledOff ? .cancelled : Self.isFlaky ? .timedOut : .notConnectedToInternet
+            client?.urlProtocol(self, didFailWithError: URLError(code))
         }
         override func stopLoading() {}
     }
