@@ -47,7 +47,9 @@ final class PlaybackStore {
         observers.append(
             player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 10), queue: .main) {
                 [weak self] time in
-                MainActor.assumeIsolated { if let self, time.isNumeric { position = max(time.seconds, seekStart) } }
+                MainActor.assumeIsolated {
+                    if let self, time.isNumeric { self.position = max(time.seconds, self.seekStart) }
+                }
             })
     }
 

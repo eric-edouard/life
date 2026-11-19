@@ -163,7 +163,14 @@
           },
           "text": "It's the shop, about the watch.",
           "until": "2026-10-14T08:00:04.000Z",
-          "words": [[0, 300, 4], [350, 500, 4]]
+          "words": [
+            [0, 300, 4],
+            [350, 500, 4],
+            [550, 900, 6],
+            [950, 1200, 6],
+            [1250, 1400, 4],
+            [1450, 1900, 7]
+          ]
         }
       ],
       "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.",
@@ -249,7 +256,7 @@
           },
           "text": "Sam fixed the strap.",
           "until": "2026-10-12T09:00:33.000Z",
-          "words": [[0, 400, 3], [450, 900, 6]]
+          "words": [[0, 400, 3], [450, 900, 6], [950, 1100, 4], [1150, 1600, 7]]
         }
       ],
       "context": null,
