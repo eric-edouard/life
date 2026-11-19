@@ -93,3 +93,21 @@ struct PendantItem: View {
         }
     }
 }
+
+extension View {
+    /// Tells whether the system puts this screen's bars in a vertical column (the closed iPhone Duo, iOS 27.1): the
+    /// system's own `toolbarVerticalEdge`, never a guess from the size.
+    @ViewBuilder func reportsSideColumn(_ isInColumn: Binding<Bool>) -> some View {
+        if #available(iOS 27.1, *) { modifier(SideColumnReport(isInColumn: isInColumn)) } else { self }
+    }
+}
+
+@available(iOS 27.1, *)
+private struct SideColumnReport: ViewModifier {
+    @Binding var isInColumn: Bool
+    @Environment(\.toolbarVerticalEdge) private var edge
+
+    func body(content: Content) -> some View {
+        content.onChange(of: edge != nil, initial: true) { _, now in isInColumn = now }
+    }
+}

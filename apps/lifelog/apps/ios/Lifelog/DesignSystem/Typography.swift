@@ -48,6 +48,8 @@ struct TypeStep: Equatable {
     static let smallStrong = TypeStep(size: 13, weight: 600, style: .footnote)
     /// The small label over a block.
     static let label = TypeStep(size: 13, weight: 600, style: .footnote)
+    /// The two glyphs of the column toast (`ColumnToast`).
+    static let columnGlyph = TypeStep(size: 20, weight: 600, style: .title3)
     /// The number in a badge.
     static let badge = TypeStep(size: 11, weight: 700, style: .caption2)
 
