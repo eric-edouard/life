@@ -1,6 +1,9 @@
 import LifeConnector
 import SwiftUI
 
+/// The one phrase for what an open ask of a matter is, on the lead line and on the ask rows.
+private let needsYourAnswer = "Needs your answer"
+
 /// One matter in full: where it stands, his goal and next step (editable), the card waiting on him, the agent on it, who
 /// is in it, and its steps, newest first.
 struct MatterPage: View {
@@ -19,53 +22,49 @@ struct MatterPage: View {
         )
         .background(Palette.bg)
         // Back on the left, the Pendant alone on the right; beside the list too, never in the side column.
-        .shellBar("Matter", hasSettings: false)
+        .shellBar("", hasSettings: false)
         .task(id: life.answersEnded) { await life.refreshMatter(id) }
-        .onDisappear { Task { await life.sendHeld() } }
     }
 
     private func page(_ matter: Matter) -> some View {
         let row = matter.row
-        // His decisions and Life's offer of an agent open as asks on this page (the ask the inbox shows); Life's other
-        // questions are rows he can answer in place.
-        let opening = matter.checks.filter { $0.group == .decision || $0.group == .newMatter }
-        let questions = matter.checks.filter { $0.group != .decision && $0.group != .newMatter }
         // Life lists the active one first, else the newest past one: an ended agent shows how it ended.
         let agent = matter.agents.first
         let canStart = agent?.isOver ?? true
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(matter)
-                asks(opening: opening, questions: questions)
-                GoalAndNext(matter: matter)
+                asks(matter.checks)
                 if let agent {
                     AgentRow(agent: agent) { router.matterSheet = .agent(id) }
-                } else {
-                    NoAgent()
                 }
+                GoalAndNext(matter: matter)
                 People(people: row.people)
                 Steps(steps: matter.steps)
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24).readingWidth()
         }
         .scrollEdgeEffectStyle(.soft, for: .bottom)
-        .safeAreaInset(edge: .bottom, spacing: 8) {
-            VStack(spacing: 8) {
-                if canStart {
-                    Button(agent == nil ? "Start an agent" : "Start again") { router.matterSheet = .start(id) }
-                        .buttonStyle(.pill(.filled))
+        // Floating over the content: the bar reserves the space and gives the scroll its soft edge.
+        .safeAreaBar(edge: .bottom) {
+            GlassEffectContainer(spacing: 8) {
+                VStack(spacing: 8) {
+                    if canStart {
+                        Button(agent == nil ? "Start an agent" : "Start again") { router.matterSheet = .start(id) }
+                            .primaryGlassButton()
+                    }
+                    DoneButton(id: id)
                 }
-                DoneButton(id: id)
+                .controlSize(.large).frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 20).padding(.bottom, 8).readingWidth().background(Palette.bg)
+            .padding(.horizontal, 20).padding(.bottom, 8).readingWidth()
         }
     }
 
-    /// What waits on him here, under the name: each decision, or offer of an agent, as a row that opens its ask on this page, then Life's own
-    /// questions, answered on the row (four seconds to undo) or opened by a tap.
-    @ViewBuilder private func asks(opening: [Check], questions: [Check]) -> some View {
+    /// What waits on him here, under the name: each ask of this matter as a row that opens it.
+    private func asks(_ checks: [Check]) -> some View {
         RowGroup {
-            ForEach(opening) { check in
+            ForEach(checks) { check in
                 Button {
                     router.matterPath.append(check.ref)
                 } label: {
@@ -76,37 +75,23 @@ struct MatterPage: View {
                 }
                 .buttonStyle(.plain)
                 // The dot has its words.
-                .accessibilityValue("Needs your answer")
+                .accessibilityValue(needsYourAnswer)
             }
         }
-        RowGroup {
-            ForEach(questions) { check in
-                QuestionRow(check: check, open: { router.matterPath.append(check.ref) }) { option in
-                    if let request = check.answer(option) { life.hold(request, as: option.label) }
-                }
-            }
-        }
-        .motion(Motion.standard, value: questions.map(\.ref))
-        .motion(Motion.standard, value: life.held)
     }
 
+    /// The name is the head; under it what he must do (one phrase) and how long it has been open.
     private func header(_ matter: Matter) -> some View {
         let row = matter.row
         let days = matter.steps.first.map { Calendar.current.dateComponents([.day], from: $0.at, to: .now).day ?? 0 }
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                if let wait = row.wait {
-                    Text(wait.line(waitsOn: row.nextStep?.waitsOn)).label()
-                        .foregroundStyle(wait.isOnHim ? Palette.flag : Palette.fg)
-                }
-                Text(
-                    ([days.map { "open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self)
-                        + [(row.areas ?? []).joined(separator: ", ")].filter { !$0.isEmpty }).joined(separator: " · ")
-                )
-                .font(.body15).foregroundStyle(Palette.muted)
-            }
+        let open =
+            ([days.map { "Open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self)
+            + [(row.areas ?? []).joined(separator: ", ")].filter { !$0.isEmpty }).joined(separator: " · ")
+        return VStack(alignment: .leading, spacing: 8) {
             Text(row.name).font(.matterTitle).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
+            if !matter.checks.isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
+            Text(open).font(.small).foregroundStyle(Palette.muted)
         }
         .padding(.top, 8)
     }
@@ -186,51 +171,23 @@ private struct EditableLine: View {
     }
 }
 
-// MARK: Agent
-
-private struct NoAgent: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("No agent on this matter").font(.leadBold).foregroundStyle(Palette.fg)
-            Text("Start one and its first step is a plan you approve. Nothing is sent without your tap.")
-                .font(.body15).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.card))
-    }
-}
-
 // MARK: People and steps
 
 private struct People: View {
     let people: MatterRow.People?
 
+    /// One small muted line: "Owed to Ana Novak, with Sam Lee".
     var body: some View {
         let groups: [(String, [String])] = [
             ("Owed to", people?.owedTo ?? []), ("Waiting on", people?.waitingOn ?? []),
             ("With", people?.with ?? []), ("Told", people?.told ?? []),
         ].filter { !$0.1.isEmpty }
-        if !groups.isEmpty {
-            FlowLayout(spacing: 8) {
-                // One person can be in two roles: each pill is its role and name.
-                ForEach(
-                    groups.flatMap { role, names in names.map { (id: "\(role)/\($0)", role: role, name: $0) } },
-                    id: \.id
-                ) { _, role, name in
-                    HStack(spacing: 8) {
-                        Text(SaidWords.initials(name))
-                            .font(.badge).foregroundStyle(Palette.muted)
-                            .frame(width: 30, height: 30).background(Color.fillTint, in: .circle)
-                        Text(role).font(.body15).foregroundStyle(Palette.muted)
-                        Text(name).font(.rowName).foregroundStyle(Palette.fg)
-                    }
-                    .padding(.leading, 6).padding(.trailing, 14).frame(minHeight: 44).background(
-                        Palette.card, in: .capsule
-                    )
-                    .accessibilityElement(children: .combine)
-                }
-            }
+        let line = groups.enumerated().map { offset, group in
+            let words = "\(group.0) \(group.1.joined(separator: ", "))"
+            return offset == 0 ? words : words.prefix(1).lowercased() + words.dropFirst()
         }
+        .joined(separator: ", ")
+        if !line.isEmpty { Text(line).font(.small).foregroundStyle(Palette.muted) }
     }
 }
 
@@ -251,8 +208,9 @@ private struct Steps: View {
                         .frame(width: 22, alignment: .leading).padding(.top, 3)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(step.whenAndWith).font(.body15).foregroundStyle(Palette.muted)
-                        Text(step.kind.replacing("_", with: " ")).label().foregroundStyle(
-                            step.ending == nil ? Palette.fg : Palette.faint)
+                        if step.kind == "todo_item" && step.ending == nil {
+                            Text("Open").font(.smallStrong).foregroundStyle(Palette.flag)
+                        }
                         Text(step.text).font(.leadBold).foregroundStyle(
                             step.ending == nil ? Palette.fg : Palette.muted)
                         if !step.quote.isEmpty { Text(step.quote).font(.body15).foregroundStyle(Palette.muted) }
@@ -281,7 +239,7 @@ private struct DoneButton: View {
                 default: Label("Mark as done", systemImage: "checkmark")
                 }
             }
-            .buttonStyle(.pill(.quiet, isBusy: state.isRunning)).disabled(state.isRunning)
+            .buttonStyle(.glass).disabled(state.isRunning)
             LimitNote(state: state) { $0.map { "Takes \($0)." } ?? "" }
                 .font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
             if case .failed(let failure, _) = state {
@@ -313,18 +271,7 @@ extension MatterStep {
     }
 }
 
-extension MatterWait {
-    /// The caps line on the page.
-    fileprivate func line(waitsOn: String?) -> String {
-        switch self {
-        case .decision: "Your decision"
-        case .owner: "Waits on you"
-        case .ready: "Ready to do"
-        case .event: waitsOn.map { "Waits on \($0)" } ?? "Waits for something"
-        case .stuck: "Stuck"
-        }
-    }
-}
+// MARK: Agent
 
 /// The agent's row on a matter: its runtime in `ai`, one line under it (who it listens for and its deadline, or its state;
 /// `flag` when it never started), a chevron. It opens the agent's sheet.
