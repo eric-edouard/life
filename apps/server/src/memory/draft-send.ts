@@ -282,6 +282,7 @@ async function readySend(
     const wrote = s
       .read(since)
       .filter((e) => e.chat === draft.chat && e.at > since.toISOString())
+      .toSorted((a, b) => a.at.localeCompare(b.at))
       .at(-1);
     if (wrote) {
       throw Object.assign(
