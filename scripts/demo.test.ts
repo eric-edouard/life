@@ -53,7 +53,7 @@ test("the demo's inbox offers its new matter, the one `bun run e2e:demo` starts 
   );
   expect(checks.stdout.toString()).toContain("[new matter] matter_");
   expect(checks.stdout.toString()).toContain(
-    "Goal: Get the kitchen tap at the flat fixed. Work on it?"
+    "goal: Get the kitchen tap at the flat fixed\n"
   );
 });
 

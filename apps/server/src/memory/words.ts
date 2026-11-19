@@ -85,7 +85,10 @@ const UNIT_ID = /^unit_[0-9a-f]{12}$/;
 const FETCHES = 8;
 
 /** `read` of each key, a few requests at a time, by key. */
-async function readEach<T>(keys: string[], read: (key: string) => Promise<T>) {
+export async function readEach<T>(
+  keys: string[],
+  read: (key: string) => Promise<T>
+) {
   const out = new Map<string, T>();
   const list = [...new Set(keys)];
   for (let i = 0; i < list.length; i += FETCHES) {

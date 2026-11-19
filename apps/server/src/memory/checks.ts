@@ -26,7 +26,12 @@ import {
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import type { StoredDraft } from "./draft";
-import { type CheckGroup, type CheckOption, LIFE_CHECKS } from "./life-checks";
+import {
+  type Check,
+  type CheckGroup,
+  type CheckKind,
+  LIFE_CHECKS,
+} from "./life-checks";
 import {
   directionDueOf,
   isRunning,
@@ -50,12 +55,17 @@ import {
   readDismissedMatterPins,
   readFactCheckAnswers,
   readFactChecks,
-  readUnitsFor,
   ZONES,
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
+import {
+  type NameContext,
+  nameGroupsOf,
+  readSentences,
+  saidOfLine,
+  saidOfQuote,
+} from "./name-context";
 import { sourceOf } from "./sources";
-import { nameKey } from "./units";
 import {
   type People,
   readPeople,
@@ -72,72 +82,7 @@ import { dayNow, localDate } from "./zones";
 // `answer-check.ts`) goes to its kind's own store: a correction (a person, a new matter's goal or dismissal), a
 // fact-check answer (an ending), his answer to the decision, lifelog's naming queue (a voice), or the desk (a Start).
 
-type CheckKind = "decision" | "ending" | "new matter" | "person" | "voice";
-/**
- * One thing waiting on his word, the same shape for every kind: Life's guesses and agents' decisions alike. A field
- * a kind has nothing for is null or empty. Only open checks exist: his answer and what came of it are kept by each
- * kind's own store (`decisionsNow`, the fact-check answers, the corrections).
- */
-export interface Check {
-  /** The names and handles the question is about, as his answer takes them (`nameOrHandle`); none but a person's. */
-  about: string[];
-  /** Who asks: `life` for Life's own guesses, else the agent's pairing or `desk`. */
-  asker: string;
-  /** When it was asked; null for Life's guesses (worked out when read). */
-  at: string | null;
-  /** A voice's spans of recording (`audio` is what the app plays from lifelog), newest first as lifelog gives them; none but a voice's. */
-  clips: {
-    at: string | null;
-    audio: { end: number; jobId: string; start: number } | null;
-    text: string;
-    until: string | null;
-    /** Its words as lifelog times them (`TimedWords`): [start, end, length] each, in ms from the clip's start and UTF-16 units of `text` with the spacing before it, for lighting them while it plays. */
-    words: number[][];
-  }[];
-  /** The guess about who a decision's draft goes to, when Life only guesses who that is: asked beside it, answered on its own; none for every other check. */
-  confirm: Check[];
-  /** Why it asks, what was tried, what it rests on: folded on his card. An agent's words, or Life's own for its guesses. */
-  context: string | null;
-  /** By when he answers; null: no deadline. */
-  deadline: string | null;
-  /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none. */
-  draft: StoredDraft | null;
-  /** The quoted words a guess of Life's rests on, with where and when they were said; null for a card or a decision. */
-  evidence: { from: string; quote: string } | null;
-  /** A new matter's goal, the one his Start hands the agent (the question words it too); null for every other kind. */
-  goal: string | null;
-  group: CheckGroup;
-  kind: CheckKind;
-  /** Who it may be, as Life knows them: a voice's likely people, a Contacts card's candidates; none for other kinds. */
-  likelyPeople: { name: string; person: string }[];
-  /** Where to look or act (the agent's link first). */
-  links: string[];
-  /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done); null: none. */
-  matter: { id: string; name: string } | null;
-  /** A decision whose draft his last answer did not send (nothing went): when, why, and whether the same tap could work again; null: none. */
-  notSent: { at: string; canRetry: boolean; reason: string } | null;
-  /** The option the agent takes when he does not answer; null: none is taken (Life keeps using its guess, never writing it). */
-  onSilence: string | null;
-  /** What he can answer (`CheckOption`: his button's label and what his answer takes); with two or more, the first is the one recommended (Life: its guess). Besides them he can always answer in his own words (a decision's `note`, else `tell_life`). */
-  options: CheckOption[];
-  /** What he decides, in one sentence (a guess's worded by a template, no model). */
-  question: string;
-  /** What his answer acts on: a decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
-  ref: string;
-  /** What uses it today, counted from what is stored. */
-  ridesOn: {
-    /** The ids of those matters (`matters` counts them): `checksOnMatterOf` finds a matter's checks by them. */
-    matterIds: string[];
-    // ponytail: remove `matters` once the phone build that reads `matterIds` ships; installed builds need it to decode.
-    matters: number;
-    observations: number;
-    pages: number;
-  };
-  /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; for a voice, the person lifelog suggests; null: none. */
-  subject: string | null;
-  /** What it is trying to do, in one line. */
-  title: string;
-}
+export type { Check } from "./life-checks";
 
 /** A kept line as the checks read it. */
 type Line = Pick<
@@ -147,6 +92,7 @@ type Line = Pick<
   | "date"
   | "id"
   | "quote"
+  | "speaker"
   | "subjects"
   | "text"
   | "unit"
@@ -197,15 +143,19 @@ export interface CheckInputs {
   > & {
     steps: Pick<MatterStepNow, "day" | "quote" | "ref">[];
   })[];
+  /** What each name check shows of its sentence, by the name's key (`readNameContexts`); a name whose unit could not be read has none. */
+  nameContexts: ReadonlyMap<string, NameContext>;
   paged: ReadonlySet<string>;
   people: Pick<
     People,
     | "ambiguousCards"
+    | "candidatesFor"
     | "contacts"
     | "isGuess"
     | "nameOf"
     | "names"
     | "refOf"
+    | "relationOf"
     | "resolve"
   > & {
     inferred: Pick<
@@ -219,6 +169,8 @@ export interface CheckInputs {
       | "relation"
     >[];
   };
+  /** The chat or thread a unit is in, by unit id: where a step was said (`to`); only the units the steps of endings and new matters are in. */
+  titles: ReadonlyMap<string, string>;
   /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
   today: string;
   unresolved: readonly Pick<Unresolved, "nameAsWritten" | "observation">[];
@@ -268,9 +220,6 @@ function ctxOf(c: CheckInputs): Ctx {
   };
 }
 
-/** A goal's own full stop, dropped before the question adds its own. */
-const FINAL_STOP = /\.$/;
-
 /** The guess of an ending check, in one place: the builder shows it and his answer stores it. */
 export const endingGuessOf = (step: string) =>
   `Life thinks this is done: ${step}`;
@@ -288,6 +237,9 @@ export const isEndingKind = (
   c.kind === "ending";
 
 const whereOf = (l: Line): Where => `${l.source.channel}, ${plain(l.date)}`;
+
+/** What every kind that shows no sentence of its own carries in the fields of `Said`. */
+const NO_SAID = { around: null, said: null, since: null } as const;
 
 /** The open matters something rides on: their ids and how many. */
 const ridingOf = (matters: Iterable<MatterId> = []) => {
@@ -324,14 +276,13 @@ const keptBy = (c: Ctx, refsOf: (l: Line) => string[]) => {
   return by;
 };
 
-const newest = (lines: Line[]) =>
-  lines.reduce((m, l) => (l.date > m.date ? l : m));
-
 function ranked(
   c: Ctx,
   group: Exclude<CheckGroup, "decision">,
   fields: Pick<Check, "about" | "question" | "ref"> &
-    Partial<Pick<Check, "likelyPeople">>,
+    Partial<
+      Pick<Check, "around" | "clips" | "likelyPeople" | "said" | "since">
+    >,
   lines: Line[],
   refs: string[],
   evidence: { quote: string; where?: Where } | null
@@ -343,9 +294,10 @@ function ranked(
         {
           check: {
             about: fields.about,
+            around: fields.around ?? null,
             asker: LIFE_ASKER,
             at: null,
-            clips: [],
+            clips: fields.clips ?? [],
             context: LIFE_CHECKS[group].context,
             deadline: null,
             draft: null,
@@ -359,11 +311,14 @@ function ranked(
             likelyPeople: fields.likelyPeople ?? [],
             links: [],
             notSent: null,
+            onMatters: [],
             onSilence: null,
             options: [...LIFE_CHECKS[group].options],
             question: fields.question,
             ref: fields.ref,
             ridesOn: rides,
+            said: fields.said ?? null,
+            since: fields.since ?? null,
             subject: null,
             title: LIFE_CHECKS[group].title,
           },
@@ -372,6 +327,12 @@ function ranked(
       ]
     : [];
 }
+
+/** The answers a voice's card offers: with a guess in use, "Yes" to it too. */
+const VOICE_OPTIONS: Record<"guess" | "none", string[]> = {
+  guess: ["is-them", "this-is", "not-relevant"],
+  none: ["this-is", "not-relevant"],
+};
 
 /** Each kind of check, from what is stored. A new kind (a voice, a tie, an appointment, a line with a doubt of its own) is one more entry. */
 const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
@@ -386,6 +347,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       )
       .map((d) => ({
         check: {
+          ...NO_SAID,
           about: [],
           asker: d.asker,
           at: d.at,
@@ -400,6 +362,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           likelyPeople: [],
           links: d.links,
           notSent: notSentOf(d),
+          onMatters: [],
           onSilence: d.onSilence,
           options: d.options.map((o) => ({ ...o, takes: null })),
           question: d.question,
@@ -427,8 +390,12 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             "ending",
             {
               about: [],
-              question: endingGuessOf(o.text),
+              question: "Is this done?",
               ref,
+              said: saidOfLine(o, c.people, c.titles),
+              since: later
+                ? saidOfLine(later, c.people, c.titles)
+                : saidOfQuote(link.quote, null),
             },
             [o],
             [],
@@ -457,6 +424,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       const [first] = v.steps;
       const next = nextStepNow(v, c.decisions);
       const lastDay = offerEndOf(v);
+      const firstLine = first && c.byId.get(first.ref);
       return first &&
         lastDay &&
         c.today <= lastDay &&
@@ -473,6 +441,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         ? [
             {
               check: {
+                ...NO_SAID,
                 about: [],
                 asker: LIFE_ASKER,
                 at: null,
@@ -487,12 +456,16 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
                 likelyPeople: [],
                 links: [],
                 notSent: null,
+                onMatters: [],
                 // Nothing starts on silence: no option is taken.
                 onSilence: null,
                 options: [...LIFE_CHECKS["new matter"].options],
-                question: `Goal: ${v.goal.text.replace(FINAL_STOP, "")}. Work on it?`,
+                question: "Start an agent on this?",
                 ref: v.id,
                 ridesOn: { ...ridingOf([v]), observations: 0, pages: 0 },
+                said: firstLine
+                  ? saidOfLine(firstLine, c.people, c.titles)
+                  : saidOfQuote(first.quote, first.day),
                 subject: null,
                 title: `${LIFE_CHECKS["new matter"].title}: ${v.name}`,
               },
@@ -533,6 +506,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     const cards = people.ambiguousCards.flatMap((a) => {
       // The people its name and handles say, named once: his answer is one of them.
       const likelyPeople = a.people.map((p) => ({
+        line: people.relationOf(p),
         name: people.nameOf(p),
         person: p,
       }));
@@ -550,33 +524,28 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         null
       );
     });
-    const open = c.unresolved.filter(
-      (r) => r.observation && !people.resolve(r.nameAsWritten)
+    const named = nameGroupsOf(c).flatMap(
+      ({ key, last: held, lines, names: as }) => {
+        const read = c.nameContexts.get(key);
+        return ranked(
+          c,
+          "name",
+          {
+            about: as,
+            around: read && { after: read.after, before: read.before },
+            clips: read?.clips,
+            likelyPeople: people.candidatesFor(as[0] ?? key),
+            question: `Who is "${as.join(" / ")}"?`,
+            ref: `name:${key}`,
+            said: read?.said ?? (held && saidOfLine(held, c.people, c.titles)),
+          },
+          lines,
+          [],
+          held ? { quote: held.quote, where: whereOf(held) } : null
+        );
+      }
     );
-    const names = [
-      ...Map.groupBy(open, (r) => nameKey(r.nameAsWritten) || r.nameAsWritten),
-    ].flatMap(([key, rows]) => {
-      const lines = [...new Set(rows.map((r) => r.observation))].flatMap(
-        (id) => {
-          const l = id ? c.byId.get(id) : undefined;
-          return l && c.kept.has(l.id) ? [l] : [];
-        }
-      );
-      const last = lines.length > 0 ? newest(lines) : undefined;
-      return ranked(
-        c,
-        "name",
-        {
-          about: [...new Set(rows.map((r) => r.nameAsWritten))],
-          question: `Life cannot tell who "${[...new Set(rows.map((r) => r.nameAsWritten))].join(" / ")}" is`,
-          ref: `name:${key}`,
-        },
-        lines,
-        [],
-        last ? { quote: last.quote, where: whereOf(last) } : null
-      );
-    });
-    return [...guessed, ...cards, ...names];
+    return [...guessed, ...cards, ...named];
   },
   /** Every voice lifelog asks him to name, none left out but those he called several people (not asked in v1: one answer would give them all to one). */
   voice: (c) =>
@@ -591,12 +560,17 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           })
           .filter((ref, i, all) => all.indexOf(ref) === i)
           .slice(0, 5)
-          .map((ref) => ({ name: c.people.nameOf(ref), person: ref }));
+          .map((ref) => ({
+            line: c.people.relationOf(ref),
+            name: c.people.nameOf(ref),
+            person: ref,
+          }));
         const [first] = item.evidence;
         const who =
           known && item.kind !== "new_person" ? c.people.nameOf(known) : null;
         return {
           check: {
+            ...NO_SAID,
             about: item.name ? [item.name] : [],
             asker: LIFE_ASKER,
             at: null,
@@ -616,14 +590,13 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             likelyPeople: likely,
             links: [],
             notSent: null,
+            onMatters: [],
             onSilence: null,
-            // His first answer is lifelog's suggestion (or the name it heard) by first name; `likelyPeople` ranks everyone, so it names no one.
-            options: LIFE_CHECKS.voice.options.map((o, i) =>
-              i === 0
-                ? { ...o, label: (who ?? item.name)?.split(" ")[0] ?? o.label }
-                : o
+            // The people it could be are `likelyPeople`, lifelog's suggestion first; "Yes" only when that suggestion is in use.
+            options: LIFE_CHECKS.voice.options.filter((o) =>
+              VOICE_OPTIONS[who ? "guess" : "none"].includes(o.id)
             ),
-            question: "Who is this?",
+            question: who ? `Is this ${who}?` : "Who is this?",
             ref: `voice:${item.id}`,
             ridesOn: { ...ridingOf(), observations: 0, pages: 0 },
             // The person lifelog suggests, what makes it a guess in use; null: none (`urgencyOf`).
@@ -642,6 +615,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
 export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
   const matterOf = matterFinderOf(inputs.matters);
+  const matterNames = new Map(inputs.matters.map((m) => [m.id, m.name]));
   const found = Object.values(BUILDERS)
     .flatMap((build) => build(c))
     .toSorted(
@@ -657,7 +631,14 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
     )
     .map(({ check }) => {
       const m = matterOf([check.subject ?? check.ref]);
-      return { ...check, matter: m ? { id: m.id, name: m.name } : null };
+      return {
+        ...check,
+        matter: m ? { id: m.id, name: m.name } : null,
+        onMatters: check.ridesOn.matterIds.flatMap((id) => {
+          const name = matterNames.get(id);
+          return name ? [{ id, name }] : [];
+        }),
+      };
     });
   const guessed = new Map(
     found
@@ -761,9 +742,20 @@ async function readChecks(
     pagedNow(people),
   ]);
   const matters = matterBookOf(mattersNow(readMatters()), records, dayNow());
-  const units = readUnitsFor(
-    people.inferred.flatMap((p) => p.evidence.map((e) => e.unit))
+  const lines = records.observations;
+  const kept = new Set(
+    lines
+      .filter((o) => o.importance >= KEEP_AT && !records.retired.has(o.id))
+      .map((o) => o.id)
   );
+  const { nameContexts, titles, units } = await readSentences({
+    kept,
+    lines,
+    matters,
+    people,
+    records,
+    unresolved,
+  });
   const key = secretIn("pushIdKey");
   const checks = checksOf({
     answered: new Set(
@@ -780,15 +772,13 @@ async function readChecks(
     heldByAgents: held,
     isDirectionDue: directionDueOf(matters, records, dayNow()),
     // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).
-    kept: new Set(
-      records.observations
-        .filter((o) => o.importance >= KEEP_AT && !records.retired.has(o.id))
-        .map((o) => o.id)
-    ),
-    lines: records.observations,
+    kept,
+    lines,
     matters,
+    nameContexts,
     paged,
     people,
+    titles,
     today: dayNow(),
     unresolved,
     voices,

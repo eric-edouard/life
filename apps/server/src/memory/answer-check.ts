@@ -224,6 +224,11 @@ const WRITERS: {
     },
   },
   voice: {
+    // "Yes" to the guess in use: the person lifelog suggests (the check's `subject`).
+    "is-them": (c, a, { item }) =>
+      answerVoice(c, item, (i) =>
+        thisIs(i, c, { ...a, person: c.subject ?? undefined })
+      ),
     media: (c, _a, { item }) =>
       answerVoice(c, item, async () => ({ kind: "media" })),
     "not-anyone-i-know": (c, _a, { item }) =>

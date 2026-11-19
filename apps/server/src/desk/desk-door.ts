@@ -62,7 +62,7 @@ function doorServer(desk: Desk, id: string) {
         // His rule: a new agent's first turn ends on its plan, asked; it waits or finishes only after.
         if ((name === "set_wait" || name === "finish") && !hasAsked(id)) {
           throw new Error(
-            'Not done: ask your plan first (`request_decision`: "Here is what I\'ll do", options Go, Change, Stop).'
+            "Not done: ask your plan first (`request_decision`: a question ending in a ?, options Go, Tell the agent…, Stop the agent)."
           );
         }
         const r = await run(args);

@@ -348,9 +348,8 @@
                     "voice_v1", group: "voice", title: "A voice from Saturday, 4 minutes with Sam",
                     question: "Who is this?",
                     options: [
-                        option("this-is", "Name them…", takes: "person or name"),
-                        option("not-anyone-i-know", "A stranger"), option("media", "TV or video"),
-                        option("not-relevant", "Don't care"),
+                        option("this-is", "Someone else…", takes: "person or name"),
+                        option("not-relevant", "Don't name"),
                     ],
                     context: "Sam called the voice “Jun” twice in the same minute.",
                     extra: [

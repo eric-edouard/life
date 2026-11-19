@@ -169,20 +169,34 @@ export function isTurnNamed(store: Store, ref: string) {
   );
 }
 
+/** A clip of a recording: where it is in the job's audio (`audio`), when, its words and their timings (`TimedWords`: each word's [start, end] in ms from the clip's start and its length in `text`, with the spacing before it). */
+const Clip = z.object({
+  at: z.string().nullable(),
+  audio: z
+    .object({ end: z.number(), jobId: z.string(), start: z.number() })
+    .nullable(),
+  text: z.string(),
+  until: z.string().nullable(),
+  words: z.array(z.array(z.number())),
+});
+
+/** The clip of one turn of a recording, as lifelog cuts it for its cards (`GET /turns/clip`); null once lifelog has no such turn. */
+export const readTurnClip = (jobId: string, turnIndex: number) =>
+  call(
+    `/turns/clip?jobId=${encodeURIComponent(jobId)}&turnIndex=${turnIndex}`
+  ).then(
+    (clip) => Clip.parse(clip),
+    (e: { status?: number }) => {
+      if (e.status === 404) {
+        return null;
+      }
+      throw e;
+    }
+  );
+
 /** One voice lifelog asks him to name, as `GET /naming-queue` gives it (`QueueItem`): what Life shows of it and sends back. */
 export const NamingQueueItem = z.object({
-  clips: z.array(
-    z.object({
-      at: z.string().nullable(),
-      audio: z
-        .object({ end: z.number(), jobId: z.string(), start: z.number() })
-        .nullable(),
-      text: z.string(),
-      until: z.string().nullable(),
-      /** `TimedWords`: each word's [start, end] in ms from the clip's start and its length in `text`, with the spacing before it. */
-      words: z.array(z.array(z.number())),
-    })
-  ),
+  clips: z.array(Clip),
   conversations: z.number(),
   evidence: z.array(
     z.object({

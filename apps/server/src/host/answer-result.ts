@@ -138,6 +138,7 @@ async function decisionResult(ref: string, key?: string) {
 }
 
 const VOICE_ANSWER: Record<string, string> = {
+  "is-them": "named",
   media: "media",
   "not-anyone-i-know": "not_anyone",
   "not-relevant": "not_relevant",
