@@ -278,7 +278,7 @@ export function pollAnswers({ db }: Desk) {
 const sinceLineOf = (since?: string) =>
   since
     ? [
-        `Nothing you waited for arrived since your last turn ended, at ${since}: sweep what happened since then on your subject (\`read_memory_changes\` with \`since\`, \`read_matters\`, \`read_chats\`).`,
+        `Your last turn ended at ${since}: sweep what happened since then on your subject (\`read_memory_changes\` with \`since\`, \`read_matters\`, \`read_chats\`).`,
       ]
     : [];
 

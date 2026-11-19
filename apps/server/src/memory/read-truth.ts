@@ -245,6 +245,12 @@ export function integrity({
     }
     chatIds.add(c.id);
   }
+  // A chat's id may itself be a WhatsApp id: never the `whatsapp` of another chat (one chat, two entries).
+  for (const c of chats.filter((x) =>
+    chats.some((o) => o !== x && o.id === x.whatsapp)
+  )) {
+    issues.push(`chat ${c.id}'s whatsapp is another chat's id`);
+  }
   const areaIds = new Set<string>();
   for (const a of areas) {
     if (areaIds.has(a.id)) {

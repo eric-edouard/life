@@ -21,7 +21,7 @@ test("a deadline wake after an ended turn states when that turn ended", async ()
   const wake = fake.said.at(-1)?.message ?? "";
   expect(wake).toContain("Woken by the desk: deadline.");
   expect(wake).toContain(
-    `Nothing you waited for arrived since your last turn ended, at ${endedAt}: sweep what happened since then on your subject`
+    `Your last turn ended at ${endedAt}: sweep what happened since then on your subject`
   );
 });
 
@@ -54,7 +54,5 @@ test("a deadline wake that starts a fresh session (the old one grew) carries the
   await wakeDue(desk);
   const start = fake.said.at(-1)?.message ?? "";
   expect(start).toContain("Your subject");
-  expect(start).toContain(
-    `Nothing you waited for arrived since your last turn ended, at ${endedAt}: sweep`
-  );
+  expect(start).toContain(`Your last turn ended at ${endedAt}: sweep`);
 });

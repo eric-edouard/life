@@ -12,7 +12,7 @@ import {
 } from "../core/paths";
 import { git } from "../core/proc";
 import { SETTINGS } from "../core/settings";
-import { type Chat, Person } from "../records/truth";
+import { Chat, Person } from "../records/truth";
 import { WATCH } from "../sources/lifelog";
 import { commitMemory, OUT } from "./memory-files";
 import {
@@ -70,6 +70,21 @@ describe("integrity", () => {
     expect(integrity(truth({ chats: [chat({}), chat({})] }))).toContain(
       "chat !a:matrix.local is listed twice"
     );
+  });
+
+  test("a chat's id is a room id or a WhatsApp id, and never another chat's whatsapp", () => {
+    const ok = (id: string) => Chat.safeParse({ id, name: "A" }).success;
+    expect(
+      ["!a:matrix.local", "1204@g.us", "10000000001@s.whatsapp.net"].map(ok)
+    ).toEqual([true, true, true]);
+    expect(["shop group", "iMessage;+;chat1"].map(ok)).toEqual([false, false]);
+    expect(
+      integrity(
+        truth({
+          chats: [chat({ whatsapp: "1204@g.us" }), chat({ id: "1204@g.us" })],
+        })
+      )
+    ).toContain("chat !a:matrix.local's whatsapp is another chat's id");
   });
 
   test("an area listed twice is refused", () => {
