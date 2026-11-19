@@ -53,11 +53,3 @@ extension Check.Said {
         return [by, toWhom, channel.map(channelName), when].compactMap(\.self).joined(separator: ", ")
     }
 }
-
-extension Check {
-    /// A guessed person's name as the question says it ("Is this Kit?" gives "Kit"), for the link "Why Kit?"; nil for any other wording.
-    public var personCalled: String? {
-        guard group == .guessedPerson, question.hasPrefix("Is this "), question.hasSuffix("?") else { return nil }
-        return String(question.dropFirst("Is this ".count).dropLast())
-    }
-}

@@ -163,7 +163,7 @@ struct CheckCard: View {
     }
 
     private var whyTitle: String {
-        check.draft != nil ? "Why this reply?" : check.personCalled.map { "Why \($0)?" } ?? "Why?"
+        check.draft != nil ? "Why this reply?" : check.networkIdentity?.shownName.map { "Why \($0)?" } ?? "Why?"
     }
 
     private var isRowShown: Bool {

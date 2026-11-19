@@ -38,16 +38,3 @@ private func said(_ json: String) throws -> Check.Said {
     #expect(SaidWords.initials("Marc Delmas") == "MD")
     #expect(SaidWords.initials("~ Idris B.") == "IB")
 }
-
-@Test func aGuessedPersonQuestionNamesWhoForTheWhyLink() throws {
-    func check(_ group: String, _ question: String) throws -> Check {
-        let json = """
-            {"ref":"c","group":"\(group)","title":"t","question":"\(question)","asker":"Life","options":[],
-             "clips":[],"likelyPeople":[],"links":[]}
-            """
-        return try JSONDecoder().decode(Check.self, from: Data(json.utf8))
-    }
-    #expect(try check("guessed person", "Is this Kit?").personCalled == "Kit")
-    #expect(try check("guessed person", "Who is Kit").personCalled == nil)
-    #expect(try check("voice", "Is this Kit?").personCalled == nil)
-}

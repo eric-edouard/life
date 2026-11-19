@@ -289,12 +289,9 @@ private struct People: View {
                     id: \.id
                 ) { _, role, name in
                     HStack(spacing: 8) {
-                        Text(
-                            name.split(separator: " ").prefix(2).compactMap { $0.first.map(String.init) }.joined()
-                                .uppercased()
-                        )
-                        .font(.badge).foregroundStyle(Palette.muted)
-                        .frame(width: 30, height: 30).background(Color.fillTint, in: .circle)
+                        Text(SaidWords.initials(name))
+                            .font(.badge).foregroundStyle(Palette.muted)
+                            .frame(width: 30, height: 30).background(Color.fillTint, in: .circle)
                         Text(role).font(.body15).foregroundStyle(Palette.muted)
                         Text(name).font(.rowName).foregroundStyle(Palette.fg)
                     }
