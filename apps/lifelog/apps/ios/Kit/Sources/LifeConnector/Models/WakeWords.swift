@@ -130,9 +130,18 @@ extension WakeLine.Payments {
         }
         var pieces: [WakeClause.Piece] = []
         let isIn = quantity == "eur_in"
-        let (bound, amount) = above.map { ("over", $0) } ?? below.map { ("under", $0) } ?? ("", 0)
-        if !bound.isEmpty {
-            pieces = [.plain(isIn ? "You receive \(bound) " : "A payment is \(bound) "), .figure(euros(amount))]
+        // A non-breaking space keeps the amount with its word on one line.
+        let head = isIn ? "You receive" : "A payment is"
+        let amounts: [WakeClause.Piece]? =
+            switch (above, below) {
+            case (let low?, let high?): [.figure(euros(low)), .plain(" and "), .figure(euros(high))]
+            case (let low?, nil): [.figure(euros(low))]
+            case (nil, let high?): [.figure(euros(high))]
+            case (nil, nil): nil
+            }
+        let bound = above != nil ? (below != nil ? "between" : "over") : "under"
+        if let amounts {
+            pieces = [.plain("\(head) \(bound)\u{00A0}")] + amounts
             if let words { pieces += [.plain(" and mentions "), .figure("“\(words)”")] }
         } else if let words {
             pieces = [.plain("A payment mentions "), .figure("“\(words)”")]
@@ -176,10 +185,8 @@ extension RegisteredAgent {
         if let notStarted { return "\(AgentWords.notStarted): \(notStarted)" }
         switch status {
         case .running:
-            let since = statusSince.map {
-                $0.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, timeZone: timeZone))
-            }
-            return since.map { "Working since \($0)" } ?? stateWord
+            return statusSince.map { "Working since \(SaidWords.time($0, locale: locale, timeZone: timeZone))" }
+                ?? stateWord
         case .stopped: return stateWord
         case .waiting:
             let live = wakesOn.filter { !$0.isBroken }

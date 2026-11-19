@@ -22,7 +22,7 @@
         nonisolated static let tab = value(of: "-fixtureTab")
         nonisolated static let matter = value(of: "-fixtureMatter")
         nonisolated static let sheet = value(of: "-fixtureSheet")
-        /// `-fixtureAgent notStarted`: Nora's agent never began (its runtime refused), for the Try again swap.
+        /// `-fixtureAgent notStarted|running`: Nora's agent never began (its runtime refused), for the Try again swap, or works.
         nonisolated static let agent = value(of: "-fixtureAgent")
         /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).
         /// `-fixturePage life|server|diagnostics`: Settings opens that page.
@@ -156,10 +156,10 @@
                 throw MCPError.failed("No such matter.")
             }
             var matter = row
-            let hasAgent = id == "matter_lease" || (id == "matter_table" && started.withLock { $0 })
             let index = ["matter_lease": 0, "matter_kitchen": 1, "matter_table": 2, "matter_nora": 3][id]
-            matter["agents"] =
-                (hasAgent || id == "matter_kitchen" || id == "matter_nora") ? [Self.agent(index ?? 2)] : []
+            // The table's agent exists only once he started one.
+            let hasAgent = index != nil && (id != "matter_table" || started.withLock { $0 })
+            matter["agents"] = hasAgent ? [Self.agent(index ?? 0)] : []
             if id == "matter_table", started.withLock({ $0 }) { matter["agent"] = "agt_table" }
             matter["steps"] = Self.steps(id)
             // Every open check about it, of every kind, as `read_matter` sends them.
@@ -750,7 +750,7 @@
                         "kind": "message", "fromHim": true, "calls": false,
                         "chat": ["name": "Carmes building", "app": "whatsapp", "group": true],
                     ],
-                    ["kind": "payments", "quantity": "eur_out", "above": 500],
+                    ["kind": "payments", "quantity": "eur_out", "above": 100, "below": 500],
                     ["kind": "places", "where": "Halden house"],
                     ["kind": "answer", "card": "Go with this plan?", "check": "dec_plan", "deadline": at(19, 18)],
                     ["kind": "wide_net"],
@@ -792,6 +792,7 @@
                 body["status"] = "ended"
                 body["notStarted"] = "Codex refused to start."
             }
+            if index == 3, LifeFixture.agent == "running" { body["status"] = "running" }
             return common.merging(body) { $1 }.merging(["matter": matter[index] ?? NSNull()]) { $1 }
         }
 

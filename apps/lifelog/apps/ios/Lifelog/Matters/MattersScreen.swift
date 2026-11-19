@@ -63,7 +63,7 @@ struct MattersScreen: View {
             case .agent(let id): AgentSheet(matter: id)
             case .start(let id):
                 if let matter = life.matter[id]?.value {
-                    StartAgentSheet(matter: matter).presentationPlacement(.leading)
+                    StartAgentSheet(matter: matter)
                 }
             }
         }

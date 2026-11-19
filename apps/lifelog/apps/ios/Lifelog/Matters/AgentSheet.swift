@@ -42,11 +42,7 @@ struct AgentSheet: View {
             switch agent.status {
             case .waiting, .unknown: waiting(agent)
             case .running:
-                word(
-                    agent,
-                    note: agent.statusSince.map {
-                        "Since \($0.formatted(date: .omitted, time: .shortened))"
-                    })
+                word(agent, note: agent.statusSince.map { "Since \(SaidWords.time($0))" })
                 buttons(agent, primary: nil)
             case .stopped:
                 word(agent, note: agent.statusSince.map { "Since \(SaidWords.moment($0))" })
@@ -65,7 +61,7 @@ struct AgentSheet: View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             HStack(spacing: Metrics.Spacing.s) {
                 Text("\(agent.stateWord ?? "").").font(.statusWord).foregroundStyle(color)
-                if agent.status == .running && agent.notStarted == nil { StateGlyph.busy }
+                if agent.status == .running { StateGlyph.busy }
             }
             if let note { Text(note).font(.note).foregroundStyle(Palette.muted) }
         }
@@ -92,35 +88,46 @@ struct AgentSheet: View {
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
-                    RowGroup(label: wakers.isEmpty ? nil : "Wakes on a message or a call from", surface: .sheet) {
-                        ForEach(Array(wakers.enumerated()), id: \.offset) { wakerRow($1) }
+                    if !wakers.isEmpty {
+                        group("Wakes on a message or a call from") {
+                            ForEach(Array(wakers.enumerated()), id: \.offset) { wakerRow($1) }
+                        }
                     }
-                    RowGroup(label: wakers.isEmpty ? "Wakes when" : "or when", surface: .sheet) {
-                        ForEach(Array(clauses.enumerated()), id: \.offset) { clauseRow($1) }
+                    if !clauses.isEmpty {
+                        group(wakers.isEmpty ? "Wakes when" : "or when") {
+                            ForEach(Array(clauses.enumerated()), id: \.offset) { clauseRow($1) }
+                        }
+                    }
+                    if let until = agent.wait?.until {
+                        group("At the latest") {
+                            WakeListRow(lead: .symbol("clock")) {
+                                Text(SaidWords.moment(until)).font(.leadBold)
+                            } trailing: {
+                                Text(until.formatted(.relative(presentation: .numeric, unitsStyle: .wide)))
+                                    .font(.note).foregroundStyle(Palette.muted)
+                            }
+                        }
                     }
                 }
                 .padding(.top, Metrics.Spacing.xl)
             }
             .scrollBounceBehavior(.basedOnSize).scrollEdgeEffectStyle(.soft, for: .bottom)
-            if let until = agent.wait?.until {
-                RowGroup(label: "At the latest", surface: .sheet) {
-                    WakeRowView(lead: .symbol("clock")) {
-                        Text(SaidWords.moment(until)).font(.leadBold)
-                    } trailing: {
-                        Text(until.formatted(.relative(presentation: .numeric, unitsStyle: .wide))).font(.note)
-                            .foregroundStyle(Palette.muted)
-                    }
-                }
-                .padding(.top, Metrics.Spacing.xl)
-            }
             buttons(agent, primary: nil)
+        }
+    }
+
+    /// A label above its flat rows; the label stays with them in the one scroll.
+    private func group<Rows: View>(_ title: String, @ViewBuilder rows: () -> Rows) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+            Text(title).label().foregroundStyle(Palette.muted).accessibilityAddTraits(.isHeader)
+            rows()
         }
     }
 
     /// A person or a chat: initials or the group glyph, its name, the networks at the right ("any app" for a person).
     private func wakerRow(_ waker: Waker) -> some View {
         let isBroken = waker.brokenReason != nil
-        return WakeRowView(
+        return WakeListRow(
             lead: lead(of: waker), detail: waker.brokenReason, detailColor: Palette.flag, isMuted: isBroken
         ) {
             switch waker.who {
@@ -150,7 +157,7 @@ struct AgentSheet: View {
 
     /// One condition; his answer opens that ask on the matter, behind the sheet.
     @ViewBuilder private func clauseRow(_ clause: WakeClause) -> some View {
-        let row = WakeRowView(
+        let row = WakeListRow(
             lead: .symbol(symbol(of: clause)), detail: clause.brokenReason ?? clause.aside,
             detailColor: clause.brokenReason == nil ? Palette.muted : Palette.flag, isMuted: clause.brokenReason != nil
         ) {

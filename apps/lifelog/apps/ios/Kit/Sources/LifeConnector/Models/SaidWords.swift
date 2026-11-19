@@ -8,10 +8,14 @@ public enum SaidWords {
             Date.FormatStyle(locale: locale, timeZone: timeZone).weekday(.abbreviated).day().month(.abbreviated))
     }
 
+    /// "09:14" (the clock as his region writes it).
+    public static func time(_ date: Date, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        date.formatted(Date.FormatStyle(locale: locale, timeZone: timeZone).hour().minute())
+    }
+
     /// "Tue 17 Nov, 09:14".
     public static func moment(_ date: Date, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
-        day(date, locale: locale, timeZone: timeZone) + ", "
-            + date.formatted(Date.FormatStyle(locale: locale, timeZone: timeZone).hour().minute())
+        day(date, locale: locale, timeZone: timeZone) + ", " + time(date, locale: locale, timeZone: timeZone)
     }
 
     /// Up to two capitals: "Marc Delmas" gives "MD"; a leading "~" (Life's guess) is not a name.

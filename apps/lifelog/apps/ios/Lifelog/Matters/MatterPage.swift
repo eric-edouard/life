@@ -325,3 +325,30 @@ extension MatterWait {
         }
     }
 }
+
+/// The agent's row on a matter: its runtime in `ai`, one line under it (who it listens for and its deadline, or its state;
+/// `flag` when it never started), a chevron. It opens the agent's sheet.
+private struct AgentRow: View {
+    let agent: RegisteredAgent
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            HStack(spacing: Metrics.Spacing.s) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label(agent.runtimeName.name, systemImage: "sparkle").font(.bodyStrong).foregroundStyle(Palette.ai)
+                    if let line = agent.rowLine() {
+                        Text(line).font(.small).foregroundStyle(agent.notStarted == nil ? Palette.muted : Palette.flag)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.smallStrong).foregroundStyle(Palette.muted)
+            }
+            .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m)
+            .frame(maxWidth: .infinity, alignment: .leading).card().contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+    }
+}

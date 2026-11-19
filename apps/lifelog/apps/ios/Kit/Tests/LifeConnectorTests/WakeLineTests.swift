@@ -99,13 +99,22 @@ private struct AnyAgents: Decodable {
 }
 
 @Test func paymentsReadAsAClauseFromThePaymentsSource() throws {
-    #expect(try clause(#"[{"kind":"payments","quantity":"eur_out","above":500}]"#).text == "A payment is over €500")
-    #expect(try clause(#"[{"kind":"payments","quantity":"eur_in","above":500}]"#).text == "You receive over €500")
+    // The amount stays with its word: a non-breaking space between them.
+    func words(_ json: String) throws -> String {
+        try clause(json).text.replacingOccurrences(of: "\u{00A0}", with: " ")
+    }
+    #expect(try words(#"[{"kind":"payments","quantity":"eur_out","above":500}]"#) == "A payment is over €500")
+    #expect(try words(#"[{"kind":"payments","quantity":"eur_in","above":500}]"#) == "You receive over €500")
+    #expect(try words(#"[{"kind":"payments","quantity":"eur_out","below":20.5}]"#) == "A payment is under €20.50")
     #expect(
-        try clause(#"[{"kind":"payments","quantity":"eur_out","below":20.5}]"#).text == "A payment is under €20.50")
-    #expect(try clause(#"[{"kind":"payments","words":"loyer"}]"#).text == "A payment mentions “loyer”")
+        try words(#"[{"kind":"payments","quantity":"eur_out","above":100,"below":500}]"#)
+            == "A payment is between €100 and €500")
     #expect(
-        try clause(#"[{"kind":"payments","quantity":"eur_out","above":100,"words":"shop"}]"#).text
+        try words(#"[{"kind":"payments","quantity":"eur_in","above":100,"below":500}]"#)
+            == "You receive between €100 and €500")
+    #expect(try words(#"[{"kind":"payments","words":"loyer"}]"#) == "A payment mentions “loyer”")
+    #expect(
+        try words(#"[{"kind":"payments","quantity":"eur_out","above":100,"words":"shop"}]"#)
             == "A payment is over €100 and mentions “shop”")
     let any = try clause(#"[{"kind":"payments"}]"#)
     #expect(any.text == "Any payment")
