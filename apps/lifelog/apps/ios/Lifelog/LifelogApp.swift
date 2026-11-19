@@ -79,6 +79,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // Shortcuts and the Recording control may launch the app just to run an intent; it reaches capture here.
         let capture = capture
         AppDependencyManager.shared.add(dependency: capture)
+        // A card answered from its notification goes through Life's store, like a tap on its screen.
+        capture.notifier.answer = { [weak self] check, request in
+            let taken = Taken(check: check, request: request, nextRef: nil, runtimeName: nil)
+            guard let life = self?.life else { return taken.result(.idle) }
+            await life.answer(request)
+            return taken.result(life.state(of: taken.key))
+        }
         let sync = sync
         AppDependencyManager.shared.add(dependency: sync)
     }

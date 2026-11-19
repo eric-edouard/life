@@ -14,6 +14,13 @@ final class PlaybackStore {
         didSet { updateQuiet() }
     }
 
+    /// Which recording plays (the caller's id), so one lights at a time; `nil` once stopped.
+    private(set) var playingID: String?
+    /// Where the player is in the file, in seconds, about 10 times a second while it plays; the split stays when paused.
+    private(set) var position: Double = 0
+
+    /// Where a seek begins: the player reports its time before the seek lands, and the position never shows less.
+    @ObservationIgnored private var seekStart: Double = 0
     @ObservationIgnored private let sync: SyncStore?
     @ObservationIgnored private let library: LibraryStore?
     @ObservationIgnored private let player = PlaybackStore.makePlayer()
@@ -37,10 +44,18 @@ final class PlaybackStore {
             }
         }
         observeRoute()
+        observers.append(
+            player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 10), queue: .main) {
+                [weak self] time in
+                MainActor.assumeIsolated {
+                    if let self, time.isNumeric { self.position = max(time.seconds, self.seekStart) }
+                }
+            })
     }
 
     /// Plays `file` from `start` seconds, and for `length` seconds when given (a clip is a span of its job's audio).
-    func play(_ file: URL, from start: Double = 0, for length: Double? = nil) {
+    /// `id` names the recording for whoever shows where it is (`playingID`).
+    func play(_ file: URL, from start: Double = 0, for length: Double? = nil, id: String? = nil) {
         // `.playback` plays through the ring/silent switch, which mutes the default `.soloAmbient`; nothing else of the
         // app plays or records through the session (the Pendant's capture is Bluetooth, not AVAudioSession).
         let session = AVAudioSession.sharedInstance()
@@ -52,6 +67,9 @@ final class PlaybackStore {
             forName: AVPlayerItem.didPlayToEndTimeNotification, object: item, queue: .main
         ) { [weak self] _ in MainActor.assumeIsolated { self?.stop() } }
         player.replaceCurrentItem(with: item)
+        playingID = id
+        position = start
+        seekStart = start
         if start > 0 { player.seek(to: CMTime(seconds: start, preferredTimescale: 600)) }
         player.play()
         clipEnd?.cancel()
@@ -69,6 +87,9 @@ final class PlaybackStore {
         itemEnd = nil
         player.pause()
         player.replaceCurrentItem(with: nil)
+        playingID = nil
+        position = 0
+        seekStart = 0
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 

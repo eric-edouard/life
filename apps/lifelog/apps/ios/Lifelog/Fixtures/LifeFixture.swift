@@ -121,9 +121,9 @@
 
         // MARK: Reads
 
-        func readInbox(pushId: String?) async throws -> String {
+        func readInbox() async throws -> String { try await gate(); return inbox() }
+        func readInbox(pushId: String) async throws -> String {
             try await gate()
-            guard let pushId else { return inbox() }
             if scenario == "slowPush" { try await Task.sleep(for: .seconds(5)) }
             // A push's read: just that card, none once answered.
             var one = (try? JSONSerialization.jsonObject(with: Data(inbox().utf8))) as? [String: Any] ?? [:]

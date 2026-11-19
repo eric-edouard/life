@@ -50,8 +50,8 @@ public struct NextStepRequest: Encodable, Sendable, Equatable {
 /// Life's connector, typed: the one place tool names appear. Each gives the tool's JSON text, which `LibraryStore.feedDecoder` reads into
 /// the models and `ReadCache` keeps as it came. An action gives its progress messages to `onProgress` and takes the key of his tap.
 public protocol LifeAPI: Sendable {
-    /// Every open ask, or with a push's `pushId` just that card (none if it was answered).
-    func readInbox(pushId: String?) async throws -> String
+    func readInbox() async throws -> String
+    func readInbox(pushId: String) async throws -> String
     func readMatters() async throws -> String
     func readMatter(_ id: String) async throws -> String
     func readRegisteredAgents() async throws -> String
@@ -74,10 +74,11 @@ public struct MCPLifeAPI: LifeAPI {
         self.client = client
     }
 
-    /// Every open ask in one read (the server's most), so the screens count them all; with a push's `pushId`, only that card.
-    public func readInbox(pushId: String?) async throws -> String {
-        if let pushId { return try await client.call("read_inbox", ["pushId": pushId]) }
-        return try await client.call("read_inbox", ["limit": 500])
+    /// Every open ask in one read (the server's most), so a tapped push finds its card and the screens count them all.
+    public func readInbox() async throws -> String { try await client.call("read_inbox", ["limit": 500]) }
+    /// Only the card a push names (none once answered), with the inbox's counts: what a notification reads.
+    public func readInbox(pushId: String) async throws -> String {
+        try await client.call("read_inbox", ["pushId": pushId])
     }
     public func readMatters() async throws -> String { try await client.call("read_matters") }
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
