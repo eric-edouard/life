@@ -100,7 +100,10 @@ struct AskFilterMenu: View {
         Menu {
             Picker("Show", selection: $kind) {
                 Label("Everything", systemImage: "list.bullet").tag(CheckGroup?.none)
-                ForEach(kinds, id: \.self) { Label($0.filterName, systemImage: $0 == .decision ? "sparkle" : $0.symbol).tag(CheckGroup?.some($0)) }
+                ForEach(kinds, id: \.self) { kind in
+                    Label(kind.filterName, systemImage: kind == .decision ? "sparkle" : kind.symbol)
+                        .tag(CheckGroup?.some(kind))
+                }
             }
             .pickerStyle(.inline)
         } label: {

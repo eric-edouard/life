@@ -250,7 +250,9 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     let wire = try #require(
         JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
     let first = try #require((wire["checks"] as? [[String: Any]])?.first)
-    let checks = urgencies.map { ref, urgency in first.merging(["ref": ref, "urgency": urgency.rawValue, "group": groups[ref] ?? first["group"] ?? ""]) { $1 } }
+    let checks = urgencies.map { ref, urgency in
+        first.merging(["ref": ref, "urgency": urgency.rawValue, "group": groups[ref] ?? first["group"] ?? ""]) { $1 }
+    }
     let body = wire.merging(["checks": checks]) { $1 }
     return try decoded(Inbox.self, String(decoding: JSONSerialization.data(withJSONObject: body), as: UTF8.self))
 }
