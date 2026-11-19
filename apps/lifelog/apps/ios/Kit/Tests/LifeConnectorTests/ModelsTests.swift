@@ -32,7 +32,9 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(onNetwork.handle == "+33600000001")
     #expect(onNetwork.openUrl == URL(string: "https://wa.me/33600000001"))
     #expect(onNetwork.newest?.text == "Kit here, from the shop")
-    #expect(decision.networkIdentity == nil)
+    // The draft's own chat, as its network shows it: stored, so no newest message.
+    #expect(decision.networkIdentity?.network == "WhatsApp")
+    #expect(decision.networkIdentity?.newest == nil)
     #expect(decision.ridesOn?.matters == 1)
 
     #expect(inbox.checks.map(\.group).contains(.newMatter))
@@ -211,6 +213,8 @@ private func everyKindOfCheck() throws -> [Check] {
     }
     #expect(try card(.contactsCard).likelyPeople.map(\.person) == ["person:gran", "person:partner"])
     #expect(try card(.contactsCard).networkIdentity == nil)
+    #expect(try card(.contactsCard).contactsCard?.name == "Lou")
+    #expect(try card(.contactsCard).contactsCard?.handles == ["+33600000009"])
 
     let guess = try card(.guessedPerson)
     #expect(guess.answer(guess.options[0]) == AnswerRequest(ref: guess.ref, options: ["this-is"]))

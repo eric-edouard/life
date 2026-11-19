@@ -12,7 +12,9 @@ import { DAY, HOUR, MIN } from "../core/clock";
 import {
   answerDecision,
   DECISIONS,
+  type Decision,
   decisionsNow,
+  notSentOf,
   requestDecision,
   settledBetween,
 } from "./decisions";
@@ -347,6 +349,38 @@ test("a not-sent outcome voids its answer: the card is open again, only his next
       via: "connector",
     })
   ).rejects.toThrow("answered");
+});
+
+test("a not-sent that found a message carries it to the card: wrote, else null", async () => {
+  const { id } = await requestDecision(
+    "planner",
+    ask({
+      draft,
+      options: [
+        { id: "send", label: "Send it", outgoing: true },
+        { id: "wait", label: "Wait" },
+      ],
+    }),
+    NOW,
+    readChat
+  );
+  const wrote = { at: later(1).toISOString(), by: "Ana", text: "wait" };
+  await answerDecision(id, ["send"], undefined, {
+    deliver: () =>
+      Promise.reject(
+        Object.assign(new Error("not sent: someone wrote in Ana"), { wrote })
+      ),
+    now: later(2),
+    via: "connector",
+  });
+  const [d] = decisionsNow(later(3));
+  expect(notSentOf(d as Decision)).toMatchObject({ wrote });
+  expect(
+    notSentOf({
+      ...(d as Decision),
+      notSent: { ...d?.notSent, wrote: undefined } as never,
+    })?.wrote
+  ).toBeNull();
 });
 
 test("a lapse whose answer a late not-sent voided settles when it was voided, so a poll past the deadline sees it; never retryable is kept", async () => {

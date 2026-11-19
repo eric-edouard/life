@@ -206,7 +206,14 @@
           }
         }
       ],
-      "networkIdentity": null,
+      "networkIdentity": {
+        "chat": "33600000001@s.whatsapp.net",
+        "handle": "+33600000001",
+        "network": "WhatsApp",
+        "newest": null,
+        "openUrl": "https://wa.me/33600000001",
+        "shownName": "Kit"
+      },
       "pushId": "a23260946067d0fe",
       "urgency": "blocks"
     },
