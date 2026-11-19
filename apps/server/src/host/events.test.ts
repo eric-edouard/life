@@ -387,7 +387,7 @@ test("a call matches by chat, app and person against who was on it, whoever plac
   }
   const match = (f: Parameters<typeof callMatcherOf>[0], c = one) =>
     callMatcherOf(f, people)?.(c);
-  // His own call to Ana, by the chat (a `from_me: false` filter, as a worker's wait has) and by the person.
+  // His own call to Ana, by the chat (a `from_me: false` filter, as an agent's wait has) and by the person.
   expect(match({ chat: "Test Ana", from_me: false })).toBe(true);
   expect(match({ from_me: false, person: "Test Ana" })).toBe(true);
   // A group call he placed, with Ana in the group: by chat, and by the person who was on it.

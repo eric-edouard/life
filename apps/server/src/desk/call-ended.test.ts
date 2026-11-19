@@ -15,7 +15,7 @@ import { pollCalls, pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
 import { openDesk } from "./desk-store";
 import { advance, chatSource, setup, T0 } from "./test-desk";
 
-// The wait contract's call.ended: a call with a worker's people wakes it once its words are in, by lifelog's signals.
+// The wait contract's call.ended: a call with an agent's people wakes it once its words are in, by lifelog's signals.
 // Made-up chat, calls and recordings; the watcher's store is a fresh one in a temp folder.
 
 afterEach(() => {
