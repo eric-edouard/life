@@ -155,7 +155,9 @@ struct CheckCard: View {
         let hasLines = !((check.around?.before ?? []) + (check.around?.after ?? [])).isEmpty
         if check.group == .voice {
             if hasLines { links.append(AskLink(title: "Before and after") { input.showsWhy = true }) }
-        } else if !isContextBeside, !check.links.isEmpty || (contextThing == nil && !(check.context ?? "").isEmpty) {
+        } else if ![.ending, .newMatter].contains(check.group), !isContextBeside,
+            !check.links.isEmpty || (contextThing == nil && !(check.context ?? "").isEmpty)
+        {
             links.append(AskLink(title: whyTitle) { input.showsWhy = true })
         }
         if isAgentQuestion { links.append(AskLink(title: "Tell the agent…") { input.isWritingOwnWords = true }) }
@@ -193,7 +195,7 @@ struct CheckCard: View {
 
     @ViewBuilder private var matterPill: some View {
         if let matter = check.matter {
-            InlinePill(name: matter.name, isAgent: check.agentName(runtime: runtimeName) != nil) {
+            InlinePill(name: matter.name, isAgent: check.agentName(runtime: nil) != nil) {
                 openMatter(matter.id)
             }
         }

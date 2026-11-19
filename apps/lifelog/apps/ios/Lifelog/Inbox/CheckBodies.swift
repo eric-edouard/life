@@ -30,7 +30,7 @@ struct EndingBlock: View {
             if let said { SaidBlock(said: said) }
             if let since {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-                    Text("Since then").font(.smallStrong).foregroundStyle(Palette.fg)
+                    Text("Since then").font(.small).foregroundStyle(Palette.muted)
                     SaidBlock(said: since)
                 }
             }
@@ -92,7 +92,7 @@ struct PersonIdentityBlock: View {
                 .accessibilityElement(children: .combine)
             }
             if let url = identity.openUrl {
-                TextLink("Open in \(network ?? "its app")", isOutward: true) { openURL(url) }
+                TextLink("Open in \(network ?? "its app")", isOutward: true, isMuted: false) { openURL(url) }
             }
         }
     }

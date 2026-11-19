@@ -357,7 +357,7 @@
         {
             check(
                 ref, group: "guessed person", title: "A name Life can’t place: “\(handle)”, on WhatsApp",
-                question: "Is this \(name.split(separator: " ")[0])?",
+                question: "Is this \(name)?",
                 options: [
                     option("this-is", "Yes"), option("not-this-person", "No"),
                     option("same-person", "Someone else…", takes: "person"),
@@ -560,7 +560,7 @@
                 guess("guess_idris", name: "Idris Benali", handle: "Idris B.", matter: kitchen),
                 check(
                     "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
-                    question: "Is this Camille?",
+                    question: "Is this Camille Vance?",
                     options: [
                         option("this-is", "Yes"), option("not-this-person", "No"),
                         option("same-person", "Someone else…", takes: "person"),
