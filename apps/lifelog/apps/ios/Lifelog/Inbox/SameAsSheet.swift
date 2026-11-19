@@ -22,7 +22,7 @@ struct SameAsSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 SheetHeader(title: "Who?") { dismiss() }
                 Field(prompt: "Search or type a name", text: $name, surface: .sheet, icon: "magnifyingglass")
-                    .focused($isTyping).padding(.top, 4)
+                    .focused($isTyping)
                 VStack(spacing: 0) {
                     if takesNewName || !typed.isEmpty { newPerson }
                     ForEach(shown, id: \.person) { person in
@@ -32,7 +32,7 @@ struct SameAsSheet: View {
                     }
                 }
             }
-            .padding(.horizontal, 20).padding(.bottom, 20)
+            .padding([.horizontal, .bottom], 20)
             .readingWidth()
         }
         .scrollBounceBehavior(.basedOnSize)

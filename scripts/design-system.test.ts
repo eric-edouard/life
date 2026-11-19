@@ -50,6 +50,7 @@ const CAPS: Record<string, Record<string, number>> = {
   },
   "Inbox/SameAsSheet.swift": {
     padding: 1,
+    width: 1,
   },
   "Matters/MatterPage.swift": {
     capsule: 1,
