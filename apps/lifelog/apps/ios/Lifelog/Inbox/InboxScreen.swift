@@ -11,6 +11,8 @@ struct InboxScreen: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     /// The system puts the bars in a side column (`reportsSideColumn`): the toast is a capsule there.
     @State private var inSideColumn = false
+    /// The same for the list's own pane: on a compact width its Filter floats at the bottom left there.
+    @State private var listInColumn = false
 
     @State private var notes = CardNotes()
     /// Asks he kept for later: shown after the others, until the app closes.
@@ -39,7 +41,8 @@ struct InboxScreen: View {
                 widths.ask < widths.whole - 1 ? "Inbox" : "", hasSettings: sizeClass != .regular,
                 hasPendant: sizeClass != .regular
             )
-            .toolbar { ToolbarItem(placement: .topBarLeading) { AskFilterMenu(kinds: all.kinds, kind: $kind) } }
+            .askFilterBar(kinds: all.kinds, kind: $kind, isInColumn: listInColumn && sizeClass != .regular)
+            .reportsSideColumn($listInColumn)
         } detail: {
             ReadScreen(
                 shown: shown, retry: { await life.retryInbox() },

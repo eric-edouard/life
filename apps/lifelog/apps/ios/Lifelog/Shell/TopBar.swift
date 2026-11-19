@@ -22,13 +22,20 @@ private struct ShellBar: ViewModifier {
                 if hasPendant || hasSettings {
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         if hasPendant { PendantItem { router.sheet = .pendant } }
-                        if hasSettings {
-                            Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
-                                .accessibilityIdentifier("top.settings")
-                        }
+                        if hasSettings { SettingsItem() }
                     }
                 }
             }
+    }
+}
+
+/// The gear: Settings as an icon-only toolbar item.
+struct SettingsItem: View {
+    @Environment(AppRouter.self) private var router
+
+    var body: some View {
+        Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
+            .accessibilityIdentifier("top.settings")
     }
 }
 

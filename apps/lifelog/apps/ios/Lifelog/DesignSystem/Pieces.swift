@@ -274,6 +274,28 @@ struct FilterMenu<Choices: View>: View {
     }
 }
 
+extension View {
+    /// A list's Filter, placed by where the system puts the bars: a top-leading toolbar item, or, in the side column
+    /// of the closed Duo (`isInColumn`, `reportsSideColumn`), a round glass button floating at the list's bottom left,
+    /// so the top group stays the Pendant and Settings.
+    func filterBar<Choices: View>(
+        isFiltered: Bool, identifier: String, isInColumn: Bool, isResting: Bool = false, @ViewBuilder choices: () -> Choices
+    ) -> some View {
+        // A control that comes and goes is unreliable: it stays and rests when there is nothing to choose between.
+        let menu = FilterMenu(isFiltered: isFiltered, identifier: identifier, choices: choices).disabled(isResting)
+        return toolbar { if !isInColumn { ToolbarItem(placement: .topBarLeading) { menu } } }
+            .overlay(alignment: .bottomLeading) {
+                ZStack {
+                    if isInColumn {
+                        menu.frame(width: 48, height: 48).floatingGlass(in: .circle).contentShape(.circle)
+                            .padding(.leading, 20).padding(.bottom, 24).appears()
+                    }
+                }
+                .motion(Motion.standard, value: isInColumn)
+            }
+    }
+}
+
 /// A filter chip: its name; filled when it holds a choice.
 struct FilterChip: View {
     let name: String

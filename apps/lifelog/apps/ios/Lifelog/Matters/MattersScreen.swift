@@ -12,6 +12,8 @@ struct MattersScreen: View {
     /// What he typed on the asks pushed on a matter: here, above both columns, so a fold keeps it.
     @State private var notes = CardNotes()
     @Environment(\.horizontalSizeClass) private var sizeClass
+    /// The system puts the list's bars in a side column (`reportsSideColumn`): the Filter floats at its bottom left.
+    @State private var listInColumn = false
 
     /// Two columns, the list and the matter: side by side on a regular width, one at a time on a compact one.
     var body: some View {
@@ -24,12 +26,21 @@ struct MattersScreen: View {
                 content: { list in content(list) }
             )
             .background(Palette.bg)
-            .shellBar("Matters")
-            .toolbar { ToolbarItem(placement: .topBarLeading) { filterMenu } }
+            // Beside the matter, the Pendant and Settings are the matter column's (the list's bar keeps its title).
+            .shellBar("Matters", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
+            .filterBar(isFiltered: filter != .everything, identifier: "matters.filter", isInColumn: listInColumn && sizeClass != .regular) {
+                filterChoices
+            }
+            .reportsSideColumn($listInColumn)
         } detail: {
             if let id = router.matter {
                 NavigationStack(path: $router.matterPath) {
                     MatterPage(id: id).id(id)
+                        .toolbar {
+                            if sizeClass == .regular, router.matterPath.isEmpty {
+                                ToolbarItem(placement: .topBarTrailing) { SettingsItem() }
+                            }
+                        }
                         .navigationDestination(for: String.self) { ref in
                             CardPage(
                                 ref: ref, source: life.matter[id]?.value?.checks ?? [], notes: $notes,
@@ -87,31 +98,29 @@ struct MattersScreen: View {
     }
 
     /// A system menu: a line icon per row, a check on the chosen one.
-    private var filterMenu: some View {
-        FilterMenu(isFiltered: filter != .everything, identifier: "matters.filter") {
-            Picker("Show", selection: $filter) {
-                Label("Everything", systemImage: "list.bullet").tag(MatterFilter.everything)
-                Label {
-                    Text("Needs you")
-                } icon: {
-                    Image(systemName: "circle.fill").imageScale(.small).foregroundStyle(Palette.flag)
+    @ViewBuilder private var filterChoices: some View {
+        Picker("Show", selection: $filter) {
+            Label("Everything", systemImage: "list.bullet").tag(MatterFilter.everything)
+            Label {
+                Text("Needs you")
+            } icon: {
+                Image(systemName: "circle.fill").imageScale(.small).foregroundStyle(Palette.flag)
+            }
+            .tag(MatterFilter.needsYou)
+            Label {
+                Text("Agent working")
+            } icon: {
+                Image(systemName: "sparkles").foregroundStyle(Palette.ai)
+            }.tag(MatterFilter.agentWorking)
+        }
+        .pickerStyle(.inline)
+        if let areas = life.matters.value?.areasByCount, !areas.isEmpty {
+            Picker("Area", selection: $filter) {
+                ForEach(areas, id: \.self) { area in
+                    Label(area, systemImage: area.areaSymbol).tag(MatterFilter.area(area))
                 }
-                .tag(MatterFilter.needsYou)
-                Label {
-                    Text("Agent working")
-                } icon: {
-                    Image(systemName: "sparkles").foregroundStyle(Palette.ai)
-                }.tag(MatterFilter.agentWorking)
             }
             .pickerStyle(.inline)
-            if let areas = life.matters.value?.areasByCount, !areas.isEmpty {
-                Picker("Area", selection: $filter) {
-                    ForEach(areas, id: \.self) { area in
-                        Label(area, systemImage: area.areaSymbol).tag(MatterFilter.area(area))
-                    }
-                }
-                .pickerStyle(.inline)
-            }
         }
     }
 
@@ -151,7 +160,7 @@ struct MatterRowView: View {
     var body: some View {
         Row(
             title: row.name, icon: row.areas?.first.map(\.areaSymbol) ?? String.defaultAreaSymbol,
-            iconTint: row.agent != nil ? Palette.ai : Palette.muted, detail: row.nextStep?.text
+            iconTint: Palette.muted, detail: row.nextStep?.text
         ) {
             if row.needsYou {
                 StateDot(color: Palette.flag)
