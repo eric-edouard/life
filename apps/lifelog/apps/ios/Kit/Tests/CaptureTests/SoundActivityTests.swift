@@ -202,8 +202,8 @@ private func storage(newest: Int64, session: UInt64 = 1) -> StorageState {
             let watch = Task { await harness.coordinator.watchLive() }
             #expect(await eventually { await harness.statusQueries - before == 1 }, "the cycle when the screen appears")
             // The refresh's timer is set after the first query shows; time passed before it is would not reach it.
-            await harness.passTime(
-                DrainCoordinator.liveRefresh + .seconds(1), whenATimerIsDueIn: .seconds(3)...DrainCoordinator.liveRefresh)
+            let refresh = DrainCoordinator.liveRefresh
+            await harness.passTime(refresh + .seconds(1), whenATimerIsDueIn: .seconds(3)...refresh)
             #expect(await eventually { await harness.statusQueries - before == 2 }, "one refresh after `liveRefresh`")
             await harness.quiesce()
             watch.cancel()
