@@ -290,17 +290,19 @@ extension View {
 private struct FilterBar<Choice: View>: ViewModifier {
     let menu: Choice
     @State private var isInColumn = false
+    /// The floating button and its margin from the list's bottom edge; the list keeps room for both, and more.
+    private let size: CGFloat = 48, bottom: CGFloat = 24
 
     func body(content: Content) -> some View {
         content
             .reportsSideColumn($isInColumn)
             .toolbar { if !isInColumn { ToolbarItem(placement: .topBarLeading) { menu } } }
-            .contentMargins(.bottom, isInColumn ? 88 : 0, for: .scrollContent)
+            .contentMargins(.bottom, isInColumn ? size + bottom + Metrics.Spacing.l : 0, for: .scrollContent)
             .overlay(alignment: .bottomLeading) {
                 ZStack {
                     if isInColumn {
-                        menu.frame(width: 48, height: 48).floatingGlass(in: .circle).contentShape(.circle)
-                            .padding(.leading, 20).padding(.bottom, 24).appears()
+                        menu.frame(width: size, height: size).floatingGlass(in: .circle).contentShape(.circle)
+                            .padding(.leading, 20).padding(.bottom, bottom).appears()
                     }
                 }
                 .motion(Motion.standard, value: isInColumn)
