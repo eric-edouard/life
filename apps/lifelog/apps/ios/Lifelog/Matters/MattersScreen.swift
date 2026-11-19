@@ -8,8 +8,7 @@ struct MattersScreen: View {
     @Environment(AppRouter.self) private var router
 
     @State private var query = ""
-    @State private var filter = MatterFilter()
-    @State private var showsFilters = false
+    @State private var scope = Scope.everything
     @State private var visibility = NavigationSplitViewVisibility.all
     @Environment(\.horizontalSizeClass) private var sizeClass
 
@@ -29,6 +28,7 @@ struct MattersScreen: View {
             )
             .background(Palette.bg)
             .shellBar("Matters")
+            .toolbar { ToolbarItem(placement: .topBarLeading) { filterMenu } }
         } detail: {
             if let id = router.matter {
                 MatterPage(id: id).id(id)
@@ -48,13 +48,8 @@ struct MattersScreen: View {
         .onChange(of: life.matters.value) { fillSelection() }
         .onChange(of: router.showsAgentsOnly, initial: true) { _, on in
             guard on else { return }
-            filter.withAgent = true
+            scope = .agent
             router.showsAgentsOnly = false
-        }
-        .sheet(isPresented: $showsFilters) {
-            if let list = life.matters.value {
-                FiltersSheet(list: list, query: query, filter: $filter).presentationPlacement(.trailing)
-            }
         }
         // Here, above both columns, so a fold that collapses the matter's page keeps the sheet and its running start.
         .sheet(isPresented: startSheetBinding) {
@@ -82,54 +77,80 @@ struct MattersScreen: View {
         router.select(matter: isGone ? matters?.first?.id : router.matter)
     }
 
+    /// What the filter menu chooses: everything, what needs him, what an agent works on, or one area.
+    private enum Scope: Hashable {
+        case everything, needsYou, agent
+        case area(String)
+
+        var filter: MatterFilter {
+            switch self {
+            case .everything: MatterFilter()
+            case .needsYou: MatterFilter(waits: [.decision, .owner])
+            case .agent: MatterFilter(withAgent: true)
+            case .area(let area): MatterFilter(area: area)
+            }
+        }
+    }
+
+    /// A system menu: a line icon per row, a check on the chosen one.
+    private var filterMenu: some View {
+        Menu {
+            Picker("Show", selection: $scope) {
+                Label("Everything", systemImage: "list.bullet").tag(Scope.everything)
+                Label {
+                    Text("Needs you")
+                } icon: {
+                    Image(systemName: "circle.fill").imageScale(.small).foregroundStyle(Palette.flag)
+                }
+                .tag(Scope.needsYou)
+                Label("Agent working", systemImage: "sparkles").tag(Scope.agent)
+            }
+            .pickerStyle(.inline)
+            if let areas = life.matters.value?.areaCounts, !areas.isEmpty {
+                Picker("Area", selection: $scope) {
+                    ForEach(areas, id: \.area) { item in
+                        Label(item.area.capitalized, systemImage: item.area.areaSymbol).tag(Scope.area(item.area))
+                    }
+                }
+                .pickerStyle(.inline)
+            }
+        } label: {
+            Image(
+                systemName: scope == .everything
+                    ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
+        }
+        .accessibilityLabel("Filter")
+        .accessibilityIdentifier("matters.filter")
+    }
+
     private func content(_ list: MatterList) -> some View {
-        let rows = list.shown(query: query, filter: filter)
+        let rows = list.shown(query: query, filter: scope.filter)
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                Field(prompt: "Search \(list.matters.count) matters", text: $query, icon: "magnifyingglass")
-                    .submitLabel(.search)
-                    .padding(.horizontal, 20).padding(.top, 4)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        FilterChip(name: "Area", value: filter.area ?? "All", isOn: filter.area != nil) {
-                            showsFilters = true
-                        }
-                        FilterChip(
-                            name: "Waits on",
-                            value: filter.waits.isEmpty
-                                ? "Anything" : filter.waits.map(\.name).sorted().joined(separator: ", "),
-                            isOn: !filter.waits.isEmpty
-                        ) { showsFilters = true }
-                        FilterChip(name: "With an agent", isOn: filter.withAgent, hasMenu: false) {
-                            filter.withAgent.toggle()
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                }
-                .padding(.vertical, 12)
                 if rows.isEmpty {
-                    Text("No matter fits. Loosen the search or the filters.").font(.body15).foregroundStyle(
+                    Text("No matter fits. Loosen the search or the filter.").font(.body15).foregroundStyle(
                         Palette.muted
                     )
                     .padding(20)
                 }
-                ForEach(Array(rows.enumerated()), id: \.element.id) { offset, row in
+                ForEach(rows) { row in
                     let isSelected = sizeClass == .regular && router.matter == row.id
                     Button {
                         router.open(matter: row.id)
                     } label: {
                         MatterRowView(
-                            rank: offset + 1, row: row, cards: row.openChecks ?? 0,
+                            row: row, isChosen: isSelected,
                             agent: life.agents.value?.agents.first { $0.id == row.agent })
                     }
                     .buttonStyle(.plain)
-                    .background(isSelected ? Color.fillTint : .clear)
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
             .padding(.bottom, 24)
             .readingWidth()
+            .motion(Motion.standard, value: rows.map(\.id))
         }
+        .searchable(text: $query, prompt: "Search \(list.matters.count) matters")
         .scrollDismissesKeyboard(.interactively)
     }
 }
@@ -159,60 +180,55 @@ extension MatterWait {
 }
 
 private struct MatterRowView: View {
-    let rank: Int
     let row: MatterRow
-    let cards: Int
+    let isChosen: Bool
     let agent: RegisteredAgent?
 
+    /// The flag dot when it needs him (a wait on him, or a card open); the spinner when an agent is working.
+    private var needsYou: Bool { row.wait?.line(waitsOn: nil).needsYou == true || (row.openChecks ?? 0) > 0 }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Text("\(rank)").font(.monoSmall).foregroundStyle(Palette.faint).frame(width: 18, alignment: .leading)
-                .padding(.top, 5)
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(row.name).font(.quote).foregroundStyle(Palette.fg)
-                    Spacer(minLength: 8)
-                    if cards > 0 {
-                        CountBadge(count: cards)
-                            .accessibilityLabel("\(cards) card\(cards == 1 ? "" : "s")")
-                    }
-                }
+        HStack(spacing: 8) {
+            Image(systemName: (row.areas?.first ?? "").areaSymbol)
+                .imageScale(.large).foregroundStyle(Palette.muted)
+                .frame(width: 28).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(row.name).font(.rowName).foregroundStyle(Palette.fg).lineLimit(1)
                 if let next = row.nextStep {
-                    Text("Next: \(Text(next.text.prefixLowercased).foregroundStyle(Palette.muted))").font(
-                        .lead
-                    )
-                    .foregroundStyle(Palette.fg)
+                    Text(next.text).font(.note).foregroundStyle(Palette.muted).lineLimit(1)
                 }
-                HStack(spacing: 12) {
-                    if let wait = row.wait?.line(waitsOn: row.nextStep?.waitsOn) {
-                        Text(wait.text).label().foregroundStyle(wait.needsYou ? Palette.flag : Palette.fg)
-                    }
-                    if let area = row.areas?.first {
-                        Text(area).font(.body15).foregroundStyle(Palette.muted)
-                    }
-                    if let agent {
-                        Label(
-                            agent.runtimeName.name
-                                + (agent.wait.map { ", until " + $0.until.formatted(.dateTime.weekday(.abbreviated)) }
-                                    ?? ""),
-                            systemImage: "sparkle"
-                        )
-                        .font(.body15).foregroundStyle(Palette.ai).lineLimit(1)
-                    }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if needsYou {
+                    StateDot(color: Palette.flag).accessibilityLabel("Needs you")
+                } else if agent?.status == .running {
+                    ProgressView().controlSize(.small).tint(Palette.ai).accessibilityLabel("An agent is working")
                 }
             }
         }
-        .padding(.horizontal, 20).padding(.vertical, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .bottom) { Hairline().padding(.leading, 52).padding(.trailing, 20) }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .background(isChosen ? Palette.card : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
+        .padding(.horizontal, 8)
+        .motion(Motion.standard, value: isChosen)
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
     }
 }
 
 extension String {
-    /// A sentence's first word in lower case, to follow a label ("Next: send…").
-    var prefixLowercased: String { prefix(1).lowercased() + dropFirst() }
+    /// The line icon of an area, by its name; an area it has no icon for gets a plain one.
+    var areaSymbol: String {
+        switch lowercased() {
+        case "home": "house"
+        case "work": "briefcase"
+        case "family": "heart"
+        case "papers": "doc"
+        case "money": "banknote"
+        default: "folder"
+        }
+    }
 }
 
 private struct RowsPlaceholder: View {
@@ -230,64 +246,5 @@ private struct RowsPlaceholder: View {
         }
         .padding(20)
         .accessibilityLabel("Loading the matters")
-    }
-}
-
-/// The area and the kinds of wait, each with how many matters it holds, and how many would show.
-private struct FiltersSheet: View {
-    let list: MatterList
-    let query: String
-    @Binding var filter: MatterFilter
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack {
-                    Text("Filters").font(.sheetTitle).foregroundStyle(Palette.fg)
-                    Spacer()
-                    TextLink("Clear") { filter = MatterFilter() }.disabled(filter.isEmpty)
-                }
-                Caps("Area")
-                VStack(spacing: 0) {
-                    line("All", list.matters.count, isOn: filter.area == nil) { filter.area = nil }
-                    ForEach(list.areaCounts, id: \.area) { item in
-                        line(item.area, item.count, isOn: filter.area == item.area) { filter.area = item.area }
-                    }
-                }
-                Caps("Waits on")
-                VStack(spacing: 0) {
-                    ForEach(MatterWait.allCases, id: \.self) { wait in
-                        line(wait.name, list.waitCounts[wait] ?? 0, isOn: filter.waits.contains(wait)) {
-                            if filter.waits.contains(wait) {
-                                filter.waits.remove(wait)
-                            } else {
-                                filter.waits.insert(wait)
-                            }
-                        }
-                    }
-                }
-                Button("Show \(list.shown(query: query, filter: filter).count) matters") { dismiss() }.buttonStyle(
-                    .pill(.filled))
-            }
-            .padding(20)
-        }
-        .background(Palette.sheet)
-        .presentationDetents([.large])
-    }
-
-    private func line(_ name: String, _ count: Int, isOn: Bool, tap: @escaping () -> Void) -> some View {
-        Button(action: tap) {
-            HStack {
-                Text(name).font(.lead).foregroundStyle(Palette.fg)
-                Spacer()
-                Text("\(count)").font(.monoTime).foregroundStyle(Palette.muted)
-                Image(systemName: "checkmark").opacity(isOn ? 1 : 0).foregroundStyle(Palette.fg).accessibilityHidden(
-                    true)
-            }
-            .frame(minHeight: 48).contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }
