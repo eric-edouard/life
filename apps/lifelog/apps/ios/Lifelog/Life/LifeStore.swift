@@ -112,19 +112,22 @@ final class LifeStore {
 
     func refreshInbox() async {
         let before = inbox.loadedAt
+        let asked = now()
         await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
         // The badge is the cards that block him.
         if let badge = inbox.value?.badge { setBadge(badge) }
         // Only a whole read made just now says what is no longer open: not a cached, failed, cancelled or cut-off one.
         if inbox.loadedAt != before, let read = inbox.value, !(read.checks.count < read.total) {
-            await removeNotifications(notIn: Set(read.checks.compactMap(\.pushId)))
+            await removeNotifications(notIn: Set(read.checks.compactMap(\.pushId)), deliveredBefore: asked)
         }
     }
     /// A card answered anywhere (here, in another app, by its deadline) leaves his notifications too.
-    private func removeNotifications(notIn open: Set<String>) async {
+    /// Only one delivered before the read was asked: a card newer than the read is not in it.
+    private func removeNotifications(notIn open: Set<String>, deliveredBefore asked: Date) async {
         let center = UNUserNotificationCenter.current()
         let gone = await center.deliveredNotifications().filter {
-            guard case .card(let pushId)? = NotificationRoute(userInfo: $0.request.content.userInfo) else {
+            guard $0.date < asked, case .card(let pushId)? = NotificationRoute(userInfo: $0.request.content.userInfo)
+            else {
                 return false
             }
             return !open.contains(pushId)

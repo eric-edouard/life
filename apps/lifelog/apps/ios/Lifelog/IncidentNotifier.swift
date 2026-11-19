@@ -200,7 +200,6 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
         content.userInfo = request.content.userInfo.filter { $0.key as? String != CardNotification.userInfoKey }
         content.threadIdentifier = request.content.threadIdentifier
         content.interruptionLevel = .passive
-        center.removeDeliveredNotifications(withIdentifiers: [request.identifier])
         try? await center.add(UNNotificationRequest(identifier: request.identifier, content: content, trigger: nil))
     }
 }

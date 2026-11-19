@@ -13,7 +13,8 @@ struct Taken: Equatable {
     var key: LifeStore.ActionKey { .answer(ref: check.ref) }
     /// A new matter whose goal he changed is still waiting for Start or Dismiss.
     var staysOpen: Bool { check.group == .newMatter && request.options == ["edit-goal"] }
-    var isSend: Bool { check.draft != nil }
+    /// He picked the option that sends the draft; another answer on a draft's card sends nothing.
+    var isSend: Bool { check.options.contains { $0.outgoing == true && request.options.contains($0.id) } }
     var isStart: Bool { check.group == .newMatter && request.options == ["start"] }
     var context: ActionCopy.Context {
         .init(

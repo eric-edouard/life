@@ -85,7 +85,12 @@ public struct CardNotification: Sendable, Equatable {
     /// The answer a tapped action gives: one of `buttons`, or his words through `reply`; nil when the card can't be
     /// answered that way from its notification.
     public static func answer(_ action: String, typed: String?, to check: Check) -> AnswerRequest? {
-        if action == reply { return check.takesOwnWords ? typed.flatMap { check.answer(words: $0) } : nil }
+        if action == reply {
+            guard check.takesOwnWords, let typed, !typed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return nil
+            }
+            return check.answer(words: typed)
+        }
         guard let option = check.options.first(where: { "\(optionPrefix)\($0.id)" == action }), isOneTap(option)
         else { return nil }
         return check.answer(option)

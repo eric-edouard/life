@@ -85,6 +85,7 @@ private let options =
         CardNotification.answer(CardNotification.reply, typed: "After Friday", to: decision)
             == AnswerRequest(ref: decision.ref, options: [], note: "After Friday"))
     #expect(CardNotification.answer(CardNotification.reply, typed: nil, to: decision) == nil)
+    #expect(CardNotification.answer(CardNotification.reply, typed: "  ", to: decision) == nil)
     let voice = check(pushId: "0123456789abcdef").replacingOccurrences(
         of: #""group":"decision""#, with: #""group":"voice""#)
     let named = try #require(CardNotification.card(in: ["card": voice]))
