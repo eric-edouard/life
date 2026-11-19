@@ -94,6 +94,32 @@ struct Toast: View {
     }
 }
 
+/// The Toast in the side column of the closed Duo, where there is no top bar: a capsule two tap targets high, no words:
+/// the check in `ok`, then Undo as its glyph. It is always in the column while the bars are there, and fades with
+/// `answered` (nil: nothing held), so the column never changes shape. VoiceOver reads the answer on the capsule and
+/// "Undo" on the button. Larger than `StateGlyph.ok` (13): the capsule has no words to carry it.
+struct ColumnToast: View {
+    let answered: String?
+    let undo: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Image(systemName: "checkmark").font(.columnGlyph).foregroundStyle(Palette.ok)
+                .frame(width: Metrics.tapTarget, height: Metrics.tapTarget).accessibilityHidden(true)
+            Button(action: undo) {
+                Image(systemName: "arrow.uturn.backward").font(.columnGlyph).foregroundStyle(Palette.fg)
+                    .frame(width: Metrics.tapTarget, height: Metrics.tapTarget).contentShape(.rect)
+            }
+            .buttonStyle(.plain).accessibilityLabel("Undo")
+        }
+        .background(Palette.tile, in: .capsule)
+        .opacity(answered == nil ? 0 : 1).allowsHitTesting(answered != nil)
+        .motion(Motion.standard, value: answered)
+        .accessibilityElement(children: .contain).accessibilityLabel(answered.map { "Answered: \($0)" } ?? "")
+        .accessibilityHidden(answered == nil)
+    }
+}
+
 /// A matter's name (a star in `ai` before it when an agent asks) on a `card` capsule 32 high, in a 44 hit area. A long
 /// name is cut with an ellipsis, except at an accessibility text size, where it may take two lines.
 struct InlinePill: View {
