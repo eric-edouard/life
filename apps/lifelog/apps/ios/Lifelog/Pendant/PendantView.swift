@@ -177,7 +177,7 @@ struct PendantScreen: View {
                 BatteryGlyph(
                     percent: percent,
                     tone: reading.lowBattery != nil ? Palette.flag : isCharging ? Palette.ok : Palette.fg,
-                    isCurrent: battery.isCurrent, width: 71)
+                    charging: isCharging, width: Metrics.Tile.battery)  // the tile dims a last-known reading
             }
             StatTile(
                 name: "Storage", figure: used.map { "\(Int(($0 * 100).rounded()))%" } ?? "Unknown", caption: "Used",

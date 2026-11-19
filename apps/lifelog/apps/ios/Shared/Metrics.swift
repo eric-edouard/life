@@ -16,6 +16,7 @@ enum Metrics {
         static let statHeight: CGFloat = 128
         static let light: CGFloat = 84
         static let ring: CGFloat = 56
+        static let battery: CGFloat = 71
     }
 
     /// Corner radii, smallest to largest.
