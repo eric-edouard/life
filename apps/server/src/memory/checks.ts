@@ -158,6 +158,7 @@ export interface CheckInputs {
     | "id"
     | "lone"
     | "name"
+    | "newestOpenStep"
     | "nextStep"
     | "open"
     | "owedTo"
