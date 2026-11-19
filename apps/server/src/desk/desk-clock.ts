@@ -30,7 +30,7 @@ import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
 import { type People, readPeople } from "../memory/who";
 import type { TurnOutcome } from "../records/registered-agent";
-import { openStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
+import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
 import { finish, readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
@@ -191,7 +191,7 @@ export async function pollCalls(
             recordingsOf(store, call.at, call.until),
           ])
         ),
-      () => openStore(watchDir)
+      () => readStore(watchDir)
     );
     db.transaction(() =>
       queue(
