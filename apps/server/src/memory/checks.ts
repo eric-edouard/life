@@ -169,6 +169,7 @@ export interface CheckInputs {
     | "id"
     | "lone"
     | "name"
+    | "newestOpenStep"
     | "nextStep"
     | "open"
     | "owedTo"
@@ -424,9 +425,10 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     }),
   /**
    * Each running matter he has not answered "Work on it?" for: one that began in the last `NEW_MATTER_DAYS` (its first
-   * step's day), with a goal and a next step he could hand over (`do`, read through `nextStepNow`), no registered agent
-   * anchored on it now and not dismissed; none while the desk is off or unreadable. No deadline: it never outranks an
-   * agent's decision; on silence nothing starts and it leaves after its last day.
+   * step's day), with an open step, not stuck (a passed date), a goal and a next step he could hand over (`do`, read
+   * through `nextStepNow`), no registered agent anchored on it now and not dismissed; none while the desk is off or
+   * unreadable. No deadline: it never outranks an agent's decision; on silence nothing starts and it leaves after its
+   * last day.
    */
   "new matter": (c) => {
     const { anchored } = c;
@@ -442,6 +444,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       return first &&
         lastDay &&
         c.today <= lastDay &&
+        v.newestOpenStep &&
+        v.status !== "stuck" &&
         v.goal &&
         next?.kind === "do" &&
         !v.lone &&

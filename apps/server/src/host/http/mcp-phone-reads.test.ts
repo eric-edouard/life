@@ -101,6 +101,14 @@ const madeUpInbox: CheckInputs = {
       },
       id: "matter_cccccccccccc",
       name: "Frame Gran's photo",
+      newestOpenStep: {
+        at: "2026-10-12T02:00:00.000Z",
+        day: "2026-10-12",
+        kind: "to_do",
+        quote: "Gran wants it framed",
+        ref: "obs_000000000009",
+        text: "Frame Gran's photo",
+      },
       nextStep: {
         at: "2026-10-13T02:00:00.000Z",
         by: "life",
