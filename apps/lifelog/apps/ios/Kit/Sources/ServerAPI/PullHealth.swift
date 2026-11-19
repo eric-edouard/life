@@ -2,9 +2,10 @@ import Foundation
 
 /// Whether the server answers, as the pulls say it: a problem is shown once established (it survived a re-check, or the
 /// owner's own check failed) and goes only on a success. Work called off, a request in flight, a refusal to start never
-/// change it, so the status never blinks while a check runs.
+/// change it, so the status never blinks while a check runs. `hasFailed` (the last result failed, shown or not) is what a
+/// Shortcut says at once; `isEstablished` is what screens show; `isAsked` lets the owner's own Check establish it alone.
 public struct PullHealth: Equatable, Sendable {
-    public private(set) var failures = 0
+    private var failures = 0
     public init() {}
 
     /// The last result was a failure, shown or not: what a Shortcut says.
@@ -17,7 +18,7 @@ public struct PullHealth: Equatable, Sendable {
     /// `isAsked`: the owner pressed Check, so one failure is the answer.
     public mutating func failed(_ error: any Error, isAsked: Bool = false) {
         if error is CancellationError { return }
-        if let error = error as? URLError, !error.isTransient { return }
+        if (error as? URLError)?.code == .cancelled { return }
         failures = isAsked ? max(failures + 1, 2) : failures + 1
     }
 }

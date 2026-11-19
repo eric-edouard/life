@@ -470,7 +470,7 @@ struct RowGroup<Content: View>: View {
                     }
                     VStack(spacing: 0) {
                         ForEach(rows) { row in
-                            row.overlay(alignment: .top) {
+                            row.transition(Motion.appears).overlay(alignment: .top) {
                                 if row.id != rows.first?.id { Hairline(color: .fillTint).padding(.leading, 16) }
                             }
                         }
@@ -478,6 +478,7 @@ struct RowGroup<Content: View>: View {
                     .foregroundStyle(Palette.fg)
                     .background(surface.fill, in: .rect(cornerRadius: Metrics.Radius.card))
                 }
+                .transition(Motion.appears)
             }
         }
     }

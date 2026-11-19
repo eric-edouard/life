@@ -44,7 +44,6 @@ final class SyncStore {
     private(set) var waiting: [WaitingReason: Int] = [:]
     /// What the pulls say about the server's answer (`PullHealth`): shown only once established.
     private(set) var pull = PullHealth()
-    var pullFailed: Bool { pull.hasFailed }
     /// The server answered 401: it no longer knows this phone's token. Any pull that works clears it.
     private(set) var tokenRefused = false
     /// The server this phone is paired with (`DeviceToken.paired`); nil until it is.
@@ -96,7 +95,7 @@ final class SyncStore {
     func followNetwork() async {
         #if DEBUG
             // `-offline` fails every request as if there were no network: show what the owner sees then.
-            if OfflineProtocol.isRequested && !OfflineProtocol.isFlaky { return network = .none }
+            if OfflineProtocol.isRequested { return network = .none }
         #endif
         for await path in NWPathMonitor() {
             let next = ConnectionSummary.Network(path)
@@ -111,14 +110,6 @@ final class SyncStore {
     /// In the background, a run that only new audio asked for starts at least this long after the previous one started:
     /// cheap runs back to back cost CPU for no gain.
     private static let audioGap: TimeInterval = 15
-
-    /// Rest after a failed poll; the flaky fixture retries at once to put the blinking on screen.
-    private static var retryDelay: Double {
-        #if DEBUG
-            if OfflineProtocol.isFlaky { return 1 }
-        #endif
-        return 15
-    }
 
     /// New audio was saved, the server pushed, the owner edited or came back: run now, or once more after the run going
     /// on. A long poll going on stops for it. `audio`: a Bluetooth sync saved pages; in the background that waits out
@@ -164,7 +155,7 @@ final class SyncStore {
                     try await pull(wait: 25)
                 } catch {
                     noteFailure(error)
-                    try? await Task.sleep(for: .seconds(Self.retryDelay))
+                    try? await Task.sleep(for: .seconds(15))
                 }
             }
             polling = poll
@@ -193,7 +184,7 @@ final class SyncStore {
         let linked = await capture.waitForLink()
         if linked { await capture.syncNow() }
         await runAwake()
-        if pullFailed { return "The server did not answer. The audio is safe on the phone." }
+        if pull.hasFailed { return "The server did not answer. The audio is safe on the phone." }
         return linked ? "Synced." : "Pendant out of reach. Uploaded and pulled the rest."
     }
 
@@ -461,7 +452,7 @@ extension ServerClient {
     nonisolated static let production: ServerClient = {
         let server: @Sendable () -> URL? = { DeviceToken.paired }
         #if DEBUG
-            if OfflineProtocol.isRequested {
+            if OfflineProtocol.isRequested || OfflineProtocol.isFlaky {
                 let configuration = URLSessionConfiguration.ephemeral
                 configuration.protocolClasses = [OfflineProtocol.self]
                 return ServerClient(
@@ -478,14 +469,13 @@ extension ServerClient {
     nonisolated final class OfflineProtocol: URLProtocol {
         /// `-serverFlaky`: the server times out, and every other request is called off, as a trigger cuts a long poll.
         static let isFlaky = ProcessInfo.processInfo.arguments.contains("-serverFlaky")
-        static let isRequested = isFlaky || ProcessInfo.processInfo.arguments.contains("-offline")
-        nonisolated(unsafe) private static var count = 0
+        static let isRequested = ProcessInfo.processInfo.arguments.contains("-offline")
+        private static let count = Atomic(0)
 
         override class func canInit(with request: URLRequest) -> Bool { true }
         override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
         override func startLoading() {
-            Self.count += 1
-            let isCalledOff = Self.isFlaky && Self.count % 2 == 0
+            let isCalledOff = Self.isFlaky && Self.count.add(1, ordering: .relaxed).newValue % 2 == 0
             let code: URLError.Code = isCalledOff ? .cancelled : Self.isFlaky ? .timedOut : .notConnectedToInternet
             client?.urlProtocol(self, didFailWithError: URLError(code))
         }

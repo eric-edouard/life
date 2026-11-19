@@ -9,6 +9,9 @@ import Testing
     #expect(health.hasFailed && !health.isEstablished)
     health.failed(URLError(.notConnectedToInternet))
     #expect(health.isEstablished)
+    var other = PullHealth()
+    other.failed(URLError(.badServerResponse))
+    #expect(other.hasFailed)
 }
 
 @Test func callingAPollOffNeverClearsOrAddsAFailure() {
