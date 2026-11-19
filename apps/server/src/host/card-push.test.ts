@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { clock, DAY } from "../core/clock";
+import { setSettings } from "../core/settings";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as checks from "../memory/checks";
 import { DECISIONS, requestDecision } from "../memory/decisions";
@@ -9,14 +10,18 @@ import * as memoryLock from "../memory/memory-lock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lifelog from "../sources/lifelog-push";
 import {
-  PUSHED,
+  levelOf,
   pushNewCards,
   pushNewCardsIfChanged,
   pushNewDecisionsAtOnce,
+  SEEN,
 } from "./card-push";
 
+const later = (days: number) => new Date(clock().getTime() + days * DAY);
 const card = (n: number, kind: "decision" | "voice" | "person" = "decision") =>
   ({
+    deadline: kind === "decision" ? later(2).toISOString() : null,
+    draft: null,
     group: kind === "person" ? "guessed person" : kind,
     kind,
     pushId: n.toString(16).padStart(16, "0"),
@@ -27,12 +32,18 @@ const card = (n: number, kind: "decision" | "voice" | "person" = "decision") =>
   }) as checks.InboxCheck;
 const cards = (n: number, kind?: "decision" | "voice" | "person") =>
   Array.from({ length: n }, (_, i) => card(i + 1, kind));
+const alone = (n: number, kind?: "decision" | "voice" | "person") => ({
+  body: "1 new card",
+  level: "active" as const,
+  pushId: card(n, kind).pushId,
+  title: "Life",
+});
 
 let open = cards(0);
 let look: ReturnType<typeof spyOn<typeof checks, "checksNow">>;
 let push: ReturnType<typeof spyOn<typeof lifelog, "notifyPhone">>;
 const clean = () => {
-  rmSync(PUSHED, { force: true });
+  rmSync(SEEN, { force: true });
   rmSync(DECISIONS, { force: true });
 };
 beforeEach(() => {
@@ -47,52 +58,75 @@ afterEach(() => {
   push.mockRestore();
   clean();
 });
-const later = (days: number) => new Date(clock().getTime() + days * DAY);
-
 test("the first run pushes nothing and sees every open card; a new one pushes with its id and the badge", async () => {
   open = cards(265);
   await pushNewCards();
   expect(push).not.toHaveBeenCalled();
   open = [...cards(265), card(266)];
   await pushNewCards();
-  expect(push.mock.calls).toEqual([
-    [
-      {
-        badge: 266,
-        body: "1 new card",
-        pushId: card(266).pushId,
-        title: "Life",
-      },
-    ],
-  ]);
+  expect(push.mock.calls).toEqual([[{ badge: 266, ...alone(266) }]]);
   await pushNewCards();
   expect(push).toHaveBeenCalledTimes(1);
 });
 
-test("several new cards are one push with their count and no card", async () => {
+test("every new decision pushes alone, with its id", async () => {
   open = cards(2);
   await pushNewCards();
   open = cards(9);
   await pushNewCards();
-  expect(push.mock.calls).toEqual([
-    [{ badge: 9, body: "7 new cards", title: "Life" }],
+  expect(push.mock.calls.map(([p]) => p)).toEqual(
+    [3, 4, 5, 6, 7, 8, 9].map((n) => ({ badge: 9, ...alone(n) }))
+  );
+});
+
+test("Life's own checks push too: the first 5 alone, the rest as one push that names no card", async () => {
+  open = cards(2);
+  await pushNewCards();
+  open = [...cards(2), ...cards(10, "person").slice(2)];
+  await pushNewCards();
+  expect(push.mock.calls.map(([p]) => p)).toEqual([
+    ...[3, 4, 5, 6, 7].map((n) => ({ badge: 2, ...alone(n, "person") })),
+    { badge: 2, body: "3 more new cards", level: "active", title: "Life" },
   ]);
 });
 
-test("a card that only improves pushes nothing and is not in the badge", async () => {
-  open = cards(2);
-  await pushNewCards();
-  open = [...cards(2), ...cards(9, "person").slice(2)];
-  await pushNewCards();
-  expect(push).not.toHaveBeenCalled();
-});
-
-test("an unnamed voice counts in the badge and never pushes a card", async () => {
+test("an unnamed voice pushes alone and counts in the badge", async () => {
   open = cards(2);
   await pushNewCards();
   open = [...cards(2), card(3, "voice")];
   await pushNewCards();
-  expect(push.mock.calls).toEqual([[{ badge: 3 }]]);
+  expect(push.mock.calls).toEqual([[{ badge: 3, ...alone(3, "voice") }]]);
+});
+
+test("his notification settings: off pushes nothing, quiet is passive, urgent is time-sensitive within 3 hours", async () => {
+  setSettings({ notifications: { "guessed person": "quiet", voice: "off" } });
+  try {
+    open = cards(1);
+    await pushNewCards();
+    const soon = { ...card(2), deadline: later(0.1).toISOString() };
+    const drafted = { ...card(3), draft: { text: "Hi" } } as checks.InboxCheck;
+    open = [...cards(1), soon, drafted, card(4, "voice"), card(5, "person")];
+    await pushNewCards();
+    expect(push.mock.calls).toEqual([
+      [{ badge: 4, ...alone(2), level: "time-sensitive" }],
+      [{ badge: 4, ...alone(3) }],
+      [{ badge: 4, ...alone(5, "person"), level: "passive" }],
+    ]);
+  } finally {
+    setSettings({ notifications: null });
+  }
+});
+
+test("a level: quiet is passive; urgent is time-sensitive with no deadline or within 3 hours, else active", () => {
+  const now = clock();
+  const at = (hours: number) =>
+    new Date(now.getTime() + hours * 3_600_000).toISOString();
+  expect(levelOf("quiet", null, now)).toBe("passive");
+  expect(levelOf("normal", at(1), now)).toBe("active");
+  expect(levelOf("urgent", null, now)).toBe("time-sensitive");
+  expect(levelOf("urgent", at(3), now)).toBe("time-sensitive");
+  expect(levelOf("urgent", at(3.01), now)).toBe("active");
+  expect(levelOf("urgent", at(-1), now)).toBe("time-sensitive");
 });
 
 test("an answered card is a badge-only push; nothing changed is none", async () => {
@@ -176,6 +210,7 @@ test("while a run holds the lock a new decision still pushes, from its own lines
       {
         badge: 3,
         body: "1 new card",
+        level: "active",
         pushId: checks.pushIdOf(id),
         title: "Life",
       },

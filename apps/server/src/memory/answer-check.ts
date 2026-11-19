@@ -1,3 +1,4 @@
+import type { CheckGroup } from "../core/names";
 import { PersonRef } from "../records/fields";
 import {
   answerNamingQueue,
@@ -8,7 +9,7 @@ import {
 import type { Check } from "./checks";
 import { answerDecision } from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
-import type { CheckGroup, LIFE_CHECKS } from "./life-checks";
+import type { LIFE_CHECKS } from "./life-checks";
 import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";

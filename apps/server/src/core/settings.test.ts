@@ -10,6 +10,7 @@ test("a corrupt settings file throws instead of switching engine; a missing one 
     agentReportSenders: [],
     engine: "claude",
     memoryLanguage: "English",
+    notifications: {},
     sources: [],
   });
   writeFileSync(path, '{"engine": "co');
