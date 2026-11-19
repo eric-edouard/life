@@ -101,6 +101,16 @@ test("a request is one card: one-line title and question, a draft only with its 
   await refused({ title: "x".repeat(81) }, "title");
   await refused({ title: "Fix\nthe boiler" }, "one line");
   await refused({ question: "x".repeat(121) }, "question");
+  await refused({ question: "Book Kit to fix the boiler" }, "end in a ?");
+  await refused(
+    {
+      options: [
+        { id: "yes", label: "Book Kit" },
+        { id: "wait", label: "Wait for a second quote from him" },
+      ],
+    },
+    "five words"
+  );
   await refused({ draft: { text: "Can you come Friday?" } }, "to");
   const send = { id: "send", label: "Send it", outgoing: true as const };
   await refused({ draft }, "outgoing");

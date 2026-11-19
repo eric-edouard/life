@@ -4,94 +4,26 @@ import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
+import { shownStepsOf } from "./check-sentences";
 import { urgencyOf } from "./check-urgency";
 import {
-  type Check,
   type CheckInputs,
   checksNow,
   checksOf,
   checksOnMatterOf,
   pushIdOf,
 } from "./checks";
+import { about, DANA_ID, inputs, line, stepsOf } from "./checks-test-inputs";
 import { checksText } from "./checks-text";
+import type { Check } from "./life-checks";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "./matters";
 import { OBSERVATIONS, UNITS } from "./memory-files";
 import { locked } from "./memory-lock";
-import { guessTestOf } from "./who";
-
-type Input = Partial<Omit<CheckInputs, "people">> & {
-  corrections?: Correction[];
-  inferred?: string[];
-  cards?: { card: string; people: string[] }[];
-};
-
-let n = 0;
-const line = (over: Partial<CheckInputs["lines"][number]> = {}) => {
-  n += 1;
-  return {
-    about: undefined,
-    confidence: 0.9,
-    date: "2026-10-01",
-    id: `obs_${String(n).padStart(12, "0")}`,
-    quote: "I'll bring it Friday",
-    source: { channel: "whatsapp" as const },
-    subjects: [],
-    text: "He brings it Friday.",
-    unit: "unit_000000000001",
-    ...over,
-  };
-};
-const about = (ref: string, over = {}) => line({ subjects: [ref], ...over });
 
 const ASKED_UNTIL_22_NOV =
   /Next step: Book the plumber\. Asked until .*22 Nov\.$/;
 
-/** A matter's steps, made up: each on 1 Oct with a quote. */
-const stepsOf = (...refs: string[]) =>
-  refs.map((ref) => ({ day: "2026-10-01", quote: "it", ref }));
-
-function inputs(lines: CheckInputs["lines"], over: Input = {}): CheckInputs {
-  const isGuess = guessTestOf(over.corrections ?? []);
-  return {
-    answered: new Set(),
-    decisions: [],
-    dismissed: [],
-    doubted: new Set(),
-    endings: new Map(),
-    heldByAgents: { projects: new Set(), steps: new Set() },
-    isDirectionDue: () => false,
-    kept: new Set(lines.map((l) => l.id)),
-    lines,
-    matters: [],
-    paged: new Set(),
-    today: "2026-11-18",
-    unresolved: [],
-    voices: [],
-    where: new Map(),
-    ...over,
-    people: {
-      ambiguousCards: over.cards ?? [],
-      contacts: [],
-      inferred: (over.inferred ?? []).map((id) => ({
-        at: "2026-10-02T10:00:00.000Z",
-        confidence: 0.7,
-        evidence: [{ quote: `${id} said hello`, unit: "unit_000000000001" }],
-        id,
-        name: `Kit ${id}`,
-        namesAndHandles: ["+33600000001"],
-        relation: "the plumber",
-      })),
-      isGuess,
-      nameOf: (r: string) => (r === "person:dana" ? "Dana" : r),
-      names: new Map(),
-      refOf: (r: string) => r,
-      resolve: (s: string) => (s === DANA_ID ? "person:dana" : null),
-    },
-  };
-}
-
-const DANA_ID = "00000000-0000-4000-8000-000000000001";
 const ID = "inf_kit";
 const REF = `person:${ID}`;
 
@@ -115,12 +47,12 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
     ref: REF,
     ridesOn: { matters: 0, observations: 3, pages: 0 },
   });
-  expect(check?.question).toStartWith("Life thinks this is ");
-  expect(check?.question).toContain("the plumber");
-  // Life's guess is its recommendation, listed first; on silence nothing is taken; its kind gives the title.
+  // The identity ask: "Is this <first name>?", and why Life thinks so in one sentence.
+  expect(check?.question).toBe("Is this Kit?");
+  // Life's guess is its recommendation, listed first; on silence nothing is taken; its kind gives the title and context.
   expect(check).toMatchObject({
     asker: "life",
-    context: null,
+    context: "Life read their messages as Kit inf_kit, the plumber (70% sure).",
     draft: null,
     onSilence: null,
     title: "Know who someone is",
@@ -132,7 +64,7 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
   ]);
   expect(check?.about).toEqual(["+33600000001"]);
   const printed = checksText([check as Check]);
-  expect(printed).toContain(`1. [guessed person] ${REF}: Life thinks`);
+  expect(printed).toContain(`1. [guessed person] ${REF}: Is this Kit?`);
   expect(printed).toContain("about: +33600000001");
   expect(check?.evidence?.quote).toBe(`${ID} said hello`);
 });
@@ -226,7 +158,7 @@ test("the list holds every guessed person, ambiguous card and unplaced name that
   const kinds = checks.map((x) => x.ref);
   // A name check's button never names the unknown name; a card two people fit makes no one's name the answer.
   const first = (r: string) => checks.find((x) => x.ref === r)?.options[0];
-  expect(first("name:name0")?.label).toBe("It is this person");
+  expect(first("name:name0")?.label).toBe("Someone else…");
   expect(first("person:con_card")?.label).toBe("Choose who…");
   expect(kinds).toHaveLength(32);
   expect(kinds).toContain(REF);
@@ -252,14 +184,25 @@ test("an ending rides on its open matter and goes with his answer", () => {
     endings: new Map([[o.id, { later: "ep_000000000001", quote: "Sent it." }]]),
     kept: new Set(),
     matters: [matter],
+    titles: new Map([[o.unit, "Camille and Kit"]]),
   });
   const [ending] = checksOf(base);
   expect(ending).toMatchObject({
     evidence: { quote: "Sent it." },
     kind: "ending",
     matter: { id: "matter_aaaaaaaaaaaa", name: "Send the quote" },
+    // The worded question, with the open step as said (who, to whom, when) and what came since.
+    question: "Is this done? I'll bring it Friday",
     ref: o.id,
     ridesOn: { matters: 1, observations: 0 },
+    said: {
+      at: "2026-10-01",
+      by: "Camille",
+      channel: "whatsapp",
+      text: "I'll bring it Friday",
+      to: "Camille and Kit",
+    },
+    since: { at: null, by: null, text: "Sent it." },
   });
   expect(checksOf({ ...base, answered: new Set([o.id]) })).toEqual([]);
   // An old doubt line on the same ref: an answer by ref would land on it, so no ending check.
@@ -384,12 +327,13 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   ).filter((c) => c.group === "voice");
   expect(cards).toHaveLength(60);
   const byRef = (r: string) => cards.find((c) => c.ref === r);
-  expect(byRef("voice:v0")?.question).toBe("Who is this?");
+  // Lifelog's suggestion in use is asked as a guess; the rest are asked who.
+  expect(byRef("voice:v0")?.question).toBe("Is this Dana?");
   expect(byRef("voice:v1")?.question).toBe("Who is this?");
   expect(byRef("voice:v1")?.about).toEqual(["Kofi"]);
   expect(byRef("voice:v2")?.question).toBe("Who is this?");
   expect(byRef("voice:v2")?.likelyPeople).toEqual([
-    { name: "Dana", person: "person:dana" },
+    { line: null, name: "Dana", person: "person:dana" },
   ]);
   expect(byRef("voice:v2")?.clips[0]?.audio).toEqual({
     end: 4,
@@ -401,16 +345,11 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
     [500, 700, 4],
     [800, 1400, 7],
   ]);
-  // His first answer names lifelog's suggestion, else the name it heard; people it merely ranks name no one.
+  // The people it could be are buttons of their own; the answers are "Yes" (only to a guess in use), "Someone else…", "Don't name".
   const labels = (r: string) => byRef(r)?.options.map((o) => o.label);
-  expect(labels("voice:v0")).toEqual([
-    "Dana",
-    "A stranger",
-    "TV or video",
-    "Don't care",
-  ]);
-  expect(labels("voice:v1")?.[0]).toBe("Kofi");
-  expect(labels("voice:v2")?.[0]).toBe("Name them…");
+  expect(labels("voice:v0")).toEqual(["Yes", "Someone else…", "Don't name"]);
+  expect(labels("voice:v1")).toEqual(["Someone else…", "Don't name"]);
+  expect(labels("voice:v2")).toEqual(["Someone else…", "Don't name"]);
   expect(byRef("voice:v2")?.evidence?.quote).toBe("See you Friday");
   // Lifelog ranks likely people for every voice: only its suggestion makes a guess in use.
   expect(
@@ -428,7 +367,7 @@ test("a push id is 16 hex, stable for a ref, and differs under another key", () 
   expect(id).not.toContain("kit");
 });
 
-test("a new matter an agent could move asks 'Work on it?' for 7 days from its first step, with no deadline, until he answers it", () => {
+test("a new matter an agent could move asks 'Start an agent on this?' for 7 days from its first step, with no deadline, until he answers it", () => {
   const steps = [
     {
       day: "2026-11-16",
@@ -472,6 +411,7 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
   expect(checksOf(base)).toEqual([
     {
       about: [],
+      around: null,
       asker: "life",
       at: null,
       clips: [],
@@ -490,6 +430,7 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
       links: [],
       matter: { id: matter.id, name: "Boiler service" },
       notSent: null,
+      onMatters: [{ id: matter.id, name: "Boiler service" }],
       // 19 Nov 2026 (review A, B5): it held a sentence where every other kind holds an option id.
       onSilence: null,
       options: [
@@ -497,7 +438,7 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
         expect.objectContaining({ id: "edit-goal" }),
         expect.objectContaining({ id: "dismiss" }),
       ],
-      question: "Goal: The boiler is serviced. Work on it?",
+      question: "Start an agent on this? The boiler is serviced.",
       ref: matter.id,
       ridesOn: {
         matterIds: [matter.id],
@@ -505,6 +446,15 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
         observations: 0,
         pages: 0,
       },
+      // The step it began with, as far as Life knows who said it (a step that is no line has only its day and words).
+      said: {
+        at: "2026-11-16",
+        by: null,
+        channel: null,
+        text: "the boiler is leaking",
+        to: null,
+      },
+      since: null,
       subject: null,
       title: "Life found a new matter: Boiler service",
     },
@@ -518,8 +468,8 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
       text: "Serviced and the leak fixed",
     },
   };
-  expect(checksOf({ ...base, matters: [edited] })[0]?.question).toBe(
-    "Goal: Serviced and the leak fixed. Work on it?"
+  expect(checksOf({ ...base, matters: [edited] })[0]?.goal).toBe(
+    "Serviced and the leak fixed"
   );
   // Its last day is the 7th from its first step; it never outranks an agent's decision.
   expect(checksOf({ ...base, today: "2026-11-22" })).toHaveLength(1);
@@ -783,4 +733,20 @@ test("a guessed person's check riding on an open matter through its saved line i
   expect(guess?.matter).toBeNull();
   expect(guess?.ridesOn.matterIds).toEqual([m.id]);
   expect(checksOnMatterOf([guess as Check], m.id)).toEqual([guess as Check]);
+});
+
+test("only the open endings' and the new matters' steps are read for their sentences: a closed ending's or an old matter's never", () => {
+  const link = { later: "obs_b", quote: "it is done" };
+  const matter = (day: string, ref: string) => ({ steps: [{ day, ref }] });
+  const shown = shownStepsOf({
+    answered: new Set(["obs_closed"]),
+    doubted: new Set(),
+    endings: new Map([
+      ["obs_open", link],
+      ["obs_closed", { later: "obs_c", quote: "x" }],
+    ]),
+    matters: [matter("2026-11-17", "obs_new"), matter("2026-10-01", "obs_old")],
+    today: "2026-11-18",
+  });
+  expect([...shown].sort()).toEqual(["obs_b", "obs_new", "obs_open"]);
 });

@@ -29,6 +29,29 @@ export const OWNER_ASKER = "owner";
 /** The askers that are roles, not agents: none may name one of his agents, or it would read and withdraw their cards. */
 export const ROLE_ASKERS = [DESK_AGENT, OWNER_ASKER, LIFE_ASKER];
 
+/** What a check is, for counting: a decision, an ending, a new matter, a guessed person, a Contacts card Life cannot place (`contacts card`), a name it cannot place, a voice. */
+export const CheckGroup = z.enum([
+  "decision",
+  "ending",
+  "new matter",
+  "guessed person",
+  "contacts card",
+  "name",
+  "voice",
+]);
+export type CheckGroup = z.infer<typeof CheckGroup>;
+
+/** What his notification settings are kept by: a check's group, and a decision with a draft apart (`notifyKindOf`, `host/card-push.ts`). */
+export const NotifyKind = z.enum([
+  ...CheckGroup.options,
+  "decision with a draft",
+]);
+export type NotifyKind = z.infer<typeof NotifyKind>;
+
+/** How a kind's new card reaches his phone: not at all, silently (Notification Center only), as a normal push, or time-sensitive (a card with a deadline, only within 3 hours of it). */
+export const NotifyLevel = z.enum(["off", "quiet", "normal", "urgent"]);
+export type NotifyLevel = z.infer<typeof NotifyLevel>;
+
 /** The runtimes the desk drives (`desk/runtimes/`), by name. */
 export const RuntimeName = z.enum(["claude", "codex"]);
 export type RuntimeName = z.infer<typeof RuntimeName>;
@@ -45,6 +68,7 @@ export const SourceName = z.enum([
   "imessage",
   "phone",
   "mail",
+  "github",
   "git",
   "screen",
   "apple-health",

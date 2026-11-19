@@ -99,7 +99,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   read-only; only the apps of enabled sources are kept open (`keptStores`). The bridges' homeserver is the buffer
   before the archive's copy: its `redaction_retention_period` stays null, its rooms are never purged and its database is
   never made again (the copy counts its event numbers) (his OK of the
-  new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026; `screen.sqlite`, 4 Nov 2026; the table `phone_calls` in `whatsapp.sqlite`, his "any architectural change" for calls, 5 Nov 2026; `phone.sqlite`, table `calls`, 10 Nov 2026; `messenger.sqlite`, his ask for the Messenger bridge, 14 Nov 2026).
+  new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026; `screen.sqlite`, 4 Nov 2026; the table `phone_calls` in `whatsapp.sqlite`, his "any architectural change" for calls, 5 Nov 2026; `phone.sqlite`, table `calls`, 10 Nov 2026; `messenger.sqlite`, his ask for the Messenger bridge, 14 Nov 2026; `github.sqlite`, the issues and comments of the repos he lists, 19 Nov 2026).
 - **Content never runs Life's code.** Recorded text never makes Life's own code act; model calls see no tools and no
   instruction files (`apps/server/src/models/llm.ts`). The one call given tools is the question cases' agent
   (`scripts/question-cases.ts`, his word of 10 Nov 2026): Codex, with Life's connector serving its reads only, and
@@ -138,7 +138,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments"). The one
   other act is a card's draft, sent on his answer (below).
 - **Life sends only a card's draft exactly as shown, on his answer to its outgoing option, into the one chat named
-  (or a new 1:1 WhatsApp chat by its number), through its own bridges, Messages.app for iMessage, or Gmail through gog for mail** (his decision of 18 Nov 2026): a draft is
+  (or a new 1:1 WhatsApp chat by its number), through its own bridges, Messages.app for iMessage, Gmail through gog for mail, or `gh` for an issue of a repo he listed in `githubRepos` (a comment, or a new issue with the subject as title; text only; his yes of 19 Nov 2026)** (his decision of 18 Nov 2026): a draft is
   text, or one file, or a reaction, with the message it replies or reacts to and the people it mentions
   (`memory/draft.ts`). Life resolves the chat when the card is asked (refused unless exactly one) and stamps what he
   sees: the chat's name, the message quoted, the file's real path, name, size and digest; the send reads only that
@@ -163,7 +163,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **What the memory holds, in words, is `memoryLinesNow`** (`doubts.ts`): the fact checks he answers and the eval judge the
   same text. Which memory lines are doubtful (resting on a guessed person) is decided only by `guessedOf`, from what is stored, never stored itself; what
   he is asked about, only by `checksNow` (`checks.ts`), never drawn or stored: a doubtful line is asked through the guess
-  behind it, one check for one guess, with no limit and no threshold on how sure Life is (his decision of 14 Nov 2026); what blocks him, only by `urgencyOf` (`check-urgency.ts`): his inbox holds every open ask, in the order `inboxRankOf` gives; the badge counts what blocks, only an agent's decision pushes.
+  behind it, one check for one guess, with no limit and no threshold on how sure Life is (his decision of 14 Nov 2026); what blocks him, only by `urgencyOf` (`check-urgency.ts`): his inbox holds every open ask, in the order `inboxRankOf` gives; the badge counts what blocks; every new open card pushes once, whatever its kind, at the level his notification settings give its kind (`notifications`: off, quiet, normal or urgent; urgent is time-sensitive, for a card with a deadline only within 3 hours of it), applied by the Mac when it sends (his answers of 19 Nov 2026), with no words of his through Apple: his phone reads the card from the connector and writes the notification's text itself.
   His answer is the only thing written, with the check as shown (`fact-checks.jsonl`).
 - **He is the center, not one more person:** his page and his situation are projections like everyone close's; his goals are only in
   `truth/me.md`; no separate record about him, no owner-only field on observations (`docs/architecture.md`).
@@ -196,7 +196,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   memory ← personal ← host ← desk; `docs/architecture.md`, "The code"): nothing imports the desk, whose
   `life-entry.ts` is the command line's entry. Fallow's boundary zones (`.fallowrc.json`) and
   `scripts/imports.test.ts` fail the check on any import against them; never suppress one, move the code instead.
-- **Settings are one strict file, read once per process** (`apps/server/src/core/settings.ts`). A part left out is off; a new key lands
+- **Settings are one strict file, read once per process** (`apps/server/src/core/settings.ts`). A part left out is off (one exception: a kind left out of `notifications` takes Life's level for it, `NOTIFY_DEFAULTS`); a new key lands
   in code first. Core steps have no switch; the only feature switches are the personal add-ons (`core/add-ons.ts`), beside the outputs (`core/outputs.ts`) and the voice naming's two flags; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
   schemas are `.strict()`, and a key the running code doesn't know stops the watcher, the nightly and the connector.
 - **The actions backend is an interface, never the truth; the ledger is.** Changes read back from it can take authority
@@ -247,7 +247,7 @@ Before adding a helper, use the one that exists:
 | Every open check, as a reader sees it (the inbox, an answer, the nightly, the CLI, `read_matter`, the push, the status's `left`) | host's `openChecksNow` (`host/inbox.ts`): `checksNow` over the steps an agent is anchored on now (from the desk's store, which memory cannot read); `openCheckOf` for one |
 | Whether a check blocks him or only improves (`blocks`, `improves`), the inbox's order and the badge | `inboxRankOf`, `urgencyOf`, `blockingCountOf` (`memory/check-urgency.ts`): one rule over the check; `checksOf` sorts by it, `inboxOf` and the push count with it |
 | The checks about one matter | `checksOnMatterOf` (`memory/checks.ts`), over the matter ids each check rides on (`ridesOn.matterIds`) and the matter holding its subject; `read_matter`'s `checks` |
-| A push for a new card; a card's id through Apple | `pushNewCards` (`host/card-push.ts`), run by the watcher's minute (`pushNewCardsIfChanged`), never `checksNow`'s full read on every tick: its key decides; a card's id is its `pushId` (`pushIdOf`), never its ref; while a run holds the memory lock only new decisions push, from `decisionsNow` |
+| A push for a new card; a card's id through Apple | `pushNewCards` (`host/card-push.ts`), run by the watcher's minute (`pushNewCardsIfChanged`), never `checksNow`'s full read on every tick: its key decides; a card's id is its `pushId` (`pushIdOf`), never its ref; its kind and level are `notifyKindOf` and `levelOf`, the one mapping and the one rule; while a run holds the memory lock only new decisions push, from `decisionsNow` |
 | Whether the inbox must be read again | `checksNow`'s key (`checksKeyOf`, `memory/checks.ts`): a change stamp of every file the checks read (`CHECKS_READ`, `readChangeStamp`: stats only; never units, which the watcher writes every few minutes), his day, the open decisions, the anchored steps, the voices lifelog queues; the same key, the same list for every reader; never a key of a reader's own |
 | A send's steps (`chat_checked`, `handed`, `confirmed`) | `sendStepsOf` (`memory/draft-send.ts`) lists them for the progress plan; the send reports through the same `STEP` names and `isChat`, never a `kind` or a literal elsewhere |
 | A card's draft (its shape, rules and words) | `memory/draft.ts`: `MessageDraft` (the agent's), `StoredDraft` (with Life's stamps), `draftProblemOf`, `isSendable` (the one check that a stored draft can be sent), `draftWords` |
@@ -291,6 +291,7 @@ Before adding a helper, use the one that exists:
 | Merging two rankings (by meaning, by words) | `fuse` (`apps/server/src/core/fusion.ts`) |
 | A memory text's vector, the query's | `memory/vectors.ts` (`embedQuery`, `readNearest`; the watcher's `embedNew`); Life reaches Lifelog Host's embedder at `EMBEDDER_URL` (loopback, one constant for lifelog and Life), the one call into lifelog's side that is not its REST contract |
 | Running gog (Google Calendar, Google Tasks, Gmail send) | `gogCall` (`core/gog.ts`): nothing else spawns it |
+| Running gh (GitHub issues: the `github` source's copy and send) | `sources/github.ts`: nothing else spawns it, and it asks only the repos in `githubRepos` |
 | Running another program | `apps/server/src/core/proc.ts` |
 | His login shell's environment | `readLoginEnv` (`core/proc.ts`): only an own-Life runtime row; never logged or stored |
 | Opening a SQLite store to write (WAL, the wait first) | `openWritable` (`apps/server/src/core/sqlite.ts`), with its wait (5 s, 30 s for the index, vectors, passages and photo descriptions) |

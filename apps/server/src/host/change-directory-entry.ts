@@ -35,6 +35,7 @@ export const DirectoryEntryChange = z.object({
   handles: z
     .object({
       email: Strings,
+      github: z.string().optional(),
       phone: Strings,
       telegram: z.string().optional(),
       whatsapp: Strings,
@@ -260,6 +261,7 @@ function entryWrite(a: DirectoryEntryChange, read: Read) {
       ...(h.email && { email: union(old.email, h.email) }),
       ...(h.phone && { phone: union(old.phone, h.phone) }),
       ...(h.whatsapp && { whatsapp: union(old.whatsapp, h.whatsapp) }),
+      ...(h.github && { github: h.github }),
       ...(h.telegram && { telegram: h.telegram }),
     };
     Object.assign(entry, {

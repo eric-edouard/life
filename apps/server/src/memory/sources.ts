@@ -25,6 +25,12 @@ import {
 import { bridgedSource } from "../sources/bridged";
 import type { AppStore, Descriptor } from "../sources/contract";
 import { newestCommit, readEarliestCommit, readGit } from "../sources/git";
+import {
+  copyGithub,
+  githubSend,
+  newestGithub,
+  readGithub,
+} from "../sources/github";
 import { gmailSend } from "../sources/gmail";
 import {
   DB,
@@ -70,6 +76,7 @@ import {
   whatsappGhostOf,
   whatsappHandleOf,
   whatsappIdOf,
+  whatsappLinkOf,
   whatsappRoomOf,
 } from "../sources/whatsapp";
 import { newestAgent, readAgent, readEarliestAgent } from "./agent-source";
@@ -118,6 +125,7 @@ const LISTED: Descriptor[] = [
   {
     capturesOnItsOwn: true,
     chatDays: 7,
+    chatLinkOf: whatsappLinkOf,
     group: isWhatsappGroup,
     handleOf: phoneOf,
     incoming: (from?: number) => incomingArchived("whatsapp", "id", from),
@@ -127,13 +135,17 @@ const LISTED: Descriptor[] = [
     name: "whatsapp",
     newest: newestWhatsapp,
     read: (since, before) => readWhatsapp(since, undefined, undefined, before),
-    send: matrixSend("whatsapp", {
-      eventOf: whatsappEventOf,
-      ghostOf: whatsappGhostOf,
-      handleOf: whatsappHandleOf,
-      idOf: whatsappIdOf,
-      roomsOf: () => whatsappRoomOf,
-    }),
+    send: {
+      ...matrixSend("whatsapp", {
+        eventOf: whatsappEventOf,
+        ghostOf: whatsappGhostOf,
+        handleOf: whatsappHandleOf,
+        idOf: whatsappIdOf,
+        roomsOf: () => whatsappRoomOf,
+      }),
+      opensHint:
+        "a new person's id as <digits>@s.whatsapp.net (a group it never saw can't be opened)",
+    },
     silentAfter: 24 * HOUR,
     store: {
       app: "WhatsApp",
@@ -156,6 +168,23 @@ const LISTED: Descriptor[] = [
     store: { copies: "calls", copy: copyPhone },
   },
   ...NETWORKS.filter((n: Network) => !n.readByItsApp).map(bridgedSource),
+  {
+    capturesOnItsOwn: true,
+    chatDays: 30,
+    // Every issue is a thread of many: never a 1:1 chat.
+    group: () => true,
+    incoming: (from?: number) => incomingArchived("github", "eventId", from),
+    kind: "chat",
+    label: "GitHub",
+    missing: () =>
+      settings().githubRepos ? undefined : "no repos listed (`githubRepos`)",
+    name: "github",
+    newest: newestGithub,
+    read: (since, before) => readGithub(since, undefined, before),
+    send: githubSend(),
+    silentAfter: Number.POSITIVE_INFINITY,
+    store: { copies: "messages", copy: copyGithub },
+  },
   {
     capturesOnItsOwn: true,
     earliest: readEarliestMail,

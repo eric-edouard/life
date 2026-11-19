@@ -4,9 +4,9 @@ import Incidents
 import OwnerSettings
 import SwiftUI
 
-/// The bar over every screen, as the system's own: Settings at the leading edge (a page's back button is the stack's), the
-/// screen's name in the middle, the Pendant's pill at the trailing edge. Real toolbar items, so the system can move them
-/// (into a side column on a foldable) and gives them their glass.
+/// The top group, as the system's own toolbar items: the Pendant then Settings (a gear), together on the trailing
+/// edge in one glass capsule. Leading is the stack's Back, or a screen's own item (the Matters filter). Declared, never
+/// drawn, so iOS places them: a bar on a phone, the side column on the iPhone Duo.
 private struct ShellBar: ViewModifier {
     let label: String
     let hasSettings: Bool
@@ -19,55 +19,49 @@ private struct ShellBar: ViewModifier {
             .navigationTitle(label)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if hasSettings {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            router.sheet = .settings
-                        } label: {
-                            Image(systemName: "slider.horizontal.3")
+                if hasPendant || hasSettings {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        if hasPendant { PendantItem { router.sheet = .pendant } }
+                        if hasSettings {
+                            Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
+                                .accessibilityIdentifier("top.settings")
                         }
-                        .accessibilityLabel("Settings")
-                        .accessibilityIdentifier("top.settings")
                     }
                 }
-                if hasPendant { ToolbarItem(placement: .topBarTrailing) { PendantPill { router.sheet = .pendant } } }
             }
     }
 }
 
 extension View {
+    /// The top group of a screen in a tab: Settings only on Inbox and Matters, the Pendant everywhere but in a side
+    /// column (the matter's page beside it has it).
     func shellBar(_ label: String, hasSettings: Bool = true, hasPendant: Bool = true) -> some View {
         modifier(ShellBar(label: label, hasSettings: hasSettings, hasPendant: hasPendant))
     }
 }
 
-/// The Pendant as a pill: what it is doing at a glance, or the one thing that needs him.
-struct PendantPill: View {
+/// The Pendant as an icon-only toolbar item, like the gear: its state is in the mark and its spoken label, so iOS can
+/// put it in the iPhone Duo's column.
+struct PendantItem: View {
     let open: () -> Void
 
     @Environment(CaptureStore.self) private var capture
 
     private struct Face {
         var symbol: String
-        var text: String?
         var badge: Int?
         var spoken: String
+        var color = Palette.fg
     }
 
     var body: some View {
         let face = face
         Button(action: open) {
-            HStack(spacing: 8) {
-                Text("Pendant").font(.lead)
-                if let text = face.text { Text(text).font(.monoTime).foregroundStyle(Palette.flag) }
-                Image(systemName: face.symbol).font(.system(size: 17, weight: .medium))
-                    .overlay(alignment: .topTrailing) {
-                        if let badge = face.badge {
-                            CountBadge(count: badge).offset(x: 9, y: -9)
-                        }
-                    }
-            }
-            .foregroundStyle(Palette.fg)
+            Image(systemName: face.symbol).foregroundStyle(face.color)
+                .overlay(alignment: .topTrailing) {
+                    if let badge = face.badge { CountBadge(count: badge).offset(x: 9, y: -9) }
+                }
+                .motion(Motion.standard, value: face.symbol)
         }
         .accessibilityLabel("Pendant, \(face.spoken)")
         .accessibilityIdentifier("top.pendant")
@@ -83,7 +77,7 @@ struct PendantPill: View {
         let needs = reading.needs + facts.incidents.count
         if needs > 0 { return Face(symbol: "exclamationmark.circle", badge: needs, spoken: "something needs you") }
         if let percent = reading.lowBattery {
-            return Face(symbol: "battery.25percent", text: "\(percent)%", spoken: "battery low, \(percent) percent")
+            return Face(symbol: "battery.25percent", spoken: "battery low, \(percent) percent", color: Palette.flag)
         }
         switch reading.state {
         case .outOfRange, .notConnected: return Face(symbol: "wifi.slash", spoken: "out of reach")

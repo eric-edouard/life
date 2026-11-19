@@ -119,6 +119,15 @@ export const nameKey = (s: string) =>
     .replace(NOT_NAME, " ")
     .trim();
 
+/** Whether `text` holds one of `names` as a whole word run (never inside a longer word; accents and case never matter); an empty name matches nothing. */
+export const holdsName = (
+  text: string,
+  names: readonly (string | undefined)[]
+) =>
+  names.some(
+    (n) => n && nameKey(n) && ` ${nameKey(text)} `.includes(` ${nameKey(n)} `)
+  );
+
 const SUMMARY_MAX = 300;
 
 /** `s` cut at a word within `max` characters, with an ellipsis. */
@@ -126,6 +135,10 @@ export const clip = (s: string, max = SUMMARY_MAX) =>
   s.length <= max
     ? s
     : `${s.slice(0, s.lastIndexOf(" ", max - 1) > 0 ? s.lastIndexOf(" ", max - 1) : max - 1)}…`;
+
+/** `s` on one line (its whitespace runs flattened), cut at a word within `max` characters. */
+export const oneLineOf = (s: string, max: number) =>
+  clip(s.replace(/\s+/g, " ").trim(), max);
 
 /** Whether a sender is one of his agents mailing him a report: Life's own sender or the `reports` setting. */
 export const isAgentReport = (sender: string) =>

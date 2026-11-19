@@ -10,7 +10,7 @@ import {
   unfoldedOf,
 } from "../records/observation";
 import { namesOne, relationWordOf } from "../records/relation-words";
-import { firstNameOf, type Person } from "../records/truth";
+import { firstNameOf, ME, type Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
 import { readAgentReports } from "./agent-source";
@@ -29,7 +29,7 @@ import { handlesOf, loadTruth, OWNER } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
 import type { Tie } from "./ties";
 import { dayUnitId } from "./unit-ids";
-import { nameKey, PERSON, UNKNOWN } from "./units";
+import { holdsName, nameKey, PERSON, UNKNOWN } from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people his Contacts name, the people Life inferred and the
 // owner's corrections, in that order of trust under his word. Every reader and step resolves people through here.
@@ -569,9 +569,34 @@ export async function readPeople() {
     ...truth.projects.map((p) => [`project:${p.id}`, p.name] as const),
     ...truth.areas.map((a) => [`area:${a.id}`, a.name] as const),
   ]);
+  /** What each person is to him, one line: truth/'s `relation`, a contact's card, an inferred person's relation. */
+  const relations = new Map<string, string>([
+    ...outsideDirectory.map((p) => [`person:${p.id}`, p.relation] as const),
+    ...truth.people.flatMap((p) =>
+      p.relation ? [[`person:${p.id}`, p.relation] as const] : []
+    ),
+  ]);
+  const relationOf = (ref: string) => relations.get(refOf(ref)) ?? null;
   return {
     /** The Contacts cards Life cannot place: their whole name and their handles say more than one person (`foldsOf`). */
     ambiguousCards,
+    /**
+     * Who a name could be, as he knows them (`nearNames` over `nameable`), with what each is to him (`relationOf`).
+     */
+    candidatesFor: (
+      name: string
+    ): { line: string | null; name: string; person: string }[] =>
+      nearNames(
+        name,
+        nameable({ canon, outsideDirectory, truth }).filter((p) => p.id !== ME)
+      ).map((p) => {
+        const person = refOf(`person:${p.id}`);
+        return {
+          line: relationOf(person),
+          name: names.get(person) ?? p.name,
+          person,
+        };
+      }),
     canon,
     /** The people his Contacts name (`contact-people.ts`), for the folds. */
     contacts,
@@ -590,6 +615,8 @@ export async function readPeople() {
     readingNow,
     /** Who an episode's person ref is as of today: a name since resolved, a person since folded into another. */
     refOf,
+    /** What a person is to him, in one line (his directory's relation, his Contacts, or Life's guess); null when nothing says. */
+    relationOf,
     resolve,
     truth,
   };
@@ -754,8 +781,7 @@ export function placementOf(
   people: Pick<People, "resolve">,
   ties: Tie[]
 ) {
-  const words = ` ${nameKey(mention.who)} `;
-  if (!(words.trim() && ` ${nameKey(mention.line)} `.includes(words))) {
+  if (!holdsName(mention.line, [mention.who])) {
     return null;
   }
   const ref = people.resolve(mention.who);

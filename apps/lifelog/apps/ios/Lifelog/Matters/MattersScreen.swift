@@ -20,11 +20,7 @@ struct MattersScreen: View {
             ReadScreen(
                 shown: life.matters.shown(isEmpty: { $0.matters.isEmpty }), retry: { await life.refreshMatters() },
                 loading: { RowsPlaceholder() },
-                empty: {
-                    Notice(
-                        title: "No matter is running.",
-                        detail: "Life finds them in your messages, notes and voice. They show here as they appear.")
-                },
+                empty: { NoMattersNotice() },
                 content: { list in content(list) }
             )
             .background(Palette.bg)
@@ -151,7 +147,7 @@ struct MattersScreen: View {
     }
 }
 
-private struct MatterRowView: View {
+struct MatterRowView: View {
     let row: MatterRow
     let isChosen: Bool
 
@@ -187,6 +183,15 @@ extension String {
         case "money": "banknote"
         default: Self.defaultAreaSymbol
         }
+    }
+}
+
+/// What the list and the search show while no matter is running.
+struct NoMattersNotice: View {
+    var body: some View {
+        Notice(
+            title: "No matter is running.",
+            detail: "Life finds them in your messages, notes and voice. They show here as they appear.")
     }
 }
 

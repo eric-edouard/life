@@ -3,7 +3,8 @@ import LifeConnector
 import SwiftUI
 import UIKit
 
-/// Two tabs, Inbox (home) and Matters, with the Settings and Pendant sheets over them.
+/// The bottom group, all system pieces: the Inbox (home) and Matters tabs and the system's search tab, with the
+/// Settings and Pendant sheets over them. Every sheet is centred, the system's default, and closes from inside itself.
 struct RootView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(SyncStore.self) private var sync
@@ -13,6 +14,7 @@ struct RootView: View {
     @AppStorage("appearance") private var appearance = Appearance.auto
     /// A pairing link the owner is asked to confirm, once any sheet is out of the way: the lifelog server, Life, or both.
     @State private var confirming: PairOffer?
+    @State private var query = ""
 
     var body: some View {
         TabView(selection: $router.tab) {
@@ -21,15 +23,23 @@ struct RootView: View {
             }
             .badge(life.inbox.value?.badge ?? 0)
             Tab("Matters", systemImage: "list.bullet.indent", value: AppRouter.Tab.matters) { MattersScreen() }
+            // Its title and symbol are the system's; it sits apart, at the trailing end of the tabs.
+            Tab(value: AppRouter.Tab.search, role: .search) {
+                // The field belongs to this tab alone: on the tabs it would show on Inbox and Matters too.
+                NavigationStack {
+                    SearchScreen(query: query).shellBar("Search", hasSettings: false)
+                        .searchable(text: $query, prompt: "Search matters")
+                }
+            }
         }
         .environment(router)
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
-            case .pendant: PendantView().presentationPlacement(.trailing)
-            case .settings: SettingsSheet().presentationPlacement(.trailing)
+            case .pendant: PendantView().sheetStack()
+            case .settings: SettingsSheet()
             }
         }
-        .sheet(item: $confirming) { PairSheet(offer: $0).presentationPlacement(.trailing) }
+        .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
         .preferredColorScheme(appearance.scheme)
         // A tapped notification, from a cold launch, the background or the foreground.
         #if DEBUG
@@ -96,10 +106,15 @@ struct RootView: View {
 
 #if DEBUG
     extension RootView {
-        /// `-fixtureTab`, `-fixtureCard`, `-fixtureMatter`, `-fixtureSheet`: open the screen a launch asked to see.
+        /// `-fixtureTab matters|search`, `-fixtureCard`, `-fixtureMatter`, `-fixtureSheet`: open the screen a launch
+        /// asked to see.
         fileprivate func showFixtureScreen() async {
             try? await Task.sleep(for: .milliseconds(1_200))
-            if LifeFixture.tab == "matters" { router.tab = .matters }
+            switch LifeFixture.tab {
+            case "matters": router.tab = .matters
+            case "search": router.tab = .search
+            default: break
+            }
             if let id = LifeFixture.matter { router.open(matter: id) }
             // On a matter, the card is the ask pushed on it; alone, the Inbox opens at it, as a push does.
             if let ref = LifeFixture.card {

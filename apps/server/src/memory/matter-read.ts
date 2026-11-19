@@ -489,7 +489,7 @@ const isNewerThan = (
     (s) => !pin.steps.includes(s.ref) || (s.ending && s.ending.at > pin.at)
   );
 
-/** How many days from its first step a new matter is offered: Life's "Work on it?" lapses after them, and nothing starts. */
+/** How many days from its first step a new matter is offered: Life's "Start an agent on this?" lapses after them, and nothing starts. */
 export const NEW_MATTER_DAYS = 7;
 /** The last day of a matter's offer window (`NEW_MATTER_DAYS` from its first step's day); none for a matter with no step. Pure. */
 export const offerEndOf = (v: { steps: readonly { day: string }[] }) => {

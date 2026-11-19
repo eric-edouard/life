@@ -94,6 +94,8 @@ targets:
       properties:
         # The app group, read at run time (Shared/AppGroup.swift).
         LifelogAppGroup: group.$(LIFELOG_BUNDLE_ID)
+        # The app's own bundle id, which names its Keychain service in every target that reads it (Keychain.swift).
+        LifelogBundleID: $(LIFELOG_BUNDLE_ID)
         # remote-notification: the server's silent push when a transcript or summary is ready.
         UIBackgroundModes: [bluetooth-central, processing, audio, remote-notification]
         BGTaskSchedulerPermittedIdentifiers: [$(LIFELOG_BUNDLE_ID).processing]
@@ -112,6 +114,8 @@ targets:
         com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
         # The server's silent push. Builds are development-signed, so APNs is the sandbox (APNS_ENVIRONMENT).
         aps-environment: development
+        # Life's pushes at the level urgent (`levelOf`, card-push.ts): without it iOS lowers them to active.
+        com.apple.developer.usernotifications.time-sensitive: true
         com.apple.developer.healthkit: true
   LifelogWidgets:
     type: app-extension

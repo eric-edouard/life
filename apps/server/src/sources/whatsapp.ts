@@ -95,6 +95,16 @@ export const isWhatsappGroup = (chat: string) => chat.endsWith("@g.us");
 export const phoneOf = (jid: string) =>
   jid.endsWith("@s.whatsapp.net") ? `+${jid.split("@")[0]}` : undefined;
 
+/** A phone as people write it: digits, with `+`, spaces, dots, dashes or brackets. */
+const PHONE = /^\+?[\d\s().-]+$/;
+/** WhatsApp's own link to a 1:1 chat with a phone, `https://wa.me/<digits>`; none for anything else (a `@lid` holds no phone). */
+export const whatsappLinkOf = (handle: string) => {
+  const digits = handle.replace(/\D/g, "");
+  return PHONE.test(handle) && digits.length >= 7
+    ? `https://wa.me/${digits}`
+    : undefined;
+};
+
 const PHONE_JID = /@s\.whatsapp\.net$/;
 const PERSON_JID = /^\d+@(s\.whatsapp\.net|lid)$/;
 /** The id the bridge opens a 1:1 chat by: the chat's own id when it is a person's (a phone's or a `@lid`), none for a group. */
