@@ -63,7 +63,7 @@ struct PendantScreen: View {
                         }
                     }
                     .padding(.horizontal, Metrics.gutter)
-                    .padding(.bottom, 16)
+                    .padding(.bottom, Metrics.Spacing.l)
                     .readingWidth()
                 }
                 .scrollBounceBehavior(.basedOnSize)
@@ -71,7 +71,7 @@ struct PendantScreen: View {
                 .refreshable { await actions.refresh() }
                 footer(reading)
             }
-            .padding(.top, 16)
+            .padding(.top, Metrics.Spacing.l)
             .background(Palette.sheet)
             .presentationBackground(Palette.sheet)
         }
@@ -238,7 +238,7 @@ struct PendantScreen: View {
             }
         } else if let words = held.words {
             VStack(alignment: .leading, spacing: 8) {
-                Caps("Waiting to upload").padding(.horizontal, 16)
+                Caps("Waiting to upload").padding(.horizontal, Metrics.Spacing.l)
                 VStack(alignment: .leading, spacing: 12) {
                     Text(words).font(.bodyStrong)
                     if case .catchingUp(let progress) = SyncSummary(
@@ -251,7 +251,7 @@ struct PendantScreen: View {
                         Text("Keep the app open: it goes faster.").font(.note).foregroundStyle(Palette.muted)
                     }
                 }
-                .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading)
                 .background(Surface.sheet.fill, in: .rect(cornerRadius: Metrics.Radius.card))
             }
         }
@@ -281,7 +281,7 @@ struct PendantScreen: View {
             }
         }
         .padding(.horizontal, Metrics.gutter)
-        .padding(.bottom, 16)
+        .padding(.bottom, Metrics.Spacing.l)
     }
 }
 

@@ -62,8 +62,8 @@ struct PairSheet: View {
             VStack(spacing: 10) { buttons }
         }
         .padding(.horizontal, Metrics.gutter)
-        .padding(.top, 16)
-        .padding(.bottom, 16)
+        .padding(.top, Metrics.Spacing.l)
+        .padding(.bottom, Metrics.Spacing.l)
         .readingWidth()
         .background(Palette.sheet)
         .presentationBackground(Palette.sheet)
@@ -117,7 +117,7 @@ struct PairSheet: View {
         ForEach(offer.connections) { connection in
             let multiple = offer.connections.count > 1
             RowGroup(label: multiple ? connection.name : nil, surface: .sheet) {
-                CheckLines(lines: lines(connection)).padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                CheckLines(lines: lines(connection)).padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         if phase == .done {

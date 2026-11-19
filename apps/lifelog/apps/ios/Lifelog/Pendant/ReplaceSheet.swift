@@ -39,8 +39,8 @@ struct ReplaceSheet: View {
             VStack(spacing: 10) { buttons }
         }
         .padding(.horizontal, Metrics.gutter)
-        .padding(.top, 16)
-        .padding(.bottom, 16)
+        .padding(.top, Metrics.Spacing.l)
+        .padding(.bottom, Metrics.Spacing.l)
         .readingWidth()
         .background(Palette.sheet)
         .presentationBackground(Palette.sheet)
@@ -71,7 +71,7 @@ struct ReplaceSheet: View {
                         "replace", ["Uploading what is left", "Forgetting this pendant"], passed: 0, failedAt: nil,
                         isRunning: true)
                 )
-                .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading)
             }
         case .refused(let left):
             Text(
