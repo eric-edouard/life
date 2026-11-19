@@ -9,7 +9,7 @@
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `loading`, `empty`, `stale`, `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent` decides what a tap on a draft does; `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`
     /// open the screen to show. `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
