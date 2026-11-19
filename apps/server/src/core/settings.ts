@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { Engine, RuntimeName, SourceName } from "./names";
+import { Engine, ROLE_ASKERS, RuntimeName, SourceName } from "./names";
 import { LIFE_STATE_DIR } from "./paths";
 import { HOME } from "./platform";
 
@@ -42,6 +42,9 @@ export const Settings = z
           })
           .strict()
       )
+      .refine((agents) => !ROLE_ASKERS.some((role) => role in agents), {
+        message: `an agent may not be named ${ROLE_ASKERS.join(", ")}: those are roles`,
+      })
       .refine(
         (agents) => {
           const words = [LIFE_WAKE, ...Object.values(agents)].flatMap((a) => [

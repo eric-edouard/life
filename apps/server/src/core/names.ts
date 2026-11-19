@@ -20,6 +20,15 @@ export const AGENT_WORD = "agent";
 /** The built-in agent his words about his registered agents are asked of (`change_registered_agent`): the desk, which keeps its own list. */
 export const DESK_AGENT = "desk";
 
+/** Who asks Life's own checks (its guesses). */
+export const LIFE_ASKER = "life";
+
+/** Who asked a decision from his own app's token (no agent claim): a role, like `LIFE_ASKER`, never an agent's name. */
+export const OWNER_ASKER = "owner";
+
+/** The askers that are roles, not agents: none may name one of his agents, or it would read and withdraw their cards. */
+export const ROLE_ASKERS = [DESK_AGENT, OWNER_ASKER, LIFE_ASKER];
+
 /** The runtimes the desk drives (`desk/runtimes/`), by name. */
 export const RuntimeName = z.enum(["claude", "codex"]);
 export type RuntimeName = z.infer<typeof RuntimeName>;

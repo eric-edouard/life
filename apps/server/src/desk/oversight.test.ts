@@ -234,11 +234,42 @@ test("what his agents are doing: each with its matter, status, wait, link and am
     expect(agentLinesOnProjects(["test-shop"])[0]).toContain(
       "amber: default wait"
     );
-    expect(readActiveAgentOf()([STEP])).toBe(onMatter?.id);
+    expect(readActiveAgentOf()([STEP], [])).toBe(onMatter?.id);
+    const worker = project ?? "";
+    const own = onMatter?.id ?? "";
+    // A matter of a project with an active worker carries it; its own agent wins; another project's matter has none.
+    expect(readActiveAgentOf()(["obs_00000000a999"], ["test-shop"])).toBe(
+      worker
+    );
+    expect(readActiveAgentOf()([STEP], ["test-shop"])).toBe(own);
+    expect(readActiveAgentOf()(["obs_00000000a999"], ["test-farm"])).toBe(
+      undefined
+    );
+    expect(readAgentsOnSteps([STEP], ["test-shop"]).map((a) => a.id)).toEqual([
+      own,
+      worker,
+    ]);
+    // A stopped worker holds the project for the desk, but works on nothing: no row carries it.
+    desk.db.run("update agent set status = 'stopped' where id = ?", [worker]);
+    expect(
+      readActiveAgentOf()(["obs_00000000a999"], ["test-shop"])
+    ).toBeUndefined();
+    expect(readAgentsOnSteps([STEP], ["test-shop"]).map((a) => a.id)).toEqual([
+      own,
+    ]);
+    desk.db.run("update agent set status = 'active' where id = ?", [worker]);
+    // A matter of two projects, each with an active worker, gets the first project's.
+    const farm =
+      (await applied({ action: "start", folder, project: "test-farm" }))
+        ?.agent_id ?? "";
+    const gone = ["obs_00000000a999"];
+    expect(readActiveAgentOf()(gone, ["test-farm", "test-shop"])).toBe(farm);
+    expect(readActiveAgentOf()(gone, ["test-shop", "test-farm"])).toBe(worker);
+    desk.db.run("update agent set status = 'stopped' where id = ?", [farm]);
     // Its packet opens with its matter as read now: its goal and next step first.
     expect(
       JSON.parse(
-        (await readPacket(desk, onMatter?.id ?? "")).split("\n")[1] ?? ""
+        (await readPacket(desk, onMatter?.id ?? "", true)).split("\n")[1] ?? ""
       )
     ).toMatchObject({
       goal: { text: "The cake is collected" },
@@ -251,7 +282,7 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       },
       status: "moving",
     });
-    expect(readActiveAgentOf()(["obs_00000000a999"])).toBeUndefined();
+    expect(readActiveAgentOf()(["obs_00000000a999"], [])).toBeUndefined();
 
     const since = new Date(clock().getTime() - MIN).toISOString();
     postReportLine(desk.db, {

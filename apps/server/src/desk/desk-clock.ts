@@ -1,6 +1,7 @@
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { DESK_AGENT } from "../core/names";
+import { isOwnLife } from "../core/platform";
 import {
   type AgentRow,
   activeAgents,
@@ -320,7 +321,7 @@ async function launch(
     if (!a.session || state === "gone" || grown >= GROWTH_LIMIT) {
       const s = await runtime.start(
         sessionAgentOf(a),
-        await readPacket(desk, a.id)
+        await readPacket(desk, a.id, isOwnLife())
       );
       // Watched first: its process runs, so a failed write below never ends it as not started.
       watch(desk, a.id, turn, s);

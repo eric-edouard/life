@@ -253,7 +253,7 @@ detail, madeBy, at}`); read by nothing since (docs/architecture.md, "Details"). 
 
 The decisions: a question an agent puts to him (`memory/decisions.ts`), append-only, one synchronous line each,
 outside the lock, schemaVersion 3, by `kind`:
-- `asked` (`requestDecision`), one card: `id` (`dec_` + 12 hex), `at`, `asker` (the agent's pairing, or `desk`),
+- `asked` (`requestDecision`), one card: `id` (`dec_` + 12 hex), `at`, `asker` (the agent's pairing, `desk`, or `owner` from his own app),
   `agent` (`agt_…`, a registered agent's, optional), `subject` (a matter step's id, `project:<id>` or `area:<id>`,
   optional), `title` (one line, 80 chars), `question` (one line, 120 chars), `draft` (optional, `memory/draft.ts`. What the
   agent gives: `channel`, the source it goes through; `to`, the chat's name once stored; one of `text`, `file` (an

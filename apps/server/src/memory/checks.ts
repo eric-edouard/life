@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { readChangeStamp } from "../core/files";
-import type { SourceName } from "../core/names";
+import { LIFE_ASKER, type SourceName } from "../core/names";
 import { secretIn } from "../core/secret";
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
@@ -341,7 +341,7 @@ function ranked(
         {
           check: {
             about: fields.about,
-            asker: "life",
+            asker: LIFE_ASKER,
             at: null,
             clips: [],
             context: LIFE_CHECKS[group].context,
@@ -472,7 +472,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             {
               check: {
                 about: [],
-                asker: "life",
+                asker: LIFE_ASKER,
                 at: null,
                 clips: [],
                 context: `${LIFE_CHECKS["new matter"].context} Next step: ${next.text}. Asked until ${plain(lastDay)}.`,
@@ -596,7 +596,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         return {
           check: {
             about: item.name ? [item.name] : [],
-            asker: "life",
+            asker: LIFE_ASKER,
             at: null,
             clips: item.clips,
             context: `${LIFE_CHECKS.voice.context} Heard in ${item.conversations} conversations, ${item.words} words.`,
