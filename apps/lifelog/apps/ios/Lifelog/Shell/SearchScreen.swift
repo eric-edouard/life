@@ -22,10 +22,11 @@ struct SearchScreen: View {
 
     private func results(_ rows: [MatterRow]) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 if rows.isEmpty {
                     Text("No matter holds “\(query)”.").font(.body15).foregroundStyle(Palette.muted)
-                        .transition(Motion.appears)
+                        .padding(Metrics.gutter)
+                        .appears()
                 }
                 ForEach(rows) { row in
                     Button {
@@ -34,10 +35,10 @@ struct SearchScreen: View {
                         MatterRowView(row: row, isChosen: false)
                     }
                     .buttonStyle(.plain)
+                    .appears()
                 }
             }
             .motion(Motion.standard, value: rows.map(\.id))
-            .padding(.horizontal, Metrics.gutter)
             .padding(.bottom, Metrics.Spacing.l)
             .readingWidth()
         }
