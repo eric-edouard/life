@@ -7,7 +7,7 @@
     /// Life without a Mac, for the simulator: made-up inbox, matters and agents, and an API that answers as Life would,
     /// slowly, or not at all, so every state of every screen can be put on screen and photographed.
     ///
-    /// `-fixtureLife <scenario>` turns it on: `ok`, `loading`, `empty`, `stale`, `unreachable`, `failed`, `notPaired`.
+    /// `-fixtureLife <scenario>` turns it on: `ok`, `loading`, `empty`, `improves` (only what can wait), `stale`, `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent` decides what a tap on a draft does; `-fixtureStart started|starting|failed`
     /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`
     /// open the screen to show. `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
@@ -111,7 +111,6 @@
         // MARK: Reads
 
         func readInbox() async throws -> String { try await gate(); return inbox() }
-        func readToConfirm() async throws -> String { try await gate(); return inbox(toConfirm: true) }
         func readMatters() async throws -> String { try await gate(); return matters() }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
 
@@ -133,12 +132,13 @@
             return json(matter)
         }
 
-        /// Decisions only, or, for "To confirm", Life's own questions: what `read_inbox` sends for each list.
-        func inbox(toConfirm: Bool = false) -> String {
+        /// Every open ask, what blocks first, as `read_inbox` sends it; `improves` holds only what can wait (the
+        /// boundary panel first), `empty` nothing.
+        func inbox() -> String {
             let left = answered.withLock { $0 }
-            let isOwn = { (check: [String: Any]) in !["decision", "new matter"].contains(check["group"] as? String) }
             let open = Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
-            let checks = (toConfirm ? open.filter(isOwn) : open.filter { !isOwn($0) }).map { check in
+                .filter { scenario != "improves" || $0["urgency"] as? String == "improves" }
+            let checks = (scenario == "empty" ? [] : open).map { check in
                 // A guess already answered is no longer asked beside its draft.
                 var check = check
                 check["confirm"] = (check["confirm"] as? [[String: Any]] ?? []).filter {
@@ -146,10 +146,11 @@
                 }
                 return check
             }
-            let shown = scenario == "empty" && !toConfirm ? [] : checks
+            let blocking = checks.count { $0["urgency"] as? String == "blocks" }
             return json([
-                "checks": shown, "counts": toConfirm ? [:] : ["decision": shown.count], "total": shown.count,
-                "deadlinesToday": 1, "toConfirm": open.filter(isOwn).count,
+                "checks": checks,
+                "counts": Dictionary(grouping: checks, by: { $0["group"] as? String ?? "" }).mapValues(\.count),
+                "total": checks.count, "blocking": blocking, "deadlinesToday": 1,
             ])
         }
 
@@ -266,6 +267,8 @@
                 "asker": asker,
                 "options": options, "clips": [], "likelyPeople": [], "links": [],
             ]
+            // `urgencyOf`: an agent's decision, a voice, a name and an ambiguous card block; the rest only improve.
+            check["urgency"] = ["decision", "voice", "name", "contacts card"].contains(group) ? "blocks" : "improves"
             if let matter { check["matter"] = matter }
             if let deadline { check["deadline"] = deadline }
             if let context { check["context"] = context }
@@ -277,6 +280,9 @@
         ]
         nonisolated(unsafe) private static let nora: [String: Any] = [
             "id": "matter_nora", "name": "Quote for Nora Keller",
+        ]
+        nonisolated(unsafe) private static let table: [String: Any] = [
+            "id": "matter_table", "name": "Table for Mum’s 60th",
         ]
         nonisolated(unsafe) private static let kitchen: [String: Any] = [
             "id": "matter_kitchen", "name": "Kitchen quote, Halden house",
@@ -297,7 +303,17 @@
                 extra: ["evidence": ["from": "~ \(handle), WhatsApp", "quote": "Bonjour, c’est \(handle)."]])
         }
 
-        nonisolated(unsafe) static let checks: [[String: Any]] =
+        /// In the server's order (`inboxRankOf`): what blocks, then what improves; as written within a kind.
+        nonisolated(unsafe) static let checks: [[String: Any]] = {
+            let order = ["decision", "voice", "name", "contacts card", "new matter", "guessed person", "ending"]
+            let rank = { (check: [String: Any]) in
+                order.firstIndex(of: check["group"] as? String ?? "") ?? order.count
+            }
+            return written.enumerated().sorted { (rank($0.element), $0.offset) < (rank($1.element), $1.offset) }
+                .map(\.element)
+        }()
+
+        nonisolated(unsafe) private static let written: [[String: Any]] =
             [
                 check(
                     "dec_plan", group: "decision", title: "Get the lease signed and back to Hélène Aubert",
@@ -378,6 +394,16 @@
                             ],
                         ],
                     ]),
+                check(
+                    "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
+                    question: "Goal: a table for eight at Chez Odile on Friday 27th. Work on it?",
+                    options: [
+                        option("start", "Start"), option("edit-goal", "Edit goal", takes: "note"),
+                        option("dismiss", "Dismiss"),
+                    ],
+                    matter: table,
+                    context: "Camille proposed Chez Odile on Saturday; you said you would handle it.",
+                    extra: ["goal": "A table for eight at Chez Odile on Friday 27th."]),
                 check(
                     "person:con_cam", group: "contacts card", title: "Place a Contacts card",
                     question:

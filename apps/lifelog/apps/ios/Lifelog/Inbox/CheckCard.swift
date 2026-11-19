@@ -111,16 +111,16 @@ struct CheckCard: View {
         guard let rides = check.ridesOn, [.name, .guessedPerson, .voice, .ending].contains(check.group) else {
             return nil
         }
-        let parts = [(rides.observations, "fact"), (rides.matterIds.count, "matter")].filter { $0.0 > 0 }
+        let parts = [(rides.observations, "fact"), (rides.matters, "matter")].filter { $0.0 > 0 }
             .map { "\($0.0) \($0.1)\($0.0 == 1 ? "" : "s")" }
         guard !parts.isEmpty else { return nil }
-        let count = rides.observations + rides.matterIds.count
+        let count = rides.observations + rides.matters
         return parts.joined(separator: " and ") + (count == 1 ? " rests on it" : " rest on it")
     }
 
     private var whyLabel: String {
         switch check.group {
-        case .contactsCard: "Where Life found it"
+        case .contactsCard, .newMatter: "Where Life found it"
         case .ending: "What rests on it"
         case .voice: "Why Life thinks so"
         default: "Why, and what it rests on"
@@ -129,14 +129,18 @@ struct CheckCard: View {
 
     private var ownWords: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Caps("Your answer")
-            TextField("Say it in your own words", text: $input.words, axis: .vertical)
-                .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
-                .padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))
-            Text("Your words go to the agent as they are.").font(.small).foregroundStyle(Palette.faint)
+            Caps(check.group == .newMatter ? "Your goal" : "Your answer")
+            TextField(
+                check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
+            )
+            .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
+            .padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))
+            Text(
+                check.group == .newMatter
+                    ? "It becomes the matter's goal. Then Start or Dismiss." : "Your words go to the agent as they are."
+            ).font(.small).foregroundStyle(Palette.faint)
         }
     }
-
 }
 
 // MARK: Bodies

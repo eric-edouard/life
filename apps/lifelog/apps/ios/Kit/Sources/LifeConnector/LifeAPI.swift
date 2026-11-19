@@ -51,7 +51,6 @@ public struct NextStepRequest: Encodable, Sendable, Equatable {
 /// the models and `ReadCache` keeps as it came. An action gives its progress messages to `onProgress` and takes the key of his tap.
 public protocol LifeAPI: Sendable {
     func readInbox() async throws -> String
-    func readToConfirm() async throws -> String
     func readMatters() async throws -> String
     func readMatter(_ id: String) async throws -> String
     func readRegisteredAgents() async throws -> String
@@ -67,12 +66,6 @@ public protocol LifeAPI: Sendable {
     func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String
 }
 
-/// The arguments of `read_inbox` for Life's own questions.
-private struct ToConfirmRead: Encodable, Sendable {
-    let limit = 100
-    let list = "to confirm"
-}
-
 public struct MCPLifeAPI: LifeAPI {
     private let client: MCPClient
 
@@ -80,12 +73,8 @@ public struct MCPLifeAPI: LifeAPI {
         self.client = client
     }
 
-    /// Every decision in one read (the server's most), so a tapped push finds its card and the screens count them all.
+    /// Every open ask in one read (the server's most), so a tapped push finds its card and the screens count them all.
     public func readInbox() async throws -> String { try await client.call("read_inbox", ["limit": 500]) }
-    /// Life's own questions, the first 100. ponytail: no paging; page when the list passes 100.
-    public func readToConfirm() async throws -> String {
-        try await client.call("read_inbox", ToConfirmRead())
-    }
     public func readMatters() async throws -> String { try await client.call("read_matters") }
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }

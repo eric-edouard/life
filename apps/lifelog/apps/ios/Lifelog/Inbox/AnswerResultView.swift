@@ -11,7 +11,10 @@ struct Taken: Equatable {
     let runtimeName: RuntimeName?
 
     var key: LifeStore.ActionKey { .answer(ref: check.ref) }
+    /// A new matter whose goal he changed is still waiting for Start or Dismiss.
+    var staysOpen: Bool { check.group == .newMatter && request.options == ["edit-goal"] }
     var isSend: Bool { check.draft != nil }
+    var isStart: Bool { check.group == .newMatter && request.options == ["start"] }
     var context: ActionCopy.Context {
         .init(
             to: check.draft?.to, channel: check.draft?.channel, asker: check.askerName(runtime: runtimeName))
@@ -100,8 +103,11 @@ struct AnswerResultView: View {
     private var doneWord: String {
         switch taken.check.group {
         case .voice: "Named."
-        case .ending, .newMatter: "Noted."
+        case .ending: "Noted."
         case .contactsCard: "Saved."
+        case .newMatter:
+            taken.request.options == ["edit-goal"]
+                ? "Goal saved." : taken.request.options == ["dismiss"] ? "Dismissed." : "Started."
         case .name, .guessedPerson: "Saved."
         case .decision, .unknown: "Answered."
         }
@@ -113,6 +119,12 @@ struct AnswerResultView: View {
             let to = [taken.check.draft?.to, send.channel.map(ActionCopy.channel)].compactMap(\.self)
             let when = send.at.map { ", at \($0.formatted(.dateTime.hour().minute()))" } ?? ""
             return "To \(to.joined(separator: " on "))\(when)."
+        }
+        if taken.check.group == .newMatter {
+            return taken.request.options == ["start"]
+                ? "An agent works toward the goal."
+                : taken.request.options == ["edit-goal"]
+                    ? "The goal is yours now. Start or Dismiss is still waiting." : "Never asked again for this matter."
         }
         if taken.request.options.isEmpty { return "Your words went to \(taken.context.asker ?? "the asker")." }
         let label = taken.check.options.first { taken.request.options.contains($0.id) }?.label
@@ -133,12 +145,16 @@ struct AnswerResultView: View {
     private func failedWord(_ failure: ActionFailure) -> String {
         if failure.mayHaveHappened { return taken.isSend ? "May have gone." : "Check first." }
         if failure.isSameTap { return "No answer from Life." }
+        if taken.isStart { return "Not started." }
         return taken.isSend ? "Not sent." : "Not saved."
     }
 
     private func failedLine(_ failure: ActionFailure) -> String {
         if failure.mayHaveHappened { return "Check before answering again. The card stays here." }
         if failure.isSameTap { return "Life may have it: trying again repeats the same tap. The card stays here." }
+        if taken.isStart, state.steps.contains(where: { $0.id == "goal_saved" && $0.passedAt != nil }) {
+            return "Your goal is saved. The card stays here."
+        }
         return "The card stays here."
     }
 }
@@ -158,7 +174,7 @@ struct ResultButtons: View {
         VStack(spacing: 8) {
             switch state {
             case .succeeded:
-                Button(next == nil ? "Done" : "Next card", action: nextCard)
+                Button(taken.staysOpen ? "Back to the card" : next == nil ? "Done" : "Next card", action: nextCard)
                     .buttonStyle(.pill(.filled))
             case .failed(let failure, _):
                 if failure.retry == .allowed && !failure.mayHaveHappened {

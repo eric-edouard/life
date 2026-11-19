@@ -141,7 +141,7 @@ bun run --cwd apps/lifelog/apps/server dev                # the server from a ch
 
 In the simulator, Debug builds take `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
 (`healthyRecording`, `offlineBacklog`, `paused`, `busyElsewhere`, `bluetoothOff`, `corruptPage`,
-`disconnectMidDrain`, `neverSetUp`) and `-offline`. None of them exist in Release builds.
+`disconnectMidDrain`, `neverSetUp`) `-offline` and `-serverFlaky` (a server that fails intermittently). None of them exist in Release builds.
 
 Contributor and agent rules, with the invariants no change may break: [AGENTS.md](AGENTS.md).
 

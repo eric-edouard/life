@@ -10,6 +10,12 @@ public enum CheckGroup: String, UnknownTolerant, Sendable {
     case unknown
 }
 
+/// Whether a check blocks (a worker waits on him, or Life cannot answer at all) or only improves (Life already uses its guess, or asks whether a step is done): `urgencyOf`, `memory/check-urgency.ts`. Kept for the inbox screen, which draws the line between what blocks and what can wait from it.
+public enum Urgency: String, UnknownTolerant, Sendable {
+    case blocks, improves
+    case unknown
+}
+
 /// One thing waiting on the owner's word, the same shape for every kind (`Check`, `memory/checks.ts`). Only what a
 /// screen draws or answers with is read; a field Life adds is ignored, one it takes away that is listed here is a
 /// failing fixture test.
@@ -87,7 +93,7 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// What a card's answer changes: the facts, matters and pages that rest on it.
     public struct RidesOn: Decodable, Sendable, Equatable {
         public let observations: Int
-        public let matterIds: [String]
+        public let matters: Int
         public let pages: Int
     }
 
@@ -96,6 +102,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// An opaque id of this card that a push carries (never its `ref`).
     public let pushId: String?
     public let group: CheckGroup
+    /// Absent in a fixture or a read kept before Life sent it.
+    public let urgency: Urgency?
     public let title: String
     public let question: String
     public let asker: String
@@ -103,6 +111,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let deadline: Date?
     public let onSilence: String?
     public let context: String?
+    /// A new matter's goal, the one Start hands the agent.
+    public let goal: String?
     public let evidence: Evidence?
     public let draft: Draft?
     public let options: [Option]
@@ -144,13 +154,16 @@ extension Check {
         }
     }
 
-    /// His own words, a decision's note (no option).
+    /// His own words: a decision's note (no option), or the option that takes them (a new matter's goal).
     public func answer(words: String) -> AnswerRequest? {
-        group == .decision ? AnswerRequest(ref: ref, options: [], note: words) : nil
+        if let option = options.first(where: { $0.takes == .note }) {
+            return AnswerRequest(ref: ref, options: [option.id], note: words)
+        }
+        return group == .decision ? AnswerRequest(ref: ref, options: [], note: words) : nil
     }
 
     /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their
-    /// options.
+    /// options (a new matter's goal comes through its option that takes a note).
     public var takesOwnWords: Bool { group == .decision }
 }
 

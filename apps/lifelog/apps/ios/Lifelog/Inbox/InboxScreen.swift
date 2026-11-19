@@ -43,24 +43,35 @@ struct InboxScreen: View {
     /// as it was until the next card.
     @ViewBuilder private var card: some View {
         if let check = notes.taken?.check ?? shownCheck {
-            AskView(check: check, cards: ordered, current: $current, notes: $notes, notice: notice) { taken, keep in
+            AskView(
+                check: check, cards: ordered, current: $current, notes: $notes, notice: notice, hasBoundary: true
+            ) { taken, keep in
                 life.forget(taken.key)
                 notice = nil
                 if keep { deferred.append(taken.check.ref) }
-                (notes.taken, current) = (nil, taken.nextRef)
+                // A new matter whose goal he edited still waits for Start or Dismiss: back to its card.
+                (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : taken.nextRef)
             }
         } else {
             InboxZero(agents: working)
         }
     }
 
-    /// The card on show: the one he opened, else the most urgent.
-    private var shownCheck: Check? { ordered.first { $0.ref == current } ?? ordered.first }
+    /// The card on show: the one he opened, else the most urgent. On the boundary panel, the first that can wait.
+    private var shownCheck: Check? {
+        let onBoundary = current == AskView.boundary
+        return ordered.first { $0.ref == current } ?? (onBoundary ? ordered.first { $0.urgency == .improves } : nil)
+            ?? ordered.first
+    }
 
-    /// Most urgent first, as Life sends them; what he kept for later goes after.
+    /// Most urgent first, as Life sends them: what blocks, then what improves. What he kept for later goes after the
+    /// others of its kind, so the boundary stays where the first group ends.
     private var ordered: [Check] {
         guard let checks = life.inbox.value?.checks else { return [] }
-        return checks.filter { !deferred.contains($0.ref) } + checks.filter { deferred.contains($0.ref) }
+        let kinds = [checks.filter { $0.urgency != .improves }, checks.filter { $0.urgency == .improves }]
+        return kinds.flatMap { kind in
+            kind.filter { !deferred.contains($0.ref) } + kind.filter { deferred.contains($0.ref) }
+        }
     }
 
     private var working: Int { life.agents.value?.agents.count { $0.status == .running || $0.status == .waiting } ?? 0 }
@@ -70,12 +81,10 @@ struct InboxScreen: View {
 private struct InboxZero: View {
     let agents: Int
     @Environment(AppRouter.self) private var router
-    @Environment(LifeStore.self) private var life
-
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Spacer()
-            Text("Nothing\nneeds you.").font(.statusWord).foregroundStyle(Palette.fg).lit()
+            Text("Nothing\nto answer.").font(.statusWord).foregroundStyle(Palette.fg).lit()
             Text(
                 "\(agents == 0 ? "No agent is working" : agents == 1 ? "One agent is working" : "\(agents) agents are working"). The next card reaches you by push, the moment it exists."
             )
@@ -88,23 +97,10 @@ private struct InboxZero: View {
                 .buttonStyle(.pill(.quiet)).padding(.top, 8)
             }
             Spacer()
-            if let count = life.inbox.value?.toConfirm, count > 0 {
-                RowGroup {
-                    Button {
-                        router.inboxPath.append(.toConfirm)
-                    } label: {
-                        Row(title: "To confirm, when you like") { RowValue() }
-                    }
-                    .buttonStyle(.plain)
-                }
-                .transition(.opacity)
-            }
-            Spacer()
         }
         .padding(.horizontal, 20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .readingWidth()
-        .motion(Motion.standard, value: life.inbox.value?.toConfirm)
     }
 }
 

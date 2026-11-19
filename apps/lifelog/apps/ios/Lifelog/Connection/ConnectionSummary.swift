@@ -43,7 +43,8 @@ struct ConnectionSummary: Equatable {
 extension SyncStore {
     var summary: ConnectionSummary {
         ConnectionSummary(
-            isPaired: isPaired, isRefused: tokenRefused, network: pullFailed && network != .none ? .none : network,
+            isPaired: isPaired, isRefused: tokenRefused,
+            network: pull.isEstablished && network != .none ? .none : network,
             uploading: (uploads?.unsent ?? .zero) > .zero || uploads?.lastError != nil,
             editsWaiting: pending.waiting.count, lastPull: feed.pulledAt)
     }

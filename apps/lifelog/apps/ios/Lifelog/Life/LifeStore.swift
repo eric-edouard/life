@@ -11,8 +11,6 @@ import UserNotifications
 @MainActor @Observable
 final class LifeStore {
     private(set) var inbox = ReadState<Inbox>()
-    /// Life's own questions, read only when he opens "To confirm" (the list is long and nothing waits on it).
-    private(set) var toConfirm = ReadState<Inbox>()
     private(set) var matters = ReadState<MatterList>()
     private(set) var matter: [String: ReadState<Matter>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
@@ -31,7 +29,7 @@ final class LifeStore {
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
 
-    /// An answer on a "To confirm" row, held for four seconds so Undo has something to undo: Life has no undo, so
+    /// An answer on a row of Life's own question (a matter page's), held for four seconds so Undo has something to undo: Life has no undo, so
     /// nothing is sent until the time is up (or the screen goes), then it is an ordinary `answer`.
     struct Held: Equatable {
         let request: AnswerRequest
@@ -78,7 +76,6 @@ final class LifeStore {
         self.setBadge = setBadge
         pairedOrigin = tokens.load()?.endpoint.origin
         restore({ self.inbox.apply($0) }, key: Self.inboxKey)
-        restore({ self.toConfirm.apply($0) }, key: Self.toConfirmKey)
         restore({ self.matters.apply($0) }, key: Self.mattersKey)
         restore({ self.agents.apply($0) }, key: Self.agentsKey)
     }
@@ -109,11 +106,8 @@ final class LifeStore {
 
     func refreshInbox() async {
         await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
-        // The badge counts decisions only: Life's own questions are "To confirm".
-        if let total = inbox.value?.total { setBadge(total) }
-    }
-    func refreshToConfirm() async {
-        await load({ self.toConfirm.apply($0) }, key: Self.toConfirmKey) { try await $0.readToConfirm() }
+        // The badge is the cards that block him.
+        if let badge = inbox.value?.badge { setBadge(badge) }
     }
     func refreshMatters() async {
         await load({ self.matters.apply($0) }, key: Self.mattersKey) { try await $0.readMatters() }
@@ -133,7 +127,6 @@ final class LifeStore {
     }
 
     private static let inboxKey = "read_inbox"
-    private static let toConfirmKey = "read_inbox-to-confirm"
     private static let mattersKey = "read_matters"
     private static let agentsKey = "read_registered_agents"
 
@@ -233,19 +226,17 @@ final class LifeStore {
         await refreshAfterAnswer()
     }
 
-    /// What an answer changes, read again: the inbox, and every other list he has already opened (nothing else is read
-    /// for it). The matter page on show reads itself again when `answersEnded` changes.
+    /// What an answer changes, read again: the inbox and the matters. The matter page on show reads itself again when `answersEnded` changes.
     private func refreshAfterAnswer() async {
         answersEnded += 1
         async let inbox: Void = refreshInbox()
         async let matters: Void = refreshMatters()
-        if toConfirm.value != nil { await refreshToConfirm() }
         _ = await (inbox, matters)
     }
 
     // MARK: Held answers
 
-    /// His answer to a "To confirm" row, sent in four seconds unless he undoes it.
+    /// His answer to such a row, sent in four seconds unless he undoes it.
     func hold(_ request: AnswerRequest, as label: String) {
         held[request.ref] = Held(request: request, label: label)
         holds[request.ref]?.cancel()
@@ -351,7 +342,7 @@ final class LifeStore {
         pairedOrigin = credentials.endpoint.origin
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
-        (inbox, toConfirm, matters, matter, agents) = (ReadState(), ReadState(), ReadState(), [:], ReadState())
+        (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
         (held, holds) = ([:], [:])
         onStep(.reading)
         await refresh()

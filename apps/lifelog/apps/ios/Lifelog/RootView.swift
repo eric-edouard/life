@@ -17,17 +17,9 @@ struct RootView: View {
     var body: some View {
         TabView(selection: $router.tab) {
             Tab("Inbox", systemImage: "tray", value: AppRouter.Tab.inbox) {
-                NavigationStack(path: $router.inboxPath) {
-                    InboxScreen().shellBar("Inbox")
-                        .navigationDestination(for: AppRouter.InboxRoute.self) { route in
-                            switch route {
-                            case .toConfirm: ToConfirmScreen()
-                            case .ask(let ref): ToConfirmAsk(ref: ref)
-                            }
-                        }
-                }
+                NavigationStack { InboxScreen().shellBar("Inbox") }
             }
-            .badge(life.inbox.value?.total ?? 0)
+            .badge(life.inbox.value?.badge ?? 0)
             Tab("Matters", systemImage: "list.bullet.indent", value: AppRouter.Tab.matters) { MattersScreen() }
         }
         .environment(router)
@@ -84,7 +76,6 @@ struct RootView: View {
     private func open(_ route: NotificationRoute) {
         dismissSheet {
             router.tab = .inbox
-            router.inboxPath = []
             switch route {
             case .card(let pushId): Task { await life.open(pushId: pushId) }
             case .inbox: Task { await life.refreshInbox() }
@@ -99,7 +90,6 @@ struct RootView: View {
         fileprivate func showFixtureScreen() async {
             try? await Task.sleep(for: .milliseconds(1_200))
             if LifeFixture.tab == "matters" { router.tab = .matters }
-            if LifeFixture.tab == "confirm" { router.inboxPath = [.toConfirm] }
             if let id = LifeFixture.matter { router.open(matter: id) }
             // On a matter, the card is the ask pushed on it; alone, the Inbox opens at it, as a push does.
             if let ref = LifeFixture.card {

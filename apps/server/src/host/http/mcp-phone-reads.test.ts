@@ -1,4 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
+import { urgencyOf } from "../../memory/check-urgency";
 import type { CheckInputs } from "../../memory/checks";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
@@ -33,13 +34,13 @@ const matter = {
   lone: false,
   open: true,
   owedTo: [],
+  projects: [] as string[],
   status: "moving" as const,
   waitingOn: [],
   with: [],
 };
 /** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
 const madeUpInbox: CheckInputs = {
-  anchored: new Set(["obs_000000000005"]),
   answered: new Set(),
   decisions: [
     {
@@ -81,6 +82,7 @@ const madeUpInbox: CheckInputs = {
   endings: new Map([
     ["obs_000000000005", { later: "ep_000000000001", quote: "Called them." }],
   ]),
+  heldByAgents: { projects: new Set(), steps: new Set(["obs_000000000005"]) },
   isDirectionDue: () => false,
   kept: new Set(lines.map((l) => l.id)),
   lines,
@@ -253,9 +255,11 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
   const spies = [
     // Every kind of check, as Life's own builders make them over made-up records (`checksOf`), never by hand.
     spyOn(checks, "checksNow").mockResolvedValue(
-      checks
-        .checksOf(madeUpInbox)
-        .map((c) => ({ ...c, pushId: checks.pushIdOf(c.ref, "0".repeat(64)) }))
+      checks.checksOf(madeUpInbox).map((c) => ({
+        ...c,
+        pushId: checks.pushIdOf(c.ref, "0".repeat(64)),
+        urgency: urgencyOf(c),
+      }))
     ),
     spyOn(who, "readPeople").mockResolvedValue({
       nameOf: (r: string) => r.replace("person:", ""),
@@ -367,10 +371,6 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
       return json.result.content[0].text as string;
     };
     expectWire("read_inbox", await read("read_inbox"));
-    expectWire(
-      "read_inbox_to_confirm",
-      await read("read_inbox", { list: "to confirm" })
-    );
     expectWire("read_matters", await read("read_matters"));
     expectWire(
       "read_matter",

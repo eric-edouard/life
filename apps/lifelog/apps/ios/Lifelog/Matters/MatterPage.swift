@@ -27,9 +27,10 @@ struct MatterPage: View {
 
     private func page(_ matter: Matter) -> some View {
         let row = matter.row
-        // His decisions about it open as asks on this page; Life's own questions are rows he can answer in place. A new
-        // matter's check is not drawn: the page's "Start an agent" is its answer.
+        // His decisions and Life's offer of an agent open as asks on this page (the ask the inbox shows); Life's other
+        // questions are rows he can answer in place.
         let decisions = matter.checks.filter { $0.group == .decision }
+        let opening = matter.checks.filter { $0.group == .decision || $0.group == .newMatter }
         let questions = matter.checks.filter { $0.group != .decision && $0.group != .newMatter }
         // Life lists the active one first, else the newest past one: an ended agent shows how it ended.
         let agent = matter.agents.first
@@ -37,7 +38,7 @@ struct MatterPage: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(matter)
-                asks(decisions: decisions, questions: questions)
+                asks(opening: opening, questions: questions)
                 GoalAndNext(matter: matter)
                 if let agent {
                     AgentBlock(agent: agent, waitsOnYou: !decisions.isEmpty || row.wait == .decision)
@@ -62,11 +63,11 @@ struct MatterPage: View {
         }
     }
 
-    /// What waits on him here, under the name: each decision as a row that opens its ask on this page, then Life's own
+    /// What waits on him here, under the name: each decision, or offer of an agent, as a row that opens its ask on this page, then Life's own
     /// questions, answered on the row (four seconds to undo) or opened by a tap.
-    @ViewBuilder private func asks(decisions: [Check], questions: [Check]) -> some View {
+    @ViewBuilder private func asks(opening: [Check], questions: [Check]) -> some View {
         RowGroup {
-            ForEach(decisions) { check in
+            ForEach(opening) { check in
                 Button {
                     router.matterPath.append(check.ref)
                 } label: {

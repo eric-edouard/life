@@ -1,16 +1,11 @@
 import Observation
 import SwiftUI
 
-/// Where the app is: the tab, the stack of each tab, and the sheet over them. One place, so a card's matter chip, a push and
-/// a tapped ask all go the same way, and a fold keeps the stacks.
+/// Where the app is: the tab, the asks pushed on a matter, and the sheet over them. One place, so a card's matter chip, a push and
+/// a tapped ask all go the same way, and a fold keeps them.
 @MainActor @Observable
 final class AppRouter {
     enum Tab: Hashable { case inbox, matters }
-    /// What the Inbox's stack shows above its cards.
-    enum InboxRoute: Hashable {
-        case toConfirm
-        case ask(String)
-    }
     enum Sheet: String, Identifiable {
         case pendant, settings
         var id: String { rawValue }
@@ -22,7 +17,6 @@ final class AppRouter {
     var matterColumn = NavigationSplitViewColumn.sidebar
     /// The asks pushed on the matter on show, by check ref: Back returns to the matter, the tab stays on Matters.
     var matterPath: [String] = []
-    var inboxPath: [InboxRoute] = []
     var sheet: Sheet?
     /// The matter whose "Start an agent" sheet is open: here, not in the matter's page, so a fold that collapses the page
     /// keeps the sheet and the start it shows.

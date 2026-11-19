@@ -3,7 +3,7 @@ import type { Check } from "./checks";
 const BIG = 5;
 /** How many ride on an open matter, and of the rest on one line, two to five, more than five. */
 const spread = (list: Check[]) => {
-  const rest = list.filter((c) => c.ridesOn.matterIds.length === 0);
+  const rest = list.filter((c) => c.ridesOn.matters === 0);
   const lines = (from: number, to: number) =>
     rest.filter(
       (c) => c.ridesOn.observations >= from && c.ridesOn.observations <= to
@@ -22,7 +22,7 @@ export function checksText(list: Check[]) {
       `${i + 1}. [${c.group}] ${c.ref}: ${c.question}`,
       ...(c.about.length > 0 ? [`   about: ${c.about.join(", ")}`] : []),
       ...(c.evidence ? [`   "${c.evidence.quote}" (${c.evidence.from})`] : []),
-      `   rides on: ${c.ridesOn.observations} observations, ${c.ridesOn.matterIds.length} open matters, ${c.ridesOn.pages} pages. His answer: ${c.options.map((o) => o.id).join(" | ")}`,
+      `   rides on: ${c.ridesOn.observations} observations, ${c.ridesOn.matters} open matters, ${c.ridesOn.pages} pages. His answer: ${c.options.map((o) => o.id).join(" | ")}`,
       "",
     ]),
   ].join("\n");

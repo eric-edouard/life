@@ -10,6 +10,12 @@ import {
   namingQueueGuessesOf,
   readNamingQueue,
 } from "../sources/lifelog-voices";
+import {
+  blockingCountOf,
+  inboxRankOf,
+  type Urgency,
+  urgencyOf,
+} from "./check-urgency";
 import { pagedNow } from "./closeness";
 import {
   DECISIONS,
@@ -120,12 +126,12 @@ export interface Check {
   ridesOn: {
     /** The ids of those matters (`matters` counts them): `checksOnMatterOf` finds a matter's checks by them. */
     matterIds: string[];
-    // Wire only, for installed builds that decode it: the server counts `matterIds`.
+    // ponytail: remove `matters` once the phone build that reads `matterIds` ships; installed builds need it to decode.
     matters: number;
     observations: number;
     pages: number;
   };
-  /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; null: none. */
+  /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; for a voice, the person lifelog suggests; null: none. */
   subject: string | null;
   /** What it is trying to do, in one line. */
   title: string;
@@ -147,10 +153,14 @@ type Line = Pick<
 /** Where and when a record was said, in words: "whatsapp, 7 Sep". */
 type Where = string;
 
+/** What registered agents hold now (host's `heldByAgents`): the matter steps they are anchored on and the projects they work on. */
+export interface HeldByAgents {
+  projects: ReadonlySet<string>;
+  steps: ReadonlySet<string>;
+}
+
 /** Everything the checks are worked out from; `checksNow` reads it, `checksOf` is pure over it. */
 export interface CheckInputs {
-  /** The steps a registered agent is anchored on now, in any status (from host); null while the desk is off or unreadable: then no new matter is offered. */
-  anchored: ReadonlySet<string> | null;
   /** Refs of the fact-check answers he gave (any answer settles that line's check). */
   answered: ReadonlySet<string>;
   /** The open decisions (`decisionsNow`). */
@@ -161,6 +171,8 @@ export interface CheckInputs {
   doubted: ReadonlySet<string>;
   /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
   endings: ReadonlyMap<string, { later: string; quote: string }>;
+  /** The steps registered agents are anchored on and the projects they work on, in any status (from host); null while the desk is off or unreadable: then no new matter is offered. */
+  heldByAgents: HeldByAgents | null;
   /** Whether a matter's next step is not checked yet (`directionDueOf`, by the matter's id): none is offered while it is due. */
   isDirectionDue: (matter: string) => boolean;
   /** Every observation that shows, and the ids of those that are kept: active, at or above `KEEP_AT`. */
@@ -176,6 +188,7 @@ export interface CheckInputs {
     | "nextStep"
     | "open"
     | "owedTo"
+    | "projects"
     | "status"
     | "waitingOn"
     | "with"
@@ -323,7 +336,7 @@ function ranked(
 ): Ranked[] {
   const rides = ridesOn(c, lines, refs);
   const kind = group === "ending" ? "ending" : "person";
-  return rides.matterIds.length + rides.observations > 0
+  return rides.matters + rides.observations > 0
     ? [
         {
           check: {
@@ -428,12 +441,12 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
    * Each running matter he has not answered "Work on it?" for: one that began in the last `NEW_MATTER_DAYS` (its first
    * step's day), with an open step, not stuck (a passed date), a goal and a next step he could hand over (`do`, read
    * through `nextStepNow`) that is checked (not `isDirectionDue`: a step an outside record may have overtaken waits for
-   * its redraft), no registered agent anchored on it now and not dismissed; none while the desk is off or unreadable. No deadline: it never outranks an agent's decision; on silence nothing starts and it leaves after its
+   * its redraft), no registered agent anchored on it or holding its project, and not dismissed; none while the desk is off or unreadable. No deadline: it never outranks an agent's decision; on silence nothing starts and it leaves after its
    * last day.
    */
   "new matter": (c) => {
-    const { anchored } = c;
-    if (!anchored) {
+    const held = c.heldByAgents;
+    if (!held) {
       return [];
     }
     const find = matterFinderOf(c.matters);
@@ -452,7 +465,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         !v.lone &&
         isRunning(v) &&
         !dismissed.has(v) &&
-        !v.steps.some((s) => anchored.has(s.ref)) &&
+        !v.steps.some((s) => held.steps.has(s.ref)) &&
+        !v.projects.some((p) => held.projects.has(p)) &&
         !c.isDirectionDue(v.id)
         ? [
             {
@@ -607,7 +621,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
               : `Who is this voice?${item.name ? ` It was called "${item.name}".` : ""}`,
             ref: `voice:${item.id}`,
             ridesOn: { ...ridingOf(), observations: 0, pages: 0 },
-            subject: null,
+            // The person lifelog suggests ("Is this voice X?"), what makes it a guess in use; null: none (`urgencyOf`).
+            subject: who ? known : null,
             title: LIFE_CHECKS.voice.title,
           },
           day: item.clips.reduce(
@@ -618,7 +633,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       }),
 };
 
-/** The checks: those with a deadline first (an agent's decisions), soonest first; then most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */
+/** The checks: in his inbox's order (`inboxRankOf`); inside a rank, those with a deadline first (an agent's decisions), soonest first; then most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */
 export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
   const matterOf = matterFinderOf(inputs.matters);
@@ -626,9 +641,10 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
     .flatMap((build) => build(c))
     .toSorted(
       (a, b) =>
+        inboxRankOf(a.check) - inboxRankOf(b.check) ||
         Number(b.check.deadline !== null) - Number(a.check.deadline !== null) ||
         (a.check.deadline ?? "").localeCompare(b.check.deadline ?? "") ||
-        b.check.ridesOn.matterIds.length - a.check.ridesOn.matterIds.length ||
+        b.check.ridesOn.matters - a.check.ridesOn.matters ||
         b.check.ridesOn.observations - a.check.ridesOn.observations ||
         b.check.ridesOn.pages - a.check.ridesOn.pages ||
         b.day.localeCompare(a.day) ||
@@ -662,17 +678,6 @@ function draftPersonOf(c: Ctx, d: StoredDraft) {
   return handle ? c.people.resolve(handle) : null;
 }
 
-/** Where a check is asked: `inbox`, his agents' decisions (the only ones that push); `to confirm`, Life's own questions about who someone is and whether a step is done, when he likes; `matter`, a new matter, on its matter's page. The one rule, over the kind. */
-export type WhereAsked = "inbox" | "matter" | "to confirm";
-const ASKED: Record<CheckKind, WhereAsked> = {
-  decision: "inbox",
-  ending: "to confirm",
-  "new matter": "matter",
-  person: "to confirm",
-  voice: "to confirm",
-};
-export const whereAskedOf = (c: Pick<Check, "kind">) => ASKED[c.kind];
-
 /** The checks about matter `id`: every kind, open matters they ride on and the one holding their subject (an ending is about a matter that reads probably done). */
 export const checksOnMatterOf = <C extends Pick<Check, "matter" | "ridesOn">>(
   list: readonly C[],
@@ -684,8 +689,8 @@ export const checksOnMatterOf = <C extends Pick<Check, "matter" | "ridesOn">>(
 export const pushIdOf = (ref: string, key = secretIn("pushIdKey")) =>
   createHmac("sha256", key).update(ref).digest("hex").slice(0, 16);
 
-/** A check as the inbox lists it: with its `pushId`. */
-export type InboxCheck = Check & { pushId: string };
+/** A check as the inbox lists it: with its `pushId` and its `urgency`. */
+export type InboxCheck = Check & { pushId: string; urgency: Urgency };
 
 /** The last list `checksNow` read, and what it was read from (`checksKeyOf`). */
 let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
@@ -698,10 +703,10 @@ const CHECKS_READ = [...MATTER_BOOK_READS, CLOSENESS, DECISIONS, PAGES, ZONES];
 
 /**
  * What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open
- * decisions (one lapses), the steps agents are anchored on and the voices lifelog queues. The same key, the same list.
+ * decisions (one lapses), what agents hold (their steps and projects) and the voices lifelog queues. The same key, the same list.
  */
 const checksKeyOf = (
-  anchored: ReadonlySet<string> | null,
+  held: HeldByAgents | null,
   voices: readonly NamingQueueItem[],
   decisions: readonly Decision[]
 ) =>
@@ -709,26 +714,26 @@ const checksKeyOf = (
     readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
-    anchored && [...anchored],
+    held && [[...held.steps].sort(), [...held.projects].sort()],
     voices,
   ]);
 
 /**
- * What waits on his word now, over what is stored today and `anchored` (`CheckInputs`; host's `inboxNow` reads it from
+ * What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from
  * the desk): read-only, no model call. Read again only when what it is read from changed (`checksKeyOf`), and always
  * while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
  */
 export async function checksNow(
-  anchored: ReadonlySet<string> | null
+  held: HeldByAgents | null
 ): Promise<InboxCheck[]> {
   const voices = await readNamingQueue();
   const decisions = decisionsNow().filter((d) => d.state === "open");
   if (isLocked()) {
-    return await readChecks(anchored, voices, decisions);
+    return await readChecks(held, voices, decisions);
   }
-  const key = checksKeyOf(anchored, voices, decisions);
+  const key = checksKeyOf(held, voices, decisions);
   if (last?.key !== key) {
-    const list = readChecks(anchored, voices, decisions);
+    const list = readChecks(held, voices, decisions);
     last = { key, list };
     list.catch(() => {
       if (last?.list === list) {
@@ -740,7 +745,7 @@ export async function checksNow(
 }
 
 async function readChecks(
-  anchored: ReadonlySet<string> | null,
+  held: HeldByAgents | null,
   voices: NamingQueueItem[],
   decisions: Decision[]
 ): Promise<InboxCheck[]> {
@@ -756,7 +761,6 @@ async function readChecks(
   );
   const key = secretIn("pushIdKey");
   const checks = checksOf({
-    anchored,
     answered: new Set(
       [...readFactCheckAnswers()].flatMap(([ref, a]) => (a.answer ? [ref] : []))
     ),
@@ -768,6 +772,7 @@ async function readChecks(
         .map((s) => s.ref)
     ),
     endings: records.linkEndings,
+    heldByAgents: held,
     isDirectionDue: directionDueOf(matters, records, dayNow()),
     // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).
     kept: new Set(
@@ -793,11 +798,16 @@ async function readChecks(
       ]),
     ]),
   });
-  return checks.map((c) => ({ ...c, pushId: pushIdOf(c.ref, key) }));
+  return checks.map((c) => ({
+    ...c,
+    pushId: pushIdOf(c.ref, key),
+    urgency: urgencyOf(c),
+  }));
 }
 
-/** What the inbox holds: how many of each group, how many in all, and how many are due by the end of his day (`dayNow`: the app's badge). */
+/** What the inbox holds: how many of each group, how many in all, how many block (the badge), and how many are due by the end of his day (`dayNow`). */
 export const inboxOf = (list: Check[]) => ({
+  blocking: blockingCountOf(list),
   counts: Object.fromEntries(
     [...Map.groupBy(list, (c) => c.group)].map(([g, l]) => [g, l.length])
   ),

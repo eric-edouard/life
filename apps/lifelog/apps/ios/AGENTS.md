@@ -4,7 +4,7 @@
 Swift package with everything that doesn't need UIKit, so it builds and tests on the Mac in seconds. `Watch/` and
 `Widgets/` are the glances; `Shared/` holds code and copy that the app and its extensions share. `project.yml`
 generates the gitignored `.xcodeproj`.
-The app is Life's two tabs, Inbox (`Inbox/`: the `CheckCard`s, paged by swipe, and its `AnswerResultView`; one ask on show is `AskView`, hosted by the Inbox, by a matter's stack (`AppRouter.matterPath`) and by "To confirm" (`inboxPath`), Life's own questions held 4 s for Undo in `LifeStore.held`) and Matters (`Matters/`), with
+The app is Life's two tabs, Inbox (`Inbox/`: the `CheckCard`s, paged by swipe, and its `AnswerResultView`; one ask on show is `AskView`, hosted by the Inbox and by a matter's stack (`AppRouter.matterPath`); the Inbox holds every open ask, what blocks first, and one "The rest can wait." panel between that and what only improves; Life's own questions on a matter page held 4 s for Undo in `LifeStore.held`) and Matters (`Matters/`), with
 the Pendant as a sheet from the pill top right (`Shell/`) and Settings from the gear; the old Library, Conversation, People, Presses and
 Spending screens are cut. Every screen reads through `ReadScreen` (loading, empty, stale, unreachable, failed, not paired) and every
 action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSystem/Typography.swift`). `Shared/Palette.swift` is the phone's one copy of Life's brand (`assets/brand/tokens.css`), checked by
@@ -18,7 +18,7 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
 - **Test Kit alone**, from Life's root: `swift test --package-path apps/lifelog/apps/ios/Kit --scratch-path .build/kit`.
 - **Run in the simulator.** Debug builds take `-fixtureLife <scenario>` (Life without a Mac: `Fixtures/LifeFixture.swift`, with its
   `-fixtureCard`, `-fixtureTab`, `-fixtureMatter`, `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`, `-fixturePair ok|slow|expired`, `-fixturePage life|server|diagnostics`, `-fixtureAnswer`, `-fixtureStart`, and `-fixturePose wide|upright`, the iPhone Duo open drawn on any simulator), `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
-  (see `FakeScenario.swift`) and `-offline`; launch with `xcrun simctl launch <udid> com.ericedouard.lifelog <args>`.
+  (see `FakeScenario.swift`) `-offline` and `-serverFlaky` (the server times out and every other request is called off); launch with `xcrun simctl launch <udid> com.ericedouard.lifelog <args>`.
   The device token goes in through `SIMCTL_CHILD_LIFELOG_DEVICE_TOKEN` with `SIMCTL_CHILD_LIFELOG_SERVER_URL`, read from the file without printing it.
 - **Check Release before an install.** The gate builds Debug only and `install:phone` builds Release, so anything
   DEBUG-only that leaks out of `#if DEBUG` breaks the install:
@@ -69,7 +69,7 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
   card's buttons are its options' `label`s, and what an option `takes` (a person, a name, a note) is what the tap asks
   for (`Check.answer`); the phone decides nothing Life decides (what is open, a goal's steps): a matter's edits and Mark
   as done go by its id. A tapped push routes by `pushId` (`NotificationRoute.card`) and opens the Inbox; a push while
-  the app is in front reads the inbox again. The badge is the inbox total, decisions only; Life's own questions are "To confirm" (`list: "to confirm"`).
+  the app is in front reads the inbox again. The badge is `Inbox.badge`: the asks that block him (`urgency`).
 - A server enum decodes unknown values as `unknown` (`UnknownTolerant`) and belongs in the mirror list of
   `ContractTests.swift` (lifelog's against its `openapi.json`, Life's against `apps/server/src`), which also checks
   every path the client calls.

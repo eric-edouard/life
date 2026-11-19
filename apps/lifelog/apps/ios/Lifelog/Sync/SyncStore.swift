@@ -42,8 +42,8 @@ final class SyncStore {
     private(set) var feed = ServerClient.FeedState()
     /// Live conversations waiting, by the feed's reason.
     private(set) var waiting: [WaitingReason: Int] = [:]
-    /// The last pull got no answer from the network.
-    private(set) var pullFailed = false
+    /// What the pulls say about the server's answer (`PullHealth`): shown only once established.
+    private(set) var pull = PullHealth()
     /// The server answered 401: it no longer knows this phone's token. Any pull that works clears it.
     private(set) var tokenRefused = false
     /// The server this phone is paired with (`DeviceToken.paired`); nil until it is.
@@ -184,7 +184,7 @@ final class SyncStore {
         let linked = await capture.waitForLink()
         if linked { await capture.syncNow() }
         await runAwake()
-        if pullFailed { return "The server did not answer. The audio is safe on the phone." }
+        if pull.hasFailed { return "The server did not answer. The audio is safe on the phone." }
         return linked ? "Synced." : "Pendant out of reach. Uploaded and pulled the rest."
     }
 
@@ -289,7 +289,7 @@ final class SyncStore {
         onStep(.accepting)
         try await pairing.pair { DeviceToken.pair($0) }
         server = DeviceToken.paired
-        (pullFailed, tokenRefused) = (false, false)
+        (pull, tokenRefused) = (PullHealth(), false)
         run()
     }
 
@@ -301,7 +301,7 @@ final class SyncStore {
         do {
             try await pull(wait: 0)
         } catch {
-            noteFailure(error)
+            noteFailure(error, isAsked: true)
         }
     }
 
@@ -317,7 +317,7 @@ final class SyncStore {
         var changed = true
         do {
             changed = try await driver.run(capture.status)
-            (pullFailed, tokenRefused) = (false, false)
+            (pull, tokenRefused) = (PullHealth(), false)
             backUp()
         } catch {
             noteFailure(error)
@@ -346,7 +346,7 @@ final class SyncStore {
     private func pull(wait: Int) async throws {
         guard let driver = setUp() else { return }
         let changed = try await driver.pull(wait: wait)
-        (pullFailed, tokenRefused) = (false, false)
+        (pull, tokenRefused) = (PullHealth(), false)
         if changed {
             await readState()
         } else {
@@ -354,15 +354,15 @@ final class SyncStore {
         }
     }
 
-    private func noteFailure(_ error: any Error, isPull: Bool = true) {
+    private func noteFailure(_ error: any Error, isPull: Bool = true, isAsked: Bool = false) {
         if error.isOfflineOrCancelled {
-            if let error = error as? URLError { pullFailed = error.isTransient }
+            if isPull { pull.failed(error, isAsked: isAsked) }
             return
         }
         // Not paired: recording and saving go on, and the status says so.
         if error as? ServerClient.ClientError == .notPaired { return }
         if case ServerClient.ClientError.server(401, _, _) = error { tokenRefused = true }
-        if isPull { pullFailed = true }
+        if isPull { pull.failed(error, isAsked: isAsked) }
         _ = report(error)
     }
 
@@ -452,7 +452,7 @@ extension ServerClient {
     nonisolated static let production: ServerClient = {
         let server: @Sendable () -> URL? = { DeviceToken.paired }
         #if DEBUG
-            if OfflineProtocol.isRequested {
+            if OfflineProtocol.isRequested || OfflineProtocol.isFlaky {
                 let configuration = URLSessionConfiguration.ephemeral
                 configuration.protocolClasses = [OfflineProtocol.self]
                 return ServerClient(
@@ -467,12 +467,17 @@ extension ServerClient {
     /// `-offline`: every server request fails as it does with no network, so the simulator shows what the owner sees
     /// offline without cutting the Mac's network. Screens must still show the library (docs/architecture.md).
     nonisolated final class OfflineProtocol: URLProtocol {
+        /// `-serverFlaky`: the server times out, and every other request is called off, as a trigger cuts a long poll.
+        static let isFlaky = ProcessInfo.processInfo.arguments.contains("-serverFlaky")
         static let isRequested = ProcessInfo.processInfo.arguments.contains("-offline")
+        private static let count = Atomic(0)
 
         override class func canInit(with request: URLRequest) -> Bool { true }
         override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
         override func startLoading() {
-            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+            let isCalledOff = Self.isFlaky && Self.count.add(1, ordering: .relaxed).newValue % 2 == 0
+            let code: URLError.Code = isCalledOff ? .cancelled : Self.isFlaky ? .timedOut : .notConnectedToInternet
+            client?.urlProtocol(self, didFailWithError: URLError(code))
         }
         override func stopLoading() {}
     }

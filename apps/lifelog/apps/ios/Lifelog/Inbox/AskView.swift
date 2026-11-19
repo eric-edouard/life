@@ -8,9 +8,10 @@ struct AskNotes: Equatable {
     var taken: Taken?
 }
 
-/// One ask on show, whoever hosts it (the Inbox, a matter's stack, "To confirm"): the ask with its answers, then its
-/// result in its place. `cards` are the asks around it, paged by swipe when there are several; a tap runs through the
-/// store's action and the ask stays, as its own result, until he moves on.
+/// One ask on show, whoever hosts it (the Inbox, a matter's stack): the ask with its answers, then its result in its
+/// place. `cards` are the asks around it, paged by swipe when there are several; a tap runs through the store's action
+/// and the ask stays, as its own result, until he moves on. With `hasBoundary`, one panel between what blocks and what
+/// only improves says "The rest can wait.": a page of its own, swiped past like a card, never an answer.
 struct AskView: View {
     let check: Check
     let cards: [Check]
@@ -18,8 +19,12 @@ struct AskView: View {
     @Binding var current: String?
     @Binding var notes: AskNotes
     var notice: String?
+    var hasBoundary = false
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
+
+    /// The boundary panel's place among the cards' refs: what `current` holds while it is on show.
+    static let boundary = "inbox-boundary"
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
@@ -55,6 +60,8 @@ struct AskView: View {
                     Text(check.draft != nil ? "Sending…" : "Saving…")
                 }
                 .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
+            } else if isOnBoundary {
+                EmptyView()
             } else {
                 CheckActions(
                     check: check, runtimeName: runtimeName(of: check), input: input(check.ref),
@@ -76,18 +83,20 @@ struct AskView: View {
     /// The asks side by side: he swipes left for the next, right to come back, and the next one's edge shows at the right.
     /// An ask alone has no edge to show. An ask he passes stays where it was.
     private var pager: some View {
-        let edge = cards.count > 1 ? Pager.edge : 0
+        let firstImproving = hasBoundary ? cards.first { $0.urgency == .improves }?.ref : nil
+        let edge = cards.count + (firstImproving == nil ? 0 : 1) > 1 ? Pager.edge : 0
         return ScrollViewReader { proxy in
             ScrollView(.horizontal) {
                 HStack(spacing: 0) {
                     ForEach(cards) { check in
-                        CheckCard(
-                            check: check, runtimeName: runtimeName(of: check), openMatter: { router.open(matter: $0) },
-                            confirm: { request in Task { await life.answer(request) } }, input: input(check.ref)
-                        )
-                        .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.card))
-                        .padding(.leading, Pager.gap)
-                        .containerRelativeFrame(.horizontal) { width, _ in width - edge - Pager.gap }
+                        if check.ref == firstImproving { panel(edge: edge) { BoundaryPanel() }.id(AskView.boundary) }
+                        panel(edge: edge) {
+                            CheckCard(
+                                check: check, runtimeName: runtimeName(of: check),
+                                openMatter: { router.open(matter: $0) },
+                                confirm: { request in Task { await life.answer(request) } }, input: input(check.ref)
+                            )
+                        }
                         .id(check.ref)
                     }
                 }
@@ -100,6 +109,18 @@ struct AskView: View {
             // A pager made after his tap's result starts on the first ask: put it on the one he is on.
             .onAppear { if let current { proxy.scrollTo(current, anchor: .leading) } }
         }
+    }
+
+    private func panel(edge: CGFloat, @ViewBuilder _ content: () -> some View) -> some View {
+        content()
+            .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.card))
+            .padding(.leading, Pager.gap)
+            .containerRelativeFrame(.horizontal) { width, _ in width - edge - Pager.gap }
+    }
+
+    /// Whether the boundary panel is the one on show: he swiped to it, or it is first because nothing blocks.
+    private var isOnBoundary: Bool {
+        hasBoundary && (current == AskView.boundary || (current == nil && cards.first?.urgency == .improves))
     }
 
     private func input(_ ref: String) -> Binding<CardInput> {
@@ -123,7 +144,11 @@ struct AskView: View {
 
     private func submit(_ check: Check, _ request: AnswerRequest) {
         let next = cards.firstIndex { $0.ref == check.ref }.flatMap { cards.dropFirst($0 + 1).first }
-        notes.taken = Taken(check: check, request: request, nextRef: next?.ref, runtimeName: runtimeName(of: check))
+        // After the last ask that blocks, he lands on the boundary panel, not on the first that can wait.
+        let crosses = hasBoundary && check.urgency != .improves && next?.urgency == .improves
+        notes.taken = Taken(
+            check: check, request: request, nextRef: crosses ? AskView.boundary : next?.ref,
+            runtimeName: runtimeName(of: check))
         Task { await life.answer(request) }
     }
 }
@@ -134,8 +159,17 @@ private enum Pager {
     static let edge = Metrics.Spacing.xs * 2.5
 }
 
-/// An ask pushed on a stack (a matter's, or "To confirm"): found by its ref among the checks of the list it came from,
-/// or, once answered, the result he is still reading. Gone from both: said so.
+/// "The rest can wait.": between the asks that block him and the ones that only improve what Life knows.
+private struct BoundaryPanel: View {
+    var body: some View {
+        Text("The rest\ncan wait.").font(.statusWord).foregroundStyle(Palette.fg).lit()
+            .padding(Metrics.Spacing.xs * 4.5)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+}
+
+/// An ask pushed on a matter's stack: found by its ref among the checks the matter lists, or, once answered, the
+/// result he is still reading. Gone from both: said so.
 struct AskPage: View {
     let ref: String
     let source: [Check]
@@ -143,12 +177,21 @@ struct AskPage: View {
     /// Back to the stack's root: after his answer's result, or when the ask is gone.
     let leave: () -> Void
 
+    @Environment(LifeStore.self) private var life
     @State private var current: String?
 
     var body: some View {
         if let check = notes.taken?.check ?? source.first(where: { $0.ref == ref }) {
-            AskView(check: check, cards: [check], current: $current, notes: $notes) { _, _ in leave() }
-                .background(Palette.bg)
+            AskView(check: check, cards: [check], current: $current, notes: $notes) { taken, _ in
+                // A new matter whose goal he edited still waits for Start or Dismiss: back to the ask, not the matter.
+                if taken.staysOpen {
+                    life.forget(taken.key)
+                    (notes.taken, current) = (nil, nil)
+                } else {
+                    leave()
+                }
+            }
+            .background(Palette.bg)
         } else {
             Notice(
                 title: "Already answered.", detail: "It was answered, here or elsewhere.",

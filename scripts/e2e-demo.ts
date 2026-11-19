@@ -29,6 +29,8 @@ interface Step {
   name: string;
   open?: string;
   refresh?: boolean;
+  /** One swipe left on the cards: past the boundary panel, to the next ask. */
+  swipeLeft?: boolean;
   tap?: string;
   /** Wait until the agent has ended this many turns. */
   turnsEnded?: number;
@@ -38,21 +40,16 @@ interface Step {
 
 /** The new matter the demo holds, found to closed: Start, the plan card's Go, the agent's work, Mark as done. */
 const FOUND_TO_CLOSED: Step[] = [
+  // Nothing blocks yet, so the boundary panel is the first page and the offer, which only improves, the next.
   {
-    name: "the matters list",
+    name: "inbox: nothing blocks, the rest can wait",
     refresh: true,
-    tap: "Matters",
-    until: "The leaking kitchen tap",
+    until: "can wait",
   },
   {
-    name: "the matter's page",
-    open: "The leaking kitchen tap",
-    until: "Start an agent",
-  },
-  {
-    name: "Start an agent",
-    tap: "Start an agent",
-    until: "Pick none and the desk uses its own default",
+    name: "past the boundary: the offer",
+    swipeLeft: true,
+    until: "Work on it?",
   },
   {
     name: "Start: goal saved, runtime, session, first turn",
@@ -60,12 +57,7 @@ const FOUND_TO_CLOSED: Step[] = [
     until: "Its first turn has begun, done",
     waitS: 180,
   },
-  {
-    gone: "Its first turn has begun",
-    name: "the start sheet closes",
-    tap: "Done",
-  },
-  { name: "the inbox", tap: "Inbox", until: "Inbox" },
+  { name: "back to the inbox", tap: "Done", until: "Inbox" },
   { name: "the agent's first turn ends", turnsEnded: 1, waitS: 600 },
   { name: "its plan card: Go, Change, Stop", refresh: true, until: "Change" },
   { name: "Go", tap: "Go", until: "knows, and goes on, done" },
@@ -249,6 +241,9 @@ function turnsEnded() {
 }
 
 async function run(step: Step) {
+  if (step.swipeLeft) {
+    await device(["swipe", "340", "400", "40", "400", "250"]);
+  }
   if (step.tap) {
     await device(["press", `label="${step.tap}"`]);
   }
