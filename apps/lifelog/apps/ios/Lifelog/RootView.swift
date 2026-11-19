@@ -62,6 +62,13 @@ struct RootView: View {
                 await life.importFromEnvironment()
             #endif
             await life.refresh()
+            // A first read that did not land tries again while the scene is active; leaving cancels the sleep.
+            var attempt = 0
+            while life.needsRetry {
+                guard (try? await Task.sleep(for: firstReadRetryDelay(attempt: attempt))) != nil else { return }
+                attempt += 1
+                await life.retryFirstReads()
+            }
         }
         // A pairing link (`lifelog://pair?…`), from the Camera or pasted in Settings: a link could come from anywhere, so
         // it is asked here, over whatever was showing, and never repoints the app on its own.

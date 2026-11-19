@@ -57,6 +57,16 @@ public struct ReadState<Value: Sendable>: Sendable {
         }
     }
 
+    /// A read with nothing to show and a last try that was cancelled, failed or unreachable must be tried again; a
+    /// loaded one (even an empty one) and an unpaired one never.
+    public var needsRetry: Bool {
+        guard value == nil else { return false }
+        switch phase {
+        case .idle, .unreachable, .failed: return true
+        case .loading, .loaded, .notPaired: return false
+        }
+    }
+
     /// What to show; `isEmpty` says when a loaded value has nothing in it.
     public func shown(isEmpty: (Value) -> Bool = { _ in false }) -> Shown {
         guard let value else {
@@ -75,4 +85,9 @@ public struct ReadState<Value: Sendable>: Sendable {
         case .notPaired: return .notPaired
         }
     }
+}
+
+/// The wait before retry number `attempt` (from 0) of a first read: 1, 2, 4, 8, 16 seconds, then every 30.
+public func firstReadRetryDelay(attempt: Int) -> Duration {
+    .seconds(attempt < 5 ? 1 << attempt : 30)
 }
