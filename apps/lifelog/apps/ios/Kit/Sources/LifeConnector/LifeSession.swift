@@ -42,19 +42,22 @@ public actor LifeSession {
     private func refreshed(from held: LifeCredentials) async throws -> String {
         if let refreshing { return try await refreshing.value.access }
         let (store, oauth) = (store, oauth)
-        // Kept inside the task: whoever asks after it ends finds the new tokens, never the replaced ones.
+        // Kept inside the task, so every caller waiting on it gets the same end: whoever asks after it ends finds the new
+        // tokens, never the replaced ones.
         let task = Task {
-            let tokens = try await oauth.refresh(held)
-            store.save(LifeCredentials(endpoint: held.endpoint, tokens: tokens))
-            return tokens
+            do {
+                let tokens = try await oauth.refresh(held)
+                store.save(LifeCredentials(endpoint: held.endpoint, tokens: tokens))
+                return tokens
+            } catch MCPError.notPaired {
+                // Refused because another process already used this refresh token: it saved newer tokens, which hold.
+                if let saved = store.load(), saved.tokens.refresh != held.tokens.refresh { return saved.tokens }
+                store.clear()
+                throw MCPError.notPaired
+            }
         }
         refreshing = task
         defer { refreshing = nil }
-        do { return try await task.value.access } catch MCPError.notPaired {
-            // Refused because another process already used this refresh token: it saved newer tokens, which hold.
-            if let saved = store.load(), saved.tokens.refresh != held.tokens.refresh { return saved.tokens.access }
-            store.clear()
-            throw MCPError.notPaired
-        }
+        return try await task.value.access
     }
 }

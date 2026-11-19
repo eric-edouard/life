@@ -15,6 +15,7 @@ nonisolated struct LifeToken: TokenStore {
             let old = UserDefaults.standard.data(forKey: Self.endpointKey)
         {
             AppGroup.defaults.set(old, forKey: Self.endpointKey)
+            UserDefaults.standard.removeObject(forKey: Self.endpointKey)
         }
     }
 

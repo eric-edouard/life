@@ -35,9 +35,10 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
   pane, regular two (`CardArrangement` in the Inbox, the `NavigationSplitView` in Matters). State a fold must keep lives
   above the branch (`AppRouter`, the screen).
 - Every bundle id, the app group and the background task derive from `LIFELOG_BUNDLE_ID` in `project.yml` (beside
-  `DEVELOPMENT_TEAM`); code reads them from the bundle's Info.plist (`AppGroup`, `SyncStore.backgroundTaskID`). The Keychain
-  service is `<bundle id>.server` (`DeviceToken`), which for the owner's build is the name it always had, so his
-  stored token stays readable; changing the bundle id starts unpaired.
+  `DEVELOPMENT_TEAM`); code reads them from the bundle's Info.plist (`AppGroup`, `SyncStore.backgroundTaskID`, `Keychain`). The Keychain
+  service is `<app's bundle id>.server`, named from `LifelogBundleID` in every target that reads it (`Keychain`), which
+  for the owner's build is the name it always had, so his stored token stays readable; changing the bundle id starts
+  unpaired.
 - The app is Life's Inbox and Matters, read through the connector, plus the Pendant's capture and upload. No screen
   reads the library; its cache of the server's feed stays, and any screen that returns reads the cache first
   (`docs/architecture.md`, "Local first").

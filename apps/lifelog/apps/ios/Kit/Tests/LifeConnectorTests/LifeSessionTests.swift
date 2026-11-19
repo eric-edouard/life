@@ -63,7 +63,12 @@ import Testing
         return .json(#"{"error":"invalid_grant"}"#, status: 400)
     }
     let life = LifeSession(store: store, oauth: LifeOAuth(session: session, now: { epoch }), now: { epoch })
-    #expect(try await life.bearer() == "access-9")
+    // Every caller waiting on that refresh keeps the pairing, not only the one that started it.
+    let bearers = try await withThrowingTaskGroup(of: String.self) { group in
+        for _ in 0..<3 { group.addTask { try await life.bearer() } }
+        return try await group.reduce(into: []) { $0.append($1) }
+    }
+    #expect(bearers == Array(repeating: "access-9", count: 3))
     #expect(store.load()?.tokens.refresh == "refresh-9")
 }
 
