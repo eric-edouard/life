@@ -18,8 +18,8 @@ struct CardView: View {
     @Binding var current: String?
     @Binding var notes: CardNotes
     var notice: String?
-    /// Whether the ask has a context region of its own beside or below it (a matter's stack does; the Inbox does not).
-    var hasContext = true
+    /// The ask's context region beside or below it: a matter's stack gives one, the Inbox none.
+    var context: ContextRegion?
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
 
@@ -30,7 +30,7 @@ struct CardView: View {
 
     var body: some View {
         CardArrangement(
-            check: check, runtimeName: runtimeName(of: check), hasContext: hasContext,
+            context: context,
             bar: notes.taken.map { taken in
                 ResultButtons(
                     taken: taken, state: life.state(of: taken.key), next: question(after: taken),
@@ -75,7 +75,7 @@ struct CardView: View {
                     LazyHStack(spacing: 0) {
                         ForEach(checks) { check in
                             CheckCard(
-                                check: check, runtimeName: runtimeName(of: check),
+                                check: check, runtimeName: life.runtimeName(of: check),
                                 openMatter: { router.open(matter: $0) },
                                 input: input(check.ref),
                                 isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
@@ -113,14 +113,10 @@ struct CardView: View {
             set: { if $0 == nil { sameAsRef = nil } })
     }
 
-    private func runtimeName(of check: Check) -> RuntimeName? {
-        guard let matter = check.matter?.id else { return nil }
-        return life.agents.value?.agents.first { $0.matter?.id == matter && !$0.isOver }?.runtimeName
-    }
-
     private func submit(_ check: Check, _ request: AnswerRequest) {
         notes.taken = Taken(
-            check: check, request: request, nextRef: checks.ref(after: check.ref), runtimeName: runtimeName(of: check))
+            check: check, request: request, nextRef: checks.ref(after: check.ref),
+            runtimeName: life.runtimeName(of: check))
         Task { await life.answer(request) }
     }
 }
@@ -145,7 +141,10 @@ struct CardPage: View {
 
     var body: some View {
         if let check = notes.taken?.check.ref == ref ? notes.taken?.check : source.first(where: { $0.ref == ref }) {
-            CardView(check: check, checks: [check], current: $current, notes: $notes) { taken, _ in
+            CardView(
+                check: check, checks: [check], current: $current, notes: $notes,
+                context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check))
+            ) { taken, _ in
                 // A new matter whose goal he edited still waits for Start or Dismiss: back to the ask, not the matter.
                 if taken.staysOpen {
                     life.forget(taken.key)

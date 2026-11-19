@@ -84,7 +84,7 @@ struct InboxScreen: View {
     @ViewBuilder private func card(_ order: InboxOrder) -> some View {
         if let check = notes.taken?.check ?? order.check(on: current) {
             CardView(
-                check: check, checks: order.checks, current: $current, notes: $notes, notice: notice, hasContext: false
+                check: check, checks: order.checks, current: $current, notes: $notes, notice: notice
             ) {
                 taken, keep in
                 life.forget(taken.key)
