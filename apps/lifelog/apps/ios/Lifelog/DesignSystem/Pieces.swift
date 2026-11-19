@@ -352,6 +352,7 @@ struct Row<Trailing: View>: View {
     let title: String
     /// An SF Symbol in line style, in a 28 slot before the title.
     var icon: String?
+    var iconTint = Palette.icon
     var detail: String?
     var state = RowState.known
     @ViewBuilder var trailing: Trailing
@@ -359,10 +360,8 @@ struct Row<Trailing: View>: View {
     var body: some View {
         HStack(spacing: 12) {
             if let icon {
-                Image(systemName: icon).font(.system(size: 20, weight: .regular)).foregroundStyle(
-                    Palette.fg.opacity(0.85)
-                )
-                .frame(width: 28).accessibilityHidden(true)
+                Image(systemName: icon).font(.system(size: 22, weight: .regular)).foregroundStyle(iconTint)
+                    .frame(width: 28).accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.rowName).foregroundStyle(Palette.fg)
@@ -399,8 +398,11 @@ struct Row<Trailing: View>: View {
 }
 
 extension Row where Trailing == EmptyView {
-    init(title: String, icon: String? = nil, detail: String? = nil, state: RowState = .known) {
-        self.init(title: title, icon: icon, detail: detail, state: state) {}
+    init(
+        title: String, icon: String? = nil, iconTint: Color = Palette.icon, detail: String? = nil,
+        state: RowState = .known
+    ) {
+        self.init(title: title, icon: icon, iconTint: iconTint, detail: detail, state: state) {}
     }
 }
 

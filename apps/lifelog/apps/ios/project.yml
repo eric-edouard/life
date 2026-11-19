@@ -63,18 +63,16 @@ targets:
         product: Health
       - package: LifelogKit
         product: LifeConnector
-    # The build's time and commit, written into the built Info.plist (`LifelogBuild`, shown in Settings): every build
-    # and install carries it. The script edits the product, so this target runs unsandboxed.
+    # The build's time and commit (a `+` when the tree is dirty), written to `build-stamp.txt` in the app's resources, which
+    # Settings shows: every build and install carries it, and the file is signed with the bundle. The sandbox is off for
+    # this target because git reads `.git`, which sits outside the source folder in a worktree.
     postBuildScripts:
       - name: Stamp the build
-        # Waits for the built Info.plist, which it edits.
-        inputFiles: [$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)]
+        outputFiles: [$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/build-stamp.txt]
         basedOnDependencyAnalysis: false
         script: |
-          stamp="$(date '+%-d %b %H:%M') · $(git -C "$SRCROOT" rev-parse --short HEAD 2>/dev/null || echo nogit)"
-          plist="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
-          /usr/libexec/PlistBuddy -c "Delete :LifelogBuild" "$plist" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Add :LifelogBuild string $stamp" "$plist"
+          dirty=$(git -C "$SRCROOT" diff --quiet HEAD || echo +)
+          echo "$(LC_ALL=C date '+%-d %b %H:%M') · $(git -C "$SRCROOT" rev-parse --short HEAD 2>/dev/null || echo nogit)$dirty" > "$SCRIPT_OUTPUT_FILE_0"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID)
