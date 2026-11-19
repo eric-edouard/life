@@ -33,6 +33,10 @@ private func check(
         CardNotification.of(pushId: "0123456789abcdef", inbox: inbox([check(pushId: "0123456789abcdef", extra: draft)]))
     )
     #expect(note.body == #"To Maya: "Thursday works, 8 pm at Lupa?""#)
+    let file = #","draft":{"to":"Maya","file":{"name":"quote.pdf","size":2048}}"#
+    let sent = try #require(
+        CardNotification.of(pushId: "0123456789abcdef", inbox: inbox([check(pushId: "0123456789abcdef", extra: file)])))
+    #expect(sent.body == "To Maya: quote.pdf")
 }
 
 @Test func lifesOwnCheckWithNoMatterIsLifesInLifesThread() throws {
