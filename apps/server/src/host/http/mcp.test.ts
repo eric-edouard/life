@@ -593,7 +593,7 @@ test("read_inbox with a pushId: that one card or none, the whole inbox's counts;
     ).json.result;
   try {
     const one = JSON.parse(
-      (await read({ limit: 1, pushId: list[1].pushId })).content[0].text
+      (await read({ limit: 1, pushId: list[1]?.pushId })).content[0].text
     );
     expect(one).toEqual({
       blocking: 1,
