@@ -21,7 +21,7 @@ struct PendantView: View {
             capture: CaptureFacts(capture, macDictatingSince: sync.macDictatingSince, uploads: sync.uploads),
             actions: PendantActions(capture: capture, sync: sync)
         )
-        // On screen in the foreground: keep "Recording." and the sound line backed by current evidence. A status every
+        // On screen in the foreground: keep "Recording." backed by current evidence. A status every
         // few seconds, never a control write; stops when the screen or the app goes away.
         .task(id: scenePhase == .active && capture.availability == .running) {
             guard scenePhase == .active else { return }
@@ -83,8 +83,15 @@ struct PendantScreen: View {
         }
         .accessibilityIdentifier("pendant.sheet")
         #if DEBUG
-            // `-fixturePendantSheet replace|pair`: opens that sheet at once, to be photographed.
-            .task { sheet = UserDefaults.standard.string(forKey: "fixturePendantSheet").flatMap(PendantSheet.init) }
+            // `-fixtureSheet replacePendant|pairPendant`: opens that sheet at once, to be photographed.
+            .task {
+                sheet =
+                    switch LifeFixture.sheet {
+                    case "replacePendant": .replace
+                    case "pairPendant": .pair
+                    default: nil
+                    }
+            }
         #endif
     }
 
@@ -100,7 +107,8 @@ struct PendantScreen: View {
             HStack(alignment: .firstTextBaseline, spacing: 14) {
                 dot(reading).alignmentGuide(.firstTextBaseline) { $0[.bottom] + 0 }.offset(y: -14)
                 Text(reading.state.word).font(.statusWord)
-                    .foregroundStyle(reading.isFlag ? Palette.flag : Palette.fg).lit()
+                    .foregroundStyle(reading.isFlag ? Palette.flag : Palette.fg)
+                    .modifier(GlowWhen(reading.state == .recording))
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("pendant.status")
             }
@@ -144,7 +152,7 @@ struct PendantScreen: View {
             if reading.state == .recording && !reading.isFlag {
                 Circle().fill(Palette.fg).shadow(color: Palette.fg.opacity(0.5), radius: 4)
             } else {
-                Circle().strokeBorder(reading.isFlag ? Palette.flag : Palette.muted, lineWidth: 1.5)
+                Circle().fill(reading.isFlag ? Palette.flag : Palette.muted)
             }
         }
         .frame(width: 9, height: 9)
@@ -159,7 +167,7 @@ struct PendantScreen: View {
         let battery = Fact(status.batteryPercent, connected: connected, now: now)
         let storage = Fact(status.storage, connected: connected, now: now)
         return RowGroup(surface: .sheet) {
-            Row(title: capture.pairedKind.modelName, detail: connected ? "Connected" : "Not connected")
+            Row(title: capture.pairedKind.modelName, detail: connected ? nil : "Not connected")
             if !connected, let seen = status.lastContact ?? capture.context.lastContact {
                 Row(title: "Last seen") { value(seen.formatted(date: .omitted, time: .shortened)) }
             }
@@ -173,7 +181,10 @@ struct PendantScreen: View {
             }
             if connected, let synced = capture.lastCaughtUp {
                 Row(title: "Last sync") {
-                    value(synced.formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated)))
+                    value(
+                        now.timeIntervalSince(synced) < 60
+                            ? "just now" : synced.formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated))
+                    )
                 }
             }
         }
@@ -219,21 +230,24 @@ struct PendantScreen: View {
                 Row(
                     title: capture.uploads?.sentThrough.map {
                         "Everything up to \($0.formatted(date: .omitted, time: .shortened))"
-                    } ?? "Everything"
-                ) { StateGlyph.ok }
+                    } ?? "Everything")
+            }
+        } else if held.isPhoneUnknown {
+            RowGroup(label: "On your Mac", surface: .sheet) {
+                Row(title: "Asking…") { StateGlyph.busy }
             }
         } else if let words = held.words {
             VStack(alignment: .leading, spacing: 8) {
                 Caps("Waiting to upload").padding(.horizontal, 16)
                 VStack(alignment: .leading, spacing: 12) {
                     Text(words).font(.bodyStrong)
-                    if case .downloading(let progress) = capture.status.sync, progress.expected > 0 {
-                        let fraction = Double(progress.settled) / Double(progress.expected)
+                    if case .catchingUp(let progress) = SyncSummary(
+                        capture.status.sync, lastCaughtUp: capture.lastCaughtUp)
+                    {
+                        let fraction = Double(progress.settled) / Double(max(progress.expected, 1))
                         ProgressLine(
                             label: "To this phone", fraction: fraction,
                             end: fraction.formatted(.percent.precision(.fractionLength(0))))
-                    }
-                    if capture.status.sync.isDraining {
                         Text("Keep the app open: it goes faster.").font(.note).foregroundStyle(Palette.muted)
                     }
                 }
@@ -299,12 +313,12 @@ extension Fact {
     var isCurrent: Bool { if case .current = self { true } else { false } }
 }
 
-extension DrainPhase {
-    /// Pages are moving or being made durable.
-    var isDraining: Bool {
-        switch self {
-        case .requestingStatus, .downloading, .persisting, .acking: true
-        default: false
-        }
+/// The glow of the bold line, only where asked.
+private struct GlowWhen: ViewModifier {
+    let isOn: Bool
+    init(_ isOn: Bool) { self.isOn = isOn }
+
+    func body(content: Content) -> some View {
+        if isOn { content.lit() } else { content }
     }
 }

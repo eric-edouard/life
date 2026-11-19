@@ -30,6 +30,18 @@ private let now = Date(timeIntervalSince1970: 1_750_000_000)
         #expect(held.phoneDuration == .seconds(300) && !held.isEmpty)
     }
 
+    @Test func savedButUnanalyzedAudioIsHeldBack() {
+        let uploads = UploadStatus(sentThrough: now - 300, heardThrough: now - 300, storedThrough: now)
+        let held = whatIsNotOnTheMac(backlog: backlog(0), uploads: uploads, now: now)
+        #expect(held.phoneDuration == .seconds(300) && !held.isEmpty)
+    }
+
+    @Test func heardButNeverSentIsUnknown() {
+        let uploads = UploadStatus(sentThrough: nil, heardThrough: now)
+        let held = whatIsNotOnTheMac(backlog: backlog(0), uploads: uploads, now: now)
+        #expect(held.isPhoneUnknown && !held.isEmpty)
+    }
+
     @Test func aStaleBacklogOrNoUploaderIsNeverAllOnTheMac() {
         let uploads = UploadStatus(sentThrough: now, heardThrough: now)
         let stale = whatIsNotOnTheMac(backlog: backlog(0, age: 3_600), uploads: uploads, now: now)

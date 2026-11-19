@@ -92,6 +92,8 @@ struct RootView: View {
             if let id = LifeFixture.matter { router.open(matter: id) }
             if let ref = LifeFixture.card { router.answer(card: ref) }
             if let sheet = LifeFixture.sheet.flatMap(AppRouter.Sheet.init(rawValue:)) { router.sheet = sheet }
+            // The pendant sheet's own sheets open from inside it (`PendantScreen`).
+            if ["replacePendant", "pairPendant"].contains(LifeFixture.sheet) { router.sheet = .pendant }
             if ["pair", "pairing"].contains(LifeFixture.sheet) {
                 confirming = URL(string: "lifelog://pair?life=https%3A%2F%2Flife.example.test&code=ABC234").flatMap(
                     PairOffer.init)

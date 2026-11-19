@@ -2,8 +2,7 @@ import Capture
 import Incidents
 import SwiftUI
 
-/// Pairing a pendant as a sheet: it looks nearby, then the checks as they pass (found, paired with this phone, first
-/// sync), then Paired, or Not paired with the reason. The phone takes the first pendant it finds, so nothing is picked.
+/// Pairing a pendant as a sheet: it looks nearby, then the checks as they pass (found, paired with this phone), then Paired, or Not paired with the reason. The phone takes the first pendant it finds, so nothing is picked.
 struct PairPendantSheet: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(\.dismiss) private var dismiss
@@ -13,20 +12,23 @@ struct PairPendantSheet: View {
 
     private var connection: ConnectionState { capture.shown.connection }
 
+    /// The first sync since this sheet opened: what makes Paired, for a resting Omi as for a ready Pendant.
+    private var hasCaughtUp: Bool { capture.lastCaughtUp.map { !($0 < startedAt) } == true }
+
     private enum Phase { case looking, pairing, paired, failed(String) }
 
     private var phase: Phase {
         if hasGivenUp && foundCount == 0 {
-            return .failed("No pendant answered. Keep it close and hold its button until the light blinks blue.")
+            return .failed("It did not answer. Keep it close and hold its button again.")
         }
         if case .busyElsewhere = connection {
             return .failed("It did not answer. Another app may hold it. Close that connection and try again.")
         }
         switch connection {
-        case .connecting, .discovering, .pairingPending, .resting, .disconnected:
+        case .ready, .resting:
+            return hasCaughtUp ? .paired : .pairing
+        case .connecting, .discovering, .pairingPending, .disconnected:
             return .pairing
-        case .ready:
-            return capture.lastCaughtUp.map { !($0 < startedAt) } == true ? .paired : .pairing
         default: return .looking
         }
     }
@@ -91,24 +93,20 @@ struct PairPendantSheet: View {
         }
     }
 
-    /// How many checks have passed: found, paired with this phone, first sync.
+    /// How many checks have passed: found, paired with this phone.
     private var foundCount: Int {
         switch connection {
-        case .ready: capture.lastCaughtUp.map { !($0 < startedAt) } == true ? 3 : 2
-        case .connecting, .discovering, .pairingPending, .resting, .disconnected, .busyElsewhere: 1
+        case .ready, .resting: hasCaughtUp ? 2 : 1
+        case .connecting, .discovering, .pairingPending, .disconnected, .busyElsewhere: 1
         default: 0
         }
     }
 
     private func checks(failedAt: Int?) -> some View {
-        let sync = capture.lastCaughtUp.map { !($0 < startedAt) ? $0 : nil } ?? nil
-        let words = [
-            "Found", "Paired with this phone",
-            sync.map { "First sync, \($0.formatted(date: .omitted, time: .shortened))" } ?? "First sync",
-        ]
-        return CheckLines(
+        CheckLines(
             lines: CheckLine.lines(
-                "pair", words, passed: foundCount, failedAt: failedAt.map { min($0, 2) }, isRunning: failedAt == nil)
+                "pair", ["Found", "Paired with this phone"], passed: foundCount, failedAt: failedAt.map { min($0, 1) },
+                isRunning: failedAt == nil)
         )
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
     }

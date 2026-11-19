@@ -85,7 +85,6 @@ extension CaptureFacts {
             status.storage?.at, status.backlog?.at, status.lastContact ?? since,
         ]
         var dates = observed.compactMap { $0.map(EvidenceFreshness.currentUntil) }
-        if let sound = status.soundActivity?.at { dates.append(sound.addingTimeInterval(SoundActivity.freshFor + 1)) }
         if let report = status.recording.reportedAt {
             dates.append(report.addingTimeInterval(Double(EvidenceFreshness.onScreenFor.components.seconds) + 1))
         }
@@ -147,14 +146,35 @@ extension TranscriptionFacts {
 extension NotOnTheMac {
     /// "12 min on the pendant, 4 min on this phone": what is held back, as far as it is known.
     var words: String? {
-        func time(_ duration: Duration) -> String {
-            duration.formatted(.units(allowed: [.hours, .minutes], width: .narrow, maximumUnitCount: 2))
-        }
+        func time(_ duration: Duration) -> String { duration.shortWords }
         var parts: [String] = []
         if let pages = pendantPages, pages > 0 {
-            parts.append(pendantDuration.map { "\(time($0)) on the pendant" } ?? "\(pages) pages on the pendant")
+            parts.append(pendantDuration.map { "\(time($0)) on the pendant" } ?? "Audio still on the pendant")
         }
         if phoneDuration > .zero { parts.append("\(time(phoneDuration)) on this phone") }
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
+
+    /// A sentence about what is held back, "The 42 min still on this pendant and 4 min on this phone are <tail>", or
+    /// `nil` when nothing is known to be held.
+    func sentence(_ tail: String) -> String? {
+        var parts: [String] = []
+        var isPlural = true
+        if let pages = pendantPages, pages > 0 {
+            if let duration = pendantDuration {
+                parts.append("\(duration.shortWords) still on this pendant")
+            } else {
+                parts.append("audio still on this pendant")
+                isPlural = false
+            }
+        }
+        if phoneDuration > .zero { parts.append("\(phoneDuration.shortWords) on this phone") }
+        guard !parts.isEmpty else { return nil }
+        return "The \(parts.joined(separator: " and ")) \(isPlural || parts.count > 1 ? "are" : "is") \(tail)"
+    }
+}
+
+extension Duration {
+    /// "42 min", "1 hr 5 min".
+    var shortWords: String { formatted(.units(allowed: [.hours, .minutes], width: .abbreviated, maximumUnitCount: 2)) }
 }

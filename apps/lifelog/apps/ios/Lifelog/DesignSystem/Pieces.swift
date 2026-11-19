@@ -488,11 +488,21 @@ struct Field: View {
 }
 
 /// A sheet's top: its name in thin type and the close button.
+private struct TitleGlow: ViewModifier {
+    let isOn: Bool
+
+    func body(content: Content) -> some View {
+        if isOn { content.lit() } else { content }
+    }
+}
+
 struct SheetHeader: View {
     let title: String
     var color: Color = Palette.fg
     /// The pendant's sheet names itself in small capitals: its big word is the state, not the title.
     var isLabel = false
+    /// The soft glow of the title, only where asked.
+    var isLit = false
     let close: () -> Void
 
     var body: some View {
@@ -500,7 +510,7 @@ struct SheetHeader: View {
             if isLabel {
                 Caps(title).accessibilityAddTraits(.isHeader)
             } else {
-                Text(title).font(.sheetTitle).foregroundStyle(color).lit()
+                Text(title).font(.sheetTitle).foregroundStyle(color).modifier(TitleGlow(isOn: isLit))
             }
             Spacer()
             Button(action: close) {

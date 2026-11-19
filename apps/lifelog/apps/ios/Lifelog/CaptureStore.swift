@@ -225,17 +225,18 @@ final class CaptureStore {
     /// the Mac (`held` reads the uploader too); a lost Pendant can still be replaced `anyway`. Replacing forgets the
     /// Pendant on this phone only: never its own pairing or its audio.
     func replacePendant(anyway: Bool = false, held: () -> NotOnTheMac) async -> ReplaceOutcome {
-        let isReachable = if case .ready = status.connection { true } else { false }
+        let isReachable = await waitForLink()
         if isReachable && !anyway {
             Task { await syncNow() }
             _ = await wait(upTo: .seconds(60)) { held().isEmpty }
         }
         let left = held()
         if !anyway && !left.isEmpty { return isReachable ? .refused(left) : .unreachable(left) }
-        UserDefaults.standard.removeObject(forKey: Self.knownDeviceKey)
-        UserDefaults.standard.removeObject(forKey: Self.knownKindKey)
-        hasKnownPendant = false
+        // Forget first: a buffered `.ready(old)` must not save the old pendant again. The kind stays until a pendant of
+        // another model actually pairs (its slot moves then, not now).
         await coordinator?.forget()
+        UserDefaults.standard.removeObject(forKey: Self.knownDeviceKey)
+        hasKnownPendant = false
         return .replaced
     }
 

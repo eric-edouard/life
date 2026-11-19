@@ -26,16 +26,20 @@ public struct NotOnTheMac: Sendable, Equatable {
     public static let backlogRecentFor = Double(CaptureConfiguration.stallTimeout.components.seconds)
 }
 
-/// ponytail: the phone's side stops where its analysis stops (`UploadStatus.heardThrough`): audio stored past it and not
-/// yet analyzed is not counted; the uploader would have to say how much it has not reached.
+/// The phone's side reaches as far as its newest stored audio, analyzed or not (`UploadStatus.storedThrough`): audio
+/// saved and not yet analyzed counts as not sent.
 public func whatIsNotOnTheMac(backlog: Observed<Backlog>?, uploads: UploadStatus?, now: Date) -> NotOnTheMac {
     let recent = backlog.flatMap { now.timeIntervalSince($0.at) <= NotOnTheMac.backlogRecentFor ? $0.value : nil }
     var phone = uploads?.unsent ?? .zero
-    // Sent short of heard is audio the server lacks even when the last pass measured none (it stopped before it).
-    if phone == .zero, let uploads, let sent = uploads.sentThrough, let heard = uploads.heardThrough, sent < heard {
-        phone = .seconds(heard.timeIntervalSince(sent))
+    // Sent short of what is stored is audio the server lacks even when the last pass measured none.
+    if phone == .zero, let uploads, let sent = uploads.sentThrough,
+        let reach = [uploads.heardThrough, uploads.storedThrough].compactMap({ $0 }).max(), sent < reach
+    {
+        phone = .seconds(reach.timeIntervalSince(sent))
     }
+    // Heard but never sent anything is unknown too: the phone cannot say where the Mac's copy reaches.
+    let isUnknown = uploads == nil || (uploads?.sentThrough == nil && uploads?.heardThrough != nil)
     return NotOnTheMac(
         pendantPages: recent?.pages, pendantDuration: recent?.estimatedDuration, phoneDuration: phone,
-        isPhoneUnknown: uploads == nil)
+        isPhoneUnknown: isUnknown)
 }

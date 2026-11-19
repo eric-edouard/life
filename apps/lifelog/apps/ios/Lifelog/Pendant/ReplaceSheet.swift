@@ -50,7 +50,7 @@ struct ReplaceSheet: View {
 
     private var title: String {
         switch phase {
-        case .asking: "Replace this pendant"
+        case .asking: "Replace"
         case .replacing: "Replacing"
         case .refused: "Not replaced"
         case .unreachable: "Out of reach"
@@ -61,17 +61,8 @@ struct ReplaceSheet: View {
         switch phase {
         case .asking:
             VStack(alignment: .leading, spacing: 12) {
-                Text(
-                    held.words.map { "The \($0) are uploaded first." }
-                        ?? "This phone forgets this pendant and looks for another."
-                )
-                .font(.body15).foregroundStyle(Palette.muted)
-                if held.phoneDuration > .zero {
-                    Text(
-                        "A pendant of another model keeps its audio apart: this phone's unsent audio stops uploading with it."
-                    )
-                    .font(.note).foregroundStyle(Palette.muted)
-                }
+                Text(held.sentence("uploaded first.") ?? "This phone forgets this pendant and looks for another.")
+                    .font(.body15).foregroundStyle(Palette.muted)
             }
         case .replacing:
             RowGroup(surface: .sheet) {
@@ -84,14 +75,24 @@ struct ReplaceSheet: View {
             }
         case .refused(let left):
             Text(
-                "\(left.words ?? "Some audio") are not on your Mac yet. Keep the app open near the pendant, then try again."
+                (left.sentence("not on your Mac yet.") ?? "Some audio is not on your Mac yet.")
+                    + " Keep the app open near the pendant, then try again."
             )
             .font(.body15).foregroundStyle(Palette.muted)
         case .unreachable(let left):
-            Text(
-                "This pendant can't be reached, so what is left on it can't be uploaded. \(left.words ?? "Some audio") are not on your Mac yet."
-            )
-            .font(.body15).foregroundStyle(Palette.muted)
+            VStack(alignment: .leading, spacing: 12) {
+                Text(
+                    "This pendant can't be reached, so what is left on it can't be uploaded. "
+                        + (left.sentence("not on your Mac yet.") ?? "Some audio is not on your Mac yet.")
+                )
+                .font(.body15).foregroundStyle(Palette.muted)
+                if left.phoneDuration > .zero {
+                    Text(
+                        "If the new pendant is another model, the \(left.phoneDuration.shortWords) on this phone stop uploading until this one is paired again."
+                    )
+                    .font(.note).foregroundStyle(Palette.muted)
+                }
+            }
         }
     }
 

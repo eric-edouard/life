@@ -293,6 +293,7 @@ private func makeUploader(
     #expect((first["map"] as? [String: Any])?["separatorMs"] as? Int == 400)
     let rest = try await uploader.status()
     #expect(rest?.unsent == .zero && rest?.lastError == nil)
+    #expect(rest?.sentThrough != nil && rest?.sentThrough == rest?.heardThrough)
 
     // A relaunch sends nothing again.
     uploader = try makeUploader(fixture, host: host)
