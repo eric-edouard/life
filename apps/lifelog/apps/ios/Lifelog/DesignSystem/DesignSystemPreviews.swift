@@ -1,3 +1,4 @@
+import AVFoundation
 import LifeConnector
 import SwiftUI
 
@@ -154,4 +155,50 @@ import SwiftUI
         .background(Palette.sheet)
         .preferredColorScheme(.dark)
     }
+
+    /// A recording of nine words at 0.6 s each, with a quiet tone as its audio, put where `ClipAudio` finds it.
+    struct SpokenWordsBoard: View {
+        private static let job = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xA1))
+        private static let text = "Meet me at the market on Saturday around ten"
+        private static let words: [[Int64]] = text.split(separator: " ").enumerated().map { index, word in
+            [Int64(index) * 600, Int64(index) * 600 + 500, Int64(word.count + (index == 0 ? 0 : 1))]
+        }
+
+        @State private var playback = PlaybackStore(library: nil, sync: nil)
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 24) {
+                SpokenWords(text: Self.text, words: Self.words, job: Self.job, start: 0, end: 5.4)
+                    .padding(16).paperBox()
+                SpokenWords(text: Self.text, words: Self.words, job: Self.job, start: 0, end: 5.4, style: .inline)
+                SpokenWords(
+                    text: "No timings, so the whole text stays as it is.", words: nil, job: UUID(), start: 0, end: 5.4)
+            }
+            .font(.quote)
+            .padding(Metrics.gutter)
+            .frame(maxWidth: 390, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Palette.bg)
+            .environment(playback)
+            .preferredColorScheme(.dark)
+            .task { Self.seedAudio() }
+        }
+
+        private static func seedAudio() {
+            let file = ClipAudio.folder.appending(path: "\(job.uuidString.lowercased()).ogg")
+            try? FileManager.default.createDirectory(at: ClipAudio.folder, withIntermediateDirectories: true)
+            guard !FileManager.default.fileExists(atPath: file.path),
+                let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1),
+                let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 22_050 * 6),
+                let audio = try? AVAudioFile(forWriting: file, settings: format.settings)
+            else { return }
+            buffer.frameLength = buffer.frameCapacity
+            for frame in 0..<Int(buffer.frameLength) {
+                buffer.floatChannelData?[0][frame] = 0.05 * sin(Float(frame) * 2 * .pi * 220 / 22_050)
+            }
+            try? audio.write(from: buffer)
+        }
+    }
+
+    #Preview("Spoken words") { SpokenWordsBoard() }
 #endif
