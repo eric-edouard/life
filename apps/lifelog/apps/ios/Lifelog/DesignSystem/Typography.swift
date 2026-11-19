@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Manrope only, the brand's one face (`docs/brand.md`): thin (250) for a title, bold (650) for what matters, 15 point
+/// Manrope only, the brand's one face (`docs/brand.md`): bold (650) for a name and a heading, thin (250) only for a state word and a card's title, 15 point
 /// body, small labels in capitals. One bundled variable font, registered in Info.plist (`UIAppFonts`), whose weight is
 /// set on its `wght` axis so 250 and 650 are real weights. Every text is one step of this scale, set with `.font(.step)`:
 /// the step is resolved in the view, so a change of Dynamic Type size shows at once. Nothing draws a size or weight of its own.
@@ -19,12 +19,12 @@ struct TypeStep: Equatable {
     static let statusWord = TypeStep(size: 40, weight: 250, style: .largeTitle)
     /// The figure on a tile: "82%".
     static let tileFigure = TypeStep(size: 26, weight: 650, style: .title2, hasFixedDigits: true)
-    /// A sheet's heading when it sits in the content: bold.
+    /// The first line of a sheet ("Starting", "Who?"): bold.
     static let sheetHeading = TypeStep(size: 22, weight: 650, style: .title3)
-    /// A screen's name in a sheet.
-    static let sheetTitle = TypeStep(size: 30, weight: 250, style: .title1)
-    /// A matter's name.
-    static let matterTitle = TypeStep(size: 28, weight: 250, style: .title1)
+    /// A screen's name where the system's large title would be: "Settings", a matter's name.
+    static let screenName = TypeStep(size: 30, weight: 650, style: .title1)
+    /// A matter's name: `screenName`, kept until the matter page reads `screenName` itself.
+    static let matterTitle = screenName
     /// Words he or someone said, a message, a goal he edits.
     static let quote = TypeStep(size: 19, weight: 450, style: .title3)
     /// A name inside a quote.

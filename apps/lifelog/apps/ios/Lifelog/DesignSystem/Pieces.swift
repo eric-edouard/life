@@ -609,13 +609,15 @@ struct SheetHeader: View {
     /// `nil` for a sheet whose first line names itself (the pendant's big word is the state).
     var title: String?
     var color: Color = Palette.fg
+    /// A sheet's heading; a screen shown in a sheet ("Settings") passes `.screenName`.
+    var font: TypeStep = .sheetHeading
     let close: () -> Void
 
     /// The title in the content; Close alone in the bar the system draws over the sheet, a toolbar item, so the sheet
     /// sits in a stack (`sheetStack()`).
     var body: some View {
         HStack {
-            if let title { Text(title).font(.sheetTitle).foregroundStyle(color) }
+            if let title { Text(title).font(font).foregroundStyle(color) }
             Spacer(minLength: 0)
         }
         .toolbar {

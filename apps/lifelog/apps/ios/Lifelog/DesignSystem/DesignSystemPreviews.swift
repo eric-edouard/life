@@ -41,7 +41,7 @@ import SwiftUI
 
     #Preview("Type") {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Lunch with Julien — French").font(.matterTitle)
+            Text("Lunch with Julien — French").font(.screenName)
             Text("Standup: Pendant sync bug").font(.rowName)
             Text("Conversation at 13:52").font(.cardHeadline).foregroundStyle(Palette.fg)
             Text("Pages drop when the phone sleeps; Pim retries reads with backoff by Friday.")
