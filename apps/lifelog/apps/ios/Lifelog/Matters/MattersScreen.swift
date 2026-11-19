@@ -88,7 +88,7 @@ struct MattersScreen: View {
 
     /// A system menu: a line icon per row, a check on the chosen one.
     private var filterMenu: some View {
-        Menu {
+        FilterMenu(isFiltered: filter != .everything, identifier: "matters.filter") {
             Picker("Show", selection: $filter) {
                 Label("Everything", systemImage: "list.bullet").tag(MatterFilter.everything)
                 Label {
@@ -112,13 +112,7 @@ struct MattersScreen: View {
                 }
                 .pickerStyle(.inline)
             }
-        } label: {
-            Image(
-                systemName: filter == .everything
-                    ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
         }
-        .accessibilityLabel("Filter")
-        .accessibilityIdentifier("matters.filter")
     }
 
     private func content(_ list: MatterList) -> some View {

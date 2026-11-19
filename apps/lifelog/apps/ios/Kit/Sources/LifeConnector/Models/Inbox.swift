@@ -40,9 +40,23 @@ public struct InboxOrder: Equatable, Sendable {
 
     /// The ask on show: the one he is on, else the first.
     public func check(on ref: String?) -> Check? { checks.first { $0.ref == ref } ?? checks.first }
+
+    /// The kinds of ask that wait, in the order they first appear: what the list's filter offers.
+    public var kinds: [CheckGroup] { checks.map(\.group).reduce(into: []) { if !$0.contains($1) { $0.append($1) } } }
+
+    /// Only the asks of one kind, in the same order, with the heading where its own can-wait part starts. Nil, or a kind
+    /// with none waiting, is the whole order: a filter never leaves him an empty list.
+    public func only(_ kind: CheckGroup?) -> InboxOrder {
+        guard let kind, kinds.contains(kind) else { return self }
+        let kept = checks.filter { $0.group == kind }
+        return InboxOrder(checks: kept, canWaitFrom: kept.canWaitFrom)
+    }
 }
 
 extension [Check] {
+    /// Where what only improves starts, in checks already put in order; nil when nothing improves.
+    var canWaitFrom: Int? { firstIndex { $0.urgency == .improves } }
+
     /// The ask after `ref`, where his answer leaves him.
     public func ref(after ref: String) -> String? {
         firstIndex { $0.ref == ref }.flatMap { dropFirst($0 + 1).first?.ref }
@@ -58,8 +72,7 @@ extension Inbox {
             kind.filter { !deferred.contains($0.ref) } + kind.filter { deferred.contains($0.ref) }
         }
         let open = checks.filter { !except.contains($0.ref) }
-        let blocking = later(open.filter { $0.urgency != .improves })
-        let improving = later(open.filter { $0.urgency == .improves })
-        return InboxOrder(checks: blocking + improving, canWaitFrom: improving.isEmpty ? nil : blocking.count)
+        let ordered = later(open.filter { $0.urgency != .improves }) + later(open.filter { $0.urgency == .improves })
+        return InboxOrder(checks: ordered, canWaitFrom: ordered.canWaitFrom)
     }
 }

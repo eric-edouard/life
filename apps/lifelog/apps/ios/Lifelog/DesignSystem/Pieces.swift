@@ -256,6 +256,24 @@ struct StateDot: View {
     }
 }
 
+/// A list's Filter: a system menu of inline pickers (a line icon per row, a check on the chosen one), its glyph filled
+/// while a choice narrows the list. Matters and the asks draw it.
+struct FilterMenu<Choices: View>: View {
+    let isFiltered: Bool
+    let identifier: String
+    @ViewBuilder let choices: Choices
+
+    var body: some View {
+        Menu {
+            choices
+        } label: {
+            Image(systemName: isFiltered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
+        }
+        .accessibilityLabel("Filter")
+        .accessibilityIdentifier(identifier)
+    }
+}
+
 /// A filter chip: its name; filled when it holds a choice.
 struct FilterChip: View {
     let name: String
