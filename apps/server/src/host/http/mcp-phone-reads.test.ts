@@ -6,6 +6,7 @@ import {
   networkIdentityOf,
   withNetworkIdentity,
 } from "../../memory/network-identity";
+import type { WakeLine } from "../registered-agents";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
 
@@ -324,9 +325,46 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     project: null,
     runtime: "claude",
     status: "running" as const,
+    statusSince: "2026-10-13T09:00:00.000Z",
     steps: ["obs_000000000005"],
     title: "Get Gran's watch mended",
     wait: null,
+    wakesOn: [],
+  };
+  // Waiting: one line of each kind (`wakesOnOf`).
+  const waiting = {
+    ...agent,
+    id: "agt_000000000002",
+    link: null,
+    model: null,
+    project: "shop-fit-out",
+    status: "waiting" as const,
+    statusSince: "2026-10-14T09:00:00.000Z",
+    steps: [],
+    wait: {
+      isDefault: false,
+      reason: "his answer",
+      until: "2026-10-16T09:00:00.000Z",
+    },
+    wakesOn: [
+      { calls: true, kind: "message", person: "Gran" },
+      {
+        apps: ["whatsapp"],
+        calls: true,
+        chat: { app: "whatsapp", group: true, name: "Shop fit-out" },
+        kind: "message",
+      },
+      { broken: "unknown_person", calls: true, kind: "message", person: "Kit" },
+      { calls: false, fromHim: true, kind: "message", words: "quote" },
+      { above: 100, kind: "payments", quantity: "eur_out", words: "shop" },
+      {
+        card: "Book the shop?",
+        check: "dec_000000000001",
+        deadline: "2026-10-15T09:00:00.000Z",
+        kind: "answer",
+      },
+      { kind: "wide_net" },
+    ] as WakeLine[],
   };
   const step = (kind: string, text: string, day: string, ref: string) => ({
     at: `${day}T10:00:00.000Z`,
@@ -422,21 +460,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
             status: "moving",
           },
         },
-        {
-          ...agent,
-          id: "agt_000000000002",
-          link: null,
-          matter: null,
-          model: null,
-          project: "shop-fit-out",
-          status: "waiting",
-          steps: [],
-          wait: {
-            isDefault: false,
-            reason: "his answer",
-            until: "2026-10-16T09:00:00.000Z",
-          },
-        },
+        { ...waiting, matter: null },
       ],
       desk: "ok",
       helper: "running",
@@ -445,7 +469,10 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     spyOn(agents, "readActiveAgentOf").mockReturnValue((s: string[]) =>
       s.includes("obs_000000000005") ? "agt_000000000001" : undefined
     ),
-    spyOn(agents, "readAgentsOnSteps").mockReturnValue([agent] as never),
+    spyOn(agents, "readAgentsOnSteps").mockReturnValue([
+      agent,
+      waiting,
+    ] as never),
   ];
   try {
     const read = async (name: string, args: object = {}) => {

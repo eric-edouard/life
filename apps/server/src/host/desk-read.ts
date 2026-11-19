@@ -11,6 +11,7 @@ import type {
   AgentStatus,
   EventFilter,
 } from "../records/registered-agent";
+import { CALL_ENDED, MESSAGE_RECEIVED } from "./events";
 
 // Every read of the desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`), its rows' shapes and the rules worked out from
 // them: the desk reads through these, and host reads the store read-only (`readDesk`), so the desk off or its store
@@ -291,6 +292,8 @@ export interface AgentNow {
   project: string | null;
   runtime: string;
   status: Exclude<AgentStatus, "active"> | "running" | "waiting";
+  /** When its current status began: its open turn's start (running), its last turn's end (waiting), its end (ended, handed over); null for a stopped agent (no stop time is stored) or one with no turn yet. */
+  statusSince: string | null;
   /** The matter steps it was handed (its anchors), when its subject is a matter. */
   steps: string[];
   /** The first line of his brief. */
@@ -298,21 +301,40 @@ export interface AgentNow {
   wait: { isDefault: boolean; reason: string; until: string } | null;
 }
 
+/** What `wakesOn` is made of, beside an agent as read: its wait's filters, and for each chat they name the name and app of the agent's own newest event there (`seenChatsOf`). Not on the wire. */
+export type AgentRead = AgentNow & {
+  chatsSeen: Record<string, { name: string | null; source: string | null }>;
+  filters: EventFilter[];
+};
+
+/** For each chat a filter of `a` names: its name and app from the newest event the desk queued for `a` there (one query per chat, bounded by `a`'s events); none while no event came from it. */
+function seenChatsOf(db: Database, a: AgentRow) {
+  const seen: AgentRead["chatsSeen"] = {};
+  for (const chat of new Set(filtersOf(a).flatMap((f) => f.chat ?? []))) {
+    const e = db
+      .query<{ name: string | null; source: string | null }, [string, string]>(
+        `select json_extract(payload, '$.chatName') as name, json_extract(payload, '$.source') as source from event where agent_id = ? and name in ('${MESSAGE_RECEIVED}', '${CALL_ENDED}') and json_extract(payload, '$.chat') = ? order by rowid desc limit 1`
+      )
+      .get(a.id, chat);
+    if (e) {
+      seen[chat] = e;
+    }
+  }
+  return seen;
+}
+
 const headOf = (s: string) => s.split("\n")[0]?.slice(0, 160) ?? "";
 
-/** Agent `a` as read now (`AgentNow`): its last turn, its anchors and its events dropped in the last day. */
-function nowOf(db: Database, a: AgentRow, now: number): AgentNow {
-  const [last] = lastTurns(db, a.id, 1);
-  const open = last && !last.ended_at ? last : null;
-  const dropped =
-    db
-      .query<{ n: number }, [string, string]>(
-        "select count(*) as n from event where agent_id = ? and dropped_at >= ?"
-      )
-      .get(a.id, new Date(now - DAY).toISOString())?.n ?? 0;
+/** What shows amber for `a` (`AgentNow.amber`): nothing unless it is active. */
+function amberOf(
+  a: AgentRow,
+  last: TurnRow | undefined,
+  open: TurnRow | null,
+  dropped: number,
+  now: number
+) {
   const f = flagsOf(a, open, dropped, now);
-  const isActive = a.status === "active";
-  const amber = isActive
+  return a.status === "active"
     ? [
         ...(f.defaultWait ? ["default wait"] : []),
         ...(f.late ? ["deadline late"] : []),
@@ -321,11 +343,41 @@ function nowOf(db: Database, a: AgentRow, now: number): AgentNow {
         ...(f.dropped > 0 ? [`${f.dropped} events dropped`] : []),
       ]
     : [];
+}
+
+/** When `a`'s current status began (`AgentNow.statusSince`), from its last turn. */
+const statusSinceOf = (
+  a: AgentRow,
+  status: AgentNow["status"],
+  last: TurnRow | undefined
+) =>
+  ({
+    ended: a.ended_at,
+    handed_over: a.ended_at,
+    running: last?.started_at,
+    stopped: null,
+    waiting: last?.ended_at,
+  })[status] ?? null;
+
+/** Agent `a` as read now (`AgentNow`): its last turn, its anchors and its events dropped in the last day. */
+function nowOf(db: Database, a: AgentRow, now: number): AgentRead {
+  const [last] = lastTurns(db, a.id, 1);
+  const open = last && !last.ended_at ? last : null;
+  const dropped =
+    db
+      .query<{ n: number }, [string, string]>(
+        "select count(*) as n from event where agent_id = ? and dropped_at >= ?"
+      )
+      .get(a.id, new Date(now - DAY).toISOString())?.n ?? 0;
+  const amber = amberOf(a, last, open, dropped, now);
+  const isActive = a.status === "active";
   const waiting = open ? "running" : "waiting";
   const status = a.status === "active" ? waiting : a.status;
   return {
     amber,
     ...modelOf(a),
+    chatsSeen: status === "waiting" ? seenChatsOf(db, a) : {},
+    filters: filtersOf(a),
     id: a.id,
     lastTurn: last
       ? {
@@ -342,6 +394,7 @@ function nowOf(db: Database, a: AgentRow, now: number): AgentNow {
     project: a.project,
     runtime: a.runtime,
     status,
+    statusSince: statusSinceOf(a, status, last),
     steps: anchorsOf(db, a.id),
     title: headOf(a.brief),
     wait:

@@ -147,14 +147,18 @@ export async function openMatters(
  */
 export async function oneMatter<A>(
   refs: readonly string[],
-  agentsOf: (steps: string[], projects: string[]) => A[] = () => []
+  agentsOf: (
+    steps: string[],
+    projects: string[],
+    people: People
+  ) => A[] = () => []
 ) {
   const people = await readPeople();
   const v = matterOfSteps(await readMatterBook(people, dayNow()), refs);
   return (
     v && {
       ...rowOf(v, people, openDecisions()),
-      agents: agentsOf(refsOf(v), v.projects),
+      agents: agentsOf(refsOf(v), v.projects, people),
       steps: v.steps.map((s) =>
         s.with ? { ...s, with: people.nameOf(s.with) } : s
       ),
