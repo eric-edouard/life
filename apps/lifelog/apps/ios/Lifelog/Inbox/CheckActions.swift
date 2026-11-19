@@ -60,14 +60,14 @@ struct CheckActions: View {
     @ViewBuilder private var line: some View {
         let text = check.deadlineLine()
         if text != nil || !links.isEmpty {
-            // Under an accessibility size the link goes under the words, not beside them.
+            // Under an accessibility size the links go under the words, and under each other, never cut.
             let layout =
                 typeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading)) : AnyLayout(HStackLayout(spacing: Metrics.Spacing.m))
             layout {
                 if let text { Text(text).font(.small).foregroundStyle(Palette.muted) }
                 if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
-                HStack(spacing: Metrics.Spacing.m) {
+                layout {
                     ForEach(links, id: \.title) { link in TextLink(link.title, action: link.run) }
                 }
             }

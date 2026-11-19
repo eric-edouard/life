@@ -97,9 +97,10 @@ struct CardView: View {
             .clipped()
             // A pager made after his tap's result starts on the first ask: put it on the one he is on.
             .onAppear { if let current { proxy.scrollTo(current, anchor: .leading) } }
-            // The one-card read gives way to the whole inbox: stay on the card he is on, not the first page.
-            .onChange(of: pages.map(\.id)) { _, ids in
-                if let current, ids.contains(current) { proxy.scrollTo(current, anchor: .leading) }
+            // The one-card read gives way to the whole inbox: stay on the card he is on, not the first page. Only from a
+            // pager of one page, where no swipe of his can be under way.
+            .onChange(of: pages.map(\.id)) { before, ids in
+                if before.count == 1, let current, ids.contains(current) { proxy.scrollTo(current, anchor: .leading) }
             }
         }
     }
