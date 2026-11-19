@@ -37,12 +37,12 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   stroke around any surface or control. A card, a panel, an option or a field stands out from the page by its `card`
   fill only, and a field inside a card takes the page's `bg` (owner, 31 Oct 2026); a chosen one is filled (`fg`). A
   rule line separates rows of a list, never draws a box. Urgency is a `flag` dot and `flag` words, never a ring.
-- **Parked (30 Oct 2026).** The Mac app's UI keeps its old layout and fonts, with the colours above; Android keeps the
-  old look (`Brand.kt`, lifelog's `docs/design.md`).
-- **Not yet in code (19 Nov 2026).** Four surfaces predate the rules of 19 Nov, and each follows with its next change:
-  the phone's capital labels; the parked Mac app's capital labels and strokes (`Brand.swift`); the pairing page's
-  outlined button and thin title (`oauth.ts`); and the text of the asks the server writes, which predates the wording
-  below.
+- **Parked (30 Oct 2026).** The Mac app's UI is the exception to the type, shape and wording rules of this page until
+  it is unparked: it keeps its old layout, fonts, capital labels and strokes (`Brand.swift`), with the colours above.
+  Android keeps the old look (`Brand.kt`, lifelog's `docs/design.md`).
+- **Not yet in code (19 Nov 2026).** Three surfaces predate the rules of 19 Nov, and each follows with its next
+  change: the phone's capital labels; the pairing page's outlined button and thin title (`oauth.ts`); and the text of
+  the asks the server writes, which predates the wording below.
 
 ## Wording
 
