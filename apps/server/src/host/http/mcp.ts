@@ -74,6 +74,7 @@ import {
   cut,
   READERS,
   REVERSIBLE,
+  type ToolCall,
   tool,
   WRITES,
 } from "./mcp-tool";
@@ -177,12 +178,16 @@ const NOT_HIS =
   "Not done: this app was paired as an agent, and an agent's words are not his.";
 
 /** Applies one correction the owner asked for: a Life memory correction (one on a whole matter by its id: his token only), or one of lifelog's four. */
-export async function correct(a: z.infer<typeof Correct>, agent?: string) {
+export async function correct(
+  a: z.infer<typeof Correct>,
+  agent?: string,
+  call?: ToolCall
+) {
   if (a.kind === "memory" && a.correction?.matter !== undefined) {
     if (agent) {
       throw new Error(NOT_HIS);
     }
-    return { done: await correctMatter(a.correction) };
+    return { done: await correctMatter(a.correction, call?.report) };
   }
   await (a.kind === "memory"
     ? recordCorrection(a.correction)

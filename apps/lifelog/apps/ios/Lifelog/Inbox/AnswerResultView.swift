@@ -79,7 +79,7 @@ struct AnswerResultView: View {
         header
         Text(taken.isSend ? "Sent." : doneWord).font(.statusWord).foregroundStyle(Palette.fg).lit().padding(.top, 12)
         Text(summary(proof)).font(.lead).foregroundStyle(Palette.muted)
-        CheckLines(lines: lines.filter { $0.id != "left_inbox" }).padding(.top, 8)
+        CheckLines(lines: lines).padding(.top, 8)
         if let changed = counts(proof) {
             Text(changed).font(.body15).foregroundStyle(Palette.muted)
         }
@@ -199,7 +199,7 @@ struct ResultButtons: View {
                     taken.isSend
                         ? "Stays on this card until \(ActionCopy.channel(taken.check.draft?.channel)) answers"
                             + ($0.map { ", \($0)." } ?? ".")
-                        : $0.map { "Life answers in \($0)." } ?? ""
+                        : $0.map { "Takes \($0)." } ?? ""
                 }
                 .font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
             }

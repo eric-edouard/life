@@ -349,7 +349,9 @@ private struct DoneButton: View {
                 default: Label("Mark as done", systemImage: "checkmark")
                 }
             }
-            .buttonStyle(.pill(.quiet)).disabled(state.isRunning)
+            .buttonStyle(.pill(.quiet, isBusy: state.isRunning)).disabled(state.isRunning)
+            LimitNote(state: state) { $0.map { "Takes \($0)." } ?? "" }
+                .font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
             if case .failed(let failure, _) = state {
                 Text(failure.reason).font(.small).foregroundStyle(Palette.flag).multilineTextAlignment(.center)
             }

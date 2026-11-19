@@ -25,6 +25,8 @@ public struct ActionFailure: Sendable, Equatable {
     public var mayHaveHappened = false
     /// The connection failed, so the same tap is repeated with the same key; a result Life gave is a new tap next time.
     public var isSameTap = false
+    /// What kind of error ended it (dropped, unreachable, failed, refused), for the phone's log: never Life's words.
+    public var kind = "failed"
 
     public init(
         step: String? = nil, reason: String, retry: Retry, mayHaveHappened: Bool = false, isSameTap: Bool = false
@@ -109,8 +111,10 @@ extension ActionFailure {
         switch error {
         case .refused, .notPaired, .wrongCode:
             self.init(step: step, reason: error.reason, retry: .no)
+            kind = "refused"
         default:
             self.init(step: step, reason: error.reason, retry: .allowed, isSameTap: true)
+            kind = error == .streamDropped ? "dropped" : error == .unreachable ? "unreachable" : "failed"
         }
     }
 }

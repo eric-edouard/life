@@ -159,11 +159,9 @@
             let plan =
                 isNewMatter
                 ? (answer.options == ["start"]
-                    ? ["goal_saved", "desk_accepted", "session_open", "turn_begun", "left_inbox"]
-                    : answer.options == ["edit-goal"] ? ["goal_saved"] : ["recorded", "left_inbox"])
-                : draft == nil
-                    ? ["recorded", "asker_told", "left_inbox"]
-                    : ["recorded", "chat_checked", "handed", "confirmed", "asker_told", "left_inbox"]
+                    ? ["goal_saved", "desk_accepted", "session_open", "turn_begun"]
+                    : answer.options == ["edit-goal"] ? ["goal_saved"] : ["recorded"])
+                : draft == nil ? ["recorded"] : ["recorded", "chat_checked", "handed", "confirmed"]
             onProgress(message(["plan": plan, "limitSeconds": 20]))
             for step in plan {
                 try await Task.sleep(for: .milliseconds(700))
@@ -196,15 +194,11 @@
                 ])
             }
             if isNewMatter, answer.options == ["edit-goal"] {
-                return json([
-                    "ref": answer.ref, "kind": "new matter",
-                    "inbox": ["left": false, "total": 12, "deadlinesToday": 0],
-                ])
+                return json(["ref": answer.ref, "kind": "new matter"])
             }
             answered.withLock { _ = $0.insert(answer.ref) }
             var result: [String: Any] = [
                 "ref": answer.ref, "kind": "decision", "asker": ["name": "Claude Code", "told": "recorded"],
-                "inbox": ["left": true, "total": 11, "deadlinesToday": 0],
             ]
             if draft != nil {
                 result["send"] = ["state": "sent", "at": at(18, 14, 3), "channel": "whatsapp", "to": "Hélène Aubert"]
@@ -245,12 +239,16 @@
             ])
         }
 
-        func setMatterDirection(matter: String, goal: String?, nextStep: NextStepRequest?) async throws -> String {
+        func setMatterDirection(
+            matter: String, goal: String?, nextStep: NextStepRequest?, onProgress: @escaping @Sendable (Data) -> Void
+        ) async throws -> String {
             try await Task.sleep(for: .milliseconds(500))
             return "{}"
         }
 
-        func markDone(matter: String, note: String) async throws -> String {
+        func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws
+            -> String
+        {
             try await Task.sleep(for: .milliseconds(500))
             return "{}"
         }

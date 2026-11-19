@@ -85,14 +85,10 @@ test("answer_check streams its plan and steps on a progress token, and a repeat 
     const progress = events.filter(
       (e) => e.method === "notifications/progress"
     );
-    expect(progress.map((e) => e.params.progress)).toEqual([1, 2, 3, 4]);
+    expect(progress.map((e) => e.params.progress)).toEqual([1, 2]);
     const messages = progress.map((e) => JSON.parse(e.params.message));
-    expect(messages[0].plan).toEqual(["recorded", "asker_told", "left_inbox"]);
-    expect(messages.slice(1).map((m) => m.step)).toEqual([
-      "recorded",
-      "asker_told",
-      "left_inbox",
-    ]);
+    expect(messages[0].plan).toEqual(["recorded"]);
+    expect(messages.slice(1).map((m) => m.step)).toEqual(["recorded"]);
     const result = JSON.parse(events.at(-1).result.content[0].text);
     expect(result).toMatchObject({
       changed: { state: "answered" },

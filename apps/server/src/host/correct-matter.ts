@@ -3,7 +3,9 @@ import { readMatterBook } from "../memory/matters";
 import { recordCorrection } from "../memory/memory-files";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
-import { tickTodoItems } from "./change-todo-item";
+import { QUICK_MS } from "./answer-result";
+import { TICK_LIMIT_MS, tickTodoItems } from "./change-todo-item";
+import type { ToolCall } from "./http/mcp-tool";
 
 // His word on a whole matter, by its id (`correct_memory` with `matter`): Life reads which of its steps he means as
 // the matter stands now (`matterOf`), so his app never decides what is open or what a goal is pinned to.
@@ -11,9 +13,13 @@ import { tickTodoItems } from "./change-todo-item";
 /**
  * `outdated`: the matter is done, and every step still open, or ended only by a link (until his word), closes: its
  * to-do items ticked (`tickTodoItems`), then its observations by his `outdated` correction. `matter-direction`: his
- * goal or next step, pinned to every step the matter holds. Returns what was written.
+ * goal or next step, pinned to every step the matter holds. Returns what was written, reporting its plan and steps
+ * (`report`, `mcp-tool.ts`): one per to-do item ticked, then `recorded`.
  */
-export async function correctMatter(correction: Record<string, unknown>) {
+export async function correctMatter(
+  correction: Record<string, unknown>,
+  report: ToolCall["report"] = () => undefined
+) {
   const { matter, ...said } = correction;
   const book = await readMatterBook(await readPeople(), dayNow());
   const v = matterOfSteps(book, [String(matter)]);
@@ -22,9 +28,13 @@ export async function correctMatter(correction: Record<string, unknown>) {
     throw new Error(`Not done: no matter ${matter}; give a matter's id.`);
   }
   if (said.kind === "matter-direction") {
-    return [
-      await recordCorrection({ ...said, steps: v.steps.map((s) => s.ref) }),
-    ];
+    report({ limitSeconds: QUICK_MS / 1000, plan: ["recorded"] });
+    const written = await recordCorrection({
+      ...said,
+      steps: v.steps.map((s) => s.ref),
+    });
+    report({ step: "recorded" });
+    return [written];
   }
   if (said.kind !== "outdated") {
     throw new Error(
@@ -40,17 +50,26 @@ export async function correctMatter(correction: Record<string, unknown>) {
     throw new Error(`Not done: nothing of ${v.id} is open.`);
   }
   const note = typeof said.note === "string" ? said.note : undefined;
+  report({
+    limitSeconds:
+      Math.ceil((items.length * TICK_LIMIT_MS) / 1000) + QUICK_MS / 1000,
+    plan: [...(items.length > 0 ? ["todo_items_ticked"] : []), "recorded"],
+  });
   const ticked =
     items.length > 0
       ? await tickTodoItems(
           items,
-          note ?? "Marked done (Life's words: he gave none)."
+          note ?? "Marked done (Life's words: he gave none).",
+          (done, of, key) =>
+            report({ done, key, of, step: "todo_items_ticked" })
         )
       : [];
-  return [
+  const written = [
     ...ticked,
     ...(observations.length > 0
       ? [await recordCorrection({ kind: "outdated", note, observations })]
       : []),
   ];
+  report({ step: "recorded" });
+  return written;
 }
