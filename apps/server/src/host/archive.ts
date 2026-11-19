@@ -215,7 +215,9 @@ export async function archiveCommand(args: string[]): Promise<number> {
   const running = codeAt(LIFE_CODE_DIR);
   // A hand `--once` too: while the service runs, it would be a second archiver.
   await hold("archive");
-  const failing = new Set((await archiveFailing()).map(([name]) => name));
+  const failing = new Set(
+    openIncidents(await recentEvents(ARCHIVE_LOOKBACK)).keys()
+  );
   copyAll(failing);
   while (codeAt(LIFE_CODE_DIR) === running) {
     if (args.includes("--once")) {

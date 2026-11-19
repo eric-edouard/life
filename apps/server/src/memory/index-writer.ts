@@ -1,9 +1,9 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { clock } from "../core/clock";
 import { EMBEDDER_MODEL, textHashOf } from "../core/embedder";
 import { newestIn } from "../core/files";
-import { openReadOnly } from "../core/sqlite";
+import { openReadOnly, openWritable } from "../core/sqlite";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import type { Unit, Verdict } from "../records/unit";
@@ -91,9 +91,7 @@ const insertInto = (db: Database, table: string, n: number) =>
  * the commit and sees the new ones after it; a write waits for another to commit.
  */
 function writeIndex(path: string, write: (db: Database) => void) {
-  const db = new Database(path);
-  db.run("pragma busy_timeout = 30000");
-  db.run("pragma journal_mode = wal");
+  const db = openWritable(path, 30_000);
   try {
     db.transaction(() => write(db)).immediate();
   } finally {

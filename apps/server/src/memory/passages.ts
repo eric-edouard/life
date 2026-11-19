@@ -1,9 +1,9 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { clock, DAY, daysBefore, iso, MIN } from "../core/clock";
 import { CANDIDATES, EMBEDDER_MODEL, textHashOf } from "../core/embedder";
-import { openReadOnly } from "../core/sqlite";
+import { openReadOnly, openWritable } from "../core/sqlite";
 import { chatGroups, eventKey, type SourceEvent } from "../records/source";
 import { PASSAGES } from "./memory-files";
 import {
@@ -333,9 +333,7 @@ export function preparePassages(
       (e) => !blocked.has(bounds.get(eventKey(e)))
     );
     mkdirSync(dirname(path), { recursive: true });
-    const db = new Database(path);
-    db.run("pragma busy_timeout = 30000");
-    db.run("pragma journal_mode = wal");
+    const db = openWritable(path, 30_000);
     db.run(SCHEMA);
     try {
       db.transaction(() => {

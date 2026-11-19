@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import {
@@ -12,7 +12,7 @@ import {
   textHashOf,
   vectorOf,
 } from "../core/embedder";
-import { openReadOnly } from "../core/sqlite";
+import { openReadOnly, openWritable } from "../core/sqlite";
 import { VECTORS } from "./memory-files";
 import { listening } from "./sources";
 
@@ -116,9 +116,7 @@ export async function embedNew(
 ) {
   // Complete the model-free cache conversion before requesting any new embeddings.
   mkdirSync(dirname(VECTORS), { recursive: true });
-  const db = new Database(VECTORS, { create: true });
-  db.run("pragma busy_timeout = 30000");
-  db.run("pragma journal_mode = wal");
+  const db = openWritable(VECTORS, 30_000, { create: true });
   let count = 0;
   try {
     prepareVectors(db);

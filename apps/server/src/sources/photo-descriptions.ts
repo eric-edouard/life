@@ -1,9 +1,9 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { LIFE_STATE_DIR } from "../core/paths";
-import { openReadOnly } from "../core/sqlite";
+import { openReadOnly, openWritable } from "../core/sqlite";
 
 // Life's reading of each photo, one or two sentences (the glossary's description): written by the describer on the
 // Mac (`host/describe-photos.ts`) or imported from the one-off cloud run, read back into the photo-days (`readPhotos`).
@@ -128,10 +128,8 @@ export function readTally(path = DESCRIPTIONS) {
  */
 export function writeDescriptions(rows: Description[], path = DESCRIPTIONS) {
   mkdirSync(dirname(path), { recursive: true });
-  const db = new Database(path);
+  const db = openWritable(path, 30_000);
   try {
-    db.run("pragma busy_timeout = 30000");
-    db.run("pragma journal_mode = wal");
     db.run(SCHEMA);
     const put = db.query(
       `insert into descriptions values (?, ?, ?, ?, ?, ?, ?)

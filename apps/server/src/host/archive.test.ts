@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOUR, MIN } from "../core/clock";
-import { log } from "../core/log";
+import { log, recentEvents } from "../core/log";
 import { MACHINE_DIR, WINDOWS } from "../core/platform";
 import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE } from "../sources/archived";
@@ -19,6 +19,7 @@ import { toAppleS } from "../sources/imessage";
 import { whatsappFixture } from "../sources/store-fixtures";
 import { copyWhatsapp } from "../sources/whatsapp";
 import {
+  ARCHIVE_LOOKBACK,
   appsToOpen,
   archiveCommand,
   archiveFailing,
@@ -170,4 +171,14 @@ test("archive whatsapp validates its folder, holds the archive lock and copies o
     rmSync(ARCHIVE, { force: true, recursive: true });
     wa.close();
   }
+});
+
+test("an incident opened 10 minutes before a restart is still open at startup, so its next good pass closes it", async () => {
+  const step = "archive.whatsapp";
+  log("run.error", { error: "busy", step });
+  expect([
+    ...openIncidents(await recentEvents(ARCHIVE_LOOKBACK)).keys(),
+  ]).toContain("whatsapp");
+  expect(await archiveFailing(Date.now() + 10 * MIN)).toEqual([]);
+  log("run.end", { step });
 });
