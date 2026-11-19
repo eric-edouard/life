@@ -104,27 +104,24 @@ extension View {
     }
 }
 
-/// A `label`, a 1 px track filled by how far it got, and an end word (a deadline in `flag`, or a percent).
+/// A `label`, a 6 pt track filled by how far it got, and an end word. A nil `fraction` is a wait of unknown length: a
+/// still, empty track (nothing here moves on its own).
 struct ProgressLine: View {
     var label: String?
-    let fraction: Double
+    var fraction: Double?
     var end: String?
     var endColor = Palette.muted
-
-    init(label: String? = nil, fraction: Double, end: String? = nil, endColor: Color = Palette.muted) {
-        self.label = label
-        self.fraction = min(max(fraction, 0), 1)
-        self.end = end
-        self.endColor = endColor
-    }
 
     var body: some View {
         HStack(spacing: 12) {
             if let label { Caps(label, color: Palette.muted) }
-            Capsule().fill(Palette.line).frame(height: 1)
+            Capsule().fill(Color.fillTint).frame(height: 6)
                 .overlay(alignment: .leading) {
-                    GeometryReader { proxy in Capsule().fill(Palette.fg).frame(width: proxy.size.width * fraction) }
+                    GeometryReader { proxy in
+                        Capsule().fill(Palette.fg).frame(width: proxy.size.width * min(max(fraction ?? 0, 0), 1))
+                    }
                 }
+                .motion(Motion.standard, value: fraction)
             if let end { Caps(end, color: endColor) }
         }
         .frame(height: 24)
