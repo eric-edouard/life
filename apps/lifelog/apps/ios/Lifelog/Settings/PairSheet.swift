@@ -71,7 +71,7 @@ struct PairSheet: View {
         .accessibilityIdentifier("pair.sheet")
         #if DEBUG
             // `-fixtureSheet pairing`: pairs at once, so the checks and the result can be photographed.
-            .task { if LifeFixture.sheet == "pairing" && LifeFixture.scenario != nil { await pair() } }
+            .task { if LifeFixture.sheet == "pairing" && LifeFixture.isRequested { await pair() } }
         #endif
     }
 

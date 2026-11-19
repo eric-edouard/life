@@ -76,7 +76,7 @@ extension ConnectionSummary.Network {
     }
 }
 
-/// Why conversations wait (the feed's `waiting.reason`), as the sheet says it.
+/// Why conversations wait (the feed's `waiting.reason`), as the server's page says it.
 extension WaitingReason {
     var sentence: String {
         switch self {
