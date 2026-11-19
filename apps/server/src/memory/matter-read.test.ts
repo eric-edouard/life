@@ -211,8 +211,8 @@ test("a matter's people are its open steps' people: never a sitting's cast, neve
     }),
     "2026-10-20"
   );
-  // The dinner stays a step: history is kept on the steps.
-  expect(court?.steps.map((s) => s.text)).toContain("Dinner with a friend");
+  // An observation step brings no sitting: the dinner is no step of it.
+  expect(court?.steps.map((s) => s.text)).not.toContain("Dinner with a friend");
   expect(court).toMatchObject({ owedTo: [DAD], waitingOn: [], with: [LAWYER] });
 });
 
@@ -565,16 +565,44 @@ test("a link ends its step at once: the matter reads probably done, the step sho
   expect(done?.status).toBe("done");
 });
 
-test("a placed observation brings the episode holding its unit, with no unit step for it", () => {
+test("a placed observation brings no episode: only a unit step does", () => {
   const [view] = matterBookOf(
     stored([{ ...line, steps: [{ ref: obs(5, "", {}).id }] }]),
     records(),
     "2026-10-20"
   );
-  expect(view?.steps.map((s) => s.text)).toEqual([
-    "Call the shop",
-    "Call to the shop",
+  expect(view?.steps.map((s) => s.text)).toEqual(["Call the shop"]);
+  const [byUnit] = matterBookOf(
+    stored([{ ...line, steps: [{ ref: obs(5, "", {}).unit }] }]),
+    records(),
+    "2026-10-20"
+  );
+  expect(byUnit?.steps.map((s) => s.kind)).toContain("episode");
+});
+
+// stale-1-finished-matter-offered, stale-5-second-phantom-of-one-meeting: one voice unit held by two episodes of a day
+// (a repair, a swim with a friend), of which `episodeOf` keeps the swim; the matter's only step is an observation of it.
+test("stale-1-finished-matter-offered, stale-5-second-phantom-of-one-meeting: an observation step holds no sitting, so its friend is no one's", () => {
+  const FRIEND = "person:friend";
+  const said = obs(60, "2026-10-14", {
+    text: "Drop the bike at the repair shop",
+  });
+  // `episodeOf` keeps one episode per unit: here the swim, not the repair.
+  const swim = episode(61, "2026-10-14", "Swim with a friend", [
+    [FRIEND, "with"],
   ]);
+  const [view] = matterBookOf(
+    stored([{ ...line, steps: [{ ref: said.id }] }]),
+    records({
+      episodeOf: new Map([[said.unit, swim]]),
+      observations: [said],
+    }),
+    "2026-10-20"
+  );
+  expect(view?.steps.map((s) => s.kind)).toEqual(["to_do"]);
+  for (const people of [view?.with, view?.owedTo, view?.waitingOn]) {
+    expect(people).not.toContain(FRIEND);
+  }
 });
 
 test("a placed observation whose unit no episode holds attaches no episode", () => {
