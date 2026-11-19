@@ -77,7 +77,7 @@ Verified on the owner's Pendant, from one drain of 254 pages (about 8 hours, 4 m
 
 ## Sound activity
 
-The glance (the pill, the widgets) says whether the Pendant is storing sound now; the Pendant sheet does not. The phone
+The glance (the top-bar item, the widgets) says whether the Pendant is storing sound now; the Pendant sheet does not. The phone
 never decides it hears anything: only the Pendant's own evidence counts.
 
 - 🟢 The firmware runs a sound detector and stores audio only while it fires, opening a storage session about 120 ms

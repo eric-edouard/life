@@ -86,6 +86,14 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.goal?.by == .unknown)
 }
 
+@Test func theListSearchesOnThePhone() throws {
+    let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
+    #expect(list.matching("watch").map(\.name) == ["Mend Gran's watch"])
+    #expect(list.matching("QUOTE").count == 1)
+    #expect(list.matching("  ").count == 3)
+    #expect(list.matching("nothing like it").isEmpty)
+}
+
 @Test func theFiltersNarrowTheListAndAreasComeMostFirst() throws {
     let text = #"""
         {"matters":[

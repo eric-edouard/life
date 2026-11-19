@@ -31,7 +31,7 @@ struct InboxScreen: View {
             ) { choice in
                 if let request = check.answer(naming: choice) { submit(check, request) }
             }
-            .presentationPlacement(.trailing)
+            .sheetStack()
         }
         .onChange(of: life.openedCard, initial: true) { _, opening in
             guard let opening else { return }
@@ -135,6 +135,7 @@ struct InboxScreen: View {
             .scrollPosition(id: $current, anchor: .leading)
             .scrollTargetBehavior(.viewAligned)
             .scrollIndicators(.hidden)
+            .endsAtColumn()
             // A pager made after his tap's result starts on the first card: put it on the one he is on.
             .onAppear { if let current { proxy.scrollTo(current, anchor: .leading) } }
         }
