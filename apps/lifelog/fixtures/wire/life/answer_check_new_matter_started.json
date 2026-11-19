@@ -15,11 +15,6 @@
       "ask": "entry_000000000001"
     }
   ],
-  "inbox": {
-    "deadlinesToday": 0,
-    "left": true,
-    "total": 0
-  },
   "kind": "new matter",
   "ref": "matter_000000000007",
   "send": null,
