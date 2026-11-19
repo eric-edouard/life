@@ -307,17 +307,35 @@ export type AgentRead = AgentNow & {
   filters: EventFilter[];
 };
 
-/** For each chat a filter of `a` names: its name and app from the newest event the desk queued for `a` there (one query per chat, bounded by `a`'s events); none while no event came from it. */
+/**
+ * For each chat a filter of `a` names: its name and app from the newest event the desk queued for `a` there; none while
+ * none of `a`'s newest `SEEN_EVENTS` came from it. Only for the reads of what wakes an agent.
+ * ponytail: a chat last heard more than `SEEN_EVENTS` events ago shows no name (nothing deletes from `event`); a chat column on `event` would find it.
+ */
+const SEEN_EVENTS = 200;
 function seenChatsOf(db: Database, a: AgentRow) {
+  const chats = new Set(filtersOf(a).flatMap((f) => f.chat ?? []));
+  if (chats.size === 0) {
+    return {};
+  }
+  const recent = db
+    .query<{ payload: string }, [string, number]>(
+      `select payload from event where agent_id = ? and name in ('${MESSAGE_RECEIVED}', '${CALL_ENDED}') order by rowid desc limit ?`
+    )
+    .all(a.id, SEEN_EVENTS)
+    .map(
+      (r) =>
+        JSON.parse(r.payload) as {
+          chat?: string;
+          chatName?: string;
+          source?: string;
+        }
+    );
   const seen: AgentRead["chatsSeen"] = {};
-  for (const chat of new Set(filtersOf(a).flatMap((f) => f.chat ?? []))) {
-    const e = db
-      .query<{ name: string | null; source: string | null }, [string, string]>(
-        `select json_extract(payload, '$.chatName') as name, json_extract(payload, '$.source') as source from event where agent_id = ? and name in ('${MESSAGE_RECEIVED}', '${CALL_ENDED}') and json_extract(payload, '$.chat') = ? order by rowid desc limit 1`
-      )
-      .get(a.id, chat);
+  for (const chat of chats) {
+    const e = recent.find((x) => x.chat === chat);
     if (e) {
-      seen[chat] = e;
+      seen[chat] = { name: e.chatName ?? null, source: e.source ?? null };
     }
   }
   return seen;
@@ -360,7 +378,12 @@ const statusSinceOf = (
   })[status] ?? null;
 
 /** Agent `a` as read now (`AgentNow`): its last turn, its anchors and its events dropped in the last day. */
-function nowOf(db: Database, a: AgentRow, now: number): AgentRead {
+function nowOf(
+  db: Database,
+  a: AgentRow,
+  now: number,
+  isForWakes: boolean
+): AgentRead {
   const [last] = lastTurns(db, a.id, 1);
   const open = last && !last.ended_at ? last : null;
   const dropped =
@@ -376,7 +399,7 @@ function nowOf(db: Database, a: AgentRow, now: number): AgentRead {
   return {
     amber,
     ...modelOf(a),
-    chatsSeen: status === "waiting" ? seenChatsOf(db, a) : {},
+    chatsSeen: isForWakes && status === "waiting" ? seenChatsOf(db, a) : {},
     filters: filtersOf(a),
     id: a.id,
     lastTurn: last
@@ -412,7 +435,7 @@ function nowOf(db: Database, a: AgentRow, now: number): AgentRead {
  * Every registered agent worth showing: the active ones, the newest stopped ones (50 each at most), and those ended in the
  * last 7 days (a handed-over agent is not listed: its successor is).
  */
-export function agentsNow(db: Database, now: number) {
+export function agentsNow(db: Database, now: number, isForWakes = false) {
   const rows = [
     ...activeAgents(db),
     ...db
@@ -426,7 +449,7 @@ export function agentsNow(db: Database, now: number) {
       )
       .all(new Date(now - 7 * DAY).toISOString(), MAX_ACTIVE),
   ];
-  return rows.map((a) => nowOf(db, a, now));
+  return rows.map((a) => nowOf(db, a, now, isForWakes));
 }
 
 /** How many past agents a matter's or a project's read lists, after its active ones. */
@@ -437,7 +460,8 @@ export function agentsOnSteps(
   db: Database,
   steps: string[],
   now: number,
-  projects: string[] = []
+  projects: string[] = [],
+  isForWakes = false
 ) {
   const rows =
     steps.length === 0
@@ -455,7 +479,7 @@ export function agentsOnSteps(
       rows.push(agent);
     }
   }
-  return rows.map((a) => nowOf(db, a, now));
+  return rows.map((a) => nowOf(db, a, now, isForWakes));
 }
 
 /** The agents on any of `projects` (not those handed over), active first, then the newest past ones. */
@@ -472,7 +496,7 @@ export function agentsOnProjects(
       `select * from agent where status <> 'handed_over' and project in (${projects.map(() => "?").join(",")}) order by status = 'active' desc, created_at desc limit ?`
     )
     .all(...projects, MAX_ACTIVE + PAST_SHOWN)
-    .map((a) => nowOf(db, a, now));
+    .map((a) => nowOf(db, a, now, false));
 }
 
 /** A line a scheduled task or a session posted for the report (`bun life desk report-line`): one per source per day. */

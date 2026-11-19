@@ -34,7 +34,7 @@ import { matcherOf } from "./events";
  * and with `calls` the calls of the same people or chat), an event channel's name (`payments`), `answer` (his answer to
  * its open card, or its deadline) or `wide_net` (anything new close to its matter). Only the fields a kind has.
  */
-export interface WakeLine {
+interface ListenLine {
   above?: number;
   /** The apps a message line is limited to; none: every app. */
   apps?: string[];
@@ -43,16 +43,23 @@ export interface WakeLine {
   broken?: "unknown_person";
   /** Whether the line also covers calls (a call has no text and is never his own). */
   calls?: boolean;
-  card?: string;
   chat?: { app: string | null; group: boolean | null; name: string | null };
-  check?: string;
-  deadline?: string;
   fromHim?: true;
   kind: string;
   person?: string;
   quantity?: string;
   words?: string;
 }
+
+/** His answer to the agent's open card, or the card's deadline (always set). */
+interface AnswerLine {
+  card: string;
+  check: string;
+  deadline: string;
+  kind: "answer";
+}
+
+export type WakeLine = AnswerLine | ListenLine;
 
 /** What `wakesOnOf` reads besides the filters: the event channels, who people are, the chats the agent has heard from, its open card and whether it has a wide net. */
 export interface WakesOnContext {
@@ -81,7 +88,7 @@ function chatOf(
 }
 
 /** The message line of `f` (its messages, and calls when it covers them), none when `f` stops every message (a `quantity`, or only event channels). */
-function messageLineOf(f: EventFilter, c: WakesOnContext): WakeLine[] {
+function messageLineOf(f: EventFilter, c: WakesOnContext): ListenLine[] {
   const { channels, people } = c;
   const apps = f.channels?.filter((n) => !channels.some((x) => x.name === n));
   if (f.quantity || apps?.length === 0) {
@@ -117,7 +124,7 @@ export function wakesOnOf(
   c: WakesOnContext
 ): WakeLine[] {
   const { card, channels, hasNet } = c;
-  const lines = filters.flatMap((f): WakeLine[] => {
+  const lines = filters.flatMap((f): ListenLine[] => {
     const message = messageLineOf(f, c);
     const events =
       f.person || f.chat || f.from_me
@@ -146,7 +153,7 @@ export function wakesOnOf(
             card: card.question,
             check: card.check,
             deadline: card.deadline,
-            kind: "answer",
+            kind: "answer" as const,
           },
         ]
       : []),
@@ -154,8 +161,12 @@ export function wakesOnOf(
   ];
 }
 
-/** `agents` without what only `wakesOn` is made of, with it: its lines while it waits, none otherwise (running, stopped, ended). `people` is read once by the caller. */
-function withWakesOn(agents: AgentRead[], people: People) {
+/** `agents` without what only `wakesOn` is made of, with it: its lines while it waits, none otherwise (running, stopped, ended). `people` is read once by the caller; the wide net is only for an agent whose matter is found (`isOnMatter`, as `netsOf` decides). */
+function withWakesOn(
+  agents: AgentRead[],
+  people: People,
+  isOnMatter: (steps: string[]) => boolean
+) {
   const open = decisionsNow().filter((d) => d.state === "open");
   return agents.map(({ chatsSeen, filters, ...a }) => {
     const d = open.find((x) => x.agent === a.id);
@@ -170,7 +181,7 @@ function withWakesOn(agents: AgentRead[], people: People) {
                 question: d.question,
               },
               channels: EVENT_CHANNELS,
-              hasNet: a.steps.length > 0,
+              hasNet: isOnMatter(a.steps),
               people,
               seen: chatsSeen,
             })
@@ -202,7 +213,7 @@ export async function readRegisteredAgents(
 ): Promise<RegisteredAgents> {
   const read = readDesk(
     (db) => ({
-      agents: agentsNow(db, now.getTime()),
+      agents: agentsNow(db, now.getTime(), true),
       refused: refusedSince(db, iso(now.getTime() - DAY)),
     }),
     { agents: [], refused: [] }
@@ -219,11 +230,13 @@ export async function readRegisteredAgents(
   }
   const { refused } = read.value;
   const people = await readPeople();
-  const agents = withWakesOn(read.value.agents, people);
-  const book = agents.some((a) => a.steps.length > 0)
+  const book = read.value.agents.some((a) => a.steps.length > 0)
     ? await readMatterBook(people, dayNow())
     : [];
   const find = matterFinderOf(book);
+  const agents = withWakesOn(read.value.agents, people, (steps) =>
+    Boolean(find(steps))
+  );
   return {
     agents: agents.map((a) => {
       const v = find(a.steps);
@@ -283,10 +296,13 @@ export function readAgentsOnSteps(
   people: People
 ) {
   const read = readDesk(
-    (db) => agentsOnSteps(db, steps, clock().getTime(), projects),
+    (db) => agentsOnSteps(db, steps, clock().getTime(), projects, true),
     []
   );
-  return read.state === "ok" ? withWakesOn(read.value, people) : [];
+  // The matter is the one read, found: an agent anchored on it has its wide net.
+  return read.state === "ok"
+    ? withWakesOn(read.value, people, (s) => s.length > 0)
+    : [];
 }
 
 /** The agents on a project (or each project of an area), active first. */

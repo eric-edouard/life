@@ -214,17 +214,18 @@ test("the lines keep the filters' order, then the open card (with its deadline),
     deadline: "2026-11-21T09:00:00.000Z",
     question: "Send Ana the quote?",
   };
-  expect(
-    wakesOnOf(
-      [filter({ text_matches: "a" }), filter({ person: "Test Ana" })],
-      ctx({ card, hasNet: true })
-    ).map((l) => [l.kind, l.words ?? l.person ?? l.card])
-  ).toEqual([
-    ["message", "a"],
-    ["message", ana],
-    ["answer", card.question],
-    ["wide_net", undefined],
+  const lines = wakesOnOf(
+    [filter({ text_matches: "a" }), filter({ person: "Test Ana" })],
+    ctx({ card, hasNet: true })
+  );
+  expect(lines.map((l) => l.kind)).toEqual([
+    "message",
+    "message",
+    "answer",
+    "wide_net",
   ]);
+  expect(lines[0]).toMatchObject({ words: "a" });
+  expect(lines[1]).toMatchObject({ person: ana });
   expect(wakesOnOf([], ctx({ card }))).toEqual([
     {
       card: card.question,
