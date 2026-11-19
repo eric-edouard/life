@@ -29,7 +29,7 @@ import {
   lifelogNames,
   lifelogUnits,
   type Resolve,
-  sourceEventsOf,
+  readEventsOf,
   sourceUnitsOf,
 } from "./units";
 import { dayStart, lastDays, localDate, type Window } from "./zones";
@@ -168,7 +168,7 @@ export async function readSourceEvents(
       .map(async (s) => ({
         events: await guard(
           s.name,
-          () => sourceEventsOf(s, since, ctx, before),
+          () => readEventsOf(s, since, ctx, before),
           failed
         ),
         s,

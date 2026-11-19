@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import type { Unit } from "../records/unit";
 import { readUnits, UNITS } from "./memory-files";
@@ -33,20 +33,18 @@ test("today's sync writes its own sources' units, keeps lifelog's and a failed s
   const voice = unit("unit_00000000000a", "lifelog");
   const chat = unit("unit_00000000000b", "whatsapp");
   const mail = unit("unit_00000000000c", "mail");
-  let published = 0;
+  const prepared = spyOn(
+    await import("./passages"),
+    "preparePassages"
+  ).mockReturnValue((() => undefined) as never);
   const publish = (want: Unit[], failed: string[] = []) =>
-    publishTodayUnits(
-      {
-        built: want.map((u) => ({ unit: u })) as Built[],
-        events: [],
-        failed,
-        read: { mail: 1, whatsapp: 1 } as never,
-        window: { from: day, to: day },
-      },
-      () => {
-        published += 1;
-      }
-    );
+    publishTodayUnits({
+      built: want.map((u) => ({ unit: u })) as Built[],
+      events: [],
+      failed,
+      read: { mail: 1, whatsapp: 1 } as never,
+      window: { from: day, to: day },
+    });
   try {
     await writeUnits([day], [voice, mail]);
     expect(await publish([chat], ["mail"])).toMatchObject({
@@ -59,7 +57,7 @@ test("today's sync writes its own sources' units, keeps lifelog's and a failed s
     });
     // Nothing new: nothing written, no passages, nothing to index.
     expect((await publish([chat], ["mail"])).written).toEqual([]);
-    expect(published).toBe(1);
+    expect(prepared).toHaveBeenCalledTimes(1);
     // A chat-day whose every message was unsent: its unit goes, and the index is rebuilt whole.
     expect(await publish([], ["mail"])).toMatchObject({
       hasGoneOrBack: true,
@@ -67,6 +65,7 @@ test("today's sync writes its own sources' units, keeps lifelog's and a failed s
     });
     expect(await sourcesByDay()).toEqual({ [day]: ["lifelog", "mail"] });
   } finally {
+    prepared.mockRestore();
     rmSync(UNITS, { force: true, recursive: true });
   }
 });

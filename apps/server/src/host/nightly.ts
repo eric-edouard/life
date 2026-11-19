@@ -513,6 +513,7 @@ export async function runNight(
     // Every source is read once and handed to each step.
     steps.at = "gather";
     const evidence = await gather(window, await readPeople());
+    steps.at = "units";
     // Units first (code output, rebuildable but for lifelog's chapter units, which stay as stored: AGENTS.md; kept even
     // when lifelog isn't read); not when a source failed: the files would lose that source's units.
     if (evidence.failed.length === 0) {

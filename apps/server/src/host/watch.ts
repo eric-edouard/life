@@ -302,7 +302,7 @@ const TODAY_EVERY = 5 * MIN;
 /** How soon a new decision reaches his phone: a stat of its file, cheap. */
 const DECISIONS_EVERY = 3000;
 /**
- * On its own timer, one at a time: today's units built outside the lock, written and indexed under it. When a run holds
+ * On its own timer, one at a time: today's units read outside the lock, written (passages prepared) and indexed under it. When a run holds
  * the lock this turn is skipped; the other way round, a night that finds the lock held waits for the next tick.
  */
 async function syncToday() {

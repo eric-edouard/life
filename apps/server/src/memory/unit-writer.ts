@@ -153,7 +153,7 @@ export function diffUnits(have: Unit[], want: Unit[]) {
 }
 
 /** What today's write keeps as it is: lifelog's units, and those of a source not read now (off, unreadable or failed). */
-export function keptToday(read: string[], failed: string[]) {
+function keptToday(read: string[], failed: string[]) {
   const fresh = new Set(read.filter((name) => !failed.includes(name)));
   return (u: Unit) => !fresh.has(u.source);
 }
@@ -167,8 +167,7 @@ export function keptToday(read: string[], failed: string[]) {
  * `duplicate` rule sees today only (the night's sees 7 days), the night settles it.
  */
 export async function publishTodayUnits(
-  evidence: Pick<Evidence, "built" | "events" | "failed" | "read" | "window">,
-  passages?: () => void
+  evidence: Pick<Evidence, "built" | "events" | "failed" | "read" | "window">
 ) {
   const day = evidence.window.from;
   const kept = keptToday(Object.keys(evidence.read), evidence.failed);
@@ -178,10 +177,7 @@ export async function publishTodayUnits(
     want
   );
   if (diff.dates.length > 0) {
-    (
-      passages ??
-      preparePassages(evidence.events, evidence.window, evidence.failed)
-    )();
+    preparePassages(evidence.events, evidence.window, evidence.failed)();
     await writeUnits([day], want, kept);
   }
   return diff;
