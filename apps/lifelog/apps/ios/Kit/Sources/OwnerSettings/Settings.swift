@@ -14,10 +14,6 @@ public final class Settings {
     public var lightBrightnessCheck: LightBrightnessCheck {
         didSet { defaults.set(lightBrightnessCheck.rawValue, forKey: Key.lightBrightnessCheck) }
     }
-    /// The Pendant screen's "Allow notifications" card, closed for good.
-    public var notificationsInviteDismissed: Bool {
-        didSet { defaults.set(notificationsInviteDismissed, forKey: Key.notificationsInviteDismissed) }
-    }
     /// In the app group for historical reasons; only the app reads it.
     public var alerts: AlertSettings {
         didSet { group.set(try? JSONEncoder().encode(alerts), forKey: Key.alerts) }
@@ -33,7 +29,6 @@ public final class Settings {
         lightBrightnessLevel = defaults.object(forKey: Key.lightBrightnessLevel) as? Int
         lightBrightnessCheck =
             defaults.string(forKey: Key.lightBrightnessCheck).flatMap(LightBrightnessCheck.init) ?? .unasked
-        notificationsInviteDismissed = defaults.bool(forKey: Key.notificationsInviteDismissed)
         alerts =
             group.data(forKey: Key.alerts).flatMap { try? JSONDecoder().decode(AlertSettings.self, from: $0) }
             ?? AlertSettings()
@@ -43,7 +38,6 @@ public final class Settings {
     private enum Key {
         static let lightBrightnessLevel = "lightBrightnessLevel"
         static let lightBrightnessCheck = "lightBrightnessCheck"
-        static let notificationsInviteDismissed = "notificationsInviteDismissed"
         static let alerts = "alertSettings"
     }
 }

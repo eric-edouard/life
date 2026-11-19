@@ -69,7 +69,8 @@ public struct PendantReading: Sendable, Equatable {
         let own: (CaptureCondition) -> Bool = { !isChecking($0) && !($0 == .neverConfigured) && !isNoPendantFound($0) }
         conditions = noneFound ? [] : all.filter(own)
         lowBattery = glance.batteryIsLow(now: now) ? glance.battery : nil
-        isFlag = [.full, .outOfRange].contains(state) || (state == .notConnected && !conditions.isEmpty)
+        isFlag =
+            [.full, .outOfRange].contains(state) || (state == .notConnected && !conditions.isEmpty)
             || conditions.contains(.recordingStopped)
         since = state == .recording ? recordingSince : nil
         pausedAt = state == .notRecording ? Self.longPress(status, now: now) : nil

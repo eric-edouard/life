@@ -259,7 +259,9 @@ import Testing
         #expect(machine.device == nil)
         // The link's own disconnect arriving later changes nothing.
         #expect(machine.handle(.disconnected(old, .cancelled)).isEmpty)
-        #expect(machine.handle(.discovered(DiscoveredPendant(id: old, name: nil))).isEmpty, "the one let go is never taken again")
+        #expect(
+            machine.handle(.discovered(DiscoveredPendant(id: old, name: nil))).isEmpty,
+            "the one let go is never taken again")
         let new = UUID()
         #expect(machine.handle(.discovered(DiscoveredPendant(id: new, name: nil))) == [.stopScan, .connect(new)])
         #expect(machine.device == new)

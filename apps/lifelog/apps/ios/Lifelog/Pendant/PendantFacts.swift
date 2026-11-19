@@ -7,6 +7,42 @@ import ServerAPI
 import SourceStore
 import SwiftUI
 import Timeline
+import Upload
+
+/// A device fact with how much to trust it, decided once where `now` is known so rows never need a clock.
+enum Fact<Value: Equatable>: Equatable {
+    /// Reported by a connected Pendant within one sync cycle.
+    case current(Value, at: Date)
+    /// True when reported, maybe not now.
+    case lastKnown(Value, at: Date)
+    case unknown
+
+    var value: Value? {
+        switch self {
+        case .current(let value, _), .lastKnown(let value, _): value
+        case .unknown: nil
+        }
+    }
+
+    var at: Date? {
+        switch self {
+        case .current(_, let at), .lastKnown(_, let at): at
+        case .unknown: nil
+        }
+    }
+}
+
+extension Fact where Value: Sendable {
+    init(_ observed: Observed<Value>?, connected: Bool, now: Date) {
+        guard let observed else {
+            self = .unknown
+            return
+        }
+        self =
+            EvidenceFreshness.isCurrent(observed.at, connected: connected, now: now)
+            ? .current(observed.value, at: observed.at) : .lastKnown(observed.value, at: observed.at)
+    }
+}
 
 /// What capture knows, as plain values.
 struct CaptureFacts: Equatable {
@@ -24,10 +60,12 @@ struct CaptureFacts: Equatable {
     var macDictatingSince: Date?
     /// The paired pendant's kind, kept from before this launch (`CaptureStore.pairedKind`).
     var pairedKind = DeviceKind.limitless
+    /// Where the uploader stands, `nil` until it said (`SyncStore.uploads`).
+    var uploads: UploadStatus?
 }
 
 extension CaptureFacts {
-    init(_ capture: CaptureStore, macDictatingSince: Date?) {
+    init(_ capture: CaptureStore, macDictatingSince: Date?, uploads: UploadStatus? = nil) {
         self.init(
             status: capture.shown, context: capture.context, lastCaughtUp: capture.lastCaughtUp,
             lastSaved: capture.lastSavedCapture, phoneFreeBytes: capture.phoneFreeBytes,
@@ -35,7 +73,7 @@ extension CaptureFacts {
             incidents: capture.openIncidents.map { IncidentItem($0, audioAt: capture.incidentAudioTimes[$0.id]) }
                 .grouped(),
             recordingSince: capture.shown.recordingSince(capture.recordingChanges), batteryLife: capture.batteryLife,
-            macDictatingSince: macDictatingSince, pairedKind: CaptureStore.pairedKind)
+            macDictatingSince: macDictatingSince, pairedKind: CaptureStore.pairedKind, uploads: uploads)
     }
 
     /// The moments a shown fact could change without any new event: evidence going stale, a scan or reconnect
@@ -56,7 +94,7 @@ extension CaptureFacts {
             CaptureCondition.outOfReachAfter,
         ]
         .map { since.addingTimeInterval($0 + 1) }
-        if let press = status.lastButton?.at { dates.append(press.addingTimeInterval(HeroReading.longPressWindow)) }
+        if let press = status.lastButton?.at { dates.append(press.addingTimeInterval(PendantReading.longPressWindow)) }
         return [now] + dates.filter { $0 > now }.sorted()
     }
 }
@@ -80,11 +118,22 @@ struct TranscriptionFacts: Equatable {
     var waiting: [WaitingReason: Int] = [:]
     var macLlm: ServerClient.MacLLM?
 
-    /// Something the owner can act on; the rest of processing shows in the status and its sheet.
-    var needsOwner: Bool {
-        !isPaired || switches?.transcription == false || switches?.ai == false
-            || waiting[.creditsOut] != nil || waiting[.macAway] != nil
+    /// Why conversations wait for the Mac, as the Mac itself says it.
+    var macDetail: String {
+        switch macLlm?.reason {
+        case .auth?:
+            switches?.engine == .codex
+                ? "Your Mac needs a ChatGPT login: Lifelog Host → Settings → Summaries."
+                : "Your Mac needs a Claude login: Lifelog Host → Settings → Summaries."
+        case .limit?: "Your subscription limit is reached; it resumes when the limit resets."
+        default: "They go on once your Mac is awake and online."
+        }
     }
+}
+
+/// "1 conversation", "5 conversations".
+func conversationCount(_ count: Int) -> String {
+    String(AttributedString(localized: "^[\(count) conversation](inflect: true)").characters)
 }
 
 extension TranscriptionFacts {
@@ -92,5 +141,20 @@ extension TranscriptionFacts {
         self.init(
             isPaired: sync.isPaired, switches: sync.switches,
             waiting: sync.waiting, macLlm: sync.feed.mac?.llm)
+    }
+}
+
+extension NotOnTheMac {
+    /// "12 min on the pendant, 4 min on this phone": what is held back, as far as it is known.
+    var words: String? {
+        func time(_ duration: Duration) -> String {
+            duration.formatted(.units(allowed: [.hours, .minutes], width: .narrow, maximumUnitCount: 2))
+        }
+        var parts: [String] = []
+        if let pages = pendantPages, pages > 0 {
+            parts.append(pendantDuration.map { "\(time($0)) on the pendant" } ?? "\(pages) pages on the pendant")
+        }
+        if phoneDuration > .zero { parts.append("\(time(phoneDuration)) on this phone") }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 }

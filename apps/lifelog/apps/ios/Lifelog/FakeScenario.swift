@@ -14,6 +14,12 @@
         case disconnectMidDrain
         /// First launch: no Pendant paired yet, so lifelog scans; one turns up a few seconds later.
         case neverSetUp
+        /// Out of reach for good: it recorded, and the phone cannot find it.
+        case outOfRange
+        /// Its battery is at 12 % and not charging.
+        case lowBattery
+        /// Its flash is full: recording has stopped and its pages are leaving it.
+        case full
         /// An Omi on firmware 3.0.21, which frees records on delivery: drained, then let go until the next sync.
         case omi
 
@@ -74,6 +80,15 @@
                     try? await Task.sleep(for: .seconds(3))
                     await fake.setInRange(true)
                 }
+            case .outOfRange:
+                await fake.record(pages: 20)
+                await fake.setInRange(false)
+            case .lowBattery:
+                await fake.record(pages: 20)
+                await fake.setBattery(percent: 12, charging: false)
+            case .full:
+                await fake.setTotalPages(3_000)
+                await fake.record(pages: 3_000)
             case .omi:
                 break
             }

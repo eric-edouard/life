@@ -7,26 +7,20 @@ import ServerAPI
 import SourceStore
 import SwiftUI
 import Timeline
+import Upload
 
-/// The Pendant tab: am I recording, everything useful at a glance, what needs me, and the way into Settings. Reads
-/// the stores; `PendantScreen` draws plain values so previews can show every state.
+/// The Pendant sheet: what state it is in, what to do about it, its facts, and what is not on the Mac yet. Reads the
+/// stores; `PendantScreen` draws plain values so previews can show every state.
 struct PendantView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(SyncStore.self) private var sync
     @Environment(\.scenePhase) private var scenePhase
-    @State private var permissions = PermissionsStore()
 
     var body: some View {
-        NavigationStack {
-            PendantScreen(
-                capture: CaptureFacts(capture, macDictatingSince: sync.macDictatingSince),
-                transcription: TranscriptionFacts(sync),
-                permissions: permissions,
-                showsNotificationsInvite: permissions.notifications == .notAsked && capture.hasKnownPendant
-                    && !Settings.shared.notificationsInviteDismissed,
-                actions: PendantActions(capture: capture, sync: sync, permissions: permissions))
-        }
-        .task(id: scenePhase) { await permissions.refresh() }
+        PendantScreen(
+            capture: CaptureFacts(capture, macDictatingSince: sync.macDictatingSince, uploads: sync.uploads),
+            actions: PendantActions(capture: capture, sync: sync)
+        )
         // On screen in the foreground: keep "Recording." and the sound line backed by current evidence. A status every
         // few seconds, never a control write; stops when the screen or the app goes away.
         .task(id: scenePhase == .active && capture.availability == .running) {
@@ -36,123 +30,281 @@ struct PendantView: View {
     }
 }
 
-/// The frame around the Lens layout: toolbar, toast, haptics, pull to refresh, the attention cards and the moments the
-/// screen re-reads.
 struct PendantScreen: View {
     let capture: CaptureFacts
-    let transcription: TranscriptionFacts
-    let permissions: PermissionsStore
-    let showsNotificationsInvite: Bool
     let actions: PendantActions
 
     @Environment(\.dismiss) private var dismiss
+    @State private var sheet: PendantSheet?
+
+    private enum PendantSheet: String, Identifiable {
+        case replace, pair
+        var id: String { rawValue }
+    }
 
     var body: some View {
         TimelineView(.explicit(capture.boundaries(after: .now))) { timeline in
             let now = timeline.date
-            let conditions = CaptureCondition.evaluate(capture.status, context: capture.context, now: now)
-            let cards = conditions.filter(\.isCard)
-            let input = PendantLayoutInput(
-                capture: capture, transcription: transcription,
-                hero: hero(conditions: conditions, now: now),
-                glance: glance(now: now), actions: actions, now: now)
-            let status = capture.status
-            let omi = capture.pairedKind == .omi && OmiFirmware.freesOnDelivery(status.firmwareRevision)
-            let attention = AttentionList(
-                conditions: cards, incidents: capture.incidents, transcription: transcription,
-                showsNotificationsInvite: showsNotificationsInvite,
-                omiCustody: omi ? OmiCustodyCard(revision: status.firmwareRevision) : nil,
-                actions: actions)
-            ScrollView {
-                LensLayout(input: input) { attention }
-                    // A card arriving or leaving eases what is below out of its way instead of jumping it.
-                    .motion(
-                        Motion.rise,
-                        value: AttentionKey(
-                            conditions: cards.map(\.title), incidents: capture.incidents.map(\.id),
-                            transcription: transcription, invite: showsNotificationsInvite, omi: omi))
+            let settings = Settings.shared.alerts
+            let reading = PendantReading(
+                status: capture.status, context: capture.context, recordingSince: capture.recordingSince,
+                lowBatteryPercent: settings.lowBattery ? settings.lowBatteryPercent : nil, now: now)
+            let held = whatIsNotOnTheMac(backlog: capture.status.backlog, uploads: capture.uploads, now: now)
+            VStack(alignment: .leading, spacing: 16) {
+                SheetHeader(title: "Pendant", isLabel: true) { dismiss() }
+                    .padding(.horizontal, Metrics.gutter)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        status(reading, now: now)
+                        if reading.state != .noPendant {
+                            facts(reading, now: now)
+                            upload(held)
+                            boxes
+                        }
+                    }
+                    .padding(.horizontal, Metrics.gutter)
+                    .padding(.bottom, 16)
+                    .readingWidth()
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollEdgeEffectStyle(.soft, for: .bottom)
+                .refreshable { await actions.refresh() }
+                footer(reading)
             }
-            // No title over the home screen: the bar stays for its buttons, and content softens under it.
-            .scrollEdgeEffectStyle(.soft, for: .top)
-            .stillWhileScrolling()
+            .padding(.top, 16)
+            .background(Palette.sheet)
+            .presentationBackground(Palette.sheet)
         }
-        .background(Palette.bg)
-        // Named for the back button on pages pushed from here, never shown on this one.
-        .navigationTitle("Pendant")
-        .toolbar(removing: .title)
-        .toolbarTitleDisplayMode(.inline)
-        .refreshable { await actions.refresh() }
-        .toolbar {
+        .sheet(item: $sheet) { which in
+            switch which {
+            case .replace: ReplaceSheet { sheet = .pair }
+            case .pair: PairPendantSheet()
+            }
+        }
+        .accessibilityIdentifier("pendant.sheet")
+        #if DEBUG
+            // `-fixturePendantSheet replace|pair`: opens that sheet at once, to be photographed.
+            .task { sheet = UserDefaults.standard.string(forKey: "fixturePendantSheet").flatMap(PendantSheet.init) }
+        #endif
+    }
+
+    // MARK: Status
+
+    private func status(_ reading: PendantReading, now: Date) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
             if capture.macDictatingSince != nil {
-                ToolbarItem(placement: .topBarLeading) {
-                    // Text, not a Label: the bar would draw a Label as its icon alone.
-                    Text("\(Image(systemName: "laptopcomputer")) Mac dictating")
-                        .font(.body15)
-                        .fixedSize()
-                        // The words alone: VoiceOver would read the symbol's name first.
-                        .accessibilityLabel("Mac dictating")
-                        .accessibilityIdentifier("pendant.macDictating")
+                Text("\(Image(systemName: "laptopcomputer")) Mac dictating").font(.small).foregroundStyle(Palette.muted)
+                    .accessibilityLabel("Mac dictating").accessibilityIdentifier("pendant.macDictating")
+            }
+            if let level = reading.lowBattery { Caps("Battery \(level)%", color: Palette.flag) }
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                dot(reading).alignmentGuide(.firstTextBaseline) { $0[.bottom] + 0 }.offset(y: -14)
+                Text(reading.state.word).font(.statusWord)
+                    .foregroundStyle(reading.isFlag ? Palette.flag : Palette.fg).lit()
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("pendant.status")
+            }
+            if let line = line(reading, now: now) {
+                Text(line).font(.note).foregroundStyle(Palette.muted)
+            }
+            if reading.lowBattery != nil { Text("Charge it.").font(.bodyStrong) }
+            ForEach(reading.conditions, id: \.means) { condition in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(condition.means).font(.note).foregroundStyle(Palette.muted)
+                    Text(condition.todo).font(.bodyStrong)
+                    if let recovery = condition.recovery {
+                        Button(recovery.title) { actions.recover(recovery) }
+                            .buttonStyle(.pill(.quiet, size: .compact))
+                            .accessibilityIdentifier("pendant.recover.\(recovery)")
+                    }
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Close", systemImage: "xmark") { dismiss() }.accessibilityIdentifier("pendant.close")
-            }
         }
     }
 
-    /// An Omi has no pause or resume command: its hero offers neither.
-    private func hero(conditions: [CaptureCondition], now: Date) -> HeroReading {
-        var hero = HeroReading(status: capture.status, conditions: conditions, now: now)
-        if capture.pairedKind == .omi, [.pause, .resume].contains(hero.control) { hero.control = .none }
-        return hero
+    /// A state's own second line, when the conditions do not say it.
+    private func line(_ reading: PendantReading, now: Date) -> String? {
+        if reading.lowBattery != nil {
+            let left = reading.lowBattery.flatMap { capture.batteryLife.timeLeft(recording: true, from: $0) }
+            return (left.map { "About \(Self.about($0)) left. " } ?? "") + "Recording stops when it is empty."
+        }
+        switch reading.state {
+        case .recording: return reading.since.map { "Since \($0.formatted(date: .omitted, time: .shortened))" }
+        case .notRecording:
+            return reading.pausedAt.map {
+                "Paused on the pendant at \($0.formatted(date: .omitted, time: .shortened))."
+            }
+        case .checking: return "Nothing is confirmed until it answers."
+        default: return nil
+        }
     }
 
-    private func glance(now: Date) -> GlanceFacts {
+    private func dot(_ reading: PendantReading) -> some View {
+        Group {
+            if reading.state == .recording && !reading.isFlag {
+                Circle().fill(Palette.fg).shadow(color: Palette.fg.opacity(0.5), radius: 4)
+            } else {
+                Circle().strokeBorder(reading.isFlag ? Palette.flag : Palette.muted, lineWidth: 1.5)
+            }
+        }
+        .frame(width: 9, height: 9)
+        .accessibilityHidden(true)
+    }
+
+    // MARK: Facts
+
+    private func facts(_ reading: PendantReading, now: Date) -> some View {
         let status = capture.status
         let connected = if case .ready = status.connection { true } else { false }
-        return GlanceFacts(
-            connection: status.connection, battery: Fact(status.batteryPercent, connected: connected, now: now),
-            charging: status.charging, storage: Fact(status.storage, connected: connected, now: now),
-            sync: SyncSummary(status.sync, lastCaughtUp: capture.lastCaughtUp),
-            backlog: Fact(status.backlog, connected: connected, now: now), lastCaughtUp: capture.lastCaughtUp,
-            lastSaved: capture.lastSaved, phoneFreeBytes: capture.phoneFreeBytes, archiveBytes: capture.archiveBytes,
-            isPaired: transcription.isPaired, batteryLife: capture.batteryLife)
+        let battery = Fact(status.batteryPercent, connected: connected, now: now)
+        let storage = Fact(status.storage, connected: connected, now: now)
+        return RowGroup(surface: .sheet) {
+            Row(title: capture.pairedKind.modelName, detail: connected ? "Connected" : "Not connected")
+            if !connected, let seen = status.lastContact ?? capture.context.lastContact {
+                Row(title: "Last seen") { value(seen.formatted(date: .omitted, time: .shortened)) }
+            }
+            Row(title: "Battery") {
+                value(
+                    batteryWords(battery, charging: status.charging?.value == .charging, reading: reading),
+                    isFlag: reading.lowBattery != nil)
+            }
+            Row(title: "Storage") {
+                value(storageWords(storage), isFlag: reading.state == .full)
+            }
+            if connected, let synced = capture.lastCaughtUp {
+                Row(title: "Last sync") {
+                    value(synced.formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated)))
+                }
+            }
+        }
+    }
+
+    private func value(_ text: String, isFlag: Bool = false) -> some View {
+        Text(text).font(.note).foregroundStyle(isFlag ? Palette.flag : Palette.muted).multilineTextAlignment(.trailing)
+    }
+
+    private func batteryWords(_ battery: Fact<Int>, charging: Bool, reading: PendantReading) -> String {
+        switch battery {
+        case .current(let percent, _):
+            if charging { return "\(percent)%, charging" }
+            let left = capture.batteryLife.timeLeft(recording: reading.state == .recording, from: percent)
+            return "\(percent)%" + (left.map { ", about \(Self.about($0))" } ?? "")
+        case .lastKnown(let percent, let at): return "\(percent)% at \(at.formatted(date: .omitted, time: .shortened))"
+        case .unknown: return "Unknown"
+        }
+    }
+
+    private func storageWords(_ storage: Fact<StorageState>) -> String {
+        switch storage {
+        case .current(let state, _), .lastKnown(let state, _):
+            guard state.totalPages > 0 else { return "Unknown" }
+            let used = 100 - Int((Double(state.freePages) / Double(state.totalPages) * 100).rounded())
+            return storage.isCurrent
+                ? "\(used)% used" : "\(used)% used at \(storage.at?.formatted(date: .omitted, time: .shortened) ?? "")"
+        case .unknown: return "Unknown"
+        }
+    }
+
+    private static func about(_ left: Duration) -> String {
+        let units: Set<Duration.UnitsFormatStyle.Unit> =
+            left < .seconds(3_600) ? [.minutes] : left < .seconds(2 * 86_400) ? [.hours] : [.days]
+        return left.formatted(.units(allowed: units, width: .wide, maximumUnitCount: 1))
+    }
+
+    // MARK: Upload
+
+    @ViewBuilder private func upload(_ held: NotOnTheMac) -> some View {
+        if held.isEmpty {
+            RowGroup(label: "On your Mac", surface: .sheet) {
+                Row(
+                    title: capture.uploads?.sentThrough.map {
+                        "Everything up to \($0.formatted(date: .omitted, time: .shortened))"
+                    } ?? "Everything"
+                ) { StateGlyph.ok }
+            }
+        } else if let words = held.words {
+            VStack(alignment: .leading, spacing: 8) {
+                Caps("Waiting to upload").padding(.horizontal, 16)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(words).font(.bodyStrong)
+                    if case .downloading(let progress) = capture.status.sync, progress.expected > 0 {
+                        let fraction = Double(progress.settled) / Double(progress.expected)
+                        ProgressLine(
+                            label: "To this phone", fraction: fraction,
+                            end: fraction.formatted(.percent.precision(.fractionLength(0))))
+                    }
+                    if capture.status.sync.isDraining {
+                        Text("Keep the app open: it goes faster.").font(.note).foregroundStyle(Palette.muted)
+                    }
+                }
+                .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                .background(Surface.sheet.fill, in: .rect(cornerRadius: Metrics.Radius.card))
+            }
+        }
+    }
+
+    // MARK: Boxes, footer
+
+    @ViewBuilder private var boxes: some View {
+        let omi = capture.pairedKind == .omi && OmiFirmware.freesOnDelivery(capture.status.firmwareRevision)
+        if omi || !capture.incidents.isEmpty {
+            VStack(spacing: 12) {
+                if omi { OmiCustodyCard(revision: capture.status.firmwareRevision) }
+                IncidentCards(incidents: capture.incidents, resolve: actions.resolve)
+            }
+            .motion(Motion.rise, value: capture.incidents.map(\.id))
+        }
+    }
+
+    @ViewBuilder private func footer(_ reading: PendantReading) -> some View {
+        Group {
+            if reading.state == .noPendant {
+                Button("Pair a pendant") { sheet = .pair }.buttonStyle(.pill(.filled))
+                    .accessibilityIdentifier("pendant.pair")
+            } else {
+                TextLink("Replace this pendant") { sheet = .replace }.frame(maxWidth: .infinity, minHeight: 44)
+                    .accessibilityIdentifier("pendant.replace")
+            }
+        }
+        .padding(.horizontal, Metrics.gutter)
+        .padding(.bottom, 16)
     }
 }
 
-/// Which attention cards show: a change animates them in or out.
-private struct AttentionKey: Equatable {
-    var conditions: [String]
-    var incidents: [IncidentItem.ID]
-    var transcription: TranscriptionFacts
-    var invite: Bool
-    var omi: Bool
+extension PendantReading.State {
+    /// The big word: a state, said as a sentence.
+    var word: String {
+        switch self {
+        case .recording: "Recording."
+        case .notRecording: "Not recording."
+        case .outOfRange: "Out of range."
+        case .notConnected: "Not connected."
+        case .full: "Full."
+        case .noPendant: "No pendant."
+        case .checking: "Checking."
+        }
+    }
 }
 
-/// Everything waiting on the owner, as calm cards. Nothing at all when nothing is.
-private struct AttentionList: View {
-    let conditions: [CaptureCondition]
-    let incidents: [IncidentItem]
-    let transcription: TranscriptionFacts
-    let showsNotificationsInvite: Bool
-    /// Shown while the Omi's firmware frees audio on delivery.
-    let omiCustody: OmiCustodyCard?
-    let actions: PendantActions
+extension DeviceKind {
+    var modelName: String {
+        switch self {
+        case .limitless: "Limitless Pendant"
+        case .omi: "Omi"
+        }
+    }
+}
 
-    var body: some View {
-        if !conditions.isEmpty || !incidents.isEmpty || transcription.needsOwner || showsNotificationsInvite
-            || omiCustody != nil
-        {
-            VStack(spacing: 12) {
-                if let omiCustody { omiCustody }
-                ConditionCards(conditions: conditions, perform: actions.recover)
-                IncidentCards(incidents: incidents, resolve: actions.resolve)
-                TranscriptionCards(facts: transcription)
-                if showsNotificationsInvite {
-                    NotificationsInvite(
-                        allow: actions.allowNotifications, dismiss: actions.dismissNotificationsInvite)
-                }
-            }
+extension Fact {
+    var isCurrent: Bool { if case .current = self { true } else { false } }
+}
+
+extension DrainPhase {
+    /// Pages are moving or being made durable.
+    var isDraining: Bool {
+        switch self {
+        case .requestingStatus, .downloading, .persisting, .acking: true
+        default: false
         }
     }
 }

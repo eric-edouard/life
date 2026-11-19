@@ -104,6 +104,46 @@ extension View {
     }
 }
 
+/// "2 of 12" in `label`, a 1 px track filled by how far it got, and an end word (a deadline in `flag`, or a percent).
+struct ProgressLine: View {
+    let label: String
+    let fraction: Double
+    var end: String?
+    var endColor = Palette.muted
+
+    init(done: Int, of total: Int, end: String? = nil, endColor: Color = Palette.muted) {
+        self.init(
+            label: "\(done) of \(total)", fraction: Double(done) / Double(max(total, 1)), end: end, endColor: endColor)
+    }
+
+    init(label: String, fraction: Double, end: String? = nil, endColor: Color = Palette.muted) {
+        self.label = label
+        self.fraction = min(max(fraction, 0), 1)
+        self.end = end
+        self.endColor = endColor
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Caps(label, color: Palette.muted)
+            Capsule().fill(Palette.line).frame(height: 1)
+                .overlay(alignment: .leading) {
+                    GeometryReader { proxy in Capsule().fill(Palette.fg).frame(width: proxy.size.width * fraction) }
+                }
+            if let end { Caps(end, color: endColor) }
+        }
+        .frame(height: 24)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+extension View {
+    /// A `card` fill at the card radius with 16 of padding: the goal and next step, an agent, a choice waiting.
+    func box() -> some View {
+        padding(16).frame(maxWidth: .infinity, alignment: .leading).card(radius: Metrics.Radius.card)
+    }
+}
+
 /// A small label in capitals over a block.
 struct Caps: View {
     let text: String
@@ -451,11 +491,17 @@ struct Field: View {
 struct SheetHeader: View {
     let title: String
     var color: Color = Palette.fg
+    /// The pendant's sheet names itself in small capitals: its big word is the state, not the title.
+    var isLabel = false
     let close: () -> Void
 
     var body: some View {
         HStack {
-            Text(title).font(.sheetTitle).foregroundStyle(color).lit()
+            if isLabel {
+                Caps(title).accessibilityAddTraits(.isHeader)
+            } else {
+                Text(title).font(.sheetTitle).foregroundStyle(color).lit()
+            }
             Spacer()
             Button(action: close) {
                 Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.fg)

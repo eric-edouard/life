@@ -8,7 +8,7 @@ The app is Life's two tabs, Inbox (`Inbox/`: one `CheckCard` at a time and its `
 the Pendant as a sheet from the pill top right (`Shell/`) and Settings from the gear; the old Library, Conversation, People, Presses and
 Spending screens are cut. Every screen reads through `ReadScreen` (loading, empty, stale, unreachable, failed, not paired) and every
 action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSystem/Typography.swift`). `Shared/Palette.swift` is the phone's one copy of Life's brand (`assets/brand/tokens.css`), checked by
-`scripts/brand.test.ts`: no colour literal elsewhere, except the hardware drawings (`HALLens.swift`, `LightGuide.swift`), which paint the pendant itself. `docs/architecture.md` names every store and owner and says where a new screen or derived value goes.
+`scripts/brand.test.ts`: no colour literal elsewhere, except the hardware drawing (`LightGuide.swift`), which paint the pendant itself. `docs/architecture.md` names every store and owner and says where a new screen or derived value goes.
 
 The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens draw none of their own (badge, link, busy pill, segment, paper box, row, row group, field, state mark); one radius per job (`Metrics.Radius`).
 
@@ -77,8 +77,10 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
 - An Omi drains through the same `DrainCoordinator` as the Limitless Pendant, by its `DeviceCodec`. **Any work on the
   Omi starts by reading the latest Omi firmware release notes for the ring-custody fix** (`docs/research/omi.md`,
   first section). Once it ships, set `OmiFirmware.custodyFixedIn`, which turns the in-app warning into an update
-  prompt, and say so to the owner in your report. Pairing an Omi moves `CaptureStore.deviceID` to the Omi's slot, so
-  Limitless pages not uploaded yet stop uploading: pair an Omi only on a phone without a Limitless Pendant.
+  prompt, and say so to the owner in your report. Pairing another model moves `CaptureStore.deviceID` to its slot, so
+  the first model's pages not uploaded yet stop uploading: Replace (`CaptureStore.replacePendant`) refuses until
+  `whatIsNotOnTheMac` is empty, and a lost pendant is replaced only after the cost line and an explicit confirm.
+  `.forget` clears only the phone's remembered pendant, never the pendant's own pairing or its audio.
 - A widget's `configurationDisplayName` and `description` take a literal or a `String`: an interpolated literal is
   formatted text, and WidgetKit traps on it when the extension launches.
 - Never write `<=` or `>=` between two `Date`s in the phone's Swift: write `!(a < b)`. macOS 27.2 beta lacks those

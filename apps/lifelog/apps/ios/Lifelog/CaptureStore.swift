@@ -9,6 +9,7 @@ import PendantProtocol
 import ServerAPI
 import SourceStore
 import Timeline
+import Upload
 import UIKit
 
 /// Capture feature store: owns the raw source store and the Pendant drain, and publishes what the UI needs as plain facts. Create it once, as early as possible at launch (see
@@ -212,6 +213,32 @@ final class CaptureStore {
     func watchLive() async { await coordinator?.watchLive() }
     /// Owner retry after "busy elsewhere" or a pairing problem.
     func reconnect() async { await coordinator?.reconnect() }
+    enum ReplaceOutcome: Equatable {
+        case replaced
+        /// Something is not on the Mac yet and the Pendant is in reach: sync again before replacing.
+        case refused(NotOnTheMac)
+        /// Something is not on the Mac and the Pendant cannot be reached: only an explicit `anyway` replaces it.
+        case unreachable(NotOnTheMac)
+    }
+
+    /// The owner replaces the Pendant. Drains it first, for up to a minute, then replaces only when everything is on
+    /// the Mac (`held` reads the uploader too); a lost Pendant can still be replaced `anyway`. Replacing forgets the
+    /// Pendant on this phone only: never its own pairing or its audio.
+    func replacePendant(anyway: Bool = false, held: () -> NotOnTheMac) async -> ReplaceOutcome {
+        let isReachable = if case .ready = status.connection { true } else { false }
+        if isReachable && !anyway {
+            Task { await syncNow() }
+            _ = await wait(upTo: .seconds(60)) { held().isEmpty }
+        }
+        let left = held()
+        if !anyway && !left.isEmpty { return isReachable ? .refused(left) : .unreachable(left) }
+        UserDefaults.standard.removeObject(forKey: Self.knownDeviceKey)
+        UserDefaults.standard.removeObject(forKey: Self.knownKindKey)
+        hasKnownPendant = false
+        await coordinator?.forget()
+        return .replaced
+    }
+
     /// Returns whether the command reached the Pendant; nothing confirms the light changed.
     func setLightBrightness(_ brightness: LightBrightness) async -> Bool {
         await coordinator?.setLightBrightness(brightness) ?? false

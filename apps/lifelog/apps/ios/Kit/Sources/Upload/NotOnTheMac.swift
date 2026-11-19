@@ -16,7 +16,9 @@ public struct NotOnTheMac: Sendable, Equatable {
     public var isPhoneUnknown: Bool
 
     /// Nothing is held back that is known: all of it is on the Mac. Not claimed while either side is unknown.
-    public var isEmpty: Bool { !isPendantUnknown && !isPhoneUnknown && (pendantPages ?? 0) == 0 && phoneDuration == .zero }
+    public var isEmpty: Bool {
+        !isPendantUnknown && !isPhoneUnknown && (pendantPages ?? 0) == 0 && phoneDuration == .zero
+    }
 
     public var isPendantUnknown: Bool { pendantPages == nil }
 

@@ -73,28 +73,26 @@ struct PendantPill: View {
         .accessibilityIdentifier("top.pendant")
     }
 
-    /// One thing, the most pressing first: something that needs him, a low battery, out of reach, sending, paused, recording.
+    /// One thing, the most pressing first: something that needs him, a low battery, then the state.
     private var face: Face {
         let facts = CaptureFacts(capture, macDictatingSince: nil)
-        let status = facts.status
-        let conditions = CaptureCondition.evaluate(status, context: facts.context, now: .now)
-        let hero = HeroReading(status: status, conditions: conditions, now: .now)
-        let needs = conditions.filter(\.isCard).count + facts.incidents.count
+        let alerts = Settings.shared.alerts
+        let reading = PendantReading(
+            status: facts.status, context: facts.context, recordingSince: nil,
+            lowBatteryPercent: alerts.lowBattery ? alerts.lowBatteryPercent : nil, now: .now)
+        let needs = reading.needs + facts.incidents.count
         if needs > 0 { return Face(symbol: "exclamationmark.circle", badge: needs, spoken: "something needs you") }
-        // Low as the alert and the Watch decide it: at or below his threshold, from a current reading, not charging.
-        let glance = RecordingGlance(
-            PendantSnapshot(status, previous: nil), sound: nil,
-            lowBatteryPercent: Settings.shared.alerts.lowBatteryPercent, now: .now)
-        if Settings.shared.alerts.lowBattery, glance.batteryIsLow(now: .now), let percent = glance.battery {
+        if let percent = reading.lowBattery {
             return Face(symbol: "battery.25percent", text: "\(percent)%", spoken: "battery low, \(percent) percent")
         }
-        switch hero.mode {
-        case .notConnected, .lastKnownRecording, .unrecognized:
-            return Face(symbol: "wifi.slash", spoken: "out of reach")
-        case .paused: return Face(symbol: "pause.circle", spoken: "paused")
-        case .waiting: return Face(symbol: "ellipsis.circle", spoken: "waiting")
-        case .live:
-            if case .catchingUp = SyncSummary(status.sync, lastCaughtUp: facts.lastCaughtUp) {
+        switch reading.state {
+        case .outOfRange, .notConnected: return Face(symbol: "wifi.slash", spoken: "out of reach")
+        case .noPendant: return Face(symbol: "link.badge.plus", spoken: "no pendant")
+        case .notRecording: return Face(symbol: "pause.circle", spoken: "paused")
+        case .checking: return Face(symbol: "ellipsis.circle", spoken: "waiting")
+        case .full: return Face(symbol: "exclamationmark.circle", spoken: "full")
+        case .recording:
+            if case .catchingUp = SyncSummary(facts.status.sync, lastCaughtUp: facts.lastCaughtUp) {
                 return Face(symbol: "arrow.up.circle", spoken: "sending audio")
             }
             return Face(symbol: "record.circle", spoken: "recording")

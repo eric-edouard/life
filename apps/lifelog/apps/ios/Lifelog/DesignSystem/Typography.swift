@@ -29,6 +29,8 @@ struct TypeStep: Equatable {
     static let lead = TypeStep(size: 17, weight: 500, style: .body)
     static let leadBold = TypeStep(size: 17, weight: 600, style: .body)
     static let body15 = TypeStep(size: 15, weight: 450, style: .body)
+    /// Text that matters inside a card or a block: the thing to do.
+    static let bodyStrong = TypeStep(size: 15, weight: 600, style: .body)
     /// Secondary text: a context, what a problem means, a row's value.
     static let note = TypeStep(size: 14, weight: 450, style: .footnote)
     /// Every button's label.
