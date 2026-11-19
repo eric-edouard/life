@@ -176,7 +176,7 @@ private struct EditableLine: View {
 private struct People: View {
     let people: MatterRow.People?
 
-    /// One small muted line: "Owed to Hélène Aubert, with Camille Roux".
+    /// One small muted line: "Owed to Ana Novak, with Sam Lee".
     var body: some View {
         let groups: [(String, [String])] = [
             ("Owed to", people?.owedTo ?? []), ("Waiting on", people?.waitingOn ?? []),
