@@ -34,11 +34,13 @@ when its message arrives or at night (his word of 19 Nov 2026).
 ## Agents
 
 The desk (off until his `desk` setting) starts and wakes his registered agents: a registered agent is started by
-Life, unattended, on a message from anyone in its subject, a recorded call with them that ended, his answer or its deadline, and acts with his access. An
+Life, unattended, on a message its wait names (by who wrote it, by chat or app, or by a pattern on its text, his word of 20 Nov 2026), a recorded call with them that ended, his answer or its deadline, and acts with his access. A wait on words is met by
+anyone who writes them, a sender Life has never seen included; an agent is woken by events at most once
+per 10 minutes after its last turn. An
 agent on a matter is also woken by anything new related to it (the wide net, his word of 18 Nov 2026): a message from
 one of the matter's people, or a message or recording of his close to the matter in meaning, as the Mac's embedder
 reads it (`desk/matter-net.ts`: no model call, nothing leaves the Mac). The wake hands it only the facts (which
-message or recording, when, why); it reads the words itself, as data. On
+message or recording, when, why), never the text, a matched one included; it reads the words itself, as data. On
 his Mac and the web an agent of his own Life is free (his decision of 19 Nov 2026): the desk runs it in the runtime's
 no-ask mode, approves every ask, and gives it his login environment. It can run any command, read, change or delete any
 file, install software, browse, read his mail and messages, and read his secrets (his shell's keys, 1Password). Life's
@@ -51,7 +53,7 @@ secrets (his OK, 3 Nov 2026), and the question cases' agent a developer's script
 above; his word, 10 Nov 2026): each pulls its own asks through the connector. An agent run is outside Life's boundary: it has
 the Mac's access (his files, his accounts). The risk that remains: an agent acting on text it read can do, alone, anything his keys allow, a send by `gog` or
 `resend` included; the gate is its instruction, not enforcement. Between that and harm stand the model's judgment, wakes
-that hand facts and never words, and Life's own send path (a card's draft, his answer). The risk is his, accepted.
+that hand facts and never words (a text can choose a wake, never ride on it), and Life's own send path (a card's draft, his answer). The risk is his, accepted.
 
 ## Network
 

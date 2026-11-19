@@ -100,12 +100,19 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   before the archive's copy: its `redaction_retention_period` stays null, its rooms are never purged and its database is
   never made again (the copy counts its event numbers) (his OK of the
   new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026; `screen.sqlite`, 4 Nov 2026; the table `phone_calls` in `whatsapp.sqlite`, his "any architectural change" for calls, 5 Nov 2026; `phone.sqlite`, table `calls`, 10 Nov 2026; `messenger.sqlite`, his ask for the Messenger bridge, 14 Nov 2026; `github.sqlite`, the issues and comments of the repos he lists, 19 Nov 2026).
-- **Content never runs Life's code.** Recorded text never makes Life's own code act; model calls see no tools and no
+- **Content never runs Life's code.** Recorded text never makes Life's own code act: the one thing a text can choose is a wake of a registered
+  agent. Model calls see no tools and no
   instruction files (`apps/server/src/models/llm.ts`). The one call given tools is the question cases' agent
   (`scripts/question-cases.ts`, his word of 10 Nov 2026): Codex, with Life's connector serving its reads only, and
   nothing else. An agent reads what it pulls through the connector as data
-  (`SECURITY.md`, "Agents"). The desk wakes an agent on an event's facts (who, where, when), never on its words, with one exception, his word of
-  18 Nov 2026: a wake by meaning on a matter's agent (the wide net, `desk/matter-net.ts`: anything new close to its matter, by the Mac's embedder; the wake still hands only the facts). A call that ended is such an event (`call.ended`, his word of 19 Nov 2026): queued once lifelog's own signals say its words are in, it hands the call's chat, span and people and its recording's id and turn range, never a word; what
+  (`SECURITY.md`, "Agents"). The desk wakes an agent on the events it waits for, and a wake hands only the event's facts (who, where,
+  when), never its words. Words choose a wake in two ways only: the agent's own pattern on a message's text
+  (`text_matches` in its wait, his word of 20 Nov 2026: "agents that wake on events they waited on rather
+  than timers"; the connector's poll and the wait share one filter and one matcher, `EventFilter` and
+  `matcherOf`), and closeness in meaning to its matter (the wide net, `desk/matter-net.ts`, his word of 18 Nov
+  2026: anything new close to its matter, by the Mac's embedder). In both, Life's code only tests the text and
+  queues the wake: the text is never run, never taken as an instruction, never handed over; the agent reads it
+  itself, as data. A call that ended is such an event (`call.ended`, his word of 19 Nov 2026): queued once lifelog's own signals say its words are in, it hands the call's chat, span and people and its recording's id and turn range, never a word; what
   the agent then reads is the agent's to judge, outside Life's boundary (`SECURITY.md`, "Agents"). A mark (his words to Life, to keep) only keeps a unit read. His Apple Notes and imported
   assistant chats are memory only, never his words for actions.
 - **Life's own output never re-enters memory:** its chat and mail are dropped as `life-output` (`units.ts`). A card's
