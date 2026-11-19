@@ -9,11 +9,6 @@ interface Rankable {
   subject: string | null;
 }
 
-/**
- * Where a check stands in his inbox, first to last: an agent's decision, a voice nobody has named, a name with no
- * person or an ambiguous Contacts card (these block); then a new matter's offer, a guess in use (a guessed person, a
- * voice with a likely person), and last "is this done?". The one rule of the inbox's order and of what blocks.
- */
 const RANK: Record<CheckGroup, number> = {
   "contacts card": 2,
   decision: 0,
@@ -23,7 +18,11 @@ const RANK: Record<CheckGroup, number> = {
   "new matter": 3,
   voice: 1,
 };
-/** A voice with a suggested person is a guess in use, like a guessed person. */
+/**
+ * Where a check stands in his inbox, first to last: an agent's decision, a voice nobody has named, a name with no
+ * person or an ambiguous Contacts card (these block); then a new matter's offer, a guess in use (a guessed person, a
+ * voice lifelog suggests a person for), and last "is this done?". The one rule of the inbox's order and of what blocks.
+ */
 export const inboxRankOf = (c: Rankable) =>
   c.group === "voice" && c.subject !== null ? 4 : RANK[c.group];
 

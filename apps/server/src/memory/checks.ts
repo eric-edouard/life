@@ -131,7 +131,7 @@ export interface Check {
     observations: number;
     pages: number;
   };
-  /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; null: none. */
+  /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; for a voice, the person lifelog suggests; null: none. */
   subject: string | null;
   /** What it is trying to do, in one line. */
   title: string;
