@@ -242,18 +242,24 @@ final class LifeStore {
     /// His goal for a matter: Life pins it to the matter's steps.
     func setGoal(of id: String, _ goal: String) async {
         let api = api
-        await edit(id, .goal) { try await api.setMatterDirection(matter: id, goal: goal, nextStep: nil, onProgress: $0) }
+        await edit(id, .goal) {
+            try await api.setMatterDirection(matter: id, goal: goal, nextStep: nil, onProgress: $0)
+        }
     }
 
     func setNextStep(of id: String, _ nextStep: NextStepRequest) async {
         let api = api
-        await edit(id, .next) { try await api.setMatterDirection(matter: id, goal: nil, nextStep: nextStep, onProgress: $0) }
+        await edit(id, .next) {
+            try await api.setMatterDirection(matter: id, goal: nil, nextStep: nextStep, onProgress: $0)
+        }
     }
 
     /// His word that the matter is done: Life decides what of it is open and closes it.
     func markDone(_ id: String) async {
         let api = api
-        await edit(id, .done) { try await api.markDone(matter: id, note: "Marked done in the Life app.", onProgress: $0) }
+        await edit(id, .done) {
+            try await api.markDone(matter: id, note: "Marked done in the Life app.", onProgress: $0)
+        }
     }
 
     private func edit(
