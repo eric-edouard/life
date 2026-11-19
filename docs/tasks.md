@@ -115,6 +115,8 @@ A registered agent's matter that is done (matter status `done`: its steps ended,
 
 A wait's filter is the connector poll's (`EventFilter`, `text_matches` included). A registered agent is also woken when a call matching its wait ends and its recording's words are in (`pollCalls`): at the next poll, under the same 10-minute gap, in one turn with the chat's messages.
 
+What will wake a waiting agent is read, not stored: its **wake list** (`wakesOn`, with `statusSince`) on each agent of `read_registered_agents` and of `read_matter`, from its wait's filters (`wakesOnOf`; docs/glossary.md). A chat's name there comes from his directory, else from the newest event the desk queued for that agent in it, else none.
+
 A wait may also name an event channel (`EVENT_CHANNELS`, `host/event-channels.ts`), today `payments`: the desk reads the
 payments of the last 35 days every 5 minutes while some wait names it, and queues `payment.booked` once per agent for
 each payment its wait wants (by `quantity` `eur_out` or `eur_in` with `above` and `below`, or by `text_matches` on the
