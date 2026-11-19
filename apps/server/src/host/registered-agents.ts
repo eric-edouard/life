@@ -12,6 +12,7 @@ import {
   agentsOnSteps,
   anchorsOf,
   type DeskRead,
+  projectHolderOf,
   readDesk,
   refusedSince,
   reportLinesSince,
@@ -116,10 +117,10 @@ const linesOf = (read: DeskRead<AgentNow[]>) => {
   return read.state === "ok" ? read.value.map((a) => `- ${agentLine(a)}`) : [];
 };
 
-/** The Agents part of a matter's read: the agents ever anchored on its steps, active first; none while the desk is off or unreadable (`read_registered_agents` says which). */
-export function readAgentsOnSteps(steps: string[]) {
+/** The Agents part of a matter's read: the agents ever anchored on its steps, active first, then the active worker of each of its `projects`; none while the desk is off or unreadable (`read_registered_agents` says which). */
+export function readAgentsOnSteps(steps: string[], projects: string[] = []) {
   const read = readDesk(
-    (db) => agentsOnSteps(db, steps, clock().getTime()),
+    (db) => agentsOnSteps(db, steps, clock().getTime(), projects),
     []
   );
   return read.state === "ok" ? read.value : [];
@@ -131,17 +132,29 @@ export const agentLinesOnProjects = (projects: string[]) =>
     readDesk((db) => agentsOnProjects(db, projects, clock().getTime()), [])
   );
 
-/** The active agent holding one of a matter's steps, for `read_matters`: the desk read once for every matter of the call. */
+/** The active agent holding one of a matter's steps, else the one holding one of its projects (`projectHolderOf`), for `read_matters`: the desk read once for every matter of the call. */
 export function readActiveAgentOf() {
   const read = readDesk(
-    (db) =>
-      activeAgents(db).flatMap((a) =>
-        anchorsOf(db, a.id).map((step) => [step, a.id] as const)
-      ),
-    []
+    (db) => {
+      const active = activeAgents(db);
+      const projects = new Set(active.flatMap((a) => a.project ?? []));
+      return {
+        byProject: [...projects].map(
+          (p) => [p, projectHolderOf(db, p)] as const
+        ),
+        byStep: active.flatMap((a) =>
+          anchorsOf(db, a.id).map((step) => [step, a.id] as const)
+        ),
+      };
+    },
+    { byProject: [], byStep: [] }
   );
-  const byStep = new Map(read.state === "ok" ? read.value : []);
-  return (steps: string[]) => steps.map((s) => byStep.get(s)).find(Boolean);
+  const byStep = new Map(read.state === "ok" ? read.value.byStep : []);
+  const byProject = new Map(read.state === "ok" ? read.value.byProject : []);
+  return (steps: string[], projects: string[]) =>
+    steps.map((s) => byStep.get(s)).find(Boolean) ??
+    projects.map((p) => byProject.get(p)).find(Boolean) ??
+    undefined;
 }
 
 /**

@@ -92,7 +92,7 @@ const refsOf = (v: MatterView) => v.steps.map((s) => s.ref);
 
 /**
  * The running matters (open, not dormant), ranked as `read_day`'s Due (`rankedMattersOf`, those with no open step last), of one `person`, `project` or `area` when given: each
- * as `MatterRow`, with `agentOf`'s registered agent on it (from host). Throws when a person, project or area named goes by no name known.
+ * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one anchored on the matter, else the one holding one of its projects). Throws when a person, project or area named goes by no name known.
  */
 export async function openMatters(
   q: {
@@ -100,7 +100,8 @@ export async function openMatters(
     person?: string;
     project?: string;
   },
-  agentOf: (steps: string[]) => string | undefined = () => undefined
+  agentOf: (steps: string[], projects: string[]) => string | undefined = () =>
+    undefined
 ) {
   const people = await readPeople();
   const { truth } = people;
@@ -133,7 +134,7 @@ export async function openMatters(
       rankContextOf(people)
     ).map((v) => ({
       ...rowOf(v, people, decisions),
-      agent: agentOf(refsOf(v)),
+      agent: agentOf(refsOf(v), v.projects),
     })),
   };
 }
@@ -141,19 +142,19 @@ export async function openMatters(
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
  * agent anchored on records finds its matter again after a re-group): its `MatterRow`, its steps in time order (each
- * with its day, words, quote, who it was with by name and `ending`: none while open), then `agentsOf`'s agents on it now and before (from host).
+ * with its day, words, quote, who it was with by name and `ending`: none while open), then `agentsOf`'s agents on it now and before, then its projects' workers (from host).
  * Undefined when no matter holds them.
  */
 export async function oneMatter<A>(
   refs: readonly string[],
-  agentsOf: (steps: string[]) => A[] = () => []
+  agentsOf: (steps: string[], projects: string[]) => A[] = () => []
 ) {
   const people = await readPeople();
   const v = matterOfSteps(await readMatterBook(people, dayNow()), refs);
   return (
     v && {
       ...rowOf(v, people, openDecisions()),
-      agents: agentsOf(refsOf(v)),
+      agents: agentsOf(refsOf(v), v.projects),
       steps: v.steps.map((s) =>
         s.with ? { ...s, with: people.nameOf(s.with) } : s
       ),
