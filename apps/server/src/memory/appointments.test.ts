@@ -22,11 +22,11 @@ const fact = (id: string, over: Partial<Observation> = {}) =>
   }) as Observation;
 const statusInputs = (retired: string[] = []): ObservationStatusInputs => ({
   corrections: [],
-  latest: new Map(),
   live: new Set([UNIT]),
   retired: new Map(
     retired.map((id) => [id, { by: "obs_ffffffffffff" }])
   ) as ObservationStatusInputs["retired"],
+  standing: new Map(),
 });
 
 test("the step reads what is ahead (plans and facts, never a hypothesis), recent undated plans, and what a held appointment cites", () => {

@@ -43,6 +43,7 @@ import {
 import {
   commitMemory,
   isCitedOnlyByFrozen,
+  latestReading,
   newSince,
   OUT,
   readLedger,
@@ -379,13 +380,13 @@ const isOfflineFailure = async (failure: unknown) =>
  */
 export function markedSince(
   built: Built[],
-  latest: Map<string, Extracted>,
+  standing: Map<string, Extracted[]>,
   since: string,
   observations: Observation[]
 ) {
   // Read on its marked content (its latest extraction): a reading before the mark landed doesn't count.
   const read = (u: Built["unit"]) => {
-    const e = latest.get(u.id);
+    const e = latestReading(standing, u.id);
     return !!e && e.unitHash === u.hash && e.at >= since;
   };
   return built.flatMap(({ unit }) => {
@@ -432,7 +433,7 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
           : []
       )
     ),
-    marked: markedSince(built, statusInputs.latest, since, observations),
+    marked: markedSince(built, statusInputs.standing, since, observations),
     observed: fresh.length,
     retired: [...statusInputs.retired.values()].filter(
       (s) => ids.has(s.by) && s.by !== s.observation
