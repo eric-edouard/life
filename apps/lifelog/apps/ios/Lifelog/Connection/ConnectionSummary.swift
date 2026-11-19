@@ -47,7 +47,31 @@ extension SyncStore {
     }
 }
 
+/// How a connection reads in Settings, from the same states the sheets use: the pendant server's is the summary's, Life's is
+/// its inbox read's. "Needs you" and "Connections" both draw from it.
+enum LinkState: Equatable {
+    case works, checking, noAnswer, notPaired
+
+    var mark: StateMark {
+        switch self {
+        case .works: StateMark(glyph: .ok, word: "Works")
+        case .checking: StateMark(glyph: .busy, word: "Checking")
+        case .noAnswer: StateMark(glyph: .flag, word: "No answer")
+        case .notPaired: StateMark(glyph: .flag, word: "Not paired")
+        }
+    }
+}
+
 extension ConnectionSummary.State {
+    var link: LinkState {
+        switch self {
+        case .notPaired: .notPaired
+        case .offline: .noAnswer
+        case .upToDate(nil): .checking
+        case .uploading, .editsWaiting, .upToDate(.some): .works
+        }
+    }
+
     var title: String {
         switch self {
         case .notPaired: "Not paired with a server"

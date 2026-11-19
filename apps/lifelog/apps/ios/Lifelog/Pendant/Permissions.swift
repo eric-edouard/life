@@ -3,8 +3,8 @@ import Observation
 import SwiftUI
 import UserNotifications
 
-/// Notifications, location and Apple Health, granted from here. Bluetooth's states show in the status
-/// sentence. Read fresh whenever the screen comes forward.
+/// Notifications, location and Apple Health, which Settings asks for and shows. Bluetooth's state is read from
+/// `CaptureStore.context`. Read fresh whenever the screen comes forward.
 @Observable
 final class PermissionsStore {
     enum Access: Equatable {
@@ -61,61 +61,5 @@ final class PermissionsStore {
             try await AppleHealthReader.claim()
             await refresh()
         } catch { _ = report(error) }
-    }
-}
-
-/// One permission on one compact row: its state, the one thing to do about it, and why lifelog wants it.
-struct PermissionRow: View {
-    let name: String
-    let state: PermissionsStore.Access
-    let explanation: String
-    let ask: () -> Void
-
-    @Environment(\.openURL) private var openURL
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(name).foregroundStyle(Palette.fg)
-                        .accessibilityIdentifier(identifier)
-                    Text(status).font(.small).foregroundStyle(Palette.muted)
-                }
-                Spacer(minLength: 8)
-                switch state {
-                case .allowed, .asked:
-                    EmptyView()
-                case .notAsked:
-                    Button("Allow", action: ask).buttonStyle(.glass)
-                        .accessibilityIdentifier("\(identifier).allow")
-                case .limited, .denied, .restricted:
-                    Button("Settings") {
-                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
-                    }
-                    .buttonStyle(.glass)
-                    .accessibilityLabel("Open Settings for \(name)")
-                    .accessibilityIdentifier("\(identifier).settings")
-                }
-            }
-            Text(explanation)
-                .font(.small)
-                .foregroundStyle(Palette.faint)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.vertical, 10)
-    }
-
-    /// "pendant.settings.location"
-    private var identifier: String { "pendant.settings.\(name.lowercased())" }
-
-    private var status: String {
-        switch state {
-        case .allowed: "Allowed"
-        case .asked: "Asked"
-        case .limited(let detail): detail
-        case .notAsked: "Not asked yet"
-        case .denied: "Off"
-        case .restricted: "Restricted"
-        }
     }
 }

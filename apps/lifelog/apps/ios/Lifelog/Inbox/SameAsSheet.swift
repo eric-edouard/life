@@ -25,9 +25,8 @@ struct SameAsSheet: View {
                     }
                 }
                 Caps(takesNewName ? "Someone else, by name" : "Someone Life knows, by name")
-                TextField(takesNewName ? "Their name" : "Their name, as Life knows them", text: $name).font(.quote)
-                    .foregroundStyle(Palette.fg)
-                    .padding(16).background(Palette.card, in: .capsule)
+                Field(
+                    prompt: takesNewName ? "Their name" : "Their name, as Life knows them", text: $name, surface: .sheet)
                 Button("Use this name") { pick(.name(typed)) }.buttonStyle(.pill(.filled)).disabled(typed.isEmpty)
             }
             .padding(20)

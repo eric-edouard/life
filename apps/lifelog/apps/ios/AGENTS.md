@@ -10,7 +10,7 @@ Spending screens are cut. Every screen reads through `ReadScreen` (loading, empt
 action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSystem/Typography.swift`). `Shared/Palette.swift` is the phone's one copy of Life's brand (`assets/brand/tokens.css`), checked by
 `scripts/brand.test.ts`: no colour literal elsewhere, except the hardware drawings (`HALLens.swift`, `LightGuide.swift`), which paint the pendant itself. `docs/architecture.md` names every store and owner and says where a new screen or derived value goes.
 
-The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens draw none of their own (badge, link, busy pill, segment, paper box); one radius per job (`Metrics.Radius`).
+The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens draw none of their own (badge, link, busy pill, segment, paper box, row, row group, field, state mark); one radius per job (`Metrics.Radius`).
 
 ## How to
 
@@ -46,7 +46,9 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
   backups, `timeline.sqlite` is not, so a migrated phone has an index of sidecars it lacks. A lost sidecar is
   unanalyzed audio, never skipped (unlabelled audio counts as possible speech); from the cursor on it is rebuilt and
   uploads wait for it (`TimelineScanner.scan`).
-- The owner's edits are `OwnerIntent`s sent with `SyncStore.perform`: queued in the outbox, shown at once as waiting.
+- The owner's edits are `OwnerIntent`s sent with `SyncStore.perform`: queued in the outbox, shown at once. A value the
+  server holds is never shown as known: asking, then the value (`serverValue`, `serverVocabulary`); a change shows at
+  once, then Saved, or goes back with the reason. Settings draws only `Row` and `RowGroup`.
 - Pairing goes one way: a `lifelog://pair` link (Camera or pasted) is opened by `RootView`, which asks the
   owner to confirm naming each server, and only then `SyncStore.pair` or `LifeStore.pair` stores it. A link never repoints the app alone.
 - `SyncStore` is the one driver: uploads, the outbox, the feed and the status. Debug builds pair from
