@@ -609,9 +609,15 @@ test("the inbox is read again only when what it reads changed: not a unit sync; 
     };
     await checksNow(held);
     expect(reads).toHaveBeenCalledTimes(2);
+    // Same steps, another project held: read again; the same projects in another order: not.
+    const { steps } = held;
+    await checksNow({ projects: new Set(["test-a", "test-b"]), steps });
+    expect(reads).toHaveBeenCalledTimes(3);
+    await checksNow({ projects: new Set(["test-b", "test-a"]), steps });
+    expect(reads).toHaveBeenCalledTimes(3);
     setSystemTime(new Date(clock().getTime() + DAY));
     await checksNow(held);
-    expect(reads).toHaveBeenCalledTimes(3);
+    expect(reads).toHaveBeenCalledTimes(4);
   } finally {
     setSystemTime();
     reads.mockRestore();
