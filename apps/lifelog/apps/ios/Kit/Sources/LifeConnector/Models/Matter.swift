@@ -53,46 +53,32 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     public let lastStepAt: Date?
     /// The id of the registered agent working on it.
     public let agent: String?
-    /// How many open checks are about it, of every kind (`read_matters` only; `read_matter` lists them as `Matter.checks`).
-    public let openChecks: Int?
+    /// How many open checks about it block him (an agent's decision, a voice, a name); the others only improve the memory.
+    public let blockingChecks: Int?
 }
 
 /// `read_matters`: the running matters, most pressing first.
 public struct MatterList: Decodable, Sendable, Equatable {
     public let matters: [MatterRow]
 
-    /// The matters whose name, goal, next step or people hold `query` (searched on the phone: the list is every running matter).
-    public func matching(_ query: String) -> [MatterRow] {
-        let query = query.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return matters }
-        return matters.filter { row in
-            let people = [row.people?.owedTo, row.people?.waitingOn, row.people?.with, row.people?.told].compactMap(
-                \.self
-            ).flatMap(\.self)
-            return ([row.name, row.goal?.text, row.nextStep?.text].compactMap(\.self) + people)
-                .contains { $0.localizedStandardContains(query) }
-        }
+    /// The matters `filter` lets through, in the list's order.
+    public func shown(filter: MatterFilter) -> [MatterRow] {
+        matters.filter(filter.passes)
     }
 
-    /// The matters `filter` and the search let through, in the list's order.
-    public func shown(query: String, filter: MatterFilter) -> [MatterRow] {
-        matching(query).filter(filter.passes)
-    }
-
-    /// The filter sheet's counts, over every running matter: each area (most matters first), each kind of wait, and the
-    /// ones with an agent.
-    public var areaCounts: [(area: String, count: Int)] {
+    /// The filter menu's areas, over every running matter, most matters first.
+    public var areasByCount: [String] {
         let counts = matters.flatMap { $0.areas ?? [] }.reduce(into: [String: Int]()) { $0[$1, default: 0] += 1 }
-        return counts.sorted { ($1.value, $0.key) < ($0.value, $1.key) }.map { ($0.key, $0.value) }
-    }
-    public var waitCounts: [MatterWait: Int] {
-        matters.reduce(into: [:]) { counts, row in if let wait = row.wait { counts[wait, default: 0] += 1 } }
+        return counts.sorted { ($1.value, $0.key) < ($0.value, $1.key) }.map(\.key)
     }
 }
 
-/// What a matter waits on, as the filter sheet names it: its next step's kind, or stuck.
-public enum MatterWait: String, CaseIterable, Sendable {
+/// What a matter waits on: its next step's kind, or stuck.
+public enum MatterWait: Sendable {
     case decision, owner, ready, event, stuck
+
+    /// Whether it waits on him: his decision, or something only he does.
+    public var isOnHim: Bool { self == .decision || self == .owner }
 }
 
 extension MatterRow {
@@ -109,22 +95,23 @@ extension MatterRow {
     }
 }
 
-/// The Matters list's three filters: an area, the kinds of wait (any of them), and only matters with an agent.
-public struct MatterFilter: Sendable, Equatable {
-    public var area: String?
-    public var waits: Set<MatterWait> = []
-    public var withAgent = false
+extension MatterRow {
+    /// Whether it needs him: it waits on him, or a check about it blocks him. The one test, for the row's dot, the filter and the page.
+    public var needsYou: Bool { wait?.isOnHim == true || (blockingChecks ?? 0) > 0 }
+}
 
-    public init(area: String? = nil, waits: Set<MatterWait> = [], withAgent: Bool = false) {
-        (self.area, self.waits, self.withAgent) = (area, waits, withAgent)
-    }
-
-    public var isEmpty: Bool { self == MatterFilter() }
+/// What the Matters list's filter menu chooses: everything, what needs him, what an agent works on, or one area.
+public enum MatterFilter: Hashable, Sendable {
+    case everything, needsYou, agentWorking
+    case area(String)
 
     func passes(_ row: MatterRow) -> Bool {
-        (area.map { row.areas?.contains($0) == true } ?? true)
-            && (waits.isEmpty || row.wait.map(waits.contains) == true)
-            && (!withAgent || row.agent != nil)
+        switch self {
+        case .everything: true
+        case .needsYou: row.needsYou
+        case .agentWorking: row.agent != nil
+        case .area(let area): row.areas?.contains(area) == true
+        }
     }
 }
 
