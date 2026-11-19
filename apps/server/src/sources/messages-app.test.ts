@@ -8,7 +8,7 @@ import { messagesAppSend } from "./messages-app";
 
 const GOOD = { code: 0, killed: null, stderr: "" };
 
-/** A chat.db of made-up chats: two services share the handle +15550100, the iMessage one has the newer message. */
+/** A chat.db of made-up chats: two services share the handle +15550100, and the SMS one has the newer message. */
 function fixture() {
   const dir = mkdtempSync(join(tmpdir(), "messages-app-"));
   const path = join(dir, "chat.db");
@@ -16,7 +16,7 @@ function fixture() {
   db.run(`create table message (ROWID integer primary key, guid text, date integer, is_from_me integer, text text,
     attributedBody blob, error integer default 0, is_sent integer default 0)`);
   db.run(
-    "create table chat (ROWID integer primary key, guid text, chat_identifier text)"
+    "create table chat (ROWID integer primary key, guid text, chat_identifier text, service_name text)"
   );
   db.run(
     "create table chat_message_join (chat_id integer, message_id integer)"
@@ -27,17 +27,23 @@ function fixture() {
   db.run(
     "create table message_attachment_join (message_id integer, attachment_id integer)"
   );
-  db.run("insert into chat values (1, 'SMS;-;+15550100', '+15550100')");
-  db.run("insert into chat values (2, 'iMessage;-;+15550100', '+15550100')");
-  db.run("insert into chat values (3, null, 'ana@example.com')");
+  db.run("insert into chat values (1, 'SMS;-;+15550100', '+15550100', 'SMS')");
+  db.run(
+    "insert into chat values (2, 'iMessage;-;+15550100', '+15550100', 'iMessage')"
+  );
+  db.run("insert into chat values (3, null, 'ana@example.com', 'iMessage')");
+  db.run("insert into chat values (4, 'SMS;-;+15550101', '+15550101', 'SMS')");
   const old = toAppleNs(new Date("2026-01-01T00:00:00Z"));
   db.run("insert into message values (1, 'old-sms', ?, 0, 'hi', null, 0, 1)", [
-    old - 5n,
+    old + 5n,
   ]);
   db.run("insert into message values (2, 'old-im', ?, 1, 'ok', null, 0, 1)", [
     old,
   ]);
-  db.run("insert into chat_message_join values (1, 1), (2, 2)");
+  db.run("insert into message values (3, 'old-sms2', ?, 0, 'yo', null, 0, 1)", [
+    old,
+  ]);
+  db.run("insert into chat_message_join values (1, 1), (2, 2), (4, 3)");
   return { db, dir, path };
 }
 
@@ -123,6 +129,19 @@ test("text goes into the newest chat of a handle, as argv only, and the matching
     'say "hi"; rm -rf /',
   ]);
   expect(m.calls[0]?.[0]).toBe("osascript");
+});
+
+// 19 Nov 2026: the text went into the SMS chat of a handle because that chat had the newest message.
+test("a handle's iMessage chat is chosen over its SMS one, though the SMS chat is newer; a handle with SMS only still sends, by SMS", async () => {
+  const f = fixture();
+  const m = messages(f, { text: "hi" });
+  await path(f, m.run).send({ chat: "+15550100", text: "hi" }, "t");
+  expect(m.calls[0]?.slice(-2)).toEqual(["iMessage;-;+15550100", "hi"]);
+  const sms = messages(f);
+  await expect(
+    path(f, sms.run).send({ chat: "+15550101", text: "hi" }, "t")
+  ).rejects.toThrow("may have gone");
+  expect(sms.calls[0]?.slice(-2)).toEqual(["SMS;-;+15550101", "hi"]);
 });
 
 test("its limit counts one hand-over per tell, and the confirmations", () => {
