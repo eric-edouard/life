@@ -27,15 +27,32 @@ extension Uploader {
     public struct BackupStatus: Sendable, Equatable {
         public var packs: Int
         public var jobs: Int
+        /// The newest day's snapshot the server holds (sent now, or already held), nil before the first.
+        public var snapshot: Snapshot?
 
-        public init(packs: Int, jobs: Int) {
+        public struct Snapshot: Sendable, Equatable {
+            public var bytes: Int64
+            public var recordedAt: Date
+
+            public init(bytes: Int64, recordedAt: Date) {
+                self.bytes = bytes
+                self.recordedAt = recordedAt
+            }
+        }
+
+        public init(packs: Int, jobs: Int, snapshot: Snapshot? = nil) {
             self.packs = packs
             self.jobs = jobs
+            self.snapshot = snapshot
         }
     }
 
     public func backupStatus() async throws -> BackupStatus {
-        BackupStatus(packs: try unsentPacks().count, jobs: try await oldJobs().count)
+        let newest = try db.query(
+            "SELECT bytes, at_ms FROM backup WHERE kind = 'snapshot' AND outcome IN ('sent', 'held') ORDER BY at_ms DESC LIMIT 1"
+        ) { BackupStatus.Snapshot(bytes: $0.int(0), recordedAt: CaptureInstant(millis: $0.int(1)).date) }
+        return BackupStatus(
+            packs: try unsentPacks().count, jobs: try await oldJobs().count, snapshot: newest.first)
     }
 
     /// One round of the backup. Returns the items skipped in it, for the event log.
