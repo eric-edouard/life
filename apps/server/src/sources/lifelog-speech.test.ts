@@ -121,6 +121,24 @@ test("a withdrawn recording inside the call keeps the words pending until a reco
   ]);
 });
 
+test("a withdrawn recording that held the call's opening keeps it pending until a recording holds its page again", () => {
+  const s = store();
+  put(s, {
+    conversations: [conversation("c1", { closed: true, endAt: TO })],
+    jobs: [job("j8", 1), job("j1", 6)],
+    removed: [{ firstPage: 4, kind: "job", ref: "j0", sourceId: "phone-1" }],
+    turns: [
+      turn("j8", 0, "2026-10-14T09:00:00.000Z"),
+      turn("j1", 0, "2026-10-14T10:05:00.000Z"),
+    ],
+  });
+  expect(recordingsOf(s, FROM, TO)).toBeNull();
+  put(s, { jobs: [{ ...job("j0b", 3), pages: [[3, 5]] }] });
+  expect(recordingsOf(s, FROM, TO)).toEqual([
+    { turn: "j1:0@2026-10-14T10:05:00.000Z", turns: 1 },
+  ]);
+});
+
 test("a hole long before the call never holds it back: a withdrawn page sent again or not, a recording stuck queued", () => {
   const [from, to] = ["2026-10-15T10:00:00.000Z", "2026-10-15T10:10:00.000Z"];
   const withdrawn = {

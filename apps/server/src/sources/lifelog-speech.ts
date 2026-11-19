@@ -58,9 +58,9 @@ interface InsideRow {
  * `CONVERSATION_ENDS_AFTER` reaches `to`. In every case no recording of that source may be still to come between the
  * call's and the one the words are read through (`isPendingBefore`).
  * ponytail: only the last turn's phone source is judged when two record one call (rare). A `failed` recording is
- * terminal in lifelog, so its hole never fills: the words are then in with what there is. A hole near the call that
- * never fills (a recording stuck queued, a withdrawn page never sent again) holds that call back until its 12 hours of
- * looking end (`CALLS_BACK`), never a later call.
+ * terminal in lifelog, so its hole never fills: the words are then in with what there is. A hole between the source's
+ * last turn before the call and the call's end that never fills (a recording stuck queued, a withdrawn page never sent
+ * again) holds that call back until its 12 hours of looking end (`CALLS_BACK`), never a later call.
  */
 export function recordingsOf(store: Store, from: string, to: string) {
   const { db } = store;
@@ -97,10 +97,7 @@ export function recordingsOf(store: Store, from: string, to: string) {
   const through = after ?? (settled ? last : null);
   if (
     !through ||
-    isPendingBefore(store, last.source_id, from, [
-      inside.find((r) => r.source_id === last.source_id)?.first_page ?? null,
-      through.first_page,
-    ])
+    isPendingBefore(store, last.source_id, from, through.first_page)
   ) {
     return null;
   }
@@ -118,17 +115,16 @@ export function recordingsOf(store: Store, from: string, to: string) {
 }
 
 /**
- * Whether a recording of phone source `source` with pages before `page` is still to come. Only near the call: queued
- * or submitted after the recording of the source's last turn before `from` (any, with no turn before), or
- * withdrawn from the call's first recording on (`callFirst`, its first page) and held by no other recording yet (lifelog sends its pages again, often
- * joined into a recording that starts at another page). A row stored before `last_page` holds only its first page.
+ * Whether a recording of phone source `source` with pages before `page` is still to come, only after the recording of
+ * the source's last turn before `from` (any, with no turn before): queued or submitted, or withdrawn and held by no
+ * other recording yet (lifelog sends its pages again, often joined into a recording that starts at another page). A row stored before `last_page` holds only its first page.
  * Nothing is known of a recording with no pages (`page` null).
  */
 function isPendingBefore(
   { db }: Store,
   source: string | null,
   from: string,
-  [callFirst, page]: [number | null, number | null]
+  page: number | null
 ) {
   const before = db
     .query<{ first_page: number }, [string | null, string]>(
@@ -138,16 +134,12 @@ function isPendingBefore(
     .get(source, from)?.first_page;
   return Boolean(
     db
-      .query<
-        { n: number },
-        [string | null, number | null, number, number | null]
-      >(
-        `select 1 as n from transcription_jobs w where w.source_id is ?1 and w.first_page < ?2 and (
-          (w.state in ('queued', 'submitted') and w.first_page > ?3)
-          or (w.state = 'withdrawn' and w.first_page >= ?4 and not exists (select 1 from transcription_jobs a
+      .query<{ n: number }, [string | null, number | null, number]>(
+        `select 1 as n from transcription_jobs w where w.source_id is ?1 and w.first_page > ?3 and w.first_page < ?2
+          and (w.state in ('queued', 'submitted') or (w.state = 'withdrawn' and not exists (select 1 from transcription_jobs a
             where a.source_id is ?1 and a.state is not 'withdrawn' and a.first_page <= w.first_page
             and coalesce(a.last_page, a.first_page) >= w.first_page))) limit 1`
       )
-      .get(source, page, before ?? -1, callFirst)
+      .get(source, page, before ?? -1)
   );
 }
