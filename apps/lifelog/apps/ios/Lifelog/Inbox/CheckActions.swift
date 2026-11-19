@@ -88,20 +88,16 @@ struct CheckActions: View {
         }
     }
 
-    /// What happens when he does not answer: Life's own words for the kinds that have a standing rule, the asker's option otherwise.
+    /// What happens when he does not answer, said only for a deadline: Life's own cards say nothing.
     private var silence: String? {
         switch check.group {
-        case .ending: return "Until you say, Life treats it as probably done."
-        case .voice: return "Until you say, the voice stays unnamed."
-        case .name, .guessedPerson: return "Until you say, Life keeps its guess."
-        case .contactsCard: return "Until you say, Life keeps them apart."
-        case .newMatter: return "Nothing starts unless you say so."
         case .decision, .unknown:
             guard let deadline = check.deadline else { return nil }
             let when = deadline.formatted(.dateTime.weekday(.wide).hour().minute())
             if check.draft != nil { return "No answer by \(when): nothing is sent." }
             let chosen = check.options.first { $0.id == check.onSilence }?.label
             return "No answer by \(when): " + (chosen.map { "“\($0)”." } ?? "nothing happens.")
+        default: return nil
         }
     }
 }

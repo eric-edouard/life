@@ -476,7 +476,7 @@ export function namingOf(
       voice: token,
     })),
   };
-  // A voice he answered "Not anyone I know", not relevant or otherwise as no one is never guessed (the hidden run's own are).
+  // A voice he answered "A stranger", not relevant or otherwise as no one is never guessed (the hidden run's own are).
   const noOne = new Set(
     part.voices.flatMap((v, n) => {
       const key = voiceKey(jobAt(n), v.label);
@@ -487,7 +487,7 @@ export function namingOf(
   return { input, keys, known: { noOne, onCall: calls.people } };
 }
 
-/** The voices (`voiceKey`) he answered whole, a person, not relevant or "Not anyone I know", and not mixed: what the score's hidden run hides. */
+/** The voices (`voiceKey`) he answered whole, a person, not relevant or "A stranger", and not mixed: what the score's hidden run hides. */
 const hiddenOf = (rows: VoiceRow[]) =>
   new Set(
     rows.flatMap((v) => {
@@ -566,7 +566,7 @@ function namingsOf(
 /**
  * The calls due for the parts of the conversations the summaries examine (`readConversationSummaryWork`): one read of
  * lifelog's voices per conversation, so a Lifelog Host without the route (404) stops it with a clear message. `counts` is what is
- * pending before the night's cap. With `again` a part is due even when a reply is stored (the newest line is the current one). With `hiding` (the score's hidden run) the voices he answered, a person, not relevant or "Not anyone I know",
+ * pending before the night's cap. With `again` a part is due even when a reply is stored (the newest line is the current one). With `hiding` (the score's hidden run) the voices he answered, a person, not relevant or "A stranger",
  * as a whole voice and not mixed, are shown as unnamed (`namingOf`'s `hidden`), and only the parts holding one are asked.
  */
 export async function readVoiceNamingWork(
