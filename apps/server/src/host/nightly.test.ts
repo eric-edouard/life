@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { DAY } from "../core/clock";
 import { LOG_DIR } from "../core/log";
 import { setSettings, settings } from "../core/settings";
-import { latestExtractions, OUT } from "../memory/memory-files";
+import { OUT, standingReadings } from "../memory/memory-files";
 import { unit } from "../memory/record-fixtures";
 import type { Extracted, Observation } from "../records/observation";
 import {
@@ -30,7 +30,7 @@ test("each marked unit is listed once read since the last night, with the observ
   ];
   const read = (at: string, id = u.id, unitHash = u.hash) =>
     ({ at, unit: id, unitHash }) as Extracted;
-  const latest = (...lines: Extracted[]) => latestExtractions(lines);
+  const latest = (...lines: Extracted[]) => standingReadings(lines);
   const held = {
     source: { channel: "lifelog", ref: "j:2@a" },
     text: "He will vote for the stones.",

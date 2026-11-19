@@ -51,9 +51,9 @@ test("search: an observation hit names the unit it comes from and who is in it",
   } as unknown as Unit;
   const statusInputs = {
     corrections: [],
-    latest: new Map(),
     live: new Set([unit.id]),
     retired: new Map(),
+    standing: new Map(),
   };
   buildIndex([o], path, statusInputs, [{ unit }]);
   const db = new Database(path, { readonly: true });
@@ -230,9 +230,9 @@ test("search: a conversation summary is found by a word of it and listed with th
       INDEX,
       {
         corrections: [],
-        latest: new Map(),
         live: new Set(),
         retired: new Map(),
+        standing: new Map(),
       },
       [],
       new Date("2099-01-01"),

@@ -346,11 +346,11 @@
                     ]),
                 check(
                     "voice_v1", group: "voice", title: "A voice from Saturday, 4 minutes with Sam",
-                    question: "Who is this voice?",
+                    question: "Who is this?",
                     options: [
-                        option("this-is", "It is this person", takes: "person or name"),
-                        option("not-anyone-i-know", "Not anyone I know"), option("media", "A video or TV playing"),
-                        option("not-relevant", "Not worth naming"),
+                        option("this-is", "Name them…", takes: "person or name"),
+                        option("not-anyone-i-know", "A stranger"), option("media", "TV or video"),
+                        option("not-relevant", "Don't care"),
                     ],
                     context: "Sam called the voice “Jun” twice in the same minute.",
                     extra: [
@@ -385,8 +385,7 @@
                     "person:con_cam", group: "contacts card", title: "Place a Contacts card",
                     question:
                         "Life cannot place the Contacts card Cam: its name and handles say Camille Vance and Cam Ortiz",
-                    options: [option("same-person", "It is this person", takes: "person")],
-                    context: "Its name and handles fit more than one person: Life keeps them apart until you say.",
+                    options: [option("same-person", "Choose who…", takes: "person")],
                     extra: [
                         "likelyPeople": [
                             ["name": "Camille Vance", "person": "person:camille"],

@@ -6,11 +6,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { appendJsonl } from "../core/files";
 import { FactCheck, FactCheckAnswer } from "../records/fact-check";
-import type {
-  Correction,
+import {
+  type Correction,
   Extracted,
-  Observation,
-  Supersession,
+  type Observation,
+  type Supersession,
 } from "../records/observation";
 import { buildIndex } from "./index-writer";
 import {
@@ -22,7 +22,6 @@ import {
   hiding,
   INDEX,
   isCurrent,
-  latestExtractions,
   latestFactCheckAnswers,
   liveUnits,
   newSince,
@@ -42,6 +41,7 @@ import {
   readUnitsFor,
   retiredBy,
   shownOf,
+  standingReadings,
   UNITS,
 } from "./memory-files";
 import { knownOn } from "./page-format";
@@ -51,6 +51,63 @@ const obs = (id: string, unit: string, unitHash: string, run = "r1") =>
   ({ id, madeBy: { run, unitHash }, unit }) as Observation;
 const read = (unit: string, unitHash: string, run = "r1") =>
   ({ run, unit, unitHash }) as Extracted;
+
+test("a continued reading leaves the readings before it standing; a whole re-read after them replaces all, and a line from before `lines` still reads as read whole", () => {
+  const ids = (ledger: Extracted[]) => {
+    const c = {
+      live: new Set(["unit_1"]),
+      standing: standingReadings(ledger),
+    };
+    return [
+      obs("f1", "unit_1", "h1", "r1"),
+      obs("f2", "unit_1", "h2", "r2"),
+      obs("f3", "unit_1", "h3", "r3"),
+      obs("f4", "unit_1", "h4", "r4"),
+    ]
+      .filter((x) => isCurrent(c, x))
+      .map((x) => x.id);
+  };
+  const cont = (hash: string, run: string) =>
+    ({ ...read("unit_1", hash, run), continues: true }) as Extracted;
+  // Three readings, each continuing the one before: all stand.
+  expect(
+    ids([read("unit_1", "h1", "r1"), cont("h2", "r2"), cont("h3", "r3")])
+  ).toEqual(["f1", "f2", "f3"]);
+  // A whole re-read after them replaces all three.
+  expect(
+    ids([
+      read("unit_1", "h1", "r1"),
+      cont("h2", "r2"),
+      cont("h3", "r3"),
+      read("unit_1", "h4", "r4"),
+    ])
+  ).toEqual(["f4"]);
+  // A line written before `lines` and `continues` existed parses, and stands alone.
+  const old = Extracted.parse({
+    at: "2026-10-10T02:00:00.000Z",
+    observations: 1,
+    prompt: "memory-extract.v6",
+    run: "r1",
+    schemaVersion: 1,
+    unit: "unit_1",
+    unitHash: "h1",
+  });
+  expect(old.lines).toBeUndefined();
+  expect(old.continues).toBeUndefined();
+  expect(ids([old, cont("h2", "r2")])).toEqual(["f1", "f2"]);
+  expect(ids([cont("h2", "r2"), old])).toEqual(["f1"]);
+});
+
+test("a fact of a continued reading is new since its own night, and the first reading's facts are not", () => {
+  const cite = (id: string, run: string, ref: string) =>
+    ({ id, madeBy: { run }, source: { ref } }) as Observation;
+  const all = [
+    cite("f1", "2026-10-15T20-00-00.000Z", "m2"),
+    cite("f2", "2026-10-16T05-00-00.000Z", "m6"),
+  ];
+  const isNew = newSince(all, "2026-10-15T21:00:00.000Z");
+  expect(all.filter(isNew).map((o) => o.id)).toEqual(["f2"]);
+});
 
 test("a unit re-extracted under another hash or prompt keeps only its latest facts; a unit never extracted keeps all; a gone or dropped unit none", () => {
   const all = [
@@ -70,8 +127,8 @@ test("a unit re-extracted under another hash or prompt keeps only its latest fac
     read("unit_4", "h1", "r2"),
   ];
   const c = {
-    latest: latestExtractions(ledger),
     live: new Set(["unit_1", "unit_2", "unit_3", "unit_4"]),
+    standing: standingReadings(ledger),
   };
   expect(all.filter((x) => isCurrent(c, x)).map((x) => x.id)).toEqual([
     "new",
@@ -223,9 +280,9 @@ test("the index, the pages and the status reads agree on where each observation 
 async function view(f: typeof fixture) {
   const statusInputs = {
     corrections: f.corrections,
-    latest: latestExtractions(f.extracted),
     live: f.live,
     retired: f.retired,
+    standing: standingReadings(f.extracted),
   };
   const shown = shownOf(f.list, statusInputs);
   const path = join(await mkdtemp(join(tmpdir(), "life-state-")), "i.sqlite");
@@ -266,9 +323,9 @@ test("hidden beats gone beats replaced beats retired beats active", () => {
     over: Partial<ObservationStatusInputs>
   ): ObservationStatusInputs => ({
     corrections: [],
-    latest: new Map(),
     live: new Set(["unit_1"]),
     retired: new Map(),
+    standing: new Map(),
     ...over,
   });
   const wrong = (page?: string) =>
@@ -276,7 +333,7 @@ test("hidden beats gone beats replaced beats retired beats active", () => {
   const retired = new Map([
     [x.id, { at: "t", by: "obs_000000000002" } as Supersession],
   ]);
-  const latest = new Map([["unit_1", read("unit_1", "other", "r2")]]);
+  const standing = new Map([["unit_1", [read("unit_1", "other", "r2")]]]);
   expect(observationStatusOf(x, at({}))).toEqual({
     hiddenOn: [],
     state: "active",
@@ -285,14 +342,14 @@ test("hidden beats gone beats replaced beats retired beats active", () => {
     by: "obs_000000000002",
     state: "retired",
   });
-  expect(observationStatusOf(x, at({ latest, retired })).state).toBe(
+  expect(observationStatusOf(x, at({ retired, standing })).state).toBe(
     "replaced"
   );
   expect(
-    observationStatusOf(x, at({ latest, live: new Set(), retired })).state
+    observationStatusOf(x, at({ live: new Set(), retired, standing })).state
   ).toBe("gone");
   expect(
-    observationStatusOf(x, at({ corrections: [wrong()], latest, retired }))
+    observationStatusOf(x, at({ corrections: [wrong()], retired, standing }))
   ).toMatchObject({ correction: "wrong", state: "hidden" });
 });
 
@@ -356,9 +413,9 @@ test("audit-7-close-kept-promise: a promise he says he kept is retired by itself
   } as Correction;
   const s = {
     corrections: [kept],
-    latest: new Map(),
     live: new Set(["unit_1"]),
     retired: retiredBy(outdatedBy([kept]), new Set(["obs_a"])),
+    standing: new Map(),
   } as ObservationStatusInputs;
   expect(observationStatusOf(obs("obs_a", "unit_1", "h1"), s)).toEqual({
     at: "2026-10-27T14:50:00Z",
@@ -386,7 +443,6 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
   ) =>
     ({
       corrections: [],
-      latest: new Map(),
       live: new Set(["unit_1"]),
       retired: retiredBy(
         [
@@ -397,6 +453,7 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
         ],
         new Set(["obs_a", "obs_b"])
       ),
+      standing: new Map(),
     }) as ObservationStatusInputs;
   const outdated = statusInputs([rate("obs_a", "outdated")]);
   expect(observationStatusOf(x, outdated)).toEqual({
@@ -545,9 +602,9 @@ test("unit references read only indexed or cited days; a missing index entry che
     }
     const statusInputs = {
       corrections: [],
-      latest: new Map(),
       live: new Set<string>(),
       retired: new Map(),
+      standing: new Map(),
     };
     buildIndex([], INDEX, statusInputs, [{ unit: indexed }]);
     expect(

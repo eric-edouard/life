@@ -5,7 +5,7 @@ export type Urgency = "blocks" | "improves";
 
 interface Rankable {
   group: CheckGroup;
-  /** A voice's: the person lifelog suggests ("Is this voice X?"); null: none. `likelyPeople` ranks every profile, so it says nothing. */
+  /** A voice's: the person lifelog suggests; null: none. `likelyPeople` ranks every profile, so it says nothing. */
   subject: string | null;
 }
 
