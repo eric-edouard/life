@@ -190,6 +190,9 @@ export function incomingArchived(
 export function openArchive(dir: string, name: string, schema: string) {
   mkdirSync(dir, { recursive: true });
   const db = new Database(archiveDb(name, dir));
+  // First, like every other WAL writer: a reader rebuilding the WAL index just after the last connection closed
+  // makes the next statement fail at once with "database is locked" otherwise.
+  db.run("pragma busy_timeout = 5000");
   db.run("pragma journal_mode = wal");
   db.run(schema);
   return db;
