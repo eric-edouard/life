@@ -159,7 +159,7 @@ test("the list holds every guessed person, ambiguous card and unplaced name that
   // A name check's button never names the unknown name; a card two people fit makes no one's name the answer.
   const first = (r: string) => checks.find((x) => x.ref === r)?.options[0];
   expect(first("name:name0")?.label).toBe("Someone else…");
-  expect(first("person:con_card")?.label).toBe("Choose who…");
+  expect(first("person:con_card")?.label).toBe("Someone else…");
   expect(kinds).toHaveLength(32);
   expect(kinds).toContain(REF);
   expect(kinds).toContain("person:con_card");
@@ -191,8 +191,8 @@ test("an ending rides on its open matter and goes with his answer", () => {
     evidence: { quote: "Sent it." },
     kind: "ending",
     matter: { id: "matter_aaaaaaaaaaaa", name: "Send the quote" },
-    // The worded question, with the open step as said (who, to whom, when) and what came since.
-    question: "Is this done? I'll bring it Friday",
+    // The open step is `said` (who, to whom, when) and what came since is `since`; the question stays short.
+    question: "Is this done?",
     ref: o.id,
     ridesOn: { matters: 1, observations: 0 },
     said: {
@@ -438,7 +438,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
         expect.objectContaining({ id: "edit-goal" }),
         expect.objectContaining({ id: "dismiss" }),
       ],
-      question: "Start an agent on this? The boiler is serviced.",
+      question: "Start an agent on this?",
       ref: matter.id,
       ridesOn: {
         matterIds: [matter.id],

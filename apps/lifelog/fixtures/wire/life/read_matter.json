@@ -164,17 +164,17 @@
           "options": [
             {
               "id": "this-is",
-              "label": "It is them",
+              "label": "Yes",
               "takes": null
             },
             {
               "id": "not-this-person",
-              "label": "Not them",
+              "label": "No",
               "takes": null
             },
             {
               "id": "same-person",
-              "label": "Someone Life already knows",
+              "label": "Someone else…",
               "takes": "person"
             }
           ],
@@ -255,7 +255,7 @@
           "takes": null
         }
       ],
-      "question": "Is this done? \"Call the shop\" said Gran",
+      "question": "Is this done?",
       "ref": "obs_000000000005",
       "ridesOn": {
         "matterIds": ["matter_aaaaaaaaaaaa"],

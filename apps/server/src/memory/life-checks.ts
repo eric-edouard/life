@@ -31,7 +31,7 @@ export interface Said {
 export const LIFE_CHECKS = {
   "contacts card": {
     context: null,
-    options: [{ id: "same-person", label: "Choose who…", takes: "person" }],
+    options: [{ id: "same-person", label: "Someone else…", takes: "person" }],
     title: "Place a Contacts card",
   },
   ending: {
@@ -45,13 +45,9 @@ export const LIFE_CHECKS = {
   "guessed person": {
     context: null,
     options: [
-      { id: "this-is", label: "It is them", takes: null },
-      { id: "not-this-person", label: "Not them", takes: null },
-      {
-        id: "same-person",
-        label: "Someone Life already knows",
-        takes: "person",
-      },
+      { id: "this-is", label: "Yes", takes: null },
+      { id: "not-this-person", label: "No", takes: null },
+      { id: "same-person", label: "Someone else…", takes: "person" },
     ],
     title: "Know who someone is",
   },

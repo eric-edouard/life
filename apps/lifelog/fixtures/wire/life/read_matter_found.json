@@ -80,7 +80,7 @@
           "takes": null
         }
       ],
-      "question": "Start an agent on this? Gran's photo is framed.",
+      "question": "Start an agent on this?",
       "ref": "matter_cccccccccccc",
       "ridesOn": {
         "matterIds": ["matter_cccccccccccc"],
