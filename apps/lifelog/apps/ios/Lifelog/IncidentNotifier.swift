@@ -1,8 +1,10 @@
 import Capture
 import Foundation
 import Incidents
+import LifeConnector
 import OwnerSettings
 import ServerAPI
+import UIKit
 import UserNotifications
 
 /// Local notifications: one per actionable capture incident (decided by `IncidentReducer`), changes made on the
@@ -20,6 +22,14 @@ final class IncidentNotifier: NSObject {
     var open: ((NotificationRoute) -> Void)?
     /// A push of Life's cards arrived while the app is in front. Set by the capture store.
     var cardArrived: (() -> Void)?
+    /// Answers a card from its notification, the way its screen does, and says how it went. Set by the app delegate.
+    var answer: ((Check, AnswerRequest) async -> (word: String, line: String))?
+
+    /// Life's cards: Reply… (a decision's own words, the only button the Watch shows); the expanded notification
+    /// adds the card's own one-tap answers (`NotificationContent`). Every answer asks for the phone to be unlocked.
+    private static let cardCategory = UNNotificationCategory(
+        identifier: CardNotification.category, actions: [CardNotification.replyAction], intentIdentifiers: [],
+        options: [.hiddenPreviewsShowTitle])
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -33,6 +43,7 @@ final class IncidentNotifier: NSObject {
         super.init()
         // Must be set before launch finishes so a response that relaunched the app is delivered.
         center.delegate = self
+        center.setNotificationCategories([Self.cardCategory])
     }
 
     /// Asks once; iOS never shows the prompt again after the owner answers.
@@ -155,9 +166,40 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
     func userNotificationCenter(
         _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
     ) async {
-        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-            let route = NotificationRoute(userInfo: response.notification.request.content.userInfo)
-        else { return }
-        open?(route)
+        let request = response.notification.request
+        switch response.actionIdentifier {
+        case UNNotificationDefaultActionIdentifier:
+            NotificationRoute(userInfo: request.content.userInfo).map { open?($0) }
+        case UNNotificationDismissActionIdentifier: break
+        default: await answer(response)
+        }
+    }
+
+    /// A card answered from its notification, with the app in the background: the same answer as its screen's, then
+    /// the notification is replaced by how it went, in the result screen's words.
+    private func answer(_ response: UNNotificationResponse) async {
+        let request = response.notification.request
+        let check = CardNotification.card(in: request.content.userInfo)
+        let typed = (response as? UNTextInputNotificationResponse)?.userText
+        let awake = Awake()
+        awake.id = UIApplication.shared.beginBackgroundTask(withName: "card answer") { awake.end() }
+        defer { awake.end() }
+        let result: (word: String, line: String)
+        if let check, let answer,
+            let answering = CardNotification.answer(response.actionIdentifier, typed: typed, to: check)
+        {
+            result = await answer(check, answering)
+        } else {
+            result = ("Open the card to answer.", "This answer can't be given from the notification.")
+        }
+        let content = UNMutableNotificationContent()
+        content.title = result.word
+        content.subtitle = check?.title ?? ""
+        content.body = result.line
+        // Still opens its card when tapped; the card itself is not kept, so it offers no answers again.
+        content.userInfo = request.content.userInfo.filter { $0.key as? String != CardNotification.userInfoKey }
+        content.threadIdentifier = request.content.threadIdentifier
+        content.interruptionLevel = .passive
+        try? await center.add(UNNotificationRequest(identifier: request.identifier, content: content, trigger: nil))
     }
 }
