@@ -136,7 +136,7 @@ private struct EditableLine: View {
                         Task { await save(draft.trimmingCharacters(in: .whitespacesAndNewlines)) }
                     }
                     .buttonStyle(.pill(.filled, size: .compact, isBusy: state.isRunning))
-                    .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(state.isRunning || draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             } else {
                 Text(text.isEmpty ? "Not set" : text).font(.lead)
@@ -236,11 +236,14 @@ private struct AgentBlock: View {
                 Button {
                     Task { isStopped ? await life.resumeAgent(agent.id) : await life.stopAgent(agent.id) }
                 } label: {
-                    Label(
-                        state.isRunning ? "Working…" : isStopped ? "Resume" : "Stop",
-                        systemImage: isStopped ? "play" : "stop")
+                    if state.isRunning {
+                        Text("Working…")
+                    } else {
+                        Label(isStopped ? "Resume" : "Stop", systemImage: isStopped ? "play" : "stop")
+                    }
                 }
                 .buttonStyle(.pill(.quiet, size: .compact, isBusy: state.isRunning))
+                .disabled(state.isRunning)
             }
         }
     }

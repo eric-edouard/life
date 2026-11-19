@@ -10,7 +10,7 @@ enum Metrics {
     enum Radius {
         /// A quote inside a draft, photo tiles and thumbnails.
         static let tile: CGFloat = 10
-        /// A draft, a quote, a clip, a multi-line field.
+        /// A draft, a piece of evidence, a clip, a multi-line field.
         static let passage: CGFloat = 16
         /// Every card, row group and box.
         static let card: CGFloat = 22
