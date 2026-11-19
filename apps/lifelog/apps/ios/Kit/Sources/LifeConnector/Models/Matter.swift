@@ -86,31 +86,13 @@ public struct MatterList: Decodable, Sendable, Equatable {
     }
 }
 
-/// What a matter waits on: its next step's kind, or stuck.
-public enum MatterWait: Sendable {
-    case decision, owner, ready, event, stuck
-
-    /// Whether it waits on him: his decision, or something only he does.
-    public var isOnHim: Bool { self == .decision || self == .owner }
-}
-
 extension MatterRow {
-    /// A stuck matter is stuck whatever its next step says; one with no next step waits on nothing known.
-    public var wait: MatterWait? {
-        if status == .stuck { return .stuck }
-        switch nextStep?.kind {
-        case .waitDecision?: return .decision
-        case .waitOwner?: return .owner
-        case .do?: return .ready
-        case .waitEvent?: return .event
-        case .unknown?, nil: return nil
-        }
+    /// Whether it needs him: its next step is his decision or something only he does (a stuck matter is stuck whatever
+    /// its next step says), or a check about it blocks him. The one test, for the row's dot and the filter.
+    public var needsYou: Bool {
+        let waitsOnHim = status != .stuck && (nextStep?.kind == .waitDecision || nextStep?.kind == .waitOwner)
+        return waitsOnHim || (blockingChecks ?? 0) > 0
     }
-}
-
-extension MatterRow {
-    /// Whether it needs him: it waits on him, or a check about it blocks him. The one test, for the row's dot, the filter and the page.
-    public var needsYou: Bool { wait?.isOnHim == true || (blockingChecks ?? 0) > 0 }
 }
 
 /// What the Matters list's filter menu chooses: everything, what needs him, what an agent works on, or one area.
