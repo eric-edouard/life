@@ -10,7 +10,7 @@
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (a tapped push's one-card read takes 5 s), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused); `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|agent|pair|pairing|replacePendant|pairPendant`
     /// open the screen to show. `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -155,7 +155,7 @@
             }
             var matter = row
             let hasAgent = id == "matter_lease" || (id == "matter_table" && started.withLock { $0 })
-            matter["agents"] = hasAgent ? [Self.agent(id == "matter_lease" ? 0 : 2)] : []
+            matter["agents"] = hasAgent || id == "matter_kitchen" ? [Self.agent(id == "matter_lease" ? 0 : id == "matter_kitchen" ? 1 : 2)] : []
             if id == "matter_table", started.withLock({ $0 }) { matter["agent"] = "agt_table" }
             matter["steps"] = Self.steps(id)
             // Every open check about it, of every kind, as `read_matter` sends them.
@@ -728,7 +728,25 @@
                 "id": "agt_lease", "title": "Get the lease signed and back to Hélène Aubert", "runtime": "claude",
                 "model": "Sonnet",
                 "status": "waiting", "link": "https://agents.example.test/s/1", "notes": "Lease renewal.",
-                "wait": ["isDefault": false, "reason": "your answer", "until": at(19, 18)],
+                "wait": ["isDefault": false, "reason": "Hélène sends the signed lease.", "until": at(21, 18)],
+                "statusSince": at(19, 14, 2),
+                "wakesOn": [
+                    ["kind": "message", "person": "Hélène Aubert", "calls": true],
+                    ["kind": "message", "person": "Camille Roux", "calls": true, "apps": ["whatsapp"]],
+                    [
+                        "kind": "message", "calls": true, "apps": ["whatsapp"],
+                        "chat": ["name": "Carmes building", "app": "whatsapp", "group": true],
+                    ],
+                    ["kind": "message", "person": "Léa Marchetti", "calls": true, "broken": "unknown_person"],
+                    ["kind": "message", "calls": true, "chat": ["name": NSNull(), "app": "line", "group": NSNull()]],
+                    ["kind": "message", "person": "Hélène Aubert", "words": "bail", "calls": false],
+                    ["kind": "message", "words": "devis", "calls": false, "apps": ["mail"]],
+                    ["kind": "message", "fromHim": true, "calls": false, "chat": ["name": "Carmes building", "app": "whatsapp", "group": true]],
+                    ["kind": "payments", "quantity": "eur_out", "above": 500],
+                    ["kind": "places", "where": "Halden house"],
+                    ["kind": "answer", "card": "Go with this plan?", "check": "dec_plan", "deadline": at(19, 18)],
+                    ["kind": "wide_net"],
+                ],
                 "lastTurn": [
                     "startedAt": at(18, 14, 0), "endedAt": at(18, 14, 2),
                     "outcome": "drafted the reply to Hélène and asked you to send it",
@@ -736,8 +754,8 @@
             ]
             let kitchen: [String: Any] = [
                 "id": "agt_kitchen", "title": "Get the kitchen supplier price", "runtime": "codex", "model": "GPT",
-                "status": "waiting", "link": NSNull(), "notes": "Kitchen quote.",
-                "wait": ["isDefault": true, "reason": "a message", "until": at(20, 9)],
+                "status": "stopped", "link": NSNull(), "notes": "Kitchen quote.",
+                "wait": NSNull(), "statusSince": at(19, 14, 10), "wakesOn": [],
                 "lastTurn": [
                     "startedAt": at(17, 10, 0), "endedAt": at(17, 10, 4), "outcome": "asked Idris for the price",
                 ],
@@ -746,6 +764,7 @@
                 "id": "agt_table", "title": "Book Chez Odile", "runtime": "claude", "model": "Sonnet",
                 "status": "running",
                 "link": "https://agents.example.test/s/9", "notes": "Table.", "wait": NSNull(),
+                "statusSince": at(18, 14, 5), "wakesOn": [],
                 "lastTurn": ["startedAt": at(18, 14, 5), "endedAt": NSNull(), "outcome": NSNull()],
             ]
             let matter: [Int: [String: Any]] = [

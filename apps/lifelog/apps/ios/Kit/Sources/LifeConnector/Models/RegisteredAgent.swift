@@ -81,6 +81,10 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     /// The matter its first anchor finds, when its subject is one (not in a matter's own `agents`).
     public let matter: Matter?
     public let wait: Wait?
+    /// Since when it has been in its status; nil when the desk has no date.
+    public let statusSince: Date?
+    /// What will wake it while it waits, in its own order; none otherwise.
+    public let wakesOn: [WakeLine]
     public let lastTurn: Turn?
     public let amber: [String]
 

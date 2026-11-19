@@ -23,6 +23,8 @@ final class AppRouter {
     /// The matter whose "Start an agent" sheet is open: here, not in the matter's page, so a fold that collapses the page
     /// keeps the sheet and the start it shows.
     var startSheetMatter: String?
+    /// The matter whose agent's sheet (what wakes it) is open; held here for the same reason.
+    var agentSheetMatter: String?
 
     func open(matter id: String) {
         sheet = nil

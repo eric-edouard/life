@@ -19,6 +19,12 @@ enum Metrics {
         static let battery: CGFloat = 71
     }
 
+    /// A row of the agent's wake list, and the round slot that leads it.
+    enum Wake {
+        static let row: CGFloat = 48
+        static let slot: CGFloat = 32
+    }
+
     /// Corner radii, smallest to largest.
     enum Radius {
         /// A quote inside a draft, photo tiles and thumbnails.
