@@ -135,15 +135,19 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     // Host's agents on it and its active agent, given the matter's steps.
     expect(
       (
-        await oneMatter(["matter_aaaaaaaaaaaa"], (refs) =>
-          refs.includes("obs_000000000005") ? [{ id: "agt_000000000001" }] : []
+        await oneMatter(["matter_aaaaaaaaaaaa"], (refs, projects) =>
+          refs.includes("obs_000000000005") && projects.includes("shop-fit-out")
+            ? [{ id: "agt_000000000001" }]
+            : []
         )
       )?.agents
     ).toEqual([{ id: "agt_000000000001" }]);
     expect(
       (
-        await openMatters({}, (refs) =>
-          refs.includes("ep_000000000001") ? "agt_000000000001" : undefined
+        await openMatters({}, (refs, projects) =>
+          refs.includes("ep_000000000001") || projects.includes("shop-fit-out")
+            ? "agt_000000000001"
+            : undefined
         )
       ).matters[0]?.agent
     ).toBe("agt_000000000001");
