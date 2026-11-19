@@ -28,6 +28,9 @@ final class LifeStore {
     private(set) var actions: [ActionKey: ActionState<ActionProof>] = [:]
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
+    /// A tapped push's own read, from the tap until its card is on show: the Inbox draws it, never the old cards.
+    private(set) var pushRead: ReadState<Inbox>?
+    private var pushId: String?
 
     /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] in await self?.answer($0) }
@@ -110,7 +113,7 @@ final class LifeStore {
     }
 
     func refreshInbox() async {
-        await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
+        await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox(pushId: nil) }
         // The badge is the cards that block him.
         if let badge = inbox.value?.badge { setBadge(badge) }
     }
@@ -143,14 +146,14 @@ final class LifeStore {
     }
 
     private func load<V: Decodable & Sendable>(
-        _ update: (ReadState<V>.Event) -> Void, key: String,
+        _ update: (ReadState<V>.Event) -> Void, key: String?,
         fetch: @Sendable (any LifeAPI) async throws -> String
     ) async {
         update(.started)
         do {
             let text = try await fetch(api)
             let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(text.utf8))
-            cache.store(text, key: key)
+            if let key { cache.store(text, key: key) }
             update(.succeeded(value, now()))
         } catch _ where Task.isCancelled {
             // The screen that asked left: the read stands as it was.
@@ -307,13 +310,34 @@ final class LifeStore {
         _ = await (a, b)
     }
 
-    /// A tapped push: the inbox is read again and the card with that `pushId` is the one opened; one that already
-    /// left (answered elsewhere) opens the first card waiting, marked `wasAnswered`. Only a read that just succeeded can
-    /// say so: offline, the cached inbox cannot hold the new card, and the read's own face shows instead.
+    /// A tapped push: that one card is read alone and opened at once, then the whole inbox is read. A card that already
+    /// left (answered elsewhere) opens the first one waiting, marked `wasAnswered`, once the whole inbox says so. Until
+    /// then (or if a read fails) the Inbox shows `pushRead`'s loading or failure, never the cards it had.
     func open(pushId: String) async {
+        self.pushId = pushId
+        openedCard = nil
+        pushRead = ReadState()
+        await load({ self.pushRead?.apply($0) }, key: nil) { try await $0.readInbox(pushId: pushId) }
+        guard let one = pushRead, one.phase == .loaded, let found = one.value else { return }
+        if let card = found.checks.first {
+            inbox.apply(.succeeded(inbox.value?.adding(card) ?? found, now()))
+            (openedCard, pushRead) = (found.opening(pushId: pushId), nil)
+            await refreshInbox()
+            return
+        }
         await refreshInbox()
-        guard inbox.phase == .loaded else { return }
-        openedCard = inbox.value?.opening(pushId: pushId)
+        if inbox.phase == .loaded {
+            (openedCard, pushRead) = (inbox.value?.opening(pushId: pushId), nil)
+        } else {
+            // A fresh state, so the failure shows alone, never beside a value.
+            pushRead = ReadState()
+            pushRead?.apply(inbox.phase == .unreachable ? .failed(.unreachable) : .failed(.failed("Life's inbox was not read.")))
+        }
+    }
+
+    /// Reads again what the Inbox shows: the tapped push's card while that is what it waits on, else the inbox.
+    func retryInbox() async {
+        if pushRead != nil, let pushId { await open(pushId: pushId) } else { await refreshInbox() }
     }
 
     // MARK: Pairing
@@ -336,9 +360,7 @@ final class LifeStore {
     #if DEBUG
         /// Development only (`-fixtureCard`): opens the card with that ref as a tapped push does.
         func open(ref: String) async {
-            await refreshInbox()
-            guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return }
-            openedCard = inbox.value?.opening(pushId: pushId)
+            await open(pushId: "push_\(ref)")
         }
 
         /// Development only: launch with `LIFE_ORIGIN` and `LIFE_PAIRING_CODE` in the environment (for example

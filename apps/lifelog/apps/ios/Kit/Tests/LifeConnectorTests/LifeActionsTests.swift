@@ -13,7 +13,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     let keys = Mutex<[String]>([])
     let starts = Mutex<[AgentRequest]>([])
 
-    func readInbox() async throws -> String { "{}" }
+    func readInbox(pushId: String?) async throws -> String { "{}" }
     func readMatters() async throws -> String { "{}" }
     func readMatter(_ id: String) async throws -> String { matter }
     func readRegisteredAgents() async throws -> String { "{}" }

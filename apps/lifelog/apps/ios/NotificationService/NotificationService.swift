@@ -26,7 +26,7 @@ nonisolated final class NotificationService: UNNotificationServiceExtension, @un
         }
         lock.withLock { pending = Pending(deliver: contentHandler, original: request.content) }
         Task {
-            finish(with: try? CardNotification.of(pushId: pushId, inbox: await Self.api.readInbox()))
+            finish(with: try? CardNotification.of(pushId: pushId, inbox: await Self.api.readInbox(pushId: nil)))
         }
     }
 

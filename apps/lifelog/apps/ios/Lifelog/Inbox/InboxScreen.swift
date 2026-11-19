@@ -14,7 +14,7 @@ struct InboxScreen: View {
 
     var body: some View {
         ReadScreen(
-            shown: shown, retry: { await life.refreshInbox() },
+            shown: shown, retry: { await life.retryInbox() },
             loading: { CardPlaceholder() }, empty: { InboxZero() },
             content: { _ in card }
         )
@@ -32,6 +32,7 @@ struct InboxScreen: View {
     /// The inbox read as shown, except that his tap's result stays up whatever the read did since: the inbox emptied
     /// (his answer was the last card) or its read failed. Only a new pairing, which clears the inbox, takes it away.
     private var shown: ReadState<Inbox>.Shown {
+        if let push = life.pushRead { return push.phase == .loaded ? .loading : push.shown() }
         guard notes.taken != nil, let inbox = life.inbox.value else {
             return life.inbox.shown(isEmpty: { $0.checks.isEmpty })
         }

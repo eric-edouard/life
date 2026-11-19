@@ -273,3 +273,12 @@ private func asks(_ urgencies: [(String, Urgency)]) throws -> Inbox {
     let inbox = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves), ("i2", .improves)])
     #expect(inbox.pages(deferred: ["b1", "i1"]).map(\.id) == ["b2", "b1", InboxPage.boundaryId, "i2", "i1"])
 }
+
+@Test func aCardReadAloneJoinsTheInboxInFrontOnce() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
+    let card = inbox.checks[0]
+    let rest = try decoded(Inbox.self, #"{"checks":[],"counts":{},"total":0,"deadlinesToday":0,"blocking":0}"#)
+    let joined = rest.adding(card)
+    #expect(joined.checks == [card] && joined.total == 1 && joined.counts[card.group.rawValue] == 1)
+    #expect(joined.adding(card) == joined)
+}

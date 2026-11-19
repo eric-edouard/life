@@ -156,3 +156,20 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     #expect(read == text)
     #expect(took < .seconds(1))
 }
+
+@Test func aPushReadAsksLifeForThatOneCardAndTheWholeReadForEveryCard() async throws {
+    let sent = Mutex<[Data]>([])
+    let mcp = client(host: newHost()) { request in
+        let params = request.json["params"] as? [String: Any]
+        let arguments = params?["arguments"] as? [String: Any] ?? [:]
+        sent.withLock { $0.append((try? JSONSerialization.data(withJSONObject: arguments)) ?? Data()) }
+        return .json(resultMessage("{}"))
+    }
+    let api = MCPLifeAPI(client: mcp)
+    _ = try await api.readInbox(pushId: "0123456789abcdef")
+    _ = try await api.readInbox(pushId: nil)
+    let arguments = try sent.withLock { try $0.map { try #require(JSONSerialization.jsonObject(with: $0) as? [String: Any]) } }
+    #expect(arguments[0]["pushId"] as? String == "0123456789abcdef")
+    #expect(arguments[0]["limit"] == nil)
+    #expect(arguments[1]["limit"] as? Int == 500)
+}
