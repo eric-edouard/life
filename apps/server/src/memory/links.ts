@@ -4,10 +4,9 @@ import { appendJsonl } from "../core/files";
 import { isPromptVersion } from "../models/prompt-parts";
 import { Link, LinkBatch } from "../records/link";
 import type { Observation } from "../records/observation";
-import { endingsNow, readBatches } from "./endings";
+import { readBatches } from "./endings";
 import {
   ACTIONABLE,
-  episodeAt,
   isEnded,
   type MatterStepNow,
   type MatterView,
@@ -378,33 +377,4 @@ export async function links(pending: LinkWork) {
     }
   });
   return step.end({ links: found, matters: pending.work.length });
-}
-
-/**
- * A matter's open steps, each with the ending the links step found (its words and day) or none: how a link is checked
- * by eye while nothing reads them (`bun life memory links <matter id>`).
- */
-export async function readEndings(people: People, id: string) {
-  const records = await readMatterRecords(people);
-  const { endings } = endingsNow((ref) => records.current.has(ref));
-  const matter = matterBookOf(
-    mattersNow(readMatters()),
-    records,
-    dayNow()
-  ).find((m) => m.id === id);
-  // The later record may be any current one, in this matter or none.
-  const dayOf = new Map([
-    ...records.observations.map((o): [string, string] => [o.id, o.date]),
-    ...records.episodes.map((e): [string, string] => [
-      e.id,
-      episodeAt(e).slice(0, 10),
-    ]),
-  ]);
-  const isObservation = new Set(records.observations.map((o) => o.id));
-  return (matter?.steps ?? [])
-    .filter((s) => isObservation.has(s.ref) && ACTIONABLE.includes(s.kind))
-    .map((s) => {
-      const end = endings.get(s.ref);
-      return `- ${s.ref} ${s.day} ${s.kind}: ${s.text}\n    ${end ? `ended ${dayOf.get(end.later)}: "${end.quote}" (${end.later})` : "no ending found"}`;
-    });
 }
