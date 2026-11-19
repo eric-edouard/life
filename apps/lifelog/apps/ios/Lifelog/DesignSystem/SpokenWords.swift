@@ -62,8 +62,6 @@ struct SpokenWords: View {
     /// The audio could not be had: the Play shows it, and a tap tries again.
     @State private var failed = false
     @State private var fetch: Task<Void, Never>?
-    /// How far it got, to tell its end from a stop.
-    @State private var reached = 0.0
 
     private var id: String { "\(job)-\(start)" }
     /// This recording is the one loaded (playing or paused): its words are split where it is.
@@ -90,12 +88,6 @@ struct SpokenWords: View {
             }
         }
         .task { if autoplay { begin(at: 0) } }
-        .onChange(of: playback.position) { _, position in if isCurrent, position > 0 { reached = position } }
-        .onChange(of: playback.playingID) { old, new in
-            guard new == nil, old == id, reached >= end - 0.6 else { return }
-            reached = 0
-            onEnded?()
-        }
         .onDisappear {
             fetch?.cancel()
             if isCurrent { playback.stop() }
@@ -163,7 +155,7 @@ struct SpokenWords: View {
             isFetching = false
             guard !Task.isCancelled else { return }
             guard let file else { return failed = true }
-            playback.play(file, from: start + seconds, for: end - start - seconds, id: id)
+            playback.play(file, from: start + seconds, for: end - start - seconds, id: id, onEnd: onEnded)
         }
     }
 }

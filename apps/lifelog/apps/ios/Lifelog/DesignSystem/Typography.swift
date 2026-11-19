@@ -19,8 +19,9 @@ struct TypeStep: Equatable {
     static let statusWord = TypeStep(size: 40, weight: 250, style: .largeTitle)
     /// The figure on a tile: "82%".
     static let tileFigure = TypeStep(size: 26, weight: 650, style: .title2, hasFixedDigits: true)
-    /// A screen's name in a sheet.
+    /// A sheet's heading when it sits in the content: bold.
     static let sheetHeading = TypeStep(size: 22, weight: 650, style: .title3)
+    /// A screen's name in a sheet.
     static let sheetTitle = TypeStep(size: 30, weight: 250, style: .title1)
     /// A matter's name.
     static let matterTitle = TypeStep(size: 28, weight: 250, style: .title1)

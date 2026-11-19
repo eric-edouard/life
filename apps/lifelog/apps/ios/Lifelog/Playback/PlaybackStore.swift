@@ -29,6 +29,8 @@ final class PlaybackStore {
     @ObservationIgnored private var clipEnd: Task<Void, Never>?
     /// Where the clip's span ends in the file, to time its end again after a pause.
     @ObservationIgnored private var spanEnd: Double?
+    /// Told when the clip plays to its end; a stop forgets it.
+    @ObservationIgnored private var onEnded: (() -> Void)?
     /// A whole file that plays to its end also lets the audio session go (a clip's span ends through `stop`).
     @ObservationIgnored private var itemEnd: NSObjectProtocol?
     /// Playing out loud, the Pendant hears it: the span is kept from transcription (`PlaybackQuiet`).
@@ -57,7 +59,9 @@ final class PlaybackStore {
 
     /// Plays `file` from `start` seconds, and for `length` seconds when given (a clip is a span of its job's audio).
     /// `id` names the recording for whoever shows where it is (`playingID`).
-    func play(_ file: URL, from start: Double = 0, for length: Double? = nil, id: String? = nil) {
+    func play(
+        _ file: URL, from start: Double = 0, for length: Double? = nil, id: String? = nil, onEnd: (() -> Void)? = nil
+    ) {
         // `.playback` plays through the ring/silent switch, which mutes the default `.soloAmbient`; nothing else of the
         // app plays or records through the session (the Pendant's capture is Bluetooth, not AVAudioSession).
         let session = AVAudioSession.sharedInstance()
@@ -67,7 +71,7 @@ final class PlaybackStore {
         itemEnd.map(NotificationCenter.default.removeObserver)
         itemEnd = NotificationCenter.default.addObserver(
             forName: AVPlayerItem.didPlayToEndTimeNotification, object: item, queue: .main
-        ) { [weak self] _ in MainActor.assumeIsolated { self?.stop() } }
+        ) { [weak self] _ in MainActor.assumeIsolated { self?.end() } }
         player.replaceCurrentItem(with: item)
         playingID = id
         position = start
@@ -75,6 +79,7 @@ final class PlaybackStore {
         if start > 0 { player.seek(to: CMTime(seconds: start, preferredTimescale: 600)) }
         player.play()
         spanEnd = length.map { start + $0 }
+        onEnded = onEnd
         endSpan(after: length)
     }
 
@@ -84,9 +89,16 @@ final class PlaybackStore {
         clipEnd = seconds.map { seconds in
             Task { [weak self] in
                 try? await Task.sleep(for: .seconds(seconds))
-                if !Task.isCancelled { self?.stop() }
+                if !Task.isCancelled { self?.end() }
             }
         }
+    }
+
+    /// The clip played to its end (the span's or the file's), as against `stop`: tells whoever asked.
+    private func end() {
+        let done = onEnded
+        stop()
+        done?()
     }
 
     /// Holds the clip where it is: `playingID` and `position` stay, so its words keep their split.
@@ -102,6 +114,7 @@ final class PlaybackStore {
     }
 
     func stop() {
+        onEnded = nil
         clipEnd?.cancel()
         itemEnd.map(NotificationCenter.default.removeObserver)
         itemEnd = nil

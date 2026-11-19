@@ -101,7 +101,7 @@ struct VoiceBlock: View {
             if clips.count > 1 {
                 Text("\(index + 1)/\(clips.count)").font(.monoTime).foregroundStyle(Palette.muted)
                 Button {
-                    let wasPlaying = playback.playingID != nil
+                    let wasPlaying = playback.isPlaying
                     playback.stop()
                     move(to: (index + 1) % clips.count, playing: wasPlaying)
                 } label: {
