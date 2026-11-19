@@ -963,6 +963,21 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
 
 // MARK: Edits shown before the server has them
 
+@Test func anEditAnOlderBuildQueuedThatThisOneCantReadIsReportedOnceAndGoes() async throws {
+    let reports = Mutex(0)
+    let directory = FileManager.default.temporaryDirectory.appending(path: "outbox-\(UUID().uuidString)")
+    let library = try LibraryStore(directory: directory, report: { _ in reports.withLock { $0 += 1 } })
+    // A kind of edit this build no longer makes, as an older build stored it.
+    try SQLite(path: directory.appending(path: "library.sqlite").path).run(
+        "INSERT INTO outbox (id, intent, created_ms) VALUES (?1, ?2, 0)",
+        [.text(UUID().uuidString), .blob(Data(#"{"gone":{"at":0}}"#.utf8))])
+    try await library.enqueue(.vocabulary(["Nok"]))
+
+    #expect(try await library.outbox().map(\.intent) == [.vocabulary(["Nok"])])
+    #expect(try await library.outbox().count == 1)
+    #expect(reports.withLock { $0 } == 1)
+}
+
 @Test func anEditShowsAtOnceAndARefusedOneRollsBack() async throws {
     let library = try LibraryStore(
         directory: FileManager.default.temporaryDirectory.appending(path: "pending-\(UUID().uuidString)"))

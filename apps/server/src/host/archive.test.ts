@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { MIN } from "../core/clock";
 import { log } from "../core/log";
 import { MACHINE_DIR, WINDOWS } from "../core/platform";
-import { ARCHIVED, keptStores } from "../memory/sources";
+import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE } from "../sources/archived";
 import { toAppleS } from "../sources/imessage";
 import { whatsappFixture } from "../sources/store-fixtures";
@@ -37,6 +37,22 @@ test("the archive opens each closed app, but not again within 10 minutes", () =>
     "WhatsApp",
     "Notes",
   ]);
+});
+
+test("a store whose app can't be told now (a bridge restarting) is skipped, the others still opened", () => {
+  const [first, ...rest] = ARCHIVED;
+  const failing = {
+    ...first,
+    store: {
+      ...first?.store,
+      get app(): string {
+        throw new Error("unable to open database file");
+      },
+    },
+  } as Archived;
+  expect(appsToOpen([], 1e12, new Map(), [failing, ...rest])).toEqual(
+    appsToOpen([], 1e12, new Map(), rest)
+  );
 });
 
 const LINE = /^Archive: FAILED: line from [\d-]+ [\d:]+, still failing: no db$/;
