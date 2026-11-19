@@ -19,6 +19,7 @@ import {
   requestDecision,
 } from "../memory/decisions";
 import { oneMatter } from "../memory/read-matters";
+import { projectPeopleAndChatsOf } from "../memory/read-truth";
 import { nameRefusalOf, readPeople } from "../memory/who";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { type Desk, writeWait } from "./desk-store";
@@ -181,6 +182,33 @@ export function askDecision(
 const contractOf = (id: string, isOwn: boolean) =>
   `You are ${id}, a registered agent of the owner's desk${isOwn ? ": one of his own sessions, in full" : ""}. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. ${isOwn ? "Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included." : "You have your door's tools only."} The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated.${isOwn ? " Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward)." : ""} Your first turn only reads and asks your plan (a question ending in a ?, such as "Start with this plan?", options Go, Tell the agent…, Stop the agent): act only after his Go. A \`call.ended\` event is a call of his that ended, with the recording his pendant made of it. Read each of its \`recordings\` with \`fetch\` (\`id\` its \`turn\`, which opens the recording from that turn as it is now; \`limit\` its \`turns\`, and read on if lines before \`until\` remain) and keep only the lines timed from \`at\` to \`until\`: the recording began before the call and went on after it, and nothing said outside those instants is the call's or may be quoted or sent. \`people\` is who may have been on it, not who spoke when: someone may have joined late. Voices heard through a speaker are often unnamed or merged into one: write such a line as an unnamed remote voice, never under a name the recording does not give.`;
 
+const NONE =
+  "(none in his directory: find them with `read_chats` and `read_person_page`, and tell him who or which chat is missing)";
+
+/** A project agent's subject: the project, then its people and chats as his directory holds them (what a wait's `person` and `chat` take). */
+async function projectLinesOf(project: string) {
+  const line = `Your subject: the project ${project} (\`read_area_page\`).`;
+  const held = projectPeopleAndChatsOf((await readPeople()).truth, project);
+  if (!held) {
+    return line;
+  }
+  const people = held.people.map(
+    (p) =>
+      `- ${p.id}: ${p.name}${p.aliases.length ? ` (also: ${p.aliases.join(", ")})` : ""}${p.handles.map((h) => `; ${h.platform} ${h.values.join(", ")}`).join("")}`
+  );
+  const chats = held.chats.map(
+    (c) =>
+      `- ${c.key}: ${c.name}${c.isSure ? "" : " (a room id he wrote down: check it against `read_chats` before you wait on it)"}`
+  );
+  return [
+    line,
+    "Its people, as his directory holds them (a wait's `person` takes the id):",
+    ...(people.length ? people : [NONE]),
+    "Its chats (a wait's `chat` takes the key):",
+    ...(chats.length ? chats : [NONE]),
+  ].join("\n");
+}
+
 /**
  * `read_packet`: what a fresh session starts from: its matter as read now (`oneMatter`: where it stands, its goal and
  * next step, its steps so far), or its project; then the brief, the contract, its notes, its queued events (facts only)
@@ -195,7 +223,7 @@ export async function readPacket({ db }: Desk, id: string, isOwn: boolean) {
   const steps = anchorsOf(db, id);
   return [
     a.project
-      ? `Your subject: the project ${a.project} (\`read_area_page\`).`
+      ? await projectLinesOf(a.project)
       : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify((await oneMatter(steps)) ?? `No matter holds ${steps.join(", ")} now.`)}`,
     a.brief,
     contractOf(a.id, isOwn),

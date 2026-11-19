@@ -112,6 +112,51 @@ export function handlesOf(p: Person): string[] {
   ];
 }
 
+/**
+ * A project's people and chats as the directory holds them, for an agent on it: its `people` ids in order, then whoever
+ * lists the project in their own `projects` (the two directions are independent); its chats by the key a wait's `chat`
+ * filter compares, exactly. A WhatsApp chat's key is its `whatsapp` id (read from the Mac app); a room id alone is
+ * not sure (a bridged network's events carry the room the copy came from, which a room written down under Beeper no
+ * longer is after the cutover). Null when the directory has no such project.
+ */
+export function projectPeopleAndChatsOf(
+  { chats, people, projects }: Pick<Truth, "chats" | "people" | "projects">,
+  project: string
+) {
+  const p = projects.find((x) => x.id === project);
+  if (!p) {
+    return null;
+  }
+  const ids = new Set([
+    ...p.people,
+    ...people.filter((x) => x.projects.includes(project)).map((x) => x.id),
+  ]);
+  return {
+    chats: p.chats.flatMap((id) => {
+      const c = chats.find((x) => x.id === id);
+      return c
+        ? [{ isSure: !!c.whatsapp, key: c.whatsapp ?? c.id, name: c.name }]
+        : [];
+    }),
+    people: [...ids].flatMap((id) => {
+      const x = people.find((y) => y.id === id);
+      return x
+        ? [
+            {
+              aliases: x.aliases,
+              handles: Object.entries(x.handles).flatMap(([platform, v]) => {
+                const values = ([] as string[]).concat(v ?? []);
+                return values.length ? [{ platform, values }] : [];
+              }),
+              id: x.id,
+              name: x.name,
+            },
+          ]
+        : [];
+    }),
+  };
+}
+
 function checkPeople(people: Person[], issues: string[]): Set<string> {
   const ids = new Set<string>();
   const owner = new Map<string, string>();

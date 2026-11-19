@@ -20,6 +20,7 @@ import {
   integrity,
   isDirectoryNew,
   loadTruth,
+  projectPeopleAndChatsOf,
   readMe,
   type Truth,
 } from "./read-truth";
@@ -224,4 +225,47 @@ test("a directory is new while it holds only him and no goals", () => {
   expect(isDirectoryNew({ me: plain, people: [me, person("ada")] })).toBe(
     false
   );
+});
+
+describe("projectPeopleAndChatsOf", () => {
+  const project = (over: Partial<Truth["projects"][number]>) => ({
+    area: "shop",
+    chats: [],
+    deadlines: [],
+    id: "shop",
+    name: "Shop",
+    notes: "",
+    people: [],
+    repos: [],
+    schemaVersion: 1 as const,
+    status: "active" as const,
+    ...over,
+  });
+
+  test("people from both directions in order, handles per platform, chats by their key", () => {
+    const ana = { ...person("ana", ["+10000000001"]), projects: ["shop"] };
+    const t = truth({
+      chats: [
+        chat({ id: "!g:example.test", whatsapp: "1203@g.us" }),
+        chat({ id: "!r:example.test" }),
+      ],
+      people: [person("me"), person("bob"), ana, person("cy")],
+      projects: [
+        project({
+          chats: ["!r:example.test", "!none:example.test", "!g:example.test"],
+          people: ["cy", "bob", "ghost"],
+        }),
+      ],
+    });
+    const held = projectPeopleAndChatsOf(t, "shop");
+    expect(held?.people.map((p) => p.id)).toEqual(["cy", "bob", "ana"]);
+    expect(held?.people[2]?.handles).toEqual([
+      { platform: "whatsapp", values: ["+10000000001"] },
+    ]);
+    expect(held?.chats).toEqual([
+      { isSure: false, key: "!r:example.test", name: "A" },
+      { isSure: true, key: "1203@g.us", name: "A" },
+    ]);
+    expect(projectPeopleAndChatsOf(t, "other")).toBeNull();
+  });
 });
