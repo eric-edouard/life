@@ -105,7 +105,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   (`scripts/question-cases.ts`, his word of 10 Nov 2026): Codex, with Life's connector serving its reads only, and
   nothing else. An agent reads what it pulls through the connector as data
   (`SECURITY.md`, "Agents"). The desk wakes an agent on the events it waits for, and a wake hands only the event's facts (who, where,
-  when, and for a payment its amount, currency and the money app's category), never its words. Words choose a wake in two ways only: the agent's own pattern on the text of a message, or on a payment's merchant, category and note
+  when; for a payment: its amount, in EUR too, its currency, whether it is spending, the money app's category, and when), never its words. Words choose a wake in two ways only: the agent's own pattern on the text of a message, or on a payment's merchant, category and note
   (`text_matches` in its wait, his word of 20 Nov 2026: "agents that wake on events they waited on rather
   than timers"; for waits on every source, his word of 20 Nov 2026: "waits could be on all sources"; the connector's poll and the wait share one filter and one matcher, `EventFilter` and
   `matcherOf`), and closeness in meaning to its matter (the wide net, `desk/matter-net.ts`, his word of 18 Nov
