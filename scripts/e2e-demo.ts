@@ -29,6 +29,8 @@ interface Step {
   name: string;
   open?: string;
   refresh?: boolean;
+  /** One swipe left on the cards: past the boundary panel, to the next ask. */
+  swipeLeft?: boolean;
   tap?: string;
   /** Wait until the agent has ended this many turns. */
   turnsEnded?: number;
@@ -38,9 +40,15 @@ interface Step {
 
 /** The new matter the demo holds, found to closed: Start, the plan card's Go, the agent's work, Mark as done. */
 const FOUND_TO_CLOSED: Step[] = [
+  // Nothing blocks yet, so the boundary panel is the first page and the offer, which only improves, the next.
   {
-    name: "inbox offers the new matter",
+    name: "inbox: nothing blocks, the rest can wait",
     refresh: true,
+    until: "can wait",
+  },
+  {
+    name: "past the boundary: the offer",
+    swipeLeft: true,
     until: "Start an agent on this?",
   },
   {
@@ -233,6 +241,9 @@ function turnsEnded() {
 }
 
 async function run(step: Step) {
+  if (step.swipeLeft) {
+    await device(["swipe", "340", "400", "40", "400", "250"]);
+  }
   if (step.tap) {
     await device(["press", `label="${step.tap}"`]);
   }

@@ -9,6 +9,8 @@ struct MattersScreen: View {
 
     @State private var filter = MatterFilter.everything
     @State private var visibility = NavigationSplitViewVisibility.all
+    /// What he typed on the asks pushed on a matter: here, above both columns, so a fold keeps it.
+    @State private var notes = CardNotes()
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     /// Two columns, the list and the matter: side by side on a regular width, one at a time on a compact one.
@@ -26,7 +28,21 @@ struct MattersScreen: View {
             .toolbar { ToolbarItem(placement: .topBarLeading) { filterMenu } }
         } detail: {
             if let id = router.matter {
-                MatterPage(id: id).id(id)
+                NavigationStack(path: $router.matterPath) {
+                    MatterPage(id: id).id(id)
+                        .navigationDestination(for: String.self) { ref in
+                            CardPage(
+                                ref: ref, source: life.matter[id]?.value?.checks ?? [], notes: $notes,
+                                leave: { router.matterPath = [] })
+                        }
+                }
+                // Back to the matter, by his Done or the system's back: the result he read is forgotten, so the next ask
+                // opens on its own question.
+                .onChange(of: router.matterPath) { _, path in
+                    guard path.isEmpty, let taken = notes.taken else { return }
+                    life.forget(taken.key)
+                    notes.taken = nil
+                }
             } else {
                 Notice(title: "No matter chosen.", detail: "Pick one from the list.").background(Palette.bg)
             }
@@ -41,11 +57,6 @@ struct MattersScreen: View {
         // The split view can drop the selection when it expands: a regular width always shows a matter.
         .onChange(of: sizeClass, initial: true) { fillSelection() }
         .onChange(of: life.matters.value) { fillSelection() }
-        .onChange(of: router.showsAgentsOnly, initial: true) { _, on in
-            guard on else { return }
-            filter = .agentWorking
-            router.showsAgentsOnly = false
-        }
         // Here, above both columns, so a fold that collapses the matter's page keeps the sheet and its running start.
         .sheet(isPresented: startSheetBinding) {
             if let id = router.startSheetMatter, let matter = life.matter[id]?.value {

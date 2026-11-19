@@ -8,6 +8,8 @@ struct CheckCard: View {
     /// The runtime of the agent that asked, when the card's matter has one.
     let runtimeName: RuntimeName?
     let openMatter: (String) -> Void
+    /// His answer to the guess a draft rests on (`check.confirm`), sent at once; the card stays as it is.
+    let confirm: (AnswerRequest) -> Void
     /// What he has typed or opened on this card: kept by the screen, so folding the phone keeps it.
     @Binding var input: CardInput
 
@@ -17,15 +19,12 @@ struct CheckCard: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                meta
-                chips
-                Text(check.title).font(.cardHeadline).foregroundStyle(Palette.fg).fixedSize(
-                    horizontal: false, vertical: true
-                )
-                .accessibilityAddTraits(.isHeader)
-                Text(check.question).font(.cardQuestion).foregroundStyle(Palette.fg).lit()
+                agentPill
+                Text(check.question).font(.cardQuestion).foregroundStyle(Palette.fg)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.bottom, 4)
+                    .accessibilityAddTraits(.isHeader)
+                matterChip
                 if input.isWritingOwnWords { ownWords } else { content }
             }
             .padding(.horizontal, 20)
@@ -39,18 +38,18 @@ struct CheckCard: View {
 
     // MARK: Top
 
-    @ViewBuilder private var meta: some View {
-        if let deadline = check.deadline {
-            Caps("By \(deadline.formatted(.dateTime.weekday(.abbreviated).hour().minute()))", color: Palette.flag)
-        }
-    }
-
-    private var chips: some View {
-        HStack(spacing: 8) {
-            Label(check.askerName(runtime: runtimeName), systemImage: "sparkle")
+    /// An agent's name, the only thing above the question; Life's own asks have none.
+    @ViewBuilder private var agentPill: some View {
+        if let name = check.agentName(runtime: runtimeName) {
+            Label(name, systemImage: "sparkle")
                 .labelStyle(.titleAndIcon).font(.chip)
                 .foregroundStyle(Palette.ai).padding(.horizontal, 14).frame(minHeight: 40)
                 .background(Color.fillTint, in: .capsule).lineLimit(1)
+        }
+    }
+
+    @ViewBuilder private var matterChip: some View {
+        HStack(spacing: 8) {
             if let matter = check.matter {
                 Button {
                     openMatter(matter.id)
@@ -75,12 +74,16 @@ struct CheckCard: View {
     // MARK: Body
 
     @ViewBuilder private var content: some View {
+        ForEach(check.confirm ?? []) { guess in
+            RowGroup {
+                QuestionRow(check: guess) { option in
+                    if let request = guess.answer(option) { confirm(request) }
+                }
+            }
+        }
         if let draft = check.draft { DraftBlock(draft: draft) }
         if let evidence = check.evidence { EvidenceBlock(evidence: evidence) }
         if !check.clips.isEmpty { ClipBlock(clips: check.clips) }
-        if let line = ridesOnLine {
-            Text(line).font(.small).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
-        }
         if !isContextBeside, let context = check.context, !context.isEmpty {
             DisclosureGroup(isExpanded: $input.showsWhy) {
                 Text(context).font(.body15).foregroundStyle(Palette.muted).frame(
@@ -95,18 +98,6 @@ struct CheckCard: View {
             .overlay(alignment: .top) { Hairline() }
             .overlay(alignment: .bottom) { Hairline() }
         }
-    }
-
-    /// "14 facts and 2 matters rest on it", for the kinds whose answer changes what Life holds; none when nothing does.
-    private var ridesOnLine: String? {
-        guard let rides = check.ridesOn, [.name, .guessedPerson, .voice, .ending].contains(check.group) else {
-            return nil
-        }
-        let parts = [(rides.observations, "fact"), (rides.matters, "matter")].filter { $0.0 > 0 }
-            .map { "\($0.0) \($0.1)\($0.0 == 1 ? "" : "s")" }
-        guard !parts.isEmpty else { return nil }
-        let count = rides.observations + rides.matters
-        return parts.joined(separator: " and ") + (count == 1 ? " rests on it" : " rest on it")
     }
 
     private var whyLabel: String {
@@ -132,7 +123,6 @@ struct CheckCard: View {
             ).font(.small).foregroundStyle(Palette.faint)
         }
     }
-
 }
 
 // MARK: Bodies
