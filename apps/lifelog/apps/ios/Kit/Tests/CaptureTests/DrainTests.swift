@@ -216,11 +216,18 @@ import Testing
 
     @Test func pagesStillArrivingAfterADownloadEndedEarlyAreNotCaughtUp() async throws {
         // A Pendant slower than the idle timeout: the download ends after its first page, the rest still stream.
-        let harness = Harness(.observe, pageIdleTimeout: .milliseconds(150), pageInterval: .milliseconds(500))
+        let idle = Duration.seconds(45)
+        let harness = Harness(.observe, pageIdleTimeout: idle, pageInterval: .milliseconds(500))
         await harness.fake.record(pages: 8)
         let newest: UInt64 = 107
         try await harness.run {
             var endedEarly = false
+            // The idle timer ends a download after a whole period with no page: pass periods until it does, while the
+            // rest still stream in real time.
+            _ = await harness.eventuallyAfter(idle + .seconds(1)) {
+                if case .failed(.incomplete) = await harness.status().sync { return true }
+                return await harness.sink.page(at: newest) != nil
+            }
             let deadline = ContinuousClock.now + .seconds(15)
             while ContinuousClock.now < deadline, await harness.sink.page(at: newest) == nil {
                 let sync = await harness.status().sync
@@ -398,10 +405,12 @@ import Testing
 
     @Test func drainsWithoutDeviceInfo() async throws {
         // The device info wait must time out, but the other replies must beat that same timeout.
-        let harness = Harness(.observe, replyTimeout: .seconds(1))
+        let reply = Duration.seconds(10)  // its own length: the handshake's timer (`Harness.timeout`) is never matched
+        let harness = Harness(.observe, replyTimeout: reply)
         await harness.fake.setAnswersDeviceInfo(false)
         await harness.fake.record(pages: 5)
         await harness.run {
+            await harness.passTime(reply + .seconds(1), whenATimerIsDueIn: .seconds(5)...reply)
             #expect(await eventually { await harness.status().sync.isCaughtUp })
         }
         #expect(await harness.sink.pages.count == 5)
@@ -429,10 +438,11 @@ import Testing
     }
 
     @Test func busyElsewhereLetsGoOfTheLink() async throws {
-        let harness = Harness(.acknowledge, replyTimeout: .milliseconds(200))
+        let harness = Harness(.acknowledge)
         await harness.fake.record(pages: 5)
         await harness.fake.setBusyWithOtherClient(true)
         await harness.run {
+            await harness.passTime(Harness.timeout + .seconds(1), whenATimerIsDueIn: .seconds(50)...Harness.timeout)
             #expect(await eventually { await harness.status().connection == .busyElsewhere(harness.fake.id) })
         }
         #expect(await harness.fake.connectionCount == 1)
