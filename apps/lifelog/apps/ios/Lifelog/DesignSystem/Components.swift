@@ -139,10 +139,9 @@ struct FlowLayout: Layout {
 }
 
 extension View {
-    /// The card surface: `surface1` with a hairline edge. Content sits on cards; glass stays for the controls.
+    /// The card surface: `surface1`, no edge. Content sits on cards; glass stays for the controls.
     func card(radius: CGFloat = Metrics.Radius.card) -> some View {
         background(Palette.card, in: .rect(cornerRadius: radius))
-            .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(Palette.line, lineWidth: 0.5) }
     }
 }
 

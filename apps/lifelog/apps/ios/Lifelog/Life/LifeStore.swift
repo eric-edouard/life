@@ -30,6 +30,12 @@ final class LifeStore {
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
 
+    /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
+    @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] in await self?.answer($0) }
+    var held: [String: HeldAnswers.Held] { holds.held }
+    /// Answers that have ended: a page that draws asks from its own read reads again when it changes.
+    private(set) var answersEnded = 0
+
     /// The Life this phone is paired with: set by a pairing, gone once Life no longer knows it (a read says so).
     private(set) var pairedOrigin: URL?
 
@@ -235,8 +241,26 @@ final class LifeStore {
         let tap = taps.key(for: request)
         await perform(key, tap: tap) { [runner] in await runner.answer(request, key: tap, emit: $0) }
         if let ended = actions[key] { taps.ended(request, as: ended) }
-        await refreshInbox()
+        await refreshAfterAnswer()
     }
+
+    /// What an answer changes, read again: the inbox and the matters. The matter page on show reads itself again when `answersEnded` changes.
+    private func refreshAfterAnswer() async {
+        answersEnded += 1
+        async let inbox: Void = refreshInbox()
+        async let matters: Void = refreshMatters()
+        _ = await (inbox, matters)
+    }
+
+    // MARK: Held answers
+
+    /// His answer to such a row, sent in four seconds unless he undoes it.
+    func hold(_ request: AnswerRequest, as label: String) { holds.hold(request, as: label) }
+
+    func undo(_ ref: String) { holds.undo(ref) }
+
+    /// Every held answer, at once: the screen is going, or the app.
+    func sendHeld() async { await holds.sendAll() }
 
     /// Starts an agent on a matter with the goal he saw, which Life saves as his: `goal_saved`, then the desk's stages.
     func startAgent(on id: String, goal: String, runtime: String? = nil, model: String? = nil) async {
@@ -317,11 +341,19 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
+        holds.clear()
         onStep(.reading)
         await refresh()
     }
 
     #if DEBUG
+        /// Development only (`-fixtureCard`): opens the card with that ref as a tapped push does.
+        func open(ref: String) async {
+            await refreshInbox()
+            guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return }
+            openedCard = inbox.value?.opening(pushId: pushId)
+        }
+
         /// Development only: launch with `LIFE_ORIGIN` and `LIFE_PAIRING_CODE` in the environment (for example
         /// `SIMCTL_CHILD_LIFE_ORIGIN=… xcrun simctl launch …`) to pair with that Life, http too. Never in release builds.
         func importFromEnvironment() async {

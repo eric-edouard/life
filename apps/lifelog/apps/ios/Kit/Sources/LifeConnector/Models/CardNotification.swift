@@ -32,7 +32,7 @@ public struct CardNotification: Sendable, Equatable {
     }
 
     static func of(_ check: Check, card: String) -> CardNotification {
-        let who = check.askerName(runtime: nil)
+        let who = check.agentName(runtime: nil) ?? "Life"
         return CardNotification(
             title: clipped(check.title, to: titleLimit),
             subtitle: clipped(check.matter.map { "\(who) · \($0.name)" } ?? who, to: subtitleLimit),

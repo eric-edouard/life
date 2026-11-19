@@ -17,7 +17,7 @@ struct Taken: Equatable {
     var isStart: Bool { check.group == .newMatter && request.options == ["start"] }
     var context: ActionCopy.Context {
         .init(
-            to: check.draft?.to, channel: check.draft?.channel, asker: check.askerName(runtime: runtimeName))
+            to: check.draft?.to, channel: check.draft?.channel, asker: check.agentName(runtime: runtimeName))
     }
 }
 
@@ -26,7 +26,7 @@ struct Taken: Equatable {
 struct AnswerResultView: View {
     let taken: Taken
     let state: ActionState<ActionProof>
-    /// The question of the card that comes next, when one is waiting.
+    /// The question of the ask that comes next, when one is waiting.
     let next: String?
 
     var body: some View {
@@ -51,10 +51,8 @@ struct AnswerResultView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                chip(taken.context.asker ?? "Life", "sparkle", tint: Palette.ai)
-                if let matter = taken.check.matter { chip(matter.name, "list.bullet.indent", tint: Palette.fg) }
-            }
+            // An agent's name is the only thing above the question; Life's own asks have none.
+            if let asker = taken.context.asker { chip(asker, "sparkle", tint: Palette.ai) }
         }
     }
 
@@ -67,8 +65,7 @@ struct AnswerResultView: View {
 
     @ViewBuilder private var working: some View {
         header
-        Text(taken.check.title).font(.cardHeadline).foregroundStyle(Palette.fg)
-        Text(taken.check.question).font(.cardQuestion).foregroundStyle(Palette.fg).lit()
+        Text(taken.check.question).font(.cardQuestion).foregroundStyle(Palette.fg)
         if let draft = taken.check.draft { DraftBlock(draft: draft) }
         CheckLines(lines: lines.isEmpty ? [CheckLine(id: "asking", text: "Asking Life", mark: .running)] : lines)
             .padding(.top, 8)
@@ -101,12 +98,12 @@ struct AnswerResultView: View {
     }
 }
 
-/// What he can do with a card's result: the way on, or to try again. Apart from the result so a wide screen can put it at the
+/// What he can do with an ask's result: the way on, or to try again. Apart from the result so a wide screen can put it at the
 /// bottom of the screen when the regions are stacked.
 struct ResultButtons: View {
     let taken: Taken
     let state: ActionState<ActionProof>
-    /// The question of the card that comes next, when one is waiting.
+    /// The question of the ask that comes next, when one is waiting.
     let next: String?
     let retry: () -> Void
     let keepForLater: () -> Void
@@ -116,12 +113,12 @@ struct ResultButtons: View {
         VStack(spacing: 8) {
             switch state {
             case .succeeded:
-                Button(taken.staysOpen ? "Back to the card" : next == nil ? "Done" : "Next card", action: nextCard)
+                Button(taken.staysOpen ? "Back" : next == nil ? "Done" : "Next", action: nextCard)
                     .buttonStyle(.pill(.filled))
             case .failed(let failure, _):
                 if failure.retry == .allowed && !failure.mayHaveHappened {
                     Button("Try again", action: retry).buttonStyle(.pill(.filled))
-                    Button("Keep it for later", action: keepForLater).buttonStyle(.pill(.quiet))
+                    Button("Keep for later", action: keepForLater).buttonStyle(.pill(.quiet))
                     Text(
                         taken.isSend
                             ? "Trying again sends the same text once. It is never sent twice."
@@ -129,7 +126,7 @@ struct ResultButtons: View {
                     )
                     .font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
                 } else {
-                    Button("Keep it for later", action: keepForLater).buttonStyle(.pill(.filled))
+                    Button("Keep for later", action: keepForLater).buttonStyle(.pill(.filled))
                 }
             case .idle, .running:
                 Button {
@@ -138,7 +135,7 @@ struct ResultButtons: View {
                 }.buttonStyle(.pill(.quiet, isBusy: true))
                 LimitNote(state: state) {
                     taken.isSend
-                        ? "Stays on this card until \(ActionCopy.channel(taken.check.draft?.channel)) answers"
+                        ? "Stays here until \(ActionCopy.channel(taken.check.draft?.channel)) answers"
                             + ($0.map { ", \($0)." } ?? ".")
                         : $0.map { "Takes \($0)." } ?? ""
                 }
@@ -155,7 +152,7 @@ extension Taken {
         switch state {
         case .succeeded(let proof, _): (doneWord, summary(proof))
         case .failed(let failure, _): (failedWord(failure), failedLine(failure, state ?? .idle))
-        case .idle, .running, nil: ("Not saved.", "The card stays here.")
+        case .idle, .running, nil: ("Not saved.", "It stays here.")
         }
     }
 
@@ -210,11 +207,11 @@ extension Taken {
     }
 
     func failedLine(_ failure: ActionFailure, _ state: ActionState<ActionProof>) -> String {
-        if failure.mayHaveHappened { return "Check before answering again. The card stays here." }
-        if failure.isSameTap { return "Life may have it: trying again repeats the same tap. The card stays here." }
+        if failure.mayHaveHappened { return "Check before answering again. It stays here." }
+        if failure.isSameTap { return "Life may have it: trying again repeats the same tap. It stays here." }
         if isStart, state.steps.contains(where: { $0.id == "goal_saved" && $0.passedAt != nil }) {
-            return "Your goal is saved. The card stays here."
+            return "Your goal is saved. It stays here."
         }
-        return "The card stays here."
+        return "It stays here."
     }
 }

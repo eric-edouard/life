@@ -4,7 +4,7 @@
 Swift package with everything that doesn't need UIKit, so it builds and tests on the Mac in seconds. `Watch/` and
 `Widgets/` are the glances; `Shared/` holds code and copy that the app and its extensions share. `project.yml`
 generates the gitignored `.xcodeproj`.
-The app is Life's two tabs, Inbox (`Inbox/`: the `CheckCard`s, paged by swipe, and its `AnswerResultView`) and Matters (`Matters/`), plus
+The app is Life's two tabs, Inbox (`Inbox/`: the `CheckCard`s, paged by swipe, and its `AnswerResultView`; one ask on show is `CardView`, hosted by the Inbox and by a matter's stack (`AppRouter.matterPath`); the Inbox holds every open ask, what blocks first, and one "The rest can wait." panel between that and what only improves; Life's own questions on a matter page held 4 s for Undo in `LifeStore.held`) and Matters (`Matters/`), plus
 the system's search tab (`Shell/SearchScreen.swift`). The bars are two groups of system pieces, declared and never drawn
 (`Shell/TopBar.swift`): on top the Pendant's icon and the Settings gear (Settings only from Inbox and Matters; a pushed
 page has Back and the Pendant; a sheet only its Close, a toolbar item from `SheetHeader` in the sheet's `sheetStack()`),
@@ -74,7 +74,7 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
   card's buttons are its options' `label`s, and what an option `takes` (a person, a name, a note) is what the tap asks
   for (`Check.answer`); the phone decides nothing Life decides (what is open, a goal's steps): a matter's edits and Mark
   as done go by its id. A card's push is rewritten with the card's words by the notification extension (`NotificationService/`, `CardNotification`), which reads Life with the app's pairing; expanded, it shows the card's one-tap answers (`NotificationContent/`), which the app answers in the background through `LifeStore.answer` (`IncidentNotifier`), never an outward one; a tapped push routes by `pushId` (`NotificationRoute.card`) and opens the Inbox; a push while
-  the app is in front reads the inbox again. The badge is the count of cards that block him.
+  the app is in front reads the inbox again. The badge is `Inbox.badge`: the asks that block him (`urgency`).
 - A server enum decodes unknown values as `unknown` (`UnknownTolerant`) and belongs in the mirror list of
   `ContractTests.swift` (lifelog's against its `openapi.json`, Life's against `apps/server/src`), which also checks
   every path the client calls.
