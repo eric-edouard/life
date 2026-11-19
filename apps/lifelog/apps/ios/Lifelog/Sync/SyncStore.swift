@@ -182,7 +182,7 @@ final class SyncStore {
         let linked = await capture.waitForLink()
         if linked { await capture.syncNow() }
         await runAwake()
-        if pullFailed { return "No network. The audio is safe on the phone." }
+        if pullFailed { return "The server did not answer. The audio is safe on the phone." }
         return linked ? "Synced." : "Pendant out of reach. Uploaded and pulled the rest."
     }
 

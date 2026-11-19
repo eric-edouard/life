@@ -96,16 +96,14 @@ struct SettingsView: View {
                 }
             case .works, .checking: EmptyView()
             }
-            switch permissions.notifications {
-            case .notAsked:
-                Row(title: "Notifications not allowed yet", detail: "Cards can't reach you.") {
-                    RowButton(title: "Allow", action: allowNotifications)
+            if notificationsListed {
+                let notAsked = permissions.notifications == .notAsked
+                Row(
+                    title: notAsked ? "Notifications not allowed yet" : "Notifications are off",
+                    detail: "Cards can't reach you."
+                ) {
+                    RowButton(title: notAsked ? "Allow" : "Open", action: notAsked ? allowNotifications : openSettings)
                 }
-            case .denied, .restricted:
-                Row(title: "Notifications are off", detail: "Cards can't reach you.") {
-                    RowButton(title: "Open", action: openSettings)
-                }
-            case .allowed, .asked, .limited: EmptyView()
             }
         }
     }
