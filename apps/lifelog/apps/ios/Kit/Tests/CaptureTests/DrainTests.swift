@@ -398,11 +398,11 @@ import Testing
 
     @Test func drainsWithoutDeviceInfo() async throws {
         // The device info wait must time out, but the other replies must beat that same timeout.
-        let harness = Harness(.observe, replyTimeout: .seconds(1))
+        let harness = Harness(.observe)
         await harness.fake.setAnswersDeviceInfo(false)
         await harness.fake.record(pages: 5)
         await harness.run {
-            #expect(await eventually { await harness.status().sync.isCaughtUp })
+            #expect(await harness.eventuallyAfter(.seconds(61)) { await harness.status().sync.isCaughtUp })
         }
         #expect(await harness.sink.pages.count == 5)
         #expect(await harness.sink.lives == [nil])

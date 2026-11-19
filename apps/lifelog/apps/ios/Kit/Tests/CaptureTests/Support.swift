@@ -147,7 +147,8 @@ extension SourceStore {
     }
 }
 
-/// A coordinator wired to a fake Pendant and a real source store, with fast timeouts.
+/// A coordinator wired to a fake Pendant and a real source store. Its timeouts are far past what a loaded machine takes
+/// to answer, so one fires only when a test passes the time (`advanceClock`), or sets a short one itself.
 struct Harness {
     static let deviceID = "pendant-test"
 
@@ -157,9 +158,9 @@ struct Harness {
     let clock = TestClock()
 
     init(
-        _ policy: AckPolicy, ackBatchSize: Int = 25, replyTimeout: Duration = .seconds(2),
-        handshakeTimeout: Duration = .seconds(4), confirmationPollInterval: Duration = .milliseconds(100),
-        pageIdleTimeout: Duration = .seconds(5), recordingChangeDelay: Duration = .zero,
+        _ policy: AckPolicy, ackBatchSize: Int = 25, replyTimeout: Duration = .seconds(60),
+        handshakeTimeout: Duration = .seconds(60), confirmationPollInterval: Duration = .milliseconds(100),
+        pageIdleTimeout: Duration = .seconds(60), recordingChangeDelay: Duration = .zero,
         pageInterval: Duration = .zero, hasBatteryService: Bool = true, pushesSealedPages: Bool = true,
         stallTimeout: Duration = .seconds(3600)
     ) {
@@ -198,6 +199,14 @@ struct Harness {
             await fake.readBattery()
             _ = await eventually { await status().batteryPercent?.at != before }
             await coordinator.waitForPersistence()
+        }
+    }
+
+    /// Like `eventually`, passing `step` of the coordinator's time before each look: for what only a timeout brings about.
+    func eventuallyAfter(_ step: Duration, _ condition: () async -> Bool) async -> Bool {
+        await eventually {
+            await advanceClock(by: step)
+            return await condition()
         }
     }
 
