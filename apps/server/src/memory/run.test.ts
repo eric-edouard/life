@@ -101,7 +101,7 @@ test("a processing run's selected engine reaches collection, attachments, episod
   const sources = await import("./sources");
   const files = await import("./message-files");
   const steps = await import("./run");
-  const { gather } = await import("./units");
+  const { gather } = await import("./gather");
   const { episodes } = await import("./episodes");
   const { extract } = await import("./extract");
   const { readPeople } = await import("./who");
