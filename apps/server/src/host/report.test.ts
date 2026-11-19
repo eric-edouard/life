@@ -261,8 +261,8 @@ const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
   onMatters: [],
   onSilence: null,
   options: [
-    { id: "this-is", label: "It is them", takes: null },
-    { id: "not-this-person", label: "Not them", takes: null },
+    { id: "this-is", label: "Yes", takes: null },
+    { id: "not-this-person", label: "No", takes: null },
   ],
   question: guess,
   ref: `person:${guess}`,

@@ -370,8 +370,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             "ending",
             {
               about: [],
-              // until the phone shows `said`: the step stays in the question.
-              question: `Is this done? ${o.quote}`,
+              question: "Is this done?",
               ref,
               said: saidOfLine(o, c.people, c.titles),
               since: later
@@ -441,8 +440,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
                 // Nothing starts on silence: no option is taken.
                 onSilence: null,
                 options: [...LIFE_CHECKS["new matter"].options],
-                // until the phone shows `goal`: the goal stays in the question.
-                question: `Start an agent on this? ${v.goal.text}`,
+                question: "Start an agent on this?",
                 ref: v.id,
                 ridesOn: { ...ridingOf([v]), observations: 0, pages: 0 },
                 said: firstLine
@@ -501,7 +499,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         {
           about: card.handles,
           likelyPeople,
-          ...cardAskOf(people.nameOf(a.card), card.handles, likelyPeople),
+          ...cardAskOf(people.nameOf(a.card), card.handles),
           ref: a.card,
         },
         byRef.get(a.card) ?? [],
