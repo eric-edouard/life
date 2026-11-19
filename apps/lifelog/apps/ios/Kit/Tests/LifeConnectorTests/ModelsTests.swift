@@ -31,8 +31,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(inbox.checks.map(\.group).contains(.newMatter))
     let voice = try #require(inbox.checks.first { $0.group == .voice })
     #expect(voice.clips.first?.audio?.jobId == "job-1")
-    #expect(voice.clips.first?.words.map(\.text) == ["It's", "the"])
-    #expect(voice.clips.first?.words.last?.spacing == " ")
+    let clip = try #require(voice.clips.first)
+    #expect(clip.words?.spoken(at: 400, in: clip.text) == NSRange(location: 5, length: 3))
     #expect(voice.likelyPeople.first?.name == "Gran")
     #expect(inbox.checks.first { $0.group == .ending }?.ridesOn?.matters == 1)
     let found = try #require(

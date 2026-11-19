@@ -29,9 +29,7 @@ export interface CheckOption {
 export const LIFE_CHECKS = {
   "contacts card": {
     context: null,
-    options: [
-      { id: "same-person", label: "It is this person", takes: "person" },
-    ],
+    options: [{ id: "same-person", label: "Choose who…", takes: "person" }],
     title: "Place a Contacts card",
   },
   ending: {
@@ -75,7 +73,7 @@ export const LIFE_CHECKS = {
     options: [
       {
         id: "this-is",
-        label: "It is this person",
+        label: "Name them…",
         takes: "person or name",
       },
       { id: "not-anyone-i-know", label: "A stranger", takes: null },

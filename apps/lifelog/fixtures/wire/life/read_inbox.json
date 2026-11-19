@@ -127,20 +127,7 @@
           },
           "text": "It's the shop, about the watch.",
           "until": "2026-10-14T08:00:04.000Z",
-          "words": [
-            {
-              "end": 1.5,
-              "spacing": "",
-              "start": 1.2,
-              "text": "It's"
-            },
-            {
-              "end": 1.7,
-              "spacing": " ",
-              "start": 1.55,
-              "text": "the"
-            }
-          ]
+          "words": [[0, 300, 4], [350, 500, 4]]
         }
       ],
       "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.",
@@ -165,7 +152,7 @@
       "options": [
         {
           "id": "this-is",
-          "label": "Gran",
+          "label": "Name them…",
           "takes": "person or name"
         },
         {
@@ -221,7 +208,7 @@
       "options": [
         {
           "id": "this-is",
-          "label": "It is Sam",
+          "label": "It is this person",
           "takes": "person"
         }
       ],
@@ -268,7 +255,7 @@
       "options": [
         {
           "id": "same-person",
-          "label": "It is Gran",
+          "label": "Choose who…",
           "takes": "person"
         }
       ],

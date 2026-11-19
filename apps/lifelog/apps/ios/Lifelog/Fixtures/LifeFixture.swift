@@ -348,7 +348,7 @@
                     "voice_v1", group: "voice", title: "A voice from Saturday, 4 minutes with Sam",
                     question: "Who is this?",
                     options: [
-                        option("this-is", "It is Idris", takes: "person or name"),
+                        option("this-is", "Name them…", takes: "person or name"),
                         option("not-anyone-i-know", "A stranger"), option("media", "TV or video"),
                         option("not-relevant", "Don't care"),
                     ],
@@ -385,8 +385,7 @@
                     "person:con_cam", group: "contacts card", title: "Place a Contacts card",
                     question:
                         "Life cannot place the Contacts card Cam: its name and handles say Camille Vance and Cam Ortiz",
-                    options: [option("same-person", "It is Camille", takes: "person")],
-                    context: "Its name and handles fit more than one person: Life keeps them apart until you say.",
+                    options: [option("same-person", "Choose who…", takes: "person")],
                     extra: [
                         "likelyPeople": [
                             ["name": "Camille Vance", "person": "person:camille"],
