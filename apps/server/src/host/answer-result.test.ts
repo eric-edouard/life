@@ -115,7 +115,7 @@ test("a send: the plan first, the steps in order, the lines written, the send an
     "handed",
     "confirmed",
   ]);
-  expect(steps[0]).toMatchObject({ limitSeconds: 50 });
+  expect(steps[0]).toMatchObject({ limitSeconds: 45 });
   expect(steps.find((s) => s.step === "confirmed")).toMatchObject({
     eventId: "$ev1",
   });
@@ -540,7 +540,7 @@ test("a new matter: Start asks the desk with the goal he saw, reports its stages
       "turn_begun",
       "recorded",
     ]);
-    expect(reported[0]).toMatchObject({ limitSeconds: 30 });
+    expect(reported[0]).toMatchObject({ limitSeconds: 25 });
     expect(desk.mock.calls[0]?.[0]).toEqual({
       action: "start",
       said: "Serviced and the leak fixed",
