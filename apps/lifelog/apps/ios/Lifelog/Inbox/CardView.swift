@@ -9,8 +9,9 @@ struct CardNotes: Equatable {
 }
 
 /// One ask on show, whoever hosts it (the Inbox, a matter's stack): the ask with its answers, then its result in its
-/// place. `checks` are the asks around it, paged by swipe when there are several; a tap runs through the store's action
-/// and the ask stays, as its own result, until he moves on.
+/// place. `checks` are the asks around it, paged by swipe when there are several. A send or a start runs through the
+/// store's action and the ask stays, as its own result: it moves on by itself once it worked, and waits for him when it
+/// did not. With `holdsAnswers` every other answer is held four seconds for Undo and the next ask is on show at once.
 struct CardView: View {
     let check: Check
     let checks: [Check]
@@ -20,6 +21,8 @@ struct CardView: View {
     var notice: String?
     /// The ask's context region beside or below it: a matter's stack gives one, the Inbox none.
     var context: ContextRegion?
+    /// Answers that are not a send or a start are held for Undo (the Inbox draws the toast), not shown as a result.
+    var holdsAnswers = false
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
 
@@ -31,15 +34,14 @@ struct CardView: View {
     var body: some View {
         CardArrangement(
             context: context,
-            bar: notes.taken.map { taken in
+            bar: result.map { taken in
                 ResultButtons(
-                    taken: taken, state: life.state(of: taken.key), next: question(after: taken),
-                    retry: { Task { await life.answer(taken.request) } },
-                    keepForLater: { leave(taken, true) }, nextCard: { leave(taken, false) })
+                    taken: taken, state: life.state(of: taken.key),
+                    retry: { Task { await life.answer(taken.request) } }, keepForLater: { leave(taken, true) })
             }
         ) {
-            if let taken = notes.taken {
-                AnswerResultView(taken: taken, state: life.state(of: taken.key), next: question(after: taken))
+            if let taken = result {
+                AnswerResultView(taken: taken, state: life.state(of: taken.key))
             } else {
                 VStack(spacing: 0) {
                     pager
@@ -52,6 +54,14 @@ struct CardView: View {
                     }
                 }
             }
+        }
+        // A send Life refused because someone wrote since: the ask is open again, with her message by its answers.
+        .onChange(of: notes.taken != nil && result == nil) { _, isRefused in if isRefused { notes.taken = nil } }
+        // A result that worked has said so: the next ask comes by itself.
+        .task(id: isDone) {
+            guard isDone, let taken = notes.taken else { return }
+            try? await Task.sleep(for: .seconds(1.5))
+            if !Task.isCancelled { leave(taken, false) }
         }
         .sheet(item: sameAsCard) { check in
             SameAsSheet(
@@ -97,14 +107,24 @@ struct CardView: View {
             }
         }
         .clipped()
+        .motion(Motion.standard, value: checks.map(\.ref))
+    }
+
+    /// His tap's result, unless it reopened the ask (a send refused because someone wrote since).
+    private var result: Taken? {
+        guard let taken = notes.taken else { return nil }
+        if case .failed(let failure, _) = life.state(of: taken.key), failure.wrote != nil { return nil }
+        return taken
+    }
+
+    private var isDone: Bool {
+        guard let taken = notes.taken, case .succeeded = life.state(of: taken.key) else { return false }
+        return true
     }
 
     private func input(_ ref: String) -> Binding<CardInput> {
         Binding(get: { notes.inputs[ref] ?? CardInput() }, set: { notes.inputs[ref] = $0 })
     }
-
-    /// The question of the ask after his tap's, when one is waiting.
-    private func question(after taken: Taken) -> String? { checks.first { $0.ref == taken.nextRef }?.question }
 
     /// The ask whose "Same as…" he opened: that ask, even if the list reorders under the sheet; gone with it.
     private var sameAsCard: Binding<Check?> {
@@ -114,10 +134,16 @@ struct CardView: View {
     }
 
     private func submit(_ check: Check, _ request: AnswerRequest) {
-        notes.taken = Taken(
+        let taken = Taken(
             check: check, request: request, nextRef: checks.ref(after: check.ref),
             runtimeName: life.runtimeName(of: check))
-        Task { await life.answer(request) }
+        if holdsAnswers && taken.isHeld {
+            life.hold(request, as: taken.heldWords)
+            current = taken.nextRef
+        } else {
+            notes.taken = taken
+            Task { await life.answer(request) }
+        }
     }
 }
 

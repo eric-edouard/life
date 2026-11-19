@@ -17,6 +17,8 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
         public let reason: String?
         /// A `not sent` the same tap may be tried again after; `mayHaveGone` never is.
         public let canRetry: Bool?
+        /// A `not sent` because someone wrote in the chat since the card was asked: the message that refused it (`decisions.ts`'s `notSentOf`).
+        public let wrote: ActionFailure.Wrote?
         public let channel: String?
         public let to: String?
     }

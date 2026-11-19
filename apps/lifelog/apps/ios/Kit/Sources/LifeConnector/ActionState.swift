@@ -27,6 +27,14 @@ public struct ActionFailure: Sendable, Equatable {
     public var isSameTap = false
     /// What kind of error ended it (dropped, unreachable, failed, refused), for the phone's log: never Life's words.
     public var kind = "failed"
+    /// A send Life refused because someone wrote in the chat since the ask: Life's own word for it, never decided here.
+    public var wrote: Wrote?
+
+    public struct Wrote: Decodable, Sendable, Equatable {
+        public let at: Date?
+        public let by: String?
+        public let text: String?
+    }
 
     public init(
         step: String? = nil, reason: String, retry: Retry, mayHaveHappened: Bool = false, isSameTap: Bool = false

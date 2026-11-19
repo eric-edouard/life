@@ -29,7 +29,7 @@ enum ActionCopy {
         switch step {
         case "recorded": "Your answer is recorded"
         case "chat_checked":
-            context.to.map { "The chat is \($0)’s, and nobody wrote since the draft" } ?? "The chat is the right one"
+            context.to.map { "The chat is \($0)’s, nobody wrote since" } ?? "The chat is the right one"
         case "handed": "Sending exactly this text"
         case "confirmed": "\(channel(context.channel)) confirms it"
         case "connection_retry":
