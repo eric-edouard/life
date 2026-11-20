@@ -754,9 +754,7 @@ async function readChecks(
     [...readFactCheckAnswers()].flatMap(([ref, a]) => (a.answer ? [ref] : []))
   );
   const doubted = new Set(
-    readFactChecks()
-      .filter((s) => !isEndingCheck(s))
-      .map((s) => s.ref)
+    readFactChecks().flatMap((s) => (isEndingCheck(s) ? [] : [s.ref]))
   );
   const nameGroups = nameGroupsOf({
     hisUnitsOf: readUnitsWithHisWords,
