@@ -215,7 +215,10 @@ import Testing
         guard case .caughtUp(let first) = await coordinator.status.sync else { return }
         await fake.record(pages: 1)
         await coordinator.syncNow()
-        #expect(await eventually { if case .caughtUp(let at) = await coordinator.status.sync { at != first } else { false } })
+        #expect(
+            await eventually {
+                if case .caughtUp(let at) = await coordinator.status.sync { at != first } else { false }
+            })
 
         let incidents = try await store.incidents().filter { $0.kind == .unreadablePage }
         let incident = try #require(incidents.first)
