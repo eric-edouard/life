@@ -203,7 +203,8 @@ struct AgentSheet: View {
         let state = life.state(of: .agent(agent.id))
         return VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             if case .failed(let failure, _) = state { Text(failure.reason).font(.small).foregroundStyle(Palette.flag) }
-            HStack(spacing: Metrics.Spacing.s) {
+            // One full-width button (the sheet closes from its own Close), then the session's quiet link.
+            Group {
                 if let primary {
                     Button(primary.0, action: primary.1).buttonStyle(
                         .pill(.filled, size: .compact, isBusy: state.isRunning))
@@ -211,15 +212,11 @@ struct AgentSheet: View {
                     Button("Stop the agent") { Task { await life.stopAgent(agent.id) } }
                         .buttonStyle(.pill(.quiet, size: .compact, isBusy: state.isRunning))
                 }
-                if primary != nil {
-                    Button("Close") { dismiss() }.buttonStyle(.pill(.quiet, size: .compact))
-                }
             }
             .disabled(state.isRunning)
-            // Nothing waits on him in the session (what does comes to the app): its way in is a quiet link, under.
             if let link = agent.link.flatMap(URL.init(string:)) {
                 TextLink("Open in \(agent.runtimeName.name)", isOutward: true) { openURL(link) }
-                    .padding(.top, Metrics.Spacing.xs)
+                    .padding(.top, Metrics.Spacing.xs).frame(maxWidth: .infinity)
             }
         }
         .padding(.top, Metrics.Spacing.l)

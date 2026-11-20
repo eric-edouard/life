@@ -41,9 +41,9 @@ struct PillStyle: ButtonStyle {
 
 /// Life's one spinner (the design's, never the system's bars): a 2 pt ring in `tint` and a quarter arc with round ends in
 /// the colour of what it sits in (`foregroundStyle`: `fg` on a quiet button, `on` on the filled one, `ai` for an agent),
-/// a full turn every 0.8 s, linear. With Reduce Motion the arc stands still and pulses.
+/// a full turn every 0.8 s, linear (18, or 14 in a row or a line). With Reduce Motion the arc stands still and pulses.
 struct Spinner: View {
-    enum Size: CGFloat { case regular = 18, small = 14, mini = 12 }
+    enum Size: CGFloat { case regular = 18, small = 14 }
     var size: Size = .regular
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -54,6 +54,8 @@ struct Spinner: View {
             ZStack {
                 Circle().stroke(Color.fillTint, lineWidth: 2)
                 Circle().trim(from: 0, to: 0.25).stroke(style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    // Centred on 12 o'clock at rest (a trim starts at 3), as the frames draw it.
+                    .rotationEffect(.degrees(-135))
                     .rotationEffect(
                         .degrees(reduceMotion ? 0 : seconds.truncatingRemainder(dividingBy: 0.8) / 0.8 * 360)
                     )
