@@ -73,8 +73,8 @@ public struct PeopleList: Decodable, Sendable, Equatable {
         public var id: String { label ?? "" }
     }
 
-    /// The rows of `kind`, in `order`: by closeness, Life's own order cut where the level changes ("Regular",
-    /// "Acquaintances", "Faded", then "Not judged yet"); A to Z, by name under each first letter ("#" for any other).
+    /// The rows of `kind`, in `order`: by closeness, Life's own order under each level ("Regular", "Acquaintances",
+    /// "Faded", then "Not judged yet"); A to Z, by name under each first letter ("#" for any other). One group per label.
     public func groups(_ order: Order, _ kind: Kind) -> [Group] {
         let rows = people.filter { row in
             switch kind {
@@ -85,7 +85,7 @@ public struct PeopleList: Decodable, Sendable, Equatable {
         }
         switch order {
         case .closeness:
-            return chunked(rows) { row in
+            let byLevel = Dictionary(grouping: rows) { row -> String? in
                 switch row.level {
                 case .inner: nil
                 case .regular: "Regular"
@@ -94,9 +94,17 @@ public struct PeopleList: Decodable, Sendable, Equatable {
                 case .unknown, nil: "Not judged yet"
                 }
             }
+            let levels: [String?] = [nil, "Regular", "Acquaintances", "Faded", "Not judged yet"]
+            return levels.compactMap { label in
+                byLevel[label].map { Group(label: label, rows: $0) }
+            }
         case .alphabet:
-            let sorted = rows.sorted { $0.party.name.localizedStandardCompare($1.party.name) == .orderedAscending }
-            return chunked(sorted) { Self.letter(of: $0.party.name) }
+            let byName: (PersonRow, PersonRow) -> Bool = {
+                $0.party.name.localizedStandardCompare($1.party.name) == .orderedAscending
+            }
+            return Dictionary(grouping: rows) { Self.letter(of: $0.party.name) }
+                .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
+                .map { Group(label: $0.key, rows: $0.value.sorted(by: byName)) }
         }
     }
 
@@ -104,18 +112,6 @@ public struct PeopleList: Decodable, Sendable, Equatable {
     public static func letter(of name: String) -> String {
         guard let first = name.first, first.isLetter else { return "#" }
         return String(first).folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil).uppercased()
-    }
-
-    /// Consecutive rows with the same label, one group each.
-    private func chunked(_ rows: [PersonRow], label: (PersonRow) -> String?) -> [Group] {
-        rows.reduce(into: [Group]()) { groups, row in
-            let name = label(row)
-            if let last = groups.last, last.label == name {
-                groups[groups.count - 1] = Group(label: name, rows: last.rows + [row])
-            } else {
-                groups.append(Group(label: name, rows: [row]))
-            }
-        }
     }
 }
 
@@ -138,7 +134,7 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         }
         public let network: String
         public let label: String
-        public let accounts: [Account]
+        public internal(set) var accounts: [Account]
         public var id: String { network }
     }
 
@@ -157,6 +153,8 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         public let kind: Kind
         public let text: String
         public let next: Next?
+        /// Where it comes from: `reach` for an account `now` had no room for in reach.
+        public let from: String?
     }
 
     /// A part Life holds about them, the ref `fetch` opens and its first sentence.
@@ -207,12 +205,14 @@ public struct PersonNow: Decodable, Sendable, Equatable {
     public let situation: [Line]
     public let communicationStyle: [Line]
     public let more: [String: Int]
+    /// The `reach` part's ref when `now` had no room for every account (`reach/<offset>` pages them all).
+    public let moreReach: String?
     /// An organization's: the people he knows there, and its mail and web domains.
     public let members: [Member]
     public let domains: [String]
 
     private enum Key: String, CodingKey {
-        case reach, details, knows, open, situation, communicationStyle, more, domains
+        case reach, details, knows, open, situation, communicationStyle, more, moreReach, domains
         case members = "people"
     }
 
@@ -223,7 +223,23 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         (reach, details, knows, open) = (try list(.reach), try list(.details), try list(.knows), try list(.open))
         (situation, communicationStyle) = (try list(.situation), try list(.communicationStyle))
         more = try container.decodeIfPresent([String: Int].self, forKey: .more) ?? [:]
+        moreReach = try container.decodeIfPresent(String.self, forKey: .moreReach)
         (members, domains) = (try list(.members), try list(.domains))
+    }
+
+    /// Reach with every account once the `reach` part's pages are read, in order, to its end (`pages`; none: `now`'s
+    /// own), and the details less the accounts `now` had put there for want of room.
+    public func withEveryAccount(_ pages: [ReachPage]?) -> (reach: [Reach], details: [Detail]) {
+        guard let pages, !pages.isEmpty, pages.last?.next == nil else { return (reach, details) }
+        var merged: [Reach] = []
+        for app in pages.flatMap(\.reach) {
+            if let at = merged.firstIndex(where: { $0.network == app.network }) {
+                merged[at].accounts += app.accounts
+            } else {
+                merged.append(app)
+            }
+        }
+        return (merged, details.filter { $0.from != "reach" })
     }
 
     /// How many matters are open with them, those Life left out included.
@@ -280,6 +296,13 @@ extension PersonNow.Detail {
 
     /// A phone or an address he may copy: a handle.
     public var isCopied: Bool { kind == .handles }
+}
+
+/// A page of the `reach` part: every account from its offset on, as many as fit, and the next page's ref.
+public struct ReachPage: Decodable, Sendable, Equatable, ParsedRead, NamesParties {
+    public let reach: [PersonNow.Reach]
+    public let next: String?
+    public var parties: [Party] { [] }
 }
 
 /// A page of their newest exchanges with him (`latest`, `readLatest`): five a page by whole days, newest first, and the

@@ -59,7 +59,7 @@ struct PeopleScreen: View {
         // A regular width always shows someone.
         .onChange(of: sizeClass, initial: true) { fillSelection() }
         .onChange(of: life.people.value) { fillSelection() }
-        .task { await life.refreshPeople() }
+        .task(id: life.parties.generation.current) { await life.refreshPeople() }
     }
 
     private func fillSelection() {

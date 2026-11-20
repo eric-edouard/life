@@ -33,7 +33,7 @@ struct ProsePage: View {
         )
         .background(Palette.bg)
         .shellBar("")
-        .task { await life.refreshProse(ref) }
+        .task(id: life.parties.generation.current) { await life.refreshProse(ref) }
     }
 }
 
@@ -94,7 +94,7 @@ struct LatestScreen: View {
         )
         .background(Palette.bg)
         .shellBar("")
-        .task { await life.refreshLatest(first) }
+        .task(id: life.parties.generation.current) { await life.refreshLatest(first) }
         .task(id: earlier.last) {
             if let ref = earlier.last { await life.refreshLatest(ref) }
         }

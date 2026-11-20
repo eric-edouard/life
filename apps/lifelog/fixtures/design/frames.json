@@ -191,13 +191,13 @@
     "taps": ["Earlier"]
   },
   "DuoFoldPersonLower": {
-    "why": "A scroll: by hand, as PersonPageLower."
+    "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab people -fixturePerson person:camille, then scroll to the end."
   },
   "DuoFoldPersonPictureChanged": {
-    "why": "Not built: Life's person read names no pictures by source yet, so the picture sheet has nothing to list (a server piece first)."
+    "why": "Not built: the person read names no pictures by source yet (life#812)."
   },
   "DuoFoldPersonPictures": {
-    "why": "Not built: Life's person read names no pictures by source yet, so the picture sheet has nothing to list (a server piece first)."
+    "why": "Not built: the person read names no pictures by source yet (life#812)."
   },
   "DuoFoldPersonReachMenu": {
     "args": [
@@ -343,10 +343,10 @@
     "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
   },
   "DuoPersonLower": {
-    "why": "A scroll: by hand, as PersonPageLower, the Duo open."
+    "why": "A scroll: by hand, as DuoFoldPersonLower, the Duo open."
   },
   "DuoPersonPictures": {
-    "why": "Not built: Life's person read names no pictures by source yet, so the picture sheet has nothing to list (a server piece first)."
+    "why": "Not built: the person read names no pictures by source yet (life#812)."
   },
   "ImportantCard": {
     "why": "The switched stack (StackOnlyYou) is not built, and Life sends no whyNow: of this frame only the pill's flag is built."
@@ -365,94 +365,6 @@
   },
   "ImportantSwipe": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters, then a swipe to the right on Table for Mum’s 60th (the system's own swipe action)."
-  },
-  "OrgInSearch": {
-    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “morel”."
-  },
-  "OrgOnPay": {
-    "why": "Not built: a pay card's payee names no party yet (a server piece first)."
-  },
-  "OrgPage": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureTab",
-      "people",
-      "-fixturePerson",
-      "person:atelier_morel"
-    ]
-  },
-  "OrgPageLong": {
-    "why": "Its eight people now and three before are not in the design data; by hand: a scroll of OrgPage once they are."
-  },
-  "PeopleList": {
-    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
-  },
-  "PeopleListAZ": {
-    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
-    "taps": ["Filter", "A to Z"]
-  },
-  "PeopleOrgs": {
-    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
-    "taps": ["Organizations"]
-  },
-  "PeopleSearch": {
-    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
-  },
-  "PeopleSort": {
-    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
-    "taps": ["Filter"]
-  },
-  "PersonAbout": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureTab",
-      "people",
-      "-fixturePerson",
-      "person:camille"
-    ],
-    "taps": ["About Camille"]
-  },
-  "PersonLatest": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureTab",
-      "people",
-      "-fixturePerson",
-      "person:camille"
-    ],
-    "taps": ["Earlier"]
-  },
-  "PersonPage": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureTab",
-      "people",
-      "-fixturePerson",
-      "person:camille"
-    ]
-  },
-  "PersonPageLower": {
-    "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab people -fixturePerson person:camille, then scroll to the end."
-  },
-  "PersonPageSmall": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureTab",
-      "people",
-      "-fixturePerson",
-      "person:marc_fenn"
-    ]
-  },
-  "PersonPictureChanged": {
-    "why": "Not built: Life's person read names no pictures by source yet, so the picture sheet has nothing to list (a server piece first)."
-  },
-  "PersonPictures": {
-    "why": "Not built: Life's person read names no pictures by source yet, so the picture sheet has nothing to list (a server piece first)."
   },
   "PersonReachMenu": {
     "args": [
