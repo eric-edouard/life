@@ -36,10 +36,33 @@ export const handleKey = (h: string) =>
     ? h.trim().toLowerCase()
     : h.replace(/\D/g, "").slice(-PHONE_DIGITS);
 
-/** A handle's key when it can name someone: an email, or a phone with enough digits; else undefined. */
+/**
+ * The contact key of a handle known to be a phone or an email (a Contacts field, truth/'s `phone`, `whatsapp`,
+ * `email`, a sender of a source whose senders are phones): an email lower-cased, a phone by its last digits; none
+ * under that many digits. Never of a string of unknown kind: `writtenContactKeyOf`.
+ */
 export const contactKeyOf = (h: string) => {
   const key = handleKey(h);
   return key.includes("@") || key.length >= PHONE_DIGITS ? key : undefined;
+};
+
+/** A phone as people write it: digits, with `+`, spaces, dots, dashes or brackets. */
+export const PHONE_WRITTEN = /^\+?[\d\s().-]+$/;
+/** An email address: a domain with a dot (WhatsApp's `<n>@lid` is an id, not an address). */
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/**
+ * The contact key of a name or handle of unknown kind (his words, a model's name, a handle copied out of its source):
+ * an email address, or a phone written with its `+`; any other number is read exactly as written, since a network's
+ * id (Telegram's, Instagram's) is digits too. `isNumberAPhone`: the caller knows its numbers are phones (a source
+ * whose senders are, `Descriptor.hasPhoneHandles`).
+ */
+export const writtenContactKeyOf = (s: string, isNumberAPhone = false) => {
+  const h = s.replace(DIRECTION_MARKS, "").trim();
+  return EMAIL.test(h) ||
+    (PHONE_WRITTEN.test(h) && (isNumberAPhone || h.startsWith("+")))
+    ? contactKeyOf(h)
+    : undefined;
 };
 
 /** One Contacts record, whole. */

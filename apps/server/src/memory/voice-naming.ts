@@ -183,7 +183,7 @@ function heardOnDayOf(heard: { at: string; ref: string }[]) {
 async function readDayFacts(dates: string[], people: People) {
   const pictured = new Map<string, Set<string>>();
   for (const u of readUnitsOf(dates).filter((x) => x.source === "photos")) {
-    for (const p of u.people.map(people.refOf)) {
+    for (const p of u.people.map((x) => people.refOf(x, u.source))) {
       addTo(pictured, u.date, p);
     }
   }

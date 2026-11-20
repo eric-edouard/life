@@ -113,6 +113,7 @@ const LISTED: Descriptor[] = [
     earliest: readEarliestImessage,
     group: isImessageGroup,
     handleOf,
+    hasPhoneHandles: true,
     incoming: incomingImessage,
     kind: "chat",
     label: "iMessage",
@@ -162,6 +163,7 @@ const LISTED: Descriptor[] = [
     capturesOnItsOwn: true,
     chatDays: 7,
     group: isPhoneGroup,
+    hasPhoneHandles: true,
     kind: "chat",
     label: "Phone & FaceTime",
     macOnly: true,
@@ -296,6 +298,7 @@ const LISTED: Descriptor[] = [
   // His photo library, read in place from Photos' own store: Photos keeps its history, so nothing is copied.
   {
     earliest: earliestPhoto,
+    hasPhoneHandles: true,
     kind: "photos",
     label: "Photos",
     macOnly: true,

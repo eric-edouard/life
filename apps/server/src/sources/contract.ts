@@ -119,6 +119,12 @@ export type Descriptor = {
   macOnly?: true;
   /** What he calls it. */
   label: string;
+  /**
+   * Its senders are phones or emails however written, a bare number too (Messages, the Phone app; Photos' pictured
+   * people, a Contacts field or a name): read through their contact key (`writtenContactKeyOf`). Without it a bare
+   * number is a network's id, read exactly as written.
+   */
+  hasPhoneHandles?: true;
   /** The pictures its people show (a bridge's ghosts' avatars, the photos shared through Messages); none without. */
   pictures?: () => Picture[];
   /** How a card's draft goes into one of its chats (`memory/draft-send.ts`); a source without it sends nothing. */

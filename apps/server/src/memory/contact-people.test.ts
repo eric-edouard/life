@@ -14,6 +14,7 @@ import {
   contactsNow,
 } from "./contact-people";
 import { readDetailsOf } from "./details";
+import { isSameNameOrHandle } from "./name-reading";
 import { answeredBy } from "./people";
 import { personPicturesOf } from "./person-pictures";
 import { cardOwnerOf, foldsOf, meant } from "./who";
@@ -70,6 +71,147 @@ test("a card whose handle his messages hold becomes a person, under an id from t
   );
   // The same cards again: nothing to append.
   expect(after([ANA], first.stored, seenOf(ANA_KEY)).lines).toEqual([]);
+});
+
+test("a handle's kind decides its key: a network's id never reads as whoever's number ends in its digits, either way (#708)", () => {
+  // Bea's number ends 677777777; Dan's Telegram id is those digits.
+  const dan = Person.parse({
+    handles: { email: [], phone: [], telegram: "677777777", whatsapp: [] },
+    id: "dan",
+    name: "Dan Low",
+  });
+  for (const directory of [
+    [...truth, dan],
+    [dan, ...truth],
+  ]) {
+    const { resolve } = foldsOf(directory, [], [], []);
+    expect(resolve("677777777", "telegram")).toBe("person:dan");
+    expect(resolve("677777777")).toBe("person:dan");
+    // The same digits from the Phone app are a number: Bea's, never Dan's id.
+    expect(resolve("677777777", "phone")).toBe("person:bea");
+    expect(resolve("+33677777777", "whatsapp")).toBe("person:bea");
+    expect(resolve("+33 6 77 77 77 77")).toBe("person:bea");
+  }
+  const { resolve } = foldsOf(truth, [], [], []);
+  expect(resolve("677777777", "telegram")).toBeNull();
+  // An Instagram id ending the same, read from its source or copied out of it; a Beeper ghost of a Telegram id.
+  expect(resolve("17841400677777777", "instagram")).toBeNull();
+  expect(resolve("17841400677777777")).toBeNull();
+  expect(resolve("@telegram_677777777:beeper.local")).toBeNull();
+  // A GitHub login shaped like a phone is a login.
+  const ann = now("card-ann", "Ann Lee", ["+1 415-555-0123"]);
+  expect(
+    foldsOf([], [], [], [ann]).resolve("415-555-0123", "github")
+  ).toBeNull();
+  // The Phone app's bare number is a phone; the same number copied out alone is read as written.
+  const bare = foldsOf(
+    [],
+    [],
+    [],
+    [now("card-cal", "Cal Moe", ["4155550124"])]
+  );
+  expect(bare.resolve("4155550124", "phone")).toBe(
+    `person:${contactIdOf("card-cal")}`
+  );
+  expect(bare.resolve("4155550124")).toBeNull();
+});
+
+test("a card's bare number is a phone: it folds into whoever has that number in truth/", () => {
+  const ivy = Person.parse({
+    handles: { email: [], phone: ["+14155550125"], whatsapp: [] },
+    id: "ivy",
+    name: "Ivy Park",
+  });
+  const ivyCard = now("card-ivy", "Ivy at work", ["4155550125"]);
+  const folds = foldsOf([ivy], [], [], [ivyCard]);
+  expect(folds.canon(`person:${ivyCard.id}`)).toBe("person:ivy");
+  expect(
+    cardOwnerOf({ ...folds, contacts: [] })({
+      handles: ivyCard.handles,
+      id: "x",
+    })
+  ).toBe("person:ivy");
+});
+
+test("his word on a number, typed with spaces, meets the number as a source writes it", () => {
+  const said = {
+    at: AT,
+    kind: "this-is",
+    nameOrHandle: "+33 6 12 34 56 78",
+    person: "person:bea",
+    schemaVersion: 1,
+  };
+  expect(
+    foldsOf(truth, [], [said] as never, []).resolve("+33612345678", "whatsapp")
+  ).toBe("person:bea");
+});
+
+test("his word on a number never meets a network id holding its digits, nor his word on an id a number (#708)", () => {
+  const said = (nameOrHandle: string, person: string) => ({
+    at: AT,
+    kind: "this-is",
+    nameOrHandle,
+    person,
+    schemaVersion: 1,
+  });
+  const onNumber = foldsOf(
+    truth,
+    [],
+    [said("+33699999999", "person:bea")] as never,
+    []
+  );
+  expect(onNumber.resolve("33699999999", "telegram")).toBeNull();
+  expect(onNumber.resolve("+33699999999", "whatsapp")).toBe("person:bea");
+  const onId = foldsOf(
+    truth,
+    [],
+    [said("699999999", "person:bea")] as never,
+    []
+  );
+  expect(onId.resolve("+33699999999", "whatsapp")).toBeNull();
+  expect(onId.resolve("699999999", "telegram")).toBe("person:bea");
+});
+
+test("kindless stores keep kinds apart too: a rejection of a bare Phone number holds, a guess on a number is not an id, a ruling on an id leaves a card's number alone (#708)", () => {
+  const rejected = {
+    at: AT,
+    kind: "not-this-person",
+    nameOrHandle: "699999999",
+    person: "person:guess-1",
+    schemaVersion: 1,
+  };
+  const guess = {
+    at: AT,
+    confidence: 0.9,
+    id: "guess-1",
+    name: "Gus",
+    namesAndHandles: ["+33699999999"],
+  };
+  const folds = (corrections: unknown[]) =>
+    foldsOf([], [guess] as never, corrections as never, []);
+  expect(folds([]).resolve("699999999", "phone")).toBe("person:guess-1");
+  expect(folds([rejected]).resolve("699999999", "phone")).toBeNull();
+  expect(folds([]).resolve("33699999999", "telegram")).toBeNull();
+  expect(isSameNameOrHandle("+33 6 99 99 99 99", "33699999999")).toBe(false);
+  expect(isSameNameOrHandle("+33 6 99 99 99 99", "+33699999999")).toBe(true);
+  expect(isSameNameOrHandle("0699999999", "0699999999")).toBe(true);
+});
+
+test("a bridged avatar ending in someone's digits is no one's picture", () => {
+  const folds = foldsOf(truth, [], [], []);
+  const placed = personPicturesOf(
+    [],
+    [
+      {
+        pictures: [
+          { bytes: new Uint8Array([0xff, 0xd8]), handles: ["118220677777777"] },
+        ],
+        source: "instagram",
+      },
+    ],
+    { ownerOfCard: () => undefined, resolve: folds.resolve }
+  );
+  expect(placed.index).toEqual({});
 });
 
 test("a card renamed, given a number or deleted keeps its person", () => {
@@ -165,7 +307,9 @@ test("a contact person is read by a handle of its card, however written, and by 
   ]);
   const self = `person:${ana.id}`;
   const { resolve } = foldsOf(truth, [], [], [ana]);
-  expect(resolve("0611111111")).toBe(self);
+  // A bare number is a phone where it was read as one (a Messages sender); as written alone, an id.
+  expect(resolve("0611111111", "imessage")).toBe(self);
+  expect(resolve("0611111111")).toBeNull();
   expect(resolve("+33611111111")).toBe(self);
   expect(resolve("ANA@example.com")).toBe(self);
   // The name another source gives (a face he named in Photos, an export's display name).
@@ -278,7 +422,7 @@ test("a card that shares only a short name with someone whose numbers are known 
   expect(resolve("+33600000042")).toBe(`person:${other.id}`);
   // Her whole name on another number is her second number, unless he said that number is not her.
   const second = now("card-bea-2", "Beatrice Roy", ["+33 6 00 00 00 44"]);
-  expect(foldsOf(truth, [], [], [second]).resolve("0600000044")).toBe(
+  expect(foldsOf(truth, [], [], [second]).resolve("0600000044", "phone")).toBe(
     "person:bea"
   );
   const notHer = {
@@ -289,7 +433,10 @@ test("a card that shares only a short name with someone whose numbers are known 
     schemaVersion: 1,
   };
   expect(
-    foldsOf(truth, [], [notHer] as never, [second]).resolve("0600000044")
+    foldsOf(truth, [], [notHer] as never, [second]).resolve(
+      "0600000044",
+      "phone"
+    )
   ).toBe(`person:${second.id}`);
   // Someone truth/ gives no number: nothing says otherwise, so a card under one of their names is them.
   const cy = Person.parse({

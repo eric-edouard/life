@@ -1,12 +1,14 @@
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { log } from "../core/log";
+import type { SourceName } from "../core/names";
 import { ContactPerson, contactIdOf } from "../records/observation";
 import {
   type Contact,
   contactKeyOf,
   ownersOf,
   readContactRecords,
+  writtenContactKeyOf,
 } from "../sources/contacts";
 import {
   CONTACT_PEOPLE,
@@ -14,6 +16,7 @@ import {
   readIndex,
   readInferred,
 } from "./memory-files";
+import { sourceOf } from "./sources";
 import { nameKey, UNKNOWN } from "./units";
 
 // The contact people (docs/glossary.md): who a handle is, as his Contacts name it, for the handles his messages hold.
@@ -148,23 +151,27 @@ export function contactPeopleOf(
 
 /** The handles his messages hold that Life cannot name or only guessed, by their Contacts key: what makes a card a person. */
 function seenHandles() {
+  // Each unknown sender read as its source reads it (a bare number is a phone only where senders are phones), a
+  // guess's names and handles as written.
   const unknown =
     readIndex((db) =>
       db
-        .query<{ person: string }, []>(
-          `select distinct person from unit_people where person like '${UNKNOWN}%'`
+        .query<{ person: string; source: SourceName }, []>(
+          `select distinct p.person, u.source from unit_people p join units u on u.id = p.unit
+           where p.person like '${UNKNOWN}%'`
         )
         .all()
-        .map((r) => r.person.slice(UNKNOWN.length))
+        .map((r) =>
+          writtenContactKeyOf(
+            r.person.slice(UNKNOWN.length),
+            !!sourceOf(r.source).hasPhoneHandles
+          )
+        )
     ) ?? [];
-  return new Set(
-    [...unknown, ...readInferred().flatMap((p) => p.namesAndHandles)].flatMap(
-      (s) => {
-        const key = contactKeyOf(s);
-        return key ? [key] : [];
-      }
-    )
+  const guessed = readInferred().flatMap((p) =>
+    p.namesAndHandles.map((s) => writtenContactKeyOf(s))
   );
+  return new Set([...unknown, ...guessed].flatMap((key) => (key ? [key] : [])));
 }
 
 /**

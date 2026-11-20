@@ -538,7 +538,9 @@ export async function episodes(evidence: Evidence) {
         // Known: answered (`answeredBy`), or answered earlier in this run (one person, one id).
         const unknown = unknownIn(
           spoken,
-          (s) => answered(s) || named.some((p) => p.namesAndHandles.includes(s))
+          (s, from) =>
+            answered(s, from) ||
+            named.some((p) => p.namesAndHandles.includes(s))
         );
         // Older guesses on this day's units, judged again by this prompt.
         for (const [key, seen] of oldGuessesIn(
