@@ -233,7 +233,9 @@ private struct People: View {
             FlowLayout(spacing: Metrics.Spacing.xs) {
                 ForEach(chips) { chip in
                     HStack(spacing: 0) {
-                        Button { router.open(party: chip.party.ref) } label: {
+                        Button {
+                            router.open(party: chip.party.ref)
+                        } label: {
                             PartyChip(party: chip.party, label: chip.label)
                         }
                         .buttonStyle(.plain)

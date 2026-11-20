@@ -15,7 +15,8 @@ private let english = Locale(identifier: "en_GB")
 /// A made-up row as Life writes one.
 private func row(_ name: String, _ level: String?, kind: String = "person", needsYou: Bool = false) -> String {
     let level = level.map { #","level":"\#($0)""# } ?? ""
-    return #"{"ref":"person:\#(name.lowercased())","name":"\#(name)","kind":"\#(kind)","needsYou":\#(needsYou)\#(level)}"#
+    return
+        #"{"ref":"person:\#(name.lowercased())","name":"\#(name)","kind":"\#(kind)","needsYou":\#(needsYou)\#(level)}"#
 }
 
 @Test func theListAndAPersonsNowDecode() throws {

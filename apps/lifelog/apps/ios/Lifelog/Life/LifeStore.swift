@@ -198,7 +198,9 @@ final class LifeStore {
     }
 
     func refreshPeople() async {
-        await load({ self.people.apply($0) }, key: Self.peopleKey) { try await $0.readPeopleAndOrganizations(query: nil) }
+        await load({ self.people.apply($0) }, key: Self.peopleKey) {
+            try await $0.readPeopleAndOrganizations(query: nil)
+        }
     }
 
     func refreshPerson(_ ref: String) async {

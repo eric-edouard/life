@@ -206,7 +206,9 @@
             guard let subject = parts.first, let part = parts.dropFirst().first else {
                 throw MCPError.failed("No such part.")
             }
-            if part == "latest" { return json(Self.read("read_people_and_organizations_latest", or: [:])[subject] ?? ["latest": []]) }
+            if part == "latest" {
+                return json(Self.read("read_people_and_organizations_latest", or: [:])[subject] ?? ["latest": []])
+            }
             let rows = Self.people["people"] as? [[String: Any]] ?? []
             guard part == "now", let row = rows.first(where: { $0["ref"] as? String == subject }) else {
                 throw MCPError.failed("No such person.")
