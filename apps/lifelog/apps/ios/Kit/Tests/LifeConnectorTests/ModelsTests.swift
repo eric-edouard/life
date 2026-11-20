@@ -493,3 +493,27 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     let newer = try row(icon: ["by": "owner", "key": "a_new_key"], areas: ["Money"])
     #expect((newer.symbol, newer.knownIcon, newer.ownerIconKey) == ("banknote", nil, "a_new_key"))
 }
+
+/// Undo's earlier pick after a write whose read failed: Life's `key` on the row, he picks `sign`, the write goes and
+/// the matter read fails, so the row still says `key`; his next pick's Undo must put back `sign`, never Life's pick.
+/// A read loaded after the write is the row's word again.
+@Test func undoPutsBackThePickLastWrittenUntilAReadShowsIt() throws {
+    func row(_ by: String, _ key: String) throws -> MatterRow {
+        let icon = #"{"by": "\#(by)", "key": "\#(key)"}"#
+        let text = #"{"id": "matter_x", "name": "Renew the lease", "status": "moving", "icon": \#(icon)}"#
+        return try decoded(MatterRow.self, text)
+    }
+    let read = Date(timeIntervalSince1970: 0)
+    let (wrote, readAgain) = (read.addingTimeInterval(10), read.addingTimeInterval(20))
+    var written = WrittenIcons()
+    let lifes = try row("life", "key")
+    #expect(written.earlierPick(of: lifes, loadedAt: read) == nil)
+    written.wrote("sign", on: "matter_x", at: wrote)
+    #expect(written.earlierPick(of: lifes, loadedAt: read) == "sign")
+    #expect(written.earlierPick(of: lifes, loadedAt: nil) == "sign")
+    // “Let Life pick” written, the row still his: Undo gives it back to Life.
+    written.wrote(nil, on: "matter_x", at: wrote)
+    #expect(written.earlierPick(of: try row("owner", "sign"), loadedAt: read) == nil)
+    // A read after the write: the row says what Life holds now.
+    #expect(written.earlierPick(of: try row("owner", "hammer"), loadedAt: readAgain) == "hammer")
+}

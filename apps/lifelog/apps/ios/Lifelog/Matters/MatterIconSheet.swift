@@ -62,7 +62,7 @@ struct MatterIconSheet: View {
     /// Sends his pick (nil: Life picks again), keeping his pick before it for Undo; his own pick tapped again only
     /// closes the sheet.
     private func choose(_ key: String?, row: MatterRow) {
-        let was = row.ownerIconKey
+        let was = life.earlierIconPick(of: row)
         guard key != was else { return dismiss() }
         Task {
             await life.setMatterIcon(of: matter, key, was: was)

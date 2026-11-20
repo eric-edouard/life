@@ -50,6 +50,8 @@ final class LifeStore {
     private let statusing = PendingTaps<ProjectStatus>()
     /// His icon pick on a matter (a key, or nil: Life picks again) from his tap until Life's reads after it.
     private let iconing = PendingTaps<String?>()
+    /// His icon picks Life took, until a read of the matter shows them.
+    private var writtenIcons = WrittenIcons()
 
     /// Every action by what it acts on: its steps as they stream, then its proof or why not.
     private(set) var actions: [ActionKey: ActionState<ActionProof>] = [:]
@@ -390,6 +392,12 @@ final class LifeStore {
     /// none (the outer nil) when no pick is under way.
     func iconPicking(_ id: String) -> String?? { iconing[id] }
 
+    /// His pick on `row` before the next one, which that one's Undo puts back: the pick last written until a read
+    /// shows it, so a read that failed after the write never hands Undo the row from before it.
+    func earlierIconPick(of row: MatterRow) -> String? {
+        writtenIcons.earlierPick(of: row, loadedAt: matter[row.id]?.loadedAt)
+    }
+
     /// His icon for a matter (a key of `MatterIcons`, or nil: Life picks again), said back with Undo, which puts back
     /// his pick it replaced (`was`, nil when the icon was Life's or none). One pick per matter at a time, through its
     /// reads: a second one before them would take its `was` from the read before the first.
@@ -397,6 +405,7 @@ final class LifeStore {
         let api = api
         let isSent = await iconing.run(id, showing: icon) {
             await edit(id, .icon) { try await api.setMatterIcon(matter: id, icon: icon, onProgress: $0) }
+            if case .succeeded = state(of: .edit(matter: id, .icon)) { writtenIcons.wrote(icon, on: id, at: now()) }
         }
         guard isSent else { return }
         say(.edit(matter: id, .icon), saysBack ? "Icon changed" : nil, undo: .icon(matter: id, was, was: icon))

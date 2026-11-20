@@ -106,3 +106,21 @@ extension MatterRow {
     /// His own pick, which Undo puts back (nil when the icon is Life's or none), kept even for a key this app lacks.
     public var ownerIconKey: String? { icon?.by == .owner ? icon?.key : nil }
 }
+
+/// His icon picks Life took, by matter, with when the write was seen to succeed: until a read of the matter loaded
+/// after it, that pick, not the row, is his pick before the next one (what Undo puts back). A read that failed after
+/// the write leaves the row from before it.
+public struct WrittenIcons: Sendable {
+    private var written: [String: (icon: String?, at: Date)] = [:]
+
+    public init() {}
+
+    /// Records his pick on `id` (nil: Life picks again) as Life took it, `at` once its write ended.
+    public mutating func wrote(_ icon: String?, on id: String, at: Date) { written[id] = (icon, at) }
+
+    /// His pick before the next one on `row`, read at `loadedAt`: the pick last written, unless the read came after it.
+    public func earlierPick(of row: MatterRow, loadedAt: Date?) -> String? {
+        guard let last = written[row.id], !(loadedAt.map { last.at < $0 } ?? false) else { return row.ownerIconKey }
+        return last.icon
+    }
+}
