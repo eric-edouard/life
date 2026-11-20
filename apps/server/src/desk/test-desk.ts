@@ -125,17 +125,6 @@ export function on(desk: Desk, id: string) {
 export const asgOf = (desk: Desk, id: string) =>
   currentAssignmentOf(desk.db, id)?.id ?? "";
 
-/** Session `ref` has grown by `by` tokens: as its first call and its turns' last would say (`growthOf`). */
-export function grow(desk: Desk, ref: string, by: number) {
-  desk.db.run("update session set context_at_first_call = 1000 where ref = ?", [
-    ref,
-  ]);
-  desk.db.run("update turn set context_used = ? where session = ?", [
-    1000 + by,
-    ref,
-  ]);
-}
-
 /** A new agent on a made-up matter, its first turn launched. */
 export async function started(desk: Desk, step: string) {
   const id = register(desk, {
