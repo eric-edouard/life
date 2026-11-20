@@ -237,7 +237,31 @@ function placeRefusalOf(
         .join(" or ")}`;
 }
 
-/** Why a wait may not hold filter `f`, or null: a channel unknown, off or unreadable, or keys its channels cannot answer (a message's on event channels only, a quantity or a place none of them holds). */
+/** Whether `f` holds a key only a message answers. */
+const hasMessageKeys = (f: EventFilter) =>
+  Boolean(f.person || f.chat || f.from_me);
+
+/** Why `f`'s `repo` cannot fire, or null: one with a quantity, a place or a message's key, one without a channel holding repos, or such a channel named without one. */
+function repoRefusalOf(
+  f: EventFilter,
+  named: string[],
+  channels: EventChannel[]
+) {
+  const withRepo = channels.filter((c) => c.hasRepo).map((c) => c.name);
+  const names = withRepo.map((n) => `\`${n}\``).join(" or ");
+  const namesOne = named.some((n) => withRepo.includes(n));
+  if (f.repo && (f.quantity || f.latitude !== undefined || hasMessageKeys(f))) {
+    return "a filter with a `repo` takes no `quantity`, place, `person`, `chat` or `from_me`: no event holds both";
+  }
+  if (f.repo && !namesOne) {
+    return `\`repo\` needs \`channels\` naming ${names}`;
+  }
+  return !f.repo && namesOne
+    ? `${names} needs a \`repo\`: \`owner/name\` or \`owner/*\``
+    : null;
+}
+
+/** Why a wait may not hold filter `f`, or null: a channel unknown, off or unreadable, or keys its channels cannot answer (a message's on event channels only, a quantity, a place or a repo none of them holds), or a channel holding repos named without one. */
 function filterRefusalOf(
   f: EventFilter,
   { known, on }: { known: string[]; on: string[] },
@@ -255,13 +279,14 @@ function filterRefusalOf(
   if (
     named.length > 0 &&
     named.every((n) => channels.some((c) => c.name === n)) &&
-    (f.person || f.chat || f.from_me)
+    hasMessageKeys(f)
   ) {
-    return "`person`, `chat` and `from_me` are a message's: a filter on event channels only takes `text_matches`, `quantity` and a place";
+    return "`person`, `chat` and `from_me` are a message's: a filter on event channels only takes `text_matches`, `quantity`, a place and a `repo`";
   }
-  const place = placeRefusalOf(f, named, channels);
-  if (place) {
-    return place;
+  const keys =
+    placeRefusalOf(f, named, channels) ?? repoRefusalOf(f, named, channels);
+  if (keys) {
+    return keys;
   }
   if (!f.quantity) {
     return f.above === undefined && f.below === undefined
