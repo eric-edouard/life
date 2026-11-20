@@ -14,6 +14,7 @@ import {
   contactsNow,
 } from "./contact-people";
 import { readDetailsOf } from "./details";
+import { isSameNameOrHandle } from "./name-reading";
 import { answeredBy } from "./people";
 import { personPicturesOf } from "./person-pictures";
 import { cardOwnerOf, foldsOf, meant } from "./who";
@@ -169,6 +170,31 @@ test("his word on a number never meets a network id holding its digits, nor his 
   );
   expect(onId.resolve("+33699999999", "whatsapp")).toBeNull();
   expect(onId.resolve("699999999", "telegram")).toBe("person:bea");
+});
+
+test("kindless stores keep kinds apart too: a rejection of a bare Phone number holds, a guess on a number is not an id, a ruling on an id leaves a card's number alone (#708)", () => {
+  const rejected = {
+    at: AT,
+    kind: "not-this-person",
+    nameOrHandle: "699999999",
+    person: "person:guess-1",
+    schemaVersion: 1,
+  };
+  const guess = {
+    at: AT,
+    confidence: 0.9,
+    id: "guess-1",
+    name: "Gus",
+    namesAndHandles: ["+33699999999"],
+  };
+  const folds = (corrections: unknown[]) =>
+    foldsOf([], [guess] as never, corrections as never, []);
+  expect(folds([]).resolve("699999999", "phone")).toBe("person:guess-1");
+  expect(folds([rejected]).resolve("699999999", "phone")).toBeNull();
+  expect(folds([]).resolve("33699999999", "telegram")).toBeNull();
+  expect(isSameNameOrHandle("+33 6 99 99 99 99", "33699999999")).toBe(false);
+  expect(isSameNameOrHandle("+33 6 99 99 99 99", "+33699999999")).toBe(true);
+  expect(isSameNameOrHandle("0699999999", "0699999999")).toBe(true);
 });
 
 test("a bridged avatar ending in someone's digits is no one's picture", () => {

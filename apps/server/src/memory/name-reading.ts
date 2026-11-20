@@ -45,19 +45,28 @@ export const isSameNameOrHandle = (
   cardHandle: string,
   nameOrHandle: string
 ) => {
-  const key = contactKeyOf(cardHandle);
-  return (
-    (key !== undefined && key === writtenContactKeyOf(nameOrHandle)) ||
-    keysOf(cardHandle).some((k) => keysOf(nameOrHandle).includes(k))
+  const theirs = kindKeysOf(nameOrHandle, writtenContactKeyOf(nameOrHandle));
+  return kindKeysOf(cardHandle, contactKeyOf(cardHandle)).some((k) =>
+    theirs.includes(k)
   );
 };
+
+/**
+ * A handle's keys in a store that holds no kind (his word, Life's guesses): the same string always meets; a phone or
+ * an email (it has a contact key) also meets by that key, anything else by its looser keys. Never across kinds: "+33 6…"
+ * never meets an id "336…".
+ */
+const kindKeysOf = (nameOrHandle: string, key: string | undefined) =>
+  key
+    ? [nameOrHandle.trim(), nameOrHandle.trim().toLowerCase(), `\0${key}`]
+    : keysOf(nameOrHandle);
 
 /** Each name or handle key's inferred person: the latest record at or above INFERRED_USE_AT decides. */
 function guessesOf(inferred: InferredPerson[]) {
   const guessed = new Map<string, InferredPerson>();
   for (const r of inferred) {
     for (const k of r.confidence >= INFERRED_USE_AT
-      ? r.namesAndHandles.flatMap(keysOf)
+      ? r.namesAndHandles.flatMap((n) => kindKeysOf(n, writtenContactKeyOf(n)))
       : []) {
       guessed.set(k, r);
     }
@@ -141,17 +150,13 @@ export function readingOf(
     }
   }
   const cardNames = nameIndex(contacts.map((c) => ({ ...c, aliases: [] })));
-  // His word, and what is looked up against it: a phone or an email by its contact key alone, anything else by its
-  // exact keys alone (the contact key behind a prefix no exact key has): "+33 6…" never meets an id "336…".
-  const wordKeysOf = (nameOrHandle: string, key: string | undefined) =>
-    key ? [`\0${key}`] : keysOf(nameOrHandle);
   const said = new Map<string, string>();
   const not = new Set<string>();
   for (const c of corrections) {
     if (c.kind !== "this-is" && c.kind !== "not-this-person") {
       continue;
     }
-    for (const k of wordKeysOf(
+    for (const k of kindKeysOf(
       c.nameOrHandle,
       writtenContactKeyOf(c.nameOrHandle)
     )) {
@@ -171,18 +176,17 @@ export function readingOf(
     key
       ? index.contact.get(key)
       : ks.map((k) => index.exact.get(k)).find(Boolean);
-  // A phone or an email (it has a contact key) meets only phones and emails: truth/'s, a card's, his word's; anything
-  // else only exact handles and names. Life's guesses are the one exception: a model wrote their handles, with no kind,
-  // so each meets as written.
+  // A phone or an email (it has a contact key) meets only truth/'s and a card's phones and emails, anything else only
+  // their exact handles and names; his word and Life's guesses hold no kind, so they meet by `kindKeysOf`.
   return (nameOrHandle: string, from?: HandleFrom): Reading | null => {
     const key = contactKeyFrom(nameOrHandle, from);
     const ks = keysOf(nameOrHandle);
-    const words = wordKeysOf(nameOrHandle, key);
+    const words = kindKeysOf(nameOrHandle, key);
     const truth = meet(handles, key, ks.slice(0, 2));
     // A name as lifelog gives it, its parentheses left out ("Jean (Me)").
     const bare = key ? "" : nameKey(nameOrHandle.trim().replace(PAREN, ""));
     const named = bare ? names.get(bare) : undefined;
-    const guesses = ks.map((k) => guessed.get(k));
+    const guesses = words.map((k) => guessed.get(k));
     const onCard =
       meet(carded, key, ks) ?? (bare ? cardNames.get(bare) : undefined);
     const isShared =
