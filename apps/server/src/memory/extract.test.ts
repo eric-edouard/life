@@ -613,6 +613,22 @@ test("the cache: a unit is read again only when its content or the prompt change
   ).toHaveLength(1);
 });
 
+test("a unit with a confirmed arrival is read whatever its verdict, even one cached before the confirm", () => {
+  const light = unit({ id: "unit_0000000000aa" });
+  const verdicts = ledger([verdict(light, { importance: 0 })]);
+  expect(toExtract([bare(light)], verdicts, new Map()).pending).toHaveLength(0);
+  expect(
+    toExtract(
+      [bare(light)],
+      verdicts,
+      new Map(),
+      undefined,
+      undefined,
+      new Set([light.id])
+    ).pending
+  ).toHaveLength(1);
+});
+
 test("a unit he said was read wrong is read again, once: his word against its last reading, as instants", () => {
   const sam = unit({ id: "unit_00000000001a", people: ["person:lou"] });
   const verdicts = ledger([verdict(sam, { importance: 3 })]);
