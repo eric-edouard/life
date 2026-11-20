@@ -129,7 +129,9 @@ export function reachPageOf(all: Reach[], skip: number, subject: string) {
         i === 0 && cut > 0
           ? {
               ...x.account,
-              title: x.account.title?.slice(0, -cut) || undefined,
+              title:
+                [...(x.account.title ?? "")].slice(0, -cut).join("") ||
+                undefined,
             }
           : x.account,
     }));
@@ -153,8 +155,15 @@ export function reachPageOf(all: Reach[], skip: number, subject: string) {
   while (skip + n < flat.length && size(pageOf(n + 1)) <= PART_CHARS) {
     n += 1;
   }
-  // Every character of title cut takes at least one off the page.
-  return pageOf(n, Math.max(0, size(pageOf(n)) - PART_CHARS));
+  // Cut the title by what the page is over (whole characters, never half a pair), measured again after each cut: an
+  // escaped character can weigh more than one. A page over with no title left is as small as it gets.
+  let cut = 0;
+  let page = pageOf(n);
+  while (size(page) > PART_CHARS && page.reach[0]?.accounts[0]?.title) {
+    cut += size(page) - PART_CHARS;
+    page = pageOf(n, cut);
+  }
+  return page;
 }
 
 /** A part that holds something, as `now` offers it: the ref `fetch` opens and its first sentence. */

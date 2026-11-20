@@ -623,7 +623,7 @@ test("an organization's 120 addresses: following `moreReach` and each `next` thr
   });
   // A Contacts label as long as the whole part: its end goes, the handle and link stay.
   const [{ accounts }] = reach as [Reach];
-  (accounts[0] as { title?: string }).title = "Label ".repeat(1000);
+  (accounts[0] as { title?: string }).title = "Label 😀 ".repeat(800);
   const now = personNowOf({
     communicationStyle: [],
     details: [],
@@ -635,8 +635,13 @@ test("an organization's 120 addresses: following `moreReach` and each `next` thr
     situation: [],
     today: "2026-03-10",
   });
-  const readPerson = (name: string, o: { span?: string }) =>
-    Promise.resolve(reachPageOf(reach, Number(o.span ?? 0), `person:${name}`));
+  const readPerson = (name: string, o: { part: string; span?: string }) => {
+    // Every ref handed out names this subject's reach part.
+    expect([name, o.part]).toEqual([subject, "reach"]);
+    return Promise.resolve(
+      reachPageOf(reach, Number(o.span ?? 0), `person:${name}`)
+    );
+  };
   const heard: string[] = [];
   let ref: string | undefined = now.moreReach;
   let pages = 0;
