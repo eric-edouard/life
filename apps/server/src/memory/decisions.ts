@@ -20,12 +20,13 @@ import {
   type DecisionState,
   DoneSeen,
   Ended,
+  type Line,
   SendFailed,
   Sent,
   Stored,
   Withdrawn,
 } from "./decision-lines";
-import { isSendable } from "./draft";
+import { isSendable, type StoredDraft } from "./draft";
 import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
 import { contextProblemOf, readsOnce } from "./find-refs";
 import { matterOfSteps, openStepsOf } from "./matter-read";
