@@ -253,7 +253,12 @@ test("Done on an `ends` card closes the matter: off the matters to do, skipped b
     MATTERS_FILE,
     `${JSON.stringify({
       at: clock().toISOString(),
-      madeBy: { engine: "claude", model: "test", prompt: MATTERS_PROMPT, run: "t" },
+      madeBy: {
+        engine: "claude",
+        model: "test",
+        prompt: MATTERS_PROMPT,
+        run: "t",
+      },
       matters: [
         {
           areas: [],
@@ -267,10 +272,9 @@ test("Done on an `ends` card closes the matter: off the matters to do, skipped b
       schemaVersion: 1,
     })}\n`
   );
-  const observations = spyOn(
-    memoryFiles,
-    "readObservations"
-  ).mockResolvedValue([observation]);
+  const observations = spyOn(memoryFiles, "readObservations").mockResolvedValue(
+    [observation]
+  );
   const live = spyOn(memoryFiles, "readLiveUnits").mockResolvedValue(
     new Set([observation.unit])
   );

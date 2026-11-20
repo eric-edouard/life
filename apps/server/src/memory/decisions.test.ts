@@ -563,7 +563,12 @@ test("an `ends` option is checked when asked: on an open step or matter, never o
   await refused({ subject: "ep_000000000001" }, "open steps");
   await refused({ onSilence: "done" }, "never takes an `ends` option");
   await refused(
-    { options: [{ ...DONE, outgoing: true }, { id: "no", label: "No" }] },
+    {
+      options: [
+        { ...DONE, outgoing: true },
+        { id: "no", label: "No" },
+      ],
+    },
     "never both"
   );
   const matter = { ...DONE, ends: "matter" };
