@@ -473,17 +473,14 @@ function withdrawDecision(asker: string, request: object, now: Date) {
 
 /**
  * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker. A draft's chat
- * is resolved now (`readChat`), so his card names it and nothing is sent to a chat he didn't see. `claim`, when given, is
- * handed the subject Life will store just before the card is written, and may refuse it by throwing (the desk: whose
- * card it is).
+ * is resolved now (`readChat`), so his card names it and nothing is sent to a chat he didn't see.
  */
 export async function requestDecision(
   asker: string,
   // An agent's arguments arrive unchecked (`DecisionRequest` is loose where the contract grows); `Ask` checks them here.
   request: Record<string, unknown>,
   now = clock(),
-  readChat = resolveDraft,
-  claim?: (subject: string | undefined) => void
+  readChat = resolveDraft
 ): Promise<{ id: string }> {
   if (request.withdraw) {
     return withdrawDecision(asker, request, now);
@@ -531,7 +528,6 @@ export async function requestDecision(
     matter && matter.id === ask.subject ? newest?.ref : ask.subject;
   const draft = ask.draft && (await readChat(ask.draft, now));
   refuseSecondDraft(draft, now);
-  claim?.(subject);
   const id = `dec_${randomBytes(6).toString("hex")}`;
   appendJsonl(DECISIONS, Asked, [
     {

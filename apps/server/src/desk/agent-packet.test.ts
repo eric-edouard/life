@@ -2,7 +2,9 @@ import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
 import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { clock, DAY, iso } from "../core/clock";
 import { OWNER_DATA_DIR } from "../core/paths";
+import { agentOf } from "../host/desk-read";
 import {
   matcherOf,
   messageMatchableOf,
@@ -10,8 +12,9 @@ import {
 } from "../host/events";
 import { readPeople } from "../memory/who";
 import type { SourceEvent } from "../records/source";
-import { readPacket, register } from "./agent-actions";
-import { type Desk, openDesk } from "./desk-store";
+import { openAssignment, readPacket, register } from "./agent-actions";
+import { wakeDue } from "./desk-clock";
+import { type Desk, openDesk, writeWait } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { matterView, on, withMatters } from "./test-desk";
 
@@ -162,4 +165,32 @@ test("a filter built from a printed key matches an event of that chat", async ()
       true
     );
   }
+});
+
+// Regression: a fresh session of a project's agent woken on a matter was handed its project, never its matter.
+test("a fresh session of a project's agent woken on a matter starts from that matter, its project as context", async () => {
+  const fake = fakeRuntime();
+  const d: Desk = {
+    db: openDesk(join(dir, "fresh.sqlite")),
+    runtimes: { fake: fake.runtime },
+  };
+  const id = register(d, {
+    brief: "Test brief",
+    project: "test-bakery",
+    runtime: "fake",
+  });
+  // Its own assignment waits: only the matter's first turn is due.
+  writeWait(
+    d.db,
+    on(d, id).id,
+    { events: [], reason: "r", until: iso(clock().getTime() + DAY) },
+    false
+  );
+  openAssignment(d, id, { openedBy: "owner", steps: ["obs_mine"] });
+  await withMatters([matterView("mine", ["obs_mine"])], () => wakeDue(d));
+  const start = fake.said.at(-1)?.message ?? "";
+  expect(agentOf(d.db, id)?.project).toBe("test-bakery");
+  expect(start).toContain("Your subject, the matter as read now");
+  expect(start).toContain('"id":"mine"');
+  expect(start).toContain("Project test-bakery (test-bakery, active)");
 });

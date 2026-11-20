@@ -177,5 +177,8 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
   for (const text of [own, second]) {
     expect(text).toContain("The one gate");
     expect(text).toContain("act only after his Go");
+    expect(text).toContain("name the matter before you act");
+    expect(text).toContain("never with a Monitor");
+    expect(text).toContain("`github` is a wait channel");
   }
 });

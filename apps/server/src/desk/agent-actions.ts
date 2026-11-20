@@ -16,11 +16,11 @@ import {
   anchorsOf,
   assignmentOf,
   assignmentOfCard,
+  handedSteps,
   isFull,
   openTurn,
   queuedEvents,
   readNotes,
-  siblingOn,
 } from "../host/desk-read";
 import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
 import { matcherOf, waitChannelsOf } from "../host/events";
@@ -91,7 +91,11 @@ const notesPathOf = (id: string) =>
     "NOTES.md"
   );
 
-/** Writes assignment `assignment`'s subject: its anchors (a matter's steps, in order), and its agent's project, replacing the old one. */
+/**
+ * Writes assignment `assignment`'s subject, replacing the old one (his re-point): its anchors (a matter's steps, in
+ * order), and its agent's project. Nothing of the old subject counts as shown on the new (`handed_step`, a turn's
+ * pending).
+ */
 export function writeSubject(
   { db }: Desk,
   agent: string,
@@ -100,6 +104,8 @@ export function writeSubject(
 ) {
   const now = clock().toISOString();
   db.run("delete from anchor where assignment_id = ?", [assignment]);
+  db.run("delete from handed_step where assignment_id = ?", [assignment]);
+  pendingOf(db).delete(assignment);
   for (const step of s.steps ?? []) {
     db.run(
       "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
@@ -112,19 +118,24 @@ export function writeSubject(
   ]);
 }
 
-/** Opens an assignment for agent `agent` on its subject, opened by him or the desk: its first turn due now. Its id. */
+/** Opens an assignment for agent `agent` on a matter's steps (none: its own), opened by him or the desk: its first turn due now. Its agent's project is its own (`register`, `writeSubject`). Its id. */
 export function openAssignment(
-  desk: Desk,
+  { db }: Desk,
   agent: string,
-  a: { openedBy: OpenedBy; project?: string; steps?: string[] }
+  a: { openedBy: OpenedBy; steps?: string[] }
 ) {
   const id = `asg_${randomBytes(6).toString("hex")}`;
   const now = clock().toISOString();
-  desk.db.run(
+  db.run(
     "insert into assignment (id, agent_id, opened_at, opened_by, wait_until, wait_reason, notes_path) values (?, ?, ?, ?, ?, 'first turn', ?)",
     [id, agent, now, a.openedBy, now, notesPathOf(id)]
   );
-  writeSubject(desk, agent, id, a);
+  for (const step of a.steps ?? []) {
+    db.run(
+      "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+      [id, step, now]
+    );
+  }
   return id;
 }
 
@@ -154,7 +165,7 @@ export function register(
   const folder = a.folder ?? join(DESK_AGENT_FOLDERS, id);
   db.transaction(() => {
     db.run(
-      "insert into agent (id, brief, runtime, folder, model, effort, status, created_at) values (?, ?, ?, ?, ?, ?, 'active', ?)",
+      "insert into agent (id, brief, runtime, folder, model, effort, project, status, created_at) values (?, ?, ?, ?, ?, ?, ?, 'active', ?)",
       [
         id,
         a.brief,
@@ -162,6 +173,7 @@ export function register(
         folder,
         a.model ?? null,
         a.effort ?? null,
+        a.project ?? null,
         clock().toISOString(),
       ]
     );
@@ -399,31 +411,10 @@ async function subjectOf(steps: string[], given: string | undefined) {
 }
 
 /**
- * Refuses a card that is not assignment `s`'s: its subject, as Life will store it, anchored on another assignment of
- * its agent (`siblingOn`), whose answer would go there. A matter's stored subject then joins `s`'s anchors (a matter's
- * id is stored as one of its steps), so `assignmentOfCard` finds `s`.
- */
-const claimOf =
-  (db: Desk["db"], s: AssignmentRow, isOnMatter: boolean) =>
-  (subject: string | undefined) => {
-    const sibling = subject && siblingOn(db, s, subject);
-    if (sibling) {
-      throw new Error(
-        `Not done: ${subject} is ${sibling}'s, another assignment of yours: ask on it from its own turn.`
-      );
-    }
-    if (isOnMatter && subject) {
-      db.run(
-        "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
-        [s.id, subject, clock().toISOString()]
-      );
-    }
-  };
-
-/**
  * `request_decision`: asks him as the desk, stamped with the agent's id and its session's link first, one open card
- * per assignment, on its matter (`subjectOf`) and never on another assignment's (`claimOf`); or withdraws one of this
- * assignment's own cards. `requestDecision` checks the rest.
+ * per assignment, on its matter (`subjectOf`); or withdraws one of this assignment's own cards. `requestDecision`
+ * checks the rest. Once the card is written, the desk writes once that it is this assignment's (`card`, read by
+ * `assignmentOfCard`) and, on a matter, anchors the subject Life stored (a matter's id is stored as one of its steps).
  */
 export async function askDecision(
   desk: Desk,
@@ -451,23 +442,31 @@ export async function askDecision(
   const steps = anchorsOf(db, s.id);
   const subject = await subjectOf(steps, ask.subject);
   const link = agentOf(db, id)?.link;
-  return requestDecision(
-    DESK_AGENT,
-    {
-      ...ask,
-      agent: id,
-      links: [...(link ? [link] : []), ...(ask.links ?? [])],
-      ...(subject ? { subject } : {}),
-    },
-    undefined,
-    undefined,
-    claimOf(db, s, steps.length > 0)
-  );
+  const asked = await requestDecision(DESK_AGENT, {
+    ...ask,
+    agent: id,
+    links: [...(link ? [link] : []), ...(ask.links ?? [])],
+    ...(subject ? { subject } : {}),
+  });
+  const stored = decisionsNow().find((d) => d.id === asked.id)?.subject;
+  db.transaction(() => {
+    db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
+      asked.id,
+      s.id,
+    ]);
+    if (steps.length > 0 && stored) {
+      db.run(
+        "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+        [s.id, stored, clock().toISOString()]
+      );
+    }
+  })();
+  return asked;
 }
 
-/** Where an agent may write and what it never starts (his rulings of 20 Nov 2026): Life keeps its notes; the desk alone dispatches. */
+/** Where an agent may write, what it never starts, how it waits, and which matter his own words in its session are about (his rulings of 20 Nov 2026): Life keeps its notes; the desk alone dispatches and wakes. */
 const BOUNDS =
-  " Your notes go only through `write_notes` (Life keeps them and commits them, with your home in his agents repo, after each turn): never in a project's repo, which you change only on a card he approved. Never start a session or a scheduled task of your own to track a matter: the desk wakes you; sub agents inside a turn are fine.";
+  ' Your notes go only through `write_notes` (Life keeps them and commits them, with your home in his agents repo, after each turn): never in a project\'s repo, which you change only on a card he approved. Never start a session or a scheduled task of your own to track a matter: the desk wakes you; sub agents inside a turn are fine. Wait only with `set_wait`, never with a Monitor, a loop or a scheduled task: when it cannot hold what you wait for, say so in one line and stop. `github` is a wait channel: a filter naming it (`channels: ["github"]`, with `text_matches`, `person` or `chat`) wakes you on new issues and comments of the repos he lists (`githubRepos`). When he writes in your session himself and you hold several matters, work out from his words which one he means, ask him only when that is unclear, and name the matter before you act.';
 
 /** The one sentence of the contract that differs: what a first turn does when he asked for the agent (his plan, then his Go). */
 const PLAN_FIRST_TURN =
@@ -578,51 +577,67 @@ export async function readPacket(
 }
 
 /**
- * The matter steps each turn was handed (`matterRecordOf`), by turn, in this process: anchored once the turn ends
- * unfailed (`keepHanded`), so the next record lists only what its assignment never received. Lost on a restart: those
- * steps are then handed again.
+ * The matter steps the turn on each assignment was shown (`matterRecordOf`), by assignment, in this process: kept as
+ * shown (`handed_step`) once that turn ends unfailed (`keepHanded`), forgotten on a re-point (`writeSubject`). Lost on a
+ * restart: those steps are then shown again.
  */
-const handedIn = new WeakMap<Desk["db"], Map<number, string[]>>();
-function handedOf(db: Desk["db"]) {
-  const turns = handedIn.get(db) ?? new Map<number, string[]>();
-  handedIn.set(db, turns);
+const pending = new WeakMap<
+  Desk["db"],
+  Map<string, { steps: string[]; turn: number }>
+>();
+function pendingOf(db: Desk["db"]) {
+  const turns =
+    pending.get(db) ?? new Map<string, { steps: string[]; turn: number }>();
+  pending.set(db, turns);
   return turns;
 }
 
-/** Anchors on its assignment the steps turn `t` was handed when `isKept` (it ended unfailed), and forgets them: a failed turn hands them again. */
+/** Keeps as shown the steps turn `t` was shown when `isKept` (it ended unfailed), and forgets them: a failed turn shows them again. */
 export function keepHanded(
   db: Desk["db"],
   t: { assignment_id: string; id: number },
   isKept: boolean
 ) {
-  for (const step of isKept ? (handedOf(db).get(t.id) ?? []) : []) {
+  const p = pendingOf(db).get(t.assignment_id);
+  if (p?.turn !== t.id) {
+    return;
+  }
+  for (const step of isKept ? p.steps : []) {
     db.run(
-      "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
-      [t.assignment_id, step, clock().toISOString()]
+      "insert or ignore into handed_step (assignment_id, step) values (?, ?)",
+      [t.assignment_id, step]
     );
   }
-  handedOf(db).delete(t.id);
+  pendingOf(db).delete(t.assignment_id);
 }
 
 /**
  * What every wake of a matter assignment `s` opens with, from code (his word of 20 Nov 2026: nothing rests on the
  * agent's memory): the matter as Life reads it now (its id and name, where it stands, its goal and next step), its steps
- * the assignment was never handed (not among its anchors: a step Life learned late about an earlier hour included; the
- * newest `RECORD_STEPS`, and how many more), its notes, and where to read more; a few thousand characters at most.
- * Life's own reading of the matter, never an event's words. Turn `turn` is handed every step of the matter now
- * (`keepHanded`).
+ * the assignment was never shown (`handedSteps`: a step Life learned late about an earlier hour included; the newest
+ * `RECORD_STEPS`, and how many more), its notes, and where to read more; a few thousand characters at most. Life's own
+ * reading of the matter, never an event's words. Turn `turn` is shown the steps listed, or, `isFresh` (a new session,
+ * whose packet holds the whole matter, so no record: null), all of them (`keepHanded`).
  */
 export async function matterRecordOf(
   { db }: Desk,
   s: AssignmentRow,
-  turn: number
+  turn: number,
+  isFresh: boolean
 ) {
   const anchors = anchorsOf(db, s.id);
   const m = await oneMatter(anchors);
-  const handed = new Set(anchors);
+  const handed = handedSteps(db, s.id);
   const fresh = (m?.steps ?? []).filter((x) => !handed.has(x.ref));
-  const more = fresh.length - RECORD_STEPS;
-  const record = [
+  const shown = fresh.slice(-RECORD_STEPS);
+  pendingOf(db).set(s.id, {
+    steps: (isFresh ? (m?.steps ?? []) : shown).map((x) => x.ref),
+    turn,
+  });
+  if (isFresh) {
+    return null;
+  }
+  return [
     `Your matter, as Life reads it now (\`read_matter\` with ${anchors[0] ?? "its step"} reads it whole; your notes file: ${s.notes_path}):`,
     m
       ? JSON.stringify({
@@ -633,20 +648,17 @@ export async function matterRecordOf(
           status: m.status,
         })
       : `No matter holds ${anchors.join(", ")} now.`,
-    "Its steps new to you (never handed to you before):",
-    ...fresh
-      .slice(-RECORD_STEPS)
-      .map(
-        (x) =>
-          `- ${x.at} ${x.ref} (${x.kind}): ${clip(x.text, RECORD_STEP_CHARS)}`
-      ),
+    "Its steps new to you (never shown to you before):",
+    ...shown.map(
+      (x) =>
+        `- ${x.at} ${x.ref} (${x.kind}): ${clip(x.text, RECORD_STEP_CHARS)}`
+    ),
     ...(fresh.length === 0 ? ["(none)"] : []),
-    ...(more > 0 ? [`(and ${more} older: \`read_matter\`)`] : []),
+    ...(fresh.length > shown.length
+      ? [
+          `(and ${fresh.length - shown.length} older, listed next time: \`read_matter\`)`,
+        ]
+      : []),
     `Your notes on it:\n${clip(readNotes(s), RECORD_NOTES_CHARS) || "(none yet)"}`,
   ].join("\n");
-  handedOf(db).set(
-    turn,
-    (m?.steps ?? []).map((x) => x.ref)
-  );
-  return record;
 }

@@ -48,7 +48,7 @@ test("a commit to the server's code is new code: the always-on services restart 
   expect(codeAt(repo)).not.toBe(before);
 });
 
-test("commitPaths takes each path literally, commits a tracked folder gone whole, and leaves what else was staged", () => {
+test("commitPaths takes each path literally, commits a tracked folder gone whole (removed by hand or by git rm), and leaves what else was staged", () => {
   const repo = mkdtempSync(join(tmpdir(), "life-commit-"));
   gitOut(repo, ["init", "-q"]);
   gitOut(repo, ["config", "user.email", "test@example.test"]);
@@ -58,6 +58,7 @@ test("commitPaths takes each path literally, commits a tracked folder gone whole
     ["project-test-x/AGENTS.md", "Other rules"],
     ["assignments/asg_test/NOTES.md", "Test notes"],
     ["staged.md", "Test: his"],
+    ["assignments/asg_gone/NOTES.md", "Test notes, removed"],
   ] as const) {
     mkdirSync(join(repo, path, ".."), { recursive: true });
     writeFileSync(join(repo, path), text);
@@ -69,14 +70,22 @@ test("commitPaths takes each path literally, commits a tracked folder gone whole
   rmSync(join(repo, "assignments/asg_test"), { force: true, recursive: true });
   writeFileSync(join(repo, "staged.md"), "Test: his, staged");
   gitOut(repo, ["add", "staged.md"]);
+  // Already removed from the disk and the index: only the last commit has it.
+  gitOut(repo, ["rm", "-rq", "assignments/asg_gone"]);
   commitPaths(
     repo,
-    ["project-test-*", "assignments/asg_test", "assignments/asg_none"],
+    [
+      "project-test-*",
+      "assignments/asg_test",
+      "assignments/asg_gone",
+      "assignments/asg_none",
+    ],
     "test"
   );
   expect(
     gitOut(repo, ["show", "--name-status", "--format="]).split("\n").toSorted()
   ).toEqual([
+    "D\tassignments/asg_gone/NOTES.md",
     "D\tassignments/asg_test/NOTES.md",
     "M\tproject-test-*/AGENTS.md",
   ]);

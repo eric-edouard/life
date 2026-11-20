@@ -444,10 +444,12 @@ async function launch(
     if (!runtime) {
       throw new Error(`no runtime ${a.runtime}`);
     }
-    // Read for a fresh session too: what the turn is handed (the packet holds the whole matter).
-    const record = isOwn ? null : await matterRecordOf(desk, s, turn);
-    const grown = a.session && state === "idle" ? readGrowth(db, a.session) : 0;
-    if (!a.session || state === "gone" || grown >= GROWTH_LIMIT) {
+    const { session } = a;
+    const grown = session && state === "idle" ? readGrowth(db, session) : 0;
+    const isFresh = !session || state === "gone" || grown >= GROWTH_LIMIT;
+    // Read for a fresh session too: what the turn is shown (the packet holds the whole matter).
+    const record = isOwn ? null : await matterRecordOf(desk, s, turn, isFresh);
+    if (isFresh) {
       const started = await runtime.start(
         sessionAgentOf(a),
         [
@@ -493,7 +495,7 @@ async function launch(
         turn,
         await runtime.send(
           sessionAgentOf(a),
-          a.session,
+          session,
           wakeMessageOf(
             cause,
             events,

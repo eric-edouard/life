@@ -164,18 +164,34 @@ export function gitOut(path: string, args: string[]) {
 
 /**
  * Commits `paths` (relative to the repo at `repo`, each taken literally, never as a pattern) alone, when any changed:
- * their new, changed and deleted files (a tracked folder gone whole included), and nothing else staged there.
+ * their new, changed and deleted files (a tracked folder gone whole included, staged by `git rm` or not), and nothing
+ * else staged there.
  */
 export function commitPaths(repo: string, paths: string[], message: string) {
   const literal = (args: string[]) =>
     gitOut(repo, ["--literal-pathspecs", ...args]);
-  const kept = paths.filter(
-    (p) => existsSync(join(repo, p)) || literal(["ls-files", "--", p]) !== ""
-  );
+  const isKnown = (p: string) =>
+    existsSync(join(repo, p)) || literal(["ls-files", "--", p]) !== "";
+  // In the last commit only: removed from the disk and the index already (`git rm`); none before a first commit.
+  const isInHead = (p: string) =>
+    git(repo, [
+      "--literal-pathspecs",
+      "ls-tree",
+      "--name-only",
+      "HEAD",
+      "--",
+      p,
+    ])
+      .stdout.toString()
+      .trim() !== "";
+  const added = paths.filter(isKnown);
+  const kept = paths.filter((p) => added.includes(p) || isInHead(p));
   if (kept.length === 0) {
     return;
   }
-  literal(["add", "-A", "--", ...kept]);
+  if (added.length > 0) {
+    literal(["add", "-A", "--", ...added]);
+  }
   if (literal(["status", "--porcelain", "--", ...kept])) {
     literal(["commit", "-m", message, "--", ...kept]);
   }

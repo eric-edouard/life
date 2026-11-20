@@ -218,34 +218,34 @@ export function agentHomeOf(
 }
 
 /**
- * Which assignment owns card `d`: of its asker's (`d.agent`), the one anchored on its subject (the door sets a matter's
- * card's subject to one of its steps, `askDecision`), else its own (no anchors), else its first open, else its first;
- * none for a card no registered agent asked. A card stays with its asker; it follows its matter to another agent only
- * with the fold (the agents and matters plan, PR 3).
+ * Which assignment owns card `d`: the one that asked it, as the desk wrote it once when the card was asked (`card`,
+ * `askDecision`), never worked out again from anchors that move later; a card asked before the desk kept its owner (20
+ * Nov 2026) is its asker's one assignment then; none for a card no registered agent asked.
  */
 export const assignmentOfCard = (
   db: Database,
-  d: { agent?: string; subject?: string }
+  d: { agent?: string; id: string }
 ) =>
   d.agent
     ? (db
-        .query<{ id: string }, [string, string | null]>(
-          "select s.id from assignment s where s.agent_id = ?1 order by exists (select 1 from anchor n where n.assignment_id = s.id and n.step = ?2) desc, s.closed_at is not null, exists (select 1 from anchor n where n.assignment_id = s.id), s.opened_at limit 1"
+        .query<{ id: string }, [string]>(
+          "select assignment_id as id from card where decision_id = ?"
         )
-        .get(d.agent, d.subject ?? null)?.id ?? null)
+        .get(d.id)?.id ??
+      currentAssignmentOf(db, d.agent)?.id ??
+      null)
     : null;
 
-/** Another assignment of `s`'s agent anchored on `step`, if one is: a card on that step would be its (`assignmentOfCard`). */
-export const siblingOn = (
-  db: Database,
-  s: Pick<AssignmentRow, "agent_id" | "id">,
-  step: string
-) =>
-  db
-    .query<{ id: string }, [string, string, string]>(
-      "select n.assignment_id as id from anchor n join assignment s on s.id = n.assignment_id where s.agent_id = ? and n.step = ? and n.assignment_id <> ? limit 1"
-    )
-    .get(s.agent_id, step, s.id)?.id ?? null;
+/** The matter steps assignment `id` was shown, by records and packets of turns that ended unfailed (`keepHanded`). */
+export const handedSteps = (db: Database, id: string) =>
+  new Set(
+    db
+      .query<{ step: string }, [string]>(
+        "select step from handed_step where assignment_id = ?"
+      )
+      .all(id)
+      .map((r) => r.step)
+  );
 
 export const readCursor = (db: Database, name: string) =>
   db
