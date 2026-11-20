@@ -100,6 +100,7 @@ const argumentsOf = (channels: string[]) =>
     longitude: true,
     quantity: true,
     radius_m: true,
+    repo: true,
   })
     .extend({
       channels: z
@@ -344,7 +345,7 @@ const wantedOf = (filter: EventFilter, people?: People) =>
 /**
  * Whether an event is one `filter` wants, decided here only (the connector's polls and the desk's agent waits), by the
  * rules of `Matchable`: by app or channel, chat, his own or others', who (a message's writer, or who was on a call,
- * whoever placed it), a pattern on its text, a quantity's range and a place: the event's own point within `radius_m`
+ * whoever placed it), a pattern on its text, a quantity's range, a GitHub repo and a place: the event's own point within `radius_m`
  * of the filter's coordinates (the stay's point as lifelog gives it, unlike `read_places_visited`'s circle mode, which
  * weighs each fix's accuracy). Null when its person is no one Life knows (none are needed for a filter with no person).
  */
@@ -365,8 +366,18 @@ export function matcherOf(filter: EventFilter, people?: People) {
     // ponytail: a backtracking pattern stalls the desk's message poll for every agent (200 characters and a compile check bound its size, not its match time; the author is his own agent or paired app). A linear-time engine at this one call if it ever bites.
     (!text || (x.text !== undefined && text.test(x.text))) &&
     (!quantity || isInRange(x.quantities?.[quantity], above, below)) &&
-    isNear(x.point, filter);
+    isNear(x.point, filter) &&
+    isRepoOf(x.repo, filter.repo);
 }
+
+/** Whether an event's repo is the filter's (`owner/name`, or any of an owner's, `owner/*`), any case; an event with a repo needs a filter naming one. */
+const isRepoOf = (repo: string | undefined, wanted: string | undefined) => {
+  if (!(repo && wanted)) {
+    return repo === wanted;
+  }
+  const [r, w] = [repo.toLowerCase(), wanted.toLowerCase()];
+  return w.endsWith("/*") ? r.startsWith(w.slice(0, -1)) : r === w;
+};
 
 /** Whether a point lies within `radius_m` of the filter's coordinates; true when it names none. */
 const isNear = (

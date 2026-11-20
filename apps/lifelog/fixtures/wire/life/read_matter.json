@@ -201,7 +201,7 @@
       "asker": "Orbit",
       "at": "2026-10-13T09:00:00.000Z",
       "clips": [],
-      "context": "He asked for it by Friday.",
+      "context": "He asked for it by Friday: [his message](life:msg:whatsapp|whatsapp:155@s.whatsapp.net/M1).",
       "deadline": "2099-01-01T09:00:00.000Z",
       "draft": {
         "channel": "whatsapp",
@@ -261,6 +261,12 @@
       },
       "subject": "obs_000000000005",
       "title": "Kit is waiting for the quote.",
+      "lifeLinks": [
+        {
+          "kind": "message",
+          "ref": "msg:whatsapp|whatsapp:155@s.whatsapp.net/M1"
+        }
+      ],
       "matter": {
         "id": "matter_aaaaaaaaaaaa",
         "important": true,
@@ -316,6 +322,7 @@
           "since": null,
           "subject": null,
           "title": "Know who someone is",
+          "lifeLinks": [],
           "matter": null,
           "misread": {
             "cause": "01b070ee5ba7f83a",
@@ -425,6 +432,7 @@
       },
       "subject": null,
       "title": "Close what is done",
+      "lifeLinks": [],
       "matter": {
         "id": "matter_aaaaaaaaaaaa",
         "important": true,

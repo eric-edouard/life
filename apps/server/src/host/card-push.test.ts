@@ -191,6 +191,7 @@ test("what goes out holds no ref, title or question", async () => {
 
 const ask = () =>
   requestDecision("planner", {
+    context: "A made-up reason to ask.",
     deadline: later(2).toISOString(),
     options: [
       { id: "yes", label: "Pay Kit" },
@@ -273,6 +274,7 @@ test("a new decision pushes on the seconds' look, once", async () => {
   await pushNewCardsIfChanged();
   open = cards(2);
   await requestDecision("owner", {
+    context: "A made-up reason to ask.",
     deadline: later(1).toISOString(),
     options: [
       { id: "yes", label: "Send it" },

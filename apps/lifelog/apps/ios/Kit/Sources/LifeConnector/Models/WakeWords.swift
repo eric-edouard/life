@@ -3,7 +3,8 @@ import Foundation
 /// A person or a chat the agent wakes on, for a message or a call.
 public struct Waker: Equatable, Sendable {
     public enum Who: Equatable, Sendable {
-        case person(String)
+        /// `party` nil: someone who no longer resolves, by the words the agent wrote.
+        case person(name: String, party: Party?)
         /// `name` nil: no message seen there yet.
         case chat(name: String?, isGroup: Bool)
     }
@@ -95,7 +96,7 @@ extension WakeLine.Message {
             return .init(
                 who: .chat(name: chat.name, isGroup: chat.group == true), apps: apps, brokenReason: brokenReason)
         }
-        return .init(who: .person(person ?? ""), apps: apps, brokenReason: brokenReason)
+        return .init(who: .person(name: person ?? "", party: party), apps: apps, brokenReason: brokenReason)
     }
 
     var clause: WakeClause {
@@ -193,7 +194,7 @@ extension RegisteredAgent {
             let first = live.compactMap { line -> String? in
                 guard case .waker(let waker) = line.row(locale: locale, timeZone: timeZone) else { return nil }
                 switch waker.who {
-                case .person(let name): return name.split(separator: " ").first.map(String.init)
+                case .person(let name, _): return name.split(separator: " ").first.map(String.init)
                 case .chat(let name, _): return name
                 }
             }.prefix(2)

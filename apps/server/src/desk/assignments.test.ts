@@ -258,6 +258,7 @@ test("a matter's card takes its first step as subject, refuses another matter's,
     throw new Error("no assignment");
   }
   const card = (subject?: string) => ({
+    context: "A made-up reason to ask.",
     deadline: ahead(DAY),
     options: [
       { id: "yes", label: "Yes" },
@@ -324,6 +325,7 @@ test("after a turn the desk commits the agent's home and the assignment's folder
 // matters and cards; `own` is the agent's own assignment, `onA` its assignment on a made-up matter.
 
 const yesNo = (subject?: string) => ({
+  context: "A made-up reason to ask.",
   deadline: ahead(DAY),
   options: [
     { id: "yes", label: "Yes" },

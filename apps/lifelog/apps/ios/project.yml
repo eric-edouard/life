@@ -201,8 +201,11 @@ targets:
     sources:
       - NotificationContent
       - Lifelog/Inbox/DraftBlock.swift
+      - Lifelog/DesignSystem/PartyPieces.swift
       - Lifelog/DesignSystem/Typography.swift
       - Lifelog/DesignSystem/NetworkMark.swift
+      # The apps' own marks, for a draft's recipient.
+      - Lifelog/Marks.xcassets
       - Lifelog/DesignSystem/Fonts/Manrope.ttf
       - Shared/Palette.swift
       - Shared/Metrics.swift

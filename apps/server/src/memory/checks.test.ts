@@ -151,8 +151,7 @@ test("the order: open matters, then lines, then pages, then the newest", () => {
   ]);
 });
 
-// Everything `bun life memory questions` listed (guessed people, ambiguous cards, names not placed) is in the list,
-// with no cap of 25: that command and its file are gone.
+// Everything `bun life memory questions` listed (guessed people, ambiguous cards, names not placed) is listed, uncapped.
 test("the list holds every guessed person, ambiguous card and unplaced name that something rides on, past 25", () => {
   const names = Array.from({ length: 30 }, (_, i) => `Name${i}`);
   const nameLines = names.map((x) => line({ text: x }));
@@ -457,6 +456,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
       goal: "The boiler is serviced.",
       group: "new matter",
       kind: "new matter",
+      lifeLinks: [],
       likelyPeople: [],
       links: [],
       matter: { id: matter.id, name: "Boiler service" },

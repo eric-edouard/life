@@ -8,7 +8,7 @@
       "asker": "Orbit",
       "at": "2026-10-13T09:00:00.000Z",
       "clips": [],
-      "context": "He asked for it by Friday.",
+      "context": "He asked for it by Friday: [his message](life:msg:whatsapp|whatsapp:155@s.whatsapp.net/M1).",
       "deadline": "2099-01-01T09:00:00.000Z",
       "draft": {
         "channel": "whatsapp",
@@ -68,6 +68,12 @@
       },
       "subject": "obs_000000000005",
       "title": "Kit is waiting for the quote.",
+      "lifeLinks": [
+        {
+          "kind": "message",
+          "ref": "msg:whatsapp|whatsapp:155@s.whatsapp.net/M1"
+        }
+      ],
       "matter": {
         "id": "matter_aaaaaaaaaaaa",
         "important": true,
@@ -123,12 +129,8 @@
           "since": null,
           "subject": null,
           "title": "Know who someone is",
+          "lifeLinks": [],
           "matter": null,
-          "misread": {
-            "cause": "01b070ee5ba7f83a",
-            "seal": "ef25c79d9e19d966a1be5453309f9070",
-            "shown": "528f6c9ad7f0456d"
-          },
           "confirm": [],
           "networkIdentity": {
             "chat": "33600000001@s.whatsapp.net",
@@ -164,10 +166,8 @@
           "ref": "person:inf_kit"
         }
       },
-      "contactsCard": null,
       "pushId": "a23260946067d0fe",
-      "urgency": "blocks",
-      "misread": null
+      "urgency": "blocks"
     },
     {
       "said": null,
@@ -255,13 +255,12 @@
       },
       "subject": null,
       "title": "Pay the deposit",
+      "lifeLinks": [],
       "matter": null,
       "confirm": [],
       "networkIdentity": null,
-      "contactsCard": null,
       "pushId": "cdc5e5e8356ed8a6",
-      "urgency": "blocks",
-      "misread": null
+      "urgency": "blocks"
     },
     {
       "said": null,
@@ -336,17 +335,12 @@
       },
       "subject": null,
       "title": "Name a voice",
+      "lifeLinks": [],
       "matter": null,
       "confirm": [],
       "networkIdentity": null,
-      "contactsCard": null,
       "pushId": "0ec1de1a26d04e58",
-      "urgency": "blocks",
-      "misread": {
-        "cause": "f094d10b549822d0",
-        "seal": "8c414b7dc0e639c113e388d4584f928f",
-        "shown": "36c177d1266e6bcd"
-      }
+      "urgency": "blocks"
     },
     {
       "about": ["Sam"],
@@ -365,7 +359,6 @@
           "words": [[0, 400, 3], [450, 900, 6], [950, 1100, 4], [1150, 1600, 7]]
         }
       ],
-      "contactsCard": null,
       "context": null,
       "deadline": null,
       "draft": null,
@@ -431,16 +424,12 @@
       "since": null,
       "subject": null,
       "title": "Place a name",
+      "lifeLinks": [],
       "matter": null,
       "confirm": [],
       "networkIdentity": null,
       "pushId": "134bc106744b3159",
-      "urgency": "blocks",
-      "misread": {
-        "cause": "3b404043a79bbfd0",
-        "seal": "6744980655fb969669ad3c84e375df9f",
-        "shown": "27683d68c4f86dc9"
-      }
+      "urgency": "blocks"
     },
     {
       "about": ["+33600000009"],
@@ -497,23 +486,18 @@
       "since": null,
       "subject": null,
       "title": "Place a Contacts card",
+      "lifeLinks": [],
       "matter": null,
       "confirm": [],
       "networkIdentity": null,
       "pushId": "82723bbf297c00df",
-      "urgency": "blocks",
-      "misread": {
-        "cause": "eab9c455c7fa456b",
-        "seal": "9119b457299ad18182377f47c04f02cc",
-        "shown": "539cefbbde43205d"
-      }
+      "urgency": "blocks"
     },
     {
       "about": [],
       "asker": "life",
       "at": null,
       "clips": [],
-      "contactsCard": null,
       "context": "A later step seems to show it done.",
       "deadline": null,
       "draft": null,
@@ -571,6 +555,7 @@
       },
       "subject": null,
       "title": "Close what is done",
+      "lifeLinks": [],
       "matter": {
         "id": "matter_aaaaaaaaaaaa",
         "important": true,
@@ -579,19 +564,13 @@
       "confirm": [],
       "networkIdentity": null,
       "pushId": "c84c34823f7fa7b0",
-      "urgency": "improves",
-      "misread": {
-        "cause": "1addffdfdc12fcfa",
-        "seal": "a23e972e9b4d28abb226361e43ae28b4",
-        "shown": "5db4104f95193516"
-      }
+      "urgency": "improves"
     },
     {
       "about": ["+33600000001"],
       "asker": "life",
       "at": null,
       "clips": [],
-      "contactsCard": null,
       "context": "Life read their messages as Kit, the watchmaker (70% sure).",
       "deadline": null,
       "draft": null,
@@ -636,6 +615,7 @@
       "since": null,
       "subject": null,
       "title": "Know who someone is",
+      "lifeLinks": [],
       "matter": null,
       "confirm": [],
       "networkIdentity": {
@@ -657,12 +637,7 @@
         }
       },
       "pushId": "a789ea3107eed39b",
-      "urgency": "improves",
-      "misread": {
-        "cause": "01b070ee5ba7f83a",
-        "seal": "ef25c79d9e19d966a1be5453309f9070",
-        "shown": "528f6c9ad7f0456d"
-      }
+      "urgency": "improves"
     },
     {
       "said": {
@@ -724,20 +699,15 @@
       },
       "subject": null,
       "title": "Life found a new matter: Frame Gran's photo",
+      "lifeLinks": [],
       "matter": {
         "id": "matter_cccccccccccc",
         "name": "Frame Gran's photo"
       },
       "confirm": [],
       "networkIdentity": null,
-      "contactsCard": null,
       "pushId": "47c2deda3a5b51cd",
-      "urgency": "improves",
-      "misread": {
-        "cause": "e33422a9ac5b7ce7",
-        "seal": "1d2f840a065bc7d038f603811e310444",
-        "shown": "474cd9026f5488bf"
-      }
+      "urgency": "improves"
     }
   ],
   "blocking": 5,
@@ -752,5 +722,5 @@
   },
   "deadlinesToday": 0,
   "total": 8,
-  "version": "52a14b73c05f9146"
+  "version": "7bd71eedafa83f2d"
 }

@@ -38,3 +38,8 @@ nonisolated enum Palette {
             blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
     }
 }
+
+extension Color {
+    /// The quiet fill of a secondary button, a chip or a disc: the page's ink at a low strength, as the design's `--tint`.
+    static let fillTint = Palette.fg.opacity(0.08)
+}

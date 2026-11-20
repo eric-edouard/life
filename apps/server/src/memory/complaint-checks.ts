@@ -106,15 +106,8 @@ export function withComplaintFields<
   };
 }
 
-/** His complaints the caretaker is at work on, as the desk reads them (host's `complaintsAtWork`): each one's ask id, when it was received, and its line. */
-export type ComplaintsAtWork = readonly {
-  ask: string;
-  line: string | null;
-  since: string;
-}[];
-
-/** His complaints at work by the cause each names (`CheckInputs.fixing`): for a cause named twice, the first received. */
-export function fixingOf(atWork: ComplaintsAtWork) {
+/** His complaints the caretaker is at work on (host's `complaintsAtWork`), by the cause each names (`CheckInputs.fixing`): for a cause named twice, the first received. */
+export function fixingOf(atWork: readonly BeingFixed[]) {
   const fixing = new Map<string, BeingFixed>();
   for (const w of atWork) {
     const a = askOf(w.ask);

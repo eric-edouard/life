@@ -24,7 +24,6 @@ import {
 import { inboxOrderOf, type Urgency, urgencyOf } from "./check-urgency";
 import { pagedNow } from "./closeness";
 import {
-  type ComplaintsAtWork,
   fixingOf,
   withComplaintFields,
   withMisreadSealed,
@@ -81,6 +80,7 @@ import {
   isOneOfHis,
   isParkedMatterOf,
 } from "./read-matters";
+import { lifeLinksOf } from "./refs";
 import {
   type People,
   readPeople,
@@ -202,7 +202,7 @@ export interface CheckInputs {
 interface Ranked {
   /** What the guess also rests on, for its cause (`causeOf`): an ending's later step. */
   basis?: string;
-  check: Omit<Check, "confirm" | "matter">;
+  check: Omit<Check, "confirm" | "lifeLinks" | "matter">;
   /** For the order (`inboxOrderOf`): when a decision was asked, else the newest day among the lines it rides on. */
   day: string;
 }
@@ -618,11 +618,14 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
     Object.values(BUILDERS)
       .flatMap((build) => build(c))
       .map(({ basis, check, day }) => {
-        const m = matterOf([check.subject ?? check.ref]);
-        const onMatters = check.ridesOn.matterIds.flatMap(
-          (id) => cardMatterOf(byId.get(id)) ?? []
-        );
-        const card = { ...check, matter: cardMatterOf(m) ?? null, onMatters };
+        const card = {
+          ...check,
+          lifeLinks: lifeLinksOf(check.context, (id) => byId.has(id)),
+          matter: cardMatterOf(matterOf([check.subject ?? check.ref])) ?? null,
+          onMatters: check.ridesOn.matterIds.flatMap(
+            (id) => cardMatterOf(byId.get(id)) ?? []
+          ),
+        };
         return { ...withComplaintFields(card, inputs.fixing, basis), day };
       })
   ).map(({ day: _, ...check }) => check);
@@ -658,7 +661,7 @@ const CHECKS_READ = [
 
 /** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
 export interface HeldRead {
-  complaints?: ComplaintsAtWork;
+  complaints?: readonly BeingFixed[];
   read: () => readonly AgentHold[] | null;
   stamp: string;
 }
