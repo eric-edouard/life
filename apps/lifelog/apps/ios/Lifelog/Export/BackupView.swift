@@ -50,7 +50,10 @@ struct BackupView: View {
         case .idle:
             EmptyView()
         case .working(let label):
-            ProgressView(label)
+            HStack(spacing: Metrics.Spacing.s) {
+                Spinner(size: .small).foregroundStyle(Palette.fg)
+                Text(label)
+            }
             Button("Cancel", role: .cancel) { store.cancel() }
         case .backedUp(let zip):
             ShareLink("Share backup", item: zip)

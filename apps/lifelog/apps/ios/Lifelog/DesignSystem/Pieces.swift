@@ -25,7 +25,7 @@ struct PillStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let isFilled = kind == .filled && !isBusy
         HStack(spacing: 8) {
-            if isBusy { ProgressView().controlSize(.small).tint(Palette.fg).frame(width: 18, height: 18) }
+            if isBusy { Spinner() }
             configuration.label.multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
         }
         .font(.buttonLabel)
@@ -36,6 +36,34 @@ struct PillStyle: ButtonStyle {
         .opacity(isBusy ? 1 : isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
         .contentShape(.capsule)
         .allowsHitTesting(!isBusy)
+    }
+}
+
+/// Life's one spinner (the design's, never the system's bars): a 2 pt ring in `tint` and a quarter arc with round ends in
+/// the colour of what it sits in (`foregroundStyle`: `fg` on a quiet button, `on` on the filled one, `ai` for an agent),
+/// a full turn every 0.8 s, linear (18, or 14 in a row or a line). With Reduce Motion the arc stands still and pulses.
+struct Spinner: View {
+    enum Size: CGFloat { case regular = 18, small = 14 }
+    var size: Size = .regular
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            let seconds = context.date.timeIntervalSinceReferenceDate
+            ZStack {
+                Circle().stroke(Color.fillTint, lineWidth: 2)
+                Circle().trim(from: 0, to: 0.25).stroke(style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    // Centred on 12 o'clock at rest (a trim starts at 3), as the frames draw it.
+                    .rotationEffect(.degrees(-135))
+                    .rotationEffect(
+                        .degrees(reduceMotion ? 0 : seconds.truncatingRemainder(dividingBy: 0.8) / 0.8 * 360)
+                    )
+                    .opacity(reduceMotion ? 0.55 + 0.45 * abs(sin(seconds * .pi / 1.6)) : 1)
+            }
+        }
+        .padding(1).frame(width: size.rawValue, height: size.rawValue)
+        .accessibilityElement().accessibilityLabel("In progress")
     }
 }
 
@@ -452,7 +480,7 @@ enum StateGlyph: View {
             case .ok: Image(systemName: "checkmark").font(.system(size: 13, weight: .bold))
             case .off: Circle().frame(width: 6, height: 6)
             case .flag: Image(systemName: "exclamationmark.circle").font(.system(size: 14, weight: .semibold))
-            case .busy: ProgressView().controlSize(.small).tint(Palette.fg)
+            case .busy: Spinner(size: .small)
             }
         }
         .foregroundStyle(color)

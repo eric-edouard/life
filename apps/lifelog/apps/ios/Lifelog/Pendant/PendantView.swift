@@ -235,7 +235,7 @@ struct PendantScreen: View {
                         if let fraction = catchUpFraction {
                             ProgressLine(fraction: fraction)
                         } else {
-                            ProgressView().controlSize(.small)
+                            Spinner(size: .small).foregroundStyle(Palette.fg)
                         }
                         Text("\(words). It goes faster with the app open.").font(.small).foregroundStyle(Palette.muted)
                     }

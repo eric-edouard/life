@@ -127,7 +127,7 @@ struct SpokenWords: View {
         } label: {
             Group {
                 if isFetching {
-                    ProgressView().tint(style == .box ? Palette.on : Palette.fg)
+                    Spinner(size: style == .box ? .regular : .small)
                 } else if failed {
                     Image(systemName: "exclamationmark").font(.system(size: size * 0.36))
                 } else {

@@ -154,7 +154,7 @@ private struct InboxZero: View {
 private struct InboxLoading: View {
     var body: some View {
         VStack(spacing: 12) {
-            ProgressView()
+            Spinner().foregroundStyle(Palette.fg)
             Text("Reading your inbox…").font(.note).foregroundStyle(Palette.muted)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
