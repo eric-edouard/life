@@ -2,7 +2,12 @@ import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, HOUR } from "../core/clock";
 import { handedOutSince, heldByAgents } from "../host/desk-read";
 import { register } from "./agent-actions";
-import { handOutOf, paceRefusalOf } from "./hand-out";
+import {
+  CARD_WITHIN_MS,
+  handOutOf,
+  isCardOverdue,
+  paceRefusalOf,
+} from "./hand-out";
 import { setup } from "./test-desk";
 
 // What the desk starts an agent on, and how fast. Made-up matters, steps and agents.
@@ -91,4 +96,20 @@ test("hand-outs count from a given instant only", () => {
   expect(
     handedOutSince(desk.db, new Date(clock().getTime() - 3 * DAY).toISOString())
   ).toBe(1);
+});
+
+test("a card is overdue for an active handed-out agent that began, asked none and is 2 hours old", () => {
+  const a = {
+    created_at: new Date(clock().getTime() - CARD_WITHIN_MS).toISOString(),
+    is_handed_out: 1,
+    status: "active",
+  };
+  const now = clock().getTime();
+  const asked = { begun: true, hasAsked: false };
+  expect(isCardOverdue(a, asked, now)).toBe(true);
+  expect(isCardOverdue(a, asked, now - 1)).toBe(false);
+  expect(isCardOverdue(a, { ...asked, hasAsked: true }, now)).toBe(false);
+  expect(isCardOverdue(a, { ...asked, begun: false }, now)).toBe(false);
+  expect(isCardOverdue({ ...a, is_handed_out: 0 }, asked, now)).toBe(false);
+  expect(isCardOverdue({ ...a, status: "ended" }, asked, now)).toBe(false);
 });

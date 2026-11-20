@@ -1,3 +1,4 @@
+import { HOUR } from "../core/clock";
 import { matterFinderOf } from "../memory/matter-read";
 
 // The hand-out: what the desk starts an agent on by itself (his word of 20 Nov 2026: agents start on their own on his
@@ -53,3 +54,21 @@ export function handOutOf<
       )
   );
 }
+
+/** How long a handed-out agent has to ask its card, from its creation. */
+export const CARD_WITHIN_MS = 2 * HOUR;
+
+/** The outcome of an agent ended for asking no card in time (the nightly report lists these). */
+export const NO_CARD_OUTCOME = `no card within ${CARD_WITHIN_MS / HOUR} hours`;
+
+/** Whether a handed-out agent is over its time to ask: active, its first turn began (`begun`), no card asked (`hasAsked`) and `CARD_WITHIN_MS` since it was created. One he started himself never is. */
+export const isCardOverdue = (
+  a: { created_at: string; is_handed_out: number; status: string },
+  { begun, hasAsked }: { begun: boolean; hasAsked: boolean },
+  now: number
+) =>
+  a.is_handed_out === 1 &&
+  a.status === "active" &&
+  begun &&
+  !hasAsked &&
+  now - Date.parse(a.created_at) >= CARD_WITHIN_MS;

@@ -4,8 +4,13 @@ import { dirname } from "node:path";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import { tokensSince } from "../host/desk-read";
-import { readAgentRows, tokenRowsOf } from "../host/registered-agents";
+import {
+  handOutRowsOf,
+  readAgentRows,
+  tokenRowsOf,
+} from "../host/registered-agents";
 import { openDesk } from "./desk-store";
+import { NO_CARD_OUTCOME } from "./hand-out";
 
 // The nightly report's token rows: turns summed by his local day and by matter, from made-up turns. The test zones
 // have him in Jakarta (UTC+7) until 6 Oct 2026.
@@ -84,4 +89,26 @@ test("a turn running across a report is not listed; once ended it shows in the n
   expect(
     tokensSince(db, "2026-09-10T10:00:00.000Z").map((t) => t.tokens_in)
   ).toEqual([9]);
+});
+
+test("the hand-out rows: how many started, how many cards answered, and each that ended with no card or never began", () => {
+  const agents = [
+    { id: "a", outcome: null, why_not_started: null },
+    { id: "b", outcome: NO_CARD_OUTCOME, why_not_started: null },
+    { id: "c", outcome: null, why_not_started: "it did not begin" },
+    { id: "d", outcome: "its matter is done", why_not_started: null },
+  ];
+  expect(handOutRowsOf([], new Set(), () => undefined)).toEqual([]);
+  expect(
+    handOutRowsOf(agents, new Set(["a", "d"]), (id) => ({
+      name: `Test matter ${id}`,
+    }))
+  ).toEqual([
+    { name: "Hand-outs", relation: "4 started · 2 cards answered" },
+    { name: "Hand-out · Test matter b", relation: NO_CARD_OUTCOME },
+    {
+      name: "Hand-out · Test matter c",
+      relation: "never began: it did not begin",
+    },
+  ]);
 });
