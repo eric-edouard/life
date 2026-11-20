@@ -28,6 +28,8 @@ test("a clean tree that passed is known to every worktree; a dirty one never is"
   expect(hasPassed(repo, tree, true)).toBe(false);
   recordPassed(repo, tree, true);
   expect(hasPassed(repo, tree, true)).toBe(true);
+  recordPassed(repo, tree, false);
+  expect(hasPassed(repo, tree, true)).toBe(true);
 
   const other = join(parent, "other");
   gitOut(repo, ["worktree", "add", "-q", other]);
@@ -44,4 +46,7 @@ test("a clean tree that passed is known to every worktree; a dirty one never is"
   expect(hasPassed(repo, "t59", false)).toBe(true);
   expect(hasPassed(repo, "t9", false)).toBe(false);
   expect(hasPassed(repo, "t10", false)).toBe(true);
+  // Each tree holds one entry: 50 trees, not 50 lines.
+  recordPassed(repo, "t10", true);
+  expect(hasPassed(repo, "t11", false)).toBe(true);
 });

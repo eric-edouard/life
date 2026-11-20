@@ -41,7 +41,9 @@ export function hasPassed(cwd: string, tree: string, swift: boolean) {
 
 /** Records a passed tree, keeping the last `KEPT`. The check's Mac-wide lock serializes writers. */
 export function recordPassed(cwd: string, tree: string, swift: boolean) {
-  const entry = entryOf(tree, swift);
-  const kept = [...readPassed(cwd).filter((e) => e !== entry), entry];
+  const before = readPassed(cwd);
+  // One entry per tree, the stronger kept.
+  const entry = entryOf(tree, swift || before.includes(entryOf(tree, true)));
+  const kept = [...before.filter((e) => e.split(" ")[0] !== tree), entry];
   writeFileSync(passedFile(cwd), `${kept.slice(-KEPT).join("\n")}\n`);
 }
