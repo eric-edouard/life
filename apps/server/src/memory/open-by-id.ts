@@ -1,43 +1,70 @@
-import { SUBJECT_PREFIX } from "../records/fields";
-import { askPageOf, isAskPage } from "./card-request";
-import { parseReadPartRef } from "./read-part";
+import { findRef, readsOnce } from "./find-refs";
+import { OWNER } from "./read-truth";
+import { parseRef } from "./refs";
 import { asData, fetchOf } from "./words";
 
 /**
- * `fetch`'s one entry: an ask page (`ask/<name>`, how to ask a card's part), a read part ref (anything that starts with a
- * subject prefix) opens that part, a malformed one says why, and any other id is a conversation, unit or turn
- * (`fetchOf`). `fromTurn` and `limit` mean nothing for a page or a part.
+ * `fetch`'s one entry, over the one ref grammar (`parseRef`): a malformed ref says why; a person's read part opens by
+ * its reader (someone only heard has evidence and no part); any other ref is looked for first (`findRef`), a miss says
+ * why, and a hit is shown: an ask page (how to ask a card's part), a matter, an observation, a message, a file's reading,
+ * or a conversation, unit or turn (`fetchOf`). `fromTurn` and `limit` page a conversation only.
  */
-export function openById(
+export async function openById(
   id: string,
   from: number | undefined,
   limit: number | undefined,
   readPerson: (
     name: string,
     o: { before?: string; byId: true; part: string; span?: string }
-  ) => Promise<string | Record<string, unknown>>
+  ) => Promise<string | Record<string, unknown>>,
+  reads = readsOnce()
 ): Promise<string | Record<string, unknown>> {
-  if (isAskPage(id)) {
-    return Promise.resolve(asData([askPageOf(id)]));
+  const ref = parseRef(id);
+  if ("error" in ref) {
+    return asData([`(${ref.error})`]);
   }
-  if (!SUBJECT_PREFIX.test(id)) {
-    return fetchOf(id, from, limit);
+  if (ref.kind === "person" && (from !== undefined || limit !== undefined)) {
+    return asData([
+      "(a read part takes no fromTurn and no limit: it is one bounded piece; its next reads are at its end)",
+    ]);
   }
-  const read = parseReadPartRef(id);
-  if ("error" in read) {
-    return Promise.resolve(asData([`(${read.error})`]));
+  if (ref.kind === "person" && ref.read.subject.startsWith("person:")) {
+    const { subject, ...o } = ref.read;
+    return readPerson(subject.slice("person:".length), { ...o, byId: true });
   }
-  if (from !== undefined || limit !== undefined) {
-    return Promise.resolve(
-      asData([
-        "(a read part takes no fromTurn and no limit: it is one bounded piece; its next reads are at its end)",
-      ])
-    );
+  const found = await findRef(ref, reads);
+  if (!found.found) {
+    return asData([`(${found.why})`]);
   }
-  const { subject, ...o } = read.ref;
-  return subject.startsWith("person:")
-    ? readPerson(subject.slice("person:".length), { ...o, byId: true })
-    : Promise.resolve(
-        asData([`(no read parts for ${subject} yet: only a person's)`])
-      );
+  const { event, file, matter, observation, page } = found;
+  if (page) {
+    return asData([page]);
+  }
+  if (matter) {
+    return asData([
+      `Matter "${matter.name}" (${matter.id}): ${matter.status}`,
+      ...(matter.goal ? [`Goal: ${matter.goal.text}`] : []),
+      ...(matter.nextStep ? [`Next step: ${matter.nextStep.text}`] : []),
+      ...matter.steps.map((s) => `- ${s.day} ${s.text} (${s.ref})`),
+    ]);
+  }
+  if (observation) {
+    return asData([
+      `${observation.date}: ${observation.text} (${observation.id})`,
+      `(its evidence: read_observation ${observation.id})`,
+    ]);
+  }
+  if (event) {
+    return asData([
+      `Message ${event.id} in ${event.chatName ?? event.chat}`,
+      `${event.at} ${event.fromMe ? OWNER : event.sender}: ${event.text}`,
+    ]);
+  }
+  if (file) {
+    return asData([
+      `File ${file.ref}`,
+      ...[file.description, file.text].filter((t) => t !== undefined),
+    ]);
+  }
+  return fetchOf(id, from, limit);
 }

@@ -121,7 +121,7 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
     {
       asker: "Orbit",
       at: "2026-10-13T09:00:00.000Z",
-      context: "He asked for it by Friday.",
+      context: "He asked for it by Friday: [his message](life:msg:whatsapp|whatsapp:155@s.whatsapp.net/M1).",
       deadline: "2099-01-01T09:00:00.000Z",
       draft: {
         channel: "whatsapp",

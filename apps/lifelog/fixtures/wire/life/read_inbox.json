@@ -8,7 +8,7 @@
       "asker": "Orbit",
       "at": "2026-10-13T09:00:00.000Z",
       "clips": [],
-      "context": "He asked for it by Friday.",
+      "context": "He asked for it by Friday: [his message](life:msg:whatsapp|whatsapp:155@s.whatsapp.net/M1).",
       "deadline": "2099-01-01T09:00:00.000Z",
       "draft": {
         "channel": "whatsapp",
@@ -68,6 +68,12 @@
       },
       "subject": "obs_000000000005",
       "title": "Kit is waiting for the quote.",
+      "lifeLinks": [
+        {
+          "kind": "message",
+          "ref": "msg:whatsapp|whatsapp:155@s.whatsapp.net/M1"
+        }
+      ],
       "matter": {
         "id": "matter_aaaaaaaaaaaa",
         "important": true,
@@ -123,6 +129,7 @@
           "since": null,
           "subject": null,
           "title": "Know who someone is",
+          "lifeLinks": [],
           "matter": null,
           "confirm": [],
           "networkIdentity": {
@@ -248,6 +255,7 @@
       },
       "subject": null,
       "title": "Pay the deposit",
+      "lifeLinks": [],
       "matter": null,
       "confirm": [],
       "networkIdentity": null,
@@ -327,6 +335,7 @@
       },
       "subject": null,
       "title": "Name a voice",
+      "lifeLinks": [],
       "matter": null,
       "confirm": [],
       "networkIdentity": null,
@@ -415,6 +424,7 @@
       "since": null,
       "subject": null,
       "title": "Place a name",
+      "lifeLinks": [],
       "matter": null,
       "confirm": [],
       "networkIdentity": null,
@@ -476,6 +486,7 @@
       "since": null,
       "subject": null,
       "title": "Place a Contacts card",
+      "lifeLinks": [],
       "matter": null,
       "confirm": [],
       "networkIdentity": null,
@@ -544,6 +555,7 @@
       },
       "subject": null,
       "title": "Close what is done",
+      "lifeLinks": [],
       "matter": {
         "id": "matter_aaaaaaaaaaaa",
         "important": true,
@@ -603,6 +615,7 @@
       "since": null,
       "subject": null,
       "title": "Know who someone is",
+      "lifeLinks": [],
       "matter": null,
       "confirm": [],
       "networkIdentity": {
@@ -686,6 +699,7 @@
       },
       "subject": null,
       "title": "Life found a new matter: Frame Gran's photo",
+      "lifeLinks": [],
       "matter": {
         "id": "matter_cccccccccccc",
         "name": "Frame Gran's photo"

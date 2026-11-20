@@ -10,7 +10,8 @@ import {
   type ReadPartRef,
   readPartRefOf,
 } from "./read-part";
-import { partLines, person, personFor, personRefOf } from "./read-person-page";
+import { partLines, person, personRefOf } from "./read-person-page";
+import { personFor } from "./who";
 
 const refs: ReadPartRef[] = [
   { part: "now", subject: "person:ana" },

@@ -15,12 +15,10 @@ import {
 import { Ask, type Option, Withdrawal } from "./card-request";
 import { isSendable, StoredDraft } from "./draft";
 import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
+import { deadLinkOf, readsOnce } from "./find-refs";
 import { matterOfSteps, openStepsOf } from "./matter-read";
-import { readMatterBook } from "./matters";
 import { MEMORY } from "./memory-files";
 import { amountOf, needsShownOf } from "./needs";
-import { readPeople } from "./who";
-import { dayNow } from "./zones";
 
 // The decisions: a question an agent puts to him, as one card: a title and a question of one line each, the exact
 // draft he approves when there is one, 2 to 4 options (the recommended one first), its context folded, a deadline.
@@ -505,11 +503,14 @@ export async function requestDecision(
   }
   // A step no open matter holds would never be listed: refused, so no question goes unseen. A matter's own id rides on
   // its newest step: a step outlives a re-group, a matter id doesn't.
+  const reads = readsOnce();
+  const dead = await deadLinkOf(ask.context, reads);
+  if (dead) {
+    throw new Error(`Not done: ${dead}.`);
+  }
   const matter = isOnMatter(ask.subject)
     ? matterOfSteps(
-        (await readMatterBook(await readPeople(), dayNow())).filter(
-          (m) => m.open
-        ),
+        (await reads.book()).filter((m) => m.open),
         [ask.subject]
       )
     : undefined;
