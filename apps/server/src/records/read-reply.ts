@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTime, MadeBy } from "./fields";
+import { isoDateTime, MadeBy, UnitId } from "./fields";
 
 // A stored read reply (memory/read-replies/<YYYY-MM>.jsonl, the month of its first message, docs/SCHEMA.md): what a model answered when it read
 // exchanges of a one-to-one chat, as given.
@@ -12,11 +12,16 @@ export type MoveRead = (typeof MOVE_READS)[number];
 export const SUMMARY_READ = "conversation_summary" as const;
 /** The read that names the voices of a conversation part recorded in person (`memory/voice-naming.ts`). */
 export const VOICE_NAMING_READ = "voice_naming" as const;
+/** The arrival reader's two reads (`memory/arrival-reader.ts`): Apple's on-device trigger, then his engine's confirm. */
+export const ARRIVAL_TRIGGER_READ = "arrival_trigger" as const;
+export const ARRIVAL_CONFIRM_READ = "arrival_confirm" as const;
 /** Every read whose replies are stored. */
 export type ReadName =
   | MoveRead
   | typeof SUMMARY_READ
-  | typeof VOICE_NAMING_READ;
+  | typeof VOICE_NAMING_READ
+  | typeof ARRIVAL_TRIGGER_READ
+  | typeof ARRIVAL_CONFIRM_READ;
 
 /**
  * One call's reply, a line of the file: the reply as given, except a voice naming's, stored after `checkedVoices` (a moves read only needs its `exchanges` list,
@@ -61,9 +66,49 @@ export const VoiceNamingReply = z
     reply: z.looseObject({ voices: z.array(z.unknown()) }),
   })
   .strict();
+/**
+ * Apple's answer to the arrival trigger, as given, or why it gave none (`refused`): made on
+ * this Mac, so its `madeBy` names the OS build (a macOS update changes the model). `unit` is the unit its lines are of.
+ */
+export const ArrivalTriggerReply = z
+  .object({
+    ...stored,
+    madeBy: z
+      .object({
+        model: z.literal("apple-on-device"),
+        os: z.string(),
+        prompt: z.string(),
+        run: z.string(),
+      })
+      .strict(),
+    read: z.literal(ARRIVAL_TRIGGER_READ),
+    reply: z.union([
+      z
+        .object({
+          author: z.enum(["person", "automated"]),
+          quote: z.string(),
+        })
+        .strict(),
+      z.object({ refused: z.string() }).strict(),
+    ]),
+    unit: UnitId,
+  })
+  .strict();
+/** His engine's confirm: whether the lines hold something for him to act on, and who wrote them (refs as read, never him). */
+export const ArrivalConfirmReply = z
+  .object({
+    ...stored,
+    people: z.array(z.string()),
+    read: z.literal(ARRIVAL_CONFIRM_READ),
+    reply: z.looseObject({ isActionable: z.boolean() }),
+    unit: UnitId,
+  })
+  .strict();
 export const ReadReply = z.discriminatedUnion("read", [
   MoveReply,
   SummaryReply,
   VoiceNamingReply,
+  ArrivalTriggerReply,
+  ArrivalConfirmReply,
 ]);
 export type ReadReply = z.infer<typeof ReadReply>;

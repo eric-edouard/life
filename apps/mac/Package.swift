@@ -1,6 +1,7 @@
 // swift-tools-version: 6.0
-// Life.app: the menu-bar app that runs Life's helper (updated by Sparkle), and life-eventkit, the Past calendar on an
-// Apple calendar through EventKit (`scripts/app.ts` assembles the bundle around them).
+// Life.app: the menu-bar app that runs Life's helper (updated by Sparkle); life-eventkit, the Past calendar on an
+// Apple calendar through EventKit; and life-foundation-model, Apple's on-device model for the arrival reader
+// (`scripts/app.ts` assembles the bundle around them).
 import PackageDescription
 
 let package = Package(
@@ -9,6 +10,7 @@ let package = Package(
   products: [
     .executable(name: "LifeApp", targets: ["LifeApp"]),
     .executable(name: "life-eventkit", targets: ["LifeEventKit"]),
+    .executable(name: "life-foundation-model", targets: ["LifeFoundationModel"]),
   ],
   targets: [
     // Sparkle's release build, fetched and checked by `scripts/app.ts` (SwiftPM's own download stalls here).
@@ -19,6 +21,10 @@ let package = Package(
     // A one-shot command: its top-level state is single-threaded.
     .executableTarget(
       name: "LifeEventKit", path: "Sources/LifeEventKit",
+      swiftSettings: [.swiftLanguageMode(.v5)]),
+    // One request per stdin line, answered in order.
+    .executableTarget(
+      name: "LifeFoundationModel", path: "Sources/LifeFoundationModel",
       swiftSettings: [.swiftLanguageMode(.v5)]),
   ]
 )
