@@ -155,6 +155,11 @@
           "title": "Know who someone is",
           "lifeLinks": [],
           "matter": null,
+          "misread": {
+            "cause": "01b070ee5ba7f83a",
+            "seal": "3d9583390e9c79af83238cf7a4a8352f",
+            "shown": "25fe8d96124c400c"
+          },
           "confirm": [],
           "networkIdentity": {
             "chat": "33600000001@s.whatsapp.net",
@@ -194,8 +199,10 @@
           "ref": "person:inf_kit"
         }
       },
+      "contactsCard": null,
       "pushId": "a23260946067d0fe",
-      "urgency": "blocks"
+      "urgency": "blocks",
+      "misread": null
     },
     {
       "said": null,
@@ -287,8 +294,10 @@
       "matter": null,
       "confirm": [],
       "networkIdentity": null,
+      "contactsCard": null,
       "pushId": "cdc5e5e8356ed8a6",
-      "urgency": "blocks"
+      "urgency": "blocks",
+      "misread": null
     },
     {
       "said": null,
@@ -367,8 +376,14 @@
       "matter": null,
       "confirm": [],
       "networkIdentity": null,
+      "contactsCard": null,
       "pushId": "0ec1de1a26d04e58",
-      "urgency": "blocks"
+      "urgency": "blocks",
+      "misread": {
+        "cause": "f094d10b549822d0",
+        "seal": "1907a584706d34dd65f52b174822961f",
+        "shown": "424c7f835736fe45"
+      }
     },
     {
       "about": ["Sam"],
@@ -387,6 +402,7 @@
           "words": [[0, 400, 3], [450, 900, 6], [950, 1100, 4], [1150, 1600, 7]]
         }
       ],
+      "contactsCard": null,
       "context": null,
       "deadline": null,
       "draft": null,
@@ -457,7 +473,12 @@
       "confirm": [],
       "networkIdentity": null,
       "pushId": "134bc106744b3159",
-      "urgency": "blocks"
+      "urgency": "blocks",
+      "misread": {
+        "cause": "3b404043a79bbfd0",
+        "seal": "a50fe724e425673ba948ee95747f76bd",
+        "shown": "ddca4bd9c15b3225"
+      }
     },
     {
       "about": ["+33600000009"],
@@ -519,13 +540,19 @@
       "confirm": [],
       "networkIdentity": null,
       "pushId": "82723bbf297c00df",
-      "urgency": "blocks"
+      "urgency": "blocks",
+      "misread": {
+        "cause": "eab9c455c7fa456b",
+        "seal": "94c23b09083bee9a3734d9954830ecb6",
+        "shown": "6ce57e7f7a701da5"
+      }
     },
     {
       "about": [],
       "asker": "life",
       "at": null,
       "clips": [],
+      "contactsCard": null,
       "context": "A later step seems to show it done.",
       "deadline": null,
       "draft": null,
@@ -592,13 +619,19 @@
       "confirm": [],
       "networkIdentity": null,
       "pushId": "c84c34823f7fa7b0",
-      "urgency": "improves"
+      "urgency": "improves",
+      "misread": {
+        "cause": "1addffdfdc12fcfa",
+        "seal": "59a8c4a7ae0010f623c8cc1b4f0741bb",
+        "shown": "c22e02368640bc0c"
+      }
     },
     {
       "about": ["+33600000001"],
       "asker": "life",
       "at": null,
       "clips": [],
+      "contactsCard": null,
       "context": "Life read their messages as Kit, the watchmaker (70% sure).",
       "deadline": null,
       "draft": null,
@@ -665,7 +698,12 @@
         }
       },
       "pushId": "a789ea3107eed39b",
-      "urgency": "improves"
+      "urgency": "improves",
+      "misread": {
+        "cause": "01b070ee5ba7f83a",
+        "seal": "3d9583390e9c79af83238cf7a4a8352f",
+        "shown": "25fe8d96124c400c"
+      }
     },
     {
       "said": {
@@ -734,8 +772,14 @@
       },
       "confirm": [],
       "networkIdentity": null,
+      "contactsCard": null,
       "pushId": "47c2deda3a5b51cd",
-      "urgency": "improves"
+      "urgency": "improves",
+      "misread": {
+        "cause": "e33422a9ac5b7ce7",
+        "seal": "02c9729efbc2c1ace0887bd979d3653f",
+        "shown": "f8053e6bca0bfd2b"
+      }
     }
   ],
   "blocking": 5,
@@ -750,5 +794,5 @@
   },
   "deadlinesToday": 0,
   "total": 8,
-  "version": "e89355c31a892698"
+  "version": "b0f008b27dee58e0"
 }

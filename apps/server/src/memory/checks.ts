@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { readChangeStamp } from "../core/files";
-import { type CheckGroup, LIFE_ASKER, type SourceName } from "../core/names";
+import { type CheckGroup, LIFE_ASKER } from "../core/names";
 import { secretIn } from "../core/secret";
 import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
@@ -24,6 +24,11 @@ import {
 import { inboxOrderOf, type Urgency, urgencyOf } from "./check-urgency";
 import { pagedNow } from "./closeness";
 import {
+  fixingOf,
+  withComplaintFields,
+  withMisreadSealed,
+} from "./complaint-checks";
+import {
   DECISIONS,
   type Decision,
   decisionCardOf,
@@ -31,9 +36,10 @@ import {
   isOnMatter,
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
-import type { StoredDraft } from "./draft";
+import { withDraftConfirms } from "./draft-send";
 import { type AgentHold, isHeldOf } from "./held-matters";
 import {
+  type BeingFixed,
   type Check,
   type CheckKind,
   type CheckMatter,
@@ -75,7 +81,6 @@ import {
   isParkedMatterOf,
 } from "./read-matters";
 import { lifeLinksOf } from "./refs";
-import { sourceOf } from "./sources";
 import {
   type People,
   readPeople,
@@ -123,6 +128,8 @@ export interface CheckInputs {
   doubted: ReadonlySet<string>;
   /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
   endings: ReadonlyMap<string, { later: string; quote: string }>;
+  /** His complaints at work with the caretaker, by the cause each names (`causeOf`): that card shows it being fixed. */
+  fixing?: ReadonlyMap<string, BeingFixed>;
   /** Every registered agent's anchors as facts (host's `heldByAgents`), for the hold rule (`isHeldOf`); null while the desk is off or unreadable: then no new matter is offered. */
   heldByAgents: readonly AgentHold[] | null;
   /** Whether a matter's next step is not checked yet (`directionDueOf`, by the matter's id): none is offered while it is due. */
@@ -193,6 +200,8 @@ export interface CheckInputs {
 }
 
 interface Ranked {
+  /** What the guess also rests on, for its cause (`causeOf`): an ending's later step. */
+  basis?: string;
   check: Omit<Check, "confirm" | "lifeLinks" | "matter">;
   /** For the order (`inboxOrderOf`): when a decision was asked, else the newest day among the lines it rides on. */
   day: string;
@@ -390,7 +399,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
               quote: link.quote,
               where: later ? whereOf(later) : c.where.get(link.later),
             }
-          )
+          ).map((r) => ({ ...r, basis: link.later }))
         : [];
     }),
   /**
@@ -608,41 +617,20 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
   const found = inboxOrderOf(
     Object.values(BUILDERS)
       .flatMap((build) => build(c))
-      .map(({ check, day }) => ({
-        ...check,
-        day,
-        lifeLinks: lifeLinksOf(check.context, (id) => byId.has(id)),
-        matter: cardMatterOf(matterOf([check.subject ?? check.ref])) ?? null,
-        onMatters: check.ridesOn.matterIds.flatMap(
-          (id) => cardMatterOf(byId.get(id)) ?? []
-        ),
-      }))
+      .map(({ basis, check, day }) => {
+        const card = {
+          ...check,
+          lifeLinks: lifeLinksOf(check.context, (id) => byId.has(id)),
+          matter: cardMatterOf(matterOf([check.subject ?? check.ref])) ?? null,
+          onMatters: check.ridesOn.matterIds.flatMap(
+            (id) => cardMatterOf(byId.get(id)) ?? []
+          ),
+        };
+        return { ...withComplaintFields(card, inputs.fixing, basis), day };
+      })
   ).map(({ day: _, ...check }) => check);
-  const guessed = new Map(
-    found
-      .filter((x) => x.group === "guessed person")
-      .map((x) => [c.people.refOf(x.ref), { ...x, confirm: [] }])
-  );
-  return found.map((x) => {
-    const person = x.draft && draftPersonOf(c, x.draft);
-    const guess = person && guessed.get(c.people.refOf(person));
-    return { ...x, confirm: guess ? [guess] : [] };
-  });
+  return withDraftConfirms(found, c.people);
 };
-
-/**
- * Who a decision's draft goes to, as a person ref: its stored chat's handle (its source's `handleOf`), or a mail's `to`,
- * read through `resolve`. Null for a source whose chat keys hold no handle, a draft not yet resolved to a chat, or a
- * handle no one has.
- */
-function draftPersonOf(c: Ctx, d: StoredDraft) {
-  const source = d.channel ? sourceOf(d.channel as SourceName) : undefined;
-  const handle =
-    source?.kind === "mail" ? d.to : d.chat && source?.handleOf?.(d.chat);
-  return handle && d.channel
-    ? c.people.resolve(handle, d.channel as SourceName)
-    : null;
-}
 
 /** The checks about matter `id`: every kind, open matters they ride on and the one holding their subject (an ending is about a matter that reads probably done). */
 export const checksOnMatterOf = <C extends Pick<Check, "matter" | "ridesOn">>(
@@ -671,8 +659,9 @@ const CHECKS_READ = [
   ZONES,
 ];
 
-/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. */
+/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
 export interface HeldRead {
+  complaints?: readonly BeingFixed[];
   read: () => readonly AgentHold[] | null;
   stamp: string;
 }
@@ -687,7 +676,7 @@ const checksKeyOf = (
     readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
-    held?.stamp ?? null,
+    held && [held.stamp, held.complaints],
     voices,
   ]);
 
@@ -773,6 +762,7 @@ async function readChecks(
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,
+    fixing: fixingOf(held?.complaints ?? []),
     heldByAgents: held?.read() ?? null,
     isDirectionDue: directionDueOf(matters, records, dayNow()),
     isForHandOut: (id) => forHandOut.has(id),
@@ -800,10 +790,17 @@ async function readChecks(
       ]),
     ]),
   });
-  return (await withNetworkIdentities(checks, people)).map((c) => ({
-    ...c,
-    contactsCard: c.contactsCard ?? null,
-    pushId: pushIdOf(c.ref, key),
-    urgency: urgencyOf(c),
-  }));
+  return inboxChecksOf(await withNetworkIdentities(checks, people), key);
 }
+
+/** The inbox's cards as finally shown (their network identities attached): with their push ids and urgency, then their "Wrong…" sealed on all of it (`withMisreadSealed`). */
+export const inboxChecksOf = (identified: readonly Check[], key: string) =>
+  withMisreadSealed(
+    identified.map((c) => ({
+      ...c,
+      contactsCard: c.contactsCard ?? null,
+      pushId: pushIdOf(c.ref, key),
+      urgency: urgencyOf(c),
+    })),
+    key
+  );
