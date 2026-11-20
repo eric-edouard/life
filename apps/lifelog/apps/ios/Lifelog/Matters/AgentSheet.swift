@@ -30,7 +30,12 @@ struct AgentSheet: View {
     private func head(_ agent: RegisteredAgent) -> some View {
         SheetHeader(title: nil) { dismiss() }.frame(minHeight: Metrics.tapTarget)
             .overlay(alignment: .leading) {
-                Label(agent.runtimeName.name, systemImage: "sparkle").font(.sheetQuestion).foregroundStyle(Palette.ai)
+                Label {
+                    Text(agent.runtimeName.name)
+                } icon: {
+                    Image(symbol: agent.runtimeName.mark).foregroundStyle(Palette.fg)
+                }
+                .font(.sheetQuestion).foregroundStyle(Palette.ai)
             }
     }
 
