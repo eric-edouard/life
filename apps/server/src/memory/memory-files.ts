@@ -228,6 +228,14 @@ const episodeDay = keptReader((path) => rowsOf(path, Episode));
 export const readEpisodes = async () =>
   (await filesIn(EPISODES)).flatMap((n) => episodeDay(join(EPISODES, n)));
 
+/** The episode lines of these days' files (all when none are named), each with its file's day: the index's `episode_people`. */
+export const readEpisodeFiles = async (days?: readonly string[]) =>
+  (
+    days ?? (await filesIn(EPISODES)).map((n) => n.slice(0, -".jsonl".length))
+  ).flatMap((day) =>
+    episodeDay(join(EPISODES, `${day}.jsonl`)).map((line) => ({ day, line }))
+  );
+
 /** The first and last day an episode covers: its start (else the day that read it) to its end (else its start). */
 export const daysOf = (m: Episode) =>
   [
@@ -786,7 +794,7 @@ export const verdictOf = (verdicts: Verdicts, u: Unit) =>
 
 /** The episodes as they stand now that `keep` keeps, by when they happen. */
 // ponytail: every episode line is held (≈25 MB at 10 years, parsed once per changed day, `readEpisodes`) and every day
-// file is stat'ed per read: `person` and `day` need them all (a person's history, `readBy`); index them if a read shows up.
+// file is stat'ed per read: `day` needs them all (`readBy`); a person's read goes through the index (`readEpisodesWith`).
 export const episodesWhere = async (keep: (m: Episode) => boolean) => {
   const [lines, corrections] = await Promise.all([
     readEpisodes(),
@@ -796,6 +804,29 @@ export const episodesWhere = async (keep: (m: Episode) => boolean) => {
     .filter(keep)
     .toSorted((a, b) => daysOf(a)[0].localeCompare(daysOf(b)[0]));
 };
+
+/**
+ * The episodes with `ref` as they stand, oldest first, a bounded read: the index names the day files holding a line of
+ * one of theirs (`episode_people`), and only those are read; `refOf` reads each episode's people as of today.
+ */
+export async function readEpisodesWith(
+  ref: string,
+  refOf: (ref: string) => string
+) {
+  const days =
+    readIndex((db) =>
+      db
+        .query<{ day: string }, [string]>(
+          "select distinct day from episode_people where episode in (select episode from episode_people where person = ?)"
+        )
+        .all(ref)
+        .map((r) => r.day)
+    ) ?? [];
+  const lines = (await readEpisodeFiles(days.toSorted())).map((x) => x.line);
+  return episodesNow(lines, readCorrections())
+    .filter((m) => m.people.some((p) => refOf(p.ref) === ref))
+    .toSorted((a, b) => daysOf(a)[0].localeCompare(daysOf(b)[0]));
+}
 
 /** Commits the given paths of the data repo (only those that exist), with a plain message. Nothing to commit is fine. */
 export function commitMemory(all: string[], message: string) {

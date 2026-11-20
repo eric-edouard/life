@@ -4,8 +4,8 @@ import { dirname, join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import { buildIndex, reindexUnits } from "./index-writer";
-import { INDEX, INFERRED, UNITS } from "./memory-files";
+import { buildIndex, reindex, reindexUnits } from "./index-writer";
+import { EPISODES, INDEX, INFERRED, UNITS } from "./memory-files";
 import {
   firstSentenceOf,
   knowsOf,
@@ -18,7 +18,7 @@ import {
 import { readPersonUnits } from "./person-units";
 import { PART_CHARS } from "./read-part";
 import { person } from "./read-person-page";
-import { unit as unitFixture } from "./record-fixtures";
+import { madeBy, unit as unitFixture } from "./record-fixtures";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as sources from "./sources";
 
@@ -157,6 +157,19 @@ test("`now` holds under PART_CHARS with hundreds of open matters, the top-ranked
   expect(busy.episodes[0]).toEqual(episodes[0]);
   expect(busy.episodes.length + (busy.more?.episodes ?? 0)).toBe(60);
   expect(busy.more?.episodes).toBeGreaterThan(0);
+  // An organization with 250 domains: cut and counted too.
+  const domains = Array.from(
+    { length: 250 },
+    (_, n) => `shop-number-${n}.example.test`
+  );
+  const org = personNowOf({
+    ...now,
+    ...inputsOf(now),
+    matters: [],
+    organization: { domains, people: [] },
+  });
+  expect(JSON.stringify(org).length).toBeLessThanOrEqual(PART_CHARS);
+  expect((org.domains?.length ?? 0) + (org.more?.domains ?? 0)).toBe(250);
 });
 
 /** `now`'s inputs back from a `now` (a second read of the same person). */
@@ -446,5 +459,65 @@ test("the edge cases of `now`: a name two go by gives them as candidates, and th
     expect(read.now.ref).toBe("person:test-ana");
   } finally {
     writeFileSync(file, was);
+  }
+});
+
+test("a name a hundred go by: the candidates take a quarter of the room at most, the rest counted; the whole answer keeps within it", async () => {
+  await indexed([]);
+  const file = join(OWNER_DATA_DIR, "truth", "people.yaml");
+  const was = readFileSync(file, "utf8");
+  const many = Array.from(
+    { length: 100 },
+    (_, n) =>
+      `  - id: test-ana-${n}\n    name: Ana Number ${n}\n    aliases: [Test Ana]\n`
+  ).join("");
+  writeFileSync(file, `${was}${many}`);
+  try {
+    const read = (await person("Test Ana")) as {
+      candidates: unknown[];
+      more?: { candidates: number };
+    };
+    expect(JSON.stringify(read).length).toBeLessThanOrEqual(PART_CHARS);
+    expect(JSON.stringify(read.candidates).length).toBeLessThanOrEqual(
+      PART_CHARS / 4
+    );
+    expect(read.candidates.length + (read.more?.candidates ?? 0)).toBe(101);
+  } finally {
+    writeFileSync(file, was);
+  }
+});
+
+test("now reads only the episode files the index names for them: an earlier line's day and its latest, never another day's", async () => {
+  const line = (day: string, id: string, title: string, people: string[]) =>
+    `${JSON.stringify({ copies: [], day, end: null, id, importance: 2, madeBy, people: people.map((ref) => ({ ref, role: "with" })), place: null, schemaVersion: 1, start: `${day} 12:00`, title, units: ["unit_000000000001"], what: "They talk.", within: null })}\n`;
+  const file = (day: string) => join(EPISODES, `${day}.jsonl`);
+  mkdirSync(EPISODES, { recursive: true });
+  try {
+    writeFileSync(
+      file("2026-10-01"),
+      line("2026-10-01", "ep_00000000000a", "Lunch", ["person:test-ana"])
+    );
+    writeFileSync(
+      file("2026-10-02"),
+      line("2026-10-02", "ep_00000000000b", "Errands", [])
+    );
+    // The lunch read again a day later, now a walk too: its latest line.
+    writeFileSync(
+      file("2026-10-03"),
+      line("2026-10-01", "ep_00000000000a", "Lunch, then a walk", [
+        "person:test-ana",
+      ])
+    );
+    await reindex();
+    // A day of no episode of hers, unreadable: reading it would throw.
+    writeFileSync(file("2026-10-02"), "not an episode\n");
+    const now = (await person("Test Ana")) as {
+      episodes: { titles: string[] }[];
+    };
+    expect(now.episodes.flatMap((m) => m.titles)).toEqual([
+      "Lunch, then a walk",
+    ]);
+  } finally {
+    rmSync(EPISODES, { force: true, recursive: true });
   }
 });

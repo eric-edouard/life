@@ -651,7 +651,9 @@ the settings' keys and the log's `run.phase` as `run.entered`. "Memory: before t
 table `observations` (with `superseded_by` and its end date in `valid_to` for retired ones, its `home` page and the
 `detail` it states), full-text table
 `search` (text and quote, accent-insensitive) and table `observation_subjects` (observation, subject: who or what each is about); and the units: table `units`,
-full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict topics), `unit_topics` and `unit_people`. Delete it (with its
+full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict topics), `unit_topics` and `unit_people`; and
+`episode_people` (episode, person as of today, the day file holding that line), so a person's read opens only their
+episodes' day files (`readEpisodesWith`). Delete it (with its
 `-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|checks|chats|places` (read-only).
 
 ## The desk's store (not in memory/)

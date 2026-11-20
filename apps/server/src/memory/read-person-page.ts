@@ -19,7 +19,7 @@ import {
   section,
   withIndex,
 } from "./index-rows";
-import { daysOf, episodesWhere, pagePath } from "./memory-files";
+import { daysOf, pagePath, readEpisodesWith } from "./memory-files";
 import { slugOf } from "./page-format";
 import { episodeTitlesOf } from "./person-episode-titles";
 import {
@@ -254,11 +254,9 @@ export async function person(
     file && (await file.exists()) ? { text: await file.text() } : null;
   const mapped = truth.people.find((p) => p.id === id);
   const lifelog = mapped?.handles.lifelog;
-  const all = await episodesWhere(() => true);
-  const live = new Set(all.map((m) => m.id));
-  const episodes = all.filter((m) =>
-    m.people.some((p) => refOf(p.ref) === ref)
-  );
+  const episodes = await readEpisodesWith(ref, refOf);
+  // A situation cites episodes with them: those still standing are theirs.
+  const live = new Set(episodes.map((m) => m.id));
   // What each part needs, read before the index opens (nothing awaits while it is).
   const isNow = part === "now" && !!partRef;
   // `now` builds only the parts it offers a preview of (`knows`).
@@ -328,10 +326,20 @@ export async function person(
       if (same.length < 2) {
         return gathered(more, PART_CHARS);
       }
-      // A shared name: the candidates wrap the first's `now`, which keeps to the room they leave.
-      const candidates = same.map((p) => folks.partyOf(`person:${p.id}`));
-      const room = PART_CHARS - JSON.stringify({ candidates, now: {} }).length;
-      return { candidates, now: gathered(more, room) };
+      // A shared name: the candidates (a quarter of the room at most; the list with `query` gives them all) wrap the first's `now`, which keeps to the room they leave.
+      const all = same.map((p) => folks.partyOf(`person:${p.id}`));
+      const candidates = within(
+        all,
+        PART_CHARS / 4,
+        (x) => JSON.stringify(x).length + 1
+      );
+      const left = all.length - candidates.length;
+      const wrapper = {
+        candidates,
+        ...(left > 0 ? { more: { candidates: left } } : {}),
+      };
+      const room = PART_CHARS - JSON.stringify({ ...wrapper, now: {} }).length;
+      return { ...wrapper, now: gathered(more, room) };
     });
   });
 }

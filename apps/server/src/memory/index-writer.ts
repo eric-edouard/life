@@ -26,16 +26,17 @@ import {
   MEMORY,
   type ObservationStatusInputs,
   observationStatusOf,
+  readEpisodeFiles,
   readUnits,
   readVerdicts,
   type Verdicts,
   verdictOf,
 } from "./memory-files";
 import { readPassageTexts } from "./passages";
+import { onlyHisWithOf } from "./person-units";
 import { OWNER, TRUTH } from "./read-truth";
-import { sourceOf } from "./sources";
+import { kindOf } from "./sources";
 import { forReaders } from "./status-inputs";
-import { UNKNOWN } from "./units";
 import { observationsNow, type People, readPeople, unitNow } from "./who";
 import { localDate } from "./zones";
 
@@ -62,12 +63,21 @@ create index unit_people_person on unit_people (person);
 create index unit_topics_topic on unit_topics (topic);
 create table search_hashes (id text primary key, hash text not null);
 create table searched_texts (id text primary key, at text, text text);
+create table episode_people (episode text, person text, day text, primary key (episode, person, day));
+create index episode_people_person on episode_people (person);
 create table rebuilt (at text);`;
 
 /** The supersession that retired `o`, if any (`observationStatusOf`). */
 function retirement(o: Observation, statusInputs: ObservationStatusInputs) {
   const s = observationStatusOf(o, statusInputs);
   return s.state === "retired" ? s : null;
+}
+
+/** An episode line, the day of the file holding it, and who it is with as of today: `episode_people`'s rows. */
+interface EpisodeFileLine {
+  day: string;
+  line: Episode;
+  people: string[];
 }
 
 /** A unit and its verdict, as the index holds them. */
@@ -77,25 +87,25 @@ interface IndexedUnit {
 }
 
 /**
- * The index rows of `units`: who each is with as of today (the table keeps each once), and its verdict. A 1:1
- * chat-day only he wrote in is with whoever its key names (`chatPerson`'s rule), so their reads find it.
+ * The index rows of `units`: who each is with as of today (the table keeps each once), and its verdict. A chat-day only
+ * he wrote in is with whoever its key or name names (`onlyHisWithOf`), so their reads find it.
  */
 const indexedOf = (units: Unit[], people: People, verdicts: Verdicts) =>
   units.map((unit) => {
     const now = unitNow(unit, people.refOf);
-    const keyed = sourceOf(unit.source).handleOf?.(unit.key);
-    const isHisAlone = now.people.every((p) => p === OWNER);
+    const withThem =
+      kindOf(unit.source) === "chat" &&
+      now.people.every((p) => p === OWNER) &&
+      onlyHisWithOf(
+        {
+          chat: unit.key,
+          chatName: unit.title === unit.key ? null : unit.title,
+          source: unit.source,
+        },
+        people.resolve
+      );
     return {
-      unit:
-        keyed && isHisAlone
-          ? {
-              ...now,
-              people: [
-                ...now.people,
-                people.refOf(`${UNKNOWN}${keyed}`, unit.source),
-              ],
-            }
-          : now,
+      unit: withThem ? { ...now, people: [...now.people, withThem] } : now,
       verdict: verdictOf(verdicts, unit),
     };
   });
@@ -169,7 +179,8 @@ export function buildIndex(
   units: IndexedUnit[] = [],
   builtAt = clock(),
   episodes: Episode[] = [],
-  summaries: HeldSummary[] = []
+  summaries: HeldSummary[] = [],
+  episodeLines: EpisodeFileLine[] = []
 ) {
   const unique = new Map(observations.map((o) => [o.id, o]));
   writeIndex(path, (db) => {
@@ -186,6 +197,12 @@ export function buildIndex(
     const link = insertInto(db, "observation_subjects", 2);
     const hash = insertInto(db, "search_hashes", 2);
     const textRow = insertInto(db, "searched_texts", 3);
+    const episodePerson = insertInto(db, "episode_people", 3);
+    for (const { day, line, people } of episodeLines) {
+      for (const person of people) {
+        episodePerson.run(line.id, person, day);
+      }
+    }
     for (const episode of episodes) {
       const words = episodeTextNow(episode);
       hash.run(episode.id, textHashOf(EMBEDDER_MODEL, words));
@@ -268,7 +285,11 @@ export async function reindex() {
     units,
     at,
     await episodesWhere(() => true),
-    await currentSummaries()
+    await currentSummaries(),
+    (await readEpisodeFiles()).map((x) => ({
+      ...x,
+      people: x.line.people.map((p) => people.refOf(p.ref)),
+    }))
   );
   // On stderr: the app reads a command's stdout as its answer, and the first command after an update may rebuild.
   console.error(

@@ -1,9 +1,12 @@
 import type { SourceName } from "../core/names";
+import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import type { Descriptor } from "../sources/contract";
 import { readIndex, readUnitsOf } from "./memory-files";
 import { OWNER } from "./read-truth";
-import { isDirect, kindOf, SOURCES } from "./sources";
+import { isDirect, kindOf, SOURCES, sourceOf } from "./sources";
+import { oneToOnePersonOf, type Resolve, UNKNOWN } from "./units";
+import type { People } from "./who";
 
 // A person's units, as the index files them: the one way a reader finds what someone said, wrote or was heard in (the
 // network identity, a person's `latest`, `read_chats` with `who`). One query of the index, never a scan of a source.
@@ -92,6 +95,53 @@ export function readPersonUnitFiles(
     }
   );
   return { listed, units };
+}
+
+/** What a reader holds of a chat-day or thread: its chat, its name (none for a call-only day), its source. */
+interface ChatHeld {
+  chat: string;
+  chatName?: string | null;
+  source: SourceName;
+}
+
+/**
+ * Who a chat-day only he wrote in is with: the one its key or name names (`oneToOnePersonOf`), else, while no one is
+ * known by it, the handle its key holds as `unknown:<handle>`. None for a group's.
+ */
+export const onlyHisWithOf = (o: ChatHeld, resolve: Resolve) => {
+  const handle = sourceOf(o.source).handleOf?.(o.chat);
+  return (
+    oneToOnePersonOf({ ...o, others: new Set() }, resolve) ??
+    (handle ? `${UNKNOWN}${handle}` : null)
+  );
+};
+
+/** What `isWithThemAlone` reads of one chat's events: its chat, its name (none for a call-only day) and who else wrote. */
+export const chatHeldOf = (list: readonly SourceEvent[]) => {
+  const [first] = list as [SourceEvent];
+  return {
+    chat: first.chat,
+    chatName: list.every((e) => e.phoneCall) ? null : first.chatName,
+    senders: list.filter((e) => !e.fromMe).map((e) => e.sender),
+    source: first.source,
+  };
+};
+
+/**
+ * Whether a chat-day or thread is with `ref` alone, by its messages: every other writer (`senders`) reads as them and
+ * its key is no group's; on a day only he wrote, it is theirs (`onlyHisWithOf`). The test of the messages themselves:
+ * `latest` checks the index by it (which leaves out a mail's senders no one knows), today's `read_chats` with `who`
+ * applies it before cutting to the range asked.
+ */
+export function isWithThemAlone(
+  o: ChatHeld & { senders: readonly string[] },
+  ref: string,
+  { refOf, resolve }: Pick<People, "refOf" | "resolve">
+) {
+  return o.senders.length > 0
+    ? isDirect(o.source, o.chat, 1) &&
+        o.senders.every((h) => refOf(`${UNKNOWN}${h}`, o.source) === ref)
+    : onlyHisWithOf(o, resolve) === ref;
 }
 
 /** How many of a person's newest chat-days are read to find one that is 1:1 (the index can't tell a group). */

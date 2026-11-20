@@ -9,7 +9,7 @@ import { closerOf } from "./closeness";
 import { type DetailLine, nextBirthday } from "./details";
 import { exchangesOf } from "./exchanges";
 import type { Party } from "./party";
-import { readPersonUnitFiles } from "./person-units";
+import { isWithThemAlone, readPersonUnitFiles } from "./person-units";
 import type { Reach } from "./reach";
 import type { MatterRow } from "./read-matters";
 import {
@@ -20,7 +20,6 @@ import {
 } from "./read-part";
 import { OWNER } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
-import { UNKNOWN } from "./units";
 import type { People } from "./who";
 import { unitLines } from "./words";
 import { localDate } from "./zones";
@@ -125,17 +124,18 @@ export interface NowInputs {
 
 /**
  * `now`'s lists in the order they keep their room: what doesn't fit is cut from each one's end (episodes the oldest
- * months, matters the least pressing), and `more` counts what each lost (`open`: `read_matters` with them; the rest:
- * the parts `knows` names).
+ * months, matters the least pressing), and `more` counts what each lost (`open`: `read_matters` with them;
+ * `episodes`: the `evidence` part). Reach is never cut: it holds at most three accounts an app (`reachOf`), the others
+ * left in `details`.
  */
 const KEPT_FIRST = [
-  "reach",
   "details",
   "knows",
   "situation",
   "open",
   "communicationStyle",
   "people",
+  "domains",
   "episodes",
 ] as const;
 
@@ -283,14 +283,17 @@ async function latestOf(
   }
   const messages = (await unitLines(u, people))?.built.messages ?? [];
   const source = sourceOf(u.source);
-  const keyed = source.handleOf?.(u.key);
-  const others = messages.filter((m) => !m.fromMe).map((m) => m.sender);
-  // `chatPerson`'s rule: every other writer reads as them; on a day only he wrote, the handle its key names.
-  const writers = others.length > 0 ? others : [keyed ?? ""];
-  if (!writers.every((h) => people.refOf(`${UNKNOWN}${h}`, u.source) === ref)) {
+  const senders = messages.filter((m) => !m.fromMe).map((m) => m.sender);
+  const held = {
+    chat: u.key,
+    chatName: u.title === u.key ? null : u.title,
+    senders,
+    source: u.source,
+  };
+  if (!isWithThemAlone(held, ref, people)) {
     return [];
   }
-  const handle = keyed ?? others[0];
+  const handle = source.handleOf?.(u.key) ?? senders[0];
   const url = handle && source.chatLinkOf?.(handle);
   return exchangesOf(messages).map((exchange) => ({
     at: (exchange[0] as { at: string }).at,

@@ -1,6 +1,6 @@
 import { clock, DAY, daysBefore } from "../core/clock";
 import { fuse } from "../core/fusion";
-import { newestDays } from "../core/lists";
+import { isNextPageKnown, newestDays } from "../core/lists";
 import { redact } from "../core/redact";
 import { chatGroups, type SourceEvent } from "../records/source";
 import { ownerIn } from "../records/truth";
@@ -27,7 +27,11 @@ import { communicationStylesOf } from "./communication-styles";
 import { readInferredRepos, readJudgments, readUnit } from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
-import { readPersonUnitFiles } from "./person-units";
+import {
+  chatHeldOf,
+  isWithThemAlone,
+  readPersonUnitFiles,
+} from "./person-units";
 import type { SourceLine } from "./quote-check";
 import { OWNER, type Truth } from "./read-truth";
 import {
@@ -42,7 +46,6 @@ import { dayUnitId } from "./unit-ids";
 import {
   type Built,
   builtFor,
-  chatPerson,
   clip,
   isFrozen,
   isLifeOutput,
@@ -679,19 +682,18 @@ export async function chatsOf(
 const ROUND = 40;
 
 /**
- * A person's chat messages in `range` (of `chat` alone when given), oldest first: every message of their one-to-one
- * chat-days, and their own in a group's. Today is read whole once (what came after the index last listed their units,
- * and a chat new today, are in it); earlier days back from there through their units (`readPersonUnitFiles`), each
- * unit's span read once from its source, until more than a page of wanted messages is held or none is left. Never a
- * scan of every chat's history.
+ * A person's chat messages in `range` (of `chat` alone when given), oldest first: their one-to-one chat-days whole,
+ * their own words in a group's. The range's last day is read whole once (what the index has not listed yet is in it);
+ * earlier days through their units (`readPersonUnitFiles`), each span read once, until the next page is known.
  */
 function personChats(
   ref: string,
   range: DayRange,
   sources: Partial<Tables["CHATS"]>,
-  { refOf, resolve }: People,
+  people: People,
   chat?: string
 ) {
+  const { refOf } = people;
   const end = range.to ? new Date(range.to) : clock();
   const start = new Date(range.from ?? 0);
   const isTheirs = (e: SourceEvent) =>
@@ -699,20 +701,28 @@ function personChats(
   const wanted = (list: SourceEvent[]) =>
     between(list, start, end).filter((e) => !chat || e.chat === chat);
   const today = localDate(end.toISOString());
+  // The end's day is read whole, so who a chat is with is known before it is cut to the range asked.
+  const [from, to] = [today, daysBefore(today, -1)].map((d) => dayStart(d));
   const fresh =
-    end > dayStart(today)
-      ? readChats(
-          { from: dayStart(today).toISOString(), to: range.to },
-          sources
-        )
+    end > (from as Date)
+      ? readChats({ from: from?.toISOString(), to: to?.toISOString() }, sources)
       : undefined;
   const failed = new Set(fresh?.failed);
-  // Today's chats: one with them alone whole (`chatPerson`), a group's their own words.
-  const events = [...chatGroups(wanted(fresh?.events ?? [])).values()].flatMap(
-    (list) => (chatPerson(list, resolve) === ref ? list : list.filter(isTheirs))
+  // That day's chats: one with them alone whole (`isWithThemAlone`), another their own words.
+  const events = [...chatGroups(fresh?.events ?? []).values()].flatMap((list) =>
+    wanted(
+      isWithThemAlone(chatHeldOf(list), ref, people)
+        ? list
+        : list.filter(isTheirs)
+    )
   );
   let day: string | undefined = fresh ? today : daysBefore(today, -1);
-  while (day && events.length <= PAGE && day > localDate(start.toISOString())) {
+  const isKnown = () =>
+    isNextPageKnown(
+      events.map((e) => e.at),
+      PAGE
+    );
+  while (day && !isKnown() && day > localDate(start.toISOString())) {
     const { listed, units } = readPersonUnitFiles([ref], {
       before: day,
       count: ROUND,

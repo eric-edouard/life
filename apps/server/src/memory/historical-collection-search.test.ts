@@ -291,3 +291,118 @@ test("who: a busy day past the cursor, or in other chats than `chat`, never hide
     rmSync(INDEX, { force: true });
   }
 });
+
+/** A LINE message (made-up), `fromMe` when its sender is "me". */
+const lineSaid = (
+  id: string,
+  at: string,
+  chat: string,
+  sender: string,
+  chatName = chat
+): SourceEvent => ({
+  at,
+  chat,
+  chatName,
+  fromMe: sender === "me",
+  id,
+  sender,
+  source: "line",
+  text: `said ${id}`,
+});
+
+/** A source reading `all` between its bounds. */
+const sourceOver =
+  (all: SourceEvent[]) =>
+  (from: Date, to?: Date): SourceEvent[] =>
+    all.filter(
+      (e) => e.at >= from.toISOString() && (!to || e.at < to.toISOString())
+    );
+
+test("who: a day only he wrote in a LINE room her name names is hers; so is a message he sent today to a number no one is known by", async () => {
+  const room = lineSaid(
+    "l1",
+    "2001-03-01T09:00:00.000Z",
+    "!room-ana",
+    "me",
+    "Test Ana"
+  );
+  const fresh: SourceEvent = {
+    at: new Date().toISOString(),
+    chat: "+66600000009",
+    fromMe: true,
+    id: "i1",
+    sender: "me",
+    source: "imessage",
+    text: "Is this the plumber?",
+  };
+  try {
+    await indexedFrom([room]);
+    const line = sourceOver([room]);
+    const imessage = sourceOver([fresh]);
+    expect(
+      messagesIn(await chatsOf({ who: "Test Ana" }, { imessage, line }))
+    ).toHaveLength(1);
+    expect(
+      messagesIn(await chatsOf({ who: "+66600000009" }, { imessage, line }))
+    ).toHaveLength(1);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});
+
+test("who: when the page's last two messages share an instant, it still looks for an older one and gives the next page", async () => {
+  const at = (day: string, s: number) =>
+    new Date(
+      Date.parse(`2001-02-${day}T10:00:00.000Z`) + s * 1000
+    ).toISOString();
+  // A round of 40 rooms on the 2nd, 201 messages, the two oldest at one instant; 5 more on the 1st.
+  const busy = Array.from({ length: 201 }, (_, n) =>
+    lineSaid(`b${n}`, at("02", Math.max(n, 1)), `room-${n % 40}`, "Test Ana")
+  );
+  const older = Array.from({ length: 5 }, (_, n) =>
+    lineSaid(`o${n}`, at("01", n), "ana-room", "Test Ana")
+  );
+  const line = sourceOver([...older, ...busy]);
+  try {
+    await indexedFrom([...older, ...busy]);
+    const page = await chatsOf({ who: "Test Ana" }, { line });
+    expect(messagesIn(page)).toHaveLength(201);
+    expect(page).toContain(
+      `(earlier not shown: the same call with \`before\` ${at("02", 1)})`
+    );
+    expect(
+      messagesIn(
+        await chatsOf({ before: at("02", 1), who: "Test Ana" }, { line })
+      )
+    ).toHaveLength(5);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});
+
+test("who: in a LINE group, a `from` after another member spoke never makes the rest look like her 1:1 chat", async () => {
+  const group = [
+    lineSaid("g1", "2001-04-01T09:00:00.000Z", "climbing", "Zed Moss"),
+    lineSaid("g2", "2001-04-01T10:00:00.000Z", "climbing", "Test Ana"),
+    lineSaid("g3", "2001-04-01T10:05:00.000Z", "climbing", "me"),
+  ];
+  try {
+    await indexedFrom(group);
+    const found = messagesIn(
+      await chatsOf(
+        {
+          before: "2001-04-01T12:00:00.000Z",
+          from: "2001-04-01T09:30:00.000Z",
+          who: "Test Ana",
+        },
+        { line: sourceOver(group) }
+      )
+    );
+    expect(found.map((l) => l.slice(l.lastIndexOf("[")))).toEqual(["[id g2]"]);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});
