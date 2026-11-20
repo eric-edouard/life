@@ -20,7 +20,7 @@ const card: Contact = {
     "cam@example.com": "Home",
     "cam@studio.example": "Work",
   },
-  name: "Cam Roux",
+  name: "Cam Testa",
   profiles: [],
   related: [],
   work: null,
@@ -33,7 +33,7 @@ test("reach: per app every account once, newest first; a title is the name shown
       handles: {
         email: ["cam@example.com"],
         phone: [],
-        telegram: "cam_roux",
+        telegram: "cam_testa",
         whatsapp: ["+33600000001", "+33600000002"],
       },
     },
@@ -81,7 +81,7 @@ test("reach: per app every account once, newest first; a title is the name shown
       title: "Mobile",
     },
   ]);
-  expect(telegram?.accounts[0]?.open.url).toBe("https://t.me/cam_roux");
+  expect(telegram?.accounts[0]?.open.url).toBe("https://t.me/cam_testa");
   // Three labelled mails, the directory's written once.
   expect(mail?.accounts.map((a) => [a.title, a.open.url])).toEqual([
     ["Home", "mailto:cam@example.com"],
