@@ -230,3 +230,18 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     #expect(edit["said"] as? String == "Parked the project Halden house")
     #expect(calls[2].1["project"] as? String == "halden")
 }
+
+@Test func anActionThatTimesOutMayHaveRunAndIsNeverRepeatedByItself() async throws {
+    let calls = Mutex(0)
+    let mcp = client(host: newHost()) { _ in
+        calls.withLock { $0 += 1 }
+        return .stream(failure: .timedOut)
+    }
+    await #expect(throws: MCPClient.actionTimedOut) {
+        _ = try await mcp.call("answer_check", ["ref": "dec_1"], answerKey: "tap-key") { _ in }
+    }
+    #expect(calls.withLock { $0 } == 1)
+    // A read that times out is plainly out of reach.
+    let read = client(host: newHost()) { _ in Reply(failure: .timedOut) }
+    await #expect(throws: MCPError.unreachable) { _ = try await read.call("read_inbox") }
+}

@@ -5,13 +5,28 @@ import Foundation
 /// after a 401 with a fresh token.
 public struct MCPClient: Sendable {
     static let protocolVersion = "2026-07-28"
+    /// A read gives up after this many seconds of silence: the Mac is asleep or the tunnel is down.
+    static let readTimeoutSeconds: TimeInterval = 10
+    /// A call with progress (an answer, an agent change, an edit) gives up after this many seconds with no byte: an idle
+    /// timeout, so the stream's steady progress keeps it alive.
+    static let actionIdleTimeoutSeconds: TimeInterval = 15
+    /// An action that timed out may have run. It is a failure `LifeActions` never repeats by itself.
+    static let actionTimedOut = MCPError.failed(
+        "Life did not answer in time. It may not have gone: check before answering again.")
 
     private let session: LifeSession
     private let http: LifeHTTP
 
-    public init(session: LifeSession, urlSession: URLSession = URLSession(configuration: .ephemeral)) {
+    public init(session: LifeSession, urlSession: URLSession = MCPClient.makeURLSession()) {
         self.session = session
         http = LifeHTTP(session: urlSession)
+    }
+
+    /// With no path to the Mac a call fails at once, never waits for one.
+    public static func makeURLSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.waitsForConnectivity = false
+        return URLSession(configuration: configuration)
     }
 
     /// The tool's answer text (JSON, as the tool wrote it). `onProgress` gets each progress message of the stream. `answerKey`
@@ -29,6 +44,7 @@ public struct MCPClient: Sendable {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.httpBody = body
+            request.timeoutInterval = onProgress == nil ? Self.readTimeoutSeconds : Self.actionIdleTimeoutSeconds
             for (name, value) in [
                 ("authorization", "Bearer \(bearer)"), ("content-type", "application/json"),
                 ("accept", "application/json, text/event-stream"), ("mcp-protocol-version", Self.protocolVersion),
@@ -64,7 +80,11 @@ public struct MCPClient: Sendable {
             return result
         }
         let (bytes, response): (URLSession.AsyncBytes, URLResponse)
-        do { (bytes, response) = try await http.session.bytes(for: request) } catch { throw MCPError.of(error) }
+        do { (bytes, response) = try await http.session.bytes(for: request) } catch let error as URLError
+            where error.code == .timedOut
+        {
+            throw Self.actionTimedOut
+        } catch { throw MCPError.of(error) }
         guard let http = response as? HTTPURLResponse else { throw MCPError.failed("Not an HTTP answer.") }
         try Self.check(http)
         let isStream = http.value(forHTTPHeaderField: "content-type")?.contains("text/event-stream") == true
@@ -83,7 +103,9 @@ public struct MCPClient: Sendable {
                     return result
                 }
             }
-        } catch let error as MCPError { throw error } catch { throw MCPError.streamDropped }
+        } catch let error as MCPError { throw error } catch let error as URLError where error.code == .timedOut {
+            throw Self.actionTimedOut
+        } catch { throw MCPError.streamDropped }
         guard !isStream else { throw MCPError.streamDropped }
         guard let result = try Self.message(whole, progressToken: progressToken, onProgress: onProgress) else {
             throw MCPError.failed("Life's answer holds no result.")
