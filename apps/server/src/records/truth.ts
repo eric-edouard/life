@@ -21,7 +21,7 @@ const Handles = z
   .strict();
 
 /** His picture pick: whose picture shows for a person or an organization, Contacts' or a source's; `none`: no picture. Absent: the first they show. */
-const PictureFrom = z.enum(["contacts", ...SourceName.options, "none"]);
+export const PictureFrom = z.enum(["contacts", ...SourceName.options, "none"]);
 
 export const Person = z
   .object({

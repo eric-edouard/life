@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { oneLine } from "./draft";
+import { nameKey } from "./units";
 
 // What he needs in hand to do a card's step (`needs`, the asks contract): one registry of kinds, each its shape, its
 // `line` (Life's plain words of it, which a phone that doesn't know the kind draws: worked out when read, never stored),
@@ -77,12 +78,12 @@ const KINDS: {
     about: "a bank account (number, bank, holder)",
     line: (n) =>
       `${[n.bank, n.number].filter(Boolean).join(" ")}${n.holder ? `, ${n.holder}` : ""}${n.bic ? ` (BIC ${n.bic})` : ""}`,
-    page: '`{kind: "account", number, bank?, holder?, scheme?, bic?}`: where he sends money. `number` as the payee wrote it (an account number, an IBAN, a PromptPay phone or id); `bank` its bank\'s name; `holder` the name the bank will show, for him to check (never copied); `scheme` one of `th_account`, `promptpay`, `iban`, `swift`, `other` (his phone picks the bank app by it); `bic` when the payee gave one. Give it before the `amount`: the phone shows needs in your order. Example: `{"kind":"account","bank":"Kasikornbank","number":"012-3-45678-9","holder":"Blue Reef Diving Co., Ltd.","scheme":"th_account"}`.',
+    page: '`{kind: "account", number, bank?, holder?, scheme?, bic?}`: where he sends money. `number` as the payee wrote it (an account number, an IBAN, a PromptPay phone or id); `bank` its bank\'s name; `holder` the name the bank will show, for him to check (never copied) and for Life to see the payment by; `scheme` one of `th_account`, `promptpay`, `iban`, `swift`, `other` (his phone picks the bank app by it); `bic` when the payee gave one. Give it before the `amount`: the phone shows needs in your order. Example: `{"kind":"account","bank":"Kasikornbank","number":"012-3-45678-9","holder":"Blue Reef Diving Co., Ltd.","scheme":"th_account"}`.',
   },
   amount: {
     about: "what to pay (value, currency)",
     line: (n) => amountWordsOf(n.value, n.currency),
-    page: '`{kind: "amount", value, currency}`: `value` a positive number, `currency` its ISO code (`THB`, `EUR`). He copies the plain number. With `doneSeenBy: "payment"`, Life looks for a payment of exactly this amount in this currency (`fetch("ask/payment")`). Example: `{"kind":"amount","value":4500,"currency":"THB"}`.',
+    page: '`{kind: "amount", value, currency}`: `value` a positive number, `currency` its ISO code (`THB`, `EUR`). He copies the plain number. With `doneSeenBy: "payment"`, Life looks for a payment of exactly this amount in this currency to the payee (`fetch("ask/payment")`). Example: `{"kind":"amount","value":4500,"currency":"THB"}`.',
   },
   link: {
     about: "a web page to open (url, vendor)",
@@ -120,6 +121,39 @@ export const NEED_KINDS_LINE = NEED_KINDS.map(
 /** A kind's page (`fetch("ask/<kind>")`), or undefined for a name that is no kind. */
 export const needPageOf = (name: string) =>
   Object.hasOwn(KINDS, name) ? KINDS[name as Kind].page : undefined;
+
+/** Titles before a name: they say nothing of who it is. A company's form is kept: "Co" may be a surname. */
+const TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "the"]);
+
+/** A name's words as names are compared (`nameKey`), less its leading titles; initials kept. */
+const nameWordsOf = (name: string) => {
+  const words = nameKey(name).split(" ").filter(Boolean);
+  const from = words.findIndex((w) => !TITLES.has(w));
+  return from < 0 ? [] : words.slice(from);
+};
+
+/** The words of a card's payee: the account's `holder`, else the link's `vendor`, as the bank shows it. */
+export const payeeWordsOf = (needs: readonly Need[] = []) =>
+  nameWordsOf(
+    needs.find((n): n is Of<"account"> => n.kind === "account")?.holder ??
+      needs.find((n): n is Of<"link"> => n.kind === "link")?.vendor ??
+      ""
+  );
+
+/**
+ * Whether a bank's name of the payee holds the payee `words`: each a whole word of it, in any order, a word asked
+ * twice there twice ("MS. LEE, ANN" for "Ann Lee"; "LI LI", never "BO LI", for "Li Li").
+ */
+export const isToPayee = (name: string, words: readonly string[]) => {
+  const said = nameWordsOf(name);
+  return (
+    words.length > 0 &&
+    words.every((w) => {
+      const i = said.indexOf(w);
+      return i >= 0 && said.splice(i, 1).length === 1;
+    })
+  );
+};
 
 /** The amount a card's payment is looked for by: its one `amount` need. */
 export const amountOf = (needs: readonly Need[] = []) =>

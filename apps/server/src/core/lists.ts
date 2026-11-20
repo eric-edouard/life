@@ -76,6 +76,13 @@ export function packed<T>(list: T[], budget: number, size: (x: T) => number) {
   return out;
 }
 
+/** Whether `keys` (instants, days) hold more than `limit` and one older than the `limit`-th newest: the page after is known. */
+export function isNextPageKnown(keys: readonly string[], limit: number) {
+  const sorted = keys.toSorted();
+  const edge = sorted.at(-limit);
+  return sorted.length > limit && !!edge && (sorted[0] as string) < edge;
+}
+
 /**
  * A page of a list ordered newest first, by whole keys (a day, an instant): the newest items before `before` up to
  * `limit`, then the rest of the last key taken, so a key is never cut between two pages. `next`: the key to page back

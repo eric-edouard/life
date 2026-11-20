@@ -18,8 +18,9 @@ const TILDE = /^~/;
 // Messages stores dates as nanoseconds since 2001-01-01.
 const APPLE_EPOCH_S = 978_307_200;
 
+/** An instant as Messages stores it, to the millisecond: a read's two bounds a millisecond apart never meet. */
 export const toAppleNs = (date: Date) =>
-  BigInt(Math.floor(date.getTime() / 1000) - APPLE_EPOCH_S) * 1_000_000_000n;
+  BigInt(date.getTime() - APPLE_EPOCH_S * 1000) * 1_000_000n;
 export const fromAppleNs = (ns: number | bigint) =>
   new Date(Number(BigInt(ns) / 1_000_000n) + APPLE_EPOCH_S * 1000);
 // Notes and WhatsApp store seconds since 2001-01-01; `ms` is a JavaScript time.
@@ -82,6 +83,14 @@ export const isImessageGroup = (chat: string) => chat.startsWith("chat");
 const HANDLE = /^(\+\d+|[^@\s]+@[^@\s]+)$/;
 /** The handle a 1:1 chat's key is (a number or an address). */
 export const handleOf = (key: string) => (HANDLE.test(key) ? key : undefined);
+const SPACING = /[\s().-]/g;
+const NUMBER = /^\d{7,}$/;
+/** Messages' own link to a 1:1 chat with a number or an address, `sms:<handle>`; none for anything else. */
+export const imessageLinkOf = (handle: string) => {
+  // Only a number loses its spacing: an address keeps its dots.
+  const h = handle.includes("@") ? handle : handle.replace(SPACING, "");
+  return HANDLE.test(h) || NUMBER.test(h) ? `sms:${h}` : undefined;
+};
 
 /** `names`: his Contacts, which name a 1:1 chat that has no name of its own (Messages keeps only the number). */
 export function readImessage(
