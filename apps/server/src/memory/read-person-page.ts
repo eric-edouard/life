@@ -48,7 +48,14 @@ import {
 import { directoryPartiesOf, isDirectoryNew, OWNER } from "./read-truth";
 import { readSituationNow } from "./situations";
 import { conversationLabel, lifelogNames, nameKey } from "./units";
-import { meant, namedLike, nearNames, type People, readPeople } from "./who";
+import {
+  meant,
+  namedLike,
+  nearNames,
+  type People,
+  personFor,
+  readPeople,
+} from "./who";
 import { asData, holdsAll } from "./words";
 import { dayNow, localDate } from "./zones";
 
@@ -184,16 +191,6 @@ async function answeredEarly(
 export function personRefOf(known: string | undefined, id: string) {
   const ref = `person:${id}`;
   return known && SubjectRef.safeParse(ref).success ? ref : undefined;
-}
-
-/** `meant`'s answer, but a part read by id (`byId`) takes the person with exactly that id before any name or alias. */
-export function personFor(
-  name: string,
-  meaning: ReturnType<typeof meant>,
-  byId?: boolean
-) {
-  const exact = byId ? meaning.all.find((p) => p.id === name) : undefined;
-  return exact ? { ...meaning, known: exact.id, same: [] } : meaning;
 }
 
 /**
