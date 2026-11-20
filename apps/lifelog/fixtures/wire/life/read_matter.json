@@ -258,7 +258,7 @@
             {
               "id": "same-person",
               "label": "Someone else…",
-              "takes": "person"
+              "takes": "person or name"
             }
           ],
           "question": "Is this Kit?",

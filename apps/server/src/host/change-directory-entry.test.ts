@@ -9,7 +9,10 @@ import {
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
-import { changeDirectoryEntry } from "./change-directory-entry";
+import {
+  addPersonByHisWord,
+  changeDirectoryEntry,
+} from "./change-directory-entry";
 
 // The run's own copy of the made-up data (OWNER_DATA_DIR): backed up, made a repo, put back.
 const TRUTH = join(OWNER_DATA_DIR, "truth");
@@ -175,4 +178,13 @@ test("calls at once each land, `$&` in his words stays as written, and a busy gi
     rmSync(join(OWNER_DATA_DIR, ".git", "index.lock"), { force: true });
   }
   expect(file("areas.yaml")).toContain('"id":"delta"');
+});
+
+test("a new person he names answering a check is added with their name's id, numbered past one taken, and committed with his tap (life#721)", async () => {
+  const tap = (n: string) => addPersonByHisWord(n, `New person: ${n}`);
+  expect(await tap("Léa Fontaine")).toBe("person:lea-fontaine");
+  expect(await tap("Léa Fontaine")).toBe("person:lea-fontaine-2");
+  expect(await tap("มะลิ")).toBe("person:person");
+  expect(file("people.yaml")).toContain("มะลิ");
+  expect(log()).toContain("New person: Léa Fontaine");
 });

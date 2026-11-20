@@ -105,7 +105,7 @@
             {
               "id": "same-person",
               "label": "Someone else…",
-              "takes": "person"
+              "takes": "person or name"
             }
           ],
           "question": "Is this Kit?",
@@ -290,7 +290,7 @@
         {
           "id": "this-is",
           "label": "Someone else…",
-          "takes": "person"
+          "takes": "person or name"
         }
       ],
       "question": "Who is \"Sam\"?",
@@ -354,7 +354,7 @@
         {
           "id": "same-person",
           "label": "Someone else…",
-          "takes": "person"
+          "takes": "person or name"
         }
       ],
       "question": "Whose contact is this?",
@@ -410,7 +410,7 @@
         {
           "id": "same-person",
           "label": "Someone else…",
-          "takes": "person"
+          "takes": "person or name"
         }
       ],
       "question": "Is this Kit?",

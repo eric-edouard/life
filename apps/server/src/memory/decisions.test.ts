@@ -217,7 +217,7 @@ test("nothing is sent for another option, his words added, the command line, a l
   });
   const cli = await draftCard();
   await expect(
-    answerDecision(cli.id, ["send"], undefined, { deliver })
+    answerDecision(cli.id, ["send"], undefined, { deliver, now: NOW })
   ).rejects.toThrow("his own answer");
   const lapsed = await draftCard();
   expect(stateOf(lapsed.id, later(3 * DAY))).toBe("lapsed");
