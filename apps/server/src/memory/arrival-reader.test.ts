@@ -221,7 +221,7 @@ test("a confirm filed in last month's file (its first message's month) is still 
       at: "2026-11-01T00:10:00.000Z",
       madeBy: stamp(
         { engine: "codex", model: "test" },
-        "memory-arrival-confirm.v1",
+        "memory-arrival-confirm.v2",
         "r1"
       ),
       messages: ["whatsapp|whatsapp:edge"],
@@ -247,7 +247,7 @@ test("the day's cap counts the confirm calls in the model log, failed ones inclu
     log("model.run", {
       at: iso(clock().getTime()),
       ok: false,
-      prompt: "memory-arrival-confirm.v1",
+      prompt: "memory-arrival-confirm.v2",
     });
   }
   const s = sceneOf(() => yes("send the slides"));
