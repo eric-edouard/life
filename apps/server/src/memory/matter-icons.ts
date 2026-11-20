@@ -99,7 +99,7 @@ async function pickAll(
         work.settled.set(text, lifeIconOf(vectors[i] ?? [], lines));
         release(text);
       }
-      picksSettled++;
+      picksSettled += 1;
     }
   } catch (error) {
     for (const text of texts) {

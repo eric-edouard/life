@@ -664,8 +664,7 @@ let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
 
 /**
  * Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write
- * those every few minutes, and the checks don't read them but for an inferred person's evidence (where it was said).
- * The pictures' index too: a party carries its picture's id.
+ * those every few minutes, and the checks don't read them but for an inferred person's evidence; the pictures' index.
  */
 const CHECKS_READ = [
   ...MATTER_BOOK_READS,
@@ -701,13 +700,10 @@ const checksKeyOf = (
 
 /**
  * What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from
- * the desk): read-only, no model call, with `key`, what it was read from (`checksKeyOf`; the connector's reads version
- * their answers by it). Read again only when the key changed, and always while a run holds the lock: every reader of
- * the inbox shares one read per change, and never mutates the list.
+ * the desk), and its `key` (`checksKeyOf`): read-only, no model call. Read again only when the key changed, and always
+ * while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
  */
-export async function checksAndKeyNow(
-  held: HeldRead | null
-): Promise<{ checks: InboxCheck[]; key: string }> {
+export async function checksAndKeyNow(held: HeldRead | null) {
   const voices = await readNamingQueue();
   const decisions = decisionsNow().filter((d) => d.state === "open");
   const key = checksKeyOf(held, voices, decisions);
