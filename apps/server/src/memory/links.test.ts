@@ -74,6 +74,7 @@ const callStep = matterBookOf(
         } as unknown as Episode,
       ],
     ]),
+    icons: [],
     important: [],
     isMailer: () => false,
     ledger: [],

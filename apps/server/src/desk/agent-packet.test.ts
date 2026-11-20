@@ -95,6 +95,9 @@ test("a project with neither says what to do", async () => {
 test("an agent on a project's matter, and the project's agent, get the project's line, his notes clipped and its running matters; a project gone from his directory gives nothing", async () => {
   const matters = await import("../memory/matters");
   const items = await import("../memory/read-open-items");
+  const icons = await import("../memory/matter-icons");
+  // The desk's summaries never pick icons (the connector's reads do).
+  const iconReads = spyOn(icons, "readLifeIcons");
   const rank = spyOn(items, "rankContextOf").mockReturnValue({
     goals: [],
     levels: new Map(),
@@ -162,7 +165,9 @@ test("an agent on a project's matter, and the project's agent, get the project's
     );
     // A project no longer in his directory adds nothing.
     expect(await onMatter("obs_lost")).not.toContain("running matters");
+    expect(iconReads).not.toHaveBeenCalled();
   } finally {
+    iconReads.mockRestore();
     book.mockRestore();
     rank.mockRestore();
   }
