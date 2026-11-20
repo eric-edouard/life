@@ -226,7 +226,7 @@ export const heldStampOf = (db: Database) =>
   JSON.stringify(
     db
       .query<unknown, [string]>(
-        `select count(*), max(anchor), max(agent), max(ended_at) from (${HELD_ROWS})`
+        `select count(*), max(anchor), max(agent), max(ended_at), group_concat(project) from (${HELD_ROWS})`
       )
       .values(heldSince())
   );

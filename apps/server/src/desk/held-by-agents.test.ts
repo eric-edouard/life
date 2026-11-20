@@ -1,6 +1,12 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY } from "../core/clock";
-import { agentOf, agentsNow, HOLD_DAYS, heldByAgents } from "../host/desk-read";
+import {
+  agentOf,
+  agentsNow,
+  HOLD_DAYS,
+  heldByAgents,
+  heldStampOf,
+} from "../host/desk-read";
 import { register } from "./agent-actions";
 import { tick } from "./desk-clock";
 import { setup, started } from "./test-desk";
@@ -81,4 +87,12 @@ test("two active agents on one project: stopping one leaves it stopped, listed a
   expect(agentsNow(desk.db, clock().getTime()).map((a) => a.id)).toContain(
     first
   );
+});
+
+test("the hold stamp changes when a project's agent is re-pointed to another project (no anchor, no end written)", () => {
+  const { desk } = setup();
+  const id = agentOn(desk, { project: "test-p" });
+  const before = heldStampOf(desk.db);
+  desk.db.run("update agent set project = 'test-q' where id = ?", [id]);
+  expect(heldStampOf(desk.db)).not.toBe(before);
 });
