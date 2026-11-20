@@ -75,7 +75,7 @@ its work: the agent keeps its own list.
   call, the minute pass skips it, the connector offers no `change_todo_item` or `read_open_todo_items` tool, `changeTodoItem` refuses, and the
   rest of Life runs the same. The read-back and the auto-add permission exist only while
   it is on. Settings are read once per process: turning it on or off takes a restart of the watcher. The connector's
-  tools keep their names and arguments whatever the backend (a change forces a costly reconnect).
+  tools keep their names and arguments whatever the backend.
 - Reminders goes through `remctl` (github.com/viticci/remctl, MIT), pinned in `REMCTL_RELEASE` and installed by
   remctl's own installer from the app; while Reminders is the backend and remctl is behind the pin, the app offers the
   update again (Apple silicon only). Google Tasks goes through `gog tasks … --json` as the setting's account. Their
