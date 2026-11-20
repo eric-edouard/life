@@ -131,10 +131,10 @@ test("a new person he names on a name check is the one person his truth/ or Cont
   const addDirectoryEntry = (
     _kind: string,
     n: string,
-    fields: { relation?: string }
+    fields?: { relation?: string }
   ) => {
     added.push(n);
-    relations.push(fields.relation);
+    relations.push(fields?.relation);
     const ref = `person:${n.toLowerCase().replace(" ", "-")}`;
     // Written: from now on truth/ holds the name.
     readings[n] = { by: "truth", isShared: false, ref };
