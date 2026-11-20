@@ -303,6 +303,10 @@ test("a name is asked only while the person matters: an exchange or 3 days; neve
   expect(
     groups(onDays("la nounou", ["2026-10-01", "2026-10-02", "2026-10-05"]))
   ).toEqual([]);
+  // A lowercase handle that wrote to him is a name, not a description.
+  expect(
+    groups(onDays("bastien", ["2026-10-01"], "speaker"), { spokeWithHim: true })
+  ).toEqual(["bastien"]);
   // His "Don't name": never asked again.
   expect(
     groups(onDays("Bastien", ["2026-10-01", "2026-10-02", "2026-10-05"]), {

@@ -148,7 +148,7 @@ export const saidOfQuote = (text: string, at: string | null): Said => ({
 /** The days a name Life cannot place must be seen on, without an exchange, to be asked (his word of 20 Nov 2026, life#724). */
 export const NAME_ASKED_AFTER_DAYS = 3;
 
-/** A description, not a name: every way it was written starts with a lowercase letter ("sister", "la femme des bois"). */
+/** A description, not a name: every way it was written starts with a lowercase letter ("sister", "la femme des bois"); a sender's own name (a lowercase handle) never is one. */
 const isDescription = (names: readonly string[]) =>
   names.every((n) => LOWERCASE_FIRST.test(n.trim()));
 const LOWERCASE_FIRST = /^\p{Ll}/u;
@@ -192,7 +192,8 @@ export function nameGroupsOf<L extends NameLine>(c: {
   ].flatMap(([key, rows]) => {
     const names = [...new Set(rows.map((r) => r.nameAsWritten))];
     const all = rowsBy.get(key) ?? rows;
-    return unnamed.has(key) || isDescription(names)
+    const isMentionOnly = all.every((r) => r.via !== "speaker");
+    return unnamed.has(key) || (isMentionOnly && isDescription(names))
       ? []
       : [
           {
