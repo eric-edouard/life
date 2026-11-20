@@ -661,3 +661,68 @@ test("goal A, then B, then A again records three times: a fresh answer ends the 
     people.mockRestore();
   }
 });
+
+// 20 Nov 2026: "Done" on an agent's card ended nothing in Life. His pick of an `ends` option closes the matter by his
+// word: its to-do items ticked, its observations outdated, with Life's words naming the card.
+test("an `ends` option: the plan counts the ticks, the matter closes by his word, the asker hears it ended", async () => {
+  const matter = {
+    id: "matter_aaaaaaaaaaaa",
+    open: true,
+    steps: [
+      { kind: "to_do", ref: "obs_000000000001" },
+      { kind: "todo_item", ref: "entry_000000000001" },
+    ],
+  };
+  const book = spyOn(
+    await import("../memory/matters"),
+    "readMatterBook"
+  ).mockResolvedValue([matter] as never);
+  const tick = spyOn(
+    await import("./change-todo-item"),
+    "tickTodoItems"
+  ).mockImplementation((keys, _said, onTicked) => {
+    onTicked?.(1, keys.length, keys[0] ?? "");
+    return Promise.resolve([]);
+  });
+  try {
+    const { id } = await requestDecision("planner", {
+      deadline: new Date(Date.now() + 2 * DAY).toISOString(),
+      onSilence: null,
+      options: [
+        { ends: "matter", id: "done", label: "Done" },
+        { id: "later", label: "Not yet" },
+      ],
+      question: "Is the boiler mended?",
+      subject: "matter_aaaaaaaaaaaa",
+      title: "Mend the boiler",
+    });
+    const { result, steps } = call(id, ["done"]);
+    const r = await result;
+    expect(steps.map((s) => s.plan ?? s.step)).toEqual([
+      ["recorded", "todo_items_ticked", "ended"],
+      "recorded",
+      "todo_items_ticked",
+      "ended",
+    ]);
+    // One tick's minute, then the reads and the write.
+    expect(steps[0]).toMatchObject({ limitSeconds: 65 });
+    const note = `"Done" on "Mend the boiler" (${id})`;
+    expect(tick).toHaveBeenCalledWith(
+      ["entry_000000000001"],
+      note,
+      expect.any(Function)
+    );
+    expect(readCorrections()).toMatchObject([
+      { kind: "outdated", note, observations: ["obs_000000000001"] },
+    ]);
+    expect(r).toMatchObject({
+      changed: { decision: id, ended: {}, state: "answered" },
+      done: [{ kind: "answered" }, { by: "answer", kind: "ended" }],
+      send: null,
+    });
+    expect(r.changed).not.toHaveProperty("ended.error");
+  } finally {
+    book.mockRestore();
+    tick.mockRestore();
+  }
+});

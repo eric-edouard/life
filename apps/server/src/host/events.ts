@@ -120,6 +120,12 @@ const DecisionPayload = z.object({
   at: z.iso
     .datetime()
     .describe("When he answered, or the deadline it lapsed at"),
+  end: z
+    .object({ error: z.string().optional() })
+    .optional()
+    .describe(
+      "Its step or matter, closed in Life on his pick of an `ends` option: why not, if it failed"
+    ),
   id: z.string().describe("The decision's id, as `request_decision` gave it"),
   onSilence: z
     .string()
@@ -177,6 +183,7 @@ export function pollDecisions(
               }
             : {}),
           at,
+          ...(d.end ? { end: d.end.error ? { error: d.end.error } : {} } : {}),
           id: d.id,
           onSilence: d.onSilence,
           question: d.question,
