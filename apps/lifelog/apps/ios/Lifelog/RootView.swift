@@ -33,7 +33,7 @@ struct RootView: View {
             Tab("Inbox", systemImage: "tray", value: AppRouter.Tab.inbox) {
                 InboxScreen()
             }
-            .badge(life.inbox.value?.badge ?? 0)
+            .badge(life.badge)
             Tab("Matters", systemImage: "list.bullet.indent", value: AppRouter.Tab.matters) { MattersScreen() }
             // Its title and symbol are the system's; it sits apart, at the trailing end of the tabs.
             Tab(value: AppRouter.Tab.search, role: .search) {
@@ -93,9 +93,9 @@ struct RootView: View {
         .tint(Palette.fg)
     }
 
-    /// Held answers go now, and the app is kept awake until they are answered: a suspended app would lose them.
+    /// Held answers go now, and the app is kept awake until they and those already going are answered: a suspended app would lose them.
     private func sendHeldInBackground() async {
-        guard !life.held.isEmpty else { return }
+        guard life.hasAnswersUnderWay else { return }
         let app = UIApplication.shared
         let awake = Awake()
         awake.id = app.beginBackgroundTask(withName: "held answers") { awake.end() }
@@ -111,17 +111,16 @@ struct RootView: View {
         presented.dismiss(animated: true, completion: then)
     }
 
-    /// Closes any sheet first, as Mail and Messages do, so what opens is in view whatever sheet was showing: the Inbox,
-    /// at the push's card.
+    /// The Inbox, at the push's card, set at once; any sheet over it closes meanwhile, as Mail and Messages do, so what
+    /// opens is in view without waiting for the sheet to go.
     private func open(_ route: NotificationRoute) {
-        dismissSheet {
-            router.tab = .inbox
-            switch route {
-            case .card(let pushId): Task { await life.open(pushId: pushId) }
-            case .inbox: Task { await life.refreshInbox() }
-            case .removed: break  // A background push: never shown, never tapped.
-            }
+        switch route {
+        case .card(let pushId, let card, let kept): Task { await life.open(pushId: pushId, card: card, life: kept) }
+        case .inbox: Task { await life.refreshInbox() }
+        case .removed: return  // A background push: never shown, never tapped.
         }
+        router.tab = .inbox
+        dismissSheet {}
     }
 }
 

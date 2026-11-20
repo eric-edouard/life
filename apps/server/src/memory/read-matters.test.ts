@@ -175,22 +175,18 @@ test("read_matters lists the open matters, of one project when asked; read_matte
       "shop-fit-out",
     ]);
     expect(await readMatterProjectIds(["matter_zzzzzzzzzzzz"])).toEqual([]);
-    // Host's agents on it and its active agent, given the matter's steps.
+    // Host's agents on it, given the matter's steps.
     expect(
       (
-        await oneMatter(["matter_aaaaaaaaaaaa"], (refs, projects) =>
-          refs.includes("obs_000000000005") && projects.includes("shop-fit-out")
-            ? [{ id: "agt_000000000001" }]
-            : []
+        await oneMatter(["matter_aaaaaaaaaaaa"], (refs) =>
+          refs.includes("obs_000000000005") ? [{ id: "agt_000000000001" }] : []
         )
       )?.agents
     ).toEqual([{ id: "agt_000000000001" }]);
     expect(
       (
-        await openMatters({}, (refs, projects) =>
-          refs.includes("ep_000000000001") || projects.includes("shop-fit-out")
-            ? "agt_000000000001"
-            : undefined
+        await openMatters({}, (refs) =>
+          refs.includes("ep_000000000001") ? "agt_000000000001" : undefined
         )
       ).matters[0]?.agent
     ).toBe("agt_000000000001");
@@ -317,6 +313,7 @@ const matterOf = (id: string, over: Partial<HandOutMatter> = {}) =>
     ...over,
   }) as unknown as HandOutMatter;
 const open: HandOutFacts = {
+  agentFor: () => "agt_000000000001",
   decisions: [],
   dismissed: new Set(),
   isDue: () => false,
@@ -331,7 +328,7 @@ test("a matter that passes every gate has none", () => {
   expect(gate({})).toBeNull();
 });
 
-test("each gate names itself, in order: not_do, project_parked, direction_due, dismissed, held, not_his", () => {
+test("each gate names itself, in order: not_do, project_parked, direction_due, dismissed, held, not_his, no_agent", () => {
   const all = {
     dismissed: new Set(["m1"]),
     isDue: () => true,
@@ -354,7 +351,10 @@ test("each gate names itself, in order: not_do, project_parked, direction_due, d
       isParked: () => false,
     })
   ).toBe("held");
-  expect(gate({ isHis: () => false })).toBe("not_his");
+  expect(gate({ agentFor: () => undefined, isHis: () => false })).toBe(
+    "not_his"
+  );
+  expect(gate({ agentFor: () => undefined })).toBe("no_agent");
   // An open decision on one of its steps makes its next step his decision: not to do.
   expect(gate({ decisions: [{ question: "Which?", subject: "obs_m1" }] })).toBe(
     "not_do"

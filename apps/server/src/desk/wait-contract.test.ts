@@ -391,16 +391,18 @@ test("W16: a wake into a session that is gone starts a fresh one from the packet
   const { desk, fake, waiting } = setup();
   const id = await waiting();
   const old = agentOf(desk.db, id);
+  expect(fake.said.at(-1)?.title).toBe("Agent: Test brief: follow up with Ana");
   fake.sessions.delete(old?.session ?? "");
   writeNotes(desk, on(desk, id), "Test notes: Ana may answer Friday");
+  desk.db.run("update agent set name = 'Ana' where id = ?", [id]);
   advance(HOUR);
   await wakeDue(desk);
   const now = agentOf(desk.db, id);
   expect(now?.session).not.toBe(old?.session);
   expect(fake.said.at(-1)?.message).toContain("Test brief");
   expect(fake.said.at(-1)?.message).toContain("Ana may answer Friday");
-  // The fresh session carries the agent's title, the brief's first line, as the first one did.
-  expect(fake.said.at(-1)?.title).toBe("Test brief: follow up with Ana");
+  // A session's title is "Agent: " and the name he gave it, else its brief's first line (the first session's, above).
+  expect(fake.said.at(-1)?.title).toBe("Agent: Ana");
   expect(
     desk.db
       .query(

@@ -51,10 +51,16 @@ struct CheckCard: View {
                     tile(scrolls: true)
                     matterRow
                     Spacer(minLength: 0)
-                    if let page {
-                        PagerDots(current: page.current, total: page.total).frame(
-                            maxWidth: .infinity, alignment: .trailing)
+                    // While a tapped push is checked, how many asks wait is not known yet: the spinner, then the dots.
+                    Group {
+                        if life.isCheckingPush {
+                            Spinner(size: .small).foregroundStyle(Palette.fg)
+                        } else if let page {
+                            PagerDots(current: page.current, total: page.total)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .motion(Motion.standard, value: life.isCheckingPush)
                     actions
                 }
                 .padding(.horizontal, Metrics.Spacing.s).padding(.top, Metrics.Spacing.m)

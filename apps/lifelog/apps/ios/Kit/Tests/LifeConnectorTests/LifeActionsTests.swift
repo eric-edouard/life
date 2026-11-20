@@ -4,6 +4,8 @@ import Testing
 
 @testable import LifeConnector
 
+let lifeA = testURL("https://life-a.example.test")
+
 /// A Life whose answers a test scripts; progress messages are given as the real stream gives them.
 final class FakeLife: LifeAPI, @unchecked Sendable {
     var answers: [@Sendable (@Sendable (Data) -> Void) throws -> String] = []
@@ -19,7 +21,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     var picturesHeld: @Sendable () async -> Void = {}
 
     func readInbox() async throws -> String { "{}" }
-    func readInbox(pushId: String) async throws -> String { "{}" }
+    func readInbox(pushId: String, at origin: URL?) async throws -> String { "{}" }
     func readMatters() async throws -> String { "{}" }
     func readMatters(project: String) async throws -> String { "{}" }
     func readMatter(_ id: String) async throws -> String { matter }
@@ -31,9 +33,9 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
         return try wireText("life/read_person_pictures.json")
     }
 
-    func answerCheck(_ answer: AnswerRequest, answerKey: String, onProgress: @escaping @Sendable (Data) -> Void)
-        async throws -> String
-    {
+    func answerCheck(
+        _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String {
         keys.withLock { $0.append(answerKey) }
         return try answers.removeFirst()(onProgress)
     }
@@ -87,7 +89,9 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
             return sent
         }
     ]
-    let state = await run { await LifeActions(api: life, now: { at }).answer(request, key: "tap-1", emit: $0) }
+    let state = await run {
+        await LifeActions(api: life, now: { at }).answer(request, key: "tap-1", at: lifeA, emit: $0)
+    }
     guard case .succeeded(.answered(let result), let steps) = state else {
         Issue.record("\(state)")
         return
@@ -101,7 +105,7 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     let life = FakeLife()
     let text = try wireText("life/answer_check_not_sent.json")
     life.answers = [{ _ in text }]
-    let state = await run { await LifeActions(api: life).answer(request, key: "tap-1", emit: $0) }
+    let state = await run { await LifeActions(api: life).answer(request, key: "tap-1", at: lifeA, emit: $0) }
     guard case .failed(let failure, _) = state else {
         Issue.record("\(state)")
         return
@@ -119,7 +123,7 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
         of: #""wrote": null"#,
         with: #""wrote": {"at": "2026-11-18T09:52:00.000Z", "by": "Kit Moreau", "text": "Can you post it instead?"}"#)
     life.answers = [{ _ in text }]
-    let state = await run { await LifeActions(api: life).answer(request, key: "tap-1", emit: $0) }
+    let state = await run { await LifeActions(api: life).answer(request, key: "tap-1", at: lifeA, emit: $0) }
     guard case .failed(let failure, _) = state else {
         Issue.record("\(state)")
         return
@@ -133,7 +137,7 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     let text = try wireText("life/answer_check_sent.json")
         .replacingOccurrences(of: #""state": "sent""#, with: #""state": "may_have_gone""#)
     life.answers = [{ _ in text }]
-    let state = await run { await LifeActions(api: life).answer(request, key: "k", emit: $0) }
+    let state = await run { await LifeActions(api: life).answer(request, key: "k", at: lifeA, emit: $0) }
     guard case .failed(let failure, _) = state else {
         Issue.record("\(state)")
         return
@@ -147,7 +151,7 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     let text = try wireText("life/answer_check_sent.json")
         .replacingOccurrences(of: #""state": "sent""#, with: #""state": "a_new_state""#)
     life.answers = [{ _ in text }]
-    let state = await run { await LifeActions(api: life).answer(request, key: "k", emit: $0) }
+    let state = await run { await LifeActions(api: life).answer(request, key: "k", at: lifeA, emit: $0) }
     guard case .failed(let failure, _) = state else {
         Issue.record("\(state)")
         return
@@ -160,7 +164,7 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     let sent = try wireText("life/answer_check_sent.json")
     life.answers = [{ _ in throw MCPError.streamDropped }, { _ in throw MCPError.unreachable }, { _ in sent }]
     let state = await run {
-        await LifeActions(api: life, pause: noPause).answer(request, key: "tap-9", emit: $0)
+        await LifeActions(api: life, pause: noPause).answer(request, key: "tap-9", at: lifeA, emit: $0)
     }
     guard case .succeeded(.answered, _) = state else {
         Issue.record("\(state)")
@@ -174,7 +178,9 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     let life = FakeLife()
     let sent = try wireText("life/answer_check_sent.json")
     life.answers = [{ _ in throw MCPError.streamDropped }, { _ in sent }]
-    let state = await run { await LifeActions(api: life, pause: noPause).answer(request, key: "tap-1", emit: $0) }
+    let state = await run {
+        await LifeActions(api: life, pause: noPause).answer(request, key: "tap-1", at: lifeA, emit: $0)
+    }
     guard case .succeeded(.answered(let result), _) = state else {
         Issue.record("\(state)")
         return
@@ -186,7 +192,9 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     let life = FakeLife()
     let sent = try wireText("life/answer_check_sent.json")
     life.answers = [{ _ in throw MCPError.streamDropped }, { _ in sent }]
-    let state = await run { await LifeActions(api: life, pause: noPause).answer(request, key: "tap-5", emit: $0) }
+    let state = await run {
+        await LifeActions(api: life, pause: noPause).answer(request, key: "tap-5", at: lifeA, emit: $0)
+    }
     let retry = state.steps.first { $0.id == "connection_retry" }
     #expect(retry?.passedAt != nil)
     #expect(retry?.detail["try"] == "2")
@@ -217,7 +225,9 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
 @Test func aMacThatStaysUnreachableFailsAsTheSameTapToTryAgain() async {
     let life = FakeLife()
     life.answers = Array(repeating: { _ in throw MCPError.unreachable }, count: 3)
-    let state = await run { await LifeActions(api: life, pause: noPause).answer(request, key: "k", emit: $0) }
+    let state = await run {
+        await LifeActions(api: life, pause: noPause).answer(request, key: "k", at: lifeA, emit: $0)
+    }
     guard case .failed(let failure, _) = state else {
         Issue.record("\(state)")
         return
@@ -230,7 +240,9 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
 @Test func whatLifeRefusesIsFinalAndNotRepeated() async {
     let life = FakeLife()
     life.answers = [{ _ in throw MCPError.refused("Not done: no open check dec_x.") }]
-    let state = await run { await LifeActions(api: life, pause: noPause).answer(request, key: "k", emit: $0) }
+    let state = await run {
+        await LifeActions(api: life, pause: noPause).answer(request, key: "k", at: lifeA, emit: $0)
+    }
     guard case .failed(let failure, _) = state else {
         Issue.record("\(state)")
         return
@@ -399,13 +411,13 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
         """#
     life.answers = [{ _ in started }, { _ in refused }]
     let actions = LifeActions(api: life, now: { at })
-    let first = await run { await actions.answer(found, key: "tap-1", emit: $0) }
+    let first = await run { await actions.answer(found, key: "tap-1", at: lifeA, emit: $0) }
     guard case .succeeded(.answered(let result), _) = first else {
         Issue.record("\(first)")
         return
     }
     #expect(result.start?.state == .started)
-    let second = await run { await actions.answer(found, key: "tap-2", emit: $0) }
+    let second = await run { await actions.answer(found, key: "tap-2", at: lifeA, emit: $0) }
     guard case .failed(let failure, _) = second else {
         Issue.record("\(second)")
         return
@@ -433,7 +445,8 @@ private func answered(_ reply: @escaping @Sendable () -> Reply) async -> (Int, A
     let life = LifeSession(
         store: MemoryStore(credentials(host: host)), oauth: LifeOAuth(session: session, now: { epoch }), now: { epoch })
     let api = MCPLifeAPI(client: MCPClient(session: life, urlSession: session))
-    let state = await run { await LifeActions(api: api, pause: noPause).answer(request, key: "tap-1", emit: $0) }
+    let actions = LifeActions(api: api, pause: noPause)
+    let state = await run { await actions.answer(request, key: "tap-1", at: testURL("https://\(host)"), emit: $0) }
     return (calls.withLock { $0 }, state)
 }
 
@@ -456,4 +469,39 @@ private func answered(_ reply: @escaping @Sendable () -> Reply) async -> (Int, A
     #expect(calls == 1)
     guard case .failed(let failure, _) = state else { Issue.record("not failed"); return }
     #expect(failure.kind == "offline" && !failure.mayHaveHappened)
+}
+
+/// Life A on `a`, which drops every call after re-pairing the phone with Life B on `b`, as a pairing done while an
+/// answer was on its way; `b` records whether anything reached it.
+private func repairedDuringTheCall() -> (actions: LifeActions, a: URL, reachedB: @Sendable () -> Bool) {
+    let (a, b) = (newHost(), newHost())
+    let store = MemoryStore(credentials(host: a))
+    let reached = Mutex(false)
+    _ = Stub.session(host: b) { _ in
+        reached.withLock { $0 = true }
+        return .json(resultMessage(#"{"ref":"name:alex"}"#))
+    }
+    let session = Stub.session(host: a) { _ in
+        store.save(credentials(host: b, access: "access-b"))
+        return .stream(failure: .networkConnectionLost)
+    }
+    let life = LifeSession(store: store, oauth: LifeOAuth(session: session, now: { epoch }), now: { epoch })
+    let api = MCPLifeAPI(client: MCPClient(session: life, urlSession: session))
+    return (LifeActions(api: api, pause: { _ in }), testURL("https://\(a)"), { reached.withLock { $0 } })
+}
+
+/// An answer decided for Life A, its connection dropped while the phone was paired with Life B: its repeats go to A or
+/// nowhere, a one-tap answer and a draft's Send alike, and it ends refused, never sent to B.
+@Test(arguments: [["dismiss"], ["send"]]) func aRepeatAfterARepairingNeverReachesTheNewLife(options: [String]) async {
+    let (actions, a, reachedB) = repairedDuringTheCall()
+    let state = await run {
+        await actions.answer(AnswerRequest(ref: "name:alex", options: options), key: "tap-1", at: a, emit: $0)
+    }
+    // It was repeated, and the repeat was refused before leaving the phone.
+    #expect(state.steps.contains { $0.id == "connection_retry" })
+    #expect(!reachedB())
+    guard case .failed = state else {
+        Issue.record("expected a refusal, got \(state)")
+        return
+    }
 }

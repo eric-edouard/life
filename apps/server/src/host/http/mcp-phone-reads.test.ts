@@ -3,14 +3,15 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setSettings } from "../../core/settings";
 import { nameGroupsOf } from "../../memory/check-sentences";
-import { urgencyOf } from "../../memory/check-urgency";
 import type { CheckInputs } from "../../memory/checks";
 import { nameRow } from "../../memory/checks-test-inputs";
+import { isSealed, type MisreadShown } from "../../memory/complaint-checks";
 import {
   networkIdentityOf,
   withNetworkIdentity,
 } from "../../memory/network-identity";
 import { PERSON_PICTURES, partyOf, pictureFileOf } from "../../memory/party";
+import { Misread } from "../complaints";
 import type { WakeLine } from "../registered-agents";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
@@ -220,7 +221,6 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       closedAt: null,
       openedBy: "owner",
       outcome: null,
-      project: null,
       status: "active",
       step: "obs_000000000005",
       whyNotStarted: null,
@@ -228,7 +228,6 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   ],
   isDirectionDue: () => false,
   isForHandOut: () => false,
-  isHandOutOn: false,
   isParked: () => false,
   kept: new Set(lines.map((l) => l.id)),
   lines,
@@ -529,16 +528,18 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
   const spies = [
     // Every kind of check, as Life's own builders make them over made-up records (`checksOf`), never by hand.
     spyOn(checks, "checksAndKeyNow").mockResolvedValue({
-      checks: checks.checksOf(madeUpInbox).map((c) => ({
-        // Kit's guess, as its newest WhatsApp chat shows it (`networkIdentityOf` over a made-up chat-day).
-        ...withNetworkIdentity(c, kitOnWhatsapp, {
-          nameOf: () => "Dana",
-          partyOf: madeUpPartyOf,
-          resolve: madeUpBase.people.resolve,
-        }),
-        pushId: checks.pushIdOf(c.ref, "0".repeat(64)),
-        urgency: urgencyOf(c),
-      })),
+      // As the inbox shows them (`inboxChecksOf`: push ids, urgency, the "Wrong…" sealed), under a made-up key.
+      checks: checks.inboxChecksOf(
+        checks.checksOf(madeUpInbox).map((c) =>
+          // Kit's guess, as its newest WhatsApp chat shows it (`networkIdentityOf` over a made-up chat-day).
+          withNetworkIdentity(c, kitOnWhatsapp, {
+            nameOf: () => "Dana",
+            partyOf: madeUpPartyOf,
+            resolve: madeUpBase.people.resolve,
+          })
+        ),
+        "0".repeat(64)
+      ),
       key: "the phone's reads",
     }),
     spyOn(who, "readPeople").mockResolvedValue({
@@ -674,6 +675,23 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       name: "Kit",
       network: "WhatsApp",
     });
+    // Each "Wrong…" as the phone reads it is one Life sealed: sent back with his tick, the server takes it; a nested
+    // confirm's is its twin's at the top, so a press on either is the same press.
+    const asSent = (ref: unknown, m: unknown) =>
+      isSealed(String(ref), m as MisreadShown, "0".repeat(64)) &&
+      Misread.safeParse({ ...(m as object), kind: "misread", report: false })
+        .success;
+    const ownCards = shown.filter((c) => c.misread);
+    expect(ownCards.length).toBeGreaterThan(0);
+    expect(ownCards.every((c) => asSent(c.ref, c.misread))).toBe(true);
+    const nested = shown.flatMap(
+      (c) => c.confirm as { misread: unknown; ref: string }[]
+    );
+    expect(nested.length).toBeGreaterThan(0);
+    for (const x of nested) {
+      expect(asSent(x.ref, x.misread)).toBe(true);
+      expect(x.misread).toEqual(shown.find((c) => c.ref === x.ref)?.misread);
+    }
     const matters = await read("read_matters");
     expectWire("read_matters", matters);
     const rows: { icon?: object; name: string }[] = JSON.parse(matters).matters;

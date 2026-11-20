@@ -4,7 +4,7 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 # (tests on temp repos included) at this repo: git.test.ts's `git init` once set core.bare=true. The check gets a plain
 # shell's environment.
 unset $(git rev-parse --local-env-vars)
-if ! bun run check; then
+if ! bun run check --unless-passed; then
   echo "Push blocked: bun run check failed."
   exit 1
 fi
