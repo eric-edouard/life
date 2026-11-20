@@ -6,6 +6,7 @@ import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
 import { settings } from "../core/settings";
+import { ownerNamesOf, readArrivals } from "../memory/arrival-reader";
 import { withdrawDraftsAnsweredInChat } from "../memory/decisions";
 import { gather } from "../memory/gather";
 import {
@@ -335,13 +336,15 @@ async function syncToday() {
   syncing = true;
   try {
     const day = dayNow();
-    const evidence = await gather({ from: day, to: day }, await readPeople(), {
+    const people = await readPeople();
+    const evidence = await gather({ from: day, to: day }, people, {
       files: false,
       log: quietly,
       voice: false,
     });
     await locked(async () => reindexFor(await publishTodayUnits(evidence)));
     startFileDescriptions(evidence.fileEvents);
+    startArrivalReader(evidence, people);
   } finally {
     syncing = false;
   }
@@ -363,6 +366,28 @@ export function startFileDescriptions(events: SourceEvent[]) {
     )
     .finally(() => {
       describingFiles = false;
+    });
+}
+
+let readingArrivals = false;
+/**
+ * Starts the arrival reader on today's units, un-awaited (Apple's calls take seconds each): one pass at a time. A
+ * failure is logged and stops nothing; the night reads every unit as it does today.
+ */
+function startArrivalReader(
+  evidence: Awaited<ReturnType<typeof gather>>,
+  people: Awaited<ReturnType<typeof readPeople>>
+) {
+  if (readingArrivals) {
+    return;
+  }
+  readingArrivals = true;
+  readArrivals(evidence, people, ownerNamesOf(people.truth))
+    .catch((e: Error) =>
+      log("run.error", { error: e.message, step: "watch.arrivals" })
+    )
+    .finally(() => {
+      readingArrivals = false;
     });
 }
 
