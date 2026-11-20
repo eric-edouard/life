@@ -1,6 +1,5 @@
 import { join } from "node:path";
 import { clock, daysBefore } from "../core/clock";
-import { readConfirmedArrivals } from "./read-replies";
 import { appendJsonl } from "../core/files";
 import { packed } from "../core/lists";
 import { isPromptVersion } from "../models/prompt-parts";
@@ -34,6 +33,7 @@ import {
 } from "./memory-files";
 import { involvedOf, refContext } from "./model-context";
 import { parseObservations, type Reject, type Source } from "./quote-check";
+import { readConfirmedArrivals } from "./read-replies";
 import { othersIn } from "./read-truth";
 import { begin, inBatches, readsOf } from "./run";
 import { isWithPeople, kindOf } from "./sources";

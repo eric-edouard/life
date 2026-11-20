@@ -16,7 +16,11 @@ exit 3
 );
 chmodSync(helper, 0o755);
 
-const ask = { fields: [{ description: "who", name: "author" }], instructions: "Read it.", text: "Ann: hi?" };
+const ask = {
+  fields: [{ description: "who", name: "author" }],
+  instructions: "Read it.",
+  text: "Ann: hi?",
+};
 
 test("answers each request in order: a reply with its OS, a refusal, and unavailable once the helper is gone", async () => {
   const [a, b, c] = await askFoundationModel([ask, ask, ask], helper);
