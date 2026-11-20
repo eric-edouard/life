@@ -602,6 +602,7 @@ export async function askOnce(opts: {
       ms: ms(),
       ok: false,
     });
-    throw e;
+    // Marked, so every catch above logs it by its type too (a thrown string becomes such an error).
+    throw fromModel(e);
   }
 }

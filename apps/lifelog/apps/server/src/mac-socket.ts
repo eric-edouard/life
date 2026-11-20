@@ -324,6 +324,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
       id: message.id,
       model,
       ms,
+      ok: false,
       reason: reply.reason,
     });
     if (reply.reason === "auth" || reply.reason === "limit") {

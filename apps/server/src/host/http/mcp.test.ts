@@ -299,15 +299,16 @@ test("a refused token, invalid arguments and the SDK's own rejections are logged
   expect(
     await last(await token({ sub: "someone-else" }), "tools/list")
   ).toMatchObject({ ...asker, refused: "forbidden" });
-  expect((await last(await token({}, -60), "tools/list")).refused).toContain(
-    "exp"
+  // A refusal is logged by its class, never its reason's words.
+  expect((await last(await token({}, -60), "tools/list")).refused).toBe(
+    "invalid"
   );
   const before = logged().length;
   await rpc(null, "tools/list");
   expect(logged()).toHaveLength(before);
   // A 2026-07-28 call missing its Mcp-Name header is refused by the SDK before any tool.
   await modern("tools/call", { arguments: {}, name: "read_observation" });
-  expect(logged().at(-1)?.refused).toContain("name-header-missing");
+  expect(logged().at(-1)?.refused).toBe("rejected");
 });
 
 test("a streamed request (subscriptions/listen) answers at once: nothing waits on its stream", async () => {

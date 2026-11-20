@@ -517,7 +517,7 @@ async function launch(
       ok: false,
       what: "wake",
     });
-    await turnEnded(desk, a.id, { ok: false, why: (error as Error).message });
+    await turnEnded(desk, a.id, { ok: false, why: errorOf(error).error });
   }
 }
 
