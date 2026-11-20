@@ -47,7 +47,7 @@ type Planned =
   | (Appointment & { agreed?: { link: string | null; unit?: string } })
   | ArrivalAppointment;
 const isArrival = (a: Planned): a is ArrivalAppointment => "messages" in a;
-/** Whether he agreed it in new lines, and its meeting link: kept on its event too (`lifeAgreed`, `lifeLink`), past the window the arrival is read in. */
+/** Whether he agreed it in new lines, and its meeting link: kept on its event too (`lifeAgreed`, `lifeLink`, `lifeUnit`), past the window the arrival is read in. */
 const agreedOf = (a: Planned) =>
   isArrival(a) ? { link: a.link, unit: a.unit } : a.agreed;
 
@@ -179,17 +179,19 @@ const isAhead = (a: Planned, now: Date) => {
 export function plannedOf(
   night: readonly Appointment[],
   arrivals: readonly ArrivalAppointment[],
-  agreedOn: ReadonlyMap<string, { link: string | null }>,
+  agreedOn: ReadonlyMap<string, { link: string | null; unit?: string }>,
   hasEvent: (id: string) => boolean,
   now: Date
 ): Planned[] {
   const ahead = arrivals.filter((a) => isAhead(a, now));
-  const joined = new Set<string>();
+  // One to one: an arrival joins one night's appointment at most, its own id's first, then one of its start.
+  const joined = new Set(
+    night.flatMap((n) => (ahead.some((x) => x.id === n.id) ? [n.id] : []))
+  );
   const nights = night.map((n) => {
-    // One to one: an arrival joins one night's appointment at most.
-    const free = ahead.filter((x) => !joined.has(x.id));
     const a =
-      free.find((x) => x.id === n.id) ?? free.find((x) => x.start === n.start);
+      ahead.find((x) => x.id === n.id) ??
+      ahead.find((x) => x.start === n.start && !joined.has(x.id));
     if (!a) {
       const agreed = agreedOn.get(n.id);
       return agreed ? { ...n, agreed } : n;
@@ -260,7 +262,15 @@ async function sync(now: Date) {
   const agreedOn = new Map(
     listed.flatMap((e) =>
       e.props.lifeAgreed === "yes"
-        ? [[e.props.lifeAppointment ?? "", { link: e.props.lifeLink ?? null }]]
+        ? [
+            [
+              e.props.lifeAppointment ?? "",
+              {
+                link: e.props.lifeLink ?? null,
+                ...(e.props.lifeUnit ? { unit: e.props.lifeUnit } : {}),
+              },
+            ],
+          ]
         : []
     )
   );
@@ -297,6 +307,7 @@ async function sync(now: Date) {
     ...(d.isConfirmed ? { lifeConfirmed: "yes" } : {}),
     ...(d.agreed ? { lifeAgreed: "yes" } : {}),
     ...(d.agreed?.link ? { lifeLink: d.agreed.link } : {}),
+    ...(d.agreed?.unit ? { lifeUnit: d.agreed.unit } : {}),
   });
   for (const e of remove) {
     // Recorded first: a crash before the delete leaves an event the next tick removes again, never a false refusal.

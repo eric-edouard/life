@@ -319,6 +319,21 @@ test("one draft per meeting: the night's and the arrival's of one start are one,
     NOW
   );
   expect(held.map((a) => a.id)).toEqual(["apt_000000000011"]);
+  // Its own id's night first: a second night of the same start never takes it.
+  const two = plannedOf(
+    [
+      night[0] as Appointment,
+      { ...(night[0] as Appointment), id: "apt_0000000000aa" },
+    ],
+    arrivals,
+    new Map(),
+    () => true,
+    NOW
+  );
+  expect(two.map((a) => [a.id, "agreed" in a && Boolean(a.agreed)])).toEqual([
+    ["apt_000000000011", false],
+    ["apt_0000000000aa", true],
+  ]);
   // Past the arrival's window, its event's mark keeps it agreed, link and all.
   const [kept = night[0] as Appointment] = plannedOf(
     night,
@@ -371,15 +386,12 @@ test("the night's reading of an arrival's meeting keeps its event, busy, with it
   );
   expect(updates.at(-1)?.description).toContain("Agreed in unit_0000000000aa");
   rmSync(APPOINTMENTS, { force: true });
-  // The first reply out of the window, a second of the same start in it: the same id, no second event.
-  agreed("2031-06-01 10:00", ["whatsapp|m5"], LATER_AT);
-  const later = new Date("2031-04-15T09:00:00Z");
-  await syncAppointments(later);
-  expect([...events.keys()]).toEqual([event ?? ""]);
-  // Deleted by him: never written again, whichever reply is read.
+  // Deleted by him while the first reply is read; then that reply out of the window, a second of the same start in
+  // it: the same id, never written again.
   events.clear();
-  await syncAppointments(later);
-  await syncAppointments(later);
+  await syncAppointments(NOW);
+  agreed("2031-06-01 10:00", ["whatsapp|m5"], LATER_AT);
+  await syncAppointments(new Date("2031-04-15T09:00:00Z"));
   expect(events.size).toBe(0);
   expect(
     readAppointmentEvents().byAppointment.get(
