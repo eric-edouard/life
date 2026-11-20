@@ -609,7 +609,7 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
   const matterOf = matterFinderOf(inputs.matters);
   const byId = new Map(inputs.matters.map((m) => [m.id, m]));
-  const shownOf = (m?: MatterId): CheckMatter | undefined =>
+  const cardMatterOf = (m?: MatterId): CheckMatter | undefined =>
     m && { id: m.id, important: m.important || undefined, name: m.name };
   const found = inboxOrderOf(
     Object.values(BUILDERS)
@@ -619,9 +619,9 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
         return {
           ...check,
           day,
-          matter: shownOf(m) ?? null,
+          matter: cardMatterOf(m) ?? null,
           onMatters: check.ridesOn.matterIds.flatMap(
-            (id) => shownOf(byId.get(id)) ?? []
+            (id) => cardMatterOf(byId.get(id)) ?? []
           ),
         };
       })

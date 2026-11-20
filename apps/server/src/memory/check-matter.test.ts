@@ -32,12 +32,13 @@ test("a card's matter carries his important mark, in `matter` and `onMatters`; a
   });
   const byRef = new Map(checksOf(base).map((c) => [c.ref, c]));
   const card = byRef.get(marked.id);
-  expect(card?.matter).toEqual({
+  const shown = {
     id: "matter_aaaaaaaaaaaa",
     important: true,
     name: "Matter a",
-  });
-  expect(card?.onMatters).toEqual([card?.matter]);
+  };
+  expect(card?.matter).toEqual(shown);
+  expect(card?.onMatters).toEqual([shown]);
   const other = byRef.get(plain.id);
   // On the wire (JSON) an unmarked matter has no `important` key at all.
   expect(JSON.parse(JSON.stringify(other?.matter))).toEqual({
