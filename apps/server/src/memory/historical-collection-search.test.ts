@@ -446,3 +446,25 @@ test("who: a LINE room her name titles where she and a stranger both wrote is no
     rmSync(INDEX, { force: true });
   }
 });
+
+test("who: a name no one is known by but a chat's title finds that chat, as `chat` reads it, no other", async () => {
+  const at = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+  const all = [
+    lineSaid("c1", at(5), "!room-garden", "Zed Moss", "Garden Club"),
+    lineSaid("c2", at(4), "!room-garden", "me", "Garden Club"),
+    lineSaid("c3", at(3), "!room-chess", "Zed Moss", "Chess"),
+  ];
+  try {
+    await indexedFrom(all);
+    const found = messagesIn(
+      await chatsOf({ who: "garden club" }, { line: sourceOver(all) })
+    );
+    expect(found.map((l) => l.slice(l.lastIndexOf("[")))).toEqual([
+      "[id c1]",
+      "[id c2]",
+    ]);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});

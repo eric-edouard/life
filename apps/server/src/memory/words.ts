@@ -29,7 +29,9 @@ import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
 import {
   chatHeldOf,
+  eventsOfChats,
   isWithThemAlone,
+  readChatsTitled,
   readPersonUnitFiles,
 } from "./person-units";
 import type { SourceLine } from "./quote-check";
@@ -620,7 +622,7 @@ export async function mailHits(
  * messages inside the range, deleted ones included (marked deleted), today included. `--chat`: that chat, from
  * WhatsApp's and the bridges' archives and iMessage, 7 days without `from`. `--who`: a person (as `read_people_and_organizations` reads a name,
  * `meant`) or a handle no one is known by: their one-to-one chats and what they wrote in groups, found through their
- * units in the index (`readPersonUnits`), all history without `from`. `before` (exclusive) pages back: each answer
+ * units in the index (`readPersonUnits`), all history without `from`; a `--who` no one is known by that titles chats (`readChatsTitled`) reads those chats as `--chat` does. `before` (exclusive) pages back: each answer
  * names the next one.
  */
 export async function chatsOf(
@@ -644,12 +646,14 @@ export async function chatsOf(
   }
   const known = o.who ? meant(o.who, people).known : undefined;
   const ref = known ? `person:${known}` : `${UNKNOWN}${o.who}`;
-  const { end, events, failed, start } = o.who
+  const titled = readChatsTitled(o.who, known);
+  const person = o.who && titled.length === 0;
+  const { end, events, failed, start } = person
     ? personChats(ref, range, sources, people, o.chat)
     : readChats(range, sources, before ? undefined : 7);
-  const shown = o.chat ? events.filter((e) => e.chat === o.chat) : events;
-  if (o.who && !known && shown.length === 0) {
-    return asData([`(${nameRefusalOf(o.who, people)})`]);
+  const shown = eventsOfChats(events, o.chat, titled);
+  if (person && !known && shown.length === 0) {
+    return asData([`(${nameRefusalOf(o.who as string, people)})`]);
   }
   // Newest first by instant, the edge instant kept whole: `before` names where the next page starts.
   const { next, taken } = newestDays(
@@ -660,10 +664,10 @@ export async function chatsOf(
   );
   const page = taken.toReversed();
   return asData([
-    o.who
+    person
       ? `${o.from ?? "From the first"} to ${localDate(end.toISOString())} (the latest ${PAGE} messages)`
       : `${localDate(start.toISOString())} to ${localDate(end.toISOString())} (the latest ${PAGE} messages)`,
-    ...(o.from || o.who
+    ...(o.from || person
       ? []
       : [
           `(no \`from\`: ${Math.round((end.getTime() - start.getTime()) / DAY)} days; give \`from\` to read further back)`,

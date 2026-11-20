@@ -2,10 +2,10 @@ import type { SourceName } from "../core/names";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import type { Descriptor } from "../sources/contract";
-import { readIndex, readUnitsOf } from "./memory-files";
+import { readIndex, readUnitsFor, readUnitsOf } from "./memory-files";
 import { OWNER } from "./read-truth";
 import { isDirect, kindOf, SOURCES, sourceOf } from "./sources";
-import { oneToOnePersonOf, type Resolve, UNKNOWN } from "./units";
+import { holdsName, oneToOnePersonOf, type Resolve, UNKNOWN } from "./units";
 import type { People } from "./who";
 
 // A person's units, as the index files them: the one way a reader finds what someone said, wrote or was heard in (the
@@ -173,3 +173,42 @@ export const chatUnitsFor = (
     .filter((u) => kindOf(u.source) === "chat" && isWithOnly(u, refs))
     .toSorted((a, b) => b.date.localeCompare(a.date))
     .slice(0, TRIED);
+
+/** How many chats `readChatsTitled` names at most. */
+const TITLED = 5;
+
+/**
+ * The ids of the chats whose title holds `title` as a whole word run (`holdsName`), the newest `TITLED` by their latest
+ * unit: `read_chats` with a `who` no one is known by. One query of the index for the titles, then those units' files.
+ */
+export function readChatsTitled(title: string | undefined, known?: string) {
+  if (!title || known) {
+    return [];
+  }
+  const chatSources = SOURCES.filter((s) => s.kind === "chat").map(
+    (s) => s.name
+  );
+  const ids =
+    readIndex((db) =>
+      db
+        .query<{ id: string; title: string }, [string]>(
+          "select id, title from units where source in (select value from json_each(?)) order by date desc, id"
+        )
+        .all(JSON.stringify(chatSources))
+        .filter((u) => holdsName(u.title, [title]))
+        .map((u) => u.id)
+        .slice(0, 10 * TITLED)
+    ) ?? [];
+  const byId = new Map(readUnitsFor(ids).map((u) => [u.id, u.key]));
+  return [...new Set(ids.flatMap((id) => byId.get(id) ?? []))].slice(0, TITLED);
+}
+
+/** `events` of `chat` alone, else of the `titled` chats; all of them when neither names one. */
+export function eventsOfChats(
+  events: SourceEvent[],
+  chat: string | undefined,
+  titled: string[]
+) {
+  const chats = chat ? [chat] : titled;
+  return chats.length ? events.filter((e) => chats.includes(e.chat)) : events;
+}
