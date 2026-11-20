@@ -120,8 +120,8 @@ function writeNotesFiles(db: Database, agentsRepo: string) {
 }
 
 /**
- * The store's copy before the step, beside it: one per step, dated, published only once whole (written under `.partial`,
- * then renamed), and reused by every later try. `VACUUM INTO` (`copyDb`, as the export copies every store) is one
+ * The store's copy before the step, beside it: one per step, dated, published only once whole (written under one stable
+ * partial name, which an interrupted try leaves for the next to replace, then renamed), and reused by every later try. `VACUUM INTO` (`copyDb`, as the export copies every store) is one
  * consistent read of the store, its WAL included: the same rows as `sqlite3 .backup`, as one file, with no sqlite3
  * program (Windows has none), while the desk's lock keeps any other writer out.
  */
@@ -133,13 +133,14 @@ function backUp(path: string) {
   if (done) {
     return join(dir, done);
   }
+  const partial = join(dir, `${BACKUP}partial`);
   const to = join(
     dir,
     `${BACKUP}${clock().toISOString().replaceAll(":", "-")}.sqlite`
   );
-  rmSync(`${to}.partial`, { force: true });
-  copyDb(path, `${to}.partial`);
-  renameSync(`${to}.partial`, to);
+  rmSync(partial, { force: true });
+  copyDb(path, partial);
+  renameSync(partial, to);
   return to;
 }
 const BACKUP = "desk-before-assignments-";
