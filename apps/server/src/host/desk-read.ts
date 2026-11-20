@@ -491,14 +491,14 @@ const headOf = (s: string) => s.split("\n")[0]?.slice(0, 160) ?? "";
 /** What shows amber for `a` on its assignment `s` (`AgentNow.amber`): nothing unless it is active. */
 function amberOf(
   a: AgentRow,
-  s: AssignmentRow | null,
+  s: AssignmentRow,
   last: TurnRow | undefined,
   open: TurnRow | null,
   dropped: number,
   now: number
 ) {
-  const f = s && flagsOf(s, open, dropped, now);
-  return f && a.status === "active"
+  const f = flagsOf(s, open, dropped, now);
+  return a.status === "active"
     ? [
         ...(f.defaultWait ? ["default wait"] : []),
         ...(f.late ? ["deadline late"] : []),
@@ -530,7 +530,10 @@ function nowOf(
   now: number,
   isForWakes: boolean
 ): AgentRead {
-  const s = currentAssignmentOf(db, a.id) ?? null;
+  const s = currentAssignmentOf(db, a.id);
+  if (!s) {
+    throw new Error(`${a.id} has no assignment`);
+  }
   const last = db
     .query<TurnRow, [string]>(
       "select * from turn where agent_id = ? order by id desc limit 1"
@@ -542,7 +545,7 @@ function nowOf(
       .query<{ n: number }, [string, string]>(
         "select count(*) as n from event where assignment_id = ? and dropped_at >= ?"
       )
-      .get(s?.id ?? "", new Date(now - DAY).toISOString())?.n ?? 0;
+      .get(s.id, new Date(now - DAY).toISOString())?.n ?? 0;
   const amber = amberOf(a, s, last ?? undefined, open, dropped, now);
   const isActive = a.status === "active";
   const waiting = open ? "running" : "waiting";
@@ -550,9 +553,8 @@ function nowOf(
   return {
     amber,
     ...modelOf(a),
-    chatsSeen:
-      s && isForWakes && status === "waiting" ? seenChatsOf(db, s) : {},
-    filters: s ? filtersOf(s) : [],
+    chatsSeen: isForWakes && status === "waiting" ? seenChatsOf(db, s) : {},
+    filters: filtersOf(s),
     id: a.id,
     lastTurn: last
       ? {
@@ -563,17 +565,17 @@ function nowOf(
         }
       : null,
     link: a.link,
-    notes: s ? headOf(readNotes(s)) : "",
-    notStarted: s?.why_not_started ?? null,
+    notes: headOf(readNotes(s)),
+    notStarted: s.why_not_started,
     outcome: a.outcome,
     project: a.project,
     runtime: a.runtime,
     status,
     statusSince: statusSinceOf(a, status, last ?? undefined),
-    steps: s ? anchorsOf(db, s.id) : [],
+    steps: anchorsOf(db, s.id),
     title: headOf(a.brief),
     wait:
-      isActive && s?.wait_until
+      isActive && s.wait_until
         ? {
             isDefault: s.wait_is_default === 1,
             reason: s.wait_reason ?? "",
