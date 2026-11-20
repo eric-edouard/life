@@ -27,11 +27,12 @@ import {
   type PersonRow,
   peopleListOf,
   personNowOf,
+  reachPageOf,
   rowOf,
 } from "./person-now";
 import { readPersonUnits } from "./person-units";
 import { reachOf } from "./reach";
-import { PART_CHARS } from "./read-part";
+import { PART_CHARS, parseReadPartRef } from "./read-part";
 import { person } from "./read-person-page";
 import { OWNER } from "./read-truth";
 import { madeBy, unit as unitFixture } from "./record-fixtures";
@@ -606,6 +607,47 @@ test("reach keeps to its room with long Contacts labels; every account it has no
       reach: org,
     }).reach.flatMap((r) => r.accounts.map((a) => a.handle))
   ).toEqual(mails);
+});
+
+test("an organization's 120 addresses: `now` points to the reach part, and following its next reads gives every one", () => {
+  const mails = Array.from(
+    { length: 120 },
+    (_, n) => `team${n}@bakery.example.test`
+  );
+  const reach = reachOf({
+    cards: [],
+    party: { handles: { email: mails, phone: [], whatsapp: [] } },
+    seen: [],
+  });
+  const now = personNowOf({
+    communicationStyle: [],
+    details: [],
+    episodes: [],
+    knows: [],
+    matters: [],
+    reach,
+    row: row("person:test-bakery"),
+    situation: [],
+    today: "2026-03-10",
+  });
+  expect(now.moreReach).toBe("person:test-bakery/reach");
+  const heard: string[] = [];
+  let skip: number | undefined = 0;
+  while (skip !== undefined) {
+    const page = reachPageOf(reach, skip);
+    expect(JSON.stringify(page).length).toBeLessThanOrEqual(PART_CHARS);
+    heard.push(...page.reach.flatMap((r) => r.accounts.map((a) => a.handle)));
+    skip = page.next;
+  }
+  expect(heard.toSorted()).toEqual(mails.toSorted());
+  expect(parseReadPartRef("person:test-bakery/reach/18")).toEqual({
+    ref: {
+      before: undefined,
+      part: "reach",
+      span: "18",
+      subject: "person:test-bakery",
+    },
+  });
 });
 
 test("his own situation is checked against the episodes the index holds, by the ids it cites: no episode file is read", async () => {

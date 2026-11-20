@@ -112,6 +112,29 @@ function reachWithin(all: Reach[]) {
   return { left, reach };
 }
 
+/**
+ * The `reach` part's page: every account from the `skip`th on (apps in order, each app's accounts newest first), as many
+ * as fit `PART_CHARS` (at least one), and how many to skip for the next page, none on the last. Pure.
+ */
+export function reachPageOf(all: Reach[], skip: number) {
+  const flat = all.flatMap((r, app) =>
+    r.accounts.map((account) => ({ account, app }))
+  );
+  // Room for what wraps the page: the apps' labels and the next ref.
+  const page = within(
+    flat.slice(skip),
+    PART_CHARS - 500,
+    (x) => JSON.stringify(x.account).length + 1
+  );
+  const taken = page.length > 0 ? page : flat.slice(skip, skip + 1);
+  const reach = [...Map.groupBy(taken, (x) => x.app)].map(([app, list]) => ({
+    ...(all[app] as Reach),
+    accounts: list.map((x) => x.account),
+  }));
+  const next = skip + taken.length;
+  return { next: next < flat.length ? next : undefined, reach };
+}
+
 /** A part that holds something, as `now` offers it: the ref `fetch` opens and its first sentence. */
 export interface KnownPart {
   first: string;
@@ -197,6 +220,10 @@ export function personNowOf(i: NowInputs, chars = PART_CHARS) {
     knows: i.knows,
     open: i.matters,
     ...(i.organization ?? {}),
+    // Accounts reach had no room for are in `details`, cut there too: all of them, paged, are the `reach` part.
+    ...(left.length > 0
+      ? { moreReach: readPartRefOf({ part: "reach", subject: i.row.ref }) }
+      : {}),
     reach,
     situation: i.situation,
   };
