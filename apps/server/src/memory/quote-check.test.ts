@@ -105,11 +105,22 @@ test("an observation is about its subjects, folded, plus the names that resolve 
   const obs = [
     {
       id: "obs_1",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:me",
       subjects: ["person:inf_plumber", "project:shop"],
     },
-    { id: "obs_2", speaker: "person:me", subjects: [] },
-    { id: "obs_3", speaker: "unknown:Plombier", subjects: [] },
+    {
+      id: "obs_2",
+      source: { channel: "whatsapp", ref: "m" },
+      speaker: "person:me",
+      subjects: [],
+    },
+    {
+      id: "obs_3",
+      source: { channel: "whatsapp", ref: "m" },
+      speaker: "unknown:Plombier",
+      subjects: [],
+    },
   ] as unknown as Observation[];
   const rows = [
     { nameAsWritten: "Plombier", observation: "obs_2" },
@@ -138,6 +149,7 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
     // Recorded with its handle: the handle is Pops's now, not Gaston's.
     {
       id: "obs_1",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:gaston",
       speakerFrom: "+66600000001",
       subjects: ["person:gaston"],
@@ -147,6 +159,7 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
     // From before `speakerFrom`: a 1:1 chat's handle says who.
     {
       id: "obs_2",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:gaston",
       subjects: [],
       text: "Gaston will call back.",
@@ -155,6 +168,7 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
     // His own fact in that chat follows the move (its author stays him); one whose author did not change stays as is.
     {
       id: "obs_3",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:me",
       subjects: ["person:gaston"],
       text: "Jean paid Gaston.",
@@ -162,6 +176,7 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
     },
     {
       id: "obs_4",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:gaston",
       speakerFrom: "Gaston",
       subjects: [],
@@ -207,6 +222,7 @@ test("a move stays out of a unit where that person still writes as themself, and
     // A family group: one handle is Pops's now, but Gaston also writes there from his own.
     {
       id: "obs_1",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:gaston",
       speakerFrom: "+66600000001",
       subjects: [],
@@ -215,6 +231,7 @@ test("a move stays out of a unit where that person still writes as themself, and
     },
     {
       id: "obs_2",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:gaston",
       speakerFrom: "Gaston",
       subjects: ["person:gaston"],
@@ -224,6 +241,7 @@ test("a move stays out of a unit where that person still writes as themself, and
     // His own address resolving elsewhere moves no one: he stays him everywhere.
     {
       id: "obs_3",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:me",
       speakerFrom: "+66600000001",
       subjects: ["person:me"],
@@ -247,6 +265,7 @@ test("two authors filed as one person who now resolve to two different people: n
   const facts = [
     {
       id: "obs_1",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:gaston",
       speakerFrom: "+66600000001",
       subjects: [],
@@ -255,6 +274,7 @@ test("two authors filed as one person who now resolve to two different people: n
     },
     {
       id: "obs_2",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:gaston",
       speakerFrom: "Decoy",
       subjects: ["person:gaston"],
@@ -263,6 +283,7 @@ test("two authors filed as one person who now resolve to two different people: n
     },
     {
       id: "obs_3",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:me",
       subjects: ["person:gaston"],
       text: "Jean asked Gaston.",
@@ -284,6 +305,7 @@ test("a voice kept by lifelog's id resolves by the name lifelog gave it when the
   const facts = [
     {
       id: "obs_1",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "unknown:Pops",
       speakerFrom: "lifelog-id-the-map-lacks",
       speakerName: "Pops",
@@ -330,12 +352,14 @@ test("a fact whose subjects changed since it was written is marked refiled", () 
   const facts = [
     {
       id: "obs_1",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:me",
       subjects: ["person:inf_plumber"],
       text: "A fact.",
     },
     {
       id: "obs_2",
+      source: { channel: "whatsapp", ref: "m" },
       speaker: "person:me",
       subjects: ["person:gaston"],
       text: "A fact.",

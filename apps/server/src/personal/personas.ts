@@ -498,7 +498,7 @@ export async function personas({ events, failed }: WithPeople) {
   const paged = await pagedNow(people);
   const direct = directChats(events, people.resolve);
   const said = new Map(
-    events.map((e) => [e, speakerOf(kindOf(e.source), e, people.resolve)])
+    events.map((e) => [e, speakerOf(e.source, e, people.resolve)])
   );
   const named = (ref: string) => (ref === OWNER ? "him" : people.nameOf(ref));
   const whoOf = (e: SourceEvent) => named(said.get(e) ?? OWNER);

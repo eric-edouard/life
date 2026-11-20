@@ -6,12 +6,18 @@ import {
   type InferredPerson,
   isSettledGuess,
 } from "../records/observation";
+import { keysOf } from "./name-reading";
 import { slugOf } from "./page-format";
 import { locate } from "./quote-check";
 import { kindOf } from "./sources";
 import { areaOf } from "./tags";
-import { type Built, holdsName, UNKNOWN } from "./units";
-import { keysOf } from "./who";
+import {
+  type Built,
+  type HandleFrom,
+  holdsName,
+  type Resolve,
+  UNKNOWN,
+} from "./units";
 
 // Who the people not in the directory are: what the episodes call is asked about a day, and its answer checked (every quote
 // must be in a unit it read). No disk, network or clock.
@@ -168,13 +174,10 @@ export function oldGuessesIn(
  * Whether a name or handle has its answer and is not asked about: it reads as someone in truth/ (or as his word says), or as an
  * inferred guess judged by the v9 call (`isOrganization` written, `person` null or a ref). An older guess is asked once more.
  */
-export function answeredBy(
-  resolve: (s: string) => string | null,
-  inferred: InferredPerson[]
-) {
+export function answeredBy(resolve: Resolve, inferred: InferredPerson[]) {
   const judged = judgedKeysOf(inferred);
-  return (s: string) => {
-    const ref = resolve(s);
+  return (s: string, from?: HandleFrom) => {
+    const ref = resolve(s, from);
     return (
       ref !== null &&
       (!ref.startsWith(`person:${INFERRED_PREFIX}`) ||
@@ -188,10 +191,13 @@ export function answeredBy(
  * names lifelog gave a voice, as their units keep them (`unknown:`). `known` says which resolve now (truth, his
  * corrections, a confident inferred person).
  */
-export function unknownIn(units: Built[], known: (s: string) => boolean) {
+export function unknownIn(
+  units: Built[],
+  known: (s: string, from?: HandleFrom) => boolean
+) {
   const out = new Map<string, Built[]>();
   const add = (s: string, b: Built) => {
-    if (!(known(s) || VOICE.test(s.trim()))) {
+    if (!(known(s, b.unit.source) || VOICE.test(s.trim()))) {
       out.set(s, [...new Set([...(out.get(s) ?? []), b])]);
     }
   };

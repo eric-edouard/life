@@ -10,6 +10,7 @@ import {
   readContactPictures,
   readContactRecords,
   readContacts,
+  writtenContactKeyOf,
 } from "./contacts";
 
 interface Made {
@@ -73,6 +74,27 @@ test("Contacts keys: a phone by its national digits whatever its country code or
   expect(handleKey("Claire@Example.COM ")).toBe("claire@example.com");
   expect(contactKeyOf("1234")).toBeUndefined();
   expect(contactKeyOf("Claire")).toBeUndefined();
+});
+
+test("a contact key of unknown kind: an address, or a number written with its +; a bare number only where numbers are phones", () => {
+  expect(writtenContactKeyOf("+33 6 11 11 11 11")).toBe("611111111");
+  expect(writtenContactKeyOf("\u202d+33 6 11 11 11 11\u202c")).toBe(
+    "611111111"
+  );
+  expect(writtenContactKeyOf("Claire@Example.COM")).toBe("claire@example.com");
+  for (const id of [
+    "0611111111",
+    "677777777",
+    "17841400677777777",
+    "U3a611111111fe0b",
+    "123456789012@lid",
+    "urn:biz:e1a2f3c4-1d22-4abc-99ca-9c12fb3adddd",
+    "monnum:0611111111",
+  ]) {
+    expect(writtenContactKeyOf(id)).toBeUndefined();
+  }
+  expect(writtenContactKeyOf("06 11 11 11 11", true)).toBe("611111111");
+  expect(writtenContactKeyOf("monnum:0611111111", true)).toBeUndefined();
 });
 
 test("Contacts birthdays: seconds from 2001 at noon UTC, the year kept only when Contacts knows it", () => {

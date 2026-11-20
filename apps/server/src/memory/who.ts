@@ -27,11 +27,12 @@ import {
   readUnresolved,
   shownOf,
 } from "./memory-files";
-import { handlesOf, loadTruth, OWNER } from "./read-truth";
+import { isSameNameOrHandle, type Reading, readingOf } from "./name-reading";
+import { loadTruth, OWNER, phonesAndEmailsOf } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
 import type { Tie } from "./ties";
 import { dayUnitId } from "./unit-ids";
-import { holdsName, nameKey, PERSON, UNKNOWN } from "./units";
+import { type HandleFrom, holdsName, nameKey, PERSON, UNKNOWN } from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people his Contacts name, the people Life inferred and the
 // owner's corrections, in that order of trust under his word. Every reader and step resolves people through here.
@@ -40,76 +41,6 @@ const WHO = /^(person|unknown):/;
 /** A speaker as a reader sees it: the readable name when there is one, else the id without its `person:` prefix. */
 export const who = (x: { speaker: string; speakerName?: string }) =>
   x.speakerName ?? x.speaker.replace(WHO, "");
-
-/** A bridged user as Beeper writes it (`@line__u9:beeper.local`): the network's prefix and Beeper's server around the localpart Life's own bridge keeps (`_u9`). */
-const BEEPER_GHOST = /^@[a-z0-9]+?_(.+):beeper\.local$/;
-
-/** A name or handle's lookup keys: as given, lowercased, normalized; a Beeper ghost id also as its localpart, so both bridges' ids for one user read as one. */
-export const keysOf = (s: string) =>
-  [
-    s.trim(),
-    s.trim().toLowerCase(),
-    nameKey(s),
-    s.trim().match(BEEPER_GHOST)?.[1],
-  ].filter((k): k is string => !!k);
-
-/** Whether two names or handles are one: a key in common, or the same phone or email however written. */
-const isSameNameOrHandle = (a: string, b: string) => {
-  const key = contactKeyOf(a);
-  return (
-    (key !== undefined && key === contactKeyOf(b)) ||
-    keysOf(a).some((k) => keysOf(b).includes(k))
-  );
-};
-
-/** Each name or handle key's inferred person: the latest record at or above INFERRED_USE_AT decides. */
-function guessesOf(inferred: InferredPerson[]) {
-  const guessed = new Map<string, InferredPerson>();
-  for (const r of inferred) {
-    for (const k of r.confidence >= INFERRED_USE_AT
-      ? r.namesAndHandles.flatMap(keysOf)
-      : []) {
-      guessed.set(k, r);
-    }
-  }
-  return guessed;
-}
-
-const PAREN = /\(.*?\)/g;
-
-/** Names and aliases, normalized, to the person; a name two people share maps to nobody. */
-function nameIndex(people: Pick<Person, "aliases" | "id" | "name">[]) {
-  const index = new Map<string, string | null>();
-  for (const p of people) {
-    for (const n of [p.name, ...p.aliases]) {
-      const k = nameKey(n);
-      if (!k) {
-        continue;
-      }
-      index.set(k, index.has(k) && index.get(k) !== p.id ? null : p.id);
-    }
-  }
-  return index;
-}
-
-/**
- * Index of every handle in the directory to the person who owns it: as written, and a phone or an email by its Contacts key
- * too (`contactKeyOf`), so one written another way ("06 11 11 11 11", "+33611111111") still meets.
- */
-const handleIndex = (people: Person[]): Map<string, string> =>
-  new Map(
-    people.flatMap((p) =>
-      handlesOf(p).flatMap((h) => {
-        const key = contactKeyOf(h);
-        return key && key !== h
-          ? [
-              [h, p.id],
-              [key, p.id],
-            ]
-          : [[h, p.id]];
-      })
-    )
-  );
 
 /**
  * The test for "this person ref (as folded today) is only a guess": an inferred person his word has not named, whose
@@ -141,84 +72,6 @@ export function guessTestOf(
     !sure.get(ref);
 }
 
-/**
- * Who a name, handle or address reads as, before folds, in this order: what the owner said it is (`this-is`), `truth/`
- * (handles, then names and aliases), the person his Contacts name (a handle of its card, else its name when one
- * contact person alone goes by it), then its latest confident inferred guess (the person in truth/ it links to, else
- * the guess). His Contacts are his word on a number: no guess outranks a card. A `not-this-person` correction blocks
- * that match. Each reading says which of those it came from (`by`) and whether more than one person in truth/ or his
- * Contacts goes by that name (`isShared`), so an answer by a typed name can refuse a guess or a shared name.
- */
-function readingOf(
-  people: Person[],
-  inferred: InferredPerson[],
-  corrections: Correction[],
-  contacts: ContactNow[]
-) {
-  const handles = handleIndex(people);
-  const names = nameIndex(people);
-  const carded = new Map<string, string>();
-  for (const c of contacts) {
-    for (const key of c.handles.flatMap((s) => contactKeyOf(s) ?? keysOf(s))) {
-      if (!carded.has(key)) {
-        carded.set(key, c.id);
-      }
-    }
-  }
-  const cardNames = nameIndex(contacts.map((c) => ({ ...c, aliases: [] })));
-  const said = new Map<string, string>();
-  const not = new Set<string>();
-  for (const c of corrections) {
-    for (const k of c.kind === "this-is" || c.kind === "not-this-person"
-      ? keysOf(c.nameOrHandle)
-      : []) {
-      if (c.kind === "this-is") {
-        said.set(k, c.person);
-      } else if (c.kind === "not-this-person") {
-        not.add(`${k}|${c.person}`);
-      }
-    }
-  }
-  const guessed = guessesOf(inferred);
-  return (nameOrHandle: string): Reading | null => {
-    const ks = keysOf(nameOrHandle);
-    const key = contactKeyOf(nameOrHandle);
-    const truth =
-      handles.get(ks[0] ?? "") ??
-      handles.get(ks[1] ?? "") ??
-      (key ? handles.get(key) : undefined);
-    // A name as lifelog gives it, its parentheses left out ("Jean (Me)").
-    const bare = nameKey(nameOrHandle.trim().replace(PAREN, ""));
-    const named = bare ? names.get(bare) : undefined;
-    const guesses = ks.map((k) => guessed.get(k));
-    const card =
-      (key ? carded.get(key) : undefined) ??
-      ks.map((k) => carded.get(k)).find(Boolean) ??
-      (bare ? cardNames.get(bare) : undefined);
-    const isShared =
-      !!bare && (names.get(bare) === null || cardNames.get(bare) === null);
-    const tiers: (readonly [Reading["by"], string | null | undefined])[] = [
-      ...ks.map((k) => ["his word", said.get(k)] as const),
-      ["truth", truth && `person:${truth}`],
-      ["truth", named && `person:${named}`],
-      ["contacts", card && `person:${card}`],
-      ...guesses.map((g) => ["guess", g?.person] as const),
-      ...guesses.map((g) => ["guess", g && `person:${g.id}`] as const),
-    ];
-    const found = tiers.find(
-      ([, r]) => r && !ks.some((k) => not.has(`${k}|${r}`))
-    );
-    return found?.[1] ? { by: found[0], isShared, ref: found[1] } : null;
-  };
-}
-
-/** What a name, handle or address reads as (`readingOf`): the person, and which of Life's sources said so. */
-export interface Reading {
-  by: "his word" | "truth" | "contacts" | "guess";
-  isShared: boolean;
-  ref: string;
-}
-
 const tierOf = (ref: string) => {
   if (ref.startsWith(`person:${INFERRED_PREFIX}`)) {
     return 2;
@@ -246,7 +99,8 @@ export function foldsOf(
   contacts: ContactNow[]
 ) {
   const reading = readingOf(people, inferred, corrections, contacts);
-  const read = (nameOrHandle: string) => reading(nameOrHandle)?.ref ?? null;
+  const read = (nameOrHandle: string, from?: HandleFrom) =>
+    reading(nameOrHandle, from)?.ref ?? null;
   // His word that a handle is not someone: a card holding that handle is not them by its name either.
   const isRuledOut = (c: ContactNow, ref: string) =>
     corrections.some(
@@ -258,7 +112,9 @@ export function foldsOf(
   const into = new Map<string, string>();
   for (const r of inferred) {
     const self = `person:${r.id}`;
-    const to = r.namesAndHandles.map(read).find((x) => x && x !== self);
+    const to = r.namesAndHandles
+      .map((x) => read(x))
+      .find((x) => x && x !== self);
     if (to) {
       into.set(self, to);
     }
@@ -303,13 +159,16 @@ export function foldsOf(
     }
     return [{ card: t.card, people: now }];
   });
-  /** What a name as written reads as now, folded, with where that came from. */
-  const readingNow = (nameOrHandle: string): Reading | null => {
-    const r = reading(nameOrHandle);
+  /** What a name as written reads as now, folded, with where that came from; `from` where it was read, when known. */
+  const readingNow = (
+    nameOrHandle: string,
+    from?: HandleFrom
+  ): Reading | null => {
+    const r = reading(nameOrHandle, from);
     return r && { ...r, ref: canon(r.ref) };
   };
-  const resolve = (nameOrHandle: string) =>
-    readingNow(nameOrHandle)?.ref ?? null;
+  const resolve = (nameOrHandle: string, from?: HandleFrom) =>
+    readingNow(nameOrHandle, from)?.ref ?? null;
   return { ambiguousCards, canon, readingNow, resolve };
 }
 
@@ -322,7 +181,7 @@ export function foldsOf(
 function saidBy(
   c: ContactNow,
   self: string,
-  read: (nameOrHandle: string) => string | null,
+  read: (nameOrHandle: string, from?: HandleFrom) => string | null,
   people: Person[],
   isRuledOut: (c: ContactNow, ref: string) => boolean
 ) {
@@ -331,7 +190,7 @@ function saidBy(
     named && named !== self && !isRuledOut(c, named) ? named : undefined;
   const whole = byName && isWholeNameOf(c, byName, people) ? byName : undefined;
   const handled = c.handles.flatMap((nameOrHandle) => {
-    const ref = read(nameOrHandle);
+    const ref = read(nameOrHandle, "contacts");
     return ref && ref !== self ? [ref] : [];
   });
   const born = people.flatMap((p) => {
@@ -355,7 +214,7 @@ function saidBy(
  */
 function namesTheSame(ref: string, people: Person[]) {
   const person = people.find((p) => `person:${p.id}` === ref);
-  return !person || handlesOf(person).every((h) => !contactKeyOf(h));
+  return !person || phonesAndEmailsOf(person).every((h) => !contactKeyOf(h));
 }
 
 /** Whether a card has the first name and the birthday of someone in truth/: proof enough, never one alone. The first word is taken before `nameKey`, which would split "Jean-Pierre". */
@@ -417,7 +276,7 @@ export function aboutNow(
     // A voice keeps lifelog's id, which the directory may not know: then, for an unknown one, the name lifelog gave it.
     const now =
       voicePersonOf(
-        resolve,
+        (x) => resolve(x, o.source.channel),
         from,
         unknown ? was.slice(UNKNOWN.length) : null
       ) || was;
@@ -557,11 +416,11 @@ export function chatHandles(units: Unit[]) {
  */
 export const unitNow = <U extends Unit>(
   u: U,
-  refOf: (ref: string) => string
+  refOf: (ref: string, from?: HandleFrom) => string
 ): U => ({
   ...u,
   people: u.people
-    .map(refOf)
+    .map((p) => refOf(p, u.source))
     .filter((p) => !(p.startsWith(UNKNOWN) && kindOf(u.source) === "mail")),
 });
 
@@ -591,14 +450,16 @@ export const cardOwnerOf =
   }: {
     canon: (ref: string) => string;
     contacts: { card: string; id: string }[];
-    resolve: (nameOrHandle: string) => string | null;
+    resolve: (nameOrHandle: string, from?: HandleFrom) => string | null;
   }) =>
   (card: { handles: string[]; id: string }) => {
     const kept = contacts.find((c) => c.card === card.id);
     if (kept) {
       return canon(`person:${kept.id}`);
     }
-    const named = new Set(card.handles.flatMap((h) => resolve(h) ?? []));
+    const named = new Set(
+      card.handles.flatMap((h) => resolve(h, "contacts") ?? [])
+    );
     return named.size === 1 ? [...named][0] : undefined;
   };
 
@@ -618,9 +479,10 @@ export async function readPeople() {
   const outsideDirectory = peopleOutsideDirectoryOf(contacts, inferred);
   const isGuessNow = guessTestOf(corrections, inferred);
   /** Who an episode's person ref is as of today. */
-  const refOf = (ref: string) =>
+  /** Who a ref is as of today: an unresolved one (`unknown:<as written>`) read again, from where it was read when known. */
+  const refOf = (ref: string, from?: HandleFrom) =>
     ref.startsWith(UNKNOWN)
-      ? (resolve(ref.slice(UNKNOWN.length)) ?? ref)
+      ? (resolve(ref.slice(UNKNOWN.length), from) ?? ref)
       : canon(ref);
   const names = new Map<string, string>([
     ...[...truth.people, ...outsideDirectory].map(

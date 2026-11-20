@@ -6,7 +6,7 @@ import {
   readContactRecords,
 } from "../sources/contacts";
 import { pagedNow } from "./closeness";
-import { handlesOf } from "./read-truth";
+import { handlesOf, phonesAndEmailsOf } from "./read-truth";
 import { PERSON } from "./units";
 import type { People } from "./who";
 import { when } from "./zones";
@@ -48,9 +48,17 @@ export function detailsOf({
   contacts: Contact[];
   person?: Person;
 }): DetailLine[] {
-  const keyOf = (h: string) => contactKeyOf(h) ?? h;
+  // A phone or an email once however written (its contact key, kept apart from exact ids), any other handle as written.
+  const phoneOrEmailKeyOf = (h: string) => {
+    const key = contactKeyOf(h);
+    return key ? `\0${key}` : h;
+  };
   const mapped = person ? handlesOf(person) : [];
-  const seen = new Set(mapped.map(keyOf));
+  const phonesAndEmails = new Set(person ? phonesAndEmailsOf(person) : []);
+  const seen = new Set(
+    mapped.map((h) => (phonesAndEmails.has(h) ? phoneOrEmailKeyOf(h) : h))
+  );
+  const isNew = (key: string) => !seen.has(key) && Boolean(seen.add(key));
   const line = (
     from: DetailLine["from"],
     kind: Detail,
@@ -83,8 +91,10 @@ export function detailsOf({
     ...line("truth", "handles", [mapped.join(", ")]),
     ...line("contacts", "handles", [
       contacts
-        .flatMap((c) => [...c.handles, ...c.profiles])
-        .filter((h) => !seen.has(keyOf(h)) && Boolean(seen.add(keyOf(h))))
+        .flatMap((c) => [
+          ...c.handles.filter((h) => isNew(phoneOrEmailKeyOf(h))),
+          ...c.profiles.filter(isNew),
+        ])
         .join(", "),
     ]),
   ];

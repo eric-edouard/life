@@ -40,7 +40,13 @@ test("a day's unknown people: chat senders no handle maps and names lifelog gave
       source: "mail",
     },
   } as unknown as Built;
-  const unknown = unknownIn([a, b, mail], (s) => s === "+33600000002");
+  const asked: (string | undefined)[] = [];
+  const unknown = unknownIn([a, b, mail], (s, from) => {
+    asked.push(from);
+    return s === "+33600000002";
+  });
+  // Each sender is read from its unit's source, so its kind decides its key (#708).
+  expect(asked).toContain(a.unit.source);
   expect(
     [...unknown].map(([k, seen]) => [k, seen.map((x) => x.unit.id)])
   ).toEqual([
@@ -226,7 +232,7 @@ test("a name or handle is asked about until it reads as someone in truth/ or as 
     Eve: "person:inf_eve",
   };
   const answered = answeredBy(
-    (s) => reads[s] ?? null,
+    (s: string) => reads[s] ?? null,
     [guess("Bob"), guess("Dan", false), guess("Eve", true)]
   );
   // A Beeper ghost id judged is judged for Life's own bridge's form too.
@@ -236,13 +242,9 @@ test("a name or handle is asked about until it reads as someone in truth/ or as 
       [guess("@line__u91_abc:beeper.local", false)]
     )("_u91_abc")
   ).toBe(true);
-  expect(["Claire", "Bob", "Dan", "Eve", "Zed"].map(answered)).toEqual([
-    true,
-    false,
-    true,
-    true,
-    false,
-  ]);
+  expect(
+    ["Claire", "Bob", "Dan", "Eve", "Zed"].map((s) => answered(s))
+  ).toEqual([true, false, true, true, false]);
 });
 
 test("an older guess whose evidence is in the day's units is asked again with them, until a v9 call judges its name", () => {
