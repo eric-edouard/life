@@ -19,7 +19,7 @@ struct PersonPage: View {
         )
         .background(Palette.bg)
         .shellBar("", hasSettings: hasSettings)
-        .task { await life.refreshPerson(ref) }
+        .task(id: life.parties.generation.current) { await life.refreshPerson(ref) }
     }
 
     private func page(_ now: PersonNow) -> some View {

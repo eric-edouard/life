@@ -73,8 +73,8 @@ public struct PeopleList: Decodable, Sendable, Equatable {
         public var id: String { label ?? "" }
     }
 
-    /// The rows of `kind`, in `order`: by closeness, Life's own order cut where the level changes ("Regular",
-    /// "Acquaintances", "Faded", then "Not judged yet"); A to Z, by name under each first letter ("#" for any other).
+    /// The rows of `kind`, in `order`: by closeness, Life's own order under each level ("Regular", "Acquaintances",
+    /// "Faded", then "Not judged yet"); A to Z, by name under each first letter ("#" for any other). One group per label.
     public func groups(_ order: Order, _ kind: Kind) -> [Group] {
         let rows = people.filter { row in
             switch kind {
@@ -85,7 +85,7 @@ public struct PeopleList: Decodable, Sendable, Equatable {
         }
         switch order {
         case .closeness:
-            return chunked(rows) { row in
+            let byLevel = Dictionary(grouping: rows) { row -> String? in
                 switch row.level {
                 case .inner: nil
                 case .regular: "Regular"
@@ -94,9 +94,17 @@ public struct PeopleList: Decodable, Sendable, Equatable {
                 case .unknown, nil: "Not judged yet"
                 }
             }
+            let levels: [String?] = [nil, "Regular", "Acquaintances", "Faded", "Not judged yet"]
+            return levels.compactMap { label in
+                byLevel[label].map { Group(label: label, rows: $0) }
+            }
         case .alphabet:
-            let sorted = rows.sorted { $0.party.name.localizedStandardCompare($1.party.name) == .orderedAscending }
-            return chunked(sorted) { Self.letter(of: $0.party.name) }
+            let byName: (PersonRow, PersonRow) -> Bool = {
+                $0.party.name.localizedStandardCompare($1.party.name) == .orderedAscending
+            }
+            return Dictionary(grouping: rows) { Self.letter(of: $0.party.name) }
+                .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
+                .map { Group(label: $0.key, rows: $0.value.sorted(by: byName)) }
         }
     }
 
@@ -104,18 +112,6 @@ public struct PeopleList: Decodable, Sendable, Equatable {
     public static func letter(of name: String) -> String {
         guard let first = name.first, first.isLetter else { return "#" }
         return String(first).folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil).uppercased()
-    }
-
-    /// Consecutive rows with the same label, one group each.
-    private func chunked(_ rows: [PersonRow], label: (PersonRow) -> String?) -> [Group] {
-        rows.reduce(into: [Group]()) { groups, row in
-            let name = label(row)
-            if let last = groups.last, last.label == name {
-                groups[groups.count - 1] = Group(label: name, rows: last.rows + [row])
-            } else {
-                groups.append(Group(label: name, rows: [row]))
-            }
-        }
     }
 }
 

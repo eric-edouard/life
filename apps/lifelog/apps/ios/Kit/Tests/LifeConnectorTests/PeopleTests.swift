@@ -55,6 +55,19 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     #expect(PeopleList.letter(of: "élise") == "E")
 }
 
+@Test func eachLetterIsOneSectionHoldingEveryRowOnce() throws {
+    let names = ["Ada", "Ægir", "Afton", "Hélène"]
+    let list = try decoded(
+        PeopleList.self, #"{"people":[\#(names.map { row($0, "regular") }.joined(separator: ","))]}"#)
+    for order in [PeopleList.Order.alphabet, .closeness] {
+        let groups = list.groups(order, .all)
+        #expect(Set(groups.map(\.id)).count == groups.count)
+        #expect(groups.flatMap(\.rows).map(\.party.name).sorted() == names.sorted())
+    }
+    #expect(list.groups(.alphabet, .all).map(\.label) == ["A", "Æ", "H"])
+    #expect(list.groups(.alphabet, .all).first?.rows.map(\.party.name) == ["Ada", "Afton"])
+}
+
 @Test func standingSaysHowCloseAndTheLastExchange() throws {
     let close = try decoded(
         PersonRow.self,
