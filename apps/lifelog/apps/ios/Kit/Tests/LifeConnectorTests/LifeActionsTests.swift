@@ -427,7 +427,9 @@ private func answered(_ reply: @escaping @Sendable () -> Reply) async -> (Int, A
 }
 
 @Test func anAnswerThatTimesOutMayHaveGoneAndIsNeverRepeated() async {
-    let progress = #"data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"x","progress":1,"message":"{}"}}"# + "\n\n"
+    let progress =
+        #"data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"x","progress":1,"message":"{}"}}"#
+        + "\n\n"
     // No answer before the headers, and none after progress.
     for reply in [Reply(failure: .timedOut), Reply.stream(progress, failure: .timedOut)] {
         let (calls, state) = await answered { reply }

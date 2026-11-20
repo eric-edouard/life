@@ -130,7 +130,9 @@ extension ActionFailure {
             kind = "timedOut"
         default:
             self.init(step: step, reason: error.reason, retry: .allowed, isSameTap: true)
-            kind = error == .streamDropped ? "dropped" : error == .unreachable ? "unreachable" : error == .offline ? "offline" : "failed"
+            kind =
+                error == .streamDropped
+                ? "dropped" : error == .unreachable ? "unreachable" : error == .offline ? "offline" : "failed"
         }
     }
 }
