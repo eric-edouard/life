@@ -314,7 +314,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matter",
-    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them (`blockingChecks` included), then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link). Each agent has `wakesOn`: what will wake it, exhaustively (each message or call it listens for, by person, chat, app or words; a payment; his answer to its open card; anything near its matter), and `statusSince`.",
+    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them (`blockingChecks` included), then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link). Each agent has `wakesOn`: what will wake it, exhaustively (each message or call it listens for, by person, chat, app or words; a payment; his answer to its open card; anything near its matter), and `statusSince`; then `communicationStyles`: how he writes with each of its people he knows (lines; none when none has one): a draft to them follows it.",
     z.object({
       id: z
         .string()
@@ -350,7 +350,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_chats",
-    "Read chats (WhatsApp, Telegram, LINE, Instagram, iMessage, messages deleted for everyone included), as far back as the archive goes. `who` (a person) or `chat`: the latest 200 messages from `from` (without it, the last 90 days for `who`, 7 for `chat`); `before` pages back (each answer names the next). Read the thread before drafting a reply in it. To find messages by their words, use `search`.",
+    "Read chats (WhatsApp, Telegram, LINE, Instagram, iMessage, messages deleted for everyone included), as far back as the archive goes. `who` (a person) or `chat`: the latest 200 messages from `from` (without it, the last 90 days for `who`, 7 for `chat`); `before` pages back (each answer names the next). A `who` that is one person opens with their communication style: draft his message in it. Read the thread before drafting a reply in it. To find messages by their words, use `search`.",
     z.object({
       before: z.iso
         .datetime({ offset: true })

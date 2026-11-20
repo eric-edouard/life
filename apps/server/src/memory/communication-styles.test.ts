@@ -4,6 +4,7 @@ import type { SourceEvent } from "../records/source";
 import {
   communicationStyleBlock,
   communicationStyles,
+  communicationStylesOf,
   communicationStyleTargetsOf,
   inputOf,
   readCommunicationStyle,
@@ -191,6 +192,43 @@ test("a person who lost their page keeps their file: a night never removes one",
     await Bun.write(path, "{}\n");
     await communicationStyles({ events: [], failed: [], since: new Date(0) });
     expect(await Bun.file(path).exists()).toBe(true);
+  } finally {
+    rmSync(path, { force: true });
+  }
+});
+
+test("a draft's styles: each person's block under their name, none for one with no style", async () => {
+  const ref = "person:style-of";
+  const path = communicationStylePath(ref);
+  try {
+    await Bun.write(
+      path,
+      JSON.stringify({
+        built: "2026-11-06T00:00:00.000Z",
+        inputs: "a",
+        lines: [
+          {
+            kind: "chat",
+            quotes: [{ at: "2026-10-01T00:00:00.000Z", text: "ok cool" }],
+            source: "whatsapp",
+            text: "Lowercase, no emoji.",
+            writer: "owner",
+          },
+        ],
+        madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
+        page: ref,
+        schemaVersion: 2,
+      })
+    );
+    const lines = communicationStylesOf([ref, "person:no-style"], (r) =>
+      r === ref ? "Test Bo" : "Test Cy"
+    );
+    expect(lines[0]).toBe("With Test Bo:");
+    expect(lines.join("\n")).toContain(
+      '- you, chat (whatsapp): Lowercase, no emoji. E.g. "ok cool"'
+    );
+    expect(lines.join("\n")).not.toContain("Test Cy");
+    expect(communicationStylesOf([], () => "")).toEqual([]);
   } finally {
     rmSync(path, { force: true });
   }

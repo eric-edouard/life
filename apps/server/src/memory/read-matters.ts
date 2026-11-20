@@ -1,4 +1,5 @@
 import { isUnderway } from "../records/truth";
+import { communicationStylesOf } from "./communication-styles";
 import { decisionsNow } from "./decisions";
 import type { AgentHold } from "./held-matters";
 import {
@@ -197,9 +198,13 @@ export async function openMatters(
 export const isOneOfHis = (
   v: Pick<MatterView, "hasOwnOpenStep" | "owedTo" | "waitingOn" | "with">,
   isGuess: (ref: string) => boolean
-) =>
-  v.hasOwnOpenStep ||
-  matterPeopleOf(v).some((r) => r.startsWith("person:") && !isGuess(r));
+) => v.hasOwnOpenStep || knownPeopleOf(v, isGuess).length > 0;
+
+/** A matter's people he knows: his directory's or his Contacts', or a guess his word settled (a `person:` ref that is not `isGuess`). */
+const knownPeopleOf = (
+  v: Pick<MatterView, "owedTo" | "waitingOn" | "with">,
+  isGuess: (ref: string) => boolean
+) => matterPeopleOf(v).filter((r) => r.startsWith("person:") && !isGuess(r));
 
 /** Whether a matter is of a parked or done project: it has projects and none is underway (`isUnderway`, in his directory); one with no project, or one project underway, is not. */
 export const isParkedMatterOf =
@@ -307,7 +312,7 @@ export async function readHandOutMatters(
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
  * agent anchored on records finds its matter again after a re-group): its `MatterRow`, its steps in time order (each
- * with its day, words, quote, who it was with by name and `ending`: none while open), then `agentsOf`'s agents on it now and before, then the registered agents active on its projects (from host).
+ * with its day, words, quote, who it was with by name and `ending`: none while open), then `agentsOf`'s agents on it now and before, then the registered agents active on its projects (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his).
  * Undefined when no matter holds them.
  */
 export async function oneMatter<A>(
@@ -324,6 +329,10 @@ export async function oneMatter<A>(
     v && {
       ...rowOf(v, people, openDecisions()),
       agents: agentsOf(refsOf(v), v.projects, people),
+      communicationStyles: communicationStylesOf(
+        knownPeopleOf(v, people.isGuess),
+        people.nameOf
+      ),
       steps: v.steps.map((s) =>
         s.with ? { ...s, with: people.nameOf(s.with) } : s
       ),

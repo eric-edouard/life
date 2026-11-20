@@ -23,6 +23,7 @@ import {
   type VoiceKind,
   voiceKey,
 } from "../sources/lifelog-voices";
+import { communicationStylesOf } from "./communication-styles";
 import { readInferredRepos, readJudgments, readUnit } from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
@@ -455,10 +456,8 @@ export async function fetchOf(
  * What `--who` stands for: the words, and when they name a person (in the directory, inferred, as corrected), that person's names
  * and handles. A word search, wider than who wrote a message (`speakerOf`, which events match on).
  */
-function needlesOf(who: string, people: People) {
+function needlesOf(who: string, ref: string, people: People) {
   const { outsideDirectory, canon, corrections, truth } = people;
-  // Who the words mean, as `read_person_page` reads them (`meant`); the words alone when no one.
-  const ref = `person:${meant(who, people).known ?? who}`;
   const person = truth.people.find((p) => `person:${p.id}` === ref);
   return [
     who,
@@ -645,7 +644,11 @@ export async function chatsOf(
     return null;
   }
   const people = await readPeople();
-  const needles = o.who ? needlesOf(o.who, people) : [];
+  // Who the words mean, as `read_person_page` reads them (`meant`); the words alone when no one.
+  const known = o.who ? meant(o.who, people).known : undefined;
+  const needles = o.who
+    ? needlesOf(o.who, `person:${known ?? o.who}`, people)
+    : [];
   const before = o.before ? new Date(o.before).toISOString() : undefined;
   const range = dayRange(o.from, o.to);
   if (before && before < range.to) {
@@ -682,6 +685,8 @@ export async function chatsOf(
           `(no \`from\`: ${Math.round((end.getTime() - start.getTime()) / DAY)} days; give \`from\` to read further back)`,
         ]),
     ...unread(failed),
+    // Drafting starts here: the person's communication style, as their page shows it (1:1 chats only: none for a group).
+    ...(known ? communicationStylesOf([`person:${known}`], people.nameOf) : []),
     ...(next
       ? [`(earlier not shown: the same call with \`before\` ${next})`]
       : []),

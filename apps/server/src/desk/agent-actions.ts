@@ -17,6 +17,7 @@ import {
 } from "../host/desk-read";
 import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
 import { matcherOf, waitChannelsOf } from "../host/events";
+import { communicationStylesOf } from "../memory/communication-styles";
 import {
   type DecisionRequest,
   decisionsNow,
@@ -318,7 +319,8 @@ const NONE =
 /** A project agent's subject: the project, then its people and chats as his directory holds them (what a wait's `person` and `chat` take). */
 async function projectLinesOf(project: string) {
   const line = `Your subject: the project ${project} (\`read_area_page\`). A matter of it that has its own agent is that agent's to draft on.`;
-  const held = projectPeopleAndChatsOf((await readPeople()).truth, project);
+  const { nameOf, truth } = await readPeople();
+  const held = projectPeopleAndChatsOf(truth, project);
   if (!held) {
     return line;
   }
@@ -336,6 +338,10 @@ async function projectLinesOf(project: string) {
     ...(people.length ? people : [NONE]),
     "Its chats (a wait's `chat` takes the key):",
     ...(chats.length ? chats : [NONE]),
+    ...communicationStylesOf(
+      held.people.map((p) => `person:${p.id}`),
+      nameOf
+    ),
   ].join("\n");
 }
 

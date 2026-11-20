@@ -1,4 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
+import { rmSync } from "node:fs";
 import { DAY, MIN } from "../core/clock";
 import { EMBEDDER_MODEL } from "../core/embedder";
 import { setSettings, settings } from "../core/settings";
@@ -21,6 +22,7 @@ import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { LIFE_MAIL } from "./email";
 import { batchLines } from "./exchanges";
 import { readSearchedTexts } from "./index-writer";
+import { communicationStylePath } from "./memory-files";
 import { passagesOf, writePassages } from "./passages";
 import type { Truth } from "./read-truth";
 import { OWNER } from "./read-truth";
@@ -291,6 +293,35 @@ test("chats: WhatsApp, LINE and iMessage together, deleted messages shown marked
   expect(sender).toContain("Ana (line, chat !tg)");
   expect(sender).toContain("send the invoice (deleted)");
   expect(sender).not.toContain("salut");
+  // A `who` that is one person opens with their communication style (life#471).
+  const stylePath = communicationStylePath("person:test-ana");
+  await Bun.write(
+    stylePath,
+    JSON.stringify({
+      built: "2026-11-06T00:00:00.000Z",
+      inputs: "a",
+      lines: [
+        {
+          kind: "chat",
+          quotes: [],
+          source: "line",
+          text: "Short, no emoji.",
+          writer: "owner",
+        },
+      ],
+      madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
+      page: "person:test-ana",
+      schemaVersion: 2,
+    })
+  );
+  try {
+    expect((await chatsOf({ who: "Test Ana" }, sources)) ?? "").toContain(
+      "With Test Ana:"
+    );
+    expect(team).not.toContain("With Test Ana:");
+  } finally {
+    rmSync(stylePath, { force: true });
+  }
   const text = (await chatsOf({ who: "+33611111111" }, sources)) ?? "";
   expect(text).toContain("(imessage, chat +33611111111)");
   expect(text).toContain("salut");
