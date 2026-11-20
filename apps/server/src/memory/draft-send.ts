@@ -317,16 +317,21 @@ export async function resolveDraft(
   return stored;
 }
 
-/** What a draft into `chat` takes, by its source's send path (`takes`); none when Life can't send into it. */
+/** What a draft into `chat` takes, by its source's send path (`takes`); none when Life can't send into it, or can't tell now. */
 export function chatTakesLinesOf(
   chat: string | undefined,
   events: SourceEvent[]
 ) {
-  const source = chat && events.find((e) => e.chat === chat)?.source;
-  const send = source && enabledSources().find((s) => s.name === source)?.send;
-  return chat && send?.holds([chat]).length
-    ? [`(${takesWordsOf(send.takes(chat))})`]
-    : [];
+  const source = events.find((e) => e.chat === chat)?.source;
+  const send = enabledSources().find((s) => s.name === source)?.send;
+  try {
+    return chat && send?.holds([chat]).length
+      ? [`(${takesWordsOf(send.takes(chat))})`]
+      : [];
+  } catch {
+    // A send path that can't read its store now (Messages without access): the chat reads as before.
+    return [];
+  }
 }
 
 type OnStep = (step: string, detail?: Record<string, unknown>) => void;
