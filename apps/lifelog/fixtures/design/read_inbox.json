@@ -1035,6 +1035,11 @@
           "takes": "person"
         }
       ],
+      "misread": {
+        "cause": "5f0c3a9d2e7b4168",
+        "seal": "9a41c7e2b05d38f6a1c9e7d4b2f06835",
+        "shown": "c2e8a17f4d903b6e"
+      },
       "pushId": "push_guess_idris",
       "question": "Is this Idris Benali?",
       "ref": "guess_idris",

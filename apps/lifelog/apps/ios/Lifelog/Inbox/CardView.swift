@@ -9,6 +9,8 @@ struct CardNotes: Equatable {
     /// The create sheet open over an ask: kept by the host, above its list of asks, so a read that takes the ask away
     /// (his answer) never closes it before it closes itself.
     var creating: Creating?
+    /// The card his "Wrong…" sheet is open on, kept by the host the same way; his draft is the store's.
+    var wrong: Check?
 
     /// The ask the host keeps on show whatever the read says: his result's, else the one the create sheet answers.
     var shownCheck: Check? { taken?.check ?? creating?.check }
@@ -32,10 +34,11 @@ struct Creating: Identifiable, Equatable {
 }
 
 extension View {
-    /// The create sheet of `notes`, presented by the host of the asks (the Inbox, a matter's page); `leave` goes on from
-    /// the ask once it is created. The asks' sheets zoom out of the answer that opened them (`AskSheet`).
-    func createSheet(_ notes: Binding<CardNotes>, leave: @escaping (Taken) -> Void) -> some View {
-        modifier(CreateSheetHost(notes: notes, leave: leave))
+    /// The asks' sheets of `notes`, presented by the host of the asks (the Inbox, a matter's page), above its reads: the
+    /// create sheet, whose `leave` goes on from the ask once it is created, and his "Wrong…" sheet. The asks' sheets zoom
+    /// out of the answer that opened them (`AskSheet`).
+    func askSheets(_ notes: Binding<CardNotes>, leave: @escaping (Taken) -> Void) -> some View {
+        modifier(AskSheetsHost(notes: notes, leave: leave))
     }
 }
 
@@ -47,18 +50,26 @@ enum AskSheet: Hashable {
 }
 
 extension EnvironmentValues {
-    /// The namespace the asks' sheets zoom in, set by their host (`createSheet`); nil where no host presents them.
+    /// The namespace the asks' sheets zoom in, set by their host (`askSheets`); nil where no host presents them.
     @Entry var askSheetZoom: Namespace.ID?
+    /// Opens his "Wrong…" sheet on a card, set by the asks' host (`askSheets`); nil where none presents it.
+    @Entry var opensWrongSheet: ((Check) -> Void)?
 }
 
-private struct CreateSheetHost: ViewModifier {
+private struct AskSheetsHost: ViewModifier {
     @Binding var notes: CardNotes
     let leave: (Taken) -> Void
+    @Environment(LifeStore.self) private var life
     @Namespace private var zoom
 
     func body(content: Content) -> some View {
         content
             .environment(\.askSheetZoom, zoom)
+            .environment(\.opensWrongSheet) { [life, notes = $notes] check in
+                life.openComplaint(on: check)
+                notes.wrappedValue.wrong = check
+            }
+            .sheet(item: $notes.wrong) { check in WrongSheet(ref: check.ref).sheetStack() }
             .sheet(item: $notes.creating) { creating in
                 CreateSheet(check: creating.check, name: creating.name, isOrganization: creating.isOrganization) {
                     request in
@@ -104,7 +115,8 @@ struct CardView: View {
             bar: result.map { taken in
                 ResultButtons(
                     taken: taken, state: life.state(of: taken.key),
-                    retry: { Task { await life.answer(taken.request) } }, keepForLater: { leave(taken, true) })
+                    retry: { Task { await life.answer(taken.request, keepsCardOpen: taken.staysOpen) } },
+                    keepForLater: { leave(taken, true) })
             }
         ) {
             // His tap's result takes the ask's place and rises in; once he moves on it goes the way an answered ask goes.
@@ -270,7 +282,7 @@ struct CardView: View {
             leave(taken, false)
         } else {
             notes.taken = taken
-            Task { await life.answer(request) }
+            Task { await life.answer(request, keepsCardOpen: taken.staysOpen) }
         }
     }
 }
@@ -298,7 +310,7 @@ struct CardPage: View {
             // A pushed screen: Back, then the Pendant.
             .shellBar("", hasSettings: false)
             // Above the ask, so the matter's read that takes it away (his answer) never closes it before it does.
-            .createSheet($notes) { _ in leave() }
+            .askSheets($notes) { _ in leave() }
     }
 
     @ViewBuilder private var page: some View {

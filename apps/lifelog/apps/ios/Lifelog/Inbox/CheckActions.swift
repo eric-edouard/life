@@ -5,12 +5,11 @@ import SwiftUI
 struct CardInput: Equatable {
     var isWritingOwnWords = false
     var words = ""
-    var showsWhy = false
-    /// His "Wrong…" sheet is open.
-    var showsWrong = false
+    /// The context sheet is open (`ContextSheet`).
+    var showsContext = false
 }
 
-/// A link on the ask and what it does: "Why?" or "Tell the agent…".
+/// A link on the ask and what it does: its context ("Why this reply?") or "Tell the agent…".
 struct AskLink {
     let title: String
     let run: () -> Void
@@ -34,6 +33,7 @@ struct CheckActions: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(LifeStore.self) private var life
     @Environment(\.askSheetZoom) private var sheetZoom
+    @Environment(\.opensWrongSheet) private var opensWrongSheet
 
     private var words: String { input.words.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -73,16 +73,15 @@ struct CheckActions: View {
                 wrong
             }
         }
-        .sheet(isPresented: $input.showsWrong) { WrongSheet(check: check).sheetStack() }
         .motion(Motion.standard, value: check.doneSeen?.state)
         .motion(Motion.standard, value: isBusy)
     }
 
     /// On Life's own asks only, the escape hatch: a compact quiet button, always the last thing at the bottom right.
     @ViewBuilder private var wrong: some View {
-        if check.misread != nil {
+        if check.misread != nil, let opensWrongSheet {
             Button {
-                input.showsWrong = true
+                opensWrongSheet(check)
             } label: {
                 Label("Wrong…", systemImage: "exclamationmark.bubble").lineLimit(1)
             }

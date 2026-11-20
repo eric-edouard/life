@@ -49,8 +49,9 @@ public struct LifeActions: Sendable {
     // MARK: Answer
 
     /// His answer to a check. `key` is made once at his tap and given again to every repeat of it: Life then returns the
-    /// first call's result and sends nothing twice. A connection that drops is repeated; a `not sent` is a new tap.
-    public func answer(_ request: AnswerRequest, key: String, emit: @escaping Emit) async {
+    /// first call's result and sends nothing twice. A connection that drops is repeated; a `not sent` is a new tap. Every
+    /// try goes to `origin`, the Life it was decided for, or nowhere.
+    public func answer(_ request: AnswerRequest, key: String, at origin: URL, emit: @escaping Emit) async {
         emit(.started)
         var dropped = ActionFailure(reason: "", retry: .allowed)
         for attempt in 0..<Self.tries {
@@ -61,7 +62,7 @@ public struct LifeActions: Sendable {
                 await pause(.seconds(2))
             }
             do {
-                let text = try await api.answerCheck(request, answerKey: key, onProgress: progress(emit))
+                let text = try await api.answerCheck(request, answerKey: key, at: origin, onProgress: progress(emit))
                 // His "Wrong…" has one proof: the caretaker has it. Anything else may be tried again under its key.
                 if request.isComplaint {
                     guard let reached = decode(Reached.self, text), reached.reached == "caretaker" else {

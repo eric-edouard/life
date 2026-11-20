@@ -8,7 +8,7 @@
     /// Life without a Mac, for the simulator: the design data's made-up inbox, matters and agents, and an API that answers as Life would,
     /// slowly, or not at all, so every state of every screen can be put on screen and photographed.
     ///
-    /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (a tapped push's one-card read takes 5 s), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
+    /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (every whole read after the first takes 5 s: a tapped push's card is checked), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused; `sending`: it never ends); `-fixtureStart started|starting|failed`
     /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, `-fixtureProject <id>` (its page, pushed on the matter), `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|pair|pairing|replacePendant|pairPendant|create`
     /// open the screen to show (`create` holds Created, to be photographed). `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
@@ -115,6 +115,8 @@
     nonisolated private final class FixtureAPI: LifeAPI, Sendable {
         let scenario: String
         private let answered = Mutex(Set<String>())
+        /// His "Wrong…" the caretaker received, by card: the card stays, being fixed.
+        private let fixing = Mutex([String: String]())
         private let started = Mutex(false)
         private let wholeReads = Mutex(0)
         /// His marks and the projects' statuses as he set them here, over the design data.
@@ -146,18 +148,17 @@
 
         func readInbox() async throws -> String {
             try await gate()
-            if scenario == "slowInbox",
+            if let wait = ["slowInbox": 30, "slowPush": 5][scenario],
                 wholeReads.withLock({
                     $0 += 1; return $0
                 }) > 1
             {
-                try await Task.sleep(for: .seconds(30))
+                try await Task.sleep(for: .seconds(wait))
             }
             return inbox()
         }
-        func readInbox(pushId: String) async throws -> String {
+        func readInbox(pushId: String, at origin: URL?) async throws -> String {
             try await gate()
-            if scenario == "slowPush" { try await Task.sleep(for: .seconds(5)) }
             // A push's read: just that card, none once answered.
             var one = (try? JSONSerialization.jsonObject(with: Data(inbox().utf8))) as? [String: Any] ?? [:]
             one["checks"] = (one["checks"] as? [[String: Any]] ?? []).filter { $0["pushId"] as? String == pushId }
@@ -174,6 +175,11 @@
             return json(["project": head, "matters": rows])
         }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
+        /// A `life:` link's page: what Life read of it, as its text reads.
+        func fetch(_ ref: String) async throws -> String {
+            try await gate()
+            return LifeLinkRead.heading + "\n\n" + ref
+        }
         /// The made-up cast's pictures (`pictures/<id>.jpg` beside the design data, `reads`), as Life sends them.
         func readPersonPictures(_ ids: [String]) async throws -> String {
             try await gate()
@@ -207,7 +213,7 @@
         /// Every open ask, what blocks first, as `read_inbox` sends it; `improves` holds only what can wait (the list's
         /// "The rest can wait" first), `empty` nothing.
         func inbox() -> String {
-            let left = answered.withLock { $0 }
+            let (left, fixing) = (answered.withLock { $0 }, fixing.withLock { $0 })
             var open = Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
                 .filter { scenario != "improves" || $0["urgency"] as? String == "improves" }
             // `groups`: a few that block, so the list shows "The rest can wait" and what only improves, in a screen.
@@ -236,6 +242,11 @@
                 var check = check
                 check["confirm"] = (check["confirm"] as? [[String: Any]] ?? []).filter {
                     !left.contains($0["ref"] as? String ?? "")
+                }
+                // His "Wrong…" the caretaker has: it no longer blocks.
+                if let ask = fixing[check["ref"] as? String ?? ""] {
+                    check["beingFixed"] = ["ask": ask, "since": at(18, 14, 3), "line": NSNull()]
+                    check["urgency"] = "improves"
                 }
                 if var matter = check["matter"] as? [String: Any] {
                     matter["important"] = marked.contains(matter["id"] as? String ?? "") ? true : nil
@@ -284,9 +295,9 @@
         /// The `-fixtureAnswer` values where a send ends without going.
         private static let refused: Set = ["notSent", "wroteSince", "mayHaveGone"]
 
-        func answerCheck(_ answer: AnswerRequest, answerKey: String, onProgress: @escaping @Sendable (Data) -> Void)
-            async throws -> String
-        {
+        func answerCheck(
+            _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void
+        ) async throws -> String {
             try await gate()
             let check = Self.checks.first { $0["ref"] as? String == answer.ref }
             let draft = check?["draft"] as? [String: Any]
@@ -322,7 +333,11 @@
                 if draft == nil, LifeFixture.answer == "sending" { try await Task.sleep(for: .seconds(3_600)) }
                 onProgress(message(["step": step, "at": at(18, 14, 3)]))
             }
-            if answer.isComplaint { return json(["ask": "complaint:" + answerKey, "reached": "caretaker"]) }
+            if answer.isComplaint {
+                let ask = "complaint:" + answerKey
+                fixing.withLock { $0[answer.ref] = ask }
+                return json(["ask": ask, "reached": "caretaker"])
+            }
             if draft != nil, Self.refused.contains(LifeFixture.answer) {
                 let send: [String: Any] =
                     switch LifeFixture.answer {

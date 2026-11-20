@@ -3,8 +3,8 @@ import SwiftUI
 
 /// One check as the Ask panel, whatever its kind: the question first, nothing above it; the thing it is about on `tile`,
 /// which hugs what it holds and scrolls when that is taller than the room; one row under it (the matter, and the one
-/// link); then, at the bottom, its answers. Its look
-/// comes from what the check holds (a draft, an evidence quote, clips, a group), never from a kind of its own. His taps
+/// link, to its context sheet); then, at the bottom, its answers. Its look
+/// comes from what the check holds (a draft, a sentence, clips, a group), never from a kind of its own. His taps
 /// leave through `answer`; this view keeps nothing of the answer. At an accessibility text size the whole panel scrolls.
 struct CheckCard: View {
     let check: Check
@@ -53,22 +53,26 @@ struct CheckCard: View {
                     beingFixed
                     matterRow
                     Spacer(minLength: 0)
-                    if let page {
-                        PagerDots(current: page.current, total: page.total).frame(
-                            maxWidth: .infinity, alignment: .trailing)
+                    // While a tapped push is checked, how many asks wait is not known yet: the spinner, then the dots.
+                    Group {
+                        if life.isCheckingPush {
+                            Spinner(size: .small).foregroundStyle(Palette.fg)
+                        } else if let page {
+                            PagerDots(current: page.current, total: page.total)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .motion(Motion.standard, value: life.isCheckingPush)
                     actions
                 }
                 .padding(.horizontal, Metrics.Spacing.s).padding(.top, Metrics.Spacing.m)
                 .padding(.bottom, Metrics.Spacing.s).readingWidth()
             }
         }
-        .sheet(isPresented: $input.showsWhy) {
-            WhySheet(
-                title: askLinks.first?.title ?? "Why?", context: check.context,
-                evidence: isIdentityShown ? check.evidence : nil, link: check.links.first, runtime: runtimeName
-            )
-            .sheetStack()
+        .sheet(isPresented: $input.showsContext) {
+            ContextSheet(
+                title: check.contextLinkTitle ?? "", markdown: check.context ?? "", lifeLinks: check.lifeLinks ?? [],
+                appLink: check.links.first.flatMap(URL.init(string:)), appName: runtimeName?.name)
         }
     }
 
@@ -80,27 +84,14 @@ struct CheckCard: View {
 
     // MARK: Under the question
 
-    /// A guessed person with the chat the network shows them in: that is the thing, and the words Life read them from
-    /// are behind "Why <name>?".
-    private var isIdentityShown: Bool { check.group == .guessedPerson && check.networkIdentity != nil }
-
-    /// The words the ask rests on, when no sentence or identity already says them.
-    private var shownEvidence: Check.Evidence? { check.said == nil && !isIdentityShown ? check.evidence : nil }
-
-    /// Whether a field of the ask has a body of its own to draw.
-    private var hasBody: Bool {
-        check.draft != nil || !(check.needs ?? []).isEmpty || shownEvidence != nil || !check.clips.isEmpty
-            || check.said != nil || isIdentityShown
-            || check.contactsCard != nil || (check.group == .newMatter && check.goal != nil)
+    /// Whether a field of the ask has a thing of its own to draw; its context is behind its link, never the thing.
+    private var hasThing: Bool {
+        check.draft != nil || !(check.needs ?? []).isEmpty || !check.clips.isEmpty || check.said != nil
+            || identity != nil || check.contactsCard != nil || (check.group == .newMatter && check.goal != nil)
     }
 
-    /// An ask with nothing of its own to show but its context shows that as the thing.
-    private var contextThing: String? {
-        guard !hasBody, !isContextBeside, let context = check.context, !context.isEmpty else { return nil }
-        return context
-    }
-
-    private var hasThing: Bool { hasBody || contextThing != nil }
+    /// A guessed person with the chat the network shows them in: that is the thing.
+    private var identity: Check.NetworkIdentity? { check.group == .guessedPerson ? check.networkIdentity : nil }
 
     /// The thing on `tile`: his own words while he writes them, else what the ask is about; no tile when it has nothing.
     /// The tile hugs the thing and scrolls (from its start) only when the thing is taller than the room.
@@ -141,13 +132,9 @@ struct CheckCard: View {
         default:
             if let said = check.said { SaidBlock(said: said) }
         }
-        if isIdentityShown, let identity = check.networkIdentity { PersonIdentityBlock(identity: identity) }
+        if let identity { PersonIdentityBlock(identity: identity) }
         if let card = check.contactsCard { ContactsCardBlock(card: card) }
-        if let evidence = shownEvidence { EvidenceBlock(evidence: evidence) }
         if check.group == .voice, !check.clips.isEmpty { VoiceBlock(clips: check.clips) }
-        if let contextThing {
-            Text(contextThing).font(.quote).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
-        }
     }
 
     @ViewBuilder private var ownWords: some View {
@@ -178,21 +165,15 @@ struct CheckCard: View {
 
     // MARK: The row under the thing, and the link
 
-    /// The ask's links, by what each opens: "Why?" ("Why this reply?" on a draft; none on a voice or a name, whose
-    /// sentence is the whole story); then "Tell the agent…" on an agent's question.
+    /// The ask's links, by what each opens: its context, in the code's words for what it asks ("Why this reply?"), when
+    /// it has one and it is not shown beside it; then "Tell the agent…" on an agent's question.
     private var askLinks: [AskLink] {
         var links: [AskLink] = []
-        if ![.voice, .name, .ending, .newMatter].contains(check.group), !isContextBeside,
-            !check.links.isEmpty || (contextThing == nil && !(check.context ?? "").isEmpty)
-        {
-            links.append(AskLink(title: whyTitle) { input.showsWhy = true })
+        if !isContextBeside, let title = check.contextLinkTitle {
+            links.append(AskLink(title: title) { input.showsContext = true })
         }
         if check.takesOwnWords { links.append(AskLink(title: "Tell the agent…") { input.isWritingOwnWords = true }) }
         return links
-    }
-
-    private var whyTitle: String {
-        check.draft != nil ? "Why this reply?" : check.networkIdentity?.shownName.map { "Why \($0)?" } ?? "Why?"
     }
 
     private var isRowShown: Bool {
@@ -244,38 +225,4 @@ struct CheckCard: View {
 private struct LinkBesideMatter: PreferenceKey {
     static let defaultValue = true
     static func reduce(value: inout Bool, nextValue: () -> Bool) { value = nextValue() }
-}
-
-/// What is behind an ask: why Life asked, and the way into the asker's own app.
-private struct WhySheet: View {
-    let title: String
-    let context: String?
-    /// The words Life read a guessed person from.
-    let evidence: Check.Evidence?
-    let link: String?
-    let runtime: RuntimeName?
-
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
-                SheetHeader(title: nil) { dismiss() }
-                Text(title).font(.sheetQuestion).foregroundStyle(Palette.fg)
-                if let context, !context.isEmpty {
-                    Text(context).font(.body15).foregroundStyle(Palette.fg).fixedSize(
-                        horizontal: false, vertical: true)
-                }
-                if let evidence { EvidenceBlock(evidence: evidence) }
-                if let url = link.flatMap(URL.init(string:)) {
-                    TextLink("Open in \(runtime?.name ?? "its app")", isOutward: true) { openURL(url) }
-                }
-            }
-            .padding(Metrics.gutter).readingWidth()
-        }
-        .scrollBounceBehavior(.basedOnSize)
-        .background(Palette.sheet)
-        .presentationDetents([.medium, .large])
-    }
 }

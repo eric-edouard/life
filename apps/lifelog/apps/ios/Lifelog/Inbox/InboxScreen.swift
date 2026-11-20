@@ -42,10 +42,12 @@ struct InboxScreen: View {
             .askFilterBar(kinds: all.kinds, kind: $kind)
         } detail: {
             ReadScreen(
-                shown: shown, retry: { await life.retryInbox() },
-                loading: { InboxLoading() }, empty: { InboxZero() },
+                shown: shown, retry: { await life.refreshInbox() },
+                loading: { InboxSkeleton() }, empty: { InboxZero() },
                 content: { _ in card(order) }
             )
+            // The first card cross-fades in over the skeleton.
+            .motion(Motion.standard, value: life.inboxOnShow == nil)
             .background(Palette.bg)
             // Nothing above the question: no title; the gear and the Pendant are the list's when it is beside.
             .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.ask = $0 }
@@ -80,7 +82,7 @@ struct InboxScreen: View {
         }
         .navigationSplitViewStyle(.balanced)
         // Above the asks, so a read that takes his ask away (his answer was the last) never closes it before it does.
-        .createSheet($notes) { leave($0, keep: false) }
+        .askSheets($notes) { leave($0, keep: false) }
         // The chosen kind has no ask left: the whole list again, so the filter never rests on a kind that is gone.
         .onChange(of: all.kinds) { _, kinds in if let kind, !kinds.contains(kind) { self.kind = nil } }
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
@@ -130,10 +132,10 @@ struct InboxScreen: View {
     }
 
     /// What blocks, then what can wait: `Inbox.ordered`, the one rule for the list, the pager, the ask on show and where
-    /// an answer leads (`only` keeps the chosen kind of it). An answer held, in flight or shown as his result is no row.
+    /// an answer leads (`only` keeps the chosen kind of it). The store already left out his answers; the one shown as
+    /// his result is no row either.
     private var all: InboxOrder {
-        life.inboxOnShow?.ordered(
-            deferred: deferred, except: life.answersUnderWay.union(notes.taken.map { [$0.check.ref] } ?? []))
+        life.inboxOnShow?.ordered(deferred: deferred, except: Set(notes.taken.map { [$0.check.ref] } ?? []))
             ?? InboxOrder()
     }
 
@@ -160,14 +162,27 @@ private struct InboxZero: View {
     }
 }
 
-/// The inbox is first read: a spinner and one line.
-private struct InboxLoading: View {
+/// The inbox is first read, with no cache and no card from a notification: one card's shape in its place, no words (the
+/// question's two lines, its tile, the filled answer, two quiet ones).
+private struct InboxSkeleton: View {
     var body: some View {
-        VStack(spacing: 12) {
-            Spinner().foregroundStyle(Palette.fg)
-            Text("Reading your inbox…").font(.note).foregroundStyle(Palette.muted)
+        GeometryReader { box in
+            VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Placeholder(width: box.size.width * 0.88, height: 26, radius: 9)
+                    Placeholder(width: box.size.width * 0.56, height: 26, radius: 9)
+                }
+                Placeholder(height: 150, radius: Metrics.Radius.card).padding(.top, Metrics.Spacing.s)
+                Spacer(minLength: 0)
+                Placeholder(height: 54)
+                HStack(spacing: Metrics.Spacing.s) {
+                    Placeholder(height: 44)
+                    Placeholder(height: 44)
+                }
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
+        .padding(.horizontal, Metrics.Spacing.s).padding(.top, Metrics.Spacing.m).padding(.bottom, Metrics.Spacing.s)
+        .readingWidth()
+        .accessibilityElement().accessibilityLabel("Reading your inbox")
     }
 }
