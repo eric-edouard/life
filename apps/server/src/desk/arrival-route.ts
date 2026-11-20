@@ -47,7 +47,8 @@ export function arrivalFactsOf(
     chat: unit.key,
     // The stored key is `source|id`; the desk names a message by its id, as `message.received` does.
     id: newest.slice(newest.indexOf("|") + 1),
-    people: arrival.people.map(refOf),
+    // Never `map(refOf)`: map's index would land in `refOf`'s second argument (where a name was read) and crash.
+    people: arrival.people.map((p) => refOf(p)),
     source: unit.source,
   };
 }
