@@ -54,6 +54,12 @@ export async function readSeenDone(
   channel = PAYMENTS
 ) {
   const events = await channel.read(now);
+  // One payment settles one card: seeded from the `seen` lines already stored, filled as cards match.
+  const claimed = new Set(
+    decisionsNow().flatMap((d) =>
+      d.doneSeen?.eventId ? [d.doneSeen.eventId] : []
+    )
+  );
   return new Map(
     cards.flatMap((d) => {
       const filter = doneSeenFilterOf(d);
@@ -61,7 +67,15 @@ export async function readSeenDone(
       const since = dayStart(localDate(d.at)).toISOString();
       const seen =
         isMatch &&
-        events.find((e) => isOnOrAfter(e, since) && isMatch(e.matchable));
+        events.find(
+          (e) =>
+            !claimed.has(e.eventId) &&
+            isOnOrAfter(e, since) &&
+            isMatch(e.matchable)
+        );
+      if (seen) {
+        claimed.add(seen.eventId);
+      }
       return seen ? [[d.id, seen.eventId] as const] : [];
     })
   );

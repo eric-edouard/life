@@ -7,6 +7,7 @@ import type { Stay } from "../sources/lifelog";
 import { lifelogMissing } from "../sources/lifelog-call";
 import { bounds } from "./episode-span";
 import { episodesWhere } from "./memory-files";
+import { amountWordsOf } from "./needs";
 import { stayOf, staysOf, where } from "./places";
 import { clip } from "./units";
 import { meant, who as named, nameRefusalOf, readPeople } from "./who";
@@ -76,10 +77,6 @@ export const euros = (n: number) => {
   return `${r < 0 ? "-" : ""}€${Math.abs(r).toLocaleString("en")}`;
 };
 
-/** "-358 THB": an amount as the bank gave it. */
-const amount = (p: Payment) =>
-  `${p.amount.toLocaleString("en", { maximumFractionDigits: 2 })} ${p.currency}`;
-
 /** A payment's words, each on one line and clipped: its merchant (a third party's words), its category, its note. */
 export const paymentWordsOf = (p: Payment) => ({
   category: p.category,
@@ -92,7 +89,7 @@ export const paymentWordsOf = (p: Payment) => ({
 export const paymentLine = ({ episode, payment: p, stay }: Placed) => {
   const words = paymentWordsOf(p);
   return [
-    `- ${p.paidAt ? time(p.paidAt) : "(time unknown)"} ${amount(p)}${p.currency === "EUR" ? "" : ` (${euros(-p.eur)} paid)`} ${words.merchant}`,
+    `- ${p.paidAt ? time(p.paidAt) : "(time unknown)"} ${amountWordsOf(p.amount, p.currency)}${p.currency === "EUR" ? "" : ` (${euros(-p.eur)} paid)`} ${words.merchant}`,
     words.category ?? "no category yet",
     ...(words.note ? [`"${words.note}"`] : []),
     ...(p.spending ? [] : ["not spending"]),

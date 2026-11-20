@@ -302,3 +302,37 @@ test("Life's line of each need, in the agent's order: what a phone that doesn't 
     "Reference: DEP-12",
   ]);
 });
+
+test("one payment settles one card: two open cards of the same amount, one payment, only one is seen", async () => {
+  const a = await transfer();
+  const b = await transfer();
+  const cards = decisionsNow().filter((d) => [a.id, b.id].includes(d.id));
+  booked = [payment()];
+  expect([...(await readSeenDone(cards)).keys()]).toEqual([a.id]);
+  await lookForPaymentsDone(Date.now() + 10 * 60_000);
+  expect(decisionsNow().map((d) => d.state)).toEqual(["seen", "open"]);
+  // The seen card's event is claimed: a later read gives it to no other card.
+  expect(await readSeenDone([cards[1] as (typeof cards)[number]])).toEqual(
+    new Map()
+  );
+});
+
+test("his second answer after a look that never finished is the one kept, its result carries the answer", async () => {
+  const { id } = await transfer();
+  const at = new Date(Date.now() - 5 * 60_000);
+  appendFileSync(
+    DECISIONS,
+    `${JSON.stringify({ at: at.toISOString(), id, kind: "answered", options: ["paid"], schemaVersion: 3, via: "connector" })}\n`
+  );
+  const { r } = await answer(id, ["paid"]);
+  // Nothing booked: the new look finds nothing, but his second answer is the one the look belongs to.
+  expect(r).toMatchObject({
+    done: [{ kind: "answered" }, { kind: "done-seen", state: "not_found" }],
+    doneSeen: { state: "not_found" },
+  });
+  expect(
+    decisionsNow()
+      .find((d) => d.id === id)
+      ?.voided?.map((v) => v.answer.at)
+  ).toEqual([at.toISOString(), expect.any(String)]);
+});

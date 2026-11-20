@@ -358,7 +358,7 @@ function withOutcomeOf(
 /** Closes the step or matter of the decision `d` by his word (host: `endByHisWord`); throws when it could not. */
 export type EndByHisWord = (d: Omit<Decision, "state">) => Promise<unknown>;
 
-/** Every decision with where it stands at `now`: open, answered, lapsed (its deadline passed) or withdrawn. */
+/** Every decision with where it stands at `now`: open, answered, seen (Life saw its step done, no answer of his), lapsed (its deadline passed) or withdrawn. */
 export const decisionsNow = (now = clock()): Decision[] =>
   [...readAll().values()].map((d) => {
     const o = withOutcomeOf(d, now);
@@ -724,6 +724,10 @@ export async function answerDecision(
     schemaVersion: VERSION,
     via,
   };
+  // A look that never finished is only worked out when read: write its `not_found`, so this answer is the one kept.
+  if (d.doneSeen?.state === "not_found" && readAll().get(id)?.answer) {
+    appendJsonl(DECISIONS, DoneSeen, [d.doneSeen]);
+  }
   appendJsonl(DECISIONS, Answered, [line]);
   const stored = readAll().get(id);
   if (!(stored && isDeepStrictEqual(stored.answer, line))) {
