@@ -243,7 +243,7 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
     payment({ id: "unclosed", merchant: "SHOP (A/C Name: B Lee (Branch A)" }),
     payment({
       id: "nested",
-      merchant: "SHOP (Transfer (Local) A/C Name: B Lee",
+      merchant: "SHOP (Transfer (Local) A/C Name: A Lee",
     }),
   ];
   expect(initialCard && (await readSeenDone([initialCard]))).toEqual(new Map());
