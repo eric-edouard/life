@@ -2,6 +2,7 @@ import { afterAll, expect, setSystemTime, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { AGENT_POST_SIGNATURE } from "../core/names";
 import { incomingArchived } from "./archived";
 import { githubCopier, githubSend, openGithub, readGithub } from "./github";
 
@@ -112,6 +113,27 @@ test("the copier writes each issue and comment under its issue's chat, skips pul
       ]);
     }
   );
+});
+
+test("a post of his login ending with the agents' signature is his agent's, not his words; anyone else's keeps its sender", async () => {
+  const g = fakeGh();
+  const signed = `Found the cause.\n${AGENT_POST_SIGNATURE}\n`;
+  g.feeds["repos/o/r/issues/comments"] = [
+    comment(21, 1, { body: signed }),
+    comment(22, 1, {
+      body: `quoting: ${AGENT_POST_SIGNATURE} then his own words`,
+    }),
+    comment(23, 1, { body: signed, user: { login: "Ana" } }),
+  ];
+  const archive = dir();
+  at(0);
+  await githubCopier({ archive, repos: () => ["o/r"], run: g.run })();
+  const read = readGithub(EPOCH, archive, undefined, () => ["o/r"]);
+  expect(read.map((e) => [e.id, e.sender, e.fromMe])).toEqual([
+    ["github:o/r#1/21", "agent", false],
+    ["github:o/r#1/22", "me", true],
+    ["github:o/r#1/23", "Ana", false],
+  ]);
 });
 
 test("an edited comment is a second version: read gives the last, incoming counts the comment once; a title edit renames its comments' chat", async () => {

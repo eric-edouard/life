@@ -44,10 +44,8 @@ setSettings({
     runtimes: { claude: { model: "test-model" } },
   },
 });
-const desk: Desk = {
-  db: openDesk(),
-  runtimes: { claude: fakeRuntime().runtime },
-};
+const fake = fakeRuntime();
+const desk: Desk = { db: openDesk(), runtimes: { claude: fake.runtime } };
 
 afterAll(() => {
   setSystemTime();
@@ -152,8 +150,17 @@ test("his word stops, resumes, re-points and changes the model of an agent, each
   expect((await applied({ action: "resume", agent }))?.error).toBe(
     `${agent} is active`
   );
+  // His stop ends the turn under way too: its run is stopped (his yes of 20 Nov 2026).
+  desk.db.run(
+    "insert into turn (agent_id, session, cause, started_at) values (?, 'sess-stop', 'deadline', ?)",
+    [agent, clock().toISOString()]
+  );
   await applied({ action: "stop", agent });
   expect(agentOf(desk.db, agent)?.status).toBe("stopped");
+  expect(fake.stopped).toContain("sess-stop");
+  desk.db.run("update turn set ended_at = ? where session = 'sess-stop'", [
+    clock().toISOString(),
+  ]);
   await applied({ action: "re_point", agent, project: "test-shop" });
   expect(agentOf(desk.db, agent)?.project).toBe("test-shop");
   await applied({ action: "resume", agent });
@@ -258,11 +265,11 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       "amber: default wait"
     );
     expect(readActiveAgentOf()([STEP], [])).toBe(onMatter?.id);
-    const worker = project ?? "";
+    const projectAgent = project ?? "";
     const own = onMatter?.id ?? "";
-    // A matter of a project with an active worker carries it; its own agent wins; another project's matter has none.
+    // A matter of a project with an active project agent carries it; its own agent wins; another project's matter has none.
     expect(readActiveAgentOf()(["obs_00000000a999"], ["test-shop"])).toBe(
-      worker
+      projectAgent
     );
     expect(readActiveAgentOf()([STEP], ["test-shop"])).toBe(own);
     expect(readActiveAgentOf()(["obs_00000000a999"], ["test-farm"])).toBe(
@@ -270,23 +277,29 @@ test("what his agents are doing: each with its matter, status, wait, link and am
     );
     expect(
       readAgentsOnSteps([STEP], ["test-shop"], people).map((a) => a.id)
-    ).toEqual([own, worker]);
-    // A stopped worker holds the project for the desk, but works on nothing: no row carries it.
-    desk.db.run("update agent set status = 'stopped' where id = ?", [worker]);
+    ).toEqual([own, projectAgent]);
+    // A stopped project agent holds the project for the desk, but works on nothing: no row carries it.
+    desk.db.run("update agent set status = 'stopped' where id = ?", [
+      projectAgent,
+    ]);
     expect(
       readActiveAgentOf()(["obs_00000000a999"], ["test-shop"])
     ).toBeUndefined();
     expect(
       readAgentsOnSteps([STEP], ["test-shop"], people).map((a) => a.id)
     ).toEqual([own]);
-    desk.db.run("update agent set status = 'active' where id = ?", [worker]);
-    // A matter of two projects, each with an active worker, gets the first project's.
+    desk.db.run("update agent set status = 'active' where id = ?", [
+      projectAgent,
+    ]);
+    // A matter of two projects, each with an active project agent, gets the first project's.
     const farm =
       (await applied({ action: "start", folder, project: "test-farm" }))
         ?.agent_id ?? "";
     const gone = ["obs_00000000a999"];
     expect(readActiveAgentOf()(gone, ["test-farm", "test-shop"])).toBe(farm);
-    expect(readActiveAgentOf()(gone, ["test-shop", "test-farm"])).toBe(worker);
+    expect(readActiveAgentOf()(gone, ["test-shop", "test-farm"])).toBe(
+      projectAgent
+    );
     desk.db.run("update agent set status = 'stopped' where id = ?", [farm]);
     // Its packet opens with its matter as read now: its goal and next step first.
     expect(

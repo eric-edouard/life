@@ -13,7 +13,12 @@ import {
   runtimeOf,
 } from "../host/desk-read";
 import { AgentChange, type AgentKind } from "../records/registered-agent";
-import { register, withdrawOpenDecision, writeSubject } from "./agent-actions";
+import {
+  register,
+  stopOpenRun,
+  withdrawOpenDecision,
+  writeSubject,
+} from "./agent-actions";
 import { type Desk, saveCursor } from "./desk-store";
 
 // His word about his registered agents (`change_registered_agent`): each is an ask of the desk (`DESK_AGENT`) in the
@@ -127,7 +132,6 @@ function apply(
     case "stop":
       refused = refusal(["active"]);
       if (!refused) {
-        // ponytail: a turn under way ends on its own, with no reminder after; stopping its run (`Runtime.stop`) waits for the handover (step 5).
         db.run(
           "update agent set status = 'stopped', stopped_at = ? where id = ?",
           [now(), id]
@@ -160,7 +164,8 @@ function apply(
       }
       break;
     default:
-      // ponytail: the handover (the desk spec, section 9) is step 5; its argument exists so the connector's stays stable.
+      // `hand_over` (to another runtime) is not built and always refused; it stays in `AgentChange` only so the
+      // connector's arguments stay stable until its next batch drops it (a change there forces a reconnect).
       refused = "a handover comes with the desk's next step";
   }
   return refused ? { error: refused } : { id };
@@ -226,6 +231,8 @@ export async function applyAgentChanges(desk: Desk) {
     }
     log("desk.change", { ask: ask.id, ...r });
     if ("id" in r && (ask.agentChange as AgentChange).action === "stop") {
+      // His stop ends the turn under way too (his yes of 20 Nov 2026): its run is stopped, the turn closes `failed`.
+      await stopOpenRun(desk, r.id);
       await withdrawOpenDecision(r.id, "he stopped its agent").catch(
         (e: Error) =>
           log("desk.change", {

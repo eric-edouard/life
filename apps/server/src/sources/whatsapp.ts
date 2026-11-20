@@ -17,7 +17,14 @@ import {
 } from "./archived";
 import { sourceFile } from "./contract";
 import { fromAppleS, toAppleS } from "./imessage";
-import { BRIDGES, ghostOf, localpartOf, withBridgeDb } from "./matrix";
+import {
+  BRIDGES,
+  ghostOf,
+  ghostPicturesOf,
+  isBridgeAdded,
+  localpartOf,
+  withBridgeDb,
+} from "./matrix";
 
 // The Mac app's own store, opened read-only by its copy into the archive.
 export const WHATSAPP = join(
@@ -182,6 +189,26 @@ export function whatsappGhostOf(sender: string) {
   return id ? ghostOf("whatsapp", localpartOf(id)) : undefined;
 }
 
+/** A sender as Life reads it from a WhatsApp id (`phones` from `phonesOfLids`): its phone when known, else the id. */
+const senderOf = (phones: Map<string, string>) => (jid: string) =>
+  phones.get(jid) ?? phoneOf(jid) ?? jid;
+
+/**
+ * The pictures WhatsApp people show, as the bridge keeps them, each by Life's sender: a ghost's id (a phone's digits
+ * or `lid-<n>`, `whatsappGhostOf`) read back as its WhatsApp id. None while the bridge isn't added.
+ */
+export function readWhatsappPictures(whatsapp = WHATSAPP) {
+  if (!isBridgeAdded("whatsapp")) {
+    return [];
+  }
+  const sender = senderOf(phonesOfLids(whatsapp));
+  return ghostPicturesOf("whatsapp", (id) => [
+    sender(
+      id.startsWith("lid-") ? `${id.slice(4)}@lid` : `${id}@s.whatsapp.net`
+    ),
+  ]);
+}
+
 /** Messages since `since` as events, oldest first. The sender is `+<phone>` when known, else the WhatsApp id. */
 export function readWhatsapp(
   since: Date,
@@ -197,7 +224,7 @@ export function readWhatsapp(
     sqlOf,
     since,
     archive,
-    (jid) => phones.get(jid) ?? phoneOf(jid) ?? jid,
+    senderOf(phones),
     // The archive keeps a copy of each file under media/.
     (r) => ({
       ...(r.call && { phoneCall: phoneCallOf(r.call) }),

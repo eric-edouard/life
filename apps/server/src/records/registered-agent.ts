@@ -106,7 +106,8 @@ export type TurnOutcome = "waited" | "finished" | "default_wait" | "failed";
 /**
  * His word about a registered agent (`change_registered_agent`), as stored in his ask for the desk (`after.agentChange`):
  * start one on a subject (exactly one of a matter's `steps`, its anchors, or a `project`), stop, resume, re-point,
- * change its model, or hand it over. The desk applies it once (`desk/agent-changes.ts`).
+ * or change its model. The desk applies it once (`desk/agent-changes.ts`); `hand_over` (to another runtime) is not
+ * built and always refused, kept for the connector's stable arguments until its next batch drops it.
  */
 export const AgentChange = z
   .object({
