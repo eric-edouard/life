@@ -1,6 +1,16 @@
 import { expect, spyOn, test } from "bun:test";
 import { INFERRED_PREFIX } from "../records/observation";
-import { isOneOfHis, oneMatter, openMatters } from "./read-matters";
+import {
+  dismissedIdsOf,
+  type HandOutFacts,
+  type HandOutMatter,
+  handOutGateOf,
+  isOneOfHis,
+  isParkedMatterOf,
+  needsYouOf,
+  oneMatter,
+  openMatters,
+} from "./read-matters";
 import { guessTestOf } from "./who";
 
 test("read_matters lists the open matters, of one project when asked; read_matter opens one with its steps", async () => {
@@ -76,7 +86,9 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     nameOf: (r: string) => r.replace("person:", ""),
     truth: {
       areas: [],
-      projects: [{ id: "shop-fit-out", name: "Shop fit-out" }],
+      projects: [
+        { id: "shop-fit-out", name: "Shop fit-out", status: "active" },
+      ],
     },
   } as never);
   const book = spyOn(matters, "readMatterBook").mockResolvedValue([
@@ -197,4 +209,154 @@ test("a matter with a person of his directory or of his Contacts is; a person on
   expect(
     isOneOfHis({ ...gone, with: [`person:${INFERRED_PREFIX}ana`] }, isGuess)
   ).toBe(false);
+});
+
+// What needs him, moved from the phone's Kit (its tests of the rule).
+test("a matter needs him when its next step is his decision or only his to do, unless stuck, or a check about it blocks him", () => {
+  const next = (kind: string) => ({ nextStep: { kind }, status: "moving" });
+  expect(needsYouOf(next("do"), 1)).toBe(true);
+  expect(needsYouOf(next("wait_owner"), 0)).toBe(true);
+  expect(needsYouOf(next("wait_decision"), 0)).toBe(true);
+  expect(needsYouOf(next("do"), 0)).toBe(false);
+  expect(needsYouOf(next("wait_event"), 0)).toBe(false);
+  expect(needsYouOf({ status: "moving" }, 0)).toBe(false);
+  // A stuck matter is stuck whatever its next step says; a blocking check still counts.
+  expect(
+    needsYouOf({ nextStep: { kind: "wait_owner" }, status: "stuck" }, 0)
+  ).toBe(false);
+  expect(
+    needsYouOf({ nextStep: { kind: "wait_owner" }, status: "stuck" }, 1)
+  ).toBe(true);
+});
+
+// The hand-out's gates, in order. Made-up matters.
+const matterOf = (id: string, over: Partial<HandOutMatter> = {}) =>
+  ({
+    id,
+    nextStep: { kind: "do", text: "Do it" },
+    projects: [],
+    steps: [{ at: "2026-11-18T09:00:00.000Z", ref: `obs_${id}` }],
+    ...over,
+  }) as unknown as HandOutMatter;
+const open: HandOutFacts = {
+  decisions: [],
+  dismissed: new Set(),
+  isDue: () => false,
+  isHeld: () => undefined,
+  isHis: () => true,
+  isParked: () => false,
+};
+const gate = (over: Partial<HandOutFacts>, v = matterOf("m1")) =>
+  handOutGateOf(v, { ...open, ...over });
+
+test("a matter that passes every gate has none", () => {
+  expect(gate({})).toBeNull();
+});
+
+test("each gate names itself, in order: not_do, project_parked, direction_due, dismissed, held, not_his", () => {
+  const all = {
+    dismissed: new Set(["m1"]),
+    isDue: () => true,
+    isHeld: () => ({}) as never,
+    isHis: () => false,
+    isParked: () => true,
+  };
+  const wait = matterOf("m1", { nextStep: { kind: "wait_event" } as never });
+  expect(gate(all, wait)).toBe("not_do");
+  expect(gate(all)).toBe("project_parked");
+  expect(gate({ ...all, isParked: () => false })).toBe("direction_due");
+  expect(gate({ ...all, isDue: () => false, isParked: () => false })).toBe(
+    "dismissed"
+  );
+  expect(
+    gate({
+      ...all,
+      dismissed: new Set(),
+      isDue: () => false,
+      isParked: () => false,
+    })
+  ).toBe("held");
+  expect(gate({ isHis: () => false })).toBe("not_his");
+  // An open decision on one of its steps makes its next step his decision: not to do.
+  expect(gate({ decisions: [{ question: "Which?", subject: "obs_m1" }] })).toBe(
+    "not_do"
+  );
+});
+
+test("the dismissed ones are found over the whole book, by the steps they were pinned to", () => {
+  const book = [matterOf("m1"), matterOf("m2")];
+  expect([...dismissedIdsOf(book, [["obs_m2"], ["obs_gone"]])]).toEqual(["m2"]);
+});
+
+test("a matter is parked when it has projects and none is underway; one with no project, or one underway, is not", () => {
+  const truth = {
+    projects: [
+      { id: "shop", status: "parked" },
+      { id: "farm", status: "done" },
+      { id: "bakery", status: "waiting" },
+    ],
+  } as never;
+  const isParked = isParkedMatterOf(truth);
+  expect(isParked({ projects: ["shop"] })).toBe(true);
+  expect(isParked({ projects: ["shop", "farm"] })).toBe(true);
+  expect(isParked({ projects: ["shop", "bakery"] })).toBe(false);
+  expect(isParked({ projects: [] })).toBe(false);
+});
+
+test("a matter of a parked project ranks after every other, each half keeping its order", async () => {
+  const who = await import("./who");
+  const matters = await import("./matters");
+  const items = await import("./read-open-items");
+  const rank = spyOn(items, "rankContextOf").mockReturnValue({
+    goals: [],
+    levels: new Map(),
+  });
+  const view = (id: string, projects: string[], day: string) => ({
+    areas: [],
+    id,
+    lone: false,
+    name: id,
+    newestOpenStep: {
+      at: `${day}T10:00:00.000Z`,
+      day,
+      kind: "promise",
+      quote: "q",
+      ref: `obs_${id}`,
+      text: id,
+    },
+    open: true,
+    openSteps: [],
+    owedTo: ["person:gran"],
+    projects,
+    status: "moving",
+    steps: [],
+    waitingOn: [],
+    with: [],
+  });
+  const people = spyOn(who, "readPeople").mockResolvedValue({
+    nameOf: (r: string) => r,
+    truth: {
+      areas: [],
+      projects: [
+        { id: "shop", name: "Shop", status: "parked" },
+        { id: "farm", name: "Farm", status: "active" },
+      ],
+    },
+  } as never);
+  const book = spyOn(matters, "readMatterBook").mockResolvedValue([
+    view("newest-parked", ["shop"], "2026-10-12"),
+    view("plain", [], "2026-10-11"),
+    view("mixed", ["shop", "farm"], "2026-10-10"),
+  ] as never);
+  try {
+    expect((await openMatters({})).matters.map((m) => m.id)).toEqual([
+      "plain",
+      "mixed",
+      "newest-parked",
+    ]);
+  } finally {
+    people.mockRestore();
+    book.mockRestore();
+    rank.mockRestore();
+  }
 });

@@ -1,6 +1,7 @@
 import type { Correction } from "../records/observation";
 import { nameGroupsOf } from "./check-sentences";
 import type { CheckInputs } from "./checks";
+import type { AgentHold } from "./held-matters";
 import { guessTestOf } from "./who";
 
 type Input = Partial<Omit<CheckInputs, "people">> & {
@@ -49,6 +50,7 @@ function withoutGroups(
     isDirectionDue: () => false,
     isForHandOut: () => false,
     isHandOutOn: false,
+    isParked: () => false,
     kept: new Set(lines.map((l) => l.id)),
     lines,
     matters: [],
@@ -102,3 +104,19 @@ export function inputs(
   const base = withoutGroups(lines, over);
   return { ...base, nameGroups: nameGroupsOf(base) };
 }
+
+/** One registered agent's hold on `step`: active, asked by him, unless `over` says otherwise (`heldByAgents`' facts). */
+export const holdOn = (
+  step: string,
+  over: Partial<AgentHold> = {}
+): AgentHold => ({
+  agent: "agt_000000000001",
+  endedAt: null,
+  kind: "asked",
+  outcome: null,
+  project: null,
+  status: "active",
+  step,
+  whyNotStarted: null,
+  ...over,
+});

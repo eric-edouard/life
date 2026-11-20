@@ -55,6 +55,8 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     public let agent: String?
     /// How many open checks about it block him (an agent's decision, a voice, a name); the others only improve the memory.
     public let blockingChecks: Int?
+    /// Whether it needs him (Life decides: its next step is his, or a check about it blocks him): the row's dot and the filter.
+    public let needsYou: Bool?
 }
 
 /// `read_matters`: the running matters, most pressing first.
@@ -86,15 +88,6 @@ public struct MatterList: Decodable, Sendable, Equatable {
     }
 }
 
-extension MatterRow {
-    /// Whether it needs him: its next step is his decision or something only he does (a stuck matter is stuck whatever
-    /// its next step says), or a check about it blocks him. The one test, for the row's dot and the filter.
-    public var needsYou: Bool {
-        let waitsOnHim = status != .stuck && (nextStep?.kind == .waitDecision || nextStep?.kind == .waitOwner)
-        return waitsOnHim || (blockingChecks ?? 0) > 0
-    }
-}
-
 /// What the Matters list's filter menu chooses: everything, what needs him, what an agent works on, or one area.
 public enum MatterFilter: Hashable, Sendable {
     case everything, needsYou, agentWorking
@@ -103,7 +96,7 @@ public enum MatterFilter: Hashable, Sendable {
     func passes(_ row: MatterRow) -> Bool {
         switch self {
         case .everything: true
-        case .needsYou: row.needsYou
+        case .needsYou: row.needsYou == true
         case .agentWorking: row.agent != nil
         case .area(let area): row.areas?.contains(area) == true
         }

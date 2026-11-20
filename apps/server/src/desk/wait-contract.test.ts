@@ -34,7 +34,7 @@ import { ANA, advance, ahead, grow, setup, started } from "./test-desk";
 
 /** Whether the hold rule holds a matter of one step, `step`, whose newest step is at `at` (the start of time by default). */
 const holds = (desk: Desk, step: string, at = "") =>
-  isHeldOf(heldByAgents(desk.db))({ steps: [{ at, ref: step }] });
+  Boolean(isHeldOf(heldByAgents(desk.db))({ steps: [{ at, ref: step }] }));
 
 // The wait contract's cases (the desk spec, section 6, W1 to W20): a fake runtime, the clock faked, made-up agents and
 // chats. The test plays each agent: its door calls (`setWait`, `finish`) and its turn's end (`turnEnded`).

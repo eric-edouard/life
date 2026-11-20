@@ -2,6 +2,7 @@ import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, HOUR } from "../core/clock";
 import { handedOutSince, heldByAgents } from "../host/desk-read";
 import { isHeldOf } from "../memory/held-matters";
+import { dismissedIdsOf } from "../memory/read-matters";
 import { register } from "./agent-actions";
 import {
   CARD_WITHIN_MS,
@@ -20,6 +21,8 @@ afterEach(() => {
 const AT = "2026-11-18T09:00:00.000Z";
 const m = (id: string, steps: string[]) => ({
   id,
+  nextStep: { kind: "do" as const, text: "Do it" } as never,
+  projects: [],
   steps: steps.map((ref) => ({ at: AT, ref })),
 });
 const book = [
@@ -30,23 +33,37 @@ const book = [
 const heldOn = (...steps: string[]) =>
   isHeldOf(
     steps.map((step) => ({
+      agent: "agt_000000000001",
       endedAt: null,
       kind: "asked" as const,
       outcome: null,
       project: null,
+      status: "active",
       step,
       whyNotStarted: null,
     }))
   );
+/** The pick over `book`, no gate but what `over` sets: the steps his dismissals were pinned to, the hold rule, the matters. */
 const pick = (
-  over: Partial<Parameters<typeof handOutOf<(typeof book)[number]>>[0]> = {}
-) =>
-  handOutOf({
-    dismissed: [],
-    isHeld: heldOn(),
-    matters: book,
-    ...over,
+  over: {
+    dismissed?: string[][];
+    isHeld?: ReturnType<typeof isHeldOf>;
+    matters?: typeof book;
+  } = {}
+) => {
+  const matters = over.matters ?? book;
+  return handOutOf({
+    facts: {
+      decisions: [],
+      dismissed: dismissedIdsOf(matters, over.dismissed ?? []),
+      isDue: () => false,
+      isHeld: over.isHeld ?? heldOn(),
+      isHis: () => true,
+      isParked: () => false,
+    },
+    matters,
   })?.id;
+};
 
 test("the top matter is the first of his ranking, and none when the ranking is empty", () => {
   expect(pick()).toBe("mat_a");
