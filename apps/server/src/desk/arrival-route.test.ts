@@ -5,6 +5,7 @@ import type { Unit } from "../records/unit";
 import {
   ARRIVAL_CONFIRMED,
   type ArrivalFacts,
+  arrivalFactsOf,
   arrivalRouteOf,
   pollArrivals,
 } from "./arrival-route";
@@ -25,6 +26,25 @@ const facts: ArrivalFacts = {
   people: ["person:ana"],
   source: "whatsapp",
 };
+test("an arrival of two people resolves each by its ref alone (regression: map's index reached refOf as `from`, crashing the desk)", () => {
+  const refOf = (ref: string, ...rest: unknown[]) => {
+    if (rest.length > 0) {
+      throw new Error(`refOf got extra arguments: ${rest.join(",")}`);
+    }
+    return `person:${ref}`;
+  };
+  const got = arrivalFactsOf(
+    {
+      at: facts.at,
+      messages: ["whatsapp|8", "whatsapp|9"],
+      people: ["ana", "bo"],
+    } as unknown as Parameters<typeof arrivalFactsOf>[0],
+    { key: "Test Ana", source: "whatsapp" } as unknown as Unit,
+    refOf
+  );
+  expect(got?.people).toEqual(["person:ana", "person:bo"]);
+});
+
 test("one assignment: a matter's whose people wrote the lines (the lowest id), else Personal, else none", () => {
   const netPeople = [
     { assignment: "m2", people: new Set(["person:ana"]) },
