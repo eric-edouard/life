@@ -183,7 +183,7 @@ export const PageSection = z.enum([
  * rebuild respects it. `wrong` and `not-important` hide observations (on one page when `page` is set, else
  * everywhere); `outdated` says observations were true and are not anymore (a promise kept, a to-do done): each is
  * retired as history, by itself; `keep-mine` is a page line that stays as written; `this-is` says a handle or name is a person,
- * `not-this-person` that it is not, `same-person` that two person refs are one (`from` folds into `to`); `reread`
+ * `not-this-person` that it is not, `not-worth-naming` that a name Life cannot place is never asked (his "Don't name"), `same-person` that two person refs are one (`from` folds into `to`); `reread`
  * says units were read wrong (a fact under the wrong person, say): each is extracted again when its day is next read.
  * `matter-direction` is his goal or next step for a matter, pinned by its steps (all of them, as `read_matter` lists
  * them): his goal always wins over Life's draft, his next step until the matter gets a new step (`directionsOf`).
@@ -230,6 +230,13 @@ export const Correction = z
         kind: z.literal("not-this-person"),
         nameOrHandle: z.string().min(1),
         person: PersonRef,
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("not-worth-naming"),
+        nameOrHandle: z.string().min(1),
       })
       .strict(),
     z

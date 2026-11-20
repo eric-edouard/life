@@ -1,10 +1,15 @@
 import { expect, spyOn, test } from "bun:test";
+import type { Correction } from "../records/observation";
 import type { Unit } from "../records/unit";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lifelogVoices from "../sources/lifelog-voices";
-import { readNameContexts } from "./check-sentences";
+import {
+  type NameRow,
+  nameGroupsOf,
+  readNameContexts,
+} from "./check-sentences";
 import { checksOf } from "./checks";
-import { inputs, line, stepsOf } from "./checks-test-inputs";
+import { inputs, line, nameRow, stepsOf } from "./checks-test-inputs";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as files from "./memory-files";
 import { holdsName } from "./units";
@@ -171,10 +176,7 @@ test("a name's card shows a line that holds the name, never the newest line when
     id: "obs_000000000092",
     quote: "The quote is ready",
   });
-  const rows = [
-    { nameAsWritten: "Bastien", observation: held.id },
-    { nameAsWritten: "bastien", observation: newer.id },
-  ];
+  const rows = [nameRow("Bastien", held.id), nameRow("bastien", newer.id)];
   const matter = {
     id: "matter_aaaaaaaaaaaa",
     lone: false,
@@ -264,4 +266,58 @@ test("a name shows the observation's own sentence, not an earlier line that also
     units.mockRestore();
     read.mockRestore();
   }
+});
+
+test("a name is asked only while the person matters: an exchange or 3 days; never a description, nor a name he said not to name (life#724)", () => {
+  const seen = line({ quote: "Bastien passes by" });
+  const groups = (
+    rows: NameRow[],
+    over: { corrections?: Correction[]; spokeWithHim?: boolean } = {}
+  ) =>
+    nameGroupsOf({
+      hisUnitsOf: (units) => new Set(over.spokeWithHim ? units : []),
+      kept: new Set([seen.id]),
+      lines: [seen],
+      people: { corrections: over.corrections ?? [], resolve: () => null },
+      unresolved: rows,
+    }).map((g: { key: string }) => g.key);
+  const onDays = (
+    name: string,
+    days: string[],
+    via: NameRow["via"] = "model"
+  ) => days.map((date) => nameRow(name, seen.id, { date, via }));
+  // Mentioned on 2 days: a name in passing; on 3: asked.
+  expect(groups(onDays("Bastien", ["2026-10-01", "2026-10-02"]))).toEqual([]);
+  expect(
+    groups(onDays("Bastien", ["2026-10-01", "2026-10-02", "2026-10-05"]))
+  ).toEqual(["bastien"]);
+  // Once, but they wrote in a chat where he wrote too: asked; where he did not: not.
+  const once = onDays("Bastien", ["2026-10-01"], "speaker");
+  expect(groups(once, { spokeWithHim: true })).toEqual(["bastien"]);
+  expect(groups(once)).toEqual([]);
+  // A mention is never an exchange, even in a unit holding his words.
+  expect(
+    groups(onDays("Bastien", ["2026-10-01"]), { spokeWithHim: true })
+  ).toEqual([]);
+  // A description, however often: never asked.
+  expect(
+    groups(onDays("la nounou", ["2026-10-01", "2026-10-02", "2026-10-05"]))
+  ).toEqual([]);
+  // A lowercase handle that wrote to him is a name, not a description.
+  expect(
+    groups(onDays("bastien", ["2026-10-01"], "speaker"), { spokeWithHim: true })
+  ).toEqual(["bastien"]);
+  // His "Don't name": never asked again.
+  expect(
+    groups(onDays("Bastien", ["2026-10-01", "2026-10-02", "2026-10-05"]), {
+      corrections: [
+        {
+          at: "2026-10-06T09:00:00.000Z",
+          kind: "not-worth-naming",
+          nameOrHandle: "Bastien",
+          schemaVersion: 1,
+        } as Correction,
+      ],
+    })
+  ).toEqual([]);
 });

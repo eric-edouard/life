@@ -169,6 +169,14 @@ export function readIndex<T>(
   }
 }
 
+/** Which of `ids` hold his own words: he wrote or spoke there (`stats.fromMe`). */
+export const readUnitsWithHisWords = (ids: readonly string[]) =>
+  new Set(
+    readUnitsFor([...ids])
+      .filter((u) => u.stats.fromMe > 0)
+      .map((u) => u.id)
+  );
+
 /** Units named by their references: the index supplies their days, with source dates for units not indexed yet. */
 export function readUnitsFor(ids: string[], dates: string[] = []) {
   if (ids.length === 0) {

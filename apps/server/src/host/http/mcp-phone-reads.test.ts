@@ -2,6 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { nameGroupsOf } from "../../memory/check-sentences";
 import { urgencyOf } from "../../memory/check-urgency";
 import type { CheckInputs } from "../../memory/checks";
+import { nameRow } from "../../memory/checks-test-inputs";
 import {
   networkIdentityOf,
   withNetworkIdentity,
@@ -278,7 +279,6 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   },
   titles: new Map([["unit_000000000001", "Gran"]]),
   today: "2026-10-14",
-  unresolved: [{ nameAsWritten: "Sam", observation: "obs_000000000008" }],
   voices: [
     {
       clips: [
@@ -318,7 +318,12 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
 };
 const madeUpInbox: CheckInputs = {
   ...madeUpBase,
-  nameGroups: nameGroupsOf(madeUpBase),
+  nameGroups: nameGroupsOf({
+    ...madeUpBase,
+    hisUnitsOf: (units) => new Set(units),
+    people: { ...madeUpBase.people, corrections: [] },
+    unresolved: [nameRow("Sam", "obs_000000000008")],
+  }),
 };
 
 test("the phone's reads: read_inbox, read_matters, read_matter and read_registered_agents answer what Kit's models decode", async () => {

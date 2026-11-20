@@ -19,6 +19,7 @@ import {
   holdOn,
   inputs,
   line,
+  nameRow,
   stepsOf,
 } from "./checks-test-inputs";
 import { checksText } from "./checks-text";
@@ -43,14 +44,11 @@ const REF = `person:${ID}`;
 test("a guess nothing rides on gives no check; three lines on one guess give one check riding three", () => {
   const none = inputs([line()], { inferred: [ID] });
   expect(checksOf(none)).toEqual([]);
-  // A name said once, on a line below the kept ones, rides on nothing either.
+  // A name on a line below the kept ones rides on nothing either.
   const small = line();
+  const dre = [nameRow("Dre", small.id)];
   expect(
-    checksOf({
-      ...none,
-      kept: new Set(),
-      unresolved: [{ nameAsWritten: "Dre", observation: small.id }],
-    })
+    checksOf(inputs([small], { kept: new Set(), unresolved: dre }))
   ).toEqual([]);
   const lines = [about(REF), about(REF), about(REF), about("person:zoe")];
   const [check, ...more] = checksOf(inputs(lines, { inferred: [ID] }));
@@ -162,10 +160,9 @@ test("the list holds every guessed person, ambiguous card and unplaced name that
     inputs(lines, {
       cards: [{ card: "person:con_card", people: ["person:a", "person:b"] }],
       inferred: [ID],
-      unresolved: names.map((x, i) => ({
-        nameAsWritten: x,
-        observation: (nameLines[i] as { id: string }).id,
-      })),
+      unresolved: names.map((x, i) =>
+        nameRow(x, (nameLines[i] as { id: string }).id)
+      ),
     })
   );
   const kinds = checks.map((x) => x.ref);

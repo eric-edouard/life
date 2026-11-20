@@ -145,43 +145,97 @@ export const saidOfQuote = (text: string, at: string | null): Said => ({
   to: null,
 });
 
+/** The days a name Life cannot place must be seen on, without an exchange, to be asked (his word of 20 Nov 2026, life#724). */
+export const NAME_ASKED_AFTER_DAYS = 3;
+
+/** A description, not a name: every way it was written starts with a lowercase letter ("sister", "la femme des bois"); a sender's own name (a lowercase handle) never is one. */
+const isDescription = (names: readonly string[]) =>
+  names.every((n) => LOWERCASE_FIRST.test(n.trim()));
+const LOWERCASE_FIRST = /^\p{Ll}/u;
+
+export type NameRow = Pick<
+  Unresolved,
+  "date" | "nameAsWritten" | "observation" | "unit" | "via"
+>;
+
 /**
- * The names Life cannot place, one group per name (`nameKey`): the names as written, the kept lines that hold them and the
- * one the card shows: the newest whose quote holds the name, else the newest.
+ * The names Life cannot place that are asked, one group per name (`nameKey`): the names as written, the kept lines that
+ * hold them and the one the card shows: the newest whose quote holds the name, else the newest. A name is asked only
+ * while the person matters (his word of 20 Nov 2026, life#724): it was seen on `NAME_ASKED_AFTER_DAYS` days or more (any
+ * row), or he exchanged with them (they spoke in a unit holding his words too: `hisUnitsOf`, asked once for the names
+ * still in doubt); never a description unless its sender wrote it (this rule decides: the extraction prompt only keeps new rows clean), nor a
+ * name he said not to name (`not-worth-naming`). A card needs a row with an observation; a name not asked stays as
+ * written, and is asked again when it returns.
  */
 export function nameGroupsOf<L extends NameLine>(c: {
+  /** Which of `units` hold his own words (he wrote or spoke there). */
+  hisUnitsOf: (units: readonly string[]) => ReadonlySet<string>;
   kept: ReadonlySet<string>;
   lines: readonly L[];
-  people: Pick<People, "resolve">;
-  unresolved: readonly Pick<Unresolved, "nameAsWritten" | "observation">[];
+  /** Who a name is, and his corrections: a name he said not to name (`not-worth-naming`) is never asked. */
+  people: Pick<People, "corrections" | "resolve">;
+  unresolved: readonly NameRow[];
 }) {
-  const open = c.unresolved.filter(
-    (r) => r.observation && !c.people.resolve(r.nameAsWritten)
+  const unnamed = new Set(
+    c.people.corrections.flatMap((x) =>
+      x.kind === "not-worth-naming" ? [nameKey(x.nameOrHandle)] : []
+    )
   );
-  const ids = new Set(open.map((r) => r.observation));
+  const keyOf = (r: NameRow) => nameKey(r.nameAsWritten) || r.nameAsWritten;
+  const placed = c.unresolved.filter((r) => !c.people.resolve(r.nameAsWritten));
+  const rowsBy = Map.groupBy(placed, keyOf);
+  const open = [
+    ...Map.groupBy(
+      placed.filter((r) => r.observation),
+      keyOf
+    ),
+  ].flatMap(([key, rows]) => {
+    const names = [...new Set(rows.map((r) => r.nameAsWritten))];
+    const all = rowsBy.get(key) ?? rows;
+    const isMentionOnly = all.every((r) => r.via !== "speaker");
+    return unnamed.has(key) || (isMentionOnly && isDescription(names))
+      ? []
+      : [
+          {
+            all,
+            isSeenOften:
+              new Set(all.map((r) => r.date)).size >= NAME_ASKED_AFTER_DAYS,
+            key,
+            names,
+            rows,
+          },
+        ];
+  });
+  const spokeIn = (g: (typeof open)[number]) =>
+    g.all.flatMap((r) => (r.via === "speaker" ? [r.unit] : []));
+  const his = c.hisUnitsOf([
+    ...new Set(open.filter((g) => !g.isSeenOften).flatMap(spokeIn)),
+  ]);
+  const ids = new Set(open.flatMap((g) => g.rows.map((r) => r.observation)));
   const byId = new Map(
     c.lines.filter((l) => ids.has(l.id)).map((l) => [l.id, l])
   );
-  return [
-    ...Map.groupBy(open, (r) => nameKey(r.nameAsWritten) || r.nameAsWritten),
-  ].map(([key, rows]) => {
-    const names = [...new Set(rows.map((r) => r.nameAsWritten))];
-    const lines = [...new Set(rows.map((r) => r.observation))].flatMap((id) => {
-      const l = id ? byId.get(id) : undefined;
-      return l && c.kept.has(l.id) ? [l] : [];
+  return open
+    .filter((g) => g.isSeenOften || spokeIn(g).some((u) => his.has(u)))
+    .map(({ key, names, rows }) => {
+      const lines = [...new Set(rows.map((r) => r.observation))].flatMap(
+        (id) => {
+          const l = id ? byId.get(id) : undefined;
+          return l && c.kept.has(l.id) ? [l] : [];
+        }
+      );
+      const holding = lines.filter((l) => holdsName(l.quote, names));
+      const shown = holding.length > 0 ? holding : lines;
+      return {
+        key,
+        last:
+          shown.length > 0
+            ? shown.reduce((m, l) => (l.date > m.date ? l : m))
+            : undefined,
+        lines,
+        names,
+      };
     });
-    const holding = lines.filter((l) => holdsName(l.quote, names));
-    const shown = holding.length > 0 ? holding : lines;
-    return {
-      key,
-      last:
-        shown.length > 0
-          ? shown.reduce((m, l) => (l.date > m.date ? l : m))
-          : undefined,
-      lines,
-      names,
-    };
-  });
 }
 
 /** The line a card's sentence comes from, as the checks hold it. */

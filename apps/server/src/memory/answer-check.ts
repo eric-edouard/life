@@ -212,6 +212,11 @@ const WRITERS: {
       ),
   },
   name: {
+    "not-relevant": (c, a) =>
+      correct(
+        c.about.map((n) => ({ kind: "not-worth-naming", nameOrHandle: n })),
+        a
+      ),
     "this-is": async (c, a, x) => {
       const person = await namedIn(a, x);
       return correct(
