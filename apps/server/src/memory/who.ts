@@ -112,8 +112,11 @@ export function guessTestOf(
   corrections: Correction[],
   inferred: Pick<InferredPerson, "confidence" | "id">[]
 ) {
+  // The latest record in use decides, as in reading it (`guessesOf`).
   const sure = new Map(
-    inferred.map((r) => [`person:${r.id}`, r.confidence >= INFERRED_SURE_AT])
+    inferred
+      .filter((r) => r.confidence >= INFERRED_USE_AT)
+      .map((r) => [`person:${r.id}`, r.confidence >= INFERRED_SURE_AT])
   );
   const said = new Set<string>();
   for (const c of corrections) {
