@@ -76,6 +76,7 @@ create table if not exists turn (
   context_used integer
 );
 create index if not exists turn_by_agent on turn (agent_id, id);
+create index if not exists turn_by_started on turn (started_at);
 create table if not exists cursor (name text primary key, value text not null);
 create table if not exists anchor (
   agent_id text not null,

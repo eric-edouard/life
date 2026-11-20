@@ -518,6 +518,23 @@ export const reportLinesSince = (db: Database, since: string) =>
     )
     .all(since);
 
+/** One turn's tokens (a turn still running has none yet: 0). */
+export interface TurnTokens {
+  agent_id: string;
+  started_at: string;
+  tokens_cached: number;
+  tokens_in: number;
+  tokens_out: number;
+}
+
+/** The turns that started since `since` (the last report), by `turn_by_started`. */
+export const tokensSince = (db: Database, since: string) =>
+  db
+    .query<TurnTokens, [string]>(
+      "select agent_id, started_at, coalesce(tokens_in, 0) as tokens_in, coalesce(tokens_cached, 0) as tokens_cached, coalesce(tokens_out, 0) as tokens_out from turn where started_at > ? order by started_at"
+    )
+    .all(since);
+
 /** What reading the desk's store gave: nothing while the desk is off, why when it could not be read. */
 export type DeskRead<T> =
   | { state: "off" }
