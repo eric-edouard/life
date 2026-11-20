@@ -10,11 +10,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { digest } from "../core/hash";
 import type { SourceEvent } from "../records/source";
+import { ME } from "../records/truth";
 import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
 import { BRIDGES } from "../sources/matrix";
 import { draftProblemOf, StoredDraft } from "./draft";
 import { resolveDraft, sendDraft } from "./draft-send";
-import { OWNER } from "./read-truth";
+import { readPeople } from "./who";
 
 /** A chat that takes everything besides text. */
 const ALL = { file: true, mentions: true, reaction: true, reply: true };
@@ -218,9 +219,9 @@ test("his card shows the chat's last 3 messages within 90 days before it was ask
     },
     { at: "2026-11-14T12:00:00.000Z", text: "four" },
   ]);
-  expect(recent?.[0]?.sender.ref).toBe(OWNER);
-  expect(recent?.[2]?.sender).toMatchObject({ kind: "person" });
-  expect(recent?.[2]?.sender.ref).not.toBe(OWNER);
+  const people = await readPeople();
+  expect(recent?.[0]?.sender).toEqual(people.partyOf(`person:${ME}`));
+  expect(recent?.[2]?.sender).toEqual(people.partyOf("unknown:ana-handle"));
   // A card asked before Life read the chat's last messages has none, and reads as it was.
   const { recent: _, ...old } = await resolveDraft(
     { channel: "sendnet", text: hi, to: "!ana:life.local" },
