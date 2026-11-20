@@ -38,6 +38,7 @@ create index anchor_by_step on anchor (step);
 create index event_dropped on event (agent_id, dropped_at) where dropped_at is not null;
 `;
 const T = "2026-11-18T09:00:00.000Z";
+const BACKUP_FILE = /^desk-before-assignments-.*\.sqlite$/;
 const WAIT = JSON.stringify([{ chat: "Test Ana" }]);
 
 /** A made-up store of the old shape, and an agents repo (a git repo) with the project agents' homes. */
@@ -213,7 +214,7 @@ test("a step that fails leaves the old store, refused by openDesk; two failed st
   renameSync(join(dir, "git-aside"), join(repo, ".git"));
   expect(stepStore(path, dir, repo)).toBe("migrated");
   expect(readdirSync(dir).filter((f) => f.startsWith("desk-before-"))).toEqual([
-    expect.stringMatching(/^desk-before-assignments-.*\.sqlite$/),
+    expect.stringMatching(BACKUP_FILE),
   ]);
   expect(gitOut(repo, ["status", "--porcelain"])).toBe(
     "?? assignments/unrelated/"
