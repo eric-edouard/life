@@ -1,8 +1,9 @@
 import { digest } from "../core/hash";
 import { inboxOf } from "../memory/check-urgency";
 import { checksAndKeyNow, checksNow, type HeldRead } from "../memory/checks";
+import { decisionsNow } from "../memory/decisions";
 import {
-  cardHoldersOf,
+  cardOwnersOf,
   complaintsAtWork,
   heldByAgents,
   heldStampOf,
@@ -19,9 +20,14 @@ function readHeld(): HeldRead | null {
     return null;
   }
   const complaints = readDesk(complaintsAtWork, []);
-  const holders = readDesk(cardHoldersOf, {});
+  const open = decisionsNow().filter((d) => d.state === "open");
+  const owners = readDesk((db) => cardOwnersOf(db, open), {});
   return {
-    cardHolders: holders.state === "ok" ? holders.value : {},
+    cardHolders: Object.fromEntries(
+      Object.entries(owners.state === "ok" ? owners.value : {}).map(
+        ([id, o]) => [id, o.holder]
+      )
+    ),
     complaints: complaints.state === "ok" ? complaints.value : [],
     read: () => {
       const r = readDesk(heldByAgents, []);

@@ -89,6 +89,8 @@ export interface AgentNow {
 
 /** What `wakesOn` is made of, beside an agent as read: its wait's filters, and for each chat they name the name and app of the agent's own newest event there (`seenChatsOf`). Not on the wire. */
 export type AgentRead = AgentNow & {
+  /** The assignment it is read by (`currentAssignmentOf`); null when it holds none. */
+  assignment: string | null;
   chatsSeen: Record<string, { name: string | null; source: string | null }>;
   filters: EventFilter[];
 };
@@ -184,6 +186,7 @@ function subjectPartOf(
   if (!s) {
     return {
       amber: [],
+      assignment: null,
       chatsSeen: {},
       filters: [],
       notes: "",
@@ -201,6 +204,7 @@ function subjectPartOf(
   const open = last && !last.ended_at ? last : null;
   return {
     amber: amberOf(a, s, last, open, dropped, now),
+    assignment: s.id,
     chatsSeen: isForWakes && status === "waiting" ? seenChatsOf(db, s) : {},
     filters: filtersOf(s),
     // The caretaker's notes are about his complaints: they stay with it, never in a read or the nightly.

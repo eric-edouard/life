@@ -5,7 +5,7 @@ import {
   agentOf,
   assignmentOf,
   assignmentOfCard,
-  cardHoldersOf,
+  cardOwnersOf,
   openAssignments,
   readStartFacts,
 } from "../host/desk-read";
@@ -211,11 +211,56 @@ test("a fold shows its card as asked by the new holder, and the agent it emptied
         title: "a test",
       });
       await foldAssignments(desk, readPeopleOnce());
-      expect(cardHoldersOf(desk.db)[id]).toBe(personal);
+      expect(cardOwnersOf(desk.db, [{ agent: old, id }])[id]).toEqual({
+        assignment: onMatter.id,
+        holder: personal,
+      });
       expect(
         agentsNow(desk.db, clock().getTime()).find((a) => a.id === old)
       ).toMatchObject({ status: "ended", steps: [] });
       await withdrawOpenCards(desk.db, { agent_id: personal }, "test over");
+    }
+  );
+});
+
+test("each open card is its own assignment's, so an agent holding two shows each one's on it", async () => {
+  const { desk } = setup();
+  const step = "obs_00000000f063";
+  await withBook(
+    [toDo(step, "I'll paint the fence")],
+    { id: "matter_00000000f063", steps: [step] },
+    async () => {
+      const id = standing(desk, {});
+      const own = openAssignments(desk.db).find((s) => s.agent_id === id);
+      const other = assignmentOf(
+        desk.db,
+        openAssignment(desk, id, { openedBy: "owner", steps: [step] })
+      );
+      if (!(own && other)) {
+        throw new Error("no assignments");
+      }
+      const ask = (s: typeof own) =>
+        askDecision(desk, s, {
+          context: "A made-up reason to ask.",
+          deadline: iso(clock().getTime() + DAY),
+          options: [
+            { id: "yes", label: "Yes" },
+            { id: "no", label: "No" },
+          ],
+          question: "Test: go on?",
+          title: "a test",
+        });
+      const a = await ask(own);
+      const b = await ask(other);
+      const owners = cardOwnersOf(desk.db, [
+        { agent: id, id: a.id },
+        { agent: id, id: b.id },
+      ]);
+      expect([owners[a.id]?.assignment, owners[b.id]?.assignment]).toEqual([
+        own.id,
+        other.id,
+      ]);
+      await withdrawOpenCards(desk.db, { agent_id: id }, "test over");
     }
   );
 });

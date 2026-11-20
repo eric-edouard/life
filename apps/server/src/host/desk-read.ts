@@ -130,7 +130,7 @@ export const handOutsSince = (db: Database, since: string) =>
     )
     .all(since);
 
-/** The open assignments the desk opened itself, of active agents, each with when its holder's first turn on it began (`first_begun_at`: after the last turn another agent ran on it, so a moved one counts from its new holder; null before). */
+/** The open assignments the desk opened itself, of active agents, each with when its holder's first turn on it began (`first_begun_at`: after the last turn another agent ran on it, so a moved one counts from its new holder; null before). Its limit: moved away and back before the other agent ran a turn, it counts from its first holder's old turn again. */
 export const handedOutActive = (db: Database) =>
   db
     .query<AssignmentRow & { first_begun_at: string | null }, []>(
@@ -255,15 +255,24 @@ export const assignmentOfCard = (
       null)
     : null;
 
-/** Who holds each card of an open assignment now: that assignment's agent (`assignmentOfCard`'s row), by the card's id: the agent a card is shown as asked by, whoever asked it. Bounded: the open assignments' cards. */
-export const cardHoldersOf = (db: Database): Record<string, string> =>
+/**
+ * Where each of `cards` (his open ones) stands with the desk, by its id: the open assignment that owns it
+ * (`assignmentOfCard`, legacy cards included) and that assignment's agent, its holder, whoever asked it; none for a card
+ * no open assignment owns. The one read of a card's holder: the inbox shows it, and an agent's read finds its open card
+ * by its assignment. One lookup per card, by its key.
+ */
+export const cardOwnersOf = (
+  db: Database,
+  cards: readonly { agent?: string; id: string }[]
+): Record<string, { assignment: string; holder: string }> =>
   Object.fromEntries(
-    db
-      .query<{ agent_id: string; decision_id: string }, []>(
-        "select c.decision_id, s.agent_id from card c join assignment s on s.id = c.assignment_id where s.closed_at is null"
-      )
-      .all()
-      .map((r) => [r.decision_id, r.agent_id])
+    cards.flatMap((d) => {
+      const id = assignmentOfCard(db, d);
+      const s = id ? assignmentOf(db, id) : null;
+      return s && s.closed_at === null
+        ? [[d.id, { assignment: s.id, holder: s.agent_id }]]
+        : [];
+    })
   );
 
 /** Another open assignment of `s`'s agent anchored on `step`, if one is: a card on that step is that one's to ask (`askDecision`). */
