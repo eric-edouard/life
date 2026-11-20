@@ -52,7 +52,12 @@ function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
  * now), a folder that exists when one is named. A repeat (an active agent on the same subject, its matter or its
  * project, started on the same words) is that agent, not a refusal. A new agent hands over the stopped agents on its subject.
  */
-function start(desk: Desk, c: AgentChange, brief: string, blocked?: string) {
+export function start(
+  desk: Desk,
+  c: AgentChange,
+  brief: string,
+  blocked?: string
+) {
   const runtime = runtimeOf(c);
   const holder = c.project
     ? projectHolderOf(desk.db, c.project, brief)
