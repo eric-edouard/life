@@ -269,14 +269,22 @@ extension Check {
     /// The option that says the name is an organization (`organization`, `memory/life-checks.ts`), on a name card.
     public var organizationOption: Option? { group == .name ? options.first { $0.id == "organization" } : nil }
 
+    /// Whether `text` is still Life's `guess`: the same words, whatever the spaces around and between them. The one
+    /// test, for the sheet's "Life's guess" and for the note it sends.
+    public static func isGuess(_ text: String, _ guess: String?) -> Bool {
+        let words = { (text: String) in text.split(whereSeparator: \.isWhitespace) }
+        guard let guess, !words(text).isEmpty else { return false }
+        return words(text) == words(guess)
+    }
+
     /// His answer from the create sheet: the person (through the naming option that takes a name) or the organization
-    /// he named, with his words for who or what it is only when he wrote them: `note` goes only when, trimmed, it is not
-    /// empty and not Life's `guess`.
+    /// he named, with his words for who or what it is only when he wrote them: `note` goes, trimmed, only when it is not
+    /// empty and not Life's `guess` (`isGuess`).
     public func answer(creating name: String, note: String?, guess: String? = nil, asOrganization: Bool)
         -> AnswerRequest?
     {
         guard createsBySheet, let name = name.wordsOrNil else { return nil }
-        let note = note?.wordsOrNil.flatMap { $0 == guess?.wordsOrNil ? nil : $0 }
+        let note = note?.wordsOrNil.flatMap { Self.isGuess($0, guess) ? nil : $0 }
         let option = asOrganization ? organizationOption : namingOption
         return option.map { AnswerRequest(ref: ref, options: [$0.id], note: note, name: name) }
     }

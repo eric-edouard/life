@@ -35,10 +35,7 @@ struct CreateSheet: View {
         return by.isEmpty && about.isEmpty ? "" : "Mentioned" + by + (by.isEmpty || about.isEmpty ? "" : ",") + about
     }
 
-    private var isGuess: Bool {
-        let words = who.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !words.isEmpty && words == Self.guessOf(check)
-    }
+    private var isGuess: Bool { Check.isGuess(who, Self.guessOf(check)) }
     private var isOrganization: Bool { kind == .organization }
     private var state: ActionState<ActionProof> { sent == nil ? .idle : life.state(of: .answer(ref: check.ref)) }
     private var isDone: Bool { if case .succeeded = state { true } else { false } }
