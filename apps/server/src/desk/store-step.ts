@@ -14,19 +14,22 @@ import { isAppState } from "../core/platform";
 import { commitPaths } from "../core/proc";
 import { settings } from "../core/settings";
 import { openWritable } from "../core/sqlite";
+import { agentHomeOf } from "../host/desk-read";
 import {
-  agentHomeOf,
+  hasColumn,
   isBeforeAssignments,
+  isBeforeMatterIds,
   isBeforeRoles,
-} from "../host/desk-read";
+} from "../host/desk-shape";
 import { copyDb } from "../host/export";
 import { SCHEMA } from "./desk-store";
 
 // The desk's store steps (AGENTS.md, "A rename or a new field backfills"), each with its own check and its own dated
 // copy. `stepStore`, of the agents and matters plan (PR 1): an agent becomes an identity and a session, and its subject,
 // wait, notes and end become its one assignment; anchors, turns and events are keyed by it. `stepRoles`, of the
-// caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). Only the desk helper runs them, at its
-// start, in that order; `openDesk` never migrates. Delete each once it has run on his store.
+// caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). `stepMatterIds` (life#826): an
+// assignment keeps the matter he chose. Only the desk helper runs them, at its start, in that order; `openDesk` never
+// migrates. Delete each once it has run on his store.
 
 /** The tables rebuilt: renamed aside, made again in the new shape (`SCHEMA`), filled, then dropped. */
 const REBUILT = ["agent", "session", "event", "turn", "anchor"];
@@ -93,11 +96,7 @@ const LATE_COLUMNS = [
 
 function addLateColumns(db: Database) {
   for (const [table, column, ddl, backfill] of LATE_COLUMNS) {
-    if (
-      !db
-        .query(`select 1 from pragma_table_info('${table}') where name = ?`)
-        .get(column)
-    ) {
+    if (!hasColumn(db, table, column)) {
       db.run(`alter table ${table} add column ${column} ${ddl}`);
       if (backfill) {
         db.run(backfill);
@@ -197,27 +196,28 @@ export function stepStore(
 }
 
 /**
- * Gives the store at `path` its agents' roles once: nothing for a store that has them, none at all, or a checkout on the
- * app's state. Behind its own dated copy, in one transaction: `role` added, the Personal agent's flag carried into it,
- * the flag and its index dropped, the role index made (`SCHEMA`). What it did.
+ * Runs one later store step on the store at `path`, once: nothing for a store past it (`isBefore` false), none at all,
+ * or a checkout on the app's state. Behind its own dated copy (`backUp`, `prefix`), then `change` and the schema's
+ * indexes (`SCHEMA`) in one transaction. What it did.
  */
-export function stepRoles(path = DESK_STORE, state = LIFE_STATE_DIR) {
+function stepOnce(
+  path: string,
+  state: string,
+  isBefore: (db: Database) => boolean,
+  prefix: string,
+  change: (db: Database) => void
+) {
   if (!existsSync(path) || isAppState(state)) {
     return "skipped";
   }
   const db = openWritable(path, 5000, { strict: true });
   try {
-    if (!isBeforeRoles(db)) {
+    if (!isBefore(db)) {
       return "in shape";
     }
-    backUp(path, "desk-before-roles-");
+    backUp(path, prefix);
     db.transaction(() => {
-      db.run("drop index if exists one_personal_agent");
-      db.run(
-        "alter table agent add column role text check (role in ('personal', 'caretaker'))"
-      );
-      db.run("update agent set role = 'personal' where is_personal = 1");
-      db.run("alter table agent drop column is_personal");
+      change(db);
       db.run(SCHEMA);
     })();
     return "migrated";
@@ -225,3 +225,23 @@ export function stepRoles(path = DESK_STORE, state = LIFE_STATE_DIR) {
     db.close();
   }
 }
+
+/** Gives the store's agents their roles (`stepOnce`): `role` added, the Personal agent's flag carried into it, the flag and its index dropped. */
+export const stepRoles = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
+  stepOnce(path, state, isBeforeRoles, "desk-before-roles-", (db) => {
+    db.run("drop index if exists one_personal_agent");
+    db.run(
+      "alter table agent add column role text check (role in ('personal', 'caretaker'))"
+    );
+    db.run("update agent set role = 'personal' where is_personal = 1");
+    db.run("alter table agent drop column is_personal");
+  });
+
+/**
+ * Gives the store's assignments the matter he chose (`stepOnce`): `matter_id` added, null on every older row (no choice
+ * was kept; the finder's own pick would add nothing).
+ */
+export const stepMatterIds = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
+  stepOnce(path, state, isBeforeMatterIds, "desk-before-matter-ids-", (db) =>
+    db.run("alter table assignment add column matter_id text")
+  );

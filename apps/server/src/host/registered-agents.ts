@@ -549,11 +549,11 @@ function readDeskRows(
     return {
       // An agent's turns by the assignment it works on now; a hand-out by its own.
       anchors: [
-        ...[...new Set(turns.map((t) => t.agent_id))].map(
-          (id) =>
-            [id, anchorsOf(db, currentAssignmentOf(db, id)?.id ?? "")] as const
-        ),
-        ...handed.map((s) => [s.id, anchorsOf(db, s.id)] as const),
+        ...[...new Set(turns.map((t) => t.agent_id))].map((id) => {
+          const s = currentAssignmentOf(db, id);
+          return [id, s ?? null, anchorsOf(db, s?.id ?? "")] as const;
+        }),
+        ...handed.map((s) => [s.id, s, anchorsOf(db, s.id)] as const),
       ],
       // Each card by the assignment that asked it (`assignmentOfCard`).
       cards: all.flatMap((d) => {
@@ -571,9 +571,17 @@ function readDeskRows(
   ) {
     return [];
   }
-  const anchors = new Map(read.value.anchors);
+  const anchors = new Map(
+    read.value.anchors.map(([id, s, steps]) => [
+      id,
+      { prefer: s?.matter_id ?? undefined, steps },
+    ])
+  );
   const find = matterFinderOf(book);
-  const matterOf = (id: string) => find(anchors.get(id) ?? []);
+  const matterOf = (id: string) => {
+    const a = anchors.get(id);
+    return find(a?.steps ?? [], a?.prefer);
+  };
   const owned = read.value.cards;
   const cards = {
     answered: new Set(

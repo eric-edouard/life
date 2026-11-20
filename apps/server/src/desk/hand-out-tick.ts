@@ -87,6 +87,7 @@ export async function handOutNext(
     return;
   }
   const assignment = openAssignment(desk, agent, {
+    matter: matter.id,
     openedBy: "desk",
     steps: matter.steps.map((s) => s.ref),
   });

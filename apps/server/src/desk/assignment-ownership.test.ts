@@ -175,7 +175,8 @@ test("a repeated Start reports the open assignment it found, never a newer close
     [id, clock().toISOString()]
   );
   expect(
-    readStartFacts(desk.db, "entry_test", ["obs_test_d1", "obs_test_d2"])
-      .assignment?.id
+    readStartFacts(desk.db, "entry_test", {
+      steps: ["obs_test_d1", "obs_test_d2"],
+    }).assignment?.id
   ).toBe(open);
 });

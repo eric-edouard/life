@@ -249,7 +249,7 @@ test("an assignment whose deadline passes gets a deadline turn naming its matter
   });
 });
 
-test("a matter's card takes its first step as subject, refuses another matter's, and his answer is queued for that assignment", async () => {
+test("a matter's card takes its matter as subject (stored as its newest step), refuses another matter's, and his answer is queued for that assignment", async () => {
   const { desk, waiting } = setup();
   const id = await waiting();
   const a = onMatter(desk, id, "a", HOUR);
@@ -274,7 +274,7 @@ test("a matter's card takes its first step as subject, refuses another matter's,
     );
     const { id: asked } = await askDecision(desk, row, card());
     const d = decisionsNow().find((x) => x.id === asked);
-    expect(d?.subject).toBe("obs_a1");
+    expect(d?.subject).toBe("obs_a2");
     expect(assignmentOfCard(desk.db, d ?? { id: asked })).toBe(a);
     // The agent's own assignment has no card yet: its own first card is its own.
     expect(openCardOf(desk.db, on(desk, id))).toBeUndefined();

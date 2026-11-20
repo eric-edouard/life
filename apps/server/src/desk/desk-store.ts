@@ -5,7 +5,8 @@ import { clock } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { DESK_STORE } from "../core/paths";
 import { openWritable } from "../core/sqlite";
-import { isOldShape, NOT_MIGRATED, readCursor } from "../host/desk-read";
+import { readCursor } from "../host/desk-read";
+import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
 import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
 import { COMPLAINT_RECEIVED } from "../host/events";
@@ -54,6 +55,7 @@ create table if not exists assignment (
   closed_at text,
   outcome text,
   why_not_started text,
+  matter_id text,
   check (closed_at is not null or wait_until is not null)
 );
 create index if not exists assignment_by_agent on assignment (agent_id, closed_at);

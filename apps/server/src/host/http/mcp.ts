@@ -353,7 +353,10 @@ export function buildServer(readsOnly = false) {
         ),
     }),
     async ({ id }) => {
-      const matter = await oneMatter([id], readAgentsOnSteps, readLifeIcons);
+      const matter = await oneMatter([id], {
+        agentsOf: readAgentsOnSteps,
+        readIcons: readLifeIcons,
+      });
       if (!matter) {
         throw new Error(`No matter ${id}.`);
       }

@@ -169,7 +169,7 @@ async function readOnMatters(desk: Desk, people: People) {
   const key = JSON.stringify([
     readChangeStamp(MATTER_BOOK_READS),
     dayNow(),
-    onMatters.map(({ a, steps }) => [a.id, a.agent_id, steps]),
+    onMatters.map(({ a, steps }) => [a.id, a.agent_id, a.matter_id, steps]),
     standing,
   ]);
   const was = kept.get(db);
@@ -190,7 +190,7 @@ async function readOnMatters(desk: Desk, people: People) {
   const ends: MatterEnd[] = [];
   const folds: MatterFold[] = [];
   for (const { a, steps } of onMatters) {
-    const v = find(steps);
+    const v = find(steps, a.matter_id ?? undefined);
     const ended = v ?? endedStepsOf(steps, records, today);
     const outcome = ended && endOutcomeOf(a.opened_by, ended);
     if (outcome) {

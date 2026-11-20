@@ -113,9 +113,13 @@ export function writeSubject(
   { db }: Desk,
   agent: string,
   assignment: string,
-  s: { project?: string; role?: "personal"; steps?: string[] }
+  s: { matter?: string; project?: string; role?: "personal"; steps?: string[] }
 ) {
   const now = clock().toISOString();
+  db.run("update assignment set matter_id = ? where id = ?", [
+    s.matter ?? null,
+    assignment,
+  ]);
   db.run("delete from anchor where assignment_id = ?", [assignment]);
   db.run("delete from handed_step where assignment_id = ?", [assignment]);
   pendingOf(db).delete(assignment);
@@ -132,19 +136,28 @@ export function writeSubject(
   ]);
 }
 
-/** Opens an assignment for agent `agent` on a matter's steps (none: its own), opened by him (`said`: his words, when he gave any) or the desk: its first turn due now. Its agent's project is its own (`register`, `writeSubject`). Its id. */
+/** Opens an assignment for agent `agent` on a matter's steps (none: its own) and the matter chosen (`matter`: its id), opened by him (`said`: his words, when he gave any) or the desk: its first turn due now. Its agent's project is its own (`register`, `writeSubject`). Its id. */
 export function openAssignment(
   { db }: Desk,
   agent: string,
-  a: { openedBy: OpenedBy; said?: string; steps?: string[] }
+  a: { matter?: string; openedBy: OpenedBy; said?: string; steps?: string[] }
 ) {
   const id = `asg_${randomBytes(6).toString("hex")}`;
   const now = clock().toISOString();
   // One write: an assignment is never open without its anchors.
   db.transaction(() => {
     db.run(
-      "insert into assignment (id, agent_id, opened_at, opened_by, said, wait_until, wait_reason, notes_path) values (?, ?, ?, ?, ?, ?, 'first turn', ?)",
-      [id, agent, now, a.openedBy, a.said ?? null, now, notesPathOf(id)]
+      "insert into assignment (id, agent_id, opened_at, opened_by, said, wait_until, wait_reason, notes_path, matter_id) values (?, ?, ?, ?, ?, ?, 'first turn', ?, ?)",
+      [
+        id,
+        agent,
+        now,
+        a.openedBy,
+        a.said ?? null,
+        now,
+        notesPathOf(id),
+        a.matter ?? null,
+      ]
     );
     for (const step of a.steps ?? []) {
       db.run(
@@ -449,14 +462,22 @@ export function writeNotes(desk: Desk, s: AssignmentRow, text: string) {
 }
 
 /**
- * A matter assignment's card subject: the one given when it is the matter's id or one of its steps, else none given, its
- * first anchor; another is refused. None for an agent's own assignment (its subject stays the agent's to give).
+ * Assignment `s`'s card subject on its matter (found by its anchors, `steps`, and the matter chosen): the one given when
+ * it is the matter's id or one of its steps, else none given, the matter's id (its first anchor when no matter holds
+ * them); another is refused. None for an agent's own assignment (its subject stays the agent's to give).
  */
-async function subjectOf(steps: string[], given: string | undefined) {
-  if (steps.length === 0 || given === undefined) {
-    return given ?? steps[0];
+async function subjectOf(
+  s: Pick<AssignmentRow, "matter_id">,
+  steps: string[],
+  given: string | undefined
+) {
+  if (steps.length === 0) {
+    return given;
   }
-  const m = await oneMatter(steps);
+  const m = await oneMatter(steps, { prefer: s.matter_id ?? undefined });
+  if (given === undefined) {
+    return m?.id ?? steps[0];
+  }
   if (m && (m.id === given || m.steps.some((x) => x.ref === given))) {
     return given;
   }
@@ -493,7 +514,7 @@ export async function askDecision(
     return requestDecision(DESK_AGENT, { agent: card.agent, why, withdraw });
   }
   const steps = anchorsOf(db, s.id);
-  const subject = await subjectOf(steps, ask.subject);
+  const subject = await subjectOf(s, steps, ask.subject);
   const link = agentOf(db, id)?.link;
   const claim = (
     on: string | undefined,
@@ -632,7 +653,7 @@ function projectContextOf({ projects }: Pick<Truth, "projects">, id: string) {
 async function subjectLineOf(
   a: Pick<AgentRow, "project" | "role">,
   isOnProject: boolean,
-  matter: unknown,
+  matter: { id: string } | undefined,
   steps: readonly string[]
 ) {
   if (a.role === "caretaker") {
@@ -640,7 +661,7 @@ async function subjectLineOf(
   }
   return isOnProject && a.project
     ? await projectLinesOf(a.project)
-    : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify(matter ?? `No matter holds ${steps.join(", ")} now.`)}`;
+    : `Your subject, the matter as read now (\`read_matter\` with ${matter?.id ?? steps[0] ?? "its step"} reads it again):\n${JSON.stringify(matter ?? `No matter holds ${steps.join(", ")} now.`)}`;
 }
 
 /**
@@ -664,7 +685,8 @@ export async function readPacket(
   const steps = anchorsOf(db, s.id);
   // An agent's own assignment is its project; any other, the matter its anchors find, its agent's project as context.
   const isOnProject = steps.length === 0 && a.project !== null;
-  const matter = isOnProject ? undefined : await oneMatter(steps);
+  const prefer = s.matter_id ?? undefined;
+  const matter = isOnProject ? undefined : await oneMatter(steps, { prefer });
   if (turn !== undefined && steps.length > 0) {
     pendingOf(db).set(s.id, {
       steps: (matter?.steps ?? []).map((x) => x.ref),
@@ -675,7 +697,7 @@ export async function readPacket(
   const projects = [
     ...new Set([
       ...(a.project ? [a.project] : []),
-      ...(isOnProject ? [] : await readMatterProjectIds(steps)),
+      ...(isOnProject ? [] : await readMatterProjectIds(steps, prefer)),
     ]),
   ].map((p) => projectContextOf(truth, p));
   return [
@@ -743,13 +765,13 @@ export async function matterRecordOf(
   turn: number
 ) {
   const anchors = anchorsOf(db, s.id);
-  const m = await oneMatter(anchors);
+  const m = await oneMatter(anchors, { prefer: s.matter_id ?? undefined });
   const handed = handedSteps(db, s.id);
   const fresh = (m?.steps ?? []).filter((x) => !handed.has(x.ref));
   const shown = fresh.slice(-RECORD_STEPS);
   pendingOf(db).set(s.id, { steps: shown.map((x) => x.ref), turn });
   return [
-    `Your matter, as Life reads it now (\`read_matter\` with ${anchors[0] ?? "its step"} reads it whole; your notes file: ${s.notes_path}):`,
+    `Your matter, as Life reads it now (\`read_matter\` with ${m?.id ?? anchors[0] ?? "its step"} reads it whole; your notes file: ${s.notes_path}):`,
     m
       ? JSON.stringify({
           goal: m.goal?.text,

@@ -19,12 +19,11 @@ import {
   anchorsOf,
   currentAssignmentOf,
   heldByAgents,
-  isOldShape,
-  NOT_MIGRATED,
 } from "../host/desk-read";
+import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
 import { AgentWait } from "../records/registered-agent";
 import { openDesk, SCHEMA } from "./desk-store";
-import { stepRoles, stepStore } from "./store-step";
+import { stepMatterIds, stepRoles, stepStore } from "./store-step";
 
 // The desk's store step (agents and matters, PR 1) on a made-up store of the old shape: same agents, each wait, anchor,
 // event, turn and note found on its assignment, the holds unchanged; run twice; refused, rolled back, or skipped.
@@ -43,6 +42,7 @@ create index event_dropped on event (agent_id, dropped_at) where dropped_at is n
 const T = "2026-11-18T09:00:00.000Z";
 const BACKUP_FILE = /^desk-before-assignments-.*\.sqlite$/;
 const ROLES_BACKUP_FILE = /^desk-before-roles-.*\.sqlite$/;
+const MATTER_IDS_BACKUP_FILE = /^desk-before-matter-ids-.*\.sqlite$/;
 const WAIT = JSON.stringify([{ chat: "Test Ana" }]);
 
 /** A made-up store of the old shape, and an agents repo (a git repo) with the project agents' homes. */
@@ -328,5 +328,28 @@ test("a store from before roles is refused by openDesk; the roles step carries t
       "agt_000000000002",
     ])
   ).toThrow("UNIQUE");
+  after.close();
+});
+
+test("a store from before chosen matters is refused by openDesk; the step adds `matter_id` behind its own copy, once, every row kept with none chosen", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-step-"));
+  const path = join(dir, "desk.sqlite");
+  const db = new Database(path);
+  db.run(SCHEMA.replace("  matter_id text,\n", ""));
+  db.run(
+    "insert into assignment (id, agent_id, opened_at, opened_by, wait_until, notes_path) values ('asg_000000000001', 'agt_000000000001', ?, 'owner', ?, '/tmp/NOTES.md')",
+    [T, T]
+  );
+  db.close();
+  expect(() => openDesk(path)).toThrow(NOT_MIGRATED);
+  expect(stepMatterIds(path, dir)).toBe("migrated");
+  expect(stepMatterIds(path, dir)).toBe("in shape");
+  expect(readdirSync(dir).filter((f) => f.startsWith("desk-before-"))).toEqual([
+    expect.stringMatching(MATTER_IDS_BACKUP_FILE),
+  ]);
+  const after = openDesk(path);
+  expect(after.query("select id, matter_id from assignment").all()).toEqual([
+    { id: "asg_000000000001", matter_id: null },
+  ]);
   after.close();
 });

@@ -377,24 +377,37 @@ export async function readHandOutMatters(
   };
 }
 
-/** The ids of the projects of the matter `refs` find (`matterOfSteps`); none when no matter holds them. The row names them, so a reader that needs the ids (the packet) asks here. */
-export const readMatterProjectIds = async (refs: readonly string[]) =>
-  matterOfSteps(await readMatterBook(await readPeople(), dayNow()), refs)
-    ?.projects ?? [];
+/** The ids of the projects of the matter `refs` find (`matterOfSteps`, `prefer` its tie-breaker); none when no matter holds them. The row names them, so a reader that needs the ids (the packet) asks here. */
+export const readMatterProjectIds = async (
+  refs: readonly string[],
+  prefer?: string
+) =>
+  matterOfSteps(
+    await readMatterBook(await readPeople(), dayNow()),
+    refs,
+    prefer
+  )?.projects ?? [];
 
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
- * agent anchored on records finds its matter again after a re-group): its `MatterRow`, its steps in time order (each
+ * agent anchored on records finds its matter again after a re-group; `prefer`, the matter it was given, settles a tie): its `MatterRow`, its steps in time order (each
  * with its day, words, quote, who it was with as a party and `ending`: none while open), then `agentsOf`'s agents on it now and before (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his); given `readIcons`, Life's icon pick.
  * Undefined when no matter holds them.
  */
 export async function oneMatter<A>(
   refs: readonly string[],
-  agentsOf: (steps: string[], people: People) => A[] = () => [],
-  readIcons?: LifeIconsReader
+  {
+    agentsOf = () => [],
+    prefer,
+    readIcons,
+  }: {
+    agentsOf?: (steps: string[], people: People) => A[];
+    prefer?: string;
+    readIcons?: LifeIconsReader;
+  } = {}
 ) {
   const people = await readPeople();
-  const v = matterOfSteps(await readMatterBook(people, dayNow()), refs);
+  const v = matterOfSteps(await readMatterBook(people, dayNow()), refs, prefer);
   return (
     v && {
       ...rowOf(v, people, openDecisions(), await readIcons?.([v])),

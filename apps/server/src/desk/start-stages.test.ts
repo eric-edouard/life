@@ -131,6 +131,7 @@ test("a start on a matter reports its plan, saves his words as its goal, then ea
     {
       goal: "Test: watch matter 1",
       kind: "matter-direction",
+      matter: "matter_00000000c001",
       steps: ["obs_00000000c101"],
     },
   ]);
