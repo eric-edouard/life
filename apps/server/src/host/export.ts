@@ -9,7 +9,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, isAbsolute, join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import { clock } from "../core/clock";
 import { sha256Of } from "../core/hash";
 import {
@@ -18,7 +18,7 @@ import {
   LIFE_STATE_DIR,
   OWNER_DATA_DIR,
 } from "../core/paths";
-import { slashed } from "../core/platform";
+import { pathInside, slashed } from "../core/platform";
 import { execOk } from "../core/proc";
 import { SECRETS } from "../core/secret";
 import { openReadOnly } from "../core/sqlite";
@@ -201,8 +201,8 @@ export async function stage(
   }
   rmSync(join(dir, "data", basename(LOCK)), { force: true });
   // Life's state inside his data (a test run's is): it goes to state/, through its filter, never with the data.
-  const inData = relative(OWNER_DATA_DIR, LIFE_STATE_DIR);
-  if (!(inData.startsWith("..") || isAbsolute(inData))) {
+  const inData = pathInside(OWNER_DATA_DIR, LIFE_STATE_DIR);
+  if (inData) {
     rmSync(join(dir, "data", inData), { force: true, recursive: true });
   }
   cpSync(LIFE_STATE_DIR, join(dir, "state"), { recursive: true });

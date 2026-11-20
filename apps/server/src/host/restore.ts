@@ -26,7 +26,7 @@ import {
 import { isEmpty } from "./init";
 
 // A Life export (`stage`, export.ts) put back: a new install's data, state and archive, and the desk's notes files at the
-// paths its store names (never over a file there). All or nothing: refused at
+// paths its store names (refused over a different file there). All or nothing: refused at
 // once over anything there (his data, an install's state, an archive short of the export's rows: the archive is never
 // written to), every listed file checked, copied beside its place and counted, then moved in, his data last: his data
 // there means a whole install (`started`). Files the manifest doesn't list are never copied. The manifest itself is
@@ -66,23 +66,31 @@ const partOf = (p: string) => {
   return { part: part as Part | "notes", path: rest.join("/") };
 };
 
-/** Puts each desk notes file of the export (`dir`) back where the restored store (`state`, aside) names it, never over a file there. */
-function putNotesBack(dir: string, m: Manifest, state: string) {
-  const desk = join(state, pathIn(LIFE_STATE_DIR, DESK_STORE));
+/**
+ * Where each desk notes file of the export (`dir`) goes, as its own store names it: refused at once when a different
+ * file is there already; one there with the same bytes is left as it is.
+ */
+async function notesPlacesOf(dir: string, m: Manifest) {
+  const desk = join(dir, "state", pathIn(LIFE_STATE_DIR, DESK_STORE));
   const names = m.files.filter((f) => partOf(f.path).part === "notes");
   if (names.length === 0 || !existsSync(desk)) {
-    return;
+    return [];
   }
   const at = new Map(
     notesOutsideOf(desk, LIFE_STATE_DIR).map((s) => [s.id, s.notes_path])
   );
+  const places: { from: string; to: string }[] = [];
   for (const f of names) {
     const to = at.get(basename(f.path, ".md"));
-    if (to && !existsSync(to)) {
-      mkdirSync(dirname(to), { recursive: true });
-      cpSync(join(dir, f.path), to);
+    // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed
+    const there = to && existsSync(to) ? await sha256Of(to) : null;
+    if (to && there === null) {
+      places.push({ from: join(dir, f.path), to });
+    } else if (there !== null && there !== f.sha256) {
+      throw new Error(`${to} holds other notes: nothing was changed`);
     }
   }
+  return places;
 }
 
 /**
@@ -166,6 +174,7 @@ export async function restore(dir: string, to: Install = HERE) {
     readFileSync(join(dir, "manifest.json"), "utf8")
   ) as Manifest;
   const kept = await refusal(m, to);
+  const notes = await notesPlacesOf(dir, m);
   const side: Install = {
     archive: `${to.archive}.importing`,
     data: `${to.data}.importing`,
@@ -188,7 +197,10 @@ export async function restore(dir: string, to: Install = HERE) {
       }
     }
     await recount(m, at, kept);
-    putNotesBack(dir, m, side.state);
+    for (const n of notes) {
+      mkdirSync(dirname(n.to), { recursive: true });
+      cpSync(n.from, n.to);
+    }
     // In place: Life's state file by file (its folder may hold this install's own key), the archive, his data last.
     for (const f of m.files.filter((x) => partOf(x.path).part === "state")) {
       const { path } = partOf(f.path);

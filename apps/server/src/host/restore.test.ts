@@ -128,7 +128,8 @@ test("an import that stopped while moving in runs again: its own state files lef
   await expect(restore(dir, other)).rejects.toThrow("holds an install");
 });
 
-test("a desk assignment's notes kept outside Life's state travel with the export and come back where its store says, the agents folder gone", async () => {
+/** An export holding one desk assignment's notes, kept in a test agents folder outside Life's state, and their path. */
+async function exportedWithNotes() {
   const agents = temp("agents");
   const notes = join(agents, "assignments", "asg_000000000001", "NOTES.md");
   mkdirSync(dirname(notes), { recursive: true });
@@ -145,7 +146,24 @@ test("a desk assignment's notes kept outside Life's state travel with the export
   } finally {
     rmSync(dirname(DESK_STORE), { force: true, recursive: true });
   }
+  return { agents, dir, notes };
+}
+
+test("a desk assignment's notes kept outside Life's state travel with the export and come back where its store says, the agents folder gone", async () => {
+  const { agents, dir, notes } = await exportedWithNotes();
   rmSync(agents, { force: true, recursive: true });
   await restore(dir, install());
+  expect(readFileSync(notes, "utf8")).toBe("Test notes: waiting on Ana");
+});
+
+test("an import over other notes at a notes file's place changes nothing; the same notes there pass", async () => {
+  const { dir, notes } = await exportedWithNotes();
+  writeFileSync(notes, "Older test notes");
+  const to = install();
+  await expect(restore(dir, to)).rejects.toThrow("holds other notes");
+  expect(readFileSync(notes, "utf8")).toBe("Older test notes");
+  expect(existsSync(to.data) || existsSync(to.state)).toBe(false);
+  writeFileSync(notes, "Test notes: waiting on Ana");
+  await restore(dir, to);
   expect(readFileSync(notes, "utf8")).toBe("Test notes: waiting on Ana");
 });
