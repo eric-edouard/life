@@ -468,6 +468,36 @@ test("a continued unit keeps a quote running into its new lines and rejects one 
     "job-1:1@2026-10-09T10:01:00.000Z",
   ]);
   expect(parse({}).rejects.map((r) => r.reason)).toEqual(["already-read"]);
+  // The same words wholly in the last read line and again running into the new one: the latter, hint or not.
+  const boundary = {
+    ...source,
+    from: 2,
+    lines: [0, 1, 2].map((n) => ({
+      ...(source.lines[n] as Source["lines"][number]),
+      text: [
+        "x y z",
+        "collect the package. Later, collect the",
+        "package please",
+      ][n] as string,
+    })),
+  };
+  for (const line of [1, undefined]) {
+    const r = parseObservations(
+      {
+        observations: [
+          obs({
+            line,
+            quote: "collect the package",
+            subjects: [],
+            text: "Collect the package.",
+          }),
+        ],
+      },
+      { ...ctx, sources: new Map([[source.unit.id, boundary]]) }
+    );
+    expect(r.rejects).toEqual([]);
+    expect(r.observations).toHaveLength(1);
+  }
   // The same words before and after the cut: the new line's fact is kept, in either order.
   const twice = {
     ...source,

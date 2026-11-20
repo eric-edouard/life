@@ -103,16 +103,14 @@ const peopleOf = (g: Group) => [
  * its units worth a searchable line (a copy never, returned apart); then the pending units in no episode, a day at a
  * time. A group holds an episode's units not read yet (`isRead`), the ones read already coming as earlier facts
  * (`priorFor`). A unit in several episodes is read once, with its episode (`readBy`), so a question is read with its
- * answer and the unit's earlier facts give way to the new reading. `unkept`: the `demoted` units no group reads, one
- * outcome per unit (a demoted unit still worth a line is read with its episode).
+ * answer and the unit's earlier facts give way to the new reading.
  */
 export function groupsOf(
   pending: Built[],
   built: Built[],
   verdicts: Verdicts,
   episodes: Episode[],
-  isRead: (b: Built) => boolean,
-  demoted: Built[] = []
+  isRead: (b: Built) => boolean
 ) {
   const byId = new Map(built.map((b) => [b.unit.id, b]));
   const waiting = new Set(pending.map((b) => b.unit.id));
@@ -148,13 +146,22 @@ export function groupsOf(
   for (const units of Map.groupBy(rest, (b) => b.unit.date).values()) {
     groups.push({ episode: null, units });
   }
-  const grouped = new Set(groups.flatMap((g) => g.units.map((b) => b.unit.id)));
-  return {
-    copies: pending.filter((b) => copied.has(b.unit.id)),
-    groups,
-    unkept: demoted.filter((b) => !grouped.has(b.unit.id)),
-  };
+  return { copies: pending.filter((b) => copied.has(b.unit.id)), groups };
 }
+
+/**
+ * The `demoted` units no call reads, to be written `unkept`: one outcome per unit. A demoted unit still worth a line is
+ * read with its episode; one whose lines came back empty (a transcript lifelog no longer has) is in no call.
+ */
+export const unkeptOf = (
+  demoted: Built[],
+  calls: { sources: Source[] }[][]
+) => {
+  const sent = new Set(
+    calls.flatMap((c) => c.flatMap((g) => g.sources.map((x) => x.unit.id)))
+  );
+  return demoted.filter((b) => !sent.has(b.unit.id));
+};
 
 /** The characters of a group's lines: what a call of groups is packed by (`packed`). */
 const groupSize = (g: { sources: Source[] }) =>
@@ -422,14 +429,13 @@ export async function extract(evidence: Evidence) {
     }
     return s.state === "active" ? [{ o }] : [];
   });
-  const { copies, groups, unkept } = groupsOf(
+  const { copies, groups } = groupsOf(
     pending.map((p) => p.b),
     inWindow,
     verdicts,
     // An episode the owner said is wrong groups nothing; its people are who they are today.
     episodesNow(written, corrections).map((m) => episodeNow(m, refOf)),
-    isRead,
-    demoted
+    isRead
   );
 
   const read = groups.flatMap((g) => g.units);
@@ -469,6 +475,7 @@ export async function extract(evidence: Evidence) {
     groupSize
   );
   const lanes = lanesOf(calls);
+  const unkept = unkeptOf(demoted, calls);
 
   const levels = levelsWith(people);
   const close = personallyClose(levels);

@@ -14,6 +14,7 @@ import {
   ownContinued,
   priorFor,
   toExtract,
+  unkeptOf,
 } from "./extract";
 import { episodesNow, isCurrent, standingReadings } from "./memory-files";
 import { locate } from "./quote-check";
@@ -410,7 +411,7 @@ test("a chat read at 4 messages and grown to 7 is continued from 4; an edited ea
     unit: { ...b.unit, source: "notes" },
   });
   expect(from(note(seven), [read(note(four))])).toBe(0);
-  // A voice unit has no messages and no `lines`: read whole.
+  // A voice unit (no messages) is read whole.
   expect(from(built(U1), [read(built(U1), { lines: undefined })])).toBe(0);
   // A chain: read at 4, continued to 7, then to 9 from 7.
   const nine = chat(U1, [...words, "h", "i"]);
@@ -491,23 +492,14 @@ test("a call shows the facts of its own continued units only, not those of anoth
   expect(count(other)).toBe(0);
 });
 
-test("a unit demoted below kept gets one outcome: read with its episode when a group holds it, else unkept", () => {
+test("a demoted unit gets one outcome: read when a call holds it, else unkept, an empty transcript too", () => {
   const [b1, b2] = [U1, U2].map((id) => built(id)) as [Built, Built];
-  const verdicts = ledger([
-    verdict(b1.unit),
-    verdict(b2.unit, { importance: 1 }),
-  ]);
-  const unkept = (units: string[]) =>
-    groupsOf(
-      [b1],
-      [b1, b2],
-      verdicts,
-      episodesNow([episode({ units })], []),
-      unread([b1, b2]),
-      [b2]
-    ).unkept.map((b) => b.unit.id);
-  expect(unkept([U1, U2])).toEqual([]);
-  expect(unkept([U1])).toEqual([U2]);
+  const call = (...bs: Built[]) => [
+    [{ sources: bs.map((b) => ({ lines: [], unit: b.unit })) }],
+  ];
+  expect(unkeptOf([b2], call(b1, b2))).toEqual([]);
+  // Grouped with its episode, but its lines came back empty: in no call.
+  expect(unkeptOf([b2], call(b1))).toEqual([b2]);
 });
 
 test("a chat of today is read at once; an open lifelog conversation of today waits for its closing", () => {
