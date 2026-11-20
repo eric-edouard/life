@@ -6,6 +6,7 @@ import { SignJWT } from "jose";
 import { clock, DAY } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { LOG_DIR } from "../../core/log";
+import { CONNECTOR_WRITES } from "../../core/names";
 import { OWNER_DATA_DIR } from "../../core/paths";
 import { setSettings, settings } from "../../core/settings";
 import { DECISIONS } from "../../memory/decisions";
@@ -184,22 +185,14 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
   expect(reminders.inputSchema.properties.target).toMatchObject({
     anyOf: [{ type: "string" }, { type: "integer" }],
   });
-  const writes = [
-    "answer_check",
-    "correct_memory",
-    "change_directory_entry",
-    "change_registered_agent",
-    "change_todo_item",
-    "request_decision",
-    "tell_life",
-  ];
-  for (const reads of tools.filter((x) => !writes.includes(x.name))) {
+  // Every write is in the send guard's list (`CONNECTOR_WRITES`), so a new one can't slip past it.
+  for (const reads of tools.filter((x) => !CONNECTOR_WRITES.includes(x.name))) {
     expect(reads.annotations).toMatchObject({
       openWorldHint: false,
       readOnlyHint: true,
     });
   }
-  for (const name of writes) {
+  for (const name of CONNECTOR_WRITES) {
     expect(tools.find((t) => t.name === name)?.annotations).toMatchObject({
       destructiveHint: [
         "correct_memory",
@@ -764,13 +757,8 @@ test("built to serve reads only (the question cases' agent), the connector regis
     JSON.parse(data ? data.slice(5) : body).result.tools;
   const names = tools.map((t) => t.name);
   expect(tools.every((t) => t.annotations.readOnlyHint)).toBe(true);
-  for (const writes of [
-    "correct_memory",
-    "change_directory_entry",
-    "change_todo_item",
-    "tell_life",
-  ]) {
-    expect(names).not.toContain(writes);
+  for (const write of CONNECTOR_WRITES) {
+    expect(names).not.toContain(write);
   }
   expect(names).toContain("read_people_and_organizations");
   expect(names).toContain("search");

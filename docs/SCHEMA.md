@@ -658,10 +658,13 @@ full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict
 desk (`apps/server/src/desk/`: its helper, and `life desk report-line`; `desk-store.ts` holds its schema), read only
 through `host/desk-read.ts` (host's reads read-only): table `agent` (a registered agent: `agt_…`, its
 brief, runtime, folder (named at its start, else its matter's or project's repo on the Mac, from `repos:` in his directory, else its own `desk/agents/<agt_…>` under Life's state), `project` (its subject when a project), `model` and `effort` (null: the desk's default for its
-runtime), current session and link, `status` `active`, `stopped`, `handed_over` (a stopped agent whose project or matter an agent was started on after: `ended_at` set, `outcome` "replaced by <id>"), or `ended`; `stopped_at` (when he stopped it; null unless stopped), its agent
-wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an active agent with no
-`wait_until`), its notes; its open decision is read from `decisions.jsonl` by its id), `session` (every session it had, with its link and `context_at_first_call`, the context its first turn's usage reported; append-only), `event` (its
-queued events, one row per agent and event id, `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
-cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update), `anchor` (an agent's matter steps, in order), `agent_change` (each of his asks
+runtime), current session and link, `status` `active`, `stopped`, `handed_over` (a stopped agent whose project or matter an agent was started on after: `ended_at` set, `outcome` "replaced by <id>"), or `ended`; `stopped_at` (when he stopped it; null unless stopped), `name` (his name for it; null until set), `is_personal` (one Personal agent active or stopped at most), its end (`ended_at`, `outcome`: its last assignment's)), `assignment` (one subject given to an agent, `asg_…`:
+`agent_id`, `opened_at`, `opened_by` (`owner` or `desk`, the hand-out), `said` (his words, when he gave it), its agent
+wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an open assignment with no
+`wait_until`), `notes_path` (its notes file, in `desk.agentsRepo`, else under the desk's folders), `plan_done`,
+`plan_total`, `plan_now` (its runtime's plan, overwritten; null when none), `closed_at`, `outcome`, `why_not_started`;
+its open card is read from `decisions.jsonl`, `assignmentOfCard`), `session` (every session it had, with its link, `context_at_first_call`, the context its first turn's usage reported, and `rules_digest`; append-only), `event` (an assignment's
+queued events, one row per assignment and event id, `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn, on one assignment: its
+cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update), `anchor` (an assignment's matter steps, in order; none for an agent's own), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
 `cursor` (where the message, answer and ask reads stopped). Never deleted by hand.

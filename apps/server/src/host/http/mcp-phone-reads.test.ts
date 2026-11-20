@@ -210,8 +210,8 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   heldByAgents: [
     {
       agent: "agt_000000000001",
-      endedAt: null,
-      kind: "asked",
+      closedAt: null,
+      openedBy: "owner",
       outcome: null,
       project: null,
       status: "active",
