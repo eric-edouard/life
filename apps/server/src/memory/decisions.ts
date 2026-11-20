@@ -172,6 +172,46 @@ const voidedBy = (d: Omit<Decision, "state">, l: SendFailed | DoneSeen) => {
   };
 };
 
+/** `d` with Life's look `l` read: the first `seen` stands; a `not_found` is an answer's look's outcome only, and voids it; else unchanged. */
+function withDoneSeen(d: Omit<Decision, "state">, l: DoneSeen) {
+  if (l.state === "seen" && d.doneSeen?.state !== "seen") {
+    return { ...d, doneSeen: l };
+  }
+  return l.state === "not_found" && d.answer && !d.doneSeen
+    ? voidedBy(d, l)
+    : d;
+}
+
+/** `d` with its line `l` read: the first answer, withdrawal and end stand; a `not sent:` outcome voids the answer. */
+function withLine(
+  d: Omit<Decision, "state">,
+  l: Exclude<z.infer<typeof Line>, Asked>
+): Omit<Decision, "state"> {
+  switch (l.kind) {
+    case "answered":
+      // A `not_found` that voided an earlier answer is no outcome of this one.
+      return d.answer
+        ? d
+        : {
+            ...d,
+            answer: l,
+            doneSeen: d.doneSeen?.state === "seen" ? d.doneSeen : undefined,
+          };
+    case "done-seen":
+      return withDoneSeen(d, l);
+    case "withdrawn":
+      return d.withdrawn ? d : { ...d, withdrawn: l };
+    case "send-failed":
+      return l.error.startsWith("not sent:")
+        ? voidedBy(d, l)
+        : { ...d, send: l };
+    case "sent":
+      return { ...d, send: l };
+    default:
+      return d.end ? d : { ...d, end: l };
+  }
+}
+
 /** Every decision as stored, by id, in the order asked: the first answer kept, until a `not sent:` outcome voids it. */
 const readAll = () =>
   readAppended(
@@ -185,29 +225,8 @@ const readAll = () =>
       const d = all.get(l.id);
       if (l.kind === "asked") {
         all.set(l.id, l);
-      } else if (d && l.kind === "answered" && !d.answer) {
-        // A `not_found` that voided an earlier answer is no outcome of this one.
-        const doneSeen = d.doneSeen?.state === "seen" ? d.doneSeen : undefined;
-        all.set(l.id, { ...d, answer: l, doneSeen });
-      } else if (d && l.kind === "done-seen") {
-        // The first `seen` stands; a `not_found` is the outcome of an answer's look only, and voids it.
-        if (l.state === "seen" && d.doneSeen?.state !== "seen") {
-          all.set(l.id, { ...d, doneSeen: l });
-        } else if (l.state === "not_found" && d.answer && !d.doneSeen) {
-          all.set(l.id, voidedBy(d, l));
-        }
-      } else if (d && l.kind === "withdrawn" && !d.withdrawn) {
-        all.set(l.id, { ...d, withdrawn: l });
-      } else if (
-        d &&
-        l.kind === "send-failed" &&
-        l.error.startsWith("not sent:")
-      ) {
-        all.set(l.id, voidedBy(d, l));
-      } else if (d && (l.kind === "sent" || l.kind === "send-failed")) {
-        all.set(l.id, { ...d, send: l });
-      } else if (d && l.kind === "ended" && !d.end) {
-        all.set(l.id, { ...d, end: l });
+      } else if (d) {
+        all.set(l.id, withLine(d, l));
       }
     }
   );

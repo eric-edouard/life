@@ -56,9 +56,6 @@ export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
   const ids = ask.options.map((o) => o.id);
   const ahead = Date.parse(ask.deadline) - now.getTime();
   const silence = ask.options.find((o) => o.id === ask.onSilence);
-  const looks = ask.options.filter((o) => o.looks);
-  const marks = (o: z.infer<typeof Option>) =>
-    [o.ends, o.looks, o.outgoing, o.takes].filter(Boolean).length;
   return (
     (new Set(ids).size !== ids.length && "option ids repeat") ||
     (ask.onSilence !== null &&
@@ -66,6 +63,27 @@ export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
       "`onSilence` must be an option id") ||
     (silence?.outgoing &&
       "`onSilence` never takes an `outgoing` option: on silence nothing goes out") ||
+    lookProblemOf(ask, silence) ||
+    (ask.draft &&
+      ask.options.filter((o) => o.outgoing).length !== 1 &&
+      "a `draft` needs the one option that sends it marked `outgoing`") ||
+    (!ask.question.trim().endsWith("?") && "`question` must end in a ?") ||
+    (ask.options.find((o) => o.label.trim().split(WHITESPACE).length > 5) &&
+      "an option's `label` is at most five words") ||
+    ((ahead < HOUR || ahead > 14 * DAY) &&
+      "the deadline must be 1 hour to 14 days ahead")
+  );
+}
+
+/** What breaks the rules of a `looks` or `takes` option and of `doneSeenBy`, in words the agent can fix; false when nothing does. */
+function lookProblemOf(
+  ask: z.infer<typeof Ask>,
+  silence?: z.infer<typeof Option>
+) {
+  const looks = ask.options.filter((o) => o.looks);
+  const marks = (o: z.infer<typeof Option>) =>
+    [o.ends, o.looks, o.outgoing, o.takes].filter(Boolean).length;
+  return (
     ((silence?.looks || silence?.takes) &&
       "`onSilence` never takes a `looks` or `takes` option: on silence he did nothing and said nothing") ||
     (ask.options.some((o) => (o.looks || o.takes) && marks(o) > 1) &&
@@ -76,15 +94,7 @@ export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
       'a `looks` option needs `doneSeenBy: "payment"` (fetch("ask/payment"))') ||
     (ask.doneSeenBy === "payment" &&
       ask.needs?.filter((n) => n.kind === "amount").length !== 1 &&
-      '`doneSeenBy: "payment"` needs one `amount` need (fetch("ask/payment"))') ||
-    (ask.draft &&
-      ask.options.filter((o) => o.outgoing).length !== 1 &&
-      "a `draft` needs the one option that sends it marked `outgoing`") ||
-    (!ask.question.trim().endsWith("?") && "`question` must end in a ?") ||
-    (ask.options.find((o) => o.label.trim().split(WHITESPACE).length > 5) &&
-      "an option's `label` is at most five words") ||
-    ((ahead < HOUR || ahead > 14 * DAY) &&
-      "the deadline must be 1 hour to 14 days ahead")
+      '`doneSeenBy: "payment"` needs one `amount` need (fetch("ask/payment"))')
   );
 }
 
