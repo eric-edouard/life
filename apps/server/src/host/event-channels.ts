@@ -1,8 +1,11 @@
-import { daysBefore, HOUR, iso, MIN } from "../core/clock";
+import { clock, daysBefore, HOUR, iso, MIN } from "../core/clock";
+import { isOwnLife } from "../core/platform";
 import { paymentDayOf, paymentWordsOf } from "../memory/payments";
 import { localDate } from "../memory/zones";
 import { payments } from "../payments/backend";
 import type { Payment, PaymentsBackend } from "../payments/contract";
+import type { EventFilter } from "../records/registered-agent";
+import { type GithubActivity, githubActivityReader } from "../sources/github";
 import { type Stay, visits } from "../sources/lifelog";
 
 // Event channels: what a wait's `channels` may name besides a message app, each read by the desk only for the waits
@@ -26,6 +29,8 @@ export interface Matchable {
   /** Where it happened: a filter's coordinates match it within their radius. */
   point?: { latitude: number; longitude: number };
   quantities?: Record<string, number>;
+  /** A GitHub activity's repo, `owner/name`: such an event is matched only by a filter naming its `repo`. */
+  repo?: string;
   text?: string;
 }
 
@@ -55,11 +60,13 @@ export interface EventChannel {
   event: string;
   /** Whether its events hold a point (`Matchable.point`): only then may a filter on it take coordinates. */
   hasPoint: boolean;
+  /** Whether its events hold a repo (`Matchable.repo`): then a filter on it must name one, and the repos named are all it reads. */
+  hasRepo: boolean;
   name: string;
   /** The quantities its events hold, by name. */
   quantities: string[];
-  /** Its events over its look-back to `now`; throws when it cannot be read. */
-  read: (now: number) => Promise<ChannelEvent[]>;
+  /** Its events over its look-back to `now`, given the open waits' filters that name it; throws when it cannot be read. */
+  read: (now: number, filters?: EventFilter[]) => Promise<ChannelEvent[]>;
 }
 
 const PAYMENTS_OFF = "payments are off in his settings";
@@ -148,6 +155,7 @@ export const paymentsChannelOf = (
   block: () => (backend() ? null : PAYMENTS_OFF),
   event: "payment.booked",
   hasPoint: false,
+  hasRepo: false,
   name: "payments",
   quantities: ["eur_out", "eur_in"],
   read: async (now) => {
@@ -221,6 +229,7 @@ export const placesChannelOf = (
   block: () => null,
   event: "stay.arrived",
   hasPoint: true,
+  hasRepo: false,
   name: "places",
   quantities: [],
   read: async (now) => {
@@ -233,4 +242,69 @@ export const placesChannelOf = (
   },
 });
 
-export const EVENT_CHANNELS = [paymentsChannelOf(payments), placesChannelOf()];
+/**
+ * A GitHub activity as an event: its facts (repo, number, who, kind with what was done, link, when); its title and body are
+ * only tested (`text_matches`), never handed or kept. The queued wake holds the facts only.
+ */
+function githubEventOf(a: GithubActivity): ChannelEvent {
+  const id = `github_activity:${a.id}`;
+  return {
+    at: a.at,
+    day: localDate(a.at),
+    eventId: id,
+    matchable: {
+      channel: "github_activity",
+      isNamedOnly: true,
+      repo: a.repo,
+      text: a.words,
+    },
+    payload: {
+      at: a.at,
+      id,
+      kind: a.kind,
+      link: a.link,
+      number: a.number,
+      repo: a.repo,
+      source: "github_activity",
+      who: a.who,
+    },
+  };
+}
+
+/**
+ * The GitHub activity channel over `read` (`githubActivityReader`): the issues, pull requests, comments and reviews of
+ * the repos the open waits name, and of no other. Read only in his own Life (`isOn`): `gh` holds his login, which a
+ * second Life's agents must never reach.
+ * ponytail: a repo's ETag moves on at its read, before its events are queued; a queue that fails then (the desk's own
+ * store) loses them. Commit the ETag after the queue if that store ever fails alone.
+ */
+export const githubActivityChannelOf = (
+  read = githubActivityReader(),
+  isOn: () => boolean = () => isOwnLife()
+): EventChannel => ({
+  about:
+    "any activity on the GitHub repos you name, a minute or more after it (GitHub's own delay can be longer): its `kind` is `issue.<action>` (opened, closed, reopened, labeled, assigned…; GitHub's repo events carry no edit of an issue's title or body), `pr.<action>` (opened, merged, closed…), `comment`, `review` or `review_comment`; `repo` is required, `owner/name` or `owner/*` (its first 100 repos); `text_matches` tests its title and body when GitHub gives them; read it at its `link` with `gh`",
+  // Every poll while a wait names it: the reader paces each repo by GitHub's own interval.
+  beat: 0,
+  // `gh` failing is the poll's "could not be read" line.
+  block: () => (isOn() ? null : "GitHub is read only in his own Life"),
+  event: "github.activity",
+  hasPoint: false,
+  hasRepo: true,
+  name: "github_activity",
+  quantities: [],
+  // Paced from the instant it is read, not the poll's start: a slow channel before it never shortens GitHub's interval.
+  read: async (_pollStart, filters = []) =>
+    (
+      await read(
+        filters.flatMap((f) => f.repo ?? []),
+        clock().getTime()
+      )
+    ).map(githubEventOf),
+});
+
+export const EVENT_CHANNELS = [
+  paymentsChannelOf(payments),
+  placesChannelOf(),
+  githubActivityChannelOf(),
+];
