@@ -49,7 +49,7 @@ test("an answered voice leaves the kept list, and a read that started before the
   const voice = { conversationId: "c1", jobId: "job-3", speakerLabel: "A" };
   queue = () => [{ ...item, id: "job-3:A", voices: [voice] }];
   expect(ids(await readNamingQueueNow())).toEqual(["job-3:A"]);
-  let release = () => undefined as void;
+  let release: () => void = () => undefined;
   queue = () =>
     new Promise((r) => {
       release = () => r([{ ...item, id: "job-3:A", voices: [voice] }]);
