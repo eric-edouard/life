@@ -1,0 +1,9 @@
+{
+  "project": {
+    "goal": "The Halden house is ready to rent out by March.",
+    "id": "halden",
+    "name": "Halden house",
+    "status": "active"
+  },
+  "matters": []
+}

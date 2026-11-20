@@ -19,11 +19,15 @@ struct CheckCard: View {
     let sameAs: () -> Void
     /// "Create <name>" or "Organization": the create sheet, with the name he would create, set to an organization or not.
     let create: (String, _ asOrganization: Bool) -> Void
+    /// "I dropped this whole project", the one ready line over his own words when the card's matter has a project
+    /// underway: parks it.
+    var dropProject: (() -> Void)?
     /// Where it stands among the asks paged beside it (its index, how many); nil alone.
     var page: (current: Int, total: Int)?
 
     /// The card's context shows in a region of its own, so its matter row and "Why" link go: `CardArrangement` decides.
     @Environment(\.isContextBeside) private var isContextBeside
+    @Environment(LifeStore.self) private var life
     @Environment(\.dynamicTypeSize) private var typeSize
     @FocusState private var isWriting: Bool
     /// Whether the link found room beside the matter; else it moves to the deadline's line.
@@ -144,7 +148,14 @@ struct CheckCard: View {
         }
     }
 
-    private var ownWords: some View {
+    @ViewBuilder private var ownWords: some View {
+        if let dropProject, check.group != .newMatter {
+            Button("I dropped this whole project") {
+                input.isWritingOwnWords = false
+                dropProject()
+            }
+            .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
+        }
         TextField(
             check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
         )
@@ -198,7 +209,10 @@ struct CheckCard: View {
 
     @ViewBuilder private var matterPill: some View {
         if let matter = check.matter {
-            InlinePill(name: matter.name, agentMark: check.agentMark(runtime: runtimeName)) {
+            InlinePill(
+                name: matter.name, agentMark: check.agentMark(runtime: runtimeName),
+                isImportant: life.isImportant(matter.id, as: matter.important)
+            ) {
                 openMatter(matter.id)
             }
         }

@@ -13,16 +13,15 @@ import {
   type AssignmentRow,
   agentHomeOf,
   agentOf,
+  agentWaitOf,
   anchorsOf,
   assignmentOf,
   assignmentOfCard,
-  filtersOf,
   handedSteps,
   isFull,
   openTurn,
   queuedEvents,
   readNotes,
-  savedWaitOf,
   siblingOn,
 } from "../host/desk-read";
 import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
@@ -571,7 +570,7 @@ function projectContextOf({ projects }: Pick<Truth, "projects">, id: string) {
 /**
  * `read_packet`: what a fresh session starts from: its one matter as read now (`oneMatter`: where it stands, its goal and
  * next step, its steps so far), or its project; then each project's context (`projectContextOf`), the brief, the
- * contract, its notes, its saved wait, its queued events (facts only) and its open decision. When it starts turn `turn`'s
+ * contract, its notes, its agent wait, its queued events (facts only) and its open decision. When it starts turn `turn`'s
  * fresh session, that turn is shown every step of the matter this one read holds (`keepHanded`).
  */
 export async function readPacket(
@@ -584,7 +583,7 @@ export async function readPacket(
   if (!a) {
     return "";
   }
-  const wait = savedWaitOf(a, s);
+  const held = agentWaitOf(a, s);
   const events = queuedEvents(db, s.id).map(eventLineOf);
   const steps = anchorsOf(db, s.id);
   // An agent's own assignment is its project; any other, the matter its anchors find, its agent's project as context.
@@ -611,9 +610,9 @@ export async function readPacket(
     a.brief,
     contractOf(a.id, isOwn, s.opened_by),
     `Your notes:\n${readNotes(s) || "(none yet)"}`,
-    ...(wait
+    ...(held
       ? [
-          `Your saved wait: ${JSON.stringify({ ...wait, events: filtersOf(s) })}`,
+          `Your wait${held.isDefault ? " (the default: the desk set it, replace it with set_wait)" : ""}: ${JSON.stringify({ events: held.events, reason: held.reason, until: held.until })}`,
         ]
       : []),
     `Events waiting:\n${events.join("\n") || "(none)"}`,

@@ -457,12 +457,10 @@ test("a matter he marked important comes first, with no open step too; its parke
       [true, "shop"],
       [undefined, "shop"],
     ]);
-    // "Its 2 matters wait": the mixed one is under the farm, underway.
     expect((await openMatters({ project: "shop" })).project).toEqual({
       goal: undefined,
       id: "shop",
       name: "Shop",
-      parkedMatters: 2,
       status: "parked",
     });
   } finally {
