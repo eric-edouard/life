@@ -72,8 +72,12 @@ export async function readInbox(
       `No open check ${o.after}: the inbox changed, read it from the start.`
     );
   }
-  // The list's own version, never the key's: under the lock a card can change under the same files' stamp (life#779).
-  const version = listVersionOf(shown);
+  // The answer's own version, never the key's: under the lock a card can change under the same files' stamp (life#779),
+  // and the counts change with his day (what is due today) while the cards stay the same.
+  const counts = inboxOf(shown);
+  const version = versionOf(
+    JSON.stringify([listVersionOf(shown), counts.deadlinesToday])
+  );
   if (o.ifNot === version) {
     return unchangedOf(version);
   }
@@ -81,7 +85,7 @@ export async function readInbox(
     checks: o.pushId
       ? shown.filter((c) => c.pushId === o.pushId)
       : shown.slice(from, from + limit),
-    ...inboxOf(shown),
+    ...counts,
     version,
   };
 }

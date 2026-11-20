@@ -142,6 +142,21 @@ test("read_inbox's version is its list's: a card changed under the same key gets
       unchanged: true,
       version: after.version,
     });
+    // The same cards past his midnight: what is due today changed, so the version does too.
+    const zones = await import("../../memory/zones");
+    const today = spyOn(zones, "dayNow").mockReturnValue("2026-06-01");
+    try {
+      spy.mockResolvedValue({
+        checks: [{ ...card("after"), deadline: "2026-06-02T12:00:00.000Z" }],
+        key: "one stamp",
+      } as never);
+      const before = await read({});
+      today.mockReturnValue("2026-06-02");
+      const past = await read({ ifNot: before.version });
+      expect([before.deadlinesToday, past.deadlinesToday]).toEqual([0, 1]);
+    } finally {
+      today.mockRestore();
+    }
   } finally {
     spy.mockRestore();
   }
