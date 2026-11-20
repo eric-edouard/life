@@ -19,8 +19,8 @@ import { inBatches, type Step } from "./run";
 
 /** The prompt of each read; the moves reads' shape is `MOVES`, `memory/moves.ts`, the summary's is `memory/conversation-summaries.ts`, the voice naming's `memory/voice-naming.ts`. */
 export const READS = {
-  arrival_confirm: { prompt: "memory-arrival-confirm.v1" },
-  arrival_trigger: { prompt: "memory-arrival-trigger.v1" },
+  arrival_confirm: { prompt: "memory-arrival-confirm.v2" },
+  arrival_trigger: { prompt: "memory-arrival-trigger.v2" },
   conflict: { prompt: "memory-conflict.v2" },
   connection: { prompt: "memory-connection.v3" },
   conversation_summary: { prompt: "memory-conversation-summary.v1" },
@@ -110,12 +110,12 @@ export const confirmedArrivalsOf = (lines: ReadReply[]): ConfirmedArrival[] =>
   );
 
 /**
- * The confirmed arrivals stored since the instant `since`. A confirm is filed by its first message's month, at most a
- * day before it was made (the reader reads today's units), so the files from a day before `since` are read.
+ * The confirmed arrivals stored since the instant `since`. A confirm is filed by its first line's month, at most two
+ * days before it was made (the reader reads yesterday's voice too), so the files from two days before `since` are read.
  */
 export const readConfirmedArrivals = (since: string, where = READ_REPLIES) =>
   confirmedArrivalsOf(
-    readRepliesSince(iso(Date.parse(since) - DAY), where)
+    readRepliesSince(iso(Date.parse(since) - 2 * DAY), where)
   ).filter((a) => a.at >= since);
 
 /** A stored exchange: its place in the line that read it, and the keys of its messages. */
