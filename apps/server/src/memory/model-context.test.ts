@@ -5,7 +5,13 @@ import {
   peopleOutsideDirectoryOf,
 } from "../records/observation";
 import { Person, Project } from "../records/truth";
-import { involvedOf, refContext } from "./model-context";
+import {
+  emailNameOf,
+  emailsOf,
+  emailsShown,
+  involvedOf,
+  refContext,
+} from "./model-context";
 
 const was = settings().personal;
 // His install: the relationships add-on on.
@@ -50,6 +56,91 @@ test("a call's context shows the people close now and the projects underway; the
   expect(involved.projects.map((p) => [p.ref, p.status])).toEqual([
     ["project:old", "done"],
   ]);
+});
+
+const directoryOf = (
+  outsideDirectory: ReturnType<typeof peopleOutsideDirectoryOf>,
+  people: ReturnType<typeof Person.parse>[],
+  canon = (ref: string) => ref
+) => ({
+  canon,
+  outsideDirectory,
+  truth: {
+    areas: [],
+    chats: [],
+    me: { text: "me" },
+    people,
+    projects: [],
+  },
+});
+
+test("addresses come only to the episodes call: with a person's emails, and none for one without", () => {
+  const inputs = directoryOf(
+    peopleOutsideDirectoryOf(
+      [
+        {
+          handles: ["+33600000009", "dee@mail.example"],
+          id: "con_dee",
+          name: "Dee",
+        },
+      ],
+      []
+    ),
+    [
+      Person.parse({
+        handles: { email: ["ann@mail.example"] },
+        id: "ann",
+        name: "Ann",
+      }),
+      Person.parse({ id: "bob", name: "Bob" }),
+    ]
+  );
+  const refs = refContext(inputs, new Set(), new Set());
+  const shown = emailsShown(refs.directory.people, emailsOf(inputs));
+  expect(shown.map((p) => [p.ref, "emails" in p ? p.emails : null])).toEqual([
+    ["person:ann", ["ann@mail.example"]],
+    ["person:bob", null],
+    ["person:con_dee", ["dee@mail.example"]],
+  ]);
+  // The context and the input every other call reads carry none.
+  expect(JSON.stringify(refs.context)).not.toContain("@");
+  expect(JSON.stringify(refs.directory)).not.toContain("@");
+});
+
+test("a Matrix id is no address; a card folded into a person gives them its addresses; an address spelling a name resolves it", () => {
+  const emails = emailsOf(
+    directoryOf(
+      peopleOutsideDirectoryOf(
+        [
+          {
+            handles: ["annmarie123@mail.example", "+33600000009"],
+            id: "con_bee",
+            name: "Bee",
+          },
+        ],
+        [
+          {
+            confidence: 0.9,
+            id: "inf_line",
+            name: "Kit",
+            namesAndHandles: ["@line__u91_abc:beeper.local"],
+            relation: "friend",
+          } as InferredPerson,
+        ]
+      ),
+      [Person.parse({ id: "ann", name: "Ann" })],
+      (ref) => (ref === "person:con_bee" ? "person:ann" : ref)
+    )
+  );
+  expect(emails.get("person:ann")).toEqual(["annmarie123@mail.example"]);
+  expect(emails.has("person:inf_line")).toBe(false);
+  const named = emailNameOf(emails);
+  expect(named("Anne Marie")).toBeNull();
+  expect(named("Ann-Marie")).toBe("person:ann");
+  // Fewer than 4 letters is no name.
+  expect(
+    emailNameOf(new Map([["person:jo", ["jo1@x.example"]]]))("Jo")
+  ).toBeNull();
 });
 
 test("the directory shows each person once: an inferred id folded into another is left out", () => {

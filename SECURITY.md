@@ -73,7 +73,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   day's photo lines: times, Apple's place and address, coordinates to 10 m, scene words, the words Apple found in the
   photos, the names Apple's People gives, his captions and, with `describePhotos` on, Life's own one-paragraph description of each
   photo; never an image, a face or a face print of the Photos source. The images of the files in his messages (a
-  photo, a PDF's pages), once each, when the message arrives or at night (his word of 19 Nov 2026).
+  photo, a PDF's pages), once each, when the message arrives or at night (his word of 19 Nov 2026). The episodes call also sees the email addresses
+  of the people its day involves (his directory and Contacts cards), so a legal name can be tied to a nickname (his yes
+  of 20 Nov 2026).
 - To a registered agent's runtime (his Claude subscription, or his Codex subscription: OpenAI): its brief and packet
   (his words, its notes, the facts of its queued events (for a payment: its amount, in EUR too, its currency, whether it is spending, the money app's category, and when; for an arrival at a place: when he arrived, and where: its coordinates), its open decision) (his yes to the desk, 18 Nov 2026; his
   yes to Codex as a runtime, 18 Nov 2026).
