@@ -185,8 +185,10 @@ test("only money out of exactly that amount in that currency, booked on or after
   expect(await lookForDone(card)).toBe("payments:exact");
 });
 
-test("only a payment to the card's payee is its payment: the same amount to someone else is not; the bank's wording of the name is", async () => {
-  const { id } = await transfer();
+test("only a payment to the card's payee is its payment: by the bank's merchant, whole words, in the card's currency", async () => {
+  const { id } = await transfer({
+    needs: [{ ...NEEDS[0], holder: "Ms. Ann Lee" }, NEEDS[1]],
+  });
   const card = decisionsNow().find((d) => d.id === id);
   if (!card) {
     throw new Error("no card");
@@ -194,23 +196,30 @@ test("only a payment to the card's payee is its payment: the same amount to some
   booked = [
     payment({ id: "other", merchant: "MR. KIT SAMPLE" }),
     payment({ id: "generic", merchant: "Result of Funds Transfer (Success)" }),
-    payment({ id: "part", merchant: "BLUE REEF DIVING" }),
+    payment({ id: "longer", merchant: "Joanne Leeming" }),
+    payment({ id: "initial", merchant: "B Lee" }),
+    payment({ id: "note", merchant: "North Shop", note: "for Ann Lee" }),
+    payment({ currency: "EUR", eur: -4500, id: "euros", merchant: "ANN LEE" }),
   ];
   expect(await readSeenDone([card])).toEqual(new Map());
-  booked.push(
-    payment({
-      id: "bank",
-      merchant: "REEF SHOP (A/C Name: BLUE REEF TEST CO.,LTD.)",
-    })
-  );
+  booked.push(payment({ id: "bank", merchant: "MS. LEE, ANN" }));
   expect(await lookForDone(card)).toBe("payments:bank");
-  // A card with no payee's name is refused when asked; one stored before this rule is a tap card.
+  // A EUR card is never seen by another currency's payment worth as much in EUR.
+  const euro = await transfer({
+    needs: [NEEDS[0], { currency: "EUR", kind: "amount", value: 118.4 }],
+  });
+  const euroCard = decisionsNow().find((d) => d.id === euro.id);
+  booked = [
+    payment({
+      id: "baht",
+      merchant: "BLUE REEF TEST (A/C Name: BLUE REEF TEST CO.,LTD.)",
+    }),
+  ];
+  expect(euroCard && (await readSeenDone([euroCard]))).toEqual(new Map());
+  // A card with no payee's name is refused when asked.
   await expect(
     transfer({ needs: [{ ...NEEDS[0], holder: "Co., Ltd." }, NEEDS[1]] })
   ).rejects.toThrow("needs the payee's name");
-  expect(
-    doneSeenByOf({ doneSeenBy: "payment", needs: [NEEDS[1]] as never })
-  ).toBe("tap");
 });
 
 test("payments off: a tap card, its looks option a plain answer; his words added look for nothing; a session never looks", async () => {

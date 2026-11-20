@@ -89,7 +89,8 @@ function paymentEventOf(p: Payment): ChannelEvent {
       channel: "payments",
       isNamedOnly: true,
       quantities,
-      text: [merchant, category, note].filter(Boolean).join("\n"),
+      // The merchant always first: `merchantOf` reads it there.
+      text: [merchant, ...[category, note].filter(Boolean)].join("\n"),
     },
     payload: {
       amount: p.amount,
@@ -104,6 +105,10 @@ function paymentEventOf(p: Payment): ChannelEvent {
     },
   };
 }
+
+/** A payment event's merchant, as the bank wrote it (`paymentEventOf` puts it first in its text). */
+export const merchantOf = (e: ChannelEvent) =>
+  e.matchable.text?.split("\n")[0] ?? "";
 
 /** The payments channel over `backend` (none: payments are off): each payment booked in the last `PAYMENTS_BACK_DAYS`. */
 export const paymentsChannelOf = (

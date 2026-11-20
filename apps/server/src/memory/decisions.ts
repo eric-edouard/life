@@ -18,7 +18,7 @@ import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
 import { matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { MEMORY } from "./memory-files";
-import { amountOf, needsShownOf, payeeWordsOf } from "./needs";
+import { amountOf, needsShownOf } from "./needs";
 import { readPeople } from "./who";
 import { dayNow } from "./zones";
 
@@ -249,14 +249,11 @@ const stateOf = (d: Omit<Decision, "state">, now: Date): DecisionState => {
 
 type Act = "end" | "look" | "send";
 
-/** How Life sees `d`'s step done now: `payment` while payments are on and it names an amount and a payee (amendment 1: a card with no channel to look in is `tap`), else `tap`. */
+/** How Life sees `d`'s step done now: `payment` while payments are on (amendment 1: a card with no channel to look in is `tap`), else `tap`. */
 export const doneSeenByOf = (
   d: Pick<Decision, "doneSeenBy" | "needs">
 ): "payment" | "tap" =>
-  d.doneSeenBy === "payment" &&
-  payments() &&
-  amountOf(d.needs) &&
-  payeeWordsOf(d.needs).length > 0
+  d.doneSeenBy === "payment" && payments() && amountOf(d.needs)
     ? "payment"
     : "tap";
 

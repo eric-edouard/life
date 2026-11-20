@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { oneLine } from "./draft";
+import { nameKey } from "./units";
 
 // What he needs in hand to do a card's step (`needs`, the asks contract): one registry of kinds, each its shape, its
 // `line` (Life's plain words of it, which a phone that doesn't know the kind draws: worked out when read, never stored),
@@ -121,25 +122,30 @@ export const NEED_KINDS_LINE = NEED_KINDS.map(
 export const needPageOf = (name: string) =>
   Object.hasOwn(KINDS, name) ? KINDS[name as Kind].page : undefined;
 
-const NOT_A_WORD = /[^\p{L}\p{M}\p{N}]+/u;
 /** Words of a payee that say nothing of who it is: titles and a company's form. */
 const NOT_A_NAME = new Set(
   "mr mrs ms miss dr co ltd limited company inc plc the".split(" ")
 );
 
-/**
- * The words a card's payment is looked for by: the account's `holder`, else the link's `vendor`, as the bank shows
- * it, lower case, less titles and a company's form. Letters, marks and digits only.
- */
+/** A name's words as names are compared (`nameKey`), less titles and a company's form; initials kept. */
+const nameWordsOf = (name: string) =>
+  nameKey(name)
+    .split(" ")
+    .filter((w) => w && !NOT_A_NAME.has(w));
+
+/** The words of a card's payee: the account's `holder`, else the link's `vendor`, as the bank shows it. */
 export const payeeWordsOf = (needs: readonly Need[] = []) =>
-  (
+  nameWordsOf(
     needs.find((n): n is Of<"account"> => n.kind === "account")?.holder ??
-    needs.find((n): n is Of<"link"> => n.kind === "link")?.vendor ??
-    ""
-  )
-    .toLowerCase()
-    .split(NOT_A_WORD)
-    .filter((w) => w.length > 1 && !NOT_A_NAME.has(w));
+      needs.find((n): n is Of<"link"> => n.kind === "link")?.vendor ??
+      ""
+  );
+
+/** Whether a bank's line names the payee `words`: each of them a whole word of it, in any order ("MR. KIT TEST", "SHOP (A/C Name: SHOP CO.,LTD.)"). */
+export const isToPayee = (line: string, words: readonly string[]) => {
+  const said = new Set(nameWordsOf(line));
+  return words.length > 0 && words.every((w) => said.has(w));
+};
 
 /** The amount a card's payment is looked for by: its one `amount` need. */
 export const amountOf = (needs: readonly Need[] = []) =>
