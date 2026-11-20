@@ -117,11 +117,17 @@ A wait's filter is the connector poll's (`EventFilter`, `text_matches` included)
 
 What will wake a waiting agent is read, not stored: its **wake list** (`wakesOn`, with `statusSince`) on each agent of `read_registered_agents` and of `read_matter`, from its wait's filters (`wakesOnOf`; docs/glossary.md). A chat's name there comes from his directory, else from the newest event the desk queued for that agent in it, else none.
 
-A wait may also name an event channel (`EVENT_CHANNELS`, `host/event-channels.ts`), today `payments`: the desk reads the
+A wait may also name an event channel (`EVENT_CHANNELS`, `host/event-channels.ts`), today `payments` and `places`: the desk reads the
 payments of the last 35 days every 5 minutes while some wait names it, and queues `payment.booked` once per agent for
 each payment its wait wants (by `quantity` `eur_out` or `eur_in` with `above` and `below`, or by `text_matches` on the
 merchant, the category and his note), paid since the agent was created. `set_wait` refuses a channel that is unknown,
-off or cannot be read, and keys its channels cannot answer; a read that fails is said in the agent's next wake.
+off or cannot be read, and keys its channels cannot answer; a read that fails is said in the agent's next wake. For
+`places` the desk reads lifelog's stays of the last 48 hours (`/visits`) at every poll while some wait names it, and
+queues `stay.arrived` once per agent for each stay that began since the agent was created and within those 48 hours,
+near the wait's `latitude` and `longitude` (within `radius_m`, 100 by default) or matching `text_matches` on
+`arrived <place>`; one real arrival can wake an agent more than once. Departures are not events yet: lifelog ends a
+stay after 2 hours without a point, and the phone sends positions only near the pendant, so a silent phone would read
+as a departure; they come once lifelog says why a stay ended.
 
 A person's page (`read_person_page`) lists every open matter they are in, whatever its day (`openWithOf`, `read-open-items.ts`),
 and the replies he owes them, ranked the same way
