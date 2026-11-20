@@ -10,7 +10,7 @@
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (a tapped push's one-card read takes 5 s), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused; `sending`: it never ends); `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|agent|pair|pairing|replacePendant|pairPendant|create`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, `-fixtureProject <id>` (its page, pushed on the matter), `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|pair|pairing|replacePendant|pairPendant|create`
     /// open the screen to show (`create` holds Created, to be photographed). `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -23,6 +23,11 @@
         /// `-fixtureOnly <ref>`: the inbox holds that one card, for a screenshot of a card that is not the first.
         nonisolated static let tab = value(of: "-fixtureTab")
         nonisolated static let matter = value(of: "-fixtureMatter")
+        nonisolated static let project = value(of: "-fixtureProject")
+        /// `-fixtureUnmarked <matter id>`: that matter starts without his mark; `-fixtureParked <project id>`: that
+        /// project starts parked.
+        nonisolated static let unmarked = value(of: "-fixtureUnmarked")
+        nonisolated static let parked = value(of: "-fixtureParked")
         nonisolated static let sheet = value(of: "-fixtureSheet")
         /// `-fixtureAgent notStarted|running`: Nora's agent never began (its runtime refused), for the Try again swap, or works.
         nonisolated static let agent = value(of: "-fixtureAgent")
@@ -112,6 +117,9 @@
         private let answered = Mutex(Set<String>())
         private let started = Mutex(false)
         private let wholeReads = Mutex(0)
+        /// His marks and the projects' statuses as he set them here, over the design data.
+        private let marks = Mutex(LifeFixture.unmarked.map { [$0: false] } ?? [String: Bool]())
+        private let statuses = Mutex(LifeFixture.parked.map { [$0: "parked"] } ?? [String: String]())
 
         init(scenario: String) {
             self.scenario = scenario
@@ -156,11 +164,20 @@
             return json(one)
         }
         func readMatters() async throws -> String { try await gate(); return matters() }
+        func readMatters(project: String) async throws -> String {
+            try await gate()
+            var head = Self.projectRead["project"] as? [String: Any] ?? [:]
+            guard head["id"] as? String == project else { throw MCPError.failed("No such project.") }
+            let rows = rowsNow().filter { ($0["project"] as? [String: Any])?["id"] as? String == project }
+            let status = statuses.withLock { $0[project] } ?? head["status"] as? String ?? "active"
+            head["status"] = status
+            return json(["project": head, "matters": rows])
+        }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
 
         func readMatter(_ id: String) async throws -> String {
             try await gate()
-            guard let row = Self.rows.first(where: { $0["id"] as? String == id }) else {
+            guard let row = rowsNow().first(where: { $0["id"] as? String == id }) else {
                 throw MCPError.failed("No such matter.")
             }
             // The table's agent exists only once he started one; every open check about it, of every kind.
@@ -201,11 +218,17 @@
                     return check
                 }
             }
+            // A card's matter carries his mark as the rows do.
+            let marked = Set(rowsNow().filter { $0["important"] as? Bool == true }.compactMap { $0["id"] as? String })
             let checks = (scenario == "empty" ? [] : shown).map { check in
                 // A guess already answered is no longer asked beside its draft.
                 var check = check
                 check["confirm"] = (check["confirm"] as? [[String: Any]] ?? []).filter {
                     !left.contains($0["ref"] as? String ?? "")
+                }
+                if var matter = check["matter"] as? [String: Any] {
+                    matter["important"] = marked.contains(matter["id"] as? String ?? "") ? true : nil
+                    check["matter"] = matter
                 }
                 return check
             }
@@ -213,7 +236,30 @@
         }
 
         func matters() -> String {
-            json(DesignReplies.matters(Self.rows))
+            json(DesignReplies.matters(rowsNow()))
+        }
+
+        /// The rows with his marks and the projects' statuses applied, in Life's order: the marked first, a parked or
+        /// done project's matters last, each group in the design data's order.
+        private func rowsNow() -> [[String: Any]] {
+            let (marks, statuses) = (marks.withLock { $0 }, statuses.withLock { $0 })
+            let rows = Self.rows.map { row in
+                var row = row
+                if let isOn = marks[row["id"] as? String ?? ""] { row["important"] = isOn ? true : nil }
+                if var project = row["project"] as? [String: Any], let status = statuses[project["id"] as? String ?? ""]
+                {
+                    project["status"] = status
+                    row["project"] = project
+                }
+                return row
+            }
+            func tier(_ row: [String: Any]) -> Int {
+                let status = (row["project"] as? [String: Any])?["status"] as? String ?? "active"
+                if !["active", "waiting"].contains(status) { return 2 }
+                return row["important"] as? Bool == true ? 0 : 1
+            }
+            return rows.enumerated().sorted { (tier($0.element), $0.offset) < (tier($1.element), $1.offset) }.map(
+                \.element)
         }
 
         func agents() -> String { json(Self.registered) }
@@ -356,6 +402,25 @@
             return "{}"
         }
 
+        func setImportant(matter: String, _ important: Bool, onProgress: @escaping @Sendable (Data) -> Void)
+            async throws -> String
+        {
+            try await gate()
+            onProgress(message(["plan": ["recorded"], "limitSeconds": 5]))
+            try await Task.sleep(for: .milliseconds(300))
+            marks.withLock { $0[matter] = important }
+            return "Done: memory."
+        }
+
+        func setProjectStatus(
+            _ project: String, _ status: ProjectStatus, said: String, onProgress: @escaping @Sendable (Data) -> Void
+        ) async throws -> String {
+            try await gate()
+            try await Task.sleep(for: .milliseconds(300))
+            statuses.withLock { $0[project] = status.rawValue }
+            return "Done: project \(project)."
+        }
+
         // MARK: Made-up data
 
         /// The design data (`apps/lifelog/fixtures/design/`), one file per read, in the connector's wire shape: the
@@ -368,6 +433,8 @@
             return $0.merging(["doneSeen": ["state": state]]) { $1 }
         }
         nonisolated(unsafe) static let rows = read("read_matters")["matters"] as? [[String: Any]] ?? []
+        /// A project's page head (`read_matters` of one project): its matters are the rows that name it.
+        nonisolated(unsafe) private static let projectRead = read("read_matters_project")
         nonisolated(unsafe) private static let registered = read("read_registered_agents")
         /// What only a matter's own read shows: the agents not registered (the table's, once started; Nora's, stopped) and
         /// the steps.

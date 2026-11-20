@@ -174,7 +174,7 @@ struct AgentSheet: View {
         if let check = clause.check {
             Button {
                 router.matterSheet = nil
-                router.matterPath.append(check)
+                router.matterPath.append(.card(check))
             } label: {
                 row.contentShape(.rect)
             }.buttonStyle(.plain)

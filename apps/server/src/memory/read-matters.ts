@@ -194,8 +194,8 @@ async function rankedRunning<R extends { book: MatterView[] }>(
 /**
  * The running matters, ranked as `read_day`'s Due (those with no open step last), of one `person`, `project` or `area` when given: each
  * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one anchored on the matter, else the one holding one of its projects) and, given `readIcons`, Life's icon picks for the ranked list. Throws when a person, project or area named goes by no name known.
- * Of one project, its page's head too (`project`): its name, status as stored, the first of his goals naming it, and, when it is not
- * underway, how many of its matters are parked (`parkedMatters`, `isParkedMatterOf`).
+ * Of one project, its page's head too (`project`): its name, status as stored and the first of his goals naming it; a
+ * matter is parked by the project its row shows under (`projectOf`), not by this one.
  */
 export async function openMatters(
   q: {
@@ -216,7 +216,6 @@ export async function openMatters(
   const lifeIcons = await readIcons?.(ranked);
   const { truth } = people;
   const head = truth.projects.find((x) => x.id === project);
-  const isParked = isParkedMatterOf(truth);
   return {
     ...(head && {
       project: {
@@ -224,9 +223,6 @@ export async function openMatters(
           ?.text,
         id: head.id,
         name: head.name,
-        parkedMatters: isUnderway(head)
-          ? undefined
-          : ranked.filter(isParked).length,
         status: head.status,
       },
     }),

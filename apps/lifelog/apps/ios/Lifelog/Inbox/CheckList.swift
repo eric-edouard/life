@@ -19,9 +19,7 @@ struct CheckList: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(order.checks.enumerated()), id: \.element.ref) { at, check in
                     if at == order.canWaitFrom {
-                        Text("The rest can wait").font(.small).foregroundStyle(Palette.muted)
-                            .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 6)
-                            .accessibilityAddTraits(.isHeader)
+                        ListLabel("The rest can wait")
                     }
                     row(check)
                 }

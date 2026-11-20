@@ -136,6 +136,7 @@ struct CardView: View {
                                 isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
                                 answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
                                 create: { notes.creating = creating(check, $0, asOrganization: $1) },
+                                dropProject: dropProject(of: check),
                                 page: checks.count > 1 ? (index, checks.count) : nil
                             )
                             .padding(.leading, Pager.gap)
@@ -187,6 +188,22 @@ struct CardView: View {
                 notes.creating = creating(check, name)
             }
         #endif
+    }
+
+    /// "I dropped this whole project": the card's matter's project parked, when it is underway (from the matters read:
+    /// a card names its matter, not its project).
+    private func dropProject(of check: Check) -> (() -> Void)? {
+        guard let id = check.matter?.id,
+            let project = life.matters.value?.matters.first(where: { $0.id == id })?.project,
+            project.status.isUnderway
+        else { return nil }
+        return {
+            Task {
+                await life.setStatus(
+                    of: project.id, named: project.name, to: .parked, was: project.status,
+                    words: "\(project.name) parked")
+            }
+        }
     }
 
     /// The create sheet for `check`, with the ask after it as he opened it.

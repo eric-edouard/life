@@ -25,12 +25,18 @@ final class AppRouter {
         }
     }
 
+    /// What is pushed on the matter on show: one of its asks, by check ref, or the page of its project, by id.
+    enum MatterRoute: Hashable {
+        case card(String)
+        case project(String)
+    }
+
     var tab = Tab.inbox
     /// The matter on show in the Matters tab, by id, and which column a compact width shows: the list or the matter.
     var matter: String?
     var matterColumn = NavigationSplitViewColumn.sidebar
-    /// The asks pushed on the matter on show, by check ref: Back returns to the matter, the tab stays on Matters.
-    var matterPath: [String] = []
+    /// What is pushed on the matter on show (`MatterRoute`): Back returns to the matter, the tab stays on Matters.
+    var matterPath: [MatterRoute] = []
     /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
     var inboxColumn = NavigationSplitViewColumn.detail
     var sheet: Sheet?
