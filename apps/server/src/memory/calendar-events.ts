@@ -69,3 +69,34 @@ export function reconcile<D extends Draft>(
   }
   return { create, remove, update };
 }
+
+/** A place an event is at: its name (with its address when Life knows it), its coordinates when Life has them. */
+export interface MapPlace {
+  latitude?: number;
+  longitude?: number;
+  name: string | null;
+}
+
+/** "lat,lng" to 6 decimals (a tenth of a metre): longer runs of digits read as a card number to `redact`. */
+const pointOf = (p: MapPlace) =>
+  p.latitude === undefined || p.longitude === undefined
+    ? null
+    : `${p.latitude.toFixed(6)},${p.longitude.toFixed(6)}`;
+
+/** The event's location: the place's name, else its coordinates. */
+export const locationOf = (p: MapPlace) => p.name ?? pointOf(p);
+
+/** Google Maps on a place: its coordinates when Life has them, else its name. */
+export const googleMapsUrlOf = (p: MapPlace) =>
+  `https://www.google.com/maps/search/?api=1&query=${pointOf(p) ?? encodeURIComponent(p.name ?? "")}`;
+
+/** The one-tap map lines of an event's description (Google Maps, Apple Maps); none with no place. */
+export function mapLinksOf(p: MapPlace): string[] {
+  const q = locationOf(p);
+  if (!q) {
+    return [];
+  }
+  const point = pointOf(p);
+  const apple = `https://maps.apple.com/?q=${encodeURIComponent(q)}${point ? `&ll=${point}` : ""}`;
+  return [`Google Maps: ${googleMapsUrlOf(p)}`, `Apple Maps: ${apple}`];
+}

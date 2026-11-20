@@ -8,7 +8,12 @@ import {
   readAppointmentEvents,
   readAppointments,
 } from "../memory/appointments";
-import { type Draft, heldOf, reconcile } from "../memory/calendar-events";
+import {
+  type Draft,
+  heldOf,
+  mapLinksOf,
+  reconcile,
+} from "../memory/calendar-events";
 import { span } from "../memory/episode-span";
 import { APPOINTMENT_EVENTS } from "../memory/memory-files";
 import { dayNow, dayStart } from "../memory/zones";
@@ -39,6 +44,7 @@ export function appointmentDraft(
       ? "Added by Life from your messages, confirmed."
       : "Added by Life from your messages, not confirmed yet.",
     ...(a.timeGuessed ? ["The time is Life's guess."] : []),
+    ...mapLinksOf({ name: a.place }),
     `Appointment ${a.id}, read from ${a.observations.join(", ")}.`,
   ].join("\n");
   const draft = {

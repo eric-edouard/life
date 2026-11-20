@@ -3,9 +3,10 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
+import type { Draft } from "./calendar-events";
 import { buildIndex } from "./index-writer";
 import { EPISODES, INDEX, readBy, UNITS } from "./memory-files";
-import { drafts, wanted } from "./past-events";
+import { drafts, wanted, writtenOf } from "./past-events";
 import { madeBy, unit } from "./record-fixtures";
 
 const episode = (over: Partial<Episode> = {}): Episode => ({
@@ -177,4 +178,23 @@ test("a sync of recent days drafts what the whole sync drafts of the episodes en
     rmSync(UNITS, { force: true, recursive: true });
     rmSync(INDEX, { force: true });
   }
+});
+
+test("a Past event at a place carries its map links, from the stay's coordinates, and its name as location; one with no place has none", () => {
+  const [d] = draftsOf([episode()]) as [Draft];
+  const at = writtenOf(
+    d,
+    { latitude: 10.5, longitude: 20.25, name: "Seaside Bistro" },
+    []
+  );
+  expect(at.location).toBe("Seaside Bistro");
+  expect(at.description).toContain(
+    "Google Maps: https://www.google.com/maps/search/?api=1&query=10.500000,20.250000"
+  );
+  expect(at.description).toContain(
+    "Apple Maps: https://maps.apple.com/?q=Seaside%20Bistro&ll=10.500000,20.250000"
+  );
+  const nowhere = writtenOf(d, { name: null }, []);
+  expect(nowhere.location).toBeNull();
+  expect(nowhere.description).not.toContain("maps");
 });

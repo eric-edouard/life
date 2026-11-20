@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { type Draft, heldOf, reconcile } from "./calendar-events";
+import { type Draft, heldOf, mapLinksOf, reconcile } from "./calendar-events";
 
 const draft = (of: string, hash: string) => ({ hash, of }) as Draft;
 
@@ -63,4 +63,25 @@ test("Life's events are grouped by what they show, whichever calendar holds them
     { hash: "h2", id: "e2" },
   ]);
   expect(held.get("m2")).toEqual([{ hash: "h3", id: "e3" }]);
+});
+
+test("map links point at the coordinates when Life has them, else at the place's name, URL-encoded; no place, no links", () => {
+  expect(
+    mapLinksOf({
+      latitude: 48.858_37,
+      longitude: 2.294_481,
+      name: "Tour & Café",
+    })
+  ).toEqual([
+    "Google Maps: https://www.google.com/maps/search/?api=1&query=48.858370,2.294481",
+    "Apple Maps: https://maps.apple.com/?q=Tour%20%26%20Caf%C3%A9&ll=48.858370,2.294481",
+  ]);
+  expect(mapLinksOf({ name: "Le Petit Café, 1 rue Exemple" })).toEqual([
+    "Google Maps: https://www.google.com/maps/search/?api=1&query=Le%20Petit%20Caf%C3%A9%2C%201%20rue%20Exemple",
+    "Apple Maps: https://maps.apple.com/?q=Le%20Petit%20Caf%C3%A9%2C%201%20rue%20Exemple",
+  ]);
+  expect(mapLinksOf({ latitude: 1.5, longitude: -2.25, name: null })[1]).toBe(
+    "Apple Maps: https://maps.apple.com/?q=1.500000%2C-2.250000&ll=1.500000,-2.250000"
+  );
+  expect(mapLinksOf({ name: null })).toEqual([]);
 });

@@ -3,9 +3,15 @@ import { digest } from "../core/hash";
 import { redact } from "../core/redact";
 import type { Episode } from "../records/episode";
 import type { Unit } from "../records/unit";
-import { visits, withStore } from "../sources/lifelog";
+import { type Stay, visits, withStore } from "../sources/lifelog";
 import { conversationsBetween } from "../sources/lifelog-conversations";
-import type { Draft } from "./calendar-events";
+import {
+  type Draft,
+  googleMapsUrlOf,
+  locationOf,
+  type MapPlace,
+  mapLinksOf,
+} from "./calendar-events";
 import { episodeText } from "./doubts";
 import { endOf, span } from "./episode-span";
 import {
@@ -32,6 +38,8 @@ import { time } from "./zones";
 const SETTLE = 2 * HOUR;
 // Google takes 8,192 characters; a busy episode's units would pass it.
 const DESCRIPTION_MAX = 7500;
+// The description's layout, in the hash: a new one writes every event again (21 Nov 2026: the map links).
+const LAYOUT = 2;
 
 interface Known {
   /** Each unit's episode, of every episode (`readBy`): a fact shows under it only. */
@@ -85,11 +93,20 @@ export function drafts(episodes: Episode[], k: Known, now: Date): Draft[] {
             : m.title,
         text,
       };
-      return { ...draft, hash: digest("sha1", JSON.stringify(draft), 12) };
+      return {
+        ...draft,
+        hash: digest("sha1", JSON.stringify([LAYOUT, draft]), 12),
+      };
     });
 }
 
-/** A timed event's stays (read when it is written) and conversations, as description lines and a location: the stay where he was most of it, else the episode's place. */
+const stayPlaceOf = (s: Stay): MapPlace => ({
+  latitude: s.latitude,
+  longitude: s.longitude,
+  name: s.place ?? null,
+});
+
+/** A timed event's stays (read when it is written) and conversations, as description lines, and its place: the stay where he was most of it, else the episode's place. */
 async function located(
   d: Draft,
   talks: { id: string; names: string[]; start_at: string }[]
@@ -106,7 +123,7 @@ async function located(
             "Where he was (lifelog):",
             ...stays.map(
               (s) =>
-                `- ${time(s.arrivedAt)}–${s.leftAt ? time(s.leftAt) : "…"} ${where(s)} https://maps.google.com/?q=${s.latitude},${s.longitude}`
+                `- ${time(s.arrivedAt)}–${s.leftAt ? time(s.leftAt) : "…"} ${where(s)} ${googleMapsUrlOf(stayPlaceOf(s))}`
             ),
           ]
         : []),
@@ -120,7 +137,7 @@ async function located(
           ]
         : []),
     ],
-    location: longest ? where(longest) : d.place,
+    place: longest ? stayPlaceOf(longest) : { name: d.place },
   };
 }
 
@@ -175,15 +192,25 @@ export async function* described(fresh: Draft[]) {
     )
   );
   for (const [i, d] of fresh.entries()) {
-    const { lines, location } = d.allDay
-      ? { lines: [], location: d.place }
+    const { lines, place } = d.allDay
+      ? { lines: [], place: { name: d.place } }
       : // biome-ignore lint/performance/noAwaitInLoops: one episode at a time
         await located(d, talks[i] ?? []);
-    const body = clip(redact([d.text, ...lines].join("\n")), DESCRIPTION_MAX);
-    yield {
-      d,
-      description: `${body}\n\nEpisode ${d.of}, written by Life.`,
-      location,
-    };
+    yield { d, ...writtenOf(d, place, lines) };
   }
+}
+
+/** The description and location an event is written with: its text, the map links of its place, then `lines`. */
+export function writtenOf(d: Draft, place: MapPlace, lines: string[]) {
+  const maps = mapLinksOf(place);
+  const body = clip(
+    redact(
+      [d.text, ...(maps.length > 0 ? ["", ...maps] : []), ...lines].join("\n")
+    ),
+    DESCRIPTION_MAX
+  );
+  return {
+    description: `${body}\n\nEpisode ${d.of}, written by Life.`,
+    location: locationOf(place),
+  };
 }
