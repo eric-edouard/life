@@ -5,6 +5,7 @@
 import type { CheckGroup } from "../core/names";
 import type { doneSeenShownOf } from "./decisions";
 import type { StoredDraft } from "./draft";
+import type { AgentHold } from "./held-matters";
 import type { needsShownOf } from "./needs";
 import type { Party } from "./party";
 import type { RefKind } from "./refs";
@@ -158,6 +159,8 @@ export interface Check {
   group: CheckGroup;
   /** A draft card's chat as his card heads it (`draftHeadOf`): its network and its name; absent on every other check. */
   head?: { name: string; network: string } | null;
+  /** Whether a decision is its assignment's plan card (host's `planCardsOf`): worked out when read, never stored; absent on every other kind. */
+  isPlan?: boolean;
   kind: CheckKind;
   /** The `life:` links of its `context`, each with its kind (`lifeLinksOf`): worked out when read, never stored. */
   lifeLinks: { kind: RefKind; ref: string }[];
@@ -224,3 +227,11 @@ export const isEndingKind = (
   c: Check
 ): c is Check & { evidence: NonNullable<Check["evidence"]> } =>
   c.kind === "ending";
+
+/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
+export interface HeldRead {
+  complaints?: readonly BeingFixed[];
+  plans: () => ReadonlySet<string>;
+  read: () => readonly AgentHold[] | null;
+  stamp: string;
+}

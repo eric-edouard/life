@@ -43,6 +43,7 @@ import {
   type Check,
   type CheckKind,
   type CheckMatter,
+  type HeldRead,
   LIFE_CHECKS,
 } from "./life-checks";
 import {
@@ -187,6 +188,8 @@ export interface CheckInputs {
       | "relation"
     >[];
   };
+  /** The decisions that are an agent's plan card (host's `planCardsOf`), by id; none while the desk is off or unreadable. */
+  plans?: ReadonlySet<string>;
   /** The chat or thread a unit is in, by unit id: where a step was said (`to`); only the units the steps of endings and new matters are in. */
   titles: ReadonlyMap<string, string>;
   /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
@@ -353,6 +356,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           evidence: null,
           goal: null,
           group: "decision",
+          isPlan: c.plans?.has(d.id) ?? false,
           kind: "decision",
           likelyPeople: [],
           links: d.links,
@@ -657,13 +661,6 @@ const CHECKS_READ = [
   ZONES,
 ];
 
-/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
-export interface HeldRead {
-  complaints?: readonly BeingFixed[];
-  read: () => readonly AgentHold[] | null;
-  stamp: string;
-}
-
 /** What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open decisions (one lapses), the stamp of what agents hold and the voices lifelog queues. The same key, the same list. */
 const checksKeyOf = (
   held: HeldRead | null,
@@ -773,6 +770,7 @@ async function readChecks(
     nameGroups,
     paged,
     people,
+    plans: held?.plans(),
     titles,
     today,
     voices,

@@ -367,6 +367,8 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
         }) as Record<string, string>
       )[s] ?? null,
   },
+  // Kit's card is its agent's plan (`planCardsOf`).
+  plans: new Set(["dec_000000000001"]),
   titles: new Map([["unit_000000000001", "Gran"]]),
   today: "2026-10-14",
   voices: [

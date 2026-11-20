@@ -54,6 +54,7 @@
       "evidence": null,
       "goal": null,
       "group": "decision",
+      "isPlan": true,
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
@@ -218,6 +219,7 @@
       "evidence": null,
       "goal": null,
       "group": "decision",
+      "isPlan": false,
       "kind": "decision",
       "likelyPeople": [],
       "links": [],
@@ -794,5 +796,5 @@
   },
   "deadlinesToday": 0,
   "total": 8,
-  "version": "b0f008b27dee58e0"
+  "version": "b3cb6568f854281b"
 }

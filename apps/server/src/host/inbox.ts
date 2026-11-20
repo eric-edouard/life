@@ -1,7 +1,12 @@
+import type { Database } from "bun:sqlite";
 import { digest } from "../core/hash";
 import { inboxOf } from "../memory/check-urgency";
-import { checksAndKeyNow, checksNow, type HeldRead } from "../memory/checks";
+import { checksAndKeyNow, checksNow } from "../memory/checks";
+import { decisionsNow } from "../memory/decisions";
+import type { HeldRead } from "../memory/life-checks";
 import {
+  agentOf,
+  assignmentOfCard,
   complaintsAtWork,
   heldByAgents,
   heldStampOf,
@@ -11,6 +16,26 @@ import {
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
 // `checksNow` over what registered agents hold, read from the desk's store, which memory cannot read: a cheap stamp for
 // its key, the facts only when the list is read again; and his complaints the caretaker holds (a few rows, in its key).
+
+/**
+ * The plan cards: each assignment's first card not withdrawn (the door's `hasAsked`: its plan, or a handed-out agent's
+ * one card), by decision id; none of the caretaker's, whose plan is his complaint. Worked out when read, never stored.
+ */
+export function planCardsOf(db: Database, list = decisionsNow()) {
+  const firsts = new Map<string, string>();
+  for (const d of list) {
+    const s = d.state === "withdrawn" ? null : assignmentOfCard(db, d);
+    if (
+      s &&
+      !firsts.has(s) &&
+      agentOf(db, d.agent ?? "")?.role !== "caretaker"
+    ) {
+      firsts.set(s, d.id);
+    }
+  }
+  return new Set(firsts.values());
+}
+
 /** What agents hold (`HeldRead`); null while the desk is off or unreadable (then no new matter is offered). */
 function readHeld(): HeldRead | null {
   const stamp = readDesk(heldStampOf, "");
@@ -20,6 +45,10 @@ function readHeld(): HeldRead | null {
   const complaints = readDesk(complaintsAtWork, []);
   return {
     complaints: complaints.state === "ok" ? complaints.value : [],
+    plans: () => {
+      const r = readDesk(planCardsOf, new Set<string>());
+      return r.state === "ok" ? r.value : new Set();
+    },
     read: () => {
       const r = readDesk(heldByAgents, []);
       return r.state === "ok" ? r.value : null;

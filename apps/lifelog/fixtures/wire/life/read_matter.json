@@ -247,6 +247,7 @@
       "evidence": null,
       "goal": null,
       "group": "decision",
+      "isPlan": true,
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
