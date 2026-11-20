@@ -178,13 +178,12 @@ export const chatUnitsFor = (
 const TITLED = 5;
 
 /**
- * The ids of the chats whose title holds `title` as a whole word run (`holdsName`), the newest `TITLED` by their latest
- * unit: `read_chats` with a `who` no one is known by. One query of the index for the titles, then those units' files.
+ * The newest `TITLED` chats whose title holds `title` as a whole word run (`holdsName`), each as its source and key:
+ * the fallback of `read_chats` with a `who` no unit of anyone holds. One query of the index for each source's titles
+ * with their newest unit, then those units' files. ponytail: two rooms of one title are one here (the index holds no
+ * chat key); add the key to the index when that bites.
  */
-export function readChatsTitled(title: string | undefined, known?: string) {
-  if (!title || known) {
-    return [];
-  }
+export function readChatsTitled(title: string) {
   const chatSources = SOURCES.filter((s) => s.kind === "chat").map(
     (s) => s.name
   );
@@ -192,23 +191,12 @@ export function readChatsTitled(title: string | undefined, known?: string) {
     readIndex((db) =>
       db
         .query<{ id: string; title: string }, [string]>(
-          "select id, title from units where source in (select value from json_each(?)) order by date desc, id"
+          "select id, title, max(date) from units where source in (select value from json_each(?)) group by source, title order by max(date) desc"
         )
         .all(JSON.stringify(chatSources))
         .filter((u) => holdsName(u.title, [title]))
+        .slice(0, TITLED)
         .map((u) => u.id)
-        .slice(0, 10 * TITLED)
     ) ?? [];
-  const byId = new Map(readUnitsFor(ids).map((u) => [u.id, u.key]));
-  return [...new Set(ids.flatMap((id) => byId.get(id) ?? []))].slice(0, TITLED);
-}
-
-/** `events` of `chat` alone, else of the `titled` chats; all of them when neither names one. */
-export function eventsOfChats(
-  events: SourceEvent[],
-  chat: string | undefined,
-  titled: string[]
-) {
-  const chats = chat ? [chat] : titled;
-  return chats.length ? events.filter((e) => chats.includes(e.chat)) : events;
+  return readUnitsFor(ids).map((u) => ({ key: u.key, source: u.source }));
 }
