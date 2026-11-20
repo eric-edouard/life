@@ -9,14 +9,16 @@ import {
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
 // `checksNow` over what registered agents hold, read from the desk's store, which memory cannot read: a cheap stamp for
-// its key, the facts only when the list is read again; and his complaints the caretaker is at work on (a few rows, its key too).
+// its key, the facts only when the list is read again; and his complaints the caretaker holds (a few rows, in its key).
 /** What agents hold (`HeldRead`); null while the desk is off or unreadable (then no new matter is offered). */
 function readHeld(): HeldRead | null {
   const stamp = readDesk(heldStampOf, "");
   if (stamp.state !== "ok") {
     return null;
   }
+  const complaints = readDesk(complaintsAtWork, []);
   return {
+    complaints: complaints.state === "ok" ? complaints.value : [],
     read: () => {
       const r = readDesk(heldByAgents, []);
       return r.state === "ok" ? r.value : null;
@@ -25,14 +27,8 @@ function readHeld(): HeldRead | null {
   };
 }
 
-/** His complaints the caretaker is at work on (`complaintsAtWork`): none while the desk is off or unreadable. */
-function readAtWork() {
-  const r = readDesk(complaintsAtWork, []);
-  return r.state === "ok" ? r.value : [];
-}
-
 /** Every open check now (`checksNow`), of every kind: his inbox, in its order (`inboxOrderOf`). The status's `left` counts them; the badge, what blocks (`blockingCountOf`). */
-export const openChecksNow = () => checksNow(readHeld(), readAtWork());
+export const openChecksNow = () => checksNow(readHeld());
 
 /** The open check `ref`; throws when none is open. */
 export async function openCheckOf(ref: string) {

@@ -48,7 +48,6 @@ import {
   stopOpenRun,
 } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
-import { receiveComplaints } from "./complaint-intake";
 import {
   BEGIN_WITHIN_MS,
   defaultWaitOf,
@@ -59,6 +58,7 @@ import {
   nextWakeOf,
   STARTS_PER_TICK,
 } from "./agent-wait";
+import { receiveComplaints } from "./complaint-intake";
 import { doorOf } from "./desk-door";
 import {
   closeAssignmentRow,

@@ -38,7 +38,6 @@ import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
 import { answerWithResult } from "../answer-result";
 import { asksFor } from "../asks";
-import { complain, Misread } from "../complaints";
 import {
   changeDirectoryEntry,
   DirectoryEntryChange,
@@ -53,6 +52,7 @@ import {
   autoAddTodoItem,
   changeAskedTodoItem,
 } from "../change-todo-item";
+import { complain, Misread } from "../complaints";
 import { correctMatter } from "../correct-matter";
 import {
   DECISION_ANSWERED,

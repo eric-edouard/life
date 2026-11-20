@@ -1,11 +1,9 @@
 import { createHmac } from "node:crypto";
 import { readChangeStamp } from "../core/files";
-import { digest } from "../core/hash";
 import { type CheckGroup, LIFE_ASKER, type SourceName } from "../core/names";
 import { secretIn } from "../core/secret";
 import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
-import { complaintOf } from "../records/ledger-entry";
 import type { InferredPerson } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import {
@@ -25,6 +23,11 @@ import {
 } from "./check-sentences";
 import { inboxOrderOf, type Urgency, urgencyOf } from "./check-urgency";
 import { pagedNow } from "./closeness";
+import {
+  type ComplaintsAtWork,
+  complaintFieldsOf,
+  fixingOf,
+} from "./complaint-checks";
 import {
   DECISIONS,
   type Decision,
@@ -60,7 +63,6 @@ import {
   readMatters,
 } from "./matters";
 import {
-  askOf,
   CLOSENESS,
   PAGES,
   readDismissedMatterPins,
@@ -121,12 +123,12 @@ export interface CheckInputs {
   decisions: readonly Decision[];
   /** The matters he dismissed as new matter checks, each as the steps it was pinned to (`readDismissedMatterPins`). */
   dismissed: readonly (readonly string[])[];
-  /** His complaints at work with the caretaker, by the cause each names (`causeOf`): the card with that cause shows it being fixed. None given: none. */
-  fixing?: ReadonlyMap<string, BeingFixed>;
   /** Refs of the old doubt lines drawn before 14 Nov 2026 (stored fact checks that are not ending checks): an answer by ref would land on them. */
   doubted: ReadonlySet<string>;
   /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
   endings: ReadonlyMap<string, { later: string; quote: string }>;
+  /** His complaints at work with the caretaker, by the cause each names (`causeOf`): that card shows it being fixed. */
+  fixing?: ReadonlyMap<string, BeingFixed>;
   /** Every registered agent's anchors as facts (host's `heldByAgents`), for the hold rule (`isHeldOf`); null while the desk is off or unreadable: then no new matter is offered. */
   heldByAgents: readonly AgentHold[] | null;
   /** Whether a matter's next step is not checked yet (`directionDueOf`, by the matter's id): none is offered while it is due. */
@@ -602,29 +604,6 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       }),
 };
 
-/**
- * What a card of Life's rests on, as a digest: its kind, what it acts on, its subject, its question (the guess, in
- * words) and the words it rests on; never its labels, rank or counts. His complaint names it; another guess or another
- * link at the same ref is another cause.
- */
-export const causeOf = (
-  c: Pick<Check, "evidence" | "group" | "question" | "ref" | "subject">
-) =>
-  digest(
-    "sha256",
-    JSON.stringify([
-      c.group,
-      c.ref,
-      c.subject,
-      c.question,
-      c.evidence?.quote ?? null,
-    ]),
-    16
-  );
-
-/** A card as built, as a digest (`Check.misread.shown`): his press sends it back, so Life knows the card it reads then is the one he saw. */
-const shownOf = (c: object) => digest("sha256", JSON.stringify(c), 16);
-
 /** The checks, in his inbox's order (`inboxOrderOf`). Pure over what is stored. */
 export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
@@ -644,14 +623,7 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
             (id) => cardMatterOf(byId.get(id)) ?? []
           ),
         };
-        // "Wrong…" is on Life's own cards alone: never an agent's (the caretaker's included).
-        const cause = check.asker === LIFE_ASKER ? causeOf(check) : null;
-        return {
-          ...built,
-          beingFixed: (cause && inputs.fixing?.get(cause)) || null,
-          day,
-          misread: cause ? { cause, shown: shownOf(built) } : null,
-        };
+        return { ...built, ...complaintFieldsOf(built, inputs.fixing), day };
       })
   ).map(({ day: _, ...check }) => check);
   const guessed = new Map(
@@ -703,15 +675,9 @@ let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
  */
 const CHECKS_READ = [...MATTER_BOOK_READS, CLOSENESS, DECISIONS, PAGES, ZONES];
 
-/** His complaints the caretaker is at work on, as the desk reads them (host's `complaintsAtWork`): each one's ask id, when it was received, and its line. */
-export type ComplaintsAtWork = readonly {
-  ask: string;
-  line: string | null;
-  since: string;
-}[];
-
-/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. */
+/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
 export interface HeldRead {
+  complaints?: ComplaintsAtWork;
   read: () => readonly AgentHold[] | null;
   stamp: string;
 }
@@ -722,7 +688,6 @@ export interface HeldRead {
  */
 const checksKeyOf = (
   held: HeldRead | null,
-  atWork: ComplaintsAtWork,
   voices: readonly NamingQueueItem[],
   decisions: readonly Decision[]
 ) =>
@@ -730,42 +695,24 @@ const checksKeyOf = (
     readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
-    held?.stamp ?? null,
-    atWork,
+    held && [held.stamp, held.complaints],
     voices,
   ]);
 
-/** His complaints at work by the cause each names (`CheckInputs.fixing`): for a cause named twice, the first received. */
-function fixingOf(atWork: ComplaintsAtWork) {
-  const fixing = new Map<string, BeingFixed>();
-  for (const w of atWork) {
-    const a = askOf(w.ask);
-    const cause = a && complaintOf(a)?.cause;
-    if (cause && !fixing.has(cause)) {
-      fixing.set(cause, w);
-    }
-  }
-  return fixing;
-}
-
 /**
- * What waits on his word now, over what is stored today, `held` and `atWork` (`CheckInputs`; host's `openChecksNow`
- * reads them from the desk): read-only, no model call. Read again only when what it is read from changed (`checksKeyOf`),
- * and always while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
+ * What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from
+ * the desk): read-only, no model call. Read again only when what it is read from changed (`checksKeyOf`), and always
+ * while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
  */
-export async function checksNow(
-  held: HeldRead | null,
-  atWork: ComplaintsAtWork = []
-): Promise<InboxCheck[]> {
+export async function checksNow(held: HeldRead | null): Promise<InboxCheck[]> {
   const voices = await readNamingQueue();
   const decisions = decisionsNow().filter((d) => d.state === "open");
-  const fixing = () => fixingOf(atWork);
   if (isLocked()) {
-    return await readChecks(held, fixing(), voices, decisions);
+    return await readChecks(held, voices, decisions);
   }
-  const key = checksKeyOf(held, atWork, voices, decisions);
+  const key = checksKeyOf(held, voices, decisions);
   if (last?.key !== key) {
-    const list = readChecks(held, fixing(), voices, decisions);
+    const list = readChecks(held, voices, decisions);
     last = { key, list };
     list.catch(() => {
       if (last?.list === list) {
@@ -778,7 +725,6 @@ export async function checksNow(
 
 async function readChecks(
   held: HeldRead | null,
-  fixing: ReadonlyMap<string, BeingFixed>,
   voices: NamingQueueItem[],
   decisions: Decision[]
 ): Promise<InboxCheck[]> {
@@ -837,7 +783,7 @@ async function readChecks(
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,
-    fixing,
+    fixing: fixingOf(held?.complaints ?? []),
     heldByAgents: held?.read() ?? null,
     isDirectionDue: directionDueOf(matters, records, dayNow()),
     isForHandOut: (id) => forHandOut.has(id),

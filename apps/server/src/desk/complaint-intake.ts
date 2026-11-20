@@ -91,7 +91,7 @@ export async function receiveComplaints(desk: Desk) {
     );
     saveCursor(db, CURSOR, String(from + rows.length));
     return (
-      to && { assignment: to.assignment, asks: pending.map((p) => p.a.id) }
+      to && { asks: pending.map((p) => p.a.id), assignment: to.assignment }
     );
   })();
   if (received) {

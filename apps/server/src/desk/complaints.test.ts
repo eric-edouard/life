@@ -25,6 +25,7 @@ import { fakeRuntime } from "./runtimes/fake-runtime";
 
 const fake = fakeRuntime();
 let desk: Desk;
+let inbox: { mockRestore: () => void } | undefined;
 const CARD = {
   group: "name",
   misread: { cause: "cause-dre", shown: "shown-dre" },
@@ -37,6 +38,7 @@ const AGENT_CARD = {
   ref: "dec_00000000000d",
 };
 const WORDS = "Dre is my cousin Mina, not a stranger";
+const ENTRY_ID = /^entry_/;
 const ON_CARD: Misread = {
   cause: "cause-dre",
   kind: "misread",
@@ -77,13 +79,14 @@ beforeAll(async () => {
   rmSync(COMPLAINTS, { force: true });
   setSettings({ desk: { defaultRuntime: "claude", runtimes: {} } });
   desk = { db: openDesk(), runtimes: { claude: fake.runtime } };
-  spyOn(await import("../host/inbox"), "openChecksNow").mockResolvedValue([
-    CARD,
-    AGENT_CARD,
-  ] as never);
+  inbox = spyOn(
+    await import("../host/inbox"),
+    "openChecksNow"
+  ).mockResolvedValue([CARD, AGENT_CARD] as never);
 });
 
 afterAll(() => {
+  inbox?.mockRestore();
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
   rmSync(LEDGER, { force: true });
   rmSync(COMPLAINTS, { force: true });
@@ -93,7 +96,7 @@ afterAll(() => {
 test("a press reaches the caretaker once its ask, its row and its receipt are written; its key's retry resumes it; a new key is a second complaint on the same assignment", async () => {
   const first = await press("key-1");
   expect(first).toEqual({
-    ask: expect.stringMatching(/^entry_/),
+    ask: expect.stringMatching(ENTRY_ID),
     reached: "caretaker",
   });
   expect(await press("key-1")).toEqual(first);
@@ -101,7 +104,7 @@ test("a press reaches the caretaker once its ask, its row and its receipt are wr
   expect(second.ask).not.toBe(first.ask);
   const caretaker = agentInRole(desk.db, "caretaker");
   expect(caretaker).toMatchObject({ brief: CARETAKER_BRIEF, status: "active" });
-  const asg = currentAssignmentOf(desk.db, caretaker?.id ?? "")?.id;
+  const asg = currentAssignmentOf(desk.db, caretaker?.id ?? "")?.id ?? "";
   expect(received()).toEqual(
     [first.ask, second.ask].map((ask) => ({
       assignment_id: asg,

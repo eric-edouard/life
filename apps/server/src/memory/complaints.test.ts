@@ -6,6 +6,7 @@ import { COMPLAINTS, recordComplaints } from "./complaints";
 // The complaint record: one row per complaint in ledger order, a torn last line dropped first, a bad earlier one shown,
 // never rewritten. Made-up asks.
 
+const LINKS_PROMPT = /^memory-links\./;
 const complaint = (n: number, card: unknown): LedgerEntry => ({
   after: {
     agent: "desk",
@@ -46,7 +47,7 @@ test("a row per complaint, once, in ledger order; a torn last line is dropped an
     expect(recordComplaints([one])).toEqual([
       expect.objectContaining({
         kind: "ending",
-        prompt: expect.stringMatching(/^memory-links\./),
+        prompt: expect.stringMatching(LINKS_PROMPT),
         stage: "links",
       }),
     ]);

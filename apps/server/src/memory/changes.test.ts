@@ -138,7 +138,9 @@ test("his complaint is never fed, nor listed: its words and card reach the caret
   });
   try {
     appendJsonl(LEDGER, LedgerEntry, [complaint]);
-    expect((await changeFeed()).items).toEqual([]);
+    expect(
+      (await changeFeed({ about: "task:entry_00000000000c" })).items
+    ).toEqual([]);
     expect(isListed(complaint)).toBe(false);
   } finally {
     rmSync(LEDGER, { force: true });

@@ -58,12 +58,11 @@ async function reached(id: string, limitMs: number) {
       return { ask: id, reached: "caretaker" };
     }
     if (waited >= limitMs) {
-      const why =
-        r.state === "ok"
-          ? `the desk has not received it in ${limitMs / 1000} s`
-          : r.state === "off"
-            ? "the desk is off"
-            : r.why;
+      const why = {
+        off: "the desk is off",
+        ok: `the desk has not received it in ${limitMs / 1000} s`,
+        unreadable: r.state === "unreadable" ? r.why : "",
+      }[r.state];
       throw new Error(
         `Not done: ${why}. His words are recorded: try again with the same key.`
       );

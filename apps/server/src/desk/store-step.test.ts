@@ -39,6 +39,7 @@ create index event_dropped on event (agent_id, dropped_at) where dropped_at is n
 `;
 const T = "2026-11-18T09:00:00.000Z";
 const BACKUP_FILE = /^desk-before-assignments-.*\.sqlite$/;
+const ROLES_BACKUP_FILE = /^desk-before-roles-.*\.sqlite$/;
 const WAIT = JSON.stringify([{ chat: "Test Ana" }]);
 
 /** A made-up store of the old shape, and an agents repo (a git repo) with the project agents' homes. */
@@ -296,7 +297,7 @@ test("a store from before roles is refused by openDesk; the roles step carries t
   expect(stepRoles(path, dir)).toBe("migrated");
   expect(stepRoles(path, dir)).toBe("in shape");
   expect(readdirSync(dir).filter((f) => f.startsWith("desk-before-"))).toEqual([
-    expect.stringMatching(/^desk-before-roles-.*\.sqlite$/),
+    expect.stringMatching(ROLES_BACKUP_FILE),
   ]);
   const after = openDesk(path);
   expect(after.query("select id, role from agent order by id").all()).toEqual([

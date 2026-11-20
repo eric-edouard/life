@@ -29,8 +29,6 @@ export interface AgentRow {
   ended_at: string | null;
   folder: string;
   id: string;
-  /** Its standing role, one active or stopped at most of each; null for every other agent. */
-  role: AgentRole | null;
   link: string | null;
   model: string | null;
   /** The name he gave it; null until set. */
@@ -39,6 +37,8 @@ export interface AgentRow {
   outcome: string | null;
   /** Its project of `truth/`, when its own assignment listens to one. */
   project: string | null;
+  /** Its standing role, one active or stopped at most of each; null for every other agent. */
+  role: AgentRole | null;
   runtime: string;
   session: string | null;
   status: AgentStatus;
