@@ -289,9 +289,10 @@ export function pollAnswers({ db }: Desk) {
         name,
         read.events.flatMap((e) => [
           ...wakesOf([e.data.id], e.eventId, e.data),
-          // The merged card's agent hears his answer, never the holder's words.
+          // The merged card's agent hears his answer, never the holder's words or its `onSilence`.
           ...wakesOf([cards.get(e.data.id)?.merges], e.eventId, {
             ...e.data,
+            onSilence: null,
             question: undefined,
           }),
         ])

@@ -31,6 +31,7 @@ import { isSendable } from "./draft";
 import {
   contestOf,
   heldChatOf,
+  isPending,
   isSameChat,
   mergeWithdrawalsOf,
   waitingOnOf,
@@ -281,10 +282,29 @@ export function decisionsNow(now = clock()): Decision[] {
     // A merge is final: the card it settled never lapses after it.
     const isContested =
       d.state === "open" || (merger !== undefined && d.state === "lapsed");
+    // A send running into its chat holds every card contesting there, however they chain.
+    const isSending = own.some((x) => isSendingOf(x) && isSameChat(x, d));
     return d.contests && isContested
-      ? contestOf(d, held, merger, Boolean(held && isSendingOf(held)), now)
+      ? contestOf(d, held, merger, isSending, now)
       : d;
   });
+}
+
+/** A new card's contest: the card its merge settles with the asker's own held card, and the card it waits on. */
+function contestOfAsk(
+  ask: Pick<Decision, "agent" | "merges">,
+  asker: string,
+  draft: Decision["draft"],
+  now: Date
+) {
+  const by = { agent: ask.agent, asker };
+  const all = decisionsNow(now);
+  const merged = ask.merges ? waitingOnOf(all, ask.merges, by) : undefined;
+  const merging = merged ? [merged.held.id, merged.waiting.id] : [];
+  return {
+    contests: heldChatOf(all, draft, by, merging, isSendingOf),
+    merged,
+  };
 }
 
 /** Whether his answer to `d` started sending its draft and its outcome is not in: its chat is still held. */
@@ -411,20 +431,38 @@ function withdrawDecision(asker: string, request: object, now: Date) {
  * handed the subject Life will store, the card's id and the asker's own card a merge withdraws, just before the card
  * is written, and may refuse it by throwing (the desk: whose card it is).
  */
-export async function requestDecision(
+export function requestDecision(
   asker: string,
   // An agent's arguments arrive unchecked (`DecisionRequest` is loose where the contract grows); `Ask` checks them here.
   request: Record<string, unknown>,
   now = clock(),
   readChat = resolveDraft,
-  claim?: (subject: string | undefined, id: string, replacing?: string) => void
+  claim?: Claim
 ): Promise<{ id: string; waits?: { on: string; until: string; why: string } }> {
+  // A withdrawal or a keep refuses as a rejection too, like an ask.
   if (request.withdraw) {
-    return withdrawDecision(asker, request, now);
+    return Promise.try(() => withdrawDecision(asker, request, now));
   }
-  if (request.keep) {
-    return keepDraft(asker, request, now);
-  }
+  return request.keep
+    ? Promise.try(() => keepDraft(asker, request, now))
+    : askCard(asker, request, now, readChat, claim);
+}
+
+/** Whose a card is, as the desk claims it just before it is written (`requestDecision`): may refuse it by throwing. */
+type Claim = (
+  subject: string | undefined,
+  id: string,
+  replacing?: string
+) => void;
+
+/** A new card (`requestDecision`): checked, its draft's chat resolved and its contest found, then written. */
+async function askCard(
+  asker: string,
+  request: Record<string, unknown>,
+  now: Date,
+  readChat: typeof resolveDraft,
+  claim?: Claim
+) {
   const notBuilt = notBuiltOf(request);
   if (notBuilt) {
     throw new Error(`Not done: ${notBuilt} is not built yet.`);
@@ -470,16 +508,7 @@ export async function requestDecision(
   const subject =
     matter && matter.id === ask.subject ? newest?.ref : ask.subject;
   const draft = ask.draft && (await readChat(ask.draft, now));
-  const by = { agent: ask.agent, asker };
-  const all = decisionsNow(now);
-  const merged = ask.merges ? waitingOnOf(all, ask.merges, by) : undefined;
-  const contests = heldChatOf(
-    all,
-    draft,
-    by,
-    merged ? [merged.held.id, merged.waiting.id] : [],
-    isSendingOf
-  );
+  const { contests, merged } = contestOfAsk(ask, asker, draft, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
   claim?.(subject, id, merged?.held.id);
   // The draft as given is stored as Life resolved it (`draft`).
@@ -694,13 +723,13 @@ export async function answerDecision(
   if (!(act === "send" && isSendable(stored.draft))) {
     return [line];
   }
-  // His Send withdraws every other open card into its chat first (the one it `replaces`, and any another contest
-  // opened): one draft per chat when it goes.
+  // His Send withdraws every other card into its chat first, open or waiting (the one it `replaces`, any other a
+  // contest opened): one draft per chat when it goes.
   appendJsonl(
     DECISIONS,
     Withdrawn,
     decisionsNow(now)
-      .filter((x) => x.id !== id && x.state === "open" && isSameChat(x, d))
+      .filter((x) => x.id !== id && isPending(x) && isSameChat(x, d))
       .map((x) => ({
         at: now.toISOString(),
         id: x.id,

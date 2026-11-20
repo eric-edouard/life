@@ -105,7 +105,7 @@ export function waitingOnOf(list: Decision[], id: string, asker: Asker) {
     (asker.asker === DESK_AGENT
       ? held.asker === DESK_AGENT
       : isSameAsker(held, asker));
-  if (!(waiting && isHolder)) {
+  if (!(waiting && isHolder && held?.state === "open")) {
     throw new Error(`Not done: ${id} is no card waiting on one of yours.`);
   }
   return { held, waiting };

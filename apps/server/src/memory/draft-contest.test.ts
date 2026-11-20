@@ -148,24 +148,15 @@ test("silent 10 minutes, the waiting card is asked replacing the held one; his S
   ).toContain(held.id);
 });
 
-test("while his Send of the held card runs, the waiting card keeps waiting past 10 minutes", async () => {
+test("his Send of the held card withdraws the card waiting on it, replaced by it", async () => {
   const held = await ask(HOLDER);
   const waiting = await ask(ASKER);
-  let during: string | undefined;
   await answerDecision(held.id, ["send"], undefined, {
-    deliver: () => {
-      during = of(waiting.id, later(CONTEST_WAIT + 1000))?.state;
-      return Promise.resolve("$sent");
-    },
-    now: later(CONTEST_WAIT),
+    deliver: () => Promise.resolve("$sent"),
+    now: later(MIN),
     via: "connector",
   });
-  expect(during).toBe("waiting");
-  // Sent, the held card settled: the waiting card is asked, with nothing to replace.
-  expect(of(waiting.id, later(CONTEST_WAIT + MIN))).toMatchObject({
-    state: "open",
-  });
-  expect(of(waiting.id, later(CONTEST_WAIT + MIN))?.replaces).toBeUndefined();
+  expect(of(waiting.id, later(2 * MIN))?.withdrawn?.replacedBy).toBe(held.id);
 });
 
 test("a card asked while his Send of the held card runs waits on it; a merged card stays withdrawn past its deadline", async () => {
@@ -208,4 +199,21 @@ test("three askers in turn: his Send withdraws every other open card into the ch
   for (const id of [a.id, b.id]) {
     expect(list.find((d) => d.id === id)?.withdrawn?.replacedBy).toBe(c.id);
   }
+});
+
+test("no merge happens while the held card's send runs", async () => {
+  const held = await ask(HOLDER);
+  let refused: unknown;
+  await answerDecision(held.id, ["send"], undefined, {
+    deliver: async () => {
+      const w = await ask(ASKER, later(MIN));
+      refused = await ask(HOLDER, later(MIN), { merges: w.id }).catch(
+        (e: Error) => e.message
+      );
+      return "$sent";
+    },
+    now: later(MIN),
+    via: "connector",
+  });
+  expect(String(refused)).toContain("no card waiting on one of yours");
 });
