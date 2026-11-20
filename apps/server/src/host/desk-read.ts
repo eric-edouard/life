@@ -358,11 +358,14 @@ export const heldStampOf = (db: Database) =>
       .values(heldSince())
   );
 
-/** The agent in standing role `role` (active or stopped: one at most), if any. */
+/**
+ * The agent in standing role `role`: its one active or stopped, else its newest that ended (`ended_at`); with why its
+ * newest assignment's first turn never began (`why_not_started`), if it did not. None ever: null.
+ */
 export const agentInRole = (db: Database, role: AgentRole) =>
   db
-    .query<AgentRow, [string]>(
-      "select * from agent where role = ? and status in ('active', 'stopped')"
+    .query<AgentRow & Pick<AssignmentRow, "why_not_started">, [string]>(
+      "select a.*, s.why_not_started from agent a left join assignment s on s.agent_id = a.id where a.role = ? order by a.status in ('active', 'stopped') desc, a.created_at desc, s.opened_at desc limit 1"
     )
     .get(role);
 

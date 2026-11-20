@@ -115,9 +115,13 @@ export interface Complaint {
   card: unknown;
   cause: string;
   isAsShown: boolean;
+  /** The card's kind, the stage that made it and that stage's prompt, frozen at his press (`stageOf`). */
+  kind: string;
+  prompt: string | null;
   ref: string;
   report: boolean;
   shown: string;
+  stage: string;
 }
 
 /** His complaint's own fields, or undefined for any other line. */

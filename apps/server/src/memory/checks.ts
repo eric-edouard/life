@@ -37,7 +37,7 @@ import {
   isOnMatter,
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
-import { draftPersonOf } from "./draft-send";
+import { withDraftConfirms } from "./draft-send";
 import { type AgentHold, isHeldOf } from "./held-matters";
 import {
   type BeingFixed,
@@ -626,16 +626,7 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
         return { ...withComplaintFields(card, inputs.fixing, basis), day };
       })
   ).map(({ day: _, ...check }) => check);
-  const guessed = new Map(
-    found
-      .filter((x) => x.group === "guessed person")
-      .map((x) => [c.people.refOf(x.ref), { ...x, confirm: [] }])
-  );
-  return found.map((x) => {
-    const person = x.draft && draftPersonOf(c.people, x.draft);
-    const guess = person && guessed.get(c.people.refOf(person));
-    return { ...x, confirm: guess ? [guess] : [] };
-  });
+  return withDraftConfirms(found, c.people);
 };
 
 /** The checks about matter `id`: every kind, open matters they ride on and the one holding their subject (an ending is about a matter that reads probably done). */
@@ -796,11 +787,17 @@ async function readChecks(
       ]),
     ]),
   });
-  const shown = (await withNetworkIdentities(checks, people)).map((c) => ({
-    ...c,
-    contactsCard: c.contactsCard ?? null,
-    pushId: pushIdOf(c.ref, key),
-    urgency: urgencyOf(c),
-  }));
-  return withMisreadSealed(shown, key);
+  return inboxChecksOf(await withNetworkIdentities(checks, people), key);
 }
+
+/** The inbox's cards as finally shown (their network identities attached): with their push ids and urgency, then their "Wrong…" sealed on all of it (`withMisreadSealed`). */
+export const inboxChecksOf = (identified: readonly Check[], key: string) =>
+  withMisreadSealed(
+    identified.map((c) => ({
+      ...c,
+      contactsCard: c.contactsCard ?? null,
+      pushId: pushIdOf(c.ref, key),
+      urgency: urgencyOf(c),
+    })),
+    key
+  );

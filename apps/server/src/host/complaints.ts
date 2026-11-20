@@ -3,6 +3,7 @@ import { clock } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { off } from "../core/outputs";
 import { isSealed } from "../memory/complaint-checks";
+import { stageOf } from "../memory/complaint-record";
 import { askOf } from "../memory/memory-files";
 import { type Complaint, complaintOf } from "../records/ledger-entry";
 import { ask } from "./asks";
@@ -33,20 +34,16 @@ export type Misread = z.infer<typeof Misread>;
 const POLL_MS = 500;
 
 /**
- * The complaint his press makes on card `ref`: only a "Wrong…" Life showed (`isSealed`: a card of Life's, its ref and
- * cause as shown), the card left or not; with the card as read now, and whether it is the one he saw.
+ * The complaint his press makes on card `ref` (sealed, `complain` checks): with the card as read now, whether it is the
+ * one he saw, and the prompt of the stage that made it, frozen at his press (`stageOf`).
  */
 async function complaintNow(ref: string, m: Misread): Promise<Complaint> {
-  if (!isSealed(ref, m)) {
-    throw new Error(
-      "Not done: “Wrong…” takes a card of Life's as Life showed it (its `misread`); an agent's card takes his answer or his words."
-    );
-  }
   const card = (await openChecksNow()).find((c) => c.ref === ref) ?? null;
   return {
     card,
     cause: m.cause,
     isAsShown: card?.misread?.shown === m.shown,
+    ...stageOf(card),
     ref,
     report: m.report,
     shown: m.shown,
@@ -98,6 +95,12 @@ export async function complain(
   }
   if (!note?.trim()) {
     throw new Error("Not done: a complaint needs his words (`note`).");
+  }
+  // Checked on every press, a retry under a recorded key too: only a "Wrong…" Life showed.
+  if (!isSealed(ref, m)) {
+    throw new Error(
+      "Not done: “Wrong…” takes a card of Life's as Life showed it (its `misread`); an agent's card takes his answer or his words."
+    );
   }
   const instruction = {
     at: clock().toISOString(),

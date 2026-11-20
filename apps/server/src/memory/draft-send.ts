@@ -365,11 +365,27 @@ export function sendLimitMs(draft: StoredDraft, sources = enabledSources()) {
  * read through `resolve`. Null for a source whose chat keys hold no handle, a draft not yet resolved to a chat, or a
  * handle no one has.
  */
-export function draftPersonOf(people: Pick<People, "resolve">, d: StoredDraft) {
+function draftPersonOf(people: Pick<People, "resolve">, d: StoredDraft) {
   const source = d.channel ? sourceOf(d.channel as SourceName) : undefined;
   const handle =
     source?.kind === "mail" ? d.to : d.chat && source?.handleOf?.(d.chat);
   return handle && d.channel
     ? people.resolve(handle, d.channel as SourceName)
     : null;
+}
+
+/** Each card with its `confirm`: on a decision whose draft goes to someone Life only guesses (`draftPersonOf`), that guess's card, one check asked beside it; none on every other card. */
+export function withDraftConfirms<
+  C extends { draft?: StoredDraft | null; group: string; ref: string },
+>(cards: C[], people: Pick<People, "refOf" | "resolve">) {
+  const guessed = new Map(
+    cards
+      .filter((x) => x.group === "guessed person")
+      .map((x) => [people.refOf(x.ref), { ...x, confirm: [] }])
+  );
+  return cards.map((x) => {
+    const person = x.draft && draftPersonOf(people, x.draft);
+    const guess = person && guessed.get(people.refOf(person));
+    return { ...x, confirm: guess ? [guess] : [] };
+  });
 }

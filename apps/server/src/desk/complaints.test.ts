@@ -1,4 +1,11 @@
-import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  expect,
+  setSystemTime,
+  spyOn,
+  test,
+} from "bun:test";
 import { readFileSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { clock } from "../core/clock";
@@ -20,11 +27,12 @@ import {
   type MisreadShown,
   withMisreadSealed,
 } from "../memory/complaint-checks";
-import { COMPLAINTS } from "../memory/complaint-record";
+import { COMPLAINTS, stageOf } from "../memory/complaint-record";
 import { LEDGER, readLedger } from "../memory/memory-files";
 import { complaintOf, isComplaint } from "../records/ledger-entry";
 import { readPacket } from "./agent-actions";
 import { CARETAKER_BRIEF, receiveComplaints } from "./complaint-intake";
+import { wakeDue } from "./desk-clock";
 import { doorFetch, doorOf } from "./desk-door";
 import { closeAssignmentRow, type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
@@ -131,9 +139,12 @@ test("a press reaches the caretaker once its ask, its row and its receipt are wr
         card: CARD,
         cause: "cause-dre",
         isAsShown: true,
+        kind: "name",
+        prompt: null,
         ref: "name:dre",
         report,
         shown: SEALED.shown,
+        stage: "names",
       },
     ])
   );
@@ -171,6 +182,10 @@ test("the same key with other words, tick or card, a card of an agent's, no key 
     press("key-1", {}, { words: "Dre is my neighbour" })
   ).rejects.toThrow("this key recorded another press");
   await expect(press("key-9", {}, { ref: AGENT_CARD.ref })).rejects.toThrow(
+    "a card of Life's as Life showed it"
+  );
+  // A retry under a recorded key is checked too: a seal Life never made is refused, not taken as the press it repeats.
+  await expect(press("key-1", { seal: "f".repeat(32) })).rejects.toThrow(
     "a card of Life's as Life showed it"
   );
   await expect(
@@ -292,19 +307,17 @@ test("a caretaker that finishes while a complaint it never handed waits gives it
   expect(await press("key-5")).toEqual(b);
 });
 
-test("a crash after the ask, before its row and receipt: the desk's next tick writes both, with no second press", async () => {
-  const asked = ask(
-    {
-      at: clock().toISOString(),
-      quote: WORDS,
-      ref: "complaint:key-crash",
-    },
+/** His complaint as a press asks it, under key `key`, with nothing after it (no row, no receipt): as a crash leaves it. */
+const askedOnly = (key: string) =>
+  ask(
+    { at: clock().toISOString(), quote: WORDS, ref: `complaint:${key}` },
     {
       agent: DESK_AGENT,
       complaint: {
         card: CARD,
         cause: "cause-dre",
         isAsShown: true,
+        ...stageOf(CARD),
         ref: "name:dre",
         report: false,
         shown: SEALED.shown,
@@ -313,6 +326,9 @@ test("a crash after the ask, before its row and receipt: the desk's next tick wr
     "connector",
     "test"
   );
+
+test("a crash after the ask, before its row and receipt: the desk's next tick writes both, with no second press", async () => {
+  const asked = askedOnly("key-crash");
   expect(readFileSync(COMPLAINTS, "utf8")).not.toContain(asked.id);
   await receiveComplaints(desk);
   expect(readFileSync(COMPLAINTS, "utf8")).toContain(asked.id);
@@ -334,4 +350,50 @@ test("his complaint's words stay out of the call log, the caretaker's notes out 
   expect(packet).toContain("Your subject: Life's data.");
   expect(packet).toContain("ask no plan and wait for no Go");
   expect(packet).not.toContain("asks your plan");
+});
+
+test("a caretaker whose first launch fails is not registered again for the same complaint: it waits, unreceived, for his next press", async () => {
+  // The caretaker so far handled everything and finished.
+  desk.db.run("update event set handed = 1");
+  const done = agentInRole(desk.db, "caretaker");
+  desk.db.transaction(() =>
+    closeAssignmentRow(
+      desk.db,
+      currentAssignmentOf(desk.db, done?.id ?? "")?.id ?? "",
+      { outcome: "all handled" }
+    )
+  )();
+  const caretakers = () =>
+    desk.db
+      .query<{ n: number }, []>(
+        "select count(*) as n from agent where role = 'caretaker'"
+      )
+      .get()?.n ?? 0;
+  const before = caretakers();
+  fake.isFailing = true;
+  try {
+    const stuck = askedOnly("key-launch");
+    for (const _ of [1, 2, 3]) {
+      // biome-ignore lint/performance/noAwaitInLoops: one tick after another
+      await receiveComplaints(desk);
+      await wakeDue(desk);
+    }
+    expect(caretakers()).toBe(before + 1);
+    expect(agentInRole(desk.db, "caretaker")).toMatchObject({
+      status: "ended",
+      why_not_started: expect.any(String),
+    });
+    expect(complaintReceiptOf(desk.db, stuck.id)).toBeNull();
+    // His next press tries once more, taking the one still waiting with it.
+    setSystemTime(new Date(clock().getTime() + 60_000));
+    const next = askedOnly("key-launch-2");
+    await receiveComplaints(desk);
+    expect(caretakers()).toBe(before + 2);
+    expect(complaintReceiptOf(desk.db, stuck.id)?.assignment).toBe(
+      complaintReceiptOf(desk.db, next.id)?.assignment
+    );
+  } finally {
+    fake.isFailing = false;
+    setSystemTime();
+  }
 });

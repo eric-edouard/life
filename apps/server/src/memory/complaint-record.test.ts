@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { appendFileSync, readFileSync, rmSync } from "node:fs";
 import type { LedgerEntry } from "../records/ledger-entry";
-import { COMPLAINTS, recordComplaints } from "./complaint-record";
+import { COMPLAINTS, recordComplaints, stageOf } from "./complaint-record";
 
-// The complaint record: one row per complaint in ledger order, a torn last line dropped first, a bad earlier one shown,
-// never rewritten. Made-up asks.
+// The complaint record: one row per complaint in ledger order, a torn last line dropped first, a bad row (earlier, or
+// whole and last) shown, never rewritten. Made-up asks.
 
 const LINKS_PROMPT = /^memory-links\./;
 const complaint = (n: number, card: unknown): LedgerEntry => ({
@@ -17,6 +17,7 @@ const complaint = (n: number, card: unknown): LedgerEntry => ({
       ref: "r",
       report: false,
       shown: "s",
+      ...stageOf(card),
     },
   },
   at: `2026-11-20T09:0${n}:00.000Z`,
@@ -39,7 +40,7 @@ const asks = (): string[] =>
     .split("\n")
     .map((l) => JSON.parse(l).ask);
 
-test("a row per complaint, once, in ledger order; a torn last line is dropped and its complaint's row written again; a bad earlier line throws", () => {
+test("a row per complaint, once, in ledger order; a torn last line is dropped and its complaint's row written again; a bad row, whole last line or earlier, throws and stays", () => {
   rmSync(COMPLAINTS, { force: true });
   try {
     const one = complaint(1, { group: "ending" });
@@ -63,6 +64,15 @@ test("a row per complaint, once, in ledger order; a torn last line is dropped an
     appendFileSync(COMPLAINTS, whole);
     expect(recordComplaints([one, two])).toEqual([]);
     expect(asks()).toEqual([one.id, two.id]);
+    // A whole last line that is not a row (another version) is kept, its error shown.
+    const other = JSON.stringify({
+      ...JSON.parse(whole.split("\n")[0] ?? ""),
+      schemaVersion: 2,
+    });
+    rmSync(COMPLAINTS);
+    appendFileSync(COMPLAINTS, other);
+    expect(() => recordComplaints([one])).toThrow("schemaVersion");
+    expect(readFileSync(COMPLAINTS, "utf8")).toBe(other);
     rmSync(COMPLAINTS);
     appendFileSync(COMPLAINTS, "not json\n");
     expect(() => recordComplaints([one])).toThrow();
