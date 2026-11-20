@@ -1,5 +1,6 @@
 import AppIntents
 import BackgroundTasks
+import Incidents
 import Library
 import OwnerSettings
 import ServerAPI
@@ -162,11 +163,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         PushToken.keep(token)
     }
 
-    /// The server's silent push (`"lifelog": "processing"`): words or a summary landed, or blocks are wanted. The alert
-    /// (voices to name) goes through the notification center instead.
+    /// The server's silent push (`"lifelog": "processing"`): words or a summary landed, or blocks are wanted; or Life's
+    /// cards that left its inbox, whose notifications go. The alert (voices to name) goes through the notification center
+    /// instead.
     func application(
         _ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {
+        if case .removed(let gone)? = NotificationRoute(userInfo: userInfo) {
+            await life.removeNotifications { gone.contains($0) }
+            return .newData
+        }
         guard userInfo["lifelog"] as? String == "processing" else { return .noData }
         await sync.pushed()
         return .newData
