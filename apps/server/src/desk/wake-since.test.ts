@@ -49,7 +49,7 @@ test("a deadline wake that starts a fresh session (the old one grew) carries the
   const { desk, fake, waiting } = setup();
   const id = await waiting(HOUR);
   const endedAt = clock().toISOString();
-  grow(desk, agentOf(desk.db, id)?.session ?? "", 45_000);
+  grow(desk, agentOf(desk.db, id)?.session ?? "", 130_000);
   advance(HOUR + MIN);
   await wakeDue(desk);
   const start = fake.said.at(-1)?.message ?? "";

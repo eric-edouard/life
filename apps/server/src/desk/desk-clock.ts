@@ -348,7 +348,7 @@ function watch(desk: Desk, id: string, turn: number, run: Run) {
  * Starts a turn for `a`, or leaves a session running a turn of his alone (false: the wake comes after it). The turn is
  * written before the runtime is called, so the turn's end, however soon, finds it; its queued events count a try once it
  * begins (`markBegun`). It
- * runs into its session while that has grown under 30,000 tokens, else in a fresh session from its packet (the old
+ * runs into its session while that has grown under `GROWTH_LIMIT` (120,000 tokens), else in a fresh session from its packet (the old
  * one's link kept). A runtime that fails ends it failed, tried again later.
  */
 async function wake(desk: Desk, a: AgentRow) {
