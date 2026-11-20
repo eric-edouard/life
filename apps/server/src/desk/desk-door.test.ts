@@ -200,6 +200,10 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
   for (const text of [own, second]) {
     expect(text).toContain("The one gate");
     expect(text).toContain("act only after his Go");
+    // His word of 21 Nov 2026: the plan card reads well.
+    expect(text).toContain(
+      "Write that card's plan in Markdown in its `context`: a short heading, numbered steps, what you wait on, and what you will ask him; its question stays one line."
+    );
     expect(text).toContain("name the matter before you act");
     expect(text).toContain("never with a Monitor");
     expect(text).toContain("`github` is a wait channel");
@@ -210,5 +214,13 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
     );
     expect(text).toContain("never a question left in the chat");
     expect(text).toContain("An `arrival.confirmed` event");
+    expect(text).toContain("his own commitment");
+    expect(text).toContain(
+      "Write a card's `context` in Markdown: why you ask, why this draft, what you tried"
+    );
+    expect(text).toContain("a dead link refuses the card");
+    expect(text).toContain(
+      'A wait can watch GitHub: `channels: ["github_activity"]` with `repo: "owner/name"`'
+    );
   }
 });
