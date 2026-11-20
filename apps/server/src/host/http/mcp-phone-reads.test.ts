@@ -130,6 +130,8 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
     {
       ...matter,
       id: "matter_aaaaaaaaaaaa",
+      // His important mark: on the row and on a card's matter.
+      important: true,
       name: "Mend Gran's watch",
       steps: [
         {
@@ -455,6 +457,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
           text: "Gran has her watch back",
         },
         id: "matter_aaaaaaaaaaaa",
+        important: true,
         name: "Mend Gran's watch",
         newestOpenStep: steps[1],
         nextStep: {

@@ -8,7 +8,6 @@ import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
 import { isOn } from "../core/outputs";
 import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
-import { isEndingKind } from "../memory/checks";
 import {
   closeness,
   lastYearsOf,
@@ -33,6 +32,7 @@ import {
 import { extract } from "../memory/extract";
 import { gather } from "../memory/gather";
 import { reindex } from "../memory/index-writer";
+import { isEndingKind } from "../memory/life-checks";
 import { links, readLinkWork } from "../memory/links";
 import { matterDirections } from "../memory/matter-directions";
 import {
