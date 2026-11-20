@@ -29,6 +29,9 @@ struct Taken: Equatable {
 struct AnswerResultView: View {
     let taken: Taken
     let state: ActionState<ActionProof>
+    /// Each new state shows from its top (a long draft scrolled while sending would hide "Not sent"); a step ticking
+    /// within one state keeps where he scrolled.
+    @State private var position = ScrollPosition(edge: .top)
 
     var body: some View {
         ScrollView {
@@ -45,6 +48,7 @@ struct AnswerResultView: View {
             .padding(.bottom, 16)
             .readingWidth()
         }
+        .scrollPosition($position)
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
     }
@@ -57,7 +61,9 @@ struct AnswerResultView: View {
     // MARK: States
 
     private func face(@ViewBuilder _ content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 14) { content() }.appears(Motion.resultFace)
+        VStack(alignment: .leading, spacing: 14) { content() }
+            .appears(Motion.resultFace)
+            .onAppear { position.scrollTo(edge: .top) }
     }
 
     @ViewBuilder private var working: some View {
