@@ -285,6 +285,19 @@ struct MarkItem: View {
     }
 }
 
+/// Where a list's next part begins, in a small muted label: "The rest can wait" in the Inbox, "Parked" in Matters.
+struct ListLabel: View {
+    let text: String
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text).font(.small).foregroundStyle(Palette.muted)
+            .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 6)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
 /// His mark after a matter's name: a filled flag, 12, in `fg` at 85% (never the orange `flag`, which means late).
 struct SmallFlag: View {
     var body: some View {

@@ -142,7 +142,7 @@ struct MattersScreen: View {
                 let isSelected = sizeClass == .regular && router.matter == row.id
                 let isMarked = life.isImportant(row.id, as: row.important)
                 VStack(alignment: .leading, spacing: 0) {
-                    if at == parkedFrom { ParkedLabel() }
+                    if at == parkedFrom { ListLabel("Parked") }
                     Button {
                         router.open(matter: row.id)
                     } label: {
@@ -166,15 +166,6 @@ struct MattersScreen: View {
         .contentMargins(.bottom, 24, for: .scrollContent)
         .motion(Motion.standard, value: rows.map(\.id))
         .scrollDismissesKeyboard(.interactively)
-    }
-}
-
-/// Where a parked or done project's matters begin: a small muted label, as "The rest can wait" in the Inbox.
-private struct ParkedLabel: View {
-    var body: some View {
-        Text("Parked").font(.small).foregroundStyle(Palette.muted)
-            .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 6)
-            .accessibilityAddTraits(.isHeader)
     }
 }
 

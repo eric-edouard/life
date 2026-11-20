@@ -29,7 +29,7 @@ struct ProjectPage: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text(head.name).font(.screenName).foregroundStyle(Palette.fg)
                     .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-                    .padding(.top, 8)
+                    .padding(.top, Metrics.Spacing.s)
                 SegmentedChoice(
                     choices: [ProjectStatus.active, .parked, .done],
                     selection: Binding(
@@ -44,7 +44,7 @@ struct ProjectPage: View {
                         Caps("Goal")
                         Text(goal).font(.lead).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                     }
-                    .padding(.horizontal, 20).padding(.vertical, 16)
+                    .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
                     .frame(maxWidth: .infinity, alignment: .leading).card()
                 }
                 VStack(spacing: 0) {
@@ -59,9 +59,9 @@ struct ProjectPage: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, -8)
+                .padding(.horizontal, -Metrics.Spacing.s)
             }
-            .padding(.horizontal, 20).padding(.bottom, 24).readingWidth()
+            .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xl).readingWidth()
             .motion(Motion.standard, value: status)
         }
     }

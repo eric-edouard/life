@@ -50,7 +50,7 @@ const CAPS: Record<string, Record<string, number>> = {
     width: 1,
   },
   "Inbox/CheckList.swift": {
-    padding: 5,
+    padding: 2,
   },
   "Inbox/DraftBlock.swift": {
     font: 1,
@@ -61,7 +61,7 @@ const CAPS: Record<string, Record<string, number>> = {
     width: 2,
   },
   "Matters/MattersScreen.swift": {
-    padding: 4,
+    padding: 3,
   },
   "Matters/StartAgentSheet.swift": {
     padding: 5,
