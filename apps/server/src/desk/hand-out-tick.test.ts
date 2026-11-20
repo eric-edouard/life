@@ -128,12 +128,6 @@ const deskOf = (t = setup()) => {
     iso(clock().getTime() + 30 * DAY),
     personal,
   ]);
-  // Its own first turn is done, so the next wake is a hand-out's.
-  const now = clock().toISOString();
-  t.desk.db.run(
-    "insert into turn (agent_id, assignment_id, cause, started_at, begun_at, ended_at, outcome) select agent_id, id, 'start', ?1, ?1, ?1, 'ok' from assignment where agent_id = ?2",
-    [now, personal]
-  );
   return t.desk;
 };
 /** The assignments the desk opened itself (the hand-out), oldest first. */
@@ -263,14 +257,17 @@ test("the daily count follows his day: a hand-out before his day began is not co
 });
 
 /** A card of assignment `id` on its matter (the book holds the hand-out's made-up matters). */
+/** The made-up matters as the book holds them. */
+const views = () =>
+  MATTERS.map((m) =>
+    matterView(
+      m.id,
+      m.steps.map((x) => x.ref)
+    )
+  );
 const ask = (desk: ReturnType<typeof deskOf>, id: string) =>
   withMatters(
-    MATTERS.map((m) =>
-      matterView(
-        m.id,
-        m.steps.map((x) => x.ref)
-      )
-    ),
+    views(),
     () =>
       askDecision(desk, byId(desk, id), {
         deadline: iso(clock().getTime() + DAY),
@@ -670,7 +667,8 @@ test("an assignment on a lone matter that closed is closed; one on a step no mat
 /** A hand-out whose first turn began now: its assignment's id. */
 const handedOut = async (desk: ReturnType<typeof deskOf>) => {
   const id = (await handOutNext(desk, book().read)) ?? "";
-  await wakeDue(desk);
+  // A session already open is shown its matter's record, read from the book.
+  await withMatters(views(), () => wakeDue(desk));
   desk.db.run("update turn set begun_at = ? where assignment_id = ?", [
     clock().toISOString(),
     id,
@@ -687,6 +685,8 @@ test("a card asked in time keeps the assignment; none at 2 hours closes it with 
   await t.end(personal);
   setSystemTime(new Date(clock().getTime() + 11 * MIN));
   const silent = await handedOut(desk);
+  // Its first turn began on the agent's session.
+  expect(countOf(desk, `turn where assignment_id = '${silent}'`)).toBe(1);
   setSystemTime(new Date(clock().getTime() + 2 * HOUR));
   await endAgentsWithoutCard(desk);
   expect(byId(desk, asked).closed_at).toBeNull();

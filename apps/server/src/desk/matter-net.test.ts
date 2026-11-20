@@ -392,6 +392,11 @@ test("a poll with nothing changed does not read the matter book again", async ()
     agent,
   ]);
   const [book] = spies;
+  // TEMP-TRACE
+  (book as unknown as { mockImplementation: (f: () => unknown) => void }).mockImplementation(() => {
+    console.error("BOOKREAD", new Error("trace").stack?.split("\n").slice(2, 9).join(" | "));
+    return Promise.resolve({ book: [{ ...matter, open: true, status: "moving" }], records: {} });
+  });
   // Two polls a minute apart, every reader of the nets included (messages, recordings, done matters): one read.
   await tick(desk);
   setSystemTime(new Date(T0 + MIN));

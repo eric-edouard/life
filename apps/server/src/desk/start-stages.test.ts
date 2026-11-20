@@ -35,7 +35,14 @@ const matter = (n: number) => ({
   id: `matter_00000000c00${n}`,
   name: `Test matter ${n}`,
   status: "moving",
-  steps: [{ ref: `obs_00000000c10${n}` }],
+  steps: [
+    {
+      at: "2026-11-17T01:00:00Z",
+      kind: "observation",
+      ref: `obs_00000000c10${n}`,
+      text: `Test step ${n}`,
+    },
+  ],
 });
 
 /** Matter 5's goal is already his word. */

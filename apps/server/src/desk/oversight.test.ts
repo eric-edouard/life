@@ -444,6 +444,11 @@ let stopTicking: (() => Promise<void>) | undefined;
 
 test("change_registered_agent records his word and answers with what the desk did", async () => {
   setSettings({ desk: { runtimes: {} } });
+  // The earlier tests' matters are over: the Personal agent's next first turn is this test's.
+  desk.db.run(
+    "update assignment set closed_at = ?, outcome = 'test over' where agent_id = ? and closed_at is null and id in (select assignment_id from anchor)",
+    [clock().toISOString(), personal]
+  );
   const matters = await import("../memory/matters");
   const book = spyOn(matters, "readMatterBook").mockResolvedValue([
     {
@@ -451,7 +456,7 @@ test("change_registered_agent records his word and answers with what the desk di
       id: "matter_00000000a002",
       name: "Test repair",
       status: "moving",
-      steps: [{ ref: "obs_00000000a201" }, { ref: "obs_00000000a202" }],
+      steps: [{ at: "2026-11-17T01:00:00Z", kind: "to_do", ref: "obs_00000000a201", text: "Test step" }, { at: "2026-11-17T01:00:00Z", kind: "to_do", ref: "obs_00000000a202", text: "Test step" }],
     },
     {
       ...NO_ONE,
@@ -459,7 +464,7 @@ test("change_registered_agent records his word and answers with what the desk di
       name: "Test shop sign",
       projects: ["test-shop"],
       status: "moving",
-      steps: [{ ref: "obs_00000000a301" }],
+      steps: [{ at: "2026-11-17T01:00:00Z", kind: "to_do", ref: "obs_00000000a301", text: "Test step" }],
     },
   ] as never);
   const readTruth = await import("../memory/read-truth");
