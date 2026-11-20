@@ -263,6 +263,14 @@ test("a loop of folds reads as its best ref by tier, a chain as its end, and non
   expect(chain("person:inf_g")).toBe("person:ann");
 });
 
+test("one bridged user in Beeper's form and in Life's own bridge's reads as one key", () => {
+  const guess = inferred("inf_kit", ["@line__u91_abc:beeper.local"]);
+  const { resolve } = foldsOf([], [guess], [], []);
+  expect(resolve("_u91_abc")).toBe("person:inf_kit");
+  expect(resolve("@line__u91_abc:beeper.local")).toBe("person:inf_kit");
+  expect(resolve("_u92_abc")).toBeNull();
+});
+
 test("a name in another script resolves to its own person only, never every word of any script", () => {
   const thai = {
     card: "card-thai",

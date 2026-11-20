@@ -36,6 +36,8 @@ const FILE_MAX = 25_000_000;
 /** How long gog is given to send: a file takes longer to upload. */
 const sendMs = (d: Outgoing) => (d.file ? 3 * MIN : 45_000);
 const ADDRESS = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
+/** Whether a handle is a mail address (local@domain.tld): a Matrix id (`@line__u9:beeper.local`) is not. */
+export const isMailAddress = (h: string) => ADDRESS.test(h);
 const AUTH =
   /auth|token|scope|credential|insufficient|invalid_grant|keyring|permission/i;
 

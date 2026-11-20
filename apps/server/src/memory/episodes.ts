@@ -39,7 +39,12 @@ import {
   type Verdicts,
   verdictOf,
 } from "./memory-files";
-import { emailsShown, involvedOf, refContext } from "./model-context";
+import {
+  emailNamedIn,
+  emailsShown,
+  involvedOf,
+  refContext,
+} from "./model-context";
 import { answeredBy, checkPeople, unknownIn } from "./people";
 import { staysOf, where } from "./places";
 import { subjectOf } from "./quote-check";
@@ -544,6 +549,10 @@ export async function episodes(evidence: Evidence) {
             ),
             ...earlier.flatMap((m) => m.people.map((p) => p.ref)),
             ...[...near.values()].flat(),
+            ...emailNamedIn(
+              [...texts.values(), ...units.map((b) => b.unit.title)],
+              refs
+            ),
           ])
         );
         const json = await step.ask({

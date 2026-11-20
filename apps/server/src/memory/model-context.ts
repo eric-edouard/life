@@ -5,7 +5,12 @@ import {
   unfoldedOf,
 } from "../records/observation";
 import { isUnderway } from "../records/truth";
+import { isMailAddress } from "../sources/gmail";
 import type { Truth } from "./read-truth";
+import { nameKey } from "./units";
+
+const NOT_LETTERS = /[^\p{L}]/gu;
+const MIN_LETTERS = 4;
 
 // The context every memory call of a run sends first: who the owner is, and the people and projects a reply may name.
 
@@ -76,17 +81,21 @@ export function refContext(
       status: p.status,
     })),
   };
-  // The addresses of each person, for the one call that matches a formal name to a nickname (`emailsShown`).
-  const emails = new Map<string, string[]>([
-    ...truth.people.map((p) => [`person:${p.id}`, p.handles.email] as const),
-    ...unfoldedOf(outsideDirectory, canon).map(
-      (p) =>
-        [
-          `person:${p.id}`,
-          p.namesAndHandles.filter((h) => h.includes("@")),
-        ] as const
-    ),
-  ]);
+  // The mail addresses of each person, those of the cards and guesses folded into them too, for the one call that
+  // matches a formal name to a nickname (`emailsShown`).
+  const emails = new Map<string, Set<string>>();
+  const addEmails = (ref: string, handles: string[]) => {
+    const own = handles.filter(isMailAddress);
+    if (own.length > 0) {
+      emails.set(ref, new Set([...(emails.get(ref) ?? []), ...own]));
+    }
+  };
+  for (const p of truth.people) {
+    addEmails(`person:${p.id}`, p.handles.email);
+  }
+  for (const p of outsideDirectory) {
+    addEmails(canon(`person:${p.id}`), p.namesAndHandles);
+  }
   return {
     /** Who is close to him personally as far as the calls may say: none while the `relationships` add-on is off. */
     close: kept,
@@ -96,8 +105,38 @@ export function refContext(
       projects: directory.projects.filter((p) => underway.has(p.ref)),
     },
     directory,
-    emails,
+    emails: new Map([...emails].map(([ref, set]) => [ref, [...set]])),
   };
+}
+
+/**
+ * The people whose mail address spells a name the texts write: the letters of an address's local part (digits and
+ * punctuation dropped, at least 4 letters) equal one to three words of a text ("malisuwan123@…" and "Mali Suwan"). The
+ * model still decides whether they are the same person.
+ */
+export function emailNamedIn(
+  texts: string[],
+  { emails }: Pick<ReturnType<typeof refContext>, "emails">
+) {
+  const spelled = new Set<string>();
+  for (const text of texts) {
+    const words = nameKey(text).split(" ");
+    for (const i of words.keys()) {
+      for (let n = 1; n <= 3 && i + n <= words.length; n += 1) {
+        spelled.add(words.slice(i, i + n).join(""));
+      }
+    }
+  }
+  return new Set(
+    [...emails].flatMap(([ref, addresses]) =>
+      addresses.some((a) => {
+        const letters = nameKey(a.split("@")[0] ?? "").replace(NOT_LETTERS, "");
+        return letters.length >= MIN_LETTERS && spelled.has(letters);
+      })
+        ? [ref]
+        : []
+    )
+  );
 }
 
 /** People of a call's context or input with their addresses when they have any: shown by the episodes call alone. */

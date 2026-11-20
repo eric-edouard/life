@@ -41,9 +41,17 @@ const WHO = /^(person|unknown):/;
 export const who = (x: { speaker: string; speakerName?: string }) =>
   x.speakerName ?? x.speaker.replace(WHO, "");
 
-/** A name or handle's lookup keys: as given, lowercased, normalized. */
-const keysOf = (s: string) =>
-  [s.trim(), s.trim().toLowerCase(), nameKey(s)].filter(Boolean);
+/** A bridged user as Beeper writes it (`@line__u9:beeper.local`): the network's prefix and Beeper's server around the localpart Life's own bridge keeps (`_u9`). */
+const BEEPER_GHOST = /^@[a-z0-9]+?_(.+):beeper\.local$/;
+
+/** A name or handle's lookup keys: as given, lowercased, normalized; a Beeper ghost id also as its localpart, so both bridges' ids for one user read as one. */
+export const keysOf = (s: string) =>
+  [
+    s.trim(),
+    s.trim().toLowerCase(),
+    nameKey(s),
+    s.trim().match(BEEPER_GHOST)?.[1],
+  ].filter((k): k is string => !!k);
 
 /** Whether two names or handles are one: a key in common, or the same phone or email however written. */
 const isSameNameOrHandle = (a: string, b: string) => {

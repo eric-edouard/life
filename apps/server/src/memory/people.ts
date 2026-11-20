@@ -11,6 +11,7 @@ import { locate } from "./quote-check";
 import { kindOf } from "./sources";
 import { areaOf } from "./tags";
 import { type Built, nameKey, UNKNOWN } from "./units";
+import { keysOf } from "./who";
 
 // Who the people not in the directory are: what the episodes call is asked about a day, and its answer checked (every quote
 // must be in a unit it read). No disk, network or clock.
@@ -131,14 +132,15 @@ export function answeredBy(
 ) {
   const judged = new Set(
     inferred.flatMap((p) =>
-      p.isOrganization === undefined ? [] : p.namesAndHandles
+      p.isOrganization === undefined ? [] : p.namesAndHandles.flatMap(keysOf)
     )
   );
   return (s: string) => {
     const ref = resolve(s);
     return (
       ref !== null &&
-      (!ref.startsWith(`person:${INFERRED_PREFIX}`) || judged.has(s))
+      (!ref.startsWith(`person:${INFERRED_PREFIX}`) ||
+        keysOf(s).some((k) => judged.has(k)))
     );
   };
 }

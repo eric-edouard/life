@@ -222,6 +222,13 @@ test("a name or handle is asked about until it reads as someone in truth/ or as 
     (s) => reads[s] ?? null,
     [guess("Bob"), guess("Dan", false), guess("Eve", true)]
   );
+  // A Beeper ghost id judged is judged for Life's own bridge's form too.
+  expect(
+    answeredBy(
+      () => "person:inf_kit",
+      [guess("@line__u91_abc:beeper.local", false)]
+    )("_u91_abc")
+  ).toBe(true);
   expect(["Claire", "Bob", "Dan", "Eve", "Zed"].map(answered)).toEqual([
     true,
     false,

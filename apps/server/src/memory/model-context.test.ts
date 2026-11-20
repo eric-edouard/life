@@ -5,7 +5,12 @@ import {
   peopleOutsideDirectoryOf,
 } from "../records/observation";
 import { Person, Project } from "../records/truth";
-import { emailsShown, involvedOf, refContext } from "./model-context";
+import {
+  emailNamedIn,
+  emailsShown,
+  involvedOf,
+  refContext,
+} from "./model-context";
 
 const was = settings().personal;
 // His install: the relationships add-on on.
@@ -93,6 +98,53 @@ test("addresses come only to the episodes call: with a person's emails, and none
   // The context and the input every other call reads carry none.
   expect(JSON.stringify(refs.context)).not.toContain("@");
   expect(JSON.stringify(refs.directory)).not.toContain("@");
+});
+
+test("a Matrix id is no address; a card folded into a person gives them its addresses; an address spelling a name the day writes brings the person in", () => {
+  const refs = refContext(
+    {
+      canon: (ref) => (ref === "person:con_bee" ? "person:ann" : ref),
+      outsideDirectory: peopleOutsideDirectoryOf(
+        [
+          {
+            handles: ["annmarie123@mail.example", "+33600000009"],
+            id: "con_bee",
+            name: "Bee",
+          },
+        ],
+        [
+          {
+            confidence: 0.9,
+            id: "inf_line",
+            name: "Kit",
+            namesAndHandles: ["@line__u91_abc:beeper.local"],
+            relation: "friend",
+          } as InferredPerson,
+        ]
+      ),
+      truth: {
+        areas: [],
+        chats: [],
+        me: { text: "me" },
+        people: [Person.parse({ id: "ann", name: "Ann" })],
+        projects: [],
+      },
+    },
+    new Set(),
+    new Set()
+  );
+  expect(refs.emails.get("person:ann")).toEqual(["annmarie123@mail.example"]);
+  expect(refs.emails.has("person:inf_line")).toBe(false);
+  expect([...emailNamedIn(["Dear Mrs Anne Marie,"], refs)]).toEqual([]);
+  expect([...emailNamedIn(["Dear Mrs Ann-Marie, thanks"], refs)]).toEqual([
+    "person:ann",
+  ]);
+  // Fewer than 4 letters is no name.
+  expect(
+    emailNamedIn(["Jo"], {
+      emails: new Map([["person:jo", ["jo1@x.example"]]]),
+    }).size
+  ).toBe(0);
 });
 
 test("the directory shows each person once: an inferred id folded into another is left out", () => {
