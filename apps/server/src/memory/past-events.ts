@@ -6,6 +6,7 @@ import type { Unit } from "../records/unit";
 import { type Stay, visits, withStore } from "../sources/lifelog";
 import { conversationsBetween } from "../sources/lifelog-conversations";
 import {
+  DESCRIPTION_MAX,
   type Draft,
   googleMapsUrlOf,
   locationOf,
@@ -36,8 +37,6 @@ import { time } from "./zones";
 // ponytail: an episode goes on the calendar 2 h after it ends, so lifelog has its stays: they are read once, when it
 // is written, and are not in its hash. Hash them (a read per episode each tick) if late stays turn out to matter.
 const SETTLE = 2 * HOUR;
-// Google takes 8,192 characters; a busy episode's units would pass it.
-const DESCRIPTION_MAX = 7500;
 // The description's layout, in the hash: a new one writes every event again (21 Nov 2026: the map links).
 const LAYOUT = 2;
 

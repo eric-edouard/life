@@ -3,6 +3,9 @@ import { redact } from "../core/redact";
 // Life's events in a calendar, as both its calendars draft them (the Past calendar's episodes, `past-events.ts`; the
 // appointments, `host/appointments-calendar.ts`), and the one rule that brings a calendar in line with its drafts.
 
+/** The most of a description Life writes: Google takes 8,192 characters. */
+export const DESCRIPTION_MAX = 7500;
+
 /** One event Life wants in a calendar, before the IO-bound part of its description. */
 export interface Draft {
   allDay: boolean;
@@ -94,9 +97,9 @@ const shownOf = (name: string | null | undefined) => {
   return n && redact(n) === n ? n : null;
 };
 
-/** The name a link carries: its first `LINK_NAME_MAX` characters, of a name shown whole. */
+/** The name a link carries: its first `LINK_NAME_MAX` characters, of a name shown whole (redact reads it whole). */
 const linkNameOf = (p: MapPlace) =>
-  shownOf(p.name) && shownOf(p.name?.slice(0, LINK_NAME_MAX));
+  shownOf(p.name)?.slice(0, LINK_NAME_MAX).toWellFormed() ?? null;
 
 /** The event's location: the place's name, else its coordinates. */
 export const locationOf = (p: MapPlace) => shownOf(p.name) ?? pointOf(p);

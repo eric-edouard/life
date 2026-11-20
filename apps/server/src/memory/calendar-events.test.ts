@@ -92,6 +92,10 @@ test("a name redact would hide never reaches a link, nor does a lone surrogate b
   expect(
     mapLinksOf({ latitude: 1, longitude: 2, name: card }).join("\n")
   ).not.toContain("4111");
+  // Cut at 80 characters right after a word redact reads as a secret marker: the whole name decides.
+  expect(mapLinksOf({ name: `${"x".repeat(75)}Tokenhouse Yard` })).toHaveLength(
+    2
+  );
   expect(mapLinksOf({ name: "Caf\uD800" })[0]).toBe(
     "Google Maps: https://www.google.com/maps/search/?api=1&query=Caf%EF%BF%BD"
   );

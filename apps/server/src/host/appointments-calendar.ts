@@ -9,6 +9,7 @@ import {
   readAppointments,
 } from "../memory/appointments";
 import {
+  DESCRIPTION_MAX,
   type Draft,
   heldOf,
   mapLinksOf,
@@ -48,8 +49,8 @@ export function appointmentDraft(
     ...mapLinksOf({ name: a.place }),
     `Appointment ${a.id}, read from ${a.observations.join(", ")}.`,
   ].join("\n");
-  // Google takes 8,192 characters: a long list of facts is cut, never the links above it.
-  const text = clip(lines, 7500);
+  // A long list of facts is cut, never the links above it.
+  const text = clip(lines, DESCRIPTION_MAX);
   const draft = {
     ...when,
     isConfirmed,
