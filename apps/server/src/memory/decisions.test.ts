@@ -9,6 +9,8 @@ import {
 import { appendFileSync, mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { DAY, HOUR, MIN } from "../core/clock";
+import type { SourceEvent } from "../records/source";
+import type { Descriptor } from "../sources/contract";
 import {
   answerDecision,
   DECISIONS,
@@ -17,6 +19,7 @@ import {
   notSentOf,
   requestDecision,
   settledBetween,
+  withdrawDraftsAnsweredInChat,
 } from "./decisions";
 import type { StoredDraft } from "./draft";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
@@ -219,6 +222,8 @@ test("nothing is sent for another option, his words added, the command line, a l
   await expect(
     answerDecision(cli.id, ["send"], undefined, { deliver, now: NOW })
   ).rejects.toThrow("his own answer");
+  // One open draft per chat: the next card waits for this one's answer.
+  await answerDecision(cli.id, ["wait"], undefined, { deliver, now: NOW });
   const lapsed = await draftCard();
   expect(stateOf(lapsed.id, later(3 * DAY))).toBe("lapsed");
   // A card stored without a resolved chat (asked before Life could send).
@@ -672,4 +677,115 @@ test("the asker hears of an end once its outcome is in: a failure carries its er
   expect(
     decisionsNow(later(DAY)).find((d) => d.id === hung.id)?.end?.error
   ).toStartWith("may not have ended");
+});
+
+/** Kit's made-up WhatsApp chat holding `messages` (at minutes after the card, his own or Kit's), and a send path that sends. */
+const kitChat = (messages: { fromMe: boolean; min: number }[]) => {
+  const events = messages.map(
+    ({ fromMe, min }): SourceEvent => ({
+      at: later(min * MIN).toISOString(),
+      chat: "155@s.whatsapp.net",
+      chatName: "Kit Moreau",
+      fromMe,
+      id: `m${min}`,
+      sender: fromMe ? "me" : "Kit Moreau",
+      source: "whatsapp",
+      text: "Friday is fine",
+    })
+  );
+  return {
+    kind: "chat",
+    label: "WhatsApp",
+    name: "whatsapp",
+    read: () => events,
+    send: {
+      block: async () => undefined,
+      holds: (chats) => chats,
+      limitMs: () => 1000,
+      refusal: async () => undefined,
+      send: async () => "$sent",
+    },
+    silentAfter: 0,
+  } satisfies Descriptor as Descriptor;
+};
+/** The watcher's step over `chat` alone. */
+const withdrawAt = (min: number, chat: Descriptor) =>
+  withdrawDraftsAnsweredInChat(later(min * MIN), (cards) =>
+    draftSend.wroteSince(cards, [chat])
+  );
+
+test("his own message in a draft's chat after the ask withdraws the card, by code; its asker hears it once", async () => {
+  const { id } = await draftCard();
+  const chat = kitChat([{ fromMe: true, min: 5 }]);
+  expect(withdrawAt(6, chat)).toEqual([id]);
+  const [d] = decisionsNow(later(6 * MIN));
+  expect(d?.state).toBe("withdrawn");
+  expect(d?.withdrawn).toMatchObject({
+    answeredInChatAt: later(5 * MIN).toISOString(),
+    at: later(6 * MIN).toISOString(),
+    why: "he answered in the chat himself",
+  });
+  expect(withdrawAt(7, chat)).toEqual([]);
+  // Settled when withdrawn, not at his message: a poll whose window passed 09:05 still hears it, once.
+  const list = decisionsNow(later(DAY));
+  expect(settledBetween(list, NOW, later(5 * MIN))).toEqual([]);
+  expect(settledBetween(list, later(5 * MIN), later(DAY))).toMatchObject([
+    { id },
+  ]);
+  await expect(
+    answerDecision(id, ["send"], undefined, {
+      now: later(8 * MIN),
+      via: "connector",
+    })
+  ).rejects.toThrow("withdrawn");
+});
+
+test("someone else's message leaves the card open and his tap's send refused; his own before that refusal withdraws nothing", async () => {
+  const { id } = await draftCard();
+  const chat = kitChat([
+    { fromMe: false, min: 3 },
+    { fromMe: true, min: 4 },
+  ]);
+  // Kit's message alone withdraws nothing.
+  expect(withdrawAt(5, kitChat([{ fromMe: false, min: 3 }]))).toEqual([]);
+  expect(stateOf(id, later(5 * MIN))).toBe("open");
+  setSystemTime(later(6 * MIN));
+  const [, outcome] = await answerDecision(id, ["send"], undefined, {
+    deliver: (d, txn, steps) => draftSend.sendDraft(d, txn, steps, [chat]),
+    now: later(6 * MIN),
+    via: "connector",
+  });
+  expect(outcome).toMatchObject({ kind: "send-failed" });
+  expect(String((outcome as { error?: string }).error)).toContain(
+    "someone wrote in"
+  );
+  // The card is open again, and "since" is his tap: his 09:04 message is older, so nothing is withdrawn.
+  expect(withdrawAt(7, chat)).toEqual([]);
+  expect(stateOf(id, later(7 * MIN))).toBe("open");
+  expect(withdrawAt(9, kitChat([{ fromMe: true, min: 8 }]))).toEqual([id]);
+});
+
+test("a card with no draft is untouched, and a second draft into an open draft's chat is refused with that card's id", async () => {
+  const plain = await requestDecision("planner", ask(), NOW);
+  const { id } = await draftCard();
+  await expect(
+    requestDecision(
+      "atlas",
+      ask({
+        draft,
+        options: [
+          { id: "send", label: "Send it", outgoing: true },
+          { id: "wait", label: "Wait" },
+        ],
+      }),
+      NOW,
+      readChat
+    )
+  ).rejects.toThrow(`${id} already asks a draft into Kit Moreau`);
+  // A card with no draft is still allowed beside it.
+  await requestDecision("atlas", ask(), NOW);
+  expect(withdrawAt(6, kitChat([{ fromMe: true, min: 5 }]))).toEqual([id]);
+  expect(stateOf(plain.id, later(6 * MIN))).toBe("open");
+  // Withdrawn, the chat takes a new draft.
+  await expect(draftCard()).resolves.toMatchObject({ id: expect.any(String) });
 });

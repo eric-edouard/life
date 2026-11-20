@@ -6,7 +6,7 @@ import {
   filtersOf,
   type TurnRow,
 } from "../host/desk-read";
-import { DECISION_ANSWERED, DECISION_LAPSED } from "../host/events";
+import { DECISION_EVENTS } from "../host/events";
 import { AgentWait } from "../records/registered-agent";
 
 // The wait contract's rules (docs: the desk spec, section 6), pure: rows and the time in, a decision out. The clock
@@ -46,8 +46,6 @@ export function growthOf(
 
 /** At most this many turns start in one tick, his answers first, then the oldest deadline. */
 export const STARTS_PER_TICK = 3;
-/** His answer to an agent's decision, or its lapse: either wakes the agent at once. */
-export const ANSWERS = [DECISION_ANSWERED, DECISION_LAPSED];
 
 const at = (t: string) => new Date(t).getTime();
 
@@ -113,7 +111,8 @@ export function nextWakeOf(a: AgentRow, turns: TurnRow[], events: EventRow[]) {
       cause: "retry",
     };
   }
-  const answer = events.find((e) => ANSWERS.includes(e.name));
+  // His answer to its decision, its lapse or its withdrawal (he answered in the chat): each wakes the agent at once.
+  const answer = events.find((e) => DECISION_EVENTS.includes(e.name));
   if (answer) {
     // Its retries spent (turns that never began drop nothing), his answer is tried again at the last retry's gap, never at once.
     const spent =
