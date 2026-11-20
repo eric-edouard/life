@@ -544,46 +544,51 @@ export function githubActivityReader({
     );
     return { etag: answer.headers.get("etag") ?? etag, events, every };
   };
-  return async (named: string[], now: number) => {
-    const started = performance.now();
-    const left = () => readMs - (performance.now() - started);
-    /** The instant now, by the time spent in this read. */
-    const at = () => now + (performance.now() - started);
-    const failed: string[] = [];
-    let answered = 0;
-    const failure = (error: string) => {
-      failed.push(error);
-      log("source.read", {
-        error,
-        ok: false,
-        source: "github",
-        what: "activity",
+  /** An owner's repos: listed again once an hour, a failed list asked again a minute on, its last list meanwhile. */
+  const ownerRepos = async (owner: string, now: number, p: ReadPass) => {
+    const known = owners.get(owner);
+    if (known && now - known.at < OWNER_REPOS_FOR) {
+      return known.repos;
+    }
+    if (p.left() <= 0) {
+      return known?.repos ?? [];
+    }
+    try {
+      const listed = await listOwner(owner, Math.min(GH_MS, p.left()));
+      owners.set(owner, { at: p.at(), repos: listed });
+      p.answered += 1;
+      return listed;
+    } catch (e) {
+      p.failure(`${owner}/*: ${(e as Error).message}`);
+      const repos = known?.repos ?? [];
+      owners.set(owner, {
+        at: p.at() - OWNER_REPOS_FOR + ACTIVITY_EVERY_S * 1000,
+        repos,
       });
-    };
+      return repos;
+    }
+  };
+  /** A repo's new activity; a failed ask keeps its last good ETag and waits its turn like an answered one. */
+  const askInTurn = async (repo: string, p: ReadPass) => {
+    const etag = asked.get(repo)?.etag;
+    try {
+      const a = await askRepo(repo, Math.min(GH_MS, p.left()));
+      asked.set(repo, { etag: a.etag, next: p.at() + a.every * 1000 });
+      p.answered += 1;
+      return a.events;
+    } catch (e) {
+      asked.set(repo, { etag, next: p.at() + ACTIVITY_EVERY_S * 1000 });
+      p.failure((e as Error).message);
+      return [];
+    }
+  };
+  return async (named: string[], now: number) => {
+    const p = readPassOf(now, readMs);
     const repos = new Set<string>();
     for (const n of new Set(named.map((x) => x.toLowerCase()))) {
       const [owner = "", name] = n.split("/");
-      if (name !== "*") {
-        repos.add(n);
-        continue;
-      }
-      const known = owners.get(owner);
-      if ((!known || now - known.at >= OWNER_REPOS_FOR) && left() > 0) {
-        try {
-          // biome-ignore lint/performance/noAwaitInLoops: one gh at a time
-          const listed = await listOwner(owner, Math.min(GH_MS, left()));
-          owners.set(owner, { at: at(), repos: listed });
-          answered += 1;
-        } catch (e) {
-          failure(`${owner}/*: ${(e as Error).message}`);
-          // Its last list meanwhile, and asked again a minute on.
-          owners.set(owner, {
-            at: at() - OWNER_REPOS_FOR + ACTIVITY_EVERY_S * 1000,
-            repos: known?.repos ?? [],
-          });
-        }
-      }
-      for (const repo of owners.get(owner)?.repos ?? []) {
+      // biome-ignore lint/performance/noAwaitInLoops: one gh at a time
+      for (const repo of name === "*" ? await ownerRepos(owner, now, p) : [n]) {
         repos.add(repo);
       }
     }
@@ -594,24 +599,44 @@ export function githubActivityReader({
       .slice(0, ACTIVITY_REPOS_MAX);
     const read: GithubActivity[] = [];
     for (const repo of due) {
-      if (left() <= 0) {
+      if (p.left() <= 0) {
         break;
       }
-      const etag = asked.get(repo)?.etag;
-      try {
-        // biome-ignore lint/performance/noAwaitInLoops: one gh at a time, within the read's time
-        const a = await askRepo(repo, Math.min(GH_MS, left()));
-        asked.set(repo, { etag: a.etag, next: at() + a.every * 1000 });
-        read.push(...a.events);
-        answered += 1;
-      } catch (e) {
-        asked.set(repo, { etag, next: at() + ACTIVITY_EVERY_S * 1000 });
-        failure((e as Error).message);
-      }
+      // biome-ignore lint/performance/noAwaitInLoops: one gh at a time, within the read's time
+      read.push(...(await askInTurn(repo, p)));
     }
-    if (failed.length > 0 && answered === 0) {
-      throw new Error(failed.join("; "));
+    if (p.failed.length > 0 && p.answered === 0) {
+      throw new Error(p.failed.join("; "));
     }
     return read;
   };
 }
+
+/** One read's time and outcomes: what is left of its time, the instant now by the time spent, its failures (logged) and answers. */
+interface ReadPass {
+  answered: number;
+  at: () => number;
+  failed: string[];
+  failure: (error: string) => void;
+  left: () => number;
+}
+
+const readPassOf = (now: number, readMs: number): ReadPass => {
+  const started = performance.now();
+  const failed: string[] = [];
+  return {
+    answered: 0,
+    at: () => now + (performance.now() - started),
+    failed,
+    failure: (error) => {
+      failed.push(error);
+      log("source.read", {
+        error,
+        ok: false,
+        source: "github",
+        what: "activity",
+      });
+    },
+    left: () => readMs - (performance.now() - started),
+  };
+};
