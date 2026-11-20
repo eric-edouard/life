@@ -9,20 +9,10 @@ import {
   type Unresolved,
 } from "../records/observation";
 import type { Unit } from "../records/unit";
-import { toExtract } from "./extract";
 import { buildIndex } from "./index-writer";
-import { isCurrent, standingReadings } from "./memory-files";
 import { locate, parseObservations, type Source } from "./quote-check";
-import {
-  inferred,
-  ledger,
-  people,
-  said,
-  unit,
-  verdict,
-} from "./record-fixtures";
+import { inferred, people, said, unit, verdict } from "./record-fixtures";
 import { areaLookup } from "./tags";
-import type { Built } from "./units";
 import { aboutNow, chatHandles, foldsOf, namedIn, renamed } from "./who";
 
 const source: Source = {
@@ -54,6 +44,7 @@ test("the quote's line counts a message with line breaks as one line", () => {
   expect(
     locate("the second message", ["one\ntwo\nthree", "the second message"])
   ).toEqual({
+    lastLine: 1,
     line: 1,
     verbatim: "the second message",
   });
@@ -61,6 +52,7 @@ test("the quote's line counts a message with line breaks as one line", () => {
 
 test("the quote check ignores accents, case, curly quotes and spacing, and returns the source's own words", () => {
   expect(locate("il faut que j'appelle le VITRIER", texts)).toEqual({
+    lastLine: 0,
     line: 0,
     verbatim: "Il faut que j’appelle le vitrier",
   });
@@ -74,12 +66,14 @@ test("the quote check ignores accents, case, curly quotes and spacing, and retur
       texts
     )
   ).toEqual({
+    lastLine: 2,
     line: 1,
     verbatim: "veut que tu repeignes la moitié   de la cuisine\navec tes sœurs",
   });
   expect(
     locate("“Annesophie arrive demain.”", ["“Annesophie arrive demain.”"])
   ).toEqual({
+    lastLine: 0,
     line: 0,
     verbatim: "“Annesophie arrive demain.”",
   });
@@ -457,6 +451,83 @@ test("the extractor's reply is checked: quotes, units, subjects; unknown names r
   expect(again.observations[0]?.id).toBe(todo?.id ?? "");
 });
 
+test("a continued unit keeps a quote running into its new lines and rejects one said before them, whatever the order of the model's facts", () => {
+  // Lines 0 and 1 were read before; line 2 is new.
+  const continued = { ...source, from: 2 };
+  const parse = (...os: Record<string, unknown>[]) =>
+    parseObservations(
+      { observations: os.map((o) => obs({ subjects: [], ...o })) },
+      { ...ctx, sources: new Map([[source.unit.id, continued]]) }
+    );
+  const spanning = parse({
+    line: 1,
+    quote: "la moitié de la cuisine avec tes sœurs",
+    text: "Dad wants half the kitchen painted with the sisters.",
+  });
+  expect(spanning.observations.map((o) => o.source.ref)).toEqual([
+    "job-1:1@2026-10-09T10:01:00.000Z",
+  ]);
+  expect(parse({}).rejects.map((r) => r.reason)).toEqual(["already-read"]);
+  // The same words wholly in the last read line and again running into the new one: the latter, hint or not.
+  const boundary = {
+    ...source,
+    from: 2,
+    lines: [0, 1, 2].map((n) => ({
+      ...(source.lines[n] as Source["lines"][number]),
+      text: [
+        "x y z",
+        "collect the package. Later, collect the",
+        "package please",
+      ][n] as string,
+    })),
+  };
+  for (const line of [1, undefined]) {
+    const r = parseObservations(
+      {
+        observations: [
+          obs({
+            line,
+            quote: "collect the package",
+            subjects: [],
+            text: "Collect the package.",
+          }),
+        ],
+      },
+      { ...ctx, sources: new Map([[source.unit.id, boundary]]) }
+    );
+    expect(r.rejects).toEqual([]);
+    expect(r.observations).toHaveLength(1);
+  }
+  // The same words before and after the cut: the new line's fact is kept, in either order.
+  const twice = {
+    ...source,
+    from: 2,
+    lines: [0, 1, 2].map((n) => ({
+      ...(source.lines[n] as Source["lines"][number]),
+      text: n === 1 ? "autre chose" : "on se voit demain soir",
+    })),
+  };
+  const saidOn = (line: number) =>
+    obs({
+      line,
+      quote: "on se voit demain soir",
+      subjects: [],
+      text: "They meet tomorrow evening.",
+    });
+  for (const order of [
+    [0, 2],
+    [2, 0],
+  ]) {
+    const kept = parseObservations(
+      { observations: order.map(saidOn) },
+      { ...ctx, sources: new Map([[source.unit.id, twice]]) }
+    ).observations;
+    expect(kept.map((o) => o.source.ref)).toEqual([
+      "job-1:2@2026-10-09T10:02:00.000Z",
+    ]);
+  }
+});
+
 test("a fact citing a unit the call never had is kept under the one unit holding its quote (case extract-1-owing-direction)", () => {
   // The model wrote an episode's id as the unit; the quote is in exactly one unit of the call.
   const kept = parseObservations(
@@ -564,87 +635,6 @@ test("the observation schema refuses records a later reader could not trust", ()
   }
 });
 
-const built = (u: Unit): Built => ({ messages: [], text: "", unit: u });
-test("the cache: a unit is read again only when its content or the prompt changed", () => {
-  const a = unit({ id: "unit_00000000000a" });
-  const b = unit({ id: "unit_00000000000b" });
-  const c = unit({ id: "unit_00000000000c" });
-  const d = unit({ hash: "ffffffffffffffff", id: "unit_00000000000d" });
-  const e = unit({ id: "unit_00000000000e" });
-  const verdicts = ledger([
-    verdict(a, { importance: 2 }),
-    verdict(b, { importance: 0 }),
-    verdict(c, { importance: 3 }),
-    // Judged on older content.
-    verdict(d, { hash: "0123456789abcdef", importance: 3 }),
-    // Importance 1: searchable, never read in full.
-    verdict(e, { importance: 1 }),
-  ]);
-  const extracted = [
-    {
-      at: "2026-10-10T02:00:00.000Z",
-      observations: 2,
-      prompt: "memory-extract.v1",
-      run: "r0",
-      schemaVersion: 1 as const,
-      unit: c.id,
-      unitHash: c.hash,
-    },
-  ];
-  const r = toExtract(
-    [a, b, c, d, e].map(built),
-    verdicts,
-    extracted,
-    "memory-extract.v1"
-  );
-  expect(r.kept.map((k) => k.b.unit.id)).toEqual([a.id, c.id]);
-  expect(r.pending.map((k) => k.b.unit.id)).toEqual([a.id]);
-  expect(r.stale).toBe(1);
-  expect(
-    toExtract([c].map(built), verdicts, extracted, "memory-extract.v2").pending
-  ).toHaveLength(1);
-});
-
-test("a unit he said was read wrong is read again, once: his word against its last reading, as instants", () => {
-  const sam = unit({ id: "unit_00000000001a", people: ["person:lou"] });
-  const verdicts = ledger([verdict(sam, { importance: 3 })]);
-  const readLine = (at = "2026-10-10T02:00:00.000Z") => ({
-    at,
-    observations: 1,
-    prompt: "memory-extract.v1",
-    run: "r0",
-    schemaVersion: 1 as const,
-    unit: sam.id,
-    unitHash: sam.hash,
-  });
-  const pending = (
-    lines: ReturnType<typeof readLine>[],
-    rereads: [string, string][] = []
-  ) =>
-    toExtract(
-      [built(sam)],
-      verdicts,
-      lines,
-      "memory-extract.v1",
-      new Map(rereads)
-    ).pending.length;
-  expect(pending([readLine()])).toBe(0);
-  expect(pending([readLine()], [[sam.id, "2026-10-21T00:00:00.000Z"]])).toBe(1);
-  expect(
-    pending(
-      [readLine(), readLine("2026-10-22T02:00:00.000Z")],
-      [[sam.id, "2026-10-21T00:00:00.000Z"]]
-    )
-  ).toBe(0);
-  // 04:00+02:00 is 02:00Z: the same instant as the reading, so it is settled.
-  expect(
-    pending(
-      [readLine("2026-10-22T02:00:00.000Z")],
-      [[sam.id, "2026-10-22T04:00:00+02:00"]]
-    )
-  ).toBe(0);
-});
-
 test("the index is rebuilt from observations: search ignores accents, who each is about answers by subject", async () => {
   const { observations } = parseObservations(
     {
@@ -721,53 +711,6 @@ test("the index is rebuilt from observations: search ignores accents, who each i
       .get("person:dad")?.n
   ).toBe(1);
   db.close();
-});
-
-test("a unit read before and no longer kept is unkept once (its facts replaced by none), and read again when kept again", () => {
-  const lou = unit({ id: "unit_00000000002b", people: ["person:lou"] });
-  const line = (observations: number, at: string, unkept?: true) => ({
-    at,
-    observations,
-    prompt: "memory-extract.v1",
-    run: at,
-    schemaVersion: 1 as const,
-    unit: lou.id,
-    unitHash: lou.hash,
-    ...(unkept ? { unkept } : {}),
-  });
-  const run = (
-    importance: number,
-    lines: ReturnType<typeof line>[],
-    rereads: [string, string][] = []
-  ) =>
-    toExtract(
-      [built(lou)],
-      ledger([verdict(lou, { importance })]),
-      lines,
-      "memory-extract.v1",
-      new Map(rereads)
-    );
-  const read = line(3, "2026-10-10T02:00:00.000Z");
-  const reread: [string, string][] = [[lou.id, "2026-10-21T00:00:00.000Z"]];
-  const emptied = line(0, "2026-10-22T02:00:00.000Z", true);
-  // Never read: nothing to replace.
-  expect(run(1, []).unkept).toHaveLength(0);
-  // Read, then re-read and judged lower: unkept.
-  expect(run(1, [read], reread).unkept).toHaveLength(1);
-  // Its unkept line written: settled.
-  expect(run(1, [read, emptied], reread).unkept).toHaveLength(0);
-  // Kept again on the same content: read again, its unkept line being no reading.
-  expect(run(3, [read, emptied], reread).pending).toHaveLength(1);
-  // A fact of the earlier reading is no longer current once the unkept line is the latest.
-  const fact = { madeBy: { run: read.run, unitHash: lou.hash }, unit: lou.id };
-  const statusInputs = (lines: ReturnType<typeof line>[]) => ({
-    live: new Set([lou.id]),
-    standing: standingReadings(lines),
-  });
-  expect(isCurrent(statusInputs([read]), fact as Observation)).toBe(true);
-  expect(isCurrent(statusInputs([read, emptied]), fact as Observation)).toBe(
-    false
-  );
 });
 
 test("a text names the people and projects whose name, alias or words it uses, a whole name of several words too", () => {

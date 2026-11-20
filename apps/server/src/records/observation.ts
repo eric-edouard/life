@@ -103,7 +103,10 @@ export const Extracted = z
     at: isoDateTime,
     /** This reading kept the readings before it and read only the lines after theirs (`lines` of the last standing one). */
     continues: z.literal(true).optional(),
-    /** How many of a message unit's lines this reading covered; lines written before it lack it and are read whole. */
+    /**
+     * How many of a unit's lines this reading covered; only a chat or mail day continues from it
+     * (`continuedFrom`). Rows written before it lack it, and such a unit is read whole.
+     */
     lines: z.int().min(1).optional(),
     observations: z.int().min(0),
     /** Written 21 Oct 2026 only (the unit's people then); ignored since: who someone is is resolved when read. */

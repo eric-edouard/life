@@ -76,9 +76,10 @@ const KIND = {
 };
 
 /**
- * Every open item, ranked: his urgent flag, then his priority; who owes whom; the first of his goals it serves
- * (`goals`: each goal's project ids, his order); closeness to whoever it is with (`levels`: 0 inner); older first.
- * Overdue: its day is before `date`.
+ * Every open item, ranked: his urgent flag, then his priority; an overdue one (its day is before `date`) before one
+ * that is not; who owes whom; the first of his goals it serves (`goals`: each goal's project ids, his order);
+ * closeness to whoever it is with (`levels`: 0 inner); older first. Candidates sharing an id (a matter's open
+ * steps) are one item, ranked as the most pressing of them.
  */
 export function rankedItems(
   candidates: Candidate[],
@@ -94,23 +95,26 @@ export function rankedItems(
     );
     return g < 0 ? goals.length : g;
   };
-  const key = (c: Candidate): number[] => [
+  const key = (c: OpenItem): number[] => [
     c.urgent ? 0 : 1,
     c.priority && PRIORITY.includes(c.priority)
       ? PRIORITY.indexOf(c.priority)
       : PRIORITY.length,
+    c.overdue ? 0 : 1,
     KIND[c.kind],
     goal(c),
     (c.person ? levels.get(c.person) : undefined) ?? 4,
   ];
-  const rank = (a: Candidate, b: Candidate) => {
+  const rank = (a: OpenItem, b: OpenItem) => {
     const [x, y] = [key(a), key(b)];
     const i = x.findIndex((v, k) => v !== y[k]);
     return i < 0 ? a.at.localeCompare(b.at) : (x[i] ?? 0) - (y[i] ?? 0);
   };
+  const seen = new Set<string>();
   return candidates
     .map((c) => ({ ...c, overdue: (c.when ?? date) < date }))
-    .toSorted(rank);
+    .toSorted(rank)
+    .filter((c) => !seen.has(c.id) && seen.add(c.id));
 }
 
 /**
@@ -129,8 +133,12 @@ export function openItems(
     today?: string;
   }
 ) {
-  return rankedItems(candidates, rank).filter((c) =>
-    timely(c, rank.date, today ?? rank.date, shown.get(c.id) ?? [])
+  // Timely first: a matter shows as the most pressing of its steps due now.
+  return rankedItems(
+    candidates.filter((c) =>
+      timely(c, rank.date, today ?? rank.date, shown.get(c.id) ?? [])
+    ),
+    rank
   );
 }
 
