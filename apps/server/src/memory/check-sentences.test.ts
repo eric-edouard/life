@@ -69,7 +69,7 @@ test("a name matches whole words, ignoring case and accents", () => {
   expect(holdsName("Chez Odile ce soir", ["odile"])).toBe(true);
 });
 
-test("a name's sentence is the unit's own line holding it, with 3 lines each side, who said them and where; a repeat read of an unchanged unit reads nothing", async () => {
+test("a name's sentence is the unit's own line holding it, who said it and where; a repeat read of an unchanged unit reads nothing", async () => {
   const units = spyOn(files, "readUnitsFor").mockReturnValue([unit()]);
   const read = spyOn(words, "unitLines").mockResolvedValue({
     built: {},
@@ -84,16 +84,6 @@ test("a name's sentence is the unit's own line holding it, with 3 lines each sid
       text: "Bastien comes Thursday, are you in?",
       to: "Kitchen crew",
     });
-    expect(context?.before.map((l) => l.text)).toEqual([
-      "two",
-      "three",
-      "four",
-    ]);
-    expect(context?.after.map((l) => [l.by, l.text])).toEqual([
-      ["You", "Yes."],
-      ["Dana", "six"],
-      ["Dana", "seven"],
-    ]);
     expect(context?.clips).toEqual([]);
     await readNameContexts(wanted, people);
     expect(read).toHaveBeenCalledTimes(1);
@@ -237,7 +227,6 @@ test("a name's card shows a line that holds the name, never the newest line when
     },
   });
   expect(read).toMatchObject({
-    around: { after: [{ by: "You" }], before: [{ text: "Morning." }] },
     clips: [clip],
     likelyPeople: [{ ref: "person:bastien" }],
     said,

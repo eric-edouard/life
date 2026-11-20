@@ -13,17 +13,12 @@ import type { People } from "./who";
 import { readEach, spokenLines, unitLines } from "./words";
 
 // What a name check shows of its sentence: the line of the unit that holds the name, verbatim, with who said it, to
-// whom, when; the lines before and after; for a spoken one, its clip and lifelog's word timings. One unit read per
+// whom, when; for a spoken one, its clip and lifelog's word timings. One unit read per
 // card, read when the inbox is, kept while its unit's hash is the same, so a new read of the inbox reads only the names
 // that are new or whose unit changed. A unit that cannot be read leaves the card with the observation's quote.
 
-/** How many lines of the unit show before and after the sentence. */
-const AROUND = 3;
-
 /** What a name check carries of its sentence. */
 export interface NameContext {
-  after: Said[];
-  before: Said[];
   clips: Check["clips"];
   said: Said;
 }
@@ -104,8 +99,6 @@ export async function readNameContexts(
           (await readTurnClip(turn.jobId, turn.turnIndex).catch(() => null));
         const show = (l: SourceLine) => saidOf(l, unit.source, to, people);
         const context = {
-          after: lines.slice(at + 1, at + 1 + AROUND).map(show),
-          before: lines.slice(Math.max(0, at - AROUND), at).map(show),
           clips: clip ? [clip] : [],
           said: show(found),
         };

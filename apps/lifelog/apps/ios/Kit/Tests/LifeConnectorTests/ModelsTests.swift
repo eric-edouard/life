@@ -57,7 +57,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(voice.likelyPeople.first?.picture?.id == "00000000000000000000000000000a02")
     let name = try #require(inbox.checks.first { $0.group == .name })
     #expect(name.said?.by == "Gran")
-    #expect(name.around?.before.isEmpty == false)
+    #expect(name.askedName == "Sam")
     #expect(inbox.checks.first { $0.group == .ending }?.ridesOn?.matters == 1)
     let found = try #require(
         try decoded(Matter.self, wireText("life/read_matter_found.json")).checks.first)
@@ -225,11 +225,22 @@ private func everyKindOfCheck() throws -> [Check] {
         #expect(
             check.answer(naming: .person("person:gran"))
                 == AnswerRequest(ref: check.ref, options: [only.id], person: "person:gran"))
-        // A name he types is a new person's name ("New person: X"): the one person Life holds by it, else added (life#721).
+        // A name he types is a new person's name (the create sheet's): the one person Life holds by it, else added (life#721).
         #expect(
             check.answer(naming: .name("Gran")) == AnswerRequest(ref: check.ref, options: [only.id], name: "Gran"))
         #expect(!check.takesOwnWords)
     }
+    // The create sheet: the person through the naming option, his words only when given; the organization by its own.
+    let name = try card(.name)
+    #expect(!name.createsByName, "Life has people to suggest")
+    #expect(
+        name.answer(creating: "Sam Vale", note: nil, asOrganization: false)
+            == AnswerRequest(ref: name.ref, options: ["this-is"], name: "Sam Vale"))
+    #expect(
+        name.answer(creating: "Sam Vale", note: "A shop", asOrganization: true)
+            == AnswerRequest(ref: name.ref, options: ["organization"], note: "A shop", name: "Sam Vale"))
+    #expect(decision.answer(creating: "Lou", note: nil, asOrganization: false) == nil)
+    #expect(try card(.voice).organizationOption == nil)
     #expect(try card(.contactsCard).likelyPeople.map(\.ref) == ["person:gran", "person:partner"])
     #expect(try card(.contactsCard).networkIdentity == nil)
     #expect(try card(.contactsCard).contactsCard?.name == "Lou")
@@ -251,6 +262,30 @@ private func everyKindOfCheck() throws -> [Check] {
 
     // No button reads like the words a model is given.
     #expect(all.flatMap(\.options).allSatisfy { !$0.label.contains("`") && $0.label.count < 30 })
+}
+
+/// Only a name card opens the create sheet: a voice's new name goes to lifelog alone, and a Contacts card's `about` holds
+/// its handles, never a name to create. Its note is his words only: trimmed, and never Life's guess (life#737).
+@Test func onlyANameCardCreatesBySheet() throws {
+    let all = try everyKindOfCheck()
+    func card(_ group: CheckGroup) throws -> Check { try #require(all.first { $0.group == group }) }
+    let name = try card(.name)
+    #expect(name.createsBySheet && name.askedName != nil)
+    for group in [CheckGroup.voice, .contactsCard] {
+        let check = try card(group)
+        #expect(!check.createsBySheet && !check.createsByName && check.askedName == nil, "\(group)")
+        #expect(check.answer(creating: "Lou", note: "Gran's friend", asOrganization: false) == nil, "\(group)")
+    }
+    let guess = "Mentioned by Nora Keller, about “Quote”"
+    let create = { (note: String) in
+        name.answer(creating: " Sam Vale ", note: note, guess: guess, asOrganization: false)
+    }
+    #expect(create(guess + " ")?.note == nil, "a whitespace edit of Life's guess is not his words")
+    #expect(
+        create(guess.replacing(" by ", with: "  by "))?.note == nil, "nor is a space doubled between its words")
+    #expect(create("  ")?.note == nil)
+    #expect(create(" Nora's architect ")?.note == "Nora's architect")
+    #expect(create("x")?.name == "Sam Vale")
 }
 
 @Test func theAskerIsNamedOnce() throws {
@@ -356,4 +391,14 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(order.only(nil) == order)
     // A kind with none waiting is no filter at all.
     #expect(order.only(.newMatter) == order)
+}
+
+/// A name card with no one to suggest offers "Create <name>", the longest name it asks about.
+@Test func aNameWithNoOneToSuggestIsCreatedByItsWholeName() throws {
+    let inbox = try JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any]
+    var name = try #require((inbox?["checks"] as? [[String: Any]])?.first { $0["group"] as? String == "name" })
+    (name["likelyPeople"], name["about"]) = ([], ["Sam", "Sam Vale"])
+    let check = try decoded(Check.self, String(decoding: JSONSerialization.data(withJSONObject: name), as: UTF8.self))
+    #expect(check.createsByName)
+    #expect(check.askedName == "Sam Vale")
 }
