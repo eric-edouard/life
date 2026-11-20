@@ -1,0 +1,163 @@
+{
+  "agents": [
+    {
+      "amber": [],
+      "id": "agt_lease",
+      "link": "https://agents.example.test/s/1",
+      "matter": {
+        "id": "matter_lease",
+        "name": "Lease renewal, rue des Carmes",
+        "status": "moving"
+      },
+      "notes": "Lease renewal.",
+      "outcome": null,
+      "project": null,
+      "runtime": "claude",
+      "status": "waiting",
+      "statusSince": "2026-11-19T14:02:00",
+      "steps": [],
+      "title": "Get the lease signed and back to Hélène Aubert",
+      "wait": {
+        "isDefault": false,
+        "reason": "Hélène sends the signed lease.",
+        "until": "2026-11-21T18:00:00"
+      },
+      "wakesOn": [
+        {
+          "calls": true,
+          "kind": "message",
+          "person": "Hélène Aubert"
+        },
+        {
+          "apps": ["whatsapp"],
+          "calls": true,
+          "kind": "message",
+          "person": "Camille Vidal"
+        },
+        {
+          "apps": ["whatsapp"],
+          "calls": true,
+          "chat": {
+            "app": "whatsapp",
+            "group": true,
+            "name": "Carmes building"
+          },
+          "kind": "message"
+        },
+        {
+          "broken": "unknown_person",
+          "calls": true,
+          "kind": "message",
+          "person": "Léa Marchetti"
+        },
+        {
+          "calls": true,
+          "chat": {
+            "app": "line",
+            "group": null,
+            "name": null
+          },
+          "kind": "message"
+        },
+        {
+          "calls": false,
+          "kind": "message",
+          "person": "Hélène Aubert",
+          "words": "bail"
+        },
+        {
+          "apps": ["mail"],
+          "calls": false,
+          "kind": "message",
+          "words": "devis"
+        },
+        {
+          "calls": false,
+          "chat": {
+            "app": "whatsapp",
+            "group": true,
+            "name": "Carmes building"
+          },
+          "fromHim": true,
+          "kind": "message"
+        },
+        {
+          "above": 100,
+          "below": 500,
+          "kind": "payments",
+          "quantity": "eur_out"
+        },
+        {
+          "kind": "places",
+          "where": "Halden house"
+        },
+        {
+          "card": "Go with this plan?",
+          "check": "dec_plan",
+          "deadline": "2026-11-19T18:00:00",
+          "kind": "answer"
+        },
+        {
+          "kind": "wide_net"
+        }
+      ]
+    },
+    {
+      "amber": [],
+      "id": "agt_kitchen",
+      "link": null,
+      "matter": {
+        "id": "matter_kitchen",
+        "name": "Kitchen quote, Halden house",
+        "status": "waiting_on_someone"
+      },
+      "notes": "Kitchen quote.",
+      "outcome": null,
+      "project": null,
+      "runtime": "codex",
+      "status": "waiting",
+      "statusSince": "2026-11-19T14:02:00",
+      "steps": [],
+      "title": "Get the kitchen supplier price",
+      "wait": {
+        "isDefault": true,
+        "reason": "a message",
+        "until": "2026-11-20T18:00:00"
+      },
+      "wakesOn": [
+        {
+          "calls": true,
+          "kind": "message",
+          "person": "Idris Benali"
+        },
+        {
+          "apps": ["mail"],
+          "calls": false,
+          "kind": "message",
+          "words": "devis"
+        },
+        {
+          "above": 500,
+          "kind": "payments",
+          "quantity": "eur_out"
+        },
+        {
+          "kind": "places",
+          "where": "Halden house"
+        },
+        {
+          "card": "Go with this plan?",
+          "check": "dec_plan",
+          "deadline": "2026-11-20T18:00:00",
+          "kind": "answer"
+        },
+        {
+          "kind": "wide_net"
+        }
+      ]
+    }
+  ],
+  "desk": "ok",
+  "helper": "running",
+  "refused": []
+}

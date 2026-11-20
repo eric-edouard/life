@@ -64,7 +64,7 @@ struct CardView: View {
             try? await Task.sleep(for: .seconds(1.5))
             if !Task.isCancelled { leave(taken, false) }
         }
-        .task { openFixtureSheet() }
+        .task(id: check.ref) { openFixtureSheet() }
         .sheet(item: shownSheet) { route in
             switch route {
             case .people(let ref):

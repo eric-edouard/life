@@ -54,6 +54,10 @@ struct CreateSheet: View {
         .motion(Motion.standard, value: state)
         .task(id: isDone) {
             guard isDone, let sent else { return }
+            #if DEBUG
+                // `-fixtureSheet create`: Created stays on show, to be photographed.
+                if LifeFixture.sheet == "create" { return }
+            #endif
             try? await Task.sleep(for: .seconds(0.6))
             if !Task.isCancelled { done(sent) }
         }

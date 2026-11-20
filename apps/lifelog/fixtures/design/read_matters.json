@@ -1,0 +1,154 @@
+{
+  "matters": [
+    {
+      "agent": "agt_lease",
+      "areas": ["Home", "Money"],
+      "goal": {
+        "by": "life",
+        "text": "The signed lease is back with Hélène Aubert before 30 November."
+      },
+      "id": "matter_lease",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Lease renewal, rue des Carmes",
+      "needsYou": true,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_decision",
+        "text": "Send Hélène the signed lease."
+      },
+      "openedDaysAgo": 9,
+      "people": {
+        "owedTo": ["Hélène Aubert"],
+        "with": ["Camille Vance"]
+      },
+      "status": "moving"
+    },
+    {
+      "areas": ["Family"],
+      "goal": {
+        "by": "life",
+        "text": "A table for eight at Chez Odile on Friday 27th."
+      },
+      "id": "matter_table",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Table for Mum’s 60th",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "do",
+        "text": "Book Chez Odile for Friday 27th."
+      },
+      "openedDaysAgo": 3,
+      "people": {
+        "with": ["Camille Vance", "Idris Benali"]
+      },
+      "status": "moving"
+    },
+    {
+      "areas": ["Work"],
+      "goal": {
+        "by": "life",
+        "text": "Quote sent and accepted."
+      },
+      "id": "matter_nora",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Quote for Nora Keller",
+      "needsYou": true,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_owner",
+        "text": "Call Nora about the start date."
+      },
+      "openedDaysAgo": 5,
+      "people": {
+        "with": ["Nora Keller"]
+      },
+      "status": "moving"
+    },
+    {
+      "agent": "agt_kitchen",
+      "areas": ["Home"],
+      "goal": {
+        "by": "life",
+        "text": "A kitchen quote that fits the budget."
+      },
+      "id": "matter_kitchen",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Kitchen quote, Halden house",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_event",
+        "text": "The supplier price from Idris.",
+        "waitsOn": "a message"
+      },
+      "openedDaysAgo": 6,
+      "people": {
+        "waitingOn": ["Idris Benali"]
+      },
+      "status": "waiting_on_someone"
+    },
+    {
+      "areas": ["Admin"],
+      "goal": {
+        "by": "life",
+        "text": "The new passport in hand."
+      },
+      "id": "matter_passport",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "New passport",
+      "needsYou": true,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_owner",
+        "text": "Pick it up at the town hall."
+      },
+      "openedDaysAgo": 12,
+      "people": {},
+      "status": "moving"
+    },
+    {
+      "areas": ["Home"],
+      "goal": {
+        "by": "life",
+        "text": "The bookshelf is in the flat."
+      },
+      "id": "matter_shelf",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Bookshelf delivery",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_event",
+        "text": "The delivery, due Saturday 21st.",
+        "waitsOn": "a delivery"
+      },
+      "openedDaysAgo": 4,
+      "people": {},
+      "status": "waiting_on_someone"
+    },
+    {
+      "areas": ["Work"],
+      "goal": {
+        "by": "life",
+        "text": "Jun’s ops lead has met Priya Nair."
+      },
+      "id": "matter_intro",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Intro to Jun’s ops lead",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_event",
+        "text": "Jun replies.",
+        "waitsOn": "Jun Watanabe"
+      },
+      "openedDaysAgo": 15,
+      "people": {
+        "waitingOn": ["Jun Watanabe"],
+        "with": ["Priya Nair"]
+      },
+      "status": "stuck"
+    }
+  ]
+}

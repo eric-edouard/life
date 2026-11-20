@@ -1,0 +1,104 @@
+{
+  "agents": [
+    {
+      "amber": [],
+      "id": "agt_table",
+      "link": "https://agents.example.test/s/9",
+      "matter": {
+        "id": "matter_table",
+        "name": "Table for Mum’s 60th",
+        "status": "moving"
+      },
+      "notes": "Table.",
+      "outcome": null,
+      "project": null,
+      "runtime": "claude",
+      "status": "running",
+      "statusSince": "2026-11-18T14:05:00",
+      "steps": [],
+      "title": "Book Chez Odile",
+      "wait": null,
+      "wakesOn": []
+    },
+    {
+      "amber": [],
+      "id": "agt_nora",
+      "link": "https://agents.example.test/s/4",
+      "matter": {
+        "id": "matter_nora",
+        "name": "Quote for Nora Keller",
+        "status": "moving"
+      },
+      "notes": "Quote.",
+      "outcome": null,
+      "project": null,
+      "runtime": "claude",
+      "status": "stopped",
+      "statusSince": "2026-11-19T14:10:00",
+      "steps": [],
+      "title": "Quote for Nora Keller",
+      "wait": null,
+      "wakesOn": []
+    }
+  ],
+  "steps": {
+    "matter_lease": [
+      {
+        "at": "2026-11-12T10:00:00",
+        "day": "2026-11-12",
+        "kind": "observation",
+        "quote": "Bonjour, avez-vous pu signer le bail ?",
+        "ref": "ep_l7",
+        "text": "She asks again",
+        "with": "Hélène Aubert, WhatsApp"
+      },
+      {
+        "at": "2026-11-12T11:00:00",
+        "day": "2026-11-12",
+        "kind": "todo_item",
+        "quote": "",
+        "ref": "obs_l8",
+        "text": "Sign the lease and send it back",
+        "with": "your to-do list"
+      },
+      {
+        "at": "2026-11-18T14:00:00",
+        "day": "2026-11-18",
+        "kind": "agent",
+        "quote": "",
+        "ref": "obs_l9",
+        "text": "Drafted the reply and asked to send it",
+        "with": "Claude Code"
+      }
+    ],
+    "matter_table": [
+      {
+        "at": "2026-11-14T11:00:00",
+        "day": "2026-11-14",
+        "kind": "observation",
+        "quote": "Vendredi c’est bon pour nous.",
+        "ref": "ep_t2",
+        "text": "He agrees",
+        "with": "Idris Benali, WhatsApp"
+      },
+      {
+        "at": "2026-11-14T12:00:00",
+        "day": "2026-11-14",
+        "kind": "observation",
+        "quote": "On fait ça chez Odile ? Vendredi 27 ?",
+        "ref": "ep_t3",
+        "text": "She proposes",
+        "with": "Camille Vance, WhatsApp"
+      },
+      {
+        "at": "2026-11-15T09:00:00",
+        "day": "2026-11-15",
+        "kind": "promise",
+        "quote": "Je m’occupe du resto pour les 60 ans de maman.",
+        "ref": "obs_t4",
+        "text": "Your promise",
+        "with": "heard by the pendant"
+      }
+    ]
+  }
+}
