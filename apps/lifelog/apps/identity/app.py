@@ -43,7 +43,7 @@ import socket
 import sys
 import threading
 import time
-from concurrent.futures import Future
+from concurrent.futures import CancelledError, Future
 from concurrent.futures import TimeoutError as FutureTimeout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -480,16 +480,19 @@ class Handler(BaseHTTPRequestHandler):
                 if time.monotonic() >= deadline:
                     future.cancel()
                     return self.reply(504, {"error": "timed out"})
+            except CancelledError:  # the worker found it past its wait, or its caller gone
+                return None if self.caller_gone() else self.reply(504, {"error": "timed out"})
             except Exception as error:
                 return self.reply(500, {"error": type(error).__name__})
         self.reply(200, answer(result))
 
     def caller_gone(self) -> bool:
-        """The caller closed its connection: it has nothing more to send, so a readable socket is its end."""
-        readable, _, _ = select.select([self.connection], [], [], 0)
+        """The caller closed its connection: it has nothing more to send, so a readable socket is its end.
+        A socket its handler already closed is gone too (select raises ValueError on it)."""
         try:
+            readable, _, _ = select.select([self.connection], [], [], 0)
             return bool(readable) and self.connection.recv(1, socket.MSG_PEEK) == b""
-        except OSError:
+        except (OSError, ValueError):
             return True
 
     def reply(self, status: int, body: dict, headers: dict | None = None):

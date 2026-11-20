@@ -149,6 +149,31 @@ class Http(unittest.TestCase):
         app.run_next(None)
         self.assertEqual(ran, [])
 
+    def test_work_whose_handler_closed_its_socket_never_runs_and_the_worker_lives(self):
+        ran = []
+        handler = waiting_handler([])
+        self.addCleanup(handler.caller.close)
+        self.assertTrue(app.enqueue("ordinary", lambda models: ran.append(1), Future(), handler.caller_gone))
+        handler.connection.close()  # its handler already gave up and closed the socket
+        app.run_next(None)  # raises nothing: the one worker keeps going
+        self.assertEqual(ran, [])
+
+    def test_work_past_its_wait_when_the_worker_comes_answers_504(self):
+        replies, ran = [], []
+        handler = waiting_handler(replies)
+        self.addCleanup(handler.caller.close)
+        self.addCleanup(handler.connection.close)
+        wait, app.WAIT_SECONDS = app.WAIT_SECONDS, 0.05
+        self.addCleanup(setattr, app, "WAIT_SECONDS", wait)
+        waiting = threading.Thread(
+            target=app.Handler.run, args=(handler, lambda models: ran.append(1), lambda result: result)
+        )
+        waiting.start()
+        time.sleep(0.1)  # past its wait, before the handler's next look (CALLER_CHECK_SECONDS)
+        app.run_next(None)
+        waiting.join(5)
+        self.assertEqual((replies, ran), ([504], []))
+
     def test_work_whose_caller_hung_up_while_queued_never_runs(self):
         replies, ran = [], []
         handler = waiting_handler(replies)
