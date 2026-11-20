@@ -143,7 +143,10 @@
           "party": {
             "kind": "person",
             "name": "Idris Benali",
-            "ref": "person:idris"
+            "ref": "person:idris",
+            "picture": {
+              "id": "59400481f8a16e09515dc886a44c1393"
+            }
           }
         },
         {

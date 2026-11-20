@@ -14,12 +14,15 @@ import { dirname, join } from "node:path";
 import { APP_FOLDERS } from "../core/platform";
 import { gitOut } from "../core/proc";
 import {
+  agentOf,
+  agentWaitOf,
   anchorsOf,
   currentAssignmentOf,
   heldByAgents,
   isOldShape,
   NOT_MIGRATED,
 } from "../host/desk-read";
+import { AgentWait } from "../records/registered-agent";
 import { openDesk } from "./desk-store";
 import { stepStore } from "./store-step";
 
@@ -157,6 +160,12 @@ test("the step carries every agent to its assignment: waits, anchors, events, tu
     count("turn"),
     count("session"),
   ]).toEqual([4, 4, 3, 1, 1, 1]);
+  // A migrated wait with no reason still reads as a wait an agent can send back to set_wait.
+  const noReason = currentAssignmentOf(db, "agt_000000000001");
+  const a1 = agentOf(db, "agt_000000000001");
+  const { isDefault, ...held } =
+    (a1 && noReason && agentWaitOf(a1, noReason)) || {};
+  expect(AgentWait.safeParse(held).success).toBe(true);
   const s = currentAssignmentOf(db, "agt_000000000002");
   expect(s).toMatchObject({
     closed_at: null,
@@ -220,6 +229,17 @@ test("a step that fails leaves the old store, refused by openDesk; two failed st
     "?? assignments/unrelated/"
   );
   expect(readFileSync(unrelated, "utf8")).toBe("Test: someone else's work");
+});
+
+test("an interrupted backup leaves one partial that the next start replaces: one copy remains, whole", () => {
+  const { dir, path, repo } = oldDesk();
+  writeFileSync(join(dir, "desk-before-assignments-partial"), "cut off");
+  expect(stepStore(path, dir, repo)).toBe("migrated");
+  const copies = readdirSync(dir).filter((f) => f.startsWith("desk-before-"));
+  expect(copies).toEqual([expect.stringMatching(BACKUP_FILE)]);
+  const copy = new Database(join(dir, copies[0] ?? ""), { readonly: true });
+  expect(isOldShape(copy)).toBe(true);
+  copy.close();
 });
 
 test("a store from before the late columns (begun_at, context_used, why_not_started…) migrates with their old backfills", () => {

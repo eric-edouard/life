@@ -131,6 +131,8 @@ export async function gather(
     failed,
     /** The raw events that carry files: the watcher describes today's on arrival (`describeFilesOnArrival`). */
     fileEvents: readable.filter((e) => e.files?.length),
+    /** `files.jsonl` as the lines above were shown with it: the arrival reader's one snapshot of what waits for a file. */
+    fileLines: known,
     files,
     // By source, what this gather read (a source it did not read has no key: its units stay as they were).
     read: {

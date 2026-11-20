@@ -67,12 +67,14 @@ import {
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
 import { withNetworkIdentities } from "./network-identity";
+import { PERSON_PICTURES_INDEX } from "./party";
 import {
   dismissedIdsOf,
   handOutGateOf,
   isOneOfHis,
   isParkedMatterOf,
 } from "./read-matters";
+import { lifeLinksOf } from "./refs";
 import { sourceOf } from "./sources";
 import {
   type People,
@@ -191,7 +193,7 @@ export interface CheckInputs {
 }
 
 interface Ranked {
-  check: Omit<Check, "confirm" | "matter">;
+  check: Omit<Check, "confirm" | "lifeLinks" | "matter">;
   /** For the order (`inboxOrderOf`): when a decision was asked, else the newest day among the lines it rides on. */
   day: string;
 }
@@ -606,17 +608,15 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
   const found = inboxOrderOf(
     Object.values(BUILDERS)
       .flatMap((build) => build(c))
-      .map(({ check, day }) => {
-        const m = matterOf([check.subject ?? check.ref]);
-        return {
-          ...check,
-          day,
-          matter: cardMatterOf(m) ?? null,
-          onMatters: check.ridesOn.matterIds.flatMap(
-            (id) => cardMatterOf(byId.get(id)) ?? []
-          ),
-        };
-      })
+      .map(({ check, day }) => ({
+        ...check,
+        day,
+        lifeLinks: lifeLinksOf(check.context, (id) => byId.has(id)),
+        matter: cardMatterOf(matterOf([check.subject ?? check.ref])) ?? null,
+        onMatters: check.ridesOn.matterIds.flatMap(
+          (id) => cardMatterOf(byId.get(id)) ?? []
+        ),
+      }))
   ).map(({ day: _, ...check }) => check);
   const guessed = new Map(
     found
@@ -661,11 +661,15 @@ export type InboxCheck = Check & { pushId: string; urgency: Urgency };
 /** The last list `checksNow` read, and what it was read from (`checksKeyOf`). */
 let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
 
-/**
- * Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write
- * those every few minutes, and the checks don't read them but for an inferred person's evidence (where it was said).
- */
-const CHECKS_READ = [...MATTER_BOOK_READS, CLOSENESS, DECISIONS, PAGES, ZONES];
+/** Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write those every few minutes, and the checks don't read them but for an inferred person's evidence; the pictures' index. */
+const CHECKS_READ = [
+  ...MATTER_BOOK_READS,
+  CLOSENESS,
+  DECISIONS,
+  PAGES,
+  PERSON_PICTURES_INDEX,
+  ZONES,
+];
 
 /** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. */
 export interface HeldRead {
@@ -673,10 +677,7 @@ export interface HeldRead {
   stamp: string;
 }
 
-/**
- * What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open
- * decisions (one lapses), the stamp of what agents hold and the voices lifelog queues. The same key, the same list.
- */
+/** What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open decisions (one lapses), the stamp of what agents hold and the voices lifelog queues. The same key, the same list. */
 const checksKeyOf = (
   held: HeldRead | null,
   voices: readonly NamingQueueItem[],
@@ -690,29 +691,27 @@ const checksKeyOf = (
     voices,
   ]);
 
-/**
- * What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from
- * the desk): read-only, no model call. Read again only when what it is read from changed (`checksKeyOf`), and always
- * while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
- */
-export async function checksNow(held: HeldRead | null): Promise<InboxCheck[]> {
+/** What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from the desk), and its `key` (`checksKeyOf`): read-only, no model call. Read again only when the key changed, and always while a run holds the lock, then under a key never given twice (its list may change under the same files' stamp): every reader of the inbox shares one read per change, and never mutates the list. */
+export async function checksAndKeyNow(held: HeldRead | null) {
   const voices = await readNamingQueue();
   const decisions = decisionsNow().filter((d) => d.state === "open");
-  if (isLocked()) {
-    return await readChecks(held, voices, decisions);
-  }
   const key = checksKeyOf(held, voices, decisions);
-  if (last?.key !== key) {
+  if (isLocked() || last?.key !== key) {
     const list = readChecks(held, voices, decisions);
-    last = { key, list };
+    last = { key: isLocked() ? `${key} ${crypto.randomUUID()}` : key, list };
     list.catch(() => {
       if (last?.list === list) {
         last = undefined;
       }
     });
   }
-  return await last.list;
+  const read = last;
+  return { checks: await read.list, key: read.key };
 }
+
+/** What waits on his word now (`checksAndKeyNow`), without its key. */
+export const checksNow = async (held: HeldRead | null) =>
+  (await checksAndKeyNow(held)).checks;
 
 async function readChecks(
   held: HeldRead | null,

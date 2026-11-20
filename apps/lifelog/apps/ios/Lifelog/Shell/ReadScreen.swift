@@ -20,6 +20,24 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
     }
 
     var body: some View {
+        // Each face fades out as the next fades in (loading to content: the spinner goes as the content comes).
+        ZStack { face.appears(Motion.fade).id(faceName) }
+    }
+
+    /// Which face shows, so a new face fades in and a new value of the same face changes in place.
+    private var faceName: String {
+        switch shown {
+        case .loading: "loading"
+        case .loaded: "loaded"
+        case .empty: "empty"
+        case .stale: "stale"
+        case .unreachable: "unreachable"
+        case .failed: "failed"
+        case .notPaired: "notPaired"
+        }
+    }
+
+    @ViewBuilder private var face: some View {
         switch shown {
         case .loading: loading
         case .loaded(let value): content(value)

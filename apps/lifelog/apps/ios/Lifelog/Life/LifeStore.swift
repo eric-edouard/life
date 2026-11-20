@@ -17,6 +17,8 @@ final class LifeStore {
     /// A project's page: its matters with its head, by the project's id.
     private(set) var project: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
+    /// Everyone the reads name, and their pictures.
+    let parties: PartyBook
 
     /// What an action acts on: the store makes every key itself, so a screen asks for the state of what it shows.
     enum ActionKey: Hashable {
@@ -101,6 +103,7 @@ final class LifeStore {
         tokens: any TokenStore = LifeToken(), api: (any LifeAPI)? = nil,
         approve: @escaping Approve = { try await LifeOAuth().pair($0) },
         cache: ReadCache = ReadCache(directory: URL.applicationSupportDirectory.appending(path: "lifelog/life-reads")),
+        pictures: URL = AppGroup.pictures,
         now: @escaping @Sendable () -> Date = { Date() },
         setBadge: @escaping @MainActor (Int) -> Void = { count in
             Task { try? await UNUserNotificationCenter.current().setBadgeCount(count) }
@@ -110,6 +113,7 @@ final class LifeStore {
         self.approve = approve
         let api = api ?? MCPLifeAPI(client: MCPClient(session: LifeSession(store: tokens)))
         self.api = api
+        parties = PartyBook(pictures: PictureCache(directory: pictures, api: api), generation: PairingGeneration())
         runner = LifeActions(api: api, now: now)
         self.cache = cache
         self.now = now
@@ -228,9 +232,9 @@ final class LifeStore {
     private static let answeredKey = "answered_cards"
 
     /// His answer, confirmed: its card leaves every read asked before now, the badge with it, unless it keeps its card
-    /// open or was begun under another pairing (`origin`, the Life paired when it began). Kept for a cold start.
-    private func confirm(_ request: AnswerRequest, keepsCardOpen: Bool, origin: URL?) {
-        guard !keepsCardOpen, belongsToPairing(origin, now: pairedOrigin) else { return }
+    /// open or was begun under another pairing (`pairing`, its `PairingGeneration` when it began). Kept for a cold start.
+    private func confirm(_ request: AnswerRequest, keepsCardOpen: Bool, pairing: Int) {
+        guard !keepsCardOpen, pairing == parties.generation.current else { return }
         answered.answered(request.ref, at: now())
         if let data = try? JSONEncoder().encode(answered) {
             cache.store(String(decoding: data, as: UTF8.self), key: Self.answeredKey)
@@ -238,31 +242,30 @@ final class LifeStore {
         if inbox.value != nil { setBadge(badge) }
     }
 
-    private func restore<V: Decodable & Sendable>(_ update: (ReadState<V>.Event) -> Void, key: String) {
+    private func restore<V: Decodable & Sendable & NamesParties>(_ update: (ReadState<V>.Event) -> Void, key: String) {
         guard let kept = cache.load(key),
             let value = try? LibraryStore.feedDecoder.decode(V.self, from: Data(kept.text.utf8))
         else { return }
+        parties.remember(value.parties, at: kept.at, pairing: parties.generation.current)
         update(.succeeded(value, kept.at))
     }
 
     /// The read `key`, one pass at a time (`ReadFlights`): its value applies as of when its pass began, and is kept for a
-    /// cold start. A pass that read another Life than the one paired now applies nothing
-    /// (`belongsToPairing`).
-    private func load<V: Decodable & Sendable>(
+    /// cold start. A read of the Life paired before this one applies nothing, not even its failure: no save, no screen,
+    /// no reset (`PairingGeneration`).
+    private func load<V: Decodable & Sendable & NamesParties>(
         _ update: @escaping (ReadState<V>.Event) -> Void, key: String,
         fetch: @escaping @Sendable (any LifeAPI) async throws -> String
     ) async {
         await flights.run(key) { [self] in
-            let (asked, origin) = (now(), pairedOrigin)
+            let (asked, pairing) = (now(), parties.generation.current)
             update(.started)
-            let text: Result<String, any Error>
-            do { text = .success(try await fetch(api)) } catch { text = .failure(error) }
-            // Read from another Life: nothing learned of this one, as for a cancelled read.
-            guard belongsToPairing(origin, now: pairedOrigin) else { return update(.failed(.cancelled)) }
+            guard let text = await parties.generation.answer({ try await fetch(api) }) else { return }
             do {
                 let read = try text.get()
                 let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(read.utf8))
                 cache.store(read, key: key, asked: asked)
+                parties.remember(value.parties, at: asked, pairing: pairing)
                 update(.succeeded(value, asked))
             } catch let error as MCPError {
                 if error == .notPaired { pairedOrigin = nil }
@@ -346,9 +349,9 @@ final class LifeStore {
     private func send(_ request: AnswerRequest, keepsCardOpen: Bool = false) async {
         let key = ActionKey.answer(ref: request.ref)
         guard actions[key]?.isRunning != true else { return }
-        let (tap, origin) = (taps.key(for: request), pairedOrigin)
+        let (tap, pairing) = (taps.key(for: request), parties.generation.current)
         await perform(
-            key, tap: tap, succeeded: { self.confirm(request, keepsCardOpen: keepsCardOpen, origin: origin) }
+            key, tap: tap, succeeded: { self.confirm(request, keepsCardOpen: keepsCardOpen, pairing: pairing) }
         ) {
             [runner] in
             await runner.answer(request, key: tap, emit: $0)
@@ -579,6 +582,7 @@ final class LifeStore {
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
         (answered, pushed) = (AnsweredCards(), nil)
+        parties.startOver()
         holds.clear()
         onStep(.reading)
         await refresh()

@@ -72,12 +72,19 @@ public struct CardNotification: Sendable, Equatable {
     }
 
     /// The card a notification kept, if it is this push's and was read from the Life the phone is paired with now
-    /// (`life`, its `lifeKey`; `belongsToPairing`); nil otherwise, an older notification that names no Life included.
+    /// (`life`, its `lifeKey`; `isOf`); nil otherwise, an older notification that names no Life included.
     public static func check(_ card: String?, pushId: String, life: String?, pairedWith paired: URL?) -> Check? {
-        guard let card, let life, belongsToPairing(URL(string: life), now: paired), let check = check(card),
+        guard let card, isOf(life: life, pairedWith: paired), let check = check(card),
             check.pushId == pushId
         else { return nil }
         return check
+    }
+
+    /// Whether what was read from the Life at `life` (an origin, as a notification keeps it) is of the Life the phone is
+    /// paired with now (`paired`): across processes and launches, a pairing is its Life's origin; within the app it is
+    /// its `PairingGeneration`.
+    public static func isOf(life: String?, pairedWith paired: URL?) -> Bool {
+        life != nil && life == paired?.absoluteString
     }
 
     /// The card a notification names, as the Life paired now has it: the one it kept (`check(_:pushId:life:pairedWith:)`),

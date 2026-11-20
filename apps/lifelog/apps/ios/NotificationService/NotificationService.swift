@@ -35,7 +35,7 @@ nonisolated final class NotificationService: UNNotificationServiceExtension, @un
             finish(
                 with: inbox.flatMap {
                     CardNotification.of(pushId: pushId, inbox: $0, asksFaceID: AppGroup.asksFaceIDToSend)
-                }, life: belongsToPairing(before, now: after) ? before : nil)
+                }, life: CardNotification.isOf(life: before?.absoluteString, pairedWith: after) ? before : nil)
         }
     }
 

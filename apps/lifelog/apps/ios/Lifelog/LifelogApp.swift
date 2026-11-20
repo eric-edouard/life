@@ -204,6 +204,6 @@ extension View {
     /// The stores every screen reads, built once at launch: the one list, for the app and its debug poses alike.
     fileprivate func stores(of app: AppDelegate) -> some View {
         environment(app.capture).environment(\.library, app.library).environment(app.sync).environment(app.life)
-            .environment(app.playback).environment(app.appleHealth)
+            .environment(app.playback).environment(app.appleHealth).environment(app.life.parties.pictures)
     }
 }

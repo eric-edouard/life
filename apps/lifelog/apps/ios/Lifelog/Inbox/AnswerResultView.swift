@@ -29,14 +29,18 @@ struct Taken: Equatable {
 struct AnswerResultView: View {
     let taken: Taken
     let state: ActionState<ActionProof>
+    /// Each new state shows from its top (a long draft scrolled while sending would hide "Not sent"); a step ticking
+    /// within one state keeps where he scrolled.
+    @State private var position = ScrollPosition(edge: .top)
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+            // A new state fades the last one out and rises in its place (`Motion.resultFace`).
+            ZStack(alignment: .topLeading) {
                 switch state {
-                case .succeeded(let proof, _): done(proof)
-                case .failed(let failure, _): failed(failure)
-                case .idle, .running: working
+                case .succeeded(let proof, _): face { done(proof) }
+                case .failed(let failure, _): face { failed(failure) }
+                case .idle, .running: face { working }
                 }
             }
             .padding(.horizontal, 20)
@@ -44,6 +48,7 @@ struct AnswerResultView: View {
             .padding(.bottom, 16)
             .readingWidth()
         }
+        .scrollPosition($position)
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
     }
@@ -54,6 +59,12 @@ struct AnswerResultView: View {
     }
 
     // MARK: States
+
+    private func face(@ViewBuilder _ content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 14) { content() }
+            .appears(Motion.resultFace)
+            .onAppear { position.scrollTo(edge: .top) }
+    }
 
     @ViewBuilder private var working: some View {
         Text(taken.check.question).font(.cardQuestion).foregroundStyle(Palette.fg)

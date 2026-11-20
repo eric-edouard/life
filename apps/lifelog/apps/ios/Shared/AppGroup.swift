@@ -15,6 +15,14 @@ nonisolated enum AppGroup {
 
     static var asksFaceIDToSend: Bool { defaults.bool(forKey: Key.asksFaceIDToSend) }
 
+    /// People's pictures (`PictureCache`), in the group's caches so the notification extension draws the ones the app
+    /// kept; the target's own caches where the group isn't provisioned.
+    static var pictures: URL {
+        let caches = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id)?
+            .appending(path: "Library/Caches")
+        return (caches ?? URL.cachesDirectory).appending(path: "person-pictures")
+    }
+
     /// Every key the app shares with its widgets and the Watch. Never rename one: a reader on the old name finds nothing.
     enum Key {
         /// `PendantSnapshot`: widgets, the control and Shortcuts.

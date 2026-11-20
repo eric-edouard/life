@@ -4,8 +4,6 @@ import SwiftUI
 /// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette,
 /// never a border, and nothing tappable under 44 points.
 extension Color {
-    /// The quiet fill of a secondary button or a chip: the page's ink at a low strength, as the design's `--tint`.
-    static let fillTint = Palette.fg.opacity(0.08)
     /// The one selected look of a control (his mark on): the page's ink stronger than `fillTint`, as the design's `--pick`.
     static let pick = Palette.fg.opacity(0.16)
 }

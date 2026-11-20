@@ -2,10 +2,10 @@ import type { SourceName } from "../core/names";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import type { Descriptor } from "../sources/contract";
-import { readIndex, readUnitsOf } from "./memory-files";
+import { readIndex, readUnitsFor, readUnitsOf } from "./memory-files";
 import { OWNER } from "./read-truth";
 import { isDirect, kindOf, SOURCES, sourceOf } from "./sources";
-import { oneToOnePersonOf, type Resolve, UNKNOWN } from "./units";
+import { holdsName, oneToOnePersonOf, type Resolve, UNKNOWN } from "./units";
 import type { People } from "./who";
 
 // A person's units, as the index files them: the one way a reader finds what someone said, wrote or was heard in (the
@@ -173,3 +173,30 @@ export const chatUnitsFor = (
     .filter((u) => kindOf(u.source) === "chat" && isWithOnly(u, refs))
     .toSorted((a, b) => b.date.localeCompare(a.date))
     .slice(0, TRIED);
+
+/** How many chats `readChatsTitled` names at most. */
+const TITLED = 5;
+
+/**
+ * The newest `TITLED` chats whose title holds `title` as a whole word run (`holdsName`), each as its source and key:
+ * the fallback of `read_chats` with a `who` no unit of anyone holds. One query of the index for each source's titles
+ * with their newest unit, then those units' files. ponytail: two rooms of one title are one here (the index holds no
+ * chat key); add the key to the index when that bites.
+ */
+export function readChatsTitled(title: string) {
+  const chatSources = SOURCES.filter((s) => s.kind === "chat").map(
+    (s) => s.name
+  );
+  const ids =
+    readIndex((db) =>
+      db
+        .query<{ id: string; title: string }, [string]>(
+          "select id, title, max(date) from units where source in (select value from json_each(?)) group by source, title order by max(date) desc"
+        )
+        .all(JSON.stringify(chatSources))
+        .filter((u) => holdsName(u.title, [title]))
+        .slice(0, TITLED)
+        .map((u) => u.id)
+    ) ?? [];
+  return readUnitsFor(ids).map((u) => ({ key: u.key, source: u.source }));
+}

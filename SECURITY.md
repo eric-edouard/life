@@ -27,7 +27,7 @@ cases' agent (`scripts/question-cases.ts`, his word of 10 Nov 2026), Codex on hi
 as its only tools, serving its reads and none of its writes. It has no shell, no web and a read-only sandbox, so
 recorded content it reads can steer it to read more, and to nothing else. The text goes to the provider the owner chose (his subscriptions, or
 OpenRouter and allmodels.io with his keys, through the hosts he chose; OpenRouter's only when it lists them as keeping no data). Photos of his Photos library are described on the Mac by
-a local model (llama.cpp, `describePhotos` setting): none of those images goes to a provider. A file inside a
+a local model (llama.cpp, `describePhotos` setting): none of those images goes to a provider. Today's arriving chat and mail lines, and the turns of a closed voice conversation he spoke in, are read first by Apple's on-device model (Foundation Models, never Private Cloud Compute): nothing leaves the Mac for it. The lines it says hold an ask, any it refuses, Thai lines, and every line when this Mac has no Apple model (or its helper fails) go to his provider, like the night's. A file inside a
 message (a photo, a PDF's pages) is described by the provider's fast model: that image goes to the provider, once,
 when its message arrives or at night (his word of 19 Nov 2026).
 
@@ -113,8 +113,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   approved), once, on his answer to its outgoing option. It goes to Google's Gmail API, then to its recipients; a file is
   written for a moment to a private temporary folder for gog, and removed after.
 - To GitHub, through `gh` as his account, with the `github` source on: requests for the issues and comments of the repos
-  he listed in `githubRepos`, and nothing else; and a card's draft (a comment's text, or a new issue's title and text),
-  once, on his answer to its outgoing option, into one of those repos (his yes of 19 Nov 2026).
+  he listed in `githubRepos`; and a card's draft (a comment's text, or a new issue's title and text),
+  once, on his answer to its outgoing option, into one of those repos (his yes of 19 Nov 2026). And, while an agent's wait names one (`github_activity`), requests for the events of the repos the open waits name (`owner/name`, or an owner's repos listed with `gh repo list`), read for a wake and never kept (his direction of 20 Nov 2026, life#774).
 - To Google, when he set it: the Past calendar, the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026),
   and the to-do items with Google Tasks as the backend.
 - To his own lifelog server: his corrections about recordings, a "heard you" notice for each voice ask (the agent's
