@@ -1,6 +1,12 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY } from "../core/clock";
-import { agentOf, agentsNow, heldByAgents } from "../host/desk-read";
+import {
+  agentOf,
+  agentsNow,
+  HOLD_DAYS,
+  heldByAgents,
+  heldStampOf,
+} from "../host/desk-read";
 import { register } from "./agent-actions";
 import { tick } from "./desk-clock";
 import { setup, started } from "./test-desk";
@@ -9,40 +15,59 @@ afterEach(() => {
   setSystemTime();
 });
 
-test("the inbox's held projects follow the held steps' rule: stopped and recently ended hold; older, never started and a matter's agent do not", async () => {
-  const { desk } = setup();
-  const day = (n: number) =>
-    new Date(clock().getTime() - n * DAY).toISOString();
-  const agents: [string | null, string][] = [
-    ["test-active", "id = id"],
-    ["test-stopped", "status = 'stopped'"],
-    ["test-recent", `status = 'ended', ended_at = '${day(1)}'`],
-    ["test-old", `status = 'ended', ended_at = '${day(8)}'`],
-    ["test-never", "why_not_started = 'x'"],
-    [null, "id = id"],
-  ];
-  const ids = await Promise.all(
-    agents.map((_, i) => started(desk, `obs_00000000b02${i}`))
-  );
-  for (const [i, [project, set]] of agents.entries()) {
-    desk.db.run(`update agent set project = ?, ${set} where id = ?`, [
-      project,
-      ids[i] ?? "",
-    ]);
-  }
-  expect(heldByAgents(desk.db).projects.sort()).toEqual([
-    "test-active",
-    "test-recent",
-    "test-stopped",
-  ]);
-});
-
 const agentOn = (desk: ReturnType<typeof setup>["desk"], subject: object) =>
   register(desk, {
     brief: "Test brief: watch the repair",
     runtime: "fake",
     ...subject,
   });
+test("every subject is a fact for the hold rule: when its agent ended, who started it, how it ended; none ended over HOLD_DAYS ago", async () => {
+  const { desk } = setup();
+  const ended = new Date(clock().getTime() - 30 * DAY).toISOString();
+  const handed = await started(desk, "obs_00000000b020");
+  const never = await started(desk, "obs_00000000b021");
+  desk.db.run(
+    "update agent set is_handed_out = 1, status = 'ended', ended_at = ?, outcome = 'nothing left' where id = ?",
+    [ended, handed]
+  );
+  desk.db.run(
+    "update agent set status = 'ended', ended_at = ?, why_not_started = 'x' where id = ?",
+    [ended, never]
+  );
+  agentOn(desk, { project: "test-p" });
+  const old = await started(desk, "obs_00000000b022");
+  desk.db.run("update agent set status = 'ended', ended_at = ? where id = ?", [
+    new Date(clock().getTime() - (HOLD_DAYS + 1) * DAY).toISOString(),
+    old,
+  ]);
+  const fact = { project: null, whyNotStarted: null };
+  expect(heldByAgents(desk.db)).toEqual([
+    {
+      ...fact,
+      endedAt: ended,
+      kind: "handed_out",
+      outcome: "nothing left",
+      step: "obs_00000000b020",
+    },
+    {
+      ...fact,
+      endedAt: ended,
+      kind: "asked",
+      outcome: null,
+      step: "obs_00000000b021",
+      whyNotStarted: "x",
+    },
+    {
+      ...fact,
+      endedAt: null,
+      kind: "asked",
+      outcome: null,
+      project: "test-p",
+      step: null,
+    },
+  ]);
+});
+
 const stop = (desk: ReturnType<typeof setup>["desk"], id: string) =>
   desk.db.run("update agent set status = 'stopped' where id = ?", [id]);
 
@@ -64,22 +89,10 @@ test("two active agents on one project: stopping one leaves it stopped, listed a
   );
 });
 
-test("an agent that is over holds its project for NEW_MATTER_DAYS only; a stopped one holds for ever", () => {
+test("the hold stamp changes when a project's agent is re-pointed to another project (no anchor, no end written)", () => {
   const { desk } = setup();
-  const over = agentOn(desk, { project: "test-over" });
-  const stopped = agentOn(desk, { project: "test-stopped" });
-  stop(desk, stopped);
-  desk.db.run(
-    "update agent set status = 'handed_over', ended_at = ? where id = ?",
-    [new Date(clock().getTime() - 8 * DAY).toISOString(), over]
-  );
-  expect(heldByAgents(desk.db).projects).toEqual(["test-stopped"]);
-  desk.db.run("update agent set ended_at = ? where id = ?", [
-    new Date(clock().getTime() - DAY).toISOString(),
-    over,
-  ]);
-  expect(heldByAgents(desk.db).projects.sort()).toEqual([
-    "test-over",
-    "test-stopped",
-  ]);
+  const id = agentOn(desk, { project: "test-p" });
+  const before = heldStampOf(desk.db);
+  desk.db.run("update agent set project = 'test-q' where id = ?", [id]);
+  expect(heldStampOf(desk.db)).not.toBe(before);
 });

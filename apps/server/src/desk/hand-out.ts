@@ -1,4 +1,5 @@
 import { HOUR } from "../core/clock";
+import { type AgentRow, agentKindOf } from "../host/desk-read";
 import { matterFinderOf } from "../memory/matter-read";
 
 // The hand-out: what the desk starts an agent on by itself (his word of 20 Nov 2026: agents start on their own on his
@@ -29,30 +30,20 @@ export function paceRefusalOf(
 }
 
 /**
- * The matter to start an agent on: the first of `matters` (his ranking, next step to do) that no agent holds (`held`:
- * `heldByAgents`' steps), he did not dismiss (`dismissed`: the steps each dismissed matter was pinned to) and no open
- * "Start an agent on this?" check owns (`offered`: the matters' ids); none when no matter qualifies.
+ * The matter to start an agent on: the first of `matters` (his ranking, next step to do) that no agent holds (`isHeld`:
+ * the hold rule, `isHeldOf`) and he did not dismiss (`dismissed`: the steps each dismissed matter was pinned to); none
+ * when no matter qualifies.
  */
 export function handOutOf<
-  M extends { id: string; steps: readonly string[] },
+  M extends { id: string; steps: readonly { at: string; ref: string }[] },
 >(i: {
   dismissed: readonly (readonly string[])[];
-  held: ReadonlySet<string>;
+  isHeld: (m: M) => boolean;
   matters: readonly M[];
-  offered: ReadonlySet<string>;
 }) {
-  const find = matterFinderOf(
-    i.matters.map((m) => ({ id: m.id, steps: m.steps.map((ref) => ({ ref })) }))
-  );
+  const find = matterFinderOf(i.matters);
   const dismissed = new Set(i.dismissed.map((pins) => find(pins)?.id));
-  return i.matters.find(
-    (m) =>
-      !(
-        dismissed.has(m.id) ||
-        i.offered.has(m.id) ||
-        m.steps.some((s) => i.held.has(s))
-      )
-  );
+  return i.matters.find((m) => !(dismissed.has(m.id) || i.isHeld(m)));
 }
 
 /** How long a handed-out agent has to ask its card, from its first turn's beginning. */
@@ -63,11 +54,13 @@ export const NO_CARD_OUTCOME = `no card within ${CARD_WITHIN_MS / HOUR} hours`;
 
 /** Whether a handed-out agent is over its time to ask: active, its first turn began (`first_begun_at`), no card asked (`hasAsked`) and `CARD_WITHIN_MS` since. One he started himself never is. */
 export const isCardOverdue = (
-  a: { first_begun_at: string | null; is_handed_out: number; status: string },
+  a: Pick<AgentRow, "is_handed_out" | "status"> & {
+    first_begun_at: string | null;
+  },
   hasAsked: boolean,
   now: number
 ) =>
-  a.is_handed_out === 1 &&
+  agentKindOf(a) === "handed_out" &&
   a.status === "active" &&
   a.first_begun_at !== null &&
   !hasAsked &&

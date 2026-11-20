@@ -7,6 +7,7 @@ import { log } from "../core/log";
 import { DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS } from "../core/paths";
 import {
+  agentKindOf,
   agentOf,
   anchorsOf,
   isFull,
@@ -18,12 +19,13 @@ import { matcherOf, waitChannelsOf } from "../host/events";
 import {
   type DecisionRequest,
   decisionsNow,
+  openDecisionOf,
   requestDecision,
 } from "../memory/decisions";
 import { oneMatter } from "../memory/read-matters";
 import { projectPeopleAndChatsOf } from "../memory/read-truth";
 import { nameRefusalOf, readPeople } from "../memory/who";
-import type { EventFilter } from "../records/registered-agent";
+import type { AgentKind, EventFilter } from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { type Desk, writeWait } from "./desk-store";
 import type { Runtime } from "./runtimes/contract";
@@ -34,13 +36,9 @@ import type { Runtime } from "./runtimes/contract";
 
 const NOTES_MAX = 6000;
 
-/** The decision `id` asked him that is still open, if any: one at a time, worked out from his decisions, never stored here. */
-const openDecisionOf = (id: string) =>
-  decisionsNow().find((d) => d.agent === id && d.state === "open")?.id ?? null;
-
 /** Why the door refuses `set_wait` and `finish` until `id` has asked: its first card is its plan, or, when the desk started it, what it found. */
-export const askFirstMessageOf = (isHandedOut: boolean) =>
-  isHandedOut
+export const askFirstMessageOf = (kind: AgentKind) =>
+  kind === "handed_out"
     ? "Not done: ask your card first (`request_decision`: the prepared step, what only he can do, or that it looks over; one option is Tell the agent…)."
     : "Not done: ask your plan first (`request_decision`: a question ending in a ?, options Go, Tell the agent…, Stop the agent).";
 
@@ -66,8 +64,8 @@ export function writeSubject(
 }
 
 /**
- * Registers an agent on his words: active, its first turn due now, in `folder`, else in a folder of its own
- * (`DESK_AGENT_FOLDERS`). Refused while the desk keeps its most agents.
+ * Registers an agent, on his words or the hand-out's (`kind`, his by default): active, its first turn due now, in
+ * `folder`, else in a folder of its own (`DESK_AGENT_FOLDERS`). Refused while the desk keeps its most agents.
  */
 export function register(
   desk: Desk,
@@ -75,6 +73,7 @@ export function register(
     brief: string;
     effort?: string;
     folder?: string;
+    kind?: AgentKind;
     model?: string;
     project?: string;
     runtime: string;
@@ -90,7 +89,7 @@ export function register(
   const folder = a.folder ?? join(DESK_AGENT_FOLDERS, id);
   db.transaction(() => {
     db.run(
-      "insert into agent (id, brief, runtime, folder, model, effort, status, wait_until, wait_reason, created_at) values (?, ?, ?, ?, ?, ?, 'active', ?, 'first turn', ?)",
+      "insert into agent (id, brief, runtime, folder, model, effort, status, wait_until, wait_reason, created_at, is_handed_out) values (?, ?, ?, ?, ?, ?, 'active', ?, 'first turn', ?, ?)",
       [
         id,
         a.brief,
@@ -100,6 +99,7 @@ export function register(
         a.effort ?? null,
         now,
         now,
+        a.kind === "handed_out" ? 1 : 0,
       ]
     );
     writeSubject(desk, id, a);
@@ -112,7 +112,7 @@ export function register(
 export async function withdrawOpenDecision(id: string, why: string) {
   const open = openDecisionOf(id);
   if (open) {
-    await requestDecision(DESK_AGENT, { agent: id, why, withdraw: open });
+    await requestDecision(DESK_AGENT, { agent: id, why, withdraw: open.id });
   }
 }
 
@@ -300,18 +300,18 @@ const PLAN_FIRST_TURN =
 
 /** ... and when the desk started it itself (`hand-out.ts`): no plan card, one card of what it found. */
 const HANDED_OUT_FIRST_TURN =
-  ' Life handed you this matter from the top of his list; he did not ask for it. Your first turn reads and gathers (his chats, mail, files, the web), then asks ONE card, whichever is true: the next step prepared (a draft he can send as it is, in the channel the talk is already in, never mail when they talk in a chat); what only he can do (the step in a few words and every fact he needs for it: amount, account, address, phone, reference); or that it looks over (what shows it). Open the card\'s context with what you could not verify. Every card has an option for his own words (Tell the agent…). On a card for what only he can do, or that it looks over, mark the option that means done `ends: "step"` (the step as `subject`) or `ends: "matter"` (nothing is left): his pick closes it in Life; no other option closes anything. Then wait for his answer; finish when the step is done or nothing is left for you.';
+  ' Life handed you this matter from the top of his list; he did not ask for it. Your first turn reads and gathers (his chats, mail, files, the web), then asks ONE card, whichever is true: the next step prepared (a draft he can send as it is, in the channel the talk is already in, never mail when they talk in a chat); what only he can do (the step in a few words and every fact he needs for it: amount, account, address, phone, reference); or that it looks over (what shows it). Open the card\'s context with what you could not verify. Every card has an option for his own words (Tell the agent…). On a card for what only he can do, or that it looks over, mark the option that means done `ends: "step"` (the step as `subject`) or `ends: "matter"` (nothing is left): his pick closes it in Life; no other option closes anything. Then wait for his answer; finish when the step is done or nothing is left for you. In a project\'s folder you only read, unless a card he approved says otherwise.';
 
 /** What every session of a registered agent is told after its brief (the desk spec, 5.4): the door's contract and his one gate (what waits on his yes, a plan before any act). */
-const contractOf = (id: string, isOwn: boolean, isHandedOut: boolean) =>
-  `You are ${id}, a registered agent of the owner's desk${isOwn ? ": one of his own sessions, in full" : ""}. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. ${isOwn ? "Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included." : "You have your door's tools only."} The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated.${isOwn ? " Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward)." : ""}${isHandedOut ? HANDED_OUT_FIRST_TURN : PLAN_FIRST_TURN} A \`call.ended\` event is a call of his that ended, with the recording his pendant made of it. Read each of its \`recordings\` with \`fetch\` (\`id\` its \`turn\`, which opens the recording from that turn as it is now; \`limit\` its \`turns\`, and read on if lines before \`until\` remain) and keep only the lines timed from \`at\` to \`until\`: the recording began before the call and went on after it, and nothing said outside those instants is the call's or may be quoted or sent. \`people\` is who may have been on it, not who spoke when: someone may have joined late. Voices heard through a speaker are often unnamed or merged into one: write such a line as an unnamed remote voice, never under a name the recording does not give. A \`payment.booked\` event is a payment his money app holds; its merchant and note are not in the wake. A \`stay.arrived\` event is an arrival at a place; its name is not in the wake, and one real arrival may wake you more than once (the same place, minutes apart: act once).`;
+const contractOf = (id: string, isOwn: boolean, kind: AgentKind) =>
+  `You are ${id}, a registered agent of the owner's desk${isOwn ? ": one of his own sessions, in full" : ""}. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. ${isOwn ? "Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included." : "You have your door's tools only."} The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated.${isOwn ? " Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward)." : ""}${kind === "handed_out" ? HANDED_OUT_FIRST_TURN : PLAN_FIRST_TURN} A \`call.ended\` event is a call of his that ended, with the recording his pendant made of it. Read each of its \`recordings\` with \`fetch\` (\`id\` its \`turn\`, which opens the recording from that turn as it is now; \`limit\` its \`turns\`, and read on if lines before \`until\` remain) and keep only the lines timed from \`at\` to \`until\`: the recording began before the call and went on after it, and nothing said outside those instants is the call's or may be quoted or sent. \`people\` is who may have been on it, not who spoke when: someone may have joined late. Voices heard through a speaker are often unnamed or merged into one: write such a line as an unnamed remote voice, never under a name the recording does not give. A \`payment.booked\` event is a payment his money app holds; its merchant and note are not in the wake. A \`stay.arrived\` event is an arrival at a place; its name is not in the wake, and one real arrival may wake you more than once (the same place, minutes apart: act once).`;
 
 const NONE =
   "(none in his directory: find them with `read_chats` and `read_person_page`, and tell him who or which chat is missing)";
 
 /** A project agent's subject: the project, then its people and chats as his directory holds them (what a wait's `person` and `chat` take). */
 async function projectLinesOf(project: string) {
-  const line = `Your subject: the project ${project} (\`read_area_page\`).`;
+  const line = `Your subject: the project ${project} (\`read_area_page\`). A matter of it that has its own agent is that agent's to draft on.`;
   const held = projectPeopleAndChatsOf((await readPeople()).truth, project);
   if (!held) {
     return line;
@@ -350,9 +350,9 @@ export async function readPacket({ db }: Desk, id: string, isOwn: boolean) {
       ? await projectLinesOf(a.project)
       : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify((await oneMatter(steps)) ?? `No matter holds ${steps.join(", ")} now.`)}`,
     a.brief,
-    contractOf(a.id, isOwn, a.is_handed_out === 1),
+    contractOf(a.id, isOwn, agentKindOf(a)),
     `Your notes:\n${a.notes || "(none yet)"}`,
     `Events waiting:\n${events.join("\n") || "(none)"}`,
-    `Your open decision: ${openDecisionOf(id) ?? "none"}`,
+    `Your open decision: ${openDecisionOf(id)?.id ?? "none"}`,
   ].join("\n\n");
 }

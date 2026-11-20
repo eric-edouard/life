@@ -1,22 +1,27 @@
 import { inboxOf } from "../memory/check-urgency";
-import { checksNow } from "../memory/checks";
-import { heldByAgents, readDesk } from "./desk-read";
+import { checksNow, type HeldRead } from "../memory/checks";
+import { heldByAgents, heldStampOf, readDesk } from "./desk-read";
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
-// `checksNow` over what registered agents hold now (their steps and projects), read from the desk's store, which memory cannot read.
-/** The steps and projects registered agents hold now; null while the desk is off or unreadable (then no new matter is offered). */
-function readHeldByAgents() {
-  const read = readDesk(heldByAgents, { projects: [], steps: [] });
-  return read.state === "ok"
-    ? {
-        projects: new Set(read.value.projects),
-        steps: new Set(read.value.steps),
-      }
-    : null;
+// `checksNow` over what registered agents hold, read from the desk's store, which memory cannot read: a cheap stamp for
+// its key, the facts only when the list is read again.
+/** What agents hold (`HeldRead`); null while the desk is off or unreadable (then no new matter is offered). */
+function readHeld(): HeldRead | null {
+  const stamp = readDesk(heldStampOf, "");
+  if (stamp.state !== "ok") {
+    return null;
+  }
+  return {
+    read: () => {
+      const r = readDesk(heldByAgents, []);
+      return r.state === "ok" ? r.value : null;
+    },
+    stamp: stamp.value,
+  };
 }
 
 /** Every open check now (`checksNow`), of every kind: his inbox, in its order (`inboxOrderOf`). The status's `left` counts them; the badge, what blocks (`blockingCountOf`). */
-export const openChecksNow = () => checksNow(readHeldByAgents());
+export const openChecksNow = () => checksNow(readHeld());
 
 /** The open check `ref`; throws when none is open. */
 export async function openCheckOf(ref: string) {

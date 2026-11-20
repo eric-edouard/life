@@ -1,5 +1,6 @@
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
+import { DESK_AGENT } from "../core/names";
 import { settings } from "../core/settings";
 import { readRepoFolder } from "../host/change-registered-agent";
 import {
@@ -11,7 +12,7 @@ import {
   runtimeOf,
 } from "../host/desk-read";
 import { openChecksNow } from "../host/inbox";
-import { decisionsNow } from "../memory/decisions";
+import { isHeldOf } from "../memory/held-matters";
 import { readDismissedMatterPins } from "../memory/memory-files";
 import { mattersToDo } from "../memory/read-matters";
 import { loadTruth } from "../memory/read-truth";
@@ -33,16 +34,17 @@ import {
 const CURSOR = "hand_out";
 const LOOK_EVERY = 10 * MIN;
 
-/** What the pick reads, once its gates are passed: the matters to do, the steps he dismissed, the matters a "Start an agent on this?" check is open for. */
+/** What the pick reads, once its gates are passed: the matters to do and the steps he dismissed. */
 export const readHandOutBook = async () => ({
   dismissed: readDismissedMatterPins(),
   matters: await mattersToDo(),
-  offered: new Set(
-    (await openChecksNow())
-      .filter((c) => c.kind === "new matter")
-      .map((c) => c.ref)
-  ),
 });
+
+/** How many of the agents' cards he is shown now: his inbox's decisions a registered agent asked (`openChecksNow`), never one his inbox hides. */
+const readCardsShown = async () =>
+  (await openChecksNow()).filter(
+    (c) => c.kind === "decision" && c.asker === DESK_AGENT
+  ).length;
 
 /** Starts one agent on the top matter that qualifies, when his settings allow and his pace has room; returns its id. */
 export async function handOutNext(desk: Desk, read = readHandOutBook) {
@@ -68,10 +70,11 @@ export async function handOutNext(desk: Desk, read = readHandOutBook) {
     db,
     dayStart(dayNow(), zoneNow()).toISOString()
   );
-  const cardsOpen = decisionsNow().filter(
-    (d) => d.state === "open" && d.agent
-  ).length;
-  if (paceRefusalOf(pace, { cardsOpen, startedToday })) {
+  // The day's count first: over it, his inbox is not read.
+  if (
+    paceRefusalOf(pace, { cardsOpen: 0, startedToday }) ||
+    paceRefusalOf(pace, { cardsOpen: await readCardsShown(), startedToday })
+  ) {
     return;
   }
   const blocked = await desk.runtimes[runtime]?.block();
@@ -80,35 +83,29 @@ export async function handOutNext(desk: Desk, read = readHandOutBook) {
     return;
   }
   const book = await read();
-  const held = new Set(heldByAgents(db).steps);
-  const matter = handOutOf({ ...book, held });
+  const matter = handOutOf({ ...book, isHeld: isHeldOf(heldByAgents(db)) });
   if (!matter) {
     return;
   }
   const truth = matter.projects.length > 0 ? await loadTruth() : undefined;
-  const started = db.transaction(() => {
-    const r = start(
-      desk,
-      {
-        action: "start",
-        folder: truth && readRepoFolder(matter.projects, truth),
-        runtime,
-        steps: matter.steps,
-      },
-      HAND_OUT_BRIEF
-    );
-    if (r.id) {
-      db.run("update agent set is_handed_out = 1 where id = ?", [r.id]);
-    }
-    return r;
-  })();
+  const started = start(
+    desk,
+    {
+      action: "start",
+      folder: truth && readRepoFolder(matter.projects, truth),
+      runtime,
+      steps: matter.steps.map((s) => s.ref),
+    },
+    HAND_OUT_BRIEF,
+    { kind: "handed_out" }
+  );
   log("desk.hand_out", { matter: matter.id, ...started });
   return started.id;
 }
 
 /**
  * Ends each handed-out agent that asked no card within `CARD_WITHIN_MS` of its first turn's beginning (`isCardOverdue`),
- * the one way an agent is ended (`endAgent`): its matter stays held 7 days (`heldByAgents`), so no try of its own is counted.
+ * the one way an agent is ended (`endAgent`): its matter stays held until it has a newer step (`isHeldOf`), so no try of its own is counted.
  */
 export async function endAgentsWithoutCard(desk: Desk) {
   const now = clock().getTime();

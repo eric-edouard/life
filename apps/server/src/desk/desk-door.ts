@@ -3,7 +3,7 @@ import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { isOwnLife } from "../core/platform";
 import { same, secretIn } from "../core/secret";
-import { agentOf } from "../host/desk-read";
+import { agentKindOf, agentOf } from "../host/desk-read";
 import { EVENT_CHANNELS } from "../host/event-channels";
 import { DOOR_PORT, text } from "../host/http/http";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
@@ -55,17 +55,13 @@ function doorServer(desk: Desk, id: string) {
       description,
       input,
       async (args) => {
-        if (
-          name !== "read_packet" &&
-          agentOf(desk.db, id)?.status !== "active"
-        ) {
+        const a = agentOf(desk.db, id);
+        if (name !== "read_packet" && a?.status !== "active") {
           throw new Error(`Not done: ${id} is not active.`);
         }
         // His rule: a new agent's first turn ends on its plan, asked; it waits or finishes only after.
-        if ((name === "set_wait" || name === "finish") && !hasAsked(id)) {
-          throw new Error(
-            askFirstMessageOf(agentOf(desk.db, id)?.is_handed_out === 1)
-          );
+        if (a && (name === "set_wait" || name === "finish") && !hasAsked(id)) {
+          throw new Error(askFirstMessageOf(agentKindOf(a)));
         }
         const r = await run(args);
         if (typeof r === "object" && r !== null && "error" in r) {
