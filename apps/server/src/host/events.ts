@@ -13,12 +13,8 @@ import {
   type Source,
 } from "../memory/changes";
 import { directChats } from "../memory/closeness";
-import {
-  type Decision,
-  decisionsNow,
-  settledAtOf,
-  settledBetween,
-} from "../memory/decisions";
+import type { Decision } from "../memory/decision-lines";
+import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
 import { readFiles } from "../memory/memory-files";
 import { hearVoiceNotes, showFiles } from "../memory/message-files";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";

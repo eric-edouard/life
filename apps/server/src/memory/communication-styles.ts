@@ -9,7 +9,8 @@ import {
 } from "../records/communication-style";
 import type { SourceEvent } from "../records/source";
 import { directChats, pagedNow, type WithPeople } from "./closeness";
-import { type Decision, decisionsNow } from "./decisions";
+import type { Decision } from "./decision-lines";
+import { decisionsNow } from "./decisions";
 import { communicationStylePath } from "./memory-files";
 import { meContext } from "./model-context";
 import { foundQuotesAt } from "./quote-check";

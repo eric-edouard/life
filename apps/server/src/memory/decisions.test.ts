@@ -11,10 +11,10 @@ import { dirname } from "node:path";
 import { DAY, HOUR, MIN } from "../core/clock";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
+import type { Decision } from "./decision-lines";
 import {
   answerDecision,
   DECISIONS,
-  type Decision,
   decisionsNow,
   notSentOf,
   requestDecision,
