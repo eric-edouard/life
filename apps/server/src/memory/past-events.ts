@@ -202,12 +202,14 @@ export async function* described(fresh: Draft[]) {
 
 /**
  * The description and location an event is written with: its text and `lines`, clipped to leave room for the map
- * links of its place, then those links whole.
+ * links of its place, then those links whole (none when they would take half the room).
  */
 export function writtenOf(d: Draft, place: MapPlace, lines: string[]) {
-  const maps = mapLinksOf(place)
+  const links = mapLinksOf(place)
     .map((l) => `\n${l}`)
     .join("");
+  // A place name so long its links would crowd out the text: no links.
+  const maps = links.length <= DESCRIPTION_MAX / 2 ? links : "";
   const body = clip(
     redact([d.text, ...lines].join("\n")),
     DESCRIPTION_MAX - maps.length

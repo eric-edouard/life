@@ -202,6 +202,9 @@ test("a Past event at a place carries its map links, from the stay's coordinates
   );
   expect(long.description.length).toBeLessThan(8192);
   expect(long.description).toContain("&ll=10.500000,20.250000\n");
+  const huge = writtenOf(d, { name: "ที่".repeat(500) }, []);
+  expect(huge.description.length).toBeLessThan(8192);
+  expect(huge.description).not.toContain("maps");
   const nowhere = writtenOf(d, { name: null }, []);
   expect(nowhere.location).toBeNull();
   expect(nowhere.description).not.toContain("maps");
