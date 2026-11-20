@@ -55,6 +55,8 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     public let agent: String?
     /// How many open checks about it block him (an agent's decision, a voice, a name); the others only improve the memory.
     public let blockingChecks: Int?
+    /// Whether it needs him (Life decides: its next step is his, or a check about it blocks him): the row's dot and the filter.
+    public let needsYou: Bool
 }
 
 /// `read_matters`: the running matters, most pressing first.
@@ -83,15 +85,6 @@ public struct MatterList: Decodable, Sendable, Equatable {
     public var areasByCount: [String] {
         let counts = matters.flatMap { $0.areas ?? [] }.reduce(into: [String: Int]()) { $0[$1, default: 0] += 1 }
         return counts.sorted { ($1.value, $0.key) < ($0.value, $1.key) }.map(\.key)
-    }
-}
-
-extension MatterRow {
-    /// Whether it needs him: its next step is his decision or something only he does (a stuck matter is stuck whatever
-    /// its next step says), or a check about it blocks him. The one test, for the row's dot and the filter.
-    public var needsYou: Bool {
-        let waitsOnHim = status != .stuck && (nextStep?.kind == .waitDecision || nextStep?.kind == .waitOwner)
-        return waitsOnHim || (blockingChecks ?? 0) > 0
     }
 }
 

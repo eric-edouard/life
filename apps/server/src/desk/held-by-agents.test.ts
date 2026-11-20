@@ -34,16 +34,17 @@ test("every subject is a fact for the hold rule: when its agent ended, who start
     "update agent set status = 'ended', ended_at = ?, why_not_started = 'x' where id = ?",
     [ended, never]
   );
-  agentOn(desk, { project: "test-p" });
+  const project = agentOn(desk, { project: "test-p" });
   const old = await started(desk, "obs_00000000b022");
   desk.db.run("update agent set status = 'ended', ended_at = ? where id = ?", [
     new Date(clock().getTime() - (HOLD_DAYS + 1) * DAY).toISOString(),
     old,
   ]);
-  const fact = { project: null, whyNotStarted: null };
+  const fact = { project: null, status: "ended", whyNotStarted: null };
   expect(heldByAgents(desk.db)).toEqual([
     {
       ...fact,
+      agent: handed,
       endedAt: ended,
       kind: "handed_out",
       outcome: "nothing left",
@@ -51,6 +52,7 @@ test("every subject is a fact for the hold rule: when its agent ended, who start
     },
     {
       ...fact,
+      agent: never,
       endedAt: ended,
       kind: "asked",
       outcome: null,
@@ -59,10 +61,12 @@ test("every subject is a fact for the hold rule: when its agent ended, who start
     },
     {
       ...fact,
+      agent: project,
       endedAt: null,
       kind: "asked",
       outcome: null,
       project: "test-p",
+      status: "active",
       step: null,
     },
   ]);

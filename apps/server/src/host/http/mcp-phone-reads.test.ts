@@ -109,10 +109,12 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   ]),
   heldByAgents: [
     {
+      agent: "agt_000000000001",
       endedAt: null,
       kind: "asked",
       outcome: null,
       project: null,
+      status: "active",
       step: "obs_000000000005",
       whyNotStarted: null,
     },
@@ -120,6 +122,7 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   isDirectionDue: () => false,
   isForHandOut: () => false,
   isHandOutOn: false,
+  isParked: () => false,
   kept: new Set(lines.map((l) => l.id)),
   lines,
   matters: [
@@ -428,7 +431,9 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
       nameOf: (r: string) => r.replace("person:", ""),
       truth: {
         areas: [],
-        projects: [{ id: "shop-fit-out", name: "Shop fit-out" }],
+        projects: [
+          { id: "shop-fit-out", name: "Shop fit-out", status: "active" },
+        ],
       },
     } as never),
     spyOn(items, "rankContextOf").mockReturnValue({

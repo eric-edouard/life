@@ -1,13 +1,17 @@
+import { isUnderway } from "../records/truth";
 import { decisionsNow } from "./decisions";
+import type { AgentHold } from "./held-matters";
 import {
   directionDueOf,
   isRunning,
   type MatterView,
+  matterFinderOf,
   matterOfSteps,
   matterPeopleOf,
   nextStepNow,
 } from "./matter-read";
 import { readMatterBook, readMatterBookAndRecords } from "./matters";
+import { readDismissedMatterPins } from "./memory-files";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
 import { meant, type People, readPeople } from "./who";
 import { dayNow } from "./zones";
@@ -89,6 +93,20 @@ function rowOf(
   };
 }
 
+/**
+ * Whether a matter needs him: its next step is his decision or something only he does (`wait_decision`, `wait_owner`; a
+ * stuck matter is stuck whatever its next step says), or a check about it blocks him (`blockingChecks`). The one rule,
+ * for the row's flag dot and the Needs you filter on his phone, and for the night's count. Pure.
+ */
+export const needsYouOf = (
+  m: { nextStep?: { kind: string }; status: string },
+  blockingChecks: number
+) =>
+  (m.status !== "stuck" &&
+    (m.nextStep?.kind === "wait_decision" ||
+      m.nextStep?.kind === "wait_owner")) ||
+  blockingChecks > 0;
+
 /** A matter's steps' ids: what an agent working on it is anchored on. */
 const refsOf = (v: MatterView) => v.steps.map((s) => s.ref);
 
@@ -124,16 +142,22 @@ async function rankedRunning<R extends { book: MatterView[] }>(
       (!area || v.areas.includes(area)) &&
       (!project || v.projects.includes(project))
   );
+  const ranked = rankedMattersOf(
+    running,
+    people.nameOf,
+    today,
+    rankContextOf(people)
+  );
+  const isParked = isParkedMatterOf(truth);
   return {
     ...r,
     decisions: openDecisions(),
     people,
-    ranked: rankedMattersOf(
-      running,
-      people.nameOf,
-      today,
-      rankContextOf(people)
-    ),
+    // A matter of a parked or done project ranks after every other: a stable partition.
+    ranked: [
+      ...ranked.filter((v) => !isParked(v)),
+      ...ranked.filter((v) => isParked(v)),
+    ],
   };
 }
 
@@ -176,35 +200,102 @@ export const isOneOfHis = (
   v.hasOwnOpenStep ||
   matterPeopleOf(v).some((r) => r.startsWith("person:") && !isGuess(r));
 
-/**
- * `v`'s next step when it is one to hand to an agent: `do` as it reads now (`nextStepNow`) and checked (not `isDue`, by
- * its id: news may have overtaken it). The one gate of the hand-out and the new matter check. Pure.
- */
-export function nextToDoOf(
-  v: Parameters<typeof nextStepNow>[0] & { id: string },
-  decisions: Parameters<typeof nextStepNow>[1],
-  isDue: (id: string) => boolean
-) {
-  const next = nextStepNow(v, decisions);
-  return next?.kind === "do" && !isDue(v.id) ? next : undefined;
+/** Whether a matter is of a parked or done project: it has projects and none is underway (`isUnderway`, in his directory); one with no project, or one project underway, is not. */
+export const isParkedMatterOf =
+  ({ projects }: Pick<People["truth"], "projects">) =>
+  (v: Pick<MatterView, "projects">) =>
+    v.projects.length > 0 &&
+    v.projects.every((id) => {
+      const p = projects.find((x) => x.id === id);
+      return p !== undefined && !isUnderway(p);
+    });
+
+const ids = (list: readonly { id: string }[]) => new Set(list.map((v) => v.id));
+
+/** The ids of the matters of `book` he dismissed as new matter checks, each found by the steps it was pinned to (`pins`). Over the whole book, so the hand-out, the new matter check and the report agree. */
+export const dismissedIdsOf = (
+  book: readonly { id: string; steps: readonly { ref: string }[] }[],
+  pins: readonly (readonly string[])[]
+) => {
+  const find = matterFinderOf(book);
+  return new Set(pins.flatMap((p) => find(p)?.id ?? []));
+};
+
+/** Why a running matter is not handed out, the first gate it fails, in this order (`handOutGateOf`). */
+export type HandOutGate =
+  | "not_do"
+  | "project_parked"
+  | "direction_due"
+  | "dismissed"
+  | "held"
+  | "not_his";
+
+/** A matter as the hand-out reads it: what the gates read, its projects and its steps (id and instant). */
+export type HandOutMatter = Pick<MatterView, "id" | "nextStep" | "projects"> & {
+  steps: readonly { at: string; ref: string }[];
+};
+
+/** What `handOutGateOf` reads besides the matter, all as data (by the matter's id, or `isHeld`: the hold that holds it, `isHeldOf`). */
+export interface HandOutFacts {
+  decisions: Parameters<typeof nextStepNow>[1];
+  dismissed: ReadonlySet<string>;
+  isDue: (id: string) => boolean;
+  isHeld: (v: HandOutMatter) => AgentHold | undefined;
+  isHis: (id: string) => boolean;
+  isParked: (id: string) => boolean;
 }
 
-/** The running matters in his ranking, one of his (`isOneOfHis`), with a next step to hand over (`nextToDoOf`): what the desk may hand to an agent, each with its steps (id and instant) and its projects' ids. */
-export async function mattersToDo() {
+/**
+ * The first gate a running matter fails for the hand-out, or null when it passes every one: its next step is not `do`
+ * as it reads now (`nextStepNow`), its project is parked, its direction is due (news may have overtaken it), he
+ * dismissed it, an agent holds it, it is not one of his (`isOneOfHis`; last, so a stranger's matter reads "not his").
+ * The one rule of the hand-out, the new matter check and the report's agent coverage. Pure.
+ */
+export function handOutGateOf(
+  v: HandOutMatter,
+  f: HandOutFacts
+): HandOutGate | null {
+  if (nextStepNow(v, f.decisions)?.kind !== "do") {
+    return "not_do";
+  }
+  if (f.isParked(v.id)) {
+    return "project_parked";
+  }
+  if (f.isDue(v.id)) {
+    return "direction_due";
+  }
+  if (f.dismissed.has(v.id)) {
+    return "dismissed";
+  }
+  if (f.isHeld(v)) {
+    return "held";
+  }
+  return f.isHis(v.id) ? null : "not_his";
+}
+
+/**
+ * The running matters in his ranking (parked ones last), with the facts `handOutGateOf` needs but the hold (the desk's):
+ * what the desk may hand to an agent is the first with no gate. `read` gives the book and records, so a report that
+ * read them already passes them.
+ */
+export async function readHandOutMatters(read = readMatterBookAndRecords) {
   const { book, decisions, people, ranked, records } = await rankedRunning(
     {},
-    readMatterBookAndRecords
+    read
   );
-  const isDue = directionDueOf(book, records, dayNow());
-  return ranked
-    .filter(
-      (v) => isOneOfHis(v, people.isGuess) && nextToDoOf(v, decisions, isDue)
-    )
-    .map((v) => ({
-      id: v.id,
-      projects: v.projects,
-      steps: v.steps.map(({ at, ref }) => ({ at, ref })),
-    }));
+  const isParked = isParkedMatterOf(people.truth);
+  const his = ids(ranked.filter((v) => isOneOfHis(v, people.isGuess)));
+  const parked = ids(ranked.filter(isParked));
+  return {
+    facts: {
+      decisions,
+      dismissed: dismissedIdsOf(book, readDismissedMatterPins()),
+      isDue: directionDueOf(book, records, dayNow()),
+      isHis: (id: string) => his.has(id),
+      isParked: (id: string) => parked.has(id),
+    },
+    matters: ranked,
+  };
 }
 
 /**

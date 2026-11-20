@@ -13,8 +13,11 @@ import {
 } from "../host/desk-read";
 import { openChecksNow } from "../host/inbox";
 import { isHeldOf } from "../memory/held-matters";
-import { readDismissedMatterPins } from "../memory/memory-files";
-import { mattersToDo } from "../memory/read-matters";
+import {
+  type HandOutFacts,
+  type HandOutMatter,
+  readHandOutMatters,
+} from "../memory/read-matters";
 import { loadTruth } from "../memory/read-truth";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
 import { endAgent, hasAsked } from "./agent-actions";
@@ -34,11 +37,11 @@ import {
 const CURSOR = "hand_out";
 const LOOK_EVERY = 10 * MIN;
 
-/** What the pick reads, once its gates are passed: the matters to do and the steps he dismissed. */
-export const readHandOutBook = async () => ({
-  dismissed: readDismissedMatterPins(),
-  matters: await mattersToDo(),
-});
+/** What the pick reads: his ranking of running matters and the facts of the gates (`handOutGateOf`) but the hold, which is the desk's. */
+interface HandOutBook {
+  facts: Omit<HandOutFacts, "isHeld">;
+  matters: readonly HandOutMatter[];
+}
 
 /** How many of the agents' cards he is shown now: his inbox's decisions a registered agent asked (`openChecksNow`), never one his inbox hides. */
 const readCardsShown = async () =>
@@ -47,7 +50,10 @@ const readCardsShown = async () =>
   ).length;
 
 /** Starts one agent on the top matter that qualifies, when his settings allow and his pace has room; returns its id. */
-export async function handOutNext(desk: Desk, read = readHandOutBook) {
+export async function handOutNext(
+  desk: Desk,
+  read: () => Promise<HandOutBook> = readHandOutMatters
+) {
   const { db } = desk;
   const pace = settings().desk?.handOut;
   const runtime = runtimeOf({});
@@ -82,8 +88,9 @@ export async function handOutNext(desk: Desk, read = readHandOutBook) {
     log("desk.hand_out", { why: `${runtime} does not answer: ${blocked}` });
     return;
   }
-  const book = await read();
-  const matter = handOutOf({ ...book, isHeld: isHeldOf(heldByAgents(db)) });
+  const { facts, matters } = await read();
+  const isHeld = isHeldOf(heldByAgents(db));
+  const matter = handOutOf({ facts: { ...facts, isHeld }, matters });
   if (!matter) {
     return;
   }

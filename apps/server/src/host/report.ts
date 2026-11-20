@@ -40,7 +40,7 @@ export interface Night {
     actions: readonly LedgerEntry[];
     problems: string[];
   };
-  /** The Agents section (`readAgentRows`): one row per registered agent, then the report lines posted since the last night, then the tokens of the agents' turns that ended since, per day and per matter; none while the desk is off. */
+  /** The Agents section (`readAgentRows`): one row per registered agent, then the report lines posted since the last night, then the tokens of the agents' turns that ended since, per day and per matter, then the desk health (`healthRowsOf`); none while the desk is off. */
   agents: { name: string; relation: string }[];
   /** The archive's failures since the last night (`archiveLine`). */
   archive: string;

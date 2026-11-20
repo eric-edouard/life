@@ -781,6 +781,7 @@
                 "id": id, "name": name, "status": status, "goal": ["by": "life", "text": goal], "nextStep": step,
                 "areas": areas,
                 "people": people, "lastStepAt": at(18, 14, 2), "openedDaysAgo": opened,
+                "needsYou": status != "stuck" && ["wait_decision", "wait_owner"].contains(next.0),
             ]
             if let agent { row["agent"] = agent }
             return row
