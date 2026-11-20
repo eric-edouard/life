@@ -7,12 +7,13 @@ import { asksFor } from "../host/asks";
 import {
   agentChangeOf,
   agentOf,
+  currentAssignmentOf,
   holderOf,
   projectHolderOf,
   readCursor,
   runtimeOf,
 } from "../host/desk-read";
-import { AgentChange, type AgentKind } from "../records/registered-agent";
+import { AgentChange, type OpenedBy } from "../records/registered-agent";
 import {
   register,
   stopOpenRun,
@@ -61,7 +62,7 @@ export function start(
   desk: Desk,
   c: AgentChange,
   brief: string,
-  { blocked, kind }: { blocked?: string; kind?: AgentKind } = {}
+  { blocked, openedBy }: { blocked?: string; openedBy?: OpenedBy } = {}
 ) {
   const runtime = runtimeOf(c);
   const holder = c.project
@@ -91,22 +92,29 @@ export function start(
     brief,
     effort: c.effort,
     folder: c.folder,
-    kind,
     model: c.model,
+    openedBy,
     project: c.project,
     runtime,
     steps: c.steps,
   });
-  // He stopped an agent, then started this one on its subject (its project, or a step it is anchored on): it is replaced.
-  desk.db.run(
-    "update agent set status = 'handed_over', stopped_at = null, ended_at = ?, outcome = ? where status = 'stopped' and (project = ? or id in (select agent_id from anchor where step in (select value from json_each(?))))",
-    [
-      now(),
-      `replaced by ${id}`,
-      c.project ?? null,
-      JSON.stringify(c.steps ?? []),
-    ]
-  );
+  // He stopped an agent, then started this one on its subject (its project, or a step it is anchored on): it is replaced,
+  // its assignments closed.
+  const replaced = `replaced by ${id}`;
+  for (const { id: old } of desk.db
+    .query<{ id: string }, [string | null, string]>(
+      "select id from agent where status = 'stopped' and (project = ? or id in (select s.agent_id from anchor n join assignment s on s.id = n.assignment_id where n.step in (select value from json_each(?))))"
+    )
+    .all(c.project ?? null, JSON.stringify(c.steps ?? []))) {
+    desk.db.run(
+      "update agent set status = 'handed_over', stopped_at = null, ended_at = ?, outcome = ? where id = ?",
+      [now(), replaced, old]
+    );
+    desk.db.run(
+      "update assignment set closed_at = ?, outcome = ? where agent_id = ? and closed_at is null",
+      [now(), replaced, old]
+    );
+  }
   return { id };
 }
 
@@ -120,11 +128,17 @@ function apply(
   const { db } = desk;
   const id = c.agent ?? "";
   const refusal = (allowed: string[]) => statusRefusal(desk, c.agent, allowed);
-  const due = (reason: string) =>
+  /** The agent active again, the assignment it works on due now. */
+  const due = (reason: string) => {
     db.run(
-      "update agent set status = 'active', stopped_at = null, wait_until = ?, wait_reason = ?, wait_is_default = 0 where id = ?",
-      [now(), reason, id]
+      "update agent set status = 'active', stopped_at = null where id = ?",
+      [id]
     );
+    db.run(
+      "update assignment set wait_until = ?, wait_reason = ?, wait_is_default = 0 where id = ?",
+      [now(), reason, currentAssignmentOf(db, id)?.id ?? ""]
+    );
+  };
   let refused: string | null;
   switch (c.action) {
     case "start":
@@ -147,7 +161,7 @@ function apply(
     case "re_point":
       refused = refusal(["active", "stopped"]) ?? subjectRefusal(desk, c, id);
       if (!refused) {
-        writeSubject(desk, id, c);
+        writeSubject(desk, id, currentAssignmentOf(db, id)?.id ?? "", c);
         if (agentOf(db, id)?.status === "active") {
           due("its subject changed");
         }
@@ -233,7 +247,11 @@ export async function applyAgentChanges(desk: Desk) {
     if ("id" in r && (ask.agentChange as AgentChange).action === "stop") {
       // His stop ends the turn under way too (his yes of 20 Nov 2026): its run is stopped, the turn closes `failed`.
       await stopOpenRun(desk, r.id);
-      await withdrawOpenDecision(r.id, "he stopped its agent").catch(
+      await withdrawOpenDecision(
+        db,
+        currentAssignmentOf(db, r.id)?.id ?? "",
+        "he stopped its agent"
+      ).catch(
         (e: Error) =>
           log("desk.change", {
             ask: ask.id,

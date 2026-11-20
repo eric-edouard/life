@@ -17,14 +17,15 @@ import { healthRowsOf, needsYouCountOf } from "./desk-health";
 import {
   type AgentNow,
   type AgentRead,
-  activeAgents,
   agentsNow,
   agentsOnProjects,
   agentsOnSteps,
   anchorsOf,
+  currentAssignmentOf,
   type DeskRead,
   handedOutAgentsSince,
   heldByAgents,
+  openAssignments,
   projectHolderOf,
   readDesk,
   refusedSince,
@@ -354,14 +355,20 @@ export const agentLinesOnProjects = (projects: string[]) =>
 export function readActiveAgentOf() {
   const read = readDesk(
     (db) => {
-      const active = activeAgents(db);
-      const projects = new Set(active.flatMap((a) => a.project ?? []));
+      const projects = new Set(
+        db
+          .query<{ project: string }, []>(
+            "select distinct project from agent where status = 'active' and project is not null"
+          )
+          .all()
+          .map((r) => r.project)
+      );
       return {
         byProject: [...projects].map(
           (p) => [p, projectHolderOf(db, p)] as const
         ),
-        byStep: active.flatMap((a) =>
-          anchorsOf(db, a.id).map((step) => [step, a.id] as const)
+        byStep: openAssignments(db).flatMap((s) =>
+          anchorsOf(db, s.id).map((step) => [step, s.agent_id] as const)
         ),
       };
     },
@@ -538,7 +545,10 @@ function readDeskRows(
       ...handed.map((a) => a.id),
     ]);
     return {
-      anchors: [...agents].map((id) => [id, anchorsOf(db, id)] as const),
+      anchors: [...agents].map(
+        (id) =>
+          [id, anchorsOf(db, currentAssignmentOf(db, id)?.id ?? "")] as const
+      ),
       handed,
       turns,
     };

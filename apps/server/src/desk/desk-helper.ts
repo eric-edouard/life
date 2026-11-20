@@ -1,12 +1,14 @@
 import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { hold } from "../core/lock";
+import { log } from "../core/log";
 import type { RuntimeName } from "../core/names";
 import { off } from "../core/outputs";
 import { dayNow } from "../memory/zones";
 import { tick } from "./desk-clock";
 import { openDoor } from "./desk-door";
 import { type Desk, openDesk, postReportLine } from "./desk-store";
+import { stepStore } from "./store-step";
 import { acpRuntime } from "./runtimes/acp-runtime";
 import type { Runtime } from "./runtimes/contract";
 import { runtimeRowsOf } from "./runtimes/runtime-rows";
@@ -51,6 +53,8 @@ export async function desk() {
     return 0;
   }
   await hold("desk");
+  // The store's shape, before anything opens it; a refusal leaves the desk off, saying why.
+  log("desk.store_step", { done: stepStore() });
   const d: Desk = { db: openDesk(), runtimes: RUNTIMES };
   openDoor(d);
   let since = performance.now();

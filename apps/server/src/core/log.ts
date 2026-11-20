@@ -20,6 +20,7 @@ type LogKind =
   | "desk.hand_out"
   | "desk.net"
   | "desk.runtime"
+  | "desk.store_step"
   | "email.sent"
   | "file.read"
   | "lifelog.write"

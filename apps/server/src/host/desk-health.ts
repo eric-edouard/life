@@ -58,7 +58,7 @@ export function heldByTwoOf(
   book: readonly Pick<MatterView, "name" | "steps">[],
   holds: readonly AgentHold[]
 ) {
-  const live = holds.filter((h) => h.endedAt === null && h.step !== null);
+  const live = holds.filter((h) => h.closedAt === null && h.step !== null);
   return book.flatMap((v) => {
     const refs = new Set(v.steps.map((s) => s.ref));
     const agents = [

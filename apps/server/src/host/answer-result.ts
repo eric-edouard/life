@@ -33,7 +33,7 @@ import {
   WAIT_MS,
 } from "./change-registered-agent";
 import { endByHisWord, QUICK_MS, ticksLimitMsOf } from "./correct-matter";
-import { eventHeard, readDesk } from "./desk-read";
+import { assignmentOfCard, eventHeard, readDesk } from "./desk-read";
 import { lookForDone } from "./done-seen";
 import type { ToolCall } from "./http/mcp-tool";
 import { openCheckOf } from "./inbox";
@@ -67,7 +67,8 @@ function askerOf(d: Decision) {
     return { name: d.asker, told: "on_its_next_poll" };
   }
   const read = readDesk(
-    (db) => eventHeard(db, agent, `${d.id}.answered`),
+    (db) =>
+      eventHeard(db, assignmentOfCard(db, d) ?? "", `${d.id}.answered`),
     "not_yet"
   );
   if (read.state !== "ok") {

@@ -44,8 +44,8 @@ const hold = (
   over: Partial<AgentHold> = {}
 ) => ({
   agent: agentId,
-  endedAt: null,
-  kind: "asked" as const,
+  closedAt: null,
+  openedBy: "owner" as const,
   outcome: null,
   project: null,
   status: "active" as AgentStatus,
@@ -77,7 +77,7 @@ test("a matter held by two agents, active or stopped, is an oddity; an ended one
     hold("agt_1", "obs_a"),
     hold("agt_2", "obs_a", { status: "stopped" }),
     hold("agt_3", "obs_b"),
-    hold("agt_4", "obs_b", { endedAt: "2026-11-10T09:00:00.000Z" }),
+    hold("agt_4", "obs_b", { closedAt: "2026-11-10T09:00:00.000Z" }),
   ]);
   expect(two).toEqual([
     { name: "Desk health · Matter a", relation: "held by agt_1 and agt_2" },

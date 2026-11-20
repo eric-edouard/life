@@ -1,7 +1,7 @@
-import { readlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, sep } from "node:path";
-import { LIFE_STATE_DIR, OWNER_DATA_DIR, real, TEST } from "./paths";
+import { existsSync, readlinkSync } from "node:fs";
+import { LIFE_CODE_DIR, LIFE_STATE_DIR, OWNER_DATA_DIR, real, TEST } from "./paths";
 
 // The differences between the systems Life runs on (macOS, Windows) that it handles so far, in one place, so a new
 // system is one more case here rather than a branch in every module (the rest are listed in
@@ -35,6 +35,11 @@ export const APP_FOLDERS = {
   data: join(APP_MACHINE_DIR, "data"),
   state: join(APP_MACHINE_DIR, "state"),
 };
+
+/** Is `state` the app's own state, which a checkout never rewrites (the app may be running on it): a store step skips it. */
+export const isAppState = (state: string) =>
+  existsSync(join(LIFE_CODE_DIR, ".git")) &&
+  real(state) === real(APP_FOLDERS.state);
 
 /**
  * Is `data` his own Life, not a second Life beside it (a demo, a copy to experiment on, a test's): the app's data folder,
