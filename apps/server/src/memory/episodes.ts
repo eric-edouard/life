@@ -45,7 +45,13 @@ import {
   involvedOf,
   refContext,
 } from "./model-context";
-import { answeredBy, checkPeople, unknownIn } from "./people";
+import {
+  answeredBy,
+  checkPeople,
+  earlierGuessOf,
+  oldGuessesIn,
+  unknownIn,
+} from "./people";
 import { staysOf, where } from "./places";
 import { subjectOf } from "./quote-check";
 import { OWNER, type Truth } from "./read-truth";
@@ -531,6 +537,15 @@ export async function episodes(evidence: Evidence) {
           spoken,
           (s) => answered(s) || named.some((p) => p.namesAndHandles.includes(s))
         );
+        // Older guesses on this day's units, judged again by this prompt.
+        for (const [key, seen] of oldGuessesIn(spoken, [
+          ...inferred,
+          ...named,
+        ])) {
+          if (!unknown.has(key)) {
+            unknown.set(key, seen);
+          }
+        }
         // Who an unknown speaker could be, in the directory: shown with the rest of what the day involves beyond its context.
         const near = new Map(
           [...unknown.keys()].map((k) => [
@@ -549,6 +564,9 @@ export async function episodes(evidence: Evidence) {
             ),
             ...earlier.flatMap((m) => m.people.map((p) => p.ref)),
             ...[...near.values()].flat(),
+            ...[...unknown.keys()].flatMap(
+              (k) => earlierGuessOf(resolve(k)) ?? []
+            ),
             ...emailNamedIn(
               [...texts.values(), ...units.map((b) => b.unit.title)],
               refs
@@ -614,6 +632,8 @@ export async function episodes(evidence: Evidence) {
               };
             }),
             unknown: [...unknown].map(([key, seen]) => ({
+              // Life's earlier guess for it: the same person, not an answer.
+              earlier: earlierGuessOf(resolve(key)),
               key,
               near: near.get(key) ?? [],
               units: seen.map((b) => b.unit.id),

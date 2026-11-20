@@ -36,7 +36,7 @@ The user message is one JSON object:
 - `stays`: where {{owner}}'s phone stayed that day, in time order, each `{from, to, place}` (local times; `to` null while {{owner}} is
   still there; `place` a name with its coordinates). The phone is with {{owner}}: a stay is where {{owner}} was.
 - `unknown`: the handles (a phone number, a WhatsApp, LINE, Instagram or Telegram id) and names in today's units that are not on {{owner}}'s map,
-  each with the ids of the units it appears in, and `near`: refs of people on the map whose name is a letter or two from it. In the units' lines such a sender shows as its handle, or as the ref of Life's earlier guess for it: judge it again.
+  each with the ids of the units it appears in, and `near`: refs of people on the map whose name is a letter or two from it. In the units' lines such a sender shows as its handle, or as the ref of Life's earlier guess for it, given as `earlier` (in `involved`): judge it again. `earlier` is the same person as the entry, never its `person`.
 - `involved`: the rest of {{owner}}'s map that today involves (its units' people, the names their words use, `earlier`'s people, `near`), `people` and `projects` shaped as in the context. A ref from `involved` is as good as one from the context. A person's `emails` can show that a formal name and a nickname are one person.
 - `earlier`: this day's episodes as an earlier reading left them (the stubs are their evidence), and episodes of the
   day before that may continue into this day (a trip). **They are Life's own earlier reading, written by a model, and
@@ -169,7 +169,7 @@ For each entry of `unknown` that today's units say something about, one entry in
 - `area`: one of `areas` (its `id`) or null; `project`: one of `projects` or `involved`'s (its `id`, without `project:`) or null.
 - `person`: when it is someone already on the map (one of its `near`, or the same first name and context: a sister
   writing in the family group from a number the map lacks, a friend lifelog names by first name only), their `ref`;
-  else null. Any person of the context's or `involved`'s `people`, Contacts and inferred ones included, never the entry's own earlier guess. With two it could
+  else null. Any person of the context's or `involved`'s `people`, Contacts and inferred ones included, never the entry's own `earlier`: if `earlier` is already someone else on the map (same name, same address, same invoice), give that one. With two it could
   be (two Alices), null.
 - `isOrganization`: true for a business, a bot or a notification sender; `relation` still says what it is.
 - `otherForms`: every other form of the same person that `unknown` or the lines write, in this one entry (a nickname, a handle).
@@ -178,7 +178,7 @@ For each entry of `unknown` that today's units say something about, one entry in
   give your real reading, never a lower one to leave it to {{owner}}.
 - `evidence`: one to three `{unit, quote}`, the quote copied exactly from that unit's `text`.
 
-One more entry, for a name the lines write that is not in `unknown` and not on the map, when the lines themselves say who it is, with a `quote` that holds the name (`key` its fullest form as written, `otherForms` the rest). Leave out a name the lines do not explain.
+One more entry, for a name the lines write that is not in `unknown` and not on the map, when the lines themselves say who it is, or a person's `emails` spell it (`malisuwan12@…` and "Mrs Mali Suwan": `person` that ref), with a `quote` that holds the name (`key` its fullest form as written, `otherForms` the rest). Leave out a name the lines do not explain.
 
 Do not reason from phone number prefixes. Leave out an `unknown` entry nothing today says anything about.
 

@@ -1,6 +1,13 @@
 import { expect, test } from "bun:test";
 import type { InferredPerson } from "../records/observation";
-import { answeredBy, checkPeople, inferredId, unknownIn } from "./people";
+import {
+  answeredBy,
+  checkPeople,
+  earlierGuessOf,
+  inferredId,
+  oldGuessesIn,
+  unknownIn,
+} from "./people";
 import type { Built } from "./units";
 
 const SUFFIXED = /^inf_plumber-[0-9a-f]{6}$/;
@@ -236,4 +243,43 @@ test("a name or handle is asked about until it reads as someone in truth/ or as 
     true,
     false,
   ]);
+});
+
+test("an older guess whose evidence is in the day's units is asked again with them, until a v9 call judges its name", () => {
+  const seen = chat("unit_1", "+33600000001", ["Ok ?", "Miss Dana pays"]);
+  const other = chat("unit_2", "+33600000002", ["Hi"]);
+  const old = (
+    id: string,
+    key: string,
+    unit: string,
+    isOrganization?: boolean
+  ) =>
+    ({
+      evidence: [{ quote: "q", unit }],
+      id,
+      isOrganization,
+      namesAndHandles: [key],
+    }) as InferredPerson;
+  const asked = (inferred: InferredPerson[]) =>
+    [...oldGuessesIn([seen, other], inferred)].map(([k, b]) => [
+      k,
+      b.map((x) => x.unit.id),
+    ]);
+  expect(asked([old("inf_a", "Miss Dana", "unit_1")])).toEqual([
+    ["Miss Dana", ["unit_1"]],
+  ]);
+  // Judged since (by this key), or evidence on another day: not asked.
+  expect(
+    asked([
+      old("inf_a", "Miss Dana", "unit_1"),
+      old("inf_b", "Miss Dana", "unit_1", false),
+    ])
+  ).toEqual([]);
+  expect(asked([old("inf_c", "Eve", "unit_9")])).toEqual([]);
+});
+
+test("the earlier guess a key reads as is shown to the call; truth/ and nothing are not", () => {
+  expect(earlierGuessOf("person:inf_kit")).toBe("person:inf_kit");
+  expect(earlierGuessOf("person:claire")).toBeUndefined();
+  expect(earlierGuessOf(null)).toBeUndefined();
 });

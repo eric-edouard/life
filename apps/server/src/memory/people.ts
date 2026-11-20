@@ -122,6 +122,43 @@ export function checkPeople(
   return records;
 }
 
+/** The keys of the names and handles a v9 call judged (`isOrganization` written). */
+const judgedKeysOf = (inferred: InferredPerson[]) =>
+  new Set(
+    inferred.flatMap((p) =>
+      p.isOrganization === undefined ? [] : p.namesAndHandles.flatMap(keysOf)
+    )
+  );
+
+/** The ref of Life's earlier guess a name or handle reads as, else undefined: shown to the call as `earlier`, never an answer. */
+export const earlierGuessOf = (ref: string | null) =>
+  ref?.startsWith(`person:${INFERRED_PREFIX}`) ? ref : undefined;
+
+/**
+ * The older guesses whose evidence is in these units and that no v9 call judged yet: each one's first name or handle with
+ * the units, to be asked again with the day's `unknown`. A guess made for a name the text writes (not a sender) has
+ * no other way back to a call.
+ */
+export function oldGuessesIn(units: Built[], inferred: InferredPerson[]) {
+  const judged = judgedKeysOf(inferred);
+  const out = new Map<string, Built[]>();
+  for (const p of inferred) {
+    const [key] = p.namesAndHandles;
+    const seen = units.filter((b) =>
+      p.evidence.some((e) => e.unit === b.unit.id)
+    );
+    if (
+      key &&
+      p.isOrganization === undefined &&
+      seen.length > 0 &&
+      !keysOf(key).some((k) => judged.has(k))
+    ) {
+      out.set(key, [...new Set([...(out.get(key) ?? []), ...seen])]);
+    }
+  }
+  return out;
+}
+
 /**
  * Whether a name or handle has its answer and is not asked about: it reads as someone in truth/ (or as his word says), or as an
  * inferred guess judged by the v9 call (`isOrganization` written, `person` null or a ref). An older guess is asked once more.
@@ -130,11 +167,7 @@ export function answeredBy(
   resolve: (s: string) => string | null,
   inferred: InferredPerson[]
 ) {
-  const judged = new Set(
-    inferred.flatMap((p) =>
-      p.isOrganization === undefined ? [] : p.namesAndHandles.flatMap(keysOf)
-    )
-  );
+  const judged = judgedKeysOf(inferred);
   return (s: string) => {
     const ref = resolve(s);
     return (
