@@ -243,7 +243,7 @@ function ridesOn(c: Ctx, lines: Line[], refs: string[]) {
   ]);
   const shownOn = new Set(
     [...refs, ...lines.flatMap((l) => [l.about ?? "", ...l.subjects])].map(
-      c.people.refOf
+      (r) => c.people.refOf(r)
     )
   );
   return {
@@ -482,7 +482,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         : [];
     });
     const byRef = keptBy(c, (l) =>
-      [l.about ?? "", ...l.subjects].map(people.refOf)
+      [l.about ?? "", ...l.subjects].map((r) => people.refOf(r))
     );
     const cards = people.ambiguousCards.flatMap((a) => {
       // The people its name and handles say, named once: his answer is one of them.
@@ -637,7 +637,9 @@ function draftPersonOf(c: Ctx, d: StoredDraft) {
   const source = d.channel ? sourceOf(d.channel as SourceName) : undefined;
   const handle =
     source?.kind === "mail" ? d.to : d.chat && source?.handleOf?.(d.chat);
-  return handle ? c.people.resolve(handle) : null;
+  return handle && d.channel
+    ? c.people.resolve(handle, d.channel as SourceName)
+    : null;
 }
 
 /** The checks about matter `id`: every kind, open matters they ride on and the one holding their subject (an ending is about a matter that reads probably done). */

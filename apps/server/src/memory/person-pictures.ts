@@ -10,10 +10,12 @@ import {
 import { join } from "node:path";
 import { clock, iso } from "../core/clock";
 import { writeJson } from "../core/files";
+import type { SourceName } from "../core/names";
 import { MACHINE_DIR } from "../core/platform";
 import { readContactPictures, readContactRecords } from "../sources/contacts";
 import type { Picture } from "../sources/contract";
 import { enabledSources } from "./sources";
+import type { Resolve } from "./units";
 import { readPeople } from "./who";
 
 // The person pictures (docs/glossary.md): every picture a person shows, from his Contacts (his own choice) first, then
@@ -49,13 +51,13 @@ export const pictureFileOf = (bytes: Uint8Array) =>
  */
 export function personPicturesOf(
   cards: { bytes: Uint8Array; card: { handles: string[]; id: string } }[],
-  sources: { pictures: Picture[]; source: string }[],
+  sources: { pictures: Picture[]; source: SourceName }[],
   people: {
     ownerOfCard: (card: {
       handles: string[];
       id: string;
     }) => string | undefined;
-    resolve: (handle: string) => string | null;
+    resolve: Resolve;
   }
 ) {
   const index: Record<string, { file: string; source: string }[]> = {};
@@ -81,7 +83,11 @@ export function personPicturesOf(
   }
   for (const s of sources) {
     for (const p of s.pictures) {
-      add(p.handles.map(people.resolve).find(Boolean), s.source, p.bytes);
+      add(
+        p.handles.map((h) => people.resolve(h, s.source)).find(Boolean),
+        s.source,
+        p.bytes
+      );
     }
   }
   return { files, index };

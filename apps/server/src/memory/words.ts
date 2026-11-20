@@ -206,7 +206,7 @@ export function chatLines(b: Built, resolve: Resolve): SourceLine[] {
   const name = oneToOne(b);
   const kind = kindOf(b.unit.source);
   return b.messages.map((m) => {
-    const speaker = speakerOf(kind, m, resolve);
+    const speaker = speakerOf(b.unit.source, m, resolve);
     // An agent's line keeps no handle, so it is never resolved to a person when read (`aboutNow`).
     const from = m.fromMe || kind === "agent" ? {} : { from: m.sender };
     return {
@@ -699,7 +699,7 @@ const unread = (names: string[]) =>
 
 /** Who wrote a message, named as everywhere else: the directory, inferred people, and the handles the owner named. */
 function senderOf(e: SourceEvent, { names, resolve }: People) {
-  const who = e.fromMe ? null : resolve(e.sender);
+  const who = e.fromMe ? null : resolve(e.sender, e.source);
   return e.fromMe ? "me" : ((who && names.get(who)) ?? e.sender);
 }
 
@@ -777,7 +777,7 @@ export async function repliesOwed(end: Date): Promise<Candidate[]> {
     id: e.id,
     kind: "reply",
     line: `- ${e.id} ${localDate(e.at)} reply owed: ${senderOf(e, people)} wrote "${clip(redact(e.text).replace(/\s+/g, " "), 200)}" (\`chats --chat ${e.chat}\`)`,
-    person: people.resolve(e.sender) ?? undefined,
+    person: people.resolve(e.sender, e.source) ?? undefined,
     said: localDate(e.at),
   }));
 }

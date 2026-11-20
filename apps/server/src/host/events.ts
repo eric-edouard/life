@@ -98,7 +98,7 @@ export function messagePayloadOf(
   people: People
 ): MessagePayload {
   const [chatPerson] = e.fromMe ? directChats([e], people.resolve).keys() : [];
-  const who = e.fromMe ? chatPerson : speakerOf("chat", e, people.resolve);
+  const who = e.fromMe ? chatPerson : speakerOf(e.source, e, people.resolve);
   return {
     at: e.at,
     chat: e.chat,
@@ -526,7 +526,7 @@ export function readEndedCalls(
             at,
             until,
             people
-          ).people.map(people.refOf),
+          ).people.map((p) => people.refOf(p)),
           until,
           video: e.phoneCall.video,
         },

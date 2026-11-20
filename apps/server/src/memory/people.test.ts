@@ -226,7 +226,7 @@ test("a name or handle is asked about until it reads as someone in truth/ or as 
     Eve: "person:inf_eve",
   };
   const answered = answeredBy(
-    (s) => reads[s] ?? null,
+    (s: string) => reads[s] ?? null,
     [guess("Bob"), guess("Dan", false), guess("Eve", true)]
   );
   // A Beeper ghost id judged is judged for Life's own bridge's form too.
@@ -236,13 +236,9 @@ test("a name or handle is asked about until it reads as someone in truth/ or as 
       [guess("@line__u91_abc:beeper.local", false)]
     )("_u91_abc")
   ).toBe(true);
-  expect(["Claire", "Bob", "Dan", "Eve", "Zed"].map(answered)).toEqual([
-    true,
-    false,
-    true,
-    true,
-    false,
-  ]);
+  expect(
+    ["Claire", "Bob", "Dan", "Eve", "Zed"].map((s) => answered(s))
+  ).toEqual([true, false, true, true, false]);
 });
 
 test("an older guess whose evidence is in the day's units is asked again with them, until a v9 call judges its name", () => {

@@ -906,13 +906,13 @@ test("a conversation from 23:40 to 00:30 at the window start is read whole: its 
 test("who wrote a message, for every kind: him, an agent's own line, whom the resolver names, else unknown", () => {
   const named = (s: string) => (s === "+33600000002" ? "person:dad" : null);
   const of = (
-    kind: Parameters<typeof speakerOf>[0],
+    source: Parameters<typeof speakerOf>[0],
     sender: string,
     fromMe = false
-  ) => speakerOf(kind, { fromMe, sender }, named);
+  ) => speakerOf(source, { fromMe, sender }, named);
   expect([
-    of("chat", "me", true),
-    of("chat", "+33600000002"),
+    of("whatsapp", "me", true),
+    of("whatsapp", "+33600000002"),
     of("mail", "a@b.c"),
     of("agent", AGENT_WORD),
     of("agent", "+33600000002"),

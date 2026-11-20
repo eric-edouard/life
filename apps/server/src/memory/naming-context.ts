@@ -44,7 +44,9 @@ export function overlappingPhoneCallsOf(
     const calls = chat.filter(overlaps);
     const person = chatPerson(chat, people.resolve);
     const senders = (list: SourceEvent[]) =>
-      list.filter((e) => !e.fromMe).map((e) => people.resolve(e.sender));
+      list
+        .filter((e) => !e.fromMe)
+        .map((e) => people.resolve(e.sender, e.source));
     // A group call he started carries no one else's sender: the group's senders are who may be on it.
     const refs = person?.startsWith("person:")
       ? [person]

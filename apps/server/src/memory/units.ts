@@ -1,6 +1,7 @@
 import { daysBefore } from "../core/clock";
 import { digest } from "../core/hash";
 import { count } from "../core/lists";
+import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import { settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
@@ -64,8 +65,14 @@ export interface Message {
   transaction?: boolean;
 }
 
-/** Who a name, handle or address is (`foldsOf`, who.ts: the one resolver), or null. */
-export type Resolve = (nameOrHandle: string) => string | null;
+/** Where a name or handle was read: a source (its senders' kind, `Descriptor.hasPhoneHandles`) or a Contacts field. */
+export type HandleFrom = SourceName | "contacts";
+
+/** Who a name, handle or address is (`foldsOf`, who.ts: the one resolver), or null; `from` where it was read, when known. */
+export type Resolve = (
+  nameOrHandle: string,
+  from?: HandleFrom
+) => string | null;
 
 export interface Built {
   messages: Message[];
@@ -343,17 +350,17 @@ export const unitTitle = (first: SourceEvent) =>
  * names now, else `unknown:<sender>`.
  */
 export function speakerOf(
-  kind: Descriptor["kind"],
+  source: SourceName,
   m: { fromMe: boolean; sender: string },
   resolve: Resolve
 ) {
   if (m.fromMe) {
     return OWNER;
   }
-  if (kind === "agent") {
+  if (kindOf(source) === "agent") {
     return `${AGENT}${m.sender}`;
   }
-  return resolve(m.sender) ?? `${UNKNOWN}${m.sender}`;
+  return resolve(m.sender, source) ?? `${UNKNOWN}${m.sender}`;
 }
 
 /** A line of a unit's text, `HH:MM who: text`: `who` the speaker without `person:`, or `unknownAs` when unresolved. */
@@ -399,12 +406,11 @@ export const textOf = (e: SourceEvent) => (e.phoneCall ? callLine(e) : e.text);
  * A 1:1 chat's person: its other senders, else its key, else its name (never a mail subject or a call-only display name).
  * `isDirect` uses the source's group predicate, else more than one other sender means a group.
  */
-export function chatPerson(
-  list: SourceEvent[],
-  resolve: (s: string) => string | null
-) {
+export function chatPerson(list: SourceEvent[], resolve: Resolve) {
   const others = new Set(
-    list.filter((e) => !e.fromMe).map((e) => resolve(e.sender) ?? e.sender)
+    list
+      .filter((e) => !e.fromMe)
+      .map((e) => resolve(e.sender, e.source) ?? e.sender)
   );
   const [first] = list;
   if (!(first && isDirect(first.source, first.chat, others.size))) {
@@ -419,7 +425,9 @@ export function chatPerson(
   const person = [...others].find((o) => o.startsWith("person:"));
   // A chat only he wrote in is with whoever its key names (its source's `handleOf`: a WhatsApp id holds a phone).
   const keyed = sourceOf(first.source).handleOf?.(first.chat) ?? first.chat;
-  return person ?? (others.size === 0 ? resolve(keyed) : null) ?? named;
+  return (
+    person ?? (others.size === 0 ? resolve(keyed, first.source) : null) ?? named
+  );
 }
 
 /**
@@ -436,7 +444,7 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
   const kind = kindOf(first.source);
   const written = isWithPeople(kind);
   const lines = sorted.map((e) =>
-    lineOf(e.at, speakerOf(kind, e, resolve), e.sender, redact(e.text))
+    lineOf(e.at, speakerOf(e.source, e, resolve), e.sender, redact(e.text))
   );
   const title = unitTitle(first);
   const ids = sorted.map((e) => e.id);
@@ -450,7 +458,7 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
       fromMe: e.fromMe,
       hasOwnerWrittenInThread: e.hasOwnerWrittenInThread,
       id: e.id,
-      known: !!e.contact || resolve(e.sender) !== null,
+      known: !!e.contact || resolve(e.sender, e.source) !== null,
       sender: e.sender,
       text: e.text,
       transaction: e.transaction,

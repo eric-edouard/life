@@ -99,13 +99,17 @@ export async function loadTruth(data = OWNER_DATA_DIR): Promise<Truth> {
   return { areas, chats, me: await loadMe(data), people, projects };
 }
 
+/** A person's phones and emails (their `whatsapp`, `phone` and `email`): the handles with a contact key. */
+export function phonesAndEmailsOf(p: Person): string[] {
+  const { whatsapp, phone, email } = p.handles;
+  return [...whatsapp, ...phone, ...email.map((h) => h.toLowerCase())];
+}
+
 /** Every handle a person has, normalized the way senders are looked up: emails lower-cased. */
 export function handlesOf(p: Person): string[] {
-  const { whatsapp, phone, email, github, lifelog, telegram } = p.handles;
+  const { github, lifelog, telegram } = p.handles;
   return [
-    ...whatsapp,
-    ...phone,
-    ...email.map((h) => h.toLowerCase()),
+    ...phonesAndEmailsOf(p),
     ...(github ? [github.toLowerCase()] : []),
     ...(lifelog ? [lifelog] : []),
     ...(telegram ? [telegram] : []),
