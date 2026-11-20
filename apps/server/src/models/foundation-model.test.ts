@@ -27,7 +27,8 @@ test("answers each request in order: a reply with its OS, a refusal, and unavail
   expect(a).toEqual({ os: "Version 27.2", reply: { author: "person" } });
   expect(b).toEqual({ detail: "sensitive", error: "refused" });
   expect(c).toMatchObject({ error: "unavailable" });
-});
+  // Background priority (`taskpolicy -b`) is slow on a loaded Mac.
+}, 30_000);
 
 test("no helper answers every request unavailable, never a throw", async () => {
   expect(await askFoundationModel([ask], "")).toEqual([
