@@ -5,7 +5,6 @@ import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { payments } from "../payments/backend";
-import { isoDateTime } from "../records/fields";
 import {
   cardProblemOf,
   endsProblemOf,
@@ -13,7 +12,20 @@ import {
   pageHintOf,
 } from "./card-problems";
 import { Ask, type Option, Withdrawal } from "./card-request";
-import { isSendable, StoredDraft } from "./draft";
+import {
+  Answered,
+  Asked,
+  DECISIONS_VERSION,
+  type Decision,
+  type DecisionState,
+  DoneSeen,
+  Ended,
+  SendFailed,
+  Sent,
+  Stored,
+  Withdrawn,
+} from "./decision-lines";
+import { isSendable } from "./draft";
 import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
 import { contextProblemOf, readsOnce } from "./find-refs";
 import { matterOfSteps, openStepsOf } from "./matter-read";
@@ -39,125 +51,6 @@ import { amountOf, needsShownOf } from "./needs";
 export const DECISIONS = join(MEMORY, "decisions.jsonl");
 
 const PROJECT_OR_AREA = /^(?:project|area):/;
-/** The version decision lines are written at; earlier lines (the old decisions page's, the cards before titles) are skipped. */
-const VERSION = 3;
-const DecisionId = z.string().regex(/^dec_[0-9a-f]{12}$/);
-const Asked = Ask.extend({
-  asker: z.string().min(1),
-  at: isoDateTime,
-  /** The draft as Life stored it when asked (`resolveDraft`): `to` the chat's name, `chat` and the stamps; a card asked before Life could send has none, and sends nothing. */
-  draft: StoredDraft.optional(),
-  id: DecisionId,
-  kind: z.literal("asked"),
-  schemaVersion: z.literal(VERSION),
-}).strict();
-const Answered = z
-  .object({
-    /** One tap's key, made by his app and kept on every repeat of that tap: a repeat finds this line and sends nothing. Lines before it have none. */
-    answerKey: z.string().min(1).max(100).optional(),
-    at: isoDateTime,
-    id: DecisionId,
-    kind: z.literal("answered"),
-    note: z.string().min(1).optional(),
-    /** The option ids he picked; none when he answered in words. */
-    options: z.array(z.string()),
-    schemaVersion: z.literal(VERSION),
-    /** His app through the connector, or a session's `bun life` command, which never sends. */
-    via: z.enum(["connector", "session"]),
-  })
-  .strict();
-const Withdrawn = z
-  .object({
-    /** When he wrote in the draft's chat himself, Life withdrew it (`withdrawDraftsAnsweredInChat`): his message's instant, never its words. The asker's own withdrawal has none. */
-    answeredInChatAt: isoDateTime.optional(),
-    at: isoDateTime,
-    id: DecisionId,
-    kind: z.literal("withdrawn"),
-    schemaVersion: z.literal(VERSION),
-    why: z.string().min(1),
-  })
-  .strict();
-/** What his answer sent: the sent message's id (Life's own event id where it knows it) once its network took it. */
-const Sent = z
-  .object({
-    at: isoDateTime,
-    eventId: z.string().min(1),
-    id: DecisionId,
-    kind: z.literal("sent"),
-    schemaVersion: z.literal(VERSION),
-  })
-  .strict();
-const SendFailed = Sent.omit({ eventId: true, kind: true })
-  .extend({
-    /** False when the same draft can never go (the file is gone or changed, no chat, the channel is off): his next tap would fail alike. */
-    canRetry: z.literal(false).optional(),
-    error: z.string().min(1),
-    kind: z.literal("send-failed"),
-    /** The message that refused the send ("someone wrote since"): when, by whom, its words on one line. */
-    wrote: z
-      .object({ at: isoDateTime, by: z.string(), text: z.string() })
-      .strict()
-      .optional(),
-  })
-  .strict();
-/** What his answer's `ends` option closed (`endByHisWord`): `error` when it failed, or never finished. */
-const Ended = z
-  .object({
-    at: isoDateTime,
-    error: z.string().min(1).optional(),
-    id: DecisionId,
-    kind: z.literal("ended"),
-    schemaVersion: z.literal(VERSION),
-  })
-  .strict();
-/** Life's outcome when it looked for the card's step done (`recordDoneSeen`): `seen` (the event, `eventId`), or `not_found` (with `error` when the look failed or never finished). Never his answer. */
-const DoneSeen = z
-  .object({
-    at: isoDateTime,
-    error: z.string().min(1).optional(),
-    eventId: z.string().min(1).optional(),
-    id: DecisionId,
-    kind: z.literal("done-seen"),
-    schemaVersion: z.literal(VERSION),
-    state: z.enum(["seen", "not_found"]),
-  })
-  .strict();
-const Line = z.discriminatedUnion("kind", [
-  Asked,
-  Answered,
-  Withdrawn,
-  Sent,
-  SendFailed,
-  Ended,
-  DoneSeen,
-]);
-/** A line of an earlier version: skipped. */
-const Historical = z.object({ schemaVersion: z.literal([1, 2]) }).loose();
-const Stored = z.union([Line, Historical]);
-
-type Asked = z.infer<typeof Asked>;
-type Answered = z.infer<typeof Answered>;
-type Withdrawn = z.infer<typeof Withdrawn>;
-type SendFailed = z.infer<typeof SendFailed>;
-type Send = z.infer<typeof Sent> | SendFailed;
-type Ended = z.infer<typeof Ended>;
-type DoneSeen = z.infer<typeof DoneSeen>;
-
-type DecisionState = "answered" | "lapsed" | "open" | "seen" | "withdrawn";
-export type Decision = Asked & {
-  answer?: Answered;
-  /** Life's newest look: the one his answer's look made, a `seen` that settled the card, or a `not_found` that voided his answer (the card is open again). */
-  doneSeen?: DoneSeen;
-  end?: Ended;
-  /** The newest `not sent:` outcome, which voided the answer in `voided` (the card is open again). */
-  notSent?: SendFailed;
-  send?: Send;
-  state: DecisionState;
-  /** Every answer a `not sent:` or `not_found` outcome voided, with that outcome, oldest first: a repeat of any of those taps (its `answerKey`) finds its own here. */
-  voided?: { answer: Answered; doneSeen?: DoneSeen; notSent?: SendFailed }[];
-  withdrawn?: Withdrawn;
-};
-
 /** `d` with its answer voided by the `not sent:` or `not_found` outcome `l`: the card is open again, the answer kept in `voided`. */
 const voidedBy = (d: Omit<Decision, "state">, l: SendFailed | DoneSeen) => {
   const outcome = l.kind === "done-seen" ? { doneSeen: l } : { notSent: l };
@@ -220,7 +113,7 @@ const readAll = () =>
     Stored,
     (last?: Map<string, Omit<Decision, "state">>) => new Map(last),
     (all, l) => {
-      if (l.schemaVersion !== VERSION) {
+      if (l.schemaVersion !== DECISIONS_VERSION) {
         return;
       }
       const d = all.get(l.id);
@@ -321,7 +214,7 @@ function withOutcomeOf(
   const line: Pick<Ended, "at" | "id" | "schemaVersion"> = {
     at: new Date(end).toISOString(),
     id: d.id,
-    schemaVersion: VERSION,
+    schemaVersion: DECISIONS_VERSION,
   };
   // A look that never finished found nothing: the card is open again, as after any `not_found`.
   if (act === "look") {
@@ -419,7 +312,7 @@ export function withdrawDraftsAnsweredInChat(
             at: now.toISOString(),
             id: d.id,
             kind: "withdrawn",
-            schemaVersion: VERSION,
+            schemaVersion: DECISIONS_VERSION,
             why: ANSWERED_IN_CHAT,
           },
         ]
@@ -462,7 +355,7 @@ function withdrawDecision(asker: string, request: object, now: Date) {
       at: now.toISOString(),
       id: d.id,
       kind: "withdrawn",
-      schemaVersion: VERSION,
+      schemaVersion: DECISIONS_VERSION,
       why: w.data.why,
     },
   ]);
@@ -545,7 +438,7 @@ export async function requestDecision(
       deadline: new Date(ask.deadline).toISOString(),
       id,
       kind: "asked",
-      schemaVersion: VERSION,
+      schemaVersion: DECISIONS_VERSION,
     },
   ]);
   return { id };
@@ -600,7 +493,7 @@ export function recordDoneSeen(
     at: now.toISOString(),
     id,
     kind: "done-seen",
-    schemaVersion: VERSION,
+    schemaVersion: DECISIONS_VERSION,
     ...outcome,
   };
   appendJsonl(DECISIONS, DoneSeen, [line]);
@@ -663,7 +556,7 @@ async function endOnAnswer(
     at: clock().toISOString(),
     id: d.id,
     kind: "ended",
-    schemaVersion: VERSION,
+    schemaVersion: DECISIONS_VERSION,
     ...outcome,
   };
   appendJsonl(DECISIONS, Ended, [ended]);
@@ -717,7 +610,7 @@ export async function answerDecision(
     kind: "answered",
     ...(note ? { note } : {}),
     options,
-    schemaVersion: VERSION,
+    schemaVersion: DECISIONS_VERSION,
     via,
   };
   // A look that never finished is only worked out when read: write its `not_found`, so this answer is the one kept.
@@ -755,7 +648,7 @@ export async function answerDecision(
   const sent = {
     at: clock().toISOString(),
     id,
-    schemaVersion: VERSION,
+    schemaVersion: DECISIONS_VERSION,
     ...outcome,
   };
   appendJsonl(DECISIONS, z.union([Sent, SendFailed]), [sent]);
