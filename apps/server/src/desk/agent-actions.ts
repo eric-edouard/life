@@ -237,6 +237,10 @@ function placeRefusalOf(
         .join(" or ")}`;
 }
 
+/** Whether `f` holds a key only a message answers. */
+const hasMessageKeys = (f: EventFilter) =>
+  Boolean(f.person || f.chat || f.from_me);
+
 /** Why `f`'s `repo` cannot fire, or null: one with a quantity, a place or a message's key, one without a channel holding repos, or such a channel named without one. */
 function repoRefusalOf(
   f: EventFilter,
@@ -246,10 +250,7 @@ function repoRefusalOf(
   const withRepo = channels.filter((c) => c.hasRepo).map((c) => c.name);
   const names = withRepo.map((n) => `\`${n}\``).join(" or ");
   const namesOne = named.some((n) => withRepo.includes(n));
-  if (
-    f.repo &&
-    (f.quantity || f.latitude !== undefined || f.person || f.chat || f.from_me)
-  ) {
+  if (f.repo && (f.quantity || f.latitude !== undefined || hasMessageKeys(f))) {
     return "a filter with a `repo` takes no `quantity`, place, `person`, `chat` or `from_me`: no event holds both";
   }
   if (f.repo && !namesOne) {
@@ -278,7 +279,7 @@ function filterRefusalOf(
   if (
     named.length > 0 &&
     named.every((n) => channels.some((c) => c.name === n)) &&
-    (f.person || f.chat || f.from_me)
+    hasMessageKeys(f)
   ) {
     return "`person`, `chat` and `from_me` are a message's: a filter on event channels only takes `text_matches`, `quantity`, a place and a `repo`";
   }

@@ -268,6 +268,16 @@ test("a failed read keeps saying so on the reads that ask nothing, until an ask 
   expect(await read(["acme/app"], T0 + NEXT + 30_000)).toEqual([]);
 });
 
+test("an owner listed again with no repos ends the outage its failed list began", async () => {
+  const g = fakeGh();
+  g.failing.add("empty");
+  const read = githubActivityReader({ run: g.run });
+  await expect(read(["empty/*"], T0)).rejects.toThrow("empty/*");
+  g.failing.clear();
+  expect(await read(["empty/*"], T0 + NEXT)).toEqual([]);
+  expect(await read(["empty/*"], T0 + NEXT + 30_000)).toEqual([]);
+});
+
 test("no more than the cap of repos is asked in any minute, across reads", async () => {
   const g = fakeGh();
   const many = Array.from(

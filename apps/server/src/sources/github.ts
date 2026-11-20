@@ -562,6 +562,7 @@ export function githubActivityReader({
    * events counts as GitHub answering (`answered`): a list alone says nothing of the repos.
    */
   const listInTurn = async (owner: string, p: ReadPass) => {
+    p.calls += 1;
     try {
       const listed = await listOwner(owner, timeoutOf(p));
       owners.set(owner, { at: p.at(), repos: listed, tried: p.at() });
@@ -576,6 +577,7 @@ export function githubActivityReader({
   };
   /** A repo's new activity; a failed ask keeps its last good ETag and waits its turn like an answered one. */
   const askInTurn = async (repo: string, p: ReadPass) => {
+    p.calls += 1;
     const etag = asked.get(repo)?.etag;
     try {
       const a = await askRepo(repo, timeoutOf(p));
@@ -632,7 +634,8 @@ export function githubActivityReader({
       ...ownersNamed.flatMap((o) => owners.get(o)?.repos ?? []),
     ]);
     const read = await askDue([...repos], now, p);
-    if (p.answered > 0) {
+    // An answer, or a read whose every call went through (an owner listed with no repos), ends an outage.
+    if (p.answered > 0 || (p.calls > 0 && p.failed.length === 0)) {
       outage = undefined;
     } else if (p.failed.length > 0) {
       outage = new Error(p.failed.join("; "));
@@ -648,6 +651,8 @@ export function githubActivityReader({
 interface ReadPass {
   answered: number;
   at: () => number;
+  /** How many `gh` calls it made, answered or not. */
+  calls: number;
   failed: string[];
   failure: (error: string) => void;
   left: () => number;
@@ -663,6 +668,7 @@ const readPassOf = (now: number, readMs: number): ReadPass => {
   return {
     answered: 0,
     at: () => now + (performance.now() - started),
+    calls: 0,
     failed,
     failure: (error) => {
       failed.push(error);
