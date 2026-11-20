@@ -12,6 +12,7 @@ import {
 import { readMatterBook, readMatterBookAndRecords } from "../memory/matters";
 import { readHandOutMatters } from "../memory/read-matters";
 import { sourceOf } from "../memory/sources";
+import type { Party } from "../memory/party";
 import { meant, type People, readPeople } from "../memory/who";
 import { dayNow, localDate, localTime } from "../memory/zones";
 import type { EventFilter } from "../records/registered-agent";
@@ -53,7 +54,7 @@ interface ListenLine {
   /** The apps a message line is limited to; none: every app. */
   apps?: string[];
   below?: number;
-  /** Why the line can never fire, as a code the app words: `unknown_person` (the filter's `person`, kept as written, no longer resolves). */
+  /** Why the line can never fire, as a code the app words: `unknown_person` (the filter's `person`, `personAsWritten`, no longer resolves). */
   broken?: "unknown_person";
   /** Whether the line also covers calls (a call has no text and is never his own). */
   calls?: boolean;
@@ -62,7 +63,10 @@ interface ListenLine {
   kind: string;
   /** The place an event channel's line is limited to (a channel whose events hold a point). */
   near?: { latitude: number; longitude: number; radius_m: number };
-  person?: string;
+  /** Who the filter's `person` is now, when it resolves (`partyOf`). */
+  party?: Party;
+  /** The filter's `person` as the agent wrote it, always beside `party`: the words to show when it no longer resolves. */
+  personAsWritten?: string;
   quantity?: string;
   words?: string;
 }
@@ -127,9 +131,8 @@ function messageLineOf(f: EventFilter, c: WakesOnContext): ListenLine[] {
       ...(f.chat ? { chat: chatOf(f.chat, apps, c) } : {}),
       ...(f.from_me ? { fromHim: true as const } : {}),
       kind: "message",
-      ...(f.person
-        ? { person: known ? people.nameOf(`person:${known}`) : f.person }
-        : {}),
+      ...(known ? { party: people.partyOf(`person:${known}`) } : {}),
+      ...(f.person ? { personAsWritten: f.person } : {}),
       ...(f.text_matches ? { words: f.text_matches } : {}),
     },
   ];
