@@ -8,7 +8,7 @@ import {
 } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { clock, DAY, iso, MIN } from "../core/clock";
+import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { answerWithResult } from "../host/answer-result";
 import { agentOf } from "../host/desk-read";
@@ -34,9 +34,9 @@ import {
   register,
   withdrawOpenDecision,
 } from "./agent-actions";
-import { endAgentsOnDoneMatters, readPeopleOnce } from "./desk-clock";
-import { handOutOf } from "./hand-out";
-import { handOutNext } from "./hand-out-tick";
+import { endAgentsOnDoneMatters, readPeopleOnce, wakeDue } from "./desk-clock";
+import { handOutOf, NO_CARD_OUTCOME } from "./hand-out";
+import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import { setup } from "./test-desk";
 
 // The hand-out's step of the tick, over a fake runtime and a made-up book of matters.
@@ -342,4 +342,95 @@ test("Done on an `ends` card closes the matter: off the matters to do, skipped b
     rmSync(CORRECTIONS, { force: true });
     rmSync(DECISIONS, { force: true });
   }
+});
+
+// The give-back: a handed-out agent that asked no card in time is ended.
+
+const handedOut = async (desk: ReturnType<typeof deskOf>) => {
+  const id = (await handOutNext(desk, book().read)) ?? "";
+  await wakeDue(desk);
+  desk.db.run("update turn set begun_at = ? where agent_id = ?", [
+    clock().toISOString(),
+    id,
+  ]);
+  return id;
+};
+const cardOf = (desk: ReturnType<typeof deskOf>, id: string) =>
+  askDecision(desk, id, {
+    deadline: iso(clock().getTime() + DAY),
+    options: [
+      { id: "yes", label: "Yes" },
+      { id: "no", label: "No" },
+    ],
+    question: "Test: send this?",
+    title: "a test",
+  });
+
+test("a card asked in time keeps the agent; none at 2 hours ends it with its outcome and stops its run", async () => {
+  const t = setup();
+  t.desk.runtimes = { claude: t.fake.runtime };
+  const { desk } = t;
+  const asked = await handedOut(desk);
+  cardOf(desk, asked);
+  setSystemTime(new Date(clock().getTime() + 11 * MIN));
+  const silent = await handedOut(desk);
+  setSystemTime(new Date(clock().getTime() + 2 * HOUR));
+  await endAgentsWithoutCard(desk);
+  expect(agentOf(desk.db, asked)?.status).toBe("active");
+  const a = agentOf(desk.db, silent);
+  expect(a?.status).toBe("ended");
+  expect(a?.outcome).toBe(NO_CARD_OUTCOME);
+  expect(t.fake.stopped).toEqual([a?.session ?? ""]);
+  await withdrawOpenDecision(asked, "test over");
+});
+
+test("an agent he started himself is never ended for asking no card", async () => {
+  const desk = deskOf();
+  const id = register(desk, { brief: "Test brief", runtime: "claude" });
+  await wakeDue(desk);
+  desk.db.run("update turn set begun_at = ? where agent_id = ?", [
+    clock().toISOString(),
+    id,
+  ]);
+  setSystemTime(new Date(clock().getTime() + 3 * HOUR));
+  await endAgentsWithoutCard(desk);
+  expect(agentOf(desk.db, id)?.status).toBe("active");
+});
+
+test("a hand-out whose first turn never began is not picked again", async () => {
+  const desk = deskOf();
+  const { read } = book();
+  const first = (await handOutNext(desk, read)) ?? "";
+  desk.db.run(
+    "update agent set status = 'ended', ended_at = ?, why_not_started = 'test' where id = ?",
+    [clock().toISOString(), first]
+  );
+  setSystemTime(new Date(clock().getTime() + 11 * MIN));
+  const second = (await handOutNext(desk, read)) ?? "";
+  const steps = (id: string) =>
+    desk.db
+      .query<{ step: string }, [string]>(
+        "select step from anchor where agent_id = ?"
+      )
+      .all(id)
+      .map((r) => r.step);
+  expect(steps(first)).toEqual(["obs_a1"]);
+  expect(steps(second)).toEqual(["obs_b1"]);
+});
+
+test("the 2 hours run from the first turn's beginning, not the agent's creation", async () => {
+  const desk = deskOf();
+  const id = (await handOutNext(desk, book().read)) ?? "";
+  setSystemTime(new Date(clock().getTime() + HOUR));
+  await wakeDue(desk);
+  desk.db.run("update turn set begun_at = ? where agent_id = ?", [
+    clock().toISOString(),
+    id,
+  ]);
+  setSystemTime(new Date(clock().getTime() + HOUR + 30 * MIN));
+  await endAgentsWithoutCard(desk);
+  expect(agentOf(desk.db, id)?.status).toBe("active");
+  setSystemTime(new Date(clock().getTime() + 31 * MIN));
+  await endAgentsWithoutCard(desk);
+  expect(agentOf(desk.db, id)?.status).toBe("ended");
 });
