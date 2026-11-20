@@ -21,7 +21,6 @@ import {
   requested,
   tickTodoItems,
 } from "./change-todo-item";
-import * as report from "./report";
 
 test("an add repeats an open to-do item with the same title, whatever the case and accents; nothing else is a duplicate", () => {
   const add = { kind: "add", title: "Dîner avec Gaston" } as const;
@@ -272,7 +271,10 @@ test("a tick the list app refused is no tick: the ticks throw with its error, so
     new Error("remctl: no such reminder")
   );
   // The failed change's report to him is not this test's: kept out of the state other tests read.
-  const reported = spyOn(report, "sendReport").mockResolvedValue(null);
+  const reported = spyOn(
+    await import("./report"),
+    "sendReport"
+  ).mockResolvedValue(null);
   try {
     await expect(
       tickTodoItems(["entry_00000000beef"], "It is done.")
