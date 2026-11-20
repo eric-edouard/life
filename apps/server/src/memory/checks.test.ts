@@ -523,7 +523,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
     checksOf({
       ...base,
       heldByAgents: anchored("obs_000000000071", {
-        endedAt: "2026-11-17T01:00:00.000Z",
+        closedAt: "2026-11-17T01:00:00.000Z",
       }),
     })
   ).toHaveLength(1);
@@ -539,7 +539,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
     none({ heldByAgents: anchored("unit_000000000072") }),
     none({
       heldByAgents: anchored("obs_000000000071", {
-        endedAt: "2026-11-17T09:00:00.000Z",
+        closedAt: "2026-11-17T09:00:00.000Z",
       }),
     }),
     // The hand-out is on and it is one of his: the hand-out takes it, no Start.

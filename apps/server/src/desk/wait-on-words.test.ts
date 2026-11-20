@@ -6,7 +6,7 @@ import type { SourceEvent } from "../records/source";
 import { FileEntry } from "../records/unit";
 import { register, setWait } from "./agent-actions";
 import { pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
-import { advance, ahead, chatSource, setup } from "./test-desk";
+import { advance, ahead, chatSource, on, setup } from "./test-desk";
 
 // An agent's wait may test a message's words (`text_matches`): a wake by a sender nobody knows, handing no text.
 
@@ -27,7 +27,7 @@ async function waitingOnWords() {
     runtime: "fake",
   });
   await wakeDue(s.desk);
-  const set = await setWait(s.desk, id, {
+  const set = await setWait(s.desk, on(s.desk, id), {
     events: [FILTER],
     reason: "an invitation",
     until: ahead(HOUR),
@@ -102,7 +102,7 @@ test("a voice note's words wake a wait on words, as every reader sees them", asy
 test("a wait refuses a pattern that does not compile or is over 200 characters", async () => {
   const { desk, id } = await waitingOnWords();
   const refused = ["(", "a".repeat(201)].map((text_matches) =>
-    setWait(desk, id, {
+    setWait(desk, on(desk, id), {
       events: [{ text_matches }],
       reason: "r",
       until: ahead(HOUR),
@@ -115,7 +115,7 @@ test("a wait refuses a pattern that does not compile or is over 200 characters",
 
 test("a stored filter without the key still matches every message of its chat", async () => {
   const { arrive, desk, id, turns } = await waitingOnWords();
-  await setWait(desk, id, {
+  await setWait(desk, on(desk, id), {
     events: [{ channels: ["whatsapp"] }],
     reason: "anything",
     until: ahead(HOUR),

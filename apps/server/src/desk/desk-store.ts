@@ -5,6 +5,7 @@ import { clock } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { DESK_STORE } from "../core/paths";
 import { openWritable } from "../core/sqlite";
+import { isOldShape, NOT_MIGRATED } from "../host/desk-read";
 import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
 import type { AgentWait } from "../records/registered-agent";
@@ -14,7 +15,7 @@ import type { Runtime } from "./runtimes/contract";
 // `clock()` (`agent-wait.ts`); nothing about an agent is kept in memory between ticks. Readers are bounded: active
 // agents, or one agent's rows.
 
-const SCHEMA = `
+export const SCHEMA = `
 create table if not exists agent (
   id text primary key,
   brief text not null,
@@ -26,19 +27,34 @@ create table if not exists agent (
   session text,
   link text,
   status text not null check (status in ('active', 'stopped', 'handed_over', 'ended')),
+  name text,
+  is_personal integer not null default 0,
+  created_at text not null,
+  ended_at text,
+  outcome text,
+  stopped_at text
+);
+create unique index if not exists one_personal_agent on agent (is_personal) where is_personal = 1 and status in ('active', 'stopped');
+create table if not exists assignment (
+  id text primary key,
+  agent_id text not null,
+  opened_at text not null,
+  opened_by text not null check (opened_by in ('owner', 'desk')),
+  said text,
   wait_events text not null default '[]',
   wait_until text,
   wait_reason text,
   wait_is_default integer not null default 0,
-  notes text not null default '',
-  created_at text not null,
-  ended_at text,
+  notes_path text not null,
+  plan_done integer,
+  plan_total integer,
+  plan_now text,
+  closed_at text,
   outcome text,
   why_not_started text,
-  stopped_at text,
-  is_handed_out integer not null default 0,
-  check (status <> 'active' or wait_until is not null)
+  check (closed_at is not null or wait_until is not null)
 );
+create index if not exists assignment_by_agent on assignment (agent_id, closed_at);
 create table if not exists session (
   agent_id text not null,
   runtime text not null,
@@ -47,10 +63,11 @@ create table if not exists session (
   started_at text not null,
   ended_at text,
   why_ended text,
-  context_at_first_call integer
+  context_at_first_call integer,
+  rules_digest text
 );
 create table if not exists event (
-  agent_id text not null,
+  assignment_id text not null,
   event_id text not null,
   name text not null,
   payload text not null,
@@ -58,11 +75,12 @@ create table if not exists event (
   handed integer not null default 0,
   consumed_at text,
   dropped_at text,
-  unique (agent_id, event_id)
+  unique (assignment_id, event_id)
 );
 create table if not exists turn (
   id integer primary key,
   agent_id text not null,
+  assignment_id text not null,
   session text,
   cause text not null,
   started_at text not null,
@@ -77,18 +95,19 @@ create table if not exists turn (
   context_used integer
 );
 create index if not exists turn_by_agent on turn (agent_id, id);
+create index if not exists turn_by_assignment on turn (assignment_id, id);
 create index if not exists turn_by_ended on turn (ended_at);
 create table if not exists cursor (name text primary key, value text not null);
 create table if not exists anchor (
-  agent_id text not null,
+  assignment_id text not null,
   step text not null,
   added_at text not null,
-  primary key (agent_id, step)
+  primary key (assignment_id, step)
 );
 create index if not exists anchor_by_step on anchor (step);
 create index if not exists agent_by_project on agent (project);
 create index if not exists agent_by_status on agent (status, ended_at);
-create index if not exists event_dropped on event (agent_id, dropped_at) where dropped_at is not null;
+create index if not exists event_dropped on event (assignment_id, dropped_at) where dropped_at is not null;
 create table if not exists report_line (
   source text not null,
   day text not null,
@@ -118,59 +137,15 @@ export interface Desk {
   sources?: Messaging[];
 }
 
-/** Adds `column` (`ddl` its type and default) to `table` in a store made before it, and `backfill`s its older rows, in one transaction. */
-function ensureColumn(
-  db: Database,
-  table: string,
-  column: string,
-  ddl: string,
-  backfill?: string
-) {
-  if (
-    db
-      .query(`select 1 from pragma_table_info('${table}') where name = ?`)
-      .get(column)
-  ) {
-    return;
-  }
-  db.transaction(() => {
-    db.run(`alter table ${table} add column ${column} ${ddl}`);
-    if (backfill) {
-      db.run(backfill);
-    }
-  })();
-}
-
-/** Opens (and makes) the desk's store. */
+/** Opens (and makes) the desk's store; one of the old shape is refused, never migrated here. */
 export function openDesk(path = DESK_STORE) {
   mkdirSync(dirname(path), { recursive: true });
   const db = openWritable(path, 5000, { strict: true });
+  if (isOldShape(db)) {
+    db.close();
+    throw new Error(NOT_MIGRATED);
+  }
   db.run(SCHEMA);
-  // Each column a store made before it lacks, with what its older rows hold.
-  // `turn.begun_at`: its old turns were under way, so they begin when they started (null means never began).
-  ensureColumn(
-    db,
-    "turn",
-    "begun_at",
-    "text",
-    "update turn set begun_at = started_at"
-  );
-  // `agent.why_not_started`: an agent never started was its outcome's "not started: " prefix (`glob` keeps case: an
-  // agent's own "Not started: …" stays its outcome).
-  ensureColumn(
-    db,
-    "agent",
-    "why_not_started",
-    "text",
-    "update agent set why_not_started = substr(outcome, 14), outcome = null where outcome glob 'not started: *'"
-  );
-  // `agent.stopped_at`: an agent stopped then has no stop time stored.
-  ensureColumn(db, "agent", "stopped_at", "text");
-  // `agent.is_handed_out`: every older agent was started on his word.
-  ensureColumn(db, "agent", "is_handed_out", "integer not null default 0");
-  // The two context columns (`growthOf`): older sessions and turns have none, so they grow 0.
-  ensureColumn(db, "session", "context_at_first_call", "integer");
-  ensureColumn(db, "turn", "context_used", "integer");
   return db;
 }
 
@@ -182,7 +157,7 @@ export const saveCursor = (db: Database, name: string, value: string | null) =>
         [name, value]
       );
 
-/** Writes an agent's wait: one an agent set, or the default one. */
+/** Writes assignment `id`'s wait: one its agent set, or the default one. */
 export const writeWait = (
   db: Database,
   id: string,
@@ -190,9 +165,40 @@ export const writeWait = (
   isDefault: boolean
 ) =>
   db.run(
-    "update agent set wait_events = ?, wait_until = ?, wait_reason = ?, wait_is_default = ? where id = ?",
+    "update assignment set wait_events = ?, wait_until = ?, wait_reason = ?, wait_is_default = ? where id = ?",
     [JSON.stringify(w.events), w.until, w.reason, isDefault ? 1 : 0, id]
   );
+
+/**
+ * Closes assignment `id` once (`outcome`, or `whyNotStarted` for one whose first turn never began), and ends its agent
+ * when it holds no open assignment after: the one way anything closes, in the caller's transaction. Its agent must be
+ * active, or, for a stopped agent he replaced by a new start (`replaced`), stopped: it then ends `handed_over`.
+ * Whether it closed.
+ */
+export function closeAssignmentRow(
+  db: Database,
+  id: string,
+  end: { outcome: string | null; replaced?: true; whyNotStarted?: string }
+) {
+  const at = clock().toISOString();
+  const closed = db.run(
+    "update assignment set closed_at = ?, outcome = ?, why_not_started = ? where id = ? and closed_at is null and (select status from agent where agent.id = assignment.agent_id) = ?",
+    [
+      at,
+      end.outcome,
+      end.whyNotStarted ?? null,
+      id,
+      end.replaced ? "stopped" : "active",
+    ]
+  ).changes;
+  if (closed > 0) {
+    db.run(
+      "update agent set status = ?, stopped_at = null, ended_at = ?, outcome = ? where id = (select agent_id from assignment where id = ?) and not exists (select 1 from assignment s where s.agent_id = agent.id and s.closed_at is null)",
+      [end.replaced ? "handed_over" : "ended", at, end.outcome, id]
+    );
+  }
+  return closed > 0;
+}
 
 /** Posts a line for the report (`life desk report-line`): one per source per day, a second that day replacing it. */
 export const postReportLine = (
