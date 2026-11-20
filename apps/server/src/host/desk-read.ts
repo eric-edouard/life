@@ -9,6 +9,7 @@ import { openReadOnly } from "../core/sqlite";
 import type { AgentHold } from "../memory/held-matters";
 import type {
   AgentChange,
+  AgentRole,
   AgentStatus,
   EventFilter,
   OpenedBy,
@@ -28,8 +29,8 @@ export interface AgentRow {
   ended_at: string | null;
   folder: string;
   id: string;
-  /** 1 for the Personal agent (one active or stopped at most). */
-  is_personal: number;
+  /** Its standing role, one active or stopped at most of each; null for every other agent. */
+  role: AgentRole | null;
   link: string | null;
   model: string | null;
   /** The name he gave it; null until set. */
@@ -715,7 +716,7 @@ export const tokensSince = (db: Database, since: string) =>
 export function notesOutsideOf(path: string, state: string) {
   const db = openReadOnly(path);
   try {
-    return isOldShape(db)
+    return isBeforeAssignments(db)
       ? []
       : db
           .query<Pick<AssignmentRow, "id" | "notes_path">, []>(
@@ -728,13 +729,22 @@ export function notesOutsideOf(path: string, state: string) {
   }
 }
 
-/** Whether the store at `db` is of the shape before assignments: only the desk helper's store step (`desk/store-step.ts`) changes it. */
-export const isOldShape = (db: Database) =>
+const hasColumn = (db: Database, table: string, column: string) =>
   db
-    .query(
-      "select 1 from pragma_table_info('agent') where name = 'wait_events'"
-    )
-    .get() !== null;
+    .query(`select 1 from pragma_table_info('${table}') where name = ?`)
+    .get(column) !== null;
+
+/** Whether the store predates assignments (`desk/store-step.ts`'s `stepStore` reshapes it). */
+export const isBeforeAssignments = (db: Database) =>
+  hasColumn(db, "agent", "wait_events");
+
+/** Whether the store's agents predate roles (`stepRoles` reshapes it): a store that has agents and no `role`. */
+export const isBeforeRoles = (db: Database) =>
+  hasColumn(db, "agent", "id") && !hasColumn(db, "agent", "role");
+
+/** Whether the store at `db` is of an old shape: only the desk helper's store steps (`desk/store-step.ts`) change it. */
+export const isOldShape = (db: Database) =>
+  isBeforeAssignments(db) || isBeforeRoles(db);
 
 /** Why a store of the old shape is not read: the desk helper's store step has not run on it (its log says why). */
 export const NOT_MIGRATED =

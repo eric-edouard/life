@@ -20,8 +20,8 @@ import {
   isOldShape,
   NOT_MIGRATED,
 } from "../host/desk-read";
-import { openDesk } from "./desk-store";
-import { stepStore } from "./store-step";
+import { openDesk, SCHEMA } from "./desk-store";
+import { stepRoles, stepStore } from "./store-step";
 
 // The desk's store step (agents and matters, PR 1) on a made-up store of the old shape: same agents, each wait, anchor,
 // event, turn and note found on its assignment, the holds unchanged; run twice; refused, rolled back, or skipped.
@@ -267,4 +267,46 @@ test("the step is refused without an agents repo, or with a project agent's home
   const db = new Database(path, { readonly: true });
   expect(isOldShape(db)).toBe(true);
   db.close();
+});
+
+test("a store from before roles is refused by openDesk; the roles step carries the Personal flag into `role` behind its own copy, once, and one agent per role stands", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-step-"));
+  const path = join(dir, "desk.sqlite");
+  const db = new Database(path);
+  db.run(
+    SCHEMA.replace(
+      "role text check (role in ('personal', 'caretaker')),",
+      "is_personal integer not null default 0,"
+    ).replace(
+      "one_agent_per_role on agent (role) where role is not null",
+      "one_personal_agent on agent (is_personal) where is_personal = 1"
+    )
+  );
+  for (const [id, personal] of [
+    ["agt_000000000001", 1],
+    ["agt_000000000002", 0],
+  ] as const) {
+    db.run(
+      "insert into agent (id, brief, runtime, folder, status, is_personal, created_at) values (?, 'Test brief', 'claude', '/tmp', 'active', ?, ?)",
+      [id, personal, T]
+    );
+  }
+  db.close();
+  expect(() => openDesk(path)).toThrow(NOT_MIGRATED);
+  expect(stepRoles(path, dir)).toBe("migrated");
+  expect(stepRoles(path, dir)).toBe("in shape");
+  expect(readdirSync(dir).filter((f) => f.startsWith("desk-before-"))).toEqual([
+    expect.stringMatching(/^desk-before-roles-.*\.sqlite$/),
+  ]);
+  const after = openDesk(path);
+  expect(after.query("select id, role from agent order by id").all()).toEqual([
+    { id: "agt_000000000001", role: "personal" },
+    { id: "agt_000000000002", role: null },
+  ]);
+  expect(() =>
+    after.run("update agent set role = 'personal' where id = ?", [
+      "agt_000000000002",
+    ])
+  ).toThrow("UNIQUE");
+  after.close();
 });

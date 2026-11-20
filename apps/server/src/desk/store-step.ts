@@ -14,14 +14,19 @@ import { isAppState } from "../core/platform";
 import { commitPaths } from "../core/proc";
 import { settings } from "../core/settings";
 import { openWritable } from "../core/sqlite";
-import { agentHomeOf, isOldShape } from "../host/desk-read";
+import {
+  agentHomeOf,
+  isBeforeAssignments,
+  isBeforeRoles,
+} from "../host/desk-read";
 import { copyDb } from "../host/export";
 import { SCHEMA } from "./desk-store";
 
-// The desk's store step of the agents and matters plan (PR 1; AGENTS.md, "A rename or a new field backfills"): an agent
-// becomes an identity and a session, and its subject, wait, notes and end become its one assignment; anchors, turns
-// and events are keyed by it. Only the desk helper runs it, at its start, behind a dated copy; `openDesk` never
-// migrates. Delete it once it has run on his store.
+// The desk's store steps (AGENTS.md, "A rename or a new field backfills"), each with its own check and its own dated
+// copy. `stepStore`, of the agents and matters plan (PR 1): an agent becomes an identity and a session, and its subject,
+// wait, notes and end become its one assignment; anchors, turns and events are keyed by it. `stepRoles`, of the
+// caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). Only the desk helper runs them, at its
+// start, in that order; `openDesk` never migrates. Delete each once it has run on his store.
 
 /** The tables rebuilt: renamed aside, made again in the new shape (`SCHEMA`), filled, then dropped. */
 const REBUILT = ["agent", "session", "event", "turn", "anchor"];
@@ -31,8 +36,8 @@ const asgOf = (agentColumn: string) => `'asg_' || substr(${agentColumn}, 5)`;
 
 /** Each column list of the new rows, from the old tables (`old_<name>`), in one transaction. */
 const COPY = [
-  `insert into agent (id, brief, runtime, folder, project, model, effort, session, link, status, name, is_personal, created_at, ended_at, outcome, stopped_at)
-    select id, brief, runtime, folder, project, model, effort, session, link, status, null, 0, created_at, ended_at, outcome, stopped_at from old_agent`,
+  `insert into agent (id, brief, runtime, folder, project, model, effort, session, link, status, name, role, created_at, ended_at, outcome, stopped_at)
+    select id, brief, runtime, folder, project, model, effort, session, link, status, null, null, created_at, ended_at, outcome, stopped_at from old_agent`,
   // An agent's wait was due at `created_at` with none set (`nextWakeOf`'s fallback): an open assignment holds it as its deadline.
   `insert into assignment (id, agent_id, opened_at, opened_by, said, wait_events, wait_until, wait_reason, wait_is_default, notes_path, closed_at, outcome, why_not_started)
     select ${asgOf("id")}, id, created_at, case when is_handed_out = 1 then 'desk' else 'owner' end, null, wait_events,
@@ -125,24 +130,23 @@ function writeNotesFiles(db: Database, agentsRepo: string) {
  * consistent read of the store, its WAL included: the same rows as `sqlite3 .backup`, as one file, with no sqlite3
  * program (Windows has none), while the desk's lock keeps any other writer out.
  */
-function backUp(path: string) {
+function backUp(path: string, prefix: string) {
   const dir = dirname(path);
   const done = readdirSync(dir).find(
-    (f) => f.startsWith(BACKUP) && f.endsWith(".sqlite")
+    (f) => f.startsWith(prefix) && f.endsWith(".sqlite")
   );
   if (done) {
     return join(dir, done);
   }
   const to = join(
     dir,
-    `${BACKUP}${clock().toISOString().replaceAll(":", "-")}.sqlite`
+    `${prefix}${clock().toISOString().replaceAll(":", "-")}.sqlite`
   );
   rmSync(`${to}.partial`, { force: true });
   copyDb(path, `${to}.partial`);
   renameSync(`${to}.partial`, to);
   return to;
 }
-const BACKUP = "desk-before-assignments-";
 
 /**
  * Reshapes the desk's store at `path` once: nothing for a store already in the new shape, none at all, or a checkout on
@@ -160,14 +164,14 @@ export function stepStore(
   }
   const db = openWritable(path, 5000, { strict: true });
   try {
-    if (!isOldShape(db)) {
+    if (!isBeforeAssignments(db)) {
       return "in shape";
     }
     const refused = refusalOf(db, agentsRepo);
     if (refused || !agentsRepo) {
       throw new Error(`desk store step refused: ${refused}`);
     }
-    backUp(path);
+    backUp(path, "desk-before-assignments-");
     db.transaction(() => {
       addLateColumns(db);
       writeNotesFiles(db, agentsRepo);
@@ -182,6 +186,36 @@ export function stepStore(
         db.run(`drop table old_${t}`);
       }
       // Its indexes, whose names the old tables held until dropped.
+      db.run(SCHEMA);
+    })();
+    return "migrated";
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Gives the store at `path` its agents' roles once: nothing for a store that has them, none at all, or a checkout on the
+ * app's state. Behind its own dated copy, in one transaction: `role` added, the Personal agent's flag carried into it,
+ * the flag and its index dropped, the role index made (`SCHEMA`). What it did.
+ */
+export function stepRoles(path = DESK_STORE, state = LIFE_STATE_DIR) {
+  if (!existsSync(path) || isAppState(state)) {
+    return "skipped";
+  }
+  const db = openWritable(path, 5000, { strict: true });
+  try {
+    if (!isBeforeRoles(db)) {
+      return "in shape";
+    }
+    backUp(path, "desk-before-roles-");
+    db.transaction(() => {
+      db.run("drop index if exists one_personal_agent");
+      db.run(
+        "alter table agent add column role text check (role in ('personal', 'caretaker'))"
+      );
+      db.run("update agent set role = 'personal' where is_personal = 1");
+      db.run("alter table agent drop column is_personal");
       db.run(SCHEMA);
     })();
     return "migrated";

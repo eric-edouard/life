@@ -28,13 +28,13 @@ create table if not exists agent (
   link text,
   status text not null check (status in ('active', 'stopped', 'handed_over', 'ended')),
   name text,
-  is_personal integer not null default 0,
+  role text check (role in ('personal', 'caretaker')),
   created_at text not null,
   ended_at text,
   outcome text,
   stopped_at text
 );
-create unique index if not exists one_personal_agent on agent (is_personal) where is_personal = 1 and status in ('active', 'stopped');
+create unique index if not exists one_agent_per_role on agent (role) where role is not null and status in ('active', 'stopped');
 create table if not exists assignment (
   id text primary key,
   agent_id text not null,
