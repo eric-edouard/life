@@ -81,21 +81,6 @@ export function refContext(
       status: p.status,
     })),
   };
-  // The mail addresses of each person, those of the cards and guesses folded into them too, for the one call that
-  // matches a formal name to a nickname (`emailsShown`).
-  const emails = new Map<string, Set<string>>();
-  const addEmails = (ref: string, handles: string[]) => {
-    const own = handles.filter(isMailAddress);
-    if (own.length > 0) {
-      emails.set(ref, new Set([...(emails.get(ref) ?? []), ...own]));
-    }
-  };
-  for (const p of truth.people) {
-    addEmails(`person:${p.id}`, p.handles.email);
-  }
-  for (const p of outsideDirectory) {
-    addEmails(canon(`person:${p.id}`), p.namesAndHandles);
-  }
   return {
     /** Who is close to him personally as far as the calls may say: none while the `relationships` add-on is off. */
     close: kept,
@@ -105,44 +90,61 @@ export function refContext(
       projects: directory.projects.filter((p) => underway.has(p.ref)),
     },
     directory,
-    emails: new Map([...emails].map(([ref, set]) => [ref, [...set]])),
   };
 }
 
 /**
- * The people whose mail address spells a name the texts write: the letters of an address's local part (digits and
- * punctuation dropped, at least 4 letters) equal one to three words of a text ("malisuwan123@…" and "Mali Suwan"). The
- * model still decides whether they are the same person.
+ * The mail addresses of each person, those of the cards and guesses folded into them too, for the one call that matches
+ * a formal name to a nickname (`emailsShown`, `emailNameOf`).
  */
-export function emailNamedIn(
-  texts: string[],
-  { emails }: Pick<ReturnType<typeof refContext>, "emails">
-) {
-  const spelled = new Set<string>();
-  for (const text of texts) {
-    const words = nameKey(text).split(" ");
-    for (const i of words.keys()) {
-      for (let n = 1; n <= 3 && i + n <= words.length; n += 1) {
-        spelled.add(words.slice(i, i + n).join(""));
+export function emailsOf({
+  canon,
+  outsideDirectory,
+  truth,
+}: Pick<
+  Parameters<typeof refContext>[0],
+  "canon" | "outsideDirectory" | "truth"
+>) {
+  const emails = new Map<string, Set<string>>();
+  const add = (ref: string, handles: string[]) => {
+    const own = handles.filter(isMailAddress);
+    if (own.length > 0) {
+      emails.set(ref, new Set([...(emails.get(ref) ?? []), ...own]));
+    }
+  };
+  for (const p of truth.people) {
+    add(`person:${p.id}`, p.handles.email);
+  }
+  for (const p of outsideDirectory) {
+    add(canon(`person:${p.id}`), p.namesAndHandles);
+  }
+  return new Map([...emails].map(([ref, set]) => [ref, [...set]]));
+}
+
+/**
+ * A resolver for `namedIn` to fall back to: the person whose mail address spells the name a text writes (the letters of
+ * the local part, digits and punctuation dropped, at least 4: "malisuwan123@…" and "Mali Suwan"). The model still
+ * decides whether they are the same person.
+ * ponytail: a generic local part (contact@, info@) can match a common word; add a stoplist if it brings noise.
+ */
+export function emailNameOf(emails: Map<string, string[]>) {
+  const byLetters = new Map<string, string>();
+  for (const [ref, addresses] of emails) {
+    for (const a of addresses) {
+      const letters = nameKey(a.split("@")[0] ?? "").replace(NOT_LETTERS, "");
+      if (letters.length >= MIN_LETTERS && !byLetters.has(letters)) {
+        byLetters.set(letters, ref);
       }
     }
   }
-  return new Set(
-    [...emails].flatMap(([ref, addresses]) =>
-      addresses.some((a) => {
-        const letters = nameKey(a.split("@")[0] ?? "").replace(NOT_LETTERS, "");
-        return letters.length >= MIN_LETTERS && spelled.has(letters);
-      })
-        ? [ref]
-        : []
-    )
-  );
+  return (name: string) =>
+    byLetters.get(nameKey(name).replaceAll(" ", "")) ?? null;
 }
 
 /** People of a call's context or input with their addresses when they have any: shown by the episodes call alone. */
 export const emailsShown = <T extends { ref: string }>(
   people: T[],
-  { emails }: Pick<ReturnType<typeof refContext>, "emails">
+  emails: Map<string, string[]>
 ) =>
   people.map((p) => {
     const own = emails.get(p.ref) ?? [];

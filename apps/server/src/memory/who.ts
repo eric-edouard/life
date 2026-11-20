@@ -5,7 +5,7 @@ import {
   INFERRED_PREFIX,
   INFERRED_USE_AT,
   type InferredPerson,
-  isSettled,
+  isSettledGuess,
   type Observation,
   peopleOutsideDirectoryOf,
   type Unresolved,
@@ -113,7 +113,7 @@ const handleIndex = (people: Person[]): Map<string, string> =>
 
 /**
  * The test for "this person ref (as folded today) is only a guess": an inferred person his word has not named, whose
- * latest record is not settled (`isSettled`). `this-is` or `same-person` to it confirms it. A `not-this-person` refuses one name or handle of it, not the person: one that
+ * latest record is not settled (`isSettledGuess`). `this-is` or `same-person` to it confirms it. A `not-this-person` refuses one name or handle of it, not the person: one that
  * holds another handle is still a guess. The one rule (`isGuess` on `readPeople`, so `guessedOf` and the person checks
  * agree).
  */
@@ -125,7 +125,7 @@ export function guessTestOf(
   const sure = new Map(
     inferred
       .filter((r) => r.confidence >= INFERRED_USE_AT)
-      .map((r) => [`person:${r.id}`, isSettled(r)])
+      .map((r) => [`person:${r.id}`, isSettledGuess(r)])
   );
   const said = new Set<string>();
   for (const c of corrections) {

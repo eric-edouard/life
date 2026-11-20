@@ -4,13 +4,13 @@ import type { MadeBy } from "../records/fields";
 import {
   INFERRED_PREFIX,
   type InferredPerson,
-  isSettled,
+  isSettledGuess,
 } from "../records/observation";
 import { slugOf } from "./page-format";
 import { locate } from "./quote-check";
 import { kindOf } from "./sources";
 import { areaOf } from "./tags";
-import { type Built, nameKey, UNKNOWN } from "./units";
+import { type Built, holdsName, UNKNOWN } from "./units";
 import { keysOf } from "./who";
 
 // Who the people not in the directory are: what the episodes call is asked about a day, and its answer checked (every quote
@@ -29,7 +29,7 @@ const Said = z.object({
     .array(z.object({ quote: z.string().min(1), unit: z.string() }))
     .default([]),
   isOrganization: z.boolean().default(false),
-  key: z.string(),
+  key: z.string().min(1),
   name: z.string().min(1).max(80),
   otherForms: z.array(z.string().min(1)).default([]),
   person: z.string().nullable().default(null),
@@ -49,7 +49,7 @@ export function inferredId(name: string, key: string, taken: Set<string>) {
  * Who the episodes call says the day's names and handles are, checked, one record per person with every form of the name
  * it wrote (`key`, then `otherForms`). An entry for a name or handle we asked about (`unknown`: the units it appears in)
  * needs a quote found in one of those units; one for a name the lines write that we did not ask about (volunteered) needs
- * a quote in one of the day's units that holds the name, and is kept only when it is linked or settled (`isSettled`).
+ * a quote in one of the day's units that holds the name, and is kept only when it is linked or settled (`isSettledGuess`).
  * An area is from the list and a project one we know, else none; `person` is any ref of the call's map (`people`), never
  * the key's own earlier reading (`resolve`). A person is recorded however unsure the model is; how far to trust it is
  * the `confidence` (`foldsOf` uses it from INFERRED_USE_AT).
@@ -85,9 +85,7 @@ export function checkPeople(
     const evidence = r.data.evidence.flatMap((e) => {
       const b = (seen ?? ctx.units).find((x) => x.unit.id === e.unit);
       const hit = b && locate(e.quote, [b.text]);
-      return hit &&
-        b &&
-        (seen || nameKey(hit.verbatim).includes(nameKey(r.data.key)))
+      return hit && b && (seen || holdsName(hit.verbatim, [r.data.key]))
         ? [{ quote: hit.verbatim, unit: b.unit.id }]
         : [];
     });
@@ -97,7 +95,10 @@ export function checkPeople(
       r.data.person !== ctx.resolve(r.data.key)
         ? r.data.person
         : null;
-    const record = {
+    if (!(evidence.length > 0 && (seen || person || isSettledGuess(r.data)))) {
+      continue;
+    }
+    records.push({
       area: areaOf(r.data.area, ctx.areas),
       at: ctx.at,
       confidence: r.data.confidence,
@@ -113,11 +114,8 @@ export function checkPeople(
           ? r.data.project
           : null,
       relation: r.data.relation,
-      schemaVersion: 1 as const,
-    };
-    if (evidence.length > 0 && (seen || person || isSettled(record))) {
-      records.push(record);
-    }
+      schemaVersion: 1,
+    });
   }
   return records;
 }
@@ -135,11 +133,16 @@ export const earlierGuessOf = (ref: string | null) =>
   ref?.startsWith(`person:${INFERRED_PREFIX}`) ? ref : undefined;
 
 /**
- * The older guesses whose evidence is in these units and that no v9 call judged yet: each one's first name or handle with
- * the units, to be asked again with the day's `unknown`. A guess made for a name the text writes (not a sender) has
- * no other way back to a call.
+ * What `unknownIn` no longer asks and a v9 call should still judge: the older guesses (no `isOrganization`, no later
+ * judged record for the name) whose evidence is in these units, each one's first name or handle with those units. A
+ * guess made for a name the text writes, not a sender, has no other way back to a call. A name that now reads as
+ * someone who is not a guess (`resolve`) is left out.
  */
-export function oldGuessesIn(units: Built[], inferred: InferredPerson[]) {
+export function oldGuessesIn(
+  units: Built[],
+  inferred: InferredPerson[],
+  resolve: (nameOrHandle: string) => string | null
+) {
   const judged = judgedKeysOf(inferred);
   const out = new Map<string, Built[]>();
   for (const p of inferred) {
@@ -147,11 +150,13 @@ export function oldGuessesIn(units: Built[], inferred: InferredPerson[]) {
     const seen = units.filter((b) =>
       p.evidence.some((e) => e.unit === b.unit.id)
     );
+    const now = key ? resolve(key) : null;
     if (
       key &&
       p.isOrganization === undefined &&
       seen.length > 0 &&
-      !keysOf(key).some((k) => judged.has(k))
+      !keysOf(key).some((k) => judged.has(k)) &&
+      (!now || earlierGuessOf(now))
     ) {
       out.set(key, [...new Set([...(out.get(key) ?? []), ...seen])]);
     }

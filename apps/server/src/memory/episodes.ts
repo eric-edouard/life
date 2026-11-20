@@ -40,7 +40,8 @@ import {
   verdictOf,
 } from "./memory-files";
 import {
-  emailNamedIn,
+  emailNameOf,
+  emailsOf,
   emailsShown,
   involvedOf,
   refContext,
@@ -486,6 +487,8 @@ export async function episodes(evidence: Evidence) {
     personallyClose(levels),
     contextPeopleBy(levels)
   );
+  const emails = emailsOf({ canon, outsideDirectory, truth });
+  const emailNamed = emailNameOf(emails);
   const inDirectory = refs.directory.people.map((p) => ({ ...p, id: p.ref }));
   const taken = new Set(inferred.map((p) => p.id));
   const answered = answeredBy(resolve, inferred);
@@ -538,10 +541,11 @@ export async function episodes(evidence: Evidence) {
           (s) => answered(s) || named.some((p) => p.namesAndHandles.includes(s))
         );
         // Older guesses on this day's units, judged again by this prompt.
-        for (const [key, seen] of oldGuessesIn(spoken, [
-          ...inferred,
-          ...named,
-        ])) {
+        for (const [key, seen] of oldGuessesIn(
+          spoken,
+          [...inferred, ...named],
+          resolve
+        )) {
           if (!unknown.has(key)) {
             unknown.set(key, seen);
           }
@@ -559,7 +563,7 @@ export async function episodes(evidence: Evidence) {
             ...units.flatMap(({ unit }) => unitNow(unit, refOf).people),
             ...namedIn(
               [...texts.values(), ...units.map((b) => b.unit.title)],
-              resolve,
+              (s) => resolve(s) ?? emailNamed(s),
               refs.directory.projects
             ),
             ...earlier.flatMap((m) => m.people.map((p) => p.ref)),
@@ -567,16 +571,12 @@ export async function episodes(evidence: Evidence) {
             ...[...unknown.keys()].flatMap(
               (k) => earlierGuessOf(resolve(k)) ?? []
             ),
-            ...emailNamedIn(
-              [...texts.values(), ...units.map((b) => b.unit.title)],
-              refs
-            ),
           ])
         );
         const json = await step.ask({
           context: {
             ...refs.context,
-            people: emailsShown(refs.context.people, refs),
+            people: emailsShown(refs.context.people, emails),
             topics: topTopics(verdicts.values()),
           },
           dir: join(step.dir, day),
@@ -607,7 +607,7 @@ export async function episodes(evidence: Evidence) {
             ),
             involved: {
               ...involved,
-              people: emailsShown(involved.people, refs),
+              people: emailsShown(involved.people, emails),
             },
             stays: stays
               .toSorted((a, b) => a.arrivedAt.localeCompare(b.arrivedAt))
@@ -662,7 +662,7 @@ export async function episodes(evidence: Evidence) {
           projects,
           resolve,
           taken,
-          units: shown,
+          units: spoken,
           unknown,
         });
         return { ...reading, sent: texts.size, who };

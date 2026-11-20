@@ -36,7 +36,7 @@ export const INFERRED_USE_AT = 0.5;
 export const INFERRED_SURE_AT = 0.85;
 
 /** Whether a guess is settled and never asked about: Life is sure of it, or it is an organization (his OK of 20 Nov 2026). */
-export const isSettled = (
+export const isSettledGuess = (
   r: Pick<InferredPerson, "confidence" | "isOrganization">
 ) => r.confidence >= INFERRED_SURE_AT || r.isOrganization === true;
 
@@ -303,7 +303,7 @@ export const InferredPerson = z
       .array(z.object({ quote: z.string().min(1), unit: z.string() }).strict())
       .min(1),
     id: z.string().regex(/^inf_[a-z0-9-]+$/),
-    /** A business, a bot or a notification sender (never asked about, `isSettled`); absent on guesses made before v9, asked once more (`answeredBy`). */
+    /** A business, a bot or a notification sender (never asked about, `isSettledGuess`); absent on guesses made before v9, asked once more (`answeredBy`). */
     isOrganization: z.boolean().optional(),
     madeBy: MadeBy,
     /** A name when the messages give one, else a short description ("the plumber changing the shop sink"). */

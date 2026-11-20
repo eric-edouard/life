@@ -6,7 +6,8 @@ import {
 } from "../records/observation";
 import { Person, Project } from "../records/truth";
 import {
-  emailNamedIn,
+  emailNameOf,
+  emailsOf,
   emailsShown,
   involvedOf,
   refContext,
@@ -57,39 +58,45 @@ test("a call's context shows the people close now and the projects underway; the
   ]);
 });
 
+const directoryOf = (
+  outsideDirectory: ReturnType<typeof peopleOutsideDirectoryOf>,
+  people: ReturnType<typeof Person.parse>[],
+  canon = (ref: string) => ref
+) => ({
+  canon,
+  outsideDirectory,
+  truth: {
+    areas: [],
+    chats: [],
+    me: { text: "me" },
+    people,
+    projects: [],
+  },
+});
+
 test("addresses come only to the episodes call: with a person's emails, and none for one without", () => {
-  const refs = refContext(
-    {
-      canon: (ref) => ref,
-      outsideDirectory: peopleOutsideDirectoryOf(
-        [
-          {
-            handles: ["+33600000009", "dee@mail.example"],
-            id: "con_dee",
-            name: "Dee",
-          },
-        ],
-        []
-      ),
-      truth: {
-        areas: [],
-        chats: [],
-        me: { text: "me" },
-        people: [
-          Person.parse({
-            handles: { email: ["ann@mail.example"] },
-            id: "ann",
-            name: "Ann",
-          }),
-          Person.parse({ id: "bob", name: "Bob" }),
-        ],
-        projects: [],
-      },
-    },
-    new Set(),
-    new Set()
+  const inputs = directoryOf(
+    peopleOutsideDirectoryOf(
+      [
+        {
+          handles: ["+33600000009", "dee@mail.example"],
+          id: "con_dee",
+          name: "Dee",
+        },
+      ],
+      []
+    ),
+    [
+      Person.parse({
+        handles: { email: ["ann@mail.example"] },
+        id: "ann",
+        name: "Ann",
+      }),
+      Person.parse({ id: "bob", name: "Bob" }),
+    ]
   );
-  const shown = emailsShown(refs.directory.people, refs);
+  const refs = refContext(inputs, new Set(), new Set());
+  const shown = emailsShown(refs.directory.people, emailsOf(inputs));
   expect(shown.map((p) => [p.ref, "emails" in p ? p.emails : null])).toEqual([
     ["person:ann", ["ann@mail.example"]],
     ["person:bob", null],
@@ -100,11 +107,10 @@ test("addresses come only to the episodes call: with a person's emails, and none
   expect(JSON.stringify(refs.directory)).not.toContain("@");
 });
 
-test("a Matrix id is no address; a card folded into a person gives them its addresses; an address spelling a name the day writes brings the person in", () => {
-  const refs = refContext(
-    {
-      canon: (ref) => (ref === "person:con_bee" ? "person:ann" : ref),
-      outsideDirectory: peopleOutsideDirectoryOf(
+test("a Matrix id is no address; a card folded into a person gives them its addresses; an address spelling a name resolves it", () => {
+  const emails = emailsOf(
+    directoryOf(
+      peopleOutsideDirectoryOf(
         [
           {
             handles: ["annmarie123@mail.example", "+33600000009"],
@@ -122,29 +128,19 @@ test("a Matrix id is no address; a card folded into a person gives them its addr
           } as InferredPerson,
         ]
       ),
-      truth: {
-        areas: [],
-        chats: [],
-        me: { text: "me" },
-        people: [Person.parse({ id: "ann", name: "Ann" })],
-        projects: [],
-      },
-    },
-    new Set(),
-    new Set()
+      [Person.parse({ id: "ann", name: "Ann" })],
+      (ref) => (ref === "person:con_bee" ? "person:ann" : ref)
+    )
   );
-  expect(refs.emails.get("person:ann")).toEqual(["annmarie123@mail.example"]);
-  expect(refs.emails.has("person:inf_line")).toBe(false);
-  expect([...emailNamedIn(["Dear Mrs Anne Marie,"], refs)]).toEqual([]);
-  expect([...emailNamedIn(["Dear Mrs Ann-Marie, thanks"], refs)]).toEqual([
-    "person:ann",
-  ]);
+  expect(emails.get("person:ann")).toEqual(["annmarie123@mail.example"]);
+  expect(emails.has("person:inf_line")).toBe(false);
+  const named = emailNameOf(emails);
+  expect(named("Anne Marie")).toBeNull();
+  expect(named("Ann-Marie")).toBe("person:ann");
   // Fewer than 4 letters is no name.
   expect(
-    emailNamedIn(["Jo"], {
-      emails: new Map([["person:jo", ["jo1@x.example"]]]),
-    }).size
-  ).toBe(0);
+    emailNameOf(new Map([["person:jo", ["jo1@x.example"]]]))("Jo")
+  ).toBeNull();
 });
 
 test("the directory shows each person once: an inferred id folded into another is left out", () => {

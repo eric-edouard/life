@@ -260,8 +260,9 @@ test("an older guess whose evidence is in the day's units is asked again with th
       isOrganization,
       namesAndHandles: [key],
     }) as InferredPerson;
+  let resolve = (_: string): string | null => null;
   const asked = (inferred: InferredPerson[]) =>
-    [...oldGuessesIn([seen, other], inferred)].map(([k, b]) => [
+    [...oldGuessesIn([seen, other], inferred, resolve)].map(([k, b]) => [
       k,
       b.map((x) => x.unit.id),
     ]);
@@ -276,10 +277,46 @@ test("an older guess whose evidence is in the day's units is asked again with th
     ])
   ).toEqual([]);
   expect(asked([old("inf_c", "Eve", "unit_9")])).toEqual([]);
+  // A name that now reads as someone who is not a guess is not asked; one that reads as a guess is.
+  resolve = () => "person:claire";
+  expect(asked([old("inf_a", "Miss Dana", "unit_1")])).toEqual([]);
+  resolve = () => "person:inf_a";
+  expect(asked([old("inf_a", "Miss Dana", "unit_1")])).toHaveLength(1);
 });
 
 test("the earlier guess a key reads as is shown to the call; truth/ and nothing are not", () => {
   expect(earlierGuessOf("person:inf_kit")).toBe("person:inf_kit");
   expect(earlierGuessOf("person:claire")).toBeUndefined();
   expect(earlierGuessOf(null)).toBeUndefined();
+});
+
+test('a key is never empty, and a volunteered name is found as a whole word: "Al" is not in "also"', () => {
+  const seen = chat("unit_1", "+33600000001", ["Ok ?", "also Al Ploum comes"]);
+  const ctx = {
+    areas: new Map<string, string>(),
+    at: "2026-10-14T00:00:00.000Z",
+    madeBy: {
+      engine: "codex" as const,
+      model: "m",
+      prompt: "memory-episodes.v9",
+      run: "r",
+    },
+    people: new Set(["person:claire"]),
+    projects: new Set<string>(),
+    resolve: () => null,
+    taken: new Set<string>(),
+    units: [seen],
+    unknown: new Map<string, Built[]>(),
+  };
+  const say = (key: string, quote: string) => ({
+    confidence: 0.9,
+    evidence: [{ quote, unit: "unit_1" }],
+    key,
+    name: "Al",
+    person: "person:claire",
+    relation: "someone",
+  });
+  expect(checkPeople([say("", "also Al")], ctx)).toEqual([]);
+  expect(checkPeople([say("Al", "also")], ctx)).toEqual([]);
+  expect(checkPeople([say("Al", "also Al Ploum")], ctx)).toHaveLength(1);
 });
