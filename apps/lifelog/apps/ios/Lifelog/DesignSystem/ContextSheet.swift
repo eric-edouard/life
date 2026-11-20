@@ -190,7 +190,11 @@ struct ContextSheet: View {
             VStack(alignment: .leading, spacing: 0) {
                 SheetHeader(title: title) { dismiss() }
                     .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headHeight = $0 }
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.size.height
+                    } action: { height in
+                        headHeight = height.rounded(.up)
+                    }
                 ScrollView {
                     VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
                         ContextView(markdown: markdown, lifeLinks: lifeLinks) { target in
@@ -202,15 +206,23 @@ struct ContextSheet: View {
                         }
                     }
                     .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xl).readingWidth()
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { bodyHeight = $0 }
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.size.height
+                    } action: { height in
+                        bodyHeight = height.rounded(.up)
+                    }
                 }
                 .scrollBounceBehavior(.basedOnSize)
             }
             .frame(maxHeight: .infinity, alignment: .top)
             .background(Palette.sheet)
             // At medium the sheet's height is medium's: a context that fits under it opens at its own height.
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
-                if detent == .medium, bodyHeight > 0, fit < height { detent = .height(fit) }
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.height
+            } action: { height in
+                if detent == .medium, bodyHeight > 0, fit < height {
+                    detent = .height(fit)
+                }
             }
             .navigationDestination(for: LifeLinkTarget.self) { target in
                 LifeLinkPage(target: target) { dismiss() }

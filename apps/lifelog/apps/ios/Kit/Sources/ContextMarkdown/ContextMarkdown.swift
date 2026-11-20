@@ -56,7 +56,9 @@ public struct Inline: Equatable, Sendable {
     public var isCode = false
     public var link: ContextLink?
 
-    public init(_ text: String, isBold: Bool = false, isItalic: Bool = false, isCode: Bool = false, link: ContextLink? = nil) {
+    public init(
+        _ text: String, isBold: Bool = false, isItalic: Bool = false, isCode: Bool = false, link: ContextLink? = nil
+    ) {
         (self.text, self.isBold, self.isItalic, self.isCode, self.link) = (text, isBold, isItalic, isCode, link)
     }
 }
@@ -148,10 +150,15 @@ public enum ContextMarkdown {
                 paragraphs[paragraphs.count - 1] = Paragraph(parts.dropLast(2))
             }
         }
-        let text = paragraphs.enumerated().flatMap { index, block in
-            (index > 0 ? [Inline("\n")] : []) + ((block as? InlineContainer).map(inlines) ?? [Inline(block.format())])
+        return (lines(paragraphs), source)
+    }
+
+    /// Blocks as one run of lines: a paragraph's runs, any other block as its Markdown text.
+    private static func lines(_ blocks: [any Markup]) -> [Inline] {
+        blocks.enumerated().flatMap { index, block in
+            (index > 0 ? [Inline("\n")] : [])
+                + ((block as? InlineContainer).map(inlines) ?? [Inline(block.format())])
         }
-        return (text, source)
     }
 
     /// A paragraph that is one `*…*` and nothing else: a quote's source.
@@ -168,9 +175,7 @@ public enum ContextMarkdown {
         for item in list.listItems {
             let marker = number.map { "\($0)." } ?? "•"
             number = number.map { $0 + 1 }
-            let words = item.children.filter { !($0 is ListItemContainer) }.enumerated().flatMap { index, block in
-                (index > 0 ? [Inline("\n")] : []) + ((block as? InlineContainer).map(inlines) ?? [Inline(block.format())])
-            }
+            let words = lines(item.children.filter { !($0 is ListItemContainer) })
             let nested = item.children.compactMap { $0 as? ListItemContainer }.flatMap { items($0, isNested: true) }
             if isNested {
                 found.append(ContextListItem(marker: marker, text: words, items: []))
@@ -207,8 +212,10 @@ public enum ContextMarkdown {
             var inner = style
             switch child {
             case let text as Markdown.Text: return [run(text.string, style)]
-            case let code as InlineCode:
-                return [Inline(code.code, isBold: style.isBold, isItalic: style.isItalic, isCode: true, link: style.link)]
+            case let inline as InlineCode:
+                var code = run(inline.code, style)
+                code.isCode = true
+                return [code]
             case is SoftBreak: return [run(" ", style)]
             case is LineBreak: return [run("\n", style)]
             case let html as InlineHTML: return [run(html.rawHTML, style)]
