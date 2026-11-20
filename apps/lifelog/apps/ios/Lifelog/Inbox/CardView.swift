@@ -52,23 +52,16 @@ enum AskSheet: Hashable {
 extension EnvironmentValues {
     /// The namespace the asks' sheets zoom in, set by their host (`askSheets`); nil where no host presents them.
     @Entry var askSheetZoom: Namespace.ID?
-    /// Opens his "Wrong…" sheet on a card, set by the asks' host (`askSheets`); nil where none presents it.
-    @Entry var opensWrongSheet: ((Check) -> Void)?
 }
 
 private struct AskSheetsHost: ViewModifier {
     @Binding var notes: CardNotes
     let leave: (Taken) -> Void
-    @Environment(LifeStore.self) private var life
     @Namespace private var zoom
 
     func body(content: Content) -> some View {
         content
             .environment(\.askSheetZoom, zoom)
-            .environment(\.opensWrongSheet) { [life, notes = $notes] check in
-                life.openComplaint(on: check)
-                notes.wrappedValue.wrong = check
-            }
             .sheet(item: $notes.wrong) { check in WrongSheet(ref: check.ref).sheetStack() }
             .sheet(item: $notes.creating) { creating in
                 CreateSheet(check: creating.check, name: creating.name, isOrganization: creating.isOrganization) {
@@ -187,6 +180,10 @@ struct CardView: View {
                                 isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
                                 answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
                                 create: { notes.creating = creating(check, $0, asOrganization: $1) },
+                                wrong: {
+                                    life.openComplaint(on: check)
+                                    notes.wrong = check
+                                },
                                 dropProject: dropProject(of: check),
                                 page: checks.count > 1 ? (index, checks.count) : nil
                             )

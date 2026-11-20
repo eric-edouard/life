@@ -29,11 +29,12 @@ struct CheckActions: View {
     let sameAs: () -> Void
     /// The create sheet, with the name he would create, set to an organization or not.
     let create: (String, _ asOrganization: Bool) -> Void
+    /// "Wrong…" on a card of Life's: its sheet.
+    let wrong: () -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(LifeStore.self) private var life
     @Environment(\.askSheetZoom) private var sheetZoom
-    @Environment(\.opensWrongSheet) private var opensWrongSheet
 
     private var words: String { input.words.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -70,7 +71,7 @@ struct CheckActions: View {
                     // Seen: Life ends the card; a stale read of it offers nothing to tap.
                     options
                 }
-                wrong
+                wrongButton
             }
         }
         .motion(Motion.standard, value: check.doneSeen?.state)
@@ -78,11 +79,9 @@ struct CheckActions: View {
     }
 
     /// On Life's own asks only, the escape hatch: a compact quiet button, always the last thing at the bottom right.
-    @ViewBuilder private var wrong: some View {
-        if check.misread != nil, let opensWrongSheet {
-            Button {
-                opensWrongSheet(check)
-            } label: {
+    @ViewBuilder private var wrongButton: some View {
+        if check.misread != nil {
+            Button(action: wrong) {
                 Label("Wrong…", systemImage: "exclamationmark.bubble").lineLimit(1)
             }
             .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()

@@ -19,6 +19,8 @@ struct CheckCard: View {
     let sameAs: () -> Void
     /// "Create <name>" or "Organization": the create sheet, with the name he would create, set to an organization or not.
     let create: (String, _ asOrganization: Bool) -> Void
+    /// "Wrong…" on a card of Life's: its sheet, hosted with the asks' sheets.
+    let wrong: () -> Void
     /// "I dropped this whole project", the one ready line over his own words when the card's matter has a project
     /// underway: parks it.
     var dropProject: (() -> Void)?
@@ -216,7 +218,7 @@ struct CheckCard: View {
         CheckActions(
             check: check, input: $input, isBusy: isBusy,
             links: isRowShown && isLinkBesideMatter ? Array(askLinks.dropFirst()) : askLinks, answer: answer,
-            sameAs: sameAs, create: create
+            sameAs: sameAs, create: create, wrong: wrong
         )
         .padding(.bottom, Metrics.Spacing.xs)
     }
