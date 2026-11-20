@@ -274,6 +274,7 @@ test("one option of the check's own; an unknown option or a second option is ref
 test("a decision goes to answerDecision", async () => {
   rmSync(DECISIONS, { force: true });
   const { id } = await requestDecision("planner", {
+    context: "A made-up reason to ask.",
     deadline: new Date(Date.now() + DAY).toISOString(),
     options: [
       { id: "yes", label: "Book Kit" },

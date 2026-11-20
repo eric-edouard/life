@@ -34,6 +34,7 @@ const card = (asker = "planner", agent?: string) =>
     asker,
     {
       ...(agent ? { agent } : {}),
+      context: "A made-up reason to ask.",
       deadline: new Date(Date.now() + 2 * DAY).toISOString(),
       draft,
       onSilence: "wait",

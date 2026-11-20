@@ -64,6 +64,7 @@ async function call(id: string, key: string, name: string, args: object) {
 }
 
 const ask = (question: string) => ({
+  context: "A made-up reason to ask.",
   deadline: ahead(DAY),
   options: [
     { id: "yes", label: "Yes" },
