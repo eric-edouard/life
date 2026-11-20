@@ -20,7 +20,12 @@ struct PersonPage: View {
             loading: { PagePlaceholder() },
             empty: { EmptyView() },
             content: { now in
-                if now.row.party.kind == .organization { OrgPage(now: now) } else { page(now) }
+                if now.row.party.kind == .organization {
+                    OrgPage(
+                        now: now, reach: now.withEveryAccount(now.moreReach.map { life.reachPages(from: $0) }).reach)
+                } else {
+                    page(now)
+                }
             }
         )
         .background(Palette.bg)

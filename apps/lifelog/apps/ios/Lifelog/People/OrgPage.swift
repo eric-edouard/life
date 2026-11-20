@@ -5,6 +5,8 @@ import SwiftUI
 /// people he knows there (now first, then "Before", quieter), its open matters, its last exchange, and its domains.
 struct OrgPage: View {
     let now: PersonNow
+    /// Every account, the `reach` part's pages read (`PersonNow.withEveryAccount`).
+    let reach: [PersonNow.Reach]
 
     var body: some View {
         let (present, before) = now.membersNowThenBefore
@@ -18,7 +20,7 @@ struct OrgPage: View {
                             Label(line, systemImage: "building.2").font(.body15).foregroundStyle(Palette.muted)
                         }
                     }
-                    if !now.reach.isEmpty { ReachTiles(reach: now.reach) }
+                    if !reach.isEmpty { ReachTiles(reach: reach) }
                 }
                 if !now.members.isEmpty {
                     VStack(alignment: .leading, spacing: 0) {
