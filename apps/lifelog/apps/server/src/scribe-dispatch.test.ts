@@ -9,7 +9,7 @@ import { eq, sql } from "drizzle-orm";
 import { memoryAudioStore } from "./audio-store";
 import { jobBench } from "./job-bench";
 import { getJob } from "./jobs";
-import { addQuietRange } from "./quiet-ranges";
+import { addQuietRange, closeQuietRange, openQuietRange } from "./quiet-ranges";
 import { setSwitches } from "./switches";
 import { providerTranscript } from "./testing";
 
@@ -152,6 +152,48 @@ test("a block's routed turns wait while a Scribe job holds the slot, and go once
     maybeBilled: false,
     state: "completed",
   });
+});
+
+test("a dictation that opens while a block waits for its paid slot: nothing of it is sent, through the close and a retry", async () => {
+  const app = appWith(oneSlot);
+  setSwitches(env.db, { transcriber: "scribe" });
+  const atScribe = await admitFragment(app, audio(60), 100);
+  await app.s.worker.work();
+  setSwitches(env.db, { transcriber: "speech" });
+  inThaiZone();
+  speech.heard = THAI;
+  fake.respond = thaiAnswer;
+  // Recorded from T0 to T0 + 30 s; its Thai turn waits for the slot.
+  const jobId = await admitFragment(app, speechAudio(30), 1);
+  const working = app.s.worker.work();
+  expect(await until(() => speech.blocks === 1)).toBe(true);
+  await Bun.sleep(20);
+  expect(uploads()).toHaveLength(1);
+
+  // Meanwhile the owner dictates on the iPhone: the server opens the range over its last second.
+  const id = randomUUID();
+  openQuietRange(
+    env.db,
+    {
+      id,
+      phoneId: "iphone-test",
+      source: "app.example.notes",
+      startedAt: new Date(T0 + 29_000).toISOString(),
+    },
+    new Date(T0 + 29_000)
+  );
+  await completeByWebhook(app, jobRow(atScribe));
+  await working;
+  expect(uploads()).toHaveLength(1);
+  expect(jobRow(jobId)).toMatchObject({ maybeBilled: false, state: "queued" });
+
+  // The close stores the range over it; the retry withdraws it, never sent.
+  closeQuietRange(env.db, id, new Date(T0 + 31_000));
+  await app.s.worker.work();
+  due(jobId);
+  await app.s.worker.work();
+  expect(uploads()).toHaveLength(1);
+  expect(getJob(env.db, jobId)).toBeUndefined();
 });
 
 test("a routed excerpt holds the slot until its words are stored, then dictation waiting for it gets it by itself", async () => {

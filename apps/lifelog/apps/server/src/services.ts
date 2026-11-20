@@ -125,24 +125,27 @@ export function services(
   };
   // The Mac's word can move its watermark.
   mac.onState(limitMoved);
-  // Each phone dictation still open ends at its cap, timed here.
+  // Each phone dictation still open ends at its cap, timed here: those past it end now, and the
+  // next cap is timed. Wakes nothing.
   let capTimer: ReturnType<typeof setTimeout> | undefined;
-  const dictationChanged = () => {
+  const settleDictations = () => {
     const { next } = settleOpenQuietRanges(db);
     clearTimeout(capTimer);
     if (next !== null) {
       capTimer = setTimeout(dictationChanged, next - clock().getTime());
       capTimer.unref();
     }
+  };
+  // A dictation opened, closed or at its cap: settled, and what waited on the limit goes.
+  const dictationChanged = () => {
+    settleDictations();
     limitMoved();
   };
   return {
     audio,
     config,
     db,
-    // A phone dictation opened or closed (routes/dictation.ts), or the server started (index.ts,
-    // before any work): those past their cap end there, the next cap is timed, and what waited on
-    // the limit goes.
+    // A phone dictation opened or closed (routes/dictation.ts).
     dictationChanged,
     excerpts,
     health,
@@ -155,6 +158,9 @@ export function services(
     restic,
     rolling,
     search,
+    // At the server's start (index.ts), before any work: dictations past their cap end, the next
+    // cap is timed, and nothing wakes; the first tick reads the credits before it sends.
+    settleDictations,
     states,
     voices,
     worker,

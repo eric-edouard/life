@@ -117,15 +117,28 @@ export function stopWorker() {
   }
 }
 
-// Labels one piece, after every request before it: Silero runs one call at a time.
-export function label(req: LabelRequest): Promise<Labels | null> {
+// A request whose packets may no longer go to Silero when its turn comes (`label`).
+export class PastLimit extends Error {}
+
+// Labels one piece, after every request before it: Silero runs one call at a time. Its packets are
+// read when its turn comes (`packetsNow`), so what changed while it waited counts: null refuses it
+// with PastLimit, and nothing goes.
+export function label(
+  req: Omit<LabelRequest, "packets">,
+  packetsNow: () => Packet[] | null
+): Promise<Labels | null> {
   const run = chain.then(
     () =>
       new Promise<Labels | null>((resolve, reject) => {
+        const packets = packetsNow();
+        if (!packets) {
+          reject(new PastLimit("its audio reaches past the processing limit"));
+          return;
+        }
         const id = nextId;
         nextId += 1;
         waiting.set(id, { reject, resolve });
-        started().postMessage({ ...req, id });
+        started().postMessage({ ...req, id, packets });
       })
   );
   chain = run.catch(() => undefined);

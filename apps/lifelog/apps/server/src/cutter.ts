@@ -144,9 +144,15 @@ function closesNow(seen: number, silent: number, kept: number, waited: number) {
 // Closes every block that is due into a job, oldest first, and says when the server's clock may
 // close the next. A block ending past the processing limit (quiet-ranges.ts `processingLimit`)
 // waits, with those after it: every state the Mac sends and every phone dictation closed runs the
-// worker again. A block that fails is recorded and the next goes on;
+// worker again. The limit is read again once a block's audio is read and stored, just before its
+// job is admitted. A block that fails is recorded and the next goes on;
 // its third failure withdraws its fragments, so the phone sends their pages again.
-export async function cut(db: Db, audio: AudioStore, limit: Date, now: number) {
+export async function cut(
+  db: Db,
+  audio: AudioStore,
+  limit: () => Date,
+  now: number
+) {
   const rows = db
     .select({
       fragment: speechFragments,
@@ -161,7 +167,7 @@ export async function cut(db: Db, audio: AudioStore, limit: Date, now: number) {
   const wakes: number[] = [];
   for (const group of Map.groupBy(rows, (r) => r.fragment.sourceId).values()) {
     // biome-ignore lint/performance/noAwaitInLoops: one source after the other
-    const wakeAt = await cutSource(db, audio, group, limit.getTime(), now);
+    const wakeAt = await cutSource(db, audio, group, limit, now);
     wakes.push(...(wakeAt === null ? [] : [wakeAt]));
   }
   return wakes.length > 0 ? Math.min(...wakes) : null;
@@ -172,7 +178,7 @@ async function cutSource(
   db: Db,
   audio: AudioStore,
   group: { fragment: Fragment; heard: Date | null; sent: Date | null }[],
-  limit: number,
+  limit: () => Date,
   now: number
 ) {
   const fragments = group.map((r) => r.fragment);
@@ -191,13 +197,18 @@ async function cutSource(
       return wakeAt;
     }
     const block = fragments.slice(from, last + 1);
-    if (Math.max(...spans.slice(from, last + 1).map((s) => s.end)) > limit) {
+    const end = Math.max(...spans.slice(from, last + 1).map((s) => s.end));
+    const isPast = () => end > limit().getTime();
+    if (isPast()) {
       return null;
     }
     // biome-ignore lint/performance/noAwaitInLoops: blocks in order
-    await close(db, audio, block, onSilence).catch((error: unknown) =>
-      failed(db, audio, block, error)
+    const held = await close(db, audio, block, onSilence, isPast).catch(
+      (error: unknown) => failed(db, audio, block, error)
     );
+    if (held === "held") {
+      return null;
+    }
     from = last + 1;
   }
   return null;
@@ -226,11 +237,13 @@ async function failed(
 
 // A closed block: the fragments bought already are covered and those a quiet range touches
 // withdrawn; the rest are joined and admitted as one job that takes them, in one transaction.
+// "held" when the processing limit moved before its end meanwhile: nothing admitted.
 async function close(
   db: Db,
   audio: AudioStore,
   block: Fragment[],
-  endedOnSilence: boolean
+  endedOnSilence: boolean,
+  isPast: () => boolean
 ) {
   const parts = await readable(db, audio, block);
   const own = parts.map((p) => p.fragment);
@@ -249,6 +262,11 @@ async function close(
   const sha = sha256Hex(joined.audio);
   const key = blockKey(first.sourceId, pages[0]?.[0] ?? 0, sha);
   await audio.put(key, joined.audio);
+  // A dictation opened while its audio was read: no job yet, and its fragments wait.
+  if (isPast()) {
+    await audio.delete(key);
+    return "held" as const;
+  }
   // Its pages are its fragments' alone, and each was judged bought on its own.
   const job = admit(
     db,

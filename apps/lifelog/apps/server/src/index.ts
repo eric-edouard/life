@@ -58,8 +58,9 @@ const app = createApp(s);
 // The search sweep also indexes what reconcile completed, and the backlog at startup. The
 // credits are read at startup too, so a deploy knows at once whether uploads may go.
 search?.index();
-// Phone dictations past their cap end first, so no work runs past one still held.
-s.dictationChanged();
+// Phone dictations past their cap end first, waking nothing: the tick below reads the credits, then
+// sends.
+s.settleDictations();
 // The credits, what reconcile settles, then what can go.
 worker
   .tick()

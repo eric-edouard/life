@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, mock, spyOn, test } from "bun:test";
 import {
   conversations as conversationsTable,
   events,
@@ -19,6 +19,7 @@ import { markDirty } from "./grouping";
 import { label, stopWorker } from "./page-audio";
 import { pageLabeler } from "./page-labels";
 import { pageProcessor } from "./page-processing";
+import { PACKET_MS } from "./page-rules";
 import { ingestState, storePages } from "./pages";
 import {
   CLOCK_MARGIN_MS,
@@ -31,6 +32,9 @@ import {
 import { storeTranscript, testDb } from "./testing";
 import { loadTurns, startsOf } from "./transcript";
 import { rebuildTurns } from "./turns";
+
+// The module itself, to watch what reaches Silero (`dictating`).
+const pageAudio = await import("./page-audio");
 
 // fixtures/pages: made-up Omi records and what Kit's code makes of them (page-rules.test.ts).
 const dir = new URL("../../../fixtures/pages/", import.meta.url);
@@ -51,6 +55,7 @@ beforeEach(() => {
   env = testDb();
 });
 afterEach(() => {
+  mock.restore();
   env.drop();
 });
 
@@ -202,65 +207,121 @@ test("dictation is never decoded: a quiet range known before labeling is silence
   ).toBe(false);
 });
 
-// The iPhone dictates (its own phone, apart from the Android phone uploading the Omi's pages) from
-// `start`, at the end of the second span's first sentence; the Mac vouches for everything.
-function dictating(start: number) {
+// The iPhone dictates (its own phone, apart from the Android phone uploading the Omi's pages): the
+// server opens its range at `start` (at end of the second span's first sentence), the phone's clock
+// `skew` off; at the limit's `opensAtRead`th read when given (while a batch is labeled), else
+// before anything. The Mac vouches for everything. `sent`: each packet's start that reached Silero.
+function dictating(start: number, { opensAtRead = 0, skew = 0 } = {}) {
   const { audio } = setup();
+  const id = crypto.randomUUID();
+  const openIt = () =>
+    expect(
+      openQuietRange(
+        env.db,
+        {
+          id,
+          phoneId: "iphone-test",
+          source: "app.example.notes",
+          startedAt: new Date(start + skew).toISOString(),
+        },
+        new Date(start)
+      )
+    ).toMatchObject({ id, startedAt: new Date(start).toISOString() });
+  let reads = 0;
   const pages = pageProcessor(
     env.db,
     audio,
     { poke: () => undefined },
     {
-      limit: () =>
-        processingLimit(env.db, {
+      limit: () => {
+        reads += 1;
+        if (reads === opensAtRead) {
+          openIt();
+        }
+        return processingLimit(env.db, {
           vouchedThrough: () => new Date(8.64e15),
-        })().getTime(),
+        })().getTime();
+      },
       now: () => start + 11 * 60_000,
     }
   );
-  const id = crypto.randomUUID();
-  const opened = openQuietRange(
-    env.db,
-    {
-      id,
-      phoneId: "iphone-test",
-      source: "app.example.notes",
-      startedAt: new Date(start).toISOString(),
-    },
-    new Date(start)
+  if (opensAtRead === 0) {
+    openIt();
+  }
+  const sent: number[] = [];
+  const original = pageAudio.label;
+  spyOn(pageAudio, "label").mockImplementation((req, packetsNow) =>
+    original(req, () => {
+      const packets = packetsNow();
+      sent.push(...(packets ?? []).map((p) => p.at));
+      return packets;
+    })
   );
-  expect(opened).toMatchObject({ id });
-  return { audio, id, pages };
+  return { audio, id, pages, sent };
 }
 const speechIn = ([from, to]: [number, number]) =>
   pieces()
     .flatMap((p) => p.speech)
     .some(([s, e]) => s < to - 1000 && e > from + 1000);
 
-test("an Omi uploading while the iPhone dictates: nothing from the dictation is labeled until it closes, then its range is silence and the speech around it goes on", async () => {
+test.each([0, 30_000, -30_000])(
+  "an Omi uploading while the iPhone dictates, its clock %d ms off: nothing from the dictation reaches Silero until it closes, then its range is silence and the speech around it goes on",
+  async (skew) => {
+    const start = expected.pieces[1].start + 6000;
+    const { audio, id, pages, sent } = dictating(start, { skew });
+    await store(audio);
+    await pages.run();
+    const held = start - CLOCK_MARGIN_MS;
+    expect(sent.every((at) => at + PACKET_MS <= held)).toBe(true);
+    expect(
+      Date.parse(ingestState(env.db, SOURCE).labeledUntil ?? "")
+    ).toBeLessThanOrEqual(held);
+
+    closeQuietRange(env.db, id, new Date(start + 1000));
+    await pages.run();
+    const range: [number, number] = [held, start + 1000 + CLOCK_MARGIN_MS];
+    expect(sent.some((at) => at < range[1] && at + PACKET_MS > range[0])).toBe(
+      false
+    );
+    expect(speechIn(range)).toBe(false);
+    expect(speechIn([expected.pieces[1].start, range[0]])).toBe(true);
+    expect(speechIn([range[1], expected.pieces[1].end])).toBe(true);
+    for (const f of fragments()) {
+      expect(
+        f.map.segments.every(([s, e]) => e <= range[0] || s >= range[1])
+      ).toBe(true);
+    }
+  }
+);
+
+test("a dictation that opens while a batch is labeled: the piece waiting for Silero is refused, none of its packets goes, and its pages are labeled once it closes", async () => {
   const start = expected.pieces[1].start + 6000;
-  const { audio, id, pages } = dictating(start);
+  // Read 1 places the batch; read 2 sends the first piece; the range opens as the second piece's
+  // turn comes.
+  const { audio, id, pages, sent } = dictating(start, { opensAtRead: 3 });
   await store(audio);
   await pages.run();
+  const held = start - CLOCK_MARGIN_MS;
+  expect(sent.length).toBeGreaterThan(0);
+  expect(sent.every((at) => at + PACKET_MS <= held)).toBe(true);
+  // The pass that went again stopped at the limit: what is past it waits unlabeled.
+  await pages.run();
+  expect(sent.every((at) => at + PACKET_MS <= held)).toBe(true);
   expect(
-    Date.parse(ingestState(env.db, SOURCE).labeledUntil ?? "")
-  ).toBeLessThanOrEqual(start - CLOCK_MARGIN_MS);
-  expect(pieces().every((p) => p.end <= start - CLOCK_MARGIN_MS)).toBe(true);
+    env.db.select().from(rawPages).where(eq(rawPages.labeled, false)).all()
+      .length
+  ).toBeGreaterThan(0);
 
   closeQuietRange(env.db, id, new Date(start + 1000));
   await pages.run();
-  const range: [number, number] = [
-    start - CLOCK_MARGIN_MS,
-    start + 1000 + CLOCK_MARGIN_MS,
-  ];
-  expect(speechIn(range)).toBe(false);
-  expect(speechIn([expected.pieces[1].start, range[0]])).toBe(true);
+  const range: [number, number] = [held, start + 1000 + CLOCK_MARGIN_MS];
+  expect(sent.some((at) => at < range[1] && at + PACKET_MS > range[0])).toBe(
+    false
+  );
+  expect(
+    env.db.select().from(rawPages).where(eq(rawPages.labeled, false)).all()
+  ).toEqual([]);
   expect(speechIn([range[1], expected.pieces[1].end])).toBe(true);
-  for (const f of fragments()) {
-    expect(
-      f.map.segments.every(([s, e]) => e <= range[0] || s >= range[1])
-    ).toBe(true);
-  }
 });
 
 test("an Omi uploading while the iPhone's close is lost: its cap ends the dictation and the speech before it goes on", async () => {
@@ -408,7 +469,7 @@ test("ten quiet minutes later the rest goes, and a fragment withdrawn at its blo
     kit.segments[0][0] + 1500,
   ];
   quiet(late);
-  await cut(env.db, audio, new Date(at.clock + 3_600_000), at.clock);
+  await cut(env.db, audio, () => new Date(at.clock + 3_600_000), at.clock);
   expect(source()?.pagesCutFrom).toBe(kit.pages[0][0]);
   await pages.run();
   expect(fragments().length).toBeGreaterThan(0);
@@ -482,20 +543,20 @@ test("a call the worker can't answer settles: an exit rejects it, an unknown pie
     continues: false,
     end: 60_000,
     final: true,
-    packets: [],
     start: 0,
     stream: "exit",
   };
-  const pending = label(request);
+  const none = () => [];
+  const pending = label(request, none);
   await Bun.sleep(5);
   stopWorker();
   await expect(pending).rejects.toThrow("VAD worker");
   await expect(
-    label({ ...request, continues: true, stream: "nothing" })
+    label({ ...request, continues: true, stream: "nothing" }, none)
   ).rejects.toThrow("no piece");
   // The chain goes on.
   expect(
-    (await label({ ...request, end: 1000 }))?.probabilities
+    (await label({ ...request, end: 1000 }, none))?.probabilities
   ).toBeInstanceOf(Float32Array);
 });
 
@@ -506,7 +567,7 @@ test("an Omi source's speech becomes a conversation, and its transcript lands in
   at.clock += 11 * 60_000;
   await pages.run();
   // Its blocks close by the server's clock; the first job comes back with one turn.
-  await cut(env.db, audio, new Date(at.clock + 3_600_000), at.clock);
+  await cut(env.db, audio, () => new Date(at.clock + 3_600_000), at.clock);
   const job = env.db
     .select()
     .from(transcriptionJobs)

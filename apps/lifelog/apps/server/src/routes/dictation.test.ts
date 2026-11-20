@@ -1,10 +1,20 @@
-import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  expect,
+  setSystemTime,
+  test,
+} from "bun:test";
 import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
 import { quietRanges } from "@lifelog/db/schema";
 import { openQuietRanges } from "@lifelog/db/schema/open-quiet-ranges";
 import { createApp } from "../app";
+import { memoryAudioStore } from "../audio-store";
 import { sha256Hex } from "../config";
+import { jobWorker } from "../jobs";
 import {
   CLOCK_MARGIN_MS,
   DICTATION_CAP_MS,
@@ -55,8 +65,7 @@ const opening = (startedAt: number, id = randomUUID()) => ({
 });
 const open = (body: ReturnType<typeof opening>, token?: string) =>
   post("/dictation/ranges", body, token);
-const close = (id: string, endedAt: number) =>
-  post(`/dictation/ranges/${id}/close`, { endedAt: iso(endedAt) });
+const close = (id: string) => post(`/dictation/ranges/${id}/close`, {});
 // The Mac vouching for everything: the limit is the phone's alone.
 const MAC = { vouchedThrough: () => new Date(8.64e15) };
 const limit = () => processingLimit(env.db, MAC)().getTime();
@@ -67,38 +76,51 @@ const stored = () =>
     .all()
     .map((q) => [q.startedAt.getTime(), q.endedAt.getTime()]);
 
-test("an open holds the limit from its start less the margin; a retry never moves it; its close stores the range widened and lets go", async () => {
-  const start = clock().getTime();
-  const body = opening(start);
-  const first = await open(body);
-  expect(first.status).toBe(200);
-  expect(await first.json()).toEqual({
-    endsBy: iso(start + DICTATION_CAP_MS),
-    id: body.id,
-    startedAt: iso(start),
-  });
-  const again = await open({ ...body, startedAt: iso(start + 5000) });
-  expect((await again.json()).startedAt).toBe(iso(start));
-  expect(limit()).toBe(start - CLOCK_MARGIN_MS);
-
-  const closed = await close(body.id, start + 4000);
-  expect(closed.status).toBe(200);
-  expect(stored()).toEqual([
-    [start - CLOCK_MARGIN_MS, start + 4000 + CLOCK_MARGIN_MS],
-  ]);
-  expect(limit()).toBe(8.64e15);
-  // A close again keeps the first end; an open again never reopens it.
-  expect(await (await close(body.id, start + 9000)).json()).toEqual(
-    await closed.json()
-  );
-  expect((await open(body)).status).toBe(409);
+const T = Date.parse("2026-11-20T10:00:00Z");
+afterEach(() => {
+  setSystemTime();
 });
 
-test("refused: a start a minute off the server's clock, an id never opened, a reader's token", async () => {
+test.each([30_000, -30_000])(
+  "with the phone's clock %d ms off, the range is on the server's: it opens when the server takes it, a retry however late answers it as first opened, and it ends when the close arrives",
+  async (skew) => {
+    setSystemTime(new Date(T));
+    const body = opening(T + skew);
+    const opened = {
+      endsBy: iso(T + DICTATION_CAP_MS),
+      id: body.id,
+      startedAt: iso(T),
+    };
+    const first = await open(body);
+    expect(first.status).toBe(200);
+    expect(await first.json()).toEqual(opened);
+    expect(limit()).toBe(T - CLOCK_MARGIN_MS);
+    // The answer was lost; the phone asks again 5 minutes on, its start now stale.
+    setSystemTime(new Date(T + 5 * 60_000));
+    const again = await open(body);
+    expect(again.status).toBe(200);
+    expect(await again.json()).toEqual(opened);
+
+    setSystemTime(new Date(T + 5 * 60_000 + 4000));
+    const closed = await close(body.id);
+    expect(closed.status).toBe(200);
+    const range = await closed.json();
+    expect(stored()).toEqual([
+      [T - CLOCK_MARGIN_MS, T + 5 * 60_000 + 4000 + CLOCK_MARGIN_MS],
+    ]);
+    expect(limit()).toBe(8.64e15);
+    // A close again keeps the first end; an open again never reopens it.
+    setSystemTime(new Date(T + 6 * 60_000));
+    expect(await (await close(body.id)).json()).toEqual(range);
+    expect((await open(body)).status).toBe(409);
+  }
+);
+
+test("refused: a new open a minute off the server's clock, an id never opened, a reader's token", async () => {
   const now = clock().getTime();
   expect((await open(opening(now - 61_000))).status).toBe(400);
   expect((await open(opening(now + 61_000))).status).toBe(400);
-  expect((await close(randomUUID(), now)).status).toBe(404);
+  expect((await close(randomUUID())).status).toBe(404);
   expect((await open(opening(now), READ_TOKEN)).status).toBe(403);
   expect(env.db.select().from(openQuietRanges).all()).toEqual([]);
 });
@@ -127,7 +149,7 @@ test("overlapping dictations: the limit holds at the earliest still open; a clos
   expect(limit()).toBe(t + 30_000 - CLOCK_MARGIN_MS);
 });
 
-test("a restart ends a dictation past its cap before any work, and keeps one inside it open", () => {
+test("a restart ends a dictation past its cap and keeps one inside it open, waking nothing before the first tick reads the credits", () => {
   const now = clock().getTime();
   const lost = opening(now - DICTATION_CAP_MS - 1000);
   const going = opening(now - 60_000);
@@ -138,10 +160,18 @@ test("a restart ends a dictation past its cap before any work, and keeps one ins
     )
     .run();
   // index.ts at start, before any work.
-  services(testConfig("http://localhost:1"), env.db, {
+  const config = testConfig("http://localhost:1");
+  const worker = jobWorker(env.db, config, memoryAudioStore());
+  let pokes = 0;
+  worker.poke = () => {
+    pokes += 1;
+  };
+  services(config, env.db, {
     intelligence: null,
     search: null,
-  }).dictationChanged();
+    worker,
+  }).settleDictations();
+  expect(pokes).toBe(0);
   expect(stored()).toEqual([
     [
       Date.parse(lost.startedAt) - CLOCK_MARGIN_MS,

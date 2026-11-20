@@ -29,7 +29,13 @@ import {
 } from "drizzle-orm";
 import type { AudioStore } from "./audio-store";
 import { record } from "./events";
-import { label, type PacketsOf, packetsIn, workerLife } from "./page-audio";
+import {
+  label,
+  type PacketsOf,
+  PastLimit,
+  packetsIn,
+  workerLife,
+} from "./page-audio";
 import {
   type CaptureSpan,
   energyAudible,
@@ -295,14 +301,23 @@ export function pageLabeler(
       ? carried.end
       : piece.start - PREROLL_MS - PACKET_MS + 1;
     const reach: Interval = [from, piece.end + PACKET_MS];
-    const labels = await label({
-      continues: carried !== undefined,
-      end: piece.end,
-      final,
-      packets: [...packetsIn(runs, packets, reach, quietIn(db, reach))],
-      start: piece.start,
-      stream: `${sourceId}#${piece.first}`,
-    }).catch((error: unknown) => {
+    // Read when the worker takes it: the quiet ranges then, and nothing past the processing limit
+    // then (a dictation opened while it waited refuses it, and its pages wait unlabeled).
+    const packetsNow = () => {
+      const until = limit();
+      const going = [...packetsIn(runs, packets, reach, quietIn(db, reach))];
+      return going.some((p) => p.at + PACKET_MS > until) ? null : going;
+    };
+    const labels = await label(
+      {
+        continues: carried !== undefined,
+        end: piece.end,
+        final,
+        start: piece.start,
+        stream: `${sourceId}#${piece.first}`,
+      },
+      packetsNow
+    ).catch((error: unknown) => {
       // Its stream is gone: the piece is labeled again from its first page.
       open.delete(sourceId);
       throw error;
@@ -524,7 +539,16 @@ export function pageLabeler(
     }
     const placed = await place(sourceId, batch);
     if (placed) {
-      await labelPlaced(sourceId, batch, placed);
+      try {
+        await labelPlaced(sourceId, batch, placed);
+      } catch (error) {
+        // The limit moved back while it waited: nothing of it is saved, and the next round
+        // places the batch again up to the limit.
+        if (error instanceof PastLimit) {
+          return true;
+        }
+        throw error;
+      }
     }
     return Boolean(placed) && (batch.more || batch.late || batch.hole);
   };

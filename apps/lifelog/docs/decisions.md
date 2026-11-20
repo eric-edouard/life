@@ -208,13 +208,17 @@ reverse it, change its entry here in the same commit.
   worker's `claim`. The raw backup holds everything the Pendant heard. No exception: the Pendant's button no longer
   sends anything to an AI.
 - **Dictation on the phone opens its range before its microphone (20 Nov 2026).** The phone asks the server to open
-  the range at the tap and opens the microphone only on its answer: no server, no dictation. From the range's start
-  less 2 s, no pendant's audio is labeled, cut or sent, whichever phone uploads it, until the close; the stored range
-  is widened by 2 s at both edges, since an Omi's whole-second stamps come from another phone's clock. A close lost
-  (the phone gone) ends the range at its cap, 10 minutes after its start, timed by the server and settled at its
-  start after a restart: at most 10 minutes of pendant speech is left unprocessed, kept in the raw backup, and the
-  speech around it goes on with no word from the phone. An open again never moves the cap; a closed range never
-  reopens.
+  the range at the tap and opens the microphone only on its answer: no server, no dictation. The range is on the
+  server's clock: it starts when the server opens it and ends when the close arrives, after the microphone stopped,
+  so a phone clock that is off never moves it; the phone's own tap time only tells a stale first open (over a minute
+  off) from a fresh one. From the range's start less 2 s, no pendant's audio is labeled, cut or sent, whichever phone
+  uploads it, until the close, and each step reads the limit again where audio leaves (Silero, a job's admission, a
+  send); the stored range is widened by 2 s at both edges, since an Omi's whole-second stamps come from another phone's
+  clock. A close lost (the phone gone) ends the range at its cap, 10 minutes after its start, timed by the server and
+  settled at its start after a restart, before the first tick, which reads the credits before it sends: at most 10
+  minutes of pendant speech is left unprocessed, kept in the raw backup, and the speech around it goes on with no word
+  from the phone. An open again, however late, answers the range as first opened and never moves the cap; a closed
+  range never reopens.
 
 ## People, places and search
 

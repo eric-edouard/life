@@ -730,7 +730,7 @@ export function jobWorker(
   // (the bucket down) is logged and never holds back a send.
   async function closeDue() {
     try {
-      const at = await cut(db, audio, limit(), now());
+      const at = await cut(db, audio, limit, now());
       clearTimeout(wake);
       if (at !== null) {
         wake = setTimeout(poke, at - now());

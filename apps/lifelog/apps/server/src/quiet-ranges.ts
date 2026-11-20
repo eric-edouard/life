@@ -248,11 +248,15 @@ export const quietIn = (
 // A dictation on the phone lasts at most this long: a close that never comes (lost, the phone gone)
 // ends it here.
 export const DICTATION_CAP_MS = 10 * 60_000;
-// The phone's clock and a pendant's (an Omi stamps whole seconds by the Android phone's clock) may
-// differ by this much: a phone dictation's range is widened by it at both edges, and it holds the
-// processing limit from this before its start.
+// A phone dictation's range is on the server's clock: it starts when the server opens it (the
+// microphone opens only on that answer) and ends when the close arrives (the microphone stops
+// before it), so the phone's clock never places it. A pendant's audio is placed by its uploader's
+// clock (an Omi stamps whole seconds by the Android phone's), which may differ from the server's by
+// this much: the range is widened by it at both edges, and holds the processing limit from this
+// before its start.
 export const CLOCK_MARGIN_MS = 2000;
-// An open's start is the tap, a request ago: at most this far from the server's now.
+// A new open whose tap, by the phone's clock, is further than this from the server's is stale: it
+// arrived after the phone gave up on it. It places nothing.
 const OPEN_WITHIN_MS = 60_000;
 
 // A phone dictation as its open carries it.
@@ -266,7 +270,9 @@ export const openQuietRangeInput = z.object({
     .describe("The bundle id of the app the owner dictates in"),
   startedAt: z.iso
     .datetime({ offset: true })
-    .describe("The tap, by the phone's clock; within a minute of the server's"),
+    .describe(
+      "The tap, by the phone's clock: a new open more than a minute from the server's clock is stale. The range starts when the server opens it"
+    ),
 });
 type Open = typeof openQuietRanges.$inferSelect;
 
@@ -276,18 +282,15 @@ const openView = (row: Open) => ({
   startedAt: row.startedAt.toISOString(),
 });
 
-// Opens a phone dictation's range, before its microphone opens: from now the processing limit
-// stops at its start. An open again (a retry) answers the range as first opened, never moving its
-// cap; one already closed is never opened again.
+// Opens a phone dictation's range at `now`, before its microphone opens: from now the processing
+// limit stops at its start. Its id is looked up first: an open again (a retry, however late)
+// answers the range as first opened, never moving its cap; one already closed is never opened
+// again. Only a new open is checked for staleness.
 export function openQuietRange(
   db: Db,
   input: z.infer<typeof openQuietRangeInput>,
   now = clock()
 ) {
-  const startedAt = new Date(input.startedAt);
-  if (Math.abs(startedAt.getTime() - now.getTime()) > OPEN_WITHIN_MS) {
-    return "out of bounds" as const;
-  }
   return db.transaction((tx) => {
     const closed = tx
       .select({ id: quietRanges.id })
@@ -297,15 +300,25 @@ export function openQuietRange(
     if (closed) {
       return "closed" as const;
     }
+    const opened = () =>
+      tx
+        .select()
+        .from(openQuietRanges)
+        .where(eq(openQuietRanges.id, input.id))
+        .get();
+    const known = opened();
+    if (known) {
+      return openView(known);
+    }
+    if (
+      Math.abs(Date.parse(input.startedAt) - now.getTime()) > OPEN_WITHIN_MS
+    ) {
+      return "stale" as const;
+    }
     tx.insert(openQuietRanges)
-      .values({ ...input, startedAt })
-      .onConflictDoNothing()
+      .values({ ...input, startedAt: now })
       .run();
-    const row = tx
-      .select()
-      .from(openQuietRanges)
-      .where(eq(openQuietRanges.id, input.id))
-      .get();
+    const row = opened();
     if (!row) {
       throw new Error(`open quiet range ${input.id} not stored`);
     }
@@ -313,7 +326,7 @@ export function openQuietRange(
   });
 }
 
-// A phone dictation ends at `endedAt` (no later than its cap): its range, widened by the clock
+// A phone dictation ends at `endedAt`, server time (no later than its cap): its range, widened by the clock
 // margin, becomes a quiet range in the transaction that drops its open row, with the quiet range
 // write's own feed change and regrouping.
 function finish(tx: Tx, open: Open, endedAt: number) {
@@ -328,9 +341,9 @@ function finish(tx: Tx, open: Open, endedAt: number) {
   tx.delete(openQuietRanges).where(eq(openQuietRanges.id, open.id)).run();
 }
 
-// Closes a phone dictation (Stop, cancel, an interruption, a failed start). A close again keeps the
-// first end. The range as stored; null for an id never opened.
-export function closeQuietRange(db: Db, id: string, endedAt: Date) {
+// Closes a phone dictation (Stop, cancel, an interruption, a failed start) at `now`, when its close
+// arrives. A close again keeps the first end. The range as stored; null for an id never opened.
+export function closeQuietRange(db: Db, id: string, now = clock()) {
   db.transaction((tx) => {
     const open = tx
       .select()
@@ -338,7 +351,7 @@ export function closeQuietRange(db: Db, id: string, endedAt: Date) {
       .where(eq(openQuietRanges.id, id))
       .get();
     if (open) {
-      finish(tx, open, endedAt.getTime());
+      finish(tx, open, now.getTime());
     }
   });
   const row = db.select().from(quietRanges).where(eq(quietRanges.id, id)).get();
