@@ -52,6 +52,17 @@ const GH_REPO = /(?:--repo|-R)[=\s]+["']?([\w.-]+\/[\w.-]+)/g;
 /** The signature ends the body: a closing quote, a line end or the command's end follows it. */
 const ENDS_BODY = /^\s*(["']|\n|$)/;
 
+/** His connector's write tools: an agent asks him through its own door, never as him. */
+const CONNECTOR_WRITES = new Set([
+  "answer_check",
+  "request_decision",
+  "change_directory_entry",
+  "change_registered_agent",
+  "change_todo_item",
+  "correct_memory",
+  "tell_life",
+]);
+
 const CARD =
   "Ask him with a card instead (`request_decision` with the message as its draft): Life sends it on his yes.";
 
@@ -116,6 +127,17 @@ const SEND_RULES: {
       return c.tool_name.startsWith("mcp__") &&
         (SEND_TOOL.test(tool) || tool === "respond_to_event")
         ? `Agents don't send, reply, forward or answer invitations. A draft is fine. ${CARD}`
+        : undefined;
+    },
+  },
+  {
+    name: "his connector's writes",
+    why: (c) => {
+      const [, server, ...rest] = c.tool_name.split("__");
+      return c.tool_name.startsWith("mcp__") &&
+        server !== "desk" &&
+        CONNECTOR_WRITES.has(rest.at(-1) ?? "")
+        ? "Agents don't write as him through his Life connector. Ask him through your desk door (`request_decision` there). If your door is missing, say so in one line and stop."
         : undefined;
     },
   },

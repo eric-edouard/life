@@ -26,6 +26,15 @@ const mcp = (name: string, input: unknown = {}): ToolCall => ({
 });
 
 const REFUSED: [string, ToolCall][] = [
+  ...[
+    "claude_ai_Life__answer_check",
+    "2dc4e169_2994__request_decision",
+    "x__change_directory_entry",
+    "x__change_registered_agent",
+    "x__change_todo_item",
+    "x__correct_memory",
+    "x__tell_life",
+  ].map((n): [string, ToolCall] => [`his connector's write ${n}`, mcp(n)]),
   ["a mail connector's send", mcp("0f00__send_message", { to: ["a@b.co"] })],
   ["a mail connector's reply", mcp("0f00__reply", { body: "ok" })],
   ["a mail connector's forward", mcp("0f00__forward")],
@@ -126,6 +135,7 @@ const LET_THROUGH: [string, ToolCall][] = [
     "an event with him only",
     mcp("cal__create_event", { attendees: ["owner@work.example"] }),
   ],
+  ["his connector's read", mcp("claude_ai_Life__read_inbox")],
   ["Life's own card", mcp("desk__request_decision", { question: "Send?" })],
   [
     "a web page",
