@@ -352,7 +352,7 @@ const DEMO: Demo[] = [
   },
 ];
 
-const extract = { ...madeBy, prompt: "memory-extract.v6" };
+const extract = { ...madeBy, prompt: "memory-extract.v7" };
 const unitIdOf = (d: Demo) => `unit_${hex(d.ref, 12)}`;
 const observationIdOf = (d: Demo, [type, text, quote]: DemoObservation) =>
   `obs_${hex(unitIdOf(d) + type + quote + text, 12)}`;
