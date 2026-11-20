@@ -4,7 +4,7 @@ import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { handleKey, readContacts } from "./contacts";
-import type { Newest, NewRow } from "./contract";
+import type { MessageAt, Newest, NewRow } from "./contract";
 import { sourceFile } from "./contract";
 
 // Apple Mail's local store, every account Mail.app syncs, opened read-only. Never written.
@@ -470,6 +470,31 @@ const idOf = (r: Pick<Row, "globalId" | "header">) =>
 export const mailIdOf = (messageId: string | number) => `mail:${messageId}`;
 export const messageIdOfMail = (id: string) =>
   id.startsWith("mail:") ? id.slice(5) : undefined;
+
+/** When a mail `readMail` gives as `id` was received; none when Mail has no such message. */
+export function readMailAt(
+  id: string,
+  root = mailRoot()
+): MessageAt | undefined {
+  const header = messageIdOfMail(id);
+  if (!header) {
+    return;
+  }
+  const db = openIndex(root);
+  try {
+    const row = db
+      .query<{ received: number }, [string, string, string]>(
+        `select min(m.date_received) as received from messages m
+           left join message_global_data g on g.ROWID = m.global_message_id
+          where m.deleted = 0 and (g.message_id_header in (?, ?) or m.global_message_id = ?)`
+      )
+      .get(header, `<${header}>`, header);
+    const at = row?.received && new Date(row.received * 1000).toISOString();
+    return at ? { first: at, last: at } : undefined;
+  } finally {
+    db.close();
+  }
+}
 
 /**
  * The messages Mail first stored from row `from` on (`incoming`): a copy in another mailbox (Gmail's All Mail, a move)

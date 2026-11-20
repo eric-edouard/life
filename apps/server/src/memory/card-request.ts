@@ -31,7 +31,7 @@ export const Ask = z
       .string()
       .regex(/^agt_[0-9a-f]+$/)
       .optional(),
-    context: z.string().max(4000).default(""),
+    context: z.string().max(20_000).default(""),
     deadline: isoDateTime,
     /** How Life sees the card's step done: `payment` (it looks in his accounts for the `amount` need paid to the payee), or `tap` (only his word). */
     doneSeenBy: z.enum(["payment", "tap"]).optional(),
@@ -57,7 +57,7 @@ export const Withdrawal = z
   .strict();
 
 /** The card's rules in words, for every tool that asks one (the connector's `request_decision`, the door's). */
-export const CARD = `One card: \`title\` (what you are trying to do, one line, 80 characters), \`question\` (what he decides, one line, 120, ending in a ?), \`options\` (2 to 4 \`{id, label}\`, a label at most five words, the recommended one first), \`context\` (why, what was tried, what it rests on, with links: folded, about 10 lines), \`links\` (yours first), \`deadline\` (1 hour to 14 days ahead), \`onSilence\` (the option you take if he doesn't answer, or null), \`subject\` (a matter's id or one of its steps': it leaves his list when the matter ends; or \`project:<id>\`, \`area:<id>\`). A card may add: \`draft\`, the exact message he approves, which Life sends on his yes; \`needs\`, what he needs in hand, each \`{kind, …}\`: ${NEED_KINDS_LINE}; \`doneSeenBy\`, how Life sees the step done: \`payment\` (Life looks in his accounts) or \`tap\` (only his word); and on an option, what his pick does (\`outgoing\`, \`ends\`, \`looks\`, \`takes\`). Read \`fetch("ask/<name>")\` before using any of them (\`draft\`, \`options\`, \`payment\`, or a need's kind). He can always answer in his own words instead (the answer's \`note\`).`;
+export const CARD = `One card: \`title\` (what you are trying to do, one line, 80 characters), \`question\` (what he decides, one line, 120, ending in a ?), \`options\` (2 to 4 \`{id, label}\`, a label at most five words, the recommended one first), \`context\` (required, in Markdown, 20,000 characters at most: why you ask, why you drafted this, what you tried, what it rests on; Life's things as \`[words](life:<ref>)\`, the ref as \`fetch\` takes it (\`unit_…\`, \`obs_…\`, \`matter_…\`, \`msg:<source>|<message id>\`, \`file:<ref>\`, a turn, \`person:<id>/now\`), each must open; web links as they are; quotes as \`> …\` then \`*source*\`), \`links\` (yours first), \`deadline\` (1 hour to 14 days ahead), \`onSilence\` (the option you take if he doesn't answer, or null), \`subject\` (a matter's id or one of its steps': it leaves his list when the matter ends; or \`project:<id>\`, \`area:<id>\`). A card may add: \`draft\`, the exact message he approves, which Life sends on his yes; \`needs\`, what he needs in hand, each \`{kind, …}\`: ${NEED_KINDS_LINE}; \`doneSeenBy\`, how Life sees the step done: \`payment\` (Life looks in his accounts) or \`tap\` (only his word); and on an option, what his pick does (\`outgoing\`, \`ends\`, \`looks\`, \`takes\`). Read \`fetch("ask/<name>")\` before using any of them (\`draft\`, \`options\`, \`payment\`, or a need's kind). He can always answer in his own words instead (the answer's \`note\`).`;
 
 const PAGES: Record<string, string> = {
   draft:
@@ -72,15 +72,15 @@ const ASK_PAGE = /^ask\/([a-z_]+)$/;
 /** Whether `id` is an ask page's (`ask/<name>`), which `fetch` opens. */
 export const isAskPage = (id: string) => ASK_PAGE.test(id);
 
-/** The page `fetch("ask/<name>")` opens: a part's rules, or a need kind's; else the pages there are. */
+/** The page `fetch("ask/<name>")` opens: a part's rules, or a need kind's; none for another name. */
 export function askPageOf(id: string) {
   const name = ASK_PAGE.exec(id)?.[1] ?? "";
-  const page = Object.hasOwn(PAGES, name) ? PAGES[name] : needPageOf(name);
-  return (
-    page ??
-    `(no page ask/${name}: ${[...Object.keys(PAGES), ...NEED_KINDS].map((p) => `ask/${p}`).join(", ")})`
-  );
+  return Object.hasOwn(PAGES, name) ? PAGES[name] : needPageOf(name);
 }
+
+/** Why an ask page opens nothing: the pages there are. */
+export const noAskPageOf = (id: string) =>
+  `no page ${id}: ${[...Object.keys(PAGES), ...NEED_KINDS].map((p) => `ask/${p}`).join(", ")}`;
 
 /**
  * What an agent gives `request_decision` (the connector's, the door's): an `Ask` less the desk's stamp, published loose

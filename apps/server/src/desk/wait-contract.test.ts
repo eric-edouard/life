@@ -291,6 +291,7 @@ test("his answer, read from his decisions, is queued for the agent that asked it
   pollAnswers(desk);
   const { id: dec } = await requestDecision("desk", {
     agent: id,
+    context: "A made-up reason to ask.",
     deadline: ahead(DAY),
     options: [
       { id: "yes", label: "Yes" },
@@ -315,6 +316,7 @@ test("his answer, read from his decisions, is queued for the agent that asked it
   // Its deadline passing unanswered is a lapse, queued the same way.
   const { id: lapsing } = await requestDecision("desk", {
     agent: other,
+    context: "A made-up reason to ask.",
     deadline: ahead(2 * HOUR),
     options: [
       { id: "yes", label: "Yes" },
@@ -447,6 +449,7 @@ test("W20: finish ends the agent and withdraws its open decision", async () => {
   const id = await waiting();
   const asked = await requestDecision("desk", {
     agent: id,
+    context: "A made-up reason to ask.",
     deadline: ahead(DAY),
     options: [
       { id: "yes", label: "Yes" },

@@ -74,6 +74,7 @@ import {
   isOneOfHis,
   isParkedMatterOf,
 } from "./read-matters";
+import { lifeLinksOf } from "./refs";
 import { sourceOf } from "./sources";
 import {
   type People,
@@ -190,7 +191,7 @@ export interface CheckInputs {
 }
 
 interface Ranked {
-  check: Omit<Check, "confirm" | "matter">;
+  check: Omit<Check, "confirm" | "lifeLinks" | "matter">;
   /** For the order (`inboxOrderOf`): when a decision was asked, else the newest day among the lines it rides on. */
   day: string;
 }
@@ -605,17 +606,15 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
   const found = inboxOrderOf(
     Object.values(BUILDERS)
       .flatMap((build) => build(c))
-      .map(({ check, day }) => {
-        const m = matterOf([check.subject ?? check.ref]);
-        return {
-          ...check,
-          day,
-          matter: cardMatterOf(m) ?? null,
-          onMatters: check.ridesOn.matterIds.flatMap(
-            (id) => cardMatterOf(byId.get(id)) ?? []
-          ),
-        };
-      })
+      .map(({ check, day }) => ({
+        ...check,
+        day,
+        lifeLinks: lifeLinksOf(check.context, (id) => byId.has(id)),
+        matter: cardMatterOf(matterOf([check.subject ?? check.ref])) ?? null,
+        onMatters: check.ridesOn.matterIds.flatMap(
+          (id) => cardMatterOf(byId.get(id)) ?? []
+        ),
+      }))
   ).map(({ day: _, ...check }) => check);
   const guessed = new Map(
     found

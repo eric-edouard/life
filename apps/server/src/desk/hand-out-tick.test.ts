@@ -256,7 +256,6 @@ test("the daily count follows his day: a hand-out before his day began is not co
   expect(reads.n).toBe(1);
 });
 
-/** A card of assignment `id` on its matter (the book holds the hand-out's made-up matters). */
 /** The made-up matters as the book holds them. */
 const views = () =>
   MATTERS.map((m) =>
@@ -268,6 +267,7 @@ const views = () =>
 const ask = (desk: ReturnType<typeof deskOf>, id: string) =>
   withMatters(views(), () =>
     askDecision(desk, byId(desk, id), {
+      context: "A made-up reason to ask.",
       deadline: iso(clock().getTime() + DAY),
       options: [
         { id: "yes", label: "Yes" },
@@ -408,6 +408,7 @@ test("Done on an `ends: matter` card closes the matter: off the matters to do; i
       // The desk reads his answers from here on.
       pollAnswers(desk);
       const { id } = await askDecision(desk, byId(desk, handed), {
+        context: "A made-up reason to ask.",
         deadline: iso(clock().getTime() + DAY),
         onSilence: null,
         options: [
@@ -461,6 +462,7 @@ test("a card on a step another agent holds stays with its asker: its slot, and h
       pollAnswers(desk);
       const card = (agent: string, title: string) =>
         askDecision(desk, on(desk, agent), {
+          context: "A made-up reason to ask.",
           deadline: iso(clock().getTime() + DAY),
           onSilence: null,
           options: [
@@ -504,6 +506,7 @@ test("a project agent's `ends: step` card answered Done wakes it and never ends 
       });
       pollAnswers(desk);
       const { id } = await askDecision(desk, on(desk, agent), {
+        context: "A made-up reason to ask.",
         deadline: iso(clock().getTime() + DAY),
         onSilence: null,
         options: [
@@ -553,6 +556,7 @@ test("a matter agent with a wait, an open card and notes is folded: the agent th
       pollAnswers(desk);
       const s = on(desk, old);
       const { id: card } = await askDecision(desk, s, {
+        context: "A made-up reason to ask.",
         deadline: iso(clock().getTime() + DAY),
         onSilence: null,
         options: [

@@ -539,6 +539,7 @@ test("an agent asks a decision; only he answers it, through answer_check; the ag
     (await rpc(await token(over), "tools/call", { arguments: args, name })).json
       .result;
   const decision = {
+    context: "A made-up reason to ask.",
     deadline: new Date(Date.now() + DAY).toISOString(),
     options: [
       { id: "yes", label: "Send it" },
@@ -604,6 +605,7 @@ test("his own app asks a decision as the owner, with no cursor, and answers it i
       })
     ).json.result;
   const asked = await call("request_decision", {
+    context: "A made-up reason to ask.",
     deadline: new Date(Date.now() + DAY).toISOString(),
     options: [
       { id: "yes", label: "Send it" },

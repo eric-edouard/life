@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { MACHINE_DIR } from "../core/platform";
 import { openReadOnly, openWritable } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
-import type { Newest, NewRow } from "./contract";
+import type { MessageAt, Newest, NewRow } from "./contract";
 
 // Life's archive (apps/server/src/host/archive.ts): opening a store to copy into it, and reading it back read-only: WhatsApp and the bridges'
 // chats, a message deleted for everyone with the text the archive kept, an edited one by its latest text; each version
@@ -144,6 +144,32 @@ const messageIdOf = (
   chat: string,
   id: number | string
 ) => `${source}:${chat}/${id}`;
+
+/** When a message `readArchived` gives as `id` was written, its versions' first and last instants; none when the archive has no such message. */
+export function readArchivedMessageAt(
+  source: SourceEvent["source"],
+  id: string,
+  archive = ARCHIVE
+): MessageAt | undefined {
+  const path = archiveDb(source, archive);
+  if (!(id.startsWith(`${source}:`) && existsSync(path))) {
+    return;
+  }
+  const db = openReadOnly(path);
+  try {
+    // ponytail: no index on chat and id (the archive's files are never migrated): one scan, only when a card is asked.
+    const at = db
+      .query<{ first: string | null; last: string | null }, [string]>(
+        "select min(at) as first, max(at) as last from messages where chat || '/' || id = ?"
+      )
+      .get(id.slice(source.length + 1));
+    return at?.first && at.last
+      ? { first: at.first, last: at.last }
+      : undefined;
+  } finally {
+    db.close();
+  }
+}
 
 /**
  * The messages `<archive>/<source>.sqlite` first wrote from row `from` on (`incoming`): the first row of each message,
