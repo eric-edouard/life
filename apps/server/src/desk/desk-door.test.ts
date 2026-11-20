@@ -21,11 +21,18 @@ const desk: Desk = {
 const fetchDoor = doorFetch(desk);
 const ahead = (ms: number) => iso(clock().getTime() + ms);
 
+/** A made-up agent in a desk turn on its one assignment: the door's tools act on that turn's. */
 const agent = (brief = "Test brief: a made-up bakery's order") => {
   const id = register(desk, { brief, folder: dir, runtime: "fake" });
   desk.db.run("update agent set link = ? where id = ?", [`fake://${id}`, id]);
+  turnOn(id, on(desk, id).id);
   return id;
 };
+const turnOn = (id: string, assignment: string) =>
+  desk.db.run(
+    "insert into turn (agent_id, assignment_id, cause, started_at) values (?, ?, 'first turn', ?)",
+    [id, assignment, clock().toISOString()]
+  );
 
 async function call(id: string, key: string, name: string, args: object) {
   const res = await fetchDoor(

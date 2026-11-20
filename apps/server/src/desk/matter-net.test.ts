@@ -17,14 +17,13 @@ import { CORRECTIONS, recordCorrection } from "../memory/memory-files";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { openAssignment, register } from "./agent-actions";
-import {
-  pollMessages,
-  pollRecordings,
-  readPeopleOnce,
-  tick,
-} from "./desk-clock";
+import { pollMessages, readPeopleOnce, tick } from "./desk-clock";
 import { type Desk, openDesk, writeWait } from "./desk-store";
-import { endOutcomeOf, MATTER_DONE_OUTCOME } from "./matter-net";
+import {
+  endOutcomeOf,
+  MATTER_DONE_OUTCOME,
+  pollRecordings,
+} from "./matter-net";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { asgOf } from "./test-desk";
 
@@ -391,4 +390,20 @@ test("a poll with nothing changed does not read the matter book again", async ()
   setSystemTime(new Date(T0 + MIN));
   await tick(desk);
   expect(book).toHaveBeenCalledTimes(1);
+});
+
+test("one agent's two assignments on the matter a message relates to: one wake, for the first opened", async () => {
+  await mocked();
+  const { agent, desk, write } = setup();
+  const second = openAssignment(desk, agent, {
+    openedBy: "owner",
+    steps: [STEP],
+  });
+  await pollMessages(desk, readPeopleOnce());
+  const fromAna = write("Test Ana", "ok");
+  await pollMessages(desk, readPeopleOnce());
+  expect(
+    queuedEvents(desk.db, asgOf(desk, agent)).map((e) => e.event_id)
+  ).toEqual([fromAna]);
+  expect(queuedEvents(desk.db, second)).toEqual([]);
 });

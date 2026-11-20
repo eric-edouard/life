@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,7 +13,7 @@ import type { SourceEvent } from "../records/source";
 import { readPacket, register } from "./agent-actions";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
-import { on } from "./test-desk";
+import { matterView, on, withMatters } from "./test-desk";
 
 // A project's agent is handed its people and chats as the directory holds them, and any agent its project's context. Made-up people, chats, projects and matters.
 
@@ -92,45 +92,11 @@ test("a project with neither says what to do", async () => {
   expect(text.match(/\(none in his directory: find them/g)).toHaveLength(2);
 });
 
-test("an agent on a project's matter, and the project's agent, get the project's line, his notes clipped and its running matters; a project gone from his directory gives nothing", async () => {
-  const matters = await import("../memory/matters");
-  const items = await import("../memory/read-open-items");
-  const rank = spyOn(items, "rankContextOf").mockReturnValue({
-    goals: [],
-    levels: new Map(),
-  });
-  const view = (id: string, projects: string[], text: string) => ({
-    areas: [],
-    hasOwnOpenStep: true,
-    id,
-    lone: false,
-    name: `Matter ${id}`,
-    nextStep: { at: "2026-10-13T09:00:00.000Z", by: "life", kind: "do", text },
-    open: true,
-    openSteps: [],
-    owedTo: [],
+test("an agent on a project's matter, and the project's agent, get the project's line, his notes clipped and where its matters are read, never a list of them; a project gone from his directory gives nothing", async () => {
+  const view = (id: string, projects: string[]) => ({
+    ...matterView(id, [`obs_${id}`]),
     projects,
-    status: "moving",
-    steps: [
-      {
-        at: "2026-10-12T10:00:00.000Z",
-        day: "2026-10-12",
-        kind: "to_do",
-        quote: "",
-        ref: `obs_${id}`,
-        text,
-      },
-    ],
-    waitingOn: [],
-    with: [],
   });
-  const book = spyOn(matters, "readMatterBook").mockResolvedValue([
-    view("mine", ["test-bakery"], "Order the oven"),
-    view("two", ["test-bakery"], "Hire a baker"),
-    view("three", ["test-bakery"], "Print the menu"),
-    view("elsewhere", [], "Renew the visa"),
-    view("lost", ["test-gone"], "Close the stall"),
-  ] as never);
   const onMatter = (step: string) =>
     readPacket(
       desk,
@@ -140,32 +106,32 @@ test("an agent on a project's matter, and the project's agent, get the project's
       ),
       true
     );
-  try {
-    const text = await onMatter("obs_mine");
-    expect(text).toContain(
-      "Project test-bakery (test-bakery, active); 2026-12-01: opening\nSourdough first."
-    );
-    // His notes, cut at a word.
-    expect(text).toContain("Flour…\nIts other running matters");
-    expect(text).not.toContain("Flour talk. ".repeat(130));
-    expect(text).toContain(
-      'Its other running matters (his ranking, the first 10):\n{"id":"two","name":"Matter two","nextStep":"Hire a baker","status":"moving"}\n{"id":"three"'
-    );
-    expect(text).not.toContain('{"id":"mine","name"');
-    expect(text).not.toContain("Renew the visa");
-    // The project's agent gets the same, its matters all listed.
-    const own = await packet("test-bakery");
-    expect(own).toContain("Its running matters (his ranking, the first 10):");
-    expect(own).toContain('{"id":"mine","name"');
-    expect(await packet("test-empty")).toContain(
-      "Its running matters (his ranking, the first 10):\n(none)"
-    );
-    // A project no longer in his directory adds nothing.
-    expect(await onMatter("obs_lost")).not.toContain("running matters");
-  } finally {
-    book.mockRestore();
-    rank.mockRestore();
-  }
+  await withMatters(
+    [
+      view("mine", ["test-bakery"]),
+      view("two", ["test-bakery"]),
+      view("lost", ["test-gone"]),
+    ],
+    async () => {
+      const text = await onMatter("obs_mine");
+      expect(text).toContain(
+        "Project test-bakery (test-bakery, active); 2026-12-01: opening\nSourdough first."
+      );
+      // His notes, cut at a word.
+      expect(text).toContain(
+        'Flour…\nIts running matters: `read_matters` with `project: "test-bakery"`.'
+      );
+      expect(text).not.toContain("Flour talk. ".repeat(130));
+      expect(text).toContain('"id":"mine"');
+      expect(text).not.toContain('"id":"two"');
+      // The project's agent gets the same line.
+      expect(await packet("test-bakery")).toContain(
+        'Its running matters: `read_matters` with `project: "test-bakery"`.'
+      );
+      // A project no longer in his directory adds nothing.
+      expect(await onMatter("obs_lost")).not.toContain("running matters");
+    }
+  );
 });
 
 test("a filter built from a printed key matches an event of that chat", async () => {
