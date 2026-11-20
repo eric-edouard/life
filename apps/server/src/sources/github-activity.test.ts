@@ -184,7 +184,7 @@ test("an owner that cannot be listed stops no other repo, and is asked again a m
   g.failing.add("gone");
   const read = githubActivityReader({ run: g.run });
   expect(await read(["gone/*", "acme/app"], T0)).toEqual([]);
-  expect(g.asked.map((c) => c[1])).toEqual(["api", "repo"]);
+  expect(g.asked.map((c) => c[1])).toEqual(["repo", "api"]);
   await read(["gone/*"], T0 + 30_000);
   expect(g.asked).toHaveLength(2);
   await expect(read(["gone/*"], T0 + NEXT)).rejects.toThrow("gone/*");
@@ -226,7 +226,7 @@ test("a repo that fails waits its turn like one read, so the cap never starves a
   );
 });
 
-test("a repo named outright is asked before any owner is listed, so slow failing owners never starve it", async () => {
+test("one owner is listed a read, so slow failing owners never starve a named repo", async () => {
   const g = fakeGh();
   const gone = Array.from({ length: 12 }, (_, i) => `gone${i}/*`);
   for (const o of gone) {
@@ -234,7 +234,38 @@ test("a repo named outright is asked before any owner is listed, so slow failing
   }
   const read = githubActivityReader({ run: g.run });
   await read([...gone, "acme/app"], T0);
-  expect(g.asked[0]?.at(-1)).toBe("repos/acme/app/events?per_page=100");
+  expect(g.asked.map((c) => c.at(-1))).toEqual([
+    ".[].nameWithOwner",
+    "repos/acme/app/events?per_page=100",
+  ]);
+});
+
+test("every repo named or listed shares one rotation: a big owner never starves a small one", async () => {
+  const g = fakeGh();
+  g.owners.set(
+    "big",
+    Array.from({ length: 50 }, (_, i) => `big/r${i}`)
+  );
+  g.owners.set("small", ["small/app"]);
+  const read = githubActivityReader({ run: g.run });
+  for (let i = 0; i < 4; i += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: reads follow one another
+    await read(["big/*", "small/*"], T0 + i * NEXT);
+  }
+  expect(g.asked.some((c) => c.at(-1)?.startsWith("repos/small/app/"))).toBe(
+    true
+  );
+});
+
+test("a failed read keeps saying so on the reads that ask nothing, until an ask answers", async () => {
+  const g = fakeGh();
+  g.failing.add("acme/app");
+  const read = githubActivityReader({ run: g.run });
+  await expect(read(["acme/app"], T0)).rejects.toThrow("acme/app");
+  await expect(read(["acme/app"], T0 + 30_000)).rejects.toThrow("acme/app");
+  g.failing.clear();
+  expect(await read(["acme/app"], T0 + NEXT)).toEqual([]);
+  expect(await read(["acme/app"], T0 + NEXT + 30_000)).toEqual([]);
 });
 
 test("no more than the cap of repos is asked in any minute, across reads", async () => {

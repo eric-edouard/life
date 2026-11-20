@@ -139,7 +139,7 @@ test("`github_activity` needs a `repo`, and a `repo` needs `github_activity`", a
     })
   ).toEqual({
     error:
-      "a filter with a `repo` takes no `quantity` or place: no event holds both",
+      "a filter with a `repo` takes no `quantity`, place, `person`, `chat` or `from_me`: no event holds both",
   });
 });
 

@@ -237,7 +237,7 @@ function placeRefusalOf(
         .join(" or ")}`;
 }
 
-/** Why `f`'s `repo` cannot fire, or null: one with a quantity or place, one without a channel holding repos, or such a channel named without one. */
+/** Why `f`'s `repo` cannot fire, or null: one with a quantity, a place or a message's key, one without a channel holding repos, or such a channel named without one. */
 function repoRefusalOf(
   f: EventFilter,
   named: string[],
@@ -246,8 +246,11 @@ function repoRefusalOf(
   const withRepo = channels.filter((c) => c.hasRepo).map((c) => c.name);
   const names = withRepo.map((n) => `\`${n}\``).join(" or ");
   const namesOne = named.some((n) => withRepo.includes(n));
-  if (f.repo && (f.quantity || f.latitude !== undefined)) {
-    return "a filter with a `repo` takes no `quantity` or place: no event holds both";
+  if (
+    f.repo &&
+    (f.quantity || f.latitude !== undefined || f.person || f.chat || f.from_me)
+  ) {
+    return "a filter with a `repo` takes no `quantity`, place, `person`, `chat` or `from_me`: no event holds both";
   }
   if (f.repo && !namesOne) {
     return `\`repo\` needs \`channels\` naming ${names}`;

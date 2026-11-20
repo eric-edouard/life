@@ -552,28 +552,26 @@ export function githubActivityReader({
     );
     return { etag: answer.headers.get("etag") ?? etag, events, every };
   };
-  /**
-   * An owner's repos: listed again once an hour, a failed list asked again a minute on, its last list meanwhile. Only
-   * an ask of a repo's events counts as GitHub answering (`answered`): a list alone says nothing of the repos.
-   */
-  const ownerRepos = async (owner: string, now: number, p: ReadPass) => {
+  /** Whether an owner's list is due: never listed, an hour old, or a failed list a minute on. */
+  const isListDue = (owner: string, now: number) => {
     const known = owners.get(owner);
-    if ((known && now - known.at < OWNER_REPOS_FOR) || p.left() <= 0) {
-      return known?.repos ?? [];
-    }
+    return !known || now - known.at >= OWNER_REPOS_FOR;
+  };
+  /**
+   * An owner's repos listed again, its last list kept on a failure (asked again a minute on). Only an ask of a repo's
+   * events counts as GitHub answering (`answered`): a list alone says nothing of the repos.
+   */
+  const listInTurn = async (owner: string, p: ReadPass) => {
     try {
       const listed = await listOwner(owner, timeoutOf(p));
       owners.set(owner, { at: p.at(), repos: listed, tried: p.at() });
-      return listed;
     } catch (e) {
       p.failure(`${owner}/*: ${(e as Error).message}`);
-      const repos = known?.repos ?? [];
       owners.set(owner, {
         at: p.at() - OWNER_REPOS_FOR + ACTIVITY_EVERY_S * 1000,
-        repos,
+        repos: owners.get(owner)?.repos ?? [],
         tried: p.at(),
       });
-      return repos;
     }
   };
   /** A repo's new activity; a failed ask keeps its last good ETag and waits its turn like an answered one. */
@@ -610,32 +608,37 @@ export function githubActivityReader({
     }
     return read;
   };
+  /** The last read's failure while no ask has answered since: a read that asks nothing keeps saying it. */
+  let outage: Error | undefined;
   return async (named: string[], now: number) => {
     const p = readPassOf(now, readMs);
     const wanted = [...new Set(named.map((n) => n.toLowerCase()))];
-    // The repos named outright first, then each owner's, the owner tried longest ago first: a failing owner never
-    // holds up a named repo.
-    const exact = wanted.filter((n) => !n.endsWith("/*"));
-    const read = await askDue(exact, now, p);
     const ownersNamed = wanted
       .filter((n) => n.endsWith("/*"))
-      .map((n) => n.slice(0, -2))
+      .map((n) => n.slice(0, -2));
+    // At most one owner listed a read, the one tried longest ago: a slow or failing owner holds up no repo for more
+    // than one `gh` call.
+    const [toList] = ownersNamed
+      .filter((o) => isListDue(o, now))
       .toSorted(
         (a, b) => (owners.get(a)?.tried ?? 0) - (owners.get(b)?.tried ?? 0)
       );
-    for (const owner of ownersNamed) {
-      // biome-ignore lint/performance/noAwaitInLoops: one gh at a time
-      const repos = await ownerRepos(owner, now, p);
-      read.push(
-        ...(await askDue(
-          repos.filter((r) => !exact.includes(r)),
-          now,
-          p
-        ))
-      );
+    if (toList) {
+      await listInTurn(toList, p);
     }
-    if (p.failed.length > 0 && p.answered === 0) {
-      throw new Error(p.failed.join("; "));
+    // One rotation over every repo named outright or listed under a named owner: the longest unasked first.
+    const repos = new Set([
+      ...wanted.filter((n) => !n.endsWith("/*")),
+      ...ownersNamed.flatMap((o) => owners.get(o)?.repos ?? []),
+    ]);
+    const read = await askDue([...repos], now, p);
+    if (p.answered > 0) {
+      outage = undefined;
+    } else if (p.failed.length > 0) {
+      outage = new Error(p.failed.join("; "));
+    }
+    if (outage && p.answered === 0) {
+      throw outage;
     }
     return read;
   };

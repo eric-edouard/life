@@ -283,7 +283,7 @@ export const githubActivityChannelOf = (
   isOn: () => boolean = () => isOwnLife()
 ): EventChannel => ({
   about:
-    "any activity on the GitHub repos you name, a minute or more after it (GitHub's own delay can be longer): its `kind` is `issue.<action>` (opened, closed, reopened, edited, labeled, assigned…), `pr.<action>` (opened, merged, closed…), `comment`, `review` or `review_comment`; `repo` is required, `owner/name` or `owner/*` (its first 100 repos); `text_matches` tests its title and body when GitHub gives them; read it at its `link` with `gh`",
+    "any activity on the GitHub repos you name, a minute or more after it (GitHub's own delay can be longer): its `kind` is `issue.<action>` (opened, closed, reopened, labeled, assigned…; GitHub's repo events carry no edit of an issue's title or body), `pr.<action>` (opened, merged, closed…), `comment`, `review` or `review_comment`; `repo` is required, `owner/name` or `owner/*` (its first 100 repos); `text_matches` tests its title and body when GitHub gives them; read it at its `link` with `gh`",
   // Every poll while a wait names it: the reader paces each repo by GitHub's own interval.
   beat: 0,
   // `gh` failing is the poll's "could not be read" line.
