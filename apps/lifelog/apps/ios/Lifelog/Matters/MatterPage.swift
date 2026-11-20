@@ -63,26 +63,28 @@ struct MatterPage: View {
         }
     }
 
-    /// What waits on him here, under the name: each ask of this matter as a row that opens it.
     /// Its asks less those whose answer is held for Undo or on its way: the Inbox's rule (`answersUnderWay`).
     private func unanswered(_ matter: Matter) -> [Check] {
         matter.checks.filter { !life.answersUnderWay.contains($0.ref) }
     }
 
-    private func asks(_ checks: [Check]) -> some View {
-        RowGroup {
-            ForEach(checks) { check in
-                Button {
-                    router.matterPath.append(check.ref)
-                } label: {
-                    Row(title: check.question, detail: check.deadline.map { DeadlineWords.by($0) }) {
-                        StateDot(color: Palette.flag)
-                        RowValue()
+    /// What waits on him here, under the name: each ask of this matter as a row that opens it; nothing when none waits.
+    @ViewBuilder private func asks(_ checks: [Check]) -> some View {
+        if !checks.isEmpty {
+            RowGroup {
+                ForEach(checks) { check in
+                    Button {
+                        router.matterPath.append(check.ref)
+                    } label: {
+                        Row(title: check.question, detail: check.deadline.map { DeadlineWords.by($0) }) {
+                            StateDot(color: Palette.flag)
+                            RowValue()
+                        }
                     }
+                    .buttonStyle(.plain)
+                    // The dot has its words.
+                    .accessibilityValue(needsYourAnswer)
                 }
-                .buttonStyle(.plain)
-                // The dot has its words.
-                .accessibilityValue(needsYourAnswer)
             }
         }
     }
