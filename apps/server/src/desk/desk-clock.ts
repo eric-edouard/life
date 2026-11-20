@@ -288,7 +288,7 @@ const sessionAgentOf = (a: AgentRow): SessionAgent => ({
   door: doorOf(a.id),
   folder: a.folder,
   id: a.id,
-  title: (a.brief.split("\n")[0] ?? "").slice(0, 60),
+  title: (a.brief.trim().split("\n")[0] ?? "").slice(0, 60),
 });
 
 /** The turns whose run this process watches end (`Run.ended`): any other open turn was started before a restart. */
