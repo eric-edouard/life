@@ -14,6 +14,8 @@ export function fakeRuntime() {
   >();
   /** Set by `holdBegun`: a run is under way only when the test says. */
   let isBegunHeld = false;
+  /** Sessions started, so a forgotten session's ref is never given again. */
+  let startedCount = 0;
   const run = (ref: string) => ({
     begun: isBegunHeld
       ? new Promise<void>((ok, fail) => begins.set(ref, { fail, ok }))
@@ -72,7 +74,8 @@ export function fakeRuntime() {
         if (fake.isFailing) {
           return Promise.reject(new Error("cannot start"));
         }
-        const ref = `${agent.id}-${sessions.size + 1}`;
+        startedCount += 1;
+        const ref = `${agent.id}-${startedCount}`;
         sessions.set(ref, { running: true });
         fake.said.push({ message: brief, ref, title: agent.title });
         return Promise.resolve({ ...run(ref), link: `fake://${ref}`, ref });
