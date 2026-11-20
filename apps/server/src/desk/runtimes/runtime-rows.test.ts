@@ -124,7 +124,7 @@ test("the rows put the door's key in the environment, never in a command; each n
 
 test("a second Life's agent takes none of his settings, tools or instruction files: its door alone; his own runs as he set the programs up", async () => {
   const rows = runtimeRowsOf(false);
-  expect(rows.claude.meta).toMatchObject({
+  expect(rows.claude.meta?.(a)).toMatchObject({
     claudeCode: {
       options: {
         allowedTools: ["mcp__desk"],
@@ -134,7 +134,7 @@ test("a second Life's agent takes none of his settings, tools or instruction fil
       },
     },
   });
-  expect(rows.claude.meta).toMatchObject({
+  expect(rows.claude.meta?.(a)).toMatchObject({
     claudeCode: { options: { permissionMode: "default" } },
   });
   const { env } = await rows.claude.spawn(a);
@@ -299,8 +299,10 @@ test("his own Life's agents run the send guard before each shell and MCP call, C
       },
     ],
   };
-  expect(own.claude.meta).toEqual({
-    claudeCode: { options: { settings: { hooks: hook } } },
+  expect(own.claude.meta?.(a)).toEqual({
+    claudeCode: {
+      options: { extraArgs: { name: a.title }, settings: { hooks: hook } },
+    },
   });
   const [codex, claude] = await Promise.all([
     own.codex.spawn(a),
@@ -318,7 +320,7 @@ test("his own Life's agents run the send guard before each shell and MCP call, C
     });
   }
   const second = runtimeRowsOf(false);
-  expect(JSON.stringify(second.claude.meta)).not.toContain("hooks");
+  expect(JSON.stringify(second.claude.meta?.(a))).not.toContain("hooks");
   const seconds = await Promise.all(
     Object.values(second).map((row) => row.spawn(a))
   );

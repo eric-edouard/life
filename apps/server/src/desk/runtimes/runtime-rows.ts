@@ -44,8 +44,8 @@ export interface Row {
   header: (key: string) => string;
   /** A link that opens session `ref` in his app. */
   link: (ref: string) => string;
-  /** The session's `_meta` for `session/new` and `session/resume`. */
-  meta?: Record<string, unknown>;
+  /** The session's `_meta` for `session/new` and `session/resume`, for agent `a`. */
+  meta?: (a: Agent) => Record<string, unknown>;
   /** The runtime's no-ask mode, set after every `session/new` and `session/resume` (`session/set_config_option`, id `mode`); none: the session's own. */
   mode?: string;
   /** A second Life's row only: what the title of a door tool's call starts with, the only tools the desk's client approves. None: every ask is approved. */
@@ -316,19 +316,23 @@ const claudeRow = (isOwn: boolean): Row => ({
   // biome-ignore lint/suspicious/noTemplateCurlyInString: Claude expands it from the adapter's environment
   header: () => "Bearer ${LIFE_DESK_KEY}",
   link: (ref) => `claude://claude.ai/epitaxy/local_${ref}`,
-  meta: isOwn
-    ? { claudeCode: { options: { settings: { hooks: GUARD_HOOKS } } } }
-    : {
-        claudeCode: {
-          options: {
-            allowedTools: ["mcp__desk"],
-            permissionMode: "default",
-            settingSources: [],
-            strictMcpConfig: true,
-            tools: [],
-          },
-        },
+  // Every session of an agent, the fresh ones too, carries its title as its name in his app's list (`--name`).
+  meta: (a) => ({
+    claudeCode: {
+      options: {
+        extraArgs: { name: a.title },
+        ...(isOwn
+          ? { settings: { hooks: GUARD_HOOKS } }
+          : {
+              allowedTools: ["mcp__desk"],
+              permissionMode: "default",
+              settingSources: [],
+              strictMcpConfig: true,
+              tools: [],
+            }),
       },
+    },
+  }),
   mode: isOwn ? "bypassPermissions" : undefined,
   onlyDoorPrefix: isOwn ? undefined : "mcp__desk__",
   async readSessionState(ref) {

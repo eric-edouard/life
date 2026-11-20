@@ -211,7 +211,7 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
             url: a.door.url,
           },
         ],
-        ...(row.meta ? { _meta: row.meta } : {}),
+        ...(row.meta ? { _meta: row.meta(a) } : {}),
       };
       if (resume) {
         await conn.agent.request(methods.agent.session.resume, {
