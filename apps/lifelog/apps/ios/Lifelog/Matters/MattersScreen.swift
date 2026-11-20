@@ -107,7 +107,7 @@ struct MattersScreen: View {
             Label {
                 Text("Agent working")
             } icon: {
-                Image(systemName: "sparkles").foregroundStyle(Palette.ai)
+                Image(symbol: RuntimeName.unknown.mark)
             }.tag(MatterFilter.agentWorking)
         }
         .pickerStyle(.inline)

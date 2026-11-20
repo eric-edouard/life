@@ -12,6 +12,7 @@ struct CheckList: View {
     let choose: (String) -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(LifeStore.self) private var life
 
     var body: some View {
         ScrollView {
@@ -36,7 +37,7 @@ struct CheckList: View {
             choose(check.ref)
         } label: {
             Row(
-                title: check.question, icon: symbol(of: check), iconTint: isAgent(check) ? Palette.ai : Palette.icon,
+                title: check.question, icon: symbol(of: check),
                 detail: check.listLine()
             ) {
                 if let deadline = check.deadline {
@@ -55,10 +56,10 @@ struct CheckList: View {
         .accessibilityAddTraits(isChosen ? .isSelected : [])
     }
 
-    /// An agent asks (a star in `ai`), or Life asks about its own reading.
-    private func isAgent(_ check: Check) -> Bool { check.group == .decision && check.agentName(runtime: nil) != nil }
-
-    private func symbol(of check: Check) -> String { isAgent(check) ? "sparkle" : check.group.symbol }
+    /// An agent asks (its program's mark), or Life asks about its own reading (the kind's icon).
+    private func symbol(of check: Check) -> String {
+        check.agentMark(runtime: life.runtimeName(of: check)) ?? check.group.symbol
+    }
 }
 
 extension CheckGroup {
