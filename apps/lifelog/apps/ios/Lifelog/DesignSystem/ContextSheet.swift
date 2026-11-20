@@ -121,19 +121,21 @@ struct ContextView: View {
         text(runs).font(.body15).lineSpacing(3).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
     }
 
-    /// A list's items: a hanging indent of 18, the marker in `muted`, 6 between items; an item's own items under it.
+    /// A list's items: a hanging indent of 18, the marker in `muted`, 6 between items; an item's own items under it, one
+    /// level deep (`ContextMarkdown` flattens deeper ones).
     private func list(_ items: [ContextListItem]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        Text(item.marker).font(.body15).foregroundStyle(Palette.muted)
-                            .frame(minWidth: 18, alignment: .leading)
-                        paragraph(item.text)
-                    }
-                    if !item.items.isEmpty { list(item.items).padding(.leading, 18) }
-                }
+                row(item)
+                ForEach(Array(item.items.enumerated()), id: \.offset) { row($0.element).padding(.leading, 18) }
             }
+        }
+    }
+
+    private func row(_ item: ContextListItem) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text(item.marker).font(.body15).foregroundStyle(Palette.muted).frame(minWidth: 18, alignment: .leading)
+            paragraph(item.text)
         }
     }
 
