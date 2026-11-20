@@ -176,3 +176,34 @@ test("ranked alone, every open item stays, however old, overdue against the day"
     ["obs_said", false],
   ]);
 });
+
+// audit-late-promise-buried: a promise to his sister, 11 days late, ranked 145th of 156 because its matter's newest
+// open step was a shop owing him a price. A matter ranks as its most pressing open step, and an overdue one first.
+test("a matter's open steps are one item, ranked as the most pressing; overdue before what is not", () => {
+  const late = { id: "matter_beads", when: "2026-10-12" };
+  const ranked = rankedItems(
+    [
+      item({ id: "promise-today", kind: "promise" }),
+      item({
+        ...late,
+        at: "2026-10-16T10:00:00.000Z",
+        kind: "waiting_on_someone",
+        person: "unknown:shop",
+      }),
+      item({
+        ...late,
+        at: "2026-10-08T10:00:00.000Z",
+        kind: "promise",
+        person: "person:sister",
+      }),
+      item({ id: "todo-late", when: "2026-10-15" }),
+    ],
+    { date: DATE, levels: new Map([["person:sister", 0]]) }
+  );
+  expect(ranked.map((i) => [i.id, i.kind])).toEqual([
+    ["matter_beads", "promise"],
+    ["todo-late", "to_do"],
+    ["promise-today", "promise"],
+  ]);
+  expect(ranked[0]?.person).toBe("person:sister");
+});

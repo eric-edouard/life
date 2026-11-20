@@ -54,9 +54,10 @@ function lineOf(v: MatterView, nameOf: (ref: string) => string) {
 }
 
 /**
- * The open matters as open items (`matterOf`: one rule of what is open), one each, by its newest open step: due on
- * its earliest open date not more than `OVERDUE_DAYS` before `date`, else said on the day of that step. Who it is with is the step's person, else who it is owed to,
- * waited on, or with.
+ * The open matters as open items (`matterOf`: one rule of what is open), one candidate for each open step, which the
+ * rank reads as one item, its most pressing step (`rankedItems`): due on the matter's earliest open date not more than
+ * `OVERDUE_DAYS` before `date`, else said on the day of its newest open step. Who a step is with is its person, else
+ * who the matter is owed to, waited on, or with.
  */
 export const matterItems = (
   book: MatterView[],
@@ -75,21 +76,22 @@ export const matterItems = (
     // A date too old to list stays its date (never said again as undated).
     const due = dates.find((d) => d >= since) ?? dates.at(0);
     const people = matterPeopleOf(v);
-    return [
-      {
-        at: next.at,
-        id: v.id,
-        kind: next.kind as Candidate["kind"],
-        line: lineOf(v, nameOf),
-        people,
-        person: next.with ?? people[0],
-        priority: open.find((s) => s.priority)?.priority,
-        projects: v.projects,
-        said: due ? undefined : next.day,
-        urgent: open.some((s) => s.urgent),
-        when: due,
-      },
-    ];
+    const item = {
+      id: v.id,
+      line: lineOf(v, nameOf),
+      people,
+      priority: open.find((s) => s.priority)?.priority,
+      projects: v.projects,
+      said: due ? undefined : next.day,
+      urgent: open.some((s) => s.urgent),
+      when: due,
+    };
+    return open.map((s) => ({
+      ...item,
+      at: s.at,
+      kind: s.kind as Candidate["kind"],
+      person: s.with ?? people[0],
+    }));
   });
 
 const itemLine = (i: OpenItem) => `${i.line}${i.overdue ? " (overdue)" : ""}`;
@@ -198,7 +200,7 @@ export const rankContextOf = (people: People) => ({
 
 /**
  * The running matters in the order the rank gives their open step (`matterItems`, `rankedItems`: his urgent flag and
- * priority, kind, his goals, closeness, then age), those with no open step after them, newest first.
+ * priority, overdue first, kind, his goals, closeness, then age), those with no open step after them, newest first.
  */
 export function rankedMattersOf(
   book: MatterView[],
