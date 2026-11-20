@@ -6,7 +6,7 @@ import { clock, MIN } from "../core/clock";
 import type { FoundationAnswer } from "../models/foundation-model";
 import { stamp } from "../models/llm";
 import type { SourceEvent } from "../records/source";
-import { isQuoteFound, readArrivals } from "./arrival-reader";
+import { readArrivals } from "./arrival-reader";
 import { readConfirmedArrivals, readReplies } from "./read-replies";
 import { applyRules, messageUnits } from "./units";
 
@@ -83,15 +83,6 @@ const yes = (quote: string): FoundationAnswer => ({
   reply: { author: "person", quote },
 });
 
-test("a quote is found when half its longer words are in the lines", () => {
-  expect(
-    isQuoteFound("send me the lease", "Sam: can you send the lease?")
-  ).toBe(true);
-  expect(isQuoteFound("pay the invoice today", "Sam: thanks!")).toBe(false);
-  expect(isQuoteFound("", "Sam: anything")).toBe(false);
-  expect(isQuoteFound("ok", "Sam: ok")).toBe(false);
-});
-
 test("Apple's yes goes to his engine; a confirmed yes is a confirmed arrival; a second pass asks nothing", async () => {
   const s = sceneOf(() => yes("send me the lease by Friday"));
   const events = [msg("Can you send me the lease by Friday?")];
@@ -107,15 +98,15 @@ test("Apple's yes goes to his engine; a confirmed yes is a confirmed arrival; a 
   expect(s.calls).toEqual({ apple: 1, engine: 1 });
 });
 
-test("Apple's no, or a quote not in the lines, asks his engine nothing", async () => {
+test("automated lines with no ask quoted ask his engine nothing; a person's lines go on", async () => {
   const no = sceneOf(() => ({
     os: "27.2",
     reply: { author: "automated", quote: "" },
   }));
   await no.read([msg("Your parcel has shipped")]);
-  const made = sceneOf(() => yes("please wire the deposit"));
-  await made.read([msg("Lovely evening, thanks again")]);
-  expect([no.calls.engine, made.calls.engine]).toEqual([0, 0]);
+  const person = sceneOf(() => yes(""));
+  await person.read([msg("Lovely evening, thanks again")]);
+  expect([no.calls.engine, person.calls.engine]).toEqual([0, 1]);
 });
 
 test("Thai lines and no Apple model go straight to his engine; a refusal is stored, then confirmed", async () => {

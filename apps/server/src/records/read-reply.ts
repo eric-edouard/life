@@ -67,7 +67,7 @@ export const VoiceNamingReply = z
   })
   .strict();
 /**
- * Apple's answer to the arrival trigger, after its quote check (`isFound`), or why it gave none (`refused`): made on
+ * Apple's answer to the arrival trigger, as given, or why it gave none (`refused`): made on
  * this Mac, so its `madeBy` names the OS build (a macOS update changes the model). `unit` is the unit its lines are of.
  */
 export const ArrivalTriggerReply = z
@@ -86,7 +86,6 @@ export const ArrivalTriggerReply = z
       z
         .object({
           author: z.enum(["person", "automated"]),
-          isFound: z.boolean(),
           quote: z.string(),
         })
         .strict(),
