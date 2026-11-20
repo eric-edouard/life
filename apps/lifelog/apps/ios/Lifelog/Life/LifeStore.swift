@@ -17,10 +17,9 @@ final class LifeStore {
     /// A project's page: its matters with its head, by the project's id.
     private(set) var project: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
-    /// The People tab: everyone Life knows, closest first; one of them read in full, by ref; and what a search found.
+    /// The People tab: everyone Life knows, closest first, and one of them read in full, by ref.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
-    private(set) var peopleFound: (query: String, state: ReadState<PeopleList>)?
     /// Everyone the reads name, and their pictures.
     let parties: PartyBook
 
@@ -208,15 +207,6 @@ final class LifeStore {
         let update = { (event: ReadState<PersonNow>.Event) in self.person[ref, default: ReadState()].apply(event) }
         if person[ref] == nil { restore(update, key: key) }
         await load(update, key: key) { try await $0.readPart(ref + "/now") }
-    }
-
-    /// The people and organizations `query` matches, and the others Life has seen by that name; a newer query's read
-    /// replaces this one's, which then applies nothing.
-    func findPeople(_ query: String) async {
-        if peopleFound?.query != query { peopleFound = (query, ReadState()) }
-        await load({ if self.peopleFound?.query == query { self.peopleFound?.state.apply($0) } }, key: nil) {
-            try await $0.readPeopleAndOrganizations(query: query)
-        }
     }
 
     func refreshMatter(_ id: String) async {
@@ -548,7 +538,7 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
-        (people, person, peopleFound) = (ReadState(), [:], nil)
+        (people, person) = (ReadState(), [:])
         parties.startOver()
         holds.clear()
         onStep(.reading)
