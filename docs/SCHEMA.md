@@ -28,6 +28,8 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 - **Organization** (`truth/organizations.yaml`, optional): `id`, `name`, `aliases`, `relation`, `handles` (as a
   person's), `domains` (host names: an address in `handles.email` is it, another at a domain stays a person), `people`
   (`[{ id, role, until? }]`, `until` a year or a `YYYY-MM-DD` once they left; none: there now) and `projects`.
+- **Picture pick**: a person or an organization may carry `pictureFrom`, the source whose picture shows (`contacts`, a
+  source's name, or `none`); none: the first they show.
 - **Birthday**: a person in `truth/people.yaml` may carry `birthday`, `--MM-DD` or `YYYY-MM-DD` when the year is
   known.
 - **Called**: the owner may carry `called`, what Life calls them in every prompt and in what it writes, when it isn't

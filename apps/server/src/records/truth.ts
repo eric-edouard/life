@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SourceName } from "../core/names";
 import { Birthday, isoDate, slug } from "./fields";
 
 // Truth (truth/): owner-approved, in git, the only data that must survive a rebuild.
@@ -19,6 +20,9 @@ const Handles = z
   })
   .strict();
 
+/** His picture pick: whose picture shows for a person or an organization, Contacts' or a source's; `none`: no picture. Absent: the first they show. */
+const PictureFrom = z.enum(["contacts", ...SourceName.options, "none"]);
+
 export const Person = z
   .object({
     aliases: z.array(z.string()).default([]),
@@ -29,6 +33,7 @@ export const Person = z
     id: slug,
     language: z.enum(["en", "fr", "th"]).optional(),
     name: z.string().min(1),
+    pictureFrom: PictureFrom.optional(),
     projects: z.array(slug).default([]),
     relation: z.string().optional(),
   })
@@ -65,6 +70,7 @@ export const Organization = z
     id: slug,
     name: z.string().min(1),
     people: z.array(OrganizationPerson).default([]),
+    pictureFrom: PictureFrom.optional(),
     projects: z.array(slug).default([]),
     relation: z.string().optional(),
   })
@@ -76,10 +82,17 @@ export const OrganizationsFile = z
   .object({ organizations: z.array(Organization), schemaVersion: z.literal(1) })
   .strict();
 
-/** A party: someone in his directory, a person or an organization, as the name and handle readers see either. */
+/** A directory party: someone in his directory, a person or an organization, as the name and handle readers see either. */
 export type DirectoryParty = Pick<
   Person,
-  "aliases" | "birthday" | "handles" | "id" | "name" | "projects" | "relation"
+  | "aliases"
+  | "birthday"
+  | "handles"
+  | "id"
+  | "name"
+  | "pictureFrom"
+  | "projects"
+  | "relation"
 >;
 
 /** The owner's id in truth/people.yaml. */

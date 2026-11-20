@@ -11,38 +11,33 @@ import { join } from "node:path";
 import { clock, iso } from "../core/clock";
 import { writeJson } from "../core/files";
 import type { SourceName } from "../core/names";
-import { MACHINE_DIR } from "../core/platform";
 import { readContactPictures, readContactRecords } from "../sources/contacts";
 import type { Picture } from "../sources/contract";
+import { toJpeg } from "./message-files";
+import {
+  PERSON_PICTURES,
+  PERSON_PICTURES_INDEX,
+  type PictureIndex,
+} from "./party";
 import { enabledSources } from "./sources";
 import type { Resolve } from "./units";
 import { readPeople } from "./who";
 
 // The person pictures (docs/glossary.md): every picture a person shows, from his Contacts (his own choice) first, then
-// each source in `SOURCES`' order, kept per Mac (`MACHINE_DIR`, never exported or backed up) for the apps. Derived and rebuilt whole by the watcher each
-// hour, never by the night; nothing in memory/. Each file is named by its bytes' digest, so a picture someone changes is
-// a new file and the old one goes.
+// each source in `SOURCES`' order, kept per Mac (`MACHINE_DIR`, never exported or backed up) for the apps, each once as
+// a `PICTURE_PX` JPEG named by its id (`pictureIdOf`). Derived and rebuilt whole by the watcher each hour, never by the
+// night; nothing in memory/. A picture someone changes is a new id, and the old file goes.
 
-export const PERSON_PICTURES = join(MACHINE_DIR, "person-pictures");
-export const PERSON_PICTURES_INDEX = join(MACHINE_DIR, "person-pictures.json");
 const CONTACTS = "contacts";
+/** A kept picture's long side: 72 pt at 3x, the largest the apps draw. */
+const PICTURE_PX = 216;
 
-/** A file's extension from its first bytes: the formats a source's pictures come in. */
-const FORMATS: [string, number[]][] = [
-  ["jpg", [0xff, 0xd8]],
-  ["png", [0x89, 0x50, 0x4e, 0x47]],
-  ["gif", [0x47, 0x49, 0x46]],
-  ["webp", [0x52, 0x49, 0x46, 0x46]],
-  ["tiff", [0x4d, 0x4d]],
-  ["tiff", [0x49, 0x49]],
-];
-const extOf = (bytes: Uint8Array) =>
-  FORMATS.find(([, magic]) => magic.every((b, i) => bytes[i] === b))?.[0] ??
-  "img";
+/** A picture's id: its original bytes' digest. */
+export const pictureIdOf = (bytes: Uint8Array) =>
+  createHash("sha256").update(bytes).digest("hex").slice(0, 32);
 
-/** A picture's file name: its digest and its format. */
-export const pictureFileOf = (bytes: Uint8Array) =>
-  `${createHash("sha256").update(bytes).digest("hex").slice(0, 32)}.${extOf(bytes)}`;
+/** A kept picture's file, by its id. */
+export const pictureFileOf = (id: string) => `${id}.jpg`;
 
 /**
  * Each person's pictures, Contacts' first then each source's in the order given, the same picture once per person, and
@@ -60,7 +55,7 @@ export function personPicturesOf(
     resolve: Resolve;
   }
 ) {
-  const index: Record<string, { file: string; source: string }[]> = {};
+  const index: PictureIndex = {};
   const files = new Map<string, Uint8Array>();
   const add = (
     person: string | null | undefined,
@@ -70,12 +65,12 @@ export function personPicturesOf(
     if (!person) {
       return;
     }
-    const file = pictureFileOf(bytes);
+    const id = pictureIdOf(bytes);
     const kept = index[person] ?? [];
     index[person] = kept;
-    if (!kept.some((p) => p.file === file)) {
-      kept.push({ file, source });
-      files.set(file, bytes);
+    if (!kept.some((p) => p.id === id)) {
+      kept.push({ id, source });
+      files.set(id, bytes);
     }
   };
   for (const c of cards) {
@@ -93,15 +88,9 @@ export function personPicturesOf(
   return { files, index };
 }
 
-/** Writes `bytes` to `path` whole: a stop midway leaves a `.tmp`, never a broken picture under its digest. */
-function writeWhole(path: string, write: (to: string) => void) {
-  write(`${path}.tmp`);
-  renameSync(`${path}.tmp`, path);
-}
-
 /**
- * Finds every person's pictures and keeps them: new files written, the index (`{ built, people }`) replaced whole, then
- * the files no one shows any more removed. A card is placed as Life places it (`readPeople`'s folds: an ambiguous card
+ * Finds every person's pictures and keeps them: each new one made a `PICTURE_PX` JPEG (`toJpeg`; one it can't make is
+ * left out of the index), the index (`{ built, people }`) replaced whole, then the files no one shows any more removed. A card is placed as Life places it (`readPeople`'s folds: an ambiguous card
  * stays its own). A reader returns nothing for what isn't there and throws when it can't read: then nothing changes,
  * the last pictures stand (the watcher logs why). ponytail: one reader failing for good freezes them all; per-source
  * keeping if that ever happens.
@@ -120,17 +109,34 @@ export async function writePersonPictures() {
     people
   );
   mkdirSync(PERSON_PICTURES, { recursive: true });
-  for (const [file, bytes] of found.files) {
-    const path = join(PERSON_PICTURES, file);
+  const kept = new Set<string>();
+  for (const [id, bytes] of found.files) {
+    const path = join(PERSON_PICTURES, pictureFileOf(id));
+    // A stop midway leaves a `.src` or a `.tmp.jpg`, removed below, never a broken picture under its id.
     if (!existsSync(path)) {
-      writeWhole(path, (to) => writeFileSync(to, bytes));
+      const src = `${path}.src`;
+      writeFileSync(src, bytes);
+      if (await toJpeg(src, `${path}.tmp.jpg`, PICTURE_PX)) {
+        renameSync(`${path}.tmp.jpg`, path);
+      }
+    }
+    if (existsSync(path)) {
+      kept.add(pictureFileOf(id));
     }
   }
-  writeWhole(PERSON_PICTURES_INDEX, (to) =>
-    writeJson(to, { built: iso(clock().getTime()), people: found.index })
+  const shown = Object.fromEntries(
+    Object.entries(found.index).map(([ref, list]) => [
+      ref,
+      list.filter((p) => kept.has(pictureFileOf(p.id))),
+    ])
   );
+  writeJson(`${PERSON_PICTURES_INDEX}.tmp`, {
+    built: iso(clock().getTime()),
+    people: shown,
+  });
+  renameSync(`${PERSON_PICTURES_INDEX}.tmp`, PERSON_PICTURES_INDEX);
   for (const file of readdirSync(PERSON_PICTURES)) {
-    if (!found.files.has(file)) {
+    if (!kept.has(file)) {
       rmSync(join(PERSON_PICTURES, file));
     }
   }
