@@ -31,8 +31,8 @@ import {
   type NowInputs,
   peopleListOf,
   personNowOf,
-  readLatest,
   reachPageOf,
+  readLatest,
   rowOf,
   type Standing,
 } from "./person-now";
@@ -41,11 +41,11 @@ import {
   ADD_ON_PARTS,
   nextReads,
   PART_CHARS,
-  readPartRefOf,
   partErrorOf,
   READ_PARTS,
   type ReadPart,
   type ReadPartRef,
+  readPartRefOf,
 } from "./read-part";
 import { directoryPartiesOf, isDirectoryNew, OWNER } from "./read-truth";
 import { readSituationNow } from "./situations";
@@ -252,25 +252,7 @@ export async function person(
       : asData(['(no part "latest" for someone only heard)']);
   }
   if (part === "reach") {
-    if (!partRef) {
-      return asData(['(no part "reach" for someone only heard)']);
-    }
-    const { next, reach } = reachPageOf(
-      readReachOf(ref, folks),
-      Number(o.span ?? 0)
-    );
-    return {
-      reach,
-      ...(next
-        ? {
-            next: readPartRefOf({
-              part: "reach",
-              span: String(next),
-              subject: ref,
-            }),
-          }
-        : {}),
-    };
+    return readReachPart(partRef, folks, o.span);
   }
   // The person's own page, by its id: never one whose file name only holds the name.
   const file = known && Bun.file(pagePath(`person:${known}`));
@@ -464,6 +446,29 @@ const readReachOf = (
     ),
     seen: readSeenAccounts(ref),
   });
+
+/** `reach`: every account of a person Life knows, from the `span`th on (`reachPageOf`), and the ref of the next page. */
+function readReachPart(
+  partRef: string | undefined,
+  people: People,
+  span = "0"
+) {
+  if (!partRef) {
+    return asData(['(no part "reach" for someone only heard)']);
+  }
+  const { next, reach } = reachPageOf(
+    readReachOf(partRef, people),
+    Number(span)
+  );
+  const more = next && {
+    next: readPartRefOf({
+      part: "reach",
+      span: String(next),
+      subject: partRef,
+    }),
+  };
+  return { reach, ...more };
+}
 
 /** Each ref's levels and last exchange, from what the caller read once. */
 const standingOf = (
