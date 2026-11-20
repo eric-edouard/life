@@ -41,9 +41,10 @@ export const Appointments = z
 export type Appointments = z.infer<typeof Appointments>;
 
 /**
- * memory/appointment-events.jsonl, append-only, written by the calendar sync (`host/appointments-calendar.ts`): `created`, an event Life wrote for an appointment; `removed`, that event deleted by
- * Life (the appointment gone); `refused`, that event deleted by him (in his calendar), so it is never
- * written again; `restored`, his word lifting that. Each line names what the appointment was read from: its
+ * memory/appointment-events.jsonl, append-only, written by the calendar sync and his Remove and Undo
+ * (`host/appointments-calendar.ts`): `created`, an event Life wrote for an appointment; `removed`, that event deleted by
+ * Life (the appointment gone); `refused`, that event deleted by him (in his calendar, or by Remove), so it is never
+ * written again; `restored`, his Undo of that, which lifts it. Each line names what the appointment was read from: its
  * facts (the night's), or the messages it was agreed in (the arrival reader's).
  */
 export const AppointmentEvent = z

@@ -14,6 +14,7 @@ import { CARD, DecisionRequest } from "../../memory/card-request";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
 import { checksOnMatterOf } from "../../memory/checks";
 import { requestDecision } from "../../memory/decisions";
+import { openAppointment, readsOnce } from "../../memory/find-refs";
 import { readLifeIcons } from "../../memory/matter-icons";
 import { recordCorrection } from "../../memory/memory-files";
 import { openById } from "../../memory/open-by-id";
@@ -30,6 +31,7 @@ import { recordToldLife } from "../../memory/told-life";
 import { chatsOf } from "../../memory/words";
 import { payments } from "../../payments/backend";
 import { personalParts } from "../../personal/person-parts";
+import { AppointmentId } from "../../records/appointment";
 import type { LedgerEntry } from "../../records/ledger-entry";
 import { entryLine } from "../../records/ledger-entry";
 import { ObservationId } from "../../records/observation";
@@ -37,6 +39,10 @@ import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
 import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
 import { answerWithResult } from "../answer-result";
+import {
+  removeAppointment,
+  restoreAppointment,
+} from "../appointments-calendar";
 import { asksFor } from "../asks";
 import {
   changeDirectoryEntry,
@@ -97,7 +103,7 @@ import {
 // Built with `readsOnly` (`buildServer(true)`), for the question cases' agent over stdio, it registers only the reads.
 // Auth: a Bearer JWT that the connector's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
-/** A push's card id: 16 hex (`pushIdOf`). */
+/** A push's card or appointment id: 16 hex (`pushIdOf`). */
 const PUSH_ID = /^[0-9a-f]{16}$/;
 
 const SCOPES = [SCOPE, "offline_access"];
@@ -198,7 +204,7 @@ const Correct = Fix.extend({
   kind: z.enum(["memory", ...FORWARD_KINDS]),
 });
 
-/** What an agent's token may not write: his own words (`tell_life`), his answer to a check. */
+/** What an agent's token may not write: his own words (`tell_life`), his answer to a check, his Remove of an appointment. */
 const NOT_HIS =
   "Not done: this app was paired as an agent, and an agent's words are not his.";
 
@@ -284,7 +290,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "fetch",
-    "Open by id: a conversation or a unit (chat, mail) another tool cited, in full (who spoke and the words, a page of turns at a time; an ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words), or a part of a read: the ref a person read ends with under Next reads (`person:ana/year/2024`), an ask page (`ask/<name>`: how to ask a card's part), a matter (`matter_…`), an observation (`obs_…`), a message (`msg:<source>|<message id>`, as `read_chats` gives them), or what Life read off a file (`file:<ref>`), each opened with `id` alone (no `fromTurn`, no `limit`). A card's `life:<ref>` links are these refs.",
+    "Open by id: a conversation or a unit (chat, mail) another tool cited, in full (who spoke and the words, a page of turns at a time; an ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words), or a part of a read: the ref a person read ends with under Next reads (`person:ana/year/2024`), an ask page (`ask/<name>`: how to ask a card's part), a matter (`matter_…`), an observation (`obs_…`), an appointment Life added to his calendar (`apt_…`, as `read_appointments` gives it), a message (`msg:<source>|<message id>`, as `read_chats` gives them), or what Life read off a file (`file:<ref>`), each opened with `id` alone (no `fromTurn`, no `limit`). A card's `life:<ref>` links are these refs.",
     z.object({
       fromTurn: z.int().min(0).optional(),
       id: z
@@ -391,6 +397,43 @@ export function buildServer(readsOnly = false) {
       const [row] = matterRowsNowOf([matter], open);
       return { ...row, checks: checksOnMatterOf(open, matter.id) };
     }
+  );
+  tool(
+    server,
+    "read_appointments",
+    "One appointment Life keeps in his calendar (an event it added, marked `(Life)`), by its push's `pushId` (16 hex) or its id (`apt_…`), JSON: `appointment`, `pushId`, `title`, `startsAt` and `endsAt` (instants, or days when `allDay`; the end exclusive), `where`, `link` (a meeting link copied from the messages), `from` (the message it was read from: `chat`, `message` ref, `sender` (a party), `at`, `text`; null when Life can't open it), `matterId`, `addedAt` (its first event), `removedAt` (when he removed it; null while it is in his calendar).",
+    z.object({
+      appointment: AppointmentId.optional(),
+      pushId: z.string().regex(PUSH_ID).optional(),
+    }),
+    async (q) => {
+      if ((q.appointment === undefined) === (q.pushId === undefined)) {
+        throw new Error("Give `appointment` or `pushId`, one of the two.");
+      }
+      const found = await openAppointment(q, readsOnce());
+      if (!found) {
+        throw new Error("No such appointment.");
+      }
+      return found;
+    }
+  );
+  tool(
+    server,
+    "change_appointment",
+    "His Remove or Undo of an appointment Life added to his calendar, only on his own tap or words: `remove` deletes its event (already gone counts) and Life never writes it again; `restore` lifts that and writes it again. `result`: `removed`, `restored`, or `failed` with its `reason` (then nothing changed).",
+    z.object({
+      action: z.enum(["remove", "restore"]),
+      appointment: AppointmentId,
+    }),
+    ({ action, appointment }, agent) => {
+      if (agent) {
+        throw new Error(NOT_HIS);
+      }
+      return action === "remove"
+        ? removeAppointment(appointment)
+        : restoreAppointment(appointment);
+    },
+    REVERSIBLE
   );
   tool(
     server,

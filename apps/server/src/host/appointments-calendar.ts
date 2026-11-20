@@ -33,10 +33,10 @@ import { type GoogleCalendar, googleCalendar } from "./google-calendar";
 // The appointments in his calendar (his request, 8 Nov 2026): `memory/appointments.json` and the appointments agreed
 // in new lines (`memory/arrival-appointments.ts`, his word of 21 Nov 2026) brought into the `appointments` setting's
 // calendar, his own, so his agents plan around them. Only the watcher syncs, one sync at a time (`inTurn`): every
-// 30 minutes. An appointment's first event pushes `calendar.added`. Life touches only its own events there
+// 30 minutes, and on his Remove or Undo from the connector. An appointment's first event pushes `calendar.added`. Life touches only its own events there
 // (found by `lifeOutput=appointments`) and reads back of them only `lifeConfirmed`, which an agent sets once he
-// confirms one. An event he or an agent removed is his no: recorded as `refused`, it is never
-// written again, until he lifts it (`restored`). One Life removes (its appointment gone) is recorded as `removed`, so the
+// confirms one. An event he or an agent removed, or he removed by Remove, is his no: recorded as
+// `refused`, it is never written again, until his Undo (`restored`). One Life removes (its appointment gone) is recorded as `removed`, so the
 // same appointment coming back is written again.
 
 const OUTPUT = { lifeOutput: "appointments" } as const;
@@ -126,7 +126,7 @@ const appendEvent = (
 };
 
 /**
- * The appointments to draft now in `calendar`: each one not refused whose event is listed, or was never written there
+ * The appointments to draft now in `calendar`: each one not refused there whose event is listed, or was never written there
  * (another calendar's event is not his no), or Life removed, or he restored. One Life wrote there and no longer lists
  * is looked up by its id: gone is a refusal (recorded); still there (outside the listing) or a failed lookup leaves it
  * for the next tick.
@@ -142,6 +142,10 @@ export async function drafted<A extends Planned>(
   const kept: A[] = [];
   for (const a of list) {
     const last = byAppointment.get(a.id);
+    if (last?.op === "refused" && last.calendar === calendar) {
+      // His no, even while Google still lists the event his Remove deleted.
+      continue;
+    }
     if (
       held.has(a.id) ||
       !last ||
@@ -222,7 +226,7 @@ async function pushAdded(d: AppointmentDraft, now: Date) {
 }
 
 let turn: Promise<unknown> = Promise.resolve();
-/** One sync at a time: the watcher's ticks share this chain (and his Remove and Undo, next). */
+/** One sync, Remove or Undo at a time: the watcher's ticks and the connector's calls share this chain. */
 function inTurn<T>(run: () => Promise<T>) {
   const next = turn.then(run);
   turn = next.catch(() => undefined);
@@ -291,10 +295,13 @@ async function sync(now: Date) {
   );
   const events = readAppointmentEvents();
   // An arrival's event stays until it ends, past the window it is read in; with no night file yet (a new install),
-  // every event stays: none is removed for want of the night's reading.
+  // every event stays: none is removed for want of the night's reading. One he removed never stays.
   const isKept = (of: string) => {
     const last = events.byAppointment.get(of);
-    return !file || (last?.op === "created" && last.messages !== undefined);
+    return (
+      last?.op !== "refused" &&
+      (!file || (last?.op === "created" && last.messages !== undefined))
+    );
   };
   const { create, remove, update } = reconcile(
     list.map((a) => appointmentDraft(a, confirmed.has(a.id))),
@@ -347,3 +354,60 @@ async function sync(now: Date) {
 
 /** The watcher's sync, in turn. */
 export const syncAppointments = (now = clock()) => inTurn(() => sync(now));
+
+type Changed =
+  | { result: "removed" | "restored" }
+  | { reason: string; result: "failed" };
+const failed = (reason: string): Changed => ({ reason, result: "failed" });
+
+/**
+ * His Remove (his token only, `change_appointment`): Google deletes the event (already gone counts), then his no is
+ * recorded (`refused`), so it is never written again; a failed delete records nothing.
+ */
+export const removeAppointment = (id: string, now = clock()) =>
+  inTurn(async (): Promise<Changed> => {
+    const { appointmentsCalendar: s } = settings();
+    const last = readAppointmentEvents().byAppointment.get(id);
+    if (!(s && isOn("appointmentsCalendar"))) {
+      return failed("the calendar is off");
+    }
+    if (last?.op !== "created") {
+      return last?.op === "refused"
+        ? { result: "removed" }
+        : failed("it is not in your calendar");
+    }
+    try {
+      await googleCalendar(last.calendar, s.account).remove(last.event);
+    } catch (e) {
+      return failed((e as Error).message);
+    }
+    appendEvent("refused", last, now);
+    return { result: "removed" };
+  });
+
+/**
+ * His Undo of a Remove: his no is lifted (`restored`) and the sync writes the event again; when it cannot (a sync
+ * failed, or Life no longer holds the appointment), his no is recorded again.
+ */
+export const restoreAppointment = (id: string, now = clock()) =>
+  inTurn(async (): Promise<Changed> => {
+    const last = readAppointmentEvents().byAppointment.get(id);
+    if (last?.op !== "refused") {
+      return last?.op === "created"
+        ? { result: "restored" }
+        : failed("it was not removed");
+    }
+    appendEvent("restored", last, now);
+    const why = await sync(now).then(
+      () =>
+        readAppointmentEvents().byAppointment.get(id)?.op === "created"
+          ? null
+          : "Life no longer holds it, or the calendar is off",
+      (e: Error) => e.message
+    );
+    if (why) {
+      appendEvent("refused", last, now);
+      return failed(why);
+    }
+    return { result: "restored" };
+  });

@@ -17,10 +17,13 @@ import {
   appointmentDraft,
   drafted,
   plannedOf,
+  removeAppointment,
+  restoreAppointment,
   syncAppointments,
 } from "./appointments-calendar";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as google from "./google-calendar";
+import { rpc, token } from "./http/mcp-test-harness";
 
 const appointment = (over: Partial<Appointment> = {}): Appointment => ({
   allDay: false,
@@ -163,6 +166,9 @@ const fake = {
       [...events].map(([id, e]) => ({ allDay: e.allDay, id, props: e.props }))
     ),
   remove: (id: string) => {
+    if (failDelete) {
+      return Promise.reject(new Error("gog calendar delete: offline"));
+    }
     events.delete(id);
     return Promise.resolve();
   },
@@ -175,6 +181,7 @@ const was = settings().appointmentsCalendar;
 const nightFile = existsSync(APPOINTMENTS)
   ? readFileSync(APPOINTMENTS, "utf8")
   : null;
+let failDelete = false;
 let updates: { busy: boolean; description: string; id: string }[] = [];
 let calendar: ReturnType<typeof spyOn<typeof google, "googleCalendar">>;
 let pushed: ReturnType<typeof spyOn<typeof push, "notifyPhone">>;
@@ -219,6 +226,7 @@ beforeEach(() => {
   clean();
   events = new Map();
   updates = [];
+  failDelete = false;
   setSettings({
     appointmentsCalendar: { account: "a@example.com", calendar: "cal" },
   });
@@ -428,4 +436,84 @@ test("the night's reading of an arrival's meeting keeps its event, busy, with it
     )?.op
   ).toBe("refused");
   expect(pushed).toHaveBeenCalledTimes(1);
+});
+
+const lastOp = (id: string) =>
+  readAppointmentEvents().byAppointment.get(id)?.op;
+
+test("his Remove deletes the event and is never written over; his Undo writes it again; a failed delete records nothing", async () => {
+  agreed("2031-03-12 10:00", ["whatsapp|m1"]);
+  await syncAppointments(NOW);
+  const [event, e] = [...events][0] ?? [];
+  const id = e?.props.lifeAppointment ?? "";
+  failDelete = true;
+  expect(await removeAppointment(id, NOW)).toMatchObject({ result: "failed" });
+  expect(lastOp(id)).toBe("created");
+  failDelete = false;
+  // Still listed by Google a moment after his Remove: the sync's delete never writes over his no.
+  const listed = new Map(events);
+  expect(await removeAppointment(id, NOW)).toEqual({ result: "removed" });
+  expect(events.has(event ?? "")).toBe(false);
+  events = listed;
+  await syncAppointments(NOW);
+  expect(lastOp(id)).toBe("refused");
+  expect(events.size).toBe(0);
+  await syncAppointments(NOW);
+  expect(events.size).toBe(0);
+  expect(await restoreAppointment(id, NOW)).toEqual({ result: "restored" });
+  expect(lastOp(id)).toBe("created");
+  expect(events.size).toBe(1);
+  expect(pushed).toHaveBeenCalledTimes(1);
+});
+
+test("Undo of one Life no longer holds is refused again; with the calendar off nothing runs", async () => {
+  agreed("2031-03-12 10:00", ["whatsapp|m1"]);
+  await syncAppointments(NOW);
+  const id = [...events.values()][0]?.props.lifeAppointment ?? "";
+  await removeAppointment(id, NOW);
+  rmSync(readReplyPath(ARRIVAL_AT), { force: true });
+  expect(await restoreAppointment(id, NOW)).toMatchObject({
+    result: "failed",
+  });
+  expect(lastOp(id)).toBe("refused");
+  setSettings({ appointmentsCalendar: undefined });
+  const calls = calendar.mock.calls.length;
+  expect(await syncAppointments(NOW)).toBeNull();
+  expect(calendar.mock.calls.length).toBe(calls);
+});
+
+test("change_appointment is his token's only; read_appointments finds one by its push's id", async () => {
+  agreed("2031-03-12 10:00", ["whatsapp|m1"]);
+  await syncAppointments(NOW);
+  const id = [...events.values()][0]?.props.lifeAppointment ?? "";
+  const call = async (name: string, args: object, over = {}) =>
+    (await rpc(await token(over), "tools/call", { arguments: args, name })).json
+      .result;
+  const byAgent = await call("change_appointment", {
+    action: "remove",
+    appointment: id,
+  });
+  expect(byAgent.isError).toBe(true);
+  expect(lastOp(id)).toBe("created");
+  const read = await call("read_appointments", { pushId: push.pushIdOf(id) });
+  expect(JSON.parse(read.content[0].text)).toMatchObject({
+    appointment: id,
+    link: "https://meet.example.com/kit-lou",
+    removedAt: null,
+    title: "Coffee with Kit",
+  });
+  expect(
+    (
+      await call("read_appointments", {
+        appointment: id,
+        pushId: "0".repeat(16),
+      })
+    ).isError
+  ).toBe(true);
+  const mine = await call(
+    "change_appointment",
+    { action: "remove", appointment: id },
+    { agent: undefined }
+  );
+  expect(JSON.parse(mine.content[0].text)).toEqual({ result: "removed" });
 });

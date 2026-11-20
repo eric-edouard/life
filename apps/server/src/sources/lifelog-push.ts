@@ -19,7 +19,7 @@ export interface Push {
   title?: string;
 }
 
-/** A card's or an appointment's id for a push: 16 hex of an HMAC of its ref under a key that never leaves the Mac. The phone reads it back from the connector (`read_inbox`); it is never the ref. */
+/** A card's or an appointment's id for a push: 16 hex of an HMAC of its ref under a key that never leaves the Mac. The phone reads it back from the connector (`read_inbox`, `read_appointments`); it is never the ref. */
 export const pushIdOf = (ref: string, key = secretIn("pushIdKey")) =>
   createHmac("sha256", key).update(ref).digest("hex").slice(0, 16);
 

@@ -30,6 +30,7 @@ export const AGENT_POST_SIGNATURE =
  */
 export const CONNECTOR_WRITES = [
   "answer_check",
+  "change_appointment",
   "change_directory_entry",
   "change_registered_agent",
   "change_todo_item",
