@@ -199,15 +199,12 @@ async function cutSource(
     const block = fragments.slice(from, last + 1);
     const end = Math.max(...spans.slice(from, last + 1).map((s) => s.end));
     const sourceId = block[0]?.sourceId ?? null;
-    // Past the limit, or a quiet range on a fragment now (one that opened and closed meanwhile).
-    const isHeld = () =>
-      end > limit(sourceId).getTime() ||
-      block.some((f) => touchesQuiet(db, f.map, sourceId));
-    if (end > limit(sourceId).getTime()) {
+    const isPastLimit = () => end > limit(sourceId).getTime();
+    if (isPastLimit()) {
       return null;
     }
     // biome-ignore lint/performance/noAwaitInLoops: blocks in order
-    const held = await close(db, audio, block, onSilence, isHeld).catch(
+    const held = await close(db, audio, block, onSilence, isPastLimit).catch(
       (error: unknown) => failed(db, audio, block, error)
     );
     if (held === "held") {
@@ -241,13 +238,14 @@ async function failed(
 
 // A closed block: the fragments bought already are covered and those a quiet range touches
 // withdrawn; the rest are joined and admitted as one job that takes them, in one transaction.
-// "held" when the processing limit moved before its end meanwhile: nothing admitted.
+// "held" when, meanwhile, the processing limit moved before its end or a quiet range came on one of
+// its fragments (one that opened and closed): nothing admitted.
 async function close(
   db: Db,
   audio: AudioStore,
   block: Fragment[],
   endedOnSilence: boolean,
-  isHeld: () => boolean
+  isPastLimit: () => boolean
 ) {
   const parts = await readable(db, audio, block);
   const own = parts.map((p) => p.fragment);
@@ -268,7 +266,7 @@ async function close(
   await audio.put(key, joined.audio);
   // A dictation opened, or a quiet range came, while its audio was read and stored: no job, and its
   // fragments wait (one a range touches is withdrawn at the next close).
-  if (isHeld()) {
+  if (isPastLimit() || own.some((f) => touchesQuiet(db, f.map, f.sourceId))) {
     await audio.delete(key);
     return "held" as const;
   }

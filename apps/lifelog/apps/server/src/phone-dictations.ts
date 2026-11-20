@@ -3,9 +3,10 @@
 // microphone opens only on that answer) and ends when the close arrives (the microphone stops before
 // it), or at its cap. A source's audio is on its uploader's clock, which the uploader measures against
 // the server's and reports (`X-Clock-Offset`, `recordSourceClock`). A dictation is placed on that
-// clock, shifted by the offset and widened by its uncertainty and the margin (`quietFor`); a source
-// with no usable measurement is held whole once any phone dictation exists (`processingLimit`), and
-// goes on once one comes. Every step reads these where audio leaves: when Silero takes a piece, before
+// clock, shifted by the offset and widened by its uncertainty and the margin: while open it holds the
+// source back from there (`processingLimit`), and once closed it is a range of it (`quietFor`). A
+// source with no usable measurement is held whole once any phone dictation exists, and goes on once
+// one comes. Every step reads these where audio leaves: when Silero takes a piece, before
 // a block's job is admitted, and at each send.
 
 import { clock } from "@life/server/src/core/clock";
@@ -15,7 +16,7 @@ import {
   phoneDictations,
   sourceClocks,
 } from "@lifelog/db/schema/phone-dictations";
-import { and, eq, gt, isNull, lt, or } from "drizzle-orm";
+import { and, eq, gt, isNull, lt } from "drizzle-orm";
 import { z } from "zod";
 import type { MacSocket } from "./mac-socket";
 import type { Interval } from "./page-rules";
@@ -197,8 +198,9 @@ function clockOf(db: Pick<Db, "select">, sourceId: string | null) {
 }
 
 // The protected time touching [start, end) of a source's audio, on its uploader's clock: the quiet
-// ranges as stored, and each phone dictation placed by that clock (one still open, to the end of
-// time). A source with no usable clock is held by the limit instead (`processingLimit`).
+// ranges as stored, and each closed phone dictation placed by that clock. One still open is the
+// limit's (`processingLimit`): what is past it waits, never withdrawn; so does all of a source with
+// no usable clock.
 export function quietFor(
   db: Pick<Db, "select">,
   sourceId: string | null,
@@ -217,17 +219,14 @@ export function quietFor(
     .where(
       and(
         lt(phoneDictations.startedAt, new Date(to)),
-        or(
-          isNull(phoneDictations.endedAt),
-          gt(phoneDictations.endedAt, new Date(from))
-        )
+        gt(phoneDictations.endedAt, new Date(from))
       )
     )
     .all()
     .map(
       (row): Interval => [
         row.startedAt.getTime() + at.offset - at.wide,
-        row.endedAt ? row.endedAt.getTime() + at.offset + at.wide : ALL_TIME,
+        (row.endedAt?.getTime() ?? 0) + at.offset + at.wide,
       ]
     );
   return [...stored, ...placed];

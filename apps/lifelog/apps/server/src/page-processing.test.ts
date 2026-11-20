@@ -359,8 +359,10 @@ test("a dictation that opens while a batch is labeled: the piece waiting for Sil
   const [held] = protectedOf(start, 0);
   expect(sent.length).toBeGreaterThan(0);
   expect(sent.every((at) => at + PACKET_MS <= held)).toBe(true);
-  expect(pieces().map((p) => p.first)).toEqual([expected.pieces[0].first]);
-  // The pass that went again stopped at the limit: what is past it waits unlabeled.
+  // The first piece is kept; the pass that went again stopped at the limit, and what is past it
+  // waits unlabeled.
+  expect(pieces()[0]?.first).toBe(expected.pieces[0].first);
+  expect(pieces().every((p) => p.end <= held)).toBe(true);
   await pages.run();
   expect(sent.every((at) => at + PACKET_MS <= held)).toBe(true);
   expect(

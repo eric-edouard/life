@@ -26,6 +26,8 @@ import { services } from "./services";
 import { fakeElevenLabs, OWNER_TOKEN, testConfig, testDb } from "./testing";
 
 const fake = fakeElevenLabs();
+// One server for the file, its bucket emptied per test: an earlier test's worker would race for jobs.
+const bucket = memoryAudioStore();
 let env: Awaited<ReturnType<typeof testDb>>;
 beforeAll(() => {
   env = testDb();
@@ -36,6 +38,8 @@ afterAll(() => {
 });
 beforeEach(() => {
   env.reset();
+  bucket.objects.clear();
+  bucket.writes = 0;
   fake.calls.length = 0;
   fake.respond = () =>
     Response.json(
@@ -50,8 +54,7 @@ beforeEach(() => {
 
 const SOURCE = "pendant-1";
 const auth = { Authorization: `Bearer ${OWNER_TOKEN}` };
-const appWith = () => {
-  const bucket = memoryAudioStore();
+const build = () => {
   const s = services(
     testConfig(`http://localhost:${fake.server.port}`),
     env.db,
@@ -59,7 +62,12 @@ const appWith = () => {
   );
   return Object.assign(createApp(s), { audio: bucket, s });
 };
-type App = ReturnType<typeof appWith>;
+type App = ReturnType<typeof build>;
+let built: App | undefined;
+const appWith = () => {
+  built ??= build();
+  return built;
+};
 
 // fixtures/fragments: a, then b and c moved 30 s earlier, so the three are one block with pauses
 // of 6.5 and 8 s between them (their audio, and so `starts`, doesn't depend on where they sit).
@@ -680,16 +688,9 @@ test("a range that comes after the block closed withdraws its job in the worker,
 const dictate = (at: number) => {
   recordSourceClock(env.db, SOURCE, { offsetMs: 0, uncertaintyMs: 0 });
   const id = randomUUID();
-  openPhoneDictation(
-    env.db,
-    {
-      id,
-      phoneId: "iphone-test",
-      source: "app.example.notes",
-      startedAt: new Date(at).toISOString(),
-    },
-    new Date(at)
-  );
+  const startedAt = new Date(at).toISOString();
+  const phone = { phoneId: "iphone-test", source: "app.example.notes" };
+  openPhoneDictation(env.db, { ...phone, id, startedAt }, new Date(at));
   return id;
 };
 
@@ -719,7 +720,7 @@ test("a Limitless block waits while the iPhone dictates; the close withdraws the
 });
 
 test.each([false, true])(
-  "a dictation that opens (and closes: %p) while a block's audio is read: no job is admitted, its block's audio goes, and the rest closes without it",
+  "a dictation that opens (and closes: %p) while a block's audio is stored: no job is admitted, its block's audio goes, and the rest closes without it",
   async (closes) => {
     const app = appWith();
     for (const piece of [a, b, c]) {
@@ -729,21 +730,21 @@ test.each([false, true])(
     await app.s.worker.work.idle();
     heard(lastEnd(c) + 50_000);
     const [from = 0] = b.map.segments[0] ?? [];
-    const { get } = app.audio;
+    const { put } = app.audio;
     let id = "";
-    app.audio.get = (key) => {
-      app.audio.get = get;
+    app.audio.put = (key, bytes) => {
+      app.audio.put = put;
       id = dictate(from + 100);
       if (closes) {
         closePhoneDictation(env.db, id, new Date(from + 500));
       }
-      return get(key);
+      return put(key, bytes);
     };
     await app.s.worker.work();
     expect(jobs()).toHaveLength(0);
     expect(uploads()).toHaveLength(0);
-    expect(stored(app).some((key) => String(key).startsWith("blocks/"))).toBe(
-      false
+    expect(stored(app).filter((k) => String(k).startsWith("blocks/"))).toEqual(
+      []
     );
 
     closePhoneDictation(env.db, id, new Date(from + 500));

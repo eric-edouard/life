@@ -230,7 +230,10 @@ test("a routed excerpt holds the slot until its words are stored, then dictation
   inThaiZone();
   speech.heard = THAI;
   let dictation: ReturnType<typeof dictate> | undefined;
-  fake.respond = () => {
+  fake.respond = (call) => {
+    if (call.path.endsWith("/v1/user/subscription")) {
+      return Response.json({});
+    }
     dictation = dictate(app);
     return thaiAnswer();
   };
