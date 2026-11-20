@@ -39,7 +39,7 @@ export interface DetailLine {
 /**
  * Someone's details, in page order (birthday, home, work, family, handles), each kind from his directory first, then his
  * Contacts. One birthday: his directory's, else the first in Contacts. A Contacts address labelled Work is not a home. A line
- * two Contacts cards repeat shows once; a handle shows once, however it is written.
+ * two Contacts cards repeat shows once; each handle is a line of its own, once however it is written.
  */
 export function detailsOf({
   contacts,
@@ -88,15 +88,15 @@ export function detailsOf({
       "family",
       contacts.flatMap((c) => c.related)
     ),
-    ...line("truth", "handles", [mapped.join(", ")]),
-    ...line("contacts", "handles", [
-      contacts
-        .flatMap((c) => [
-          ...c.handles.filter((h) => isNew(phoneOrEmailKeyOf(h))),
-          ...c.profiles.filter(isNew),
-        ])
-        .join(", "),
-    ]),
+    ...line("truth", "handles", mapped),
+    ...line(
+      "contacts",
+      "handles",
+      contacts.flatMap((c) => [
+        ...c.handles.filter((h) => isNew(phoneOrEmailKeyOf(h))),
+        ...c.profiles.filter(isNew),
+      ])
+    ),
   ];
   const born = lines.find((l) => l.kind === "birthday");
   return lines.filter(
@@ -154,29 +154,9 @@ export const birthdaysNear = (
     .toSorted((x, y) => x.b.left - y.b.left)
     .map(({ b, p }) => ({ id: p.id, name: p.name, text: birthdayText(b) }));
 
-const SOURCE_NAMES = { contacts: "Contacts", truth: "the directory" };
-
-/** Someone's details as their page shows them, one line each, with where each comes from; `today` dates a birthday. */
-export function detailsBlock(lines: DetailLine[], today: string) {
-  if (lines.length === 0) {
-    return [];
-  }
-  return [
-    "Details:",
-    ...lines.map((l) => {
-      const text =
-        l.kind === "birthday"
-          ? birthdayText(nextBirthday(l.text, today))
-          : l.text;
-      return `- ${LABELS[l.kind]}: ${text} (${SOURCE_NAMES[l.from]})`;
-    }),
-    "",
-  ];
-}
-
-/** Every person's details now (`detailsOf`): truth/ and his Contacts (whose by `ownerOfCard`). */
-export function readDetailsOf(
-  people: Pick<People, "ownerOfCard" | "truth">,
+/** Each person's Contacts cards, read now (whose by `ownerOfCard`, the one rule). */
+export function readCardsOf(
+  people: Pick<People, "ownerOfCard">,
   records: Contact[] = readContactRecords()
 ) {
   const contacts = new Map<string, Contact[]>();
@@ -186,12 +166,18 @@ export function readDetailsOf(
       contacts.set(ref, [...(contacts.get(ref) ?? []), c]);
     }
   }
+  return (ref: string) => contacts.get(ref) ?? [];
+}
+
+/** Every person's details now (`detailsOf`): truth/ and his Contacts (`readCardsOf`). */
+export function readDetailsOf(
+  people: Pick<People, "ownerOfCard" | "truth">,
+  records: Contact[] = readContactRecords()
+) {
+  const cardsOf = readCardsOf(people, records);
   const mapped = new Map(people.truth.people.map((p) => [`person:${p.id}`, p]));
   return (ref: string) =>
-    detailsOf({
-      contacts: contacts.get(ref) ?? [],
-      person: mapped.get(ref),
-    });
+    detailsOf({ contacts: cardsOf(ref), person: mapped.get(ref) });
 }
 
 /** The birthdays of the coming week (`birthdaysNear`) of everyone in his directory or with a page. */

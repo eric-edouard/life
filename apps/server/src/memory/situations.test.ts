@@ -8,6 +8,7 @@ import { setSettings, settings } from "../core/settings";
 import { MAY_KEEP, promptNameOf, promptText } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { situationPath } from "./memory-files";
+import { OWNER } from "./read-truth";
 import { inputsOf } from "./run";
 import {
   isRecent,
@@ -60,16 +61,41 @@ test("a reader shows only lines whose episodes are still live", () => {
     page: REF,
     schemaVersion: 1,
   });
+  const withAna = { id: A, people: [{ ref: REF }] };
+  const same = (r: string) => r;
   expect(
-    situationBlock("Situation", readSituationNow(REF, new Set([A])))
+    situationBlock("Situation", readSituationNow(REF, [withAna], same))
   ).toEqual([
     "Situation (where things stand, read each night from the 30 days up to their newest episode):",
     `- Ana stays at his flat since 20 Mar. [${A}]`,
     "",
   ]);
-  expect(situationBlock("Situation", readSituationNow(REF, new Set()))).toEqual(
+  expect(situationBlock("Situation", readSituationNow(REF, [], same))).toEqual(
     []
   );
+  // An episode still standing but no longer with her: her line on it goes.
+  expect(readSituationNow(REF, [{ id: A, people: [] }], same)).toEqual([]);
+});
+
+test("his own situation may cite any standing episode: his episodes leave him out of their people", () => {
+  writeJson(situationPath(OWNER), {
+    built: "2026-11-05T00:00:00.000Z",
+    inputs: "0123456789abcdef",
+    lines: [{ cites: [A], text: "He moves flats in March." }],
+    madeBy: {
+      engine: "claude",
+      model: "m",
+      prompt: promptNameOf("memory-situation.v3"),
+      run: "r",
+    },
+    page: OWNER,
+    schemaVersion: 1,
+  });
+  expect(
+    readSituationNow(OWNER, [{ id: A, people: [] }], (r) => r).map(
+      (l) => l.text
+    )
+  ).toEqual(["He moves flats in March."]);
 });
 
 const ep = (n: number, day: string, who: string, importance = 2) =>
@@ -167,15 +193,21 @@ test("a situation is shown only while it was made by the variant the add-ons cho
   try {
     setSettings({ personal: { aboutMe: {}, personas: {}, relationships: {} } });
     stored("memory-situation.v3");
-    expect(readSituationNow(REF, new Set([A]))).toHaveLength(1);
+    expect(
+      readSituationNow(REF, [{ id: A, people: [{ ref: REF }] }], (r) => r)
+    ).toHaveLength(1);
     setSettings({ personal: null });
     // Switched off: the stored one hides at once; one made under that variant shows.
-    expect(readSituationNow(REF, new Set([A]))).toEqual([]);
+    expect(
+      readSituationNow(REF, [{ id: A, people: [{ ref: REF }] }], (r) => r)
+    ).toEqual([]);
     stored(promptNameOf("memory-situation.v3"));
     expect(promptNameOf("memory-situation.v3")).toBe(
       "memory-situation.v3-without-aboutMe-personas-relationships"
     );
-    expect(readSituationNow(REF, new Set([A]))).toHaveLength(1);
+    expect(
+      readSituationNow(REF, [{ id: A, people: [{ ref: REF }] }], (r) => r)
+    ).toHaveLength(1);
   } finally {
     setSettings({ personal: was ?? null });
   }
@@ -226,7 +258,8 @@ test("a reader shows the situation made under the variant now: with his words on
       page: REF,
       schemaVersion: 1,
     });
-    return readSituationNow(REF, new Set([A])).length;
+    return readSituationNow(REF, [{ id: A, people: [{ ref: REF }] }], (r) => r)
+      .length;
   };
   try {
     expect([madeUnder(false), madeUnder(true)]).toEqual([1, 0]);

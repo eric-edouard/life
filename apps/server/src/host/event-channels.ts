@@ -39,6 +39,8 @@ export interface ChannelEvent {
   day: string;
   eventId: string;
   matchable: Matchable;
+  /** A payment's payee as the bank names it, whole: read on the Mac to see a card paid (`host/done-seen.ts`), never handed to an agent. */
+  payee?: string;
   payload: Record<string, unknown>;
 }
 
@@ -66,6 +68,33 @@ const READ_WITHIN_MS = 20_000;
 /** How many days back a read of payments looks: a statement imported late still wakes. */
 const PAYMENTS_BACK_DAYS = 35;
 
+/** A bank's own account-name field, which names the payee when the merchant is a shop's name ("SHOP (A/C Name: SHOP CO.,LTD.)"). */
+const ACCOUNT_NAME = /\bA\/C Name:/i;
+
+/**
+ * Who a payment went to, as its bank line names it: its account-name field when the bank gives one, read to the
+ * bracket that closes the one it opened in (its own brackets kept: "North (UK) Services Ltd"), else the whole line.
+ * A field given blank names no one.
+ */
+const payeeOf = (merchant: string) => {
+  const field = ACCOUNT_NAME.exec(merchant);
+  if (!field) {
+    return merchant;
+  }
+  const before = merchant.slice(0, field.index);
+  let depth = before.lastIndexOf("(") > before.lastIndexOf(")") ? 1 : 0;
+  let name = "";
+  for (const ch of merchant.slice(field.index + field[0].length)) {
+    depth += ch === "(" ? 1 : 0;
+    depth -= ch === ")" ? 1 : 0;
+    if (depth < 0 || (ch === ")" && depth === 0)) {
+      break;
+    }
+    name += ch;
+  }
+  return name.trim();
+};
+
 /**
  * A payment as an event: money out or in by its sign, as `<currency>_out` or `_in` in its own currency (`thb_out`, what a
  * card's look matches, `host/done-seen.ts`) and in EUR (`eur_out`, what a wait may name), its words to match, its facts
@@ -91,6 +120,7 @@ function paymentEventOf(p: Payment): ChannelEvent {
       quantities,
       text: [merchant, category, note].filter(Boolean).join("\n"),
     },
+    payee: payeeOf(p.merchant),
     payload: {
       amount: p.amount,
       at: at ?? null,

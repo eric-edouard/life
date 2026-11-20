@@ -65,7 +65,9 @@ test("fetch by id: a subject's id is a part read (a malformed one is an error, n
     await openById("area:home/now", undefined, undefined, person)
   ).toContain("no read parts for area:home");
   expect(
-    await openById("person:ana/evidence", undefined, undefined, person)
+    JSON.stringify(
+      await openById("person:ana/evidence", undefined, undefined, person)
+    )
   ).not.toContain("nothing found");
 });
 

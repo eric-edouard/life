@@ -8,24 +8,29 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { clock, DAY, MIN } from "../core/clock";
+import { clock, DAY, iso, MIN } from "../core/clock";
 import type { Embedder } from "../core/embedder";
-import { agentOf, queuedEvents } from "../host/desk-read";
+import { agentOf, currentAssignmentOf, queuedEvents } from "../host/desk-read";
 import type { Messaging } from "../host/events";
 import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
 import { CORRECTIONS, recordCorrection } from "../memory/memory-files";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import { register } from "./agent-actions";
+import { openAssignment, register } from "./agent-actions";
+import { pollMessages, readPeopleOnce, tick } from "./desk-clock";
 import {
-  pollMessages,
+  closeAssignmentRow,
+  type Desk,
+  openDesk,
+  writeWait,
+} from "./desk-store";
+import {
+  endOutcomeOf,
+  MATTER_DONE_OUTCOME,
   pollRecordings,
-  readPeopleOnce,
-  tick,
-} from "./desk-clock";
-import { type Desk, openDesk } from "./desk-store";
-import { endOutcomeOf, MATTER_DONE_OUTCOME } from "./matter-net";
+} from "./matter-net";
 import { fakeRuntime } from "./runtimes/fake-runtime";
+import { asgOf } from "./test-desk";
 
 // The wide net: an agent on a matter is woken by its people's messages and by messages and recordings close to it in
 // meaning. A made-up matter, chat and recording; a fake embedder whose vectors count a few words.
@@ -158,7 +163,7 @@ test("a matter's agent is woken by its people's messages and by messages close t
   await mocked();
   const { agent, desk, write } = setup();
   // Its own wait also wants Ana's chat: her message is queued once, as the wait's.
-  desk.db.run("update agent set wait_events = ? where id = ?", [
+  desk.db.run("update assignment set wait_events = ? where agent_id = ?", [
     JSON.stringify([{ chat: "Test Ana", from_me: false }]),
     agent,
   ]);
@@ -168,7 +173,7 @@ test("a matter's agent is woken by its people's messages and by messages close t
   write("Test Bob", "Dinner tonight? The plumber came by");
   write("Test Bob", "bead");
   await pollMessages(desk, readPeopleOnce());
-  const events = queuedEvents(desk.db, agent);
+  const events = queuedEvents(desk.db, asgOf(desk, agent));
   expect(events.map((e) => [e.name, e.event_id])).toEqual([
     ["message.received", fromAna],
     ["matter.related", close],
@@ -184,6 +189,36 @@ test("a matter's agent is woken by its people's messages and by messages close t
   ).toBeGreaterThanOrEqual(0.55);
 });
 
+// Regression, 20 Nov 2026 (the debt verdict on PR 1): a message read after the shared cursor but sent before an
+// assignment was opened is not new to it, by its wait nor by the wide net.
+test("a message from before an assignment was opened wakes it neither by its wait nor by its matter", async () => {
+  await mocked();
+  const { agent, desk, write } = setup();
+  await pollMessages(desk, readPeopleOnce()); // the cursor starts now
+  setSystemTime(new Date(T0 + MIN));
+  const fromAna = write("Test Ana", "ok");
+  setSystemTime(new Date(T0 + 2 * MIN));
+  const later = openAssignment(desk, agent, {
+    openedBy: "owner",
+    steps: [STEP],
+  });
+  writeWait(
+    desk.db,
+    later,
+    {
+      events: [{ chat: "Test Ana", from_me: false }],
+      reason: "r",
+      until: iso(T0 + DAY),
+    },
+    false
+  );
+  await pollMessages(desk, readPeopleOnce());
+  expect(
+    queuedEvents(desk.db, asgOf(desk, agent)).map((e) => e.event_id)
+  ).toEqual([fromAna]);
+  expect(queuedEvents(desk.db, later)).toEqual([]);
+});
+
 test("with no embedder, people still wake it", async () => {
   await mocked();
   const { agent, desk, write } = setup(null);
@@ -191,9 +226,9 @@ test("with no embedder, people still wake it", async () => {
   const fromAna = write("Test Ana", "ok");
   write("Test Shop", "The beads are ready for pickup on Friday");
   await pollMessages(desk, readPeopleOnce());
-  expect(queuedEvents(desk.db, agent).map((e) => e.event_id)).toEqual([
-    fromAna,
-  ]);
+  expect(
+    queuedEvents(desk.db, asgOf(desk, agent)).map((e) => e.event_id)
+  ).toEqual([fromAna]);
 });
 
 test("his pendant's new words close to the matter wake it once, read from where the last poll stopped; a failed read is read again", async () => {
@@ -231,7 +266,7 @@ test("his pendant's new words close to the matter wake it once, read from where 
   );
   setSystemTime(new Date(T0 + 6 * MIN));
   await pollRecordings(desk, readPeopleOnce());
-  expect(queuedEvents(desk.db, agent)).toEqual([]);
+  expect(queuedEvents(desk.db, asgOf(desk, agent))).toEqual([]);
   held = unit(at(10));
   said = [
     ...said,
@@ -245,7 +280,7 @@ test("his pendant's new words close to the matter wake it once, read from where 
   expect(calls.at(-1)).toEqual([
     "I still have to get the pickup day for the beads from the shop",
   ]);
-  const [event] = queuedEvents(desk.db, agent);
+  const [event] = queuedEvents(desk.db, asgOf(desk, agent));
   expect(event?.event_id).toBe(`unit_00000000e001@${at(10)}`);
   expect(JSON.parse(event?.payload ?? "")).toMatchObject({
     id: held.id,
@@ -261,13 +296,13 @@ test("his pendant's new words close to the matter wake it once, read from where 
   said = [...said, line(at(12), "the beads, the pickup", "person:ana-voice")];
   spoken.mockRejectedValueOnce(new Error("down"));
   await pollRecordings(desk, readPeopleOnce());
-  expect(queuedEvents(desk.db, agent)).toHaveLength(1);
+  expect(queuedEvents(desk.db, asgOf(desk, agent))).toHaveLength(1);
   await pollRecordings(desk, readPeopleOnce());
-  expect(queuedEvents(desk.db, agent).at(-1)).toMatchObject({
+  expect(queuedEvents(desk.db, asgOf(desk, agent)).at(-1)).toMatchObject({
     event_id: `unit_00000000e001@${at(12)}`,
   });
   expect(
-    JSON.parse(queuedEvents(desk.db, agent).at(-1)?.payload ?? "")
+    JSON.parse(queuedEvents(desk.db, asgOf(desk, agent)).at(-1)?.payload ?? "")
   ).toMatchObject({ why: "person" });
 });
 
@@ -275,7 +310,7 @@ test("an agent whose matter is done is ended; one only probably done (a link's) 
   await mocked("probably_done");
   const { agent, desk } = setup();
   // Its first turn not due yet: this tick only polls.
-  desk.db.run("update agent set wait_until = ? where id = ?", [
+  desk.db.run("update assignment set wait_until = ? where agent_id = ?", [
     new Date(T0 + DAY).toISOString(),
     agent,
   ]);
@@ -303,10 +338,10 @@ test("an agent whose matter is done is ended; one only probably done (a link's) 
       rmSync(CORRECTIONS, { force: true });
     }
   }
-  expect(agentOf(desk.db, agent)).toMatchObject({
-    outcome: "its matter is done",
-    status: "ended",
-  });
+  expect(agentOf(desk.db, agent)?.status).toBe("ended");
+  expect(currentAssignmentOf(desk.db, agent)?.outcome).toBe(
+    "its matter is done"
+  );
 });
 
 // Findings 1 and 5 of the action pipeline review (20 Nov 2026): an agent stayed on a matter that was no longer running,
@@ -317,28 +352,28 @@ test("a handed-out agent whose matter is no longer running is ended as over; his
   const handed = register(desk, {
     brief: "b",
     folder: "/",
-    kind: "handed_out",
+    openedBy: "desk",
     runtime: "fake",
     steps: [STEP],
   });
   for (const id of [agent, handed]) {
-    desk.db.run("update agent set wait_until = ? where id = ?", [
+    desk.db.run("update assignment set wait_until = ? where agent_id = ?", [
       new Date(T0 + DAY).toISOString(),
       id,
     ]);
   }
   await tick(desk);
   expect(agentOf(desk.db, agent)?.status).toBe("active");
-  expect(agentOf(desk.db, handed)).toMatchObject({
-    outcome: MATTER_OVER_OUTCOME,
-    status: "ended",
-  });
+  expect(agentOf(desk.db, handed)?.status).toBe("ended");
+  expect(currentAssignmentOf(desk.db, handed)?.outcome).toBe(
+    MATTER_OVER_OUTCOME
+  );
 });
 
 test("which matters end which agents: done ends any; not running (probably done, dormant, closed) only a handed-out one", () => {
   const of = (status: string, open: boolean) =>
-    (["asked", "handed_out"] as const).map((kind) =>
-      endOutcomeOf(kind, { open, status } as never)
+    (["owner", "desk"] as const).map((openedBy) =>
+      endOutcomeOf(openedBy, { open, status } as never)
     );
   expect(of("done", false)).toEqual([MATTER_DONE_OUTCOME, MATTER_DONE_OUTCOME]);
   expect(of("probably_done", false)).toEqual([null, MATTER_OVER_OUTCOME]);
@@ -350,7 +385,7 @@ test("which matters end which agents: done ends any; not running (probably done,
 test("a poll with nothing changed does not read the matter book again", async () => {
   await mocked();
   const { agent, desk } = setup();
-  desk.db.run("update agent set wait_until = ? where id = ?", [
+  desk.db.run("update assignment set wait_until = ? where agent_id = ?", [
     new Date(T0 + DAY).toISOString(),
     agent,
   ]);
@@ -360,4 +395,66 @@ test("a poll with nothing changed does not read the matter book again", async ()
   setSystemTime(new Date(T0 + MIN));
   await tick(desk);
   expect(book).toHaveBeenCalledTimes(1);
+});
+
+test("one agent's two assignments on the matter a message relates to: one wake, for the first opened", async () => {
+  await mocked();
+  const { agent, desk, write } = setup();
+  const second = openAssignment(desk, agent, {
+    openedBy: "owner",
+    steps: [STEP],
+  });
+  await pollMessages(desk, readPeopleOnce());
+  const fromAna = write("Test Ana", "ok");
+  await pollMessages(desk, readPeopleOnce());
+  expect(
+    queuedEvents(desk.db, asgOf(desk, agent)).map((e) => e.event_id)
+  ).toEqual([fromAna]);
+  expect(queuedEvents(desk.db, second)).toEqual([]);
+});
+
+// Regression: the recordings' read mark lives in the process; read again after a restart, a recording whose first
+// assignment had closed went to the agent's other assignment on the matter.
+test("a recording read again after a restart, the assignment it woke closed, wakes no other assignment of its agent", async () => {
+  await mocked();
+  const words = await import("../memory/words");
+  const memoryFiles = await import("../memory/memory-files");
+  const { agent, desk } = setup(fakeEmbedder([]));
+  openAssignment(desk, agent, { openedBy: "owner", steps: [STEP] });
+  const at = new Date(T0 + 10 * MIN).toISOString();
+  const said = "I still have to get the pickup day for the beads from the shop";
+  spies.push(
+    spyOn(memoryFiles, "readUnitsOf").mockImplementation(() => [
+      {
+        end: at,
+        hash: at,
+        id: "unit_00000000e002",
+        source: "lifelog",
+      } as unknown as Unit,
+    ]),
+    spyOn(words, "spokenLines").mockImplementation(() =>
+      Promise.resolve(
+        new Map([
+          [
+            "unit_00000000e002",
+            [{ at, ref: at, speaker: "person:me", text: said }],
+          ],
+        ])
+      )
+    )
+  );
+  setSystemTime(new Date(T0 + 11 * MIN));
+  await pollRecordings(desk, readPeopleOnce());
+  const queued = desk.db
+    .query<{ assignment_id: string }, []>("select assignment_id from event")
+    .all();
+  expect(queued).toHaveLength(1);
+  closeAssignmentRow(desk.db, queued[0]?.assignment_id ?? "", {
+    outcome: "test",
+  });
+  desk.db = openDesk(desk.db.filename);
+  await pollRecordings(desk, readPeopleOnce());
+  expect(desk.db.query("select assignment_id from event").all()).toEqual(
+    queued
+  );
 });

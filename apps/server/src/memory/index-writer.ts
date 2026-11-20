@@ -26,13 +26,16 @@ import {
   MEMORY,
   type ObservationStatusInputs,
   observationStatusOf,
+  readEpisodeFiles,
   readUnits,
   readVerdicts,
   type Verdicts,
   verdictOf,
 } from "./memory-files";
 import { readPassageTexts } from "./passages";
-import { TRUTH } from "./read-truth";
+import { onlyHisWithOf } from "./person-units";
+import { OWNER, TRUTH } from "./read-truth";
+import { kindOf } from "./sources";
 import { forReaders } from "./status-inputs";
 import { observationsNow, type People, readPeople, unitNow } from "./who";
 import { localDate } from "./zones";
@@ -56,9 +59,12 @@ create index units_date on units (date);
 create virtual table unit_search using fts5(id unindexed, title, summary, topics, ${FTS});
 create table unit_topics (unit text, topic text, primary key (unit, topic));
 create table unit_people (unit text, person text, primary key (unit, person));
+create index unit_people_person on unit_people (person);
 create index unit_topics_topic on unit_topics (topic);
 create table search_hashes (id text primary key, hash text not null);
 create table searched_texts (id text primary key, at text, text text);
+create table episode_people (episode text, person text, day text, primary key (episode, person, day));
+create index episode_people_person on episode_people (person);
 create table rebuilt (at text);`;
 
 /** The supersession that retired `o`, if any (`observationStatusOf`). */
@@ -67,18 +73,42 @@ function retirement(o: Observation, statusInputs: ObservationStatusInputs) {
   return s.state === "retired" ? s : null;
 }
 
+/** `episode_people`'s rows: who a standing episode is with as of today, once for each day file holding a line of it. */
+interface EpisodePerson {
+  day: string;
+  episode: string;
+  person: string;
+}
+
 /** A unit and its verdict, as the index holds them. */
 interface IndexedUnit {
   unit: Unit;
   verdict?: Verdict;
 }
 
-/** The index rows of `units`: who each is with as of today (the table keeps each once), and its verdict. */
+/**
+ * The index rows of `units`: who each is with as of today (the table keeps each once), and its verdict. A chat-day only
+ * he wrote in is with whoever its key or name names (`onlyHisWithOf`), so their reads find it.
+ */
 const indexedOf = (units: Unit[], people: People, verdicts: Verdicts) =>
-  units.map((unit) => ({
-    unit: unitNow(unit, people.refOf),
-    verdict: verdictOf(verdicts, unit),
-  }));
+  units.map((unit) => {
+    const now = unitNow(unit, people.refOf);
+    const withThem =
+      kindOf(unit.source) === "chat" &&
+      now.people.every((p) => p === OWNER) &&
+      onlyHisWithOf(
+        {
+          chat: unit.key,
+          chatName: unit.title === unit.key ? null : unit.title,
+          source: unit.source,
+        },
+        people.resolve
+      );
+    return {
+      unit: withThem ? { ...now, people: [...now.people, withThem] } : now,
+      verdict: verdictOf(verdicts, unit),
+    };
+  });
 
 /** `insert or ignore` into `db`'s `table` of `n` columns. */
 const insertInto = (db: Database, table: string, n: number) =>
@@ -149,7 +179,8 @@ export function buildIndex(
   units: IndexedUnit[] = [],
   builtAt = clock(),
   episodes: Episode[] = [],
-  summaries: HeldSummary[] = []
+  summaries: HeldSummary[] = [],
+  episodePeople: EpisodePerson[] = []
 ) {
   const unique = new Map(observations.map((o) => [o.id, o]));
   writeIndex(path, (db) => {
@@ -166,6 +197,10 @@ export function buildIndex(
     const link = insertInto(db, "observation_subjects", 2);
     const hash = insertInto(db, "search_hashes", 2);
     const textRow = insertInto(db, "searched_texts", 3);
+    const episodePerson = insertInto(db, "episode_people", 3);
+    for (const { day, episode, person } of episodePeople) {
+      episodePerson.run(episode, person, day);
+    }
     for (const episode of episodes) {
       const words = episodeTextNow(episode);
       hash.run(episode.id, textHashOf(EMBEDDER_MODEL, words));
@@ -233,6 +268,23 @@ export function readSearchedTexts(db: Database): boolean {
   return hasIndex && wholePassages;
 }
 
+/**
+ * `episode_people`: each standing episode's people as its latest line has them (`episodesNow`), read as of today, on
+ * every day file holding a line of it (its earlier lines add their units). Pure.
+ */
+const episodePeopleOf = (
+  episodes: readonly Episode[],
+  files: readonly { day: string; line: Pick<Episode, "id"> }[],
+  refOf: (ref: string) => string
+): EpisodePerson[] => {
+  const days = Map.groupBy(files, (x) => x.line.id);
+  return episodes.flatMap((m) =>
+    [...new Set(days.get(m.id)?.map((x) => x.day))].flatMap((day) =>
+      m.people.map((p) => ({ day, episode: m.id, person: refOf(p.ref) }))
+    )
+  );
+};
+
 /** Rebuilds the index from the ledger and the units; what the owner said is wrong or unimportant is not searchable. */
 export async function reindex() {
   const at = clock();
@@ -241,14 +293,16 @@ export async function reindex() {
   const { observations, statusInputs: computed } =
     await observationsNow(people);
   const statusInputs = await forReaders(computed);
+  const episodes = await episodesWhere(() => true);
   const n = buildIndex(
     observations,
     INDEX,
     statusInputs,
     units,
     at,
-    await episodesWhere(() => true),
-    await currentSummaries()
+    episodes,
+    await currentSummaries(),
+    episodePeopleOf(episodes, await readEpisodeFiles(), people.refOf)
   );
   // On stderr: the app reads a command's stdout as its answer, and the first command after an update may rebuild.
   console.error(
@@ -302,6 +356,8 @@ export function readStaleness(path = INDEX): "truth" | "index" | null {
       db.query("select subject from observation_subjects limit 0").all();
       // One built before the units held their items a day (`source-use.ts`).
       db.query("select items from units limit 0").all();
+      // One built before a person's episodes were indexed (`readEpisodesWith`).
+      db.query("select episode from episode_people limit 0").all();
     } finally {
       db.close();
     }

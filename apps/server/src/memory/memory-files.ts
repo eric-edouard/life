@@ -21,7 +21,6 @@ import {
   isEndingCheck,
 } from "../records/fact-check";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
-import { type DirectionPin, MatterDirectionBatch } from "../records/matter";
 import {
   ContactPerson,
   Correction,
@@ -228,6 +227,14 @@ const episodeDay = keptReader((path) => rowsOf(path, Episode));
 /** Every episode line in memory/episodes/, oldest day first. Rows are shared between calls: callers never mutate them. */
 export const readEpisodes = async () =>
   (await filesIn(EPISODES)).flatMap((n) => episodeDay(join(EPISODES, n)));
+
+/** The episode lines of these days' files (all when none are named), each with its file's day: the index's `episode_people`. */
+export const readEpisodeFiles = async (days?: readonly string[]) =>
+  (
+    days ?? (await filesIn(EPISODES)).map((n) => n.slice(0, -".jsonl".length))
+  ).flatMap((day) =>
+    episodeDay(join(EPISODES, `${day}.jsonl`)).map((line) => ({ day, line }))
+  );
 
 /** The first and last day an episode covers: its start (else the day that read it) to its end (else its start). */
 export const daysOf = (m: Episode) =>
@@ -712,33 +719,6 @@ export const lastUpdate = (t: Task) =>
 
 export const readInferred = () => rowsOf(INFERRED, InferredPerson);
 
-/** The matters' directions as pinned to their steps (`directionsOf`): Life's drafts, then his word (`matter-direction`), each with when it was written. */
-export const readDirectionPins = (): DirectionPin[] => [
-  ...readAppended(
-    MATTER_DIRECTIONS,
-    MatterDirectionBatch,
-    (last?: DirectionPin[]) => [...(last ?? [])],
-    (all, b) => {
-      for (const d of b.directions) {
-        all.push({ at: b.at, by: "life", ...d });
-      }
-    }
-  ),
-  ...rowsOf(CORRECTIONS, Correction).flatMap((c) =>
-    c.kind === "matter-direction"
-      ? [
-          {
-            at: c.at,
-            by: "owner" as const,
-            steps: c.steps,
-            ...(c.goal ? { goal: c.goal } : {}),
-            ...(c.nextStep ? { nextStep: c.nextStep } : {}),
-          },
-        ]
-      : []
-  ),
-];
-
 /** The matters he dismissed as new matter checks, each as the steps it was pinned to (`new-matter-dismissed`). */
 export const readDismissedMatterPins = () =>
   rowsOf(CORRECTIONS, Correction).flatMap((c) =>
@@ -814,7 +794,7 @@ export const verdictOf = (verdicts: Verdicts, u: Unit) =>
 
 /** The episodes as they stand now that `keep` keeps, by when they happen. */
 // ponytail: every episode line is held (≈25 MB at 10 years, parsed once per changed day, `readEpisodes`) and every day
-// file is stat'ed per read: `person` and `day` need them all (a person's history, `readBy`); index them if a read shows up.
+// file is stat'ed per read: `day` needs them all (`readBy`); a person's read goes through the index (`readEpisodesWith`).
 export const episodesWhere = async (keep: (m: Episode) => boolean) => {
   const [lines, corrections] = await Promise.all([
     readEpisodes(),

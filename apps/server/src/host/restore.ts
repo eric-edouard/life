@@ -7,13 +7,14 @@ import {
   rmdirSync,
   rmSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { sha256Of } from "../core/hash";
-import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
+import { DESK_STORE, LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { SETTINGS } from "../core/settings";
 import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
 import { storeFiles } from "../sources/lifelog";
+import { notesOutsideOf } from "./desk-read";
 import {
   FORMAT,
   headOf,
@@ -24,7 +25,8 @@ import {
 } from "./export";
 import { isEmpty } from "./init";
 
-// A Life export (`stage`, export.ts) put back: a new install's data, state and archive. All or nothing: refused at
+// A Life export (`stage`, export.ts) put back: a new install's data, state and archive, and the desk's notes files at the
+// paths its store names (never over a file there). All or nothing: refused at
 // once over anything there (his data, an install's state, an archive short of the export's rows: the archive is never
 // written to), every listed file checked, copied beside its place and counted, then moved in, his data last: his data
 // there means a whole install (`started`). Files the manifest doesn't list are never copied. The manifest itself is
@@ -52,14 +54,36 @@ const short = (
   Object.entries(want)
     .filter(([t, n]) => (exact ? have[t] !== n : (have[t] ?? 0) < n))
     .map(([t]) => t);
-/** A manifest path's part (`data/x` is data's `x`), and the path inside it; one that leaves its part is refused. */
+/** A manifest path's part (`data/x` is data's `x`; `notes/<asg>.md` a desk notes file), and the path inside it; one that leaves its part is refused. */
 const partOf = (p: string) => {
   const [part, ...rest] = p.split("/");
-  if (!PARTS.includes(part as Part) || rest.includes("..")) {
+  if (
+    !(PARTS.includes(part as Part) || part === "notes") ||
+    rest.includes("..")
+  ) {
     throw new Error(`${p} is no path of an export: nothing was changed`);
   }
-  return { part: part as Part, path: rest.join("/") };
+  return { part: part as Part | "notes", path: rest.join("/") };
 };
+
+/** Puts each desk notes file of the export (`dir`) back where the restored store (`state`, aside) names it, never over a file there. */
+function putNotesBack(dir: string, m: Manifest, state: string) {
+  const desk = join(state, pathIn(LIFE_STATE_DIR, DESK_STORE));
+  const names = m.files.filter((f) => partOf(f.path).part === "notes");
+  if (names.length === 0 || !existsSync(desk)) {
+    return;
+  }
+  const at = new Map(
+    notesOutsideOf(desk, LIFE_STATE_DIR).map((s) => [s.id, s.notes_path])
+  );
+  for (const f of names) {
+    const to = at.get(basename(f.path, ".md"));
+    if (to && !existsSync(to)) {
+      mkdirSync(dirname(to), { recursive: true });
+      cpSync(join(dir, f.path), to);
+    }
+  }
+}
 
 /**
  * Refuses at once when the import would write over something; whether the archive is there already (then kept, never
@@ -124,7 +148,7 @@ async function recount(m: Manifest, at: Install, kept: boolean) {
     const off =
       kept && part === "archive"
         ? []
-        : short(rowsIn(join(at[part], path)), want, true);
+        : short(rowsIn(join(at[part as Part], path)), want, true);
     if (off.length > 0) {
       throw new Error(
         `${p} is not as exported (${off.join(", ")}): nothing was changed`
@@ -158,12 +182,13 @@ export async function restore(dir: string, to: Install = HERE) {
       if ((await sha256Of(join(dir, f.path))) !== f.sha256) {
         throw new Error(`${f.path} is not as exported: nothing was changed`);
       }
-      if (!(kept && part === "archive")) {
+      if (part !== "notes" && !(kept && part === "archive")) {
         mkdirSync(dirname(join(side[part], path)), { recursive: true });
         cpSync(join(dir, f.path), join(side[part], path));
       }
     }
     await recount(m, at, kept);
+    putNotesBack(dir, m, side.state);
     // In place: Life's state file by file (its folder may hold this install's own key), the archive, his data last.
     for (const f of m.files.filter((x) => partOf(x.path).part === "state")) {
       const { path } = partOf(f.path);

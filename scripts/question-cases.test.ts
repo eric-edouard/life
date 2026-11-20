@@ -136,13 +136,21 @@ test("a run with no result file is an error, never a baseline that found nothing
 test("the calls keep the tool, its arguments and the size it returned, in order; a line with no tool is dropped", () => {
   expect(
     callsOf([
-      { args: { name: "Ana" }, chars: 120, tool: "read_person_page" },
+      {
+        args: { name: "Ana" },
+        chars: 120,
+        tool: "read_people_and_organizations",
+      },
       { chars: 5 },
       { args: { id: "person:ana/month/2024-03" }, chars: 900, tool: "fetch" },
       { tool: "search" },
     ])
   ).toEqual([
-    { args: { name: "Ana" }, chars: 120, tool: "read_person_page" },
+    {
+      args: { name: "Ana" },
+      chars: 120,
+      tool: "read_people_and_organizations",
+    },
     { args: { id: "person:ana/month/2024-03" }, chars: 900, tool: "fetch" },
     { args: {}, chars: 0, tool: "search" },
   ]);
@@ -151,21 +159,24 @@ test("the calls keep the tool, its arguments and the size it returned, in order;
 test("the parts opened, as counts: a person's read is its now, a ref its part, a conversation id or a malformed ref other", () => {
   expect(
     openedOf([
-      { args: { name: "Ana" }, tool: "read_person_page" },
+      { args: { name: "Ana" }, tool: "read_people_and_organizations" },
       { args: { id: "person:ana/evidence" }, tool: "fetch" },
       {
         args: { id: "person:ana/evidence/2024-03/before/2024-03-15" },
         tool: "fetch",
       },
       { args: { id: "person:ana/month" }, tool: "fetch" },
-      { args: { before: "2024-03-15", name: "Ana" }, tool: "read_person_page" },
+      {
+        args: { before: "2024-03-15", name: "Ana" },
+        tool: "read_people_and_organizations",
+      },
       { args: { id: "conv_123" }, tool: "fetch" },
       { args: { query: "flat" }, tool: "search" },
       { tool: "fetch" },
     ])
   ).toEqual({
     parts: { evidence: 3, now: 1, other: 3 },
-    tools: { fetch: 5, read_person_page: 2, search: 1 },
+    tools: { fetch: 5, read_people_and_organizations: 2, search: 1 },
   });
 });
 

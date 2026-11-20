@@ -2,7 +2,7 @@ import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { clock, MIN } from "../core/clock";
+import { clock, DAY, MIN } from "../core/clock";
 import { queuedEvents } from "../host/desk-read";
 import type { SourceEvent } from "../records/source";
 import { apply, openStore, Page } from "../sources/lifelog";
@@ -11,9 +11,10 @@ import {
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
+import { openAssignment } from "./agent-actions";
 import { pollCalls, pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
-import { openDesk } from "./desk-store";
-import { advance, chatSource, setup, T0 } from "./test-desk";
+import { openDesk, writeWait } from "./desk-store";
+import { ANA, advance, ahead, asgOf, chatSource, setup, T0 } from "./test-desk";
 
 // The wait contract's call.ended: a call with an agent's people wakes it once its words are in, by lifelog's signals.
 // Made-up chat, calls and recordings; the watcher's store is a fresh one in a temp folder.
@@ -48,7 +49,9 @@ async function calling() {
   const heard = (over: Record<string, unknown>) =>
     apply(store, Page.parse(pageFixture(over)));
   const queued = () =>
-    queuedEvents(s.desk.db, agent).filter((e) => e.name === "call.ended");
+    queuedEvents(s.desk.db, asgOf(s.desk, agent)).filter(
+      (e) => e.name === "call.ended"
+    );
   return { ...s, agent, calls, heard, poll, queued, store, watch };
 }
 
@@ -109,7 +112,7 @@ test("an agent created after the call gets nothing", async () => {
     jobs: [job("j1", 1), job("j2", 5)],
     turns: [turn("j1", 0, 6), turn("j2", 0, 30, "c2")],
   });
-  desk.db.run("update agent set created_at = ?", [at(16)]);
+  desk.db.run("update assignment set opened_at = ?", [at(16)]);
   advance(60 * MIN);
   await poll();
   expect(queued()).toHaveLength(0);
@@ -183,4 +186,31 @@ test("two calls that ended make one wake that carries both", async () => {
   await wakeDue(desk);
   expect(turns(agent)).toHaveLength(2);
   expect(fake.said.at(-1)?.message.match(/call\.ended/g)).toHaveLength(2);
+});
+
+test("a call the agent's own wait and its matter's both want wakes the matter's, once, poll after poll", async () => {
+  const { agent, calls, desk, heard, poll, queued } = await calling();
+  const matter = openAssignment(desk, agent, {
+    openedBy: "owner",
+    steps: ["obs_test_call"],
+  });
+  writeWait(
+    desk.db,
+    matter,
+    { events: [ANA], reason: "r", until: ahead(DAY) },
+    false
+  );
+  calls.push(call(5));
+  heard({
+    conversations: [conversation("c1"), conversation("c2")],
+    jobs: [job("j1", 1), job("j2", 5)],
+    turns: [turn("j1", 0, 6), turn("j2", 0, 30, "c2")],
+  });
+  advance(60 * MIN);
+  await poll();
+  await poll();
+  expect(queued()).toEqual([]);
+  expect(queuedEvents(desk.db, matter).map((e) => e.event_id)).toEqual([
+    "whatsapp:call5.ended",
+  ]);
 });

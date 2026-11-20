@@ -7,11 +7,12 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { OWNER_DATA_DIR } from "../core/paths";
+import { dirname, join } from "node:path";
+import { DESK_STORE, OWNER_DATA_DIR } from "../core/paths";
 import { linesIn, rowsIn, stage } from "./export";
 import { started } from "./init";
 import { restore } from "./restore";
@@ -125,4 +126,26 @@ test("an import that stopped while moving in runs again: its own state files lef
   mkdirSync(other.state, { recursive: true });
   writeFileSync(join(other.state, "settings.json"), "{}");
   await expect(restore(dir, other)).rejects.toThrow("holds an install");
+});
+
+test("a desk assignment's notes kept outside Life's state travel with the export and come back where its store says, the agents folder gone", async () => {
+  const agents = temp("agents");
+  const notes = join(agents, "assignments", "asg_000000000001", "NOTES.md");
+  mkdirSync(dirname(notes), { recursive: true });
+  writeFileSync(notes, "Test notes: waiting on Ana");
+  mkdirSync(dirname(DESK_STORE), { recursive: true });
+  const db = new Database(DESK_STORE, { create: true });
+  // Only the columns the export reads of the desk's store.
+  db.run("create table assignment (id text, notes_path text)");
+  db.run("insert into assignment values ('asg_000000000001', ?)", [notes]);
+  db.close();
+  let dir = "";
+  try {
+    dir = await exported();
+  } finally {
+    rmSync(dirname(DESK_STORE), { force: true, recursive: true });
+  }
+  rmSync(agents, { force: true, recursive: true });
+  await restore(dir, install());
+  expect(readFileSync(notes, "utf8")).toBe("Test notes: waiting on Ana");
 });
