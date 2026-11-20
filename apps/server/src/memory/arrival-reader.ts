@@ -52,8 +52,8 @@ import { chatLines, messageLine, turnLines } from "./words";
 import { dayNow, dayStart, localDate, time } from "./zones";
 
 /**
- * The most confirm calls a day, failures included: a runaway guard, not a budget (about 27 a day measured, 20 Nov
- * 2026; at most about 7 cents). A read past it is the night's, which reads every unit as it does today.
+ * The most confirm calls a day, failures included: a runaway guard, not a budget (114 on its first day, 20 Nov 2026,
+ * for $0.02; at most about 7 cents). A read past it is the night's, which reads every unit as it does today.
  */
 export const CONFIRMS_A_DAY = 1000;
 /** The most characters one read shows: under Apple's 8k-token context. */
@@ -238,13 +238,15 @@ function triggerReplyOf(answer: FoundationAnswer) {
 }
 
 /**
- * Whether a stored trigger goes on to the confirm: anything but automated lines with no ask quoted (measured on 173
- * units, 20 Nov 2026: 72 of 73 asks go on, about 27 confirms a day), or no answer.
+ * Whether a stored trigger goes on to the confirm: a person's lines with an ask quoted, or no answer. Who wrote them
+ * alone never does: Apple calls nearly every human thread a person's, so that rule sent 97 of 99 reads on (20 Nov
+ * 2026). On PR 790's 173 labelled units this one sends 78% of chat chunks on, for one ask fewer (66 of 73 confirmed).
  */
 const isTriggered = (
   reply: { refused: string } | { author: string; quote: string }
 ) =>
-  "refused" in reply || reply.author === "person" || reply.quote.trim() !== "";
+  "refused" in reply ||
+  (reply.author === "person" && reply.quote.trim() !== "");
 
 /** The confirm call of a read, for `makeReplies`: it stores the read's unit and who wrote its lines. */
 function confirmOf(r: ArrivalRead): Asked {
@@ -390,7 +392,10 @@ export async function readArrivals(
       }))
   )();
   const forApple = due.filter((r) => !THAI.test(r.lines.join("\n")));
+  const appleStart = performance.now();
   const answers = await apple(forApple.map((r) => triggerRequest(r.lines)));
+  // Apple's own time, apart from the confirms: guided generation slows down on macOS 27 (Apple's open bug).
+  const appleMs = Math.round(performance.now() - appleStart);
   const toConfirm: Asked[] = due
     .filter((r) => !forApple.includes(r))
     .map(confirmOf);
@@ -446,6 +451,7 @@ export async function readArrivals(
   const { failed, stored: confirmed } = await makeReplies(taken, step, where);
   return step.end({
     apple: forApple.length,
+    appleMs,
     confirmed,
     confirms: taken.length,
     due: due.length,
