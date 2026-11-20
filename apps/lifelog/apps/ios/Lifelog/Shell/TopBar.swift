@@ -5,7 +5,7 @@ import OwnerSettings
 import SwiftUI
 
 /// The top group, as the system's own toolbar items: the Pendant then Settings (a gear), together on the trailing
-/// edge in one glass capsule. Leading is the stack's Back, or a screen's own item (the Matters filter). Declared, never
+/// edge in one glass capsule. Leading is the stack's Back, or a list's Filter (`filterBar`). Declared, never
 /// drawn, so iOS places them: a bar on a phone, the side column on the iPhone Duo.
 private struct ShellBar: ViewModifier {
     let label: String
@@ -22,20 +22,13 @@ private struct ShellBar: ViewModifier {
                 if hasPendant || hasSettings {
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         if hasPendant { PendantItem { router.sheet = .pendant } }
-                        if hasSettings { SettingsItem() }
+                        if hasSettings {
+                            Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
+                                .accessibilityIdentifier("top.settings")
+                        }
                     }
                 }
             }
-    }
-}
-
-/// The gear: Settings as an icon-only toolbar item.
-struct SettingsItem: View {
-    @Environment(AppRouter.self) private var router
-
-    var body: some View {
-        Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
-            .accessibilityIdentifier("top.settings")
     }
 }
 

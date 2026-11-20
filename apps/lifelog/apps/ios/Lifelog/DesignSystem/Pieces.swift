@@ -261,13 +261,16 @@ struct StateDot: View {
 struct FilterMenu<Choices: View>: View {
     let isFiltered: Bool
     let identifier: String
-    @ViewBuilder let choices: Choices
+    /// Floating, the round button's size: the whole circle takes the tap (a menu hit-tests its label only).
+    var diameter: CGFloat?
+    let choices: Choices
 
     var body: some View {
         Menu {
             choices
         } label: {
             Image(systemName: isFiltered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
+                .frame(width: diameter, height: diameter).contentShape(.circle)
         }
         .accessibilityLabel("Filter")
         .accessibilityIdentifier(identifier)
@@ -281,28 +284,35 @@ extension View {
     func filterBar<Choices: View>(
         isFiltered: Bool, identifier: String, isResting: Bool = false, @ViewBuilder choices: () -> Choices
     ) -> some View {
-        // A control that comes and goes is unreliable: it stays and rests when there is nothing to choose between.
-        let menu = FilterMenu(isFiltered: isFiltered, identifier: identifier, choices: choices).disabled(isResting)
-        return modifier(FilterBar(menu: menu))
+        modifier(FilterBar(isFiltered: isFiltered, identifier: identifier, isResting: isResting, choices: choices()))
     }
 }
 
-private struct FilterBar<Choice: View>: ViewModifier {
-    let menu: Choice
+private struct FilterBar<Choices: View>: ViewModifier {
+    let isFiltered: Bool
+    let identifier: String
+    let isResting: Bool
+    let choices: Choices
     @State private var isInColumn = false
     /// The floating button and its margin from the list's bottom edge; the list keeps room for both, and more.
-    private let size: CGFloat = 48, bottom: CGFloat = 24
+    private let size: CGFloat = 48, bottom = Metrics.Spacing.xl
+
+    // A control that comes and goes is unreliable: it stays and rests when there is nothing to choose between.
+    private func menu(diameter: CGFloat? = nil) -> some View {
+        FilterMenu(isFiltered: isFiltered, identifier: identifier, diameter: diameter, choices: choices)
+            .disabled(isResting)
+    }
 
     func body(content: Content) -> some View {
         content
             .reportsSideColumn($isInColumn)
-            .toolbar { if !isInColumn { ToolbarItem(placement: .topBarLeading) { menu } } }
+            .toolbar { if !isInColumn { ToolbarItem(placement: .topBarLeading) { menu() } } }
             .contentMargins(.bottom, isInColumn ? size + bottom + Metrics.Spacing.l : 0, for: .scrollContent)
             .overlay(alignment: .bottomLeading) {
                 ZStack {
                     if isInColumn {
-                        menu.frame(width: size, height: size).floatingGlass(in: .circle).contentShape(.circle)
-                            .padding(.leading, 20).padding(.bottom, bottom).appears()
+                        menu(diameter: size).floatingGlass(in: .circle)
+                            .padding(.leading, Metrics.gutter).padding(.bottom, bottom).appears()
                     }
                 }
                 .motion(Motion.standard, value: isInColumn)

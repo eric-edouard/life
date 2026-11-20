@@ -9,7 +9,6 @@ struct InboxScreen: View {
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
     @Environment(\.horizontalSizeClass) private var sizeClass
-    /// The system puts the bars in a side column (`reportsSideColumn`): the toast is a capsule there.
     /// The bars are in a side column and the ask is one pane: the toast is then the column's capsule, the same state.
     @State private var inSideColumn = false
 
