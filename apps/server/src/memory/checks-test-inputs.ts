@@ -2,6 +2,7 @@ import type { Correction } from "../records/observation";
 import { type NameRow, nameGroupsOf } from "./check-sentences";
 import type { CheckInputs } from "./checks";
 import type { AgentHold } from "./held-matters";
+import { partyOf } from "./party";
 import { guessTestOf, latestInUseOf } from "./ref-kinds";
 
 type Input = Partial<Omit<CheckInputs, "people">> & {
@@ -57,6 +58,9 @@ function withoutGroups(
     over.corrections ?? [],
     latestInUseOf((over.inferred ?? []).map((id) => ({ confidence: 0.7, id })))
   );
+  const nameOf = (r: string) =>
+    r === "person:dana" ? "Dana" : r.replace("unknown:", "");
+  const refOf = (r: string) => over.folds?.[r] ?? r;
   return {
     answered: new Set(),
     decisions: [],
@@ -92,11 +96,14 @@ function withoutGroups(
         relation: "the plumber",
       })),
       isGuess,
-      nameOf: (r: string) =>
-        r === "person:dana" ? "Dana" : r.replace("unknown:", ""),
+      nameOf,
       names: new Map(),
-      refOf: (r: string) => over.folds?.[r] ?? r,
-      relationOf: () => null,
+      partyOf: partyOf(
+        { isOrganization: () => false, nameOf, refOf, relationOf: () => null },
+        [],
+        () => ({})
+      ),
+      refOf,
       resolve: (s: string) => (s === DANA_ID ? "person:dana" : null),
     },
   };

@@ -2,6 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { setSettings } from "../../core/settings";
 import { nameGroupsOf } from "../../memory/check-sentences";
 import { urgencyOf } from "../../memory/check-urgency";
+import { partyOf } from "../../memory/party";
 import type { CheckInputs } from "../../memory/checks";
 import { nameRow } from "../../memory/checks-test-inputs";
 import {
@@ -66,6 +67,44 @@ const kitOnWhatsapp = new Map([
     ),
   ],
 ]);
+const nameOf = (r: string) =>
+  (
+    ({
+      "person:con_lou": "Lou",
+      "person:gran": "Gran",
+      "person:partner": "Robin",
+      "person:sam_ito": "Sam Ito",
+      "person:sam_lee": "Sam Lee",
+    }) as Record<string, string>
+  )[r] ?? r;
+/** Gran shows two pictures and his pick is her WhatsApp one; Robin shows one, his pick `none`; Sam Lee shows his Contacts one. */
+const madeUpPartyOf = partyOf(
+  {
+    isOrganization: () => false,
+    nameOf,
+    refOf: (r) => r,
+    relationOf: (r) =>
+      ({ "person:gran": "Your grandmother", "person:sam_lee": "The neighbour" })[
+        r
+      ] ?? null,
+  },
+  [
+    { id: "gran", pictureFrom: "whatsapp" },
+    { id: "partner", pictureFrom: "none" },
+  ],
+  () => ({
+    "person:gran": [
+      { id: "00000000000000000000000000000a01", source: "contacts" },
+      { id: "00000000000000000000000000000a02", source: "whatsapp" },
+    ],
+    "person:partner": [
+      { id: "00000000000000000000000000000b01", source: "contacts" },
+    ],
+    "person:sam_lee": [
+      { id: "00000000000000000000000000000c01", source: "contacts" },
+    ],
+  })
+);
 /** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
 const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   answered: new Set(),
@@ -272,16 +311,7 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       { card: "person:con_lou", people: ["person:gran", "person:partner"] },
     ],
     candidatesFor: (name: string) =>
-      name === "Sam"
-        ? [
-            {
-              line: "The neighbour",
-              name: "Sam Lee",
-              person: "person:sam_lee",
-            },
-            { line: null, name: "Sam Ito", person: "person:sam_ito" },
-          ]
-        : [],
+      name === "Sam" ? ["person:sam_lee", "person:sam_ito"] : [],
     contacts: [
       {
         card: "con_lou",
@@ -304,18 +334,10 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       },
     ],
     isGuess: (ref: string) => ref === "person:inf_kit",
-    nameOf: (r: string) =>
-      (
-        ({
-          "person:con_lou": "Lou",
-          "person:gran": "Gran",
-          "person:partner": "Robin",
-        }) as Record<string, string>
-      )[r] ?? r,
+    nameOf,
     names: new Map([["person:con_lou", "Lou"]]),
+    partyOf: madeUpPartyOf,
     refOf: (r: string) => r,
-    relationOf: (r: string) =>
-      r === "person:gran" ? "Your grandmother" : null,
     resolve: (s: string) =>
       (
         ({
