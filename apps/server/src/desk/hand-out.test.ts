@@ -1,6 +1,7 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, HOUR } from "../core/clock";
 import { handedOutSince, heldByAgents } from "../host/desk-read";
+import { isHeldOf } from "../memory/held-matters";
 import { register } from "./agent-actions";
 import {
   CARD_WITHIN_MS,
@@ -16,20 +17,33 @@ afterEach(() => {
   setSystemTime();
 });
 
-const m = (id: string, steps: string[]) => ({ id, steps });
+const AT = "2026-11-18T09:00:00.000Z";
+const m = (id: string, steps: string[]) => ({
+  id,
+  steps: steps.map((ref) => ({ at: AT, ref })),
+});
 const book = [
   m("mat_a", ["obs_a1", "obs_a2"]),
   m("mat_b", ["obs_b1"]),
   m("mat_c", ["obs_c1"]),
 ];
+const heldOn = (...steps: string[]) =>
+  isHeldOf(
+    steps.map((step) => ({
+      endedAt: null,
+      kind: "asked" as const,
+      outcome: null,
+      step,
+      whyNotStarted: null,
+    }))
+  );
 const pick = (
   over: Partial<Parameters<typeof handOutOf<(typeof book)[number]>>[0]> = {}
 ) =>
   handOutOf({
     dismissed: [],
-    held: new Set(),
+    isHeld: heldOn(),
     matters: book,
-    offered: new Set(),
     ...over,
   })?.id;
 
@@ -39,7 +53,7 @@ test("the top matter is the first of his ranking, and none when the ranking is e
 });
 
 test("a matter an agent is anchored on is skipped", () => {
-  expect(pick({ held: new Set(["obs_a2"]) })).toBe("mat_b");
+  expect(pick({ isHeld: heldOn("obs_a2") })).toBe("mat_b");
 });
 
 test("his stopped agent holds its matter; a project's agent holds none", () => {
@@ -49,9 +63,9 @@ test("his stopped agent holds its matter; a project's agent holds none", () => {
   const stopped = own({ steps: ["obs_a1"] });
   desk.db.run("update agent set status = 'stopped' where id = ?", [stopped]);
   own({ project: "test-bakery" });
-  const held = new Set(heldByAgents(desk.db).steps);
-  expect([...held]).toEqual(["obs_a1"]);
-  expect(pick({ held })).toBe("mat_b");
+  const holds = heldByAgents(desk.db);
+  expect(holds.map((h) => h.step)).toEqual(["obs_a1"]);
+  expect(pick({ isHeld: isHeldOf(holds) })).toBe("mat_b");
 });
 
 test("a matter he dismissed is skipped, found by the steps it was pinned to", () => {
@@ -59,12 +73,10 @@ test("a matter he dismissed is skipped, found by the steps it was pinned to", ()
   expect(pick({ dismissed: [["obs_a1"], ["obs_b1"]] })).toBe("mat_c");
 });
 
-test("a matter with an open Start card is skipped: the card owns it", () => {
-  expect(pick({ offered: new Set(["mat_a", "mat_b"]) })).toBe("mat_c");
-});
-
 test("no matter qualifies: none", () => {
-  expect(pick({ offered: new Set(book.map((b) => b.id)) })).toBeUndefined();
+  expect(
+    pick({ isHeld: heldOn("obs_a1", "obs_b1", "obs_c1") })
+  ).toBeUndefined();
 });
 
 const pace = { aDay: 3, cardsWaiting: 2 };
@@ -103,12 +115,14 @@ test("a card is overdue for an active handed-out agent whose first turn began 2 
   const a = {
     first_begun_at: new Date(now - CARD_WITHIN_MS).toISOString(),
     is_handed_out: 1,
-    status: "active",
+    status: "active" as const,
   };
   expect(isCardOverdue(a, false, now)).toBe(true);
   expect(isCardOverdue(a, false, now - 1)).toBe(false);
   expect(isCardOverdue(a, true, now)).toBe(false);
   expect(isCardOverdue({ ...a, first_begun_at: null }, false, now)).toBe(false);
   expect(isCardOverdue({ ...a, is_handed_out: 0 }, false, now)).toBe(false);
-  expect(isCardOverdue({ ...a, status: "ended" }, false, now)).toBe(false);
+  expect(isCardOverdue({ ...a, status: "ended" as const }, false, now)).toBe(
+    false
+  );
 });

@@ -3,16 +3,11 @@ import { checksNow } from "../memory/checks";
 import { heldByAgents, readDesk } from "./desk-read";
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
-// `checksNow` over what registered agents hold now (their steps and projects), read from the desk's store, which memory cannot read.
-/** The steps and projects registered agents hold now; null while the desk is off or unreadable (then no new matter is offered). */
+// `checksNow` over what registered agents hold (their anchors, as facts), read from the desk's store, which memory cannot read.
+/** Every registered agent's anchors as facts (`heldByAgents`); null while the desk is off or unreadable (then no new matter is offered). */
 function readHeldByAgents() {
-  const read = readDesk(heldByAgents, { projects: [], steps: [] });
-  return read.state === "ok"
-    ? {
-        projects: new Set(read.value.projects),
-        steps: new Set(read.value.steps),
-      }
-    : null;
+  const read = readDesk(heldByAgents, []);
+  return read.state === "ok" ? read.value : null;
 }
 
 /** Every open check now (`checksNow`), of every kind: his inbox, in its order (`inboxOrderOf`). The status's `left` counts them; the badge, what blocks (`blockingCountOf`). */

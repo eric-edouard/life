@@ -1,13 +1,14 @@
 import type { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
-import { clock, DAY, HOUR, MIN } from "../core/clock";
+import { DAY, HOUR, MIN } from "../core/clock";
 import { off } from "../core/outputs";
 import { DESK_STORE } from "../core/paths";
 import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
-import { NEW_MATTER_DAYS } from "../memory/matter-read";
+import type { AgentHold } from "../memory/held-matters";
 import type {
   AgentChange,
+  AgentKind,
   AgentStatus,
   EventFilter,
 } from "../records/registered-agent";
@@ -172,7 +173,7 @@ export const holderOf = (db: Database, steps: string[]) =>
         )
         .get(...steps)?.id ?? null);
 
-/** The active agent on project `project` started on `brief`, else any active agent on it, if one is: who works on it now. `heldByAgents` also counts stopped and recently ended agents, on purpose. */
+/** The active agent on project `project` started on `brief`, else any active agent on it, if one is: who works on it now. */
 export const projectHolderOf = (
   db: Database,
   project: string,
@@ -184,33 +185,36 @@ export const projectHolderOf = (
     )
     .get(project, brief ?? null)?.id ?? null;
 
+/** Who started agent `a` (`AgentKind`): the one test of it. */
+export const agentKindOf = (a: Pick<AgentRow, "is_handed_out">): AgentKind =>
+  a.is_handed_out === 1 ? "handed_out" : "asked";
+
 /**
- * What registered agents hold now (what stops a second offer; `projectHolderOf` says who works now): the steps they are anchored on (`re_point` drops an agent's old anchors) and the
- * projects they work on, but not those of an agent never started (its matter is free for a new start). One rule for both:
- * every live agent holds, a stopped one still holds its project as it holds its steps, and one that is over (it has
- * `ended_at`: ended, handed over) in the last `NEW_MATTER_DAYS` does too (one ended before holds no matter a new matter check offers: its matter began before it did).
+ * Every anchor of a registered agent, as a fact (`AgentHold`): what the hold rule (`isHeldOf`) decides
+ * "held" from, against the matter book. A project's agent holds no matter.
+ * ponytail: every ended agent's anchors are read, a few thousand rows a year with the hand-out on; drop those ended over a year ago if the inbox's read ever shows it.
  */
-export function heldByAgents(db: Database) {
-  const since = new Date(
-    clock().getTime() - NEW_MATTER_DAYS * DAY
-  ).toISOString();
-  const held =
-    "(a.why_not_started is null or a.is_handed_out = 1) and (a.ended_at is null or a.ended_at >= ?)";
-  return {
-    projects: db
-      .query<{ project: string }, [string]>(
-        `select distinct a.project from agent a where a.project is not null and ${held}`
-      )
-      .all(since)
-      .map((r) => r.project),
-    steps: db
-      .query<{ step: string }, [string]>(
-        `select distinct n.step from anchor n join agent a on a.id = n.agent_id where ${held}`
-      )
-      .all(since)
-      .map((r) => r.step),
-  };
-}
+export const heldByAgents = (db: Database): AgentHold[] =>
+  db
+    .query<
+      Pick<
+        AgentRow,
+        "ended_at" | "is_handed_out" | "outcome" | "why_not_started"
+      > & {
+        step: string;
+      },
+      []
+    >(
+      "select n.step, a.ended_at, a.is_handed_out, a.outcome, a.why_not_started from anchor n join agent a on a.id = n.agent_id order by n.rowid"
+    )
+    .all()
+    .map((r) => ({
+      endedAt: r.ended_at,
+      kind: agentKindOf(r),
+      outcome: r.outcome,
+      step: r.step,
+      whyNotStarted: r.why_not_started,
+    }));
 
 /** What the desk did with an ask of his (`change_registered_agent`): the agent it touched, or why it refused; null until applied. */
 export const agentChangeOf = (db: Database, ask: string) =>
