@@ -64,7 +64,9 @@ struct MatterPage: View {
             GlassEffectContainer(spacing: 8) {
                 VStack(spacing: 8) {
                     if canStart {
-                        Button { router.matterSheet = .start(id) } label: {
+                        Button {
+                            router.matterSheet = .start(id)
+                        } label: {
                             Text(agent == nil ? "Start an agent" : "Start again").frame(maxWidth: .infinity)
                         }
                         .primaryGlassButton()
