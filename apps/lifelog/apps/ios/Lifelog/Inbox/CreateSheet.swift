@@ -39,6 +39,7 @@ struct CreateSheet: View {
     private var isOrganization: Bool { kind == .organization }
     private var state: ActionState<ActionProof> { sent == nil ? .idle : life.state(of: .answer(ref: check.ref)) }
     private var isDone: Bool { if case .succeeded = state { true } else { false } }
+    private var isFailed: Bool { if case .failed = state { true } else { false } }
 
     var body: some View {
         ScrollView {
@@ -79,6 +80,8 @@ struct CreateSheet: View {
             }
             .padding(.vertical, Metrics.Spacing.xs)
             .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.card))
+            // Pressed: the fields stop taking words, which also puts the keyboard away.
+            .disabled(sent != nil && !isFailed)
             if let attached {
                 Text(attached).font(.small).foregroundStyle(Palette.muted).padding(.horizontal, Metrics.Spacing.xs)
             }

@@ -105,6 +105,11 @@ struct InboxScreen: View {
         }?.ref
     }
 
+    /// His answer to `ref` has started (running, done or refused), and nothing has moved on from it yet.
+    private func isAnswered(_ ref: String) -> Bool {
+        if case .idle = life.state(of: .answer(ref: ref)) { false } else { true }
+    }
+
     /// Undo: the ask is back where it was, and on show.
     private func undo(_ ref: String) {
         life.undo(ref)
@@ -122,7 +127,11 @@ struct InboxScreen: View {
     /// The ask on show, or his tap's result in its place: one arrangement for both, so the ask's context region stays
     /// as it was until the next ask.
     @ViewBuilder private func card(_ order: InboxOrder) -> some View {
-        if let check = notes.taken?.check ?? order.check(on: current) {
+        // An ask whose answer runs from a sheet over it (the create sheet) stays on show until the sheet closes, so its
+        // result shows there even when it was the last ask.
+        if let check = notes.taken?.check ?? order.check(on: current)
+            ?? life.inboxOnShow?.checks.first(where: { $0.ref == current && isAnswered($0.ref) })
+        {
             CardView(
                 check: check, checks: order.checks, current: $current, notes: $notes, notice: notice,
                 holdsAnswers: true
