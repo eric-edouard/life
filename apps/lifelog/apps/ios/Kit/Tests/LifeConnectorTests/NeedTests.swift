@@ -17,6 +17,16 @@ private func need(_ json: String) throws -> Check.Need {
     #expect(rows[1].isFigure)
 }
 
+@Test func anIBANKeepsItsLettersWhenCopied() throws {
+    let rows = try need(#"{"kind":"account","line":"FR76 3000 6000 0112","number":"FR76 3000 6000 0112"}"#).rows
+    #expect(rows[0].action == .copy("FR76300060000112", label: "Copy the account number"))
+}
+
+@Test func aLinkToAnotherAppIsItsLineAlone() throws {
+    let rows = try need(#"{"kind":"link","line":"Open the shop","url":"shopapp://pay.example.test/1"}"#).rows
+    #expect(rows == [NeedRow(glyph: .note, text: "Open the shop")])
+}
+
 @Test func anAmountShowsLifesWordsAndCopiesThePlainNumber() throws {
     let whole = try need(#"{"kind":"amount","line":"4,500 THB","value":4500,"currency":"THB"}"#).rows
     #expect(whole.map(\.text) == ["4,500 THB"])

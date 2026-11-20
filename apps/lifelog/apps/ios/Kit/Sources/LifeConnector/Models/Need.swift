@@ -3,8 +3,9 @@ import Library
 
 extension Check {
     /// What he needs in hand to do the step (the card's `needs`, the asks contract): one typed fact, drawn as rows with
-    /// their one-press action. Each field is read on its own, so one Life sends in a shape this build doesn't know is
-    /// nil, never a failed inbox; a kind it doesn't know is its `line` alone.
+    /// their one-press action. Each optional field is read on its own, so one Life sends in a shape this build doesn't know
+    /// is nil; a kind it doesn't know is its `line` alone. `line` is always sent (the contract); a need without it fails
+    /// the read.
     public struct Need: Decodable, Sendable, Equatable {
         public enum Kind: String, UnknownTolerant, Sendable {
             case account, amount, link, text
@@ -55,7 +56,8 @@ extension Check {
                     number.map {
                         NeedRow(
                             glyph: .card, text: $0, isFigure: true,
-                            action: .copy($0.filter(\.isNumber), label: "Copy the account number"))
+                            action: .copy($0.filter { !$0.isWhitespace && $0 != "-" }, label: "Copy the account number")
+                        )
                     },
                     holder.map { NeedRow(glyph: .person, text: $0, action: .copy($0, label: "Copy the name")) },
                 ].compactMap { $0 }
@@ -69,16 +71,15 @@ extension Check {
                         ]
                     } ?? []
             case .link:
-                rows =
-                    url.flatMap { url in
-                        url.host().map { host in
-                            [
-                                NeedRow(
-                                    glyph: .link, text: vendor ?? line, detail: host,
-                                    action: .open(url, label: "Open \(host)"))
-                            ]
-                        }
-                    } ?? []
+                // A web page only: another app's scheme would open that app under a host that warns of nothing.
+                if let url, ["https", "http"].contains(url.scheme?.lowercased()), let host = url.host() {
+                    rows = [
+                        NeedRow(
+                            glyph: .link, text: vendor ?? line, detail: host, action: .open(url, label: "Open \(host)"))
+                    ]
+                } else {
+                    rows = []
+                }
             case .text:
                 rows =
                     text.map { text in
