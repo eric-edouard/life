@@ -481,10 +481,10 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
 - `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what he did: the
   day's episodes in time order, each with where he was (its stay), what happened and its key facts (`readBy`); the key
   facts in no episode; the units (those judged worth nothing only counted); and what Life changed that day and why.
-- `person [name] [--before d] [--part now|latest|page|persona|story|year|month|evidence] [--span YYYY[-MM]]`:
+- `person [name] [--before d] [--part now|latest|reach|page|persona|story|year|month|evidence] [--span YYYY[-MM] | <n>]`:
   the connector's `read_people_and_organizations`. With a name, the `now` part as JSON (`personNowOf`: who they are,
   closeness, reach, details, communication style, episodes, situation, open matters, `knows`), within about 6,000
-  characters, `more` counting what it left out; `latest` their newest exchanges as JSON, five a page; the other parts
+  characters, `more` counting what it left out; `latest` their newest exchanges as JSON, five a page; `reach` every account they are reached on as JSON, a page within 6,000 characters (the end of a long Contacts label cut, never a handle or link), `--span <n>` the number of accounts to skip (`now`'s `moreReach` and each page's `next` name the refs, e.g. `fetch person:ana/reach/18`); the other parts
   prose of about 6,000 characters, each ending with its next reads, which `fetch` opens too. `--before` pages back
   `evidence` and `latest`. No name: the list, closest first. An unknown name is looked for among lifelog's speakers
   and near names.
