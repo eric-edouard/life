@@ -410,3 +410,39 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
     }
     #expect(state.steps.map(\.id) == ["recorded"])
 }
+
+/// The real client under the answer runner, over a stub that answers `reply`; how many requests it saw, and the end.
+private func answered(_ reply: @escaping @Sendable () -> Reply) async -> (Int, ActionState<ActionProof>) {
+    let host = newHost()
+    let calls = Mutex(0)
+    let session = Stub.session(host: host) { _ in
+        calls.withLock { $0 += 1 }
+        return reply()
+    }
+    let life = LifeSession(
+        store: MemoryStore(credentials(host: host)), oauth: LifeOAuth(session: session, now: { epoch }), now: { epoch })
+    let api = MCPLifeAPI(client: MCPClient(session: life, urlSession: session))
+    let state = await run { await LifeActions(api: api, pause: noPause).answer(request, key: "tap-1", emit: $0) }
+    return (calls.withLock { $0 }, state)
+}
+
+@Test func anAnswerThatTimesOutMayHaveGoneAndIsNeverRepeated() async {
+    let progress =
+        #"data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"x","progress":1,"message":"{}"}}"#
+        + "\n\n"
+    // No answer before the headers, and none after progress.
+    for reply in [Reply(failure: .timedOut), Reply.stream(progress, failure: .timedOut)] {
+        let (calls, state) = await answered { reply }
+        #expect(calls == 1)
+        guard case .failed(let failure, _) = state else { Issue.record("not failed: \(state)"); continue }
+        #expect(failure.mayHaveHappened && failure.isSameTap && !failure.canTryAgain)
+        #expect(failure.kind == "timedOut")
+    }
+}
+
+@Test func anAnswerWithNoInternetEndsAtTheFirstTry() async {
+    let (calls, state) = await answered { Reply(failure: .notConnectedToInternet) }
+    #expect(calls == 1)
+    guard case .failed(let failure, _) = state else { Issue.record("not failed"); return }
+    #expect(failure.kind == "offline" && !failure.mayHaveHappened)
+}
