@@ -18,6 +18,28 @@ const appointment = (over: Partial<Appointment> = {}): Appointment => ({
   ...over,
 });
 
+test("an appointment at a place carries its map links by name; one with no place has none", () => {
+  expect(appointmentDraft(appointment(), false).text).toContain(
+    "Google Maps: https://www.google.com/maps/search/?api=1&query=The%20clinic\nApple Maps: https://maps.apple.com/?q=The%20clinic\n"
+  );
+  // A long place and a long list of facts: the links stay, the text fits Google's 8,192.
+  const long = appointmentDraft(
+    appointment({
+      observations: Array.from(
+        { length: 500 },
+        (_, i) => `obs_${`${i}`.padStart(12, "0")}`
+      ),
+      place: "ที่".repeat(66),
+    }),
+    false
+  ).text;
+  expect(long.length).toBeLessThan(8192);
+  expect(long).toContain("Apple Maps: ");
+  expect(
+    appointmentDraft(appointment({ place: null }), false).text
+  ).not.toContain("maps");
+});
+
 test("an unconfirmed appointment is marked (Life); confirming it changes its event, its time guess is said", () => {
   const open = appointmentDraft(appointment(), false);
   const sure = appointmentDraft(appointment(), true);
