@@ -175,3 +175,34 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     #expect(arguments[0]["limit"] == nil)
     #expect(arguments[1]["limit"] as? Int == 500)
 }
+
+@Test func hisMarkAndAProjectsStatusGoAsLifeTakesThem() async throws {
+    let sent = Mutex<[(String, Data)]>([])
+    let mcp = client(host: newHost()) { request in
+        let params = request.json["params"] as? [String: Any]
+        let arguments = params?["arguments"] as? [String: Any] ?? [:]
+        let name = params?["name"] as? String ?? ""
+        sent.withLock { $0.append((name, (try? JSONSerialization.data(withJSONObject: arguments)) ?? Data())) }
+        return .json(resultMessage("{}"))
+    }
+    let api = MCPLifeAPI(client: mcp)
+    _ = try await api.setImportant(matter: "matter_1", false) { _ in }
+    _ = try await api.setProjectStatus("halden", .parked, said: "Parked the project Halden house") { _ in }
+    _ = try await api.readMatters(project: "halden")
+    let calls = try sent.withLock {
+        try $0.map { ($0.0, try #require(JSONSerialization.jsonObject(with: $0.1) as? [String: Any])) }
+    }
+    #expect(calls.map(\.0) == ["correct_memory", "change_directory_entry", "read_matters"])
+    let mark = try #require(calls[0].1["correction"] as? [String: Any])
+    #expect(calls[0].1["kind"] as? String == "memory")
+    #expect(mark["kind"] as? String == "matter-important")
+    #expect(mark["matter"] as? String == "matter_1")
+    #expect(mark["important"] as? Bool == false)
+    let edit = calls[1].1
+    #expect(edit["kind"] as? String == "project")
+    #expect(edit["action"] as? String == "edit")
+    #expect(edit["id"] as? String == "halden")
+    #expect(edit["status"] as? String == "parked")
+    #expect(edit["said"] as? String == "Parked the project Halden house")
+    #expect(calls[2].1["project"] as? String == "halden")
+}

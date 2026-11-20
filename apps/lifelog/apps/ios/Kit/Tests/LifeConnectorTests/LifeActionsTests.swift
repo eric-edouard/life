@@ -16,6 +16,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     func readInbox() async throws -> String { "{}" }
     func readInbox(pushId: String) async throws -> String { "{}" }
     func readMatters() async throws -> String { "{}" }
+    func readMatters(project: String) async throws -> String { "{}" }
     func readMatter(_ id: String) async throws -> String { matter }
     func readRegisteredAgents() async throws -> String { "{}" }
 
@@ -38,6 +39,12 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
         onProgress(Data(#"{"plan":["todo_items_ticked","recorded"],"limitSeconds":65}"#.utf8))
         return "Done: memory."
     }
+    func setImportant(matter: String, _ important: Bool, onProgress: @escaping @Sendable (Data) -> Void)
+        async throws -> String
+    { "Done: memory." }
+    func setProjectStatus(
+        _ project: String, _ status: ProjectStatus, said: String, onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String { "{}" }
 }
 
 private let at = Date(timeIntervalSince1970: 1_800_000_000)
