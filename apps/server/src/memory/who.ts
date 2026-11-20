@@ -1,10 +1,11 @@
 import { isSameBirthday } from "../records/fields";
 import {
+  CONTACT_PREFIX,
   type Correction,
   INFERRED_PREFIX,
-  INFERRED_SURE_AT,
   INFERRED_USE_AT,
   type InferredPerson,
+  isSettledGuess,
   type Observation,
   peopleOutsideDirectoryOf,
   type Unresolved,
@@ -40,9 +41,17 @@ const WHO = /^(person|unknown):/;
 export const who = (x: { speaker: string; speakerName?: string }) =>
   x.speakerName ?? x.speaker.replace(WHO, "");
 
-/** A name or handle's lookup keys: as given, lowercased, normalized. */
-const keysOf = (s: string) =>
-  [s.trim(), s.trim().toLowerCase(), nameKey(s)].filter(Boolean);
+/** A bridged user as Beeper writes it (`@line__u9:beeper.local`): the network's prefix and Beeper's server around the localpart Life's own bridge keeps (`_u9`). */
+const BEEPER_GHOST = /^@[a-z0-9]+?_(.+):beeper\.local$/;
+
+/** A name or handle's lookup keys: as given, lowercased, normalized; a Beeper ghost id also as its localpart, so both bridges' ids for one user read as one. */
+export const keysOf = (s: string) =>
+  [
+    s.trim(),
+    s.trim().toLowerCase(),
+    nameKey(s),
+    s.trim().match(BEEPER_GHOST)?.[1],
+  ].filter((k): k is string => !!k);
 
 /** Whether two names or handles are one: a key in common, or the same phone or email however written. */
 const isSameNameOrHandle = (a: string, b: string) => {
@@ -104,19 +113,19 @@ const handleIndex = (people: Person[]): Map<string, string> =>
 
 /**
  * The test for "this person ref (as folded today) is only a guess": an inferred person his word has not named, whose
- * latest record is below INFERRED_SURE_AT. `this-is` or `same-person` to it confirms it. A `not-this-person` refuses one name or handle of it, not the person: one that
+ * latest record is not settled (`isSettledGuess`). `this-is` or `same-person` to it confirms it. A `not-this-person` refuses one name or handle of it, not the person: one that
  * holds another handle is still a guess. The one rule (`isGuess` on `readPeople`, so `guessedOf` and the person checks
  * agree).
  */
 export function guessTestOf(
   corrections: Correction[],
-  inferred: Pick<InferredPerson, "confidence" | "id">[]
+  inferred: Pick<InferredPerson, "confidence" | "id" | "isOrganization">[]
 ) {
   // The latest record in use decides, as in reading it (`guessesOf`).
   const sure = new Map(
     inferred
       .filter((r) => r.confidence >= INFERRED_USE_AT)
-      .map((r) => [`person:${r.id}`, r.confidence >= INFERRED_SURE_AT])
+      .map((r) => [`person:${r.id}`, isSettledGuess(r)])
   );
   const said = new Set<string>();
   for (const c of corrections) {
@@ -210,6 +219,19 @@ export interface Reading {
   ref: string;
 }
 
+const tierOf = (ref: string) => {
+  if (ref.startsWith(`person:${INFERRED_PREFIX}`)) {
+    return 2;
+  }
+  return ref.startsWith(`person:${CONTACT_PREFIX}`) ? 1 : 0;
+};
+
+/** The ref a loop of folds reads as: the best tier (truth/, then his Contacts, then a guess), then the smallest. */
+const bestOf = (loop: string[]) =>
+  loop.toSorted(
+    (a, b) => tierOf(a) - tierOf(b) || a.localeCompare(b)
+  )[0] as string;
+
 /**
  * Who a name as written and a person ref are now: `resolve` is what a name as written reads as (`readingOf`), folded; `canon` folds a
  * ref, his `same-person` over what each inferred id's name as written reads as now, so every id a name as written was ever given is
@@ -258,12 +280,14 @@ export function foldsOf(
     }
   }
   const canon = (ref: string) => {
+    const path: string[] = [];
     let r = ref;
-    // At most one hop per fold, so a loop cannot spin.
-    for (let i = 0; i < into.size && into.has(r); i += 1) {
-      r = into.get(r) ?? r;
+    while (into.has(r) && !path.includes(r)) {
+      path.push(r);
+      r = into.get(r) as string;
     }
-    return r;
+    // A loop reads as its best ref: truth/, then his Contacts, then a guess, then the smallest id.
+    return into.has(r) ? bestOf(path.slice(path.indexOf(r))) : r;
   };
   // A card he settled himself (`same-person`) is placed; one whose name and handles are one person after all (a
   // guess folded into them) is theirs; the rest is not Life's to place: no one's until he says (an ambiguous card), and each
