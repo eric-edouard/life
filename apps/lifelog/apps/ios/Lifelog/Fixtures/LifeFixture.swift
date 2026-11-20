@@ -174,6 +174,11 @@
             return json(["project": head, "matters": rows])
         }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
+        /// A `life:` link's page: what Life read of it, as its text reads.
+        func fetch(_ ref: String) async throws -> String {
+            try await gate()
+            return LifeLinkRead.heading + "\n\n" + ref
+        }
 
         func readMatter(_ id: String) async throws -> String {
             try await gate()

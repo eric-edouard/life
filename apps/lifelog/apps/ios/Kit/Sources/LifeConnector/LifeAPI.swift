@@ -73,6 +73,8 @@ public protocol LifeAPI: Sendable {
     func readMatters(project: String) async throws -> String
     func readMatter(_ id: String) async throws -> String
     func readRegisteredAgents() async throws -> String
+    /// What a `life:` link names, opened by its ref: Life's text, or a person's read as JSON (`LifeLinkRead`).
+    func fetch(_ ref: String) async throws -> String
 
     func answerCheck(_ answer: AnswerRequest, answerKey: String, onProgress: @escaping @Sendable (Data) -> Void)
         async throws -> String
@@ -115,6 +117,7 @@ public struct MCPLifeAPI: LifeAPI {
     }
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }
+    public func fetch(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
 
     public func answerCheck(
         _ answer: AnswerRequest, answerKey: String, onProgress: @escaping @Sendable (Data) -> Void

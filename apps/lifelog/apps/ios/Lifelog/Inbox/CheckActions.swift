@@ -5,10 +5,11 @@ import SwiftUI
 struct CardInput: Equatable {
     var isWritingOwnWords = false
     var words = ""
-    var showsWhy = false
+    /// The context sheet is open (`ContextSheet`).
+    var showsContext = false
 }
 
-/// A link on the ask and what it does: "Why?" or "Tell the agent…".
+/// A link on the ask and what it does: its context ("Why this reply?") or "Tell the agent…".
 struct AskLink {
     let title: String
     let run: () -> Void

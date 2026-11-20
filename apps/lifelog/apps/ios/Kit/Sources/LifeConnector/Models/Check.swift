@@ -83,9 +83,15 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let important: Bool?
     }
 
-    public struct Evidence: Decodable, Sendable, Equatable {
-        public let from: String
-        public let quote: String
+    /// A `life:` link in `context`: exactly the ref `fetch` opens, and what it names, for its glyph.
+    public struct LifeLink: Decodable, Sendable, Equatable {
+        /// What a ref names (`RefKind`, `memory/refs.ts`).
+        public enum Kind: String, UnknownTolerant, Sendable {
+            case ask, conversation, file, matter, message, observation, person, turn, unit
+            case unknown
+        }
+        public let ref: String
+        public let kind: Kind
     }
 
     /// The exact message he approves.
@@ -179,10 +185,10 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let at: Date?
     public let deadline: Date?
     public let onSilence: String?
+    /// Why it asks, in Markdown (the context sheet), with `life:` links to Life's own things (`lifeLinks`).
     public let context: String?
     /// A new matter's goal, the one Start hands the agent.
     public let goal: String?
-    public let evidence: Evidence?
     public let draft: Draft?
     /// The names a name check asks about, as they were said: shown in bold in `said`.
     public let about: [String]?
@@ -196,6 +202,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let clips: [Clip]
     public let likelyPeople: [Party]
     public let links: [String]
+    /// The `life:` links of `context`, each with its kind; empty from a Life that predates them.
+    public let lifeLinks: [LifeLink]?
     public let matter: MatterRef?
     public let subject: String?
     public let ridesOn: RidesOn?
@@ -229,6 +237,21 @@ extension Check {
     public func agentName(runtime: RuntimeName?) -> String? {
         if let runtime { return runtime.name }
         return asker.caseInsensitiveCompare("life") == .orderedSame ? nil : asker
+    }
+
+    /// The words of the link that opens its context: the code's, by what it asks, never the agent's (the context
+    /// sheet's table, decision 81); nil with no context, so a card with none has no link.
+    public var contextLinkTitle: String? {
+        guard let context, !context.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        if draft != nil { return "Why this reply?" }
+        switch group {
+        case .ending: return "Why done?"
+        case .newMatter: return "What Life saw"
+        case .guessedPerson, .name, .voice, .contactsCard:
+            let name = networkIdentity?.shownName ?? askedName ?? contactsCard?.name ?? likelyPeople.first?.name
+            return name.map { "Why \($0)?" } ?? "Why this person?"
+        case .decision, .unknown: return "Why it asks"
+        }
     }
 
     /// The option the card fills (the first): the one answer it asks for, the others sit quieter.

@@ -188,6 +188,16 @@ final class LifeStore {
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
     }
 
+    /// A `life:` link's page (`fetch`): read when opened, kept by the page that shows it.
+    func fetch(_ ref: String, _ update: (ReadState<LifeLinkRead>.Event) -> Void) async {
+        update(.started)
+        do {
+            update(.succeeded(LifeLinkRead(try await api.fetch(ref)), now()))
+        } catch {
+            update(.failed(Task.isCancelled ? .cancelled : error as? MCPError ?? .failed("Life didn't open it.")))
+        }
+    }
+
     func refreshMatter(_ id: String) async {
         let key = "read_matter-\(id)"
         let update = { (event: ReadState<Matter>.Event) in self.matter[id, default: ReadState()].apply(event) }
