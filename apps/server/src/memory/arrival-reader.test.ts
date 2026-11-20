@@ -262,9 +262,9 @@ test("voice: a closed long conversation is read whole, every chunk in one pass",
       .flatMap((l) => l.messages)
       .toSorted()
   ).toEqual(
-    long.spoken
-      .get(long.built[0]?.unit.id ?? "")
-      ?.map((l) => `lifelog|${l.ref}`)
+    [...long.spoken.values()]
+      .flat()
+      .map((l) => `lifelog|${l.ref}`)
       .toSorted()
   );
 });
