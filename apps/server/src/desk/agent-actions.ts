@@ -23,6 +23,7 @@ import {
   queuedEvents,
   readNotes,
   savedWaitOf,
+  siblingOn,
 } from "../host/desk-read";
 import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
 import { matcherOf, waitChannelsOf } from "../host/events";
@@ -414,9 +415,11 @@ async function subjectOf(steps: string[], given: string | undefined) {
 
 /**
  * `request_decision`: asks him as the desk, stamped with the agent's id and its session's link first, one open card
- * per assignment, on its matter (`subjectOf`); or withdraws one of this assignment's own cards. `requestDecision`
- * checks the rest. Once the card is written, the desk writes once that it is this assignment's (`card`, read by
- * `assignmentOfCard`) and, on a matter, anchors the subject Life stored (a matter's id is stored as one of its steps).
+ * per assignment, on its matter (`subjectOf`) and never on a step another assignment of its agent is anchored on
+ * (`siblingOn`); or withdraws one of this assignment's own cards. `requestDecision` checks the rest. Just before the
+ * card is written, in one transaction, the desk writes that it is this assignment's (`card`, read by `assignmentOfCard`)
+ * and, on a matter, anchors the subject Life will store (a matter's id is stored as one of its steps), so no card is
+ * ever without its owner or its anchor; both are undone when the card is not written.
  */
 export async function askDecision(
   desk: Desk,
@@ -434,36 +437,62 @@ export async function askDecision(
     }
     return requestDecision(DESK_AGENT, { agent: id, why, withdraw });
   }
-  // One card at a time per assignment (an inbox rule, not a limit on its work).
-  const open = openCardOf(db, s);
-  if (open) {
-    throw new Error(
-      `Not done: ${id} already asks ${open.id}; withdraw it or wait for his answer.`
-    );
-  }
   const steps = anchorsOf(db, s.id);
   const subject = await subjectOf(steps, ask.subject);
   const link = agentOf(db, id)?.link;
-  const asked = await requestDecision(DESK_AGENT, {
-    ...ask,
-    agent: id,
-    links: [...(link ? [link] : []), ...(ask.links ?? [])],
-    ...(subject ? { subject } : {}),
-  });
-  const stored = decisionsNow().find((d) => d.id === asked.id)?.subject;
-  db.transaction(() => {
-    db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
-      asked.id,
-      s.id,
-    ]);
-    if (steps.length > 0 && stored) {
-      db.run(
-        "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
-        [s.id, stored, clock().toISOString()]
+  // Undone when the card is not written: its owner row, and its subject's anchor when this ask added it.
+  let undo: (() => void) | undefined;
+  const claim = (on: string | undefined, decision: string) => {
+    // One card at a time per assignment (an inbox rule, not a limit on its work), checked after every await.
+    const open = openCardOf(db, s);
+    if (open) {
+      throw new Error(
+        `Not done: ${id} already asks ${open.id}; withdraw it or wait for his answer.`
       );
     }
-  })();
-  return asked;
+    const sibling = on && siblingOn(db, s, on);
+    if (sibling) {
+      throw new Error(
+        `Not done: ${on} is ${sibling}'s, another assignment of yours: ask on it from its own turn.`
+      );
+    }
+    const isAnchored = db.transaction(() => {
+      db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
+        decision,
+        s.id,
+      ]);
+      return steps.length > 0 && on
+        ? db.run(
+            "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+            [s.id, on, clock().toISOString()]
+          ).changes > 0
+        : false;
+    })();
+    undo = db.transaction(() => {
+      db.run("delete from card where decision_id = ?", [decision]);
+      if (isAnchored) {
+        db.run("delete from anchor where assignment_id = ? and step = ?", [
+          s.id,
+          on ?? "",
+        ]);
+      }
+    });
+  };
+  return requestDecision(
+    DESK_AGENT,
+    {
+      ...ask,
+      agent: id,
+      links: [...(link ? [link] : []), ...(ask.links ?? [])],
+      ...(subject ? { subject } : {}),
+    },
+    undefined,
+    undefined,
+    claim
+  ).catch((error) => {
+    undo?.();
+    throw error;
+  });
 }
 
 /** Where an agent may write, what it never starts, how it waits, and which matter his own words in its session are about (his rulings of 20 Nov 2026): Life keeps its notes; the desk alone dispatches and wakes. */
@@ -542,12 +571,14 @@ function projectContextOf({ projects }: Pick<Truth, "projects">, id: string) {
 /**
  * `read_packet`: what a fresh session starts from: its one matter as read now (`oneMatter`: where it stands, its goal and
  * next step, its steps so far), or its project; then each project's context (`projectContextOf`), the brief, the
- * contract, its notes, its saved wait, its queued events (facts only) and its open decision.
+ * contract, its notes, its saved wait, its queued events (facts only) and its open decision. When it starts turn `turn`'s
+ * fresh session, that turn is shown every step of the matter this one read holds (`keepHanded`).
  */
 export async function readPacket(
   { db }: Desk,
   s: AssignmentRow,
-  isOwn: boolean
+  isOwn: boolean,
+  turn?: number
 ) {
   const a = agentOf(db, s.agent_id);
   if (!a) {
@@ -559,6 +590,12 @@ export async function readPacket(
   // An agent's own assignment is its project; any other, the matter its anchors find, its agent's project as context.
   const isOnProject = steps.length === 0 && a.project !== null;
   const matter = isOnProject ? undefined : await oneMatter(steps);
+  if (turn !== undefined && steps.length > 0) {
+    pendingOf(db).set(s.id, {
+      steps: (matter?.steps ?? []).map((x) => x.ref),
+      turn,
+    });
+  }
   const truth = await loadTruth();
   const projects = [
     ...new Set([
@@ -624,27 +661,20 @@ export function keepHanded(
  * agent's memory): the matter as Life reads it now (its id and name, where it stands, its goal and next step), its steps
  * the assignment was never shown (`handedSteps`: a step Life learned late about an earlier hour included; the newest
  * `RECORD_STEPS`, and how many more), its notes, and where to read more; a few thousand characters at most. Life's own
- * reading of the matter, never an event's words. Turn `turn` is shown the steps listed, or, `isFresh` (a new session,
- * whose packet holds the whole matter, so no record: null), all of them (`keepHanded`).
+ * reading of the matter, never an event's words. Turn `turn` is shown the steps listed (`keepHanded`); a fresh session's
+ * packet holds the whole matter instead (`readPacket`).
  */
 export async function matterRecordOf(
   { db }: Desk,
   s: AssignmentRow,
-  turn: number,
-  isFresh: boolean
+  turn: number
 ) {
   const anchors = anchorsOf(db, s.id);
   const m = await oneMatter(anchors);
   const handed = handedSteps(db, s.id);
   const fresh = (m?.steps ?? []).filter((x) => !handed.has(x.ref));
   const shown = fresh.slice(-RECORD_STEPS);
-  pendingOf(db).set(s.id, {
-    steps: (isFresh ? (m?.steps ?? []) : shown).map((x) => x.ref),
-    turn,
-  });
-  if (isFresh) {
-    return null;
-  }
+  pendingOf(db).set(s.id, { steps: shown.map((x) => x.ref), turn });
   return [
     `Your matter, as Life reads it now (\`read_matter\` with ${anchors[0] ?? "its step"} reads it whole; your notes file: ${s.notes_path}):`,
     m

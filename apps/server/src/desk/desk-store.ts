@@ -146,10 +146,14 @@ export interface Desk {
   sources?: Messaging[];
 }
 
-/** Opens (and makes) the desk's store; one of the old shape is refused, never migrated here. */
+/**
+ * Opens (and makes) the desk's store; one of the old shape is refused, never migrated here. Each commit is synced to disk
+ * (`synchronous = full`): a card's owner row must survive a crash of the Mac before its card is written.
+ */
 export function openDesk(path = DESK_STORE) {
   mkdirSync(dirname(path), { recursive: true });
   const db = openWritable(path, 5000, { strict: true });
+  db.run("pragma synchronous = full");
   if (isOldShape(db)) {
     db.close();
     throw new Error(NOT_MIGRATED);

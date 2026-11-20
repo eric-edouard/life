@@ -141,7 +141,7 @@ test("one record per person: the other written forms join its namesAndHandles, a
     madeBy: {
       engine: "codex" as const,
       model: "m",
-      prompt: "memory-episodes.v9",
+      prompt: "memory-episodes.v10",
       run: "r",
     },
     people: new Set<string>(),
@@ -185,7 +185,7 @@ test("a name the call volunteers is kept only with a quote in the day's units th
     madeBy: {
       engine: "codex" as const,
       model: "m",
-      prompt: "memory-episodes.v9",
+      prompt: "memory-episodes.v10",
       run: "r",
     },
     people: new Set(["person:claire"]),
@@ -300,7 +300,7 @@ test('a key is never empty, and a volunteered name is found as a whole word: "Al
     madeBy: {
       engine: "codex" as const,
       model: "m",
-      prompt: "memory-episodes.v9",
+      prompt: "memory-episodes.v10",
       run: "r",
     },
     people: new Set(["person:claire"]),
