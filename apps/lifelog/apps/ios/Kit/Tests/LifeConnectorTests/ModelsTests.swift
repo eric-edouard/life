@@ -199,9 +199,9 @@ private func everyKindOfCheck() throws -> [Check] {
         #expect(
             check.answer(naming: .person("person:gran"))
                 == AnswerRequest(ref: check.ref, options: [only.id], person: "person:gran"))
-        // A name he types is someone Life knows: it goes as `person`, which Life reads.
+        // A name he types is a new person's name ("New person: X"): the one person Life holds by it, else added (life#721).
         #expect(
-            check.answer(naming: .name("Gran")) == AnswerRequest(ref: check.ref, options: [only.id], person: "Gran"))
+            check.answer(naming: .name("Gran")) == AnswerRequest(ref: check.ref, options: [only.id], name: "Gran"))
         #expect(!check.takesOwnWords)
     }
     #expect(try card(.contactsCard).likelyPeople.map(\.person) == ["person:gran", "person:partner"])

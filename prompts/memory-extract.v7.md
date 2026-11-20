@@ -136,8 +136,11 @@ happened.
   (copy them exactly, e.g. `person:dad`, `project:house`). Include `person:me` when it is about
   {{owner}}. When a claim is about one of the `projects`, whether named or only implied by its people and subject
   ("the app", "le site", "le prompt", ads, a feature), add the project's `ref` and name the project in `text`. If no
-  project fits, do not invent one. For every person the claim is about who is not on the map, add `unknown:<the name as written>`
-  (e.g. `unknown:Anne-Sophie`).
+  project fits, do not invent one. For every person the claim is about who is not on the map, add `unknown:<their name as written>`
+  (e.g. `unknown:Anne-Sophie`). Only a person's name: never a business, a brand, a shop, a clinic, a school or any other
+  organisation, and never a role or a word for a relation ("sister", "the nanny", "the shop owner"); those stay in `text`
+  only. A name spelled a letter or two differently from someone on the map, in a context that fits them, is that
+  person: their `ref`, not `unknown:`.
 
 ## Output
 

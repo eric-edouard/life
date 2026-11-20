@@ -145,8 +145,9 @@ extension Taken {
         return request.name ?? (request.note == nil ? "Your answer" : "Your words")
     }
 
-    /// Held for Undo: any answer that is not a send, a start or a goal edit (Life has no undo for those).
-    var isHeld: Bool { !isSend && !isStart && !staysOpen }
+    /// Held for Undo: any answer that is not a send, a start, a goal edit (Life has no undo for those) or a new person's
+    /// name (Life reads who that is, or adds them to his directory: its result, or why not, shows on its card first).
+    var isHeld: Bool { !isSend && !isStart && !staysOpen && request.name == nil }
     var isGuess: Bool { check.isRecipientGuessed }
 
     var doneWord: String {

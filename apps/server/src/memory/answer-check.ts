@@ -18,11 +18,11 @@ import { dayNow } from "./zones";
 // His answer to a check (`answer_check`, `bun life memory answer-check`): one call for every kind. Each option goes to
 // the writer its kind already has, and the line written names the check it settled (the decision's id, the fact
 // check's ref, the person, card or name, the matter's steps). A new matter's Start and a decision's `ends` option are
-// the answers that act through host: it hands them in (`startAgent`, `end`), since only host reaches the desk and the
-// to-do list.
+// the answers that act through host: it hands them in (`startAgent`, `end`, `addPerson`), since only host reaches the
+// desk, the to-do list and his directory.
 
 export interface CheckAnswer {
-  /** A voice's new person: their name. */
+  /** A new person's name: a voice's, or someone he adds to his directory (`namedIn`). */
   name?: string;
   /** His words, verbatim; on a new matter's Start, the goal he saw. */
   note?: string;
@@ -35,8 +35,12 @@ export interface CheckAnswer {
 /** Asks the desk to start an agent on the new matter `c` with the goal he saw, saved as his goal and its brief (host: `changeRegisteredAgent`); gives the ask's ledger line id. */
 export type StartAgent = (c: Check, goal: string) => Promise<{ ask: string }>;
 
+/** Adds a person to his directory by the name he gave a new person answering a check (host: `addPersonByHisWord`); gives their ref. */
+export type AddPerson = (name: string) => Promise<string>;
+
 /** What a writer is given besides the check and his answer: a voice's queue item, the steps to report, the desk's start (his own token's `answer_check` only). */
 interface WriterExtras {
+  addPerson?: AddPerson;
   item?: NamingQueueItem;
   onStep?: (step: string, detail?: Record<string, unknown>) => void;
   startAgent?: StartAgent;
@@ -72,6 +76,27 @@ async function typedPersonOf(a: CheckAnswer) {
     );
   }
   return { a: { ...a, person: r.ref }, recordedAs: people.nameOf(r.ref) };
+}
+
+/**
+ * Who an answer that takes "person or name" names: its `person`, else his new person's `name`: the one person his word,
+ * truth/ or Contacts already holds by that name, else someone new, added to his directory (`addPerson`, his own
+ * token's answer only).
+ */
+async function namedIn(a: CheckAnswer, x: WriterExtras) {
+  if (!a.name) {
+    return personIn(a);
+  }
+  const r = (await readPeople()).readingNow(a.name);
+  if (r && r.by !== "guess" && !r.isShared) {
+    return r.ref;
+  }
+  if (!x.addPerson) {
+    throw new Error(
+      `Not done: Life knows no one called "${a.name}"; add them to his directory first.`
+    );
+  }
+  return x.addPerson(a.name);
 }
 
 const correct = (said: object[], a: CheckAnswer) =>
@@ -148,8 +173,11 @@ const WRITERS: {
   >;
 } = {
   "contacts card": {
-    "same-person": (c, a) =>
-      correct([{ from: c.ref, kind: "same-person", to: personIn(a) }], a),
+    "same-person": async (c, a, x) =>
+      correct(
+        [{ from: c.ref, kind: "same-person", to: await namedIn(a, x) }],
+        a
+      ),
   },
   ending: {
     false: async (c, a) => [
@@ -170,8 +198,11 @@ const WRITERS: {
         })),
         a
       ),
-    "same-person": (c, a) =>
-      correct([{ from: c.ref, kind: "same-person", to: personIn(a) }], a),
+    "same-person": async (c, a, x) =>
+      correct(
+        [{ from: c.ref, kind: "same-person", to: await namedIn(a, x) }],
+        a
+      ),
     "this-is": (c, a) =>
       correct(
         c.about
@@ -181,8 +212,8 @@ const WRITERS: {
       ),
   },
   name: {
-    "this-is": (c, a) => {
-      const person = personIn(a);
+    "this-is": async (c, a, x) => {
+      const person = await namedIn(a, x);
       return correct(
         c.about.map((n) => ({ kind: "this-is", nameOrHandle: n, person })),
         a
@@ -246,8 +277,8 @@ const WRITERS: {
  * Records his answer to the open check `check` (host finds it: `openCheckOf`) through its kind's writer (a decision's
  * draft is sent only `via` his app); returns the check, the lines written and, for a voice, its queue item. `onStep`
  * hears `recorded` once they are, and a send's or a start's own steps; `answerKey` is his app's key for this tap, kept on a
- * decision's answer; `startAgent` (a new matter's Start) and `end` (a decision's `ends` option) are given only for his
- * own token's `answer_check`. Throws when the
+ * decision's answer; `startAgent` (a new matter's Start), `end` (a decision's `ends` option) and `addPerson` (a new
+ * person he names, `namedIn`) are given only for his own token's `answer_check`. Throws when the
  * option is not one of its own.
  */
 export async function answerCheck(
@@ -255,6 +286,7 @@ export async function answerCheck(
   a: CheckAnswer,
   via: "connector" | "session",
   {
+    addPerson,
     answerKey,
     end,
     onStep,
@@ -291,7 +323,12 @@ export async function answerCheck(
   }
   const item = check.group === "voice" ? await readVoiceItem(check) : undefined;
   const typed = await typedPersonOf(a);
-  const done = await write(check, typed.a, { item, onStep, startAgent });
+  const done = await write(check, typed.a, {
+    addPerson,
+    item,
+    onStep,
+    startAgent,
+  });
   if (done.length === 0) {
     throw new Error(`Not done: ${ref} names no one to correct.`);
   }
@@ -301,7 +338,7 @@ export async function answerCheck(
     check,
     done,
     item,
-    recordedAs: typed.recordedAs,
+    recordedAs: typed.recordedAs ?? a.name,
     ref,
   };
 }

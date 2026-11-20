@@ -76,16 +76,18 @@ const union = (a: unknown, b: string[] = []) => [
   ...new Set([...((a as string[] | undefined) ?? []), ...b]),
 ];
 
+/** A name as a slug: its latin letters and digits, lowercase, joined by dashes; empty when it has none (Thai script). */
+const slugOf = (name: string) =>
+  name
+    .normalize("NFD")
+    .replace(MARKS, "")
+    .toLowerCase()
+    .replace(NOT_SLUG, "-")
+    .replace(DASHES, "");
+
 /** The id a new entry takes: his `id`, else his name as a slug; the schema refuses what is not one. */
 function idOf(id: string | undefined, name: string) {
-  const made =
-    id ??
-    name
-      .normalize("NFD")
-      .replace(MARKS, "")
-      .toLowerCase()
-      .replace(NOT_SLUG, "-")
-      .replace(DASHES, "");
+  const made = id ?? slugOf(name);
   return made ? slug.parse(made) : refuse("give an `id`.");
 }
 
@@ -314,6 +316,23 @@ export function changeDirectoryEntry(a: DirectoryEntryChange) {
   const run = queue.then(() => apply(a));
   queue = run.catch(() => undefined);
   return run;
+}
+
+/**
+ * Adds a person to his directory by the name he gave a new person answering a check (`namedIn`); gives their ref. Their
+ * id is the name's slug, numbered past one taken (a second "Sam"), or `person` for a name with no latin letters.
+ */
+export async function addPersonByHisWord(name: string, said: string) {
+  // ponytail: ids read outside the queue: two adds of one name at once, the second refused as a duplicate; its retry finds
+  // the name in truth/. Fine for one owner; read inside `apply` if answers ever race.
+  const taken = new Set((await loadTruth()).people.map((p) => p.id));
+  const base = slugOf(name) || "person";
+  let id = base;
+  for (let n = 2; taken.has(id); n += 1) {
+    id = `${base}-${n}`;
+  }
+  await changeDirectoryEntry({ action: "add", id, kind: "person", name, said });
+  return `person:${id}`;
 }
 
 async function apply(a: DirectoryEntryChange) {
