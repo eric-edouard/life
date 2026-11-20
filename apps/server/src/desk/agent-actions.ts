@@ -23,6 +23,7 @@ import {
   queuedEvents,
   readNotes,
   savedWaitOf,
+  siblingOn,
 } from "../host/desk-read";
 import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
 import { matcherOf, waitChannelsOf } from "../host/events";
@@ -414,9 +415,11 @@ async function subjectOf(steps: string[], given: string | undefined) {
 
 /**
  * `request_decision`: asks him as the desk, stamped with the agent's id and its session's link first, one open card
- * per assignment, on its matter (`subjectOf`); or withdraws one of this assignment's own cards. `requestDecision`
- * checks the rest. Once the card is written, the desk writes once that it is this assignment's (`card`, read by
- * `assignmentOfCard`) and, on a matter, anchors the subject Life stored (a matter's id is stored as one of its steps).
+ * per assignment, on its matter (`subjectOf`) and never on a step another assignment of its agent is anchored on
+ * (`siblingOn`); or withdraws one of this assignment's own cards. `requestDecision` checks the rest. Before the card is
+ * written, the desk writes that it is this assignment's (`card`, read by `assignmentOfCard`), so no card is ever
+ * without its owner, and drops that row when the card is not written; once it is, on a matter, it anchors the subject
+ * Life stored (a matter's id is stored as one of its steps).
  */
 export async function askDecision(
   desk: Desk,
@@ -444,25 +447,43 @@ export async function askDecision(
   const steps = anchorsOf(db, s.id);
   const subject = await subjectOf(steps, ask.subject);
   const link = agentOf(db, id)?.link;
-  const asked = await requestDecision(DESK_AGENT, {
-    ...ask,
-    agent: id,
-    links: [...(link ? [link] : []), ...(ask.links ?? [])],
-    ...(subject ? { subject } : {}),
-  });
-  const stored = decisionsNow().find((d) => d.id === asked.id)?.subject;
-  db.transaction(() => {
-    db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
-      asked.id,
-      s.id,
-    ]);
-    if (steps.length > 0 && stored) {
-      db.run(
-        "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
-        [s.id, stored, clock().toISOString()]
+  let card = "";
+  let stored: string | undefined;
+  const claim = (on: string | undefined, decision: string) => {
+    const sibling = on && siblingOn(db, s, on);
+    if (sibling) {
+      throw new Error(
+        `Not done: ${on} is ${sibling}'s, another assignment of yours: ask on it from its own turn.`
       );
     }
-  })();
+    db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
+      decision,
+      s.id,
+    ]);
+    card = decision;
+    stored = on;
+  };
+  const asked = await requestDecision(
+    DESK_AGENT,
+    {
+      ...ask,
+      agent: id,
+      links: [...(link ? [link] : []), ...(ask.links ?? [])],
+      ...(subject ? { subject } : {}),
+    },
+    undefined,
+    undefined,
+    claim
+  ).catch((error) => {
+    db.run("delete from card where decision_id = ?", [card]);
+    throw error;
+  });
+  if (steps.length > 0 && stored) {
+    db.run(
+      "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+      [s.id, stored, clock().toISOString()]
+    );
+  }
   return asked;
 }
 
@@ -542,12 +563,14 @@ function projectContextOf({ projects }: Pick<Truth, "projects">, id: string) {
 /**
  * `read_packet`: what a fresh session starts from: its one matter as read now (`oneMatter`: where it stands, its goal and
  * next step, its steps so far), or its project; then each project's context (`projectContextOf`), the brief, the
- * contract, its notes, its saved wait, its queued events (facts only) and its open decision.
+ * contract, its notes, its saved wait, its queued events (facts only) and its open decision. When it starts turn `turn`'s
+ * fresh session, that turn is shown every step of the matter this one read holds (`keepHanded`).
  */
 export async function readPacket(
   { db }: Desk,
   s: AssignmentRow,
-  isOwn: boolean
+  isOwn: boolean,
+  turn?: number
 ) {
   const a = agentOf(db, s.agent_id);
   if (!a) {
@@ -559,6 +582,12 @@ export async function readPacket(
   // An agent's own assignment is its project; any other, the matter its anchors find, its agent's project as context.
   const isOnProject = steps.length === 0 && a.project !== null;
   const matter = isOnProject ? undefined : await oneMatter(steps);
+  if (turn !== undefined && steps.length > 0) {
+    pendingOf(db).set(s.id, {
+      steps: (matter?.steps ?? []).map((x) => x.ref),
+      turn,
+    });
+  }
   const truth = await loadTruth();
   const projects = [
     ...new Set([
@@ -624,27 +653,20 @@ export function keepHanded(
  * agent's memory): the matter as Life reads it now (its id and name, where it stands, its goal and next step), its steps
  * the assignment was never shown (`handedSteps`: a step Life learned late about an earlier hour included; the newest
  * `RECORD_STEPS`, and how many more), its notes, and where to read more; a few thousand characters at most. Life's own
- * reading of the matter, never an event's words. Turn `turn` is shown the steps listed, or, `isFresh` (a new session,
- * whose packet holds the whole matter, so no record: null), all of them (`keepHanded`).
+ * reading of the matter, never an event's words. Turn `turn` is shown the steps listed (`keepHanded`); a fresh session's
+ * packet holds the whole matter instead (`readPacket`).
  */
 export async function matterRecordOf(
   { db }: Desk,
   s: AssignmentRow,
-  turn: number,
-  isFresh: boolean
+  turn: number
 ) {
   const anchors = anchorsOf(db, s.id);
   const m = await oneMatter(anchors);
   const handed = handedSteps(db, s.id);
   const fresh = (m?.steps ?? []).filter((x) => !handed.has(x.ref));
   const shown = fresh.slice(-RECORD_STEPS);
-  pendingOf(db).set(s.id, {
-    steps: (isFresh ? (m?.steps ?? []) : shown).map((x) => x.ref),
-    turn,
-  });
-  if (isFresh) {
-    return null;
-  }
+  pendingOf(db).set(s.id, { steps: shown.map((x) => x.ref), turn });
   return [
     `Your matter, as Life reads it now (\`read_matter\` with ${anchors[0] ?? "its step"} reads it whole; your notes file: ${s.notes_path}):`,
     m

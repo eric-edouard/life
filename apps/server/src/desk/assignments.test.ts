@@ -1,4 +1,4 @@
-import { afterEach, expect, setSystemTime, test } from "bun:test";
+import { afterEach, expect, setSystemTime, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -45,6 +45,7 @@ import {
   matterView,
   on,
   setup,
+  started,
   withMatters,
 } from "./test-desk";
 
@@ -515,4 +516,58 @@ test("a turn ending after a re-point keeps nothing of the old subject: its ancho
   expect(anchorsOf(t.desk.db, t.onA().id)).toEqual(["obs_b1"]);
   expect([...handedSteps(t.desk.db, t.onA().id)]).toEqual([]);
   expect(await deadlineWake(t, MATTERS)).toContain("obs_b1 (to_do)");
+});
+
+// Regression: the card was written before the desk wrote whose it was, so a failed write left it to its agent's current
+// assignment. Its owner is written first: when that fails, no card is written.
+test("a card whose owner cannot be written is never written", async () => {
+  const { desk, id, onA } = await twoAssignments();
+  desk.db.run(
+    "create trigger test_no_card before insert on card begin select raise(abort, 'test: no write'); end"
+  );
+  await withMatters(MATTERS, async () => {
+    await expect(askDecision(desk, onA(), yesNo())).rejects.toThrow(
+      "test: no write"
+    );
+  });
+  expect(decisionsNow().filter((d) => d.agent === id)).toEqual([]);
+});
+
+// Regression: an assignment could ask on a step its agent's other assignment is anchored on.
+test("a card on a step another assignment of its agent is anchored on is refused, and nothing is written", async () => {
+  const { desk, id, own } = await twoAssignments();
+  await withMatters(MATTERS, async () => {
+    await expect(askDecision(desk, own(), yesNo("obs_a1"))).rejects.toThrow(
+      "another assignment of yours"
+    );
+  });
+  expect(decisionsNow().filter((d) => d.agent === id)).toEqual([]);
+  expect(desk.db.query("select * from card").all()).toEqual([]);
+});
+
+// Regression: a fresh turn read its matter twice, once for what it was shown and once for its packet.
+test("a fresh turn counts as shown exactly the steps its packet held, though the matter grew between reads", async () => {
+  const t = setup();
+  const matters = await import("../memory/matters");
+  let reads = 0;
+  const book = spyOn(matters, "readMatterBook").mockImplementation(() => {
+    reads += 1;
+    const refs = Array.from({ length: reads }, (_, i) => `obs_f${i + 1}`);
+    return Promise.resolve([matterView("mat_f", refs)] as never);
+  });
+  try {
+    const id = await started(t.desk, "obs_f1");
+    const packet = t.fake.said.at(-1)?.message ?? "";
+    await setWait(t.desk, on(t.desk, id), {
+      events: [],
+      reason: "r",
+      until: ahead(HOUR),
+    });
+    await t.end(id);
+    expect([...handedSteps(t.desk.db, asgOf(t.desk, id))].sort()).toEqual(
+      [...new Set(packet.match(/obs_f\d+/g))].sort()
+    );
+  } finally {
+    book.mockRestore();
+  }
 });
