@@ -1,4 +1,4 @@
-import { daysBefore, HOUR, iso, MIN } from "../core/clock";
+import { clock, daysBefore, HOUR, iso, MIN } from "../core/clock";
 import { isOwnLife } from "../core/platform";
 import { paymentDayOf, paymentWordsOf } from "../memory/payments";
 import { localDate } from "../memory/zones";
@@ -293,11 +293,12 @@ export const githubActivityChannelOf = (
   hasRepo: true,
   name: "github_activity",
   quantities: [],
-  read: async (now, filters = []) =>
+  // Paced from the instant it is read, not the poll's start: a slow channel before it never shortens GitHub's interval.
+  read: async (_pollStart, filters = []) =>
     (
       await read(
         filters.flatMap((f) => f.repo ?? []),
-        now
+        clock().getTime()
       )
     ).map(githubEventOf),
 });

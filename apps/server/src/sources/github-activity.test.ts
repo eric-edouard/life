@@ -184,7 +184,7 @@ test("an owner that cannot be listed stops no other repo, and is asked again a m
   g.failing.add("gone");
   const read = githubActivityReader({ run: g.run });
   expect(await read(["gone/*", "acme/app"], T0)).toEqual([]);
-  expect(g.asked.map((c) => c[1])).toEqual(["repo", "api"]);
+  expect(g.asked.map((c) => c[1])).toEqual(["api", "repo"]);
   await read(["gone/*"], T0 + 30_000);
   expect(g.asked).toHaveLength(2);
   await expect(read(["gone/*"], T0 + NEXT)).rejects.toThrow("gone/*");
@@ -220,8 +220,33 @@ test("a repo that fails waits its turn like one read, so the cap never starves a
   await expect(read([...gone, "acme/app"], T0)).rejects.toThrow(
     "acme/gone0: HTTP 404"
   );
-  await read([...gone, "acme/app"], T0 + 1000);
-  expect(g.asked.at(-1)?.at(-1)).toBe("repos/acme/app/events?per_page=100");
+  await read([...gone, "acme/app"], T0 + NEXT);
+  expect(g.asked[ACTIVITY_REPOS_MAX]?.at(-1)).toBe(
+    "repos/acme/app/events?per_page=100"
+  );
+});
+
+test("a repo named outright is asked before any owner is listed, so slow failing owners never starve it", async () => {
+  const g = fakeGh();
+  const gone = Array.from({ length: 12 }, (_, i) => `gone${i}/*`);
+  for (const o of gone) {
+    g.failing.add(o.slice(0, -2));
+  }
+  const read = githubActivityReader({ run: g.run });
+  await read([...gone, "acme/app"], T0);
+  expect(g.asked[0]?.at(-1)).toBe("repos/acme/app/events?per_page=100");
+});
+
+test("no more than the cap of repos is asked in any minute, across reads", async () => {
+  const g = fakeGh();
+  const many = Array.from(
+    { length: ACTIVITY_REPOS_MAX * 2 },
+    (_, i) => `acme/r${i}`
+  );
+  const read = githubActivityReader({ run: g.run });
+  await read(many, T0);
+  await read(many, T0 + 30_000);
+  expect(g.asked).toHaveLength(ACTIVITY_REPOS_MAX);
 });
 
 test("an answer cut short keeps no ETag: the next ask has the last good one, and gets the events", async () => {

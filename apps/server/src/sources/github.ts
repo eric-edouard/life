@@ -490,8 +490,13 @@ export function githubActivityReader({
   readMs?: number;
   run?: typeof exec;
 } = {}) {
-  const owners = new Map<string, { at: number; repos: string[] }>();
+  const owners = new Map<
+    string,
+    { at: number; repos: string[]; tried: number }
+  >();
   const asked = new Map<string, { etag?: string; next: number }>();
+  /** When each ask of a repo's events in the last minute was made, oldest first. */
+  const asks: number[] = [];
   const listOwner = async (owner: string, timeout: number) =>
     (
       await ghOut(
@@ -528,7 +533,10 @@ export function githubActivityReader({
       timeout
     );
     const answer = parseHttp(r);
-    if (r.killed || (answer.status !== 200 && answer.status !== 304)) {
+    const isAnswer =
+      !r.killed &&
+      ((answer.status === 200 && r.code === 0) || answer.status === 304);
+    if (!isAnswer) {
       throw new Error(
         `${repo}: ${answer.status && !r.killed ? `HTTP ${answer.status}` : "gh didn't answer"}`
       );
@@ -544,19 +552,18 @@ export function githubActivityReader({
     );
     return { etag: answer.headers.get("etag") ?? etag, events, every };
   };
-  /** An owner's repos: listed again once an hour, a failed list asked again a minute on, its last list meanwhile. */
+  /**
+   * An owner's repos: listed again once an hour, a failed list asked again a minute on, its last list meanwhile. Only
+   * an ask of a repo's events counts as GitHub answering (`answered`): a list alone says nothing of the repos.
+   */
   const ownerRepos = async (owner: string, now: number, p: ReadPass) => {
     const known = owners.get(owner);
-    if (known && now - known.at < OWNER_REPOS_FOR) {
-      return known.repos;
-    }
-    if (p.left() <= 0) {
+    if ((known && now - known.at < OWNER_REPOS_FOR) || p.left() <= 0) {
       return known?.repos ?? [];
     }
     try {
-      const listed = await listOwner(owner, Math.min(GH_MS, p.left()));
-      owners.set(owner, { at: p.at(), repos: listed });
-      p.answered += 1;
+      const listed = await listOwner(owner, timeoutOf(p));
+      owners.set(owner, { at: p.at(), repos: listed, tried: p.at() });
       return listed;
     } catch (e) {
       p.failure(`${owner}/*: ${(e as Error).message}`);
@@ -564,6 +571,7 @@ export function githubActivityReader({
       owners.set(owner, {
         at: p.at() - OWNER_REPOS_FOR + ACTIVITY_EVERY_S * 1000,
         repos,
+        tried: p.at(),
       });
       return repos;
     }
@@ -572,7 +580,7 @@ export function githubActivityReader({
   const askInTurn = async (repo: string, p: ReadPass) => {
     const etag = asked.get(repo)?.etag;
     try {
-      const a = await askRepo(repo, Math.min(GH_MS, p.left()));
+      const a = await askRepo(repo, timeoutOf(p));
       asked.set(repo, { etag: a.etag, next: p.at() + a.every * 1000 });
       p.answered += 1;
       return a.events;
@@ -582,28 +590,49 @@ export function githubActivityReader({
       return [];
     }
   };
-  return async (named: string[], now: number) => {
-    const p = readPassOf(now, readMs);
-    const repos = new Set<string>();
-    for (const n of new Set(named.map((x) => x.toLowerCase()))) {
-      const [owner = "", name] = n.split("/");
-      // biome-ignore lint/performance/noAwaitInLoops: one gh at a time
-      for (const repo of name === "*" ? await ownerRepos(owner, now, p) : [n]) {
-        repos.add(repo);
-      }
-    }
+  /** The due ones of `repos`, the longest unasked first, asked while the read has time and the last minute's asks are under the cap. */
+  const askDue = async (repos: string[], now: number, p: ReadPass) => {
     const nextOf = (repo: string) => asked.get(repo)?.next ?? 0;
-    const due = [...repos]
-      .filter((repo) => nextOf(repo) <= now)
-      .toSorted((a, b) => nextOf(a) - nextOf(b))
-      .slice(0, ACTIVITY_REPOS_MAX);
     const read: GithubActivity[] = [];
-    for (const repo of due) {
-      if (p.left() <= 0) {
+    for (const repo of repos
+      .filter((r) => nextOf(r) <= now)
+      .toSorted((a, b) => nextOf(a) - nextOf(b))) {
+      const minuteAgo = p.at() - MIN;
+      while ((asks[0] ?? minuteAgo) < minuteAgo) {
+        asks.shift();
+      }
+      if (p.left() <= 0 || asks.length >= ACTIVITY_REPOS_MAX) {
         break;
       }
+      asks.push(p.at());
       // biome-ignore lint/performance/noAwaitInLoops: one gh at a time, within the read's time
       read.push(...(await askInTurn(repo, p)));
+    }
+    return read;
+  };
+  return async (named: string[], now: number) => {
+    const p = readPassOf(now, readMs);
+    const wanted = [...new Set(named.map((n) => n.toLowerCase()))];
+    // The repos named outright first, then each owner's, the owner tried longest ago first: a failing owner never
+    // holds up a named repo.
+    const exact = wanted.filter((n) => !n.endsWith("/*"));
+    const read = await askDue(exact, now, p);
+    const ownersNamed = wanted
+      .filter((n) => n.endsWith("/*"))
+      .map((n) => n.slice(0, -2))
+      .toSorted(
+        (a, b) => (owners.get(a)?.tried ?? 0) - (owners.get(b)?.tried ?? 0)
+      );
+    for (const owner of ownersNamed) {
+      // biome-ignore lint/performance/noAwaitInLoops: one gh at a time
+      const repos = await ownerRepos(owner, now, p);
+      read.push(
+        ...(await askDue(
+          repos.filter((r) => !exact.includes(r)),
+          now,
+          p
+        ))
+      );
     }
     if (p.failed.length > 0 && p.answered === 0) {
       throw new Error(p.failed.join("; "));
@@ -620,6 +649,10 @@ interface ReadPass {
   failure: (error: string) => void;
   left: () => number;
 }
+
+/** A `gh` call's timeout within what is left of the read, whole milliseconds. */
+const timeoutOf = (p: ReadPass) =>
+  Math.max(1, Math.floor(Math.min(GH_MS, p.left())));
 
 const readPassOf = (now: number, readMs: number): ReadPass => {
   const started = performance.now();
