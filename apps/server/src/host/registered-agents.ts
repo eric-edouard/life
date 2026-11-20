@@ -478,7 +478,7 @@ async function readHealth(
       status: v.status,
     })),
     await openChecksNow()
-  ).filter((r) => r.needsYou).length;
+  ).filter((row) => row.needsYou).length;
   return {
     needsYou,
     rows: healthRowsOf({

@@ -8,6 +8,8 @@ import { tool } from "./mcp-tool";
 // The connector's people tools: the pictures a party shows (`read_person_pictures`). People's pictures leave the Mac
 // for any app he paired, never for a paired agent (SECURITY.md, his word of 20 Nov 2026).
 
+/** A picture's id: its original bytes' digest (`pictureIdOf`); nothing else names a file. */
+const PICTURE_ID = /^[0-9a-f]{32}$/;
 /** At most this many pictures in one call. */
 const MAX_IDS = 64;
 
@@ -35,10 +37,7 @@ export function personPicturesTool(server: McpServer) {
     "read_person_pictures",
     `The pictures people and organizations show (JSON), by the picture ids a party carries (\`picture.id\`, in \`read_matters\`, \`read_matter\`, \`read_inbox\`), at most ${MAX_IDS}: \`pictures\` (\`id\`, \`mime\`, \`data\`: a 216 px JPEG as base64) and \`missing\` (ids with no picture now: read the party again). For his own apps; a paired agent is refused.`,
     z.object({
-      ids: z
-        .array(z.string().regex(/^[0-9a-f]{32}$/))
-        .min(1)
-        .max(MAX_IDS),
+      ids: z.array(z.string().regex(PICTURE_ID)).min(1).max(MAX_IDS),
     }),
     (a, agent) => {
       if (agent) {

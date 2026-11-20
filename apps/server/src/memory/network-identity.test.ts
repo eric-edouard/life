@@ -142,7 +142,7 @@ test("the chat-days tried are 1:1 chats with the check's person, newest first, t
 });
 
 /** Who the identities name: Kit, by his WhatsApp number; Dana is the owner. */
-const people = {
+const kitPeople = {
   nameOf: () => "Dana",
   partyOf: (ref: string) => ({ kind: "person" as const, name: "Kit", ref }),
   resolve: (h: string) => (h === "+33600000001" ? "person:inf_kit" : null),
@@ -159,7 +159,7 @@ test("a decision's guess beside it gets its identity too; a check none was found
   const shown = withNetworkIdentity(
     decision,
     new Map([["person:inf_kit", identity]]),
-    people
+    kitPeople
   );
   expect(shown.networkIdentity).toBeNull();
   expect(shown.confirm[0]?.networkIdentity).toEqual(identity);
@@ -281,7 +281,7 @@ test("a decision's draft gets its chat as its network shows it, reading nothing;
         ref: string;
       },
       new Map(),
-      people
+      kitPeople
     ).networkIdentity;
   expect(shown(draft)).toMatchObject({
     chat: draft.chat,

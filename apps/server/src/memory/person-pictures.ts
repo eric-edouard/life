@@ -114,6 +114,7 @@ export async function writePersonPictures() {
     if (!existsSync(path)) {
       const src = `${path}.src`;
       writeFileSync(src, bytes);
+      // biome-ignore lint/performance/noAwaitInLoops: one sips at a time, never thousands at once
       if (await toJpeg(src, `${path}.tmp.jpg`, PICTURE_PX)) {
         renameSync(`${path}.tmp.jpg`, path);
       }
