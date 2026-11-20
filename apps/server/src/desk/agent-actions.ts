@@ -237,7 +237,7 @@ function placeRefusalOf(
         .join(" or ")}`;
 }
 
-/** Why a wait may not hold filter `f`, or null: a channel unknown, off or unreadable, or keys its channels cannot answer (a message's on event channels only, a quantity or a place none of them holds). */
+/** Why a wait may not hold filter `f`, or null: a channel unknown, off or unreadable, or keys its channels cannot answer (a message's on event channels only, a quantity, a place or a repo none of them holds), or a channel holding repos named without one. */
 function filterRefusalOf(
   f: EventFilter,
   { known, on }: { known: string[]; on: string[] },
@@ -257,11 +257,18 @@ function filterRefusalOf(
     named.every((n) => channels.some((c) => c.name === n)) &&
     (f.person || f.chat || f.from_me)
   ) {
-    return "`person`, `chat` and `from_me` are a message's: a filter on event channels only takes `text_matches`, `quantity` and a place";
+    return "`person`, `chat` and `from_me` are a message's: a filter on event channels only takes `text_matches`, `quantity`, a place and a `repo`";
   }
   const place = placeRefusalOf(f, named, channels);
   if (place) {
     return place;
+  }
+  const withRepo = channels.filter((c) => c.hasRepo).map((c) => c.name);
+  if (f.repo && !named.some((n) => withRepo.includes(n))) {
+    return `\`repo\` needs \`channels\` naming ${withRepo.map((n) => `\`${n}\``).join(" or ")}`;
+  }
+  if (!f.repo && named.some((n) => withRepo.includes(n))) {
+    return `${withRepo.map((n) => `\`${n}\``).join(" or ")} needs a \`repo\`: \`owner/name\` or \`owner/*\``;
   }
   if (!f.quantity) {
     return f.above === undefined && f.below === undefined

@@ -1,4 +1,5 @@
-import { clock, iso, MIN } from "../core/clock";
+import { clock, HOUR, iso, MIN } from "../core/clock";
+import { log } from "../core/log";
 import { AGENT_POST_SIGNATURE, AGENT_WORD } from "../core/names";
 import { cliEnv } from "../core/platform";
 import { exec } from "../core/proc";
@@ -17,7 +18,8 @@ import type { Outgoing, SendPath } from "./contract";
 
 // The GitHub source: the issues and issue comments of the repos he lists (`githubRepos`), one chat per issue
 // (`owner/name#12`), copied into `archive/github.sqlite` (each version kept, like a bridge's) and read from there. The
-// only place Life runs `gh` (`scripts/imports.test.ts`). Pull requests and their comments are left out.
+// only place Life runs `gh` (`scripts/imports.test.ts`). Pull requests and their comments are left out. Beside it, the
+// GitHub activity of the repos the agents' waits name (`githubActivityReader`): read for a wake only, never stored.
 
 type Run = Awaited<ReturnType<typeof exec>>;
 
@@ -361,5 +363,217 @@ export function githubSend({
         issue ? `github:${d.chat}/${o.id}` : `github:${d.chat}#${o.number}/0`
       );
     },
+  };
+}
+
+/** A GitHub activity a wait names, as `githubActivityReader` reads it: its facts, and `words` (its title and body), only tested by a wait's `text_matches`. */
+export interface GithubActivity {
+  at: string;
+  id: string;
+  kind: string;
+  link: string | null;
+  number: number | null;
+  repo: string;
+  who: string;
+  words: string;
+}
+
+/**
+ * The repo events kept, by GitHub's type, as the kind a wake names; an issue's or pull request's with what was done
+ * (`issue.closed`, `issue.labeled`, `pr.merged`: every action GitHub gives); every other type (a push, a star) is dropped.
+ */
+const ACTIVITY_KINDS: Record<string, string> = {
+  IssueCommentEvent: "comment",
+  IssuesEvent: "issue.",
+  PullRequestEvent: "pr.",
+  PullRequestReviewCommentEvent: "review_comment",
+  PullRequestReviewEvent: "review",
+};
+/** The fewest seconds between two reads of one repo's events; GitHub's `X-Poll-Interval` may ask more. */
+const ACTIVITY_EVERY_S = 60;
+/** How long an owner's repos (`owner/*`) stand before they are listed again. */
+const OWNER_REPOS_FOR = HOUR;
+/**
+ * The most repos one read asks about: 25 a minute is at most 1,500 counted requests an hour, beside the copier's 360 a
+ * listed repo, under GitHub's 5,000. A 304 (nothing new since the ETag sent as `If-None-Match`) does not count against
+ * that limit for an authenticated request (GitHub's REST API best practices; its events API: "your rate limit is not
+ * used"), so a quiet repo costs nothing.
+ */
+export const ACTIVITY_REPOS_MAX = 25;
+
+interface Said {
+  body?: string | null;
+  html_url?: string;
+  number?: number;
+  title?: string;
+}
+interface RepoEvent {
+  actor: { login: string } | null;
+  created_at: string;
+  id: string;
+  payload: {
+    action?: string;
+    comment?: Said;
+    issue?: Said;
+    number?: number;
+    pull_request?: Said;
+    review?: Said;
+  };
+  repo: { name: string };
+  type: string;
+}
+
+/** A repo event as an activity, none for a type left out. */
+function activityOf(e: RepoEvent): GithubActivity[] {
+  const base = ACTIVITY_KINDS[e.type];
+  if (!base) {
+    return [];
+  }
+  const kind = base.endsWith(".") ? base + (e.payload.action ?? "?") : base;
+  const { comment, issue, pull_request: pr, review } = e.payload;
+  const item = issue ?? pr;
+  const said = comment ?? review ?? item;
+  const number = item?.number ?? e.payload.number ?? null;
+  return [
+    {
+      at: iso(Date.parse(e.created_at)),
+      id: e.id,
+      kind,
+      // A pull request's own event comes with its number only (GitHub's trimmed payloads).
+      link:
+        said?.html_url ??
+        (number
+          ? `https://github.com/${e.repo.name}/${base === "issue." ? "issues" : "pull"}/${number}`
+          : null),
+      number,
+      repo: e.repo.name,
+      who: e.actor?.login ?? "ghost",
+      words: [item?.title, said?.body].filter(Boolean).join("\n"),
+    },
+  ];
+}
+
+const BLANK_LINE = /\r?\n\r?\n/;
+const LINE = /\r?\n/;
+const STATUS = /^HTTP\/[\d.]+ (\d{3})/;
+/** `gh api -i`'s answer: its status, its headers (lower case) and its body. `gh` exits 1 on a 304, so the status decides. */
+function parseHttp(r: Run) {
+  const [head = "", ...rest] = r.stdout.split(BLANK_LINE);
+  const [statusLine = "", ...lines] = head.split(LINE);
+  const status = Number(STATUS.exec(statusLine)?.[1] ?? 0);
+  const headers = new Map(
+    lines.map((l) => {
+      const at = l.indexOf(":");
+      return [l.slice(0, at).trim().toLowerCase(), l.slice(at + 1).trim()];
+    })
+  );
+  return { body: rest.join("\n\n"), headers, status };
+}
+
+/**
+ * The reader of the repos the open waits name (`owner/name`, or every repo of an owner, `owner/*`, listed through `gh
+ * repo list` once an hour, its first 100): each repo's newest 100 events, asked with the last answer's ETag and no sooner
+ * than GitHub's poll interval, so a repo with nothing new gives none and costs nothing; at most `ACTIVITY_REPOS_MAX` a
+ * read, the longest unread first. Its ETags and owners' lists live in this process only. A repo that fails is logged and
+ * asked again next time; a read where every repo asked failed throws.
+ * ponytail: GitHub says its events can lag 30 s to 6 h; per-kind feeds (issues, comments, each pull request's reviews)
+ * if a wait ever needs them sooner. More than 100 events in a repo between two reads drop the oldest.
+ */
+export function githubActivityReader({
+  run = exec,
+}: {
+  run?: typeof exec;
+} = {}) {
+  const owners = new Map<string, { at: number; repos: string[] }>();
+  const asked = new Map<string, { etag?: string; next: number }>();
+  const reposOf = async (owner: string, now: number) => {
+    const known = owners.get(owner);
+    if (known && now - known.at < OWNER_REPOS_FOR) {
+      return known.repos;
+    }
+    const repos = (
+      await ghOut(run, [
+        "repo",
+        "list",
+        owner,
+        "--no-archived",
+        "--limit",
+        "100",
+        "--json",
+        "nameWithOwner",
+        "--jq",
+        ".[].nameWithOwner",
+      ])
+    )
+      .split("\n")
+      .filter(Boolean)
+      .map((r) => r.toLowerCase());
+    owners.set(owner, { at: now, repos });
+    return repos;
+  };
+  const eventsOf = async (repo: string, now: number) => {
+    const last = asked.get(repo);
+    const r = parseHttp(
+      await gh(run, [
+        "api",
+        "-i",
+        ...(last?.etag ? ["-H", `If-None-Match: ${last.etag}`] : []),
+        `repos/${repo}/events?per_page=100`,
+      ])
+    );
+    if (r.status !== 200 && r.status !== 304) {
+      throw new Error(
+        `${repo}: ${r.status ? `HTTP ${r.status}` : "gh didn't answer"}`
+      );
+    }
+    const every = Math.max(
+      ACTIVITY_EVERY_S,
+      Number(r.headers.get("x-poll-interval")) || 0
+    );
+    asked.set(repo, {
+      etag: r.headers.get("etag") ?? last?.etag,
+      // A second early, so a read on the desk's minute beat is never skipped by a few milliseconds.
+      next: now + (every - 1) * 1000,
+    });
+    return r.status === 304
+      ? []
+      : (JSON.parse(r.body) as RepoEvent[]).flatMap(activityOf);
+  };
+  return async (named: string[], now: number) => {
+    const repos = new Set<string>();
+    for (const n of new Set(named.map((x) => x.toLowerCase()))) {
+      const [owner = "", name] = n.split("/");
+      // biome-ignore lint/performance/noAwaitInLoops: one gh at a time
+      for (const repo of name === "*" ? await reposOf(owner, now) : [n]) {
+        repos.add(repo);
+      }
+    }
+    // The due repos, the longest unread first: past the cap, the rest are read on the next beats.
+    const nextOf = (repo: string) => asked.get(repo)?.next ?? 0;
+    const asking = [...repos]
+      .filter((repo) => nextOf(repo) <= now)
+      .toSorted((a, b) => nextOf(a) - nextOf(b))
+      .slice(0, ACTIVITY_REPOS_MAX);
+    const failed: string[] = [];
+    const read: GithubActivity[] = [];
+    for (const repo of asking) {
+      try {
+        // biome-ignore lint/performance/noAwaitInLoops: one gh at a time
+        read.push(...(await eventsOf(repo, now)));
+      } catch (e) {
+        const error = (e as Error).message;
+        failed.push(error);
+        log("source.read", {
+          error,
+          ok: false,
+          source: "github",
+          what: "activity",
+        });
+      }
+    }
+    if (failed.length > 0 && failed.length === asking.length) {
+      throw new Error(failed.join("; "));
+    }
+    return read;
   };
 }

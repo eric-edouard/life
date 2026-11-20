@@ -17,8 +17,9 @@ const isPattern = (source: string) => {
  * Messages (`message.received`): who wrote it, in which apps or chat, his own or others', and a pattern on its text;
  * the calls that ended in the same chats (`call.ended`); and, for a registered agent's wait, an event channel's
  * events, by name in `channels`, by `quantity` between `above` and `below`, by a pattern (a payment's,
- * `payment.booked`; an arrival's line, `stay.arrived`), and by a place (`latitude`, `longitude`, `radius_m`: an
- * arrival's point within the radius). The connector's poll takes the message keys only.
+ * `payment.booked`; an arrival's line, `stay.arrived`; a GitHub activity's title and body, `github.activity`), by a
+ * place (`latitude`, `longitude`, `radius_m`: an arrival's point within the radius), and by a GitHub `repo`. The
+ * connector's poll takes the message keys only.
  */
 export const EventFilter = z
   .object({
@@ -73,6 +74,13 @@ export const EventFilter = z
       .optional()
       .describe(
         "With `latitude` and `longitude`: how near, in meters (100 by default, as `read_places_visited`'s `radiusM`)"
+      ),
+    repo: z
+      .string()
+      .regex(/^[\w.-]+\/(?:[\w.-]+|\*)$/, "a repo is `owner/name` or `owner/*`")
+      .optional()
+      .describe(
+        "With `github_activity`: a GitHub repo, `owner/name`, or every repo of an owner, `owner/*`"
       ),
     text_matches: z
       .string()
