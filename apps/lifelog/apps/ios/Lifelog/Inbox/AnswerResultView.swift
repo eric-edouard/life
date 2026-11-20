@@ -32,11 +32,12 @@ struct AnswerResultView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+            // A new state fades the last one out and rises in its place (`Motion.resultFace`).
+            ZStack(alignment: .topLeading) {
                 switch state {
-                case .succeeded(let proof, _): done(proof)
-                case .failed(let failure, _): failed(failure)
-                case .idle, .running: working
+                case .succeeded(let proof, _): face { done(proof) }
+                case .failed(let failure, _): face { failed(failure) }
+                case .idle, .running: face { working }
                 }
             }
             .padding(.horizontal, 20)
@@ -54,6 +55,10 @@ struct AnswerResultView: View {
     }
 
     // MARK: States
+
+    private func face(@ViewBuilder _ content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 14) { content() }.appears(Motion.resultFace)
+    }
 
     @ViewBuilder private var working: some View {
         Text(taken.check.question).font(.cardQuestion).foregroundStyle(Palette.fg)

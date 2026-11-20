@@ -21,7 +21,7 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
 
     var body: some View {
         // Each face fades out as the next fades in (loading to content: the spinner goes as the content comes).
-        ZStack { face.appears(.opacity).id(faceName) }.motion(Motion.standard, value: faceName)
+        ZStack { face.appears(Motion.fade).id(faceName) }
     }
 
     /// Which face shows, so a new face fades in and a new value of the same face changes in place.
