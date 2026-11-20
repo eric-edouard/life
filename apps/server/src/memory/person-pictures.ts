@@ -10,22 +10,19 @@ import {
 import { join } from "node:path";
 import { clock, iso } from "../core/clock";
 import { writeJson } from "../core/files";
-import { LIFE_STATE_DIR } from "../core/paths";
-import { readContactPictures } from "../sources/contacts";
+import { MACHINE_DIR } from "../core/platform";
+import { readContactPictures, readContactRecords } from "../sources/contacts";
 import type { Picture } from "../sources/contract";
 import { enabledSources } from "./sources";
 import { readPeople } from "./who";
 
 // The person pictures (docs/glossary.md): every picture a person shows, from his Contacts (his own choice) first, then
-// each source in `SOURCES`' order, kept in Life's state for the apps. Derived and rebuilt whole by the watcher each
+// each source in `SOURCES`' order, kept per Mac (`MACHINE_DIR`, never exported or backed up) for the apps. Derived and rebuilt whole by the watcher each
 // hour, never by the night; nothing in memory/. Each file is named by its bytes' digest, so a picture someone changes is
 // a new file and the old one goes.
 
-export const PERSON_PICTURES = join(LIFE_STATE_DIR, "person-pictures");
-export const PERSON_PICTURES_INDEX = join(
-  LIFE_STATE_DIR,
-  "person-pictures.json"
-);
+export const PERSON_PICTURES = join(MACHINE_DIR, "person-pictures");
+export const PERSON_PICTURES_INDEX = join(MACHINE_DIR, "person-pictures.json");
 const CONTACTS = "contacts";
 
 /** A file's extension from its first bytes: the formats a source's pictures come in. */
@@ -47,21 +44,20 @@ export const pictureFileOf = (bytes: Uint8Array) =>
 
 /**
  * Each person's pictures, Contacts' first then each source's in the order given, the same picture once per person, and
- * the files they name. A card goes where Life's folds place its contact person (`canon`: an ambiguous card stays its
- * own), a source's picture to the first of its handles `resolve` places (`who.ts`); one neither places is dropped.
+ * the files they name. A card goes to its owner (`cardOwnerOf`), a source's picture to the first of its handles `resolve`
+ * places (`who.ts`); one neither places is dropped.
  */
 export function personPicturesOf(
-  cards: { bytes: Uint8Array; card: string }[],
+  cards: { bytes: Uint8Array; card: { handles: string[]; id: string } }[],
   sources: { pictures: Picture[]; source: string }[],
   people: {
-    canon: (ref: string) => string;
-    contacts: { card: string; id: string }[];
+    ownerOfCard: (card: {
+      handles: string[];
+      id: string;
+    }) => string | undefined;
     resolve: (handle: string) => string | null;
   }
 ) {
-  const cardOwners = new Map(
-    people.contacts.map((c) => [c.card, people.canon(`person:${c.id}`)])
-  );
   const index: Record<string, { file: string; source: string }[]> = {};
   const files = new Map<string, Uint8Array>();
   const add = (
@@ -81,7 +77,7 @@ export function personPicturesOf(
     }
   };
   for (const c of cards) {
-    add(cardOwners.get(c.card), CONTACTS, c.bytes);
+    add(people.ownerOfCard(c.card), CONTACTS, c.bytes);
   }
   for (const s of sources) {
     for (const p of s.pictures) {
@@ -106,8 +102,12 @@ function writeWhole(path: string, write: (to: string) => void) {
  */
 export async function writePersonPictures() {
   const people = await readPeople();
+  const records = new Map(readContactRecords().map((c) => [c.id, c]));
   const found = personPicturesOf(
-    readContactPictures(),
+    readContactPictures().map((p) => ({
+      bytes: p.bytes,
+      card: records.get(p.card) ?? { handles: [], id: p.card },
+    })),
     enabledSources().flatMap((s) =>
       s.pictures ? [{ pictures: s.pictures(), source: s.name }] : []
     ),

@@ -98,10 +98,10 @@ function databases(dir: string) {
   const sources = join(dir, "Sources");
   return [
     join(dir, FILE),
-    ...(isThere(sources)
+    ...(existsSync(sources)
       ? readdirSync(sources).map((s) => join(sources, s, FILE))
       : []),
-  ].filter(isThere);
+  ].filter(existsSync);
 }
 
 /** `sql`'s rows (`owner`, `line`) as each record's lines. */
@@ -243,10 +243,13 @@ function imageOf(blob: Uint8Array, file: string) {
 }
 
 /**
- * The picture on each card that has one, by card id: its full image, else its thumbnail. Throws when a database can't be
- * read: the caller keeps what it had.
+ * The picture on each card that has one, by card id: its full image, else its thumbnail. None without Contacts; throws
+ * when they can't be read (access denied): the caller keeps what it had.
  */
 export function readContactPictures(dir = DIR) {
+  if (!isThere(dir)) {
+    return [];
+  }
   return databases(dir).flatMap((file) => {
     const db = openReadOnly(file);
     try {

@@ -15,7 +15,7 @@ import {
 } from "./contact-people";
 import { answeredBy } from "./people";
 import { personPicturesOf } from "./person-pictures";
-import { foldsOf, meant } from "./who";
+import { cardOwnerOf, foldsOf, meant } from "./who";
 
 const AT = "2026-11-12T03:00:00.000Z";
 const card = (id: string, name: string | null, handles: string[]): Contact => ({
@@ -351,11 +351,25 @@ test("a card whose whole name says one person and whose number says another is n
   expect(settled.resolve("cy@example.com")).toBe("person:bea");
   expect(canon(self)).toBe(self);
   // Its picture follows: the card's own until he says, then Bea's; never the first number's person by itself.
-  const picture = [{ bytes: new Uint8Array([0xff, 0xd8]), card: mixed.card }];
+  const picture = [
+    {
+      bytes: new Uint8Array([0xff, 0xd8]),
+      card: { handles: mixed.handles, id: mixed.card },
+    },
+  ];
   const placedOn = (f: Pick<typeof settled, "canon" | "resolve">) =>
     Object.keys(
-      personPicturesOf(picture, [], { ...f, contacts: [mixed] }).index
+      personPicturesOf(picture, [], {
+        ownerOfCard: cardOwnerOf({ ...f, contacts: [mixed] }),
+        resolve: f.resolve,
+      }).index
     );
+  // A card Life never kept as a contact person: the one person its handles name, no one when they name two.
+  const owner = cardOwnerOf({ ...settled, contacts: [] });
+  expect(owner({ handles: ["+33677777777"], id: "card-x" })).toBe("person:bea");
+  expect(
+    owner({ handles: ["+33677777777", "+33600000050"], id: "card-x" })
+  ).toBeUndefined();
   expect(placedOn({ canon, resolve })).toEqual([self]);
   expect(placedOn(settled)).toEqual(["person:bea"]);
   // The number truth/ knows is still Bea's; the address is the card's own, neither Bea's nor Cyril's.

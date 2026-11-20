@@ -7,7 +7,7 @@ const png = (n: number) => new Uint8Array([0x89, 0x50, 0x4e, 0x47, n]);
 
 test("Contacts first, then each source in order, the same picture once, one no handle places is dropped", () => {
   const { files, index } = personPicturesOf(
-    [{ bytes: jpg(1), card: "card-anna" }],
+    [{ bytes: jpg(1), card: { handles: [], id: "card-anna" } }],
     [
       {
         pictures: [
@@ -23,8 +23,8 @@ test("Contacts first, then each source in order, the same picture once, one no h
       },
     ],
     {
-      canon: (ref) => (ref === "person:con_anna" ? "person:anna" : ref),
-      contacts: [{ card: "card-anna", id: "con_anna" }],
+      ownerOfCard: (card) =>
+        card.id === "card-anna" ? "person:anna" : undefined,
       resolve: (h) =>
         h === "+15550001" || h === "anna.ig" ? "person:anna" : null,
     }

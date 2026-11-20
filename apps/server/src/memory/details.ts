@@ -164,14 +164,14 @@ export function detailsBlock(lines: DetailLine[], today: string) {
   ];
 }
 
-/** Every person's details now (`detailsOf`): truth/ and his Contacts (whose by `resolve`). */
+/** Every person's details now (`detailsOf`): truth/ and his Contacts (whose by `ownerOfCard`). */
 export function readDetailsOf(
-  people: Pick<People, "resolve" | "truth">,
+  people: Pick<People, "ownerOfCard" | "truth">,
   records: Contact[] = readContactRecords()
 ) {
   const contacts = new Map<string, Contact[]>();
   for (const c of records) {
-    const ref = c.handles.map(people.resolve).find(Boolean);
+    const ref = people.ownerOfCard(c);
     if (ref) {
       contacts.set(ref, [...(contacts.get(ref) ?? []), c]);
     }
