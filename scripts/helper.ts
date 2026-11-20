@@ -50,6 +50,18 @@ await Promise.all([
       }
     );
   }),
+  // The send guard's hook, bundled alone: an agent's every tool call waits for it (`runtime-rows.ts` runs it from here).
+  execOk(
+    [
+      "bun",
+      "build",
+      "--target=bun",
+      join(ROOT, "apps", "server", "src", "desk", "send-guard-hook.ts"),
+      "--outfile",
+      join(resources, "apps", "server", "src", "desk", "send-guard-hook.js"),
+    ],
+    { timeout: 300_000 }
+  ),
   cp(join(ROOT, "prompts"), join(resources, "prompts"), { recursive: true }),
   cp(join(ROOT, "assets"), join(resources, "assets"), { recursive: true }),
   cp(join(ROOT, CODEX), join(resources, CODEX)),

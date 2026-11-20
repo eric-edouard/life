@@ -5,7 +5,7 @@ import { MIN } from "../core/clock";
 import { gogCall } from "../core/gog";
 import { exec } from "../core/proc";
 import type { Outgoing, SendPath } from "./contract";
-import { mailAccounts, messageIdOfMail } from "./mail";
+import { messageIdOfMail, readMailAddresses } from "./mail";
 
 // The one mail send: gog's Gmail does it, from an account gog holds (the only place Life names `gogCall("gmail"`,
 // `scripts/imports.test.ts`). A new mail, or a reply in the thread of one message of his; never reply-all, a quote, a
@@ -81,7 +81,7 @@ function answerOf(r: Run, from: string) {
  * gives it, not Life's `mail:<Message-ID>` (gog's answer holds no RFC id; Mail's copy has its own id later).
  */
 export function gmailSend({
-  addresses = () => mailAccounts().flatMap((a) => a.addresses),
+  addresses = readMailAddresses,
   run = (cmd, o) => exec(cmd, o),
   staging = tmpdir(),
 }: Options = {}): SendPath {

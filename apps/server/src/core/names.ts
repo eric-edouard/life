@@ -17,6 +17,13 @@ export type Engine = z.infer<typeof Engine>;
  */
 export const AGENT_WORD = "agent";
 
+/**
+ * The line that ends an agent's own post on GitHub, on a repo he listed for it (`desk.agentPostRepos`): the send guard
+ * lets no other post through, and the GitHub source reads a post ending with it as his agent's, not his.
+ */
+export const AGENT_POST_SIGNATURE =
+  "— Posted by an AI agent for this account, not reviewed before posting.";
+
 /** The built-in agent his words about his registered agents are asked of (`change_registered_agent`): the desk, which keeps its own list. */
 export const DESK_AGENT = "desk";
 
