@@ -253,7 +253,7 @@ const decision = (id: string, deadline: string, subject?: string) => ({
   title: "It is due.",
 });
 
-test("open decisions come first, soonest deadline first; one on a step leaves with its matter, one on a project stays", () => {
+test("open decisions come first, soonest deadline first, each naming the agent that asked; one on a step leaves with its matter, one on a project stays", () => {
   const o = line();
   const matter = (open: boolean) => ({
     id: "matter_bbbbbbbbbbbb",
@@ -269,7 +269,10 @@ test("open decisions come first, soonest deadline first; one on a step leaves wi
   });
   const base = inputs([about(REF), about(REF)], {
     decisions: [
-      decision("dec_00000000000a", "2026-11-20T09:00:00.000Z", o.id),
+      {
+        ...decision("dec_00000000000a", "2026-11-20T09:00:00.000Z", o.id),
+        agent: "agt_0123456789ab",
+      },
       decision(
         "dec_00000000000b",
         "2026-11-19T09:00:00.000Z",
@@ -286,6 +289,7 @@ test("open decisions come first, soonest deadline first; one on a step leaves wi
     REF,
   ]);
   expect(list[1]).toMatchObject({
+    agent: "agt_0123456789ab",
     asker: "planner",
     group: "decision",
     matter: { id: "matter_bbbbbbbbbbbb", name: "Boiler repair" },
@@ -793,14 +797,4 @@ test("only the open endings' and the new matters' steps are read for their sente
     today: "2026-11-18",
   });
   expect([...shown].sort()).toEqual(["obs_b", "obs_new", "obs_open"]);
-});
-
-test("a desk agent's decision names the agent that asked it; every other check names none", () => {
-  const asked = {
-    ...decision("dec_00000000000e", "2026-11-20T09:00:00.000Z"),
-    agent: "agt_0123456789ab",
-    asker: "desk",
-  };
-  const [check] = checksOf(inputs([], { decisions: [asked] }));
-  expect(check?.agent).toBe("agt_0123456789ab");
 });
