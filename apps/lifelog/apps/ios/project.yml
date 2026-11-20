@@ -202,10 +202,9 @@ targets:
       - NotificationContent
       - Lifelog/DesignSystem/DraftBlock.swift
       - Lifelog/DesignSystem/Motion.swift
-      - Lifelog/DesignSystem/PartyPieces.swift
       - Lifelog/DesignSystem/Typography.swift
       - Lifelog/DesignSystem/NetworkMark.swift
-      # The apps' own marks, for a draft's recipient.
+      # The apps' own marks, for a draft's chat.
       - Lifelog/Marks.xcassets
       - Lifelog/DesignSystem/Fonts/Manrope.ttf
       - Shared/Palette.swift
@@ -237,6 +236,8 @@ targets:
           NSExtensionAttributes:
             UNNotificationExtensionCategory: [life.card, life.card.send]
             UNNotificationExtensionInitialContentSizeRatio: 0.01
+            # The chat's head is a button: it opens the chat in its app.
+            UNNotificationExtensionUserInteractionEnabled: true
     entitlements:
       path: NotificationContent/NotificationContent.entitlements
       properties:

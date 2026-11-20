@@ -35,7 +35,7 @@ extension Check.Draft {
         public let file: File?
     }
 
-    /// One line of the strip above the draft: a message, or the message a reaction draft reacts to.
+    /// One line of the strip above the draft: one of the chat's last messages.
     public struct ChatLine: Sendable, Equatable {
         /// A group's sender over the first bubble of their run: their first name, and which sender colour it takes.
         public struct Sender: Sendable, Equatable {
@@ -48,8 +48,6 @@ extension Check.Draft {
         public let sender: Sender?
         /// The day it opens, only when it is not the day of the line before.
         public let newDay: Date?
-        /// The drafted reaction, on the message it reacts to.
-        public let reaction: String?
     }
 
     /// A stretch of the draft's words: a mention it names (`@Name`) is drawn the platform's way, never as plain text.
@@ -61,63 +59,49 @@ extension Check.Draft {
     /// A mail draft (it names his address); a chat's never does.
     public var isMail: Bool { from != nil }
 
-    /// The strip's lines, oldest first. A reaction sits on its message when exactly one of the last messages holds the
-    /// quoted words (`quotedIndex`), else on the quoted message drawn last. A group's sender names show when two or more
-    /// people besides him wrote. ponytail: recent messages carry no id and the wire no `members`: a group where one
-    /// person wrote lately shows no names, and twin messages ("OK", "OK") take the quoted one drawn apart.
+    /// The last messages as the strip's lines, oldest first, each where it was: a reply's or a reaction's message is
+    /// never placed among them, since nothing on the wire proves which one it is (no ids on `recent`); it shows apart,
+    /// as Life stamped it (`quoted`). A group's sender names show when two or more people besides him wrote.
+    /// ponytail: the wire has no `members`, so a group where one person wrote lately shows no names.
     public func chatLines(calendar: Calendar) -> [ChatLine] {
-        typealias Message = (text: String?, file: Recent.File?, isMine: Bool, who: String, name: String, at: Date?)
-        var messages: [Message] = (recent ?? []).map {
-            ($0.text, $0.file, $0.sender.isOwner, $0.sender.ref, $0.sender.name, $0.at)
-        }
-        var reactsTo: Int?
-        if reaction != nil, let quoted {
-            reactsTo = quotedIndex
-            if reactsTo == nil {
-                messages.append((quoted.text, nil, false, quoted.sender, quotedSender ?? quoted.sender, nil))
-                reactsTo = messages.count - 1
-            }
-        }
+        let messages = recent ?? []
         var others: [String] = []
-        for message in messages where !message.isMine && !others.contains(message.who) { others.append(message.who) }
+        for message in messages where !message.sender.isOwner && !others.contains(message.sender.ref) {
+            others.append(message.sender.ref)
+        }
         return messages.indices.map { i in
             let message = messages[i]
             let before = i > 0 ? messages[i - 1] : nil
-            let newDay = message.at.flatMap { at in
-                before?.at.flatMap { calendar.isDate($0, inSameDayAs: at) ? nil : calendar.startOfDay(for: at) }
-            }
-            let opensRun = before?.who != message.who || newDay != nil
+            let newDay =
+                before.map { calendar.isDate($0.at, inSameDayAs: message.at) } == false
+                ? calendar.startOfDay(for: message.at) : nil
+            let opensRun = before?.sender.ref != message.sender.ref || newDay != nil
+            let name = message.sender.name
             let sender =
-                others.count > 1 && !message.isMine && opensRun
+                others.count > 1 && !message.sender.isOwner && opensRun
                 ? ChatLine.Sender(
-                    name: message.name.split(separator: " ").first.map(String.init) ?? message.name,
-                    tone: others.firstIndex(of: message.who) ?? 0)
+                    name: name.split(separator: " ").first.map(String.init) ?? name,
+                    tone: others.firstIndex(of: message.sender.ref) ?? 0)
                 : nil
             return ChatLine(
-                text: message.text, file: message.file, isMine: message.isMine, sender: sender, newDay: newDay,
-                reaction: i == reactsTo ? reaction : nil)
+                text: message.text, file: message.file, isMine: message.sender.isOwner, sender: sender,
+                newDay: newDay)
         }
     }
 
-    /// Which of the last messages the draft replies or reacts to: the one whose words open with the quoted ones, when
-    /// exactly one does.
-    public var quotedIndex: Int? {
-        guard let quoted, let recent else { return nil }
-        let found = recent.indices.filter { recent[$0].text?.hasPrefix(quoted.text) ?? false }
-        return found.count == 1 ? found[0] : nil
-    }
-
-    /// Who wrote the quoted message, by the name Life gives them; nil when it is not among the last messages (the
-    /// quote then names its sender as the network did).
-    public var quotedSender: String? { quotedIndex.flatMap { recent?[$0].sender.name } }
-
-    /// The draft's words cut at each mention it names, in their order (`mentionsAt`, `memory/draft.ts`).
+    /// The draft's words cut at each mention it names, found as the send finds them (`mentionsAt`,
+    /// `sources/matrix-content.ts`): in order, each after the one before, a name only whole (`@Ann` isn't in `@Anna`);
+    /// a mention not found ends the search.
     public var textRuns: [TextRun] {
         guard let text else { return [] }
         var runs: [TextRun] = []
         var from = text.startIndex
-        for mention in mentions ?? [] {
-            guard let at = text.range(of: "@" + mention.name, range: from..<text.endIndex) else { continue }
+        mentions: for mention in mentions ?? [] {
+            var at = text.range(of: "@" + mention.name, range: from..<text.endIndex)
+            while let found = at, found.upperBound < text.endIndex, text[found.upperBound].isWordCharacter {
+                at = text.range(of: "@" + mention.name, range: text.index(after: found.lowerBound)..<text.endIndex)
+            }
+            guard let at else { break mentions }
             if from < at.lowerBound { runs.append(TextRun(text: String(text[from..<at.lowerBound]), isMention: false)) }
             runs.append(TextRun(text: String(text[at]), isMention: true))
             from = at.upperBound
@@ -127,23 +111,75 @@ extension Check.Draft {
     }
 }
 
+extension Character {
+    /// A letter, a number or `_`: the send's `WORD_CHAR`.
+    fileprivate var isWordCharacter: Bool { isLetter || isNumber || self == "_" }
+}
+
+extension Check {
+    /// A mail draft as its card shows it: the thread's message it answers on one line, then every field the send uses.
+    public struct MailSheet: Sendable, Equatable {
+        public struct Thread: Sendable, Equatable {
+            public let sender: String
+            /// When it was written; nil from a card asked before `recent`, which has only the stamped quote.
+            public let at: Date?
+            public let text: String
+        }
+        public struct Field: Sendable, Equatable {
+            public let label: String
+            public let value: String
+            public let isBold: Bool
+        }
+        public let thread: Thread?
+        public let fields: [Field]
+    }
+
+    /// Its mail sheet; nil for a chat's draft. The thread's line is `recent`'s, else the stamped quote; `To` keeps the
+    /// "~" of a recipient Life only guesses; `Cc` shows only when set.
+    public var mailSheet: MailSheet? {
+        guard let draft, draft.isMail else { return nil }
+        let thread =
+            draft.recent?.last.map { MailSheet.Thread(sender: $0.sender.name, at: $0.at, text: $0.text ?? "") }
+            ?? draft.quoted.map { MailSheet.Thread(sender: $0.sender, at: nil, text: $0.text) }
+        let fields: [(String, String?, Bool)] = [
+            ("From", draft.from, false), ("To", (isRecipientGuessed ? "~ " : "") + draft.to, false),
+            ("Cc", draft.cc, false), ("Subject", draft.subject, true),
+        ]
+        return MailSheet(
+            thread: thread,
+            fields: fields.compactMap { label, value, isBold in
+                value.map { MailSheet.Field(label: label, value: $0, isBold: isBold) }
+            })
+    }
+}
+
 extension Check.Draft.File {
     /// A photo shows as a picture, any other file as its name and size.
     public var isPhoto: Bool { mime?.hasPrefix("image/") ?? false }
 }
 
-/// Where a draft he sent stands, as its bubble shows it in place of "Not sent": the send's own steps (`sendStepsOf`):
-/// `handed`, one tick; `confirmed` (Life saw it in the chat) or Life's answer that it was sent, two. Never "delivered":
-/// no source reports the other side's receipt.
+/// Where a draft he sent stands, as its bubble shows it in place of "Not sent", from proof only: while it runs, the
+/// send's own steps (`sendStepsOf`), `handed` one tick and `confirmed` (Life saw it in the chat) two; once it ended,
+/// Life's answer (`send.state`): sent, two; an answer that sent nothing (`send` absent), none; a call that never gave
+/// its answer, may have gone. Never "delivered": no source reports the other side's receipt.
 public enum DraftDelivery: Sendable, Equatable {
-    case notSent, handed, sent
+    case notSent, handed, sent, mayHaveGone
 
-    public init<Proof>(_ state: ActionState<Proof>) {
-        let passed = state.steps.filter { $0.passedAt != nil }.map(\.id)
-        if case .succeeded = state {
-            self = .sent
-        } else {
+    public init(_ state: ActionState<ActionProof>) {
+        switch state {
+        case .succeeded(let proof, _): self = proof.isSent ? .sent : .notSent
+        case .failed(let failure, _): self = failure.mayHaveHappened || failure.isSameTap ? .mayHaveGone : .notSent
+        case .idle, .running:
+            let passed = state.steps.filter { $0.passedAt != nil }.map(\.id)
             self = passed.contains("confirmed") ? .sent : passed.contains("handed") ? .handed : .notSent
         }
+    }
+}
+
+extension ActionProof {
+    /// Life's answer says the draft was sent.
+    public var isSent: Bool {
+        if case .answered(let result) = self { return result.send?.state == .sent }
+        return false
     }
 }

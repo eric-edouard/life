@@ -42,24 +42,24 @@ private var utc: Calendar {
     #expect(lines.allSatisfy { $0.sender == nil })
 }
 
-@Test func aReactionSitsOnTheMessageItReactsToAndNoNewBubbleIsDrawn() throws {
-    let recent = #""recent":[\#(message("Idris", "Tuesday?")),\#(message("Camille", "I can be there from 9"))]"#
-    let lines = try draft(
-        #""reaction":"❤️","quoted":{"sender":"Camille","text":"I can be there from 9"},\#(recent)"#
-    ).chatLines(calendar: utc)
-    #expect(lines.map(\.reaction) == [nil, "❤️"])
-    // Twin messages: which one is meant is unknown, so the quoted one is drawn apart rather than guessed.
-    let twins = #""recent":[\#(message("Camille", "OK")),\#(message("Camille", "OK"))]"#
-    let apart = try draft(#""reaction":"👍","quoted":{"sender":"+33600000002","text":"OK"},\#(twins)"#)
-    #expect(apart.chatLines(calendar: utc).map(\.reaction) == [nil, nil, "👍"])
-    // The quote names its sender as Life does when the message is among the last ones.
-    let reply = try draft(#""text":"Sure","quoted":{"sender":"+33600000003","text":"I can be"},\#(recent)"#)
-    #expect(reply.quotedSender == "Camille Keller")
-    // Not among the last messages: the quoted one is drawn last, with the reaction on it.
-    let alone = try draft(#""reaction":"👍","quoted":{"sender":"Camille","text":"See you"}"#).chatLines(calendar: utc)
-    #expect(alone.map(\.text) == ["See you"])
-    #expect(alone.map(\.reaction) == ["👍"])
-    // A reply draws no reaction, and a card asked before `recent` has no lines.
+@Test func aRepliedOrReactedMessageIsNeverPlacedAmongTheLastOnesOnlyShownAsStamped() throws {
+    // Nothing on `recent` proves which message `onMessage` named: an older one, a twin, a prefix, or his own.
+    let recent =
+        #""recent":[\#(message("Ben", "OK, tomorrow")),\#(message("Camille", "OK")),"#
+        + #"\#(message("Camille", "OK")),\#(message("me", "I can be there"))]"#
+    for quoted in [
+        #"{"sender":"+33600000002","text":"OK"}"#,  // identical to two of them, or an older "OK" of Ana's
+        #"{"sender":"+33600000002","text":"OK, tom"}"#,  // a prefix of Ben's
+        #"{"sender":"+33600000009","text":"I can be there"}"#,  // his own older message
+    ] {
+        for kind in [#""reaction":"👍""#, #""text":"Sure""#] {
+            let draft = try draft(#"\#(kind),"quoted":\#(quoted),\#(recent)"#)
+            let lines = draft.chatLines(calendar: utc)
+            #expect(lines.map(\.text) == ["OK, tomorrow", "OK", "OK", "I can be there"])
+            #expect(lines.map(\.isMine) == [false, false, false, true])
+        }
+    }
+    // A card asked before `recent` has no lines, only its stamped quote.
     #expect(try draft(#""text":"Fine","quoted":{"sender":"Camille","text":"See you"}"#).chatLines(calendar: utc) == [])
 }
 
@@ -69,22 +69,61 @@ private var utc: Calendar {
     #expect(runs.map(\.text) == ["@Idris", " let's say Tuesday, ", "@Nora", " too"])
     #expect(runs.map(\.isMention) == [true, false, true, false])
     #expect(try draft(#""text":"No one""#).textRuns.map(\.isMention) == [false])
+    // A name only whole, as the send links it: `@Ann` is the second one, never the start of `@Anna`.
+    let whole = try draft(#""text":"@Anna, then @Ann","mentions":[{"name":"Ann"}]"#).textRuns
+    #expect(whole.map(\.text) == ["@Anna, then ", "@Ann"])
+    #expect(whole.map(\.isMention) == [false, true])
+    // A mention the send would not find ends the search there.
+    #expect(try draft(#""text":"@Anna only","mentions":[{"name":"Ann"}]"#).textRuns.map(\.isMention) == [false])
 }
 
-@Test func theBubbleShowsTheSendsOwnSteps() {
+@Test func theBubbleShowsTheSendFromItsProofOnly() throws {
     let step = { (id: String, passed: Bool) in ActionStep(id: id, passedAt: passed ? epoch : nil) }
     let running = { (steps: [ActionStep]) in ActionState<ActionProof>.running(steps: steps, limit: nil) }
-    #expect(DraftDelivery(ActionState<ActionProof>.idle) == .notSent)
+    #expect(DraftDelivery(.idle) == .notSent)
     #expect(DraftDelivery(running([step("chat_checked", true), step("handed", false)])) == .notSent)
     #expect(DraftDelivery(running([step("handed", true), step("confirmed", false)])) == .handed)
     #expect(DraftDelivery(running([step("handed", true), step("confirmed", true)])) == .sent)
-    // A repeat of an answered card's send gets its first result with no steps streamed: Life's answer is the proof.
-    let replayed = ActionState<String>.succeeded("sent", steps: [])
+    let result = { (json: String) in
+        ActionProof.answered(try LibraryStore.feedDecoder.decode(AnswerResult.self, from: Data(json.utf8)))
+    }
+    // An answer recorded with nothing sent (`send` absent): no ticks, and no "Sent." over it.
+    let recorded = try result(#"{"ref":"dec_1","kind":"decision"}"#)
+    #expect(DraftDelivery(.succeeded(recorded, steps: [])) == .notSent)
+    #expect(!recorded.isSent)
+    // A repeat of an answered send gets its first result with no steps streamed: two ticks, and nothing still asking.
+    let replayed = ActionState<ActionProof>.succeeded(
+        try result(#"{"ref":"dec_1","kind":"decision","send":{"state":"sent"}}"#), steps: [])
     #expect(DraftDelivery(replayed) == .sent)
-    #expect(DraftDelivery(ActionState<String>.failed(ActionFailure(reason: "No", retry: .no), steps: [])) == .notSent)
+    #expect(!replayed.isWaitingOnLife && running([]).isWaitingOnLife)
+    // A dropped stream never said: it may have gone. Life's own "not sent" is not sent.
+    let dropped = ActionState<ActionProof>.failed(ActionFailure(.streamDropped), steps: [step("handed", false)])
+    #expect(DraftDelivery(dropped) == .mayHaveGone)
+    #expect(DraftDelivery(.failed(ActionFailure(reason: "Someone wrote", retry: .no), steps: [])) == .notSent)
 }
 
 @Test func aMailDraftIsTheOneThatNamesHisAddress() throws {
     #expect(try draft(#""text":"Signed.","from":"me@example.test","subject":"Re: Lease""#).isMail)
     #expect(try !draft(#""text":"Signed.""#).isMail)
+}
+
+@Test func anOlderMailCardKeepsItsGuessItsQuoteAndItsFile() throws {
+    // Asked before `recent`, to someone Life only guesses, with a file: the legacy mail card.
+    let guess =
+        #"{"ref":"guess_1","group":"guessed person","title":"Who","question":"Who?","asker":"life","options":[],"#
+        + #""clips":[],"likelyPeople":[],"links":[]}"#
+    let card = try LibraryStore.feedDecoder.decode(
+        Check.self,
+        from: Data(
+            (#"{"ref":"dec_mail","group":"decision","title":"Lease","question":"Send this to Helene?","asker":"desk","#
+                + #""options":[],"clips":[],"likelyPeople":[],"links":[],"confirm":[\#(guess)],"draft":{"to":"Helene","#
+                + #""channel":"mail","from":"me@example.test","subject":"Re: Lease","text":"Signed.","#
+                + #""file":{"name":"lease.pdf","size":640000,"mime":"application/pdf"},"#
+                + #""quoted":{"sender":"helene@example.test","subject":"Lease","text":"Can you send it back?"}}}"#)
+                .utf8))
+    let sheet = try #require(card.mailSheet)
+    #expect(sheet.thread == .init(sender: "helene@example.test", at: nil, text: "Can you send it back?"))
+    #expect(sheet.fields.map(\.label) == ["From", "To", "Subject"])
+    #expect(sheet.fields.map(\.value) == ["me@example.test", "~ Helene", "Re: Lease"])
+    #expect(card.draft?.file?.size == 640000)
 }

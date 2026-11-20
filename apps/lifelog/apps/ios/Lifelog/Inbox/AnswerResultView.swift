@@ -74,16 +74,18 @@ struct AnswerResultView: View {
         stepLines
     }
 
-    /// The action's steps as they pass; "Asking Life" until Life names them.
+    /// The action's steps as they pass; "Asking Life" until Life names them, never once it answered.
     private var stepLines: some View {
-        CheckLines(lines: lines.isEmpty ? [CheckLine(id: "asking", text: "Asking Life", mark: .running)] : lines)
+        CheckLines(
+            lines: lines.isEmpty && state.isWaitingOnLife
+                ? [CheckLine(id: "asking", text: "Asking Life", mark: .running)] : lines)
             .padding(.top, 8)
     }
 
     /// A send, from his tap to its proof: the draft in its chat, its ticks as the send's steps pass, then Life's word.
     @ViewBuilder private var sending: some View {
         if case .succeeded(let proof, _) = state {
-            Text(taken.doneWord).font(.statusWord).foregroundStyle(Palette.ok).lit().appears()
+            Text(taken.doneWord(proof)).font(.statusWord).foregroundStyle(Palette.ok).lit().appears()
             Text(taken.summary(proof)).font(.lead).foregroundStyle(Palette.muted).appears()
         } else {
             Text(taken.check.question).font(.cardQuestion).foregroundStyle(Palette.fg)
@@ -93,7 +95,7 @@ struct AnswerResultView: View {
     }
 
     @ViewBuilder private func done(_ proof: ActionProof) -> some View {
-        Text(taken.doneWord).font(.statusWord).foregroundStyle(Palette.ok).lit().padding(.top, 12)
+        Text(taken.doneWord(proof)).font(.statusWord).foregroundStyle(Palette.ok).lit().padding(.top, 12)
         Text(taken.summary(proof)).font(.lead).foregroundStyle(Palette.muted)
         CheckLines(lines: lines).padding(.top, 8)
         if let changed = taken.counts(proof) {
@@ -104,11 +106,9 @@ struct AnswerResultView: View {
     @ViewBuilder private func failed(_ failure: ActionFailure) -> some View {
         Text(taken.failedWord(failure)).font(.statusWord).foregroundStyle(Palette.flag).padding(.top, 12)
         if taken.isSend {
-            // A send says only Life's reason, then the words that did not go.
+            // A send says only Life's reason, then the words, "Not sent" or "May have gone" where the ticks would be.
             Text(failure.reason).font(.lead).foregroundStyle(Palette.muted)
-            if !failure.mayHaveHappened {
-                DraftBlock(check: taken.check, isBoxed: false).padding(.top, 8)
-            }
+            DraftBlock(check: taken.check, delivery: DraftDelivery(state), isBoxed: false).padding(.top, 8)
         } else {
             Text(taken.failedLine(failure, state)).font(.lead).foregroundStyle(Palette.muted)
             CheckLines(lines: lines).padding(.top, 8)
@@ -156,7 +156,7 @@ extension Taken {
     /// Its word and line once `state` ended (for a notification, which shows one of each).
     func result(_ state: ActionState<ActionProof>) -> (word: String, line: String) {
         switch state {
-        case .succeeded(let proof, _): (doneWord, summary(proof))
+        case .succeeded(let proof, _): (doneWord(proof), summary(proof))
         case .failed(let failure, _): (failedWord(failure), failedLine(failure, state))
         case .running: ("Check first.", "It stays here.")
         case .idle: ("Not saved.", "It stays here.")
@@ -176,8 +176,9 @@ extension Taken {
     /// name (Life reads who that is, or adds them to his directory: its result, or why not, shows on its card first).
     var isHeld: Bool { !isSend && !isStart && !staysOpen && request.name == nil }
 
-    var doneWord: String {
-        if isSend { return "Sent." }
+    /// "Sent." only on Life's proof that it went; an answer that sent nothing takes its card's word.
+    func doneWord(_ proof: ActionProof) -> String {
+        if isSend && proof.isSent { return "Sent." }
         return switch check.group {
         case .voice: "Named."
         case .ending: "Noted."

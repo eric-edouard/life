@@ -110,7 +110,7 @@ On the phone, each piece of state has one owner, and only that owner writes it:
 | `Outbox` | `SyncStore`, feature stores | `library.sqlite` | The owner's edits (`OwnerIntent`) waiting for the server, in order, and the refused ones |
 | `LifeToken` | `LifeStore` | defaults + Keychain | The pairing with Life (not the lifelog server): its origin and client id, its access and refresh tokens |
 | `ReadCache` | `LifeStore` | `life-reads/` (Application Support) | The last good answer of each of Life's reads, as the tool's JSON text, out of backups |
-| `PictureCache` | `PartyBook` (`LifeStore.parties`) | `person-pictures/` (the app group's caches) | People's pictures by id (`read_person_pictures`), kept for good; the notification extension reads the ones the app kept |
+| `PictureCache` | `PartyBook` (`LifeStore.parties`) | `person-pictures/` (the app group's caches) | People's pictures by id (`read_person_pictures`), kept for good |
 
 **Life.** `LifeStore` (built at launch, in the environment) is the phone's side of Life's connector: the inbox, the
 matters, a matter in full and the agents, each a `ReadState` (`LifeConnector`, in Kit). The phone is paired to Life by

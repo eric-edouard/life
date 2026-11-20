@@ -23,7 +23,8 @@ struct DraftBlock: View {
     }
 
     private var look: ChatLook { ChatLook.of(draft.channel) }
-    private var isSent: Bool { delivery != .notSent }
+    /// Life's steps say it went: the dashes fade. One that may have gone stays drafted.
+    private var isSent: Bool { delivery == .handed || delivery == .sent }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
@@ -42,7 +43,19 @@ struct DraftBlock: View {
     @ViewBuilder private var chat: some View {
         let lines = draft.chatLines(calendar: calendar)
         ForEach(lines.indices, id: \.self) { i in line(lines[i]) }
-        if draft.reaction == nil {
+        if let reaction = draft.reaction, let quoted = draft.quoted {
+            // Nothing proves which of the last messages it is: the message reacted to shows apart, as Life stamped
+            // it, the emoji on its corner.
+            quote(quoted).padding(.top, Metrics.Spacing.s)
+                .overlay(alignment: .bottomTrailing) {
+                    Text(reaction).font(.note).padding(.horizontal, 7).padding(.vertical, 1)
+                        .background(look.sent, in: .capsule)
+                        .modifier(Drafted(shape: Capsule(), dash: look.dash, isSent: isSent))
+                        .offset(x: -Metrics.Spacing.s, y: Metrics.Spacing.m)
+                }
+                .padding(.bottom, Metrics.Spacing.m)
+            status(isMine: false)
+        } else {
             if look.isCaptionApart, let file = draft.file, draft.text != nil {
                 side(isMine: true) { drafted(fileRow(file.name, size: file.size, glyph: file.glyph)) }
                 side(isMine: true) { drafted(words) }
@@ -73,36 +86,30 @@ struct DraftBlock: View {
             .font(.note).foregroundStyle(Palette.fg)
             .padding(.horizontal, 11).padding(.vertical, 7)
             .background(line.isMine ? Color.pick : Color.fillTint, in: bubble(isMine: line.isMine))
-            .overlay(alignment: .bottomTrailing) {
-                if let reaction = line.reaction {
-                    Text(reaction).font(.note).padding(.horizontal, 7).padding(.vertical, 1)
-                        .background(look.sent, in: .capsule)
-                        .modifier(Drafted(shape: Capsule(), dash: look.dash, isSent: isSent))
-                        .offset(x: -Metrics.Spacing.s, y: Metrics.Spacing.m)
-                }
-            }
-            .padding(.bottom, line.reaction == nil ? 0 : Metrics.Spacing.m)
         }
-        if line.reaction != nil { status(isMine: line.isMine) }
     }
 
     /// The draft's own bubble: its subject (a new issue's title), the message it replies to, its file, its words.
     private var draftContent: some View {
         VStack(alignment: .leading, spacing: 5) {
             if let subject = draft.subject { Text(subject).font(.bodyBold) }
-            if let quoted = draft.quoted {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(draft.quotedSender ?? quoted.sender).font(.smallStrong).foregroundStyle(look.bar)
-                    Text(quoted.text).font(.small).lineLimit(1).opacity(0.9)
-                }
-                .padding(.horizontal, 9).padding(.vertical, 5).frame(maxWidth: .infinity, alignment: .leading)
-                .background(look.quoteTint, in: .rect(cornerRadius: Metrics.Radius.tile))
-                .overlay(alignment: .leading) { if look.hasQuoteBar { look.bar.frame(width: 3) } }
-                .clipShape(.rect(cornerRadius: Metrics.Radius.tile))
-            }
+            if let quoted = draft.quoted { quote(quoted) }
             if let file = draft.file { fileRow(file.name, size: file.size, glyph: file.glyph) }
             if draft.text != nil { words }
         }
+    }
+
+    /// The message a reply or a reaction is on, as Life stamped it: its sender as the network named them, one line of
+    /// its words, in the platform's quote (WhatsApp's with its bar).
+    private func quote(_ quoted: Check.Draft.Quoted) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(quoted.sender).font(.smallStrong).foregroundStyle(look.bar)
+            Text(quoted.text).font(.small).lineLimit(1).opacity(0.9)
+        }
+        .padding(.horizontal, 9).padding(.vertical, 5).frame(maxWidth: .infinity, alignment: .leading)
+        .background(look.quoteTint, in: .rect(cornerRadius: Metrics.Radius.tile))
+        .overlay(alignment: .leading) { if look.hasQuoteBar { look.bar.frame(width: 3) } }
+        .clipShape(.rect(cornerRadius: Metrics.Radius.tile))
     }
 
     /// His words, each mention the draft names drawn the platform's way.
@@ -140,19 +147,24 @@ struct DraftBlock: View {
     // MARK: Mail
 
     @ViewBuilder private var mail: some View {
-        if let last = draft.recent?.last {
-            let who = Text(last.sender.name).foregroundStyle(Palette.fg).bold()
-            let when = last.at.formatted(.dateTime.day().month(.abbreviated))
-            Text("\(who) · \(when) · \(last.text ?? "")").font(.note).foregroundStyle(Palette.muted).lineLimit(1)
+        let sheet = check.mailSheet
+        if let thread = sheet?.thread {
+            let who = Text(thread.sender).foregroundStyle(Palette.fg).bold()
+            let when = thread.at.map { " · " + $0.formatted(.dateTime.day().month(.abbreviated)) } ?? ""
+            Text("\(who)\(when) · \(thread.text)").font(.note).foregroundStyle(Palette.muted).lineLimit(1)
         }
         VStack(alignment: .leading, spacing: 6) {
-            field("From", draft.from)
-            field("To", draft.to)
-            field("Cc", draft.cc)
-            field("Subject", draft.subject, isBold: true)
+            ForEach(sheet?.fields ?? [], id: \.label) { field in
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(field.label).foregroundStyle(Palette.muted).frame(width: 52, alignment: .leading)
+                    Text(field.value).fontWeight(field.isBold ? .semibold : nil)
+                }
+                .font(.note)
+            }
             if draft.text != nil { words.font(.body15).padding(.top, 2) }
             if let file = draft.file {
-                Label(file.name, systemImage: file.glyph).font(.note)
+                Label("\(file.name) · \(file.size.formatted(.byteCount(style: .file)))", systemImage: file.glyph)
+                    .font(.note)
                     .padding(.horizontal, 10).padding(.vertical, 6)
                     .background(Color.fillTint, in: .rect(cornerRadius: Metrics.Radius.tile))
             }
@@ -164,16 +176,6 @@ struct DraftBlock: View {
                 shape: RoundedRectangle(cornerRadius: Metrics.Radius.tile), dash: Palette.fg.opacity(0.55),
                 isSent: isSent))
         status(isMine: true)
-    }
-
-    @ViewBuilder private func field(_ label: String, _ value: String?, isBold: Bool = false) -> some View {
-        if let value {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(label).foregroundStyle(Palette.muted).frame(width: 52, alignment: .leading)
-                Text(value).fontWeight(isBold ? .semibold : nil)
-            }
-            .font(.note)
-        }
     }
 
     // MARK: Parts
@@ -189,11 +191,13 @@ struct DraftBlock: View {
         }
     }
 
-    /// Where the ticks will be: "Not sent" and a clock; once handed, one tick; once in the chat, two.
+    /// Where the ticks will be: "Not sent" and a clock; once handed, one tick; once in the chat, two; a call that never
+    /// gave its answer, "May have gone".
     private func status(isMine: Bool) -> some View {
         HStack(spacing: 5) {
             switch delivery {
             case .notSent: Image(systemName: "clock")
+            case .mayHaveGone: Image(systemName: "questionmark.circle")
             case .handed: Image(systemName: "checkmark").transition(.scale.combined(with: .opacity))
             case .sent:
                 HStack(spacing: -7) {
@@ -202,10 +206,19 @@ struct DraftBlock: View {
                 }
                 .transition(.scale.combined(with: .opacity))
             }
-            Text(delivery == .notSent ? "Not sent" : delivery == .handed ? "Sending" : "Sent")
+            Text(statusWords)
         }
         .font(.small).foregroundStyle(Palette.muted)
         .frame(maxWidth: .infinity, alignment: isMine ? .trailing : .leading)
+    }
+
+    private var statusWords: String {
+        switch delivery {
+        case .notSent: "Not sent"
+        case .handed: "Sending"
+        case .sent: "Sent"
+        case .mayHaveGone: "May have gone"
+        }
     }
 }
 
@@ -229,6 +242,7 @@ private struct ChatHead: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if url != nil { Image(systemName: "arrow.up.right").font(.small).foregroundStyle(Palette.muted) }
             }
+            .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
         }
         .buttonStyle(.plain).disabled(url == nil)
     }
@@ -353,7 +367,8 @@ struct ChatLook {
     }
 
     /// Black at a strength for dark and one for light: a quote's inset on the bubble.
-    private static func shade(_ dark: Double, _ light: Double) -> Color {
+    /// Nonisolated, as `Palette`'s: SwiftUI resolves the colour on its render thread.
+    private nonisolated static func shade(_ dark: Double, _ light: Double) -> Color {
         Color(uiColor: UIColor { UIColor(white: 0, alpha: $0.userInterfaceStyle == .light ? light : dark) })
     }
 }
