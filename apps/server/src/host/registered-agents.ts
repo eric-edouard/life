@@ -7,7 +7,7 @@ import { matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { sourceOf } from "../memory/sources";
 import { meant, type People, readPeople } from "../memory/who";
-import { dayNow, localTime } from "../memory/zones";
+import { dayNow, localDate, localTime } from "../memory/zones";
 import type { EventFilter } from "../records/registered-agent";
 import {
   type AgentNow,
@@ -22,6 +22,8 @@ import {
   readDesk,
   refusedSince,
   reportLinesSince,
+  type TurnTokens,
+  tokensSince,
 } from "./desk-read";
 import { EVENT_CHANNELS, type EventChannel } from "./event-channels";
 import { matcherOf } from "./events";
@@ -354,9 +356,35 @@ export function readActiveAgentOf() {
     undefined;
 }
 
+/** The tokens of agents' turns as report rows: one per local day of his (`localDate` of the turn's end), then one per matter (`matterOf`: an agent's matter, else null: "no matter"), keyed by the matter's id. Pure; every row. */
+export function tokenRowsOf(
+  turns: readonly TurnTokens[],
+  matterOf: (agentId: string) => { id: string; name: string } | undefined
+) {
+  // The key's first character sorts days (1) before matters (2).
+  const sums = new Map<string, number[]>();
+  const names = new Map<string, string>();
+  const add = (key: string, t: TurnTokens) => {
+    const [i = 0, c = 0, o = 0] = sums.get(key) ?? [];
+    sums.set(key, [i + t.tokens_in, c + t.tokens_cached, o + t.tokens_out]);
+  };
+  for (const t of turns) {
+    add(`1${localDate(t.ended_at)}`, t);
+    const m = matterOf(t.agent_id);
+    names.set(`2${m?.id ?? ""}`, m?.name ?? "no matter");
+    add(`2${m?.id ?? ""}`, t);
+  }
+  return [...sums]
+    .toSorted(([a], [b]) => (a < b ? -1 : 1))
+    .map(([key, [i, c, o]]) => ({
+      name: `Tokens · ${names.get(key) ?? key.slice(1)}`,
+      relation: `${i} in (${c} cached) · ${o} out`,
+    }));
+}
+
 /**
  * The nightly report's Agents section: one row per registered agent, then the report lines posted since `since` (the
- * last report), each with its day. Off: none; unreadable: one row saying so.
+ * last report), each with its day, then the tokens of the agents' turns since then (`tokenRowsOf`). Off: none; unreadable: one row saying so.
  */
 export async function readAgentRows(since: string) {
   const r = await readRegisteredAgents();
@@ -364,6 +392,7 @@ export async function readAgentRows(since: string) {
     return [{ name: "Desk", relation: "its store could not be read" }];
   }
   const lines = readDesk((db) => reportLinesSince(db, since), []);
+  const tokens = await readTokenRows(since);
   return [
     ...(r.desk === "ok" && r.helper === "not running"
       ? [{ name: "Desk", relation: "its helper is not running" }]
@@ -376,5 +405,25 @@ export async function readAgentRows(since: string) {
       name: `${l.source} · ${l.day}`,
       relation: [l.line, ...(l.link ? [l.link] : [])].join(" · "),
     })),
+    ...tokens,
   ];
+}
+
+async function readTokenRows(since: string) {
+  const read = readDesk((db) => {
+    const turns = tokensSince(db, since);
+    const agents = [...new Set(turns.map((t) => t.agent_id))];
+    return {
+      anchors: agents.map((id) => [id, anchorsOf(db, id)] as const),
+      turns,
+    };
+  }, null);
+  if (read.state !== "ok" || !read.value || read.value.turns.length === 0) {
+    return [];
+  }
+  const anchors = new Map(read.value.anchors);
+  const find = matterFinderOf(
+    await readMatterBook(await readPeople(), dayNow())
+  );
+  return tokenRowsOf(read.value.turns, (id) => find(anchors.get(id) ?? []));
 }
