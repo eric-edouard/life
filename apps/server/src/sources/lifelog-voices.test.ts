@@ -48,7 +48,8 @@ const answerGet = async (list: unknown) => {
 const shows = async (id: string) => ids(await readNamingQueue()).join() === id;
 
 test("the inbox's queue: the first read waits, then the last list comes at once with one read behind it; a failure keeps it and the next read retries", async () => {
-  expect(ids(await readNamingQueue())).toEqual(["job-1:speaker_1"]);
+  // One process for every test file: another may have kept a list first, so this server's shows on a later read.
+  await until(() => shows("job-1:speaker_1"));
   holdQueue();
   // At once, twice: the kept list, with one read of lifelog behind it.
   expect(ids(await readNamingQueue())).toEqual(["job-1:speaker_1"]);

@@ -445,13 +445,14 @@ async function launch(
     }
     const { session } = a;
     const isFresh = !session || state === "gone";
-    // Read for a fresh session too: what the turn is shown (the packet holds the whole matter).
-    const record = isOwn ? null : await matterRecordOf(desk, s, turn, isFresh);
+    // A fresh session's packet holds the whole matter, read once for what it shows and what the turn is shown.
+    const record =
+      isOwn || isFresh ? null : await matterRecordOf(desk, s, turn);
     if (isFresh) {
       const started = await runtime.start(
         sessionAgentOf(a),
         [
-          await readPacket(desk, s, isOwnLife()),
+          await readPacket(desk, s, isOwnLife(), turn),
           ...sinceLineOf(since),
           ...unreadLinesOf(db, s),
         ].join("\n\n")
