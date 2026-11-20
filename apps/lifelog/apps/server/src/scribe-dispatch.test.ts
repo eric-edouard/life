@@ -128,8 +128,8 @@ test("dictation takes the slot next after the send under way, ahead of older wor
 
   // No call to the worker: the freed slot sends what is queued.
   dictation.free();
-  expect(await until(() => jobRow(older).state === "submitted")).toBe(true);
-  expect(uploads()).toHaveLength(2);
+  expect(await until(() => uploads().length === 2)).toBe(true);
+  expect(jobRow(older).state).toBe("submitted");
 });
 
 test("a block's routed turns wait while a Scribe job holds the slot, and go once it is answered", async () => {
