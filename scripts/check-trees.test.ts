@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { hasPassed, readCleanTree, recordPassed } from "./check-trees";
 
+const SHA = /^[0-9a-f]{40}$/;
+
 test("a clean tree that passed is known to every worktree; a dirty one never is", async () => {
   const repo = mkdtempSync(join(tmpdir(), "check-trees-"));
   const $ = (cmd: string[], cwd = repo) => Bun.$`git ${cmd}`.cwd(cwd).quiet();
@@ -13,7 +15,7 @@ test("a clean tree that passed is known to every worktree; a dirty one never is"
   await $(["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "a"]);
 
   const tree = await readCleanTree(repo);
-  expect(tree).toMatch(/^[0-9a-f]{40}$/);
+  expect(tree).toMatch(SHA);
   expect(await hasPassed(repo, tree as string)).toBe(false);
   await recordPassed(repo, tree as string);
   expect(await hasPassed(repo, tree as string)).toBe(true);
@@ -26,7 +28,7 @@ test("a clean tree that passed is known to every worktree; a dirty one never is"
   writeFileSync(join(repo, "b.txt"), "b");
   expect(await readCleanTree(repo)).toBeNull();
 
-  for (let i = 0; i < 60; i++) {
+  for (const i of Array.from({ length: 60 }, (_, n) => n)) {
     // biome-ignore lint/performance/noAwaitInLoops: the list's order is the test
     await recordPassed(repo, `t${i}`);
   }
