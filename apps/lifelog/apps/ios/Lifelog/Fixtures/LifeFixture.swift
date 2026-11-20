@@ -451,8 +451,8 @@
                 ])
         }
 
-        /// In the server's own order (`inboxRankOf`): what blocks (decisions, voices, names, Contacts cards), then what
-        /// improves (new matters, guessed people, endings).
+        /// In the server's own order (`inboxOrderOf`): what blocks (decisions, voices, names, Contacts cards), then what
+        /// improves (guessed people, new matters, endings).
         nonisolated(unsafe) static let checks: [[String: Any]] =
             [
                 check(
@@ -621,6 +621,21 @@
                             ["name": "Marc Fenn", "person": "person:marc_fenn", "line": "Camille’s brother"],
                         ],
                     ]),
+                guess("guess_idris", name: "Idris Benali", handle: "Idris B.", matter: kitchen),
+                check(
+                    "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
+                    question: "Is this Camille Vance?",
+                    options: [
+                        option("this-is", "Yes"), option("not-this-person", "No"),
+                        option("same-person", "Someone else…", takes: "person"),
+                    ],
+                    extra: [
+                        "evidence": ["from": "WhatsApp, Mon 9 Nov", "quote": "Cam: on se voit samedi au marché ?"],
+                        "likelyPeople": [
+                            ["name": "Idris Benali", "person": "person:idris"],
+                            ["name": "Nora Keller", "person": "person:nora"],
+                        ],
+                    ]),
                 check(
                     "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
                     question: "Start an agent on this?",
@@ -635,21 +650,6 @@
                         "said": [
                             "at": at(14, 18), "by": "Camille Vance", "channel": "whatsapp", "to": "Camille Vance",
                             "text": "On réserve chez Odile vendredi ?",
-                        ],
-                    ]),
-                guess("guess_idris", name: "Idris Benali", handle: "Idris B.", matter: kitchen),
-                check(
-                    "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
-                    question: "Is this Camille Vance?",
-                    options: [
-                        option("this-is", "Yes"), option("not-this-person", "No"),
-                        option("same-person", "Someone else…", takes: "person"),
-                    ],
-                    extra: [
-                        "evidence": ["from": "WhatsApp, Mon 9 Nov", "quote": "Cam: on se voit samedi au marché ?"],
-                        "likelyPeople": [
-                            ["name": "Idris Benali", "person": "person:idris"],
-                            ["name": "Nora Keller", "person": "person:nora"],
                         ],
                     ]),
                 check(

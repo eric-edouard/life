@@ -45,17 +45,15 @@ interface Orderable extends Rankable {
   };
 }
 
-const UNNAMED = 1;
-const DECISION = 0;
 const before = (a: Orderable, b: Orderable) =>
   Number(urgencyOf(a) === "improves") - Number(urgencyOf(b) === "improves") ||
   Number(b.deadline !== null) - Number(a.deadline !== null) ||
   (a.deadline ?? "").localeCompare(b.deadline ?? "") ||
   inboxRankOf(a) - inboxRankOf(b) ||
-  (inboxRankOf(a) === DECISION
+  (inboxRankOf(a) === RANK.decision
     ? a.day.localeCompare(b.day)
     : b.ridesOn.matters - a.ridesOn.matters ||
-      (inboxRankOf(a) === UNNAMED
+      (inboxRankOf(a) === RANK.voice
         ? 0
         : b.ridesOn.observations - a.ridesOn.observations ||
           b.ridesOn.pages - a.ridesOn.pages) ||

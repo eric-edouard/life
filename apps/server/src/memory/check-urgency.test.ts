@@ -41,6 +41,7 @@ const ask = (
     day?: string;
     deadline?: string;
     matter?: string;
+    matterIds?: string[];
     matters?: number;
     observations?: number;
   } = {}
@@ -52,7 +53,7 @@ const ask = (
     matter: more.matter ? { id: more.matter } : null,
     ref,
     ridesOn: {
-      matterIds: [],
+      matterIds: more.matterIds ?? [],
       matters: more.matters ?? 0,
       observations: more.observations ?? 0,
       pages: 0,
@@ -75,6 +76,8 @@ test("the order: deadlines soonest first, decisions oldest first, unnamed asks b
     ask("due-soon", "decision", { deadline: "2026-11-07" }),
     // Of m1, sorted last of its group: it moves up behind m1's first ask.
     ask("voice-on-m1", "voice", { day: "2026-10-01", matter: "m1" }),
+    // No matter of its own, but it rides on m1: it joins m1's asks too.
+    ask("name-rides-m1", "name", { day: "2026-10-02", matterIds: ["m1"] }),
     // Of m1 too, but it improves: it stays with what improves.
     ask("offer-on-m1", "new matter", { matter: "m1" }),
   ]).map((c: { ref: string }) => c.ref);
@@ -84,6 +87,7 @@ test("the order: deadlines soonest first, decisions oldest first, unnamed asks b
     "decision-old",
     "decision-new",
     "card-on-matter",
+    "name-rides-m1",
     "voice-on-m1",
     "name-new",
     "voice-old",
