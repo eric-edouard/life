@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
 import type { Extracted, Observation } from "../records/observation";
 import type { SourceEvent } from "../records/source";
+import type { Unit } from "../records/unit";
 import type { LifelogConversation } from "../sources/lifelog";
 import {
   byDays,
@@ -12,9 +13,9 @@ import {
   lanesOf,
   ownContinued,
   priorFor,
-  withoutRepeats,
+  toExtract,
 } from "./extract";
-import { episodesNow, standingReadings } from "./memory-files";
+import { episodesNow, isCurrent, standingReadings } from "./memory-files";
 import { locate } from "./quote-check";
 import { ledger, madeBy, unit, verdict } from "./record-fixtures";
 import { type Built, linesHashOf, messageUnits } from "./units";
@@ -403,6 +404,12 @@ test("a chat read at 4 messages and grown to 7 is continued from 4; an edited ea
       new Map([[U1, "2026-10-16T00:00:00.000Z"]])
     )
   ).toBe(0);
+  // A note (or an import, a repo day) grows like a chat but is read whole: only a chat or mail continues.
+  const note = (b: Built): Built => ({
+    ...b,
+    unit: { ...b.unit, source: "notes" },
+  });
+  expect(from(note(seven), [read(note(four))])).toBe(0);
   // A voice unit has no messages and no `lines`: read whole.
   expect(from(built(U1), [read(built(U1), { lines: undefined })])).toBe(0);
   // A chain: read at 4, continued to 7, then to 9 from 7.
@@ -484,28 +491,23 @@ test("a call shows the facts of its own continued units only, not those of anoth
   expect(count(other)).toBe(0);
 });
 
-test("a fact quoting a line an earlier reading covered is dropped as a repeat, with what hangs on it", () => {
-  const fact = (id: string, ref: string) =>
-    ({ id, source: { ref }, unit: U1 }) as Observation;
-  const old = fact("old", "m1");
-  const fresh = fact("fresh", "m5");
-  const parsed = {
-    observations: [old, fresh],
-    replaced: [
-      { by: old, old: fact("x", "m0") },
-      { by: fresh, old: fact("y", "m0") },
-    ],
-    unresolved: [
-      { nameAsWritten: "n", observation: "old", unit: U1 },
-      { nameAsWritten: "n", observation: "fresh", unit: U1 },
-    ],
-  };
-  const kept = withoutRepeats(parsed, new Map([[U1, new Set(["m0", "m1"])]]));
-  expect(kept.observations.map((o) => o.id)).toEqual(["fresh"]);
-  expect(kept.replaced.map((r) => r.by.id)).toEqual(["fresh"]);
-  expect(kept.unresolved.map((u) => u.observation)).toEqual(["fresh"]);
-  // A unit read whole has nothing covered.
-  expect(withoutRepeats(parsed, new Map())).toEqual(parsed);
+test("a unit demoted below kept gets one outcome: read with its episode when a group holds it, else unkept", () => {
+  const [b1, b2] = [U1, U2].map((id) => built(id)) as [Built, Built];
+  const verdicts = ledger([
+    verdict(b1.unit),
+    verdict(b2.unit, { importance: 1 }),
+  ]);
+  const unkept = (units: string[]) =>
+    groupsOf(
+      [b1],
+      [b1, b2],
+      verdicts,
+      episodesNow([episode({ units })], []),
+      unread([b1, b2]),
+      [b2]
+    ).unkept.map((b) => b.unit.id);
+  expect(unkept([U1, U2])).toEqual([]);
+  expect(unkept([U1])).toEqual([U2]);
 });
 
 test("a chat of today is read at once; an open lifelog conversation of today waits for its closing", () => {
@@ -571,4 +573,169 @@ test("a continued unit's quote is looked for from its first new line, where the 
   expect(
     locate("autre chose", ["autre chose", "x", "y"], undefined, 2)?.line
   ).toBe(0);
+});
+
+const bare = (u: Unit): Built => ({ messages: [], text: "", unit: u });
+test("the cache: a unit is read again only when its content or the prompt changed", () => {
+  const a = unit({ id: "unit_00000000000a" });
+  const b = unit({ id: "unit_00000000000b" });
+  const c = unit({ id: "unit_00000000000c" });
+  const d = unit({ hash: "ffffffffffffffff", id: "unit_00000000000d" });
+  const e = unit({ id: "unit_00000000000e" });
+  const verdicts = ledger([
+    verdict(a, { importance: 2 }),
+    verdict(b, { importance: 0 }),
+    verdict(c, { importance: 3 }),
+    // Judged on older content.
+    verdict(d, { hash: "0123456789abcdef", importance: 3 }),
+    // Importance 1: searchable, never read in full.
+    verdict(e, { importance: 1 }),
+  ]);
+  const extracted = [
+    {
+      at: "2026-10-10T02:00:00.000Z",
+      observations: 2,
+      prompt: "memory-extract.v1",
+      run: "r0",
+      schemaVersion: 1 as const,
+      unit: c.id,
+      unitHash: c.hash,
+    },
+  ];
+  const r = toExtract(
+    [a, b, c, d, e].map(bare),
+    verdicts,
+    standingReadings(extracted),
+    "memory-extract.v1"
+  );
+  expect(r.kept.map((k) => k.b.unit.id)).toEqual([a.id, c.id]);
+  expect(r.pending.map((k) => k.b.unit.id)).toEqual([a.id]);
+  expect(r.stale).toBe(1);
+  expect(
+    toExtract(
+      [c].map(bare),
+      verdicts,
+      standingReadings(extracted),
+      "memory-extract.v2"
+    ).pending
+  ).toHaveLength(1);
+});
+
+test("a unit he said was read wrong is read again, once: his word against its last reading, as instants", () => {
+  const sam = unit({ id: "unit_00000000001a", people: ["person:lou"] });
+  const verdicts = ledger([verdict(sam, { importance: 3 })]);
+  const readLine = (at = "2026-10-10T02:00:00.000Z") => ({
+    at,
+    observations: 1,
+    prompt: "memory-extract.v1",
+    run: "r0",
+    schemaVersion: 1 as const,
+    unit: sam.id,
+    unitHash: sam.hash,
+  });
+  const pending = (
+    lines: ReturnType<typeof readLine>[],
+    rereads: [string, string][] = []
+  ) =>
+    toExtract(
+      [bare(sam)],
+      verdicts,
+      standingReadings(lines),
+      "memory-extract.v1",
+      new Map(rereads)
+    ).pending.length;
+  expect(pending([readLine()])).toBe(0);
+  expect(pending([readLine()], [[sam.id, "2026-10-21T00:00:00.000Z"]])).toBe(1);
+  expect(
+    pending(
+      [readLine(), readLine("2026-10-22T02:00:00.000Z")],
+      [[sam.id, "2026-10-21T00:00:00.000Z"]]
+    )
+  ).toBe(0);
+  // 04:00+02:00 is 02:00Z: the same instant as the reading, so it is settled.
+  expect(
+    pending(
+      [readLine("2026-10-22T02:00:00.000Z")],
+      [[sam.id, "2026-10-22T04:00:00+02:00"]]
+    )
+  ).toBe(0);
+});
+
+test("a unit read before and no longer kept is unkept once (its facts replaced by none), and read again when kept again", () => {
+  const lou = unit({ id: "unit_00000000002b", people: ["person:lou"] });
+  const line = (observations: number, at: string, unkept?: true) => ({
+    at,
+    observations,
+    prompt: "memory-extract.v1",
+    run: at,
+    schemaVersion: 1 as const,
+    unit: lou.id,
+    unitHash: lou.hash,
+    ...(unkept ? { unkept } : {}),
+  });
+  const run = (
+    importance: number,
+    lines: ReturnType<typeof line>[],
+    rereads: [string, string][] = []
+  ) =>
+    toExtract(
+      [bare(lou)],
+      ledger([verdict(lou, { importance })]),
+      standingReadings(lines),
+      "memory-extract.v1",
+      new Map(rereads)
+    );
+  const firstRead = line(3, "2026-10-10T02:00:00.000Z");
+  const reread: [string, string][] = [[lou.id, "2026-10-21T00:00:00.000Z"]];
+  const emptied = line(0, "2026-10-22T02:00:00.000Z", true);
+  // Never read: nothing to replace.
+  expect(run(1, []).demoted).toHaveLength(0);
+  // Read, then re-read and judged lower: unkept.
+  expect(run(1, [firstRead], reread).demoted).toHaveLength(1);
+  // Its unkept line written: settled.
+  expect(run(1, [firstRead, emptied], reread).demoted).toHaveLength(0);
+  // Kept again on the same content: read again, its unkept line being no reading.
+  expect(run(3, [firstRead, emptied], reread).pending).toHaveLength(1);
+  // A fact of the earlier reading is no longer current once the unkept line is the latest.
+  const fact = {
+    madeBy: { run: firstRead.run, unitHash: lou.hash },
+    unit: lou.id,
+  };
+  const statusInputs = (lines: ReturnType<typeof line>[]) => ({
+    live: new Set([lou.id]),
+    standing: standingReadings(lines),
+  });
+  expect(isCurrent(statusInputs([firstRead]), fact as Observation)).toBe(true);
+  expect(
+    isCurrent(statusInputs([firstRead, emptied]), fact as Observation)
+  ).toBe(false);
+});
+
+test("a chat whose content changed back to what an earlier reading read is read again: the cache is the reading its facts stand on", () => {
+  const a = unit({ id: "unit_00000000003c", source: "imessage" });
+  const ab = { ...a, hash: "fedcba9876543210" };
+  const reading = (u: Unit, run: string, at: string) => ({
+    at,
+    lines: u === a ? 1 : 2,
+    observations: 1,
+    prompt: "memory-extract.v1",
+    run,
+    schemaVersion: 1 as const,
+    unit: u.id,
+    unitHash: u.hash,
+  });
+  const standing = standingReadings([
+    reading(a, "r1", "2026-10-10T02:00:00.000Z"),
+    reading(ab, "r2", "2026-10-11T02:00:00.000Z"),
+  ]);
+  const verdicts = ledger([
+    verdict(a, { importance: 3 }),
+    verdict(ab, { importance: 3 }),
+  ]);
+  expect(
+    toExtract([bare(a)], verdicts, standing, "memory-extract.v1").pending
+  ).toHaveLength(1);
+  expect(
+    toExtract([bare(ab)], verdicts, standing, "memory-extract.v1").pending
+  ).toHaveLength(0);
 });

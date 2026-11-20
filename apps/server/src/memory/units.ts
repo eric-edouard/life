@@ -26,7 +26,7 @@ import { LIFE_MAIL } from "./email";
 import { keptConversations, readFiles } from "./memory-files";
 import { showFiles } from "./message-files";
 import { OWNER, type Truth } from "./read-truth";
-import { isDirect, kindOf, sourceOf } from "./sources";
+import { isDirect, isWithPeople, kindOf, sourceOf } from "./sources";
 import { dayUnitId, voiceUnitId } from "./unit-ids";
 import { dayStart, localDate, time } from "./zones";
 
@@ -434,7 +434,7 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
   const first = sorted[0] as SourceEvent;
   const last = sorted.at(-1) as SourceEvent;
   const kind = kindOf(first.source);
-  const written = kind === "chat" || kind === "mail";
+  const written = isWithPeople(kind);
   const lines = sorted.map((e) =>
     lineOf(e.at, speakerOf(kind, e, resolve), e.sender, redact(e.text))
   );

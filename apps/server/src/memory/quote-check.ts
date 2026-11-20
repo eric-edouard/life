@@ -30,7 +30,10 @@ export interface SourceLine {
 }
 
 export interface Source {
-  /** A continued unit's first new line: a quote the model gave no line for is looked for from there first. */
+  /**
+   * A continued unit's first new line: a quote is looked for from there first, then from the line before (a quote may
+   * run across two lines), and one that ends before it is an earlier reading's, rejected (`already-read`).
+   */
   from?: number;
   lines: SourceLine[];
   unit: Unit;
@@ -97,7 +100,8 @@ function find(text: string, quote: string) {
 
 /**
  * The quote check: where `quote` sits in the unit's lines, compared without accents, case, quote style or spacing;
- * the hinted line first, then the whole text (a quote may run across lines). Returns the source's own words.
+ * the hinted line first, then from line `from` on, then from the line before it (a quote may run across two lines),
+ * then the whole text. Returns the source's own words, the line holding their start (`line`) and their end (`lastLine`).
  */
 export function locate(
   quote: string,
@@ -108,24 +112,36 @@ export function locate(
   const hinted = hint === undefined ? undefined : lines[hint];
   const inLine = hinted === undefined ? null : find(hinted, quote);
   if (inLine && hint !== undefined) {
-    return { line: hint, verbatim: inLine.verbatim };
+    return { lastLine: hint, line: hint, verbatim: inLine.verbatim };
   }
   const joined = lines.join("\n");
-  const head = lines.slice(0, from).join("\n").length + (from > 0 ? 1 : 0);
-  const later = head > 0 ? find(joined.slice(head), quote) : null;
-  const hit = later
-    ? { ...later, start: later.start + head }
-    : find(joined, quote);
+  // Where line `n` starts in `joined`.
+  const startOf = (n: number) =>
+    n > 0 ? lines.slice(0, n).join("\n").length + 1 : 0;
+  const findFrom = (n: number) => {
+    const h = n > 0 ? find(joined.slice(startOf(n)), quote) : null;
+    return h ? { ...h, start: h.start + startOf(n) } : null;
+  };
+  const hit = findFrom(from) ?? findFrom(from - 1) ?? find(joined, quote);
   if (!hit) {
     return null;
   }
-  // The line holding the quote's start (a line may itself contain newlines, so counting them in `joined` is not enough).
-  let offset = 0;
-  const line = lines.findIndex((l) => {
-    offset += l.length + 1;
-    return hit.start < offset;
-  });
-  return { line: Math.max(line, 0), verbatim: hit.verbatim };
+  // The line holding a character (a line may itself contain newlines, so counting them in `joined` is not enough).
+  const lineAt = (at: number) => {
+    let offset = 0;
+    return Math.max(
+      lines.findIndex((l) => {
+        offset += l.length + 1;
+        return at < offset;
+      }),
+      0
+    );
+  };
+  return {
+    lastLine: lineAt(hit.start + hit.verbatim.length - 1),
+    line: lineAt(hit.start),
+    verbatim: hit.verbatim,
+  };
 }
 
 const day = z.iso.date().nullable().default(null);
@@ -158,6 +174,7 @@ export const observationId = (
 export interface Reject {
   quote?: string;
   reason:
+    | "already-read"
     | "invalid"
     | "unknown-unit"
     | "quote-not-found"
@@ -207,7 +224,7 @@ function cited(
 ):
   | Reject
   | {
-      found: { line: number; verbatim: string };
+      found: { lastLine: number; line: number; verbatim: string };
       line: SourceLine;
       o: z.infer<typeof ModelObservation>;
       source: Source;
@@ -234,6 +251,15 @@ function cited(
           unit: o.unit,
         }
       : { reason: "unknown-unit", unit: o.unit };
+  }
+  // A quote ending before a continued unit's new lines is a fact its earlier reading kept already.
+  if (source.from && found.lastLine < source.from) {
+    return {
+      quote: o.quote,
+      reason: "already-read",
+      text: o.text,
+      unit: source.unit.id,
+    };
   }
   return { found, line, o: { ...o, unit: source.unit.id }, source };
 }

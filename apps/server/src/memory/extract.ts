@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { daysBefore } from "../core/clock";
-import { appendJsonl, rowsOf } from "../core/files";
+import { appendJsonl } from "../core/files";
 import { packed } from "../core/lists";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
@@ -19,7 +19,7 @@ import {
   EXTRACTED,
   episodesNow,
   isRereadSince,
-  latestBy,
+  latestReading,
   OBSERVATIONS,
   observationStatusOf,
   readBy,
@@ -27,7 +27,6 @@ import {
   readVerdicts,
   rereadAt,
   SUPERSESSIONS,
-  standingReadings,
   UNRESOLVED,
   type Verdicts,
   verdictOf,
@@ -36,7 +35,7 @@ import { involvedOf, refContext } from "./model-context";
 import { parseObservations, type Reject, type Source } from "./quote-check";
 import { othersIn } from "./read-truth";
 import { begin, inBatches, readsOf } from "./run";
-import { kindOf } from "./sources";
+import { isWithPeople, kindOf } from "./sources";
 import { areaLookup } from "./tags";
 import { type Built, linesHashOf, MARKED, UNKNOWN } from "./units";
 import {
@@ -104,14 +103,16 @@ const peopleOf = (g: Group) => [
  * its units worth a searchable line (a copy never, returned apart); then the pending units in no episode, a day at a
  * time. A group holds an episode's units not read yet (`isRead`), the ones read already coming as earlier facts
  * (`priorFor`). A unit in several episodes is read once, with its episode (`readBy`), so a question is read with its
- * answer and the unit's earlier facts give way to the new reading.
+ * answer and the unit's earlier facts give way to the new reading. `unkept`: the `demoted` units no group reads, one
+ * outcome per unit (a demoted unit still worth a line is read with its episode).
  */
 export function groupsOf(
   pending: Built[],
   built: Built[],
   verdicts: Verdicts,
   episodes: Episode[],
-  isRead: (b: Built) => boolean
+  isRead: (b: Built) => boolean,
+  demoted: Built[] = []
 ) {
   const byId = new Map(built.map((b) => [b.unit.id, b]));
   const waiting = new Set(pending.map((b) => b.unit.id));
@@ -147,7 +148,12 @@ export function groupsOf(
   for (const units of Map.groupBy(rest, (b) => b.unit.date).values()) {
     groups.push({ episode: null, units });
   }
-  return { copies: pending.filter((b) => copied.has(b.unit.id)), groups };
+  const grouped = new Set(groups.flatMap((g) => g.units.map((b) => b.unit.id)));
+  return {
+    copies: pending.filter((b) => copied.has(b.unit.id)),
+    groups,
+    unkept: demoted.filter((b) => !grouped.has(b.unit.id)),
+  };
 }
 
 /** The characters of a group's lines: what a call of groups is packed by (`packed`). */
@@ -178,37 +184,46 @@ export function byDays<T extends Group & { sources: Source[] }>(
   });
 }
 
+/** A unit's latest reading (`latestReading`) when it holds: by this prompt, and not said read wrong since. */
+const heldReading = (
+  id: string,
+  standing: Map<string, Extracted[]>,
+  rereads: Map<string, string>,
+  prompt: string
+) => {
+  const e = latestReading(standing, id);
+  return e &&
+    isPromptVersion(e.prompt, prompt) &&
+    !isRereadSince(rereads, id, e.at)
+    ? e
+    : undefined;
+};
+
 /**
- * The units to read: kept (importance >= KEEP_AT) on their current content, and not yet extracted by this prompt
- * from that same content (the cache: unit content hash + prompt version, from memory/extracted.jsonl), unless the
- * owner said a unit was read wrong after it was (`rereads`, his `reread` corrections). Who someone is needs no new
- * reading: the readers resolve a fact's author and subjects as of today (`aboutNow`). `unkept`: units read before
- * that their latest verdict no longer keeps (content changed, or a re-read judged them lower): their facts are
- * replaced by none, so none stays shown; one kept again is read again (its `unkept` line is no reading). `isRead`: the
+ * The units to read: kept (importance >= KEEP_AT) on their current content, and not read yet on it: a unit's held
+ * reading (`heldReading`: its latest standing one, by this prompt, not said read wrong since) is the cache, the same
+ * reading its facts stand on (`isCurrent`), so content that changed back is read again. Who someone is needs no new
+ * reading: the readers resolve a fact's author and subjects as of today (`aboutNow`). `demoted`: units read before
+ * that their latest verdict no longer keeps (content changed, or a re-read judged them lower); those no group reads
+ * get an `unkept` line (`groupsOf`), so none of their facts stays shown; one kept again is read again. `isRead`: the
  * one test of whether a unit has a reading on its current content (what `groupsOf` leaves out of a group).
  */
 export function toExtract(
   built: Built[],
   verdicts: Verdicts,
-  ledger: Extracted[],
+  standing: Map<string, Extracted[]>,
   prompt = EXTRACT_PROMPT,
   rereads = new Map<string, string>()
 ) {
-  // The latest reading of each unit's content by this prompt.
-  const done = latestBy(
-    ledger.filter((e) => isPromptVersion(e.prompt, prompt)),
-    (e) => `${e.unit}|${e.unitHash}`
-  );
-  // Settled: the latest line for this content is after his last re-read; read: and it is a reading, not `unkept`.
+  // Settled: the held reading is on this content; read: and it is a reading, not `unkept`.
   const settled = ({ unit }: Built) => {
-    const e = done.get(`${unit.id}|${unit.hash}`);
-    return e && !isRereadSince(rereads, unit.id, e.at) ? e : undefined;
+    const e = heldReading(unit.id, standing, rereads, prompt);
+    return e?.unitHash === unit.hash ? e : undefined;
   };
   const isRead = (b: Built) => !!settled(b) && !settled(b)?.unkept;
-  const readBefore = new Set(ledger.map((e) => e.unit));
   let stale = 0;
   const kept: { b: Built; reason: string }[] = [];
-  const unkept: Built[] = [];
+  const demoted: Built[] = [];
   for (const b of built) {
     // A unit a code rule drops today stays dropped, whatever an older verdict said.
     if (b.unit.drop) {
@@ -219,12 +234,12 @@ export function toExtract(
       stale += 1;
     } else if (v.importance >= KEEP_AT) {
       kept.push({ b, reason: v.reason });
-    } else if (readBefore.has(b.unit.id) && !settled(b)) {
-      unkept.push(b);
+    } else if (standing.has(b.unit.id) && !settled(b)) {
+      demoted.push(b);
     }
   }
   const pending = kept.filter(({ b }) => !isRead(b));
-  return { isRead, kept, pending, stale, unkept };
+  return { demoted, isRead, kept, pending, stale };
 }
 
 async function appendObservations(list: Observation[]) {
@@ -327,13 +342,16 @@ export function priorFor(
 }
 
 /**
- * How many lines of `b` an earlier reading already covered, when it can be continued: the unit's last standing reading
- * of this prompt covers its first `n` lines exactly (its hash is `linesHashOf(b, n)`), none was said read wrong since,
- * and the unit has more lines now. Else 0: read whole, as an edited message, a voice or a reading before `lines` was
- * written is.
+ * How many lines of `b` an earlier reading already covered, when it can be continued: `b` is a chat or mail day
+ * (`isWithPeople`; a note, an import or a repo day is read whole), its held reading (`heldReading`) covers its first `n`
+ * lines exactly (its hash is `linesHashOf(b, n)`), and the unit has more lines now. Else 0: read whole, as an edited
+ * message, a voice or a reading before `lines` was written is.
  * ponytail: a file described after its message was first read changes an earlier line, so that unit is read whole once
  * (one described on arrival, before the first read, continues); continue it by file ref (a ref on `Message`, a hash of
  * its own) if the day passes (PR 4b) make that common.
+ * ponytail: the hash is content only (the same chat through two sources hashes the same), so a first message replaced
+ * by the same words from another sender in a group, then more lines, continues with the old speaker's facts; a
+ * sender-aware digest per reading if that is ever seen.
  */
 export function continuedFrom(
   b: Built,
@@ -341,12 +359,11 @@ export function continuedFrom(
   rereads: Map<string, string>,
   prompt = EXTRACT_PROMPT
 ) {
-  const last = standing.get(b.unit.id)?.at(-1);
+  const last = heldReading(b.unit.id, standing, rereads, prompt);
   const n = last?.lines ?? 0;
   return last &&
     !last.unkept &&
-    isPromptVersion(last.prompt, prompt) &&
-    !isRereadSince(rereads, b.unit.id, last.at) &&
+    isWithPeople(kindOf(b.unit.source)) &&
     b.messages.length > n &&
     linesHashOf(b, n) === last.unitHash
     ? n
@@ -358,31 +375,6 @@ export const ownContinued = (
   g: Group,
   continued: ReadonlyMap<string, number>
 ) => new Set(g.units.map((b) => b.unit.id).filter((id) => continued.has(id)));
-
-/**
- * A reading with the facts quoting a line an earlier reading covered left out (`covered`: the refs of those lines, by
- * unit), and the replacements and unresolved names that belong to them: a continued unit keeps its earlier readings.
- */
-export function withoutRepeats<
-  P extends Pick<
-    ReturnType<typeof parseObservations>,
-    "observations" | "replaced" | "unresolved"
-  >,
->(parsed: P, covered: Map<string, Set<string>>): P {
-  const dropped = new Set(
-    parsed.observations
-      .filter((o) => covered.get(o.unit)?.has(o.source.ref))
-      .map((o) => o.id)
-  );
-  return {
-    ...parsed,
-    observations: parsed.observations.filter((o) => !dropped.has(o.id)),
-    replaced: parsed.replaced.filter((r) => !dropped.has(r.by.id)),
-    unresolved: parsed.unresolved.filter(
-      (u) => !(u.observation && dropped.has(u.observation))
-    ),
-  };
-}
 
 /** Extracts the kept units of `evidence` (its window, `gather`) not read yet by this prompt. */
 export async function extract(evidence: Evidence) {
@@ -411,12 +403,13 @@ export async function extract(evidence: Evidence) {
     readEpisodes(),
     observationsNow(people),
   ]);
-  const ledger = rowsOf(EXTRACTED, Extracted);
+  // The readings that stand, as the facts shown were judged by (`isCurrent`): the cache and continuation read them too.
+  const { standing } = statusInputs;
   const rereads = rereadAt(corrections, written);
-  const { isRead, kept, pending, stale, unkept } = toExtract(
+  const { demoted, isRead, kept, pending, stale } = toExtract(
     inWindow,
     verdicts,
-    ledger,
+    standing,
     EXTRACT_PROMPT,
     rereads
   );
@@ -429,26 +422,23 @@ export async function extract(evidence: Evidence) {
     }
     return s.state === "active" ? [{ o }] : [];
   });
-  const { copies, groups } = groupsOf(
+  const { copies, groups, unkept } = groupsOf(
     pending.map((p) => p.b),
     inWindow,
     verdicts,
     // An episode the owner said is wrong groups nothing; its people are who they are today.
     episodesNow(written, corrections).map((m) => episodeNow(m, refOf)),
-    isRead
+    isRead,
+    demoted
   );
 
   const read = groups.flatMap((g) => g.units);
   // A unit whose first lines were read already keeps those readings: only its new lines give facts.
-  const standing = standingReadings(ledger);
   const continued = new Map(
     read.flatMap((b) => {
       const n = continuedFrom(b, standing, rereads);
       return n > 0 ? [[b.unit.id, n] as const] : [];
     })
-  );
-  const chats = new Set(
-    read.filter((b) => b.messages.length > 0).map((b) => b.unit.id)
   );
   const reread = new Set(
     [...read, ...copies]
@@ -497,7 +487,6 @@ export async function extract(evidence: Evidence) {
   const rejects: Reject[] = [];
   const unresolved: Unresolved[] = [];
   const finished: Source[] = [];
-  let repeats = 0;
   const at = now.toISOString();
   // One bad call costs only its units: they are not marked extracted, so the next run retries them.
   const one = (call: (typeof calls)[number], bdir: string) =>
@@ -572,7 +561,7 @@ export async function extract(evidence: Evidence) {
           sources.map(({ unit }) => ({ source: unit.source, unit: unit.id }))
         ),
       });
-      const all = parseObservations(json, {
+      const parsed = parseObservations(json, {
         areas: areaLookup(truth.areas),
         candidates,
         madeBy,
@@ -585,21 +574,6 @@ export async function extract(evidence: Evidence) {
           ])
         ),
       });
-      const covered = new Map(
-        sources.flatMap((x) => {
-          const n = continued.get(x.unit.id);
-          return n
-            ? [
-                [
-                  x.unit.id,
-                  new Set(x.lines.slice(0, n).map((l) => l.ref)),
-                ] as const,
-              ]
-            : [];
-        })
-      );
-      const parsed = withoutRepeats(all, covered);
-      repeats += all.observations.length - parsed.observations.length;
       observations.push(...parsed.observations);
       rejects.push(...parsed.rejects);
       for (const { by, old } of parsed.replaced) {
@@ -667,8 +641,7 @@ export async function extract(evidence: Evidence) {
   await appendJsonl(EXTRACTED, Extracted, [
     ...finished.map(({ lines, unit }) => ({
       ...line(unit, perUnit.get(unit.id) ?? 0),
-      // Only a chat day's hash can match `linesHashOf`, so only it can continue (notes, repos, activity days never).
-      ...(chats.has(unit.id) ? { lines: lines.length } : {}),
+      lines: lines.length,
       ...(continued.has(unit.id) ? { continues: true as const } : {}),
     })),
     ...copies.map(({ unit }) => line(unit, 0)),
@@ -687,7 +660,6 @@ export async function extract(evidence: Evidence) {
     kept: kept.length,
     read: finished.length,
     rejects: rejects.length,
-    repeats,
     retired: retired.length,
     stale,
     unkept: unkept.length,
