@@ -6,7 +6,8 @@ import { same, secretIn } from "../core/secret";
 import {
   type AssignmentRow,
   agentOf,
-  currentAssignmentOf,
+  assignmentOf,
+  openTurn,
 } from "../host/desk-read";
 import { EVENT_CHANNELS } from "../host/event-channels";
 import { DOOR_PORT, text } from "../host/http/http";
@@ -43,7 +44,8 @@ export const doorOf = (id: string) => ({
 
 /**
  * Agent `id`'s door: its five tools, registered as the connector's are (`tool()`), each refused unless the agent is
- * active (`read_packet` aside).
+ * active (`read_packet` aside), and each acting on the assignment of its open desk turn: a turn names one matter, so
+ * outside one nothing is done.
  */
 function doorServer(desk: Desk, id: string) {
   const server = new McpServer({ name: "desk", version: "1" });
@@ -63,13 +65,19 @@ function doorServer(desk: Desk, id: string) {
         if (name !== "read_packet" && a?.status !== "active") {
           throw new Error(`Not done: ${id} is not active.`);
         }
-        // The assignment it works on, read once for the call.
-        const s = currentAssignmentOf(desk.db, id);
+        // The assignment its turn is on, read once for the call.
+        const turn = openTurn(desk.db, id);
+        const s = turn && assignmentOf(desk.db, turn.assignment_id);
         if (!s) {
-          throw new Error(`Not done: ${id} holds no assignment.`);
+          throw new Error(
+            `Not done: no desk turn of ${id} is running: the desk wakes you on your assignment's events, its deadline or his answer, and your tools act on that turn's.`
+          );
         }
         // His rule: an assignment's first turn ends on its plan (or card), asked; it waits or finishes only after.
-        if ((name === "set_wait" || name === "finish") && !hasAsked(s)) {
+        if (
+          (name === "set_wait" || name === "finish") &&
+          !hasAsked(desk.db, s)
+        ) {
           throw new Error(askFirstMessageOf(s.opened_by));
         }
         const r = await run(args, s);
@@ -94,19 +102,19 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "write_notes",
-    "Replace your notes (6,000 characters): what you did, what you wait on, why. They open your next packet.",
+    "Replace your notes on this turn's matter: what you did, what you wait on, why. They open your next packet and every wake on it.",
     z.object({ text: z.string().min(1) }),
     ({ text: notes }, s) => writeNotes(desk, s, notes)
   );
   door(
     "request_decision",
-    `Ask the owner one decision (one open at a time). ${CARD} Or \`withdraw\` (your decision's id) with \`why\`. His answer wakes you.`,
+    `Ask the owner one decision (one open at a time per matter). ${CARD} On a matter, the subject is your matter or one of its steps (none given: its first step); another is refused. Or \`withdraw\` (your decision's id) with \`why\`. His answer wakes you.`,
     DecisionRequest,
     (ask, s) => askDecision(desk, s, ask)
   );
   door(
     "read_packet",
-    "Your subject (your matter or your project), your project's context (its line, his notes, its other running matters), your brief, your notes, your saved wait, the events waiting for you and your open decision.",
+    "Your subject (this turn's matter, or your project), your project's context (its line and his notes), your brief, your notes, your saved wait, the events waiting for you and your open decision.",
     z.object({}),
     (_, s) => readPacket(desk, s, isOwnLife())
   );

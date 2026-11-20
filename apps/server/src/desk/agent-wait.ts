@@ -23,27 +23,6 @@ const EVENT_GAP = 10 * MIN;
 const RETRIES = [5 * MIN, 10 * MIN, 20 * MIN];
 /** An event is handed to this many turns that began and did not consume it (once, then again 3 times at most), then dropped. */
 export const MAX_HANDED = RETRIES.length + 1;
-/**
- * A wake sends into the session while it has grown less than this since its first turn; past it, a fresh session
- * starts from the packet. Growth, not size: a new session already holds 28,000 to 78,000 tokens (the runtime proofs),
- * and one event turn's reads add 15,000 to 70,000 (measured 20 Nov 2026): at 30,000 every second wake went fresh.
- */
-export const GROWTH_LIMIT = 120_000;
-/**
- * How much a session has grown since its first call: the context of its newest call that a turn kept, less its first
- * call's (`session.context_at_first_call`). With either missing it is 0: the wake then sends into the session.
- */
-export function growthOf(
-  session: { context_at_first_call: number | null } | null,
-  turns: Pick<TurnRow, "context_used">[]
-) {
-  const last = turns.find((t) => t.context_used !== null)?.context_used;
-  const first = session?.context_at_first_call;
-  return typeof last !== "number" || typeof first !== "number"
-    ? 0
-    : last - first;
-}
-
 /** At most this many turns start in one tick, his answers first, then the oldest deadline. */
 export const STARTS_PER_TICK = 3;
 

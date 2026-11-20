@@ -1,0 +1,1245 @@
+{
+  "checks": [
+    {
+      "asker": "Claude Code",
+      "clips": [],
+      "context": "Hélène asked twice, the last time on Thursday. The lease ends on 31 December.",
+      "deadline": "2026-11-19T18:00:00",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": ["https://agents.example.test/s/1"],
+      "matter": {
+        "id": "matter_lease",
+        "name": "Lease renewal, rue des Carmes"
+      },
+      "onSilence": "go",
+      "options": [
+        {
+          "id": "go",
+          "label": "Go"
+        },
+        {
+          "id": "change",
+          "label": "Change"
+        },
+        {
+          "id": "stop",
+          "label": "Stop"
+        }
+      ],
+      "pushId": "push_dec_plan",
+      "question": "I draft your reply, ask you before sending, then watch for her answer. Go?",
+      "ref": "dec_plan",
+      "ridesOn": {
+        "matterIds": ["matter_lease"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Get the lease signed and back to Hélène Aubert",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Claude Code",
+      "clips": [],
+      "confirm": [
+        {
+          "asker": "life",
+          "clips": [],
+          "context": "The same number is in his mail, and the chat opens with that name.",
+          "evidence": {
+            "from": "Hélène Aubert, mail, 9 Nov",
+            "quote": "Mon numéro pro : 06 39 98 01 23"
+          },
+          "group": "guessed person",
+          "likelyPeople": [],
+          "links": [],
+          "matter": {
+            "id": "matter_lease",
+            "name": "Lease renewal, rue des Carmes"
+          },
+          "networkIdentity": {
+            "chat": "33639980123@s.whatsapp.net",
+            "handle": "+33 6 39 98 01 23",
+            "network": "WhatsApp",
+            "newest": {
+              "at": "2026-11-17T09:14:00",
+              "by": "Hélène A.",
+              "text": "Bonjour, c’est Idris. Le prix du fournisseur arrive vendredi."
+            },
+            "openUrl": "https://wa.me/33639980123",
+            "shownName": "Hélène A."
+          },
+          "options": [
+            {
+              "id": "this-is",
+              "label": "Yes"
+            },
+            {
+              "id": "not-this-person",
+              "label": "No"
+            },
+            {
+              "id": "same-person",
+              "label": "Someone else…",
+              "takes": "person"
+            }
+          ],
+          "pushId": "push_guess_helene",
+          "question": "Is this Hélène Aubert?",
+          "ref": "guess_helene",
+          "ridesOn": {
+            "matterIds": ["matter_lease"],
+            "matters": 1,
+            "observations": 14,
+            "pages": 0
+          },
+          "title": "A name Life can’t place: “Hélène A.”, on WhatsApp",
+          "urgency": "improves"
+        }
+      ],
+      "context": "She asked on Thursday whether it was signed. It is.",
+      "deadline": "2026-11-19T18:00:00",
+      "draft": {
+        "channel": "whatsapp",
+        "quoted": {
+          "sender": "Hélène Aubert",
+          "text": "Bonjour, avez-vous pu signer le bail ?"
+        },
+        "text": "Bonjour Hélène, oui, c’est signé. Je vous l’envoie ce soir en PDF. Bonne journée !",
+        "to": "Hélène Aubert"
+      },
+      "group": "decision",
+      "likelyPeople": [],
+      "links": ["https://agents.example.test/s/1"],
+      "matter": {
+        "id": "matter_lease",
+        "name": "Lease renewal, rue des Carmes"
+      },
+      "networkIdentity": {
+        "chat": "33600000001@s.whatsapp.net",
+        "handle": "+33600000001",
+        "network": "WhatsApp",
+        "newest": {
+          "at": "2026-11-12T10:00:00",
+          "by": "Hélène Aubert",
+          "text": "Bonjour, avez-vous pu signer le bail ?"
+        },
+        "openUrl": "https://wa.me/33600000001",
+        "shownName": "Hélène A."
+      },
+      "onSilence": "no",
+      "options": [
+        {
+          "id": "send",
+          "label": "Send",
+          "outgoing": true
+        },
+        {
+          "id": "edit",
+          "label": "Edit"
+        },
+        {
+          "id": "no",
+          "label": "Don’t send"
+        }
+      ],
+      "pushId": "push_dec_send",
+      "question": "Send this to ~ Hélène A.?",
+      "ref": "dec_send",
+      "ridesOn": {
+        "matterIds": ["matter_lease"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Tell Hélène the signed lease is on its way",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Claude Code",
+      "clips": [],
+      "context": "Camille asked Friday or Saturday. Chez Odile holds a table for six until Thursday evening.",
+      "deadline": "2026-11-20T12:00:00",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_table",
+        "name": "Table for Mum’s 60th"
+      },
+      "onMatters": [
+        {
+          "id": "matter_table",
+          "name": "Table for Mum’s 60th"
+        }
+      ],
+      "onSilence": "odile",
+      "options": [
+        {
+          "id": "odile",
+          "label": "Chez Odile on Friday, if they have a table"
+        },
+        {
+          "id": "odile-sat",
+          "label": "Chez Odile, but on Saturday at noon instead"
+        },
+        {
+          "id": "home",
+          "label": "At home, and Camille cooks for everyone"
+        },
+        {
+          "id": "else",
+          "label": "Somewhere else, I will tell you where"
+        }
+      ],
+      "pushId": "push_dec_long",
+      "question": "Where should Mum’s lunch be?",
+      "ref": "dec_long",
+      "ridesOn": {
+        "matterIds": ["matter_table"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "said": {
+        "at": "2026-11-14T18:00:00",
+        "by": "Camille Vance",
+        "channel": "whatsapp",
+        "text": "On fait ça chez Odile ? Vendredi 27 ou samedi 28 ?",
+        "to": "Sam"
+      },
+      "title": "Where Mum’s lunch should be",
+      "urgency": "blocks"
+    },
+    {
+      "about": ["Bastien Morel"],
+      "asker": "life",
+      "clips": [],
+      "context": null,
+      "group": "name",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_nora",
+        "name": "Quote for Nora Keller"
+      },
+      "onMatters": [
+        {
+          "id": "matter_nora",
+          "name": "Quote for Nora Keller"
+        }
+      ],
+      "options": [
+        {
+          "id": "this-is",
+          "label": "Someone else…",
+          "takes": "person or name"
+        },
+        {
+          "id": "organization",
+          "label": "Organization"
+        },
+        {
+          "id": "not-relevant",
+          "label": "Neither"
+        }
+      ],
+      "pushId": "push_name_bastien",
+      "question": "Who is “Bastien Morel”?",
+      "ref": "name_bastien",
+      "ridesOn": {
+        "matterIds": ["matter_nora"],
+        "matters": 1,
+        "observations": 3,
+        "pages": 0
+      },
+      "said": {
+        "at": "2026-11-16T10:00:00",
+        "by": "Nora Keller",
+        "channel": "mail",
+        "text": "Bastien Morel m'a dit qu'il passerait jeudi pour le devis.",
+        "to": "Sam"
+      },
+      "title": "A name with no person: “Bastien Morel”",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Claude Code",
+      "clips": [],
+      "context": "Blue Reef holds the December place until the deposit is in.",
+      "deadline": "2026-11-23T17:00:00",
+      "doneSeenBy": "payment",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_dive",
+        "name": "Dive course, December"
+      },
+      "needs": [
+        {
+          "bank": "Kasikornbank",
+          "holder": "Blue Reef Diving Co., Ltd.",
+          "kind": "account",
+          "line": "Kasikornbank 012-3-45678-9, Blue Reef Diving Co., Ltd.",
+          "number": "012-3-45678-9"
+        },
+        {
+          "currency": "THB",
+          "kind": "amount",
+          "line": "4,500 THB",
+          "value": 4500
+        },
+        {
+          "kind": "qr",
+          "line": "PromptPay QR from Blue Reef’s message, Tue"
+        },
+        {
+          "copy": true,
+          "kind": "text",
+          "label": "Reference",
+          "line": "Reference: DEC-DIVE-07",
+          "text": "DEC-DIVE-07"
+        }
+      ],
+      "options": [
+        {
+          "id": "paid",
+          "label": "I’ve paid"
+        },
+        {
+          "id": "drop",
+          "label": "Drop it"
+        }
+      ],
+      "pushId": "push_dec_pay",
+      "question": "Pay the deposit by Monday?",
+      "ref": "dec_pay",
+      "ridesOn": {
+        "matterIds": ["matter_dive"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Pay the dive course deposit",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Claude Code",
+      "clips": [],
+      "context": "The invoice came by mail on Tuesday; it is due Tuesday 24.",
+      "deadline": "2026-11-24T12:00:00",
+      "doneSeenBy": "payment",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_lease",
+        "name": "Lease renewal, rue des Carmes"
+      },
+      "needs": [
+        {
+          "kind": "link",
+          "line": "Pay on Fibrenet",
+          "url": "https://billing.fibrenet.example.test/pay/INV-20931",
+          "vendor": "Fibrenet"
+        },
+        {
+          "currency": "EUR",
+          "kind": "amount",
+          "line": "39.90 €",
+          "value": 39.9
+        },
+        {
+          "copy": true,
+          "kind": "text",
+          "label": "Invoice",
+          "line": "Invoice INV-20931",
+          "text": "INV-20931"
+        }
+      ],
+      "options": [
+        {
+          "id": "paid",
+          "label": "I’ve paid"
+        },
+        {
+          "id": "drop",
+          "label": "Drop it"
+        }
+      ],
+      "pushId": "push_dec_online",
+      "question": "Pay the internet bill online?",
+      "ref": "dec_online",
+      "ridesOn": {
+        "matterIds": ["matter_lease"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Pay the flat’s internet bill",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Claude Code",
+      "clips": [],
+      "context": "Blue Reef rents gear only to those who book it a week ahead.",
+      "deadline": "2026-11-25T12:00:00",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_dive",
+        "name": "Dive course, December"
+      },
+      "options": [
+        {
+          "ends": "step",
+          "id": "done",
+          "label": "It’s done"
+        },
+        {
+          "id": "not-yet",
+          "label": "Not yet"
+        }
+      ],
+      "pushId": "push_dec_gear",
+      "question": "Is the dive gear booked?",
+      "ref": "dec_gear",
+      "ridesOn": {
+        "matterIds": ["matter_dive"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Book the dive gear",
+      "urgency": "blocks"
+    },
+    {
+      "about": ["Atelier Morel"],
+      "asker": "life",
+      "clips": [],
+      "context": null,
+      "group": "name",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_kitchen",
+        "name": "Kitchen quote, Halden house"
+      },
+      "onMatters": [
+        {
+          "id": "matter_kitchen",
+          "name": "Kitchen quote, Halden house"
+        }
+      ],
+      "options": [
+        {
+          "id": "this-is",
+          "label": "Someone else…",
+          "takes": "person or name"
+        },
+        {
+          "id": "organization",
+          "label": "Organization"
+        },
+        {
+          "id": "not-relevant",
+          "label": "Neither"
+        }
+      ],
+      "pushId": "push_name_atelier",
+      "question": "Who is “Atelier Morel”?",
+      "ref": "name_atelier",
+      "ridesOn": {
+        "matterIds": ["matter_kitchen"],
+        "matters": 2,
+        "observations": 5,
+        "pages": 0
+      },
+      "said": {
+        "at": "2026-11-19T18:00:00",
+        "by": "Camille",
+        "channel": "whatsapp",
+        "text": "On passe à l'Atelier Morel jeudi ?",
+        "to": "Sam"
+      },
+      "title": "A name with no person: “Atelier Morel”",
+      "urgency": "blocks"
+    },
+    {
+      "about": ["Marc"],
+      "asker": "life",
+      "clips": [
+        {
+          "at": "2026-11-14T12:00:00",
+          "audio": {
+            "end": 21,
+            "jobId": "00000000-0000-0000-0000-0000000000C2",
+            "start": 16
+          },
+          "text": "Marc nous a trouvé une table pour huit chez Odile.",
+          "until": "2026-11-14T12:00:00",
+          "words": [
+            [0, 300, 4],
+            [350, 650, 5],
+            [700, 1000, 2],
+            [1050, 1350, 7],
+            [1400, 1700, 4],
+            [1750, 2050, 6],
+            [2100, 2400, 5],
+            [2450, 2750, 5],
+            [2800, 3100, 5],
+            [3150, 3450, 7]
+          ]
+        }
+      ],
+      "context": "Camille named him about the table.",
+      "group": "name",
+      "likelyPeople": [
+        {
+          "kind": "person",
+          "line": "Fitter, works with Idris Benali",
+          "name": "Marc Delmas",
+          "ref": "person:marc_delmas"
+        },
+        {
+          "kind": "person",
+          "line": "Camille's brother",
+          "name": "Marc Fenn",
+          "ref": "person:marc_fenn"
+        },
+        {
+          "kind": "person",
+          "line": "Partner",
+          "name": "Camille Vance",
+          "ref": "person:camille_vance"
+        },
+        {
+          "kind": "person",
+          "line": "Landlord",
+          "name": "Hélène Aubert",
+          "ref": "person:helène_aubert"
+        },
+        {
+          "kind": "person",
+          "line": "Client",
+          "name": "Nora Keller",
+          "ref": "person:nora_keller"
+        }
+      ],
+      "links": [],
+      "matter": {
+        "id": "matter_table",
+        "name": "Table for Mum’s 60th"
+      },
+      "onMatters": [
+        {
+          "id": "matter_table",
+          "name": "Table for Mum’s 60th"
+        }
+      ],
+      "options": [
+        {
+          "id": "this-is",
+          "label": "Someone else…",
+          "takes": "person or name"
+        },
+        {
+          "id": "organization",
+          "label": "Organization"
+        },
+        {
+          "id": "not-relevant",
+          "label": "Neither"
+        }
+      ],
+      "pushId": "push_name_marc",
+      "question": "Who is “Marc”?",
+      "ref": "name_marc",
+      "ridesOn": {
+        "matters": 1,
+        "observations": 3,
+        "pages": 0
+      },
+      "said": {
+        "at": "2026-11-14T12:00:00",
+        "by": "Camille Vance",
+        "channel": "whatsapp",
+        "text": "Marc nous a trouvé une table pour huit chez Odile.",
+        "to": "Sam"
+      },
+      "title": "A name with no person: “Marc”",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Codex",
+      "clips": [],
+      "deadline": "2026-11-20T12:00:00",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_nora",
+        "name": "Quote for Nora Keller"
+      },
+      "options": [
+        {
+          "id": "yes",
+          "label": "Yes"
+        },
+        {
+          "id": "no",
+          "label": "Not yet"
+        }
+      ],
+      "pushId": "push_dec_7",
+      "question": "Confirm the start date with Nora?",
+      "ref": "dec_7",
+      "ridesOn": {
+        "matterIds": ["matter_nora"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Quote for Nora Keller, step 7",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Codex",
+      "clips": [],
+      "deadline": "2026-11-20T12:00:00",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_nora",
+        "name": "Quote for Nora Keller"
+      },
+      "options": [
+        {
+          "id": "yes",
+          "label": "Yes"
+        },
+        {
+          "id": "no",
+          "label": "Not yet"
+        }
+      ],
+      "pushId": "push_dec_8",
+      "question": "Confirm the start date with Nora?",
+      "ref": "dec_8",
+      "ridesOn": {
+        "matterIds": ["matter_nora"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Quote for Nora Keller, step 8",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Codex",
+      "clips": [],
+      "deadline": "2026-11-20T12:00:00",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_nora",
+        "name": "Quote for Nora Keller"
+      },
+      "options": [
+        {
+          "id": "yes",
+          "label": "Yes"
+        },
+        {
+          "id": "no",
+          "label": "Not yet"
+        }
+      ],
+      "pushId": "push_dec_9",
+      "question": "Confirm the start date with Nora?",
+      "ref": "dec_9",
+      "ridesOn": {
+        "matterIds": ["matter_nora"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Quote for Nora Keller, step 9",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Codex",
+      "clips": [],
+      "deadline": "2026-11-20T12:00:00",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_nora",
+        "name": "Quote for Nora Keller"
+      },
+      "options": [
+        {
+          "id": "yes",
+          "label": "Yes"
+        },
+        {
+          "id": "no",
+          "label": "Not yet"
+        }
+      ],
+      "pushId": "push_dec_10",
+      "question": "Confirm the start date with Nora?",
+      "ref": "dec_10",
+      "ridesOn": {
+        "matterIds": ["matter_nora"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Quote for Nora Keller, step 10",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Codex",
+      "clips": [],
+      "deadline": "2026-11-20T12:00:00",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_nora",
+        "name": "Quote for Nora Keller"
+      },
+      "options": [
+        {
+          "id": "yes",
+          "label": "Yes"
+        },
+        {
+          "id": "no",
+          "label": "Not yet"
+        }
+      ],
+      "pushId": "push_dec_11",
+      "question": "Confirm the start date with Nora?",
+      "ref": "dec_11",
+      "ridesOn": {
+        "matterIds": ["matter_nora"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Quote for Nora Keller, step 11",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Codex",
+      "clips": [],
+      "deadline": "2026-11-20T12:00:00",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_nora",
+        "name": "Quote for Nora Keller"
+      },
+      "options": [
+        {
+          "id": "yes",
+          "label": "Yes"
+        },
+        {
+          "id": "no",
+          "label": "Not yet"
+        }
+      ],
+      "pushId": "push_dec_12",
+      "question": "Confirm the start date with Nora?",
+      "ref": "dec_12",
+      "ridesOn": {
+        "matterIds": ["matter_nora"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Quote for Nora Keller, step 12",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "life",
+      "clips": [
+        {
+          "at": "2026-11-15T09:40:00",
+          "audio": {
+            "end": 24,
+            "jobId": "00000000-0000-0000-0000-0000000000C3",
+            "start": 3
+          },
+          "text": "Alors voilà, pour la cuisine il faudrait que je repasse mesurer le mur du fond, parce que les plans ne tiennent pas compte de la gaine, et que Idris me dit que le fournisseur ne livre pas avant mi-janvier si on ne confirme pas cette semaine.",
+          "until": "2026-11-15T09:40:00",
+          "words": [
+            [0, 300, 5],
+            [350, 650, 7],
+            [700, 1000, 5],
+            [1050, 1350, 3],
+            [1400, 1700, 8],
+            [1750, 2050, 3],
+            [2100, 2400, 9],
+            [2450, 2750, 4],
+            [2800, 3100, 3],
+            [3150, 3450, 8],
+            [3500, 3800, 8],
+            [3850, 4150, 3],
+            [4200, 4500, 4],
+            [4550, 4850, 3],
+            [4900, 5200, 6],
+            [5250, 5550, 6],
+            [5600, 5900, 4],
+            [5950, 6250, 4],
+            [6300, 6600, 6],
+            [6650, 6950, 3],
+            [7000, 7300, 9],
+            [7350, 7650, 4],
+            [7700, 8000, 7],
+            [8050, 8350, 3],
+            [8400, 8700, 3],
+            [8750, 9050, 7],
+            [9100, 9400, 3],
+            [9450, 9750, 4],
+            [9800, 10100, 6],
+            [10150, 10450, 3],
+            [10500, 10800, 4],
+            [10850, 11150, 4],
+            [11200, 11500, 3],
+            [11550, 11850, 12],
+            [11900, 12200, 3],
+            [12250, 12550, 6],
+            [12600, 12900, 4],
+            [12950, 13250, 6],
+            [13300, 13600, 11],
+            [13650, 13950, 3],
+            [14000, 14300, 3],
+            [14350, 14650, 3],
+            [14700, 15000, 9],
+            [15050, 15350, 4],
+            [15400, 15700, 6],
+            [15750, 16050, 9]
+          ]
+        }
+      ],
+      "group": "voice",
+      "likelyPeople": [],
+      "links": [],
+      "options": [
+        {
+          "id": "this-is",
+          "label": "Someone else…",
+          "takes": "person or name"
+        },
+        {
+          "id": "not-relevant",
+          "label": "Don't name"
+        }
+      ],
+      "pushId": "push_voice_long",
+      "question": "Who is this?",
+      "ref": "voice_long",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "A voice from Sunday, 12 minutes",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "life",
+      "clips": [
+        {
+          "at": "2026-11-14T10:02:00",
+          "audio": {
+            "end": 9.2,
+            "jobId": "00000000-0000-0000-0000-0000000000C1",
+            "start": 1.2
+          },
+          "text": "On se retrouve au marché samedi, vers dix heures ?",
+          "until": "2026-11-14T10:02:00",
+          "words": [
+            [0, 300, 2],
+            [350, 650, 3],
+            [700, 1000, 9],
+            [1050, 1350, 3],
+            [1400, 1700, 7],
+            [1750, 2050, 8],
+            [2100, 2400, 5],
+            [2450, 2750, 4],
+            [2800, 3100, 7],
+            [3150, 3450, 2]
+          ]
+        },
+        {
+          "at": "2026-11-14T10:03:00",
+          "audio": {
+            "end": 24,
+            "jobId": "00000000-0000-0000-0000-0000000000C1",
+            "start": 20
+          },
+          "text": "D’accord, à samedi.",
+          "until": "2026-11-14T10:03:00",
+          "words": [[0, 300, 9], [350, 650, 2], [700, 1000, 8]]
+        },
+        {
+          "at": "2026-11-14T10:05:00",
+          "audio": {
+            "end": 43,
+            "jobId": "00000000-0000-0000-0000-0000000000C1",
+            "start": 40
+          },
+          "text": "Je t’envoie l’adresse.",
+          "until": "2026-11-14T10:05:00",
+          "words": [[0, 300, 2], [350, 650, 9], [700, 1000, 11]]
+        }
+      ],
+      "context": "Sam called the voice “Jun” twice in the same minute.",
+      "group": "voice",
+      "likelyPeople": [
+        {
+          "kind": "person",
+          "line": "Supplier, kitchen quote",
+          "name": "Idris Benali",
+          "ref": "person:idris"
+        }
+      ],
+      "links": [],
+      "options": [
+        {
+          "id": "this-is",
+          "label": "Someone else…",
+          "takes": "person or name"
+        },
+        {
+          "id": "not-relevant",
+          "label": "Don't name"
+        }
+      ],
+      "pushId": "push_voice_v1",
+      "question": "Who is this?",
+      "ref": "voice_v1",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "A voice from Saturday, 4 minutes with Sam",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "life",
+      "clips": [],
+      "contactsCard": {
+        "handles": ["+33 6 39 98 02 14"],
+        "name": "Marc"
+      },
+      "context": "Its name and handles fit more than one person.",
+      "group": "contacts card",
+      "likelyPeople": [
+        {
+          "kind": "person",
+          "line": "Fitter, works with Idris Benali",
+          "name": "Marc Delmas",
+          "ref": "person:marc"
+        },
+        {
+          "kind": "person",
+          "line": "Camille’s brother",
+          "name": "Marc Fenn",
+          "ref": "person:marc_fenn"
+        }
+      ],
+      "links": [],
+      "options": [
+        {
+          "id": "same-person",
+          "label": "Someone else…",
+          "takes": "person"
+        }
+      ],
+      "pushId": "push_person:con_marc",
+      "question": "Whose contact is this?",
+      "ref": "person:con_marc",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Place a Contacts card",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "life",
+      "clips": [],
+      "context": "The same number is in his mail, and the chat opens with that name.",
+      "evidence": {
+        "from": "Idris Benali, mail, 9 Nov",
+        "quote": "Mon numéro pro : 06 39 98 01 23"
+      },
+      "group": "guessed person",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_kitchen",
+        "name": "Kitchen quote, Halden house"
+      },
+      "networkIdentity": {
+        "chat": "33639980123@s.whatsapp.net",
+        "handle": "+33 6 39 98 01 23",
+        "network": "WhatsApp",
+        "newest": {
+          "at": "2026-11-17T09:14:00",
+          "by": "Idris B.",
+          "text": "Bonjour, c’est Idris. Le prix du fournisseur arrive vendredi."
+        },
+        "openUrl": "https://wa.me/33639980123",
+        "shownName": "Idris B."
+      },
+      "options": [
+        {
+          "id": "this-is",
+          "label": "Yes"
+        },
+        {
+          "id": "not-this-person",
+          "label": "No"
+        },
+        {
+          "id": "same-person",
+          "label": "Someone else…",
+          "takes": "person"
+        }
+      ],
+      "pushId": "push_guess_idris",
+      "question": "Is this Idris Benali?",
+      "ref": "guess_idris",
+      "ridesOn": {
+        "matterIds": ["matter_kitchen"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "A name Life can’t place: “Idris B.”, on WhatsApp",
+      "urgency": "improves"
+    },
+    {
+      "asker": "life",
+      "clips": [],
+      "context": "He wrote the price on Tuesday; nothing in the matter has changed since.",
+      "evidence": {
+        "from": "Idris Benali, Messenger, Tue 17 Nov",
+        "quote": "Voilà le prix du fournisseur : 4 200 € posé."
+      },
+      "group": "ending",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_kitchen",
+        "name": "Kitchen quote, Halden house"
+      },
+      "onMatters": [
+        {
+          "id": "matter_kitchen",
+          "name": "Kitchen quote, Halden house"
+        }
+      ],
+      "options": [
+        {
+          "id": "outdated",
+          "label": "Yes, done"
+        },
+        {
+          "id": "false",
+          "label": "Not yet"
+        }
+      ],
+      "pushId": "push_end_done",
+      "question": "Is this done?",
+      "ref": "end_done",
+      "ridesOn": {
+        "matterIds": ["matter_kitchen"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "said": {
+        "at": "2026-11-17T16:00:00",
+        "by": "Idris Benali",
+        "channel": "messenger",
+        "text": "Je t’envoie le prix du fournisseur demain.",
+        "to": "Sam"
+      },
+      "since": {
+        "at": "2026-11-18T09:00:00",
+        "by": "Idris Benali",
+        "channel": "messenger",
+        "text": "Voilà le prix du fournisseur : 4 200 € posé.",
+        "to": "Sam"
+      },
+      "title": "Idris Benali owed Sam the supplier price",
+      "urgency": "improves"
+    },
+    {
+      "asker": "life",
+      "clips": [
+        {
+          "at": "2026-11-15T18:02:00",
+          "audio": {
+            "end": 13,
+            "jobId": "00000000-0000-0000-0000-0000000000C2",
+            "start": 5
+          },
+          "text": "Je t’envoie le plan demain.",
+          "until": "2026-11-15T18:02:00",
+          "words": [
+            [0, 300, 2],
+            [350, 650, 9],
+            [700, 1000, 3],
+            [1050, 1350, 5],
+            [1400, 1700, 8]
+          ]
+        }
+      ],
+      "group": "voice",
+      "likelyPeople": [],
+      "links": [],
+      "options": [
+        {
+          "id": "this-is",
+          "label": "Yes"
+        },
+        {
+          "id": "not-this",
+          "label": "Someone else…",
+          "takes": "person or name"
+        },
+        {
+          "id": "not-relevant",
+          "label": "Don't name"
+        }
+      ],
+      "pushId": "push_voice_guess",
+      "question": "Is this Jun Watanabe?",
+      "ref": "voice_guess",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "A voice from Sunday, 8 seconds",
+      "urgency": "improves"
+    },
+    {
+      "asker": "life",
+      "clips": [],
+      "evidence": {
+        "from": "WhatsApp, Mon 9 Nov",
+        "quote": "Cam: on se voit samedi au marché ?"
+      },
+      "group": "guessed person",
+      "likelyPeople": [
+        {
+          "kind": "person",
+          "name": "Idris Benali",
+          "ref": "person:idris"
+        },
+        {
+          "kind": "person",
+          "name": "Nora Keller",
+          "ref": "person:nora"
+        }
+      ],
+      "links": [],
+      "options": [
+        {
+          "id": "this-is",
+          "label": "Yes"
+        },
+        {
+          "id": "not-this-person",
+          "label": "No"
+        },
+        {
+          "id": "same-person",
+          "label": "Someone else…",
+          "takes": "person"
+        }
+      ],
+      "pushId": "push_name_cam",
+      "question": "Is this Camille Vance?",
+      "ref": "name_cam",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "A name Life can’t place: “Cam”, on WhatsApp",
+      "urgency": "improves"
+    },
+    {
+      "asker": "life",
+      "clips": [],
+      "context": "Camille proposed Chez Odile on Saturday; you said you would handle it.",
+      "goal": "A table for eight at Chez Odile on Friday 27th.",
+      "group": "new matter",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_table",
+        "name": "Table for Mum’s 60th"
+      },
+      "options": [
+        {
+          "id": "start",
+          "label": "Start"
+        },
+        {
+          "id": "edit-goal",
+          "label": "Edit goal",
+          "takes": "note"
+        },
+        {
+          "id": "dismiss",
+          "label": "No"
+        }
+      ],
+      "pushId": "push_card_found",
+      "question": "Start an agent on this?",
+      "ref": "card_found",
+      "ridesOn": {
+        "matterIds": ["matter_table"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "said": {
+        "at": "2026-11-14T18:00:00",
+        "by": "Camille Vance",
+        "channel": "whatsapp",
+        "text": "On réserve chez Odile vendredi ?",
+        "to": "Camille Vance"
+      },
+      "title": "Life found a new matter: a table for Mum’s 60th",
+      "urgency": "improves"
+    }
+  ],
+  "deadlinesToday": 1
+}

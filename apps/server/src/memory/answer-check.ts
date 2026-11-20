@@ -86,13 +86,14 @@ async function typedPersonOf(a: CheckAnswer) {
   return { a: { ...a, person: r.ref }, recordedAs: people.nameOf(r.ref) };
 }
 
-/** Who an answer that takes "person or name" names: its `person`, else his new person's `name` (`partyNamed`). */
+/** Who an answer that takes "person or name" names: its `person`, else his new person's `name` (`partyNamed`), his `note` as who they are. */
 const namedIn = (a: CheckAnswer, x: WriterExtras) =>
-  a.name ? partyNamed(a.name, "person", x) : personIn(a);
+  a.name ? partyNamed(a.name, "person", x, a.note) : personIn(a);
 
 /**
- * The one party his word, truth/ or Contacts already holds by `name`, else a new `kind` added to his directory with
- * what it is to him (`addDirectoryEntry`, his own token's answer only).
+ * The one party of `kind` his word, truth/ or Contacts already holds by `name`, else a new `kind` added to his directory
+ * with what it is to him (`addDirectoryEntry`, his own token's answer only). A party of the other kind by that name is
+ * refused, never reused nor doubled.
  */
 async function partyNamed(
   name: string,
@@ -100,8 +101,14 @@ async function partyNamed(
   x: WriterExtras,
   relation?: string
 ) {
-  const r = (await readPeople()).readingNow(name);
+  const people = await readPeople();
+  const r = people.readingNow(name);
   if (r && r.by !== "guess" && !r.isShared) {
+    if (people.isOrganization(r.ref) !== (kind === "organization")) {
+      throw new Error(
+        `Not done: "${name}" is already ${kind === "organization" ? "a person" : "an organization"} he knows.`
+      );
+    }
     return r.ref;
   }
   if (!x.addDirectoryEntry) {

@@ -14,7 +14,6 @@ import {
 } from "./communication-styles";
 import type { Decision } from "./decisions";
 import { communicationStylePath } from "./memory-files";
-import { nowLines } from "./read-person-page";
 import { lifeChat } from "./units";
 
 const msg = (
@@ -173,12 +172,7 @@ test("a file of the 6 Nov shape reads as none; one of this shape is read and sho
       })
     );
     const block = communicationStyleBlock(readCommunicationStyle(ref));
-    const now = nowLines({
-      after: [],
-      before: ["CLOSE", ...block],
-      open: () => [],
-    }).join("\n");
-    expect(now).toContain('- they, chat (whatsapp): Short. E.g. "haha ok"');
+    expect(block).toContain('- they, chat (whatsapp): Short. E.g. "haha ok"');
     expect(communicationStyleBlock([])).toEqual([]);
   } finally {
     rmSync(path, { force: true });

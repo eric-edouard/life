@@ -2,7 +2,7 @@ import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { agentOf } from "../host/desk-read";
 import { pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
-import { advance, grow, setup } from "./test-desk";
+import { advance, setup } from "./test-desk";
 
 // A deadline wake says since when to sweep; an event wake and a first turn do not. Made-up agent and chat.
 
@@ -45,11 +45,11 @@ test("a first turn says nothing of it", async () => {
   expect(desk.db.query("select 1 from turn").all()).toHaveLength(1);
 });
 
-test("a deadline wake that starts a fresh session (the old one grew) carries the same line after the packet", async () => {
+test("a deadline wake that starts a fresh session (the old one is gone) carries the same line after the packet", async () => {
   const { desk, fake, waiting } = setup();
   const id = await waiting(HOUR);
   const endedAt = clock().toISOString();
-  grow(desk, agentOf(desk.db, id)?.session ?? "", 130_000);
+  fake.sessions.delete(agentOf(desk.db, id)?.session ?? "");
   advance(HOUR + MIN);
   await wakeDue(desk);
   const start = fake.said.at(-1)?.message ?? "";

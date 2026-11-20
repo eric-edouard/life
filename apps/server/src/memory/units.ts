@@ -407,26 +407,44 @@ export const textOf = (e: SourceEvent) => (e.phoneCall ? callLine(e) : e.text);
  * `isDirect` uses the source's group predicate, else more than one other sender means a group.
  */
 export function chatPerson(list: SourceEvent[], resolve: Resolve) {
-  const others = new Set(
-    list
-      .filter((e) => !e.fromMe)
-      .map((e) => resolve(e.sender, e.source) ?? e.sender)
-  );
   const [first] = list;
-  if (!(first && isDirect(first.source, first.chat, others.size))) {
+  return first
+    ? oneToOnePersonOf(
+        {
+          chat: first.chat,
+          chatName: list.every((e) => e.phoneCall) ? null : first.chatName,
+          others: new Set(
+            list
+              .filter((e) => !e.fromMe)
+              .map((e) => resolve(e.sender, e.source) ?? e.sender)
+          ),
+          source: first.source,
+        },
+        resolve
+      )
+    : null;
+}
+
+/** `chatPerson`'s rule over what a reader holds: the chat, its name, and its other writers as resolved (else as written). */
+export function oneToOnePersonOf(
+  o: {
+    chat: string;
+    chatName?: string | null;
+    others: ReadonlySet<string>;
+    source: SourceName;
+  },
+  resolve: Resolve
+) {
+  if (!isDirect(o.source, o.chat, o.others.size)) {
     return null;
   }
   const named =
-    first.chatName &&
-    !list.every((e) => e.phoneCall) &&
-    kindOf(first.source) !== "mail"
-      ? resolve(first.chatName)
-      : null;
-  const person = [...others].find((o) => o.startsWith("person:"));
+    o.chatName && kindOf(o.source) !== "mail" ? resolve(o.chatName) : null;
+  const person = [...o.others].find((x) => x.startsWith("person:"));
   // A chat only he wrote in is with whoever its key names (its source's `handleOf`: a WhatsApp id holds a phone).
-  const keyed = sourceOf(first.source).handleOf?.(first.chat) ?? first.chat;
+  const keyed = sourceOf(o.source).handleOf?.(o.chat) ?? o.chat;
   return (
-    person ?? (others.size === 0 ? resolve(keyed, first.source) : null) ?? named
+    person ?? (o.others.size === 0 ? resolve(keyed, o.source) : null) ?? named
   );
 }
 

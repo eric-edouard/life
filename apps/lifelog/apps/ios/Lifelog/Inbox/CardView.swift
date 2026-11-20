@@ -6,6 +6,41 @@ import SwiftUI
 struct CardNotes: Equatable {
     var inputs: [String: CardInput] = [:]
     var taken: Taken?
+    /// The create sheet open over an ask: kept by the host, above its list of asks, so a read that takes the ask away
+    /// (his answer) never closes it before it closes itself.
+    var creating: Creating?
+
+    /// The ask the host keeps on show whatever the read says: his result's, else the one the create sheet answers.
+    var shownCheck: Check? { taken?.check ?? creating?.check }
+}
+
+/// The create sheet's ask and name, with where the asks go once it is created: the ask after it as he opened it (the
+/// ask leaves the list while its answer runs).
+struct Creating: Identifiable, Equatable {
+    let check: Check
+    let name: String
+    /// Opened set to an organization ("Organization" on the card), else to a person.
+    let isOrganization: Bool
+    let nextRef: String?
+    /// The pager's asks as the sheet opened, kept under it until it closes.
+    let asks: [Check]
+
+    var id: String { "create " + check.ref + " " + name }
+}
+
+extension View {
+    /// The create sheet of `notes`, presented by the host of the asks (the Inbox, a matter's page); `leave` goes on from
+    /// the ask once it is created.
+    func createSheet(_ notes: Binding<CardNotes>, leave: @escaping (Taken) -> Void) -> some View {
+        sheet(item: notes.creating) { creating in
+            CreateSheet(check: creating.check, name: creating.name, isOrganization: creating.isOrganization) {
+                request in
+                notes.wrappedValue.creating = nil
+                leave(Taken(check: creating.check, request: request, nextRef: creating.nextRef, runtimeName: nil))
+            }
+            .sheetStack()
+        }
+    }
 }
 
 /// One ask on show, whoever hosts it (the Inbox, a matter's stack): the ask with its answers, then its result in its
@@ -29,8 +64,10 @@ struct CardView: View {
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
-    /// The ask whose "Same as…" he opened.
-    @State private var sameAsRef: String?
+    /// The people sheet open over an ask.
+    @State private var peopleRef: String?
+    /// The create sheet asked from the people sheet: the host opens it once the people sheet is gone.
+    @State private var createsNext: Creating?
 
     var body: some View {
         CardArrangement(
@@ -64,35 +101,43 @@ struct CardView: View {
             try? await Task.sleep(for: .seconds(1.5))
             if !Task.isCancelled { leave(taken, false) }
         }
-        .sheet(item: sameAsCard) { check in
-            SameAsSheet(
-                people: check.likelyPeople,
-                takesNewName: check.namingOption?.takes == .personOrName
-            ) { choice in
-                if let request = check.answer(naming: choice) { submit(check, request) }
+        .task(id: check.ref) { openFixtureSheet() }
+        .sheet(isPresented: isShowingPeople, onDismiss: { (notes.creating, createsNext) = (createsNext, nil) }) {
+            if let check = checks.first(where: { $0.ref == peopleRef }) {
+                SameAsSheet(
+                    people: check.likelyPeople, takesNewName: check.namingOption?.takes == .personOrName,
+                    createsBySheet: check.createsBySheet, cardName: check.askedName
+                ) { choice in
+                    if let request = check.answer(naming: choice) { submit(check, request) }
+                } create: {
+                    (createsNext, peopleRef) = (creating(check, $0), nil)
+                }
+                .sheetStack()
             }
-            .sheetStack()
         }
     }
 
-    /// The asks side by side, one page each: he swipes left for the next, right to come back, and the next one's edge shows
-    /// at the right. The scroll view is one page wide and its clip is off, so a page's width is the paging step and the
-    /// edge still shows. An ask alone has no edge. An ask he passes stays where it was.
+    /// The asks side by side, one page each, straight on the page: he swipes left for the next, right to come back, and the
+    /// dots under the ask say where he is. The scroll view is one page wide, so a page's width is the paging step; with
+    /// several asks it stops `Pager.edge` short of its box (as wide as its box, it never paged to the ask a push opens) and
+    /// clips there, so nothing of the next ask shows. An ask he passes stays where it was.
     private var pager: some View {
+        let checks = paged
         let edge = checks.count > 1 ? Pager.edge : 0
         return GeometryReader { box in
             ScrollViewReader { proxy in
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: 0) {
-                        ForEach(checks) { check in
+                        ForEach(Array(checks.enumerated()), id: \.element.ref) { index, check in
                             CheckCard(
                                 check: check, runtimeName: life.runtimeName(of: check),
                                 openMatter: { router.open(matter: $0) },
                                 input: input(check.ref),
                                 isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
-                                answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
+                                answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
+                                create: { notes.creating = creating(check, $0, asOrganization: $1) },
+                                page: checks.count > 1 ? (index, checks.count) : nil
                             )
-                            .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.card))
                             .padding(.leading, Pager.gap)
                             .containerRelativeFrame(.horizontal)
                             .id(check.ref)
@@ -101,7 +146,6 @@ struct CardView: View {
                     .scrollTargetLayout()
                 }
                 .frame(width: box.size.width - edge - Pager.gap)
-                .scrollClipDisabled()
                 .scrollPosition(id: $current, anchor: .leading)
                 .scrollTargetBehavior(.paging)
                 .scrollIndicators(.hidden)
@@ -127,11 +171,29 @@ struct CardView: View {
         Binding(get: { notes.inputs[ref] ?? CardInput() }, set: { notes.inputs[ref] = $0 })
     }
 
-    /// The ask whose "Same as…" he opened: that ask, even if the list reorders under the sheet; gone with it.
-    private var sameAsCard: Binding<Check?> {
-        Binding(
-            get: { sameAsRef.flatMap { ref in checks.first { $0.ref == ref } } },
-            set: { if $0 == nil { sameAsRef = nil } })
+    /// The asks the pager shows: while the create sheet is up, those it opened over, so the next ask never comes in
+    /// behind it before it closes.
+    private var paged: [Check] { notes.creating?.asks ?? checks }
+
+    /// The people sheet goes with its ask.
+    private var isShowingPeople: Binding<Bool> {
+        Binding(get: { checks.contains { $0.ref == peopleRef } }, set: { if !$0 { peopleRef = nil } })
+    }
+
+    /// `-fixtureSheet create`: the create sheet over the ask on show, to be photographed.
+    private func openFixtureSheet() {
+        #if DEBUG
+            if LifeFixture.sheet == "create", check.createsByName, let name = check.askedName {
+                notes.creating = creating(check, name)
+            }
+        #endif
+    }
+
+    /// The create sheet for `check`, with the ask after it as he opened it.
+    private func creating(_ check: Check, _ name: String, asOrganization: Bool = false) -> Creating {
+        Creating(
+            check: check, name: name, isOrganization: asOrganization, nextRef: checks.ref(after: check.ref),
+            asks: checks)
     }
 
     private func submit(_ check: Check, _ request: AnswerRequest) {
@@ -152,7 +214,7 @@ struct CardView: View {
     }
 }
 
-/// The pager's measures, from the Ask panel: 12 from the sides and between cards, the next card's edge showing 10.
+/// The pager's measures: 12 from the sides and between asks, and the edge it stops short of its box.
 private enum Pager {
     static let gap = Metrics.Spacing.xs * 3
     static let edge = Metrics.Spacing.xs * 2.5
@@ -174,10 +236,13 @@ struct CardPage: View {
         page
             // A pushed screen: Back, then the Pendant.
             .shellBar("", hasSettings: false)
+            // Above the ask, so the matter's read that takes it away (his answer) never closes it before it does.
+            .createSheet($notes) { _ in leave() }
     }
 
     @ViewBuilder private var page: some View {
-        if let check = notes.taken?.check.ref == ref ? notes.taken?.check : source.first(where: { $0.ref == ref }) {
+        if let check = notes.shownCheck.flatMap({ $0.ref == ref ? $0 : nil }) ?? source.first(where: { $0.ref == ref })
+        {
             CardView(
                 check: check, checks: [check], current: $current, notes: $notes,
                 context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check))

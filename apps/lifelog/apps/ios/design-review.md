@@ -11,21 +11,28 @@ Inputs: the PR or branch and its worktree, or "the whole app" for an audit.
    end with `Design: unreviewable`.
 2. Read the diff's Swift (an audit: the screens' Swift). Screens must use `DesignSystem/` components, type steps,
    `Palette`, `Metrics` and `Motion`, and draw none of their own (a row, a button, a badge, a field, a state mark, a box).
-3. Capture the screens yourself; never take the builder's pictures. `bun run ios:project` at the worktree's root, then from
+3. The designed stills: `bun run design:shots [Frame…]` at the worktree's root builds the app, photographs each frame
+   the frame map reaches (`apps/lifelog/fixtures/design/frames.json`, joined by name to the designer's
+   `frame-map.json`) and writes `derived/design-shots/index.html`: the design's picture beside the app's, with the
+   frame's state in words. Open each pair at full size and list every difference (words, order, missing or extra
+   pieces, colour, spacing, state), each marked "fix" or "kept: <reason>" (a ruling that defers it, or a known limit the
+   frame map gives as its `why`). A frame listed as not mapped is captured by hand, below, or said why not.
+4. Everything else, by hand: transitions and the states no frame draws. Capture them yourself; never take the
+   builder's pictures. `bun run ios:project` at the worktree's root, then from
    `apps/lifelog/apps/ios`: `xcrun simctl list devices booted` for the udid, `xcodebuild -project Lifelog.xcodeproj -scheme Lifelog -configuration Debug
    -destination id=<udid> -derivedDataPath $TMPDIR/review -quiet build`, `xcrun simctl install <udid>
    $TMPDIR/review/Build/Products/Debug-iphonesimulator/lifelog.app`, then `xcrun simctl launch <udid> com.ericedouard.lifelog
-   <args>`. Use an iPhone and the Duo: the Duo's second screen is `--display=1` (`xcrun simctl
-   io <udid> enumerate` lists them), and `-fixturePose wide|upright` draws the open Duo on any simulator. For each
+   <args>`. Use an iPhone and the Duo: the closed Duo is `--display=primary`; no script unfolds it, so
+   `-fixturePose wide|upright` draws the open Duo (a sheet still opens at the closed screen's size). For each
    screen in scope, capture every state (`Fixtures/LifeFixture.swift` lists the scenarios): content `-fixtureLife ok`,
    empty `empty`, loading `loading`, a stale read `stale`, failed `failed` and `unreachable`, offline `-offline`, slow
    `-serverFlaky`, busy and result `-fixtureAnswer sending|sent|notSent` and `-fixtureStart`.
-4. Record each transition in scope (a tap, a swipe, a sheet, a result arriving, a row coming or going): start `xcrun
+5. Record each transition in scope (a tap, a swipe, a sheet, a result arriving, a row coming or going): start `xcrun
    simctl io <udid> recordVideo v.mp4` in the background, perform it, then stop the recording with SIGINT and wait for
    it to exit. Cut it to frames (`ffmpeg -i v.mp4 -vf fps=15 f%03d.png`) and look at them, against the motion table:
    what moves, from where, how long; nothing jumps, flickers or stutters; nothing blank between two states; no spinner
    where the frame shows content.
-5. Compare each capture with its frame:
+6. Compare each capture with its frame:
    - order, grouping and copy (words, case, punctuation);
    - which component draws each part, and the sizes and spacing: content that breathes, never crammed or stuck to an
      edge;

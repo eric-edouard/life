@@ -1,9 +1,8 @@
 import { clock, daysBefore } from "../core/clock";
-import { within } from "../core/lists";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
 import { ClosenessLevel } from "../records/observation";
-import { levelsWith } from "./closeness";
-import { QUOTE_MAX, section } from "./index-rows";
+import { closerOf, levelsWith } from "./closeness";
+import { QUOTE_MAX } from "./index-rows";
 import {
   doneOnOf,
   type MatterStepNow,
@@ -13,7 +12,6 @@ import {
 import { readMatterBook } from "./matters";
 import {
   type Candidate,
-  isOwedToHim,
   type OpenItem,
   OVERDUE_DAYS,
   openItems,
@@ -25,8 +23,7 @@ import type { People } from "./who";
 import { repliesOwed } from "./words";
 import { dayNow, dayStart, localDate } from "./zones";
 
-// The open items the read path shows, read from the matters and the chats: what `read_day` lists as due and what a
-// person's page lists as open with them. `open-items.ts` times and ranks them.
+// The open items the read path shows, read from the matters and the chats: what `read_day` lists as due. `open-items.ts` times and ranks them.
 
 /** How a step ended, in words, with its day: none while open. */
 const endingWords = ({ ending: e }: Pick<MatterStepNow, "ending">) => {
@@ -111,53 +108,6 @@ export function dueOf(
   return openItems(items, { ...context, date }).map(itemLine);
 }
 
-/**
- * What is open between him and `ref`, every item ranked (`rankedItems`), as the person page's section: what he owes
- * them, then what he waits on (`isOwedToHim`). Theirs are the open matters they are in, whatever their role, and the
- * replies he owes them (`items`). `room`: about how many characters the lines may take, the top-ranked first; what
- * does not fit is counted and left to `read_matters`.
- */
-export function openWithOf(
-  ref: string,
-  {
-    goals,
-    items: all,
-    owner,
-    room = Number.POSITIVE_INFINITY,
-    today,
-  }: {
-    goals: string[][];
-    items: Candidate[];
-    /** His name (`readOwnerName`). */
-    owner: string;
-    room?: number;
-    today: string;
-  }
-) {
-  const items = rankedItems(
-    all.filter((c) => c.person === ref || c.people?.includes(ref)),
-    { date: today, goals }
-  );
-  // One cut over the ranked items, then the two sections of what fits: the top-ranked always come first.
-  const fits = within(items, room, (i) => itemLine(i).length + 1);
-  const his = fits.filter((i) => !isOwedToHim(i)).map(itemLine);
-  const waits = fits.filter(isOwedToHim).map(itemLine);
-  const more = items.length - fits.length;
-  return items.length > 0
-    ? [
-        "",
-        `Open with them (done when Life sees it done or ${owner} says so):`,
-        ...section(`${owner} owes them:`, his),
-        ...section(`${owner} waits on:`, waits),
-        ...(more > 0
-          ? [
-              `${more} more open with them, ranked lower: \`read_matters\` with person ${ref.slice(ref.indexOf(":") + 1)}.`,
-            ]
-          : []),
-      ]
-    : [];
-}
-
 /** Every open matter on `today` (`book`, `readMatterBook` when not given), with the replies he owes up to `end`. */
 export async function readOpenItems(
   people: People,
@@ -194,10 +144,7 @@ export const rankContextOf = (people: People) => ({
   levels: new Map(
     [...levelsWith(people)].map(([p, l]) => [
       p,
-      Math.min(
-        ClosenessLevel.options.indexOf(l.personal),
-        ClosenessLevel.options.indexOf(l.work)
-      ),
+      ClosenessLevel.options.indexOf(closerOf(l)),
     ])
   ),
 });

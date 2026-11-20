@@ -99,10 +99,19 @@ export function latest(
 const NOT_BUILT =
   "Life's memory index isn't built yet (bun life memory index).";
 
-/** `lines` from the index under the usual heading; says so when it isn't built. */
-export function withIndex(lines: (db: Database) => string[]) {
-  const out = readIndex(lines);
-  return out === null ? NOT_BUILT : asData(out);
+/** `lines` from the index under the usual heading, or a read's data as it is; says so when it isn't built. */
+export function withIndex(read: (db: Database) => string[]): string;
+export function withIndex<T extends object>(
+  read: (db: Database) => string[] | T
+): string | T;
+export function withIndex<T extends object>(
+  read: (db: Database) => string[] | T
+): string | T {
+  const out = readIndex((db): string[] | object => read(db));
+  if (out === null) {
+    return NOT_BUILT;
+  }
+  return Array.isArray(out) ? asData(out) : (out as T);
 }
 
 /** The page's text without its frozen sections (`shownBody`), each Between us line followed by the days of its first and latest evidence. */

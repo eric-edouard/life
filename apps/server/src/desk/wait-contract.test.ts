@@ -31,16 +31,7 @@ import {
   wakeDue,
 } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
-import {
-  ANA,
-  advance,
-  ahead,
-  asgOf,
-  grow,
-  on,
-  setup,
-  started,
-} from "./test-desk";
+import { ANA, advance, ahead, asgOf, on, setup, started } from "./test-desk";
 
 /** Whether the hold rule holds a matter of one step, `step`, whose newest step is at `at` (the start of time by default). */
 const holds = (desk: Desk, step: string, at = "") =>
@@ -380,21 +371,25 @@ test("a run's end ends its turn, once: the lost-turn check leaves a watched run 
   expect(turns(id).at(-1)).toEqual({ cause: "deadline", outcome: "waited" });
 });
 
-test("W16a: a wake into a session grown by 45,000 tokens (two event turns' reads) keeps it", async () => {
+// Regression (his ruling of 20 Nov 2026): a session is resumed however much it grew; its runtime compacts it.
+test("W16a: a wake into a session past the old 120,000-token limit resumes it", async () => {
   const { desk, waiting } = setup();
   const id = await waiting();
   const old = agentOf(desk.db, id);
-  grow(desk, old?.session ?? "", 45_000);
+  desk.db.run("update session set context_at_first_call = 1000 where ref = ?", [
+    old?.session ?? "",
+  ]);
+  desk.db.run("update turn set context_used = 500000 where agent_id = ?", [id]);
   advance(HOUR);
   await wakeDue(desk);
   expect(agentOf(desk.db, id)?.session).toBe(old?.session);
 });
 
-test("W16: a wake into a session grown by 130,000 tokens starts a fresh one from the packet; the old link stays", async () => {
+test("W16: a wake into a session that is gone starts a fresh one from the packet; the old link stays", async () => {
   const { desk, fake, waiting } = setup();
   const id = await waiting();
   const old = agentOf(desk.db, id);
-  grow(desk, old?.session ?? "", 130_000);
+  fake.sessions.delete(old?.session ?? "");
   writeNotes(desk, on(desk, id), "Test notes: Ana may answer Friday");
   advance(HOUR);
   await wakeDue(desk);
@@ -458,7 +453,7 @@ test("W20: finish ends the agent and withdraws its open decision", async () => {
     question: "Test: send the made-up reply to Ana?",
     title: "a test",
   });
-  grow(desk, agentOf(desk.db, id)?.session ?? "", 130_000);
+  fake.sessions.delete(agentOf(desk.db, id)?.session ?? "");
   advance(HOUR);
   await wakeDue(desk);
   expect(fake.said.at(-1)?.message).toContain(asked.id);

@@ -130,6 +130,7 @@ const card = (over: Partial<Contact>): Contact => ({
   birthday: null,
   handles: [],
   id: "card-1:ABPerson",
+  labels: {},
   name: "Ana Contact",
   profiles: [],
   related: [],

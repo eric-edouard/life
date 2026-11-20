@@ -123,7 +123,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_new_events",
     "read_observation",
     "read_open_todo_items",
-    "read_person_page",
+    "read_people_and_organizations",
     "read_person_pictures",
     "read_places_visited",
     "read_processing_runs",
@@ -144,7 +144,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
       .sort()
   ).toEqual([
     "answer_check(name,note,options,person,ref,value)",
-    "change_directory_entry(action,aliases,area,handles,id,kind,language,name,number,people,relation,repos,said,status,text)",
+    "change_directory_entry(action,aliases,area,domains,handles,id,kind,language,name,number,people,pictureFrom,projects,relation,repos,said,status,text)",
     "change_registered_agent(action,agent,effort,folder,model,project,runtime,said,step)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
@@ -161,7 +161,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_new_events(arguments,cursor,event,limit)",
     "read_observation(id)",
     "read_open_todo_items(list)",
-    "read_person_page(before,name)",
+    "read_people_and_organizations(before,name,query)",
     "read_person_pictures(ids)",
     "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
     "read_processing_runs(cursor,limit,steps)",
@@ -760,7 +760,7 @@ test("built to serve reads only (the question cases' agent), the connector regis
   for (const write of CONNECTOR_WRITES) {
     expect(names).not.toContain(write);
   }
-  expect(names).toContain("read_person_page");
+  expect(names).toContain("read_people_and_organizations");
   expect(names).toContain("search");
 });
 
