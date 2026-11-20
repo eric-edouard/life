@@ -27,7 +27,11 @@ struct MattersScreen: View {
             // A swipe's mark, said back with Undo.
             .saysBack()
             // Beside the matter, the Pendant and Settings are the matter column's (the list's bar keeps its title).
-            .shellBar("Matters", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
+            .shellBar(
+                "Matters", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular, isTitleLarge: true
+            )
+            // The filter on, under the title: "Important".
+            .navigationSubtitle(filter.shownName ?? "")
             .filterBar(isFiltered: filter != .everything, identifier: "matters.filter") { filterChoices }
         } detail: {
             if let id = router.matter {
@@ -212,6 +216,19 @@ struct MatterRowView: View {
                 parked ? "Parked" : nil,
             ]
             .compactMap(\.self).joined(separator: ", "))
+    }
+}
+
+extension MatterFilter {
+    /// Its name in the filter menu; none for everything.
+    var shownName: String? {
+        switch self {
+        case .everything: nil
+        case .needsYou: "Needs you"
+        case .important: "Important"
+        case .agentWorking: "Agent working"
+        case .area(let area): area
+        }
     }
 }
 

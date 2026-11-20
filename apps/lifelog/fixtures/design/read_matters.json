@@ -50,6 +50,45 @@
       "important": true
     },
     {
+      "areas": ["Home"],
+      "id": "matter_gutter",
+      "lastStepAt": "2026-11-17T10:00:00",
+      "name": "Roof gutter",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "do",
+        "text": "Call the roofer back."
+      },
+      "openedDaysAgo": 8,
+      "project": {
+        "id": "halden",
+        "name": "Halden house",
+        "status": "active"
+      },
+      "status": "moving"
+    },
+    {
+      "areas": ["Papers"],
+      "id": "matter_shed",
+      "lastStepAt": "2026-11-17T10:00:00",
+      "name": "Garden shed permit",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "do",
+        "text": "Fill in the permit form."
+      },
+      "openedDaysAgo": 10,
+      "project": {
+        "id": "halden",
+        "name": "Halden house",
+        "status": "active"
+      },
+      "status": "moving",
+      "agent": "agt_shed"
+    },
+    {
       "agent": "agt_lease",
       "areas": ["Home", "Money"],
       "goal": {
@@ -156,44 +195,6 @@
         "with": ["Priya Nair"]
       },
       "status": "stuck"
-    },
-    {
-      "areas": ["Home"],
-      "id": "matter_gutter",
-      "lastStepAt": "2026-11-17T10:00:00",
-      "name": "Roof gutter",
-      "needsYou": false,
-      "nextStep": {
-        "by": "life",
-        "kind": "do",
-        "text": "Call the roofer back."
-      },
-      "openedDaysAgo": 8,
-      "project": {
-        "id": "halden",
-        "name": "Halden house",
-        "status": "active"
-      },
-      "status": "moving"
-    },
-    {
-      "areas": ["Papers"],
-      "id": "matter_shed",
-      "lastStepAt": "2026-11-17T10:00:00",
-      "name": "Garden shed permit",
-      "needsYou": false,
-      "nextStep": {
-        "by": "life",
-        "kind": "do",
-        "text": "Fill in the permit form."
-      },
-      "openedDaysAgo": 10,
-      "project": {
-        "id": "halden",
-        "name": "Halden house",
-        "status": "active"
-      },
-      "status": "moving"
     }
   ]
 }

@@ -121,22 +121,28 @@ struct TextLink: View {
     }
 }
 
-/// What he just answered or changed, with Undo while it can be taken back: 48 high on `tile`, a check in `ok`, its
-/// words; a change that was not made says why, after `flag`'s glyph, with no Undo. It sits in a bar, so it takes no room
-/// from the answers.
+/// What he just answered or changed (the toast spec of 20 Nov): a glass capsule 44 high that hugs its content, a check
+/// in `ok` (a change that was not made: `flag`'s glyph and why), its words on one line, and Undo while it can be taken
+/// back, a `pick` capsule inside it. It sits at the top of the pane, so it takes no room from the answers.
 struct Toast: View {
     let words: String
     var glyph = StateGlyph.ok
     let undo: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: Metrics.Spacing.s) {
+        HStack(spacing: 8) {
             glyph
-            Text(words).font(.buttonLabel).foregroundStyle(Palette.fg).lineLimit(2)
-            if let undo { TextLink("Undo", isMuted: false, action: undo).padding(.leading, Metrics.Spacing.xs) }
+            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(1)
+            if let undo {
+                Button(action: undo) {
+                    Text("Undo").font(.chip).foregroundStyle(Palette.fg).padding(.horizontal, 12).frame(height: 32)
+                        .background(Color.pick, in: .capsule).contentShape(.capsule)
+                }
+                .buttonStyle(.plain).fixedSize()
+            }
         }
-        .padding(.horizontal, 18).padding(.vertical, Metrics.Spacing.xs).frame(minHeight: 48)
-        .background(Palette.tile, in: .capsule)
+        .padding(.leading, 14).padding(.trailing, undo == nil ? 14 : 6).frame(minWidth: 120, minHeight: 44)
+        .floatingGlass()
     }
 }
 
@@ -153,9 +159,22 @@ extension View {
     /// the closed Duo's side column (`inSideColumn`) only a change that was not made, the column's capsule says the rest.
     func saidBackToast(inSideColumn: Bool) -> some View { modifier(SaidBackToast(inSideColumn: inSideColumn)) }
 
-    /// A page's said-back toast: over the top, or the capsule in the closed Duo's side column (`ColumnToast`). Declared
-    /// before the page's top group, so the capsule stacks under it.
-    func saysBack() -> some View { modifier(SaysBack()) }
+    /// A page's said-back toast, over the top of its pane (the toast spec: the closed Duo's column capsule is gone).
+    func saysBack() -> some View { saidBackToast(inSideColumn: false) }
+
+    /// A page's title steps aside while a toast is over it: on the closed Duo, where no bar holds the toast.
+    func stepsAsideForToast() -> some View { modifier(StepsAsideForToast()) }
+}
+
+private struct StepsAsideForToast: ViewModifier {
+    @Environment(LifeStore.self) private var life
+    @State private var inSideColumn = false
+
+    func body(content: Content) -> some View {
+        let isCovered = inSideColumn && life.saidBack != nil
+        content.opacity(isCovered ? 0 : 1).motion(Motion.standard, value: isCovered)
+            .reportsSideColumn($inSideColumn)
+    }
 }
 
 private struct SaidBackToast: ViewModifier {
@@ -172,26 +191,6 @@ private struct SaidBackToast: ViewModifier {
             }
             .motion(Motion.standard, value: life.saidBack?.id)
         }
-    }
-}
-
-private struct SaysBack: ViewModifier {
-    @Environment(LifeStore.self) private var life
-    @State private var inSideColumn = false
-
-    func body(content: Content) -> some View {
-        let said = life.saidBack?.undo == nil ? nil : life.saidBack
-        content
-            .toolbar {
-                if inSideColumn, #available(iOS 27.1, *) {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        ColumnToast(answered: said?.words) { said.flatMap(life.undoing)?() }
-                    }
-                    .sharedBackgroundVisibility(.hidden).axisBehavior(.verticalPreferred)
-                }
-            }
-            .reportsSideColumn($inSideColumn)
-            .saidBackToast(inSideColumn: inSideColumn)
     }
 }
 

@@ -29,6 +29,7 @@ struct ProjectPage: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text(head.name).font(.screenName).foregroundStyle(Palette.fg)
                     .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+                    .stepsAsideForToast()
                     .padding(.top, Metrics.Spacing.s)
                 SegmentedChoice(
                     choices: [ProjectStatus.active, .parked, .done],

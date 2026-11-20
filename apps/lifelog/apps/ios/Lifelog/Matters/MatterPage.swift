@@ -111,7 +111,7 @@ struct MatterPage: View {
             .joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 8) {
             Text(row.name).font(.screenName).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
+                .accessibilityAddTraits(.isHeader).stepsAsideForToast()
             if !unanswered(matter).isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
             HStack(spacing: 0) {
                 Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small).foregroundStyle(

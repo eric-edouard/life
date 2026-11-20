@@ -10,7 +10,7 @@
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (a tapped push's one-card read takes 5 s), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused; `sending`: it never ends); `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, `-fixtureProject <id>` (its page, pushed on the matter), and `-fixtureSheet pendant|settings|agent|pair|pairing|replacePendant|pairPendant|create`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, `-fixtureProject <id>` (its page, pushed on the matter), `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|pair|pairing|replacePendant|pairPendant|create`
     /// open the screen to show (`create` holds Created, to be photographed). `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -24,6 +24,10 @@
         nonisolated static let tab = value(of: "-fixtureTab")
         nonisolated static let matter = value(of: "-fixtureMatter")
         nonisolated static let project = value(of: "-fixtureProject")
+        /// `-fixtureUnmarked <matter id>`: that matter starts without his mark; `-fixtureParked <project id>`: that
+        /// project starts parked.
+        nonisolated static let unmarked = value(of: "-fixtureUnmarked")
+        nonisolated static let parked = value(of: "-fixtureParked")
         nonisolated static let sheet = value(of: "-fixtureSheet")
         /// `-fixtureAgent notStarted|running`: Nora's agent never began (its runtime refused), for the Try again swap, or works.
         nonisolated static let agent = value(of: "-fixtureAgent")
@@ -114,8 +118,8 @@
         private let started = Mutex(false)
         private let wholeReads = Mutex(0)
         /// His marks and the projects' statuses as he set them here, over the design data.
-        private let marks = Mutex([String: Bool]())
-        private let statuses = Mutex([String: String]())
+        private let marks = Mutex(LifeFixture.unmarked.map { [$0: false] } ?? [String: Bool]())
+        private let statuses = Mutex(LifeFixture.parked.map { [$0: "parked"] } ?? [String: String]())
 
         init(scenario: String) {
             self.scenario = scenario
