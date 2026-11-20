@@ -8,6 +8,8 @@ private let needsYourAnswer = "Needs your answer"
 /// is in it, and its steps, newest first.
 struct MatterPage: View {
     let id: String
+    /// Settings beside the Pendant: on a regular width the list's bar has neither, so the page carries both.
+    var hasSettings = false
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
@@ -21,8 +23,8 @@ struct MatterPage: View {
             content: { matter in page(matter) }
         )
         .background(Palette.bg)
-        // Back on the left, the Pendant alone on the right; beside the list too, never in the side column.
-        .shellBar("", hasSettings: false)
+        // Back on the left, the Pendant on the right (and Settings when the list's bar has neither).
+        .shellBar("", hasSettings: hasSettings)
         .task(id: life.answersEnded) { await life.refreshMatter(id) }
     }
 

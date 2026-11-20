@@ -166,6 +166,12 @@ struct CardPage: View {
     @State private var current: String?
 
     var body: some View {
+        page
+            // A pushed screen: Back, then the Pendant.
+            .shellBar("", hasSettings: false)
+    }
+
+    @ViewBuilder private var page: some View {
         if let check = notes.taken?.check.ref == ref ? notes.taken?.check : source.first(where: { $0.ref == ref }) {
             CardView(
                 check: check, checks: [check], current: $current, notes: $notes,
