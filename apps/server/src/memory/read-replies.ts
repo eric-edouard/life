@@ -60,38 +60,29 @@ const filesOf = (dir: string) =>
         .map((n) => join(dir, n))
     : [];
 
-/** The stored lines of each file of the folder `where`, oldest first; a file is read by `readAppended` (its new lines only). */
-export const readReplies = (where = READ_REPLIES) =>
-  filesOf(where).map((file) =>
-    readAppended(
-      file,
-      ReadReply,
-      (last?: ReadReply[]) => [...(last ?? [])],
-      (all, line) => {
-        all.push(line);
-      }
-    )
+/** A file's stored lines, by `readAppended` (its new lines only). */
+const readReplyFile = (file: string) =>
+  readAppended(
+    file,
+    ReadReply,
+    (last?: ReadReply[]) => [...(last ?? [])],
+    (all, line) => {
+      all.push(line);
+    }
   );
+
+/** The stored lines of each file of the folder `where`, oldest first. */
+export const readReplies = (where = READ_REPLIES) =>
+  filesOf(where).map(readReplyFile);
 
 /**
  * The stored lines of the month files an instant window touches (replies are filed by their first message's UTC
  * month): a reader of recent replies never reads every year.
  */
-export function readRepliesSince(since: string, where = READ_REPLIES) {
-  const from = readReplyPath(since, where);
-  return filesOf(where)
-    .filter((f) => f >= from)
-    .flatMap((file) =>
-      readAppended(
-        file,
-        ReadReply,
-        (last?: ReadReply[]) => [...(last ?? [])],
-        (all, line) => {
-          all.push(line);
-        }
-      )
-    );
-}
+export const readRepliesSince = (since: string, where = READ_REPLIES) =>
+  filesOf(where)
+    .filter((f) => f >= readReplyPath(since, where))
+    .flatMap(readReplyFile);
 
 /** A confirmed arrival: new lines of a unit his engine confirmed hold an ask, a promise or a wait for him. */
 export interface ConfirmedArrival {
