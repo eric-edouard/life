@@ -164,37 +164,76 @@ const statusSinceOf = (
     waiting: last?.ended_at,
   })[status] ?? null;
 
-/** Agent `a` as read now (`AgentNow`), by the assignment it works on (`currentAssignmentOf`): its last turn, its anchors and its events dropped in the last day; an agent holding none (the fold moved its last away) has no subject, wait or notes. */
+/** What agent `a`'s assignment `s` adds to its read (its last turn `last`, open or not): none when it holds none (the fold moved its last away). */
+function subjectPartOf(
+  db: Database,
+  a: AgentRow,
+  s: AssignmentRow | undefined,
+  {
+    isForWakes,
+    last,
+    now,
+    status,
+  }: {
+    isForWakes: boolean;
+    last: TurnRow | undefined;
+    now: number;
+    status: AgentNow["status"];
+  }
+) {
+  if (!s) {
+    return {
+      amber: [],
+      chatsSeen: {},
+      filters: [],
+      notes: "",
+      notStarted: null,
+      steps: [],
+      wait: null,
+    };
+  }
+  const dropped =
+    db
+      .query<{ n: number }, [string, string]>(
+        "select count(*) as n from event where assignment_id = ? and dropped_at >= ?"
+      )
+      .get(s.id, new Date(now - DAY).toISOString())?.n ?? 0;
+  const open = last && !last.ended_at ? last : null;
+  return {
+    amber: amberOf(a, s, last, open, dropped, now),
+    chatsSeen: isForWakes && status === "waiting" ? seenChatsOf(db, s) : {},
+    filters: filtersOf(s),
+    // The caretaker's notes are about his complaints: they stay with it, never in a read or the nightly.
+    notes: a.role === "caretaker" ? "" : headOf(readNotes(s)),
+    notStarted: s.why_not_started,
+    steps: anchorsOf(db, s.id),
+    wait: waitOf(a, s),
+  };
+}
+
+/** Agent `a` as read now (`AgentNow`), by the assignment it works on (`currentAssignmentOf`, `subjectPartOf`): its last turn, its anchors and its events dropped in the last day. */
 function nowOf(
   db: Database,
   a: AgentRow,
   now: number,
   isForWakes: boolean
 ): AgentRead {
-  const s = currentAssignmentOf(db, a.id);
-  const last = db
-    .query<TurnRow, [string]>(
-      "select * from turn where agent_id = ? order by id desc limit 1"
-    )
-    .get(a.id);
-  const open = last && !last.ended_at ? last : null;
-  const dropped =
-    (s &&
-      db
-        .query<{ n: number }, [string, string]>(
-          "select count(*) as n from event where assignment_id = ? and dropped_at >= ?"
-        )
-        .get(s.id, new Date(now - DAY).toISOString())?.n) ??
-    0;
-  const amber = s ? amberOf(a, s, last ?? undefined, open, dropped, now) : [];
-  const waiting = open ? "running" : "waiting";
+  const last =
+    db
+      .query<TurnRow, [string]>(
+        "select * from turn where agent_id = ? order by id desc limit 1"
+      )
+      .get(a.id) ?? undefined;
+  const waiting = last && !last.ended_at ? "running" : "waiting";
   const status = a.status === "active" ? waiting : a.status;
   return {
-    amber,
+    ...subjectPartOf(db, a, currentAssignmentOf(db, a.id) ?? undefined, {
+      isForWakes,
+      last,
+      now,
+      status,
+    }),
     ...modelOf(a),
-    chatsSeen:
-      s && isForWakes && status === "waiting" ? seenChatsOf(db, s) : {},
-    filters: s ? filtersOf(s) : [],
     id: a.id,
     lastTurn: last
       ? {
@@ -205,17 +244,12 @@ function nowOf(
         }
       : null,
     link: a.link,
-    // The caretaker's notes are about his complaints: they stay with it, never in a read or the nightly.
-    notes: s && a.role !== "caretaker" ? headOf(readNotes(s)) : "",
-    notStarted: s?.why_not_started ?? null,
     outcome: a.outcome,
     project: a.project,
     runtime: a.runtime,
     status,
-    statusSince: statusSinceOf(a, status, last ?? undefined),
-    steps: s ? anchorsOf(db, s.id) : [],
+    statusSince: statusSinceOf(a, status, last),
     title: headOf(a.brief),
-    wait: s ? waitOf(a, s) : null,
   };
 }
 
