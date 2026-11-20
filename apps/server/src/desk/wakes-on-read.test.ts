@@ -137,6 +137,7 @@ test("an agent's read: wakesOn while it waits, [] otherwise, and statusSince by 
   const deadline = new Date(clock().getTime() + 2 * DAY).toISOString();
   const card = await requestDecision("planner", {
     agent: onMatter,
+    context: "A made-up reason to ask.",
     deadline,
     onSilence: null,
     options: [
