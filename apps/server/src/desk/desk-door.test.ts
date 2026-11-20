@@ -219,5 +219,8 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
       "Write a card's `context` in Markdown: why you ask, why this draft, what you tried"
     );
     expect(text).toContain("a dead link refuses the card");
+    expect(text).toContain(
+      'A wait can watch GitHub: `channels: ["github_activity"]` with `repo: "owner/name"`'
+    );
   }
 });
