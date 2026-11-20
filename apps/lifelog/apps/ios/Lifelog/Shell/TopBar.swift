@@ -95,7 +95,7 @@ struct PendantItem: View {
 }
 
 extension View {
-    /// Tells whether the system puts this screen's bars in a vertical column on a compact width (the closed iPhone Duo,
+    /// Tells whether the system puts this screen's bars in a vertical column on a compact window (the closed iPhone Duo,
     /// iOS 27.1): the system's own `toolbarVerticalEdge`, never a guess from the size. The one rule for the Undo toast
     /// and the floating Filter.
     @ViewBuilder func reportsSideColumn(_ isInColumn: Binding<Bool>) -> some View {
@@ -107,7 +107,7 @@ extension View {
 private struct SideColumnReport: ViewModifier {
     @Binding var isInColumn: Bool
     @Environment(\.toolbarVerticalEdge) private var edge
-    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.windowSizeClass) private var sizeClass
 
     func body(content: Content) -> some View {
         content.onChange(of: edge != nil && sizeClass != .regular, initial: true) { _, now in isInColumn = now }

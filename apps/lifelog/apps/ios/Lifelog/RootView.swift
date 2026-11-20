@@ -10,6 +10,7 @@ struct RootView: View {
     @Environment(SyncStore.self) private var sync
     @Environment(LifeStore.self) private var life
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var router = AppRouter()
     @AppStorage("appearance") private var appearance = Appearance.auto
     /// A pairing link the owner is asked to confirm, once any sheet is out of the way: the lifelog server, Life, or both.
@@ -33,6 +34,7 @@ struct RootView: View {
             }
         }
         .environment(router)
+        .environment(\.windowSizeClass, sizeClass)
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
             case .pendant: PendantView().sheetStack()

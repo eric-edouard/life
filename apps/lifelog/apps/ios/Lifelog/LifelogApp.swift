@@ -176,6 +176,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 extension EnvironmentValues {
     /// The library opened at launch (`AppDelegate.library`); `nil` when it didn't open, and in previews without one.
     @Entry var library: LibraryStore?
+    /// The window's horizontal size class, set once at the root: a split view's list column is compact even on the
+    /// open iPhone Duo, so a rule about the whole screen's width (`reportsSideColumn`) reads this, never the column's.
+    @Entry var windowSizeClass: UserInterfaceSizeClass?
 }
 
 extension Settings {
