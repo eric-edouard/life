@@ -37,7 +37,7 @@ export const handleKey = (h: string) =>
     : h.replace(/\D/g, "").slice(-PHONE_DIGITS);
 
 /** A phone as people write it: digits, with `+`, spaces, dots, dashes or brackets. */
-export const PHONE = /^\+?[\d\s().-]+$/;
+export const PHONE_WRITTEN = /^\+?[\d\s().-]+$/;
 const DIGITS_ONLY = /^\d+$/;
 /** The longest phone written as bare digits with no `+` or `00`: a national number, or one with its country code. */
 const BARE_PHONE_DIGITS = 12;
@@ -48,7 +48,7 @@ const BARE_PHONE_DIGITS = 12;
 const isPhone = (h: string) => {
   const t = h.replace(DIRECTION_MARKS, "").trim();
   return (
-    PHONE.test(t) &&
+    PHONE_WRITTEN.test(t) &&
     !(
       DIGITS_ONLY.test(t) &&
       t.length > BARE_PHONE_DIGITS &&
