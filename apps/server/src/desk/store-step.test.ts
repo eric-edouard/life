@@ -14,12 +14,15 @@ import { dirname, join } from "node:path";
 import { APP_FOLDERS } from "../core/platform";
 import { gitOut } from "../core/proc";
 import {
+  agentOf,
+  agentWaitOf,
   anchorsOf,
   currentAssignmentOf,
   heldByAgents,
   isOldShape,
   NOT_MIGRATED,
 } from "../host/desk-read";
+import { AgentWait } from "../records/registered-agent";
 import { openDesk, SCHEMA } from "./desk-store";
 import { stepRoles, stepStore } from "./store-step";
 
@@ -158,6 +161,12 @@ test("the step carries every agent to its assignment: waits, anchors, events, tu
     count("turn"),
     count("session"),
   ]).toEqual([4, 4, 3, 1, 1, 1]);
+  // A migrated wait with no reason still reads as a wait an agent can send back to set_wait.
+  const noReason = currentAssignmentOf(db, "agt_000000000001");
+  const a1 = agentOf(db, "agt_000000000001");
+  const { isDefault, ...held } =
+    (a1 && noReason && agentWaitOf(a1, noReason)) || {};
+  expect(AgentWait.safeParse(held).success).toBe(true);
   const s = currentAssignmentOf(db, "agt_000000000002");
   expect(s).toMatchObject({
     closed_at: null,

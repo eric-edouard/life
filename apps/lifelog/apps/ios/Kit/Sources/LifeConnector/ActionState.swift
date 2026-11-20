@@ -124,9 +124,15 @@ extension ActionFailure {
         case .refused, .notPaired, .wrongCode:
             self.init(step: step, reason: error.reason, retry: .no)
             kind = "refused"
+        case .timedOut:
+            // The tap's key stays (`isSameTap`); no button repeats it.
+            self.init(step: step, reason: error.reason, retry: .no, mayHaveHappened: true, isSameTap: true)
+            kind = "timedOut"
         default:
             self.init(step: step, reason: error.reason, retry: .allowed, isSameTap: true)
-            kind = error == .streamDropped ? "dropped" : error == .unreachable ? "unreachable" : "failed"
+            kind =
+                error == .streamDropped
+                ? "dropped" : error == .unreachable ? "unreachable" : error == .offline ? "offline" : "failed"
         }
     }
 }

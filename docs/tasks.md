@@ -27,6 +27,11 @@ its work: the agent keeps its own list.
 - What the owner pastes into the agent is up to him ([Set up your agent](use/agent.md)); the connector's instructions
   (512 characters at most) are about the memory, not the agent.
 
+- **Not built yet: a client that reopens an agent's chat** (`docs/plans/2026-11-20-codex-reopen.md` is the record).
+  When he types in a chat that holds several matters, the agent works out from his words which matter he means, names
+  it before acting, and asks in the same chat when the words leave several. The desk must bind any change to that
+  turn's selected assignment, and an authenticated packet carries that assignment's agent wait, notes and new events.
+
 ## Asks
 
 - An ask is the owner's words handed over, never acted on by Life. It comes from a `hey <agent>` turn (`apps/server/src/host/hear.ts`:

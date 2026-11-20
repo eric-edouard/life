@@ -23,21 +23,22 @@ export const matterRowsNowOf = <
 
 /**
  * The running matters as rows now (`openMatters`, of one person, project or area when given), over his open checks read
- * once; each with Life's icon (`readLifeIcons`) and `agentOf`'s agent: `read_matters` and a person's read alike.
+ * once; each with Life's icon (`readLifeIcons`) and `agentOf`'s agent: `read_matters` and a person's read alike. Of one
+ * project, its page's head too (`project`).
  */
 export async function readMatterRowsNow(
   q: Parameters<typeof openMatters>[0] = {},
   agentOf?: Parameters<typeof openMatters>[1]
 ) {
-  const [{ matters }, open] = await Promise.all([
+  const [{ matters, project }, open] = await Promise.all([
     openMatters(q, agentOf, readLifeIcons),
     openChecksNow(),
   ]);
-  return matterRowsNowOf(matters, open);
+  return { matters: matterRowsNowOf(matters, open), project };
 }
 
 /** `read_people_and_organizations` and `bun life memory person`: the person read (`readPerson`) with the matter rows read now. */
 export const readPeopleAndOrganizations = (
   name?: string,
   o: Parameters<typeof readPerson>[1] = {}
-) => readPerson(name, o, () => readMatterRowsNow());
+) => readPerson(name, o, async () => (await readMatterRowsNow()).matters);

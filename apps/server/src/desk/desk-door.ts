@@ -118,7 +118,7 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "read_packet",
-    "Your subject (this turn's matter, or your project), your project's context (its line and his notes), your brief, your notes, your saved wait, the events waiting for you and your open decision.",
+    "Your subject (this turn's matter, or your project), your project's context (its line and his notes), your brief, your notes, your wait, the events waiting for you and your open decision.",
     z.object({}),
     (_, s) => readPacket(desk, s, isOwnLife())
   );

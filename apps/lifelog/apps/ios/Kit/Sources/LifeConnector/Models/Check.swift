@@ -79,6 +79,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public struct MatterRef: Decodable, Sendable, Equatable {
         public let id: String
         public let name: String
+        /// His mark on the matter: its pill carries a small flag.
+        public let important: Bool?
     }
 
     public struct Evidence: Decodable, Sendable, Equatable {

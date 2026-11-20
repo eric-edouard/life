@@ -200,18 +200,19 @@ export const queuedEvents = (db: Database, id: string) =>
 export const isWaiting = (a: AgentRow, s: AssignmentRow) =>
   a.status === "active" && s.closed_at === null;
 
-/** The wait an active agent still holds for this assignment. */
-export const savedWaitOf = (a: AgentRow, s: AssignmentRow) =>
+export const filtersOf = (s: Pick<AssignmentRow, "wait_events">) =>
+  JSON.parse(s.wait_events) as EventFilter[];
+
+/** The agent wait an active agent still holds for this assignment, flagged when it is the default. */
+export const agentWaitOf = (a: AgentRow, s: AssignmentRow) =>
   isWaiting(a, s) && s.wait_until
     ? {
+        events: filtersOf(s),
         isDefault: s.wait_is_default === 1,
-        reason: s.wait_reason ?? "",
+        reason: s.wait_reason ?? "(the reason was not recorded)",
         until: s.wait_until,
       }
     : null;
-
-export const filtersOf = (s: Pick<AssignmentRow, "wait_events">) =>
-  JSON.parse(s.wait_events) as EventFilter[];
 
 /** An assignment's notes, as its file holds them; none before the agent wrote any. */
 export const readNotes = (s: Pick<AssignmentRow, "notes_path">) =>
@@ -474,6 +475,12 @@ export function flagsOf(
   };
 }
 
+/** The wait as the connector shows it: its deadline and reason, never its filters (a chat id in them stays in the agent's packet). */
+const waitOf = (a: AgentRow, s: AssignmentRow) => {
+  const w = agentWaitOf(a, s);
+  return w && { isDefault: w.isDefault, reason: w.reason, until: w.until };
+};
+
 /** A registered agent as read now: what it works on, where it stands, what it waits for, its last turn, its link. */
 export interface AgentNow {
   /** What shows amber: a default wait, a late deadline, a silent turn, a failed last turn, events dropped in the last day. */
@@ -633,7 +640,7 @@ function nowOf(
     statusSince: statusSinceOf(a, status, last ?? undefined),
     steps: anchorsOf(db, s.id),
     title: headOf(a.brief),
-    wait: savedWaitOf(a, s),
+    wait: waitOf(a, s),
   };
 }
 
