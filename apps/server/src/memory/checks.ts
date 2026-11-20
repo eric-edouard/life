@@ -618,14 +618,20 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       }),
 };
 
+const SPACES = /\s+/g;
+/** Markdown's marks, an autolink's `://` and `www.`. */
+const MARKS = /[\\`*_[\]<>#~&@]|:(?=\/\/)|(?<=\bwww)\./gi;
+const LIST_NUMBER = /^(\d+)([.)])/;
+const LIST_MARK = /^[-+=]/;
+
 /** Recorded words as Markdown that renders as written, on one line: no link, emphasis, HTML, code or list of their own. */
 const literalOf = (s: string) =>
   s
-    .replace(/\s+/g, " ")
+    .replace(SPACES, " ")
     .trim()
-    .replace(/[\\`*_[\]<>#~&@]|:(?=\/\/)|(?<=\bwww)\./gi, "\\$&")
-    .replace(/^(\d+)([.)])/, "$1\\$2")
-    .replace(/^[-+=]/, "\\$&");
+    .replace(MARKS, "\\$&")
+    .replace(LIST_NUMBER, "$1\\$2")
+    .replace(LIST_MARK, "\\$&");
 
 /** A check's context with the words it rests on after its own: `> quote`, then `*where*`, a `life:` link to the unit when Life is sure of it. */
 function withQuoteOf(context: string | null, q?: Quote) {
