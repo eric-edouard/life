@@ -72,27 +72,30 @@ const PAYMENTS_BACK_DAYS = 35;
 const ACCOUNT_NAME = /\bA\/C Name:/i;
 
 /**
- * Who a payment went to, as its bank line names it: its account-name field when the bank gives one, read to the
- * bracket that closes the one it opened in (its own brackets kept: "North (UK) Services Ltd"), else the whole line.
- * A field given blank names no one.
+ * Who a payment went to, as its bank line names it: its account-name field when the bank gives one, its own brackets
+ * kept ("North (UK) Services Ltd"), to the bracket that closes the one it sits in; else the whole line. A field given
+ * blank, or one whose bracket never closes, names no one: its end is not known.
  */
 const payeeOf = (merchant: string) => {
   const field = ACCOUNT_NAME.exec(merchant);
   if (!field) {
     return merchant;
   }
-  const before = merchant.slice(0, field.index);
-  let depth = before.lastIndexOf("(") > before.lastIndexOf(")") ? 1 : 0;
+  let open = 0;
+  for (const ch of merchant.slice(0, field.index)) {
+    open = Math.max(0, open + (ch === "(" ? 1 : 0) - (ch === ")" ? 1 : 0));
+  }
+  let depth = 0;
   let name = "";
   for (const ch of merchant.slice(field.index + field[0].length)) {
     depth += ch === "(" ? 1 : 0;
     depth -= ch === ")" ? 1 : 0;
-    if (depth < 0 || (ch === ")" && depth === 0)) {
-      break;
+    if (depth < 0) {
+      return name.trim();
     }
     name += ch;
   }
-  return name.trim();
+  return open > 0 ? "" : name.trim();
 };
 
 /**
