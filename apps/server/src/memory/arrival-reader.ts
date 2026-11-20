@@ -392,8 +392,9 @@ export async function readArrivals(
       }))
   )();
   const forApple = due.filter((r) => !THAI.test(r.lines.join("\n")));
+  const requests = forApple.map((r) => triggerRequest(r.lines));
   const appleStart = performance.now();
-  const answers = await apple(forApple.map((r) => triggerRequest(r.lines)));
+  const answers = await apple(requests);
   // Apple's own time, apart from the confirms: guided generation slows down on macOS 27 (Apple's open bug).
   const appleMs = Math.round(performance.now() - appleStart);
   const toConfirm: Asked[] = due
