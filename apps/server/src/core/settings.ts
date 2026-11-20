@@ -96,9 +96,14 @@ export const Settings = z
      * with when it names none; none given, the runtime's own default. `defaultRuntime`: a start that names none.
      * `handOut`: the desk starts an agent itself on a running matter from the top of his ranking (`desk/hand-out.ts`),
      * only while fewer than `cardsWaiting` agent cards wait for him and fewer than `aDay` started on his day; absent means off.
+     * `agentPostRepos`: the GitHub repos (`owner/name`) where an agent of his own Life may comment, open an issue or review
+     * by itself, each post ending with `AGENT_POST_SIGNATURE` (`desk/send-guard.ts`); absent means none.
      */
     desk: z
       .object({
+        agentPostRepos: z
+          .array(z.string().regex(/^[\w.-]+\/[\w.-]+$/))
+          .optional(),
         defaultRuntime: RuntimeName.optional(),
         handOut: z
           .object({
