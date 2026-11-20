@@ -2,6 +2,7 @@ import { realpath, stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { digest } from "../core/hash";
+import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
