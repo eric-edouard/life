@@ -83,9 +83,6 @@
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
     "taps": ["Organizations"]
   },
-  "DuoFoldPeopleSearch": {
-    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
-  },
   "DuoFoldPeopleSheet": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_marc"],
     "taps": ["Someone else…"]
@@ -301,9 +298,6 @@
   "DuoPeopleAZ": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
     "taps": ["Filter", "A to Z"]
-  },
-  "DuoPeopleSearch": {
-    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
   },
   "DuoPersonCreate": {
     "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
