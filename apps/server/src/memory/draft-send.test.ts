@@ -14,7 +14,7 @@ import { ME } from "../records/truth";
 import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
 import { BRIDGES } from "../sources/matrix";
 import { draftProblemOf, StoredDraft } from "./draft";
-import { resolveDraft, sendDraft } from "./draft-send";
+import { chatTakesLinesOf, resolveDraft, sendDraft } from "./draft-send";
 import { readPeople } from "./who";
 
 /** A chat that takes everything besides text. */
@@ -181,6 +181,14 @@ test("the message replied or reacted to is stamped as its sender and first 300 c
       ])
     ).quoted?.sender
   ).toBe("me");
+  // A reaction's message is all he sees of it: stamped whole.
+  expect(
+    (
+      await resolveDraft({ ...base, onMessage: ana().id, reaction: "❤️" }, NOW, [
+        net,
+      ])
+    ).quoted?.text
+  ).toHaveLength(400);
   await expect(
     resolveDraft({ ...base, onMessage: "sendnet:!other/$e9", text: hi }, NOW, [
       net,
@@ -205,6 +213,9 @@ test("his card shows the chat's last 3 messages within 90 days before it was ask
     }),
     at("2026-11-14", { text: "four" }),
     at("2026-11-15", { phoneCall: { video: false }, text: "" }),
+    // Deleted for everyone, or after the card was asked: not what he saw.
+    at("2026-11-16", { deleted: true, text: "gone" }),
+    at("2026-11-19", { text: "later" }),
   ]);
   const { recent } = await resolveDraft(
     { channel: "sendnet", text: hi, to: "!ana:life.local" },
@@ -222,6 +233,27 @@ test("his card shows the chat's last 3 messages within 90 days before it was ask
   const people = await readPeople();
   expect(recent?.[0]?.sender).toEqual(people.partyOf(`person:${ME}`));
   expect(recent?.[2]?.sender).toEqual(people.partyOf("unknown:ana-handle"));
+  // A file's name is redacted like its words.
+  const secret = await resolveDraft(
+    { channel: "sendnet", text: hi, to: "!ana:life.local" },
+    NOW,
+    [
+      source("sendnet", [
+        at("2026-11-14", {
+          files: [
+            { mime: "application/pdf", name: "OTP 123456.pdf", ref: "x" },
+          ],
+          text: "",
+        }),
+      ]),
+    ]
+  );
+  expect(JSON.stringify(secret.recent)).not.toContain("123456");
+  // What a draft into a chat takes is read from the send paths that hold it, with no message of it read.
+  expect(chatTakesLinesOf("!quiet:life.local", [net])).toEqual([
+    "(sendnet: a draft into this chat takes text, a file, a reply (`onMessage`), a reaction (an emoji on `onMessage`), mentions; nothing else)",
+  ]);
+  expect(chatTakesLinesOf("not-held", [net])).toEqual([]);
   // A card asked before Life read the chat's last messages has none, and reads as it was.
   const { recent: _, ...old } = await resolveDraft(
     { channel: "sendnet", text: hi, to: "!ana:life.local" },
@@ -364,6 +396,13 @@ test("a mail draft has no chat: its addresses as given, and a reply quotes the m
         sender: "ana@example.com",
         text: `Friday?\n${"y".repeat(400)}`,
       },
+      {
+        ...line("thread-1", "Friday?"),
+        at: "2026-11-11T12:00:00.000Z",
+        id: "mail:other@mail.example.com",
+        sender: "bo@example.com",
+        text: `Friday?\nCode 424242 ${"z".repeat(300)} is your OTP`,
+      },
     ]),
     kind: "mail",
     send: {
@@ -408,6 +447,13 @@ test("a mail draft has no chat: its addresses as given, and a reply quotes the m
     sender: { kind: "person" },
   });
   expect(reply.recent?.[0]?.text).toStartWith("yyyy");
+  // A secret line is removed whole, before any cut.
+  const other = await resolveDraft(
+    { ...draft, onMessage: "mail:other@mail.example.com" },
+    NOW,
+    [mail]
+  );
+  expect(other.recent?.[0]?.text).not.toContain("424242");
   expect(sent.at(-1)).toMatchObject({
     from: "me@example.com",
     to: "ana@example.com",

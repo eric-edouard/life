@@ -41,15 +41,16 @@ const recentFileOf = async (f: SourceFile) => {
     : undefined;
   return {
     kind: fileKindOf(f.mime),
-    name: f.name ?? basename(f.path ?? f.ref),
+    name: redact(f.name ?? basename(f.path ?? f.ref)),
     ...(size === undefined ? {} : { size }),
   };
 };
 
 /**
  * The last messages before a card is asked, as his card shows them above the draft (`recent`), oldest first: a chat's
- * last 3 within 90 days, its words and first file; a mail thread's last message, its first line (its text opens with
- * the subject). Redacted like every line Life shows.
+ * last 3 within 90 days, as they stood then (none later, none deleted for everyone), its words and first file; a
+ * mail's, the one message it replies to (a thread Mail can't name may mix subjects), its first body line. Redacted
+ * like every line Life shows, before any cut.
  */
 function recentOf(
   events: SourceEvent[],
@@ -62,19 +63,15 @@ function recentOf(
     events
       .filter(
         (e) =>
-          e.at >= since &&
-          !e.phoneCall &&
+          (mail || (e.at >= since && e.at <= now.toISOString())) &&
+          !(e.phoneCall || e.deleted) &&
           (messageWordsOf(e.text) || e.files?.length)
       )
       .toSorted((a, b) => a.at.localeCompare(b.at))
-      .slice(mail ? -1 : -RECENT)
+      .slice(-RECENT)
       .map(async (e) => {
-        const words = messageWordsOf(e.text);
-        const text = redact(
-          mail
-            ? oneLineOf(words.split("\n").slice(1).find(Boolean) ?? "", 200)
-            : words
-        );
+        const words = redact(messageWordsOf(e.text));
+        const text = mail ? oneLineOf(bodyOf(words, e.chatName), 200) : words;
         const file = !mail && e.files?.[0];
         return {
           at: e.at,
@@ -85,6 +82,16 @@ function recentOf(
       })
   );
 }
+
+/** A mail's first body line: its text opens with its subject line when it has one. */
+const bodyOf = (text: string, subject?: string) => {
+  const [first = "", ...rest] = text.split("\n");
+  return (
+    (subject && first.includes(subject) ? rest : [first, ...rest]).find((l) =>
+      l.trim()
+    ) ?? ""
+  );
+};
 
 /**
  * The largest file a draft may carry. It is read whole into memory, twice (asked, then sent), and a send with one
@@ -256,12 +263,11 @@ async function readWhere(
   const quoted = found && {
     sender: found.sender,
     ...(mail && found.chatName ? { subject: found.chatName } : {}),
-    text: found.text.slice(0, 300),
+    // A reaction's message is shown whole (it is all he sees); a reply's, its first 300 characters.
+    text: draft.reaction ? found.text : found.text.slice(0, 300),
   };
-  const thread = mail
-    ? events.filter((e) => found && e.chat === found.chat)
-    : there;
-  const recent = await recentOf(thread, mail, await readPeople(), now);
+  const shown = mail ? [found].filter((e) => e !== undefined) : there;
+  const recent = await recentOf(shown, mail, await readPeople(), now);
   return { chat, name, quoted, recent };
 }
 
@@ -317,21 +323,22 @@ export async function resolveDraft(
   return stored;
 }
 
-/** What a draft into `chat` takes, by its source's send path (`takes`); none when Life can't send into it, or can't tell now. */
-export function chatTakesLinesOf(
-  chat: string | undefined,
-  events: SourceEvent[]
-) {
-  const source = events.find((e) => e.chat === chat)?.source;
-  const send = enabledSources().find((s) => s.name === source)?.send;
-  try {
-    return chat && send?.holds([chat]).length
-      ? [`(${takesWordsOf(send.takes(chat))})`]
-      : [];
-  } catch {
-    // A send path that can't read its store now (Messages without access): the chat reads as before.
-    return [];
-  }
+/**
+ * What a draft into `chat` takes, by the send path of each source that holds it (`holds`, `takes`), whatever messages
+ * were read; none when no source can send into it, or one can't tell now.
+ */
+export function chatTakesLinesOf(chat?: string, sources = enabledSources()) {
+  const lines = sources.flatMap((s) => {
+    try {
+      return chat && s.send?.holds([chat]).length
+        ? [`${s.label}: ${takesWordsOf(s.send.takes(chat))}`]
+        : [];
+    } catch {
+      // A send path that can't read its store now (Messages without access): it says nothing.
+      return [];
+    }
+  });
+  return lines.length > 0 ? [`(${lines.join("; ")})`] : [];
 }
 
 type OnStep = (step: string, detail?: Record<string, unknown>) => void;

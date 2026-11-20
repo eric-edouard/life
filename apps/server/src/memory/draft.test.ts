@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { mentionsAt } from "../sources/matrix-content";
-import { draftProblemOf, draftWords, type MessageDraft } from "./draft";
+import { draftProblemOf, draftWords, MessageDraft } from "./draft";
 
 const chat = (over: Partial<MessageDraft> = {}): MessageDraft => ({
   text: "Hi @Ana and @Bo",
@@ -127,4 +127,11 @@ test("a mention is its whole `@name`, found after the one before it: validation 
     { at: 3, length: 4 },
     { at: 9, length: 5 },
   ]);
+});
+
+test("a reaction is one emoji, a joined one included: Life sends only it", () => {
+  const ok = (reaction: string) =>
+    MessageDraft.safeParse({ onMessage: "m1", reaction, to: "!a" }).success;
+  expect(["👍", "❤️", "👨‍👩‍👧"].map(ok)).toEqual([true, true, true]);
+  expect(["OK", "👍👍"].map(ok)).toEqual([false, false]);
 });

@@ -672,7 +672,7 @@ export async function chatsOf(
     ...unread(failed),
     // Drafting starts here: the person's communication style (1:1 chats only), and what a draft into the chat takes.
     ...(known ? communicationStylesOf([ref], people.nameOf) : []),
-    ...chatTakesLinesOf(o.chat, shown),
+    ...chatTakesLinesOf(o.chat),
     ...(next
       ? [`(earlier not shown: the same call with \`before\` ${next})`]
       : []),
