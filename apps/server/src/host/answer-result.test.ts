@@ -415,7 +415,7 @@ test("each kind says what changed: an ending, a person (two parallel calls write
   };
   const queue = spyOn(
     await import("../sources/lifelog-voices"),
-    "readNamingQueue"
+    "readNamingQueueNow"
   ).mockResolvedValue([item]);
   const send = spyOn(
     await import("../sources/lifelog-voices"),

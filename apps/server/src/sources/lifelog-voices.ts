@@ -215,28 +215,53 @@ export const NamingQueueItem = z.object({
 });
 export type NamingQueueItem = z.infer<typeof NamingQueueItem>;
 
-/** The last queue lifelog gave, and whether its last read failed. */
-let lastQueue: NamingQueueItem[] = [];
+/** The last queue lifelog gave (none until a read succeeded), the read in flight, the answers sent, and whether reads fail. */
+let kept: NamingQueueItem[] | undefined;
+let reading: Promise<NamingQueueItem[]> | undefined;
+let answered = 0;
 let isDown = false;
 
+/** One `GET /naming-queue`: kept unless an answer was sent since it started (its list may hold the answered voice); throws when it fails. */
+async function fetchQueue() {
+  const since = answered;
+  const queue = lifelogMissing()
+    ? []
+    : z.array(NamingQueueItem).parse(await call("/naming-queue", 30));
+  if (since === answered) {
+    kept = queue;
+  }
+  isDown = false;
+  return queue;
+}
+
+/** One read behind the kept queue at a time; a failure is logged once while lifelog stays down, and the next read tries again. */
+function refresh() {
+  reading ??= fetchQueue()
+    .catch((e: Error) => {
+      if (!isDown) {
+        log("run.error", { error: e.message, step: "naming-queue" });
+      }
+      isDown = true;
+      throw e;
+    })
+    .finally(() => {
+      reading = undefined;
+    });
+  return reading;
+}
+
 /**
- * The voices lifelog asks him to name (`GET /naming-queue`); none when lifelog is not set up. While it fails the last
- * list stands, logged once, so the inbox never fails with it and a minute's look neither loses its voices nor logs.
+ * The voices lifelog asks him to name (`GET /naming-queue`), for the inbox: the last list read, at once, with a read
+ * started behind it (lifelog can take seconds to rebuild it), so a changed queue shows on the next read; the first read
+ * waits. While lifelog fails the last list stands (none before any), so the inbox never fails or waits on it.
  */
 export async function readNamingQueue() {
-  try {
-    lastQueue = lifelogMissing()
-      ? []
-      : z.array(NamingQueueItem).parse(await call("/naming-queue", 30));
-    isDown = false;
-  } catch (e) {
-    if (!isDown) {
-      log("run.error", { error: (e as Error).message, step: "naming-queue" });
-    }
-    isDown = true;
-  }
-  return lastQueue;
+  const next = refresh().catch(() => kept ?? []);
+  return kept ?? (await next);
 }
+
+/** The queue as lifelog gives it now, for an answer: never the kept list; throws when lifelog cannot be read. */
+export const readNamingQueueNow = fetchQueue;
 
 /** The lifelog people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */
 export const namingQueueGuessesOf = (item: NamingQueueItem) => [
@@ -244,10 +269,22 @@ export const namingQueueGuessesOf = (item: NamingQueueItem) => [
 ];
 
 /** The owner's answer to a queue item's voices (`POST /naming-queue/answer`): who they are, or that they are not worth naming. */
-export const answerNamingQueue = (
+export async function answerNamingQueue(
   voices: { jobId: string; speakerLabel: string }[],
   answer:
     | { kind: "confirm"; name: string }
     | { kind: "assign"; personId: string }
     | { kind: "ignore" | "media" | "not_relevant" }
-) => writeLifelog("POST", "/naming-queue/answer", { answer, voices });
+) {
+  const done = await writeLifelog("POST", "/naming-queue/answer", {
+    answer,
+    voices,
+  });
+  // His answered voice leaves the kept list now, and no read started before it can put it back.
+  answered += 1;
+  const sent = new Set(voices.map((v) => `${v.jobId}/${v.speakerLabel}`));
+  kept = kept?.filter(
+    (i) => !i.voices.some((v) => sent.has(`${v.jobId}/${v.speakerLabel}`))
+  );
+  return done;
+}

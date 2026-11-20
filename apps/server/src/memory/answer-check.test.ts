@@ -284,7 +284,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
   const voice = check("voice:v1", "voice");
   const queue = spyOn(
     await import("../sources/lifelog-voices"),
-    "readNamingQueue"
+    "readNamingQueueNow"
   ).mockResolvedValue([item]);
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
     nameOf: (r: string) => (r === "person:dana" ? "Dana" : "Kofi"),

@@ -1,5 +1,10 @@
 import { afterAll, expect, test } from "bun:test";
-import { namingQueueGuessesOf, readNamingQueue } from "./lifelog-voices";
+import {
+  answerNamingQueue,
+  namingQueueGuessesOf,
+  readNamingQueue,
+  readNamingQueueNow,
+} from "./lifelog-voices";
 import { lifelogServer } from "./store-fixtures";
 
 const DANA = "00000000-0000-4000-8000-000000000001";
@@ -17,19 +22,45 @@ const item = {
   words: 400,
 };
 let queue: () => unknown = () => [item];
-const server = lifelogServer({ "/naming-queue": () => queue() });
+const server = lifelogServer({
+  "/naming-queue": () => queue(),
+  "/naming-queue/answer": () => ({ ok: true }),
+});
 afterAll(() => server.close());
 
-test("the naming queue is read; while lifelog fails it the last list stands, never failing", async () => {
-  expect((await readNamingQueue()).map((i) => i.id)).toEqual([
-    "job-1:speaker_1",
-  ]);
+const ids = (q: { id: string }[]) => q.map((i) => i.id);
+const settle = () => Bun.sleep(20);
+
+test("the inbox's queue: the first read waits, then the last list comes at once with a read behind it; a failure keeps it", async () => {
+  expect(ids(await readNamingQueue())).toEqual(["job-1:speaker_1"]);
+  queue = () => [{ ...item, id: "job-2:speaker_1" }];
+  // At once: the kept list, while lifelog is read again behind it.
+  expect(ids(await readNamingQueue())).toEqual(["job-1:speaker_1"]);
+  await settle();
+  expect(ids(await readNamingQueue())).toEqual(["job-2:speaker_1"]);
   queue = () => [{ id: 1 }];
-  expect((await readNamingQueue()).map((i) => i.id)).toEqual([
-    "job-1:speaker_1",
-  ]);
+  await readNamingQueue();
+  await settle();
+  expect(ids(await readNamingQueue())).toEqual(["job-2:speaker_1"]);
+  await expect(readNamingQueueNow()).rejects.toThrow();
+});
+
+test("an answered voice leaves the kept list, and a read that started before the answer cannot bring it back", async () => {
+  const voice = { conversationId: "c1", jobId: "job-3", speakerLabel: "A" };
+  queue = () => [{ ...item, id: "job-3:A", voices: [voice] }];
+  expect(ids(await readNamingQueueNow())).toEqual(["job-3:A"]);
+  let release = () => undefined as void;
+  queue = () =>
+    new Promise((r) => {
+      release = () => r([{ ...item, id: "job-3:A", voices: [voice] }]);
+    });
+  const before = readNamingQueueNow();
+  await settle();
+  await answerNamingQueue([voice], { kind: "ignore" });
+  release();
+  await before;
   queue = () => [];
-  expect(await readNamingQueue()).toEqual([]);
+  expect(ids(await readNamingQueue())).toEqual([]);
 });
 
 test("a voice's guesses: its best guess first, each once", () => {

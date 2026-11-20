@@ -4,7 +4,7 @@ import {
   answerNamingQueue,
   type NamingQueueItem,
   namingQueueGuessesOf,
-  readNamingQueue,
+  readNamingQueueNow,
 } from "../sources/lifelog-voices";
 import {
   answerDecision,
@@ -119,9 +119,11 @@ const correct = (said: object[], a: CheckAnswer) =>
     )
   );
 
-/** The voice lifelog still asks him to name for the open check `c`. */
+/** The voice lifelog still asks him to name for the open check `c`, as lifelog gives it now (never a kept list). */
 async function readVoiceItem(c: Pick<Check, "ref">) {
-  const item = (await readNamingQueue()).find((i) => `voice:${i.id}` === c.ref);
+  const item = (await readNamingQueueNow()).find(
+    (i) => `voice:${i.id}` === c.ref
+  );
   if (!item) {
     throw new Error(`Not done: no open check ${c.ref}`);
   }
