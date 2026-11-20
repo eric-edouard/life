@@ -458,6 +458,10 @@ export function pageLabeler(
     const read = records(batch.take, bytes);
     const seed = seedOf(sourceId, batch.late);
     const placed = vouchedOnly(batch.take, placeOmi(read, seed));
+    // A late batch is placed as one: it waits whole until the Mac vouches for all of it.
+    if (batch.late && placed.take.length < batch.take.length) {
+      return null;
+    }
     const [head] = placed.take;
     const tail = placed.take.at(-1);
     return head && tail

@@ -67,7 +67,6 @@ export function creditsWatch(
         due.map((j) => j.id)
       );
     }
-    applied?.();
     if (level === before) {
       return;
     }
@@ -80,35 +79,30 @@ export function creditsWatch(
       return;
     }
     alerted[level] = now();
-    const status = await emailOwner(config, {
+    // Sent on its own: nothing waits for its delivery (the tick's work, paid sends).
+    emailOwner(config, {
       key: `credits-${level}-${Math.floor(now() / CREDITS_ALERT_EVERY_MS)}`,
       subject: `Lifelog: ${CREDITS_EMAIL[level]}`,
       text: `ElevenLabs: ${read.used} of ${read.limit} credits used. Used up, nothing goes to ElevenLabs until the plan is upgraded or renews: blocks the Mac transcribes alone still complete, the rest wait queued; nothing is lost.`,
-    });
-    record(db, "elevenlabs.quota_alert", { level, status });
+    })
+      .then((status) => record(db, "elevenlabs.quota_alert", { level, status }))
+      .catch((error: unknown) =>
+        record(db, "elevenlabs.quota_alert", { error: String(error), level })
+      );
   }
 
-  // The first read applied, or failed: unread credits count as available, so nothing paid goes
-  // before it (jobs.ts `paidSend` and `work`), whoever woke the worker first. Its alert email, if
-  // any, is not waited for.
-  let first: Promise<void> | undefined;
-  let applied: (() => void) | undefined;
+  // The first read, done or failed: unread credits count as available, so nothing paid goes
+  // before it (jobs.ts `paidSend` and `work`), whoever woke the worker first. Its alert email is
+  // not waited for.
+  let first: Promise<unknown> | undefined;
   const checkOnce = () => {
-    first ??= new Promise((resolve) => {
-      applied = resolve;
-    });
     const run = check();
-    run.then(applied, applied);
+    first ??= run.catch(() => undefined);
     return run;
   };
   return {
     check: checkOnce,
-    firstRead: () => {
-      if (!first) {
-        checkOnce().catch(() => undefined);
-      }
-      return first as Promise<void>;
-    },
+    firstRead: () => first ?? checkOnce().catch(() => undefined),
     level: () => levelOf(plan),
     read: () => plan,
   };

@@ -316,41 +316,50 @@ async function labelAll(labelBatch: (sourceId: string) => Promise<boolean>) {
   }
 }
 
-// Pages 100 to 250 come late, over both spans, with a Mac quiet range at the second span's start;
-// the worker fails on the late batch's second piece when `fails`. What is stored, and every packet
-// that reached Silero for the late pages.
-async function lateOverBothSpans(fails: boolean) {
+// Pages 100 to 250 come late, over both spans, with a Mac quiet range at the second span's start.
+// As the late batch's second piece goes to Silero, the worker fails (`fails`), or the Mac's
+// watermark goes back before it (`retreats`) and comes back after a pass. What is stored, and
+// every packet that reached Silero.
+async function lateOverBothSpans(stop: "none" | "fails" | "retreats") {
   const audio = memoryAudioStore();
+  let vouched = Number.POSITIVE_INFINITY;
   const labelBatch = pageLabeler(env.db, audio, {
     batchPages: 3000,
     now: () => Date.now() + 11 * 60_000,
-    vouched: () => Number.POSITIVE_INFINITY,
+    vouched: () => vouched,
   });
   await store(audio, 0, 100);
   await store(audio, 251);
   await labelAll(labelBatch);
   quiet([expected.pieces[1].start + 2000, expected.pieces[1].start + 5000]);
   await store(audio, 100, 251);
-  const sent = watching((n) =>
-    fails && n === 2 ? new Error("the worker stopped") : undefined
-  );
-  if (fails) {
-    // Not `rejects`: it waits without letting the worker's answers in.
-    const error = await labelAll(labelBatch).catch((e: Error) => e);
-    expect(String(error)).toContain("the worker stopped");
-  }
+  const sent = watching((n) => {
+    if (n === 2 && stop === "retreats") {
+      vouched = expected.pieces[1].start;
+    }
+    return n === 2 && stop === "fails"
+      ? new Error("the worker stopped")
+      : undefined;
+  });
+  // Not `rejects`: it waits without letting the worker's answers in.
+  const error = await labelAll(labelBatch).catch((e: Error) => e);
+  expect(String(error).includes("the worker stopped")).toBe(stop === "fails");
+  vouched = Number.POSITIVE_INFINITY;
   await labelAll(labelBatch);
   return { pieces: pieces(), sent: sent.toSorted(), timeline: timeline() };
 }
 
-test("a late batch the worker fails on part way is placed again as on one pass: the same pieces, breaks and packets, none sent twice", async () => {
-  const whole = await lateOverBothSpans(false);
-  mock.restore();
-  env.reset();
-  const resumed = await lateOverBothSpans(true);
-  expect(resumed).toEqual(whole);
-  expect(new Set(resumed.sent).size).toBe(resumed.sent.length);
-});
+test.each(["fails", "retreats"] as const)(
+  "a late batch stopped part way (%s) is placed again as on one pass: the same pieces, breaks and packets, none sent twice",
+  async (stop) => {
+    const whole = await lateOverBothSpans("none");
+    mock.restore();
+    env.reset();
+    const resumed = await lateOverBothSpans(stop);
+    expect(resumed).toEqual(whole);
+    expect(new Set(resumed.sent).size).toBe(resumed.sent.length);
+  }
+);
 
 test("a late piece the worker fails on leaves the open piece of the same source in its stream", async () => {
   const audio = memoryAudioStore();

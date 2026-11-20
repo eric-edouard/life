@@ -79,9 +79,8 @@ What never reaches ElevenLabs:
   pages again with the range cut out. Every word from the Mac (and every range its events close) starts the worker, so a
   block held for the Mac goes as soon as it vouches. It shows `macAway` while a refused event blocks it. The raw packs and the fragments waiting for
   their block do hold the dictation: they are stored, never processed.
-- **Dictation on the phone.** Not yet: the iPhone will mark or drop the pendant audio it recorded during a dictation
-  before upload, and the server check the mark (`docs/decisions.md`, life#802). The server's record of it
-  (`POST /dictation/ranges`, then `/close`) touches no pendant audio.
+- **Dictation on the phone.** The iPhone drops pendant audio heard during a dictation (#802), before upload, by its
+  own clock: it never reaches the server.
 - **Recordings the app plays out loud** (speaker, AirPlay, a car or a Bluetooth speaker; not headphones, told from
   Bluetooth speakers by name only): the phone stores the span, padded 2 seconds and stored again every 30 s while it
   plays, as a quiet range of its own, and cuts it out of fragments. Once closed, the span goes to the server through the

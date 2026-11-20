@@ -210,7 +210,7 @@ test("nothing paid goes before the first read of the credits: a wake at boot wai
   expect(jobRow(jobId).state).toBe("queued");
 });
 
-test("paid sends wait for the balance read, not for the low-credit email", async () => {
+test("paid sends and the tick wait for the balance read, not for the low-credit email", async () => {
   const app = appWith({
     ALERT_EMAIL_FROM: "Alerts <alerts@example.com>",
     ALERT_EMAIL_TO: "owner@example.com",
@@ -228,7 +228,8 @@ test("paid sends wait for the balance read, not for the low-credit email", async
       ? new Promise(() => undefined)
       : real(url, init)) as typeof fetch);
   const credits = creditsWatch(env.db, app.s.config);
-  credits.check();
+  // The check itself (the tick's) returns once the balance is applied.
+  await credits.check();
   await credits.firstRead();
   expect(credits.level()).toBe("low");
   mock.restore();
@@ -499,8 +500,6 @@ const upgradeFrom = async (ran: "post_clock" | "neither") => {
       ? sql`delete from __drizzle_migrations where created_at > ${postClock}`
       : sql`delete from __drizzle_migrations where created_at >= ${postClock}`
   );
-  // The tables made after it, which its migrations make again.
-  env.db.run(sql`drop table phone_dictations`);
   migrateDb(env.db);
 };
 

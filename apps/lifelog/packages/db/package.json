@@ -5,8 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
-    "./schema/voice-note-hearings": "./src/schema/voice-note-hearings.ts",
-    "./schema/phone-dictations": "./src/schema/phone-dictations.ts"
+    "./schema/voice-note-hearings": "./src/schema/voice-note-hearings.ts"
   },
   "scripts": {
     "db:generate": "drizzle-kit generate"
