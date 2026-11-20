@@ -11,7 +11,7 @@ import { dirname } from "node:path";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { answerWithResult } from "../host/answer-result";
-import { agentOf } from "../host/desk-read";
+import { agentOf, currentAssignmentOf } from "../host/desk-read";
 import { DECISION_ANSWERED } from "../host/events";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as checks from "../memory/checks";
@@ -46,7 +46,7 @@ import {
 import { NO_CARD_OUTCOME } from "./hand-out";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import { MATTER_DONE_OUTCOME } from "./matter-net";
-import { setup } from "./test-desk";
+import { asgOf, setup } from "./test-desk";
 
 // The hand-out's step of the tick, over a fake runtime and a made-up book of matters.
 
@@ -123,7 +123,7 @@ const deskOf = () => {
 const agentsOf = (desk: ReturnType<typeof deskOf>) =>
   desk.db
     .query<{ id: string; is_handed_out: number; brief: string }, []>(
-      "select id, is_handed_out, brief from agent order by rowid"
+      "select a.id, s.opened_by = 'desk' as is_handed_out, a.brief from agent a join assignment s on s.agent_id = a.id order by a.rowid"
     )
     .all();
 
@@ -136,9 +136,9 @@ test("one agent starts on the top matter, marked handed out, and none again with
   expect(agentsOf(desk)[0]?.is_handed_out).toBe(1);
   const anchored = desk.db
     .query<{ step: string }, [string]>(
-      "select step from anchor where agent_id = ?"
+      "select step from anchor where assignment_id = ?"
     )
-    .all(id ?? "");
+    .all(asgOf(desk, id ?? ""));
   expect(anchored).toEqual([{ step: "obs_a1" }]);
   setSystemTime(new Date(clock().getTime() + 9 * MIN));
   expect(await handOutNext(desk, read)).toBeUndefined();
@@ -200,7 +200,7 @@ test("the daily count follows his day: a hand-out before his day began is not co
   const since = dayStart(dayNow(), zoneNow());
   const markAt = (id: string, at: number) =>
     desk.db.run(
-      "update agent set is_handed_out = 1, created_at = ? where id = ?",
+      "update assignment set opened_by = 'desk', opened_at = ? where agent_id = ?",
       [new Date(at).toISOString(), id]
     );
   markAt(old, since.getTime() - MIN);
@@ -298,7 +298,7 @@ test("a handed-out agent's packet carries the one-card first turn, a plain agent
   expect(one).not.toContain("Start with this plan?");
   expect(two).toContain("Start with this plan?");
   expect(two).not.toContain("Life handed you this matter");
-  expect(agentOf(desk.db, handed ?? "")?.is_handed_out).toBe(1);
+  expect(currentAssignmentOf(desk.db, handed ?? "")?.opened_by).toBe("desk");
 });
 
 /** His own to-do `id`, said today: a made-up observation. */
@@ -400,9 +400,9 @@ const readToDo = async () => {
 const queued = (desk: ReturnType<typeof deskOf>, agent: string) =>
   desk.db
     .query<{ name: string }, [string]>(
-      "select name from event where agent_id = ?"
+      "select name from event where assignment_id = ?"
     )
-    .all(agent)
+    .all(asgOf(desk, agent))
     .map((r) => r.name);
 
 // Regression, 20 Nov 2026: he answered "Done" on a handed-out agent's card about what only he could do; nothing closed
@@ -453,10 +453,10 @@ test("Done on an `ends: matter` card closes the matter: off the matters to do; i
       expect(agentOf(desk.db, agent)?.status).toBe("active");
       expect(queued(desk, agent)).toEqual([DECISION_ANSWERED]);
       await endAgentsOnOverMatters(desk, readPeopleOnce());
-      expect(agentOf(desk.db, agent)).toMatchObject({
-        outcome: MATTER_DONE_OUTCOME,
-        status: "ended",
-      });
+      expect(agentOf(desk.db, agent)?.status).toBe("ended");
+      expect(currentAssignmentOf(desk.db, agent)?.outcome).toBe(
+        MATTER_DONE_OUTCOME
+      );
     }
   );
 });
@@ -537,7 +537,7 @@ test("an agent on a lone matter that closed is ended; one on a step no matter ho
       const on = (step: string) =>
         register(desk, {
           brief: "Test brief",
-          kind: "handed_out",
+          openedBy: "desk",
           runtime: "claude",
           steps: [step],
         });
@@ -549,10 +549,10 @@ test("an agent on a lone matter that closed is ended; one on a step no matter ho
         observations: [lone],
       });
       await endAgentsOnOverMatters(desk, readPeopleOnce());
-      expect(agentOf(desk.db, ended)).toMatchObject({
-        outcome: MATTER_DONE_OUTCOME,
-        status: "ended",
-      });
+      expect(agentOf(desk.db, ended)?.status).toBe("ended");
+      expect(currentAssignmentOf(desk.db, ended)?.outcome).toBe(
+        MATTER_DONE_OUTCOME
+      );
       expect(agentOf(desk.db, stays)?.status).toBe("active");
     }
   );
@@ -593,9 +593,9 @@ test("a card asked in time keeps the agent; none at 2 hours ends it with its out
   expect(agentOf(desk.db, asked)?.status).toBe("active");
   const a = agentOf(desk.db, silent);
   expect(a?.status).toBe("ended");
-  expect(a?.outcome).toBe(NO_CARD_OUTCOME);
+  expect(currentAssignmentOf(desk.db, silent)?.outcome).toBe(NO_CARD_OUTCOME);
   expect(t.fake.stopped).toEqual([a?.session ?? ""]);
-  await withdrawOpenDecision(asked, "test over");
+  await withdrawOpenDecision(desk.db, asgOf(desk, asked), "test over");
 });
 
 test("an agent he started himself is never ended for asking no card", async () => {
@@ -616,17 +616,21 @@ test("a hand-out whose first turn never began is not picked again", async () => 
   const { read } = book();
   const first = (await handOutNext(desk, read)) ?? "";
   desk.db.run(
-    "update agent set status = 'ended', ended_at = ?, why_not_started = 'test' where id = ?",
+    "update assignment set closed_at = ?, why_not_started = 'test' where agent_id = ?",
     [clock().toISOString(), first]
   );
+  desk.db.run("update agent set status = 'ended', ended_at = ? where id = ?", [
+    clock().toISOString(),
+    first,
+  ]);
   setSystemTime(new Date(clock().getTime() + 11 * MIN));
   const second = (await handOutNext(desk, read)) ?? "";
   const steps = (id: string) =>
     desk.db
       .query<{ step: string }, [string]>(
-        "select step from anchor where agent_id = ?"
+        "select step from anchor where assignment_id = ?"
       )
-      .all(id)
+      .all(asgOf(desk, id))
       .map((r) => r.step);
   expect(steps(first)).toEqual(["obs_a1"]);
   expect(steps(second)).toEqual(["obs_b1"]);

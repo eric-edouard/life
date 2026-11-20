@@ -8,10 +8,10 @@ import { dayNow } from "../memory/zones";
 import { tick } from "./desk-clock";
 import { openDoor } from "./desk-door";
 import { type Desk, openDesk, postReportLine } from "./desk-store";
-import { stepStore } from "./store-step";
 import { acpRuntime } from "./runtimes/acp-runtime";
 import type { Runtime } from "./runtimes/contract";
 import { runtimeRowsOf } from "./runtimes/runtime-rows";
+import { stepStore } from "./store-step";
 
 // The desk's helper, `life desk`: its own process (Life.app's supervisor keeps it while `desk` is set), its own lock in
 // `MACHINE_DIR`, its own store and its door; never the memory lock. Off, it returns before any of them.

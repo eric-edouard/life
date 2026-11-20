@@ -142,7 +142,11 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
       db,
       MESSAGE_RECEIVED,
       read.items.flatMap(({ ids, m }) =>
-        [...ids].map((assignment) => ({ assignment, eventId: m.id, payload: m }))
+        [...ids].map((assignment) => ({
+          assignment,
+          eventId: m.id,
+          payload: m,
+        }))
       )
     );
     queue(db, MATTER_RELATED, related);
@@ -470,7 +474,10 @@ async function launch(
             started.link,
             a.id,
           ]);
-          db.run("update turn set session = ? where id = ?", [started.ref, turn]);
+          db.run("update turn set session = ? where id = ?", [
+            started.ref,
+            turn,
+          ]);
         })();
       } catch (error) {
         log("desk.runtime", {
@@ -635,7 +642,10 @@ function endNotStarted({ db }: Desk, t: TurnRow, why: string) {
   if (lastTurns(db, t.assignment_id, 2).length !== 1 || t.begun_at) {
     return false;
   }
-  closeAssignmentRow(db, t.assignment_id, { outcome: null, whyNotStarted: why });
+  closeAssignmentRow(db, t.assignment_id, {
+    outcome: null,
+    whyNotStarted: why,
+  });
   return true;
 }
 

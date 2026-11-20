@@ -7,7 +7,7 @@ import type { Stay } from "../sources/lifelog";
 import { register, setWait } from "./agent-actions";
 import { readPeopleOnce, wakeDue } from "./desk-clock";
 import { pollChannels } from "./event-queue";
-import { advance, ahead, setup } from "./test-desk";
+import { advance, ahead, asgOf, setup } from "./test-desk";
 
 // An agent's wait on the places channel: a made-up arrival near the place it names wakes it once, and a wake hands its
 // time and coordinates, never the place's name.
@@ -59,7 +59,7 @@ async function waitingOn(...filters: Partial<EventFilter>[]) {
     advance(MIN);
     await pollChannels(s.desk, readPeopleOnce());
   };
-  const queued = () => queuedEvents(s.desk.db, id);
+  const queued = () => queuedEvents(s.desk.db, asgOf(s.desk, id));
   return { ...s, id, lifelog, list, poll, queued, rewait, set };
 }
 

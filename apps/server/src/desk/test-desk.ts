@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, HOUR, iso } from "../core/clock";
-import { agentOf } from "../host/desk-read";
+import { agentOf, currentAssignmentOf } from "../host/desk-read";
 import type { Messaging } from "../host/events";
 import type { SourceEvent } from "../records/source";
 import { register, setWait } from "./agent-actions";
@@ -93,8 +93,8 @@ export function setup() {
       .all(id);
   const queue = (id: string, eventId: string, name = "message.received") =>
     desk.db.run(
-      "insert into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, '{}', ?)",
-      [id, eventId, name, clock().toISOString()]
+      "insert into event (assignment_id, event_id, name, payload, received_at) values (?, ?, ?, '{}', ?)",
+      [asgOf(desk, id), eventId, name, clock().toISOString()]
     );
   const eventRow = (id: string, eventId: string) =>
     desk.db
@@ -106,11 +106,15 @@ export function setup() {
         },
         [string, string]
       >(
-        "select handed, consumed_at, dropped_at from event where agent_id = ? and event_id = ?"
+        "select handed, consumed_at, dropped_at from event where assignment_id = ? and event_id = ?"
       )
-      .get(id, eventId);
+      .get(asgOf(desk, id), eventId);
   return { desk, dir, end, eventRow, fake, path, queue, turns, waiting, write };
 }
+
+/** The assignment agent `id` works on (each test agent has one). */
+export const asgOf = (desk: Desk, id: string) =>
+  currentAssignmentOf(desk.db, id)?.id ?? "";
 
 /** Session `ref` has grown by `by` tokens: as its first call and its turns' last would say (`growthOf`). */
 export function grow(desk: Desk, ref: string, by: number) {

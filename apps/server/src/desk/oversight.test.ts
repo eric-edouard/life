@@ -14,6 +14,7 @@ import {
   agentOf,
   agentsNow,
   agentsOnProjects,
+  currentAssignmentOf,
   modelOf,
 } from "../host/desk-read";
 import {
@@ -31,6 +32,7 @@ import { readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import { type Desk, openDesk, postReportLine } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
+import { asgOf } from "./test-desk";
 import { ticking } from "./test-ticker";
 
 // Oversight (the desk spec, step 4): his word about his agents applied by the desk, and what host reads of them, from
@@ -152,8 +154,12 @@ test("his word stops, resumes, re-points and changes the model of an agent, each
   );
   // His stop ends the turn under way too: its run is stopped (his yes of 20 Nov 2026).
   desk.db.run(
-    "insert into turn (agent_id, session, cause, started_at) values (?, 'sess-stop', 'deadline', ?)",
-    [agent, clock().toISOString()]
+    "insert into turn (agent_id, assignment_id, session, cause, started_at) values (?, ?, 'sess-stop', 'deadline', ?)",
+    [
+      agent,
+      currentAssignmentOf(desk.db, agent)?.id ?? "",
+      clock().toISOString(),
+    ]
   );
   await applied({ action: "stop", agent });
   expect(agentOf(desk.db, agent)?.status).toBe("stopped");
@@ -239,9 +245,12 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       await applied({ action: "start", folder, project: "test-shop" })
     )?.agent_id;
     desk.db.run(
-      "update agent set wait_is_default = 1, link = 'fake://p' where id = ?",
+      "update assignment set wait_is_default = 1 where agent_id = ?",
       [project ?? ""]
     );
+    desk.db.run("update agent set link = 'fake://p' where id = ?", [
+      project ?? "",
+    ]);
     const r = await readRegisteredAgents();
     expect(r.desk).toBe("ok");
     // His changes the desk refused show, with why.
@@ -457,9 +466,9 @@ test("change_registered_agent records his word and answers with what the desk di
     expect(
       desk.db
         .query<{ step: string }, [string]>(
-          "select step from anchor where agent_id = ? order by rowid"
+          "select step from anchor where assignment_id = ? order by rowid"
         )
-        .all(id)
+        .all(asgOf(desk, id))
         .map((s) => s.step)
     ).toEqual(["obs_00000000a202", "obs_00000000a201"]);
     await expect(

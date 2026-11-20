@@ -359,10 +359,7 @@ export function askDecision(
     return requestDecision(DESK_AGENT, { agent: id, why, withdraw });
   }
   // One card at a time per assignment (an inbox rule, not a limit on its work).
-  const open = openCardOf(
-    desk.db,
-    currentAssignmentOf(desk.db, id)?.id ?? ""
-  );
+  const open = openCardOf(desk.db, currentAssignmentOf(desk.db, id)?.id ?? "");
   if (open) {
     throw new Error(
       `Not done: ${id} already asks ${open.id}; withdraw it or wait for his answer.`

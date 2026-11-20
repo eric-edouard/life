@@ -67,8 +67,7 @@ function askerOf(d: Decision) {
     return { name: d.asker, told: "on_its_next_poll" };
   }
   const read = readDesk(
-    (db) =>
-      eventHeard(db, assignmentOfCard(db, d) ?? "", `${d.id}.answered`),
+    (db) => eventHeard(db, assignmentOfCard(db, d) ?? "", `${d.id}.answered`),
     "not_yet"
   );
   if (read.state !== "ok") {

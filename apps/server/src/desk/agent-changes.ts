@@ -251,13 +251,12 @@ export async function applyAgentChanges(desk: Desk) {
         db,
         currentAssignmentOf(db, r.id)?.id ?? "",
         "he stopped its agent"
-      ).catch(
-        (e: Error) =>
-          log("desk.change", {
-            ask: ask.id,
-            error: e.message,
-            what: "withdraw",
-          })
+      ).catch((e: Error) =>
+        log("desk.change", {
+          ask: ask.id,
+          error: e.message,
+          what: "withdraw",
+        })
       );
     }
   }

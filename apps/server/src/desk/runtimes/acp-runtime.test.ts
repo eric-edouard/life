@@ -262,7 +262,9 @@ test("through the desk: a first turn that never begins ends its agent not starte
   await tick(desk, false);
   expect(
     desk.db
-      .query("select status, why_not_started from agent where id = ?")
+      .query(
+        "select status, why_not_started from agent join assignment on agent_id = agent.id where agent.id = ?"
+      )
       .get(id)
   ).toEqual({
     status: "ended",
@@ -278,13 +280,13 @@ test("through the desk: a failed first turn's why reaches the store", async () =
   const whyOf = () =>
     desk.db
       .query<{ why_not_started: string | null }, [string]>(
-        "select why_not_started from agent where id = ?"
+        "select why_not_started from assignment where agent_id = ?"
       )
       .get(id)?.why_not_started;
   await until(() => !!whyOf());
   const row = desk.db
     .query<{ why_not_started: string | null }, [string]>(
-      "select why_not_started from agent where id = ?"
+      "select why_not_started from assignment where agent_id = ?"
     )
     .get(id);
   expect(row?.why_not_started).toContain("boom");

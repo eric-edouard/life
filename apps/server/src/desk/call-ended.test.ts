@@ -13,7 +13,7 @@ import {
 } from "../sources/store-fixtures";
 import { pollCalls, pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
 import { openDesk } from "./desk-store";
-import { advance, chatSource, setup, T0 } from "./test-desk";
+import { advance, asgOf, chatSource, setup, T0 } from "./test-desk";
 
 // The wait contract's call.ended: a call with an agent's people wakes it once its words are in, by lifelog's signals.
 // Made-up chat, calls and recordings; the watcher's store is a fresh one in a temp folder.
@@ -48,7 +48,9 @@ async function calling() {
   const heard = (over: Record<string, unknown>) =>
     apply(store, Page.parse(pageFixture(over)));
   const queued = () =>
-    queuedEvents(s.desk.db, agent).filter((e) => e.name === "call.ended");
+    queuedEvents(s.desk.db, asgOf(s.desk, agent)).filter(
+      (e) => e.name === "call.ended"
+    );
   return { ...s, agent, calls, heard, poll, queued, store, watch };
 }
 
@@ -109,7 +111,7 @@ test("an agent created after the call gets nothing", async () => {
     jobs: [job("j1", 1), job("j2", 5)],
     turns: [turn("j1", 0, 6), turn("j2", 0, 30, "c2")],
   });
-  desk.db.run("update agent set created_at = ?", [at(16)]);
+  desk.db.run("update assignment set opened_at = ?", [at(16)]);
   advance(60 * MIN);
   await poll();
   expect(queued()).toHaveLength(0);

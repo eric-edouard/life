@@ -5,9 +5,9 @@ import { clock } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { DESK_STORE } from "../core/paths";
 import { openWritable } from "../core/sqlite";
+import { isOldShape, NOT_MIGRATED } from "../host/desk-read";
 import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
-import { isOldShape, NOT_MIGRATED } from "../host/desk-read";
 import type { AgentWait } from "../records/registered-agent";
 import type { Runtime } from "./runtimes/contract";
 

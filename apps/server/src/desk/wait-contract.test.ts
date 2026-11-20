@@ -6,6 +6,7 @@ import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { take } from "../core/lock";
 import {
   agentOf,
+  currentAssignmentOf,
   flagsOf,
   heldByAgents,
   holderOf,
@@ -30,7 +31,7 @@ import {
   wakeDue,
 } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
-import { ANA, advance, ahead, grow, setup, started } from "./test-desk";
+import { ANA, advance, ahead, asgOf, grow, setup, started } from "./test-desk";
 
 /** Whether the hold rule holds a matter of one step, `step`, whose newest step is at `at` (the start of time by default). */
 const holds = (desk: Desk, step: string, at = "") =>
@@ -43,11 +44,11 @@ afterEach(() => {
   setSystemTime();
 });
 
-test("W1: the store refuses an active agent with no deadline", () => {
+test("W1: the store refuses an open assignment with no deadline", () => {
   const { desk } = setup();
   expect(() =>
     desk.db.run(
-      "insert into agent (id, brief, runtime, folder, status, created_at) values ('agt_x', 'b', 'fake', '/', 'active', ?)",
+      "insert into assignment (id, agent_id, opened_at, opened_by, notes_path) values ('asg_x', 'agt_x', ?, 'owner', '/x')",
       [clock().toISOString()]
     )
   ).toThrow();
@@ -56,7 +57,7 @@ test("W1: the store refuses an active agent with no deadline", () => {
 test("W2: a wait under 5 minutes or over 7 days is refused, and the old wait stands", async () => {
   const { desk, waiting } = setup();
   const id = await waiting();
-  const before = agentOf(desk.db, id)?.wait_until;
+  const before = currentAssignmentOf(desk.db, id)?.wait_until;
   const refused = await Promise.all(
     [ahead(2 * MIN), ahead(8 * DAY)].map((until) =>
       setWait(desk, id, { events: [], reason: "r", until })
@@ -81,7 +82,7 @@ test("W2: a wait under 5 minutes or over 7 days is refused, and the old wait sta
       until: ahead(HOUR),
     })
   ).toEqual({ error: "No one goes by Ana; near it: Test Ana (test-ana)" });
-  expect(agentOf(desk.db, id)?.wait_until).toBe(before);
+  expect(currentAssignmentOf(desk.db, id)?.wait_until).toBe(before);
 });
 
 test("W3: after set_wait, no turn before the deadline, one right after", async () => {
@@ -105,7 +106,7 @@ test("W4: a turn ending with no set_wait is reminded once; set then, no default 
   await setWait(desk, id, { events: [], reason: "r", until: ahead(HOUR) });
   await end(id);
   expect(turns(id)).toEqual([{ cause: "deadline", outcome: "waited" }]);
-  expect(agentOf(desk.db, id)?.wait_is_default).toBe(0);
+  expect(currentAssignmentOf(desk.db, id)?.wait_is_default).toBe(0);
 });
 
 test("W5: the reminded turn ending with nothing gets the default wait: old filters, 24 h, flagged", async () => {
@@ -115,7 +116,7 @@ test("W5: the reminded turn ending with nothing gets the default wait: old filte
   await wakeDue(desk);
   await end(id);
   await end(id);
-  const a = agentOf(desk.db, id);
+  const a = currentAssignmentOf(desk.db, id);
   expect(turns(id).at(-1)?.outcome).toBe("default_wait");
   expect(a?.wait_until).toBe(ahead(DAY));
   expect(JSON.parse(a?.wait_events ?? "")).toEqual([ANA]);
@@ -295,7 +296,9 @@ test("his answer, read from his decisions, is queued for the agent that asked it
   expect(turns(id).at(-1)).toEqual({ cause: "answer", outcome: null });
   expect(turns(other)).toHaveLength(1);
   expect(
-    desk.db.query("select event_id, name from event where agent_id = ?").all(id)
+    desk.db
+      .query("select event_id, name from event where assignment_id = ?")
+      .all(asgOf(desk, id))
   ).toEqual([{ event_id: `${dec}.answered`, name: DECISION_ANSWERED }]);
   // Its deadline passing unanswered is a lapse, queued the same way.
   const { id: lapsing } = await requestDecision("desk", {
@@ -312,8 +315,8 @@ test("his answer, read from his decisions, is queued for the agent that asked it
   pollAnswers(desk);
   expect(
     desk.db
-      .query("select event_id, name from event where agent_id = ?")
-      .all(other)
+      .query("select event_id, name from event where assignment_id = ?")
+      .all(asgOf(desk, other))
   ).toEqual([{ event_id: `${lapsing}.lapsed`, name: DECISION_LAPSED }]);
 });
 
@@ -395,11 +398,13 @@ test("W17: a turn silent for 61 minutes is flagged, never killed", async () => {
   await wakeDue(desk);
   advance(61 * MIN);
   await wakeDue(desk);
-  const a = agentOf(desk.db, id);
+  const a = currentAssignmentOf(desk.db, id);
   const open = openTurn(desk.db, id);
   expect(a && flagsOf(a, open, 0, clock().getTime()).silent).toBe(true);
   expect(open).not.toBeNull();
-  expect(fake.sessions.get(a?.session ?? "")?.running).toBe(true);
+  expect(fake.sessions.get(agentOf(desk.db, id)?.session ?? "")?.running).toBe(
+    true
+  );
 });
 
 test("W18: wakes run while the night holds the memory lock", async () => {
@@ -515,9 +520,9 @@ test("a runtime that cannot start ends a new agent, not started, and frees its m
   const { desk, fake, turns } = setup();
   fake.isFailing = true;
   const id = await started(desk, "obs_00000000b002");
-  expect(agentOf(desk.db, id)).toMatchObject({
+  expect(agentOf(desk.db, id)?.status).toBe("ended");
+  expect(currentAssignmentOf(desk.db, id)).toMatchObject({
     outcome: null,
-    status: "ended",
     why_not_started: "cannot start",
   });
   expect(holderOf(desk.db, ["obs_00000000b002"])).toBeNull();
@@ -532,10 +537,10 @@ test("a first turn whose run ends before it began ends its agent; one that had b
   const lost = await started(desk, "obs_00000000b003");
   fake.exit(agentOf(desk.db, lost)?.session ?? "", false);
   await Bun.sleep(5);
-  expect(agentOf(desk.db, lost)).toMatchObject({
-    status: "ended",
-    why_not_started: "its first turn ended before it began",
-  });
+  expect(agentOf(desk.db, lost)?.status).toBe("ended");
+  expect(currentAssignmentOf(desk.db, lost)?.why_not_started).toBe(
+    "its first turn ended before it began"
+  );
 
   const begun = await started(desk, "obs_00000000b004");
   const ref = agentOf(desk.db, begun)?.session ?? "";
@@ -605,10 +610,10 @@ test("a first turn not begun within its runtime's limit ends its agent not start
   expect(agentOf(desk.db, id)?.status).toBe("active");
   advance(2 * MIN);
   await tick(desk, false);
-  expect(agentOf(desk.db, id)).toMatchObject({
-    status: "ended",
-    why_not_started: "it did not begin within 5 minutes",
-  });
+  expect(agentOf(desk.db, id)?.status).toBe("ended");
+  expect(currentAssignmentOf(desk.db, id)?.why_not_started).toBe(
+    "it did not begin within 5 minutes"
+  );
   expect(fake.stopped).toEqual([ref]);
   expect(holderOf(desk.db, ["obs_00000000b010"])).toBeNull();
   expect(holds(desk, "obs_00000000b010")).toBe(false);
@@ -625,7 +630,7 @@ test("an agent that finished in its own words, even 'not started: …', keeps it
   const { desk } = setup();
   const id = await started(desk, "obs_00000000b011");
   await finish(desk, id, "not started: the client never replied");
-  expect(agentOf(desk.db, id)?.why_not_started).toBeNull();
+  expect(currentAssignmentOf(desk.db, id)?.why_not_started).toBeNull();
   expect(holds(desk, "obs_00000000b011")).toBe(true);
 });
 

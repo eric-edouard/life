@@ -122,8 +122,7 @@ export const handedOutSince = (db: Database, since: string) =>
 export const handedOutAgentsSince = (db: Database, since: string) =>
   db
     .query<
-      Pick<AgentRow, "id" | "status"> &
-        Pick<AssignmentRow, "why_not_started">,
+      Pick<AgentRow, "id" | "status"> & Pick<AssignmentRow, "why_not_started">,
       [string]
     >(
       "select a.id, a.status, s.why_not_started from assignment s join agent a on a.id = s.agent_id where s.opened_by = 'desk' and s.opened_at >= ? order by s.opened_at"

@@ -26,35 +26,45 @@ test("every subject is a fact for the hold rule: when its agent ended, who start
   const ended = new Date(clock().getTime() - 30 * DAY).toISOString();
   const handed = await started(desk, "obs_00000000b020");
   const never = await started(desk, "obs_00000000b021");
-  desk.db.run(
-    "update agent set is_handed_out = 1, status = 'ended', ended_at = ?, outcome = 'nothing left' where id = ?",
-    [ended, handed]
-  );
-  desk.db.run(
-    "update agent set status = 'ended', ended_at = ?, why_not_started = 'x' where id = ?",
-    [ended, never]
-  );
+  /** The agent ended at `at`: its agent and its assignment closed as the desk writes them. */
+  const endedAt = (
+    id: string,
+    at: string,
+    set = "",
+    args: (string | null)[] = []
+  ) => {
+    desk.db.run(
+      "update agent set status = 'ended', ended_at = ? where id = ?",
+      [at, id]
+    );
+    desk.db.run(
+      `update assignment set closed_at = ?${set} where agent_id = ?`,
+      [at, ...args, id]
+    );
+  };
+  endedAt(handed, ended, ", opened_by = 'desk', outcome = ?", ["nothing left"]);
+  endedAt(never, ended, ", why_not_started = 'x'");
   const project = agentOn(desk, { project: "test-p" });
   const old = await started(desk, "obs_00000000b022");
-  desk.db.run("update agent set status = 'ended', ended_at = ? where id = ?", [
-    new Date(clock().getTime() - (HOLD_DAYS + 1) * DAY).toISOString(),
+  endedAt(
     old,
-  ]);
+    new Date(clock().getTime() - (HOLD_DAYS + 1) * DAY).toISOString()
+  );
   const fact = { project: null, status: "ended" as const, whyNotStarted: null };
   expect(heldByAgents(desk.db)).toEqual([
     {
       ...fact,
       agent: handed,
-      endedAt: ended,
-      kind: "handed_out",
+      closedAt: ended,
+      openedBy: "desk",
       outcome: "nothing left",
       step: "obs_00000000b020",
     },
     {
       ...fact,
       agent: never,
-      endedAt: ended,
-      kind: "asked",
+      closedAt: ended,
+      openedBy: "owner",
       outcome: null,
       step: "obs_00000000b021",
       whyNotStarted: "x",
@@ -62,8 +72,8 @@ test("every subject is a fact for the hold rule: when its agent ended, who start
     {
       ...fact,
       agent: project,
-      endedAt: null,
-      kind: "asked",
+      closedAt: null,
+      openedBy: "owner",
       outcome: null,
       project: "test-p",
       status: "active",

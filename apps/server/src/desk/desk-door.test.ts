@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, HOUR, iso } from "../core/clock";
-import { agentOf } from "../host/desk-read";
+import { currentAssignmentOf } from "../host/desk-read";
 import { decisionsNow } from "../memory/decisions";
 import { readPacket, register } from "./agent-actions";
 import { doorFetch, doorOf } from "./desk-door";
@@ -78,7 +78,7 @@ test("the door refuses a wrong key, another agent's key and an unknown agent ali
   await call(id, doorOf(id).key, "request_decision", ask("Test: plan?"));
   const ok = await call(id, doorOf(id).key, "set_wait", wait);
   expect(ok.result?.isError).toBe(false);
-  expect(agentOf(desk.db, id)?.wait_reason).toBe("r");
+  expect(currentAssignmentOf(desk.db, id)?.wait_reason).toBe("r");
 });
 
 test("request_decision asks as the desk, stamped with the agent and its link; one open at a time; only its own withdrawn", async () => {
@@ -128,7 +128,9 @@ test("a new agent waits or finishes only once it asked its plan", async () => {
 
 test("a handed-out agent is told to ask its card, not its plan", async () => {
   const id = agent();
-  desk.db.run("update agent set is_handed_out = 1 where id = ?", [id]);
+  desk.db.run("update assignment set opened_by = 'desk' where agent_id = ?", [
+    id,
+  ]);
   const { key } = doorOf(id);
   const wait = { events: [], reason: "r", until: ahead(HOUR) };
   const refused = (await call(id, key, "set_wait", wait)).text;
