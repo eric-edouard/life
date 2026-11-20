@@ -275,7 +275,7 @@ test("his answer, read from his decisions, is queued for the agent that asked it
   const { desk, turns, waiting } = setup();
   const id = await waiting(DAY);
   const other = await waiting(DAY);
-  await pollAnswers(desk);
+  pollAnswers(desk);
   const { id: dec } = await requestDecision("desk", {
     agent: id,
     deadline: ahead(DAY),
@@ -289,8 +289,8 @@ test("his answer, read from his decisions, is queued for the agent that asked it
   advance(1000);
   await answerDecision(dec, ["yes"]);
   advance(1000);
-  await pollAnswers(desk);
-  await pollAnswers(desk);
+  pollAnswers(desk);
+  pollAnswers(desk);
   await wakeDue(desk);
   expect(turns(id).at(-1)).toEqual({ cause: "answer", outcome: null });
   expect(turns(other)).toHaveLength(1);
@@ -309,7 +309,7 @@ test("his answer, read from his decisions, is queued for the agent that asked it
     title: "a test",
   });
   advance(2 * HOUR + 1000);
-  await pollAnswers(desk);
+  pollAnswers(desk);
   expect(
     desk.db
       .query("select event_id, name from event where agent_id = ?")

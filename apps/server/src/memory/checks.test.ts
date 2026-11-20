@@ -28,6 +28,7 @@ const anchored = (step: string, over: Partial<AgentHold> = {}): AgentHold[] => [
     endedAt: null,
     kind: "asked",
     outcome: null,
+    project: null,
     step,
     whyNotStarted: null,
     ...over,
@@ -502,11 +503,22 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
   );
   // Its last day is the 7th from its first step; it never outranks an agent's decision.
   expect(checksOf({ ...base, today: "2026-11-22" })).toHaveLength(1);
-  // Finding 4 of the action pipeline review (20 Nov 2026): a project's agent holds none of its project's matters (it has
-  // no anchor), so the hand-out and this check agree; an agent that ended holds its matter until a newer step.
+  // Finding 4 of the action pipeline review (20 Nov 2026): with the hand-out on, a project's agent holds none of its
+  // project's matters, as for the hand-out; off, it still answers for them and no Start is offered.
+  const projectAgent = anchored("", { project: "test-shop", step: null });
+  const inShop = [{ ...matter, projects: ["test-shop"] }];
   expect(
-    checksOf({ ...base, matters: [{ ...matter, projects: ["test-shop"] }] })
+    checksOf({
+      ...base,
+      heldByAgents: projectAgent,
+      isHandOutOn: true,
+      matters: inShop,
+    })
   ).toHaveLength(1);
+  expect(
+    checksOf({ ...base, heldByAgents: projectAgent, matters: inShop })
+  ).toEqual([]);
+  // An agent that ended holds its matter until a newer step.
   expect(
     checksOf({
       ...base,
@@ -612,18 +624,19 @@ test("the inbox is read again only when what it reads changed: not a unit sync; 
     writeFileSync(day, "");
     await checksNow(null);
     expect(reads).toHaveBeenCalledTimes(1);
-    const held = anchored("obs_000000000001");
-    await checksNow(held);
+    // What agents hold keys on its stamp alone: the facts are read only when the list is.
+    const held = (stamp: string) => ({
+      read: () => anchored("obs_000000000001"),
+      stamp,
+    });
+    await checksNow(held("1"));
     expect(reads).toHaveBeenCalledTimes(2);
-    // The same facts: not read again; its agent ended: read again.
-    await checksNow([...held]);
+    await checksNow(held("1"));
     expect(reads).toHaveBeenCalledTimes(2);
-    await checksNow(
-      anchored("obs_000000000001", { endedAt: "2026-11-19T09:00:00.000Z" })
-    );
+    await checksNow(held("2"));
     expect(reads).toHaveBeenCalledTimes(3);
     setSystemTime(new Date(clock().getTime() + DAY));
-    await checksNow(held);
+    await checksNow(held("2"));
     expect(reads).toHaveBeenCalledTimes(4);
   } finally {
     setSystemTime();

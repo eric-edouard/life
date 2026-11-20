@@ -48,6 +48,7 @@ function withoutGroups(
     heldByAgents: [],
     isDirectionDue: () => false,
     isForHandOut: () => false,
+    isHandOutOn: false,
     kept: new Set(lines.map((l) => l.id)),
     lines,
     matters: [],

@@ -113,6 +113,8 @@ export interface CheckInputs {
   isDirectionDue: (matter: string) => boolean;
   /** Whether the hand-out takes a matter (by its id): `desk.handOut` is set and it is one of his (`isOneOfHis`); it then gets no Start. */
   isForHandOut: (matter: string) => boolean;
+  /** Whether `desk.handOut` is set: off, a project's agent still answers for its project's matters (no Start for them). */
+  isHandOutOn: boolean;
   /** Every observation that shows, and the ids of those that are kept: active, at or above `KEEP_AT`. */
   kept: ReadonlySet<string>;
   lines: readonly Line[];
@@ -387,15 +389,15 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
   /**
    * Each running matter he has not answered "Start an agent on this?" for: one that began in the last `NEW_MATTER_DAYS` (its first
    * step's day), with an open step, not stuck (a passed date), a goal and a next step to hand over (`nextToDoOf`), held
-   * by no agent (`isHeldOf`: a project's agent holds none), not dismissed, and, while the hand-out is on, not one of his
-   * own (`isOneOfHis`: the hand-out takes those); none while the desk is off or unreadable. No deadline: it never
+   * by no agent (`isHeldOf`; while the hand-out is off, a project's agent holds its project's matters too), not
+   * dismissed, and, while the hand-out is on, not one of his own (`isOneOfHis`: the hand-out takes those); none while the desk is off or unreadable. No deadline: it never
    * outranks an agent's decision; on silence nothing starts and it leaves after its last day.
    */
   "new matter": (c) => {
     if (!c.heldByAgents) {
       return [];
     }
-    const isHeld = isHeldOf(c.heldByAgents);
+    const isHeld = isHeldOf(c.heldByAgents, !c.isHandOutOn);
     const find = matterFinderOf(c.matters);
     const dismissed = new Set(c.dismissed.map(find));
     return c.matters.flatMap((v) => {
@@ -660,12 +662,18 @@ let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
  */
 const CHECKS_READ = [...MATTER_BOOK_READS, CLOSENESS, DECISIONS, PAGES, ZONES];
 
+/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. */
+export interface HeldRead {
+  read: () => readonly AgentHold[] | null;
+  stamp: string;
+}
+
 /**
  * What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open
- * decisions (one lapses), what agents hold (their anchors as facts) and the voices lifelog queues. The same key, the same list.
+ * decisions (one lapses), the stamp of what agents hold and the voices lifelog queues. The same key, the same list.
  */
 const checksKeyOf = (
-  held: readonly AgentHold[] | null,
+  held: HeldRead | null,
   voices: readonly NamingQueueItem[],
   decisions: readonly Decision[]
 ) =>
@@ -673,7 +681,7 @@ const checksKeyOf = (
     readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
-    held,
+    held?.stamp ?? null,
     voices,
   ]);
 
@@ -682,9 +690,7 @@ const checksKeyOf = (
  * the desk): read-only, no model call. Read again only when what it is read from changed (`checksKeyOf`), and always
  * while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
  */
-export async function checksNow(
-  held: readonly AgentHold[] | null
-): Promise<InboxCheck[]> {
+export async function checksNow(held: HeldRead | null): Promise<InboxCheck[]> {
   const voices = await readNamingQueue();
   const decisions = decisionsNow().filter((d) => d.state === "open");
   if (isLocked()) {
@@ -704,7 +710,7 @@ export async function checksNow(
 }
 
 async function readChecks(
-  held: readonly AgentHold[] | null,
+  held: HeldRead | null,
   voices: NamingQueueItem[],
   decisions: Decision[]
 ): Promise<InboxCheck[]> {
@@ -756,9 +762,10 @@ async function readChecks(
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,
-    heldByAgents: held,
+    heldByAgents: held?.read() ?? null,
     isDirectionDue: directionDueOf(matters, records, dayNow()),
     isForHandOut: (id) => forHandOut.has(id),
+    isHandOutOn: Boolean(settings().desk?.handOut),
     // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).
     kept,
     lines,

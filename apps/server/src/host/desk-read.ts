@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
-import { DAY, HOUR, MIN } from "../core/clock";
+import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { off } from "../core/outputs";
 import { DESK_STORE } from "../core/paths";
 import { settings } from "../core/settings";
@@ -190,31 +190,46 @@ export const agentKindOf = (a: Pick<AgentRow, "is_handed_out">): AgentKind =>
   a.is_handed_out === 1 ? "handed_out" : "asked";
 
 /**
- * Every anchor of a registered agent, as a fact (`AgentHold`): what the hold rule (`isHeldOf`) decides
- * "held" from, against the matter book. A project's agent holds no matter.
- * ponytail: every ended agent's anchors are read, a few thousand rows a year with the hand-out on; drop those ended over a year ago if the inbox's read ever shows it.
+ * How long an ended agent's subject is read for the hold rule: one ended earlier holds nothing, so a try older than this
+ * may be repeated once on a matter nobody moved (accepted: the read stays bounded).
  */
+export const HOLD_DAYS = 90;
+
+/** Every subject of an agent active, stopped or ended in the last `HOLD_DAYS`: each anchor, and each project's agent's project. */
+const HELD_ROWS = `select n.rowid as anchor, a.rowid as agent, n.step, null as project, a.ended_at, a.is_handed_out, a.outcome, a.why_not_started from anchor n join agent a on a.id = n.agent_id where a.ended_at is null or a.ended_at >= ?1
+  union all select null, a.rowid, null, a.project, a.ended_at, a.is_handed_out, a.outcome, a.why_not_started from agent a where a.project is not null and (a.ended_at is null or a.ended_at >= ?1)`;
+const heldSince = () =>
+  new Date(clock().getTime() - HOLD_DAYS * DAY).toISOString();
+
+/** The subjects registered agents hold, as facts (`AgentHold`): what the hold rule (`isHeldOf`) decides "held" from, against the matter book. */
 export const heldByAgents = (db: Database): AgentHold[] =>
   db
     .query<
       Pick<
         AgentRow,
-        "ended_at" | "is_handed_out" | "outcome" | "why_not_started"
-      > & {
-        step: string;
-      },
-      []
-    >(
-      "select n.step, a.ended_at, a.is_handed_out, a.outcome, a.why_not_started from anchor n join agent a on a.id = n.agent_id order by n.rowid"
-    )
-    .all()
+        "ended_at" | "is_handed_out" | "outcome" | "project" | "why_not_started"
+      > & { step: string | null },
+      [string]
+    >(`${HELD_ROWS} order by agent, anchor`)
+    .all(heldSince())
     .map((r) => ({
       endedAt: r.ended_at,
       kind: agentKindOf(r),
       outcome: r.outcome,
+      project: r.project,
       step: r.step,
       whyNotStarted: r.why_not_started,
     }));
+
+/** A stamp of what `heldByAgents` would read, by one cheap query (how many, the newest anchor and agent, the newest end): the inbox's key, never the list. */
+export const heldStampOf = (db: Database) =>
+  JSON.stringify(
+    db
+      .query<unknown, [string]>(
+        `select count(*), max(anchor), max(agent), max(ended_at) from (${HELD_ROWS})`
+      )
+      .values(heldSince())
+  );
 
 /** What the desk did with an ask of his (`change_registered_agent`): the agent it touched, or why it refused; null until applied. */
 export const agentChangeOf = (db: Database, ask: string) =>

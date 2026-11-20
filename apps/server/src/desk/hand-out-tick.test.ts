@@ -12,6 +12,7 @@ import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { answerWithResult } from "../host/answer-result";
 import { agentOf } from "../host/desk-read";
+import { DECISION_ANSWERED } from "../host/events";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as checks from "../memory/checks";
 import { DECISIONS, decisionsNow } from "../memory/decisions";
@@ -377,10 +378,18 @@ const readToDo = async () => ({
   matters: await mattersToDo(),
 });
 
+const queued = (desk: ReturnType<typeof deskOf>, agent: string) =>
+  desk.db
+    .query<{ name: string }, [string]>(
+      "select name from event where agent_id = ?"
+    )
+    .all(agent)
+    .map((r) => r.name);
+
 // Regression, 20 Nov 2026: he answered "Done" on a handed-out agent's card about what only he could do; nothing closed
-// in Life, so the matter stayed at the top of his ranking and the hand-out would start an agent on it again. And
-// (finding 9 of the action pipeline review) the answer then woke the agent for a turn its end stopped at once.
-test("Done on an `ends` card closes the matter: off the matters to do, skipped by the hand-out, its agent ended and never woken", async () => {
+// in Life, so the matter stayed at the top of his ranking and the hand-out would start an agent on it again. His answer
+// may wake the agent for one turn; ending it on its matter is `endAgentsOnOverMatters`' alone (`endOutcomeOf`).
+test("Done on an `ends: matter` card closes the matter: off the matters to do; its agent is left to endAgentsOnOverMatters", async () => {
   const desk = deskOf();
   const step = "obs_00000000f001";
   const matterId = "matter_00000000f001";
@@ -398,7 +407,7 @@ test("Done on an `ends` card closes the matter: off the matters to do, skipped b
       const agent = (await handOutNext(desk, readToDo)) ?? "";
       await wakeDue(desk);
       // The desk reads his answers from here on.
-      await pollAnswers(desk);
+      pollAnswers(desk);
       const { id } = await askDecision(desk, agent, {
         deadline: iso(clock().getTime() + DAY),
         onSilence: null,
@@ -419,22 +428,61 @@ test("Done on an `ends` card closes the matter: off the matters to do, skipped b
         { kind: "matter-direction" },
         { kind: "outdated", observations: [step] },
       ]);
-      const after = await readToDo();
-      expect(after.matters).toEqual([]);
+      expect((await readToDo()).matters).toEqual([]);
       setSystemTime(new Date(clock().getTime() + 1000));
-      await pollAnswers(desk);
+      pollAnswers(desk);
+      expect(agentOf(desk.db, agent)?.status).toBe("active");
+      expect(queued(desk, agent)).toEqual([DECISION_ANSWERED]);
+      await endAgentsOnOverMatters(desk, readPeopleOnce());
       expect(agentOf(desk.db, agent)).toMatchObject({
         outcome: MATTER_DONE_OUTCOME,
         status: "ended",
       });
-      expect(
-        desk.db.query("select * from event where agent_id = ?").all(agent)
-      ).toEqual([]);
-      const turns = () =>
-        desk.db.query("select id from turn where agent_id = ?").all(agent);
-      const before = turns().length;
+    }
+  );
+});
+
+test("a project agent's `ends: step` card answered Done wakes it and never ends it", async () => {
+  const desk = deskOf();
+  const step = "obs_00000000f031";
+  await withBook(
+    [toDo(step, "I'll send the invoice")],
+    { id: "matter_00000000f031", steps: [step] },
+    async () => {
+      const agent = register(desk, {
+        brief: "Test brief: the bakery",
+        project: "test-bakery",
+        runtime: "claude",
+      });
+      pollAnswers(desk);
+      const { id } = await askDecision(desk, agent, {
+        deadline: iso(clock().getTime() + DAY),
+        onSilence: null,
+        options: [
+          { ends: "step", id: "done", label: "Done" },
+          { id: "tell", label: "Tell the agent…" },
+        ],
+        question: "Did you send the invoice?",
+        subject: step,
+        title: "Send the invoice",
+      });
+      await answerWithResult(
+        id,
+        { options: ["done"] },
+        { report: () => undefined }
+      );
+      setSystemTime(new Date(clock().getTime() + 1000));
+      pollAnswers(desk);
+      await endAgentsOnOverMatters(desk, readPeopleOnce());
       await wakeDue(desk);
-      expect(turns()).toHaveLength(before);
+      expect(agentOf(desk.db, agent)?.status).toBe("active");
+      expect(
+        desk.db
+          .query<{ cause: string }, [string]>(
+            "select cause from turn where agent_id = ? order by id desc limit 1"
+          )
+          .get(agent)
+      ).toEqual({ cause: "answer" });
     }
   );
 });

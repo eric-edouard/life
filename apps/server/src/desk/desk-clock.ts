@@ -27,11 +27,8 @@ import {
   readMessageEvents,
 } from "../host/events";
 import { MAX_PAGE } from "../memory/changes";
-import { type Decision, decisionsNow } from "../memory/decisions";
-import { type MatterView, matterOfSteps } from "../memory/matter-read";
-import { readMatterBook } from "../memory/matters";
+import { decisionsNow } from "../memory/decisions";
 import { type People, readPeople } from "../memory/who";
-import { dayNow } from "../memory/zones";
 import type { TurnOutcome } from "../records/registered-agent";
 import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
@@ -61,7 +58,6 @@ import {
 } from "./event-queue";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import {
-  MATTER_DONE_OUTCOME,
   MATTER_RELATED,
   matterEndsOf,
   netsOf,
@@ -235,64 +231,32 @@ export async function endAgentsOnOverMatters(
   }
 }
 
-/** The test of "his answer closed its matter": its `ends` option closed it in Life (an `ended` line with no error) and no open matter holds its subject now; the matter book read once, only for such an answer. */
-function closedByAnswerOf(readPeopleNow: ReadPeople) {
-  let open: Promise<MatterView[]> | undefined;
-  return async (d: Decision) => {
-    if (!(d.end && !d.end.error && d.subject)) {
-      return false;
-    }
-    open ??= readPeopleNow()
-      .then((people) => readMatterBook(people, dayNow()))
-      .then((book) => book.filter((v) => v.open));
-    return !matterOfSteps(await open, [d.subject]);
-  };
-}
-
 /**
  * Queues his answers to the agents' decisions, and their lapses, for the active agent that asked each, in the
  * transaction that saves each cursor: read through `pollDecisions`, as the desk (every registered agent asks as it).
- * An answer that closed the asker's matter (`closedByAnswerOf`) ends the asker instead: nothing is left to wake it for.
  */
-export async function pollAnswers(
-  desk: Desk,
-  readPeopleNow: ReadPeople = readPeopleOnce()
-) {
-  const { db } = desk;
+export function pollAnswers({ db }: Desk) {
   const active = new Set(activeAgents(db).map((a) => a.id));
   const reads = ANSWERS.map((name) => ({
     name,
     read: pollDecisions(name, readCursor(db, name), DESK_AGENT),
   }));
   // Read after the polls, so every decision they return is known.
-  const byId = new Map(decisionsNow().map((d) => [d.id, d]));
-  const isClosed = closedByAnswerOf(readPeopleNow);
-  const closing = new Set<string>();
-  for (const e of reads.flatMap(({ read }) => read.events)) {
-    const d = byId.get(e.data.id);
-    // biome-ignore lint/performance/noAwaitInLoops: the matter book is read once, for the first answer that closed one
-    if (d?.agent && active.has(d.agent) && (await isClosed(d))) {
-      closing.add(d.id);
-    }
-  }
+  const askedBy = new Map(decisionsNow().map((d) => [d.id, d.agent]));
   for (const { name, read } of reads) {
     db.transaction(() => {
       queue(
         db,
         name,
         read.events.flatMap((e) => {
-          const agent = byId.get(e.data.id)?.agent;
-          return agent && active.has(agent) && !closing.has(e.data.id)
+          const agent = askedBy.get(e.data.id);
+          return agent && active.has(agent)
             ? [{ agent, eventId: e.eventId, payload: e.data }]
             : [];
         })
       );
       saveCursor(db, name, read.cursor);
     })();
-  }
-  for (const id of closing) {
-    // biome-ignore lint/performance/noAwaitInLoops: one agent's decision withdrawn at a time
-    await endAgent(desk, byId.get(id)?.agent ?? "", MATTER_DONE_OUTCOME);
   }
 }
 
@@ -565,18 +529,18 @@ export async function wakeDue(desk: Desk) {
 }
 
 /**
- * One tick of the clock: his word about his agents, the hand-out (at most one start, a look every 10 minutes), his answers (one that closed its matter ends its asker), the turns that never began, then the turns due (a new
+ * One tick of the clock: his word about his agents, the hand-out (at most one start, a look every 10 minutes), his answers, the turns that never began, then the turns due (a new
  * agent's first turn never waits behind the polls), then, when their poll is due, the messages, the calls that ended, the recordings, the
  * agents whose matter is over for them, the hand-outs with no card in time and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst; the event channels a wait names after the calls (`pollChannels`).
  */
 export async function tick(desk: Desk, isPollDue = true) {
-  const people = readPeopleOnce();
   await applyAgentChanges(desk);
   await handOutNext(desk);
-  await pollAnswers(desk, people);
+  pollAnswers(desk);
   await endUnbegunTurns(desk);
   await wakeDue(desk);
   if (isPollDue) {
+    const people = readPeopleOnce();
     await pollMessages(desk, people);
     await pollCalls(desk, people);
     await pollChannels(desk, people);

@@ -33,6 +33,7 @@ const heldOn = (...steps: string[]) =>
       endedAt: null,
       kind: "asked" as const,
       outcome: null,
+      project: null,
       step,
       whyNotStarted: null,
     }))
@@ -64,7 +65,10 @@ test("his stopped agent holds its matter; a project's agent holds none", () => {
   desk.db.run("update agent set status = 'stopped' where id = ?", [stopped]);
   own({ project: "test-bakery" });
   const holds = heldByAgents(desk.db);
-  expect(holds.map((h) => h.step)).toEqual(["obs_a1"]);
+  expect(holds.map((h) => h.step ?? h.project)).toEqual([
+    "obs_a1",
+    "test-bakery",
+  ]);
   expect(pick({ isHeld: isHeldOf(holds) })).toBe("mat_b");
 });
 

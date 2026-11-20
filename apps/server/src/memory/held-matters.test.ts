@@ -10,6 +10,7 @@ const hold = (over: Partial<AgentHold> = {}): AgentHold => ({
   endedAt: END,
   kind: "handed_out",
   outcome: "nothing left for me",
+  project: null,
   step: "obs_h1",
   whyNotStarted: null,
   ...over,

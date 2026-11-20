@@ -1,6 +1,6 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY } from "../core/clock";
-import { agentOf, agentsNow, heldByAgents } from "../host/desk-read";
+import { agentOf, agentsNow, HOLD_DAYS, heldByAgents } from "../host/desk-read";
 import { register } from "./agent-actions";
 import { tick } from "./desk-clock";
 import { setup, started } from "./test-desk";
@@ -15,7 +15,7 @@ const agentOn = (desk: ReturnType<typeof setup>["desk"], subject: object) =>
     runtime: "fake",
     ...subject,
   });
-test("every anchor is a fact for the hold rule: when its agent ended, who started it, how it ended; a project's agent has none", async () => {
+test("every subject is a fact for the hold rule: when its agent ended, who started it, how it ended; none ended over HOLD_DAYS ago", async () => {
   const { desk } = setup();
   const ended = new Date(clock().getTime() - 30 * DAY).toISOString();
   const handed = await started(desk, "obs_00000000b020");
@@ -29,20 +29,35 @@ test("every anchor is a fact for the hold rule: when its agent ended, who starte
     [ended, never]
   );
   agentOn(desk, { project: "test-p" });
+  const old = await started(desk, "obs_00000000b022");
+  desk.db.run("update agent set status = 'ended', ended_at = ? where id = ?", [
+    new Date(clock().getTime() - (HOLD_DAYS + 1) * DAY).toISOString(),
+    old,
+  ]);
+  const fact = { project: null, whyNotStarted: null };
   expect(heldByAgents(desk.db)).toEqual([
     {
+      ...fact,
       endedAt: ended,
       kind: "handed_out",
       outcome: "nothing left",
       step: "obs_00000000b020",
-      whyNotStarted: null,
     },
     {
+      ...fact,
       endedAt: ended,
       kind: "asked",
       outcome: null,
       step: "obs_00000000b021",
       whyNotStarted: "x",
+    },
+    {
+      ...fact,
+      endedAt: null,
+      kind: "asked",
+      outcome: null,
+      project: "test-p",
+      step: null,
     },
   ]);
 });
