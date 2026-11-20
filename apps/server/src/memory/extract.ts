@@ -211,8 +211,8 @@ const heldReading = (
  * reading (`heldReading`: its latest standing one, by this prompt, not said read wrong since) is the cache, the same
  * reading its facts stand on (`isCurrent`), so content that changed back is read again. Who someone is needs no new
  * reading: the readers resolve a fact's author and subjects as of today (`aboutNow`). `demoted`: units read before
- * that their latest verdict no longer keeps (content changed, or a re-read judged them lower); those no group reads
- * get an `unkept` line (`groupsOf`), so none of their facts stays shown; one kept again is read again. `isRead`: the
+ * that their latest verdict no longer keeps (content changed, or a re-read judged them lower); those no call reads
+ * get an `unkept` line (`unkeptOf`), so none of their facts stays shown; one kept again is read again. `isRead`: the
  * one test of whether a unit has a reading on its current content (what `groupsOf` leaves out of a group).
  */
 export function toExtract(

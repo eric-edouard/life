@@ -85,23 +85,29 @@ export function folded(s: string) {
   return { from, out };
 }
 
-function find(text: string, quote: string) {
+/** Where `quote` sits in `text`, folded (`folded`): the first occurrence ending past `endAfter`, scanned in one fold. */
+function find(text: string, quote: string, endAfter = 0) {
   const q = folded(quote).out.trim();
-  const f = folded(text);
-  const at = f.out.indexOf(q);
-  if (q.length < MIN_QUOTE || at < 0) {
+  if (q.length < MIN_QUOTE) {
     return null;
   }
-  const start = f.from[at] ?? 0;
-  const last = f.from[at + q.length - 1] ?? start;
-  const end = last + ((text.codePointAt(last) ?? 0) > 0xff_ff ? 2 : 1);
-  return { start, verbatim: text.slice(start, end) };
+  const f = folded(text);
+  for (let at = f.out.indexOf(q); at >= 0; at = f.out.indexOf(q, at + 1)) {
+    const start = f.from[at] ?? 0;
+    const last = f.from[at + q.length - 1] ?? start;
+    const end = last + ((text.codePointAt(last) ?? 0) > 0xff_ff ? 2 : 1);
+    if (end > endAfter) {
+      return { start, verbatim: text.slice(start, end) };
+    }
+  }
+  return null;
 }
 
 /**
  * The quote check: where `quote` sits in the unit's lines, compared without accents, case, quote style or spacing;
- * the hinted line first, then from line `from` on, then one starting in the line before it and running into it (a
- * quote may run across two lines), then the whole text. Returns the source's own words, the line holding their start (`line`) and their end (`lastLine`).
+ * the hinted line first (one before a continued unit's first new line `from` is looked past), then the first occurrence
+ * reaching line `from` (a quote may run across lines), then the whole text. Returns the source's own words and the
+ * lines holding their start (`line`) and their end (`lastLine`).
  */
 export function locate(
   quote: string,
@@ -116,29 +122,10 @@ export function locate(
     return { lastLine: hint, line: hint, verbatim: inLine.verbatim };
   }
   const joined = lines.join("\n");
-  // Where line `n` starts in `joined`.
-  const startOf = (n: number) =>
-    n > 0 ? lines.slice(0, n).join("\n").length + 1 : 0;
-  const findFrom = (n: number) => {
-    const h = n > 0 ? find(joined.slice(startOf(n)), quote) : null;
-    return h ? { ...h, start: h.start + startOf(n) } : null;
-  };
-  // A quote starting in the line before `from` and reaching into it: the first such, past wholly earlier ones.
-  const reaching = () => {
-    for (let at = startOf(from - 1); from > 0; ) {
-      const h = find(joined.slice(at), quote);
-      if (!h) {
-        return null;
-      }
-      const start = h.start + at;
-      if (start + h.verbatim.length > startOf(from)) {
-        return { ...h, start };
-      }
-      at = start + 1;
-    }
-    return null;
-  };
-  const hit = findFrom(from) ?? reaching() ?? find(joined, quote);
+  // A continued unit's quote: the first one reaching its new lines (running into them or in them), else anywhere.
+  const newFrom = lines.slice(0, from).join("\n").length + 1;
+  const hit =
+    (from > 0 ? find(joined, quote, newFrom) : null) ?? find(joined, quote);
   if (!hit) {
     return null;
   }
