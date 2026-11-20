@@ -124,6 +124,15 @@ create table if not exists agent_change (
   applied_at text not null
 );
 create index if not exists agent_change_by_applied on agent_change (applied_at);
+create table if not exists card (
+  decision_id text primary key,
+  assignment_id text not null
+);
+create table if not exists handed_step (
+  assignment_id text not null,
+  step text not null,
+  primary key (assignment_id, step)
+);
 `;
 
 /** The desk: its store, the runtimes it drives by name, and the message sources it polls (all that are on, unless a test gives its own). */

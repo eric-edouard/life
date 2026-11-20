@@ -14,6 +14,9 @@ with the next Host build. The server calls it when `IDENTITY_URL` and `IDENTITY_
   each a class with `tokens(samples)` in `PARAKEETS`. Nothing else branches on the runtime but which pinned Parakeet it downloads (`MODELS`). ONNX is fp32: every int8
   export drops up to 87% of the words (`docs/research/transcription-bench.md`).
 - **Every model is pinned** to a revision in `MODELS` and loaded once per process; one worker thread runs them.
+- **Dictation goes next, nothing is cut.** `X-Priority: interactive` has one waiting place of its own and is taken
+  before the ordinary queue; each priority keeps arrival order. Work whose caller stopped waiting or hung up never runs, and the
+  idle worker holds nothing of a request (`run_next`).
 - **Routing is the lifelog server's** (`apps/server/src/route-turns.ts`): the service answers what it heard, nothing
   about Scribe.
 

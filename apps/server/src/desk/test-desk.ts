@@ -1,4 +1,4 @@
-import { setSystemTime } from "bun:test";
+import { setSystemTime, spyOn } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -146,4 +146,48 @@ export async function started(desk: Desk, step: string) {
   });
   await wakeDue(desk);
   return id;
+}
+
+/** A made-up open matter holding `steps` (each a to-do at `at`), as the matter book gives it. */
+export const matterView = (
+  id: string,
+  steps: string[],
+  at = "2026-11-18T08:00:00.000Z"
+) => ({
+  areas: [],
+  goal: { at, by: "life", text: `Goal of ${id}` },
+  hasOwnOpenStep: true,
+  id,
+  important: false,
+  lone: false,
+  name: `Matter ${id}`,
+  nextStep: { at, by: "life", kind: "do", text: `Next step of ${id}` },
+  open: true,
+  openSteps: [],
+  owedTo: [],
+  projects: [],
+  status: "moving",
+  steps: steps.map((ref) => ({
+    at,
+    day: at.slice(0, 10),
+    kind: "to_do",
+    quote: "",
+    ref,
+    text: `Step ${ref}`,
+  })),
+  waitingOn: [],
+  with: [],
+});
+
+/** Runs `f` while the matter book holds `views` (`readMatterBook`). */
+export async function withMatters<T>(views: unknown[], f: () => Promise<T>) {
+  const matters = await import("../memory/matters");
+  const book = spyOn(matters, "readMatterBook").mockResolvedValue(
+    views as never
+  );
+  try {
+    return await f();
+  } finally {
+    book.mockRestore();
+  }
 }

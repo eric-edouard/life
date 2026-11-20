@@ -1,10 +1,11 @@
 import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import type { Unit } from "../records/unit";
-import { readIndex, readUnitsFor } from "./memory-files";
+import { readUnitsFor } from "./memory-files";
 import type { Party } from "./party";
+import { chatUnitsFor, readPersonUnits } from "./person-units";
 import { OWNER } from "./read-truth";
-import { isDirect, kindOf, SOURCES, sourceOf } from "./sources";
+import { isDirect, SOURCES, sourceOf } from "./sources";
 import { type Message, oneLineOf, UNKNOWN } from "./units";
 import type { People } from "./who";
 import { unitLines } from "./words";
@@ -51,17 +52,7 @@ interface DraftChat {
   to: string;
 }
 
-/** A chat-day as the index lists it: what picks the newest 1:1 chat before any unit file is read. */
-interface IndexedChatUnit {
-  date: string;
-  id: string;
-  people: string[];
-  source: SourceName;
-}
-
-/** How many of a person's newest chat-days are read to find one that is 1:1 (the index can't tell a group). */
-const TRIED = 3;
-/** How many of one person's newest units the index lists: enough to hold `TRIED` 1:1 chat-days among groups' days. */
+/** How many of one person's newest chat units the index lists: enough to hold a few 1:1 chat-days among groups' days. */
 const READ = 30;
 /** A newest message's text, cut to one line. */
 const LINE_CHARS = 120;
@@ -99,58 +90,13 @@ export function networkIdentityOf(
   };
 }
 
-/**
- * The chat-days to try for one check, newest first: chat units whose one other person is the check's person (as the
- * index files them: their ref, or `unknown:<handle>` while no one is known by it).
- */
-export function chatUnitsFor(
-  units: readonly IndexedChatUnit[],
-  refs: ReadonlySet<string>
-) {
-  return units
-    .filter((u) => {
-      const others = u.people.filter((p) => p !== OWNER);
-      return (
-        kindOf(u.source) === "chat" &&
-        others.length === 1 &&
-        refs.has(others[0] as string)
-      );
-    })
-    .toSorted((a, b) => b.date.localeCompare(a.date))
-    .slice(0, TRIED);
-}
-
 /** What the index files a check's person as: their ref now, and each of their handles while no one is known by it. */
 const refsOf = (c: PersonCheck, refOf: People["refOf"]) =>
   new Set([refOf(c.ref), ...c.about.map((h) => `${UNKNOWN}${h}`)]);
 
-/** The sources a 1:1 chat can come from. */
-const CHAT_SOURCES = JSON.stringify(
-  SOURCES.filter((s) => s.kind === "chat").map((s) => s.name)
-);
-
-/** The newest `READ` indexed chat units of these people refs, newest first: mail and other kinds never crowd them out. */
-const readIndexedUnits = (refs: string[]) =>
-  readIndex((db) =>
-    db
-      .query<
-        { date: string; id: string; people: string; source: SourceName },
-        [string, number, string]
-      >(
-        `select u.id, u.date, u.source, (select json_group_array(q.person) from unit_people q where q.unit = u.id) as people
-           from units u
-          where u.id in (select unit from unit_people where person in (select value from json_each(?1)))
-            and u.source in (select value from json_each(?3))
-          order by u.date desc
-          limit ?2`
-      )
-      .all(JSON.stringify(refs), READ, CHAT_SOURCES)
-      .map((r) => ({ ...r, people: JSON.parse(r.people) as string[] }))
-  ) ?? [];
-
 /**
  * Each person check's network identity, by its ref (a decision's `confirm` guesses too). Reads one bounded query of
- * the index for each check's chat-days, the unit files of at most `TRIED` of them each, and the chosen chat-day
+ * the index for each check's chat-days, the unit files of at most three of them each (`chatUnitsFor`), and the chosen chat-day
  * again from its source (`unitLines`) once: never a whole source. A check with no 1:1 chat Life holds has none.
  */
 export async function readNetworkIdentities(
@@ -174,7 +120,10 @@ export async function readNetworkIdentities(
   }));
   const tried = wanted.map((w) => ({
     ...w,
-    ids: chatUnitsFor(readIndexedUnits([...w.refs]), w.refs).map((u) => u.id),
+    ids: chatUnitsFor(
+      readPersonUnits([...w.refs], { count: READ, kinds: ["chat"] }),
+      w.refs
+    ).map((u) => u.id),
   }));
   const units = new Map(
     readUnitsFor([...new Set(tried.flatMap((t) => t.ids))]).map((u) => [
