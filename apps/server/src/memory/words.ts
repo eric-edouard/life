@@ -1,4 +1,4 @@
-import { clock, DAY } from "../core/clock";
+import { clock, DAY, daysBefore } from "../core/clock";
 import { fuse } from "../core/fusion";
 import { newestDays } from "../core/lists";
 import { redact } from "../core/redact";
@@ -24,11 +24,17 @@ import {
   voiceKey,
 } from "../sources/lifelog-voices";
 import { communicationStylesOf } from "./communication-styles";
-import { readInferredRepos, readJudgments, readUnit } from "./memory-files";
+import {
+  readInferredRepos,
+  readJudgments,
+  readUnit,
+  readUnitsFor,
+} from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
+import { isWithOnly, readPersonUnits } from "./person-units";
 import type { SourceLine } from "./quote-check";
-import { directoryPartiesOf, handlesOf, OWNER, type Truth } from "./read-truth";
+import { OWNER, type Truth } from "./read-truth";
 import {
   isDirect,
   kindOf,
@@ -47,7 +53,6 @@ import {
   lifelogNames,
   lineOf,
   MARKED,
-  nameKey,
   normalize,
   oneToOne,
   type Resolve,
@@ -58,7 +63,7 @@ import {
 } from "./units";
 import { readNearest } from "./vectors";
 import { withGuessesShown } from "./voice-guesses";
-import { meant, type People, readPeople } from "./who";
+import { meant, nameRefusalOf, type People, readPeople } from "./who";
 import { type DayRange, dayRange, localDate, localTime, time } from "./zones";
 
 // The words of units: for the memory steps (`voiceLines`, `chatLines`), and on demand for `bun life memory fetch|chats` and the Chats section of `search`: Life stores no transcript text, so the spoken words are fetched
@@ -452,30 +457,6 @@ export async function fetchOf(
   return pageOf({ head, id, lines, note, total }, fromTurn, limit);
 }
 
-/**
- * What `--who` stands for: the words, and when they name a person (in the directory, inferred, as corrected), that person's names
- * and handles. A word search, wider than who wrote a message (`speakerOf`, which events match on).
- */
-function needlesOf(who: string, ref: string, people: People) {
-  const { outsideDirectory, canon, corrections, truth } = people;
-  const person = directoryPartiesOf(truth).find(
-    (p) => `person:${p.id}` === ref
-  );
-  return [
-    who,
-    ...(person ? [person.name, ...person.aliases, ...handlesOf(person)] : []),
-    ...outsideDirectory.flatMap((p) =>
-      canon(`person:${p.id}`) === ref ? [p.name, ...p.namesAndHandles] : []
-    ),
-    // A handle the owner said is them ("Ann K on Instagram is Claire").
-    ...corrections.flatMap((c) =>
-      c.kind === "this-is" && canon(c.person) === ref ? [c.nameOrHandle] : []
-    ),
-  ]
-    .map(nameKey)
-    .filter(Boolean);
-}
-
 /** Whether a text holds every word of `query`, case and accents ignored; a query with no word holds nothing. */
 export const holdsAll = (query: string) => {
   const words = queryWords(query);
@@ -627,10 +608,11 @@ export async function mailHits(
 
 /**
  * `bun life memory chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant]`: the latest 200
- * messages inside the range, from WhatsApp's and the bridges' archives and iMessage, today included; with no `from`, the
- * all available history for `--who` and 7 days for `--chat`. `before` (exclusive) pages back: each answer names the next one.
- * Messages deleted for everyone show their text marked (deleted). `--who` matches a chat's name or id or a sender, by
- * a name or handle in the directory too.
+ * messages inside the range, deleted ones included (marked deleted), today included. `--chat`: that chat, from
+ * WhatsApp's and the bridges' archives and iMessage, 7 days without `from`. `--who`: a person (as `read_people_and_organizations` reads a name,
+ * `meant`) or a handle no one is known by: their one-to-one chats and what they wrote in groups, found through their
+ * units in the index (`readPersonUnits`), all history without `from`. `before` (exclusive) pages back: each answer
+ * names the next one.
  */
 export async function chatsOf(
   o: {
@@ -646,31 +628,20 @@ export async function chatsOf(
     return null;
   }
   const people = await readPeople();
-  // Who the words mean, as `read_person_page` reads them (`meant`); the words alone when no one.
-  const known = o.who ? meant(o.who, people).known : undefined;
-  const needles = o.who
-    ? needlesOf(o.who, `person:${known ?? o.who}`, people)
-    : [];
   const before = o.before ? new Date(o.before).toISOString() : undefined;
   const range = dayRange(o.from, o.to);
   if (before && before < range.to) {
     range.to = before;
   }
-  const { end, events, failed, start } = readChats(
-    range,
-    sources,
-    o.who || before ? undefined : 7
-  );
-  const shown = events.filter((e) => {
-    if (o.chat && e.chat !== o.chat) {
-      return false;
-    }
-    if (!o.who) {
-      return true;
-    }
-    const hay = ` ${nameKey(`${e.chat} ${e.chatName ?? ""} ${e.fromMe ? "" : e.sender}`)} `;
-    return needles.some((n) => hay.includes(` ${n} `));
-  });
+  const known = o.who ? meant(o.who, people).known : undefined;
+  const ref = known ? `person:${known}` : `${UNKNOWN}${o.who}`;
+  const { end, events, failed, start } = o.who
+    ? personChats(ref, range, sources, people)
+    : readChats(range, sources, before ? undefined : 7);
+  const shown = o.chat ? events.filter((e) => e.chat === o.chat) : events;
+  if (o.who && !known && shown.length === 0) {
+    return asData([`(${nameRefusalOf(o.who, people)})`]);
+  }
   // Newest first by instant, the edge instant kept whole: `before` names where the next page starts.
   const { next, taken } = newestDays(
     shown.toReversed(),
@@ -680,20 +651,87 @@ export async function chatsOf(
   );
   const page = taken.toReversed();
   return asData([
-    `${localDate(start.toISOString())} to ${localDate(end.toISOString())} (the latest ${PAGE} messages)`,
-    ...(o.from
+    o.who
+      ? `${o.from ?? "From the first"} to ${localDate(end.toISOString())} (the latest ${PAGE} messages)`
+      : `${localDate(start.toISOString())} to ${localDate(end.toISOString())} (the latest ${PAGE} messages)`,
+    ...(o.from || o.who
       ? []
       : [
           `(no \`from\`: ${Math.round((end.getTime() - start.getTime()) / DAY)} days; give \`from\` to read further back)`,
         ]),
     ...unread(failed),
     // Drafting starts here: the person's communication style, as their page shows it (1:1 chats only: none for a group).
-    ...(known ? communicationStylesOf([`person:${known}`], people.nameOf) : []),
+    ...(known ? communicationStylesOf([ref], people.nameOf) : []),
     ...(next
       ? [`(earlier not shown: the same call with \`before\` ${next})`]
       : []),
     ...chatLinesOf(page, people),
   ]);
+}
+
+/** How many of a person's chat units one round reads from the index: whole days, until a page is full. */
+const ROUND = 40;
+
+/**
+ * A person's chat messages in `range`, oldest first: every message of their one-to-one chat-days, and their own in a
+ * group's, read day by day back from the range's end through their units (`readPersonUnits`), each unit's span read
+ * once from its source, until more than a page is held or none is left. Never a scan of every chat.
+ */
+function personChats(
+  ref: string,
+  range: DayRange,
+  sources: Partial<Tables["CHATS"]>,
+  { refOf }: People
+) {
+  const end = range.to ? new Date(range.to) : clock();
+  const start = new Date(range.from ?? 0);
+  const refs = new Set([ref]);
+  const isTheirs = (e: SourceEvent) =>
+    !e.fromMe && refOf(`${UNKNOWN}${e.sender}`, e.source) === ref;
+  const failed = new Set<string>();
+  const events: SourceEvent[] = [];
+  let day: string | undefined = daysBefore(localDate(end.toISOString()), -1);
+  while (day && events.length <= PAGE && day > localDate(start.toISOString())) {
+    const indexed = readPersonUnits([ref], {
+      before: day,
+      count: ROUND,
+      kinds: ["chat"],
+    });
+    const byId = new Map(indexed.map((x) => [x.id, x]));
+    for (const u of readUnitsFor([...byId.keys()])) {
+      const read = sources[u.source];
+      const listed = byId.get(u.id);
+      // A chat-day with them alone is theirs whole, unless its key says a group.
+      const direct = isDirect(
+        u.source,
+        u.key,
+        listed && isWithOnly(listed, refs) ? 1 : 2
+      );
+      try {
+        events.push(
+          ...(read?.(new Date(u.start), new Date(Date.parse(u.end) + 1)) ?? [])
+            .filter((e) => e.chat === u.key && e.at <= u.end)
+            .filter((e) => direct || isTheirs(e))
+        );
+      } catch {
+        failed.add(u.source);
+      }
+    }
+    day = indexed.at(-1)?.date;
+  }
+  return {
+    end,
+    events: events
+      .filter(
+        (e) =>
+          e.at >= start.toISOString() &&
+          e.at < end.toISOString() &&
+          !isLifeOutput(e)
+      )
+      .sort((a, b) => a.at.localeCompare(b.at)),
+    failed: [...failed],
+    start,
+  };
 }
 
 /** How many matches of the words a section left out, and how to read them. */
