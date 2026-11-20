@@ -102,7 +102,7 @@ private func progress(_ token: String, _ message: String) -> String {
 }
 
 @Test(arguments: [
-    URLError.Code.notConnectedToInternet, .cannotFindHost, .cannotConnectToHost, .timedOut, .networkConnectionLost,
+    URLError.Code.cannotFindHost, .cannotConnectToHost, .timedOut, .networkConnectionLost,
     .secureConnectionFailed, .serverCertificateUntrusted,
 ])
 func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
@@ -231,17 +231,23 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     #expect(calls[2].1["project"] as? String == "halden")
 }
 
-@Test func anActionThatTimesOutMayHaveRunAndIsNeverRepeatedByItself() async throws {
-    let calls = Mutex(0)
-    let mcp = client(host: newHost()) { _ in
-        calls.withLock { $0 += 1 }
-        return .stream(failure: .timedOut)
+@Test func noInternetIsOfflineNotUnreachable() async throws {
+    let mcp = client(host: newHost()) { _ in Reply(failure: .notConnectedToInternet) }
+    await #expect(throws: MCPError.offline) { _ = try await mcp.call("read_inbox") }
+}
+
+@Test func everyRequestIsBoundedEvenTheTokenRefresh() async throws {
+    let host = newHost()
+    let seen = Mutex<[String: TimeInterval]>([:])
+    let session = Stub.session(host: host) { request in
+        seen.withLock { $0[request.url.path] = request.timeout }
+        return request.url.path == "/mcp" ? .json(resultMessage("ok")) : tokenReply(access: "access-2")
     }
-    await #expect(throws: MCPClient.actionTimedOut) {
-        _ = try await mcp.call("answer_check", ["ref": "dec_1"], answerKey: "tap-key") { _ in }
-    }
-    #expect(calls.withLock { $0 } == 1)
-    // A read that times out is plainly out of reach.
-    let read = client(host: newHost()) { _ in Reply(failure: .timedOut) }
-    await #expect(throws: MCPError.unreachable) { _ = try await read.call("read_inbox") }
+    let store = MemoryStore(credentials(host: host, expiresIn: 30))
+    let life = LifeSession(store: store, oauth: LifeOAuth(session: session, now: { epoch }), now: { epoch })
+    let mcp = MCPClient(session: life, urlSession: session)
+    _ = try await mcp.call("read_inbox")
+    _ = try await mcp.call("answer_check", ["ref": "dec_1"], answerKey: "k") { _ in }
+    #expect(seen.withLock { $0["/auth/oauth2/token"] } == MCPClient.readTimeoutSeconds)
+    #expect(seen.withLock { $0["/mcp"] } == MCPClient.actionIdleTimeoutSeconds)
 }

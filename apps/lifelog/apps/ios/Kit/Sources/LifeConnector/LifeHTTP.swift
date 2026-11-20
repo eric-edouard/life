@@ -15,12 +15,14 @@ struct LifeHTTP: Sendable {
 
     func get(_ url: URL) async throws -> (Data, HTTPURLResponse) {
         var request = URLRequest(url: url)
+        request.timeoutInterval = MCPClient.readTimeoutSeconds
         request.setValue("application/json", forHTTPHeaderField: "accept")
         return try await data(for: request)
     }
 
     static func post(_ url: URL, form: [(String, String)]) -> URLRequest {
         var request = URLRequest(url: url)
+        request.timeoutInterval = MCPClient.readTimeoutSeconds
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "content-type")
         request.httpBody = Data(

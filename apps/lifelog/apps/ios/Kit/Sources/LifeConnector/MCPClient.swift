@@ -10,20 +10,17 @@ public struct MCPClient: Sendable {
     /// A call with progress (an answer, an agent change, an edit) gives up after this many seconds with no byte: an idle
     /// timeout, so the stream's steady progress keeps it alive.
     static let actionIdleTimeoutSeconds: TimeInterval = 15
-    /// An action that timed out may have run. It is a failure `LifeActions` never repeats by itself.
-    static let actionTimedOut = MCPError.failed(
-        "Life did not answer in time. It may not have gone: check before answering again.")
 
     private let session: LifeSession
     private let http: LifeHTTP
 
-    public init(session: LifeSession, urlSession: URLSession = MCPClient.makeURLSession()) {
+    public init(session: LifeSession, urlSession: URLSession? = nil) {
         self.session = session
-        http = LifeHTTP(session: urlSession)
+        http = LifeHTTP(session: urlSession ?? Self.makeURLSession())
     }
 
     /// With no path to the Mac a call fails at once, never waits for one.
-    public static func makeURLSession() -> URLSession {
+    static func makeURLSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.waitsForConnectivity = false
         return URLSession(configuration: configuration)
@@ -83,7 +80,7 @@ public struct MCPClient: Sendable {
         do { (bytes, response) = try await http.session.bytes(for: request) } catch let error as URLError
             where error.code == .timedOut
         {
-            throw Self.actionTimedOut
+            throw MCPError.timedOut
         } catch { throw MCPError.of(error) }
         guard let http = response as? HTTPURLResponse else { throw MCPError.failed("Not an HTTP answer.") }
         try Self.check(http)
@@ -104,7 +101,7 @@ public struct MCPClient: Sendable {
                 }
             }
         } catch let error as MCPError { throw error } catch let error as URLError where error.code == .timedOut {
-            throw Self.actionTimedOut
+            throw MCPError.timedOut
         } catch { throw MCPError.streamDropped }
         guard !isStream else { throw MCPError.streamDropped }
         guard let result = try Self.message(whole, progressToken: progressToken, onProgress: onProgress) else {
