@@ -394,6 +394,23 @@ export function withdrawDraftsAnsweredInChat(
   return lines.map((l) => l.id);
 }
 
+/** One open draft per chat: throws when an open card's draft goes into `draft`'s chat; a second would be refused at its send anyway (the first's message is "someone wrote since"). */
+function refuseSecondDraft(draft: StoredDraft | undefined, now: Date) {
+  const same =
+    draft?.chat &&
+    decisionsNow(now).find(
+      (d) =>
+        d.state === "open" &&
+        d.draft?.channel === draft.channel &&
+        d.draft?.chat === draft.chat
+    );
+  if (same) {
+    throw new Error(
+      `Not done: ${same.id} already asks a draft into ${draft.to}; wait until it is answered or withdrawn, then read the chat again.`
+    );
+  }
+}
+
 /** Withdraws the open decision `request.withdraw`, only by the asker that asked it. */
 function withdrawDecision(
   asker: string,
@@ -534,20 +551,7 @@ export async function requestDecision(
   const subject =
     matter && matter.id === ask.subject ? newest?.ref : ask.subject;
   const draft = ask.draft && (await readChat(ask.draft, now));
-  // One open draft per chat: a second would be refused at its send anyway (the first's message is "someone wrote since").
-  const same =
-    draft?.chat &&
-    decisionsNow(now).find(
-      (d) =>
-        d.state === "open" &&
-        d.draft?.channel === draft.channel &&
-        d.draft?.chat === draft.chat
-    );
-  if (same) {
-    throw new Error(
-      `Not done: ${same.id} already asks a draft into ${draft.to}; wait until it is answered or withdrawn, then read the chat again.`
-    );
-  }
+  refuseSecondDraft(draft, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
   appendJsonl(DECISIONS, Asked, [
     {
