@@ -11,25 +11,85 @@ interface Rankable {
 }
 
 const RANK: Record<CheckGroup, number> = {
-  "contacts card": 2,
+  "contacts card": 1,
   decision: 0,
-  ending: 5,
-  "guessed person": 4,
-  name: 2,
+  ending: 4,
+  "guessed person": 2,
+  name: 1,
   "new matter": 3,
   voice: 1,
 };
 /**
- * Where a check stands in his inbox, first to last: an agent's decision, a voice nobody has named, a name with no
- * person or an ambiguous Contacts card (these block); then a new matter's offer, a guess in use (a guessed person, a
- * voice lifelog suggests a person for), and last "is this done?". The one rule of the inbox's order and of what blocks.
+ * A check's kind, first to last: an agent's decision; a voice nobody has named, a name with no person or an ambiguous
+ * Contacts card, mixed (these block); then a guess in use (a guessed person, a voice lifelog suggests a person for), a
+ * new matter's offer, and last "is this done?". What blocks, and the inbox's order (`inboxOrderOf`), go by it.
  */
 export const inboxRankOf = (c: Rankable) =>
-  c.group === "voice" && c.subject !== null ? 4 : RANK[c.group];
+  c.group === "voice" && c.subject !== null
+    ? RANK["guessed person"]
+    : RANK[c.group];
 
-const LAST_BLOCKING_RANK = 2;
+const LAST_BLOCKING_RANK = RANK.name;
 export const urgencyOf = (c: Rankable): Urgency =>
   inboxRankOf(c) <= LAST_BLOCKING_RANK ? "blocks" : "improves";
+
+interface Orderable extends Rankable {
+  /** When it was asked (a decision's `at`), else its newest evidence. */
+  day: string;
+  deadline: string | null;
+  matter: { id: string } | null;
+  ref: string;
+  ridesOn: {
+    matterIds: string[];
+    matters: number;
+    observations: number;
+    pages: number;
+  };
+}
+
+const before = (a: Orderable, b: Orderable) =>
+  Number(urgencyOf(a) === "improves") - Number(urgencyOf(b) === "improves") ||
+  Number(b.deadline !== null) - Number(a.deadline !== null) ||
+  (a.deadline ?? "").localeCompare(b.deadline ?? "") ||
+  inboxRankOf(a) - inboxRankOf(b) ||
+  (inboxRankOf(a) === RANK.decision
+    ? a.day.localeCompare(b.day)
+    : b.ridesOn.matters - a.ridesOn.matters ||
+      // Voices, names and cards share a rank: by matters, then newest only.
+      (inboxRankOf(a) === RANK.name
+        ? 0
+        : b.ridesOn.observations - a.ridesOn.observations ||
+          b.ridesOn.pages - a.ridesOn.pages) ||
+      b.day.localeCompare(a.day)) ||
+  a.ref.localeCompare(b.ref);
+
+const matterKeyOf = (c: Orderable) => {
+  const id = c.matter?.id ?? c.ridesOn.matterIds[0];
+  return id && `${urgencyOf(c)} ${id}`;
+};
+
+/**
+ * His inbox's order, the one rule: what blocks, then what improves. In each, an ask with a deadline first, soonest
+ * first; then by kind (`inboxRankOf`): decisions asked longest ago first; unnamed voices, names and cards by the matters
+ * resting on them, then newest; the rest by matters, lines, pages, then newest. Then a matter's asks follow its first
+ * one, in that order; an ask with no matter keeps its place.
+ */
+export const inboxOrderOf = <C extends Orderable>(list: C[]): C[] => {
+  const sorted = list.toSorted(before);
+  const ofMatter = Map.groupBy(sorted, matterKeyOf);
+  const placed = new Set<string>();
+  return sorted.flatMap((c) => {
+    const key = matterKeyOf(c);
+    if (!key) {
+      return [c];
+    }
+    if (placed.has(key)) {
+      return [];
+    }
+    placed.add(key);
+    return ofMatter.get(key) ?? [];
+  });
+};
 
 /** How many of `list` block him: the app's badge, and the one place to change what it counts. */
 export const blockingCountOf = (list: Rankable[]) =>

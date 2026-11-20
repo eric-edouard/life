@@ -48,7 +48,7 @@ export interface Night {
   backup: string;
   /** The birthdays of the coming week (`readBirthdaysNear`): a name and when. */
   birthdays: { name: string; relation: string }[];
-  /** What waits on his word (`readChecksFor`: all but the ending checks), the open decisions first: every one, none left out. */
+  /** What waits on his word (`readChecksFor`: all but the ending checks), in his inbox's order (`inboxOrderOf`): every one, none left out. */
   checks: Check[];
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
   code: { name: string; relation: string }[];

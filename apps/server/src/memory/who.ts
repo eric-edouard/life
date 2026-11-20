@@ -2,6 +2,7 @@ import { isSameBirthday } from "../records/fields";
 import {
   type Correction,
   INFERRED_PREFIX,
+  INFERRED_SURE_AT,
   INFERRED_USE_AT,
   type InferredPerson,
   type Observation,
@@ -102,12 +103,21 @@ const handleIndex = (people: Person[]): Map<string, string> =>
   );
 
 /**
- * The test for "this person ref (as folded today) is only a guess": an inferred person his word has not named. `this-is`
- * or `same-person` to it confirms it. A `not-this-person` refuses one name or handle of it, not the person: one that
+ * The test for "this person ref (as folded today) is only a guess": an inferred person his word has not named, whose
+ * latest record is below INFERRED_SURE_AT. `this-is` or `same-person` to it confirms it. A `not-this-person` refuses one name or handle of it, not the person: one that
  * holds another handle is still a guess. The one rule (`isGuess` on `readPeople`, so `guessedOf` and the person checks
  * agree).
  */
-export function guessTestOf(corrections: Correction[]) {
+export function guessTestOf(
+  corrections: Correction[],
+  inferred: Pick<InferredPerson, "confidence" | "id">[]
+) {
+  // The latest record in use decides, as in reading it (`guessesOf`).
+  const sure = new Map(
+    inferred
+      .filter((r) => r.confidence >= INFERRED_USE_AT)
+      .map((r) => [`person:${r.id}`, r.confidence >= INFERRED_SURE_AT])
+  );
   const said = new Set<string>();
   for (const c of corrections) {
     if (c.kind === "this-is") {
@@ -117,7 +127,9 @@ export function guessTestOf(corrections: Correction[]) {
     }
   }
   return (ref: string) =>
-    ref.startsWith(`person:${INFERRED_PREFIX}`) && !said.has(ref);
+    ref.startsWith(`person:${INFERRED_PREFIX}`) &&
+    !said.has(ref) &&
+    !sure.get(ref);
 }
 
 /**
@@ -556,7 +568,7 @@ export async function readPeople() {
     contacts
   );
   const outsideDirectory = peopleOutsideDirectoryOf(contacts, inferred);
-  const isGuessNow = guessTestOf(corrections);
+  const isGuessNow = guessTestOf(corrections, inferred);
   /** Who an episode's person ref is as of today. */
   const refOf = (ref: string) =>
     ref.startsWith(UNKNOWN)
