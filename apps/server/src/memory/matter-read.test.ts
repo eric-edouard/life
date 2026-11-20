@@ -355,7 +355,9 @@ test("a person's open items: the pointer counts what the one cut left out, and i
   expect(mine.length).toBeGreaterThan(0);
   expect(call()).not.toContain("more open with them");
   const none = call(1);
-  expect(none).toContain(`${mine.length} more open with them`);
+  expect(none).toContain(
+    `${new Set(mine.map((i) => i.id)).size} more open with them`
+  );
   expect(none).not.toContain("owed to Gran");
 });
 
@@ -465,14 +467,14 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
       today: "2026-10-19",
     }
   );
-  // Ranked: his promises first, then his to-dos, then what he waits on.
+  // Ranked: what is overdue first, then his promises, then his to-dos, then what he waits on.
   expect(lines.map((l) => l.id.slice(-2))).toEqual([
+    "11",
+    "15",
     "02",
     "10",
     "01",
     "05",
-    "11",
-    "15",
     "16",
     "13",
   ]);
@@ -481,7 +483,7 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
     "15",
   ]);
   // Who it is owed to, when not him, is named.
-  expect(lines[0]?.line).toContain("owed to jean");
+  expect(lines[2]?.line).toContain("owed to jean");
   expect(dayLines({ due: lines.map((l) => l.line) })[0]).toStartWith(
     "Due (open items"
   );
