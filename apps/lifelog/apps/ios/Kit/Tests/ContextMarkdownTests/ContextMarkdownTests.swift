@@ -67,6 +67,13 @@ func aQuoteKeepsItsSourceLineWhereverItIsWritten(markdown: String) throws {
     #expect(words(try #require(source)) == "Ana, WhatsApp, 12 Nov")
 }
 
+@Test func anItalicQuoteStaysTheQuoteAndTheLineAfterItIsItsSource() {
+    #expect(ContextMarkdown.blocks("> *Approved*") == [.quote([Inline("Approved", isItalic: true)], source: nil)])
+    #expect(
+        ContextMarkdown.blocks("> *Approved*\n\n*Ana, mail, 3 Nov*")
+            == [.quote([Inline("Approved", isItalic: true)], source: [Inline("Ana, mail, 3 Nov")])])
+}
+
 @Test func aQuoteWithNoSourceLineHasNone() {
     #expect(ContextMarkdown.blocks("> Just words\n\nThen *more*.").first == .quote([Inline("Just words")], source: nil))
 }
@@ -87,6 +94,19 @@ func aQuoteKeepsItsSourceLineWhereverItIsWritten(markdown: String) throws {
     #expect(runs.first { $0.text == "slip" }?.link != nil, "an image shows as a link to it")
     let code = try #require(runs.first { $0.isCode })
     #expect(code.text == "life:matter_aaaaaaaaaaaa" && code.link == nil)
+}
+
+/// Only Life's things, the web, a call, a mail and Maps open; another app's scheme stays readable text.
+@Test func onlyTheSchemesOfDecision81Open() throws {
+    #expect(
+        ContextLink(destination: "mailto:ana@example.org")
+            == .system(try #require(URL(string: "mailto:ana@example.org"))))
+    #expect(
+        ContextLink(destination: "https://maps.apple.com/?q=cafe")
+            == .system(try #require(URL(string: "https://maps.apple.com/?q=cafe"))))
+    #expect(ContextLink(destination: "shortcuts://run-shortcut?name=x") == nil)
+    let blocks = ContextMarkdown.blocks("[Run it](shortcuts://run-shortcut?name=x)")
+    #expect(blocks == [.paragraph([Inline("Run it")])], "shown as its words, opening nothing")
 }
 
 @Test(arguments: [

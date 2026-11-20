@@ -14,6 +14,19 @@ public enum LifeLinkRead: Sendable, Equatable {
         let line: String?
     }
 
+    /// The page of `ref` as one read's event: nil when another pairing began while it ran, which applies nothing to
+    /// the new Life, not even its failure (`PairingGeneration`).
+    @MainActor public static func read(
+        _ ref: String, api: any LifeAPI, generation: PairingGeneration, now: () -> Date
+    ) async -> ReadState<LifeLinkRead>.Event? {
+        guard let answer = await generation.answer({ try await api.fetch(ref) }) else { return nil }
+        do {
+            return .succeeded(LifeLinkRead(try answer.get()), now())
+        } catch {
+            return .failed(Task.isCancelled ? .cancelled : error as? MCPError ?? .failed("Life didn't open it."))
+        }
+    }
+
     public init(_ text: String) {
         if let person = try? JSONDecoder().decode(Person.self, from: Data(text.utf8)) {
             self = .person(name: person.name, line: person.line)

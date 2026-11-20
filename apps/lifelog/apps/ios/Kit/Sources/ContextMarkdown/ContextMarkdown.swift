@@ -13,13 +13,22 @@ public enum ContextLink: Equatable, Sendable {
     /// What stays as it is in the URL a `life:` link carries; everything else is percent-encoded, `#` included.
     private static let kept = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
 
-    /// A Markdown link's destination; nil for one with no scheme, which shows as its words.
+    /// The schemes the system opens (decision 81: a call, a mail, Maps); any other is never opened.
+    private static let systemSchemes: Set<String> = ["tel", "mailto", "maps"]
+
+    /// A Markdown link's destination; nil for one that is none of these (no scheme, or another app's), which shows as
+    /// its words and opens nothing.
     public init?(destination: String, words: String = "") {
         if destination.hasPrefix(Self.lifeScheme) {
             let ref = String(destination.dropFirst(Self.lifeScheme.count))
             self = .life(ref: ref.removingPercentEncoding ?? ref, words: words)
-        } else if let url = URL(string: destination), let scheme = url.scheme?.lowercased() {
-            self = scheme == "http" || scheme == "https" ? .web(url) : .system(url)
+            return
+        }
+        guard let url = URL(string: destination), let scheme = url.scheme?.lowercased() else { return nil }
+        if Self.systemSchemes.contains(scheme) || url.host()?.lowercased() == "maps.apple.com" {
+            self = .system(url)
+        } else if scheme == "http" || scheme == "https" {
+            self = .web(url)
         } else {
             return nil
         }
@@ -133,11 +142,12 @@ public enum ContextMarkdown {
         .quote(quote.text, source: quote.source)
     }
 
-    /// A quote's words, its paragraphs one per line; its source when its last line is `*…*` alone.
+    /// A quote's words, its paragraphs one per line; its source when its last line, after its words, is `*…*` alone.
     private static func quoted(_ quote: BlockQuote) -> (text: [Inline], source: [Inline]?) {
         var paragraphs = Array(quote.children)
         var source: [Inline]?
-        if let last = paragraphs.last, let line = sourceLine(last) {
+        // Its own last line is its source only after quoted words: `> *Approved*` alone is the quote.
+        if paragraphs.count > 1, let last = paragraphs.last, let line = sourceLine(last) {
             source = line
             paragraphs.removeLast()
         } else if let last = paragraphs.last as? Paragraph {

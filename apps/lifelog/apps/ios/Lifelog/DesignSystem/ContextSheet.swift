@@ -60,7 +60,9 @@ struct ContextView: View {
                 case .web(let url):
                     web = WebPage(url: url)
                     return .handled
-                case .system, nil: return .systemAction
+                case .system: return .systemAction
+                // Never drawn as a link (`ContextLink`): nothing else opens.
+                case nil: return .discarded
                 }
             }
         )

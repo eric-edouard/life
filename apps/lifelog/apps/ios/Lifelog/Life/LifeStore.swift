@@ -195,11 +195,11 @@ final class LifeStore {
     /// A `life:` link's page (`fetch`): read when opened, kept by the page that shows it.
     func fetch(_ ref: String, _ update: (ReadState<LifeLinkRead>.Event) -> Void) async {
         update(.started)
-        do {
-            update(.succeeded(LifeLinkRead(try await api.fetch(ref)), now()))
-        } catch {
-            update(.failed(Task.isCancelled ? .cancelled : error as? MCPError ?? .failed("Life didn't open it.")))
+        guard let event = await LifeLinkRead.read(ref, api: api, generation: parties.generation, now: now) else {
+            return
         }
+        if case .failed(.notPaired) = event { pairedOrigin = nil }
+        update(event)
     }
 
     func refreshMatter(_ id: String) async {
