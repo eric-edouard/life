@@ -10,6 +10,7 @@ import {
   needsYouOf,
   oneMatter,
   openMatters,
+  readMatterProjectIds,
 } from "./read-matters";
 import { knownTestOf } from "./ref-kinds";
 
@@ -143,13 +144,17 @@ test("read_matters lists the open matters, of one project when asked; read_matte
       ...row,
       agents: [],
       communicationStyles: [],
-      projectIds: ["shop-fit-out"],
       steps: [steps[0], { ...steps[1], with: "partner" }],
     });
     // A step's id opens the matter holding it; anchors find it by the first that still names a step.
     expect(await oneMatter(["obs_000000000005"])).toEqual(one);
     expect(await oneMatter(["obs_gone", "obs_000000000005"])).toEqual(one);
     expect(await oneMatter(["matter_zzzzzzzzzzzz"])).toBeUndefined();
+    // The packet reads the matter's projects by id (the row names them).
+    expect(await readMatterProjectIds(["obs_000000000005"])).toEqual([
+      "shop-fit-out",
+    ]);
+    expect(await readMatterProjectIds(["matter_zzzzzzzzzzzz"])).toEqual([]);
     // Host's agents on it and its active agent, given the matter's steps.
     expect(
       (

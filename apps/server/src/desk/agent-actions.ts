@@ -24,7 +24,11 @@ import {
   openDecisionOf,
   requestDecision,
 } from "../memory/decisions";
-import { oneMatter, openMatters } from "../memory/read-matters";
+import {
+  oneMatter,
+  openMatters,
+  readMatterProjectIds,
+} from "../memory/read-matters";
 import {
   loadTruth,
   PROJECT_NOTES_MAX,
@@ -406,7 +410,7 @@ export async function readPacket({ db }: Desk, id: string, isOwn: boolean) {
   const matter = a.project ? undefined : await oneMatter(steps);
   const truth = await loadTruth();
   const projects = await Promise.all(
-    (a.project ? [a.project] : (matter?.projectIds ?? [])).map((p) =>
+    (a.project ? [a.project] : await readMatterProjectIds(steps)).map((p) =>
       projectContextOf(truth, p, matter?.id)
     )
   );
