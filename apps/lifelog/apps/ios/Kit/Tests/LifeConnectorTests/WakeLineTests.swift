@@ -52,7 +52,9 @@ private struct AnyAgents: Decodable {
 }
 
 @Test func aPersonAndAChatThatCoverCallsAreWakerRows() throws {
-    let person = try waker(#"[{"kind":"message","person":"Idris Benali","calls":true}]"#)
+    let person = try waker(
+        #"[{"kind":"message","party":{"ref":"person:idris","name":"Idris Benali","kind":"person"},"personAsWritten":"Idris","calls":true}]"#
+    )
     #expect(person.who == .person("Idris Benali"))
     #expect(person.apps.isEmpty)
     #expect(person.brokenReason == nil)
@@ -64,17 +66,19 @@ private struct AnyAgents: Decodable {
 }
 
 @Test func aBrokenLineKeepsItsPlaceAndSaysWhy() throws {
-    let broken = try waker(#"[{"kind":"message","person":"Léa","calls":true,"broken":"unknown_person"}]"#)
+    let broken = try waker(#"[{"kind":"message","personAsWritten":"Léa","calls":true,"broken":"unknown_person"}]"#)
     #expect(broken.brokenReason == "No longer in your people")
-    #expect(try lines(#"[{"kind":"message","person":"Léa","calls":true,"broken":"unknown_person"}]"#)[0].isBroken)
+    #expect(
+        try lines(#"[{"kind":"message","personAsWritten":"Léa","calls":true,"broken":"unknown_person"}]"#)[0].isBroken)
 }
 
 @Test func aBrokenMessageLineWithWordsStaysAClauseAndSaysWhy() throws {
     let broken = try clause(
-        #"[{"kind":"message","person":"Léa","words":"prix","calls":false,"broken":"unknown_person"}]"#)
+        #"[{"kind":"message","personAsWritten":"Léa","words":"prix","calls":false,"broken":"unknown_person"}]"#)
     #expect(broken.text == "Léa writes “prix”")
     #expect(broken.brokenReason == "No longer in your people")
-    #expect(try clause(#"[{"kind":"message","person":"Léa","words":"prix","calls":false}]"#).brokenReason == nil)
+    #expect(
+        try clause(#"[{"kind":"message","personAsWritten":"Léa","words":"prix","calls":false}]"#).brokenReason == nil)
 }
 
 @Test func aChatWithNoNameYetIsNotAGroup() throws {
@@ -84,7 +88,9 @@ private struct AnyAgents: Decodable {
 }
 
 @Test func aMessageLineWithWordsIsAClauseNotACallRow() throws {
-    let said = try clause(#"[{"kind":"message","person":"Idris","words":"prix","calls":false}]"#)
+    let said = try clause(
+        #"[{"kind":"message","party":{"ref":"person:idris","name":"Idris","kind":"person"},"personAsWritten":"Idris","words":"prix","calls":false}]"#
+    )
     #expect(said.text == "Idris writes “prix”")
     #expect(said.glyph == .bubble)
     #expect(said.pieces.map(\.isFigure) == [false, false, true])
@@ -134,7 +140,7 @@ private struct AnyAgents: Decodable {
     let places = try clause(#"[{"kind":"places","where":"Halden house"}]"#)
     #expect(places.text == "Something new in places")
     #expect(places.glyph == .ring)
-    #expect(try lines(#"[{"kind":"message","calls":true,"person":"A","broken":"someday"}]"#)[0].isBroken)
+    #expect(try lines(#"[{"kind":"message","calls":true,"personAsWritten":"A","broken":"someday"}]"#)[0].isBroken)
 }
 
 @Test func theRowLineNamesTwoCountsTheRestAndSkipsWhatCanNeverFire() throws {
@@ -152,8 +158,8 @@ private struct AnyAgents: Decodable {
     let dead = try agent(
         "waiting",
         wakes: """
-            [{"kind":"message","person":"Idris Benali","calls":true},
-             {"kind":"message","person":"Léa Marchetti","calls":true,"broken":"unknown_person"},
+            [{"kind":"message","party":{"ref":"person:idris","name":"Idris Benali","kind":"person"},"personAsWritten":"Idris","calls":true},
+             {"kind":"message","personAsWritten":"Léa Marchetti","calls":true,"broken":"unknown_person"},
              {"kind":"message","calls":true,"chat":{"name":null,"app":null,"group":null}},
              {"kind":"answer","card":"Go?","check":"c","deadline":"2026-11-20T18:00:00.000Z"},{"kind":"wide_net"}]
             """)

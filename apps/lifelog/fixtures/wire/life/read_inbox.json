@@ -11,8 +11,6 @@
       "clips": [],
       "context": "He asked for it by Friday.",
       "deadline": "2099-01-01T09:00:00.000Z",
-      "doneSeen": null,
-      "doneSeenBy": "tap",
       "draft": {
         "channel": "whatsapp",
         "chat": "33600000001@s.whatsapp.net",
@@ -36,8 +34,6 @@
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
-      "needs": [],
-      "notSent": null,
       "onMatters": [
         {
           "id": "matter_aaaaaaaaaaaa",
@@ -46,6 +42,10 @@
         }
       ],
       "onSilence": "no",
+      "doneSeen": null,
+      "doneSeenBy": "tap",
+      "needs": [],
+      "notSent": null,
       "options": [
         {
           "id": "yes",
@@ -137,7 +137,13 @@
               "text": "Kit here, from the shop"
             },
             "openUrl": "https://wa.me/33600000001",
-            "shownName": "Kit Watches"
+            "shownName": "Kit Watches",
+            "party": {
+              "kind": "person",
+              "line": "the watchmaker",
+              "name": "Kit",
+              "ref": "person:inf_kit"
+            }
           }
         }
       ],
@@ -147,7 +153,13 @@
         "network": "WhatsApp",
         "newest": null,
         "openUrl": "https://wa.me/33600000001",
-        "shownName": "Kit"
+        "shownName": "Kit",
+        "party": {
+          "kind": "person",
+          "line": "the watchmaker",
+          "name": "Kit",
+          "ref": "person:inf_kit"
+        }
       },
       "pushId": "a23260946067d0fe",
       "urgency": "blocks"
@@ -163,11 +175,6 @@
       "clips": [],
       "context": null,
       "deadline": "2099-01-02T09:00:00.000Z",
-      "doneSeen": {
-        "line": "Not in your accounts yet",
-        "state": "not_found"
-      },
-      "doneSeenBy": "payment",
       "draft": null,
       "evidence": null,
       "goal": null,
@@ -175,6 +182,13 @@
       "kind": "decision",
       "likelyPeople": [],
       "links": [],
+      "onMatters": [],
+      "onSilence": null,
+      "doneSeen": {
+        "line": "Not in your accounts yet",
+        "state": "not_found"
+      },
+      "doneSeenBy": "payment",
       "needs": [
         {
           "bank": "Test Bank",
@@ -209,8 +223,6 @@
         }
       ],
       "notSent": null,
-      "onMatters": [],
-      "onSilence": null,
       "options": [
         {
           "id": "paid",
@@ -284,9 +296,13 @@
       "kind": "voice",
       "likelyPeople": [
         {
+          "kind": "person",
           "line": "Your grandmother",
           "name": "Gran",
-          "person": "person:gran"
+          "picture": {
+            "id": "00000000000000000000000000000a02"
+          },
+          "ref": "person:gran"
         }
       ],
       "links": [],
@@ -370,14 +386,18 @@
       "kind": "person",
       "likelyPeople": [
         {
+          "kind": "person",
           "line": "The neighbour",
           "name": "Sam Lee",
-          "person": "person:sam_lee"
+          "picture": {
+            "id": "00000000000000000000000000000c01"
+          },
+          "ref": "person:sam_lee"
         },
         {
-          "line": null,
+          "kind": "person",
           "name": "Sam Ito",
-          "person": "person:sam_ito"
+          "ref": "person:sam_ito"
         }
       ],
       "links": [],
@@ -444,14 +464,18 @@
       "kind": "person",
       "likelyPeople": [
         {
+          "kind": "person",
           "line": "Your grandmother",
           "name": "Gran",
-          "person": "person:gran"
+          "picture": {
+            "id": "00000000000000000000000000000a02"
+          },
+          "ref": "person:gran"
         },
         {
-          "line": null,
+          "kind": "person",
           "name": "Robin",
-          "person": "person:partner"
+          "ref": "person:partner"
         }
       ],
       "links": [],
@@ -618,7 +642,13 @@
           "text": "Kit here, from the shop"
         },
         "openUrl": "https://wa.me/33600000001",
-        "shownName": "Kit Watches"
+        "shownName": "Kit Watches",
+        "party": {
+          "kind": "person",
+          "line": "the watchmaker",
+          "name": "Kit",
+          "ref": "person:inf_kit"
+        }
       },
       "pushId": "a789ea3107eed39b",
       "urgency": "improves"

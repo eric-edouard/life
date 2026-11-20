@@ -6,6 +6,7 @@ import type { CheckGroup } from "../core/names";
 import type { doneSeenShownOf } from "./decisions";
 import type { StoredDraft } from "./draft";
 import type { needsShownOf } from "./needs";
+import type { Party } from "./party";
 
 /**
  * One answer he can give: its id, as `answer_check` takes it; its label, his button's words; whether it acts outside
@@ -155,8 +156,8 @@ export interface Check {
   goal: string | null;
   group: CheckGroup;
   kind: CheckKind;
-  /** Who it may be, as Life knows them, each with what they are to him in one line (`relationOf`; null: nothing says): a voice's likely people, a Contacts card's candidates, the people who go by a name; none for other kinds. */
-  likelyPeople: { line: string | null; name: string; person: string }[];
+  /** Who it may be, as parties (`partyOf`): a voice's likely people, a Contacts card's candidates, the people who go by a name; none for other kinds. */
+  likelyPeople: Party[];
   /** Where to look or act (the agent's link first). */
   links: string[];
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done), `important` when he marked it; null: none. */
