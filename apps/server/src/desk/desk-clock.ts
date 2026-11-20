@@ -13,6 +13,7 @@ import {
   assignmentOfCard,
   type EventRow,
   filtersOf,
+  isWaiting,
   lastTurns,
   modelOf,
   openAssignments,
@@ -655,10 +656,6 @@ function endNotStarted({ db }: Desk, t: TurnRow, why: string) {
   });
   return true;
 }
-
-/** Whether `a` is active and its assignment `s` open: only then does a wait of `s` stand. */
-const isWaiting = (a: AgentRow, s: AssignmentRow) =>
-  a.status === "active" && s.closed_at === null;
 
 /** After a failed turn of `s`: once its retries are spent, the default wait stands. */
 function afterFailure({ db }: Desk, a: AgentRow, s: AssignmentRow) {

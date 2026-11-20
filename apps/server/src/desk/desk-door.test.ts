@@ -75,7 +75,11 @@ const ask = (question: string) => ({
 test("the door refuses a wrong key, another agent's key and an unknown agent alike", async () => {
   const id = agent();
   const other = agent();
-  const wait = { events: [], reason: "r", until: ahead(HOUR) };
+  const wait = {
+    events: [{ text_matches: "blue envelope" }],
+    reason: "A delivery update",
+    until: ahead(HOUR),
+  };
   expect((await call(id, "0".repeat(64), "set_wait", wait)).status).toBe(401);
   expect((await call(id, doorOf(other).key, "set_wait", wait)).status).toBe(
     401
@@ -86,7 +90,14 @@ test("the door refuses a wrong key, another agent's key and an unknown agent ali
   await call(id, doorOf(id).key, "request_decision", ask("Test: plan?"));
   const ok = await call(id, doorOf(id).key, "set_wait", wait);
   expect(ok.result?.isError).toBe(false);
-  expect(currentAssignmentOf(desk.db, id)?.wait_reason).toBe("r");
+  expect(currentAssignmentOf(desk.db, id)?.wait_reason).toBe(wait.reason);
+  const packet = await call(id, doorOf(id).key, "read_packet", {});
+  const saved = packet.text?.split("Your saved wait: ")[1]?.split("\n")[0];
+  expect(JSON.parse(saved ?? "null")).toEqual({
+    ...wait,
+    events: [{ from_me: false, text_matches: "blue envelope" }],
+    isDefault: false,
+  });
 });
 
 test("request_decision asks as the desk, stamped with the agent and its link; one open at a time; only its own withdrawn", async () => {
@@ -156,9 +167,29 @@ test("an agent that finished may read its packet, nothing else", async () => {
   const notes = await call(id, key, "write_notes", { text: "late" });
   expect(notes.text).toContain("not active");
   const packet = await call(id, key, "read_packet", {});
+  expect(packet.text).not.toContain("Your saved wait:");
   expect(packet.text).toContain("a made-up bakery");
   expect(packet.text).toContain("set_wait");
   expect(packet.text).toContain("The one gate");
+});
+
+test("a stopped agent's open assignment and an active agent's closed assignment have no current wait", async () => {
+  const id = agent();
+  const assignment = on(desk, id);
+  expect(await readPacket(desk, assignment, true)).toContain(
+    "Your saved wait:"
+  );
+  expect(
+    await readPacket(
+      desk,
+      { ...assignment, closed_at: clock().toISOString() },
+      true
+    )
+  ).not.toContain("Your saved wait:");
+  desk.db.run("update agent set status = 'stopped' where id = ?", [id]);
+  expect(await readPacket(desk, assignment, true)).not.toContain(
+    "Your saved wait:"
+  );
 });
 
 test("the contract: his own Life's agent is told the Mac is its own; a second Life's has its door's tools only; both keep the gate and the first-turn rule", async () => {
