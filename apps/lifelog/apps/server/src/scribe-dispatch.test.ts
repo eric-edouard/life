@@ -7,11 +7,12 @@ import { MIGRATIONS, migrateDb } from "@lifelog/db";
 import { transcriptionJobs } from "@lifelog/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { memoryAudioStore } from "./audio-store";
+import { latestSeq } from "./change-log";
 import { jobBench } from "./job-bench";
 import { getJob } from "./jobs";
 import { addQuietRange } from "./quiet-ranges";
 import { setSwitches } from "./switches";
-import { providerTranscript } from "./testing";
+import { OWNER_TOKEN, providerTranscript } from "./testing";
 
 const {
   admitFragment,
@@ -449,28 +450,45 @@ test.each(["post_clock", "neither"] as const)(
   }
 );
 
-test("a Scribe send the old worker put back in the queue (its backoff) is failed by the upgrade, never POSTed again", async () => {
+test("the upgrade fails each Scribe send the old worker put back (ids kept, or cleared by its 'lost by the provider' retry), in the feed, and never POSTs it again; a fresh job still sends", async () => {
   const app = appWith(oneSlot);
   setSwitches(env.db, { transcriber: "scribe" });
-  const requeued = await admitFragment(app, audio(60), 1);
-  env.db
-    .update(transcriptionJobs)
-    .set({
-      nextAttemptAt: new Date(Date.now() - MIN),
-      providerRequestId: "req_legacy",
-      requestSentAt: null,
-      state: "queued",
-      transcriber: "scribe",
-    })
-    .where(eq(transcriptionJobs.id, requeued))
-    .run();
-  await upgradeFrom("neither");
-  await app.s.worker.tick();
-  expect(jobRow(requeued)).toMatchObject({
-    maybeBilled: true,
-    state: "failed",
+  const backoff = await admitFragment(app, audio(60), 1);
+  const lost = await admitFragment(app, audio(60), 100);
+  const queuedBefore = {
+    nextAttemptAt: new Date(Date.now() - MIN),
+    requestSentAt: null,
+    state: "queued" as const,
+    transcriber: "scribe" as const,
+  };
+  const requeue = (id: string, set: object) =>
+    env.db
+      .update(transcriptionJobs)
+      .set({ ...queuedBefore, ...set })
+      .where(eq(transcriptionJobs.id, id))
+      .run();
+  requeue(backoff, { providerRequestId: "req_legacy" });
+  requeue(lost, {
+    attempts: 1,
+    error: "lost by the provider: no transcript and no callback",
   });
-  expect(uploads()).toHaveLength(0);
+  const seen = latestSeq(env.db);
+  await upgradeFrom("neither");
+  const feed = await (
+    await app.request(`/changes?since=${seen}`, {
+      headers: { Authorization: `Bearer ${OWNER_TOKEN}` },
+    })
+  ).json();
+  for (const id of [backoff, lost]) {
+    expect(jobRow(id)).toMatchObject({ maybeBilled: true, state: "failed" });
+    expect(feed.jobs).toContainEqual(
+      expect.objectContaining({ id, state: "failed" })
+    );
+  }
+  const fresh = await admitFragment(app, audio(60), 200);
+  await app.s.worker.tick();
+  expect(uploads()).toHaveLength(1); // only the fresh job
+  expect(jobRow(fresh).state).toBe("submitted");
 });
 
 test("reconcile frees each slot as it settles it, not after the slowest", async () => {
