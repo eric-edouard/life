@@ -36,6 +36,7 @@ const holdQueue = () => {
 };
 /** Waits, a millisecond at a time, until `f` is true: no fixed sleep. */
 const until = async (f: () => boolean | Promise<boolean>) => {
+  // biome-ignore lint/performance/noAwaitInLoops: polls until the condition holds
   while (!(await f())) {
     await Bun.sleep(1);
   }

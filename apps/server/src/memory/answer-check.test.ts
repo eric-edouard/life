@@ -337,6 +337,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
       { ...known, personId: null },
     ]) {
       queue.mockResolvedValueOnce([now]);
+      // biome-ignore lint/performance/noAwaitInLoops: each case uses the queue it just set
       await expect(
         answerCheck(
           { ...voice, subject: "person:dana" },
