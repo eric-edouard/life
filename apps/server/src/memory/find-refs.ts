@@ -41,16 +41,20 @@ export function readsOnce(): SharedReads {
   };
 }
 
-/** What a hit holds, by kind (a person's and a conversation's nothing: their readers open them). */
-export interface Hit {
-  event?: SourceEvent;
-  file?: FileEntry;
-  matter?: Matter;
-  observation?: { date: string; id: string; text: string };
-  page?: string;
-  place?: { conversation: string; offset: number };
-  unit?: Unit;
-}
+/** What a hit holds, by its kind (a person's and a conversation's nothing: their readers open them). */
+export type Hit =
+  | { kind: "ask"; page: string }
+  | { kind: "conversation" }
+  | { event: SourceEvent; kind: "message" }
+  | { file: FileEntry; kind: "file" }
+  | { kind: "matter"; matter: Matter }
+  | {
+      kind: "observation";
+      observation: { date: string; id: string; text: string };
+    }
+  | { kind: "person" }
+  | { kind: "turn"; place: { conversation: string; offset: number } }
+  | { kind: "unit"; unit: Unit };
 
 const hit = <T extends Hit>(h: T): Found<T> => ({ found: true, ...h });
 const miss = (why: string): { found: false; why: string } => ({
@@ -61,7 +65,7 @@ const miss = (why: string): { found: false; why: string } => ({
 /** A unit by its id. */
 export async function findUnit(id: string) {
   const unit = await readUnit(id);
-  return unit ? hit({ unit }) : miss(`no unit ${id}`);
+  return unit ? hit({ kind: "unit", unit }) : miss(`no unit ${id}`);
 }
 
 /** A turn of lifelog's store, where it is in its conversation. */
@@ -75,7 +79,7 @@ export async function findTurn(
     open
   );
   return place
-    ? hit({ place })
+    ? hit({ kind: "turn", place })
     : miss(`no turn ${id}: lifelog no longer has it`);
 }
 
@@ -88,7 +92,7 @@ export async function findRef(
   switch (ref.kind) {
     case "ask": {
       const page = askPageOf(ref.id);
-      return page ? hit({ page }) : miss(noAskPageOf(ref.id));
+      return page ? hit({ kind: "ask", page }) : miss(noAskPageOf(ref.id));
     }
     case "person":
       return findPerson(ref.read, reads);
@@ -106,7 +110,7 @@ export async function findRef(
     }
     case "file": {
       const file = readFiles().get(ref.file);
-      return file ? hit({ file }) : miss(`no file ${ref.file}`);
+      return file ? hit({ file, kind: "file" }) : miss(`no file ${ref.file}`);
     }
     case "turn":
       return findTurn(ref.id, ref, open);
@@ -119,7 +123,7 @@ export async function findRef(
               .get(ref.id),
           open
         ))
-        ? hit({})
+        ? hit({ kind: "conversation" })
         : miss(`no conversation ${ref.id}`);
     default:
       return ref satisfies never;
@@ -141,7 +145,7 @@ async function findPerson(read: ReadPartRef, reads: SharedReads) {
   }
   const id = subject.slice("person:".length);
   return personFor(id, meant(id, await reads.people()), true).known
-    ? hit({})
+    ? hit({ kind: "person" })
     : miss(`no one is ${subject}`);
 }
 
@@ -153,7 +157,7 @@ async function findMatterOrObservation(
 ) {
   const matter = (await reads.book()).find((m) => m.id === id);
   if (matter || kind === "matter") {
-    return matter ? hit({ matter }) : miss(`no matter ${id}`);
+    return matter ? hit({ kind: "matter", matter }) : miss(`no matter ${id}`);
   }
   const observation = readIndex((db) =>
     db
@@ -162,7 +166,9 @@ async function findMatterOrObservation(
       )
       .get(id)
   );
-  return observation ? hit({ observation }) : miss(`no observation ${id}`);
+  return observation
+    ? hit({ kind: "observation", observation })
+    : miss(`no observation ${id}`);
 }
 
 /** A message by its id, from its source's store whatever its age (`messageAt`), as its reader gives it; never Life's own. */
@@ -184,7 +190,9 @@ export function findMessageIn(
       d
         .read(new Date(at.first), new Date(Date.parse(at.last) + SECOND))
         .find((e) => e.id === id && !isLifeOutput(e));
-    return event ? hit({ event }) : miss(`no ${d.label} message ${id}`);
+    return event
+      ? hit({ event, kind: "message" })
+      : miss(`no ${d.label} message ${id}`);
   } catch (error) {
     return miss(`${d.label} can't be read now: ${(error as Error).message}`);
   }

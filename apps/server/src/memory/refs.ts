@@ -1,5 +1,6 @@
 import { SourceName } from "../core/names";
 import { SUBJECT_PREFIX, UnitId } from "../records/fields";
+import { LedgerEntry } from "../records/ledger-entry";
 import { MatterId } from "../records/matter";
 import { ObservationId } from "../records/observation";
 import { parseTurnRef } from "../sources/lifelog";
@@ -25,8 +26,6 @@ export type RefKind = Ref["kind"];
 
 const LIFE = "life:";
 const MESSAGE = "msg:";
-/** A to-do item's key: a lone one's matter has its id. */
-const TODO_ITEM = /^entry_[0-9a-f]{12}$/;
 const FILE = "file:";
 
 /** The kinds told by their id's form alone. */
@@ -35,7 +34,10 @@ const BY_FORM: {
   kind: "matter" | "observation" | "unit";
 }[] = [
   {
-    is: (id) => MatterId.safeParse(id).success || TODO_ITEM.test(id),
+    is: (id) =>
+      MatterId.safeParse(id).success ||
+      // A lone to-do item's matter has its key.
+      LedgerEntry.shape.id.safeParse(id).success,
     kind: "matter",
   },
   { is: (id) => ObservationId.safeParse(id).success, kind: "observation" },

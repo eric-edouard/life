@@ -163,6 +163,13 @@ test("a message by its id, whatever its age; a source that can't find one says s
       Promise.resolve("")
     )
   ).toContain("+66600000001: The boiler is fixed");
+  // Shown as every chat reader shows it: a secret line redacted.
+  event.text = "The boiler is fixed\nthe door code secret is 4471";
+  const shown = await openById(`msg:whatsapp|${id}`, undefined, undefined, () =>
+    Promise.resolve("")
+  );
+  expect(shown).toContain("[line removed: looked like a secret]");
+  expect(shown).not.toContain("4471");
 });
 
 test("fetch prints a miss as before", async () => {

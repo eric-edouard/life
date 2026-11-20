@@ -1,3 +1,4 @@
+import { redact } from "../core/redact";
 import { findRef, type Hit, readsOnce } from "./find-refs";
 import { OWNER } from "./read-truth";
 import { parseRef } from "./refs";
@@ -44,38 +45,50 @@ export async function openById(
   if (!found.found) {
     return asData([`(${found.why})`]);
   }
-  return shownOf(found);
+  return shownOf(found, () => fetchOf(id, from, limit));
 }
 
-/** A hit as `fetch` shows it. */
-function shownOf(hit: Hit) {
-  const { event, file, matter, observation, page } = hit;
-  if (page) {
-    return asData([page]);
+/** A hit as `fetch` shows it: a person's, a conversation's, a unit's or a turn's opened before, by its reader. */
+function shownOf(
+  hit: Hit,
+  open: () => Promise<string | Record<string, unknown>>
+) {
+  switch (hit.kind) {
+    case "ask":
+      return asData([hit.page]);
+    case "matter": {
+      const { matter } = hit;
+      return asData([
+        `Matter "${matter.name}" (${matter.id}): ${matter.status}`,
+        ...(matter.goal ? [`Goal: ${matter.goal.text}`] : []),
+        ...(matter.nextStep ? [`Next step: ${matter.nextStep.text}`] : []),
+        ...matter.steps.map((s) => `- ${s.day} ${s.text} (${s.ref})`),
+      ]);
+    }
+    case "observation":
+      return asData([
+        `${hit.observation.date}: ${hit.observation.text} (${hit.observation.id})`,
+        `(its evidence: read_observation ${hit.observation.id})`,
+      ]);
+    case "message":
+      // Redacted as every reader of a chat shows it.
+      return asData([
+        `Message ${hit.event.id} in ${hit.event.chatName ?? hit.event.chat}`,
+        `${hit.event.at} ${hit.event.fromMe ? OWNER : hit.event.sender}: ${redact(hit.event.text)}`,
+      ]);
+    case "file":
+      return asData([
+        `File ${hit.file.ref}`,
+        ...[hit.file.description, hit.file.text].flatMap((t) =>
+          t === undefined ? [] : [redact(t)]
+        ),
+      ]);
+    case "conversation":
+    case "person":
+    case "turn":
+    case "unit":
+      return open();
+    default:
+      return hit satisfies never;
   }
-  if (matter) {
-    return asData([
-      `Matter "${matter.name}" (${matter.id}): ${matter.status}`,
-      ...(matter.goal ? [`Goal: ${matter.goal.text}`] : []),
-      ...(matter.nextStep ? [`Next step: ${matter.nextStep.text}`] : []),
-      ...matter.steps.map((s) => `- ${s.day} ${s.text} (${s.ref})`),
-    ]);
-  }
-  if (observation) {
-    return asData([
-      `${observation.date}: ${observation.text} (${observation.id})`,
-      `(its evidence: read_observation ${observation.id})`,
-    ]);
-  }
-  if (event) {
-    return asData([
-      `Message ${event.id} in ${event.chatName ?? event.chat}`,
-      `${event.at} ${event.fromMe ? OWNER : event.sender}: ${event.text}`,
-    ]);
-  }
-  // What is left is a file's reading.
-  return asData([
-    `File ${file?.ref}`,
-    ...[file?.description, file?.text].filter((t) => t !== undefined),
-  ]);
 }
