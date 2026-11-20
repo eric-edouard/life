@@ -753,11 +753,14 @@ test("a push Life asks lifelog for is shaped as `POST /notifications` takes it: 
     body: "1 new card",
     level: "active",
     pushId: "9f2c41d07ab35e68",
+    removed: ["9f2c41d07ab35e68"],
     title: "Life",
   };
   expect(Object.keys(theirs).sort()).toEqual(Object.keys(mine).sort());
   for (const [field, value] of Object.entries(mine)) {
     const { type } = theirs[field];
-    expect(type === "integer" ? "number" : type).toBe(typeof value);
+    expect(type === "integer" ? "number" : type).toBe(
+      Array.isArray(value) ? "array" : typeof value
+    );
   }
 });

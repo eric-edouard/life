@@ -290,7 +290,9 @@ outside the lock, schemaVersion 3, by `kind`:
   closing failed (or found nothing open on a step not ended). It closed the step or matter by his word (`endByHisWord`: its to-do items ticked,
   its observations by an `outdated` correction); nothing left open counts as ended. With none 31 minutes after his
   answer, it never ended (worked out when read).
-- `withdrawn` (`requestDecision`, by its asker): `id`, `at`, `why`.
+- `withdrawn` (`requestDecision`, by its asker; or `withdrawDraftsAnsweredInChat`, by Life, when he wrote in its draft's chat
+  himself since it was asked): `id`, `at`, `why`, and Life's `answeredInChatAt` (his message's instant, never its words;
+  the asker's own has none, and lines before it lack it).
 
 Where each stands is worked out when read (`decisionsNow`): open, answered, lapsed (its deadline passed) or withdrawn.
 The file also holds earlier versions' lines, kept and skipped for good: the old decisions page's (schemaVersion 1,
@@ -650,7 +652,7 @@ brief, runtime, folder (named at its start, else its matter's or project's repo 
 runtime), current session and link, `status` `active`, `stopped`, `handed_over` (a stopped agent whose project or matter an agent was started on after: `ended_at` set, `outcome` "replaced by <id>"), or `ended`; `stopped_at` (when he stopped it; null unless stopped), its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an active agent with no
 `wait_until`), its notes; its open decision is read from `decisions.jsonl` by its id), `session` (every session it had, with its link and `context_at_first_call`, the context its first turn's usage reported; append-only), `event` (its
-queued events, one row per agent and event id, `name` `message.received`, `decision.answered`, `decision.lapsed` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
+queued events, one row per agent and event id, `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
 cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update), `anchor` (an agent's matter steps, in order), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
 `cursor` (where the message, answer and ask reads stopped). Never deleted by hand.

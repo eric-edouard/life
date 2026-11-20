@@ -192,21 +192,26 @@ function reasonOf(body: string) {
 
 const PUSH_ID = /^[0-9a-f]{16}$/;
 
-/** What another app of the owner's asks to push: words (`title` and `body` together), a badge, how it interrupts (`level`), a card's opaque `pushId`. */
+/** What another app of the owner's asks to push: words (`title` and `body` together), a badge, how it interrupts (`level`), a card's opaque `pushId`; or, alone, the `pushId`s of cards that left his inbox (`removed`). */
 export const NoticeRequest = z
   .object({
     badge: z.number().int().min(0).optional(),
     body: z.string().min(1).max(500).optional(),
     level: z.enum(["passive", "active", "time-sensitive"]).optional(),
     pushId: z.string().regex(PUSH_ID).optional(),
+    removed: z.array(z.string().regex(PUSH_ID)).min(1).max(100).optional(),
     title: z.string().min(1).max(100).optional(),
   })
   .refine((n) => (n.title === undefined) === (n.body === undefined), {
     message: "title and body come together",
   })
-  .refine((n) => n.title !== undefined || n.badge !== undefined, {
-    message: "an alert (title and body) or a badge",
-  });
+  .refine(
+    (n) =>
+      n.removed === undefined
+        ? n.title !== undefined || n.badge !== undefined
+        : Object.keys(n).length === 1,
+    { message: "an alert (title and body) or a badge; or `removed` alone" }
+  );
 export type NoticeRequest = z.infer<typeof NoticeRequest>;
 
 // A visible push, the one composer: what the owner reads (none for a badge alone), and any of the app's own fields
@@ -247,11 +252,33 @@ export const alertOf = (
   },
 });
 
-// A notice another app of the owner's asks for (Life: each voice ask it heard, its new cards), recorded as kind `notice`. Never throws.
+// A background push, the one composer: no alert, sound or badge (Apple refuses them on one), the app's own fields beside
+// `aps`. At priority 5: iOS may hold or drop it, so what it says is also read in the foreground.
+export const backgroundOf = (
+  bundleId: string,
+  fields: Record<string, unknown>
+): Omit<PushRequest, "path"> => ({
+  body: JSON.stringify({ aps: { "content-available": 1 }, ...fields }),
+  headers: {
+    "apns-priority": "5",
+    "apns-push-type": "background",
+    "apns-topic": bundleId,
+  },
+});
+
+// A notice another app of the owner's asks for (Life: each voice ask it heard, its new cards, the cards that left its
+// inbox, whose notifications the phone removes), recorded as kind `notice`. Never throws.
 export const phoneNotice =
   (db: Db, push: Pusher | null, bundleId: string) =>
-  ({ body, title, ...card }: NoticeRequest) =>
-    sendPush(db, push, "notice", alertOf(bundleId, title, body, card));
+  ({ body, removed, title, ...card }: NoticeRequest) =>
+    sendPush(
+      db,
+      push,
+      "notice",
+      removed
+        ? backgroundOf(bundleId, { removed })
+        : alertOf(bundleId, title, body, card)
+    );
 
 export type Notice = ReturnType<typeof phoneNotice>;
 
@@ -275,17 +302,7 @@ export function phoneNudger(db: Db, push: Pusher | null, bundleId: string) {
             "Open lifelog",
             `Your Pendant has ${Math.round(Number(fields.behindSeconds) / 60)} minutes waiting to sync.`
           )
-        : {
-            body: JSON.stringify({
-              aps: { "content-available": 1 },
-              lifelog: "processing",
-            }),
-            headers: {
-              "apns-priority": "5",
-              "apns-push-type": "background",
-              "apns-topic": bundleId,
-            },
-          },
+        : backgroundOf(bundleId, { lifelog: "processing" }),
       { ready, ...fields }
     );
 }

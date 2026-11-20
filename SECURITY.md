@@ -120,7 +120,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   cards", the number of cards that block him (the badge), the push's level (passive, active or time-sensitive) and,
   for one card, an id of 16 hex characters made with a key that never leaves the Mac (never a ref, a name, a title or
   a question). Lifelog pushes it to his phone through Apple; his phone then reads the card from the connector and
-  writes the notification's text itself, shown on his lock screen and his Watch.
+  writes the notification's text itself, shown on his lock screen and his Watch. When cards leave his inbox (answered,
+  withdrawn, lapsed), a background push carries their same opaque ids alone, and the phone removes their notifications.
 - The encrypted backup, when `backup` is set, to the folder he chose.
 - Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
 

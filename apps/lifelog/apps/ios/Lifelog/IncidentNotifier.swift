@@ -11,6 +11,8 @@ import UserNotifications
 /// Pendant itself (`PendantChangeReducer`). Never asks twice for
 /// permission and posts nothing when denied.
 final class IncidentNotifier: NSObject {
+    /// Marks the notification that shows his answer's result: Life's push removing the answered card spares it.
+    static let resultKey = "lifeResult"
     private static let stateKey = "incidentReducer"
     private static let changesKey = "pendantChanges"
 
@@ -206,6 +208,7 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
         content.body = result.line
         // Still opens its card when tapped; the card itself is not kept, so it offers no answers again.
         content.userInfo = request.content.userInfo.filter { $0.key as? String != CardNotification.userInfoKey }
+            .merging([Self.resultKey: true]) { $1 }
         content.threadIdentifier = request.content.threadIdentifier
         content.interruptionLevel = .passive
         try? await center.add(UNNotificationRequest(identifier: request.identifier, content: content, trigger: nil))

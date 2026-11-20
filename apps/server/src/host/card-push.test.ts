@@ -153,13 +153,16 @@ test("a level: quiet is passive; urgent is time-sensitive with no deadline or wi
   expect(levelOf("urgent", at(-1), now)).toBe("time-sensitive");
 });
 
-test("an answered card is a badge-only push; nothing changed is none", async () => {
+test("a card that left the inbox (answered, withdrawn, lapsed) is a badge-only push and its removal; nothing changed is none", async () => {
   open = cards(3);
   await pushNewCards();
   open = cards(2);
   await pushNewCards();
   await pushNewCards();
-  expect(push.mock.calls).toEqual([[{ badge: 2 }]]);
+  expect(push.mock.calls).toEqual([
+    [{ removed: [card(3).pushId] }],
+    [{ badge: 2 }],
+  ]);
 });
 
 test("a card gone for 31 days is new when it returns", async () => {
@@ -248,6 +251,21 @@ test("while a run holds the lock a new decision still pushes, from its own lines
   held.mockReturnValue(false);
   await pushNewCardsIfChanged();
   expect(push).toHaveBeenCalledTimes(1);
+});
+
+test("a look while a run holds the lock removes nothing and keeps what the last whole look saw open", async () => {
+  open = cards(3);
+  await pushNewCardsIfChanged();
+  held.mockReturnValue(true);
+  await ask();
+  await pushNewCardsIfChanged();
+  expect(push.mock.calls.flat()).not.toContainEqual(
+    expect.objectContaining({ removed: expect.anything() })
+  );
+  held.mockReturnValue(false);
+  open = cards(2);
+  await pushNewCardsIfChanged();
+  expect(push.mock.calls).toContainEqual([{ removed: [card(3).pushId] }]);
 });
 
 test("a new decision pushes on the seconds' look, once", async () => {

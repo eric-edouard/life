@@ -6,6 +6,7 @@ import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
 import { settings } from "../core/settings";
+import { withdrawDraftsAnsweredInChat } from "../memory/decisions";
 import { gather } from "../memory/gather";
 import {
   readSearchedTexts,
@@ -305,6 +306,21 @@ let syncing = false;
 const TODAY_EVERY = 5 * MIN;
 /** How soon a new decision reaches his phone: a stat of its file, cheap. */
 const DECISIONS_EVERY = 3000;
+/** How soon a draft card he answered in its chat himself is withdrawn: as fast as the desk sees messages. */
+const WITHDRAW_EVERY = 30_000;
+
+/**
+ * Withdraws the draft cards he answered in their chat himself (`withdrawDraftsAnsweredInChat`); the seconds' look then
+ * takes them off his phone. ponytail: reads each channel holding an open draft card from its earliest card's asking,
+ * every 30 s, 14 days at most (a card's deadline); a cursor per channel if a busy one ever costs.
+ */
+function withdrawAnsweredEvery() {
+  try {
+    withdrawDraftsAnsweredInChat();
+  } catch (e) {
+    log("run.error", { error: String(e), step: "watch.withdraw" });
+  }
+}
 /**
  * On its own timer, one at a time: today's units read outside the lock, written (passages prepared) and indexed under it,
  * then the files that arrived described un-awaited (`startFileDescriptions`): the next tick shows them. When a run holds
@@ -383,6 +399,7 @@ export async function watch(): Promise<number> {
   const timers = [
     setInterval(minute, MIN),
     setInterval(pushNewDecisionsAtOnce, DECISIONS_EVERY),
+    setInterval(withdrawAnsweredEvery, WITHDRAW_EVERY),
     setInterval(embedEvery, EMBED_EVERY),
     setInterval(describeEvery, DESCRIBE_EVERY),
     setInterval(todayEvery, TODAY_EVERY),

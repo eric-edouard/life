@@ -32,14 +32,37 @@ import { EVENT_CHANNELS, type Matchable } from "./event-channels";
 
 export const EVENTS = "io.modelcontextprotocol/events";
 export const MESSAGE_RECEIVED = "message.received";
-/** A decision the caller asked got his answer, or lapsed unanswered at its deadline: the follow-through to its asker. */
+/** A decision the caller asked got his answer, lapsed unanswered at its deadline, or was withdrawn because he answered in its draft's chat himself: the follow-through to its asker. */
 export const DECISION_ANSWERED = "decision.answered";
 export const DECISION_LAPSED = "decision.lapsed";
+export const DECISION_WITHDRAWN = "decision.withdrawn";
 /** A call of his that ended, once lifelog holds its words: the desk's event alone (`pollCalls`), never the connector's. */
 export const CALL_ENDED = "call.ended";
 /** How far back a call that began is looked at: the desk asks again each poll, so a late pendant sync still wakes. */
 export const CALLS_BACK = 12 * HOUR;
-const DECISION_EVENTS = [DECISION_ANSWERED, DECISION_LAPSED];
+/** Each decision event: the state it reports and what it tells its asker. */
+const DECISION_EVENT_OF: Record<
+  string,
+  { about: string; state: "answered" | "lapsed" | "withdrawn" }
+> = {
+  [DECISION_ANSWERED]: {
+    about:
+      "A decision you asked (`request_decision`) got his answer: the options he picked and his words.",
+    state: "answered",
+  },
+  [DECISION_LAPSED]: {
+    about:
+      "A decision you asked lapsed unanswered at its deadline: take your `onSilence` option now.",
+    state: "lapsed",
+  },
+  [DECISION_WITHDRAWN]: {
+    about:
+      "A decision you asked with a draft was withdrawn because he answered in its chat himself (`why`): read the chat again, then finish or ask something new.",
+    state: "withdrawn",
+  },
+};
+/** The decision events, the one list (the connector's poll, the desk's wake at once). */
+export const DECISION_EVENTS = Object.keys(DECISION_EVENT_OF);
 /** How often an agent should poll when nothing is waiting. */
 const NEXT_POLL_MS = 30_000;
 /** How long a poll waits for its page's voice notes to be heard. */
@@ -123,7 +146,9 @@ const DecisionPayload = z.object({
     .optional(),
   at: z.iso
     .datetime()
-    .describe("When he answered, or the deadline it lapsed at"),
+    .describe(
+      "When he answered, the deadline it lapsed at, or when Life withdrew it"
+    ),
   end: z
     .object({ error: z.string().optional() })
     .optional()
@@ -140,13 +165,18 @@ const DecisionPayload = z.object({
     .object({ error: z.string().optional(), eventId: z.string().optional() })
     .optional()
     .describe("Its draft, sent on his answer: the event, or why not"),
+  why: z
+    .string()
+    .optional()
+    .describe("Why Life withdrew it: he answered in the chat himself"),
 });
 
 /** A decision events cursor: the instant the next window starts at (`request_decision` returns one at the asking instant). */
 export const decisionCursorOf = (at: Date) => encode({ at: at.getTime() });
 
 /**
- * The decisions `agent` asked that got his answer (`decision.answered`) or lapsed (`decision.lapsed`) since `cursor`
+ * The decisions `agent` asked that got his answer (`decision.answered`), lapsed (`decision.lapsed`) or were withdrawn
+ * because he answered in the chat (`decision.withdrawn`) since `cursor`
  * (none: from now), all of them: an agent has few, so one page. The new cursor is now, the window half-open, so an
  * answer recorded in the same instant comes on the next poll.
  */
@@ -167,7 +197,7 @@ export function pollDecisions(
       at: now.getTime(),
     }).at
   );
-  const state = name === DECISION_ANSWERED ? "answered" : "lapsed";
+  const state = DECISION_EVENT_OF[name]?.state;
   const settled = settledBetween(decisionsNow(now), from, now).filter(
     (d) => d.asker === agent && d.state === state
   );
@@ -191,6 +221,7 @@ export function pollDecisions(
           id: d.id,
           onSilence: d.onSilence,
           question: d.question,
+          ...(d.withdrawn ? { why: d.withdrawn.why } : {}),
           ...(d.send
             ? {
                 send:
@@ -225,12 +256,9 @@ export function eventTypes() {
         name: MESSAGE_RECEIVED,
         payloadSchema: z.toJSONSchema(Payload),
       },
-      ...DECISION_EVENTS.map((name) => ({
+      ...Object.entries(DECISION_EVENT_OF).map(([name, { about }]) => ({
         delivery: ["poll"],
-        description:
-          name === DECISION_ANSWERED
-            ? "A decision you asked (`request_decision`) got his answer: the options he picked and his words."
-            : "A decision you asked lapsed unanswered at its deadline: take your `onSilence` option now.",
+        description: about,
         inputSchema: z.toJSONSchema(z.object({}).strict(), { io: "input" }),
         name,
         payloadSchema: z.toJSONSchema(DecisionPayload),
