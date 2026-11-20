@@ -436,7 +436,12 @@ export async function foldAssignments(desk: Desk, readPeopleNow: ReadPeople) {
   for (const { assignment, to } of folds) {
     const s = assignmentOf(db, assignment);
     const target = agentOf(db, to);
-    if (!(s && target) || s.closed_at || openTurn(db, s.agent_id)) {
+    // Moved onto an active agent only: an earlier move this pass may have ended it.
+    if (
+      !(s && target?.status === "active") ||
+      s.closed_at ||
+      openTurn(db, s.agent_id)
+    ) {
       continue;
     }
     const outcome = `folded into the ${target.name ?? target.id} agent`;

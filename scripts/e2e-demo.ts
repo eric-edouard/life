@@ -139,6 +139,20 @@ async function setUp() {
     throw new Error(`port ${PORT} is taken: set LIFE_PORT`);
   }
   await execOk(["bun", join(REPO, "scripts/demo.ts"), demo], { env });
+  // A matter's Start goes to the agent that takes it: the demo's Personal agent stands first, its own first turn waiting.
+  const src = join(REPO, "apps/server/src/desk");
+  await execOk(
+    [
+      "bun",
+      "-e",
+      `import { register } from "${src}/agent-actions";
+import { openDesk } from "${src}/desk-store";
+const db = openDesk();
+const id = register({ db, runtimes: {} }, { brief: "Demo: the Personal agent", isPersonal: true, name: "Personal", runtime: "${process.env.LIFE_DEMO_RUNTIME ?? "claude"}" });
+db.run("update assignment set wait_until = '2099-01-01T00:00:00.000Z' where agent_id = ?", [id]);`,
+    ],
+    { env }
+  );
   for (const service of ["watch", "desk"]) {
     const log = openSync(join(root, `${service}.log`), "w");
     services.push(

@@ -659,7 +659,13 @@ test("re_point with personal marks an existing agent as the Personal agent, a se
       [toDo(step, "I'll call the tuner")],
       { id: "matter_00000000a3c1", steps: [step] },
       async () => {
-        const mine = await startedOn({ project: "test-mine" });
+        // An agent he started on a matter of its own (the store step's shape): its one assignment is that matter's.
+        const own = "obs_00000000a3c2";
+        const mine = register(desk, {
+          brief: "Test brief: the piano",
+          runtime: "claude",
+          steps: [own],
+        });
         const old = register(desk, {
           brief: "Test brief: the tuner",
           runtime: "claude",
@@ -683,6 +689,16 @@ test("re_point with personal marks an existing agent as the Personal agent, a se
           project: null,
           status: "active",
         });
+        // It now has its own assignment beside its matter's, so it stands when its matters move.
+        const assignmentsOf = (id: string) =>
+          desk.db
+            .query<{ steps: number }, [string]>(
+              "select (select count(*) from anchor n where n.assignment_id = s.id) as steps from assignment s where s.agent_id = ? and s.closed_at is null"
+            )
+            .all(id)
+            .map((r) => r.steps)
+            .toSorted();
+        expect(assignmentsOf(mine)).toEqual([0, 1]);
         const other = await startedOn({ project: "test-other-mine" });
         expect(
           (await applied({ action: "re_point", agent: other, personal: true }))
@@ -690,6 +706,7 @@ test("re_point with personal marks an existing agent as the Personal agent, a se
         ).toBe(`the Personal agent is ${mine} (active)`);
         await foldAssignments(desk, readPeopleOnce());
         expect(holderOf()).toBe(mine);
+        expect(assignmentsOf(mine)).toEqual([0, 1, 1]);
         expect(agentOf(desk.db, old)).toMatchObject({
           outcome: `folded into the ${mine} agent`,
           status: "ended",

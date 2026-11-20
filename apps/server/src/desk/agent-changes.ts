@@ -51,9 +51,16 @@ function statusRefusal(desk: Desk, id: string | undefined, allowed: string[]) {
 }
 
 /** Why a subject is refused: not exactly one of a matter's steps, a project or the Personal agent; another Personal agent active or stopped; the matter held by another active agent. */
+/** Why a change names not exactly one subject: a matter's steps, a project, or the Personal agent. */
+const subjectCountRefusal = (c: AgentChange) =>
+  [c.steps, c.project, c.personal].filter(Boolean).length === 1
+    ? null
+    : "name exactly one subject: a matter (`step`), a project, or `personal`";
+
 function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
-  if ([c.steps, c.project, c.personal].filter(Boolean).length !== 1) {
-    return "name exactly one subject: a matter (`step`), a project, or `personal`";
+  const counted = subjectCountRefusal(c);
+  if (counted) {
+    return counted;
   }
   if (c.personal) {
     const other = desk.db
@@ -86,6 +93,10 @@ export function start(
   brief: string,
   { blocked, taker }: { blocked?: string; taker?: string } = {}
 ): { error: string } | { id: string } {
+  const counted = subjectCountRefusal(c);
+  if (counted) {
+    return { error: counted };
+  }
   const refused = subjectRefusal(desk, c);
   if (c.steps) {
     const holder = holderOf(desk.db, c.steps);
@@ -148,13 +159,20 @@ export function start(
   return { id };
 }
 
-/** He stopped an agent, then started `id` on its subject (its project, or a step it is anchored on): its assignments close, and it is replaced. */
+/**
+ * He stopped an agent, then started `id` on its subject: on a matter, the stopped agents' assignments anchored on its
+ * steps close; on a project, the own assignment of its stopped agents. Their other assignments stay (the fold moves
+ * them); an agent left with none is replaced.
+ */
 function replaceStopped(desk: Desk, c: AgentChange, id: string) {
+  const onSubject = c.steps
+    ? "s.id in (select assignment_id from anchor where step in (select value from json_each(?)))"
+    : "a.project = ? and s.id not in (select assignment_id from anchor)";
   for (const { id: old } of desk.db
-    .query<{ id: string }, [string | null, string]>(
-      "select s.id from assignment s join agent a on a.id = s.agent_id where a.status = 'stopped' and s.closed_at is null and (a.project = ? or a.id in (select s2.agent_id from anchor n join assignment s2 on s2.id = n.assignment_id where n.step in (select value from json_each(?))))"
+    .query<{ id: string }, [string | null]>(
+      `select s.id from assignment s join agent a on a.id = s.agent_id where a.status = 'stopped' and s.closed_at is null and ${onSubject}`
     )
-    .all(c.project ?? null, JSON.stringify(c.steps ?? []))) {
+    .all(c.steps ? JSON.stringify(c.steps) : (c.project ?? null))) {
     closeAssignmentRow(desk.db, old, {
       outcome: `replaced by ${id}`,
       replaced: true,
@@ -172,9 +190,27 @@ const writeColumns = ({ db }: Desk, id: string, c: AgentChange) =>
         id,
       ]);
 
-/** The assignment a re-point rewrites: on a matter, the one it works on; on a project or as the Personal agent, none (the agent's own subject: its matters' assignments keep their anchors). */
-const rePointedOf = (db: Desk["db"], id: string, c: AgentChange) =>
-  c.steps ? (currentAssignmentOf(db, id)?.id ?? "") : "";
+/**
+ * His re-point of agent `id`: on a matter, the assignment it works on is anchored there; on a project or as the Personal
+ * agent, the agent's own subject changes and its matters' assignments keep their anchors, and an agent that had none of
+ * its own (a matter's agent until now) gets one, so it stands when the fold moves its matters away.
+ */
+function rePoint(desk: Desk, id: string, c: AgentChange) {
+  const { db } = desk;
+  if (c.steps) {
+    writeSubject(desk, id, currentAssignmentOf(db, id)?.id ?? "", c);
+    return;
+  }
+  writeSubject(desk, id, "", c);
+  const hasOwn = db
+    .query<{ id: string }, [string]>(
+      "select id from assignment where agent_id = ? and closed_at is null and id not in (select assignment_id from anchor) limit 1"
+    )
+    .get(id);
+  if (!hasOwn) {
+    openAssignment(desk, id, { openedBy: "owner" });
+  }
+}
 
 /** Applies one change in the store; what it touched, or why not. */
 function apply(
@@ -219,7 +255,7 @@ function apply(
     case "re_point":
       refused = refusal(["active", "stopped"]) ?? subjectRefusal(desk, c, id);
       if (!refused) {
-        writeSubject(desk, id, rePointedOf(db, id, c), c);
+        rePoint(desk, id, c);
         if (agentOf(db, id)?.status === "active") {
           due("its subject changed");
         }

@@ -136,16 +136,19 @@ export function openAssignment(
 ) {
   const id = `asg_${randomBytes(6).toString("hex")}`;
   const now = clock().toISOString();
-  db.run(
-    "insert into assignment (id, agent_id, opened_at, opened_by, said, wait_until, wait_reason, notes_path) values (?, ?, ?, ?, ?, ?, 'first turn', ?)",
-    [id, agent, now, a.openedBy, a.said ?? null, now, notesPathOf(id)]
-  );
-  for (const step of a.steps ?? []) {
+  // One write: an assignment is never open without its anchors.
+  db.transaction(() => {
     db.run(
-      "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
-      [id, step, now]
+      "insert into assignment (id, agent_id, opened_at, opened_by, said, wait_until, wait_reason, notes_path) values (?, ?, ?, ?, ?, ?, 'first turn', ?)",
+      [id, agent, now, a.openedBy, a.said ?? null, now, notesPathOf(id)]
     );
-  }
+    for (const step of a.steps ?? []) {
+      db.run(
+        "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+        [id, step, now]
+      );
+    }
+  })();
   return id;
 }
 

@@ -241,7 +241,7 @@ async function waitForStart(
           : standingAgents(db).some((a) =>
               change.personal ? a.isPersonal : a.project === change.project
             ),
-        s: readStartFacts(db, line.id, change.steps?.[0]),
+        s: readStartFacts(db, line.id, change.steps),
       }),
       null
     );

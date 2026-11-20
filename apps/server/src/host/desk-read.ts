@@ -118,14 +118,14 @@ export const handedOutSince = (db: Database, since: string) =>
     )
     .get(since)?.n ?? 0;
 
-/** The assignments the desk opened itself from `since` on, as facts of their agents (`id`): whether it ended, and why its first turn never began. */
-export const handedOutAgentsSince = (db: Database, since: string) =>
+/** The assignments the desk opened itself from `since` on: when each closed, and why its first turn never began. */
+export const handOutsSince = (db: Database, since: string) =>
   db
     .query<
-      Pick<AgentRow, "id" | "status"> & Pick<AssignmentRow, "why_not_started">,
+      Pick<AssignmentRow, "closed_at" | "id" | "why_not_started">,
       [string]
     >(
-      "select a.id, a.status, s.why_not_started from assignment s join agent a on a.id = s.agent_id where s.opened_by = 'desk' and s.opened_at >= ? order by s.opened_at"
+      "select id, closed_at, why_not_started from assignment where opened_by = 'desk' and opened_at >= ? order by opened_at"
     )
     .all(since);
 
@@ -156,7 +156,7 @@ export const assignmentOf = (db: Database, id: string) =>
 export const openAssignments = (db: Database) =>
   db
     .query<AssignmentRow, [number]>(
-      "select s.* from assignment s join agent a on a.id = s.agent_id where a.status = 'active' and s.closed_at is null order by s.opened_at limit ?"
+      "select s.* from assignment s where s.closed_at is null and s.agent_id in (select id from agent where status = 'active' order by created_at limit ?) order by s.opened_at"
     )
     .all(MAX_ACTIVE);
 
@@ -235,7 +235,8 @@ export function agentHomeOf(
 /**
  * Which assignment owns card `d`: the one that asked it, as the desk wrote it once when the card was asked (`card`,
  * `askDecision`), never worked out again from anchors that move later; a card asked before the desk kept its owner (20
- * Nov 2026) is its asker's one assignment then; none for a card no registered agent asked.
+ * Nov 2026) is its asker's one assignment then, its first (pinned: a later assignment of the agent never takes it); none
+ * for a card no registered agent asked.
  */
 export const assignmentOfCard = (
   db: Database,
@@ -247,7 +248,11 @@ export const assignmentOfCard = (
           "select assignment_id as id from card where decision_id = ?"
         )
         .get(d.id)?.id ??
-      currentAssignmentOf(db, d.agent)?.id ??
+      db
+        .query<{ id: string }, [string]>(
+          "select id from assignment where agent_id = ? order by opened_at, rowid limit 1"
+        )
+        .get(d.agent)?.id ??
       null)
     : null;
 
@@ -368,24 +373,24 @@ export const agentChangeOf = (db: Database, ask: string) =>
     .get(ask);
 
 /** The assignment agent `id` was started on: on a matter, the newest anchored on its first step `step`; else its own. */
-const startedAssignmentOf = (db: Database, id: string, step?: string) =>
-  step
+const startedAssignmentOf = (db: Database, id: string, steps?: string[]) =>
+  steps
     ? db
         .query<AssignmentRow, [string, string]>(
-          "select s.* from assignment s join anchor n on n.assignment_id = s.id where s.agent_id = ? and n.step = ? order by s.opened_at desc limit 1"
+          "select s.* from assignment s where s.agent_id = ? and s.id in (select assignment_id from anchor where step in (select value from json_each(?))) order by s.opened_at desc limit 1"
         )
-        .get(id, step)
+        .get(id, JSON.stringify(steps))
     : currentAssignmentOf(db, id);
 
 /**
  * What the desk did with a start (`change_registered_agent`), as facts: the ask's `agent_change` row and, for its agent,
- * the assignment it opened (on a matter, the one anchored on its first step `step`; else the agent's own), its agent's
+ * the assignment it opened or found (on a matter, its agent's newest anchored on any of its `steps`; else the agent's own), its agent's
  * newest session and that assignment's first turn, each null until written.
  */
-export function readStartFacts(db: Database, ask: string, step?: string) {
+export function readStartFacts(db: Database, ask: string, steps?: string[]) {
   const change = agentChangeOf(db, ask);
   const id = change?.agent_id;
-  const assignment = id ? startedAssignmentOf(db, id, step) : null;
+  const assignment = id ? startedAssignmentOf(db, id, steps) : null;
   return {
     agent: id ? agentOf(db, id) : null,
     assignment: assignment ?? null,
