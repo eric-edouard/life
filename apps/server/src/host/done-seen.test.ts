@@ -240,6 +240,7 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
     payment({ id: "blank", merchant: "B LEE (A/C Name: )" }),
     payment({ id: "branch", merchant: "SHOP (A/C Name: B Lee) (Branch A)" }),
     payment({ id: "broken", merchant: "SHOP (A/C Name:\nB Lee)" }),
+    payment({ id: "unclosed", merchant: "SHOP (A/C Name: B Lee (Branch A)" }),
   ];
   expect(initialCard && (await readSeenDone([initialCard]))).toEqual(new Map());
   booked = [payment({ id: "theirs", merchant: "LEE SHOP (A/C Name: A LEE)" })];
@@ -271,14 +272,19 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
     needs: [{ ...NEEDS[0], holder: "Ann Co" }, NEEDS[1]],
   });
   const coCard = decisionsNow().find((d) => d.id === co.id);
-  booked = [payment({ id: "ann", merchant: "ANN LEE" })];
+  booked = [
+    payment({ id: "ann", merchant: "ANN LEE" }),
+    payment({ id: "suffix", merchant: "ANN LEE CO., LTD." }),
+  ];
   expect(coCard && (await readSeenDone([coCard]))).toEqual(new Map());
   booked = [payment({ id: "lili", merchant: "MS. LI LI" })];
   expect(twiceCard && (await lookForDone(twiceCard))).toBe("payments:lili");
   // A card with no payee's name is refused when asked.
-  await expect(
-    transfer({ needs: [{ ...NEEDS[0], holder: "Mr." }, NEEDS[1]] })
-  ).rejects.toThrow("needs the payee's name");
+  for (const holder of ["Mr.", "Co., Ltd."]) {
+    await expect(
+      transfer({ needs: [{ ...NEEDS[0], holder }, NEEDS[1]] })
+    ).rejects.toThrow("needs the payee's name");
+  }
 });
 
 test("payments off: a tap card, its looks option a plain answer; his words added look for nothing; a session never looks", async () => {
