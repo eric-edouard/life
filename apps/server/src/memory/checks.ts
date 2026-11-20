@@ -79,7 +79,9 @@ import {
   readPeople,
   readUnresolvedPeople,
   type Shown,
+  voiceCardRefOf,
   voicePersonOf,
+  voiceSuggestionOf,
 } from "./who";
 import { dayNow, localDate } from "./zones";
 
@@ -540,7 +542,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     c.voices
       .filter((item) => item.kind !== "several")
       .map((item) => {
-        const known = voicePersonOf(c.people.resolve, item.personId, item.name);
+        const known = voiceSuggestionOf(c.people.resolve, item);
         const likely = namingQueueGuessesOf(item)
           .flatMap((id) => {
             const ref = voicePersonOf(c.people.resolve, id, null);
@@ -550,8 +552,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           .slice(0, 5)
           .map(c.people.partyOf);
         const [first] = item.evidence;
-        const who =
-          known && item.kind !== "new_person" ? c.people.nameOf(known) : null;
+        const who = known ? c.people.nameOf(known) : null;
         return {
           check: {
             ...NO_SAID,
@@ -581,7 +582,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
               (o) => who || o.id !== "is-them"
             ),
             question: who ? `Is this ${who}?` : "Who is this?",
-            ref: `voice:${item.id}`,
+            ref: voiceCardRefOf(c.people.resolve, item),
             ridesOn: { ...ridingOf(), observations: 0, pages: 0 },
             // The person lifelog suggests, what makes it a guess in use; null: none (`urgencyOf`).
             subject: who ? known : null,

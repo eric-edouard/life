@@ -274,7 +274,7 @@ export function lifelogServer(
       seen.push({ auth: req.headers.get("authorization"), body, path });
       const route = routes[path];
       return route
-        ? Response.json(route(body))
+        ? Response.json(await route(body))
         : new Response("", { status: 404 });
     },
     port: 0,
