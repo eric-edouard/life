@@ -16,7 +16,7 @@ import { readConfirmedArrivals, readReplies, storeReply } from "./read-replies";
 import { OWNER } from "./read-truth";
 import { voiceUnitId } from "./unit-ids";
 import { applyRules, type Built, messageUnits } from "./units";
-import { dayNow, dayStart } from "./zones";
+import { dayNow, dayStart, localDate } from "./zones";
 
 // Made-up chats with Sam, someone he knows; Apple and his engine are fakes counting their calls.
 const SAM = "33600000001@s.whatsapp.net";
@@ -138,10 +138,10 @@ const voiceOf = (
     };
   });
   const unit = {
-    date: lines[0]?.at.slice(0, 10),
+    date: localDate(lines[0]?.at ?? ""),
     end: lines.at(-1)?.at,
     hash: "0123456789abcdef",
-    id: voiceUnitId(conversation, lines[0]?.at.slice(0, 10) ?? ""),
+    id: voiceUnitId(conversation, localDate(lines[0]?.at ?? "")),
     key: conversation,
     people: o.spoke ? ["person:sam", OWNER] : ["person:sam"],
     refs: [lines[0]?.ref, lines.at(-1)?.ref],
@@ -288,21 +288,65 @@ test("voice: a closed long conversation is read whole, every chunk in one pass",
   );
 });
 
+/** Minutes before now of `days` local days back's start, plus `plus` minutes (negative: later than now). */
+const minutesAgoOf = (days: number, plus: number) =>
+  (clock().getTime() - dayStart(daysBefore(dayNow(), days)).getTime()) / MIN -
+  plus;
+
 test("voice: a conversation across midnight he spoke in before it is read after it too", async () => {
   const s = sceneOf(() => yes("bring the plans"));
   const before = voiceOf("night", {
     closed: true,
-    minutesAgo: 26 * 60,
+    minutesAgo: minutesAgoOf(0, -10),
     spoke: true,
     turns: 2,
   });
-  const after = voiceOf("night", { closed: true, spoke: false, turns: 2 });
+  const after = voiceOf("night", {
+    closed: true,
+    minutesAgo: minutesAgoOf(0, 1),
+    spoke: false,
+    turns: 2,
+  });
   await s.read([], true, 0, {
     built: [...before.built, ...after.built],
     closed: before.closed,
     spoken: new Map([...before.spoken, ...after.spoken]),
   });
   expect(s.calls).toEqual({ apple: 2, engine: 2 });
+});
+
+test("voice: a day before yesterday's is the night's, never read", async () => {
+  const s = sceneOf(() => yes("bring the plans"));
+  await s.read(
+    [],
+    true,
+    0,
+    voiceOf("old", {
+      closed: true,
+      minutesAgo: minutesAgoOf(2, 10),
+      spoke: true,
+      turns: 2,
+    })
+  );
+  expect(s.calls).toEqual({ apple: 0, engine: 0 });
+});
+
+test("voice: a pending confirm whose conversation turns out not his asks his engine nothing", async () => {
+  const s = sceneOf(() => yes("bring the plans"));
+  await s.read(
+    [],
+    false,
+    0,
+    voiceOf("t", { closed: true, spoke: true, turns: 2 })
+  );
+  // His only turn was someone else's after all (a speaker corrected).
+  await s.read(
+    [],
+    true,
+    0,
+    voiceOf("t", { closed: true, spoke: false, turns: 2 })
+  );
+  expect(s.calls).toEqual({ apple: 1, engine: 0 });
 });
 
 test("voice: lifelog unreachable, chats and mail are still read", async () => {

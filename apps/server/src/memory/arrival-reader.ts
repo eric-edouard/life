@@ -107,17 +107,22 @@ export function arrivalReadsDue(
 /**
  * The voice units the reader may read, decided once for fresh reads and pending confirms alike: those of a conversation
  * lifelog has closed (its own signals, never a timing rule of Life's) that he spoke in on any of its days, never one a
- * code rule dropped. His own words count: what he says he will do is an arrival too.
+ * code rule dropped, and only yesterday's and today's: an earlier day's is the night's. His own words count: what he
+ * says he will do is an arrival too.
  */
-function readableVoiceOf(voice: {
-  built: Built[];
-  closed: ReadonlySet<string>;
-}) {
+function readableVoiceOf(
+  voice: { built: Built[]; closed: ReadonlySet<string> },
+  day: string
+) {
   const his = new Set(
     voice.built.filter((b) => b.unit.stats.fromMe > 0).map((b) => b.unit.key)
   );
   return voice.built.filter(
-    (b) => !b.unit.drop && voice.closed.has(b.unit.key) && his.has(b.unit.key)
+    (b) =>
+      b.unit.date >= daysBefore(day, 1) &&
+      !b.unit.drop &&
+      voice.closed.has(b.unit.key) &&
+      his.has(b.unit.key)
   );
 }
 
@@ -315,7 +320,7 @@ export async function readArrivals(
     new Set()
   ).due.map(eventKey);
   const read = new Set([...stored.flatMap((l) => l.messages), ...waiting]);
-  const voice = evidence.voice ? readableVoiceOf(evidence.voice) : [];
+  const voice = evidence.voice ? readableVoiceOf(evidence.voice, day) : [];
   const spoken = await (o.spoken ?? spokenOf(people))(
     voice.map((b) => b.unit)
   ).catch((e: Error) => {

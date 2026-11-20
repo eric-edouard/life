@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { clock, daysBefore, HOUR, MIN } from "../core/clock";
+import { clock, daysBefore, MIN } from "../core/clock";
 import { queuedEvents } from "../host/desk-read";
 import { UNITS } from "../memory/memory-files";
 import { dayStart, localDate } from "../memory/zones";
@@ -174,29 +174,29 @@ test("a desk tick's confirmed arrivals of several people, from chat, mail and vo
   ]);
 });
 
-test("a confirm of yesterday's voice, made this afternoon, finds its unit and wakes", async () => {
+/** A confirm `confirmedAgo` before a poll `minutes` into today, of a voice unit `days` before today: woken or not. */
+async function wokenFor(minutes: number, days: number, confirmedAgo: number) {
   const s = setup();
   const agent = await s.waiting();
   s.desk.db.run("update agent set is_personal = 1 where id = ?", [agent]);
-  // This afternoon, local: the 12 hours looked back stay within today.
   setSystemTime(
-    dayStart(localDate(clock().toISOString())).getTime() + 15 * HOUR
+    dayStart(localDate(clock().toISOString())).getTime() + minutes * MIN
   );
-  const yesterday = daysBefore(localDate(clock().toISOString()), 1);
-  const turn = `job8:2@${dayStart(yesterday).toISOString()}`;
+  const day = daysBefore(localDate(clock().toISOString()), days);
+  const turn = `job8:2@${dayStart(day).toISOString()}`;
   // The test data is shared: the day's file is put back as it was.
-  const file = join(UNITS, `${yesterday}.jsonl`);
+  const file = join(UNITS, `${day}.jsonl`);
   const was = existsSync(file) ? readFileSync(file, "utf8") : null;
   mkdirSync(UNITS, { recursive: true });
   appendFileSync(
     file,
-    `${JSON.stringify({ ...unitOf(), date: yesterday, id: "unit_0000000000d1", key: "conversation-2", source: "lifelog" })}\n`
+    `${JSON.stringify({ ...unitOf(), date: day, id: "unit_0000000000d1", key: "conversation-2", source: "lifelog" })}\n`
   );
   try {
     await pollArrivals(s.desk, readPeopleOnce(), {
       arrivals: [
         {
-          at: clock().toISOString(),
+          at: new Date(clock().getTime() - confirmedAgo).toISOString(),
           messages: [`lifelog|${turn}`],
           people: ["person:ana"],
           unit: "unit_0000000000d1",
@@ -210,9 +210,13 @@ test("a confirm of yesterday's voice, made this afternoon, finds its unit and wa
       writeFileSync(file, was);
     }
   }
-  expect(
-    queuedEvents(s.desk.db, asgOf(s.desk, agent)).filter(
-      (e) => e.name === ARRIVAL_CONFIRMED
-    )
-  ).toHaveLength(1);
+  return queuedEvents(s.desk.db, asgOf(s.desk, agent)).filter(
+    (e) => e.name === ARRIVAL_CONFIRMED
+  ).length;
+}
+
+test("a confirm of yesterday's voice finds its unit and wakes: made this afternoon, or just before a midnight polled after it", async () => {
+  expect(await wokenFor(15 * 60, 1, 0)).toBe(1);
+  // Polled at 00:01, confirmed at 23:59 of a unit of the day before.
+  expect(await wokenFor(1, 2, 2 * MIN)).toBe(1);
 });

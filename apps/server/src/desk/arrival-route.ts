@@ -111,13 +111,11 @@ export async function pollArrivals(
     return;
   }
   const people = await readPeopleNow();
-  // Yesterday's too: the reader reads yesterday's voice, and its confirm can come any time today.
-  const today = localDate(now.toISOString());
+  // A confirm since `since` reads a unit of that day or the day before (the reader reads yesterday's voice), or later.
+  const first = localDate(since);
+  const days = [daysBefore(first, 1), first, localDate(now.toISOString())];
   const units = new Map(
-    (o.units ?? readUnitsOf([daysBefore(today, 1), today])).map((u) => [
-      u.id,
-      u,
-    ])
+    (o.units ?? readUnitsOf([...new Set(days)])).map((u) => [u.id, u])
   );
   const facts = arrivals.flatMap(
     (a) => arrivalFactsOf(a, units.get(a.unit), people.refOf) ?? []
