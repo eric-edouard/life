@@ -45,6 +45,17 @@ its work: the agent keeps its own list.
 - An ask line's `instruction.quote` keeps the owner's words whole (clipped at 50,000 characters). This is the one place memory
   stores more than a short quote of speech.
 - `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded.
+- His complaint (his "Wrong…" on a card of Life's, never an agent's) is an ask of the desk (`complain`,
+  `host/complaints.ts`): `answer_check` with `value` `{kind: "misread", cause, shown, seal, report}` (the card's `misread`,
+  sealed by Life on the card as shown, and his tick), his words as `note`, no option, and the press's `life/answerKey`,
+  whose ask it is: a retry resumes it, the key with anything else is refused, and so is a ref or cause Life did not seal.
+  Then the desk writes its complaint record row and receives it for the caretaker (`receiveComplaints`: its `complaint.received` event on the caretaker's assignment, registering the caretaker
+  when none is active or stopped). The answer is `{ask, reached: "caretaker"}` only once all three are written; a
+  stopped caretaker, a full desk, a runtime that does not answer, or a caretaker whose first turn never began since
+  his last press, leaves it waiting (his next press tries once more), and the answer says so. The
+  caretaker reads it through its door (`read_complaint`, only on the assignment that received it); while it holds it, the
+  card with that cause shows `beingFixed` and stops blocking. An assignment that closes gives back the complaints it
+  never handed to a turn: the desk receives them again.
 - Old ledger lines of an agent's updates and replies (`TASK_LINES`) are history, parsed and never written; `read_memory_changes`
   with `about` `task:<id>` is an ask's whole history, and for one before 2 Nov 2026 its agent's lines.
 

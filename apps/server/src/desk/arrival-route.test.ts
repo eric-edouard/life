@@ -107,7 +107,7 @@ test("a message already queued for any agent wakes no one again; else Personal o
     );
   await poll("whatsapp:9");
   expect(woken()).toHaveLength(0);
-  s.desk.db.run("update agent set is_personal = 1 where id = ?", [agent]);
+  s.desk.db.run("update agent set role = 'personal' where id = ?", [agent]);
   queue(s.desk.db, "message.received", [
     { assignment: asgOf(s.desk, agent), eventId: "whatsapp:9", payload: {} },
   ]);
@@ -128,7 +128,7 @@ test("a message already queued for any agent wakes no one again; else Personal o
 test("a desk tick's confirmed arrivals of several people, from chat, mail and voice, each wake Personal once with its facts", async () => {
   const s = setup();
   const agent = await s.waiting();
-  s.desk.db.run("update agent set is_personal = 1 where id = ?", [agent]);
+  s.desk.db.run("update agent set role = 'personal' where id = ?", [agent]);
   advance(5 * MIN);
   const unit = (id: string, source: Unit["source"], key: string): Unit => ({
     ...unitOf(),
@@ -178,7 +178,7 @@ test("a desk tick's confirmed arrivals of several people, from chat, mail and vo
 async function wokenFor(minutes: number, days: number, confirmedAgo: number) {
   const s = setup();
   const agent = await s.waiting();
-  s.desk.db.run("update agent set is_personal = 1 where id = ?", [agent]);
+  s.desk.db.run("update agent set role = 'personal' where id = ?", [agent]);
   setSystemTime(
     dayStart(localDate(clock().toISOString())).getTime() + minutes * MIN
   );

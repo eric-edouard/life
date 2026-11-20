@@ -105,6 +105,9 @@ export type AgentWait = z.infer<typeof AgentWait>;
 /** A registered agent's status: `active` (a turn running or waiting), `stopped` (restarts on his word only), or done with. */
 export type AgentStatus = "active" | "stopped" | "handed_over" | "ended";
 
+/** A standing agent's role, one active or stopped at most of each: `personal` (his matters with no project's agent), `caretaker` (fixes what Life got wrong, on his "Wrong…"). */
+export type AgentRole = "personal" | "caretaker";
+
 /** Who opened an assignment: he did (`owner`: his word, his Start), or the desk did itself (`desk`, the hand-out). */
 export type OpenedBy = "owner" | "desk";
 
