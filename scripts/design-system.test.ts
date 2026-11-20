@@ -29,6 +29,8 @@ const RULES: Record<string, RegExp> = {
   radius: new RegExp(`cornerRadius: *${NUMBER}`, "g"),
   // The design's `Spinner`, never the system's bars.
   spinner: /ProgressView\(/g,
+  // An agent shows its program's mark (`RuntimeName.mark`), never a star.
+  star: /"sparkles?"/g,
   width: new RegExp(String.raw`frame\([^)]*[Ww]idth: *${NUMBER}`, "g"),
 };
 
