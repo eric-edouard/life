@@ -47,6 +47,7 @@ const OPTIONS = [
 ];
 const transfer = (over = {}) =>
   requestDecision("planner", {
+    context: "A made-up reason to ask.",
     deadline: new Date(Date.now() + 2 * DAY).toISOString(),
     doneSeenBy: "payment",
     needs: NEEDS,

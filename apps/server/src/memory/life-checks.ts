@@ -7,6 +7,7 @@ import type { doneSeenShownOf } from "./decisions";
 import type { StoredDraft } from "./draft";
 import type { needsShownOf } from "./needs";
 import type { Party } from "./party";
+import type { RefKind } from "./refs";
 
 /**
  * One answer he can give: its id, as `answer_check` takes it; its label, his button's words; whether it acts outside
@@ -156,6 +157,8 @@ export interface Check {
   /** A draft card's chat as his card heads it (`draftHeadOf`): its network and its name; absent on every other check. */
   head?: { name: string; network: string } | null;
   kind: CheckKind;
+  /** The `life:` links of its `context`, each with its kind (`lifeLinksOf`): worked out when read, never stored. */
+  lifeLinks: { kind: RefKind; ref: string }[];
   /** Who it may be, as parties (`partyOf`): a voice's likely people, a Contacts card's candidates, the people who go by a name; none for other kinds. */
   likelyPeople: Party[];
   /** Where to look or act (the agent's link first). */

@@ -98,6 +98,12 @@ export interface Picture {
   handles: string[];
 }
 
+/** When a message was written, by its id: its versions' first and last instants, which its source's `read` then reads. */
+export interface MessageAt {
+  first: string;
+  last: string;
+}
+
 export type Descriptor = {
   /** How many days back `chats --chat` reads it. */
   chatDays?: number;
@@ -113,6 +119,8 @@ export type Descriptor = {
    * message. Without it, the source has no events.
    */
   incoming?: (from?: number) => { end: number; rows: NewRow[] };
+  /** For a chat or mail source whose store finds a message by its id (as `read` gives it), whatever its age: when it was written. */
+  messageAt?: (id: string) => MessageAt | undefined;
   /**
    * It records without him doing anything (a chat archive, mail, the pendant): only such a source covers a day
    * (`memory/coverage.ts`). One that records only when he acts (a photo, a commit, a note) covers nothing.
