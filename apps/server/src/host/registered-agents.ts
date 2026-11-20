@@ -2,13 +2,18 @@ import { clock, DAY, iso } from "../core/clock";
 import { DEFAULT_RADIUS_M } from "../core/distance";
 import { holder } from "../core/lock";
 import type { SourceName } from "../core/names";
+import { blockingCountOf } from "../memory/check-urgency";
+import { checksOnMatterOf } from "../memory/checks";
 import { decisionsNow, openDecisionOf } from "../memory/decisions";
-import { matterFinderOf } from "../memory/matter-read";
-import { readMatterBook } from "../memory/matters";
+import { isHeldOf } from "../memory/held-matters";
+import { type MatterView, matterFinderOf } from "../memory/matter-read";
+import { readMatterBook, readMatterBookAndRecords } from "../memory/matters";
+import { readHandOutMatters } from "../memory/read-matters";
 import { sourceOf } from "../memory/sources";
 import { meant, type People, readPeople } from "../memory/who";
 import { dayNow, localDate, localTime } from "../memory/zones";
 import type { EventFilter } from "../records/registered-agent";
+import { healthRowsOf, needsYouCountOf } from "./desk-health";
 import {
   type AgentNow,
   type AgentRead,
@@ -19,6 +24,7 @@ import {
   anchorsOf,
   type DeskRead,
   handedOutAgentsSince,
+  heldByAgents,
   projectHolderOf,
   readDesk,
   refusedSince,
@@ -28,6 +34,7 @@ import {
 } from "./desk-read";
 import { EVENT_CHANNELS, type EventChannel } from "./event-channels";
 import { matcherOf } from "./events";
+import { openChecksNow } from "./inbox";
 
 // "What are my agents doing?": every registered agent as read now, as one typed answer (`readRegisteredAgents`) that
 // the connector (`read_registered_agents`), the nightly report and his apps (through the connector) share; and the Agents
@@ -186,9 +193,9 @@ export function wakesOnOf(
 function withWakesOn(
   agents: AgentRead[],
   people: People,
-  hasMatter: (steps: string[]) => boolean
+  hasMatter: (steps: string[]) => boolean,
+  decisions = decisionsNow()
 ) {
-  const decisions = decisionsNow();
   return agents.map(({ chatsSeen, filters, ...a }) => {
     const d = openDecisionOf(a.id, decisions);
     return {
@@ -230,7 +237,13 @@ export interface RegisteredAgents {
 }
 
 export async function readRegisteredAgents(
-  now = clock()
+  now = clock(),
+  /** The people, the matter book and the decisions, when the caller read them already (the report reads them once). */
+  given?: {
+    book: readonly MatterView[];
+    decisions: ReturnType<typeof decisionsNow>;
+    people: People;
+  }
 ): Promise<RegisteredAgents> {
   const read = readDesk(
     (db) => ({
@@ -250,13 +263,18 @@ export async function readRegisteredAgents(
     };
   }
   const { refused } = read.value;
-  const people = await readPeople();
-  const book = read.value.agents.some((a) => a.steps.length > 0)
-    ? await readMatterBook(people, dayNow())
-    : [];
+  const people = given?.people ?? (await readPeople());
+  const book =
+    given?.book ??
+    (read.value.agents.some((a) => a.steps.length > 0)
+      ? await readMatterBook(people, dayNow())
+      : []);
   const find = matterFinderOf(book);
-  const agents = withWakesOn(read.value.agents, people, (steps) =>
-    Boolean(find(steps))
+  const agents = withWakesOn(
+    read.value.agents,
+    people,
+    (steps) => Boolean(find(steps)),
+    given?.decisions
   );
   return {
     agents: agents.map((a) => {
@@ -385,29 +403,88 @@ export function tokenRowsOf(
 
 /**
  * The nightly report's Agents section: one row per registered agent, then the report lines posted since `since` (the
- * last report), each with its day, then the hand-outs (`handOutRowsOf`) and the tokens of the agents' turns since then (`tokenRowsOf`). Off: none; unreadable: one row saying so.
+ * last report), each with its day, then the hand-outs (`handOutRowsOf`), the tokens of the agents' turns since then
+ * (`tokenRowsOf`), and the desk health rows (`healthRowsOf`: oddities, agent coverage, the number of matters that need
+ * him, with last night's). Off: none; unreadable: one row saying so. The matter book and the records are read once
+ * for all of them; `needsYou` is the number, for the night's `run.end` (undefined while the desk is not readable).
  */
-export async function readAgentRows(since: string) {
-  const r = await readRegisteredAgents();
-  if (r.desk === "unreadable") {
-    return [{ name: "Desk", relation: "its store could not be read" }];
+export async function readAgentSection(since: string, lastNeedsYou?: number) {
+  // The desk first: off, nothing is read; unreadable, one row says so.
+  const desk = readDesk((db) => heldByAgents(db), []);
+  if (desk.state !== "ok") {
+    return {
+      needsYou: undefined,
+      rows:
+        desk.state === "unreadable"
+          ? [{ name: "Desk", relation: "its store could not be read" }]
+          : [],
+    };
   }
+  const people = await readPeople();
+  // A book that cannot be read costs the oddities, coverage and number, never the agents' rows.
+  const read = await readMatterBookAndRecords(people, dayNow()).catch(
+    () => undefined
+  );
+  const book = read?.book ?? [];
+  const decisions = decisionsNow();
+  const r = await readRegisteredAgents(clock(), { book, decisions, people });
   const lines = readDesk((db) => reportLinesSince(db, since), []);
-  const tokens = await readDeskRows(since);
-  return [
-    ...(r.desk === "ok" && r.helper === "not running"
-      ? [{ name: "Desk", relation: "its helper is not running" }]
-      : []),
-    ...r.agents.map((a) => {
-      const { detail, name } = partsOf(a);
-      return { name, relation: detail };
+  const tokens = readDeskRows(since, book, decisions);
+  const health = read
+    ? await readHealth(read, people, r, lastNeedsYou)
+    : undefined;
+  return {
+    needsYou: health?.needsYou,
+    rows: [
+      ...(r.helper === "not running"
+        ? [{ name: "Desk", relation: "its helper is not running" }]
+        : []),
+      ...r.agents.map((a) => {
+        const { detail, name } = partsOf(a);
+        return { name, relation: detail };
+      }),
+      ...(lines.state === "ok" ? lines.value : []).map((l) => ({
+        name: `${l.source} · ${l.day}`,
+        relation: [l.line, ...(l.link ? [l.link] : [])].join(" · "),
+      })),
+      ...tokens,
+      ...(health?.rows ?? []),
+    ],
+  };
+}
+
+/** The desk health rows and the number (`healthRowsOf`) over the book, records and people already read, the holds in the desk's store and his open checks. */
+async function readHealth(
+  read: Awaited<ReturnType<typeof readMatterBookAndRecords>>,
+  people: People,
+  r: RegisteredAgents,
+  lastNeedsYou?: number
+) {
+  const { facts, matters } = await readHandOutMatters(
+    async () => ({ book: [...read.book], records: read.records }),
+    people
+  );
+  const holds = readDesk((db) => heldByAgents(db), []);
+  const open = await openChecksNow();
+  const needsYou = needsYouCountOf(matters, facts.decisions, (id) =>
+    blockingCountOf(checksOnMatterOf(open, id))
+  );
+  return {
+    needsYou,
+    rows: healthRowsOf({
+      agents: r.agents,
+      book: read.book,
+      decisions: facts.decisions,
+      facts: {
+        ...facts,
+        isHeld: isHeldOf(holds.state === "ok" ? holds.value : []),
+      },
+      holds: holds.state === "ok" ? holds.value : [],
+      lastNeedsYou,
+      matters,
+      needsYou,
     }),
-    ...(lines.state === "ok" ? lines.value : []).map((l) => ({
-      name: `${l.source} · ${l.day}`,
-      relation: [l.line, ...(l.link ? [l.link] : [])].join(" · "),
-    })),
-    ...tokens,
-  ];
+  };
 }
 
 /** The hand-outs since the last report as rows: how many started and how many have an answered card, then each that never began, or ended having never asked a card (`everAsked`: a card withdrawn at its end still counts, unlike the door's `hasAsked`), by its matter's name. Pure; every row; none when nothing was handed out. */
@@ -447,8 +524,12 @@ export function handOutRowsOf(
   ];
 }
 
-/** The nightly's hand-out and token rows since `since`: the desk read once, the matter book once. */
-async function readDeskRows(since: string) {
+/** The nightly's hand-out and token rows since `since`: the desk read once, over the matter book `book` read already. */
+function readDeskRows(
+  since: string,
+  book: readonly MatterView[],
+  all: ReturnType<typeof decisionsNow>
+) {
   const read = readDesk((db) => {
     const turns = tokensSince(db, since);
     const handed = handedOutAgentsSince(db, since);
@@ -470,11 +551,9 @@ async function readDeskRows(since: string) {
     return [];
   }
   const anchors = new Map(read.value.anchors);
-  const find = matterFinderOf(
-    await readMatterBook(await readPeople(), dayNow())
-  );
+  const find = matterFinderOf(book);
   const matterOf = (id: string) => find(anchors.get(id) ?? []);
-  const decisions = decisionsNow().flatMap((d) =>
+  const decisions = all.flatMap((d) =>
     d.agent ? [{ agent: d.agent, state: d.state }] : []
   );
   const cards = {

@@ -87,7 +87,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func aValueOrAFieldLifeAddsNeverBreaksARead() throws {
     let text = #"""
-        {"matters":[{"id":"m","name":"New kind","status":"on_ice","something":{"new":true},
+        {"matters":[{"id":"m","name":"New kind","status":"on_ice","needsYou":false,"something":{"new":true},
         "nextStep":{"kind":"wait_robot","text":"t"},"goal":{"by":"a_new_one","text":"g"}}]}
         """#
     let row = try #require(try decoded(MatterList.self, text).matters.first)
@@ -107,10 +107,10 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 @Test func theFiltersNarrowTheListAndAreasComeMostFirst() throws {
     let text = #"""
         {"matters":[
-        {"id":"a","name":"A","status":"moving","areas":["Home","Money"],"agent":"agt_1","nextStep":{"kind":"wait_decision","text":"x"}},
-        {"id":"b","name":"B","status":"stuck","areas":["Home"],"nextStep":{"kind":"do","text":"y"}},
-        {"id":"c","name":"C","status":"moving","areas":["Work"],"nextStep":{"kind":"do","text":"z"}},
-        {"id":"d","name":"D","status":"dormant"}]}
+        {"id":"a","name":"A","status":"moving","needsYou":true,"areas":["Home","Money"],"agent":"agt_1","nextStep":{"kind":"wait_decision","text":"x"}},
+        {"id":"b","name":"B","status":"stuck","needsYou":false,"areas":["Home"],"nextStep":{"kind":"do","text":"y"}},
+        {"id":"c","name":"C","status":"moving","needsYou":false,"areas":["Work"],"nextStep":{"kind":"do","text":"z"}},
+        {"id":"d","name":"D","status":"dormant","needsYou":false}]}
         """#
     let list = try decoded(MatterList.self, text)
     #expect(list.areasByCount == ["Home", "Money", "Work"])
@@ -121,18 +121,9 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(ids(.agentWorking) == ["a"])
 }
 
-@Test func aMatterNeedsHimWhenItWaitsOnHimOrABlockingCheckIsOpen() throws {
-    let text = #"""
-        {"matters":[
-        {"id":"a","name":"A","status":"moving","blockingChecks":1,"nextStep":{"kind":"do","text":"x"}},
-        {"id":"b","name":"B","status":"moving","nextStep":{"kind":"wait_owner","text":"y"}},
-        {"id":"c","name":"C","status":"moving","blockingChecks":0,"nextStep":{"kind":"do","text":"z"}},
-        {"id":"d","name":"D","status":"stuck","nextStep":{"kind":"wait_owner","text":"w"}}]}
-        """#
-    let list = try decoded(MatterList.self, text)
-    // A new matter's offer or an ending check improves the memory, never blocks: it counts 0 and needs nothing of him.
-    #expect(list.matters.map(\.needsYou) == [true, true, false, false])
-    #expect(list.shown(filter: .needsYou).map(\.id) == ["a", "b"])
+@Test func aRowCarriesLifesWordThatItNeedsHim() throws {
+    let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
+    #expect(list.matters.map(\.needsYou) == [true, false, false])
 }
 
 @Test func theActionsResultsDecode() throws {

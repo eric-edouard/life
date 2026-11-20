@@ -42,6 +42,7 @@ import {
   matterBookOf,
   matterFinderOf,
   matterPeopleOf,
+  nextStepNow,
   offerEndOf,
 } from "./matter-read";
 import {
@@ -60,7 +61,12 @@ import {
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
 import { withNetworkIdentities } from "./network-identity";
-import { isOneOfHis, nextToDoOf } from "./read-matters";
+import {
+  dismissedIdsOf,
+  handOutGateOf,
+  isOneOfHis,
+  isParkedMatterOf,
+} from "./read-matters";
 import { sourceOf } from "./sources";
 import {
   type People,
@@ -115,6 +121,8 @@ export interface CheckInputs {
   isForHandOut: (matter: string) => boolean;
   /** Whether `desk.handOut` is set: off, a project's agent still answers for its project's matters (no Start for them). */
   isHandOutOn: boolean;
+  /** Whether a matter (by its id) is of a parked or done project (`isParkedMatterOf`): the hand-out starts none, nor is one offered. */
+  isParked: (matter: string) => boolean;
   /** Every observation that shows, and the ids of those that are kept: active, at or above `KEEP_AT`. */
   kept: ReadonlySet<string>;
   lines: readonly Line[];
@@ -389,7 +397,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     }),
   /**
    * Each running matter he has not answered "Start an agent on this?" for: one that began in the last `NEW_MATTER_DAYS` (its first
-   * step's day), with an open step, not stuck (a passed date), a goal and a next step to hand over (`nextToDoOf`), held
+   * step's day), with an open step, not stuck (a passed date), a goal and a next step to hand over (the hand-out's gates, `handOutGateOf`: not a parked project's), held
    * by no agent (`isHeldOf`; while the hand-out is off, a project's agent holds its project's matters too), not
    * dismissed, and, while the hand-out is on, not one of his own (`isOneOfHis`: the hand-out takes those); none while the desk is off or unreadable. No deadline: it never
    * outranks an agent's decision; on silence nothing starts and it leaves after its last day.
@@ -399,11 +407,17 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       return [];
     }
     const isHeld = isHeldOf(c.heldByAgents, !c.isHandOutOn);
-    const find = matterFinderOf(c.matters);
-    const dismissed = new Set(c.dismissed.map(find));
+    const facts = {
+      decisions: c.decisions,
+      dismissed: dismissedIdsOf(c.matters, c.dismissed),
+      isDue: c.isDirectionDue,
+      isHeld,
+      isHis: () => true,
+      isParked: c.isParked,
+    };
     return c.matters.flatMap((v) => {
       const [first] = v.steps;
-      const next = nextToDoOf(v, c.decisions, c.isDirectionDue);
+      const next = nextStepNow(v, c.decisions);
       const lastDay = offerEndOf(v);
       const firstLine = first && c.byId.get(first.ref);
       return first &&
@@ -415,8 +429,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         next &&
         !v.lone &&
         isRunning(v) &&
-        !dismissed.has(v) &&
-        !isHeld(v) &&
+        handOutGateOf(v, facts) === null &&
         !c.isForHandOut(v.id)
         ? [
             {
@@ -722,6 +735,8 @@ async function readChecks(
     pagedNow(people),
   ]);
   const matters = matterBookOf(mattersNow(readMatters()), records, dayNow());
+  const isParked = isParkedMatterOf(people.truth);
+  const parked = new Set(matters.filter(isParked).map((v) => v.id));
   const forHandOut = new Set(
     settings().desk?.handOut
       ? matters.filter((v) => isOneOfHis(v, people.isGuess)).map((v) => v.id)
@@ -767,6 +782,7 @@ async function readChecks(
     isDirectionDue: directionDueOf(matters, records, dayNow()),
     isForHandOut: (id) => forHandOut.has(id),
     isHandOutOn: Boolean(settings().desk?.handOut),
+    isParked: (id) => parked.has(id),
     // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).
     kept,
     lines,

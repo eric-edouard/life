@@ -1,6 +1,10 @@
 import { HOUR } from "../core/clock";
 import { type AgentRow, agentKindOf } from "../host/desk-read";
-import { matterFinderOf } from "../memory/matter-read";
+import {
+  type HandOutFacts,
+  type HandOutMatter,
+  handOutGateOf,
+} from "../memory/read-matters";
 
 // The hand-out: what the desk starts an agent on by itself (his word of 20 Nov 2026: agents start on their own on his
 // matters; nothing leaves without his yes). Code picks the matter from his ranking; the brief is this constant; the
@@ -30,20 +34,14 @@ export function paceRefusalOf(
 }
 
 /**
- * The matter to start an agent on: the first of `matters` (his ranking, next step to do) that no agent holds (`isHeld`:
- * the hold rule, `isHeldOf`) and he did not dismiss (`dismissed`: the steps each dismissed matter was pinned to); none
- * when no matter qualifies.
+ * The matter to start an agent on: the first of `matters` (his ranking) that passes every gate of `handOutGateOf`
+ * (`facts`, with `isHeld`, the hold rule `isHeldOf`); none when no matter qualifies.
  */
-export function handOutOf<
-  M extends { id: string; steps: readonly { at: string; ref: string }[] },
->(i: {
-  dismissed: readonly (readonly string[])[];
-  isHeld: (m: M) => boolean;
-  matters: readonly M[];
+export function handOutOf(i: {
+  facts: HandOutFacts;
+  matters: readonly HandOutMatter[];
 }) {
-  const find = matterFinderOf(i.matters);
-  const dismissed = new Set(i.dismissed.map((pins) => find(pins)?.id));
-  return i.matters.find((m) => !(dismissed.has(m.id) || i.isHeld(m)));
+  return i.matters.find((m) => handOutGateOf(m, i.facts) === null);
 }
 
 /** How long a handed-out agent has to ask its card, from its first turn's beginning. */

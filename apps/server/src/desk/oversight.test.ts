@@ -19,7 +19,7 @@ import {
 import {
   agentLinesOnProjects,
   readActiveAgentOf,
-  readAgentRows,
+  readAgentSection,
   readAgentsOnSteps,
   readRegisteredAgents,
 } from "../host/registered-agents";
@@ -196,7 +196,7 @@ test("his word stops, resumes, re-points and changes the model of an agent, each
 
 test("what his agents are doing: each with its matter, status, wait, link and amber; the matter's, project's and report's parts", async () => {
   const matters = await import("../memory/matters");
-  const book = spyOn(matters, "readMatterBook").mockResolvedValue([
+  const bakery = [
     {
       areas: [],
       goal: {
@@ -227,7 +227,13 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       waitingOn: [],
       with: [],
     },
-  ] as never);
+  ] as never;
+  const book = spyOn(matters, "readMatterBook").mockResolvedValue(bakery);
+  // The report reads the book with its records, once.
+  const both = spyOn(matters, "readMatterBookAndRecords").mockResolvedValue({
+    book: bakery,
+    records: { directions: [], observations: [], refOf: (r: string) => r },
+  } as never);
   try {
     const project = (
       await applied({ action: "start", folder, project: "test-shop" })
@@ -326,11 +332,13 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       link: "https://example.com/plan",
       source: "test-plan",
     });
-    const rows = await readAgentRows(since);
+    const { rows } = await readAgentSection(since);
     expect(rows).toContainEqual({
       name: "test-plan · 2026-11-18",
       relation: "Test plan ready · https://example.com/plan",
     });
+    // The desk health rows close the section: the number of matters that need him, always.
+    expect(rows.at(-1)?.name).toBe("Desk health · needs you");
     expect(rows.find((x) => x.name.startsWith(`${onMatter?.id} `))?.name).toBe(
       `${onMatter?.id} [waiting] Test bakery order`
     );
@@ -342,13 +350,19 @@ test("what his agents are doing: each with its matter, status, wait, link and am
   } finally {
     await stopTicking?.();
     book.mockRestore();
+    both.mockRestore();
   }
 });
 
 test("the desk off breaks no read: each says so, and his word is refused", async () => {
   setSettings({ desk: null });
   expect((await readRegisteredAgents()).desk).toBe("off");
-  expect(await readAgentRows(clock().toISOString())).toEqual([]);
+  const matters = await import("../memory/matters");
+  const read = spyOn(matters, "readMatterBookAndRecords");
+  expect((await readAgentSection(clock().toISOString())).rows).toEqual([]);
+  // A desk that is off costs no read of the book.
+  expect(read).not.toHaveBeenCalled();
+  read.mockRestore();
   expect(readAgentsOnSteps([STEP], [], people)).toEqual([]);
   expect(deskCard(clock().getTime())).toMatchObject({
     tone: "idle",
@@ -561,7 +575,7 @@ test("its store unreadable, the reads say so and the report still has its sectio
   writeFileSync(DESK_STORE, "not a store");
   const r = await readRegisteredAgents();
   expect(r.desk).toBe("unreadable");
-  expect(await readAgentRows(clock().toISOString())).toEqual([
+  expect((await readAgentSection(clock().toISOString())).rows).toEqual([
     { name: "Desk", relation: "its store could not be read" },
   ]);
   expect(readAgentsOnSteps([STEP], [], people)).toEqual([]);
