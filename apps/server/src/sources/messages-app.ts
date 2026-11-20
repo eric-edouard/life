@@ -5,7 +5,8 @@ import { FULL_DISK, unreadable } from "../core/files";
 import { HOME } from "../core/platform";
 import { exec } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
-import type { Outgoing, SendPath } from "./contract";
+import { takesProblemOf } from "./chat-takes";
+import type { ChatTakes, Outgoing, SendPath } from "./contract";
 import { DB, messageIdOf, textFromAttributedBody, toAppleNs } from "./imessage";
 
 // The one iMessage send: Messages.app does it, told by osascript (the only place Life names that app,
@@ -24,6 +25,13 @@ const POLL_MS = 500;
 const NO_ACCESS = "-1743";
 /** What osascript is given to hand one message over: it is killed (`may have gone`) after it. */
 const HAND_OVER_MS = 10_000;
+/** What Messages.app sends besides text: a file, then its text as a second message; no reply, reaction or mention. */
+const TAKES: ChatTakes = {
+  file: true,
+  mentions: false,
+  reaction: false,
+  reply: false,
+};
 
 interface Run {
   code: number;
@@ -171,12 +179,7 @@ export function messagesAppSend({
     limitMs: (d) =>
       ((d.file ? 1 : 0) + (d.text ? 1 : 0)) * HAND_OVER_MS +
       ((d.file ? 3 : 0) + (d.text ? 1 : 0)) * confirmMs,
-    refusal: (d: Outgoing) =>
-      Promise.resolve(
-        d.onMessage || d.reaction || d.mentions
-          ? "iMessage sends text and one file"
-          : undefined
-      ),
+    refusal: (d: Outgoing) => Promise.resolve(takesProblemOf(d, TAKES)),
     send: async (d, _txn, handed) => {
       let onHanded = handed;
       const once = () => {
@@ -215,5 +218,6 @@ export function messagesAppSend({
       }
       return messageIdOf(last as string);
     },
+    takes: () => TAKES,
   };
 }

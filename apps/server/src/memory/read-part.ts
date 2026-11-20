@@ -9,7 +9,7 @@ import { isDay } from "./zones";
  * The grammar of a part's ref: every part a ref can name. Which ones a read offers is its own (`person`: the parts an
  * add-on supplies only while it is on). The parts: `now` (who and where things stand), `page`, `persona`, `story` (the years), `year` (its months'
  * summaries, paged back), `month` (its words and days), `evidence` (observations, episodes and chats, paged back),
- * `latest` (their newest exchanges with him, as data, paged back) and `conversation` (his alone: one conversation summary, its span the ref of the turn it starts at).
+ * `latest` (their newest exchanges with him, as data, paged back), `reach` (every account they are reached on, as data; its span is how many accounts to skip) and `conversation` (his alone: one conversation summary, its span the ref of the turn it starts at).
  */
 export const READ_PARTS = [
   "now",
@@ -20,6 +20,7 @@ export const READ_PARTS = [
   "month",
   "evidence",
   "latest",
+  "reach",
   "conversation",
 ] as const;
 /** The parts an add-on supplies (`personal/`): offered only while it is on. */
@@ -43,6 +44,7 @@ export interface ReadPartRef {
 }
 
 const SPAN = /^\d{4}(?:-\d{2})?$/;
+const SKIPPED = /^\d+$/;
 
 /** Why `span` is not one this part takes the form of: a turn's ref for `conversation`, else a year or a month. */
 function spanErrorOf(part: string, span?: string) {
@@ -50,6 +52,11 @@ function spanErrorOf(part: string, span?: string) {
     return span && parseTurnRef(span)
       ? null
       : 'the part "conversation" takes the ref of a recording\'s turn as its span (<job>:<turn>@<instant>)';
+  }
+  if (part === "reach") {
+    return span && !SKIPPED.test(span)
+      ? `span "${span}" is not a count of accounts to skip`
+      : null;
   }
   return span && !SPAN.test(span)
     ? `span "${span}" is not a year (YYYY) or a month (YYYY-MM)`
@@ -77,7 +84,12 @@ export function partErrorOf(
     if (o.span?.length !== size) {
       return `the part "${o.part}" takes a ${o.part} as its span (${size === 4 ? "YYYY" : "YYYY-MM"})`;
     }
-  } else if (o.part !== "evidence" && o.part !== "conversation" && o.span) {
+  } else if (
+    o.part !== "evidence" &&
+    o.part !== "conversation" &&
+    o.part !== "reach" &&
+    o.span
+  ) {
     return `the part "${o.part}" takes no span`;
   }
   if (

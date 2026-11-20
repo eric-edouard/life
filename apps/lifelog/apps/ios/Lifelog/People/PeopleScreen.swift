@@ -22,13 +22,17 @@ struct PeopleScreen: View {
                 empty: {
                     Notice(
                         title: "No one yet.",
-                        detail: "The people and organizations in your directory, and everyone Life writes about, show here.")
+                        detail:
+                            "The people and organizations in your directory, and everyone Life writes about, show here."
+                    )
                 },
                 content: { list in content(list) }
             )
             .background(Palette.bg)
             // Beside a person, the Pendant and Settings are the person's column (the list's bar keeps its title).
-            .shellBar("People", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular, isTitleLarge: true)
+            .shellBar(
+                "People", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular, isTitleLarge: true
+            )
             .navigationSubtitle(order == .alphabet ? "A to Z" : "")
             .filterBar(isFiltered: order != .closeness, identifier: "people.sort") { orderChoices }
         } detail: {

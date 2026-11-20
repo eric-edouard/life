@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { mentionsAt } from "../sources/matrix-content";
-import { draftProblemOf, draftWords, type MessageDraft } from "./draft";
+import { draftProblemOf, draftWords, MessageDraft, StoredDraft } from "./draft";
 
 const chat = (over: Partial<MessageDraft> = {}): MessageDraft => ({
   text: "Hi @Ana and @Bo",
@@ -57,12 +57,13 @@ test("mail needs a sender and a subject and takes no reaction or mention; a chat
   expect(draftProblemOf({ ...mail, subject: undefined }, "mail")).toContain(
     "`from` and `subject`"
   );
+  // What a mail takes besides text is its send path's (`takes`), not a draft rule.
   expect(
     draftProblemOf(
       { ...mail, mentions: [{ name: "Ana", sender: "s" }] },
       "mail"
     )
-  ).toContain("no `reaction` or `mentions`");
+  ).toBeUndefined();
   for (const over of [
     { from: "me@example.com" },
     { subject: "x" },
@@ -126,4 +127,15 @@ test("a mention is its whole `@name`, found after the one before it: validation 
     { at: 3, length: 4 },
     { at: 9, length: 5 },
   ]);
+});
+
+test("a reaction is one emoji, a joined one included: Life sends only it", () => {
+  const ok = (reaction: string) =>
+    MessageDraft.safeParse({ onMessage: "m1", reaction, to: "!a" }).success;
+  expect(["👍", "❤️", "👨‍👩‍👧"].map(ok)).toEqual([true, true, true]);
+  expect(["OK", "👍👍"].map(ok)).toEqual([false, false]);
+  // A card asked before the rule still reads.
+  expect(
+    StoredDraft.safeParse({ onMessage: "m1", reaction: "OK", to: "!a" }).success
+  ).toBe(true);
 });
