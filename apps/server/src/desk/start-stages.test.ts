@@ -211,7 +211,9 @@ test("a first turn that never begins is not_started at turn_begun: its assignmen
     state: "not_started",
   });
   expect((result as { stages: unknown[] }).stages).toHaveLength(2);
-  expect(desk.db.query("select status from agent where id = ?").get(personal)).toEqual({
+  expect(
+    desk.db.query("select status from agent where id = ?").get(personal)
+  ).toEqual({
     status: "active",
   });
 });

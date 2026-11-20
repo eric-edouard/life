@@ -124,9 +124,9 @@ test("his word starts the Personal agent once, named, in its home with placehold
   );
   // The runtime's default model, from the desk's settings, until his word changes it.
   expect(a && modelOf(a)).toEqual({ effort: null, model: "test-model" });
-  expect(
-    (await applied({ action: "start", personal: true }))?.error
-  ).toBe(`the Personal agent is ${personal} (active)`);
+  expect((await applied({ action: "start", personal: true }))?.error).toBe(
+    `the Personal agent is ${personal} (active)`
+  );
   // Its own listening waits: the matter tests below wake only matters.
   desk.db.run("update assignment set wait_until = ? where agent_id = ?", [
     new Date(clock().getTime() + 30 * DAY).toISOString(),
@@ -147,9 +147,9 @@ test("his word on a matter gives it to the agent that takes it; a bad start is r
     expect(s).toMatchObject({ opened_by: "owner" });
     expect(s?.said).toStartWith("Test: change");
     // Again: the agent that holds it answers.
-    expect((await applied({ action: "start", steps: [matter] }))?.agent_id).toBe(
-      personal
-    );
+    expect(
+      (await applied({ action: "start", steps: [matter] }))?.agent_id
+    ).toBe(personal);
     // A matter the book does not hold has no agent to take it.
     expect(
       (await applied({ action: "start", steps: ["obs_00000000a1fe"] }))?.error
@@ -176,8 +176,14 @@ test("his word on a matter gives it to the agent that takes it; a bad start is r
   expect(existsSync(join(DESK_AGENT_FOLDERS, own))).toBe(true);
   await applied({ action: "stop", agent: own });
   expect(
-    (await applied({ action: "start", folder, project: "test-y", runtime: "nope" }))
-      ?.error
+    (
+      await applied({
+        action: "start",
+        folder,
+        project: "test-y",
+        runtime: "nope",
+      })
+    )?.error
   ).toStartWith("name a runtime");
   agent =
     (await applied({ action: "start", folder, project: "test-bakery" }))
@@ -323,12 +329,12 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       project: "test-shop",
     });
 
-    expect(readAgentsOnSteps([STEP, "obs_00000000a999"], people)[0]).toMatchObject(
-      {
-        id: onMatter?.id,
-        status: "waiting",
-      }
-    );
+    expect(
+      readAgentsOnSteps([STEP, "obs_00000000a999"], people)[0]
+    ).toMatchObject({
+      id: onMatter?.id,
+      status: "waiting",
+    });
     expect(agentLinesOnProjects(["test-shop"])[0]).toContain(
       "amber: default wait"
     );

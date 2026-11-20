@@ -101,7 +101,11 @@ export function start(
           "no agent takes this matter: start the Personal agent, or an agent on its project",
       };
     }
-    openAssignment(desk, taker, { openedBy: "owner", said: brief, steps: c.steps });
+    openAssignment(desk, taker, {
+      openedBy: "owner",
+      said: brief,
+      steps: c.steps,
+    });
     replaceStopped(desk, c, taker);
     return { id: taker };
   }
@@ -158,6 +162,16 @@ function replaceStopped(desk: Desk, c: AgentChange, id: string) {
   }
 }
 
+/** His rename or model change: the agent's columns it sets. */
+const writeColumns = ({ db }: Desk, id: string, c: AgentChange) =>
+  c.action === "rename"
+    ? db.run("update agent set name = ? where id = ?", [c.name ?? null, id])
+    : db.run("update agent set model = ?, effort = ? where id = ?", [
+        c.model ?? null,
+        c.effort ?? null,
+        id,
+      ]);
+
 /** Applies one change in the store; what it touched, or why not. */
 function apply(
   desk: Desk,
@@ -207,25 +221,15 @@ function apply(
         }
       }
       break;
-    case "rename":
-      refused =
-        refusal(["active", "stopped"]) ?? (c.name ? null : "give its `name`");
-      if (!refused) {
-        db.run("update agent set name = ? where id = ?", [c.name ?? null, id]);
-      }
-      break;
-    case "change_model":
-      refused = refusal(["active", "stopped"]);
-      if (!refused) {
-        db.run("update agent set model = ?, effort = ? where id = ?", [
-          c.model ?? null,
-          c.effort ?? null,
-          id,
-        ]);
-      }
-      break;
     default:
-      refused = `no action ${c.action}`;
+      // rename, change_model
+      refused =
+        refusal(["active", "stopped"]) ??
+        (c.action === "rename" && !c.name ? "give its `name`" : null);
+      if (!refused) {
+        writeColumns(desk, id, c);
+      }
+      break;
   }
   return refused ? { error: refused } : { id };
 }
@@ -251,7 +255,9 @@ async function startFactsOf(desk: Desk, change: unknown) {
     return { taker: (await readTakerOf(desk.db))(c.data.steps) };
   }
   const runtime = runtimeOf(c.data);
-  return { blocked: runtime ? await desk.runtimes[runtime]?.block() : undefined };
+  return {
+    blocked: runtime ? await desk.runtimes[runtime]?.block() : undefined,
+  };
 }
 
 /** What the desk does with one ask: why it is refused (spoken, stale, or the change refused), else the change applied. */

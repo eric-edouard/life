@@ -3,8 +3,8 @@ import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
 import { MatterDirectionBatch } from "../records/matter";
 import { Correction, type Observation } from "../records/observation";
+import { chosenIconsOf } from "./matter-pins";
 import {
-  chosenIconsOf,
   isRunning,
   type MatterRecords,
   matterBookOf,

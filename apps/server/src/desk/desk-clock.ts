@@ -42,8 +42,8 @@ import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
 import {
   commitAgentFiles,
-  keepHanded,
   firstTurnOf,
+  keepHanded,
   matterRecordOf,
   readPacket,
   stopOpenRun,

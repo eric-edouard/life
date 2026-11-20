@@ -367,6 +367,16 @@ export const agentChangeOf = (db: Database, ask: string) =>
     >("select agent_id, applied_at, error from agent_change where ask = ?")
     .get(ask);
 
+/** The assignment agent `id` was started on: on a matter, the newest anchored on its first step `step`; else its own. */
+const startedAssignmentOf = (db: Database, id: string, step?: string) =>
+  step
+    ? db
+        .query<AssignmentRow, [string, string]>(
+          "select s.* from assignment s join anchor n on n.assignment_id = s.id where s.agent_id = ? and n.step = ? order by s.opened_at desc limit 1"
+        )
+        .get(id, step)
+    : currentAssignmentOf(db, id);
+
 /**
  * What the desk did with a start (`change_registered_agent`), as facts: the ask's `agent_change` row and, for its agent,
  * the assignment it opened (on a matter, the one anchored on its first step `step`; else the agent's own), its agent's
@@ -375,15 +385,7 @@ export const agentChangeOf = (db: Database, ask: string) =>
 export function readStartFacts(db: Database, ask: string, step?: string) {
   const change = agentChangeOf(db, ask);
   const id = change?.agent_id;
-  const assignment = id
-    ? step
-      ? db
-          .query<AssignmentRow, [string, string]>(
-            "select s.* from assignment s join anchor n on n.assignment_id = s.id where s.agent_id = ? and n.step = ? order by s.opened_at desc limit 1"
-          )
-          .get(id, step)
-      : currentAssignmentOf(db, id)
-    : null;
+  const assignment = id ? startedAssignmentOf(db, id, step) : null;
   return {
     agent: id ? agentOf(db, id) : null,
     assignment: assignment ?? null,

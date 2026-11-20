@@ -57,7 +57,6 @@ async function ended(n: number, hisLater = false) {
     directions: [],
     episodes: [],
     icons: [],
-    projects: [],
     important: [],
     linkEndings: new Map(
       Array.from({ length: n }, (_, i) => [
@@ -86,6 +85,7 @@ async function ended(n: number, hisLater = false) {
         unit: "unit_000000000001",
       })),
     ],
+    projects: [],
     retired: new Map(),
     todoItems: [],
   } as never);

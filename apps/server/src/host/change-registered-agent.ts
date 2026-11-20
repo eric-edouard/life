@@ -46,7 +46,7 @@ export const RegisteredAgentChange = AgentChange.omit({ steps: true }).extend({
     "Its model (start, change_model); none: the desk's default for its runtime"
   ),
   name: AgentChange.shape.name.describe(
-    "Its name, his to set (start, rename): its sessions are titled \"Agent: <name>\""
+    'Its name, his to set (start, rename): its sessions are titled "Agent: <name>"'
   ),
   personal: AgentChange.shape.personal.describe(
     "The Personal agent, as its subject (start, re_point): one at most; it takes every matter no project's agent takes"

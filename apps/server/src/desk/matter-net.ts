@@ -15,6 +15,7 @@ import {
 } from "../host/desk-read";
 import { isOnOrAfter } from "../host/event-channels";
 import type { MessagePayload } from "../host/events";
+import { decisionsNow } from "../memory/decisions";
 import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
 import {
   endedStepsOf,
@@ -24,7 +25,6 @@ import {
   matterPeopleOf,
   matterTextOf,
 } from "../memory/matter-read";
-import { decisionsNow } from "../memory/decisions";
 import { MATTER_BOOK_READS, readMatterBookAndRecords } from "../memory/matters";
 import { readUnitsOf } from "../memory/memory-files";
 import { agentForMatterOf } from "../memory/read-matters";

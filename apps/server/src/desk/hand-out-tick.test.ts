@@ -6,8 +6,7 @@ import {
   spyOn,
   test,
 } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { rmSync } from "node:fs";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { answerWithResult } from "../host/answer-result";
@@ -16,20 +15,9 @@ import { DECISION_ANSWERED } from "../host/events";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as checks from "../memory/checks";
 import { DECISIONS, decisionsNow } from "../memory/decisions";
-import { MATTERS_PROMPT } from "../memory/matters";
-// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as memoryFiles from "../memory/memory-files";
-import {
-  CORRECTIONS,
-  MATTERS as MATTERS_FILE,
-  readCorrections,
-  recordCorrection,
-} from "../memory/memory-files";
+import { readCorrections, recordCorrection } from "../memory/memory-files";
 import { handOutGateOf, readHandOutMatters } from "../memory/read-matters";
-import { OWNER } from "../memory/read-truth";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
-import type { Observation } from "../records/observation";
-import { TOP_AT } from "../records/unit";
 import {
   askDecision,
   finish,
@@ -40,15 +28,23 @@ import {
   writeNotes,
 } from "./agent-actions";
 import { pollAnswers, readPeopleOnce, wakeDue } from "./desk-clock";
+import { writeWait } from "./desk-store";
 import { NO_CARD_OUTCOME } from "./hand-out";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
-import { writeWait } from "./desk-store";
 import {
   endAgentsOnOverMatters,
   foldAssignments,
   MATTER_DONE_OUTCOME,
 } from "./matter-net";
-import { asgOf, matterView, on, setup, withMatters } from "./test-desk";
+import {
+  asgOf,
+  matterView,
+  on,
+  setup,
+  toDo,
+  withBook,
+  withMatters,
+} from "./test-desk";
 
 // The hand-out's step of the tick, over a fake runtime and a made-up book of matters.
 
@@ -361,91 +357,6 @@ test("a handed-out agent's packet carries the one-card first turn, a plain agent
   expect(two).not.toContain("Life handed you this matter");
   expect(byId(desk, handed ?? "").opened_by).toBe("desk");
 });
-
-/** His own to-do `id`, said today: a made-up observation. */
-const toDo = (id: string, quote: string): Observation =>
-  ({
-    area: null,
-    at: clock().toISOString(),
-    confidence: 0.9,
-    date: dayNow(),
-    id,
-    importance: TOP_AT,
-    madeBy: {
-      engine: "claude",
-      model: "test",
-      prompt: "test",
-      run: "test",
-      unitHash: "h",
-    },
-    quote,
-    schemaVersion: 1,
-    source: { channel: "whatsapp", ref: `m-${id}` },
-    speaker: OWNER,
-    subjects: [],
-    text: quote,
-    type: "to_do",
-    tz: "UTC",
-    unit: `unit_${id.slice(4)}`,
-    validFrom: null,
-    validTo: null,
-    when: null,
-  }) as Observation;
-
-/**
- * Runs `f` over the real matter book made of `observations` and, when given, one matter line holding `steps` (its id
- * `matterId`); only the observations' and the live units' reads are faked. Cleans every file it wrote.
- */
-async function withBook(
-  observations: Observation[],
-  line: { id: string; steps: string[] } | null,
-  f: () => Promise<void>
-) {
-  mkdirSync(dirname(MATTERS_FILE), { recursive: true });
-  writeFileSync(
-    MATTERS_FILE,
-    `${JSON.stringify({
-      at: clock().toISOString(),
-      madeBy: {
-        engine: "claude",
-        model: "test",
-        prompt: MATTERS_PROMPT,
-        run: "t",
-      },
-      matters: line
-        ? [
-            {
-              areas: [],
-              id: line.id,
-              name: "Pay the plumber",
-              projects: [],
-              steps: line.steps.map((ref) => ({
-                day: dayNow(),
-                quote: "pay the plumber",
-                ref,
-              })),
-            },
-          ]
-        : [],
-      offered: observations.map((o) => o.id),
-      schemaVersion: 1,
-    })}\n`
-  );
-  const read = spyOn(memoryFiles, "readObservations").mockResolvedValue(
-    observations
-  );
-  const live = spyOn(memoryFiles, "readLiveUnits").mockResolvedValue(
-    new Set(observations.map((o) => o.unit))
-  );
-  try {
-    await f();
-  } finally {
-    read.mockRestore();
-    live.mockRestore();
-    rmSync(MATTERS_FILE, { force: true });
-    rmSync(CORRECTIONS, { force: true });
-  }
-}
 
 /** The matters the hand-out may start an agent on (no gate, no hold: `handOutGateOf`), as the real read gives them. */
 const readToDo = async () => {

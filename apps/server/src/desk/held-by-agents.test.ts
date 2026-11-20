@@ -1,11 +1,6 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY } from "../core/clock";
-import {
-  agentOf,
-  agentsNow,
-  HOLD_DAYS,
-  heldByAgents,
-} from "../host/desk-read";
+import { agentOf, agentsNow, HOLD_DAYS, heldByAgents } from "../host/desk-read";
 import { register } from "./agent-actions";
 import { tick } from "./desk-clock";
 import { setup, started } from "./test-desk";

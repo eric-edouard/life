@@ -150,7 +150,8 @@ export function openAssignment(
 }
 
 /** What the Personal agent's home holds until direction writes its rules (his word of 20 Nov 2026). */
-const PERSONAL_RULES_PLACEHOLDER = "The rules of this agent are being written.\n";
+const PERSONAL_RULES_PLACEHOLDER =
+  "The rules of this agent are being written.\n";
 
 /**
  * Registers an agent on his words, with its own assignment (`steps`: on a matter instead): active, its first turn due
@@ -212,8 +213,8 @@ export async function withdrawOpenCards(
 ) {
   for (const d of cardsOf(db, s, decisionsNow())) {
     if (d.state === "open") {
+      // As the agent that asked it, a folded card's included: the desk checked it is this assignment's.
       // biome-ignore lint/performance/noAwaitInLoops: one append at a time
-      // The agent that asked it, a folded card's included: the desk checked it is this assignment's.
       await requestDecision(DESK_AGENT, {
         agent: d.agent,
         why,
