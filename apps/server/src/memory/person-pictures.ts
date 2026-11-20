@@ -31,8 +31,6 @@ import { readPeople } from "./who";
 // night; nothing in memory/. A picture someone changes is a new id, and the old file goes.
 
 const CONTACTS = "contacts";
-/** A kept picture's long side: 72 pt at 3x, the largest the apps draw. */
-
 /** A picture's id: its original bytes' digest. */
 export const pictureIdOf = (bytes: Uint8Array) =>
   digest("sha256", Buffer.from(bytes), 32);
