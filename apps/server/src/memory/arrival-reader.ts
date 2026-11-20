@@ -40,7 +40,14 @@ import {
 import { OWNER, type Truth } from "./read-truth";
 import { begin, readsOf } from "./run";
 import { isDirect } from "./sources";
-import { applyRules, type Built, type Resolve, UNKNOWN } from "./units";
+import { voiceUnitId } from "./unit-ids";
+import {
+  applyRules,
+  type Built,
+  type Resolve,
+  turnsByDayOf,
+  UNKNOWN,
+} from "./units";
 import { chatLines, messageLine, turnLines } from "./words";
 import { dayNow, dayStart, localDate, time } from "./zones";
 
@@ -510,19 +517,16 @@ export const readRecentVoice = (
 ): Promise<RecentVoice> =>
   withStore(async (store) => {
     const v = await voiceUnits(store, dayStart(daysBefore(day, 1)), truth);
-    const built = applyRules(v.built, keptConversations());
-    const turnsOf = new Map(v.conversations.map((c) => [c.id, c.turns]));
     return {
-      built,
+      built: applyRules(v.built, keptConversations()),
       closed: closedConversations(v.conversations),
-      // A unit holds its conversation's turns of its day (`lifelogUnits`).
       turns: new Map(
-        built.map((b) => [
-          b.unit.id,
-          (turnsOf.get(b.unit.key) ?? []).filter(
-            (t) => localDate(t.at) === b.unit.date
-          ),
-        ])
+        v.conversations.flatMap((c) =>
+          [...turnsByDayOf(c)].map(([date, turns]) => [
+            voiceUnitId(c.id, date),
+            turns,
+          ])
+        )
       ),
     };
   }, readStore);

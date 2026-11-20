@@ -240,6 +240,10 @@ export function voiceTokensOf(keys: string[]) {
  * their days kept the old names) has it read again.
  * ponytail: words transcribed again under the same turn refs keep the hash; hash the words if re-transcription matters.
  */
+/** A conversation's turns by local day: one voice unit's turns each (`voiceUnitId(c.id, day)`). */
+export const turnsByDayOf = (c: LifelogConversation) =>
+  Map.groupBy(c.turns, (t) => localDate(t.at));
+
 export function lifelogUnits(
   conversations: LifelogConversation[],
   frozenKeys: Set<string>
@@ -247,51 +251,49 @@ export function lifelogUnits(
   return conversations
     .filter((c) => !frozenKeys.has(c.id))
     .flatMap((c) =>
-      [...Map.groupBy(c.turns, (t) => localDate(t.at))].map(
-        ([date, turns]): Built => {
-          const first = turns[0] as (typeof turns)[number];
-          const next = dayStart(daysBefore(date, -1)).toISOString();
-          const marked = turns.flatMap((t) => t.marks);
-          const refs = turns.map((t) => turnRef(t.jobId, t.turnIndex, t.at));
-          return {
-            messages: [],
-            text: "",
-            unit: {
-              date,
-              end: c.endedAt < next ? c.endedAt : next,
-              hash: contentHash([...turns.map(turnKey), ...marked].join("\n")),
-              id: voiceUnitId(c.id, date),
-              key: c.id,
-              ...(marked.length > 0 ? { marked } : {}),
-              people: [
-                ...new Set(
-                  turns.flatMap((t) => {
-                    if (t.owner) {
-                      return [OWNER];
-                    }
-                    return t.name ? [`${UNKNOWN}${t.name}`] : [];
-                  })
-                ),
-              ].sort(),
-              refs: [...new Set([refs[0], refs.at(-1)])].filter(
-                (r): r is string => !!r
+      [...turnsByDayOf(c)].map(([date, turns]): Built => {
+        const first = turns[0] as (typeof turns)[number];
+        const next = dayStart(daysBefore(date, -1)).toISOString();
+        const marked = turns.flatMap((t) => t.marks);
+        const refs = turns.map((t) => turnRef(t.jobId, t.turnIndex, t.at));
+        return {
+          messages: [],
+          text: "",
+          unit: {
+            date,
+            end: c.endedAt < next ? c.endedAt : next,
+            hash: contentHash([...turns.map(turnKey), ...marked].join("\n")),
+            id: voiceUnitId(c.id, date),
+            key: c.id,
+            ...(marked.length > 0 ? { marked } : {}),
+            people: [
+              ...new Set(
+                turns.flatMap((t) => {
+                  if (t.owner) {
+                    return [OWNER];
+                  }
+                  return t.name ? [`${UNKNOWN}${t.name}`] : [];
+                })
               ),
-              schemaVersion: 1,
-              source: "lifelog",
-              start: first.at,
-              stats: {
-                chars: 0,
-                fromMe: turns.filter((t) => t.owner).length,
-                items: turns.length,
-              },
-              title: conversationLabel(
-                first.at,
-                turns.flatMap((t) => (t.owner || !t.name ? [] : [t.name]))
-              ),
+            ].sort(),
+            refs: [...new Set([refs[0], refs.at(-1)])].filter(
+              (r): r is string => !!r
+            ),
+            schemaVersion: 1,
+            source: "lifelog",
+            start: first.at,
+            stats: {
+              chars: 0,
+              fromMe: turns.filter((t) => t.owner).length,
+              items: turns.length,
             },
-          };
-        }
-      )
+            title: conversationLabel(
+              first.at,
+              turns.flatMap((t) => (t.owner || !t.name ? [] : [t.name]))
+            ),
+          },
+        };
+      })
     );
 }
 

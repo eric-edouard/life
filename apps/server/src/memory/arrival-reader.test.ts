@@ -372,7 +372,7 @@ test("voice: a pending confirm whose conversation turns out not his asks his eng
   expect(s.calls).toEqual({ apple: 1, engine: 0 });
 });
 
-test("voice: a conversation reopened within one pass is read as the store's one read saw it, its new turn not", async () => {
+test("voice: a conversation reopened or a speaker corrected within one pass is read as the store's one read saw it", async () => {
   // A made-up closed conversation in the watcher's store: his turn, then Sam's; the words from a fake lifelog.
   const [first, last, late] = [ago(20), ago(12), ago(16)];
   const server = lifelogServer({
@@ -402,15 +402,18 @@ test("voice: a conversation reopened within one pass is read as the store's one 
       turnFixture(0, first, null, null, "talk-r", true),
       turnFixture(1, last, null, "Sam", "talk-r"),
     ]);
-    const voice = await readRecentVoice(dayNow(), {
-      people: [],
-    } as unknown as Truth);
-    // Reopened before the words are fetched, a turn added inside its span.
-    feed(false, [turnFixture(2, late, null, "Sam", "talk-r")]);
+    // The truth the watcher passes, made up.
+    const withTruth = { ...people, truth: { people: [] } as unknown as Truth };
+    const voice = await readRecentVoice(dayNow(), withTruth.truth);
+    // Before the words are fetched: reopened, a turn added inside its span, and his turn given to Sam.
+    feed(false, [
+      turnFixture(0, first, null, "Sam", "talk-r"),
+      turnFixture(2, late, null, "Sam", "talk-r"),
+    ]);
     const shown: string[] = [];
     await readArrivals(
       { built: [], fileEvents: [], voice },
-      people,
+      withTruth,
       ["Ozren"],
       {
         apple: (requests) => {
@@ -428,8 +431,11 @@ test("voice: a conversation reopened within one pass is read as the store's one 
         where: join(dir, "reopened"),
       }
     );
-    expect(shown.join("\n").split("\n")).toHaveLength(2);
-    expect(shown.join("\n")).not.toContain("keys");
+    // His turn and Sam's, as that read saw them; the reopened conversation's new turn is a later pass's.
+    expect(shown.join("\n").split("\n")).toEqual([
+      expect.stringContaining(`${OWNER}: I'll bring the plans`),
+      expect.stringContaining("Thanks"),
+    ]);
   } finally {
     store.db.close();
     server.close();
