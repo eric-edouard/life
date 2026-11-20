@@ -449,6 +449,30 @@ test.each(["post_clock", "neither"] as const)(
   }
 );
 
+test("a Scribe send the old worker put back in the queue (its backoff) is failed by the upgrade, never POSTed again", async () => {
+  const app = appWith(oneSlot);
+  setSwitches(env.db, { transcriber: "scribe" });
+  const requeued = await admitFragment(app, audio(60), 1);
+  env.db
+    .update(transcriptionJobs)
+    .set({
+      nextAttemptAt: new Date(Date.now() - MIN),
+      providerRequestId: "req_legacy",
+      requestSentAt: null,
+      state: "queued",
+      transcriber: "scribe",
+    })
+    .where(eq(transcriptionJobs.id, requeued))
+    .run();
+  await upgradeFrom("neither");
+  await app.s.worker.tick();
+  expect(jobRow(requeued)).toMatchObject({
+    maybeBilled: true,
+    state: "failed",
+  });
+  expect(uploads()).toHaveLength(0);
+});
+
 test("reconcile frees each slot as it settles it, not after the slowest", async () => {
   const app = appWith({ ...withSpeech, ELEVENLABS_SLOTS: "2" });
   setSwitches(env.db, { transcriber: "scribe" });
