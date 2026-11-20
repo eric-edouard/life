@@ -1,18 +1,23 @@
 import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { AGENT_POST_SIGNATURE, DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS } from "../core/paths";
+import { commitPaths } from "../core/proc";
 import { settings } from "../core/settings";
 import {
+  type AgentRow,
   type AssignmentRow,
+  agentHomeOf,
   agentOf,
   anchorsOf,
   assignmentOf,
+  assignmentOfCard,
   filtersOf,
+  handedSteps,
   isFull,
   openTurn,
   queuedEvents,
@@ -23,16 +28,8 @@ import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
 import { matcherOf, waitChannelsOf } from "../host/events";
 import type { DecisionRequest } from "../memory/card-request";
 import { communicationStylesOf } from "../memory/communication-styles";
-import {
-  decisionsNow,
-  openDecisionOf,
-  requestDecision,
-} from "../memory/decisions";
-import {
-  oneMatter,
-  openMatters,
-  readMatterProjectIds,
-} from "../memory/read-matters";
+import { decisionsNow, requestDecision } from "../memory/decisions";
+import { oneMatter, readMatterProjectIds } from "../memory/read-matters";
 import {
   loadTruth,
   PROJECT_NOTES_MAX,
@@ -50,9 +47,10 @@ import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
 // registered. Each writes its row
 // at once; a desk turn running notes that it was heard from (`heard_at`) and how it will end.
 
-const NOTES_MAX = 6000;
-/** How many of a project's running matters a packet lists. */
-const PROJECT_MATTERS = 10;
+/** A matter's record on a wake (`matterRecordOf`): its newest steps since the last turn, each step's text, and its notes, at most. */
+const RECORD_STEPS = 8;
+const RECORD_STEP_CHARS = 200;
+const RECORD_NOTES_CHARS = 1500;
 
 /** Why the door refuses `set_wait` and `finish` until its assignment has a card: its first card is its plan, or, when the desk opened it, what it found. */
 export const askFirstMessageOf = (openedBy: OpenedBy) =>
@@ -60,17 +58,31 @@ export const askFirstMessageOf = (openedBy: OpenedBy) =>
     ? "Not done: ask your card first (`request_decision`: the prepared step, what only he can do, or that it looks over; one option is Tell the agent…)."
     : "Not done: ask your plan first (`request_decision`: a question ending in a ?, options Go, Tell the agent…, Stop the agent).";
 
-/** Assignment `s`'s open card, if any: one at a time. Until the fold, a card is its asker's one assignment's (`assignmentOfCard`). */
+/** Agent `s.agent_id`'s cards, only assignment `s.id`'s when given (`assignmentOfCard`). */
+const cardsOf = (
+  db: Desk["db"],
+  s: { agent_id: string; id?: string },
+  list: ReturnType<typeof decisionsNow>
+) =>
+  list.filter(
+    (d) =>
+      d.agent === s.agent_id &&
+      (s.id === undefined || assignmentOfCard(db, d) === s.id)
+  );
+
+/** Assignment `s`'s open card, if any: one at a time. */
 export const openCardOf = (
-  s: Pick<AssignmentRow, "agent_id">,
+  db: Desk["db"],
+  s: Pick<AssignmentRow, "agent_id" | "id">,
   list = decisionsNow()
-) => openDecisionOf(s.agent_id, list);
+) => cardsOf(db, s, list).find((d) => d.state === "open");
 
 /** Whether assignment `s` has a card he was asked and not withdrawn: its first card is its plan, so the door lets its agent wait or finish only after. */
 export const hasAsked = (
-  s: Pick<AssignmentRow, "agent_id">,
+  db: Desk["db"],
+  s: Pick<AssignmentRow, "agent_id" | "id">,
   list = decisionsNow()
-) => list.some((d) => d.agent === s.agent_id && d.state !== "withdrawn");
+) => cardsOf(db, s, list).some((d) => d.state !== "withdrawn");
 
 /** Where a new assignment's notes file goes: in his agents repo (`desk.agentsRepo`), else under the desk's folders. */
 const notesPathOf = (id: string) =>
@@ -81,7 +93,11 @@ const notesPathOf = (id: string) =>
     "NOTES.md"
   );
 
-/** Writes assignment `assignment`'s subject: its anchors (a matter's steps, in order), and its agent's project, replacing the old one. */
+/**
+ * Writes assignment `assignment`'s subject, replacing the old one (his re-point): its anchors (a matter's steps, in
+ * order), and its agent's project. Nothing of the old subject counts as shown on the new (`handed_step`, a turn's
+ * pending).
+ */
 export function writeSubject(
   { db }: Desk,
   agent: string,
@@ -90,6 +106,8 @@ export function writeSubject(
 ) {
   const now = clock().toISOString();
   db.run("delete from anchor where assignment_id = ?", [assignment]);
+  db.run("delete from handed_step where assignment_id = ?", [assignment]);
+  pendingOf(db).delete(assignment);
   for (const step of s.steps ?? []) {
     db.run(
       "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
@@ -102,19 +120,24 @@ export function writeSubject(
   ]);
 }
 
-/** Opens an assignment for agent `agent` on its subject, opened by him or the desk: its first turn due now. Its id. */
+/** Opens an assignment for agent `agent` on a matter's steps (none: its own), opened by him or the desk: its first turn due now. Its agent's project is its own (`register`, `writeSubject`). Its id. */
 export function openAssignment(
-  desk: Desk,
+  { db }: Desk,
   agent: string,
-  a: { openedBy: OpenedBy; project?: string; steps?: string[] }
+  a: { openedBy: OpenedBy; steps?: string[] }
 ) {
   const id = `asg_${randomBytes(6).toString("hex")}`;
   const now = clock().toISOString();
-  desk.db.run(
+  db.run(
     "insert into assignment (id, agent_id, opened_at, opened_by, wait_until, wait_reason, notes_path) values (?, ?, ?, ?, ?, 'first turn', ?)",
     [id, agent, now, a.openedBy, now, notesPathOf(id)]
   );
-  writeSubject(desk, agent, id, a);
+  for (const step of a.steps ?? []) {
+    db.run(
+      "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+      [id, step, now]
+    );
+  }
   return id;
 }
 
@@ -144,7 +167,7 @@ export function register(
   const folder = a.folder ?? join(DESK_AGENT_FOLDERS, id);
   db.transaction(() => {
     db.run(
-      "insert into agent (id, brief, runtime, folder, model, effort, status, created_at) values (?, ?, ?, ?, ?, ?, 'active', ?)",
+      "insert into agent (id, brief, runtime, folder, model, effort, project, status, created_at) values (?, ?, ?, ?, ?, ?, ?, 'active', ?)",
       [
         id,
         a.brief,
@@ -152,6 +175,7 @@ export function register(
         folder,
         a.model ?? null,
         a.effort ?? null,
+        a.project ?? null,
         clock().toISOString(),
       ]
     );
@@ -161,30 +185,34 @@ export function register(
   return id;
 }
 
-/** Withdraws the open card of assignment `s`, if any (the desk asked it, as `desk`): it closed or its agent stopped, so no answer could reach it. */
-export async function withdrawOpenDecision(
-  s: Pick<AssignmentRow, "agent_id">,
+/** Withdraws the open cards of assignment `s`, or of every assignment of its agent when `s` names none (the desk asked them, as `desk`): it closed or its agent stopped, so no answer could reach them. */
+export async function withdrawOpenCards(
+  db: Desk["db"],
+  s: { agent_id: string; id?: string },
   why: string
 ) {
-  const open = openCardOf(s);
-  if (open?.agent) {
-    await requestDecision(DESK_AGENT, {
-      agent: open.agent,
-      why,
-      withdraw: open.id,
-    });
+  for (const d of cardsOf(db, s, decisionsNow())) {
+    if (d.state === "open") {
+      // biome-ignore lint/performance/noAwaitInLoops: one append at a time
+      await requestDecision(DESK_AGENT, {
+        agent: s.agent_id,
+        why,
+        withdraw: d.id,
+      });
+    }
   }
 }
 
-/** Marks the desk turn running for `id`, if any, as heard from now, and how it ends (`outcome`) when given. */
-function heard({ db }: Desk, id: string, outcome?: "waited" | "finished") {
-  const open = openTurn(db, id);
-  if (open) {
-    db.run(
-      "update turn set heard_at = ?, outcome = coalesce(?, outcome) where id = ?",
-      [clock().toISOString(), outcome ?? null, open.id]
-    );
-  }
+/** Marks the desk turn running on assignment `s`, if any, as heard from now, and how it ends (`outcome`) when given: a turn on another assignment of its agent is never touched. */
+function heard(
+  { db }: Desk,
+  s: Pick<AssignmentRow, "agent_id" | "id">,
+  outcome?: "waited" | "finished"
+) {
+  db.run(
+    "update turn set heard_at = ?, outcome = coalesce(?, outcome) where agent_id = ? and assignment_id = ? and ended_at is null",
+    [clock().toISOString(), outcome ?? null, s.agent_id, s.id]
+  );
 }
 
 /** Why filter `f`'s place cannot be matched, or null: one coordinate alone, a radius alone, or coordinates on channels whose events hold no point. */
@@ -279,7 +307,7 @@ export async function setWait(desk: Desk, s: AssignmentRow, input: unknown) {
   }
   desk.db.transaction(() => {
     writeWait(desk.db, s.id, wait, false);
-    heard(desk, s.agent_id, "waited");
+    heard(desk, s, "waited");
   })();
   return r;
 }
@@ -292,9 +320,9 @@ async function closeWithdrawing(
 ) {
   desk.db.transaction(() => {
     closeAssignmentRow(desk.db, s.id, { outcome });
-    heard(desk, s.agent_id, "finished");
+    heard(desk, s, "finished");
   })();
-  await withdrawOpenDecision(s, "its agent finished");
+  await withdrawOpenCards(desk.db, s, "its agent finished");
 }
 
 /** `finish`: assignment `s` is closed with its outcome; its turn ends by itself. */
@@ -335,41 +363,112 @@ export async function closeAssignment(desk: Desk, id: string, outcome: string) {
   }
 }
 
-/** `write_notes`: replaces assignment `s`'s notes file, which opens its next packet. */
+/**
+ * Commits agent `a`'s home (`agentHomeOf`) and its assignment `s`'s folder in his agents repo (`desk.agentsRepo`) after
+ * a turn: in code, never left to the agent. A failure is logged, never fatal.
+ */
+export function commitAgentFiles(a: AgentRow, s: AssignmentRow) {
+  const repo = settings().desk?.agentsRepo;
+  if (!repo) {
+    return;
+  }
+  const paths = [agentHomeOf(repo, a), dirname(s.notes_path)].flatMap((p) => {
+    const inRepo = p ? relative(repo, p) : "..";
+    return inRepo.startsWith("..") ? [] : [inRepo || "."];
+  });
+  try {
+    commitPaths(repo, [...new Set(paths)], `desk: ${a.id}'s turn on ${s.id}`);
+  } catch (error) {
+    log("desk.runtime", {
+      agent: a.id,
+      error: String(error),
+      ok: false,
+      what: "commit",
+    });
+  }
+}
+
+/** `write_notes`: replaces assignment `s`'s notes file, which opens its next packet and every wake's record (`matterRecordOf`). */
 export function writeNotes(desk: Desk, s: AssignmentRow, text: string) {
   mkdirSync(dirname(s.notes_path), { recursive: true });
-  writeFileSync(s.notes_path, text.slice(0, NOTES_MAX));
-  heard(desk, s.agent_id);
+  writeFileSync(s.notes_path, text);
+  heard(desk, s);
+}
+
+/**
+ * A matter assignment's card subject: the one given when it is the matter's id or one of its steps, else none given, its
+ * first anchor; another is refused. None for an agent's own assignment (its subject stays the agent's to give).
+ */
+async function subjectOf(steps: string[], given: string | undefined) {
+  if (steps.length === 0 || given === undefined) {
+    return given ?? steps[0];
+  }
+  const m = await oneMatter(steps);
+  if (m && (m.id === given || m.steps.some((x) => x.ref === given))) {
+    return given;
+  }
+  throw new Error(
+    `Not done: ${given} is not your matter's (${m?.id ?? steps[0]}): a card's subject is your matter or one of its steps; another matter is another assignment's.`
+  );
 }
 
 /**
  * `request_decision`: asks him as the desk, stamped with the agent's id and its session's link first, one open card
- * per assignment; or withdraws its own decision. `requestDecision` checks the rest.
+ * per assignment, on its matter (`subjectOf`); or withdraws one of this assignment's own cards. `requestDecision`
+ * checks the rest. Once the card is written, the desk writes once that it is this assignment's (`card`, read by
+ * `assignmentOfCard`) and, on a matter, anchors the subject Life stored (a matter's id is stored as one of its steps).
  */
-export function askDecision(
+export async function askDecision(
   desk: Desk,
   s: AssignmentRow,
   { withdraw, why, ...ask }: z.infer<typeof DecisionRequest>
 ) {
+  const { db } = desk;
   const id = s.agent_id;
-  heard(desk, id);
+  heard(desk, s);
   if (withdraw) {
+    if (!cardsOf(db, s, decisionsNow()).some((d) => d.id === withdraw)) {
+      throw new Error(
+        `Not done: ${withdraw} is not a card of this turn's assignment (${s.id}).`
+      );
+    }
     return requestDecision(DESK_AGENT, { agent: id, why, withdraw });
   }
   // One card at a time per assignment (an inbox rule, not a limit on its work).
-  const open = openCardOf(s);
+  const open = openCardOf(db, s);
   if (open) {
     throw new Error(
       `Not done: ${id} already asks ${open.id}; withdraw it or wait for his answer.`
     );
   }
-  const link = agentOf(desk.db, id)?.link;
-  return requestDecision(DESK_AGENT, {
+  const steps = anchorsOf(db, s.id);
+  const subject = await subjectOf(steps, ask.subject);
+  const link = agentOf(db, id)?.link;
+  const asked = await requestDecision(DESK_AGENT, {
     ...ask,
     agent: id,
     links: [...(link ? [link] : []), ...(ask.links ?? [])],
+    ...(subject ? { subject } : {}),
   });
+  const stored = decisionsNow().find((d) => d.id === asked.id)?.subject;
+  db.transaction(() => {
+    db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
+      asked.id,
+      s.id,
+    ]);
+    if (steps.length > 0 && stored) {
+      db.run(
+        "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+        [s.id, stored, clock().toISOString()]
+      );
+    }
+  })();
+  return asked;
 }
+
+/** Where an agent may write, what it never starts, how it waits, and which matter his own words in its session are about (his rulings of 20 Nov 2026): Life keeps its notes; the desk alone dispatches and wakes. */
+const BOUNDS =
+  ' Your notes go only through `write_notes` (Life keeps them and commits them, with your home in his agents repo, after each turn): never in a project\'s repo, which you change only on a card he approved. Never start a session or a scheduled task of your own to track a matter: the desk wakes you; sub agents inside a turn are fine. Wait only with `set_wait`, never with a Monitor, a loop or a scheduled task: when it cannot hold what you wait for, say so in one line and stop. `github` is a wait channel: a filter naming it (`channels: ["github"]`, with `text_matches`, `person` or `chat`) wakes you on new issues and comments of the repos he lists (`githubRepos`). When he writes in your session himself and you hold several matters, work out from his words which one he means, ask him only when that is unclear, and name the matter before you act.';
 
 /** The one sentence of the contract that differs: what a first turn does when he asked for the agent (his plan, then his Go). */
 const PLAN_FIRST_TURN =
@@ -377,7 +476,7 @@ const PLAN_FIRST_TURN =
 
 /** ... and when the desk started it itself (`hand-out.ts`): no plan card, one card of what it found. */
 const HANDED_OUT_FIRST_TURN =
-  ' Life handed you this matter from the top of his list; he did not ask for it. Your first turn reads and gathers (his chats, mail, files, the web), then asks ONE card, whichever is true: the next step prepared (a draft he can send as it is, in the channel the talk is already in, never mail when they talk in a chat); what only he can do (the step in a few words and every fact he needs for it: amount, account, address, phone, reference); or that it looks over (what shows it). Open the card\'s context with what you could not verify. Every card has an option for his own words (Tell the agent…). On a card for what only he can do, or that it looks over, mark the option that means done `ends: "step"` (the step as `subject`) or `ends: "matter"` (nothing is left): his pick closes it in Life. Every card also offers Drop it, marked `ends: "matter"`, for a matter he does not care about: his pick of it alone closes the matter in Life (when the matter has no open step left, Life refuses it: leave it out and say in the context that he can tell you to stop). No other option closes anything. Then wait for his answer; finish when the step is done or nothing is left for you. In a project\'s folder you only read, unless a card he approved says otherwise.';
+  ' Life handed you this matter from the top of his list; he did not ask for it. Your first turn reads and gathers (his chats, mail, files, the web), then asks ONE card, whichever is true: the next step prepared (a draft he can send as it is, in the channel the talk is already in, never mail when they talk in a chat); what only he can do (the step in a few words and every fact he needs for it: amount, account, address, phone, reference); or that it looks over (what shows it). Open the card\'s context with what you could not verify. Every card has an option for his own words (Tell the agent…). On a card for what only he can do, or that it looks over, mark the option that means done `ends: "step"` (the step as `subject`) or `ends: "matter"` (nothing is left): his pick closes it in Life. Every card also offers Drop it, marked `ends: "matter"`, for a matter he does not care about: his pick of it alone closes the matter in Life (when the matter has no open step left, Life refuses it: leave it out and say in the context that he can tell you to stop). No other option closes anything. Then wait for his answer; finish when the step is done or nothing is left for you.';
 
 /** What an agent of his own Life is told of the send guard (`send-guard.ts`), and of the repos it may post to itself. */
 function sendGuardLines() {
@@ -387,7 +486,7 @@ function sendGuardLines() {
 
 /** What every session of a registered agent is told after its brief (the desk spec, 5.4): the door's contract and his one gate (what waits on his yes, a plan before any act). */
 const contractOf = (id: string, isOwn: boolean, openedBy: OpenedBy) =>
-  `You are ${id}, a registered agent of the owner's desk${isOwn ? ": one of his own sessions, in full" : ""}. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. ${isOwn ? "Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included." : "You have your door's tools only."} The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated.${isOwn ? `${sendGuardLines()} Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward).` : ""}${openedBy === "desk" ? HANDED_OUT_FIRST_TURN : PLAN_FIRST_TURN} A \`call.ended\` event is a call of his that ended, with the recording his pendant made of it. Read each of its \`recordings\` with \`fetch\` (\`id\` its \`turn\`, which opens the recording from that turn as it is now; \`limit\` its \`turns\`, and read on if lines before \`until\` remain) and keep only the lines timed from \`at\` to \`until\`: the recording began before the call and went on after it, and nothing said outside those instants is the call's or may be quoted or sent. \`people\` is who may have been on it, not who spoke when: someone may have joined late. Voices heard through a speaker are often unnamed or merged into one: write such a line as an unnamed remote voice, never under a name the recording does not give. A \`payment.booked\` event is a payment his money app holds; its merchant and note are not in the wake. A \`stay.arrived\` event is an arrival at a place; its name is not in the wake, and one real arrival may wake you more than once (the same place, minutes apart: act once).`;
+  `You are ${id}, a registered agent of the owner's desk${isOwn ? ": one of his own sessions, in full" : ""}. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. ${isOwn ? "Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included." : "You have your door's tools only."} The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated.${isOwn ? `${sendGuardLines()} Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward).` : ""}${BOUNDS}${openedBy === "desk" ? HANDED_OUT_FIRST_TURN : PLAN_FIRST_TURN} A \`call.ended\` event is a call of his that ended, with the recording his pendant made of it. Read each of its \`recordings\` with \`fetch\` (\`id\` its \`turn\`, which opens the recording from that turn as it is now; \`limit\` its \`turns\`, and read on if lines before \`until\` remain) and keep only the lines timed from \`at\` to \`until\`: the recording began before the call and went on after it, and nothing said outside those instants is the call's or may be quoted or sent. \`people\` is who may have been on it, not who spoke when: someone may have joined late. Voices heard through a speaker are often unnamed or merged into one: write such a line as an unnamed remote voice, never under a name the recording does not give. A \`payment.booked\` event is a payment his money app holds; its merchant and note are not in the wake. A \`stay.arrived\` event is an arrival at a place; its name is not in the wake, and one real arrival may wake you more than once (the same place, minutes apart: act once).`;
 
 const NONE =
   "(none in his directory: find them with `read_chats` and `read_people_and_organizations`, and tell him who or which chat is missing)";
@@ -423,43 +522,25 @@ async function projectLinesOf(project: string) {
 
 /**
  * A project in a packet, read as data: its line and his notes from his directory (`projectHeaderOf`, clipped to
- * `PROJECT_NOTES_MAX`), then its running matters in his ranking (`openMatters`) but `except`, the first
- * `PROJECT_MATTERS`. Nothing for a project no longer in his directory.
+ * `PROJECT_NOTES_MAX`); its running matters are `read_matters`'. Nothing for a project no longer in his directory.
  */
-async function projectContextOf(
-  { projects }: Pick<Truth, "projects">,
-  id: string,
-  except?: string
-) {
+function projectContextOf({ projects }: Pick<Truth, "projects">, id: string) {
   const p = projects.find((x) => x.id === id);
-  if (!p) {
-    return [];
-  }
-  const matters = (await openMatters({ project: id })).matters
-    .filter((m) => m.id !== except)
-    .slice(0, PROJECT_MATTERS)
-    .map((m) =>
-      JSON.stringify({
-        id: m.id,
-        name: m.name,
-        nextStep: m.nextStep?.text,
-        status: m.status,
-      })
-    );
-  return [
-    [
-      projectHeaderOf(p),
-      clip(p.notes.trim(), PROJECT_NOTES_MAX),
-      `Its ${except ? "other " : ""}running matters (his ranking, the first ${PROJECT_MATTERS}):`,
-      ...(matters.length > 0 ? matters : ["(none)"]),
-    ]
-      .filter(Boolean)
-      .join("\n"),
-  ];
+  return p
+    ? [
+        [
+          projectHeaderOf(p),
+          clip(p.notes.trim(), PROJECT_NOTES_MAX),
+          `Its running matters: \`read_matters\` with \`project: "${id}"\`.`,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      ]
+    : [];
 }
 
 /**
- * `read_packet`: what a fresh session starts from: its matter as read now (`oneMatter`: where it stands, its goal and
+ * `read_packet`: what a fresh session starts from: its one matter as read now (`oneMatter`: where it stands, its goal and
  * next step, its steps so far), or its project; then each project's context (`projectContextOf`), the brief, the
  * contract, its notes, its saved wait, its queued events (facts only) and its open decision.
  */
@@ -475,15 +556,18 @@ export async function readPacket(
   const wait = savedWaitOf(a, s);
   const events = queuedEvents(db, s.id).map(eventLineOf);
   const steps = anchorsOf(db, s.id);
-  const matter = a.project ? undefined : await oneMatter(steps);
+  // An agent's own assignment is its project; any other, the matter its anchors find, its agent's project as context.
+  const isOnProject = steps.length === 0 && a.project !== null;
+  const matter = isOnProject ? undefined : await oneMatter(steps);
   const truth = await loadTruth();
-  const projects = await Promise.all(
-    (a.project ? [a.project] : await readMatterProjectIds(steps)).map((p) =>
-      projectContextOf(truth, p, matter?.id)
-    )
-  );
+  const projects = [
+    ...new Set([
+      ...(a.project ? [a.project] : []),
+      ...(isOnProject ? [] : await readMatterProjectIds(steps)),
+    ]),
+  ].map((p) => projectContextOf(truth, p));
   return [
-    a.project
+    isOnProject && a.project
       ? await projectLinesOf(a.project)
       : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify(matter ?? `No matter holds ${steps.join(", ")} now.`)}`,
     ...projects.flat(),
@@ -496,6 +580,93 @@ export async function readPacket(
         ]
       : []),
     `Events waiting:\n${events.join("\n") || "(none)"}`,
-    `Your open decision: ${openCardOf(s)?.id ?? "none"}`,
+    `Your open decision: ${openCardOf(db, s)?.id ?? "none"}`,
   ].join("\n\n");
+}
+
+/**
+ * The matter steps the turn on each assignment was shown (`matterRecordOf`), by assignment, in this process: kept as
+ * shown (`handed_step`) once that turn ends unfailed (`keepHanded`), forgotten on a re-point (`writeSubject`). Lost on a
+ * restart: those steps are then shown again.
+ */
+const pending = new WeakMap<
+  Desk["db"],
+  Map<string, { steps: string[]; turn: number }>
+>();
+function pendingOf(db: Desk["db"]) {
+  const turns =
+    pending.get(db) ?? new Map<string, { steps: string[]; turn: number }>();
+  pending.set(db, turns);
+  return turns;
+}
+
+/** Keeps as shown the steps turn `t` was shown when `isKept` (it ended unfailed), and forgets them: a failed turn shows them again. */
+export function keepHanded(
+  db: Desk["db"],
+  t: { assignment_id: string; id: number },
+  isKept: boolean
+) {
+  const p = pendingOf(db).get(t.assignment_id);
+  if (p?.turn !== t.id) {
+    return;
+  }
+  for (const step of isKept ? p.steps : []) {
+    db.run(
+      "insert or ignore into handed_step (assignment_id, step) values (?, ?)",
+      [t.assignment_id, step]
+    );
+  }
+  pendingOf(db).delete(t.assignment_id);
+}
+
+/**
+ * What every wake of a matter assignment `s` opens with, from code (his word of 20 Nov 2026: nothing rests on the
+ * agent's memory): the matter as Life reads it now (its id and name, where it stands, its goal and next step), its steps
+ * the assignment was never shown (`handedSteps`: a step Life learned late about an earlier hour included; the newest
+ * `RECORD_STEPS`, and how many more), its notes, and where to read more; a few thousand characters at most. Life's own
+ * reading of the matter, never an event's words. Turn `turn` is shown the steps listed, or, `isFresh` (a new session,
+ * whose packet holds the whole matter, so no record: null), all of them (`keepHanded`).
+ */
+export async function matterRecordOf(
+  { db }: Desk,
+  s: AssignmentRow,
+  turn: number,
+  isFresh: boolean
+) {
+  const anchors = anchorsOf(db, s.id);
+  const m = await oneMatter(anchors);
+  const handed = handedSteps(db, s.id);
+  const fresh = (m?.steps ?? []).filter((x) => !handed.has(x.ref));
+  const shown = fresh.slice(-RECORD_STEPS);
+  pendingOf(db).set(s.id, {
+    steps: (isFresh ? (m?.steps ?? []) : shown).map((x) => x.ref),
+    turn,
+  });
+  if (isFresh) {
+    return null;
+  }
+  return [
+    `Your matter, as Life reads it now (\`read_matter\` with ${anchors[0] ?? "its step"} reads it whole; your notes file: ${s.notes_path}):`,
+    m
+      ? JSON.stringify({
+          goal: m.goal?.text,
+          id: m.id,
+          name: m.name,
+          nextStep: m.nextStep?.text,
+          status: m.status,
+        })
+      : `No matter holds ${anchors.join(", ")} now.`,
+    "Its steps new to you (never shown to you before):",
+    ...shown.map(
+      (x) =>
+        `- ${x.at} ${x.ref} (${x.kind}): ${clip(x.text, RECORD_STEP_CHARS)}`
+    ),
+    ...(fresh.length === 0 ? ["(none)"] : []),
+    ...(fresh.length > shown.length
+      ? [
+          `(and ${fresh.length - shown.length} older, listed next time: \`read_matter\`)`,
+        ]
+      : []),
+    `Your notes on it:\n${clip(readNotes(s), RECORD_NOTES_CHARS) || "(none yet)"}`,
+  ].join("\n");
 }

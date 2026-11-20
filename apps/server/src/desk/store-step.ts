@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { clock } from "../core/clock";
 import { DESK_STORE, LIFE_STATE_DIR } from "../core/paths";
 import { isAppState } from "../core/platform";
-import { gitOut } from "../core/proc";
+import { commitPaths } from "../core/proc";
 import { settings } from "../core/settings";
 import { openWritable } from "../core/sqlite";
 import { agentHomeOf, isOldShape } from "../host/desk-read";
@@ -112,20 +112,11 @@ function writeNotesFiles(db: Database, agentsRepo: string) {
     mkdirSync(dirname(join(agentsRepo, n.path)), { recursive: true });
     writeFileSync(join(agentsRepo, n.path), n.notes);
   }
-  const paths = notes.map((n) => n.path);
-  if (paths.length === 0) {
-    return;
-  }
-  gitOut(agentsRepo, ["add", "--", ...paths]);
-  if (gitOut(agentsRepo, ["status", "--porcelain", "--", ...paths])) {
-    gitOut(agentsRepo, [
-      "commit",
-      "-m",
-      "desk: each agent's notes as its assignment's file",
-      "--",
-      ...paths,
-    ]);
-  }
+  commitPaths(
+    agentsRepo,
+    notes.map((n) => n.path),
+    "desk: each agent's notes as its assignment's file"
+  );
 }
 
 /**

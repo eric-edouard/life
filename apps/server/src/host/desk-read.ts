@@ -232,12 +232,34 @@ export function agentHomeOf(
 }
 
 /**
- * Which assignment owns card `d`: its asker's (`d.agent`) one assignment, so a card stays with its asker; none for a card
- * no registered agent asked. A card follows its matter to another agent only once the door checks its subject and the
- * fold moves matters (the agents and matters plan, PR 2 and 3).
+ * Which assignment owns card `d`: the one that asked it, as the desk wrote it once when the card was asked (`card`,
+ * `askDecision`), never worked out again from anchors that move later; a card asked before the desk kept its owner (20
+ * Nov 2026) is its asker's one assignment then; none for a card no registered agent asked.
  */
-export const assignmentOfCard = (db: Database, d: { agent?: string }) =>
-  d.agent ? (currentAssignmentOf(db, d.agent)?.id ?? null) : null;
+export const assignmentOfCard = (
+  db: Database,
+  d: { agent?: string; id: string }
+) =>
+  d.agent
+    ? (db
+        .query<{ id: string }, [string]>(
+          "select assignment_id as id from card where decision_id = ?"
+        )
+        .get(d.id)?.id ??
+      currentAssignmentOf(db, d.agent)?.id ??
+      null)
+    : null;
+
+/** The matter steps assignment `id` was shown, by records and packets of turns that ended unfailed (`keepHanded`). */
+export const handedSteps = (db: Database, id: string) =>
+  new Set(
+    db
+      .query<{ step: string }, [string]>(
+        "select step from handed_step where assignment_id = ?"
+      )
+      .all(id)
+      .map((r) => r.step)
+  );
 
 export const readCursor = (db: Database, name: string) =>
   db

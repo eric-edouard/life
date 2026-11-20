@@ -35,18 +35,13 @@ import {
   finish,
   readPacket,
   register,
-  withdrawOpenDecision,
+  withdrawOpenCards,
 } from "./agent-actions";
-import {
-  endAgentsOnOverMatters,
-  pollAnswers,
-  readPeopleOnce,
-  wakeDue,
-} from "./desk-clock";
+import { pollAnswers, readPeopleOnce, wakeDue } from "./desk-clock";
 import { NO_CARD_OUTCOME } from "./hand-out";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
-import { MATTER_DONE_OUTCOME } from "./matter-net";
-import { asgOf, on, setup } from "./test-desk";
+import { endAgentsOnOverMatters, MATTER_DONE_OUTCOME } from "./matter-net";
+import { asgOf, matterView, on, setup, withMatters } from "./test-desk";
 
 // The hand-out's step of the tick, over a fake runtime and a made-up book of matters.
 
@@ -210,16 +205,26 @@ test("the daily count follows his day: a hand-out before his day began is not co
   expect(reads.n).toBe(1);
 });
 
+/** A card of agent `id` on its matter (the book holds the hand-out's made-up matters). */
 const ask = (desk: ReturnType<typeof deskOf>, id: string) =>
-  askDecision(desk, on(desk, id), {
-    deadline: iso(clock().getTime() + DAY),
-    options: [
-      { id: "yes", label: "Yes" },
-      { id: "no", label: "No" },
-    ],
-    question: "Test: send this?",
-    title: "a test",
-  });
+  withMatters(
+    MATTERS.map((m) =>
+      matterView(
+        m.id,
+        m.steps.map((x) => x.ref)
+      )
+    ),
+    () =>
+      askDecision(desk, on(desk, id), {
+        deadline: iso(clock().getTime() + DAY),
+        options: [
+          { id: "yes", label: "Yes" },
+          { id: "no", label: "No" },
+        ],
+        question: "Test: send this?",
+        title: "a test",
+      })
+  );
 const paced = (cardsWaiting: number) =>
   setSettings({
     desk: {
@@ -495,7 +500,7 @@ test("a card on a step another agent holds stays with its asker: its slot, and h
           title,
         });
       const { id } = await card(asker, "Send the quote");
-      expect(() => card(asker, "Send it again")).toThrow(
+      await expect(card(asker, "Send it again")).rejects.toThrow(
         `${asker} already asks ${id}`
       );
       const { id: own } = await card(holder, "The holder's own");
@@ -508,7 +513,7 @@ test("a card on a step another agent holds stays with its asker: its slot, and h
       pollAnswers(desk);
       expect(queued(desk, asker)).toEqual([DECISION_ANSWERED]);
       expect(queued(desk, holder)).toEqual([]);
-      await withdrawOpenDecision(on(desk, holder), `test over ${own}`);
+      await withdrawOpenCards(desk.db, on(desk, holder), `test over ${own}`);
     }
   );
 });
@@ -621,23 +626,13 @@ const handedOut = async (desk: ReturnType<typeof deskOf>) => {
   ]);
   return id;
 };
-const cardOf = (desk: ReturnType<typeof deskOf>, id: string) =>
-  askDecision(desk, on(desk, id), {
-    deadline: iso(clock().getTime() + DAY),
-    options: [
-      { id: "yes", label: "Yes" },
-      { id: "no", label: "No" },
-    ],
-    question: "Test: send this?",
-    title: "a test",
-  });
 
 test("a card asked in time keeps the agent; none at 2 hours ends it with its outcome and stops its run", async () => {
   const t = setup();
   t.desk.runtimes = { claude: t.fake.runtime };
   const { desk } = t;
   const asked = await handedOut(desk);
-  cardOf(desk, asked);
+  await ask(desk, asked);
   setSystemTime(new Date(clock().getTime() + 11 * MIN));
   const silent = await handedOut(desk);
   setSystemTime(new Date(clock().getTime() + 2 * HOUR));
@@ -647,7 +642,7 @@ test("a card asked in time keeps the agent; none at 2 hours ends it with its out
   expect(a?.status).toBe("ended");
   expect(currentAssignmentOf(desk.db, silent)?.outcome).toBe(NO_CARD_OUTCOME);
   expect(t.fake.stopped).toEqual([a?.session ?? ""]);
-  await withdrawOpenDecision(on(desk, asked), "test over");
+  await withdrawOpenCards(desk.db, on(desk, asked), "test over");
 });
 
 test("an agent he started himself is never ended for asking no card", async () => {
