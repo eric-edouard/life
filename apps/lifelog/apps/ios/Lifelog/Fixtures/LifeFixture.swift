@@ -10,7 +10,7 @@
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (a tapped push's one-card read takes 5 s), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused; `sending`: it never ends); `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, `-fixtureProject <id>` (its page, pushed on the matter), `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|pair|pairing|replacePendant|pairPendant|create`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|people|search`, `-fixtureMatter <id>`, `-fixtureProject <id>` (its page, pushed on the matter), `-fixturePerson <ref>`, `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|pair|pairing|replacePendant|pairPendant|create`
     /// open the screen to show (`create` holds Created, to be photographed). `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -24,6 +24,8 @@
         nonisolated static let tab = value(of: "-fixtureTab")
         nonisolated static let matter = value(of: "-fixtureMatter")
         nonisolated static let project = value(of: "-fixtureProject")
+        /// `-fixturePerson <ref>`: the People tab opens on that person's or organization's page.
+        nonisolated static let person = value(of: "-fixturePerson")
         /// `-fixtureUnmarked <matter id>`: that matter starts without his mark; `-fixtureParked <project id>`: that
         /// project starts parked.
         nonisolated static let unmarked = value(of: "-fixtureUnmarked")
@@ -184,6 +186,33 @@
                 }
             }
             return json(["pictures": found, "missing": ids.filter { id in !found.contains { $0["id"] == id } }])
+        }
+
+        /// The design data's people (`read_people_and_organizations.json`, its rows as the list gives them, and `others`);
+        /// a query keeps the rows whose name holds it. None until the designer writes the file.
+        func readPeopleAndOrganizations(query: String?) async throws -> String {
+            try await gate()
+            let rows = Self.people["people"] as? [[String: Any]] ?? []
+            guard let query else { return json(["people": rows]) }
+            let found = rows.filter { ($0["name"] as? String)?.localizedStandardContains(query) == true }
+            return json(["people": found, "others": Self.people["others"] ?? []])
+        }
+
+        /// A part by its ref: someone's `now` (their row, with what `read_people_and_organizations_now.json` holds for
+        /// their ref) or `latest` (`read_people_and_organizations_latest.json`, by ref).
+        func readPart(_ ref: String) async throws -> String {
+            try await gate()
+            let parts = ref.split(separator: "/").map(String.init)
+            guard let subject = parts.first, let part = parts.dropFirst().first else {
+                throw MCPError.failed("No such part.")
+            }
+            if part == "latest" { return json(Self.read("read_people_and_organizations_latest", or: [:])[subject] ?? ["latest": []]) }
+            let rows = Self.people["people"] as? [[String: Any]] ?? []
+            guard part == "now", let row = rows.first(where: { $0["ref"] as? String == subject }) else {
+                throw MCPError.failed("No such person.")
+            }
+            let now = Self.read("read_people_and_organizations_now", or: [:])[subject] as? [String: Any] ?? [:]
+            return json(row.merging(now) { $1 })
         }
 
         func readMatter(_ id: String) async throws -> String {
@@ -450,6 +479,7 @@
         /// What only a matter's own read shows: the agents not registered (the table's, once started; Nora's, stopped) and
         /// the steps.
         nonisolated(unsafe) private static let matterRead = read("read_matter")
+        nonisolated(unsafe) private static let people = read("read_people_and_organizations", or: [:])
         /// Every agent, by its matter; `-fixtureAgent` says how Nora's went.
         nonisolated(unsafe) private static let allAgents: [[String: Any]] =
             ((registered["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])).map {
@@ -464,11 +494,15 @@
                 return agent
             }
 
-        private static func read(_ name: String) -> [String: Any] {
+        /// A read of the design data; `missing`, if given, stands for a file the designer has not written yet.
+        private static func read(_ name: String, or missing: [String: Any]? = nil) -> [String: Any] {
             let file = URL(filePath: LifeFixture.reads).appending(path: "\(name).json")
             guard let data = try? Data(contentsOf: file),
                 let object = (try? JSONSerialization.jsonObject(with: data)).map(localized) as? [String: Any]
-            else { fatalError("No design data at \(file.path)") }
+            else {
+                guard let missing else { fatalError("No design data at \(file.path)") }
+                return missing
+            }
             return object
         }
 

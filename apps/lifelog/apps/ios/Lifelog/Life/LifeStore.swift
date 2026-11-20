@@ -17,6 +17,10 @@ final class LifeStore {
     /// A project's page: its matters with its head, by the project's id.
     private(set) var project: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
+    /// The People tab: everyone Life knows, closest first; one of them read in full, by ref; and what a search found.
+    private(set) var people = ReadState<PeopleList>()
+    private(set) var person: [String: ReadState<PersonNow>] = [:]
+    private(set) var peopleFound: (query: String, state: ReadState<PeopleList>)?
     /// Everyone the reads name, and their pictures.
     let parties: PartyBook
 
@@ -110,6 +114,7 @@ final class LifeStore {
         restore({ self.inbox.apply($0) }, key: Self.inboxKey)
         restore({ self.matters.apply($0) }, key: Self.mattersKey)
         restore({ self.agents.apply($0) }, key: Self.agentsKey)
+        restore({ self.people.apply($0) }, key: Self.peopleKey)
     }
 
     var isPaired: Bool { pairedOrigin != nil }
@@ -192,6 +197,26 @@ final class LifeStore {
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
     }
 
+    func refreshPeople() async {
+        await load({ self.people.apply($0) }, key: Self.peopleKey) { try await $0.readPeopleAndOrganizations(query: nil) }
+    }
+
+    func refreshPerson(_ ref: String) async {
+        let key = "read_people_and_organizations-\(ref)"
+        let update = { (event: ReadState<PersonNow>.Event) in self.person[ref, default: ReadState()].apply(event) }
+        if person[ref] == nil { restore(update, key: key) }
+        await load(update, key: key) { try await $0.readPart(ref + "/now") }
+    }
+
+    /// The people and organizations `query` matches, and the others Life has seen by that name; a newer query's read
+    /// replaces this one's, which then applies nothing.
+    func findPeople(_ query: String) async {
+        if peopleFound?.query != query { peopleFound = (query, ReadState()) }
+        await load({ if self.peopleFound?.query == query { self.peopleFound?.state.apply($0) } }, key: nil) {
+            try await $0.readPeopleAndOrganizations(query: query)
+        }
+    }
+
     func refreshMatter(_ id: String) async {
         let key = "read_matter-\(id)"
         let update = { (event: ReadState<Matter>.Event) in self.matter[id, default: ReadState()].apply(event) }
@@ -212,6 +237,7 @@ final class LifeStore {
     private static let inboxKey = "read_inbox"
     private static let mattersKey = "read_matters"
     private static let agentsKey = "read_registered_agents"
+    private static let peopleKey = "read_people_and_organizations"
 
     private func restore<V: Decodable & Sendable & NamesParties>(_ update: (ReadState<V>.Event) -> Void, key: String) {
         guard let kept = cache.load(key),
@@ -520,6 +546,7 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
+        (people, person, peopleFound) = (ReadState(), [:], nil)
         parties.startOver()
         holds.clear()
         onStep(.reading)
