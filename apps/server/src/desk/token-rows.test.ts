@@ -35,11 +35,10 @@ test("tokens are summed by his local day of the turn's end: 23:30 UTC is the nex
       turn("c", "2026-09-10T11:00:00.000Z", 2),
     ],
     (id) =>
-      id === "a"
-        ? bakery
-        : id === "b"
-          ? { id: "matter_2", name: "Test bakery order" }
-          : undefined
+      ({
+        a: bakery,
+        b: { id: "matter_2", name: "Test bakery order" },
+      })[id]
   );
   expect(rows).toEqual([
     { name: "Tokens · 2026-09-10", relation: "103 in (40 cached) · 10 out" },
