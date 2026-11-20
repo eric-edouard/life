@@ -741,7 +741,7 @@ async function readChecks(
   const parked = new Set(matters.filter(isParked).map((v) => v.id));
   const forHandOut = new Set(
     settings().desk?.handOut
-      ? matters.filter((v) => isOneOfHis(v, people.isGuess)).map((v) => v.id)
+      ? matters.filter((v) => isOneOfHis(v, people)).map((v) => v.id)
       : []
   );
   const lines = records.observations;

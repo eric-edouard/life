@@ -28,6 +28,7 @@ import {
 } from "./closeness";
 import { LIFE_MAIL } from "./email";
 import { pagePath } from "./memory-files";
+import { organizationTestOf } from "./ref-kinds";
 import { foldsOf } from "./who";
 
 const msg = (
@@ -112,13 +113,14 @@ const row = (person: string, over: Partial<Closeness> = {}): Closeness =>
     ...over,
   }) as Closeness;
 
-test("a level keeps a page when close or once close, never a service's; his word wins; a folded person is the kept one", () => {
+test("a level keeps a page when close or once close, never a service's or an organization's; his word wins; a folded person is the kept one", () => {
   const rows = new Map([
     ["person:ann", row("person:ann", { personal: "inner" })],
     ["person:bob", row("person:bob", { work: "regular" })],
     ["person:old", row("person:old", { personal: "faded" })],
     ["person:bank", row("person:bank", { personal: "regular", service: true })],
     ["person:joe", row("person:joe", { personal: "inner" })],
+    ["person:test-bakery", row("person:test-bakery", { work: "regular" })],
     // Folded into Ann: only Ann's own judgment counts.
     ["person:ann2", row("person:ann2", { at: "2026-10-21T00:00:00.000Z" })],
   ]);
@@ -136,9 +138,17 @@ test("a level keeps a page when close or once close, never a service's; his word
       to: "person:ann",
     } as never,
   ] as Correction[];
+  const { canon } = foldsOf([], [], corrections, []);
   const levels = levelsNow(rows, {
-    canon: foldsOf([], [], corrections, []).canon,
+    canon,
     corrections,
+    // A service in closeness's own judgment, or one of his directory's organizations, is an organization.
+    isOrganization: organizationTestOf(
+      [{ id: "test-bakery" }],
+      new Map(),
+      { canon, corrections },
+      () => rows
+    ),
   });
   expect(levels.get("person:joe")).toMatchObject({
     personal: "acquaintance",
@@ -316,6 +326,7 @@ test("a written page stays until its person is judged: no closeness ledger delet
       await pagedNow({
         canon: (r) => r,
         corrections: [],
+        isOrganization: () => false,
         truth: { people: [] } as never,
       })
     ).toContain("person:inf_new");

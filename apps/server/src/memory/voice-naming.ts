@@ -420,7 +420,8 @@ export function namingOf(
     },
     part.at,
     began,
-    ended
+    ended,
+    c.people.isOrganization
   );
   const could = new Set(possible);
   const unnamed = part.voices.map((v, n) => {

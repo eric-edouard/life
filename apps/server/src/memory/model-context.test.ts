@@ -4,7 +4,7 @@ import {
   type InferredPerson,
   peopleOutsideDirectoryOf,
 } from "../records/observation";
-import { Person, Project } from "../records/truth";
+import { Organization, Person, Project } from "../records/truth";
 import {
   emailNameOf,
   emailsOf,
@@ -12,6 +12,7 @@ import {
   involvedOf,
   refContext,
 } from "./model-context";
+import type { Truth } from "./read-truth";
 
 const was = settings().personal;
 // His install: the relationships add-on on.
@@ -32,6 +33,7 @@ test("a call's context shows the people close now and the projects underway; the
         areas: [],
         chats: [],
         me: { text: "me" },
+        organizations: [],
         people: [person("ann"), person("bob"), person("cy")],
         projects: [project("app", "active"), project("old", "done")],
       },
@@ -69,9 +71,44 @@ const directoryOf = (
     areas: [],
     chats: [],
     me: { text: "me" },
+    organizations: [] as ReturnType<typeof Organization.parse>[],
     people,
-    projects: [],
+    projects: [] as Truth["projects"],
   },
+});
+
+test("an organization is in the models' directory like a person, and a project that names it reads its name", () => {
+  const inputs = directoryOf([], [Person.parse({ id: "me", name: "Me" })]);
+  inputs.truth.organizations = [
+    Organization.parse({
+      handles: { email: ["hello@bakery.example"] },
+      id: "test-bakery",
+      name: "Test Bakery",
+      relation: "his client",
+    }),
+  ];
+  inputs.truth.projects = [
+    {
+      ...Project.parse({
+        area: "work",
+        id: "shop",
+        name: "Shop",
+        people: ["test-bakery"],
+        schemaVersion: 1,
+        status: "active",
+      }),
+      notes: "",
+    },
+  ];
+  const { directory } = refContext(inputs, new Set(), new Set());
+  expect(directory.people.map((p) => [p.ref, p.relation])).toEqual([
+    ["person:me", undefined],
+    ["person:test-bakery", "his client"],
+  ]);
+  expect(directory.projects[0]?.people).toEqual(["Test Bakery"]);
+  expect(emailsOf(inputs).get("person:test-bakery")).toEqual([
+    "hello@bakery.example",
+  ]);
 });
 
 test("addresses come only to the episodes call: with a person's emails, and none for one without", () => {
@@ -163,6 +200,7 @@ test("the directory shows each person once: an inferred id folded into another i
         areas: [],
         chats: [],
         me: { text: "me" },
+        organizations: [],
         people: [Person.parse({ id: "ann", name: "Ann" })],
         projects: [],
       },
@@ -186,6 +224,7 @@ test("no one is flagged close while the relationships add-on is off", () => {
           areas: [],
           chats: [],
           me: { text: "me" },
+          organizations: [],
           people: [Person.parse({ id: "bob", name: "Bob" })],
           projects: [],
         },

@@ -152,7 +152,7 @@ const exists = (path: string) => Bun.file(path).exists();
 async function targets(observations: Shown[], folks: People) {
   const { outsideDirectory, truth } = folks;
   const levels = levelsWith(folks);
-  const paged = pagedBy(levels, await waitingOf(truth, folks.canon));
+  const paged = pagedBy(levels, await waitingOf(folks));
   const close = personallyClose(levels);
   const { homes } = placed(observations, truth, paged);
   const newest = (ref: string) =>

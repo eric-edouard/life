@@ -191,20 +191,21 @@ export async function openMatters(
 }
 
 /**
- * Whether a matter is one of his (his word of 20 Nov 2026): it involves someone he knows (his directory, his Contacts,
- * or a guess his word settled: a `person:` ref that is not `isGuess`, never an `unknown:` one) or holds an open step he said himself. One
- * made only of an unknown sender's words waits for his own Start.
+ * Whether a matter is one of his (his word of 20 Nov 2026): it involves someone he knows (`isKnownToHim`: his directory,
+ * a person or an organization, his Contacts, or one Life inferred that his word named; never an `unknown:` ref) or holds an open step he said himself. One
+ * made only of an unknown sender's words, or of Life's guesses alone, waits for his own Start.
  */
 export const isOneOfHis = (
   v: Pick<MatterView, "hasOwnOpenStep" | "owedTo" | "waitingOn" | "with">,
-  isGuess: (ref: string) => boolean
-) => v.hasOwnOpenStep || knownPeopleOf(v, isGuess).length > 0;
+  people: Pick<People, "isKnownToHim">
+) => v.hasOwnOpenStep || knownPeopleOf(v, people).length > 0;
 
-/** A matter's people he knows: his directory's or his Contacts', or a guess his word settled (a `person:` ref that is not `isGuess`). */
+/** A matter's people he knows (`isKnownToHim`). */
 const knownPeopleOf = (
   v: Pick<MatterView, "owedTo" | "waitingOn" | "with">,
-  isGuess: (ref: string) => boolean
-) => matterPeopleOf(v).filter((r) => r.startsWith("person:") && !isGuess(r));
+  { isKnownToHim }: Pick<People, "isKnownToHim">
+) =>
+  matterPeopleOf(v).filter((r) => r.startsWith("person:") && isKnownToHim(r));
 
 /** Whether a matter is of a parked or done project: it has projects and none is underway (`isUnderway`, in his directory); one with no project, or one project underway, is not. */
 export const isParkedMatterOf =
@@ -295,7 +296,7 @@ export async function readHandOutMatters(
     given
   );
   const isParked = isParkedMatterOf(people.truth);
-  const his = ids(ranked.filter((v) => isOneOfHis(v, people.isGuess)));
+  const his = ids(ranked.filter((v) => isOneOfHis(v, people)));
   const parked = ids(ranked.filter(isParked));
   return {
     facts: {
@@ -330,7 +331,7 @@ export async function oneMatter<A>(
       ...rowOf(v, people, openDecisions()),
       agents: agentsOf(refsOf(v), v.projects, people),
       communicationStyles: communicationStylesOf(
-        knownPeopleOf(v, people.isGuess),
+        knownPeopleOf(v, people),
         people.nameOf
       ),
       steps: v.steps.map((s) =>
