@@ -5,7 +5,6 @@ import { checksAndKeyNow, checksNow } from "../memory/checks";
 import { decisionsNow } from "../memory/decisions";
 import type { HeldRead } from "../memory/life-checks";
 import {
-  agentOf,
   assignmentOfCard,
   complaintsAtWork,
   heldByAgents,
@@ -18,22 +17,43 @@ import {
 // its key, the facts only when the list is read again; and his complaints the caretaker holds (a few rows, in its key).
 
 /**
- * The plan cards: each assignment's first card not withdrawn (the door's `hasAsked`: its plan, or a handed-out agent's
- * one card), by decision id; none of the caretaker's, whose plan is his complaint. Worked out when read, never stored.
+ * The plan cards among the open decisions: an assignment he opened, its first card not withdrawn (the door's
+ * `hasAsked`); never the caretaker's, whose plan is his complaint, nor a hand-out's one card (the desk opened it: what it
+ * found, not a plan). Worked out when read, never stored. Bounded: per open card, its assignment's cards and its agent's.
  */
 export function planCardsOf(db: Database, list = decisionsNow()) {
-  const firsts = new Map<string, string>();
+  const plans = new Set<string>();
   for (const d of list) {
-    const s = d.state === "withdrawn" ? null : assignmentOfCard(db, d);
-    if (
+    const s = d.state === "open" ? assignmentOfCard(db, d) : null;
+    const opened =
       s &&
-      !firsts.has(s) &&
-      agentOf(db, d.agent ?? "")?.role !== "caretaker"
-    ) {
-      firsts.set(s, d.id);
+      db
+        .query<{ by: string; role: string | null }, [string]>(
+          "select s.opened_by as by, a.role from assignment s join agent a on a.id = s.agent_id where s.id = ?"
+        )
+        .get(s);
+    if (opened?.by !== "owner" || opened.role === "caretaker") {
+      continue;
+    }
+    const cards = new Set(
+      db
+        .query<{ id: string }, [string]>(
+          "select decision_id as id from card where assignment_id = ?"
+        )
+        .all(s ?? "")
+        .map((r) => r.id)
+    );
+    const first = list.find(
+      (e) =>
+        e.state !== "withdrawn" &&
+        (cards.has(e.id) ||
+          (e.agent === d.agent && assignmentOfCard(db, e) === s))
+    );
+    if (first?.id === d.id) {
+      plans.add(d.id);
     }
   }
-  return new Set(firsts.values());
+  return plans;
 }
 
 /** What agents hold (`HeldRead`); null while the desk is off or unreadable (then no new matter is offered). */

@@ -120,6 +120,8 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   answered: new Set(),
   decisions: [
     {
+      // A registered agent's card (`planCardsOf` reads its owner), its plan.
+      agent: "agt_000000000001",
       asker: "Orbit",
       at: "2026-10-13T09:00:00.000Z",
       context:
@@ -367,7 +369,6 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
         }) as Record<string, string>
       )[s] ?? null,
   },
-  // Kit's card is its agent's plan (`planCardsOf`).
   plans: new Set(["dec_000000000001"]),
   titles: new Map([["unit_000000000001", "Gran"]]),
   today: "2026-10-14",
