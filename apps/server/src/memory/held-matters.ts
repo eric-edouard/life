@@ -1,4 +1,4 @@
-import type { AgentKind, AgentStatus } from "../records/registered-agent";
+import type { AgentStatus, OpenedBy } from "../records/registered-agent";
 
 // Which matters registered agents hold (docs/tasks.md, "held"): the one rule, pure, for the hand-out (`handOutOf`) and the
 // new matter check alike. The facts come from the desk's store (host's `heldByAgents`), which memory cannot read.
@@ -6,12 +6,12 @@ import type { AgentKind, AgentStatus } from "../records/registered-agent";
 /** How the desk ends an agent whose matter looks over (no longer running) on a model's reading: it holds nothing after. */
 export const MATTER_OVER_OUTCOME = "its matter looks over";
 
-/** One registered agent's subject, as a fact: its anchored step or its project (one of the two), when it ended (null while active or stopped), who started it, how it ended, why it never began. */
+/** One registered agent's subject, as a fact: its assignment's anchored step or its project (one of the two), when the assignment closed (null while open), who opened it, how it closed, why it never began. */
 export interface AgentHold {
   /** The agent's id (`agt_…`). */
   agent: string;
-  endedAt: string | null;
-  kind: AgentKind;
+  closedAt: string | null;
+  openedBy: OpenedBy;
   outcome: string | null;
   project: string | null;
   status: AgentStatus;
@@ -19,12 +19,12 @@ export interface AgentHold {
   whyNotStarted: string | null;
 }
 
-/** Whether `h` holds a matter whose newest step is at `newest`: active or stopped; ended, until the matter has a step newer than its end, unless it was ended because its matter looked over, or he asked for it and it never began. */
+/** Whether `h` holds a matter whose newest step is at `newest`: open; closed, until the matter has a step newer than its close, unless it was closed because its matter looked over, or he asked for it and it never began. */
 const isHolding = (h: AgentHold, newest: string) =>
-  h.endedAt === null ||
+  h.closedAt === null ||
   (h.outcome !== MATTER_OVER_OUTCOME &&
-    (h.whyNotStarted === null || h.kind === "handed_out") &&
-    newest <= h.endedAt);
+    (h.whyNotStarted === null || h.openedBy === "desk") &&
+    newest <= h.closedAt);
 
 /**
  * The test of "an agent holds this matter", over `holds`: the first hold that holds it, or undefined. One of its steps

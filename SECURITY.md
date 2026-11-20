@@ -40,7 +40,7 @@ per 10 minutes after its last turn. An
 agent on a matter is also woken by anything new related to it (the wide net, his word of 18 Nov 2026): a message from
 one of the matter's people, or a message or recording of his close to the matter in meaning, as the Mac's embedder
 reads it (`desk/matter-net.ts`: no model call, nothing leaves the Mac). The wake hands it only the facts (which
-message or recording, or which payment, with its amount, in EUR too, its currency, whether it is spending and the money app's category, or which arrival, with its time and coordinates, when, why), never the text, a matched one included; it reads the words itself, as data. On
+message or recording, or which payment, with its amount, in EUR too, its currency, whether it is spending and the money app's category, or which arrival, with its time and coordinates, when, why), never the text, a matched one included; it reads the words itself, as data. A wake on a matter also opens with Life's own record of it (its steps as Life derived them, its goal and next step, the assignment's notes; never a quote): Life's reading, never an event's text. On
 his Mac and the web an agent of his own Life is free (his decision of 19 Nov 2026): the desk runs it in the runtime's
 no-ask mode, approves every ask, and gives it his login environment. It can run any command, read, change or delete any
 file, install software, browse, read his mail and messages, and read his secrets (his shell's keys, 1Password). Life's
@@ -53,10 +53,10 @@ send, reply or forward, `imsg send`, `osascript` telling Messages or Mail to sen
 use on a messaging site or app, and a `gh` post (an issue, a comment, a review) except on the repos he listed
 (`desk.agentPostRepos`, his word of 20 Nov 2026) with the body ending with `AGENT_POST_SIGNATURE`: there an agent's
 words reach other people in his name without his yes on the text, and the agent is told to post only facts and
-questions and to put anything that commits him on a card. A failure of the guard refuses the call. The guard is
+questions and to put anything that commits him on a card. It also refuses an agent's writes through his own Life connector, which its session carries with his token: `answer_check`, `request_decision`, `change_directory_entry`, `change_registered_agent`, `change_todo_item`, `correct_memory` and `tell_life`, on any server but its own `desk` door, named whole, and any name Codex shortened that could be one of them (the direction session's ruling, under his word of 20 Nov 2026); the reads stay free. A failure of the guard refuses the call. The guard is
 partial: it reads a call's text, so a tab already open on a messaging site, a script that builds an address or URL, `gh api`
 or `curl` to a service's API, `node_repl`, `javascript_tool`, full-screen computer use (it names no app), a shell the agent starts and then types into
-(Codex's `write_stdin`) or another program the agent starts get past it, and the agent can edit the guard's file in a
+(Codex's `write_stdin`) or another program the agent starts get past it, a turn he types himself into an agent's session in the app runs without the guard (until the Life plugin exists), and the agent can edit the guard's file in a
 checkout. It also refuses a little too much: any call that names a messaging site, reading Gmail in a browser included. Submitting a form, booking, paying, `gh pr create` and pushes stay its
 instruction only. A turn that fails keeps the adapter's last error lines in the desk's store; with his environment passed
 in, those lines may hold whatever the adapter printed. Its door
@@ -68,7 +68,7 @@ the Mac's access (his files, his accounts). The risk that remains: an agent acti
 refuses, a send by a path the guard can't read included; past the guard, the gate is its instruction, not enforcement. Between that and harm stand the model's judgment, wakes
 that hand facts and never words (a payment's category, the money app's own word, is a fact; a text can choose a wake, never ride on it), and Life's own send path (a card's draft, his answer). The risk is his, accepted.
 
-A card that asks him to pay (`doneSeenBy: "payment"`) makes Life read his payments on the Mac, on his "I've paid" and every 5 minutes while the card is open, and match amounts only (money out of the card's amount in its currency, on or after the card's day; never a name or a merchant): its asker learns only which payment matched (its event id). Nothing of it leaves the Mac.
+A card that asks him to pay (`doneSeenBy: "payment"`) makes Life read his payments on the Mac, on his "I've paid" and every 5 minutes while the card is open, and match by code (money out of the card's amount in its currency, on or after the card's day, whose merchant holds every word of the card's payee): its asker learns only which payment matched (its event id). Nothing of it leaves the Mac.
 
 ## Network
 

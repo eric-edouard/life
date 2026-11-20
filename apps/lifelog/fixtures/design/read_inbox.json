@@ -237,8 +237,12 @@
           "takes": "person or name"
         },
         {
+          "id": "organization",
+          "label": "Organization"
+        },
+        {
           "id": "not-relevant",
-          "label": "Not a person"
+          "label": "Neither"
         }
       ],
       "pushId": "push_name_bastien",

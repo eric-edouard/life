@@ -43,7 +43,8 @@ export async function recordFactCheckAnswer(
   const answered = new Set(
     [...readFactCheckAnswers()].flatMap(([r, a]) => (a.answer ? [r] : []))
   );
-  if (!(link && o && isEndingOpen(ref, { answered, doubted }))) {
+  const later = link && observations.find((x) => x.id === link.later);
+  if (!(link && o && isEndingOpen(ref, { answered, doubted }, later))) {
     throw new Error(`Not done: no open ending check ${ref}.`);
   }
   if (!lines.some((s) => s.ref === ref && s.endedBy === link.later)) {
@@ -57,8 +58,7 @@ export async function recordFactCheckAnswer(
         ref,
         schemaVersion: 1,
         // Where the later step's words were said, as the check showed them (an episode has no channel).
-        source:
-          observations.find((x) => x.id === link.later)?.source.channel ?? null,
+        source: later?.source.channel ?? null,
         text: endingGuessOf(o.text),
         units: [o.unit],
       },

@@ -4,8 +4,8 @@ import SwiftUI
 /// The create sheet (`PersonCreate`, `OrgCreate`): who a name card's name is, ready to create in one press. Person or
 /// Organization when the card offers both (switching keeps the name), the fields pre-filled and changed in place, what
 /// will be attached, then Create, whose button says what the answer does: Creating…, Created (held 0.6 s, then `done`),
-/// or back at rest with Life's reason above it. Life's guess of who they are is never sent as his words: a note goes
-/// only when he wrote it.
+/// or back at rest with Life's reason above it; when it may have happened anyway, only Close (the result screen's rule,
+/// `canTryAgain`). Life's guess of who they are is never sent as his words: a note goes only when he wrote it.
 struct CreateSheet: View {
     let check: Check
     let done: (AnswerRequest) -> Void
@@ -14,7 +14,7 @@ struct CreateSheet: View {
 
     @Environment(LifeStore.self) private var life
     @Environment(\.dismiss) private var dismiss
-    @State private var kind = Kind.person
+    @State private var kind: Kind
     @State private var name: String
     @State private var who: String
     @State private var what = ""
@@ -22,24 +22,30 @@ struct CreateSheet: View {
     @State private var sent: AnswerRequest?
     @State private var fieldsHeight: CGFloat = 0
 
-    init(check: Check, name: String, done: @escaping (AnswerRequest) -> Void) {
+    init(check: Check, name: String, isOrganization: Bool = false, done: @escaping (AnswerRequest) -> Void) {
         (self.check, self.done) = (check, done)
+        _kind = State(initialValue: isOrganization ? .organization : .person)
         _name = State(initialValue: name)
         _who = State(initialValue: Self.guessOf(check))
     }
 
-    /// Life's guess of who they are, from where the name was said: "Mentioned by Nora, about her quote".
+    /// Life's guess of who they are, from where the name was said: "Mentioned by Nora Keller, about “Quote for Nora”".
     private static func guessOf(_ check: Check) -> String {
         let by = check.said?.by.flatMap { $0 == "You" ? nil : " by \($0)" } ?? ""
-        let about = check.onMatters?.first.map { " about \($0.name)" } ?? ""
+        let about = check.onMatters?.first.map { " about “\($0.name)”" } ?? ""
         return by.isEmpty && about.isEmpty ? "" : "Mentioned" + by + (by.isEmpty || about.isEmpty ? "" : ",") + about
     }
 
-    private var isGuess: Bool { !who.isEmpty && who == Self.guessOf(check) }
+    private var isGuess: Bool { Check.isGuess(who, Self.guessOf(check)) }
     private var isOrganization: Bool { kind == .organization }
     private var state: ActionState<ActionProof> { sent == nil ? .idle : life.state(of: .answer(ref: check.ref)) }
     private var isDone: Bool { if case .succeeded = state { true } else { false } }
-    private var isFailed: Bool { if case .failed = state { true } else { false } }
+    /// Pressed and not back at rest: the kind and the fields stay as they were sent.
+    private var isLocked: Bool {
+        guard sent != nil else { return false }
+        if case .failed(let failure, _) = state { return !failure.canTryAgain }
+        return true
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
@@ -49,7 +55,9 @@ struct CreateSheet: View {
                     choices: [Kind.person, .organization],
                     selection: Binding(get: { kind }, set: { if let chosen = $0 { kind = chosen } }),
                     title: { $0 == .person ? "Person" : "Organization" },
-                    icon: { $0 == .person ? "person" : "building.2" })
+                    icon: { $0 == .person ? "person" : "building.2" }
+                )
+                .disabled(isLocked)
             }
             // The fields hug what they hold; with the keyboard up they scroll under the title, the rest stays put.
             ScrollView {
@@ -100,7 +108,7 @@ struct CreateSheet: View {
         .padding(.vertical, Metrics.Spacing.xs)
         .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.card))
         // Pressed: the fields stop taking words, which also puts the keyboard away.
-        .disabled(sent != nil && !isFailed)
+        .disabled(isLocked)
     }
 
     /// What his answer attaches, from what it rides on: "3 mentions and 1 matter will be attached"; nil when nothing.
@@ -127,6 +135,9 @@ struct CreateSheet: View {
                 Label("Created", systemImage: "checkmark")
             }
             .buttonStyle(.pill(.done)).allowsHitTesting(false)
+        case .failed(let failure, _) where !failure.canTryAgain:
+            // It may have happened: never again blind. Closed, the inbox read after the answer says where it stands.
+            Button("Close") { dismiss() }.buttonStyle(.pill(.filled))
         case .idle, .failed:
             Button(action: create) {
                 Label("Create", systemImage: isOrganization ? "building.2" : "person.badge.plus")
@@ -137,9 +148,10 @@ struct CreateSheet: View {
     }
 
     private func create() {
-        guard let name = trimmed(name) else { return }
-        let note = isOrganization ? trimmed(what) : isGuess ? nil : trimmed(who)
-        guard let request = check.answer(creating: name, note: note, asOrganization: isOrganization) else { return }
+        let request = check.answer(
+            creating: name, note: isOrganization ? what : who, guess: isOrganization ? nil : Self.guessOf(check),
+            asOrganization: isOrganization)
+        guard let request else { return }
         sent = request
         Task { await life.answer(request) }
     }

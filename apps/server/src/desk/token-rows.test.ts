@@ -64,8 +64,8 @@ test("a turn running across a report is not listed; once ended it shows in the n
     tokens: [number, number, number]
   ) =>
     db.run(
-      "insert into turn (agent_id, cause, started_at, ended_at, tokens_in, tokens_cached, tokens_out) values (?, 'start', '2026-09-09T10:00:00.000Z', ?, ?, ?, ?)",
-      [agent, ended, ...tokens]
+      "insert into turn (agent_id, assignment_id, cause, started_at, ended_at, tokens_in, tokens_cached, tokens_out) values (?, ?, 'start', '2026-09-09T10:00:00.000Z', ?, ?, ?, ?)",
+      [agent, `asg_${agent}`, ended, ...tokens]
     );
   run("agt_old", "2026-09-09T11:00:00.000Z", [5, 0, 5]);
   run("agt_one", "2026-09-10T10:00:00.000Z", [7, 3, 2]);

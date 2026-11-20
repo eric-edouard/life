@@ -34,8 +34,8 @@ const heldOn = (...steps: string[]) =>
   isHeldOf(
     steps.map((step) => ({
       agent: "agt_000000000001",
-      endedAt: null,
-      kind: "asked" as const,
+      closedAt: null,
+      openedBy: "owner" as const,
       outcome: null,
       project: null,
       status: "active",
@@ -120,7 +120,7 @@ test("hand-outs count from a given instant only", () => {
   const { desk } = setup();
   const id = register(desk, { brief: "Test brief", runtime: "fake" });
   desk.db.run(
-    "update agent set is_handed_out = 1, created_at = ? where id = ?",
+    "update assignment set opened_by = 'desk', opened_at = ? where agent_id = ?",
     [new Date(clock().getTime() - 2 * DAY - HOUR).toISOString(), id]
   );
   expect(
@@ -134,16 +134,18 @@ test("hand-outs count from a given instant only", () => {
 test("a card is overdue for an active handed-out agent whose first turn began 2 hours ago and that asked none", () => {
   const now = clock().getTime();
   const a = {
+    closed_at: null as string | null,
     first_begun_at: new Date(now - CARD_WITHIN_MS).toISOString(),
-    is_handed_out: 1,
-    status: "active" as const,
+    opened_by: "desk" as const,
   };
   expect(isCardOverdue(a, false, now)).toBe(true);
   expect(isCardOverdue(a, false, now - 1)).toBe(false);
   expect(isCardOverdue(a, true, now)).toBe(false);
   expect(isCardOverdue({ ...a, first_begun_at: null }, false, now)).toBe(false);
-  expect(isCardOverdue({ ...a, is_handed_out: 0 }, false, now)).toBe(false);
-  expect(isCardOverdue({ ...a, status: "ended" as const }, false, now)).toBe(
+  expect(isCardOverdue({ ...a, opened_by: "owner" as const }, false, now)).toBe(
     false
   );
+  expect(
+    isCardOverdue({ ...a, closed_at: "2026-11-18T09:00:00.000Z" }, false, now)
+  ).toBe(false);
 });

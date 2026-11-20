@@ -1,7 +1,6 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { z } from "zod";
 import { daysBefore } from "../core/clock";
 import { FULL_DISK } from "../core/files";
 import { log } from "../core/log";
@@ -38,7 +37,6 @@ import { bridgeCommand } from "./bridges";
 import {
   changeDirectoryEntry,
   DirectoryEntryChange,
-  OrganizationChange,
 } from "./change-directory-entry";
 import {
   Asked,
@@ -53,7 +51,6 @@ import { localKey } from "./http/local-key";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
-import { migrateSettings } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { status, watch } from "./watch";
@@ -204,11 +201,9 @@ const commands: Record<string, () => number | Promise<number>> = {
    * (`changeDirectoryEntry`): checked as `validate` checks, then committed in his data repo. Never run by a desk agent.
    */
   async "change-directory-entry"() {
-    let change: DirectoryEntryChange | OrganizationChange;
+    let change: DirectoryEntryChange;
     try {
-      change = z
-        .union([OrganizationChange, DirectoryEntryChange])
-        .parse(JSON.parse(process.argv[3] ?? ""));
+      change = DirectoryEntryChange.parse(JSON.parse(process.argv[3] ?? ""));
     } catch (e) {
       console.error(
         `usage: bun life change-directory-entry '<json>'\n${(e as Error).message}`
@@ -476,8 +471,6 @@ export async function main(more: typeof commands = {}) {
   process.on("uncaughtException", crashed);
   process.on("unhandledRejection", crashed);
   try {
-    // The settings' core switches gone, before the command reads any (host/migrate.ts).
-    migrateSettings();
     process.exit(await command());
   } catch (e) {
     crashed(e);

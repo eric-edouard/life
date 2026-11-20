@@ -11,19 +11,35 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 /// What Life's server tests wrote (`fixtures/wire/life/`) read with the phone's models: a read that changes shape fails
 /// there first, then here, naming the model.
-/// The simulator's design data reads with the phone's models: a Kit change that breaks it fails here, not on screen.
-@Test func theDesignDataDecodes() throws {
-    struct Inbox: Decodable { let checks: [Check] }
-    struct Matters: Decodable { let matters: [MatterRow] }
-    struct Matter: Decodable {
-        let steps: [String: [MatterStep]]
-        let agents: [RegisteredAgent]
+#if DEBUG
+    /// The simulator's design data, put together as the fixture answers with it (`DesignReplies`), reads with the phone's own
+    /// reply models: a reply that breaks a model (a field gone, a shape changed) fails here, not on screen.
+    @Test func theDesignDataDecodes() throws {
+        func object(_ name: String) throws -> [String: Any] {
+            try #require(JSONSerialization.jsonObject(with: Data(designText(name).utf8)) as? [String: Any])
+        }
+        func reply<V: Decodable>(_ type: V.Type, _ value: [String: Any]) throws -> V {
+            try decoded(type, String(decoding: JSONSerialization.data(withJSONObject: value), as: UTF8.self))
+        }
+        let read = try object("read_inbox")
+        let checks = try #require(read["checks"] as? [[String: Any]])
+        let inbox = try reply(Inbox.self, DesignReplies.inbox(read, checks: checks))
+        #expect(!inbox.checks.isEmpty && inbox.total == inbox.checks.count)
+        let rows = try #require(try object("read_matters")["matters"] as? [[String: Any]])
+        #expect(try reply(MatterList.self, DesignReplies.matters(rows)).matters.count == rows.count)
+        let agents = try object("read_registered_agents")
+        #expect(try !decoded(RegisteredAgents.self, designText("read_registered_agents")).agents.isEmpty)
+        let matterRead = try object("read_matter")
+        let allAgents = (agents["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])
+        for row in rows {
+            let matter = try reply(
+                Matter.self,
+                DesignReplies.matter(
+                    row, agents: allAgents, steps: matterRead["steps"] as? [String: Any] ?? [:], checks: checks))
+            #expect(!matter.steps.isEmpty, "\(matter.row.id)")
+        }
     }
-    #expect(try !decoded(Inbox.self, designText("read_inbox")).checks.isEmpty)
-    #expect(try !decoded(Matters.self, designText("read_matters")).matters.isEmpty)
-    #expect(try !decoded(Matter.self, designText("read_matter")).steps.isEmpty)
-    #expect(try !decoded(RegisteredAgents.self, designText("read_registered_agents")).agents.isEmpty)
-}
+#endif
 
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
@@ -96,6 +112,11 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.project == MatterProject(id: "shop-fit-out", name: "Shop fit-out", status: .active))
     #expect(list.matters.map(\.isParked) == [false, false, false])
     #expect(list.matters[2].goal == nil)
+    // His pick, Life's, and none (the phone shows the area's).
+    #expect(list.matters.map(\.icon?.by) == [.owner, nil, .life])
+    #expect(list.matters.map(\.icon?.key) == ["tools", nil, "key"])
+    #expect(list.matters.compactMap(\.icon?.key).allSatisfy { MatterIcons.symbol($0) != nil })
+    #expect(MatterIcons.symbol("a_new_key") == nil)
     #expect(list.matters[2].important == nil)
     #expect(list.project == nil)
 
@@ -108,6 +129,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
     #expect(matter.row.name == "Mend Gran's watch")
+    #expect(matter.row.icon == MatterRow.Icon(by: .owner, key: "tools"))
     #expect(matter.steps.count == 2)
     #expect(matter.steps[1].ending?.by == .ticked)
     #expect(matter.checks.map(\.group) == [.decision, .ending])
@@ -297,6 +319,33 @@ private func everyKindOfCheck() throws -> [Check] {
 
     // No button reads like the words a model is given.
     #expect(all.flatMap(\.options).allSatisfy { !$0.label.contains("`") && $0.label.count < 30 })
+}
+
+/// Only a name card opens the create sheet: a voice's new name goes to lifelog alone, and a Contacts card's `about` holds
+/// its handles, never a name to create. Its note is his words only: trimmed, and never Life's guess (life#737).
+@Test func onlyANameCardCreatesBySheet() throws {
+    let all = try everyKindOfCheck()
+    func card(_ group: CheckGroup) throws -> Check { try #require(all.first { $0.group == group }) }
+    let name = try card(.name)
+    #expect(name.createsBySheet && name.askedName != nil)
+    let organization = try #require(name.organizationOption)
+    #expect(name.createsOrganizationBySheet(organization), "\"Organization\" opens the sheet, never answers at once")
+    #expect(name.options.filter(name.createsOrganizationBySheet).map(\.id) == ["organization"])
+    for group in [CheckGroup.voice, .contactsCard] {
+        let check = try card(group)
+        #expect(!check.createsBySheet && !check.createsByName && check.askedName == nil, "\(group)")
+        #expect(check.answer(creating: "Lou", note: "Gran's friend", asOrganization: false) == nil, "\(group)")
+    }
+    let guess = "Mentioned by Nora Keller, about “Quote”"
+    let create = { (note: String) in
+        name.answer(creating: " Sam Vale ", note: note, guess: guess, asOrganization: false)
+    }
+    #expect(create(guess + " ")?.note == nil, "a whitespace edit of Life's guess is not his words")
+    #expect(
+        create(guess.replacing(" by ", with: "  by "))?.note == nil, "nor is a space doubled between its words")
+    #expect(create("  ")?.note == nil)
+    #expect(create(" Nora's architect ")?.note == "Nora's architect")
+    #expect(create("x")?.name == "Sam Vale")
 }
 
 @Test func theAskerIsNamedOnce() throws {

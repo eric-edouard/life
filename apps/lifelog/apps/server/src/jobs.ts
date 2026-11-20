@@ -7,34 +7,19 @@ import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   transcriptionJobs as jobs,
-  sources,
-  speechFragments,
   transcripts,
   UNTIL_CREDITS,
-  waitsForCredits,
 } from "@lifelog/db/schema";
-import {
-  and,
-  count,
-  eq,
-  gt,
-  inArray,
-  isNull,
-  lte,
-  ne,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, eq, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import type { SQLiteUpdateSetSource } from "drizzle-orm/sqlite-core";
 import type { z } from "zod";
-import { emailOwner } from "./alert";
+
 import type { AudioStore } from "./audio-store";
 import { logChange } from "./change-log";
 import { type Config, singleFlight } from "./config";
-import { cut, touchesQuiet, withdrawRows } from "./cutter";
+import { cut, touchesQuiet, withdrawJob } from "./cutter";
 import { ownerZoneAt, reportError } from "./diagnostics";
 import {
-  credits,
   failureReason,
   fetchTranscript,
   isTranscript,
@@ -49,8 +34,16 @@ import {
 import { record } from "./events";
 import { markDirty, regroupAfterCommit } from "./grouping";
 import { hearRouted } from "./hear-routed";
+import { back, fail, MAX_ATTEMPTS, onSend, retry } from "./job-sends";
 import { type MacSocket, macSocket } from "./mac-socket";
 import { barOf, type Route, routeTurns } from "./route-turns";
+import { creditsWatch } from "./scribe-credits";
+import {
+  atScribe,
+  LOST_AFTER_MS,
+  type Priority,
+  scribeSlots,
+} from "./scribe-slots";
 import { speechServiceSet, transcribeBlock } from "./speech-service";
 import { switches } from "./switches";
 import { rebuildTurnsIn } from "./turns";
@@ -60,85 +53,11 @@ export type Job = typeof jobs.$inferSelect;
 export const getJob = (db: Db, id: string) =>
   db.query.transcriptionJobs.findFirst({ where: eq(jobs.id, id) }).sync();
 
-// One send of a job: the row as it was read, `requestSentAt` set when it left (`claim`).
-type Send = Pick<Job, "attempts" | "id" | "requestSentAt">;
-
-// The one way a submitted job changes: only while it is still the send that was read, so a stale
-// reader (a reconcile that read before a retry, a late webhook) never moves a newer
-// send; the feed hears of it. False when the job had moved on.
-function onSend(db: Db, send: Send, set: SQLiteUpdateSetSource<typeof jobs>) {
-  return db.transaction((tx) => {
-    const moved = tx
-      .update(jobs)
-      .set(set)
-      .where(
-        and(
-          eq(jobs.id, send.id),
-          eq(jobs.state, "submitted"),
-          send.requestSentAt
-            ? eq(jobs.requestSentAt, send.requestSentAt)
-            : isNull(jobs.requestSentAt)
-        )
-      )
-      .returning({ id: jobs.id })
-      .get();
-    if (moved) {
-      logChange(tx, "job", send.id);
-    }
-    return Boolean(moved);
-  });
-}
-
-// Not sent after all (ElevenLabs busy, the bucket unreachable): queued again, not an attempt.
-const BUSY_RETRY_MINUTES = 1;
-const back = (db: Db, send: Send, error: string | null) =>
-  onSend(db, send, {
-    error,
-    nextAttemptAt: new Date(clock().getTime() + BUSY_RETRY_MINUTES * 60_000),
-    requestSentAt: null,
-    state: "queued",
-  });
-
-// Never sent again: ElevenLabs refused this audio, the bucket lost it, a send that may have been
-// billed was never answered or reported failed, or every attempt failed. Its pages stay with the
-// job (`holderOf`), so nothing buys them again.
-const fail = (db: Db, send: Send, error: string) =>
-  onSend(db, send, { error, state: "failed" });
-
-// A send that surely bought nothing (lost by ElevenLabs, a failure it reported) goes again, from
-// the bucket, after 1 then 2 minutes; the third such failure fails it, so a failure that repeats
-// never loops. Its provider ids are cleared, so nothing about the earlier send is taken for the next
-// one's.
-const MAX_ATTEMPTS = 3;
-function retry(db: Db, send: Send, error: string) {
-  const attempts = send.attempts + 1;
-  if (attempts >= MAX_ATTEMPTS) {
-    return onSend(db, send, {
-      attempts,
-      error: `${error} (${attempts} attempts: not sent again)`,
-      state: "failed",
-    })
-      ? ("failed" as const)
-      : null;
-  }
-  return onSend(db, send, {
-    attempts,
-    error,
-    nextAttemptAt: new Date(clock().getTime() + 2 ** send.attempts * 60_000),
-    providerRequestId: null,
-    providerTranscriptionId: null,
-    requestSentAt: null,
-    state: "queued",
-  })
-    ? ("retried" as const)
-    : null;
-}
-
 interface ProviderMatch {
-  // The send the webhook answers (`attempts` when it went), absent from sends before it was kept.
-  attempt?: number | null;
   jobId?: string | null;
   requestId?: string | undefined;
+  // The send the webhook answers: its POST's instant, absent before 20 Nov 2026.
+  sentAt?: number | null;
 }
 
 const findJob = (db: Db, match: ProviderMatch) =>
@@ -217,9 +136,10 @@ function complete(
 }
 
 // A callback without a usable transcript. A reported failure of the job's current send is an
-// attempt; one of an earlier send (its `attempt` is not the job's) changes nothing, so a late
-// failure never sends again a job already back at ElevenLabs. A send that may have been billed is
-// never sent again: its failure fails it.
+// attempt; one of an earlier send (its POST is not the job's) changes nothing, so a late
+// failure never sends again a job already back at ElevenLabs. One from before 20 Nov names no POST:
+// it counts only under the job's current request id; in doubt it changes nothing, and reconcile
+// settles the job. A send that may have been billed is never sent again: its failure fails it.
 function noTranscript(db: Db, match: ProviderMatch, failed: string | null) {
   const job = findJob(db, match);
   if (!job) {
@@ -228,7 +148,11 @@ function noTranscript(db: Db, match: ProviderMatch, failed: string | null) {
   if (!failed) {
     return "kept";
   }
-  if (typeof match.attempt === "number" && match.attempt !== job.attempts) {
+  const current =
+    typeof match.sentAt === "number"
+      ? match.sentAt === job.requestSentAt?.getTime()
+      : Boolean(match.requestId) && match.requestId === job.providerRequestId;
+  if (!current) {
     return "stale";
   }
   if (job.maybeBilled) {
@@ -299,20 +223,22 @@ function readWebhook(body: string) {
   };
 }
 
-// A send not answered after this was lost by ElevenLabs if it no longer knows it; until then it
-// counts as one of the transcriptions running there.
-const LOST_AFTER_MS = 30 * 60 * 1000;
 // A send ElevenLabs may have taken without giving an id to ask by waits this long for its webhook.
 const UNANSWERED_MS = 24 * 3600 * 1000;
-// A block at the speech service is done well within this (its answer, then Scribe's for the routed
-// turns); still submitted after it, a restart cut it off.
+// A block at the speech service is done well within this from its claim (its audio read, its
+// answer, a wait for a Scribe slot), and its routed turns within this from their POST; still
+// submitted after it, a restart cut it off.
 const SPEECH_CUT_OFF_MS = 10 * 60 * 1000;
+// A block heard there stops waiting for a Scribe slot this long before that, so reconcile never takes
+// a live wait for a send cut off.
+const SLOT_WAIT_MARGIN_MS = 60 * 1000;
 
 // What the 5-minute tick settles about one submitted job, without buying anything: "applied" when
 // its transcript came, "retried" or "failed" when it left submitted, null while it waits.
 // - With a transcription id, it is fetched. One ElevenLabs doesn't know LOST_AFTER_MS after it was
 //   sent was lost there (it bills only the transcripts it makes: Oct 13, 3 lost jobs, 44 min,
-//   absent from its usage) and goes again.
+//   absent from its usage) and goes again. One sent before 20 Nov has no POST clock to say so
+//   (marked maybe billed by the migration `legacy_scribe_sends`): it waits the day below instead.
 // - Without one (a send cut off by a restart, a 5xx, a timeout, a 202 without ids), ElevenLabs may
 //   have it, and only its webhook can say: it is never sent again. A day without a webhook fails
 //   it, marked maybe billed; a webhook after that still completes it. A host without a webhook
@@ -328,21 +254,24 @@ async function settle(
   if (job.transcriber === "speech") {
     return settleSpeech(db, job, age);
   }
-  if (!job.providerTranscriptionId) {
-    if (age <= UNANSWERED_MS) {
-      return null;
-    }
-    return onSend(db, job, {
+  const unanswered = () =>
+    age > UNANSWERED_MS &&
+    onSend(db, job, {
       error:
         "no answer from ElevenLabs in a day: it may have billed it, so it is not sent again",
       maybeBilled: true,
       state: "failed",
     })
-      ? "failed"
+      ? ("failed" as const)
       : null;
+  if (!job.providerTranscriptionId) {
+    return unanswered();
   }
   const raw = await fetchTranscript(config, job.providerTranscriptionId);
   if (raw === "not_found") {
+    if (job.maybeBilled) {
+      return unanswered();
+    }
     return age > LOST_AFTER_MS
       ? retry(db, job, "lost by the provider: no transcript and no callback")
       : null;
@@ -363,7 +292,13 @@ function settleSpeech(db: Db, job: Job, age: number) {
     : back(db, job, "cut off at the speech service") && ("retried" as const);
 }
 
-async function reconcile(db: Db, config: Config, onCompleted: OnCompleted) {
+// `settled` runs after each job it settles, so a slot it frees is granted at once.
+async function reconcile(
+  db: Db,
+  config: Config,
+  onCompleted: OnCompleted,
+  settled: () => void
+) {
   const pending = db
     .select()
     .from(jobs)
@@ -372,10 +307,17 @@ async function reconcile(db: Db, config: Config, onCompleted: OnCompleted) {
   // ponytail: all pending jobs fetched at once; fine for one owner's backlog.
   const outcomes = await Promise.all(
     pending.map((job) =>
-      settle(db, config, job, onCompleted).catch((error: unknown) => {
-        reportError(db, "reconcile", error);
-        return null;
-      })
+      settle(db, config, job, onCompleted)
+        .then((outcome) => {
+          if (outcome) {
+            settled();
+          }
+          return outcome;
+        })
+        .catch((error: unknown) => {
+          reportError(db, "reconcile", error);
+          return null;
+        })
     )
   );
   const result = {
@@ -388,12 +330,6 @@ async function reconcile(db: Db, config: Config, onCompleted: OnCompleted) {
     record(db, "elevenlabs.reconcile", result);
   }
   return result;
-}
-
-interface Credits {
-  checkedAt: string;
-  limit: number;
-  used: number;
 }
 
 // What ElevenLabs answered a send.
@@ -447,28 +383,9 @@ const transcriberNow = (config: Config) =>
     ? ("speech" as const)
     : ("scribe" as const);
 
-// Under 20 % of the plan left is "low"; the owner hears of it, and of "out", at most this often.
-const CREDITS_LOW_SHARE = 0.2;
-const CREDITS_ALERT_EVERY_MS = 12 * 3600 * 1000;
-const CREDITS_EMAIL = {
-  low: "ElevenLabs credits are under 20 %",
-  out: "ElevenLabs credits are used up: what needs Scribe waits",
-} as const;
-const levelOf = (plan: Credits | null) => {
-  if (!plan) {
-    return "ok" as const;
-  }
-  if (plan.used >= plan.limit) {
-    return "out" as const;
-  }
-  return plan.limit - plan.used < plan.limit * CREDITS_LOW_SHARE
-    ? ("low" as const)
-    : ("ok" as const);
-};
-
 // The one sender. `work()` first closes the blocks that are due (cutter.ts `cut`), then sends queued jobs
-// whose next attempt is due, at most ELEVENLABS_SLOTS at ElevenLabs at once, oldest first, each read
-// from the bucket. A stored fragment, the phone's timeline, a webhook, every state the Mac sends,
+// whose next attempt is due, oldest first, each read from the bucket: to Scribe while it has a slot
+// (scribe-slots.ts, shared with every other Scribe send), to the speech service one at a time. A stored fragment, the phone's timeline, a webhook, a freed Scribe slot, every state the Mac sends,
 // the switch turned back on, the 5-minute tick and the time the next block may close start it
 // (`poke`); a call while it runs makes it go round once more.
 // Nothing is sent while transcription is switched off. Credits used up, nothing goes to ElevenLabs
@@ -485,44 +402,92 @@ export function jobWorker(
   now = () => clock().getTime()
 ) {
   let wake: ReturnType<typeof setTimeout> | undefined;
-  let plan: Credits | null = null;
+  const plan = creditsWatch(db, config, now);
   // Scribe takes sends while its credits last.
-  const mayScribe = () => levelOf(plan) !== "out";
+  const mayScribe = () => plan.level() !== "out";
   // Set once by services.ts; nothing follows in tests that build a worker alone.
   let onCompleted: OnCompleted = () => Promise.resolve();
   const completed: OnCompleted = (job) => onCompleted(job);
-  const alerted: Partial<Record<"low" | "out", number>> = {};
+  // A slot that frees (a send's end, a settled job, dictation done) sends what is queued.
+  const slots = scribeSlots(
+    config.ELEVENLABS_SLOTS,
+    () => atScribe(db),
+    () => poke()
+  );
 
-  // Queued jobs move to submitted, as many as there is room for; requestSentAt is set as they
-  // leave, so a send cut off by a restart is known (reconcile). The one way to ElevenLabs, so its
-  // gate is the last word: still queued, ending where the Mac vouches, and no quiet range touching
-  // it. The cutter checks the same before a job exists, on purpose: there a late range withdraws
-  // one fragment; here it withdraws the whole job, which a range coming after its block closed
-  // (the phone's playback) still needs. The speech service takes one block at a time, so it gets one.
+  // Every paid send of the server (and of dictation): `slots.send`, with the switch and the credits
+  // checked again once it holds its slot, before the caller's own claim (`claimSend`).
+  const paidSend = <T>(
+    key: string,
+    until: { priority: Priority; signal?: AbortSignal; waitMs: number },
+    claimSend: () => string | null,
+    post: () => Promise<T>
+  ) =>
+    slots.send(
+      key,
+      until,
+      () => {
+        if (!switches().transcription) {
+          return "transcription is switched off";
+        }
+        return mayScribe() ? claimSend() : "ElevenLabs credits are used up";
+      },
+      post
+    );
+
+  // How long a job may wait for its slot: a block heard at the speech service, what is left of its
+  // time since its claim (reconcile never takes a live wait for a send cut off); a queued job picked
+  // for Scribe, none (it was picked for a free slot, and is picked again once one frees).
+  const slotWaitOf = (job: Job) =>
+    job.requestSentAt
+      ? Math.max(
+          0,
+          job.requestSentAt.getTime() +
+            SPEECH_CUT_OFF_MS -
+            SLOT_WAIT_MARGIN_MS -
+            clock().getTime()
+        )
+      : 0;
+
+  // A job's send to Scribe leaves now, holding its slot: still the job that was read and no quiet range
+  // touching it, its row records the POST (`requestSentAt`, which reconcile's clocks run from), with
+  // `set`. The send to use from here, or why not.
+  function dispatch(job: Job, set: SQLiteUpdateSetSource<typeof jobs>) {
+    if (job.map && touchesQuiet(db, job.map)) {
+      return "a quiet range touches it";
+    }
+    const sent = {
+      ...job,
+      requestSentAt: clock(),
+      state: "submitted" as const,
+    };
+    return onSend(db, job, {
+      ...set,
+      requestSentAt: sent.requestSentAt,
+      state: "submitted",
+    })
+      ? sent
+      : "it moved on";
+  }
+
+  // Queued jobs due to go, as many as there is room for, oldest first. The speech service takes one
+  // block at a time and no Scribe slot: it is claimed here, `requestSentAt` its claim, so a send cut
+  // off by a restart is known (reconcile). One for Scribe stays queued until its audio is read and it
+  // holds its slot (`toScribe`). Each is still queued, ends where the Mac vouches and has no quiet
+  // range touching it: the cutter checks the same before a job exists, on purpose: there a late range
+  // withdraws one fragment; here it withdraws the whole job, which a range coming after its block
+  // closed (the phone's playback) still needs.
   const claim = () => {
     const vouched = mac.vouchedThrough();
     const at = clock();
     const transcriber = transcriberNow(config);
+    const room = transcriber === "speech" ? 1 : slots.room();
+    if (room <= 0) {
+      return { picked: [], quiet: [], transcriber };
+    }
     return db.transaction((tx) => {
-      const atProvider = tx
-        .select({ n: count() })
-        .from(jobs)
-        .where(
-          and(
-            eq(jobs.state, "submitted"),
-            gt(jobs.requestSentAt, new Date(at.getTime() - LOST_AFTER_MS))
-          )
-        )
-        .get();
-      const room = Math.min(
-        config.ELEVENLABS_SLOTS - (atProvider?.n ?? 0),
-        transcriber === "speech" ? 1 : Number.POSITIVE_INFINITY
-      );
-      if (room <= 0) {
-        return { claimed: [], quiet: [] };
-      }
       const due = tx
-        .select({ id: jobs.id, map: jobs.map })
+        .select()
         .from(jobs)
         .where(
           and(
@@ -539,26 +504,34 @@ export function jobWorker(
       const quiet = due
         .filter((job) => job.map && touchesQuiet(tx, job.map))
         .map((job) => job.id);
-      const go = due.filter((j) => !quiet.includes(j.id)).map((j) => j.id);
-      const claimed =
-        go.length > 0
-          ? tx
-              .update(jobs)
-              .set({ requestSentAt: at, state: "submitted", transcriber })
-              .where(and(inArray(jobs.id, go), eq(jobs.state, "queued")))
-              .returning()
-              .all()
-          : [];
+      const go = due.filter((j) => !quiet.includes(j.id));
+      if (transcriber === "scribe" || go.length === 0) {
+        return { picked: go, quiet, transcriber };
+      }
+      const claimed = tx
+        .update(jobs)
+        .set({ requestSentAt: at, state: "submitted", transcriber })
+        .where(
+          and(
+            inArray(
+              jobs.id,
+              go.map((j) => j.id)
+            ),
+            eq(jobs.state, "queued")
+          )
+        )
+        .returning()
+        .all();
       logChange(
         tx,
         "job",
         claimed.map((j) => j.id)
       );
-      return { claimed, quiet };
+      return { picked: claimed, quiet, transcriber };
     });
   };
 
-  async function send(job: Job) {
+  async function send(job: Job, transcriber: Job["transcriber"]) {
     let bytes: Uint8Array | null;
     try {
       bytes = job.objectKey ? await audio.get(job.objectKey) : null;
@@ -570,14 +543,51 @@ export function jobWorker(
       fail(db, job, "its audio is not in the bucket");
       return;
     }
-    if (job.transcriber === "speech") {
+    // Checked again once read: a quiet range that came meanwhile keeps it from the speech service
+    // too, and a switched transcriber sends it the new way (a queued job is left for the next claim).
+    let why: string | null = null;
+    if (job.map && touchesQuiet(db, job.map)) {
+      why = "a quiet range touches it";
+    } else if (transcriberNow(config) !== transcriber) {
+      why = "the transcriber changed";
+    }
+    if (why) {
+      if (job.state === "submitted") {
+        back(db, job, why);
+      }
+      return;
+    }
+    if (transcriber === "speech") {
       await hear(job, bytes);
       return;
     }
     await toScribe(job, bytes);
   }
 
+  // A block to Scribe whole, through the one paid path, as a Scribe job; its attempts go on from the
+  // speech service's, so a block never gets more than MAX_ATTEMPTS sends. Not sent, a block heard
+  // there is queued again (not an attempt); a queued one is left as it is.
   async function toScribe(job: Job, bytes: Uint8Array) {
+    let sent = job;
+    const outcome = await paidSend(
+      job.id,
+      { priority: "ordinary", waitMs: slotWaitOf(job) },
+      () => {
+        const left = dispatch(job, { transcriber: "scribe" });
+        if (typeof left === "string") {
+          return left;
+        }
+        sent = { ...left, transcriber: "scribe" };
+        return null;
+      },
+      () => submitWhole(sent, bytes)
+    );
+    if ("unsent" in outcome && job.state === "submitted") {
+      back(db, job, `not sent to Scribe: ${outcome.unsent}`);
+    }
+  }
+
+  async function submitWhole(job: Job, bytes: Uint8Array) {
     const started = performance.now();
     const outcome = await submit(config, job, new Blob([bytes.slice()]));
     record(db, `elevenlabs.${outcome.kind}`, {
@@ -587,6 +597,7 @@ export function jobWorker(
       ...(outcome.kind === "accepted" ? { requestId: outcome.requestId } : {}),
     });
     answered(db, job, outcome, completed);
+    return outcome;
   }
 
   // A block through the speech service: its words, and Scribe's for the turns it routes, cut from
@@ -616,44 +627,55 @@ export function jobWorker(
       return;
     }
     if (route.kind === "whole" || !("heard" in said)) {
-      // Only while it is still this send: a moved job is never bought again. Scribe gets its own
-      // attempts.
-      const scribe = { attempts: 0, transcriber: "scribe" as const };
-      if (onSend(db, job, scribe)) {
-        await toScribe({ ...job, ...scribe }, bytes);
-      }
+      await toScribe(job, bytes);
       return;
     }
+    let sent = job;
     const routed = await hearRouted(
       { config, db },
       bytes,
       said.heard,
       route.routed,
       {
-        // A send that may be billed leaves, only while it is still this send: from here it is never
-        // sent again (`settle`).
-        claim: () => onSend(db, job, { maybeBilled: true }),
         keyterms: job.settings.keyterms,
         ref: { job: job.id },
+        // A send that may be billed leaves, only while it is still this send: from here it is never
+        // sent again (`settle`).
+        send: (post) =>
+          paidSend(
+            job.id,
+            { priority: "ordinary", waitMs: slotWaitOf(job) },
+            () => {
+              const left = dispatch(job, { maybeBilled: true });
+              if (typeof left === "string") {
+                return left;
+              }
+              sent = { ...left, maybeBilled: true };
+              return null;
+            },
+            post
+          ),
+        settle: (outcome) => {
+          if (outcome.kind === "later") {
+            onSend(db, sent, { maybeBilled: false });
+            back(db, sent, outcome.error);
+            return;
+          }
+          complete(db, { jobId: job.id }, outcome.transcript, completed);
+          db.update(jobs)
+            .set({
+              billableSeconds: outcome.billableSeconds,
+              error: outcome.error,
+              maybeBilled: outcome.maybeBilled,
+            })
+            .where(eq(jobs.id, job.id))
+            .run();
+        },
       }
     );
-    if (!routed) {
-      return;
+    if (routed.kind === "unsent") {
+      back(db, job, `not sent to Scribe: ${routed.error}`);
     }
-    if (routed.kind === "later") {
-      onSend(db, job, { maybeBilled: false });
-      back(db, job, routed.error);
-      return;
-    }
-    complete(db, { jobId: job.id }, routed.transcript, completed);
-    db.update(jobs)
-      .set({
-        billableSeconds: routed.billableSeconds,
-        error: routed.error,
-        maybeBilled: routed.maybeBilled,
-      })
-      .where(eq(jobs.id, job.id))
-      .run();
   }
 
   // Credits used up, a block that needs Scribe waits for them. True when it went back.
@@ -699,7 +721,7 @@ export function jobWorker(
   const scribeTranscribes = () => transcriberNow(config) === "scribe";
   const sendable = () =>
     switches().transcription &&
-    !(levelOf(plan) === "out" && scribeTranscribes());
+    !(plan.level() === "out" && scribeTranscribes());
 
   // The blocks that are due close first, and the worker wakes when the next may; a failure there
   // (the bucket down) is logged and never holds back a send.
@@ -719,15 +741,17 @@ export function jobWorker(
   const work = singleFlight(async () => {
     await closeDue();
     while (sendable()) {
-      const { claimed, quiet } = claim();
-      if (claimed.length + quiet.length === 0) {
+      const { picked, quiet, transcriber } = claim();
+      if (picked.length + quiet.length === 0) {
         break;
       }
       // biome-ignore lint/performance/noAwaitInLoops: each round fills the room the last one left
       await Promise.all([
-        ...quiet.map((id) => withdraw(db, audio, id)),
-        ...claimed.map((job) =>
-          send(job).catch((error: unknown) => reportError(db, "send", error))
+        ...quiet.map((id) => withdrawJob(db, audio, id)),
+        ...picked.map((job) =>
+          send(job, transcriber).catch((error: unknown) =>
+            reportError(db, "send", error)
+          )
         ),
       ]);
     }
@@ -737,68 +761,24 @@ export function jobWorker(
     work().catch((error: unknown) => reportError(db, "job worker", error));
   };
 
-  // Reads the plan's credits; the owner gets an email when they fall under 20 % and when they
-  // run out, at most once per 12 h each.
-  async function checkCredits() {
-    const read = await credits(config);
-    if (!read) {
-      return;
-    }
-    const before = levelOf(plan);
-    plan = { ...read, checkedAt: new Date(now()).toISOString() };
-    const level = levelOf(plan);
-    if (level !== "out") {
-      // The blocks waiting for credits go now (after a restart too).
-      const due = db
-        .update(jobs)
-        .set({ error: null, nextAttemptAt: null })
-        .where(waitsForCredits())
-        .returning({ id: jobs.id })
-        .all();
-      logChange(
-        db,
-        "job",
-        due.map((j) => j.id)
-      );
-    }
-    if (level === before) {
-      return;
-    }
-    record(db, "elevenlabs.quota", { level, ...read });
-    if (
-      level === "ok" ||
-      now() - (alerted[level] ?? Number.NEGATIVE_INFINITY) <
-        CREDITS_ALERT_EVERY_MS
-    ) {
-      return;
-    }
-    alerted[level] = now();
-    const status = await emailOwner(config, {
-      key: `credits-${level}-${Math.floor(now() / CREDITS_ALERT_EVERY_MS)}`,
-      subject: `Lifelog: ${CREDITS_EMAIL[level]}`,
-      text: `ElevenLabs: ${read.used} of ${read.limit} credits used. Used up, nothing goes to ElevenLabs until the plan is upgraded or renews: blocks the Mac transcribes alone still complete, the rest wait queued; nothing is lost.`,
-    });
-    record(db, "elevenlabs.quota_alert", { level, status });
-  }
-
   return {
-    checkCredits,
+    checkCredits: plan.check,
     // The plan's credits as last read; null until read.
-    credits: () => plan,
+    credits: plan.read,
     // Credits used up while Scribe transcribes: every block waits (the feed's reason). With the
     // speech service, a conversation says so only for its blocks waiting for credits.
-    creditsOut: () => levelOf(plan) === "out" && scribeTranscribes(),
-    // Whether a Scribe send may go now (a chat voice note's, routes/voice-notes.ts, too).
-    mayScribe,
+    creditsOut: () => plan.level() === "out" && scribeTranscribes(),
     // What follows every stored transcript (services.ts).
     onCompleted(then: OnCompleted) {
       onCompleted = then;
     },
+    // A paid send outside the jobs (a chat voice note's, routes/voice-notes.ts; dictation's).
+    paidSend,
     poke,
     // Every 5 minutes: the credits, what reconcile settles, then whatever can go.
     tick: async () => {
-      await checkCredits();
-      const result = await reconcile(db, config, completed);
+      await plan.check();
+      const result = await reconcile(db, config, completed, slots.wake);
       await work();
       return result;
     },
@@ -806,6 +786,7 @@ export function jobWorker(
     // whatever can go goes.
     webhook(body: string) {
       const applied = applyWebhook(db, body, completed);
+      slots.wake();
       poke();
       return applied;
     },
@@ -814,68 +795,3 @@ export function jobWorker(
 }
 
 export type JobWorker = ReturnType<typeof jobWorker>;
-
-// The pages the server holds of a source: every job's, any state (a failed one's too: nothing buys
-// them again), old parts' once the handover gave them pages, and every fragment's in no job. The
-// phone sends kept speech from every other page; a reinstalled one starts from it after the
-// handover (`handedOver`) only.
-export function sourcePages(db: Db, sourceId: string) {
-  const source = db
-    .select({
-      handedOverAt: sources.handedOverAt,
-      sentThrough: sources.sentThrough,
-    })
-    .from(sources)
-    .where(eq(sources.id, sourceId))
-    .get();
-  const held = db
-    .select({ jobId: jobs.id, pages: jobs.pages })
-    .from(jobs)
-    .where(
-      and(
-        eq(jobs.sourceId, sourceId),
-        sql`json_array_length(${jobs.pages}) > 0`
-      )
-    )
-    .all();
-  const open = db
-    .select({ jobId: speechFragments.id, pages: speechFragments.pages })
-    .from(speechFragments)
-    .where(
-      and(eq(speechFragments.sourceId, sourceId), isNull(speechFragments.jobId))
-    )
-    .all();
-  return {
-    blocks: [...held, ...open].flatMap(({ jobId, pages }) =>
-      pages ? [{ jobId, pages }] : []
-    ),
-    handedOver: Boolean(source?.handedOverAt),
-    sentThrough: source?.sentThrough?.toISOString() ?? null,
-  };
-}
-
-// A job not sent yet whose audio touches a quiet range goes: nothing was bought, its audio leaves
-// the bucket, and its pages are free for the phone to send again (the feed says it went, and the
-// fragments it was made of). False when it was sent meanwhile.
-const withdraw = (db: Db, audio: AudioStore, jobId: string) =>
-  withdrawRows(db, audio, (tx) => {
-    const row = tx
-      .select({
-        key: jobs.objectKey,
-        pages: jobs.pages,
-        sourceId: jobs.sourceId,
-      })
-      .from(jobs)
-      .where(and(eq(jobs.id, jobId), eq(jobs.state, "queued")))
-      .get();
-    if (!row) {
-      return;
-    }
-    const fragments = tx
-      .delete(speechFragments)
-      .where(eq(speechFragments.jobId, jobId))
-      .returning({ id: speechFragments.id })
-      .all();
-    tx.delete(jobs).where(eq(jobs.id, jobId)).run();
-    return { ...row, ids: [jobId, ...fragments.map((f) => f.id)] };
-  });

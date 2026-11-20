@@ -157,6 +157,30 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     #expect(took < .seconds(1))
 }
 
+@Test func hisIconForAMatterIsSentAsAKeyOrAsNull() async throws {
+    let sent = Mutex<[Data]>([])
+    let mcp = client(host: newHost()) { request in
+        let params = request.json["params"] as? [String: Any]
+        let arguments = params?["arguments"] as? [String: Any] ?? [:]
+        sent.withLock { $0.append((try? JSONSerialization.data(withJSONObject: arguments)) ?? Data()) }
+        return .json(resultMessage("{}"))
+    }
+    let api = MCPLifeAPI(client: mcp)
+    _ = try await api.setMatterIcon(matter: "matter_aaaaaaaaaaaa", icon: "key", onProgress: { _ in })
+    _ = try await api.setMatterIcon(matter: "matter_aaaaaaaaaaaa", icon: nil, onProgress: { _ in })
+    let corrections = try sent.withLock {
+        try $0.map {
+            let arguments = try #require(JSONSerialization.jsonObject(with: $0) as? [String: Any])
+            return try #require(arguments["correction"] as? [String: Any])
+        }
+    }
+    #expect(corrections[0]["kind"] as? String == "matter-icon")
+    #expect(corrections[0]["matter"] as? String == "matter_aaaaaaaaaaaa")
+    #expect(corrections[0]["icon"] as? String == "key")
+    // Life picks again only on an explicit null: a dropped field would be refused.
+    #expect(corrections[1]["icon"] is NSNull)
+}
+
 @Test func aPushReadAsksLifeForThatOneCardAndTheWholeReadForEveryCard() async throws {
     let sent = Mutex<[Data]>([])
     let mcp = client(host: newHost()) { request in

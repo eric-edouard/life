@@ -5,7 +5,7 @@
 // Partial on purpose (SECURITY.md): it reads a call's text, so a tab already open on a messaging site, a script that
 // builds its address, `gh api` or `curl` to a service's API, or another program the agent starts get past it.
 
-import { AGENT_POST_SIGNATURE } from "../core/names";
+import { AGENT_POST_SIGNATURE, CONNECTOR_WRITES } from "../core/names";
 
 /** A tool call as both runtimes hand it to a `PreToolUse` hook. */
 export interface ToolCall {
@@ -51,6 +51,20 @@ const GH_POST = /\bgh\s+(issue\s+(comment|create)|pr\s+(comment|review))\b/;
 const GH_REPO = /(?:--repo|-R)[=\s]+["']?([\w.-]+\/[\w.-]+)/g;
 /** The signature ends the body: a closing quote, a line end or the command's end follows it. */
 const ENDS_BODY = /^\s*(["']|\n|$)/;
+
+/**
+ * A tool name Codex shortened to fit or to tell twins apart: what is left of the tool's own name, then `_` and 12 hex
+ * (`fit_callable_parts_with_hash`, codex-mcp's `tools.rs`); left: none when Codex cut it all.
+ */
+const SHORTENED = /^(\w*?)_?[0-9a-f]{12}$/;
+
+/** Whether `tool` (a call's last `__` part) is one of his connector's writes, or what Codex left of one. */
+function isConnectorWrite(tool: string) {
+  const left = SHORTENED.exec(tool)?.[1];
+  return CONNECTOR_WRITES.some(
+    (w) => w === tool || (left !== undefined && w.startsWith(left))
+  );
+}
 
 const CARD =
   "Ask him with a card instead (`request_decision` with the message as its draft): Life sends it on his yes.";
@@ -116,6 +130,18 @@ const SEND_RULES: {
       return c.tool_name.startsWith("mcp__") &&
         (SEND_TOOL.test(tool) || tool === "respond_to_event")
         ? `Agents don't send, reply, forward or answer invitations. A draft is fine. ${CARD}`
+        : undefined;
+    },
+  },
+  {
+    name: "his connector's writes",
+    why: (c) => {
+      const tool = c.tool_name.split("__").at(-1) ?? "";
+      // The door is `desk` (`acp-runtime.ts`), named whole: a server id that only starts with `desk__` is not it.
+      return c.tool_name.startsWith("mcp__") &&
+        c.tool_name !== `mcp__desk__${tool}` &&
+        isConnectorWrite(tool)
+        ? "Agents don't write as him through his Life connector. Ask him through your desk door (`request_decision` there). If your door is missing, say so in one line and stop."
         : undefined;
     },
   },

@@ -29,6 +29,7 @@ import type { Check } from "./life-checks";
 import * as matters from "./matters";
 import { OBSERVATIONS, UNITS } from "./memory-files";
 import { locked } from "./memory-lock";
+import { OWNER } from "./read-truth";
 
 /** One registered agent anchored on `step`, active unless `over` says otherwise (`heldByAgents`' facts). */
 const anchored = (step: string, over: Partial<AgentHold> = {}) => [
@@ -522,7 +523,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
     checksOf({
       ...base,
       heldByAgents: anchored("obs_000000000071", {
-        endedAt: "2026-11-17T01:00:00.000Z",
+        closedAt: "2026-11-17T01:00:00.000Z",
       }),
     })
   ).toHaveLength(1);
@@ -538,7 +539,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
     none({ heldByAgents: anchored("unit_000000000072") }),
     none({
       heldByAgents: anchored("obs_000000000071", {
-        endedAt: "2026-11-17T09:00:00.000Z",
+        closedAt: "2026-11-17T09:00:00.000Z",
       }),
     }),
     // The hand-out is on and it is one of his: the hand-out takes it, no Start.
@@ -788,7 +789,9 @@ test("only the open endings' and the new matters' steps are read for their sente
     endings: new Map([
       ["obs_open", link],
       ["obs_closed", { later: "obs_c", quote: "x" }],
+      ["obs_his", { later: "obs_hers", quote: "y" }],
     ]),
+    lines: [{ id: "obs_hers", speaker: OWNER }],
     matters: [matter("2026-11-17", "obs_new"), matter("2026-10-01", "obs_old")],
     today: "2026-11-18",
   });

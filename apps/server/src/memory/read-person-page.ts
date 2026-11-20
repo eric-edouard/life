@@ -1,22 +1,17 @@
 import type { Database } from "bun:sqlite";
-import { clock } from "../core/clock";
 import { newestDays, within } from "../core/lists";
 import { readOwnerName } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { SubjectRef } from "../records/fields";
 import { speakers, withStore } from "../sources/lifelog";
 import { conversationsWith } from "../sources/lifelog-conversations";
-import { closenessLine } from "./closeness";
-import {
-  communicationStyleBlock,
-  readCommunicationStyle,
-} from "./communication-styles";
+import { levelsWith, pagedNow } from "./closeness";
+import { readCommunicationStyle } from "./communication-styles";
 import { conversationSummaryPart } from "./conversation-summaries";
 import { notCapturedOf, readCoverage } from "./coverage";
-import { detailsBlock, readDetailsOf } from "./details";
-import { type ExchangeCounts, readExchangeCounts } from "./exchange-counts";
+import { detailsOf, readCardsOf } from "./details";
+import { readExchangeCounts } from "./exchange-counts";
 import {
-  CURRENT,
   episodeLine,
   latest,
   line,
@@ -24,10 +19,23 @@ import {
   section,
   withIndex,
 } from "./index-rows";
-import { daysOf, episodesWhere, pagePath, writtenPeople } from "./memory-files";
-import { parsePage, slugOf } from "./page-format";
-import { episodeTitleLines } from "./person-episode-titles";
-import { openWithOf, readOpenItems } from "./read-open-items";
+import { daysOf, pagePath } from "./memory-files";
+import { slugOf } from "./page-format";
+import { episodeTitlesOf } from "./person-episode-titles";
+import { readEpisodesWith, readStandingEpisodes } from "./person-episodes";
+import {
+  isIn,
+  isOnTheList,
+  knowsOf,
+  type MatterRowNow,
+  type NowInputs,
+  peopleListOf,
+  personNowOf,
+  readLatest,
+  rowOf,
+  type Standing,
+} from "./person-now";
+import { reachOf, readSeenAccounts } from "./reach";
 import {
   ADD_ON_PARTS,
   nextReads,
@@ -37,63 +45,16 @@ import {
   type ReadPart,
   type ReadPartRef,
 } from "./read-part";
-import { goalProjects, isDirectoryNew, OWNER } from "./read-truth";
-import { readSituationNow, situationBlock } from "./situations";
+import { directoryPartiesOf, isDirectoryNew, OWNER } from "./read-truth";
+import { readSituationNow } from "./situations";
 import { conversationLabel, lifelogNames, nameKey } from "./units";
-import { meant, namedLike, nearNames, readPeople } from "./who";
-import { asData } from "./words";
+import { meant, namedLike, nearNames, type People, readPeople } from "./who";
+import { asData, holdsAll } from "./words";
 import { dayNow, localDate } from "./zones";
 
-// `bun life memory person [name]` and the connector's `read_person_page`: a person's page, what Life holds about them,
-// their observations, episodes and recorded conversations, paged back by day; with no name, the people.
-
-/** One line per person who goes by the name, with relation and observation count; only when more than one does. */
-export function candidateLines(
-  name: string,
-  same: { id: string; name: string; relation?: string }[],
-  count: (id: string) => number
-) {
-  return same.length < 2
-    ? []
-    : [
-        `${same.length} people go by "${name}" (the first below; \`person <id>\` for another):`,
-        ...same.map(
-          (p) =>
-            `- ${p.id}: ${p.name}, ${p.relation ?? "?"}, ${count(p.id)} observations`
-        ),
-        "",
-      ];
-}
-
-/** The people who have a page: id and name. */
-async function peoplePages() {
-  return Promise.all(
-    (await writtenPeople()).map(async (ref) => {
-      const id = ref.slice("person:".length);
-      const page = parsePage(await Bun.file(pagePath(ref)).text());
-      return { id, name: page?.meta.name ?? id };
-    })
-  );
-}
-
-/** Who has a page, the latest seen first (the date of the newest observation about them). */
-function withPages(db: Database, list: { id: string; name: string }[]) {
-  const seen = new Map(
-    db
-      .query<{ at: string; id: string }, []>(
-        "select substr(l.subject, 8) as id, max(o.at) as at from observation_subjects l join observations o on o.id = l.observation where l.subject like 'person:%' group by l.subject"
-      )
-      .all()
-      .map((r) => [r.id, r.at])
-  );
-  return list
-    .map((p) => ({ ...p, at: seen.get(p.id) }))
-    .sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""))
-    .map(
-      (p) =>
-        `- ${p.id}: ${p.name}${p.at ? ` (last seen ${localDate(p.at)})` : ""}`
-    );
-}
+// `bun life memory person [name]` and the connector's `read_people_and_organizations`: the people and organizations Life
+// knows, and one of them: `now` and `latest` as data (`person-now.ts`), the page, what Life holds about them, their
+// observations, episodes and recorded conversations, paged back by day.
 
 /** One thing of a person's timeline: its day, which list it shows in, and its line. */
 export interface Dated {
@@ -235,32 +196,34 @@ export function personFor(
   return exact ? { ...meaning, known: exact.id, same: [] } : meaning;
 }
 
-/** The owner's `now` while his directory is new: a statement of fact, offering the setup interview. */
-const newDirectory = (owner: string) =>
-  `${owner}'s directory is new: it holds only ${owner}, with no goals and no other people yet. What ${owner} says about goals and how to reach them, the main people in ${owner}'s life, projects and areas of focus, and what Life may keep goes in through \`change_directory_entry\`, ${owner}'s words as \`said\`.`;
-
 /**
- * A person, read in parts (`read-part.ts`). `now`, the default: who they are to him and where things stand: candidates
- * when two people go by the name, their details, closeness, the last exchange, what is open between them, their
- * Situation and what their time together was about; then `page` (who they are, the page Life wrote), the parts an add-on
- * supplies (`personal`: `persona`, `story`, `year`, `month`, offered by the host while their add-on is on) and `evidence` (their
- * observations, episodes and recorded conversations, newest first by whole days, in a `span` and paged back by
- * `before`). Each part ends with its next reads, written by code. A name two people go by lists them, then reads the
- * first; a name on no page nor directory entry is looked for among lifelog's speakers, and someone only heard has no
- * parts (nothing to address them by): `now` shows their evidence, paged back with `before`; a name no one goes by
- * says so and lists the names near it.
+ * The people and organizations Life knows, and one of them read in parts (`read-part.ts`). With no name, the list
+ * (`peopleListOf`): his directory's people and organizations and everyone with a page, ordered by closeness; with a
+ * `query`, its matches and `others` (the people his Contacts name or Life inferred whose name is near it). With a
+ * name, `now`, the default, as data (`personNowOf`): who they are to him, their reach, details, how each writes, what
+ * their time together was about, their Situation, what is open with them (`matters`, from host) and the parts Life
+ * holds; then the prose parts `page`, the parts an add-on supplies (`personal`: `persona`, `story`, `year`, `month`,
+ * offered by the host while their add-on is on) and `evidence` (their observations, episodes and recorded
+ * conversations, newest first by whole days, in a `span` and paged back by `before`), each ending with its next reads,
+ * written by code; and `latest`, as data (`readLatest`). A name two people go by gives them as `candidates` with the
+ * first's `now`; a name on no page nor directory entry is looked for among lifelog's speakers, and someone only heard
+ * has no parts (nothing to address them by): `now` is their evidence (`heard`, paged back with `before`); a name no one
+ * goes by says so (`noOne`) with the parties near it.
  */
 export async function person(
   name?: string,
-  o: { before?: string; byId?: boolean; part?: string; span?: string } = {},
-  personal: PersonalParts = {}
-) {
+  o: {
+    before?: string;
+    byId?: boolean;
+    part?: string;
+    query?: string;
+    span?: string;
+  } = {},
+  personal: PersonalParts = {},
+  matters: () => Promise<MatterRowNow[]> = () => Promise.resolve([])
+): Promise<string | Record<string, unknown>> {
   if (!name) {
-    const list = await peoplePages();
-    return withIndex((db) => {
-      const pages = withPages(db, list);
-      return pages.length > 0 ? pages : ["(no people pages yet)"];
-    });
+    return peopleList(await readPeople(), await matters(), o.query);
   }
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
@@ -278,48 +241,59 @@ export async function person(
     known,
     same,
   } = personFor(name, meant(name, folks), o.byId);
+  const id = known ?? slugOf(name);
+  const ref = `person:${id}`;
+  const partRef = personRefOf(known, id);
+  if (part === "latest") {
+    return partRef
+      ? readLatest(partRef, before, folks)
+      : asData(['(no part "latest" for someone only heard)']);
+  }
   // The person's own page, by its id: never one whose file name only holds the name.
   const file = known && Bun.file(pagePath(`person:${known}`));
   const found =
     file && (await file.exists()) ? { text: await file.text() } : null;
-  const id = known ?? slugOf(name);
-  const ref = `person:${id}`;
-  const partRef = personRefOf(known, id);
   const mapped = truth.people.find((p) => p.id === id);
   const lifelog = mapped?.handles.lifelog;
-  const all = await episodesWhere(() => true);
-  const live = new Set(all.map((m) => m.id));
-  const episodes = all.filter((m) =>
-    m.people.some((p) => refOf(p.ref) === ref)
-  );
+  const episodes = await readEpisodesWith(ref, refOf);
   // What each part needs, read before the index opens (nothing awaits while it is).
-  const now = part === "now" && !!partRef;
-  let personalLines: PartInputs["personal"];
+  const isNow = part === "now" && !!partRef;
+  // `now` builds only the parts it offers a preview of (`knows`).
+  const asked = isNow ? offersOf(personal).map((x) => x.part) : [part];
+  const built: PartInputs["personal"][] = [];
   try {
-    personalLines = personal[part as ReadPart]?.build(ref);
+    for (const p of asked) {
+      built.push(personal[p as ReadPart]?.build(ref));
+    }
   } catch (e) {
     // A part whose stored shape this version does not know: said, never read as empty.
     return asData([`(${(e as Error).message})`]);
   }
-  const counted = now && partRef ? readExchangeCounts() : null;
-  const rows = counted && { ...counted, rows: counted.people[ref] ?? [] };
-  const items = now ? await readOpenItems(folks, clock()) : [];
-  const style = now ? communicationStyleBlock(readCommunicationStyle(ref)) : [];
-  return withStore((store) =>
-    withIndex((db) => {
-      // A name on no page nor directory entry: the lifelog speakers it is part of.
-      const voices = speakers(store);
-      const heard = known
-        ? []
-        : voices.filter((s) => nameKey(s.name).includes(nameKey(name)));
-      if (!(known || heard.length > 0)) {
-        return noOne(name, people, voices);
-      }
-      if (!partRef && part !== "now" && part !== "evidence") {
-        return [
-          `(no part "${part}" for someone only heard: read them with \`before\`)`,
-        ];
-      }
+  const personalOf = (p: string) => built[asked.indexOf(p)];
+  const gathered = isNow
+    ? nowGathered(
+        ref,
+        folks,
+        await matters(),
+        // His own situation may cite any episode (his leave him out of their people): its cited ids, looked up.
+        ref === OWNER ? readStandingEpisodes : episodes
+      )
+    : undefined;
+  return withStore((store) => {
+    // A name on no page nor directory entry: the lifelog speakers it is part of.
+    const voices = speakers(store);
+    const heard = known
+      ? []
+      : voices.filter((s) => nameKey(s.name).includes(nameKey(name)));
+    if (!(known || heard.length > 0)) {
+      return noOne(name, people, voices, folks.partyOf);
+    }
+    if (!partRef && part !== "now" && part !== "evidence") {
+      return asData([
+        `(no part "${part}" for someone only heard: read them with \`before\`)`,
+      ]);
+    }
+    return withIndex<Record<string, unknown>>((db) => {
       const timeline = timelineOf(
         db,
         store,
@@ -328,70 +302,188 @@ export async function person(
         lifelog ? [lifelog] : heard.map((s) => s.id),
         lifelogNames(truth)
       );
-      // The lines of the parts that are one block, worked out for the one asked for only.
-      const blocks: Record<string, () => string[]> = {
-        now: () =>
-          nowLines({
-            after: situationBlock("Situation", readSituationNow(ref, live)),
-            before: [
-              ...(ref === OWNER && isDirectoryNew(truth)
-                ? [newDirectory(readOwnerName())]
-                : []),
-              ...episodeTitleLines(episodes, (r) => refOf(r) === ref),
-              ...detailsBlock(readDetailsOf(folks)(ref), dayNow()),
-              ...closenessLine(ref, folks),
-              ...lastExchangeLine(rows),
-              ...style,
-            ],
-            open: (room) =>
-              openWithOf(ref, {
-                goals: goalProjects(truth.me.goals),
-                items,
-                owner: readOwnerName(),
-                room,
-                today: dayNow(),
-              }),
-          }),
-        page: () => pageBlock(db, found?.text ?? null, "in the evidence"),
-      };
-      return partLines({
+      const page = () => pageBlock(db, found?.text ?? null, "in the evidence");
+      const inputs: PartInputs = {
         before,
-        candidates: candidateLines(name, same, (who) => linkedCount(db, who)),
-        fixed: partRef ? (blocks[part]?.() ?? []) : [],
+        fixed: part === "page" ? page() : [],
         heard,
         held: (show) => heldLines(db, ref, timeline, show),
-        heldYears: db
-          .query<{ y: string }, [string]>(
-            "select distinct substr(u.date, 1, 4) as y from unit_people p join units u on u.id = p.unit where p.person = ?"
-          )
-          .all(ref)
-          .map((r) => r.y),
+        heldYears: heldYearsOf(db, ref),
         offers: offersOf(personal),
         part: part as ReadPart,
-        personal: personalLines,
+        personal: personalOf(part),
         ref: partRef,
         span: o.span,
         timeline,
-      });
-    })
-  );
+      };
+      if (!partRef) {
+        return heardEvidence(inputs);
+      }
+      if (!gathered) {
+        return partLines(inputs);
+      }
+      const more = {
+        episodes: episodeTitlesOf(episodes, (r) => refOf(r) === ref),
+        knows: knowsOf(nowReads(inputs), (p) =>
+          knownLinesOf(p, inputs, page, personalOf)
+        ),
+      };
+      if (same.length < 2) {
+        return gathered(more, PART_CHARS);
+      }
+      // A shared name: the candidates (a quarter of the room at most; the list with `query` gives them all) wrap the first's `now`, which keeps to the room they leave.
+      const all = same.map((p) => folks.partyOf(`person:${p.id}`));
+      const candidates = within(
+        all,
+        PART_CHARS / 4,
+        (x) => JSON.stringify(x).length + 1
+      );
+      const left = all.length - candidates.length;
+      const wrapper = {
+        candidates,
+        ...(left > 0 ? { more: { candidates: left } } : {}),
+      };
+      const room = PART_CHARS - JSON.stringify({ ...wrapper, now: {} }).length;
+      return { ...wrapper, now: gathered(more, room) };
+    });
+  });
 }
 
-/** About how many characters the next reads that end `now` take. */
-const NEXT_READS_CHARS = 700;
+/** The lines of one part `now` offers, for its first sentence (`knowsOf`). */
+const knownLinesOf = (
+  part: string,
+  inputs: PartInputs,
+  page: () => string[],
+  personalOf: (part: string) => PartInputs["personal"]
+) => {
+  if (part === "page") {
+    return page();
+  }
+  return part === "evidence"
+    ? evidenceLines(inputs).body
+    : (personalOf(part)?.(inputs) ?? []);
+};
 
-/** The lines of `now`: what is open takes the room the rest leaves of `PART_CHARS`, less the next reads. */
-export function nowLines(o: {
-  after: string[];
-  before: string[];
-  open: (room: number) => string[];
-}) {
-  const used = [...o.before, ...o.after].join("\n").length;
-  return [
-    ...o.before,
-    ...o.open(PART_CHARS - NEXT_READS_CHARS - used),
-    ...o.after,
-  ];
+/** The years a unit of theirs is held in. */
+const heldYearsOf = (db: Database, ref: string) =>
+  db
+    .query<{ y: string }, [string]>(
+      "select distinct substr(u.date, 1, 4) as y from unit_people p join units u on u.id = p.unit where p.person = ?"
+    )
+    .all(ref)
+    .map((r) => r.y);
+
+/** What `now` reads of one person before the index opens, as a function of what the index adds (episodes, knows). */
+function nowGathered(
+  ref: string,
+  people: People,
+  matters: MatterRowNow[],
+  standing: Parameters<typeof readSituationNow>[1]
+) {
+  const { truth } = people;
+  const row = rowOf(
+    people.partyOf(ref),
+    standingOf(levelsWith(people), readExchangeCounts()),
+    matters
+  );
+  const entry = directoryPartiesOf(truth).find((p) => `person:${p.id}` === ref);
+  const organization = truth.organizations.find(
+    (x) => `person:${x.id}` === ref
+  );
+  // His Contacts read once, for reach and details.
+  const cards = readCardsOf(people)(ref);
+  const reach = reachOf({ cards, party: entry, seen: readSeenAccounts(ref) });
+  const details = detailsOf({
+    contacts: cards,
+    person: truth.people.find((p) => `person:${p.id}` === ref),
+  });
+  const theirs = matters.filter((m) => isIn(m, ref));
+  return (more: Pick<NowInputs, "episodes" | "knows">, chars: number) =>
+    personNowOf(
+      {
+        ...more,
+        communicationStyle: readCommunicationStyle(ref),
+        details,
+        ...(ref === OWNER && isDirectoryNew(truth)
+          ? { directoryIsNew: true as const }
+          : {}),
+        matters: theirs,
+        ...(organization
+          ? {
+              organization: {
+                domains: organization.domains,
+                people: organization.people.map((p) => ({
+                  party: people.partyOf(`person:${p.id}`),
+                  role: p.role,
+                  ...(p.until === undefined ? {} : { until: p.until }),
+                })),
+              },
+            }
+          : {}),
+        reach,
+        row,
+        situation: readSituationNow(ref, standing, people.refOf),
+        today: dayNow(),
+      },
+      chars
+    );
+}
+
+/** Each ref's levels and last exchange, from what the caller read once. */
+const standingOf = (
+  levels: ReturnType<typeof levelsWith>,
+  counted: ReturnType<typeof readExchangeCounts>
+): Standing => ({
+  lastExchangeAt: (ref) =>
+    (counted?.people[ref] ?? [])
+      .map((r) => r.start)
+      .toSorted()
+      .at(-1),
+  levelOf: (ref) => levels.get(ref),
+});
+
+/**
+ * The list (no name): his directory's people and organizations and everyone with a page, each once as they read
+ * today, him left out, ordered by closeness (`peopleListOf`). With a `query`: those whose name or alias holds its
+ * words or is near it, and `others`, the people near it his Contacts name or Life inferred.
+ */
+async function peopleList(
+  people: People,
+  matters: MatterRowNow[],
+  query?: string
+) {
+  const { canon, truth } = people;
+  const directory = directoryPartiesOf(truth);
+  const refs = new Set(
+    [
+      ...directory.map((p) => canon(`person:${p.id}`)),
+      ...(await pagedNow(people)),
+    ].filter(isOnTheList)
+  );
+  const standing = standingOf(levelsWith(people), readExchangeCounts());
+  const rowsOf = (list: Iterable<string>) =>
+    peopleListOf(
+      [...list].map((ref) => rowOf(people.partyOf(ref), standing, matters))
+    );
+  if (!query) {
+    return { people: rowsOf(refs) };
+  }
+  const holds = holdsAll(query);
+  const aliases = new Map(
+    directory.map((p) => [canon(`person:${p.id}`), p.aliases])
+  );
+  const near = people.candidatesFor(query);
+  const matched = [...refs].filter(
+    (ref) =>
+      near.includes(ref) ||
+      [people.nameOf(ref), ...(aliases.get(ref) ?? [])].some(holds)
+  );
+  return {
+    others: [...new Set(near)]
+      .filter((ref) => !refs.has(ref) && isOnTheList(ref))
+      .map(people.partyOf),
+    people: rowsOf(matched),
+  };
 }
 
 /** One timeline, newest first: the person's observations, episodes and recorded conversations. */
@@ -447,8 +539,7 @@ export const offersOf = (personal: PersonalParts) =>
 /** What `partLines` is made from: the lines each part holds, and the dated entries it pages. */
 export interface PartInputs {
   before?: string;
-  candidates: string[];
-  /** The lines of `now` or `page`, whichever is asked for. */
+  /** The lines of `page`, when it is asked for. */
   fixed: string[];
   heard: { name: string }[];
   held: (o?: { sourcesOnly?: boolean; span?: string }) => string[];
@@ -514,58 +605,49 @@ function evidenceLines(o: PartInputs) {
       ...section("Episodes with them:", lines("episode")),
       ...section(recordedTitle(o.heard), lines("conversation")),
     ],
+    next,
     older: next ? older : ["(nothing older)"],
   };
 }
 
+/** The reads `now` offers: who they are (the page), the parts an add-on supplies, and the evidence; `knows` is made of them. */
+export const nowReads = (o: PartInputs) => [
+  readOf(o)(
+    { part: "page" },
+    `who they are to ${readOwnerName()}, as Life's page says`
+  ),
+  ...o.offers.map((r) => readOf(o)({ part: r.part }, r.about)),
+  evidenceRead(o),
+];
+
 /**
- * One part of a person's read, from what was gathered. `ref`: the person's ref, absent for someone only heard (their
- * `now` is the evidence, paged back with the older call: nothing can name a part). `fixed` holds the lines of
- * `now` or `page`; `timeline` the dated entries of `evidence` (and of the parts an add-on supplies); `held`, what Life holds by month or year. A part's dated entries stop at about `PART_CHARS`
- * with its fixed lines, a day never cut (`before`, a day, exclusive, pages back); each part ends with its next reads.
+ * One prose part of a person's read, from what was gathered. `fixed` holds the lines of `page`; `timeline` the dated
+ * entries of `evidence` (and of the parts an add-on supplies); `held`, what Life holds by month or year. A part's
+ * dated entries stop at about `PART_CHARS` with its fixed lines, a day never cut (`before`, a day, exclusive, pages
+ * back); each part ends with its next reads.
  */
 export function partLines(o: PartInputs) {
-  const read = readOf(o);
-  if (o.part === "evidence" || !o.ref) {
+  if (o.part === "evidence") {
     const { body, older } = evidenceLines(o);
-    const held = o.part === "evidence" ? [] : ["", ...o.held()];
-    return [...o.candidates, ...body, ...held, "", ...older];
+    return [...body, "", ...older];
   }
-  switch (o.part) {
-    case "now":
-      return [
-        ...o.candidates,
-        ...o.fixed,
-        ...ending([
-          read(
-            { part: "page" },
-            `who they are to ${readOwnerName()}, as Life's page says`
-          ),
-          ...o.offers.map((r) => read({ part: r.part }, r.about)),
-          evidenceRead(o),
-        ]),
-      ];
-    case "page":
-      return [
-        ...(o.fixed.length > 0 ? o.fixed : ["(no page yet)"]),
-        ...ending([evidenceRead(o)]),
-      ];
-    default:
-      return o.personal?.(o) ?? [];
+  if (o.part === "page") {
+    return [
+      ...(o.fixed.length > 0 ? o.fixed : ["(no page yet)"]),
+      ...ending([evidenceRead(o)]),
+    ];
   }
+  return o.personal?.(o) ?? [];
 }
 
-/** The last exchange between them and him, counted: when, who opened it and how many each sent. Nothing when none. */
-export function lastExchangeLine(counted: { rows: ExchangeCounts[] } | null) {
-  const last = counted?.rows.toSorted((a, b) =>
-    b.start.localeCompare(a.start)
-  )[0];
-  const owner = readOwnerName();
-  return last
-    ? [
-        `Last exchange: ${localDate(last.start)}, opened by ${last.heOpened ? owner : "them"}; ${owner} sent ${last.sent}, they sent ${last.got}.`,
-      ]
-    : [];
+/** Someone only heard, as data: who they were heard as, their evidence and what Life holds, paged back with `before`. */
+export function heardEvidence(o: PartInputs) {
+  const { body, next } = evidenceLines(o);
+  return {
+    evidence: [...body, "", ...o.held()],
+    heard: [...new Set(o.heard.map((h) => h.name))].map((n) => ({ name: n })),
+    ...(next ? { nextBefore: next } : {}),
+  };
 }
 
 /** `heard`: the lifelog speakers a name on no page nor directory entry was found among. */
@@ -575,32 +657,26 @@ const recordedTitle = (heard: { name: string }[]) =>
 export const orNone = (lines: string[]) =>
   lines.length > 0 ? lines : ["(none)"];
 
-/** A name no one goes by: says so, with the names near it (lifelog's speakers too, but one already on the list is that person). */
+/**
+ * A name no one goes by, as data: the name, and who it is near (`nearNames`; lifelog's speakers too, but one already on
+ * the list is that person): a party where Life has a ref, else the name as heard.
+ */
 function noOne(
   name: string,
   people: { aliases: string[]; id: string; name: string }[],
-  heard: { name: string }[]
+  heard: { name: string }[],
+  partyOf: People["partyOf"]
 ) {
   const near = nearNames(name, [
-    ...people,
+    ...people.map((p) => ({ ...p, isHeard: false })),
     ...heard
       .filter((s) => namedLike(s.name, people).length === 0)
-      .map((s) => ({ aliases: [], id: s.name, name: s.name })),
+      .map((s) => ({ aliases: [], id: s.name, isHeard: true, name: s.name })),
   ]);
-  return [
-    `No one goes by "${name}".`,
-    ...(near.length > 0
-      ? [
-          "Names near it (`person <id>`):",
-          ...near.map((p) => `- ${p.id}: ${p.name}`),
-        ]
-      : []),
-  ];
+  return {
+    near: near.map((p) =>
+      p.isHeard ? { name: p.name } : partyOf(`person:${p.id}`)
+    ),
+    noOne: name,
+  };
 }
-
-const linkedCount = (db: Database, id: string) =>
-  db
-    .query<{ n: number }, [string]>(
-      `select count(*) as n from observation_subjects l join observations o on o.id = l.observation where l.subject = ? and ${CURRENT}`
-    )
-    .get(`person:${id}`)?.n ?? 0;

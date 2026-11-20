@@ -6,6 +6,7 @@ import { SignJWT } from "jose";
 import { clock, DAY } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { LOG_DIR } from "../../core/log";
+import { CONNECTOR_WRITES } from "../../core/names";
 import { OWNER_DATA_DIR } from "../../core/paths";
 import { setSettings, settings } from "../../core/settings";
 import { DECISIONS } from "../../memory/decisions";
@@ -122,7 +123,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_new_events",
     "read_observation",
     "read_open_todo_items",
-    "read_person_page",
+    "read_people_and_organizations",
     "read_person_pictures",
     "read_places_visited",
     "read_processing_runs",
@@ -143,7 +144,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
       .sort()
   ).toEqual([
     "answer_check(name,note,options,person,ref,value)",
-    "change_directory_entry(action,aliases,area,handles,id,kind,language,name,number,people,relation,repos,said,status,text)",
+    "change_directory_entry(action,aliases,area,domains,handles,id,kind,language,name,number,people,pictureFrom,projects,relation,repos,said,status,text)",
     "change_registered_agent(action,agent,effort,folder,model,project,runtime,said,step)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
@@ -160,7 +161,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_new_events(arguments,cursor,event,limit)",
     "read_observation(id)",
     "read_open_todo_items(list)",
-    "read_person_page(before,name)",
+    "read_people_and_organizations(before,name,query)",
     "read_person_pictures(ids)",
     "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
     "read_processing_runs(cursor,limit,steps)",
@@ -184,22 +185,14 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
   expect(reminders.inputSchema.properties.target).toMatchObject({
     anyOf: [{ type: "string" }, { type: "integer" }],
   });
-  const writes = [
-    "answer_check",
-    "correct_memory",
-    "change_directory_entry",
-    "change_registered_agent",
-    "change_todo_item",
-    "request_decision",
-    "tell_life",
-  ];
-  for (const reads of tools.filter((x) => !writes.includes(x.name))) {
+  // Every write is in the send guard's list (`CONNECTOR_WRITES`), so a new one can't slip past it.
+  for (const reads of tools.filter((x) => !CONNECTOR_WRITES.includes(x.name))) {
     expect(reads.annotations).toMatchObject({
       openWorldHint: false,
       readOnlyHint: true,
     });
   }
-  for (const name of writes) {
+  for (const name of CONNECTOR_WRITES) {
     expect(tools.find((t) => t.name === name)?.annotations).toMatchObject({
       destructiveHint: [
         "correct_memory",
@@ -764,15 +757,10 @@ test("built to serve reads only (the question cases' agent), the connector regis
     JSON.parse(data ? data.slice(5) : body).result.tools;
   const names = tools.map((t) => t.name);
   expect(tools.every((t) => t.annotations.readOnlyHint)).toBe(true);
-  for (const writes of [
-    "correct_memory",
-    "change_directory_entry",
-    "change_todo_item",
-    "tell_life",
-  ]) {
-    expect(names).not.toContain(writes);
+  for (const write of CONNECTOR_WRITES) {
+    expect(names).not.toContain(write);
   }
-  expect(names).toContain("read_person_page");
+  expect(names).toContain("read_people_and_organizations");
   expect(names).toContain("search");
 });
 

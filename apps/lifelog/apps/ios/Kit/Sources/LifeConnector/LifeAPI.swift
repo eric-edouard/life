@@ -37,6 +37,22 @@ public struct AgentRequest: Encodable, Sendable, Equatable {
 }
 
 /// A matter's next step as `correct_memory` takes it.
+/// His icon for a matter as `correct_memory` takes it: a nil icon is sent as `null` (Life picks again), never dropped,
+/// or Life would refuse the line.
+private struct MatterIconRequest: Encodable, Sendable {
+    let matter: String
+    let icon: String?
+
+    private enum Key: String, CodingKey { case kind, matter, icon }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: Key.self)
+        try container.encode("matter-icon", forKey: .kind)
+        try container.encode(matter, forKey: .matter)
+        try container.encode(icon, forKey: .icon)
+    }
+}
+
 public struct NextStepRequest: Encodable, Sendable, Equatable {
     public var kind: String
     public var text: String
@@ -65,6 +81,9 @@ public protocol LifeAPI: Sendable {
     func setMatterDirection(
         matter: String, goal: String?, nextStep: NextStepRequest?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String
+    /// His icon for a matter, by its id (a key of `MatterIcons`), or nil: Life picks again.
+    func setMatterIcon(matter: String, icon: String?, onProgress: @escaping @Sendable (Data) -> Void) async throws
+        -> String
     /// His word that a matter is done, by its id: Life closes what of it is open.
     func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String
     /// His one mark on a matter, on or off, by its id: Life pins it to the matter's steps.
@@ -119,6 +138,12 @@ public struct MCPLifeAPI: LifeAPI {
             let nextStep: NextStepRequest?
         }
         return try await correct(Direction(matter: matter, goal: goal, nextStep: nextStep), onProgress)
+    }
+
+    public func setMatterIcon(matter: String, icon: String?, onProgress: @escaping @Sendable (Data) -> Void)
+        async throws -> String
+    {
+        try await correct(MatterIconRequest(matter: matter, icon: icon), onProgress)
     }
 
     public func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws

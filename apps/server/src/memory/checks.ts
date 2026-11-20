@@ -362,12 +362,12 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         },
         day: d.at,
       })),
-  /** Every open step a link says ended and he has not answered. */
+  /** Every open step a link says ended and he has not answered, unless the link rests on his own later words. */
   ending: (c) =>
     [...c.endings].flatMap(([ref, link]) => {
       const o = c.byId.get(ref);
       const later = c.byId.get(link.later);
-      return o && isEndingOpen(ref, c)
+      return o && isEndingOpen(ref, c, later)
         ? ranked(
             c,
             "ending",
@@ -756,6 +756,7 @@ async function readChecks(
     answered,
     doubted,
     endings: records.linkEndings,
+    lines,
     matters,
     today,
   });

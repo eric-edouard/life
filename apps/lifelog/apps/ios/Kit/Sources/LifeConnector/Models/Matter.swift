@@ -52,6 +52,13 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
         public let by: Author?
     }
 
+    /// Its icon: his pick (`owner`) or Life's (`life`); the key stays text (Life may add keys: `MatterIcons.symbol` is nil
+    /// for one this app lacks).
+    public struct Icon: Decodable, Sendable, Equatable {
+        public let by: Author
+        public let key: String
+    }
+
     public struct People: Decodable, Sendable, Equatable {
         public let owedTo: [Party]?
         public let waitingOn: [Party]?
@@ -63,6 +70,8 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     public let name: String
     public let status: MatterStatus
     public let goal: Goal?
+    /// Absent when neither he nor Life picked one: the phone shows the first area's icon, then the folder.
+    public let icon: Icon?
     public let nextStep: NextStep?
     public let people: People?
     public let areas: [String]?

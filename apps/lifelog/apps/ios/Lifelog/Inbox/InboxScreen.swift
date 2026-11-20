@@ -79,6 +79,8 @@ struct InboxScreen: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        // Above the asks, so a read that takes his ask away (his answer was the last) never closes it before it does.
+        .createSheet($notes) { leave($0, keep: false) }
         // The chosen kind has no ask left: the whole list again, so the filter never rests on a kind that is gone.
         .onChange(of: all.kinds) { _, kinds in if let kind, !kinds.contains(kind) { self.kind = nil } }
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
@@ -97,10 +99,11 @@ struct InboxScreen: View {
         }
     }
 
-    /// The inbox read as shown, except that his tap's result stays up whatever the read did since: the inbox emptied
-    /// (his answer was the last card) or its read failed. Only a new pairing, which clears the inbox, takes it away.
+    /// The inbox read as shown, except that his tap's result, or the ask the create sheet answers, stays up whatever the
+    /// read did since: the inbox emptied (his answer was the last card) or its read failed. Only a new pairing, which
+    /// clears the inbox, takes it away.
     private var shown: ReadState<Inbox>.Shown {
-        guard notes.taken != nil, let inbox = life.inboxOnShow else { return life.inboxShown }
+        guard notes.taken != nil || notes.creating != nil, let inbox = life.inboxOnShow else { return life.inboxShown }
         return .loaded(inbox)
     }
 
@@ -111,9 +114,13 @@ struct InboxScreen: View {
         }?.ref
     }
 
-    /// His answer to `ref` has started (running, done or refused), and nothing has moved on from it yet.
-    private func isAnswered(_ ref: String) -> Bool {
-        if case .idle = life.state(of: .answer(ref: ref)) { false } else { true }
+    /// On from the ask he answered or kept for later: the next one.
+    private func leave(_ taken: Taken, keep: Bool) {
+        life.forget(taken.key)
+        notice = nil
+        if keep { deferred.append(taken.check.ref) }
+        // A new matter whose goal he edited still waits for Start or Dismiss: back to its card.
+        (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : taken.nextRef)
     }
 
     /// Undo: the ask is back where it was, and on show.
@@ -133,22 +140,10 @@ struct InboxScreen: View {
     /// The ask on show, or his tap's result in its place: one arrangement for both, so the ask's context region stays
     /// as it was until the next ask.
     @ViewBuilder private func card(_ order: InboxOrder) -> some View {
-        // An ask whose answer runs from a sheet over it (the create sheet) stays on show until the sheet closes, so its
-        // result shows there even when it was the last ask.
-        if let check = notes.taken?.check ?? order.check(on: current)
-            ?? life.inboxOnShow?.checks.first(where: { $0.ref == current && isAnswered($0.ref) })
-        {
+        if let check = notes.shownCheck ?? order.check(on: current) {
             CardView(
                 check: check, checks: order.checks, current: $current, notes: $notes, notice: notice,
-                holdsAnswers: true
-            ) {
-                taken, keep in
-                life.forget(taken.key)
-                notice = nil
-                if keep { deferred.append(taken.check.ref) }
-                // A new matter whose goal he edited still waits for Start or Dismiss: back to its card.
-                (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : taken.nextRef)
-            }
+                holdsAnswers: true, leave: leave)
         } else {
             InboxZero()
         }

@@ -299,15 +299,21 @@ try {
     const n = String(i + 1).padStart(2, "0");
     const t = performance.now();
     // biome-ignore lint/performance/noAwaitInLoops: the steps run in order
-    const error = await run(step).then(
+    const stepError = await run(step).then(
       () => null,
       (e: Error) => e.message
     );
-    await screenshot(
+    // A screenshot that fails is this step's failure, never the set-up's.
+    const shotError = await screenshot(
       sim,
       "primary",
       join(shots, `${n}-${step.name.replace(/\W+/g, "-")}.png`)
+    ).then(
+      () => null,
+      (e: Error) => `no screenshot: ${e.message}`
     );
+    // Both, when both failed: neither hides the other.
+    const error = [stepError, shotError].filter(Boolean).join("; ") || null;
     say(
       `${error ? "FAIL" : "PASS"} ${n} ${step.name} (${Math.round((performance.now() - t) / 1000)} s)${error ? `: ${error}` : ""}`
     );
