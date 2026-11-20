@@ -319,8 +319,7 @@
           "title": "Know who someone is",
           "matter": null,
           "misread": {
-            "cause": "b62ed1262c46de37",
-            "shown": "1fe99fbddc50725f"
+            "cause": "af557d3015052eab"
           },
           "confirm": [],
           "networkIdentity": {
@@ -428,8 +427,7 @@
         "name": "Mend Gran's watch"
       },
       "misread": {
-        "cause": "8ef6fa6fc0a13c63",
-        "shown": "18f7081e4f730484"
+        "cause": "259013b2e75549fe"
       },
       "confirm": [],
       "networkIdentity": null,

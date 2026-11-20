@@ -27,6 +27,7 @@ import {
   type ComplaintsAtWork,
   complaintFieldsOf,
   fixingOf,
+  withMisreadSealed,
 } from "./complaint-checks";
 import {
   DECISIONS,
@@ -199,6 +200,8 @@ export interface CheckInputs {
 }
 
 interface Ranked {
+  /** What the guess also rests on, for its cause (`causeOf`): an ending's later step. */
+  basis?: string;
   check: Omit<Check, "confirm" | "matter">;
   /** For the order (`inboxOrderOf`): when a decision was asked, else the newest day among the lines it rides on. */
   day: string;
@@ -396,7 +399,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
               quote: link.quote,
               where: later ? whereOf(later) : c.where.get(link.later),
             }
-          )
+          ).map((r) => ({ ...r, basis: link.later }))
         : [];
     }),
   /**
@@ -614,7 +617,7 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
   const found = inboxOrderOf(
     Object.values(BUILDERS)
       .flatMap((build) => build(c))
-      .map(({ check, day }) => {
+      .map(({ basis, check, day }) => {
         const m = matterOf([check.subject ?? check.ref]);
         const built = {
           ...check,
@@ -623,7 +626,11 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
             (id) => cardMatterOf(byId.get(id)) ?? []
           ),
         };
-        return { ...built, ...complaintFieldsOf(built, inputs.fixing), day };
+        return {
+          ...built,
+          ...complaintFieldsOf(built, inputs.fixing, basis),
+          day,
+        };
       })
   ).map(({ day: _, ...check }) => check);
   const guessed = new Map(
@@ -811,10 +818,11 @@ async function readChecks(
       ]),
     ]),
   });
-  return (await withNetworkIdentities(checks, people)).map((c) => ({
+  const shown = (await withNetworkIdentities(checks, people)).map((c) => ({
     ...c,
     contactsCard: c.contactsCard ?? null,
     pushId: pushIdOf(c.ref, key),
     urgency: urgencyOf(c),
   }));
+  return withMisreadSealed(shown, key);
 }

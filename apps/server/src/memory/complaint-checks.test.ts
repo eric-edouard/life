@@ -52,6 +52,10 @@ test("“Wrong…” is on Life's own cards alone; its cause holds through a cou
   expect(causeOf({ ...name, question: 'Who is "Dee"?' })).not.toBe(
     name.misread?.cause
   );
+  // An ending's cause is its link: another later step with the same words is another cause.
+  expect(causeOf(name, "obs_00000000aa01")).not.toBe(
+    causeOf(name, "obs_00000000aa02")
+  );
   const fixing = new Map([
     [
       name.misread?.cause ?? "",

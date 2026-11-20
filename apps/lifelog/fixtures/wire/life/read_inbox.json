@@ -126,8 +126,7 @@
           "title": "Know who someone is",
           "matter": null,
           "misread": {
-            "cause": "b62ed1262c46de37",
-            "shown": "1fe99fbddc50725f"
+            "cause": "af557d3015052eab"
           },
           "confirm": [],
           "networkIdentity": {
@@ -335,8 +334,7 @@
       "title": "Name a voice",
       "matter": null,
       "misread": {
-        "cause": "7ea42d1b558b060d",
-        "shown": "76abc34c6045054c"
+        "cause": "2ce6d5055353fc49"
       },
       "confirm": [],
       "networkIdentity": null,
@@ -427,8 +425,7 @@
       "title": "Place a name",
       "matter": null,
       "misread": {
-        "cause": "e00f0f90830000bc",
-        "shown": "c7e89c0929ace0c4"
+        "cause": "a9dfb8f00f75d123"
       },
       "confirm": [],
       "networkIdentity": null,
@@ -492,8 +489,7 @@
       "title": "Place a Contacts card",
       "matter": null,
       "misread": {
-        "cause": "febe1ef0b8cee665",
-        "shown": "018c5d71a6bb2cd6"
+        "cause": "ea5eaff219840b9e"
       },
       "confirm": [],
       "networkIdentity": null,
@@ -568,8 +564,7 @@
         "name": "Mend Gran's watch"
       },
       "misread": {
-        "cause": "8ef6fa6fc0a13c63",
-        "shown": "18f7081e4f730484"
+        "cause": "259013b2e75549fe"
       },
       "confirm": [],
       "networkIdentity": null,
@@ -627,8 +622,7 @@
       "title": "Know who someone is",
       "matter": null,
       "misread": {
-        "cause": "b62ed1262c46de37",
-        "shown": "1fe99fbddc50725f"
+        "cause": "af557d3015052eab"
       },
       "confirm": [],
       "networkIdentity": {
@@ -717,8 +711,7 @@
         "name": "Frame Gran's photo"
       },
       "misread": {
-        "cause": "cd5de82a05bb8611",
-        "shown": "0535db8903b01c93"
+        "cause": "84eb7d331a31df81"
       },
       "confirm": [],
       "networkIdentity": null,

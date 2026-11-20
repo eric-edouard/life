@@ -2,8 +2,7 @@ import { z } from "zod";
 import { clock } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { off } from "../core/outputs";
-import { recordComplaints } from "../memory/complaint-record";
-import { decisionsNow } from "../memory/decisions";
+import { isSealed } from "../memory/complaint-checks";
 import { askOf } from "../memory/memory-files";
 import { type Complaint, complaintOf } from "../records/ledger-entry";
 import { ask } from "./asks";
@@ -15,16 +14,17 @@ import { openChecksNow } from "./inbox";
 
 // His complaint: his "Wrong…" on a card of Life's (`answer_check` with `value.kind` `misread`), with his words. One
 // press is one ask of the desk in the ledger, its id made from the press's key (`life/answerKey`), so a retry never asks
-// twice; then its row in the complaint record; then this waits for the desk to receive it for the caretaker (the
-// receipt: its event row, `complaintReceiptOf`). Only then does his app hear `reached: "caretaker"`: the ask, the row and
-// the receipt are all written. Any failure keeps his words with his app, and a retry under the same key resumes.
+// twice; then this waits for the desk to receive it for the caretaker, which writes its complaint record row first and
+// its receipt (its event row, `complaintReceiptOf`) after. Only then does his app hear `reached: "caretaker"`: the ask,
+// the row and the receipt are all written. Any failure keeps his words with his app, and a retry under the key resumes.
 
-/** What his app sends with his words: the card's `cause` and `shown` as it read them (`Check.misread`) and his tick on the anonymized report. */
+/** What his app sends with his words: the card's `misread` as it read it (`cause`, `shown`, `seal`) and his tick on the anonymized report. */
 export const Misread = z
   .object({
     cause: z.string().min(1).max(64),
     kind: z.literal("misread"),
     report: z.boolean(),
+    seal: z.string().min(1).max(64),
     shown: z.string().min(1).max(64),
   })
   .strict();
@@ -32,14 +32,17 @@ export type Misread = z.infer<typeof Misread>;
 
 const POLL_MS = 500;
 
-/** The complaint his press makes on card `ref`, the card read now: refused on an agent's card, or on a decision that left. */
+/**
+ * The complaint his press makes on card `ref`: only a "Wrong…" Life showed (`isSealed`: a card of Life's, its ref and
+ * cause as shown), the card left or not; with the card as read now, and whether it is the one he saw.
+ */
 async function complaintNow(ref: string, m: Misread): Promise<Complaint> {
-  const card = (await openChecksNow()).find((c) => c.ref === ref) ?? null;
-  if (card ? !card.misread : decisionsNow().some((d) => d.id === ref)) {
+  if (!isSealed(ref, m)) {
     throw new Error(
-      "Not done: “Wrong…” is on Life's own cards only; an agent's card takes his answer or his words."
+      "Not done: “Wrong…” takes a card of Life's as Life showed it (its `misread`); an agent's card takes his answer or his words."
     );
   }
+  const card = (await openChecksNow()).find((c) => c.ref === ref) ?? null;
   return {
     card,
     cause: m.cause,
@@ -122,6 +125,5 @@ export async function complain(
       "Not done: this key recorded another press; a new press takes a new key."
     );
   }
-  recordComplaints();
   return await reached(asked.id, limitMs);
 }
