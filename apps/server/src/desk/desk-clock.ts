@@ -53,8 +53,6 @@ import {
   defaultWaitOf,
   eventLineOf,
   failuresOf,
-  GROWTH_LIMIT,
-  growthOf,
   isBeginLate,
   MAX_HANDED,
   nextWakeOf,
@@ -366,9 +364,9 @@ function watch(desk: Desk, id: string, turn: number, run: Run) {
 /**
  * Starts a turn of `a` on its assignment `s`, or leaves a session running a turn of his alone (false: the wake comes
  * after it). The turn is written before the runtime is called, so the turn's end, however soon, finds it; its queued
- * events count a try once it begins (`markBegun`). It runs into its session while that has grown under
- * `GROWTH_LIMIT`, else in a fresh session from its packet (the old one's link kept). A runtime that fails ends it
- * failed, tried again later.
+ * events count a try once it begins (`markBegun`). It always resumes its one session, whose runtime compacts it when
+ * full; only a session that is gone is replaced, by a fresh one from its packet (the old one's link kept). A runtime that
+ * fails ends it failed, tried again later.
  */
 async function wake(desk: Desk, a: AgentRow, s: AssignmentRow) {
   const { db } = desk;
@@ -446,8 +444,7 @@ async function launch(
       throw new Error(`no runtime ${a.runtime}`);
     }
     const { session } = a;
-    const grown = session && state === "idle" ? readGrowth(db, session) : 0;
-    const isFresh = !session || state === "gone" || grown >= GROWTH_LIMIT;
+    const isFresh = !session || state === "gone";
     // Read for a fresh session too: what the turn is shown (the packet holds the whole matter).
     const record = isOwn ? null : await matterRecordOf(desk, s, turn, isFresh);
     if (isFresh) {
@@ -516,21 +513,6 @@ async function launch(
     await turnEnded(desk, a.id, { ok: false, why: (error as Error).message });
   }
 }
-
-/** How much session `ref` has grown (`growthOf`), from what its turns kept. */
-const readGrowth = (db: Desk["db"], ref: string) =>
-  growthOf(
-    db
-      .query<{ context_at_first_call: number | null }, [string]>(
-        "select context_at_first_call from session where ref = ?"
-      )
-      .get(ref),
-    db
-      .query<{ context_used: number | null }, [string]>(
-        "select context_used from turn where session = ? and context_used is not null order by id desc limit 1"
-      )
-      .all(ref)
-  );
 
 /**
  * Starts the turns due now: his answers and new assignments' first turns first, then the oldest deadline, until 3 have
