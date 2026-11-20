@@ -79,6 +79,7 @@ import {
   readPeople,
   readUnresolvedPeople,
   type Shown,
+  voiceCardRefOf,
   voicePersonOf,
   voiceSuggestionOf,
 } from "./who";
@@ -583,7 +584,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
               (o) => who || o.id !== "is-them"
             ),
             question: who ? `Is this ${who}?` : "Who is this?",
-            ref: `voice:${item.id}`,
+            ref: voiceCardRefOf(c.people.resolve, item),
             ridesOn: { ...ridingOf(), observations: 0, pages: 0 },
             // The person lifelog suggests, what makes it a guess in use; null: none (`urgencyOf`).
             subject: who ? known : null,

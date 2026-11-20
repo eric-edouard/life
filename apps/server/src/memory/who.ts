@@ -324,6 +324,20 @@ export const voiceSuggestionOf = (
     ? null
     : voicePersonOf(resolve, item.personId, item.name);
 
+/** A voice card's ref: its lifelog group and the person it suggests, so "Yes" answers only the card he saw (`voiceSuggestionOf`). */
+export const voiceCardRefOf = (
+  resolve: (s: string) => string | null,
+  item: {
+    id: string;
+    kind: string;
+    name: string | null;
+    personId: string | null;
+  }
+) => {
+  const suggested = voiceSuggestionOf(resolve, item);
+  return `voice:${item.id}${suggested ? `~${suggested}` : ""}`;
+};
+
 /**
  * The handle or name a fact's author came from: the one it kept (`speakerFrom`), an unknown author's label, or for a
  * fact from before `speakerFrom`, its 1:1 chat's handle (`chatHandles`); none for the owner.

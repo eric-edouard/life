@@ -308,10 +308,12 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     // "Yes" to the guess in use: the check's subject, with nothing else given.
     const known = { ...item, kind: "known_person" as const, personId: DANA_ID };
     queue.mockResolvedValueOnce([known]);
-    await answerCheck(
-      { ...voice, subject: "person:dana" },
-      { options: ["is-them"] }
-    );
+    const dana = {
+      ...voice,
+      ref: "voice:v1~person:dana",
+      subject: "person:dana",
+    };
+    await answerCheck(dana, { options: ["is-them"] });
     await answerCheck(voice, { options: ["not-anyone-i-know"] });
     await answerCheck(voice, { options: ["media"] });
     await answerCheck(voice, { options: ["not-relevant"] });
@@ -338,12 +340,9 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     ]) {
       queue.mockResolvedValueOnce([now]);
       // biome-ignore lint/performance/noAwaitInLoops: each case uses the queue it just set
-      await expect(
-        answerCheck(
-          { ...voice, subject: "person:dana" },
-          { options: ["is-them"] }
-        )
-      ).rejects.toThrow("changed voice:v1 since it was shown");
+      await expect(answerCheck(dana, { options: ["is-them"] })).rejects.toThrow(
+        "no open check voice:v1~person:dana"
+      );
     }
     expect(send.mock.calls.length).toBe(sent);
     queue.mockResolvedValue([]);

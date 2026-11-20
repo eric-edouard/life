@@ -353,7 +353,7 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   expect(cards).toHaveLength(60);
   const byRef = (r: string) => cards.find((c) => c.ref === r);
   // Lifelog's suggestion in use is asked as a guess; the rest are asked who.
-  expect(byRef("voice:v0")?.question).toBe("Is this Dana?");
+  expect(byRef("voice:v0~person:dana")?.question).toBe("Is this Dana?");
   expect(byRef("voice:v1")?.question).toBe("Who is this?");
   expect(byRef("voice:v1")?.about).toEqual(["Kofi"]);
   expect(byRef("voice:v2")?.question).toBe("Who is this?");
@@ -372,14 +372,14 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   ]);
   // The people it could be are buttons of their own; the answers are "Yes" (only to a guess in use), "Someone else…", "Don't name".
   const labels = (r: string) => byRef(r)?.options.map((o) => o.label);
-  expect(labels("voice:v0")).toEqual(["Yes", "Someone else…", "Don't name"]);
+  expect(labels("voice:v0~person:dana")).toEqual(["Yes", "Someone else…", "Don't name"]);
   expect(labels("voice:v1")).toEqual(["Someone else…", "Don't name"]);
   expect(labels("voice:v2")).toEqual(["Someone else…", "Don't name"]);
   expect(byRef("voice:v2")?.evidence?.quote).toBe("See you Friday");
   // Lifelog ranks likely people for every voice: only its suggestion makes a guess in use.
   expect(
     cards.filter((c) => urgencyOf(c) === "improves").map((c) => c.ref)
-  ).toEqual(["voice:v0"]);
+  ).toEqual(["voice:v0~person:dana"]);
 });
 
 const HEX16 = /^[0-9a-f]{16}$/;

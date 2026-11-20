@@ -16,7 +16,7 @@ import type { Check, LIFE_CHECKS } from "./life-checks";
 import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
-import { readPeople, voicePersonOf, voiceSuggestionOf } from "./who";
+import { type People, readPeople, voiceCardRefOf, voicePersonOf } from "./who";
 import { dayNow } from "./zones";
 
 // His answer to a check (`answer_check`, `bun life memory answer-check`): one call for every kind. Each option goes to
@@ -46,12 +46,12 @@ export type AddDirectoryEntry = (
   fields?: { relation?: string }
 ) => Promise<string>;
 
-/** What a writer is given besides the check and his answer: a voice's queue item, the steps to report, the desk's start (his own token's `answer_check` only). */
+/** What a writer is given besides the check and his answer: a voice's queue item with the people it was read with, the steps to report, the desk's start (his own token's `answer_check` only). */
 interface WriterExtras {
   addDirectoryEntry?: AddDirectoryEntry;
-  item?: NamingQueueItem;
   onStep?: (step: string, detail?: Record<string, unknown>) => void;
   startAgent?: StartAgent;
+  voice?: Voice;
 }
 
 type Writer = (c: Check, a: CheckAnswer, x: WriterExtras) => Promise<unknown[]>;
@@ -119,50 +119,52 @@ const correct = (said: object[], a: CheckAnswer) =>
     )
   );
 
+/** A voice's queue item, as lifelog gives it now, and the people it was read with. */
+interface Voice {
+  item: NamingQueueItem;
+  people: People;
+}
+
 /**
  * The voice lifelog still asks him to name for the open check `c`, as lifelog gives it now (never a kept list), and
- * only while it is the card he saw: one he could be asked about, suggesting the same person.
+ * only while it is the card he saw: one he can be asked about, suggesting the same person (its ref, `voiceCardRefOf`).
  */
-async function readVoiceItem(c: Pick<Check, "ref" | "subject">) {
-  const item = (await readNamingQueueNow()).find(
-    (i) => `voice:${i.id}` === c.ref
+async function readVoice(c: Pick<Check, "ref">): Promise<Voice> {
+  const people = await readPeople();
+  const queue = await readNamingQueueNow();
+  const item = queue.find(
+    (i) => i.kind !== "several" && voiceCardRefOf(people.resolve, i) === c.ref
   );
   if (!item) {
-    throw new Error(`Not done: no open check ${c.ref}`);
-  }
-  if (
-    item.kind === "several" ||
-    voiceSuggestionOf((await readPeople()).resolve, item) !==
-      (c.subject ?? null)
-  ) {
     throw new Error(
-      `Not done: lifelog changed ${c.ref} since it was shown; read the inbox again.`
+      `Not done: no open check ${c.ref} (lifelog may have changed it since it was shown; read the inbox again).`
     );
   }
-  return item;
+  return { item, people };
 }
 
 /** His answer on a voice, sent to lifelog for every turn of it; nothing is written in memory. */
 async function answerVoice(
   c: Check,
-  item: NamingQueueItem | undefined,
-  answerOf: (
-    item: NamingQueueItem
-  ) => Promise<Parameters<typeof answerNamingQueue>[1]>
+  voice: Voice | undefined,
+  answerOf: (v: Voice) => Promise<Parameters<typeof answerNamingQueue>[1]>
 ) {
-  if (!item) {
+  if (!voice) {
     throw new Error(`Not done: no open check ${c.ref}`);
   }
   return [
     await answerNamingQueue(
-      item.voices.map(({ jobId, speakerLabel }) => ({ jobId, speakerLabel })),
-      await answerOf(item)
+      voice.item.voices.map(({ jobId, speakerLabel }) => ({
+        jobId,
+        speakerLabel,
+      })),
+      await answerOf(voice)
     ),
   ];
 }
 
 /** Who a voice's answer names: a new person by `name`, else the lifelog person that is Life's `person`, else that person by their name. */
-async function thisIs(item: NamingQueueItem, c: Check, a: CheckAnswer) {
+async function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
   if (a.name) {
     return { kind: "confirm", name: a.name } as const;
   }
@@ -170,7 +172,6 @@ async function thisIs(item: NamingQueueItem, c: Check, a: CheckAnswer) {
     throw new Error(`Not done: give person or name for ${c.ref}.`);
   }
   const ref = personIn(a);
-  const people = await readPeople();
   const id = namingQueueGuessesOf(item).find(
     (x) => x && voicePersonOf(people.resolve, x, null) === ref
   );
@@ -308,17 +309,18 @@ const WRITERS: {
   },
   voice: {
     // "Yes" to the guess in use: the person lifelog suggests (the check's `subject`).
-    "is-them": (c, a, { item }) =>
-      answerVoice(c, item, (i) =>
+    "is-them": (c, a, { voice }) =>
+      answerVoice(c, voice, (i) =>
         thisIs(i, c, { ...a, person: c.subject ?? undefined })
       ),
-    media: (c, _a, { item }) =>
-      answerVoice(c, item, async () => ({ kind: "media" })),
-    "not-anyone-i-know": (c, _a, { item }) =>
-      answerVoice(c, item, async () => ({ kind: "ignore" })),
-    "not-relevant": (c, _a, { item }) =>
-      answerVoice(c, item, async () => ({ kind: "not_relevant" })),
-    "this-is": (c, a, { item }) => answerVoice(c, item, (i) => thisIs(i, c, a)),
+    media: (c, _a, { voice }) =>
+      answerVoice(c, voice, async () => ({ kind: "media" })),
+    "not-anyone-i-know": (c, _a, { voice }) =>
+      answerVoice(c, voice, async () => ({ kind: "ignore" })),
+    "not-relevant": (c, _a, { voice }) =>
+      answerVoice(c, voice, async () => ({ kind: "not_relevant" })),
+    "this-is": (c, a, { voice }) =>
+      answerVoice(c, voice, (v) => thisIs(v, c, a)),
   },
 };
 
@@ -341,7 +343,7 @@ export async function answerCheck(
     look,
     onStep,
     startAgent,
-  }: Omit<WriterExtras, "item"> & {
+  }: Omit<WriterExtras, "voice"> & {
     answerKey?: string;
     end?: EndByHisWord;
     look?: LookForDone;
@@ -373,13 +375,13 @@ export async function answerCheck(
       `Not done: pick one of ${Object.keys(writers).join(", ")} for ${ref}.`
     );
   }
-  const item = check.group === "voice" ? await readVoiceItem(check) : undefined;
+  const voice = check.group === "voice" ? await readVoice(check) : undefined;
   const typed = await typedPersonOf(a);
   const done = await write(check, typed.a, {
     addDirectoryEntry,
-    item,
     onStep,
     startAgent,
+    voice,
   });
   if (done.length === 0) {
     throw new Error(`Not done: ${ref} names no one to correct.`);
@@ -389,7 +391,7 @@ export async function answerCheck(
     answer: typed.a,
     check,
     done,
-    item,
+    item: voice?.item,
     recordedAs: typed.recordedAs ?? a.name,
     ref,
   };
