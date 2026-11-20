@@ -128,9 +128,10 @@ export const chatHeldOf = (list: readonly SourceEvent[]) => {
 };
 
 /**
- * Whether a chat-day or thread is with `ref` alone, by its messages: its key is no group's, every other writer Life
- * knows reads as them, and one it doesn't know only where the chat's own name places them (`oneToOnePersonOf`: never a
- * mail's subject, so a thread a stranger wrote in is not theirs); on a day only he wrote, it is theirs by
+ * Whether a chat-day or thread is with `ref` alone, by its messages: its key is no group's and every other writer
+ * reads as them; or its one other writer is one Life doesn't know whom the chat's own name places as them
+ * (`oneToOnePersonOf`, never a mail's subject: a thread a stranger wrote in is not theirs, nor a room they and a stranger
+ * wrote in); on a day only he wrote, it is theirs by
  * `onlyHisWithOf`. `latest` checks the index by it (which leaves out a mail's senders no one knows), today's
  * `read_chats` with `who` applies it before cutting to the range asked.
  */
@@ -142,17 +143,19 @@ export function isWithThemAlone(
   if (o.senders.length === 0) {
     return onlyHisWithOf(o, resolve) === ref;
   }
-  const strangers = new Set(
-    o.senders
-      .map((h) => refOf(`${UNKNOWN}${h}`, o.source))
-      .filter((r) => r !== ref)
+  const others = new Set(
+    o.senders.map((h) => refOf(`${UNKNOWN}${h}`, o.source))
   );
-  return (
-    isDirect(o.source, o.chat, 1) &&
-    [...strangers].every((r) => r.startsWith(UNKNOWN)) &&
-    (strangers.size === 0 ||
-      oneToOnePersonOf({ ...o, others: strangers }, resolve) === ref)
-  );
+  if (!others.has(ref) || others.size > 1) {
+    // Every distinct writer counted: the chat's name places one Life doesn't know only when they are its one other.
+    const [other = ""] = others;
+    return (
+      others.size === 1 &&
+      other.startsWith(UNKNOWN) &&
+      oneToOnePersonOf({ ...o, others }, resolve) === ref
+    );
+  }
+  return isDirect(o.source, o.chat, 1);
 }
 
 /** How many of a person's newest chat-days are read to find one that is 1:1 (the index can't tell a group). */

@@ -19,10 +19,10 @@ import {
   section,
   withIndex,
 } from "./index-rows";
-import { daysOf, episodesWhere, pagePath } from "./memory-files";
+import { daysOf, pagePath } from "./memory-files";
 import { slugOf } from "./page-format";
 import { episodeTitlesOf } from "./person-episode-titles";
-import { readEpisodesWith } from "./person-episodes";
+import { readEpisodesWith, readStandingEpisodes } from "./person-episodes";
 import {
   isIn,
   isOnTheList,
@@ -275,8 +275,8 @@ export async function person(
         ref,
         folks,
         await matters(),
-        // His own situation may cite any episode (his leave him out of their people); anyone else's, theirs.
-        ref === OWNER ? await episodesWhere(() => true) : episodes
+        // His own situation may cite any episode (his leave him out of their people): its cited ids, looked up.
+        ref === OWNER ? readStandingEpisodes : episodes
       )
     : undefined;
   return withStore((store) => {

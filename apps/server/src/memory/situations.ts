@@ -46,30 +46,38 @@ const readSituation = (ref: string) => {
 
 /**
  * A situation's lines a reader may show (search and a person's read alike): those whose every cited episode stands
- * among `episodes` (`episodesNow`) and, for anyone but him, is still with them (`refOf` reads its people as of today;
- * his episodes leave him out of their people, so his own may cite any), and only when it was made by the prompt
- * variant the add-ons choose now, so switching one hides what it wrote at once (the next night rebuilds it,
- * `situationInputOf`).
+ * among `episodes` (`episodesNow`, or a function of the cited ids) and, for anyone but him, is still with them (`refOf`
+ * reads its people as of today; his episodes leave him out of their people, so his own may cite any), and only when it
+ * was made by the prompt variant the add-ons choose now, so switching one hides what it wrote at once (the next night
+ * rebuilds it, `situationInputOf`).
  */
 const situationNameNow = (mayKeep = readMayKeep()) =>
   promptNameOf(SITUATION_PROMPT, mayKeep === undefined ? [] : [MAY_KEEP]);
 
+/** The episodes there are, as a reader holds them: their ids and people. */
+type StandingEpisodes = readonly {
+  id: string;
+  people: readonly { ref: string }[];
+}[];
+
 export const readSituationNow = (
   ref: string,
-  episodes: readonly { id: string; people: readonly { ref: string }[] }[],
+  episodes: StandingEpisodes | ((cited: string[]) => StandingEpisodes),
   refOf: (ref: string) => string
 ) => {
+  const situation = readSituation(ref);
+  if (situation?.madeBy.prompt !== situationNameNow()) {
+    return [];
+  }
+  const cited = [...new Set(situation.lines.flatMap((l) => l.cites))];
   const live = new Set(
-    episodes
+    (typeof episodes === "function" ? episodes(cited) : episodes)
       .filter(
         (m) => ref === OWNER || m.people.some((p) => refOf(p.ref) === ref)
       )
       .map((m) => m.id)
   );
-  const situation = readSituation(ref);
-  return situation?.madeBy.prompt === situationNameNow()
-    ? situation.lines.filter((l) => l.cites.every((id) => live.has(id)))
-    : [];
+  return situation.lines.filter((l) => l.cites.every((id) => live.has(id)));
 };
 
 /** Situation lines as a reader shows them, under `title`; nothing when there is none. */

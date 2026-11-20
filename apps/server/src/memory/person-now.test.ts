@@ -2,7 +2,9 @@ import { Database } from "bun:sqlite";
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { writeJson } from "../core/files";
 import { OWNER_DATA_DIR } from "../core/paths";
+import { promptNameOf } from "../models/prompt-parts";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import {
@@ -11,7 +13,13 @@ import {
   reindex,
   reindexUnits,
 } from "./index-writer";
-import { EPISODES, INDEX, INFERRED, UNITS } from "./memory-files";
+import {
+  EPISODES,
+  INDEX,
+  INFERRED,
+  situationPath,
+  UNITS,
+} from "./memory-files";
 import {
   firstSentenceOf,
   knowsOf,
@@ -25,6 +33,7 @@ import { readPersonUnits } from "./person-units";
 import { reachOf } from "./reach";
 import { PART_CHARS } from "./read-part";
 import { person } from "./read-person-page";
+import { OWNER } from "./read-truth";
 import { madeBy, unit as unitFixture } from "./record-fixtures";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as sources from "./sources";
@@ -502,7 +511,9 @@ test("now reads only the episode files the index names for them: an earlier line
   try {
     writeFileSync(
       file("2026-10-01"),
-      line("2026-10-01", "ep_00000000000a", "Lunch", ["person:test-ana"])
+      line("2026-10-01", "ep_00000000000a", "Lunch", ["person:test-ana"]) +
+        // A tea the same day she was in until its latest line left her out: her lunch's day file holds its old line.
+        line("2026-10-01", "ep_00000000000d", "Tea", ["person:test-ana"])
     );
     // The lunch read again a day later, now a walk too: its latest line.
     writeFileSync(
@@ -511,7 +522,8 @@ test("now reads only the episode files the index names for them: an earlier line
         "person:test-ana",
       ]) +
         // A coffee she was in until its latest line, read a day later, left her out.
-        line("2026-10-03", "ep_00000000000c", "Coffee", [])
+        line("2026-10-03", "ep_00000000000c", "Coffee", []) +
+        line("2026-10-01", "ep_00000000000d", "Tea", [])
     );
     writeFileSync(
       file("2026-10-02"),
@@ -527,18 +539,11 @@ test("now reads only the episode files the index names for them: an earlier line
     expect(now.episodes.flatMap((m) => m.titles)).toEqual([
       "Lunch, then a walk",
     ]);
-    // An index from before `episode_people`: the read still answers (every episode read), and the index is stale.
+    // An index from before `episode_people`: the read says it is being rebuilt, never reads every day (2 Oct would throw), and the index is stale.
     const db = new Database(INDEX);
     db.run("drop table episode_people");
     db.close();
-    writeFileSync(
-      file("2026-10-02"),
-      line("2026-10-02", "ep_00000000000b", "Errands", [])
-    );
-    const old = (await person("Test Ana")) as typeof now;
-    expect(old.episodes.flatMap((m) => m.titles)).toEqual([
-      "Lunch, then a walk",
-    ]);
+    await expect(person("Test Ana")).rejects.toThrow("rebuilding its index");
     expect(readStaleness()).toBe("index");
   } finally {
     rmSync(EPISODES, { force: true, recursive: true });
@@ -601,4 +606,34 @@ test("reach keeps to its room with long Contacts labels; every account it has no
       reach: org,
     }).reach.flatMap((r) => r.accounts.map((a) => a.handle))
   ).toEqual(mails);
+});
+
+test("his own situation is checked against the episodes the index holds, by the ids it cites: no episode file is read", async () => {
+  const line = `${JSON.stringify({ copies: [], day: "2026-10-04", end: null, id: "ep_00000000000e", importance: 2, madeBy, people: [], place: null, schemaVersion: 1, start: "2026-10-04 12:00", title: "Moving day", units: ["unit_000000000001"], what: "He moves.", within: null })}\n`;
+  const file = join(EPISODES, "2026-10-04.jsonl");
+  mkdirSync(EPISODES, { recursive: true });
+  writeJson(situationPath(OWNER), {
+    built: "2026-11-05T00:00:00.000Z",
+    inputs: "0123456789abcdef",
+    lines: [
+      { cites: ["ep_00000000000e"], text: "He moved flats." },
+      { cites: ["ep_00000000000f"], text: "An episode since gone." },
+    ],
+    madeBy: { ...madeBy, prompt: promptNameOf("memory-situation.v3") },
+    page: OWNER,
+    schemaVersion: 1,
+  });
+  try {
+    writeFileSync(file, line);
+    await reindex();
+    // Unreadable now: reading any episode file would throw.
+    writeFileSync(file, "not an episode\n");
+    const now = (await person("Test Owner")) as {
+      situation: { text: string }[];
+    };
+    expect(now.situation.map((l) => l.text)).toEqual(["He moved flats."]);
+  } finally {
+    rmSync(EPISODES, { force: true, recursive: true });
+    rmSync(situationPath(OWNER), { force: true });
+  }
 });

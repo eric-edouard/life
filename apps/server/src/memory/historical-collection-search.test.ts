@@ -427,3 +427,22 @@ test("who: today's 1:1 LINE chat her name titles is hers whole, though Life does
     rmSync(INDEX, { force: true });
   }
 });
+
+test("who: a LINE room her name titles where she and a stranger both wrote is no 1:1 chat: only her own words", async () => {
+  const at = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+  const room = [
+    lineSaid("t1", at(4), "!room-mixed", "Test Ana", "Test Ana"),
+    lineSaid("t2", at(3), "!room-mixed", "@line_u0000000000000002", "Test Ana"),
+    lineSaid("t3", at(2), "!room-mixed", "me", "Test Ana"),
+  ];
+  try {
+    await indexedFrom([]);
+    const found = messagesIn(
+      await chatsOf({ who: "Test Ana" }, { line: sourceOver(room) })
+    );
+    expect(found.map((l) => l.slice(l.lastIndexOf("[")))).toEqual(["[id t1]"]);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});
