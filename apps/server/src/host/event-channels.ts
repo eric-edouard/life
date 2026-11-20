@@ -81,8 +81,10 @@ const payeeOf = (merchant: string) => {
   if (!field) {
     return merchant;
   }
-  const before = merchant.slice(0, field.index);
-  const isBracketed = before.lastIndexOf("(") > before.lastIndexOf(")");
+  let open = 0;
+  for (const ch of merchant.slice(0, field.index)) {
+    open = Math.max(0, open + (ch === "(" ? 1 : 0) - (ch === ")" ? 1 : 0));
+  }
   let depth = 0;
   let name = "";
   for (const ch of merchant.slice(field.index + field[0].length)) {
@@ -93,7 +95,7 @@ const payeeOf = (merchant: string) => {
     }
     name += ch;
   }
-  return isBracketed ? "" : name.trim();
+  return open > 0 ? "" : name.trim();
 };
 
 /**

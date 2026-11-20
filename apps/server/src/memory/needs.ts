@@ -124,13 +124,21 @@ export const needPageOf = (name: string) =>
 
 /** Titles before a name: they say nothing of who it is. */
 const TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "the"]);
-/** A company's form written out at a name's end ("Co., Ltd.", "Limited", "Inc."): dropped; a bare "Co" may be a surname. */
-const COMPANY_FORM =
-  /[\s,]+(?:co\.?,?\s*ltd|company\s+limited|limited|ltd|inc|plc)\.?\s*$/i;
+/** A company's form at a name's end, as `nameKey` words ("Co., Ltd." is `co ltd`): dropped; a bare "Co" may be a surname. */
+const COMPANY_FORMS = [
+  "co ltd",
+  "company limited",
+  "limited",
+  "ltd",
+  "inc",
+  "plc",
+];
 
 /** A name's words as names are compared (`nameKey`), less its leading titles and its company form; initials kept. */
 const nameWordsOf = (name: string) => {
-  const words = nameKey(` ${name}`.replace(COMPANY_FORM, ""))
+  const key = nameKey(name).trim();
+  const form = COMPANY_FORMS.find((f) => key === f || key.endsWith(` ${f}`));
+  const words = (form ? key.slice(0, -form.length) : key)
     .split(" ")
     .filter(Boolean);
   const from = words.findIndex((w) => !TITLES.has(w));

@@ -241,6 +241,10 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
     payment({ id: "branch", merchant: "SHOP (A/C Name: B Lee) (Branch A)" }),
     payment({ id: "broken", merchant: "SHOP (A/C Name:\nB Lee)" }),
     payment({ id: "unclosed", merchant: "SHOP (A/C Name: B Lee (Branch A)" }),
+    payment({
+      id: "nested",
+      merchant: "SHOP (Transfer (Local) A/C Name: B Lee",
+    }),
   ];
   expect(initialCard && (await readSeenDone([initialCard]))).toEqual(new Map());
   booked = [payment({ id: "theirs", merchant: "LEE SHOP (A/C Name: A LEE)" })];
@@ -261,6 +265,12 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
   expect(bracketedCard && (await lookForDone(bracketedCard))).toBe(
     "payments:uk"
   );
+  booked = [
+    payment({ id: "bare", merchant: "A/C Name: North (UK) Services Limited" }),
+  ];
+  expect(bracketedCard && (await lookForDone(bracketedCard))).toBe(
+    "payments:bare"
+  );
   // A word asked twice is there twice; a surname that reads like a company's form is still a name.
   const twice = await transfer({
     needs: [{ ...NEEDS[0], holder: "Li Li" }, NEEDS[1]],
@@ -275,6 +285,7 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
   booked = [
     payment({ id: "ann", merchant: "ANN LEE" }),
     payment({ id: "suffix", merchant: "ANN LEE CO., LTD." }),
+    payment({ id: "wrapped", merchant: "ANN LEE (CO., LTD.)" }),
   ];
   expect(coCard && (await readSeenDone([coCard]))).toEqual(new Map());
   booked = [payment({ id: "lili", merchant: "MS. LI LI" })];
