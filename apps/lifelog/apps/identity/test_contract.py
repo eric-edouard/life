@@ -1,9 +1,13 @@
 """No models, no dependencies: the gate runs it with any python3. Run: python3 -m unittest test_contract"""
 
+import gc
 import json
 import socket
 import threading
+import time
 import unittest
+import weakref
+from concurrent.futures import Future
 import urllib.error
 import urllib.request
 
@@ -110,8 +114,8 @@ class Http(unittest.TestCase):
         self.addCleanup(server.shutdown)
         self.url = f"http://127.0.0.1:{server.server_port}"
 
-    def status(self, path, secret="s" * 16):
-        request = urllib.request.Request(self.url + path, b"x", {"X-Identity-Secret": secret})
+    def status(self, path, secret="s" * 16, **headers):
+        request = urllib.request.Request(self.url + path, b"x", {"X-Identity-Secret": secret, **headers})
         try:
             return urllib.request.urlopen(request).status
         except urllib.error.HTTPError as error:
@@ -122,15 +126,98 @@ class Http(unittest.TestCase):
         self.assertEqual(self.status("/transcribe", secret="wrong"), 401)
         self.assertEqual(self.status("/embed-ranges", secret="wrong"), 401)
         self.assertEqual(self.status("/nothing"), 404)
+        self.assertEqual(self.status("/transcribe", **{"X-Priority": "urgent"}), 400)
 
     def test_work_past_its_wait_is_a_failure_not_busy(self):
         replies = []
         handler = type("H", (), {"reply": lambda self, status, body, headers=None: replies.append(status)})()
         wait, app.WAIT_SECONDS = app.WAIT_SECONDS, 0.05
         self.addCleanup(setattr, app, "WAIT_SECONDS", wait)
-        self.addCleanup(app.jobs.get_nowait)  # no worker runs here: the work stays queued
-        app.Handler.run(handler, lambda models: None, lambda result: result)
+        ran = []
+        app.Handler.run(handler, lambda models: ran.append(1), lambda result: result)
         self.assertEqual(replies, [504])
+        app.run_next(None)  # the worker comes to it only now: its caller is gone, so it never runs
+        self.assertEqual(ran, [])
+
+
+class Admission(unittest.TestCase):
+    """The one worker's order: dictation first, then the rest, each in arrival order; nothing cut."""
+
+    def submit(self, priority, work):
+        future = Future()
+        self.assertTrue(app.enqueue(priority, work, future))
+        return future
+
+    def test_work_under_way_finishes_then_dictation_goes_before_older_work(self):
+        order, started, release = [], threading.Event(), threading.Event()
+
+        def long_block(models):
+            started.set()
+            release.wait(5)
+            order.append("block")
+
+        thread = threading.Thread(target=app.worker, args=(None,), daemon=True)
+        thread.start()
+        self.submit("ordinary", long_block)
+        started.wait(5)
+        first = self.submit("ordinary", lambda models: order.append("first"))
+        second = self.submit("ordinary", lambda models: order.append("second"))
+        dictation = self.submit("interactive", lambda models: order.append("dictation"))
+        release.set()
+        for future in (first, second, dictation):
+            future.result(5)
+        self.assertEqual(order, ["block", "dictation", "first", "second"])
+        self.submit("ordinary", stop)
+        thread.join(5)
+
+    def test_dictation_has_one_waiting_place_of_its_own(self):
+        self.assertTrue(app.enqueue("interactive", lambda models: None, Future()))
+        self.assertFalse(app.enqueue("interactive", lambda models: None, Future()))
+        for _ in range(app.QUEUE_SIZE):
+            self.assertTrue(app.enqueue("ordinary", lambda models: None, Future()))
+        self.assertFalse(app.enqueue("ordinary", lambda models: None, Future()))
+        for _ in range(app.QUEUE_SIZE + 1):
+            app.run_next(None)
+
+    def test_canceled_or_expired_work_is_dropped_before_it_runs(self):
+        ran = []
+        canceled = self.submit("interactive", lambda models: ran.append("canceled"))
+        canceled.cancel()
+        app.run_next(None)
+        wait, app.WAIT_SECONDS = app.WAIT_SECONDS, 0
+        self.addCleanup(setattr, app, "WAIT_SECONDS", wait)
+        self.submit("ordinary", lambda models: ran.append("expired"))
+        app.run_next(None)
+        self.assertEqual(ran, [])
+
+    def test_the_idle_worker_keeps_no_samples_and_no_answer(self):
+        class Samples:
+            pass
+
+        class Answer:
+            pass
+
+        samples = Samples()
+        kept = weakref.ref(samples)
+        thread = threading.Thread(target=app.worker, args=(None,), daemon=True)
+        thread.start()
+        future = self.submit("ordinary", lambda models, samples=samples: Answer())
+        del samples
+        answered = weakref.ref(future.result(5))
+        del future
+        gone = time.monotonic() + 5
+        while (kept() or answered()) and time.monotonic() < gone:  # the worker is back waiting
+            gc.collect()
+            time.sleep(0.01)
+        self.assertIsNone(kept())
+        self.assertIsNone(answered())
+        self.submit("ordinary", stop)
+        thread.join(5)
+
+
+def stop(models):
+    """Ends a test's worker thread: not an Exception, so not handed to the future."""
+    raise SystemExit
 
 
 if __name__ == "__main__":
