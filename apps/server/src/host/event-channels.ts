@@ -69,10 +69,12 @@ const READ_WITHIN_MS = 20_000;
 const PAYMENTS_BACK_DAYS = 35;
 
 /** A bank's own account-name field, which names the payee when the merchant is a shop's name ("SHOP (A/C Name: SHOP CO.,LTD.)"). */
-const ACCOUNT_NAME = /\bA\/C Name:\s*([^)]*)/i;
-/** Who a payment went to, as its bank line names it: its account name when the bank gives one, else the whole line. */
-const payeeOf = (merchant: string) =>
-  ACCOUNT_NAME.exec(merchant)?.[1]?.trim() || merchant;
+const ACCOUNT_NAME = /\bA\/C Name:(.*?)\)?\s*$/i;
+/** Who a payment went to, as its bank line names it: its account name when the bank gives one (blank: none), else the whole line. */
+const payeeOf = (merchant: string) => {
+  const field = ACCOUNT_NAME.exec(merchant);
+  return field ? (field[1] ?? "").trim() : merchant;
+};
 
 /**
  * A payment as an event: money out or in by its sign, as `<currency>_out` or `_in` in its own currency (`thb_out`, what a
