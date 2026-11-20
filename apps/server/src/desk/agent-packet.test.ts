@@ -13,6 +13,7 @@ import type { SourceEvent } from "../records/source";
 import { readPacket, register } from "./agent-actions";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
+import { on } from "./test-desk";
 
 // A project's agent is handed its people and chats as the directory holds them, and any agent its project's context. Made-up people, chats, projects and matters.
 
@@ -68,7 +69,10 @@ afterAll(() => {
 const packet = (p: string) =>
   readPacket(
     desk,
-    register(desk, { brief: "Test brief", project: p, runtime: "fake" }),
+    on(
+      desk,
+      register(desk, { brief: "Test brief", project: p, runtime: "fake" })
+    ),
     true
   );
 
@@ -130,7 +134,10 @@ test("an agent on a project's matter, and the project's agent, get the project's
   const onMatter = (step: string) =>
     readPacket(
       desk,
-      register(desk, { brief: "Test brief", runtime: "fake", steps: [step] }),
+      on(
+        desk,
+        register(desk, { brief: "Test brief", runtime: "fake", steps: [step] })
+      ),
       true
     );
   try {

@@ -365,7 +365,7 @@ export const decisionsNow = (now = clock()): Decision[] =>
     return { ...o, state: stateOf(o, now) };
   });
 
-/** Registered agent `agent`'s open decision, if any: it asks one at a time (`requestDecision`), worked out from `list`, never stored. */
+/** Registered agent `agent`'s open decision, if any: the door lets each assignment ask one at a time, worked out from `list`, never stored. */
 export const openDecisionOf = (agent: string, list = decisionsNow()) =>
   list.find((d) => d.agent === agent && d.state === "open");
 
@@ -499,15 +499,6 @@ export async function requestDecision(
   const problem = cardProblemOf(ask, now);
   if (problem) {
     throw new Error(`Not done: ${problem}.`);
-  }
-  // A registered agent asks him one thing at a time (an inbox rule, not a limit on its work).
-  const open = ask.agent
-    ? openDecisionOf(ask.agent, decisionsNow(now))
-    : undefined;
-  if (open) {
-    throw new Error(
-      `Not done: ${ask.agent} already asks ${open.id}; withdraw it or wait for his answer.`
-    );
   }
   // A step no open matter holds would never be listed: refused, so no question goes unseen. A matter's own id rides on
   // its newest step: a step outlives a re-group, a matter id doesn't.

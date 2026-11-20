@@ -311,6 +311,7 @@ everything…):
 - `data/`: the owner's data, cloned under the lock (the one reader that takes it);
 - `state/`: Life's state without secrets or the rebuildable index, passages and vectors, with the watcher's store and cursor;
 - `archive/`: every archive store and its media;
+- `notes/`: each desk assignment's notes file kept outside Life's state (in `desk.agentsRepo`), as `<asg>.md`; an import puts each back at the path its store names, never over a file there;
 - `manifest.json`: every file's sha256, what each part holds, and the secrets left out, by name.
 
 Passages (`memory/passages.sqlite`) are derived source text, rebuilt with `bun life memory passages`; vectors are

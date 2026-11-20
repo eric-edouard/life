@@ -3,12 +3,13 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, HOUR, iso } from "../core/clock";
-import { agentOf } from "../host/desk-read";
+import { currentAssignmentOf } from "../host/desk-read";
 import { decisionsNow } from "../memory/decisions";
 import { readPacket, register } from "./agent-actions";
 import { doorFetch, doorOf } from "./desk-door";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
+import { on } from "./test-desk";
 
 // The door: an agent is known by its key alone; its tools reach the desk's actions. Made-up agents and briefs.
 
@@ -78,7 +79,7 @@ test("the door refuses a wrong key, another agent's key and an unknown agent ali
   await call(id, doorOf(id).key, "request_decision", ask("Test: plan?"));
   const ok = await call(id, doorOf(id).key, "set_wait", wait);
   expect(ok.result?.isError).toBe(false);
-  expect(agentOf(desk.db, id)?.wait_reason).toBe("r");
+  expect(currentAssignmentOf(desk.db, id)?.wait_reason).toBe("r");
 });
 
 test("request_decision asks as the desk, stamped with the agent and its link; one open at a time; only its own withdrawn", async () => {
@@ -128,7 +129,9 @@ test("a new agent waits or finishes only once it asked its plan", async () => {
 
 test("a handed-out agent is told to ask its card, not its plan", async () => {
   const id = agent();
-  desk.db.run("update agent set is_handed_out = 1 where id = ?", [id]);
+  desk.db.run("update assignment set opened_by = 'desk' where agent_id = ?", [
+    id,
+  ]);
   const { key } = doorOf(id);
   const wait = { events: [], reason: "r", until: ahead(HOUR) };
   const refused = (await call(id, key, "set_wait", wait)).text;
@@ -153,8 +156,8 @@ test("an agent that finished may read its packet, nothing else", async () => {
 
 test("the contract: his own Life's agent is told the Mac is its own; a second Life's has its door's tools only; both keep the gate and the first-turn rule", async () => {
   const id = agent();
-  const own = await readPacket(desk, id, true);
-  const second = await readPacket(desk, id, false);
+  const own = await readPacket(desk, on(desk, id), true);
+  const second = await readPacket(desk, on(desk, id), false);
   expect(own).toContain("this Mac is yours");
   expect(own).toContain("1Password");
   expect(own).toContain("Reaching him");

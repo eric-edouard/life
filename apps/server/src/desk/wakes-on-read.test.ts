@@ -16,6 +16,7 @@ import type { EventFilter } from "../records/registered-agent";
 import { register } from "./agent-actions";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
+import { asgOf } from "./test-desk";
 
 // What `readRegisteredAgents` adds from the desk's store: `wakesOn` while an agent waits, `statusSince` by status, the
 // chat names of the agent's own events, its open card and its wide net. Made-up agents, chats and a card.
@@ -44,19 +45,19 @@ test("an agent's read: wakesOn while it waits, [] otherwise, and statusSince by 
   };
   const on = (id: string, filters: EventFilter[]) =>
     desk.db.run(
-      "update agent set wait_events = ?, wait_until = ? where id = ?",
+      "update assignment set wait_events = ?, wait_until = ? where agent_id = ?",
       [JSON.stringify(filters), "2026-11-25T09:00:00.000Z", id]
     );
   const turn = (id: string, endedAt: string | null) =>
     desk.db.run(
-      "insert into turn (agent_id, cause, started_at, ended_at, outcome) values (?, 'start', '2026-11-20T08:00:00.000Z', ?, ?)",
-      [id, endedAt, endedAt ? "waited" : null]
+      "insert into turn (agent_id, assignment_id, cause, started_at, ended_at, outcome) values (?, ?, 'start', '2026-11-20T08:00:00.000Z', ?, ?)",
+      [id, asgOf(desk, id), endedAt, endedAt ? "waited" : null]
     );
   const event = (id: string, chatName: string) =>
     desk.db.run(
-      "insert into event (agent_id, event_id, name, payload, received_at) values (?, 'whatsapp:e1', 'message.received', ?, '2026-11-20T08:30:00.000Z')",
+      "insert into event (assignment_id, event_id, name, payload, received_at) values (?, 'whatsapp:e1', 'message.received', ?, '2026-11-20T08:30:00.000Z')",
       [
-        id,
+        asgOf(desk, id),
         JSON.stringify({
           at: "2026-11-20T08:30:00.000Z",
           chat: DM,
@@ -73,8 +74,8 @@ test("an agent's read: wakesOn while it waits, [] otherwise, and statusSince by 
     runtime: "claude",
   });
   desk.db.run(
-    "insert into anchor (agent_id, step, added_at) values (?, ?, ?)",
-    [onMatter, "obs_00000000c001", "2026-11-20T08:00:00.000Z"]
+    "insert into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+    [asgOf(desk, onMatter), "obs_00000000c001", "2026-11-20T08:00:00.000Z"]
   );
   // A matter its agent's anchor finds, and an agent anchored on a step no matter holds.
   const matters = await import("../memory/matters");
@@ -92,8 +93,8 @@ test("an agent's read: wakesOn while it waits, [] otherwise, and statusSince by 
     runtime: "claude",
   });
   desk.db.run(
-    "insert into anchor (agent_id, step, added_at) values (?, ?, ?)",
-    [lost, "obs_00000000c002", "2026-11-20T08:00:00.000Z"]
+    "insert into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+    [asgOf(desk, lost), "obs_00000000c002", "2026-11-20T08:00:00.000Z"]
   );
   const onProject = register(desk, {
     brief: "Test brief",
@@ -207,8 +208,8 @@ test("an agent's read: wakesOn while it waits, [] otherwise, and statusSince by 
   ).toEqual({ [DM]: { name: "Test Ben", source: "whatsapp" } });
   for (let i = 0; i < 200; i += 1) {
     desk.db.run(
-      "insert into event (agent_id, event_id, name, payload, received_at) values (?, ?, 'message.received', '{\"chat\":\"other\"}', '2026-11-20T09:00:00.000Z')",
-      [onMatter, `whatsapp:o${i}`]
+      "insert into event (assignment_id, event_id, name, payload, received_at) values (?, ?, 'message.received', '{\"chat\":\"other\"}', '2026-11-20T09:00:00.000Z')",
+      [asgOf(desk, onMatter), `whatsapp:o${i}`]
     );
   }
   expect(
