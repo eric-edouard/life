@@ -544,13 +544,13 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     let notified = try asks([("n1", .blocks)]).checks[0]
     // In the cache: opened from there, the inbox as cached.
     let inCache = PushedCard(pushId: "push-i1", in: cached, notified: notified, at: tapped)
-    #expect(inCache.opening?.check?.ref == "i1" && inCache.shown(in: cached) == cached)
+    #expect(inCache.opening?.check?.ref == "i1" && inCache.shown(in: cached, answeredSinceTap: []) == cached)
     // Not in the cache: the notification's card, first, counted.
     let fresh = PushedCard(pushId: "push-n1", in: cached, notified: notified, at: tapped)
-    let shown = try #require(fresh.shown(in: cached))
+    let shown = try #require(fresh.shown(in: cached, answeredSinceTap: []))
     #expect(shown.checks.map(\.ref) == ["n1", "b1", "i1"] && shown.badge == cached.badge + 1)
     // Nothing read at all: a one-card inbox.
-    #expect(fresh.shown(in: nil)?.checks.map(\.ref) == ["n1"])
+    #expect(fresh.shown(in: nil, answeredSinceTap: [])?.checks.map(\.ref) == ["n1"])
     // A read asked before the tap still checks it; one asked after opens as it says.
     #expect(fresh.checked(by: cached, askedAt: tapped.addingTimeInterval(-1)) == nil)
     #expect(fresh.checked(by: cached, askedAt: tapped.addingTimeInterval(1))?.wasAnswered == true)
@@ -562,4 +562,42 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(fresh.checked(by: partial, askedAt: tapped.addingTimeInterval(1)) == nil)
     // Nothing in hand: nothing to show until the read.
     #expect(PushedCard(pushId: "push-n1", in: nil, notified: nil, at: tapped).opening == nil)
+}
+
+/// A pushed card past the read's limit, answered: the read after the answer, cut off before it, never puts it back.
+/// Held for Undo it is out too, and back once undone; an answer that keeps the card open is never confirmed, so stays.
+@Test func aConfirmedAnswerRetiresThePushedCopyEvenWhenTheReadIsCutOff() throws {
+    let tapped = Date(timeIntervalSince1970: 100)
+    let notified = try asks([("n1", .blocks)]).checks[0]
+    let cut = try decoded(Inbox.self, #"{"checks":[],"counts":{},"total":600,"deadlinesToday":0,"blocking":1}"#)
+    let push = PushedCard(pushId: "push-n1", in: cut, notified: notified, at: tapped)
+    var answered = AnsweredCards()
+    #expect(push.shown(in: cut, answeredSinceTap: answered.newer(than: tapped))?.checks.map(\.ref) == ["n1"])
+    answered.answered("n1", at: tapped.addingTimeInterval(5), pairing: answered.pairing)
+    // The read after his answer is cut off too: it says nothing of the card, and the card stays out.
+    #expect(push.checked(by: cut, askedAt: tapped.addingTimeInterval(6)) == nil)
+    #expect(push.shown(in: cut, answeredSinceTap: answered.newer(than: tapped))?.checks.isEmpty == true)
+    // Held for Undo (the store adds held refs): out; undone: back.
+    #expect(push.shown(in: cut, answeredSinceTap: ["n1"])?.checks.isEmpty == true)
+    #expect(push.shown(in: cut, answeredSinceTap: [])?.checks.map(\.ref) == ["n1"])
+}
+
+/// A notification's card counts only for its own push, read from the Life the phone is paired with now.
+@Test func aKeptCardCountsOnlyUnderThePairingItWasReadFrom() throws {
+    let check = try asks([("n1", .blocks)]).checks[0]
+    let wire = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    let first = try #require((wire["checks"] as? [[String: Any]])?.first)
+    let kept = String(
+        decoding: try JSONSerialization.data(withJSONObject: first.merging(["ref": "n1", "pushId": "push-n1"]) { $1 }),
+        as: UTF8.self)
+    let a = URL(string: "https://life-a.example.test")!
+    let b = URL(string: "https://life-b.example.test")!
+    // Delivered under A, opened under A: the card.
+    #expect(CardNotification.check(kept, pushId: "push-n1", life: a.absoluteString, pairedWith: a)?.ref == check.ref)
+    // Delivered under A, opened under B: nothing; the read under B opens it.
+    #expect(CardNotification.check(kept, pushId: "push-n1", life: a.absoluteString, pairedWith: b) == nil)
+    // An older notification that names no Life, or another push's card: nothing.
+    #expect(CardNotification.check(kept, pushId: "push-n1", life: nil, pairedWith: a) == nil)
+    #expect(CardNotification.check(kept, pushId: "push-x", life: a.absoluteString, pairedWith: a) == nil)
 }

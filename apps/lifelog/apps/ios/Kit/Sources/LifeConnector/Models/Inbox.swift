@@ -39,9 +39,12 @@ public struct PushedCard: Sendable, Equatable {
     public var opening: InboxOpening? { check.map { InboxOpening(check: $0, wasAnswered: false) } }
 
     /// The inbox while it is checked: the read, with the card first when the read does not list it (a one-card inbox
-    /// when nothing was read).
-    public func shown(in read: Inbox?) -> Inbox? {
-        guard let check, read?.checks.contains(where: { $0.ref == check.ref }) != true else { return read }
+    /// when nothing was read), unless his answer took it out since the tap (`answeredSinceTap`): a read cut off by its
+    /// limit never puts an answered card back.
+    public func shown(in read: Inbox?, answeredSinceTap: Set<String>) -> Inbox? {
+        guard let check, !answeredSinceTap.contains(check.ref),
+            read?.checks.contains(where: { $0.ref == check.ref }) != true
+        else { return read }
         let read = read ?? Inbox(checks: [], counts: [:], total: 0, deadlinesToday: 0, blocking: 0)
         var counts = read.counts
         counts[check.group.rawValue, default: 0] += 1

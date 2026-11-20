@@ -115,7 +115,7 @@ struct RootView: View {
     /// opens is in view without waiting for the sheet to go.
     private func open(_ route: NotificationRoute) {
         switch route {
-        case .card(let pushId, let card): Task { await life.open(pushId: pushId, card: card) }
+        case .card(let pushId, let card, let kept): Task { await life.open(pushId: pushId, card: card, life: kept) }
         case .inbox: Task { await life.refreshInbox() }
         case .removed: return  // A background push: never shown, never tapped.
         }

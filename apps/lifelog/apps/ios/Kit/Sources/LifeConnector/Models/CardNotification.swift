@@ -58,10 +58,21 @@ public struct CardNotification: Sendable, Equatable {
     private static let optionPrefix = "option:"
     /// Where the service extension keeps the card in its notification's `userInfo`.
     public static let userInfoKey = "card"
+    /// Where it keeps the origin of the Life the card was read from.
+    public static let lifeKey = "cardLife"
 
     /// The card kept with its notification (`userInfo[userInfoKey]`, written by the service extension).
     public static func card(in userInfo: [AnyHashable: Any]) -> Check? {
         (userInfo[userInfoKey] as? String).flatMap(check)
+    }
+
+    /// The card a notification kept, if it is this push's and was read from the Life the phone is paired with now
+    /// (`life`, its `lifeKey`); nil otherwise, an older notification that names no Life included: the read opens it then.
+    public static func check(_ card: String, pushId: String, life: String?, pairedWith origin: URL?) -> Check? {
+        guard let origin, life == origin.absoluteString, let check = check(card), check.pushId == pushId else {
+            return nil
+        }
+        return check
     }
 
     /// The card as kept (its JSON), if this build reads it.

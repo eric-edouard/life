@@ -190,7 +190,7 @@ final class LifeStore {
         let gone = await center.deliveredNotifications().filter {
             let info = $0.request.content.userInfo
             guard $0.date < asked, !(sparingResults && info[IncidentNotifier.resultKey] != nil),
-                case .card(let pushId, _)? = NotificationRoute(userInfo: info)
+                case .card(let pushId, _, _)? = NotificationRoute(userInfo: info)
             else {
                 return false
             }
@@ -524,9 +524,10 @@ final class LifeStore {
 
     /// A tapped push: its card, from the cached inbox or else the one its notification kept (`card`), is on show at once,
     /// its answers live, while one whole read checks it (`pushed`, `refreshInbox`). With neither, the read opens it.
-    func open(pushId: String, card: String? = nil) async {
-        let push = PushedCard(
-            pushId: pushId, in: inbox.value, notified: card.flatMap(CardNotification.check), at: now())
+    /// The notification's card counts only when it is this push's and was read from the Life paired now (`life`).
+    func open(pushId: String, card: String? = nil, life: String? = nil) async {
+        let notified = card.flatMap { CardNotification.check($0, pushId: pushId, life: life, pairedWith: pairedOrigin) }
+        let push = PushedCard(pushId: pushId, in: inbox.value, notified: notified, at: now())
         pushed = push
         openedCard = push.opening
         await refreshInbox()
@@ -542,7 +543,9 @@ final class LifeStore {
     }
     var inboxOnShow: Inbox? { readOnShow.value?.without(answersNewer(than: inbox.loadedAt)) }
     private var readOnShow: ReadState<Inbox> {
-        guard let pushed, let shown = pushed.shown(in: inbox.value) else { return inbox }
+        guard let pushed,
+            let shown = pushed.shown(in: inbox.value, answeredSinceTap: answersNewer(than: pushed.tappedAt))
+        else { return inbox }
         return inbox.showing(shown, at: pushed.tappedAt)
     }
     /// The asks that block him, less those he answered: the tab's badge and the app's.
