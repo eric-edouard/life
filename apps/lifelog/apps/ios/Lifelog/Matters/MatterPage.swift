@@ -292,12 +292,7 @@ private struct AgentRow: View {
         Button(action: open) {
             HStack(spacing: Metrics.Spacing.s) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Label {
-                        Text(agent.runtimeName.name)
-                    } icon: {
-                        Image(symbol: agent.runtimeName.mark).foregroundStyle(Palette.fg)
-                    }
-                    .font(.bodyStrong).foregroundStyle(Palette.ai)
+                    AgentLabel(runtime: agent.runtimeName).font(.bodyStrong)
                     if let line = agent.rowLine() {
                         Text(line).font(.small).foregroundStyle(agent.notStarted == nil ? Palette.muted : Palette.flag)
                             .lineLimit(1)

@@ -58,7 +58,7 @@ struct CheckList: View {
 
     /// An agent asks (its program's mark), or Life asks about its own reading (the kind's icon).
     private func symbol(of check: Check) -> String {
-        (check.group == .decision ? check.agentMark(runtime: life.runtimeName(of: check)) : nil) ?? check.group.symbol
+        check.agentMark(runtime: life.runtimeName(of: check)) ?? check.group.symbol
     }
 }
 

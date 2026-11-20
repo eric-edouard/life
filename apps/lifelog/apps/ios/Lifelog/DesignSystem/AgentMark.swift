@@ -27,3 +27,17 @@ extension Check {
         agentName(runtime: nil) == nil ? nil : (runtime ?? .unknown).mark
     }
 }
+
+/// An agent as he reads it: its program's mark in `fg`, then the program's name in `ai`. The caller sets the font.
+struct AgentLabel: View {
+    let runtime: RuntimeName
+
+    var body: some View {
+        Label {
+            Text(runtime.name)
+        } icon: {
+            Image(symbol: runtime.mark).foregroundStyle(Palette.fg)
+        }
+        .foregroundStyle(Palette.ai)
+    }
+}
