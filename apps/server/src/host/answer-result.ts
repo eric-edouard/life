@@ -24,6 +24,7 @@ import {
 import { readMatterBook } from "../memory/matters";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
+import { addPersonByHisWord } from "./change-directory-entry";
 import {
   changeRegisteredAgent,
   START_STAGES,
@@ -373,6 +374,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     item,
     recordedAs,
   } = await answerCheck(open, a, "connector", {
+    addPerson: (name) => addPersonByHisWord(name, `New person: ${name}`),
     answerKey,
     end,
     onStep: (step, detail) => report({ at: at(), step, ...detail }),

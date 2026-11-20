@@ -129,7 +129,7 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - The connector's `tell_life` appends his verbatim words to the memory. Only the owner's token may call it (an agent's is
   refused), but a page or message a chat client reads could steer it into calling it. The worst case is a wrong fact in
   the memory, undone by a correction.
-- The connector's `change_directory_entry` writes his `truth/` (people, projects, areas, goals, what Life may keep) from his words as `said`. Owner's token only; it adds or replaces one entry, never deletes, and refuses, changing nothing, a result that fails the checks of `bun life validate`. A steered call could add a wrong entry: it is committed in his data repo with his words, so it can be undone.
+- The connector's `change_directory_entry` writes his `truth/` (people, projects, areas, goals, what Life may keep) from his words as `said`; `answer_check` adds a person through the same code when he names a new person no one holds by that name (`addPersonByHisWord`). Owner's token only; it adds or replaces one entry, never deletes, and refuses, changing nothing, a result that fails the checks of `bun life validate`. A steered call could add a wrong entry: it is committed in his data repo with his words, so it can be undone.
 - A session in his own app (his token) asks a draft card (`request_decision`, as `owner`) and answers it with
   `answer_check` once he approved the exact text in its chat, which sends it (his word of 19 Nov 2026). A page or
   message the client reads could steer it into both: the gate is the client's honesty about his yes, policy not

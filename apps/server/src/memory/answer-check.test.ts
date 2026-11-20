@@ -113,6 +113,55 @@ test("his app may name the person as he typed it: only one person his truth/ or 
   }
 });
 
+test("a new person he names on a name check is the one person his truth/ or Contacts holds by that name, else added to his directory, once (life#721)", async () => {
+  const readings: Record<string, object> = {
+    // A unique name in truth/: that person, nobody added.
+    "Kit Moreau": { by: "truth", isShared: false, ref: "person:kit" },
+    // Only Life's guess goes by "Nora Vidal": his "New person" is his word, so she is added.
+    "Nora Vidal": { by: "guess", isShared: false, ref: "person:inf_nora" },
+    // Two people go by "Sam": his "New person" is a third.
+    Sam: { by: "contacts", isShared: true, ref: "person:con_sam" },
+  };
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
+    nameOf: (r: string) => r,
+    readingNow: (n: string) => readings[n] ?? null,
+  } as never);
+  const added: string[] = [];
+  const addPerson = (n: string) => {
+    added.push(n);
+    const ref = `person:${n.toLowerCase().replace(" ", "-")}`;
+    // Written: from now on truth/ holds the name.
+    readings[n] = { by: "truth", isShared: false, ref };
+    return Promise.resolve(ref);
+  };
+  const answer = (n: string) =>
+    answerWith(name, { name: n, options: ["this-is"] }, "connector", {
+      addPerson,
+    });
+  try {
+    // Without `addPerson` (a session, the command line), nobody is added.
+    await expect(
+      answerCheck(name, { name: "Nora Vidal", options: ["this-is"] })
+    ).rejects.toThrow('Life knows no one called "Nora Vidal"');
+    expect((await answer("Kit Moreau")).recordedAs).toBe("Kit Moreau");
+    expect((await answer("Nora Vidal")).recordedAs).toBe("Nora Vidal");
+    await answer("Sam");
+    // His same tap again (a retry): the name now reads from truth/, nobody is added twice.
+    await answer("Nora Vidal");
+    expect(added).toEqual(["Nora Vidal", "Sam"]);
+    expect(said().map((c) => ("person" in c ? c.person : c.kind))).toEqual(
+      [
+        "person:kit",
+        "person:nora-vidal",
+        "person:sam",
+        "person:nora-vidal",
+      ].flatMap((p) => [p, p])
+    );
+  } finally {
+    people.mockRestore();
+  }
+});
+
 test("an ending goes to its fact-check answer", async () => {
   const record = spyOn(
     await import("./fact-checks"),

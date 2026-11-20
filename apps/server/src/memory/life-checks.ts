@@ -9,8 +9,8 @@ import type { StoredDraft } from "./draft";
  * One answer he can give: its id, as `answer_check` takes it; its label, his button's words; whether it acts outside
  * Life, sending, paying, booking, deleting or changing something (`outgoing`), or closes the card's step or matter in
  * Life (`ends`, a decision's); and what his answer must carry besides it (`takes`): who it is as
- * `person` (`person:<id>`), a voice's someone known as `person` or a new person's `name`, his words as `note`; null:
- * nothing.
+ * `person` (`person:<id>`), someone known as `person` or a new person's `name` (a voice's, or someone he adds to his
+ * directory), his words as `note`; null: nothing.
  */
 export interface CheckOption {
   ends?: "matter" | "step";
@@ -33,7 +33,9 @@ export interface Said {
 export const LIFE_CHECKS = {
   "contacts card": {
     context: null,
-    options: [{ id: "same-person", label: "Someone else…", takes: "person" }],
+    options: [
+      { id: "same-person", label: "Someone else…", takes: "person or name" },
+    ],
     title: "Place a Contacts card",
   },
   ending: {
@@ -49,13 +51,15 @@ export const LIFE_CHECKS = {
     options: [
       { id: "this-is", label: "Yes", takes: null },
       { id: "not-this-person", label: "No", takes: null },
-      { id: "same-person", label: "Someone else…", takes: "person" },
+      { id: "same-person", label: "Someone else…", takes: "person or name" },
     ],
     title: "Know who someone is",
   },
   name: {
     context: null,
-    options: [{ id: "this-is", label: "Someone else…", takes: "person" }],
+    options: [
+      { id: "this-is", label: "Someone else…", takes: "person or name" },
+    ],
     title: "Place a name",
   },
   "new matter": {
