@@ -7,8 +7,9 @@ import UIKit
 // guess) is drawn by name only: never a picture.
 
 /// The one disc of a person or an organization, at 20, 28, 40 or 72: their picture when Life has one, else their
-/// initials on `fillTint`, a building for an organization. A network's mark sits at its lower right only where the
-/// channel is the point (a draft's recipient, an identity to confirm), never in a list.
+/// initials on `fillTint`, a building for an organization. A network's mark sits at its lower right, on a disc of `ring`
+/// (the fill the disc stands on), only where the channel is the point (a draft's recipient, an identity to confirm),
+/// never in a list.
 struct PartyDisc: View {
     enum Size: CGFloat {
         case chip = 20, pick = 28, row = 40, page = 72
@@ -31,17 +32,18 @@ struct PartyDisc: View {
     private let pictureID: String?
     private let size: Size
     private let badge: String?
+    private let ring: Color
 
     @Environment(PictureCache.self) private var pictures: PictureCache?
 
-    init(_ party: Party, size: Size, badge: String? = nil) {
+    init(_ party: Party, size: Size, badge: String? = nil, ring: Color = Palette.bg) {
         (name, isOrganization, pictureID) = (party.name, party.kind == .organization, party.picture?.id)
-        (self.size, self.badge) = (size, badge)
+        (self.size, self.badge, self.ring) = (size, badge, ring)
     }
 
     /// Someone Life has not placed: initials, or the person glyph for a number.
-    init(name: String, size: Size, badge: String? = nil) {
-        (self.name, isOrganization, pictureID, self.size, self.badge) = (name, false, nil, size, badge)
+    init(name: String, size: Size, badge: String? = nil, ring: Color = Palette.bg) {
+        (self.name, isOrganization, pictureID, self.size, self.badge, self.ring) = (name, false, nil, size, badge, ring)
     }
 
     var body: some View {
@@ -49,7 +51,10 @@ struct PartyDisc: View {
         face.frame(width: side, height: side).background(Color.fillTint).clipShape(.circle)
             .overlay(alignment: .bottomTrailing) {
                 if let badge {
-                    NetworkMark(network: badge, size: (side * 0.4).rounded()).offset(x: side * 0.05, y: side * 0.05)
+                    let dot = (side * 0.4).rounded()
+                    NetworkMark(network: badge, size: dot - (size == .page ? 4 : 2))
+                        .frame(width: dot, height: dot).background(ring, in: .circle)
+                        .offset(x: side * 0.05, y: side * 0.05)
                 }
             }
             .accessibilityHidden(true)
@@ -159,9 +164,9 @@ struct PartyHead: View {
     var body: some View {
         HStack(spacing: Metrics.Spacing.m) {
             if let party {
-                PartyDisc(party, size: .row, badge: channel)
+                PartyDisc(party, size: .row, badge: channel, ring: Palette.tile)
             } else {
-                PartyDisc(name: name, size: .row, badge: channel)
+                PartyDisc(name: name, size: .row, badge: channel, ring: Palette.tile)
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(name).font(.chip).foregroundStyle(Palette.fg)

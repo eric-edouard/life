@@ -13,6 +13,8 @@ public final class PictureCache {
     @ObservationIgnored private let api: (any LifeAPI)?
     /// Ids asked of Life since launch, so a picture Life does not have is asked once, not on every read.
     @ObservationIgnored private var asked: Set<String> = []
+    /// Bumped by `startOver`: a want begun before it asks nothing more.
+    @ObservationIgnored private var pairing = 0
 
     /// At most this many ids in one call (`MAX_IDS`, `host/http/mcp-people.ts`).
     static let batch = 64
@@ -23,8 +25,9 @@ public final class PictureCache {
     }
 
     /// Puts the pictures `ids` name on hand: from disk, else from Life, in as few calls as the batch allows. A call that
-    /// fails leaves its ids to the next want.
+    /// fails leaves its ids to the next want. A want begun under the last pairing (`startOver`) stops asking.
     public func want(_ ids: some Sequence<String>) async {
+        let pairing = pairing
         var missing: [String] = []
         for id in Set(ids) where shown[id] == nil && !asked.contains(id) && Self.isPictureID(id) {
             if let data = try? Data(contentsOf: file(id)) { shown[id] = data } else { missing.append(id) }
@@ -33,6 +36,7 @@ public final class PictureCache {
         asked.formUnion(missing)
         for start in stride(from: 0, to: missing.count, by: Self.batch) {
             let ids = Array(missing[start..<min(start + Self.batch, missing.count)])
+            guard pairing == self.pairing else { return }
             guard let text = try? await api.readPersonPictures(ids),
                 let read = try? JSONDecoder().decode(Read.self, from: Data(text.utf8))
             else {
@@ -45,6 +49,13 @@ public final class PictureCache {
                 shown[picture.id] = picture.data
             }
         }
+    }
+
+    /// Another Life is paired: what was asked of the last one is asked again, and its wants stop. The files stay: an id
+    /// names the bytes, whichever Life sent them.
+    public func startOver() {
+        pairing += 1
+        asked = []
     }
 
     private func file(_ id: String) -> URL { directory.appending(path: id + ".jpg") }

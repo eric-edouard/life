@@ -17,10 +17,8 @@ final class LifeStore {
     /// A project's page: its matters with its head, by the project's id.
     private(set) var project: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
-    /// Everyone the reads name, by ref, as the newest read gives them.
-    private(set) var parties: [String: Party] = [:]
-    /// Their pictures, fetched once for every party a read names.
-    let pictures: PictureCache
+    /// Everyone the reads name, and their pictures.
+    let parties: PartyBook
 
     /// What an action acts on: the store makes every key itself, so a screen asks for the state of what it shows.
     enum ActionKey: Hashable {
@@ -103,7 +101,7 @@ final class LifeStore {
         self.approve = approve
         let api = api ?? MCPLifeAPI(client: MCPClient(session: LifeSession(store: tokens)))
         self.api = api
-        self.pictures = PictureCache(directory: pictures, api: api)
+        parties = PartyBook(pictures: PictureCache(directory: pictures, api: api))
         runner = LifeActions(api: api, now: now)
         self.cache = cache
         self.now = now
@@ -219,15 +217,8 @@ final class LifeStore {
         guard let kept = cache.load(key),
             let value = try? LibraryStore.feedDecoder.decode(V.self, from: Data(kept.text.utf8))
         else { return }
-        remember(value.parties)
+        parties.remember(value.parties, at: kept.at, pairing: parties.pairing)
         update(.succeeded(value, kept.at))
-    }
-
-    /// Keeps each party a read names by its ref, and has their pictures on hand.
-    private func remember(_ named: [Party]) {
-        for party in named where parties[party.ref] != party { parties[party.ref] = party }
-        let ids = named.compactMap(\.picture?.id)
-        if !ids.isEmpty { Task { await pictures.want(ids) } }
     }
 
     private func load<V: Decodable & Sendable & NamesParties>(
@@ -235,12 +226,14 @@ final class LifeStore {
         fetch: @Sendable (any LifeAPI) async throws -> String
     ) async {
         update(.started)
+        let pairing = parties.pairing
         do {
             let text = try await fetch(api)
             let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(text.utf8))
             if let key { cache.store(text, key: key) }
-            remember(value.parties)
-            update(.succeeded(value, now()))
+            let at = now()
+            parties.remember(value.parties, at: at, pairing: pairing)
+            update(.succeeded(value, at))
         } catch _ where Task.isCancelled {
             // The screen that asked left: the read stands as it was.
             update(.failed(.cancelled))
@@ -524,7 +517,8 @@ final class LifeStore {
         pairedOrigin = credentials.endpoint.origin
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
-        (inbox, matters, matter, agents, project, parties) = (ReadState(), ReadState(), [:], ReadState(), [:], [:])
+        (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
+        parties.startOver()
         holds.clear()
         onStep(.reading)
         await refresh()

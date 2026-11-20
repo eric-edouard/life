@@ -1,15 +1,34 @@
 import SwiftUI
 
-/// A network's mark: a small disc in its colour (WhatsApp's green) with a bubble; a network with no colour of its own
-/// gets the `faint` fill. 22 on its own; a disc's badge is 40% of the disc.
+/// A network's mark (`net_mark`, `net_logo`): the app's own mark in its own colour (`Marks.xcassets`, `network.<app>`;
+/// mail through Gmail takes Gmail's), never a bubble in a brand colour; a network with none of its own (the phone, one
+/// this build doesn't know) keeps its line glyph in `muted`. 16 on its own.
 struct NetworkMark: View {
     let network: String?
-    var size: CGFloat = 22
+    var size: CGFloat = 16
+
+    private static let ownMarks: Set = [
+        "whatsapp", "imessage", "messenger", "instagram", "linkedin", "telegram", "line",
+    ]
 
     var body: some View {
-        Image(systemName: "bubble.left.fill").font(.system(size: size / 2)).foregroundStyle(.white)
-            .frame(width: size, height: size)
-            .background(network == "whatsapp" ? Color(red: 0.145, green: 0.827, blue: 0.4) : Palette.faint, in: .circle)
-            .accessibilityHidden(true)
+        Group {
+            if let asset {
+                Image(asset).resizable().scaledToFit()
+            } else {
+                Image(systemName: network == "phone" ? "phone" : "bubble.left").resizable().scaledToFit()
+                    .foregroundStyle(Palette.muted)
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+
+    private var asset: String? {
+        switch network {
+        case "gmail", "mail": "network.gmail"
+        case let app? where Self.ownMarks.contains(app): "network.\(app)"
+        default: nil
+        }
     }
 }

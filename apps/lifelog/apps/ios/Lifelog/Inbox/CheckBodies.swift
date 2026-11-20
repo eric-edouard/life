@@ -175,7 +175,7 @@ struct PersonIdentityBlock: View {
         let network = identity.network.map { Channel.name($0.lowercased()) }
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             HStack(spacing: Metrics.Spacing.m) {
-                PartyDisc(name: name, size: .page, badge: identity.network?.lowercased())
+                PartyDisc(name: name, size: .page, badge: identity.network?.lowercased(), ring: Palette.card)
                 VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
                     Text("~ \(name)").font(.leadBold).foregroundStyle(Palette.fg)
                     if let handle = identity.handle { Text(handle).font(.monoTime).foregroundStyle(Palette.muted) }
