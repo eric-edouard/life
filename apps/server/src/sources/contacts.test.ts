@@ -10,6 +10,7 @@ import {
   readContactPictures,
   readContactRecords,
   readContacts,
+  senderKeyOf,
 } from "./contacts";
 
 interface Made {
@@ -75,22 +76,30 @@ test("Contacts keys: a phone by its national digits whatever its country code or
   expect(contactKeyOf("Claire")).toBeUndefined();
 });
 
-test("a network's id is never read as a phone, however many digits it holds", () => {
-  // Phones however written: with `+`, spaced, national, `00`, wrapped in direction marks.
+test("a sender's key: a phone only when written as one, never a network's id; Contacts' own phones however long", () => {
   for (const phone of [
     "+33 6 11 11 11 11",
     "0611111111",
     "(06) 11.11-11-11",
-    "33611111111",
     "0033611111111",
     "\u202d+33 6 11 11 11 11\u202c",
   ]) {
-    expect(contactKeyOf(phone)).toBe("611111111");
+    expect(senderKeyOf(phone)).toBe("611111111");
   }
-  // An Instagram or Messenger id ending in the same 9 digits, and a LINE id holding them.
-  expect(contactKeyOf("118220611111111")).toBeUndefined();
-  expect(contactKeyOf("17842592611111111")).toBeUndefined();
-  expect(contactKeyOf("U3a611111111fe0b")).toBeUndefined();
+  expect(senderKeyOf("Claire@Example.com")).toBe("claire@example.com");
+  // Instagram, Messenger and Telegram ids ending in the same digits; a LINE id holding them.
+  for (const id of [
+    "118220611111111",
+    "17842592611111111",
+    "12611111111",
+    "U3a611111111fe0b",
+  ]) {
+    expect(senderKeyOf(id)).toBeUndefined();
+  }
+  // A Contacts phone field is a phone, written bare and long too.
+  expect(contactKeyOf("49151234567890")).toBe(
+    senderKeyOf("+49 151 234 567 890")
+  );
 });
 
 test("Contacts birthdays: seconds from 2001 at noon UTC, the year kept only when Contacts knows it", () => {

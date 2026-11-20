@@ -7,6 +7,7 @@ import {
   contactKeyOf,
   ownersOf,
   readContactRecords,
+  senderKeyOf,
 } from "../sources/contacts";
 import {
   CONTACT_PEOPLE,
@@ -160,7 +161,7 @@ function seenHandles() {
   return new Set(
     [...unknown, ...readInferred().flatMap((p) => p.namesAndHandles)].flatMap(
       (s) => {
-        const key = contactKeyOf(s);
+        const key = senderKeyOf(s);
         return key ? [key] : [];
       }
     )

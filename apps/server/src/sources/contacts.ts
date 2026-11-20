@@ -36,34 +36,27 @@ export const handleKey = (h: string) =>
     ? h.trim().toLowerCase()
     : h.replace(/\D/g, "").slice(-PHONE_DIGITS);
 
-/** A phone as people write it: digits, with `+`, spaces, dots, dashes or brackets. */
-export const PHONE_WRITTEN = /^\+?[\d\s().-]+$/;
-const DIGITS_ONLY = /^\d+$/;
-/** The longest phone written as bare digits with no `+` or `00`: a national number, or one with its country code. */
-const BARE_PHONE_DIGITS = 12;
-/**
- * Whether a handle is written as a phone. A network's id is not, though it may hold digits: one with letters (LINE's),
- * or a bare run of digits longer than any phone written without `+` or `00` (an Instagram or Messenger id).
- */
-const isPhone = (h: string) => {
-  const t = h.replace(DIRECTION_MARKS, "").trim();
-  return (
-    PHONE_WRITTEN.test(t) &&
-    !(
-      DIGITS_ONLY.test(t) &&
-      t.length > BARE_PHONE_DIGITS &&
-      !t.startsWith("00")
-    )
-  );
+/** A Contacts phone or email's key when it can name someone: an email, or a phone with enough digits; else undefined. */
+export const contactKeyOf = (h: string) => {
+  const key = handleKey(h);
+  return key.includes("@") || key.length >= PHONE_DIGITS ? key : undefined;
 };
 
-/** A handle's key when it can name someone: an email, or a phone with enough digits; else undefined. */
-export const contactKeyOf = (h: string) => {
-  if (h.includes("@")) {
-    return handleKey(h);
-  }
-  const key = handleKey(h);
-  return isPhone(h) && key.length >= PHONE_DIGITS ? key : undefined;
+/** A phone as people write it: digits, with `+`, spaces, dots, dashes or brackets. */
+export const PHONE_WRITTEN = /^\+?[\d\s().-]+$/;
+/** What tells a written phone from a bare id: a `+`, a leading 0, or a separator. */
+const PHONE_MARK = /^[+0]|[\s().-]/;
+
+/**
+ * The key of a name or handle of unknown kind (a sender, his words, truth/): an email, or a phone only when written as
+ * one (`+33 6…`, `06…`). A network's bare id is never a phone, however many digits it holds (an Instagram,
+ * Messenger or Telegram id), nor one with letters (LINE's). Contacts' own phone fields are phones: `contactKeyOf`.
+ */
+export const senderKeyOf = (nameOrHandle: string) => {
+  const h = nameOrHandle.replace(DIRECTION_MARKS, "").trim();
+  return h.includes("@") || (PHONE_WRITTEN.test(h) && PHONE_MARK.test(h))
+    ? contactKeyOf(h)
+    : undefined;
 };
 
 /** One Contacts record, whole. */

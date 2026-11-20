@@ -72,11 +72,23 @@ test("a card whose handle his messages hold becomes a person, under an id from t
   expect(after([ANA], first.stored, seenOf(ANA_KEY)).lines).toEqual([]);
 });
 
-test("a bridged network's numeric id is no one's phone: it never reads as whoever's number ends in its digits", () => {
-  // Bea's number ends 677777777; an Instagram id ending the same is someone Life doesn't know.
-  const { resolve } = foldsOf(truth, [], [], []);
+test("a network's numeric id is no one's phone, either way: it never reads as whoever's number ends in its digits", () => {
+  // Bea's number ends 677777777; Dan's Telegram id and an Instagram id end the same.
+  const dan = Person.parse({
+    handles: { email: [], phone: [], telegram: "12677777777", whatsapp: [] },
+    id: "dan",
+    name: "Dan Low",
+  });
+  const { resolve } = foldsOf([...truth, dan], [], [], []);
   expect(resolve("+33677777777")).toBe("person:bea");
+  expect(resolve("06 77 77 77 77")).toBe("person:bea");
+  expect(resolve("12677777777")).toBe("person:dan");
   expect(resolve("118220677777777")).toBeNull();
+  // A card's long bare phone still meets the same number written with its country code.
+  const longCard = now("card-long", "Eve Long", ["49151234567890"]);
+  expect(foldsOf([], [], [], [longCard]).resolve("+49 151 234 567 890")).toBe(
+    `person:${longCard.id}`
+  );
 });
 
 test("a card renamed, given a number or deleted keeps its person", () => {

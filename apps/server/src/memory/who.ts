@@ -14,7 +14,7 @@ import {
 import { namesOne, relationWordOf } from "../records/relation-words";
 import { firstNameOf, ME, type Person } from "../records/truth";
 import type { Unit } from "../records/unit";
-import { contactKeyOf } from "../sources/contacts";
+import { contactKeyOf, senderKeyOf } from "../sources/contacts";
 import { readAgentReports } from "./agent-source";
 import { type ContactNow, contactsNow } from "./contact-people";
 import {
@@ -53,12 +53,12 @@ export const keysOf = (s: string) =>
     s.trim().match(BEEPER_GHOST)?.[1],
   ].filter((k): k is string => !!k);
 
-/** Whether two names or handles are one: a key in common, or the same phone or email however written. */
-const isSameNameOrHandle = (a: string, b: string) => {
-  const key = contactKeyOf(a);
+/** Whether a card's handle and a name or handle are one: a key in common, or the same phone or email however written. */
+const isSameNameOrHandle = (cardHandle: string, nameOrHandle: string) => {
+  const key = contactKeyOf(cardHandle);
   return (
-    (key !== undefined && key === contactKeyOf(b)) ||
-    keysOf(a).some((k) => keysOf(b).includes(k))
+    (key !== undefined && key === senderKeyOf(nameOrHandle)) ||
+    keysOf(cardHandle).some((k) => keysOf(nameOrHandle).includes(k))
   );
 };
 
@@ -94,13 +94,13 @@ function nameIndex(people: Pick<Person, "aliases" | "id" | "name">[]) {
 
 /**
  * Index of every handle in the directory to the person who owns it: as written, and a phone or an email by its Contacts key
- * too (`contactKeyOf`), so one written another way ("06 11 11 11 11", "+33611111111") still meets.
+ * too (`senderKeyOf`), so one written another way ("06 11 11 11 11", "+33611111111") still meets; a Telegram id only as written.
  */
 const handleIndex = (people: Person[]): Map<string, string> =>
   new Map(
     people.flatMap((p) =>
       handlesOf(p).flatMap((h) => {
-        const key = contactKeyOf(h);
+        const key = senderKeyOf(h);
         return key && key !== h
           ? [
               [h, p.id],
@@ -182,7 +182,7 @@ function readingOf(
   const guessed = guessesOf(inferred);
   return (nameOrHandle: string): Reading | null => {
     const ks = keysOf(nameOrHandle);
-    const key = contactKeyOf(nameOrHandle);
+    const key = senderKeyOf(nameOrHandle);
     const truth =
       handles.get(ks[0] ?? "") ??
       handles.get(ks[1] ?? "") ??
@@ -355,7 +355,7 @@ function saidBy(
  */
 function namesTheSame(ref: string, people: Person[]) {
   const person = people.find((p) => `person:${p.id}` === ref);
-  return !person || handlesOf(person).every((h) => !contactKeyOf(h));
+  return !person || handlesOf(person).every((h) => !senderKeyOf(h));
 }
 
 /** Whether a card has the first name and the birthday of someone in truth/: proof enough, never one alone. The first word is taken before `nameKey`, which would split "Jean-Pierre". */
