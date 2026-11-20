@@ -148,7 +148,7 @@ struct StartAgentSheet: View {
                         + (isGoalSaved ? " Your goal is kept." : "")
             )
             .font(.body15).foregroundStyle(Palette.muted)
-            if failure.retry == .allowed && !failure.mayHaveHappened {
+            if failure.canTryAgain {
                 Button("Try again") { start() }.buttonStyle(.pill(.filled))
                 if let other = RuntimeName.offered.first(where: { $0 != runtimeName }), runtimeName != nil {
                     Button("Use \(other.name)") {

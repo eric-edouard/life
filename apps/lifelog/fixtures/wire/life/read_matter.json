@@ -194,7 +194,6 @@
   "needsYou": true,
   "checks": [
     {
-      "around": null,
       "said": null,
       "since": null,
       "about": [],
@@ -270,7 +269,6 @@
       "confirm": [
         {
           "about": ["+33600000001"],
-          "around": null,
           "asker": "life",
           "at": null,
           "clips": [],
@@ -359,7 +357,6 @@
     },
     {
       "about": [],
-      "around": null,
       "asker": "life",
       "at": null,
       "clips": [],

@@ -59,7 +59,7 @@ export const C = {
   flag: "#b3412b",
   line: "#d8d9dc",
   muted: "#57544f",
-  ok: "#1d6b58",
+  ok: "#1a7f3c",
 };
 
 const ESCAPES: Record<string, string> = {

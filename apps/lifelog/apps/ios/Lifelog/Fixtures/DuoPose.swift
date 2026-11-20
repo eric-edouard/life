@@ -3,7 +3,8 @@
     import UIKit
 
     /// The iPhone Duo open, drawn without the hardware: the app at 951 x 669 (wide) or 669 x 951 (upright) with regular size
-    /// classes, shrunk to fit whatever screen it runs on. `-fixturePose wide|upright` on launch (a preview has no stores to read).
+    /// classes, shrunk to fit whatever screen it runs on, at its left and centred down it: the clock the system draws at the
+    /// top of the side column stays clear of the pose's own bar. `-fixturePose wide|upright` on launch (a preview has no stores to read).
     /// The fold and the vertical bar are the system's and are not drawn: this shows the layout the size class chooses.
     struct DuoPose<Content: View>: View {
         let size: CGSize
@@ -18,7 +19,9 @@
                 Host(content: content)
                     .frame(width: size.width, height: size.height)
                     .scaleEffect(
-                        min(proxy.size.width / size.width, proxy.size.height / size.height), anchor: .topLeading)
+                        min(proxy.size.width / size.width, proxy.size.height / size.height), anchor: .leading
+                    )
+                    .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
             }
             .ignoresSafeArea()
         }

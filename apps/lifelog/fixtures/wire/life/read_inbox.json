@@ -1,7 +1,6 @@
 {
   "checks": [
     {
-      "around": null,
       "said": null,
       "since": null,
       "about": [],
@@ -77,7 +76,6 @@
       "confirm": [
         {
           "about": ["+33600000001"],
-          "around": null,
           "asker": "life",
           "at": null,
           "clips": [],
@@ -165,7 +163,6 @@
       "urgency": "blocks"
     },
     {
-      "around": null,
       "said": null,
       "since": null,
       "about": [],
@@ -258,7 +255,6 @@
       "urgency": "blocks"
     },
     {
-      "around": null,
       "said": null,
       "since": null,
       "about": [],
@@ -339,26 +335,6 @@
     },
     {
       "about": ["Sam"],
-      "around": {
-        "after": [
-          {
-            "at": "2026-10-12T09:01:00.000Z",
-            "by": "You",
-            "channel": "whatsapp",
-            "text": "Great, thanks.",
-            "to": "Gran"
-          }
-        ],
-        "before": [
-          {
-            "at": "2026-10-12T09:00:00.000Z",
-            "by": "Gran",
-            "channel": "whatsapp",
-            "text": "The strap broke again.",
-            "to": "Gran"
-          }
-        ]
-      },
       "asker": "life",
       "at": null,
       "clips": [
@@ -447,7 +423,6 @@
     },
     {
       "about": ["+33600000009"],
-      "around": null,
       "asker": "life",
       "at": null,
       "clips": [],
@@ -509,7 +484,6 @@
     },
     {
       "about": [],
-      "around": null,
       "asker": "life",
       "at": null,
       "clips": [],
@@ -582,7 +556,6 @@
     },
     {
       "about": ["+33600000001"],
-      "around": null,
       "asker": "life",
       "at": null,
       "clips": [],
@@ -654,7 +627,6 @@
       "urgency": "improves"
     },
     {
-      "around": null,
       "said": {
         "at": "2026-10-12",
         "by": null,

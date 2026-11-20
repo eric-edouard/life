@@ -12,6 +12,15 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { cliEnv } from "@life/server/src/core/platform";
 import { exec, execOk, untilAnswers } from "@life/server/src/core/proc";
+import {
+  boot,
+  buildApp,
+  createSimulator,
+  install,
+  remove,
+  screenshot,
+  shutdown,
+} from "./simulator";
 
 // The demo's stress test, `bun run e2e:demo [scenario]`: a made-up Life (`scripts/demo.ts`) runs as a second Life on this
 // Mac (its own ports and machine folder), the phone app is built and paired in a fresh simulator, and a scenario's steps
@@ -125,36 +134,6 @@ const services: Bun.Subprocess[] = [];
 const NOT_WORD = /[^A-Za-z0-9]/g;
 let sim = "";
 
-/** The newest iOS runtime's first iPhone: an older runtime may be a beta that lacks the SDK's APIs, and the app dies. */
-async function newSimulator() {
-  const { runtimes } = JSON.parse(
-    await execOk(["xcrun", "simctl", "list", "runtimes", "-j"])
-  ) as {
-    runtimes: {
-      identifier: string;
-      platform: string;
-      supportedDeviceTypes: { identifier: string; productFamily: string }[];
-    }[];
-  };
-  const newest = runtimes.filter((r) => r.platform === "iOS").at(-1);
-  const phone = newest?.supportedDeviceTypes.find(
-    (d) => d.productFamily === "iPhone"
-  );
-  if (!(newest && phone)) {
-    throw new Error("no iOS runtime with an iPhone");
-  }
-  return (
-    await execOk([
-      "xcrun",
-      "simctl",
-      "create",
-      session,
-      phone.identifier,
-      newest.identifier,
-    ])
-  ).trim();
-}
-
 async function setUp() {
   if (await fetch(`http://127.0.0.1:${PORT}/`).catch(() => null)) {
     throw new Error(`port ${PORT} is taken: set LIFE_PORT`);
@@ -173,25 +152,10 @@ async function setUp() {
     () => fetch(`http://127.0.0.1:${PORT}/`).then(() => true),
     "the demo Life"
   );
-  sim = await newSimulator();
-  await execOk(["bun", "run", "ios:project"], { cwd: REPO });
-  await execOk(
-    [
-      "xcodebuild",
-      ...["-project", "apps/lifelog/apps/ios/Lifelog.xcodeproj"],
-      ...["-scheme", "Lifelog", "-configuration", "Debug"],
-      ...["-destination", `id=${sim}`, "-derivedDataPath", join(root, "dd")],
-      "build",
-      "-quiet",
-    ],
-    { cwd: REPO, timeout: 30 * 60_000 }
-  );
-  await execOk(["xcrun", "simctl", "boot", sim]);
-  await execOk(["xcrun", "simctl", "bootstatus", sim, "-b"], {
-    timeout: 300_000,
-  });
-  const app = join(root, "dd/Build/Products/Debug-iphonesimulator/lifelog.app");
-  await execOk(["xcrun", "simctl", "install", sim, app]);
+  sim = await createSimulator(session);
+  const app = await buildApp(sim, join(root, "dd"));
+  await boot(sim);
+  await install(sim, app);
   await device(
     [
       "open",
@@ -297,8 +261,8 @@ async function stopAll() {
   await exec(["pkill", "-f", door]);
   await exec(["agent-device", "close", "--session", session]);
   if (sim) {
-    await exec(["xcrun", "simctl", "shutdown", sim]);
-    await exec(["xcrun", "simctl", "delete", sim]);
+    await shutdown(sim);
+    await remove(sim);
   }
   // Claude keeps a copy's transcripts under its folder's path; the folder is gone with the demo.
   const projects = join(homedir(), ".claude", "projects");
@@ -335,15 +299,21 @@ try {
     const n = String(i + 1).padStart(2, "0");
     const t = performance.now();
     // biome-ignore lint/performance/noAwaitInLoops: the steps run in order
-    const error = await run(step).then(
+    const stepError = await run(step).then(
       () => null,
       (e: Error) => e.message
     );
-    // simctl names the display: agent-device's screenshot fails on a phone with two (the iPhone Duo).
-    await exec([
-      ...["xcrun", "simctl", "io", sim, "screenshot", "--display=primary"],
-      join(shots, `${n}-${step.name.replace(/\W+/g, "-")}.png`),
-    ]);
+    // A screenshot that fails is this step's failure, never the set-up's.
+    const shotError = await screenshot(
+      sim,
+      "primary",
+      join(shots, `${n}-${step.name.replace(/\W+/g, "-")}.png`)
+    ).then(
+      () => null,
+      (e: Error) => `no screenshot: ${e.message}`
+    );
+    // Both, when both failed: neither hides the other.
+    const error = [stepError, shotError].filter(Boolean).join("; ") || null;
     say(
       `${error ? "FAIL" : "PASS"} ${n} ${step.name} (${Math.round((performance.now() - t) / 1000)} s)${error ? `: ${error}` : ""}`
     );
