@@ -233,7 +233,7 @@ function ctxOf(c: CheckInputs): Ctx {
 const whereOf = (l: Line): Where => `${l.source.channel}, ${plain(l.date)}`;
 
 /** What every kind that shows no sentence of its own carries in the fields of `Said`. */
-const NO_SAID = { around: null, said: null, since: null } as const;
+const NO_SAID = { said: null, since: null } as const;
 
 /** The open matters something rides on: their ids and how many. */
 const ridingOf = (matters: Iterable<MatterId> = []) => {
@@ -285,7 +285,6 @@ function ranked(
         {
           check: {
             about: fields.about,
-            around: fields.around ?? null,
             asker: LIFE_ASKER,
             at: null,
             clips: fields.clips ?? [],
@@ -522,7 +521,6 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           "name",
           {
             about: as,
-            around: read && { after: read.after, before: read.before },
             clips: read?.clips,
             likelyPeople: people
               .candidatesFor(as[0] ?? key)

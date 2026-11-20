@@ -36,6 +36,10 @@ public struct ActionFailure: Sendable, Equatable {
         public let text: String?
     }
 
+    /// Whether the screen offers the same action again: Life allows it and nothing may have happened. The one rule, for
+    /// the result screen and the create sheet alike.
+    public var canTryAgain: Bool { retry == .allowed && !mayHaveHappened }
+
     public init(
         step: String? = nil, reason: String, retry: Retry, mayHaveHappened: Bool = false, isSameTap: Bool = false
     ) {

@@ -242,7 +242,6 @@ test("the Birthdays section comes first, each name with when; none when no birth
 
 const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
   about: ["+33600000001"],
-  around: null,
   asker: "life",
   at: null,
   clips: [],
@@ -306,7 +305,6 @@ test("Waiting on you comes first with every open decision; the Checks section ho
   );
   const decision = (i: number): Check => ({
     about: [],
-    around: null,
     asker: "planner",
     at: "2026-10-15T08:00:00.000Z",
     clips: [],
