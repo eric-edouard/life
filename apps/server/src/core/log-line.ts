@@ -70,28 +70,28 @@ export const categoryOf = (kind: string, e: Record<string, unknown>) => {
   return [PROCESS_OF[head] ?? head, ...(step ? [step] : [])];
 };
 
-/** The fields a line's message shows, in this order: code's own words and numbers, never free text. */
+/** The fields a line's message shows, in this order, each in its words: code's own words and numbers, never free text. */
 const SHOWN = [
-  "what",
-  "op",
-  "phase",
-  "outcome",
-  "via",
-  "by",
-  "options",
-  "cards",
-  "loudness",
-  "count",
-  "errorType",
-  "ms",
+  ["what", "{what}"],
+  ["op", "{op}"],
+  ["phase", "{phase}"],
+  ["outcome", "{outcome}"],
+  ["via", "via {via}"],
+  ["by", "by {by}"],
+  ["options", "{options} options"],
+  ["cards", "{cards} cards"],
+  ["loudness", "{loudness}"],
+  ["count", "{count} rows"],
+  ["errorType", "failed: {errorType}"],
+  ["ms", "in {ms}"],
 ] as const;
 
 const KIND_JOINS = /[._]/g;
-/** A line's LogTape template: its kind in words, then a placeholder for each shown field it has (`SHOWN`). */
+/** A line's LogTape template: its kind in words, then each shown field it has (`SHOWN`), a placeholder for its value. */
 export const templateOf = (kind: string, e: Record<string, unknown>) =>
   [
     kind.replace(KIND_JOINS, " "),
-    ...SHOWN.filter((k) => e[k] !== undefined).map((k) => `${k} {${k}}`),
+    ...SHOWN.filter(([k]) => e[k] !== undefined).map(([, words]) => words),
   ].join(" ");
 
 /** An error from a model or its provider: logged as its type only (its words can echo what was asked). */
