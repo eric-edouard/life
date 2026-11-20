@@ -13,6 +13,7 @@ import {
 } from "./matter-read";
 import { readMatterBook, readMatterBookAndRecords } from "./matters";
 import { readDismissedMatterPins } from "./memory-files";
+import type { Party } from "./party";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
 import { goalsOf } from "./read-truth";
 import { meant, type People, readPeople } from "./who";
@@ -48,8 +49,8 @@ export interface MatterRow {
     NonNullable<ReturnType<typeof nextStepNow>>,
     "by" | "kind" | "text" | "waitsOn"
   >;
-  /** The people by role, by their names as read now (`read_person_page` takes a name). */
-  people?: Partial<Record<Role, string[]>>;
+  /** The people by role, as parties (`partyOf`). */
+  people?: Partial<Record<Role, Party[]>>;
   /** The project it shows under (`projectOf`), its status as stored (the app shows active and waiting as underway). */
   project?: MatterProject;
   projects?: string[];
@@ -71,14 +72,14 @@ const nameIn = (list: { id: string; name: string }[], id: string) =>
 
 function rowOf(
   v: MatterView,
-  { nameOf, truth }: Pick<People, "nameOf" | "truth">,
+  { partyOf, truth }: Pick<People, "partyOf" | "truth">,
   decisions: ReturnType<typeof openDecisions>
 ): MatterRow {
   const project = projectOf(truth)(v);
   const next = nextStepNow(v, decisions);
   const people = Object.fromEntries(
     ROLES.flatMap((role) =>
-      v[role].length > 0 ? [[role, v[role].map(nameOf)]] : []
+      v[role].length > 0 ? [[role, v[role].map(partyOf)]] : []
     )
   );
   return {
@@ -360,7 +361,7 @@ export const readMatterProjectIds = async (refs: readonly string[]) =>
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
  * agent anchored on records finds its matter again after a re-group): its `MatterRow`, its steps in time order (each
- * with its day, words, quote, who it was with by name and `ending`: none while open), then `agentsOf`'s agents on it now and before, then the registered agents active on its projects (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his).
+ * with its day, words, quote, who it was with as a party and `ending`: none while open), then `agentsOf`'s agents on it now and before, then the registered agents active on its projects (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his).
  * Undefined when no matter holds them.
  */
 export async function oneMatter<A>(
@@ -382,7 +383,7 @@ export async function oneMatter<A>(
         people.nameOf
       ),
       steps: v.steps.map((s) =>
-        s.with ? { ...s, with: people.nameOf(s.with) } : s
+        s.with ? { ...s, with: people.partyOf(s.with) } : s
       ),
     }
   );
