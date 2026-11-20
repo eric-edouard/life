@@ -118,6 +118,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
 
     #expect(try quoted("core/names.ts", /CheckGroup = z\.enum\(\[([^\]]*)\]/) == client(CheckGroup.self))
     #expect(try quoted("memory/life-checks.ts", /takes: ([^;]*);/) == client(Check.Option.Takes.self))
+    #expect(try quoted("memory/check-urgency.ts", /export type Urgency = ([^;]*);/) == client(Urgency.self))
     #expect(try quoted("memory/matter-read.ts", /const STATUSES = \[([^\]]*)\]/) == client(MatterStatus.self))
     // `wait_decision` is worked out when read (`nextStepNow`), never stored.
     #expect(

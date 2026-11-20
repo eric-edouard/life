@@ -82,7 +82,7 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
   as done go by its id. A card's push is rewritten with the card's words by the notification extension (`NotificationService/`, `CardNotification`), which reads Life with the app's pairing; a draft's card takes the send category, so Send shows on the Watch too (`CardNotification.sendCategory`; not while his Face ID setting is on, `AppGroup.asksFaceIDToSend`, which only the phone can ask); expanded, it shows the draft (`DraftBlock`), the card's one-tap answers and Send (`NotificationContent/`, `CardNotification.isAnswerAllowed`), which the app answers in the background through `LifeStore.answer` (`IncidentNotifier`); a tapped push routes by `pushId` (`NotificationRoute.card`) and opens the Inbox; a push while
   the app is in front reads the inbox again. The badge is `Inbox.badge`: the asks that block him (`urgency`).
 - A server enum decodes unknown values as `unknown` (`UnknownTolerant`) and belongs in the mirror list of
-  `ContractTests.swift` (lifelog's against its `openapi.json`, Life's against `apps/server/src`), which also checks
+  `ContractTests.swift` (lifelog's against its `openapi.json` in `mirroredEnumsMatchTheSpec`, Life's against `apps/server/src` in `lifesEnumsAreTheServers`), which also checks
   every path the client calls.
 - The toolbar API is `toolbarMinimizationBehavior(_:for:)`; the WWDC docs' `toolbarMinimizeBehavior` doesn't compile.
 - An Omi drains through the same `DrainCoordinator` as the Limitless Pendant, by its `DeviceCodec`. **Any work on the
