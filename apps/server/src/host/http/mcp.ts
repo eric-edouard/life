@@ -72,6 +72,7 @@ import {
 import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
+import { personPicturesTool } from "./mcp-people";
 import {
   agentIn,
   callerOf,
@@ -290,6 +291,9 @@ export function buildServer(readsOnly = false) {
     }),
     ({ name, before }) => readPerson(name, { before })
   );
+  if (!readsOnly) {
+    personPicturesTool(server);
+  }
   tool(
     server,
     "read_matters",

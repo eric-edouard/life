@@ -18,6 +18,7 @@ import {
   PERSON_PICTURES,
   PERSON_PICTURES_INDEX,
   type PictureIndex,
+  pictureFileOf,
 } from "./party";
 import { enabledSources } from "./sources";
 import type { Resolve } from "./units";
@@ -35,9 +36,6 @@ const PICTURE_PX = 216;
 /** A picture's id: its original bytes' digest. */
 export const pictureIdOf = (bytes: Uint8Array) =>
   createHash("sha256").update(bytes).digest("hex").slice(0, 32);
-
-/** A kept picture's file, by its id. */
-export const pictureFileOf = (id: string) => `${id}.jpg`;
 
 /**
  * Each person's pictures, Contacts' first then each source's in the order given, the same picture once per person, and
