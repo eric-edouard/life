@@ -86,6 +86,8 @@ test("a handle's kind decides its key: a network's id never reads as whoever's n
     const { resolve } = foldsOf(directory, [], [], []);
     expect(resolve("677777777", "telegram")).toBe("person:dan");
     expect(resolve("677777777")).toBe("person:dan");
+    // The same digits from the Phone app are a number: Bea's, never Dan's id.
+    expect(resolve("677777777", "phone")).toBe("person:bea");
     expect(resolve("+33677777777", "whatsapp")).toBe("person:bea");
     expect(resolve("+33 6 77 77 77 77")).toBe("person:bea");
   }
@@ -141,6 +143,32 @@ test("his word on a number, typed with spaces, meets the number as a source writ
   expect(
     foldsOf(truth, [], [said] as never, []).resolve("+33612345678", "whatsapp")
   ).toBe("person:bea");
+});
+
+test("his word on a number never meets a network id holding its digits, nor his word on an id a number (#708)", () => {
+  const said = (nameOrHandle: string, person: string) => ({
+    at: AT,
+    kind: "this-is",
+    nameOrHandle,
+    person,
+    schemaVersion: 1,
+  });
+  const onNumber = foldsOf(
+    truth,
+    [],
+    [said("+33699999999", "person:bea")] as never,
+    []
+  );
+  expect(onNumber.resolve("33699999999", "telegram")).toBeNull();
+  expect(onNumber.resolve("+33699999999", "whatsapp")).toBe("person:bea");
+  const onId = foldsOf(
+    truth,
+    [],
+    [said("699999999", "person:bea")] as never,
+    []
+  );
+  expect(onId.resolve("+33699999999", "whatsapp")).toBeNull();
+  expect(onId.resolve("699999999", "telegram")).toBe("person:bea");
 });
 
 test("a bridged avatar ending in someone's digits is no one's picture", () => {

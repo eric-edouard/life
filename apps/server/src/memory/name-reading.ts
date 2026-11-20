@@ -141,12 +141,10 @@ export function readingOf(
     }
   }
   const cardNames = nameIndex(contacts.map((c) => ({ ...c, aliases: [] })));
-  // His word on a name or handle as he wrote it: its exact keys, and its contact key when written as a phone or an
-  // email; the two kept apart by a prefix no exact key has.
-  const wordKeysOf = (nameOrHandle: string, key?: string) => [
-    ...keysOf(nameOrHandle),
-    ...(key ? [`\0${key}`] : []),
-  ];
+  // His word, and what is looked up against it: a phone or an email by its contact key alone, anything else by its
+  // exact keys alone (the contact key behind a prefix no exact key has): "+33 6…" never meets an id "336…".
+  const wordKeysOf = (nameOrHandle: string, key: string | undefined) =>
+    key ? [`\0${key}`] : keysOf(nameOrHandle);
   const said = new Map<string, string>();
   const not = new Set<string>();
   for (const c of corrections) {
@@ -165,22 +163,28 @@ export function readingOf(
     }
   }
   const guessed = guessesOf(inferred);
+  const meet = (
+    index: { contact: Map<string, string>; exact: Map<string, string> },
+    key: string | undefined,
+    ks: string[]
+  ) =>
+    key
+      ? index.contact.get(key)
+      : ks.map((k) => index.exact.get(k)).find(Boolean);
+  // A phone or an email (it has a contact key) meets only phones and emails: truth/'s, a card's, his word's; anything
+  // else only exact handles and names. Life's guesses are the one exception: a model wrote their handles, with no kind,
+  // so each meets as written.
   return (nameOrHandle: string, from?: HandleFrom): Reading | null => {
     const key = contactKeyFrom(nameOrHandle, from);
     const ks = keysOf(nameOrHandle);
     const words = wordKeysOf(nameOrHandle, key);
-    const truth =
-      handles.exact.get(ks[0] ?? "") ??
-      handles.exact.get(ks[1] ?? "") ??
-      (key ? handles.contact.get(key) : undefined);
+    const truth = meet(handles, key, ks.slice(0, 2));
     // A name as lifelog gives it, its parentheses left out ("Jean (Me)").
-    const bare = nameKey(nameOrHandle.trim().replace(PAREN, ""));
+    const bare = key ? "" : nameKey(nameOrHandle.trim().replace(PAREN, ""));
     const named = bare ? names.get(bare) : undefined;
     const guesses = ks.map((k) => guessed.get(k));
     const onCard =
-      (key ? carded.contact.get(key) : undefined) ??
-      ks.map((k) => carded.exact.get(k)).find(Boolean) ??
-      (bare ? cardNames.get(bare) : undefined);
+      meet(carded, key, ks) ?? (bare ? cardNames.get(bare) : undefined);
     const isShared =
       !!bare && (names.get(bare) === null || cardNames.get(bare) === null);
     const tiers: (readonly [Reading["by"], string | null | undefined])[] = [

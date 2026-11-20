@@ -40,7 +40,13 @@ test("a day's unknown people: chat senders no handle maps and names lifelog gave
       source: "mail",
     },
   } as unknown as Built;
-  const unknown = unknownIn([a, b, mail], (s) => s === "+33600000002");
+  const asked: (string | undefined)[] = [];
+  const unknown = unknownIn([a, b, mail], (s, from) => {
+    asked.push(from);
+    return s === "+33600000002";
+  });
+  // Each sender is read from its unit's source, so its kind decides its key (#708).
+  expect(asked).toContain(a.unit.source);
   expect(
     [...unknown].map(([k, seen]) => [k, seen.map((x) => x.unit.id)])
   ).toEqual([
