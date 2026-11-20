@@ -258,6 +258,28 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(all.flatMap(\.options).allSatisfy { !$0.label.contains("`") && $0.label.count < 30 })
 }
 
+/// Only a name card opens the create sheet: a voice's new name goes to lifelog alone, and a Contacts card's `about` holds
+/// its handles, never a name to create. Its note is his words only: trimmed, and never Life's guess (life#737).
+@Test func onlyANameCardCreatesBySheet() throws {
+    let all = try everyKindOfCheck()
+    func card(_ group: CheckGroup) throws -> Check { try #require(all.first { $0.group == group }) }
+    let name = try card(.name)
+    #expect(name.createsBySheet && name.askedName != nil)
+    for group in [CheckGroup.voice, .contactsCard] {
+        let check = try card(group)
+        #expect(!check.createsBySheet && !check.createsByName && check.askedName == nil, "\(group)")
+        #expect(check.answer(creating: "Lou", note: "Gran's friend", asOrganization: false) == nil, "\(group)")
+    }
+    let guess = "Mentioned by Nora Keller, about “Quote”"
+    let create = { (note: String) in
+        name.answer(creating: " Sam Vale ", note: note, guess: guess, asOrganization: false)
+    }
+    #expect(create(guess + " ")?.note == nil, "a whitespace edit of Life's guess is not his words")
+    #expect(create("  ")?.note == nil)
+    #expect(create(" Nora's architect ")?.note == "Nora's architect")
+    #expect(create("x")?.name == "Sam Vale")
+}
+
 @Test func theAskerIsNamedOnce() throws {
     let all = try everyKindOfCheck()
     let voice = try #require(all.first { $0.group == .voice })

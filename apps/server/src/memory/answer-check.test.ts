@@ -115,6 +115,8 @@ test("his app may name the person as he typed it: only one person his truth/ or 
 
 test("a new person he names on a name check is the one person his truth/ or Contacts holds by that name, else added to his directory, once (life#721)", async () => {
   const readings: Record<string, object> = {
+    // An organization of his: never his new person, nor a second party by that name.
+    "Atelier Morel": { by: "truth", isShared: false, ref: "person:atelier" },
     // A unique name in truth/: that person, nobody added.
     "Kit Moreau": { by: "truth", isShared: false, ref: "person:kit" },
     // Only Life's guess goes by "Nora Vidal": his "New person" is his word, so she is added.
@@ -123,6 +125,7 @@ test("a new person he names on a name check is the one person his truth/ or Cont
     Sam: { by: "contacts", isShared: true, ref: "person:con_sam" },
   };
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
+    isOrganization: (r: string) => r === "person:atelier",
     nameOf: (r: string) => r,
     readingNow: (n: string) => readings[n] ?? null,
   } as never);
@@ -155,6 +158,9 @@ test("a new person he names on a name check is the one person his truth/ or Cont
       "Nora Vidal"
     );
     await answer("Sam");
+    await expect(answer("Atelier Morel")).rejects.toThrow(
+      '"Atelier Morel" is already an organization he knows'
+    );
     // His same tap again (a retry): the name now reads from truth/, nobody is added twice.
     await answer("Nora Vidal");
     expect(added).toEqual(["Nora Vidal", "Sam"]);
@@ -174,10 +180,13 @@ test("a new person he names on a name check is the one person his truth/ or Cont
 
 test("Organization on a name check adds it to his directory by his name for it (the card's by default) with his words as what it is, and every way it was written reads as it", async () => {
   const readings: Record<string, object> = {
+    // A person he knows: never made an organization, nor a second party by that name.
+    "Kit Moreau": { by: "truth", isShared: false, ref: "person:kit-moreau" },
     // Already his directory's: that organization, nothing added.
     "Test Bakery": { by: "truth", isShared: false, ref: "person:test-bakery" },
   };
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
+    isOrganization: (r: string) => r !== "person:kit-moreau",
     readingNow: (n: string) => readings[n] ?? null,
   } as never);
   const added: unknown[] = [];
@@ -191,6 +200,9 @@ test("Organization on a name check adds it to his directory by his name for it (
   try {
     await answer({ note: "his bike shop" });
     await answer({ name: "Test Bakery" });
+    await expect(answer({ name: "Kit Moreau" })).rejects.toThrow(
+      '"Kit Moreau" is already a person he knows'
+    );
     expect(added).toEqual([
       ["organization", "Kit", { relation: "his bike shop" }],
     ]);
