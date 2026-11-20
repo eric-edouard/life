@@ -22,6 +22,7 @@ type LogKind =
   | "decision.withdrawn"
   | "desk.change"
   | "desk.complaints"
+  | "desk.fold"
   | "desk.hand_out"
   | "desk.net"
   | "desk.queued"

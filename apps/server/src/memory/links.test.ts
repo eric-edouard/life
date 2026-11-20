@@ -93,6 +93,7 @@ const callStep = matterBookOf(
         unit: "unit_000000000001",
       } as unknown as Observation,
     ],
+    projects: [],
     refOf: (r) => r,
     retired: new Map(),
     todoItems: [],

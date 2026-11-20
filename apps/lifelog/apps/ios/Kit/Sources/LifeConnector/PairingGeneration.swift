@@ -19,3 +19,16 @@ public final class PairingGeneration {
         return began == current ? answer : nil
     }
 }
+
+/// The Life an answer was decided for, captured once at his tap (on a card, a notification's button or Send, or when he
+/// held it for Undo): every attempt of it goes to that origin with that Life's bearer (`MCPClient.call(at:)`), and only
+/// while its pairing's generation is still the current one. Never read again later: a retry, a queued release or a late
+/// send carries it as it was.
+public struct PairedLife: Sendable, Equatable {
+    public let origin: URL
+    public let generation: Int
+
+    public init(origin: URL, generation: Int) {
+        (self.origin, self.generation) = (origin, generation)
+    }
+}
