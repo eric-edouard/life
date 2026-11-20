@@ -231,6 +231,17 @@ test("a step that fails leaves the old store, refused by openDesk; two failed st
   expect(readFileSync(unrelated, "utf8")).toBe("Test: someone else's work");
 });
 
+test("an interrupted backup leaves one partial that the next start replaces: one copy remains, whole", () => {
+  const { dir, path, repo } = oldDesk();
+  writeFileSync(join(dir, "desk-before-assignments-partial"), "cut off");
+  expect(stepStore(path, dir, repo)).toBe("migrated");
+  const copies = readdirSync(dir).filter((f) => f.startsWith("desk-before-"));
+  expect(copies).toEqual([expect.stringMatching(BACKUP_FILE)]);
+  const copy = new Database(join(dir, copies[0] ?? ""), { readonly: true });
+  expect(isOldShape(copy)).toBe(true);
+  copy.close();
+});
+
 test("a store from before the late columns (begun_at, context_used, why_not_started…) migrates with their old backfills", () => {
   const { dir, path, repo } = oldDesk();
   const db = new Database(path);

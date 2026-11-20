@@ -31,6 +31,7 @@ struct CheckActions: View {
 
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(LifeStore.self) private var life
+    @Environment(\.askSheetZoom) private var sheetZoom
 
     private var words: String { input.words.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -70,6 +71,7 @@ struct CheckActions: View {
             }
         }
         .motion(Motion.standard, value: check.doneSeen?.state)
+        .motion(Motion.standard, value: isBusy)
     }
 
     /// His last answer to this ask that did not go, in one `flag` line above the same answers; a send that someone wrote
@@ -118,7 +120,24 @@ struct CheckActions: View {
     private struct Choice: Identifiable {
         let id: String
         let label: String
+        /// The sheet the tap opens, which zooms out of this answer; nil for an answer.
+        var sheet: AskSheet?
         let run: () -> Void
+    }
+
+    private func choice(_ option: Check.Option) -> Choice {
+        Choice(id: option.id, label: label(of: option), sheet: sheet(of: option)) { tap(option) }
+    }
+
+    /// The sheet a tap on `option` opens, if any (`tap` goes by it).
+    private func sheet(of option: Check.Option) -> AskSheet? {
+        if check.createsOrganizationBySheet(option), check.askedName != nil {
+            return .create(ref: check.ref, asOrganization: true)
+        }
+        if check.answer(option) == nil, [.person, .personOrName].contains(option.takes) {
+            return .people(ref: check.ref)
+        }
+        return nil
     }
 
     /// The options the answers draw: a new matter's goal edit is the goal's pencil, never an answer.
@@ -138,7 +157,7 @@ struct CheckActions: View {
                     if let request = check.answer(naming: .person(person.ref)) { answer(request) }
                 }
             }
-            others(shown.map { option in Choice(id: option.id, label: label(of: option)) { tap(option) } })
+            others(shown.map(choice))
         } else if check.createsByName, let name = check.askedName {
             // "Create <name>" opens the create sheet: not an answer yet, so nothing is held.
             Button {
@@ -147,12 +166,12 @@ struct CheckActions: View {
                 Label("Create \(name)", systemImage: "person.badge.plus").lineLimit(1)
             }
             .buttonStyle(.pill(.filled))
-            others(shown.map { option in Choice(id: option.id, label: label(of: option)) { tap(option) } })
+            .zoomSource(AskSheet.create(ref: check.ref, asOrganization: false), in: sheetZoom)
+            others(shown.map(choice))
         } else if let first = shown.first {
             Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
-            let rest = shown.dropFirst().map { option in
-                Choice(id: option.id, label: label(of: option)) { tap(option) }
-            }
+                .zoomSource(sheet(of: first), in: sheetZoom)
+            let rest = shown.dropFirst().map(choice)
             if !rest.isEmpty { others(rest) }
         }
     }
@@ -173,7 +192,10 @@ struct CheckActions: View {
     @ViewBuilder private func others(_ rest: [Choice]) -> some View {
         let isShort = rest.count <= 3 && rest.allSatisfy { $0.label.split(separator: " ").count <= 3 }
         let stack = VStack(spacing: Metrics.Spacing.s) {
-            ForEach(rest) { choice in Button(choice.label, action: choice.run).buttonStyle(.pill(.quiet, size: .row)) }
+            ForEach(rest) { choice in
+                Button(choice.label, action: choice.run).buttonStyle(.pill(.quiet, size: .row))
+                    .zoomSource(choice.sheet, in: sheetZoom)
+            }
         }
         if isShort && !typeSize.isAccessibilitySize {
             ViewThatFits(in: .horizontal) {
@@ -181,6 +203,7 @@ struct CheckActions: View {
                     ForEach(rest) { choice in
                         Button(choice.label, action: choice.run).buttonStyle(.pill(.quiet, size: .compact))
                             .lineLimit(1).minimumScaleFactor(0.75)
+                            .zoomSource(choice.sheet, in: sheetZoom)
                     }
                 }
                 stack
@@ -192,13 +215,13 @@ struct CheckActions: View {
 
     /// One tap answers; an option that names someone opens "Same as…", and a name card's "Organization" its create sheet.
     private func tap(_ option: Check.Option) {
-        if check.createsOrganizationBySheet(option), let name = check.askedName { return create(name, true) }
-        if let request = check.answer(option) { return answer(request) }
-        switch option.takes {
-        case .person?, .personOrName?: sameAs()
-        // A note, or what this build doesn't know yet: his own words go back, never a dead button.
-        case .note?, .unknown?: if check.takesOwnWords { input.isWritingOwnWords = true }
-        case nil: break
+        switch sheet(of: option) {
+        case .create(_, let asOrganization)?: if let name = check.askedName { create(name, asOrganization) }
+        case .people?: sameAs()
+        case nil:
+            if let request = check.answer(option) { return answer(request) }
+            // A note, or what this build doesn't know yet: his own words go back, never a dead button.
+            if [.note, .unknown].contains(option.takes), check.takesOwnWords { input.isWritingOwnWords = true }
         }
     }
 }

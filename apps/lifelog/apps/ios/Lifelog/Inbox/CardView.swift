@@ -24,22 +24,50 @@ struct Creating: Identifiable, Equatable {
     let nextRef: String?
     /// The pager's asks as the sheet opened, kept under it until it closes.
     let asks: [Check]
+    /// The answer it zooms out of: "Create <name>" or "Organization" on the card, or the answer that opened the people
+    /// sheet it was asked from.
+    let source: AskSheet
 
     var id: String { "create " + check.ref + " " + name }
 }
 
 extension View {
     /// The create sheet of `notes`, presented by the host of the asks (the Inbox, a matter's page); `leave` goes on from
-    /// the ask once it is created.
+    /// the ask once it is created. The asks' sheets zoom out of the answer that opened them (`AskSheet`).
     func createSheet(_ notes: Binding<CardNotes>, leave: @escaping (Taken) -> Void) -> some View {
-        sheet(item: notes.creating) { creating in
-            CreateSheet(check: creating.check, name: creating.name, isOrganization: creating.isOrganization) {
-                request in
-                notes.wrappedValue.creating = nil
-                leave(Taken(check: creating.check, request: request, nextRef: creating.nextRef, runtimeName: nil))
+        modifier(CreateSheetHost(notes: notes, leave: leave))
+    }
+}
+
+/// Which sheet an answer opens, the id its zoom comes out of: the people sheet, or the create sheet as a person or an
+/// organization.
+enum AskSheet: Hashable {
+    case people(ref: String)
+    case create(ref: String, asOrganization: Bool)
+}
+
+extension EnvironmentValues {
+    /// The namespace the asks' sheets zoom in, set by their host (`createSheet`); nil where no host presents them.
+    @Entry var askSheetZoom: Namespace.ID?
+}
+
+private struct CreateSheetHost: ViewModifier {
+    @Binding var notes: CardNotes
+    let leave: (Taken) -> Void
+    @Namespace private var zoom
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.askSheetZoom, zoom)
+            .sheet(item: $notes.creating) { creating in
+                CreateSheet(check: creating.check, name: creating.name, isOrganization: creating.isOrganization) {
+                    request in
+                    notes.creating = nil
+                    leave(Taken(check: creating.check, request: request, nextRef: creating.nextRef, runtimeName: nil))
+                }
+                .sheetStack()
+                .zooms(from: creating.source, in: zoom)
             }
-            .sheetStack()
-        }
     }
 }
 
@@ -64,6 +92,7 @@ struct CardView: View {
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
+    @Environment(\.askSheetZoom) private var sheetZoom
     /// The people sheet open over an ask.
     @State private var peopleRef: String?
     /// The create sheet asked from the people sheet: the host opens it once the people sheet is gone.
@@ -78,21 +107,30 @@ struct CardView: View {
                     retry: { Task { await life.answer(taken.request) } }, keepForLater: { leave(taken, true) })
             }
         ) {
-            if let taken = result {
-                AnswerResultView(taken: taken, state: life.state(of: taken.key))
-            } else {
-                VStack(spacing: 0) {
-                    pager
-                    if let notice {
-                        Text(notice).font(.small).foregroundStyle(Palette.muted).padding(.horizontal, Metrics.gutter)
-                            .padding(
-                                .vertical, Metrics.Spacing.xs * 2.5
+            // His tap's result takes the ask's place and rises in; once he moves on it goes the way an answered ask goes.
+            ZStack {
+                if let taken = result {
+                    // A step ticking changes in place.
+                    AnswerResultView(taken: taken, state: life.state(of: taken.key))
+                        .motion(Motion.standard, value: life.state(of: taken.key))
+                        .appears(Motion.result)
+                } else {
+                    VStack(spacing: 0) {
+                        pager
+                        if let notice {
+                            Text(notice).font(.small).foregroundStyle(Palette.muted).padding(
+                                .horizontal, Metrics.gutter
                             )
+                            .padding(.vertical, Metrics.Spacing.xs * 2.5)
                             .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
+                        }
                     }
+                    .appears(Motion.ask)
                 }
             }
+            .clipped()
         }
+        .motion(Motion.rise, value: result != nil)
         // A send Life refused because someone wrote since: the ask is open again, with her message by its answers.
         .onChange(of: notes.taken != nil && result == nil) { _, isRefused in if isRefused { notes.taken = nil } }
         // A result that worked has said so: the next ask comes by itself.
@@ -110,9 +148,10 @@ struct CardView: View {
                 ) { choice in
                     if let request = check.answer(naming: choice) { submit(check, request) }
                 } create: {
-                    (createsNext, peopleRef) = (creating(check, $0), nil)
+                    (createsNext, peopleRef) = (creating(check, $0, from: .people(ref: check.ref)), nil)
                 }
                 .sheetStack()
+                .zooms(from: AskSheet.people(ref: check.ref), in: sheetZoom)
             }
         }
     }
@@ -141,6 +180,7 @@ struct CardView: View {
                             )
                             .padding(.leading, Pager.gap)
                             .containerRelativeFrame(.horizontal)
+                            .appears(Motion.passes)
                             .id(check.ref)
                         }
                     }
@@ -153,7 +193,8 @@ struct CardView: View {
             }
         }
         .clipped()
-        .motion(Motion.standard, value: checks.map(\.ref))
+        // An answered ask leaves and the next enters together (`Motion.passes`).
+        .motion(Motion.rise, value: checks.map(\.ref))
     }
 
     /// His tap's result, unless it reopened the ask (a send refused because someone wrote since).
@@ -206,11 +247,14 @@ struct CardView: View {
         }
     }
 
-    /// The create sheet for `check`, with the ask after it as he opened it.
-    private func creating(_ check: Check, _ name: String, asOrganization: Bool = false) -> Creating {
+    /// The create sheet for `check`, with the ask after it as he opened it, zooming out of the answer that opened it
+    /// (by default the card's own create answer).
+    private func creating(_ check: Check, _ name: String, asOrganization: Bool = false, from source: AskSheet? = nil)
+        -> Creating
+    {
         Creating(
             check: check, name: name, isOrganization: asOrganization, nextRef: checks.ref(after: check.ref),
-            asks: checks)
+            asks: checks, source: source ?? .create(ref: check.ref, asOrganization: asOrganization))
     }
 
     private func submit(_ check: Check, _ request: AnswerRequest) {
