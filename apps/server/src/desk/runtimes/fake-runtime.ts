@@ -74,7 +74,7 @@ export function fakeRuntime() {
         }
         const ref = `${agent.id}-${sessions.size + 1}`;
         sessions.set(ref, { running: true });
-        fake.said.push({ message: brief, ref });
+        fake.said.push({ message: brief, ref, title: agent.title });
         return Promise.resolve({ ...run(ref), link: `fake://${ref}`, ref });
       },
       state(ref) {
@@ -91,7 +91,7 @@ export function fakeRuntime() {
       },
     } satisfies Runtime,
     /** Every message given to a session, in order: `start`'s brief and each `send`. */
-    said: [] as { message: string; ref: string }[],
+    said: [] as { message: string; ref: string; title?: string }[],
     sessions,
     /** The sessions `stop` was called for, in order. */
     stopped: [] as string[],
