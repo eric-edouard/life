@@ -45,9 +45,12 @@ const endingWords = ({ ending: e }: Pick<MatterStepNow, "ending">) => {
     : ` (ended ${on}: "${oneLineOf(e.why, QUOTE_MAX)}")`;
 };
 
-/** An open matter as `read_day` and a person's page list it: its newest open step, who it is with, where it stands. */
-function lineOf(v: MatterView, nameOf: (ref: string) => string) {
-  const next = v.newestOpenStep as MatterStepNow;
+/** An open matter as `read_day` and a person's page list it: the open step it ranks as (`next`), who it is with, where it stands. */
+function lineOf(
+  v: MatterView,
+  next: MatterStepNow,
+  nameOf: (ref: string) => string
+) {
   const who = (label: string, refs: string[]) =>
     refs.length > 0 ? `; ${label} ${refs.map(nameOf).join(", ")}` : "";
   return `- ${v.id} ${next.day} ${next.kind}: ${next.text}${next.when ? ` (for ${next.when})` : ""} (${v.name}; ${v.status}${who("owed to", v.owedTo)}${who("waiting on", v.waitingOn)}) "${oneLineOf(next.quote, QUOTE_MAX)}" (${next.ref})`;
@@ -78,7 +81,6 @@ export const matterItems = (
     const people = matterPeopleOf(v);
     const item = {
       id: v.id,
-      line: lineOf(v, nameOf),
       people,
       priority: open.find((s) => s.priority)?.priority,
       projects: v.projects,
@@ -90,6 +92,7 @@ export const matterItems = (
       ...item,
       at: s.at,
       kind: s.kind as Candidate["kind"],
+      line: lineOf(v, s, nameOf),
       person: s.with ?? people[0],
     }));
   });
