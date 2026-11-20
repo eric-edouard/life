@@ -2,21 +2,21 @@ import LifeConnector
 import SwiftUI
 
 /// A matter's icon, changed: the whole set in its groups, the icon shown chosen and who chose it. His tap wins, and
-/// “Let Life pick” gives it back; either closes the sheet once Life has it, said back on the page with Undo
+/// “Let Life pick” gives it back; either closes the sheet once Life's reads have it, said back on the page with Undo
 /// (`LifeStore.setMatterIcon`). With no icon from Life (none picked, or a key this build lacks), nothing is chosen
-/// and nothing claims a pick.
+/// and nothing claims a pick. While a pick of this matter is under way (his tap, his reset or an Undo), it shows
+/// chosen and the grid waits.
 struct MatterIconSheet: View {
     let matter: String
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
-    /// His tap, chosen at once while Life records it.
-    @State private var tapped: String?
 
     var body: some View {
         let row = life.matter[matter]?.value?.row
-        let isRunning = life.state(of: .edit(matter: matter, .icon)).isRunning
+        let picking = life.iconPicking(matter)
+        let isRunning = picking != nil
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: nil) { dismiss() }.frame(minHeight: Metrics.tapTarget)
                 .overlay(alignment: .leading) {
@@ -25,7 +25,7 @@ struct MatterIconSheet: View {
                 }
             if let row { attribution(row, isRunning: isRunning) }
             ScrollView {
-                IconGrid(groups: MatterIcons.groups, chosen: tapped ?? row?.knownIcon?.key) { key in
+                IconGrid(groups: MatterIcons.groups, chosen: picking ?? row?.knownIcon?.key) { key in
                     if let row { choose(key, row: row) }
                 }
                 .disabled(isRunning)
@@ -40,7 +40,7 @@ struct MatterIconSheet: View {
         .presentationDetents([.large])
     }
 
-    /// Who chose the icon shown: Life, or he (with the way back to Life's); a busy mark while his tap is recorded.
+    /// Who chose the icon shown: Life, or he (with the way back to Life's); a busy mark while a pick is under way.
     private func attribution(_ row: MatterRow, isRunning: Bool) -> some View {
         HStack {
             switch row.knownIcon?.by {
@@ -64,7 +64,6 @@ struct MatterIconSheet: View {
     private func choose(_ key: String?, row: MatterRow) {
         let was = row.ownerIconKey
         guard key != was else { return dismiss() }
-        tapped = key
         Task {
             await life.setMatterIcon(of: matter, key, was: was)
             if router.matterSheet == .icon(matter) { router.matterSheet = nil }

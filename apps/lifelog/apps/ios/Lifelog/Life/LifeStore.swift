@@ -48,6 +48,8 @@ final class LifeStore {
     /// His mark or a project's status from his tap until Life's reads say it: shown at once, one tap per item at a time.
     private let marking = PendingTaps<Bool>()
     private let statusing = PendingTaps<ProjectStatus>()
+    /// His icon pick on a matter (a key, or nil: Life picks again) from his tap until Life's reads after it.
+    private let iconing = PendingTaps<String?>()
 
     /// Every action by what it acts on: its steps as they stream, then its proof or why not.
     private(set) var actions: [ActionKey: ActionState<ActionProof>] = [:]
@@ -384,11 +386,19 @@ final class LifeStore {
         }
     }
 
+    /// His icon pick on `id` under way, from his tap until Life's reads say it: the key, or nil (Life picks again);
+    /// none (the outer nil) when no pick is under way.
+    func iconPicking(_ id: String) -> String?? { iconing[id] }
+
     /// His icon for a matter (a key of `MatterIcons`, or nil: Life picks again), said back with Undo, which puts back
-    /// his pick it replaced (`was`, nil when the icon was Life's or none).
+    /// his pick it replaced (`was`, nil when the icon was Life's or none). One pick per matter at a time, through its
+    /// reads: a second one before them would take its `was` from the read before the first.
     func setMatterIcon(of id: String, _ icon: String?, was: String?, saysBack: Bool = true) async {
         let api = api
-        await edit(id, .icon) { try await api.setMatterIcon(matter: id, icon: icon, onProgress: $0) }
+        let isSent = await iconing.run(id, showing: icon) {
+            await edit(id, .icon) { try await api.setMatterIcon(matter: id, icon: icon, onProgress: $0) }
+        }
+        guard isSent else { return }
         say(.edit(matter: id, .icon), saysBack ? "Icon changed" : nil, undo: .icon(matter: id, was, was: icon))
     }
 
