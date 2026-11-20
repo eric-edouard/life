@@ -35,7 +35,8 @@ import {
 } from "./read-replies";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, readsOf } from "./run";
-import type { Built, Resolve } from "./units";
+import { isDirect } from "./sources";
+import { type Built, type Resolve, UNKNOWN } from "./units";
 import { chatLines, messageLine } from "./words";
 import { dayNow, localDate, time } from "./zones";
 
@@ -118,13 +119,19 @@ function boundedReadOf(
   const writers = [
     ...new Set(shown.map((l) => l.speaker).filter((p) => p !== OWNER)),
   ];
-  const others = b.unit.people.filter((p) => p !== OWNER);
+  // His own lines alone: the other person only in a one-to-one chat (`isDirect`), never a group's earlier speaker.
+  const others = b.unit.people
+    .filter((p) => p !== OWNER)
+    .map((p) =>
+      p.startsWith(UNKNOWN) ? (resolve(p.slice(UNKNOWN.length)) ?? p) : p
+    );
+  const isOneToOne = isDirect(b.unit.source, b.unit.key, others.length);
   return {
     at: newest.at,
     b,
     keys: shown.map((l) => l.key),
     lines: shown.map((l) => l.text),
-    people: writers.length > 0 || others.length !== 1 ? writers : others,
+    people: writers.length === 0 && isOneToOne ? others : writers,
   };
 }
 
@@ -224,15 +231,14 @@ async function readConfirmsToday() {
  * when Life is back while the unit is still today's; past midnight the night's ordinary verdict applies.
  */
 export async function readArrivals(
-  evidence: Pick<Evidence, "built" | "fileEvents">,
+  evidence: Pick<Evidence, "built" | "fileEvents"> &
+    Partial<Pick<Evidence, "fileLines">>,
   people: { nameOf: (ref: string) => string; resolve: Resolve },
   ownerNames: string[],
   o: {
     apple?: typeof askFoundationModel;
     /** The confirm calls made today, failures included (default: the model log). */
     confirmsToday?: () => Promise<number>;
-    /** `files.jsonl` as read before `gather` built the units: a file described since waits a tick. */
-    files?: ReturnType<typeof readFiles>;
     online?: typeof isOnline;
     step?: () => ReturnType<typeof begin>;
     where?: string;
@@ -241,7 +247,6 @@ export async function readArrivals(
   const {
     apple = askFoundationModel,
     confirmsToday = readConfirmsToday,
-    files = readFiles(),
     online = isOnline,
     where = READ_REPLIES,
   } = o;
@@ -258,7 +263,7 @@ export async function readArrivals(
   );
   const waiting = filesDueOnArrival(
     evidence.fileEvents,
-    files,
+    evidence.fileLines ?? readFiles(),
     new Set()
   ).due.map(eventKey);
   const read = new Set([...stored.flatMap((l) => l.messages), ...waiting]);

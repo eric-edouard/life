@@ -2,12 +2,14 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { clock, MIN } from "../core/clock";
+import { clock, iso, MIN } from "../core/clock";
+import { log } from "../core/log";
 import type { FoundationAnswer } from "../models/foundation-model";
 import { stamp } from "../models/llm";
+import type { ReadReply } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import { readArrivals } from "./arrival-reader";
-import { readConfirmedArrivals, readReplies } from "./read-replies";
+import { readConfirmedArrivals, readReplies, storeReply } from "./read-replies";
 import { applyRules, messageUnits } from "./units";
 
 // Made-up chats with Sam, someone he knows; Apple and his engine are fakes counting their calls.
@@ -59,7 +61,12 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
     run: "r1",
   };
   const shown: string[] = [];
-  const read = (events: SourceEvent[], isUp = true, confirmsToday = 0) =>
+  /** `confirmsToday` null: counted from the model log, as in production. */
+  const read = (
+    events: SourceEvent[],
+    isUp = true,
+    confirmsToday: number | null = 0
+  ) =>
     readArrivals(
       { built: applyRules(messageUnits(events, known)), fileEvents: [] },
       people,
@@ -69,7 +76,9 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
           calls.apple += requests.length;
           return Promise.resolve(requests.map((r) => apple(r.text)));
         },
-        confirmsToday: () => Promise.resolve(confirmsToday),
+        ...(confirmsToday === null
+          ? {}
+          : { confirmsToday: () => Promise.resolve(confirmsToday) }),
         online: () => Promise.resolve(isUp),
         step: () => Promise.resolve(step as never),
         where,
@@ -180,6 +189,77 @@ test("the day's cap counts the confirms already made: at 99, one of two reads is
     ],
     true,
     99
+  );
+  expect(s.calls.engine).toBe(1);
+});
+
+test("who wrote the confirmed lines: his own promise in a 1:1 chat names the other person, in a group no one", async () => {
+  const peopleOf = async (chat: string) => {
+    const s = sceneOf((text) =>
+      text.includes("I'll send")
+        ? yes("I'll send it tonight")
+        : { os: "27.2", reply: { author: "automated", quote: "" } }
+    );
+    const earlier = msg("Morning Ozren", { chat });
+    await s.read([earlier]);
+    await s.read([
+      earlier,
+      msg("I'll send it tonight", { chat, fromMe: true, sender: "me" }),
+    ]);
+    return readConfirmedArrivals(ago(60), s.where).map((a) => a.people);
+  };
+  expect(await peopleOf(SAM)).toEqual([["person:sam"]]);
+  expect(await peopleOf("120363000000000001@g.us")).toEqual([[]]);
+});
+
+test("a confirm filed in last month's file (its first message's month) is still read just after midnight UTC", () => {
+  const where = join(dir, "month-edge");
+  storeReply(
+    {
+      at: "2026-11-01T00:10:00.000Z",
+      madeBy: stamp(
+        { engine: "codex", model: "test" },
+        "memory-arrival-confirm.v1",
+        "r1"
+      ),
+      messages: ["whatsapp|whatsapp:edge"],
+      people: [],
+      promptDigest: "0123456789abcdef",
+      read: "arrival_confirm",
+      reply: { isActionable: true },
+      schemaVersion: 1,
+      starts: [0],
+      unit: "unit_0000000000ed",
+    } as ReadReply,
+    "2026-10-31T23:50:00.000Z",
+    where
+  );
+  expect(
+    readConfirmedArrivals("2026-11-01T00:00:00.000Z", where).map((a) => a.unit)
+  ).toEqual(["unit_0000000000ed"]);
+});
+
+// Last: it fills today's model log.
+test("the day's cap counts the confirm calls in the model log, failed ones included", async () => {
+  for (let i = 0; i < 99; i++) {
+    log("model.run", {
+      at: iso(clock().getTime()),
+      ok: false,
+      prompt: "memory-arrival-confirm.v1",
+    });
+  }
+  const s = sceneOf(() => yes("send the slides"));
+  await s.read(
+    [
+      msg("Can you send the slides?"),
+      msg("Can you send the slides?", {
+        chat: "c3",
+        id: "whatsapp:c3",
+        sender: SAM,
+      }),
+    ],
+    true,
+    null
   );
   expect(s.calls.engine).toBe(1);
 });
