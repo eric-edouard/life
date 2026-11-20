@@ -69,7 +69,8 @@ export const mediaOf = (url: string, synapse = SYNAPSE) => {
 /**
  * The pictures a bridge's ghosts show (their avatars, kept by the homeserver), from the bridge's own record of each:
  * by Life's senders for its network id (`sendersOf`, by default its localpart, as `bridged.ts` reads a sender) and its
- * username when the bridge keeps one (an export names people by it). None while the bridge isn't on this Mac.
+ * username when the bridge keeps one (an export names people by it). Throws when the bridge's database is gone: the
+ * caller keeps what it had.
  */
 export function ghostPicturesOf(
   bridge: string,
@@ -77,33 +78,35 @@ export function ghostPicturesOf(
   bridges = BRIDGES,
   synapse = SYNAPSE
 ): Picture[] {
-  return (
-    withBridgeDb(
-      bridge,
-      (db) =>
-        db
-          .query<{ id: string; metadata: string | null; url: string }, []>(
-            "select id, avatar_mxc as url, metadata from ghost where avatar_mxc like 'mxc://%'"
-          )
-          .all()
-          .flatMap((r) => {
-            const file = mediaOf(r.url, synapse);
-            if (!(file && existsSync(file))) {
-              return [];
-            }
-            const { username } = JSON.parse(r.metadata ?? "{}") as {
-              username?: string;
-            };
-            return [
-              {
-                bytes: readFileSync(file),
-                handles: [...sendersOf(r.id), ...(username ? [username] : [])],
-              },
-            ];
-          }),
-      bridges
-    ) ?? []
+  const pictures = withBridgeDb(
+    bridge,
+    (db) =>
+      db
+        .query<{ id: string; metadata: string | null; url: string }, []>(
+          "select id, avatar_mxc as url, metadata from ghost where avatar_mxc like 'mxc://%'"
+        )
+        .all()
+        .flatMap((r) => {
+          const file = mediaOf(r.url, synapse);
+          if (!(file && existsSync(file))) {
+            return [];
+          }
+          const { username } = JSON.parse(r.metadata ?? "{}") as {
+            username?: string;
+          };
+          return [
+            {
+              bytes: readFileSync(file),
+              handles: [...sendersOf(r.id), ...(username ? [username] : [])],
+            },
+          ];
+        }),
+    bridges
   );
+  if (!pictures) {
+    throw new Error(`${bridge}: no bridge database`);
+  }
+  return pictures;
 }
 
 /** The homeserver's database opened for `read`; none when it isn't on this Mac. */

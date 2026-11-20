@@ -198,14 +198,16 @@ export async function stage(
   rmSync(join(dir, "data", basename(LOCK)), { force: true });
   // What is kept out is never copied: a file the watcher replaces meanwhile (a person picture) never stops the copy.
   cpSync(LIFE_STATE_DIR, join(dir, "state"), {
-    filter: (from) => !KEPT_OUT.some((k) => isWithin(k, from)),
+    filter: (from) =>
+      !(
+        KEPT_OUT.some((k) => isWithin(k, from)) ||
+        KEPT_OUT_END.some((e) => from.endsWith(e))
+      ),
     recursive: true,
   });
   for (const p of filesUnder(join(dir, "state"))) {
     const staged = join(dir, "state", p);
-    if (KEPT_OUT_END.some((e) => p.endsWith(e))) {
-      rmSync(staged, { force: true });
-    } else if (p.endsWith(".sqlite")) {
+    if (p.endsWith(".sqlite")) {
       // A store kept in Life's state (the photo descriptions) is written meanwhile, in WAL: copied whole by SQLite
       // like the archive's, never as a file without its -wal, which no reader opens.
       rmSync(staged);
