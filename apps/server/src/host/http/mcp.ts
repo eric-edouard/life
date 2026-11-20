@@ -5,6 +5,7 @@ import { z } from "zod";
 import { hasAddOn } from "../../core/add-ons";
 import { clock } from "../../core/clock";
 import { log } from "../../core/log";
+import { LOG_LEVELS } from "../../core/log-line";
 import { OWNER_ASKER } from "../../core/names";
 import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
@@ -22,7 +23,7 @@ import { area } from "../../memory/read-area-page";
 import { day } from "../../memory/read-day";
 import { oneMatter } from "../../memory/read-matters";
 import { offersOf } from "../../memory/read-person-page";
-import { runs } from "../../memory/run-log";
+import { readLogLines, runs } from "../../memory/run-log";
 import { search } from "../../memory/search";
 import { enabledSources } from "../../memory/sources";
 import { recordToldLife } from "../../memory/told-life";
@@ -320,6 +321,24 @@ export function buildServer(readsOnly = false) {
   );
   if (!readsOnly) {
     personPicturesTool(server);
+    // His app's live log; never on the question cases' tokenless server.
+    tool(
+      server,
+      "read_log_lines",
+      "His token only. For his app's live log, not for questions about his life: Life's event log, newest first (JSON): `lines`, each `at`, `level` (`info`, `warn`, `error`), `category` (the part of Life, then what it is about: `[\"desk\",\"turn\"]`; its first word one of desk, mcp, model, source, decision, draft, card, memory, watch, archive, or a crashed command), `message` (one line, at most 160 characters, ids masked) and `parts` (the message as text and values, for display); never arguments, bodies or words. `cursor`: pass it back for older lines, until it is null; a page may hold fewer than `limit` when the days it read had fewer.",
+      z.object({
+        cursor: z.string().optional(),
+        limit: z.int().min(1).max(100).optional().describe("Default 50"),
+        min_level: z.enum(LOG_LEVELS).optional().describe("Default info"),
+        process: z.string().optional().describe("A category's first word"),
+      }),
+      ({ cursor, limit, min_level: minLevel, process }, agent) => {
+        if (agent) {
+          throw new Error(NOT_HIS);
+        }
+        return readLogLines({ cursor, limit, minLevel, process });
+      }
+    );
   }
   tool(
     server,
