@@ -14,6 +14,7 @@ import {
   readCorrections,
   readFactChecks,
 } from "./memory-files";
+import { OWNER } from "./read-truth";
 
 const pad = (n: number) => String(n).padStart(12, "0");
 const promise = (n: number) => `obs_${pad(n)}`;
@@ -50,7 +51,7 @@ const linked = (n: number) =>
 const everything = () => true;
 
 /** Makes `n` open promises each ended by a link current for `readMatterRecords`; returns what undoes it. */
-async function ended(n: number) {
+async function ended(n: number, hisLater = false) {
   const matters = await import("./matters");
   const records = spyOn(matters, "readMatterRecords").mockResolvedValue({
     directions: [],
@@ -69,16 +70,21 @@ async function ended(n: number) {
         },
       ])
     ),
-    observations: Array.from({ length: n }, (_, i) => ({
-      date: "2026-11-01",
-      id: promise(i + 1),
-      importance: 3,
-      modality: "plan",
-      source: { channel: "whatsapp" },
-      subjects: ["person:gran"],
-      text: `Call the shop ${i + 1}`,
-      unit: "unit_000000000001",
-    })),
+    observations: [
+      ...(hisLater
+        ? [{ id: later(101), source: { channel: "whatsapp" }, speaker: OWNER }]
+        : []),
+      ...Array.from({ length: n }, (_, i) => ({
+        date: "2026-11-01",
+        id: promise(i + 1),
+        importance: 3,
+        modality: "plan",
+        source: { channel: "whatsapp" },
+        subjects: ["person:gran"],
+        text: `Call the shop ${i + 1}`,
+        unit: "unit_000000000001",
+      })),
+    ],
     retired: new Map(),
     todoItems: [],
   } as never);
@@ -105,6 +111,22 @@ test("an answer to an ending writes its check first, then the answer; a second a
     [promise(1), "Life thinks this is done: Call the shop 1", later(101)],
   ]);
   reset();
+});
+
+test("an ending resting on his own later words gets no answer, and nothing is written", async () => {
+  reset();
+  const undo = await ended(1, true);
+  const files = await import("../core/files");
+  const append = spyOn(files, "appendJsonl");
+  try {
+    await expect(recordFactCheckAnswer(promise(1), "outdated")).rejects.toThrow(
+      "no open ending check"
+    );
+  } finally {
+    undo();
+  }
+  expect(append.mock.calls).toEqual([]);
+  append.mockRestore();
 });
 
 test("an old unanswered doubt line on the same ref gets no ending answer, and never an eval fact from one", async () => {
