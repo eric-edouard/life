@@ -77,6 +77,8 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
 - **corrections**, only the owner's explicit ones, never in the background: `PUT /transcripts/{jobId}/speakers/{label}`
   (with `turnIndex` for one turn), `PUT /conversations/{id}/title`, `PATCH /people/{id}`, `POST /people/{id}/merge`.
   Splits and merges stay in the app.
+- **Life's token** also opens `POST /voice-notes/transcript`: a chat voice note's words, asked when Life meets it
+  (`docs/processing.md`, "Chat voice notes").
 - **status**: `GET /status`. `pendant` (`connection`, `recording`, `recordingKnownAt`, `batteryPercent`, `charging`,
   `knownAt`), `phoneHeartbeat` (the phone's last report, `backlog.pages` among it), `pipeline` (where audio and
   summaries are, `docs/transcription-server.md`) and `backup` are typed; the rest is for the owner's own sessions and

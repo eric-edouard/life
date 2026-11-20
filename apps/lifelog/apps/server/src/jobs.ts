@@ -28,10 +28,9 @@ import {
 import type { SQLiteUpdateSetSource } from "drizzle-orm/sqlite-core";
 import type { z } from "zod";
 import { emailOwner } from "./alert";
-import { cutOggOpus, oggOpusSeconds } from "./audio";
 import type { AudioStore } from "./audio-store";
 import { logChange } from "./change-log";
-import { billableSeconds, type Config, singleFlight } from "./config";
+import { type Config, singleFlight } from "./config";
 import { cut, touchesQuiet, withdrawRows } from "./cutter";
 import { ownerZoneAt, reportError } from "./diagnostics";
 import {
@@ -44,21 +43,14 @@ import {
   type SubmitOutcome,
   safeJson,
   submit,
-  transcribeNow,
   WebhookEvent,
   webhookMetadata,
 } from "./elevenlabs";
 import { record } from "./events";
 import { markDirty, regroupAfterCommit } from "./grouping";
+import { hearRouted } from "./hear-routed";
 import { type MacSocket, macSocket } from "./mac-socket";
-import {
-  barOf,
-  type Route,
-  routeTurns,
-  scribeRanges,
-  transcriptOf,
-  uncut,
-} from "./route-turns";
+import { barOf, type Route, routeTurns } from "./route-turns";
 import { speechServiceSet, transcribeBlock } from "./speech-service";
 import { switches } from "./switches";
 import { rebuildTurnsIn } from "./turns";
@@ -494,6 +486,8 @@ export function jobWorker(
 ) {
   let wake: ReturnType<typeof setTimeout> | undefined;
   let plan: Credits | null = null;
+  // Scribe takes sends while its credits last.
+  const mayScribe = () => levelOf(plan) !== "out";
   // Set once by services.ts; nothing follows in tests that build a worker alone.
   let onCompleted: OnCompleted = () => Promise.resolve();
   const completed: OnCompleted = (job) => onCompleted(job);
@@ -630,16 +624,28 @@ export function jobWorker(
       }
       return;
     }
-    const routed = await scribeTurns(job, bytes, route.routed);
+    const routed = await hearRouted(
+      { config, db },
+      bytes,
+      said.heard,
+      route.routed,
+      {
+        // A send that may be billed leaves, only while it is still this send: from here it is never
+        // sent again (`settle`).
+        claim: () => onSend(db, job, { maybeBilled: true }),
+        keyterms: job.settings.keyterms,
+        ref: { job: job.id },
+      }
+    );
     if (!routed) {
       return;
     }
-    complete(
-      db,
-      { jobId: job.id },
-      transcriptOf(said.heard, route.routed, routed.scribe),
-      completed
-    );
+    if (routed.kind === "later") {
+      onSend(db, job, { maybeBilled: false });
+      back(db, job, routed.error);
+      return;
+    }
+    complete(db, { jobId: job.id }, routed.transcript, completed);
     db.update(jobs)
       .set({
         billableSeconds: routed.billableSeconds,
@@ -652,10 +658,7 @@ export function jobWorker(
 
   // Credits used up, a block that needs Scribe waits for them. True when it went back.
   function waitForCredits(job: Job, route: Route) {
-    if (
-      levelOf(plan) !== "out" ||
-      (route.kind === "turns" && route.routed.length === 0)
-    ) {
+    if (mayScribe() || (route.kind === "turns" && route.routed.length === 0)) {
       return false;
     }
     onSend(db, job, {
@@ -688,60 +691,6 @@ export function jobWorker(
       return true;
     }
     return false;
-  }
-
-  // Scribe's words for a block's routed turns, cut from its audio and sent once, without a webhook:
-  // null when there is nothing to complete now (the job moved, or Scribe took nothing and it is
-  // queued again). Refused or maybe billed, the turns stay without words, never sent again.
-  async function scribeTurns(
-    job: Job,
-    bytes: Uint8Array,
-    routed: Parameters<typeof scribeRanges>[0]
-  ) {
-    const excerpt = cutOggOpus(bytes, scribeRanges(routed));
-    if (!excerpt) {
-      return {
-        billableSeconds: 0,
-        error: null,
-        maybeBilled: false,
-        scribe: null,
-      };
-    }
-    // A send that may be billed leaves, only while it is still this send: from here it is never
-    // sent again (`settle`).
-    if (!onSend(db, job, { maybeBilled: true })) {
-      return null;
-    }
-    const heard = await transcribeNow(
-      config,
-      new Blob([excerpt.audio.slice()]),
-      job.settings.keyterms
-    );
-    record(db, `elevenlabs.${heard.kind}`, { job: job.id, turns: true });
-    const billed = billableSeconds(
-      oggOpusSeconds(excerpt.audio) ?? 0,
-      job.settings
-    );
-    if (heard.kind === "done") {
-      const words = uncut(heard.transcript.words, excerpt.spans);
-      return {
-        billableSeconds: billed,
-        error: null,
-        maybeBilled: false,
-        scribe: { languageCode: heard.transcript.languageCode, words },
-      };
-    }
-    if (heard.later) {
-      onSend(db, job, { maybeBilled: false });
-      back(db, job, heard.error);
-      return null;
-    }
-    return {
-      billableSeconds: heard.billed ? billed : 0,
-      error: `its Thai turns are missing: ${heard.error.slice(0, 200)}`,
-      maybeBilled: heard.billed,
-      scribe: null,
-    };
   }
 
   // Credits used up, sends stop only while Scribe transcribes; the speech service still hears every
@@ -839,6 +788,8 @@ export function jobWorker(
     // Credits used up while Scribe transcribes: every block waits (the feed's reason). With the
     // speech service, a conversation says so only for its blocks waiting for credits.
     creditsOut: () => levelOf(plan) === "out" && scribeTranscribes(),
+    // Whether a Scribe send may go now (a chat voice note's, routes/voice-notes.ts, too).
+    mayScribe,
     // What follows every stored transcript (services.ts).
     onCompleted(then: OnCompleted) {
       onCompleted = then;

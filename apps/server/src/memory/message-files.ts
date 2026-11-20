@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { z } from "zod";
-import { daysBefore } from "../core/clock";
+import { clock, daysBefore, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
@@ -12,7 +12,9 @@ import { isOnline } from "../models/llm";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
+import { lifelogMissing } from "../sources/lifelog-call";
 import { emlxPart } from "../sources/mail";
+import { readVoiceNoteWords, toOggOpus } from "../sources/voice-notes";
 import { FILES, readFiles, runAt } from "./memory-files";
 import { begin, chunks, inBatches, readsOf } from "./run";
 import { dayUnitId } from "./unit-ids";
@@ -20,8 +22,9 @@ import { dayNow, localDate } from "./zones";
 
 // A message's files: each read once into memory/files.jsonl, when its message arrives (`describeFilesOnArrival`, from
 // the watcher) or at night (`describeFiles`, from `gather`), then shown as a line of its message (`showFiles`) with
-// what was read off it, so every step, search and the connector see it with no path of their own. Video, voice notes
-// and a file never read on this Mac stay a tag.
+// what was read off it, so every step, search and the connector see it with no path of their own. A voice note (a
+// message's audio) is heard by lifelog's speech pipeline, its words kept like a PDF's text. Video and a file never
+// read on this Mac stay a tag.
 
 const MESSAGE_FILE_DESCRIPTION_PROMPT = "message-file-description.v1";
 const PER_CALL = 8;
@@ -33,6 +36,8 @@ const PER_CALL = 8;
 export const FILES_ON_ARRIVAL_A_DAY = 100;
 /** The words kept of a file. */
 const TEXT_MAX = 1000;
+/** The words kept of a voice note: ten minutes of speech, lifelog's longest. */
+const VOICE_TEXT_MAX = 10_000;
 /** The long side, in pixels, of the image a model is shown. */
 const IMAGE_PX = 1600;
 /** What textutil reads as text: Word, RTF, OpenDocument text, plain text. */
@@ -96,16 +101,39 @@ function appendNew(entries: FileEntry[]) {
 type Readable = SourceFile & { path: string };
 /** One content: the file first met with it, by its hash, and every ref it was met under. */
 interface Content {
+  /** When its first message was sent: where he was then routes a voice note's Thai. */
+  at: string;
   file: Readable;
   hash: string;
   refs: string[];
 }
 type Read = { image: string } | { text: string };
 
-/** Whether a file is worth reading: on this Mac, and an image, a PDF or a document (never a video or a voice note). */
+const isVoiceNote = (f: SourceFile) => f.mime.startsWith("audio/");
+/** A voice note lifelog did not answer is asked again after this, by whichever pass meets it. */
+const VOICE_RETRY_AFTER = 5 * MIN;
+/** When each voice note lifelog did not answer was last asked, in this process. */
+const voiceAskedAt = new Map<string, number>();
+const isVoiceDue = (ref: string) =>
+  clock().getTime() - (voiceAskedAt.get(ref) ?? 0) >= VOICE_RETRY_AFTER;
+
+/**
+ * A chat event as the readers of its files take it: a source that is not a chat (mail, Notes) keeps its audio a tag,
+ * never heard (his yes is for voice messages). Its callers know the source's kind.
+ */
+export const asChatOrNot = (e: SourceEvent, isChat: boolean): SourceEvent =>
+  isChat || !e.files?.some(isVoiceNote)
+    ? e
+    : { ...e, files: e.files.filter((f) => !isVoiceNote(f)) };
+
+/**
+ * Whether a file is worth reading: on this Mac, and an image, a PDF, a document or a voice note while lifelog is set up
+ * and the note not asked in the last minutes (never a video).
+ */
 const readable = (f: SourceFile): f is Readable =>
   !!f.path &&
   (f.mime.startsWith("image/") ||
+    (isVoiceNote(f) && !lifelogMissing() && isVoiceDue(f.ref)) ||
     f.mime === "application/pdf" ||
     DOCUMENT.test(f.mime));
 
@@ -124,8 +152,8 @@ const bytesOf = (f: Readable): Promise<Buffer | undefined> =>
     .catch(() => undefined);
 
 /** The words kept of a file's text, on one line. */
-const words = (s: string) =>
-  s.replace(SPACE, " ").trim().slice(0, TEXT_MAX).trimEnd();
+const words = (s: string, max = TEXT_MAX) =>
+  s.replace(SPACE, " ").trim().slice(0, max).trimEnd();
 
 /** A program's output, or nothing when it failed or is missing (logged): the file stays a tag, and is tried again. */
 async function run(cmd: string[]) {
@@ -146,14 +174,33 @@ export async function toJpeg(src: string, out: string, px: number) {
   return made !== undefined;
 }
 
-/** Read by code: a document's text, a PDF's text layer. Else the JPEG a model is shown: a photo, a scan's first page. */
-async function prepare(f: Readable, base: string): Promise<Read | undefined> {
+/**
+ * Read by code: a document's text, a PDF's text layer, a voice note's words (lifelog, keyed by the file's own sha256
+ * so a note is paid for once; nothing while it is busy). Else the JPEG a model is shown: a photo, a scan's first page.
+ */
+async function prepare(
+  { at, file: f, refs }: Content,
+  base: string
+): Promise<Read | undefined> {
   const bytes = await bytesOf(f);
   if (!bytes) {
     return;
   }
   const src = `${base}${extname(f.name ?? "") || extname(f.path)}`;
   await Bun.write(src, bytes);
+  if (isVoiceNote(f)) {
+    const ogg = await toOggOpus(src, f.mime);
+    const heard =
+      ogg &&
+      (await readVoiceNoteWords(ogg, { at, key: digest("sha256", bytes, 64) }));
+    if (!heard) {
+      for (const ref of refs) {
+        voiceAskedAt.set(ref, clock().getTime());
+      }
+      return;
+    }
+    return { text: words(heard.text, VOICE_TEXT_MAX) };
+  }
   if (DOCUMENT.test(f.mime)) {
     const out = await run(["textutil", "-convert", "txt", "-stdout", src]);
     return out === undefined ? undefined : { text: words(out) };
@@ -183,8 +230,10 @@ export async function triage(
   const byHash = new Map(known.map((e) => [e.hash, e]));
   const copies: FileEntry[] = [];
   const fresh = new Map<string, Content>();
-  const files = events.flatMap((e) => e.files ?? []).filter(readable);
-  for (const f of new Map(files.map((x) => [x.ref, x])).values()) {
+  const files = events.flatMap((e) =>
+    (e.files ?? []).filter(readable).map((f) => ({ ...f, at: e.at }))
+  );
+  for (const { at, ...f } of new Map(files.map((x) => [x.ref, x])).values()) {
     // biome-ignore lint/performance/noAwaitInLoops: one file in memory at a time
     const bytes = refs.has(f.ref) ? undefined : await open(f);
     const hash = bytes && digest("sha256", bytes, 16);
@@ -194,6 +243,7 @@ export async function triage(
     } else if (hash) {
       const same = fresh.get(hash);
       fresh.set(hash, {
+        at: same?.at ?? at,
         file: same?.file ?? f,
         hash,
         refs: [...(same?.refs ?? []), f.ref],
@@ -251,7 +301,7 @@ export async function describeFiles(
     const prepared: (Content & Read)[] = [];
     for (const [i, c] of [...fresh.values()].entries()) {
       // biome-ignore lint/performance/noAwaitInLoops: one file in memory at a time
-      const got = await prepare(c.file, join(tmp, String(i)));
+      const got = await prepare(c, join(tmp, String(i)));
       if (got) {
         prepared.push({ ...c, ...got });
       }
@@ -316,7 +366,7 @@ export async function describeFiles(
       copied: copies.length,
       described,
       // Without them a PDF or a photo is not read (checked here, not in `checks`: they have nothing to do with acting).
-      missing: ["pdftotext", "sips"].filter((b) => !Bun.which(b)),
+      missing: ["ffmpeg", "pdftotext", "sips"].filter((b) => !Bun.which(b)),
       read: read.length,
       waiting: waiting.size,
     });
@@ -386,8 +436,10 @@ const triedOnArrival = new Set<string>();
 
 /**
  * Describes the files of today's `events` that have no line yet (the watcher, after each publish, never awaited by its
- * tick): nothing when none is due or Life is offline; with the day's limit spent it still reads what costs no model call, and describes no image (nothing marked then, no run logged).
- * ponytail: a failed file is not retried until a restart, the night takes it within its 7 days; a backoff if that matters.
+ * tick): nothing when none is due. Offline or with the day's limit spent, it still reads what costs no model call (a
+ * document, a PDF, a voice note) and describes no image.
+ * ponytail: a failed file is not retried until a restart, the night takes it within its 7 days; a backoff if that
+ * matters. A voice note is the exception: lifelog busy, the next tick asks again (local, nothing paid twice).
  */
 export async function describeFilesOnArrival(events: SourceEvent[]) {
   const { atMost, due } = filesDueOnArrival(
@@ -395,12 +447,42 @@ export async function describeFilesOnArrival(events: SourceEvent[]) {
     readFiles(),
     triedOnArrival
   );
-  if (due.length === 0 || !(await isOnline())) {
+  const online = due.length > 0 && (await isOnline());
+  // Offline, only what code reads: a photo waits for its model.
+  const read = online
+    ? due
+    : due.flatMap((e) => {
+        const files = e.files.filter((f) => !f.mime.startsWith("image/"));
+        return files.length > 0 ? [{ ...e, files }] : [];
+      });
+  if (read.length === 0) {
     return;
   }
-  const described = await describeFiles(due, { atMost });
+  const described = await describeFiles(read, {
+    atMost: online ? atMost : 0,
+  });
+  const voiceNotes = new Set(
+    read.flatMap((e) => e.files.filter(isVoiceNote).map((f) => f.ref))
+  );
   for (const ref of described.failedRefs) {
-    triedOnArrival.add(ref);
+    if (!voiceNotes.has(ref)) {
+      triedOnArrival.add(ref);
+    }
   }
   return described;
+}
+
+/**
+ * Hears the voice notes of `events` that have no line yet, and nothing else (the event reader, before it matches;
+ * a backfill): no model call. Nothing to hear, no run.
+ */
+export function hearVoiceNotes(events: SourceEvent[]) {
+  const known = readFiles();
+  const due = events.flatMap((e) => {
+    const files = (e.files ?? []).filter(
+      (f) => readable(f) && isVoiceNote(f) && !isCurrent(known.get(f.ref))
+    );
+    return files.length > 0 ? [{ ...e, files }] : [];
+  });
+  return due.length === 0 ? undefined : describeFiles(due, { atMost: 0 });
 }

@@ -11,7 +11,7 @@ import {
   readInferredRepos,
   readUnits,
 } from "./memory-files";
-import { describeFiles, showFiles } from "./message-files";
+import { asChatOrNot, describeFiles, showFiles } from "./message-files";
 import type { Truth } from "./read-truth";
 import {
   enabledSources,
@@ -96,13 +96,16 @@ export async function gather(
         failed
       )
     : [];
-  // The recent messages' files are described, then every message's shown.
+  // The recent messages' files are described, then every message's shown; only a chat's audio is heard.
   const recent = dayStart(lastDays(clock(), DAYS).from).toISOString();
+  const readable = read.flatMap(({ events, s }) =>
+    events.map((e) => asChatOrNot(e, s.kind === "chat"))
+  );
   const files =
     options.files === false
       ? undefined
       : await describeFiles(
-          read.flatMap(({ events }) => events).filter((e) => e.at >= recent),
+          readable.filter((e) => e.at >= recent),
           { engine: options.engine }
         );
   const known = readFiles();
@@ -127,9 +130,7 @@ export async function gather(
     events: shown.flatMap(({ events }) => events),
     failed,
     /** The raw events that carry files: the watcher describes today's on arrival (`describeFilesOnArrival`). */
-    fileEvents: read
-      .flatMap(({ events }) => events)
-      .filter((e) => e.files?.length),
+    fileEvents: readable.filter((e) => e.files?.length),
     files,
     // By source, what this gather read (a source it did not read has no key: its units stay as they were).
     read: {
