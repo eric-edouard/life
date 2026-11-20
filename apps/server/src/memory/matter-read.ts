@@ -8,11 +8,13 @@ import {
 } from "../records/ledger-entry";
 import {
   type DirectionPin,
+  type IconPin,
   type ImportantPin,
   LATER_SHOWN,
   type Matter,
   type NextStep,
 } from "../records/matter";
+import type { MatterIconKey } from "../records/matter-icon";
 import type { Observation } from "../records/observation";
 import { KEEP_AT, TOP_AT } from "../records/unit";
 import {
@@ -77,6 +79,8 @@ export interface MatterRecords {
   directions: readonly DirectionPin[];
   /** Each unit's episode (`readBy`). */
   episodeOf: ReadonlyMap<string, Episode>;
+  /** His icons, a key or null (Life picks again), pinned to matters' steps (`matter-icon`). */
+  icons: readonly IconPin[];
   /** His important marks, on or off, pinned to matters' steps (`matter-important`). */
   important: readonly ImportantPin[];
   /** A person ref that is a mail sender no one answers: a no-reply address or his agents' reports (`isMailerHandle`). */
@@ -148,6 +152,8 @@ export interface MatterView {
   openSteps: MatterStepNow[];
   /** Whom he owes: who asked, or whom he promised. */
   owedTo: string[];
+  /** His pick of its icon (`chosenIconsOf`); none while Life picks (`iconNow`). */
+  ownerIcon?: MatterIconKey;
   projects: string[];
   status: MatterStatus;
   steps: MatterStepNow[];
@@ -690,21 +696,9 @@ export function directionDueOf(
   };
 }
 
-/** How many of a matter's newest steps its net compares with. */
-const NET_STEPS = 8;
-
-/**
- * A matter's net (the desk's wide net, `desk/matter-net.ts`): who it is with in any role, and the texts a new message
- * or recording is compared with in meaning: its name and goal, its next step, its newest steps' words. Pure.
- */
-export const netOf = (v: MatterView) => ({
-  people: new Set(matterPeopleOf(v)),
-  texts: [
-    v.goal ? `${v.name}: ${v.goal.text}` : v.name,
-    ...(v.nextStep ? [v.nextStep.text] : []),
-    ...v.steps.slice(-NET_STEPS).map((s) => s.text),
-  ],
-});
+/** A matter's text in meaning: its name and goal. What its net (`netOf`) and its icon (`readLifeIcons`) compare. Pure. */
+export const matterTextOf = (v: Pick<MatterView, "goal" | "name">) =>
+  v.goal ? `${v.name}: ${v.goal.text}` : v.name;
 
 /** The ids of the matters of `book` his marks hold important (`pinnedOf`): the latest for a matter wins. Pure. */
 export function importantIdsOf<V extends Found>(
@@ -716,6 +710,12 @@ export function importantIdsOf<V extends Found>(
   );
   return new Set([...marked].flatMap(([id, on]) => (on ? [id] : [])));
 }
+
+/** His icon for each matter of `book` (`pinnedOf`), by id: the latest pin for a matter wins; null gives it back to Life. Pure. */
+export const chosenIconsOf = <V extends Found>(
+  book: readonly V[],
+  pins: readonly IconPin[]
+) => new Map(pinnedOf(book, pins).map(([v, p]) => [v.id, p.icon]));
 
 /**
  * `v`'s next step as it reads now: waiting on his decision while one he has not answered is about one of its steps
@@ -783,21 +783,21 @@ export function matterBookOf(
   const book = [...views, ...loneObservations, ...loneItems];
   const directions = directionsOf(book, rec.directions);
   const marked = importantIdsOf(book, rec.important);
+  const icons = chosenIconsOf(book, rec.icons);
   return book
     .map((v) => {
       const d = directions.get(v);
-      const important = v.open && marked.has(v.id);
-      return d
-        ? {
-            ...v,
-            important,
-            ...(d.goal ? { goal: d.goal } : {}),
-            ...(d.nextStep ? { nextStep: d.nextStep } : {}),
-            ...(d.latest?.endingRecords
-              ? { endingRecords: d.latest.endingRecords }
-              : {}),
-          }
-        : { ...v, important };
+      const ownerIcon = icons.get(v.id);
+      return {
+        ...v,
+        important: v.open && marked.has(v.id),
+        ...(d?.goal ? { goal: d.goal } : {}),
+        ...(d?.nextStep ? { nextStep: d.nextStep } : {}),
+        ...(d?.latest?.endingRecords
+          ? { endingRecords: d.latest.endingRecords }
+          : {}),
+        ...(ownerIcon ? { ownerIcon } : {}),
+      };
     })
     .toSorted((a, b) =>
       (b.steps.at(-1)?.day ?? "").localeCompare(a.steps.at(-1)?.day ?? "")

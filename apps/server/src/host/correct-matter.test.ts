@@ -231,3 +231,37 @@ test("his important mark by a matter's id is pinned to every step and answers wi
   await expect(correct(bySteps)).rejects.toThrow("give a matter's id");
   expect(readCorrections()).toHaveLength(2);
 });
+
+// His icon (20 Nov 2026): his word only, by a matter's id; null gives it back to Life.
+test("his icon by a matter's id is pinned to every step; null gives it back; an unknown key or an agent is refused before anything is written", async () => {
+  const pick = (icon: string | null) => ({
+    correction: { icon, kind: "matter-icon", matter: matter.id },
+    kind: "memory" as const,
+  });
+  expect(await correct(pick("tools"))).toMatchObject({
+    done: [{ icon: "tools", kind: "matter-icon" }],
+  });
+  expect(await correct(pick(null))).toMatchObject({ done: [{ icon: null }] });
+  await expect(correct(pick("papers"))).rejects.toThrow();
+  await expect(correct(pick("tools"), "agt_000000000001")).rejects.toThrow(
+    "an agent's words are not his"
+  );
+  await expect(
+    correct(
+      {
+        correction: {
+          icon: "tools",
+          kind: "matter-icon",
+          steps: ["obs_000000000001"],
+        },
+        kind: "memory",
+      },
+      "agt_000000000001"
+    )
+  ).rejects.toThrow("an agent's words are not his");
+  expect(readCorrections()).toMatchObject([
+    { icon: "tools", steps: matter.steps.map((s) => s.ref) },
+    { icon: null, steps: matter.steps.map((s) => s.ref) },
+  ]);
+  expect(readCorrections()).toHaveLength(2);
+});

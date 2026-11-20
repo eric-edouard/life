@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isoDate, isoDateTime, MadeBy, slug } from "./fields";
+import type { MatterIconKey } from "./matter-icon";
 
 // Memory's matters (memory/matters.jsonl, docs/SCHEMA.md): the running things of his life he never declared, found by
 // the matters step from episodes.
@@ -118,6 +119,13 @@ export type MatterDirectionBatch = z.infer<typeof MatterDirectionBatch>;
 export interface ImportantPin {
   at: string;
   important: boolean;
+  steps: readonly string[];
+}
+
+/** His pick of a matter's icon, as pinned to its steps (`matter-icon`): the latest for a matter wins; null gives it back to Life. */
+export interface IconPin {
+  at: string;
+  icon: MatterIconKey | null;
   steps: readonly string[];
 }
 

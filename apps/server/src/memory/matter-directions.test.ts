@@ -8,7 +8,8 @@ import {
   type MatterView,
   nextStepNow,
 } from "./matter-read";
-import { MATTER_DIRECTIONS, readDirectionPins } from "./memory-files";
+import { readMatterPins } from "./matters";
+import { MATTER_DIRECTIONS } from "./memory-files";
 
 const TODAY = "2026-11-18";
 
@@ -123,7 +124,7 @@ test("the night drafts each running matter's direction, pinned to its steps; a r
       drafted: 2,
       due: 2,
     });
-    const pins = readDirectionPins();
+    const pins = readMatterPins().directions;
     expect(pins.map((p) => [p.goal, p.nextStep?.kind, p.steps])).toEqual([
       ["The refund is paid back", "do", errand.steps.map((s) => s.ref)],
       ["Gran has her watch back", "wait_event", repair.steps.map((s) => s.ref)],
@@ -380,7 +381,7 @@ test("a matter that looks over gets no next step: its draft cites only records i
     await matterDirections(people, { today: TODAY });
     // The call was shown the record, said by name.
     expect(JSON.stringify(ask.mock.calls[0])).toContain(said(17).id);
-    const [pin] = readDirectionPins();
+    const [pin] = readMatterPins().directions;
     expect(pin).toMatchObject({
       endingRecords: [said(17).id],
       goal: "Sam has answered",

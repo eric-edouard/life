@@ -7,9 +7,12 @@ import { count, packed } from "../core/lists";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import {
+  type DirectionPin,
+  type IconPin,
   type ImportantPin,
   type Matter,
   MatterBatch,
+  MatterDirectionBatch,
   type MatterStep,
 } from "../records/matter";
 import { Correction } from "../records/observation";
@@ -41,7 +44,6 @@ import {
   MATTERS,
   OBSERVATIONS,
   readBy,
-  readDirectionPins,
   readLedger,
   readUnitsFor,
   SUPERSESSIONS,
@@ -168,13 +170,43 @@ export function mattersNow(all: MatterBatch[]) {
 const latestOf = (m: { steps: MatterStep[] }) =>
   m.steps.reduce((a, b) => (b.day >= a.day ? b : a));
 
-/** His important marks on matters, on or off, each with when he said it and the steps it was pinned to (`matter-important`). */
-const readImportantPins = (): ImportantPin[] =>
-  rowsOf(CORRECTIONS, Correction).flatMap((c) =>
-    c.kind === "matter-important"
-      ? [{ at: c.at, important: c.important, steps: c.steps }]
-      : []
-  );
+/**
+ * What is pinned to matters' steps (`pinnedOf` finds each one's matter): the directions (`directionsOf`: Life's drafts,
+ * then his `matter-direction`), his important marks (`matter-important`, on or off) and his icons (`matter-icon`, a key
+ * or null), each with when it was written; his corrections read in one pass.
+ */
+export function readMatterPins() {
+  const directions: DirectionPin[] = [
+    ...readAppended(
+      MATTER_DIRECTIONS,
+      MatterDirectionBatch,
+      (last?: DirectionPin[]) => [...(last ?? [])],
+      (all, b) => {
+        for (const d of b.directions) {
+          all.push({ at: b.at, by: "life", ...d });
+        }
+      }
+    ),
+  ];
+  const important: ImportantPin[] = [];
+  const icons: IconPin[] = [];
+  for (const c of rowsOf(CORRECTIONS, Correction)) {
+    if (c.kind === "matter-direction") {
+      directions.push({
+        at: c.at,
+        by: "owner",
+        steps: c.steps,
+        ...(c.goal ? { goal: c.goal } : {}),
+        ...(c.nextStep ? { nextStep: c.nextStep } : {}),
+      });
+    } else if (c.kind === "matter-important") {
+      important.push({ at: c.at, important: c.important, steps: c.steps });
+    } else if (c.kind === "matter-icon") {
+      icons.push({ at: c.at, icon: c.icon, steps: c.steps });
+    }
+  }
+  return { directions, icons, important };
+}
 
 /**
  * The records every span of a run and every matter's steps are read from, as they stand today: all episodes, all
@@ -214,10 +246,9 @@ export async function readMatterRecords(people: People) {
   );
   return {
     current,
-    directions: readDirectionPins(),
+    ...readMatterPins(),
     episodeOf: readBy(episodes),
     episodes,
-    important: readImportantPins(),
     isMailer: (ref: string) =>
       ref.startsWith(UNKNOWN) && isMailerHandle(ref.slice(UNKNOWN.length)),
     ledger,
