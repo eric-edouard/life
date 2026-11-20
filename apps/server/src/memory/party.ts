@@ -37,13 +37,16 @@ export function readPictureIndex(): PictureIndex {
 }
 
 /** Someone Life has a ref for, as an app shows them: `line` is what they are to him (`relationOf`), `picture` the one they show (his pick, else their first). */
-export interface Party {
-  kind: "organization" | "person";
-  line?: string;
-  name: string;
-  picture?: { id: string };
-  ref: string;
-}
+export const Party = z
+  .object({
+    kind: z.enum(["organization", "person"]),
+    line: z.string().optional(),
+    name: z.string(),
+    picture: z.object({ id: z.string() }).strict().optional(),
+    ref: z.string(),
+  })
+  .strict();
+export type Party = z.infer<typeof Party>;
 
 /**
  * The one way a ref becomes a party: who it is today (`refOf`), its name, whether it is an organization, its line, and
