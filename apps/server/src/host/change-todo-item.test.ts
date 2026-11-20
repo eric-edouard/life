@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import {
   appendFileSync,
   existsSync,
@@ -10,7 +10,7 @@ import { dirname } from "node:path";
 import { setSettings, settings } from "../core/settings";
 import { LEDGER } from "../memory/memory-files";
 import type { LedgerEntry } from "../records/ledger-entry";
-import { unshared } from "../todo-list/remctl";
+import { reminders, unshared } from "../todo-list/remctl";
 import {
   AutoAdded,
   autoAddedFrom,
@@ -256,4 +256,26 @@ test("a matter's to-do items are ticked only when they are all this install's li
   ).rejects.toThrow("isn't an item of");
   expect(readFileSync(LEDGER, "utf8")).toBe(written);
   writeFileSync(LEDGER, before);
+});
+
+// A review of 20 Nov 2026: a tick the list app refused came back as a `failed` ledger line, so his `ends` answer wrote
+// its `ended` line with no error and the matter read as done.
+test("a tick the list app refused is no tick: the ticks throw with its error, so his word never reads as done", async () => {
+  const before = existsSync(LEDGER) ? readFileSync(LEDGER, "utf8") : "";
+  mkdirSync(dirname(LEDGER), { recursive: true });
+  appendFileSync(
+    LEDGER,
+    `${JSON.stringify({ after: { title: "Call the plumber" }, at: "2026-11-10T10:00:00.000Z", id: "entry_00000000beef", kind: "add", result: "ok", schemaVersion: 1, target: "reminder:41", via: "session", why: "he asked" })}\n`
+  );
+  const refused = spyOn(reminders, "info").mockRejectedValue(
+    new Error("remctl: no such reminder")
+  );
+  try {
+    await expect(
+      tickTodoItems(["entry_00000000beef"], "It is done.")
+    ).rejects.toThrow("Not done: Call the plumber: remctl: no such reminder");
+  } finally {
+    refused.mockRestore();
+    writeFileSync(LEDGER, before);
+  }
 });
