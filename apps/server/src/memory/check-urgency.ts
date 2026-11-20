@@ -68,9 +68,10 @@ const before = (a: Orderable, b: Orderable) =>
       b.day.localeCompare(a.day)) ||
   a.ref.localeCompare(b.ref);
 
+/** A matter's place among its tier's asks: those the caretaker is fixing keep to their own group, never pulled ahead with its actionable ones. */
 const matterKeyOf = (c: Orderable) => {
   const id = c.matter?.id ?? c.ridesOn.matterIds[0];
-  return id && `${urgencyOf(c)} ${id}`;
+  return id && `${urgencyOf(c)}${c.beingFixed ? " fixing" : ""} ${id}`;
 };
 
 /**
