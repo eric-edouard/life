@@ -15,7 +15,6 @@ import {
   EVENT_CHANNELS,
   type EventChannel,
   isOnOrAfter,
-  merchantOf,
 } from "./event-channels";
 import { matcherOf } from "./events";
 
@@ -49,7 +48,7 @@ function doneSeenFilterOf(d: Pick<Decision, "needs">): EventFilter | undefined {
 
 /**
  * Whether `e` is `d`'s payment: its amount by the one matcher, paid in the card's own currency (`eur_out` also holds
- * every payment's EUR value), to its payee by the merchant alone (never his note).
+ * every payment's EUR value), to its payee by the bank's name of it alone (`ChannelEvent.payee`, never his note).
  */
 function paymentTestOf(d: Pick<Decision, "needs">) {
   const filter = doneSeenFilterOf(d);
@@ -61,7 +60,7 @@ function paymentTestOf(d: Pick<Decision, "needs">) {
     ((e: ChannelEvent) =>
       isMatch(e.matchable) &&
       e.payload.currency === currency &&
-      isToPayee(merchantOf(e), words))
+      isToPayee(e.payee ?? "", words))
   );
 }
 

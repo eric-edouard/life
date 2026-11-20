@@ -204,6 +204,14 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
   expect(await readSeenDone([card])).toEqual(new Map());
   booked.push(payment({ id: "bank", merchant: "MS. LEE, ANN" }));
   expect(await lookForDone(card)).toBe("payments:bank");
+  // The bank's whole line is read, past what a reader is shown (80 characters).
+  booked = [
+    payment({
+      id: "long",
+      merchant: `${"NORTHERN DISTRICT FRESH MARKET STALL ".repeat(3)}(A/C Name: MS. ANN LEE)`,
+    }),
+  ];
+  expect(await lookForDone(card)).toBe("payments:long");
   // A EUR card is never seen by another currency's payment worth as much in EUR.
   const euro = await transfer({
     needs: [NEEDS[0], { currency: "EUR", kind: "amount", value: 118.4 }],
@@ -216,6 +224,17 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
     }),
   ];
   expect(euroCard && (await readSeenDone([euroCard]))).toEqual(new Map());
+  // The bank's "A/C" lends no initial: its account name alone is compared.
+  const initial = await transfer({
+    needs: [{ ...NEEDS[0], holder: "A. Lee" }, NEEDS[1]],
+  });
+  const initialCard = decisionsNow().find((d) => d.id === initial.id);
+  booked = [payment({ id: "label", merchant: "B LEE (A/C Name: B LEE)" })];
+  expect(initialCard && (await readSeenDone([initialCard]))).toEqual(new Map());
+  booked = [payment({ id: "theirs", merchant: "LEE SHOP (A/C Name: A LEE)" })];
+  expect(initialCard && (await lookForDone(initialCard))).toBe(
+    "payments:theirs"
+  );
   // A card with no payee's name is refused when asked.
   await expect(
     transfer({ needs: [{ ...NEEDS[0], holder: "Co., Ltd." }, NEEDS[1]] })
