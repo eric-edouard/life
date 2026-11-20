@@ -1,4 +1,4 @@
-import type { AgentKind } from "../records/registered-agent";
+import type { AgentKind, AgentStatus } from "../records/registered-agent";
 
 // Which matters registered agents hold (docs/tasks.md, "held"): the one rule, pure, for the hand-out (`handOutOf`) and the
 // new matter check alike. The facts come from the desk's store (host's `heldByAgents`), which memory cannot read.
@@ -14,7 +14,7 @@ export interface AgentHold {
   kind: AgentKind;
   outcome: string | null;
   project: string | null;
-  status: string;
+  status: AgentStatus;
   step: string | null;
   whyNotStarted: string | null;
 }

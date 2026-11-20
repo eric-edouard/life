@@ -117,9 +117,10 @@ async function rankedRunning<R extends { book: MatterView[] }>(
     person?: string;
     project?: string;
   },
-  read: (people: People, today: string) => Promise<R>
+  read: (people: People, today: string) => Promise<R>,
+  given?: People
 ) {
-  const people = await readPeople();
+  const people = given ?? (await readPeople());
   const { truth } = people;
   const known = q.person ? meant(q.person, people).known : undefined;
   const area = q.area ? idOf(truth.areas, q.area) : undefined;
@@ -278,10 +279,15 @@ export function handOutGateOf(
  * what the desk may hand to an agent is the first with no gate. `read` gives the book and records, so a report that
  * read them already passes them.
  */
-export async function readHandOutMatters(read = readMatterBookAndRecords) {
+export async function readHandOutMatters(
+  read = readMatterBookAndRecords,
+  /** The people, when the caller read them already. */
+  given?: People
+) {
   const { book, decisions, people, ranked, records } = await rankedRunning(
     {},
-    read
+    read,
+    given
   );
   const isParked = isParkedMatterOf(people.truth);
   const his = ids(ranked.filter((v) => isOneOfHis(v, people.isGuess)));

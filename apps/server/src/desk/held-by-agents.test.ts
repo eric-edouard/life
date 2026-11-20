@@ -40,7 +40,7 @@ test("every subject is a fact for the hold rule: when its agent ended, who start
     new Date(clock().getTime() - (HOLD_DAYS + 1) * DAY).toISOString(),
     old,
   ]);
-  const fact = { project: null, status: "ended", whyNotStarted: null };
+  const fact = { project: null, status: "ended" as const, whyNotStarted: null };
   expect(heldByAgents(desk.db)).toEqual([
     {
       ...fact,

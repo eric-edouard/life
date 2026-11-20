@@ -56,7 +56,7 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     /// How many open checks about it block him (an agent's decision, a voice, a name); the others only improve the memory.
     public let blockingChecks: Int?
     /// Whether it needs him (Life decides: its next step is his, or a check about it blocks him): the row's dot and the filter.
-    public let needsYou: Bool
+    public let needsYou: Bool?
 }
 
 /// `read_matters`: the running matters, most pressing first.
@@ -96,7 +96,7 @@ public enum MatterFilter: Hashable, Sendable {
     func passes(_ row: MatterRow) -> Bool {
         switch self {
         case .everything: true
-        case .needsYou: row.needsYou
+        case .needsYou: row.needsYou == true
         case .agentWorking: row.agent != nil
         case .area(let area): row.areas?.contains(area) == true
         }

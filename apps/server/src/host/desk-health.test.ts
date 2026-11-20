@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { AgentHold } from "../memory/held-matters";
 import { type MatterView, matterFinderOf } from "../memory/matter-read";
 import type { HandOutFacts } from "../memory/read-matters";
+import type { AgentStatus } from "../records/registered-agent";
 import {
   activeOnIdleMatterOf,
   coverageOf,
@@ -47,7 +48,7 @@ const hold = (
   kind: "asked" as const,
   outcome: null,
   project: null,
-  status: "active",
+  status: "active" as AgentStatus,
   step,
   whyNotStarted: null,
   ...over,

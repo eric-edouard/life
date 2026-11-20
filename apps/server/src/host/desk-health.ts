@@ -14,7 +14,7 @@ import {
 
 // The desk health check (his yes of 20 Nov 2026), a report in code, no model, no action: where agents and matters
 // drift apart (the oddities), how many of the matters to do have an agent and why not the others (`coverageOf`, "agent
-// coverage"), and how many running matters need him. Each rule is pure; `readAgentRows` reads and the nightly shows
+// coverage"), and how many running matters need him. Each rule is pure; `readAgentSection` reads and the nightly shows
 // every row, never capped.
 
 interface Row {
