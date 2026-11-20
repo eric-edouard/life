@@ -6,6 +6,8 @@ import SwiftUI
 extension Color {
     /// The quiet fill of a secondary button or a chip: the page's ink at a low strength, as the design's `--tint`.
     static let fillTint = Palette.fg.opacity(0.08)
+    /// The one selected look of a control (his mark on): the page's ink stronger than `fillTint`, as the design's `--pick`.
+    static let pick = Palette.fg.opacity(0.16)
 }
 
 /// The pill buttons: the filled one (cream in dark), the quiet one, and the done one (`ok`, an action that worked), in
@@ -84,42 +86,57 @@ struct CountBadge: View {
     }
 }
 
-/// A 44-high text button: `fg` for an action, `muted` with an arrow for a jump out of the app.
+/// A 44-high text button: `fg` for an action, `muted` with an arrow for a jump out of the app, a chevron for a page of
+/// the app it opens (`isOnward`).
 struct TextLink: View {
     let title: String
     var isOutward = false
+    var isOnward = false
     var isMuted = true
     let action: () -> Void
 
-    init(_ title: String, isOutward: Bool = false, isMuted: Bool = true, action: @escaping () -> Void) {
+    init(
+        _ title: String, isOutward: Bool = false, isOnward: Bool = false, isMuted: Bool = true,
+        action: @escaping () -> Void
+    ) {
         self.title = title
         self.isOutward = isOutward
+        self.isOnward = isOnward
         self.isMuted = isMuted
         self.action = action
     }
 
+    private var label: Text {
+        if isOutward { return Text("\(title) \(Image(systemName: "arrow.up.right"))") }
+        if isOnward { return Text("\(title) \(Image(systemName: "chevron.right"))") }
+        return Text(verbatim: title)
+    }
+
     var body: some View {
         Button(action: action) {
-            (isOutward ? Text("\(title) \(Image(systemName: "arrow.up.right"))") : Text(verbatim: title))
+            label
                 .font(.smallStrong).foregroundStyle(isOutward && isMuted ? Palette.muted : Palette.fg)
                 .frame(minHeight: 44)
         }
     }
 }
 
-/// What he just answered, with Undo while it is held: 48 high on `tile`, a check in `ok`, his answer's words. It sits in
-/// a bar, so it takes no room from the answers.
+/// What he just answered or changed, with Undo while it can be taken back: 48 high on `tile`, a check in `ok`, its
+/// words; a change that was not made says why, after `flag`'s glyph, with no Undo. It sits in a bar, so it takes no room
+/// from the answers.
 struct Toast: View {
     let words: String
-    let undo: () -> Void
+    var glyph = StateGlyph.ok
+    let undo: (() -> Void)?
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
-            StateGlyph.ok
-            Text(words).font(.buttonLabel).foregroundStyle(Palette.fg).lineLimit(1)
-            TextLink("Undo", isMuted: false, action: undo).padding(.leading, Metrics.Spacing.xs)
+            glyph
+            Text(words).font(.buttonLabel).foregroundStyle(Palette.fg).lineLimit(2)
+            if let undo { TextLink("Undo", isMuted: false, action: undo).padding(.leading, Metrics.Spacing.xs) }
         }
-        .padding(.horizontal, 18).frame(height: 48).background(Palette.tile, in: .capsule)
+        .padding(.horizontal, 18).padding(.vertical, Metrics.Spacing.xs).frame(minHeight: 48)
+        .background(Palette.tile, in: .capsule)
     }
 }
 
@@ -128,6 +145,31 @@ extension View {
     /// says whether this screen names that held answer.
     func heldToast(shows: @escaping (String) -> Bool, undo: @escaping (String) -> Void) -> some View {
         modifier(HeldToast(shows: shows, undo: undo))
+    }
+}
+
+extension View {
+    /// His last mark or project status, said back (`LifeStore.saidBack`), over the top as the held answer's toast.
+    func saidBackToast() -> some View { modifier(SaidBackToast()) }
+}
+
+private struct SaidBackToast: ViewModifier {
+    @Environment(LifeStore.self) private var life
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .top) {
+            ZStack {
+                if let said = life.saidBack {
+                    Toast(words: said.words, glyph: said.undo == nil ? .flag : .ok, undo: undoOf(said))
+                        .appears().id(said.id)
+                }
+            }
+            .motion(Motion.standard, value: life.saidBack?.id)
+        }
+    }
+
+    private func undoOf(_ said: LifeStore.SaidBack) -> (() -> Void)? {
+        said.undo.map { _ in { Task { await life.undo(said) } } }
     }
 }
 
@@ -181,6 +223,8 @@ struct InlinePill: View {
     let name: String
     /// The asking agent's mark (`RuntimeName.mark`), nil when Life asks itself.
     var agentMark: String?
+    /// His mark on the matter: a small flag after the name (`SmallFlag`).
+    var isImportant = false
     let action: () -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -190,6 +234,7 @@ struct InlinePill: View {
             HStack(spacing: Metrics.Spacing.s) {
                 if let agentMark { Image(symbol: agentMark).accessibilityHidden(true) }
                 Text(name).lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
+                if isImportant { SmallFlag() }
             }
             .font(.smallStrong).foregroundStyle(Palette.fg)
             .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.xs).frame(minHeight: 32)
@@ -197,7 +242,31 @@ struct InlinePill: View {
             .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Matter: \(name)")
+        .accessibilityLabel("Matter: \(name)\(isImportant ? ", important" : "")")
+    }
+}
+
+/// His mark on a matter as a toolbar item, a round glass button (the system places it: in the bar left of the Pendant,
+/// or in the closed Duo's side column): off, the line flag; on, the one selected look, `pick` filled, the filled flag.
+/// Always in `fg`, never the orange `flag`.
+struct MarkItem: View {
+    let isOn: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button("Important", systemImage: isOn ? "flag.fill" : "flag", action: toggle)
+            .labelStyle(.iconOnly).foregroundStyle(Palette.fg)
+            .buttonStyle(.glassProminent).tint(isOn ? Color.pick : .clear)
+            .motion(Motion.standard, value: isOn)
+            .accessibilityAddTraits(isOn ? .isSelected : [])
+            .accessibilityIdentifier("matter.important")
+    }
+}
+
+/// His mark after a matter's name: a filled flag, 12, in `fg` at 85% (never the orange `flag`, which means late).
+struct SmallFlag: View {
+    var body: some View {
+        Image(systemName: "flag.fill").font(.system(size: 12)).foregroundStyle(Palette.icon).accessibilityHidden(true)
     }
 }
 
@@ -544,6 +613,8 @@ struct Row<Trailing: View>: View {
     var iconTint = Palette.icon
     var detail: String?
     var state = RowState.known
+    /// His mark: `SmallFlag` after the name, on its last line.
+    var isMarked = false
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -553,7 +624,7 @@ struct Row<Trailing: View>: View {
                     .frame(width: 28).accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.rowName).foregroundStyle(Palette.fg)
+                titleText.font(.rowName).foregroundStyle(Palette.fg)
                 line
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -567,6 +638,12 @@ struct Row<Trailing: View>: View {
         .padding(.vertical, 8)
         .frame(minHeight: state == .known && detail == nil ? 56 : 64)
         .contentShape(.rect)
+    }
+
+    /// The name, and his mark after it on its last line (the flag as `SmallFlag` draws it).
+    private var titleText: Text {
+        let flag = Text(Image(systemName: "flag.fill")).font(.system(size: 12)).foregroundStyle(Palette.icon)
+        return isMarked ? Text("\(title) \(flag)") : Text(verbatim: title)
     }
 
     @ViewBuilder private var line: some View {

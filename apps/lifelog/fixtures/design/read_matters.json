@@ -1,6 +1,55 @@
 {
   "matters": [
     {
+      "agent": "agt_kitchen",
+      "areas": ["Home"],
+      "goal": {
+        "by": "life",
+        "text": "A kitchen quote that fits the budget."
+      },
+      "id": "matter_kitchen",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Kitchen quote, Halden house",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_event",
+        "text": "The supplier price from Idris.",
+        "waitsOn": "a message"
+      },
+      "openedDaysAgo": 6,
+      "people": {
+        "waitingOn": ["Idris Benali"]
+      },
+      "status": "waiting_on_someone",
+      "important": true,
+      "project": {
+        "id": "halden",
+        "name": "Halden house",
+        "status": "active"
+      }
+    },
+    {
+      "areas": ["Admin"],
+      "goal": {
+        "by": "life",
+        "text": "The new passport in hand."
+      },
+      "id": "matter_passport",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "New passport",
+      "needsYou": true,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_owner",
+        "text": "Pick it up at the town hall."
+      },
+      "openedDaysAgo": 12,
+      "people": {},
+      "status": "moving",
+      "important": true
+    },
+    {
       "agent": "agt_lease",
       "areas": ["Home", "Money"],
       "goal": {
@@ -66,48 +115,6 @@
       "status": "moving"
     },
     {
-      "agent": "agt_kitchen",
-      "areas": ["Home"],
-      "goal": {
-        "by": "life",
-        "text": "A kitchen quote that fits the budget."
-      },
-      "id": "matter_kitchen",
-      "lastStepAt": "2026-11-18T14:02:00",
-      "name": "Kitchen quote, Halden house",
-      "needsYou": false,
-      "nextStep": {
-        "by": "life",
-        "kind": "wait_event",
-        "text": "The supplier price from Idris.",
-        "waitsOn": "a message"
-      },
-      "openedDaysAgo": 6,
-      "people": {
-        "waitingOn": ["Idris Benali"]
-      },
-      "status": "waiting_on_someone"
-    },
-    {
-      "areas": ["Admin"],
-      "goal": {
-        "by": "life",
-        "text": "The new passport in hand."
-      },
-      "id": "matter_passport",
-      "lastStepAt": "2026-11-18T14:02:00",
-      "name": "New passport",
-      "needsYou": true,
-      "nextStep": {
-        "by": "life",
-        "kind": "wait_owner",
-        "text": "Pick it up at the town hall."
-      },
-      "openedDaysAgo": 12,
-      "people": {},
-      "status": "moving"
-    },
-    {
       "areas": ["Home"],
       "goal": {
         "by": "life",
@@ -149,6 +156,44 @@
         "with": ["Priya Nair"]
       },
       "status": "stuck"
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_gutter",
+      "lastStepAt": "2026-11-17T10:00:00",
+      "name": "Roof gutter",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "do",
+        "text": "Call the roofer back."
+      },
+      "openedDaysAgo": 8,
+      "project": {
+        "id": "halden",
+        "name": "Halden house",
+        "status": "active"
+      },
+      "status": "moving"
+    },
+    {
+      "areas": ["Papers"],
+      "id": "matter_shed",
+      "lastStepAt": "2026-11-17T10:00:00",
+      "name": "Garden shed permit",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "do",
+        "text": "Fill in the permit form."
+      },
+      "openedDaysAgo": 10,
+      "project": {
+        "id": "halden",
+        "name": "Halden house",
+        "status": "active"
+      },
+      "status": "moving"
     }
   ]
 }

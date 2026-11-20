@@ -116,7 +116,7 @@ struct RootView: View {
 
 #if DEBUG
     extension RootView {
-        /// `-fixtureTab matters|search`, `-fixtureCard`, `-fixtureMatter`, `-fixtureSheet`: open the screen a launch
+        /// `-fixtureTab matters|search`, `-fixtureCard`, `-fixtureMatter`, `-fixtureProject`, `-fixtureSheet`: open the screen a launch
         /// asked to see.
         fileprivate func showFixtureScreen() async {
             try? await Task.sleep(for: .milliseconds(1_200))
@@ -126,9 +126,10 @@ struct RootView: View {
             default: break
             }
             if let id = LifeFixture.matter { router.open(matter: id) }
+            if let project = LifeFixture.project { router.matterPath.append(.project(project)) }
             // On a matter, the card is the ask pushed on it; alone, the Inbox opens at it, as a push does.
             if let ref = LifeFixture.card {
-                if LifeFixture.matter == nil { await life.open(ref: ref) } else { router.matterPath = [ref] }
+                if LifeFixture.matter == nil { await life.open(ref: ref) } else { router.matterPath = [.card(ref)] }
             }
             if let sheet = LifeFixture.sheet.flatMap(AppRouter.Sheet.init(rawValue:)) { router.sheet = sheet }
             // The pendant sheet's own sheets open from inside it (`PendantScreen`).

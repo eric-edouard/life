@@ -23,7 +23,16 @@ struct MatterPage: View {
             content: { matter in page(matter) }
         )
         .background(Palette.bg)
-        // Back on the left, the Pendant on the right (and Settings when the list's bar has neither).
+        .toolbar {
+            if let row = state.value?.row {
+                ToolbarItem(placement: .topBarTrailing) {
+                    let isOn = life.isImportant(id, as: row.important)
+                    MarkItem(isOn: isOn) { Task { await life.setImportant(id, !isOn) } }
+                }
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            }
+        }
+        // Back on the left, his mark, then the Pendant on the right (and Settings when the list's bar has neither).
         .shellBar("", hasSettings: hasSettings)
         .task(id: life.answersEnded) { await life.refreshMatter(id) }
     }
@@ -74,7 +83,7 @@ struct MatterPage: View {
             RowGroup {
                 ForEach(checks) { check in
                     Button {
-                        router.matterPath.append(check.ref)
+                        router.matterPath.append(.card(check.ref))
                     } label: {
                         Row(title: check.question, detail: check.deadline.map { DeadlineWords.by($0) }) {
                             StateDot(color: Palette.flag)
@@ -89,18 +98,27 @@ struct MatterPage: View {
         }
     }
 
-    /// The name is the head; under it what he must do (one phrase) and how long it has been open.
+    /// The name is the head; under it what he must do (one phrase), how long it has been open, and its project, a link
+    /// to the project's page (else its areas).
     private func header(_ matter: Matter) -> some View {
         let row = matter.row
         let days = matter.steps.first.map { Calendar.current.dateComponents([.day], from: $0.at, to: .now).day ?? 0 }
+        let areas = row.project == nil ? (row.areas ?? []).joined(separator: ", ") : ""
         let open =
-            ([days.map { "Open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self)
-            + [(row.areas ?? []).joined(separator: ", ")].filter { !$0.isEmpty }).joined(separator: " · ")
+            ([days.map { "Open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self) + [areas].filter { !$0.isEmpty })
+            .joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 8) {
             Text(row.name).font(.screenName).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             if !unanswered(matter).isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
-            Text(open).font(.small).foregroundStyle(Palette.muted)
+            HStack(spacing: 0) {
+                Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small).foregroundStyle(Palette.muted)
+                if let project = row.project {
+                    TextLink(project.name, isOnward: true, isMuted: false) {
+                        router.matterPath.append(.project(project.id))
+                    }
+                }
+            }
         }
         .padding(.top, 8)
     }
@@ -258,7 +276,7 @@ private struct DoneButton: View {
     }
 }
 
-private struct PagePlaceholder: View {
+struct PagePlaceholder: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Placeholder(width: 200, height: 12)

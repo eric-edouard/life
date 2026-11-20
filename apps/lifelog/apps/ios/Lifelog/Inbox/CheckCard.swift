@@ -193,7 +193,10 @@ struct CheckCard: View {
 
     @ViewBuilder private var matterPill: some View {
         if let matter = check.matter {
-            InlinePill(name: matter.name, agentMark: check.agentMark(runtime: runtimeName)) {
+            InlinePill(
+                name: matter.name, agentMark: check.agentMark(runtime: runtimeName),
+                isImportant: matter.important == true
+            ) {
                 openMatter(matter.id)
             }
         }
