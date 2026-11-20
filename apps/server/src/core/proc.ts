@@ -160,6 +160,17 @@ export function gitOut(path: string, args: string[]) {
   return r.stdout.toString().trim();
 }
 
+/** Commits `paths` (relative to the repo at `repo`) alone, their new and deleted files included, when any changed. */
+export function commitPaths(repo: string, paths: string[], message: string) {
+  if (paths.length === 0) {
+    return;
+  }
+  gitOut(repo, ["add", "-A", "--", ...paths]);
+  if (gitOut(repo, ["status", "--porcelain", "--", ...paths])) {
+    gitOut(repo, ["commit", "-m", message, "--", ...paths]);
+  }
+}
+
 /** The code the checkout at `root` holds (its committed apps/server/src/, prompts/ and assets/, the pages it serves): an always-on service exits when it changes, and launchd starts the new code. */
 export const codeAt = (root: string) =>
   git(root, [
