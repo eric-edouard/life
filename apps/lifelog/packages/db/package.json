@@ -6,7 +6,7 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
     "./schema/voice-note-hearings": "./src/schema/voice-note-hearings.ts",
-    "./schema/open-quiet-ranges": "./src/schema/open-quiet-ranges.ts"
+    "./schema/phone-dictations": "./src/schema/phone-dictations.ts"
   },
   "scripts": {
     "db:generate": "drizzle-kit generate"

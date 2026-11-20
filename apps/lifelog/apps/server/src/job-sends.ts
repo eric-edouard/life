@@ -7,6 +7,14 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { SQLiteUpdateSetSource } from "drizzle-orm/sqlite-core";
 import { logChange } from "./change-log";
 
+// A block at the speech service is done well within this from its claim (its audio read, its
+// answer, a wait for a Scribe slot), and its routed turns within this from their POST; still
+// submitted after it, a restart cut it off.
+export const SPEECH_CUT_OFF_MS = 10 * 60 * 1000;
+// A block heard there stops waiting for a Scribe slot this long before that, so reconcile never takes
+// a live wait for a send cut off.
+const SLOT_WAIT_MARGIN_MS = 60 * 1000;
+
 // One send of a job: the row as it was read, `requestSentAt` set when it left: to the speech
 // service at its claim, to Scribe at its POST. A queued job picked for Scribe is one not sent yet.
 type Send = Pick<
@@ -89,3 +97,17 @@ export function retry(db: Db, send: Send, error: string) {
     ? ("retried" as const)
     : null;
 }
+
+// How long a job may wait for its slot: a block heard at the speech service, what is left of its
+// time since its claim (reconcile never takes a live wait for a send cut off); a queued job picked
+// for Scribe, none (it was picked for a free slot, and is picked again once one frees).
+export const slotWaitOf = (job: Pick<Send, "requestSentAt">) =>
+  job.requestSentAt
+    ? Math.max(
+        0,
+        job.requestSentAt.getTime() +
+          SPEECH_CUT_OFF_MS -
+          SLOT_WAIT_MARGIN_MS -
+          clock().getTime()
+      )
+    : 0;

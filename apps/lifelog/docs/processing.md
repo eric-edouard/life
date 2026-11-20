@@ -81,11 +81,14 @@ What never reaches ElevenLabs:
   their block do hold the dictation: they are stored, never processed.
 - **Dictation on the phone.** Its range opens on the server before the microphone (`POST /dictation/ranges`) and
   closes at Stop (`POST /dictation/ranges/{id}/close`), or at its cap, 10 minutes after its start. While it is open,
-  the processing limit (`quiet-ranges.ts` `processingLimit`: the Mac's watermark, held back to the start of the
-  earliest open dictation less 2 s) stops page labeling, the cutter and the worker's claim and sends, for every
-  uploader, read again when Silero takes a piece, before a block's job is admitted and at each send; a piece or block
-  it stops waits, unlabeled or open, and goes on after the close. The range runs on the server's clock, from the
-  open's arrival to the close's; its close stores it widened by 2 s at both edges and starts them again.
+  the processing limit (`phone-dictations.ts` `processingLimit`, per source: the Mac's watermark, held back to the
+  start of the earliest open dictation placed on the source's uploader's clock, less its uncertainty and 2 s) stops
+  page labeling, the cutter and the worker's claim and sends, read again with the ranges when Silero takes a piece,
+  before a block's job is admitted and at each send; a piece or block it stops waits, unlabeled or open, and goes on
+  after the close, the pieces before it kept. The range runs on the server's clock, from the open's arrival to the
+  close's; each uploader reports its clock's offset and uncertainty (`X-Clock-Offset`, `docs/sync.md`), and a source
+  with none is held whole while any phone dictation exists. Its close stores it widened by 2 s at both edges and
+  starts them again.
 - **Recordings the app plays out loud** (speaker, AirPlay, a car or a Bluetooth speaker; not headphones, told from
   Bluetooth speakers by name only): the phone stores the span, padded 2 seconds and stored again every 30 s while it
   plays, as a quiet range of its own, and cuts it out of fragments. Once closed, the span goes to the server through the

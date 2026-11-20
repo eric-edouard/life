@@ -10,7 +10,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
 import { quietRanges } from "@lifelog/db/schema";
-import { openQuietRanges } from "@lifelog/db/schema/open-quiet-ranges";
+import { phoneDictations } from "@lifelog/db/schema/phone-dictations";
 import { createApp } from "../app";
 import { memoryAudioStore } from "../audio-store";
 import { sha256Hex } from "../config";
@@ -18,10 +18,11 @@ import { jobWorker } from "../jobs";
 import {
   CLOCK_MARGIN_MS,
   DICTATION_CAP_MS,
-  openQuietRange,
+  openPhoneDictation,
   processingLimit,
-  settleOpenQuietRanges,
-} from "../quiet-ranges";
+  recordSourceClock,
+  settlePhoneDictations,
+} from "../phone-dictations";
 import { services } from "../services";
 import { OWNER_TOKEN, testConfig, testDb } from "../testing";
 
@@ -66,9 +67,15 @@ const opening = (startedAt: number, id = randomUUID()) => ({
 const open = (body: ReturnType<typeof opening>, token?: string) =>
   post("/dictation/ranges", body, token);
 const close = (id: string) => post(`/dictation/ranges/${id}/close`, {});
-// The Mac vouching for everything: the limit is the phone's alone.
+// The Mac vouching for everything: the limit is the phone's alone. A source whose uploader's clock
+// is the server's, to the millisecond.
 const MAC = { vouchedThrough: () => new Date(8.64e15) };
-const limit = () => processingLimit(env.db, MAC)().getTime();
+const SOURCE = "omi-test";
+const limit = (sourceId = SOURCE) =>
+  processingLimit(env.db, MAC)(sourceId).getTime();
+beforeEach(() => {
+  recordSourceClock(env.db, SOURCE, { offsetMs: 0, uncertaintyMs: 0 });
+});
 const stored = () =>
   env.db
     .select()
@@ -122,20 +129,20 @@ test("refused: a new open a minute off the server's clock, an id never opened, a
   expect((await open(opening(now + 61_000))).status).toBe(400);
   expect((await close(randomUUID())).status).toBe(404);
   expect((await open(opening(now), READ_TOKEN)).status).toBe(403);
-  expect(env.db.select().from(openQuietRanges).all()).toEqual([]);
+  expect(env.db.select().from(phoneDictations).all()).toEqual([]);
 });
 
 test("overlapping dictations: the limit holds at the earliest still open; a close past the cap ends at the cap", () => {
   const t = Date.parse("2026-11-20T10:00:00Z");
   const first = opening(t);
   const second = opening(t + 30_000);
-  openQuietRange(env.db, first, new Date(t));
-  openQuietRange(env.db, second, new Date(t + 30_000));
+  openPhoneDictation(env.db, first, new Date(t));
+  openPhoneDictation(env.db, second, new Date(t + 30_000));
   // Before its cap nothing ends.
-  expect(settleOpenQuietRanges(env.db, new Date(t + 60_000)).ended).toBe(0);
+  expect(settlePhoneDictations(env.db, new Date(t + 60_000)).ended).toBe(0);
   expect(limit()).toBe(t - CLOCK_MARGIN_MS);
   // The first's close is lost; at its cap it ends there, and the second still holds.
-  const { ended, next } = settleOpenQuietRanges(
+  const { ended, next } = settlePhoneDictations(
     env.db,
     new Date(t + DICTATION_CAP_MS)
   );
@@ -154,7 +161,7 @@ test("a restart ends a dictation past its cap and keeps one inside it open, waki
   const lost = opening(now - DICTATION_CAP_MS - 1000);
   const going = opening(now - 60_000);
   env.db
-    .insert(openQuietRanges)
+    .insert(phoneDictations)
     .values(
       [lost, going].map((o) => ({ ...o, startedAt: new Date(o.startedAt) }))
     )
@@ -181,9 +188,49 @@ test("a restart ends a dictation past its cap and keeps one inside it open, waki
   expect(
     env.db
       .select()
-      .from(openQuietRanges)
+      .from(phoneDictations)
       .all()
+      .filter((o) => o.endedAt === null)
       .map((o) => o.id)
   ).toEqual([going.id]);
   expect(limit()).toBe(Date.parse(going.startedAt) - CLOCK_MARGIN_MS);
+});
+
+test("an open replayed past its cap ends the dictation at its cap and answers 409", async () => {
+  setSystemTime(new Date(T));
+  const body = opening(T);
+  expect((await open(body)).status).toBe(200);
+  setSystemTime(new Date(T + DICTATION_CAP_MS + 100));
+  expect((await open(body)).status).toBe(409);
+  expect(stored()).toEqual([
+    [T - CLOCK_MARGIN_MS, T + DICTATION_CAP_MS + CLOCK_MARGIN_MS],
+  ]);
+  expect(limit()).toBe(8.64e15);
+});
+
+test("an upload's clock is kept for its source, and every answer carries the server's; a source with none is held whole once a dictation exists", async () => {
+  const put = (sourceId: string, clockOffset: string) =>
+    app.request(`/sources/${sourceId}/timeline`, {
+      body: "{}",
+      headers: {
+        Authorization: `Bearer ${OWNER_TOKEN}`,
+        "Content-Type": "application/json",
+        "X-Clock-Offset": clockOffset,
+      },
+      method: "PUT",
+    });
+  setSystemTime(new Date(T));
+  const answer = await put("omi-slow", "-30000,400");
+  expect(answer.headers.get("X-Server-Time")).toBe(String(T));
+  await put("omi-unsure", "0,60000");
+  await put("omi-garbled", "soon");
+  expect(limit("omi-unknown")).toBe(8.64e15);
+
+  await open(opening(T));
+  // Its clock 30 s slow: the dictation's start falls 30 s earlier in its audio, widened by its 0.4 s
+  // and the margin.
+  expect(limit("omi-slow")).toBe(T - 30_000 - 400 - CLOCK_MARGIN_MS);
+  for (const unplaced of ["omi-unsure", "omi-garbled", "omi-unknown"]) {
+    expect(limit(unplaced)).toBe(-8.64e15);
+  }
 });

@@ -25,8 +25,8 @@ import { type JobWorker, jobWorker } from "./jobs";
 import { type MacSocket, macSocket } from "./mac-socket";
 import { type PageProcessor, pageProcessor } from "./page-processing";
 import { type VoiceUpkeep, voiceUpkeep } from "./people";
+import { processingLimit, settlePhoneDictations } from "./phone-dictations";
 import { macProvider, type Provider } from "./providers";
-import { processingLimit, settleOpenQuietRanges } from "./quiet-ranges";
 import { type Restic, resticFor } from "./restic";
 import { type Rolling, rollingVoices } from "./rolling";
 import type { Search } from "./search";
@@ -69,7 +69,7 @@ export function services(
     restic = resticFor(db, config),
     // A thin phone's raw pages, labeled and cut into speech fragments here.
     pages = pageProcessor(db, audio, worker, {
-      limit: () => limit().getTime(),
+      limit: (sourceId) => limit(sourceId).getTime(),
     }),
   }: {
     apns?: Pusher | null;
@@ -77,7 +77,7 @@ export function services(
     excerpts?: ExcerptSampler;
     health?: HealthWatch;
     intelligence?: Provider | null;
-    limit?: () => Date;
+    limit?: (sourceId: string | null) => Date;
     mac?: MacSocket;
     notice?: Notice;
     nudge?: Nudge;
@@ -129,7 +129,7 @@ export function services(
   // next cap is timed. Wakes nothing.
   let capTimer: ReturnType<typeof setTimeout> | undefined;
   const settleDictations = () => {
-    const { next } = settleOpenQuietRanges(db);
+    const { next } = settlePhoneDictations(db);
     clearTimeout(capTimer);
     if (next !== null) {
       capTimer = setTimeout(dictationChanged, next - clock().getTime());

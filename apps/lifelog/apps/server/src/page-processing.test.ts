@@ -23,12 +23,13 @@ import { PACKET_MS } from "./page-rules";
 import { ingestState, storePages } from "./pages";
 import {
   CLOCK_MARGIN_MS,
-  closeQuietRange,
+  closePhoneDictation,
   DICTATION_CAP_MS,
-  openQuietRange,
+  openPhoneDictation,
   processingLimit,
-  settleOpenQuietRanges,
-} from "./quiet-ranges";
+  recordSourceClock,
+  settlePhoneDictations,
+} from "./phone-dictations";
 import { storeTranscript, testDb } from "./testing";
 import { loadTurns, startsOf } from "./transcript";
 import { rebuildTurns } from "./turns";
@@ -207,40 +208,54 @@ test("dictation is never decoded: a quiet range known before labeling is silence
   ).toBe(false);
 });
 
-// The iPhone dictates (its own phone, apart from the Android phone uploading the Omi's pages): the
-// server opens its range at `start` (at end of the second span's first sentence), the phone's clock
-// `skew` off; at the limit's `opensAtRead`th read when given (while a batch is labeled), else
-// before anything. The Mac vouches for everything. `sent`: each packet's start that reached Silero.
-function dictating(start: number, { opensAtRead = 0, skew = 0 } = {}) {
+// The iPhone dictates (its own phone, apart from the Android phone uploading the Omi's pages) over
+// the Omi's audio at `start`, at the end of the second span's first sentence. The Android's clock is
+// `uploader` ms ahead of the server's, so the server opens the range at `start - uploader`, the
+// iPhone's own clock `phone` ms off; the Android measured its clock to UNSURE ms (`measured`). It
+// opens at the limit's `opensAtRead`th read when given (while a batch is labeled), else before
+// anything. The Mac vouches for everything. `sent`: each packet's start that reached Silero, and
+// `closeAt`: the close arriving `ms` after the range opened.
+const UNSURE = 400;
+function dictating(
+  start: number,
+  { measured = true, opensAtRead = 0, phone = 0, uploader = 0 } = {}
+) {
   const { audio } = setup();
   const id = crypto.randomUUID();
+  const opensAt = start - uploader;
+  if (measured) {
+    recordSourceClock(env.db, SOURCE, {
+      offsetMs: uploader,
+      uncertaintyMs: UNSURE,
+    });
+  }
   const openIt = () =>
     expect(
-      openQuietRange(
+      openPhoneDictation(
         env.db,
         {
           id,
           phoneId: "iphone-test",
           source: "app.example.notes",
-          startedAt: new Date(start + skew).toISOString(),
+          startedAt: new Date(opensAt + phone).toISOString(),
         },
-        new Date(start)
+        new Date(opensAt)
       )
-    ).toMatchObject({ id, startedAt: new Date(start).toISOString() });
+    ).toMatchObject({ id, startedAt: new Date(opensAt).toISOString() });
   let reads = 0;
   const pages = pageProcessor(
     env.db,
     audio,
     { poke: () => undefined },
     {
-      limit: () => {
+      limit: (sourceId) => {
         reads += 1;
         if (reads === opensAtRead) {
           openIt();
         }
         return processingLimit(env.db, {
           vouchedThrough: () => new Date(8.64e15),
-        })().getTime();
+        })(sourceId).getTime();
       },
       now: () => start + 11 * 60_000,
     }
@@ -257,32 +272,47 @@ function dictating(start: number, { opensAtRead = 0, skew = 0 } = {}) {
       return packets;
     })
   );
-  return { audio, id, pages, sent };
+  const closeAt = (after: number) =>
+    closePhoneDictation(env.db, id, new Date(opensAt + after));
+  return { audio, closeAt, pages, sent };
 }
 const speechIn = ([from, to]: [number, number]) =>
   pieces()
     .flatMap((p) => p.speech)
     .some(([s, e]) => s < to - 1000 && e > from + 1000);
+// Where the dictation from `start` for `lasting` ms falls in the Omi's audio, widened.
+const WIDE = CLOCK_MARGIN_MS + UNSURE;
+const protectedOf = (start: number, lasting: number): [number, number] => [
+  start - WIDE,
+  start + lasting + WIDE,
+];
+const touches = (sent: number[], [from, to]: [number, number]) =>
+  sent.some((at) => at < to && at + PACKET_MS > from);
 
-test.each([0, 30_000, -30_000])(
-  "an Omi uploading while the iPhone dictates, its clock %d ms off: nothing from the dictation reaches Silero until it closes, then its range is silence and the speech around it goes on",
-  async (skew) => {
+test.each([
+  { phone: 30_000 },
+  { phone: -30_000 },
+  { uploader: 30_000 },
+  { uploader: -30_000 },
+  {},
+])(
+  "an Omi uploading while the iPhone dictates, clocks off by %p: nothing from the dictation reaches Silero until it closes, then its range is silence and the speech around it goes on",
+  async (skews) => {
     const start = expected.pieces[1].start + 6000;
-    const { audio, id, pages, sent } = dictating(start, { skew });
+    const { audio, closeAt, pages, sent } = dictating(start, skews);
     await store(audio);
     await pages.run();
-    const held = start - CLOCK_MARGIN_MS;
+    const [held] = protectedOf(start, 0);
+    expect(sent.length).toBeGreaterThan(0);
     expect(sent.every((at) => at + PACKET_MS <= held)).toBe(true);
     expect(
       Date.parse(ingestState(env.db, SOURCE).labeledUntil ?? "")
     ).toBeLessThanOrEqual(held);
 
-    closeQuietRange(env.db, id, new Date(start + 1000));
+    closeAt(1000);
     await pages.run();
-    const range: [number, number] = [held, start + 1000 + CLOCK_MARGIN_MS];
-    expect(sent.some((at) => at < range[1] && at + PACKET_MS > range[0])).toBe(
-      false
-    );
+    const range = protectedOf(start, 1000);
+    expect(touches(sent, range)).toBe(false);
     expect(speechIn(range)).toBe(false);
     expect(speechIn([expected.pieces[1].start, range[0]])).toBe(true);
     expect(speechIn([range[1], expected.pieces[1].end])).toBe(true);
@@ -294,16 +324,42 @@ test.each([0, 30_000, -30_000])(
   }
 );
 
-test("a dictation that opens while a batch is labeled: the piece waiting for Silero is refused, none of its packets goes, and its pages are labeled once it closes", async () => {
+test("an uploader that never measured its clock: none of its audio reaches Silero while any phone dictation exists, and it goes on, the range left out, once its clock is measured", async () => {
+  const start = expected.pieces[1].start + 6000;
+  const { audio, closeAt, pages, sent } = dictating(start, {
+    measured: false,
+    uploader: -30_000,
+  });
+  await store(audio);
+  await pages.run();
+  closeAt(1000);
+  await pages.run();
+  expect(sent).toEqual([]);
+
+  recordSourceClock(env.db, SOURCE, {
+    offsetMs: -30_000,
+    uncertaintyMs: UNSURE,
+  });
+  await pages.run();
+  const range = protectedOf(start, 1000);
+  expect(touches(sent, range)).toBe(false);
+  expect(speechIn([expected.pieces[1].start, range[0]])).toBe(true);
+  expect(speechIn([range[1], expected.pieces[1].end])).toBe(true);
+});
+
+test("a dictation that opens while a batch is labeled: the piece waiting for Silero is refused and none of its packets goes, the piece before it is kept and never sent again, and the rest is labeled once it closes", async () => {
   const start = expected.pieces[1].start + 6000;
   // Read 1 places the batch; read 2 sends the first piece; the range opens as the second piece's
   // turn comes.
-  const { audio, id, pages, sent } = dictating(start, { opensAtRead: 3 });
+  const { audio, closeAt, pages, sent } = dictating(start, {
+    opensAtRead: 3,
+  });
   await store(audio);
   await pages.run();
-  const held = start - CLOCK_MARGIN_MS;
+  const [held] = protectedOf(start, 0);
   expect(sent.length).toBeGreaterThan(0);
   expect(sent.every((at) => at + PACKET_MS <= held)).toBe(true);
+  expect(pieces().map((p) => p.first)).toEqual([expected.pieces[0].first]);
   // The pass that went again stopped at the limit: what is past it waits unlabeled.
   await pages.run();
   expect(sent.every((at) => at + PACKET_MS <= held)).toBe(true);
@@ -312,16 +368,19 @@ test("a dictation that opens while a batch is labeled: the piece waiting for Sil
       .length
   ).toBeGreaterThan(0);
 
-  closeQuietRange(env.db, id, new Date(start + 1000));
+  closeAt(1000);
   await pages.run();
-  const range: [number, number] = [held, start + 1000 + CLOCK_MARGIN_MS];
-  expect(sent.some((at) => at < range[1] && at + PACKET_MS > range[0])).toBe(
-    false
-  );
+  const range = protectedOf(start, 1000);
+  expect(touches(sent, range)).toBe(false);
   expect(
     env.db.select().from(rawPages).where(eq(rawPages.labeled, false)).all()
   ).toEqual([]);
   expect(speechIn([range[1], expected.pieces[1].end])).toBe(true);
+  // The first piece went to Silero once.
+  const first = sent.filter(
+    (at) => at >= expected.pieces[0].start && at < expected.pieces[0].end
+  );
+  expect(new Set(first).size).toBe(first.length);
 });
 
 test("an Omi uploading while the iPhone's close is lost: its cap ends the dictation and the speech before it goes on", async () => {
@@ -329,21 +388,18 @@ test("an Omi uploading while the iPhone's close is lost: its cap ends the dictat
   const { audio, pages } = dictating(start);
   await store(audio);
   await pages.run();
-  expect(pieces().every((p) => p.end <= start - CLOCK_MARGIN_MS)).toBe(true);
+  const [held] = protectedOf(start, 0);
+  expect(pieces().every((p) => p.end <= held)).toBe(true);
   // The phone never comes back: at its cap the range ends there.
   expect(
-    settleOpenQuietRanges(env.db, new Date(start + DICTATION_CAP_MS)).ended
+    settlePhoneDictations(env.db, new Date(start + DICTATION_CAP_MS)).ended
   ).toBe(1);
   await pages.run();
   expect(
     env.db.select().from(rawPages).where(eq(rawPages.labeled, false)).all()
   ).toEqual([]);
-  expect(speechIn([start - CLOCK_MARGIN_MS, expected.pieces[1].end])).toBe(
-    false
-  );
-  expect(speechIn([expected.pieces[1].start, start - CLOCK_MARGIN_MS])).toBe(
-    true
-  );
+  expect(speechIn([held, expected.pieces[1].end])).toBe(false);
+  expect(speechIn([expected.pieces[1].start, held])).toBe(true);
 });
 
 test("only audio before the processing limit is labeled", async () => {

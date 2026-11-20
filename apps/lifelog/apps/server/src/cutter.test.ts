@@ -16,11 +16,12 @@ import { sha256Hex } from "./config";
 import { admit, blockFrom, cut, QUIET_RANGES_FROM, type Span } from "./cutter";
 import type { Job } from "./jobs";
 import {
-  closeQuietRange,
+  closePhoneDictation,
   DICTATION_CAP_MS,
-  openQuietRange,
-  settleOpenQuietRanges,
-} from "./quiet-ranges";
+  openPhoneDictation,
+  recordSourceClock,
+  settlePhoneDictations,
+} from "./phone-dictations";
 import { services } from "./services";
 import { fakeElevenLabs, OWNER_TOKEN, testConfig, testDb } from "./testing";
 
@@ -675,10 +676,11 @@ test("a range that comes after the block closed withdraws its job in the worker,
   expect(feed.removed).toContainEqual({ ...withdrawn, ref: fragment?.id });
 });
 
-// A dictation on the iPhone opened at `at` (by the phone's clock, as the server took it).
+// A dictation on the iPhone opened at `at` (server time), the iPhone's clock the server's.
 const dictate = (at: number) => {
+  recordSourceClock(env.db, SOURCE, { offsetMs: 0, uncertaintyMs: 0 });
   const id = randomUUID();
-  openQuietRange(
+  openPhoneDictation(
     env.db,
     {
       id,
@@ -705,7 +707,7 @@ test("a Limitless block waits while the iPhone dictates; the close withdraws the
   expect(jobs()).toHaveLength(0);
   expect(uploads()).toHaveLength(0);
 
-  closeQuietRange(env.db, id, new Date(from + 500));
+  closePhoneDictation(env.db, id, new Date(from + 500));
   await app.s.worker.work();
   expect(jobs().map((j) => j.pages)).toEqual([
     [
@@ -716,38 +718,45 @@ test("a Limitless block waits while the iPhone dictates; the close withdraws the
   expect(await sentAudio()).toEqual(joinOggOpus([a, c])?.audio);
 });
 
-test("a dictation that opens while a block's audio is read: no job is admitted, its block's audio goes, and it closes once the dictation does", async () => {
-  const app = appWith();
-  for (const piece of [a, b, c]) {
-    // biome-ignore lint/performance/noAwaitInLoops: in order
-    await putFragment(app, piece);
-  }
-  await app.s.worker.work.idle();
-  heard(lastEnd(c) + 50_000);
-  const [from = 0] = b.map.segments[0] ?? [];
-  const { get } = app.audio;
-  let id = "";
-  app.audio.get = (key) => {
-    app.audio.get = get;
-    id = dictate(from + 100);
-    return get(key);
-  };
-  await app.s.worker.work();
-  expect(jobs()).toHaveLength(0);
-  expect(uploads()).toHaveLength(0);
-  expect(stored(app).some((key) => String(key).startsWith("blocks/"))).toBe(
-    false
-  );
+test.each([false, true])(
+  "a dictation that opens (and closes: %p) while a block's audio is read: no job is admitted, its block's audio goes, and the rest closes without it",
+  async (closes) => {
+    const app = appWith();
+    for (const piece of [a, b, c]) {
+      // biome-ignore lint/performance/noAwaitInLoops: in order
+      await putFragment(app, piece);
+    }
+    await app.s.worker.work.idle();
+    heard(lastEnd(c) + 50_000);
+    const [from = 0] = b.map.segments[0] ?? [];
+    const { get } = app.audio;
+    let id = "";
+    app.audio.get = (key) => {
+      app.audio.get = get;
+      id = dictate(from + 100);
+      if (closes) {
+        closePhoneDictation(env.db, id, new Date(from + 500));
+      }
+      return get(key);
+    };
+    await app.s.worker.work();
+    expect(jobs()).toHaveLength(0);
+    expect(uploads()).toHaveLength(0);
+    expect(stored(app).some((key) => String(key).startsWith("blocks/"))).toBe(
+      false
+    );
 
-  closeQuietRange(env.db, id, new Date(from + 500));
-  await app.s.worker.work();
-  expect(jobs().map((j) => j.pages)).toEqual([
-    [
-      [1, 10],
-      [21, 30],
-    ],
-  ]);
-});
+    closePhoneDictation(env.db, id, new Date(from + 500));
+    await app.s.worker.work();
+    expect(jobs().map((j) => j.pages)).toEqual([
+      [
+        [1, 10],
+        [21, 30],
+      ],
+    ]);
+    expect(await sentAudio()).toEqual(joinOggOpus([a, c])?.audio);
+  }
+);
 
 test("a job closed before a dictation opened over it waits at the claim; at the cap the range withdraws it, never sent", async () => {
   const app = appWith();
@@ -761,7 +770,7 @@ test("a job closed before a dictation opened over it waits at the claim; at the 
   expect(uploads()).toHaveLength(0);
   expect(jobs().map((j) => j.state)).toEqual(["queued"]);
 
-  settleOpenQuietRanges(env.db, new Date(from + 100 + DICTATION_CAP_MS));
+  settlePhoneDictations(env.db, new Date(from + 100 + DICTATION_CAP_MS));
   await app.s.worker.work();
   expect(uploads()).toHaveLength(0);
   expect(jobs()).toHaveLength(0);

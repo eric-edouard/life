@@ -51,7 +51,7 @@ import {
   subtracting,
   unioned,
 } from "./page-rules";
-import { quietIn } from "./quiet-ranges";
+import { quietFor } from "./phone-dictations";
 import { type SpanFacts, saveSpans } from "./timeline-spans";
 
 // A missing page is waited for this long (the phone sends its pages in order), then labeling
@@ -187,7 +187,11 @@ export function pageLabeler(
     batchPages,
     limit,
     now,
-  }: { batchPages: number; limit: () => number; now: () => number }
+  }: {
+    batchPages: number;
+    limit: (sourceId: string) => number;
+    now: () => number;
+  }
 ) {
   // Each source's open piece, its pages not marked labeled yet, and the worker life holding its
   // stream. Lost on a restart, a worker that ended or a refused call, it is labeled again from its
@@ -262,8 +266,8 @@ export function pageLabeler(
 
   // Runs only through the processing limit: the batch stops before the first page past it.
   // `truncated`: the span going on past the stop stays open.
-  function withinLimit(take: Row[], spans: CaptureSpan[]) {
-    const until = limit();
+  function withinLimit(sourceId: string, take: Row[], spans: CaptureSpan[]) {
+    const until = limit(sourceId);
     const stop = spans
       .flatMap((s) => s.runs)
       .find((r) => runEnd(r) > until)?.page;
@@ -304,8 +308,9 @@ export function pageLabeler(
     // Read when the worker takes it: the quiet ranges then, and nothing past the processing limit
     // then (a dictation opened while it waited refuses it, and its pages wait unlabeled).
     const packetsNow = () => {
-      const until = limit();
-      const going = [...packetsIn(runs, packets, reach, quietIn(db, reach))];
+      const until = limit(sourceId);
+      const quiet = quietFor(db, sourceId, reach);
+      const going = [...packetsIn(runs, packets, reach, quiet)];
       return going.some((p) => p.at + PACKET_MS > until) ? null : going;
     };
     const labels = await label(
@@ -442,7 +447,7 @@ export function pageLabeler(
     }
     const read = records(batch.take, bytes);
     const seed = seedOf(sourceId, batch.late);
-    const placed = withinLimit(batch.take, placeOmi(read, seed));
+    const placed = withinLimit(sourceId, batch.take, placeOmi(read, seed));
     const [head] = placed.take;
     const tail = placed.take.at(-1);
     return head && tail
@@ -457,6 +462,7 @@ export function pageLabeler(
   }
 
   // Labels `list` in order: its first piece goes on from `going`, its last stays open if `stays`.
+  // Stops at a piece the limit refuses (`PastLimit`): the rows done before it, and that piece.
   async function labelAll(
     sourceId: string,
     list: Piece[],
@@ -474,16 +480,23 @@ export function pageLabeler(
   ) {
     const rows: (typeof pagePieces.$inferInsert)[] = [];
     for (const [i, piece] of list.entries()) {
-      // biome-ignore lint/performance/noAwaitInLoops: one piece at a time, in order
-      const row = await labelPiece(sourceId, piece, {
-        carried: i === 0 ? going : undefined,
-        final: !(stays && i === list.length - 1),
-        packets,
-        runs,
-      });
-      rows.push(...(row ? [row] : []));
+      try {
+        // biome-ignore lint/performance/noAwaitInLoops: one piece at a time, in order
+        const row = await labelPiece(sourceId, piece, {
+          carried: i === 0 ? going : undefined,
+          final: !(stays && i === list.length - 1),
+          packets,
+          runs,
+        });
+        rows.push(...(row ? [row] : []));
+      } catch (error) {
+        if (error instanceof PastLimit) {
+          return { refused: { carried: i === 0 && going, piece }, rows };
+        }
+        throw error;
+      }
     }
-    return rows;
+    return { refused: null, rows };
   }
 
   // The open piece a batch goes on from, or none: one whose span the batch breaks closes first.
@@ -506,12 +519,15 @@ export function pageLabeler(
   }
 
   // Labels a placed batch: the open piece goes on when its span does (else it closes first), and
-  // the last piece stays open while more of its span waits.
+  // the last piece stays open while more of its span waits. The pieces done before one the limit
+  // refuses are saved, so none goes to Silero twice, and the next round starts at the refused one.
+  // True when one was refused.
   async function labelPlaced(
     sourceId: string,
     batch: Batch,
     placed: NonNullable<Awaited<ReturnType<typeof place>>>
   ) {
+    const held = open.get(sourceId);
     const going = await goingOn(sourceId, batch.late, placed.spans);
     // The first span goes on from the open piece, or from the last one written.
     const after = going ? undefined : placed.seed;
@@ -519,15 +535,20 @@ export function pageLabeler(
       i === 0 && s.breaks.length === 0 ? pieces(s, going, after) : pieces(s)
     );
     const stays = !batch.late && (batch.more || placed.truncated);
-    const rows = await labelAll(sourceId, list, {
+    const { refused, rows } = await labelAll(sourceId, list, {
       going,
       packets: placed.packets,
       runs: placed.spans.flatMap((s) => s.runs),
       stays,
     });
+    // A refused open piece was never sent on: its stream in the worker is as it was.
+    if (refused?.carried && held) {
+      open.set(sourceId, held);
+    }
     const kept = batch.late ? undefined : openPiece(sourceId)?.first;
-    const end = kept ?? placed.last + 1;
+    const end = refused?.piece.first ?? kept ?? placed.last + 1;
     save(sourceId, rows, [going?.first ?? placed.first, end - 1], batch.late);
+    return refused !== null;
   }
 
   // Labels the next batch of a source; true when more wait.
@@ -538,18 +559,9 @@ export function pageLabeler(
       return false;
     }
     const placed = await place(sourceId, batch);
-    if (placed) {
-      try {
-        await labelPlaced(sourceId, batch, placed);
-      } catch (error) {
-        // The limit moved back while it waited: nothing of it is saved, and the next round
-        // places the batch again up to the limit.
-        if (error instanceof PastLimit) {
-          return true;
-        }
-        throw error;
-      }
-    }
-    return Boolean(placed) && (batch.more || batch.late || batch.hole);
+    const refused = placed ? await labelPlaced(sourceId, batch, placed) : false;
+    return (
+      refused || (Boolean(placed) && (batch.more || batch.late || batch.hole))
+    );
   };
 }

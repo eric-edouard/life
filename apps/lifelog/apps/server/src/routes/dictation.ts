@@ -1,13 +1,13 @@
 // Dictation on the phone, by its device token only (no reader's token opens these): its quiet
-// range opens before the microphone and closes at Stop (quiet-ranges.ts `openQuietRange`).
+// range opens before the microphone and closes at Stop (phone-dictations.ts).
 import { createRoute, z } from "@hono/zod-openapi";
 import { record } from "../events";
 import {
-  closeQuietRange,
+  closePhoneDictation,
   DICTATION_CAP_MS,
-  openQuietRange,
-  openQuietRangeInput,
-} from "../quiet-ranges";
+  openPhoneDictation,
+  phoneDictationInput,
+} from "../phone-dictations";
 import type { Services } from "../services";
 import { ApiError, IdParam, json, router } from "./common";
 import { QuietRange } from "./sync";
@@ -36,7 +36,7 @@ export function dictationRoutes(s: Services) {
           "it (less a clock margin) no pendant audio is labeled, cut or sent until it closes, or " +
           "until its cap when the close never comes. Only this answer lets the phone open its " +
           "microphone. Idempotent by id, however late: a retry answers the range as first opened; " +
-          "one already closed is never opened again (409). A new open whose `startedAt` is more " +
+          "one already closed, or past its cap, is never opened again (409). A new open whose `startedAt` is more " +
           "than a minute from the server's clock is stale (400).",
         method: "post",
         path: "/dictation/ranges",
@@ -44,7 +44,7 @@ export function dictationRoutes(s: Services) {
           body: {
             content: {
               "application/json": {
-                schema: openQuietRangeInput.openapi("DictationRangeInput"),
+                schema: phoneDictationInput.openapi("DictationRangeInput"),
               },
             },
             required: true,
@@ -61,7 +61,7 @@ export function dictationRoutes(s: Services) {
       }),
       (c) => {
         const input = c.req.valid("json");
-        const open = openQuietRange(db, input);
+        const open = openPhoneDictation(db, input);
         if (open === "stale") {
           return c.json(
             {
@@ -73,6 +73,8 @@ export function dictationRoutes(s: Services) {
           );
         }
         if (open === "closed") {
+          // One past its cap ended just now.
+          s.dictationChanged();
           return c.json(
             {
               error: "invalid_state" as const,
@@ -103,7 +105,7 @@ export function dictationRoutes(s: Services) {
       }),
       (c) => {
         const { id } = c.req.valid("param");
-        const range = closeQuietRange(db, id);
+        const range = closePhoneDictation(db, id);
         if (!range) {
           return c.json(
             {

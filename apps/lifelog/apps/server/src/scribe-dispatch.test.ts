@@ -9,7 +9,12 @@ import { eq, sql } from "drizzle-orm";
 import { memoryAudioStore } from "./audio-store";
 import { jobBench } from "./job-bench";
 import { getJob } from "./jobs";
-import { addQuietRange, closeQuietRange, openQuietRange } from "./quiet-ranges";
+import {
+  closePhoneDictation,
+  openPhoneDictation,
+  recordSourceClock,
+} from "./phone-dictations";
+import { addQuietRange } from "./quiet-ranges";
 import { setSwitches } from "./switches";
 import { providerTranscript } from "./testing";
 
@@ -171,8 +176,9 @@ test("a dictation that opens while a block waits for its paid slot: nothing of i
   expect(uploads()).toHaveLength(1);
 
   // Meanwhile the owner dictates on the iPhone: the server opens the range over its last second.
+  recordSourceClock(env.db, "pendant-1", { offsetMs: 0, uncertaintyMs: 0 });
   const id = randomUUID();
-  openQuietRange(
+  openPhoneDictation(
     env.db,
     {
       id,
@@ -188,12 +194,33 @@ test("a dictation that opens while a block waits for its paid slot: nothing of i
   expect(jobRow(jobId)).toMatchObject({ maybeBilled: false, state: "queued" });
 
   // The close stores the range over it; the retry withdraws it, never sent.
-  closeQuietRange(env.db, id, new Date(T0 + 31_000));
+  closePhoneDictation(env.db, id, new Date(T0 + 31_000));
   await app.s.worker.work();
   due(jobId);
   await app.s.worker.work();
   expect(uploads()).toHaveLength(1);
   expect(getJob(env.db, jobId)).toBeUndefined();
+});
+
+test("nothing paid goes before the first read of the credits: a wake at boot (a dictation's cap) waits, and credits read out keep the job queued", async () => {
+  let answer: (r: Response) => void = () => undefined;
+  const quota = new Promise<Response>((resolve) => {
+    answer = resolve;
+  });
+  fake.respond = (call) =>
+    call.path.endsWith("/v1/user/subscription") ? quota : Response.json({});
+  const app = appWith(oneSlot);
+  setSwitches(env.db, { transcriber: "scribe" });
+  const jobId = await admitFragment(app, audio(60), 1);
+  // A dictation reaching its cap just after boot wakes the worker before the tick read the credits.
+  app.s.dictationChanged();
+  await Bun.sleep(100);
+  expect(uploads()).toHaveLength(0);
+  answer(Response.json({ character_count: 1000, character_limit: 1000 }));
+  await app.s.worker.work.idle();
+  await Bun.sleep(20);
+  expect(uploads()).toHaveLength(0);
+  expect(jobRow(jobId).state).toBe("queued");
 });
 
 test("a routed excerpt holds the slot until its words are stored, then dictation waiting for it gets it by itself", async () => {
@@ -459,7 +486,8 @@ const upgradeFrom = async (ran: "post_clock" | "neither") => {
       : sql`delete from __drizzle_migrations where created_at >= ${postClock}`
   );
   // The tables made after it, which its migrations make again.
-  env.db.run(sql`drop table open_quiet_ranges`);
+  env.db.run(sql`drop table phone_dictations`);
+  env.db.run(sql`drop table source_clocks`);
   migrateDb(env.db);
 };
 

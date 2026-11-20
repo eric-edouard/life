@@ -59,7 +59,7 @@ import {
   unheld,
   unioned,
 } from "./page-rules";
-import { quietIn } from "./quiet-ranges";
+import { quietFor } from "./phone-dictations";
 
 // Capture read at once while cutting (`Uploader.windowMillis`), and fragments stored in one pass.
 const WINDOW_MS = 3_600_000;
@@ -110,12 +110,12 @@ export function pageProcessor(
   {
     batchPages = 3000,
     now = () => clock().getTime(),
-    // The processing limit: nothing after it is labeled (quiet-ranges.ts `processingLimit`).
+    // The processing limit: nothing after it is labeled (phone-dictations.ts `processingLimit`).
     limit = () => Number.POSITIVE_INFINITY,
   }: {
     batchPages?: number;
     now?: () => number;
-    limit?: () => number;
+    limit?: (sourceId: string) => number;
   } = {}
 ) {
   const labelBatch = pageLabeler(db, audio, { batchPages, limit, now });
@@ -397,7 +397,7 @@ export function pageProcessor(
         )
       )
       .all();
-    const quiet = quietIn(db, [start, end]);
+    const quiet = quietFor(db, sourceId, [start, end]);
     const intervals = near.map(
       (p): Interval => [p.startAt.getTime(), p.endAt.getTime()]
     );

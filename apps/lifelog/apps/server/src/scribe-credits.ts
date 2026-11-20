@@ -87,8 +87,17 @@ export function creditsWatch(
     record(db, "elevenlabs.quota_alert", { level, status });
   }
 
+  // The first read, done or failed: unread credits count as available, so nothing paid goes
+  // before it (jobs.ts `paidSend` and `work`), whoever woke the worker first.
+  let first: Promise<unknown> | undefined;
+  const checkOnce = () => {
+    const run = check();
+    first ??= run.catch(() => undefined);
+    return run;
+  };
   return {
-    check,
+    check: checkOnce,
+    firstRead: () => first ?? checkOnce().catch(() => undefined),
     level: () => levelOf(plan),
     read: () => plan,
   };

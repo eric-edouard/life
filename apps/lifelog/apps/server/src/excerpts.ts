@@ -81,12 +81,13 @@ export const mayHear = (
   job: {
     map: Parameters<typeof touchesQuiet>[1] | null;
     objectKey: string | null;
+    sourceId: string | null;
   }
 ) =>
   !!job.objectKey &&
   isBlockKey(job.objectKey) &&
   !!job.map &&
-  !touchesQuiet(db, job.map);
+  !touchesQuiet(db, job.map, job.sourceId);
 
 // The bucket key of a job's audio identity may hear (`mayHear`). "never" for any other (an old job's, or one
 // with dictation or playback in it); null when there is nothing to cut (no audio, or cut already).
@@ -96,6 +97,7 @@ function audioToCut(db: Db, jobId: string) {
       cutAt: transcripts.excerptsAt,
       map: transcriptionJobs.map,
       objectKey: transcriptionJobs.objectKey,
+      sourceId: transcriptionJobs.sourceId,
     })
     .from(transcripts)
     .innerJoin(transcriptionJobs, eq(transcriptionJobs.id, transcripts.jobId))
