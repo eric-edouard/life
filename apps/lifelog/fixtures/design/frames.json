@@ -231,12 +231,6 @@
   "MatterIcon": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_lease -fixtureSheet icon."
   },
-  "MatterIconChanged": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_lease -fixtureSheet icon, then tap “sign”."
-  },
-  "MatterIconMine": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: as MatterIconChanged, then tap the icon on the page again."
-  },
   "ProjectFromMatter": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen."
   },
