@@ -679,7 +679,11 @@ test("a card asked in time keeps the assignment; none at 2 hours closes it with 
   const desk = deskOf(t);
   const asked = await handedOut(desk);
   await ask(desk, asked);
-  // Its turn ends: the agent takes one turn at a time.
+  // Its turn ends with a wait set (none set, it would be reminded): the agent takes one turn at a time.
+  desk.db.run(
+    "update turn set outcome = 'waited' where agent_id = ? and ended_at is null",
+    [personal]
+  );
   await t.end(personal);
   setSystemTime(new Date(clock().getTime() + 11 * MIN));
   const silent = await handedOut(desk);

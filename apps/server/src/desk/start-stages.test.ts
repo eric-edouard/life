@@ -105,6 +105,11 @@ async function start(n: number, said: string, limitMs = 5000, after = 300) {
   for (const session of fake.sessions.values()) {
     session.running = false;
   }
+  // With a wait set: a turn that ends with none is reminded, and runs again.
+  desk.db.run(
+    "update turn set outcome = 'waited' where agent_id = ? and ended_at is null",
+    [personal]
+  );
   await turnEnded(desk, personal, { ok: true });
   return { result, steps };
 }

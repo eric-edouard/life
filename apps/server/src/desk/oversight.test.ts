@@ -648,24 +648,6 @@ test("a start that returns the existing agent (active, same words) hands nothing
   expect(agentOf(desk.db, e)?.status).toBe("stopped");
 });
 
-test("its store unreadable, the reads say so and the report still has its section", async () => {
-  desk.db.close();
-  for (const f of ["", "-wal", "-shm"]) {
-    rmSync(`${DESK_STORE}${f}`, { force: true });
-  }
-  writeFileSync(DESK_STORE, "not a store");
-  const r = await readRegisteredAgents();
-  expect(r.desk).toBe("unreadable");
-  expect((await readAgentSection(clock().toISOString())).rows).toEqual([
-    { name: "Desk", relation: "its store could not be read" },
-  ]);
-  expect(readAgentsOnSteps([STEP], people)).toEqual([]);
-  expect(deskCard(clock().getTime())).toMatchObject({
-    tone: "bad",
-    word: "unreadable",
-  });
-});
-
 // His word of 21 Nov 2026: an agent he started himself becomes the Personal agent through his word, never an edit of the store.
 test("re_point with personal marks an existing agent as the Personal agent, a second refused; the fold then gives it the matters of no project", async () => {
   desk.embedder = null;
@@ -719,4 +701,22 @@ test("re_point with personal marks an existing agent as the Personal agent, a se
     desk.db.run("update agent set status = 'active' where id = ?", [personal]);
     desk.embedder = undefined;
   }
+});
+
+test("its store unreadable, the reads say so and the report still has its section", async () => {
+  desk.db.close();
+  for (const f of ["", "-wal", "-shm"]) {
+    rmSync(`${DESK_STORE}${f}`, { force: true });
+  }
+  writeFileSync(DESK_STORE, "not a store");
+  const r = await readRegisteredAgents();
+  expect(r.desk).toBe("unreadable");
+  expect((await readAgentSection(clock().toISOString())).rows).toEqual([
+    { name: "Desk", relation: "its store could not be read" },
+  ]);
+  expect(readAgentsOnSteps([STEP], people)).toEqual([]);
+  expect(deskCard(clock().getTime())).toMatchObject({
+    tone: "bad",
+    word: "unreadable",
+  });
 });
