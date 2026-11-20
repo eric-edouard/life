@@ -26,11 +26,16 @@ final class IncidentNotifier: NSObject {
     var answer: ((Check, AnswerRequest) async -> (word: String, line: String))?
 
     /// Life's cards: Reply… (a decision's own words), the only action shown where the expanded notification isn't (the
-    /// Watch, a collapsed one). The expanded one adds the card's one-tap answers and Send (`NotificationContent`), and
-    /// Send goes on only after Face ID there: it is never a category action. Every answer asks for an unlocked phone.
+    /// Watch, a collapsed one); the expanded one adds the card's one-tap answers (`NotificationContent`). Every answer
+    /// asks for an unlocked phone or Watch.
     private static let cardCategory = UNNotificationCategory(
         identifier: CardNotification.category, actions: [CardNotification.replyAction], intentIdentifiers: [],
         options: [.hiddenPreviewsShowTitle])
+    /// A card it can send from, whole draft as its text (`NotificationService`): Send and Reply…, on the Watch too.
+    private static let sendCategory = UNNotificationCategory(
+        identifier: CardNotification.sendCategory,
+        actions: [CardNotification.sendAction, CardNotification.replyAction],
+        intentIdentifiers: [], options: [.hiddenPreviewsShowTitle])
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -44,7 +49,7 @@ final class IncidentNotifier: NSObject {
         super.init()
         // Must be set before launch finishes so a response that relaunched the app is delivered.
         center.delegate = self
-        center.setNotificationCategories([Self.cardCategory])
+        center.setNotificationCategories([Self.cardCategory, Self.sendCategory])
     }
 
     /// Asks once; iOS never shows the prompt again after the owner answers.

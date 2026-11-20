@@ -20,6 +20,7 @@ struct SettingsView: View {
     @Environment(LifeStore.self) private var life
     @Environment(\.openURL) private var openURL
     @AppStorage("appearance") private var appearance = Appearance.auto
+    @AppStorage(AppGroup.Key.asksFaceIDToSend, store: AppGroup.defaults) private var asksFaceIDToSend = false
     @Bindable private var settings = Settings.shared
     @State private var page: Connection?
     @State private var isDiagnosticsOpen = false
@@ -31,6 +32,7 @@ struct SettingsView: View {
                 needsYou
                 connections
                 allows
+                sending
                 pendant
                 RowGroup(label: "Appearance", surface: .sheet) {
                     SegmentedChoice(
@@ -240,6 +242,22 @@ struct SettingsView: View {
 
     private func openSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+    }
+
+    // MARK: Sending
+
+    private var sending: some View {
+        RowGroup(label: "Sending", surface: .sheet) {
+            Row(
+                title: "Face ID before Send", icon: "faceid",
+                detail: asksFaceIDToSend
+                    ? "Send from a notification waits for Face ID, on the phone only"
+                    : "Send from a notification, on the phone or the Watch"
+            ) {
+                RowSwitch(title: "Face ID before Send", isOn: asksFaceIDToSend) { asksFaceIDToSend = $0 }
+            }
+            .accessibilityIdentifier("settings.switch.faceIDToSend")
+        }
     }
 
     // MARK: Pendant

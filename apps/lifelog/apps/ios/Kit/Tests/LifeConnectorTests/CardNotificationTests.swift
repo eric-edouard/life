@@ -18,7 +18,8 @@ private func check(
 @Test func theCardItsPushNamesBecomesItsNotificationInLifesOwnWords() throws {
     let other = check(pushId: "aaaaaaaaaaaaaaaa", title: "Another card")
     let mine = check(pushId: "0123456789abcdef", extra: #","matter":{"id":"m_move","name":"Flat move"}"#)
-    let note = try #require(CardNotification.of(pushId: "0123456789abcdef", inbox: inbox([other, mine])))
+    let note = try #require(
+        CardNotification.of(pushId: "0123456789abcdef", inbox: inbox([other, mine]), asksFaceID: false))
     #expect(note.title == "Book the movers for Saturday")
     #expect(note.subtitle == "codex · Flat move")
     #expect(note.body == "Book them?")
@@ -30,26 +31,33 @@ private func check(
 @Test func aDraftShowsWhoItGoesToAndItsWords() throws {
     let draft = #","draft":{"to":"Maya","text":"Thursday works, 8 pm at Lupa?"}"#
     let note = try #require(
-        CardNotification.of(pushId: "0123456789abcdef", inbox: inbox([check(pushId: "0123456789abcdef", extra: draft)]))
+        CardNotification.of(
+            pushId: "0123456789abcdef", inbox: inbox([check(pushId: "0123456789abcdef", extra: draft)]),
+            asksFaceID: false)
     )
     #expect(note.body == #"To Maya: "Thursday works, 8 pm at Lupa?""#)
     let file = #","draft":{"to":"Maya","file":{"name":"quote.pdf","size":2048}}"#
     let sent = try #require(
-        CardNotification.of(pushId: "0123456789abcdef", inbox: inbox([check(pushId: "0123456789abcdef", extra: file)])))
+        CardNotification.of(
+            pushId: "0123456789abcdef", inbox: inbox([check(pushId: "0123456789abcdef", extra: file)]),
+            asksFaceID: false))
     #expect(sent.body == "To Maya: quote.pdf")
 }
 
 @Test func lifesOwnCheckWithNoMatterIsLifesInLifesThread() throws {
     let note = try #require(
         CardNotification.of(
-            pushId: "0123456789abcdef", inbox: inbox([check(pushId: "0123456789abcdef", asker: "life")])))
+            pushId: "0123456789abcdef", inbox: inbox([check(pushId: "0123456789abcdef", asker: "life")]),
+            asksFaceID: false))
     #expect(note.subtitle == "Life")
     #expect(note.thread == "life-cards")
 }
 
 @Test func aCardNoLongerOpenOrAnUnreadableReplyGivesNone() {
-    #expect(CardNotification.of(pushId: "0123456789abcdef", inbox: inbox([check(pushId: "aaaaaaaaaaaaaaaa")])) == nil)
-    #expect(CardNotification.of(pushId: "0123456789abcdef", inbox: "Life is offline") == nil)
+    #expect(
+        CardNotification.of(
+            pushId: "0123456789abcdef", inbox: inbox([check(pushId: "aaaaaaaaaaaaaaaa")]), asksFaceID: false) == nil)
+    #expect(CardNotification.of(pushId: "0123456789abcdef", inbox: "Life is offline", asksFaceID: false) == nil)
 }
 
 @Test func longWordsAreCutAtAWordOnOneLine() {
@@ -105,19 +113,36 @@ private let drafted = check(pushId: "0123456789abcdef", extra: #","draft":{"to":
     let card = try #require(CardNotification.card(in: ["card": drafted]))
     #expect(CardNotification.buttons(card).map(\.label) == ["Send", "Not yet"])
     #expect(
-        CardNotification.answer("option:send", typed: nil, to: card)
+        CardNotification.answer(CardNotification.send, typed: nil, to: card)
             == AnswerRequest(ref: card.ref, options: ["send"]))
+    // An outward option is never answered by its own id: only Send names it.
+    #expect(CardNotification.answer("option:send", typed: nil, to: card) == nil)
     let asking = drafted.replacingOccurrences(
         of: #""draft":"#, with: #""confirm":[\#(check(pushId: "fedcba9876543210"))],"draft":"#)
     let unsure = try #require(CardNotification.card(in: ["card": asking]))
     #expect(CardNotification.buttons(unsure).map(\.label) == ["Not yet"])
-    #expect(CardNotification.answer("option:send", typed: nil, to: unsure) == nil)
+    #expect(CardNotification.answer(CardNotification.send, typed: nil, to: unsure) == nil)
 }
 
-@Test func sendGoesOnOnlyOnceFaceIDSaysSoAndOtherAnswersNeverAsk() async throws {
+@Test func aDraftCardsNotificationShowsTheWholeDraftAndSendsFromTheWatchUnlessFaceIDIsAsked() throws {
+    let long = String(repeating: "Thursday works for me. ", count: 10)
+    let text = drafted.replacingOccurrences(of: "Thursday works", with: long)
+    let read = inbox([text])
+    let note = try #require(CardNotification.of(pushId: "0123456789abcdef", inbox: read, asksFaceID: false))
+    #expect(note.body == "To Maya: \"\(long)\"")
+    #expect(note.category == CardNotification.sendCategory)
+    let asked = try #require(CardNotification.of(pushId: "0123456789abcdef", inbox: read, asksFaceID: true))
+    #expect(asked.category == CardNotification.category)
+    let plain = try #require(
+        CardNotification.of(
+            pushId: "0123456789abcdef", inbox: inbox([check(pushId: "0123456789abcdef")]), asksFaceID: false))
+    #expect(plain.category == CardNotification.category)
+}
+
+@Test func sendGoesOnOnlyOnceItsProofSaysSoAndOtherAnswersNeverAsk() async throws {
     let check = try #require(CardNotification.card(in: ["card": drafted]))
-    #expect(await !CardNotification.isAnswerAllowed("option:send", of: check) { false })
-    #expect(await CardNotification.isAnswerAllowed("option:send", of: check) { true })
+    #expect(await !CardNotification.isAnswerAllowed(CardNotification.send, of: check) { false })
+    #expect(await CardNotification.isAnswerAllowed(CardNotification.send, of: check) { true })
     #expect(
         await CardNotification.isAnswerAllowed("option:later", of: check) {
             Issue.record("asked Face ID"); return false

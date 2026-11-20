@@ -7,8 +7,8 @@ import UserNotificationsUI
 
 /// A card's expanded notification: iOS shows the card's words (written by `NotificationService`); this shows a draft
 /// whole, as the card's screen does, and gives the card's own answers as buttons (`CardNotification.actions`). It reads
-/// nothing from Life: the card came with the notification. Send goes on only after Face ID or his passcode at that tap;
-/// every answer is then given by the app (`IncidentNotifier`).
+/// nothing from Life: the card came with the notification. Send waits for Face ID or his passcode at that tap when his
+/// setting asks for it; every answer is then given by the app (`IncidentNotifier`).
 final class NotificationViewController: UIViewController, UNNotificationContentExtension {
     /// The one draft view: iOS calls `didReceive` again when another card of the same thread arrives while it is open.
     private let draft = UIHostingController<AnyView?>(rootView: nil)
@@ -43,13 +43,13 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
         }
         Task {
             let proven = await CardNotification.isAnswerAllowed(response.actionIdentifier, of: check) {
-                await Self.askOwner()
+                await AppGroup.asksFaceIDToSend ? Self.askOwner() : true
             }
             completion(proven ? .dismissAndForwardAction : .doNotDismiss)
         }
     }
 
-    /// Face ID, or his passcode, every time: an unlocked phone is not enough to send in his name.
+    /// Face ID, or his passcode, every time it is asked.
     private static func askOwner() async -> Bool {
         (try? await LAContext().evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Send this message"))
             ?? false
