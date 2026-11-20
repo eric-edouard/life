@@ -243,31 +243,34 @@ test("Events: `events/poll` and `read_new_events` are one poll; an unknown event
   expect(unknown.json.result).toMatchObject({ isError: true });
 });
 
-test("a call logs who asked, the arguments, and what surfaced without its text", async () => {
-  const logged = async (asked: string) => {
-    await rpc(await token(), "tools/call", {
-      arguments: { id: asked },
-      name: "read_observation",
-    });
+// 21 Nov 2026: the log promised metadata only, yet kept a call's arguments (his words in `tell_life`, a card's draft)
+// and a refusal's text (which can quote them).
+test("a call logs who asked, its arguments' names, and what surfaced without its text", async () => {
+  const logged = async (name: string, args: object) => {
+    await rpc(await token(), "tools/call", { arguments: args, name });
     return linesOf(
       join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.jsonl`)
     )
       .map((l) => JSON.parse(l))
       .findLast((l) => l.kind === "mcp.call");
   };
-  expect((await logged("x".repeat(300))).args.id).toBe(`${"x".repeat(199)}…`);
   const id = "obs_0123456789ab";
-  expect(await logged(id)).toMatchObject({
+  const line = await logged("read_observation", { id });
+  expect(line).toMatchObject({
     agent: "Orbit",
-    args: { id },
+    args: ["id"],
     chars: `no observation ${id}`.length,
     client: "chatgpt-client",
     error: true,
     ids: [id],
     kind: "mcp.call",
-    refused: `no observation ${id}`,
+    refused: "error",
     tool: "read_observation",
   });
+  const words = "Tell Mia I'm at Lyon station at 6";
+  const told = await logged("tell_life", { asked: "x", said: words });
+  expect(told).toMatchObject({ args: ["asked", "said"], refused: "not_done" });
+  expect(JSON.stringify(told)).not.toContain("Lyon");
 });
 
 const logged = () =>
