@@ -34,6 +34,12 @@ const REFUSED: [string, ToolCall][] = [
     "x__change_todo_item",
     "x__correct_memory",
     "x__tell_life",
+    // A server id holding `__` is not the door, however it starts.
+    "desk__x__request_decision",
+    // Codex's shortened names (`<what is left>_<12 hex>`): a write cut to fit, told apart from a twin, or cut whole.
+    "codex_apps__a_long_life_connector_name__change_registe_0123456789ab",
+    "codex_apps__life__tell_life_abcdef012345",
+    "codex_apps__a_very_long_connector_name_cut_short__0123456789ab",
   ].map((n): [string, ToolCall] => [`his connector's write ${n}`, mcp(n)]),
   ["a mail connector's send", mcp("0f00__send_message", { to: ["a@b.co"] })],
   ["a mail connector's reply", mcp("0f00__reply", { body: "ok" })],
@@ -136,6 +142,10 @@ const LET_THROUGH: [string, ToolCall][] = [
     mcp("cal__create_event", { attendees: ["owner@work.example"] }),
   ],
   ["his connector's read", mcp("claude_ai_Life__read_inbox")],
+  [
+    "his connector's read, shortened by Codex",
+    mcp("codex_apps__a_long_life_connector_name__read_matt_0123456789ab"),
+  ],
   ["Life's own card", mcp("desk__request_decision", { question: "Send?" })],
   [
     "a web page",

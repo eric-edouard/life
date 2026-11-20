@@ -24,6 +24,20 @@ export const AGENT_WORD = "agent";
 export const AGENT_POST_SIGNATURE =
   "— Posted by an AI agent for this account, not reviewed before posting.";
 
+/**
+ * His connector's tools that write (registered with `readOnlyHint` false, `host/http/mcp.ts`; its test checks): the send
+ * guard refuses them to an agent on any server but its desk door, so an agent never writes as him.
+ */
+export const CONNECTOR_WRITES = [
+  "answer_check",
+  "change_directory_entry",
+  "change_registered_agent",
+  "change_todo_item",
+  "correct_memory",
+  "request_decision",
+  "tell_life",
+];
+
 /** The built-in agent his words about his registered agents are asked of (`change_registered_agent`): the desk, which keeps its own list. */
 export const DESK_AGENT = "desk";
 
