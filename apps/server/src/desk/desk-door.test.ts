@@ -208,5 +208,6 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
       "every question or decision that needs his answer goes as a card"
     );
     expect(text).toContain("never a question left in the chat");
+    expect(text).toContain("An `arrival.confirmed` event");
   }
 });
