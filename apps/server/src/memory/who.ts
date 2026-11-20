@@ -14,6 +14,7 @@ import { namesOne, relationWordOf } from "../records/relation-words";
 import { type DirectoryParty, firstNameOf, ME } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
+import { voiceKey } from "../sources/lifelog-voices";
 import { readAgentReports } from "./agent-source";
 import { type ContactNow, contactsNow } from "./contact-people";
 import {
@@ -341,7 +342,7 @@ export const voiceCardRefOf = (
   }
 ) => {
   const voices = [
-    ...new Set(item.voices.map((v) => `${v.jobId} ${v.speakerLabel}`)),
+    ...new Set(item.voices.map((v) => voiceKey(v.jobId, v.speakerLabel))),
   ].sort();
   const suggested = voiceSuggestionOf(resolve, item);
   return `voice:${item.id}~${digest("sha256", voices.join("\n"), 8)}${suggested ? `~${suggested}` : ""}`;
@@ -735,6 +736,16 @@ export function meant(
     known: resolved ?? same[0]?.id,
     same: one ? [one, ...same] : same,
   };
+}
+
+/** `meant`'s answer, but a part read by id (`byId`) takes the person with exactly that id before any name or alias. */
+export function personFor(
+  name: string,
+  meaning: ReturnType<typeof meant>,
+  byId?: boolean
+) {
+  const exact = byId ? meaning.all.find((p) => p.id === name) : undefined;
+  return exact ? { ...meaning, known: exact.id, same: [] } : meaning;
 }
 
 /**

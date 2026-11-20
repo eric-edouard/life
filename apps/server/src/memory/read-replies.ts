@@ -1,11 +1,15 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { clock } from "../core/clock";
+import { clock, DAY, iso } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import type { CallReads } from "../models/model-call";
 import { isPromptVersion, MAY_KEEP, promptText } from "../models/prompt-parts";
-import { type ReadName, ReadReply } from "../records/read-reply";
+import {
+  ARRIVAL_CONFIRM_READ,
+  type ReadName,
+  ReadReply,
+} from "../records/read-reply";
 import { READ_REPLIES, readReplyPath } from "./memory-files";
 import { inBatches, type Step } from "./run";
 
@@ -15,6 +19,8 @@ import { inBatches, type Step } from "./run";
 
 /** The prompt of each read; the moves reads' shape is `MOVES`, `memory/moves.ts`, the summary's is `memory/conversation-summaries.ts`, the voice naming's `memory/voice-naming.ts`. */
 export const READS = {
+  arrival_confirm: { prompt: "memory-arrival-confirm.v2" },
+  arrival_trigger: { prompt: "memory-arrival-trigger.v2" },
   conflict: { prompt: "memory-conflict.v2" },
   connection: { prompt: "memory-connection.v3" },
   conversation_summary: { prompt: "memory-conversation-summary.v1" },
@@ -31,9 +37,13 @@ interface Call {
   firstAt: string;
   input: object;
   keys: string[];
+  /** Who wrote its lines, for the read that stores it (the arrival confirm). */
+  people?: string[];
   /** What the call is shown, counted per source (`readsOf`). */
   reads: CallReads;
   starts: number[];
+  /** The unit its lines are of, for the reads that store it (the arrival reader's). */
+  unit?: string;
 }
 
 /** A call to make, with the instant of its newest exchange (the night asks the newest first). */
@@ -52,18 +62,61 @@ const filesOf = (dir: string) =>
         .map((n) => join(dir, n))
     : [];
 
-/** The stored lines of each file of the folder `where`, oldest first; a file is read by `readAppended` (its new lines only). */
-export const readReplies = (where = READ_REPLIES) =>
-  filesOf(where).map((file) =>
-    readAppended(
-      file,
-      ReadReply,
-      (last?: ReadReply[]) => [...(last ?? [])],
-      (all, line) => {
-        all.push(line);
-      }
-    )
+/** A file's stored lines, by `readAppended` (its new lines only). */
+const readReplyFile = (file: string) =>
+  readAppended(
+    file,
+    ReadReply,
+    (last?: ReadReply[]) => [...(last ?? [])],
+    (all, line) => {
+      all.push(line);
+    }
   );
+
+/** The stored lines of each file of the folder `where`, oldest first. */
+export const readReplies = (where = READ_REPLIES) =>
+  filesOf(where).map(readReplyFile);
+
+/**
+ * The stored lines of the month files an instant window touches (replies are filed by their first message's UTC
+ * month): a reader of recent replies never reads every year.
+ */
+export const readRepliesSince = (since: string, where = READ_REPLIES) =>
+  filesOf(where)
+    .filter((f) => f >= readReplyPath(since, where))
+    .flatMap(readReplyFile);
+
+/** A confirmed arrival: new lines of a unit his engine confirmed hold an ask, a promise or a wait for him. */
+export interface ConfirmedArrival {
+  at: string;
+  /** The keys of the messages the confirm read, oldest first. */
+  messages: string[];
+  /** Who wrote them, as read (never him). */
+  people: string[];
+  unit: string;
+}
+
+/**
+ * The one rule of what is a confirmed arrival: a confirm line of the current prompt that says `isActionable`. Read by
+ * extraction's choice of units and the desk's wake, never decided twice.
+ */
+export const confirmedArrivalsOf = (lines: ReadReply[]): ConfirmedArrival[] =>
+  lines.flatMap((l) =>
+    l.read === ARRIVAL_CONFIRM_READ &&
+    l.reply.isActionable === true &&
+    isPromptVersion(l.madeBy.prompt, READS.arrival_confirm.prompt)
+      ? [{ at: l.at, messages: l.messages, people: l.people, unit: l.unit }]
+      : []
+  );
+
+/**
+ * The confirmed arrivals stored since the instant `since`. A confirm is filed by its first line's month, at most two
+ * days before it was made (the reader reads yesterday's voice too), so the files from two days before `since` are read.
+ */
+export const readConfirmedArrivals = (since: string, where = READ_REPLIES) =>
+  confirmedArrivalsOf(
+    readRepliesSince(iso(Date.parse(since) - 2 * DAY), where)
+  ).filter((a) => a.at >= since);
 
 /** A stored exchange: its place in the line that read it, and the keys of its messages. */
 interface Held {
@@ -187,6 +240,8 @@ export async function makeReplies(
             reply,
             schemaVersion: 1,
             starts: call.starts,
+            ...(call.unit && { unit: call.unit }),
+            ...(call.people && { people: call.people }),
           } as ReadReply,
           call.firstAt,
           where

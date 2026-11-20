@@ -7,7 +7,7 @@ import { buildIndex, reindexUnits } from "./index-writer";
 import { INDEX, UNITS } from "./memory-files";
 import { writePassages } from "./passages";
 import { unit as unitFixture } from "./record-fixtures";
-import { messageUnits } from "./units";
+import { lifeChat, messageUnits } from "./units";
 import { readPeople } from "./who";
 import { chatHits, chatsOf, mailHits } from "./words";
 
@@ -441,6 +441,29 @@ test("who: a LINE room her name titles where she and a stranger both wrote is no
       await chatsOf({ who: "Test Ana" }, { line: sourceOver(room) })
     );
     expect(found.map((l) => l.slice(l.lastIndexOf("[")))).toEqual(["[id t1]"]);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});
+
+test("who: a name no one is known by but a chat's title finds that chat, as `chat` reads it, never another or Life's own; `chat` narrows it", async () => {
+  const at = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+  const all = [
+    lineSaid("c1", at(5), "!room-garden", "Zed Moss", "Garden Club"),
+    lineSaid("c2", at(4), "!room-garden", "me", "Garden Club"),
+    lineSaid("c3", at(3), "!room-chess", "Zed Moss", "Chess"),
+    // Life's own chat under the same title: its day is no unit, and its messages are never read.
+    lineSaid("c4", at(2), lifeChat() as string, "me", "Garden Club"),
+  ];
+  try {
+    await indexedFrom(all);
+    const ids = async (o: { chat?: string; who: string }) =>
+      messagesIn(await chatsOf(o, { line: sourceOver(all) })).map((l) =>
+        l.slice(l.lastIndexOf("["))
+      );
+    expect(await ids({ who: "garden club" })).toEqual(["[id c1]", "[id c2]"]);
+    expect(await ids({ chat: "!room-chess", who: "garden club" })).toEqual([]);
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
     rmSync(INDEX, { force: true });

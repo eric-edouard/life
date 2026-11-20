@@ -274,6 +274,7 @@ test("one option of the check's own; an unknown option or a second option is ref
 test("a decision goes to answerDecision", async () => {
   rmSync(DECISIONS, { force: true });
   const { id } = await requestDecision("planner", {
+    context: "A made-up reason to ask.",
     deadline: new Date(Date.now() + DAY).toISOString(),
     options: [
       { id: "yes", label: "Book Kit" },
@@ -302,6 +303,42 @@ const item: NamingQueueItem = {
   voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
   words: 9,
 };
+
+// life#765: a typed name is resolved with the people the voice answer already read: one read, not two.
+test("a voice answer naming someone by a typed name reads his people once", async () => {
+  const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);
+  const voice = check(voiceCardRefOf(resolve, item), "voice");
+  const queue = spyOn(
+    await import("../sources/lifelog-voices"),
+    "readNamingQueueNow"
+  ).mockResolvedValue([item]);
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
+    nameOf: () => "Dana",
+    readingNow: (typed: string) =>
+      typed === "Dana"
+        ? { by: "his word", isShared: false, ref: "person:dana" }
+        : undefined,
+    resolve,
+  } as never);
+  const send = spyOn(
+    await import("../sources/lifelog-voices"),
+    "answerNamingQueue"
+  ).mockResolvedValue({ personId: "p" });
+  try {
+    await answerCheck(voice, { options: ["this-is"], person: "Dana" });
+    expect(people).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls).toEqual([
+      [
+        [{ jobId: "job-1", speakerLabel: "A" }],
+        { kind: "assign", personId: DANA_ID },
+      ],
+    ]);
+  } finally {
+    queue.mockRestore();
+    people.mockRestore();
+    send.mockRestore();
+  }
+});
 
 test("a voice's answer goes to lifelog for every turn of it: a known person is assigned, an unknown one confirmed by name, nothing is written", async () => {
   const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);

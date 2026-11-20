@@ -4,7 +4,7 @@ Reference for the Codex plugin experiment on 20 November 2026.
 
 ```text
 Resume a thread in a fresh app-server process     same thread, unknown MCP server 'desk'
-Install the test plugin, resume the same thread   read the new note and the saved wait
+Install the test plugin, resume the same thread   read the new note and the agent wait
 Change that wait from the reopened thread         the fixture recorded the new wait
 Open an ordinary thread in the same folder        no assignment, original wait preserved
 ```
@@ -34,8 +34,4 @@ the caller for routing. The fixture used synthetic records; its lookup grants no
 authority. A production client still needs the desk's scoped permission for a turn,
 the send guard on a typed turn, and coordination with an incoming wake.
 
-When the owner types in a chat that holds several matters, the agent identifies the
-matter from the owner's words and names it before acting. If the words leave several
-possibilities, it asks in the same chat. The desk must bind any change to that
-turn's selected assignment. An authenticated packet includes the saved wait for its
-assignment, alongside the notes and any newly arrived events.
+The rules for a chat that holds several matters, and for binding a turn to its assignment, are in [docs/tasks.md](../tasks.md) ("Not built yet").

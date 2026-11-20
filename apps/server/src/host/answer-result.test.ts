@@ -34,6 +34,7 @@ const card = (asker = "planner", agent?: string) =>
     asker,
     {
       ...(agent ? { agent } : {}),
+      context: "A made-up reason to ask.",
       deadline: new Date(Date.now() + 2 * DAY).toISOString(),
       draft,
       onSilence: "wait",
@@ -670,5 +671,56 @@ test("goal A, then B, then A again records three times: a fresh answer ends the 
   } finally {
     book.mockRestore();
     people.mockRestore();
+  }
+});
+
+// life#765: the tapped voice card is the group he saw. Grown by a recording since: refused, nothing sent. The same
+// recordings in another order: the same card, accepted.
+test("a voice card's tap: refused with no write once its group grew, accepted when only reordered", async () => {
+  const shown: NamingQueueItem = {
+    clips: [],
+    conversations: 1,
+    evidence: [],
+    id: "v2",
+    kind: "new_person",
+    likely: [],
+    name: null,
+    personId: null,
+    voices: [
+      { conversationId: "c1", jobId: "job-1", speakerLabel: "A" },
+      { conversationId: "c2", jobId: "job-2", speakerLabel: "A" },
+    ],
+    words: 9,
+  };
+  const voiceRef = voiceCardRefOf(() => null, shown);
+  guesses = [asCheck({ group: "voice", ref: voiceRef })];
+  const grown = {
+    ...shown,
+    voices: [
+      ...shown.voices,
+      { conversationId: "c3", jobId: "job-3", speakerLabel: "B" },
+    ],
+  };
+  const queue = spyOn(
+    await import("../sources/lifelog-voices"),
+    "readNamingQueueNow"
+  ).mockResolvedValue([grown]);
+  const send = spyOn(
+    await import("../sources/lifelog-voices"),
+    "answerNamingQueue"
+  ).mockResolvedValue({ personId: "p1" });
+  try {
+    await expect(call(voiceRef, ["media"], "tap-g").result).rejects.toThrow(
+      "no open check"
+    );
+    expect(send).not.toHaveBeenCalled();
+    queue.mockResolvedValue([{ ...shown, voices: shown.voices.toReversed() }]);
+    expect(await call(voiceRef, ["media"], "tap-r").result).toMatchObject({
+      changed: { answer: "media" },
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+  } finally {
+    queue.mockRestore();
+    send.mockRestore();
   }
 });

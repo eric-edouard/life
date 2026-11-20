@@ -203,6 +203,7 @@ someone else is capped at 0.6 confidence.
 | Transcription | lifelog's: ElevenLabs Scribe by default, paid by the hour of speech; or its speech service on the Mac (Nemotron 3 for who speaks when, VoxLingua107 for the language, Parakeet Ultra for the words), with Scribe only for Thai ([lifelog's processing](../apps/lifelog/docs/processing.md)). |
 | Voices | The MECT-B2 model, on the Mac, learning only from the names the owner gives. |
 | Photos | Qwen3.5-9B under llama.cpp, on the Mac, describes each photo when `describePhotos` is set (`models/describer.ts`). |
+| Arrivals | Apple's on-device model (Foundation Models, never Private Cloud Compute), through the Mac app's helper `life-foundation-model` (`models/foundation-model.ts`), asks the arrival trigger on today's chat and mail and closed voice conversations he spoke in; its yes goes to his engine (`memory/arrival-reader.ts`). |
 | Server | Bun, Hono and TypeScript; the connector is an MCP server with its own OAuth sign-in and pairing codes. |
 | Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; Lifelog Host on the Mac; lifelog's iPhone and Watch apps in Swift 6, and its Android capture app in Kotlin. |
 | Memory | Plain text (Markdown and JSON lines) in a git repository with no remote; SQLite for the archive, the search index and the vectors. |

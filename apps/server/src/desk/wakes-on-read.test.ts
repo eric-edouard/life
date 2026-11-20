@@ -137,6 +137,7 @@ test("an agent's read: wakesOn while it waits, [] otherwise, and statusSince by 
   const deadline = new Date(clock().getTime() + 2 * DAY).toISOString();
   const card = await requestDecision("planner", {
     agent: onMatter,
+    context: "A made-up reason to ask.",
     deadline,
     onSilence: null,
     options: [
@@ -197,6 +198,8 @@ test("an agent's read: wakesOn while it waits, [] otherwise, and statusSince by 
   expect(onIt?.wakesOn).toEqual(by(onMatter)?.wakesOn ?? []);
   expect(onIt).not.toHaveProperty("filters");
   expect(onIt).not.toHaveProperty("chatsSeen");
+  // A filter's raw chat id never reaches the connector's wait.
+  expect(JSON.stringify([by(onMatter), onIt])).not.toContain(DM);
 
   // The status snapshot's rows never look at the chats an agent heard from; the wake reads do, in its newest 200 events.
   const t = clock().getTime();
