@@ -113,26 +113,48 @@ function reachWithin(all: Reach[]) {
 }
 
 /**
- * The `reach` part's page: every account from the `skip`th on (apps in order, each app's accounts newest first), as many
- * as fit `PART_CHARS` (at least one), and how many to skip for the next page, none on the last. Pure.
+ * The `reach` part's page, built and measured as it is sent (`{ reach, next }`): every account from the `skip`th on
+ * (apps in order, each app's accounts newest first), as many as keep it within `PART_CHARS`, at least one; `next`, the
+ * ref of the following page, absent on the last. A first account too big alone loses the end of its title (the optional
+ * display text), never its handle or link. Pure. ponytail: each size is measured afresh, quadratic in a page's accounts.
  */
-export function reachPageOf(all: Reach[], skip: number) {
+export function reachPageOf(all: Reach[], skip: number, subject: string) {
   const flat = all.flatMap((r, app) =>
     r.accounts.map((account) => ({ account, app }))
   );
-  // Room for what wraps the page: the apps' labels and the next ref.
-  const page = within(
-    flat.slice(skip),
-    PART_CHARS - 500,
-    (x) => JSON.stringify(x.account).length + 1
-  );
-  const taken = page.length > 0 ? page : flat.slice(skip, skip + 1);
-  const reach = [...Map.groupBy(taken, (x) => x.app)].map(([app, list]) => ({
-    ...(all[app] as Reach),
-    accounts: list.map((x) => x.account),
-  }));
-  const next = skip + taken.length;
-  return { next: next < flat.length ? next : undefined, reach };
+  const pageOf = (count: number, cut = 0) => {
+    const taken = flat.slice(skip, skip + count).map((x, i) => ({
+      ...x,
+      account:
+        i === 0 && cut > 0
+          ? {
+              ...x.account,
+              title: x.account.title?.slice(0, -cut) || undefined,
+            }
+          : x.account,
+    }));
+    const reach = [...Map.groupBy(taken, (x) => x.app)].map(([app, list]) => ({
+      ...(all[app] as Reach),
+      accounts: list.map((x) => x.account),
+    }));
+    return skip + count < flat.length
+      ? {
+          next: readPartRefOf({
+            part: "reach",
+            span: String(skip + count),
+            subject,
+          }),
+          reach,
+        }
+      : { reach };
+  };
+  const size = (x: unknown) => JSON.stringify(x).length;
+  let n = 1;
+  while (skip + n < flat.length && size(pageOf(n + 1)) <= PART_CHARS) {
+    n += 1;
+  }
+  // Every character of title cut takes at least one off the page.
+  return pageOf(n, Math.max(0, size(pageOf(n)) - PART_CHARS));
 }
 
 /** A part that holds something, as `now` offers it: the ref `fetch` opens and its first sentence. */

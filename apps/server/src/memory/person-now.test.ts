@@ -20,6 +20,7 @@ import {
   situationPath,
   UNITS,
 } from "./memory-files";
+import { openById } from "./open-by-id";
 import {
   firstSentenceOf,
   knowsOf,
@@ -31,8 +32,8 @@ import {
   rowOf,
 } from "./person-now";
 import { readPersonUnits } from "./person-units";
-import { reachOf } from "./reach";
-import { PART_CHARS, parseReadPartRef } from "./read-part";
+import { type Reach, reachOf } from "./reach";
+import { PART_CHARS } from "./read-part";
 import { person } from "./read-person-page";
 import { OWNER } from "./read-truth";
 import { madeBy, unit as unitFixture } from "./record-fixtures";
@@ -609,16 +610,20 @@ test("reach keeps to its room with long Contacts labels; every account it has no
   ).toEqual(mails);
 });
 
-test("an organization's 120 addresses: `now` points to the reach part, and following its next reads gives every one", () => {
+test("an organization's 120 addresses: following `moreReach` and each `next` through fetch gives every one, in order, each page within its room", async () => {
   const mails = Array.from(
     { length: 120 },
     (_, n) => `team${n}@bakery.example.test`
   );
+  const subject = `test-${"b".repeat(400)}`;
   const reach = reachOf({
     cards: [],
     party: { handles: { email: mails, phone: [], whatsapp: [] } },
     seen: [],
   });
+  // A Contacts label as long as the whole part: its end goes, the handle and link stay.
+  const [{ accounts }] = reach as [Reach];
+  (accounts[0] as { title?: string }).title = "Label ".repeat(1000);
   const now = personNowOf({
     communicationStyle: [],
     details: [],
@@ -626,28 +631,28 @@ test("an organization's 120 addresses: `now` points to the reach part, and follo
     knows: [],
     matters: [],
     reach,
-    row: row("person:test-bakery"),
+    row: row(`person:${subject}`),
     situation: [],
     today: "2026-03-10",
   });
-  expect(now.moreReach).toBe("person:test-bakery/reach");
+  const readPerson = (name: string, o: { span?: string }) =>
+    Promise.resolve(reachPageOf(reach, Number(o.span ?? 0), `person:${name}`));
   const heard: string[] = [];
-  let skip: number | undefined = 0;
-  while (skip !== undefined) {
-    const page = reachPageOf(reach, skip);
+  let ref: string | undefined = now.moreReach;
+  let pages = 0;
+  while (ref) {
+    // biome-ignore lint/performance/noAwaitInLoops: each page's ref comes from the one before
+    const page = (await openById(ref, undefined, undefined, readPerson)) as {
+      next?: string;
+      reach: Reach[];
+    };
     expect(JSON.stringify(page).length).toBeLessThanOrEqual(PART_CHARS);
     heard.push(...page.reach.flatMap((r) => r.accounts.map((a) => a.handle)));
-    skip = page.next;
+    ref = page.next;
+    pages += 1;
   }
-  expect(heard.toSorted()).toEqual(mails.toSorted());
-  expect(parseReadPartRef("person:test-bakery/reach/18")).toEqual({
-    ref: {
-      before: undefined,
-      part: "reach",
-      span: "18",
-      subject: "person:test-bakery",
-    },
-  });
+  expect(pages).toBeGreaterThan(1);
+  expect(heard).toEqual(mails);
 });
 
 test("his own situation is checked against the episodes the index holds, by the ids it cites: no episode file is read", async () => {

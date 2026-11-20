@@ -45,7 +45,6 @@ import {
   READ_PARTS,
   type ReadPart,
   type ReadPartRef,
-  readPartRefOf,
 } from "./read-part";
 import { directoryPartiesOf, isDirectoryNew, OWNER } from "./read-truth";
 import { readSituationNow } from "./situations";
@@ -456,18 +455,7 @@ function readReachPart(
   if (!partRef) {
     return asData(['(no part "reach" for someone only heard)']);
   }
-  const { next, reach } = reachPageOf(
-    readReachOf(partRef, people),
-    Number(span)
-  );
-  const more = next && {
-    next: readPartRefOf({
-      part: "reach",
-      span: String(next),
-      subject: partRef,
-    }),
-  };
-  return { reach, ...more };
+  return reachPageOf(readReachOf(partRef, people), Number(span), partRef);
 }
 
 /** Each ref's levels and last exchange, from what the caller read once. */
