@@ -277,26 +277,33 @@ export async function readSentences(c: {
   };
 }
 
-/** Whether an open step with an ending found is an ending check: no old doubt line holds its ref, he has not answered. */
+/**
+ * Whether an open step with an ending found is an ending check: no old doubt line holds its ref, he has not answered,
+ * and the link's later record (when it is a line) is not his own words: then it stays probably done, no card.
+ */
 export const isEndingOpen = (
   ref: string,
-  c: { answered: ReadonlySet<string>; doubted: ReadonlySet<string> }
-) => !(c.doubted.has(ref) || c.answered.has(ref));
+  c: { answered: ReadonlySet<string>; doubted: ReadonlySet<string> },
+  later?: { speaker: string }
+) => !(c.doubted.has(ref) || c.answered.has(ref) || later?.speaker === OWNER);
 
 /** The steps a card shows the sentence of: the open endings' (a step and what ended it) and the new matters' first steps; a closed ending's or an old matter's are never read. */
 export const shownStepsOf = (c: {
   answered: ReadonlySet<string>;
   doubted: ReadonlySet<string>;
   endings: ReadonlyMap<string, { later: string }>;
+  lines: readonly { id: string; speaker: string }[];
   today: string;
   matters: readonly { steps: readonly { day: string; ref: string }[] }[];
-}) =>
-  new Set([
+}) => {
+  const lineById = new Map(c.lines.map((l) => [l.id, l]));
+  return new Set([
     ...[...c.endings].flatMap(([ref, e]) =>
-      isEndingOpen(ref, c) ? [ref, e.later] : []
+      isEndingOpen(ref, c, lineById.get(e.later)) ? [ref, e.later] : []
     ),
     ...c.matters.flatMap((m) => {
       const end = offerEndOf(m);
       return end && c.today <= end && m.steps[0] ? [m.steps[0].ref] : [];
     }),
   ]);
+};
