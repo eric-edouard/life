@@ -20,7 +20,7 @@ import {
   mapLinksOf,
   reconcile,
 } from "../memory/calendar-events";
-import { span } from "../memory/episode-span";
+import { edgeTime, span } from "../memory/episode-span";
 import { APPOINTMENT_EVENTS, APPOINTMENTS } from "../memory/memory-files";
 import { clip } from "../memory/units";
 import { dayNow, dayStart } from "../memory/zones";
@@ -42,9 +42,13 @@ const OUTPUT = { lifeOutput: "appointments" } as const;
 /** How far ahead Life lists its events. */
 const AHEAD = 400 * DAY;
 
-/** What the sync writes: one of the night's appointments, or one agreed in new lines. */
-type Planned = Appointment | ArrivalAppointment;
+/** What the sync writes: one of the night's appointments (with `agreed` when he agreed it in new lines), or one agreed in new lines. */
+type Planned =
+  | (Appointment & { agreed?: { link: string | null } })
+  | ArrivalAppointment;
 const isArrival = (a: Planned): a is ArrivalAppointment => "messages" in a;
+/** Whether he agreed it in new lines, and its meeting link: kept on its event too (`lifeAgreed`, `lifeLink`), past the window the arrival is read in. */
+const agreedOf = (a: Planned) => (isArrival(a) ? { link: a.link } : a.agreed);
 
 /** What an appointment was read from, as its event lines name it: its facts, or its messages. */
 const citesOf = (a: Planned) =>
@@ -62,7 +66,7 @@ export function appointmentDraft(a: Planned, isConfirmed: boolean) {
       : "Added by Life from your messages, not confirmed yet.",
     ...(!isArrival(a) && a.timeGuessed ? ["The time is Life's guess."] : []),
     ...mapLinksOf({ name: a.place }),
-    ...(isArrival(a) && a.link ? [`Meeting link: ${a.link}`] : []),
+    ...(agreedOf(a)?.link ? [`Meeting link: ${agreedOf(a)?.link}`] : []),
     isArrival(a)
       ? `Appointment ${a.id}, read from ${a.unit}.`
       : `Appointment ${a.id}, read from ${a.observations.join(", ")}.`,
@@ -73,6 +77,7 @@ export function appointmentDraft(a: Planned, isConfirmed: boolean) {
     ...when,
     isConfirmed,
     ...citesOf(a),
+    ...(agreedOf(a) ? { agreed: agreedOf(a) } : {}),
     of: a.id,
     place: a.place,
     summary: isConfirmed ? a.title : `(Life) ${a.title}`,
@@ -85,7 +90,7 @@ type AppointmentDraft = ReturnType<typeof appointmentDraft> & Draft;
 const fieldsOf = (d: AppointmentDraft) => ({
   ...d,
   // One he agreed in new lines is busy at once (his word of 21 Nov 2026); one Life only read is free until confirmed.
-  busy: d.isConfirmed || "messages" in d,
+  busy: d.isConfirmed || d.agreed !== undefined,
   description: d.text,
   location: d.place,
   // A reminder on screen only: a mail would come back into memory as a message.
@@ -153,6 +158,47 @@ export async function drafted<A extends Planned>(
   return kept;
 }
 
+/** Whether an appointment's event ends after `now` (its own instant, in its zone). */
+const isAhead = (a: Planned, now: Date) => {
+  const { allDay, to } = span(
+    { day: a.start.slice(0, 10), end: a.end, start: a.start },
+    a.zone ?? undefined
+  );
+  return edgeTime(allDay, to) > now.getTime();
+};
+
+/**
+ * One draft per meeting: a night's appointment and an arrival of the same id or start are one, with the night's
+ * details, his agreement and its link, under the id that already has event lines (`hasEvent`), else the arrival's;
+ * a night's appointment whose event says he agreed it (`agreedOn`) stays agreed; an arrival already over is left out.
+ */
+export function plannedOf(
+  night: readonly Appointment[],
+  arrivals: readonly ArrivalAppointment[],
+  agreedOn: ReadonlyMap<string, { link: string | null }>,
+  hasEvent: (id: string) => boolean,
+  now: Date
+): Planned[] {
+  const ahead = arrivals.filter((a) => isAhead(a, now));
+  const joined = new Set<string>();
+  const nights = night.map((n) => {
+    const a =
+      ahead.find((x) => x.id === n.id) ??
+      ahead.find((x) => x.start === n.start);
+    if (!a) {
+      const agreed = agreedOn.get(n.id);
+      return agreed ? { ...n, agreed } : n;
+    }
+    joined.add(a.id);
+    return {
+      ...n,
+      agreed: { link: a.link },
+      id: hasEvent(n.id) ? n.id : a.id,
+    };
+  });
+  return [...nights, ...ahead.filter((a) => !joined.has(a.id))];
+}
+
 /** The push for an appointment's first event: an opaque id; the phone reads the event from the connector and writes the words. */
 async function pushAdded(d: AppointmentDraft, now: Date) {
   const setting = settings().notifications.calendar ?? NOTIFY_DEFAULTS.calendar;
@@ -186,12 +232,6 @@ async function sync(now: Date) {
     return null;
   }
   const today = dayNow(now);
-  const night = file?.appointments ?? [];
-  const nightIds = new Set(night.map((a) => a.id));
-  // The night's own id wins (it took the arrival's over); one already over is never written again.
-  const arrivals = readArrivalAppointments(now).filter(
-    (a) => !nightIds.has(a.id) && a.end.slice(0, 10) >= today
-  );
   const cal = googleCalendar(appointments.calendar, appointments.account);
   // From the start of his day: an event that ended before is never touched.
   const listed = await cal.list(
@@ -212,18 +252,33 @@ async function sync(now: Date) {
       e.props.lifeConfirmed === "yes" ? [e.props.lifeAppointment ?? ""] : []
     )
   );
-  const list = await drafted<Planned>(
-    [...night, ...arrivals],
+  const agreedOn = new Map(
+    listed.flatMap((e) =>
+      e.props.lifeAgreed === "yes"
+        ? [[e.props.lifeAppointment ?? "", { link: e.props.lifeLink ?? null }]]
+        : []
+    )
+  );
+  const known = readAppointmentEvents().byAppointment;
+  const list = await drafted(
+    plannedOf(
+      file?.appointments ?? [],
+      readArrivalAppointments(now),
+      agreedOn,
+      (id) => known.has(id),
+      now
+    ),
     held,
     cal,
     appointments.calendar,
     now
   );
   const events = readAppointmentEvents();
-  // An arrival's event stays until it ends, past the window it is read in.
+  // An arrival's event stays until it ends, past the window it is read in; with no night file yet (a new install),
+  // every event stays: none is removed for want of the night's reading.
   const isKept = (of: string) => {
     const last = events.byAppointment.get(of);
-    return last?.op === "created" && last.messages !== undefined;
+    return !file || (last?.op === "created" && last.messages !== undefined);
   };
   const { create, remove, update } = reconcile(
     list.map((a) => appointmentDraft(a, confirmed.has(a.id))),
@@ -235,6 +290,8 @@ async function sync(now: Date) {
     lifeAppointment: d.of,
     lifeHash: d.hash,
     ...(d.isConfirmed ? { lifeConfirmed: "yes" } : {}),
+    ...(d.agreed ? { lifeAgreed: "yes" } : {}),
+    ...(d.agreed?.link ? { lifeLink: d.agreed.link } : {}),
   });
   for (const e of remove) {
     // Recorded first: a crash before the delete leaves an event the next tick removes again, never a false refusal.

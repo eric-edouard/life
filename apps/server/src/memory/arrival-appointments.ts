@@ -16,7 +16,7 @@ import { READS, readRepliesSince } from "./read-replies";
 /** How far back the arrival's appointments are read: the sync, his Undo, the event sheet and the night's takeover. */
 export const ARRIVAL_APPOINTMENT_DAYS = 30;
 
-/** An appointment agreed in new lines: its id is its messages' hash. */
+/** An appointment agreed in new lines: its id is its start's hash, the same whichever lines agreed it. */
 export type ArrivalAppointment = Omit<
   Appointment,
   "observations" | "timeGuessed"
@@ -31,7 +31,7 @@ export type ArrivalAppointment = Omit<
   unit: string;
 };
 
-/** The one rule of what is an arrival appointment: an agreed line of the current prompt, the first one per start. */
+/** The one rule of what is an arrival appointment: an agreed line of the current prompt, the first one per start (one meeting, one id). */
 export function arrivalAppointmentsOf(lines: ReadReply[]) {
   const starts = new Set<string>();
   return lines.flatMap((l): ArrivalAppointment[] => {
@@ -51,7 +51,7 @@ export function arrivalAppointmentsOf(lines: ReadReply[]) {
       {
         ...r,
         at: l.at,
-        id: `apt_${digest("sha1", l.messages.join(" "), 12)}`,
+        id: `apt_${digest("sha1", `arrival ${l.reply.start}`, 12)}`,
         messages: l.messages,
         unit: l.unit,
       },

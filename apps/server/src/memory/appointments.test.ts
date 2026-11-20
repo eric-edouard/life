@@ -265,3 +265,14 @@ test("the night takes over an arrival's id when its facts cite the arrival's mes
   );
   expect(appointments.map((a) => a.id)).toEqual(["apt_0000000000aa"]);
 });
+
+test("on a tie with a held appointment, the reading keeps the arrival's id: one meeting, one event", () => {
+  const { appointments } = checkedAppointments(
+    { appointments: [reply({ facts: ["obs_000000000001"] })] },
+    {
+      ...ctx,
+      arrivals: [{ facts: ["obs_000000000001"], id: "apt_0000000000aa" }],
+    }
+  );
+  expect(appointments.map((a) => a.id)).toEqual(["apt_0000000000aa"]);
+});

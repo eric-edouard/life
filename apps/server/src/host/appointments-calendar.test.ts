@@ -16,6 +16,7 @@ import * as push from "../sources/lifelog-push";
 import {
   appointmentDraft,
   drafted,
+  plannedOf,
   syncAppointments,
 } from "./appointments-calendar";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
@@ -267,4 +268,69 @@ test("an appointment agreed in new lines is written once, pushed once by an opaq
   rmSync(readReplyPath(ARRIVAL_AT), { force: true });
   await syncAppointments(NOW);
   expect(events.size).toBe(1);
+});
+
+test("one draft per meeting: the night's and the arrival's of one start are one, agreed with its link, under the id that has an event; one over is left out", () => {
+  const arrival = (id: string, start: string, end: string) => ({
+    allDay: false,
+    at: ARRIVAL_AT,
+    end,
+    id,
+    link: "https://meet.example.com/kit-lou",
+    messages: ["whatsapp|m1"],
+    place: null,
+    quote: "see you then",
+    start,
+    title: "Coffee with Kit",
+    unit: "unit_0000000000aa",
+    zone: "UTC",
+  });
+  const night = [
+    appointment({
+      end: "2031-03-12 11:00",
+      id: "apt_000000000011",
+      start: "2031-03-12 10:00",
+    }),
+  ];
+  const arrivals = [
+    arrival("apt_0000000000aa", "2031-03-12 10:00", "2031-03-12 11:00"),
+    // Ended at 08:00 today, read late: never written.
+    arrival("apt_0000000000bb", "2031-03-10 07:00", "2031-03-10 08:00"),
+  ];
+  const fresh = plannedOf(night, arrivals, new Map(), () => false, NOW);
+  expect(fresh.map((a) => [a.id, "agreed" in a && a.agreed])).toEqual([
+    ["apt_0000000000aa", { link: "https://meet.example.com/kit-lou" }],
+  ]);
+  const held = plannedOf(
+    night,
+    arrivals,
+    new Map(),
+    (id) => id === "apt_000000000011",
+    NOW
+  );
+  expect(held.map((a) => a.id)).toEqual(["apt_000000000011"]);
+  // Past the arrival's window, its event's mark keeps it agreed, link and all.
+  const later = plannedOf(
+    night,
+    [],
+    new Map([["apt_000000000011", { link: "https://meet.example.com/x" }]]),
+    () => true,
+    NOW
+  );
+  const [agreed] = later;
+  expect(agreed && appointmentDraft(agreed, false).text).toContain(
+    "Meeting link: https://meet.example.com/x"
+  );
+  expect(appointmentDraft(night[0] as Appointment, false).hash).not.toBe(
+    agreed && appointmentDraft(agreed, false).hash
+  );
+});
+
+test("with no night file yet, no event Life wrote is removed", async () => {
+  events.set("ev1", {
+    allDay: false,
+    props: { lifeAppointment: "apt_000000000011", lifeOutput: "appointments" },
+  });
+  await syncAppointments(NOW);
+  expect([...events.keys()]).toEqual(["ev1"]);
 });
