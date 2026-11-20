@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type Plist, readKeyedArchive } from "../core/bplist";
+import { isThere } from "../core/files";
 import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
@@ -205,7 +206,7 @@ export function newestImessage(): Newest {
  */
 export function readSharedPictures(dir = NICKNAMES): Picture[] {
   const store = join(dir, "nicknameRecordsStore.db");
-  if (!existsSync(store)) {
+  if (!isThere(store)) {
     return [];
   }
   const db = openReadOnly(store);

@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { isThere } from "../core/files";
 import { log } from "../core/log";
 import { APP_DATA } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
@@ -97,10 +98,10 @@ function databases(dir: string) {
   const sources = join(dir, "Sources");
   return [
     join(dir, FILE),
-    ...(existsSync(sources)
+    ...(isThere(sources)
       ? readdirSync(sources).map((s) => join(sources, s, FILE))
       : []),
-  ].filter(existsSync);
+  ].filter(isThere);
 }
 
 /** `sql`'s rows (`owner`, `line`) as each record's lines. */
