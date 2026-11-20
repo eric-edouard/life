@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readdirSync, rmSync } from "node:fs";
+import { cpSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LOG_DIR } from "../core/log";
@@ -12,7 +12,7 @@ import {
 } from "../core/paths";
 import { git } from "../core/proc";
 import { SETTINGS } from "../core/settings";
-import { Chat, Person } from "../records/truth";
+import { Chat, Organization, Person } from "../records/truth";
 import { WATCH } from "../sources/lifelog";
 import { commitMemory, OUT } from "./memory-files";
 import {
@@ -43,6 +43,7 @@ const truth = (over: Partial<Truth>): Truth => ({
   areas: [],
   chats: [chat({})],
   me: readMe("# Me\n\nJean.\n\n## Goals\n1. Be well."),
+  organizations: [],
   people: [person("me"), person("dad")],
   projects: [],
   ...over,
@@ -134,6 +135,57 @@ describe("integrity", () => {
     ]);
   });
 
+  test("people and organizations share one id space and their handles; an organization names people and projects that exist; a project may name it", () => {
+    const org = (id: string, over: object = {}) =>
+      Organization.parse({ id, name: id, ...over });
+    const issues = integrity(
+      truth({
+        organizations: [
+          org("dad"),
+          org("shop", {
+            handles: { whatsapp: ["+33600000000"] },
+            people: [
+              { id: "dad", role: "owner", until: 2024 },
+              { id: "ghost", role: "clerk" },
+            ],
+            projects: ["nowhere"],
+          }),
+        ],
+        people: [person("me"), person("dad", ["+33600000000"])],
+      })
+    );
+    expect(issues).toEqual([
+      "person dad is listed twice",
+      "+33600000000 belongs to both dad and shop",
+      "organization shop names unknown person ghost",
+      "organization shop names unknown project nowhere",
+    ]);
+    expect(
+      integrity(
+        truth({
+          areas: [{ id: "work", name: "Work" }],
+          organizations: [org("shop")],
+          projects: [project("bakery", { people: ["shop"] })],
+        })
+      )
+    ).toEqual([]);
+    // `until` is a year or a day; a domain is a host name.
+    expect(
+      [2024, "2024-05-01", "May"].map(
+        (until) =>
+          Organization.safeParse({
+            id: "shop",
+            name: "Shop",
+            people: [{ id: "dad", role: "owner", until }],
+          }).success
+      )
+    ).toEqual([true, true, false]);
+    expect(
+      Organization.safeParse({ domains: ["@shop"], id: "shop", name: "Shop" })
+        .success
+    ).toBe(false);
+  });
+
   test("a repo in two projects is refused", () => {
     const repos = ["bakery-hq"];
     const issues = integrity(
@@ -163,6 +215,19 @@ test("tests read made-up data, and it is a consistent map", async () => {
     readdirSync(join(FIXTURES, "truth")).sort()
   );
   expect(integrity(await loadTruth())).toEqual([]);
+  expect((await loadTruth()).organizations.map((o) => o.id)).toEqual([
+    "test-bakery",
+  ]);
+  // A directory with no organizations.yaml has none.
+  rmSync(join(OWNER_DATA_DIR, "truth", "organizations.yaml"));
+  try {
+    expect((await loadTruth()).organizations).toEqual([]);
+  } finally {
+    cpSync(
+      join(FIXTURES, "truth", "organizations.yaml"),
+      join(OWNER_DATA_DIR, "truth", "organizations.yaml")
+    );
+  }
   expect(() => commitMemory(["memory"], "t")).toThrow("not a repo of its own");
   // His data is never pushed: a data repo with a remote is refused before anything is staged.
   git(OWNER_DATA_DIR, ["init", "-q"]);

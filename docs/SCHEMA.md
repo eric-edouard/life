@@ -23,8 +23,11 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 - **Area**, one of the owner's life areas: an `id` (slug) from `truth/areas.yaml`, or null when none fits.
 - **Importance** 0-3: 0 nothing to keep; 1 keep searchable only; 2 worth a line on a person or area page; 3 the owner must
   act or must not forget.
-- **Entity refs**: `person:<slug>` (`truth/people.yaml`), `project:<slug>` (`truth/projects/`), `area:<slug>`
-  (`truth/areas.yaml`).
+- **Entity refs**: `person:<slug>` (`truth/people.yaml`, or an organization of `truth/organizations.yaml`: one id
+  space), `project:<slug>` (`truth/projects/`), `area:<slug>` (`truth/areas.yaml`).
+- **Organization** (`truth/organizations.yaml`, optional): `id`, `name`, `aliases`, `relation`, `handles` (as a
+  person's), `domains` (host names: an address in `handles.email` is it, another at a domain stays a person), `people`
+  (`[{ id, role, until? }]`, `until` a year or a `YYYY-MM-DD` once they left; none: there now) and `projects`.
 - **Birthday**: a person in `truth/people.yaml` may carry `birthday`, `--MM-DD` or `YYYY-MM-DD` when the year is
   known.
 - **Called**: the owner may carry `called`, what Life calls them in every prompt and in what it writes, when it isn't
