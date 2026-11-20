@@ -204,17 +204,18 @@ import Testing
         let clock = TestClock()
         let coordinator = DrainCoordinator(
             transport: fake, sink: store, deviceID: { _ in "pendant-test" },
-            configuration: CaptureConfiguration(pageIdleTimeout: .seconds(45), resyncInterval: .seconds(3600)),
+            configuration: CaptureConfiguration(pageIdleTimeout: Harness.timeout, resyncInterval: .seconds(3600)),
             now: { clock.date }, clock: clock)
         let runner = Task { await coordinator.run() }
         defer { runner.cancel() }
         await coordinator.reconnect()
-        // Caught up once the download goes quiet for the idle timeout: pass it.
-        #expect(await clock.eventuallyAfter(.seconds(46)) { await coordinator.status.sync.isCaughtUp })
+        // Caught up once its newest page is in; no timeout needs to fire (passing one while pages stream ends it early).
+        #expect(await eventually { await coordinator.status.sync.isCaughtUp })
         // Nothing is ACKed in observe mode, so the next download re-sends the page; it stays one incident.
+        guard case .caughtUp(let first) = await coordinator.status.sync else { return }
         await fake.record(pages: 1)
         await coordinator.syncNow()
-        #expect(await clock.eventuallyAfter(.seconds(46)) { await coordinator.status.sync.isCaughtUp })
+        #expect(await eventually { if case .caughtUp(let at) = await coordinator.status.sync { at != first } else { false } })
 
         let incidents = try await store.incidents().filter { $0.kind == .unreadablePage }
         let incident = try #require(incidents.first)
