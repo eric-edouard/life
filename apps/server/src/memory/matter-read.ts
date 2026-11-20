@@ -431,6 +431,22 @@ export function matterOf(
   };
 }
 
+/** `refs` read as one matter on `today` (`matterOf`) when every step it holds has ended, else none: steps no matter holds now (a lone matter that closed leaves the book). Pure. */
+export function endedStepsOf(
+  refs: readonly string[],
+  rec: MatterRecords,
+  today: string
+) {
+  const line = { areas: [], id: "", name: "", projects: [] };
+  const v = matterOf(
+    { ...line, steps: refs.map((ref) => ({ ref })) },
+    indexOf(rec, new Set()),
+    today,
+    true
+  );
+  return v?.steps.every(isEnded) ? v : undefined;
+}
+
 /** Everyone a matter involves, by role: whom he owes, whom he waits on, who else is with it. */
 export const matterPeopleOf = (
   v: Pick<MatterView, "owedTo" | "waitingOn" | "with">

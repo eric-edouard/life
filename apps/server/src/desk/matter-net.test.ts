@@ -12,6 +12,7 @@ import { clock, DAY, MIN } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { agentOf, queuedEvents } from "../host/desk-read";
 import type { Messaging } from "../host/events";
+import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
 import { CORRECTIONS, recordCorrection } from "../memory/memory-files";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
@@ -23,6 +24,7 @@ import {
   tick,
 } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
+import { endOutcomeOf, MATTER_DONE_OUTCOME } from "./matter-net";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 
 // The wide net: an agent on a matter is woken by its people's messages and by messages and recordings close to it in
@@ -132,9 +134,16 @@ async function mocked(status = "moving") {
   const matters = await import("../memory/matters");
   const who = await import("../memory/who");
   spies.push(
-    spyOn(matters, "readMatterBook").mockResolvedValue([
-      { ...matter, status },
-    ] as never),
+    spyOn(matters, "readMatterBookAndRecords").mockResolvedValue({
+      book: [
+        {
+          ...matter,
+          open: !["done", "probably_done"].includes(status),
+          status,
+        },
+      ],
+      records: {},
+    } as never),
     spyOn(who, "readPeople").mockResolvedValue({
       // One voice was folded into Ana since it was heard.
       refOf: (s: string) =>
@@ -298,6 +307,44 @@ test("an agent whose matter is done is ended; one only probably done (a link's) 
     outcome: "its matter is done",
     status: "ended",
   });
+});
+
+// Findings 1 and 5 of the action pipeline review (20 Nov 2026): an agent stayed on a matter that was no longer running,
+// its hidden card blocking the hand-out. A handed-out one is ended; one he started himself only on done or his stop.
+test("a handed-out agent whose matter is no longer running is ended as over; his own keeps going", async () => {
+  await mocked("probably_done");
+  const { agent, desk } = setup();
+  const handed = register(desk, {
+    brief: "b",
+    folder: "/",
+    kind: "handed_out",
+    runtime: "fake",
+    steps: [STEP],
+  });
+  for (const id of [agent, handed]) {
+    desk.db.run("update agent set wait_until = ? where id = ?", [
+      new Date(T0 + DAY).toISOString(),
+      id,
+    ]);
+  }
+  await tick(desk);
+  expect(agentOf(desk.db, agent)?.status).toBe("active");
+  expect(agentOf(desk.db, handed)).toMatchObject({
+    outcome: MATTER_OVER_OUTCOME,
+    status: "ended",
+  });
+});
+
+test("which matters end which agents: done ends any; not running (probably done, dormant, closed) only a handed-out one", () => {
+  const of = (status: string, open: boolean) =>
+    (["asked", "handed_out"] as const).map((kind) =>
+      endOutcomeOf(kind, { open, status } as never)
+    );
+  expect(of("done", false)).toEqual([MATTER_DONE_OUTCOME, MATTER_DONE_OUTCOME]);
+  expect(of("probably_done", false)).toEqual([null, MATTER_OVER_OUTCOME]);
+  expect(of("dormant", true)).toEqual([null, MATTER_OVER_OUTCOME]);
+  expect(of("moving", true)).toEqual([null, null]);
+  expect(of("stuck", true)).toEqual([null, null]);
 });
 
 test("a poll with nothing changed does not read the matter book again", async () => {

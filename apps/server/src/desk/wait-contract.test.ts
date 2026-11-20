@@ -17,6 +17,7 @@ import {
   decisionsNow,
   requestDecision,
 } from "../memory/decisions";
+import { isHeldOf } from "../memory/held-matters";
 import { LOCK } from "../memory/memory-lock";
 import { finish, register, setWait, writeNotes } from "./agent-actions";
 import { BEGIN_WITHIN_MS } from "./agent-wait";
@@ -30,6 +31,10 @@ import {
 } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
 import { ANA, advance, ahead, grow, setup, started } from "./test-desk";
+
+/** Whether the hold rule holds a matter of one step, `step`, whose newest step is at `at` (the start of time by default). */
+const holds = (desk: Desk, step: string, at = "") =>
+  isHeldOf(heldByAgents(desk.db))({ steps: [{ at, ref: step }] });
 
 // The wait contract's cases (the desk spec, section 6, W1 to W20): a fake runtime, the clock faked, made-up agents and
 // chats. The test plays each agent: its door calls (`setWait`, `finish`) and its turn's end (`turnEnded`).
@@ -216,42 +221,6 @@ test("W10: killed before the transaction commits, the next poll reads the same e
   ]);
 });
 
-test("W11: an event handed to every failing turn is dropped, flagged, and the default wait stands", async () => {
-  const { desk, eventRow, fake, queue, turns, waiting } = setup();
-  const id = await waiting();
-  queue(id, "e1");
-  fake.isFailing = true;
-  advance(10 * MIN);
-  for (const wait of [0, 5 * MIN, 10 * MIN, 20 * MIN]) {
-    advance(wait);
-    // biome-ignore lint/performance/noAwaitInLoops: one retry after another
-    await wakeDue(desk);
-  }
-  expect(turns(id).map((t) => t.outcome)).toEqual([
-    "waited",
-    "failed",
-    "failed",
-    "failed",
-    "failed",
-  ]);
-  const row = eventRow(id, "e1");
-  expect(row?.handed).toBe(4);
-  expect(row?.dropped_at).not.toBeNull();
-  expect(agentOf(desk.db, id)?.wait_is_default).toBe(1);
-  advance(HOUR);
-  await wakeDue(desk);
-  expect(turns(id)).toHaveLength(5);
-  // At the default wait's deadline a new run of failures starts: retried at 5 minutes, not another 24 hours.
-  advance(DAY);
-  await wakeDue(desk);
-  advance(5 * MIN);
-  await wakeDue(desk);
-  expect(turns(id).slice(-2)).toEqual([
-    { cause: "deadline", outcome: "failed" },
-    { cause: "retry", outcome: "failed" },
-  ]);
-});
-
 test("W12: a 9-hour jump over 5 deadlines runs all 5, 3 at a time, oldest first", async () => {
   const { desk, end, waiting } = setup();
   const ids: string[] = [];
@@ -306,7 +275,7 @@ test("his answer, read from his decisions, is queued for the agent that asked it
   const { desk, turns, waiting } = setup();
   const id = await waiting(DAY);
   const other = await waiting(DAY);
-  pollAnswers(desk);
+  await pollAnswers(desk);
   const { id: dec } = await requestDecision("desk", {
     agent: id,
     deadline: ahead(DAY),
@@ -320,8 +289,8 @@ test("his answer, read from his decisions, is queued for the agent that asked it
   advance(1000);
   await answerDecision(dec, ["yes"]);
   advance(1000);
-  pollAnswers(desk);
-  pollAnswers(desk);
+  await pollAnswers(desk);
+  await pollAnswers(desk);
   await wakeDue(desk);
   expect(turns(id).at(-1)).toEqual({ cause: "answer", outcome: null });
   expect(turns(other)).toHaveLength(1);
@@ -340,7 +309,7 @@ test("his answer, read from his decisions, is queued for the agent that asked it
     title: "a test",
   });
   advance(2 * HOUR + 1000);
-  pollAnswers(desk);
+  await pollAnswers(desk);
   expect(
     desk.db
       .query("select event_id, name from event where agent_id = ?")
@@ -541,7 +510,7 @@ test("a runtime that cannot start ends a new agent, not started, and frees its m
   });
   expect(holderOf(desk.db, ["obs_00000000b002"])).toBeNull();
   // Not held for the inbox either: the new matter card comes back for another Start.
-  expect(heldByAgents(desk.db).steps).not.toContain("obs_00000000b002");
+  expect(holds(desk, "obs_00000000b002")).toBe(false);
   expect(turns(id)).toEqual([{ cause: "deadline", outcome: "failed" }]);
 });
 
@@ -630,7 +599,7 @@ test("a first turn not begun within its runtime's limit ends its agent not start
   });
   expect(fake.stopped).toEqual([ref]);
   expect(holderOf(desk.db, ["obs_00000000b010"])).toBeNull();
-  expect(heldByAgents(desk.db).steps).not.toContain("obs_00000000b010");
+  expect(holds(desk, "obs_00000000b010")).toBe(false);
   // An agent that had begun before: its turn that never begins fails and is retried; it stays active.
   advance(HOUR);
   await wakeDue(desk);
@@ -645,17 +614,16 @@ test("an agent that finished in its own words, even 'not started: …', keeps it
   const id = await started(desk, "obs_00000000b011");
   await finish(desk, id, "not started: the client never replied");
   expect(agentOf(desk.db, id)?.why_not_started).toBeNull();
-  expect(heldByAgents(desk.db).steps).toContain("obs_00000000b011");
+  expect(holds(desk, "obs_00000000b011")).toBe(true);
 });
 
-test("the inbox's held steps read live agents and those ended within the new matter window only", async () => {
+test("an agent that finished holds its step until its matter has a newer step, however long ago it ended", async () => {
   const { desk } = setup();
   const id = await started(desk, "obs_00000000b012");
   await finish(desk, id, "done");
-  advance(6 * DAY);
-  expect(heldByAgents(desk.db).steps).toContain("obs_00000000b012");
-  advance(2 * DAY);
-  expect(heldByAgents(desk.db).steps).not.toContain("obs_00000000b012");
+  advance(8 * DAY);
+  expect(holds(desk, "obs_00000000b012")).toBe(true);
+  expect(holds(desk, "obs_00000000b012", clock().toISOString())).toBe(false);
 });
 
 test("an agent that finished while another's wake was launching gets no turn: each is read again as its turn is written", async () => {

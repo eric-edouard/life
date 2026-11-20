@@ -28,20 +28,31 @@ import { mattersToDo } from "../memory/read-matters";
 import { OWNER } from "../memory/read-truth";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
 import type { Observation } from "../records/observation";
+import { TOP_AT } from "../records/unit";
 import {
   askDecision,
+  finish,
   readPacket,
   register,
   withdrawOpenDecision,
 } from "./agent-actions";
-import { endAgentsOnDoneMatters, readPeopleOnce, wakeDue } from "./desk-clock";
-import { handOutOf, NO_CARD_OUTCOME } from "./hand-out";
+import {
+  endAgentsOnOverMatters,
+  pollAnswers,
+  readPeopleOnce,
+  wakeDue,
+} from "./desk-clock";
+import { NO_CARD_OUTCOME } from "./hand-out";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
+import { MATTER_DONE_OUTCOME } from "./matter-net";
 import { setup } from "./test-desk";
 
 // The hand-out's step of the tick, over a fake runtime and a made-up book of matters.
 
 const was = settings().desk;
+/** The decisions his inbox hides (a card on a matter that closed): every other open one is shown. */
+let hidden = new Set<string>();
+let inbox: ReturnType<typeof spyOn>;
 beforeEach(() => {
   setSettings({
     desk: {
@@ -50,26 +61,46 @@ beforeEach(() => {
       runtimes: {},
     },
   });
+  hidden = new Set();
+  // His inbox, made up: the open decisions it shows, as the desk asked them.
+  inbox = spyOn(checks, "checksNow").mockImplementation(async () =>
+    decisionsNow()
+      .filter((d) => d.state === "open" && !hidden.has(d.id))
+      .map(
+        (d) =>
+          ({
+            about: [],
+            asker: d.asker,
+            deadline: d.deadline,
+            group: "decision",
+            kind: "decision",
+            matter: null,
+            pushId: "",
+            ref: d.id,
+          }) as never
+      )
+  );
 });
 afterEach(() => {
+  inbox.mockRestore();
   setSettings({ desk: was ?? null });
   setSystemTime();
+  rmSync(DECISIONS, { force: true });
 });
 
-const MATTERS = [
-  { id: "mat_a", projects: [], steps: ["obs_a1"] },
-  { id: "mat_b", projects: [], steps: ["obs_b1"] },
-];
+const AT = "2026-11-18T09:00:00.000Z";
+const matterOf = (id: string, at = AT) => ({
+  id,
+  projects: [],
+  steps: [{ at, ref: `obs_${id.slice(4)}1` }],
+});
+let MATTERS = [matterOf("mat_a"), matterOf("mat_b")];
 const book = () => {
   const reads = { n: 0 };
   return {
     read: () => {
       reads.n += 1;
-      return Promise.resolve({
-        dismissed: [],
-        matters: MATTERS,
-        offered: new Set<string>(),
-      });
+      return Promise.resolve({ dismissed: [], matters: MATTERS });
     },
     reads,
   };
@@ -169,20 +200,8 @@ test("the daily count follows his day: a hand-out before his day began is not co
   expect(reads.n).toBe(1);
 });
 
-test("a look under the cards cap reads no matter book", async () => {
-  const desk = deskOf();
-  const { read, reads } = book();
-  const open = () =>
-    decisionsNow().filter((d) => d.state === "open" && d.agent).length;
-  setSettings({
-    desk: {
-      defaultRuntime: "claude",
-      handOut: { aDay: 5, cardsWaiting: open() + 1 },
-      runtimes: {},
-    },
-  });
-  const id = await handOutNext(desk, read);
-  askDecision(desk, id ?? "", {
+const ask = (desk: ReturnType<typeof deskOf>, id: string) =>
+  askDecision(desk, id, {
     deadline: iso(clock().getTime() + DAY),
     options: [
       { id: "yes", label: "Yes" },
@@ -191,10 +210,65 @@ test("a look under the cards cap reads no matter book", async () => {
     question: "Test: send this?",
     title: "a test",
   });
+const paced = (cardsWaiting: number) =>
+  setSettings({
+    desk: {
+      defaultRuntime: "claude",
+      handOut: { aDay: 5, cardsWaiting },
+      runtimes: {},
+    },
+  });
+
+test("a look under the cards cap reads no matter book", async () => {
+  const desk = deskOf();
+  const { read, reads } = book();
+  paced(1);
+  const id = await handOutNext(desk, read);
+  await ask(desk, id ?? "");
   setSystemTime(new Date(clock().getTime() + 11 * MIN));
   expect(await handOutNext(desk, read)).toBeUndefined();
   expect(reads.n).toBe(1);
-  await withdrawOpenDecision(id ?? "", "test over");
+});
+
+// Finding 1 of the action pipeline review (20 Nov 2026): a card his inbox hides (its matter closed) still counted
+// against the pace, so two of them stopped every hand-out with nothing he could see.
+test("cards his inbox hides do not count against the pace: only the ones he is shown do", async () => {
+  const desk = deskOf();
+  paced(2);
+  MATTERS = ["mat_a", "mat_b", "mat_c", "mat_d"].map((id) => matterOf(id));
+  try {
+    const a = (await handOutNext(desk, book().read)) ?? "";
+    setSystemTime(new Date(clock().getTime() + 11 * MIN));
+    const b = (await handOutNext(desk, book().read)) ?? "";
+    hidden = new Set([(await ask(desk, a)).id, (await ask(desk, b)).id]);
+    setSystemTime(new Date(clock().getTime() + 11 * MIN));
+    const c = (await handOutNext(desk, book().read)) ?? "";
+    expect(c).toBeTruthy();
+    await ask(desk, c);
+    hidden = new Set([...hidden].slice(1));
+    setSystemTime(new Date(clock().getTime() + 11 * MIN));
+    expect(await handOutNext(desk, book().read)).toBeUndefined();
+  } finally {
+    MATTERS = [matterOf("mat_a"), matterOf("mat_b")];
+  }
+});
+
+// Finding 3 of the action pipeline review (20 Nov 2026): a hand-out that ended held its matter 7 days, then the same
+// matter, unchanged, was handed out again and he was asked the same thing twice.
+test("a matter whose hand-out ended is not handed out again a week later without a new step, and is after one", async () => {
+  const desk = deskOf();
+  const first = (await handOutNext(desk, book().read)) ?? "";
+  await finish(desk, first, "nothing left for me");
+  MATTERS = [matterOf("mat_a")];
+  try {
+    setSystemTime(new Date(clock().getTime() + 8 * DAY));
+    expect(await handOutNext(desk, book().read)).toBeUndefined();
+    MATTERS = [matterOf("mat_a", clock().toISOString())];
+    setSystemTime(new Date(clock().getTime() + 11 * MIN));
+    expect(await handOutNext(desk, book().read)).toBeTruthy();
+  } finally {
+    MATTERS = [matterOf("mat_a"), matterOf("mat_b")];
+  }
 });
 
 test("a handed-out agent's packet carries the one-card first turn, a plain agent's the plan", async () => {
@@ -213,21 +287,15 @@ test("a handed-out agent's packet carries the one-card first turn, a plain agent
   expect(agentOf(desk.db, handed ?? "")?.is_handed_out).toBe(1);
 });
 
-// Regression, 20 Nov 2026: he answered "Done" on a handed-out agent's card about what only he could do; nothing closed
-// in Life, so the matter stayed at the top of his ranking and the hand-out would start an agent on it again. A made-up
-// matter on the real matter book (its line, his step, his next step); only the observations' read is faked.
-test("Done on an `ends` card closes the matter: off the matters to do, skipped by the hand-out, its agent ended", async () => {
-  const desk = deskOf();
-  const day = dayNow();
-  const step = "obs_00000000f001";
-  const matterId = "matter_00000000f001";
-  const observation = {
+/** His own to-do `id`, said today: a made-up observation. */
+const toDo = (id: string, quote: string): Observation =>
+  ({
     area: null,
     at: clock().toISOString(),
     confidence: 0.9,
-    date: day,
-    id: step,
-    importance: 3,
+    date: dayNow(),
+    id,
+    importance: TOP_AT,
     madeBy: {
       engine: "claude",
       model: "test",
@@ -235,19 +303,29 @@ test("Done on an `ends` card closes the matter: off the matters to do, skipped b
       run: "test",
       unitHash: "h",
     },
-    quote: "I'll pay the plumber",
+    quote,
     schemaVersion: 1,
-    source: { channel: "whatsapp", ref: "m1" },
+    source: { channel: "whatsapp", ref: `m-${id}` },
     speaker: OWNER,
     subjects: [],
-    text: "He pays the plumber.",
+    text: quote,
     type: "to_do",
     tz: "UTC",
-    unit: "unit_00000000f001",
+    unit: `unit_${id.slice(4)}`,
     validFrom: null,
     validTo: null,
     when: null,
-  } as Observation;
+  }) as Observation;
+
+/**
+ * Runs `f` over the real matter book made of `observations` and, when given, one matter line holding `steps` (its id
+ * `matterId`); only the observations' and the live units' reads are faked. Cleans every file it wrote.
+ */
+async function withBook(
+  observations: Observation[],
+  line: { id: string; steps: string[] } | null,
+  f: () => Promise<void>
+) {
   mkdirSync(dirname(MATTERS_FILE), { recursive: true });
   writeFileSync(
     MATTERS_FILE,
@@ -259,89 +337,158 @@ test("Done on an `ends` card closes the matter: off the matters to do, skipped b
         prompt: MATTERS_PROMPT,
         run: "t",
       },
-      matters: [
-        {
-          areas: [],
-          id: matterId,
-          name: "Pay the plumber",
-          projects: [],
-          steps: [{ day, quote: "pay the plumber", ref: step }],
-        },
-      ],
-      offered: [step],
+      matters: line
+        ? [
+            {
+              areas: [],
+              id: line.id,
+              name: "Pay the plumber",
+              projects: [],
+              steps: line.steps.map((ref) => ({
+                day: dayNow(),
+                quote: "pay the plumber",
+                ref,
+              })),
+            },
+          ]
+        : [],
+      offered: observations.map((o) => o.id),
       schemaVersion: 1,
     })}\n`
   );
-  const observations = spyOn(memoryFiles, "readObservations").mockResolvedValue(
-    [observation]
+  const read = spyOn(memoryFiles, "readObservations").mockResolvedValue(
+    observations
   );
   const live = spyOn(memoryFiles, "readLiveUnits").mockResolvedValue(
-    new Set([observation.unit])
-  );
-  const inbox = spyOn(checks, "checksNow").mockImplementation(async () =>
-    decisionsNow()
-      .filter((d) => d.state === "open")
-      .map(
-        (d) =>
-          ({
-            about: [],
-            deadline: d.deadline,
-            group: "decision",
-            matter: null,
-            pushId: "",
-            ref: d.id,
-          }) as never
-      )
+    new Set(observations.map((o) => o.unit))
   );
   try {
-    await recordCorrection({
-      kind: "matter-direction",
-      nextStep: { kind: "do", text: "Pay the plumber" },
-      steps: [step],
-    });
-    const read = async () => ({
-      dismissed: [],
-      matters: await mattersToDo(),
-      offered: new Set<string>(),
-    });
-    expect((await read()).matters.map((m) => m.id)).toEqual([matterId]);
-    const agent = (await handOutNext(desk, read)) ?? "";
-    const { id } = await askDecision(desk, agent, {
-      deadline: iso(clock().getTime() + DAY),
-      onSilence: null,
-      options: [
-        { ends: "matter", id: "done", label: "Done" },
-        { id: "tell", label: "Tell the agent…" },
-      ],
-      question: "Did you pay the plumber?",
-      subject: matterId,
-      title: "Pay the plumber",
-    });
-    await answerWithResult(
-      id,
-      { options: ["done"] },
-      { report: () => undefined }
-    );
-    expect(readCorrections()).toMatchObject([
-      { kind: "matter-direction" },
-      { kind: "outdated", observations: [step] },
-    ]);
-    const after = await read();
-    expect(after.matters).toEqual([]);
-    expect(handOutOf({ ...after, held: new Set() })).toBeUndefined();
-    await endAgentsOnDoneMatters(desk, readPeopleOnce());
-    expect(agentOf(desk.db, agent)).toMatchObject({
-      outcome: "its matter is done",
-      status: "ended",
-    });
+    await f();
   } finally {
-    observations.mockRestore();
+    read.mockRestore();
     live.mockRestore();
-    inbox.mockRestore();
     rmSync(MATTERS_FILE, { force: true });
     rmSync(CORRECTIONS, { force: true });
-    rmSync(DECISIONS, { force: true });
   }
+}
+
+const readToDo = async () => ({
+  dismissed: [],
+  matters: await mattersToDo(),
+});
+
+// Regression, 20 Nov 2026: he answered "Done" on a handed-out agent's card about what only he could do; nothing closed
+// in Life, so the matter stayed at the top of his ranking and the hand-out would start an agent on it again. And
+// (finding 9 of the action pipeline review) the answer then woke the agent for a turn its end stopped at once.
+test("Done on an `ends` card closes the matter: off the matters to do, skipped by the hand-out, its agent ended and never woken", async () => {
+  const desk = deskOf();
+  const step = "obs_00000000f001";
+  const matterId = "matter_00000000f001";
+  await withBook(
+    [toDo(step, "I'll pay the plumber")],
+    { id: matterId, steps: [step] },
+    async () => {
+      await recordCorrection({
+        goal: "The plumber is paid",
+        kind: "matter-direction",
+        nextStep: { kind: "do", text: "Pay the plumber" },
+        steps: [step],
+      });
+      expect((await readToDo()).matters.map((m) => m.id)).toEqual([matterId]);
+      const agent = (await handOutNext(desk, readToDo)) ?? "";
+      await wakeDue(desk);
+      // The desk reads his answers from here on.
+      await pollAnswers(desk);
+      const { id } = await askDecision(desk, agent, {
+        deadline: iso(clock().getTime() + DAY),
+        onSilence: null,
+        options: [
+          { ends: "matter", id: "done", label: "Done" },
+          { id: "tell", label: "Tell the agent…" },
+        ],
+        question: "Did you pay the plumber?",
+        subject: matterId,
+        title: "Pay the plumber",
+      });
+      await answerWithResult(
+        id,
+        { options: ["done"] },
+        { report: () => undefined }
+      );
+      expect(readCorrections()).toMatchObject([
+        { kind: "matter-direction" },
+        { kind: "outdated", observations: [step] },
+      ]);
+      const after = await readToDo();
+      expect(after.matters).toEqual([]);
+      setSystemTime(new Date(clock().getTime() + 1000));
+      await pollAnswers(desk);
+      expect(agentOf(desk.db, agent)).toMatchObject({
+        outcome: MATTER_DONE_OUTCOME,
+        status: "ended",
+      });
+      expect(
+        desk.db.query("select * from event where agent_id = ?").all(agent)
+      ).toEqual([]);
+      const turns = () =>
+        desk.db.query("select id from turn where agent_id = ?").all(agent);
+      const before = turns().length;
+      await wakeDue(desk);
+      expect(turns()).toHaveLength(before);
+    }
+  );
+});
+
+// Finding 8 of the action pipeline review (20 Nov 2026): steps change only at night, so the hand-out could start on a
+// next step that today's news had already overtaken. A step the direction was not drafted on makes it due again.
+test("a matter whose direction is due (a step its next step was not drafted on) is not a matter to do", async () => {
+  const [first, second] = ["obs_00000000f011", "obs_00000000f012"];
+  await withBook(
+    [toDo(first, "I'll pay the plumber"), toDo(second, "pay him by Friday")],
+    { id: "matter_00000000f011", steps: [first, second] },
+    async () => {
+      await recordCorrection({
+        goal: "The plumber is paid",
+        kind: "matter-direction",
+        nextStep: { kind: "do", text: "Pay the plumber" },
+        steps: [first],
+      });
+      expect((await readToDo()).matters).toEqual([]);
+    }
+  );
+});
+
+// Finding 5 of the action pipeline review (20 Nov 2026): a lone matter leaves the book once it closes, so its agent was
+// never found on a matter, never ended, and its card came back.
+test("an agent on a lone matter that closed is ended; one on a step no matter holds that is still open is not", async () => {
+  const desk = deskOf();
+  const [lone, open] = ["obs_00000000f021", "obs_00000000f022"];
+  await withBook(
+    [toDo(lone, "I'll call the bank"), toDo(open, "I'll call the school")],
+    null,
+    async () => {
+      const on = (step: string) =>
+        register(desk, {
+          brief: "Test brief",
+          kind: "handed_out",
+          runtime: "claude",
+          steps: [step],
+        });
+      const ended = on(lone);
+      const stays = on(open);
+      await recordCorrection({
+        kind: "outdated",
+        note: "test: done",
+        observations: [lone],
+      });
+      await endAgentsOnOverMatters(desk, readPeopleOnce());
+      expect(agentOf(desk.db, ended)).toMatchObject({
+        outcome: MATTER_DONE_OUTCOME,
+        status: "ended",
+      });
+      expect(agentOf(desk.db, stays)?.status).toBe("active");
+    }
+  );
 });
 
 // The give-back: a handed-out agent that asked no card in time is ended.
