@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { log } from "../core/log";
+import { errorOf, fromModel } from "../core/log-line";
 import { Engine } from "../core/names";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { CODEX, cliEnv, isOwnLife, MACHINE_DIR } from "../core/platform";
@@ -593,10 +594,11 @@ export async function askOnce(opts: {
     log("model.run", { ...made, ...fields, ms: ms(), ok: true });
     return json;
   } catch (e) {
+    // What failed here is the model's or its provider's: its words can echo the call, so every log keeps its type only.
     log("model.run", {
       ...made,
       ...fields,
-      error: (e as Error).message,
+      ...errorOf(fromModel(e)),
       ms: ms(),
       ok: false,
     });

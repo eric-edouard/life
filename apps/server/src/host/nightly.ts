@@ -5,6 +5,7 @@ import { clock, DAY, daysBefore, iso } from "../core/clock";
 import { filesIn } from "../core/files";
 import { holder, isOtherLife } from "../core/lock";
 import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { isOn } from "../core/outputs";
 import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
@@ -146,7 +147,7 @@ export async function readDoneFor(
       relation: how,
     }));
   } catch (e) {
-    rec.error((e as Error).message, { step: "memory.nightly.done" });
+    rec.error(e, { step: "memory.nightly.done" });
     return [];
   }
 }
@@ -159,7 +160,7 @@ export async function readChecksFor(rec: Pick<RunRecorder, "error">) {
   try {
     return (await openChecksNow()).filter((c) => !isEndingKind(c));
   } catch (e) {
-    rec.error((e as Error).message, { step: "memory.nightly.checks" });
+    rec.error(e, { step: "memory.nightly.checks" });
     return [];
   }
 }
@@ -172,7 +173,7 @@ async function readAgentsFor(rec: Pick<RunRecorder, "error">, since: string) {
       lastNeedsYouOf(await recentEvents(ARCHIVE_LOOKBACK))
     );
   } catch (e) {
-    rec.error((e as Error).message, { step: "memory.nightly.agents" });
+    rec.error(e, { step: "memory.nightly.agents" });
     return { needsYou: undefined, rows: [] };
   }
 }
@@ -180,7 +181,7 @@ async function readAgentsFor(rec: Pick<RunRecorder, "error">, since: string) {
 /** Yesterday's Code rows. Never fails the night: a failure is logged and there are no rows. */
 function coded(day: string, rec: Pick<RunRecorder, "error">) {
   return codeOn(daysBefore(day, 1)).catch((e: Error) => {
-    rec.error(e.message, { step: "memory.nightly.code" });
+    rec.error(e, { step: "memory.nightly.code" });
     return [];
   });
 }
@@ -345,10 +346,7 @@ export async function readSpokenConversations(now: Date, chats: SourceEvent[]) {
     found = await readConversationSummaryWork(now, people);
     await conversationSummaries(found);
   } catch (e) {
-    log("run.error", {
-      error: (e as Error).message,
-      step: "memory.conversation-summaries",
-    });
+    log("run.error", { ...errorOf(e), step: "memory.conversation-summaries" });
   }
   if (found && settings().voiceNaming) {
     // Reading the work (lifelog's voices) is inside the catch: a Lifelog Host without the route costs this step only.

@@ -81,8 +81,8 @@ import { text } from "./http";
 import { personPicturesTool } from "./mcp-people";
 import {
   agentIn,
+  argNamesOf,
   callerOf,
-  cut,
   READERS,
   REVERSIBLE,
   type ToolCall,
@@ -673,7 +673,7 @@ export function buildServer(readsOnly = false) {
       const result = await pollEvents(params, agentIn(ctx.http?.authInfo));
       log("mcp.call", {
         ...callerOf(ctx.http?.authInfo),
-        args: cut(params),
+        args: argNamesOf(params),
         ids: result.events.map((e) => e.eventId),
         ms: Math.round(performance.now() - started),
         tool: "events/poll",

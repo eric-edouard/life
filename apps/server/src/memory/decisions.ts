@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
+import { log } from "../core/log";
 import { payments } from "../payments/backend";
 import { isoDateTime } from "../records/fields";
 import {
@@ -426,6 +427,9 @@ export function withdrawDraftsAnsweredInChat(
       : [];
   });
   appendJsonl(DECISIONS, Withdrawn, lines);
+  for (const l of lines) {
+    log("decision.withdrawn", { by: "life", id: l.id });
+  }
   return lines.map((l) => l.id);
 }
 
@@ -466,6 +470,7 @@ function withdrawDecision(asker: string, request: object, now: Date) {
       why: w.data.why,
     },
   ]);
+  log("decision.withdrawn", { by: "asker", id: d.id });
   return { id: d.id };
 }
 
@@ -548,6 +553,14 @@ export async function requestDecision(
       schemaVersion: VERSION,
     },
   ]);
+  const options = ask.options.length;
+  log("decision.asked", {
+    agent: ask.agent,
+    asker,
+    draft: !!draft,
+    id,
+    options,
+  });
   return { id };
 }
 
@@ -729,6 +742,7 @@ export async function answerDecision(
   if (!(stored && isDeepStrictEqual(stored.answer, line))) {
     throw new Error(`Not done: ${id} was answered already.`);
   }
+  log("decision.answered", { id, note: !!note, options: options.length, via });
   onStep?.("recorded");
   const act = actDueOf(stored);
   if (act === "end" && end) {

@@ -287,7 +287,7 @@ async function handOff(a: Agent, ref: string) {
   if (r.code !== 0) {
     log("desk.runtime", {
       agent: a.id,
-      error: r.stdout.slice(-300),
+      code: r.code,
       ok: false,
       what: "link",
     });

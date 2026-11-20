@@ -8,6 +8,7 @@ import {
   type PromptResponse,
 } from "@agentclientprotocol/sdk";
 import { log } from "../../core/log";
+import { errorOf, fromModel } from "../../core/log-line";
 import { cliEnv } from "../../core/platform";
 import type { Run, RunEnd, Runtime, Usage } from "./contract";
 import type { Row } from "./runtime-rows";
@@ -70,11 +71,8 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
     const child = spawn(command[0] ?? "", command.slice(1), {
       cwd: a.folder,
       env: { ...cliEnv(), ...env },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    let stderr = "";
-    child.stderr.on("data", (d) => {
-      stderr = `${stderr}${d}`.slice(-300);
+      // Its stderr goes to the desk's own process log (~/Library/Logs), never the event log: it quotes the agent.
+      stdio: ["pipe", "pipe", "inherit"],
     });
     // A pipe closed under a write is the run's end, never a crash.
     child.stdin.on("error", () => undefined);
@@ -168,7 +166,7 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
             }
             log("desk.runtime", {
               agent: a.id,
-              error: whyOf(error).slice(-300),
+              ...errorOf(fromModel(error)),
               ok: false,
               what: "mode",
             });
@@ -259,6 +257,8 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
     }
     const ended = (async (): Promise<RunEnd> => {
       let end: RunEnd;
+      // A stop the agent gave is a code word, logged as is; a thrown error is the runtime's, logged by its type only.
+      let logged: Record<string, unknown> = {};
       try {
         const reply = await prompt;
         // What the adapter sent before its reply may still be on its way to the handlers.
@@ -276,8 +276,10 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
         end = OK_STOPS.includes(reply.stopReason)
           ? { ok: true, usage }
           : { ok: false, why: reply.stopReason };
+        logged = { error: reply.stopReason };
       } catch (error) {
         end = { ok: false, why: whyOf(error) };
+        logged = errorOf(fromModel(error));
       }
       beginFail(new Error(end.why ?? "it ended before the turn began"));
       await close();
@@ -285,7 +287,7 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
       if (!end.ok) {
         log("desk.runtime", {
           agent: a.id,
-          error: `${end.why}: ${stderr}`.slice(-300),
+          ...logged,
           ok: false,
           what: "turn",
         });

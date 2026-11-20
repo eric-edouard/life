@@ -3,6 +3,7 @@ import { MIN } from "../core/clock";
 import { digest } from "../core/hash";
 import { count } from "../core/lists";
 import { log, logFileOf, recentEvents } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
@@ -406,13 +407,13 @@ export async function sendReport(id: string | string[], mail: Mail) {
     const to = mailedTo();
     const sentAs = await (to ? byMail(keys, mail, to) : onMac(keys, mail));
     for (const k of keys) {
-      log("email.sent", { id: sentAs, key: k, subject: mail.subject });
+      log("email.sent", { id: sentAs, key: k });
       sent?.add(k);
     }
     return sentAs;
   } catch (e) {
     log("run.error", {
-      error: (e as Error).message,
+      ...errorOf(e),
       step: `${EMAIL_STEP}${keys[0]?.split("/")[0]}`,
     });
     return null;

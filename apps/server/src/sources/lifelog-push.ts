@@ -15,12 +15,16 @@ export interface Push {
   title?: string;
 }
 
-/** A push to his phone through lifelog, logged like a correction; nothing without lifelog set up. Never throws: a failure is its log line. */
+/** A push to his phone through lifelog, logged like a correction; nothing without lifelog set up. Never throws: a failure is its log line. Whether lifelog took it. */
 export async function notifyPhone(push: Push) {
   if (lifelogMissing()) {
-    return;
+    return false;
   }
-  await writeLifelog("POST", "/notifications", push).catch((e) =>
-    log("lifelog.write", { error: String(e), phase: "failed" })
+  return await writeLifelog("POST", "/notifications", push).then(
+    () => true,
+    (e) => {
+      log("lifelog.write", { error: String(e), phase: "failed" });
+      return false;
+    }
   );
 }
