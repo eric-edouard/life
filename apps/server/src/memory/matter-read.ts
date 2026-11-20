@@ -589,6 +589,20 @@ export function laterShownOf<T extends LaterObservation>(
     .slice(-LATER_SHOWN);
 }
 
+/** Each pin of his or Life's, oldest first, with the matter of `book` its steps find (`matterFinderOf`, so a re-group keeps it); a pin no matter holds is left out. Pure. */
+function pinnedOf<
+  V extends Found,
+  P extends { at: string; steps: readonly string[] },
+>(book: readonly V[], pins: readonly P[]) {
+  const find = matterFinderOf(book);
+  return pins
+    .toSorted((a, b) => a.at.localeCompare(b.at))
+    .flatMap((p) => {
+      const v = find(p.steps);
+      return v ? [[v, p] as const] : [];
+    });
+}
+
 /**
  * Each matter's goal and next step from the pins as written (`directionsOf`): a pin belongs to the matter its steps find
  * (`matterFinderOf`), so a re-group keeps it. The goal: his latest word, else Life's latest draft. The next step: the
@@ -599,16 +613,11 @@ export function directionsOf<V extends Found>(
   book: readonly V[],
   pins: readonly DirectionPin[]
 ) {
-  const find = matterFinderOf(book);
   const out = new Map<
     V,
     Pick<MatterView, "goal" | "nextStep"> & { latest?: DirectionPin }
   >();
-  for (const p of pins.toSorted((a, b) => a.at.localeCompare(b.at))) {
-    const v = find(p.steps);
-    if (!v) {
-      continue;
-    }
+  for (const [v, p] of pinnedOf(book, pins)) {
     const was = out.get(v) ?? {};
     out.set(v, {
       goal:
@@ -697,19 +706,14 @@ export const netOf = (v: MatterView) => ({
   ],
 });
 
-/** The ids of the matters of `book` his marks hold important: each pin finds its matter by its steps (`matterFinderOf`, so a re-group keeps it), the latest for a matter wins. Pure. */
+/** The ids of the matters of `book` his marks hold important (`pinnedOf`): the latest for a matter wins. Pure. */
 export function importantIdsOf<V extends Found>(
   book: readonly V[],
   pins: readonly ImportantPin[]
 ) {
-  const find = matterFinderOf(book);
-  const marked = new Map<string, boolean>();
-  for (const p of pins.toSorted((a, b) => a.at.localeCompare(b.at))) {
-    const v = find(p.steps);
-    if (v) {
-      marked.set(v.id, p.important);
-    }
-  }
+  const marked = new Map(
+    pinnedOf(book, pins).map(([v, p]) => [v.id, p.important])
+  );
   return new Set([...marked].flatMap(([id, on]) => (on ? [id] : [])));
 }
 
