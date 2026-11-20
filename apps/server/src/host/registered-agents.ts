@@ -353,7 +353,7 @@ export const agentLinesOnProjects = (projects: string[]) =>
     readDesk((db) => agentsOnProjects(db, projects, clock().getTime()), [])
   );
 
-/** The active agent holding one of a matter's steps by an open assignment, for `read_matters`: the desk read once for every matter of the call. */
+/** The active agent holding one of a matter's steps by an open assignment, for `read_matters`: the desk read once for every matter of the call, with a `stamp` of what it read. */
 export function readActiveAgentOf() {
   const read = readDesk(
     (db) =>
@@ -362,8 +362,12 @@ export function readActiveAgentOf() {
       ),
     []
   );
-  const byStep = new Map(read.state === "ok" ? read.value : []);
-  return (steps: string[]) => steps.map((s) => byStep.get(s)).find(Boolean);
+  const value = read.state === "ok" ? read.value : null;
+  const byStep = new Map(value);
+  return Object.assign(
+    (steps: string[]) => steps.map((s) => byStep.get(s)).find(Boolean),
+    { stamp: JSON.stringify(value) }
+  );
 }
 
 /** The tokens of agents' turns as report rows: one per local day of his (`localDate` of the turn's end), then one per matter (`matterOf`: an agent's matter, else null: "no matter"), keyed by the matter's id. Pure; every row. */
