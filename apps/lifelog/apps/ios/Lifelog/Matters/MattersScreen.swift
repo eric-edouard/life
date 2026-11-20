@@ -162,7 +162,7 @@ struct MatterRowView: View {
             if row.needsYou {
                 StateDot(color: Palette.flag)
             } else if row.agent != nil {
-                ProgressView().controlSize(.small).tint(Palette.ai).accessibilityLabel("An agent is working")
+                Spinner(size: .small).foregroundStyle(Palette.ai).accessibilityLabel("An agent is working")
             }
         }
         .background(isChosen ? Palette.card : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))

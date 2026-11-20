@@ -197,12 +197,14 @@ struct AgentSheet: View {
 
     // MARK: Buttons
 
-    /// Stop while it works or waits, a state's own action first, and its session in Claude Code or Codex.
+    /// Stop while it works or waits, a state's own action first; under them, a quiet link to its session in Claude Code or
+    /// Codex, never needed (his word of 20 Nov: anything waiting on him comes back to the app).
     private func buttons(_ agent: RegisteredAgent, primary: (String, () -> Void)?) -> some View {
         let state = life.state(of: .agent(agent.id))
         return VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             if case .failed(let failure, _) = state { Text(failure.reason).font(.small).foregroundStyle(Palette.flag) }
-            HStack(spacing: Metrics.Spacing.s) {
+            // One full-width button (the sheet closes from its own Close), then the session's quiet link.
+            Group {
                 if let primary {
                     Button(primary.0, action: primary.1).buttonStyle(
                         .pill(.filled, size: .compact, isBusy: state.isRunning))
@@ -210,13 +212,12 @@ struct AgentSheet: View {
                     Button("Stop the agent") { Task { await life.stopAgent(agent.id) } }
                         .buttonStyle(.pill(.quiet, size: .compact, isBusy: state.isRunning))
                 }
-                if let link = agent.link.flatMap(URL.init(string:)) {
-                    TextLink("Open in \(agent.runtimeName.name)", isOutward: true) { openURL(link) }
-                } else if primary != nil {
-                    Button("Close") { dismiss() }.buttonStyle(.pill(.quiet, size: .compact))
-                }
             }
             .disabled(state.isRunning)
+            if let link = agent.link.flatMap(URL.init(string:)) {
+                TextLink("Open in \(agent.runtimeName.name)", isOutward: true) { openURL(link) }
+                    .padding(.top, Metrics.Spacing.xs).frame(maxWidth: .infinity)
+            }
         }
         .padding(.top, Metrics.Spacing.l)
     }
