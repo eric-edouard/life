@@ -17,6 +17,8 @@
         nonisolated static var isRequested: Bool { scenario != nil }
         nonisolated static let answer = value(of: "-fixtureAnswer") ?? "sent"
         nonisolated static let start = value(of: "-fixtureStart") ?? "started"
+        /// Life's outcome on the transfer card (`dec_pay`): looking, not_found or seen; none by default.
+        nonisolated static let doneSeen = value(of: "-fixtureDoneSeen")
         nonisolated static let card = value(of: "-fixtureCard")
         /// `-fixtureOnly <ref>`: the inbox holds that one card, for a screenshot of a card that is not the first.
         nonisolated static let tab = value(of: "-fixtureTab")
@@ -353,12 +355,13 @@
 
         // MARK: Made-up data
 
-        private static func option(_ id: String, _ label: String, outgoing: Bool = false, takes: String? = nil)
-            -> [String: Any]
-        {
+        private static func option(
+            _ id: String, _ label: String, outgoing: Bool = false, takes: String? = nil, ends: String? = nil
+        ) -> [String: Any] {
             var option: [String: Any] = ["id": id, "label": label]
             if outgoing { option["outgoing"] = true }
             if let takes { option["takes"] = takes }
+            if let ends { option["ends"] = ends }
             return option
         }
 
@@ -423,6 +426,60 @@
         ]
         nonisolated(unsafe) private static let kitchen: [String: Any] = [
             "id": "matter_kitchen", "name": "Kitchen quote, Halden house",
+        ]
+        nonisolated(unsafe) private static let dive: [String: Any] = [
+            "id": "matter_dive", "name": "Dive course, December",
+        ]
+
+        /// The asks contract's payments: a transfer Life sees done itself (its outcome by `-fixtureDoneSeen`), and a
+        /// payment online. A qr need shows its line: no file crosses yet.
+        nonisolated(unsafe) private static let payments: [[String: Any]] = [
+            check(
+                "dec_pay", group: "decision", urgency: "blocks", title: "Pay the dive course deposit",
+                question: "Pay the deposit by Monday?", asker: "Claude Code",
+                options: [option("paid", "I’ve paid"), option("drop", "Drop it")], matter: dive,
+                deadline: at(23, 17), context: "Blue Reef holds the December place until the deposit is in.",
+                extra: [
+                    "needs": [
+                        [
+                            "kind": "account", "line": "Kasikornbank 012-3-45678-9, Blue Reef Diving Co., Ltd.",
+                            "bank": "Kasikornbank", "number": "012-3-45678-9", "holder": "Blue Reef Diving Co., Ltd.",
+                        ],
+                        ["kind": "amount", "line": "4,500 THB", "value": 4500, "currency": "THB"],
+                        ["kind": "qr", "line": "PromptPay QR from Blue Reef’s message, Tue"],
+                        [
+                            "kind": "text", "line": "Reference: DEC-DIVE-07", "label": "Reference",
+                            "text": "DEC-DIVE-07",
+                            "copy": true,
+                        ],
+                    ],
+                    "doneSeenBy": "payment",
+                ].merging(LifeFixture.doneSeen.map { ["doneSeen": ["state": $0]] } ?? [:]) { $1 }),
+            check(
+                "dec_online", group: "decision", urgency: "blocks", title: "Pay the flat’s internet bill",
+                question: "Pay the internet bill online?", asker: "Claude Code",
+                options: [option("paid", "I’ve paid"), option("drop", "Drop it")], matter: lease,
+                deadline: at(24, 12), context: "The invoice came by mail on Tuesday; it is due Tuesday 24.",
+                extra: [
+                    "needs": [
+                        [
+                            "kind": "link", "line": "Pay on Fibrenet", "vendor": "Fibrenet",
+                            "url": "https://billing.fibrenet.example.test/pay/INV-20931",
+                        ],
+                        ["kind": "amount", "line": "39.90 €", "value": 39.9, "currency": "EUR"],
+                        [
+                            "kind": "text", "line": "Invoice INV-20931", "label": "Invoice", "text": "INV-20931",
+                            "copy": true,
+                        ],
+                    ],
+                    "doneSeenBy": "payment",
+                ]),
+            // His word that a step is done (`ends`): held for Undo in the Inbox and on the matter's page alike.
+            check(
+                "dec_gear", group: "decision", urgency: "blocks", title: "Book the dive gear",
+                question: "Is the dive gear booked?", asker: "Claude Code",
+                options: [option("done", "It’s done", ends: "step"), option("not-yet", "Not yet")], matter: dive,
+                deadline: at(25, 12), context: "Blue Reef rents gear only to those who book it a week ahead."),
         ]
 
         /// A guess Life asks beside a draft to a person it only guesses (`confirm`), and about a matter's person: the
@@ -512,7 +569,10 @@
                             "text": "On fait ça chez Odile ? Vendredi 27 ou samedi 28 ?",
                         ],
                         "onMatters": [table],
-                    ]),
+                    ])
+            ]
+            + payments
+            + [
                 check(
                     "name_marc", group: "name", urgency: "blocks", title: "A name with no person: “Marc”",
                     question: "Who is “Marc”?",
@@ -548,7 +608,7 @@
                             ["name": "Marcus Hale", "person": "person:marcus"],
                         ],
                         "onMatters": [table],
-                    ]),
+                    ])
             ]
             + (7...12).map { number in
                 check(

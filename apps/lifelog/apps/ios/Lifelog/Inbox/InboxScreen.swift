@@ -62,15 +62,8 @@ struct InboxScreen: View {
             .shellBar("")
             .reportsSideColumn($inSideColumn)
             .navigationBarBackButtonHidden()
-            // What he just answered (the one held last, for 4 s), over the top of the ask: out of its layout, so nothing moves.
-            .overlay(alignment: .top) {
-                ZStack {
-                    if let latest = life.latestHeld, !inSideColumn {
-                        Toast(words: latest.held.label) { undo(latest.ref) }.appears().id(latest.ref)
-                    }
-                }
-                .motion(Motion.standard, value: life.latestHeld?.ref)
-            }
+            // In the side column, the toast is the column's capsule.
+            .heldToast(shows: { _ in !inSideColumn }, undo: undo)
             .toolbar {
                 if sizeClass != .regular {
                     ToolbarItem(placement: .topBarLeading) {

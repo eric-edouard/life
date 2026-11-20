@@ -94,6 +94,32 @@ struct Toast: View {
     }
 }
 
+extension View {
+    /// What he just answered (the one held last, for 4 s), over the top: out of the layout, so nothing moves. `shows`
+    /// says whether this screen names that held answer.
+    func heldToast(shows: @escaping (String) -> Bool, undo: @escaping (String) -> Void) -> some View {
+        modifier(HeldToast(shows: shows, undo: undo))
+    }
+}
+
+private struct HeldToast: ViewModifier {
+    let shows: (String) -> Bool
+    let undo: (String) -> Void
+
+    @Environment(LifeStore.self) private var life
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .top) {
+            ZStack {
+                if let latest = life.latestHeld, shows(latest.ref) {
+                    Toast(words: latest.held.label) { undo(latest.ref) }.appears().id(latest.ref)
+                }
+            }
+            .motion(Motion.standard, value: life.latestHeld?.ref)
+        }
+    }
+}
+
 /// The Toast in the side column of the closed Duo, where there is no top bar: a capsule two tap targets high, no words:
 /// the check in `ok`, then Undo as its glyph. It is always in the column while the bars are there, and fades with
 /// `answered` (nil: nothing held), so the column never changes shape. VoiceOver reads the answer on the capsule and

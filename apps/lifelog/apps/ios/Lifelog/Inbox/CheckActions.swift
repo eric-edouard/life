@@ -53,9 +53,21 @@ struct CheckActions: View {
             } else {
                 line
                 refusal
-                options
+                DoneSeenLine(doneSeen: check.doneSeen)
+                // While Life looks, its answer stands busy in the filled answer's place: nothing to tap.
+                if check.doneSeen?.state == .looking {
+                    Button {
+                    } label: {
+                        Text(check.doneSeen?.line ?? "Checking…")
+                    }
+                    .buttonStyle(.pill(.filled, isBusy: true)).disabled(true)
+                } else if check.doneSeen?.state != .seen {
+                    // Seen: Life ends the card; a stale read of it offers nothing to tap.
+                    options
+                }
             }
         }
+        .motion(Motion.standard, value: check.doneSeen?.state)
     }
 
     /// His last answer to this ask that did not go, in one `flag` line above the same answers; a send that someone wrote
@@ -174,7 +186,9 @@ struct CheckActions: View {
         if let request = check.answer(option) { return answer(request) }
         switch option.takes {
         case .person?, .personOrName?: sameAs()
-        case .note?, .unknown?, nil: break
+        // A note, or what this build doesn't know yet: his own words go back, never a dead button.
+        case .note?, .unknown?: if check.takesOwnWords { input.isWritingOwnWords = true }
+        case nil: break
         }
     }
 }
