@@ -18,7 +18,7 @@ import { resolveDraft, sendDraft, sendLimitMs } from "./draft-send";
 import { matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { MEMORY } from "./memory-files";
-import { amountOf } from "./needs";
+import { amountOf, needsShownOf } from "./needs";
 import { readPeople } from "./who";
 import { dayNow } from "./zones";
 
@@ -247,7 +247,9 @@ const stateOf = (d: Omit<Decision, "state">, now: Date): DecisionState => {
 type Act = "end" | "look" | "send";
 
 /** How Life sees `d`'s step done now: `payment` while payments are on (amendment 1: a card with no channel to look in is `tap`), else `tap`. */
-export const doneSeenByOf = (d: Pick<Decision, "doneSeenBy" | "needs">) =>
+export const doneSeenByOf = (
+  d: Pick<Decision, "doneSeenBy" | "needs">
+): "payment" | "tap" =>
   d.doneSeenBy === "payment" && payments() && amountOf(d.needs)
     ? "payment"
     : "tap";
@@ -563,18 +565,27 @@ async function lookOnAnswer(
 }
 
 /** Life's outcome as his card and app show it: its state and Life's words for it; null when Life looked for nothing. */
-export const doneSeenShownOf = (l?: DoneSeen) =>
-  l
-    ? {
-        line:
-          l.state === "seen"
-            ? "Paid: Life saw it in your accounts"
-            : l.error
-              ? `Life could not look in your accounts: ${l.error}`
-              : "Not in your accounts yet",
-        state: l.state,
-      }
-    : null;
+export function doneSeenShownOf(l?: DoneSeen) {
+  if (!l) {
+    return null;
+  }
+  const notFound = l.error
+    ? `Life could not look in your accounts: ${l.error}`
+    : "Not in your accounts yet";
+  return {
+    line: l.state === "seen" ? "Paid: Life saw it in your accounts" : notFound,
+    state: l.state,
+  };
+}
+
+/** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its options with what each takes, its last send that did not go. */
+export const decisionCardOf = (d: Decision) => ({
+  doneSeen: doneSeenShownOf(d.doneSeen),
+  doneSeenBy: doneSeenByOf(d),
+  needs: needsShownOf(d.needs),
+  notSent: notSentOf(d),
+  options: d.options.map((o) => ({ ...o, takes: o.takes ?? null })),
+});
 
 /** Closes the step or matter of the answered decision `d` by his word (`end`) and appends its `ended` line, with the error when it failed. */
 async function endOnAnswer(
