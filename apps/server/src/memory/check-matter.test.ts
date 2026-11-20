@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { checksOf } from "./checks";
 import { inputs, line, stepsOf } from "./checks-test-inputs";
+import type { CheckMatter } from "./life-checks";
 
 const matterOf = (o: { id: string }, id: string, important?: true) => ({
   id,
@@ -32,7 +33,7 @@ test("a card's matter carries his important mark, in `matter` and `onMatters`; a
   });
   const byRef = new Map(checksOf(base).map((c) => [c.ref, c]));
   const card = byRef.get(marked.id);
-  const shown = {
+  const shown: CheckMatter = {
     id: "matter_aaaaaaaaaaaa",
     important: true,
     name: "Matter a",
