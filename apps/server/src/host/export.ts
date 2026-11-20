@@ -60,7 +60,12 @@ const KEPT_OUT = [
   PERSON_PICTURES,
   PERSON_PICTURES_INDEX,
   ...Object.values(SECRETS),
-].map((p) => pathIn(LIFE_STATE_DIR, p));
+];
+/** Whether `path` is `dir` or inside it. */
+const isWithin = (dir: string, path: string) => {
+  const r = relative(dir, path);
+  return !(r.startsWith("..") || isAbsolute(r));
+};
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
 
 /** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
@@ -180,25 +185,25 @@ export async function stage(
   }
   mkdirSync(join(dir, "archive"), { recursive: true });
   const cloned = await locked(() => {
-    cpSync(OWNER_DATA_DIR, join(dir, "data"), { recursive: true });
+    cpSync(OWNER_DATA_DIR, join(dir, "data"), {
+      // Life's state inside his data (a test run's is): it goes to state/, through its filter, never with the data.
+      filter: (from) => !isWithin(LIFE_STATE_DIR, from),
+      recursive: true,
+    });
     return Promise.resolve(true);
   });
   if (cloned === null) {
     throw new Error("a run holds memory's lock: try again when it is done");
   }
   rmSync(join(dir, "data", basename(LOCK)), { force: true });
-  // Life's state inside his data (a test run's is): it goes to state/, through its filter, never with the data.
-  const inData = relative(OWNER_DATA_DIR, LIFE_STATE_DIR);
-  if (!(inData.startsWith("..") || isAbsolute(inData))) {
-    rmSync(join(dir, "data", inData), { force: true, recursive: true });
-  }
-  cpSync(LIFE_STATE_DIR, join(dir, "state"), { recursive: true });
+  // What is kept out is never copied: a file the watcher replaces meanwhile (a person picture) never stops the copy.
+  cpSync(LIFE_STATE_DIR, join(dir, "state"), {
+    filter: (from) => !KEPT_OUT.some((k) => isWithin(k, from)),
+    recursive: true,
+  });
   for (const p of filesUnder(join(dir, "state"))) {
     const staged = join(dir, "state", p);
-    if (
-      KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`)) ||
-      KEPT_OUT_END.some((e) => p.endsWith(e))
-    ) {
+    if (KEPT_OUT_END.some((e) => p.endsWith(e))) {
       rmSync(staged, { force: true });
     } else if (p.endsWith(".sqlite")) {
       // A store kept in Life's state (the photo descriptions) is written meanwhile, in WAL: copied whole by SQLite

@@ -23,7 +23,8 @@ test("Contacts first, then each source in order, the same picture once, one no h
       },
     ],
     {
-      cardRef: (card) => (card === "card-anna" ? "person:anna" : undefined),
+      canon: (ref) => (ref === "person:con_anna" ? "person:anna" : ref),
+      contacts: [{ card: "card-anna", id: "con_anna" }],
       resolve: (h) =>
         h === "+15550001" || h === "anna.ig" ? "person:anna" : null,
     }

@@ -12,10 +12,9 @@ import { clock, iso } from "../core/clock";
 import { writeJson } from "../core/files";
 import { log } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
-import { readContactPictures, readContactRecords } from "../sources/contacts";
+import { readContactPictures } from "../sources/contacts";
 import type { Picture } from "../sources/contract";
-import { whoseCardOf } from "./details";
-import { readySources } from "./sources";
+import { enabledSources } from "./sources";
 import { readPeople } from "./who";
 
 // The person pictures (docs/glossary.md): every picture a person shows, from his Contacts (his own choice) first, then
@@ -49,17 +48,21 @@ export const pictureFileOf = (bytes: Uint8Array) =>
 
 /**
  * Each person's pictures, Contacts' first then each source's in the order given, the same picture once per person, and
- * the files they name. A card is placed by `cardRef`, a picture by the first of its handles `resolve` places (`who.ts`, the one way a sender becomes a
- * person); one neither places is dropped.
+ * the files they name. A card goes where Life's folds place its contact person (`canon`: an ambiguous card stays its
+ * own), a source's picture to the first of its handles `resolve` places (`who.ts`); one neither places is dropped.
  */
 export function personPicturesOf(
   cards: { bytes: Uint8Array; card: string }[],
   sources: { pictures: Picture[]; source: string }[],
   people: {
-    cardRef: (card: string) => string | undefined;
+    canon: (ref: string) => string;
+    contacts: { card: string; id: string }[];
     resolve: (handle: string) => string | null;
   }
 ) {
+  const cardOwners = new Map(
+    people.contacts.map((c) => [c.card, people.canon(`person:${c.id}`)])
+  );
   const index: Record<string, { file: string; source: string }[]> = {};
   const files = new Map<string, Uint8Array>();
   const add = (
@@ -79,7 +82,7 @@ export function personPicturesOf(
     }
   };
   for (const c of cards) {
-    add(people.cardRef(c.card), CONTACTS, c.bytes);
+    add(cardOwners.get(c.card), CONTACTS, c.bytes);
   }
   for (const s of sources) {
     for (const p of s.pictures) {
@@ -89,9 +92,17 @@ export function personPicturesOf(
   return { files, index };
 }
 
+/** Writes `bytes` to `path` whole: a stop midway leaves a `.tmp`, never a broken picture under its digest. */
+function writeWhole(path: string, write: (to: string) => void) {
+  write(`${path}.tmp`);
+  renameSync(`${path}.tmp`, path);
+}
+
 /**
  * Finds every person's pictures and keeps them: new files written, the index (`{ built, people }`) replaced whole, then
- * the files no one shows any more removed. When a source can't be read, nothing changes: the last pictures stand.
+ * the files no one shows any more removed. A card is placed as Life places it (`readPeople`'s folds: an ambiguous card
+ * stays its own). When a source he turned on can't be read (or can't be now: `missing`), nothing changes: the last
+ * pictures stand. ponytail: one source failing for good freezes them all; per-source keeping if that ever happens.
  */
 export async function writePersonPictures() {
   const failed: string[] = [];
@@ -105,14 +116,19 @@ export async function writePersonPictures() {
     }
   };
   const people = await readPeople();
-  const whose = whoseCardOf(people.resolve);
-  const cards = new Map(readContactRecords().map((c) => [c.id, whose(c)]));
   const found = personPicturesOf(
     read(CONTACTS, () => readContactPictures()),
-    readySources().flatMap((s) =>
-      s.pictures ? [{ pictures: read(s.name, s.pictures), source: s.name }] : []
-    ),
-    { cardRef: (card) => cards.get(card), resolve: people.resolve }
+    enabledSources().flatMap((s) => {
+      if (!s.pictures) {
+        return [];
+      }
+      if (s.missing?.()) {
+        failed.push(s.name);
+        return [];
+      }
+      return [{ pictures: read(s.name, s.pictures), source: s.name }];
+    }),
+    people
   );
   if (failed.length > 0) {
     return 0;
@@ -121,12 +137,12 @@ export async function writePersonPictures() {
   for (const [file, bytes] of found.files) {
     const path = join(PERSON_PICTURES, file);
     if (!existsSync(path)) {
-      writeFileSync(path, bytes);
+      writeWhole(path, (to) => writeFileSync(to, bytes));
     }
   }
-  const next = `${PERSON_PICTURES_INDEX}.tmp`;
-  writeJson(next, { built: iso(clock().getTime()), people: found.index });
-  renameSync(next, PERSON_PICTURES_INDEX);
+  writeWhole(PERSON_PICTURES_INDEX, (to) =>
+    writeJson(to, { built: iso(clock().getTime()), people: found.index })
+  );
   for (const file of readdirSync(PERSON_PICTURES)) {
     if (!found.files.has(file)) {
       rmSync(join(PERSON_PICTURES, file));

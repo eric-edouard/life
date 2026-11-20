@@ -14,6 +14,7 @@ import {
   contactsNow,
 } from "./contact-people";
 import { answeredBy } from "./people";
+import { personPicturesOf } from "./person-pictures";
 import { foldsOf, meant } from "./who";
 
 const AT = "2026-11-12T03:00:00.000Z";
@@ -349,6 +350,14 @@ test("a card whose whole name says one person and whose number says another is n
   expect(settled.ambiguousCards).toEqual([]);
   expect(settled.resolve("cy@example.com")).toBe("person:bea");
   expect(canon(self)).toBe(self);
+  // Its picture follows: the card's own until he says, then Bea's; never the first number's person by itself.
+  const picture = [{ bytes: new Uint8Array([0xff, 0xd8]), card: mixed.card }];
+  const placedOn = (f: Pick<typeof settled, "canon" | "resolve">) =>
+    Object.keys(
+      personPicturesOf(picture, [], { ...f, contacts: [mixed] }).index
+    );
+  expect(placedOn({ canon, resolve })).toEqual([self]);
+  expect(placedOn(settled)).toEqual(["person:bea"]);
   // The number truth/ knows is still Bea's; the address is the card's own, neither Bea's nor Cyril's.
   expect(resolve("+33677777777")).toBe("person:bea");
   expect(resolve("cy@example.com")).toBe(self);
