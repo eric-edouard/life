@@ -11,8 +11,10 @@ import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
 import {
   endedStepsOf,
   isRunning,
+  type MatterView,
   matterFinderOf,
-  netOf,
+  matterPeopleOf,
+  matterTextOf,
 } from "../memory/matter-read";
 import { MATTER_BOOK_READS, readMatterBookAndRecords } from "../memory/matters";
 import { readUnitsOf } from "../memory/memory-files";
@@ -49,6 +51,22 @@ const CLOSE_AT = 0.55;
 const MIN_CHARS = 20;
 /** A recording's new words are compared in parts of at most this many characters (the embedder reads about 2,000 bytes). */
 const PART_CHARS = 1500;
+/** How many of a matter's newest steps its net compares with. */
+const NET_STEPS = 8;
+
+/**
+ * A matter's net: who it is with in any role, and the texts a new message
+ * or recording is compared with in meaning: its name and goal, its next step, its newest steps' words. Pure.
+ */
+const netOf = (v: MatterView) => ({
+  people: new Set(matterPeopleOf(v)),
+  texts: [
+    matterTextOf(v),
+    ...(v.nextStep ? [v.nextStep.text] : []),
+    ...v.steps.slice(-NET_STEPS).map((s) => s.text),
+  ],
+});
+
 /** An assignment's matter as the net reads it: its people, and its texts' vectors. */
 interface Net {
   assignment: string;

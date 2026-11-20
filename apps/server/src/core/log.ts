@@ -24,6 +24,7 @@ type LogKind =
   | "email.sent"
   | "file.read"
   | "lifelog.write"
+  | "matter.icons"
   | "mcp.call"
   | "model.run"
   | "offline"

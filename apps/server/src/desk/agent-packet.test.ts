@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
 import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -93,6 +93,9 @@ test("a project with neither says what to do", async () => {
 });
 
 test("an agent on a project's matter, and the project's agent, get the project's line, his notes clipped and where its matters are read, never a list of them; a project gone from his directory gives nothing", async () => {
+  const icons = await import("../memory/matter-icons");
+  // The desk's packets and matter records never pick icons (the connector's reads do).
+  const iconReads = spyOn(icons, "readLifeIcons");
   const view = (id: string, projects: string[]) => ({
     ...matterView(id, [`obs_${id}`]),
     projects,
@@ -132,6 +135,8 @@ test("an agent on a project's matter, and the project's agent, get the project's
       expect(await onMatter("obs_lost")).not.toContain("running matters");
     }
   );
+  expect(iconReads).not.toHaveBeenCalled();
+  iconReads.mockRestore();
 });
 
 test("a filter built from a printed key matches an event of that chat", async () => {

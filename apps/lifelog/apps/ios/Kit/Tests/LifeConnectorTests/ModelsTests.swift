@@ -79,9 +79,15 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.agent == "agt_000000000001")
     #expect(row.blockingChecks == 1)
     #expect(list.matters[2].goal == nil)
+    // His pick, Life's, and none (the phone shows the area's).
+    #expect(list.matters.map(\.icon?.by) == [.owner, nil, .life])
+    #expect(list.matters.map(\.icon?.key) == ["tools", nil, "key"])
+    #expect(list.matters.compactMap(\.icon?.key).allSatisfy { MatterIcons.symbol($0) != nil })
+    #expect(MatterIcons.symbol("a_new_key") == nil)
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
     #expect(matter.row.name == "Mend Gran's watch")
+    #expect(matter.row.icon == MatterRow.Icon(by: .owner, key: "tools"))
     #expect(matter.steps.count == 2)
     #expect(matter.steps[1].ending?.by == .ticked)
     #expect(matter.checks.map(\.group) == [.decision, .ending])
