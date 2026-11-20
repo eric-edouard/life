@@ -102,12 +102,17 @@ test("who: their one-to-one chats whole and their own words in groups, deleted o
     say("g3", "02T09:02", "climbing", "me", "Great"),
   ];
   const other = [say("z1", "03T09:00", "zed-room", "Zed Moss", "Zed alone")];
+  // A handle no one is known by: its own units, filed as written.
+  const stranger = [
+    say("s1", "04T09:00", "+66600000009", "+66600000009", "Who is this"),
+  ];
   const units = [
     chatDay(1, direct, ["person:test-ana", "person:me"]),
     chatDay(2, group, ["person:test-ana", "unknown:Zed Moss", "person:me"]),
     chatDay(3, other, ["unknown:Zed Moss"]),
+    chatDay(4, stranger, ["unknown:+66600000009"]),
   ];
-  const all = [...direct, ...group, ...other];
+  const all = [...direct, ...group, ...other, ...stranger];
   const reads: string[] = [];
   const line = (from: Date, to?: Date) => {
     reads.push(from.toISOString());
@@ -155,6 +160,9 @@ test("who: their one-to-one chats whole and their own words in groups, deleted o
       "[id a2]",
       "[id a3]",
     ]);
+    expect(
+      shown(await chatsOf({ who: "+66600000009" }, { line }))
+    ).toHaveLength(1);
     expect(await chatsOf({ who: "Nobody Atall" }, { line })).toContain(
       "No one goes by Nobody Atall"
     );

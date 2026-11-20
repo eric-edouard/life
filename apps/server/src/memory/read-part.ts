@@ -8,8 +8,8 @@ import { isDay } from "./zones";
 /**
  * The grammar of a part's ref: every part a ref can name. Which ones a read offers is its own (`person`: the parts an
  * add-on supplies only while it is on). The parts: `now` (who and where things stand), `page`, `persona`, `story` (the years), `year` (its months'
- * summaries, paged back), `month` (its words and days), `evidence` (observations, episodes and chats, paged back) and
- * `conversation` (his alone: one conversation summary, its span the ref of the turn it starts at).
+ * summaries, paged back), `month` (its words and days), `evidence` (observations, episodes and chats, paged back),
+ * `latest` (their newest exchanges with him, as data, paged back) and `conversation` (his alone: one conversation summary, its span the ref of the turn it starts at).
  */
 export const READ_PARTS = [
   "now",
@@ -19,6 +19,7 @@ export const READ_PARTS = [
   "year",
   "month",
   "evidence",
+  "latest",
   "conversation",
 ] as const;
 /** The parts an add-on supplies (`personal/`): offered only while it is on. */
@@ -79,7 +80,12 @@ export function partErrorOf(
   } else if (o.part !== "evidence" && o.part !== "conversation" && o.span) {
     return `the part "${o.part}" takes no span`;
   }
-  if (o.before && o.part !== "evidence" && o.part !== "year") {
+  if (
+    o.before &&
+    o.part !== "evidence" &&
+    o.part !== "year" &&
+    o.part !== "latest"
+  ) {
     return `the part "${o.part}" takes no before`;
   }
   if (o.before && !isDay(o.before)) {

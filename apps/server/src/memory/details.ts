@@ -154,29 +154,9 @@ export const birthdaysNear = (
     .toSorted((x, y) => x.b.left - y.b.left)
     .map(({ b, p }) => ({ id: p.id, name: p.name, text: birthdayText(b) }));
 
-const SOURCE_NAMES = { contacts: "Contacts", truth: "the directory" };
-
-/** Someone's details as their page shows them, one line each, with where each comes from; `today` dates a birthday. */
-export function detailsBlock(lines: DetailLine[], today: string) {
-  if (lines.length === 0) {
-    return [];
-  }
-  return [
-    "Details:",
-    ...lines.map((l) => {
-      const text =
-        l.kind === "birthday"
-          ? birthdayText(nextBirthday(l.text, today))
-          : l.text;
-      return `- ${LABELS[l.kind]}: ${text} (${SOURCE_NAMES[l.from]})`;
-    }),
-    "",
-  ];
-}
-
-/** Every person's details now (`detailsOf`): truth/ and his Contacts (whose by `ownerOfCard`). */
-export function readDetailsOf(
-  people: Pick<People, "ownerOfCard" | "truth">,
+/** Each person's Contacts cards, read now (whose by `ownerOfCard`, the one rule). */
+export function readCardsOf(
+  people: Pick<People, "ownerOfCard">,
   records: Contact[] = readContactRecords()
 ) {
   const contacts = new Map<string, Contact[]>();
@@ -186,12 +166,18 @@ export function readDetailsOf(
       contacts.set(ref, [...(contacts.get(ref) ?? []), c]);
     }
   }
+  return (ref: string) => contacts.get(ref) ?? [];
+}
+
+/** Every person's details now (`detailsOf`): truth/ and his Contacts (`readCardsOf`). */
+export function readDetailsOf(
+  people: Pick<People, "ownerOfCard" | "truth">,
+  records: Contact[] = readContactRecords()
+) {
+  const cardsOf = readCardsOf(people, records);
   const mapped = new Map(people.truth.people.map((p) => [`person:${p.id}`, p]));
   return (ref: string) =>
-    detailsOf({
-      contacts: contacts.get(ref) ?? [],
-      person: mapped.get(ref),
-    });
+    detailsOf({ contacts: cardsOf(ref), person: mapped.get(ref) });
 }
 
 /** The birthdays of the coming week (`birthdaysNear`) of everyone in his directory or with a page. */

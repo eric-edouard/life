@@ -14,6 +14,8 @@ const LINE_CALL =
   /^(?<missed>Missed )?(?<kind>[Vv]oice|[Vv]ideo) call(?: \((?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?<s>\d+)s\))?$/;
 
 const VIDEO = /video/i;
+/** A Telegram username, `@` or not: what `t.me/<username>` opens. */
+const TELEGRAM_USERNAME = /^@?[A-Za-z]\w{3,31}$/;
 
 /** A call in the notices of Meta's bridge (Instagram, Messenger): its start, its end, or a missed one. */
 function metaCallOf(text: string): CallNotice | undefined {
@@ -74,7 +76,7 @@ export const NETWORKS = [
     },
     // A username opens its chat; a numeric id opens nothing.
     chatLinkOf: (handle: string) =>
-      /^@?[A-Za-z]\w{3,31}$/.test(handle)
+      TELEGRAM_USERNAME.test(handle)
         ? `https://t.me/${handle.replace("@", "")}`
         : undefined,
     cmd: "cmd/mautrix-telegram",

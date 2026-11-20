@@ -68,21 +68,26 @@ test("a person's units: newest first, whole days, of the kinds asked, before a d
 });
 
 test("the chat-days tried are 1:1 chats with the check's person, newest first, three at most", () => {
-  const u = (id: string, date: string, people: string[], source = "whatsapp") =>
+  const indexedUnit = (
+    id: string,
+    date: string,
+    people: string[],
+    source = "whatsapp"
+  ) =>
     ({ date, id, people, source }) as Parameters<
       typeof chatUnitsFor
     >[0][number];
   const units = [
-    u("unit_a", "2026-11-01", ["person:me", "person:inf_kit"]),
-    u("unit_b", "2026-11-03", ["unknown:+33600000001"]),
+    indexedUnit("unit_a", "2026-11-01", ["person:me", "person:inf_kit"]),
+    indexedUnit("unit_b", "2026-11-03", ["unknown:+33600000001"]),
     // A group's day: someone else wrote too.
-    u("unit_c", "2026-11-04", ["person:inf_kit", "person:zoe"]),
+    indexedUnit("unit_c", "2026-11-04", ["person:inf_kit", "person:zoe"]),
     // Mail is no network's chat.
-    u("unit_d", "2026-11-05", ["person:inf_kit"], "mail"),
+    indexedUnit("unit_d", "2026-11-05", ["person:inf_kit"], "mail"),
     // Another person's chat, even one the guess's evidence cites, is not theirs.
-    u("unit_e", "2026-10-01", ["unknown:+33600000009"]),
-    u("unit_f", "2026-09-01", ["person:inf_kit"]),
-    u("unit_g", "2026-08-01", ["person:inf_kit"]),
+    indexedUnit("unit_e", "2026-10-01", ["unknown:+33600000009"]),
+    indexedUnit("unit_f", "2026-09-01", ["person:inf_kit"]),
+    indexedUnit("unit_g", "2026-08-01", ["person:inf_kit"]),
   ];
   const refs = new Set(["person:inf_kit", "unknown:+33600000001"]);
   expect(chatUnitsFor(units, refs).map((x) => x.id)).toEqual([

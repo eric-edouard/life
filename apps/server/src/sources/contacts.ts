@@ -73,10 +73,10 @@ export interface Contact {
   birthday: string | null;
   /** Its phone numbers and emails, as written. */
   handles: string[];
-  /** The label Contacts gives each phone or email that has one ("Mobile", "Work"), by the handle as written. */
-  labels: Record<string, string>;
   /** The card's own id, which Photos' People link to (`ZUNIQUEID`). */
   id: string;
+  /** The label Contacts gives each phone or email that has one ("Mobile", "Work"), by the handle as written. */
+  labels: Record<string, string>;
   /** The person's name, else the company's. */
   name: string | null;
   /** Social profiles ("Facebook: claire.d") and web addresses. */

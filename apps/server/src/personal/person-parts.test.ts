@@ -6,8 +6,10 @@ import {
   ADD_ON_PARTS,
   PART_CHARS,
   parseReadPartRef,
+  readPartRefOf,
 } from "../memory/read-part";
 import {
+  nowReads,
   offersOf,
   type PartInputs,
   partLines,
@@ -74,7 +76,6 @@ const exchange = {
 };
 const counts = exchangeCountsBlock(exchange).filter(Boolean);
 const fixed: Record<string, string[]> = {
-  now: ["TITLES", "DETAILS", "CLOSE", "LAST EXCHANGE", "OPEN", "SITUATION"],
   page: ["PAGE who they are", "PAGE where things stand"],
   persona: ["PERSONA in short", "PERSONA what they want"],
 };
@@ -112,16 +113,25 @@ const read = (
     }).join("\n")
   );
 };
-const open = (id: string) =>
-  openById(id, undefined, undefined, read as Parameters<typeof openById>[3]);
+const open = async (id: string) =>
+  (await openById(
+    id,
+    undefined,
+    undefined,
+    read as Parameters<typeof openById>[3]
+  )) as string;
+/** What `now` offers to read (its `knows`): where every walk starts. */
+const fromNow = nowReads({ ...base, fixed: [], part: "now" }).map((r) =>
+  readPartRefOf(r.ref)
+);
 
 const SPANNED_EVIDENCE = /\/evidence\/\d{4}/;
 const NEXT = /^- (\S+): /gm;
 const YEAR_BEFORE = /person:ana\/year\/2023\/before\/(\S+):/;
 
-/** Every part reachable from `now` by next reads only, level by level, each opened through `openById`. */
+/** Every part reachable from what `now` offers by next reads only, level by level, each opened through `openById`. */
 async function reachable(
-  level = ["person:ana/now"],
+  level = fromNow,
   seen = new Map<string, string>()
 ): Promise<Map<string, string>> {
   const fresh = [...new Set(level)].filter((id) => !seen.has(id));
@@ -150,7 +160,6 @@ test("every part fits its size, ends with next reads that parse and open, and th
   expect([...parts].sort()).toEqual([
     "evidence",
     "month",
-    "now",
     "page",
     "persona",
     "story",
@@ -271,14 +280,14 @@ test("a part is offered only while its add-on is on: none, and `now` names no pe
   try {
     setSettings({ personal: null });
     expect(personalParts()).toEqual({});
-    const now = partLines({
+    const now = nowReads({
       ...base,
       fixed: [],
       offers: offersOf({}),
       part: "now",
-    });
+    }).map((r) => readPartRefOf(r.ref));
     expect(now.join("\n")).not.toMatch(PERSONAL_PART);
-    expect(now.join("\n")).toContain("person:ana/page");
+    expect(now).toContain("person:ana/page");
     setSettings({ personal: { personas: {} } });
     expect(Object.keys(personalParts())).toEqual(["persona"]);
     setSettings({ personal: { histories: { from: "2024-01" } } });

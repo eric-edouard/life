@@ -9,7 +9,7 @@ import {
 } from "./matter-read";
 import { openItems } from "./open-items";
 import { dayLines } from "./read-day";
-import { matterItems, openWithOf } from "./read-open-items";
+import { matterItems } from "./read-open-items";
 import { OWNER } from "./read-truth";
 import { isMailerHandle } from "./units";
 
@@ -308,58 +308,6 @@ test("a lone open observation or to-do item is a matter of one; a to-do item mad
   expect(dayLines({ due: ranked.map((i) => i.line) })[0]).toStartWith(
     "Due (open items"
   );
-});
-
-test("a person's page lists the open matters they are in, what he owes first, then what he waits on", () => {
-  const waits = [
-    ...observations,
-    obs(6, "2026-10-17", {
-      subjects: [OWNER, SHOP],
-      text: "The shop answers",
-      type: "waiting_on_someone",
-    }),
-  ];
-  const items = matterItems(
-    book({ observations: waits }),
-    nameOf,
-    "2026-10-20"
-  );
-  const lines = openWithOf(GRAN, {
-    goals: [],
-    items,
-    owner: "Test",
-    today: "2026-10-20",
-  });
-  expect(lines[1]).toStartWith("Open with them");
-  expect(lines.join("\n")).toContain("owed to Gran");
-  // The partner only made a suggestion, long settled, and the shop is waited on: neither is listed for the partner.
-  for (const who of [PARTNER, "person:cy"]) {
-    expect(
-      openWithOf(who, { goals: [], items, owner: "Test", today: "2026-10-20" })
-    ).toEqual([]);
-  }
-});
-
-test("a person's open items: the pointer counts what the one cut left out, and is absent when all fit", () => {
-  const items = matterItems(book({ observations }), nameOf, "2026-10-20");
-  const mine = items.filter(
-    (i) => i.person === GRAN || i.people?.includes(GRAN)
-  );
-  const call = (room?: number) =>
-    openWithOf(GRAN, {
-      goals: [],
-      items,
-      owner: "Test",
-      room,
-      today: "2026-10-20",
-    }).join("\n");
-  expect(mine.length).toBeGreaterThan(0);
-  expect(call()).not.toContain("more open with them");
-  const none = call(1);
-  expect(none).toContain(
-    `${new Set(mine.map((i) => i.id)).size} more open with them`
-  );
-  expect(none).not.toContain("owed to Gran");
 });
 
 test("an episode and an observation of one day order by instant, in his zone", () => {

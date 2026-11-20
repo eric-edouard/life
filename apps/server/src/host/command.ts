@@ -63,9 +63,9 @@ import {
   type Window,
 } from "../memory/zones";
 import { histories, readHistoryWork } from "../personal/histories";
-import { readPerson } from "../personal/person-parts";
 import { personaReadingsOf, personas } from "../personal/personas";
 import { openCheckOf, openChecksNow } from "./inbox";
+import { readPeopleAndOrganizations } from "./matter-rows";
 import { nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
 
@@ -153,8 +153,14 @@ function weeksFrom(since: string, today: string) {
 }
 
 /** Prints a read command's answer; no answer (arguments missing) is a usage error. */
-async function printed(answer: Promise<string | null> | string | null) {
-  const text = await answer;
+async function printed(
+  answer: Promise<string | Record<string, unknown> | null> | string | null
+) {
+  const read = await answer;
+  const text =
+    read !== null && typeof read === "object"
+      ? JSON.stringify(read, null, 1)
+      : read;
   if (!text) {
     return usage();
   }
@@ -296,7 +302,7 @@ const HANDLERS: Record<string, Handler> = {
             id,
             count(values["from-turn"]),
             count(values.limit),
-            readPerson
+            readPeopleAndOrganizations
           )
         : null
     ),
@@ -448,7 +454,7 @@ const HANDLERS: Record<string, Handler> = {
   pages: step((v) => pages({ only: v.only, rebuild: v.rebuild })),
   passages: step((v) => rebuildPassages(v)),
   person: (values, rest) =>
-    printed(readPerson(words(rest) || undefined, values)),
+    printed(readPeopleAndOrganizations(words(rest) || undefined, values)),
   personas: step(async () => personas(await readWithPeople(new Date(0)))),
   places: (v) =>
     printed(

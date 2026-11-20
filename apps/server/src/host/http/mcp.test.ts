@@ -122,7 +122,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_new_events",
     "read_observation",
     "read_open_todo_items",
-    "read_person_page",
+    "read_people_and_organizations",
     "read_person_pictures",
     "read_places_visited",
     "read_processing_runs",
@@ -160,7 +160,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_new_events(arguments,cursor,event,limit)",
     "read_observation(id)",
     "read_open_todo_items(list)",
-    "read_person_page(before,name)",
+    "read_people_and_organizations(before,name,query)",
     "read_person_pictures(ids)",
     "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
     "read_processing_runs(cursor,limit,steps)",
@@ -772,7 +772,7 @@ test("built to serve reads only (the question cases' agent), the connector regis
   ]) {
     expect(names).not.toContain(writes);
   }
-  expect(names).toContain("read_person_page");
+  expect(names).toContain("read_people_and_organizations");
   expect(names).toContain("search");
 });
 
