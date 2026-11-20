@@ -375,6 +375,73 @@
       "urgency": "blocks"
     },
     {
+      "about": ["+33600000001"],
+      "around": null,
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "Life read their messages as Kit, the watchmaker (70% sure).",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "whatsapp, 2 Oct",
+        "quote": "Kit here, from the shop"
+      },
+      "goal": null,
+      "group": "guessed person",
+      "kind": "person",
+      "likelyPeople": [],
+      "links": [],
+      "notSent": null,
+      "onMatters": [],
+      "onSilence": null,
+      "options": [
+        {
+          "id": "this-is",
+          "label": "Yes",
+          "takes": null
+        },
+        {
+          "id": "not-this-person",
+          "label": "No",
+          "takes": null
+        },
+        {
+          "id": "same-person",
+          "label": "Someone else…",
+          "takes": "person"
+        }
+      ],
+      "question": "Is this Kit?",
+      "ref": "person:inf_kit",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 1,
+        "pages": 0
+      },
+      "said": null,
+      "since": null,
+      "subject": null,
+      "title": "Know who someone is",
+      "matter": null,
+      "confirm": [],
+      "networkIdentity": {
+        "chat": "33600000001@s.whatsapp.net",
+        "handle": "+33600000001",
+        "network": "WhatsApp",
+        "newest": {
+          "at": "2026-10-12T09:05:00.000Z",
+          "by": "Kit Watches",
+          "text": "Kit here, from the shop"
+        },
+        "openUrl": "https://wa.me/33600000001",
+        "shownName": "Kit Watches"
+      },
+      "pushId": "a789ea3107eed39b",
+      "urgency": "improves"
+    },
+    {
       "around": null,
       "said": {
         "at": "2026-10-12",
@@ -442,73 +509,6 @@
       "confirm": [],
       "networkIdentity": null,
       "pushId": "47c2deda3a5b51cd",
-      "urgency": "improves"
-    },
-    {
-      "about": ["+33600000001"],
-      "around": null,
-      "asker": "life",
-      "at": null,
-      "clips": [],
-      "context": "Life read their messages as Kit, the watchmaker (70% sure).",
-      "deadline": null,
-      "draft": null,
-      "evidence": {
-        "from": "whatsapp, 2 Oct",
-        "quote": "Kit here, from the shop"
-      },
-      "goal": null,
-      "group": "guessed person",
-      "kind": "person",
-      "likelyPeople": [],
-      "links": [],
-      "notSent": null,
-      "onMatters": [],
-      "onSilence": null,
-      "options": [
-        {
-          "id": "this-is",
-          "label": "Yes",
-          "takes": null
-        },
-        {
-          "id": "not-this-person",
-          "label": "No",
-          "takes": null
-        },
-        {
-          "id": "same-person",
-          "label": "Someone else…",
-          "takes": "person"
-        }
-      ],
-      "question": "Is this Kit?",
-      "ref": "person:inf_kit",
-      "ridesOn": {
-        "matterIds": [],
-        "matters": 0,
-        "observations": 1,
-        "pages": 0
-      },
-      "said": null,
-      "since": null,
-      "subject": null,
-      "title": "Know who someone is",
-      "matter": null,
-      "confirm": [],
-      "networkIdentity": {
-        "chat": "33600000001@s.whatsapp.net",
-        "handle": "+33600000001",
-        "network": "WhatsApp",
-        "newest": {
-          "at": "2026-10-12T09:05:00.000Z",
-          "by": "Kit Watches",
-          "text": "Kit here, from the shop"
-        },
-        "openUrl": "https://wa.me/33600000001",
-        "shownName": "Kit Watches"
-      },
-      "pushId": "a789ea3107eed39b",
       "urgency": "improves"
     },
     {
@@ -589,8 +589,8 @@
     "voice": 1,
     "name": 1,
     "contacts card": 1,
-    "new matter": 1,
     "guessed person": 1,
+    "new matter": 1,
     "ending": 1
   },
   "deadlinesToday": 0,
