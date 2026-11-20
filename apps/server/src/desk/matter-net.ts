@@ -4,16 +4,24 @@ import { closestOf, type Embedder, embedAll } from "../core/embedder";
 import { readChangeStamp } from "../core/files";
 import { packed } from "../core/lists";
 import { log } from "../core/log";
-import { activeAgents, anchorsOf } from "../host/desk-read";
+import { activeAgents, agentKindOf, anchorsOf } from "../host/desk-read";
 import type { MessagePayload } from "../host/events";
-import { matterFinderOf, netOf } from "../memory/matter-read";
-import { MATTER_BOOK_READS, readMatterBook } from "../memory/matters";
+import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
+import {
+  endedStepsOf,
+  isRunning,
+  type MatterView,
+  matterFinderOf,
+  netOf,
+} from "../memory/matter-read";
+import { MATTER_BOOK_READS, readMatterBookAndRecords } from "../memory/matters";
 import { readUnitsOf } from "../memory/memory-files";
 import { kindOf } from "../memory/sources";
 import { embedderNow } from "../memory/vectors";
 import type { People } from "../memory/who";
 import { spokenLines } from "../memory/words";
 import { dayNow } from "../memory/zones";
+import type { AgentKind } from "../records/registered-agent";
 import type { Desk } from "./desk-store";
 
 // The wide net (his word of 18 Nov 2026, the agent asks spec's "His yes and his addition"): an agent on a matter is woken
@@ -36,8 +44,6 @@ const PART_CHARS = 1500;
 /** An agent's matter as the net reads it: its people, and its texts' vectors. */
 interface Net {
   agent: string;
-  /** Its matter is done (by his word or its own steps' endings, never a link's "probably"): the desk ends the agent. */
-  isDone: boolean;
   people: ReadonlySet<string>;
   /** When the agent started: nothing said before is new to it. */
   since: string;
@@ -49,7 +55,34 @@ interface Net {
  * ponytail: never pruned; it holds the active agents' matter texts as they change, a few thousand a year at most.
  */
 const queries = new Map<string, number[]>();
-const kept = new WeakMap<Database, { key: string; nets: Net[] }>();
+/** An agent the desk ends on its matter, and the outcome it ends with (`endOutcomeOf`). */
+interface MatterEnd {
+  agent: string;
+  outcome: string;
+}
+const kept = new WeakMap<
+  Database,
+  { ends: MatterEnd[]; key: string; nets: Net[] }
+>();
+
+/** The outcome of an agent ended because its matter is done: by his word or its own steps' endings, never a link's "probably". */
+export const MATTER_DONE_OUTCOME = "its matter is done";
+
+/**
+ * Why the desk ends an agent on its matter, as the outcome it ends with, or null: a matter that is done ends any agent;
+ * one no longer running (probably done, dormant, closed) ends only a handed-out one (`MATTER_OVER_OUTCOME`, after which
+ * it holds nothing): a link's "probably" is a model's reading until his word, and an agent he started stays until he
+ * stops it, or his word makes the matter done. Pure.
+ */
+export const endOutcomeOf = (
+  kind: AgentKind,
+  v: Pick<MatterView, "open" | "status">
+) => {
+  if (v.status === "done") {
+    return MATTER_DONE_OUTCOME;
+  }
+  return kind === "handed_out" && !isRunning(v) ? MATTER_OVER_OUTCOME : null;
+};
 
 const embedderOf = (desk: Desk) =>
   desk.embedder === undefined ? embedderNow() : desk.embedder;
@@ -75,19 +108,20 @@ async function queryVectors(embedder: Embedder | null, texts: string[]) {
 }
 
 /**
- * The nets of the active agents on a matter (an agent on a project has none), its matter found by its anchors. The
- * matter book is read again only once the agents, their anchors, his day or what it is read from (`MATTER_BOOK_READS`, by its
- * change stamp: stats, no read) changed; a net whose vectors
- * the embedder could not make is not kept, so the next poll tries again.
+ * What the active agents on a matter (an agent on a project has none) read of it, its matter found by its anchors: the
+ * nets, and the agents to end on it (`endOutcomeOf`; steps no matter holds count once every one has ended,
+ * `endedStepsOf`). The matter book is read again only once the agents, their anchors, his day or what it is read from
+ * (`MATTER_BOOK_READS`, by its change stamp: stats, no read) changed; a net whose vectors the embedder could not make
+ * is not kept, so the next poll tries again.
  */
-export async function netsOf(desk: Desk, people: People) {
+async function readOnMatters(desk: Desk, people: People) {
   const { db } = desk;
   const agents = activeAgents(db).flatMap((a) => {
     const steps = anchorsOf(db, a.id);
     return steps.length > 0 ? [{ a, steps }] : [];
   });
   if (agents.length === 0) {
-    return [];
+    return { ends: [], nets: [] };
   }
   const key = JSON.stringify([
     readChangeStamp(MATTER_BOOK_READS),
@@ -96,14 +130,22 @@ export async function netsOf(desk: Desk, people: People) {
   ]);
   const was = kept.get(db);
   if (was?.key === key) {
-    return was.nets;
+    return was;
   }
-  const find = matterFinderOf(await readMatterBook(people, dayNow()));
+  const today = dayNow();
+  const { book, records } = await readMatterBookAndRecords(people, today);
+  const find = matterFinderOf(book);
   const embedder = embedderOf(desk);
   let isWhole = true;
   const nets: Net[] = [];
+  const ends: MatterEnd[] = [];
   for (const { a, steps } of agents) {
     const v = find(steps);
+    const ended = v ?? endedStepsOf(steps, records, today);
+    const outcome = ended && endOutcomeOf(agentKindOf(a), ended);
+    if (outcome) {
+      ends.push({ agent: a.id, outcome });
+    }
     if (!v) {
       continue;
     }
@@ -113,17 +155,25 @@ export async function netsOf(desk: Desk, people: People) {
     isWhole &&= vectors !== null;
     nets.push({
       agent: a.id,
-      isDone: v.status === "done",
       people: net.people,
       since: a.created_at,
       vectors: vectors ?? [],
     });
   }
+  const read = { ends, key, nets };
   if (isWhole) {
-    kept.set(db, { key, nets });
+    kept.set(db, read);
   }
-  return nets;
+  return read;
 }
+
+/** The nets of the active agents on a matter (`readOnMatters`). */
+export const netsOf = async (desk: Desk, people: People) =>
+  (await readOnMatters(desk, people)).nets;
+
+/** The active agents to end on their matter, each with its outcome (`readOnMatters`). */
+export const matterEndsOf = async (desk: Desk, people: People) =>
+  (await readOnMatters(desk, people)).ends;
 
 /** Why a text is related to a net: its person, else its meaning (with how close), else not. */
 type Why = { why: "person" } | { similarity: number; why: "meaning" };

@@ -45,8 +45,10 @@ function withoutGroups(
     dismissed: [],
     doubted: new Set(),
     endings: new Map(),
-    heldByAgents: { projects: new Set(), steps: new Set() },
+    heldByAgents: [],
     isDirectionDue: () => false,
+    isForHandOut: () => false,
+    isHandOutOn: false,
     kept: new Set(lines.map((l) => l.id)),
     lines,
     matters: [],
@@ -86,7 +88,12 @@ export const DANA_ID = "00000000-0000-4000-8000-000000000001";
 
 /** A matter's steps, made up: each on 1 Oct with a quote. */
 export const stepsOf = (...refs: string[]) =>
-  refs.map((ref) => ({ day: "2026-10-01", quote: "it", ref }));
+  refs.map((ref) => ({
+    at: "2026-10-01T09:00:00.000Z",
+    day: "2026-10-01",
+    quote: "it",
+    ref,
+  }));
 
 export function inputs(
   lines: CheckInputs["lines"],

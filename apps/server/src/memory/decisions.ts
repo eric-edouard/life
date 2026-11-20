@@ -322,6 +322,10 @@ export const decisionsNow = (now = clock()): Decision[] =>
     state: stateOf(d, now),
   }));
 
+/** Registered agent `agent`'s open decision, if any: it asks one at a time (`requestDecision`), worked out from `list`, never stored. */
+export const openDecisionOf = (agent: string, list = decisionsNow()) =>
+  list.find((d) => d.agent === agent && d.state === "open");
+
 function readOpenDecision(id: string, now: Date) {
   const d = decisionsNow(now).find((x) => x.id === id);
   if (!d) {
@@ -445,7 +449,7 @@ export async function requestDecision(
   }
   // A registered agent asks him one thing at a time (an inbox rule, not a limit on its work).
   const open = ask.agent
-    ? decisionsNow(now).find((d) => d.agent === ask.agent && d.state === "open")
+    ? openDecisionOf(ask.agent, decisionsNow(now))
     : undefined;
   if (open) {
     throw new Error(

@@ -59,6 +59,7 @@ import {
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import {
   MATTER_RELATED,
+  matterEndsOf,
   netsOf,
   relatedMessages,
   relatedRecordings,
@@ -215,18 +216,18 @@ export async function pollRecordings(desk: Desk, readPeopleNow: ReadPeople) {
   desk.db.transaction(() => queue(desk.db, MATTER_RELATED, wakes))();
 }
 
-/** Ends each active agent whose matter is done (`netsOf`'s read of the matters): nothing is left for it to do or wait for. */
-export async function endAgentsOnDoneMatters(
+/** Ends each active agent whose matter is over for it (`matterEndsOf`, `endOutcomeOf`), with why. */
+export async function endAgentsOnOverMatters(
   desk: Desk,
   readPeopleNow: ReadPeople
 ) {
   if (activeAgents(desk.db).length === 0) {
     return;
   }
-  const nets = await netsOf(desk, await readPeopleNow());
-  for (const n of nets.filter((x) => x.isDone)) {
+  const ends = await matterEndsOf(desk, await readPeopleNow());
+  for (const e of ends) {
     // biome-ignore lint/performance/noAwaitInLoops: one agent's decision withdrawn at a time
-    await endAgent(desk, n.agent, "its matter is done");
+    await endAgent(desk, e.agent, e.outcome);
   }
 }
 
@@ -298,12 +299,26 @@ function watchedIn(db: Desk["db"]) {
   return turns;
 }
 
-/** Marks turn `turn` under way, once. */
+/**
+ * Marks turn `turn` under way, once, and counts a try for each event queued before it was written (what it was handed):
+ * a turn that never began (offline, out of quota) counts none, so it drops nothing.
+ */
 const markBegun = (db: Desk["db"], turn: number) =>
-  db.run("update turn set begun_at = ? where id = ? and begun_at is null", [
-    now(),
-    turn,
-  ]);
+  db.transaction(() => {
+    const t = db
+      .query<Pick<TurnRow, "agent_id" | "started_at">, [number]>(
+        "select agent_id, started_at from turn where id = ? and begun_at is null"
+      )
+      .get(turn);
+    if (!t) {
+      return;
+    }
+    db.run("update turn set begun_at = ? where id = ?", [now(), turn]);
+    db.run(
+      "update event set handed = handed + 1 where agent_id = ? and received_at <= ? and consumed_at is null and dropped_at is null",
+      [t.agent_id, t.started_at]
+    );
+  })();
 
 /** Ends turn `turn` of `id` when `run` does: failed when it did. */
 function watch(desk: Desk, id: string, turn: number, run: Run) {
@@ -331,7 +346,8 @@ function watch(desk: Desk, id: string, turn: number, run: Run) {
 
 /**
  * Starts a turn for `a`, or leaves a session running a turn of his alone (false: the wake comes after it). The turn is
- * written and its queued events handed before the runtime is called, so the turn's end, however soon, finds it. It
+ * written before the runtime is called, so the turn's end, however soon, finds it; its queued events count a try once it
+ * begins (`markBegun`). It
  * runs into its session while that has grown under 30,000 tokens, else in a fresh session from its packet (the old
  * one's link kept). A runtime that fails ends it failed, tried again later.
  */
@@ -357,12 +373,6 @@ async function wake(desk: Desk, a: AgentRow) {
         : null;
     if (!(fresh && due) || due.at > clock().getTime()) {
       return null;
-    }
-    for (const e of events) {
-      db.run(
-        "update event set handed = handed + 1 where agent_id = ? and event_id = ?",
-        [a.id, e.event_id]
-      );
     }
     const id = db.run(
       "insert into turn (agent_id, session, cause, started_at) values (?, ?, ?, ?)",
@@ -476,7 +486,8 @@ const readGrowth = (db: Desk["db"], ref: string) =>
 
 /**
  * Starts the turns due now: his answers and new agents' first turns first, then the oldest deadline, until 3 have
- * started this tick (an agent whose session runs a turn of his takes no place). Each is read again as its turn is written.
+ * started this tick (an agent whose session runs a turn of his, or whose runtime is blocked, takes no place). Each is
+ * read again as its turn is written.
  */
 export async function wakeDue(desk: Desk) {
   const t = clock().getTime();
@@ -495,20 +506,32 @@ export async function wakeDue(desk: Desk) {
         : [];
     })
     .toSorted((x, y) => Number(y.isAtOnce) - Number(x.isAtOnce) || x.at - y.at);
+  // Each runtime asked once a tick, and only when a turn of it is due: a blocked one starts nothing, so no try is spent.
+  const blocks = new Map<string, Promise<string | undefined>>();
+  const blockOf = (runtime: string) => {
+    const b =
+      blocks.get(runtime) ??
+      desk.runtimes[runtime]?.block() ??
+      Promise.resolve(undefined);
+    blocks.set(runtime, b);
+    return b;
+  };
   let started = 0;
   for (const d of due) {
     if (started === STARTS_PER_TICK) {
       break;
     }
     // biome-ignore lint/performance/noAwaitInLoops: whether one started decides whether the next may
-    started += (await wake(desk, d.a)) ? 1 : 0;
+    if (!(await blockOf(d.a.runtime))) {
+      started += (await wake(desk, d.a)) ? 1 : 0;
+    }
   }
 }
 
 /**
  * One tick of the clock: his word about his agents, the hand-out (at most one start, a look every 10 minutes), his answers, the turns that never began, then the turns due (a new
  * agent's first turn never waits behind the polls), then, when their poll is due, the messages, the calls that ended, the recordings, the
- * agents whose matter is done, the hand-outs with no card in time and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst; the event channels a wait names after the calls (`pollChannels`).
+ * agents whose matter is over for them, the hand-outs with no card in time and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst; the event channels a wait names after the calls (`pollChannels`).
  */
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
@@ -522,7 +545,7 @@ export async function tick(desk: Desk, isPollDue = true) {
     await pollCalls(desk, people);
     await pollChannels(desk, people);
     await pollRecordings(desk, people);
-    await endAgentsOnDoneMatters(desk, people);
+    await endAgentsOnOverMatters(desk, people);
     await endAgentsWithoutCard(desk);
     await endLostTurns(desk);
   }
@@ -530,7 +553,7 @@ export async function tick(desk: Desk, isPollDue = true) {
 
 /**
  * Ends a turn, once (a turn already ended is left as it is): its handed events consumed when it waited or finished,
- * else handed again later, and dropped once handed `MAX_HANDED` times.
+ * else handed again later, and dropped once handed to `MAX_HANDED` turns that began.
  */
 function close(
   desk: Desk,
