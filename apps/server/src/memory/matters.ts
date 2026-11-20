@@ -1,15 +1,18 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { daysBefore } from "../core/clock";
-import { appendJsonl, readAppended, rowsOf } from "../core/files";
+import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import { count, packed } from "../core/lists";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import {
+  type DirectionPin,
+  type IconPin,
   type ImportantPin,
   type Matter,
   MatterBatch,
+  MatterDirectionBatch,
   type MatterStep,
 } from "../records/matter";
 import { Correction } from "../records/observation";
@@ -41,7 +44,6 @@ import {
   MATTERS,
   OBSERVATIONS,
   readBy,
-  readDirectionPins,
   readLedger,
   readUnitsFor,
   SUPERSESSIONS,
@@ -168,13 +170,62 @@ export function mattersNow(all: MatterBatch[]) {
 const latestOf = (m: { steps: MatterStep[] }) =>
   m.steps.reduce((a, b) => (b.day >= a.day ? b : a));
 
-/** His important marks on matters, on or off, each with when he said it and the steps it was pinned to (`matter-important`). */
-const readImportantPins = (): ImportantPin[] =>
-  rowsOf(CORRECTIONS, Correction).flatMap((c) =>
-    c.kind === "matter-important"
-      ? [{ at: c.at, important: c.important, steps: c.steps }]
-      : []
+/** His pins as folded from his corrections (`readMatterPins`). */
+interface HisPins {
+  directions: DirectionPin[];
+  icons: IconPin[];
+  important: ImportantPin[];
+}
+
+/** A correction's pin: when, its steps and the matter's id when it was written. */
+const pinOf = (c: { at: string; matter?: string; steps: string[] }) => ({
+  at: c.at,
+  steps: c.steps,
+  ...(c.matter ? { matter: c.matter } : {}),
+});
+
+/**
+ * What is pinned to matters' steps (`pinnedOf` finds each one's matter): the directions (`directionsOf`: Life's drafts,
+ * then his `matter-direction`), his important marks (`matter-important`, on or off) and his icons (`matter-icon`, a key
+ * or null), each with when it was written. Both files are folded incrementally (`readAppended`): a read parses only
+ * the lines appended since the last.
+ */
+export function readMatterPins() {
+  const drafts = readAppended(
+    MATTER_DIRECTIONS,
+    MatterDirectionBatch,
+    (last?: DirectionPin[]) => [...(last ?? [])],
+    (all, b) => {
+      for (const d of b.directions) {
+        all.push({ at: b.at, by: "life", ...d });
+      }
+    }
   );
+  const his = readAppended(
+    CORRECTIONS,
+    Correction,
+    (last?: HisPins) => ({
+      directions: [...(last?.directions ?? [])],
+      icons: [...(last?.icons ?? [])],
+      important: [...(last?.important ?? [])],
+    }),
+    (pins, c) => {
+      if (c.kind === "matter-direction") {
+        pins.directions.push({
+          ...pinOf(c),
+          by: "owner",
+          ...(c.goal ? { goal: c.goal } : {}),
+          ...(c.nextStep ? { nextStep: c.nextStep } : {}),
+        });
+      } else if (c.kind === "matter-important") {
+        pins.important.push({ ...pinOf(c), important: c.important });
+      } else if (c.kind === "matter-icon") {
+        pins.icons.push({ ...pinOf(c), icon: c.icon });
+      }
+    }
+  );
+  return { ...his, directions: [...drafts, ...his.directions] };
+}
 
 /**
  * The records every span of a run and every matter's steps are read from, as they stand today: all episodes, all
@@ -214,10 +265,9 @@ export async function readMatterRecords(people: People) {
   );
   return {
     current,
-    directions: readDirectionPins(),
+    ...readMatterPins(),
     episodeOf: readBy(episodes),
     episodes,
-    important: readImportantPins(),
     isMailer: (ref: string) =>
       ref.startsWith(UNKNOWN) && isMailerHandle(ref.slice(UNKNOWN.length)),
     ledger,

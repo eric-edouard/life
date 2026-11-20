@@ -109,12 +109,23 @@ export const vectorOf = (bytes: Uint8Array) =>
       );
 
 const BATCH = 32;
-/** Every text embedded as a passage, one batch at a time (the embedder runs one at a time anyway). */
+/** `texts` embedded `as` a query or a passage, one batch at a time (the embedder runs one at a time anyway): each batch and its vectors as it comes. */
+export async function* embedBatches(
+  embedder: Embedder,
+  texts: readonly string[],
+  as: Embedded
+) {
+  for (let i = 0; i < texts.length; i += BATCH) {
+    const batch = texts.slice(i, i + BATCH);
+    // biome-ignore lint/performance/noAwaitInLoops: one batch at a time
+    yield [batch, await embedder.embed(batch, as)] as const;
+  }
+}
+
+/** Every text embedded as a passage (`embedBatches`). */
 export async function embedAll(embedder: Embedder, texts: string[]) {
   const vectors: number[][] = [];
-  for (let i = 0; i < texts.length; i += BATCH) {
-    // biome-ignore lint/performance/noAwaitInLoops: one batch at a time
-    const batch = await embedder.embed(texts.slice(i, i + BATCH), "passage");
+  for await (const [, batch] of embedBatches(embedder, texts, "passage")) {
     vectors.push(...batch);
   }
   return vectors;
