@@ -250,6 +250,34 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(gone.wasAnswered)
 }
 
+/// A card's context is behind one link whose words are the code's, by what the card asks; the context's `life:` links come
+/// with their kinds; a card with no context has no link. Read from the server's own inbox.
+@Test func aCardsContextLinkIsWordedByWhatItAsks() throws {
+    let all = try everyKindOfCheck()
+    let draft = try #require(all.first { $0.draft != nil })
+    #expect(draft.contextLinkTitle == "Why this reply?")
+    #expect(draft.lifeLinks == [.init(ref: "msg:whatsapp|whatsapp:155@s.whatsapp.net/M1", kind: .message)])
+    #expect(all.filter { ($0.context ?? "").isEmpty }.allSatisfy { $0.contextLinkTitle == nil })
+    let guess = try #require(draft.confirm?.first)
+    #expect(guess.contextLinkTitle?.hasPrefix("Why ") == true && guess.contextLinkTitle != "Why it asks")
+    for check in all where check.contextLinkTitle != nil && check.draft == nil {
+        switch check.group {
+        case .ending: #expect(check.contextLinkTitle == "Why done?")
+        case .newMatter: #expect(check.contextLinkTitle == "What Life saw")
+        case .decision: #expect(check.contextLinkTitle == "Why it asks")
+        default: #expect(check.contextLinkTitle?.hasSuffix("?") == true)
+        }
+    }
+}
+
+/// A `life:` link's page: a person's read by name and line, else Life's text less its data heading.
+@Test func aLifeLinksReadIsAPersonOrLifesText() {
+    #expect(
+        LifeLinkRead(#"{"kind":"person","name":"Test Ana","line":"baker","ref":"person:test-ana"}"#)
+            == .person(name: "Test Ana", line: "baker"))
+    #expect(LifeLinkRead(LifeLinkRead.heading + "\n\nMessage M1 in Kit\nhello") == .text("Message M1 in Kit\nhello"))
+}
+
 /// Every kind of check the server makes: his inbox, and the new matter's check again on its matter's page.
 private func everyKindOfCheck() throws -> [Check] {
     try decoded(Inbox.self, wireText("life/read_inbox.json")).checks

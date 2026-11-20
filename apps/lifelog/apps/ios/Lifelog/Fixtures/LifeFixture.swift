@@ -173,6 +173,11 @@
             return json(["project": head, "matters": rows])
         }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
+        /// A `life:` link's page: what Life read of it, as its text reads.
+        func fetch(_ ref: String) async throws -> String {
+            try await gate()
+            return LifeLinkRead.heading + "\n\n" + ref
+        }
         /// The made-up cast's pictures (`pictures/<id>.jpg` beside the design data, `reads`), as Life sends them.
         func readPersonPictures(_ ids: [String]) async throws -> String {
             try await gate()
