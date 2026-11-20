@@ -172,6 +172,32 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         public let text: String
     }
 
+    /// Someone at an organization, his word in its entry: their party, role, and the year or day they left.
+    public struct Member: Decodable, Sendable, Equatable, Identifiable {
+        public let party: Party
+        public let role: String
+        /// When they left (a year or a day), as written; none while they are there.
+        public let until: String?
+        public var id: String { party.ref }
+
+        private enum Key: String, CodingKey { case party, role, until }
+
+        public init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: Key.self)
+            party = try container.decode(Party.self, forKey: .party)
+            role = try container.decode(String.self, forKey: .role)
+            // A year is a number, a day a string.
+            if let year = try? container.decodeIfPresent(Int.self, forKey: .until) {
+                until = String(year)
+            } else {
+                until = try container.decodeIfPresent(String.self, forKey: .until)
+            }
+        }
+
+        /// Their line on the organization's page: the role, and when they left ("Fitter · until 2025").
+        public var line: String { until.map { "\(role) · until \($0)" } ?? role }
+    }
+
     public let row: PersonRow
     public let reach: [Reach]
     public let details: [Detail]
@@ -181,8 +207,14 @@ public struct PersonNow: Decodable, Sendable, Equatable {
     public let situation: [Line]
     public let communicationStyle: [Line]
     public let more: [String: Int]
+    /// An organization's: the people he knows there, and its mail and web domains.
+    public let members: [Member]
+    public let domains: [String]
 
-    private enum Key: String, CodingKey { case reach, details, knows, open, situation, communicationStyle, more }
+    private enum Key: String, CodingKey {
+        case reach, details, knows, open, situation, communicationStyle, more, domains
+        case members = "people"
+    }
 
     public init(from decoder: any Decoder) throws {
         row = try PersonRow(from: decoder)
@@ -191,10 +223,16 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         (reach, details, knows, open) = (try list(.reach), try list(.details), try list(.knows), try list(.open))
         (situation, communicationStyle) = (try list(.situation), try list(.communicationStyle))
         more = try container.decodeIfPresent([String: Int].self, forKey: .more) ?? [:]
+        (members, domains) = (try list(.members), try list(.domains))
     }
 
     /// How many matters are open with them, those Life left out included.
     public var openCount: Int { open.count + (more["open"] ?? 0) }
+
+    /// An organization's people now, then those who left (`until`), each in his directory's order.
+    public var membersNowThenBefore: (now: [Member], before: [Member]) {
+        (members.filter { $0.until == nil }, members.filter { $0.until != nil })
+    }
 
     /// Their first name, as a page's labels say it ("Open with Camille").
     public var firstName: String { row.party.name.split(separator: " ").first.map(String.init) ?? row.party.name }
@@ -316,5 +354,5 @@ extension PeopleList: NamesParties {
 }
 
 extension PersonNow: NamesParties {
-    public var parties: [Party] { [row.party] + open.flatMap(\.parties) }
+    public var parties: [Party] { [row.party] + open.flatMap(\.parties) + members.map(\.party) }
 }

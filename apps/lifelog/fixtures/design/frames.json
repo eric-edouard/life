@@ -72,6 +72,16 @@
   "DuoFoldOrgNameCard": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
   },
+  "DuoFoldOrgPage": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:atelier_morel"
+    ]
+  },
   "DuoFoldPeople": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
   },
@@ -295,12 +305,33 @@
   "DuoOrgNameCard": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
   },
+  "DuoOrgPage": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:atelier_morel"
+    ]
+  },
   "DuoPeople": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
   },
   "DuoPeopleAZ": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
     "taps": ["Filter", "A to Z"]
+  },
+  "DuoPeopleOrg": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:atelier_morel"
+    ],
+    "taps": ["Organizations"]
   },
   "DuoPeopleSearch": {
     "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
@@ -334,6 +365,25 @@
   },
   "ImportantSwipe": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters, then a swipe to the right on Table for Mum’s 60th (the system's own swipe action)."
+  },
+  "OrgInSearch": {
+    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “morel”."
+  },
+  "OrgOnPay": {
+    "why": "Not built: a pay card's payee names no party yet (a server piece first)."
+  },
+  "OrgPage": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:atelier_morel"
+    ]
+  },
+  "OrgPageLong": {
+    "why": "Its eight people now and three before are not in the design data; by hand: a scroll of OrgPage once they are."
   },
   "PeopleList": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]

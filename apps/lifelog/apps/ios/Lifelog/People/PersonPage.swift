@@ -2,9 +2,10 @@ import LifeConnector
 import SwiftUI
 import UIKit
 
-/// A person's or an organization's page, from the one read of them (`now`), in the order he looks: who they are to him
-/// and how close, how to reach them, what is open with them, lately, their details, what Life knows (each a page of its
-/// own), and their latest exchanges. Only what exists shows: nothing says empty.
+/// A person's or an organization's page, from the one read of them (`now`). A person's in the order he looks: who they
+/// are to him and how close, how to reach them, what is open with them, lately, their details, what Life knows (each a
+/// page of its own), and their latest exchanges; an organization's is `OrgPage`. Only what exists shows: nothing says
+/// empty.
 struct PersonPage: View {
     let ref: String
     /// Settings beside the Pendant: on a regular width the list's bar has neither, so the page carries both.
@@ -18,7 +19,9 @@ struct PersonPage: View {
             shown: state.shown(), retry: { await life.refreshPerson(ref) },
             loading: { PagePlaceholder() },
             empty: { EmptyView() },
-            content: { now in page(now) }
+            content: { now in
+                if now.row.party.kind == .organization { OrgPage(now: now) } else { page(now) }
+            }
         )
         .background(Palette.bg)
         .shellBar("", hasSettings: hasSettings)
@@ -32,7 +35,7 @@ struct PersonPage: View {
                     Who(row: now.row)
                     if !now.reach.isEmpty { ReachTiles(reach: now.reach) }
                 }
-                OpenWith(now: now)
+                OpenMatters(label: "Open with \(now.firstName)", now: now)
                 Lately(lines: now.situation.map(\.text))
                 Details(details: now.details)
                 Knows(now: now, ref: ref)
@@ -66,7 +69,7 @@ private struct Who: View {
 /// Reach: five equal tiles at most, each an app's mark over its name, one tap to their chat or a call. An app with
 /// several accounts carries a chevron and opens the system menu of them (their name there over the handle, newest
 /// first); past five, the fifth is More.
-private struct ReachTiles: View {
+struct ReachTiles: View {
     let reach: [PersonNow.Reach]
     private static let across = 5
 
@@ -134,8 +137,9 @@ private struct ReachTiles: View {
     }
 }
 
-/// What is open with them: at most three rows of the Matters list, all of them on "All n".
-private struct OpenWith: View {
+/// What is open with them, under `label`: at most three rows of the Matters list, all of them on "All n".
+struct OpenMatters: View {
+    let label: String
     let now: PersonNow
     @State private var isAll = false
 
@@ -145,7 +149,7 @@ private struct OpenWith: View {
     var body: some View {
         if !now.open.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
-                Text("Open with \(now.firstName)").font(.small).foregroundStyle(Palette.muted)
+                Text(label).font(.small).foregroundStyle(Palette.muted)
                     .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xs)
                 ForEach(isAll ? now.open : Array(now.open.prefix(3))) { row in
                     Button {
@@ -296,8 +300,11 @@ private struct KnownRow {
 }
 
 /// Latest, the bottom of the page: their newest exchanges across every channel, then Earlier, which pages back.
-private struct Latest: View {
+struct Latest: View {
     let subject: String
+    /// "Latest" on a person's page, five exchanges and Earlier; "Last exchange" on an organization's, one.
+    var label = "Latest"
+    var count: Int?
 
     @Environment(LifeStore.self) private var life
 
@@ -306,9 +313,11 @@ private struct Latest: View {
         Group {
             if let page = life.latest[ref]?.value, !page.latest.isEmpty {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
-                    Text("Latest").font(.small).foregroundStyle(Palette.muted)
-                    ForEach(page.latest) { item in ExchangeView(item: item, when: SaidWords.moment(item.at)) }
-                    if page.nextBefore != nil {
+                    Text(label).font(.small).foregroundStyle(Palette.muted)
+                    ForEach(page.latest.prefix(count ?? page.latest.count)) { item in
+                        ExchangeView(item: item, when: SaidWords.moment(item.at))
+                    }
+                    if count == nil, page.nextBefore != nil {
                         NavigationLink(value: AppRouter.PersonRoute.latest(subject)) {
                             Text("Earlier \(Image(systemName: "chevron.right"))").font(.smallStrong)
                                 .foregroundStyle(Palette.fg)

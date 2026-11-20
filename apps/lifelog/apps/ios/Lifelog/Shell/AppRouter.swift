@@ -38,6 +38,8 @@ final class AppRouter {
         case latest(String)
         /// How each writes to the other, from their `now`, by the person's ref.
         case writing(String)
+        /// Another party's page, pushed on this one: someone at the organization on show.
+        case party(String)
     }
 
     var tab = Tab.inbox

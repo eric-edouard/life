@@ -123,3 +123,18 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     #expect(prose.sections.map(\.label) == ["Now", "Earlier"])
     #expect(prose.sections[0].paragraphs == ["Camille is your partner.", "She writes every day."])
 }
+
+@Test func anOrganizationsNowGivesItsPeopleThenThoseWhoLeft() throws {
+    let bakery = try decoded(PersonNow.self, wireText("life/read_people_and_organizations_organization.json"))
+    #expect(bakery.row.party.kind == .organization)
+    #expect(bakery.members.map(\.line) == ["baker"])
+    #expect(bakery.domains == ["bakery.example"])
+    #expect(bakery.parties.map(\.ref) == ["person:test-bakery", "person:test-ana"])
+    let atelier = try decoded(
+        PersonNow.self,
+        #"{"ref":"person:atelier","name":"Atelier","kind":"organization","people":[{"party":{"ref":"person:b","name":"B","kind":"person"},"role":"Founder"},{"party":{"ref":"person:m","name":"M","kind":"person"},"role":"Fitter","until":2025},{"party":{"ref":"person:j","name":"J","kind":"person"},"role":"Intern","until":"2024-06-30"}]}"#
+    )
+    let (now, before) = atelier.membersNowThenBefore
+    #expect(now.map(\.line) == ["Founder"])
+    #expect(before.map(\.line) == ["Fitter · until 2025", "Intern · until 2024-06-30"])
+}
