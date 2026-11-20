@@ -9,6 +9,7 @@ import { readPacket, register } from "./agent-actions";
 import { doorFetch, doorOf } from "./desk-door";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
+import { on } from "./test-desk";
 
 // The door: an agent is known by its key alone; its tools reach the desk's actions. Made-up agents and briefs.
 
@@ -155,8 +156,8 @@ test("an agent that finished may read its packet, nothing else", async () => {
 
 test("the contract: his own Life's agent is told the Mac is its own; a second Life's has its door's tools only; both keep the gate and the first-turn rule", async () => {
   const id = agent();
-  const own = await readPacket(desk, id, true);
-  const second = await readPacket(desk, id, false);
+  const own = await readPacket(desk, on(desk, id), true);
+  const second = await readPacket(desk, on(desk, id), false);
   expect(own).toContain("this Mac is yours");
   expect(own).toContain("1Password");
   expect(own).toContain("Reaching him");

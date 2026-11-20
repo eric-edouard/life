@@ -120,7 +120,7 @@ export async function endAgentsWithoutCard(desk: Desk) {
   const now = clock().getTime();
   const decisions = decisionsNow();
   for (const s of handedOutActive(desk.db)) {
-    if (isCardOverdue(s, hasAsked(desk.db, s.id, decisions), now)) {
+    if (isCardOverdue(s, hasAsked(s, decisions), now)) {
       // biome-ignore lint/performance/noAwaitInLoops: one card withdrawn at a time
       await closeAssignment(desk, s.id, NO_CARD_OUTCOME);
     }

@@ -32,7 +32,7 @@ import { readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import { type Desk, openDesk, postReportLine } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
-import { asgOf } from "./test-desk";
+import { asgOf, on } from "./test-desk";
 import { ticking } from "./test-ticker";
 
 // Oversight (the desk spec, step 4): his word about his agents applied by the desk, and what host reads of them, from
@@ -319,7 +319,9 @@ test("what his agents are doing: each with its matter, status, wait, link and am
     // Its packet opens with its matter as read now: its goal and next step first.
     expect(
       JSON.parse(
-        (await readPacket(desk, onMatter?.id ?? "", true)).split("\n")[1] ?? ""
+        (await readPacket(desk, on(desk, onMatter?.id ?? ""), true)).split(
+          "\n"
+        )[1] ?? ""
       )
     ).toMatchObject({
       goal: { text: "The cake is collected" },

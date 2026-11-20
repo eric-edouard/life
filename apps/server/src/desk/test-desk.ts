@@ -77,7 +77,7 @@ export function setup() {
       runtime: "fake",
     });
     await wakeDue(desk);
-    await setWait(desk, id, {
+    await setWait(desk, on(desk, id), {
       events: [ANA],
       reason: "Ana's reply",
       until: ahead(until),
@@ -110,6 +110,15 @@ export function setup() {
       )
       .get(asgOf(desk, id), eventId);
   return { desk, dir, end, eventRow, fake, path, queue, turns, waiting, write };
+}
+
+/** The assignment row agent `id` works on (each test agent has one): what the door's tools take. */
+export function on(desk: Desk, id: string) {
+  const s = currentAssignmentOf(desk.db, id);
+  if (!s) {
+    throw new Error(`${id} holds no assignment`);
+  }
+  return s;
 }
 
 /** The assignment agent `id` works on (each test agent has one). */

@@ -46,7 +46,7 @@ import {
 import { NO_CARD_OUTCOME } from "./hand-out";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import { MATTER_DONE_OUTCOME } from "./matter-net";
-import { asgOf, setup } from "./test-desk";
+import { asgOf, on, setup } from "./test-desk";
 
 // The hand-out's step of the tick, over a fake runtime and a made-up book of matters.
 
@@ -211,7 +211,7 @@ test("the daily count follows his day: a hand-out before his day began is not co
 });
 
 const ask = (desk: ReturnType<typeof deskOf>, id: string) =>
-  askDecision(desk, id, {
+  askDecision(desk, on(desk, id), {
     deadline: iso(clock().getTime() + DAY),
     options: [
       { id: "yes", label: "Yes" },
@@ -268,7 +268,7 @@ test("cards his inbox hides do not count against the pace: only the ones he is s
 test("a matter whose hand-out ended is not handed out again a week later without a new step, and is after one", async () => {
   const desk = deskOf();
   const first = (await handOutNext(desk, book().read)) ?? "";
-  await finish(desk, first, "nothing left for me");
+  await finish(desk, on(desk, first), "nothing left for me");
   MATTERS = [matterOf("mat_a")];
   try {
     setSystemTime(new Date(clock().getTime() + 8 * DAY));
@@ -288,8 +288,8 @@ test("a handed-out agent's packet carries the one-card first turn, a plain agent
     brief: "Test brief",
     runtime: "claude",
   });
-  const one = await readPacket(desk, handed ?? "", false);
-  const two = await readPacket(desk, plain, false);
+  const one = await readPacket(desk, on(desk, handed ?? ""), false);
+  const two = await readPacket(desk, on(desk, plain), false);
   expect(one).toContain("Life handed you this matter");
   // Every card of a handed-out agent lets him drop the matter: it closes in Life on his pick.
   expect(one).toContain(
@@ -427,7 +427,7 @@ test("Done on an `ends: matter` card closes the matter: off the matters to do; i
       await wakeDue(desk);
       // The desk reads his answers from here on.
       pollAnswers(desk);
-      const { id } = await askDecision(desk, agent, {
+      const { id } = await askDecision(desk, on(desk, agent), {
         deadline: iso(clock().getTime() + DAY),
         onSilence: null,
         options: [
@@ -461,6 +461,58 @@ test("Done on an `ends: matter` card closes the matter: off the matters to do; i
   );
 });
 
+// Regression, 20 Nov 2026 (the debt verdict on PR 1): until the door checks a card's subject and the fold moves matters,
+// a card stays with its asker: one agent's card on a step another agent holds fills the asker's slot, not the holder's,
+// and his answer wakes the asker.
+test("a card on a step another agent holds stays with its asker: its slot, and his answer", async () => {
+  const desk = deskOf();
+  const [mine, theirs] = ["obs_00000000f041", "obs_00000000f042"];
+  await withBook(
+    [toDo(mine, "I'll call the roofer"), toDo(theirs, "I'll send the quote")],
+    { id: "matter_00000000f041", steps: [mine, theirs] },
+    async () => {
+      const asker = register(desk, {
+        brief: "Test brief",
+        runtime: "claude",
+        steps: [mine],
+      });
+      const holder = register(desk, {
+        brief: "Test brief",
+        runtime: "claude",
+        steps: [theirs],
+      });
+      pollAnswers(desk);
+      const card = (agent: string, title: string) =>
+        askDecision(desk, on(desk, agent), {
+          deadline: iso(clock().getTime() + DAY),
+          onSilence: null,
+          options: [
+            { id: "yes", label: "Yes" },
+            { id: "tell", label: "Tell the agent…" },
+          ],
+          question: "Send the quote?",
+          subject: theirs,
+          title,
+        });
+      const { id } = await card(asker, "Send the quote");
+      expect(() => card(asker, "Send it again")).toThrow(
+        `${asker} already asks ${id}`
+      );
+      const { id: own } = await card(holder, "The holder's own");
+      await answerWithResult(
+        id,
+        { options: ["yes"] },
+        { report: () => undefined }
+      );
+      setSystemTime(new Date(clock().getTime() + 1000));
+      pollAnswers(desk);
+      expect(queued(desk, asker)).toEqual([DECISION_ANSWERED]);
+      expect(queued(desk, holder)).toEqual([]);
+      await withdrawOpenDecision(on(desk, holder), `test over ${own}`);
+    }
+  );
+});
+
 test("a project agent's `ends: step` card answered Done wakes it and never ends it", async () => {
   const desk = deskOf();
   const step = "obs_00000000f031";
@@ -474,7 +526,7 @@ test("a project agent's `ends: step` card answered Done wakes it and never ends 
         runtime: "claude",
       });
       pollAnswers(desk);
-      const { id } = await askDecision(desk, agent, {
+      const { id } = await askDecision(desk, on(desk, agent), {
         deadline: iso(clock().getTime() + DAY),
         onSilence: null,
         options: [
@@ -570,7 +622,7 @@ const handedOut = async (desk: ReturnType<typeof deskOf>) => {
   return id;
 };
 const cardOf = (desk: ReturnType<typeof deskOf>, id: string) =>
-  askDecision(desk, id, {
+  askDecision(desk, on(desk, id), {
     deadline: iso(clock().getTime() + DAY),
     options: [
       { id: "yes", label: "Yes" },
@@ -595,7 +647,7 @@ test("a card asked in time keeps the agent; none at 2 hours ends it with its out
   expect(a?.status).toBe("ended");
   expect(currentAssignmentOf(desk.db, silent)?.outcome).toBe(NO_CARD_OUTCOME);
   expect(t.fake.stopped).toEqual([a?.session ?? ""]);
-  await withdrawOpenDecision(desk.db, asgOf(desk, asked), "test over");
+  await withdrawOpenDecision(on(desk, asked), "test over");
 });
 
 test("an agent he started himself is never ended for asking no card", async () => {

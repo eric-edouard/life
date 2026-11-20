@@ -8,11 +8,10 @@ import { AGENT_POST_SIGNATURE, DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS } from "../core/paths";
 import { settings } from "../core/settings";
 import {
+  type AssignmentRow,
   agentOf,
   anchorsOf,
   assignmentOf,
-  assignmentOfCard,
-  currentAssignmentOf,
   isFull,
   openTurn,
   queuedEvents,
@@ -22,7 +21,11 @@ import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
 import { matcherOf, waitChannelsOf } from "../host/events";
 import type { DecisionRequest } from "../memory/card-request";
 import { communicationStylesOf } from "../memory/communication-styles";
-import { decisionsNow, requestDecision } from "../memory/decisions";
+import {
+  decisionsNow,
+  openDecisionOf,
+  requestDecision,
+} from "../memory/decisions";
 import {
   oneMatter,
   openMatters,
@@ -55,17 +58,17 @@ export const askFirstMessageOf = (openedBy: OpenedBy) =>
     ? "Not done: ask your card first (`request_decision`: the prepared step, what only he can do, or that it looks over; one option is Tell the agent…)."
     : "Not done: ask your plan first (`request_decision`: a question ending in a ?, options Go, Tell the agent…, Stop the agent).";
 
-/** The cards assignment `id` owns (`assignmentOfCard`), of `list`. */
-const cardsOf = (db: Desk["db"], id: string, list = decisionsNow()) =>
-  list.filter((d) => d.agent && assignmentOfCard(db, d) === id);
+/** Assignment `s`'s open card, if any: one at a time. Until the fold, a card is its asker's one assignment's (`assignmentOfCard`). */
+export const openCardOf = (
+  s: Pick<AssignmentRow, "agent_id">,
+  list = decisionsNow()
+) => openDecisionOf(s.agent_id, list);
 
-/** Assignment `id`'s open card, if any: one at a time. */
-export const openCardOf = (db: Desk["db"], id: string, list = decisionsNow()) =>
-  cardsOf(db, id, list).find((d) => d.state === "open");
-
-/** Whether assignment `id` has a card he was asked and not withdrawn: its first card is its plan, so the door lets its agent wait or finish only after. */
-export const hasAsked = (db: Desk["db"], id: string, list = decisionsNow()) =>
-  cardsOf(db, id, list).some((d) => d.state !== "withdrawn");
+/** Whether assignment `s` has a card he was asked and not withdrawn: its first card is its plan, so the door lets its agent wait or finish only after. */
+export const hasAsked = (
+  s: Pick<AssignmentRow, "agent_id">,
+  list = decisionsNow()
+) => list.some((d) => d.agent === s.agent_id && d.state !== "withdrawn");
 
 /** Where a new assignment's notes file goes: in his agents repo (`desk.agentsRepo`), else under the desk's folders. */
 const notesPathOf = (id: string) =>
@@ -156,13 +159,12 @@ export function register(
   return id;
 }
 
-/** Withdraws the open card of assignment `id`, if any (the desk asked it, as `desk`): it closed or its agent stopped, so no answer could reach it. */
+/** Withdraws the open card of assignment `s`, if any (the desk asked it, as `desk`): it closed or its agent stopped, so no answer could reach it. */
 export async function withdrawOpenDecision(
-  db: Desk["db"],
-  id: string,
+  s: Pick<AssignmentRow, "agent_id">,
   why: string
 ) {
-  const open = openCardOf(db, id);
+  const open = openCardOf(s);
   if (open?.agent) {
     await requestDecision(DESK_AGENT, {
       agent: open.agent,
@@ -251,10 +253,10 @@ function filterRefusalOf(
 }
 
 /**
- * `set_wait`: the new wait of the assignment agent `id` works on, or why it is refused (the old wait then stands): a
- * channel unknown, off or that cannot be read, keys a filter's channels cannot answer, or a person who is no one Life knows.
+ * `set_wait`: assignment `s`'s new wait, or why it is refused (the old wait then stands): a channel unknown, off or that
+ * cannot be read, keys a filter's channels cannot answer, or a person who is no one Life knows.
  */
-export async function setWait(desk: Desk, id: string, input: unknown) {
+export async function setWait(desk: Desk, s: AssignmentRow, input: unknown) {
   const r = waitOf(input, clock().getTime());
   const { wait } = r;
   if (!wait) {
@@ -274,8 +276,8 @@ export async function setWait(desk: Desk, id: string, input: unknown) {
     return { error: nameRefusalOf(unknown.person ?? "", people) };
   }
   desk.db.transaction(() => {
-    writeWait(desk.db, currentAssignmentOf(desk.db, id)?.id ?? "", wait, false);
-    heard(desk, id, "waited");
+    writeWait(desk.db, s.id, wait, false);
+    heard(desk, s.agent_id, "waited");
   })();
   return r;
 }
@@ -290,16 +292,12 @@ async function closeWithdrawing(
     closeAssignmentRow(desk.db, s.id, { outcome });
     heard(desk, s.agent_id, "finished");
   })();
-  await withdrawOpenDecision(desk.db, s.id, "its agent finished");
+  await withdrawOpenDecision(s, "its agent finished");
 }
 
-/** `finish`: the assignment agent `id` works on is closed with its outcome; its turn ends by itself. */
-export async function finish(desk: Desk, id: string, outcome: string) {
-  const s = currentAssignmentOf(desk.db, id);
-  if (s) {
-    await closeWithdrawing(desk, s, outcome);
-  }
-}
+/** `finish`: assignment `s` is closed with its outcome; its turn ends by itself. */
+export const finish = (desk: Desk, s: AssignmentRow, outcome: string) =>
+  closeWithdrawing(desk, s, outcome);
 
 /** Stops the desk's own run of agent `id`'s open turn (`turn`, read before whatever closes it), if it has one (`Runtime.stop`): every end, and his stop. A failure is logged. */
 export async function stopOpenRun(
@@ -335,14 +333,11 @@ export async function closeAssignment(desk: Desk, id: string, outcome: string) {
   }
 }
 
-/** `write_notes`: replaces the notes file of the assignment agent `id` works on, which opens its next packet. */
-export function writeNotes(desk: Desk, id: string, text: string) {
-  const s = currentAssignmentOf(desk.db, id);
-  if (s) {
-    mkdirSync(dirname(s.notes_path), { recursive: true });
-    writeFileSync(s.notes_path, text.slice(0, NOTES_MAX));
-  }
-  heard(desk, id);
+/** `write_notes`: replaces assignment `s`'s notes file, which opens its next packet. */
+export function writeNotes(desk: Desk, s: AssignmentRow, text: string) {
+  mkdirSync(dirname(s.notes_path), { recursive: true });
+  writeFileSync(s.notes_path, text.slice(0, NOTES_MAX));
+  heard(desk, s.agent_id);
 }
 
 /**
@@ -351,15 +346,16 @@ export function writeNotes(desk: Desk, id: string, text: string) {
  */
 export function askDecision(
   desk: Desk,
-  id: string,
+  s: AssignmentRow,
   { withdraw, why, ...ask }: z.infer<typeof DecisionRequest>
 ) {
+  const id = s.agent_id;
   heard(desk, id);
   if (withdraw) {
     return requestDecision(DESK_AGENT, { agent: id, why, withdraw });
   }
   // One card at a time per assignment (an inbox rule, not a limit on its work).
-  const open = openCardOf(desk.db, currentAssignmentOf(desk.db, id)?.id ?? "");
+  const open = openCardOf(s);
   if (open) {
     throw new Error(
       `Not done: ${id} already asks ${open.id}; withdraw it or wait for his answer.`
@@ -465,10 +461,13 @@ async function projectContextOf(
  * next step, its steps so far), or its project; then each project's context (`projectContextOf`), the brief, the
  * contract, its notes, its queued events (facts only) and its open decision.
  */
-export async function readPacket({ db }: Desk, id: string, isOwn: boolean) {
-  const a = agentOf(db, id);
-  const s = currentAssignmentOf(db, id);
-  if (!(a && s)) {
+export async function readPacket(
+  { db }: Desk,
+  s: AssignmentRow,
+  isOwn: boolean
+) {
+  const a = agentOf(db, s.agent_id);
+  if (!a) {
     return "";
   }
   const events = queuedEvents(db, s.id).map(eventLineOf);
@@ -489,6 +488,6 @@ export async function readPacket({ db }: Desk, id: string, isOwn: boolean) {
     contractOf(a.id, isOwn, s.opened_by),
     `Your notes:\n${readNotes(s) || "(none yet)"}`,
     `Events waiting:\n${events.join("\n") || "(none)"}`,
-    `Your open decision: ${openCardOf(db, s.id)?.id ?? "none"}`,
+    `Your open decision: ${openCardOf(s)?.id ?? "none"}`,
   ].join("\n\n");
 }

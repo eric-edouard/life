@@ -218,32 +218,12 @@ export function agentHomeOf(
 }
 
 /**
- * Which assignment owns card `d` (asked by agent `d.agent`, on `d.subject`): its asker's assignment anchored on the
- * subject, else its asker's own (no anchors), else an open assignment anchored on the subject whoever holds it now
- * (the card follows its matter), else its asker's first. None for a card no registered agent asked. His answers, the
- * door's gates and the withdrawals all ask it.
+ * Which assignment owns card `d`: its asker's (`d.agent`) one assignment, so a card stays with its asker; none for a card
+ * no registered agent asked. A card follows its matter to another agent only once the door checks its subject and the
+ * fold moves matters (the agents and matters plan, PR 2 and 3).
  */
-export function assignmentOfCard(
-  db: Database,
-  d: { agent?: string; subject?: string }
-) {
-  if (!d.agent) {
-    return null;
-  }
-  return (
-    db
-      .query<{ id: string }, [string, string]>(
-        `select s.id from assignment s
-          where s.agent_id = ?1 or (s.closed_at is null and s.id in (select assignment_id from anchor where step = ?2))
-          order by case
-            when s.agent_id = ?1 and exists (select 1 from anchor n where n.assignment_id = s.id and n.step = ?2) then 0
-            when s.agent_id = ?1 and not exists (select 1 from anchor n where n.assignment_id = s.id) then 1
-            when s.agent_id <> ?1 then 2
-            else 3 end, s.opened_at limit 1`
-      )
-      .get(d.agent, d.subject ?? "")?.id ?? null
-  );
-}
+export const assignmentOfCard = (db: Database, d: { agent?: string }) =>
+  d.agent ? (currentAssignmentOf(db, d.agent)?.id ?? null) : null;
 
 export const readCursor = (db: Database, name: string) =>
   db

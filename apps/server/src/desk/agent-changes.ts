@@ -248,8 +248,7 @@ export async function applyAgentChanges(desk: Desk) {
       // His stop ends the turn under way too (his yes of 20 Nov 2026): its run is stopped, the turn closes `failed`.
       await stopOpenRun(desk, r.id);
       await withdrawOpenDecision(
-        db,
-        currentAssignmentOf(db, r.id)?.id ?? "",
+        { agent_id: r.id },
         "he stopped its agent"
       ).catch((e: Error) =>
         log("desk.change", {

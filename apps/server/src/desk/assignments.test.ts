@@ -4,7 +4,7 @@ import { currentAssignmentOf } from "../host/desk-read";
 import { openAssignment, setWait } from "./agent-actions";
 import { wakeDue } from "./desk-clock";
 import { agentWakesOf } from "./event-queue";
-import { advance, ahead, asgOf, setup } from "./test-desk";
+import { advance, ahead, asgOf, on, setup } from "./test-desk";
 
 // Assignments of one agent keep apart (agents and matters, PR 1): a turn consumes only its own assignment's events, and
 // nothing from before an assignment was opened is new to it.
@@ -38,7 +38,11 @@ test("a turn on one assignment never consumes another's events", async () => {
       "select assignment_id from turn order by id desc limit 1"
     )
     .get()?.assignment_id;
-  await setWait(desk, id, { events: [], reason: "r", until: ahead(HOUR) });
+  await setWait(desk, on(desk, id), {
+    events: [],
+    reason: "r",
+    until: ahead(HOUR),
+  });
   await end(id);
   const [mine, other] = ran === first ? ["e1", "e2"] : ["e2", "e1"];
   const row = (eventId: string) =>

@@ -452,7 +452,7 @@ async function launch(
       const started = await runtime.start(
         sessionAgentOf(a),
         [
-          await readPacket(desk, a.id, isOwnLife()),
+          await readPacket(desk, s, isOwnLife()),
           ...sinceLineOf(since),
           ...unreadLinesOf(db, s),
         ].join("\n\n")
