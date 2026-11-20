@@ -95,7 +95,8 @@ MAX_OGG_BYTES = 16 * 1024 * 1024
 MAX_RANGES = 400
 
 # The requests waiting for the worker, by priority, highest first: each item is the work (a function of
-# the loaded models), its future and the monotonic time its caller stops waiting. `waiting_count`
+# the loaded models), its future, the monotonic time its caller stops waiting, and whether its caller
+# hung up. `waiting_count`
 # counts what the queues hold, so the worker sleeps on it, never on one queue.
 waiting = {"interactive": queue.Queue(maxsize=1), "ordinary": queue.Queue(maxsize=QUEUE_SIZE)}
 waiting_count = threading.Semaphore(0)
@@ -378,10 +379,10 @@ def self_check(models: Models):
     assert set(heard) == {"durationSeconds", "models", "turns", "words"}, heard.keys()
 
 
-def enqueue(priority: str, work, future: Future) -> bool:
+def enqueue(priority: str, work, future: Future, gone=lambda: False) -> bool:
     """False when that priority's queue is full."""
     try:
-        waiting[priority].put_nowait((work, future, time.monotonic() + WAIT_SECONDS))
+        waiting[priority].put_nowait((work, future, time.monotonic() + WAIT_SECONDS, gone))
     except queue.Full:
         return False
     waiting_count.release()
@@ -400,10 +401,12 @@ def next_work():
 
 
 def run_next(models: Models):
-    """Runs the next waiting request, or drops it when its caller stopped waiting. Nothing of it (its
-    samples, its answer) outlives the call, so the idle worker holds none."""
-    work, future, deadline = next_work()
-    if time.monotonic() < deadline and future.set_running_or_notify_cancel():
+    """Runs the next waiting request, or drops it when its caller stopped waiting or hung up. Nothing of
+    it (its samples, its answer) outlives the call, so the idle worker holds none."""
+    work, future, deadline, gone = next_work()
+    if gone() or time.monotonic() >= deadline:
+        future.cancel()
+    elif future.set_running_or_notify_cancel():
         try:
             future.set_result(work(models))
         except Exception as error:  # reported to the waiting request
@@ -463,7 +466,7 @@ class Handler(BaseHTTPRequestHandler):
     def run(self, work, answer, priority="ordinary"):
         """`work` on the worker; its result through `answer` to the caller."""
         future: Future = Future()
-        if not enqueue(priority, work, future):
+        if not enqueue(priority, work, future, self.caller_gone):
             return self.reply(503, {"error": "busy"}, {"Retry-After": RETRY_AFTER})
         deadline = time.monotonic() + WAIT_SECONDS
         while True:

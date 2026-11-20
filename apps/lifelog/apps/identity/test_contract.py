@@ -140,6 +140,15 @@ class Http(unittest.TestCase):
         app.run_next(None)  # the worker comes to it only now: its caller is gone, so it never runs
         self.assertEqual(ran, [])
 
+    def test_work_whose_caller_hung_up_before_the_worker_came_never_runs(self):
+        ran = []
+        handler = waiting_handler([])
+        self.addCleanup(handler.connection.close)
+        self.assertTrue(app.enqueue("ordinary", lambda models: ran.append(1), Future(), handler.caller_gone))
+        handler.caller.close()  # before its handler's next look: the worker sees it first
+        app.run_next(None)
+        self.assertEqual(ran, [])
+
     def test_work_whose_caller_hung_up_while_queued_never_runs(self):
         replies, ran = [], []
         handler = waiting_handler(replies)
