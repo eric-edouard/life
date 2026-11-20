@@ -443,7 +443,6 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     wait: null,
     wakesOn: [],
   };
-  // Waiting: one line of each kind (`wakesOnOf`).
   const waiting = {
     ...agent,
     id: "agt_000000000002",
