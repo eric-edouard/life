@@ -7,7 +7,7 @@ import {
   type LookForDone,
   recordDoneSeen,
 } from "../memory/decisions";
-import { amountOf } from "../memory/needs";
+import { amountOf, payeeWordsOf } from "../memory/needs";
 import { dayStart, localDate } from "../memory/zones";
 import type { EventFilter } from "../records/registered-agent";
 import {
@@ -31,20 +31,24 @@ const PAYMENTS = EVENT_CHANNELS.find(
   (c) => c.name === "payments"
 ) as EventChannel;
 
-/** The filter that sees `d`'s payment: money out of exactly its `amount` need, in its own currency. */
+/** The filter that sees `d`'s payment: money out of exactly its `amount` need, in its own currency, to its payee. */
 export function doneSeenFilterOf(
   d: Pick<Decision, "needs">
 ): EventFilter | undefined {
   const amount = amountOf(d.needs);
-  return (
-    amount && {
-      above: amount.value - HALF_CENT,
-      below: amount.value + HALF_CENT,
-      channels: [PAYMENTS.name],
-      from_me: false,
-      quantity: `${amount.currency.toLowerCase()}_out`,
-    }
-  );
+  const words = payeeWordsOf(d.needs);
+  if (!amount || words.length === 0) {
+    return;
+  }
+  return {
+    above: amount.value - HALF_CENT,
+    below: amount.value + HALF_CENT,
+    channels: [PAYMENTS.name],
+    from_me: false,
+    quantity: `${amount.currency.toLowerCase()}_out`,
+    // Every word of the payee, in any order: the bank writes "MR. KIT TEST" or "SHOP (A/C Name: SHOP CO.,LTD.)".
+    text_matches: words.map((w) => `(?=[\\s\\S]*${w})`).join(""),
+  };
 }
 
 /** Each card's step seen done, from one read of `channel`: its id to the event's, booked on or after the card's day. */

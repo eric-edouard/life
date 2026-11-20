@@ -185,6 +185,34 @@ test("only money out of exactly that amount in that currency, booked on or after
   expect(await lookForDone(card)).toBe("payments:exact");
 });
 
+test("only a payment to the card's payee is its payment: the same amount to someone else is not; the bank's wording of the name is", async () => {
+  const { id } = await transfer();
+  const card = decisionsNow().find((d) => d.id === id);
+  if (!card) {
+    throw new Error("no card");
+  }
+  booked = [
+    payment({ id: "other", merchant: "MR. KIT SAMPLE" }),
+    payment({ id: "generic", merchant: "Result of Funds Transfer (Success)" }),
+    payment({ id: "part", merchant: "BLUE REEF DIVING" }),
+  ];
+  expect(await readSeenDone([card])).toEqual(new Map());
+  booked.push(
+    payment({
+      id: "bank",
+      merchant: "REEF SHOP (A/C Name: BLUE REEF TEST CO.,LTD.)",
+    })
+  );
+  expect(await lookForDone(card)).toBe("payments:bank");
+  // A card with no payee's name is refused when asked; one stored before this rule is a tap card.
+  await expect(
+    transfer({ needs: [{ ...NEEDS[0], holder: "Co., Ltd." }, NEEDS[1]] })
+  ).rejects.toThrow("needs the payee's name");
+  expect(
+    doneSeenByOf({ doneSeenBy: "payment", needs: [NEEDS[1]] as never })
+  ).toBe("tap");
+});
+
 test("payments off: a tap card, its looks option a plain answer; his words added look for nothing; a session never looks", async () => {
   const off = await transfer();
   const on = await transfer();

@@ -77,12 +77,12 @@ const KINDS: {
     about: "a bank account (number, bank, holder)",
     line: (n) =>
       `${[n.bank, n.number].filter(Boolean).join(" ")}${n.holder ? `, ${n.holder}` : ""}${n.bic ? ` (BIC ${n.bic})` : ""}`,
-    page: '`{kind: "account", number, bank?, holder?, scheme?, bic?}`: where he sends money. `number` as the payee wrote it (an account number, an IBAN, a PromptPay phone or id); `bank` its bank\'s name; `holder` the name the bank will show, for him to check (never copied); `scheme` one of `th_account`, `promptpay`, `iban`, `swift`, `other` (his phone picks the bank app by it); `bic` when the payee gave one. Give it before the `amount`: the phone shows needs in your order. Example: `{"kind":"account","bank":"Kasikornbank","number":"012-3-45678-9","holder":"Blue Reef Diving Co., Ltd.","scheme":"th_account"}`.',
+    page: '`{kind: "account", number, bank?, holder?, scheme?, bic?}`: where he sends money. `number` as the payee wrote it (an account number, an IBAN, a PromptPay phone or id); `bank` its bank\'s name; `holder` the name the bank will show, for him to check (never copied) and for Life to see the payment by; `scheme` one of `th_account`, `promptpay`, `iban`, `swift`, `other` (his phone picks the bank app by it); `bic` when the payee gave one. Give it before the `amount`: the phone shows needs in your order. Example: `{"kind":"account","bank":"Kasikornbank","number":"012-3-45678-9","holder":"Blue Reef Diving Co., Ltd.","scheme":"th_account"}`.',
   },
   amount: {
     about: "what to pay (value, currency)",
     line: (n) => amountWordsOf(n.value, n.currency),
-    page: '`{kind: "amount", value, currency}`: `value` a positive number, `currency` its ISO code (`THB`, `EUR`). He copies the plain number. With `doneSeenBy: "payment"`, Life looks for a payment of exactly this amount in this currency (`fetch("ask/payment")`). Example: `{"kind":"amount","value":4500,"currency":"THB"}`.',
+    page: '`{kind: "amount", value, currency}`: `value` a positive number, `currency` its ISO code (`THB`, `EUR`). He copies the plain number. With `doneSeenBy: "payment"`, Life looks for a payment of exactly this amount in this currency to the payee (`fetch("ask/payment")`). Example: `{"kind":"amount","value":4500,"currency":"THB"}`.',
   },
   link: {
     about: "a web page to open (url, vendor)",
@@ -120,6 +120,26 @@ export const NEED_KINDS_LINE = NEED_KINDS.map(
 /** A kind's page (`fetch("ask/<kind>")`), or undefined for a name that is no kind. */
 export const needPageOf = (name: string) =>
   Object.hasOwn(KINDS, name) ? KINDS[name as Kind].page : undefined;
+
+const NOT_A_WORD = /[^\p{L}\p{M}\p{N}]+/u;
+/** Words of a payee that say nothing of who it is: titles and a company's form. */
+const NOT_A_NAME = new Set(
+  "mr mrs ms miss dr co ltd limited company inc plc the".split(" ")
+);
+
+/**
+ * The words a card's payment is looked for by: the account's `holder`, else the link's `vendor`, as the bank shows
+ * it, lower case, less titles and a company's form. Letters, marks and digits only.
+ */
+export const payeeWordsOf = (needs: readonly Need[] = []) =>
+  (
+    needs.find((n): n is Of<"account"> => n.kind === "account")?.holder ??
+    needs.find((n): n is Of<"link"> => n.kind === "link")?.vendor ??
+    ""
+  )
+    .toLowerCase()
+    .split(NOT_A_WORD)
+    .filter((w) => w.length > 1 && !NOT_A_NAME.has(w));
 
 /** The amount a card's payment is looked for by: its one `amount` need. */
 export const amountOf = (needs: readonly Need[] = []) =>
