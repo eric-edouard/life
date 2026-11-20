@@ -102,7 +102,7 @@ at 0 or 1.
 
 <!-- /part --><!-- part:relationships -->What goes on between {{owner}} and someone `close` is {{owner}}'s memory too: how things are between them, what they agreed
 or asked of each other, a boundary, a fight or making up, a turning point (moving in, a breakup, a new closeness).
-That is about_a_person, at 2, even with no decision. Everyday logistics with them ("on my way", what to eat) stay at 0 or 1.
+That is about_a_person, at 2, even with no decision. Everyday logistics with them that leave nothing open ("on my way", what they ate) stay at 0 or 1.
 
 <!-- /part -->Only 2 and 3 are read in full later; 1 stays a searchable line. {{owner}} found most of what got 1 was noise to {{owner}}, so
 when a unit is neither worth a page line nor clearly useful to search later, give 0.
