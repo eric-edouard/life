@@ -24,8 +24,19 @@ import {
   openDecisionOf,
   requestDecision,
 } from "../memory/decisions";
-import { oneMatter } from "../memory/read-matters";
-import { projectPeopleAndChatsOf } from "../memory/read-truth";
+import {
+  oneMatter,
+  openMatters,
+  readMatterProjectIds,
+} from "../memory/read-matters";
+import {
+  loadTruth,
+  PROJECT_NOTES_MAX,
+  projectHeaderOf,
+  projectPeopleAndChatsOf,
+  type Truth,
+} from "../memory/read-truth";
+import { clip } from "../memory/units";
 import { nameRefusalOf, readPeople } from "../memory/who";
 import type { AgentKind, EventFilter } from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
@@ -36,6 +47,8 @@ import { type Desk, writeWait } from "./desk-store";
 // at once; a desk turn running notes that it was heard from (`heard_at`) and how it will end.
 
 const NOTES_MAX = 6000;
+/** How many of a project's running matters a packet lists. */
+const PROJECT_MATTERS = 10;
 
 /** Why the door refuses `set_wait` and `finish` until `id` has asked: its first card is its plan, or, when the desk started it, what it found. */
 export const askFirstMessageOf = (kind: AgentKind) =>
@@ -346,9 +359,46 @@ async function projectLinesOf(project: string) {
 }
 
 /**
+ * A project in a packet, read as data: its line and his notes from his directory (`projectHeaderOf`, clipped to
+ * `PROJECT_NOTES_MAX`), then its running matters in his ranking (`openMatters`) but `except`, the first
+ * `PROJECT_MATTERS`. Nothing for a project no longer in his directory.
+ */
+async function projectContextOf(
+  { projects }: Pick<Truth, "projects">,
+  id: string,
+  except?: string
+) {
+  const p = projects.find((x) => x.id === id);
+  if (!p) {
+    return [];
+  }
+  const matters = (await openMatters({ project: id })).matters
+    .filter((m) => m.id !== except)
+    .slice(0, PROJECT_MATTERS)
+    .map((m) =>
+      JSON.stringify({
+        id: m.id,
+        name: m.name,
+        nextStep: m.nextStep?.text,
+        status: m.status,
+      })
+    );
+  return [
+    [
+      projectHeaderOf(p),
+      clip(p.notes.trim(), PROJECT_NOTES_MAX),
+      `Its ${except ? "other " : ""}running matters (his ranking, the first ${PROJECT_MATTERS}):`,
+      ...(matters.length > 0 ? matters : ["(none)"]),
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  ];
+}
+
+/**
  * `read_packet`: what a fresh session starts from: its matter as read now (`oneMatter`: where it stands, its goal and
- * next step, its steps so far), or its project; then the brief, the contract, its notes, its queued events (facts only)
- * and its open decision.
+ * next step, its steps so far), or its project; then each project's context (`projectContextOf`), the brief, the
+ * contract, its notes, its queued events (facts only) and its open decision.
  */
 export async function readPacket({ db }: Desk, id: string, isOwn: boolean) {
   const a = agentOf(db, id);
@@ -357,10 +407,18 @@ export async function readPacket({ db }: Desk, id: string, isOwn: boolean) {
   }
   const events = queuedEvents(db, id).map(eventLineOf);
   const steps = anchorsOf(db, id);
+  const matter = a.project ? undefined : await oneMatter(steps);
+  const truth = await loadTruth();
+  const projects = await Promise.all(
+    (a.project ? [a.project] : await readMatterProjectIds(steps)).map((p) =>
+      projectContextOf(truth, p, matter?.id)
+    )
+  );
   return [
     a.project
       ? await projectLinesOf(a.project)
-      : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify((await oneMatter(steps)) ?? `No matter holds ${steps.join(", ")} now.`)}`,
+      : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify(matter ?? `No matter holds ${steps.join(", ")} now.`)}`,
+    ...projects.flat(),
     a.brief,
     contractOf(a.id, isOwn, agentKindOf(a)),
     `Your notes:\n${a.notes || "(none yet)"}`,
