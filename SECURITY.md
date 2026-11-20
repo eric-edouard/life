@@ -33,9 +33,9 @@ when its message arrives or at night (his word of 19 Nov 2026).
 
 ## Agents
 
-The desk (off until his `desk` setting) starts and wakes his registered agents: a registered agent is started by
+The desk (off until his `desk` setting) starts and wakes his registered agents: with `desk.handOut` set it also starts one itself, on a running matter from the top of his ranking, within the pace he set (his word of 20 Nov 2026): Life picks the matter by its ranking, the brief is a constant, the agent reads the matter as data, and nothing outward goes without his yes on a card. A registered agent is started by
 Life, unattended, on a message its wait names (by who wrote it, by chat or app, or by a pattern on its text, his word of 20 Nov 2026), a recorded call with them that ended, a payment its wait names (by amount, or by a pattern on the merchant, the category or his note; his word of 20 Nov 2026), an arrival at a place its wait names (by its coordinates, or a pattern on its name; his word of 20 Nov 2026), his answer or its deadline, and acts with his access. A wait on words is met by
-anyone who writes them, a sender Life has never seen included. A wait on a merchant's words is met by anyone whose payment or transfer label carries them. An agent is woken by events at most once
+anyone who writes them, a sender Life has never seen included. With the hand-out on, a message from anyone can become a matter that ranks first, but the desk starts an agent only on a matter involving someone he knows or holding a step he said himself (his word of 20 Nov 2026), so a stranger's words alone start none; one who writes to a person he knows, to whom he has replied, or whose words became an item of his to-do list, can still reach one, and the agent, unattended, reads that matter's words as data. His pace setting and the card gate (nothing outward without his yes) bound it. A wait on a merchant's words is met by anyone whose payment or transfer label carries them. An agent is woken by events at most once
 per 10 minutes after its last turn. An
 agent on a matter is also woken by anything new related to it (the wide net, his word of 18 Nov 2026): a message from
 one of the matter's people, or a message or recording of his close to the matter in meaning, as the Mac's embedder

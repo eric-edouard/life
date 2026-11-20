@@ -11,6 +11,7 @@ import { CARD, DecisionRequest } from "../memory/decisions";
 import { AgentWait } from "../records/registered-agent";
 import {
   askDecision,
+  askFirstMessageOf,
   finish,
   hasAsked,
   readPacket,
@@ -63,7 +64,7 @@ function doorServer(desk: Desk, id: string) {
         // His rule: a new agent's first turn ends on its plan, asked; it waits or finishes only after.
         if ((name === "set_wait" || name === "finish") && !hasAsked(id)) {
           throw new Error(
-            "Not done: ask your plan first (`request_decision`: a question ending in a ?, options Go, Tell the agent…, Stop the agent)."
+            askFirstMessageOf(agentOf(desk.db, id)?.is_handed_out === 1)
           );
         }
         const r = await run(args);

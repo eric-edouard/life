@@ -100,3 +100,12 @@ test("his notification settings name only known kinds and levels", () => {
     false
   );
 });
+
+test("the desk's hand-out is off when absent and strict when set", () => {
+  const handOut = (h: object) => Settings.safeParse({ desk: { handOut: h } });
+  expect(Settings.safeParse({ desk: {} }).data?.desk?.handOut).toBeUndefined();
+  expect(handOut({ aDay: 3, cardsWaiting: 5 }).success).toBe(true);
+  expect(handOut({ aDay: 3 }).success).toBe(false);
+  expect(handOut({ aDay: 0, cardsWaiting: 5 }).success).toBe(false);
+  expect(handOut({ aDay: 3, cardsWaiting: 5, more: 1 }).success).toBe(false);
+});

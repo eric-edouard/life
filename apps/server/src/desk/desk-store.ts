@@ -36,6 +36,7 @@ create table if not exists agent (
   outcome text,
   why_not_started text,
   stopped_at text,
+  is_handed_out integer not null default 0,
   check (status <> 'active' or wait_until is not null)
 );
 create table if not exists session (
@@ -151,6 +152,17 @@ export function openDesk(path = DESK_STORE) {
     .get();
   if (!hasStoppedAt) {
     db.run("alter table agent add column stopped_at text");
+  }
+  // A store made before `agent.is_handed_out`: every older agent was started on his word.
+  const hasHandedOut = db
+    .query(
+      "select 1 from pragma_table_info('agent') where name = 'is_handed_out'"
+    )
+    .get();
+  if (!hasHandedOut) {
+    db.run(
+      "alter table agent add column is_handed_out integer not null default 0"
+    );
   }
   // A store made before the two context columns (`growthOf`): older sessions and turns have none, so they grow 0.
   for (const [table, column] of [

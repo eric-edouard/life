@@ -128,6 +128,8 @@ export interface MatterView {
   endingRecords?: readonly string[];
   /** Where it is going (`directionsOf`); none until Life drafts one or he says it. */
   goal?: ByWhom<{ text: string }>;
+  /** An open step he said himself: his to-do item, or an observation he spoke (`isOneOfHis`). */
+  hasOwnOpenStep: boolean;
   id: string;
   /** A matter of one: no matter line holds its record. */
   lone: boolean;
@@ -392,6 +394,9 @@ export function matterOf(
       ...line.areas,
       ...records.observations.flatMap((o) => (o.area ? [o.area] : [])),
     ]),
+    hasOwnOpenStep: openSteps.some(
+      (s) => s.kind === "todo_item" || ix.byId.get(s.ref)?.speaker === OWNER
+    ),
     id: line.id,
     lone,
     name: line.name,
