@@ -6,7 +6,7 @@ import {
   spyOn,
   test,
 } from "bun:test";
-import { readFileSync, rmSync } from "node:fs";
+import { appendFileSync, readFileSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { clock } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
@@ -384,11 +384,36 @@ test("a caretaker whose first launch fails is not registered again for the same 
       why_not_started: expect.any(String),
     });
     expect(complaintReceiptOf(desk.db, stuck.id)).toBeNull();
-    // His next press tries once more, taking the one still waiting with it.
+    // His next press tries once more, taking the one still waiting with it, even when a thousand asks for other
+    // agents came between: past the intake's window.
     setSystemTime(new Date(clock().getTime() + 60_000));
+    appendFileSync(
+      LEDGER,
+      Array.from(
+        { length: 1000 },
+        (_, i) =>
+          `${JSON.stringify({
+            after: { agent: "test-filler" },
+            at: clock().toISOString(),
+            id: `entry_${(0xf0_00_00_00_00_00 + i).toString(16)}`,
+            instruction: {
+              at: clock().toISOString(),
+              quote: "Test",
+              ref: `t:${i}`,
+            },
+            kind: "ask",
+            result: "ok",
+            schemaVersion: 1,
+            target: "agent",
+            via: "connector",
+            why: "test",
+          })}\n`
+      ).join("")
+    );
     const next = askedOnly("key-launch-2");
     await receiveComplaints(desk);
     expect(caretakers()).toBe(before + 2);
+    await receiveComplaints(desk);
     expect(complaintReceiptOf(desk.db, stuck.id)?.assignment).toBe(
       complaintReceiptOf(desk.db, next.id)?.assignment
     );

@@ -562,8 +562,8 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 The complaint record: one row per complaint (his "Wrong…", an ask in `ledger.jsonl`), appended only by `recordComplaints`
 (`memory/complaint-record.ts`), run by the desk as it receives a complaint, before its receipt, in ledger order: `{schemaVersion: 1, ask, at, kind, stage, prompt}`. `kind`: the
 card's group, `unknown` when it had left; `stage` the step that makes that kind of card (`links`, `episodes`, `names`,
-`contacts`, `matters`, `voice naming`, else `unknown`) and `prompt` its prompt version at his press (null when none), as
-the ask froze them (`stageOf`). No words, no card. A last line cut short is dropped, finished when it is a whole row;
+`contacts`, `matters`, `voice naming`, else `unknown`) and `prompt` its prompt version at his press (null when none; a
+guessed person's, the prompt its guess was made with, else `unknown`), as the ask froze them (`stageOf`). No words, no card. A last line cut short is dropped, finished when it is a whole row;
 whole JSON that is not a row, or a bad earlier line, stops it, kept as it is.
 
 ## fact-checks.jsonl

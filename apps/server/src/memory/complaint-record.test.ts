@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
-import { appendFileSync, readFileSync, rmSync } from "node:fs";
+import { appendFileSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import type { LedgerEntry } from "../records/ledger-entry";
 import { COMPLAINTS, recordComplaints, stageOf } from "./complaint-record";
+import { INFERRED } from "./memory-files";
 
 // The complaint record: one row per complaint in ledger order, a torn last line dropped first, a bad row (earlier, or
 // whole and last) shown, never rewritten. Made-up asks.
@@ -79,5 +80,58 @@ test("a row per complaint, once, in ledger order; a torn last line is dropped an
     expect(readFileSync(COMPLAINTS, "utf8")).toBe("not json\n");
   } finally {
     rmSync(COMPLAINTS, { force: true });
+  }
+});
+
+test("the tail is mended by bytes, behind rows that hold: after non-ASCII text a whole row stays whole; a bad whole row before a torn tail throws, nothing cut", () => {
+  rmSync(COMPLAINTS, { force: true });
+  try {
+    const row = `${JSON.stringify({ ask: "entry_00000000000a", at: "2026-11-20T09:00:00.000Z", kind: "name", prompt: null, schemaVersion: 1, stage: "étape nommée" })}\n`;
+    writeFileSync(COMPLAINTS, `${row}{"ask":"entry_0`);
+    expect(recordComplaints([])).toEqual([]);
+    expect(readFileSync(COMPLAINTS, "utf8")).toBe(row);
+    const bad = row.replace('"schemaVersion":1', '"schemaVersion":2');
+    writeFileSync(COMPLAINTS, `${bad}{"ask":"entry_0`);
+    expect(() => recordComplaints([])).toThrow("schemaVersion");
+    expect(readFileSync(COMPLAINTS, "utf8")).toBe(`${bad}{"ask":"entry_0`);
+  } finally {
+    rmSync(COMPLAINTS, { force: true });
+  }
+});
+
+test("a guessed person's prompt is the one its guess was made with, else unknown; never the episodes prompt now", () => {
+  const guess = {
+    area: null,
+    at: "2026-11-01T09:00:00.000Z",
+    confidence: 0.6,
+    evidence: [{ quote: "Test: see you Friday", unit: "u1" }],
+    id: "inf_test-kit",
+    madeBy: {
+      engine: "codex",
+      model: "m",
+      prompt: "memory-episodes.v3",
+      run: "r",
+    },
+    name: "Test Kit",
+    namesAndHandles: ["Test Kit"],
+    project: null,
+    relation: "a neighbour",
+    schemaVersion: 1,
+  };
+  rmSync(INFERRED, { force: true });
+  try {
+    writeFileSync(INFERRED, `${JSON.stringify(guess)}\n`);
+    expect(
+      stageOf({ group: "guessed person", ref: "person:inf_test-kit" })
+    ).toEqual({
+      kind: "guessed person",
+      prompt: "memory-episodes.v3",
+      stage: "episodes",
+    });
+    expect(
+      stageOf({ group: "guessed person", ref: "person:inf_test-gone" }).prompt
+    ).toBe("unknown");
+  } finally {
+    rmSync(INFERRED, { force: true });
   }
 });

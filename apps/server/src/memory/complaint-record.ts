@@ -13,10 +13,9 @@ import { appendJsonl, readAppended } from "../core/files";
 import { CheckGroup } from "../core/names";
 import { isoDateTime } from "../records/fields";
 import { complaintOf, type LedgerEntry } from "../records/ledger-entry";
-import { EPISODES_PROMPT } from "./episodes";
 import { LINKS_PROMPT } from "./links";
 import { MATTERS_PROMPT } from "./matters";
-import { MEMORY } from "./memory-files";
+import { MEMORY, readInferred } from "./memory-files";
 
 // The complaint record (`memory/complaints.jsonl`): one row per complaint (his "Wrong…", an ask in the ledger), what
 // the caretaker's later work and the developer's counts start from. It holds no words of his and no card: the ask's id,
@@ -33,7 +32,8 @@ const STAGES: Record<CheckGroup, { prompt: string | null; stage: string }> = {
   // An agent's card takes no complaint; a row of one would be a bug's.
   decision: { prompt: null, stage: "unknown" },
   ending: { prompt: LINKS_PROMPT, stage: "links" },
-  "guessed person": { prompt: EPISODES_PROMPT, stage: "episodes" },
+  // Its prompt is the guess's own (`guessPromptOf`), never the episodes prompt now.
+  "guessed person": { prompt: null, stage: "episodes" },
   name: { prompt: null, stage: "names" },
   "new matter": { prompt: MATTERS_PROMPT, stage: "matters" },
   voice: { prompt: null, stage: "voice naming" },
@@ -52,14 +52,22 @@ export const ComplaintRow = z
   .strict();
 export type ComplaintRow = z.infer<typeof ComplaintRow>;
 
-/** Card `card`'s kind, the stage that made it and that stage's prompt now: frozen into his complaint at his press. */
+/** The prompt the guess about who `ref` is was made with (its latest record's `madeBy`, as the card reads it), or `unknown`. */
+const guessPromptOf = (ref: unknown) =>
+  readInferred().findLast((p) => `person:${p.id}` === ref)?.madeBy.prompt ??
+  "unknown";
+
+/** Card `card`'s kind, the stage that made it and the prompt it was made with: frozen into his complaint at his press. */
 export function stageOf(card: unknown) {
-  const group = CheckGroup.safeParse(
-    (card as { group?: unknown } | null)?.group
-  );
-  return group.success
-    ? { kind: group.data, ...STAGES[group.data] }
-    : { kind: "unknown" as const, prompt: null, stage: "unknown" };
+  const c = card as { group?: unknown; ref?: unknown } | null;
+  const group = CheckGroup.safeParse(c?.group);
+  if (!group.success) {
+    return { kind: "unknown" as const, prompt: null, stage: "unknown" };
+  }
+  const stage = STAGES[group.data];
+  return group.data === "guessed person"
+    ? { kind: group.data, ...stage, prompt: guessPromptOf(c?.ref) }
+    : { kind: group.data, ...stage };
 }
 
 /** The row of complaint `a`, from what its ask froze at his press. */
@@ -89,8 +97,8 @@ const readRecorded = () =>
 
 /**
  * Ends the record on a whole line before an append. Only its last byte is read, unless a crash left its last line
- * unterminated: cut short (no JSON), it is dropped; a whole row, it is ended; whole JSON that is not a row throws, its
- * bytes kept, shown and never rewritten.
+ * unterminated: cut short (no JSON), it is dropped, at its byte offset; a whole row, it is ended; whole JSON that is
+ * not a row throws, its bytes kept, shown and never rewritten.
  */
 function mendTail() {
   const size = statSync(COMPLAINTS, { throwIfNoEntry: false })?.size ?? 0;
@@ -106,11 +114,11 @@ function mendTail() {
   if (size === 0 || last[0] === 10) {
     return;
   }
-  const text = readFileSync(COMPLAINTS, "utf8");
-  const end = text.lastIndexOf("\n") + 1;
+  const bytes = readFileSync(COMPLAINTS);
+  const end = bytes.lastIndexOf(10) + 1;
   let tail: unknown;
   try {
-    tail = JSON.parse(text.slice(end));
+    tail = JSON.parse(bytes.subarray(end).toString("utf8"));
   } catch {
     truncateSync(COMPLAINTS, end);
     return;
@@ -125,6 +133,8 @@ function mendTail() {
  * read and its append; a bad row throws before anything is appended. The rows appended.
  */
 export function recordComplaints(asks: readonly LedgerEntry[]) {
+  // Every whole row is read first (a bad one throws), so the tail is mended only behind rows that hold.
+  readRecorded();
   mendTail();
   const held = readRecorded();
   const added = asks.filter((a) => !held.has(a.id)).map(rowOf);

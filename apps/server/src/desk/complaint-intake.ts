@@ -11,11 +11,7 @@ import {
 import { COMPLAINT_RECEIVED } from "../host/events";
 import { recordComplaints } from "../memory/complaint-record";
 import { askOf, readLedger } from "../memory/memory-files";
-import {
-  complaintOf,
-  isComplaint,
-  type LedgerEntry,
-} from "../records/ledger-entry";
+import { complaintOf, isComplaint } from "../records/ledger-entry";
 import { register } from "./agent-actions";
 import { COMPLAINTS_CURSOR, type Desk, saveCursor } from "./desk-store";
 import { queue } from "./event-queue";
@@ -74,17 +70,15 @@ function destinationOf(
 }
 
 /**
- * Why no caretaker is registered for `pending`: the last one's first turn never began (`why_not_started`), and none of
- * them was pressed since it closed. His next press tries once more; the ones pending wait for it.
+ * Why no caretaker is registered: the last one's first turn never began (`why_not_started`), and no complaint was
+ * pressed since it ended, anywhere in the ledger (the newest, read from the end). His next press tries once more; the
+ * ones pending wait for it.
  */
-function startFailureOf(
-  db: Desk["db"],
-  pending: readonly { a: LedgerEntry }[]
-) {
+function startFailureOf(db: Desk["db"]) {
   const last = agentInRole(db, "caretaker");
   return last?.status === "ended" &&
     last.why_not_started &&
-    !pending.some(({ a }) => a.at > (last.ended_at ?? ""))
+    (readLedger().findLast(isComplaint)?.at ?? "") <= (last.ended_at ?? "")
     ? `the caretaker did not start (${last.why_not_started}); his next "Wrong…" tries again`
     : undefined;
 }
@@ -110,7 +104,7 @@ export async function receiveComplaints(desk: Desk) {
   // A runtime is asked only when a caretaker must be registered (a process, never inside the transaction).
   const blocked =
     pending.length > 0 && !standingCaretakerOf(db)
-      ? (startFailureOf(db, pending) ??
+      ? (startFailureOf(db) ??
         (runtime ? await desk.runtimes[runtime]?.block() : undefined))
       : undefined;
   const received = db.transaction(() => {
