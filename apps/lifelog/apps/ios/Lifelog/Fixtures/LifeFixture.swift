@@ -630,6 +630,19 @@
                         ],
                     ]),
                 check(
+                    "voice_guess", group: "voice", urgency: "improves", title: "A voice from Sunday, 8 seconds",
+                    question: "Is this Jun Watanabe?",
+                    options: [
+                        option("this-is", "Yes"), option("not-this", "Someone else…", takes: "person or name"),
+                        option("not-relevant", "Don't name"),
+                    ],
+                    extra: [
+                        "clips": [
+                            clip(
+                                at(15, 18, 2), "Je t’envoie le plan demain.", job: clipJob2, from: 5.0, to: 13.0)
+                        ]
+                    ]),
+                check(
                     "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
                     question: "Is this Camille Vance?",
                     options: [
@@ -642,19 +655,6 @@
                             ["name": "Idris Benali", "person": "person:idris"],
                             ["name": "Nora Keller", "person": "person:nora"],
                         ],
-                    ]),
-                check(
-                    "voice_guess", group: "voice", urgency: "improves", title: "A voice from Sunday, 8 seconds",
-                    question: "Is this Jun Watanabe?",
-                    options: [
-                        option("this-is", "Yes"), option("not-this", "Someone else…", takes: "person or name"),
-                        option("not-relevant", "Don't name"),
-                    ],
-                    extra: [
-                        "clips": [
-                            clip(
-                                at(15, 18, 2), "Je t’envoie le plan demain.", job: clipJob2, from: 5.0, to: 13.0)
-                        ]
                     ]),
                 check(
                     "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
