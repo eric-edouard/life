@@ -227,28 +227,31 @@ const shownValueOf = (key: string, v: unknown) => {
 export const partsOf = (template: string, e: Record<string, unknown>) => {
   const parts: LinePart[] = [];
   let left = MESSAGE_CHARS;
-  const push = (part: LinePart, text: string) => {
-    if (left > 0 && text) {
-      const cut = text.slice(0, left);
-      parts.push("text" in part ? { text: cut } : { value: cut });
+  const add = (as: "text" | "value", words: string) => {
+    const cut = words.slice(0, left);
+    if (cut) {
+      parts.push(as === "text" ? { text: cut } : { value: cut });
       left -= cut.length;
     }
   };
   let at = 0;
   for (const m of template.matchAll(PLACEHOLDER)) {
-    const text = masked(template.slice(at, m.index));
-    push({ text }, text);
-    const value = shownValueOf(m[1] ?? "", e[m[1] ?? ""]);
-    push({ value }, value);
+    add("text", masked(template.slice(at, m.index)));
+    add("value", shownValueOf(m[1] ?? "", e[m[1] ?? ""]));
     at = m.index + m[0].length;
   }
-  const text = masked(template.slice(at));
-  push({ text }, text);
+  add("text", masked(template.slice(at)));
   return parts;
 };
 
 /** A refusal's classes (`mcp.call`'s `refused`): a line before LogTape is shown only these, never its clipped text. */
-const REFUSALS = new Set(["error", "forbidden", "invalid", "invalid_arguments", "not_done"]);
+const REFUSALS = new Set([
+  "error",
+  "forbidden",
+  "invalid",
+  "invalid_arguments",
+  "not_done",
+]);
 
 /** Why a line before LogTape is what it is, as a class only: a refusal's, an outcome, else `failed` for an error. */
 const oldWhyOf = (e: Record<string, unknown>) => {
@@ -263,7 +266,9 @@ const oldWhyOf = (e: Record<string, unknown>) => {
  * A stored line as his app is shown it, or undefined when it is not one. A LogTape line (`time`, `msg`) by its
  * template and fields; a line before it (`at`, `kind`) by its kind, category and why's class, as one text part.
  */
-export const shownLineOf = (e: Record<string, unknown>): ShownLine | undefined => {
+export const shownLineOf = (
+  e: Record<string, unknown>
+): ShownLine | undefined => {
   const kind = word(e.kind);
   const at = word(e.time) ?? word(e.at);
   if (!(kind && at)) {
@@ -273,7 +278,13 @@ export const shownLineOf = (e: Record<string, unknown>): ShownLine | undefined =
   const parts = isLogTape
     ? partsOf(String(e.msg), e)
     : partsOf(
-        [kind, categoryOf(kind, e).slice(1).join("."), oldWhyOf(e)]
+        [
+          kind,
+          ...categoryOf(kind, e)
+            .slice(1)
+            .filter((w) => w !== kind.split(".")[1]),
+          oldWhyOf(e),
+        ]
           .filter(Boolean)
           .join(" ")
           .replace(PLACEHOLDER, ""),
@@ -281,7 +292,9 @@ export const shownLineOf = (e: Record<string, unknown>): ShownLine | undefined =
       );
   return {
     at,
-    category: isLogTape ? (e.category as string[]).slice(1) : categoryOf(kind, e),
+    category: isLogTape
+      ? (e.category as string[]).slice(1)
+      : categoryOf(kind, e),
     level: (LOG_LEVELS as readonly unknown[]).includes(e.level)
       ? (e.level as LogLevel)
       : logLevelOf(e),
