@@ -101,10 +101,10 @@ await rm(join(framework, "Versions", "B", "XPCServices"), {
   force: true,
   recursive: true,
 });
-await cp(
-  join(bin, "life-eventkit"),
-  join(contents, "Helpers", "life-eventkit")
-);
+for (const helper of ["life-eventkit", "life-foundation-model"]) {
+  // biome-ignore lint/performance/noAwaitInLoops: two small copies
+  await cp(join(bin, helper), join(contents, "Helpers", helper));
+}
 
 // llama.cpp's server for the describer (photo descriptions), with the libraries it loads from beside it, signed.
 await bundleLlama(
@@ -200,6 +200,14 @@ await run([
   "--entitlements",
   appEntitlements,
   join(contents, "Helpers", "life-eventkit"),
+]);
+await run([
+  "codesign",
+  "--force",
+  "--sign",
+  identity,
+  ...hardened,
+  join(contents, "Helpers", "life-foundation-model"),
 ]);
 // Sparkle's parts, inside out (no --deep): its Autoupdate tool and Updater.app, then the framework.
 for (const part of [
