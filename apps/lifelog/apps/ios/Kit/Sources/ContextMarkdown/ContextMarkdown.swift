@@ -25,9 +25,10 @@ public enum ContextLink: Equatable, Sendable {
             return
         }
         guard let url = URL(string: destination), let scheme = url.scheme?.lowercased() else { return nil }
-        if Self.systemSchemes.contains(scheme) || url.host()?.lowercased() == "maps.apple.com" {
+        let isWeb = scheme == "http" || scheme == "https"
+        if Self.systemSchemes.contains(scheme) || (isWeb && url.host()?.lowercased() == "maps.apple.com") {
             self = .system(url)
-        } else if scheme == "http" || scheme == "https" {
+        } else if isWeb {
             self = .web(url)
         } else {
             return nil

@@ -105,6 +105,8 @@ func aQuoteKeepsItsSourceLineWhereverItIsWritten(markdown: String) throws {
         ContextLink(destination: "https://maps.apple.com/?q=cafe")
             == .system(try #require(URL(string: "https://maps.apple.com/?q=cafe"))))
     #expect(ContextLink(destination: "shortcuts://run-shortcut?name=x") == nil)
+    // Maps' web host opens Maps only over the web: another app's scheme on that host opens nothing.
+    #expect(ContextLink(destination: "shortcuts://maps.apple.com/?q=cafe") == nil)
     let blocks = ContextMarkdown.blocks("[Run it](shortcuts://run-shortcut?name=x)")
     #expect(blocks == [.paragraph([Inline("Run it")])], "shown as its words, opening nothing")
 }
