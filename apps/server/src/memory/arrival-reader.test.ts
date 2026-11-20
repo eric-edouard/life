@@ -12,7 +12,7 @@ import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { apply, openStore, turnRef, WATCH } from "../sources/lifelog";
 import {
-  conversation,
+  conversation as feedConversation,
   lifelogServer,
   pageFixture,
   turnFixture,
@@ -27,7 +27,7 @@ import type { SourceLine } from "./quote-check";
 import { readConfirmedArrivals, readReplies, storeReply } from "./read-replies";
 import { OWNER, type Truth } from "./read-truth";
 import { voiceUnitId } from "./unit-ids";
-import { applyRules, type Built, messageUnits } from "./units";
+import { applyRules, messageUnits } from "./units";
 import { dayNow, dayStart, localDate } from "./zones";
 
 // Made-up chats with Sam, someone he knows; Apple and his engine are fakes counting their calls.
@@ -388,7 +388,11 @@ test("voice: a conversation reopened within one pass is read as the store's one 
       store,
       pageFixture({
         conversations: [
-          conversation("talk-r", { closed, endAt: ago(10), startAt: first }),
+          feedConversation("talk-r", {
+            closed,
+            endAt: ago(10),
+            startAt: first,
+          }),
         ],
         turns: turns.map((t) => ({ ...t, jobId: "job-r" })),
       })
@@ -507,17 +511,15 @@ test("voice: yesterday's first turns filed under last month are seen as read the
 });
 
 test("Apple failing (an outage) stores nothing and asks no confirm: the read is due again on the next pass", async () => {
-  let isDown = true;
-  const s = sceneOf(() =>
-    isDown
-      ? { detail: "ModelManagerError 1013", error: "failed" }
-      : yes("send the slides")
-  );
+  const answers: FoundationAnswer[] = [
+    { detail: "ModelManagerError 1013", error: "failed" },
+    yes("send the slides"),
+  ];
+  const s = sceneOf(() => answers.shift() ?? yes(""));
   const events = [msg("Can you send the slides?")];
   await s.read(events);
   expect(s.calls).toEqual({ apple: 1, engine: 0 });
   expect(s.lines()).toEqual([]);
-  isDown = false;
   await s.read(events);
   expect(s.calls).toEqual({ apple: 2, engine: 1 });
 });
