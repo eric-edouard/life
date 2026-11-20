@@ -1,4 +1,8 @@
-import type { AgentStatus, OpenedBy } from "../records/registered-agent";
+import type {
+  AgentRole,
+  AgentStatus,
+  OpenedBy,
+} from "../records/registered-agent";
 
 // Which matters registered agents hold, and which agent takes a matter (docs/tasks.md, "held"): the rules, pure, for
 // the hand-out (`handOutOf`), the fold and the new matter check alike. The facts come from the desk's store (host's
@@ -45,9 +49,9 @@ export function isHeldOf(holds: readonly AgentHold[]) {
 /** An active agent that takes matters: a project's (its own assignment listens to `project`) or the Personal agent. */
 export interface StandingAgent {
   id: string;
-  isPersonal: boolean;
   name: string | null;
   project: string | null;
+  role: AgentRole | null;
 }
 
 /**
@@ -58,4 +62,4 @@ export interface StandingAgent {
 export const agentForOf =
   (standing: readonly StandingAgent[]) => (project: string | undefined) =>
     (project ? standing.find((a) => a.project === project) : undefined) ??
-    standing.find((a) => a.isPersonal);
+    standing.find((a) => a.role === "personal");

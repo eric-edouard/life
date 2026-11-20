@@ -70,9 +70,9 @@ test("the rule returns the hold that holds, with its agent and status, or undefi
 test("a matter goes to the oldest agent of its project, else the Personal agent, else none", () => {
   const agent = (id: string, project: string | null, isPersonal = false) => ({
     id,
-    isPersonal,
     name: null,
     project,
+    role: isPersonal ? ("personal" as const) : null,
   });
   const standing = [
     agent("agt_000000000001", null, true),

@@ -112,6 +112,60 @@ function reachWithin(all: Reach[]) {
   return { left, reach };
 }
 
+/**
+ * The `reach` part's page, built and measured as it is sent (`{ reach, next }`): every account from the `skip`th on
+ * (apps in order, each app's accounts newest first), as many as keep it within `PART_CHARS`, at least one; `next`, the
+ * ref of the following page, absent on the last. A first account too big alone loses the end of its title (the optional
+ * display text), never its handle or link. Pure. ponytail: each size is measured afresh, quadratic in a page's accounts.
+ */
+export function reachPageOf(all: Reach[], skip: number, subject: string) {
+  const flat = all.flatMap((r, app) =>
+    r.accounts.map((account) => ({ account, app }))
+  );
+  const pageOf = (count: number, cut = 0) => {
+    const taken = flat.slice(skip, skip + count).map((x, i) => ({
+      ...x,
+      account:
+        i === 0 && cut > 0
+          ? {
+              ...x.account,
+              title:
+                [...(x.account.title ?? "")].slice(0, -cut).join("") ||
+                undefined,
+            }
+          : x.account,
+    }));
+    const reach = [...Map.groupBy(taken, (x) => x.app)].map(([app, list]) => ({
+      ...(all[app] as Reach),
+      accounts: list.map((x) => x.account),
+    }));
+    return skip + count < flat.length
+      ? {
+          next: readPartRefOf({
+            part: "reach",
+            span: String(skip + count),
+            subject,
+          }),
+          reach,
+        }
+      : { reach };
+  };
+  const size = (x: unknown) => JSON.stringify(x).length;
+  let n = 1;
+  while (skip + n < flat.length && size(pageOf(n + 1)) <= PART_CHARS) {
+    n += 1;
+  }
+  // Cut the title by what the page is over (whole characters, never half a pair), measured again after each cut: an
+  // escaped character can weigh more than one. A page over with no title left is as small as it gets.
+  let trim = 0;
+  let page = pageOf(n);
+  while (size(page) > PART_CHARS && page.reach[0]?.accounts[0]?.title) {
+    trim += size(page) - PART_CHARS;
+    page = pageOf(n, trim);
+  }
+  return page;
+}
+
 /** A part that holds something, as `now` offers it: the ref `fetch` opens and its first sentence. */
 export interface KnownPart {
   first: string;
@@ -197,6 +251,10 @@ export function personNowOf(i: NowInputs, chars = PART_CHARS) {
     knows: i.knows,
     open: i.matters,
     ...(i.organization ?? {}),
+    // Accounts reach had no room for are in `details`, cut there too: all of them, paged, are the `reach` part.
+    ...(left.length > 0
+      ? { moreReach: readPartRefOf({ part: "reach", subject: i.row.ref }) }
+      : {}),
     reach,
     situation: i.situation,
   };

@@ -188,8 +188,14 @@
       },
       "confirm": [],
       "networkIdentity": null,
+      "contactsCard": null,
       "pushId": "47c2deda3a5b51cd",
-      "urgency": "improves"
+      "urgency": "improves",
+      "misread": {
+        "cause": "e33422a9ac5b7ce7",
+        "seal": "02c9729efbc2c1ace0887bd979d3653f",
+        "shown": "f8053e6bca0bfd2b"
+      }
     }
   ]
 }

@@ -60,6 +60,7 @@ import {
   STARTS_PER_TICK,
 } from "./agent-wait";
 import { pollArrivals } from "./arrival-route";
+import { receiveComplaints } from "./complaint-intake";
 import { doorOf } from "./desk-door";
 import {
   closeAssignmentRow,
@@ -458,7 +459,7 @@ async function launch(
         ? null
         : [
             await matterRecordOf(desk, s, turn),
-            ...(isFirst ? [firstTurnOf(s.opened_by).trim()] : []),
+            ...(isFirst ? [firstTurnOf(a, s.opened_by).trim()] : []),
           ].join("\n");
     if (isFresh) {
       const started = await runtime.start(
@@ -577,12 +578,13 @@ export async function wakeDue(desk: Desk) {
 }
 
 /**
- * One tick of the clock: his word about his agents, the hand-out (at most one start, a look every 10 minutes), his answers, the turns that never began, then the turns due (a new
+ * One tick of the clock: his word about his agents, his complaints for the caretaker (before the hand-out may take the last place), the hand-out (at most one start, a look every 10 minutes), his answers, the turns that never began, then the turns due (a new
  * agent's first turn never waits behind the polls), then, when their poll is due, the messages, the calls that ended, the recordings, the
  * assignments whose matter is over for them, the fold (each matter to the agent that takes it), the hand-outs with no card in time and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst; the event channels a wait names after the calls (`pollChannels`).
  */
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
+  await receiveComplaints(desk);
   await handOutNext(desk);
   pollAnswers(desk);
   await endUnbegunTurns(desk);

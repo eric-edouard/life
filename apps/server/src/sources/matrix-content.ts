@@ -1,4 +1,5 @@
-import type { Outgoing } from "./contract";
+import { takesProblemOf } from "./chat-takes";
+import type { ChatTakes, Outgoing } from "./contract";
 
 // What a bridge's room takes, and a draft as the event it becomes (`matrixSend`, `sources/matrix.ts`): both pure.
 
@@ -33,7 +34,21 @@ export function msgtypeOf(mime: string) {
     : "m.file";
 }
 
-/** What of a draft's file the room can't take. */
+/** What a room takes besides text, from its features: none of it when its bridge never said. */
+export function chatTakesOf(f?: RoomFeatures): ChatTakes {
+  return {
+    file: Object.values(f?.file ?? {}).some((ff) =>
+      Object.values(ff.mime_types ?? {}).some(takes)
+    ),
+    mentions: takes(f?.formatting?.user_link),
+    reaction:
+      takes(f?.reaction) &&
+      (f?.allowed_reactions?.length ? f.allowed_reactions : true),
+    reply: takes(f?.reply),
+  };
+}
+
+/** What of a draft's file the room can't take: its kind, its size, words with it. */
 function fileProblemOf(d: Outgoing, f?: RoomFeatures) {
   if (!d.file) {
     return;
@@ -60,23 +75,7 @@ export function featureProblemOf(d: Outgoing, f?: RoomFeatures) {
   if (!f && (d.onMessage || d.file || d.mentions)) {
     return "this chat takes text only: its bridge hasn't said what else it takes (a chat opened and used on the bridge does)";
   }
-  if (d.reaction) {
-    if (!takes(f?.reaction)) {
-      return "this chat takes no reactions";
-    }
-    if (
-      f?.allowed_reactions?.length &&
-      !f.allowed_reactions.includes(d.reaction)
-    ) {
-      return `this chat takes only these reactions: ${f.allowed_reactions.join(" ")}`;
-    }
-  } else if (d.onMessage && !takes(f?.reply)) {
-    return "this chat takes no replies";
-  }
-  if (d.mentions && !takes(f?.formatting?.user_link)) {
-    return "this chat takes no mentions";
-  }
-  return fileProblemOf(d, f);
+  return takesProblemOf(d, chatTakesOf(f)) ?? fileProblemOf(d, f);
 }
 
 const WORD_CHAR = /[\p{L}\p{N}_]/u;

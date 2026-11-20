@@ -439,7 +439,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
     with: [],
   };
   const base = inputs([], { matters: [matter] });
-  expect(checksOf(base)).toEqual([
+  expect(checksOf(base).map(({ misread: _, ...c }) => c)).toEqual([
     {
       about: [],
       asker: "life",

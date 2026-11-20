@@ -23,7 +23,7 @@ const later = () => new Date(clock().getTime() + 30 * DAY).toISOString();
 /** An agent of the made-up desk, its own listening waiting a month. */
 function standing(
   desk: ReturnType<typeof setup>["desk"],
-  a: { isPersonal?: boolean; project?: string }
+  a: { project?: string; role?: "personal" }
 ) {
   const id = register(desk, { brief: "Test brief", runtime: "fake", ...a });
   desk.db.run("update assignment set wait_until = ? where agent_id = ?", [
@@ -35,7 +35,7 @@ function standing(
 
 test("a start on matter A hands over only A of the stopped agent: its matter B keeps its wait, its own stays, it stays stopped", () => {
   const { desk } = setup();
-  const personal = standing(desk, { isPersonal: true });
+  const personal = standing(desk, { role: "personal" });
   const a = openAssignment(desk, personal, {
     openedBy: "owner",
     steps: ["obs_test_a"],

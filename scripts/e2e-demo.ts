@@ -148,7 +148,7 @@ async function setUp() {
       `import { register } from "${src}/agent-actions";
 import { openDesk } from "${src}/desk-store";
 const db = openDesk();
-const id = register({ db, runtimes: {} }, { brief: "Demo: the Personal agent", isPersonal: true, name: "Personal", runtime: "${process.env.LIFE_DEMO_RUNTIME ?? "claude"}" });
+const id = register({ db, runtimes: {} }, { brief: "Demo: the Personal agent", name: "Personal", role: "personal", runtime: "${process.env.LIFE_DEMO_RUNTIME ?? "claude"}" });
 db.run("update assignment set wait_until = '2099-01-01T00:00:00.000Z' where agent_id = ?", [id]);`,
     ],
     { env }

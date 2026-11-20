@@ -124,8 +124,8 @@ test("his word starts the Personal agent once, named, in its home with placehold
   const a = agentOf(desk.db, personal);
   expect(a).toMatchObject({
     folder: join(DESK_AGENT_FOLDERS, "personal"),
-    is_personal: 1,
     name: "Personal",
+    role: "personal",
     status: "active",
   });
   expect(readFileSync(join(a?.folder ?? "", "AGENTS.md"), "utf8")).toBe(
@@ -685,8 +685,8 @@ test("re_point with personal marks an existing agent as the Personal agent, a se
             ?.error
         ).toBeNull();
         expect(agentOf(desk.db, mine)).toMatchObject({
-          is_personal: 1,
           project: null,
+          role: "personal",
           status: "active",
         });
         // It now has its own assignment beside its matter's, so it stands when its matters move.

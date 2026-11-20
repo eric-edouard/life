@@ -239,7 +239,9 @@ async function waitForStart(
         isSubjectHeld: change.steps
           ? holderOf(db, change.steps) !== null
           : standingAgents(db).some((a) =>
-              change.personal ? a.isPersonal : a.project === change.project
+              change.personal
+                ? a.role === "personal"
+                : a.project === change.project
             ),
         s: readStartFacts(db, line.id, change.steps),
       }),

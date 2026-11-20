@@ -50,14 +50,17 @@ function statusRefusal(desk: Desk, id: string | undefined, allowed: string[]) {
   return allowed.includes(a.status) ? null : `${a.id} is ${a.status}`;
 }
 
-/** Why a subject is refused: not exactly one of a matter's steps, a project or the Personal agent; another Personal agent active or stopped; the matter held by another active agent. */
 /** Why a change names not exactly one subject: a matter's steps, a project, or the Personal agent. */
 const subjectCountRefusal = (c: AgentChange) =>
   [c.steps, c.project, c.personal].filter(Boolean).length === 1
     ? null
     : "name exactly one subject: a matter (`step`), a project, or `personal`";
 
+/** Why a subject is refused: not exactly one (`subjectCountRefusal`); a re-point of the caretaker (`self`), which takes no other subject; another Personal agent active or stopped; the matter held by another active agent. */
 function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
+  if (self && agentOf(desk.db, self)?.role === "caretaker") {
+    return "the caretaker takes no other subject";
+  }
   const counted = subjectCountRefusal(c);
   if (counted) {
     return counted;
@@ -65,7 +68,7 @@ function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
   if (c.personal) {
     const other = desk.db
       .query<{ id: string; status: string }, [string]>(
-        "select id, status from agent where is_personal = 1 and status in ('active', 'stopped') and id <> ?"
+        "select id, status from agent where role = 'personal' and status in ('active', 'stopped') and id <> ?"
       )
       .get(self ?? "");
     return other ? `the Personal agent is ${other.id} (${other.status})` : null;
@@ -123,7 +126,7 @@ export function start(
   const runtime = runtimeOf(c);
   const repeat = desk.db
     .query<{ id: string }, [string, string | null, number]>(
-      "select id from agent where status = 'active' and brief = ? and (project = ? or (is_personal = 1 and ? = 1)) limit 1"
+      "select id from agent where status = 'active' and brief = ? and (project = ? or (role = 'personal' and ? = 1)) limit 1"
     )
     .get(brief, c.project ?? null, c.personal ? 1 : 0)?.id;
   if (repeat) {
@@ -149,10 +152,10 @@ export function start(
     brief,
     effort: c.effort,
     folder: c.folder ?? (c.personal ? personalHome() : undefined),
-    isPersonal: c.personal,
     model: c.model,
     name: c.name,
     project: c.project,
+    role: c.personal ? "personal" : undefined,
     runtime,
   });
   replaceStopped(desk, c, id);

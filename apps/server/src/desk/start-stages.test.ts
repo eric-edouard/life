@@ -65,7 +65,7 @@ beforeAll(async () => {
   personal = register(desk, {
     brief: "Test: the Personal agent",
     folder,
-    isPersonal: true,
+    role: "personal",
     runtime: "claude",
   });
   desk.db.run("update assignment set wait_until = ? where agent_id = ?", [

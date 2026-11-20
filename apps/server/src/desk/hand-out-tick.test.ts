@@ -121,7 +121,7 @@ const deskOf = (t = setup()) => {
   personal = register(t.desk, {
     brief: "Test: the Personal agent",
     folder: t.dir,
-    isPersonal: true,
+    role: "personal",
     runtime: "claude",
   });
   t.desk.db.run("update assignment set wait_until = ? where agent_id = ?", [

@@ -9,11 +9,12 @@ import { openReadOnly } from "../core/sqlite";
 import type { AgentHold, StandingAgent } from "../memory/held-matters";
 import type {
   AgentChange,
+  AgentRole,
   AgentStatus,
   EventFilter,
   OpenedBy,
 } from "../records/registered-agent";
-import { CALL_ENDED, MESSAGE_RECEIVED } from "./events";
+import { CALL_ENDED, COMPLAINT_RECEIVED, MESSAGE_RECEIVED } from "./events";
 
 // Every read of the desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`), its rows' shapes and the rules worked out from
 // them: the desk reads through these, and host reads the store read-only (`readDesk`), so the desk off or its store
@@ -28,8 +29,6 @@ export interface AgentRow {
   ended_at: string | null;
   folder: string;
   id: string;
-  /** 1 for the Personal agent (one active or stopped at most). */
-  is_personal: number;
   link: string | null;
   model: string | null;
   /** The name he gave it; null until set. */
@@ -38,6 +37,8 @@ export interface AgentRow {
   outcome: string | null;
   /** Its project of `truth/`, when its own assignment listens to one. */
   project: string | null;
+  /** Its standing role, one active or stopped at most of each; null for every other agent. */
+  role: AgentRole | null;
   runtime: string;
   session: string | null;
   status: AgentStatus;
@@ -308,16 +309,10 @@ export const holderOf = (db: Database, steps: string[]) =>
 /** The active agents that take matters (`agentForOf`): a project's or the Personal agent, oldest first. */
 export const standingAgents = (db: Database): StandingAgent[] =>
   db
-    .query<Pick<AgentRow, "id" | "is_personal" | "name" | "project">, [number]>(
-      "select id, is_personal, name, project from agent where status = 'active' and (is_personal = 1 or project is not null) order by created_at limit ?"
+    .query<StandingAgent, [number]>(
+      "select id, name, project, role from agent where status = 'active' and (role = 'personal' or project is not null) order by created_at limit ?"
     )
-    .all(MAX_ACTIVE)
-    .map((a) => ({
-      id: a.id,
-      isPersonal: a.is_personal === 1,
-      name: a.name,
-      project: a.project,
-    }));
+    .all(MAX_ACTIVE);
 
 /**
  * How long an ended agent's subject is read for the hold rule: one ended earlier holds nothing, so a try older than this
@@ -362,6 +357,40 @@ export const heldStampOf = (db: Database) =>
       )
       .values(heldSince())
   );
+
+/**
+ * The agent in standing role `role`: its one active or stopped, else its newest that ended (`ended_at`); with why its
+ * newest assignment's first turn never began (`why_not_started`), if it did not. None ever: null.
+ */
+export const agentInRole = (db: Database, role: AgentRole) =>
+  db
+    .query<AgentRow & Pick<AssignmentRow, "why_not_started">, [string]>(
+      "select a.*, s.why_not_started from agent a left join assignment s on s.agent_id = a.id where a.role = ? order by a.status in ('active', 'stopped') desc, a.created_at desc, s.opened_at desc limit 1"
+    )
+    .get(role);
+
+/** The caretaker's assignments, of every caretaker it ever had: a complaint received by one is received for good. */
+const CARETAKER_EVENTS = `select e.*, s.closed_at, s.plan_now, s.id as assignment from event e join assignment s on s.id = e.assignment_id join agent a on a.id = s.agent_id where a.role = 'caretaker' and e.name = '${COMPLAINT_RECEIVED}'`;
+
+/** Where complaint `ask` was received (its receipt: the event row the desk queued for a caretaker's assignment), or null before. */
+export const complaintReceiptOf = (db: Database, ask: string) =>
+  db
+    .query<{ assignment: string; received_at: string }, [string]>(
+      `${CARETAKER_EVENTS} and e.event_id = ?`
+    )
+    .get(ask);
+
+/**
+ * His complaints the caretaker is at work on, in the order received: each received for an assignment still open, its
+ * event not dropped; with its assignment's line (`plan_now`) only when this complaint is all that assignment holds, so
+ * a line is never shown on a complaint it is not about. Bounded: the caretaker's open assignments.
+ */
+export const complaintsAtWork = (db: Database) =>
+  db
+    .query<{ ask: string; line: string | null; since: string }, []>(
+      `select e.event_id as ask, e.received_at as since, case when (select count(*) from event x where x.assignment_id = e.assignment and x.name = '${COMPLAINT_RECEIVED}') = 1 then e.plan_now end as line from (${CARETAKER_EVENTS} and s.closed_at is null and e.dropped_at is null) e order by e.received_at, e.event_id`
+    )
+    .all();
 
 /** What the desk did with an ask of his (`change_registered_agent`): the agent it touched, or why it refused; null until applied. */
 export const agentChangeOf = (db: Database, ask: string) =>
@@ -487,7 +516,7 @@ export interface AgentNow {
   } | null;
   link: string | null;
   model: string | null;
-  /** The first line of its notes: what it took its subject to be. */
+  /** The first line of its notes: what it took its subject to be; none for the caretaker (its notes are about his complaints). */
   notes: string;
   /** Why its first turn never began, when it did not (it was ended). */
   notStarted: string | null;
@@ -623,7 +652,8 @@ function nowOf(
         }
       : null,
     link: a.link,
-    notes: headOf(readNotes(s)),
+    // The caretaker's notes are about his complaints: they stay with it, never in a read or the nightly.
+    notes: a.role === "caretaker" ? "" : headOf(readNotes(s)),
     notStarted: s.why_not_started,
     outcome: a.outcome,
     project: a.project,
@@ -737,7 +767,7 @@ export const tokensSince = (db: Database, since: string) =>
 export function notesOutsideOf(path: string, state: string) {
   const db = openReadOnly(path);
   try {
-    return isOldShape(db)
+    return isBeforeAssignments(db)
       ? []
       : db
           .query<Pick<AssignmentRow, "id" | "notes_path">, []>(
@@ -750,13 +780,22 @@ export function notesOutsideOf(path: string, state: string) {
   }
 }
 
-/** Whether the store at `db` is of the shape before assignments: only the desk helper's store step (`desk/store-step.ts`) changes it. */
-export const isOldShape = (db: Database) =>
+const hasColumn = (db: Database, table: string, column: string) =>
   db
-    .query(
-      "select 1 from pragma_table_info('agent') where name = 'wait_events'"
-    )
-    .get() !== null;
+    .query(`select 1 from pragma_table_info('${table}') where name = ?`)
+    .get(column) !== null;
+
+/** Whether the store predates assignments (`desk/store-step.ts`'s `stepStore` reshapes it). */
+export const isBeforeAssignments = (db: Database) =>
+  hasColumn(db, "agent", "wait_events");
+
+/** Whether the store's agents predate roles (`stepRoles` reshapes it): a store that has agents and no `role`. */
+export const isBeforeRoles = (db: Database) =>
+  hasColumn(db, "agent", "id") && !hasColumn(db, "agent", "role");
+
+/** Whether the store at `db` is of an old shape: only the desk helper's store steps (`desk/store-step.ts`) change it. */
+export const isOldShape = (db: Database) =>
+  isBeforeAssignments(db) || isBeforeRoles(db);
 
 /** Why a store of the old shape is not read: the desk helper's store step has not run on it (its log says why). */
 export const NOT_MIGRATED =

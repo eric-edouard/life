@@ -31,6 +31,7 @@ import {
   type NowInputs,
   peopleListOf,
   personNowOf,
+  reachPageOf,
   readLatest,
   rowOf,
   type Standing,
@@ -246,6 +247,9 @@ export async function person(
       ? readLatest(partRef, before, folks)
       : asData(['(no part "latest" for someone only heard)']);
   }
+  if (part === "reach") {
+    return readReachPart(partRef, folks, o.span);
+  }
   // The person's own page, by its id: never one whose file name only holds the name.
   const file = known && Bun.file(pagePath(`person:${known}`));
   const found =
@@ -383,13 +387,12 @@ function nowGathered(
     standingOf(levelsWith(people), readExchangeCounts()),
     matters
   );
-  const entry = directoryPartiesOf(truth).find((p) => `person:${p.id}` === ref);
   const organization = truth.organizations.find(
     (x) => `person:${x.id}` === ref
   );
   // His Contacts read once, for reach and details.
   const cards = readCardsOf(people)(ref);
-  const reach = reachOf({ cards, party: entry, seen: readSeenAccounts(ref) });
+  const reach = readReachOf(ref, people, cards);
   const details = detailsOf({
     contacts: cards,
     person: truth.people.find((p) => `person:${p.id}` === ref),
@@ -424,6 +427,32 @@ function nowGathered(
       },
       chars
     );
+}
+
+/** Every account `ref` is reached on, as `reachOf` works them out from his directory, Contacts (`cards`) and their chats. */
+const readReachOf = (
+  ref: string,
+  people: People,
+  cards = readCardsOf(people)(ref)
+) =>
+  reachOf({
+    cards,
+    party: directoryPartiesOf(people.truth).find(
+      (p) => `person:${p.id}` === ref
+    ),
+    seen: readSeenAccounts(ref),
+  });
+
+/** `reach`: every account of a person Life knows, from the `span`th on (`reachPageOf`), and the ref of the next page. */
+function readReachPart(
+  partRef: string | undefined,
+  people: People,
+  span = "0"
+) {
+  if (!partRef) {
+    return asData(['(no part "reach" for someone only heard)']);
+  }
+  return reachPageOf(readReachOf(partRef, people), Number(span), partRef);
 }
 
 /** Each ref's levels and last exchange, from what the caller read once. */
