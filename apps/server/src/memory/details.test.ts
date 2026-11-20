@@ -10,6 +10,7 @@ import {
   readDetailsOf,
 } from "./details";
 import { dayLines } from "./read-day";
+import { cardOwnerOf } from "./who";
 
 const contact = (over: Partial<Contact> = {}): Contact => ({
   addresses: [],
@@ -80,10 +81,14 @@ test("details: his directory, then Contacts; one birthday (his directory's first
   ]);
 });
 
-test("details from Contacts: a record is the person one of its handles resolves to", () => {
+test("details from Contacts: a record is its owner's (`cardOwnerOf`)", () => {
   const detailsFor = readDetailsOf(
     {
-      resolve: (h) => (h === "+33 6 11 11 11 11" ? "person:ana" : null),
+      ownerOfCard: cardOwnerOf({
+        canon: (r) => r,
+        contacts: [],
+        resolve: (h) => (h === "+33 6 11 11 11 11" ? "person:ana" : null),
+      }),
       truth: { areas: [], people: [], projects: [] } as never,
     },
     [

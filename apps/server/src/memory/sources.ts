@@ -40,6 +40,7 @@ import {
   newestImessage,
   readEarliestImessage,
   readImessage,
+  readSharedPictures,
 } from "../sources/imessage";
 import { lifelogMissing } from "../sources/lifelog";
 import {
@@ -72,6 +73,7 @@ import {
   newestWhatsapp,
   phoneOf,
   readWhatsapp,
+  readWhatsappPictures,
   whatsappEventOf,
   whatsappGhostOf,
   whatsappHandleOf,
@@ -118,6 +120,7 @@ const LISTED: Descriptor[] = [
     missing: () => unreadable(DB, FULL_DISK),
     name: "imessage",
     newest: newestImessage,
+    pictures: () => readSharedPictures(),
     read: (since, before) => readImessage(since, undefined, undefined, before),
     send: messagesAppSend(),
     silentAfter: 24 * HOUR,
@@ -134,6 +137,7 @@ const LISTED: Descriptor[] = [
     macOnly: true,
     name: "whatsapp",
     newest: newestWhatsapp,
+    pictures: () => readWhatsappPictures(),
     read: (since, before) => readWhatsapp(since, undefined, undefined, before),
     send: {
       ...matrixSend("whatsapp", {

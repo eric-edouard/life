@@ -23,11 +23,13 @@ import {
   BRIDGES,
   configOf,
   ghostOf,
+  ghostPicturesOf,
   isBridgeAdded,
   isBridgeLinked,
   localpartOf,
   loginIdsOf,
   matrixSend,
+  mediaOf,
   OWNER,
   readHomeserverRooms,
   SERVER,
@@ -379,22 +381,6 @@ export function versionOf(e: Event, find: (id: string) => Event | null) {
   return { content, deleted: false, original: e };
 }
 
-/** An `mxc://<server>/<id>` file at the homeserver's own copy (`media_store/local_content/<2>/<2>/<rest>`). */
-const MXC = /^mxc:\/\/[^/]+\/(.{2})(.{2})(.+)$/;
-const mediaOf = (url: string) => {
-  const m = url.match(MXC);
-  return m?.[3]
-    ? join(
-        dirname(SYNAPSE),
-        "media_store",
-        "local_content",
-        `${m[1]}`,
-        `${m[2]}`,
-        m[3]
-      )
-    : undefined;
-};
-
 /**
  * A network's calls as messages of their chats: a call's notice becomes a phone call, a start taking its outcome from
  * the chat's next end (its length) or missed notice (Instagram's "You missed" follows its start), which goes; a start
@@ -687,6 +673,7 @@ export const bridgedSource = (network: Network): Descriptor => {
         name,
         "select at, coalesce(chatName, '?') || ': ' || text as words from messages order by at desc limit 1"
       ),
+    pictures: () => (isBridgeAdded(name) ? ghostPicturesOf(name) : []),
     read: (since, before) => readBridged(network, since, undefined, before),
     // A chat the bridge copied is its room; one Beeper or an export copied is not the bridge's.
     send: matrixSend(name, {

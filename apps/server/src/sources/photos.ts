@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { type Plist, readBplist, type Uid } from "../core/bplist";
+import { type Plist, readKeyedArchive } from "../core/bplist";
 import { iso } from "../core/clock";
 import { within } from "../core/lists";
 import { HOME } from "../core/platform";
@@ -87,14 +87,8 @@ function lexemesOf(blob: Uint8Array) {
 
 /** The street-level address of a reverse-geocoded location (an NSKeyedArchiver archive of a postal address). */
 function addressOf(blob: Uint8Array) {
-  const archive = readBplist(blob) as { $objects: Plist[]; $top: Plist };
-  const deref = (v: Plist | undefined): Plist | undefined =>
-    v && typeof v === "object" && "uid" in v
-      ? archive.$objects[(v as Uid).uid]
-      : v;
-  const top = deref((archive.$top as { root: Plist }).root) as {
-    postalAddress?: Plist;
-  };
+  const { deref, root } = readKeyedArchive(blob);
+  const top = root as { postalAddress?: Plist };
   const postal = deref(top.postalAddress) as Record<string, Plist> | undefined;
   return (["_street", "_subLocality", "_city", "_country"] as const)
     .map((k) => deref(postal?.[k]))
