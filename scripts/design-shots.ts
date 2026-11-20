@@ -191,7 +191,7 @@ async function main() {
         (frame) => appFrames[frame.name]?.taps || appFrames[frame.name]?.fill
       )
     ) {
-      await launch(udid, ["-fixtureReads", DESIGN_DATA]);
+      await launch(udid, ["-fixtureReads", DESIGN_DATA, "-fixtureLife", "ok"]);
       await device([
         "open",
         APP_ID,
@@ -226,6 +226,10 @@ async function main() {
   }
   writeIndex(frames, appFrames, outcome);
   console.log(join(OUT, "index.html"));
+  // The index keeps every pair; a mapped frame that failed fails the run.
+  if ([...outcome.values()].some((result) => result !== "shot")) {
+    process.exitCode = 1;
+  }
 }
 
 if (import.meta.main) {

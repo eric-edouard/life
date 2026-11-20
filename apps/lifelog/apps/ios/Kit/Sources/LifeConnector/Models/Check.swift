@@ -255,21 +255,29 @@ extension Check {
         }
     }
 
-    /// The name a name card asks about, whole: the longest of `about`, as said.
-    public var askedName: String? { about?.max { $0.count < $1.count } }
+    /// The name a name card asks about, whole: the longest of `about`, as said. Only a name card's `about` is a name (a
+    /// Contacts card's holds its handles).
+    public var askedName: String? { group == .name ? about?.max { $0.count < $1.count } : nil }
+
+    /// A name card whose new name is a party he adds (`partyNamed`): a new name opens the create sheet. A voice's new
+    /// name goes to lifelog alone, so it is answered by the name as typed.
+    public var createsBySheet: Bool { group == .name && namingOption?.takes == .personOrName }
 
     /// A name card with no one to suggest: its answer is "Create <name>", which opens the create sheet.
-    public var createsByName: Bool {
-        group == .name && likelyPeople.isEmpty && namingOption?.takes == .personOrName && askedName != nil
-    }
+    public var createsByName: Bool { createsBySheet && likelyPeople.isEmpty && askedName != nil }
 
     /// The option that says the name is an organization (`organization`, `memory/life-checks.ts`), on a name card.
     public var organizationOption: Option? { group == .name ? options.first { $0.id == "organization" } : nil }
 
     /// His answer from the create sheet: the person (through the naming option that takes a name) or the organization
-    /// he named, with his words for who or what it is only when he wrote them.
-    public func answer(creating name: String, note: String?, asOrganization: Bool) -> AnswerRequest? {
-        let option = asOrganization ? organizationOption : namingOption.flatMap { $0.takes == .personOrName ? $0 : nil }
+    /// he named, with his words for who or what it is only when he wrote them: `note` goes only when, trimmed, it is not
+    /// empty and not Life's `guess`.
+    public func answer(creating name: String, note: String?, guess: String? = nil, asOrganization: Bool)
+        -> AnswerRequest?
+    {
+        guard createsBySheet, let name = name.wordsOrNil else { return nil }
+        let note = note?.wordsOrNil.flatMap { $0 == guess?.wordsOrNil ? nil : $0 }
+        let option = asOrganization ? organizationOption : namingOption
         return option.map { AnswerRequest(ref: ref, options: [$0.id], note: note, name: name) }
     }
 
@@ -323,4 +331,12 @@ extension String {
 public enum Naming: Sendable, Equatable {
     case person(String)
     case name(String)
+}
+
+extension String {
+    /// The words, trimmed; nil when there are none.
+    fileprivate var wordsOrNil: String? {
+        let words = trimmingCharacters(in: .whitespacesAndNewlines)
+        return words.isEmpty ? nil : words
+    }
 }

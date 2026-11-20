@@ -106,7 +106,7 @@ struct ResultButtons: View {
             case .succeeded:
                 EmptyView()
             case .failed(let failure, _):
-                if failure.retry == .allowed && !failure.mayHaveHappened {
+                if failure.canTryAgain {
                     Button("Try again", action: retry).buttonStyle(.pill(.filled))
                     Button("Keep for later", action: keepForLater).buttonStyle(.pill(.quiet))
                 } else if failure.mayHaveHappened, let url = taken.check.networkIdentity?.openUrl {

@@ -715,37 +715,43 @@ struct SheetHeader: View {
     var font: TypeStep = .sheetQuestion
     let close: () -> Void
 
-    /// The title in the content; Close alone in the bar the system draws over the sheet, a toolbar item, so the sheet
-    /// sits in a stack (`sheetStack()`).
+    /// One head row inside the sheet: the title at the left, Close at the right. The stack's bar (`sheetStack()`) is
+    /// hidden, so nothing sits above it.
     var body: some View {
         HStack {
             if let title { Text(title).font(font).foregroundStyle(color) }
             Spacer(minLength: 0)
+            CloseButton(close: close)
         }
-        .toolbar { CloseItem(close: close) }
+        .toolbar(.hidden, for: .navigationBar)
     }
 }
 
-/// A sheet's Close in the bar the system draws: a flat `tile` circle with a thin x, without the system's glass and its
-/// rim (no borders).
+/// A sheet's Close: a flat `tile` circle with a thin x, without the system's glass and its rim (no borders).
+struct CloseButton: View {
+    let close: () -> Void
+
+    var body: some View {
+        Button(role: .close, action: close) {
+            Image(systemName: "xmark").font(.system(size: 17, weight: .light)).foregroundStyle(Palette.fg)
+                .frame(width: 44, height: 44).background(Palette.tile, in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Close")
+    }
+}
+
+/// `CloseButton` in the bar the system draws, for a sheet whose top is its own (the pendant's).
 struct CloseItem: ToolbarContent {
     let close: () -> Void
 
     var body: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button(role: .close, action: close) {
-                Image(systemName: "xmark").font(.system(size: 17, weight: .light)).foregroundStyle(Palette.fg)
-                    .frame(width: 44, height: 44).background(Palette.tile, in: .circle)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close")
-        }
-        .sharedBackgroundVisibility(.hidden)
+        ToolbarItem(placement: .topBarTrailing) { CloseButton(close: close) }.sharedBackgroundVisibility(.hidden)
     }
 }
 
 extension View {
-    /// A sheet in its own stack, so its Close (`SheetHeader`) is a toolbar item in the bar the system draws.
+    /// A sheet in its own stack, for what it pushes and the pendant's Close (`CloseItem`) in the bar the system draws.
     func sheetStack() -> some View {
         NavigationStack { self }
     }

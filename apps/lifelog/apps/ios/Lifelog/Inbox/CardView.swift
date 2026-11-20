@@ -6,6 +6,38 @@ import SwiftUI
 struct CardNotes: Equatable {
     var inputs: [String: CardInput] = [:]
     var taken: Taken?
+    /// The create sheet open over an ask: kept by the host, above its list of asks, so a read that takes the ask away
+    /// (his answer) never closes it before it closes itself.
+    var creating: Creating?
+
+    /// The ask the host keeps on show whatever the read says: his result's, else the one the create sheet answers.
+    var shownCheck: Check? { taken?.check ?? creating?.check }
+}
+
+/// The create sheet's ask and name, with where the asks go once it is created: the ask after it as he opened it (the
+/// ask leaves the list while its answer runs).
+struct Creating: Identifiable, Equatable {
+    let check: Check
+    let name: String
+    let nextRef: String?
+    /// The pager's asks as the sheet opened, kept under it until it closes.
+    let asks: [Check]
+
+    var id: String { "create " + check.ref + " " + name }
+}
+
+extension View {
+    /// The create sheet of `notes`, presented by the host of the asks (the Inbox, a matter's page); `leave` goes on from
+    /// the ask once it is created.
+    func createSheet(_ notes: Binding<CardNotes>, leave: @escaping (Taken) -> Void) -> some View {
+        sheet(item: notes.creating) { creating in
+            CreateSheet(check: creating.check, name: creating.name) { request in
+                notes.wrappedValue.creating = nil
+                leave(Taken(check: creating.check, request: request, nextRef: creating.nextRef, runtimeName: nil))
+            }
+            .sheetStack()
+        }
+    }
 }
 
 /// One ask on show, whoever hosts it (the Inbox, a matter's stack): the ask with its answers, then its result in its
@@ -29,8 +61,10 @@ struct CardView: View {
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
-    /// The sheet open over an ask.
-    @State private var sheet: CardSheet?
+    /// The people sheet open over an ask.
+    @State private var peopleRef: String?
+    /// The create sheet asked from the people sheet: the host opens it once the people sheet is gone.
+    @State private var createsNext: Creating?
 
     var body: some View {
         CardArrangement(
@@ -65,24 +99,15 @@ struct CardView: View {
             if !Task.isCancelled { leave(taken, false) }
         }
         .task(id: check.ref) { openFixtureSheet() }
-        .sheet(item: shownSheet) { route in
-            switch route {
-            case .people(let ref):
-                if let check = checks.first(where: { $0.ref == ref }) {
-                    SameAsSheet(
-                        people: check.likelyPeople, takesNewName: check.namingOption?.takes == .personOrName,
-                        cardName: check.askedName
-                    ) { choice in
-                        if let request = check.answer(naming: choice) { submit(check, request) }
-                    } create: {
-                        sheet = creating(check, $0)
-                    }
-                    .sheetStack()
-                }
-            case .create(let check, let name, let nextRef, _):
-                CreateSheet(check: check, name: name) { request in
-                    sheet = nil
-                    leave(Taken(check: check, request: request, nextRef: nextRef, runtimeName: nil), false)
+        .sheet(isPresented: isShowingPeople, onDismiss: { (notes.creating, createsNext) = (createsNext, nil) }) {
+            if let check = checks.first(where: { $0.ref == peopleRef }) {
+                SameAsSheet(
+                    people: check.likelyPeople, takesNewName: check.namingOption?.takes == .personOrName,
+                    createsBySheet: check.createsBySheet, cardName: check.askedName
+                ) { choice in
+                    if let request = check.answer(naming: choice) { submit(check, request) }
+                } create: {
+                    (createsNext, peopleRef) = (creating(check, $0), nil)
                 }
                 .sheetStack()
             }
@@ -106,8 +131,8 @@ struct CardView: View {
                                 openMatter: { router.open(matter: $0) },
                                 input: input(check.ref),
                                 isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
-                                answer: { submit(check, $0) }, sameAs: { sheet = .people(ref: check.ref) },
-                                create: { sheet = creating(check, $0) },
+                                answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
+                                create: { notes.creating = creating(check, $0) },
                                 page: checks.count > 1 ? (index, checks.count) : nil
                             )
                             .padding(.leading, Pager.gap)
@@ -145,34 +170,25 @@ struct CardView: View {
 
     /// The asks the pager shows: while the create sheet is up, those it opened over, so the next ask never comes in
     /// behind it before it closes.
-    private var paged: [Check] {
-        if case .create(_, _, _, let asks) = sheet { asks } else { checks }
-    }
+    private var paged: [Check] { notes.creating?.asks ?? checks }
 
-    /// The sheet over an ask: its people sheet goes with the ask; the create sheet stays while its answer runs (the ask
-    /// leaves the list then) until it closes itself.
-    private var shownSheet: Binding<CardSheet?> {
-        Binding(
-            get: {
-                if case .people(let ref) = sheet, !checks.contains(where: { $0.ref == ref }) { return nil }
-                return sheet
-            },
-            set: { sheet = $0 })
+    /// The people sheet goes with its ask.
+    private var isShowingPeople: Binding<Bool> {
+        Binding(get: { checks.contains { $0.ref == peopleRef } }, set: { if !$0 { peopleRef = nil } })
     }
 
     /// `-fixtureSheet create`: the create sheet over the ask on show, to be photographed.
     private func openFixtureSheet() {
         #if DEBUG
             if LifeFixture.sheet == "create", check.createsByName, let name = check.askedName {
-                sheet = creating(check, name)
+                notes.creating = creating(check, name)
             }
         #endif
     }
 
-    /// The create sheet for `check`, with where the asks go once it is created: the ask after it as he opened it (the
-    /// ask leaves the list while its answer runs).
-    private func creating(_ check: Check, _ name: String) -> CardSheet {
-        .create(check, name: name, nextRef: checks.ref(after: check.ref), asks: checks)
+    /// The create sheet for `check`, with the ask after it as he opened it.
+    private func creating(_ check: Check, _ name: String) -> Creating {
+        Creating(check: check, name: name, nextRef: checks.ref(after: check.ref), asks: checks)
     }
 
     private func submit(_ check: Check, _ request: AnswerRequest) {
@@ -189,21 +205,6 @@ struct CardView: View {
         } else {
             notes.taken = taken
             Task { await life.answer(request) }
-        }
-    }
-}
-
-/// A sheet over an ask: its people ("Someone I know…"), or the create sheet with a name.
-private enum CardSheet: Identifiable {
-    case people(ref: String)
-    /// `asks`: the pager's asks as the sheet opened, kept under it until it closes (its own ask leaves the list while
-    /// its answer runs).
-    case create(Check, name: String, nextRef: String?, asks: [Check])
-
-    var id: String {
-        switch self {
-        case .people(let ref): "people " + ref
-        case .create(let check, let name, _, _): "create " + check.ref + " " + name
         }
     }
 }
@@ -230,10 +231,13 @@ struct CardPage: View {
         page
             // A pushed screen: Back, then the Pendant.
             .shellBar("", hasSettings: false)
+            // Above the ask, so the matter's read that takes it away (his answer) never closes it before it does.
+            .createSheet($notes) { _ in leave() }
     }
 
     @ViewBuilder private var page: some View {
-        if let check = notes.taken?.check.ref == ref ? notes.taken?.check : source.first(where: { $0.ref == ref }) {
+        if let check = notes.shownCheck.flatMap({ $0.ref == ref ? $0 : nil }) ?? source.first(where: { $0.ref == ref })
+        {
             CardView(
                 check: check, checks: [check], current: $current, notes: $notes,
                 context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check))

@@ -8,6 +8,8 @@ struct SameAsSheet: View {
     let people: [Party]
     /// The card takes a new person's name, not only someone Life knows.
     let takesNewName: Bool
+    /// A new name opens the create sheet (a name card's); elsewhere it is the answer as typed (a voice's).
+    let createsBySheet: Bool
     /// The name the card asks about, which "Create" offers until he types another.
     let cardName: String?
     let choose: (Naming) -> Void
@@ -61,7 +63,7 @@ struct SameAsSheet: View {
         return Button {
             if name.isEmpty {
                 isTyping = true
-            } else if takesNewName {
+            } else if createsBySheet {
                 create(name)
             } else {
                 pick(.name(name))

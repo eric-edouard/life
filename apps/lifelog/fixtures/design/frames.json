@@ -115,18 +115,18 @@
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
   },
   "DuoOrgCreate": {
-    "why": "The open Duo with a sheet: a script cannot unfold the simulator, and -fixturePose shrinks the screen but not a sheet."
+    "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
   },
   "DuoOrgCreated": {
-    "why": "The open Duo with a sheet: a script cannot unfold the simulator, and -fixturePose shrinks the screen but not a sheet."
+    "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
   },
   "DuoOrgNameCard": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
   },
   "DuoPersonCreate": {
-    "why": "The open Duo with a sheet: a script cannot unfold the simulator, and -fixturePose shrinks the screen but not a sheet."
+    "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
   },
   "DuoPersonCreated": {
-    "why": "The open Duo with a sheet: a script cannot unfold the simulator, and -fixturePose shrinks the screen but not a sheet."
+    "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
   }
 }

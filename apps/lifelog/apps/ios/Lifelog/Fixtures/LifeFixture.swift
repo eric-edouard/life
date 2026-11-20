@@ -163,20 +163,14 @@
             guard let row = Self.rows.first(where: { $0["id"] as? String == id }) else {
                 throw MCPError.failed("No such matter.")
             }
-            var matter = row
-            // The table's agent exists only once he started one.
+            // The table's agent exists only once he started one; every open check about it, of every kind.
             let isStarted = started.withLock { $0 }
-            matter["agents"] = Self.allAgents.filter {
-                ($0["matter"] as? [String: Any])?["id"] as? String == id
-                    && ($0["id"] as? String != "agt_table" || isStarted)
-            }
-            if id == "matter_table", isStarted { matter["agent"] = "agt_table" }
-            matter["steps"] = Self.steps(id)
-            // Every open check about it, of every kind, as `read_matter` sends them.
             let left = answered.withLock { $0 }
-            matter["checks"] = Self.checks.filter {
-                ($0["matter"] as? [String: Any])?["id"] as? String == id && !left.contains($0["ref"] as? String ?? "")
-            }
+            var matter = DesignReplies.matter(
+                row, agents: Self.allAgents.filter { $0["id"] as? String != "agt_table" || isStarted },
+                steps: Self.matterRead["steps"] as? [String: Any] ?? [:],
+                checks: Self.checks.filter { !left.contains($0["ref"] as? String ?? "") })
+            if id == "matter_table", isStarted { matter["agent"] = "agt_table" }
             // Nora's page stays short, so the agent's row shows above the fold.
             if id == "matter_nora" { matter["checks"] = Array((matter["checks"] as? [[String: Any]] ?? []).prefix(1)) }
             return json(matter)
@@ -215,17 +209,11 @@
                 }
                 return check
             }
-            let blocking = checks.count { $0["urgency"] as? String == "blocks" }
-            return json(
-                Self.inboxRead.merging([
-                    "checks": checks,
-                    "counts": Dictionary(grouping: checks, by: { $0["group"] as? String ?? "" }).mapValues(\.count),
-                    "total": checks.count, "blocking": blocking,
-                ]) { $1 })
+            return json(DesignReplies.inbox(Self.inboxRead, checks: checks))
         }
 
         func matters() -> String {
-            json(["matters": Self.rows.map { row in row.filter { $0.key != "agents" && $0.key != "steps" } }])
+            json(DesignReplies.matters(Self.rows))
         }
 
         func agents() -> String { json(Self.registered) }
@@ -390,12 +378,6 @@
                 if LifeFixture.agent == "running" { agent["status"] = "running" }
                 return agent
             }
-
-        /// A matter's steps; one with none of its own shows the lease's.
-        private static func steps(_ id: String) -> [[String: Any]] {
-            let steps = matterRead["steps"] as? [String: [[String: Any]]] ?? [:]
-            return steps[id] ?? steps["matter_lease"] ?? []
-        }
 
         private static func read(_ name: String) -> [String: Any] {
             let file = URL(filePath: LifeFixture.reads).appending(path: "\(name).json")
