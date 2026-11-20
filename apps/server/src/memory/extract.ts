@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { daysBefore } from "../core/clock";
+import { clock, daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { packed } from "../core/lists";
 import { isPromptVersion } from "../models/prompt-parts";
@@ -33,6 +33,7 @@ import {
 } from "./memory-files";
 import { involvedOf, refContext } from "./model-context";
 import { parseObservations, type Reject, type Source } from "./quote-check";
+import { readConfirmedArrivals } from "./read-replies";
 import { othersIn } from "./read-truth";
 import { begin, inBatches, readsOf } from "./run";
 import { isWithPeople, kindOf } from "./sources";
@@ -213,14 +214,16 @@ const heldReading = (
  * reading: the readers resolve a fact's author and subjects as of today (`aboutNow`). `demoted`: units read before
  * that their latest verdict no longer keeps (content changed, or a re-read judged them lower); those no call reads
  * get an `unkept` line (`unkeptOf`), so none of their facts stays shown; one kept again is read again. `isRead`: the
- * one test of whether a unit has a reading on its current content (what `groupsOf` leaves out of a group).
+ * one test of whether a unit has a reading on its current content (what `groupsOf` leaves out of a group). A unit
+ * with a confirmed arrival (`confirmed`, `confirmedArrivalsOf`) is kept whatever its verdict.
  */
 export function toExtract(
   built: Built[],
   verdicts: Verdicts,
   standing: Map<string, Extracted[]>,
   prompt = EXTRACT_PROMPT,
-  rereads = new Map<string, string>()
+  rereads = new Map<string, string>(),
+  confirmed: ReadonlySet<string> = new Set()
 ) {
   // Settled: the held reading is on this content; read: and it is a reading, not `unkept`.
   const settled = ({ unit }: Built) => {
@@ -239,7 +242,8 @@ export function toExtract(
     const v = verdictOf(verdicts, b.unit);
     if (!v) {
       stale += 1;
-    } else if (v.importance >= KEEP_AT) {
+    } else if (v.importance >= KEEP_AT || confirmed.has(b.unit.id)) {
+      // A confirmed arrival is read whatever its verdict, decided here so a confirm after the verdict still counts.
       kept.push({ b, reason: v.reason });
     } else if (standing.has(b.unit.id) && !settled(b)) {
       demoted.push(b);
@@ -418,7 +422,12 @@ export async function extract(evidence: Evidence) {
     verdicts,
     standing,
     EXTRACT_PROMPT,
-    rereads
+    rereads,
+    new Set(
+      readConfirmedArrivals(
+        inWindow.map((b) => b.unit.start).sort()[0] ?? clock().toISOString()
+      ).map((a) => a.unit)
+    )
   );
   const unitOf = new Map(known.map((o) => [o.id, o.unit]));
   const shown = known.flatMap((o) => {
