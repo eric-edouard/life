@@ -17,8 +17,8 @@ struct CheckCard: View {
     let isBusy: Bool
     let answer: (AnswerRequest) -> Void
     let sameAs: () -> Void
-    /// "Create <name>": the create sheet, with the name he would create.
-    let create: (String) -> Void
+    /// "Create <name>" or "Organization": the create sheet, with the name he would create, set to an organization or not.
+    let create: (String, _ asOrganization: Bool) -> Void
     /// Where it stands among the asks paged beside it (its index, how many); nil alone.
     var page: (current: Int, total: Int)?
 

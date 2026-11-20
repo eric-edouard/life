@@ -11,33 +11,35 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 /// What Life's server tests wrote (`fixtures/wire/life/`) read with the phone's models: a read that changes shape fails
 /// there first, then here, naming the model.
-/// The simulator's design data, put together as the fixture answers with it (`DesignReplies`), reads with the phone's own
-/// reply models: a reply that breaks a model (a field gone, a shape changed) fails here, not on screen.
-@Test func theDesignDataDecodes() throws {
-    func object(_ name: String) throws -> [String: Any] {
-        try #require(JSONSerialization.jsonObject(with: Data(designText(name).utf8)) as? [String: Any])
+#if DEBUG
+    /// The simulator's design data, put together as the fixture answers with it (`DesignReplies`), reads with the phone's own
+    /// reply models: a reply that breaks a model (a field gone, a shape changed) fails here, not on screen.
+    @Test func theDesignDataDecodes() throws {
+        func object(_ name: String) throws -> [String: Any] {
+            try #require(JSONSerialization.jsonObject(with: Data(designText(name).utf8)) as? [String: Any])
+        }
+        func reply<V: Decodable>(_ type: V.Type, _ value: [String: Any]) throws -> V {
+            try decoded(type, String(decoding: JSONSerialization.data(withJSONObject: value), as: UTF8.self))
+        }
+        let read = try object("read_inbox")
+        let checks = try #require(read["checks"] as? [[String: Any]])
+        let inbox = try reply(Inbox.self, DesignReplies.inbox(read, checks: checks))
+        #expect(!inbox.checks.isEmpty && inbox.total == inbox.checks.count)
+        let rows = try #require(try object("read_matters")["matters"] as? [[String: Any]])
+        #expect(try reply(MatterList.self, DesignReplies.matters(rows)).matters.count == rows.count)
+        let agents = try object("read_registered_agents")
+        #expect(try !decoded(RegisteredAgents.self, designText("read_registered_agents")).agents.isEmpty)
+        let matterRead = try object("read_matter")
+        let allAgents = (agents["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])
+        for row in rows {
+            let matter = try reply(
+                Matter.self,
+                DesignReplies.matter(
+                    row, agents: allAgents, steps: matterRead["steps"] as? [String: Any] ?? [:], checks: checks))
+            #expect(!matter.steps.isEmpty, "\(matter.row.id)")
+        }
     }
-    func reply<V: Decodable>(_ type: V.Type, _ value: [String: Any]) throws -> V {
-        try decoded(type, String(decoding: JSONSerialization.data(withJSONObject: value), as: UTF8.self))
-    }
-    let read = try object("read_inbox")
-    let checks = try #require(read["checks"] as? [[String: Any]])
-    let inbox = try reply(Inbox.self, DesignReplies.inbox(read, checks: checks))
-    #expect(!inbox.checks.isEmpty && inbox.total == inbox.checks.count)
-    let rows = try #require(try object("read_matters")["matters"] as? [[String: Any]])
-    #expect(try reply(MatterList.self, DesignReplies.matters(rows)).matters.count == rows.count)
-    let agents = try object("read_registered_agents")
-    #expect(try !decoded(RegisteredAgents.self, designText("read_registered_agents")).agents.isEmpty)
-    let matterRead = try object("read_matter")
-    let allAgents = (agents["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])
-    for row in rows {
-        let matter = try reply(
-            Matter.self,
-            DesignReplies.matter(
-                row, agents: allAgents, steps: matterRead["steps"] as? [String: Any] ?? [:], checks: checks))
-        #expect(!matter.steps.isEmpty, "\(matter.row.id)")
-    }
-}
+#endif
 
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
@@ -293,6 +295,9 @@ private func everyKindOfCheck() throws -> [Check] {
     func card(_ group: CheckGroup) throws -> Check { try #require(all.first { $0.group == group }) }
     let name = try card(.name)
     #expect(name.createsBySheet && name.askedName != nil)
+    let organization = try #require(name.organizationOption)
+    #expect(name.createsOrganizationBySheet(organization), "\"Organization\" opens the sheet, never answers at once")
+    #expect(name.options.filter(name.createsOrganizationBySheet).map(\.id) == ["organization"])
     for group in [CheckGroup.voice, .contactsCard] {
         let check = try card(group)
         #expect(!check.createsBySheet && !check.createsByName && check.askedName == nil, "\(group)")

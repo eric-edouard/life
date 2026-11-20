@@ -26,7 +26,8 @@ struct CheckActions: View {
     let links: [AskLink]
     let answer: (AnswerRequest) -> Void
     let sameAs: () -> Void
-    let create: (String) -> Void
+    /// The create sheet, with the name he would create, set to an organization or not.
+    let create: (String, _ asOrganization: Bool) -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(LifeStore.self) private var life
@@ -144,7 +145,7 @@ struct CheckActions: View {
         } else if check.createsByName, let name = check.askedName {
             // "Create <name>" opens the create sheet: not an answer yet, so nothing is held.
             Button {
-                create(name)
+                create(name, false)
             } label: {
                 Label("Create \(name)", systemImage: "person.badge.plus").lineLimit(1)
             }
@@ -192,8 +193,9 @@ struct CheckActions: View {
         }
     }
 
-    /// One tap answers; an option that names someone opens "Same as…".
+    /// One tap answers; an option that names someone opens "Same as…", and a name card's "Organization" its create sheet.
     private func tap(_ option: Check.Option) {
+        if check.createsOrganizationBySheet(option), let name = check.askedName { return create(name, true) }
         if let request = check.answer(option) { return answer(request) }
         switch option.takes {
         case .person?, .personOrName?: sameAs()

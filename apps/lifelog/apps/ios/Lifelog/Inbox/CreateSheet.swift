@@ -14,7 +14,7 @@ struct CreateSheet: View {
 
     @Environment(LifeStore.self) private var life
     @Environment(\.dismiss) private var dismiss
-    @State private var kind = Kind.person
+    @State private var kind: Kind
     @State private var name: String
     @State private var who: String
     @State private var what = ""
@@ -22,8 +22,9 @@ struct CreateSheet: View {
     @State private var sent: AnswerRequest?
     @State private var fieldsHeight: CGFloat = 0
 
-    init(check: Check, name: String, done: @escaping (AnswerRequest) -> Void) {
+    init(check: Check, name: String, isOrganization: Bool = false, done: @escaping (AnswerRequest) -> Void) {
         (self.check, self.done) = (check, done)
+        _kind = State(initialValue: isOrganization ? .organization : .person)
         _name = State(initialValue: name)
         _who = State(initialValue: Self.guessOf(check))
     }

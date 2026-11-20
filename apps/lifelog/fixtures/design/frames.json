@@ -3,14 +3,7 @@
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
   },
   "DuoFoldOrgCreate": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureCard",
-      "name_atelier",
-      "-fixtureSheet",
-      "create"
-    ],
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"],
     "taps": ["Organization"]
   },
   "DuoFoldOrgCreateAsPerson": {
@@ -24,14 +17,7 @@
     ]
   },
   "DuoFoldOrgCreated": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureCard",
-      "name_atelier",
-      "-fixtureSheet",
-      "create"
-    ],
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"],
     "taps": ["Organization", "Create"]
   },
   "DuoFoldOrgCreating": {
@@ -40,8 +26,6 @@
       "ok",
       "-fixtureCard",
       "name_atelier",
-      "-fixtureSheet",
-      "create",
       "-fixtureAnswer",
       "sending"
     ],

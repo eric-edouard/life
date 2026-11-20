@@ -19,6 +19,8 @@ struct CardNotes: Equatable {
 struct Creating: Identifiable, Equatable {
     let check: Check
     let name: String
+    /// Opened set to an organization ("Organization" on the card), else to a person.
+    let isOrganization: Bool
     let nextRef: String?
     /// The pager's asks as the sheet opened, kept under it until it closes.
     let asks: [Check]
@@ -31,7 +33,8 @@ extension View {
     /// the ask once it is created.
     func createSheet(_ notes: Binding<CardNotes>, leave: @escaping (Taken) -> Void) -> some View {
         sheet(item: notes.creating) { creating in
-            CreateSheet(check: creating.check, name: creating.name) { request in
+            CreateSheet(check: creating.check, name: creating.name, isOrganization: creating.isOrganization) {
+                request in
                 notes.wrappedValue.creating = nil
                 leave(Taken(check: creating.check, request: request, nextRef: creating.nextRef, runtimeName: nil))
             }
@@ -132,7 +135,7 @@ struct CardView: View {
                                 input: input(check.ref),
                                 isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
                                 answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
-                                create: { notes.creating = creating(check, $0) },
+                                create: { notes.creating = creating(check, $0, asOrganization: $1) },
                                 page: checks.count > 1 ? (index, checks.count) : nil
                             )
                             .padding(.leading, Pager.gap)
@@ -187,8 +190,10 @@ struct CardView: View {
     }
 
     /// The create sheet for `check`, with the ask after it as he opened it.
-    private func creating(_ check: Check, _ name: String) -> Creating {
-        Creating(check: check, name: name, nextRef: checks.ref(after: check.ref), asks: checks)
+    private func creating(_ check: Check, _ name: String, asOrganization: Bool = false) -> Creating {
+        Creating(
+            check: check, name: name, isOrganization: asOrganization, nextRef: checks.ref(after: check.ref),
+            asks: checks)
     }
 
     private func submit(_ check: Check, _ request: AnswerRequest) {

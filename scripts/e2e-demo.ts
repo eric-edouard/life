@@ -312,7 +312,8 @@ try {
       () => null,
       (e: Error) => `no screenshot: ${e.message}`
     );
-    const error = stepError ?? shotError;
+    // Both, when both failed: neither hides the other.
+    const error = [stepError, shotError].filter(Boolean).join("; ") || null;
     say(
       `${error ? "FAIL" : "PASS"} ${n} ${step.name} (${Math.round((performance.now() - t) / 1000)} s)${error ? `: ${error}` : ""}`
     );
