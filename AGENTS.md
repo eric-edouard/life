@@ -123,7 +123,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Life starts and wakes his registered agents, and nothing else of Life does** (his yes to the desk, 18 Nov 2026). The
   desk (`apps/server/src/desk/`, off until his `desk` setting) starts a registered agent's session on a subject he
   handed over, and wakes it on its events, his answer or its deadline. It also starts an agent itself on a running
-  matter from the top of his ranking, within his pace setting `desk.handOut` (his word of 20 Nov 2026: agents start on
+  matter from the top of his ranking that involves someone he knows or holds a step he said himself (`isOneOfHis`), within his pace setting `desk.handOut` (his word of 20 Nov 2026: agents start on
   their own on his matters; nothing leaves without his yes): code picks the matter from his ranking (`handOutOf`,
   `desk/hand-out.ts`), the brief is a constant, the agent reads the matter as data, and the card gate below is
   unchanged. The night, the watcher and the connector never start one, and nothing recorded starts one directly: recorded content only makes a matter and its rank, and the hand-out's code picks from that. Life gives an agent a brief and the door, and nothing else: what an agent may do

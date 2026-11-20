@@ -3,6 +3,7 @@ import {
   isRunning,
   type MatterView,
   matterOfSteps,
+  matterPeopleOf,
   nextStepNow,
 } from "./matter-read";
 import { readMatterBook } from "./matters";
@@ -152,11 +153,27 @@ export async function openMatters(
   };
 }
 
-/** The running matters in his ranking whose next step is one to do (`nextStepNow`): what the desk may hand to an agent, each with its steps' ids and its projects' ids. */
+/**
+ * Whether a matter is one of his (his word of 20 Nov 2026): it involves someone he knows (his directory, his Contacts,
+ * or a guess his word settled: a `person:` ref that is not `isGuess`, never an `unknown:` one) or holds an open step he said himself. One
+ * made only of an unknown sender's words waits for his own Start.
+ */
+export const isOneOfHis = (
+  v: Pick<MatterView, "hasOwnOpenStep" | "owedTo" | "waitingOn" | "with">,
+  isGuess: (ref: string) => boolean
+) =>
+  v.hasOwnOpenStep ||
+  matterPeopleOf(v).some((r) => r.startsWith("person:") && !isGuess(r));
+
+/** The running matters in his ranking, one of his (`isOneOfHis`), whose next step is one to do (`nextStepNow`): what the desk may hand to an agent, each with its steps' ids and its projects' ids. */
 export async function mattersToDo() {
-  const { decisions, ranked } = await rankedRunning({});
+  const { decisions, people, ranked } = await rankedRunning({});
   return ranked
-    .filter((v) => nextStepNow(v, decisions)?.kind === "do")
+    .filter(
+      (v) =>
+        isOneOfHis(v, people.isGuess) &&
+        nextStepNow(v, decisions)?.kind === "do"
+    )
     .map((v) => ({
       id: v.id,
       projects: v.projects,
