@@ -16,6 +16,7 @@ import { imessageFixture, whatsappFixture } from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { FILES, readFiles } from "./memory-files";
 import {
+  asChatOrNot,
   describeFilesOnArrival,
   FILES_ON_ARRIVAL_A_DAY,
   filesDueOnArrival,
@@ -459,4 +460,18 @@ test("a voice note is heard by lifelog, offline too: its words, an empty line fo
     }
     rmSync(dir, { force: true, recursive: true });
   }
+});
+
+test("only a chat's audio is heard: mail's keeps no audio file to read, a chat keeps it", () => {
+  const audio: SourceFile = {
+    mime: "audio/mp4",
+    name: "memo.m4a",
+    path: "/x/memo.m4a",
+    ref: "t:memo",
+  };
+  const withAudio = event(audio, photo("t:p", "/x/p.heic"));
+  expect(asChatOrNot(withAudio, true)).toBe(withAudio);
+  expect(asChatOrNot(withAudio, false).files?.map((f) => f.ref)).toEqual([
+    "t:p",
+  ]);
 });
