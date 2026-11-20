@@ -33,7 +33,6 @@ import {
   speakerOf,
   uncleanTurn,
 } from "./people";
-import { processingLimit } from "./phone-dictations";
 import { embedRanges, speechServiceSet } from "./speech-service";
 import { switches } from "./switches";
 
@@ -83,13 +82,12 @@ export const mayHear = (
   job: {
     map: Parameters<typeof touchesQuiet>[1] | null;
     objectKey: string | null;
-    sourceId: string | null;
   }
 ) =>
   !!job.objectKey &&
   isBlockKey(job.objectKey) &&
   !!job.map &&
-  !touchesQuiet(db, job.map, job.sourceId);
+  !touchesQuiet(db, job.map);
 
 // The job whose audio identity may hear (`mayHear`). "never" for any other (an old job's, or one
 // with dictation or playback in it); null when there is nothing to cut (no audio, or cut already).
@@ -100,7 +98,6 @@ function audioToCut(db: Db, jobId: string) {
       cutAt: transcripts.excerptsAt,
       map: transcriptionJobs.map,
       objectKey: transcriptionJobs.objectKey,
-      sourceId: transcriptionJobs.sourceId,
     })
     .from(transcripts)
     .innerJoin(transcriptionJobs, eq(transcriptionJobs.id, transcripts.jobId))
@@ -118,8 +115,8 @@ export function excerptSampler(
   db: Db,
   config: Config,
   audio: AudioStore,
-  // Up to when a source's audio may be heard (phone-dictations.ts `processingLimit`).
-  limit: (sourceId: string | null) => Date = processingLimit(db, macSocket(db))
+  // What the Mac vouches for: nothing past it is heard.
+  vouched: () => Date = () => macSocket(db).vouchedThrough()
 ) {
   const busy = new Set<string>();
   let draining = false;
@@ -139,13 +136,19 @@ export function excerptSampler(
     jobId: string,
     conversationId: string,
     wanted: Wanted,
-    ogg: Uint8Array
+    ogg: Uint8Array,
+    isHeld: () => boolean
   ) {
     const result = await embedRanges(
       config,
       ogg,
-      wanted.map(({ turn }) => excerptRange(turn))
+      wanted.map(({ turn }) => excerptRange(turn)),
+      isHeld
     );
+    // Held back as it left: the next try finds whether it may ever go.
+    if (result === null) {
+      return null;
+    }
     if (!("embeddings" in result)) {
       if (result.error === "identity_unavailable") {
         lastError = result.message;
@@ -211,16 +214,21 @@ export function excerptSampler(
       return done(jobId);
     }
     const ogg = await audio.get(cuttable.objectKey).catch(() => undefined);
-    // Read again as it goes: a range that came, or the limit that moved, while the audio was read
-    // keeps it back; the next try finds whether it may ever go.
-    if (ogg === undefined || heldBack(db, cuttable, limit)) {
+    if (ogg === undefined) {
       return null;
     }
     if (!ogg) {
       record(db, "excerpts.skipped", { job: jobId, reason: "no_audio" });
       return done(jobId);
     }
-    return embedAndKeep(jobId, conversationId, wanted, ogg);
+    // Read again before each call to identity: a range that came, or the watermark that moved, since.
+    return embedAndKeep(
+      jobId,
+      conversationId,
+      wanted,
+      ogg,
+      () => heldBack(db, cuttable, vouched) !== null
+    );
   }
 
   const job = async (jobId: string) => {

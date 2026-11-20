@@ -1,7 +1,6 @@
 // A thin phone's raw pages (pages.ts) become speech fragments on the server, by the iPhone's rules
 // (page-rules.ts; docs/processing.md, "Phones send pages"). Each source gets bounded passes, which
-// the tick, every stored batch, every word from the Mac and every phone dictation closed start
-// (`poke`):
+// the tick, every stored batch and every word from the Mac start (`poke`):
 // 1. Label (page-labels.ts): the next pages placed in time and labeled by Silero.
 //    Its timeline spans (timeline-spans.ts) are written from the pieces, as the iPhone sends its own.
 // 2. Cut: from `sources.pagesCutFrom`, the kept speech of pages no job or fragment holds becomes
@@ -59,7 +58,7 @@ import {
   unheld,
   unioned,
 } from "./page-rules";
-import { quietFor } from "./phone-dictations";
+import { quietIn } from "./quiet-ranges";
 
 // Capture read at once while cutting (`Uploader.windowMillis`), and fragments stored in one pass.
 const WINDOW_MS = 3_600_000;
@@ -110,15 +109,15 @@ export function pageProcessor(
   {
     batchPages = 3000,
     now = () => clock().getTime(),
-    // The processing limit: nothing after it is labeled (phone-dictations.ts `processingLimit`).
-    limit = () => Number.POSITIVE_INFINITY,
+    // The Mac's watermark: nothing after it is labeled (mac-socket.ts `vouchedThrough`).
+    vouched = () => Number.POSITIVE_INFINITY,
   }: {
     batchPages?: number;
     now?: () => number;
-    limit?: (sourceId: string) => number;
+    vouched?: () => number;
   } = {}
 ) {
-  const labelBatch = pageLabeler(db, audio, { batchPages, limit, now });
+  const labelBatch = pageLabeler(db, audio, { batchPages, now, vouched });
   let afterRegroup: () => void = () => undefined;
 
   // A piece's runs placed again (its pages play from its start as their stamps say) and their
@@ -397,7 +396,7 @@ export function pageProcessor(
         )
       )
       .all();
-    const quiet = quietFor(db, sourceId, [start, end]);
+    const quiet = quietIn(db, [start, end]);
     const intervals = near.map(
       (p): Interval => [p.startAt.getTime(), p.endAt.getTime()]
     );

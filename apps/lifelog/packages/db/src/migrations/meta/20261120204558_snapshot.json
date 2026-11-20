@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "90b01145-e950-4848-884d-2645503e3994",
+  "id": "c90f9c3b-9075-400e-b65c-6a76dc2bd536",
   "prevId": "58696661-8418-4973-963c-d42b08316892",
   "tables": {
     "apple_health": {
@@ -2675,58 +2675,9 @@
           "autoincrement": false
         }
       },
-      "indexes": {
-        "phone_dictations_started_at": {
-          "name": "phone_dictations_started_at",
-          "columns": ["started_at"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "source_clocks": {
-      "name": "source_clocks",
-      "columns": {
-        "measured_at": {
-          "name": "measured_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "offset_ms": {
-          "name": "offset_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_id": {
-          "name": "source_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "uncertainty_ms": {
-          "name": "uncertainty_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
       "indexes": {},
       "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "source_clocks_source_id_measured_at_pk": {
-          "columns": ["source_id", "measured_at"],
-          "name": "source_clocks_source_id_measured_at_pk"
-        }
-      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
     },

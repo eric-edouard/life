@@ -21,20 +21,11 @@ import { pageLabeler } from "./page-labels";
 import { pageProcessor } from "./page-processing";
 import { PACKET_MS } from "./page-rules";
 import { ingestState, storePages } from "./pages";
-import {
-  CLOCK_MARGIN_MS,
-  closePhoneDictation,
-  DICTATION_CAP_MS,
-  openPhoneDictation,
-  processingLimit,
-  recordSourceClock,
-  settlePhoneDictations,
-} from "./phone-dictations";
 import { storeTranscript, testDb } from "./testing";
 import { loadTurns, startsOf } from "./transcript";
 import { rebuildTurns } from "./turns";
 
-// The module itself, to watch what reaches Silero (`dictating`).
+// The module itself, to watch what reaches Silero (`watching`).
 const pageAudio = await import("./page-audio");
 
 // fixtures/pages: made-up Omi records and what Kit's code makes of them (page-rules.test.ts).
@@ -60,10 +51,10 @@ afterEach(() => {
   env.drop();
 });
 
-// A processor over a fresh archive; its clock and the processing limit move with the test.
+// A processor over a fresh archive; its clock and the Mac's watermark move with the test.
 function setup(batchPages = 3000) {
   const audio = memoryAudioStore();
-  const at = { clock: Date.now(), limit: Number.POSITIVE_INFINITY, pokes: 0 };
+  const at = { clock: Date.now(), pokes: 0, vouched: Number.POSITIVE_INFINITY };
   const pages = pageProcessor(
     env.db,
     audio,
@@ -72,7 +63,7 @@ function setup(batchPages = 3000) {
         at.pokes += 1;
       },
     },
-    { batchPages, limit: () => at.limit, now: () => at.clock }
+    { batchPages, now: () => at.clock, vouched: () => at.vouched }
   );
   return { at, audio, pages };
 }
@@ -208,228 +199,87 @@ test("dictation is never decoded: a quiet range known before labeling is silence
   ).toBe(false);
 });
 
-// The iPhone dictates (its own phone, apart from the Android phone uploading the Omi's pages) over
-// the Omi's audio at `start`, at the end of the second span's first sentence. The Android's clock is
-// `uploader` ms ahead of the server's, so the server opens the range at `start - uploader`, the
-// iPhone's own clock `phone` ms off; the Android measured its clock to UNSURE ms (`measured`). It
-// opens at the limit's `opensAtRead`th read when given (while a batch is labeled), else before
-// anything. The Mac vouches for everything. `sent`: each packet's start that reached Silero, and
-// `closeAt`: the close arriving `ms` after the range opened.
-const UNSURE = 400;
-function dictating(
-  start: number,
-  { measured = true, opensAtRead = 0, phone = 0, uploader = 0 } = {}
-) {
-  const { audio } = setup();
-  const id = crypto.randomUUID();
-  const opensAt = start - uploader;
-  if (measured) {
-    // Measured a minute before: the clock in force when the dictation opens.
-    recordSourceClock(
-      env.db,
-      SOURCE,
-      { offsetMs: uploader, uncertaintyMs: UNSURE },
-      new Date(opensAt - 60_000)
-    );
-  }
-  const openIt = () =>
-    expect(
-      openPhoneDictation(
-        env.db,
-        {
-          id,
-          phoneId: "iphone-test",
-          source: "app.example.notes",
-          startedAt: new Date(opensAt + phone).toISOString(),
-        },
-        new Date(opensAt)
-      )
-    ).toMatchObject({ id, startedAt: new Date(opensAt).toISOString() });
-  let reads = 0;
-  const pages = pageProcessor(
-    env.db,
-    audio,
-    { poke: () => undefined },
-    {
-      limit: (sourceId) => {
-        reads += 1;
-        if (reads === opensAtRead) {
-          openIt();
-        }
-        return processingLimit(env.db, {
-          vouchedThrough: () => new Date(8.64e15),
-        })(sourceId).getTime();
-      },
-      now: () => start + 11 * 60_000,
-    }
-  );
-  if (opensAtRead === 0) {
-    openIt();
-  }
-  const sent: number[] = [];
-  const original = pageAudio.label;
-  spyOn(pageAudio, "label").mockImplementation((req, packetsNow) =>
-    original(req, () => {
-      const packets = packetsNow();
-      sent.push(...(packets ?? []).map((p) => p.at));
-      return packets;
-    })
-  );
-  const closeAt = (after: number) =>
-    closePhoneDictation(env.db, id, new Date(opensAt + after));
-  return { audio, closeAt, pages, sent };
-}
-const speechIn = ([from, to]: [number, number]) =>
-  pieces()
-    .flatMap((p) => p.speech)
-    .some(([s, e]) => s < to - 1000 && e > from + 1000);
-// Where the dictation from `start` for `lasting` ms falls in the Omi's audio, widened.
-const WIDE = CLOCK_MARGIN_MS + UNSURE;
-const protectedOf = (start: number, lasting: number): [number, number] => [
-  start - WIDE,
-  start + lasting + WIDE,
-];
-const touches = (sent: number[], [from, to]: [number, number]) =>
-  sent.some((at) => at < to && at + PACKET_MS > from);
-
-test.each([
-  { phone: 30_000 },
-  { phone: -30_000 },
-  { uploader: 30_000 },
-  { uploader: -30_000 },
-  {},
-])(
-  "an Omi uploading while the iPhone dictates, clocks off by %p: nothing from the dictation reaches Silero until it closes, then its range is silence and the speech around it goes on",
-  async (skews) => {
-    const start = expected.pieces[1].start + 6000;
-    const { audio, closeAt, pages, sent } = dictating(start, skews);
-    await store(audio);
-    await pages.run();
-    const [held] = protectedOf(start, 0);
-    expect(sent.length).toBeGreaterThan(0);
-    expect(sent.every((at) => at + PACKET_MS <= held)).toBe(true);
-    expect(
-      Date.parse(ingestState(env.db, SOURCE).labeledUntil ?? "")
-    ).toBeLessThanOrEqual(held);
-
-    closeAt(1000);
-    await pages.run();
-    const range = protectedOf(start, 1000);
-    expect(touches(sent, range)).toBe(false);
-    expect(speechIn(range)).toBe(false);
-    expect(speechIn([expected.pieces[1].start, range[0]])).toBe(true);
-    expect(speechIn([range[1], expected.pieces[1].end])).toBe(true);
-    for (const f of fragments()) {
-      expect(
-        f.map.segments.every(([s, e]) => e <= range[0] || s >= range[1])
-      ).toBe(true);
-    }
-  }
-);
-
-test("an uploader clock first measured after the dictation can't place it: none of the source's audio reaches Silero, before the measurement or after", async () => {
-  const start = expected.pieces[1].start + 6000;
-  const { audio, closeAt, pages, sent } = dictating(start, {
-    measured: false,
-    uploader: -30_000,
-  });
-  await store(audio);
-  await pages.run();
-  closeAt(1000);
-  recordSourceClock(env.db, SOURCE, {
-    offsetMs: -30_000,
-    uncertaintyMs: UNSURE,
-  });
-  await pages.run();
-  expect(sent).toEqual([]);
-});
-
-test("audio buffered while the uploader's clock was 30 s slow, uploaded once it was set right: the dictation is placed by the clock that stamped it, and none of it reaches Silero", async () => {
-  const start = expected.pieces[1].start + 6000;
-  const { audio, closeAt, pages, sent } = dictating(start, {
-    uploader: -30_000,
-  });
-  closeAt(1000);
-  // The clock set right before the pages arrive: the server now reads it as the server's.
-  recordSourceClock(
-    env.db,
-    SOURCE,
-    { offsetMs: 0, uncertaintyMs: UNSURE },
-    new Date(start + 60_000)
-  );
-  await store(audio);
-  await pages.run();
-  expect(sent.length).toBeGreaterThan(0);
-  expect(touches(sent, protectedOf(start, 1000))).toBe(false);
-});
-
-test("a dictation's server-clock copy holds back nothing of a source 55 s ahead: its packets at the dictation's server time, in the first span, reach Silero", async () => {
-  const start = expected.pieces[1].start + 6000;
-  const { audio, closeAt, pages, sent } = dictating(start, {
-    uploader: 55_000,
-  });
-  closeAt(1000);
-  await store(audio);
-  await pages.run();
-  expect(touches(sent, protectedOf(start, 1000))).toBe(false);
-  expect(touches(sent, protectedOf(start - 55_000, 1000))).toBe(true);
-});
-
-test("a dictation that opens while a batch is labeled: the piece waiting for Silero is refused and none of its packets goes, the piece before it is kept and never sent again, and the rest is labeled once it closes", async () => {
-  const start = expected.pieces[1].start + 6000;
-  // Read 1 places the batch; read 2 sends the first piece; the range opens as the second piece's
-  // turn comes.
-  const { audio, closeAt, pages, sent } = dictating(start, {
-    opensAtRead: 3,
-  });
-  await store(audio);
-  await pages.run();
-  const [held] = protectedOf(start, 0);
-  expect(sent.length).toBeGreaterThan(0);
-  expect(sent.every((at) => at + PACKET_MS <= held)).toBe(true);
-  // The first piece is kept; the pass that went again stopped at the limit, and what is past it
-  // waits unlabeled.
-  expect(pieces()[0]?.first).toBe(expected.pieces[0].first);
-  expect(pieces().every((p) => p.end <= held)).toBe(true);
-  await pages.run();
-  expect(sent.every((at) => at + PACKET_MS <= held)).toBe(true);
-  expect(
-    env.db.select().from(rawPages).where(eq(rawPages.labeled, false)).all()
-      .length
-  ).toBeGreaterThan(0);
-
-  closeAt(1000);
-  await pages.run();
-  const range = protectedOf(start, 1000);
-  expect(touches(sent, range)).toBe(false);
-  expect(
-    env.db.select().from(rawPages).where(eq(rawPages.labeled, false)).all()
-  ).toEqual([]);
-  expect(speechIn([range[1], expected.pieces[1].end])).toBe(true);
-  // The first piece went to Silero once.
-  const first = sent.filter(
-    (at) => at >= expected.pieces[0].start && at < expected.pieces[0].end
-  );
-  expect(new Set(first).size).toBe(first.length);
-});
-
-test("the VAD worker failing on a batch's second piece: the first piece is kept and never sent again, and the rest is labeled on the next pass", async () => {
+test("only audio the Mac vouched for is labeled", async () => {
   const { at, audio, pages } = setup();
-  at.clock += 11 * 60_000;
   await store(audio);
+  at.vouched = spanEnd(0) + 1000;
+  await pages.run();
+  expect(ingestState(env.db, SOURCE).labeledUntil).toBe(
+    new Date(spanEnd(0)).toISOString()
+  );
+  at.vouched = Number.POSITIVE_INFINITY;
+  await pages.run();
+  expect(pieces()).toEqual(kitPieces());
+});
+
+// Watches what reaches Silero: `onCall` runs as each piece is handed over (its 1-based count and
+// request), and may fail it; `sent` holds each packet's start that went.
+function watching(
+  onCall: (
+    n: number,
+    req: { continues: boolean; stream: string }
+  ) => Error | undefined
+) {
   const sent: number[] = [];
-  let calls = 0;
+  let n = 0;
   const original = pageAudio.label;
   spyOn(pageAudio, "label").mockImplementation((req, packetsNow) => {
-    calls += 1;
-    return calls === 2
-      ? Promise.reject(new Error("the worker stopped"))
+    n += 1;
+    const failure = onCall(n, req);
+    return failure
+      ? Promise.reject(failure)
       : original(req, () => {
           const packets = packetsNow();
           sent.push(...(packets ?? []).map((p) => p.at));
           return packets;
         });
   });
+  return sent;
+}
+
+test("a quiet range the Mac reports while a piece waits for Silero: none of its audio goes", async () => {
+  const { audio, pages } = setup();
+  await store(audio);
+  const range: [number, number] = [
+    expected.pieces[1].start + 2000,
+    expected.pieces[1].start + 5000,
+  ];
+  const sent = watching((n) => {
+    if (n === 1) {
+      quiet(range);
+    }
+  });
+  await pages.run();
+  expect(sent.some((at) => at < range[1] && at + PACKET_MS > range[0])).toBe(
+    false
+  );
+});
+
+test("the Mac's mark read again when Silero takes a piece: one past it is refused and none of its packets goes, the piece before is kept and never sent again", async () => {
+  const { at, audio, pages } = setup();
+  at.clock += 11 * 60_000;
+  await store(audio);
+  const sent = watching((n) => {
+    if (n === 2) {
+      at.vouched = spanEnd(0) + 1000;
+    }
+  });
+  await pages.run();
+  expect(pieces().map((p) => p.first)).toEqual([expected.pieces[0].first]);
+  expect(sent.every((t) => t < spanEnd(0) + 1000)).toBe(true);
+  at.vouched = Number.POSITIVE_INFINITY;
+  await pages.run();
+  expect(new Set(sent).size).toBe(sent.length);
+  expect(pieces()).toEqual(kitPieces());
+});
+
+test("the VAD worker failing on a batch's second piece: the first piece is kept and never sent again, and the rest is labeled on the next pass", async () => {
+  const { at, audio, pages } = setup();
+  at.clock += 11 * 60_000;
+  await store(audio);
+  const sent = watching((n) =>
+    n === 2 ? new Error("the worker stopped") : undefined
+  );
   await pages.run().catch(() => undefined);
   expect(pieces()[0]?.first).toBe(expected.pieces[0].first);
   await pages.run();
@@ -437,35 +287,24 @@ test("the VAD worker failing on a batch's second piece: the first piece is kept 
   expect(pieces()).toEqual(kitPieces());
 });
 
-test("an Omi uploading while the iPhone's close is lost: its cap ends the dictation and the speech before it goes on", async () => {
-  const start = expected.pieces[1].start + 6000;
-  const { audio, pages } = dictating(start);
+test("the VAD worker failing on a piece carried over from the batch before: it is labeled again from its first page in a fresh stream, never continued", async () => {
+  const { at, audio, pages } = setup(100);
+  at.clock += 11 * 60_000;
   await store(audio);
+  const calls: { continues: boolean; stream: string }[] = [];
+  watching((_, req) => {
+    calls.push({ continues: req.continues, stream: req.stream });
+    return req.continues && calls.filter((c) => c.continues).length === 1
+      ? new Error("the worker stopped")
+      : undefined;
+  });
+  await pages.run().catch(() => undefined);
   await pages.run();
-  const [held] = protectedOf(start, 0);
-  expect(pieces().every((p) => p.end <= held)).toBe(true);
-  // The phone never comes back: at its cap the range ends there.
-  expect(
-    settlePhoneDictations(env.db, new Date(start + DICTATION_CAP_MS)).ended
-  ).toBe(1);
-  await pages.run();
-  expect(
-    env.db.select().from(rawPages).where(eq(rawPages.labeled, false)).all()
-  ).toEqual([]);
-  expect(speechIn([held, expected.pieces[1].end])).toBe(false);
-  expect(speechIn([expected.pieces[1].start, held])).toBe(true);
-});
-
-test("only audio before the processing limit is labeled", async () => {
-  const { at, audio, pages } = setup();
-  await store(audio);
-  at.limit = spanEnd(0) + 1000;
-  await pages.run();
-  expect(ingestState(env.db, SOURCE).labeledUntil).toBe(
-    new Date(spanEnd(0)).toISOString()
-  );
-  at.limit = Number.POSITIVE_INFINITY;
-  await pages.run();
+  const failed = calls.findIndex((c) => c.continues);
+  expect(calls[failed + 1]).toEqual({
+    continues: false,
+    stream: calls[failed]?.stream ?? "",
+  });
   expect(pieces()).toEqual(kitPieces());
 });
 
@@ -632,8 +471,8 @@ test("a worker that dies mid-piece loses nothing: the piece is labeled again fro
   await store(audio);
   const labelBatch = pageLabeler(env.db, audio, {
     batchPages: 100,
-    limit: () => Number.POSITIVE_INFINITY,
     now: () => Date.now(),
+    vouched: () => Number.POSITIVE_INFINITY,
   });
   // Pages 0 to 99 are an open piece in the worker; then the worker ends.
   expect(await labelBatch(SOURCE)).toBe(true);

@@ -23,7 +23,7 @@ import { PARSER_VERSION } from "./elevenlabs";
 import { jobBench } from "./job-bench";
 import { getJob, jobWorker } from "./jobs";
 import { latency, spread } from "./latency";
-import { vouchedThrough } from "./mac-socket";
+import { macSocket, vouchedThrough } from "./mac-socket";
 import { services } from "./services";
 import { setSwitches } from "./switches";
 import {
@@ -332,7 +332,7 @@ test("credits: one email under 20 % and one when out, at most once per 12 h each
     env.db,
     config,
     memoryAudioStore(),
-    () => new Date(clock),
+    macSocket(env.db),
     () => clock
   );
   const alerts = () =>

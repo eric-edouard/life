@@ -293,6 +293,31 @@ test("a quiet range that lands while the audio is read keeps it from identity, a
   expect(cutAt(jobId)).toEqual(expect.any(Date));
 });
 
+test("identity is checked before each request: a quiet range that lands during the first keeps the second from going", async () => {
+  // 26 clean turns of 2 s, each its own speaker: two requests of at most 25.
+  const jobId = job(
+    Array.from({ length: 26 }, (_, i) => turn(`speaker_${i}`, 2 * i, 2 * i + 2))
+  );
+  const at = jobRow(jobId).captureStart?.getTime() ?? 0;
+  const { cut } = speech;
+  speech.cut = (range) => {
+    speech.cut = cut;
+    env.db
+      .insert(quietRanges)
+      .values({
+        endedAt: new Date(at + 50_500),
+        id: crypto.randomUUID(),
+        source: "com.apple.dictation",
+        startedAt: new Date(at + 49_500),
+      })
+      .run();
+    return cut(range);
+  };
+  expect(await sampler.job(jobId)).toBeNull();
+  expect(speech.ranges.map((r) => r.length)).toEqual([25]);
+  expect(samplesOf(jobId)).toEqual([]);
+});
+
 test("a job's bucket audio is served, by range too; a job without any is not found", async () => {
   const app = createApp(
     services(testConfig("http://localhost:1"), env.db, { audio })
@@ -372,7 +397,6 @@ test("the one-time reopen recovers expired samples, preserves owner rows, and su
   env.db.$client.run("drop table apple_health");
   env.db.$client.run("drop table voice_note_hearings");
   env.db.$client.run("drop table phone_dictations");
-  env.db.$client.run("drop table source_clocks");
   // Its `when` in the journal: it and the migrations after it run again.
   env.db.$client.run(
     "delete from __drizzle_migrations where created_at >= 1794225727810"

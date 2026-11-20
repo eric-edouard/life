@@ -1,6 +1,6 @@
 // Labels a raw-page source's speech (page-processing.ts runs it): the next stored pages, in index
 // order, are placed in time, cut into pieces and labeled by Silero in the VAD worker; each piece is
-// a `page_pieces` row and its pages are `labeled`. Only audio before the processing limit is labeled, and
+// a `page_pieces` row and its pages are `labeled`. Only audio the Mac vouched for is labeled, and
 // no packet a quiet range touches is ever decoded: the server's VAD never hears dictation. A piece
 // still growing when a batch ends stays open in the worker and goes on with the next batch, as one
 // piece would on the phone. A page stored after labeling passed it (a late page) is labeled on its
@@ -51,7 +51,7 @@ import {
   subtracting,
   unioned,
 } from "./page-rules";
-import { quietFor } from "./phone-dictations";
+import { quietIn } from "./quiet-ranges";
 import { type SpanFacts, saveSpans } from "./timeline-spans";
 
 // A missing page is waited for this long (the phone sends its pages in order), then labeling
@@ -185,13 +185,9 @@ export function pageLabeler(
   audio: AudioStore,
   {
     batchPages,
-    limit,
     now,
-  }: {
-    batchPages: number;
-    limit: (sourceId: string) => number;
-    now: () => number;
-  }
+    vouched,
+  }: { batchPages: number; now: () => number; vouched: () => number }
 ) {
   // Each source's open piece, its pages not marked labeled yet, and the worker life holding its
   // stream. Lost on a restart, a worker that ended or a refused call, it is labeled again from its
@@ -264,10 +260,10 @@ export function pageLabeler(
     };
   }
 
-  // Runs only through the processing limit: the batch stops before the first page past it.
+  // Runs only through what the Mac vouched for: the batch stops before the first page past it.
   // `truncated`: the span going on past the stop stays open.
-  function withinLimit(sourceId: string, take: Row[], spans: CaptureSpan[]) {
-    const until = limit(sourceId);
+  function vouchedOnly(take: Row[], spans: CaptureSpan[]) {
+    const until = vouched();
     const stop = spans
       .flatMap((s) => s.runs)
       .find((r) => runEnd(r) > until)?.page;
@@ -305,11 +301,11 @@ export function pageLabeler(
       ? carried.end
       : piece.start - PREROLL_MS - PACKET_MS + 1;
     const reach: Interval = [from, piece.end + PACKET_MS];
-    // Read when the worker takes it: the quiet ranges then, and nothing past the processing limit
-    // then (a dictation opened while it waited refuses it, and its pages wait unlabeled).
+    // Read when the worker takes it: the quiet ranges then, and nothing past what the Mac vouches
+    // for then (a dictation it reported while the piece waited refuses it, and its pages wait).
     const packetsNow = () => {
-      const until = limit(sourceId);
-      const quiet = quietFor(db, sourceId, reach);
+      const until = vouched();
+      const quiet = quietIn(db, reach);
       const going = [...packetsIn(runs, packets, reach, quiet)];
       return going.some((p) => p.at + PACKET_MS > until) ? null : going;
     };
@@ -437,7 +433,7 @@ export function pageLabeler(
     save(sourceId, row ? [row] : [], [piece.first, piece.last], false);
   }
 
-  // A batch's pages read and placed, through the processing limit. Null when none may go.
+  // A batch's pages read and placed, through what the Mac vouched for. Null when none may go.
   async function place(sourceId: string, batch: Batch) {
     const bytes = await pageBytes(audio, batch.take);
     if (!bytes) {
@@ -447,7 +443,7 @@ export function pageLabeler(
     }
     const read = records(batch.take, bytes);
     const seed = seedOf(sourceId, batch.late);
-    const placed = withinLimit(sourceId, batch.take, placeOmi(read, seed));
+    const placed = vouchedOnly(batch.take, placeOmi(read, seed));
     const [head] = placed.take;
     const tail = placed.take.at(-1);
     return head && tail
@@ -462,7 +458,7 @@ export function pageLabeler(
   }
 
   // Labels `list` in order: its first piece goes on from `going`, its last stays open if `stays`.
-  // Stops at a piece the limit refuses (`PastLimit`) or the worker fails on: the rows done before it,
+  // Stops at a piece refused past the watermark (`PastLimit`) or the worker fails on: the rows done before it,
   // and that piece.
   async function labelAll(
     sourceId: string,
@@ -541,8 +537,9 @@ export function pageLabeler(
       runs: placed.spans.flatMap((s) => s.runs),
       stays,
     });
-    // A refused open piece was never sent on: its stream in the worker is as it was.
-    if (refused?.carried && held) {
+    // A refused open piece was never sent on: its stream in the worker is as it was. One the worker
+    // failed on may have gone on in it: labeled again from its first page, in a fresh stream.
+    if (refused?.carried && !refused.failed && held) {
       open.set(sourceId, held);
     }
     const kept = batch.late ? undefined : openPiece(sourceId)?.first;

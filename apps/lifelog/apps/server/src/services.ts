@@ -2,7 +2,6 @@ import { type QueueCache, queueCache } from "./naming-cache";
 // Everything the routes and the background loops share, built once: index.ts serves it, the
 // tests override parts of it, scripts/openapi.ts only reads the routes it gives.
 
-import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   apnsFor,
@@ -25,7 +24,6 @@ import { type JobWorker, jobWorker } from "./jobs";
 import { type MacSocket, macSocket } from "./mac-socket";
 import { type PageProcessor, pageProcessor } from "./page-processing";
 import { type VoiceUpkeep, voiceUpkeep } from "./people";
-import { processingLimit, settlePhoneDictations } from "./phone-dictations";
 import { macProvider, type Provider } from "./providers";
 import { type Restic, resticFor } from "./restic";
 import { type Rolling, rollingVoices } from "./rolling";
@@ -41,12 +39,9 @@ export function services(
     // Every job's audio: the bucket, which index.ts passes; in memory for tests.
     audio = memoryAudioStore(),
     mac = macSocket(db),
-    // Up to when pendant audio may be labeled, cut and sent: the Mac's watermark, held back by a
-    // phone dictation (phone-dictations.ts).
-    limit = processingLimit(db, mac),
     // The one sender of jobs to ElevenLabs, from the bucket; it first closes the phone's speech
     // fragments into blocks (cutter.ts).
-    worker = jobWorker(db, config, audio, limit),
+    worker = jobWorker(db, config, audio, mac),
     // Summaries run only on the Mac, on the owner's Max plan; never on a paid API.
     intelligence = macProvider(mac, () => !switches().ai),
     // Tells the phone a transcript or summary is ready (a silent push to the same app).
@@ -62,14 +57,14 @@ export function services(
     voices = voiceUpkeep(db),
     // Cuts a job's clean turns from its bucket audio and embeds them (rebuild P3). Summaries
     // name speakers when read, so recognition starts nothing.
-    excerpts = excerptSampler(db, config, audio, limit),
+    excerpts = excerptSampler(db, config, audio, () => mac.vouchedThrough()),
     // The archive's invariants, hourly, with an email to the owner when one breaks.
     health = healthWatch(db, config),
     // The daily restic snapshot, when RESTIC_* is set.
     restic = resticFor(db, config),
     // A thin phone's raw pages, labeled and cut into speech fragments here.
     pages = pageProcessor(db, audio, worker, {
-      limit: (sourceId) => limit(sourceId).getTime(),
+      vouched: () => mac.vouchedThrough().getTime(),
     }),
   }: {
     apns?: Pusher | null;
@@ -77,7 +72,6 @@ export function services(
     excerpts?: ExcerptSampler;
     health?: HealthWatch;
     intelligence?: Provider | null;
-    limit?: (sourceId: string | null) => Date;
     mac?: MacSocket;
     notice?: Notice;
     nudge?: Nudge;
@@ -117,36 +111,17 @@ export function services(
     rolling.drain();
     states.refresh();
   });
-  // The processing limit may have moved: blocks and jobs held for it go now (cutter.ts, jobs.ts
-  // `claim`), and a thin phone's audio held from labeling (page-labels.ts).
-  const limitMoved = () => {
+  // The Mac's word can move its watermark: blocks and jobs held for it go now (cutter.ts, jobs.ts
+  // `claim`).
+  mac.onState(() => {
     worker.poke();
+    // A thin phone's audio waits to be labeled until the Mac vouches for it (page-labels.ts).
     pages.poke();
-  };
-  // The Mac's word can move its watermark.
-  mac.onState(limitMoved);
-  // Each phone dictation still open ends at its cap, timed here: those past it end now, and the
-  // next cap is timed. Wakes nothing.
-  let capTimer: ReturnType<typeof setTimeout> | undefined;
-  const settleDictations = () => {
-    const { next } = settlePhoneDictations(db);
-    clearTimeout(capTimer);
-    if (next !== null) {
-      capTimer = setTimeout(dictationChanged, next - clock().getTime());
-      capTimer.unref();
-    }
-  };
-  // A dictation opened, closed or at its cap: settled, and what waited on the limit goes.
-  const dictationChanged = () => {
-    settleDictations();
-    limitMoved();
-  };
+  });
   return {
     audio,
     config,
     db,
-    // A phone dictation opened or closed (routes/dictation.ts).
-    dictationChanged,
     excerpts,
     health,
     intelligence,
@@ -158,9 +133,6 @@ export function services(
     restic,
     rolling,
     search,
-    // At the server's start (index.ts), before any work: dictations past their cap end, the next
-    // cap is timed, and nothing wakes; the first tick reads the credits before it sends.
-    settleDictations,
     states,
     voices,
     worker,

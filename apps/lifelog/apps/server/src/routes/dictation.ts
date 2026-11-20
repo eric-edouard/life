@@ -1,5 +1,5 @@
-// Dictation on the phone, by its device token only (no reader's token opens these): its quiet
-// range opens before the microphone and closes at Stop (phone-dictations.ts).
+// Dictation on the phone, by its device token only (no reader's token opens these): the server's
+// record of it, opened before the microphone and closed at Stop (phone-dictations.ts).
 import { createRoute, z } from "@hono/zod-openapi";
 import { record } from "../events";
 import {
@@ -10,10 +10,15 @@ import {
 } from "../phone-dictations";
 import type { Services } from "../services";
 import { ApiError, IdParam, json, router } from "./common";
-import { QuietRange } from "./sync";
 
-const OpenDictationRange = z
+const PhoneDictation = z
   .object({
+    endedAt: z.iso
+      .datetime()
+      .nullable()
+      .describe(
+        "When its close arrived, by the server's clock, no later than endsBy; null while open"
+      ),
     endsBy: z.iso
       .datetime()
       .describe(
@@ -24,7 +29,7 @@ const OpenDictationRange = z
       .datetime()
       .describe("When the server first opened it, by the server's clock"),
   })
-  .openapi("OpenDictationRange");
+  .openapi("PhoneDictation");
 
 export function dictationRoutes(s: Services) {
   const { db } = s;
@@ -32,10 +37,10 @@ export function dictationRoutes(s: Services) {
     .openapi(
       createRoute({
         description:
-          "A dictation on the phone starts, before its microphone opens: from when the server opens " +
-          "it (less a clock margin) no pendant audio is labeled, cut or sent until it closes, or " +
-          "until its cap when the close never comes. Only this answer lets the phone open its " +
-          "microphone. Idempotent by id, however late: a retry answers the range as first opened; " +
+          "A dictation on the phone starts, before its microphone opens: the server records it, " +
+          "by its own clock, and touches no pendant audio (the iPhone marks or drops what the " +
+          "pendant recorded meanwhile, before upload). Only this answer lets the phone open its " +
+          "microphone. Idempotent by id, however late: a retry answers it as first opened; " +
           "one already closed, or past its cap, is never opened again (409). A new open whose `startedAt` is more " +
           "than a minute from the server's clock is stale (400).",
         method: "post",
@@ -51,12 +56,15 @@ export function dictationRoutes(s: Services) {
           },
         },
         responses: {
-          200: json(OpenDictationRange, "The range, open"),
+          200: json(PhoneDictation, "The dictation, open"),
           400: json(
             ApiError,
             "Invalid, or a new open whose `startedAt` is more than a minute from the server's clock"
           ),
-          409: json(ApiError, "This range was closed already"),
+          409: json(
+            ApiError,
+            "This dictation was closed already, or is past its cap"
+          ),
         },
       }),
       (c) => {
@@ -73,18 +81,15 @@ export function dictationRoutes(s: Services) {
           );
         }
         if (open === "closed") {
-          // One past its cap ended just now.
-          s.dictationChanged();
           return c.json(
             {
               error: "invalid_state" as const,
-              message: "This range was closed already.",
+              message: "This dictation was closed already.",
             },
             409
           );
         }
         record(db, "dictation.opened", { id: open.id, source: input.source });
-        s.dictationChanged();
         return c.json(open, 200);
       }
     )
@@ -92,21 +97,20 @@ export function dictationRoutes(s: Services) {
       createRoute({
         description:
           "A dictation on the phone ends (Stop, cancel, an interruption, a failed start), sent once " +
-          "its microphone stopped: its range ends when this arrives, by the server's clock, widened " +
-          "by the clock margin at both edges and no longer than its cap. It becomes a quiet range, " +
-          "and the pendant's audio around it goes on. A close again keeps the first end.",
+          "its microphone stopped: it ends when this arrives, by the server's clock, no later than " +
+          "its cap. A close again keeps the first end.",
         method: "post",
         path: "/dictation/ranges/{id}/close",
         request: { params: IdParam },
         responses: {
-          200: json(QuietRange, "The quiet range, as stored"),
+          200: json(PhoneDictation, "The dictation, as stored"),
           404: json(ApiError, "No dictation opened with this id"),
         },
       }),
       (c) => {
         const { id } = c.req.valid("param");
-        const range = closePhoneDictation(db, id);
-        if (!range) {
+        const closed = closePhoneDictation(db, id);
+        if (!closed?.endedAt) {
           return c.json(
             {
               error: "not_found" as const,
@@ -118,10 +122,9 @@ export function dictationRoutes(s: Services) {
         record(db, "dictation.closed", {
           id,
           seconds:
-            (Date.parse(range.endedAt) - Date.parse(range.startedAt)) / 1000,
+            (Date.parse(closed.endedAt) - Date.parse(closed.startedAt)) / 1000,
         });
-        s.dictationChanged();
-        return c.json(range, 200);
+        return c.json(closed, 200);
       }
     );
 }

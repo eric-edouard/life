@@ -15,13 +15,6 @@ import { memoryAudioStore } from "./audio-store";
 import { sha256Hex } from "./config";
 import { admit, blockFrom, cut, QUIET_RANGES_FROM, type Span } from "./cutter";
 import type { Job } from "./jobs";
-import {
-  closePhoneDictation,
-  DICTATION_CAP_MS,
-  openPhoneDictation,
-  recordSourceClock,
-  settlePhoneDictations,
-} from "./phone-dictations";
 import { services } from "./services";
 import { fakeElevenLabs, OWNER_TOKEN, testConfig, testDb } from "./testing";
 
@@ -38,7 +31,6 @@ afterAll(() => {
 });
 beforeEach(() => {
   env.reset();
-  recordSourceClock(env.db, SOURCE, STEADY, new Date(0));
   bucket.objects.clear();
   bucket.writes = 0;
   fake.calls.length = 0;
@@ -54,7 +46,6 @@ beforeEach(() => {
 });
 
 const SOURCE = "pendant-1";
-const STEADY = { offsetMs: 0, uncertaintyMs: 0 };
 const auth = { Authorization: `Bearer ${OWNER_TOKEN}` };
 const build = () => {
   const s = services(
@@ -686,16 +677,7 @@ test("a range that comes after the block closed withdraws its job in the worker,
   expect(feed.removed).toContainEqual({ ...withdrawn, ref: fragment?.id });
 });
 
-// A dictation on the iPhone opened at `at` (server time).
-const dictate = (at: number) => {
-  const id = randomUUID();
-  const startedAt = new Date(at).toISOString();
-  const phone = { phoneId: "iphone-test", source: "app.example.notes" };
-  openPhoneDictation(env.db, { ...phone, id, startedAt }, new Date(at));
-  return id;
-};
-
-test("a Limitless block waits while the iPhone dictates; the close withdraws the fragment its range touches and the rest goes", async () => {
+test("a quiet range that lands while a block's audio is stored: no job is admitted, its block's audio goes, and the rest closes without it", async () => {
   const app = appWith();
   for (const piece of [a, b, c]) {
     // biome-ignore lint/performance/noAwaitInLoops: in order
@@ -704,12 +686,25 @@ test("a Limitless block waits while the iPhone dictates; the close withdraws the
   await app.s.worker.work.idle();
   heard(lastEnd(c) + 50_000);
   const [from = 0] = b.map.segments[0] ?? [];
-  const id = dictate(from + 100);
+  const { put } = app.audio;
+  app.audio.put = (key, bytes) => {
+    app.audio.put = put;
+    env.db
+      .insert(quietRanges)
+      .values({
+        endedAt: new Date(from + 500),
+        id: randomUUID(),
+        source: "com.apple.dictation",
+        startedAt: new Date(from + 100),
+      })
+      .run();
+    return put(key, bytes);
+  };
   await app.s.worker.work();
   expect(jobs()).toHaveLength(0);
   expect(uploads()).toHaveLength(0);
+  expect(stored(app).some((k) => String(k).includes("blocks/"))).toBe(false);
 
-  closePhoneDictation(env.db, id, new Date(from + 500));
   await app.s.worker.work();
   expect(jobs().map((j) => j.pages)).toEqual([
     [
@@ -718,62 +713,6 @@ test("a Limitless block waits while the iPhone dictates; the close withdraws the
     ],
   ]);
   expect(await sentAudio()).toEqual(joinOggOpus([a, c])?.audio);
-});
-
-test.each([false, true])(
-  "a dictation that opens (and closes: %p) while a block's audio is stored: no job is admitted, its block's audio goes, and the rest closes without it",
-  async (closes) => {
-    const app = appWith();
-    for (const piece of [a, b, c]) {
-      // biome-ignore lint/performance/noAwaitInLoops: in order
-      await putFragment(app, piece);
-    }
-    await app.s.worker.work.idle();
-    heard(lastEnd(c) + 50_000);
-    const [from = 0] = b.map.segments[0] ?? [];
-    const { put } = app.audio;
-    let id = "";
-    app.audio.put = (key, bytes) => {
-      app.audio.put = put;
-      id = dictate(from + 100);
-      if (closes) {
-        closePhoneDictation(env.db, id, new Date(from + 500));
-      }
-      return put(key, bytes);
-    };
-    await app.s.worker.work();
-    expect(jobs()).toHaveLength(0);
-    expect(uploads()).toHaveLength(0);
-    expect(stored(app).some((k) => String(k).includes("blocks/"))).toBe(false);
-
-    closePhoneDictation(env.db, id, new Date(from + 500));
-    await app.s.worker.work();
-    expect(jobs().map((j) => j.pages)).toEqual([
-      [
-        [1, 10],
-        [21, 30],
-      ],
-    ]);
-    expect(await sentAudio()).toEqual(joinOggOpus([a, c])?.audio);
-  }
-);
-
-test("a job closed before a dictation opened over it waits at the claim; at the cap the range withdraws it, never sent", async () => {
-  const app = appWith();
-  await putFragment(app, a);
-  await app.s.worker.work.idle();
-  heard(lastEnd(a) + 50_000);
-  await cut(env.db, app.audio, () => new Date(), Date.now());
-  const [from = 0] = a.map.segments[0] ?? [];
-  dictate(from + 100);
-  await app.s.worker.work();
-  expect(uploads()).toHaveLength(0);
-  expect(jobs().map((j) => j.state)).toEqual(["queued"]);
-
-  settlePhoneDictations(env.db, new Date(from + 100 + DICTATION_CAP_MS));
-  await app.s.worker.work();
-  expect(uploads()).toHaveLength(0);
-  expect(jobs()).toHaveLength(0);
 });
 
 test("an open fragment counts as uploaded for its conversation", async () => {

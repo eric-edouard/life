@@ -1,14 +1,13 @@
 // Quiet ranges: stretches the owner spent dictating to the Mac (its events, turned into ranges by
-// dictation.ts) or on the phone (phone-dictations.ts), or the phone played a recording out loud
-// (`POST /quiet-ranges`). Words inside one are hidden (transcript.ts `keptWords`). The Mac also
-// vouches for time: every dictation before its watermark is already among the ranges, or the Mac is
-// asleep.
+// dictation.ts) or the phone played a recording out loud (`POST /quiet-ranges`). Words inside one
+// are hidden (transcript.ts `keptWords`). The Mac also vouches for time: every dictation before its
+// watermark is already among the ranges, or the Mac is asleep.
 
 import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { type Dictation, macWatch, quietRanges } from "@lifelog/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, lt } from "drizzle-orm";
 import { z } from "zod";
 import { logChange, logPlacedIn } from "./change-log";
 import {
@@ -24,7 +23,7 @@ import {
 import { markDirty, pendantSources } from "./grouping";
 import type { MacView } from "./mac-socket";
 
-export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 // The Mac drops anything over 10 minutes before padding; a little more passes for the padding.
 // Longer is a stuck microphone flag, never a dictation.
@@ -49,7 +48,7 @@ export const quietRangeInput = z
     { message: "a quiet range lasts at most 11 minutes" }
   );
 
-export function insertQuietRange(
+function insertQuietRange(
   tx: Tx,
   range: { endedAt: Date; id: string; source: string; startedAt: Date }
 ) {
@@ -94,7 +93,7 @@ export function addQuietRange(
   return quietView(row);
 }
 
-export const quietView = (row: typeof quietRanges.$inferSelect) => ({
+const quietView = (row: typeof quietRanges.$inferSelect) => ({
   endedAt: row.endedAt.toISOString(),
   id: row.id,
   startedAt: row.startedAt.toISOString(),
@@ -225,3 +224,20 @@ export function macView(
     ).toISOString(),
   };
 }
+
+// The quiet ranges touching [start, end), as epoch-ms intervals.
+export const quietIn = (
+  db: Pick<Db, "select">,
+  [start, end]: [number, number]
+) =>
+  db
+    .select()
+    .from(quietRanges)
+    .where(
+      and(
+        lt(quietRanges.startedAt, new Date(end)),
+        gt(quietRanges.endedAt, new Date(start))
+      )
+    )
+    .all()
+    .map((q): [number, number] => [q.startedAt.getTime(), q.endedAt.getTime()]);

@@ -200,32 +200,22 @@ reverse it, change its entry here in the same commit.
   classifier would have heard as noise. Fragments are the original Opus packets, not re-encoded as the iPhone does:
   no encoder to carry, no second loss, a few tens of ms at a stretch's edge rounded inward to whole packets, so nothing
   a quiet range covers is ever kept.
-- **The server's VAD never hears dictation.** A page source is labeled only up to the processing limit, and a packet a
+- **The server's VAD never hears dictation.** A page source is labeled only up to the Mac's watermark, and a packet a
   quiet range touches is never decoded: Silero hears silence there. The iPhone labels on the phone, which is the
   owner's own device; the server is not, so the rule holds with no exception for speech detection.
 - **Dictation is stored, never processed.** The Mac helper reports when the owner dictates to the Mac; the ranges
   the server makes of it are cut from every job before ElevenLabs, `apps/identity` or a model sees it, checked in the cutter and again in the
-  worker's `claim`. The raw backup holds everything the Pendant heard. No exception: the Pendant's button no longer
-  sends anything to an AI.
-- **Dictation on the phone opens its range before its microphone (20 Nov 2026).** The phone asks the server to open
-  the range at the tap and opens the microphone only on its answer: no server, no dictation. The range is on the
-  server's clock: it starts when the server opens it and ends when the close arrives, after the microphone stopped,
-  so a phone clock that is off never moves it; the phone's own tap time only tells a stale first open (over a minute
-  off) from a fresh one. A pendant's audio is on its uploader's clock, which the uploader measures against the server's
-  on each request (`X-Clock-Offset`: offset and uncertainty, from `X-Server-Time` and the round trip), kept as rows
-  that change only when the clock moved or is known better, since an uploader may send audio buffered under an older
-  clock. The range is placed by every row that may have stamped its audio (the one in force at its start, any added
-  while it ran, the first added after it), each widened by its uncertainty plus 2 s (an Omi's whole-second stamps);
-  its server-clock copy is for hiding words and grouping only. From that start, none of that source's audio is
-  labeled, cut, sent or heard by identity until the close, and each step reads the limit and the ranges again where
-  audio leaves. A dictation no row placed (none in force at its start, or one worse than 10 s) holds its source
-  whole: never guessed. A piece Silero refuses, or the worker fails on, is resumed at, the pieces before it kept, so
-  nothing is sent twice. A close lost (the phone gone) ends the
-  range at its cap, 10 minutes after its start, timed by the server and settled at its start after a restart; every
-  paid send waits for the first credit read, whatever woke it: at most 10
-  minutes of pendant speech is left unprocessed, kept in the raw backup, and the speech around it goes on with no word
-  from the phone. An open again, however late, answers the range as first opened and never moves the cap; a closed
-  range never reopens.
+  worker's `claim`, and the watermark and the ranges are read again where audio leaves (when Silero takes a piece,
+  before a block's job is admitted, at each send, before each identity request). The raw backup holds everything the
+  Pendant heard. No exception: the Pendant's button no longer sends anything to an AI.
+- **Dictation on the phone: the device that knows the clock decides (21 Nov 2026).** The iPhone marks or drops the
+  pendant audio it recorded during a dictation before upload, and the server only checks the mark (life#802). The
+  server never places a dictation on pendant audio itself: it would have to infer which remote clock stamped that
+  audio, and three review rounds found that inference wrong (a clock measured late, audio buffered under an older
+  clock, a clock with no measurement). The phone asks the server to open the dictation at the tap and opens the
+  microphone only on its answer; the server keeps it on its own clock (`phone_dictations`, from the open's arrival to
+  the close's, at most 10 minutes) and touches no pendant audio with it. Until the iPhone marks, pendant audio heard
+  during a phone dictation is processed like any other. Android gets no phone dictation for now.
 
 ## People, places and search
 

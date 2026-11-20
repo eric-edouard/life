@@ -2494,9 +2494,14 @@
         },
         "required": ["endedAt", "id", "source", "startedAt"]
       },
-      "OpenDictationRange": {
+      "PhoneDictation": {
         "type": "object",
         "properties": {
+          "endedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "When its close arrived, by the server's clock, no later than endsBy; null while open"
+          },
           "endsBy": {
             "type": "string",
             "format": "date-time",
@@ -2512,7 +2517,7 @@
             "description": "When the server first opened it, by the server's clock"
           }
         },
-        "required": ["endsBy", "id", "startedAt"]
+        "required": ["endedAt", "endsBy", "id", "startedAt"]
       },
       "DictationRangeInput": {
         "type": "object",
@@ -5212,7 +5217,7 @@
     },
     "/dictation/ranges": {
       "post": {
-        "description": "A dictation on the phone starts, before its microphone opens: from when the server opens it (less a clock margin) no pendant audio is labeled, cut or sent until it closes, or until its cap when the close never comes. Only this answer lets the phone open its microphone. Idempotent by id, however late: a retry answers the range as first opened; one already closed, or past its cap, is never opened again (409). A new open whose `startedAt` is more than a minute from the server's clock is stale (400).",
+        "description": "A dictation on the phone starts, before its microphone opens: the server records it, by its own clock, and touches no pendant audio (the iPhone marks or drops what the pendant recorded meanwhile, before upload). Only this answer lets the phone open its microphone. Idempotent by id, however late: a retry answers it as first opened; one already closed, or past its cap, is never opened again (409). A new open whose `startedAt` is more than a minute from the server's clock is stale (400).",
         "requestBody": {
           "required": true,
           "content": {
@@ -5225,11 +5230,11 @@
         },
         "responses": {
           "200": {
-            "description": "The range, open",
+            "description": "The dictation, open",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OpenDictationRange"
+                  "$ref": "#/components/schemas/PhoneDictation"
                 }
               }
             }
@@ -5245,7 +5250,7 @@
             }
           },
           "409": {
-            "description": "This range was closed already",
+            "description": "This dictation was closed already, or is past its cap",
             "content": {
               "application/json": {
                 "schema": {
@@ -5259,7 +5264,7 @@
     },
     "/dictation/ranges/{id}/close": {
       "post": {
-        "description": "A dictation on the phone ends (Stop, cancel, an interruption, a failed start), sent once its microphone stopped: its range ends when this arrives, by the server's clock, widened by the clock margin at both edges and no longer than its cap. It becomes a quiet range, and the pendant's audio around it goes on. A close again keeps the first end.",
+        "description": "A dictation on the phone ends (Stop, cancel, an interruption, a failed start), sent once its microphone stopped: it ends when this arrives, by the server's clock, no later than its cap. A close again keeps the first end.",
         "parameters": [
           {
             "schema": {
@@ -5273,11 +5278,11 @@
         ],
         "responses": {
           "200": {
-            "description": "The quiet range, as stored",
+            "description": "The dictation, as stored",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QuietRange"
+                  "$ref": "#/components/schemas/PhoneDictation"
                 }
               }
             }

@@ -1,9 +1,9 @@
 // The server cuts the blocks (docs/timeline.md, "Fragments and blocks"). The phone sends its kept
 // speech as fragments of whole Pendant pages (`storeFragment`); a source's open fragments, in
 // capture order, close into blocks on the server's own clock (`blockFrom`); a closed block passes
-// the processing limit, the quiet ranges and what is bought already, is joined into one Ogg (audio.ts
+// the Mac's gate, the quiet ranges and what is bought already, is joined into one Ogg (audio.ts
 // `joinOggOpus`) and admitted as one job (`admit`), the only way a job is made. The job
-// worker's `claim` stays the one way to ElevenLabs and checks the limit and the quiet ranges again: a
+// worker's `claim` stays the one way to ElevenLabs and checks the Mac and the quiet ranges again: a
 // range that comes late withdraws one fragment here, the whole job there. A page is in one
 // fragment, and in one job that isn't failed. A fragment is open while it has audio, in a job
 // once it has a job, and covered (its pages held, nothing sent) with neither. The rules the worker
@@ -18,11 +18,12 @@ import {
   transcriptionJobs as jobs,
   joinTouching,
   type PageRanges,
+  quietRanges,
   sources,
   speechFragments,
   type TranscriptionSettings,
 } from "@lifelog/db/schema";
-import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { joinOggOpus, oggOpusSeconds } from "./audio";
 import {
   type AudioStore,
@@ -35,7 +36,6 @@ import { billableSeconds, sha256Hex } from "./config";
 import { reportError } from "./diagnostics";
 import { SCRIBE_MODEL } from "./elevenlabs";
 import { record } from "./events";
-import { quietFor } from "./phone-dictations";
 import { captureRange } from "./turns";
 import { blockKeyterms } from "./vocabulary";
 
@@ -142,15 +142,14 @@ function closesNow(seen: number, silent: number, kept: number, waited: number) {
 }
 
 // Closes every block that is due into a job, oldest first, and says when the server's clock may
-// close the next. A block ending past the processing limit (quiet-ranges.ts `processingLimit`)
-// waits, with those after it: every state the Mac sends and every phone dictation closed runs the
-// worker again. The limit is read again once a block's audio is read and stored, just before its
-// job is admitted. A block that fails is recorded and the next goes on;
+// close the next. A block ending past what the Mac vouches for waits, with those after it: every
+// state the Mac sends runs the worker again. It is read again once a block's audio is read and
+// stored, just before its job is admitted. A block that fails is recorded and the next goes on;
 // its third failure withdraws its fragments, so the phone sends their pages again.
 export async function cut(
   db: Db,
   audio: AudioStore,
-  limit: (sourceId: string | null) => Date,
+  vouched: () => Date,
   now: number
 ) {
   const rows = db
@@ -167,7 +166,7 @@ export async function cut(
   const wakes: number[] = [];
   for (const group of Map.groupBy(rows, (r) => r.fragment.sourceId).values()) {
     // biome-ignore lint/performance/noAwaitInLoops: one source after the other
-    const wakeAt = await cutSource(db, audio, group, limit, now);
+    const wakeAt = await cutSource(db, audio, group, vouched, now);
     wakes.push(...(wakeAt === null ? [] : [wakeAt]));
   }
   return wakes.length > 0 ? Math.min(...wakes) : null;
@@ -178,7 +177,7 @@ async function cutSource(
   db: Db,
   audio: AudioStore,
   group: { fragment: Fragment; heard: Date | null; sent: Date | null }[],
-  limit: (sourceId: string | null) => Date,
+  vouched: () => Date,
   now: number
 ) {
   const fragments = group.map((r) => r.fragment);
@@ -198,13 +197,12 @@ async function cutSource(
     }
     const block = fragments.slice(from, last + 1);
     const end = Math.max(...spans.slice(from, last + 1).map((s) => s.end));
-    const sourceId = block[0]?.sourceId ?? null;
-    const isPastLimit = () => end > limit(sourceId).getTime();
-    if (isPastLimit()) {
+    const isPastVouched = () => end > vouched().getTime();
+    if (isPastVouched()) {
       return null;
     }
     // biome-ignore lint/performance/noAwaitInLoops: blocks in order
-    const held = await close(db, audio, block, onSilence, isPastLimit).catch(
+    const held = await close(db, audio, block, onSilence, isPastVouched).catch(
       (error: unknown) => failed(db, audio, block, error)
     );
     if (held === "held") {
@@ -238,14 +236,14 @@ async function failed(
 
 // A closed block: the fragments bought already are covered and those a quiet range touches
 // withdrawn; the rest are joined and admitted as one job that takes them, in one transaction.
-// "held" when, meanwhile, the processing limit moved before its end or a quiet range came on one of
-// its fragments (one that opened and closed): nothing admitted.
+// "held" when, meanwhile, the Mac's watermark moved before its end or a quiet range came on one of
+// its fragments: nothing admitted.
 async function close(
   db: Db,
   audio: AudioStore,
   block: Fragment[],
   endedOnSilence: boolean,
-  isPastLimit: () => boolean
+  isPastVouched: () => boolean
 ) {
   const parts = await readable(db, audio, block);
   const own = parts.map((p) => p.fragment);
@@ -264,9 +262,9 @@ async function close(
   const sha = sha256Hex(joined.audio);
   const key = blockKey(first.sourceId, pages[0]?.[0] ?? 0, sha);
   await audio.put(key, joined.audio);
-  // A dictation opened, or a quiet range came, while its audio was read and stored: no job, and its
-  // fragments wait (one a range touches is withdrawn at the next close).
-  if (isPastLimit() || own.some((f) => touchesQuiet(db, f.map, f.sourceId))) {
+  // The Mac's watermark moved back, or a quiet range came, while its audio was read and stored: no
+  // job, and its fragments wait (one a range touches is withdrawn at the next close).
+  if (isPastVouched() || own.some((f) => touchesQuiet(db, f.map))) {
     await audio.delete(key);
     return "held" as const;
   }
@@ -304,7 +302,7 @@ async function readable(db: Db, audio: AudioStore, block: Fragment[]) {
       continue;
     }
     const bytes =
-      !touchesQuiet(db, fragment.map, fragment.sourceId) &&
+      !touchesQuiet(db, fragment.map) &&
       (await audio.get(fragment.objectKey ?? ""));
     if (bytes) {
       parts.push({ audio: bytes, fragment, map: fragment.map });
@@ -534,34 +532,41 @@ function holderOf(
 }
 
 // Why a job may not be sent now, read at its claim and again at each send after any wait: a quiet
-// range touches it, or it ends past the processing limit (a dictation opened since). Null when it may.
+// range touches it, or it ends past what the Mac vouches for. Null when it may.
 export function heldBack(
   db: Db,
-  job: { captureEnd: Date | null; map: JobMap | null; sourceId: string | null },
-  limit: (sourceId: string | null) => Date
+  job: { captureEnd: Date | null; map: JobMap | null },
+  vouched: () => Date
 ) {
-  if (job.map && touchesQuiet(db, job.map, job.sourceId)) {
+  if (job.map && touchesQuiet(db, job.map)) {
     return "a quiet range touches it";
   }
-  return job.captureEnd && job.captureEnd > limit(job.sourceId)
-    ? "it ends past the processing limit"
+  return job.captureEnd && job.captureEnd > vouched()
+    ? "it ends past what the Mac vouches for"
     : null;
 }
 
-// Whether a source's map keeps audio inside a quiet range (the owner dictating to the Mac or on the
-// phone, placed on its uploader's clock, or the phone playing a recording back): that audio is never
-// sent anywhere.
-export function touchesQuiet(
-  db: Pick<Db, "select">,
-  map: JobMap,
-  sourceId: string | null
-) {
+// Whether a map keeps audio inside a quiet range (the owner dictating to the Mac, or the phone
+// playing a recording back): that audio is never sent anywhere.
+export function touchesQuiet(db: Db, map: JobMap) {
   const range = captureRange(map);
   if (!range) {
     return false;
   }
-  return quietFor(db, sourceId, [range.start, range.end]).some(([a, b]) =>
-    map.segments.some(([from, to]) => a < to && from < b)
+  const quiet = db
+    .select()
+    .from(quietRanges)
+    .where(
+      and(
+        lt(quietRanges.startedAt, new Date(range.end)),
+        gt(quietRanges.endedAt, new Date(range.start))
+      )
+    )
+    .all();
+  return quiet.some((q) =>
+    map.segments.some(
+      ([from, to]) => q.startedAt.getTime() < to && from < q.endedAt.getTime()
+    )
   );
 }
 

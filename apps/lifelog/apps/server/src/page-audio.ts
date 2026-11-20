@@ -132,7 +132,9 @@ export function label(
       new Promise<Labels | null>((resolve, reject) => {
         const packets = packetsNow();
         if (!packets) {
-          reject(new PastLimit("its audio reaches past the processing limit"));
+          reject(
+            new PastLimit("its audio reaches past what the Mac vouches for")
+          );
           return;
         }
         const id = nextId;

@@ -538,10 +538,10 @@ export const conversationJobs = sqliteView("conversation_jobs", {
   join turns t on ${holdsTurn()}
   where c.retired_at is null`);
 
-// A stretch the owner spent dictating to the Mac (made from its helper's events, padded) or on the
-// phone (an open quiet range closed, widened), or the phone played out loud. The phone leaves it out of
-// the audio it sends, and words already bought inside it are hidden wherever transcripts are read.
-// Never edited; its id makes a retried post a no-op.
+// A stretch the owner spent dictating to the Mac (FluidVoice, macOS dictation, an AI app), posted by the
+// Mac helper (apps/mac-quiet) already padded. The phone leaves it out of the audio it sends, and
+// words already bought inside it are hidden wherever transcripts are read. Never edited; the
+// helper's own id makes a retried post a no-op.
 export const quietRanges = sqliteTable(
   "quiet_ranges",
   {

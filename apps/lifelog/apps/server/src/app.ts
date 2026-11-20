@@ -1,13 +1,11 @@
 // The server: auth and error handling, around each domain's routes (routes/).
 import { timingSafeEqual } from "node:crypto";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { clock } from "@life/server/src/core/clock";
 import { bearerAuth } from "hono/bearer-auth";
 import { except } from "hono/combine";
 import { HTTPException } from "hono/http-exception";
 import { type Config, sha256Hex } from "./config";
 import { storeServerError } from "./diagnostics";
-import { parseClockOffset, recordSourceClock } from "./phone-dictations";
 import { appleHealthRoutes } from "./routes/apple-health";
 import { backupRoutes } from "./routes/backup";
 import type { ApiEnv } from "./routes/common";
@@ -27,8 +25,6 @@ import { voiceNoteRoutes } from "./routes/voice-notes";
 import { voicePageRoutes } from "./routes/voice-page";
 import type { Services } from "./services";
 
-// A source's own routes, whose uploads say what their clock is.
-const SOURCE_PATH = /^\/sources\/([^/]+)\//;
 const PUBLIC_PATHS = [
   "/health",
   "/webhooks/elevenlabs",
@@ -157,18 +153,6 @@ export function createApp(s: Services) {
       timingSafeEqual(Buffer.from(sha256Hex(token), "hex"), macHash),
   });
   app.use(MAC_SOCKET_PATH, macAuth);
-  // The server's clock on every answer, for an uploader to measure its own against it; what an
-  // upload says of its clock (`X-Clock-Offset`) is kept for its source (phone-dictations.ts), after
-  // its token passed.
-  app.use("*", async (c, next) => {
-    const sourceId = SOURCE_PATH.exec(c.req.path)?.[1];
-    const measured = parseClockOffset(c.req.header("X-Clock-Offset"));
-    if (sourceId && measured) {
-      recordSourceClock(db, decodeURIComponent(sourceId), measured);
-    }
-    await next();
-    c.header("X-Server-Time", String(clock().getTime()));
-  });
   // Whatever a write changed (a transcript, the time map, a speaker, a person's name),
   // the search index catches up in the background. A sweep reads only what is stale.
   app.use("*", async (c, next) => {

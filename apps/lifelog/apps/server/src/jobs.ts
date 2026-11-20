@@ -34,17 +34,8 @@ import {
 import { record } from "./events";
 import { markDirty, regroupAfterCommit } from "./grouping";
 import { hearRouted } from "./hear-routed";
-import {
-  back,
-  fail,
-  MAX_ATTEMPTS,
-  onSend,
-  retry,
-  SPEECH_CUT_OFF_MS,
-  slotWaitOf,
-} from "./job-sends";
-import { macSocket } from "./mac-socket";
-import { processingLimit } from "./phone-dictations";
+import { back, fail, MAX_ATTEMPTS, onSend, retry } from "./job-sends";
+import { type MacSocket, macSocket } from "./mac-socket";
 import { barOf, type Route, routeTurns } from "./route-turns";
 import { creditsWatch } from "./scribe-credits";
 import {
@@ -234,6 +225,13 @@ function readWebhook(body: string) {
 
 // A send ElevenLabs may have taken without giving an id to ask by waits this long for its webhook.
 const UNANSWERED_MS = 24 * 3600 * 1000;
+// A block at the speech service is done well within this from its claim (its audio read, its
+// answer, a wait for a Scribe slot), and its routed turns within this from their POST; still
+// submitted after it, a restart cut it off.
+const SPEECH_CUT_OFF_MS = 10 * 60 * 1000;
+// A block heard there stops waiting for a Scribe slot this long before that, so reconcile never takes
+// a live wait for a send cut off.
+const SLOT_WAIT_MARGIN_MS = 60 * 1000;
 
 // What the 5-minute tick settles about one submitted job, without buying anything: "applied" when
 // its transcript came, "retried" or "failed" when it left submitted, null while it waits.
@@ -399,11 +397,12 @@ export function jobWorker(
   db: Db,
   config: Config,
   audio: AudioStore,
-  // Up to when a source's audio may be sent (phone-dictations.ts `processingLimit`).
-  limit: (sourceId: string | null) => Date = processingLimit(db, macSocket(db)),
+  // Its vouched mark: the live socket's view first, else the stored row.
+  mac: Pick<MacSocket, "vouchedThrough"> = macSocket(db),
   now = () => clock().getTime()
 ) {
   let wake: ReturnType<typeof setTimeout> | undefined;
+  const vouched = () => mac.vouchedThrough();
   const plan = creditsWatch(db, config, now);
   // Scribe takes sends while its credits last.
   const mayScribe = () => plan.level() !== "out";
@@ -417,9 +416,9 @@ export function jobWorker(
     () => poke()
   );
 
-  // Every paid send of the server (and of dictation): `slots.send` once the credits were first read,
-  // with the switch and the credits checked again once it holds its slot, before the caller's own
-  // claim (`claimSend`).
+  // Every paid send of the server (and of dictation): `slots.send` once the credits were first read
+  // (whatever woke the worker), with the switch and the credits checked again once it holds its slot,
+  // before the caller's own claim (`claimSend`).
   const paidSend = async <T>(
     key: string,
     until: { priority: Priority; signal?: AbortSignal; waitMs: number },
@@ -440,12 +439,25 @@ export function jobWorker(
       )
     );
 
+  // How long a job may wait for its slot: a block heard at the speech service, what is left of its
+  // time since its claim (reconcile never takes a live wait for a send cut off); a queued job picked
+  // for Scribe, none (it was picked for a free slot, and is picked again once one frees).
+  const slotWaitOf = (job: Job) =>
+    job.requestSentAt
+      ? Math.max(
+          0,
+          job.requestSentAt.getTime() +
+            SPEECH_CUT_OFF_MS -
+            SLOT_WAIT_MARGIN_MS -
+            clock().getTime()
+        )
+      : 0;
+
   // A job's send to Scribe leaves now, holding its slot: still the job that was read and nothing
-  // holding it back (`heldBack`, read again after the wait), its row records the POST
-  // (`requestSentAt`, which reconcile's clocks run from), with `set`. The send to use from here, or
-  // why not.
+  // holding it back (`heldBack`, read again after the wait), its row records the POST (`requestSentAt`, which reconcile's clocks run from), with
+  // `set`. The send to use from here, or why not.
   function dispatch(job: Job, set: SQLiteUpdateSetSource<typeof jobs>) {
-    const held = heldBack(db, job, limit);
+    const held = heldBack(db, job, vouched);
     if (held) {
       return held;
     }
@@ -466,7 +478,7 @@ export function jobWorker(
   // Queued jobs due to go, as many as there is room for, oldest first. The speech service takes one
   // block at a time and no Scribe slot: it is claimed here, `requestSentAt` its claim, so a send cut
   // off by a restart is known (reconcile). One for Scribe stays queued until its audio is read and it
-  // holds its slot (`toScribe`). Each is still queued, ends by the processing limit and has no quiet
+  // holds its slot (`toScribe`). Each is still queued, ends where the Mac vouches and has no quiet
   // range touching it: the cutter checks the same before a job exists, on purpose: there a late range
   // withdraws one fragment; here it withdraws the whole job, which a range coming after its block
   // closed (the phone's playback) still needs.
@@ -486,19 +498,15 @@ export function jobWorker(
             eq(jobs.state, "queued"),
             // Jobs from before the bucket have no audio to send.
             sql`${jobs.objectKey} is not null`,
+            or(isNull(jobs.captureEnd), lte(jobs.captureEnd, vouched())),
             or(isNull(jobs.nextAttemptAt), lte(jobs.nextAttemptAt, at))
           )
         )
         .orderBy(jobs.createdAt)
-        .all()
-        // ponytail: every queued job due is read to place each by its source's limit; the queue is
-        // a working set, not history.
-        .filter(
-          (job) => !job.captureEnd || job.captureEnd <= limit(job.sourceId)
-        )
-        .slice(0, room);
+        .limit(room)
+        .all();
       const quiet = due
-        .filter((job) => job.map && touchesQuiet(tx, job.map, job.sourceId))
+        .filter((job) => job.map && touchesQuiet(tx, job.map))
         .map((job) => job.id);
       const go = due.filter((j) => !quiet.includes(j.id));
       if (transcriber === "scribe" || go.length === 0) {
@@ -539,11 +547,10 @@ export function jobWorker(
       fail(db, job, "its audio is not in the bucket");
       return;
     }
-    // Checked again once read: a quiet range or a dictation that came meanwhile keeps it from the
-    // speech service too, and a switched transcriber sends it the new way (a queued job is left for
-    // the next claim).
+    // Checked again once read: a quiet range that came meanwhile keeps it from the speech service
+    // too, and a switched transcriber sends it the new way (a queued job is left for the next claim).
     const why =
-      heldBack(db, job, limit) ??
+      heldBack(db, job, vouched) ??
       (transcriberNow(config) === transcriber
         ? null
         : "the transcriber changed");
@@ -723,7 +730,7 @@ export function jobWorker(
   // (the bucket down) is logged and never holds back a send.
   async function closeDue() {
     try {
-      const at = await cut(db, audio, limit, now());
+      const at = await cut(db, audio, vouched, now());
       clearTimeout(wake);
       if (at !== null) {
         wake = setTimeout(poke, at - now());

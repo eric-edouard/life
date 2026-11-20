@@ -10,11 +10,6 @@ import { memoryAudioStore } from "./audio-store";
 import { latestSeq } from "./change-log";
 import { jobBench } from "./job-bench";
 import { getJob } from "./jobs";
-import {
-  closePhoneDictation,
-  openPhoneDictation,
-  recordSourceClock,
-} from "./phone-dictations";
 import { addQuietRange } from "./quiet-ranges";
 import { setSwitches } from "./switches";
 import { OWNER_TOKEN, providerTranscript } from "./testing";
@@ -160,7 +155,7 @@ test("a block's routed turns wait while a Scribe job holds the slot, and go once
   });
 });
 
-test("a dictation that opens while a block waits for its paid slot: nothing of it is sent, through the close and a retry", async () => {
+test("a quiet range that lands while a block waits for its paid slot: nothing of it is sent, then or on a retry", async () => {
   const app = appWith(oneSlot);
   setSwitches(env.db, { transcriber: "scribe" });
   const atScribe = await admitFragment(app, audio(60), 100);
@@ -176,39 +171,24 @@ test("a dictation that opens while a block waits for its paid slot: nothing of i
   await Bun.sleep(20);
   expect(uploads()).toHaveLength(1);
 
-  // Meanwhile the owner dictates on the iPhone: the server opens the range over its last second.
-  recordSourceClock(
-    env.db,
-    "pendant-1",
-    { offsetMs: 0, uncertaintyMs: 0 },
-    new Date(0)
-  );
-  const id = randomUUID();
-  openPhoneDictation(
-    env.db,
-    {
-      id,
-      phoneId: "iphone-test",
-      source: "app.example.notes",
-      startedAt: new Date(T0 + 29_000).toISOString(),
-    },
-    new Date(T0 + 29_000)
-  );
+  // Meanwhile the Mac reports a dictation over its last second.
+  addQuietRange(env.db, {
+    endedAt: new Date(T0 + 31_000).toISOString(),
+    id: randomUUID(),
+    source: "com.apple.dictation",
+    startedAt: new Date(T0 + 29_000).toISOString(),
+  });
   await completeByWebhook(app, jobRow(atScribe));
   await working;
   expect(uploads()).toHaveLength(1);
-  expect(jobRow(jobId)).toMatchObject({ maybeBilled: false, state: "queued" });
-
-  // The close stores the range over it; the retry withdraws it, never sent.
-  closePhoneDictation(env.db, id, new Date(T0 + 31_000));
-  await app.s.worker.work();
+  // Withdrawn at the send or on the retry, never sent.
   due(jobId);
   await app.s.worker.work();
   expect(uploads()).toHaveLength(1);
   expect(getJob(env.db, jobId)).toBeUndefined();
 });
 
-test("nothing paid goes before the first read of the credits: a wake at boot (a dictation's cap) waits, and credits read out keep the job queued", async () => {
+test("nothing paid goes before the first read of the credits: a wake at boot waits, and credits read out keep the job queued", async () => {
   let answer: (r: Response) => void = () => undefined;
   const quota = new Promise<Response>((resolve) => {
     answer = resolve;
@@ -218,8 +198,8 @@ test("nothing paid goes before the first read of the credits: a wake at boot (a 
   const app = appWith(oneSlot);
   setSwitches(env.db, { transcriber: "scribe" });
   const jobId = await admitFragment(app, audio(60), 1);
-  // A dictation reaching its cap just after boot wakes the worker before the tick read the credits.
-  app.s.dictationChanged();
+  // A wake just after boot, before the tick read the credits.
+  app.s.worker.poke();
   await Bun.sleep(100);
   expect(uploads()).toHaveLength(0);
   answer(Response.json({ character_count: 1000, character_limit: 1000 }));
@@ -496,7 +476,6 @@ const upgradeFrom = async (ran: "post_clock" | "neither") => {
   );
   // The tables made after it, which its migrations make again.
   env.db.run(sql`drop table phone_dictations`);
-  env.db.run(sql`drop table source_clocks`);
   migrateDb(env.db);
 };
 
