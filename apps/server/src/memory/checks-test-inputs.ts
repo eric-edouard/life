@@ -33,7 +33,10 @@ function withoutGroups(
   lines: CheckInputs["lines"],
   over: Input
 ): Omit<CheckInputs, "nameGroups"> {
-  const isGuess = guessTestOf(over.corrections ?? []);
+  const isGuess = guessTestOf(
+    over.corrections ?? [],
+    (over.inferred ?? []).map((id) => ({ confidence: 0.7, id }))
+  );
   return {
     answered: new Set(),
     decisions: [],

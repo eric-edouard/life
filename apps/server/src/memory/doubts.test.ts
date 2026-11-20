@@ -9,7 +9,11 @@ const YEAR = new Date().getFullYear();
 test("a line rests on a guess when who it's about is only inferred, each guessed person once, as read today", () => {
   const refOf = (r: string) => (r === "person:sam" ? "person:inf_sam" : r);
   const peopleWith = (corrections: Parameters<typeof guessTestOf>[0] = []) => ({
-    isGuess: (r: string) => guessTestOf(corrections)(refOf(r)),
+    isGuess: (r: string) =>
+      guessTestOf(corrections, [
+        { confidence: 0.6, id: "inf_kit" },
+        { confidence: 0.9, id: "inf_fedex" },
+      ])(refOf(r)),
     refOf,
   });
   const people = peopleWith();
@@ -49,6 +53,21 @@ test("a line rests on a guess when who it's about is only inferred, each guessed
     },
   ]);
   expect(guessedOf(o({ about: "person:inf_kit" }), confirmed)).toEqual([]);
+  // Life sure enough (INFERRED_SURE_AT) is taken as true: nothing rests on a guess, nothing is asked.
+  expect(guessedOf(o({ about: "person:inf_fedex" }), people)).toEqual([]);
+  const isGuess = guessTestOf(
+    [],
+    [
+      { confidence: 0.85, id: "inf_at" },
+      { confidence: 0.84, id: "inf_below" },
+      { confidence: 0.9, id: "inf_later" },
+      { confidence: 0.3, id: "inf_later" },
+    ]
+  );
+  expect(isGuess("person:inf_at")).toBe(false);
+  expect(isGuess("person:inf_below")).toBe(true);
+  // A later record too unsure to be used changes nothing.
+  expect(isGuess("person:inf_later")).toBe(false);
 });
 
 test("an episode is said as its title, time (a same-day end as a time only), place and the people it was with", () => {
