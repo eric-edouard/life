@@ -14,7 +14,7 @@
       "nextStep": {
         "by": "life",
         "kind": "wait_event",
-        "text": "The supplier price from Idris.",
+        "text": "Idris sends the supplier price.",
         "waitsOn": "a message"
       },
       "openedDaysAgo": 6,
