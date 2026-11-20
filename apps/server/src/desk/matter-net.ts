@@ -5,6 +5,7 @@ import { readChangeStamp } from "../core/files";
 import { packed } from "../core/lists";
 import { log } from "../core/log";
 import { anchorsOf, openAssignments } from "../host/desk-read";
+import { isOnOrAfter } from "../host/event-channels";
 import type { MessagePayload } from "../host/events";
 import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
 import {
@@ -224,7 +225,7 @@ async function relatedOf(
   return { isWhole, related };
 }
 
-/** The new messages each net relates to (`relatedOf`): one wake each, its facts and why. */
+/** The new messages each net relates to (`relatedOf`), each from when its assignment was opened on: one wake each, its facts and why. */
 export async function relatedMessages(
   desk: Desk,
   nets: Net[],
@@ -240,12 +241,13 @@ export async function relatedMessages(
       text: x.text,
     }))
   );
+  const since = new Map(nets.map((n) => [n.assignment, n.since]));
   return messages.flatMap((x, i) =>
-    (related[i] ?? []).map(({ assignment, ...why }) => ({
-      assignment,
-      eventId: x.m.id,
-      payload: { ...x.m, ...why },
-    }))
+    (related[i] ?? []).flatMap(({ assignment, ...why }) =>
+      isOnOrAfter(x.m, since.get(assignment) ?? "")
+        ? [{ assignment, eventId: x.m.id, payload: { ...x.m, ...why } }]
+        : []
+    )
   );
 }
 

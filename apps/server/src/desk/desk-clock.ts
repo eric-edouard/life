@@ -20,6 +20,7 @@ import {
   readCursor,
   type TurnRow,
 } from "../host/desk-read";
+import { isOnOrAfter } from "../host/event-channels";
 import {
   CALL_ENDED,
   callMatchableOf,
@@ -117,7 +118,7 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
   const matchers = assignments.flatMap((a) =>
     filtersOf(a).flatMap((f) => {
       const isMatch = matcherOf(f, people);
-      return isMatch ? [{ id: a.id, isMatch }] : [];
+      return isMatch ? [{ id: a.id, isMatch, since: a.opened_at }] : [];
     })
   );
   const read = await readMessageEvents(
@@ -127,7 +128,10 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
     (m, e) => {
       const ids = new Set(
         matchers
-          .filter((x) => x.isMatch(messageMatchableOf(m, e)))
+          .filter(
+            (x) =>
+              isOnOrAfter(m, x.since) && x.isMatch(messageMatchableOf(m, e))
+          )
           .map((x) => x.id)
       );
       return ids.size || nets.length

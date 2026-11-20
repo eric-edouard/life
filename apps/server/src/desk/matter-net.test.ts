@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { clock, DAY, MIN } from "../core/clock";
+import { clock, DAY, iso, MIN } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { agentOf, currentAssignmentOf, queuedEvents } from "../host/desk-read";
 import type { Messaging } from "../host/events";
@@ -16,14 +16,14 @@ import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
 import { CORRECTIONS, recordCorrection } from "../memory/memory-files";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import { register } from "./agent-actions";
+import { openAssignment, register } from "./agent-actions";
 import {
   pollMessages,
   pollRecordings,
   readPeopleOnce,
   tick,
 } from "./desk-clock";
-import { type Desk, openDesk } from "./desk-store";
+import { type Desk, openDesk, writeWait } from "./desk-store";
 import { endOutcomeOf, MATTER_DONE_OUTCOME } from "./matter-net";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { asgOf } from "./test-desk";
@@ -183,6 +183,32 @@ test("a matter's agent is woken by its people's messages and by messages close t
   expect(
     JSON.parse(events[1]?.payload ?? "").similarity
   ).toBeGreaterThanOrEqual(0.55);
+});
+
+// Regression, 20 Nov 2026 (the debt verdict on PR 1): a message read after the shared cursor but sent before an
+// assignment was opened is not new to it, by its wait nor by the wide net.
+test("a message from before an assignment was opened wakes it neither by its wait nor by its matter", async () => {
+  await mocked();
+  const { agent, desk, write } = setup();
+  await pollMessages(desk, readPeopleOnce()); // the cursor starts now
+  setSystemTime(new Date(T0 + MIN));
+  const fromAna = write("Test Ana", "ok");
+  setSystemTime(new Date(T0 + 2 * MIN));
+  const later = openAssignment(desk, agent, {
+    openedBy: "owner",
+    steps: [STEP],
+  });
+  writeWait(
+    desk.db,
+    later,
+    { events: [{ chat: "Test Ana" }], reason: "r", until: iso(T0 + DAY) },
+    false
+  );
+  await pollMessages(desk, readPeopleOnce());
+  expect(
+    queuedEvents(desk.db, asgOf(desk, agent)).map((e) => e.event_id)
+  ).toEqual([fromAna]);
+  expect(queuedEvents(desk.db, later)).toEqual([]);
 });
 
 test("with no embedder, people still wake it", async () => {
