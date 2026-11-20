@@ -12,7 +12,7 @@ struct Taken: Equatable {
 
     var key: LifeStore.ActionKey { .answer(ref: check.ref) }
     /// A new matter whose goal he changed is still waiting for Start or Dismiss.
-    var staysOpen: Bool { check.group == .newMatter && request.options == ["edit-goal"] }
+    var staysOpen: Bool { check.keepsOpen(after: request) }
     /// He picked the option that sends the draft; another answer on a draft's card sends nothing.
     var isSend: Bool { check.options.contains { $0.outgoing == true && request.options.contains($0.id) } }
     var isStart: Bool { check.group == .newMatter && request.options == ["start"] }
@@ -168,7 +168,7 @@ extension Taken {
         case .ending: "Noted."
         case .contactsCard: "Saved."
         case .newMatter:
-            request.options == ["edit-goal"]
+            staysOpen
                 ? "Goal saved." : request.options == ["dismiss"] ? "Dismissed." : "Started."
         case .name, .guessedPerson: "Saved."
         case .decision, .unknown: "Answered."
@@ -185,7 +185,7 @@ extension Taken {
         if check.group == .newMatter {
             return request.options == ["start"]
                 ? "An agent works toward the goal."
-                : request.options == ["edit-goal"]
+                : staysOpen
                     ? "The goal is yours now. Start or Dismiss is still waiting." : "Never asked again for this matter."
         }
         if request.options.isEmpty { return "Your words went to \(context.asker ?? "the asker")." }
