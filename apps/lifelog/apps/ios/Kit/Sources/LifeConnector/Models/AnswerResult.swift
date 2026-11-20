@@ -46,4 +46,6 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
     public let asker: Asker?
     /// A new matter's Start: the desk's start, as `change_registered_agent` gives it. Nothing started: absent.
     public let start: AgentChangeResult?
+    /// "I've paid": Life's look for the step done, `seen` or `not_found`, beside the answer. No look: absent.
+    public let doneSeen: Check.DoneSeen?
 }

@@ -68,6 +68,8 @@ the Mac's access (his files, his accounts). The risk that remains: an agent acti
 refuses, a send by a path the guard can't read included; past the guard, the gate is its instruction, not enforcement. Between that and harm stand the model's judgment, wakes
 that hand facts and never words (a payment's category, the money app's own word, is a fact; a text can choose a wake, never ride on it), and Life's own send path (a card's draft, his answer). The risk is his, accepted.
 
+A card that asks him to pay (`doneSeenBy: "payment"`) makes Life read his payments on the Mac, on his "I've paid" and every 5 minutes while the card is open, and match amounts only (money out of the card's amount in its currency, on or after the card's day; never a name or a merchant): its asker learns only which payment matched (its event id). Nothing of it leaves the Mac.
+
 ## Network
 
 The connector (`/mcp`) is served by the Mac, behind Life's own OAuth (pairing codes,
@@ -98,7 +100,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - To an assistant he connected, and to his agents: what they read through the connector or on the Mac; a wait's own
   coordinates (`near` in `wakesOn`) are in the reads `read_registered_agents` and `read_matter`. The question
   cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex
-  subscription (his word, 10 Nov 2026).
+  subscription (his word, 10 Nov 2026). People's pictures, to any app he paired, never to a paired agent
+  (`read_person_pictures`; his word of 20 Nov 2026).
 - By email to him (Resend), when `mail` is set: the nightly report and the alerts.
 - Into one chat of his, through Life's own bridge for that network (WhatsApp, Instagram, Messenger, LinkedIn), or through the
   Messages app (iMessage, as he would send it himself: a file is written for a moment to `~/Pictures/Life sends`; the one

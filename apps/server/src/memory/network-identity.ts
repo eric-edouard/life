@@ -2,6 +2,7 @@ import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import type { Unit } from "../records/unit";
 import { readIndex, readUnitsFor } from "./memory-files";
+import type { Party } from "./party";
 import { OWNER } from "./read-truth";
 import { isDirect, kindOf, SOURCES, sourceOf } from "./sources";
 import { type Message, oneLineOf, UNKNOWN } from "./units";
@@ -24,6 +25,8 @@ export interface NetworkIdentity {
   newest: { at: string; by: string; text: string } | null;
   /** The network's own link that opens the chat (`chatLinkOf`: `https://wa.me/<digits>` for WhatsApp); null when it has none. */
   openUrl: string | null;
+  /** Who Life holds the account to be (`partyOf`): a person check's person, or whoever a draft's chat handle resolves to; absent when no one. */
+  party?: Party;
   /** The name the network shows for the chat (its contact or chat name); null when it shows none. */
   shownName: string | null;
 }
@@ -189,13 +192,19 @@ export async function readNetworkIdentities(
       return read
         ? ([
             t.check.ref,
-            networkIdentityOf(read.built.unit, read.built.messages, owner),
+            {
+              ...networkIdentityOf(read.built.unit, read.built.messages, owner),
+              party: people.partyOf(t.check.ref),
+            },
           ] as const)
         : null;
     })
   );
   return new Map(found.flatMap((f) => (f ? [f] : [])));
 }
+
+/** Who the identities name, as `withNetworkIdentity` reads them. */
+type IdentityPeople = Pick<People, "nameOf" | "partyOf" | "resolve">;
 
 /** A check with its network identity, and each guess it confirms with theirs; null where none was found. */
 export function withNetworkIdentity<
@@ -205,23 +214,35 @@ export function withNetworkIdentity<
     networkIdentity?: NetworkIdentity | null;
     ref: string;
   },
->(c: C, identities: ReadonlyMap<string, NetworkIdentity>, owner: string): C {
+>(
+  c: C,
+  identities: ReadonlyMap<string, NetworkIdentity>,
+  people: IdentityPeople
+): C {
   return {
     ...c,
-    confirm: c.confirm.map((x) => withNetworkIdentity(x, identities, owner)),
-    networkIdentity: identities.get(c.ref) ?? draftChatOf(c.draft, owner),
+    confirm: c.confirm.map((x) => withNetworkIdentity(x, identities, people)),
+    networkIdentity: identities.get(c.ref) ?? draftChatOf(c.draft, people),
   };
 }
 
-/** A draft's chat as its network shows it, from what the draft stored (`networkIdentityOf` over no messages: reads nothing); null for mail and a draft with no chat. */
-const draftChatOf = (d: DraftChat | null | undefined, owner: string) =>
-  d?.chat && d.channel && SOURCES.some((s) => s.name === d.channel)
-    ? networkIdentityOf(
-        { key: d.chat, source: d.channel as SourceName, title: d.to },
-        [],
-        owner
-      )
-    : null;
+/**
+ * A draft's chat as its network shows it, from what the draft stored (`networkIdentityOf` over no messages: reads
+ * nothing), with the party its handle resolves to; null for mail and a draft with no chat.
+ */
+function draftChatOf(d: DraftChat | null | undefined, people: IdentityPeople) {
+  if (!(d?.chat && d.channel && SOURCES.some((s) => s.name === d.channel))) {
+    return null;
+  }
+  const source = d.channel as SourceName;
+  const shown = networkIdentityOf(
+    { key: d.chat, source, title: d.to },
+    [],
+    people.nameOf(OWNER)
+  );
+  const ref = shown.handle && people.resolve(shown.handle, source);
+  return ref ? { ...shown, party: people.partyOf(ref) } : shown;
+}
 
 /** The checks as the inbox shows them: each with its network identity (`readNetworkIdentities`), null where none. */
 export async function withNetworkIdentities<
@@ -232,6 +253,5 @@ export async function withNetworkIdentities<
   },
 >(checks: C[], people: People) {
   const identities = await readNetworkIdentities(checks, people);
-  const owner = people.nameOf(OWNER);
-  return checks.map((c) => withNetworkIdentity(c, identities, owner));
+  return checks.map((c) => withNetworkIdentity(c, identities, people));
 }

@@ -33,7 +33,6 @@
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
-      "notSent": null,
       "onMatters": [
         {
           "id": "matter_aaaaaaaaaaaa",
@@ -42,6 +41,10 @@
         }
       ],
       "onSilence": "no",
+      "doneSeen": null,
+      "doneSeenBy": "tap",
+      "needs": [],
+      "notSent": null,
       "options": [
         {
           "id": "yes",
@@ -132,7 +135,13 @@
               "text": "Kit here, from the shop"
             },
             "openUrl": "https://wa.me/33600000001",
-            "shownName": "Kit Watches"
+            "shownName": "Kit Watches",
+            "party": {
+              "kind": "person",
+              "line": "the watchmaker",
+              "name": "Kit",
+              "ref": "person:inf_kit"
+            }
           }
         }
       ],
@@ -142,9 +151,107 @@
         "network": "WhatsApp",
         "newest": null,
         "openUrl": "https://wa.me/33600000001",
-        "shownName": "Kit"
+        "shownName": "Kit",
+        "party": {
+          "kind": "person",
+          "line": "the watchmaker",
+          "name": "Kit",
+          "ref": "person:inf_kit"
+        }
       },
       "pushId": "a23260946067d0fe",
+      "urgency": "blocks"
+    },
+    {
+      "said": null,
+      "since": null,
+      "about": [],
+      "agent": null,
+      "asker": "Orbit",
+      "at": "2026-10-14T09:00:00.000Z",
+      "clips": [],
+      "context": null,
+      "deadline": "2099-01-02T09:00:00.000Z",
+      "draft": null,
+      "evidence": null,
+      "goal": null,
+      "group": "decision",
+      "kind": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "onMatters": [],
+      "onSilence": null,
+      "doneSeen": {
+        "line": "Not in your accounts yet",
+        "state": "not_found"
+      },
+      "doneSeenBy": "payment",
+      "needs": [
+        {
+          "bank": "Test Bank",
+          "holder": "Blue Reef Test Co.",
+          "kind": "account",
+          "number": "012-3-45678-9",
+          "line": "Test Bank 012-3-45678-9, Blue Reef Test Co."
+        },
+        {
+          "currency": "THB",
+          "kind": "amount",
+          "value": 4500,
+          "line": "4,500 THB"
+        },
+        {
+          "kind": "link",
+          "url": "https://pay.example.test/i/12",
+          "vendor": "Reef Pay",
+          "line": "Reef Pay: pay.example.test"
+        },
+        {
+          "copy": true,
+          "kind": "text",
+          "label": "Reference",
+          "text": "DEP-12",
+          "line": "Reference: DEP-12"
+        },
+        {
+          "kind": "qr",
+          "source": "Reef's WhatsApp of 14 Oct",
+          "line": "QR code from Reef's WhatsApp of 14 Oct"
+        }
+      ],
+      "notSent": null,
+      "options": [
+        {
+          "id": "paid",
+          "label": "I've paid",
+          "looks": true,
+          "takes": null
+        },
+        {
+          "id": "other",
+          "label": "Paid another way",
+          "takes": "note"
+        },
+        {
+          "id": "drop",
+          "label": "Drop it",
+          "takes": null
+        }
+      ],
+      "question": "Pay the dive course deposit?",
+      "ref": "dec_000000000002",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 0,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Pay the deposit",
+      "matter": null,
+      "confirm": [],
+      "networkIdentity": null,
+      "pushId": "cdc5e5e8356ed8a6",
       "urgency": "blocks"
     },
     {
@@ -185,9 +292,13 @@
       "kind": "voice",
       "likelyPeople": [
         {
+          "kind": "person",
           "line": "Your grandmother",
           "name": "Gran",
-          "person": "person:gran"
+          "picture": {
+            "id": "00000000000000000000000000000a02"
+          },
+          "ref": "person:gran"
         }
       ],
       "links": [],
@@ -251,14 +362,18 @@
       "kind": "person",
       "likelyPeople": [
         {
+          "kind": "person",
           "line": "The neighbour",
           "name": "Sam Lee",
-          "person": "person:sam_lee"
+          "picture": {
+            "id": "00000000000000000000000000000c01"
+          },
+          "ref": "person:sam_lee"
         },
         {
-          "line": null,
+          "kind": "person",
           "name": "Sam Ito",
-          "person": "person:sam_ito"
+          "ref": "person:sam_ito"
         }
       ],
       "links": [],
@@ -324,14 +439,18 @@
       "kind": "person",
       "likelyPeople": [
         {
+          "kind": "person",
           "line": "Your grandmother",
           "name": "Gran",
-          "person": "person:gran"
+          "picture": {
+            "id": "00000000000000000000000000000a02"
+          },
+          "ref": "person:gran"
         },
         {
-          "line": null,
+          "kind": "person",
           "name": "Robin",
-          "person": "person:partner"
+          "ref": "person:partner"
         }
       ],
       "links": [],
@@ -496,7 +615,13 @@
           "text": "Kit here, from the shop"
         },
         "openUrl": "https://wa.me/33600000001",
-        "shownName": "Kit Watches"
+        "shownName": "Kit Watches",
+        "party": {
+          "kind": "person",
+          "line": "the watchmaker",
+          "name": "Kit",
+          "ref": "person:inf_kit"
+        }
       },
       "pushId": "a789ea3107eed39b",
       "urgency": "improves"
@@ -571,9 +696,9 @@
       "urgency": "improves"
     }
   ],
-  "blocking": 4,
+  "blocking": 5,
   "counts": {
-    "decision": 1,
+    "decision": 2,
     "voice": 1,
     "name": 1,
     "contacts card": 1,
@@ -582,5 +707,5 @@
     "new matter": 1
   },
   "deadlinesToday": 0,
-  "total": 7
+  "total": 8
 }

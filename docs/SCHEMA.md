@@ -28,6 +28,8 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 - **Organization** (`truth/organizations.yaml`, optional): `id`, `name`, `aliases`, `relation`, `handles` (as a
   person's), `domains` (host names: an address in `handles.email` is it, another at a domain stays a person), `people`
   (`[{ id, role, until? }]`, `until` a year or a `YYYY-MM-DD` once they left; none: there now) and `projects`.
+- **Picture pick**: a person or an organization may carry `pictureFrom`, the source whose picture shows (`contacts`, a
+  source's name, or `none`); none: the first they show.
 - **Birthday**: a person in `truth/people.yaml` may carry `birthday`, `--MM-DD` or `YYYY-MM-DD` when the year is
   known.
 - **Called**: the owner may carry `called`, what Life calls them in every prompt and in what it writes, when it isn't
@@ -274,7 +276,9 @@ outside the lock, schemaVersion 3, by `kind`:
   `ends` (`step` or `matter`, never with `outgoing`) when his pick of it alone is his word that the subject step, or
   its whole matter, is done (on a matter's id, stored as its newest open step); lines before it have none), `context` (4,000 chars), `links`, `deadline` (1 hour to 14
   days after `at`, in UTC), `onSilence` (an option id, never an outgoing or `ends` one, or null). A `draft` needs
-  exactly one outgoing option. An `ends` option needs a subject on an open matter: for `step`, one of its open steps.
+  exactly one outgoing option. A payment card adds `needs` (typed facts he needs in hand, `memory/needs.ts`; one is an
+  `amount`), `doneSeenBy` (`payment` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
+  Life look for the step done) and `takes: "note"` on an option (it needs his words). An `ends` option needs a subject on an open matter: for `step`, one of its open steps.
 - `answered` (`answerDecision`): `id`, `at`, `options` (ids; none when he answered in words), `note`, `via`
   (`connector`, his app; `session`, a session's `bun life` command, which never sends), `answerKey` (optional: his app's
   key for one tap, kept on every repeat of it; lines before it have none). The first answer stands, unless its send
@@ -290,11 +294,16 @@ outside the lock, schemaVersion 3, by `kind`:
   closing failed (or found nothing open on a step not ended). It closed the step or matter by his word (`endByHisWord`: its to-do items ticked,
   its observations by an `outdated` correction); nothing left open counts as ended. With none 31 minutes after his
   answer, it never ended (worked out when read).
+- `done-seen` (`recordDoneSeen`): `id`, `at`, `state` (`seen` with the payment's `eventId`, or `not_found`, with `error`
+  when the look failed), Life's outcome of looking for the card's step done, never his answer. A `not_found` voids the
+  answer it follows: the card is open again. A `seen` settles the card even with no answer of his. A look with no outcome
+  30 seconds past his answer (and a minute's grace) never finished: worked out when read as a `not_found`, and written
+  before his next answer so that one is kept.
 - `withdrawn` (`requestDecision`, by its asker; or `withdrawDraftsAnsweredInChat`, by Life, when he wrote in its draft's chat
   himself since it was asked): `id`, `at`, `why`, and Life's `answeredInChatAt` (his message's instant, never its words;
   the asker's own has none, and lines before it lack it).
 
-Where each stands is worked out when read (`decisionsNow`): open, answered, lapsed (its deadline passed) or withdrawn.
+Where each stands is worked out when read (`decisionsNow`): open, answered, seen (a `seen` look and no answer of his), lapsed (its deadline passed) or withdrawn.
 The file also holds earlier versions' lines, kept and skipped for good: the old decisions page's (schemaVersion 1,
 before 2 Nov 2026: Life's old fact checks, what he answered on that page, his loops' decisions) and the cards before
 titles (schemaVersion 2, with `recommended` and `why`; none in his data on 18 Nov 2026).

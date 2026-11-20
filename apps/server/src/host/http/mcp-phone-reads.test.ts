@@ -1,4 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { setSettings } from "../../core/settings";
 import { nameGroupsOf } from "../../memory/check-sentences";
 import { urgencyOf } from "../../memory/check-urgency";
 import type { CheckInputs } from "../../memory/checks";
@@ -7,6 +10,7 @@ import {
   networkIdentityOf,
   withNetworkIdentity,
 } from "../../memory/network-identity";
+import { PERSON_PICTURES, partyOf, pictureFileOf } from "../../memory/party";
 import type { WakeLine } from "../registered-agents";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
@@ -48,21 +52,66 @@ const matter = {
   with: [],
 };
 const KIT_CHAT = "33600000001@s.whatsapp.net";
+/** Gran's WhatsApp picture, his pick for her; Robin's, which he hides. */
+const GRAN_PICTURE = "00000000000000000000000000000a02";
+const ROBIN_PICTURE = "00000000000000000000000000000b01";
+const nameOf = (r: string) =>
+  (
+    ({
+      "person:con_lou": "Lou",
+      "person:gran": "Gran",
+      "person:inf_kit": "Kit",
+      "person:partner": "Robin",
+      "person:sam_ito": "Sam Ito",
+      "person:sam_lee": "Sam Lee",
+    }) as Record<string, string>
+  )[r] ?? r;
+/** Gran shows two pictures and his pick is her WhatsApp one; Robin shows one, his pick `none`; Sam Lee shows his Contacts one. */
+const madeUpPartyOf = partyOf(
+  {
+    isOrganization: () => false,
+    nameOf,
+    refOf: (r) => r,
+    relationOf: (r) =>
+      ({
+        "person:gran": "Your grandmother",
+        "person:inf_kit": "the watchmaker",
+        "person:sam_lee": "The neighbour",
+      })[r] ?? null,
+  },
+  [
+    { id: "gran", pictureFrom: "whatsapp" },
+    { id: "partner", pictureFrom: "none" },
+  ],
+  () => ({
+    "person:gran": [
+      { id: "00000000000000000000000000000a01", source: "contacts" },
+      { id: GRAN_PICTURE, source: "whatsapp" },
+    ],
+    "person:partner": [{ id: ROBIN_PICTURE, source: "contacts" }],
+    "person:sam_lee": [
+      { id: "00000000000000000000000000000c01", source: "contacts" },
+    ],
+  })
+);
 const kitOnWhatsapp = new Map([
   [
     "person:inf_kit",
-    networkIdentityOf(
-      { key: KIT_CHAT, source: "whatsapp", title: "Kit Watches" },
-      [
-        {
-          at: "2026-10-12T09:05:00.000Z",
-          fromMe: false,
-          sender: "+33600000001",
-          text: "Kit here, from the shop",
-        },
-      ],
-      "Dana"
-    ),
+    {
+      ...networkIdentityOf(
+        { key: KIT_CHAT, source: "whatsapp", title: "Kit Watches" },
+        [
+          {
+            at: "2026-10-12T09:05:00.000Z",
+            fromMe: false,
+            sender: "+33600000001",
+            text: "Kit here, from the shop",
+          },
+        ],
+        "Dana"
+      ),
+      party: madeUpPartyOf("person:inf_kit"),
+    },
   ],
 ]);
 /** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
@@ -101,6 +150,50 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       state: "open",
       subject: "obs_000000000005",
       title: "Kit is waiting for the quote.",
+    },
+    // A transfer whose "I've paid" Life looked for and did not find yet: open again.
+    {
+      asker: "Orbit",
+      at: "2026-10-14T09:00:00.000Z",
+      context: "",
+      deadline: "2099-01-02T09:00:00.000Z",
+      doneSeen: {
+        at: "2026-10-14T10:00:00.000Z",
+        id: "dec_000000000002",
+        kind: "done-seen",
+        schemaVersion: 3,
+        state: "not_found",
+      },
+      doneSeenBy: "payment",
+      id: "dec_000000000002",
+      kind: "asked",
+      links: [],
+      needs: [
+        {
+          bank: "Test Bank",
+          holder: "Blue Reef Test Co.",
+          kind: "account",
+          number: "012-3-45678-9",
+        },
+        { currency: "THB", kind: "amount", value: 4500 },
+        {
+          kind: "link",
+          url: "https://pay.example.test/i/12",
+          vendor: "Reef Pay",
+        },
+        { copy: true, kind: "text", label: "Reference", text: "DEP-12" },
+        { kind: "qr", source: "Reef's WhatsApp of 14 Oct" },
+      ],
+      onSilence: null,
+      options: [
+        { id: "paid", label: "I've paid", looks: true },
+        { id: "other", label: "Paid another way", takes: "note" },
+        { id: "drop", label: "Drop it" },
+      ],
+      question: "Pay the dive course deposit?",
+      schemaVersion: 3,
+      state: "open",
+      title: "Pay the deposit",
     },
   ],
   dismissed: [],
@@ -227,16 +320,7 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       { card: "person:con_lou", people: ["person:gran", "person:partner"] },
     ],
     candidatesFor: (name: string) =>
-      name === "Sam"
-        ? [
-            {
-              line: "The neighbour",
-              name: "Sam Lee",
-              person: "person:sam_lee",
-            },
-            { line: null, name: "Sam Ito", person: "person:sam_ito" },
-          ]
-        : [],
+      name === "Sam" ? ["person:sam_lee", "person:sam_ito"] : [],
     contacts: [
       {
         card: "con_lou",
@@ -259,18 +343,10 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       },
     ],
     isGuess: (ref: string) => ref === "person:inf_kit",
-    nameOf: (r: string) =>
-      (
-        ({
-          "person:con_lou": "Lou",
-          "person:gran": "Gran",
-          "person:partner": "Robin",
-        }) as Record<string, string>
-      )[r] ?? r,
+    nameOf,
     names: new Map([["person:con_lou", "Lou"]]),
+    partyOf: madeUpPartyOf,
     refOf: (r: string) => r,
-    relationOf: (r: string) =>
-      r === "person:gran" ? "Your grandmother" : null,
     resolve: (s: string) =>
       (
         ({
@@ -328,12 +404,14 @@ const madeUpInbox: CheckInputs = {
   }),
 };
 
-test("the phone's reads: read_inbox, read_matters, read_matter and read_registered_agents answer what Kit's models decode", async () => {
+test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_agents and read_person_pictures answer what Kit's models decode", async () => {
   const checks = await import("../../memory/checks");
   const who = await import("../../memory/who");
   const book = await import("../../memory/matters");
   const items = await import("../../memory/read-open-items");
   const agents = await import("../registered-agents");
+  // On: the transfer's look is a payment's (`doneSeenByOf`).
+  setSettings({ payments: { backend: "money" } });
   const agent = {
     amber: [],
     effort: "medium",
@@ -374,14 +452,24 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
       until: "2026-10-16T09:00:00.000Z",
     },
     wakesOn: [
-      { calls: true, kind: "message", person: "Gran" },
+      {
+        calls: true,
+        kind: "message",
+        party: madeUpPartyOf("person:gran"),
+        personAsWritten: "Gran",
+      },
       {
         apps: ["whatsapp"],
         calls: true,
         chat: { app: "whatsapp", group: true, name: "Shop fit-out" },
         kind: "message",
       },
-      { broken: "unknown_person", calls: true, kind: "message", person: "Kit" },
+      {
+        broken: "unknown_person",
+        calls: true,
+        kind: "message",
+        personAsWritten: "Kit",
+      },
       { calls: false, fromHim: true, kind: "message", words: "quote" },
       { above: 100, kind: "payments", quantity: "eur_out", words: "shop" },
       {
@@ -429,7 +517,11 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     spyOn(checks, "checksNow").mockResolvedValue(
       checks.checksOf(madeUpInbox).map((c) => ({
         // Kit's guess, as its newest WhatsApp chat shows it (`networkIdentityOf` over a made-up chat-day).
-        ...withNetworkIdentity(c, kitOnWhatsapp, "Dana"),
+        ...withNetworkIdentity(c, kitOnWhatsapp, {
+          nameOf: () => "Dana",
+          partyOf: madeUpPartyOf,
+          resolve: madeUpBase.people.resolve,
+        }),
         pushId: checks.pushIdOf(c.ref, "0".repeat(64)),
         urgency: urgencyOf(c),
       }))
@@ -438,6 +530,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
       isGuess: () => false,
       isKnownToHim: () => true,
       nameOf: (r: string) => r.replace("person:", ""),
+      partyOf: madeUpPartyOf,
       truth: {
         areas: [],
         me: { goals: "1. The shop opens in spring (`shop-fit-out`)." },
@@ -561,9 +654,31 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
       await read("read_matter", { id: "matter_cccccccccccc" })
     );
     expectWire("read_registered_agents", await read("read_registered_agents"));
+    // Gran's picture as kept (made-up bytes), and Robin's, gone since.
+    mkdirSync(PERSON_PICTURES, { recursive: true });
+    writeFileSync(
+      join(PERSON_PICTURES, pictureFileOf(GRAN_PICTURE)),
+      new Uint8Array([0xff, 0xd8, 0xff, 0xd9])
+    );
+    expectWire(
+      "read_person_pictures",
+      await read("read_person_pictures", {
+        ids: [GRAN_PICTURE, ROBIN_PICTURE],
+      })
+    );
   } finally {
+    setSettings({ payments: null });
     for (const spy of spies) {
       spy.mockRestore();
     }
   }
+});
+
+test("people's pictures go to any app he paired, never to a paired agent", async () => {
+  const { json } = await rpc(await token(), "tools/call", {
+    arguments: { ids: [GRAN_PICTURE] },
+    name: "read_person_pictures",
+  });
+  expect(json.result.isError).toBe(true);
+  expect(json.result.content[0].text).toContain("paired as an agent");
 });

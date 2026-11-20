@@ -6,7 +6,11 @@ import {
   namingQueueGuessesOf,
   readNamingQueue,
 } from "../sources/lifelog-voices";
-import { answerDecision, type EndByHisWord } from "./decisions";
+import {
+  answerDecision,
+  type EndByHisWord,
+  type LookForDone,
+} from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
 import type { Check, LIFE_CHECKS } from "./life-checks";
 import { matterOfSteps } from "./matter-read";
@@ -308,7 +312,7 @@ const WRITERS: {
  * Records his answer to the open check `check` (host finds it: `openCheckOf`) through its kind's writer (a decision's
  * draft is sent only `via` his app); returns the check, the lines written and, for a voice, its queue item. `onStep`
  * hears `recorded` once they are, and a send's or a start's own steps; `answerKey` is his app's key for this tap, kept on a
- * decision's answer; `startAgent` (a new matter's Start), `end` (a decision's `ends` option) and `addDirectoryEntry` (a new
+ * decision's answer; `startAgent` (a new matter's Start), `end` (a decision's `ends` option), `look` (its `looks` option) and `addDirectoryEntry` (a new
  * person or organization he names, `partyNamed`) are given only for his own token's `answer_check`. Throws when the
  * option is not one of its own.
  */
@@ -320,11 +324,13 @@ export async function answerCheck(
     addDirectoryEntry,
     answerKey,
     end,
+    look,
     onStep,
     startAgent,
   }: Omit<WriterExtras, "item"> & {
     answerKey?: string;
     end?: EndByHisWord;
+    look?: LookForDone;
   } = {}
 ) {
   const { ref } = check;
@@ -335,6 +341,7 @@ export async function answerCheck(
       done: await answerDecision(ref, a.options, a.note, {
         answerKey,
         end,
+        look,
         onStep,
         via,
       }),

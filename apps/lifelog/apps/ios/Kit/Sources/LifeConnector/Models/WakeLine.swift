@@ -25,7 +25,10 @@ public enum WakeLine: Decodable, Sendable, Equatable {
             public let group: Bool?
         }
 
-        public let person: String?
+        /// Who the filter's person is now, when they resolve.
+        public let party: Party?
+        /// The filter's person as the agent wrote it: the words shown when they no longer resolve.
+        public let personAsWritten: String?
         public let chat: Chat?
         /// Absent: any app.
         public let apps: [String]?
@@ -34,6 +37,9 @@ public enum WakeLine: Decodable, Sendable, Equatable {
         /// The line also covers a call (a call has no words and is never his own).
         public let calls: Bool
         public let broken: Broken?
+
+        /// The person it listens for, by name: who they are now, else the words as written.
+        public var person: String? { party?.name ?? personAsWritten }
     }
 
     public struct Payments: Decodable, Sendable, Equatable {

@@ -1,10 +1,4 @@
 {
-  "project": {
-    "goal": "The shop opens in spring.",
-    "id": "shop-fit-out",
-    "name": "Shop fit-out",
-    "status": "active"
-  },
   "matters": [
     {
       "goal": {
@@ -26,8 +20,24 @@
         "waitsOn": "the shop"
       },
       "people": {
-        "owedTo": ["gran"],
-        "with": ["partner"]
+        "owedTo": [
+          {
+            "kind": "person",
+            "line": "Your grandmother",
+            "name": "Gran",
+            "picture": {
+              "id": "00000000000000000000000000000a02"
+            },
+            "ref": "person:gran"
+          }
+        ],
+        "with": [
+          {
+            "kind": "person",
+            "name": "Robin",
+            "ref": "person:partner"
+          }
+        ]
       },
       "project": {
         "id": "shop-fit-out",
@@ -40,5 +50,11 @@
       "blockingChecks": 1,
       "needsYou": true
     }
-  ]
+  ],
+  "project": {
+    "goal": "The shop opens in spring.",
+    "id": "shop-fit-out",
+    "name": "Shop fit-out",
+    "status": "active"
+  }
 }

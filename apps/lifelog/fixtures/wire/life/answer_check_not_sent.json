@@ -26,6 +26,7 @@
       "kind": "send-failed"
     }
   ],
+  "doneSeen": null,
   "kind": "decision",
   "ref": "dec_000000000001",
   "send": {

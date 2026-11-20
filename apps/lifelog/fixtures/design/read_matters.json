@@ -19,7 +19,13 @@
       },
       "openedDaysAgo": 6,
       "people": {
-        "waitingOn": ["Idris Benali"]
+        "waitingOn": [
+          {
+            "kind": "person",
+            "name": "Idris Benali",
+            "ref": "person:idris"
+          }
+        ]
       },
       "status": "waiting_on_someone",
       "important": true,
@@ -106,8 +112,20 @@
       },
       "openedDaysAgo": 9,
       "people": {
-        "owedTo": ["Hélène Aubert"],
-        "with": ["Camille Vance"]
+        "owedTo": [
+          {
+            "kind": "person",
+            "name": "Hélène Aubert",
+            "ref": "person:helène_aubert"
+          }
+        ],
+        "with": [
+          {
+            "kind": "person",
+            "name": "Camille Vance",
+            "ref": "person:camille_vance"
+          }
+        ]
       },
       "status": "moving"
     },
@@ -128,7 +146,18 @@
       },
       "openedDaysAgo": 3,
       "people": {
-        "with": ["Camille Vance", "Idris Benali"]
+        "with": [
+          {
+            "kind": "person",
+            "name": "Camille Vance",
+            "ref": "person:camille_vance"
+          },
+          {
+            "kind": "person",
+            "name": "Idris Benali",
+            "ref": "person:idris"
+          }
+        ]
       },
       "status": "moving"
     },
@@ -149,7 +178,13 @@
       },
       "openedDaysAgo": 5,
       "people": {
-        "with": ["Nora Keller"]
+        "with": [
+          {
+            "kind": "person",
+            "name": "Nora Keller",
+            "ref": "person:nora_keller"
+          }
+        ]
       },
       "status": "moving"
     },
@@ -191,8 +226,20 @@
       },
       "openedDaysAgo": 15,
       "people": {
-        "waitingOn": ["Jun Watanabe"],
-        "with": ["Priya Nair"]
+        "waitingOn": [
+          {
+            "kind": "person",
+            "name": "Jun Watanabe",
+            "ref": "person:jun_watanabe"
+          }
+        ],
+        "with": [
+          {
+            "kind": "person",
+            "name": "Priya Nair",
+            "ref": "person:priya_nair"
+          }
+        ]
       },
       "status": "stuck"
     }

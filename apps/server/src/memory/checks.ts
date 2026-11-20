@@ -26,9 +26,9 @@ import { pagedNow } from "./closeness";
 import {
   DECISIONS,
   type Decision,
+  decisionCardOf,
   decisionsNow,
   isOnMatter,
-  notSentOf,
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import type { StoredDraft } from "./draft";
@@ -163,8 +163,8 @@ export interface CheckInputs {
     | "isGuess"
     | "nameOf"
     | "names"
+    | "partyOf"
     | "refOf"
-    | "relationOf"
     | "resolve"
   > & {
     inferred: Pick<
@@ -345,10 +345,9 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           kind: "decision",
           likelyPeople: [],
           links: d.links,
-          notSent: notSentOf(d),
           onMatters: [],
           onSilence: d.onSilence,
-          options: d.options.map((o) => ({ ...o, takes: null })),
+          ...decisionCardOf(d),
           question: d.question,
           ref: d.id,
           ridesOn: {
@@ -497,11 +496,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       const card = people.contacts.find((x) => x.id === a.card) ?? {
         handles: [],
       };
-      const likelyPeople = a.people.map((p) => ({
-        line: people.relationOf(p),
-        name: people.nameOf(p),
-        person: p,
-      }));
+      const likelyPeople = a.people.map(people.partyOf);
       return ranked(
         c,
         "contacts card",
@@ -525,7 +520,9 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           {
             about: as,
             clips: read?.clips,
-            likelyPeople: people.candidatesFor(as[0] ?? key),
+            likelyPeople: people
+              .candidatesFor(as[0] ?? key)
+              .map(people.partyOf),
             question: `Who is "${as.join(" / ")}"?`,
             ref: `name:${key}`,
             said: read?.said ?? (held && saidOfLine(held, c.people, c.titles)),
@@ -551,11 +548,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           })
           .filter((ref, i, all) => all.indexOf(ref) === i)
           .slice(0, 5)
-          .map((ref) => ({
-            line: c.people.relationOf(ref),
-            name: c.people.nameOf(ref),
-            person: ref,
-          }));
+          .map(c.people.partyOf);
         const [first] = item.evidence;
         const who =
           known && item.kind !== "new_person" ? c.people.nameOf(known) : null;

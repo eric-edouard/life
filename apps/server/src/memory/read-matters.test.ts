@@ -15,6 +15,13 @@ import {
 } from "./read-matters";
 import { knownTestOf } from "./ref-kinds";
 
+/** A made-up party, named by its id. */
+const party = (ref: string) => ({
+  kind: "person" as const,
+  name: ref.replace("person:", ""),
+  ref,
+});
+
 test("read_matters lists the open matters, of one project when asked; read_matter opens one with its steps", async () => {
   const who = await import("./who");
   const matters = await import("./matters");
@@ -88,6 +95,7 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     isGuess: () => false,
     isKnownToHim: () => true,
     nameOf: (r: string) => r.replace("person:", ""),
+    partyOf: (r: string) => party(r),
     truth: {
       areas: [],
       me: { goals: "1. Open the shop by May (`shop-fit-out`).", text: "" },
@@ -125,8 +133,8 @@ test("read_matters lists the open matters, of one project when asked; read_matte
         waitsOn: "the shop",
       },
       people: {
-        owedTo: ["gran"],
-        with: ["partner"],
+        owedTo: [party("person:gran")],
+        with: [party("person:partner")],
       },
       project: { id: "shop-fit-out", name: "Shop fit-out", status: "active" },
       projects: ["Shop fit-out"],
@@ -134,7 +142,7 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     };
     // Empty fields are left out of the JSON a model reads.
     expect(JSON.parse(JSON.stringify(all[0]))).toEqual(row);
-    expect(all[1]?.people?.waitingOn).toEqual(["shop"]);
+    expect(all[1]?.people?.waitingOn).toEqual([party("person:shop")]);
     const page = await openMatters({ project: "Shop fit-out" });
     expect(page.matters.map((m) => m.id)).toEqual(["matter_aaaaaaaaaaaa"]);
     // Its page's head: the first of his goals naming it, in his words; underway, no parked count.
@@ -149,12 +157,12 @@ test("read_matters lists the open matters, of one project when asked; read_matte
       "No project goes by that name."
     );
     const one = await oneMatter(["matter_aaaaaaaaaaaa"]);
-    // A step's company by name, as the row's people.
+    // A step's company as a party, as the row's people.
     expect(JSON.parse(JSON.stringify(one))).toEqual({
       ...row,
       agents: [],
       communicationStyles: [],
-      steps: [steps[0], { ...steps[1], with: "partner" }],
+      steps: [steps[0], { ...steps[1], with: party("person:partner") }],
     });
     // A step's id opens the matter holding it; anchors find it by the first that still names a step.
     expect(await oneMatter(["obs_000000000005"])).toEqual(one);
@@ -380,6 +388,7 @@ test("a matter he marked important comes first, with no open step too; its parke
   });
   const people = spyOn(who, "readPeople").mockResolvedValue({
     nameOf: (r: string) => r,
+    partyOf: party,
     truth: {
       areas: [],
       me: { text: "" },

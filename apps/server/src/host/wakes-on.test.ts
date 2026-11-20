@@ -21,7 +21,7 @@ const people: People = {
   ...base,
   truth: { ...base.truth, chats: [{ id: GROUP, name: "Test Crew" }] },
 };
-const ana = people.nameOf(`person:${meant("Test Ana", people).known}`);
+const ana = people.partyOf(`person:${meant("Test Ana", people).known}`);
 
 const filter = (f: Partial<EventFilter>): EventFilter => ({
   from_me: false,
@@ -73,10 +73,15 @@ const payment = (over: Partial<Matchable> = {}): Matchable => ({
   ...over,
 });
 
-test("a person's line: their name as read now, and it covers their calls", () => {
+test("a person's line: the party they are now beside the words as written, and it covers their calls", () => {
   const f = filter({ person: "Test Ana" });
   expect(wakesOnOf([f], ctx())).toEqual([
-    { calls: true, kind: "message", person: ana },
+    {
+      calls: true,
+      kind: "message",
+      party: ana,
+      personAsWritten: "Test Ana",
+    },
   ]);
   expect(fires(f, message())).toBe(true);
   expect(fires(f, call())).toBe(true);
@@ -91,7 +96,7 @@ test("a person no one goes by now is a line that says it can never fire", () => 
       broken: "unknown_person",
       calls: true,
       kind: "message",
-      person: "Nobody Madeup",
+      personAsWritten: "Nobody Madeup",
     },
   ]);
 });
@@ -202,7 +207,13 @@ test("a filter naming a message app and payments gives a line for each side that
     person: "Test Ana",
   });
   expect(wakesOnOf([person], ctx())).toEqual([
-    { apps: ["whatsapp"], calls: true, kind: "message", person: ana },
+    {
+      apps: ["whatsapp"],
+      calls: true,
+      kind: "message",
+      party: ana,
+      personAsWritten: "Test Ana",
+    },
   ]);
   expect(fires(person, payment())).toBe(false);
   expect(fires(person, message())).toBe(true);
@@ -244,7 +255,7 @@ test("the lines keep the filters' order, then the open card (with its deadline),
     "wide_net",
   ]);
   expect(lines[0]).toMatchObject({ words: "a" });
-  expect(lines[1]).toMatchObject({ person: ana });
+  expect(lines[1]).toMatchObject({ party: ana });
   expect(wakesOnOf([], ctx({ card }))).toEqual([
     {
       card: card.question,

@@ -5,7 +5,7 @@ import SwiftUI
 /// first where the card takes a new person's name (what he typed, else the card's name), then the card's likely people,
 /// filtered as he types.
 struct SameAsSheet: View {
-    let people: [Check.Person]
+    let people: [Party]
     /// The card takes a new person's name, not only someone Life knows.
     let takesNewName: Bool
     /// The name the card asks about, which "Create" offers until he types another.
@@ -18,7 +18,7 @@ struct SameAsSheet: View {
     @FocusState private var isTyping: Bool
 
     private var typed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var shown: [Check.Person] {
+    private var shown: [Party] {
         typed.isEmpty ? people : people.filter { $0.name.localizedCaseInsensitiveContains(typed) }
     }
 
@@ -30,11 +30,13 @@ struct SameAsSheet: View {
                     .focused($isTyping)
                 VStack(spacing: 0) {
                     if takesNewName || !typed.isEmpty { newPerson }
-                    ForEach(shown, id: \.person) { person in
+                    ForEach(shown, id: \.ref) { person in
                         Button {
-                            pick(.person(person.person))
+                            pick(.person(person.ref))
                         } label: {
-                            FlatRow(lead: .person(person.name), detail: person.line) {
+                            FlatRow(
+                                lead: .person(person.name), detail: person.line, slotSize: Metrics.FlatRow.personSlot
+                            ) {
                                 Text(person.name).font(.rowName)
                             } trailing: {
                             }
@@ -49,6 +51,7 @@ struct SameAsSheet: View {
         .scrollBounceBehavior(.basedOnSize)
         .background(Palette.sheet)
         .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
     }
 
     /// Where the card takes a new person's name, "Create “<name>”" opens the create sheet with it; with no name yet the
@@ -64,7 +67,7 @@ struct SameAsSheet: View {
                 pick(.name(name))
             }
         } label: {
-            FlatRow(lead: .symbol("plus")) {
+            FlatRow(lead: .symbol("plus"), slotSize: Metrics.FlatRow.personSlot) {
                 Text(name.isEmpty ? "Create a person" : takesNewName ? "Create “\(name)”" : name).font(.rowName)
             } trailing: {
             }

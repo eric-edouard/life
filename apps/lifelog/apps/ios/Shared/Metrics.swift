@@ -23,6 +23,8 @@ enum Metrics {
     enum FlatRow {
         static let row: CGFloat = 48
         static let slot: CGFloat = 32
+        /// The people sheet's larger lead.
+        static let personSlot: CGFloat = 40
     }
 
     /// Corner radii, smallest to largest.

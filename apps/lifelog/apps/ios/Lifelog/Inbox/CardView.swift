@@ -79,7 +79,7 @@ struct CardView: View {
                     }
                     .sheetStack()
                 }
-            case .create(let check, let name, let nextRef):
+            case .create(let check, let name, let nextRef, _):
                 CreateSheet(check: check, name: name) { request in
                     sheet = nil
                     leave(Taken(check: check, request: request, nextRef: nextRef, runtimeName: nil), false)
@@ -89,16 +89,18 @@ struct CardView: View {
         }
     }
 
-    /// The asks side by side, one page each: he swipes left for the next, right to come back, and the next one's edge shows
-    /// at the right. The scroll view is one page wide and its clip is off, so a page's width is the paging step and the
-    /// edge still shows. An ask alone has no edge. An ask he passes stays where it was.
+    /// The asks side by side, one page each, straight on the page: he swipes left for the next, right to come back, and the
+    /// dots under the ask say where he is. The scroll view is one page wide, so a page's width is the paging step; with
+    /// several asks it stops `Pager.edge` short of its box (as wide as its box, it never paged to the ask a push opens) and
+    /// clips there, so nothing of the next ask shows. An ask he passes stays where it was.
     private var pager: some View {
+        let checks = paged
         let edge = checks.count > 1 ? Pager.edge : 0
         return GeometryReader { box in
             ScrollViewReader { proxy in
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: 0) {
-                        ForEach(checks) { check in
+                        ForEach(Array(checks.enumerated()), id: \.element.ref) { index, check in
                             CheckCard(
                                 check: check, runtimeName: life.runtimeName(of: check),
                                 openMatter: { router.open(matter: $0) },
@@ -106,9 +108,9 @@ struct CardView: View {
                                 isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
                                 answer: { submit(check, $0) }, sameAs: { sheet = .people(ref: check.ref) },
                                 create: { sheet = creating(check, $0) },
-                                dropProject: dropProject(of: check)
+                                dropProject: dropProject(of: check),
+                                page: checks.count > 1 ? (index, checks.count) : nil
                             )
-                            .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.card))
                             .padding(.leading, Pager.gap)
                             .containerRelativeFrame(.horizontal)
                             .id(check.ref)
@@ -117,7 +119,6 @@ struct CardView: View {
                     .scrollTargetLayout()
                 }
                 .frame(width: box.size.width - edge - Pager.gap)
-                .scrollClipDisabled()
                 .scrollPosition(id: $current, anchor: .leading)
                 .scrollTargetBehavior(.paging)
                 .scrollIndicators(.hidden)
@@ -143,6 +144,12 @@ struct CardView: View {
         Binding(get: { notes.inputs[ref] ?? CardInput() }, set: { notes.inputs[ref] = $0 })
     }
 
+    /// The asks the pager shows: while the create sheet is up, those it opened over, so the next ask never comes in
+    /// behind it before it closes.
+    private var paged: [Check] {
+        if case .create(_, _, _, let asks) = sheet { asks } else { checks }
+    }
+
     /// The sheet over an ask: its people sheet goes with the ask; the create sheet stays while its answer runs (the ask
     /// leaves the list then) until it closes itself.
     private var shownSheet: Binding<CardSheet?> {
@@ -163,8 +170,6 @@ struct CardView: View {
         #endif
     }
 
-    /// The create sheet for `check`, with where the asks go once it is created: the ask after it as he opened it (the
-    /// ask leaves the list while its answer runs).
     /// "I dropped this whole project": the card's matter's project parked, when it is underway (from the matters read:
     /// a card names its matter, not its project).
     private func dropProject(of check: Check) -> (() -> Void)? {
@@ -181,8 +186,10 @@ struct CardView: View {
         }
     }
 
+    /// The create sheet for `check`, with where the asks go once it is created: the ask after it as he opened it (the
+    /// ask leaves the list while its answer runs).
     private func creating(_ check: Check, _ name: String) -> CardSheet {
-        .create(check, name: name, nextRef: checks.ref(after: check.ref))
+        .create(check, name: name, nextRef: checks.ref(after: check.ref), asks: checks)
     }
 
     private func submit(_ check: Check, _ request: AnswerRequest) {
@@ -206,17 +213,19 @@ struct CardView: View {
 /// A sheet over an ask: its people ("Someone I know…"), or the create sheet with a name.
 private enum CardSheet: Identifiable {
     case people(ref: String)
-    case create(Check, name: String, nextRef: String?)
+    /// `asks`: the pager's asks as the sheet opened, kept under it until it closes (its own ask leaves the list while
+    /// its answer runs).
+    case create(Check, name: String, nextRef: String?, asks: [Check])
 
     var id: String {
         switch self {
         case .people(let ref): "people " + ref
-        case .create(let check, let name, _): "create " + check.ref + " " + name
+        case .create(let check, let name, _, _): "create " + check.ref + " " + name
         }
     }
 }
 
-/// The pager's measures, from the Ask panel: 12 from the sides and between cards, the next card's edge showing 10.
+/// The pager's measures: 12 from the sides and between asks, and the edge it stops short of its box.
 private enum Pager {
     static let gap = Metrics.Spacing.xs * 3
     static let edge = Metrics.Spacing.xs * 2.5

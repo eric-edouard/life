@@ -53,10 +53,10 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     }
 
     public struct People: Decodable, Sendable, Equatable {
-        public let owedTo: [String]?
-        public let waitingOn: [String]?
-        public let with: [String]?
-        public let told: [String]?
+        public let owedTo: [Party]?
+        public let waitingOn: [Party]?
+        public let with: [Party]?
+        public let told: [Party]?
     }
 
     public let id: String
@@ -104,7 +104,7 @@ public struct MatterList: Decodable, Sendable, Equatable {
         return matters.filter { row in
             let people = [row.people?.owedTo, row.people?.waitingOn, row.people?.with, row.people?.told].compactMap(
                 \.self
-            ).flatMap(\.self)
+            ).flatMap(\.self).map(\.name)
             return ([row.name, row.goal?.text, row.nextStep?.text].compactMap(\.self) + people)
                 .contains { $0.localizedStandardContains(query) }
         }
@@ -162,7 +162,7 @@ public struct MatterStep: Decodable, Sendable, Equatable, Identifiable {
     public let text: String
     public let quote: String
     public let when: String?
-    public let with: String?
+    public let with: Party?
     public let ending: Ending?
 }
 
