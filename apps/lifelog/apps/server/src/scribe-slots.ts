@@ -92,5 +92,3 @@ export function scribeSlots(size: number, atScribe: () => string[]) {
     wake,
   };
 }
-
-export type ScribeSlots = ReturnType<typeof scribeSlots>;
