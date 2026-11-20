@@ -88,7 +88,7 @@ test("an agent's 51st open assignment is read and woken like its first", async (
 test("a card asked before the desk kept its owner stays its agent's first assignment's when another runs a turn", () => {
   const { desk } = setup();
   const id = standing(desk, {});
-  const first = openAssignments(desk.db)[0]?.id;
+  const first = openAssignments(desk.db)[0]?.id ?? null;
   const card = { agent: id, id: "dec_test_before_owners" };
   expect(assignmentOfCard(desk.db, card)).toBe(first);
   const second = openAssignment(desk, id, {
