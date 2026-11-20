@@ -50,28 +50,12 @@ const matter = {
   with: [],
 };
 const KIT_CHAT = "33600000001@s.whatsapp.net";
-const kitOnWhatsapp = new Map([
-  [
-    "person:inf_kit",
-    networkIdentityOf(
-      { key: KIT_CHAT, source: "whatsapp", title: "Kit Watches" },
-      [
-        {
-          at: "2026-10-12T09:05:00.000Z",
-          fromMe: false,
-          sender: "+33600000001",
-          text: "Kit here, from the shop",
-        },
-      ],
-      "Dana"
-    ),
-  ],
-]);
 const nameOf = (r: string) =>
   (
     ({
       "person:con_lou": "Lou",
       "person:gran": "Gran",
+      "person:inf_kit": "Kit",
       "person:partner": "Robin",
       "person:sam_ito": "Sam Ito",
       "person:sam_lee": "Sam Lee",
@@ -86,6 +70,7 @@ const madeUpPartyOf = partyOf(
     relationOf: (r) =>
       ({
         "person:gran": "Your grandmother",
+        "person:inf_kit": "the watchmaker",
         "person:sam_lee": "The neighbour",
       })[r] ?? null,
   },
@@ -106,6 +91,26 @@ const madeUpPartyOf = partyOf(
     ],
   })
 );
+const kitOnWhatsapp = new Map([
+  [
+    "person:inf_kit",
+    {
+      ...networkIdentityOf(
+        { key: KIT_CHAT, source: "whatsapp", title: "Kit Watches" },
+        [
+          {
+            at: "2026-10-12T09:05:00.000Z",
+            fromMe: false,
+            sender: "+33600000001",
+            text: "Kit here, from the shop",
+          },
+        ],
+        "Dana"
+      ),
+      party: madeUpPartyOf("person:inf_kit"),
+    },
+  ],
+]);
 /** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
 const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   answered: new Set(),
@@ -499,7 +504,11 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     spyOn(checks, "checksNow").mockResolvedValue(
       checks.checksOf(madeUpInbox).map((c) => ({
         // Kit's guess, as its newest WhatsApp chat shows it (`networkIdentityOf` over a made-up chat-day).
-        ...withNetworkIdentity(c, kitOnWhatsapp, "Dana"),
+        ...withNetworkIdentity(c, kitOnWhatsapp, {
+          nameOf: () => "Dana",
+          partyOf: madeUpPartyOf,
+          resolve: madeUpBase.people.resolve,
+        }),
         pushId: checks.pushIdOf(c.ref, "0".repeat(64)),
         urgency: urgencyOf(c),
       }))

@@ -141,6 +141,13 @@ test("the chat-days tried are 1:1 chats with the check's person, newest first, t
   ]);
 });
 
+/** Who the identities name: Kit, by his WhatsApp number; Dana is the owner. */
+const people = {
+  nameOf: () => "Dana",
+  partyOf: (ref: string) => ({ kind: "person" as const, name: "Kit", ref }),
+  resolve: (h: string) => (h === "+33600000001" ? "person:inf_kit" : null),
+};
+
 test("a decision's guess beside it gets its identity too; a check none was found for gets null", () => {
   const identity = networkIdentityOf(unit(), [message({})], "Dana");
   interface Shown extends NetworkIdentified {
@@ -152,7 +159,7 @@ test("a decision's guess beside it gets its identity too; a check none was found
   const shown = withNetworkIdentity(
     decision,
     new Map([["person:inf_kit", identity]]),
-    "Dana"
+    people
   );
   expect(shown.networkIdentity).toBeNull();
   expect(shown.confirm[0]?.networkIdentity).toEqual(identity);
@@ -227,6 +234,7 @@ test("read from the index, the unit files and one span of the source: a card's h
     };
     const found = await readNetworkIdentities([card], {
       nameOf: () => "Dana",
+      partyOf: (ref: string) => ({ kind: "person", name: "Lou", ref }),
       refOf: (r: string) => r,
       resolve: () => null,
       truth: {
@@ -244,6 +252,7 @@ test("read from the index, the unit files and one span of the source: a card's h
         text: "Sunday works",
       },
       openUrl: "https://wa.me/33600000004",
+      party: { kind: "person", name: "Lou", ref: "person:con_lou" },
       shownName: "Lou B",
     });
     // One read of the source, over the chat-day's span only.
@@ -272,13 +281,18 @@ test("a decision's draft gets its chat as its network shows it, reading nothing;
         ref: string;
       },
       new Map(),
-      "Dana"
+      people
     ).networkIdentity;
   expect(shown(draft)).toMatchObject({
     chat: draft.chat,
     network: "WhatsApp",
     newest: null,
+    party: { name: "Kit", ref: "person:inf_kit" },
     shownName: "Kit Moreau",
   });
+  // A chat whose handle no one goes by has no party.
+  expect(
+    shown({ ...draft, chat: "33600000002@s.whatsapp.net" })?.party
+  ).toBeUndefined();
   expect(shown({ channel: "gmail", to: "kit@example.com" })).toBeNull();
 });
