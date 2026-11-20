@@ -39,8 +39,20 @@ import {
   type Verdicts,
   verdictOf,
 } from "./memory-files";
-import { involvedOf, refContext } from "./model-context";
-import { answeredBy, checkPeople, unknownIn } from "./people";
+import {
+  emailNameOf,
+  emailsOf,
+  emailsShown,
+  involvedOf,
+  refContext,
+} from "./model-context";
+import {
+  answeredBy,
+  checkPeople,
+  earlierGuessOf,
+  oldGuessesIn,
+  unknownIn,
+} from "./people";
 import { staysOf, where } from "./places";
 import { subjectOf } from "./quote-check";
 import { OWNER, type Truth } from "./read-truth";
@@ -60,7 +72,7 @@ import { localTime } from "./zones";
 // and names are (memory/people-inferred.jsonl).
 // Extraction then reads an episode's units together (extract.ts). Units are written here too (units.ts builds them).
 
-export const EPISODES_PROMPT = "memory-episodes.v8";
+export const EPISODES_PROMPT = "memory-episodes.v9";
 const TOPICS_SHOWN = 40;
 /** An episode of an earlier day is shown to the next days until the day after it ends. */
 const CARRY_DAYS = 1;
@@ -475,6 +487,8 @@ export async function episodes(evidence: Evidence) {
     personallyClose(levels),
     contextPeopleBy(levels)
   );
+  const emails = emailsOf({ canon, outsideDirectory, truth });
+  const emailNamed = emailNameOf(emails);
   const inDirectory = refs.directory.people.map((p) => ({ ...p, id: p.ref }));
   const taken = new Set(inferred.map((p) => p.id));
   const answered = answeredBy(resolve, inferred);
@@ -526,6 +540,16 @@ export async function episodes(evidence: Evidence) {
           spoken,
           (s) => answered(s) || named.some((p) => p.namesAndHandles.includes(s))
         );
+        // Older guesses on this day's units, judged again by this prompt.
+        for (const [key, seen] of oldGuessesIn(
+          spoken,
+          [...inferred, ...named],
+          resolve
+        )) {
+          if (!unknown.has(key)) {
+            unknown.set(key, seen);
+          }
+        }
         // Who an unknown speaker could be, in the directory: shown with the rest of what the day involves beyond its context.
         const near = new Map(
           [...unknown.keys()].map((k) => [
@@ -539,15 +563,22 @@ export async function episodes(evidence: Evidence) {
             ...units.flatMap(({ unit }) => unitNow(unit, refOf).people),
             ...namedIn(
               [...texts.values(), ...units.map((b) => b.unit.title)],
-              resolve,
+              (s) => resolve(s) ?? emailNamed(s),
               refs.directory.projects
             ),
             ...earlier.flatMap((m) => m.people.map((p) => p.ref)),
             ...[...near.values()].flat(),
+            ...[...unknown.keys()].flatMap(
+              (k) => earlierGuessOf(resolve(k)) ?? []
+            ),
           ])
         );
         const json = await step.ask({
-          context: { ...refs.context, topics: topTopics(verdicts.values()) },
+          context: {
+            ...refs.context,
+            people: emailsShown(refs.context.people, emails),
+            topics: topTopics(verdicts.values()),
+          },
           dir: join(step.dir, day),
           input: {
             day,
@@ -574,7 +605,10 @@ export async function episodes(evidence: Evidence) {
                 within,
               })
             ),
-            involved,
+            involved: {
+              ...involved,
+              people: emailsShown(involved.people, emails),
+            },
             stays: stays
               .toSorted((a, b) => a.arrivedAt.localeCompare(b.arrivedAt))
               .map((s) => ({
@@ -598,6 +632,8 @@ export async function episodes(evidence: Evidence) {
               };
             }),
             unknown: [...unknown].map(([key, seen]) => ({
+              // Life's earlier guess for it: the same person, not an answer.
+              earlier: earlierGuessOf(resolve(key)),
               key,
               near: near.get(key) ?? [],
               units: seen.map((b) => b.unit.id),
@@ -622,9 +658,11 @@ export async function episodes(evidence: Evidence) {
           areas,
           at: step.now.toISOString(),
           madeBy,
+          people: new Set(refs.directory.people.map((p) => p.ref)),
           projects,
+          resolve,
           taken,
-          truth: new Set(truth.people.map((p) => `person:${p.id}`)),
+          units: spoken,
           unknown,
         });
         return { ...reading, sent: texts.size, who };

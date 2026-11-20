@@ -35,6 +35,11 @@ export const INFERRED_USE_AT = 0.5;
 /** Inferred people at or above this confidence are taken as who Life says, never asked about (his decision of 20 Nov 2026). */
 export const INFERRED_SURE_AT = 0.85;
 
+/** Whether a guess is settled and never asked about: Life is sure of it, or it is an organization (his OK of 20 Nov 2026). */
+export const isSettledGuess = (
+  r: Pick<InferredPerson, "confidence" | "isOrganization">
+) => r.confidence >= INFERRED_SURE_AT || r.isOrganization === true;
+
 /** The people outside the directory (inferred, or named by his Contacts) not folded into another (`foldsOf`): one id per person. */
 export const unfoldedOf = <P extends { id: string }>(
   people: P[],
@@ -298,14 +303,16 @@ export const InferredPerson = z
       .array(z.object({ quote: z.string().min(1), unit: z.string() }).strict())
       .min(1),
     id: z.string().regex(/^inf_[a-z0-9-]+$/),
+    /** A business, a bot or a notification sender (never asked about, `isSettledGuess`); absent on guesses made before v9, asked once more (`answeredBy`). */
+    isOrganization: z.boolean().optional(),
     madeBy: MadeBy,
     /** A name when the messages give one, else a short description ("the plumber changing the shop sink"). */
     name: z.string().min(1),
     /** Handles (phone, WhatsApp id, a network's id) or names this person goes by. */
     namesAndHandles: NamesOrHandles,
     /**
-     * The person in truth/ it is, when the call judged it is them (used as them from INFERRED_USE_AT, `foldsOf`); null
-     * when it judged no one there is; absent on guesses made before the call could link, asked once more (`answeredBy`).
+     * The person it is, anyone on the call's map (truth/, his Contacts or an earlier guess), when the call judged it is
+     * them (used as them from INFERRED_USE_AT, `foldsOf`); null when it judged no one there is.
      */
     person: PersonRef.nullable().optional(),
     project: slug.nullable(),

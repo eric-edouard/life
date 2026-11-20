@@ -222,6 +222,55 @@ test("a surface the call linked to someone in truth/ is them, and so is every gu
   ).toBe("person:gaston");
 });
 
+test("a loop of folds reads as its best ref by tier, a chain as its end, and none of them spins", () => {
+  const link = (from: string, to: string) =>
+    said({ from, kind: "same-person", to });
+  // A loop between a guess and a card, and one between two guesses.
+  const { canon } = foldsOf(
+    [],
+    [],
+    [
+      link("person:inf_b", "person:con_z"),
+      link("person:con_z", "person:inf_b"),
+      link("person:inf_d", "person:inf_c"),
+      link("person:inf_c", "person:inf_d"),
+      link("person:inf_e", "person:inf_c"),
+    ],
+    []
+  );
+  expect(canon("person:inf_b")).toBe("person:con_z");
+  expect(canon("person:con_z")).toBe("person:con_z");
+  expect(canon("person:inf_d")).toBe("person:inf_c");
+  expect(canon("person:inf_e")).toBe("person:inf_c");
+  // A loop through truth/ reads as truth/; a chain inf, inf, card, truth ends at truth/.
+  const looped = foldsOf(
+    [],
+    [],
+    [link("person:a", "person:inf_f"), link("person:inf_f", "person:a")],
+    []
+  ).canon;
+  expect(looped("person:inf_f")).toBe("person:a");
+  const chain = foldsOf(
+    [],
+    [],
+    [
+      link("person:inf_g", "person:inf_h"),
+      link("person:inf_h", "person:con_y"),
+      link("person:con_y", "person:ann"),
+    ],
+    []
+  ).canon;
+  expect(chain("person:inf_g")).toBe("person:ann");
+});
+
+test("one bridged user in Beeper's form and in Life's own bridge's reads as one key", () => {
+  const guess = inferred("inf_kit", ["@line__u91_abc:beeper.local"]);
+  const { resolve } = foldsOf([], [guess], [], []);
+  expect(resolve("_u91_abc")).toBe("person:inf_kit");
+  expect(resolve("@line__u91_abc:beeper.local")).toBe("person:inf_kit");
+  expect(resolve("_u92_abc")).toBeNull();
+});
+
 test("a name in another script resolves to its own person only, never every word of any script", () => {
   const thai = {
     card: "card-thai",

@@ -465,7 +465,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       const ref = `person:${p.id}`;
       const [first] = p.evidence;
       const where = first && c.where.get(first.unit);
-      return people.isGuess(ref)
+      // One ask per person: a guess folded into another is asked through the one it folds into.
+      return people.isGuess(ref) && people.refOf(ref) === ref
         ? ranked(
             c,
             "guessed person",

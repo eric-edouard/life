@@ -5,7 +5,12 @@ import {
   unfoldedOf,
 } from "../records/observation";
 import { isUnderway } from "../records/truth";
+import { isMailAddress } from "../sources/gmail";
 import type { Truth } from "./read-truth";
+import { nameKey } from "./units";
+
+const NOT_LETTERS = /[^\p{L}]/gu;
+const MIN_LETTERS = 4;
 
 // The context every memory call of a run sends first: who the owner is, and the people and projects a reply may name.
 
@@ -87,6 +92,64 @@ export function refContext(
     directory,
   };
 }
+
+/**
+ * The mail addresses of each person, those of the cards and guesses folded into them too, for the one call that matches
+ * a formal name to a nickname (`emailsShown`, `emailNameOf`).
+ */
+export function emailsOf({
+  canon,
+  outsideDirectory,
+  truth,
+}: Pick<
+  Parameters<typeof refContext>[0],
+  "canon" | "outsideDirectory" | "truth"
+>) {
+  const emails = new Map<string, Set<string>>();
+  const add = (ref: string, handles: string[]) => {
+    const own = handles.filter(isMailAddress);
+    if (own.length > 0) {
+      emails.set(ref, new Set([...(emails.get(ref) ?? []), ...own]));
+    }
+  };
+  for (const p of truth.people) {
+    add(`person:${p.id}`, p.handles.email);
+  }
+  for (const p of outsideDirectory) {
+    add(canon(`person:${p.id}`), p.namesAndHandles);
+  }
+  return new Map([...emails].map(([ref, set]) => [ref, [...set]]));
+}
+
+/**
+ * A resolver for `namedIn` to fall back to: the person whose mail address spells the name a text writes (the letters of
+ * the local part, digits and punctuation dropped, at least 4: "malisuwan123@…" and "Mali Suwan"). The model still
+ * decides whether they are the same person.
+ * ponytail: a generic local part (contact@, info@) can match a common word; add a stoplist if it brings noise.
+ */
+export function emailNameOf(emails: Map<string, string[]>) {
+  const byLetters = new Map<string, string>();
+  for (const [ref, addresses] of emails) {
+    for (const a of addresses) {
+      const letters = nameKey(a.split("@")[0] ?? "").replace(NOT_LETTERS, "");
+      if (letters.length >= MIN_LETTERS && !byLetters.has(letters)) {
+        byLetters.set(letters, ref);
+      }
+    }
+  }
+  return (name: string) =>
+    byLetters.get(nameKey(name).replaceAll(" ", "")) ?? null;
+}
+
+/** People of a call's context or input with their addresses when they have any: shown by the episodes call alone. */
+export const emailsShown = <T extends { ref: string }>(
+  people: T[],
+  emails: Map<string, string[]>
+) =>
+  people.map((p) => {
+    const own = emails.get(p.ref) ?? [];
+    return own.length > 0 ? { ...p, emails: own } : p;
+  });
 
 /** The directory's entries a call involves (`refs`) that its context leaves out: its input's `involved`. */
 export function involvedOf(

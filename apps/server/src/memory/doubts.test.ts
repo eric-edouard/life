@@ -68,6 +68,16 @@ test("a line rests on a guess when who it's about is only inferred, each guessed
   expect(isGuess("person:inf_below")).toBe(true);
   // A later record too unsure to be used changes nothing.
   expect(isGuess("person:inf_later")).toBe(false);
+  // An organization is settled however unsure the call was (his OK of 20 Nov 2026).
+  const org = guessTestOf(
+    [],
+    [
+      { confidence: 0.6, id: "inf_shop", isOrganization: true },
+      { confidence: 0.6, id: "inf_kit", isOrganization: false },
+    ]
+  );
+  expect(org("person:inf_shop")).toBe(false);
+  expect(org("person:inf_kit")).toBe(true);
 });
 
 test("an episode is said as its title, time (a same-day end as a time only), place and the people it was with", () => {
