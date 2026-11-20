@@ -662,10 +662,7 @@ export type InboxCheck = Check & { pushId: string; urgency: Urgency };
 /** The last list `checksNow` read, and what it was read from (`checksKeyOf`). */
 let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
 
-/**
- * Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write
- * those every few minutes, and the checks don't read them but for an inferred person's evidence; the pictures' index.
- */
+/** Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write those every few minutes, and the checks don't read them but for an inferred person's evidence; the pictures' index. */
 const CHECKS_READ = [
   ...MATTER_BOOK_READS,
   CLOSENESS,
@@ -681,10 +678,7 @@ export interface HeldRead {
   stamp: string;
 }
 
-/**
- * What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open
- * decisions (one lapses), the stamp of what agents hold and the voices lifelog queues. The same key, the same list.
- */
+/** What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open decisions (one lapses), the stamp of what agents hold and the voices lifelog queues. The same key, the same list. */
 const checksKeyOf = (
   held: HeldRead | null,
   voices: readonly NamingQueueItem[],
@@ -698,28 +692,22 @@ const checksKeyOf = (
     voices,
   ]);
 
-/**
- * What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from
- * the desk), and its `key` (`checksKeyOf`): read-only, no model call. Read again only when the key changed, and always
- * while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
- */
+/** What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from the desk), and its `key` (`checksKeyOf`): read-only, no model call. Read again only when the key changed, and always while a run holds the lock, then under a key never given twice (its list may change under the same files' stamp): every reader of the inbox shares one read per change, and never mutates the list. */
 export async function checksAndKeyNow(held: HeldRead | null) {
   const voices = await readNamingQueue();
   const decisions = decisionsNow().filter((d) => d.state === "open");
   const key = checksKeyOf(held, voices, decisions);
-  if (isLocked()) {
-    return { checks: await readChecks(held, voices, decisions), key };
-  }
-  if (last?.key !== key) {
+  if (isLocked() || last?.key !== key) {
     const list = readChecks(held, voices, decisions);
-    last = { key, list };
+    last = { key: isLocked() ? `${key} ${crypto.randomUUID()}` : key, list };
     list.catch(() => {
       if (last?.list === list) {
         last = undefined;
       }
     });
   }
-  return { checks: await last.list, key };
+  const read = last;
+  return { checks: await read.list, key: read.key };
 }
 
 /** What waits on his word now (`checksAndKeyNow`), without its key. */

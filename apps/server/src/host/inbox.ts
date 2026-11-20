@@ -41,15 +41,21 @@ export async function openCheckOf(ref: string) {
 /** A connector read's `version`: a short digest of the key its answer was read from (the checks' `key`, for the inbox). */
 export const versionOf = (key: string) => digest("sha256", key, 16);
 
+/** A versioned read's answer when the caller already holds its `version` (`ifNot`). */
+export const unchangedOf = (version: string) => ({
+  unchanged: true as const,
+  version,
+});
+
 /**
  * `read_inbox`: `limit` checks of his inbox, after the card `after` (else from the first), what blocks first, then most
  * pressing, with how many there are of each group and how many block, and the inbox's `version`: its order holds while
  * the version does. Answered ones leave, so reading again shows the next. With `pushId` (a push's), only that card, or
- * none when it is answered; the counts stay the whole inbox's.
+ * none when it is answered; the counts stay the whole inbox's. With `ifNot` its version, only `unchangedOf` it.
  */
 export async function readInbox(
   limit: number,
-  o: { after?: string; pushId?: string } = {}
+  o: { after?: string; ifNot?: string; pushId?: string } = {}
 ) {
   const { checks: shown, key } = await openChecksAndKeyNow();
   const from = o.after ? shown.findIndex((c) => c.ref === o.after) + 1 : 0;
@@ -58,11 +64,15 @@ export async function readInbox(
       `No open check ${o.after}: the inbox changed, read it from the start.`
     );
   }
+  const version = versionOf(key);
+  if (o.ifNot === version) {
+    return unchangedOf(version);
+  }
   return {
     checks: o.pushId
       ? shown.filter((c) => c.pushId === o.pushId)
       : shown.slice(from, from + limit),
     ...inboxOf(shown),
-    version: versionOf(key),
+    version,
   };
 }

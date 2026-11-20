@@ -583,7 +583,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         steps: [],
       }),
     ] as never),
-    spyOn(icons, "iconPicksSettled").mockReturnValue(0),
+    spyOn(icons, "iconWorkEnded").mockReturnValue(0),
     // Life's pick for the lease; none for the photo (the phone shows its area's icon).
     spyOn(icons, "readLifeIcons").mockImplementation(
       async (vs) =>
