@@ -227,3 +227,21 @@ test("a matter's open steps are one item, ranked as the most pressing; overdue b
   expect(openItems(steps, { date: DATE })[0]?.line).toBe("promise");
   expect(ids(steps.slice(0, 1))).toEqual([]);
 });
+
+// His important mark (20 Nov 2026): it ranks with his urgent flag.
+test("an item of a matter he marked ranks with the urgent ones, before a high priority overdue one", () => {
+  const ranked = rankedItems(
+    [
+      item({ id: "high-late", priority: "high", when: "2026-10-12" }),
+      item({ id: "marked", important: true }),
+      item({ id: "urgent-low", priority: "low", urgent: true }),
+    ],
+    { date: DATE }
+  );
+  // In that tier his priority still orders: a low one before none.
+  expect(ranked.map((i) => i.id)).toEqual([
+    "urgent-low",
+    "marked",
+    "high-late",
+  ]);
+});

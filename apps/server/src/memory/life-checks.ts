@@ -103,6 +103,13 @@ export type CheckKind =
   | "new matter"
   | "person"
   | "voice";
+/** A matter as a card names it: its id, its name, and `important` when he marked it. */
+export interface CheckMatter {
+  id: string;
+  important?: true;
+  name: string;
+}
+
 /**
  * One thing waiting on his word, the same shape for every kind: Life's guesses and agents' decisions alike. A field
  * a kind has nothing for is null or empty. Only open checks exist: his answer and what came of it are kept by each
@@ -152,8 +159,8 @@ export interface Check {
   likelyPeople: { line: string | null; name: string; person: string }[];
   /** Where to look or act (the agent's link first). */
   links: string[];
-  /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done); null: none. */
-  matter: { id: string; name: string } | null;
+  /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done), `important` when he marked it; null: none. */
+  matter: CheckMatter | null;
   /** What he needs in hand to do a decision's step, each with Life's `line` of it, in the order to show them; absent on every other kind. */
   needs?: ReturnType<typeof needsShownOf>;
   /** A decision whose draft his last answer did not send (nothing went): when, why, and whether the same tap could work again; null: none. */
@@ -165,7 +172,7 @@ export interface Check {
     wrote: { at: string; by: string; text: string } | null;
   } | null;
   /** Every open matter it rides on, by name and id (`ridesOn.matterIds`). */
-  onMatters: { id: string; name: string }[];
+  onMatters: CheckMatter[];
   /** The option the agent takes when he does not answer; null: none is taken (Life keeps using its guess, never writing it). */
   onSilence: string | null;
   /** What he can answer (`CheckOption`: his button's label and what his answer takes); with two or more, the first is the one recommended (Life: its guess). Besides them he can always answer in his own words (a decision's `note`, else `tell_life`). */
@@ -192,3 +199,13 @@ export interface Check {
   /** What it is trying to do, in one line. */
   title: string;
 }
+
+/** The guess an ending check's answer stores in the fact-check line (the card asks "Is this done?" with the step's own sentence). */
+export const endingGuessOf = (step: string) =>
+  `Life thinks this is done: ${step}`;
+
+/** An ending check always has its evidence: the later step's words. */
+export const isEndingKind = (
+  c: Check
+): c is Check & { evidence: NonNullable<Check["evidence"]> } =>
+  c.kind === "ending";

@@ -6,6 +6,7 @@
         "text": "Gran has her watch back"
       },
       "id": "matter_aaaaaaaaaaaa",
+      "important": true,
       "lastStepAt": "2026-10-12T10:00:00.000Z",
       "name": "Mend Gran's watch",
       "newestOpenStep": {
@@ -21,6 +22,11 @@
       "people": {
         "owedTo": ["gran"],
         "with": ["partner"]
+      },
+      "project": {
+        "id": "shop-fit-out",
+        "name": "Shop fit-out",
+        "status": "active"
       },
       "projects": ["Shop fit-out"],
       "status": "moving",

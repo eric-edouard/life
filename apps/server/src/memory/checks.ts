@@ -33,7 +33,12 @@ import {
 import { guessedOf, plain } from "./doubts";
 import type { StoredDraft } from "./draft";
 import { type AgentHold, isHeldOf } from "./held-matters";
-import { type Check, type CheckKind, LIFE_CHECKS } from "./life-checks";
+import {
+  type Check,
+  type CheckKind,
+  type CheckMatter,
+  LIFE_CHECKS,
+} from "./life-checks";
 import {
   directionDueOf,
   isRunning,
@@ -142,6 +147,7 @@ export interface CheckInputs {
     | "waitingOn"
     | "with"
   > & {
+    important?: boolean;
     steps: Pick<MatterStepNow, "at" | "day" | "quote" | "ref">[];
   })[];
   /** What each name check shows of its sentence, by the name's key (`readNameContexts`); a name whose unit could not be read has none. */
@@ -221,16 +227,6 @@ function ctxOf(c: CheckInputs): Ctx {
     mattersByStep,
   };
 }
-
-/** The guess an ending check's answer stores in the fact-check line (the card asks "Is this done?" with the step's own sentence). */
-export const endingGuessOf = (step: string) =>
-  `Life thinks this is done: ${step}`;
-
-/** An ending check always has its evidence: the later step's words. */
-export const isEndingKind = (
-  c: Check
-): c is Check & { evidence: NonNullable<Check["evidence"]> } =>
-  c.kind === "ending";
 
 const whereOf = (l: Line): Where => `${l.source.channel}, ${plain(l.date)}`;
 
@@ -611,7 +607,9 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
 export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
   const matterOf = matterFinderOf(inputs.matters);
-  const matterNames = new Map(inputs.matters.map((m) => [m.id, m.name]));
+  const byId = new Map(inputs.matters.map((m) => [m.id, m]));
+  const cardMatterOf = (m?: MatterId): CheckMatter | undefined =>
+    m && { id: m.id, important: m.important || undefined, name: m.name };
   const found = inboxOrderOf(
     Object.values(BUILDERS)
       .flatMap((build) => build(c))
@@ -620,11 +618,10 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
         return {
           ...check,
           day,
-          matter: m ? { id: m.id, name: m.name } : null,
-          onMatters: check.ridesOn.matterIds.flatMap((id) => {
-            const name = matterNames.get(id);
-            return name ? [{ id, name }] : [];
-          }),
+          matter: cardMatterOf(m) ?? null,
+          onMatters: check.ridesOn.matterIds.flatMap(
+            (id) => cardMatterOf(byId.get(id)) ?? []
+          ),
         };
       })
   ).map(({ day: _, ...check }) => check);

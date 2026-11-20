@@ -37,7 +37,7 @@ interface Orderable extends Rankable {
   /** When it was asked (a decision's `at`), else its newest evidence. */
   day: string;
   deadline: string | null;
-  matter: { id: string } | null;
+  matter: { id: string; important?: boolean } | null;
   ref: string;
   ridesOn: {
     matterIds: string[];
@@ -49,6 +49,7 @@ interface Orderable extends Rankable {
 
 const before = (a: Orderable, b: Orderable) =>
   Number(urgencyOf(a) === "improves") - Number(urgencyOf(b) === "improves") ||
+  Number(!a.matter?.important) - Number(!b.matter?.important) ||
   Number(b.deadline !== null) - Number(a.deadline !== null) ||
   (a.deadline ?? "").localeCompare(b.deadline ?? "") ||
   inboxRankOf(a) - inboxRankOf(b) ||
@@ -69,10 +70,10 @@ const matterKeyOf = (c: Orderable) => {
 };
 
 /**
- * His inbox's order, the one rule: what blocks, then what improves. In each, an ask with a deadline first, soonest
- * first; then by kind (`inboxRankOf`): decisions asked longest ago first; unnamed voices, names and cards by the matters
- * resting on them, then newest; the rest by matters, lines, pages, then newest. Then a matter's asks follow its first
- * one, in that order; an ask with no matter keeps its place.
+ * His inbox's order, the one rule: what blocks, then what improves. In each, an ask of a matter he marked important
+ * first; then an ask with a deadline, soonest first; then by kind (`inboxRankOf`): decisions asked longest ago first;
+ * unnamed voices, names and cards by the matters resting on them, then newest; the rest by matters, lines, pages, then
+ * newest. Then a matter's asks follow its first one, in that order; an ask with no matter keeps its place.
  */
 export const inboxOrderOf = <C extends Orderable>(list: C[]): C[] => {
   const sorted = list.toSorted(before);

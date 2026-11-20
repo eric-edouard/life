@@ -133,6 +133,42 @@ test("valid changes are written one entry at a time, commented lines kept, and c
   expect(log()).toContain(said);
 });
 
+// A project's status by his tap (20 Nov 2026): Parked, then Undo back to what it was; only its status line changes.
+test("a project's status edit rewrites its status line alone, and back again", async () => {
+  await changeDirectoryEntry({
+    action: "add",
+    area: "work",
+    kind: "project",
+    name: "Kiosk",
+    said,
+    status: "waiting",
+  });
+  writeFileSync(
+    join(TRUTH, "projects/kiosk.md"),
+    `${file("projects/kiosk.md")}\nNotes he wrote.\n`
+  );
+  const before = file("projects/kiosk.md");
+  const status = (to: "parked" | "waiting") =>
+    changeDirectoryEntry({
+      action: "edit",
+      id: "kiosk",
+      kind: "project",
+      said: "I dropped this whole project",
+      status: to,
+    });
+  expect(await status("parked")).toBe("Done: edit project kiosk.");
+  expect(file("projects/kiosk.md")).toBe(
+    before.replace("status: waiting", 'status: "parked"')
+  );
+  expect(
+    (await loadTruth()).projects.find((p) => p.id === "kiosk")?.status
+  ).toBe("parked");
+  await status("waiting");
+  expect(file("projects/kiosk.md")).toBe(
+    before.replace("status: waiting", 'status: "waiting"')
+  );
+});
+
 test("refused: a goal over two lines, a heading in the text, a name with no id", async () => {
   const before = file("me.md");
   const text = (t: string, kind: "goal" | "may_keep") =>
