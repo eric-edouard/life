@@ -13,6 +13,7 @@ import type { SourceEvent } from "../records/source";
 import { readPacket, register } from "./agent-actions";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
+import { on } from "./test-desk";
 
 // A project's agent is handed its people and chats as the directory holds them, and any agent its project's context. Made-up people, chats, projects and matters.
 
@@ -68,7 +69,10 @@ afterAll(() => {
 const packet = (p: string) =>
   readPacket(
     desk,
-    register(desk, { brief: "Test brief", project: p, runtime: "fake" }),
+    on(
+      desk,
+      register(desk, { brief: "Test brief", project: p, runtime: "fake" })
+    ),
     true
   );
 
@@ -91,6 +95,9 @@ test("a project with neither says what to do", async () => {
 test("an agent on a project's matter, and the project's agent, get the project's line, his notes clipped and its running matters; a project gone from his directory gives nothing", async () => {
   const matters = await import("../memory/matters");
   const items = await import("../memory/read-open-items");
+  const icons = await import("../memory/matter-icons");
+  // The desk's summaries never pick icons (the connector's reads do).
+  const iconReads = spyOn(icons, "readLifeIcons");
   const rank = spyOn(items, "rankContextOf").mockReturnValue({
     goals: [],
     levels: new Map(),
@@ -130,7 +137,10 @@ test("an agent on a project's matter, and the project's agent, get the project's
   const onMatter = (step: string) =>
     readPacket(
       desk,
-      register(desk, { brief: "Test brief", runtime: "fake", steps: [step] }),
+      on(
+        desk,
+        register(desk, { brief: "Test brief", runtime: "fake", steps: [step] })
+      ),
       true
     );
   try {
@@ -155,7 +165,9 @@ test("an agent on a project's matter, and the project's agent, get the project's
     );
     // A project no longer in his directory adds nothing.
     expect(await onMatter("obs_lost")).not.toContain("running matters");
+    expect(iconReads).not.toHaveBeenCalled();
   } finally {
+    iconReads.mockRestore();
     book.mockRestore();
     rank.mockRestore();
   }

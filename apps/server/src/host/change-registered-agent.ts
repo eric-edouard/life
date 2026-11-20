@@ -192,7 +192,7 @@ function startFailure(s: ReturnType<typeof readStartFacts>) {
   if (s.change?.error) {
     return s.change.error;
   }
-  return s.agent?.why_not_started ?? null;
+  return s.assignment?.why_not_started ?? null;
 }
 
 /** A start's answer from the facts read: `started`, `not_started` (refused, or its agent ended before it began) or `unconfirmed`. */

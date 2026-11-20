@@ -12,6 +12,7 @@ import {
   runtimeOf,
 } from "../host/desk-read";
 import { openChecksNow } from "../host/inbox";
+import { decisionsNow } from "../memory/decisions";
 import { isHeldOf } from "../memory/held-matters";
 import {
   type HandOutFacts,
@@ -20,7 +21,7 @@ import {
 } from "../memory/read-matters";
 import { loadTruth } from "../memory/read-truth";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
-import { endAgent, hasAsked } from "./agent-actions";
+import { closeAssignment, hasAsked } from "./agent-actions";
 import { start } from "./agent-changes";
 import { type Desk, saveCursor } from "./desk-store";
 import {
@@ -104,22 +105,24 @@ export async function handOutNext(
       steps: matter.steps.map((s) => s.ref),
     },
     HAND_OUT_BRIEF,
-    { kind: "handed_out" }
+    { openedBy: "desk" }
   );
   log("desk.hand_out", { matter: matter.id, ...started });
   return started.id;
 }
 
 /**
- * Ends each handed-out agent that asked no card within `CARD_WITHIN_MS` of its first turn's beginning (`isCardOverdue`),
- * the one way an agent is ended (`endAgent`): its matter stays held until it has a newer step (`isHeldOf`), so no try of its own is counted.
+ * Closes each assignment the desk opened that asked no card within `CARD_WITHIN_MS` of its first turn's beginning
+ * (`isCardOverdue`), by `closeAssignment`: its matter stays held until it has a newer step (`isHeldOf`), so no try of
+ * its own is counted.
  */
 export async function endAgentsWithoutCard(desk: Desk) {
   const now = clock().getTime();
-  for (const a of handedOutActive(desk.db)) {
-    if (isCardOverdue(a, hasAsked(a.id), now)) {
-      // biome-ignore lint/performance/noAwaitInLoops: one agent's decision withdrawn at a time
-      await endAgent(desk, a.id, NO_CARD_OUTCOME);
+  const decisions = decisionsNow();
+  for (const s of handedOutActive(desk.db)) {
+    if (isCardOverdue(s, hasAsked(s, decisions), now)) {
+      // biome-ignore lint/performance/noAwaitInLoops: one card withdrawn at a time
+      await closeAssignment(desk, s.id, NO_CARD_OUTCOME);
     }
   }
 }

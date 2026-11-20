@@ -346,6 +346,13 @@
             return "{}"
         }
 
+        func setMatterIcon(matter: String, icon: String?, onProgress: @escaping @Sendable (Data) -> Void)
+            async throws -> String
+        {
+            try await Task.sleep(for: .milliseconds(500))
+            return "{}"
+        }
+
         func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws
             -> String
         {

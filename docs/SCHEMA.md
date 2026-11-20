@@ -336,7 +336,8 @@ its steps only, never a status. What is open, a matter's status, newest open ste
 Life's drafts of the matters' directions (`memory/matter-directions.ts`, its only writer), one line per call,
 append-only: `directions` (each `goal`, one line: where the matter is going; `nextStep`, what moves it now: `kind`
 `do`, `wait_event` or `wait_owner`, `text`, one line, and `waitsOn`, what a wait waits on (since v2 `nextStep` is optional: a matter that looks over has none and gives `endingRecords` instead, at most 3 ids of later records, possibly none, which the links step then reaches; exactly one of the two); `laterShown` (since v2, optional: the ids of the later records the draft was shown, the newest 12; a line without it is a blind one); `steps`, the matter's step
-ids when drafted: the pin, never its id, so a re-group keeps it), `at`, `madeBy`, `schemaVersion`. A running matter is
+ids when drafted: the pin, so a re-group keeps it; `matter`, from 21 Nov 2026 optional, its id when drafted, which only breaks
+a tie between matters holding as many of its steps), `at`, `madeBy`, `schemaVersion`. A running matter is
 drafted when it has none, or once it has a step, or a step's ending, newer than its latest pin, or, when that is Life's, once when it has no `laterShown`, or in its first 7 days (`NEW_MATTER_DAYS`) when one of its newest 12 later records is not in `laterShown`
 (`isDirectionDue`), whatever the prompt version. Read with his `matter-direction` corrections into each matter's
 `goal` and `nextStep` (`directionsOf`, `memory/matter-read.ts`): a pin belongs to the matter holding the most of its
@@ -389,9 +390,10 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `not-worth-naming` | `nameOrHandle` | His "Don't name" on a name check: that name is never asked (`nameGroupsOf`); a later `this-is` still places it |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
 | `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's episodes are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). An episode filed under the wrong person needs `wrong` on its `ep_` too |
-| `matter-direction` | `steps` (all of a matter's step ids, as `read_matter` lists them), `goal` and/or `nextStep` (`kind`, `text`, `waitsOn`) | His goal or next step for the matter those steps find (`directionsOf`): his goal wins over every draft; his next step until Life drafts again, once the matter has a step newer than his word |
+| `matter-direction` | `steps` (all of a matter's step ids, as `read_matter` lists them), `matter` (its id, from 21 Nov 2026), `goal` and/or `nextStep` (`kind`, `text`, `waitsOn`) | His goal or next step for the matter those steps find (`directionsOf`): his goal wins over every draft; his next step until Life drafts again, once the matter has a step newer than his word |
 | `new-matter-dismissed` | `steps` (all of a matter's step ids when he answered) | His Dismiss on a new matter check: the matter those steps find (`matterFinderOf`, so a re-group keeps it) is never offered again |
-| `matter-important` | `steps` (all of a matter's step ids when he marked it), `important` (on or off) | His important mark on the matter those steps find (`importantIdsOf`; a re-group keeps it): the latest wins, read only while the matter is open; his token only, by the matter's id |
+| `matter-important` | `steps` (all of a matter's step ids when he marked it), `matter` (its id, from 21 Nov 2026), `important` (on or off) | His important mark on the matter those steps find (`importantIdsOf`; a re-group keeps it): the latest wins, read only while the matter is open; his token only, by the matter's id |
+| `matter-icon` | `steps` (all of a matter's step ids when he picked it), `matter` (its id), `icon` (a key of `MATTER_ICONS`, or null: Life picks again) | His icon for the matter those steps find (`chosenIconsOf`; a re-group keeps it): the latest wins; his token only, by the matter's id |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
@@ -658,10 +660,13 @@ full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict
 desk (`apps/server/src/desk/`: its helper, and `life desk report-line`; `desk-store.ts` holds its schema), read only
 through `host/desk-read.ts` (host's reads read-only): table `agent` (a registered agent: `agt_…`, its
 brief, runtime, folder (named at its start, else its matter's or project's repo on the Mac, from `repos:` in his directory, else its own `desk/agents/<agt_…>` under Life's state), `project` (its subject when a project), `model` and `effort` (null: the desk's default for its
-runtime), current session and link, `status` `active`, `stopped`, `handed_over` (a stopped agent whose project or matter an agent was started on after: `ended_at` set, `outcome` "replaced by <id>"), or `ended`; `stopped_at` (when he stopped it; null unless stopped), its agent
-wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an active agent with no
-`wait_until`), its notes; its open decision is read from `decisions.jsonl` by its id), `session` (every session it had, with its link and `context_at_first_call`, the context its first turn's usage reported; append-only), `event` (its
-queued events, one row per agent and event id, `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
-cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update), `anchor` (an agent's matter steps, in order), `agent_change` (each of his asks
+runtime), current session and link, `status` `active`, `stopped`, `handed_over` (a stopped agent whose project or matter an agent was started on after: `ended_at` set, `outcome` "replaced by <id>"), or `ended`; `stopped_at` (when he stopped it; null unless stopped), `name` (his name for it; null until set), `is_personal` (one Personal agent active or stopped at most), its end (`ended_at`, `outcome`: its last assignment's)), `assignment` (one subject given to an agent, `asg_…`:
+`agent_id`, `opened_at`, `opened_by` (`owner` or `desk`, the hand-out), `said` (his words, when he gave it), its agent
+wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an open assignment with no
+`wait_until`), `notes_path` (its notes file, in `desk.agentsRepo`, else under the desk's folders), `plan_done`,
+`plan_total`, `plan_now` (its runtime's plan, overwritten; null when none), `closed_at`, `outcome`, `why_not_started`;
+its open card is read from `decisions.jsonl`, `assignmentOfCard`), `session` (every session it had, with its link, `context_at_first_call`, the context its first turn's usage reported, and `rules_digest`; append-only), `event` (an assignment's
+queued events, one row per assignment and event id, `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn, on one assignment: its
+cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update), `anchor` (an assignment's matter steps, in order; none for an agent's own), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
 `cursor` (where the message, answer and ask reads stopped). Never deleted by hand.

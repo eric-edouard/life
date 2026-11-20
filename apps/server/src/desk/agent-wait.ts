@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { DAY, iso, MIN } from "../core/clock";
 import {
-  type AgentRow,
+  type AssignmentRow,
   type EventRow,
   filtersOf,
   type TurnRow,
@@ -65,14 +65,17 @@ export function waitOf(input: unknown, now: number) {
 export const eventLineOf = (e: Pick<EventRow, "name" | "payload">) =>
   `${e.name} ${e.payload}`;
 
-/** The default wait: the old filters, 24 hours, flagged. */
-export const defaultWaitOf = (a: AgentRow, now: number): AgentWait => ({
-  events: filtersOf(a),
+/** An assignment's default wait: its old filters, 24 hours, flagged. */
+export const defaultWaitOf = (
+  s: Pick<AssignmentRow, "wait_events">,
+  now: number
+): AgentWait => ({
+  events: filtersOf(s),
   reason: "default wait: the last turn ended with neither set_wait nor finish",
   until: iso(now + DEFAULT_WAIT),
 });
 
-/** How many desk turns failed in a row, last first: a failed turn and the retries after it (a new cause starts a new run). */
+/** How many of an assignment's desk turns failed in a row, last first: a failed turn and the retries after it (a new cause starts a new run). */
 export const failuresOf = (turns: TurnRow[]) => {
   let n = 0;
   for (const t of turns) {
@@ -95,11 +98,16 @@ export const isBeginLate = (t: TurnRow, now: number) =>
   !(t.begun_at || t.ended_at) && now - at(t.started_at) > BEGIN_WITHIN_MS;
 
 /**
- * When an agent's next turn is due and why, or null while a desk turn runs: a failed turn's retry; else the soonest of
- * his answer (at once, or, its retries spent, the last retry's gap after the last failure), another event (10 minutes
- * after its last turn) and its deadline.
+ * When an assignment's next turn is due and why, from its own turns and events, or null while its turn runs: a failed
+ * turn's retry; else the soonest of his answer (at once, or, its retries spent, the last retry's gap after the last
+ * failure), another event (10 minutes after its last turn) and its deadline. Whether its agent's session runs another
+ * turn is the clock's to check.
  */
-export function nextWakeOf(a: AgentRow, turns: TurnRow[], events: EventRow[]) {
+export function nextWakeOf(
+  s: Pick<AssignmentRow, "opened_at" | "wait_until">,
+  turns: TurnRow[],
+  events: EventRow[]
+) {
   const [last] = turns;
   if (last && !last.ended_at) {
     return null;
@@ -121,7 +129,7 @@ export function nextWakeOf(a: AgentRow, turns: TurnRow[], events: EventRow[]) {
         : 0;
     return { at: Math.max(at(answer.received_at), spent), cause: "answer" };
   }
-  const deadline = { at: at(a.wait_until ?? a.created_at), cause: "deadline" };
+  const deadline = { at: at(s.wait_until ?? s.opened_at), cause: "deadline" };
   const [first] = events;
   if (!first) {
     return deadline;

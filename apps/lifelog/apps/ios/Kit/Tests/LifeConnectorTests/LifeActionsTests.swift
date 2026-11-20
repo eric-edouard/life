@@ -34,6 +34,11 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     ) async throws -> String {
         "Done: memory."
     }
+    func setMatterIcon(matter: String, icon: String?, onProgress: @escaping @Sendable (Data) -> Void) async throws
+        -> String
+    {
+        "Done: memory."
+    }
     func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String {
         onProgress(Data(#"{"plan":["todo_items_ticked","recorded"],"limitSeconds":65}"#.utf8))
         return "Done: memory."

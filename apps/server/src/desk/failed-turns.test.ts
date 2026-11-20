@@ -1,6 +1,6 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../core/clock";
-import { agentOf } from "../host/desk-read";
+import { currentAssignmentOf } from "../host/desk-read";
 import { DECISION_ANSWERED } from "../host/events";
 import { wakeDue } from "./desk-clock";
 import { advance, setup } from "./test-desk";
@@ -33,7 +33,7 @@ test("W11: an event handed to every failing turn that began is dropped, flagged,
   const row = eventRow(id, "e1");
   expect(row?.handed).toBe(4);
   expect(row?.dropped_at).not.toBeNull();
-  expect(agentOf(desk.db, id)?.wait_is_default).toBe(1);
+  expect(currentAssignmentOf(desk.db, id)?.wait_is_default).toBe(1);
   advance(HOUR);
   await wakeDue(desk);
   expect(turns(id)).toHaveLength(5);
