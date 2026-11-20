@@ -266,18 +266,16 @@ const views = () =>
     )
   );
 const ask = (desk: ReturnType<typeof deskOf>, id: string) =>
-  withMatters(
-    views(),
-    () =>
-      askDecision(desk, byId(desk, id), {
-        deadline: iso(clock().getTime() + DAY),
-        options: [
-          { id: "yes", label: "Yes" },
-          { id: "no", label: "No" },
-        ],
-        question: "Test: send this?",
-        title: "a test",
-      })
+  withMatters(views(), () =>
+    askDecision(desk, byId(desk, id), {
+      deadline: iso(clock().getTime() + DAY),
+      options: [
+        { id: "yes", label: "Yes" },
+        { id: "no", label: "No" },
+      ],
+      question: "Test: send this?",
+      title: "a test",
+    })
   );
 const paced = (cardsWaiting: number) =>
   setSettings({

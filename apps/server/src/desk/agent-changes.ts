@@ -215,7 +215,9 @@ function apply(
     case "re_point":
       refused = refusal(["active", "stopped"]) ?? subjectRefusal(desk, c, id);
       if (!refused) {
-        writeSubject(desk, id, currentAssignmentOf(db, id)?.id ?? "", c);
+        // A project or the Personal agent is the agent's own subject: its matters' assignments keep their anchors.
+        const on = c.steps ? currentAssignmentOf(db, id)?.id : undefined;
+        writeSubject(desk, id, on ?? "", c);
         if (agentOf(db, id)?.status === "active") {
           due("its subject changed");
         }

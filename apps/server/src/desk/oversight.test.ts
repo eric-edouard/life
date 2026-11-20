@@ -34,16 +34,13 @@ import { deskCard } from "../host/status/desk-card";
 import { CORRECTIONS } from "../memory/memory-files";
 import { readPeople } from "../memory/who";
 import type { AgentChange } from "../records/registered-agent";
-import { readPacket } from "./agent-actions";
+import { readPacket, register } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
-import {
-  type Desk,
-  openDesk,
-  postReportLine,
-  saveCursor,
-} from "./desk-store";
+import { readPeopleOnce } from "./desk-clock";
+import { type Desk, openDesk, postReportLine, saveCursor } from "./desk-store";
+import { foldAssignments } from "./matter-net";
 import { fakeRuntime } from "./runtimes/fake-runtime";
-import { matterView, on, withMatters } from "./test-desk";
+import { matterView, on, toDo, withBook, withMatters } from "./test-desk";
 import { ticking } from "./test-ticker";
 
 // Oversight (the desk spec, step 4): his word about his agents applied by the desk, and what host reads of them, from
@@ -456,7 +453,20 @@ test("change_registered_agent records his word and answers with what the desk di
       id: "matter_00000000a002",
       name: "Test repair",
       status: "moving",
-      steps: [{ at: "2026-11-17T01:00:00Z", kind: "to_do", ref: "obs_00000000a201", text: "Test step" }, { at: "2026-11-17T01:00:00Z", kind: "to_do", ref: "obs_00000000a202", text: "Test step" }],
+      steps: [
+        {
+          at: "2026-11-17T01:00:00Z",
+          kind: "to_do",
+          ref: "obs_00000000a201",
+          text: "Test step",
+        },
+        {
+          at: "2026-11-17T01:00:00Z",
+          kind: "to_do",
+          ref: "obs_00000000a202",
+          text: "Test step",
+        },
+      ],
     },
     {
       ...NO_ONE,
@@ -464,7 +474,14 @@ test("change_registered_agent records his word and answers with what the desk di
       name: "Test shop sign",
       projects: ["test-shop"],
       status: "moving",
-      steps: [{ at: "2026-11-17T01:00:00Z", kind: "to_do", ref: "obs_00000000a301", text: "Test step" }],
+      steps: [
+        {
+          at: "2026-11-17T01:00:00Z",
+          kind: "to_do",
+          ref: "obs_00000000a301",
+          text: "Test step",
+        },
+      ],
     },
   ] as never);
   const readTruth = await import("../memory/read-truth");
@@ -647,4 +664,59 @@ test("its store unreadable, the reads say so and the report still has its sectio
     tone: "bad",
     word: "unreadable",
   });
+});
+
+// His word of 21 Nov 2026: an agent he started himself becomes the Personal agent through his word, never an edit of the store.
+test("re_point with personal marks an existing agent as the Personal agent, a second refused; the fold then gives it the matters of no project", async () => {
+  desk.embedder = null;
+  // This file's Personal agent is ended for the test, so none holds the role.
+  desk.db.run("update agent set status = 'ended' where id = ?", [personal]);
+  const step = "obs_00000000a3c1";
+  try {
+    await withBook(
+      [toDo(step, "I'll call the tuner")],
+      { id: "matter_00000000a3c1", steps: [step] },
+      async () => {
+        const mine = await startedOn({ project: "test-mine" });
+        const old = register(desk, {
+          brief: "Test brief: the tuner",
+          runtime: "claude",
+          steps: [step],
+        });
+        await foldAssignments(desk, readPeopleOnce());
+        const holderOf = () =>
+          desk.db
+            .query<{ agent_id: string }, [string]>(
+              "select s.agent_id from assignment s join anchor n on n.assignment_id = s.id where n.step = ?"
+            )
+            .get(step)?.agent_id;
+        // No Personal agent yet: nothing takes the matter.
+        expect(holderOf()).toBe(old);
+        expect(
+          (await applied({ action: "re_point", agent: mine, personal: true }))
+            ?.error
+        ).toBeNull();
+        expect(agentOf(desk.db, mine)).toMatchObject({
+          is_personal: 1,
+          project: null,
+          status: "active",
+        });
+        const other = await startedOn({ project: "test-other-mine" });
+        expect(
+          (await applied({ action: "re_point", agent: other, personal: true }))
+            ?.error
+        ).toBe(`the Personal agent is ${mine} (active)`);
+        await foldAssignments(desk, readPeopleOnce());
+        expect(holderOf()).toBe(mine);
+        expect(agentOf(desk.db, old)).toMatchObject({
+          outcome: `folded into the ${mine} agent`,
+          status: "ended",
+        });
+        desk.db.run("update agent set status = 'ended' where id = ?", [mine]);
+      }
+    );
+  } finally {
+    desk.db.run("update agent set status = 'active' where id = ?", [personal]);
+    desk.embedder = undefined;
+  }
 });
