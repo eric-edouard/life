@@ -29,7 +29,7 @@ test("a line is LogTape's: time, level, category and template first, then its fi
     category: ["life", "desk", "runtime"],
     kind: "desk.runtime",
     level: "info",
-    msg: "desk runtime what {what}",
+    msg: "desk runtime {what}",
     nested: { count: 2 },
   });
   expect(JSON.stringify(line)).not.toContain("Ana");
@@ -45,7 +45,7 @@ test("a run's line is under its step; an error makes it an error, a refusal a wa
   log("run.end", { ms: 3, step: "persona" });
   expect(lastLine()).toMatchObject({
     category: ["life", "memory", "persona"],
-    msg: "run end ms {ms}",
+    msg: "run end in {ms}",
   });
   log("mcp.call", { refused: "not_done", tool: "read_day" });
   expect(lastLine()).toMatchObject({
