@@ -440,6 +440,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
       nameOf: (r: string) => r.replace("person:", ""),
       truth: {
         areas: [],
+        me: { goals: "1. The shop opens in spring (`shop-fit-out`)." },
         projects: [
           { id: "shop-fit-out", name: "Shop fit-out", status: "active" },
         ],
@@ -547,6 +548,10 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
       shown.find((c) => c.kind === "decision" && c.draft)?.networkIdentity
     ).toMatchObject({ network: "WhatsApp", newest: null, shownName: "Kit" });
     expectWire("read_matters", await read("read_matters"));
+    expectWire(
+      "read_matters_project",
+      await read("read_matters", { project: "shop-fit-out" })
+    );
     expectWire(
       "read_matter",
       await read("read_matter", { id: "matter_aaaaaaaaaaaa" })

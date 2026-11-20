@@ -299,11 +299,13 @@ export function buildServer(readsOnly = false) {
       project: z.string().optional().describe("Project id or name"),
     }),
     async (q) => {
-      const [{ matters }, open] = await Promise.all([
+      const [{ matters, project }, open] = await Promise.all([
         openMatters(q, readActiveAgentOf()),
         openChecksNow(),
       ]);
       return {
+        // Of one project, its page's head (`openMatters`).
+        project,
         matters: matters.map((m) => {
           const blockingChecks = blockingCountOf(checksOnMatterOf(open, m.id));
           return {
