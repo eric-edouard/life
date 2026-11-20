@@ -125,11 +125,11 @@ function writeIndex(
       outcome.get(frame.name) ?? `not mapped${why ? `: ${why}` : ""}`;
     const app =
       result === "shot"
-        ? `<img src="${frame.name}.app.png">`
+        ? `<a href="${frame.name}.app.png"><img src="${frame.name}.app.png"></a>`
         : `<p class="missing">${escaped(result)}</p>`;
     return `<section><h2>${escaped(frame.name)} <small>${escaped(frame.title)}</small></h2>
 <p>${escaped(`${frame.pose} ${frame.size.join("x")}`)}${frame.state ? ` · ${escaped(stateWords(frame.state))}` : ""}</p>
-<div><figure><img src="file://${join(design, frame.png)}"><figcaption>Design</figcaption></figure>
+<div><figure><a href="file://${join(design, frame.png)}"><img src="file://${join(design, frame.png)}"></a><figcaption>Design</figcaption></figure>
 <figure>${app}<figcaption>App</figcaption></figure></div></section>`;
   });
   writeFileSync(
