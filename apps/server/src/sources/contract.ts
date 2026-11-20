@@ -95,7 +95,7 @@ export type Descriptor = {
   group?: (chat: string) => boolean;
   /** The handle a 1:1 chat's key holds (who wrote a fact that predates `speakerFrom`). */
   handleOf?: (key: string) => string | undefined;
-  /** The network's own link that opens a 1:1 chat with a handle (WhatsApp's `wa.me`); none for a handle it can't open, or a network without one. */
+  /** The network's own link that opens a 1:1 chat with a handle (WhatsApp's `wa.me`, Messages' `sms:`, Telegram's `t.me`, Mail's `mailto:`); none for a handle it can't open, or a network without one. */
   chatLinkOf?: (handle: string) => string | undefined;
   /**
    * For a chat or mail source with an ordered store: the messages its store first wrote from row `from` on (none

@@ -39,7 +39,7 @@ export interface DetailLine {
 /**
  * Someone's details, in page order (birthday, home, work, family, handles), each kind from his directory first, then his
  * Contacts. One birthday: his directory's, else the first in Contacts. A Contacts address labelled Work is not a home. A line
- * two Contacts cards repeat shows once; a handle shows once, however it is written.
+ * two Contacts cards repeat shows once; each handle is a line of its own, once however it is written.
  */
 export function detailsOf({
   contacts,
@@ -88,15 +88,15 @@ export function detailsOf({
       "family",
       contacts.flatMap((c) => c.related)
     ),
-    ...line("truth", "handles", [mapped.join(", ")]),
-    ...line("contacts", "handles", [
-      contacts
-        .flatMap((c) => [
-          ...c.handles.filter((h) => isNew(phoneOrEmailKeyOf(h))),
-          ...c.profiles.filter(isNew),
-        ])
-        .join(", "),
-    ]),
+    ...line("truth", "handles", mapped),
+    ...line(
+      "contacts",
+      "handles",
+      contacts.flatMap((c) => [
+        ...c.handles.filter((h) => isNew(phoneOrEmailKeyOf(h))),
+        ...c.profiles.filter(isNew),
+      ])
+    ),
   ];
   const born = lines.find((l) => l.kind === "birthday");
   return lines.filter(

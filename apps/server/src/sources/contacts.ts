@@ -73,6 +73,8 @@ export interface Contact {
   birthday: string | null;
   /** Its phone numbers and emails, as written. */
   handles: string[];
+  /** The label Contacts gives each phone or email that has one ("Mobile", "Work"), by the handle as written. */
+  labels: Record<string, string>;
   /** The card's own id, which Photos' People link to (`ZUNIQUEID`). */
   id: string;
   /** The person's name, else the company's. */
@@ -141,10 +143,22 @@ const linesBy = (db: Database, sql: string) =>
 function readFrom(file: string): Contact[] {
   const db = openReadOnly(file);
   try {
-    const handles = linesBy(
-      db,
-      `select ZOWNER as owner, ZFULLNUMBER as line from ZABCDPHONENUMBER
-       union all select ZOWNER, ZADDRESS from ZABCDEMAILADDRESS`
+    const handles = Map.groupBy(
+      db
+        .query<
+          { label: string | null; line: string | null; owner: number },
+          []
+        >(
+          `select ZOWNER as owner, ZFULLNUMBER as line, ZLABEL as label from ZABCDPHONENUMBER
+           union all select ZOWNER, ZADDRESS, ZLABEL from ZABCDEMAILADDRESS`
+        )
+        .all()
+        .flatMap((r) =>
+          r.line
+            ? [{ ...r, line: r.line.replace(DIRECTION_MARKS, "").trim() }]
+            : []
+        ),
+      (r) => r.owner
     );
     const addresses = db
       .query<
@@ -182,9 +196,7 @@ function readFrom(file: string): Contact[] {
       )
       .all();
     return records.flatMap((r) => {
-      const own = (handles.get(r.id) ?? []).map((h) =>
-        (h.line as string).replace(DIRECTION_MARKS, "").trim()
-      );
+      const own = handles.get(r.id) ?? [];
       if (own.length === 0) {
         return [];
       }
@@ -201,8 +213,14 @@ function readFrom(file: string): Contact[] {
             return line ? [label ? `${line} (${label})` : line] : [];
           }),
           birthday: birthdayOf(r.birthday, r.year),
-          handles: own,
+          handles: own.map((h) => h.line),
           id: r.uid,
+          labels: Object.fromEntries(
+            own.flatMap((h) => {
+              const label = labelOf(h.label);
+              return label ? [[h.line, label]] : [];
+            })
+          ),
           name: person ?? r.company,
           profiles: (profiles.get(r.id) ?? []).flatMap((p) =>
             SITE_ONLY.test(p.line as string) ? [] : [p.line as string]

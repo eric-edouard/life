@@ -82,6 +82,11 @@ export const isImessageGroup = (chat: string) => chat.startsWith("chat");
 const HANDLE = /^(\+\d+|[^@\s]+@[^@\s]+)$/;
 /** The handle a 1:1 chat's key is (a number or an address). */
 export const handleOf = (key: string) => (HANDLE.test(key) ? key : undefined);
+/** Messages' own link to a 1:1 chat with a number or an address, `sms:<handle>`; none for anything else. */
+export const imessageLinkOf = (handle: string) => {
+  const h = handle.replace(/[\s().-]/g, "");
+  return HANDLE.test(h) || /^\d{7,}$/.test(h) ? `sms:${h}` : undefined;
+};
 
 /** `names`: his Contacts, which name a 1:1 chat that has no name of its own (Messages keeps only the number). */
 export function readImessage(

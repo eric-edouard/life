@@ -72,6 +72,11 @@ export const NETWORKS = [
       paths: ["network.api_id", "network.api_hash"],
       secret: ["network.api_hash"],
     },
+    // A username opens its chat; a numeric id opens nothing.
+    chatLinkOf: (handle: string) =>
+      /^@?[A-Za-z]\w{3,31}$/.test(handle)
+        ? `https://t.me/${handle.replace("@", "")}`
+        : undefined,
     cmd: "cmd/mautrix-telegram",
     label: "Telegram",
     name: "telegram",
@@ -100,5 +105,6 @@ export type Network = (typeof NETWORKS)[number] & {
     secret: readonly string[];
   };
   callOf?: (text: string) => CallNotice | undefined;
+  chatLinkOf?: (handle: string) => string | undefined;
   readByItsApp?: true;
 };

@@ -67,7 +67,7 @@ test("a WhatsApp chat gives its network, phone, shown name, newest message on on
   });
 });
 
-test("a network without a link of its own gives null, and a long message is cut to one line", () => {
+test("Messages opens a 1:1 chat by sms:, and a long message is cut to one line", () => {
   const chat = "+33600000002";
   const long = "word ".repeat(60);
   const identity = networkIdentityOf(
@@ -87,7 +87,7 @@ test("a network without a link of its own gives null, and a long message is cut 
   expect(identity).toMatchObject({
     handle: chat,
     network: "iMessage",
-    openUrl: null,
+    openUrl: "sms:+33600000002",
     // A chat-day titled by its key shows no name.
     shownName: null,
   });
