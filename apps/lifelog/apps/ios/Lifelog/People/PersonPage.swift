@@ -22,7 +22,7 @@ struct PersonPage: View {
         )
         .background(Palette.bg)
         .shellBar("", hasSettings: hasSettings)
-        .task { await life.refreshPerson(ref) }
+        .task(id: life.parties.generation.current) { await life.refreshPerson(ref) }
         .task(id: state.value?.moreReach) {
             if let first = state.value?.moreReach { await life.refreshReach(from: first) }
         }
@@ -324,7 +324,7 @@ private struct Latest: View {
                 .appears()
             }
         }
-        .task { await life.refreshLatest(ref) }
+        .task(id: life.parties.generation.current) { await life.refreshLatest(ref) }
     }
 }
 
