@@ -539,7 +539,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   the to-do item's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
   `lost` (gone from the owner's lists and not in Recently Deleted: purged, or on a shared list) and, in `before`, the old
   `id` of a to-do item whose move gave it a new one. An ask's
-  `after`: `agent` (the agent it is for, a key of the `agents` setting, or `desk`, the built-in agent his word about a registered agent goes to, with `agentChange`: the change `change_registered_agent` names, `AgentChange`), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
+  `after`: `agent` (the agent it is for, a key of the `agents` setting, or `desk`, the built-in agent his word about a registered agent goes to, with `agentChange`: the change `change_registered_agent` names, `AgentChange`; or his complaint, with `complaint`: `{ref, cause, shown, card, isAsShown, report}`, `Complaint`, its `instruction.ref` `complaint:<his press's key>`), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
   event carries only that); on an ask the agent recorded before 2 Nov 2026, `title` and, for a split, `parent` (the ask it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (the owner's last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
@@ -549,10 +549,18 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   write, with the same `id` as the outcome line after it: a value it tried is Life's, never the owner's). `via`: `session`
   (a Claude session), `connector` (the agent's chats, updates and replies, until 2 Nov 2026), `watch` (the watcher: a `hey <agent>` heard; a
   nudge or a steer until 20 Oct) or `todo_list` (the owner's own change in his to-do list, with no `instruction`: state, never the owner's
-  words). Intents and imports are left out
-  of `read_day`'s and the nightly's Actions and of the change feed.
+  words). Intents, imports and his complaints are left out
+  of `read_day`'s and the nightly's Actions and of the change feed (`isListed`, `isComplaint`).
 - Lines from before 19 Oct also have `kind` `instinct` (an email, `target` `mailto:<address>`), `timing` with `heard`,
   `modelMs` and `actMs`, and a model as `via`; they still parse.
+
+## complaints.jsonl
+
+The complaint record: one row per complaint (his "Wrong…", an ask in `ledger.jsonl`), appended only by `recordComplaints`
+(`memory/complaints.ts`) after its ask, in ledger order: `{schemaVersion: 1, ask, at, kind, stage, prompt}`. `kind`: the
+card's group, `unknown` when it had left; `stage` the step that makes that kind of card (`links`, `episodes`, `names`,
+`contacts`, `matters`, `voice naming`, else `unknown`) and `prompt` its prompt version then (null when none). No words,
+no card. A torn last line is dropped before the next append; a bad earlier line stops it.
 
 ## fact-checks.jsonl
 
@@ -662,13 +670,13 @@ episodes' day files (`readEpisodesWith`, `memory/person-episodes.ts`). Delete it
 desk (`apps/server/src/desk/`: its helper, and `life desk report-line`; `desk-store.ts` holds its schema), read only
 through `host/desk-read.ts` (host's reads read-only): table `agent` (a registered agent: `agt_…`, its
 brief, runtime, folder (named at its start, else its matter's or project's repo on the Mac, from `repos:` in his directory, else its own `desk/agents/<agt_…>` under Life's state), `project` (its subject when a project), `model` and `effort` (null: the desk's default for its
-runtime), current session and link, `status` `active`, `stopped`, `handed_over` (a stopped agent whose project or matter an agent was started on after: `ended_at` set, `outcome` "replaced by <id>"), or `ended`; `stopped_at` (when he stopped it; null unless stopped), `name` (his name for it; null until set), `is_personal` (one Personal agent active or stopped at most), its end (`ended_at`, `outcome`: its last assignment's)), `assignment` (one subject given to an agent, `asg_…`:
+runtime), current session and link, `status` `active`, `stopped`, `handed_over` (a stopped agent whose project or matter an agent was started on after: `ended_at` set, `outcome` "replaced by <id>"), or `ended`; `stopped_at` (when he stopped it; null unless stopped), `name` (his name for it; null until set), `role` (`personal` or `caretaker`, one active or stopped at most of each; null for every other agent; the Personal flag `is_personal` until `stepRoles`), its end (`ended_at`, `outcome`: its last assignment's)), `assignment` (one subject given to an agent, `asg_…`:
 `agent_id`, `opened_at`, `opened_by` (`owner` or `desk`, the hand-out), `said` (his words, when he gave it), its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an open assignment with no
 `wait_until`), `notes_path` (its notes file, in `desk.agentsRepo`, else under the desk's folders), `plan_done`,
 `plan_total`, `plan_now` (its runtime's plan, overwritten; null when none), `closed_at`, `outcome`, `why_not_started`;
 its cards are `card`'s), `session` (every session it had, with its link, `context_at_first_call`, the context its first turn's usage reported, and `rules_digest`; append-only), `event` (an assignment's
-queued events, one row per assignment and event id, an event id queued once per agent (`queue`), `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn, on one assignment: its
+queued events, one row per assignment and event id, an event id queued once per agent (`queue`), `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn`, `complaint.received` (his complaint for the caretaker, its ask's id as `event_id` and `{ask}` as payload: the complaint's receipt) or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn, on one assignment: its
 cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update), `anchor` (an assignment's matter steps, in order, and its cards' subjects; none for an agent's own), `card` (which assignment asked each card, `decision_id`, `assignment_id`: written once, just before the card is written (dropped when it is not), `assignmentOfCard`; a card asked before has none and is its asker's one assignment then), `handed_step` (the matter steps an assignment was shown by a turn that ended unfailed, `keepHanded`: what its next record leaves out; emptied on a re-point), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
-`cursor` (where the message, answer and ask reads stopped). Never deleted by hand.
+`cursor` (where the message, answer, ask and complaint reads stopped; `complaints`: a count of ledger lines). Never deleted by hand.

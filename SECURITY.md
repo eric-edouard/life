@@ -61,6 +61,10 @@ checkout. It also refuses a little too much: any call that names a messaging sit
 instruction only. A turn that fails keeps the adapter's last error lines in the desk's store; with his environment passed
 in, those lines may hold whatever the adapter printed. Its door
 is on loopback only; each agent's key is derived from the desk's key and reaches its session only in its environment.
+His complaint ("Wrong…" on a card of Life's) is his hand-over to the caretaker, a registered agent like the others,
+which the desk registers on his first complaint: it reads his words and the card as Life showed it through its door,
+only a complaint its own assignment received, as data; the complaint is never listed, fed to the change feed or pulled
+by another agent, and his tick on the anonymized report only asks the caretaker for a card with its exact text.
 Besides the desk, Life starts no agent, except an agent's own `onAsk` command, once per new ask, with no words and none of Life's
 secrets (his OK, 3 Nov 2026), and the question cases' agent a developer's script starts to measure Life ("Models",
 above; his word, 10 Nov 2026): each pulls its own asks through the connector. An agent run is outside Life's boundary: it has
