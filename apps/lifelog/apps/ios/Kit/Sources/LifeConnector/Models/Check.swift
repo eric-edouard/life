@@ -307,6 +307,12 @@ extension Check {
     /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their
     /// options (a new matter's goal comes through its option that takes a note).
     public var takesOwnWords: Bool { group == .decision }
+    /// Whether `request` leaves this card open: a new matter's goal, edited (Life saves it; Start or Dismiss still wait).
+    /// Another kind's option of the same id closes it like any answer.
+    public func keepsOpen(after request: AnswerRequest) -> Bool {
+        group == .newMatter && request.options == ["edit-goal"]
+    }
+
     /// Whether `request` is his word that the step or matter is done: one option that `ends`, alone, with no words.
     public func isEnding(_ request: AnswerRequest) -> Bool {
         guard request.note == nil, request.options.count == 1 else { return false }

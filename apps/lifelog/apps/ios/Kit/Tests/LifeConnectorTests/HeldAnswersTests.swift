@@ -63,3 +63,19 @@ import Testing
     await all.value
     #expect(holds.held.isEmpty && sending == ["c1"])
 }
+
+/// Two flushes of the same held answer (its timer's and the background's) share its one release: each waits for the send.
+@MainActor @Test func everyFlushWaitsForTheOneRealSend() async {
+    var sent = 0
+    let holds = HeldAnswers(delay: .seconds(60)) { _ in
+        try? await Task.sleep(for: .milliseconds(30))
+        sent += 1
+    }
+    holds.hold(AnswerRequest(ref: "c1", options: ["yes"]), as: "Yes")
+    let first = Task { await holds.sendAll() }
+    let second = Task { await holds.sendAll() }
+    await second.value
+    #expect(sent == 1)
+    await first.value
+    #expect(sent == 1 && holds.held.isEmpty)
+}

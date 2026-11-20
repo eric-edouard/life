@@ -41,7 +41,7 @@ struct MattersScreen: View {
                             switch route {
                             case .card(let ref):
                                 CardPage(
-                                    ref: ref, source: life.matter[id]?.value?.checks ?? [], notes: $notes,
+                                    ref: ref, source: life.asks(ofMatter: id), notes: $notes,
                                     leave: { router.matterPath = [] })
                             case .project(let project): ProjectPage(id: project)
                             }

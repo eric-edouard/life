@@ -84,7 +84,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         capture.notifier.answer = { [weak self] check, request in
             let taken = Taken(check: check, request: request, nextRef: nil, runtimeName: nil)
             guard let life = self?.life else { return taken.result(.idle) }
-            await life.answer(request)
+            await life.answer(request, keepsCardOpen: check.keepsOpen(after: request))
             return taken.result(life.state(of: taken.key))
         }
         let sync = sync

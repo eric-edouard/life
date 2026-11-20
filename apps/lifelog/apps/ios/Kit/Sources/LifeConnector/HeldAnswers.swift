@@ -16,6 +16,8 @@ public final class HeldAnswers {
     public var latest: String? { order.last }
     @ObservationIgnored private var order: [String] = []
     @ObservationIgnored private var timers: [String: Task<Void, Never>] = [:]
+    /// Each held answer's one release, from its timer or a flush, until its send ended: a second asks for the same.
+    @ObservationIgnored private var releases: [String: Task<Void, Never>] = [:]
     @ObservationIgnored private let delay: Duration
     @ObservationIgnored private let send: @MainActor (AnswerRequest) async -> Void
 
@@ -56,11 +58,15 @@ public final class HeldAnswers {
     /// still undoes it.
     @discardableResult private func release(_ ref: String) -> Task<Void, Never>? {
         timers.removeValue(forKey: ref)?.cancel()
+        if let going = releases[ref] { return going }
         guard held[ref] != nil else { return nil }
-        return Task {
+        let going = Task {
+            defer { releases[ref] = nil }
             guard let sent = held.removeValue(forKey: ref) else { return }
             order.removeAll { $0 == ref }
             await send(sent.request)
         }
+        releases[ref] = going
+        return going
     }
 }

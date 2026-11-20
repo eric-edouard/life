@@ -35,5 +35,15 @@ public struct ReadCache: Sendable {
         return (String(decoding: data, as: UTF8.self), at)
     }
 
+    /// When the oldest read kept was asked, `except` one key (a file that is not a read); nil when none is kept.
+    public func oldest(except key: String) -> Date? {
+        let files =
+            (try? FileManager.default.contentsOfDirectory(
+                at: directory, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        return files.filter { $0.lastPathComponent != file(key).lastPathComponent }.compactMap {
+            try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        }.min()
+    }
+
     public func clear() { try? FileManager.default.removeItem(at: directory) }
 }

@@ -3,21 +3,31 @@ import Foundation
 /// The cards his answers took out, with when Life confirmed each. A read asked before an answer was confirmed may still
 /// list its card, however late it lands: every screen leaves such a card out of it (`newer(than:)`). A read asked after
 /// wins, even one that still lists the card (Life keeps it open). Kept with the reads (`ReadCache`), so a cold start from
-/// a cached read leaves it out too.
+/// a cached read leaves it out too. One pairing's: an answer begun under another adds nothing.
 public struct AnsweredCards: Codable, Sendable, Equatable {
     private var confirmed: [String: Date] = [:]
+    /// The pairing these answers were given under: new with each.
+    public private(set) var pairing = UUID()
 
     public init() {}
 
-    public mutating func answered(_ ref: String, at time: Date) { confirmed[ref] = time }
+    /// His answer confirmed at `time`, if it was begun under this pairing (`pairing`, read when it began).
+    @discardableResult public mutating func answered(_ ref: String, at time: Date, pairing: UUID) -> Bool {
+        guard pairing == self.pairing else { return false }
+        confirmed[ref] = time
+        return true
+    }
 
     /// The cards answered after a read was asked (`asked`, nil for none read yet): that read may still list them.
     public func newer(than asked: Date?) -> Set<String> {
         Set(confirmed.filter { $0.value > asked ?? .distantPast }.keys)
     }
 
-    /// Forgets the answers no read held is older than (`asked`, the oldest of them): no screen can show their cards.
-    public mutating func forget(confirmedBy asked: Date) { confirmed = confirmed.filter { $0.value > asked } }
+    /// Forgets the answers every read the phone could still show was asked after (`asked`, the oldest kept read; nil:
+    /// none is kept). Done at launch, when no read is under way.
+    public mutating func forget(confirmedBy asked: Date?) {
+        confirmed = confirmed.filter { $0.value > asked ?? .distantFuture }
+    }
 }
 
 extension Inbox {

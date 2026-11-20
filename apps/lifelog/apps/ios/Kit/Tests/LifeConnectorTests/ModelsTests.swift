@@ -469,7 +469,7 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
 @Test func anAnswerConfirmedAfterAReadWasAskedStaysOutOfIt() throws {
     let asked = Date(timeIntervalSince1970: 100)
     var answered = AnsweredCards()
-    answered.answered("b1", at: asked.addingTimeInterval(1))
+    answered.answered("b1", at: asked.addingTimeInterval(1), pairing: answered.pairing)
     let read = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves)])
     let shown = read.without(answered.newer(than: asked))
     #expect(shown.checks.map(\.ref) == ["b2", "i1"])
@@ -477,11 +477,55 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(answered.newer(than: asked.addingTimeInterval(2)).isEmpty)
     // Nothing read yet (a cold start with no cache): it stays out too.
     #expect(answered.newer(than: nil) == ["b1"])
-    // Kept for a cold start, then forgotten once every read held was asked after it.
+    // Kept for a cold start.
     let kept = try JSONDecoder().decode(AnsweredCards.self, from: JSONEncoder().encode(answered))
     #expect(kept == answered)
-    answered.forget(confirmedBy: asked.addingTimeInterval(2))
+}
+
+/// After a restart, a matter read kept from before an answer can still be opened offline: the answer is kept until
+/// every kept read was asked after it, and only then forgotten (at launch, when no read is under way).
+@Test func anAnswerIsKeptWhileAnOlderKeptReadCanStillShowItsCard() throws {
+    let at = { Date(timeIntervalSince1970: $0) }
+    let cache = ReadCache(directory: FileManager.default.temporaryDirectory.appending(path: "reads-\(UUID())"))
+    defer { cache.clear() }
+    var answered = AnsweredCards()
+    answered.answered("a", at: at(10), pairing: answered.pairing)
+    cache.store("{}", key: "read_matter-m1", asked: at(5))
+    cache.store("{}", key: "read_inbox", asked: at(20))
+    cache.store("{}", key: "answered_cards", asked: at(30))
+    // He answers B after a restart: A stays, the matter read kept from before it can still show A.
+    answered.forget(confirmedBy: cache.oldest(except: "answered_cards"))
+    answered.answered("b", at: at(40), pairing: answered.pairing)
+    #expect(answered.newer(than: at(5)) == ["a", "b"])
+    // Once every kept read was asked after both, they go; with none kept, all go.
+    cache.store("{}", key: "read_matter-m1", asked: at(50))
+    cache.store("{}", key: "read_inbox", asked: at(50))
+    answered.forget(confirmedBy: cache.oldest(except: "answered_cards"))
     #expect(answered.newer(than: nil).isEmpty)
+    answered.answered("c", at: at(60), pairing: answered.pairing)
+    cache.clear()
+    answered.forget(confirmedBy: cache.oldest(except: "answered_cards"))
+    #expect(answered.newer(than: nil).isEmpty)
+}
+
+/// An answer begun under one pairing that Life confirms after a new pairing adds nothing to the new one.
+@Test func anAnswerBegunBeforeARepairingAddsNothingAfterIt() {
+    let old = AnsweredCards()
+    var new = AnsweredCards()
+    let late = new.answered("a", at: Date(), pairing: old.pairing)
+    #expect(!late && new.newer(than: nil).isEmpty)
+    let current = new.answered("b", at: Date(), pairing: new.pairing)
+    #expect(current && new.newer(than: nil) == ["b"])
+}
+
+/// Only a new matter's `edit-goal` keeps its card open; another kind's option of that id closes it.
+@Test func onlyANewMattersGoalEditKeepsItsCardOpen() throws {
+    let all = try everyKindOfCheck()
+    let newMatter = try #require(all.first { $0.group == .newMatter })
+    let decision = try #require(all.first { $0.group == .decision })
+    #expect(newMatter.keepsOpen(after: AnswerRequest(ref: newMatter.ref, options: ["edit-goal"], note: "A goal")))
+    #expect(!decision.keepsOpen(after: AnswerRequest(ref: decision.ref, options: ["edit-goal"])))
+    #expect(!newMatter.keepsOpen(after: AnswerRequest(ref: newMatter.ref, options: ["start"])))
 }
 
 @Test func anInboxLessItsAnsweredCardsLowersOnlyWhatTheyCounted() throws {

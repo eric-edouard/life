@@ -47,7 +47,7 @@ struct MatterPage: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(matter)
-                asks(unanswered(matter))
+                asks(life.asks(ofMatter: id))
                 if let agent {
                     AgentRow(agent: agent) { router.matterSheet = .agent(id) }
                 }
@@ -79,12 +79,6 @@ struct MatterPage: View {
             .padding(.top, Metrics.Spacing.m).frame(maxWidth: .infinity)
             .background(Palette.bg.ignoresSafeArea(edges: .bottom))
         }
-    }
-
-    /// Its asks less those his answers took out since it was read: the Inbox's rule (`answersNewer`).
-    private func unanswered(_ matter: Matter) -> [Check] {
-        let answered = life.answersNewer(than: life.matter[id]?.loadedAt)
-        return matter.checks.filter { !answered.contains($0.ref) }
     }
 
     /// What waits on him here, under the name: each ask of this matter as a row that opens it; nothing when none waits.
@@ -120,7 +114,7 @@ struct MatterPage: View {
         return VStack(alignment: .leading, spacing: 8) {
             Text(row.name).font(.screenName).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader).stepsAsideForToast()
-            if !unanswered(matter).isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
+            if !life.asks(ofMatter: id).isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
             HStack(spacing: 0) {
                 Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small).foregroundStyle(
                     Palette.muted)

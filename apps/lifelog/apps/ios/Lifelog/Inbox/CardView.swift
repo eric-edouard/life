@@ -75,7 +75,8 @@ struct CardView: View {
             bar: result.map { taken in
                 ResultButtons(
                     taken: taken, state: life.state(of: taken.key),
-                    retry: { Task { await life.answer(taken.request) } }, keepForLater: { leave(taken, true) })
+                    retry: { Task { await life.answer(taken.request, keepsCardOpen: taken.staysOpen) } },
+                    keepForLater: { leave(taken, true) })
             }
         ) {
             if let taken = result {
@@ -226,7 +227,7 @@ struct CardView: View {
             leave(taken, false)
         } else {
             notes.taken = taken
-            Task { await life.answer(request) }
+            Task { await life.answer(request, keepsCardOpen: taken.staysOpen) }
         }
     }
 }
