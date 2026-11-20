@@ -201,7 +201,11 @@ test("a message from before an assignment was opened wakes it neither by its wai
   writeWait(
     desk.db,
     later,
-    { events: [{ chat: "Test Ana" }], reason: "r", until: iso(T0 + DAY) },
+    {
+      events: [{ chat: "Test Ana", from_me: false }],
+      reason: "r",
+      until: iso(T0 + DAY),
+    },
     false
   );
   await pollMessages(desk, readPeopleOnce());

@@ -318,7 +318,7 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
   const { id } = await card("desk", "agt_0123456789ab");
   setSettings({ desk: { defaultRuntime: "claude", runtimes: { claude: {} } } });
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
-  // Only the four tables the answer's reader asks.
+  // Only the four tables the answer's reader asks, and the columns it reads.
   mkdirSync(dirname(DESK_STORE), { recursive: true });
   const db = new Database(DESK_STORE, { create: true, strict: true });
   db.run(
@@ -331,7 +331,9 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
   db.run(
     "create table event (assignment_id text, event_id text, name text, payload text, received_at text)"
   );
-  db.run("create table turn (assignment_id text, cause text, started_at text)");
+  db.run(
+    "create table turn (agent_id text, assignment_id text, cause text, started_at text, ended_at text)"
+  );
   try {
     const r = await call(id, ["wait"]).result;
     expect(r.asker).toMatchObject({

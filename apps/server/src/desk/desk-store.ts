@@ -170,24 +170,31 @@ export const writeWait = (
   );
 
 /**
- * Closes assignment `id` once, while its agent is active (`outcome`, or `whyNotStarted` for one whose first turn never
- * began), and ends the agent when it holds no open assignment after: the one way anything closes, in the caller's
- * transaction. Whether it closed.
+ * Closes assignment `id` once (`outcome`, or `whyNotStarted` for one whose first turn never began), and ends its agent
+ * when it holds no open assignment after: the one way anything closes, in the caller's transaction. Its agent must be
+ * active, or, for a stopped agent he replaced by a new start (`replaced`), stopped: it then ends `handed_over`.
+ * Whether it closed.
  */
 export function closeAssignmentRow(
   db: Database,
   id: string,
-  end: { outcome: string | null; whyNotStarted?: string }
+  end: { outcome: string | null; replaced?: true; whyNotStarted?: string }
 ) {
   const at = clock().toISOString();
   const closed = db.run(
-    "update assignment set closed_at = ?, outcome = ?, why_not_started = ? where id = ? and closed_at is null and (select status from agent where agent.id = assignment.agent_id) = 'active'",
-    [at, end.outcome, end.whyNotStarted ?? null, id]
+    "update assignment set closed_at = ?, outcome = ?, why_not_started = ? where id = ? and closed_at is null and (select status from agent where agent.id = assignment.agent_id) = ?",
+    [
+      at,
+      end.outcome,
+      end.whyNotStarted ?? null,
+      id,
+      end.replaced ? "stopped" : "active",
+    ]
   ).changes;
   if (closed > 0) {
     db.run(
-      "update agent set status = 'ended', ended_at = ?, outcome = ? where id = (select agent_id from assignment where id = ?) and not exists (select 1 from assignment s where s.agent_id = agent.id and s.closed_at is null)",
-      [at, end.outcome, id]
+      "update agent set status = ?, stopped_at = null, ended_at = ?, outcome = ? where id = (select agent_id from assignment where id = ?) and not exists (select 1 from assignment s where s.agent_id = agent.id and s.closed_at is null)",
+      [end.replaced ? "handed_over" : "ended", at, end.outcome, id]
     );
   }
   return closed > 0;

@@ -20,7 +20,7 @@ import {
   withdrawOpenDecision,
   writeSubject,
 } from "./agent-actions";
-import { type Desk, saveCursor } from "./desk-store";
+import { closeAssignmentRow, type Desk, saveCursor } from "./desk-store";
 
 // His word about his registered agents (`change_registered_agent`): each is an ask of the desk (`DESK_AGENT`) in the
 // ledger, read here every tick from the desk's own cursor and applied once, in code. What was done, or why not, is the
@@ -98,22 +98,17 @@ export function start(
     runtime,
     steps: c.steps,
   });
-  // He stopped an agent, then started this one on its subject (its project, or a step it is anchored on): it is replaced,
-  // its assignments closed.
-  const replaced = `replaced by ${id}`;
+  // He stopped an agent, then started this one on its subject (its project, or a step it is anchored on): its assignments
+  // close, and it is replaced.
   for (const { id: old } of desk.db
     .query<{ id: string }, [string | null, string]>(
-      "select id from agent where status = 'stopped' and (project = ? or id in (select s.agent_id from anchor n join assignment s on s.id = n.assignment_id where n.step in (select value from json_each(?))))"
+      "select s.id from assignment s join agent a on a.id = s.agent_id where a.status = 'stopped' and s.closed_at is null and (a.project = ? or a.id in (select s2.agent_id from anchor n join assignment s2 on s2.id = n.assignment_id where n.step in (select value from json_each(?))))"
     )
     .all(c.project ?? null, JSON.stringify(c.steps ?? []))) {
-    desk.db.run(
-      "update agent set status = 'handed_over', stopped_at = null, ended_at = ?, outcome = ? where id = ?",
-      [now(), replaced, old]
-    );
-    desk.db.run(
-      "update assignment set closed_at = ?, outcome = ? where agent_id = ? and closed_at is null",
-      [now(), replaced, old]
-    );
+    closeAssignmentRow(desk.db, old, {
+      outcome: `replaced by ${id}`,
+      replaced: true,
+    });
   }
   return { id };
 }
