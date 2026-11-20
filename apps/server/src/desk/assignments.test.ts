@@ -607,6 +607,34 @@ test("a card whose subject's anchor cannot be written is never written, and the 
   });
 });
 
+// Regression (life#764): a card whose write failed took back its owner row and anchor later, after an await, so another
+// ask's anchor on the same step could go with it, and the desk stopping between its commit and the card left an anchor
+// with no card. Owner, anchor and card are now one transaction: a failed write takes back only its own rows, at once.
+test("a card whose write fails leaves neither its owner nor its anchor, and the next ask on that step holds it", async () => {
+  const { desk, id, onA, own } = await twoAssignments();
+  const files = await import("../core/files");
+  const write = spyOn(files, "appendJsonl").mockImplementationOnce(() => {
+    throw new Error("test: disk full");
+  });
+  try {
+    await withMatters(MATTERS, async () => {
+      await expect(askDecision(desk, onA(), yesNo("obs_a2"))).rejects.toThrow(
+        "test: disk full"
+      );
+      expect(desk.db.query("select * from card").all()).toEqual([]);
+      expect(anchorsOf(desk.db, onA().id)).not.toContain("obs_a2");
+      const { id: card } = await askDecision(desk, onA(), yesNo("obs_a2"));
+      expect(assignmentOfCard(desk.db, { agent: id, id: card })).toBe(onA().id);
+      expect(anchorsOf(desk.db, onA().id)).toContain("obs_a2");
+      await expect(askDecision(desk, own(), yesNo("obs_a2"))).rejects.toThrow(
+        "another assignment of yours"
+      );
+    });
+  } finally {
+    write.mockRestore();
+  }
+});
+
 // Regression: a closed assignment kept its anchors, so it refused its agent's other assignment a step it can never ask on.
 test("a step is refused while its sibling assignment is open, and free once it closes", async () => {
   const { desk, onA, own } = await twoAssignments();

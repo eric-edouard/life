@@ -468,10 +468,12 @@ async function subjectOf(steps: string[], given: string | undefined) {
 /**
  * `request_decision`: asks him as the desk, stamped with the agent's id and its session's link first, one open card
  * per assignment, on its matter (`subjectOf`) and never on a step another assignment of its agent is anchored on
- * (`siblingOn`); or withdraws one of this assignment's own cards. `requestDecision` checks the rest. Just before the
- * card is written, in one transaction, the desk writes that it is this assignment's (`card`, read by `assignmentOfCard`)
- * and, on a matter, anchors the subject Life will store (a matter's id is stored as one of its steps), so no card is
- * ever without its owner or its anchor; both are undone when the card is not written.
+ * (`siblingOn`); or withdraws one of this assignment's own cards. `requestDecision` checks the rest, then hands the
+ * card's write to the desk's claim, which writes it inside one transaction with the row saying it is this assignment's
+ * (`card`, read by `assignmentOfCard`) and, on a matter, the anchor on the subject Life stores (a matter's id is stored
+ * as one of its steps): all of them or, when any fails, none, rolled back at once, so no other ask's anchor is ever
+ * taken back. The desk stopping between the card's line and the commit leaves the card with neither, owned as a card
+ * asked before owners were kept; never an anchor without its card.
  */
 export async function askDecision(
   desk: Desk,
@@ -493,9 +495,11 @@ export async function askDecision(
   const steps = anchorsOf(db, s.id);
   const subject = await subjectOf(steps, ask.subject);
   const link = agentOf(db, id)?.link;
-  // Undone when the card is not written: its owner row, and its subject's anchor when this ask added it.
-  let undo: (() => void) | undefined;
-  const claim = (on: string | undefined, decision: string) => {
+  const claim = (
+    on: string | undefined,
+    decision: string,
+    write: () => void
+  ) => {
     // One card at a time per assignment (an inbox rule, not a limit on its work), checked after every await.
     const open = openCardOf(db, s);
     if (open) {
@@ -509,27 +513,19 @@ export async function askDecision(
         `Not done: ${on} is ${sibling}'s, another assignment of yours: ask on it from its own turn.`
       );
     }
-    const isAnchored = db.transaction(() => {
+    db.transaction(() => {
       db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
         decision,
         s.id,
       ]);
-      return steps.length > 0 && on
-        ? db.run(
-            "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
-            [s.id, on, clock().toISOString()]
-          ).changes > 0
-        : false;
-    })();
-    undo = db.transaction(() => {
-      db.run("delete from card where decision_id = ?", [decision]);
-      if (isAnchored) {
-        db.run("delete from anchor where assignment_id = ? and step = ?", [
-          s.id,
-          on ?? "",
-        ]);
+      if (steps.length > 0 && on) {
+        db.run(
+          "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+          [s.id, on, clock().toISOString()]
+        );
       }
-    });
+      write();
+    })();
   };
   return requestDecision(
     DESK_AGENT,
@@ -542,10 +538,7 @@ export async function askDecision(
     undefined,
     undefined,
     claim
-  ).catch((error) => {
-    undo?.();
-    throw error;
-  });
+  );
 }
 
 /** Where an agent may write, what it never starts, how it waits, and which matter his own words in its session are about (his rulings of 20 Nov 2026): Life keeps its notes; the desk alone dispatches and wakes. */

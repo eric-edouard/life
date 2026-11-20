@@ -471,9 +471,9 @@ function withdrawDecision(asker: string, request: object, now: Date) {
 
 /**
  * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker. A draft's chat
- * is resolved now (`readChat`), so his card names it and nothing is sent to a chat he didn't see. `claim`, when given, is
- * handed the subject Life will store and the card's id just before the card is written, and may refuse it by throwing
- * (the desk: whose card it is).
+ * is resolved now (`readChat`), so his card names it and nothing is sent to a chat he didn't see. `claim` is
+ * handed the subject Life will store, the card's id and the card's write, which it runs itself, at once (the desk: whose
+ * card it is, written around it), or refuses by throwing.
  */
 export async function requestDecision(
   asker: string,
@@ -481,7 +481,8 @@ export async function requestDecision(
   request: Record<string, unknown>,
   now = clock(),
   readChat = resolveDraft,
-  claim?: (subject: string | undefined, id: string) => void
+  claim = (_subject: string | undefined, _id: string, write: () => void) =>
+    write()
 ): Promise<{ id: string }> {
   if (request.withdraw) {
     return withdrawDecision(asker, request, now);
@@ -533,21 +534,22 @@ export async function requestDecision(
   const draft = ask.draft && (await readChat(ask.draft, now));
   refuseSecondDraft(draft, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
-  claim?.(subject, id);
-  appendJsonl(DECISIONS, Asked, [
-    {
-      ...ask,
-      ...(draft ? { draft } : {}),
-      ...(subject ? { subject } : {}),
-      asker,
-      at: now.toISOString(),
-      // In UTC, so deadlines sort as strings (`checksOf`).
-      deadline: new Date(ask.deadline).toISOString(),
-      id,
-      kind: "asked",
-      schemaVersion: VERSION,
-    },
-  ]);
+  const write = () =>
+    appendJsonl(DECISIONS, Asked, [
+      {
+        ...ask,
+        ...(draft ? { draft } : {}),
+        ...(subject ? { subject } : {}),
+        asker,
+        at: now.toISOString(),
+        // In UTC, so deadlines sort as strings (`checksOf`).
+        deadline: new Date(ask.deadline).toISOString(),
+        id,
+        kind: "asked",
+        schemaVersion: VERSION,
+      },
+    ]);
+  claim(subject, id, write);
   return { id };
 }
 
