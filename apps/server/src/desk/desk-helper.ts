@@ -11,7 +11,7 @@ import { type Desk, openDesk, postReportLine } from "./desk-store";
 import { acpRuntime } from "./runtimes/acp-runtime";
 import type { Runtime } from "./runtimes/contract";
 import { runtimeRowsOf } from "./runtimes/runtime-rows";
-import { stepStore } from "./store-step";
+import { stepRoles, stepStore } from "./store-step";
 
 // The desk's helper, `life desk`: its own process (Life.app's supervisor keeps it while `desk` is set), its own lock in
 // `MACHINE_DIR`, its own store and its door; never the memory lock. Off, it returns before any of them.
@@ -57,6 +57,7 @@ export async function desk() {
   // idle until the app starts it again (its next start, or a change of his settings): one try per start, never a loop.
   try {
     log("desk.store_step", { done: stepStore() });
+    log("desk.store_step", { done: stepRoles(), step: "roles" });
   } catch (error) {
     log("desk.store_step", { error: String(error), ok: false });
     console.error(`${clock().toISOString()} desk: ${String(error)}`);

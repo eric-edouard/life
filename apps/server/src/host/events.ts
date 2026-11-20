@@ -43,6 +43,8 @@ export const DECISION_LAPSED = "decision.lapsed";
 export const DECISION_WITHDRAWN = "decision.withdrawn";
 /** A call of his that ended, once lifelog holds its words: the desk's event alone (`pollCalls`), never the connector's. */
 export const CALL_ENDED = "call.ended";
+/** His complaint (his "Wrong…" on a card of Life's), received for the caretaker: the desk's event alone, its payload the ask's id, never his words (`desk/complaint-intake.ts`). */
+export const COMPLAINT_RECEIVED = "complaint.received";
 /** How far back a call that began is looked at: the desk asks again each poll, so a late pendant sync still wakes. */
 export const CALLS_BACK = 12 * HOUR;
 /** Each decision event: the state it reports and what it tells its asker. */

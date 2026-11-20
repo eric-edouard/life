@@ -155,11 +155,12 @@ export async function readNetworkIdentities(
 /** Who the identities name, as `withNetworkIdentity` reads them. */
 type IdentityPeople = Pick<People, "nameOf" | "partyOf" | "resolve">;
 
-/** A check with its network identity, and each guess it confirms with theirs; null where none was found. */
+/** A check with its network identity, and each guess it confirms with theirs; null where none was found. A draft's card also gets its head. */
 export function withNetworkIdentity<
   C extends {
     confirm: C[];
     draft?: DraftChat | null;
+    head?: ReturnType<typeof draftHeadOf>;
     networkIdentity?: NetworkIdentity | null;
     ref: string;
   },
@@ -171,6 +172,7 @@ export function withNetworkIdentity<
   return {
     ...c,
     confirm: c.confirm.map((x) => withNetworkIdentity(x, identities, people)),
+    ...(c.draft ? { head: draftHeadOf(c.draft) } : {}),
     networkIdentity: identities.get(c.ref) ?? draftChatOf(c.draft, people),
   };
 }
@@ -193,11 +195,22 @@ function draftChatOf(d: DraftChat | null | undefined, people: IdentityPeople) {
   return ref ? { ...shown, party: people.partyOf(ref) } : shown;
 }
 
+/**
+ * A draft card's head, the chat as his card names it, from the stored draft: its network (the source's label) and
+ * the chat's name; null for a draft that resolved no source. ponytail: no `members` yet: no source reads a group's
+ * member count (a count of who wrote would miss the silent ones); add it with a reader that does.
+ */
+export function draftHeadOf(d: DraftChat) {
+  const source = SOURCES.find((s) => s.name === d.channel);
+  return source ? { name: d.to, network: source.label } : null;
+}
+
 /** The checks as the inbox shows them: each with its network identity (`readNetworkIdentities`), null where none. */
 export async function withNetworkIdentities<
   C extends PersonCheck & {
     confirm: C[];
     draft?: DraftChat | null;
+    head?: ReturnType<typeof draftHeadOf>;
     networkIdentity?: NetworkIdentity | null;
   },
 >(checks: C[], people: People) {

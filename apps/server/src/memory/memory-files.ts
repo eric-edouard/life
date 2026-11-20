@@ -679,16 +679,36 @@ export function answeredFactChecks() {
 
 export const readUnresolved = () => rowsOf(UNRESOLVED, Unresolved);
 
-/** The actions ledger, in order (read once per process, then its new lines). */
-export const readLedger = (): readonly LedgerEntry[] =>
-  readAppended<LedgerEntry, LedgerEntry[]>(
+/** The actions ledger as read: its entries in order, and each ask's place among them by id (read once per process, then its new lines). */
+const readLedgerFold = () =>
+  readAppended<
+    LedgerEntry,
+    { asks: Map<string, number>; entries: LedgerEntry[] }
+  >(
     LEDGER,
     LedgerEntry,
-    (last) => [...(last ?? [])],
+    (last) => ({
+      asks: new Map(last?.asks),
+      entries: [...(last?.entries ?? [])],
+    }),
     (all, e) => {
-      all.push(e);
+      if (e.kind === "ask") {
+        all.asks.set(e.id, all.entries.length);
+      }
+      all.entries.push(e);
     }
   );
+
+/** The actions ledger, in order. */
+export const readLedger = (): readonly LedgerEntry[] =>
+  readLedgerFold().entries;
+
+/** Where ask `id` is in the actions ledger (its index in `readLedger`), if recorded. */
+export const askPlaceOf = (id: string) => readLedgerFold().asks.get(id);
+
+/** The ask `id` in the actions ledger, if recorded. */
+export const askOf = (id: string): LedgerEntry | undefined =>
+  readLedger()[askPlaceOf(id) ?? -1];
 
 /** One actions ledger line, null for a blank one. */
 export const parseLedgerEntry = (line: string) =>

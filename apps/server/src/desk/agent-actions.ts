@@ -39,7 +39,11 @@ import {
 } from "../memory/read-truth";
 import { clip } from "../memory/units";
 import { nameRefusalOf, readPeople } from "../memory/who";
-import type { EventFilter, OpenedBy } from "../records/registered-agent";
+import type {
+  AgentRole,
+  EventFilter,
+  OpenedBy,
+} from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
 
@@ -143,8 +147,8 @@ export function openAssignment(
 
 /**
  * Registers an agent, on his words or the hand-out's (`openedBy`, his by default), with its one assignment: active, its
- * first turn due now, in `folder`, else in a folder of its own (`DESK_AGENT_FOLDERS`). Refused while the desk keeps its
- * most agents.
+ * first turn due now, in `folder`, else in a folder of its own (`DESK_AGENT_FOLDERS`), in its standing `role` when it has
+ * one. Refused while the desk keeps its most agents.
  */
 export function register(
   desk: Desk,
@@ -155,6 +159,7 @@ export function register(
     model?: string;
     openedBy?: OpenedBy;
     project?: string;
+    role?: AgentRole;
     runtime: string;
     steps?: string[];
   }
@@ -167,7 +172,7 @@ export function register(
   const folder = a.folder ?? join(DESK_AGENT_FOLDERS, id);
   db.transaction(() => {
     db.run(
-      "insert into agent (id, brief, runtime, folder, model, effort, project, status, created_at) values (?, ?, ?, ?, ?, ?, ?, 'active', ?)",
+      "insert into agent (id, brief, runtime, folder, model, effort, project, role, status, created_at) values (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)",
       [
         id,
         a.brief,
@@ -176,6 +181,7 @@ export function register(
         a.model ?? null,
         a.effort ?? null,
         a.project ?? null,
+        a.role ?? null,
         clock().toISOString(),
       ]
     );
@@ -531,6 +537,18 @@ const PLAN_FIRST_TURN =
 const HANDED_OUT_FIRST_TURN =
   ' Life handed you this matter from the top of his list; he did not ask for it. Your first turn reads and gathers (his chats, mail, files, the web), then asks ONE card, whichever is true: the next step prepared (a draft he can send as it is, in the channel the talk is already in, never mail when they talk in a chat); what only he can do (the step in a few words and every fact he needs for it: amount, account, address, phone, reference); or that it looks over (what shows it). Open the card\'s context with what you could not verify. Every card has an option for his own words (Tell the agent…). On a card for what only he can do, or that it looks over, mark the option that means done `ends: "step"` (the step as `subject`) or `ends: "matter"` (nothing is left): his pick closes it in Life. Every card also offers Drop it, marked `ends: "matter"`, for a matter he does not care about: his pick of it alone closes the matter in Life (when the matter has no open step left, Life refuses it: leave it out and say in the context that he can tell you to stop). No other option closes anything. Then wait for his answer; finish when the step is done or nothing is left for you.';
 
+/** ... and the caretaker's (by its role): his complaint's words are its plan (his yes of 20 Nov 2026). */
+const CARETAKER_FIRST_TURN =
+  " Your first turn reads each complaint it was woken on (`read_complaint`) and starts on it: his words are your plan, so ask no plan and wait for no Go. A change still goes to him first, as a card with the exact change.";
+
+/** What a first turn does: the caretaker's by its role, else by who opened the assignment. */
+const firstTurnOf = (a: Pick<AgentRow, "role">, openedBy: OpenedBy) => {
+  if (a.role === "caretaker") {
+    return CARETAKER_FIRST_TURN;
+  }
+  return openedBy === "desk" ? HANDED_OUT_FIRST_TURN : PLAN_FIRST_TURN;
+};
+
 /** What an agent of his own Life is told of the send guard (`send-guard.ts`), and of the repos it may post to itself. */
 function sendGuardLines() {
   const repos = settings().desk?.agentPostRepos ?? [];
@@ -538,8 +556,8 @@ function sendGuardLines() {
 }
 
 /** What every session of a registered agent is told after its brief (the desk spec, 5.4): the door's contract and his one gate (what waits on his yes, a plan before any act). */
-const contractOf = (id: string, isOwn: boolean, openedBy: OpenedBy) =>
-  `You are ${id}, a registered agent of the owner's desk${isOwn ? ": one of his own sessions, in full" : ""}. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. ${isOwn ? "Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included." : "You have your door's tools only."} The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated.${isOwn ? `${sendGuardLines()} Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward).` : ""}${BOUNDS}${openedBy === "desk" ? HANDED_OUT_FIRST_TURN : PLAN_FIRST_TURN} A \`call.ended\` event is a call of his that ended, with the recording his pendant made of it. Read each of its \`recordings\` with \`fetch\` (\`id\` its \`turn\`, which opens the recording from that turn as it is now; \`limit\` its \`turns\`, and read on if lines before \`until\` remain) and keep only the lines timed from \`at\` to \`until\`: the recording began before the call and went on after it, and nothing said outside those instants is the call's or may be quoted or sent. \`people\` is who may have been on it, not who spoke when: someone may have joined late. Voices heard through a speaker are often unnamed or merged into one: write such a line as an unnamed remote voice, never under a name the recording does not give. A \`payment.booked\` event is a payment his money app holds; its merchant and note are not in the wake. An \`arrival.confirmed\` event is one or more new messages Life's reader confirmed hold an ask, a promise or a wait for him (their chat, the newest one's id, when Life confirmed them and who wrote them, never their words): read the chat yourself. A \`stay.arrived\` event is an arrival at a place; its name is not in the wake, and one real arrival may wake you more than once (the same place, minutes apart: act once).`;
+const contractOf = (id: string, isOwn: boolean, firstTurn: string) =>
+  `You are ${id}, a registered agent of the owner's desk${isOwn ? ": one of his own sessions, in full" : ""}. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. ${isOwn ? "Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included." : "You have your door's tools only."} The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated.${isOwn ? `${sendGuardLines()} Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward).` : ""}${BOUNDS}${firstTurn} A \`call.ended\` event is a call of his that ended, with the recording his pendant made of it. Read each of its \`recordings\` with \`fetch\` (\`id\` its \`turn\`, which opens the recording from that turn as it is now; \`limit\` its \`turns\`, and read on if lines before \`until\` remain) and keep only the lines timed from \`at\` to \`until\`: the recording began before the call and went on after it, and nothing said outside those instants is the call's or may be quoted or sent. \`people\` is who may have been on it, not who spoke when: someone may have joined late. Voices heard through a speaker are often unnamed or merged into one: write such a line as an unnamed remote voice, never under a name the recording does not give. A \`payment.booked\` event is a payment his money app holds; its merchant and note are not in the wake. An \`arrival.confirmed\` event is one or more new messages Life's reader confirmed hold an ask, a promise or a wait for him (their chat, the newest one's id, when Life confirmed them and who wrote them, never their words): read the chat yourself. A \`stay.arrived\` event is an arrival at a place; its name is not in the wake, and one real arrival may wake you more than once (the same place, minutes apart: act once).`;
 
 const NONE =
   "(none in his directory: find them with `read_chats` and `read_people_and_organizations`, and tell him who or which chat is missing)";
@@ -592,6 +610,21 @@ function projectContextOf({ projects }: Pick<Truth, "projects">, id: string) {
     : [];
 }
 
+/** An assignment's subject as its packet opens: a standing role's (the caretaker's: Life's data, never a matter), else its project's lines on its own assignment, else its matter as read now. */
+async function subjectLineOf(
+  a: Pick<AgentRow, "project" | "role">,
+  isOnProject: boolean,
+  matter: unknown,
+  steps: readonly string[]
+) {
+  if (a.role === "caretaker") {
+    return "Your subject: Life's data. Your work is his complaints, each a `complaint.received` event naming one (`read_complaint`); you hold no matter.";
+  }
+  return isOnProject && a.project
+    ? await projectLinesOf(a.project)
+    : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify(matter ?? `No matter holds ${steps.join(", ")} now.`)}`;
+}
+
 /**
  * `read_packet`: what a fresh session starts from: its one matter as read now (`oneMatter`: where it stands, its goal and
  * next step, its steps so far), or its project; then each project's context (`projectContextOf`), the brief, the
@@ -628,12 +661,10 @@ export async function readPacket(
     ]),
   ].map((p) => projectContextOf(truth, p));
   return [
-    isOnProject && a.project
-      ? await projectLinesOf(a.project)
-      : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify(matter ?? `No matter holds ${steps.join(", ")} now.`)}`,
+    await subjectLineOf(a, isOnProject, matter, steps),
     ...projects.flat(),
     a.brief,
-    contractOf(a.id, isOwn, s.opened_by),
+    contractOf(a.id, isOwn, firstTurnOf(a, s.opened_by)),
     `Your notes:\n${readNotes(s) || "(none yet)"}`,
     ...(held
       ? [
