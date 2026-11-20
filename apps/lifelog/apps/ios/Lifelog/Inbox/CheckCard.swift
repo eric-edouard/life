@@ -75,7 +75,8 @@ struct CheckCard: View {
 
     /// Whether a field of the ask has a body of its own to draw.
     private var hasBody: Bool {
-        check.draft != nil || shownEvidence != nil || !check.clips.isEmpty || check.said != nil || isIdentityShown
+        check.draft != nil || !(check.needs ?? []).isEmpty || shownEvidence != nil || !check.clips.isEmpty
+            || check.said != nil || isIdentityShown
             || check.contactsCard != nil || (check.group == .newMatter && check.goal != nil)
     }
 
@@ -117,6 +118,7 @@ struct CheckCard: View {
             DraftBlock(
                 draft: draft, identity: check.networkIdentity, isGuess: check.isRecipientGuessed, isBoxed: false)
         }
+        if let needs = check.needs, !needs.isEmpty { NeedsBlock(needs: needs) }
         switch check.group {
         case .ending: EndingBlock(said: check.said, since: check.since)
         case .newMatter:
@@ -147,9 +149,6 @@ struct CheckCard: View {
 
     // MARK: The row under the thing, and the link
 
-    /// An agent's open question: his words go to the agent.
-    private var isAgentQuestion: Bool { check.takesOwnWords && check.draft == nil }
-
     /// The ask's links, by what each opens: "Before and after" when the lines around a voice or a name are known, else
     /// "Why?" ("Why this reply?" on a draft; none on a voice); then "Tell the agent…" on an agent's question.
     private var askLinks: [AskLink] {
@@ -162,7 +161,7 @@ struct CheckCard: View {
         {
             links.append(AskLink(title: whyTitle) { input.showsWhy = true })
         }
-        if isAgentQuestion { links.append(AskLink(title: "Tell the agent…") { input.isWritingOwnWords = true }) }
+        if check.takesOwnWords { links.append(AskLink(title: "Tell the agent…") { input.isWritingOwnWords = true }) }
         return links
     }
 

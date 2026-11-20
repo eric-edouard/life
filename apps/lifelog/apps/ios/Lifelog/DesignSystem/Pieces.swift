@@ -714,3 +714,24 @@ struct LimitNote: View {
         }
     }
 }
+
+/// A small round press beside a fact (copy, open): a 32 glyph circle on `card`, in a 44 hit area. `isDone` shows a
+/// check in `ok` in its place (copied), same button, same size.
+struct RoundAction: View {
+    let systemImage: String
+    let label: String
+    var isDone = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: isDone ? "checkmark" : systemImage).font(.smallStrong)
+                .foregroundStyle(isDone ? Palette.ok : Palette.fg)
+                .frame(width: Metrics.FlatRow.slot, height: Metrics.FlatRow.slot)
+                .background(Palette.card, in: .circle)
+                .frame(width: Metrics.tapTarget, height: Metrics.tapTarget).contentShape(.rect)
+                .motion(Motion.standard, value: isDone)
+        }
+        .buttonStyle(.plain).accessibilityLabel(label)
+    }
+}

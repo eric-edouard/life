@@ -208,6 +208,22 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let contactsCard: ContactsCard?
     /// A decision whose draft goes to someone Life only guesses: that guess, asked beside it. A check holding one is a Check itself, so it is an array.
     public let confirm: [Check]?
+    /// What he needs in hand to do the step, each drawn as rows (`Need`); nil from a Life that predates it.
+    public let needs: [Need]?
+    /// Life's outcome when it sees the step done itself (a payment it looks for); nil when it does not.
+    public let doneSeen: DoneSeen?
+
+    /// Life's outcome on a step it sees done itself (`doneSeen`, the asks contract): never his answer.
+    public struct DoneSeen: Decodable, Sendable, Equatable {
+        public enum State: String, UnknownTolerant, Sendable {
+            case looking, seen
+            case notFound = "not_found"
+            case unknown
+        }
+        public let state: State
+        /// Life's words for it, which win over the phone's.
+        public let line: String?
+    }
 }
 
 extension Check {

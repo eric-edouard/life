@@ -229,3 +229,92 @@ struct EvidenceBlock: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+/// What he needs in hand to do the step, each fact a row: a muted glyph, the fact, and its one press (copy, or open a
+/// page, by his tap only). Which rows a need draws is `Need.rows`; a copy shows its check and "Copied <what>" for 2 s.
+struct NeedsBlock: View {
+    let needs: [Check.Need]
+
+    @Environment(\.openURL) private var openURL
+    /// The row he just copied, and what went on the pasteboard.
+    @State private var copied: (row: Int, text: String)?
+
+    private var rows: [NeedRow] { needs.flatMap(\.rows) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                HStack(alignment: .center, spacing: Metrics.Spacing.m) {
+                    Image(systemName: Self.symbol(row.glyph)).font(.lead).foregroundStyle(Palette.muted)
+                        .frame(width: Metrics.FlatRow.slot).accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                        Text(row.text).font(row.isFigure ? .rowFigure : .body15).foregroundStyle(Palette.fg)
+                            .fontWeight(row.isFigure ? .semibold : nil).lineLimit(2)
+                        if let detail = copied?.row == index ? "Copied \(copied?.text ?? "")" : row.detail {
+                            Text(detail).font(.small).foregroundStyle(Palette.muted).lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    if let action = row.action { button(action, row: index) }
+                }
+                .frame(minHeight: Metrics.tapTarget)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder private func button(_ action: NeedRow.Action, row: Int) -> some View {
+        switch action {
+        case .copy(let text, let label):
+            RoundAction(systemImage: "doc.on.doc", label: label, isDone: copied?.row == row) {
+                UIPasteboard.general.string = text
+                copied = (row, text)
+                AccessibilityNotification.Announcement("Copied \(text)").post()
+                Task {
+                    try? await Task.sleep(for: .seconds(2))
+                    if copied?.row == row { copied = nil }
+                }
+            }
+        case .open(let url, let label):
+            RoundAction(systemImage: "arrow.up.right", label: label) { openURL(url) }
+        }
+    }
+
+    private static func symbol(_ glyph: NeedRow.Glyph) -> String {
+        switch glyph {
+        case .bank: "building.columns"
+        case .card: "creditcard"
+        case .person: "person"
+        case .amount: "banknote"
+        case .link: "link"
+        case .note: "note.text"
+        }
+    }
+}
+
+/// Life's outcome on a step it sees done itself, in one line above the answers: looking, seen, or not found yet. Life's
+/// own words win; the phone's are the fallback.
+struct DoneSeenLine: View {
+    let doneSeen: Check.DoneSeen?
+
+    var body: some View {
+        if let doneSeen, let shown = Self.shown(doneSeen.state) {
+            HStack(spacing: Metrics.Spacing.s) {
+                shown.glyph
+                Text(doneSeen.line ?? shown.words).font(.small).foregroundStyle(shown.color)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading).appears()
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private static func shown(_ state: Check.DoneSeen.State) -> (glyph: StateGlyph, words: String, color: Color)? {
+        switch state {
+        case .looking: (.busy, "Life is looking…", Palette.muted)
+        case .seen: (.ok, "Life saw it done.", Palette.ok)
+        case .notFound: (.flag, "Life hasn’t found it yet.", Palette.flag)
+        case .unknown: nil
+        }
+    }
+}

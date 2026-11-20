@@ -53,7 +53,9 @@ struct CheckActions: View {
             } else {
                 line
                 refusal
-                options
+                DoneSeenLine(doneSeen: check.doneSeen)
+                // While Life looks, there is nothing to answer.
+                if check.doneSeen?.state != .looking { options }
             }
         }
     }
@@ -174,7 +176,9 @@ struct CheckActions: View {
         if let request = check.answer(option) { return answer(request) }
         switch option.takes {
         case .person?, .personOrName?: sameAs()
-        case .note?, .unknown?, nil: break
+        // A note, or what this build doesn't know yet: his own words go back, never a dead button.
+        case .note?, .unknown?: if check.takesOwnWords { input.isWritingOwnWords = true }
+        case nil: break
         }
     }
 }
