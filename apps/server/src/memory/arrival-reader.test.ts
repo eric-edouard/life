@@ -44,7 +44,8 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
   const where = join(dir, `trial-${trial}`);
   const calls = { apple: 0, engine: 0 };
   const step = {
-    ask: () => {
+    ask: (q: { input: { lines: string[] } }) => {
+      shown.push(q.input.lines.join("\n"));
       calls.engine += 1;
       return Promise.resolve({ isActionable: confirm });
     },
@@ -57,7 +58,8 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
       stamp({ engine: "codex", model: "test" }, prompt, "r1"),
     run: "r1",
   };
-  const read = (events: SourceEvent[], isUp = true) =>
+  const shown: string[] = [];
+  const read = (events: SourceEvent[], isUp = true, confirmsToday = 0) =>
     readArrivals(
       { built: applyRules(messageUnits(events, known)), fileEvents: [] },
       people,
@@ -67,13 +69,14 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
           calls.apple += requests.length;
           return Promise.resolve(requests.map((r) => apple(r.text)));
         },
+        confirmsToday: () => Promise.resolve(confirmsToday),
         online: () => Promise.resolve(isUp),
         step: () => Promise.resolve(step as never),
         where,
       }
     );
   const lines = () => readReplies(where).flat();
-  return { calls, lines, read, where };
+  return { calls, lines, read, shown, where };
 };
 const yes = (quote: string): FoundationAnswer => ({
   os: "27.2",
@@ -158,4 +161,34 @@ test("offline, Apple's yes is stored and its confirm waits; back online, the pen
   await s.read(events);
   expect(s.calls).toEqual({ apple: 1, engine: 1 });
   expect(readConfirmedArrivals(ago(60), s.where)).toHaveLength(1);
+});
+
+test("a pending confirm reads the same bounded lines Apple read; with one of them gone, it is the night's", async () => {
+  const s = sceneOf(() => yes("send the slides"));
+  const long = msg(`Can you send the slides? ${"x".repeat(6000)}`);
+  await s.read([long], false);
+  await s.read([long]);
+  expect(s.shown.map((t) => t.length)).toEqual([5000]);
+  const gone = sceneOf(() => yes("send the slides"));
+  const [a, b] = [msg("Can you send the slides?"), msg("Today if you can")];
+  await gone.read([a, b], false);
+  await gone.read([b]);
+  expect(gone.calls.engine).toBe(0);
+});
+
+test("the day's cap counts the confirms already made: at 99, one of two reads is confirmed, the newest", async () => {
+  const s = sceneOf(() => yes("send the slides"));
+  await s.read(
+    [
+      msg("Can you send the slides?"),
+      msg("Can you send the slides?", {
+        chat: "c2",
+        id: "whatsapp:c2",
+        sender: SAM,
+      }),
+    ],
+    true,
+    99
+  );
+  expect(s.calls.engine).toBe(1);
 });

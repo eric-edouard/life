@@ -95,10 +95,11 @@ export const ArrivalTriggerReply = z
     unit: UnitId,
   })
   .strict();
-/** His engine's confirm: whether the lines hold something for him to act on. */
+/** His engine's confirm: whether the lines hold something for him to act on, and who wrote them (refs as read, never him). */
 export const ArrivalConfirmReply = z
   .object({
     ...stored,
+    people: z.array(z.string()),
     read: z.literal(ARRIVAL_CONFIRM_READ),
     reply: z.looseObject({ isActionable: z.boolean() }),
     unit: UnitId,

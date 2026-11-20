@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { clock } from "../core/clock";
+import { clock, DAY, iso } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import type { CallReads } from "../models/model-call";
@@ -37,6 +37,8 @@ interface Call {
   firstAt: string;
   input: object;
   keys: string[];
+  /** Who wrote its lines, for the read that stores it (the arrival confirm). */
+  people?: string[];
   /** What the call is shown, counted per source (`readsOf`). */
   reads: CallReads;
   starts: number[];
@@ -89,6 +91,8 @@ export interface ConfirmedArrival {
   at: string;
   /** The keys of the messages the confirm read, oldest first. */
   messages: string[];
+  /** Who wrote them, as read (never him). */
+  people: string[];
   unit: string;
 }
 
@@ -101,15 +105,18 @@ export const confirmedArrivalsOf = (lines: ReadReply[]): ConfirmedArrival[] =>
     l.read === ARRIVAL_CONFIRM_READ &&
     l.reply.isActionable === true &&
     isPromptVersion(l.madeBy.prompt, READS.arrival_confirm.prompt)
-      ? [{ at: l.at, messages: l.messages, unit: l.unit }]
+      ? [{ at: l.at, messages: l.messages, people: l.people, unit: l.unit }]
       : []
   );
 
-/** The confirmed arrivals stored since the instant `since`. */
+/**
+ * The confirmed arrivals stored since the instant `since`. A confirm is filed by its first message's month, at most a
+ * day before it was made (the reader reads today's units), so the files from a day before `since` are read.
+ */
 export const readConfirmedArrivals = (since: string, where = READ_REPLIES) =>
-  confirmedArrivalsOf(readRepliesSince(since, where)).filter(
-    (a) => a.at >= since
-  );
+  confirmedArrivalsOf(
+    readRepliesSince(iso(Date.parse(since) - DAY), where)
+  ).filter((a) => a.at >= since);
 
 /** A stored exchange: its place in the line that read it, and the keys of its messages. */
 interface Held {
@@ -234,6 +241,7 @@ export async function makeReplies(
             schemaVersion: 1,
             starts: call.starts,
             ...(call.unit && { unit: call.unit }),
+            ...(call.people && { people: call.people }),
           } as ReadReply,
           call.firstAt,
           where

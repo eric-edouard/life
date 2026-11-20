@@ -15,7 +15,7 @@ import {
   reindex,
   reindexUnits,
 } from "../memory/index-writer";
-import { LEDGER, readLedger } from "../memory/memory-files";
+import { LEDGER, readFiles, readLedger } from "../memory/memory-files";
 import { isLocked, locked, lockedSince } from "../memory/memory-lock";
 import { describeFilesOnArrival } from "../memory/message-files";
 import { writePersonPictures } from "../memory/person-pictures";
@@ -337,6 +337,8 @@ async function syncToday() {
   try {
     const day = dayNow();
     const people = await readPeople();
+    // The files' lines as gather will show them, read first: a file described meanwhile waits a tick (`readArrivals`).
+    const files = readFiles();
     const evidence = await gather({ from: day, to: day }, people, {
       files: false,
       log: quietly,
@@ -344,7 +346,7 @@ async function syncToday() {
     });
     await locked(async () => reindexFor(await publishTodayUnits(evidence)));
     startFileDescriptions(evidence.fileEvents);
-    startArrivalReader(evidence, people);
+    startArrivalReader(evidence, people, files);
   } finally {
     syncing = false;
   }
@@ -376,13 +378,14 @@ let readingArrivals = false;
  */
 function startArrivalReader(
   evidence: Awaited<ReturnType<typeof gather>>,
-  people: Awaited<ReturnType<typeof readPeople>>
+  people: Awaited<ReturnType<typeof readPeople>>,
+  files: ReturnType<typeof readFiles>
 ) {
   if (readingArrivals) {
     return;
   }
   readingArrivals = true;
-  readArrivals(evidence, people, ownerNamesOf(people.truth))
+  readArrivals(evidence, people, ownerNamesOf(people.truth), { files })
     .catch((e: Error) =>
       log("run.error", { error: e.message, step: "watch.arrivals" })
     )

@@ -6,13 +6,14 @@
 
 import { clock, DAY } from "../core/clock";
 import { newestWithin } from "../core/lists";
+import { recentEvents } from "../core/log";
 import {
   askFoundationModel,
   type FoundationAnswer,
   type FoundationRequest,
 } from "../models/foundation-model";
 import { isOnline } from "../models/llm";
-import { promptText } from "../models/prompt-parts";
+import { isPromptVersion, promptText } from "../models/prompt-parts";
 import {
   ARRIVAL_CONFIRM_READ,
   ARRIVAL_TRIGGER_READ,
@@ -32,7 +33,7 @@ import {
   readRepliesSince,
   storeReply,
 } from "./read-replies";
-import type { Truth } from "./read-truth";
+import { OWNER, type Truth } from "./read-truth";
 import { begin, readsOf } from "./run";
 import type { Built, Resolve } from "./units";
 import { chatLines, messageLine } from "./words";
@@ -62,6 +63,8 @@ export interface ArrivalRead {
   b: Built;
   keys: string[];
   lines: string[];
+  /** Who wrote the lines shown (refs as read), never him. */
+  people: string[];
 }
 
 /**
@@ -85,12 +88,11 @@ export function isQuoteFound(quote: string, text: string) {
 }
 
 /**
- * The reads due now: each unit the gate lets through, its unread lines (never a message whose file has no line yet),
- * the newest whole lines within `READ_CHARS` (a single line over it cut), oldest first. The older lines left wait for
- * the next tick.
+ * The reads due now: each unit the gate lets through, its unread lines (`boundedReadOf`). The older lines left wait
+ * for the next tick.
  */
 export function arrivalReadsDue(
-  evidence: Pick<Evidence, "built" | "fileEvents">,
+  evidence: Pick<Evidence, "built">,
   read: ArrivalReads,
   resolve: Resolve,
   nameOf: (ref: string) => string,
@@ -100,32 +102,50 @@ export function arrivalReadsDue(
     if (!("due" in a)) {
       return [];
     }
-    const b = a.unit;
-    const fresh = new Set(
-      a.fresh.map((m) => eventKey({ id: m.id, source: b.unit.source }))
+    const keys = a.fresh.map((m) =>
+      eventKey({ id: m.id, source: a.unit.unit.source })
     );
-    const lines = linesOf(b, fresh, resolve, nameOf);
-    const shown: typeof lines = [];
-    let room = READ_CHARS;
-    for (const l of lines.toReversed()) {
-      const text = shown.length === 0 ? l.text.slice(0, READ_CHARS) : l.text;
-      if (text.length > room) {
-        break;
-      }
-      shown.unshift({ ...l, text });
-      room -= text.length + 1;
-    }
-    return shown.length === 0
-      ? []
-      : [
-          {
-            at: b.messages.at(-1)?.at ?? b.unit.end,
-            b,
-            keys: shown.map((l) => l.key),
-            lines: shown.map((l) => l.text),
-          },
-        ];
+    return boundedReadOf(a.unit, new Set(keys), resolve, nameOf) ?? [];
   });
+}
+
+/**
+ * The one read of a unit's lines in `keys`, fresh or a pending confirm's: the newest whole lines within `READ_CHARS`
+ * (a single line over it cut), oldest first, dated by its newest line shown, with the people who wrote them (his own
+ * lines in a one-to-one chat: the other person). Nothing when no line is left.
+ */
+function boundedReadOf(
+  b: Built,
+  keys: ReadonlySet<string>,
+  resolve: Resolve,
+  nameOf: (ref: string) => string
+): ArrivalRead | undefined {
+  const lines = linesOf(b, keys, resolve, nameOf);
+  const shown: typeof lines = [];
+  let room = READ_CHARS;
+  for (const l of lines.toReversed()) {
+    const text = shown.length === 0 ? l.text.slice(0, READ_CHARS) : l.text;
+    if (text.length > room) {
+      break;
+    }
+    shown.unshift({ ...l, text });
+    room -= text.length + 1;
+  }
+  const newest = shown.at(-1);
+  if (!newest) {
+    return;
+  }
+  const writers = [
+    ...new Set(shown.map((l) => l.speaker).filter((p) => p !== OWNER)),
+  ];
+  const others = b.unit.people.filter((p) => p !== OWNER);
+  return {
+    at: newest.at,
+    b,
+    keys: shown.map((l) => l.key),
+    lines: shown.map((l) => l.text),
+    people: writers.length > 0 || others.length !== 1 ? writers : others,
+  };
 }
 
 /** A unit's lines whose keys are in `keys`, as the reads show them: `HH:MM <who>: <text>`, oldest first. */
@@ -137,7 +157,9 @@ function linesOf(
 ) {
   return chatLines(b, resolve)
     .map((l) => ({
+      at: l.at,
       key: eventKey({ id: l.ref, source: b.unit.source }),
+      speaker: l.speaker,
       text: messageLine(time(l.at), nameOf(l.speaker), l.text),
     }))
     .filter((l) => keys.has(l.key));
@@ -182,29 +204,38 @@ const isTriggered = (
   reply: { refused: string } | { author: string; isFound: boolean }
 ) => "refused" in reply || (reply.author === "person" && reply.isFound);
 
-/** The confirm call of a read, for `makeReplies`. */
-const confirmOf = (r: {
-  at: string;
-  firstAt: string;
-  keys: string[];
-  lines: string[];
-  source: Built["unit"]["source"];
-  unit: string;
-}): Asked => ({
-  at: r.at,
-  call: {
-    firstAt: r.firstAt,
-    input: { lines: r.lines },
-    keys: r.keys,
-    reads: readsOf([{ source: r.source, unit: r.unit }]),
-    starts: [0],
-    unit: r.unit,
-  },
-  read: ARRIVAL_CONFIRM_READ,
-});
+/** The confirm call of a read, for `makeReplies`: it stores the read's unit and who wrote its lines. */
+function confirmOf(r: ArrivalRead): Asked {
+  const first = r.b.messages.find(
+    (m) => eventKey({ id: m.id, source: r.b.unit.source }) === r.keys[0]
+  );
+  return {
+    at: r.at,
+    call: {
+      firstAt: first?.at ?? r.b.unit.start,
+      input: { lines: r.lines },
+      keys: r.keys,
+      people: r.people,
+      reads: readsOf([{ source: r.b.unit.source, unit: r.b.unit.id }]),
+      starts: [0],
+      unit: r.b.unit.id,
+    },
+    read: ARRIVAL_CONFIRM_READ,
+  };
+}
 
-/** The confirm calls failed today in this process: they count against the day's cap, so a failing read cannot spin. */
-const failedToday = { count: 0, day: "" };
+/** The confirm calls the model log holds for today, failed ones included: a failing read cannot spin past the cap. */
+async function readConfirmsToday() {
+  const day = dayNow();
+  return (
+    await recentEvents<{ at: string; prompt?: string }>(2, "model.run")
+  ).filter(
+    (e) =>
+      e.prompt !== undefined &&
+      isPromptVersion(e.prompt, READS.arrival_confirm.prompt) &&
+      localDate(e.at) === day
+  ).length;
+}
 
 /**
  * One pass: Apple reads the due reads (one spawn), its answers are stored, and the confirms due (its yeses and
@@ -218,6 +249,10 @@ export async function readArrivals(
   ownerNames: string[],
   o: {
     apple?: typeof askFoundationModel;
+    /** The confirm calls made today, failures included (default: the model log). */
+    confirmsToday?: () => Promise<number>;
+    /** `files.jsonl` as read before `gather` built the units: a file described since waits a tick. */
+    files?: ReturnType<typeof readFiles>;
     online?: typeof isOnline;
     step?: () => ReturnType<typeof begin>;
     where?: string;
@@ -225,6 +260,8 @@ export async function readArrivals(
 ) {
   const {
     apple = askFoundationModel,
+    confirmsToday = readConfirmsToday,
+    files = readFiles(),
     online = isOnline,
     where = READ_REPLIES,
   } = o;
@@ -241,7 +278,7 @@ export async function readArrivals(
   );
   const waiting = filesDueOnArrival(
     evidence.fileEvents,
-    readFiles(),
+    files,
     new Set()
   ).due.map(eventKey);
   const read = new Set([...stored.flatMap((l) => l.messages), ...waiting]);
@@ -266,13 +303,13 @@ export async function readArrivals(
   const answers = await apple(forApple.map((r) => triggerRequest(r.lines)));
   const toConfirm: Asked[] = due
     .filter((r) => !forApple.includes(r))
-    .map((r) => confirmOf(readOf(r)));
+    .map(confirmOf);
   const digest = promptDigestOf(promptText(TRIGGER));
   for (const [i, r] of forApple.entries()) {
     const answer = answers[i] as FoundationAnswer;
     // No Apple model on this Mac (or it failed): nothing stored, his engine reads it.
     if ("error" in answer && answer.error !== "refused") {
-      toConfirm.push(confirmOf(readOf(r)));
+      toConfirm.push(confirmOf(r));
       continue;
     }
     const reply = triggerReplyOf(answer, r.lines.join("\n"));
@@ -293,29 +330,26 @@ export async function readArrivals(
         starts: [0],
         unit: r.b.unit.id,
       } as ReadReply,
-      readOf(r).firstAt,
+      confirmOf(r).call.firstAt,
       where
     );
     if (isTriggered(reply)) {
-      toConfirm.push(confirmOf(readOf(r)));
+      toConfirm.push(confirmOf(r));
     }
   }
   toConfirm.push(...pendingConfirms(stored, evidence.built, people));
-  if (failedToday.day !== day) {
-    Object.assign(failedToday, { count: 0, day });
-  }
-  const asked =
-    stored.filter((l) => l.read === ARRIVAL_CONFIRM_READ).length +
-    failedToday.count;
-  const taken =
+  const room =
     toConfirm.length > 0 && (await online())
-      ? newestWithin(toConfirm, Math.max(0, CONFIRMS_A_DAY - asked), {
+      ? CONFIRMS_A_DAY - (await confirmsToday())
+      : 0;
+  const taken =
+    room > 0
+      ? newestWithin(toConfirm, room, {
           at: (a) => a.at,
           size: () => 1,
         })
       : [];
   const { failed, stored: confirmed } = await makeReplies(taken, step, where);
-  failedToday.count += failed.length;
   return step.end({
     apple: forApple.length,
     confirmed,
@@ -323,21 +357,6 @@ export async function readArrivals(
     due: due.length,
     failed: failed.length,
   });
-}
-
-/** A read's facts for its stored lines: the instant of its first line, its unit and source. */
-function readOf(r: ArrivalRead) {
-  const first = r.b.messages.find(
-    (m) => eventKey({ id: m.id, source: r.b.unit.source }) === r.keys[0]
-  );
-  return {
-    at: r.at,
-    firstAt: first?.at ?? r.b.unit.start,
-    keys: r.keys,
-    lines: r.lines,
-    source: r.b.unit.source,
-    unit: r.b.unit.id,
-  };
 }
 
 const sameKeys = (a: string[], b: string[]) =>
@@ -353,7 +372,10 @@ function pendingTriggers(stored: ReadReply[]) {
       !confirms.some((c) => sameKeys(c.messages, l.messages))
   );
 }
-/** The confirms of pending triggers, their lines read again from today's units (a reply never keeps message text). */
+/**
+ * The confirms of pending triggers, their lines read again from today's units by the same bounded read (a reply never
+ * keeps message text). Only when it shows exactly the trigger's lines: otherwise the night reads the unit.
+ */
 function pendingConfirms(
   stored: ReadReply[],
   built: Built[],
@@ -361,19 +383,8 @@ function pendingConfirms(
 ): Asked[] {
   return pendingTriggers(stored).flatMap((t) => {
     const b = built.find((u) => u.unit.id === t.unit);
-    const lines =
-      b && linesOf(b, new Set(t.messages), people.resolve, people.nameOf);
-    return b && lines && lines.length > 0
-      ? [
-          confirmOf(
-            readOf({
-              at: b.messages.at(-1)?.at ?? b.unit.end,
-              b,
-              keys: lines.map((l) => l.key),
-              lines: lines.map((l) => l.text),
-            })
-          ),
-        ]
-      : [];
+    const r =
+      b && boundedReadOf(b, new Set(t.messages), people.resolve, people.nameOf);
+    return r && sameKeys(r.keys, t.messages) ? [confirmOf(r)] : [];
   });
 }

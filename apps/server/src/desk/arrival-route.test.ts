@@ -25,23 +25,17 @@ const facts: ArrivalFacts = {
   people: ["person:ana"],
   source: "whatsapp",
 };
-const none = { assignments: [], netPeople: [], personal: undefined };
-
-test("one assignment: a waiting one first (the lowest id), else a matter's by its people, else Personal, else none", () => {
-  expect(
-    arrivalRouteOf(facts, { ...none, personal: "p", waiting: ["b", "a"] })
-  ).toBe("a");
+test("one assignment: a matter's whose people wrote the lines (the lowest id), else Personal, else none", () => {
   const netPeople = [
     { assignment: "m2", people: new Set(["person:ana"]) },
     { assignment: "m1", people: new Set(["person:bo"]) },
+    { assignment: "m3", people: new Set(["person:ana"]) },
   ];
+  expect(arrivalRouteOf(facts, { netPeople, personal: "p" })).toBe("m2");
+  expect(arrivalRouteOf(facts, { netPeople: [], personal: "p" })).toBe("p");
   expect(
-    arrivalRouteOf(facts, { ...none, netPeople, personal: "p", waiting: [] })
-  ).toBe("m2");
-  expect(arrivalRouteOf(facts, { ...none, personal: "p", waiting: [] })).toBe(
-    "p"
-  );
-  expect(arrivalRouteOf(facts, { ...none, waiting: [] })).toBeUndefined();
+    arrivalRouteOf(facts, { netPeople: [], personal: undefined })
+  ).toBeUndefined();
 });
 
 const unitOf = (): Unit =>
@@ -60,40 +54,42 @@ const unitOf = (): Unit =>
     title: "Ana",
   }) as Unit;
 
-test("a waiting agent is woken once with the facts only; a message the desk already queued wakes no one again", async () => {
+test("a message already queued for any agent wakes no one again; else Personal once, the facts only; no Personal, no wake", async () => {
   const s = setup();
   const agent = await s.waiting();
   advance(5 * MIN);
-  const arrival = {
-    at: clock().toISOString(),
-    messages: ["whatsapp|whatsapp:9"],
-    unit: "unit_0000000000a1",
-  };
-  const poll = (messages = arrival.messages) =>
+  const poll = (id: string) =>
     pollArrivals(s.desk, readPeopleOnce(), {
-      arrivals: [{ ...arrival, messages }],
+      arrivals: [
+        {
+          at: clock().toISOString(),
+          messages: [`whatsapp|${id}`],
+          people: ["person:ana"],
+          unit: "unit_0000000000a1",
+        },
+      ],
       units: [unitOf()],
     });
-  await poll();
-  await poll();
-  const woken = queuedEvents(s.desk.db, asgOf(s.desk, agent)).filter(
-    (e) => e.name === ARRIVAL_CONFIRMED
-  );
-  expect(woken).toHaveLength(1);
-  expect(Object.keys(JSON.parse(String(woken[0]?.payload))).sort()).toEqual([
+  const woken = () =>
+    queuedEvents(s.desk.db, asgOf(s.desk, agent)).filter(
+      (e) => e.name === ARRIVAL_CONFIRMED
+    );
+  await poll("whatsapp:9");
+  expect(woken()).toHaveLength(0);
+  s.desk.db.run("update agent set is_personal = 1 where id = ?", [agent]);
+  queue(s.desk.db, "message.received", [
+    { assignment: asgOf(s.desk, agent), eventId: "whatsapp:9", payload: {} },
+  ]);
+  await poll("whatsapp:9");
+  expect(woken()).toHaveLength(0);
+  await poll("whatsapp:10");
+  await poll("whatsapp:10");
+  expect(woken()).toHaveLength(1);
+  expect(Object.keys(JSON.parse(String(woken()[0]?.payload))).sort()).toEqual([
     "at",
     "chat",
     "id",
     "people",
     "source",
   ]);
-  queue(s.desk.db, "message.received", [
-    { assignment: asgOf(s.desk, agent), eventId: "whatsapp:10", payload: {} },
-  ]);
-  await poll(["whatsapp|whatsapp:10"]);
-  expect(
-    queuedEvents(s.desk.db, asgOf(s.desk, agent)).filter(
-      (e) => e.name === ARRIVAL_CONFIRMED
-    )
-  ).toHaveLength(1);
 });

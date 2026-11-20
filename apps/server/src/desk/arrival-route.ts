@@ -9,11 +9,10 @@ import {
   type ConfirmedArrival,
   readConfirmedArrivals,
 } from "../memory/read-replies";
-import type { People } from "../memory/who";
 import { localDate } from "../memory/zones";
 import type { Unit } from "../records/unit";
 import type { Desk } from "./desk-store";
-import { agentWakesOf, queue, type ReadPeople } from "./event-queue";
+import { queue, type ReadPeople } from "./event-queue";
 import { netsOf } from "./matter-net";
 
 // A confirmed arrival's one wake (his yes of 20 Nov 2026): the arrival reader's confirmed answer (never Apple's alone)
@@ -48,34 +47,29 @@ export function arrivalFactsOf(
     chat: unit.key,
     // The stored key is `source|id`; the desk names a message by its id, as `message.received` does.
     id: newest.slice(newest.indexOf("|") + 1),
-    people: unit.people.map(refOf),
+    people: arrival.people.map(refOf),
     source: unit.source,
   };
 }
 
 /**
- * The one assignment a confirmed arrival goes to (pure over what it is given): (1) one whose wait matches it
- * (`agentWakesOf`, the lowest assignment id among several agents), else (2) one on a matter whose people it is from
- * (the wide net's people, `netsOf`), else (3) the Personal agent's own. None: nothing.
+ * The one assignment a confirmed arrival goes to (pure): one on a matter whose people wrote its lines (the wide net's
+ * people, `netsOf`; the lowest assignment id among several), else the Personal agent's own. None: nothing. A waiting
+ * agent whose wait matches the message is not here: its `message.received` came first, from the message poll's own
+ * matcher over the message itself, and `pollArrivals` queues nothing for a message already queued.
  */
 export function arrivalRouteOf(
   facts: ArrivalFacts,
   o: {
-    assignments: AssignmentRow[];
     netPeople: { assignment: string; people: ReadonlySet<string> }[];
     personal: string | undefined;
-    waiting: string[];
   }
 ) {
-  const lowest = (ids: string[]) => ids.toSorted()[0];
   return (
-    lowest(o.waiting) ??
-    lowest(
-      o.netPeople
-        .filter((n) => facts.people.some((p) => n.people.has(p)))
-        .map((n) => n.assignment)
-    ) ??
-    o.personal
+    o.netPeople
+      .filter((n) => facts.people.some((p) => n.people.has(p)))
+      .map((n) => n.assignment)
+      .toSorted()[0] ?? o.personal
   );
 }
 
@@ -124,49 +118,23 @@ export async function pollArrivals(
       ])
     ).map((u) => [u.id, u])
   );
-  const queued = (id: string) =>
+  const facts = arrivals.flatMap(
+    (a) => arrivalFactsOf(a, units.get(a.unit), people.refOf) ?? []
+  );
+  const queued = new Set(
     desk.db
-      .query<{ n: number }, [string]>(
-        "select count(*) as n from event where event_id = ?"
+      .query<{ event_id: string }, string[]>(
+        `select distinct event_id from event where event_id in (${facts.map(() => "?").join(",")})`
       )
-      .get(id)?.n;
+      .all(...facts.map((f) => f.id))
+      .map((r) => r.event_id)
+  );
   const nets = await netsOf(desk, people);
   const personal = personalOf(desk, assignments);
-  const wakes = arrivals.flatMap((a) => {
-    const facts = arrivalFactsOf(a, units.get(a.unit), people.refOf);
-    if (!facts || queued(facts.id)) {
-      return [];
-    }
-    const assignment = arrivalRouteOf(facts, {
-      assignments,
-      netPeople: nets,
-      personal,
-      waiting: waitingOn(desk, assignments, people, facts),
-    });
-    return assignment
-      ? [{ assignment, eventId: facts.id, payload: facts }]
-      : [];
+  const wakes = facts.flatMap((f) => {
+    const assignment =
+      !queued.has(f.id) && arrivalRouteOf(f, { netPeople: nets, personal });
+    return assignment ? [{ assignment, eventId: f.id, payload: f }] : [];
   });
   desk.db.transaction(() => queue(desk.db, ARRIVAL_CONFIRMED, wakes))();
 }
-
-/** The assignments whose wait matches the arrival by its channel, chat and people (its words are not read here). */
-const waitingOn = (
-  desk: Desk,
-  assignments: AssignmentRow[],
-  people: People,
-  facts: ArrivalFacts
-) =>
-  agentWakesOf(desk.db, assignments, people, [
-    {
-      at: facts.at,
-      eventId: facts.id,
-      matchable: {
-        channel: facts.source,
-        chat: facts.chat,
-        fromMe: false,
-        people: facts.people,
-      },
-      payload: facts,
-    },
-  ]).map((w) => w.assignment);
