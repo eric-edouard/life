@@ -15,7 +15,7 @@ import {
 import { Ask, type Option, Withdrawal } from "./card-request";
 import { isSendable, StoredDraft } from "./draft";
 import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
-import { deadLinkOf, readsOnce } from "./find-refs";
+import { contextProblemOf, readsOnce } from "./find-refs";
 import { matterOfSteps, openStepsOf } from "./matter-read";
 import { MEMORY } from "./memory-files";
 import { amountOf, needsShownOf } from "./needs";
@@ -504,9 +504,9 @@ export async function requestDecision(
   // A step no open matter holds would never be listed: refused, so no question goes unseen. A matter's own id rides on
   // its newest step: a step outlives a re-group, a matter id doesn't.
   const reads = readsOnce();
-  const dead = await deadLinkOf(ask.context, reads);
-  if (dead) {
-    throw new Error(`Not done: ${dead}.`);
+  const contextProblem = await contextProblemOf(ask.context, reads);
+  if (contextProblem) {
+    throw new Error(`Not done: ${contextProblem}.`);
   }
   const matter = isOnMatter(ask.subject)
     ? matterOfSteps(

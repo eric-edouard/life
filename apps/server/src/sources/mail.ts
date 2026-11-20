@@ -486,7 +486,7 @@ export function readMailAt(
       .query<{ received: number }, [string, string, string]>(
         `select min(m.date_received) as received from messages m
            left join message_global_data g on g.ROWID = m.global_message_id
-          where g.message_id_header in (?, ?) or m.global_message_id = ?`
+          where m.deleted = 0 and (g.message_id_header in (?, ?) or m.global_message_id = ?)`
       )
       .get(header, `<${header}>`, header);
     const at = row?.received && new Date(row.received * 1000).toISOString();

@@ -23,7 +23,10 @@ export type Ref = { id: string } & (
 );
 export type RefKind = Ref["kind"];
 
+const LIFE = "life:";
 const MESSAGE = "msg:";
+/** A to-do item's key: a lone one's matter has its id. */
+const TODO_ITEM = /^entry_[0-9a-f]{12}$/;
 const FILE = "file:";
 
 /** A ref's kind and parts, or why it is malformed. A message is `msg:<source>|<id>` (`eventKey`), split at the first `|`. */
@@ -49,7 +52,10 @@ export function parseRef(id: string): Ref | { error: string } {
   }
   const turn = parseTurnRef(id);
   return (
-    (MatterId.safeParse(id).success && { id, kind: "matter" }) ||
+    ((MatterId.safeParse(id).success || TODO_ITEM.test(id)) && {
+      id,
+      kind: "matter",
+    }) ||
     (ObservationId.safeParse(id).success && { id, kind: "observation" }) ||
     (UnitId.safeParse(id).success && { id, kind: "unit" }) ||
     (turn && { id, kind: "turn", ...turn }) ||
@@ -59,30 +65,35 @@ export function parseRef(id: string): Ref | { error: string } {
   );
 }
 
-const FENCE =
-  /^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^ {0,3}\1[^\n]*$|(?![\s\S]))/gm;
-const CODE_SPAN = /(`+)[\s\S]*?\1/g;
-const LIFE_LINK = /\]\(\s*<?life:([^\s)>]+)>?/g;
-
-/** The `life:` link destinations of a Markdown text, outside code spans and fences, percent-decoded, each once. */
+/** The `life:` link destinations of a Markdown text, as a Markdown reader finds them (never in code), percent-decoded, each once. */
 export function lifeRefsOf(markdown: string) {
-  const prose = markdown.replace(FENCE, "").replace(CODE_SPAN, "");
-  return [
-    ...new Set(
-      [...prose.matchAll(LIFE_LINK)].map(([, ref = ""]) => {
+  const refs = new Set<string>();
+  Bun.markdown.render(markdown, {
+    link: (_: unknown, { href }: { href: string }) => {
+      if (href.startsWith(LIFE)) {
         try {
-          return decodeURIComponent(ref);
+          refs.add(decodeURIComponent(href.slice(LIFE.length)));
         } catch {
-          return ref;
+          refs.add(href.slice(LIFE.length));
         }
-      })
-    ),
-  ];
+      }
+      return "";
+    },
+  });
+  return [...refs];
 }
 
-/** A card's `life:` links with their kinds, for the phone; worked out when read, never stored. A malformed one is left out. */
-export const lifeLinksOf = (context: string | null) =>
+/**
+ * A card's `life:` links with their kinds, for the phone; worked out when read, never stored. A malformed one is left
+ * out; a matter's id (`isMatter`: a lone observation's matter has the observation's id) is a matter, as `fetch` opens it.
+ */
+export const lifeLinksOf = (
+  context: string | null,
+  isMatter: (id: string) => boolean = () => false
+) =>
   lifeRefsOf(context ?? "").flatMap((ref) => {
     const r = parseRef(ref);
-    return "error" in r ? [] : [{ kind: r.kind, ref }];
+    return "error" in r
+      ? []
+      : [{ kind: isMatter(ref) ? "matter" : r.kind, ref }];
   });

@@ -1,7 +1,11 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
-import { rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { SourceEvent } from "../records/source";
+import { readArchivedMessageAt } from "../sources/archived";
 import type { Descriptor } from "../sources/contract";
+import { githubCopier, readGithub } from "../sources/github";
 import { apply } from "../sources/lifelog";
 import {
   conversation,
@@ -10,7 +14,12 @@ import {
   turnFixture,
 } from "../sources/store-fixtures";
 import { DECISIONS, requestDecision } from "./decisions";
-import { findRef, readsOnce, type SharedReads } from "./find-refs";
+import {
+  findMessageIn,
+  findRef,
+  readsOnce,
+  type SharedReads,
+} from "./find-refs";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as memoryFiles from "./memory-files";
 import { openById } from "./open-by-id";
@@ -56,6 +65,11 @@ test("each kind: a live ref is found, a dead one says why", async () => {
     "no one is person:test-nobody"
   );
   expect(await found("project:garden/now")).toContain("no read parts");
+  // A part an add-on supplies, or a conversation summary, may not be there to open: never a link.
+  expect(await found("person:test-ana/persona")).toContain("persona");
+  expect(
+    await found("person:test-ana/conversation/job-1:0@2026-10-14T10:00:00.000Z")
+  ).toContain("conversation");
   expect(await found(MATTER)).toBe(true);
   expect(await found("matter_dddddddddddd")).toBe(
     "no matter matter_dddddddddddd"
@@ -122,24 +136,27 @@ test("a message by its id, whatever its age; a source that can't find one says s
   const read = mock((since: Date) =>
     since.toISOString() === event.at ? [event] : []
   );
-  const real = sources.sourceOf;
-  spyOn(sources, "sourceOf").mockImplementation((name) =>
-    name === "whatsapp"
-      ? ({
-          kind: "chat",
-          label: "WhatsApp",
-          messageAt: (m: string) =>
-            m === id ? { first: event.at, last: event.at } : undefined,
-          read,
-        } as unknown as Descriptor)
-      : real(name)
-  );
+  // He turned WhatsApp on, and Notes, whose store finds no message by id; Messages is off.
+  spyOn(sources, "enabledSources").mockReturnValue([
+    {
+      kind: "chat",
+      label: "WhatsApp",
+      messageAt: (m: string) =>
+        m === id ? { first: event.at, last: event.at } : undefined,
+      name: "whatsapp",
+      read,
+    },
+    { kind: "own_writing", label: "Notes", name: "notes", read: () => [] },
+  ] as unknown as Descriptor[]);
   expect(await found(`msg:whatsapp|${id}`)).toBe(true);
   expect(await found("msg:whatsapp|whatsapp:120@g.us/S9")).toBe(
     "no WhatsApp message whatsapp:120@g.us/S9"
   );
-  expect(await found("msg:notes|notes:1")).toContain(
-    "message by its id: link its unit"
+  expect(await found("msg:notes|notes:1")).toBe(
+    "notes is off or holds no messages"
+  );
+  expect(await found("msg:imessage|imessage:G1")).toBe(
+    "imessage is off or holds no messages"
   );
   expect(
     await openById(`msg:whatsapp|${id}`, undefined, undefined, () =>
@@ -195,4 +212,42 @@ test("a card's context is required Markdown, at most 20,000 characters, and its 
   );
   expect(asked.id).toStartWith("dec_");
   rmSync(DECISIONS, { force: true });
+});
+
+test("a GitHub comment is found by its id at its instant, which its archive keeps without milliseconds", async () => {
+  const archive = mkdtempSync(join(tmpdir(), "github-"));
+  const comment = {
+    body: "me too",
+    created_at: "2026-11-18T09:00:00Z",
+    html_url: "https://github.com/o/r/issues/1#issuecomment-31",
+    id: 31,
+    issue_url: "https://api.github.com/repos/o/r/issues/1",
+    updated_at: "2026-11-18T09:00:00Z",
+    user: { login: "Bob" },
+  };
+  const run = (cmd: string[]) =>
+    Promise.resolve({
+      code: 0,
+      killed: null,
+      stderr: "",
+      stdout:
+        cmd[2] === "user"
+          ? "ana\n"
+          : JSON.stringify(
+              cmd[2]?.startsWith("repos/o/r/issues/comments") ? [comment] : []
+            ),
+    });
+  const repos = () => ["o/r"];
+  await githubCopier({ archive, repos, run: run as never })();
+  const github = {
+    kind: "chat" as const,
+    label: "GitHub",
+    messageAt: (id: string) => readArchivedMessageAt("github", id, archive),
+    read: (since: Date, before?: Date) =>
+      readGithub(since, archive, before, repos),
+  };
+  const [sent] = readGithub(new Date(0), archive, undefined, repos);
+  const comment31 = findMessageIn(github, sent?.id ?? "none");
+  expect(comment31.found && comment31.event?.text).toContain("me too");
+  expect(findMessageIn(github, `${sent?.id}9`).found).toBe(false);
 });

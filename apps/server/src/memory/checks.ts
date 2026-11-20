@@ -611,7 +611,7 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
       .map(({ check, day }) => ({
         ...check,
         day,
-        lifeLinks: lifeLinksOf(check.context),
+        lifeLinks: lifeLinksOf(check.context, (id) => byId.has(id)),
         matter: cardMatterOf(matterOf([check.subject ?? check.ref])) ?? null,
         onMatters: check.ridesOn.matterIds.flatMap(
           (id) => cardMatterOf(byId.get(id)) ?? []

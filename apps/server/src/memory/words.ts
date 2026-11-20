@@ -13,7 +13,6 @@ import {
   openStore,
   parseTurnRef,
   readTranscript,
-  turnPlace,
   turnRef,
   turnsBetween,
   withStore,
@@ -24,7 +23,8 @@ import {
   voiceKey,
 } from "../sources/lifelog-voices";
 import { communicationStylesOf } from "./communication-styles";
-import { readInferredRepos, readJudgments, readUnit } from "./memory-files";
+import { findTurn, findUnit } from "./find-refs";
+import { readInferredRepos, readJudgments } from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
 import {
@@ -392,18 +392,15 @@ export async function fetchOf(
 ): Promise<string> {
   const turn = parseTurnRef(id);
   if (turn) {
-    const place = await withStore(
-      (store) => turnPlace(store, turn.jobId, turn.turnIndex),
-      open
-    );
-    return place
+    const at = await findTurn(id, turn, open);
+    return at.found
       ? fetchOf(
-          place.conversation,
-          from ?? Math.max(0, place.offset - LEAD),
+          at.place.conversation,
+          from ?? Math.max(0, at.place.offset - LEAD),
           limit,
           open
         )
-      : asData([`(no turn ${id}: lifelog no longer has it)`]);
+      : asData([`(${at.why})`]);
   }
   const fromTurn = from ?? 0;
   const whole = wholeConversation(id, fromTurn, limit);
@@ -412,10 +409,11 @@ export async function fetchOf(
   }
   const people = await readPeople();
   const { truth } = people;
-  const unit = UNIT_ID.test(id) ? await readUnit(id) : undefined;
-  if (UNIT_ID.test(id) && !unit) {
-    return asData([`(no unit ${id})`]);
+  const found = UNIT_ID.test(id) ? await findUnit(id) : { unit: undefined };
+  if ("why" in found) {
+    return asData([`(${found.why})`]);
   }
+  const { unit } = found;
   const head = unit
     ? `${unit.source} ${unit.date} "${unit.title}" (${unit.id})`
     : `Conversation ${id}`;

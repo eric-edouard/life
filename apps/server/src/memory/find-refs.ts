@@ -1,13 +1,16 @@
-import type { SourceName } from "../core/names";
+import { SECOND } from "../core/clock";
 import type { SourceEvent } from "../records/source";
 import type { FileEntry, Unit } from "../records/unit";
 import { readImportedConversation } from "../sources/assistants";
+import type { Descriptor } from "../sources/contract";
 import { openStore, turnPlace, withStore } from "../sources/lifelog";
 import { askPageOf, noAskPageOf } from "./card-request";
 import { readMatterBook } from "./matters";
 import { readFiles, readIndex, readUnit } from "./memory-files";
+import { partErrorOf, type ReadPartRef } from "./read-part";
 import { lifeRefsOf, parseRef, type Ref } from "./refs";
-import { sourceOf } from "./sources";
+import { enabledSources } from "./sources";
+import { isLifeOutput } from "./units";
 import { meant, type People, personFor, readPeople } from "./who";
 import { dayNow } from "./zones";
 
@@ -49,8 +52,32 @@ export interface Hit {
   unit?: Unit;
 }
 
-const hit = (h: Hit): Found<Hit> => ({ found: true, ...h });
-const miss = (why: string): Found<Hit> => ({ found: false, why });
+const hit = <T extends Hit>(h: T): Found<T> => ({ found: true, ...h });
+const miss = (why: string): { found: false; why: string } => ({
+  found: false,
+  why,
+});
+
+/** A unit by its id. */
+export async function findUnit(id: string) {
+  const unit = await readUnit(id);
+  return unit ? hit({ unit }) : miss(`no unit ${id}`);
+}
+
+/** A turn of lifelog's store, where it is in its conversation. */
+export async function findTurn(
+  id: string,
+  t: { jobId: string; turnIndex: number },
+  open = openStore
+) {
+  const place = await withStore(
+    (store) => turnPlace(store, t.jobId, t.turnIndex),
+    open
+  );
+  return place
+    ? hit({ place })
+    : miss(`no turn ${id}: lifelog no longer has it`);
+}
 
 /** Whether `ref` names something that exists, by its kind's reader. */
 export async function findRef(
@@ -64,29 +91,25 @@ export async function findRef(
       return page ? hit({ page }) : miss(noAskPageOf(ref.id));
     }
     case "person":
-      return findPerson(ref.read.subject, reads);
+      return findPerson(ref.read, reads);
     case "matter":
     case "observation":
       return findMatterOrObservation(ref.id, ref.kind, reads);
-    case "unit": {
-      const unit = await readUnit(ref.id);
-      return unit ? hit({ unit }) : miss(`no unit ${ref.id}`);
+    case "unit":
+      return findUnit(ref.id);
+    case "message": {
+      // Only a source he turned on is read; one with a reader of chat or mail.
+      const d = enabledSources().find((x) => x.name === ref.source);
+      return d && (d.kind === "chat" || d.kind === "mail")
+        ? findMessageIn(d, ref.message)
+        : miss(`${ref.source} is off or holds no messages`);
     }
-    case "message":
-      return findMessage(ref.source, ref.message);
     case "file": {
       const file = readFiles().get(ref.file);
       return file ? hit({ file }) : miss(`no file ${ref.file}`);
     }
-    case "turn": {
-      const place = await withStore(
-        (store) => turnPlace(store, ref.jobId, ref.turnIndex),
-        open
-      );
-      return place
-        ? hit({ place })
-        : miss(`no turn ${ref.id}: lifelog no longer has it`);
-    }
+    case "turn":
+      return findTurn(ref.id, ref, open);
     case "conversation":
       return readImportedConversation(ref.id) ||
         (await withStore(
@@ -103,10 +126,18 @@ export async function findRef(
   }
 }
 
-/** A person's read part opens by the id `fetch` reads it by (`personFor`); a project's or an area's has none yet. */
-async function findPerson(subject: string, reads: SharedReads) {
+/** The parts a link may name: always there (an add-on's go with it, a conversation summary is his alone). */
+const LINKED_PARTS = ["now", "page", "evidence", "latest"];
+
+/** A person's read part as `fetch` reads it by id (`personFor`), of a part always there; a project's or an area's has none yet. */
+async function findPerson(read: ReadPartRef, reads: SharedReads) {
+  const { subject } = read;
   if (!subject.startsWith("person:")) {
     return miss(`no read parts for ${subject} yet: only a person's`);
+  }
+  const bad = partErrorOf(read, LINKED_PARTS);
+  if (bad) {
+    return miss(bad);
   }
   const id = subject.slice("person:".length);
   return personFor(id, meant(id, await reads.people()), true).known
@@ -134,39 +165,42 @@ async function findMatterOrObservation(
   return observation ? hit({ observation }) : miss(`no observation ${id}`);
 }
 
-/** A message by its id, from its source's store whatever its age (`messageAt`), read as its reader gives it. */
-function findMessage(source: SourceName, id: string) {
-  const d = sourceOf(source);
-  if (!(d.messageAt && (d.kind === "chat" || d.kind === "mail"))) {
+/** A message by its id, from its source's store whatever its age (`messageAt`), as its reader gives it; never Life's own. */
+export function findMessageIn(
+  d: Pick<Descriptor, "kind" | "label" | "messageAt"> &
+    Partial<{ read: (since: Date, before?: Date) => SourceEvent[] }>,
+  id: string
+) {
+  if (!(d.messageAt && d.read)) {
     return miss(
       `Life can't open a ${d.label} message by its id: link its unit (unit_…) instead`
     );
   }
   try {
     const at = d.messageAt(id);
+    // A second past its last version: a store may keep instants without milliseconds, compared as text.
     const event =
       at &&
       d
-        .read(new Date(at.first), new Date(Date.parse(at.last) + 1))
-        .find((e) => e.id === id);
+        .read(new Date(at.first), new Date(Date.parse(at.last) + SECOND))
+        .find((e) => e.id === id && !isLifeOutput(e));
     return event ? hit({ event }) : miss(`no ${d.label} message ${id}`);
   } catch (error) {
     return miss(`${d.label} can't be read now: ${(error as Error).message}`);
   }
 }
 
-/** Why a card's context can't be shown: its first `life:` link that opens nothing; none when every one does. */
-export async function deadLinkOf(context: string, reads: SharedReads) {
-  const ids = lifeRefsOf(context);
-  const found = await Promise.all(
-    ids.map((id) => {
-      const ref = parseRef(id);
-      return "error" in ref ? miss(ref.error) : findRef(ref, reads);
-    })
-  );
-  const i = found.findIndex((f) => !f.found);
-  const dead = found[i];
-  return dead && !dead.found
-    ? `the link life:${ids[i]} opens nothing (${dead.why}): a \`life:\` link is a ref \`fetch\` opens`
-    : undefined;
+/** Why a card's context can't be shown: blank, or its first `life:` link that opens nothing; none when it can. */
+export async function contextProblemOf(context: string, reads: SharedReads) {
+  if (context.trim() === "") {
+    return "`context` is required, in Markdown: why you ask, why you drafted this, what you tried, with links";
+  }
+  for (const id of lifeRefsOf(context)) {
+    const ref = parseRef(id);
+    // biome-ignore lint/performance/noAwaitInLoops: stops at the first dead link
+    const found = "error" in ref ? miss(ref.error) : await findRef(ref, reads);
+    if (!found.found) {
+      return `the link life:${id} opens nothing (${found.why}): a \`life:\` link is a ref \`fetch\` opens`;
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { findRef, readsOnce } from "./find-refs";
+import { findRef, type Hit, readsOnce } from "./find-refs";
 import { OWNER } from "./read-truth";
 import { parseRef } from "./refs";
 import { asData, fetchOf } from "./words";
@@ -6,8 +6,8 @@ import { asData, fetchOf } from "./words";
 /**
  * `fetch`'s one entry, over the one ref grammar (`parseRef`): a malformed ref says why; a person's read part opens by
  * its reader (someone only heard has evidence and no part); any other ref is looked for first (`findRef`), a miss says
- * why, and a hit is shown: an ask page (how to ask a card's part), a matter, an observation, a message, a file's reading,
- * or a conversation, unit or turn (`fetchOf`). `fromTurn` and `limit` page a conversation only.
+ * why, and a hit is shown: an ask page (how to ask a card's part), a matter, an observation, a message or a file's
+ * reading; a conversation, unit or turn is `fetchOf`'s. `fromTurn` and `limit` page a conversation only.
  */
 export async function openById(
   id: string,
@@ -32,11 +32,24 @@ export async function openById(
     const { subject, ...o } = ref.read;
     return readPerson(subject.slice("person:".length), { ...o, byId: true });
   }
+  // A conversation, unit or turn is looked up and shown by its own reader (`fetchOf`, over `findUnit` and `findTurn`).
+  if (
+    ref.kind === "conversation" ||
+    ref.kind === "unit" ||
+    ref.kind === "turn"
+  ) {
+    return fetchOf(id, from, limit);
+  }
   const found = await findRef(ref, reads);
   if (!found.found) {
     return asData([`(${found.why})`]);
   }
-  const { event, file, matter, observation, page } = found;
+  return shownOf(found);
+}
+
+/** A hit as `fetch` shows it. */
+function shownOf(hit: Hit) {
+  const { event, file, matter, observation, page } = hit;
   if (page) {
     return asData([page]);
   }
@@ -60,11 +73,9 @@ export async function openById(
       `${event.at} ${event.fromMe ? OWNER : event.sender}: ${event.text}`,
     ]);
   }
-  if (file) {
-    return asData([
-      `File ${file.ref}`,
-      ...[file.description, file.text].filter((t) => t !== undefined),
-    ]);
-  }
-  return fetchOf(id, from, limit);
+  // What is left is a file's reading.
+  return asData([
+    `File ${file?.ref}`,
+    ...[file?.description, file?.text].filter((t) => t !== undefined),
+  ]);
 }

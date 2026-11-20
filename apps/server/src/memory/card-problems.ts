@@ -57,8 +57,6 @@ export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
   const ahead = Date.parse(ask.deadline) - now.getTime();
   const silence = ask.options.find((o) => o.id === ask.onSilence);
   return (
-    (ask.context.trim() === "" &&
-      "`context` is required, in Markdown: why you ask, why you drafted this, what you tried, with links") ||
     (new Set(ids).size !== ids.length && "option ids repeat") ||
     (ask.onSilence !== null &&
       !silence &&
