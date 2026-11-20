@@ -37,7 +37,8 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
 
 - **iPhone Duo: layout branches on `horizontalSizeClass` only**, never device, screen size or orientation: compact is one
   pane, regular two (`CardArrangement` in the Inbox, the `NavigationSplitView` in Matters). State a fold must keep lives
-  above the branch (`AppRouter`, the screen).
+  above the branch (`AppRouter`, the screen). Inside a split view's column read `windowSizeClass` (set at the root): the
+  list column is compact even on the open Duo.
   The one other input is where the system puts the bars, its `toolbarVerticalEdge` (`reportsSideColumn`), never a guess: the
   Undo toast is a capsule in that column only on a compact width (the closed Duo); the open Duo keeps the worded toast, as designed.
 - Every bundle id, the app group and the background task derive from `LIFELOG_BUNDLE_ID` in `project.yml` (beside
