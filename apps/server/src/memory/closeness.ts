@@ -81,7 +81,7 @@ export function directChats(
 }
 
 /**
- * The one-to-one messages of each person named (a name or an id, read as `read_person_page` reads it: `meant`), in
+ * The one-to-one messages of each person named (a name or an id, read as `read_people_and_organizations` reads it: `meant`), in
  * the order given; `known` is undefined, and the messages none, for a name that is no one's.
  */
 export function directOf(

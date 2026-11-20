@@ -419,7 +419,7 @@ Sections, in order:
 - **Health** (the owner's own page only): as Now, but a line ages into Earlier after 60 days.
 - **Between us** (the page of someone close to the owner personally, now or once, `personallyClose`): what lasts between them, the
   relationship, agreements, boundaries, turning points, each view in its speaker's name; ages into Earlier after 365
-  days. `read_person_page` shows each line's first and latest evidence day. A page that loses it (a service, or the owner lowers them) moves its lines
+  days. Their `page` part (`fetch person:<id>/page`) shows each line's first and latest evidence day. A page that loses it (a service, or the owner lowers them) moves its lines
   to Earlier.
 - **Now**: where things stand, `- <text> [obs_…, …]`. Every line cites observations and at least one is under 21 days
   old (`SECTION` in `page-format.ts`); with none it ages into Earlier.
