@@ -263,7 +263,7 @@ test("each open card is its own assignment's, so an agent holding two shows each
       // The matter's read shows the agent by its assignment on that matter, so its card is B's, never its own A's.
       const [onIt] = agentsOnSteps(desk.db, [step], clock().getTime(), true);
       expect(onIt?.assignment).toBe(other.id);
-      expect(owners[b.id]?.assignment).toBe(onIt?.assignment);
+      expect(owners[b.id]?.assignment).toBe(other.id);
       await withdrawOpenCards(desk.db, { agent_id: id }, "test over");
     }
   );
