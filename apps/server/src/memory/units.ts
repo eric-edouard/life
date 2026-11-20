@@ -231,6 +231,10 @@ export function voiceTokensOf(keys: string[]) {
   return tokens;
 }
 
+/** A conversation's turns by local day: one voice unit's turns each (`voiceUnitId(c.id, day)`). */
+export const turnsByDayOf = (c: LifelogConversation) =>
+  Map.groupBy(c.turns, (t) => localDate(t.at));
+
 /**
  * Conversation-days: the turns of one conversation on one local day, cut by code alone (no model), for every
  * conversation that is not the `key` of a chapter unit in `frozenKeys`. Its people are the names lifelog gave them,
@@ -240,10 +244,6 @@ export function voiceTokensOf(keys: string[]) {
  * their days kept the old names) has it read again.
  * ponytail: words transcribed again under the same turn refs keep the hash; hash the words if re-transcription matters.
  */
-/** A conversation's turns by local day: one voice unit's turns each (`voiceUnitId(c.id, day)`). */
-export const turnsByDayOf = (c: LifelogConversation) =>
-  Map.groupBy(c.turns, (t) => localDate(t.at));
-
 export function lifelogUnits(
   conversations: LifelogConversation[],
   frozenKeys: Set<string>
