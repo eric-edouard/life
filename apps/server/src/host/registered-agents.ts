@@ -410,14 +410,14 @@ export async function readAgentRows(since: string) {
   ];
 }
 
-/** The hand-outs since the last report as rows: how many started and how many have an answered card, then each that never began, or ended having asked no card, by its matter's name. Pure; every row; none when nothing was handed out. */
+/** The hand-outs since the last report as rows: how many started and how many have an answered card, then each that never began, or ended having never asked a card (`everAsked`: a card withdrawn at its end still counts, unlike the door's `hasAsked`), by its matter's name. Pure; every row; none when nothing was handed out. */
 export function handOutRowsOf(
   agents: readonly {
     id: string;
     status: string;
     why_not_started: string | null;
   }[],
-  cards: { answered: ReadonlySet<string>; asked: ReadonlySet<string> },
+  cards: { answered: ReadonlySet<string>; everAsked: ReadonlySet<string> },
   matterOf: (agentId: string) => { name: string } | undefined
 ) {
   if (agents.length === 0) {
@@ -432,7 +432,7 @@ export function handOutRowsOf(
       const why =
         a.why_not_started === null
           ? a.status === "ended" &&
-            !cards.asked.has(a.id) &&
+            !cards.everAsked.has(a.id) &&
             "ended with no card"
           : `never began: ${a.why_not_started}`;
       return why
@@ -481,7 +481,7 @@ async function readDeskRows(since: string) {
     answered: new Set(
       decisions.filter((d) => d.state === "answered").map((d) => d.agent)
     ),
-    asked: new Set(decisions.map((d) => d.agent)),
+    everAsked: new Set(decisions.map((d) => d.agent)),
   };
   return [
     ...handOutRowsOf(read.value.handed, cards, matterOf),

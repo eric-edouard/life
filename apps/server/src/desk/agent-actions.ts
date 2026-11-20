@@ -28,7 +28,6 @@ import { nameRefusalOf, readPeople } from "../memory/who";
 import type { AgentKind, EventFilter } from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { type Desk, writeWait } from "./desk-store";
-import type { Runtime } from "./runtimes/contract";
 
 // What a registered agent does at the desk (the door's tools, `desk-door.ts`, which checks it is active) and how one is
 // registered. Each writes its row
@@ -236,32 +235,32 @@ export async function finish(desk: Desk, id: string, outcome: string) {
   await withdrawOpenDecision(id, "its agent finished");
 }
 
-/** Stops the desk's own run of session `ref` of agent `id` (`Runtime.stop`); a failure is logged. */
-export const stopRun = (
-  runtime: Runtime | undefined,
+/** Stops the desk's own run of agent `id`'s open turn (`turn`, read before whatever closes it), if it has one (`Runtime.stop`): every end, and his stop. A failure is logged. */
+export async function stopOpenRun(
+  desk: Desk,
   id: string,
-  ref: string
-) =>
-  runtime?.stop(ref).catch((error: unknown) =>
-    log("desk.runtime", {
-      agent: id,
-      error: String(error),
-      ok: false,
-      what: "stop",
-    })
-  );
+  turn = openTurn(desk.db, id)
+) {
+  if (!turn?.session) {
+    return;
+  }
+  await desk.runtimes[agentOf(desk.db, id)?.runtime ?? ""]
+    ?.stop(turn.session)
+    .catch((error: unknown) =>
+      log("desk.runtime", {
+        agent: id,
+        error: String(error),
+        ok: false,
+        what: "stop",
+      })
+    );
+}
 
 /** Ends agent `id` as `finish` does, then stops the run of its open turn, if any: the one way the tick ends an agent. */
 export async function endAgent(desk: Desk, id: string, outcome: string) {
   const open = openTurn(desk.db, id);
   await finish(desk, id, outcome);
-  if (open?.session) {
-    await stopRun(
-      desk.runtimes[agentOf(desk.db, id)?.runtime ?? ""],
-      id,
-      open.session
-    );
-  }
+  await stopOpenRun(desk, id, open);
 }
 
 /** `write_notes`: replaces the agent's notes, which open its next packet. */
@@ -300,7 +299,7 @@ const PLAN_FIRST_TURN =
 
 /** ... and when the desk started it itself (`hand-out.ts`): no plan card, one card of what it found. */
 const HANDED_OUT_FIRST_TURN =
-  ' Life handed you this matter from the top of his list; he did not ask for it. Your first turn reads and gathers (his chats, mail, files, the web), then asks ONE card, whichever is true: the next step prepared (a draft he can send as it is, in the channel the talk is already in, never mail when they talk in a chat); what only he can do (the step in a few words and every fact he needs for it: amount, account, address, phone, reference); or that it looks over (what shows it). Open the card\'s context with what you could not verify. Every card has an option for his own words (Tell the agent…). On a card for what only he can do, or that it looks over, mark the option that means done `ends: "step"` (the step as `subject`) or `ends: "matter"` (nothing is left): his pick closes it in Life; no other option closes anything. Then wait for his answer; finish when the step is done or nothing is left for you. In a project\'s folder you only read, unless a card he approved says otherwise.';
+  ' Life handed you this matter from the top of his list; he did not ask for it. Your first turn reads and gathers (his chats, mail, files, the web), then asks ONE card, whichever is true: the next step prepared (a draft he can send as it is, in the channel the talk is already in, never mail when they talk in a chat); what only he can do (the step in a few words and every fact he needs for it: amount, account, address, phone, reference); or that it looks over (what shows it). Open the card\'s context with what you could not verify. Every card has an option for his own words (Tell the agent…). On a card for what only he can do, or that it looks over, mark the option that means done `ends: "step"` (the step as `subject`) or `ends: "matter"` (nothing is left): his pick closes it in Life. Every card also offers Drop it, marked `ends: "matter"`, for a matter he does not care about: his pick of it alone closes the matter in Life (when the matter has no open step left, Life refuses it: leave it out and say in the context that he can tell you to stop). No other option closes anything. Then wait for his answer; finish when the step is done or nothing is left for you. In a project\'s folder you only read, unless a card he approved says otherwise.';
 
 /** What every session of a registered agent is told after its brief (the desk spec, 5.4): the door's contract and his one gate (what waits on his yes, a plan before any act). */
 const contractOf = (id: string, isOwn: boolean, kind: AgentKind) =>
