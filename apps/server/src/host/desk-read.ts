@@ -495,7 +495,7 @@ export interface AgentNow {
   } | null;
   link: string | null;
   model: string | null;
-  /** The first line of its notes: what it took its subject to be. */
+  /** The first line of its notes: what it took its subject to be; none for the caretaker (its notes are about his complaints). */
   notes: string;
   /** Why its first turn never began, when it did not (it was ended). */
   notStarted: string | null;
@@ -631,7 +631,8 @@ function nowOf(
         }
       : null,
     link: a.link,
-    notes: headOf(readNotes(s)),
+    // The caretaker's notes are about his complaints: they stay with it, never in a read or the nightly.
+    notes: a.role === "caretaker" ? "" : headOf(readNotes(s)),
     notStarted: s.why_not_started,
     outcome: a.outcome,
     project: a.project,
