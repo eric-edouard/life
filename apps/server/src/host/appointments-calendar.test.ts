@@ -143,6 +143,7 @@ test("an event Life wrote and no longer lists is a refusal only when Google says
 // The arrival path on made-up data: a fake calendar, made-up replies, nothing reaches Google or a phone.
 const NOW = new Date("2031-03-10T09:00:00Z");
 const ARRIVAL_AT = "2031-03-10T08:00:00.000Z";
+const LATER_AT = "2031-04-01T08:00:00.000Z";
 let events: Map<
   string,
   { allDay: boolean; busy?: boolean; props: Record<string, string> }
@@ -165,18 +166,22 @@ const fake = {
     events.delete(id);
     return Promise.resolve();
   },
-  update: () => Promise.resolve(),
+  update: (id: string, f: { busy: boolean; description: string }) => {
+    updates.push({ id, ...f });
+    return Promise.resolve();
+  },
 };
 const was = settings().appointmentsCalendar;
 const nightFile = existsSync(APPOINTMENTS)
   ? readFileSync(APPOINTMENTS, "utf8")
   : null;
+let updates: { busy: boolean; description: string; id: string }[] = [];
 let calendar: ReturnType<typeof spyOn<typeof google, "googleCalendar">>;
 let pushed: ReturnType<typeof spyOn<typeof push, "notifyPhone">>;
-const agreed = (start: string, messages: string[]) =>
+const agreed = (start: string, messages: string[], at = ARRIVAL_AT) =>
   storeReply(
     {
-      at: ARRIVAL_AT,
+      at,
       madeBy: {
         engine: "codex",
         model: "test",
@@ -202,16 +207,18 @@ const agreed = (start: string, messages: string[]) =>
       starts: [0],
       unit: "unit_0000000000aa",
     } as ReadReply,
-    ARRIVAL_AT
+    at
   );
 const clean = () => {
   rmSync(APPOINTMENT_EVENTS, { force: true });
   rmSync(readReplyPath(ARRIVAL_AT), { force: true });
+  rmSync(readReplyPath(LATER_AT), { force: true });
   rmSync(APPOINTMENTS, { force: true });
 };
 beforeEach(() => {
   clean();
   events = new Map();
+  updates = [];
   setSettings({
     appointmentsCalendar: { account: "a@example.com", calendar: "cal" },
   });
@@ -299,7 +306,10 @@ test("one draft per meeting: the night's and the arrival's of one start are one,
   ];
   const fresh = plannedOf(night, arrivals, new Map(), () => false, NOW);
   expect(fresh.map((a) => [a.id, "agreed" in a && a.agreed])).toEqual([
-    ["apt_0000000000aa", { link: "https://meet.example.com/kit-lou" }],
+    [
+      "apt_0000000000aa",
+      { link: "https://meet.example.com/kit-lou", unit: "unit_0000000000aa" },
+    ],
   ]);
   const held = plannedOf(
     night,
@@ -310,19 +320,17 @@ test("one draft per meeting: the night's and the arrival's of one start are one,
   );
   expect(held.map((a) => a.id)).toEqual(["apt_000000000011"]);
   // Past the arrival's window, its event's mark keeps it agreed, link and all.
-  const later = plannedOf(
+  const [kept = night[0] as Appointment] = plannedOf(
     night,
     [],
     new Map([["apt_000000000011", { link: "https://meet.example.com/x" }]]),
     () => true,
     NOW
   );
-  const [agreed] = later;
-  expect(agreed && appointmentDraft(agreed, false).text).toContain(
-    "Meeting link: https://meet.example.com/x"
-  );
-  expect(appointmentDraft(night[0] as Appointment, false).hash).not.toBe(
-    agreed && appointmentDraft(agreed, false).hash
+  const draft = appointmentDraft(kept, false);
+  expect(draft.text).toContain("Meeting link: https://meet.example.com/x");
+  expect(draft.hash).not.toBe(
+    appointmentDraft(night[0] as Appointment, false).hash
   );
 });
 
@@ -333,4 +341,50 @@ test("with no night file yet, no event Life wrote is removed", async () => {
   });
   await syncAppointments(NOW);
   expect([...events.keys()]).toEqual(["ev1"]);
+});
+
+test("the night's reading of an arrival's meeting keeps its event, busy, with its link and source; a later reply of its start keeps its id", async () => {
+  agreed("2031-06-01 10:00", ["whatsapp|m1"]);
+  await syncAppointments(NOW);
+  const [event, first] = [...events][0] ?? [];
+  await Bun.write(
+    APPOINTMENTS,
+    JSON.stringify({
+      appointments: [
+        appointment({
+          end: "2031-06-01 11:00",
+          id: "apt_000000000011",
+          start: "2031-06-01 10:00",
+        }),
+      ],
+      built: ARRIVAL_AT,
+      inputs: "i",
+      madeBy: { model: "m", prompt: "p", run: "r" },
+      schemaVersion: 1,
+    })
+  );
+  await syncAppointments(NOW);
+  expect([...events.keys()]).toEqual([event ?? ""]);
+  expect(updates.at(-1)).toMatchObject({ busy: true, id: event });
+  expect(updates.at(-1)?.description).toContain(
+    "Meeting link: https://meet.example.com/kit-lou"
+  );
+  expect(updates.at(-1)?.description).toContain("Agreed in unit_0000000000aa");
+  rmSync(APPOINTMENTS, { force: true });
+  // The first reply out of the window, a second of the same start in it: the same id, no second event.
+  agreed("2031-06-01 10:00", ["whatsapp|m5"], LATER_AT);
+  const later = new Date("2031-04-15T09:00:00Z");
+  await syncAppointments(later);
+  expect([...events.keys()]).toEqual([event ?? ""]);
+  // Deleted by him: never written again, whichever reply is read.
+  events.clear();
+  await syncAppointments(later);
+  await syncAppointments(later);
+  expect(events.size).toBe(0);
+  expect(
+    readAppointmentEvents().byAppointment.get(
+      first?.props.lifeAppointment ?? ""
+    )?.op
+  ).toBe("refused");
+  expect(pushed).toHaveBeenCalledTimes(1);
 });

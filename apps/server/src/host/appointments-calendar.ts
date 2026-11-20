@@ -20,7 +20,7 @@ import {
   mapLinksOf,
   reconcile,
 } from "../memory/calendar-events";
-import { edgeTime, span } from "../memory/episode-span";
+import { span } from "../memory/episode-span";
 import { APPOINTMENT_EVENTS, APPOINTMENTS } from "../memory/memory-files";
 import { clip } from "../memory/units";
 import { dayNow, dayStart } from "../memory/zones";
@@ -44,11 +44,12 @@ const AHEAD = 400 * DAY;
 
 /** What the sync writes: one of the night's appointments (with `agreed` when he agreed it in new lines), or one agreed in new lines. */
 type Planned =
-  | (Appointment & { agreed?: { link: string | null } })
+  | (Appointment & { agreed?: { link: string | null; unit?: string } })
   | ArrivalAppointment;
 const isArrival = (a: Planned): a is ArrivalAppointment => "messages" in a;
 /** Whether he agreed it in new lines, and its meeting link: kept on its event too (`lifeAgreed`, `lifeLink`), past the window the arrival is read in. */
-const agreedOf = (a: Planned) => (isArrival(a) ? { link: a.link } : a.agreed);
+const agreedOf = (a: Planned) =>
+  isArrival(a) ? { link: a.link, unit: a.unit } : a.agreed;
 
 /** What an appointment was read from, as its event lines name it: its facts, or its messages. */
 const citesOf = (a: Planned) =>
@@ -67,8 +68,9 @@ export function appointmentDraft(a: Planned, isConfirmed: boolean) {
     ...(!isArrival(a) && a.timeGuessed ? ["The time is Life's guess."] : []),
     ...mapLinksOf({ name: a.place }),
     ...(agreedOf(a)?.link ? [`Meeting link: ${agreedOf(a)?.link}`] : []),
+    ...(agreedOf(a)?.unit ? [`Agreed in ${agreedOf(a)?.unit}.`] : []),
     isArrival(a)
-      ? `Appointment ${a.id}, read from ${a.unit}.`
+      ? `Appointment ${a.id}.`
       : `Appointment ${a.id}, read from ${a.observations.join(", ")}.`,
   ].join("\n");
   // A long list of facts is cut, never the links above it.
@@ -164,7 +166,9 @@ const isAhead = (a: Planned, now: Date) => {
     { day: a.start.slice(0, 10), end: a.end, start: a.start },
     a.zone ?? undefined
   );
-  return edgeTime(allDay, to) > now.getTime();
+  // A whole day ends at midnight where it is.
+  const end = allDay ? dayStart(to, a.zone ?? undefined) : new Date(to);
+  return end.getTime() > now.getTime();
 };
 
 /**
@@ -182,9 +186,10 @@ export function plannedOf(
   const ahead = arrivals.filter((a) => isAhead(a, now));
   const joined = new Set<string>();
   const nights = night.map((n) => {
+    // One to one: an arrival joins one night's appointment at most.
+    const free = ahead.filter((x) => !joined.has(x.id));
     const a =
-      ahead.find((x) => x.id === n.id) ??
-      ahead.find((x) => x.start === n.start);
+      free.find((x) => x.id === n.id) ?? free.find((x) => x.start === n.start);
     if (!a) {
       const agreed = agreedOn.get(n.id);
       return agreed ? { ...n, agreed } : n;
@@ -192,7 +197,7 @@ export function plannedOf(
     joined.add(a.id);
     return {
       ...n,
-      agreed: { link: a.link },
+      agreed: { link: a.link, unit: a.unit },
       id: hasEvent(n.id) ? n.id : a.id,
     };
   });

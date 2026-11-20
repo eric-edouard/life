@@ -178,13 +178,13 @@ export function checkedAppointments(
   );
   const ids = heldIdsOf(
     entries.map((a) => a.facts),
-    // The arrival's first: on a tie a reading keeps the id of the meeting he agreed.
+    // Held first: on a tie a reading keeps the id whose event is already there (the sync joins the arrival by start).
     [
-      ...(ctx.arrivals ?? []),
       ...ctx.held.map((h) => ({
         facts: h.observations.map((f) => ctx.replacedBy(f) ?? f),
         id: h.id,
       })),
+      ...(ctx.arrivals ?? []),
     ]
   );
   // A new id is its facts' hash, hashed again while another appointment has it (a held one first read from them).
