@@ -233,12 +233,7 @@ export function agentHomeOf(
   return a.project ? join(agentsRepo, `project-${a.project}`) : null;
 }
 
-/**
- * Which assignment owns card `d`: the one that asked it, as the desk wrote it once when the card was asked (`card`,
- * `askDecision`), never worked out again from anchors that move later; a card asked before the desk kept its owner (20
- * Nov 2026) is its asker's one assignment then, its first (pinned: a later assignment of the agent never takes it); none
- * for a card no registered agent asked.
- */
+/** Which assignment owns card `d`: the one that asked it, written once when asked (`card`, `askDecision`), never worked out from anchors that move; one asked before the desk kept owners (20 Nov 2026), its asker's first assignment (its one then); none for a card no registered agent asked. */
 export const assignmentOfCard = (
   db: Database,
   d: { agent?: string; id: string }
@@ -401,16 +396,6 @@ export const agentChangeOf = (db: Database, ask: string) =>
     >("select agent_id, applied_at, error from agent_change where ask = ?")
     .get(ask);
 
-/** The assignment agent `id` was started on: on a matter, the newest anchored on its first step `step`; else its own. */
-const startedAssignmentOf = (db: Database, id: string, steps?: string[]) =>
-  steps
-    ? db
-        .query<AssignmentRow, [string, string]>(
-          "select s.* from assignment s where s.agent_id = ? and s.id in (select assignment_id from anchor where step in (select value from json_each(?))) order by s.opened_at desc limit 1"
-        )
-        .get(id, JSON.stringify(steps))
-    : currentAssignmentOf(db, id);
-
 /**
  * What the desk did with a start (`change_registered_agent`), as facts: the ask's `agent_change` row and, for its agent,
  * the assignment it opened or found (on a matter, its agent's newest anchored on any of its `steps`; else the agent's own), its agent's
@@ -419,25 +404,29 @@ const startedAssignmentOf = (db: Database, id: string, steps?: string[]) =>
 export function readStartFacts(db: Database, ask: string, steps?: string[]) {
   const change = agentChangeOf(db, ask);
   const id = change?.agent_id;
-  const assignment = id ? startedAssignmentOf(db, id, steps) : null;
+  // On a matter, its agent's newest assignment anchored on any of `steps`; else the agent's own.
+  const assignment =
+    (id &&
+      db
+        .query<AssignmentRow, [string, string | null]>(
+          "select * from assignment s where agent_id = ?1 and iif(?2 is null, id not in (select assignment_id from anchor), id in (select assignment_id from anchor where step in (select value from json_each(?2)))) order by opened_at desc limit 1"
+        )
+        .get(id, steps ? JSON.stringify(steps) : null)) ||
+    null;
+  const one = <T>(sql: string, key?: string | null) =>
+    (key ? db.query<T, [string]>(sql).get(key) : null) ?? null;
   return {
     agent: id ? agentOf(db, id) : null,
-    assignment: assignment ?? null,
+    assignment,
     change,
-    session: id
-      ? (db
-          .query<{ link: string; ref: string; started_at: string }, [string]>(
-            "select ref, link, started_at from session where agent_id = ? order by rowid desc limit 1"
-          )
-          .get(id) ?? null)
-      : null,
-    turn: assignment
-      ? (db
-          .query<{ begun_at: string | null }, [string]>(
-            "select begun_at from turn where assignment_id = ? order by id limit 1"
-          )
-          .get(assignment.id) ?? null)
-      : null,
+    session: one<{ link: string; ref: string; started_at: string }>(
+      "select ref, link, started_at from session where agent_id = ? order by rowid desc limit 1",
+      id
+    ),
+    turn: one<{ begun_at: string | null }>(
+      "select begun_at from turn where assignment_id = ? order by id limit 1",
+      assignment?.id
+    ),
   };
 }
 
