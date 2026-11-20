@@ -323,6 +323,8 @@ export function changeDirectoryEntry(a: DirectoryEntryChange) {
  * id is the name's slug, numbered past one taken (a second "Sam"), or `person` for a name with no latin letters.
  */
 export async function addPersonByHisWord(name: string, said: string) {
+  // ponytail: ids read outside the queue: two adds of one name at once, the second refused as a duplicate; its retry finds
+  // the name in truth/. Fine for one owner; read inside `apply` if answers ever race.
   const taken = new Set((await loadTruth()).people.map((p) => p.id));
   const base = slugOf(name) || "person";
   let id = base;
