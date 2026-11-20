@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
+import { log } from "../core/log";
 import { DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS } from "../core/paths";
 import {
@@ -25,6 +26,7 @@ import { nameRefusalOf, readPeople } from "../memory/who";
 import type { EventFilter } from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { type Desk, writeWait } from "./desk-store";
+import type { Runtime } from "./runtimes/contract";
 
 // What a registered agent does at the desk (the door's tools, `desk-door.ts`, which checks it is active) and how one is
 // registered. Each writes its row
@@ -232,6 +234,34 @@ export async function finish(desk: Desk, id: string, outcome: string) {
     heard(desk, id, "finished");
   })();
   await withdrawOpenDecision(id, "its agent finished");
+}
+
+/** Stops the desk's own run of session `ref` of agent `id` (`Runtime.stop`); a failure is logged. */
+export const stopRun = (
+  runtime: Runtime | undefined,
+  id: string,
+  ref: string
+) =>
+  runtime?.stop(ref).catch((error: unknown) =>
+    log("desk.runtime", {
+      agent: id,
+      error: String(error),
+      ok: false,
+      what: "stop",
+    })
+  );
+
+/** Ends agent `id` as `finish` does, then stops the run of its open turn, if any: the one way the tick ends an agent. */
+export async function endAgent(desk: Desk, id: string, outcome: string) {
+  const open = openTurn(desk.db, id);
+  await finish(desk, id, outcome);
+  if (open?.session) {
+    await stopRun(
+      desk.runtimes[agentOf(desk.db, id)?.runtime ?? ""],
+      id,
+      open.session
+    );
+  }
 }
 
 /** `write_notes`: replaces the agent's notes, which open its next packet. */

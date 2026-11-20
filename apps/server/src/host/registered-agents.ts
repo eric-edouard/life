@@ -18,6 +18,7 @@ import {
   agentsOnSteps,
   anchorsOf,
   type DeskRead,
+  handedOutAgentsSince,
   projectHolderOf,
   readDesk,
   refusedSince,
@@ -384,7 +385,7 @@ export function tokenRowsOf(
 
 /**
  * The nightly report's Agents section: one row per registered agent, then the report lines posted since `since` (the
- * last report), each with its day, then the tokens of the agents' turns since then (`tokenRowsOf`). Off: none; unreadable: one row saying so.
+ * last report), each with its day, then the hand-outs (`handOutRowsOf`) and the tokens of the agents' turns since then (`tokenRowsOf`). Off: none; unreadable: one row saying so.
  */
 export async function readAgentRows(since: string) {
   const r = await readRegisteredAgents();
@@ -392,7 +393,7 @@ export async function readAgentRows(since: string) {
     return [{ name: "Desk", relation: "its store could not be read" }];
   }
   const lines = readDesk((db) => reportLinesSince(db, since), []);
-  const tokens = await readTokenRows(since);
+  const tokens = await readDeskRows(since);
   return [
     ...(r.desk === "ok" && r.helper === "not running"
       ? [{ name: "Desk", relation: "its helper is not running" }]
@@ -409,21 +410,81 @@ export async function readAgentRows(since: string) {
   ];
 }
 
-async function readTokenRows(since: string) {
+/** The hand-outs since the last report as rows: how many started and how many have an answered card, then each that never began, or ended having asked no card, by its matter's name. Pure; every row; none when nothing was handed out. */
+export function handOutRowsOf(
+  agents: readonly {
+    id: string;
+    status: string;
+    why_not_started: string | null;
+  }[],
+  cards: { answered: ReadonlySet<string>; asked: ReadonlySet<string> },
+  matterOf: (agentId: string) => { name: string } | undefined
+) {
+  if (agents.length === 0) {
+    return [];
+  }
+  return [
+    {
+      name: "Hand-outs",
+      relation: `${agents.length} started · ${agents.filter((a) => cards.answered.has(a.id)).length} with an answered card`,
+    },
+    ...agents.flatMap((a) => {
+      const why =
+        a.why_not_started === null
+          ? a.status === "ended" &&
+            !cards.asked.has(a.id) &&
+            "ended with no card"
+          : `never began: ${a.why_not_started}`;
+      return why
+        ? [
+            {
+              name: `Hand-out · ${matterOf(a.id)?.name ?? "no matter"}`,
+              relation: why,
+            },
+          ]
+        : [];
+    }),
+  ];
+}
+
+/** The nightly's hand-out and token rows since `since`: the desk read once, the matter book once. */
+async function readDeskRows(since: string) {
   const read = readDesk((db) => {
     const turns = tokensSince(db, since);
-    const agents = [...new Set(turns.map((t) => t.agent_id))];
+    const handed = handedOutAgentsSince(db, since);
+    const agents = new Set([
+      ...turns.map((t) => t.agent_id),
+      ...handed.map((a) => a.id),
+    ]);
     return {
-      anchors: agents.map((id) => [id, anchorsOf(db, id)] as const),
+      anchors: [...agents].map((id) => [id, anchorsOf(db, id)] as const),
+      handed,
       turns,
     };
   }, null);
-  if (read.state !== "ok" || !read.value || read.value.turns.length === 0) {
+  if (
+    read.state !== "ok" ||
+    !read.value ||
+    read.value.turns.length + read.value.handed.length === 0
+  ) {
     return [];
   }
   const anchors = new Map(read.value.anchors);
   const find = matterFinderOf(
     await readMatterBook(await readPeople(), dayNow())
   );
-  return tokenRowsOf(read.value.turns, (id) => find(anchors.get(id) ?? []));
+  const matterOf = (id: string) => find(anchors.get(id) ?? []);
+  const decisions = decisionsNow().flatMap((d) =>
+    d.agent ? [{ agent: d.agent, state: d.state }] : []
+  );
+  const cards = {
+    answered: new Set(
+      decisions.filter((d) => d.state === "answered").map((d) => d.agent)
+    ),
+    asked: new Set(decisions.map((d) => d.agent)),
+  };
+  return [
+    ...handOutRowsOf(read.value.handed, cards, matterOf),
+    ...tokenRowsOf(read.value.turns, matterOf),
+  ];
 }
