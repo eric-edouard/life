@@ -208,8 +208,9 @@ permission.
 - **Events:** MCP's Events extension (`io.modelcontextprotocol/events`, a draft), by poll: `events/list` names
   `message.received` with the arguments an agent filters on (`person`, `channels`, `chat`, `from_me`, `text_matches`),
   `events/poll` returns what matched past the agent's cursor: who, where and when, never the text (`events.ts`). Any
-  paired app may poll. `decision.answered` and `decision.lapsed`: a paired agent's own decisions settled since its cursor (an
-  instant; `request_decision` returns one), with his answer or its `onSilence`, all in one page (`settledBetween`). A source has events when its descriptor has `incoming`. `read_new_events` is the same poll as a
+  paired app may poll. `decision.answered`, `decision.lapsed` and `decision.withdrawn`: a paired agent's own decisions settled since its cursor (an
+  instant; `request_decision` returns one), with his answer, its `onSilence`, or why Life withdrew it (he answered in its
+  draft's chat himself: the watcher reads each open draft card's chat every 30 s, `withdrawDraftsAnsweredInChat`), all in one page (`settledBetween`). A second card with a draft into a chat an open card's draft names is refused when asked. A source has events when its descriptor has `incoming`. `read_new_events` is the same poll as a
   tool, for a client that can't send `events/poll` (a Claude app's mod, ChatGPT).
 - **Auth:** every request needs a JWT for this resource with `life:read`, from Life's own issuer, the only one
   (`apps/server/src/host/http/oauth.ts`, at `<origin>/auth`: an app is approved with a pairing code
