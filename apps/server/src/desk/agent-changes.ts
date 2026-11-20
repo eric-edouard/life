@@ -313,7 +313,9 @@ function applyAsk(
   desk: Desk,
   ask: ReturnType<typeof asksFor>["asks"][number],
   facts: { blocked?: string; taker?: string }
-): { agent?: string; error: string } | { agent?: string; id: string } {
+):
+  | { agent?: string; error: string; failed?: unknown }
+  | { agent?: string; id: string } {
   const parsed = AgentChange.safeParse(ask.agentChange);
   if (!parsed.success) {
     return { error: "only a change from `change_registered_agent` is applied" };
