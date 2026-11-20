@@ -10,9 +10,9 @@ import {
   nextStepNow,
 } from "../memory/matter-read";
 import { readMatterBook, readMatterBookAndRecords } from "../memory/matters";
+import type { Party } from "../memory/party";
 import { readHandOutMatters } from "../memory/read-matters";
 import { sourceOf } from "../memory/sources";
-import type { Party } from "../memory/party";
 import { meant, type People, readPeople } from "../memory/who";
 import { dayNow, localDate, localTime } from "../memory/zones";
 import type { EventFilter } from "../records/registered-agent";

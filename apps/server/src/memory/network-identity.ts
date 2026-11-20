@@ -193,11 +193,7 @@ export async function readNetworkIdentities(
         ? ([
             t.check.ref,
             {
-              ...networkIdentityOf(
-                read.built.unit,
-                read.built.messages,
-                owner
-              ),
+              ...networkIdentityOf(read.built.unit, read.built.messages, owner),
               party: people.partyOf(t.check.ref),
             },
           ] as const)
