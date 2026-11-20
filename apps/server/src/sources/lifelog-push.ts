@@ -14,8 +14,11 @@ export interface Push {
   title?: string;
 }
 
-/** A push to his phone through lifelog, logged like a correction; nothing without lifelog set up. Never throws: a failure is its log line. */
-export async function notifyPhone(push: Push) {
+/**
+ * A push to his phone through lifelog, logged like a correction; nothing without lifelog set up. Never throws: a
+ * failure is its log line. `removed` alone: the `pushId`s of cards that left his inbox, a background push.
+ */
+export async function notifyPhone(push: Push | { removed: string[] }) {
   if (lifelogMissing()) {
     return;
   }

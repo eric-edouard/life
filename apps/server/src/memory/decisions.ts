@@ -6,7 +6,7 @@ import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { isoDateTime } from "../records/fields";
 import { isSendable, MessageDraft, oneLine, StoredDraft } from "./draft";
-import { resolveDraft, sendDraft, sendLimitMs } from "./draft-send";
+import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
 import { type MatterStepNow, matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { MEMORY } from "./memory-files";
@@ -16,7 +16,8 @@ import { dayNow } from "./zones";
 // The decisions: a question an agent puts to him, as one card: a title and a question of one line each, the exact
 // draft he approves when there is one, 2 to 4 options (the recommended one first), its context folded, a deadline.
 // Append-only, one synchronous line each, outside the lock like a correction: `asked` (`requestDecision`), his
-// `answered` (the first wins; his own words alone are his "something else"), the asker's `withdrawn`, and, when his
+// `answered` (the first wins; his own words alone are his "something else"), the asker's `withdrawn` (or Life's, when he
+// answered in a draft's chat himself: `withdrawDraftsAnsweredInChat`), and, when his
 // answer was a draft's outgoing option alone, the send's outcome (`sent` or `send-failed`, `draft-send.ts`), and when it
 // was an `ends` option alone, the end's outcome (`ended`: his word that the step or matter is done, `endByHisWord`). A send
 // that ended `not sent:` (nothing went) voids its answer: the card is open again and his next answer is the next first
@@ -107,6 +108,8 @@ const Answered = z
   .strict();
 const Withdrawn = z
   .object({
+    /** When he wrote in the draft's chat himself, Life withdrew it (`withdrawDraftsAnsweredInChat`): his message's instant, never its words. The asker's own withdrawal has none. */
+    answeredInChatAt: isoDateTime.optional(),
     at: isoDateTime,
     id: DecisionId,
     kind: z.literal("withdrawn"),
@@ -343,6 +346,54 @@ function readOpenDecision(id: string, now: Date) {
 export const isOnMatter = (subject?: string): subject is string =>
   subject !== undefined && !PROJECT_OR_AREA.test(subject);
 
+/** Whether Life withdrew it because he answered in its draft's chat himself (not its asker's own withdrawal). */
+const isAnsweredInChat = (w?: Withdrawn) => w?.answeredInChatAt !== undefined;
+
+/** "Someone wrote since" counts from his last attempt that went nowhere, else from the card. */
+const sinceOf = (d: Pick<Decision, "at" | "notSent">) =>
+  new Date(d.notSent?.at ?? d.at);
+
+/** Why Life withdraws a card whose chat he answered himself, as its asker reads it. */
+const ANSWERED_IN_CHAT = "he answered in the chat himself";
+
+/**
+ * Withdraws each open card whose draft's chat he wrote in since it was asked (`sinceOf`), by code: only that he wrote
+ * acts (`fromMe`), never what; anyone else's message leaves it open (its send is refused). Its asker hears
+ * `decision.withdrawn`. Run by the watcher every 30 s. Returns the ids withdrawn.
+ * ponytail: a mail draft, or a new 1:1 chat by its number, has no chat key, so it is never withdrawn.
+ */
+export function withdrawDraftsAnsweredInChat(
+  now = clock(),
+  wrote = wroteSince
+) {
+  const open = decisionsNow(now).flatMap((d) =>
+    d.state === "open" && d.draft?.chat ? [{ d, draft: d.draft }] : []
+  );
+  if (open.length === 0) {
+    return [];
+  }
+  const found = wrote(
+    open.map(({ d, draft }) => ({ draft, since: sinceOf(d) }))
+  );
+  const lines = open.flatMap(({ d }, i): Withdrawn[] => {
+    const his = found[i]?.find((e) => e.fromMe);
+    return his
+      ? [
+          {
+            answeredInChatAt: his.at,
+            at: now.toISOString(),
+            id: d.id,
+            kind: "withdrawn",
+            schemaVersion: VERSION,
+            why: ANSWERED_IN_CHAT,
+          },
+        ]
+      : [];
+  });
+  appendJsonl(DECISIONS, Withdrawn, lines);
+  return lines.map((l) => l.id);
+}
+
 /** Withdraws the open decision `request.withdraw`, only by the asker that asked it. */
 function withdrawDecision(
   asker: string,
@@ -483,6 +534,20 @@ export async function requestDecision(
   const subject =
     matter && matter.id === ask.subject ? newest?.ref : ask.subject;
   const draft = ask.draft && (await readChat(ask.draft, now));
+  // One open draft per chat: a second would be refused at its send anyway (the first's message is "someone wrote since").
+  const same =
+    draft?.chat &&
+    decisionsNow(now).find(
+      (d) =>
+        d.state === "open" &&
+        d.draft?.channel === draft.channel &&
+        d.draft?.chat === draft.chat
+    );
+  if (same) {
+    throw new Error(
+      `Not done: ${same.id} already asks a draft into ${draft.to}; wait until it is answered or withdrawn, then read the chat again.`
+    );
+  }
   const id = `dec_${randomBytes(6).toString("hex")}`;
   appendJsonl(DECISIONS, Asked, [
     {
@@ -608,9 +673,10 @@ export async function answerDecision(
   if (!(act === "send" && isSendable(stored.draft))) {
     return [line];
   }
-  // "Someone wrote since" counts from his last attempt that went nowhere, else from the card.
-  const since = new Date(stored.notSent?.at ?? stored.at);
-  const outcome = await deliver(stored.draft, id, { onStep, since }).then(
+  const outcome = await deliver(stored.draft, id, {
+    onStep,
+    since: sinceOf(stored),
+  }).then(
     (eventId) => ({ eventId, kind: "sent" as const }),
     (e: Error & { canRetry?: false; wrote?: SendFailed["wrote"] }) => ({
       error: e.message,
@@ -642,27 +708,32 @@ export const notSentOf = (d: Decision, n = d.notSent) =>
 
 /**
  * When a decision settled, as its asker hears it: its act's outcome when his answer sent its draft or ended its step
- * (none while the act runs), else his answer's instant, or the deadline for a lapse.
+ * (none while the act runs), else his answer's instant, the withdrawal's line (never his message's instant, which a
+ * poll's window may have passed), or the deadline for a lapse.
  */
 export const settledAtOf = (d: Decision) => {
   const act = actDueOf(d);
   return act
     ? actOutcomeOf(d, act)?.at
     : (d.answer?.at ??
+        d.withdrawn?.at ??
         // A lapse whose answer a `not sent:` voided after the deadline settles then, so a poll past the deadline still sees it.
         (d.notSent && d.notSent.at > d.deadline ? d.notSent.at : d.deadline));
 };
 
 /**
- * The decisions answered or lapsed in [`from`, `to`), by when they settled (`settledAtOf`; a withdrawal is the asker's
- * own act). Half-open, so a poll's next window starts at this one's end and none is seen twice or skipped.
+ * The decisions answered, lapsed or withdrawn because he answered in the chat in [`from`, `to`), by when they settled
+ * (`settledAtOf`; the asker's own withdrawal is its own act). Half-open, so a poll's next window starts at this one's
+ * end and none is seen twice or skipped.
  */
 export const settledBetween = (list: Decision[], from: Date, to: Date) =>
   list
     .map((d) => ({ at: Date.parse(settledAtOf(d) ?? ""), d }))
     .filter(
       ({ at, d }) =>
-        (d.state === "answered" || d.state === "lapsed") &&
+        (d.state === "answered" ||
+          d.state === "lapsed" ||
+          (d.state === "withdrawn" && isAnsweredInChat(d.withdrawn))) &&
         at >= from.getTime() &&
         at < to.getTime()
     )

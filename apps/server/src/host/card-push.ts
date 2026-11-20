@@ -24,8 +24,9 @@ import { openChecksNow } from "./inbox";
 // "1 new card" (past the first 5 of Life's own checks in one look, one "N more new cards"), the badge (what blocks him),
 // its level (his `notifications` setting for its kind) and, for one card, its `pushId` (an HMAC of its ref under a key
 // that never leaves the Mac). Never a title, a question, a name or a ref: it goes through Apple (SECURITY.md). The
-// phone reads the card from `read_inbox` and writes the notification's text. What was seen is a small state file of
-// the watcher's, outside `memory/`.
+// phone reads the card from `read_inbox` and writes the notification's text. A card that left his inbox (answered
+// anywhere, withdrawn, lapsed) goes as its `pushId` in a background push, and the phone removes its notification. What
+// was seen is a small state file of the watcher's, outside `memory/`.
 
 export const SEEN = join(WATCH, "seen-cards.json");
 /** A card not open for this many days is forgotten, so one that returns is new again. */
@@ -45,8 +46,13 @@ export const NOTIFY_DEFAULTS: Record<NotifyKind, NotifyLevel> = {
 };
 const URGENT_WITHIN = 3 * HOUR;
 
+/** The most `pushId`s one removal push carries: Apple's 4 KB payload. */
+const REMOVED_MAX = 100;
+
 interface Seen {
   badge: number;
+  /** The `pushId`s open at the last whole look (`total` given): one gone since is removed from his phone. */
+  open?: string[];
   /** Each card's `pushId` and the last day it was seen open. */
   seen: Record<string, string>;
 }
@@ -79,8 +85,9 @@ const loudest = (levels: PushLevel[]) =>
 
 /**
  * Pushes what is new among `open` (in his inbox's order) since the last look, then remembers it; the first run (no
- * state) pushes nothing. `total` is every open card (the badge); without it `open` holds only some kinds, and the
- * badge grows by what is new.
+ * state) pushes nothing. `total` is every open card (the badge), and what was open at the last whole look and is not
+ * now is removed from his phone; without it `open` holds only some kinds, the badge grows by what is new, and nothing
+ * is removed.
  */
 async function pushNew(open: Open[], total?: number, now = clock()) {
   const today = dayNow(now);
@@ -97,12 +104,22 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
     ...Object.entries(before?.seen ?? {}).filter(([, day]) => day > cutoff),
     ...open.map((c) => [c.pushId, today]),
   ]);
+  const looked = total === undefined ? before?.open : open.map((c) => c.pushId);
+  const next: Seen = { badge, ...(looked ? { open: looked } : {}), seen };
   // Written before the push, so one that fails is not repeated every look: the inbox and the badge still tell him.
-  if (!isDeepStrictEqual(before, { badge, seen })) {
-    writeJson(SEEN, { badge, seen } satisfies Seen);
+  if (!isDeepStrictEqual(before, next)) {
+    writeJson(SEEN, next);
   }
   if (!before) {
     return;
+  }
+  const removed =
+    total === undefined
+      ? []
+      : (before.open ?? []).filter((id) => !looked?.includes(id));
+  // ponytail: past REMOVED_MAX at once, the phone's next whole read of the inbox removes the rest.
+  if (removed.length > 0) {
+    await notifyPhone({ removed: removed.slice(0, REMOVED_MAX) });
   }
   const levels = settings().notifications;
   const fresh = open.flatMap((c) => {

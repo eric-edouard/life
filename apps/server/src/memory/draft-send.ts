@@ -252,6 +252,33 @@ export async function resolveDraft(
 
 type OnStep = (step: string, detail?: Record<string, unknown>) => void;
 
+/**
+ * What was written in each card's draft chat after its `since`, oldest first, his own messages too: the one test of
+ * "someone wrote since" (the send's refusal, and `withdrawDraftsAnsweredInChat`). None for a mail or a draft with no
+ * chat. Each channel is read once, from its earliest `since`.
+ * ponytail: the archive's copy can trail the network by its copier's interval, so a message written seconds ago may be missed.
+ */
+export function wroteSince(
+  cards: { draft: StoredDraft; since: Date }[],
+  sources = enabledSources()
+) {
+  const read = new Map<string | undefined, SourceEvent[]>(
+    sources.filter(isChat).flatMap((s) => {
+      const since = cards
+        .filter((c) => c.draft.channel === s.name && c.draft.chat)
+        .map((c) => c.since.getTime());
+      return since.length > 0
+        ? [[s.name, s.read(new Date(Math.min(...since)))] as const]
+        : [];
+    })
+  );
+  return cards.map(({ draft, since }) =>
+    (read.get(draft.channel) ?? [])
+      .filter((e) => e.chat === draft.chat && e.at > since.toISOString())
+      .toSorted((a, b) => a.at.localeCompare(b.at))
+  );
+}
+
 /** Everything before the hand-off: the draft as its path takes it, and that path, or why nothing goes (`sendDraft`). */
 async function readySend(
   draft: StoredDraft,
@@ -278,12 +305,7 @@ async function readySend(
     throw never(refusal);
   }
   if (isChat(s)) {
-    // ponytail: the archive's copy can trail the network by its copier's interval, so a message written seconds ago may be missed.
-    const wrote = s
-      .read(since)
-      .filter((e) => e.chat === draft.chat && e.at > since.toISOString())
-      .toSorted((a, b) => a.at.localeCompare(b.at))
-      .at(-1);
+    const wrote = wroteSince([{ draft, since }], [s])[0]?.at(-1);
     if (wrote) {
       throw Object.assign(
         new Error(
