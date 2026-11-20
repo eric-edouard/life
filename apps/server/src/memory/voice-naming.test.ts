@@ -38,6 +38,7 @@ const people = {
   contacts: [],
   corrections: [],
   inferred: [],
+  isOrganization: () => false,
   nameOf: (s: string) => s.replace("person:", ""),
   refOf: (s: string) => s,
   resolve: (name: string) => KNOWN[name] ?? null,

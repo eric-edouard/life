@@ -118,7 +118,7 @@ const none = {
   pictured: [] as string[],
 };
 const possible = (signs: Partial<typeof none>) =>
-  possibleSpeakersOf({ ...none, ...signs }, FROM, FROM, TO);
+  possibleSpeakersOf({ ...none, ...signs }, FROM, FROM, TO, () => false);
 
 test("an organization is never offered as a speaker, whatever its signs", () => {
   expect(

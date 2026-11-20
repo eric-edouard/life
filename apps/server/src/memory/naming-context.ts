@@ -121,7 +121,7 @@ export function possibleSpeakersOf(
   at: string,
   begin: string,
   end: string,
-  isOrganization: (ref: string) => boolean = () => false,
+  isOrganization: (ref: string) => boolean,
   cap = POSSIBLE_SPEAKERS
 ) {
   const heard = signs.heard
