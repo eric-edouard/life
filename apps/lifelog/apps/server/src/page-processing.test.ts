@@ -224,10 +224,13 @@ function dictating(
   const id = crypto.randomUUID();
   const opensAt = start - uploader;
   if (measured) {
-    recordSourceClock(env.db, SOURCE, {
-      offsetMs: uploader,
-      uncertaintyMs: UNSURE,
-    });
+    // Measured a minute before: the clock in force when the dictation opens.
+    recordSourceClock(
+      env.db,
+      SOURCE,
+      { offsetMs: uploader, uncertaintyMs: UNSURE },
+      new Date(opensAt - 60_000)
+    );
   }
   const openIt = () =>
     expect(
@@ -324,7 +327,7 @@ test.each([
   }
 );
 
-test("an uploader that never measured its clock: none of its audio reaches Silero while any phone dictation exists, and it goes on, the range left out, once its clock is measured", async () => {
+test("an uploader clock first measured after the dictation can't place it: none of the source's audio reaches Silero, before the measurement or after", async () => {
   const start = expected.pieces[1].start + 6000;
   const { audio, closeAt, pages, sent } = dictating(start, {
     measured: false,
@@ -333,18 +336,43 @@ test("an uploader that never measured its clock: none of its audio reaches Siler
   await store(audio);
   await pages.run();
   closeAt(1000);
-  await pages.run();
-  expect(sent).toEqual([]);
-
   recordSourceClock(env.db, SOURCE, {
     offsetMs: -30_000,
     uncertaintyMs: UNSURE,
   });
   await pages.run();
-  const range = protectedOf(start, 1000);
-  expect(touches(sent, range)).toBe(false);
-  expect(speechIn([expected.pieces[1].start, range[0]])).toBe(true);
-  expect(speechIn([range[1], expected.pieces[1].end])).toBe(true);
+  expect(sent).toEqual([]);
+});
+
+test("audio buffered while the uploader's clock was 30 s slow, uploaded once it was set right: the dictation is placed by the clock that stamped it, and none of it reaches Silero", async () => {
+  const start = expected.pieces[1].start + 6000;
+  const { audio, closeAt, pages, sent } = dictating(start, {
+    uploader: -30_000,
+  });
+  closeAt(1000);
+  // The clock set right before the pages arrive: the server now reads it as the server's.
+  recordSourceClock(
+    env.db,
+    SOURCE,
+    { offsetMs: 0, uncertaintyMs: UNSURE },
+    new Date(start + 60_000)
+  );
+  await store(audio);
+  await pages.run();
+  expect(sent.length).toBeGreaterThan(0);
+  expect(touches(sent, protectedOf(start, 1000))).toBe(false);
+});
+
+test("a dictation's server-clock copy holds back nothing of a source 55 s ahead: its packets at the dictation's server time, in the first span, reach Silero", async () => {
+  const start = expected.pieces[1].start + 6000;
+  const { audio, closeAt, pages, sent } = dictating(start, {
+    uploader: 55_000,
+  });
+  closeAt(1000);
+  await store(audio);
+  await pages.run();
+  expect(touches(sent, protectedOf(start, 1000))).toBe(false);
+  expect(touches(sent, protectedOf(start - 55_000, 1000))).toBe(true);
 });
 
 test("a dictation that opens while a batch is labeled: the piece waiting for Silero is refused and none of its packets goes, the piece before it is kept and never sent again, and the rest is labeled once it closes", async () => {
@@ -383,6 +411,30 @@ test("a dictation that opens while a batch is labeled: the piece waiting for Sil
     (at) => at >= expected.pieces[0].start && at < expected.pieces[0].end
   );
   expect(new Set(first).size).toBe(first.length);
+});
+
+test("the VAD worker failing on a batch's second piece: the first piece is kept and never sent again, and the rest is labeled on the next pass", async () => {
+  const { at, audio, pages } = setup();
+  at.clock += 11 * 60_000;
+  await store(audio);
+  const sent: number[] = [];
+  let calls = 0;
+  const original = pageAudio.label;
+  spyOn(pageAudio, "label").mockImplementation((req, packetsNow) => {
+    calls += 1;
+    return calls === 2
+      ? Promise.reject(new Error("the worker stopped"))
+      : original(req, () => {
+          const packets = packetsNow();
+          sent.push(...(packets ?? []).map((p) => p.at));
+          return packets;
+        });
+  });
+  await pages.run().catch(() => undefined);
+  expect(pieces()[0]?.first).toBe(expected.pieces[0].first);
+  await pages.run();
+  expect(new Set(sent).size).toBe(sent.length);
+  expect(pieces()).toEqual(kitPieces());
 });
 
 test("an Omi uploading while the iPhone's close is lost: its cap ends the dictation and the speech before it goes on", async () => {

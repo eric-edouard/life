@@ -74,7 +74,12 @@ const SOURCE = "omi-test";
 const limit = (sourceId = SOURCE) =>
   processingLimit(env.db, MAC)(sourceId).getTime();
 beforeEach(() => {
-  recordSourceClock(env.db, SOURCE, { offsetMs: 0, uncertaintyMs: 0 });
+  recordSourceClock(
+    env.db,
+    SOURCE,
+    { offsetMs: 0, uncertaintyMs: 0 },
+    new Date(0)
+  );
 });
 const stored = () =>
   env.db
@@ -123,11 +128,22 @@ test.each([30_000, -30_000])(
   }
 );
 
-test("refused: a new open a minute off the server's clock, an id never opened, a reader's token", async () => {
+test("refused: a new open a minute off the server's clock, an id never opened, another quiet range's id, a reader's token", async () => {
   const now = clock().getTime();
   expect((await open(opening(now - 61_000))).status).toBe(400);
   expect((await open(opening(now + 61_000))).status).toBe(400);
   expect((await close(randomUUID())).status).toBe(404);
+  const playback = randomUUID();
+  env.db
+    .insert(quietRanges)
+    .values({
+      endedAt: new Date(now),
+      id: playback,
+      source: "playback",
+      startedAt: new Date(now - 1000),
+    })
+    .run();
+  expect((await close(playback)).status).toBe(404);
   expect((await open(opening(now), READ_TOKEN)).status).toBe(403);
   expect(env.db.select().from(phoneDictations).all()).toEqual([]);
 });
@@ -224,13 +240,19 @@ test("an upload's clock is kept for its source, and every answer carries the ser
   expect(answer.headers.get("X-Server-Time")).toBe(String(T));
   await put("omi-unsure", "0,60000");
   await put("omi-garbled", "soon");
+  await put("omi-empty", ",");
   expect(limit("omi-unknown")).toBe(8.64e15);
 
   await open(opening(T));
   // Its clock 30 s slow: the dictation's start falls 30 s earlier in its audio, widened by its 0.4 s
   // and the margin.
   expect(limit("omi-slow")).toBe(T - 30_000 - 400 - CLOCK_MARGIN_MS);
-  for (const unplaced of ["omi-unsure", "omi-garbled", "omi-unknown"]) {
+  for (const unplaced of [
+    "omi-unsure",
+    "omi-garbled",
+    "omi-empty",
+    "omi-unknown",
+  ]) {
     expect(limit(unplaced)).toBe(-8.64e15);
   }
 });

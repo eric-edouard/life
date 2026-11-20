@@ -10,6 +10,7 @@ CREATE INDEX `phone_dictations_started_at` ON `phone_dictations` (`started_at`);
 CREATE TABLE `source_clocks` (
 	`measured_at` integer NOT NULL,
 	`offset_ms` integer NOT NULL,
-	`source_id` text PRIMARY KEY NOT NULL,
-	`uncertainty_ms` integer NOT NULL
+	`source_id` text NOT NULL,
+	`uncertainty_ms` integer NOT NULL,
+	PRIMARY KEY(`source_id`, `measured_at`)
 );

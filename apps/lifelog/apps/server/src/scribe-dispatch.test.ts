@@ -177,7 +177,12 @@ test("a dictation that opens while a block waits for its paid slot: nothing of i
   expect(uploads()).toHaveLength(1);
 
   // Meanwhile the owner dictates on the iPhone: the server opens the range over its last second.
-  recordSourceClock(env.db, "pendant-1", { offsetMs: 0, uncertaintyMs: 0 });
+  recordSourceClock(
+    env.db,
+    "pendant-1",
+    { offsetMs: 0, uncertaintyMs: 0 },
+    new Date(0)
+  );
   const id = randomUUID();
   openPhoneDictation(
     env.db,

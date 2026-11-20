@@ -212,12 +212,15 @@ reverse it, change its entry here in the same commit.
   server's clock: it starts when the server opens it and ends when the close arrives, after the microphone stopped,
   so a phone clock that is off never moves it; the phone's own tap time only tells a stale first open (over a minute
   off) from a fresh one. A pendant's audio is on its uploader's clock, which the uploader measures against the server's
-  on each request (`X-Clock-Offset`: offset and uncertainty, from `X-Server-Time` and the round trip): the range is placed
-  on that clock and widened by its uncertainty plus 2 s (an Omi's whole-second stamps). From that start, none of that
-  source's audio is labeled, cut or sent until the close, and each step reads the limit and the ranges again where
-  audio leaves (Silero, a job's admission, a send). A source whose uploader never measured its clock, or measured it
-  worse than 10 s, is held whole once any phone dictation exists, until one comes: never guessed. A piece Silero
-  refuses is resumed at, the pieces before it kept, so nothing is sent twice. A close lost (the phone gone) ends the
+  on each request (`X-Clock-Offset`: offset and uncertainty, from `X-Server-Time` and the round trip), kept as rows
+  that change only when the clock moved or is known better, since an uploader may send audio buffered under an older
+  clock. The range is placed by every row that may have stamped its audio (the one in force at its start, any added
+  while it ran, the first added after it), each widened by its uncertainty plus 2 s (an Omi's whole-second stamps);
+  its server-clock copy is for hiding words and grouping only. From that start, none of that source's audio is
+  labeled, cut, sent or heard by identity until the close, and each step reads the limit and the ranges again where
+  audio leaves. A dictation no row placed (none in force at its start, or one worse than 10 s) holds its source
+  whole: never guessed. A piece Silero refuses, or the worker fails on, is resumed at, the pieces before it kept, so
+  nothing is sent twice. A close lost (the phone gone) ends the
   range at its cap, 10 minutes after its start, timed by the server and settled at its start after a restart; every
   paid send waits for the first credit read, whatever woke it: at most 10
   minutes of pendant speech is left unprocessed, kept in the raw backup, and the speech around it goes on with no word

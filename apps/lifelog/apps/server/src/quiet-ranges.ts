@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { type Dictation, macWatch, quietRanges } from "@lifelog/db/schema";
-import { and, eq, gt, lt } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { logChange, logPlacedIn } from "./change-log";
 import {
@@ -225,20 +225,3 @@ export function macView(
     ).toISOString(),
   };
 }
-
-// The quiet ranges touching [start, end), as epoch-ms intervals.
-export const quietIn = (
-  db: Pick<Db, "select">,
-  [start, end]: [number, number]
-) =>
-  db
-    .select()
-    .from(quietRanges)
-    .where(
-      and(
-        lt(quietRanges.startedAt, new Date(end)),
-        gt(quietRanges.endedAt, new Date(start))
-      )
-    )
-    .all()
-    .map((q): [number, number] => [q.startedAt.getTime(), q.endedAt.getTime()]);

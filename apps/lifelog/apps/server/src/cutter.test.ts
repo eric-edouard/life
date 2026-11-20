@@ -38,6 +38,7 @@ afterAll(() => {
 });
 beforeEach(() => {
   env.reset();
+  recordSourceClock(env.db, SOURCE, STEADY, new Date(0));
   bucket.objects.clear();
   bucket.writes = 0;
   fake.calls.length = 0;
@@ -53,6 +54,7 @@ beforeEach(() => {
 });
 
 const SOURCE = "pendant-1";
+const STEADY = { offsetMs: 0, uncertaintyMs: 0 };
 const auth = { Authorization: `Bearer ${OWNER_TOKEN}` };
 const build = () => {
   const s = services(
@@ -684,9 +686,8 @@ test("a range that comes after the block closed withdraws its job in the worker,
   expect(feed.removed).toContainEqual({ ...withdrawn, ref: fragment?.id });
 });
 
-// A dictation on the iPhone opened at `at` (server time), the iPhone's clock the server's.
+// A dictation on the iPhone opened at `at` (server time).
 const dictate = (at: number) => {
-  recordSourceClock(env.db, SOURCE, { offsetMs: 0, uncertaintyMs: 0 });
   const id = randomUUID();
   const startedAt = new Date(at).toISOString();
   const phone = { phoneId: "iphone-test", source: "app.example.notes" };
@@ -743,9 +744,7 @@ test.each([false, true])(
     await app.s.worker.work();
     expect(jobs()).toHaveLength(0);
     expect(uploads()).toHaveLength(0);
-    expect(stored(app).filter((k) => String(k).startsWith("blocks/"))).toEqual(
-      []
-    );
+    expect(stored(app).some((k) => String(k).includes("blocks/"))).toBe(false);
 
     closePhoneDictation(env.db, id, new Date(from + 500));
     await app.s.worker.work();

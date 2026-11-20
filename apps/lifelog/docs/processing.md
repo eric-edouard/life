@@ -86,9 +86,10 @@ What never reaches ElevenLabs:
   page labeling, the cutter and the worker's claim and sends, read again with the ranges when Silero takes a piece,
   before a block's job is admitted and at each send; a piece or block it stops waits, unlabeled or open, and goes on
   after the close, the pieces before it kept. The range runs on the server's clock, from the open's arrival to the
-  close's; each uploader reports its clock's offset and uncertainty (`X-Clock-Offset`, `docs/sync.md`), and a source
-  with none is held whole while any phone dictation exists. Its close stores it widened by 2 s at both edges and
-  starts them again.
+  close's; each uploader reports its clock's offset and uncertainty (`X-Clock-Offset`, `docs/sync.md`), kept as it
+  changes, and the range is placed by every clock row that may have stamped the source's audio; a dictation none can
+  place holds the source whole. Its close stores its server-clock copy, widened by 2 s at both edges, for words and
+  grouping, and starts them again.
 - **Recordings the app plays out loud** (speaker, AirPlay, a car or a Bluetooth speaker; not headphones, told from
   Bluetooth speakers by name only): the phone stores the span, padded 2 seconds and stored again every 30 s while it
   plays, as a quiet range of its own, and cuts it out of fragments. Once closed, the span goes to the server through the

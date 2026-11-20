@@ -462,7 +462,8 @@ export function pageLabeler(
   }
 
   // Labels `list` in order: its first piece goes on from `going`, its last stays open if `stays`.
-  // Stops at a piece the limit refuses (`PastLimit`): the rows done before it, and that piece.
+  // Stops at a piece the limit refuses (`PastLimit`) or the worker fails on: the rows done before it,
+  // and that piece.
   async function labelAll(
     sourceId: string,
     list: Piece[],
@@ -490,10 +491,9 @@ export function pageLabeler(
         });
         rows.push(...(row ? [row] : []));
       } catch (error) {
-        if (error instanceof PastLimit) {
-          return { refused: { carried: i === 0 && going, piece }, rows };
-        }
-        throw error;
+        // Refused past the limit, or the worker failed: the pieces before it are kept either way.
+        const failed = error instanceof PastLimit ? null : error;
+        return { refused: { carried: i === 0 && going, failed, piece }, rows };
       }
     }
     return { refused: null, rows };
@@ -548,6 +548,9 @@ export function pageLabeler(
     const kept = batch.late ? undefined : openPiece(sourceId)?.first;
     const end = refused?.piece.first ?? kept ?? placed.last + 1;
     save(sourceId, rows, [going?.first ?? placed.first, end - 1], batch.late);
+    if (refused?.failed) {
+      throw refused.failed;
+    }
     return refused !== null;
   }
 

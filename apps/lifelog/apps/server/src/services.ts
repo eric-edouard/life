@@ -42,7 +42,7 @@ export function services(
     audio = memoryAudioStore(),
     mac = macSocket(db),
     // Up to when pendant audio may be labeled, cut and sent: the Mac's watermark, held back by a
-    // phone dictation still open.
+    // phone dictation (phone-dictations.ts).
     limit = processingLimit(db, mac),
     // The one sender of jobs to ElevenLabs, from the bucket; it first closes the phone's speech
     // fragments into blocks (cutter.ts).
@@ -62,7 +62,7 @@ export function services(
     voices = voiceUpkeep(db),
     // Cuts a job's clean turns from its bucket audio and embeds them (rebuild P3). Summaries
     // name speakers when read, so recognition starts nothing.
-    excerpts = excerptSampler(db, config, audio),
+    excerpts = excerptSampler(db, config, audio, limit),
     // The archive's invariants, hourly, with an email to the owner when one breaks.
     health = healthWatch(db, config),
     // The daily restic snapshot, when RESTIC_* is set.

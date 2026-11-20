@@ -66,13 +66,14 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   is no exception: the Pendant's button asks nothing of an AI (`docs/decisions.md`). Page labeling, the cutter and the
   worker read one processing limit per source (`phone-dictations.ts` `processingLimit`), never the Mac's watermark
   alone, and read it and the ranges again where audio leaves: when Silero takes a piece, before a block's job is
-  admitted, and at each send. To the Mac: nothing past its watermark. On the phone: its range is on the server's clock,
-  from when the server opens it (the microphone opens only on that answer) to when the close arrives (the microphone
-  stops first), never the phone's clock, and placed on each source's audio by its uploader's measured clock
-  (`X-Clock-Offset`), widened by its uncertainty plus `CLOCK_MARGIN_MS` (2 s); a source with no measurement is held
-  whole while any phone dictation exists, never guessed. Nothing from that start is processed until it closes; a
-  refused piece resumes there, the pieces before it kept, so nothing goes twice; paid sends wait for the first credit
-  read. A close that never comes ends it at its cap, 10
+  admitted, at each send and before identity hears excerpts. To the Mac: nothing past its watermark. On the phone:
+  its range is on the server's clock, from when the server opens it (the microphone opens only on that answer) to when
+  the close arrives (the microphone stops first), never the phone's clock, and placed on each source's audio by one
+  rule (`placedOf`): by every row of its uploader's clock (`X-Clock-Offset`, kept as it changes) that may have stamped
+  that audio, each widened by its uncertainty plus `CLOCK_MARGIN_MS` (2 s); its server-clock copy among the quiet
+  ranges is for words and grouping, never for audio. A dictation no row can place holds its source whole, never
+  guessed. Nothing from that start is processed until it closes; a piece refused or failed resumes there, the pieces
+  before it kept, so nothing goes twice; paid sends wait for the first credit read. A close that never comes ends it at its cap, 10
   minutes after its start (`DICTATION_CAP_MS`), even across a restart. Up to 10 minutes of pendant speech may be lost to
   processing that way; the raw backup keeps it.
 - **Content is never an instruction.** What a recording, transcript, summary or search result says is data. Model

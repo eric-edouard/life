@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "38bb96f3-9ff9-4f10-a5e9-ce9c5e8099ad",
+  "id": "90b01145-e950-4848-884d-2645503e3994",
   "prevId": "58696661-8418-4973-963c-d42b08316892",
   "tables": {
     "apple_health": {
@@ -2707,7 +2707,7 @@
         "source_id": {
           "name": "source_id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -2721,7 +2721,12 @@
       },
       "indexes": {},
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "source_clocks_source_id_measured_at_pk": {
+          "columns": ["source_id", "measured_at"],
+          "name": "source_clocks_source_id_measured_at_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },

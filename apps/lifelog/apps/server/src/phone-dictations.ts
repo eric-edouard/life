@@ -2,12 +2,12 @@
 // each source's audio. Its range is on the server's clock: it starts when the server opens it (the
 // microphone opens only on that answer) and ends when the close arrives (the microphone stops before
 // it), or at its cap. A source's audio is on its uploader's clock, which the uploader measures against
-// the server's and reports (`X-Clock-Offset`, `recordSourceClock`). A dictation is placed on that
-// clock, shifted by the offset and widened by its uncertainty and the margin: while open it holds the
-// source back from there (`processingLimit`), and once closed it is a range of it (`quietFor`). A
-// source with no usable measurement is held whole once any phone dictation exists, and goes on once
-// one comes. Every step reads these where audio leaves: when Silero takes a piece, before
-// a block's job is admitted, and at each send.
+// the server's and reports (`X-Clock-Offset`), kept as it changes (`recordSourceClock`). One rule
+// places a dictation on a source's audio, by the clock rows that may have stamped it (`placedOf`):
+// while open it holds the source back from there (`processingLimit`), once closed it is a range of it
+// (`quietFor`), and one it can't place holds the source whole. Every step reads these where audio
+// leaves: when Silero takes a piece, before a block's job is admitted, at each send and before the
+// excerpts go to identity.
 
 import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
@@ -16,11 +16,11 @@ import {
   phoneDictations,
   sourceClocks,
 } from "@lifelog/db/schema/phone-dictations";
-import { and, eq, gt, isNull, lt } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lt, notExists, or } from "drizzle-orm";
 import { z } from "zod";
 import type { MacSocket } from "./mac-socket";
 import type { Interval } from "./page-rules";
-import { insertQuietRange, quietIn, quietView, type Tx } from "./quiet-ranges";
+import { insertQuietRange, quietView, type Tx } from "./quiet-ranges";
 
 // A dictation lasts at most this long: a close that never comes (lost, the phone gone) ends it here.
 export const DICTATION_CAP_MS = 10 * 60_000;
@@ -112,19 +112,22 @@ export function openPhoneDictation(
 }
 
 // Closes a dictation (Stop, cancel, an interruption, a failed start) at `now`, when its close
-// arrives. A close again keeps the first end. Its quiet range as stored; null for an id never opened.
+// arrives. A close again keeps the first end. Its quiet range as stored; null for an id never opened
+// as a phone dictation.
 export function closePhoneDictation(db: Db, id: string, now = clock()) {
-  db.transaction((tx) => {
-    const row = tx
+  const row = db.transaction((tx) => {
+    const known = tx
       .select()
       .from(phoneDictations)
-      .where(and(eq(phoneDictations.id, id), isNull(phoneDictations.endedAt)))
+      .where(eq(phoneDictations.id, id))
       .get();
-    if (row) {
-      finish(tx, row, now.getTime());
+    if (known && !known.endedAt) {
+      finish(tx, known, now.getTime());
     }
+    return known
+      ? tx.select().from(quietRanges).where(eq(quietRanges.id, id)).get()
+      : undefined;
   });
-  const row = db.select().from(quietRanges).where(eq(quietRanges.id, id)).get();
   return row ? quietView(row) : null;
 }
 
@@ -152,108 +155,181 @@ export function settlePhoneDictations(db: Db, now = clock()) {
 
 // `X-Clock-Offset: <offset ms>,<uncertainty ms>`: the uploader's clock less the server's, and how
 // sure, from its last round trip (`X-Server-Time`). Null when it isn't one.
+const CLOCK_OFFSET = /^(-?\d{1,15}),(\d{1,15})$/;
 export function parseClockOffset(header: string | undefined) {
-  const [offset, uncertainty, ...rest] = (header ?? "").split(",").map(Number);
-  const isClock =
-    rest.length === 0 &&
-    Number.isInteger(offset) &&
-    Number.isInteger(uncertainty) &&
-    Math.abs(offset ?? 0) <= MAX_OFFSET_MS &&
-    (uncertainty ?? -1) >= 0;
-  return isClock
-    ? { offsetMs: offset ?? 0, uncertaintyMs: uncertainty ?? 0 }
+  const [, offset, uncertainty] = CLOCK_OFFSET.exec(header ?? "") ?? [];
+  const offsetMs = Number(offset);
+  return offset && uncertainty && Math.abs(offsetMs) <= MAX_OFFSET_MS
+    ? { offsetMs, uncertaintyMs: Number(uncertainty) }
     : null;
 }
 
-// What a source's uploader last said of its clock; the latest wins (a clock can jump).
+type Clock = typeof sourceClocks.$inferSelect;
+const clocksOf = (db: Pick<Db, "select">, sourceId: string | null): Clock[] =>
+  sourceId
+    ? db
+        .select()
+        .from(sourceClocks)
+        .where(eq(sourceClocks.sourceId, sourceId))
+        .orderBy(sourceClocks.measuredAt)
+        .all()
+    : [];
+
+// What a source's uploader says of its clock. Kept as a new row, in force from now, only when the
+// clock moved past both uncertainties or is known better than the row in force: the earlier rows stay,
+// for the audio stamped while they held.
 export function recordSourceClock(
   db: Db,
   sourceId: string,
   measured: { offsetMs: number; uncertaintyMs: number },
   now = clock()
 ) {
-  const set = { ...measured, measuredAt: now };
-  db.insert(sourceClocks)
-    .values({ ...set, sourceId })
-    .onConflictDoUpdate({ set, target: sourceClocks.sourceId })
-    .run();
+  const [last] = db
+    .select()
+    .from(sourceClocks)
+    .where(eq(sourceClocks.sourceId, sourceId))
+    .orderBy(desc(sourceClocks.measuredAt))
+    .limit(1)
+    .all();
+  const isNews =
+    !last ||
+    measured.uncertaintyMs < last.uncertaintyMs ||
+    Math.abs(measured.offsetMs - last.offsetMs) >
+      measured.uncertaintyMs + last.uncertaintyMs;
+  if (isNews) {
+    db.insert(sourceClocks)
+      .values({ ...measured, measuredAt: now, sourceId })
+      .onConflictDoNothing()
+      .run();
+  }
 }
 
-// A source's clock, as placing needs it: its offset and how wide to widen. Null when it has no
-// usable measurement.
-function clockOf(db: Pick<Db, "select">, sourceId: string | null) {
-  const measured = sourceId
-    ? db
-        .select()
-        .from(sourceClocks)
-        .where(eq(sourceClocks.sourceId, sourceId))
-        .get()
-    : undefined;
-  return measured && measured.uncertaintyMs <= MAX_UNCERTAINTY_MS
-    ? {
-        offset: measured.offsetMs,
-        wide: measured.uncertaintyMs + CLOCK_MARGIN_MS,
-      }
-    : null;
+// The one placement rule: a dictation on a source's audio, by every clock row that may have stamped
+// that audio (the one in force at its start, any added while it ran, and the first added after it),
+// each shifting it by its offset and widening it by its uncertainty and the margin; one still open
+// runs on. Null when no row was in force at its start, or one of them is too unsure: it can't be
+// placed, and the source is held (`processingLimit`).
+function placedOf(clocks: Clock[], row: Row): Interval[] | null {
+  const start = row.startedAt.getTime();
+  const end = row.endedAt?.getTime() ?? ALL_TIME;
+  const from = clocks.findLastIndex((c) => c.measuredAt.getTime() <= start);
+  const after = clocks.findIndex((c) => c.measuredAt.getTime() >= end);
+  const inForce =
+    from < 0 ? [] : clocks.slice(from, after < 0 ? undefined : after + 1);
+  if (
+    inForce.length === 0 ||
+    inForce.some((c) => c.uncertaintyMs > MAX_UNCERTAINTY_MS)
+  ) {
+    return null;
+  }
+  return inForce.map((c) => {
+    const wide = c.uncertaintyMs + CLOCK_MARGIN_MS;
+    return [
+      start + c.offsetMs - wide,
+      row.endedAt ? end + c.offsetMs + wide : ALL_TIME,
+    ];
+  });
 }
 
 // The protected time touching [start, end) of a source's audio, on its uploader's clock: the quiet
-// ranges as stored, and each closed phone dictation placed by that clock. One still open is the
-// limit's (`processingLimit`): what is past it waits, never withdrawn; so does all of a source with
-// no usable clock.
+// ranges stored on it (the Mac's, playback), and each closed phone dictation placed on it
+// (`placedOf`; its server-clock copy among the quiet ranges is for words and grouping, not for
+// audio). One still open, or one that can't be placed, is the limit's (`processingLimit`): what it
+// holds waits, never withdrawn.
 export function quietFor(
   db: Pick<Db, "select">,
   sourceId: string | null,
   [start, end]: Interval
 ): Interval[] {
-  const stored = quietIn(db, [start, end]);
-  const at = clockOf(db, sourceId);
-  if (!at) {
+  const stored = db
+    .select()
+    .from(quietRanges)
+    .where(
+      and(
+        lt(quietRanges.startedAt, new Date(end)),
+        gt(quietRanges.endedAt, new Date(start)),
+        notExists(
+          db
+            .select({ id: phoneDictations.id })
+            .from(phoneDictations)
+            .where(eq(phoneDictations.id, quietRanges.id))
+        )
+      )
+    )
+    .all()
+    .map((q): Interval => [q.startedAt.getTime(), q.endedAt.getTime()]);
+  const clocks = clocksOf(db, sourceId);
+  if (clocks.length === 0) {
     return stored;
   }
-  const from = start - at.offset - at.wide;
-  const to = end - at.offset + at.wide;
+  // Any dictation a row could shift into [start, end).
+  const reach =
+    Math.max(...clocks.map((c) => Math.abs(c.offsetMs) + c.uncertaintyMs)) +
+    CLOCK_MARGIN_MS;
   const placed = db
     .select()
     .from(phoneDictations)
     .where(
       and(
-        lt(phoneDictations.startedAt, new Date(to)),
-        gt(phoneDictations.endedAt, new Date(from))
+        lt(phoneDictations.startedAt, new Date(end + reach)),
+        gt(phoneDictations.endedAt, new Date(start - reach))
       )
     )
     .all()
-    .map(
-      (row): Interval => [
-        row.startedAt.getTime() + at.offset - at.wide,
-        (row.endedAt?.getTime() ?? 0) + at.offset + at.wide,
-      ]
-    );
+    .flatMap((row) => placedOf(clocks, row) ?? [])
+    .filter(([a, b]) => a < end && b > start);
   return [...stored, ...placed];
 }
 
 // The processing limit: up to when a source's audio may be labeled, cut and sent. The Mac's
-// watermark, held back to the start of the earliest phone dictation still open, placed on the
-// source's clock; a source with no usable clock is held whole once any phone dictation exists.
-// Page labeling, the cutter and the job worker read it, and nothing else reads the watermark to
-// process.
+// watermark, held back to the earliest start of a phone dictation still open as placed on the source
+// (`placedOf`), and held whole while any phone dictation can't be placed on it. Page labeling, the
+// cutter, the job worker and the excerpts read it, and nothing else reads the watermark to process.
 export const processingLimit =
   (db: Pick<Db, "select">, mac: Pick<MacSocket, "vouchedThrough">) =>
   (sourceId: string | null) => {
     const vouched = mac.vouchedThrough();
-    const at = clockOf(db, sourceId);
+    const clocks = clocksOf(db, sourceId);
     const open = db
-      .select({ startedAt: phoneDictations.startedAt })
+      .select()
       .from(phoneDictations)
-      .where(at ? isNull(phoneDictations.endedAt) : undefined)
-      .orderBy(phoneDictations.startedAt)
-      .limit(1)
-      .get();
-    if (!open) {
-      return vouched;
-    }
-    const held = at
-      ? open.startedAt.getTime() + at.offset - at.wide
-      : -ALL_TIME;
+      .where(isNull(phoneDictations.endedAt))
+      .all()
+      .map((row) => placedOf(clocks, row));
+    const held = isUnplaceable(db, clocks)
+      ? -ALL_TIME
+      : Math.min(
+          ...open.map((p) => (p ? Math.min(...p.map(([a]) => a)) : -ALL_TIME))
+        );
     return held < vouched.getTime() ? new Date(held) : vouched;
   };
+
+// Whether a closed phone dictation can't be placed on a source with these clock rows: one before its
+// first row, or one a row too unsure may have stamped (`placedOf`).
+function isUnplaceable(db: Pick<Db, "select">, clocks: Clock[]) {
+  const first = clocks[0]?.measuredAt ?? new Date(ALL_TIME);
+  const unsure = clocks.flatMap((c, i) =>
+    c.uncertaintyMs > MAX_UNCERTAINTY_MS
+      ? [
+          and(
+            lt(
+              phoneDictations.startedAt,
+              clocks[i + 1]?.measuredAt ?? new Date(ALL_TIME)
+            ),
+            gt(
+              phoneDictations.endedAt,
+              clocks[i - 1]?.measuredAt ?? new Date(-ALL_TIME)
+            )
+          ),
+        ]
+      : []
+  );
+  return Boolean(
+    db
+      .select({ id: phoneDictations.id })
+      .from(phoneDictations)
+      .where(or(lt(phoneDictations.startedAt, first), ...unsure))
+      .limit(1)
+      .get()
+  );
+}

@@ -1,4 +1,10 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 import { instant, uuid } from "./columns";
 
 // A dictation on the phone (phone-dictations.ts), on the server's clock: from when the server
@@ -19,12 +25,18 @@ export const phoneDictations = sqliteTable(
   (t) => [index("phone_dictations_started_at").on(t.startedAt)]
 );
 
-// How far a source's uploader's clock is from the server's (its clock less the server's), and how
-// sure: what its last upload said (`X-Clock-Offset`), measured from a round trip with the server's
-// `X-Server-Time`. A source with none can't be placed against a phone dictation.
-export const sourceClocks = sqliteTable("source_clocks", {
-  measuredAt: instant("measured_at").notNull(),
-  offsetMs: integer("offset_ms").notNull(),
-  sourceId: text("source_id").primaryKey(),
-  uncertaintyMs: integer("uncertainty_ms").notNull(),
-});
+// A source's uploader's clock, as its uploads said it (`X-Clock-Offset`, measured from a round trip
+// with the server's `X-Server-Time`): its clock less the server's, and how sure, in force from
+// `measuredAt` (server time) until the source's next row. A row is added only when the clock moved
+// past both uncertainties or is known better, so the audio of each moment is placed by the clock it
+// was stamped with. A source with none can't be placed against a phone dictation.
+export const sourceClocks = sqliteTable(
+  "source_clocks",
+  {
+    measuredAt: instant("measured_at").notNull(),
+    offsetMs: integer("offset_ms").notNull(),
+    sourceId: text("source_id").notNull(),
+    uncertaintyMs: integer("uncertainty_ms").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.sourceId, t.measuredAt] })]
+);
