@@ -147,7 +147,10 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(found.start?.stages?.count == 3)
     // "I've paid": Life's look, seen or not found yet, beside the answer.
     struct Looked: Decodable { let doneSeen: Check.DoneSeen? }
-    for (file, state) in [("answer_check_done_seen", Check.DoneSeen.State.seen), ("answer_check_not_found", .notFound)] {
+    let looks: [(String, Check.DoneSeen.State)] = [
+        ("answer_check_done_seen", .seen), ("answer_check_not_found", .notFound),
+    ]
+    for (file, state) in looks {
         let text = try wireText("life/\(file).json")
         #expect(try decoded(AnswerResult.self, text).send == nil)
         #expect(try decoded(Looked.self, text).doneSeen?.state == state)
