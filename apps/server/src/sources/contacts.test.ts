@@ -75,6 +75,24 @@ test("Contacts keys: a phone by its national digits whatever its country code or
   expect(contactKeyOf("Claire")).toBeUndefined();
 });
 
+test("a network's id is never read as a phone, however many digits it holds", () => {
+  // Phones however written: with `+`, spaced, national, `00`, wrapped in direction marks.
+  for (const phone of [
+    "+33 6 11 11 11 11",
+    "0611111111",
+    "(06) 11.11-11-11",
+    "33611111111",
+    "0033611111111",
+    "\u202d+33 6 11 11 11 11\u202c",
+  ]) {
+    expect(contactKeyOf(phone)).toBe("611111111");
+  }
+  // An Instagram or Messenger id ending in the same 9 digits, and a LINE id holding them.
+  expect(contactKeyOf("118220611111111")).toBeUndefined();
+  expect(contactKeyOf("17842592611111111")).toBeUndefined();
+  expect(contactKeyOf("U3a611111111fe0b")).toBeUndefined();
+});
+
 test("Contacts birthdays: seconds from 2001 at noon UTC, the year kept only when Contacts knows it", () => {
   // 4.5 days after 2001-01-01: 5 Jan.
   expect(birthdayOf(388_800, 1992)).toBe("1992-01-05");

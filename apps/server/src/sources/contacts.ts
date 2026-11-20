@@ -36,10 +36,34 @@ export const handleKey = (h: string) =>
     ? h.trim().toLowerCase()
     : h.replace(/\D/g, "").slice(-PHONE_DIGITS);
 
+/** A phone as people write it: digits, with `+`, spaces, dots, dashes or brackets. */
+export const PHONE = /^\+?[\d\s().-]+$/;
+const DIGITS_ONLY = /^\d+$/;
+/** The longest phone written as bare digits with no `+` or `00`: a national number, or one with its country code. */
+const BARE_PHONE_DIGITS = 12;
+/**
+ * Whether a handle is written as a phone. A network's id is not, though it may hold digits: one with letters (LINE's),
+ * or a bare run of digits longer than any phone written without `+` or `00` (an Instagram or Messenger id).
+ */
+const isPhone = (h: string) => {
+  const t = h.replace(DIRECTION_MARKS, "").trim();
+  return (
+    PHONE.test(t) &&
+    !(
+      DIGITS_ONLY.test(t) &&
+      t.length > BARE_PHONE_DIGITS &&
+      !t.startsWith("00")
+    )
+  );
+};
+
 /** A handle's key when it can name someone: an email, or a phone with enough digits; else undefined. */
 export const contactKeyOf = (h: string) => {
+  if (h.includes("@")) {
+    return handleKey(h);
+  }
   const key = handleKey(h);
-  return key.includes("@") || key.length >= PHONE_DIGITS ? key : undefined;
+  return isPhone(h) && key.length >= PHONE_DIGITS ? key : undefined;
 };
 
 /** One Contacts record, whole. */

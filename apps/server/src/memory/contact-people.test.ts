@@ -72,6 +72,13 @@ test("a card whose handle his messages hold becomes a person, under an id from t
   expect(after([ANA], first.stored, seenOf(ANA_KEY)).lines).toEqual([]);
 });
 
+test("a bridged network's numeric id is no one's phone: it never reads as whoever's number ends in its digits", () => {
+  // Bea's number ends 677777777; an Instagram id ending the same is someone Life doesn't know.
+  const { resolve } = foldsOf(truth, [], [], []);
+  expect(resolve("+33677777777")).toBe("person:bea");
+  expect(resolve("118220677777777")).toBeNull();
+});
+
 test("a card renamed, given a number or deleted keeps its person", () => {
   const first = after([ANA], [], seenOf(ANA_KEY));
   const renamed = after(

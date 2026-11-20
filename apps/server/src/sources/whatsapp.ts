@@ -15,6 +15,7 @@ import {
   type Row,
   readArchived,
 } from "./archived";
+import { PHONE } from "./contacts";
 import { sourceFile } from "./contract";
 import { fromAppleS, toAppleS } from "./imessage";
 import {
@@ -102,8 +103,6 @@ export const isWhatsappGroup = (chat: string) => chat.endsWith("@g.us");
 export const phoneOf = (jid: string) =>
   jid.endsWith("@s.whatsapp.net") ? `+${jid.split("@")[0]}` : undefined;
 
-/** A phone as people write it: digits, with `+`, spaces, dots, dashes or brackets. */
-const PHONE = /^\+?[\d\s().-]+$/;
 /** WhatsApp's own link to a 1:1 chat with a phone, `https://wa.me/<digits>`; none for anything else (a `@lid` holds no phone). */
 export const whatsappLinkOf = (handle: string) => {
   const digits = handle.replace(/\D/g, "");
