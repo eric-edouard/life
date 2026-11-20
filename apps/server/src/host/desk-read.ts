@@ -10,7 +10,6 @@ import type { AgentHold } from "../memory/held-matters";
 import type {
   AgentChange,
   AgentStatus,
-  AgentWait,
   EventFilter,
   OpenedBy,
 } from "../records/registered-agent";
@@ -209,7 +208,7 @@ export const agentWaitOf = (a: AgentRow, s: AssignmentRow) =>
     ? {
         events: filtersOf(s),
         isDefault: s.wait_is_default === 1,
-        reason: s.wait_reason ?? "",
+        reason: s.wait_reason ?? "(the reason was not recorded)",
         until: s.wait_until,
       }
     : null;
@@ -444,6 +443,12 @@ export function flagsOf(
   };
 }
 
+/** The wait as the connector shows it: its deadline and reason, never its filters (a chat id in them stays in the agent's packet). */
+const waitOf = (a: AgentRow, s: AssignmentRow) => {
+  const w = agentWaitOf(a, s);
+  return w && { isDefault: w.isDefault, reason: w.reason, until: w.until };
+};
+
 /** A registered agent as read now: what it works on, where it stands, what it waits for, its last turn, its link. */
 export interface AgentNow {
   /** What shows amber: a default wait, a late deadline, a silent turn, a failed last turn, events dropped in the last day. */
@@ -473,12 +478,13 @@ export interface AgentNow {
   steps: string[];
   /** The first line of his brief. */
   title: string;
-  wait: (AgentWait & { isDefault: boolean }) | null;
+  wait: { isDefault: boolean; reason: string; until: string } | null;
 }
 
-/** What `wakesOn` is made of, beside an agent as read: for each chat its wait's filters name the name and app of the agent's own newest event there (`seenChatsOf`). Not on the wire. */
+/** What `wakesOn` is made of, beside an agent as read: its wait's filters, and for each chat they name the name and app of the agent's own newest event there (`seenChatsOf`). Not on the wire. */
 export type AgentRead = AgentNow & {
   chatsSeen: Record<string, { name: string | null; source: string | null }>;
+  filters: EventFilter[];
 };
 
 /**
@@ -582,6 +588,7 @@ function nowOf(
     amber,
     ...modelOf(a),
     chatsSeen: isForWakes && status === "waiting" ? seenChatsOf(db, s) : {},
+    filters: filtersOf(s),
     id: a.id,
     lastTurn: last
       ? {
@@ -601,7 +608,7 @@ function nowOf(
     statusSince: statusSinceOf(a, status, last ?? undefined),
     steps: anchorsOf(db, s.id),
     title: headOf(a.brief),
-    wait: agentWaitOf(a, s),
+    wait: waitOf(a, s),
   };
 }
 
