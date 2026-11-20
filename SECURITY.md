@@ -34,13 +34,13 @@ when its message arrives or at night (his word of 19 Nov 2026).
 ## Agents
 
 The desk (off until his `desk` setting) starts and wakes his registered agents: a registered agent is started by
-Life, unattended, on a message its wait names (by who wrote it, by chat or app, or by a pattern on its text, his word of 20 Nov 2026), a recorded call with them that ended, a payment its wait names (by amount, or by a pattern on the merchant, the category or his note; his word of 20 Nov 2026), his answer or its deadline, and acts with his access. A wait on words is met by
+Life, unattended, on a message its wait names (by who wrote it, by chat or app, or by a pattern on its text, his word of 20 Nov 2026), a recorded call with them that ended, a payment its wait names (by amount, or by a pattern on the merchant, the category or his note; his word of 20 Nov 2026), an arrival at a place its wait names (by its coordinates, or a pattern on its name; his word of 20 Nov 2026), his answer or its deadline, and acts with his access. A wait on words is met by
 anyone who writes them, a sender Life has never seen included. A wait on a merchant's words is met by anyone whose payment or transfer label carries them. An agent is woken by events at most once
 per 10 minutes after its last turn. An
 agent on a matter is also woken by anything new related to it (the wide net, his word of 18 Nov 2026): a message from
 one of the matter's people, or a message or recording of his close to the matter in meaning, as the Mac's embedder
 reads it (`desk/matter-net.ts`: no model call, nothing leaves the Mac). The wake hands it only the facts (which
-message or recording, or which payment, with its amount, in EUR too, its currency, whether it is spending and the money app's category, when, why), never the text, a matched one included; it reads the words itself, as data. On
+message or recording, or which payment, with its amount, in EUR too, its currency, whether it is spending and the money app's category, or which arrival, with its time and coordinates, when, why), never the text, a matched one included; it reads the words itself, as data. On
 his Mac and the web an agent of his own Life is free (his decision of 19 Nov 2026): the desk runs it in the runtime's
 no-ask mode, approves every ask, and gives it his login environment. It can run any command, read, change or delete any
 file, install software, browse, read his mail and messages, and read his secrets (his shell's keys, 1Password). Life's
@@ -75,9 +75,10 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   photo; never an image, a face or a face print of the Photos source. The images of the files in his messages (a
   photo, a PDF's pages), once each, when the message arrives or at night (his word of 19 Nov 2026).
 - To a registered agent's runtime (his Claude subscription, or his Codex subscription: OpenAI): its brief and packet
-  (his words, its notes, the facts of its queued events (for a payment: its amount, in EUR too, its currency, whether it is spending, the money app's category, and when), its open decision) (his yes to the desk, 18 Nov 2026; his
+  (his words, its notes, the facts of its queued events (for a payment: its amount, in EUR too, its currency, whether it is spending, the money app's category, and when; for an arrival at a place: when he arrived, and where: its coordinates), its open decision) (his yes to the desk, 18 Nov 2026; his
   yes to Codex as a runtime, 18 Nov 2026).
-- To an assistant he connected, and to his agents: what they read through the connector or on the Mac. The question
+- To an assistant he connected, and to his agents: what they read through the connector or on the Mac; a wait's own
+  coordinates (`near` in `wakesOn`) are in the reads `read_registered_agents` and `read_matter`. The question
   cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex
   subscription (his word, 10 Nov 2026).
 - By email to him (Resend), when `mail` is set: the nightly report and the alerts.

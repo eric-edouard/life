@@ -16,8 +16,9 @@ const isPattern = (source: string) => {
  * place (`matcherOf` over `Matchable`, `host/events.ts`, whose rules say what a field an event cannot answer does).
  * Messages (`message.received`): who wrote it, in which apps or chat, his own or others', and a pattern on its text;
  * the calls that ended in the same chats (`call.ended`); and, for a registered agent's wait, an event channel's
- * events, by name in `channels`, by `quantity` between `above` and `below`, and by a pattern (a payment's,
- * `payment.booked`). The connector's poll takes the message keys only.
+ * events, by name in `channels`, by `quantity` between `above` and `below`, by a pattern (a payment's,
+ * `payment.booked`; an arrival's line, `stay.arrived`), and by a place (`latitude`, `longitude`, `radius_m`: an
+ * arrival's point within the radius). The connector's poll takes the message keys only.
  */
 export const EventFilter = z
   .object({
@@ -41,6 +42,18 @@ export const EventFilter = z
       .boolean()
       .default(false)
       .describe("His own messages instead of everyone else's"),
+    latitude: z
+      .number()
+      .min(-90)
+      .max(90)
+      .optional()
+      .describe("With `longitude`: only events within `radius_m` of here"),
+    longitude: z
+      .number()
+      .min(-180)
+      .max(180)
+      .optional()
+      .describe("With `latitude`: only events within `radius_m` of here"),
     person: z
       .string()
       .optional()
@@ -52,6 +65,14 @@ export const EventFilter = z
       .optional()
       .describe(
         "The name of a quantity the event holds, compared with `above` and `below`"
+      ),
+    radius_m: z
+      .number()
+      .positive()
+      .max(5000)
+      .optional()
+      .describe(
+        "With `latitude` and `longitude`: how near, in meters (100 by default, as `read_places_visited`'s `radiusM`)"
       ),
     text_matches: z
       .string()
