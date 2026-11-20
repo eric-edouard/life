@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
+import { openStepsOf } from "../memory/matter-read";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "../memory/matters";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as todo from "./change-todo-item";
+import { endByHisWord } from "./correct-matter";
 import { correct } from "./http/mcp";
 
 // 19 Nov 2026 (review C, B7 and R1): the phone decided which steps were open and sent only its obs_ ones, so a
@@ -172,4 +174,24 @@ test("with no words of his, the to-do items' ask says the words are Life's, and 
     expect.any(Function)
   );
   expect(readCorrections()[0]?.note).toBeUndefined();
+});
+
+test("his word on one step closes that step alone: a step a link ended still waits on it", async () => {
+  const written = await endByHisWord(
+    openStepsOf(matter as never, "obs_000000000002"),
+    "Done on its card."
+  );
+  expect(tick).not.toHaveBeenCalled();
+  expect(written).toHaveLength(1);
+  expect(readCorrections()).toMatchObject([
+    {
+      kind: "outdated",
+      note: "Done on its card.",
+      observations: ["obs_000000000002"],
+    },
+  ]);
+  // A step already retired is not open to his word: nothing to close, nothing written.
+  expect(
+    await endByHisWord(openStepsOf(matter as never, "obs_000000000003"), "x")
+  ).toEqual([]);
 });
