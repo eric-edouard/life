@@ -78,7 +78,7 @@ export function arrivalRouteOf(
 const personalOf = (desk: Desk, assignments: AssignmentRow[]) => {
   const personal = new Set(
     desk.db
-      .query<{ id: string }, []>("select id from agent where is_personal = 1")
+      .query<{ id: string }, []>("select id from agent where role = 'personal'")
       .all()
       .map((r) => r.id)
   );

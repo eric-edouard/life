@@ -96,7 +96,7 @@ test("a message already queued for any agent wakes no one again; else Personal o
     );
   await poll("whatsapp:9");
   expect(woken()).toHaveLength(0);
-  s.desk.db.run("update agent set is_personal = 1 where id = ?", [agent]);
+  s.desk.db.run("update agent set role = 'personal' where id = ?", [agent]);
   queue(s.desk.db, "message.received", [
     { assignment: asgOf(s.desk, agent), eventId: "whatsapp:9", payload: {} },
   ]);
