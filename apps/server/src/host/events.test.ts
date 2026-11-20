@@ -257,6 +257,7 @@ test("a decision that lapsed wakes its own asker once, with what it said it take
   setSystemTime(start);
   try {
     const { id } = await requestDecision("planner", {
+      context: "A made-up reason to ask.",
       deadline: new Date(start.getTime() + HOUR).toISOString(),
       onSilence: "wait",
       options: [
@@ -292,6 +293,7 @@ test("his answer that sends a card's draft wakes its asker with the send's outco
     const { id } = await requestDecision(
       "planner",
       {
+        context: "A made-up reason to ask.",
         deadline: new Date(start.getTime() + 2 * HOUR).toISOString(),
         draft: { channel: "whatsapp", text: "Friday works", to: "Kit" },
         onSilence: null,
@@ -344,6 +346,7 @@ test("a draft card withdrawn because he answered in its chat wakes its asker onc
     requestDecision(
       asker,
       {
+        context: "A made-up reason to ask.",
         deadline: new Date(start.getTime() + 2 * HOUR).toISOString(),
         ...(draft ? { draft } : {}),
         onSilence: null,

@@ -17,6 +17,7 @@ import {
   openArchive,
   type Row,
   readArchived,
+  readArchivedMessageAt,
 } from "./archived";
 import { type Descriptor, sourceFile } from "./contract";
 import {
@@ -668,6 +669,7 @@ export const bridgedSource = (network: Network): Descriptor => {
     incoming: (from?: number) => incomingArchived(name, "eventId", from),
     kind: "chat",
     label,
+    messageAt: (id) => readArchivedMessageAt(name, id),
     name,
     newest: () =>
       newestArchived(

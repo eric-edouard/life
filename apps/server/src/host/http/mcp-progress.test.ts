@@ -20,6 +20,7 @@ const META = {
 test("answer_check streams its plan and steps on a progress token, and a repeat of the tap (its answer key) writes nothing", async () => {
   rmSync(DECISIONS, { force: true });
   const { id } = await requestDecision("planner", {
+    context: "A made-up reason to ask.",
     deadline: new Date(Date.now() + 2 * DAY).toISOString(),
     options: [
       { id: "yes", label: "Book Kit" },
