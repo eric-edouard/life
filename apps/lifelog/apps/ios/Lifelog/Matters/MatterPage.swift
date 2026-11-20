@@ -190,7 +190,7 @@ private struct People: View {
         let groups: [(String, [String])] = [
             ("Owed to", people?.owedTo ?? []), ("Waiting on", people?.waitingOn ?? []),
             ("With", people?.with ?? []), ("Told", people?.told ?? []),
-        ].filter { !$0.1.isEmpty }
+        ].map { ($0.0, $0.1.map(\.name)) }.filter { !$0.1.isEmpty }
         let line = groups.enumerated().map { offset, group in
             let words = "\(group.0) \(group.1.joined(separator: ", "))"
             return offset == 0 ? words : words.prefix(1).lowercased() + words.dropFirst()
@@ -275,7 +275,7 @@ private struct PagePlaceholder: View {
 extension MatterStep {
     /// A step's day and who or what it came from, as the matter page and the card's context both show it.
     var whenAndWith: String {
-        [at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), with].compactMap(\.self)
+        [at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), with?.name].compactMap(\.self)
             .joined(separator: " · ")
     }
 }

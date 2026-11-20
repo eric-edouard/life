@@ -5,7 +5,7 @@ import SwiftUI
 /// first where the card takes a new person's name (what he typed, else the card's name), then the card's likely people,
 /// filtered as he types.
 struct SameAsSheet: View {
-    let people: [Check.Person]
+    let people: [Party]
     /// The card takes a new person's name, not only someone Life knows.
     let takesNewName: Bool
     /// The name the card asks about, which "Create" offers until he types another.
@@ -18,7 +18,7 @@ struct SameAsSheet: View {
     @FocusState private var isTyping: Bool
 
     private var typed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var shown: [Check.Person] {
+    private var shown: [Party] {
         typed.isEmpty ? people : people.filter { $0.name.localizedCaseInsensitiveContains(typed) }
     }
 
@@ -30,9 +30,9 @@ struct SameAsSheet: View {
                     .focused($isTyping)
                 VStack(spacing: 0) {
                     if takesNewName || !typed.isEmpty { newPerson }
-                    ForEach(shown, id: \.person) { person in
+                    ForEach(shown, id: \.ref) { person in
                         Button {
-                            pick(.person(person.person))
+                            pick(.person(person.ref))
                         } label: {
                             FlatRow(
                                 lead: .person(person.name), detail: person.line, slotSize: Metrics.FlatRow.personSlot

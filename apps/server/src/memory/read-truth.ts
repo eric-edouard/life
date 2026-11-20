@@ -8,10 +8,10 @@ import {
   AreasFile,
   type Chat,
   ChatsFile,
+  type DirectoryParty,
   ME,
   type Organization,
   OrganizationsFile,
-  type Party,
   PeopleFile,
   type Person,
   Project,
@@ -32,6 +32,10 @@ const MAY_KEEP = /(?:^|\n)## What Life may keep\n([\s\S]*?)(?=\n## |$)/;
 const PROJECT_ID = /`([a-z0-9-]+)`/g;
 /** Where a numbered goal starts. */
 const GOAL_START = /^\d+\.\s/m;
+/** A bracket holding only project ids, with the space before it: "(`shop`, `farm`)". */
+const ID_BRACKET = /\s*\((?:\s*`[a-z0-9-]+`\s*,?)+\)/g;
+const SPACES = /\s+/g;
+const SPACE_BEFORE_STOP = / ([.,;:!?])/g;
 const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
 
 export interface Truth {
@@ -45,11 +49,20 @@ export interface Truth {
   projects: (Project & { notes: string })[];
 }
 
-/** Everyone in his directory: its people, then its organizations (`Party`). The one join of the two lists. */
-export const partiesOf = ({
+/** How much of a project's notes (the body of `truth/projects/<id>.md`) an area page's hold and an agent's packet show, cut at a word (`clip`). */
+export const PROJECT_NOTES_MAX = 1500;
+
+/** A project's one line, as the area read, an area page's hold and an agent's packet show it: name, id, status, deadlines. */
+export const projectHeaderOf = (
+  p: Pick<Project, "deadlines" | "id" | "name" | "status">
+) =>
+  `Project ${p.name} (${p.id}, ${p.status})${p.deadlines.map((d) => `; ${d.date}: ${d.what}`).join("")}`;
+
+/** Everyone in his directory: its people, then its organizations (`DirectoryParty`). The one join of the two lists. */
+export const directoryPartiesOf = ({
   organizations,
   people,
-}: Pick<Truth, "organizations" | "people">): Party[] => [
+}: Pick<Truth, "organizations" | "people">): DirectoryParty[] => [
   ...people,
   ...organizations,
 ];
@@ -125,13 +138,15 @@ export async function loadTruth(data = OWNER_DATA_DIR): Promise<Truth> {
 }
 
 /** A party's phones and emails (their `whatsapp`, `phone` and `email`): the handles with a contact key. */
-export function phonesAndEmailsOf(p: Pick<Party, "handles">): string[] {
+export function phonesAndEmailsOf(
+  p: Pick<DirectoryParty, "handles">
+): string[] {
   const { whatsapp, phone, email } = p.handles;
   return [...whatsapp, ...phone, ...email.map((h) => h.toLowerCase())];
 }
 
 /** Every handle a party has, normalized the way senders are looked up: emails lower-cased. */
-export function handlesOf(p: Pick<Party, "handles">): string[] {
+export function handlesOf(p: Pick<DirectoryParty, "handles">): string[] {
   const { github, lifelog, telegram } = p.handles;
   return [
     ...phonesAndEmailsOf(p),
@@ -153,7 +168,7 @@ export function projectPeopleAndChatsOf(
   project: string
 ) {
   const { chats, projects } = truth;
-  const people = partiesOf(truth);
+  const people = directoryPartiesOf(truth);
   const p = projects.find((x) => x.id === project);
   if (!p) {
     return null;
@@ -198,7 +213,7 @@ export function projectPeopleAndChatsOf(
 function checkParties(truth: Truth, issues: string[]): Set<string> {
   const ids = new Set<string>();
   const owner = new Map<string, string>();
-  for (const p of partiesOf(truth)) {
+  for (const p of directoryPartiesOf(truth)) {
     if (ids.has(p.id)) {
       issues.push(`person ${p.id} is listed twice`);
     }
@@ -257,12 +272,27 @@ function checkRepos(projects: Truth["projects"], issues: string[]) {
   }
 }
 
-/** The project ids each of his goals names, in his order: what ranks an open item by the first goal it serves. */
-export const goalProjects = (goals = "") =>
+/**
+ * His goals, in his order: each one's words as he reads them (a bracket of only project ids left out, other ids as plain
+ * words, on one line) and the project ids it names. The one parse of `## Goals`.
+ */
+export const goalsOf = (goals = "") =>
   goals
     .split(GOAL_START)
     .slice(1)
-    .map((g) => [...g.matchAll(PROJECT_ID)].map((m) => m[1] ?? ""));
+    .map((g) => ({
+      projects: [...g.matchAll(PROJECT_ID)].map((m) => m[1] ?? ""),
+      text: g
+        .replace(ID_BRACKET, "")
+        .replace(PROJECT_ID, "$1")
+        .replace(SPACES, " ")
+        .replace(SPACE_BEFORE_STOP, "$1")
+        .trim(),
+    }));
+
+/** The project ids each of his goals names, in his order: what ranks an open item by the first goal it serves. */
+export const goalProjects = (goals = "") =>
+  goalsOf(goals).map((g) => g.projects);
 
 function checkGoals(
   goals: string | undefined,

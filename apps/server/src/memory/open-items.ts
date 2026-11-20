@@ -14,6 +14,8 @@ export interface Candidate {
   at: string;
   /** Life's id: a matter's (`matter_`, or the observation's or to-do item's of a matter of one), a chat message's. */
   id: string;
+  /** Its matter is marked important by his word (`MatterView.important`): ranks with his urgent flag. */
+  important?: boolean;
   kind: "promise" | "todo_item" | "reply" | "to_do" | "waiting_on_someone";
   line: string;
   /** Everyone in it, whatever their role: whose page lists it. */
@@ -76,7 +78,7 @@ const KIND = {
 };
 
 /**
- * Every open item, ranked: his urgent flag, then his priority; an overdue one (its day is before `date`) before one
+ * Every open item, ranked: his urgent flag or important mark, then his priority; an overdue one (its day is before `date`) before one
  * that is not; who owes whom; the first of his goals it serves (`goals`: each goal's project ids, his order);
  * closeness to whoever it is with (`levels`: 0 inner); older first. Candidates sharing an id (a matter's open
  * steps) are one item, ranked as the most pressing of them.
@@ -96,7 +98,7 @@ export function rankedItems(
     return g < 0 ? goals.length : g;
   };
   const key = (c: OpenItem): number[] => [
-    c.urgent ? 0 : 1,
+    c.urgent || c.important ? 0 : 1,
     c.priority && PRIORITY.includes(c.priority)
       ? PRIORITY.indexOf(c.priority)
       : PRIORITY.length,

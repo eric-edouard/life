@@ -40,6 +40,7 @@ const hasOwnOpenStep = (...list: Observation[]) =>
       current: new Set(),
       directions: [],
       episodeOf: new Map(),
+      important: [],
       isMailer: () => false,
       ledger: [],
       linkEndings: new Map(),

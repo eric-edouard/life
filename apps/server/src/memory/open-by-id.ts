@@ -1,11 +1,13 @@
 import { SUBJECT_PREFIX } from "../records/fields";
+import { askPageOf, isAskPage } from "./card-request";
 import { parseReadPartRef } from "./read-part";
 import type { person } from "./read-person-page";
 import { asData, fetchOf } from "./words";
 
 /**
- * `fetch`'s one entry: a read part ref (anything that starts with a subject prefix) opens that part, a malformed one
- * says why, and any other id is a conversation, unit or turn (`fetchOf`). `fromTurn` and `limit` mean nothing for a part.
+ * `fetch`'s one entry: an ask page (`ask/<name>`, how to ask a card's part), a read part ref (anything that starts with a
+ * subject prefix) opens that part, a malformed one says why, and any other id is a conversation, unit or turn
+ * (`fetchOf`). `fromTurn` and `limit` mean nothing for a page or a part.
  */
 export function openById(
   id: string,
@@ -13,6 +15,9 @@ export function openById(
   limit: number | undefined,
   readPerson: typeof person
 ): Promise<string> {
+  if (isAskPage(id)) {
+    return Promise.resolve(asData([askPageOf(id)]));
+  }
   if (!SUBJECT_PREFIX.test(id)) {
     return fetchOf(id, from, limit);
   }

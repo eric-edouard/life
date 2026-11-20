@@ -52,8 +52,8 @@ export async function endByHisWord(
 
 /**
  * `outdated`: the matter is done, and every step still open, or ended only by a link (until his word), closes
- * (`endByHisWord`). `matter-direction`: his
- * goal or next step, pinned to every step the matter holds. Returns what was written, reporting its plan and steps
+ * (`endByHisWord`). `matter-direction` (his goal or next step) and `matter-important` (his mark, on or off): pinned to
+ * every step the matter holds; the line written is the new state. Returns what was written, reporting its plan and steps
  * (`report`, `mcp-tool.ts`): one per to-do item ticked, then `recorded`.
  */
 export async function correctMatter(
@@ -67,7 +67,7 @@ export async function correctMatter(
   if (!v || v.id !== matter) {
     throw new Error(`Not done: no matter ${matter}; give a matter's id.`);
   }
-  if (said.kind === "matter-direction") {
+  if (said.kind === "matter-direction" || said.kind === "matter-important") {
     report({ limitSeconds: QUICK_MS / 1000, plan: ["recorded"] });
     const written = await recordCorrection({
       ...said,
@@ -78,7 +78,7 @@ export async function correctMatter(
   }
   if (said.kind !== "outdated") {
     throw new Error(
-      "Not done: `matter` goes with kind `outdated` (it is done) or `matter-direction`."
+      "Not done: `matter` goes with kind `outdated` (it is done), `matter-direction` or `matter-important`."
     );
   }
   const open = openStepsOf(v);

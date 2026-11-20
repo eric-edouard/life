@@ -29,6 +29,10 @@ export interface Matchable {
   text?: string;
 }
 
+/** Whether an event came at or after the instant `since`: by its own instant when known, else by its local day against `since`'s. */
+export const isOnOrAfter = (e: { at?: string; day?: string }, since: string) =>
+  e.at ? e.at >= since : (e.day ?? "") >= localDate(since);
+
 /** One event a channel read: its id, its instant when known, its local day, what a filter sees, and what a wake hands. */
 export interface ChannelEvent {
   at?: string;
@@ -62,12 +66,20 @@ const READ_WITHIN_MS = 20_000;
 /** How many days back a read of payments looks: a statement imported late still wakes. */
 const PAYMENTS_BACK_DAYS = 35;
 
-/** A payment as an event: money out or in by the sign of `eur`, its words to match, its facts (never the merchant or note). */
+/**
+ * A payment as an event: money out or in by its sign, as `<currency>_out` or `_in` in its own currency (`thb_out`, what a
+ * card's look matches, `host/done-seen.ts`) and in EUR (`eur_out`, what a wait may name), its words to match, its facts
+ * (never the merchant or note).
+ */
 function paymentEventOf(p: Payment): ChannelEvent {
   const at = p.paidAt ? iso(Date.parse(p.paidAt)) : undefined;
   const day = paymentDayOf(p);
   const id = `payments:${p.id}`;
-  const quantities = { [p.eur < 0 ? "eur_out" : "eur_in"]: Math.abs(p.eur) };
+  const way = p.amount < 0 ? "out" : "in";
+  const quantities = {
+    [`${p.currency.toLowerCase()}_${way}`]: Math.abs(p.amount),
+    [`eur_${way}`]: Math.abs(p.eur),
+  };
   const { category, merchant, note } = paymentWordsOf(p);
   return {
     ...(at ? { at } : {}),

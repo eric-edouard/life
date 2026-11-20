@@ -6,7 +6,7 @@ import {
 } from "../records/observation";
 import { isUnderway } from "../records/truth";
 import { isMailAddress } from "../sources/gmail";
-import { partiesOf, type Truth } from "./read-truth";
+import { directoryPartiesOf, type Truth } from "./read-truth";
 import { nameKey } from "./units";
 
 const NOT_LETTERS = /[^\p{L}]/gu;
@@ -50,7 +50,7 @@ export function refContext(
   const underway = new Set(
     truth.projects.filter(isUnderway).map((p) => `project:${p.id}`)
   );
-  const parties = partiesOf(truth);
+  const parties = directoryPartiesOf(truth);
   const directory = {
     people: [
       ...parties.map((p) => ({
@@ -113,7 +113,7 @@ export function emailsOf({
       emails.set(ref, new Set([...(emails.get(ref) ?? []), ...own]));
     }
   };
-  for (const p of partiesOf(truth)) {
+  for (const p of directoryPartiesOf(truth)) {
     add(`person:${p.id}`, p.handles.email);
   }
   for (const p of outsideDirectory) {

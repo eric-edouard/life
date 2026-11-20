@@ -29,7 +29,7 @@ struct PersonAnswerStyle: ButtonStyle {
 
 /// One person as an answer's label: their initials, their name, and their line under it when Life knows one.
 struct PersonAnswer: View {
-    let person: Check.Person
+    let person: Party
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.m) {

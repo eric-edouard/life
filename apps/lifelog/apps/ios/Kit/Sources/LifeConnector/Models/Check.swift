@@ -66,13 +66,6 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         }
     }
 
-    public struct Person: Decodable, Sendable, Equatable {
-        /// Who they are to him, one line (a relation), when Life knows it.
-        public let line: String?
-        public let name: String
-        public let person: String
-    }
-
     /// One line said: who, to whom, when, where, verbatim.
     public struct Said: Decodable, Sendable, Equatable {
         /// An instant, or a day (`2026-10-12`) when only the day is known.
@@ -199,7 +192,7 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let onMatters: [MatterRef]?
     public let options: [Option]
     public let clips: [Clip]
-    public let likelyPeople: [Person]
+    public let likelyPeople: [Party]
     public let links: [String]
     public let matter: MatterRef?
     public let subject: String?

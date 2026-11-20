@@ -59,7 +59,16 @@
         {
           "calls": true,
           "kind": "message",
-          "person": "Gran"
+          "party": {
+            "kind": "person",
+            "line": "Your grandmother",
+            "name": "Gran",
+            "picture": {
+              "id": "00000000000000000000000000000a02"
+            },
+            "ref": "person:gran"
+          },
+          "personAsWritten": "Gran"
         },
         {
           "apps": ["whatsapp"],
@@ -75,7 +84,7 @@
           "broken": "unknown_person",
           "calls": true,
           "kind": "message",
-          "person": "Kit"
+          "personAsWritten": "Kit"
         },
         {
           "calls": false,
