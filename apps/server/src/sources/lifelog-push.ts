@@ -1,4 +1,5 @@
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { writeLifelog } from "./lifelog";
 import { lifelogMissing } from "./lifelog-call";
 
@@ -23,7 +24,7 @@ export async function notifyPhone(push: Push) {
   return await writeLifelog("POST", "/notifications", push).then(
     () => true,
     (e) => {
-      log("lifelog.write", { error: String(e), phase: "failed" });
+      log("lifelog.write", { ...errorOf(e), phase: "failed" });
       return false;
     }
   );

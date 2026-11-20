@@ -4,6 +4,7 @@ import { dirname, join, relative } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { AGENT_POST_SIGNATURE, DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS } from "../core/paths";
 import { commitPaths } from "../core/proc";
@@ -374,7 +375,7 @@ export async function stopOpenRun(
     .catch((error: unknown) =>
       log("desk.runtime", {
         agent: id,
-        error: String(error),
+        ...errorOf(error),
         ok: false,
         what: "stop",
       })
@@ -412,7 +413,7 @@ export function commitAgentFiles(a: AgentRow, s: AssignmentRow) {
   } catch (error) {
     log("desk.runtime", {
       agent: a.id,
-      error: String(error),
+      ...errorOf(error),
       ok: false,
       what: "commit",
     });

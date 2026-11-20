@@ -162,7 +162,7 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
           } catch (error) {
             // A mode the adapter refuses is not fatal: its asks are approved all the same. The model and effort stay fatal.
             if (configId !== "mode") {
-              throw error;
+              throw fromModel(error);
             }
             log("desk.runtime", {
               agent: a.id,

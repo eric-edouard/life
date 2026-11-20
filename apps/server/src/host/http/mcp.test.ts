@@ -361,7 +361,7 @@ test("a refused token, invalid arguments and the SDK's own rejections are logged
   });
   expect(
     await last(await token({ sub: "someone-else" }), "tools/list")
-  ).toMatchObject({ ...asker, refused: "forbidden: not the owner" });
+  ).toMatchObject({ ...asker, refused: "forbidden" });
   expect((await last(await token({}, -60), "tools/list")).refused).toContain(
     "exp"
   );

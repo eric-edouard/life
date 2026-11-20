@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { DESK_AGENT } from "../core/names";
 import { asksFor } from "../host/asks";
 import {
@@ -252,7 +253,7 @@ export async function applyAgentChanges(desk: Desk) {
       ).catch((e: Error) =>
         log("desk.change", {
           ask: ask.id,
-          error: e.message,
+          ...errorOf(e),
           what: "withdraw",
         })
       );

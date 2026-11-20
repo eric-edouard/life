@@ -62,3 +62,13 @@ test("a model's error keeps its type only; Life's own its first line", () => {
     errorType: "TypeError",
   });
 });
+
+test("`time` and `kind` are the writer's: a caller's own are overwritten or kept aside", () => {
+  log("desk.runtime", { kind: "mic", time: "caller-chosen" });
+  expect(lastLine()).toMatchObject({ fieldKind: "mic", kind: "desk.runtime" });
+  expect(lastLine().time).not.toBe("caller-chosen");
+  expect(errorOf(fromModel("a thrown string, quoting Ana"))).toEqual({
+    error: "Error",
+    errorType: "Error",
+  });
+});

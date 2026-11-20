@@ -4,6 +4,7 @@ import { clock, daysBefore, HOUR } from "../core/clock";
 import { readJson, readLineCount, writeJson } from "../core/files";
 import { count } from "../core/lists";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import type { NotifyKind, NotifyLevel } from "../core/names";
 import { settings } from "../core/settings";
 import { blockingCountOf } from "../memory/check-urgency";
@@ -207,7 +208,7 @@ export async function pushNewCardsIfChanged() {
   const moved = decisions !== decisionsLooked;
   decisionsLooked = decisions;
   const failed = (e: Error) =>
-    log("run.error", { error: e.message, step: "watch.cards" });
+    log("run.error", { ...errorOf(e), step: "watch.cards" });
   if (isLocked()) {
     if (moved) {
       await pushNewDecisions().catch(failed);

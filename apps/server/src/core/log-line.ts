@@ -95,12 +95,10 @@ export const templateOf = (kind: string, e: Record<string, unknown>) =>
   ].join(" ");
 
 /** An error from a model or its provider: logged as its type only (its words can echo what was asked). */
-export const fromModel = (e: unknown) => {
-  if (e instanceof Error) {
-    Object.assign(e, { isFromModel: true });
-  }
-  return e;
-};
+export const fromModel = (e: unknown) =>
+  Object.assign(e instanceof Error ? e : new Error(String(e)), {
+    isFromModel: true,
+  });
 const FIRST_LINE = /[\r\n].*$/s;
 
 const firstLineOf = (text: string) =>
@@ -174,7 +172,7 @@ const configure = () => {
 
 /**
  * A writer of `app`'s lines (Life's `log`, Voice's `record`): one instant per line, `time`, which `write` also gets to
- * pick its file. A field named `kind` is the line's kind; a caller's own `kind` field is kept as `fieldKind`.
+ * pick its file. `kind` and `time` are the writer's: a caller's own `kind` field is kept as `fieldKind`, its `time` is overwritten.
  */
 export const logWriter = (
   app: string,
@@ -185,7 +183,6 @@ export const logWriter = (
   return (kind: string, fields: Record<string, unknown> = {}) => {
     const { kind: fieldKind, ...rest } = fields;
     const e = {
-      time: clock().toISOString(),
       ...rest,
       // Every writer's error text kept to one line, as `errorOf` keeps it.
       ...(typeof rest.error === "string"
@@ -193,6 +190,7 @@ export const logWriter = (
         : {}),
       ...(fieldKind === undefined ? {} : { fieldKind }),
       kind,
+      time: clock().toISOString(),
     };
     const level = logLevelOf(e);
     getLogger([app, ...categoryOf(kind, e)])[level](templateOf(kind, e), e);
