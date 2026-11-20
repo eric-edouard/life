@@ -16,7 +16,7 @@ import { commitMemory } from "../memory/memory-files";
 import { directoryPartiesOf, integrity, loadTruth } from "../memory/read-truth";
 import { recordToldLife } from "../memory/told-life";
 import { slug } from "../records/fields";
-import { OrganizationPerson } from "../records/truth";
+import { OrganizationPerson, PictureFrom } from "../records/truth";
 import { listRow } from "./init";
 
 // Changes his directory (docs/glossary.md: his people, organizations, projects, areas and goals, in truth/) by his own
@@ -34,6 +34,7 @@ export const DirectoryEntryChange = z.object({
   action: z.enum(["add", "edit"]),
   aliases: Strings,
   area: z.string().optional(),
+  domains: Strings,
   handles: z
     .object({
       email: Strings,
@@ -44,11 +45,21 @@ export const DirectoryEntryChange = z.object({
     })
     .optional(),
   id: z.string().optional(),
-  kind: z.enum(["person", "project", "area", "goal", "may_keep"]),
+  kind: z.enum([
+    "person",
+    "organization",
+    "project",
+    "area",
+    "goal",
+    "may_keep",
+  ]),
   language: z.enum(["en", "fr", "th"]).optional(),
   name: z.string().min(1).optional(),
   number: z.int().min(1).optional(),
-  people: Strings,
+  /** A project's people (ids), or an organization's (each with a role, and `until` once they left). */
+  people: z.array(z.union([z.string().min(1), OrganizationPerson])).optional(),
+  pictureFrom: PictureFrom.optional(),
+  projects: Strings,
   relation: z.string().optional(),
   repos: Strings,
   said: z.string().min(1).max(8000),
@@ -56,28 +67,7 @@ export const DirectoryEntryChange = z.object({
   text: z.string().min(1).optional(),
 });
 export type DirectoryEntryChange = z.infer<typeof DirectoryEntryChange>;
-
-/**
- * An organization added or edited, in full: not on the connector's tool yet (its arguments wait for the next batched
- * change), only through `changeDirectoryEntry`'s callers in code and `bun life change-directory-entry`.
- */
-export const OrganizationChange = z
-  .object({
-    action: z.enum(["add", "edit"]),
-    aliases: Strings,
-    domains: Strings,
-    handles: DirectoryEntryChange.shape.handles,
-    id: z.string().optional(),
-    kind: z.literal("organization"),
-    name: z.string().min(1).optional(),
-    people: z.array(OrganizationPerson).optional(),
-    projects: Strings,
-    relation: z.string().optional(),
-    said: DirectoryEntryChange.shape.said,
-  })
-  .strict();
-export type OrganizationChange = z.infer<typeof OrganizationChange>;
-type Change = DirectoryEntryChange | OrganizationChange;
+type Change = DirectoryEntryChange;
 
 const ENTRY = /^ {2}- /;
 const NEWLINE = /[\r\n]/;
@@ -240,8 +230,23 @@ const kept = (text: string) =>
 
 type Read = (path: string) => string;
 
+/** The people `a` names, each as the kind of entry takes them: a project's by id, an organization's with a role. */
+function peopleOf<T>(
+  a: Change,
+  isTheKind: (p: unknown) => p is T,
+  what: string
+) {
+  return a.people?.map((p) =>
+    isTheKind(p) ? p : refuse(`a ${a.kind}'s \`people\` are ${what}.`)
+  );
+}
+const isId = (p: unknown): p is string => typeof p === "string";
+const isMember = (p: unknown): p is z.infer<typeof OrganizationPerson> =>
+  typeof p === "object" && p !== null;
+
 function projectWrite(a: DirectoryEntryChange, read: Read) {
   const isAdd = a.action === "add";
+  const people = peopleOf(a, isId, "ids");
   const id = isAdd ? idOf(a.id, need(a.name, "`name`")) : need(a.id, "`id`");
   const path = `projects/${id}.md`;
   if (isAdd) {
@@ -250,7 +255,7 @@ function projectWrite(a: DirectoryEntryChange, read: Read) {
     }
     return [
       path,
-      `---\nschemaVersion: 1\nid: ${id}\nname: ${JSON.stringify(need(a.name, "`name`"))}\narea: ${JSON.stringify(need(a.area, "`area`"))}\nstatus: ${a.status ?? "active"}\npeople: ${JSON.stringify(a.people ?? [])}\nchats: []\nrepos: ${JSON.stringify(a.repos ?? [])}\n---\n`,
+      `---\nschemaVersion: 1\nid: ${id}\nname: ${JSON.stringify(need(a.name, "`name`"))}\narea: ${JSON.stringify(need(a.area, "`area`"))}\nstatus: ${a.status ?? "active"}\npeople: ${JSON.stringify(people ?? [])}\nchats: []\nrepos: ${JSON.stringify(a.repos ?? [])}\n---\n`,
     ] as const;
   }
   const text = read(path);
@@ -264,7 +269,7 @@ function projectWrite(a: DirectoryEntryChange, read: Read) {
       ...(a.name && { name: a.name }),
       ...(a.area && { area: a.area }),
       ...(a.status && { status: a.status }),
-      ...(a.people && { people: union(old.people, a.people) }),
+      ...(people && { people: union(old.people, people) }),
       ...(a.repos && { repos: union(old.repos, a.repos) }),
     }),
   ] as const;
@@ -315,6 +320,7 @@ function entryWrite(a: Change, read: Read) {
       ...(a.aliases && { aliases: union(was.aliases, a.aliases) }),
       ...(Object.keys(handles).length > 0 && { handles }),
       ...(a.relation && { relation: a.relation }),
+      ...(a.pictureFrom && { pictureFrom: a.pictureFrom }),
     });
   }
   if (a.kind === "person" && a.language) {
@@ -323,7 +329,12 @@ function entryWrite(a: Change, read: Read) {
   if (a.kind === "organization") {
     Object.assign(entry, {
       ...(a.domains && { domains: union(was.domains, a.domains) }),
-      ...(a.people && { people: peopleWith(was.people, a.people) }),
+      ...(a.people && {
+        people: peopleWith(
+          was.people,
+          peopleOf(a, isMember, "each an id with a role") ?? []
+        ),
+      }),
       ...(a.projects && { projects: union(was.projects, a.projects) }),
     });
   }

@@ -13,6 +13,7 @@ import { loadTruth } from "../memory/read-truth";
 import {
   addDirectoryEntryByHisWord,
   changeDirectoryEntry,
+  DirectoryEntryChange,
 } from "./change-directory-entry";
 
 // The run's own copy of the made-up data (OWNER_DATA_DIR): backed up, made a repo, put back.
@@ -289,4 +290,51 @@ test("an organization is added and edited in full; its file is made on the first
     })
   ).rejects.toThrow("organization test-garage names unknown person nobody");
   expect(file("organizations.yaml")).toBe(before);
+});
+
+test("his picture pick on a person and an organization, through the one schema the connector takes; a source that does not exist is refused, and so is a project's member with a role", async () => {
+  await changeDirectoryEntry(
+    DirectoryEntryChange.parse({
+      action: "edit",
+      id: "test-ana",
+      kind: "person",
+      pictureFrom: "whatsapp",
+      said: "Use her WhatsApp picture.",
+    })
+  );
+  await changeDirectoryEntry(
+    DirectoryEntryChange.parse({
+      action: "edit",
+      id: "test-garage",
+      kind: "organization",
+      pictureFrom: "none",
+      said: "No picture for the garage.",
+    })
+  );
+  const truth = await loadTruth();
+  expect(truth.people.find((p) => p.id === "test-ana")?.pictureFrom).toBe(
+    "whatsapp"
+  );
+  expect(truth.organizations.find((o) => o.id === "test-garage")).toMatchObject(
+    { pictureFrom: "none" }
+  );
+  expect(
+    DirectoryEntryChange.safeParse({
+      action: "edit",
+      id: "test-ana",
+      kind: "person",
+      pictureFrom: "myspace",
+      said,
+    }).success
+  ).toBe(false);
+  await expect(
+    changeDirectoryEntry({
+      action: "add",
+      area: "home",
+      kind: "project",
+      name: "Shed",
+      people: [{ id: "test-ana", role: "builder" }],
+      said,
+    })
+  ).rejects.toThrow("a project's `people` are ids");
 });

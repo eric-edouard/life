@@ -1,7 +1,6 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { z } from "zod";
 import { daysBefore } from "../core/clock";
 import { FULL_DISK } from "../core/files";
 import { log } from "../core/log";
@@ -38,7 +37,6 @@ import { bridgeCommand } from "./bridges";
 import {
   changeDirectoryEntry,
   DirectoryEntryChange,
-  OrganizationChange,
 } from "./change-directory-entry";
 import {
   Asked,
@@ -204,11 +202,9 @@ const commands: Record<string, () => number | Promise<number>> = {
    * (`changeDirectoryEntry`): checked as `validate` checks, then committed in his data repo. Never run by a desk agent.
    */
   async "change-directory-entry"() {
-    let change: DirectoryEntryChange | OrganizationChange;
+    let change: DirectoryEntryChange;
     try {
-      change = z
-        .union([OrganizationChange, DirectoryEntryChange])
-        .parse(JSON.parse(process.argv[3] ?? ""));
+      change = DirectoryEntryChange.parse(JSON.parse(process.argv[3] ?? ""));
     } catch (e) {
       console.error(
         `usage: bun life change-directory-entry '<json>'\n${(e as Error).message}`
