@@ -10,16 +10,19 @@ private struct OmiHarness {
     let fake: FakeOmiTransport
     let sink = TestSink()
     let coordinator: DrainCoordinator
+    let clock = TestClock()
 
+    /// A download ends at the record its read began with as the newest, so no timeout needs to fire: like `Harness`,
+    /// they are out of a loaded Mac's reach.
     init(capacity: UInt64 = 10_000, freesOnDelivery: Bool = true, ackBatchSize: Int = 25) {
         fake = FakeOmiTransport(capacity: capacity, freesOnDelivery: freesOnDelivery)
-        // Real time for now: a download ends by its silence, and OmiHarness has no test clock yet (Harness has; giving it one
-        // is the follow-up). A stall past 500 ms on a loaded Mac would end a download early.
+        let clock = clock
         coordinator = DrainCoordinator(
             transport: fake, sink: sink, deviceID: { _ in Harness.deviceID },
             configuration: CaptureConfiguration(
-                ackPolicy: .acknowledge, ackBatchSize: ackBatchSize, pageIdleTimeout: .milliseconds(500),
-                resyncInterval: .seconds(3600)))
+                ackPolicy: .acknowledge, ackBatchSize: ackBatchSize, replyTimeout: Harness.timeout,
+                handshakeTimeout: Harness.timeout, pageIdleTimeout: Harness.timeout, resyncInterval: .seconds(3600)),
+            now: { clock.date }, clock: clock)
     }
 
     func run(_ body: () async throws -> Void) async rethrows {
