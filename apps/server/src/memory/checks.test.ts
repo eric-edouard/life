@@ -29,6 +29,7 @@ import type { Check } from "./life-checks";
 import * as matters from "./matters";
 import { OBSERVATIONS, UNITS } from "./memory-files";
 import { locked } from "./memory-lock";
+import { OWNER } from "./read-truth";
 
 /** One registered agent anchored on `step`, active unless `over` says otherwise (`heldByAgents`' facts). */
 const anchored = (step: string, over: Partial<AgentHold> = {}) => [
@@ -789,7 +790,9 @@ test("only the open endings' and the new matters' steps are read for their sente
     endings: new Map([
       ["obs_open", link],
       ["obs_closed", { later: "obs_c", quote: "x" }],
+      ["obs_his", { later: "obs_hers", quote: "y" }],
     ]),
+    lines: [{ id: "obs_hers", speaker: OWNER }],
     matters: [matter("2026-11-17", "obs_new"), matter("2026-10-01", "obs_old")],
     today: "2026-11-18",
   });
