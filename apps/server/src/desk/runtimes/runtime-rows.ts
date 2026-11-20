@@ -3,11 +3,12 @@ import { join } from "node:path";
 import { clock, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { log } from "../../core/log";
-import { AGENT_POST_SIGNATURE, type RuntimeName } from "../../core/names";
+import type { RuntimeName } from "../../core/names";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { cliEnv, HOME, isOwnLife, WINDOWS } from "../../core/platform";
 import { exec, firstLine, readLoginEnv } from "../../core/proc";
 import { settings } from "../../core/settings";
+import { mailedTo } from "../../host/report";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { readMailAddresses } from "../../sources/mail";
 import { SEND_GUARD_HOOK, type SendFacts } from "../send-guard";
@@ -131,7 +132,7 @@ const GUARD_HOOKS = {
 
 /** His own addresses, as Mail knows them, and Life's mail to him: none when Mail can't be read (resend then goes nowhere). */
 function readOwnAddresses() {
-  const to = settings().mail?.to;
+  const to = mailedTo();
   try {
     return [...readMailAddresses(), ...(to ? [to] : [])];
   } catch (e) {
@@ -150,7 +151,6 @@ function guardEnv() {
     LIFE_SEND_FACTS: JSON.stringify({
       ownAddresses: readOwnAddresses(),
       postRepos: settings().desk?.agentPostRepos ?? [],
-      signature: AGENT_POST_SIGNATURE,
     } satisfies SendFacts),
     LIFE_SEND_GUARD: SEND_GUARD,
   };

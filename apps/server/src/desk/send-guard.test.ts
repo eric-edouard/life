@@ -15,7 +15,6 @@ const SHA256 = /^sha256:[0-9a-f]{64}$/;
 const facts = {
   ownAddresses: ["owner@example.com", "owner@work.example"],
   postRepos: ["acme/hub"],
-  signature: AGENT_POST_SIGNATURE,
 };
 const bash = (command: string): ToolCall => ({
   tool_input: { command },
@@ -58,6 +57,31 @@ const REFUSED: [string, ToolCall][] = [
   ],
   ["agent-desktop on WhatsApp", bash("agent-desktop type --app WhatsApp hi")],
   ["gog's mail send", bash("gog --account x gmail send --to a@b.co --body hi")],
+  [
+    "gog's mail reply",
+    bash("gog --account x gmail reply --thread t --body ok"),
+  ],
+  ["gog's mail forward", bash("gog gmail forward --id m --to a@b.co")],
+  [
+    "gog's event with attendees",
+    bash("gog calendar create --attendees friend@example.org --title t"),
+  ],
+  [
+    "resend to a display name",
+    bash(
+      'resend emails send --to "Bob <bob@example.org>" --from a@send.example'
+    ),
+  ],
+  [
+    "resend to a list after one of his",
+    bash("resend emails send --to owner@example.com bob@example.org"),
+  ],
+  [
+    "a signed post chained to an unlisted repo",
+    bash(
+      `gh issue comment 1 --repo acme/hub --body "x\n${AGENT_POST_SIGNATURE}" && gh issue comment 2 --repo other/x --body hi`
+    ),
+  ],
   ["imsg", bash("imsg send --to +15550100 'hi'")],
   [
     "osascript telling Messages to send",

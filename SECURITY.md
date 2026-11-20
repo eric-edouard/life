@@ -48,15 +48,16 @@ own Keychain secrets are not handed to it. Its one gate is his rule: anything ou
 the exact thing. One part of that gate is enforced, sending (his word of 20 Nov 2026, "yes you can add it"): Life's send
 guard (`desk/send-guard.ts`, its rules in `SEND_RULES`) runs before each shell and MCP call of an agent of his own Life,
 a hook of the session's own flags (nothing written into his `~/.claude` or `~/.codex`), and refuses: a connector's send,
-reply or forward (mail, Beeper), an answer to an invitation, an event with attendees other than him, `gog gmail send`,
-`imsg send`, `osascript` telling Messages or Mail to send, `resend` to anyone but his own addresses, a browser or computer
+reply or forward (mail, Beeper), an answer to an invitation, an event with attendees other than him (a connector's or `gog calendar`'s), `gog gmail`'s
+send, reply or forward, `imsg send`, `osascript` telling Messages or Mail to send, `resend` to anyone but his own addresses, a browser or computer
 use on a messaging site or app, and a `gh` post (an issue, a comment, a review) except on the repos he listed
 (`desk.agentPostRepos`, his word of 20 Nov 2026) with the body ending with `AGENT_POST_SIGNATURE`: there an agent's
 words reach other people in his name without his yes on the text, and the agent is told to post only facts and
 questions and to put anything that commits him on a card. A failure of the guard refuses the call. The guard is
 partial: it reads a call's text, so a tab already open on a messaging site, a script that builds an address or URL, `gh api`
-or `curl` to a service's API, `node_repl`, `javascript_tool`, a shell the agent starts and then types into (Codex's `write_stdin`) or another
-program the agent starts get past it, and the agent can edit the guard's file in a checkout. Submitting a form, booking, paying, `gh pr create` and pushes stay its
+or `curl` to a service's API, `node_repl`, `javascript_tool`, full-screen computer use (it names no app), a shell the agent starts and then types into
+(Codex's `write_stdin`) or another program the agent starts get past it, and the agent can edit the guard's file in a
+checkout. It also refuses a little too much: any call that names a messaging site, reading Gmail in a browser included. Submitting a form, booking, paying, `gh pr create` and pushes stay its
 instruction only. A turn that fails keeps the adapter's last error lines in the desk's store; with his environment passed
 in, those lines may hold whatever the adapter printed. Its door
 is on loopback only; each agent's key is derived from the desk's key and reaches its session only in its environment.

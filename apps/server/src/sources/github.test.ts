@@ -115,7 +115,7 @@ test("the copier writes each issue and comment under its issue's chat, skips pul
   );
 });
 
-test("a post of his login ending with the agents' signature is his agent's, not his words", async () => {
+test("a post of his login ending with the agents' signature is his agent's, not his words; anyone else's keeps its sender", async () => {
   const g = fakeGh();
   const signed = `Found the cause.\n${AGENT_POST_SIGNATURE}\n`;
   g.feeds["repos/o/r/issues/comments"] = [
@@ -123,6 +123,7 @@ test("a post of his login ending with the agents' signature is his agent's, not 
     comment(22, 1, {
       body: `quoting: ${AGENT_POST_SIGNATURE} then his own words`,
     }),
+    comment(23, 1, { body: signed, user: { login: "Ana" } }),
   ];
   const archive = dir();
   at(0);
@@ -131,6 +132,7 @@ test("a post of his login ending with the agents' signature is his agent's, not 
   expect(read.map((e) => [e.id, e.sender, e.fromMe])).toEqual([
     ["github:o/r#1/21", "agent", false],
     ["github:o/r#1/22", "me", true],
+    ["github:o/r#1/23", "Ana", false],
   ]);
 });
 

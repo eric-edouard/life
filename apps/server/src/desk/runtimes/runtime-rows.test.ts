@@ -9,7 +9,6 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AGENT_POST_SIGNATURE } from "../../core/names";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { doorOf } from "../desk-door";
 import { SEND_GUARD_HOOK } from "../send-guard";
@@ -316,7 +315,6 @@ test("his own Life's agents run the send guard before each shell and MCP call, C
     expect(env.LIFE_BUN).toBe(process.execPath);
     expect(JSON.parse(env.LIFE_SEND_FACTS ?? "")).toMatchObject({
       postRepos: [],
-      signature: AGENT_POST_SIGNATURE,
     });
   }
   const second = runtimeRowsOf(false);

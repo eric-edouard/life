@@ -98,13 +98,13 @@ interface MailAccount {
   name: string;
 }
 
-/** Accounts with mail in the store: display name and the owner's addresses (account login + Sent senders). */
 /** His own mail addresses, every account's, as Mail knows them. */
 export const readMailAddresses = (
   root = mailRoot(),
   accountsDb = ACCOUNTS_DB
 ) => mailAccounts(root, accountsDb).flatMap((a) => a.addresses);
 
+/** Accounts with mail in the store: display name and the owner's addresses (account login + Sent senders). */
 export function mailAccounts(
   root = mailRoot(),
   accountsDb = ACCOUNTS_DB

@@ -97,9 +97,12 @@ const INSERT = `insert or ignore into messages
  * with `AGENT_POST_SIGNATURE` is his agent's own (the send guard's), never his words, though his login made it.
  */
 function rowOf(repo: string, i: Issue | Comment, me: string, seenAt: string) {
-  const isAgentPost = (i.body ?? "").trimEnd().endsWith(AGENT_POST_SIGNATURE);
-  const sender = isAgentPost ? AGENT_WORD : (i.user?.login ?? "ghost");
-  const fromMe = !isAgentPost && sender.toLowerCase() === me ? 1 : 0;
+  const login = i.user?.login ?? "ghost";
+  const isMine = login.toLowerCase() === me;
+  const isAgentPost =
+    isMine && (i.body ?? "").trimEnd().endsWith(AGENT_POST_SIGNATURE);
+  const sender = isAgentPost ? AGENT_WORD : login;
+  const fromMe = isMine && !isAgentPost ? 1 : 0;
   if ("number" in i) {
     if (i.pull_request) {
       return [];

@@ -5,17 +5,18 @@
 // Partial on purpose (SECURITY.md): it reads a call's text, so a tab already open on a messaging site, a script that
 // builds its address, `gh api` or `curl` to a service's API, or another program the agent starts get past it.
 
+import { AGENT_POST_SIGNATURE } from "../core/names";
+
 /** A tool call as both runtimes hand it to a `PreToolUse` hook. */
 export interface ToolCall {
   tool_input?: unknown;
   tool_name: string;
 }
 
-/** What the row knows at spawn and the hook can't read itself: his own addresses, the repos an agent may post to itself, the line that signs its posts. */
+/** What the row knows at spawn and the hook can't read itself: his own addresses and the repos an agent may post to itself. */
 export interface SendFacts {
   ownAddresses: string[];
   postRepos: string[];
-  signature: string;
 }
 
 /**
@@ -38,14 +39,16 @@ const SEND_TOOL = /(^|_)(send|reply|forward)(_|$)/i;
 const EVENT_TOOL = /(^|_)(create|update)_event$/;
 const EMAIL = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g;
 const SEND_COMMANDS = [
-  /\bgog\b[^\n|;&]*\bgmail\b[^\n|;&]*\bsend\b/,
+  /\bgog\b[^\n|;&]*\bgmail\b[^\n|;&]*\b(send|reply|reply-all|replyall|forward|fwd|post)\b/,
+  /\bgog\b[^\n|;&]*\bcalendar\b[^\n|;&]*--attendees?\b/,
   /\bimsg\s+send\b/,
   /\bosascript\b.*application\s+\\?"(Messages|Mail)\\?".*\bsend\b/is,
 ];
 const RESEND = /\bresend\b[^\n|;&]*\bsend\b/;
-const RECIPIENTS = /--(to|cc|bcc)[=\s]+["']?([^"'\s]+)/g;
+/** resend's sender options, whose address is no recipient. */
+const SENDER = /--(from|reply-to)[=\s]+("[^"]*"|'[^']*'|\S+)/g;
 const GH_POST = /\bgh\s+(issue\s+(comment|create)|pr\s+(comment|review))\b/;
-const GH_REPO = /(?:--repo|-R)[=\s]+["']?([\w.-]+\/[\w.-]+)/;
+const GH_REPO = /(?:--repo|-R)[=\s]+["']?([\w.-]+\/[\w.-]+)/g;
 /** The signature ends the body: a closing quote, a line end or the command's end follows it. */
 const ENDS_BODY = /^\s*(["']|\n|$)/;
 
@@ -66,27 +69,27 @@ const othersIn = (text: string, own: string[]) =>
     (a) => !own.some((o) => o.toLowerCase() === a.toLowerCase())
   );
 
-/** A shell command's recipients after `--to`, `--cc` or `--bcc`; none when it names none (they come from elsewhere). */
-const recipientsOf = (command: string) =>
-  [...command.matchAll(RECIPIENTS)].flatMap((m) => m[2]?.split(",") ?? []);
-
-/** Why a `gh` post is refused: its repo is not one he listed, or its body does not end with the signature. */
+/** Why a `gh` post is refused: a repo it names is not one he listed, or its body does not end with the signature. */
 function ghRefusalOf(command: string, f: SendFacts) {
-  const repo = command.match(GH_REPO)?.[1];
-  if (!repo) {
+  const repos = [...command.matchAll(GH_REPO)].map((m) => m[1] ?? "");
+  if (repos.length === 0) {
     return "Name the repo with --repo: posts go only to the repos he listed for agents.";
   }
-  if (!f.postRepos.some((r) => r.toLowerCase() === repo.toLowerCase())) {
-    return `He has not listed ${repo} for agents' posts. ${CARD}`;
+  const unlisted = repos.find(
+    (repo) => !f.postRepos.some((r) => r.toLowerCase() === repo.toLowerCase())
+  );
+  if (unlisted) {
+    return `He has not listed ${unlisted} for agents' posts. ${CARD}`;
   }
-  const at = command.lastIndexOf(f.signature);
-  return at >= 0 && ENDS_BODY.test(command.slice(at + f.signature.length))
+  const at = command.lastIndexOf(AGENT_POST_SIGNATURE);
+  return at >= 0 &&
+    ENDS_BODY.test(command.slice(at + AGENT_POST_SIGNATURE.length))
     ? undefined
-    : `End the body (given with --body, not a file) with this line: ${f.signature}`;
+    : `End the body (given with --body, not a file) with this line: ${AGENT_POST_SIGNATURE}`;
 }
 
 /** Each rule: why it refuses the call, or undefined when it doesn't. */
-export const SEND_RULES: {
+const SEND_RULES: {
   name: string;
   why: (c: ToolCall, text: string, f: SendFacts) => string | undefined;
 }[] = [
@@ -142,9 +145,9 @@ export const SEND_RULES: {
       if (c.tool_name !== "Bash" || !RESEND.test(text)) {
         return;
       }
-      const to = recipientsOf(text);
-      return to.length > 0 &&
-        othersIn(to.join(" "), f.ownAddresses).length === 0
+      const named = text.replace(SENDER, "").match(EMAIL) ?? [];
+      return named.length > 0 &&
+        othersIn(named.join(" "), f.ownAddresses).length === 0
         ? undefined
         : `resend goes only to his own addresses (${f.ownAddresses.join(", ") || "none known"}), named with --to. ${CARD}`;
     },
