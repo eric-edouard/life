@@ -134,7 +134,7 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote. Asked until 18 Oct.\n\n> Gran wants it framed\n\n*[12 Oct](life:unit_000000000002)*",
+      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote. Asked until 18 Oct.\n\n> Gran wants it framed\n\n*12 Oct*",
       "deadline": null,
       "draft": null,
       "goal": "Gran's photo is framed.",
@@ -177,12 +177,7 @@
       },
       "subject": null,
       "title": "Life found a new matter: Frame Gran's photo",
-      "lifeLinks": [
-        {
-          "kind": "unit",
-          "ref": "unit_000000000002"
-        }
-      ],
+      "lifeLinks": [],
       "matter": {
         "id": "matter_cccccccccccc",
         "name": "Frame Gran's photo"
@@ -194,8 +189,8 @@
       "urgency": "improves",
       "misread": {
         "cause": "e33422a9ac5b7ce7",
-        "seal": "b52ec9896fc96b0bb355125caf105f44",
-        "shown": "e8c9f69cd8eb6253"
+        "seal": "78325163f18215a3cc69046d1c766cd8",
+        "shown": "fbb39df191312464"
       }
     }
   ]

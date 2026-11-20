@@ -49,9 +49,9 @@ test("“Wrong…” is on Life's own cards alone; its cause holds through a cou
     of({}, [n, guessed, line({ id: "obs_00000000dd01" })])
   ).find((c) => c.ref === "name:dre");
   expect(more?.misread?.cause).toBe(name.misread?.cause);
-  expect(causeOf({ ...name, question: 'Who is "Dee"?' })).not.toBe(
-    name.misread?.cause
-  );
+  expect(
+    causeOf({ ...name, question: 'Who is "Dee"?' }, undefined, n.quote)
+  ).not.toBe(name.misread?.cause);
   // A new matter's goal he edits is another cause.
   expect(causeOf({ ...name, goal: "The watch is mended" })).not.toBe(
     causeOf({ ...name, goal: "Gran has her watch back" })

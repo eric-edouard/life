@@ -4,7 +4,6 @@ import { type CheckGroup, LIFE_ASKER } from "../core/names";
 import { secretIn } from "../core/secret";
 import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
-import { UnitId } from "../records/fields";
 import type { InferredPerson } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import {
@@ -12,7 +11,7 @@ import {
   namingQueueGuessesOf,
   readNamingQueue,
 } from "../sources/lifelog-voices";
-import { cardAskOf, guessAskOf } from "./check-asks";
+import { cardAskOf, guessAskOf, literalOf } from "./check-asks";
 import {
   isEndingOpen,
   type NameContext,
@@ -117,7 +116,7 @@ type Line = Pick<
 /** Where and when a record was said, in words: "whatsapp, 7 Sep". */
 type Where = string;
 
-/** The words a guess of Life's rests on, where they were said, and the unit they were said in when Life knows it for sure. */
+/** The words a guess of Life's rests on, where they were said, and the unit they were said in, if known. */
 interface Quote {
   text: string;
   unit?: string;
@@ -403,7 +402,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             [],
             {
               text: link.quote,
-              unit: later?.unit ?? link.later,
+              unit: later?.unit,
               where: later ? whereOf(later) : c.where.get(link.later),
             }
           ).map((r) => ({ ...r, basis: link.later }))
@@ -453,7 +452,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
                 asker: LIFE_ASKER,
                 at: null,
                 clips: [],
-                context: `${LIFE_CHECKS["new matter"].context} Next step: ${next.text}. Asked until ${plain(lastDay)}.`,
+                context: `${LIFE_CHECKS["new matter"].context} Next step: ${literalOf(next.text)}. Asked until ${plain(lastDay)}.`,
                 deadline: null,
                 draft: null,
                 goal: v.goal.text,
@@ -478,7 +477,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
               day: first.day,
               quote: {
                 text: first.quote,
-                unit: firstLine?.unit ?? first.ref,
+                unit: firstLine?.unit,
                 where: plain(first.day),
               },
             },
@@ -618,31 +617,18 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       }),
 };
 
-const SPACES = /\s+/g;
-/** Markdown's marks, an autolink's `://` and `www.`. */
-const MARKS = /[\\`*_[\]<>#~&@]|:(?=\/\/)|(?<=\bwww)\./gi;
-const LIST_NUMBER = /^(\d+)([.)])/;
-const LIST_MARK = /^[-+=]/;
-
-/** Recorded words as Markdown that renders as written, on one line: no link, emphasis, HTML, code or list of their own. */
-const literalOf = (s: string) =>
-  s
-    .replace(SPACES, " ")
-    .trim()
-    .replace(MARKS, "\\$&")
-    .replace(LIST_NUMBER, "$1\\$2")
-    .replace(LIST_MARK, "\\$&");
-
-/** A check's context with the words it rests on after its own: `> quote`, then `*where*`, a `life:` link to the unit when Life is sure of it. */
-function withQuoteOf(context: string | null, q?: Quote) {
+/** A check's context with the words it rests on after its own: `> quote`, then `*where*`, a `life:` link to its unit when that unit was read (`isUnitRead`). */
+function withQuoteOf(
+  context: string | null,
+  isUnitRead: (id: string) => boolean,
+  q?: Quote
+) {
   if (!q) {
     return context;
   }
   const where = literalOf(q.where ?? "an earlier message");
   const source =
-    q.unit && UnitId.safeParse(q.unit).success
-      ? `[${where}](life:${q.unit})`
-      : where;
+    q.unit && isUnitRead(q.unit) ? `[${where}](life:${q.unit})` : where;
   return `${context ? `${context}\n\n` : ""}> ${literalOf(q.text)}\n\n*${source}*`;
 }
 
@@ -657,7 +643,11 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
     Object.values(BUILDERS)
       .flatMap((build) => build(c))
       .map(({ basis, check, day, quote }) => {
-        const context = withQuoteOf(check.context, quote);
+        const context = withQuoteOf(
+          check.context,
+          (id) => inputs.where.has(id),
+          quote
+        );
         const card = {
           ...check,
           context,
