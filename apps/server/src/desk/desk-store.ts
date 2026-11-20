@@ -208,6 +208,18 @@ export const writeWait = (
     [JSON.stringify(w.events), w.until, w.reason, isDefault ? 1 : 0, id]
   );
 
+/** Ends agent `agent` (`status`, `outcome`) when it holds no open assignment: the one ending rule, after a close or a move. */
+const endWhenIdle = (
+  db: Database,
+  agent: string,
+  status: "ended" | "handed_over",
+  outcome: string | null
+) =>
+  db.run(
+    "update agent set status = ?, stopped_at = null, ended_at = ?, outcome = ? where id = ? and not exists (select 1 from assignment s where s.agent_id = agent.id and s.closed_at is null)",
+    [status, clock().toISOString(), outcome, agent]
+  );
+
 /**
  * Closes assignment `id` once (`outcome`, or `whyNotStarted` for one whose first turn never began), gives back the
  * complaints it never handed (`giveBackComplaints`), and ends its agent when it holds no open assignment after: the one
@@ -220,25 +232,50 @@ export function closeAssignmentRow(
   id: string,
   end: { outcome: string | null; replaced?: true; whyNotStarted?: string }
 ) {
-  const at = clock().toISOString();
-  const closed = db.run(
-    "update assignment set closed_at = ?, outcome = ?, why_not_started = ? where id = ? and closed_at is null and (select status from agent where agent.id = assignment.agent_id) = ?",
-    [
-      at,
-      end.outcome,
-      end.whyNotStarted ?? null,
-      id,
-      end.replaced ? "stopped" : "active",
-    ]
-  ).changes;
-  if (closed > 0) {
-    giveBackComplaints(db, id);
-    db.run(
-      "update agent set status = ?, stopped_at = null, ended_at = ?, outcome = ? where id = (select agent_id from assignment where id = ?) and not exists (select 1 from assignment s where s.agent_id = agent.id and s.closed_at is null)",
-      [end.replaced ? "handed_over" : "ended", at, end.outcome, id]
-    );
+  const s = db
+    .query<{ agent_id: string }, [string, string]>(
+      "select agent_id from assignment where id = ? and closed_at is null and (select status from agent where agent.id = assignment.agent_id) = ?"
+    )
+    .get(id, end.replaced ? "stopped" : "active");
+  if (!s) {
+    return false;
   }
-  return closed > 0;
+  db.run(
+    "update assignment set closed_at = ?, outcome = ?, why_not_started = ? where id = ?",
+    [clock().toISOString(), end.outcome, end.whyNotStarted ?? null, id]
+  );
+  giveBackComplaints(db, id);
+  endWhenIdle(
+    db,
+    s.agent_id,
+    end.replaced ? "handed_over" : "ended",
+    end.outcome
+  );
+  return true;
+}
+
+/**
+ * Moves open assignment `id` to agent `to` (the fold), with its anchors, wait, times, events and notes file, and ends
+ * the agent it leaves when that holds no open assignment after (`outcome`). What the old agent's sessions were shown of
+ * it is shown again to the new one (`handed_step`). In the caller's transaction.
+ */
+export function moveAssignment(
+  db: Database,
+  id: string,
+  to: string,
+  outcome: string
+) {
+  const from = db
+    .query<{ agent_id: string }, [string]>(
+      "select agent_id from assignment where id = ? and closed_at is null"
+    )
+    .get(id)?.agent_id;
+  if (!from || from === to) {
+    return;
+  }
+  db.run("update assignment set agent_id = ? where id = ?", [to, id]);
+  db.run("delete from handed_step where assignment_id = ?", [id]);
+  endWhenIdle(db, from, "ended", outcome);
 }
 
 /** Posts a line for the report (`life desk report-line`): one per source per day, a second that day replacing it. */

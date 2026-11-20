@@ -147,7 +147,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
   ).toEqual([
     "answer_check(name,note,options,person,ref,value)",
     "change_directory_entry(action,aliases,area,domains,handles,id,kind,language,name,number,people,pictureFrom,projects,relation,repos,said,status,text)",
-    "change_registered_agent(action,agent,effort,folder,model,project,runtime,said,step)",
+    "change_registered_agent(action,agent,effort,folder,model,name,personal,project,runtime,said,step)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
     "fetch(fromTurn,id,limit)",
@@ -362,15 +362,16 @@ test("a refused token, invalid arguments and the SDK's own rejections are logged
   expect(
     await last(await token({ sub: "someone-else" }), "tools/list")
   ).toMatchObject({ ...asker, refused: "forbidden" });
-  expect((await last(await token({}, -60), "tools/list")).refused).toContain(
-    "exp"
+  // A refusal is logged by its class, never its reason's words.
+  expect((await last(await token({}, -60), "tools/list")).refused).toBe(
+    "invalid"
   );
   const before = logged().length;
   await rpc(null, "tools/list");
   expect(logged()).toHaveLength(before);
   // A 2026-07-28 call missing its Mcp-Name header is refused by the SDK before any tool.
   await modern("tools/call", { arguments: {}, name: "read_observation" });
-  expect(logged().at(-1)?.refused).toContain("name-header-missing");
+  expect(logged().at(-1)?.refused).toBe("rejected");
 });
 
 test("a streamed request (subscriptions/listen) answers at once: nothing waits on its stream", async () => {

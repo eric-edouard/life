@@ -5,9 +5,18 @@ import { readChangeStamp } from "../core/files";
 import { packed } from "../core/lists";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
-import { anchorsOf, openAssignments } from "../host/desk-read";
+import {
+  agentOf,
+  anchorsOf,
+  assignmentOf,
+  assignmentOfCard,
+  openAssignments,
+  openTurn,
+  standingAgents,
+} from "../host/desk-read";
 import { isOnOrAfter } from "../host/event-channels";
 import type { MessagePayload } from "../host/events";
+import { decisionsNow } from "../memory/decisions";
 import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
 import {
   endedStepsOf,
@@ -19,6 +28,7 @@ import {
 } from "../memory/matter-read";
 import { MATTER_BOOK_READS, readMatterBookAndRecords } from "../memory/matters";
 import { readUnitsOf } from "../memory/memory-files";
+import { agentForMatterOf } from "../memory/read-matters";
 import { kindOf } from "../memory/sources";
 import { embedderNow } from "../memory/vectors";
 import type { People } from "../memory/who";
@@ -26,7 +36,7 @@ import { spokenLines } from "../memory/words";
 import { dayNow } from "../memory/zones";
 import type { OpenedBy } from "../records/registered-agent";
 import { closeAssignment } from "./agent-actions";
-import type { Desk } from "./desk-store";
+import { type Desk, moveAssignment } from "./desk-store";
 import {
   holdersOf,
   queue,
@@ -87,9 +97,14 @@ interface MatterEnd {
   assignment: string;
   outcome: string;
 }
+/** An open matter assignment the fold moves, and the agent that takes its matter (`agentForOf`). */
+interface MatterFold {
+  assignment: string;
+  to: string;
+}
 const kept = new WeakMap<
   Database,
-  { ends: MatterEnd[]; key: string; nets: Net[] }
+  { ends: MatterEnd[]; folds: MatterFold[]; key: string; nets: Net[] }
 >();
 
 /** The outcome of an agent ended because its matter is done: by his word or its own steps' endings, never a link's "probably". */
@@ -136,9 +151,10 @@ async function queryVectors(embedder: Embedder | null, texts: string[]) {
 
 /**
  * What the open assignments on a matter (an agent's own has none) read of it, its matter found by its anchors: the
- * nets, and the assignments to close on it (`endOutcomeOf`; steps no matter holds count once every one has ended,
- * `endedStepsOf`). The matter book is read again only once the assignments, their anchors, his day or what it is read from
- * (`MATTER_BOOK_READS`, by its change stamp: stats, no read) changed; a net whose vectors the embedder could not make
+ * nets, the assignments to close on it (`endOutcomeOf`; steps no matter holds count once every one has ended,
+ * `endedStepsOf`), and those the fold moves to the agent that takes their matter (`agentForMatterOf`, among the
+ * standing agents). The matter book is read again only once the assignments, their anchors, the standing agents, his
+ * day or what it is read from (`MATTER_BOOK_READS`, by its change stamp: stats, no read) changed; a net whose vectors the embedder could not make
  * is not kept, so the next poll tries again.
  */
 async function readOnMatters(desk: Desk, people: People) {
@@ -148,12 +164,14 @@ async function readOnMatters(desk: Desk, people: People) {
     return steps.length > 0 ? [{ a, steps }] : [];
   });
   if (onMatters.length === 0) {
-    return { ends: [], nets: [] };
+    return { ends: [], folds: [], nets: [] };
   }
+  const standing = standingAgents(db);
   const key = JSON.stringify([
     readChangeStamp(MATTER_BOOK_READS),
     dayNow(),
-    onMatters.map(({ a, steps }) => [a.id, steps]),
+    onMatters.map(({ a, steps }) => [a.id, a.agent_id, steps]),
+    standing,
   ]);
   const was = kept.get(db);
   if (was?.key === key) {
@@ -162,10 +180,16 @@ async function readOnMatters(desk: Desk, people: People) {
   const today = dayNow();
   const { book, records } = await readMatterBookAndRecords(people, today);
   const find = matterFinderOf(book);
+  // No standing agent: nothing to fold into.
+  const take =
+    standing.length > 0
+      ? agentForMatterOf(standing, people.truth)
+      : () => undefined;
   const embedder = embedderOf(desk);
   let isWhole = true;
   const nets: Net[] = [];
   const ends: MatterEnd[] = [];
+  const folds: MatterFold[] = [];
   for (const { a, steps } of onMatters) {
     const v = find(steps);
     const ended = v ?? endedStepsOf(steps, records, today);
@@ -175,6 +199,10 @@ async function readOnMatters(desk: Desk, people: People) {
     }
     if (!v) {
       continue;
+    }
+    const to = take(v);
+    if (to && to !== a.agent_id) {
+      folds.push({ assignment: a.id, to });
     }
     const net = netOf(v);
     // biome-ignore lint/performance/noAwaitInLoops: one embedder, one batch at a time
@@ -187,7 +215,7 @@ async function readOnMatters(desk: Desk, people: People) {
       vectors: vectors ?? [],
     });
   }
-  const read = { ends, key, nets };
+  const read = { ends, folds, key, nets };
   if (isWhole) {
     kept.set(db, read);
   }
@@ -390,6 +418,50 @@ export async function pollRecordings(desk: Desk, readPeopleNow: ReadPeople) {
     holdersOf(desk.db, assignments)
   );
   desk.db.transaction(() => queue(desk.db, MATTER_RELATED, wakes))();
+}
+
+/**
+ * The fold (his word of 20 Nov 2026): every matter sits with the agent that takes it (`agentForOf`). Each open matter
+ * assignment held by another agent moves to it (`moveAssignment`) once its agent has no turn running, with its wait,
+ * anchors, times, events, notes file and cards (each card's owner row written first, so it stays on its assignment and
+ * his next answer wakes the new agent); the agent it leaves ends when it holds nothing more, "folded into the <name>
+ * agent". Its turns stay its own: nothing running is cut.
+ */
+export async function foldAssignments(desk: Desk, readPeopleNow: ReadPeople) {
+  const { db } = desk;
+  if (openAssignments(db).length === 0) {
+    return;
+  }
+  const { folds } = await readOnMatters(desk, await readPeopleNow());
+  const decisions = decisionsNow();
+  for (const { assignment, to } of folds) {
+    const s = assignmentOf(db, assignment);
+    const target = agentOf(db, to);
+    // Moved onto an active agent only: an earlier move this pass may have ended it.
+    if (
+      !(s && target?.status === "active") ||
+      s.closed_at ||
+      openTurn(db, s.agent_id)
+    ) {
+      continue;
+    }
+    const outcome = `folded into the ${target.name ?? target.id} agent`;
+    db.transaction(() => {
+      // Both agents' cards pinned to their owners first: a move changes which assignment is either agent's first.
+      for (const d of decisions) {
+        const owner =
+          (d.agent === s.agent_id || d.agent === to) && assignmentOfCard(db, d);
+        if (owner) {
+          db.run(
+            "insert or ignore into card (decision_id, assignment_id) values (?, ?)",
+            [d.id, owner]
+          );
+        }
+      }
+      moveAssignment(db, s.id, to, outcome);
+    })();
+    log("desk.fold", { assignment, from: s.agent_id, to });
+  }
 }
 
 /** Closes each open assignment whose matter is over for it (`matterEndsOf`, `endOutcomeOf`), with why. */

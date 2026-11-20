@@ -263,6 +263,7 @@ test("a voice naming that cannot read lifelog's voices is logged once under its 
         "run.error",
         {
           error: "voice naming needs the new Lifelog Host",
+          errorType: "Error",
           step: "memory.voice-naming",
         },
       ],

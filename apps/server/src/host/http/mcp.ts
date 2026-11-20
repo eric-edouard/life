@@ -202,10 +202,14 @@ const Correct = Fix.extend({
 const NOT_HIS =
   "Not done: this app was paired as an agent, and an agent's words are not his.";
 
-/** The corrections only his own token writes, whatever they name: his marks on a matter. */
-const HIS_ONLY_KINDS = new Set(["matter-icon", "matter-important"]);
+/** The corrections only his own token writes, whatever they name: his marks on a matter, and which project it is of. */
+const HIS_ONLY_KINDS = new Set([
+  "matter-icon",
+  "matter-important",
+  "matter-project",
+]);
 
-/** Applies one correction the owner asked for: a Life memory correction (one on a whole matter by its id, and any important mark or icon: his token only), or one of lifelog's four. */
+/** Applies one correction the owner asked for: a Life memory correction (one on a whole matter by its id, and any important mark, icon or project: his token only), or one of lifelog's four. */
 export async function correct(
   a: z.infer<typeof Correct>,
   agent?: string,
@@ -470,7 +474,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "correct_memory",
-    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: kind `outdated` with `matter`, its id (Life closes every open step: its observations, and its to-do items ticked); his goal or next step for a matter: kind `matter-direction`, `matter` its id, `goal` (text) and/or `nextStep` ({kind, text, waitsOn}); his icon for a matter: kind `matter-icon`, `matter` its id, `icon` a key or null (Life picks again), his token only), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
+    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: kind `outdated` with `matter`, its id (Life closes every open step: its observations, and its to-do items ticked); his goal or next step for a matter: kind `matter-direction`, `matter` its id, `goal` (text) and/or `nextStep` ({kind, text, waitsOn}); his icon for a matter: kind `matter-icon`, `matter` its id, `icon` a key or null (Life picks again), his token only; which project of his a matter is of: kind `matter-project`, `matter` its id, `project` a project id, his token only: the matter goes to that project's agent), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
     correct,
     WRITES
@@ -502,7 +506,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "change_registered_agent",
-    "Only for what he asked in this chat, `said` his own words verbatim: start a registered agent on a matter (`step`: the matter's id or a step's) or a project (in `folder`, else its project's repo, else a folder of its own; `runtime`, `model`, `effort`, else the desk's defaults; his words, verbatim, are its brief, and on a matter its goal, saved as his); `stop` or `resume` one; `re_point` it to another subject; `change_model`; `hand_over` it to another runtime. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
+    "Only for what he asked in this chat, `said` his own words verbatim: start on a matter (`step`: the matter's id or a step's; it goes to the agent that takes it: its project's, else the Personal agent; his words, verbatim, are its goal, saved as his), or start a new agent on a project (in `folder`, else its project's repo, else a folder of its own) or as the Personal agent (`personal`, one at most), with `name`, `runtime`, `model`, `effort`, else the desk's defaults, his words its brief; `stop` or `resume` one; `re_point` it to another subject (`personal`: an agent he started becomes the Personal agent, refused while another is); `rename` it (`name`); `change_model`. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
     RegisteredAgentChange,
     (a, agent, call) => {
       if (agent) {

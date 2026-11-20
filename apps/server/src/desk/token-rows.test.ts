@@ -92,10 +92,14 @@ test("a turn running across a report is not listed; once ended it shows in the n
 
 test("the hand-out rows: how many started, how many have an answered card, and each that never began or ended having asked no card", () => {
   const agents = [
-    { id: "a", status: "active", why_not_started: null },
-    { id: "b", status: "ended", why_not_started: null },
-    { id: "c", status: "ended", why_not_started: "it did not begin" },
-    { id: "d", status: "ended", why_not_started: null },
+    { closed_at: null, id: "a", why_not_started: null },
+    { closed_at: "2026-11-20T10:00:00Z", id: "b", why_not_started: null },
+    {
+      closed_at: "2026-11-20T10:00:00Z",
+      id: "c",
+      why_not_started: "it did not begin",
+    },
+    { closed_at: "2026-11-20T10:00:00Z", id: "d", why_not_started: null },
   ];
   const none = { answered: new Set<string>(), everAsked: new Set<string>() };
   expect(handOutRowsOf([], none, () => undefined)).toEqual([]);

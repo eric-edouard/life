@@ -43,6 +43,7 @@ import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
 import {
   commitAgentFiles,
+  firstTurnOf,
   keepHanded,
   matterRecordOf,
   readPacket,
@@ -81,6 +82,7 @@ import {
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import {
   endAgentsOnOverMatters,
+  foldAssignments,
   MATTER_RELATED,
   netsOf,
   pollRecordings,
@@ -304,13 +306,13 @@ const wakeMessageOf = (
     ...events.map(eventLineOf),
   ].join("\n");
 
-/** What a session of `a` is given: its door, its folder, a title, the model it runs with. */
+/** What a session of `a` is given: its door, its folder, its title ("Agent: <name>", the name he gave it, else his brief's first line), the model it runs with. */
 const sessionAgentOf = (a: AgentRow): SessionAgent => ({
   ...modelOf(a),
   door: doorOf(a.id),
   folder: a.folder,
   id: a.id,
-  title: (a.brief.trim().split("\n")[0] ?? "").slice(0, 60),
+  title: `Agent: ${a.name ?? (a.brief.trim().split("\n")[0] ?? "").slice(0, 60)}`,
 });
 
 /** The turns whose run this process watches end (`Run.ended`): any other open turn was started before a restart. */
@@ -451,9 +453,16 @@ async function launch(
     }
     const { session } = a;
     const isFresh = !session || state === "gone";
-    // A fresh session's packet holds the whole matter, read once for what it shows and what the turn is shown.
+    // A fresh session's packet holds the whole matter, read once for what it shows and what the turn is shown; a matter
+    // given to a session already open (handed out, or his Start) opens with what its first turn does.
+    const isFirst = !lastTurns(db, s.id).some((t) => t.id < turn);
     const record =
-      isOwn || isFresh ? null : await matterRecordOf(desk, s, turn);
+      isOwn || isFresh
+        ? null
+        : [
+            await matterRecordOf(desk, s, turn),
+            ...(isFirst ? [firstTurnOf(a, s.opened_by).trim()] : []),
+          ].join("\n");
     if (isFresh) {
       const started = await runtime.start(
         sessionAgentOf(a),
@@ -517,7 +526,7 @@ async function launch(
       ok: false,
       what: "wake",
     });
-    await turnEnded(desk, a.id, { ok: false, why: (error as Error).message });
+    await turnEnded(desk, a.id, { ok: false, why: errorOf(error).error });
   }
 }
 
@@ -573,7 +582,7 @@ export async function wakeDue(desk: Desk) {
 /**
  * One tick of the clock: his word about his agents, his complaints for the caretaker (before the hand-out may take the last place), the hand-out (at most one start, a look every 10 minutes), his answers, the turns that never began, then the turns due (a new
  * agent's first turn never waits behind the polls), then, when their poll is due, the messages, the calls that ended, the recordings, the
- * agents whose matter is over for them, the hand-outs with no card in time and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst; the event channels a wait names after the calls (`pollChannels`).
+ * assignments whose matter is over for them, the fold (each matter to the agent that takes it), the hand-outs with no card in time and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst; the event channels a wait names after the calls (`pollChannels`).
  */
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
@@ -592,6 +601,7 @@ export async function tick(desk: Desk, isPollDue = true) {
     await pollChannels(desk, people);
     await pollRecordings(desk, people);
     await endAgentsOnOverMatters(desk, people);
+    await foldAssignments(desk, people);
     await endAgentsWithoutCard(desk);
     await endLostTurns(desk);
   }

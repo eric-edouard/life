@@ -81,11 +81,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         let capture = capture
         AppDependencyManager.shared.add(dependency: capture)
         // A card answered from its notification goes through Life's store, like a tap on its screen.
-        capture.notifier.answer = { [weak self] check, request in
+        capture.notifier.answer = { [weak self] check, request, paired in
             let taken = Taken(check: check, request: request, nextRef: nil, runtimeName: nil)
             guard let life = self?.life else { return taken.result(.idle) }
-            await life.answer(request)
+            await life.answer(request, keepsCardOpen: check.keepsOpen(after: request), for: paired)
             return taken.result(life.state(of: taken.key))
+        }
+        capture.notifier.card = { [weak self] pushId, kept, life in
+            await self?.life.notifiedCard(pushId: pushId, kept: kept, life: life)
         }
         let sync = sync
         AppDependencyManager.shared.add(dependency: sync)
