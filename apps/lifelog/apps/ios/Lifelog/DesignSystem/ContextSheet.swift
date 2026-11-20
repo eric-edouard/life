@@ -248,7 +248,7 @@ struct LifeLinkPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: Metrics.Spacing.m) {
-                if isPushed { RoundButton(symbol: "chevron.left", label: "Back") { back() } }
+                if isPushed { RoundIconButton(symbol: "chevron.left", label: "Back") { back() } }
                 Text(title).font(.sheetQuestion).foregroundStyle(Palette.fg).lineLimit(1)
                 Spacer(minLength: 0)
                 CloseButton(close: close)
@@ -277,7 +277,7 @@ struct LifeLinkPage: View {
         switch value {
         case .person(let name, let line):
             HStack(spacing: 14) {
-                Avatar(name: name, size: 72, fill: Palette.tile)
+                PartyDisc(name: name, size: .page)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name).font(.sheetQuestion).foregroundStyle(Palette.fg)
                     if let line { Text(line).font(.note).foregroundStyle(Palette.muted) }
@@ -288,22 +288,6 @@ struct LifeLinkPage: View {
             Text(verbatim: text).font(.body15).lineSpacing(3).foregroundStyle(Palette.fg).textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-}
-
-/// A flat `tile` circle with a glyph, the size of `CloseButton`: the sheet's Back.
-private struct RoundButton: View {
-    let symbol: String
-    let label: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 17, weight: .light)).foregroundStyle(Palette.fg)
-                .frame(width: Metrics.tapTarget, height: Metrics.tapTarget).background(Palette.tile, in: .circle)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
     }
 }
 
