@@ -13,8 +13,10 @@ import {
   contactPeopleOf,
   contactsNow,
 } from "./contact-people";
+import { readDetailsOf } from "./details";
 import { answeredBy } from "./people";
-import { foldsOf, meant } from "./who";
+import { personPicturesOf } from "./person-pictures";
+import { cardOwnerOf, foldsOf, meant } from "./who";
 
 const AT = "2026-11-12T03:00:00.000Z";
 const card = (id: string, name: string | null, handles: string[]): Contact => ({
@@ -349,6 +351,50 @@ test("a card whose whole name says one person and whose number says another is n
   expect(settled.ambiguousCards).toEqual([]);
   expect(settled.resolve("cy@example.com")).toBe("person:bea");
   expect(canon(self)).toBe(self);
+  // Its picture follows: the card's own until he says, then Bea's; never the first number's person by itself.
+  const picture = [
+    {
+      bytes: new Uint8Array([0xff, 0xd8]),
+      card: { handles: mixed.handles, id: mixed.card },
+    },
+  ];
+  const placedOn = (f: Pick<typeof settled, "canon" | "resolve">) =>
+    Object.keys(
+      personPicturesOf(picture, [], {
+        ownerOfCard: cardOwnerOf({ ...f, contacts: [mixed] }),
+        resolve: f.resolve,
+      }).index
+    );
+  // A card Life never kept as a contact person: the one person its handles name, no one when they name two.
+  const owner = cardOwnerOf({ ...settled, contacts: [] });
+  expect(owner({ handles: ["+33677777777"], id: "card-x" })).toBe("person:bea");
+  expect(
+    owner({ handles: ["+33677777777", "+33600000050"], id: "card-x" })
+  ).toBeUndefined();
+  expect(placedOn({ canon, resolve })).toEqual([self]);
+  expect(placedOn(settled)).toEqual(["person:bea"]);
+  // Its details follow the same rule (`cardOwnerOf`): the card's own, never Cyril's or Bea's by a handle alone.
+  const mixedRecord: Contact = {
+    addresses: [],
+    birthday: null,
+    handles: mixed.handles,
+    id: mixed.card,
+    name: mixed.name,
+    profiles: [],
+    related: [],
+    work: "Pilot",
+  };
+  const workOf = (f: Pick<typeof settled, "canon" | "resolve">, ref: string) =>
+    readDetailsOf(
+      {
+        ownerOfCard: cardOwnerOf({ ...f, contacts: [mixed] }),
+        truth: { areas: [], people: [], projects: [] } as never,
+      },
+      [mixedRecord]
+    )(ref).find((l) => l.kind === "work")?.text;
+  expect(workOf({ canon, resolve }, self)).toBe("Pilot");
+  expect(workOf({ canon, resolve }, "person:cyril")).toBeUndefined();
+  expect(workOf(settled, "person:bea")).toBe("Pilot");
   // The number truth/ knows is still Bea's; the address is the card's own, neither Bea's nor Cyril's.
   expect(resolve("+33677777777")).toBe("person:bea");
   expect(resolve("cy@example.com")).toBe(self);

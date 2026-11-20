@@ -147,6 +147,10 @@ export function writeJson(path: string, value: unknown) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(value)}\n`);
 }
+/** Whether `path` exists: false only when it doesn't; throws when it can't be told (access denied), unlike `existsSync`. */
+export const isThere = (path: string) =>
+  statSync(path, { throwIfNoEntry: false }) !== undefined;
+
 /** A small JSON state file, or undefined when it is missing or unreadable. */
 export function readJson<T>(path: string): T | undefined {
   try {

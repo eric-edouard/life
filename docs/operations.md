@@ -232,6 +232,7 @@ enabled source is available and the passages' collected windows are complete.
 - With `describePhotos` on and the photos source ready, every 10 minutes it describes the newest photos not yet handled, taken from the setting's day on (`{"from": "YYYY-MM-DD"}`; older ones wait for a backfill) (60 a pass,
   newest first) with a local model: Qwen3.5-9B under llama.cpp, started for the pass and stopped after, downloaded once to `MACHINE_DIR/models`
   (pinned sizes and hashes, `core/pinned.ts`). Progress is the photos source card (Described n of m, No image, Last failure) and the log kind `photos.describe`.
+- Every hour (and at start) it keeps the person pictures (`memory/person-pictures.ts`): the pictures each person shows, his Contacts' first, then each ready source's with `pictures` in `SOURCES`' order (Messages' shared photos, the bridges' avatars), placed through `who.ts` (a card by `cardOwnerOf`). Files in `MACHINE_DIR/person-pictures/` named by their bytes' digest, the index `MACHINE_DIR/person-pictures.json` (`{ built, people: { "person:x": [{ source, file }] } }`) replaced whole; when a reader can't read (access denied, a bridge's database gone), nothing changes. Never the night's; per Mac, so never exported or backed up (rebuilt within the hour).
 - Its startup line `actions: remctl ready` (in the watcher's log) is the check that the service can reach remctl.
 
 **Offline means delayed, never lost.** The Mac is the host. The lifelog cursor is gap-free, hearing reaches back a

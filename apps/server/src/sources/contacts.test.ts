@@ -1,12 +1,13 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   birthdayOf,
   contactKeyOf,
   handleKey,
+  readContactPictures,
   readContactRecords,
   readContacts,
 } from "./contacts";
@@ -147,5 +148,35 @@ test("Contacts records: read whole (work, birthday, addresses, family, profiles)
       related: ["Mother: Anne"],
       work: "Designer, Acme",
     },
+  ]);
+});
+
+test("a card's picture: inline, in Core Data's external file, else its thumbnail", () => {
+  const dir = mkdtempSync(join(tmpdir(), "contacts-pictures-"));
+  const file = join(dir, "AddressBook-v22.abcddb");
+  make(file, [{ handles: [] }, { handles: [] }, { handles: [] }], (db) => {
+    db.run("alter table ZABCDRECORD add column ZIMAGEDATA blob");
+    db.run("alter table ZABCDRECORD add column ZTHUMBNAILIMAGEDATA blob");
+    db.run("update ZABCDRECORD set ZIMAGEDATA = ? where Z_PK = 1", [
+      new Uint8Array([1, 0xff, 0xd8, 7]),
+    ]);
+    db.run("update ZABCDRECORD set ZIMAGEDATA = ? where Z_PK = 2", [
+      new TextEncoder().encode("\u0002ABC-1\u0000"),
+    ]);
+    db.run(
+      "update ZABCDRECORD set ZIMAGEDATA = ?, ZTHUMBNAILIMAGEDATA = ? where Z_PK = 3",
+      [
+        new TextEncoder().encode("\u0002GONE\u0000"),
+        new Uint8Array([1, 0xff, 0xd8, 3]),
+      ]
+    );
+  });
+  const external = join(dir, ".AddressBook-v22_SUPPORT", "_EXTERNAL_DATA");
+  mkdirSync(external, { recursive: true });
+  writeFileSync(join(external, "ABC-1"), new Uint8Array([0x89, 0x50]));
+  expect(readContactPictures(dir).map((p) => [p.card, [...p.bytes]])).toEqual([
+    ["card-1", [0xff, 0xd8, 7]],
+    ["card-2", [0x89, 0x50]],
+    ["card-3", [0xff, 0xd8, 3]],
   ]);
 });

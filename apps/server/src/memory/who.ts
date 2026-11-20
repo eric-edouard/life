@@ -578,6 +578,30 @@ export type Shown = ReturnType<typeof aboutNow>[number];
  * truth/, the people his Contacts name, Life's inferred people and the owner's corrections, read once, with the
  * resolver and the folds over them.
  */
+/**
+ * Whose a Contacts card is, the one rule (details, pictures): its contact person as the folds place it when Life keeps
+ * one (an ambiguous card stays its own until he says), else the one person all of its handles that name someone name;
+ * no one when they name several.
+ */
+export const cardOwnerOf =
+  ({
+    canon,
+    contacts,
+    resolve,
+  }: {
+    canon: (ref: string) => string;
+    contacts: { card: string; id: string }[];
+    resolve: (nameOrHandle: string) => string | null;
+  }) =>
+  (card: { handles: string[]; id: string }) => {
+    const kept = contacts.find((c) => c.card === card.id);
+    if (kept) {
+      return canon(`person:${kept.id}`);
+    }
+    const named = new Set(card.handles.flatMap((h) => resolve(h) ?? []));
+    return named.size === 1 ? [...named][0] : undefined;
+  };
+
 export async function readPeople() {
   const [truth, inferred, corrections] = await Promise.all([
     loadTruth(),
@@ -647,6 +671,8 @@ export async function readPeople() {
     names,
     /** Everyone outside the directory (`peopleOutsideDirectoryOf`), folded or not: what every listing of people reads. */
     outsideDirectory,
+    /** Whose a Contacts card is (`cardOwnerOf`). */
+    ownerOfCard: cardOwnerOf({ canon, contacts, resolve }),
     /** What a name as written reads as now (`resolve`), with which source said so and whether the name is shared. */
     readingNow,
     /** Who an episode's person ref is as of today: a name since resolved, a person since folded into another. */

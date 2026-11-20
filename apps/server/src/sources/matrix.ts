@@ -1,10 +1,10 @@
 import type { Database } from "bun:sqlite";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { MACHINE_DIR } from "../core/platform";
 import { SECRETS } from "../core/secret";
 import { openReadOnly } from "../core/sqlite";
-import type { Outgoing, SendPath } from "./contract";
+import type { Outgoing, Picture, SendPath } from "./contract";
 import {
   contentOf,
   featureProblemOf,
@@ -49,6 +49,65 @@ export const readOwnerAccount = (): { password?: string; token?: string } =>
 
 /** The homeserver's database. */
 export const SYNAPSE = join(BRIDGES, "synapse", "homeserver.db");
+
+/** An `mxc://<server>/<id>` file at the homeserver's own copy (`media_store/local_content/<2>/<2>/<rest>`). */
+const MXC = /^mxc:\/\/[^/]+\/(.{2})(.{2})(.+)$/;
+export const mediaOf = (url: string, synapse = SYNAPSE) => {
+  const m = url.match(MXC);
+  return m?.[3]
+    ? join(
+        dirname(synapse),
+        "media_store",
+        "local_content",
+        `${m[1]}`,
+        `${m[2]}`,
+        m[3]
+      )
+    : undefined;
+};
+
+/**
+ * The pictures a bridge's ghosts show (their avatars, kept by the homeserver), from the bridge's own record of each:
+ * by Life's senders for its network id (`sendersOf`, by default its localpart, as `bridged.ts` reads a sender) and its
+ * username when the bridge keeps one (an export names people by it). Throws when the bridge's database is gone: the
+ * caller keeps what it had.
+ */
+export function ghostPicturesOf(
+  bridge: string,
+  sendersOf = (id: string) => [localpartOf(id)],
+  bridges = BRIDGES,
+  synapse = SYNAPSE
+): Picture[] {
+  const pictures = withBridgeDb(
+    bridge,
+    (db) =>
+      db
+        .query<{ id: string; metadata: string | null; url: string }, []>(
+          "select id, avatar_mxc as url, metadata from ghost where avatar_mxc like 'mxc://%'"
+        )
+        .all()
+        .flatMap((r) => {
+          const file = mediaOf(r.url, synapse);
+          if (!(file && existsSync(file))) {
+            return [];
+          }
+          const { username } = JSON.parse(r.metadata ?? "{}") as {
+            username?: string;
+          };
+          return [
+            {
+              bytes: readFileSync(file),
+              handles: [...sendersOf(r.id), ...(username ? [username] : [])],
+            },
+          ];
+        }),
+    bridges
+  );
+  if (!pictures) {
+    throw new Error(`${bridge}: no bridge database`);
+  }
+  return pictures;
+}
 
 /** The homeserver's database opened for `read`; none when it isn't on this Mac. */
 export function withHomeserver<T>(synapse: string, read: (hs: Database) => T) {
