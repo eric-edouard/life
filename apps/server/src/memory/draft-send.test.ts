@@ -454,6 +454,7 @@ test("a mail draft has no chat: its addresses as given, and a reply quotes the m
     [mail]
   );
   expect(other.recent?.[0]?.text).not.toContain("424242");
+  expect(other.quoted?.text).not.toContain("424242");
   expect(sent.at(-1)).toMatchObject({
     from: "me@example.com",
     to: "ana@example.com",

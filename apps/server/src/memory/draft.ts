@@ -96,6 +96,8 @@ export const StoredDraft = MessageDraft.extend({
     })
     .strict()
     .optional(),
+  /** As asked: a card asked before reactions had to be one emoji still reads. */
+  reaction: oneLine(16).optional(),
   /** The chat's last 3 messages within 90 days before the card was asked, oldest first (a mail's: the replied thread's last); empty for a new chat. Cards asked before 21 Nov 2026 have none. */
   recent: z.array(RecentMessage).max(3).optional(),
 }).strict();

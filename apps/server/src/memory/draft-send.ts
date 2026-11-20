@@ -70,8 +70,11 @@ function recentOf(
       .toSorted((a, b) => a.at.localeCompare(b.at))
       .slice(-RECENT)
       .map(async (e) => {
-        const words = redact(messageWordsOf(e.text));
-        const text = mail ? oneLineOf(bodyOf(words, e.chatName), 200) : words;
+        const words = messageWordsOf(e.text);
+        // The body line is chosen, then redacted whole, then cut.
+        const text = mail
+          ? oneLineOf(redact(bodyOf(words, e.chatName)), 200)
+          : redact(words);
         const file = !mail && e.files?.[0];
         return {
           at: e.at,
@@ -264,7 +267,9 @@ async function readWhere(
     sender: found.sender,
     ...(mail && found.chatName ? { subject: found.chatName } : {}),
     // A reaction's message is shown whole (it is all he sees); a reply's, its first 300 characters.
-    text: draft.reaction ? found.text : found.text.slice(0, 300),
+    text: draft.reaction
+      ? redact(found.text)
+      : redact(found.text).slice(0, 300),
   };
   const shown = mail ? [found].filter((e) => e !== undefined) : there;
   const recent = await recentOf(shown, mail, await readPeople(), now);
