@@ -215,8 +215,10 @@ async function wokenFor(minutes: number, days: number, confirmedAgo: number) {
   ).length;
 }
 
-test("a confirm of yesterday's voice finds its unit and wakes: made this afternoon, or just before a midnight polled after it", async () => {
+test("a confirm of yesterday's voice finds its unit and wakes: made this afternoon, just before a midnight polled after it, or just after one polled at noon", async () => {
   expect(await wokenFor(15 * 60, 1, 0)).toBe(1);
   // Polled at 00:01, confirmed at 23:59 of a unit of the day before.
   expect(await wokenFor(1, 2, 2 * MIN)).toBe(1);
+  // Polled at 12:01, confirmed at 00:02 of a unit of the day before yesterday (a pass begun at 23:59).
+  expect(await wokenFor(12 * 60 + 1, 2, 719 * MIN)).toBe(1);
 });

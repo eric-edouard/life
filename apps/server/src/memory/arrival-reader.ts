@@ -320,14 +320,36 @@ export async function readArrivals(
     new Set()
   ).due.map(eventKey);
   const read = new Set([...stored.flatMap((l) => l.messages), ...waiting]);
-  const voice = evidence.voice ? readableVoiceOf(evidence.voice, day) : [];
+  const pending = pendingTriggers(stored, day);
+  const pendingUnits = new Set(pending.map((t) => t.unit));
+  // Words are fetched only for a unit with a turn not read yet (its last), or a confirm pending.
+  const fetched = (
+    evidence.voice ? readableVoiceOf(evidence.voice, day) : []
+  ).filter(
+    (b) =>
+      pendingUnits.has(b.unit.id) ||
+      !read.has(
+        eventKey({ id: b.unit.refs.at(-1) ?? "", source: b.unit.source })
+      )
+  );
   const spoken = await (o.spoken ?? spokenOf(people))(
-    voice.map((b) => b.unit)
+    fetched.map((b) => b.unit)
   ).catch((e: Error) => {
     // lifelog unreadable: chats and mail are still read, voice on a later pass.
     log("run.error", { error: e.message, step: "arrivals.voice" });
     return new Map<string, SourceLine[]>();
   });
+  // A speaker corrected between the store's two reads (his turns there, none in the words): not his, not read.
+  const notHis = new Set(
+    fetched
+      .filter(
+        (b) =>
+          b.unit.stats.fromMe > 0 &&
+          !(spoken.get(b.unit.id) ?? []).some((l) => l.speaker === OWNER)
+      )
+      .map((b) => b.unit.key)
+  );
+  const voice = fetched.filter((b) => !notHis.has(b.unit.key));
   const lineSources = { built: [...evidence.built, ...voice], spoken };
   const due = [
     ...arrivalReadsDue(
@@ -339,7 +361,7 @@ export async function readArrivals(
     ),
     ...voiceReadsDue(voice, spoken, read, people.resolve, people.nameOf),
   ];
-  if (due.length === 0 && pendingTriggers(stored).length === 0) {
+  if (due.length === 0 && pending.length === 0) {
     return;
   }
   const step = await (
@@ -387,7 +409,7 @@ export async function readArrivals(
       toConfirm.push(confirmOf(r));
     }
   }
-  toConfirm.push(...pendingConfirms(stored, lineSources, people));
+  toConfirm.push(...pendingConfirms(pending, lineSources, people));
   const room =
     toConfirm.length > 0 && (await online())
       ? CONFIRMS_A_DAY - (await confirmsToday())
@@ -412,12 +434,16 @@ export async function readArrivals(
 const sameKeys = (a: string[], b: string[]) =>
   a.length === b.length && a.every((k, i) => k === b[i]);
 
-/** Today's triggers that go on to a confirm and have none yet (Life was offline, or the cap was spent). */
-function pendingTriggers(stored: ReadReply[]) {
+/**
+ * Today's triggers that go on to a confirm and have none yet (Life was offline, or the cap was spent). An earlier day's
+ * is the night's, never confirmed when the next day's allowance opens.
+ */
+function pendingTriggers(stored: ReadReply[], day: string) {
   const confirms = stored.filter((l) => l.read === ARRIVAL_CONFIRM_READ);
   return stored.filter(
     (l): l is Extract<ReadReply, { read: typeof ARRIVAL_TRIGGER_READ }> =>
       l.read === ARRIVAL_TRIGGER_READ &&
+      localDate(l.at) === day &&
       isTriggered(l.reply) &&
       !confirms.some((c) => sameKeys(c.messages, l.messages))
   );
@@ -427,11 +453,11 @@ function pendingTriggers(stored: ReadReply[]) {
  * message text). Only when it gives back exactly the trigger's lines: otherwise the night reads the unit.
  */
 function pendingConfirms(
-  stored: ReadReply[],
+  pending: ReturnType<typeof pendingTriggers>,
   units: { built: Built[]; spoken: ReadonlyMap<string, SourceLine[]> },
   people: { nameOf: (ref: string) => string; resolve: Resolve }
 ): Asked[] {
-  return pendingTriggers(stored).flatMap((t) => {
+  return pending.flatMap((t) => {
     const b = units.built.find((u) => u.unit.id === t.unit);
     if (!b) {
       return [];

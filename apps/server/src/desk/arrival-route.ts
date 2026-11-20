@@ -111,9 +111,14 @@ export async function pollArrivals(
     return;
   }
   const people = await readPeopleNow();
-  // A confirm since `since` reads a unit of that day or the day before (the reader reads yesterday's voice), or later.
+  // A confirm since `since` (made that day or the next) reads a unit of its day or the day before (yesterday's voice).
   const first = localDate(since);
-  const days = [daysBefore(first, 1), first, localDate(now.toISOString())];
+  const days = [
+    daysBefore(first, 2),
+    daysBefore(first, 1),
+    first,
+    localDate(now.toISOString()),
+  ];
   const units = new Map(
     (o.units ?? readUnitsOf([...new Set(days)])).map((u) => [u.id, u])
   );

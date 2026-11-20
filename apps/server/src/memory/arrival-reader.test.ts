@@ -67,6 +67,8 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
     run: "r1",
   };
   const shown: string[] = [];
+  /** How many voice units' words each pass fetched. */
+  const fetched: number[] = [];
   /** `confirmsToday` null: counted from the model log, as in production. */
   const read = (
     events: SourceEvent[],
@@ -85,10 +87,12 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
       {
         ...(voice
           ? {
-              spoken: () =>
-                voice.fails
+              spoken: (units: Unit[]) => {
+                fetched.push(units.length);
+                return voice.fails
                   ? Promise.reject(new Error("lifelog unreachable"))
-                  : Promise.resolve(voice.spoken),
+                  : Promise.resolve(voice.spoken);
+              },
             }
           : {}),
         apple: (requests) => {
@@ -104,7 +108,7 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
       }
     );
   const lines = () => readReplies(where).flat();
-  return { calls, lines, read, shown, where };
+  return { calls, fetched, lines, read, shown, where };
 };
 /** Today's voice as the reader is given it: units, the conversations lifelog closed, and each unit's turns. */
 interface Voice {
@@ -347,6 +351,37 @@ test("voice: a pending confirm whose conversation turns out not his asks his eng
     voiceOf("t", { closed: true, spoke: false, turns: 2 })
   );
   expect(s.calls).toEqual({ apple: 1, engine: 0 });
+});
+
+test("voice: a speaker corrected within one pass (his turn gone from the words) is not read", async () => {
+  const s = sceneOf(() => yes("bring the plans"));
+  const claimed = voiceOf("fix", { closed: true, spoke: true, turns: 2 });
+  const words = voiceOf("fix", { closed: true, spoke: false, turns: 2 });
+  await s.read([], true, 0, { ...claimed, spoken: words.spoken });
+  expect(s.calls).toEqual({ apple: 0, engine: 0 });
+});
+
+test("voice: a conversation read whole fetches no words again", async () => {
+  const s = sceneOf(() => yes("bring the plans"));
+  const talk = voiceOf("again", { closed: true, spoke: true, turns: 2 });
+  await s.read([], true, 0, talk);
+  await s.read([], true, 0, talk);
+  expect(s.fetched).toEqual([1, 0]);
+});
+
+test("voice: a trigger left pending past midnight (the cap spent) is the night's, never confirmed the next day", async () => {
+  const midnight = dayStart(dayNow()).getTime();
+  setSystemTime(new Date(midnight - 30 * MIN));
+  try {
+    const s = sceneOf(() => yes("bring the plans"));
+    const talk = voiceOf("late", { closed: true, spoke: true, turns: 2 });
+    await s.read([], true, CONFIRMS_A_DAY, talk);
+    setSystemTime(new Date(midnight + 30 * MIN));
+    await s.read([], true, 0, talk);
+    expect(s.calls).toEqual({ apple: 1, engine: 0 });
+  } finally {
+    setSystemTime();
+  }
 });
 
 test("voice: lifelog unreachable, chats and mail are still read", async () => {
