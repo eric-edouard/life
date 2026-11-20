@@ -1,8 +1,8 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, setSystemTime, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { clock, iso, MIN } from "../core/clock";
+import { clock, daysBefore, HOUR, iso, MIN } from "../core/clock";
 import { log } from "../core/log";
 import type { FoundationAnswer } from "../models/foundation-model";
 import { stamp } from "../models/llm";
@@ -10,12 +10,13 @@ import type { ReadReply } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { turnRef } from "../sources/lifelog";
-import { readArrivals } from "./arrival-reader";
+import { CONFIRMS_A_DAY, readArrivals } from "./arrival-reader";
 import type { SourceLine } from "./quote-check";
 import { readConfirmedArrivals, readReplies, storeReply } from "./read-replies";
 import { OWNER } from "./read-truth";
 import { voiceUnitId } from "./unit-ids";
 import { applyRules, type Built, messageUnits } from "./units";
+import { dayNow, dayStart } from "./zones";
 
 // Made-up chats with Sam, someone he knows; Apple and his engine are fakes counting their calls.
 const SAM = "33600000001@s.whatsapp.net";
@@ -82,7 +83,14 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
       people,
       ["Ozren"],
       {
-        ...(voice ? { spoken: () => Promise.resolve(voice.spoken) } : {}),
+        ...(voice
+          ? {
+              spoken: () =>
+                voice.fails
+                  ? Promise.reject(new Error("lifelog unreachable"))
+                  : Promise.resolve(voice.spoken),
+            }
+          : {}),
         apple: (requests) => {
           calls.apple += requests.length;
           return Promise.resolve(requests.map((r) => apple(r.text)));
@@ -102,15 +110,26 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
 interface Voice {
   built: Built[];
   closed: Set<string>;
+  /** Fetching the turns' words fails (lifelog unreachable). */
+  fails?: boolean;
   spoken: Map<string, SourceLine[]>;
 }
-/** A made-up conversation with Sam: `turns` turns of `chars` characters, his own every other one when he spoke. */
+/**
+ * A made-up conversation with Sam: `turns` turns of `chars` characters, his own every other one when he spoke, the
+ * first `minutesAgo` (default 20) minutes ago.
+ */
 const voiceOf = (
   conversation: string,
-  o: { closed: boolean; chars?: number; spoke: boolean; turns: number }
+  o: {
+    closed: boolean;
+    chars?: number;
+    minutesAgo?: number;
+    spoke: boolean;
+    turns: number;
+  }
 ): Voice => {
   const lines = Array.from({ length: o.turns }, (_, i) => {
-    const at = ago(20 - i / 10);
+    const at = ago((o.minutesAgo ?? 20) - i / 10);
     return {
       at,
       ref: turnRef(conversation, i, at),
@@ -269,6 +288,52 @@ test("voice: a closed long conversation is read whole, every chunk in one pass",
   );
 });
 
+test("voice: a conversation across midnight he spoke in before it is read after it too", async () => {
+  const s = sceneOf(() => yes("bring the plans"));
+  const before = voiceOf("night", {
+    closed: true,
+    minutesAgo: 26 * 60,
+    spoke: true,
+    turns: 2,
+  });
+  const after = voiceOf("night", { closed: true, spoke: false, turns: 2 });
+  await s.read([], true, 0, {
+    built: [...before.built, ...after.built],
+    closed: before.closed,
+    spoken: new Map([...before.spoken, ...after.spoken]),
+  });
+  expect(s.calls).toEqual({ apple: 2, engine: 2 });
+});
+
+test("voice: lifelog unreachable, chats and mail are still read", async () => {
+  const s = sceneOf(() => yes("send the slides"));
+  await s.read([msg("Can you send the slides?")], true, 0, {
+    ...voiceOf("talk", { closed: true, spoke: true, turns: 2 }),
+    fails: true,
+  });
+  expect(s.calls).toEqual({ apple: 1, engine: 1 });
+});
+
+test("voice: yesterday's first turns filed under last month are seen as read the next evening", async () => {
+  // Its first turn just after yesterday began, which is last month in UTC wherever the day starts before UTC's.
+  setSystemTime(new Date(dayStart("2026-11-02").getTime() + 20 * HOUR));
+  try {
+    const s = sceneOf(() => yes("bring the plans"));
+    const start = dayStart(daysBefore(dayNow(), 1)).getTime() + 10 * MIN;
+    const talk = voiceOf("early", {
+      closed: true,
+      minutesAgo: (clock().getTime() - start) / MIN,
+      spoke: true,
+      turns: 2,
+    });
+    await s.read([], true, 0, talk);
+    await s.read([], true, 0, talk);
+    expect(s.calls).toEqual({ apple: 1, engine: 1 });
+  } finally {
+    setSystemTime();
+  }
+});
+
 test("his engine's no is stored and confirms nothing", async () => {
   const s = sceneOf(() => yes("send the slides"), false);
   await s.read([msg("Can you send the slides?")]);
@@ -287,12 +352,12 @@ test("offline, Apple's yes is stored and its confirm waits; back online, the pen
 
 test("a pending confirm reads the same lines as the trigger; with one of them gone, it is the night's", async () => {
   const s = sceneOf(() => yes("send the slides"));
-  const long = msg(`Can you send the slides? ${"x".repeat(6000)}`);
+  const long = msg(`Can you send the slides? ${"x".repeat(6000)} END-MARK`);
   await s.read([long], false);
   await s.read([long]);
   // The confirm reads the long line whole, the same line as before Life went offline.
   expect(s.shown).toHaveLength(1);
-  expect(s.shown[0]?.endsWith("x".repeat(100))).toBe(true);
+  expect(s.shown[0]?.endsWith("END-MARK")).toBe(true);
   const gone = sceneOf(() => yes("send the slides"));
   const [a, b] = [msg("Can you send the slides?"), msg("Today if you can")];
   await gone.read([a, b], false);
@@ -300,21 +365,15 @@ test("a pending confirm reads the same lines as the trigger; with one of them go
   expect(gone.calls.engine).toBe(0);
 });
 
-test("the day's cap counts the confirms already made: at 99, one of two reads is confirmed, the newest", async () => {
-  const s = sceneOf(() => yes("send the slides"));
-  await s.read(
-    [
-      msg("Can you send the slides?"),
-      msg("Can you send the slides?", {
-        chat: "c2",
-        id: "whatsapp:c2",
-        sender: SAM,
-      }),
-    ],
-    true,
-    99
-  );
-  expect(s.calls.engine).toBe(1);
+/** Two chats' asks, the second newer: under the cap's last room, only the newest is confirmed. */
+const twoAsks = () => [
+  msg("Can you send the slides?"),
+  msg("Can you send the budget?", { chat: "c2", id: "whatsapp:c2" }),
+];
+test("the day's cap counts the confirms already made: one short of it, one of two reads is confirmed, the newest", async () => {
+  const s = sceneOf(() => yes("send it"));
+  await s.read(twoAsks(), true, CONFIRMS_A_DAY - 1);
+  expect(s.shown).toEqual([expect.stringContaining("the budget")]);
 });
 
 test("who wrote the confirmed lines: his own promise in a 1:1 chat names the other person, in a group no one", async () => {
@@ -365,25 +424,14 @@ test("a confirm filed in last month's file (its first message's month) is still 
 
 // Last: it fills today's model log.
 test("the day's cap counts the confirm calls in the model log, failed ones included", async () => {
-  for (let i = 0; i < 99; i += 1) {
+  for (let i = 0; i < CONFIRMS_A_DAY - 1; i += 1) {
     log("model.run", {
       at: iso(clock().getTime()),
       ok: false,
       prompt: "memory-arrival-confirm.v2",
     });
   }
-  const s = sceneOf(() => yes("send the slides"));
-  await s.read(
-    [
-      msg("Can you send the slides?"),
-      msg("Can you send the slides?", {
-        chat: "c3",
-        id: "whatsapp:c3",
-        sender: SAM,
-      }),
-    ],
-    true,
-    null
-  );
-  expect(s.calls.engine).toBe(1);
+  const s = sceneOf(() => yes("send it"));
+  await s.read(twoAsks(), true, null);
+  expect(s.shown).toEqual([expect.stringContaining("the budget")]);
 });

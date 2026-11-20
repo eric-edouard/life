@@ -4,9 +4,9 @@
 // (`storeReply`); what counts is decided only by `confirmedArrivalsOf` (read-replies.ts). Called by the watcher alone,
 // on today's units, never on a backfill.
 
-import { clock, DAY, daysBefore } from "../core/clock";
+import { clock, daysBefore } from "../core/clock";
 import { newestWithin, packed } from "../core/lists";
-import { recentEvents } from "../core/log";
+import { log, recentEvents } from "../core/log";
 import {
   askFoundationModel,
   type FoundationAnswer,
@@ -22,7 +22,7 @@ import {
 import { eventKey } from "../records/source";
 import { firstNameOf, ownerIn } from "../records/truth";
 import type { Unit } from "../records/unit";
-import { withStore } from "../sources/lifelog";
+import { readStore, withStore } from "../sources/lifelog";
 import { type ArrivalReads, arrivalsDue } from "./arrival-gate";
 import { closedConversations } from "./extract";
 import { type Evidence, voiceUnits } from "./gather";
@@ -69,6 +69,8 @@ export const ownerNamesOf = (truth: Truth) => {
 export interface ArrivalRead {
   at: string;
   b: Built;
+  /** When its first line was written or said: its replies are filed by it. */
+  firstAt: string;
   keys: string[];
   lines: string[];
   /** Who wrote the lines shown (refs as read), never him. */
@@ -103,24 +105,31 @@ export function arrivalReadsDue(
 }
 
 /**
- * Today's voice reads due: each conversation lifelog has closed (its own signals, never a timing rule of Life's) that he
- * spoke in, all its turns not read yet (`chunksOf`). His own words count: what he says he will do is an arrival too.
+ * The voice units the reader may read, decided once for fresh reads and pending confirms alike: those of a conversation
+ * lifelog has closed (its own signals, never a timing rule of Life's) that he spoke in on any of its days, never one a
+ * code rule dropped. His own words count: what he says he will do is an arrival too.
  */
-export function voiceReadsDue(
-  voice: { built: Built[]; closed: ReadonlySet<string> },
+function readableVoiceOf(voice: {
+  built: Built[];
+  closed: ReadonlySet<string>;
+}) {
+  const his = new Set(
+    voice.built.filter((b) => b.unit.stats.fromMe > 0).map((b) => b.unit.key)
+  );
+  return voice.built.filter(
+    (b) => !b.unit.drop && voice.closed.has(b.unit.key) && his.has(b.unit.key)
+  );
+}
+
+/** The voice reads due: each readable unit's turns not read yet (`chunksOf`). */
+function voiceReadsDue(
+  readable: Built[],
   spoken: ReadonlyMap<string, SourceLine[]>,
   read: ReadonlySet<string>,
   resolve: Resolve,
   nameOf: (ref: string) => string
 ): ArrivalRead[] {
-  return voice.built.flatMap((b) => {
-    if (
-      b.unit.drop ||
-      b.unit.stats.fromMe === 0 ||
-      !voice.closed.has(b.unit.key)
-    ) {
-      return [];
-    }
+  return readable.flatMap((b) => {
     const lines = (spoken.get(b.unit.id) ?? [])
       .map((l) => readLineOf(b, l, nameOf))
       .filter((l) => !read.has(l.key));
@@ -154,6 +163,7 @@ function chunksOf(
     return {
       at: shown.at(-1)?.at ?? b.unit.end,
       b,
+      firstAt: shown[0]?.at ?? b.unit.start,
       keys: shown.map((l) => l.key),
       lines: shown.map((l) => l.text),
       people: writers.length === 0 && isOneToOne ? others : writers,
@@ -226,13 +236,10 @@ const isTriggered = (
 
 /** The confirm call of a read, for `makeReplies`: it stores the read's unit and who wrote its lines. */
 function confirmOf(r: ArrivalRead): Asked {
-  const first = r.b.messages.find(
-    (m) => eventKey({ id: m.id, source: r.b.unit.source }) === r.keys[0]
-  );
   return {
     at: r.at,
     call: {
-      firstAt: first?.at ?? r.b.unit.start,
+      firstAt: r.firstAt,
       input: { lines: r.lines },
       keys: r.keys,
       people: r.people,
@@ -290,9 +297,9 @@ export async function readArrivals(
   } = o;
   const now = clock();
   const day = dayNow();
-  // Today's lines may sit in last month's file (filed by their first message's UTC month).
+  // Filed by their first line's UTC month: from yesterday's start, the earliest line read (yesterday's voice).
   const stored = readRepliesSince(
-    new Date(now.getTime() - DAY).toISOString(),
+    dayStart(daysBefore(day, 1)).toISOString(),
     where
   ).filter(
     (l) =>
@@ -308,11 +315,15 @@ export async function readArrivals(
     new Set()
   ).due.map(eventKey);
   const read = new Set([...stored.flatMap((l) => l.messages), ...waiting]);
-  const voice = evidence.voice ?? { built: [], closed: new Set<string>() };
+  const voice = evidence.voice ? readableVoiceOf(evidence.voice) : [];
   const spoken = await (o.spoken ?? spokenOf(people))(
-    voice.built.map((b) => b.unit)
-  );
-  const lineSources = { built: [...evidence.built, ...voice.built], spoken };
+    voice.map((b) => b.unit)
+  ).catch((e: Error) => {
+    // lifelog unreadable: chats and mail are still read, voice on a later pass.
+    log("run.error", { error: e.message, step: "arrivals.voice" });
+    return new Map<string, SourceLine[]>();
+  });
+  const lineSources = { built: [...evidence.built, ...voice], spoken };
   const due = [
     ...arrivalReadsDue(
       evidence,
@@ -438,7 +449,7 @@ const spokenOf =
   (people: { resolve: Resolve; truth?: Truth }) => (units: Unit[]) =>
     units.length === 0 || !people.truth
       ? Promise.resolve(new Map<string, SourceLine[]>())
-      : spokenLines(units, people.resolve, people.truth);
+      : spokenLines(units, people.resolve, people.truth, readStore);
 
 /**
  * The voice units of yesterday and today as the gather builds them (the code rules applied, chapter units left out),
@@ -452,4 +463,4 @@ export const readRecentVoice = (day: string, truth: Truth) =>
       built: applyRules(v.built, keptConversations()),
       closed: closedConversations(v.conversations),
     };
-  });
+  }, readStore);

@@ -386,7 +386,11 @@ function startArrivalReader(
     return;
   }
   readingArrivals = true;
-  readRecentVoice(dayNow(), people.truth)
+  // Voice only while it is a source he turned on (`listening`).
+  (listening()
+    ? readRecentVoice(dayNow(), people.truth)
+    : Promise.resolve(undefined)
+  )
     .catch((e: Error) => {
       // Lifelog unreadable: chats and mail are still read.
       log("run.error", { error: e.message, step: "watch.arrivals.voice" });

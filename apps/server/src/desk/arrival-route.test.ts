@@ -1,6 +1,10 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
-import { clock, MIN } from "../core/clock";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { clock, daysBefore, HOUR, MIN } from "../core/clock";
 import { queuedEvents } from "../host/desk-read";
+import { UNITS } from "../memory/memory-files";
+import { dayStart, localDate } from "../memory/zones";
 import type { Unit } from "../records/unit";
 import {
   ARRIVAL_CONFIRMED,
@@ -161,4 +165,36 @@ test("a desk tick's confirmed arrivals of several people, from chat, mail and vo
     ["mail", "<m2@example.test>", 2],
     ["lifelog", turn, 2],
   ]);
+});
+
+test("a confirm of yesterday's voice, made this afternoon, finds its unit and wakes", async () => {
+  const s = setup();
+  const agent = await s.waiting();
+  s.desk.db.run("update agent set is_personal = 1 where id = ?", [agent]);
+  // This afternoon, local: the 12 hours looked back stay within today.
+  setSystemTime(
+    dayStart(localDate(clock().toISOString())).getTime() + 15 * HOUR
+  );
+  const yesterday = daysBefore(localDate(clock().toISOString()), 1);
+  const turn = `job8:2@${dayStart(yesterday).toISOString()}`;
+  mkdirSync(UNITS, { recursive: true });
+  appendFileSync(
+    join(UNITS, `${yesterday}.jsonl`),
+    `${JSON.stringify({ ...unitOf(), date: yesterday, id: "unit_0000000000d1", key: "conversation-2", source: "lifelog" })}\n`
+  );
+  await pollArrivals(s.desk, readPeopleOnce(), {
+    arrivals: [
+      {
+        at: clock().toISOString(),
+        messages: [`lifelog|${turn}`],
+        people: ["person:ana"],
+        unit: "unit_0000000000d1",
+      },
+    ],
+  });
+  expect(
+    queuedEvents(s.desk.db, asgOf(s.desk, agent)).filter(
+      (e) => e.name === ARRIVAL_CONFIRMED
+    )
+  ).toHaveLength(1);
 });

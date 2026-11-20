@@ -110,12 +110,12 @@ export const confirmedArrivalsOf = (lines: ReadReply[]): ConfirmedArrival[] =>
   );
 
 /**
- * The confirmed arrivals stored since the instant `since`. A confirm is filed by its first message's month, at most a
- * day before it was made (the reader reads today's units), so the files from a day before `since` are read.
+ * The confirmed arrivals stored since the instant `since`. A confirm is filed by its first line's month, at most two
+ * days before it was made (the reader reads yesterday's voice too), so the files from two days before `since` are read.
  */
 export const readConfirmedArrivals = (since: string, where = READ_REPLIES) =>
   confirmedArrivalsOf(
-    readRepliesSince(iso(Date.parse(since) - DAY), where)
+    readRepliesSince(iso(Date.parse(since) - 2 * DAY), where)
   ).filter((a) => a.at >= since);
 
 /** A stored exchange: its place in the line that read it, and the keys of its messages. */
