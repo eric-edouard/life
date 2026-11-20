@@ -2,6 +2,18 @@
 import { rm } from "node:fs/promises";
 import process from "node:process";
 import { hold } from "@life/server/src/core/lock";
+import { hasPassed, readCleanTree, recordPassed } from "./check-trees";
+
+// A clean tree that passed once passes again: the pre-push hook passes --unless-passed to skip it.
+const tree = await readCleanTree(".");
+if (
+  tree &&
+  process.argv.includes("--unless-passed") &&
+  (await hasPassed(".", tree))
+) {
+  console.log(`✓ check: tree ${tree.slice(0, 12)} already passed`);
+  process.exit(0);
+}
 
 // One check at a time on a machine: several worktrees' gates at once load it until time-limited tests fail.
 await hold("check", process.cwd(), 5000);
@@ -142,6 +154,7 @@ await rm("derived/check", { force: true, recursive: true });
 // Output is drained while the step runs, so a chatty step never blocks on a full pipe.
 // Each step leads its own process group, so killing it reaches the processes it started
 // (sh -> xcodebuild) and none is left holding a lock for the next run.
+const started = performance.now();
 const procs = Object.entries(steps).map(([name, cmd]) => {
   const proc = Bun.spawn(cmd, {
     detached: true,
@@ -168,7 +181,9 @@ function killAll() {
 const results = procs.map(async ({ name, output, proc }) => {
   const code = await proc.exited;
   if (code === 0) {
-    console.log(`✓ ${name}`);
+    console.log(
+      `✓ ${name} (${((performance.now() - started) / 1000).toFixed(1)} s)`
+    );
     return;
   }
   const out = await output;
@@ -188,3 +203,8 @@ process.on("SIGINT", () => {
 });
 
 await Promise.all(results);
+
+// Recorded only when nothing changed while it ran.
+if (tree && tree === (await readCleanTree("."))) {
+  await recordPassed(".", tree);
+}
