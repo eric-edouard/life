@@ -57,8 +57,9 @@ struct MatterPage: View {
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24).readingWidth()
         }
-        // Pinned below the content, full width: the hard edge is solid behind the buttons, so nothing shows through them.
-        .scrollEdgeEffectStyle(.hard, for: .bottom)
+        // Pinned below the content, full width, on the page's own colour: nothing shows through or around them; the
+        // content fades into it above.
+        .scrollEdgeEffectStyle(.soft, for: .bottom)
         .safeAreaBar(edge: .bottom) {
             GlassEffectContainer(spacing: 8) {
                 VStack(spacing: 8) {
@@ -73,6 +74,8 @@ struct MatterPage: View {
                 .controlSize(.large)
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth()
+            .padding(.top, Metrics.Spacing.m).frame(maxWidth: .infinity)
+            .background(Palette.bg.ignoresSafeArea(edges: .bottom))
         }
     }
 
