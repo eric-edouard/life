@@ -32,6 +32,8 @@ export const Misread = z
 export type Misread = z.infer<typeof Misread>;
 
 const POLL_MS = 500;
+/** The plan is said again this often while the desk has not received it: the phone gives up after 15 s with no byte. */
+const STILL_WAITING_MS = 5000;
 
 /**
  * The complaint his press makes on card `ref` (sealed, `complain` checks): with the card as read now, whether it is the
@@ -51,10 +53,18 @@ async function complaintNow(ref: string, m: Misread): Promise<Complaint> {
 }
 
 /** Waits for the desk's receipt of complaint `id`: `reached` once received, else a refusal that names why. */
-async function reached(id: string, limitMs: number) {
+async function reached(
+  id: string,
+  limitMs: number,
+  report: ToolCall["report"]
+) {
+  const plan = { limitSeconds: limitMs / 1000, plan: ["recorded", "received"] };
+  report(plan);
+  report({ at: clock().toISOString(), step: "recorded" });
   for (let waited = 0; ; waited += POLL_MS) {
     const r = readDesk((db) => complaintReceiptOf(db, id), null);
     if (r.state === "ok" && r.value) {
+      report({ at: clock().toISOString(), step: "received" });
       return { ask: id, reached: "caretaker" };
     }
     if (waited >= limitMs) {
@@ -66,6 +76,10 @@ async function reached(id: string, limitMs: number) {
       throw new Error(
         `Not done: ${why}. His words are recorded: try again with the same key.`
       );
+    }
+    // The same plan again changes nothing on the phone and keeps its stream alive through a slow tick.
+    if (waited > 0 && waited % STILL_WAITING_MS === 0) {
+      report(plan);
     }
     // biome-ignore lint/performance/noAwaitInLoops: polls the desk's receipt
     await Bun.sleep(POLL_MS);
@@ -81,7 +95,7 @@ export async function complain(
   ref: string,
   note: string | undefined,
   m: Misread,
-  { answerKey }: ToolCall,
+  { answerKey, report }: ToolCall,
   limitMs = WAIT_MS
 ) {
   const why = off("desk");
@@ -128,5 +142,5 @@ export async function complain(
       "Not done: this key recorded another press; a new press takes a new key."
     );
   }
-  return await reached(asked.id, limitMs);
+  return await reached(asked.id, limitMs, report);
 }

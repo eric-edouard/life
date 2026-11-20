@@ -69,7 +69,17 @@ const ON_CARD: Misread = { ...SEALED, kind: "misread", report: false };
 async function press(
   key: string,
   over: Partial<Misread> = {},
-  { limitMs = 3000, ref = "name:dre", words = WORDS } = {}
+  {
+    limitMs = 3000,
+    ref = "name:dre",
+    report = () => undefined,
+    words = WORDS,
+  }: {
+    limitMs?: number;
+    ref?: string;
+    report?: (step: Record<string, unknown>) => void;
+    words?: string;
+  } = {}
 ) {
   const timer = setInterval(() => receiveComplaints(desk), 100);
   try {
@@ -77,7 +87,7 @@ async function press(
       ref,
       words,
       { ...ON_CARD, ...over },
-      { answerKey: key, report: () => undefined },
+      { answerKey: key, report },
       limitMs
     );
   } finally {
@@ -200,12 +210,20 @@ test("the same key with other words, tick or card, a card of an agent's, no key 
   expect(readLedger()).toHaveLength(before);
 });
 
-test("a stopped caretaker leaves a press unreceived, his words kept; it is received once it resumes; one a caretaker received is never received again after it finished, and a new press starts a new caretaker", async () => {
+test("a stopped caretaker leaves a press unreceived, his words kept, its plan said again every 5 s so the phone's stream stays open; it is received once it resumes; one a caretaker received is never received again after it finished, and a new press starts a new caretaker", async () => {
   const caretaker = agentInRole(desk.db, "caretaker")?.id ?? "";
   desk.db.run("update agent set status = 'stopped' where id = ?", [caretaker]);
-  await expect(press("key-3", {}, { limitMs: 500 })).rejects.toThrow(
-    "the desk has not received it in 0.5 s. His words are recorded"
+  const said: Record<string, unknown>[] = [];
+  await expect(
+    press("key-3", {}, { limitMs: 5500, report: (s) => said.push(s) })
+  ).rejects.toThrow(
+    "the desk has not received it in 5.5 s. His words are recorded"
   );
+  expect(said.map((s) => s.step ?? "plan")).toEqual([
+    "plan",
+    "recorded",
+    "plan",
+  ]);
   desk.db.run("update agent set status = 'active' where id = ?", [caretaker]);
   const third = await press("key-3");
   expect(received().at(-1)?.event_id).toBe(third.ask);
@@ -231,7 +249,7 @@ test("a stopped caretaker leaves a press unreceived, his words kept; it is recei
   expect(complaintsAtWork(desk.db)).toEqual([
     { ask: fourth.ask, line: "Reading the card", since: expect.any(String) },
   ]);
-});
+}, 15_000);
 
 test("the caretaker reads a complaint through its door only on the assignment that received it, and waits with no plan card first", async () => {
   const id = agentInRole(desk.db, "caretaker")?.id ?? "";
