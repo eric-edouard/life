@@ -8,9 +8,14 @@ import type { FoundationAnswer } from "../models/foundation-model";
 import { stamp } from "../models/llm";
 import type { ReadReply } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
+import type { Unit } from "../records/unit";
+import { turnRef } from "../sources/lifelog";
 import { readArrivals } from "./arrival-reader";
+import type { SourceLine } from "./quote-check";
 import { readConfirmedArrivals, readReplies, storeReply } from "./read-replies";
-import { applyRules, messageUnits } from "./units";
+import { OWNER } from "./read-truth";
+import { voiceUnitId } from "./unit-ids";
+import { applyRules, type Built, messageUnits } from "./units";
 
 // Made-up chats with Sam, someone he knows; Apple and his engine are fakes counting their calls.
 const SAM = "33600000001@s.whatsapp.net";
@@ -65,13 +70,19 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
   const read = (
     events: SourceEvent[],
     isUp = true,
-    confirmsToday: number | null = 0
+    confirmsToday: number | null = 0,
+    voice?: Voice
   ) =>
     readArrivals(
-      { built: applyRules(messageUnits(events, known)), fileEvents: [] },
+      {
+        built: applyRules(messageUnits(events, known)),
+        fileEvents: [],
+        ...(voice ? { voice } : {}),
+      },
       people,
       ["Ozren"],
       {
+        ...(voice ? { spoken: () => Promise.resolve(voice.spoken) } : {}),
         apple: (requests) => {
           calls.apple += requests.length;
           return Promise.resolve(requests.map((r) => apple(r.text)));
@@ -86,6 +97,46 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
     );
   const lines = () => readReplies(where).flat();
   return { calls, lines, read, shown, where };
+};
+/** Today's voice as the reader is given it: units, the conversations lifelog closed, and each unit's turns. */
+interface Voice {
+  built: Built[];
+  closed: Set<string>;
+  spoken: Map<string, SourceLine[]>;
+}
+/** A made-up conversation with Sam: `turns` turns of `chars` characters, his own every other one when he spoke. */
+const voiceOf = (
+  conversation: string,
+  o: { closed: boolean; chars?: number; spoke: boolean; turns: number }
+): Voice => {
+  const lines = Array.from({ length: o.turns }, (_, i) => {
+    const at = ago(20 - i / 10);
+    return {
+      at,
+      ref: turnRef(conversation, i, at),
+      speaker: o.spoke && i % 2 === 1 ? OWNER : "person:sam",
+      text: `Can you bring the plans? ${"y".repeat(o.chars ?? 20)}`,
+    };
+  });
+  const unit = {
+    date: lines[0]?.at.slice(0, 10),
+    end: lines.at(-1)?.at,
+    hash: "0123456789abcdef",
+    id: voiceUnitId(conversation, lines[0]?.at.slice(0, 10) ?? ""),
+    key: conversation,
+    people: o.spoke ? ["person:sam", OWNER] : ["person:sam"],
+    refs: [lines[0]?.ref, lines.at(-1)?.ref],
+    schemaVersion: 1,
+    source: "lifelog",
+    start: lines[0]?.at,
+    stats: { chars: 0, fromMe: o.spoke ? 1 : 0, items: o.turns },
+    title: "Talk",
+  } as Unit;
+  return {
+    built: [{ messages: [], text: "", unit }],
+    closed: new Set(o.closed ? [conversation] : []),
+    spoken: new Map([[unit.id, lines]]),
+  };
 };
 const yes = (quote: string): FoundationAnswer => ({
   os: "27.2",
@@ -145,6 +196,77 @@ test("a grown chat is read for its new lines only, a new read of its own", async
     [`whatsapp|${second.id}`],
     [`whatsapp|${second.id}`],
   ]);
+});
+
+test("a 12,000-character thread is read as 3 chunks in one pass; offline, each pending chunk is re-cut exactly", async () => {
+  const s = sceneOf(() => yes("send the slides"));
+  const thread = Array.from({ length: 12 }, () =>
+    msg(`Can you send the slides? ${"z".repeat(970)}`)
+  );
+  await s.read(thread, false);
+  expect(s.calls).toEqual({ apple: 3, engine: 0 });
+  await s.read(thread);
+  expect(s.calls).toEqual({ apple: 3, engine: 3 });
+  const keysOf = (read: string) =>
+    s
+      .lines()
+      .filter((l) => l.read === read)
+      .map((l) => l.messages);
+  // Each confirm reads exactly one trigger's lines (asked newest first).
+  expect(keysOf("arrival_confirm").map(String).toSorted()).toEqual(
+    keysOf("arrival_trigger").map(String).toSorted()
+  );
+  expect(keysOf("arrival_trigger").flat()).toEqual(
+    thread.map((m) => `whatsapp|${m.id}`)
+  );
+});
+
+test("voice: an open conversation waits, one he did not speak in is skipped, a closed one is read once", async () => {
+  const s = sceneOf(() => yes("bring the plans"));
+  await s.read(
+    [],
+    true,
+    0,
+    voiceOf("open", { closed: false, spoke: true, turns: 4 })
+  );
+  await s.read(
+    [],
+    true,
+    0,
+    voiceOf("heard", { closed: true, spoke: false, turns: 4 })
+  );
+  expect(s.calls).toEqual({ apple: 0, engine: 0 });
+  const closed = voiceOf("talk", { closed: true, spoke: true, turns: 4 });
+  await s.read([], true, 0, closed);
+  await s.read([], true, 0, closed);
+  expect(s.calls).toEqual({ apple: 1, engine: 1 });
+  expect(readConfirmedArrivals(ago(60), s.where)).toEqual([
+    expect.objectContaining({ people: ["person:sam"] }),
+  ]);
+});
+
+test("voice: a closed long conversation is read whole, every chunk in one pass", async () => {
+  const s = sceneOf(() => yes("bring the plans"));
+  const long = voiceOf("long", {
+    chars: 1000,
+    closed: true,
+    spoke: true,
+    turns: 12,
+  });
+  await s.read([], true, 0, long);
+  expect(s.calls).toEqual({ apple: 3, engine: 3 });
+  expect(
+    s
+      .lines()
+      .filter((l) => l.read === "arrival_confirm")
+      .flatMap((l) => l.messages)
+      .toSorted()
+  ).toEqual(
+    long.spoken
+      .get(long.built[0]?.unit.id ?? "")
+      ?.map((l) => `lifelog|${l.ref}`)
+      .toSorted()
+  );
 });
 
 test("his engine's no is stored and confirms nothing", async () => {

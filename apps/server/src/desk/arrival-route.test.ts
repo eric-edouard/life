@@ -113,3 +113,52 @@ test("a message already queued for any agent wakes no one again; else Personal o
     "source",
   ]);
 });
+
+test("a desk tick's confirmed arrivals of several people, from chat, mail and voice, each wake Personal once with its facts", async () => {
+  const s = setup();
+  const agent = await s.waiting();
+  s.desk.db.run("update agent set is_personal = 1 where id = ?", [agent]);
+  advance(5 * MIN);
+  const unit = (id: string, source: Unit["source"], key: string): Unit => ({
+    ...unitOf(),
+    id,
+    key,
+    source,
+  });
+  const turn = "job7:4@2026-11-18T09:01:00.000Z";
+  const arrivalOf = (unitId: string, messages: string[]) => ({
+    at: clock().toISOString(),
+    messages,
+    people: ["person:ana", "unknown:Bo"],
+    unit: unitId,
+  });
+  await pollArrivals(s.desk, readPeopleOnce(), {
+    arrivals: [
+      arrivalOf("unit_0000000000c1", [
+        "whatsapp|whatsapp:1",
+        "whatsapp|whatsapp:2",
+      ]),
+      arrivalOf("unit_0000000000c2", [
+        "mail|<m1@example.test>",
+        "mail|<m2@example.test>",
+      ]),
+      arrivalOf("unit_0000000000c3", [
+        "lifelog|job7:3@2026-11-18T09:00:30.000Z",
+        `lifelog|${turn}`,
+      ]),
+    ],
+    units: [
+      unit("unit_0000000000c1", "whatsapp", "120363000000000002@g.us"),
+      unit("unit_0000000000c2", "mail", "thread-1"),
+      unit("unit_0000000000c3", "lifelog", "conversation-1"),
+    ],
+  });
+  const woken = queuedEvents(s.desk.db, asgOf(s.desk, agent))
+    .filter((e) => e.name === ARRIVAL_CONFIRMED)
+    .map((e) => JSON.parse(String(e.payload)) as ArrivalFacts);
+  expect(woken.map((f) => [f.source, f.id, f.people.length])).toEqual([
+    ["whatsapp", "whatsapp:2", 2],
+    ["mail", "<m2@example.test>", 2],
+    ["lifelog", turn, 2],
+  ]);
+});
