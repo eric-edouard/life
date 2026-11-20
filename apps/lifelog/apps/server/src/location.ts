@@ -4,17 +4,12 @@
 // places.ts); otherwise coordinates stand alone.
 
 import { clock } from "@life/server/src/core/clock";
+import { distanceM } from "@life/server/src/core/distance";
 import type { Db } from "@lifelog/db";
 import { locationHistory } from "@lifelog/db/schema";
 import { and, asc, gte, isNotNull, lt, sql } from "drizzle-orm";
 import { logChange } from "./change-log";
-import {
-  type Circle,
-  distanceM,
-  insidePlace,
-  placeName,
-  SLACK_MS,
-} from "./places";
+import { type Circle, insidePlace, placeName, SLACK_MS } from "./places";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -420,13 +415,7 @@ export function visitsTo(
   const now = clock().getTime();
   const to = range.to?.getTime() ?? now;
   // A window ending near now is read through now (`throughOf`): a stay under way ends only by a later point.
-  const points = pointsBetween(
-    db,
-    from,
-    to + 2 * MAX_GAP_MS >= now
-      ? Math.max(now, to + MAX_GAP_MS)
-      : to + MAX_GAP_MS
-  );
+  const points = pointsBetween(db, from, throughOf(to + MAX_GAP_MS, now));
   // Points too coarse to tell say nothing about a departure either.
   const heard = circles ? tellingOf(points, circles) : points;
   const found = (
