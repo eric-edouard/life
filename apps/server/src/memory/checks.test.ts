@@ -13,7 +13,14 @@ import {
   checksOnMatterOf,
   pushIdOf,
 } from "./checks";
-import { about, DANA_ID, inputs, line, stepsOf } from "./checks-test-inputs";
+import {
+  about,
+  DANA_ID,
+  holdOn,
+  inputs,
+  line,
+  stepsOf,
+} from "./checks-test-inputs";
 import { checksText } from "./checks-text";
 import type { AgentHold } from "./held-matters";
 import type { Check } from "./life-checks";
@@ -23,16 +30,8 @@ import { OBSERVATIONS, UNITS } from "./memory-files";
 import { locked } from "./memory-lock";
 
 /** One registered agent anchored on `step`, active unless `over` says otherwise (`heldByAgents`' facts). */
-const anchored = (step: string, over: Partial<AgentHold> = {}): AgentHold[] => [
-  {
-    endedAt: null,
-    kind: "asked",
-    outcome: null,
-    project: null,
-    step,
-    whyNotStarted: null,
-    ...over,
-  },
+const anchored = (step: string, over: Partial<AgentHold> = {}) => [
+  holdOn(step, over),
 ];
 
 const ASKED_UNTIL_22_NOV =
@@ -549,6 +548,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
     // The hand-out is on and it is one of his: the hand-out takes it, no Start.
     none({ isForHandOut: (id) => id === matter.id }),
     none({ dismissed: [["obs_000000000071"]] }),
+    none({ isParked: () => true }),
     none({ matters: [{ ...matter, goal: undefined }] }),
     none({ matters: [{ ...matter, nextStep: wait }] }),
     none({ matters: [{ ...matter, lone: true }] }),

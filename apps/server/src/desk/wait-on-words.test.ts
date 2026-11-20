@@ -1,6 +1,9 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, HOUR, MIN } from "../core/clock";
+import { appendJsonl } from "../core/files";
+import { FILES } from "../memory/memory-files";
 import type { SourceEvent } from "../records/source";
+import { FileEntry } from "../records/unit";
 import { register, setWait } from "./agent-actions";
 import { pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
 import { advance, ahead, chatSource, setup } from "./test-desk";
@@ -31,10 +34,13 @@ async function waitingOnWords() {
   });
   await s.end(id);
   await pollMessages(s.desk, readPeopleOnce());
-  const arrive = async (...texts: string[]) => {
+  const arrive = async (...texts: (string | SourceEvent["files"])[]) => {
     advance(MIN);
-    for (const text of texts) {
+    for (const said of texts) {
+      const text = typeof said === "string" ? said : "";
+      const files = typeof said === "string" ? undefined : said;
       list.push({
+        ...(files ? { files } : {}),
         at: clock().toISOString(),
         chat: "Test Stranger",
         fromMe: false,
@@ -71,6 +77,26 @@ test("a wait on words is woken by an unknown sender's matching message, any case
     "person",
     "source",
   ]);
+});
+
+test("a voice note's words wake a wait on words, as every reader sees them", async () => {
+  const { arrive, desk } = await waitingOnWords();
+  const ref = "whatsapp:voice-test";
+  appendJsonl(FILES, FileEntry, [
+    {
+      hash: "0123456789abcdef",
+      ref,
+      schemaVersion: 1,
+      text: "the Zort invoice",
+    },
+  ]);
+  await arrive([
+    { mime: "audio/ogg", name: "PTT.opus", path: "/nowhere/PTT.opus", ref },
+  ]);
+  const queued = desk.db
+    .query<{ event_id: string }, []>("select event_id from event")
+    .all();
+  expect(queued.map((r) => r.event_id)).toEqual(["whatsapp:w1"]);
 });
 
 test("a wait refuses a pattern that does not compile or is over 200 characters", async () => {

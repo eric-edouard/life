@@ -101,9 +101,10 @@ import { syncAppointments } from "./appointments-calendar";
 import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
 import { healBridges } from "./bridges";
+import { lastNeedsYouOf } from "./desk-health";
 import { openChecksNow } from "./inbox";
 import { syncPast } from "./past-calendar";
-import { readAgentRows } from "./registered-agents";
+import { readAgentSection } from "./registered-agents";
 import {
   failureReport,
   type Mail,
@@ -163,13 +164,16 @@ export async function readChecksFor(rec: Pick<RunRecorder, "error">) {
   }
 }
 
-/** The report's Agents section since the last night. Never fails the night: a failure is logged and it has no rows. */
+/** The report's Agents section since the last night, and the night's number of matters that need him (shown beside last night's, read from its `run.end`). Never fails the night: a failure is logged and it has no rows. */
 async function readAgentsFor(rec: Pick<RunRecorder, "error">, since: string) {
   try {
-    return await readAgentRows(since);
+    return await readAgentSection(
+      since,
+      lastNeedsYouOf(await recentEvents(ARCHIVE_LOOKBACK))
+    );
   } catch (e) {
     rec.error((e as Error).message, { step: "memory.nightly.agents" });
-    return [];
+    return { needsYou: undefined, rows: [] };
   }
 }
 
@@ -504,6 +508,7 @@ export async function runNight(
   let mail: Mail;
   // The observations the report lists, in the run record: an audit can tell what he was told.
   let listed: string[] = [];
+  let needsYou: number | undefined;
   let failure: ReturnType<typeof steps.failed> | undefined;
   try {
     const repos = await steps.step("repos", () => mapRepos());
@@ -598,9 +603,11 @@ export async function runNight(
     commitMemory(["memory", "truth"], `Memory: ${day}`);
     await dropOld(now);
     const q = await quota();
+    const agents = await readAgentsFor(rec, since);
+    ({ needsYou } = agents);
     mail = successReport(day, rec.ms(), {
       acted: report,
-      agents: await readAgentsFor(rec, since),
+      agents: agents.rows,
       archive,
       backup: backupLine(now),
       birthdays: (await readBirthdaysNear(await readPeople(), dayNow())).map(
@@ -637,7 +644,12 @@ export async function runNight(
     return 1;
   }
   const { attempts } = recordState(day, !failure);
-  await rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
+  await rec.end({
+    attempts,
+    listed,
+    needsYou,
+    ...(failure ?? { outcome: "ok" }),
+  });
   if (!failure || force || isOutOfTries(attempts)) {
     const id = await sendReport(reportKey(rec.run), mail);
     console.log(id ? `report delivered: ${id}` : "report not delivered");

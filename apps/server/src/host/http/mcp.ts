@@ -19,7 +19,7 @@ import { paymentsOf } from "../../memory/payments";
 import { placesOf } from "../../memory/places";
 import { area } from "../../memory/read-area-page";
 import { day } from "../../memory/read-day";
-import { oneMatter, openMatters } from "../../memory/read-matters";
+import { needsYouOf, oneMatter, openMatters } from "../../memory/read-matters";
 import { offersOf } from "../../memory/read-person-page";
 import { runs } from "../../memory/run-log";
 import { search } from "../../memory/search";
@@ -288,7 +288,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matters",
-    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `blockingChecks` (how many open checks about it block him: an agent's decision, an unnamed voice, a name nobody is; `read_matter` lists every one), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: names, from its open steps), `areas` and `projects` (names), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area. `read_matter` opens one.",
+    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `blockingChecks` (how many open checks about it block him: an agent's decision, an unnamed voice, a name nobody is; `read_matter` lists every one), `needsYou` (whether it needs him: its next step is his decision or something only he does, unless it is stuck, or a check about it blocks him), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: names, from its open steps), `areas` and `projects` (names), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area. `read_matter` opens one.",
     z.object({
       area: z.string().optional().describe("Area id or name"),
       person: z.string().optional().describe("Name, alias or id"),
@@ -300,10 +300,14 @@ export function buildServer(readsOnly = false) {
         openChecksNow(),
       ]);
       return {
-        matters: matters.map((m) => ({
-          ...m,
-          blockingChecks: blockingCountOf(checksOnMatterOf(open, m.id)),
-        })),
+        matters: matters.map((m) => {
+          const blockingChecks = blockingCountOf(checksOnMatterOf(open, m.id));
+          return {
+            ...m,
+            blockingChecks,
+            needsYou: needsYouOf(m, blockingChecks),
+          };
+        }),
       };
     }
   );
@@ -325,7 +329,13 @@ export function buildServer(readsOnly = false) {
         throw new Error(`No matter ${id}.`);
       }
       const checks = checksOnMatterOf(await openChecksNow(), matter.id);
-      return { ...matter, blockingChecks: blockingCountOf(checks), checks };
+      const blockingChecks = blockingCountOf(checks);
+      return {
+        ...matter,
+        blockingChecks,
+        checks,
+        needsYou: needsYouOf(matter, blockingChecks),
+      };
     }
   );
   tool(

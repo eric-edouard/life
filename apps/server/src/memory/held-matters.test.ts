@@ -7,10 +7,12 @@ const END = "2026-11-10T09:00:00.000Z";
 const BEFORE = "2026-11-09T09:00:00.000Z";
 const AFTER = "2026-11-11T09:00:00.000Z";
 const hold = (over: Partial<AgentHold> = {}): AgentHold => ({
+  agent: "agt_000000000001",
   endedAt: END,
   kind: "handed_out",
   outcome: "nothing left for me",
   project: null,
+  status: "ended",
   step: "obs_h1",
   whyNotStarted: null,
   ...over,
@@ -21,7 +23,8 @@ const matter = (newest: string) => ({
     { at: newest, ref: "obs_h2" },
   ],
 });
-const isHeld = (h: AgentHold, newest = BEFORE) => isHeldOf([h])(matter(newest));
+const isHeld = (h: AgentHold, newest = BEFORE) =>
+  Boolean(isHeldOf([h])(matter(newest)));
 
 test("an active or stopped agent holds its matter, however new its steps", () => {
   expect(isHeld(hold({ endedAt: null }), AFTER)).toBe(true);
@@ -48,4 +51,12 @@ test("one he asked for that never began holds nothing; a hand-out that never beg
 
 test("an anchor on another matter's step holds nothing here", () => {
   expect(isHeld(hold({ endedAt: null, step: "obs_other" }))).toBe(false);
+});
+
+test("the rule returns the hold that holds, with its agent and status, or undefined", () => {
+  const h = hold({ endedAt: null, status: "stopped" });
+  expect(isHeldOf([h])(matter(AFTER))).toBe(h);
+  expect(
+    isHeldOf([hold({ outcome: MATTER_OVER_OUTCOME })])(matter(BEFORE))
+  ).toBe(undefined);
 });

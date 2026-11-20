@@ -159,7 +159,7 @@ struct MatterRowView: View {
             title: row.name, icon: row.areas?.first.map(\.areaSymbol) ?? String.defaultAreaSymbol,
             iconTint: Palette.muted, detail: row.nextStep?.text
         ) {
-            if row.needsYou {
+            if row.needsYou == true {
                 StateDot(color: Palette.flag)
             } else if row.agent != nil {
                 Spinner(size: .small).foregroundStyle(Palette.ai).accessibilityLabel("An agent is working")
@@ -170,7 +170,7 @@ struct MatterRowView: View {
         .motion(Motion.standard, value: isChosen)
         .accessibilityElement(children: .combine)
         // The dot has its words: the combined row would drop a hidden dot's label.
-        .accessibilityValue(row.needsYou ? "Needs you" : "")
+        .accessibilityValue(row.needsYou == true ? "Needs you" : "")
     }
 }
 

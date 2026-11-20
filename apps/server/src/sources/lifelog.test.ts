@@ -43,6 +43,7 @@ import {
   lifelogStore as store,
   turnFixture,
 } from "./store-fixtures";
+import { VoiceNoteWords } from "./voice-notes";
 
 const since = new Date("2026-10-01T00:00:00Z");
 const JEAN = "person-jean";
@@ -532,6 +533,12 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
     ...drift(ours(Clip), answer("/turns/clip", "get"), defs, "turns-clip"),
     ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
     ...drift(ours(Recorded), answer("/recorded", "get"), defs, "recorded"),
+    ...drift(
+      ours(VoiceNoteWords),
+      answer("/voice-notes/transcript", "post"),
+      defs,
+      "voice-notes"
+    ),
     ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),
     ...drift(ours(Stays), answer("/where", "get"), defs, "where"),
     ...drift(

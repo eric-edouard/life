@@ -20,6 +20,7 @@ import { switchRoutes } from "./routes/switches";
 import { MAC_SOCKET_PATH, syncRoutes } from "./routes/sync";
 import { timelineRoutes } from "./routes/timeline";
 import { transcriptionRoutes } from "./routes/transcription";
+import { voiceNoteRoutes } from "./routes/voice-notes";
 import { voicePageRoutes } from "./routes/voice-page";
 import type { Services } from "./services";
 
@@ -50,6 +51,8 @@ const CORRECTIONS = [
   "POST /people/{id}/merge",
   "PUT /conversations/{id}/title",
   "PUT /transcripts/{jobId}/speakers/{speakerLabel}",
+  // Life's token: a chat voice note's words.
+  "POST /voice-notes/transcript",
 ];
 const MAP = [
   "PUT /transcripts/{jobId}/speakers/{speakerLabel}",
@@ -169,6 +172,7 @@ export function createApp(s: Services) {
     .route("/", voicePageRoutes())
     .route("/", transcriptionRoutes(s))
     .route("/", speechRoutes(s))
+    .route("/", voiceNoteRoutes(s))
     .route("/", pageRoutes(s))
     .route("/", backupRoutes(s))
     .route("/", speakerRoutes(s))

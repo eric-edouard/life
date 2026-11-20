@@ -1,4 +1,4 @@
-import type { AgentKind } from "../records/registered-agent";
+import type { AgentKind, AgentStatus } from "../records/registered-agent";
 
 // Which matters registered agents hold (docs/tasks.md, "held"): the one rule, pure, for the hand-out (`handOutOf`) and the
 // new matter check alike. The facts come from the desk's store (host's `heldByAgents`), which memory cannot read.
@@ -8,10 +8,13 @@ export const MATTER_OVER_OUTCOME = "its matter looks over";
 
 /** One registered agent's subject, as a fact: its anchored step or its project (one of the two), when it ended (null while active or stopped), who started it, how it ended, why it never began. */
 export interface AgentHold {
+  /** The agent's id (`agt_…`). */
+  agent: string;
   endedAt: string | null;
   kind: AgentKind;
   outcome: string | null;
   project: string | null;
+  status: AgentStatus;
   step: string | null;
   whyNotStarted: string | null;
 }
@@ -24,9 +27,9 @@ const isHolding = (h: AgentHold, newest: string) =>
     newest <= h.endedAt);
 
 /**
- * The test of "an agent holds this matter", over `holds`: one of its steps is anchored by an agent that holds it
- * (`isHolding`), or, with `isByProject`, one of its projects is that agent's subject (the new matter check while the
- * hand-out is off: his project's agent answers for its matters). Pure.
+ * The test of "an agent holds this matter", over `holds`: the first hold that holds it, or undefined. One of its steps
+ * is anchored by an agent that holds it (`isHolding`), or, with `isByProject`, one of its projects is that agent's
+ * subject (the new matter check while the hand-out is off: his project's agent answers for its matters). Pure.
  */
 export function isHeldOf(holds: readonly AgentHold[], isByProject = false) {
   const byStep = Map.groupBy(holds, (h) => h.step ?? "");
@@ -34,14 +37,14 @@ export function isHeldOf(holds: readonly AgentHold[], isByProject = false) {
   return (v: {
     projects?: readonly string[];
     steps: readonly { at: string; ref: string }[];
-  }) => {
+  }): AgentHold | undefined => {
     const newest = v.steps.at(-1)?.at ?? "";
     const holders = [
       ...v.steps.map((s) => byStep.get(s.ref)),
       ...(isByProject ? (v.projects ?? []).map((p) => byProject.get(p)) : []),
     ];
-    return holders.some((list) =>
-      (list ?? []).some((h) => isHolding(h, newest))
-    );
+    return holders
+      .flatMap((list) => list ?? [])
+      .find((h) => isHolding(h, newest));
   };
 }

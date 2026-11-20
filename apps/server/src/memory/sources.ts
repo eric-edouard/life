@@ -42,7 +42,7 @@ import {
   readImessage,
   readSharedPictures,
 } from "../sources/imessage";
-import { lifelogMissing } from "../sources/lifelog";
+import { lifelogMissing } from "../sources/lifelog-call";
 import {
   incomingMail,
   mailRoot,

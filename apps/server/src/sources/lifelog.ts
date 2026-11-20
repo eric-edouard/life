@@ -7,9 +7,9 @@ import { readJson } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
-import { settings } from "../core/settings";
 import { openReadOnly, openWritable } from "../core/sqlite";
 import { isTimeZone } from "../core/time-zone";
+import { call, lifelogMissing } from "./lifelog-call";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
 // (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except through `writeLifelog`: `forward` (his explicit corrections), `answerNamingQueue` (his voice answers) and `notifyPhone` (a push, `lifelog-push.ts`). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
@@ -108,49 +108,6 @@ export interface LifelogConversation {
   id: string;
   startedAt: string;
   turns: (LifelogTurn & { marks: string[] })[];
-}
-
-/** lifelog's server (REST API): its address from settings, its token from the environment. */
-const lifelogUrl = () => settings().lifelog?.url;
-
-/** What keeps lifelog from being read: its address or its token missing; nothing when it is set up. */
-export const lifelogMissing = () =>
-  lifelogUrl() && process.env.LIFELOG_TOKEN
-    ? undefined
-    : "lifelog not set up (settings: lifelog, env: LIFELOG_TOKEN)";
-
-function config() {
-  const why = lifelogMissing();
-  if (why) {
-    throw new Error(why);
-  }
-  return { token: process.env.LIFELOG_TOKEN ?? "", url: lifelogUrl() ?? "" };
-}
-
-/** GET `path`, or send `body` to it (POST unless `method` says otherwise). */
-export async function call(
-  path: string,
-  timeoutS = 60,
-  body?: unknown,
-  method = body === undefined ? "GET" : "POST"
-) {
-  const { url, token } = config();
-  const res = await fetch(`${url}${path}`, {
-    body: body === undefined ? undefined : JSON.stringify(body),
-    headers: {
-      authorization: `Bearer ${token}`,
-      ...(body === undefined ? {} : { "content-type": "application/json" }),
-    },
-    method,
-    signal: AbortSignal.timeout(timeoutS * 1000),
-  });
-  if (!res.ok) {
-    throw Object.assign(
-      new Error(`lifelog ${method} ${path.split("?")[0]}: ${res.status}`),
-      { status: res.status }
-    );
-  }
-  return (await res.json()) as unknown;
 }
 
 /**

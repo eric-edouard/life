@@ -6,7 +6,7 @@ import { setSettings } from "../core/settings";
 import { tokensSince } from "../host/desk-read";
 import {
   handOutRowsOf,
-  readAgentRows,
+  readAgentSection,
   tokenRowsOf,
 } from "../host/registered-agents";
 import { openDesk } from "./desk-store";
@@ -72,7 +72,7 @@ test("a turn running across a report is not listed; once ended it shows in the n
   run("agt_one", null, [0, 0, 0]);
   const since = "2026-09-10T00:00:00.000Z";
   expect(tokensSince(db, since).map((t) => t.tokens_in)).toEqual([7]);
-  const rows = await readAgentRows(since);
+  const { rows } = await readAgentSection(since);
   expect(rows).toContainEqual({
     name: "Tokens · 2026-09-10",
     relation: "7 in (3 cached) · 2 out",

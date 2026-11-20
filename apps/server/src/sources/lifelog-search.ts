@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { call } from "./lifelog";
+import { call } from "./lifelog-call";
 
 // lifelog's search of the exact spoken words (POST /search).
 

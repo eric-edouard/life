@@ -25,7 +25,7 @@ import {
   readCorrections,
   recordCorrection,
 } from "../memory/memory-files";
-import { mattersToDo } from "../memory/read-matters";
+import { handOutGateOf, readHandOutMatters } from "../memory/read-matters";
 import { OWNER } from "../memory/read-truth";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
 import type { Observation } from "../records/observation";
@@ -92,16 +92,25 @@ afterEach(() => {
 const AT = "2026-11-18T09:00:00.000Z";
 const matterOf = (id: string, at = AT) => ({
   id,
+  nextStep: { kind: "do" as const, text: "Do it" } as never,
   projects: [],
   steps: [{ at, ref: `obs_${id.slice(4)}1` }],
 });
+/** The gates' facts when every matter passes them. */
+const OPEN = {
+  decisions: [],
+  dismissed: new Set<string>(),
+  isDue: () => false,
+  isHis: () => true,
+  isParked: () => false,
+};
 let MATTERS = [matterOf("mat_a"), matterOf("mat_b")];
 const book = () => {
   const reads = { n: 0 };
   return {
     read: () => {
       reads.n += 1;
-      return Promise.resolve({ dismissed: [], matters: MATTERS });
+      return Promise.resolve({ facts: OPEN, matters: MATTERS });
     },
     reads,
   };
@@ -377,10 +386,16 @@ async function withBook(
   }
 }
 
-const readToDo = async () => ({
-  dismissed: [],
-  matters: await mattersToDo(),
-});
+/** The matters the hand-out may start an agent on (no gate, no hold: `handOutGateOf`), as the real read gives them. */
+const readToDo = async () => {
+  const { facts, matters } = await readHandOutMatters();
+  return {
+    facts,
+    matters: matters.filter(
+      (m) => handOutGateOf(m, { ...facts, isHeld: () => undefined }) === null
+    ),
+  };
+};
 
 const queued = (desk: ReturnType<typeof deskOf>, agent: string) =>
   desk.db

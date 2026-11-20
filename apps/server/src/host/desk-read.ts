@@ -196,8 +196,8 @@ export const agentKindOf = (a: Pick<AgentRow, "is_handed_out">): AgentKind =>
 export const HOLD_DAYS = 90;
 
 /** Every subject of an agent active, stopped or ended in the last `HOLD_DAYS`: each anchor, and each project's agent's project. */
-const HELD_ROWS = `select n.rowid as anchor, a.rowid as agent, n.step, null as project, a.ended_at, a.is_handed_out, a.outcome, a.why_not_started from anchor n join agent a on a.id = n.agent_id where a.ended_at is null or a.ended_at >= ?1
-  union all select null, a.rowid, null, a.project, a.ended_at, a.is_handed_out, a.outcome, a.why_not_started from agent a where a.project is not null and (a.ended_at is null or a.ended_at >= ?1)`;
+const HELD_ROWS = `select n.rowid as anchor, a.rowid as agent, a.id as agent_id, a.status, n.step, null as project, a.ended_at, a.is_handed_out, a.outcome, a.why_not_started from anchor n join agent a on a.id = n.agent_id where a.ended_at is null or a.ended_at >= ?1
+  union all select null, a.rowid, a.id, a.status, null, a.project, a.ended_at, a.is_handed_out, a.outcome, a.why_not_started from agent a where a.project is not null and (a.ended_at is null or a.ended_at >= ?1)`;
 const heldSince = () =>
   new Date(clock().getTime() - HOLD_DAYS * DAY).toISOString();
 
@@ -207,16 +207,23 @@ export const heldByAgents = (db: Database): AgentHold[] =>
     .query<
       Pick<
         AgentRow,
-        "ended_at" | "is_handed_out" | "outcome" | "project" | "why_not_started"
-      > & { step: string | null },
+        | "ended_at"
+        | "is_handed_out"
+        | "outcome"
+        | "project"
+        | "status"
+        | "why_not_started"
+      > & { agent_id: string; step: string | null },
       [string]
     >(`${HELD_ROWS} order by agent, anchor`)
     .all(heldSince())
     .map((r) => ({
+      agent: r.agent_id,
       endedAt: r.ended_at,
       kind: agentKindOf(r),
       outcome: r.outcome,
       project: r.project,
+      status: r.status,
       step: r.step,
       whyNotStarted: r.why_not_started,
     }));
