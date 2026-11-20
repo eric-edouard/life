@@ -82,9 +82,9 @@ async function typedPersonOf(a: CheckAnswer) {
   return { a: { ...a, person: r.ref }, recordedAs: people.nameOf(r.ref) };
 }
 
-/** Who an answer that takes "person or name" names: its `person`, else his new person's `name` (`partyNamed`). */
+/** Who an answer that takes "person or name" names: its `person`, else his new person's `name` (`partyNamed`), his `note` as who they are. */
 const namedIn = (a: CheckAnswer, x: WriterExtras) =>
-  a.name ? partyNamed(a.name, "person", x) : personIn(a);
+  a.name ? partyNamed(a.name, "person", x, a.note) : personIn(a);
 
 /**
  * The one party his word, truth/ or Contacts already holds by `name`, else a new `kind` added to his directory with

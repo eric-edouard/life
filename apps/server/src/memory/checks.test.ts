@@ -441,7 +441,6 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
   expect(checksOf(base)).toEqual([
     {
       about: [],
-      around: null,
       asker: "life",
       at: null,
       clips: [],

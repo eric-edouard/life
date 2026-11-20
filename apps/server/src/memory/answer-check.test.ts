@@ -127,15 +127,21 @@ test("a new person he names on a name check is the one person his truth/ or Cont
     readingNow: (n: string) => readings[n] ?? null,
   } as never);
   const added: string[] = [];
-  const addDirectoryEntry = (_kind: string, n: string) => {
+  const relations: (string | undefined)[] = [];
+  const addDirectoryEntry = (
+    _kind: string,
+    n: string,
+    fields: { relation?: string }
+  ) => {
     added.push(n);
+    relations.push(fields.relation);
     const ref = `person:${n.toLowerCase().replace(" ", "-")}`;
     // Written: from now on truth/ holds the name.
     readings[n] = { by: "truth", isShared: false, ref };
     return Promise.resolve(ref);
   };
-  const answer = (n: string) =>
-    answerWith(name, { name: n, options: ["this-is"] }, "connector", {
+  const answer = (n: string, note?: string) =>
+    answerWith(name, { name: n, note, options: ["this-is"] }, "connector", {
       addDirectoryEntry,
     });
   try {
@@ -144,11 +150,15 @@ test("a new person he names on a name check is the one person his truth/ or Cont
       answerCheck(name, { name: "Nora Vidal", options: ["this-is"] })
     ).rejects.toThrow('Life knows no one called "Nora Vidal"');
     expect((await answer("Kit Moreau")).recordedAs).toBe("Kit Moreau");
-    expect((await answer("Nora Vidal")).recordedAs).toBe("Nora Vidal");
+    // His "Who they are" goes with the new person, as what they are to him.
+    expect((await answer("Nora Vidal", "Nora's architect")).recordedAs).toBe(
+      "Nora Vidal"
+    );
     await answer("Sam");
     // His same tap again (a retry): the name now reads from truth/, nobody is added twice.
     await answer("Nora Vidal");
     expect(added).toEqual(["Nora Vidal", "Sam"]);
+    expect(relations).toEqual(["Nora's architect", undefined]);
     expect(said().map((c) => ("person" in c ? c.person : c.kind))).toEqual(
       [
         "person:kit",

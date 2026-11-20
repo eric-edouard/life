@@ -112,7 +112,6 @@
   "blockingChecks": 0,
   "checks": [
     {
-      "around": null,
       "said": {
         "at": "2026-10-12",
         "by": null,
