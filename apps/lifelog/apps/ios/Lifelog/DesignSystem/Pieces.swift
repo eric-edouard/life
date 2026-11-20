@@ -8,31 +8,34 @@ extension Color {
     static let fillTint = Palette.fg.opacity(0.08)
 }
 
-/// The pill buttons: the filled one (cream in dark) and the quiet one, in three sizes, and busy while an action runs.
-/// A label that does not fit takes a second line, and the pill grows with it.
+/// The pill buttons: the filled one (cream in dark), the quiet one, and the done one (`ok`, an action that worked), in
+/// three sizes, and busy while an action runs. A label that does not fit takes a second line, and the pill grows with it.
 struct PillStyle: ButtonStyle {
-    enum Kind { case filled, quiet }
+    enum Kind { case filled, quiet, done }
     /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row; `row` is one of several
     /// answers stacked, each on its line.
     enum Size: CGFloat { case large = 54, row = 48, compact = 44 }
 
     let kind: Kind
     var size: Size = .large
-    /// The action is running: the quiet fill, a spinner then the label, and no taps.
+    /// The action is running: its own fill, a spinner then the label, and no taps.
     var isBusy = false
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        let isFilled = kind == .filled && !isBusy
+        let isFilled = kind != .quiet
         HStack(spacing: 8) {
             if isBusy { Spinner() }
             configuration.label.multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
         }
         .font(.buttonLabel)
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)
-        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
+        // A compact pill sits beside others in a row: it keeps less to its sides.
+        .padding(.horizontal, size == .compact ? Metrics.Spacing.m : Metrics.Spacing.l)
+        .padding(.vertical, Metrics.Spacing.s)
         .frame(maxWidth: .infinity, minHeight: size.rawValue)
-        .background(isFilled ? Palette.fg : Color.fillTint, in: .capsule)
+        .background(isFilled ? (kind == .done ? Palette.ok : Palette.fg) : Color.fillTint, in: .capsule)
+        .motion(Motion.standard, value: kind == .done)
         .opacity(isBusy ? 1 : isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
         .contentShape(.capsule)
         .allowsHitTesting(!isBusy)
@@ -200,11 +203,13 @@ struct InlinePill: View {
     }
 }
 
-/// Two or three choices in one capsule; tapping the chosen one clears it.
+/// Two or three choices in one capsule, each with its symbol before it when `icon` gives one; tapping the chosen one
+/// clears it.
 struct SegmentedChoice<Choice: Hashable>: View {
     let choices: [Choice]
     @Binding var selection: Choice?
     let title: (Choice) -> String
+    var icon: (Choice) -> String? = { _ in nil }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -213,14 +218,23 @@ struct SegmentedChoice<Choice: Hashable>: View {
                 Button {
                     selection = isChosen ? nil : choice
                 } label: {
-                    Text(title(choice)).font(.chip).foregroundStyle(isChosen ? Palette.on : Palette.fg)
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .background(isChosen ? Palette.fg : .clear, in: .capsule)
+                    HStack(spacing: 6) {
+                        if let symbol = icon(choice) {
+                            Image(systemName: symbol).font(.system(size: 16)).accessibilityHidden(true)
+                        }
+                        Text(title(choice)).font(.chip)
+                    }
+                    .foregroundStyle(isChosen ? Palette.on : Palette.fg)
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .background(isChosen ? Palette.fg : .clear, in: .capsule)
                 }
                 .buttonStyle(.plain).accessibilityAddTraits(isChosen ? .isSelected : [])
             }
         }
+        // The chosen segment sits inset in its 48 track.
+        .padding(4)
         .background(Palette.tile, in: .capsule)
+        .motion(Motion.standard, value: selection)
     }
 }
 
@@ -701,21 +715,43 @@ struct SheetHeader: View {
     var font: TypeStep = .sheetQuestion
     let close: () -> Void
 
-    /// The title in the content; Close alone in the bar the system draws over the sheet, a toolbar item, so the sheet
-    /// sits in a stack (`sheetStack()`).
+    /// One head row inside the sheet: the title at the left, Close at the right. The stack's bar (`sheetStack()`) is
+    /// hidden, so nothing sits above it.
     var body: some View {
         HStack {
             if let title { Text(title).font(font).foregroundStyle(color) }
             Spacer(minLength: 0)
+            CloseButton(close: close)
         }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) { Button(role: .close, action: close) }
+        .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+/// A sheet's Close: a flat `tile` circle with a thin x, without the system's glass and its rim (no borders).
+struct CloseButton: View {
+    let close: () -> Void
+
+    var body: some View {
+        Button(role: .close, action: close) {
+            Image(systemName: "xmark").font(.system(size: 17, weight: .light)).foregroundStyle(Palette.fg)
+                .frame(width: 44, height: 44).background(Palette.tile, in: .circle)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Close")
+    }
+}
+
+/// `CloseButton` in the bar the system draws, for a sheet whose top is its own (the pendant's).
+struct CloseItem: ToolbarContent {
+    let close: () -> Void
+
+    var body: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) { CloseButton(close: close) }.sharedBackgroundVisibility(.hidden)
     }
 }
 
 extension View {
-    /// A sheet in its own stack, so its Close (`SheetHeader`) is a toolbar item in the bar the system draws.
+    /// A sheet in its own stack, for what it pushes and the pendant's Close (`CloseItem`) in the bar the system draws.
     func sheetStack() -> some View {
         NavigationStack { self }
     }
@@ -767,5 +803,62 @@ struct LimitNote: View {
         .onChange(of: state.limit, initial: true) { _, limit in
             if seconds == nil, let limit { seconds = max(1, Int(limit.timeIntervalSinceNow.rounded(.up))) }
         }
+    }
+}
+
+/// Quiet answers in one row: equal widths when each label fits its share; else each as wide as its label plus an equal
+/// part of what is left; and when the labels together are wider than the row, each gives up width in proportion, its
+/// label shrinking (the caller's `minimumScaleFactor`, under 0.8 since a pill's sides do not shrink), never cut. Its
+/// ideal width is the narrowest it can be (80%), so a `ViewThatFits` falls back to a stack only when that does not fit.
+struct AnswerRow: Layout {
+    var spacing: CGFloat = 8  // Metrics.Spacing.s, which a Layout (not on the main actor) cannot read
+    static let smallest = 0.8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let narrowest = sizes.reduce(0) { $0 + $1.width } * Self.smallest + gaps(subviews)
+        return CGSize(width: proposal.width ?? narrowest, height: sizes.map(\.height).max() ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let ideals = subviews.map { $0.sizeThatFits(.unspecified).width }
+        let room = bounds.width - gaps(subviews)
+        let total = ideals.reduce(0, +)
+        let share = room / CGFloat(max(subviews.count, 1))
+        var x = bounds.minX
+        for (subview, ideal) in zip(subviews, ideals) {
+            let width =
+                ideals.allSatisfy({ !(share < $0) })
+                ? share
+                : total < room ? ideal + (room - total) / CGFloat(subviews.count) : ideal * room / total
+            subview.place(
+                at: CGPoint(x: x, y: bounds.midY), anchor: .leading,
+                proposal: ProposedViewSize(width: width, height: bounds.height))
+            x += width + spacing
+        }
+    }
+
+    private func gaps(_ subviews: Subviews) -> CGFloat { spacing * CGFloat(max(subviews.count - 1, 0)) }
+}
+
+/// Where an ask stands among the asks: up to 8, a dot each (6, 6 apart, the current `fg`, the others `tint`); more,
+/// the words "3 of 24" in `muted`.
+struct PagerDots: View {
+    let current: Int
+    let total: Int
+
+    var body: some View {
+        Group {
+            if total > 8 {
+                Text("\(current + 1) of \(total)").font(.small).foregroundStyle(Palette.muted)
+            } else {
+                HStack(spacing: 6) {
+                    ForEach(0..<total, id: \.self) { index in
+                        Circle().fill(index == current ? Palette.fg : Color.fillTint).frame(width: 6, height: 6)
+                    }
+                }
+            }
+        }
+        .accessibilityElement().accessibilityLabel("\(current + 1) of \(total)")
     }
 }
