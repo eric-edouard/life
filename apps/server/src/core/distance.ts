@@ -1,6 +1,8 @@
 // Distance on the Earth: one definition, for lifelog's stays and Life's waits on places.
 
 const EARTH_RADIUS_M = 6_371_000;
+/** How near counts as at a place given by coordinates alone (`read_places_visited`'s `radiusM`, a wait's `radius_m`). */
+export const DEFAULT_RADIUS_M = 100;
 
 /** The great-circle distance between two points, in meters (haversine). */
 export function distanceM(

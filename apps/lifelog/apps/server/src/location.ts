@@ -4,7 +4,7 @@
 // places.ts); otherwise coordinates stand alone.
 
 import { clock } from "@life/server/src/core/clock";
-import { distanceM } from "@life/server/src/core/distance";
+import { DEFAULT_RADIUS_M, distanceM } from "@life/server/src/core/distance";
 import type { Db } from "@lifelog/db";
 import { locationHistory } from "@lifelog/db/schema";
 import { and, asc, gte, isNotNull, lt, sql } from "drizzle-orm";
@@ -23,8 +23,6 @@ const MAX_GAP_MS = 2 * HOUR;
 const LOOKBACK_MS = 48 * HOUR;
 // ponytail: a visit iOS never closed lasts at most this long; trust later fixes over it.
 const OPEN_VISIT_MS = 24 * HOUR;
-// Coordinates alone name a place this wide.
-const DEFAULT_RADIUS_M = 100;
 
 // ---- Storing ----------------------------------------------------------------
 
