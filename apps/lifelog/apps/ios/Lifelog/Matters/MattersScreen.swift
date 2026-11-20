@@ -12,9 +12,9 @@ struct MattersScreen: View {
     /// What he typed on the asks pushed on a matter: here, above both columns, so a fold keeps it.
     @State private var notes = CardNotes()
     @Environment(\.horizontalSizeClass) private var sizeClass
-    /// A compact width opens a matter out of its row and closes it back into it; beside the list, nothing moves.
-    @Namespace private var rowZoom
-    private var matterZoom: Namespace.ID? { sizeClass == .regular ? nil : rowZoom }
+    /// A compact width opens a matter out of its row and closes it back into it; beside the list nothing is pushed, so
+    /// nothing zooms. Set at every width, so a fold never changes what the detail column is (a draft on the page stays).
+    @Namespace private var matterZoom
 
     /// Two columns, the list and the matter: side by side on a regular width, one at a time on a compact one.
     var body: some View {
