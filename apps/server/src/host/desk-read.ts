@@ -667,6 +667,27 @@ export const tokensSince = (db: Database, since: string) =>
     )
     .all(since);
 
+/**
+ * Each assignment's notes file kept outside `state` (his agents repo, `desk.agentsRepo`), read from the store at `path`
+ * of the new shape: what an export carries beside Life's state and a restore puts back (`stage`, `restore`). None for a
+ * store of the old shape.
+ */
+export function notesOutsideOf(path: string, state: string) {
+  const db = openReadOnly(path);
+  try {
+    return isOldShape(db)
+      ? []
+      : db
+          .query<Pick<AssignmentRow, "id" | "notes_path">, []>(
+            "select id, notes_path from assignment"
+          )
+          .all()
+          .filter((s) => relative(state, s.notes_path).startsWith(".."));
+  } finally {
+    db.close();
+  }
+}
+
 /** Whether the store at `db` is of the shape before assignments: only the desk helper's store step (`desk/store-step.ts`) changes it. */
 export const isOldShape = (db: Database) =>
   db
