@@ -17,6 +17,17 @@ struct RootView: View {
     @State private var confirming: PairOffer?
     @State private var query = ""
 
+    init() {
+        // The Inbox's count is `flag` (it needs him), not the system's red; SwiftUI's `badge` takes no colour.
+        let bar = UITabBarAppearance()
+        for item in [bar.stackedLayoutAppearance, bar.inlineLayoutAppearance, bar.compactInlineLayoutAppearance] {
+            item.normal.badgeBackgroundColor = UIColor(Palette.flag)
+            item.normal.badgeTextAttributes = [.foregroundColor: UIColor(Palette.on)]
+        }
+        UITabBar.appearance().standardAppearance = bar
+        UITabBar.appearance().scrollEdgeAppearance = bar
+    }
+
     var body: some View {
         TabView(selection: $router.tab) {
             Tab("Inbox", systemImage: "tray", value: AppRouter.Tab.inbox) {

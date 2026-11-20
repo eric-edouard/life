@@ -89,9 +89,10 @@ struct CardView: View {
         }
     }
 
-    /// The asks side by side, one page each: he swipes left for the next, right to come back, and the next one's edge shows
-    /// at the right. The scroll view is one page wide and its clip is off, so a page's width is the paging step and the
-    /// edge still shows. An ask alone has no edge. An ask he passes stays where it was.
+    /// The asks side by side, one page each, straight on the page: he swipes left for the next, right to come back, and the
+    /// dots under the ask say where he is. The scroll view is one page wide, so a page's width is the paging step; with
+    /// several asks it stops `Pager.edge` short of its box (as wide as its box, it never paged to the ask a push opens) and
+    /// clips there, so nothing of the next ask shows. An ask he passes stays where it was.
     private var pager: some View {
         let checks = paged
         let edge = checks.count > 1 ? Pager.edge : 0
@@ -109,7 +110,6 @@ struct CardView: View {
                                 create: { sheet = creating(check, $0) },
                                 page: checks.count > 1 ? (index, checks.count) : nil
                             )
-                            .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.card))
                             .padding(.leading, Pager.gap)
                             .containerRelativeFrame(.horizontal)
                             .id(check.ref)
@@ -118,7 +118,6 @@ struct CardView: View {
                     .scrollTargetLayout()
                 }
                 .frame(width: box.size.width - edge - Pager.gap)
-                .scrollClipDisabled()
                 .scrollPosition(id: $current, anchor: .leading)
                 .scrollTargetBehavior(.paging)
                 .scrollIndicators(.hidden)
@@ -209,7 +208,7 @@ private enum CardSheet: Identifiable {
     }
 }
 
-/// The pager's measures, from the Ask panel: 12 from the sides and between cards, the next card's edge showing 10.
+/// The pager's measures: 12 from the sides and between asks, and the edge it stops short of its box.
 private enum Pager {
     static let gap = Metrics.Spacing.xs * 3
     static let edge = Metrics.Spacing.xs * 2.5

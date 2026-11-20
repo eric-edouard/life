@@ -41,11 +41,12 @@ interface Frame {
 }
 
 /**
- * How the app reaches a frame: its launch arguments, then labels pressed for a state no argument reaches; or `why` it
- * can't.
+ * How the app reaches a frame: its launch arguments, then labels pressed for a state no argument reaches, then text typed
+ * into the field a label names (`fill`: label, text); or `why` it can't.
  */
 export interface AppFrame {
   args?: string[];
+  fill?: [string, string];
   taps?: string[];
   why?: string;
 }
@@ -56,7 +57,10 @@ export const readAppFrames = () =>
     AppFrame
   >;
 
-/** The Duo open is drawn on the closed display (`-fixturePose`), shrunk from its top left: the shot keeps that part. */
+/**
+ * The Duo open is drawn on the closed display (`-fixturePose`), shrunk to its width and centred down it, clear of the
+ * system's clock at the top of the side column: the shot keeps that part.
+ */
 function poseOf(frame: Frame) {
   if (frame.pose === "closed") {
     return { args: [] };
@@ -88,6 +92,11 @@ async function shoot(udid: string, frame: Frame, app: AppFrame) {
     await device(["press", `label="${label}"`]);
     await Bun.sleep(1500);
   }
+  if (app.fill) {
+    const [label, text] = app.fill;
+    await device(["fill", `label="${label}"`, text]);
+    await Bun.sleep(1500);
+  }
   const path = join(OUT, `${frame.name}.app.png`);
   await screenshot(udid, "primary", path);
   if (pose.ratio) {
@@ -95,11 +104,8 @@ async function shoot(udid: string, frame: Frame, app: AppFrame) {
       (await execOk(["sips", "-g", "pixelWidth", path])).match(PIXEL_WIDTH)?.[1]
     );
     const height = String(Math.round(width * pose.ratio));
-    // sips takes an offset of 0 as none and crops the middle: the top row of pixels goes instead.
-    await execOk([
-      ...["sips", "-c", height, String(width), "--cropOffset", "1", "0"],
-      ...[path, "--out", path],
-    ]);
+    // sips crops the middle (its offset is ignored): the pose is drawn there.
+    await execOk(["sips", "-c", height, String(width), path, "--out", path]);
   }
 }
 
@@ -180,7 +186,11 @@ async function main() {
   const outcome = new Map<string, string>();
   try {
     await install(udid, await buildApp(udid, join(OUT, "build")));
-    if (mapped.some((frame) => appFrames[frame.name]?.taps)) {
+    if (
+      mapped.some(
+        (frame) => appFrames[frame.name]?.taps || appFrames[frame.name]?.fill
+      )
+    ) {
       await launch(udid, ["-fixtureReads", DESIGN_DATA]);
       await device([
         "open",

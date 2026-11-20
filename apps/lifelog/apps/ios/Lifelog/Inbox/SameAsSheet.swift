@@ -34,7 +34,9 @@ struct SameAsSheet: View {
                         Button {
                             pick(.person(person.person))
                         } label: {
-                            FlatRow(lead: .person(person.name), detail: person.line) {
+                            FlatRow(
+                                lead: .person(person.name), detail: person.line, slotSize: Metrics.FlatRow.personSlot
+                            ) {
                                 Text(person.name).font(.rowName)
                             } trailing: {
                             }
@@ -49,6 +51,7 @@ struct SameAsSheet: View {
         .scrollBounceBehavior(.basedOnSize)
         .background(Palette.sheet)
         .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
     }
 
     /// Where the card takes a new person's name, "Create “<name>”" opens the create sheet with it; with no name yet the
@@ -64,7 +67,7 @@ struct SameAsSheet: View {
                 pick(.name(name))
             }
         } label: {
-            FlatRow(lead: .symbol("plus")) {
+            FlatRow(lead: .symbol("plus"), slotSize: Metrics.FlatRow.personSlot) {
                 Text(name.isEmpty ? "Create a person" : takesNewName ? "Create “\(name)”" : name).font(.rowName)
             } trailing: {
             }

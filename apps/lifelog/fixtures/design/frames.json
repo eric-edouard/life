@@ -73,7 +73,7 @@
       "-fixtureSheet",
       "create"
     ],
-    "taps": ["Who they are"]
+    "fill": ["Who they are", "Nora's architect"]
   },
   "DuoFoldPersonCreateExists": {
     "why": "Exists: deferred by ruling (a); Life reuses the person."

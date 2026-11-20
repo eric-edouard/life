@@ -225,12 +225,14 @@ struct SegmentedChoice<Choice: Hashable>: View {
                         Text(title(choice)).font(.chip)
                     }
                     .foregroundStyle(isChosen ? Palette.on : Palette.fg)
-                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .frame(maxWidth: .infinity, minHeight: 40)
                     .background(isChosen ? Palette.fg : .clear, in: .capsule)
                 }
                 .buttonStyle(.plain).accessibilityAddTraits(isChosen ? .isSelected : [])
             }
         }
+        // The chosen segment sits inset in its 48 track.
+        .padding(4)
         .background(Palette.tile, in: .capsule)
         .motion(Motion.standard, value: selection)
     }
@@ -720,9 +722,25 @@ struct SheetHeader: View {
             if let title { Text(title).font(font).foregroundStyle(color) }
             Spacer(minLength: 0)
         }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) { Button(role: .close, action: close) }
+        .toolbar { CloseItem(close: close) }
+    }
+}
+
+/// A sheet's Close in the bar the system draws: a flat `tile` circle with a thin x, without the system's glass and its
+/// rim (no borders).
+struct CloseItem: ToolbarContent {
+    let close: () -> Void
+
+    var body: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button(role: .close, action: close) {
+                Image(systemName: "xmark").font(.system(size: 17, weight: .light)).foregroundStyle(Palette.fg)
+                    .frame(width: 44, height: 44).background(Palette.tile, in: .circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Close")
         }
+        .sharedBackgroundVisibility(.hidden)
     }
 }
 
