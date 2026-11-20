@@ -380,6 +380,16 @@ test("the chat's refusal is asked again at the send; a stored draft without a ch
   await expect(
     sendDraft(stored, "dec_000000000004", { since: NOW }, [net])
   ).rejects.toThrow("not sent: this chat takes no replies");
+  // A card asked before a reaction had to be one emoji reads, and sends nothing.
+  refuse = undefined;
+  await expect(
+    sendDraft(
+      { ...stored, onMessage: ana().id, reaction: "OK", text: undefined },
+      "dec_000000000006",
+      { since: NOW },
+      [net]
+    )
+  ).rejects.toThrow("not sent: a reaction is one emoji");
   const { chat: _, ...asked } = stored;
   await expect(
     sendDraft(asked, "dec_000000000005", { since: NOW }, [net])

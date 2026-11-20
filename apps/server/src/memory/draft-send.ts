@@ -9,6 +9,7 @@ import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
 import { directOf } from "./closeness";
 import {
   draftProblemOf,
+  isOneEmoji,
   isSendable,
   type MessageDraft,
   type RecentMessage,
@@ -265,7 +266,7 @@ async function readWhere(
   }
   const quoted = found && {
     sender: found.sender,
-    ...(mail && found.chatName ? { subject: found.chatName } : {}),
+    ...(mail && found.chatName ? { subject: redact(found.chatName) } : {}),
     // A reaction's message is shown whole (it is all he sees); a reply's, its first 300 characters.
     text: draft.reaction
       ? redact(found.text)
@@ -396,7 +397,10 @@ async function readySend(
     draft,
     draft.file && (await readVerifiedFile(draft.file))
   );
-  const refusal = await s.send.refusal(outgoing);
+  const refusal =
+    draft.reaction && !isOneEmoji(draft.reaction)
+      ? "a reaction is one emoji"
+      : await s.send.refusal(outgoing);
   if (refusal) {
     throw never(refusal);
   }

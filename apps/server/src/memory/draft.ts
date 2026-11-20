@@ -8,6 +8,8 @@ import { Party } from "./party";
 
 const ONE_LINE = /^[^\n]*$/;
 const EMOJI = /^\p{RGI_Emoji}$/v;
+/** Whether a reaction is one emoji (a joined one counts as one): the rule for a new draft, and for any send. */
+export const isOneEmoji = (s: string) => EMOJI.test(s);
 /** One line of at most `max` characters, shown whole on his card. */
 export const oneLine = (max: number) =>
   z.string().min(1).max(max).regex(ONE_LINE, "one line");
@@ -40,10 +42,7 @@ export const MessageDraft = z
     /** A message of the chat, by its id in `read_chats`: replied to, or reacted to. */
     onMessage: oneLine(300).optional(),
     /** One emoji (a joined one counts as one): Life sends only it. A refine, not a pattern: a tool's JSON schema can't carry the `v` flag. */
-    reaction: z
-      .string()
-      .refine((s) => EMOJI.test(s), "one emoji")
-      .optional(),
+    reaction: z.string().refine(isOneEmoji, "one emoji").optional(),
     subject: oneLine(200).optional(),
     text: z.string().min(1).max(4000).optional(),
     /** A chat key on `channel`, or a person with one 1:1 chat there; stored as the chat's name. */
