@@ -54,10 +54,19 @@ struct CheckActions: View {
                 line
                 refusal
                 DoneSeenLine(doneSeen: check.doneSeen)
-                // While Life looks, there is nothing to answer.
-                if check.doneSeen?.state != .looking { options }
+                // While Life looks, its answer stands busy in the filled answer's place: nothing to tap.
+                if check.doneSeen?.state == .looking {
+                    Button {
+                    } label: {
+                        Text(check.doneSeen?.line ?? "Checking…")
+                    }
+                    .buttonStyle(.pill(.filled, isBusy: true)).disabled(true)
+                } else {
+                    options
+                }
             }
         }
+        .motion(Motion.standard, value: check.doneSeen?.state)
     }
 
     /// His last answer to this ask that did not go, in one `flag` line above the same answers; a send that someone wrote

@@ -262,6 +262,7 @@ struct NeedsBlock: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .motion(Motion.standard, value: copied?.row)
     }
 
     @ViewBuilder private func button(_ action: NeedRow.Action, row: Int) -> some View {
@@ -293,8 +294,8 @@ struct NeedsBlock: View {
     }
 }
 
-/// Life's outcome on a step it sees done itself, in one line above the answers: looking, seen, or not found yet. Life's
-/// own words win; the phone's are the fallback.
+/// Life's outcome on a step it sees done itself, in one line above the answers: seen, or not found yet. Life's
+/// own words win ("Paid, 4,500 THB"); the phone's are plain fallbacks that never name Life (`voice.md`).
 struct DoneSeenLine: View {
     let doneSeen: Check.DoneSeen?
 
@@ -311,10 +312,10 @@ struct DoneSeenLine: View {
 
     private static func shown(_ state: Check.DoneSeen.State) -> (glyph: StateGlyph, words: String, color: Color)? {
         switch state {
-        case .looking: (.busy, "Life is looking…", Palette.muted)
-        case .seen: (.ok, "Life saw it done.", Palette.ok)
-        case .notFound: (.flag, "Life hasn’t found it yet.", Palette.flag)
-        case .unknown: nil
+        case .seen: (.ok, "Done.", Palette.ok)
+        case .notFound: (.flag, "Not found yet.", Palette.flag)
+        // Looking is the busy answer itself (`CheckActions`), never a second line.
+        case .looking, .unknown: nil
         }
     }
 }
