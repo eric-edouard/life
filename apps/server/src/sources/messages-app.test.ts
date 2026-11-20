@@ -228,9 +228,11 @@ test("a reply, a reaction and mentions are refused; osascript failure is not sen
       },
     ].map((d) => p.refusal(d))
   );
-  for (const r of refused) {
-    expect(r).toContain("text and one file");
-  }
+  expect(refused).toEqual([
+    "this chat takes no replies",
+    "this chat takes no reactions",
+    "this chat takes no mentions",
+  ]);
   expect(await p.refusal({ chat: "+15550100", text: "x" })).toBeUndefined();
   await expect(p.send({ chat: "+15550100", text: "x" }, "t")).rejects.toThrow(
     "not sent: Not authorized (-1743) (allow Life to control Messages: System Settings → Privacy & Security → Automation → Life → Messages)"

@@ -20,6 +20,7 @@ import {
   situationPath,
   UNITS,
 } from "./memory-files";
+import { openById } from "./open-by-id";
 import {
   firstSentenceOf,
   knowsOf,
@@ -27,10 +28,11 @@ import {
   type PersonRow,
   peopleListOf,
   personNowOf,
+  reachPageOf,
   rowOf,
 } from "./person-now";
 import { readPersonUnits } from "./person-units";
-import { reachOf } from "./reach";
+import { type Reach, reachOf } from "./reach";
 import { PART_CHARS } from "./read-part";
 import { person } from "./read-person-page";
 import { OWNER } from "./read-truth";
@@ -606,6 +608,56 @@ test("reach keeps to its room with long Contacts labels; every account it has no
       reach: org,
     }).reach.flatMap((r) => r.accounts.map((a) => a.handle))
   ).toEqual(mails);
+});
+
+test("an organization's 120 addresses: following `moreReach` and each `next` through fetch gives every one, in order, each page within its room", async () => {
+  const mails = Array.from(
+    { length: 120 },
+    (_, n) => `team${n}@bakery.example.test`
+  );
+  const subject = `test-${"b".repeat(400)}`;
+  const reach = reachOf({
+    cards: [],
+    party: { handles: { email: mails, phone: [], whatsapp: [] } },
+    seen: [],
+  });
+  // A Contacts label as long as the whole part: its end goes, the handle and link stay.
+  const [{ accounts }] = reach as [Reach];
+  (accounts[0] as { title?: string }).title = "Label 😀 ".repeat(800);
+  const now = personNowOf({
+    communicationStyle: [],
+    details: [],
+    episodes: [],
+    knows: [],
+    matters: [],
+    reach,
+    row: row(`person:${subject}`),
+    situation: [],
+    today: "2026-03-10",
+  });
+  const readPerson = (name: string, o: { part: string; span?: string }) => {
+    // Every ref handed out names this subject's reach part.
+    expect([name, o.part]).toEqual([subject, "reach"]);
+    return Promise.resolve(
+      reachPageOf(reach, Number(o.span ?? 0), `person:${name}`)
+    );
+  };
+  const heard: string[] = [];
+  let ref: string | undefined = now.moreReach;
+  let pages = 0;
+  while (ref) {
+    // biome-ignore lint/performance/noAwaitInLoops: each page's ref comes from the one before
+    const page = (await openById(ref, undefined, undefined, readPerson)) as {
+      next?: string;
+      reach: Reach[];
+    };
+    expect(JSON.stringify(page).length).toBeLessThanOrEqual(PART_CHARS);
+    heard.push(...page.reach.flatMap((r) => r.accounts.map((a) => a.handle)));
+    ref = page.next;
+    pages += 1;
+  }
+  expect(pages).toBeGreaterThan(1);
+  expect(heard).toEqual(mails);
 });
 
 test("his own situation is checked against the episodes the index holds, by the ids it cites: no episode file is read", async () => {
