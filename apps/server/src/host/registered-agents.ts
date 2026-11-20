@@ -2,18 +2,20 @@ import { clock, DAY, iso } from "../core/clock";
 import { DEFAULT_RADIUS_M } from "../core/distance";
 import { holder } from "../core/lock";
 import type { SourceName } from "../core/names";
-import { blockingCountOf } from "../memory/check-urgency";
-import { checksOnMatterOf } from "../memory/checks";
 import { decisionsNow, openDecisionOf } from "../memory/decisions";
 import { isHeldOf } from "../memory/held-matters";
-import { type MatterView, matterFinderOf } from "../memory/matter-read";
+import {
+  type MatterView,
+  matterFinderOf,
+  nextStepNow,
+} from "../memory/matter-read";
 import { readMatterBook, readMatterBookAndRecords } from "../memory/matters";
 import { readHandOutMatters } from "../memory/read-matters";
 import { sourceOf } from "../memory/sources";
 import { meant, type People, readPeople } from "../memory/who";
 import { dayNow, localDate, localTime } from "../memory/zones";
 import type { EventFilter } from "../records/registered-agent";
-import { healthRowsOf, needsYouCountOf } from "./desk-health";
+import { healthRowsOf } from "./desk-health";
 import {
   type AgentNow,
   type AgentRead,
@@ -35,6 +37,7 @@ import {
 import { EVENT_CHANNELS, type EventChannel } from "./event-channels";
 import { matcherOf } from "./events";
 import { openChecksNow } from "./inbox";
+import { matterRowsNowOf } from "./matter-rows";
 
 // "What are my agents doing?": every registered agent as read now, as one typed answer (`readRegisteredAgents`) that
 // the connector (`read_registered_agents`), the nightly report and his apps (through the connector) share; and the Agents
@@ -465,10 +468,14 @@ async function readHealth(
     people
   );
   const holds = readDesk((db) => heldByAgents(db), []);
-  const open = await openChecksNow();
-  const needsYou = needsYouCountOf(matters, facts.decisions, (id) =>
-    blockingCountOf(checksOnMatterOf(open, id))
-  );
+  const needsYou = matterRowsNowOf(
+    matters.map((v) => ({
+      id: v.id,
+      nextStep: nextStepNow(v, facts.decisions),
+      status: v.status,
+    })),
+    await openChecksNow()
+  ).filter((r) => r.needsYou).length;
   return {
     needsYou,
     rows: healthRowsOf({

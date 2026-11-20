@@ -11,7 +11,6 @@ import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector, settings } from "../../core/settings";
 import { CARD, DecisionRequest } from "../../memory/card-request";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
-import { blockingCountOf } from "../../memory/check-urgency";
 import { checksOnMatterOf } from "../../memory/checks";
 import { requestDecision } from "../../memory/decisions";
 import { recordCorrection } from "../../memory/memory-files";
@@ -20,7 +19,7 @@ import { paymentsOf } from "../../memory/payments";
 import { placesOf } from "../../memory/places";
 import { area } from "../../memory/read-area-page";
 import { day } from "../../memory/read-day";
-import { needsYouOf, oneMatter, openMatters } from "../../memory/read-matters";
+import { oneMatter, openMatters } from "../../memory/read-matters";
 import { offersOf } from "../../memory/read-person-page";
 import { runs } from "../../memory/run-log";
 import { search } from "../../memory/search";
@@ -63,6 +62,7 @@ import {
   pollEvents,
 } from "../events";
 import { openChecksNow, readInbox } from "../inbox";
+import { matterRowsNowOf } from "../matter-rows";
 import {
   agentLinesOnProjects,
   readActiveAgentOf,
@@ -304,16 +304,7 @@ export function buildServer(readsOnly = false) {
         openMatters(q, readActiveAgentOf()),
         openChecksNow(),
       ]);
-      return {
-        matters: matters.map((m) => {
-          const blockingChecks = blockingCountOf(checksOnMatterOf(open, m.id));
-          return {
-            ...m,
-            blockingChecks,
-            needsYou: needsYouOf(m, blockingChecks),
-          };
-        }),
-      };
+      return { matters: matterRowsNowOf(matters, open) };
     }
   );
   tool(
@@ -333,14 +324,9 @@ export function buildServer(readsOnly = false) {
       if (!matter) {
         throw new Error(`No matter ${id}.`);
       }
-      const checks = checksOnMatterOf(await openChecksNow(), matter.id);
-      const blockingChecks = blockingCountOf(checks);
-      return {
-        ...matter,
-        blockingChecks,
-        checks,
-        needsYou: needsYouOf(matter, blockingChecks),
-      };
+      const open = await openChecksNow();
+      const [row] = matterRowsNowOf([matter], open);
+      return { ...row, checks: checksOnMatterOf(open, matter.id) };
     }
   );
   tool(
