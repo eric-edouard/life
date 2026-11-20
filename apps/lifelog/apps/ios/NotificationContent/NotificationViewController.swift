@@ -7,11 +7,12 @@ import UserNotificationsUI
 
 /// A card's expanded notification: iOS shows the card's words (written by `NotificationService`); this shows a draft
 /// whole, as the card's screen does, and gives the card's own answers as buttons (`CardNotification.actions`). It reads
-/// nothing from Life: the card came with the notification. Send waits for Face ID or his passcode at that tap when his
+/// nothing from Life: the card came with the notification, and its recipient's picture is one the app kept. Send waits for Face ID or his passcode at that tap when his
 /// setting asks for it; every answer is then given by the app (`IncidentNotifier`).
 final class NotificationViewController: UIViewController, UNNotificationContentExtension {
     /// The one draft view: iOS calls `didReceive` again when another card of the same thread arrives while it is open.
     private let draft = UIHostingController<AnyView?>(rootView: nil)
+    private let pictures = PictureCache(directory: AppGroup.pictures)
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -27,11 +28,12 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
     func didReceive(_ notification: UNNotification) {
         let check = CardNotification.card(in: notification.request.content.userInfo)
         extensionContext?.notificationActions = check.map(CardNotification.actions) ?? []
+        if let id = check?.networkIdentity?.party?.picture?.id { Task { await pictures.want([id]) } }
         draft.rootView = check.flatMap { check in
             check.draft.map {
                 AnyView(
                     DraftBlock(draft: $0, identity: check.networkIdentity, isGuess: check.isRecipientGuessed)
-                        .padding(16))
+                        .padding(16).environment(pictures))
             }
         }
         preferredContentSize =

@@ -51,6 +51,14 @@ export interface Outgoing {
   to?: string;
 }
 
+/** What a chat takes besides text (`chat-takes.ts`): `reaction` true, or only these emoji. */
+export interface ChatTakes {
+  file: boolean;
+  mentions: boolean;
+  reaction: boolean | string[];
+  reply: boolean;
+}
+
 /** How one source sends a card's draft (AGENTS.md, "Life sends only…"): asked when the card is, run on his answer. */
 export interface SendPath {
   /** Why it can't send now (a bridge not added, not linked, not answering); none when it can. */
@@ -65,7 +73,7 @@ export interface SendPath {
   opensHint?: string;
   /** A chat it opens takes the draft's `subject` (a new issue's title). */
   opensWithSubject?: true;
-  /** What of this draft its chat can't take (a reply, a reaction, a file of this kind or size, a mention), asked again just before the send; none when it takes all. */
+  /** What of this draft its chat can't take (what `takes` says no to, by `takesProblemOf`, then its own limits: a file of this kind or size…), asked again just before the send; none when it takes all. */
   refusal: (draft: Outgoing) => Promise<string | undefined>;
   /** Sends once per `txn`; the sent message's id once confirmed (Life's own event id where it knows it). `onHanded` is called when the network or the app has taken it, before the wait to see it. Throws `not sent: …` (nothing went) or `may have gone: …`. */
   send: (
@@ -73,6 +81,8 @@ export interface SendPath {
     txn: string,
     onHanded?: () => void
   ) => Promise<string>;
+  /** What a chat takes besides text: the one source of `refusal`'s reply, reaction, mention and file rules, and what `read_chats` tells an agent. */
+  takes: (chat: string) => ChatTakes;
 }
 
 /** A message as its store first wrote it (`incoming`): its row there, its id as `read` gives it and its time. */

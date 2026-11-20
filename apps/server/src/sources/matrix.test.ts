@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { takesWordsOf } from "./chat-takes";
 import {
   BRIDGES,
   blockOf,
@@ -488,6 +489,17 @@ test("a room takes what its features say, and text when they say nothing: a refu
     "!full": FULL,
     "!noreply": { reaction: 1, reply: 0 },
   });
+  // What it takes, as read_chats tells the agent drafting, is the same rule.
+  expect(path.takes("!full")).toEqual({
+    file: true,
+    mentions: true,
+    reaction: ["👍", "❤️"],
+    reply: true,
+  });
+  expect(takesWordsOf(path.takes("!noreply"))).toBe(
+    "a draft into this chat takes text, a reaction (an emoji on `onMessage`); nothing else"
+  );
+  expect(Object.values(path.takes("!none")).some(Boolean)).toBe(false);
   const refusal = (chat: string, over: object) =>
     path.refusal({ chat, text: "hi", ...over });
   expect(await refusal("!none", {})).toBeUndefined();

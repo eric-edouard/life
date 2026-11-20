@@ -17,6 +17,8 @@ final class LifeStore {
     /// A project's page: its matters with its head, by the project's id.
     private(set) var project: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
+    /// Everyone the reads name, and their pictures.
+    let parties: PartyBook
 
     /// What an action acts on: the store makes every key itself, so a screen asks for the state of what it shows.
     enum ActionKey: Hashable {
@@ -89,6 +91,7 @@ final class LifeStore {
         tokens: any TokenStore = LifeToken(), api: (any LifeAPI)? = nil,
         approve: @escaping Approve = { try await LifeOAuth().pair($0) },
         cache: ReadCache = ReadCache(directory: URL.applicationSupportDirectory.appending(path: "lifelog/life-reads")),
+        pictures: URL = AppGroup.pictures,
         now: @escaping @Sendable () -> Date = { Date() },
         setBadge: @escaping @MainActor (Int) -> Void = { count in
             Task { try? await UNUserNotificationCenter.current().setBadgeCount(count) }
@@ -98,6 +101,7 @@ final class LifeStore {
         self.approve = approve
         let api = api ?? MCPLifeAPI(client: MCPClient(session: LifeSession(store: tokens)))
         self.api = api
+        parties = PartyBook(pictures: PictureCache(directory: pictures, api: api), generation: PairingGeneration())
         runner = LifeActions(api: api, now: now)
         self.cache = cache
         self.now = now
@@ -209,23 +213,29 @@ final class LifeStore {
     private static let mattersKey = "read_matters"
     private static let agentsKey = "read_registered_agents"
 
-    private func restore<V: Decodable & Sendable>(_ update: (ReadState<V>.Event) -> Void, key: String) {
+    private func restore<V: Decodable & Sendable & NamesParties>(_ update: (ReadState<V>.Event) -> Void, key: String) {
         guard let kept = cache.load(key),
             let value = try? LibraryStore.feedDecoder.decode(V.self, from: Data(kept.text.utf8))
         else { return }
+        parties.remember(value.parties, at: kept.at, pairing: parties.generation.current)
         update(.succeeded(value, kept.at))
     }
 
-    private func load<V: Decodable & Sendable>(
+    private func load<V: Decodable & Sendable & NamesParties>(
         _ update: (ReadState<V>.Event) -> Void, key: String?,
         fetch: @Sendable (any LifeAPI) async throws -> String
     ) async {
         update(.started)
+        let pairing = parties.generation.current
+        // A read of the Life paired before this one applies nothing, not even its failure: no save, no screen, no reset.
+        guard let answer = await parties.generation.answer({ try await fetch(api) }) else { return }
         do {
-            let text = try await fetch(api)
+            let text = try answer.get()
             let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(text.utf8))
             if let key { cache.store(text, key: key) }
-            update(.succeeded(value, now()))
+            let at = now()
+            parties.remember(value.parties, at: at, pairing: pairing)
+            update(.succeeded(value, at))
         } catch _ where Task.isCancelled {
             // The screen that asked left: the read stands as it was.
             update(.failed(.cancelled))
@@ -510,6 +520,7 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
+        parties.startOver()
         holds.clear()
         onStep(.reading)
         await refresh()

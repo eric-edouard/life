@@ -6,6 +6,7 @@ import { SECRETS } from "../core/secret";
 import { openReadOnly } from "../core/sqlite";
 import type { Outgoing, Picture, SendPath } from "./contract";
 import {
+  chatTakesOf,
   contentOf,
   featureProblemOf,
   type RoomFeatures,
@@ -800,6 +801,12 @@ export function matrixSend(
       }
       const event = await sendEvent(bridge, room, d, named, txn, w, onHanded);
       return d.reaction ? event : idOf(d.chat, event, w.bridges, w.synapse);
+    },
+    takes: (chat) => {
+      const room = roomsOf()(chat);
+      return chatTakesOf(
+        room ? roomFeaturesOf(room, where().synapse) : undefined
+      );
     },
   };
 }
