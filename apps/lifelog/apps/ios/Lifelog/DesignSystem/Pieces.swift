@@ -8,10 +8,10 @@ extension Color {
     static let fillTint = Palette.fg.opacity(0.08)
 }
 
-/// The pill buttons: the filled one (cream in dark) and the quiet one, in three sizes, and busy while an action runs.
-/// A label that does not fit takes a second line, and the pill grows with it.
+/// The pill buttons: the filled one (cream in dark), the quiet one, and the done one (`ok`, an action that worked), in
+/// three sizes, and busy while an action runs. A label that does not fit takes a second line, and the pill grows with it.
 struct PillStyle: ButtonStyle {
-    enum Kind { case filled, quiet }
+    enum Kind { case filled, quiet, done }
     /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row; `row` is one of several
     /// answers stacked, each on its line.
     enum Size: CGFloat { case large = 54, row = 48, compact = 44 }
@@ -23,7 +23,7 @@ struct PillStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        let isFilled = kind == .filled && !isBusy
+        let isFilled = kind != .quiet && !isBusy
         HStack(spacing: 8) {
             if isBusy { Spinner() }
             configuration.label.multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
@@ -32,7 +32,8 @@ struct PillStyle: ButtonStyle {
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)
         .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
         .frame(maxWidth: .infinity, minHeight: size.rawValue)
-        .background(isFilled ? Palette.fg : Color.fillTint, in: .capsule)
+        .background(isFilled ? (kind == .done ? Palette.ok : Palette.fg) : Color.fillTint, in: .capsule)
+        .motion(Motion.standard, value: kind == .done)
         .opacity(isBusy ? 1 : isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
         .contentShape(.capsule)
         .allowsHitTesting(!isBusy)
@@ -200,11 +201,13 @@ struct InlinePill: View {
     }
 }
 
-/// Two or three choices in one capsule; tapping the chosen one clears it.
+/// Two or three choices in one capsule, each with its symbol before it when `icon` gives one; tapping the chosen one
+/// clears it.
 struct SegmentedChoice<Choice: Hashable>: View {
     let choices: [Choice]
     @Binding var selection: Choice?
     let title: (Choice) -> String
+    var icon: (Choice) -> String? = { _ in nil }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -213,14 +216,21 @@ struct SegmentedChoice<Choice: Hashable>: View {
                 Button {
                     selection = isChosen ? nil : choice
                 } label: {
-                    Text(title(choice)).font(.chip).foregroundStyle(isChosen ? Palette.on : Palette.fg)
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .background(isChosen ? Palette.fg : .clear, in: .capsule)
+                    HStack(spacing: 6) {
+                        if let symbol = icon(choice) {
+                            Image(systemName: symbol).font(.system(size: 16)).accessibilityHidden(true)
+                        }
+                        Text(title(choice)).font(.chip)
+                    }
+                    .foregroundStyle(isChosen ? Palette.on : Palette.fg)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(isChosen ? Palette.fg : .clear, in: .capsule)
                 }
                 .buttonStyle(.plain).accessibilityAddTraits(isChosen ? .isSelected : [])
             }
         }
         .background(Palette.tile, in: .capsule)
+        .motion(Motion.standard, value: selection)
     }
 }
 

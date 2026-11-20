@@ -8,7 +8,7 @@ struct CardInput: Equatable {
     var showsWhy = false
 }
 
-/// A link on the ask and what it does: "Why?", "Before and after", or "Tell the agent…".
+/// A link on the ask and what it does: "Why?" or "Tell the agent…".
 struct AskLink {
     let title: String
     let run: () -> Void
@@ -26,6 +26,7 @@ struct CheckActions: View {
     let links: [AskLink]
     let answer: (AnswerRequest) -> Void
     let sameAs: () -> Void
+    let create: (String) -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(LifeStore.self) private var life
@@ -139,6 +140,15 @@ struct CheckActions: View {
                 }
                 .buttonStyle(PersonAnswerStyle())
             }
+            others(shown.map { option in Choice(id: option.id, label: label(of: option)) { tap(option) } })
+        } else if check.createsByName, let name = check.askedName {
+            // "Create <name>" opens the create sheet: not an answer yet, so nothing is held.
+            Button {
+                create(name)
+            } label: {
+                Label("Create \(name)", systemImage: "person.badge.plus").lineLimit(1)
+            }
+            .buttonStyle(.pill(.filled))
             others(shown.map { option in Choice(id: option.id, label: label(of: option)) { tap(option) } })
         } else if let first = shown.first {
             Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))

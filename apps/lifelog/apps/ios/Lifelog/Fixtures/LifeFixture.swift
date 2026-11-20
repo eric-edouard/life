@@ -9,8 +9,8 @@
     /// slowly, or not at all, so every state of every screen can be put on screen and photographed.
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (a tapped push's one-card read takes 5 s), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
-    /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused); `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|agent|pair|pairing|replacePendant|pairPendant`
+    /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused; `sending`: it never ends); `-fixtureStart started|starting|failed`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|search`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings|agent|pair|pairing|replacePendant|pairPendant|create`
     /// open the screen to show. `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -267,6 +267,7 @@
                 }
                 if draft != nil, step == "confirmed", Self.refused.contains(LifeFixture.answer) { break }
                 if draft == nil, LifeFixture.answer == "failed" { throw MCPError.refused("Your Mac did not take it.") }
+                if draft == nil, LifeFixture.answer == "sending" { try await Task.sleep(for: .seconds(3_600)) }
                 onProgress(message(["step": step, "at": at(18, 14, 3)]))
             }
             if draft != nil, Self.refused.contains(LifeFixture.answer) {
@@ -586,31 +587,14 @@
                             "at": at(14, 12), "by": "Camille Vance", "channel": "whatsapp", "to": "Sam",
                             "text": "Marc nous a trouvé une table pour huit chez Odile.",
                         ],
-                        "around": [
-                            "before": [
-                                [
-                                    "at": at(14, 11, 58), "by": "Sam", "channel": "whatsapp", "to": "Camille Vance",
-                                    "text": "Tu as réussi à réserver ?",
-                                ]
-                            ],
-                            "after": [
-                                [
-                                    "at": at(14, 12, 2), "by": "Sam", "channel": "whatsapp", "to": "Camille Vance",
-                                    "text": "Génial, merci.",
-                                ]
-                            ],
-                        ],
                         "about": ["Marc"],
                         "clips": [
                             clip(
                                 at(14, 12), "Marc nous a trouvé une table pour huit chez Odile.", job: clipJob2,
                                 from: 16.0, to: 21.0)
                         ],
-                        "likelyPeople": [
-                            ["name": "Marc Delmas", "person": "person:marc", "line": "Colleague, Camille’s brother"],
-                            ["name": "Marcus Hale", "person": "person:marcus"],
-                        ],
                         "onMatters": [table],
+                        "ridesOn": ["observations": 3, "matters": 1, "pages": 0],
                     ])
             ]
             + (7...12).map { number in

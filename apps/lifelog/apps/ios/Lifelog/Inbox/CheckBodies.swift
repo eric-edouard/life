@@ -6,22 +6,19 @@ import SwiftUI
 // `draft`, `evidence`), drawn on the Ask panel's `tile`. `CheckCard` picks them by what the check holds, never by its
 // group's wording. A sentence's who-and-when is never dimmed; a sentence may be.
 
-/// A sentence's words with each of `names` in bold: in the `regular` step, the names in the `bold` one.
+/// A sentence's words in quotes, with each of `names` in bold.
 struct NamedWords: View {
     let said: Check.Said
     let names: [String]
-    var regular = TypeStep.quote
-    var bold = TypeStep.quoteBold
-    var isQuoted = true
 
     @Environment(\.dynamicTypeSize) private var size
 
     var body: some View {
         var words = AttributedString(said.text)
         for range in said.text.ranges(ofNames: names) {
-            if let shown = Range(range, in: words) { words[shown].font = bold.font(at: size) }
+            if let shown = Range(range, in: words) { words[shown].font = TypeStep.quoteBold.font(at: size) }
         }
-        return Text(isQuoted ? AttributedString("“") + words + AttributedString("”") : words).font(regular)
+        return Text(AttributedString("“") + words + AttributedString("”")).font(.quote)
     }
 }
 

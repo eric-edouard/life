@@ -61,3 +61,36 @@ struct RoundIconButton: View {
         .buttonStyle(.plain).accessibilityLabel(label)
     }
 }
+
+/// One row of a sheet's fields (`field_rows`): a small `muted` label, "Life's guess" after it in `ai` while the value is
+/// Life's, the value under it, a pencil at the end. A tap anywhere edits the value in place, on the page's fill.
+struct FieldRow: View {
+    let label: String
+    var prompt = ""
+    @Binding var text: String
+    var isGuess = false
+
+    @FocusState private var isEditing: Bool
+
+    var body: some View {
+        HStack(spacing: Metrics.Spacing.m) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                HStack(spacing: Metrics.Spacing.s) {
+                    Text(label).foregroundStyle(Palette.muted)
+                    if isGuess { Text("Life’s guess").foregroundStyle(Palette.ai).appears() }
+                }
+                .font(.small)
+                TextField(prompt, text: $text, axis: .vertical).font(.rowFigure).foregroundStyle(Palette.fg)
+                    .focused($isEditing).fixedSize(horizontal: false, vertical: true)
+                    .padding(isEditing ? Metrics.Spacing.m : 0)
+                    .background(isEditing ? Palette.bg : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "pencil").font(.small).foregroundStyle(Palette.muted).accessibilityHidden(true)
+        }
+        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m)
+        .contentShape(.rect).onTapGesture { isEditing = true }
+        .motion(Motion.standard, value: isEditing)
+        .motion(Motion.standard, value: isGuess)
+    }
+}

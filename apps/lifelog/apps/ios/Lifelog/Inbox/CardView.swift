@@ -29,8 +29,8 @@ struct CardView: View {
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
-    /// The ask whose "Same as…" he opened.
-    @State private var sameAsRef: String?
+    /// The sheet open over an ask.
+    @State private var sheet: CardSheet?
 
     var body: some View {
         CardArrangement(
@@ -64,14 +64,28 @@ struct CardView: View {
             try? await Task.sleep(for: .seconds(1.5))
             if !Task.isCancelled { leave(taken, false) }
         }
-        .sheet(item: sameAsCard) { check in
-            SameAsSheet(
-                people: check.likelyPeople,
-                takesNewName: check.namingOption?.takes == .personOrName
-            ) { choice in
-                if let request = check.answer(naming: choice) { submit(check, request) }
+        .task { openFixtureSheet() }
+        .sheet(item: shownSheet) { route in
+            switch route {
+            case .people(let ref):
+                if let check = checks.first(where: { $0.ref == ref }) {
+                    SameAsSheet(
+                        people: check.likelyPeople, takesNewName: check.namingOption?.takes == .personOrName,
+                        cardName: check.askedName
+                    ) { choice in
+                        if let request = check.answer(naming: choice) { submit(check, request) }
+                    } create: {
+                        sheet = creating(check, $0)
+                    }
+                    .sheetStack()
+                }
+            case .create(let check, let name, let nextRef):
+                CreateSheet(check: check, name: name) { request in
+                    sheet = nil
+                    leave(Taken(check: check, request: request, nextRef: nextRef, runtimeName: nil), false)
+                }
+                .sheetStack()
             }
-            .sheetStack()
         }
     }
 
@@ -90,7 +104,8 @@ struct CardView: View {
                                 openMatter: { router.open(matter: $0) },
                                 input: input(check.ref),
                                 isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
-                                answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
+                                answer: { submit(check, $0) }, sameAs: { sheet = .people(ref: check.ref) },
+                                create: { sheet = creating(check, $0) }
                             )
                             .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.card))
                             .padding(.leading, Pager.gap)
@@ -127,11 +142,30 @@ struct CardView: View {
         Binding(get: { notes.inputs[ref] ?? CardInput() }, set: { notes.inputs[ref] = $0 })
     }
 
-    /// The ask whose "Same as…" he opened: that ask, even if the list reorders under the sheet; gone with it.
-    private var sameAsCard: Binding<Check?> {
+    /// The sheet over an ask: its people sheet goes with the ask; the create sheet stays while its answer runs (the ask
+    /// leaves the list then) until it closes itself.
+    private var shownSheet: Binding<CardSheet?> {
         Binding(
-            get: { sameAsRef.flatMap { ref in checks.first { $0.ref == ref } } },
-            set: { if $0 == nil { sameAsRef = nil } })
+            get: {
+                if case .people(let ref) = sheet, !checks.contains(where: { $0.ref == ref }) { return nil }
+                return sheet
+            },
+            set: { sheet = $0 })
+    }
+
+    /// `-fixtureSheet create`: the create sheet over the ask on show, to be photographed.
+    private func openFixtureSheet() {
+        #if DEBUG
+            if LifeFixture.sheet == "create", check.createsByName, let name = check.askedName {
+                sheet = creating(check, name)
+            }
+        #endif
+    }
+
+    /// The create sheet for `check`, with where the asks go once it is created: the ask after it as he opened it (the
+    /// ask leaves the list while its answer runs).
+    private func creating(_ check: Check, _ name: String) -> CardSheet {
+        .create(check, name: name, nextRef: checks.ref(after: check.ref))
     }
 
     private func submit(_ check: Check, _ request: AnswerRequest) {
@@ -148,6 +182,19 @@ struct CardView: View {
         } else {
             notes.taken = taken
             Task { await life.answer(request) }
+        }
+    }
+}
+
+/// A sheet over an ask: its people ("Someone I know…"), or the create sheet with a name.
+private enum CardSheet: Identifiable {
+    case people(ref: String)
+    case create(Check, name: String, nextRef: String?)
+
+    var id: String {
+        switch self {
+        case .people(let ref): "people " + ref
+        case .create(let check, let name, _): "create " + check.ref + " " + name
         }
     }
 }

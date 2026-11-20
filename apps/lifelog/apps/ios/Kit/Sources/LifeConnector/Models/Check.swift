@@ -83,12 +83,6 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let to: String?
     }
 
-    /// The lines of its conversation just before and after the sentence.
-    public struct Around: Decodable, Sendable, Equatable {
-        public let after: [Said]
-        public let before: [Said]
-    }
-
     public struct MatterRef: Decodable, Sendable, Equatable {
         public let id: String
         public let name: String
@@ -201,8 +195,6 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let said: Said?
     /// An ending: what came since the open step.
     public let since: Said?
-    /// A name: lines of its conversation before and after the sentence.
-    public let around: Around?
     /// The matters the answer rides on, by name.
     public let onMatters: [MatterRef]?
     public let options: [Option]
@@ -268,6 +260,24 @@ extension Check {
             return AnswerRequest(ref: ref, options: [option.id], name: name)
         case .name(let name): return AnswerRequest(ref: ref, options: [option.id], person: name)
         }
+    }
+
+    /// The name a name card asks about, whole: the longest of `about`, as said.
+    public var askedName: String? { about?.max { $0.count < $1.count } }
+
+    /// A name card with no one to suggest: its answer is "Create <name>", which opens the create sheet.
+    public var createsByName: Bool {
+        group == .name && likelyPeople.isEmpty && namingOption?.takes == .personOrName && askedName != nil
+    }
+
+    /// The option that says the name is an organization (`organization`, `memory/life-checks.ts`), on a name card.
+    public var organizationOption: Option? { group == .name ? options.first { $0.id == "organization" } : nil }
+
+    /// His answer from the create sheet: the person (through the naming option that takes a name) or the organization
+    /// he named, with his words for who or what it is only when he wrote them.
+    public func answer(creating name: String, note: String?, asOrganization: Bool) -> AnswerRequest? {
+        let option = asOrganization ? organizationOption : namingOption.flatMap { $0.takes == .personOrName ? $0 : nil }
+        return option.map { AnswerRequest(ref: ref, options: [$0.id], note: note, name: name) }
     }
 
     /// His own words: a decision's note (no option), or the option that takes them (a new matter's goal).
