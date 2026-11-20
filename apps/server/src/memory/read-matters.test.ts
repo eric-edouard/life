@@ -143,6 +143,7 @@ test("read_matters lists the open matters, of one project when asked; read_matte
       ...row,
       agents: [],
       communicationStyles: [],
+      projectIds: ["shop-fit-out"],
       steps: [steps[0], { ...steps[1], with: "partner" }],
     });
     // A step's id opens the matter holding it; anchors find it by the first that still names a step.
