@@ -623,6 +623,26 @@
                     ]),
                 guess("guess_idris", name: "Idris Benali", handle: "Idris B.", matter: kitchen),
                 check(
+                    "end_done", group: "ending", title: "Idris Benali owed Sam the supplier price",
+                    question: "Is this done?",
+                    options: [option("outdated", "Yes, done"), option("false", "Not yet")], matter: kitchen,
+                    context: "He wrote the price on Tuesday; nothing in the matter has changed since.",
+                    extra: [
+                        "said": [
+                            "at": at(17, 16), "by": "Idris Benali", "channel": "messenger", "to": "Sam",
+                            "text": "Je t’envoie le prix du fournisseur demain.",
+                        ],
+                        "since": [
+                            "at": at(18, 9), "by": "Idris Benali", "channel": "messenger", "to": "Sam",
+                            "text": "Voilà le prix du fournisseur : 4 200 € posé.",
+                        ],
+                        "onMatters": [kitchen],
+                        "evidence": [
+                            "from": "Idris Benali, Messenger, Tue 17 Nov",
+                            "quote": "Voilà le prix du fournisseur : 4 200 € posé.",
+                        ],
+                    ]),
+                check(
                     "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
                     question: "Is this Camille Vance?",
                     options: [
@@ -650,26 +670,6 @@
                         "said": [
                             "at": at(14, 18), "by": "Camille Vance", "channel": "whatsapp", "to": "Camille Vance",
                             "text": "On réserve chez Odile vendredi ?",
-                        ],
-                    ]),
-                check(
-                    "end_done", group: "ending", title: "Idris Benali owed Sam the supplier price",
-                    question: "Is this done?",
-                    options: [option("outdated", "Yes, done"), option("false", "Not yet")], matter: kitchen,
-                    context: "He wrote the price on Tuesday; nothing in the matter has changed since.",
-                    extra: [
-                        "said": [
-                            "at": at(17, 16), "by": "Idris Benali", "channel": "messenger", "to": "Sam",
-                            "text": "Je t’envoie le prix du fournisseur demain.",
-                        ],
-                        "since": [
-                            "at": at(18, 9), "by": "Idris Benali", "channel": "messenger", "to": "Sam",
-                            "text": "Voilà le prix du fournisseur : 4 200 € posé.",
-                        ],
-                        "onMatters": [kitchen],
-                        "evidence": [
-                            "from": "Idris Benali, Messenger, Tue 17 Nov",
-                            "quote": "Voilà le prix du fournisseur : 4 200 € posé.",
                         ],
                     ]),
             ]
