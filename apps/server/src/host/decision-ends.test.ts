@@ -72,6 +72,7 @@ test("an `ends` option: the plan counts the ticks, the matter closes by his word
   });
   try {
     const { id } = await requestDecision("planner", {
+      context: "A made-up reason to ask.",
       deadline: new Date(Date.now() + 2 * DAY).toISOString(),
       onSilence: null,
       options: [
@@ -140,6 +141,7 @@ test("an `ends` card on a matter's id closes that matter only: not one sharing i
   ] as never);
   try {
     const { id } = await requestDecision("planner", {
+      context: "A made-up reason to ask.",
       deadline: new Date(Date.now() + 2 * DAY).toISOString(),
       onSilence: null,
       options: [
@@ -174,6 +176,7 @@ test("a step card whose step no open matter holds any more, and that never ended
     .mockResolvedValue([] as never);
   try {
     const { id } = await requestDecision("planner", {
+      context: "A made-up reason to ask.",
       deadline: new Date(Date.now() + 2 * DAY).toISOString(),
       onSilence: null,
       options: [
