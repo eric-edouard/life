@@ -163,7 +163,7 @@ export type NameRow = Pick<
  * hold them and the one the card shows: the newest whose quote holds the name, else the newest. A name is asked only
  * while the person matters (his word of 20 Nov 2026, life#724): it was seen on `NAME_ASKED_AFTER_DAYS` days or more (any
  * row), or he exchanged with them (they spoke in a unit holding his words too: `hisUnitsOf`, asked once for the names
- * still in doubt); never a description (this rule decides: the extraction prompt only keeps new rows clean), nor a
+ * still in doubt); never a description unless its sender wrote it (this rule decides: the extraction prompt only keeps new rows clean), nor a
  * name he said not to name (`not-worth-naming`). A card needs a row with an observation; a name not asked stays as
  * written, and is asked again when it returns.
  */
