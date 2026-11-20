@@ -370,7 +370,17 @@ test("the send reads the file again, and sends only the bytes he saw: a file cha
 
 test("the chat's refusal is asked again at the send; a stored draft without a chat sends nothing", async () => {
   let refuse: string | undefined;
-  const net = source("sendnet", [ana()], false, async () => refuse);
+  let sends = 0;
+  const net = source(
+    "sendnet",
+    [ana()],
+    false,
+    async () => refuse,
+    async () => {
+      sends += 1;
+      return "$ev";
+    }
+  );
   const stored = await resolveDraft(
     { channel: "sendnet", text: hi, to: "Test Ana" },
     NOW,
@@ -390,6 +400,7 @@ test("the chat's refusal is asked again at the send; a stored draft without a ch
       [net]
     )
   ).rejects.toThrow("not sent: a reaction is one emoji");
+  expect(sends).toBe(0);
   const { chat: _, ...asked } = stored;
   await expect(
     sendDraft(asked, "dec_000000000005", { since: NOW }, [net])
@@ -412,6 +423,12 @@ test("a mail draft has no chat: its addresses as given, and a reply quotes the m
         id: "mail:other@mail.example.com",
         sender: "bo@example.com",
         text: `Friday?\nCode 424242 ${"z".repeat(300)} is your OTP`,
+      },
+      {
+        ...line("thread-2", "OTP 123456"),
+        id: "mail:code@mail.example.com",
+        sender: "bo@example.com",
+        text: "OTP 123456\nHere it is",
       },
     ]),
     kind: "mail",
@@ -465,6 +482,14 @@ test("a mail draft has no chat: its addresses as given, and a reply quotes the m
   );
   expect(other.recent?.[0]?.text).not.toContain("424242");
   expect(other.quoted?.text).not.toContain("424242");
+  // A quoted subject is redacted too; the subject he approves goes as written.
+  const coded = await resolveDraft(
+    { ...draft, onMessage: "mail:code@mail.example.com" },
+    NOW,
+    [mail]
+  );
+  expect(coded.quoted?.subject).not.toContain("123456");
+  expect(coded.subject).toBe(draft.subject);
   expect(sent.at(-1)).toMatchObject({
     from: "me@example.com",
     to: "ana@example.com",
