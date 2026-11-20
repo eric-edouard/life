@@ -19,8 +19,8 @@ private func idris(_ name: String, picture: String? = nil) -> Party {
     parties.remember([idris("Idris Benali")], at: later, pairing: parties.pairing)
     parties.remember([idris("Idris B.")], at: earlier, pairing: parties.pairing)
     #expect(parties.byRef["person:idris"]?.name == "Idris Benali")
-    parties.remember([idris("Idris Benali-Roux")], at: later, pairing: parties.pairing)
-    #expect(parties.byRef["person:idris"]?.name == "Idris Benali-Roux")
+    parties.remember([idris("Idris Benali-Vance")], at: later, pairing: parties.pairing)
+    #expect(parties.byRef["person:idris"]?.name == "Idris Benali-Vance")
 }
 
 @MainActor @Test func aReadOfTheLastPairingLeavesTheNewOneAlone() async {
