@@ -72,11 +72,11 @@ function personIn(a: CheckAnswer) {
  * by his own word, his truth/ or his Contacts, and only a name no two of them share. Gives the answer with that person's
  * ref and their name, to show what was recorded; a `person:<id>`, or no person, passes as it is.
  */
-async function typedPersonOf(a: CheckAnswer) {
+async function typedPersonOf(a: CheckAnswer, read?: People) {
   if (!a.person || PersonRef.safeParse(a.person).success) {
     return { a, recordedAs: undefined };
   }
-  const people = await readPeople();
+  const people = read ?? (await readPeople());
   const r = people.readingNow(a.person);
   if (!r || r.by === "guess" || (r.isShared && r.by !== "his word")) {
     throw new Error(
@@ -320,10 +320,16 @@ const WRITERS: {
   },
   voice: {
     // "Yes" to the guess in use: the person lifelog suggests (the check's `subject`).
-    "is-them": (c, a, { voice }) =>
-      answerVoice(c, voice, (i) =>
+    "is-them": (c, a, { voice }) => {
+      if (a.name || (a.person && a.person !== c.subject)) {
+        throw new Error(
+          `Not done: "Yes" names the person on ${c.ref}; another person or a name goes with "Someone else…".`
+        );
+      }
+      return answerVoice(c, voice, (i) =>
         thisIs(i, c, { ...a, person: c.subject ?? undefined })
-      ),
+      );
+    },
     media: (c, _a, { voice }) =>
       answerVoice(c, voice, async () => ({ kind: "media" })),
     "not-anyone-i-know": (c, _a, { voice }) =>
@@ -387,7 +393,7 @@ export async function answerCheck(
     );
   }
   const voice = check.group === "voice" ? await readVoice(check) : undefined;
-  const typed = await typedPersonOf(a);
+  const typed = await typedPersonOf(a, voice?.people);
   const done = await write(check, typed.a, {
     addDirectoryEntry,
     onStep,

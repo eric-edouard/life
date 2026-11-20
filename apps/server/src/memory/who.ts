@@ -1,3 +1,4 @@
+import { digest } from "../core/hash";
 import { isSameBirthday } from "../records/fields";
 import {
   CONTACT_PREFIX,
@@ -324,7 +325,11 @@ export const voiceSuggestionOf = (
     ? null
     : voicePersonOf(resolve, item.personId, item.name);
 
-/** A voice card's ref: its lifelog group and the person it suggests, so "Yes" answers only the card he saw (`voiceSuggestionOf`). */
+/**
+ * A voice card's ref: its lifelog group, the recordings his answer would change (a digest of its voices) and the person
+ * it suggests, so an answer reaches only the card he saw (`voiceSuggestionOf`): a group that grew or changed its
+ * suggestion is another card.
+ */
 export const voiceCardRefOf = (
   resolve: (s: string) => string | null,
   item: {
@@ -332,10 +337,14 @@ export const voiceCardRefOf = (
     kind: string;
     name: string | null;
     personId: string | null;
+    voices: { jobId: string; speakerLabel: string }[];
   }
 ) => {
+  const voices = [
+    ...new Set(item.voices.map((v) => `${v.jobId} ${v.speakerLabel}`)),
+  ].sort();
   const suggested = voiceSuggestionOf(resolve, item);
-  return `voice:${item.id}${suggested ? `~${suggested}` : ""}`;
+  return `voice:${item.id}~${digest("sha256", voices.join("\n"), 8)}${suggested ? `~${suggested}` : ""}`;
 };
 
 /**

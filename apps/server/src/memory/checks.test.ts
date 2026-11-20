@@ -351,8 +351,8 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
     inputs([], { voices: [...items, voice("v60", { kind: "several" })] })
   ).filter((c) => c.group === "voice");
   expect(cards).toHaveLength(60);
-  const byRef = (r: string) => cards.find((c) => c.ref === r);
-  const dana = "voice:v0~person:dana";
+  const byRef = (r: string) => cards.find((c) => c.ref.split("~")[0] === r);
+  const dana = "voice:v0";
   // Lifelog's suggestion in use is asked as a guess; the rest are asked who.
   expect(byRef(dana)?.question).toBe("Is this Dana?");
   expect(byRef("voice:v1")?.question).toBe("Who is this?");
@@ -379,7 +379,8 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   expect(byRef("voice:v2")?.evidence?.quote).toBe("See you Friday");
   // Lifelog ranks likely people for every voice: only its suggestion makes a guess in use.
   const guesses = cards.filter((c) => urgencyOf(c) === "improves");
-  expect(guesses.map((c) => c.ref)).toEqual([dana]);
+  expect(guesses.map((c) => c.ref.split("~")[0])).toEqual([dana]);
+  expect(byRef(dana)?.ref.endsWith("~person:dana")).toBe(true);
 });
 
 const HEX16 = /^[0-9a-f]{16}$/;

@@ -8,6 +8,7 @@ import type { InboxCheck } from "./checks";
 import { DECISIONS, decisionsNow, requestDecision } from "./decisions";
 import type { Check } from "./life-checks";
 import { CORRECTIONS, readCorrections } from "./memory-files";
+import { voiceCardRefOf } from "./who";
 
 const check = (ref: string, group: CheckGroup, about: string[] = []) =>
   ({ about, group, kind: group, ref }) as unknown as InboxCheck;
@@ -303,14 +304,15 @@ const item: NamingQueueItem = {
 };
 
 test("a voice's answer goes to lifelog for every turn of it: a known person is assigned, an unknown one confirmed by name, nothing is written", async () => {
-  const voice = check("voice:v1", "voice");
+  const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);
+  const voice = check(voiceCardRefOf(resolve, item), "voice");
   const queue = spyOn(
     await import("../sources/lifelog-voices"),
     "readNamingQueueNow"
   ).mockResolvedValue([item]);
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
     nameOf: (r: string) => (r === "person:dana" ? "Dana" : "Kofi"),
-    resolve: (s: string) => (s === DANA_ID ? "person:dana" : null),
+    resolve,
   } as never);
   const send = spyOn(
     await import("../sources/lifelog-voices"),
@@ -332,9 +334,14 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     queue.mockResolvedValueOnce([known]);
     const dana = {
       ...voice,
-      ref: "voice:v1~person:dana",
+      ref: voiceCardRefOf(resolve, known),
       subject: "person:dana",
     };
+    // "Yes" names the person on the card only: a typed name goes with "Someone else…".
+    await expect(
+      answerCheck(dana, { name: "Kofi", options: ["is-them"] })
+    ).rejects.toThrow('"Yes" names the person');
+    queue.mockResolvedValueOnce([known]);
     await answerCheck(dana, { options: ["is-them"] });
     await answerCheck(voice, { options: ["not-anyone-i-know"] });
     await answerCheck(voice, { options: ["media"] });
@@ -354,22 +361,29 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     await expect(answerCheck(voice, { options: ["is-them"] })).rejects.toThrow(
       "give person or name"
     );
-    // The card he saw changed in lifelog (now several people, or another suggestion): nothing is sent.
+    // The card he saw changed in lifelog (now several people, another suggestion, or one more recording): nothing is sent.
     const sent = send.mock.calls.length;
     for (const now of [
       { ...known, kind: "several" as const },
       { ...known, personId: null },
+      {
+        ...known,
+        voices: [
+          ...known.voices,
+          { conversationId: "c2", jobId: "job-2", speakerLabel: "B" },
+        ],
+      },
     ]) {
       queue.mockResolvedValueOnce([now]);
       // biome-ignore lint/performance/noAwaitInLoops: each case uses the queue it just set
       await expect(answerCheck(dana, { options: ["is-them"] })).rejects.toThrow(
-        "no open check voice:v1~person:dana"
+        `no open check ${dana.ref}`
       );
     }
     expect(send.mock.calls.length).toBe(sent);
     queue.mockResolvedValue([]);
     await expect(answerCheck(voice, { options: ["media"] })).rejects.toThrow(
-      "Not done: no open check voice:v1"
+      `Not done: no open check ${voice.ref}`
     );
     expect(said()).toEqual([]);
   } finally {
