@@ -10,7 +10,6 @@ import {
 import { join } from "node:path";
 import { clock, iso } from "../core/clock";
 import { writeJson } from "../core/files";
-import { log } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { readContactPictures } from "../sources/contacts";
 import type { Picture } from "../sources/contract";
@@ -101,38 +100,19 @@ function writeWhole(path: string, write: (to: string) => void) {
 /**
  * Finds every person's pictures and keeps them: new files written, the index (`{ built, people }`) replaced whole, then
  * the files no one shows any more removed. A card is placed as Life places it (`readPeople`'s folds: an ambiguous card
- * stays its own). When a source he turned on can't be read (or can't be now: `missing`), nothing changes: the last
- * pictures stand. ponytail: one source failing for good freezes them all; per-source keeping if that ever happens.
+ * stays its own). A reader returns nothing for what isn't there and throws when it can't read: then nothing changes,
+ * the last pictures stand (the watcher logs why). ponytail: one reader failing for good freezes them all; per-source
+ * keeping if that ever happens.
  */
 export async function writePersonPictures() {
-  const failed: string[] = [];
-  const read = <T>(source: string, pictures: () => T[]) => {
-    try {
-      return pictures();
-    } catch (e) {
-      failed.push(source);
-      log("run.error", { error: String(e), step: `pictures.${source}` });
-      return [];
-    }
-  };
   const people = await readPeople();
   const found = personPicturesOf(
-    read(CONTACTS, () => readContactPictures()),
-    enabledSources().flatMap((s) => {
-      if (!s.pictures) {
-        return [];
-      }
-      if (s.missing?.()) {
-        failed.push(s.name);
-        return [];
-      }
-      return [{ pictures: read(s.name, s.pictures), source: s.name }];
-    }),
+    readContactPictures(),
+    enabledSources().flatMap((s) =>
+      s.pictures ? [{ pictures: s.pictures(), source: s.name }] : []
+    ),
     people
   );
-  if (failed.length > 0) {
-    return 0;
-  }
   mkdirSync(PERSON_PICTURES, { recursive: true });
   for (const [file, bytes] of found.files) {
     const path = join(PERSON_PICTURES, file);
