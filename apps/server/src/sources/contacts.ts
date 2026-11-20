@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
-import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { log } from "../core/log";
 import { APP_DATA } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
@@ -214,6 +214,58 @@ export function readContactRecords(dir = DIR): Contact[] {
     } catch (e) {
       failed(e);
       return [];
+    }
+  });
+}
+
+/** Core Data's mark before a stored blob: the bytes follow it, or (`EXTERNAL`) the name of the file holding them. */
+const INLINE = 1;
+const EXTERNAL = 2;
+const TRAILING_NULS = /\0+$/;
+/** A card's picture: its bytes, or the file Core Data moved them to (`.<db>_SUPPORT/_EXTERNAL_DATA/<name>`). */
+function imageOf(blob: Uint8Array, file: string) {
+  if (blob[0] === INLINE) {
+    return blob.subarray(1);
+  }
+  const name = new TextDecoder()
+    .decode(blob.subarray(1))
+    .replace(TRAILING_NULS, "");
+  const path = join(
+    dirname(file),
+    `.${basename(file, ".abcddb")}_SUPPORT`,
+    "_EXTERNAL_DATA",
+    name
+  );
+  return blob[0] === EXTERNAL && existsSync(path)
+    ? readFileSync(path)
+    : undefined;
+}
+
+/**
+ * The picture on each card that has one, by card id: its full image, else its thumbnail. Throws when a database can't be
+ * read: the caller keeps what it had.
+ */
+export function readContactPictures(dir = DIR) {
+  return databases(dir).flatMap((file) => {
+    const db = openReadOnly(file);
+    try {
+      return db
+        .query<
+          { card: string; full: Uint8Array | null; thumb: Uint8Array | null },
+          []
+        >(
+          `select ZUNIQUEID as card, ZIMAGEDATA as full, ZTHUMBNAILIMAGEDATA as thumb from ZABCDRECORD
+           where ZUNIQUEID is not null and coalesce(ZIMAGEDATA, ZTHUMBNAILIMAGEDATA) is not null`
+        )
+        .all()
+        .flatMap((r) => {
+          const bytes =
+            (r.full && imageOf(r.full, file)) ??
+            (r.thumb && imageOf(r.thumb, file));
+          return bytes ? [{ bytes, card: r.card }] : [];
+        });
+    } finally {
+      db.close();
     }
   });
 }

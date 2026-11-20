@@ -16,6 +16,7 @@ import {
 import { LEDGER, readLedger } from "../memory/memory-files";
 import { isLocked, locked, lockedSince } from "../memory/memory-lock";
 import { describeFilesOnArrival } from "../memory/message-files";
+import { writePersonPictures } from "../memory/person-pictures";
 import { listening, quietly, readySources } from "../memory/sources";
 import { publishTodayUnits, syncLifelogUnits } from "../memory/unit-writer";
 import { embedderNow, embedNew } from "../memory/vectors";
@@ -378,12 +379,14 @@ export async function watch(): Promise<number> {
   minute();
   embedEvery();
   describeEvery();
+  picturesEvery();
   const timers = [
     setInterval(minute, MIN),
     setInterval(pushNewDecisionsAtOnce, DECISIONS_EVERY),
     setInterval(embedEvery, EMBED_EVERY),
     setInterval(describeEvery, DESCRIBE_EVERY),
     setInterval(todayEvery, TODAY_EVERY),
+    setInterval(picturesEvery, HOUR),
   ];
   try {
     return await (listening() ? listen(running, started) : quiet(running));
@@ -509,6 +512,22 @@ export async function mailStuckLock() {
       lockReport(held.toISOString())
     );
   }
+}
+
+let keepingPictures = false;
+/** Each hour, one at a time, off the night's path: the person pictures (`memory/person-pictures.ts`). */
+function picturesEvery() {
+  if (keepingPictures) {
+    return;
+  }
+  keepingPictures = true;
+  writePersonPictures()
+    .catch((e: Error) =>
+      log("run.error", { error: e.message, step: "watch.pictures" })
+    )
+    .finally(() => {
+      keepingPictures = false;
+    });
 }
 
 function embedEvery() {

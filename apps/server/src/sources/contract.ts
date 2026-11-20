@@ -82,6 +82,12 @@ export interface NewRow {
   row: number;
 }
 
+/** A picture someone shows on a source (a person picture, `docs/glossary.md`), by the handles Life reads them as. */
+export interface Picture {
+  bytes: Uint8Array;
+  handles: string[];
+}
+
 export type Descriptor = {
   /** How many days back `chats --chat` reads it. */
   chatDays?: number;
@@ -113,6 +119,8 @@ export type Descriptor = {
   macOnly?: true;
   /** What he calls it. */
   label: string;
+  /** The pictures its people show (a bridge's ghosts' avatars, the photos shared through Messages); none without. */
+  pictures?: () => Picture[];
   /** How a card's draft goes into one of its chats (`memory/draft-send.ts`); a source without it sends nothing. */
   send?: SendPath;
   /** The app store the archive keeps a copy of; its units are read from that copy. */

@@ -94,3 +94,13 @@ export function readBplist(bytes: Uint8Array): Plist {
   }
   return read(Number(view.getBigUint64(trailer + 16)));
 }
+
+/** An NSKeyedArchiver archive: its root object, and `deref`, which follows a `Uid` to the object it names. */
+export function readKeyedArchive(bytes: Uint8Array) {
+  const archive = readBplist(bytes) as { $objects: Plist[]; $top: Plist };
+  const deref = (v: Plist | undefined): Plist | undefined =>
+    v && typeof v === "object" && "uid" in v
+      ? archive.$objects[(v as Uid).uid]
+      : v;
+  return { deref, root: deref((archive.$top as { root: Plist }).root) };
+}

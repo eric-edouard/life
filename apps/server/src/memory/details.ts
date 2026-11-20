@@ -164,14 +164,20 @@ export function detailsBlock(lines: DetailLine[], today: string) {
   ];
 }
 
-/** Every person's details now (`detailsOf`): truth/ and his Contacts (whose by `resolve`). */
+/** Whose a Contacts card is: the person its first handle `resolve`s to. The one rule, for details and pictures. */
+export const whoseCardOf =
+  (resolve: People["resolve"]) => (c: Pick<Contact, "handles">) =>
+    c.handles.map(resolve).find(Boolean) ?? undefined;
+
+/** Every person's details now (`detailsOf`): truth/ and his Contacts (whose by `whoseCardOf`). */
 export function readDetailsOf(
   people: Pick<People, "resolve" | "truth">,
   records: Contact[] = readContactRecords()
 ) {
   const contacts = new Map<string, Contact[]>();
+  const whose = whoseCardOf(people.resolve);
   for (const c of records) {
-    const ref = c.handles.map(people.resolve).find(Boolean);
+    const ref = whose(c);
     if (ref) {
       contacts.set(ref, [...(contacts.get(ref) ?? []), c]);
     }

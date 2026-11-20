@@ -1,14 +1,18 @@
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { type Plist, readKeyedArchive } from "../core/bplist";
 import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import { handleKey, readContacts } from "./contacts";
-import type { Newest, NewRow } from "./contract";
+import type { Newest, NewRow, Picture } from "./contract";
 import { sourceFile } from "./contract";
 
 // iMessage and SMS from the Mac's Messages database, opened read-only. Never written.
 
 export const DB = join(HOME, "Library", "Messages", "chat.db");
+/** Messages' cache of what people share through Name and Photo Sharing. */
+const NICKNAMES = join(HOME, "Library", "Messages", "NickNameCache");
 const TILDE = /^~/;
 // Messages stores dates as nanoseconds since 2001-01-01.
 const APPLE_EPOCH_S = 978_307_200;
@@ -193,4 +197,43 @@ export function newestImessage(): Newest {
   } finally {
     db.close();
   }
+}
+
+/**
+ * The photos people share with him through Messages' Name and Photo Sharing, by their handle: the cache's active
+ * records map a handle to a record id, whose photo is the file `<id, its / as _>-ad`. None when the cache holds none.
+ */
+export function readSharedPictures(dir = NICKNAMES): Picture[] {
+  const store = join(dir, "nicknameRecordsStore.db");
+  if (!existsSync(store)) {
+    return [];
+  }
+  const db = openReadOnly(store);
+  let value: Uint8Array | undefined;
+  try {
+    value = db
+      .query<{ value: Uint8Array }, []>(
+        "select value from kvtable where key = 'activeNicknameRecords'"
+      )
+      .get()?.value;
+  } finally {
+    db.close();
+  }
+  if (!value) {
+    return [];
+  }
+  const { deref, root } = readKeyedArchive(value);
+  const { "NS.keys": keys = [], "NS.objects": ids = [] } = root as Record<
+    string,
+    Plist[]
+  >;
+  return keys.flatMap((k, i) => {
+    const handle = deref(k);
+    const id = deref(ids[i]);
+    const file =
+      typeof id === "string" && join(dir, `${id.replaceAll("/", "_")}-ad`);
+    return typeof handle === "string" && file && existsSync(file)
+      ? [{ bytes: readFileSync(file), handles: [handle] }]
+      : [];
+  });
 }

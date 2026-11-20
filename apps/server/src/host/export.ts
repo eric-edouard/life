@@ -26,6 +26,10 @@ import {
   VECTORS,
 } from "../memory/memory-files";
 import { LOCK, locked } from "../memory/memory-lock";
+import {
+  PERSON_PICTURES,
+  PERSON_PICTURES_INDEX,
+} from "../memory/person-pictures";
 import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
 import { storeFiles, WATCH } from "../sources/lifelog";
@@ -42,7 +46,7 @@ export const FORMAT = 1;
 export const pathIn = (dir: string, p: string) => slashed(relative(dir, p));
 
 /**
- * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the mentions, the recorded days), the watcher's store (copied whole on its own), and the
+ * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the mentions, the recorded days, the person pictures), the watcher's store (copied whole on its own), and the
  * secrets.
  */
 const KEPT_OUT = [
@@ -53,6 +57,8 @@ const KEPT_OUT = [
   EXCHANGE_COUNTS,
   MENTIONS,
   RECORDED_DAYS,
+  PERSON_PICTURES,
+  PERSON_PICTURES_INDEX,
   ...Object.values(SECRETS),
 ].map((p) => pathIn(LIFE_STATE_DIR, p));
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
