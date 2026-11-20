@@ -36,12 +36,7 @@ struct SameAsSheet: View {
                         Button {
                             pick(.person(person.ref))
                         } label: {
-                            FlatRow(
-                                lead: .person(person.name), detail: person.line, slotSize: Metrics.FlatRow.personSlot
-                            ) {
-                                Text(person.name).font(.rowName)
-                            } trailing: {
-                            }
+                            PartyRow(person).frame(minHeight: Metrics.FlatRow.personRow).contentShape(.rect)
                         }
                         .buttonStyle(.plain)
                     }

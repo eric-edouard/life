@@ -179,6 +179,17 @@
             try await gate()
             return LifeLinkRead.heading + "\n\n" + ref
         }
+        /// The made-up cast's pictures (`pictures/<id>.jpg` beside the design data, `reads`), as Life sends them.
+        func readPersonPictures(_ ids: [String]) async throws -> String {
+            try await gate()
+            let folder = URL(filePath: LifeFixture.reads).appending(path: "pictures")
+            let found = ids.compactMap { id in
+                (try? Data(contentsOf: folder.appending(path: id + ".jpg"))).map {
+                    ["id": id, "mime": "image/jpeg", "data": $0.base64EncodedString()]
+                }
+            }
+            return json(["pictures": found, "missing": ids.filter { id in !found.contains { $0["id"] == id } }])
+        }
 
         func readMatter(_ id: String) async throws -> String {
             try await gate()

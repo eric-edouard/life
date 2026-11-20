@@ -109,10 +109,7 @@ public struct MatterList: Decodable, Sendable, Equatable {
         let query = query.trimmingCharacters(in: .whitespaces)
         guard !query.isEmpty else { return matters }
         return matters.filter { row in
-            let people = [row.people?.owedTo, row.people?.waitingOn, row.people?.with, row.people?.told].compactMap(
-                \.self
-            ).flatMap(\.self).map(\.name)
-            return ([row.name, row.goal?.text, row.nextStep?.text].compactMap(\.self) + people)
+            ([row.name, row.goal?.text, row.nextStep?.text].compactMap(\.self) + row.parties.map(\.name))
                 .contains { $0.localizedStandardContains(query) }
         }
     }

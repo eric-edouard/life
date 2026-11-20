@@ -3,12 +3,13 @@ import SwiftUI
 
 /// What leads a flat row, in its round slot.
 enum FlatLead {
-    case person(String)
+    /// Their disc (28), by name only when Life can't place them.
+    case person(name: String, party: Party?)
     case symbol(String)
 }
 
-/// One row of a flat list (an agent's wake list, the people sheet). Not a settings `Row`: the wake list is flat (no fill, no dividers), each row 48 high
-/// with a round 32 lead (40 in the people sheet), the title, a small line under it and one thing at the right. Muted when
+/// One row of a flat list (an agent's wake list, the people sheet's "Create"). Not a settings `Row`: the wake list is flat (no fill, no
+/// dividers), each row 48 high with a round 32 lead (40 in the people sheet), the title, a small line under it and one thing at the right. Muted when
 /// the line can never fire.
 struct FlatRow<Title: View, Trailing: View>: View {
     let lead: FlatLead
@@ -35,7 +36,11 @@ struct FlatRow<Title: View, Trailing: View>: View {
 
     @ViewBuilder private var slot: some View {
         switch lead {
-        case .person(let name): Avatar(name: name, size: slotSize, fill: Palette.tile).opacity(isMuted ? 0.45 : 1)
+        case .person(let name, let party):
+            Group {
+                if let party { PartyDisc(party, size: .pick) } else { PartyDisc(name: name, size: .pick) }
+            }
+            .frame(width: slotSize).opacity(isMuted ? 0.45 : 1)
         case .symbol(let symbol):
             Image(systemName: symbol).font(.smallStrong).foregroundStyle(Palette.fg)
                 .frame(width: slotSize, height: slotSize)
