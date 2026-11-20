@@ -313,8 +313,8 @@ test("a voice answer naming someone by a typed name reads his people once", asyn
   ).mockResolvedValue([item]);
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
     nameOf: () => "Dana",
-    readingNow: (name: string) =>
-      name === "Dana"
+    readingNow: (typed: string) =>
+      typed === "Dana"
         ? { by: "his word", isShared: false, ref: "person:dana" }
         : undefined,
     resolve,
