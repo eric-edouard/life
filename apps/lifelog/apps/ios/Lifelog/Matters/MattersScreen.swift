@@ -167,7 +167,8 @@ struct MattersScreen: View {
             }
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
-        .contentMargins(.bottom, 24, for: .scrollContent)
+        // Room under the last row, on top of the floating filter's (`filterBar`): a safe area adds, a content margin replaces.
+        .safeAreaPadding(.bottom, Metrics.Spacing.xl)
         .motion(Motion.standard, value: rows.map(\.id))
         .scrollDismissesKeyboard(.interactively)
     }
@@ -204,8 +205,11 @@ struct MatterRowView: View {
             }
         }
         .opacity(parked ? 0.45 : 1)
-        .background(isChosen ? Palette.card : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
-        .padding(.horizontal, 8)
+        // The content on the page's gutter (the row's own inset); the chosen one's fill inset from the edges.
+        .background {
+            RoundedRectangle(cornerRadius: Metrics.Radius.passage).fill(isChosen ? Palette.card : .clear)
+                .padding(.horizontal, Metrics.Spacing.s)
+        }
         .motion(Motion.standard, value: isChosen)
         .motion(Motion.standard, value: isMarked)
         .accessibilityElement(children: .combine)

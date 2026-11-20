@@ -180,6 +180,8 @@ private struct StepsAsideForToast: ViewModifier {
 private struct SaidBackToast: ViewModifier {
     let inSideColumn: Bool
     @Environment(LifeStore.self) private var life
+    /// The closed Duo, where no bar holds the toast: its slot is 10 from the screen's top, over the stepped-aside title.
+    @State private var isClosed = false
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .top) {
@@ -189,8 +191,11 @@ private struct SaidBackToast: ViewModifier {
                         .appears().id(said.id)
                 }
             }
+            .padding(.top, isClosed ? 10 : 0)
+            .ignoresSafeArea(.container, edges: isClosed ? .top : [])
             .motion(Motion.standard, value: life.saidBack?.id)
         }
+        .reportsSideColumn($isClosed)
     }
 }
 
@@ -470,6 +475,8 @@ private struct FilterBar<Choices: View>: ViewModifier {
                             .padding(.leading, Metrics.gutter).padding(.bottom, bottom).appears()
                     }
                 }
+                // 24 from the screen's bottom, as the closed Duo's list draws it, not from its safe area.
+                .ignoresSafeArea(.container, edges: isInColumn ? .bottom : [])
                 .motion(Motion.standard, value: isInColumn)
             }
     }

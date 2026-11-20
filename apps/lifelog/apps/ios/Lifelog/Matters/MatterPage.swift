@@ -57,18 +57,20 @@ struct MatterPage: View {
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24).readingWidth()
         }
-        .scrollEdgeEffectStyle(.soft, for: .bottom)
-        // Floating over the content: the bar reserves the space and gives the scroll its soft edge.
+        // Pinned below the content, full width: the hard edge is solid behind the buttons, so nothing shows through them.
+        .scrollEdgeEffectStyle(.hard, for: .bottom)
         .safeAreaBar(edge: .bottom) {
             GlassEffectContainer(spacing: 8) {
                 VStack(spacing: 8) {
                     if canStart {
-                        Button(agent == nil ? "Start an agent" : "Start again") { router.matterSheet = .start(id) }
-                            .primaryGlassButton()
+                        Button { router.matterSheet = .start(id) } label: {
+                            Text(agent == nil ? "Start an agent" : "Start again").frame(maxWidth: .infinity)
+                        }
+                        .primaryGlassButton()
                     }
                     DoneButton(id: id)
                 }
-                .controlSize(.large).frame(maxWidth: .infinity)
+                .controlSize(.large)
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth()
         }
@@ -263,11 +265,14 @@ private struct DoneButton: View {
             Button {
                 Task { await life.markDone(id) }
             } label: {
-                switch state {
-                case .running: Text("Marking it done…")
-                case .succeeded: Label("Marked as done", systemImage: "checkmark")
-                default: Label("Mark as done", systemImage: "checkmark")
+                Group {
+                    switch state {
+                    case .running: Text("Marking it done…")
+                    case .succeeded: Label("Marked as done", systemImage: "checkmark")
+                    default: Label("Mark as done", systemImage: "checkmark")
+                    }
                 }
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(.glass).disabled(state.isRunning)
             LimitNote(state: state) { $0.map { "Takes \($0)." } ?? "" }

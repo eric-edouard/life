@@ -30,7 +30,6 @@ struct ProjectPage: View {
                 Text(head.name).font(.screenName).foregroundStyle(Palette.fg)
                     .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
                     .stepsAsideForToast()
-                    .padding(.top, Metrics.Spacing.s)
                 SegmentedChoice(
                     choices: [ProjectStatus.active, .parked, .done],
                     selection: Binding(
@@ -41,11 +40,12 @@ struct ProjectPage: View {
                     Text(line).font(.small).foregroundStyle(Palette.muted).appears()
                 }
                 if let goal = head.goal {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Caps("Goal")
-                        Text(goal).font(.lead).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                        Caps("Goal", color: Palette.muted)
+                        Text(goal).font(.bodyStrong).foregroundStyle(Palette.fg)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+                    .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m)
                     .frame(maxWidth: .infinity, alignment: .leading).card()
                 }
                 VStack(spacing: 0) {
@@ -60,7 +60,8 @@ struct ProjectPage: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, -Metrics.Spacing.s)
+                // Full width: the rows keep the gutter themselves, as on the list.
+                .padding(.horizontal, -Metrics.gutter)
             }
             .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xl).readingWidth()
             .motion(Motion.standard, value: status)
