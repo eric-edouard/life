@@ -547,6 +547,7 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(written.earlierPick(of: try row("owner", "sign"), loadedAt: read) == nil)
     // A read after the write: the row says what Life holds now.
     #expect(written.earlierPick(of: try row("owner", "hammer"), loadedAt: readAgain) == "hammer")
+}
 
 /// His answer is confirmed while a read asked before it is still on its way: that read, landing after, still lists the
 /// card, and the card stays out. A read asked after the answer wins, even one that lists it (Life kept it open).
