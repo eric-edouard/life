@@ -157,7 +157,7 @@ export const assignmentOf = (db: Database, id: string) =>
 export const openAssignments = (db: Database) =>
   db
     .query<AssignmentRow, [number]>(
-      "select s.* from assignment s where s.closed_at is null and s.agent_id in (select id from agent where status = 'active' order by created_at limit ?) order by s.opened_at"
+      "select s.* from assignment s where s.closed_at is null and s.agent_id in (select id from agent where status = 'active' order by created_at limit ?) order by s.opened_at, s.rowid"
     )
     .all(MAX_ACTIVE);
 
