@@ -3,7 +3,11 @@ import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { isOwnLife } from "../core/platform";
 import { same, secretIn } from "../core/secret";
-import { agentKindOf, agentOf } from "../host/desk-read";
+import {
+  type AssignmentRow,
+  agentOf,
+  currentAssignmentOf,
+} from "../host/desk-read";
 import { EVENT_CHANNELS } from "../host/event-channels";
 import { DOOR_PORT, text } from "../host/http/http";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
@@ -47,7 +51,7 @@ function doorServer(desk: Desk, id: string) {
     name: string,
     description: string,
     input: S,
-    run: (args: z.infer<S>) => unknown
+    run: (args: z.infer<S>, s: AssignmentRow) => unknown
   ) =>
     tool(
       server,
@@ -59,11 +63,16 @@ function doorServer(desk: Desk, id: string) {
         if (name !== "read_packet" && a?.status !== "active") {
           throw new Error(`Not done: ${id} is not active.`);
         }
-        // His rule: a new agent's first turn ends on its plan, asked; it waits or finishes only after.
-        if (a && (name === "set_wait" || name === "finish") && !hasAsked(id)) {
-          throw new Error(askFirstMessageOf(agentKindOf(a)));
+        // The assignment it works on, read once for the call.
+        const s = currentAssignmentOf(desk.db, id);
+        if (!s) {
+          throw new Error(`Not done: ${id} holds no assignment.`);
         }
-        const r = await run(args);
+        // His rule: an assignment's first turn ends on its plan (or card), asked; it waits or finishes only after.
+        if ((name === "set_wait" || name === "finish") && !hasAsked(s)) {
+          throw new Error(askFirstMessageOf(s.opened_by));
+        }
+        const r = await run(args, s);
         if (typeof r === "object" && r !== null && "error" in r) {
           throw new Error(String(r.error));
         }
@@ -75,31 +84,31 @@ function doorServer(desk: Desk, id: string) {
     "set_wait",
     `Set what you wait for before you stop: \`events\` (filters on new messages, any one matching wakes you: \`person\`, \`channels\`, \`chat\`, \`from_me\`, \`text_matches\`, a regular expression on the text, any case, 200 characters at most: keep it to plain words, such as \`zort|invitation\`; a filter with only \`text_matches\` matches a message from anyone but him), \`until\` (5 minutes to 7 days ahead, ISO), \`reason\`. The desk wakes you at \`until\`, on a matching message, on a call that ended in a chat or with a person a filter names, on his answer to your decision, or on its withdrawal when he answered in its draft's chat himself (read the chat again). A wake names the message, never its text: read it yourself. Other channels wake you only when a filter names them: ${EVENT_CHANNELS.map((c) => `\`${c.name}\` (${c.quantities.length ? `quantities ${c.quantities.map((q) => `\`${q}\``).join(", ")}; ` : ""}${c.about})`).join(", ")}. \`quantity\` with \`above\` and/or \`below\` compares. A channel that is off or unknown is refused. A wake hands facts and quantities, never text.`,
     AgentWait,
-    (w) => setWait(desk, id, w)
+    (w, s) => setWait(desk, s, w)
   );
   door(
     "finish",
     "End your work for good, with its `outcome` in one line; your open decision is withdrawn.",
     z.object({ outcome: z.string().min(1).max(300) }),
-    ({ outcome }) => finish(desk, id, outcome)
+    ({ outcome }, s) => finish(desk, s, outcome)
   );
   door(
     "write_notes",
     "Replace your notes (6,000 characters): what you did, what you wait on, why. They open your next packet.",
     z.object({ text: z.string().min(1) }),
-    ({ text: notes }) => writeNotes(desk, id, notes)
+    ({ text: notes }, s) => writeNotes(desk, s, notes)
   );
   door(
     "request_decision",
     `Ask the owner one decision (one open at a time). ${CARD} Or \`withdraw\` (your decision's id) with \`why\`. His answer wakes you.`,
     DecisionRequest,
-    (ask) => askDecision(desk, id, ask)
+    (ask, s) => askDecision(desk, s, ask)
   );
   door(
     "read_packet",
-    "Your subject (your matter or your project), your project's context (its line, his notes, its other running matters), your brief, your notes, the events waiting for you and your open decision.",
+    "Your subject (your matter or your project), your project's context (its line, his notes, its other running matters), your brief, your notes, your saved wait, the events waiting for you and your open decision.",
     z.object({}),
-    () => readPacket(desk, id, isOwnLife())
+    (_, s) => readPacket(desk, s, isOwnLife())
   );
   return server;
 }

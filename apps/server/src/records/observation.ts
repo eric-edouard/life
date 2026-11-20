@@ -12,7 +12,8 @@ import {
   slug,
   UnitId,
 } from "./fields";
-import { GoalText, NextStep } from "./matter";
+import { GoalText, NextStep, PINNED } from "./matter";
+import { MatterIconKey } from "./matter-icon";
 import { MemoryType } from "./unit";
 
 // Memory's observations (memory/observations/, docs/SCHEMA.md) and what reads or corrects them: extractions,
@@ -189,7 +190,9 @@ export const PageSection = z.enum([
  * them): his goal always wins over Life's draft, his next step until the matter gets a new step (`directionsOf`).
  * `new-matter-dismissed` is his Dismiss on a new matter check, pinned by its steps: that matter is never offered again.
  * `matter-important` is his one mark on a matter, on or off, pinned by its steps: the latest for a matter wins
- * (`importantIdsOf`); his word only, never Life's or an agent's.
+ * (`importantIdsOf`); his word only, never Life's or an agent's. `matter-icon` is his pick of a matter's icon, pinned by
+ * its steps: the latest for a matter wins, null gives it back to Life's pick (`chosenIconsOf`); his word only. These
+ * three keep the matter's id beside its steps (`PINNED`): between matters holding the same steps, the one he picked.
  */
 export const Correction = z
   .discriminatedUnion("kind", [
@@ -262,7 +265,7 @@ export const Correction = z
         goal: GoalText.optional(),
         kind: z.literal("matter-direction"),
         nextStep: NextStep.optional(),
-        steps: z.array(z.string().min(1)).min(1),
+        ...PINNED,
       })
       .strict(),
     z
@@ -277,7 +280,15 @@ export const Correction = z
         ...Correcting,
         important: z.boolean(),
         kind: z.literal("matter-important"),
-        steps: z.array(z.string().min(1)).min(1),
+        ...PINNED,
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        icon: MatterIconKey.nullable(),
+        kind: z.literal("matter-icon"),
+        ...PINNED,
       })
       .strict(),
     z

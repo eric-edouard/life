@@ -1,5 +1,5 @@
 import { HOUR } from "../core/clock";
-import { type AgentRow, agentKindOf } from "../host/desk-read";
+import type { AssignmentRow } from "../host/desk-read";
 import {
   type HandOutFacts,
   type HandOutMatter,
@@ -50,16 +50,16 @@ export const CARD_WITHIN_MS = 2 * HOUR;
 /** The outcome of an agent ended for asking no card in time. */
 export const NO_CARD_OUTCOME = `no card within ${CARD_WITHIN_MS / HOUR} hours`;
 
-/** Whether a handed-out agent is over its time to ask: active, its first turn began (`first_begun_at`), no card asked (`hasAsked`) and `CARD_WITHIN_MS` since. One he started himself never is. */
+/** Whether an assignment the desk opened is over its time to ask: open, its own first turn began (`first_begun_at`), no card asked (`hasAsked`) and `CARD_WITHIN_MS` since. One he opened never is. */
 export const isCardOverdue = (
-  a: Pick<AgentRow, "is_handed_out" | "status"> & {
+  a: Pick<AssignmentRow, "closed_at" | "opened_by"> & {
     first_begun_at: string | null;
   },
   hasAsked: boolean,
   now: number
 ) =>
-  agentKindOf(a) === "handed_out" &&
-  a.status === "active" &&
+  a.opened_by === "desk" &&
+  a.closed_at === null &&
   a.first_begun_at !== null &&
   !hasAsked &&
   now - Date.parse(a.first_begun_at) >= CARD_WITHIN_MS;

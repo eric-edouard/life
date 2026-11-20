@@ -27,7 +27,7 @@ import { dayNow } from "./zones";
 // The matters' directions (docs/glossary.md: matter direction): for each running matter due one (`isDirectionDue`), one
 // model call drafts its goal (where it is going) and its next step (what moves it now, and its kind), or, when the matter
 // looks over, no next step and the later records that show it (`endingRecords`: the links step then judges them). Each call is one appended line of memory/matter-directions.jsonl (its only writer), each direction pinned to the
-// matter's steps, never its id, so a re-group keeps it. His word (`matter-direction`, a correction) wins (`directionsOf`).
+// matter's steps, so a re-group keeps it, with its id beside them for a tie (`PINNED`). His word (`matter-direction`, a correction) wins (`directionsOf`).
 
 const PROMPT = "memory-matter-directions.v2";
 /** The most characters of matters a night is shown, those with no direction first, then the newest; and one call. */
@@ -166,6 +166,7 @@ export async function matterDirections(
               }
             : {}),
           laterShown: shownIds,
+          ...(m ? { matter: m.v.id } : {}),
           steps: m?.v.steps.map((s) => s.ref) ?? [],
         };
       });

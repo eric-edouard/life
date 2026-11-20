@@ -18,7 +18,13 @@ import type { Payment } from "../payments/contract";
 import { money } from "../payments/money";
 import { answerWithResult } from "./answer-result";
 import { lookForDone, lookForPaymentsDone, readSeenDone } from "./done-seen";
-import { DECISION_ANSWERED, decisionCursorOf, pollDecisions } from "./events";
+import { EVENT_CHANNELS, type EventChannel } from "./event-channels";
+import {
+  DECISION_ANSWERED,
+  decisionCursorOf,
+  matcherOf,
+  pollDecisions,
+} from "./events";
 import { expectWire } from "./http/wire-fixture";
 
 // A payment card (the asks contract, step 1): Life looks in his accounts for the amount on his "I've paid", and while
@@ -185,6 +191,96 @@ test("only money out of exactly that amount in that currency, booked on or after
   expect(await lookForDone(card)).toBe("payments:exact");
 });
 
+test("only a payment to the card's payee is its payment: by the bank's merchant, whole words, in the card's currency", async () => {
+  const { id } = await transfer({
+    needs: [{ ...NEEDS[0], holder: "Ms. Ann Lee" }, NEEDS[1]],
+  });
+  const card = decisionsNow().find((d) => d.id === id);
+  if (!card) {
+    throw new Error("no card");
+  }
+  booked = [
+    payment({ id: "other", merchant: "MR. KIT SAMPLE" }),
+    payment({ id: "generic", merchant: "Result of Funds Transfer (Success)" }),
+    payment({ id: "longer", merchant: "Joanne Leeming" }),
+    payment({ id: "initial", merchant: "B Lee" }),
+    payment({ id: "note", merchant: "North Shop", note: "for Ann Lee" }),
+    payment({ currency: "EUR", eur: -4500, id: "euros", merchant: "ANN LEE" }),
+  ];
+  expect(await readSeenDone([card])).toEqual(new Map());
+  booked.push(payment({ id: "bank", merchant: "MS. LEE, ANN" }));
+  expect(await lookForDone(card)).toBe("payments:bank");
+  // The bank's whole line is read, past what a reader is shown (80 characters).
+  booked = [
+    payment({
+      id: "long",
+      merchant: `${"NORTHERN DISTRICT FRESH MARKET STALL ".repeat(3)}(A/C Name: MS. ANN LEE)`,
+    }),
+  ];
+  expect(await lookForDone(card)).toBe("payments:long");
+  // A EUR card is never seen by another currency's payment worth as much in EUR.
+  const euro = await transfer({
+    needs: [NEEDS[0], { currency: "EUR", kind: "amount", value: 118.4 }],
+  });
+  const euroCard = decisionsNow().find((d) => d.id === euro.id);
+  booked = [
+    payment({
+      id: "baht",
+      merchant: "BLUE REEF TEST (A/C Name: BLUE REEF TEST CO.,LTD.)",
+    }),
+  ];
+  expect(euroCard && (await readSeenDone([euroCard]))).toEqual(new Map());
+  // The bank's "A/C" lends no initial: its account name alone is compared.
+  const initial = await transfer({
+    needs: [{ ...NEEDS[0], holder: "A. Lee" }, NEEDS[1]],
+  });
+  const initialCard = decisionsNow().find((d) => d.id === initial.id);
+  booked = [
+    payment({ id: "label", merchant: "B LEE (A/C Name: B LEE)" }),
+    payment({ id: "blank", merchant: "B LEE (A/C Name: )" }),
+    payment({ id: "branch", merchant: "SHOP (A/C Name: B Lee) (Branch A)" }),
+    payment({ id: "broken", merchant: "SHOP (A/C Name:\nB Lee)" }),
+  ];
+  expect(initialCard && (await readSeenDone([initialCard]))).toEqual(new Map());
+  booked = [payment({ id: "theirs", merchant: "LEE SHOP (A/C Name: A LEE)" })];
+  expect(initialCard && (await lookForDone(initialCard))).toBe(
+    "payments:theirs"
+  );
+  // An account name holding brackets is read whole.
+  const bracketed = await transfer({
+    needs: [{ ...NEEDS[0], holder: "North (UK) Services Ltd" }, NEEDS[1]],
+  });
+  const bracketedCard = decisionsNow().find((d) => d.id === bracketed.id);
+  booked = [
+    payment({
+      id: "uk",
+      merchant: "NORTH (A/C Name: North (UK) Services Ltd)",
+    }),
+  ];
+  expect(bracketedCard && (await lookForDone(bracketedCard))).toBe(
+    "payments:uk"
+  );
+  // A word asked twice is there twice; a surname that reads like a company's form is still a name.
+  const twice = await transfer({
+    needs: [{ ...NEEDS[0], holder: "Li Li" }, NEEDS[1]],
+  });
+  const twiceCard = decisionsNow().find((d) => d.id === twice.id);
+  booked = [payment({ id: "once", merchant: "MR. BO LI" })];
+  expect(twiceCard && (await readSeenDone([twiceCard]))).toEqual(new Map());
+  const co = await transfer({
+    needs: [{ ...NEEDS[0], holder: "Ann Co" }, NEEDS[1]],
+  });
+  const coCard = decisionsNow().find((d) => d.id === co.id);
+  booked = [payment({ id: "ann", merchant: "ANN LEE" })];
+  expect(coCard && (await readSeenDone([coCard]))).toEqual(new Map());
+  booked = [payment({ id: "lili", merchant: "MS. LI LI" })];
+  expect(twiceCard && (await lookForDone(twiceCard))).toBe("payments:lili");
+  // A card with no payee's name is refused when asked.
+  await expect(
+    transfer({ needs: [{ ...NEEDS[0], holder: "Mr." }, NEEDS[1]] })
+  ).rejects.toThrow("needs the payee's name");
+});
+
 test("payments off: a tap card, its looks option a plain answer; his words added look for nothing; a session never looks", async () => {
   const off = await transfer();
   const on = await transfer();
@@ -335,4 +431,17 @@ test("his second answer after a look that never finished is the one kept, its re
       .find((d) => d.id === id)
       ?.voided?.map((v) => v.answer.at)
   ).toEqual([at.toISOString(), expect.any(String)]);
+});
+
+test("a payment's text for waits is its merchant, category and note, the empty ones left out: an anchored pattern still holds", async () => {
+  booked = [payment({ category: "transfer", id: "bare", merchant: "" })];
+  const [event] = await (
+    EVENT_CHANNELS.find((c) => c.name === "payments") as EventChannel
+  ).read(Date.now());
+  const isMatch = matcherOf({
+    channels: ["payments"],
+    from_me: false,
+    text_matches: "^transfer$",
+  });
+  expect(event && isMatch?.(event.matchable)).toBe(true);
 });

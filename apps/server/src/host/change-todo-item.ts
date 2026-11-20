@@ -166,7 +166,7 @@ export const TICK_LIMIT_MS = MIN;
 
 /**
  * Ticks the to-do items `keys` (their ledger keys, as a matter's steps name them) on his word `said`, one
- * `changeTodoItem` each, in turn, `onTicked` after each. Refused, ticking none, when one is an item of another list app than this install's.
+ * `changeTodoItem` each, in turn, `onTicked` after each. Refused, ticking none, when one is an item of another list app than this install's; a tick the list app refused throws its error, the ticks before it standing.
  */
 export async function tickTodoItems(
   keys: readonly string[],
@@ -183,19 +183,22 @@ export async function tickTodoItems(
   }
   const ticked: LedgerEntry[] = [];
   for (const it of items) {
-    ticked.push(
-      // biome-ignore lint/performance/noAwaitInLoops: one change at a time, each its own ledger lines
-      await changeAskedTodoItem(
-        {
-          kind: "done",
-          said,
-          target: it.target.slice(b.prefix.length + 1),
-          title: String(it.fields.title ?? ""),
-          why: "his matter marked done",
-        },
-        "connector"
-      )
+    const title = String(it.fields.title ?? "");
+    // biome-ignore lint/performance/noAwaitInLoops: one change at a time, each its own ledger lines
+    const tick = await changeAskedTodoItem(
+      {
+        kind: "done",
+        said,
+        target: it.target.slice(b.prefix.length + 1),
+        title,
+        why: "his matter marked done",
+      },
+      "connector"
     );
+    if (tick.result === "failed") {
+      throw new Error(`Not done: ${title}: ${tick.error}`);
+    }
+    ticked.push(tick);
     onTicked?.(ticked.length, items.length, it.key);
   }
   return ticked;
