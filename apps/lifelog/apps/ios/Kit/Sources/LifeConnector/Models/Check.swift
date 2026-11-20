@@ -287,13 +287,10 @@ extension Check {
         return options.contains { $0.id == request.options[0] && $0.ends != nil }
     }
 
-    /// The program of the agent that asks it: the agent it names (`agent`, over or not), else the live one on its
-    /// matter; nil when Life asks itself.
+    /// The program of the registered agent that asked it (`agent`), while the phone still lists that agent; nil for
+    /// any other ask, which then shows no program rather than a guessed one.
     public func askingRuntime(among agents: [RegisteredAgent]) -> RuntimeName? {
-        guard agentName(runtime: nil) != nil else { return nil }
-        if let agent, let asker = agents.first(where: { $0.id == agent }) { return asker.runtimeName }
-        guard let matter = matter?.id else { return nil }
-        return agents.first { $0.matter?.id == matter && !$0.isOver }?.runtimeName
+        agent.flatMap { id in agents.first { $0.id == id }?.runtimeName }
     }
 
     /// Its draft goes to someone Life only guesses: the guess is asked beside it (`confirm`).

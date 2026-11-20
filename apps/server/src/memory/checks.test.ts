@@ -794,3 +794,13 @@ test("only the open endings' and the new matters' steps are read for their sente
   });
   expect([...shown].sort()).toEqual(["obs_b", "obs_new", "obs_open"]);
 });
+
+test("a desk agent's decision names the agent that asked it; every other check names none", () => {
+  const asked = {
+    ...decision("dec_00000000000e", "2026-11-20T09:00:00.000Z"),
+    agent: "agt_0123456789ab",
+    asker: "desk",
+  };
+  const [check] = checksOf(inputs([], { decisions: [asked] }));
+  expect(check?.agent).toBe("agt_0123456789ab");
+});

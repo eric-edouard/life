@@ -329,7 +329,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         check: {
           ...NO_SAID,
           about: [],
-          agent: d.agent ?? null,
+          agent: d.agent,
           asker: d.asker,
           at: d.at,
           clips: [],

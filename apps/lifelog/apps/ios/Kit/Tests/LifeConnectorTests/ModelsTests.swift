@@ -246,8 +246,8 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(name.agentName(runtime: nil) == nil)
 }
 
-/// An ask names the agent that asked it, so its program shows even once that agent is over; without the name, the live
-/// agent on its matter; never for Life's own checks.
+/// An ask names the agent that asked it, so its program shows even once that agent is over; an ask naming none shows
+/// no program, never the program of another agent on its matter.
 @Test func theAskingAgentsProgramIsTheOneItNames() throws {
     func edited(_ path: String, _ change: (inout [String: Any]) -> Void) throws -> Data {
         var json = try #require(JSONSerialization.jsonObject(with: Data(wireText(path).utf8)) as? [String: Any])
@@ -271,12 +271,14 @@ private func everyKindOfCheck() throws -> [Check] {
             var checks = json["checks"] as? [[String: Any]] ?? []
             let at = checks.firstIndex { $0["group"] as? String == "decision" } ?? 0
             checks[at]["agent"] = "agt_over"
-            checks[at]["matter"] = NSNull()
             json["checks"] = checks
         })
     let decision = try #require(inbox.checks.first { $0.group == .decision })
     #expect(decision.askingRuntime(among: agents) == .codex)
     #expect(decision.askingRuntime(among: []) == nil)
+    let unnamed = try #require(
+        decoded(Inbox.self, wireText("life/read_inbox.json")).checks.first { $0.group == .decision })
+    #expect(unnamed.agent == nil && unnamed.askingRuntime(among: agents) == nil)
     let lifes = try #require(inbox.checks.first { $0.agentName(runtime: nil) == nil })
     #expect(lifes.askingRuntime(among: agents) == nil)
 }
