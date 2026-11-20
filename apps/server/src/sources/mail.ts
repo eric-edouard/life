@@ -99,6 +99,12 @@ interface MailAccount {
 }
 
 /** Accounts with mail in the store: display name and the owner's addresses (account login + Sent senders). */
+/** His own mail addresses, every account's, as Mail knows them. */
+export const readMailAddresses = (
+  root = mailRoot(),
+  accountsDb = ACCOUNTS_DB
+) => mailAccounts(root, accountsDb).flatMap((a) => a.addresses);
+
 export function mailAccounts(
   root = mailRoot(),
   accountsDb = ACCOUNTS_DB
@@ -627,9 +633,7 @@ export function readMail(
   contacts: Map<string, string> = readContacts(),
   before?: Date
 ): SourceEvent[] {
-  const mine = new Set(
-    mailAccounts(root, accountsDb).flatMap((a) => a.addresses)
-  );
+  const mine = new Set(readMailAddresses(root, accountsDb));
   const rows = messagesSince(since, root, before);
   const wroteIn = conversationsWrittenIn(mine, root);
   // A message in a skipped mailbox is skipped everywhere: Gmail keeps a draft's copy in All Mail too.
@@ -676,9 +680,7 @@ export function readSentMailDates(
   root = mailRoot(),
   accountsDb = ACCOUNTS_DB
 ) {
-  const mine = new Set(
-    mailAccounts(root, accountsDb).flatMap((a) => a.addresses)
-  );
+  const mine = new Set(readMailAddresses(root, accountsDb));
   const rows = messagesSince(since, root, before);
   const skipped = new Set(
     rows.filter((r) => SKIP.test(mailboxName(r.mailbox))).map(idOf)

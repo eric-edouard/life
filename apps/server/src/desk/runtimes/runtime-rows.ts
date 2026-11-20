@@ -1,13 +1,16 @@
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { clock, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { log } from "../../core/log";
-import type { RuntimeName } from "../../core/names";
+import { AGENT_POST_SIGNATURE, type RuntimeName } from "../../core/names";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { cliEnv, HOME, isOwnLife, WINDOWS } from "../../core/platform";
-import { exec, readLoginEnv } from "../../core/proc";
+import { exec, firstLine, readLoginEnv } from "../../core/proc";
+import { settings } from "../../core/settings";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
+import { readMailAddresses } from "../../sources/mail";
+import { SEND_GUARD_HOOK, type SendFacts } from "../send-guard";
 import type { Agent } from "./contract";
 
 // The runtime rows: each runtime's own facts, the one place they live (`acp-runtime.ts` names no runtime). A row is its
@@ -15,9 +18,10 @@ import type { Agent } from "./contract";
 // prefix its door's tools carry (a second Life's only), its link, its hand-off, and the small reader of its CLI's own record that tells whether a session of his
 // is running (ACP has no such signal). The adapters are pinned; the CLIs stay his (`CLAUDE_CODE_EXECUTABLE`, `CODEX_PATH`):
 // his apps open these sessions, so the same CLI writes them.
-// An agent of his own Life is held back by nothing (his decision of 19 Nov 2026): his settings, rules, skills and
-// connectors, his login shell's environment (`readLoginEnv`) less the runtime's own engine keys, the runtime's no-ask
-// mode, and every permission ask approved. A second Life's agent (a demo, `isOwnLife` false) runs apart from his setup,
+// An agent of his own Life is held back by nothing but the send guard (his decisions of 19 and 20 Nov 2026): his settings,
+// rules, skills and connectors, his login shell's environment (`readLoginEnv`) less the runtime's own engine keys, the
+// runtime's no-ask mode, and every permission ask approved; the guard (`send-guard.ts`) runs before each shell and MCP
+// call, a hook of the session's own flags, never written into his config. A second Life's agent (a demo, `isOwnLife` false) runs apart from his setup,
 // since his connectors and files reach his own Life: its door alone, none of his settings, rules, MCP servers, sessions
 // or environment, and never handed to his apps.
 // ponytail: his own turn in the Claude or Codex app starts no process of the desk's: Claude's counts as running while a
@@ -105,6 +109,103 @@ const adapterOf = (name: string) => ({
   ],
   env: { BUN_BE_BUN: "1" },
 });
+
+// ---- the send guard
+
+/** The guard's script: bundled under the app's resources (`scripts/helper.ts`), the source in a checkout. */
+const SEND_GUARD = ["js", "ts"]
+  .map((e) =>
+    join(LIFE_CODE_DIR, "apps", "server", "src", "desk", `send-guard-hook.${e}`)
+  )
+  .find(existsSync);
+
+/** The guard's hook entry, as both runtimes' settings take it. */
+const GUARD_HOOKS = {
+  PreToolUse: [
+    {
+      hooks: [{ command: SEND_GUARD_HOOK.command, type: "command" }],
+      matcher: SEND_GUARD_HOOK.matcher,
+    },
+  ],
+};
+
+/** His own addresses, as Mail knows them, and Life's mail to him: none when Mail can't be read (resend then goes nowhere). */
+function readOwnAddresses() {
+  const to = settings().mail?.to;
+  try {
+    return [...readMailAddresses(), ...(to ? [to] : [])];
+  } catch (e) {
+    log("desk.runtime", { error: String(e), ok: false, what: "send facts" });
+    return to ? [to] : [];
+  }
+}
+
+/** The environment the guard's hook reads (`send-guard-hook.ts`), read at each spawn. Throws with no script: no agent starts unguarded. */
+function guardEnv() {
+  if (!SEND_GUARD) {
+    throw new Error("Life's send guard is missing: no agent starts unguarded");
+  }
+  return {
+    LIFE_BUN: process.execPath,
+    LIFE_SEND_FACTS: JSON.stringify({
+      ownAddresses: readOwnAddresses(),
+      postRepos: settings().desk?.agentPostRepos ?? [],
+      signature: AGENT_POST_SIGNATURE,
+    } satisfies SendFacts),
+    LIFE_SEND_GUARD: SEND_GUARD,
+  };
+}
+
+const CODEX_GUARD_KEY = "/<session-flags>/config.toml:pre_tool_use:0:0";
+const codexTrust = new Map<string, Promise<Record<string, unknown>>>();
+
+/** `hooks/list`'s answer, as far as the guard reads it. */
+interface HookList {
+  result?: { data?: { hooks?: { currentHash?: string; key?: string }[] }[] };
+}
+
+/**
+ * The trust Codex needs to run the guard, a hook of the session's flags: the hash `program` gives it (`hooks/list` of
+ * its app server, asked once per process), as `hooks.state`. Throws when it gives none: no agent runs unguarded.
+ */
+export function readCodexGuardTrust(program: string, env = cliEnv()) {
+  const asked = codexTrust.get(program);
+  if (asked) {
+    return asked;
+  }
+  const trust = (async () => {
+    const { command, matcher } = SEND_GUARD_HOOK;
+    const hooks = `{PreToolUse=[{matcher=${JSON.stringify(matcher)},hooks=[{type="command",command=${JSON.stringify(command)}}]}]}`;
+    const line = await firstLine(
+      [program, "app-server", "-c", `hooks=${hooks}`],
+      [
+        {
+          id: 1,
+          method: "initialize",
+          params: { clientInfo: { name: "life", version: "0" } },
+        },
+        { method: "initialized" },
+        { id: 2, method: "hooks/list", params: { cwds: [HOME] } },
+      ]
+        .map((m) => `${JSON.stringify(m)}\n`)
+        .join(""),
+      (l) => l.includes('"id":2'),
+      { env, timeout: 30_000 }
+    );
+    const hash = (JSON.parse(line ?? "{}") as HookList).result?.data
+      ?.flatMap((d) => d.hooks ?? [])
+      .find((h) => h.key === CODEX_GUARD_KEY)?.currentHash;
+    if (!hash) {
+      codexTrust.delete(program);
+      throw new Error(
+        "Codex gave no hash for Life's send guard: no agent starts unguarded"
+      );
+    }
+    return { [CODEX_GUARD_KEY]: { trusted_hash: hash } };
+  })();
+  codexTrust.set(program, trust);
+  return trust;
+}
 
 // ---- claude
 
@@ -216,7 +317,7 @@ const claudeRow = (isOwn: boolean): Row => ({
   header: () => "Bearer ${LIFE_DESK_KEY}",
   link: (ref) => `claude://claude.ai/epitaxy/local_${ref}`,
   meta: isOwn
-    ? undefined
+    ? { claudeCode: { options: { settings: { hooks: GUARD_HOOKS } } } }
     : {
         claudeCode: {
           options: {
@@ -254,6 +355,7 @@ const claudeRow = (isOwn: boolean): Row => ({
             ])
           : {}),
         ...adapter.env,
+        ...(isOwn ? guardEnv() : {}),
         CLAUDE_CODE_EXECUTABLE: readProgram("claude"),
         LIFE_DESK_KEY: a.door.key,
         ...(isOwn
@@ -352,10 +454,15 @@ const codexRow = (isOwn: boolean): Row => {
     },
     spawn: async (a) => {
       const adapter = adapterOf("codex-acp");
+      const program = readProgram("codex");
       // The model and effort also go in at spawn: switching them after the session starts costs a turn's tokens.
       const config = {
         ...(isOwn
           ? {
+              hooks: {
+                ...GUARD_HOOKS,
+                state: await readCodexGuardTrust(program),
+              },
               shell_environment_policy: {
                 ignore_default_excludes: true,
                 inherit: "all",
@@ -372,8 +479,9 @@ const codexRow = (isOwn: boolean): Row => {
             ? await loginEnvLess(["CODEX_API_KEY", "OPENAI_API_KEY"])
             : {}),
           ...adapter.env,
+          ...(isOwn ? guardEnv() : {}),
           CODEX_CONFIG: JSON.stringify(config),
-          CODEX_PATH: readProgram("codex"),
+          CODEX_PATH: program,
           // His own Life's agent starts in full access (nothing asks); a second Life's in workspace-write, where door calls
           // arrive as permission requests that Life's client answers (read-only cancels them).
           INITIAL_AGENT_MODE: isOwn ? "agent-full-access" : "workspace-write",

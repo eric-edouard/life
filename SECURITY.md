@@ -45,14 +45,26 @@ his Mac and the web an agent of his own Life is free (his decision of 19 Nov 202
 no-ask mode, approves every ask, and gives it his login environment. It can run any command, read, change or delete any
 file, install software, browse, read his mail and messages, and read his secrets (his shell's keys, 1Password). Life's
 own Keychain secrets are not handed to it. Its one gate is his rule: anything outward in his name waits for his yes on
-the exact thing. A turn that fails keeps the adapter's last error lines in the desk's store; with his environment passed
+the exact thing. One part of that gate is enforced, sending (his word of 20 Nov 2026, "yes you can add it"): Life's send
+guard (`desk/send-guard.ts`, its rules in `SEND_RULES`) runs before each shell and MCP call of an agent of his own Life,
+a hook of the session's own flags (nothing written into his `~/.claude` or `~/.codex`), and refuses: a connector's send,
+reply or forward (mail, Beeper), an answer to an invitation, an event with attendees other than him, `gog gmail send`,
+`imsg send`, `osascript` telling Messages or Mail to send, `resend` to anyone but his own addresses, a browser or computer
+use on a messaging site or app, and a `gh` post (an issue, a comment, a review) except on the repos he listed
+(`desk.agentPostRepos`, his word of 20 Nov 2026) with the body ending with `AGENT_POST_SIGNATURE`: there an agent's
+words reach other people in his name without his yes on the text, and the agent is told to post only facts and
+questions and to put anything that commits him on a card. A failure of the guard refuses the call. The guard is
+partial: it reads a call's text, so a tab already open on a messaging site, a script that builds an address or URL, `gh api`
+or `curl` to a service's API, `node_repl`, `javascript_tool`, a shell the agent starts and then types into (Codex's `write_stdin`) or another
+program the agent starts get past it, and the agent can edit the guard's file in a checkout. Submitting a form, booking, paying, `gh pr create` and pushes stay its
+instruction only. A turn that fails keeps the adapter's last error lines in the desk's store; with his environment passed
 in, those lines may hold whatever the adapter printed. Its door
 is on loopback only; each agent's key is derived from the desk's key and reaches its session only in its environment.
 Besides the desk, Life starts no agent, except an agent's own `onAsk` command, once per new ask, with no words and none of Life's
 secrets (his OK, 3 Nov 2026), and the question cases' agent a developer's script starts to measure Life ("Models",
 above; his word, 10 Nov 2026): each pulls its own asks through the connector. An agent run is outside Life's boundary: it has
-the Mac's access (his files, his accounts). The risk that remains: an agent acting on text it read can do, alone, anything his keys allow, a send by `gog` or
-`resend` included; the gate is its instruction, not enforcement. Between that and harm stand the model's judgment, wakes
+the Mac's access (his files, his accounts). The risk that remains: an agent acting on text it read can do, alone, anything his keys allow but what the send guard
+refuses, a send by a path the guard can't read included; past the guard, the gate is its instruction, not enforcement. Between that and harm stand the model's judgment, wakes
 that hand facts and never words (a payment's category, the money app's own word, is a fact; a text can choose a wake, never ride on it), and Life's own send path (a card's draft, his answer). The risk is his, accepted.
 
 ## Network

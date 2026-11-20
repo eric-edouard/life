@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   utimesSync,
@@ -8,8 +9,10 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { AGENT_POST_SIGNATURE } from "../../core/names";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { doorOf } from "../desk-door";
+import { SEND_GUARD_HOOK } from "../send-guard";
 import {
   isRolloutTurnOpen,
   isTurnOpen,
@@ -27,17 +30,34 @@ const CLAUDE_KEYS = [
 ];
 const CODEX_KEYS = ["CODEX_API_KEY", "OPENAI_API_KEY"];
 const ENGINE_KEYS = [...CLAUDE_KEYS, ...CODEX_KEYS];
+// His Codex never runs either: a made-up `codex` first on the PATH answers the app server's `hooks/list` with a made-up hash.
 const shellWas = process.env.SHELL;
+const pathWas = process.env.PATH;
 beforeAll(() => {
-  const shell = join(mkdtempSync(join(tmpdir(), "life-login-")), "shell.sh");
+  const dir = mkdtempSync(join(tmpdir(), "life-login-"));
+  const shell = join(dir, "shell.sh");
   const vars = [...ENGINE_KEYS, "LIFE_TEST_LOGIN"].map((k) => `${k}=made-up`);
   writeFileSync(shell, `#!/bin/sh\n${vars.join(" ")} exec sh -c "$2"\n`);
   chmodSync(shell, 0o755);
   process.env.SHELL = shell;
+  const answer = JSON.stringify({
+    id: 2,
+    result: {
+      data: [{ hooks: [{ currentHash: "sha256:made-up", key: GUARD_KEY }] }],
+    },
+  });
+  writeFileSync(
+    join(dir, "codex"),
+    `#!/bin/sh\nwhile read -r l; do case "$l" in *'"id":2'*) echo '${answer}';; esac; done\n`
+  );
+  chmodSync(join(dir, "codex"), 0o755);
+  process.env.PATH = `${dir}:${pathWas}`;
 });
 afterAll(() => {
   process.env.SHELL = shellWas;
+  process.env.PATH = pathWas;
 });
+const GUARD_KEY = "/<session-flags>/config.toml:pre_tool_use:0:0";
 
 const a = {
   door: doorOf("agt_0123456789ab"),
@@ -73,6 +93,7 @@ test("the rows put the door's key in the environment, never in a command; each n
         .CODEX_CONFIG ?? ""
     )
   ).toEqual({
+    hooks: expect.any(Object),
     model: "test-model",
     model_reasoning_effort: "low",
     shell_environment_policy: {
@@ -130,7 +151,6 @@ test("a second Life's agent takes none of his settings, tools or instruction fil
   expect(second.skills.include_instructions).toBe(false);
   expect((await rows.codex.spawn(a)).env.CODEX_HOME).toBe(CODEX_HOME);
   const his = runtimeRowsOf(true);
-  expect(his.claude.meta).toBeUndefined();
   expect(
     (await his.claude.spawn(a)).env.CLAUDE_CODE_DISABLE_AUTO_MEMORY
   ).toBeUndefined();
@@ -267,5 +287,45 @@ test("the desk launches the program on the PATH, never one in node_modules/.bin 
     expect(readProgram("codex")).toBe(join(his, "codex"));
   } finally {
     process.env.PATH = path;
+  }
+});
+
+test("his own Life's agents run the send guard before each shell and MCP call, Codex's trusted by the hash his Codex gives; a second Life's run none", async () => {
+  const own = runtimeRowsOf(true);
+  const hook = {
+    PreToolUse: [
+      {
+        hooks: [{ command: SEND_GUARD_HOOK.command, type: "command" }],
+        matcher: SEND_GUARD_HOOK.matcher,
+      },
+    ],
+  };
+  expect(own.claude.meta).toEqual({
+    claudeCode: { options: { settings: { hooks: hook } } },
+  });
+  const [codex, claude] = await Promise.all([
+    own.codex.spawn(a),
+    own.claude.spawn(a),
+  ]);
+  expect(JSON.parse(codex.env.CODEX_CONFIG ?? "").hooks).toEqual({
+    ...hook,
+    state: { [GUARD_KEY]: { trusted_hash: "sha256:made-up" } },
+  });
+  for (const { env } of [codex, claude]) {
+    expect(existsSync(env.LIFE_SEND_GUARD ?? "")).toBe(true);
+    expect(env.LIFE_BUN).toBe(process.execPath);
+    expect(JSON.parse(env.LIFE_SEND_FACTS ?? "")).toMatchObject({
+      postRepos: [],
+      signature: AGENT_POST_SIGNATURE,
+    });
+  }
+  const second = runtimeRowsOf(false);
+  expect(JSON.stringify(second.claude.meta)).not.toContain("hooks");
+  const seconds = await Promise.all(
+    Object.values(second).map((row) => row.spawn(a))
+  );
+  for (const { env } of seconds) {
+    expect(env.LIFE_SEND_FACTS).toBeUndefined();
+    expect(JSON.parse(env.CODEX_CONFIG ?? "{}").hooks).toBeUndefined();
   }
 });
