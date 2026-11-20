@@ -27,6 +27,8 @@ const RULES: Record<string, RegExp> = {
   opacity: /\.opacity\(0\./g,
   padding: new RegExp(String.raw`\.padding\((?:[^)]*,\s*)?${NUMBER}\s*\)`, "g"),
   radius: new RegExp(`cornerRadius: *${NUMBER}`, "g"),
+  // The design's `Spinner`, never the system's bars.
+  spinner: /ProgressView\(/g,
   width: new RegExp(String.raw`frame\([^)]*[Ww]idth: *${NUMBER}`, "g"),
 };
 

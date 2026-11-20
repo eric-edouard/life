@@ -197,7 +197,8 @@ struct AgentSheet: View {
 
     // MARK: Buttons
 
-    /// Stop while it works or waits, a state's own action first, and its session in Claude Code or Codex.
+    /// Stop while it works or waits, a state's own action first; under them, a quiet link to its session in Claude Code or
+    /// Codex, never needed (his word of 20 Nov: anything waiting on him comes back to the app).
     private func buttons(_ agent: RegisteredAgent, primary: (String, () -> Void)?) -> some View {
         let state = life.state(of: .agent(agent.id))
         return VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
@@ -210,13 +211,16 @@ struct AgentSheet: View {
                     Button("Stop the agent") { Task { await life.stopAgent(agent.id) } }
                         .buttonStyle(.pill(.quiet, size: .compact, isBusy: state.isRunning))
                 }
-                if let link = agent.link.flatMap(URL.init(string:)) {
-                    TextLink("Open in \(agent.runtimeName.name)", isOutward: true) { openURL(link) }
-                } else if primary != nil {
+                if primary != nil {
                     Button("Close") { dismiss() }.buttonStyle(.pill(.quiet, size: .compact))
                 }
             }
             .disabled(state.isRunning)
+            // Nothing waits on him in the session (what does comes to the app): its way in is a quiet link, under.
+            if let link = agent.link.flatMap(URL.init(string:)) {
+                TextLink("Open in \(agent.runtimeName.name)", isOutward: true) { openURL(link) }
+                    .padding(.top, Metrics.Spacing.xs)
+            }
         }
         .padding(.top, Metrics.Spacing.l)
     }
