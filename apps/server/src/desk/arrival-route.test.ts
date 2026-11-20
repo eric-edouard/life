@@ -1,5 +1,12 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
-import { appendFileSync, mkdirSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { clock, daysBefore, HOUR, MIN } from "../core/clock";
 import { queuedEvents } from "../host/desk-read";
@@ -177,21 +184,32 @@ test("a confirm of yesterday's voice, made this afternoon, finds its unit and wa
   );
   const yesterday = daysBefore(localDate(clock().toISOString()), 1);
   const turn = `job8:2@${dayStart(yesterday).toISOString()}`;
+  // The test data is shared: the day's file is put back as it was.
+  const file = join(UNITS, `${yesterday}.jsonl`);
+  const was = existsSync(file) ? readFileSync(file, "utf8") : null;
   mkdirSync(UNITS, { recursive: true });
   appendFileSync(
-    join(UNITS, `${yesterday}.jsonl`),
+    file,
     `${JSON.stringify({ ...unitOf(), date: yesterday, id: "unit_0000000000d1", key: "conversation-2", source: "lifelog" })}\n`
   );
-  await pollArrivals(s.desk, readPeopleOnce(), {
-    arrivals: [
-      {
-        at: clock().toISOString(),
-        messages: [`lifelog|${turn}`],
-        people: ["person:ana"],
-        unit: "unit_0000000000d1",
-      },
-    ],
-  });
+  try {
+    await pollArrivals(s.desk, readPeopleOnce(), {
+      arrivals: [
+        {
+          at: clock().toISOString(),
+          messages: [`lifelog|${turn}`],
+          people: ["person:ana"],
+          unit: "unit_0000000000d1",
+        },
+      ],
+    });
+  } finally {
+    if (was === null) {
+      rmSync(file);
+    } else {
+      writeFileSync(file, was);
+    }
+  }
   expect(
     queuedEvents(s.desk.db, asgOf(s.desk, agent)).filter(
       (e) => e.name === ARRIVAL_CONFIRMED
