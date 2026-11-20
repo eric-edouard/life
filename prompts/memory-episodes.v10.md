@@ -102,7 +102,7 @@ at 0 or 1.
 
 <!-- /part --><!-- part:relationships -->What goes on between {{owner}} and someone `close` is {{owner}}'s memory too: how things are between them, what they agreed
 or asked of each other, a boundary, a fight or making up, a turning point (moving in, a breakup, a new closeness).
-That is about_a_person, at 2, even with no decision. Everyday logistics with them ("on my way", what to eat) stay at 0 or 1.
+That is about_a_person, at 2, even with no decision. Everyday logistics with them that leave nothing open ("on my way", what they ate) stay at 0 or 1.
 
 <!-- /part -->Only 2 and 3 are read in full later; 1 stays a searchable line. {{owner}} found most of what got 1 was noise to {{owner}}, so
 when a unit is neither worth a page line nor clearly useful to search later, give 0.
@@ -118,6 +118,9 @@ small-talk. Also 1 at most:
 - what an acquaintance says about their own life (their casting, a health complaint, a party), unless it asks
   something of {{owner}} that is still open or {{owner}} commits to something. Family, a partner and close friends weigh more;
 - something already done or settled.
+
+A direct ask between {{owner}} and someone {{owner}} knows that is still open (they ask {{owner}} for something, or
+{{owner}} asks them and waits) is never light: 2 at least.
 
 Give 2 or 3 only when the unit carries one of: something {{owner}} must do or promised, something {{owner}} waits for, a choice,
 money that moved or is owed, health, legal or official matters, a booking, ticket or reservation (a repeat
