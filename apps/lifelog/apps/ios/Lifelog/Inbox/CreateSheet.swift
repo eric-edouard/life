@@ -14,16 +14,17 @@ struct CreateSheet: View {
 
     @Environment(LifeStore.self) private var life
     @Environment(\.dismiss) private var dismiss
-    @State private var kind = Kind.person
+    @State private var kind: Kind
     @State private var name: String
     @State private var who: String
     @State private var what = ""
     /// His press, once made: the button shows its answer's state from then on, never an earlier one's.
     @State private var sent: AnswerRequest?
-    @State private var height: CGFloat = 0
+    @State private var fieldsHeight: CGFloat = 0
 
-    init(check: Check, name: String, done: @escaping (AnswerRequest) -> Void) {
+    init(check: Check, name: String, isOrganization: Bool = false, done: @escaping (AnswerRequest) -> Void) {
         (self.check, self.done) = (check, done)
+        _kind = State(initialValue: isOrganization ? .organization : .person)
         _name = State(initialValue: name)
         _who = State(initialValue: Self.guessOf(check))
     }
@@ -47,24 +48,6 @@ struct CreateSheet: View {
     }
 
     var body: some View {
-        ScrollView {
-            content.onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { height = $0 }
-        }
-        .scrollBounceBehavior(.basedOnSize)
-        .defaultScrollAnchor(.bottom)
-        .background(Palette.sheet)
-        // The sheet fits what it holds; the keyboard raises it, and what no longer fits scrolls.
-        .presentationDetents(height == 0 ? [.large] : [.height(height + Metrics.Spacing.xxl)])
-        .motion(Motion.standard, value: kind)
-        .motion(Motion.standard, value: state)
-        .task(id: isDone) {
-            guard isDone, let sent else { return }
-            try? await Task.sleep(for: .seconds(0.6))
-            if !Task.isCancelled { done(sent) }
-        }
-    }
-
-    private var content: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
             SheetHeader(title: isOrganization ? "New organization" : "New person") { dismiss() }
             if check.organizationOption != nil {
@@ -76,19 +59,14 @@ struct CreateSheet: View {
                 )
                 .disabled(isLocked)
             }
-            VStack(spacing: 0) {
-                FieldRow(label: "Name", text: $name)
-                if isOrganization {
-                    FieldRow(label: "What it is", prompt: "A firm, a shop, a school…", text: $what).appears()
-                } else {
-                    FieldRow(label: "Who they are", prompt: "Who they are to you", text: $who, isGuess: isGuess)
-                        .appears()
-                }
+            // The fields hug what they hold; with the keyboard up they scroll under the title, the rest stays put.
+            ScrollView {
+                fields.onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { fieldsHeight = $0 }
             }
-            .padding(.vertical, Metrics.Spacing.xs)
-            .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.card))
-            // Pressed: the fields stop taking words, which also puts the keyboard away.
-            .disabled(isLocked)
+            .frame(maxHeight: fieldsHeight == 0 ? nil : fieldsHeight)
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollEdgeEffectStyle(.soft, for: .vertical)
+            .clipShape(.rect(cornerRadius: Metrics.Radius.card))
             if let attached {
                 Text(attached).font(.small).foregroundStyle(Palette.muted).padding(.horizontal, Metrics.Spacing.xs)
             }
@@ -97,9 +75,40 @@ struct CreateSheet: View {
                     .foregroundStyle(Palette.flag).fixedSize(horizontal: false, vertical: true).appears()
             }
             button
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.s)
         .readingWidth()
+        .background(Palette.sheet)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .motion(Motion.standard, value: kind)
+        .motion(Motion.standard, value: state)
+        .task(id: isDone) {
+            guard isDone, let sent else { return }
+            #if DEBUG
+                // `-fixtureSheet create`: Created stays on show, to be photographed.
+                if LifeFixture.sheet == "create" { return }
+            #endif
+            try? await Task.sleep(for: .seconds(0.6))
+            if !Task.isCancelled { done(sent) }
+        }
+    }
+
+    private var fields: some View {
+        VStack(spacing: 0) {
+            FieldRow(label: "Name", text: $name)
+            if isOrganization {
+                FieldRow(label: "What it is", prompt: "A firm, a shop, a school…", text: $what).appears()
+            } else {
+                FieldRow(label: "Who they are", prompt: "Who they are to you", text: $who, isGuess: isGuess)
+                    .appears()
+            }
+        }
+        .padding(.vertical, Metrics.Spacing.xs)
+        .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.card))
+        // Pressed: the fields stop taking words, which also puts the keyboard away.
+        .disabled(isLocked)
     }
 
     /// What his answer attaches, from what it rides on: "3 mentions and 1 matter will be attached"; nil when nothing.

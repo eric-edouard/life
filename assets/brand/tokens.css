@@ -18,7 +18,7 @@
   /* An agent, or a guess of Life's. */
   --ai: light-dark(#33468f, #9aa8ec);
   /* It worked. */
-  --ok: light-dark(#1d6b58, #74c9a9);
+  --ok: light-dark(#1a7f3c, #30d158);
   /* Text on a filled button. */
   --on: light-dark(#f3f4f5, #07080a);
   /* Manrope only; its weights and sizes are docs/brand.md's (Type). */

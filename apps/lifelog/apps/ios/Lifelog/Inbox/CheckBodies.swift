@@ -6,7 +6,7 @@ import SwiftUI
 // `draft`, `evidence`), drawn on the Ask panel's `tile`. `CheckCard` picks them by what the check holds, never by its
 // group's wording. A sentence's who-and-when is never dimmed; a sentence may be.
 
-/// A sentence's words in quotes, with each of `names` in bold.
+/// A sentence's words in quotes, in the body type, with each of `names` in bold.
 struct NamedWords: View {
     let said: Check.Said
     let names: [String]
@@ -16,9 +16,9 @@ struct NamedWords: View {
     var body: some View {
         var words = AttributedString(said.text)
         for range in said.text.ranges(ofNames: names) {
-            if let shown = Range(range, in: words) { words[shown].font = TypeStep.quoteBold.font(at: size) }
+            if let shown = Range(range, in: words) { words[shown].font = TypeStep.bodyBold.font(at: size) }
         }
-        return Text(AttributedString("“") + words + AttributedString("”")).font(.quote)
+        return Text(AttributedString("“") + words + AttributedString("”")).font(.body15)
     }
 }
 

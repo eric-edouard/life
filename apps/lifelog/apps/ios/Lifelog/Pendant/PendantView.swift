@@ -74,7 +74,7 @@ struct PendantScreen: View {
             .padding(.top, Metrics.Spacing.l)
             .background(Palette.sheet)
             .presentationBackground(Palette.sheet)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(role: .close) { dismiss() } } }
+            .toolbar { CloseItem { dismiss() } }
         }
         .sheet(item: $sheet) { which in
             switch which {

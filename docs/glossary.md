@@ -309,6 +309,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | push read | The one card a tapped push reads first (`LifeStore.pushRead`: `read_inbox` by `pushId`, a `ReadState` of an inbox holding just it). The Inbox shows it at once, loading or failed or the card, never the old cards; the whole inbox is read after, and that read ends it. Not the inbox, and never put into it. | |
 | action state | Where one of his actions on Life stands on the phone (`ActionState`, Kit's `LifeConnector`): running with its steps, succeeded with its proof, or failed with the step, the reason and whether a retry is allowed. Only the server ends it. | |
 | action step | One stage of an action as Life reports it (`ActionStep`): passed with its time, or still to come. | |
+| design data | The made-up content the app's simulator fixture shows and the designer's frames draw: one file per connector read in `apps/lifelog/fixtures/design/`, in the wire shape (an instant without a zone is the phone's own time), read by Debug builds (`LifeFixture`, `-fixtureReads`). The designer owns its content; the repo holds the one copy. Not `fixtures/wire/`, which Life's server tests write. | |
+| frame map | Which screen state each designer's frame draws, joined by frame name: the designer's half (`frame-map.json` in the designer's folder: pose, size, picture, state) and the repo's (`frames.json` beside the design data: launch arguments and taps, or why a frame can't be reached). `bun run design:shots` reads both. | |
 
 ## Folders
 

@@ -268,6 +268,11 @@ extension Check {
 
     /// The option that says the name is an organization (`organization`, `memory/life-checks.ts`), on a name card.
     public var organizationOption: Option? { group == .name ? options.first { $0.id == "organization" } : nil }
+    /// Whether his tap on `option` opens the create sheet set to an organization instead of answering: "Organization" on a
+    /// card that creates by sheet, so its name and what it is are his to see first. It takes nothing more on the wire.
+    public func createsOrganizationBySheet(_ option: Option) -> Bool {
+        createsBySheet && option.id == organizationOption?.id
+    }
 
     /// Whether `text` is still Life's `guess`: the same words, whatever the spaces around and between them. The one
     /// test, for the sheet's "Life's guess" and for the note it sends.

@@ -54,11 +54,11 @@ extension Text {
 extension Tone {
   var color: Color {
     switch self {
-    case .ok: Color(light: 0x1d6b58, dark: 0x74c9a9)
+    case .ok: Color(light: 0x1a7f3c, dark: 0x30d158)
     case .warn: Color(light: 0xb3412b, dark: 0xf0896f)
     case .bad: Color(light: 0xb3412b, dark: 0xf0896f)
     case .busy: Color(light: 0x33468f, dark: 0x9aa8ec)
-    case .teal: Color(light: 0x1d6b58, dark: 0x74c9a9)
+    case .teal: Color(light: 0x1a7f3c, dark: 0x30d158)
     case .idle: Color(light: 0x6c6964, dark: 0x85817a)
     }
   }
