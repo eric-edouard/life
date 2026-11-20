@@ -122,16 +122,15 @@ export const NEED_KINDS_LINE = NEED_KINDS.map(
 export const needPageOf = (name: string) =>
   Object.hasOwn(KINDS, name) ? KINDS[name as Kind].page : undefined;
 
-/** Words of a payee that say nothing of who it is: titles and a company's form. */
-const NOT_A_NAME = new Set(
-  "mr mrs ms miss dr co ltd limited company inc plc the".split(" ")
-);
+/** Titles before a name: they say nothing of who it is. A company's form is kept: "Co" may be a surname. */
+const TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "the"]);
 
-/** A name's words as names are compared (`nameKey`), less titles and a company's form; initials kept. */
-const nameWordsOf = (name: string) =>
-  nameKey(name)
-    .split(" ")
-    .filter((w) => w && !NOT_A_NAME.has(w));
+/** A name's words as names are compared (`nameKey`), less its leading titles; initials kept. */
+const nameWordsOf = (name: string) => {
+  const words = nameKey(name).split(" ").filter(Boolean);
+  const from = words.findIndex((w) => !TITLES.has(w));
+  return from < 0 ? [] : words.slice(from);
+};
 
 /** The words of a card's payee: the account's `holder`, else the link's `vendor`, as the bank shows it. */
 export const payeeWordsOf = (needs: readonly Need[] = []) =>
@@ -141,10 +140,19 @@ export const payeeWordsOf = (needs: readonly Need[] = []) =>
       ""
   );
 
-/** Whether a bank's line names the payee `words`: each of them a whole word of it, in any order ("MR. KIT TEST", "SHOP (A/C Name: SHOP CO.,LTD.)"). */
-export const isToPayee = (line: string, words: readonly string[]) => {
-  const said = new Set(nameWordsOf(line));
-  return words.length > 0 && words.every((w) => said.has(w));
+/**
+ * Whether a bank's name of the payee holds the payee `words`: each a whole word of it, in any order, a word asked
+ * twice there twice ("MS. LEE, ANN" for "Ann Lee"; "LI LI", never "BO LI", for "Li Li").
+ */
+export const isToPayee = (name: string, words: readonly string[]) => {
+  const said = nameWordsOf(name);
+  return (
+    words.length > 0 &&
+    words.every((w) => {
+      const i = said.indexOf(w);
+      return i >= 0 && said.splice(i, 1).length === 1;
+    })
+  );
 };
 
 /** The amount a card's payment is looked for by: its one `amount` need. */

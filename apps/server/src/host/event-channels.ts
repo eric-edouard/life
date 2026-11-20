@@ -69,11 +69,30 @@ const READ_WITHIN_MS = 20_000;
 const PAYMENTS_BACK_DAYS = 35;
 
 /** A bank's own account-name field, which names the payee when the merchant is a shop's name ("SHOP (A/C Name: SHOP CO.,LTD.)"). */
-const ACCOUNT_NAME = /\bA\/C Name:(.*?)\)?\s*$/i;
-/** Who a payment went to, as its bank line names it: its account name when the bank gives one (blank: none), else the whole line. */
+const ACCOUNT_NAME = /\bA\/C Name:/i;
+
+/**
+ * Who a payment went to, as its bank line names it: its account-name field when the bank gives one, read to the
+ * bracket that closes the one it opened in (its own brackets kept: "North (UK) Services Ltd"), else the whole line.
+ * A field given blank names no one.
+ */
 const payeeOf = (merchant: string) => {
   const field = ACCOUNT_NAME.exec(merchant);
-  return field ? (field[1] ?? "").trim() : merchant;
+  if (!field) {
+    return merchant;
+  }
+  const before = merchant.slice(0, field.index);
+  let depth = before.lastIndexOf("(") > before.lastIndexOf(")") ? 1 : 0;
+  let name = "";
+  for (const ch of merchant.slice(field.index + field[0].length)) {
+    depth += ch === "(" ? 1 : 0;
+    depth -= ch === ")" ? 1 : 0;
+    if (depth < 0 || (ch === ")" && depth === 0)) {
+      break;
+    }
+    name += ch;
+  }
+  return name.trim();
 };
 
 /**
