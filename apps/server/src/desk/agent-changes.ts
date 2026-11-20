@@ -12,7 +12,7 @@ import {
   readCursor,
   runtimeOf,
 } from "../host/desk-read";
-import { AgentChange } from "../records/registered-agent";
+import { AgentChange, type AgentKind } from "../records/registered-agent";
 import { register, withdrawOpenDecision, writeSubject } from "./agent-actions";
 import { type Desk, saveCursor } from "./desk-store";
 
@@ -56,7 +56,7 @@ export function start(
   desk: Desk,
   c: AgentChange,
   brief: string,
-  blocked?: string
+  { blocked, kind }: { blocked?: string; kind?: AgentKind } = {}
 ) {
   const runtime = runtimeOf(c);
   const holder = c.project
@@ -86,6 +86,7 @@ export function start(
     brief,
     effort: c.effort,
     folder: c.folder,
+    kind,
     model: c.model,
     project: c.project,
     runtime,
@@ -122,7 +123,7 @@ function apply(
   let refused: string | null;
   switch (c.action) {
     case "start":
-      return start(desk, c, brief, blocked);
+      return start(desk, c, brief, { blocked });
     case "stop":
       refused = refusal(["active"]);
       if (!refused) {

@@ -1,12 +1,13 @@
 import { decisionsNow } from "./decisions";
 import {
+  directionDueOf,
   isRunning,
   type MatterView,
   matterOfSteps,
   matterPeopleOf,
   nextStepNow,
 } from "./matter-read";
-import { readMatterBook } from "./matters";
+import { readMatterBook, readMatterBookAndRecords } from "./matters";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
 import { meant, type People, readPeople } from "./who";
 import { dayNow } from "./zones";
@@ -91,12 +92,15 @@ function rowOf(
 /** A matter's steps' ids: what an agent working on it is anchored on. */
 const refsOf = (v: MatterView) => v.steps.map((s) => s.ref);
 
-/** The running matters (open, not dormant), ranked as `read_day`'s Due (`rankedMattersOf`), of one `person`, `project` or `area` when given; with what rows are read from. Throws when a name goes by no one known. */
-async function rankedRunning(q: {
-  area?: string;
-  person?: string;
-  project?: string;
-}) {
+/** The running matters (open, not dormant) of the book `read` gives, ranked as `read_day`'s Due (`rankedMattersOf`), of one `person`, `project` or `area` when given; with what rows are read from and what `read` gave. Throws when a name goes by no one known. */
+async function rankedRunning<R extends { book: MatterView[] }>(
+  q: {
+    area?: string;
+    person?: string;
+    project?: string;
+  },
+  read: (people: People, today: string) => Promise<R>
+) {
   const people = await readPeople();
   const { truth } = people;
   const known = q.person ? meant(q.person, people).known : undefined;
@@ -112,7 +116,8 @@ async function rankedRunning(q: {
   }
   const ref = known && `person:${known}`;
   const today = dayNow();
-  const running = (await readMatterBook(people, today)).filter(
+  const r = await read(people, today);
+  const running = r.book.filter(
     (v) =>
       isRunning(v) &&
       (!ref || ROLES.some((role) => v[role].includes(ref))) &&
@@ -120,6 +125,7 @@ async function rankedRunning(q: {
       (!project || v.projects.includes(project))
   );
   return {
+    ...r,
     decisions: openDecisions(),
     people,
     ranked: rankedMattersOf(
@@ -144,7 +150,12 @@ export async function openMatters(
   agentOf: (steps: string[], projects: string[]) => string | undefined = () =>
     undefined
 ) {
-  const { decisions, people, ranked } = await rankedRunning(q);
+  const { decisions, people, ranked } = await rankedRunning(
+    q,
+    async (p, t) => ({
+      book: await readMatterBook(p, t),
+    })
+  );
   return {
     matters: ranked.map((v) => ({
       ...rowOf(v, people, decisions),
@@ -165,19 +176,34 @@ export const isOneOfHis = (
   v.hasOwnOpenStep ||
   matterPeopleOf(v).some((r) => r.startsWith("person:") && !isGuess(r));
 
-/** The running matters in his ranking, one of his (`isOneOfHis`), whose next step is one to do (`nextStepNow`): what the desk may hand to an agent, each with its steps' ids and its projects' ids. */
+/**
+ * `v`'s next step when it is one to hand to an agent: `do` as it reads now (`nextStepNow`) and checked (not `isDue`, by
+ * its id: news may have overtaken it). The one gate of the hand-out and the new matter check. Pure.
+ */
+export function nextToDoOf(
+  v: Parameters<typeof nextStepNow>[0] & { id: string },
+  decisions: Parameters<typeof nextStepNow>[1],
+  isDue: (id: string) => boolean
+) {
+  const next = nextStepNow(v, decisions);
+  return next?.kind === "do" && !isDue(v.id) ? next : undefined;
+}
+
+/** The running matters in his ranking, one of his (`isOneOfHis`), with a next step to hand over (`nextToDoOf`): what the desk may hand to an agent, each with its steps (id and instant) and its projects' ids. */
 export async function mattersToDo() {
-  const { decisions, people, ranked } = await rankedRunning({});
+  const { book, decisions, people, ranked, records } = await rankedRunning(
+    {},
+    readMatterBookAndRecords
+  );
+  const isDue = directionDueOf(book, records, dayNow());
   return ranked
     .filter(
-      (v) =>
-        isOneOfHis(v, people.isGuess) &&
-        nextStepNow(v, decisions)?.kind === "do"
+      (v) => isOneOfHis(v, people.isGuess) && nextToDoOf(v, decisions, isDue)
     )
     .map((v) => ({
       id: v.id,
       projects: v.projects,
-      steps: refsOf(v),
+      steps: v.steps.map(({ at, ref }) => ({ at, ref })),
     }));
 }
 

@@ -21,7 +21,7 @@ const DEFAULT_WAIT = DAY;
 const EVENT_GAP = 10 * MIN;
 /** A failed turn is tried again after each of these, then the default wait stands. */
 const RETRIES = [5 * MIN, 10 * MIN, 20 * MIN];
-/** An event is handed to this many turns that did not consume it (once, then again 3 times at most), then dropped. */
+/** An event is handed to this many turns that began and did not consume it (once, then again 3 times at most), then dropped. */
 export const MAX_HANDED = RETRIES.length + 1;
 /**
  * A wake sends into the session while it has grown less than this since its first turn; past it, a fresh session
@@ -97,7 +97,8 @@ export const isBeginLate = (t: TurnRow, now: number) =>
 
 /**
  * When an agent's next turn is due and why, or null while a desk turn runs: a failed turn's retry; else the soonest of
- * his answer (at once), another event (10 minutes after its last turn) and its deadline.
+ * his answer (at once, or, its retries spent, the last retry's gap after the last failure), another event (10 minutes
+ * after its last turn) and its deadline.
  */
 export function dueOf(a: AgentRow, turns: TurnRow[], events: EventRow[]) {
   const [last] = turns;
@@ -113,7 +114,12 @@ export function dueOf(a: AgentRow, turns: TurnRow[], events: EventRow[]) {
   }
   const answer = events.find((e) => ANSWERS.includes(e.name));
   if (answer) {
-    return { at: at(answer.received_at), cause: "answer" };
+    // Its retries spent (turns that never began drop nothing), his answer is tried again at the last retry's gap, never at once.
+    const spent =
+      last?.ended_at && failures > RETRIES.length
+        ? at(last.ended_at) + (RETRIES.at(-1) ?? 0)
+        : 0;
+    return { at: Math.max(at(answer.received_at), spent), cause: "answer" };
   }
   const deadline = { at: at(a.wait_until ?? a.created_at), cause: "deadline" };
   const [first] = events;

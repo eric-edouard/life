@@ -2,7 +2,7 @@ import { clock, DAY, iso } from "../core/clock";
 import { DEFAULT_RADIUS_M } from "../core/distance";
 import { holder } from "../core/lock";
 import type { SourceName } from "../core/names";
-import { decisionsNow } from "../memory/decisions";
+import { decisionsNow, openDecisionOf } from "../memory/decisions";
 import { matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { sourceOf } from "../memory/sources";
@@ -188,9 +188,9 @@ function withWakesOn(
   people: People,
   hasMatter: (steps: string[]) => boolean
 ) {
-  const open = decisionsNow().filter((d) => d.state === "open");
+  const decisions = decisionsNow();
   return agents.map(({ chatsSeen, filters, ...a }) => {
-    const d = open.find((x) => x.agent === a.id);
+    const d = openDecisionOf(a.id, decisions);
     return {
       ...a,
       wakesOn:
