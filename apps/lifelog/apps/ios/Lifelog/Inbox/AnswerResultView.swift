@@ -38,8 +38,10 @@ struct AnswerResultView: View {
             // A new state fades the last one out and rises in its place (`Motion.resultFace`).
             ZStack(alignment: .topLeading) {
                 switch state {
-                case .succeeded(let proof, _): face { done(proof) }
                 case .failed(let failure, _): face { failed(failure) }
+                // A send stays one face from the tap to its proof: the ticks land in the bubble itself.
+                case _ where taken.isSend: face { sending }
+                case .succeeded(let proof, _): face { done(proof) }
                 case .idle, .running: face { working }
                 }
             }
@@ -68,11 +70,26 @@ struct AnswerResultView: View {
 
     @ViewBuilder private var working: some View {
         Text(taken.check.question).font(.cardQuestion).foregroundStyle(Palette.fg)
-        if let draft = taken.check.draft {
-            DraftBlock(draft: draft, identity: taken.check.networkIdentity, isGuess: taken.isGuess, isBoxed: false)
-        }
+        DraftBlock(check: taken.check, isBoxed: false)
+        stepLines
+    }
+
+    /// The action's steps as they pass; "Asking Life" until Life names them.
+    private var stepLines: some View {
         CheckLines(lines: lines.isEmpty ? [CheckLine(id: "asking", text: "Asking Life", mark: .running)] : lines)
             .padding(.top, 8)
+    }
+
+    /// A send, from his tap to its proof: the draft in its chat, its ticks as the send's steps pass, then Life's word.
+    @ViewBuilder private var sending: some View {
+        if case .succeeded(let proof, _) = state {
+            Text(taken.doneWord).font(.statusWord).foregroundStyle(Palette.ok).lit().appears()
+            Text(taken.summary(proof)).font(.lead).foregroundStyle(Palette.muted).appears()
+        } else {
+            Text(taken.check.question).font(.cardQuestion).foregroundStyle(Palette.fg)
+        }
+        DraftBlock(check: taken.check, delivery: DraftDelivery(state), isBoxed: false)
+        stepLines
     }
 
     @ViewBuilder private func done(_ proof: ActionProof) -> some View {
@@ -89,9 +106,8 @@ struct AnswerResultView: View {
         if taken.isSend {
             // A send says only Life's reason, then the words that did not go.
             Text(failure.reason).font(.lead).foregroundStyle(Palette.muted)
-            if !failure.mayHaveHappened, let draft = taken.check.draft {
-                DraftBlock(draft: draft, identity: taken.check.networkIdentity, isGuess: taken.isGuess, isBoxed: false)
-                    .padding(.top, 8)
+            if !failure.mayHaveHappened {
+                DraftBlock(check: taken.check, isBoxed: false).padding(.top, 8)
             }
         } else {
             Text(taken.failedLine(failure, state)).font(.lead).foregroundStyle(Palette.muted)
@@ -159,7 +175,6 @@ extension Taken {
     /// Held for Undo: any answer that is not a send, a start, a goal edit (Life has no undo for those) or a new person's
     /// name (Life reads who that is, or adds them to his directory: its result, or why not, shows on its card first).
     var isHeld: Bool { !isSend && !isStart && !staysOpen && request.name == nil }
-    var isGuess: Bool { check.isRecipientGuessed }
 
     var doneWord: String {
         if isSend { return "Sent." }

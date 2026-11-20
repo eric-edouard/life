@@ -119,6 +119,9 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(try quoted("core/names.ts", /CheckGroup = z\.enum\(\[([^\]]*)\]/) == client(CheckGroup.self))
     #expect(try quoted("memory/life-checks.ts", /takes: ([^;]*);/) == client(Check.Option.Takes.self))
     #expect(try quoted("memory/check-urgency.ts", /export type Urgency = ([^;]*);/) == client(Urgency.self))
+    // A recent message's file: `KINDS`' kinds, else a document.
+    #expect(
+        try quoted("memory/message-files.ts", /const KINDS([^;]*);/).union(["document"]) == client(FileKind.self))
     // On Life's own checks and on a decision's options alike.
     #expect(try quoted("memory/life-checks.ts", /ends\?: ([^;]*);/) == client(Check.Option.Ends.self))
     #expect(try quoted("memory/card-request.ts", /ends: z\.enum\(\[([^\]]*)\]/) == client(Check.Option.Ends.self))

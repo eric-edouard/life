@@ -29,13 +29,7 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
         let check = CardNotification.card(in: notification.request.content.userInfo)
         extensionContext?.notificationActions = check.map(CardNotification.actions) ?? []
         if let id = check?.networkIdentity?.party?.picture?.id { Task { await pictures.want([id]) } }
-        draft.rootView = check.flatMap { check in
-            check.draft.map {
-                AnyView(
-                    DraftBlock(draft: $0, identity: check.networkIdentity, isGuess: check.isRecipientGuessed)
-                        .padding(16).environment(pictures))
-            }
-        }
+        draft.rootView = check.flatMap { DraftBlock(check: $0) }.map { AnyView($0.padding(16).environment(pictures)) }
         preferredContentSize =
             check?.draft == nil
             ? .zero : draft.sizeThatFits(in: CGSize(width: view.bounds.width, height: .greatestFiniteMagnitude))

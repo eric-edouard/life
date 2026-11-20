@@ -1,4 +1,48 @@
 {
+  "DuoFoldDraftEmpty": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "dec_send"]
+  },
+  "DuoFoldDraftFile": {
+    "why": "Its draft card is not in the design data yet: the data's one draft card (dec_send) carries no recent, so it draws the Empty frame. The strip's lines are tested in Kit (ChatStripTests)."
+  },
+  "DuoFoldDraftIMessage": {
+    "why": "Its draft card is not in the design data yet: the data's one draft card (dec_send) carries no recent, so it draws the Empty frame. The strip's lines are tested in Kit (ChatStripTests)."
+  },
+  "DuoFoldDraftInstagram": {
+    "why": "Its draft card is not in the design data yet: the data's one draft card (dec_send) carries no recent, so it draws the Empty frame. The strip's lines are tested in Kit (ChatStripTests)."
+  },
+  "DuoFoldDraftLight": {
+    "why": "Its draft card is not in the design data yet: the data's one draft card (dec_send) carries no recent, so it draws the Empty frame. The strip's lines are tested in Kit (ChatStripTests)."
+  },
+  "DuoFoldDraftLong": {
+    "why": "Its draft card is not in the design data yet: the data's one draft card (dec_send) carries no recent, so it draws the Empty frame. The strip's lines are tested in Kit (ChatStripTests)."
+  },
+  "DuoFoldDraftMail": {
+    "why": "Its draft card is not in the design data yet: the data's one draft card (dec_send) carries no recent, so it draws the Empty frame. The strip's lines are tested in Kit (ChatStripTests)."
+  },
+  "DuoFoldDraftMessenger": {
+    "why": "Its draft card is not in the design data yet: the data's one draft card (dec_send) carries no recent, so it draws the Empty frame. The strip's lines are tested in Kit (ChatStripTests)."
+  },
+  "DuoFoldDraftReaction": {
+    "why": "Its draft card is not in the design data yet: the data's one draft card (dec_send) carries no recent, so it draws the Empty frame. The strip's lines are tested in Kit (ChatStripTests)."
+  },
+  "DuoFoldDraftSent": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "dec_send",
+      "-fixtureAnswer",
+      "sent"
+    ],
+    "taps": ["Send"]
+  },
+  "DuoFoldDraftTelegram": {
+    "why": "Its draft card is not in the design data yet: the data's one draft card (dec_send) carries no recent, so it draws the Empty frame. The strip's lines are tested in Kit (ChatStripTests)."
+  },
+  "DuoFoldDraftWhatsApp": {
+    "why": "Its draft card is not in the design data yet: the data's one draft card (dec_send) carries no recent, so it draws the Empty frame. The strip's lines are tested in Kit (ChatStripTests)."
+  },
   "DuoFoldImportantCard": {
     "why": "Its card (Return Jun’s drill, the switched stack) is not in the design data, and Life sends no reason a card is first: of this frame only the pill's flag is built."
   },
@@ -227,6 +271,9 @@
   },
   "ImportantSwipe": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters, then a swipe to the right on Table for Mum’s 60th (the system's own swipe action)."
+  },
+  "KitDraftCards": {
+    "why": "Its draft card is not in the design data yet: the data's one draft card (dec_send) carries no recent, so it draws the Empty frame. The strip's lines are tested in Kit (ChatStripTests)."
   },
   "ProjectFromMatter": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen."
