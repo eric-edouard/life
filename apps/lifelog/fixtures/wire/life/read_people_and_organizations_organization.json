@@ -1,0 +1,40 @@
+{
+  "kind": "organization",
+  "line": "where Test Ana works",
+  "name": "Test Bakery",
+  "ref": "person:test-bakery",
+  "needsYou": false,
+  "communicationStyle": [],
+  "details": [],
+  "episodes": [],
+  "knows": [],
+  "domains": ["bakery.example"],
+  "people": [
+    {
+      "party": {
+        "kind": "person",
+        "line": "baker, Test Bakery",
+        "name": "Test Ana",
+        "ref": "person:test-ana"
+      },
+      "role": "baker"
+    }
+  ],
+  "reach": [
+    {
+      "accounts": [
+        {
+          "handle": "hello@bakery.example",
+          "open": {
+            "lands": "chat",
+            "url": "mailto:hello@bakery.example"
+          }
+        }
+      ],
+      "label": "Mail",
+      "network": "mail"
+    }
+  ],
+  "situation": [],
+  "open": []
+}
