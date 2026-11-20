@@ -41,6 +41,7 @@ import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
 import {
   commitAgentFiles,
+  keepHanded,
   matterRecordOf,
   readPacket,
   stopOpenRun,
@@ -183,8 +184,7 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
  * Queues `call.ended` for each open assignment whose wait wants a call that ended in the last 12 hours
  * (`readEndedCalls`), once lifelog holds the call's words (`recordingsOf`): the chat, the span, who was on it and where
  * its turns are, never a word. A call with no turn inside (the pendant was off) queues nothing and is looked at again
- * next poll until it is 12 hours old; one already queued for an assignment is not looked at (`eventHeard`), and the
- * queue keeps it once per assignment and call, so no cursor is kept. `at` is the time the polls look back from, passed
+ * next poll until it is 12 hours old; the queue keeps it once per agent and call (`queue`), so no cursor is kept. `at` is the time the polls look back from, passed
  * so a replay can set the evening.
  */
 export async function pollCalls(
@@ -444,6 +444,8 @@ async function launch(
     if (!runtime) {
       throw new Error(`no runtime ${a.runtime}`);
     }
+    // Read for a fresh session too: what the turn is handed (the packet holds the whole matter).
+    const record = isOwn ? null : await matterRecordOf(desk, s, turn);
     const grown = a.session && state === "idle" ? readGrowth(db, a.session) : 0;
     if (!a.session || state === "gone" || grown >= GROWTH_LIMIT) {
       const started = await runtime.start(
@@ -495,7 +497,7 @@ async function launch(
           wakeMessageOf(
             cause,
             events,
-            isOwn ? sinceLineOf(since) : [await matterRecordOf(desk, s)],
+            record ? [record] : sinceLineOf(since),
             unreadLinesOf(db, s)
           )
         )
@@ -623,6 +625,7 @@ function close(
       t.id,
     ]
   ).changes;
+  keepHanded(db, t, ended > 0 && outcome !== "failed");
   if (ended === 0) {
     return false;
   }

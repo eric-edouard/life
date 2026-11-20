@@ -235,17 +235,17 @@ export const assignmentOfCard = (
         .get(d.agent, d.subject ?? null)?.id ?? null)
     : null;
 
-/** Whether event `eventId` was ever queued for an assignment of agent `agent`: an event goes to one of an agent's assignments (`routeOf`). */
-export const isQueuedForAgent = (
+/** Another assignment of `s`'s agent anchored on `step`, if one is: a card on that step would be its (`assignmentOfCard`). */
+export const siblingOn = (
   db: Database,
-  agent: string,
-  eventId: string
+  s: Pick<AssignmentRow, "agent_id" | "id">,
+  step: string
 ) =>
   db
-    .query(
-      "select 1 from event e join assignment s on s.id = e.assignment_id where s.agent_id = ? and e.event_id = ?"
+    .query<{ id: string }, [string, string, string]>(
+      "select n.assignment_id as id from anchor n join assignment s on s.id = n.assignment_id where s.agent_id = ? and n.step = ? and n.assignment_id <> ? limit 1"
     )
-    .get(agent, eventId) !== null;
+    .get(s.agent_id, step, s.id)?.id ?? null;
 
 export const readCursor = (db: Database, name: string) =>
   db

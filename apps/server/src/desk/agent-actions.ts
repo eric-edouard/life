@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
@@ -17,10 +17,10 @@ import {
   assignmentOf,
   assignmentOfCard,
   isFull,
-  lastTurns,
   openTurn,
   queuedEvents,
   readNotes,
+  siblingOn,
 } from "../host/desk-read";
 import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
 import { matcherOf, waitChannelsOf } from "../host/events";
@@ -189,15 +189,16 @@ export async function withdrawOpenCards(
   }
 }
 
-/** Marks the desk turn running for `id`, if any, as heard from now, and how it ends (`outcome`) when given. */
-function heard({ db }: Desk, id: string, outcome?: "waited" | "finished") {
-  const open = openTurn(db, id);
-  if (open) {
-    db.run(
-      "update turn set heard_at = ?, outcome = coalesce(?, outcome) where id = ?",
-      [clock().toISOString(), outcome ?? null, open.id]
-    );
-  }
+/** Marks the desk turn running on assignment `s`, if any, as heard from now, and how it ends (`outcome`) when given: a turn on another assignment of its agent is never touched. */
+function heard(
+  { db }: Desk,
+  s: Pick<AssignmentRow, "agent_id" | "id">,
+  outcome?: "waited" | "finished"
+) {
+  db.run(
+    "update turn set heard_at = ?, outcome = coalesce(?, outcome) where agent_id = ? and assignment_id = ? and ended_at is null",
+    [clock().toISOString(), outcome ?? null, s.agent_id, s.id]
+  );
 }
 
 /** Why filter `f`'s place cannot be matched, or null: one coordinate alone, a radius alone, or coordinates on channels whose events hold no point. */
@@ -292,7 +293,7 @@ export async function setWait(desk: Desk, s: AssignmentRow, input: unknown) {
   }
   desk.db.transaction(() => {
     writeWait(desk.db, s.id, wait, false);
-    heard(desk, s.agent_id, "waited");
+    heard(desk, s, "waited");
   })();
   return r;
 }
@@ -305,7 +306,7 @@ async function closeWithdrawing(
 ) {
   desk.db.transaction(() => {
     closeAssignmentRow(desk.db, s.id, { outcome });
-    heard(desk, s.agent_id, "finished");
+    heard(desk, s, "finished");
   })();
   await withdrawOpenCards(desk.db, s, "its agent finished");
 }
@@ -358,7 +359,7 @@ export function commitAgentFiles(a: AgentRow, s: AssignmentRow) {
     return;
   }
   const paths = [agentHomeOf(repo, a), dirname(s.notes_path)].flatMap((p) => {
-    const inRepo = p && existsSync(p) ? relative(repo, p) : "..";
+    const inRepo = p ? relative(repo, p) : "..";
     return inRepo.startsWith("..") ? [] : [inRepo || "."];
   });
   try {
@@ -377,7 +378,7 @@ export function commitAgentFiles(a: AgentRow, s: AssignmentRow) {
 export function writeNotes(desk: Desk, s: AssignmentRow, text: string) {
   mkdirSync(dirname(s.notes_path), { recursive: true });
   writeFileSync(s.notes_path, text);
-  heard(desk, s.agent_id);
+  heard(desk, s);
 }
 
 /**
@@ -398,9 +399,31 @@ async function subjectOf(steps: string[], given: string | undefined) {
 }
 
 /**
+ * Refuses a card that is not assignment `s`'s: its subject, as Life will store it, anchored on another assignment of
+ * its agent (`siblingOn`), whose answer would go there. A matter's stored subject then joins `s`'s anchors (a matter's
+ * id is stored as one of its steps), so `assignmentOfCard` finds `s`.
+ */
+const claimOf =
+  (db: Desk["db"], s: AssignmentRow, isOnMatter: boolean) =>
+  (subject: string | undefined) => {
+    const sibling = subject && siblingOn(db, s, subject);
+    if (sibling) {
+      throw new Error(
+        `Not done: ${subject} is ${sibling}'s, another assignment of yours: ask on it from its own turn.`
+      );
+    }
+    if (isOnMatter && subject) {
+      db.run(
+        "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+        [s.id, subject, clock().toISOString()]
+      );
+    }
+  };
+
+/**
  * `request_decision`: asks him as the desk, stamped with the agent's id and its session's link first, one open card
- * per assignment, on its matter (`subjectOf`; the subject Life stores is then anchored, so his answer finds this
- * assignment, `assignmentOfCard`); or withdraws its own decision. `requestDecision` checks the rest.
+ * per assignment, on its matter (`subjectOf`) and never on another assignment's (`claimOf`); or withdraws one of this
+ * assignment's own cards. `requestDecision` checks the rest.
  */
 export async function askDecision(
   desk: Desk,
@@ -409,8 +432,13 @@ export async function askDecision(
 ) {
   const { db } = desk;
   const id = s.agent_id;
-  heard(desk, id);
+  heard(desk, s);
   if (withdraw) {
+    if (!cardsOf(db, s, decisionsNow()).some((d) => d.id === withdraw)) {
+      throw new Error(
+        `Not done: ${withdraw} is not a card of this turn's assignment (${s.id}).`
+      );
+    }
     return requestDecision(DESK_AGENT, { agent: id, why, withdraw });
   }
   // One card at a time per assignment (an inbox rule, not a limit on its work).
@@ -423,21 +451,18 @@ export async function askDecision(
   const steps = anchorsOf(db, s.id);
   const subject = await subjectOf(steps, ask.subject);
   const link = agentOf(db, id)?.link;
-  const asked = await requestDecision(DESK_AGENT, {
-    ...ask,
-    agent: id,
-    links: [...(link ? [link] : []), ...(ask.links ?? [])],
-    ...(subject ? { subject } : {}),
-  });
-  // A matter's id is stored as one of its steps (`requestDecision`): that step joins the assignment's anchors.
-  const stored = decisionsNow().find((d) => d.id === asked.id)?.subject;
-  if (steps.length > 0 && stored) {
-    db.run(
-      "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
-      [s.id, stored, clock().toISOString()]
-    );
-  }
-  return asked;
+  return requestDecision(
+    DESK_AGENT,
+    {
+      ...ask,
+      agent: id,
+      links: [...(link ? [link] : []), ...(ask.links ?? [])],
+      ...(subject ? { subject } : {}),
+    },
+    undefined,
+    undefined,
+    claimOf(db, s, steps.length > 0)
+  );
 }
 
 /** Where an agent may write and what it never starts (his rulings of 20 Nov 2026): Life keeps its notes; the desk alone dispatches. */
@@ -529,13 +554,18 @@ export async function readPacket(
   }
   const events = queuedEvents(db, s.id).map(eventLineOf);
   const steps = anchorsOf(db, s.id);
-  const matter = a.project ? undefined : await oneMatter(steps);
+  // An agent's own assignment is its project; any other, the matter its anchors find, its agent's project as context.
+  const isOnProject = steps.length === 0 && a.project !== null;
+  const matter = isOnProject ? undefined : await oneMatter(steps);
   const truth = await loadTruth();
-  const projects = (
-    a.project ? [a.project] : await readMatterProjectIds(steps)
-  ).map((p) => projectContextOf(truth, p));
+  const projects = [
+    ...new Set([
+      ...(a.project ? [a.project] : []),
+      ...(isOnProject ? [] : await readMatterProjectIds(steps)),
+    ]),
+  ].map((p) => projectContextOf(truth, p));
   return [
-    a.project
+    isOnProject && a.project
       ? await projectLinesOf(a.project)
       : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify(matter ?? `No matter holds ${steps.join(", ")} now.`)}`,
     ...projects.flat(),
@@ -548,26 +578,52 @@ export async function readPacket(
 }
 
 /**
- * What every wake of a matter assignment `s` opens with, from code (his word of 20 Nov 2026: nothing rests on the
- * agent's memory): the matter as Life reads it now (its id and name, where it stands, its goal and next step), its
- * steps since the assignment's last turn (its newest `RECORD_STEPS` when none), its notes, and where to read more;
- * a few thousand characters at most. Life's own reading of the matter, never an event's words.
- * ponytail: "since" is by a step's instant, so a step recorded at night about an earlier hour is not listed; `read_matter` has it.
+ * The matter steps each turn was handed (`matterRecordOf`), by turn, in this process: anchored once the turn ends
+ * unfailed (`keepHanded`), so the next record lists only what its assignment never received. Lost on a restart: those
+ * steps are then handed again.
  */
-export async function matterRecordOf({ db }: Desk, s: AssignmentRow) {
-  const steps = anchorsOf(db, s.id);
-  const m = await oneMatter(steps);
-  const since = lastTurns(db, s.id).find((t) => t.ended_at)?.started_at;
-  const notes = readNotes(s);
-  const newer = (m?.steps ?? [])
-    .filter((x) => !since || x.at > since)
-    .slice(-RECORD_STEPS)
-    .map(
-      (x) =>
-        `- ${x.at} ${x.ref} (${x.kind}): ${clip(x.text, RECORD_STEP_CHARS)}`
+const handedIn = new WeakMap<Desk["db"], Map<number, string[]>>();
+function handedOf(db: Desk["db"]) {
+  const turns = handedIn.get(db) ?? new Map<number, string[]>();
+  handedIn.set(db, turns);
+  return turns;
+}
+
+/** Anchors on its assignment the steps turn `t` was handed when `isKept` (it ended unfailed), and forgets them: a failed turn hands them again. */
+export function keepHanded(
+  db: Desk["db"],
+  t: { assignment_id: string; id: number },
+  isKept: boolean
+) {
+  for (const step of isKept ? (handedOf(db).get(t.id) ?? []) : []) {
+    db.run(
+      "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+      [t.assignment_id, step, clock().toISOString()]
     );
-  return [
-    `Your matter, as Life reads it now (\`read_matter\` with ${steps[0] ?? "its step"} reads it whole; your notes file: ${s.notes_path}):`,
+  }
+  handedOf(db).delete(t.id);
+}
+
+/**
+ * What every wake of a matter assignment `s` opens with, from code (his word of 20 Nov 2026: nothing rests on the
+ * agent's memory): the matter as Life reads it now (its id and name, where it stands, its goal and next step), its steps
+ * the assignment was never handed (not among its anchors: a step Life learned late about an earlier hour included; the
+ * newest `RECORD_STEPS`, and how many more), its notes, and where to read more; a few thousand characters at most.
+ * Life's own reading of the matter, never an event's words. Turn `turn` is handed every step of the matter now
+ * (`keepHanded`).
+ */
+export async function matterRecordOf(
+  { db }: Desk,
+  s: AssignmentRow,
+  turn: number
+) {
+  const anchors = anchorsOf(db, s.id);
+  const m = await oneMatter(anchors);
+  const handed = new Set(anchors);
+  const fresh = (m?.steps ?? []).filter((x) => !handed.has(x.ref));
+  const more = fresh.length - RECORD_STEPS;
+  const record = [
+    `Your matter, as Life reads it now (\`read_matter\` with ${anchors[0] ?? "its step"} reads it whole; your notes file: ${s.notes_path}):`,
     m
       ? JSON.stringify({
           goal: m.goal?.text,
@@ -576,11 +632,21 @@ export async function matterRecordOf({ db }: Desk, s: AssignmentRow) {
           nextStep: m.nextStep?.text,
           status: m.status,
         })
-      : `No matter holds ${steps.join(", ")} now.`,
-    since
-      ? `Its steps since your last turn on it (${since}):`
-      : "Its newest steps:",
-    ...(newer.length > 0 ? newer : ["(none)"]),
-    `Your notes on it:\n${clip(notes, RECORD_NOTES_CHARS) || "(none yet)"}`,
+      : `No matter holds ${anchors.join(", ")} now.`,
+    "Its steps new to you (never handed to you before):",
+    ...fresh
+      .slice(-RECORD_STEPS)
+      .map(
+        (x) =>
+          `- ${x.at} ${x.ref} (${x.kind}): ${clip(x.text, RECORD_STEP_CHARS)}`
+      ),
+    ...(fresh.length === 0 ? ["(none)"] : []),
+    ...(more > 0 ? [`(and ${more} older: \`read_matter\`)`] : []),
+    `Your notes on it:\n${clip(readNotes(s), RECORD_NOTES_CHARS) || "(none yet)"}`,
   ].join("\n");
+  handedOf(db).set(
+    turn,
+    (m?.steps ?? []).map((x) => x.ref)
+  );
+  return record;
 }

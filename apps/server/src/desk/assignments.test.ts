@@ -6,14 +6,19 @@ import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { gitOut } from "../core/proc";
 import { setSettings, settings } from "../core/settings";
 import {
+  agentOf,
   assignmentOf,
   assignmentOfCard,
   currentAssignmentOf,
+  openTurn,
+  queuedEvents,
 } from "../host/desk-read";
-import { decisionsNow } from "../memory/decisions";
+import { answerDecision, decisionsNow } from "../memory/decisions";
 import type { EventFilter } from "../records/registered-agent";
 import {
   askDecision,
+  closeAssignment,
+  hasAsked,
   openAssignment,
   openCardOf,
   register,
@@ -21,7 +26,12 @@ import {
   withdrawOpenCards,
   writeNotes,
 } from "./agent-actions";
-import { pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
+import {
+  pollAnswers,
+  pollMessages,
+  readPeopleOnce,
+  wakeDue,
+} from "./desk-clock";
 import { type Desk, writeWait } from "./desk-store";
 import { agentWakesOf, routeOf, type WakeWhy } from "./event-queue";
 import {
@@ -29,6 +39,7 @@ import {
   advance,
   ahead,
   asgOf,
+  grow,
   matterView,
   on,
   setup,
@@ -304,4 +315,164 @@ test("after a turn the desk commits the agent's home and the assignment's folder
   } finally {
     setSettings({ desk: was ?? null });
   }
+});
+
+// The verdict's rework on PR 2: ownership is enforced where a card or a turn's outcome is written. Made-up agent,
+// matters and cards; `own` is the agent's own assignment, `onA` its assignment on a made-up matter.
+
+const yesNo = (subject?: string) => ({
+  deadline: ahead(DAY),
+  options: [
+    { id: "yes", label: "Yes" },
+    { id: "no", label: "No" },
+  ],
+  question: "Test: order it?",
+  title: "a test",
+  ...(subject ? { subject } : {}),
+});
+
+async function twoAssignments() {
+  const t = setup();
+  const id = await t.waiting(3 * HOUR);
+  const a = onMatter(t.desk, id, "a", HOUR);
+  const row = (s: string) => {
+    const r = assignmentOf(t.desk.db, s);
+    if (!r) {
+      throw new Error(`no ${s}`);
+    }
+    return r;
+  };
+  return { ...t, id, onA: () => row(a), own: () => row(asgOf(t.desk, id)) };
+}
+
+// Regression: a turn could withdraw the card of another assignment of its agent.
+test("a turn cannot withdraw the card of its agent's other assignment", async () => {
+  const { desk, onA, own } = await twoAssignments();
+  await withMatters(MATTERS, async () => {
+    const { id: card } = await askDecision(desk, onA(), yesNo());
+    await expect(
+      askDecision(desk, own(), { why: "test", withdraw: card })
+    ).rejects.toThrow("is not a card of this turn's assignment");
+    expect(decisionsNow().find((d) => d.id === card)?.state).toBe("open");
+    await withdrawOpenCards(desk.db, onA(), "test over");
+  });
+});
+
+// Regression: a turn could ask a card on a step its sibling is anchored on, which then counted as the sibling's.
+test("a turn cannot ask on its sibling's step; his answer to the sibling's own card wakes the sibling only", async () => {
+  const { desk, onA, own } = await twoAssignments();
+  await withMatters(MATTERS, async () => {
+    await expect(askDecision(desk, own(), yesNo("obs_a1"))).rejects.toThrow(
+      `obs_a1 is ${onA().id}'s`
+    );
+    expect(
+      decisionsNow().some((d) => d.state === "open" && d.subject === "obs_a1")
+    ).toBe(false);
+    pollAnswers(desk);
+    const { id: card } = await askDecision(desk, onA(), yesNo());
+    advance(1000);
+    await answerDecision(card, ["yes"]);
+    advance(1000);
+    pollAnswers(desk);
+    const answered = (s: string) =>
+      queuedEvents(desk.db, s).map((e) => e.event_id);
+    expect(answered(onA().id)).toEqual([`${card}.answered`]);
+    expect(answered(own().id)).toEqual([]);
+    expect(hasAsked(desk.db, own())).toBe(false);
+  });
+});
+
+// Regression: closing one assignment marked its agent's running turn on another as finished.
+test("closing one assignment during a turn on another leaves that turn and its events as they were", async () => {
+  const { desk, end, id, onA, own } = await twoAssignments();
+  advance(3 * HOUR + MIN);
+  desk.db.run("delete from turn where assignment_id = ?", [onA().id]);
+  const ownEvent = "test-own-event";
+  desk.db.run(
+    "insert into event (assignment_id, event_id, name, payload, received_at, handed) values (?, ?, 'message.received', '{}', ?, 1)",
+    [own().id, ownEvent, clock().toISOString()]
+  );
+  desk.db.run(
+    "insert into turn (agent_id, assignment_id, session, cause, started_at, begun_at) values (?, ?, ?, 'event', ?, ?)",
+    [
+      id,
+      own().id,
+      agentOf(desk.db, id)?.session ?? null,
+      clock().toISOString(),
+      clock().toISOString(),
+    ]
+  );
+  await closeAssignment(desk, onA().id, "test: its matter is done");
+  expect(openTurn(desk.db, id)?.outcome).toBeNull();
+  await end(id);
+  // Reminded, not ended: its handed event is still its own to act on.
+  expect(openTurn(desk.db, id)?.reminded_at).not.toBeNull();
+  expect(
+    desk.db
+      .query<{ consumed_at: string | null }, [string]>(
+        "select consumed_at from event where event_id = ?"
+      )
+      .get(ownEvent)?.consumed_at
+  ).toBeNull();
+});
+
+// Regression: a fresh session of a project's agent on a matter was handed its project, never its matter.
+test("a fresh session of a project's agent woken on a matter starts from that matter", async () => {
+  const { desk, end, fake } = setup();
+  const id = register(desk, {
+    brief: "Test brief",
+    project: "test-bakery",
+    runtime: "fake",
+  });
+  await wakeDue(desk);
+  await setWait(desk, on(desk, id), {
+    events: [],
+    reason: "r",
+    until: ahead(DAY),
+  });
+  await end(id);
+  openAssignment(desk, id, { openedBy: "owner", steps: ["obs_a1"] });
+  grow(desk, agentOf(desk.db, id)?.session ?? "", 130_000);
+  await withMatters(MATTERS, () => wakeDue(desk));
+  const start = fake.said.at(-1)?.message ?? "";
+  expect(start).toContain("Your subject, the matter as read now");
+  expect(start).toContain('"id":"mat_a"');
+  expect(start).not.toContain("Your subject: the project");
+});
+
+// Regression: "new since your last turn" went by a step's instant, so a step learned late about an earlier hour was
+// never shown, and a failed turn moved the cut.
+test("a wake lists the matter's steps the assignment was never handed: one learned late shows; a failed turn hands nothing", async () => {
+  const { desk, end, fake, id, onA, own } = await twoAssignments();
+  // Its own assignment waits beyond the test.
+  writeWait(
+    desk.db,
+    own().id,
+    { events: [], reason: "r", until: ahead(7 * DAY) },
+    false
+  );
+  const views = (steps: string[]) => [
+    matterView("mat_a", steps, "2026-11-01T08:00:00.000Z"),
+  ];
+  const wakeOnA = async (steps: string[]) => {
+    advance(2 * HOUR);
+    writeWait(
+      desk.db,
+      onA().id,
+      { events: [], reason: "r", until: ahead(-MIN) },
+      false
+    );
+    await withMatters(views(steps), () => wakeDue(desk));
+    return fake.said.at(-1)?.message ?? "";
+  };
+  expect(await wakeOnA(["obs_a1", "obs_a2"])).toContain("obs_a2 (to_do)");
+  await end(id, true);
+  // Failed: handed again.
+  expect(await wakeOnA(["obs_a1", "obs_a2"])).toContain("obs_a2 (to_do)");
+  await setWait(desk, onA(), { events: [], reason: "r", until: ahead(HOUR) });
+  await end(id);
+  const after = await wakeOnA(["obs_a1", "obs_a2", "obs_a3"]);
+  expect(after).not.toContain("obs_a2 (to_do)");
+  // A step Life learned since, about an hour before every turn, is new to it.
+  expect(after).toContain("obs_a3 (to_do)");
 });

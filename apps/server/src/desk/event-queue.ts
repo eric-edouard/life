@@ -4,7 +4,6 @@ import {
   type AssignmentRow,
   anchorsOf,
   filtersOf,
-  isQueuedForAgent,
   openAssignments,
 } from "../host/desk-read";
 import {
@@ -22,7 +21,11 @@ import type { Desk } from "./desk-store";
 /** Who his people are, read when a poll first needs them: once per poll (`readPeopleOnce`). */
 export type ReadPeople = () => Promise<People>;
 
-/** Queues `wakes` (one event each, kept once per assignment and id) as `name`. */
+/**
+ * Queues `wakes` (one event each) as `name`, each only once per agent: an event already queued for any assignment of
+ * the wake's agent, consumed, dropped or closed, is never queued for another (a poll read again after a restart, or
+ * after the assignment it went to closed, wakes no sibling). The one boundary every poll queues through.
+ */
 export function queue(
   db: Desk["db"],
   name: string,
@@ -30,7 +33,7 @@ export function queue(
 ) {
   for (const w of wakes) {
     db.run(
-      "insert or ignore into event (assignment_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
+      "insert or ignore into event (assignment_id, event_id, name, payload, received_at) select ?1, ?2, ?3, ?4, ?5 where not exists (select 1 from event e join assignment s on s.id = e.assignment_id where e.event_id = ?2 and s.agent_id = (select agent_id from assignment where id = ?1))",
       [
         w.assignment,
         w.eventId,
@@ -105,8 +108,8 @@ export function routeOf<
 
 /**
  * Each open assignment's wakes by `events`: those its wait wants (`matcherOf`), from after it was opened (by the event's
- * instant, else by its day against the local day it was opened): nothing before is new to it; never queued for its agent
- * yet (`isQueuedForAgent`); one assignment per agent (`routeOf`).
+ * instant, else by its day against the local day it was opened): nothing before is new to it; one assignment per agent
+ * (`routeOf`). One already queued for the agent is refused by `queue`.
  */
 export function agentWakesOf<T>(
   db: Desk["db"],
@@ -124,8 +127,7 @@ export function agentWakesOf<T>(
     const matchers = filtersOf(s).flatMap((f) => matcherOf(f, people) ?? []);
     return events.flatMap((e) =>
       isOnOrAfter(e, s.opened_at) &&
-      matchers.some((isMatch) => isMatch(e.matchable)) &&
-      !isQueuedForAgent(db, s.agent_id, e.eventId)
+      matchers.some((isMatch) => isMatch(e.matchable))
         ? [
             {
               assignment: s.id,

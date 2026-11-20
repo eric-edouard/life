@@ -155,19 +155,29 @@ export const repoFiles = (root: string, dirs: string[], ends: string[]) =>
 export function gitOut(path: string, args: string[]) {
   const r = git(path, args);
   if (r.exitCode !== 0) {
-    throw new Error(`git ${args[0]}: ${r.stderr.toString().trim()}`);
+    // Named by its command, past any global option.
+    const command = args.find((x) => !x.startsWith("-"));
+    throw new Error(`git ${command}: ${r.stderr.toString().trim()}`);
   }
   return r.stdout.toString().trim();
 }
 
-/** Commits `paths` (relative to the repo at `repo`) alone, their new and deleted files included, when any changed. */
+/**
+ * Commits `paths` (relative to the repo at `repo`, each taken literally, never as a pattern) alone, when any changed:
+ * their new, changed and deleted files (a tracked folder gone whole included), and nothing else staged there.
+ */
 export function commitPaths(repo: string, paths: string[], message: string) {
-  if (paths.length === 0) {
+  const literal = (args: string[]) =>
+    gitOut(repo, ["--literal-pathspecs", ...args]);
+  const kept = paths.filter(
+    (p) => existsSync(join(repo, p)) || literal(["ls-files", "--", p]) !== ""
+  );
+  if (kept.length === 0) {
     return;
   }
-  gitOut(repo, ["add", "-A", "--", ...paths]);
-  if (gitOut(repo, ["status", "--porcelain", "--", ...paths])) {
-    gitOut(repo, ["commit", "-m", message, "--", ...paths]);
+  literal(["add", "-A", "--", ...kept]);
+  if (literal(["status", "--porcelain", "--", ...kept])) {
+    literal(["commit", "-m", message, "--", ...kept]);
   }
 }
 

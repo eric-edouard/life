@@ -204,6 +204,12 @@ export const matterEndsOf = async (desk: Desk, people: People) =>
 /** Why a text is related to a net: its person, else its meaning (with how close), else not. */
 type Why = Exclude<WakeWhy, { why: "wait" }>;
 
+/** `why` as a wake's payload shows it: a similarity to two places (`routeOf` ranks the full one). */
+const shownOf = (why: Why) =>
+  why.why === "meaning"
+    ? { ...why, similarity: Math.round(why.similarity * 100) / 100 }
+    : why;
+
 /**
  * For each text (`person`: who wrote or said it, none for his own), each net it relates to and why: by its person, or by
  * its meaning at `CLOSE_AT` or more. The texts are embedded as passages, once; when the embedder is missing or fails
@@ -241,7 +247,7 @@ async function relatedOf(
         ? [
             {
               assignment: net.assignment,
-              similarity: Math.round(similarity * 100) / 100,
+              similarity,
               why: "meaning",
             },
           ]
@@ -276,7 +282,7 @@ export async function relatedMessages(
               assignment,
               by: why as WakeWhy,
               eventId: x.m.id,
-              payload: { ...x.m, ...why },
+              payload: { ...x.m, ...shownOf(why) },
             },
           ]
         : []
@@ -361,7 +367,7 @@ export async function relatedRecordings(
                 assignment,
                 by: why as WakeWhy,
                 eventId: `${u.id}@${at}`,
-                payload: { at, id: u.id, source: u.source, ...why },
+                payload: { at, id: u.id, source: u.source, ...shownOf(why) },
               },
             ]
           : []

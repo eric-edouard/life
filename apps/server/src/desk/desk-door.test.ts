@@ -107,7 +107,7 @@ test("request_decision asks as the desk, stamped with the agent and its link; on
     why: "not mine",
     withdraw: dec,
   });
-  expect(stolen.text).toContain("another agent");
+  expect(stolen.text).toContain("is not a card of this turn's assignment");
   await call(id, key, "request_decision", { why: "done", withdraw: dec });
   expect(decisionsNow().find((d) => d.id === dec)?.state).toBe("withdrawn");
 });
