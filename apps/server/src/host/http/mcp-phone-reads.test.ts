@@ -659,13 +659,8 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     ).toMatchObject({ network: "WhatsApp", newest: null, shownName: "Kit" });
     const matters = await read("read_matters");
     expectWire("read_matters", matters);
-    expect(
-      Object.fromEntries(
-        (JSON.parse(matters).matters as { icon?: object; name: string }[]).map(
-          (m) => [m.name, m.icon]
-        )
-      )
-    ).toEqual({
+    const rows: { icon?: object; name: string }[] = JSON.parse(matters).matters;
+    expect(Object.fromEntries(rows.map((m) => [m.name, m.icon]))).toEqual({
       "Frame Gran's photo": undefined,
       "Mend Gran's watch": { by: "owner", key: "tools" },
       "Renew the lease": { by: "life", key: "key" },
