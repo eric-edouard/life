@@ -2,7 +2,7 @@ import type { SourceName } from "../core/names";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import type { Descriptor } from "../sources/contract";
-import { readIndex, readUnitsFor, readUnitsOf } from "./memory-files";
+import { readIndex, readUnitsOf } from "./memory-files";
 import { OWNER } from "./read-truth";
 import { isDirect, kindOf, SOURCES, sourceOf } from "./sources";
 import { holdsName, oneToOnePersonOf, type Resolve, UNKNOWN } from "./units";
@@ -178,25 +178,26 @@ export const chatUnitsFor = (
 const TITLED = 5;
 
 /**
- * The newest `TITLED` chats whose title holds `title` as a whole word run (`holdsName`), each as its source and key:
- * the fallback of `read_chats` with a `who` no unit of anyone holds. One query of the index for each source's titles
- * with their newest unit, then those units' files. ponytail: two rooms of one title are one here (the index holds no
- * chat key); add the key to the index when that bites.
+ * The newest `TITLED` chats (of `chat` alone when given) whose newest title holds `title` as a whole word run
+ * (`holdsName`), each as its source and key: the fallback of `read_chats` with a `who` no unit of anyone holds. One
+ * query of the index, a chat once however many days or names it has, two rooms of one title two chats.
  */
-export function readChatsTitled(title: string) {
+export function readChatsTitled(title: string, chat?: string) {
   const chatSources = SOURCES.filter((s) => s.kind === "chat").map(
     (s) => s.name
   );
-  const ids =
+  return (
     readIndex((db) =>
       db
-        .query<{ id: string; title: string }, [string]>(
-          "select id, title, max(date) from units where source in (select value from json_each(?)) group by source, title order by max(date) desc"
+        .query<{ chat: string; source: SourceName; title: string }, [string]>(
+          "select source, chat, title, max(date) from units where source in (select value from json_each(?)) group by source, chat order by max(date) desc"
         )
         .all(JSON.stringify(chatSources))
-        .filter((u) => holdsName(u.title, [title]))
+        .filter(
+          (u) => holdsName(u.title, [title]) && (!chat || u.chat === chat)
+        )
         .slice(0, TITLED)
-        .map((u) => u.id)
-    ) ?? [];
-  return readUnitsFor(ids).map((u) => ({ key: u.key, source: u.source }));
+        .map((u) => ({ key: u.chat, source: u.source }))
+    ) ?? []
+  );
 }

@@ -80,7 +80,9 @@ export function readWhoChats(
     isChosen
   );
   const titled =
-    o.who && !known && first.events.length === 0 ? readChatsTitled(o.who) : [];
+    o.who && !known && first.events.length === 0
+      ? readChatsTitled(o.who, o.chat)
+      : [];
   if (titled.length === 0) {
     return { ...first, person: !!o.who };
   }

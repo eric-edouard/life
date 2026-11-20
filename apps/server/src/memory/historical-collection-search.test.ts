@@ -3,6 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
 import type { SourceEvent } from "../records/source";
+import type { Unit } from "../records/unit";
 import { buildIndex, reindexUnits } from "./index-writer";
 import { INDEX, UNITS } from "./memory-files";
 import { writePassages } from "./passages";
@@ -176,10 +177,11 @@ test("who: their one-to-one chats whole and their own words in groups, deleted o
 });
 
 /** `events` made into units by the night's own builder, stored and indexed as the watcher indexes them. */
-async function indexedFrom(events: SourceEvent[]) {
-  const units = messageUnits(events, (await readPeople()).resolve).map(
-    (b) => b.unit
-  );
+async function indexedFrom(events: SourceEvent[], extra: Unit[] = []) {
+  const units = [
+    ...messageUnits(events, (await readPeople()).resolve).map((b) => b.unit),
+    ...extra,
+  ];
   mkdirSync(UNITS, { recursive: true });
   mkdirSync(dirname(INDEX), { recursive: true });
   for (const [day, list] of Map.groupBy(units, (u) => u.date)) {
@@ -456,14 +458,56 @@ test("who: a name no one is known by but a chat's title finds that chat, as `cha
     // Life's own chat under the same title: its day is no unit, and its messages are never read.
     lineSaid("c4", at(2), lifeChat() as string, "me", "Garden Club"),
   ];
+  // Life's room is titled too (a unit stored before the rule, or one a rule let through), so only `isLifeOutput` drops it.
+  const lifeDay = unitFixture({
+    date: (all[3] as SourceEvent).at.slice(0, 10),
+    id: "unit_0000000000lf",
+    key: lifeChat() as string,
+    source: "line",
+    title: "Garden Club",
+  });
   try {
-    await indexedFrom(all);
+    await indexedFrom(all, [lifeDay]);
     const ids = async (o: { chat?: string; who: string }) =>
       messagesIn(await chatsOf(o, { line: sourceOver(all) })).map((l) =>
         l.slice(l.lastIndexOf("["))
       );
     expect(await ids({ who: "garden club" })).toEqual(["[id c1]", "[id c2]"]);
     expect(await ids({ chat: "!room-chess", who: "garden club" })).toEqual([]);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});
+
+test("who: a title two rooms hold names both, a room once however many days, only the newest five; `chat` is applied before that cap", async () => {
+  const day = (n: number) =>
+    new Date(Date.now() - n * 86_400_000).toISOString();
+  const rooms = [1, 2, 3, 4, 5, 6].map((n) =>
+    lineSaid(`r${n}`, day(n), `!room-${n}`, "Zed Moss", "Garden Club")
+  );
+  // Room 1 has a second day: still one chat, so it takes one of the five slots.
+  const all = [
+    ...rooms,
+    lineSaid("r1b", day(2), "!room-1", "Zed Moss", "Garden Club"),
+  ];
+  try {
+    await indexedFrom(all);
+    const ids = async (o: { chat?: string; who: string }) =>
+      messagesIn(await chatsOf(o, { line: sourceOver(all) })).map((l) =>
+        l.slice(l.lastIndexOf("["))
+      );
+    expect(await ids({ who: "garden club" })).toEqual([
+      "[id r5]",
+      "[id r4]",
+      "[id r3]",
+      "[id r2]",
+      "[id r1b]",
+      "[id r1]",
+    ]);
+    expect(await ids({ chat: "!room-6", who: "garden club" })).toEqual([
+      "[id r6]",
+    ]);
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
     rmSync(INDEX, { force: true });
