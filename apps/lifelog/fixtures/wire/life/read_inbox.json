@@ -73,7 +73,6 @@
         "important": true,
         "name": "Mend Gran's watch"
       },
-      "misread": null,
       "confirm": [
         {
           "about": ["+33600000001"],
@@ -126,7 +125,9 @@
           "title": "Know who someone is",
           "matter": null,
           "misread": {
-            "cause": "af557d3015052eab"
+            "cause": "01b070ee5ba7f83a",
+            "seal": "ef25c79d9e19d966a1be5453309f9070",
+            "shown": "528f6c9ad7f0456d"
           },
           "confirm": [],
           "networkIdentity": {
@@ -163,8 +164,10 @@
           "ref": "person:inf_kit"
         }
       },
+      "contactsCard": null,
       "pushId": "a23260946067d0fe",
-      "urgency": "blocks"
+      "urgency": "blocks",
+      "misread": null
     },
     {
       "said": null,
@@ -253,11 +256,12 @@
       "subject": null,
       "title": "Pay the deposit",
       "matter": null,
-      "misread": null,
       "confirm": [],
       "networkIdentity": null,
+      "contactsCard": null,
       "pushId": "cdc5e5e8356ed8a6",
-      "urgency": "blocks"
+      "urgency": "blocks",
+      "misread": null
     },
     {
       "said": null,
@@ -333,13 +337,16 @@
       "subject": null,
       "title": "Name a voice",
       "matter": null,
-      "misread": {
-        "cause": "2ce6d5055353fc49"
-      },
       "confirm": [],
       "networkIdentity": null,
+      "contactsCard": null,
       "pushId": "0ec1de1a26d04e58",
-      "urgency": "blocks"
+      "urgency": "blocks",
+      "misread": {
+        "cause": "f094d10b549822d0",
+        "seal": "8c414b7dc0e639c113e388d4584f928f",
+        "shown": "36c177d1266e6bcd"
+      }
     },
     {
       "about": ["Sam"],
@@ -358,6 +365,7 @@
           "words": [[0, 400, 3], [450, 900, 6], [950, 1100, 4], [1150, 1600, 7]]
         }
       ],
+      "contactsCard": null,
       "context": null,
       "deadline": null,
       "draft": null,
@@ -424,13 +432,15 @@
       "subject": null,
       "title": "Place a name",
       "matter": null,
-      "misread": {
-        "cause": "a9dfb8f00f75d123"
-      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "134bc106744b3159",
-      "urgency": "blocks"
+      "urgency": "blocks",
+      "misread": {
+        "cause": "3b404043a79bbfd0",
+        "seal": "6744980655fb969669ad3c84e375df9f",
+        "shown": "27683d68c4f86dc9"
+      }
     },
     {
       "about": ["+33600000009"],
@@ -488,19 +498,22 @@
       "subject": null,
       "title": "Place a Contacts card",
       "matter": null,
-      "misread": {
-        "cause": "ea5eaff219840b9e"
-      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "82723bbf297c00df",
-      "urgency": "blocks"
+      "urgency": "blocks",
+      "misread": {
+        "cause": "eab9c455c7fa456b",
+        "seal": "9119b457299ad18182377f47c04f02cc",
+        "shown": "539cefbbde43205d"
+      }
     },
     {
       "about": [],
       "asker": "life",
       "at": null,
       "clips": [],
+      "contactsCard": null,
       "context": "A later step seems to show it done.",
       "deadline": null,
       "draft": null,
@@ -563,19 +576,22 @@
         "important": true,
         "name": "Mend Gran's watch"
       },
-      "misread": {
-        "cause": "259013b2e75549fe"
-      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "c84c34823f7fa7b0",
-      "urgency": "improves"
+      "urgency": "improves",
+      "misread": {
+        "cause": "1addffdfdc12fcfa",
+        "seal": "a23e972e9b4d28abb226361e43ae28b4",
+        "shown": "5db4104f95193516"
+      }
     },
     {
       "about": ["+33600000001"],
       "asker": "life",
       "at": null,
       "clips": [],
+      "contactsCard": null,
       "context": "Life read their messages as Kit, the watchmaker (70% sure).",
       "deadline": null,
       "draft": null,
@@ -621,9 +637,6 @@
       "subject": null,
       "title": "Know who someone is",
       "matter": null,
-      "misread": {
-        "cause": "af557d3015052eab"
-      },
       "confirm": [],
       "networkIdentity": {
         "chat": "33600000001@s.whatsapp.net",
@@ -644,7 +657,12 @@
         }
       },
       "pushId": "a789ea3107eed39b",
-      "urgency": "improves"
+      "urgency": "improves",
+      "misread": {
+        "cause": "01b070ee5ba7f83a",
+        "seal": "ef25c79d9e19d966a1be5453309f9070",
+        "shown": "528f6c9ad7f0456d"
+      }
     },
     {
       "said": {
@@ -710,13 +728,16 @@
         "id": "matter_cccccccccccc",
         "name": "Frame Gran's photo"
       },
-      "misread": {
-        "cause": "84eb7d331a31df81"
-      },
       "confirm": [],
       "networkIdentity": null,
+      "contactsCard": null,
       "pushId": "47c2deda3a5b51cd",
-      "urgency": "improves"
+      "urgency": "improves",
+      "misread": {
+        "cause": "e33422a9ac5b7ce7",
+        "seal": "1d2f840a065bc7d038f603811e310444",
+        "shown": "474cd9026f5488bf"
+      }
     }
   ],
   "blocking": 5,
@@ -731,5 +752,5 @@
   },
   "deadlinesToday": 0,
   "total": 8,
-  "version": "ca6b2da7a1f75c04"
+  "version": "52a14b73c05f9146"
 }

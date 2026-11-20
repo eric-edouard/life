@@ -266,7 +266,6 @@
         "important": true,
         "name": "Mend Gran's watch"
       },
-      "misread": null,
       "confirm": [
         {
           "about": ["+33600000001"],
@@ -319,7 +318,9 @@
           "title": "Know who someone is",
           "matter": null,
           "misread": {
-            "cause": "af557d3015052eab"
+            "cause": "01b070ee5ba7f83a",
+            "seal": "ef25c79d9e19d966a1be5453309f9070",
+            "shown": "528f6c9ad7f0456d"
           },
           "confirm": [],
           "networkIdentity": {
@@ -356,14 +357,17 @@
           "ref": "person:inf_kit"
         }
       },
+      "contactsCard": null,
       "pushId": "a23260946067d0fe",
-      "urgency": "blocks"
+      "urgency": "blocks",
+      "misread": null
     },
     {
       "about": [],
       "asker": "life",
       "at": null,
       "clips": [],
+      "contactsCard": null,
       "context": "A later step seems to show it done.",
       "deadline": null,
       "draft": null,
@@ -426,13 +430,15 @@
         "important": true,
         "name": "Mend Gran's watch"
       },
-      "misread": {
-        "cause": "259013b2e75549fe"
-      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "c84c34823f7fa7b0",
-      "urgency": "improves"
+      "urgency": "improves",
+      "misread": {
+        "cause": "1addffdfdc12fcfa",
+        "seal": "a23e972e9b4d28abb226361e43ae28b4",
+        "shown": "5db4104f95193516"
+      }
     }
   ]
 }
