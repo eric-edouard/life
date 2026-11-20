@@ -33,8 +33,15 @@ struct PeopleScreen: View {
             .filterBar(isFiltered: order != .closeness, identifier: "people.sort") { orderChoices }
         } detail: {
             if let ref = router.person {
-                NavigationStack {
+                NavigationStack(path: $router.personPath) {
                     PersonPage(ref: ref, hasSettings: sizeClass == .regular).id(ref)
+                        .navigationDestination(for: AppRouter.PersonRoute.self) { route in
+                            switch route {
+                            case .part(let part, let title): ProsePage(ref: part, title: title)
+                            case .latest(let subject): LatestScreen(subject: subject)
+                            case .writing(let subject): WritingPage(subject: subject)
+                            }
+                        }
                 }
             } else {
                 Notice(title: "No one chosen.", detail: "Pick someone from the list.").background(Palette.bg)

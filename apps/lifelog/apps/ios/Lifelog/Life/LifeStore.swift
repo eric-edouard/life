@@ -21,6 +21,9 @@ final class LifeStore {
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
     private(set) var peopleFound: (query: String, state: ReadState<PeopleList>)?
+    /// A person's page's parts, by their ref: a page of their latest exchanges, a part of prose.
+    private(set) var latest: [String: ReadState<LatestPage>] = [:]
+    private(set) var prose: [String: ReadState<Prose>] = [:]
     /// Everyone the reads name, and their pictures.
     let parties: PartyBook
 
@@ -208,6 +211,14 @@ final class LifeStore {
         await load(update, key: key) { try await $0.readPart(ref + "/now") }
     }
 
+    func refreshLatest(_ ref: String) async {
+        await load({ self.latest[ref, default: ReadState()].apply($0) }, key: nil) { try await $0.readPart(ref) }
+    }
+
+    func refreshProse(_ ref: String) async {
+        await load({ self.prose[ref, default: ReadState()].apply($0) }, key: nil) { try await $0.readPart(ref) }
+    }
+
     /// The people and organizations `query` matches, and the others Life has seen by that name; a newer query's read
     /// replaces this one's, which then applies nothing.
     func findPeople(_ query: String) async {
@@ -239,15 +250,15 @@ final class LifeStore {
     private static let agentsKey = "read_registered_agents"
     private static let peopleKey = "read_people_and_organizations"
 
-    private func restore<V: Decodable & Sendable & NamesParties>(_ update: (ReadState<V>.Event) -> Void, key: String) {
+    private func restore<V: ParsedRead & NamesParties>(_ update: (ReadState<V>.Event) -> Void, key: String) {
         guard let kept = cache.load(key),
-            let value = try? LibraryStore.feedDecoder.decode(V.self, from: Data(kept.text.utf8))
+            let value = try? V.parsed(kept.text)
         else { return }
         parties.remember(value.parties, at: kept.at, pairing: parties.generation.current)
         update(.succeeded(value, kept.at))
     }
 
-    private func load<V: Decodable & Sendable & NamesParties>(
+    private func load<V: ParsedRead & NamesParties>(
         _ update: (ReadState<V>.Event) -> Void, key: String?,
         fetch: @Sendable (any LifeAPI) async throws -> String
     ) async {
@@ -257,7 +268,7 @@ final class LifeStore {
         guard let answer = await parties.generation.answer({ try await fetch(api) }) else { return }
         do {
             let text = try answer.get()
-            let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(text.utf8))
+            let value = try V.parsed(text)
             if let key { cache.store(text, key: key) }
             let at = now()
             parties.remember(value.parties, at: at, pairing: pairing)
@@ -546,7 +557,7 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
-        (people, person, peopleFound) = (ReadState(), [:], nil)
+        (people, person, peopleFound, latest, prose) = (ReadState(), [:], nil, [:], [:])
         parties.startOver()
         holds.clear()
         onStep(.reading)

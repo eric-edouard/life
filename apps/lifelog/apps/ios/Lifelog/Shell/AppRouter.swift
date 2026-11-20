@@ -31,6 +31,15 @@ final class AppRouter {
         case project(String)
     }
 
+    /// What is pushed on the person on show: a part of what Life holds about them (prose, by its ref, with its
+    /// title), how each writes to the other, or their exchanges paging back from `latest`.
+    enum PersonRoute: Hashable {
+        case part(ref: String, title: String)
+        case latest(String)
+        /// How each writes to the other, from their `now`, by the person's ref.
+        case writing(String)
+    }
+
     var tab = Tab.inbox
     /// The matter on show in the Matters tab, by id, and which column a compact width shows: the list or the matter.
     var matter: String?
@@ -43,6 +52,7 @@ final class AppRouter {
     /// The person or organization on show in the People tab, by ref, and which column a compact width shows.
     var person: String?
     var personColumn = NavigationSplitViewColumn.sidebar
+    var personPath: [PersonRoute] = []
     /// The sheet open over a matter, by its id: here, not in the matter's page, so a fold that collapses the page keeps the
     /// sheet and the start it shows. One value, so one sheet replaces the other (Try again) in a single update.
     var matterSheet: MatterSheet?
@@ -64,6 +74,7 @@ final class AppRouter {
 
     /// The one way the person on show changes: a compact width then shows them too, so a fold keeps them on screen.
     func select(person ref: String?) {
+        if person != ref { personPath = [] }
         person = ref
         personColumn = ref == nil ? .sidebar : .detail
     }

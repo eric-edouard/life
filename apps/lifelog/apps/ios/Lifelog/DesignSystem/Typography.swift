@@ -54,6 +54,8 @@ struct TypeStep: Equatable {
     static let columnGlyph = TypeStep(size: 20, weight: 600, style: .title3)
     /// The number in a badge.
     static let badge = TypeStep(size: 11, weight: 700, style: .caption2)
+    /// A reach tile's app name, under its mark.
+    static let reachLabel = TypeStep(size: 11, weight: 600, style: .caption2)
 
     static let monoTime = TypeStep(size: 13, weight: 500, style: .footnote, hasFixedDigits: true)
     static let monoDetail = TypeStep(size: 12, weight: 500, style: .caption1, hasFixedDigits: true)
