@@ -213,5 +213,6 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
     );
     expect(text).toContain("never a question left in the chat");
     expect(text).toContain("An `arrival.confirmed` event");
+    expect(text).toContain("his own commitment");
   }
 });
