@@ -131,12 +131,13 @@ const LEVEL_WORD: Record<string, LogLevel> = {
 };
 /** A line: LogTape's standard fields first, then the line's own (which never override them). */
 const lineOf = (r: LogRecord) => {
-  const standard = {
-    category: r.category,
-    level: LEVEL_WORD[r.level] ?? "info",
-    msg: r.rawMessage,
-    time: String(r.properties.time),
-  };
+  // Entries, not an object literal: the formatter sorts a literal's keys.
+  const standard = Object.fromEntries([
+    ["time", String(r.properties.time)],
+    ["level", LEVEL_WORD[r.level] ?? "info"],
+    ["category", r.category],
+    ["msg", r.rawMessage],
+  ]);
   return JSON.stringify({ ...standard, ...r.properties, ...standard });
 };
 
