@@ -3,6 +3,7 @@ import { log } from "../core/log";
 import { settings } from "../core/settings";
 import { readRepoFolder } from "../host/change-registered-agent";
 import {
+  handedOutActive,
   handedOutSince,
   heldByAgents,
   isFull,
@@ -15,9 +16,16 @@ import { readDismissedMatterPins } from "../memory/memory-files";
 import { mattersToDo } from "../memory/read-matters";
 import { loadTruth } from "../memory/read-truth";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
+import { endAgent, hasAsked } from "./agent-actions";
 import { start } from "./agent-changes";
 import { type Desk, saveCursor } from "./desk-store";
-import { HAND_OUT_BRIEF, handOutOf, paceRefusalOf } from "./hand-out";
+import {
+  HAND_OUT_BRIEF,
+  handOutOf,
+  isCardOverdue,
+  NO_CARD_OUTCOME,
+  paceRefusalOf,
+} from "./hand-out";
 
 // The hand-out's step of the desk's tick (`hand-out.ts` decides): at most one start per look, a look at most every
 // `LOOK_EVERY`, each gate cheaper than the next, so a look under a cap reads no matter book.
@@ -72,7 +80,8 @@ export async function handOutNext(desk: Desk, read = readHandOutBook) {
     return;
   }
   const book = await read();
-  const matter = handOutOf({ ...book, held: new Set(heldByAgents(db).steps) });
+  const held = new Set(heldByAgents(db).steps);
+  const matter = handOutOf({ ...book, held });
   if (!matter) {
     return;
   }
@@ -95,4 +104,18 @@ export async function handOutNext(desk: Desk, read = readHandOutBook) {
   })();
   log("desk.hand_out", { matter: matter.id, ...started });
   return started.id;
+}
+
+/**
+ * Ends each handed-out agent that asked no card within `CARD_WITHIN_MS` of its first turn's beginning (`isCardOverdue`),
+ * the one way an agent is ended (`endAgent`): its matter stays held 7 days (`heldByAgents`), so no try of its own is counted.
+ */
+export async function endAgentsWithoutCard(desk: Desk) {
+  const now = clock().getTime();
+  for (const a of handedOutActive(desk.db)) {
+    if (isCardOverdue(a, hasAsked(a.id), now)) {
+      // biome-ignore lint/performance/noAwaitInLoops: one agent's decision withdrawn at a time
+      await endAgent(desk, a.id, NO_CARD_OUTCOME);
+    }
+  }
 }

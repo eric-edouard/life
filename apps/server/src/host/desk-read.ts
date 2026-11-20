@@ -93,6 +93,22 @@ export const handedOutSince = (db: Database, since: string) =>
     )
     .get(since)?.n ?? 0;
 
+/** The agents the desk started itself from `since` on, as facts: whether it ended, and why its first turn never began. */
+export const handedOutAgentsSince = (db: Database, since: string) =>
+  db
+    .query<Pick<AgentRow, "id" | "status" | "why_not_started">, [string]>(
+      "select id, status, why_not_started from agent where is_handed_out = 1 and created_at >= ? order by created_at"
+    )
+    .all(since);
+
+/** The active agents the desk started itself, each with when its first turn began (`first_begun_at`, null before). */
+export const handedOutActive = (db: Database) =>
+  db
+    .query<AgentRow & { first_begun_at: string | null }, []>(
+      "select a.*, (select min(t.begun_at) from turn t where t.agent_id = a.id) as first_begun_at from agent a where a.is_handed_out = 1 and a.status = 'active'"
+    )
+    .all();
+
 export const activeAgents = (db: Database) =>
   db
     .query<AgentRow, [number]>(
@@ -179,7 +195,7 @@ export function heldByAgents(db: Database) {
     clock().getTime() - NEW_MATTER_DAYS * DAY
   ).toISOString();
   const held =
-    "a.why_not_started is null and (a.ended_at is null or a.ended_at >= ?)";
+    "(a.why_not_started is null or a.is_handed_out = 1) and (a.ended_at is null or a.ended_at >= ?)";
   return {
     projects: db
       .query<{ project: string }, [string]>(
