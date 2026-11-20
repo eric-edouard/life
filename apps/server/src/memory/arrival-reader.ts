@@ -1,6 +1,7 @@
 // The arrival reader (docs/glossary.md): today's new chat and mail lines read as they arrive, one question about action
 // only: does it hold an ask, a promise or a wait for him? Apple's on-device model asks first (the trigger, free); its
-// yes, a refusal, Thai text or no Apple model goes to his engine (the confirm). Both answers are read replies
+// yes, a refusal, Thai text or no Apple model goes to his engine (the confirm); Apple failing leaves the read for the
+// next pass. Both answers are read replies
 // (`storeReply`); what counts is decided only by `confirmedArrivalsOf` (read-replies.ts). Called by the watcher alone,
 // on today's units, never on a backfill.
 
@@ -21,8 +22,7 @@ import {
 } from "../records/read-reply";
 import { eventKey } from "../records/source";
 import { firstNameOf, ownerIn } from "../records/truth";
-import type { Unit } from "../records/unit";
-import { readStore, withStore } from "../sources/lifelog";
+import { type LifelogTurn, readStore, withStore } from "../sources/lifelog";
 import { type ArrivalReads, arrivalsDue } from "./arrival-gate";
 import { closedConversations } from "./extract";
 import { type Evidence, voiceUnits } from "./gather";
@@ -40,8 +40,15 @@ import {
 import { OWNER, type Truth } from "./read-truth";
 import { begin, readsOf } from "./run";
 import { isDirect } from "./sources";
-import { applyRules, type Built, type Resolve, UNKNOWN } from "./units";
-import { chatLines, messageLine, spokenLines } from "./words";
+import { voiceUnitId } from "./unit-ids";
+import {
+  applyRules,
+  type Built,
+  type Resolve,
+  turnsByDayOf,
+  UNKNOWN,
+} from "./units";
+import { chatLines, messageLine, turnLines } from "./words";
 import { dayNow, dayStart, localDate, time } from "./zones";
 
 /**
@@ -278,18 +285,20 @@ async function readConfirmsToday() {
 export async function readArrivals(
   evidence: Pick<Evidence, "built" | "fileEvents"> &
     Partial<Pick<Evidence, "fileLines">> & {
-      /** Today's voice units, and the conversations lifelog has closed (`closedConversations`). */
-      voice?: { built: Built[]; closed: ReadonlySet<string> };
+      /** Today's voice from one read of the watcher's store (`readRecentVoice`). */
+      voice?: RecentVoice;
     },
-  people: { nameOf: (ref: string) => string; resolve: Resolve; truth?: Truth },
+  people: { nameOf: (ref: string) => string; resolve: Resolve },
   ownerNames: string[],
   o: {
     apple?: typeof askFoundationModel;
     /** The confirm calls made today, failures included (default: the model log). */
     confirmsToday?: () => Promise<number>;
     online?: typeof isOnline;
-    /** Voice units' lines by unit id (default: `spokenLines`). */
-    spoken?: (units: Unit[]) => Promise<ReadonlyMap<string, SourceLine[]>>;
+    /** The words of voice units' turns, by unit id (default: `turnLines`). */
+    spoken?: (
+      turns: Map<string, LifelogTurn[]>
+    ) => Promise<ReadonlyMap<string, SourceLine[]>>;
     step?: () => ReturnType<typeof begin>;
     where?: string;
   } = {}
@@ -338,25 +347,28 @@ export async function readArrivals(
       new Set(readOfUnit.get(b.unit.id)?.map((m) => m.k)).size <
         b.unit.stats.items
   );
-  const spoken = await (o.spoken ?? spokenOf(people))(
-    fetched.map((b) => b.unit)
+  // Only the snapshot's turns are read: a conversation reopened since is read as it was when closed.
+  const spoken = await (
+    o.spoken ??
+    ((turns) =>
+      turnLines(
+        turns,
+        [...new Set(fetched.map((b) => b.unit.key))],
+        people.resolve
+      ))
+  )(
+    new Map(
+      fetched.map((b) => [
+        b.unit.id,
+        evidence.voice?.turns.get(b.unit.id) ?? [],
+      ])
+    )
   ).catch((e: Error) => {
     // lifelog unreadable: chats and mail are still read, voice on a later pass.
     log("run.error", { error: e.message, step: "arrivals.voice" });
     return new Map<string, SourceLine[]>();
   });
-  // A speaker corrected between the store's two reads (his turns there, none in the words): not his, not read.
-  const notHis = new Set(
-    fetched
-      .filter(
-        (b) =>
-          b.unit.stats.fromMe > 0 &&
-          !(spoken.get(b.unit.id) ?? []).some((l) => l.speaker === OWNER)
-      )
-      .map((b) => b.unit.key)
-  );
-  const voice = fetched.filter((b) => !notHis.has(b.unit.key));
-  const lineSources = { built: [...evidence.built, ...voice], spoken };
+  const lineSources = { built: [...evidence.built, ...fetched], spoken };
   const due = [
     ...arrivalReadsDue(
       evidence,
@@ -365,7 +377,7 @@ export async function readArrivals(
       people.nameOf,
       now
     ),
-    ...voiceReadsDue(voice, spoken, read, people.resolve, people.nameOf),
+    ...voiceReadsDue(fetched, spoken, read, people.resolve, people.nameOf),
   ];
   if (due.length === 0 && pending.length === 0) {
     return;
@@ -385,7 +397,11 @@ export async function readArrivals(
   const digest = promptDigestOf(promptText(TRIGGER));
   for (const [i, r] of forApple.entries()) {
     const answer = answers[i] as FoundationAnswer;
-    // No Apple model on this Mac (or it failed): nothing stored, his engine reads it.
+    // Apple failed (an outage, ModelManagerError 1013 among them): nothing stored, read again on the next pass.
+    if ("error" in answer && answer.error === "failed") {
+      continue;
+    }
+    // No Apple model on this Mac: nothing stored, his engine reads it.
     if ("error" in answer && answer.error !== "refused") {
       toConfirm.push(confirmOf(r));
       continue;
@@ -481,23 +497,36 @@ function pendingConfirms(
   });
 }
 
-/** Today's voice units' lines, by unit id, from the watcher's store and lifelog (`spokenLines`). */
-const spokenOf =
-  (people: { resolve: Resolve; truth?: Truth }) => (units: Unit[]) =>
-    units.length === 0 || !people.truth
-      ? Promise.resolve(new Map<string, SourceLine[]>())
-      : spokenLines(units, people.resolve, people.truth, readStore);
+/** What the reader reads of voice, from one read of the watcher's store (`readRecentVoice`). */
+export interface RecentVoice {
+  built: Built[];
+  /** The conversations lifelog has closed (`closedConversations`). */
+  closed: ReadonlySet<string>;
+  /** Each unit's turns, by unit id: who spoke and when, as the same read saw them. */
+  turns: ReadonlyMap<string, LifelogTurn[]>;
+}
 
 /**
  * The voice units of yesterday and today as the gather builds them (the code rules applied, chapter units left out),
- * read-only from the watcher's store, and the conversations lifelog has closed: what the reader reads of voice.
- * Yesterday's too, so a conversation that ran past midnight is read whole.
+ * the conversations lifelog has closed and each unit's turns, all from one read-only read of the watcher's store, so
+ * closure, speakers and turns agree. Yesterday's too, so a conversation that ran past midnight is read whole.
  */
-export const readRecentVoice = (day: string, truth: Truth) =>
+export const readRecentVoice = (
+  day: string,
+  truth: Truth
+): Promise<RecentVoice> =>
   withStore(async (store) => {
     const v = await voiceUnits(store, dayStart(daysBefore(day, 1)), truth);
     return {
       built: applyRules(v.built, keptConversations()),
       closed: closedConversations(v.conversations),
+      turns: new Map(
+        v.conversations.flatMap((c) =>
+          [...turnsByDayOf(c)].map(([date, turns]) => [
+            voiceUnitId(c.id, date),
+            turns,
+          ])
+        )
+      ),
     };
   }, readStore);
