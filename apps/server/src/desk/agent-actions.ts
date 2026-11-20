@@ -113,7 +113,7 @@ export function writeSubject(
   { db }: Desk,
   agent: string,
   assignment: string,
-  s: { personal?: true; project?: string; steps?: string[] }
+  s: { project?: string; role?: "personal"; steps?: string[] }
 ) {
   const now = clock().toISOString();
   db.run("delete from anchor where assignment_id = ?", [assignment]);
@@ -127,7 +127,7 @@ export function writeSubject(
   }
   db.run("update agent set project = ?, role = ? where id = ?", [
     s.project ?? null,
-    s.personal ? "personal" : null,
+    s.role ?? null,
     agent,
   ]);
 }
