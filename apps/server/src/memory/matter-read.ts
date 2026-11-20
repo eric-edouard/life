@@ -487,8 +487,8 @@ interface Found {
 /**
  * The finder of the matter `refs` name, over `book`: the one holding the most of them (as its id or its steps' ids: a
  * unit can be a step of several matters), on a tie the one with the fewest steps (a matter inside a bigger one keeps
- * its own), then the first holder of the earliest ref (an agent's anchors, a pinned direction, a single id). Pure;
- * built once for many lookups.
+ * its own), then the first holder of the earliest ref (an agent's anchors, a pinned direction, a single id). `prefer`,
+ * a pin's matter id, breaks only a tie of the most held, before the size rule. Pure; built once for many lookups.
  */
 export function matterFinderOf<V extends Found>(book: readonly V[]) {
   const holders = new Map<string, V[]>();
@@ -499,7 +499,7 @@ export function matterFinderOf<V extends Found>(book: readonly V[]) {
       holders.set(ref, held);
     }
   }
-  return (refs: readonly string[]) => {
+  return (refs: readonly string[], prefer?: string) => {
     const held = new Map<V, number>();
     for (const ref of new Set(refs)) {
       for (const v of holders.get(ref) ?? []) {
@@ -508,10 +508,14 @@ export function matterFinderOf<V extends Found>(book: readonly V[]) {
     }
     let best: [V, number] | undefined;
     for (const [v, n] of held) {
+      // On a tie of the most held: the one picked (`prefer`), then the fewest steps.
+      const byPick = Number(v.id === prefer) - Number(best?.[0].id === prefer);
       if (
         !best ||
         n > best[1] ||
-        (n === best[1] && v.steps.length < best[0].steps.length)
+        (n === best[1] &&
+          (byPick > 0 ||
+            (byPick === 0 && v.steps.length < best[0].steps.length)))
       ) {
         best = [v, n];
       }
@@ -596,12 +600,12 @@ export function laterShownOf<T extends LaterObservation>(
 }
 
 /** A book's matter finder (`matterFinderOf`), built once per book read and shared by every pin kind. */
-type Finder<V> = (refs: readonly string[]) => V | undefined;
+type Finder<V> = (refs: readonly string[], prefer?: string) => V | undefined;
 
 /**
- * Each pin of his or Life's, oldest first, with the matter `find` finds by its steps (so a re-group keeps it) and the
- * matter's id when written, one more ref (between matters holding the same steps, the one picked); a pin no matter
- * holds is left out. Pure.
+ * Each pin of his or Life's, oldest first, with the matter `find` finds by its steps (so a re-group keeps it); the
+ * matter's id when written only breaks a tie (between matters holding as many of its steps, the one picked); a pin no
+ * matter holds is left out. Pure.
  */
 function pinnedOf<
   V extends Found,
@@ -610,7 +614,7 @@ function pinnedOf<
   return pins
     .toSorted((a, b) => a.at.localeCompare(b.at))
     .flatMap((p) => {
-      const v = find(p.matter ? [p.matter, ...p.steps] : p.steps);
+      const v = find(p.steps, p.matter);
       return v ? [[v, p] as const] : [];
     });
 }

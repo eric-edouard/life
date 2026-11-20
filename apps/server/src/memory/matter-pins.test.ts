@@ -3,7 +3,13 @@ import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
 import { MatterDirectionBatch } from "../records/matter";
 import { Correction, type Observation } from "../records/observation";
-import { isRunning, type MatterRecords, matterBookOf } from "./matter-read";
+import {
+  chosenIconsOf,
+  isRunning,
+  type MatterRecords,
+  matterBookOf,
+  matterFinderOf,
+} from "./matter-read";
 import { readMatterPins } from "./matters";
 import { CORRECTIONS, MATTER_DIRECTIONS } from "./memory-files";
 import { OWNER } from "./read-truth";
@@ -202,4 +208,37 @@ test("one read of his corrections gives every pin: Life's drafts first, his part
   expect(v?.nextStep).toMatchObject({ by: "life", text: "Call the shop" });
   expect(v?.important).toBe(false);
   expect(v?.ownerIcon).toBe("tools");
+});
+
+// #743's confirm round: the matter's id stored with a pin breaks a tie only, never outweighs its steps.
+test("a pin goes to the matter holding the most of its steps; its stored matter id only breaks a tie", () => {
+  const picked = {
+    at: "2026-10-13T09:00:00.000Z",
+    icon: "paper" as const,
+    matter: "matter_aaaaaaaaaaaa",
+    steps: ["ep_000000000001", "obs_000000000001", "obs_000000000002"],
+  };
+  const iconsOf = (book: { id: string; steps: { ref: string }[] }[]) =>
+    chosenIconsOf(matterFinderOf(book), [picked]);
+  const steps = (...refs: string[]) => refs.map((ref) => ({ ref }));
+  // A re-group left the episode in the picked matter and both observations in another: the steps win.
+  expect([
+    ...iconsOf([
+      { id: "matter_aaaaaaaaaaaa", steps: steps("ep_000000000001") },
+      {
+        id: "matter_bbbbbbbbbbbb",
+        steps: steps("obs_000000000001", "obs_000000000002"),
+      },
+    ]),
+  ]).toEqual([["matter_bbbbbbbbbbbb", "paper"]]);
+  // As many of its steps each: the one picked, though it is the bigger.
+  expect([
+    ...iconsOf([
+      { id: "matter_bbbbbbbbbbbb", steps: steps("ep_000000000001") },
+      {
+        id: "matter_aaaaaaaaaaaa",
+        steps: steps("ep_000000000001", "obs_000000000009"),
+      },
+    ]),
+  ]).toEqual([["matter_aaaaaaaaaaaa", "paper"]]);
 });
