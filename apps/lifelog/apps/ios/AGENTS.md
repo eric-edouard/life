@@ -37,7 +37,8 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
 
 - **iPhone Duo: layout branches on `horizontalSizeClass` only**, never device, screen size or orientation: compact is one
   pane, regular two (`CardArrangement` in the Inbox, the `NavigationSplitView` in Matters). State a fold must keep lives
-  above the branch (`AppRouter`, the screen).
+  above the branch (`AppRouter`, the screen). Inside a split view's column read `windowSizeClass` (set at the root): the
+  list column is compact even on the open Duo.
   The one other input is where the system puts the bars, its `toolbarVerticalEdge` (`reportsSideColumn`), never a guess: the
   Undo toast is a capsule in that column only on a compact width (the closed Duo); the open Duo keeps the worded toast, as designed.
 - Every bundle id, the app group and the background task derive from `LIFELOG_BUNDLE_ID` in `project.yml` (beside
@@ -75,7 +76,7 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
   connection, new after any result Life gave or for another answer to the same card), so Life sends nothing twice: a repeat of an answered card's same answer gets its first result under any key. Every action ends with one `life.action` event (steps with their seconds, limit, late, outcome): read it with `bun run events life.action` to see where a slow one spent its time. A
   card's buttons are its options' `label`s, and what an option `takes` (a person, a name, a note) is what the tap asks
   for (`Check.answer`); the phone decides nothing Life decides (what is open, a goal's steps): a matter's edits and Mark
-  as done go by its id. A card's push is rewritten with the card's words by the notification extension (`NotificationService/`, `CardNotification`), which reads Life with the app's pairing; expanded, it shows the card's one-tap answers (`NotificationContent/`), which the app answers in the background through `LifeStore.answer` (`IncidentNotifier`), never an outward one; a tapped push routes by `pushId` (`NotificationRoute.card`) and opens the Inbox; a push while
+  as done go by its id. A card's push is rewritten with the card's words by the notification extension (`NotificationService/`, `CardNotification`), which reads Life with the app's pairing; a draft's card takes the send category, so Send shows on the Watch too (`CardNotification.sendCategory`; not while his Face ID setting is on, `AppGroup.asksFaceIDToSend`, which only the phone can ask); expanded, it shows the draft (`DraftBlock`), the card's one-tap answers and Send (`NotificationContent/`, `CardNotification.isAnswerAllowed`), which the app answers in the background through `LifeStore.answer` (`IncidentNotifier`); a tapped push routes by `pushId` (`NotificationRoute.card`) and opens the Inbox; a push while
   the app is in front reads the inbox again. The badge is `Inbox.badge`: the asks that block him (`urgency`).
 - A server enum decodes unknown values as `unknown` (`UnknownTolerant`) and belongs in the mirror list of
   `ContractTests.swift` (lifelog's against its `openapi.json`, Life's against `apps/server/src`), which also checks

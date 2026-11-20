@@ -91,6 +91,7 @@ targets:
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: lifelog notes where you were every few minutes so a conversation can show where it happened.
         INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: lifelog notes where you were every few minutes while your Pendant records, even with the app closed, so each conversation shows where it happened.
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: lifelog shows the photos and screenshots you took during a conversation beside what was said. They stay in your library.
+        INFOPLIST_KEY_NSFaceIDUsageDescription: Life asks for Face ID before it sends a message in your name from a notification.
         INFOPLIST_KEY_NSHealthShareUsageDescription: lifelog reads your sleep and workouts to send them to your own server for Life.
     info:
       path: Lifelog/Info.plist
@@ -196,7 +197,17 @@ targets:
   LifelogNotificationContent:
     type: app-extension
     platform: iOS
-    sources: [NotificationContent]
+    # A draft drawn whole, as on the card's screen: its view and the pieces it is drawn with.
+    sources:
+      - NotificationContent
+      - Lifelog/Inbox/DraftBlock.swift
+      - Lifelog/DesignSystem/Typography.swift
+      - Lifelog/DesignSystem/NetworkMark.swift
+      - Lifelog/DesignSystem/Fonts/Manrope.ttf
+      - Shared/Palette.swift
+      - Shared/Metrics.swift
+      # His Face ID setting (`AppGroup.asksFaceIDToSend`).
+      - Shared/AppGroup.swift
     dependencies:
       - package: LifelogKit
         product: LifeConnector
@@ -207,18 +218,25 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: lifelog
+        INFOPLIST_KEY_NSFaceIDUsageDescription: Life asks for Face ID before it sends a message in your name from a notification.
     info:
       path: NotificationContent/Info.plist
       properties:
+        LifelogAppGroup: group.$(LIFELOG_BUNDLE_ID)
         CFBundleDevelopmentRegion: en
+        UIAppFonts: [Manrope.ttf]
         # The build's date, passed by the scripts that build (`CURRENT_PROJECT_VERSION=YYYYMMDD.HHMM`); left as a variable so it is never baked in.
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.content-extension
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationViewController
           NSExtensionAttributes:
-            UNNotificationExtensionCategory: life.card
+            UNNotificationExtensionCategory: [life.card, life.card.send]
             UNNotificationExtensionInitialContentSizeRatio: 0.01
+    entitlements:
+      path: NotificationContent/NotificationContent.entitlements
+      properties:
+        com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
   # The Watch: the glance the iPhone relays (`WatchRelay`), as complications and a remote (Record/Pause, Split).
   LifelogWatch:
     type: application

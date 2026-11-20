@@ -18,12 +18,17 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LifelogAppGroup</key>
+	<string>group.$(LIFELOG_BUNDLE_ID)</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionAttributes</key>
 		<dict>
 			<key>UNNotificationExtensionCategory</key>
-			<string>life.card</string>
+			<array>
+				<string>life.card</string>
+				<string>life.card.send</string>
+			</array>
 			<key>UNNotificationExtensionInitialContentSizeRatio</key>
 			<real>0.01</real>
 		</dict>
@@ -32,5 +37,9 @@
 		<key>NSExtensionPrincipalClass</key>
 		<string>$(PRODUCT_MODULE_NAME).NotificationViewController</string>
 	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Manrope.ttf</string>
+	</array>
 </dict>
 </plist>

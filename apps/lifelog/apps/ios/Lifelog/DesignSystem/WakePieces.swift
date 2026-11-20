@@ -67,6 +67,6 @@ struct Networks: View {
     var body: some View {
         HStack(spacing: Metrics.Spacing.xs) { ForEach(apps, id: \.self) { NetworkMark(network: $0) } }
             .accessibilityElement(children: .ignore)
-            .accessibilityValue(apps.map(ActionCopy.channel).joined(separator: ", "))
+            .accessibilityValue(apps.map(Channel.name).joined(separator: ", "))
     }
 }
