@@ -12,6 +12,9 @@ struct MattersScreen: View {
     /// What he typed on the asks pushed on a matter: here, above both columns, so a fold keeps it.
     @State private var notes = CardNotes()
     @Environment(\.horizontalSizeClass) private var sizeClass
+    /// A compact width opens a matter out of its row and closes it back into it; beside the list, nothing moves.
+    @Namespace private var rowZoom
+    private var matterZoom: Namespace.ID? { sizeClass == .regular ? nil : rowZoom }
 
     /// Two columns, the list and the matter: side by side on a regular width, one at a time on a compact one.
     var body: some View {
@@ -47,6 +50,7 @@ struct MattersScreen: View {
                             }
                         }
                 }
+                .zooms(from: id, in: matterZoom)
                 // His word that a step is done, held for Undo after he left its ask: over the top of the matter.
                 .heldToast(
                     shows: { ref in life.matter[id]?.value?.checks.contains { $0.ref == ref } == true },
@@ -153,6 +157,7 @@ struct MattersScreen: View {
                         MatterRowView(row: row, isChosen: isSelected, isMarked: isMarked)
                     }
                     .buttonStyle(.plain)
+                    .zoomSource(row.id, in: matterZoom)
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
                 .readingWidth()
