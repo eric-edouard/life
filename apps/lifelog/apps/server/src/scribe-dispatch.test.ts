@@ -1,6 +1,6 @@
 // Paid sends through the job worker with one ElevenLabs slot: dictation beside the pendant's blocks,
 // the POST's own clock, and slots freed by what settles them (scribe-slots.ts holds the order rules).
-import { expect, setSystemTime, test } from "bun:test";
+import { expect, mock, setSystemTime, spyOn, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { MIGRATIONS, migrateDb } from "@lifelog/db";
@@ -11,6 +11,7 @@ import { latestSeq } from "./change-log";
 import { jobBench } from "./job-bench";
 import { getJob } from "./jobs";
 import { addQuietRange } from "./quiet-ranges";
+import { creditsWatch } from "./scribe-credits";
 import { setSwitches } from "./switches";
 import { OWNER_TOKEN, providerTranscript } from "./testing";
 
@@ -207,6 +208,30 @@ test("nothing paid goes before the first read of the credits: a wake at boot wai
   await Bun.sleep(20);
   expect(uploads()).toHaveLength(0);
   expect(jobRow(jobId).state).toBe("queued");
+});
+
+test("paid sends wait for the balance read, not for the low-credit email", async () => {
+  const app = appWith({
+    ALERT_EMAIL_FROM: "Alerts <alerts@example.com>",
+    ALERT_EMAIL_TO: "owner@example.com",
+    RESEND_API_KEY: "re_test",
+  });
+  fake.respond = () =>
+    Response.json({ character_count: 850, character_limit: 1000 });
+  // Resend never answers.
+  const real = globalThis.fetch;
+  spyOn(globalThis, "fetch").mockImplementation(((
+    url: string | URL | Request,
+    init?: RequestInit
+  ) =>
+    String(url).startsWith("https://api.resend.com")
+      ? new Promise(() => undefined)
+      : real(url, init)) as typeof fetch);
+  const credits = creditsWatch(env.db, app.s.config);
+  credits.check();
+  await credits.firstRead();
+  expect(credits.level()).toBe("low");
+  mock.restore();
 });
 
 test("a routed excerpt holds the slot until its words are stored, then dictation waiting for it gets it by itself", async () => {
