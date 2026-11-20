@@ -9,8 +9,9 @@ import {
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
+import { loadTruth } from "../memory/read-truth";
 import {
-  addPersonByHisWord,
+  addDirectoryEntryByHisWord,
   changeDirectoryEntry,
 } from "./change-directory-entry";
 
@@ -181,10 +182,75 @@ test("calls at once each land, `$&` in his words stays as written, and a busy gi
 });
 
 test("a new person he names answering a check is added with their name's id, numbered past one taken, and committed with his tap (life#721)", async () => {
-  const tap = (n: string) => addPersonByHisWord(n, `New person: ${n}`);
+  const tap = (n: string) =>
+    addDirectoryEntryByHisWord("person", n, `New person: ${n}`);
   expect(await tap("Léa Fontaine")).toBe("person:lea-fontaine");
   expect(await tap("Léa Fontaine")).toBe("person:lea-fontaine-2");
   expect(await tap("มะลิ")).toBe("person:person");
   expect(file("people.yaml")).toContain("มะลิ");
   expect(log()).toContain("New person: Léa Fontaine");
+  // An organization's id is taken too: one id space.
+  expect(await tap("Test Bakery")).toBe("person:test-bakery-2");
+});
+
+test("an organization is added and edited in full; its file is made on the first add; a clash with a person's id is refused", async () => {
+  rmSync(join(TRUTH, "organizations.yaml"));
+  expect(
+    await addDirectoryEntryByHisWord(
+      "organization",
+      "Test Garage",
+      "New organization: Test Garage",
+      { relation: "fixes his car" }
+    )
+  ).toBe("person:test-garage");
+  await changeDirectoryEntry({
+    action: "edit",
+    aliases: ["The Garage"],
+    domains: ["garage.example"],
+    handles: { email: ["desk@garage.example"] },
+    id: "test-garage",
+    kind: "organization",
+    people: [{ id: "test-ana", role: "mechanic" }],
+    said,
+  });
+  // His word on one there replaces that one's role, and `until` says she left.
+  await changeDirectoryEntry({
+    action: "edit",
+    id: "test-garage",
+    kind: "organization",
+    people: [{ id: "test-ana", role: "manager", until: 2025 }],
+    said,
+  });
+  const [garage] = (await loadTruth()).organizations;
+  expect(garage).toEqual({
+    aliases: ["The Garage"],
+    domains: ["garage.example"],
+    handles: { email: ["desk@garage.example"], phone: [], whatsapp: [] },
+    id: "test-garage",
+    name: "Test Garage",
+    people: [{ id: "test-ana", role: "manager", until: 2025 }],
+    projects: [],
+    relation: "fixes his car",
+  });
+  expect(log()).toContain("Truth, by his words: edit organization test-garage");
+  const before = file("organizations.yaml");
+  await expect(
+    changeDirectoryEntry({
+      action: "add",
+      id: "test-ana",
+      kind: "organization",
+      name: "Ana Inc",
+      said,
+    })
+  ).rejects.toThrow("person test-ana is listed twice");
+  await expect(
+    changeDirectoryEntry({
+      action: "edit",
+      id: "test-garage",
+      kind: "organization",
+      people: [{ id: "nobody", role: "ghost" }],
+      said,
+    })
+  ).rejects.toThrow("organization test-garage names unknown person nobody");
+  expect(file("organizations.yaml")).toBe(before);
 });

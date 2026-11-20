@@ -293,8 +293,13 @@
           "takes": "person or name"
         },
         {
+          "id": "organization",
+          "label": "Organization",
+          "takes": null
+        },
+        {
           "id": "not-relevant",
-          "label": "Don't name",
+          "label": "Neither",
           "takes": null
         }
       ],

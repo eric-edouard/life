@@ -18,11 +18,11 @@ import { dayNow } from "./zones";
 // His answer to a check (`answer_check`, `bun life memory answer-check`): one call for every kind. Each option goes to
 // the writer its kind already has, and the line written names the check it settled (the decision's id, the fact
 // check's ref, the person, card or name, the matter's steps). A new matter's Start and a decision's `ends` option are
-// the answers that act through host: it hands them in (`startAgent`, `end`, `addPerson`), since only host reaches the
+// the answers that act through host: it hands them in (`startAgent`, `end`, `addDirectoryEntry`), since only host reaches the
 // desk, the to-do list and his directory.
 
 export interface CheckAnswer {
-  /** A new person's name: a voice's, or someone he adds to his directory (`namedIn`). */
+  /** A new person's name: a voice's, or someone he adds to his directory (`namedIn`); an organization's, his name for it. */
   name?: string;
   /** His words, verbatim; on a new matter's Start, the goal he saw. */
   note?: string;
@@ -35,12 +35,16 @@ export interface CheckAnswer {
 /** Asks the desk to start an agent on the new matter `c` with the goal he saw, saved as his goal and its brief (host: `changeRegisteredAgent`); gives the ask's ledger line id. */
 export type StartAgent = (c: Check, goal: string) => Promise<{ ask: string }>;
 
-/** Adds a person to his directory by the name he gave a new person answering a check (host: `addPersonByHisWord`); gives their ref. */
-export type AddPerson = (name: string) => Promise<string>;
+/** Adds a person or an organization to his directory by the name he gave answering a check, with what it is to him (host: `addDirectoryEntryByHisWord`); gives its ref. */
+export type AddDirectoryEntry = (
+  kind: "person" | "organization",
+  name: string,
+  fields?: { relation?: string }
+) => Promise<string>;
 
 /** What a writer is given besides the check and his answer: a voice's queue item, the steps to report, the desk's start (his own token's `answer_check` only). */
 interface WriterExtras {
-  addPerson?: AddPerson;
+  addDirectoryEntry?: AddDirectoryEntry;
   item?: NamingQueueItem;
   onStep?: (step: string, detail?: Record<string, unknown>) => void;
   startAgent?: StartAgent;
@@ -78,25 +82,30 @@ async function typedPersonOf(a: CheckAnswer) {
   return { a: { ...a, person: r.ref }, recordedAs: people.nameOf(r.ref) };
 }
 
+/** Who an answer that takes "person or name" names: its `person`, else his new person's `name` (`partyNamed`). */
+const namedIn = (a: CheckAnswer, x: WriterExtras) =>
+  a.name ? partyNamed(a.name, "person", x) : personIn(a);
+
 /**
- * Who an answer that takes "person or name" names: its `person`, else his new person's `name`: the one person his word,
- * truth/ or Contacts already holds by that name, else someone new, added to his directory (`addPerson`, his own
- * token's answer only).
+ * The one party his word, truth/ or Contacts already holds by `name`, else a new `kind` added to his directory with
+ * what it is to him (`addDirectoryEntry`, his own token's answer only).
  */
-async function namedIn(a: CheckAnswer, x: WriterExtras) {
-  if (!a.name) {
-    return personIn(a);
-  }
-  const r = (await readPeople()).readingNow(a.name);
+async function partyNamed(
+  name: string,
+  kind: "person" | "organization",
+  x: WriterExtras,
+  relation?: string
+) {
+  const r = (await readPeople()).readingNow(name);
   if (r && r.by !== "guess" && !r.isShared) {
     return r.ref;
   }
-  if (!x.addPerson) {
+  if (!x.addDirectoryEntry) {
     throw new Error(
-      `Not done: Life knows no one called "${a.name}"; add them to his directory first.`
+      `Not done: Life knows no one called "${name}"; add them to his directory first.`
     );
   }
-  return x.addPerson(a.name);
+  return x.addDirectoryEntry(kind, name, relation ? { relation } : {});
 }
 
 const correct = (said: object[], a: CheckAnswer) =>
@@ -217,6 +226,23 @@ const WRITERS: {
         c.about.map((n) => ({ kind: "not-worth-naming", nameOrHandle: n })),
         a
       ),
+    // His name for it (default the card's first name) and his words as what it is to him; each name of the card is it.
+    organization: async (c, a, x) => {
+      const party = await partyNamed(
+        a.name ?? c.about[0] ?? "",
+        "organization",
+        x,
+        a.note
+      );
+      return correct(
+        c.about.map((n) => ({
+          kind: "this-is",
+          nameOrHandle: n,
+          person: party,
+        })),
+        a
+      );
+    },
     "this-is": async (c, a, x) => {
       const person = await namedIn(a, x);
       return correct(
@@ -282,8 +308,8 @@ const WRITERS: {
  * Records his answer to the open check `check` (host finds it: `openCheckOf`) through its kind's writer (a decision's
  * draft is sent only `via` his app); returns the check, the lines written and, for a voice, its queue item. `onStep`
  * hears `recorded` once they are, and a send's or a start's own steps; `answerKey` is his app's key for this tap, kept on a
- * decision's answer; `startAgent` (a new matter's Start), `end` (a decision's `ends` option) and `addPerson` (a new
- * person he names, `namedIn`) are given only for his own token's `answer_check`. Throws when the
+ * decision's answer; `startAgent` (a new matter's Start), `end` (a decision's `ends` option) and `addDirectoryEntry` (a new
+ * person or organization he names, `partyNamed`) are given only for his own token's `answer_check`. Throws when the
  * option is not one of its own.
  */
 export async function answerCheck(
@@ -291,7 +317,7 @@ export async function answerCheck(
   a: CheckAnswer,
   via: "connector" | "session",
   {
-    addPerson,
+    addDirectoryEntry,
     answerKey,
     end,
     onStep,
@@ -329,7 +355,7 @@ export async function answerCheck(
   const item = check.group === "voice" ? await readVoiceItem(check) : undefined;
   const typed = await typedPersonOf(a);
   const done = await write(check, typed.a, {
-    addPerson,
+    addDirectoryEntry,
     item,
     onStep,
     startAgent,

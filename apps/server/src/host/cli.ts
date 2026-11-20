@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { z } from "zod";
 import { daysBefore } from "../core/clock";
 import { FULL_DISK } from "../core/files";
 import { log } from "../core/log";
@@ -34,6 +35,11 @@ import { archiveCommand } from "./archive";
 import { ask, timings } from "./asks";
 import { backup } from "./backup";
 import { bridgeCommand } from "./bridges";
+import {
+  changeDirectoryEntry,
+  DirectoryEntryChange,
+  OrganizationChange,
+} from "./change-directory-entry";
 import {
   Asked,
   changeAskedTodoItem,
@@ -192,6 +198,32 @@ const commands: Record<string, () => number | Promise<number>> = {
   backup,
   /** The messaging bridges: `bridge [status] | add|link|remove <network> [flow]` (host/bridges.ts, docs/use/bridges.md). */
   bridge: () => bridgeCommand(process.argv.slice(3)),
+  /**
+   * Changes his directory by his words, for his own session: `change-directory-entry '<json>'` (a person, an
+   * organization, a project, an area, a goal or what Life may keep, with `said`, his words), the one writer
+   * (`changeDirectoryEntry`): checked as `validate` checks, then committed in his data repo. Never run by a desk agent.
+   */
+  async "change-directory-entry"() {
+    let change: DirectoryEntryChange | OrganizationChange;
+    try {
+      change = z
+        .union([OrganizationChange, DirectoryEntryChange])
+        .parse(JSON.parse(process.argv[3] ?? ""));
+    } catch (e) {
+      console.error(
+        `usage: bun life change-directory-entry '<json>'\n${(e as Error).message}`
+      );
+      return 2;
+    }
+    try {
+      console.log(await changeDirectoryEntry(change));
+      return 0;
+    } catch (e) {
+      // A refusal ("Not done: …") is an answer, not a crash.
+      console.error((e as Error).message);
+      return 1;
+    }
+  },
   /**
    * Acts on the owner's clear request, for a Claude session: `change-todo-item '<json>'` (a change with `said`, his words, and
    * `why`); `change-todo-item --check` (read-only: can the actions backend write now?). Every action is recorded in memory/ledger.jsonl.

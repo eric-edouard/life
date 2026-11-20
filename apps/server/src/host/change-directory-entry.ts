@@ -13,14 +13,16 @@ import { join } from "node:path";
 import { z } from "zod";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { commitMemory } from "../memory/memory-files";
-import { integrity, loadTruth } from "../memory/read-truth";
+import { integrity, loadTruth, partiesOf } from "../memory/read-truth";
 import { recordToldLife } from "../memory/told-life";
 import { slug } from "../records/fields";
+import { OrganizationPerson } from "../records/truth";
 import { listRow } from "./init";
 
-// Changes his directory (docs/glossary.md: his people, projects, areas and goals, in truth/) by his own words, through
-// the connector's `change_directory_entry`: the one place code writes truth/ for him. It edits text, never reserializes a
-// file: a person or an area is one entry of its list (added at the end, or that one entry replaced), a project is its
+// Changes his directory (docs/glossary.md: his people, organizations, projects, areas and goals, in truth/) by his own
+// words, through the connector's `change_directory_entry`, his card's tap (`addDirectoryEntryByHisWord`) or `bun life
+// change-directory-entry`: the one place code writes truth/ for him. It edits text, never reserializes a
+// file: a person, an organization or an area is one entry of its list (added at the end, or that one entry replaced), a project is its
 // own file (new, or its frontmatter lines that change; the notes below are never touched), a goal is one numbered line
 // of me.md, and what Life may keep is that one section. The result is checked by the same `integrity` as
 // `bun life validate` on a copy of truth/ first; if it fails, nothing is written. Left out on purpose: deleting
@@ -54,6 +56,28 @@ export const DirectoryEntryChange = z.object({
   text: z.string().min(1).optional(),
 });
 export type DirectoryEntryChange = z.infer<typeof DirectoryEntryChange>;
+
+/**
+ * An organization added or edited, in full: not on the connector's tool yet (its arguments wait for the next batched
+ * change), only through `changeDirectoryEntry`'s callers in code and `bun life change-directory-entry`.
+ */
+export const OrganizationChange = z
+  .object({
+    action: z.enum(["add", "edit"]),
+    aliases: Strings,
+    domains: Strings,
+    handles: DirectoryEntryChange.shape.handles,
+    id: z.string().optional(),
+    kind: z.literal("organization"),
+    name: z.string().min(1).optional(),
+    people: z.array(OrganizationPerson).optional(),
+    projects: Strings,
+    relation: z.string().optional(),
+    said: DirectoryEntryChange.shape.said,
+  })
+  .strict();
+export type OrganizationChange = z.infer<typeof OrganizationChange>;
+type Change = DirectoryEntryChange | OrganizationChange;
 
 const ENTRY = /^ {2}- /;
 const NEWLINE = /[\r\n]/;
@@ -93,21 +117,27 @@ function idOf(id: string | undefined, name: string) {
 
 interface Entry {
   aliases?: string[];
+  domains?: string[];
   handles?: Record<string, unknown>;
   id: string;
   name?: string;
+  people?: { id: string }[];
+  projects?: string[];
 }
 
-const entriesOf = (text: string, key: "people" | "areas") =>
+/** The list each kind of entry is in, its file `<list>.yaml`. */
+const LISTS = {
+  area: "areas",
+  organization: "organizations",
+  person: "people",
+} as const;
+type List = (typeof LISTS)[keyof typeof LISTS];
+
+const entriesOf = (text: string, key: List) =>
   ((Bun.YAML.parse(text) as Record<string, unknown[]>)[key] ?? []) as Entry[];
 
-/** people.yaml / areas.yaml with `entry` added at the end of its list, or, with `id`, replacing that one entry (its comments go with it). */
-function withEntry(
-  text: string,
-  key: "people" | "areas",
-  entry: object,
-  id?: string
-) {
+/** A list's file with `entry` added at the end of its list, or, with `id`, replacing that one entry (its comments go with it). */
+function withEntry(text: string, key: List, entry: object, id?: string) {
   const row = listRow(entry);
   if (!id) {
     const open = text.replace(
@@ -240,9 +270,33 @@ function projectWrite(a: DirectoryEntryChange, read: Read) {
   ] as const;
 }
 
-/** A person's or an area's entry as it will read: what was there, with his changes (handles and aliases added to, never replaced). */
-function entryWrite(a: DirectoryEntryChange, read: Read) {
-  const key = a.kind === "person" ? "people" : "areas";
+/** His handles over the ones there: lists added to, never replaced. */
+function handlesWith(
+  old: Record<string, unknown>,
+  h: NonNullable<DirectoryEntryChange["handles"]>
+) {
+  return {
+    ...old,
+    ...(h.email && { email: union(old.email, h.email) }),
+    ...(h.phone && { phone: union(old.phone, h.phone) }),
+    ...(h.whatsapp && { whatsapp: union(old.whatsapp, h.whatsapp) }),
+    ...(h.github && { github: h.github }),
+    ...(h.telegram && { telegram: h.telegram }),
+  };
+}
+
+/** Who is there, his word: `people` by id, each one he names replacing that one's role and `until`. */
+const peopleWith = (
+  old: { id: string }[] | undefined,
+  people: { id: string }[]
+) => [
+  ...(old ?? []).filter((p) => !people.some((x) => x.id === p.id)),
+  ...people,
+];
+
+/** A person's, an organization's or an area's entry as it will read: what was there, with his changes (lists added to, never replaced). */
+function entryWrite(a: Change, read: Read) {
+  const key = LISTS[a.kind as keyof typeof LISTS];
   const file = `${key}.yaml`;
   const text = read(file);
   const isAdd = a.action === "add";
@@ -255,29 +309,29 @@ function entryWrite(a: DirectoryEntryChange, read: Read) {
     ...was,
     name: a.name ?? need(was.name, "`name`"),
   };
-  if (a.kind === "person") {
-    const h = a.handles ?? {};
-    const old = was.handles ?? {};
-    const handles = {
-      ...old,
-      ...(h.email && { email: union(old.email, h.email) }),
-      ...(h.phone && { phone: union(old.phone, h.phone) }),
-      ...(h.whatsapp && { whatsapp: union(old.whatsapp, h.whatsapp) }),
-      ...(h.github && { github: h.github }),
-      ...(h.telegram && { telegram: h.telegram }),
-    };
+  if (a.kind === "person" || a.kind === "organization") {
+    const handles = handlesWith(was.handles ?? {}, a.handles ?? {});
     Object.assign(entry, {
       ...(a.aliases && { aliases: union(was.aliases, a.aliases) }),
       ...(Object.keys(handles).length > 0 && { handles }),
-      ...(a.language && { language: a.language }),
       ...(a.relation && { relation: a.relation }),
+    });
+  }
+  if (a.kind === "person" && a.language) {
+    entry.language = a.language;
+  }
+  if (a.kind === "organization") {
+    Object.assign(entry, {
+      ...(a.domains && { domains: union(was.domains, a.domains) }),
+      ...(a.people && { people: peopleWith(was.people, a.people) }),
+      ...(a.projects && { projects: union(was.projects, a.projects) }),
     });
   }
   return [file, withEntry(text, key, entry, isAdd ? undefined : id)] as const;
 }
 
 /** The one file this change writes: its path under truth/ and its new text. Pure: nothing is written. */
-function writeOf(a: DirectoryEntryChange, read: Read) {
+function writeOf(a: Change, read: Read) {
   if (a.kind === "goal") {
     const number = a.action === "add" ? undefined : need(a.number, "`number`");
     return [
@@ -295,8 +349,8 @@ function writeOf(a: DirectoryEntryChange, read: Read) {
 }
 
 /** What the change is called in the commit and in what Life keeps of his words. */
-const whatOf = (a: DirectoryEntryChange) =>
-  `${a.action} ${a.kind} ${a.id ?? a.name ?? a.number ?? ""}`.trim();
+const whatOf = (a: Change) =>
+  `${a.action} ${a.kind} ${a.id ?? a.name ?? ("number" in a ? a.number : undefined) ?? ""}`.trim();
 
 /** One change at a time: two calls would each read the file the other is about to write. */
 let queue: Promise<unknown> = Promise.resolve();
@@ -312,36 +366,55 @@ function writeWhole(path: string, text: string) {
  * Applies one change he asked for in his own words (`said`): validated on a copy of truth/ first, then written, kept as
  * what he told Life, and committed in his data repo. Returns what changed; throws, changing nothing, when it is refused.
  */
-export function changeDirectoryEntry(a: DirectoryEntryChange) {
+export function changeDirectoryEntry(a: Change) {
   const run = queue.then(() => apply(a));
   queue = run.catch(() => undefined);
   return run;
 }
 
 /**
- * Adds a person to his directory by the name he gave a new person answering a check (`namedIn`); gives their ref. Their
- * id is the name's slug, numbered past one taken (a second "Sam"), or `person` for a name with no latin letters.
+ * Adds a person or an organization to his directory by the name he gave answering a check (`namedIn`, the name card's
+ * "Organization"), with what else he said of it (`relation`); gives its ref. Its id is the name's slug, numbered past one
+ * taken by either kind (a second "Sam"), or its kind for a name with no latin letters.
  */
-export async function addPersonByHisWord(name: string, said: string) {
+export async function addDirectoryEntryByHisWord(
+  kind: "person" | "organization",
+  name: string,
+  said: string,
+  fields: { relation?: string } = {}
+) {
   // ponytail: ids read outside the queue: two adds of one name at once, the second refused as a duplicate; its retry finds
   // the name in truth/. Fine for one owner; read inside `apply` if answers ever race.
-  const taken = new Set((await loadTruth()).people.map((p) => p.id));
-  const base = slugOf(name) || "person";
+  const taken = new Set(partiesOf(await loadTruth()).map((p) => p.id));
+  const base = slugOf(name) || kind;
   let id = base;
   for (let n = 2; taken.has(id); n += 1) {
     id = `${base}-${n}`;
   }
-  await changeDirectoryEntry({ action: "add", id, kind: "person", name, said });
+  await changeDirectoryEntry({
+    action: "add",
+    id,
+    kind,
+    name,
+    said,
+    ...fields,
+  });
   return `person:${id}`;
 }
 
-async function apply(a: DirectoryEntryChange) {
+/** An empty organizations.yaml: the one list file a directory may not hold yet. */
+const NO_ORGANIZATIONS = "schemaVersion: 1\norganizations: []\n";
+
+async function apply(a: Change) {
   const truth = join(OWNER_DATA_DIR, "truth");
-  const [path, text] = writeOf(a, (p) =>
-    existsSync(join(truth, p))
-      ? readFileSync(join(truth, p), "utf8")
-      : refuse(`truth/${p} is not there.`)
-  );
+  const [path, text] = writeOf(a, (p) => {
+    if (existsSync(join(truth, p))) {
+      return readFileSync(join(truth, p), "utf8");
+    }
+    return p === "organizations.yaml"
+      ? NO_ORGANIZATIONS
+      : refuse(`truth/${p} is not there.`);
+  });
   const scratch = mkdtempSync(join(tmpdir(), "life-directory-"));
   try {
     cpSync(truth, join(scratch, "truth"), { recursive: true });
