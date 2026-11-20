@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { DAY, HOUR } from "../core/clock";
-import { incomingArchived } from "./archived";
+import { incomingArchived, readArchivedMessageAt } from "./archived";
 import { BRIDGES } from "./matrix";
 import { proto, whatsappFixture } from "./store-fixtures";
 import {
@@ -374,4 +374,21 @@ test("a sender is the bridge's ghost by its WhatsApp user id: a phone's digits, 
   } finally {
     rmSync(join(BRIDGES, "whatsapp"), { force: true, recursive: true });
   }
+});
+
+test("a message is found by its id whatever its age, at its versions' instants", () => {
+  const { add, dir, now, source, wa } = whatsappFixture();
+  add(1, "S1", 0, "pay the carpenter", 400 * 86_400);
+  copyWhatsapp(source, dir, now);
+  wa.run(
+    "update ZWAMESSAGE set ZTEXT = 'pay the plumber' where ZSTANZAID = 'S1'"
+  );
+  copyWhatsapp(source, dir, now + 5000);
+  const [event] = readWhatsapp(new Date(0), dir, source);
+  const at = readArchivedMessageAt("whatsapp", event?.id ?? "", dir);
+  expect(at?.first).toBe(event?.at);
+  expect(readArchivedMessageAt("whatsapp", "whatsapp:120@g.us/S9", dir)).toBe(
+    undefined
+  );
+  expect(readArchivedMessageAt("line", event?.id ?? "", dir)).toBe(undefined);
 });

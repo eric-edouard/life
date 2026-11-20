@@ -738,6 +738,16 @@ export function meant(
   };
 }
 
+/** `meant`'s answer, but a part read by id (`byId`) takes the person with exactly that id before any name or alias. */
+export function personFor(
+  name: string,
+  meaning: ReturnType<typeof meant>,
+  byId?: boolean
+) {
+  const exact = byId ? meaning.all.find((p) => p.id === name) : undefined;
+  return exact ? { ...meaning, known: exact.id, same: [] } : meaning;
+}
+
 /**
  * Who a mention means, with the proof: `name`, the person its whole `who` resolves to (`people.resolve`, so a fold or a
  * name given since moves it); else `relation_word`, when its `who` is a relation's word ("my father") and exactly one

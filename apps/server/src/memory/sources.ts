@@ -13,6 +13,7 @@ import {
 import {
   archiveDb,
   incomingArchived,
+  readArchivedMessageAt,
   readEarliestArchived,
 } from "../sources/archived";
 import {
@@ -41,6 +42,7 @@ import {
   newestImessage,
   readEarliestImessage,
   readImessage,
+  readImessageAt,
   readSharedPictures,
 } from "../sources/imessage";
 import { lifelogMissing } from "../sources/lifelog-call";
@@ -50,6 +52,7 @@ import {
   newestMail,
   readEarliestMail,
   readMail,
+  readMailAt,
 } from "../sources/mail";
 import { matrixSend } from "../sources/matrix";
 import { messagesAppSend } from "../sources/messages-app";
@@ -120,6 +123,7 @@ const LISTED: Descriptor[] = [
     kind: "chat",
     label: "iMessage",
     macOnly: true,
+    messageAt: (id) => readImessageAt(id),
     missing: () => unreadable(DB, FULL_DISK),
     name: "imessage",
     newest: newestImessage,
@@ -138,6 +142,7 @@ const LISTED: Descriptor[] = [
     kind: "chat",
     label: "WhatsApp",
     macOnly: true,
+    messageAt: (id) => readArchivedMessageAt("whatsapp", id),
     name: "whatsapp",
     newest: newestWhatsapp,
     pictures: () => readWhatsappPictures(),
@@ -184,6 +189,7 @@ const LISTED: Descriptor[] = [
     incoming: (from?: number) => incomingArchived("github", "eventId", from),
     kind: "chat",
     label: "GitHub",
+    messageAt: (id) => readArchivedMessageAt("github", id),
     missing: () =>
       settings().githubRepos ? undefined : "no repos listed (`githubRepos`)",
     name: "github",
@@ -202,6 +208,7 @@ const LISTED: Descriptor[] = [
     kind: "mail",
     label: "Mail",
     macOnly: true,
+    messageAt: (id) => readMailAt(id),
     missing: () => {
       try {
         mailRoot();

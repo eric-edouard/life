@@ -6,7 +6,7 @@ import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import { handleKey, readContacts } from "./contacts";
-import type { Newest, NewRow, Picture } from "./contract";
+import type { MessageAt, Newest, NewRow, Picture } from "./contract";
 import { sourceFile } from "./contract";
 
 // iMessage and SMS from the Mac's Messages database, opened read-only. Never written.
@@ -150,6 +150,22 @@ export function readImessage(
 
 /** A message's id, as `read` and `incoming` both give it. */
 export const messageIdOf = (guid: string) => `imessage:${guid}`;
+
+/** When a message `readImessage` gives as `id` was written; none when Messages has no such message. */
+export function readImessageAt(id: string, path = DB): MessageAt | undefined {
+  const db = openReadOnly(path);
+  try {
+    const row = db
+      .query<{ date: number | bigint }, [string]>(
+        "select date from message where guid = ?"
+      )
+      .get(id.slice("imessage:".length));
+    const at = row && fromAppleNs(row.date).toISOString();
+    return at ? { first: at, last: at } : undefined;
+  } finally {
+    db.close();
+  }
+}
 
 /** The messages Messages first stored from row `from` on (`incoming`): an edit changes its row in place. */
 export function incomingImessage(
