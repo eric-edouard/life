@@ -54,7 +54,11 @@ struct InboxScreen: View {
             .toolbar {
                 if inSideColumn, #available(iOS 27.1, *) {
                     ToolbarItem(placement: .topBarTrailing) {
-                        ColumnToast(answered: life.latestHeld?.held.label) { life.latestHeld.map { undo($0.ref) } }
+                        // A held answer, else a project he parked from a card (`saidBack`).
+                        let said = life.saidBack?.undo == nil ? nil : life.saidBack
+                        ColumnToast(answered: life.latestHeld?.held.label ?? said?.words) {
+                            if let held = life.latestHeld { undo(held.ref) } else { said.flatMap(life.undoing)?() }
+                        }
                     }
                     .sharedBackgroundVisibility(.hidden).axisBehavior(.verticalPreferred)
                 }
@@ -64,6 +68,8 @@ struct InboxScreen: View {
             .navigationBarBackButtonHidden()
             // In the side column, the toast is the column's capsule.
             .heldToast(shows: { _ in !inSideColumn }, undo: undo)
+            // A project parked from a card's "Tell the agent…", said back with Undo.
+            .saidBackToast(inSideColumn: inSideColumn)
             .toolbar {
                 if sizeClass != .regular {
                     ToolbarItem(placement: .topBarLeading) {

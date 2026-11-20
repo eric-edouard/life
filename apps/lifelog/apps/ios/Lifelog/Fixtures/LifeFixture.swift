@@ -249,7 +249,8 @@
             let rows = Self.rows.map { row in
                 var row = row
                 if let isOn = marks[row["id"] as? String ?? ""] { row["important"] = isOn ? true : nil }
-                if var project = row["project"] as? [String: Any], let status = statuses[project["id"] as? String ?? ""] {
+                if var project = row["project"] as? [String: Any], let status = statuses[project["id"] as? String ?? ""]
+                {
                     project["status"] = status
                     row["project"] = project
                 }
@@ -260,7 +261,8 @@
                 if !["active", "waiting"].contains(status) { return 2 }
                 return row["important"] as? Bool == true ? 0 : 1
             }
-            return rows.enumerated().sorted { (tier($0.element), $0.offset) < (tier($1.element), $1.offset) }.map(\.element)
+            return rows.enumerated().sorted { (tier($0.element), $0.offset) < (tier($1.element), $1.offset) }.map(
+                \.element)
         }
 
         func agents() -> String { json(Self.registered) }

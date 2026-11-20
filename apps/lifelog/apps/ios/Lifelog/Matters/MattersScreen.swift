@@ -24,6 +24,8 @@ struct MattersScreen: View {
                 content: { list in content(list) }
             )
             .background(Palette.bg)
+            // A swipe's mark, said back with Undo.
+            .saysBack()
             // Beside the matter, the Pendant and Settings are the matter column's (the list's bar keeps its title).
             .shellBar("Matters", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
             .filterBar(isFiltered: filter != .everything, identifier: "matters.filter") { filterChoices }
@@ -59,8 +61,6 @@ struct MattersScreen: View {
                     .shellBar("", hasSettings: sizeClass == .regular)
             }
         }
-        // His mark or a project's status, said back with Undo, over the top.
-        .saidBackToast()
         // Side by side on a regular width wide enough (the iPhone Duo open wide). Open upright (669 pt) UIKit overlays the
         // list on the matter, whatever the column widths: kept on purpose (the owner's call, 19 Nov 2026); the system's
         // sidebar button brings the list back.
@@ -216,8 +216,11 @@ struct MatterRowView: View {
         .accessibilityElement(children: .combine)
         // The dot and the flag have their words: the combined row would drop a hidden glyph's label.
         .accessibilityValue(
-            [isMarked ? "Important" : nil, row.needsYou == true && !parked ? "Needs you" : nil, parked ? "Parked" : nil]
-                .compactMap(\.self).joined(separator: ", "))
+            [
+                isMarked ? "Important" : nil, row.needsYou == true && !parked ? "Needs you" : nil,
+                parked ? "Parked" : nil,
+            ]
+            .compactMap(\.self).joined(separator: ", "))
     }
 }
 

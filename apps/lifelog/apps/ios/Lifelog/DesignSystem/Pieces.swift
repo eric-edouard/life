@@ -149,27 +149,49 @@ extension View {
 }
 
 extension View {
-    /// His last mark or project status, said back (`LifeStore.saidBack`), over the top as the held answer's toast.
-    func saidBackToast() -> some View { modifier(SaidBackToast()) }
+    /// His last mark or project status, said back (`LifeStore.saidBack`), over the top as the held answer's toast; in
+    /// the closed Duo's side column (`inSideColumn`) only a change that was not made, the column's capsule says the rest.
+    func saidBackToast(inSideColumn: Bool) -> some View { modifier(SaidBackToast(inSideColumn: inSideColumn)) }
+
+    /// A page's said-back toast: over the top, or the capsule in the closed Duo's side column (`ColumnToast`). Declared
+    /// before the page's top group, so the capsule stacks under it.
+    func saysBack() -> some View { modifier(SaysBack()) }
 }
 
 private struct SaidBackToast: ViewModifier {
+    let inSideColumn: Bool
     @Environment(LifeStore.self) private var life
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .top) {
             ZStack {
-                if let said = life.saidBack {
-                    Toast(words: said.words, glyph: said.undo == nil ? .flag : .ok, undo: undoOf(said))
+                if let said = life.saidBack, !inSideColumn || said.undo == nil {
+                    Toast(words: said.words, glyph: said.undo == nil ? .flag : .ok, undo: life.undoing(said))
                         .appears().id(said.id)
                 }
             }
             .motion(Motion.standard, value: life.saidBack?.id)
         }
     }
+}
 
-    private func undoOf(_ said: LifeStore.SaidBack) -> (() -> Void)? {
-        said.undo.map { _ in { Task { await life.undo(said) } } }
+private struct SaysBack: ViewModifier {
+    @Environment(LifeStore.self) private var life
+    @State private var inSideColumn = false
+
+    func body(content: Content) -> some View {
+        let said = life.saidBack?.undo == nil ? nil : life.saidBack
+        content
+            .toolbar {
+                if inSideColumn, #available(iOS 27.1, *) {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        ColumnToast(answered: said?.words) { said.flatMap(life.undoing)?() }
+                    }
+                    .sharedBackgroundVisibility(.hidden).axisBehavior(.verticalPreferred)
+                }
+            }
+            .reportsSideColumn($inSideColumn)
+            .saidBackToast(inSideColumn: inSideColumn)
     }
 }
 

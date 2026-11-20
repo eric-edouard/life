@@ -182,7 +182,7 @@
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen -fixtureProject halden, then Parked (the toast lasts 4 s)."
   },
   "ProjectTellLife": {
-    "why": "Not built: Tell the agent… is written on the card itself, not in a sheet, and a card's matter carries no project yet."
+    "why": "Its card (StackPlan, the kitchen's plan) is not in the design data and the stack's sheet is not built: Tell the agent… is written on the card, and the ready line stands over his words there on a decision whose matter has a project underway."
   },
   "ToastImportantOff": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen, then Important (the toast lasts 4 s)."

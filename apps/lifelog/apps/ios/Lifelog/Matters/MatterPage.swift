@@ -23,6 +23,10 @@ struct MatterPage: View {
             content: { matter in page(matter) }
         )
         .background(Palette.bg)
+        .saysBack()
+        // Back on the left, his mark, then the Pendant on the right (and Settings when the list's bar has neither): the
+        // items of an outer toolbar come first.
+        .shellBar("", hasSettings: hasSettings)
         .toolbar {
             if let row = state.value?.row {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -32,8 +36,6 @@ struct MatterPage: View {
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
             }
         }
-        // Back on the left, his mark, then the Pendant on the right (and Settings when the list's bar has neither).
-        .shellBar("", hasSettings: hasSettings)
         .task(id: life.answersEnded) { await life.refreshMatter(id) }
     }
 
@@ -112,7 +114,8 @@ struct MatterPage: View {
                 .accessibilityAddTraits(.isHeader)
             if !unanswered(matter).isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
             HStack(spacing: 0) {
-                Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small).foregroundStyle(Palette.muted)
+                Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small).foregroundStyle(
+                    Palette.muted)
                 if let project = row.project {
                     TextLink(project.name, isOnward: true, isMuted: false) {
                         router.matterPath.append(.project(project.id))

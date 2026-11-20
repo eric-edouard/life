@@ -18,6 +18,9 @@ struct CheckCard: View {
     let sameAs: () -> Void
     /// "Create <name>": the create sheet, with the name he would create.
     let create: (String) -> Void
+    /// "I dropped this whole project", the one ready line over his own words when the card's matter has a project
+    /// underway: parks it.
+    var dropProject: (() -> Void)?
 
     /// The card's context shows in a region of its own, so its matter row and "Why" link go: `CardArrangement` decides.
     @Environment(\.isContextBeside) private var isContextBeside
@@ -139,7 +142,14 @@ struct CheckCard: View {
         }
     }
 
-    private var ownWords: some View {
+    @ViewBuilder private var ownWords: some View {
+        if let dropProject, check.group != .newMatter {
+            Button("I dropped this whole project") {
+                input.isWritingOwnWords = false
+                dropProject()
+            }
+            .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
+        }
         TextField(
             check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
         )

@@ -418,6 +418,11 @@ final class LifeStore {
         statusing[id] = nil
     }
 
+    /// Its Undo as a tap, none when it was not done.
+    func undoing(_ said: SaidBack) -> (() -> Void)? {
+        said.undo == nil ? nil : { Task { await self.undo(said) } }
+    }
+
     func undo(_ said: SaidBack) async {
         saidBack = nil
         switch said.undo {

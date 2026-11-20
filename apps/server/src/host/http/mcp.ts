@@ -304,8 +304,6 @@ export function buildServer(readsOnly = false) {
         openChecksNow(),
       ]);
       return {
-        // Of one project, its page's head (`openMatters`).
-        project,
         matters: matters.map((m) => {
           const blockingChecks = blockingCountOf(checksOnMatterOf(open, m.id));
           return {
@@ -314,6 +312,8 @@ export function buildServer(readsOnly = false) {
             needsYou: needsYouOf(m, blockingChecks),
           };
         }),
+        // Of one project, its page's head (`openMatters`).
+        project,
       };
     }
   );

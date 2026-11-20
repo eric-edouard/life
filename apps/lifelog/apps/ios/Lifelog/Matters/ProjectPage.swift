@@ -18,6 +18,7 @@ struct ProjectPage: View {
             content: { list in list.project.map { page($0, matters: list.matters) } }
         )
         .background(Palette.bg)
+        .saysBack()
         .shellBar("", hasSettings: false)
         .task { await life.refreshProject(id) }
     }
@@ -77,7 +78,8 @@ struct ProjectPage: View {
     private func meaning(of status: ProjectStatus, matters count: Int) -> String? {
         switch status {
         case .parked:
-            count == 1 ? "Its matter waits: no agent works on it." : "Its \(count) matters wait: no agent works on them."
+            count == 1
+                ? "Its matter waits: no agent works on it." : "Its \(count) matters wait: no agent works on them."
         case .done: "Nothing more is asked about it."
         default: nil
         }
