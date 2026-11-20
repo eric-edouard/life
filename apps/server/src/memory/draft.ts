@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { isoDateTime } from "../records/fields";
 import { mentionsAt } from "../sources/matrix-content";
+import { Party } from "./party";
 
 // A card's draft (AGENTS.md, "Life sends only…"): what an agent gives (`MessageDraft`), what Life stores beside it when
 // the card is asked (`StoredDraft`), and the rules both go by. Resolving and sending it is `draft-send.ts`.
@@ -46,7 +48,27 @@ export const MessageDraft = z
 
 export type MessageDraft = z.infer<typeof MessageDraft>;
 
-/** What Life stamps on an `asked` line: the chat it resolved, the file as it read it, the message quoted. A card asked before has none and sends nothing. */
+/** One of the chat's last messages before a card was asked, as his card shows it above the draft: a mail's is its first line. */
+export const RecentMessage = z
+  .object({
+    at: isoDateTime,
+    /** Its first file; `size` when the file is on this Mac. */
+    file: z
+      .object({
+        /** `fileKindOf`: photo, video, audio, pdf or document. */
+        kind: z.string(),
+        name: z.string(),
+        size: z.int().min(0).optional(),
+      })
+      .strict()
+      .optional(),
+    sender: Party,
+    text: z.string().optional(),
+  })
+  .strict();
+export type RecentMessage = z.infer<typeof RecentMessage>;
+
+/** What Life stamps on an `asked` line: the chat it resolved, the file as it read it, the message quoted, the chat's last messages. A card asked before has none and sends nothing. */
 export const StoredDraft = MessageDraft.extend({
   chat: z.string().optional(),
   file: z
@@ -69,6 +91,8 @@ export const StoredDraft = MessageDraft.extend({
     })
     .strict()
     .optional(),
+  /** The chat's last 3 messages within 90 days before the card was asked, oldest first (a mail's: the replied thread's last); empty for a new chat. Cards asked before 21 Nov 2026 have none. */
+  recent: z.array(RecentMessage).max(3).optional(),
 }).strict();
 export type StoredDraft = z.infer<typeof StoredDraft>;
 
@@ -84,12 +108,9 @@ function kindProblemOf(d: MessageDraft, mail: boolean, takesSubject: boolean) {
     }
     return;
   }
-  if (!(d.from && d.subject)) {
-    return "a mail draft needs `from` and `subject`";
-  }
-  return d.reaction || d.mentions
-    ? "mail takes no `reaction` or `mentions`"
-    : undefined;
+  return d.from && d.subject
+    ? undefined
+    : "a mail draft needs `from` and `subject`";
 }
 
 /** What breaks the draft's rules beyond its shape, in words the agent can fix; none when nothing does. */

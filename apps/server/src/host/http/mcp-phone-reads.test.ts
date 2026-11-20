@@ -134,6 +134,18 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
           size: 52_000,
         },
         quoted: { sender: "Kit", text: "Can you send the quote?" },
+        recent: [
+          {
+            at: "2026-10-12T17:00:00.000Z",
+            file: { kind: "photo", name: "IMG_0001.HEIC", size: 1_200_000 },
+            sender: { kind: "person", name: "Kit", ref: "person:inf_kit" },
+          },
+          {
+            at: "2026-10-12T17:01:00.000Z",
+            sender: { kind: "person", name: "Kit", ref: "person:inf_kit" },
+            text: "Can you send the quote?",
+          },
+        ],
         text: "Here is the signed quote.",
         to: "Kit",
       },
@@ -657,6 +669,10 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     expect(
       shown.find((c) => c.kind === "decision" && c.draft)?.networkIdentity
     ).toMatchObject({ network: "WhatsApp", newest: null, shownName: "Kit" });
+    expect(shown.find((c) => c.kind === "decision" && c.draft)?.head).toEqual({
+      name: "Kit",
+      network: "WhatsApp",
+    });
     const matters = await read("read_matters");
     expectWire("read_matters", matters);
     const rows: { icon?: object; name: string }[] = JSON.parse(matters).matters;

@@ -24,6 +24,7 @@ import {
   voiceKey,
 } from "../sources/lifelog-voices";
 import { communicationStylesOf } from "./communication-styles";
+import { chatTakesLinesOf } from "./draft-send";
 import { readInferredRepos, readJudgments, readUnit } from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
@@ -669,8 +670,9 @@ export async function chatsOf(
           `(no \`from\`: ${Math.round((end.getTime() - start.getTime()) / DAY)} days; give \`from\` to read further back)`,
         ]),
     ...unread(failed),
-    // Drafting starts here: the person's communication style, as their page shows it (1:1 chats only: none for a group).
+    // Drafting starts here: the person's communication style (1:1 chats only), and what a draft into the chat takes.
     ...(known ? communicationStylesOf([ref], people.nameOf) : []),
+    ...chatTakesLinesOf(o.chat, shown),
     ...(next
       ? [`(earlier not shown: the same call with \`before\` ${next})`]
       : []),

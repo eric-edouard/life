@@ -153,6 +153,8 @@ export interface Check {
   /** A new matter's goal, the one his Start hands the agent (the question words it too); null for every other kind. */
   goal: string | null;
   group: CheckGroup;
+  /** A draft card's chat as his card heads it (`draftHeadOf`): its network and its name; absent on every other check. */
+  head?: { name: string; network: string } | null;
   kind: CheckKind;
   /** Who it may be, as parties (`partyOf`): a voice's likely people, a Contacts card's candidates, the people who go by a name; none for other kinds. */
   likelyPeople: Party[];

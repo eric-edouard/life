@@ -12,8 +12,12 @@ import { digest } from "../core/hash";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
 import { BRIDGES } from "../sources/matrix";
-import { draftProblemOf } from "./draft";
+import { draftProblemOf, StoredDraft } from "./draft";
 import { resolveDraft, sendDraft } from "./draft-send";
+import { OWNER } from "./read-truth";
+
+/** A chat that takes everything besides text. */
+const ALL = { file: true, mentions: true, reaction: true, reply: true };
 
 const KIT_JID = /^\d+@s\.whatsapp\.net$/;
 const NOW = new Date("2026-11-18T09:00:00.000Z");
@@ -53,6 +57,7 @@ const source = (
       : undefined,
     refusal,
     send,
+    takes: () => ALL,
   },
   silentAfter: 0,
 });
@@ -85,7 +90,7 @@ test("a draft names one chat its bridge holds: a chat key, or a person with one 
   ]);
   const read = (to: string) =>
     resolveDraft({ channel: "sendnet", text: hi, to }, NOW, [sendnet]);
-  expect(await read("!crew:life.local")).toEqual({
+  expect(await read("!crew:life.local")).toMatchObject({
     channel: "sendnet",
     chat: "!crew:life.local",
     text: hi,
@@ -125,6 +130,7 @@ test("a chat that doesn't exist yet opens by its id when the source can open it;
   expect(await read("66123456@s.whatsapp.net")).toEqual({
     channel: "whatsapp",
     chat: "66123456@s.whatsapp.net",
+    recent: [],
     text: hi,
     to: "Test Kit (66123456@s.whatsapp.net)",
   });
@@ -179,6 +185,49 @@ test("the message replied or reacted to is stamped as its sender and first 300 c
       net,
     ])
   ).rejects.toThrow("isn't a message of Test Ana");
+});
+
+test("his card shows the chat's last 3 messages within 90 days before it was asked, oldest first: sender, words, first file; no calls", async () => {
+  const at = (day: string, over: Partial<SourceEvent>): SourceEvent => ({
+    ...ana(),
+    at: `${day}T12:00:00.000Z`,
+    id: day,
+    ...over,
+  });
+  const net = source("sendnet", [
+    at("2026-08-01", { text: "too old" }),
+    at("2026-11-11", { text: "one" }),
+    at("2026-11-12", { fromMe: true, sender: "me", text: "two" }),
+    at("2026-11-13", {
+      files: [{ mime: "application/pdf", name: "menu.pdf", ref: "x:1" }],
+      text: "\uFFFC",
+    }),
+    at("2026-11-14", { text: "four" }),
+    at("2026-11-15", { phoneCall: { video: false }, text: "" }),
+  ]);
+  const { recent } = await resolveDraft(
+    { channel: "sendnet", text: hi, to: "!ana:life.local" },
+    NOW,
+    [net]
+  );
+  expect(recent?.map(({ sender, ...m }) => m)).toEqual([
+    { at: "2026-11-12T12:00:00.000Z", text: "two" },
+    {
+      at: "2026-11-13T12:00:00.000Z",
+      file: { kind: "pdf", name: "menu.pdf" },
+    },
+    { at: "2026-11-14T12:00:00.000Z", text: "four" },
+  ]);
+  expect(recent?.[0]?.sender.ref).toBe(OWNER);
+  expect(recent?.[2]?.sender).toMatchObject({ kind: "person" });
+  expect(recent?.[2]?.sender.ref).not.toBe(OWNER);
+  // A card asked before Life read the chat's last messages has none, and reads as it was.
+  const { recent: _, ...old } = await resolveDraft(
+    { channel: "sendnet", text: hi, to: "!ana:life.local" },
+    NOW,
+    [net]
+  );
+  expect(StoredDraft.parse(old)).toEqual(old);
 });
 
 test("a mention names a sender who wrote in the chat, never him", async () => {
@@ -325,6 +374,7 @@ test("a mail draft has no chat: its addresses as given, and a reply quotes the m
         return Promise.resolve(undefined);
       },
       send: async () => "g1",
+      takes: () => ALL,
     },
   } as Descriptor;
   const draft = {
@@ -334,7 +384,11 @@ test("a mail draft has no chat: its addresses as given, and a reply quotes the m
     text: "Yes",
     to: "ana@example.com",
   };
-  expect(await resolveDraft(draft, NOW, [mail])).toEqual(draft);
+  // A new mail shows no thread.
+  expect(await resolveDraft(draft, NOW, [mail])).toEqual({
+    ...draft,
+    recent: [],
+  });
   const reply = await resolveDraft(
     { ...draft, onMessage: "mail:abc@mail.example.com" },
     NOW,
@@ -346,6 +400,13 @@ test("a mail draft has no chat: its addresses as given, and a reply quotes the m
     subject: "Friday?",
   });
   expect(reply.quoted?.text).toHaveLength(300);
+  // A reply shows its thread's last message: its sender and first line, the subject left out.
+  expect(reply.recent).toHaveLength(1);
+  expect(reply.recent?.[0]).toMatchObject({
+    at: "2026-11-10T12:00:00.000Z",
+    sender: { kind: "person" },
+  });
+  expect(reply.recent?.[0]?.text).toStartWith("yyyy");
   expect(sent.at(-1)).toMatchObject({
     from: "me@example.com",
     to: "ana@example.com",

@@ -13,7 +13,8 @@ import {
   openArchive,
   readArchived,
 } from "./archived";
-import type { Outgoing, SendPath } from "./contract";
+import { takesProblemOf } from "./chat-takes";
+import type { ChatTakes, Outgoing, SendPath } from "./contract";
 
 // The GitHub source: the issues and issue comments of the repos he lists (`githubRepos`), one chat per issue
 // (`owner/name#12`), copied into `archive/github.sqlite` (each version kept, like a bridge's) and read from there. The
@@ -27,6 +28,13 @@ const POLL_MS = 20_000;
 const PAUSE_MAX = 15 * MIN;
 const GH_MS = 15_000;
 const SEND_MS = 30_000;
+/** What an issue takes besides text: nothing (an @login in the text pings). */
+const TAKES: ChatTakes = {
+  file: false,
+  mentions: false,
+  reaction: false,
+  reply: false,
+};
 const ISSUE = /^([\w.-]+\/[\w.-]+)#(\d+)$/;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 /** GitHub refused the request itself (`gh api`'s stderr): nothing was posted. */
@@ -323,7 +331,7 @@ export function githubSend({
     opensHint: "a listed repo as `owner/name` with a `subject` for a new issue",
     opensWithSubject: true,
     refusal: (d: Outgoing) => {
-      if (d.file || d.reaction || d.onMessage || d.mentions) {
+      if (takesProblemOf(d, TAKES)) {
         return Promise.resolve(
           "GitHub takes text only: no file, reaction, reply or mentions (an @login in the text pings)"
         );
@@ -361,5 +369,6 @@ export function githubSend({
         issue ? `github:${d.chat}/${o.id}` : `github:${d.chat}#${o.number}/0`
       );
     },
+    takes: () => TAKES,
   };
 }
