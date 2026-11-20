@@ -8,6 +8,7 @@ import { changeRegisteredAgent } from "../host/change-registered-agent";
 import { expectWire } from "../host/http/wire-fixture";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import { register } from "./agent-actions";
+import { turnEnded } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { ticking } from "./test-ticker";
@@ -93,6 +94,11 @@ async function start(n: number, said: string, limitMs = 5000, after = 300) {
     limitMs
   );
   await stop();
+  // Its turn ends: the Personal agent runs one turn at a time, and the next start's first turn must begin.
+  for (const session of fake.sessions.values()) {
+    session.running = false;
+  }
+  await turnEnded(desk, personal, { ok: true });
   return { result, steps };
 }
 

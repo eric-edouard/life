@@ -134,8 +134,7 @@ function oldDesk() {
 const oldHolds = (path: string) =>
   new Database(path, { readonly: true })
     .query<Record<string, string | number | null>, [string]>(
-      `select a.id as agent, a.ended_at as closedAt, a.is_handed_out, a.outcome, a.project as project, a.status, n.step, a.why_not_started as whyNotStarted from anchor n join agent a on a.id = n.agent_id where a.ended_at is null or a.ended_at >= ?1
-      union all select a.id, a.ended_at, a.is_handed_out, a.outcome, a.project, a.status, null, a.why_not_started from agent a where a.project is not null and (a.ended_at is null or a.ended_at >= ?1)`
+      "select a.id as agent, a.ended_at as closedAt, a.is_handed_out, a.outcome, a.status, n.step, a.why_not_started as whyNotStarted from anchor n join agent a on a.id = n.agent_id where a.ended_at is null or a.ended_at >= ?1"
     )
     .all("2000-01-01")
     .map(({ is_handed_out, ...h }) => ({

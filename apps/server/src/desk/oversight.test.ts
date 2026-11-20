@@ -12,7 +12,7 @@ import { clock, DAY, MIN } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS, DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
-import { ask } from "../host/asks";
+import { ask, asksFor } from "../host/asks";
 import { changeRegisteredAgent } from "../host/change-registered-agent";
 import { requested } from "../host/change-todo-item";
 import {
@@ -36,7 +36,12 @@ import { readPeople } from "../memory/who";
 import type { AgentChange } from "../records/registered-agent";
 import { readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
-import { type Desk, openDesk, postReportLine } from "./desk-store";
+import {
+  type Desk,
+  openDesk,
+  postReportLine,
+  saveCursor,
+} from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { matterView, on, withMatters } from "./test-desk";
 import { ticking } from "./test-ticker";
@@ -54,6 +59,13 @@ setSettings({
 });
 const fake = fakeRuntime();
 const desk: Desk = { db: openDesk(), runtimes: { claude: fake.runtime } };
+// The ledger is shared by every test file of the run: this desk reads only the asks made from here on (another file's
+// start of the Personal agent would be applied here first).
+let page = asksFor(DESK_AGENT);
+while (page.asks.length > 0) {
+  page = asksFor(DESK_AGENT, page.cursor);
+}
+saveCursor(desk.db, "asks", page.cursor);
 
 afterAll(() => {
   setSystemTime();
@@ -342,7 +354,7 @@ test("what his agents are doing: each with its matter, status, wait, link and am
     expect(readActiveAgentOf()([STEP])).toBe(onMatter?.id);
     expect(readActiveAgentOf()(["obs_00000000a999"])).toBeUndefined();
     expect(readAgentsOnSteps([STEP], people).map((a) => a.id)).toEqual([
-      onMatter?.id,
+      onMatter?.id ?? "",
     ]);
     // Its packet opens with its matter as read now: its goal and next step first.
     expect(

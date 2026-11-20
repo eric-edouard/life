@@ -213,7 +213,6 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       closedAt: null,
       openedBy: "owner",
       outcome: null,
-      project: null,
       status: "active",
       step: "obs_000000000005",
       whyNotStarted: null,
