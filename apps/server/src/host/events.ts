@@ -37,6 +37,10 @@ export const MESSAGE_RECEIVED = "message.received";
 export const DECISION_ANSWERED = "decision.answered";
 export const DECISION_LAPSED = "decision.lapsed";
 export const DECISION_WITHDRAWN = "decision.withdrawn";
+/** Another asker's card waits on the open card of the agent woken, both drafting into one chat: the desk's event alone, facts only (the waiting card's id, its asker, the chat, the held card, until when), never words (`pollContests`). */
+export const DRAFT_CONTESTED = "draft.contested";
+/** The holder kept its card against the waiting card of the agent woken: the desk's event alone, with the holder's why. */
+export const DRAFT_KEPT = "draft.kept";
 /** A call of his that ended, once lifelog holds its words: the desk's event alone (`pollCalls`), never the connector's. */
 export const CALL_ENDED = "call.ended";
 /** His complaint (his "Wrong…" on a card of Life's), received for the caretaker: the desk's event alone, its payload the ask's id, never his words (`desk/complaint-intake.ts`). */
@@ -61,7 +65,7 @@ const DECISION_EVENT_OF: Record<
   },
   [DECISION_WITHDRAWN]: {
     about:
-      "A decision you asked with a draft was withdrawn because he answered in its chat himself (`why`): read the chat again, then finish or ask something new.",
+      "A decision you asked with a draft was withdrawn for you (`why`): he answered in its chat himself, or another card took its place (`replacedBy`: the newer card he sent, or the holder's card that merged yours, whose answer you hear too): read the chat again, then finish or ask something new.",
     states: ["withdrawn"],
   },
 };
@@ -251,6 +255,9 @@ export function pollDecisions(
           id: d.id,
           onSilence: d.onSilence,
           question: d.question,
+          ...(d.withdrawn?.replacedBy
+            ? { replacedBy: d.withdrawn.replacedBy }
+            : {}),
           ...(d.withdrawn ? { why: d.withdrawn.why } : {}),
         } satisfies z.infer<typeof DecisionPayload>,
         eventId: `${d.id}.${states[0]}`,
