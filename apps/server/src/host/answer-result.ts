@@ -5,11 +5,11 @@ import {
   type CheckAnswer,
   type StartAgent,
 } from "../memory/answer-check";
+import type { Decision } from "../memory/decision-lines";
 import {
   actDueOf,
   actOf,
   actOutcomeOf,
-  type Decision,
   decisionsNow,
   doneSeenShownOf,
   type EndByHisWord,
