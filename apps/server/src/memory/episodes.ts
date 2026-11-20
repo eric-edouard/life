@@ -472,8 +472,15 @@ export async function episodes(evidence: Evidence) {
   step.stats.failed += failed.length;
   const days = [...new Set(all.map((b) => b.unit.date))].sort();
   let verdicts = readVerdicts();
-  const { outsideDirectory, canon, corrections, inferred, refOf, resolve } =
-    await readPeople();
+  const {
+    outsideDirectory,
+    canon,
+    corrections,
+    inferred,
+    isOrganization,
+    refOf,
+    resolve,
+  } = await readPeople();
   // Area hints: the chats' projects, and each repo's project or the one Life inferred.
   const hints = chatAreas(truth);
   for (const [repo, r] of repos) {
@@ -481,7 +488,7 @@ export async function episodes(evidence: Evidence) {
       hints.set(repo, [r.area]);
     }
   }
-  const levels = levelsWith({ canon, corrections });
+  const levels = levelsWith({ canon, corrections, isOrganization });
   const refs = refContext(
     { canon, outsideDirectory, truth },
     personallyClose(levels),

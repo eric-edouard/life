@@ -2,7 +2,7 @@ import type { Correction } from "../records/observation";
 import { type NameRow, nameGroupsOf } from "./check-sentences";
 import type { CheckInputs } from "./checks";
 import type { AgentHold } from "./held-matters";
-import { guessTestOf } from "./who";
+import { guessTestOf, latestInUseOf } from "./ref-kinds";
 
 type Input = Partial<Omit<CheckInputs, "people">> & {
   corrections?: Correction[];
@@ -55,7 +55,7 @@ function withoutGroups(
 ): Omit<CheckInputs, "nameGroups"> {
   const isGuess = guessTestOf(
     over.corrections ?? [],
-    (over.inferred ?? []).map((id) => ({ confidence: 0.7, id }))
+    latestInUseOf((over.inferred ?? []).map((id) => ({ confidence: 0.7, id })))
   );
   return {
     answered: new Set(),

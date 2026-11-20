@@ -57,9 +57,11 @@ export const LIFE_CHECKS = {
   },
   name: {
     context: null,
+    // "Organization" takes nothing more: his `name` for it (default the card's) and his `note` (what it is to him) are optional.
     options: [
       { id: "this-is", label: "Someone else…", takes: "person or name" },
-      { id: "not-relevant", label: "Don't name", takes: null },
+      { id: "organization", label: "Organization", takes: null },
+      { id: "not-relevant", label: "Neither", takes: null },
     ],
     title: "Place a name",
   },

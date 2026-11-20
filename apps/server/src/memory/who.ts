@@ -3,16 +3,14 @@ import {
   CONTACT_PREFIX,
   type Correction,
   INFERRED_PREFIX,
-  INFERRED_USE_AT,
   type InferredPerson,
-  isSettledGuess,
   type Observation,
   peopleOutsideDirectoryOf,
   type Unresolved,
   unfoldedOf,
 } from "../records/observation";
 import { namesOne, relationWordOf } from "../records/relation-words";
-import { firstNameOf, ME, type Person } from "../records/truth";
+import { firstNameOf, ME, type Party } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
 import { readAgentReports } from "./agent-source";
@@ -28,7 +26,13 @@ import {
   shownOf,
 } from "./memory-files";
 import { isSameNameOrHandle, type Reading, readingOf } from "./name-reading";
-import { loadTruth, OWNER, phonesAndEmailsOf } from "./read-truth";
+import { loadTruth, OWNER, partiesOf, phonesAndEmailsOf } from "./read-truth";
+import {
+  guessTestOf,
+  knownTestOf,
+  latestInUseOf,
+  organizationTestOf,
+} from "./ref-kinds";
 import { kindOf, sourceOf } from "./sources";
 import type { Tie } from "./ties";
 import { dayUnitId } from "./unit-ids";
@@ -41,36 +45,6 @@ const WHO = /^(person|unknown):/;
 /** A speaker as a reader sees it: the readable name when there is one, else the id without its `person:` prefix. */
 export const who = (x: { speaker: string; speakerName?: string }) =>
   x.speakerName ?? x.speaker.replace(WHO, "");
-
-/**
- * The test for "this person ref (as folded today) is only a guess": an inferred person his word has not named, whose
- * latest record is not settled (`isSettledGuess`). `this-is` or `same-person` to it confirms it. A `not-this-person` refuses one name or handle of it, not the person: one that
- * holds another handle is still a guess. The one rule (`isGuess` on `readPeople`, so `guessedOf` and the person checks
- * agree).
- */
-export function guessTestOf(
-  corrections: Correction[],
-  inferred: Pick<InferredPerson, "confidence" | "id" | "isOrganization">[]
-) {
-  // The latest record in use decides, as in reading it (`guessesOf`).
-  const sure = new Map(
-    inferred
-      .filter((r) => r.confidence >= INFERRED_USE_AT)
-      .map((r) => [`person:${r.id}`, isSettledGuess(r)])
-  );
-  const said = new Set<string>();
-  for (const c of corrections) {
-    if (c.kind === "this-is") {
-      said.add(c.person);
-    } else if (c.kind === "same-person") {
-      said.add(c.to);
-    }
-  }
-  return (ref: string) =>
-    ref.startsWith(`person:${INFERRED_PREFIX}`) &&
-    !said.has(ref) &&
-    !sure.get(ref);
-}
 
 const tierOf = (ref: string) => {
   if (ref.startsWith(`person:${INFERRED_PREFIX}`)) {
@@ -93,7 +67,7 @@ const bestOf = (loop: string[]) =>
  * person. A card whose whole name and whose handles say more than one person folds into no one (an ambiguous card: his to say).
  */
 export function foldsOf(
-  people: Person[],
+  people: Party[],
   inferred: InferredPerson[],
   corrections: Correction[],
   contacts: ContactNow[]
@@ -182,7 +156,7 @@ function saidBy(
   c: ContactNow,
   self: string,
   read: (nameOrHandle: string, from?: HandleFrom) => string | null,
-  people: Person[],
+  people: Party[],
   isRuledOut: (c: ContactNow, ref: string) => boolean
 ) {
   const named = read(c.name);
@@ -212,13 +186,13 @@ function saidBy(
  * of their names: only when truth/ gives them no phone or email to say otherwise. A card named as an alias ("Paul")
  * of someone whose numbers are known and differ is someone else.
  */
-function namesTheSame(ref: string, people: Person[]) {
+function namesTheSame(ref: string, people: Party[]) {
   const person = people.find((p) => `person:${p.id}` === ref);
   return !person || phonesAndEmailsOf(person).every((h) => !contactKeyOf(h));
 }
 
 /** Whether a card has the first name and the birthday of someone in truth/: proof enough, never one alone. The first word is taken before `nameKey`, which would split "Jean-Pierre". */
-const isSameFirstNameAndBirthday = (c: ContactNow, p: Person) => {
+const isSameFirstNameAndBirthday = (c: ContactNow, p: Party) => {
   const first = (name: string) => nameKey(firstNameOf(name));
   return (
     !!c.birthday &&
@@ -230,7 +204,7 @@ const isSameFirstNameAndBirthday = (c: ContactNow, p: Person) => {
 };
 
 /** Whether a card is named, whole, as someone in truth/: his own label for the card. */
-const isWholeNameOf = (c: ContactNow, ref: string, people: Person[]) =>
+const isWholeNameOf = (c: ContactNow, ref: string, people: Party[]) =>
   people.some(
     (p) =>
       `person:${p.id}` === ref &&
@@ -246,7 +220,7 @@ const isWholeNameOf = (c: ContactNow, ref: string, people: Person[]) =>
 export function aboutNow(
   observations: Observation[],
   unresolved: Unresolved[],
-  people: Person[],
+  people: Party[],
   inferred: InferredPerson[],
   corrections: Correction[],
   contacts: ContactNow[],
@@ -434,10 +408,6 @@ export const episodeNow = <E extends { people: { ref: string }[] }>(
 export type Shown = ReturnType<typeof aboutNow>[number];
 
 /**
- * truth/, the people his Contacts name, Life's inferred people and the owner's corrections, read once, with the
- * resolver and the folds over them.
- */
-/**
  * Whose a Contacts card is, the one rule (details, pictures): its contact person as the folds place it when Life keeps
  * one (an ambiguous card stays its own until he says), else the one person all of its handles that name someone name;
  * no one when they name several.
@@ -463,6 +433,10 @@ export const cardOwnerOf =
     return named.size === 1 ? [...named][0] : undefined;
   };
 
+/**
+ * truth/, the people his Contacts name, Life's inferred people and the owner's corrections, read once, with the
+ * resolver and the folds over them.
+ */
 export async function readPeople() {
   const [truth, inferred, corrections] = await Promise.all([
     loadTruth(),
@@ -470,22 +444,28 @@ export async function readPeople() {
     readCorrections(),
   ]);
   const contacts = contactsNow(readContactLines());
+  const parties = partiesOf(truth);
   const { ambiguousCards, canon, readingNow, resolve } = foldsOf(
-    truth.people,
+    parties,
     inferred,
     corrections,
     contacts
   );
   const outsideDirectory = peopleOutsideDirectoryOf(contacts, inferred);
-  const isGuessNow = guessTestOf(corrections, inferred);
-  /** Who an episode's person ref is as of today. */
+  const latest = latestInUseOf(inferred);
+  const isGuessNow = guessTestOf(corrections, latest);
+  const isKnownNow = knownTestOf(corrections);
+  const isOrganizationNow = organizationTestOf(truth.organizations, latest, {
+    canon,
+    corrections,
+  });
   /** Who a ref is as of today: an unresolved one (`unknown:<as written>`) read again, from where it was read when known. */
   const refOf = (ref: string, from?: HandleFrom) =>
     ref.startsWith(UNKNOWN)
       ? (resolve(ref.slice(UNKNOWN.length), from) ?? ref)
       : canon(ref);
   const names = new Map<string, string>([
-    ...[...truth.people, ...outsideDirectory].map(
+    ...[...parties, ...outsideDirectory].map(
       (p) => [`person:${p.id}`, p.name] as const
     ),
     ...truth.projects.map((p) => [`project:${p.id}`, p.name] as const),
@@ -494,7 +474,7 @@ export async function readPeople() {
   /** What each person is to him, one line: truth/'s `relation`, a contact's card, an inferred person's relation. */
   const relations = new Map<string, string>([
     ...outsideDirectory.map((p) => [`person:${p.id}`, p.relation] as const),
-    ...truth.people.flatMap((p) =>
+    ...parties.flatMap((p) =>
       p.relation ? [[`person:${p.id}`, p.relation] as const] : []
     ),
   ]);
@@ -526,6 +506,10 @@ export async function readPeople() {
     inferred,
     /** Whether a person ref, as it reads today, is only a guess (`guessTestOf`). */
     isGuess: (ref: string) => isGuessNow(refOf(ref)),
+    /** Whether a person ref, as it reads today, is someone he knows (`knownTestOf`). */
+    isKnownToHim: (ref: string) => isKnownNow(refOf(ref)),
+    /** Whether a person ref, as it reads today, is an organization (`organizationTestOf`): personal steps skip it. */
+    isOrganization: (ref: string) => isOrganizationNow(refOf(ref)),
     /** An episode's person ref as a reader sees it: the readable name of who it is today, else the bare id. */
     nameOf: (ref: string) =>
       names.get(refOf(ref)) ?? who({ speaker: refOf(ref) }),
@@ -590,7 +574,7 @@ export async function observationsNow({
   const observations = aboutNow(
     shown,
     unresolved,
-    truth.people,
+    partiesOf(truth),
     inferred,
     corrections,
     contacts,
@@ -678,7 +662,7 @@ function nameable({
   truth,
 }: Pick<People, "outsideDirectory" | "canon" | "truth">) {
   return [
-    ...truth.people,
+    ...partiesOf(truth),
     ...new Map(
       unfoldedOf(outsideDirectory, canon).map((p) => [
         p.id,

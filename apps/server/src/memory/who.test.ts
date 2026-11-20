@@ -87,7 +87,7 @@ test("a name means who it resolves to, listed first among those going by it; a n
       canon: (r: string) => r,
       outsideDirectory: [],
       resolve,
-      truth: { people } as never,
+      truth: { organizations: [], people } as never,
     });
   const ids = (m: ReturnType<typeof mean>) => [
     m.known,

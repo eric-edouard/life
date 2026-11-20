@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
 import { episodeGroup, episodeText, guessedOf } from "./doubts";
-import { guessTestOf } from "./who";
+import { guessTestOf, latestInUseOf } from "./ref-kinds";
 
 /** This year: dates in it are said without the year. */
 const YEAR = new Date().getFullYear();
@@ -10,10 +10,13 @@ test("a line rests on a guess when who it's about is only inferred, each guessed
   const refOf = (r: string) => (r === "person:sam" ? "person:inf_sam" : r);
   const peopleWith = (corrections: Parameters<typeof guessTestOf>[0] = []) => ({
     isGuess: (r: string) =>
-      guessTestOf(corrections, [
-        { confidence: 0.6, id: "inf_kit" },
-        { confidence: 0.9, id: "inf_fedex" },
-      ])(refOf(r)),
+      guessTestOf(
+        corrections,
+        latestInUseOf([
+          { confidence: 0.6, id: "inf_kit" },
+          { confidence: 0.9, id: "inf_fedex" },
+        ])
+      )(refOf(r)),
     refOf,
   });
   const people = peopleWith();
@@ -57,12 +60,12 @@ test("a line rests on a guess when who it's about is only inferred, each guessed
   expect(guessedOf(o({ about: "person:inf_fedex" }), people)).toEqual([]);
   const isGuess = guessTestOf(
     [],
-    [
+    latestInUseOf([
       { confidence: 0.85, id: "inf_at" },
       { confidence: 0.84, id: "inf_below" },
       { confidence: 0.9, id: "inf_later" },
       { confidence: 0.3, id: "inf_later" },
-    ]
+    ])
   );
   expect(isGuess("person:inf_at")).toBe(false);
   expect(isGuess("person:inf_below")).toBe(true);
@@ -71,10 +74,10 @@ test("a line rests on a guess when who it's about is only inferred, each guessed
   // An organization is settled however unsure the call was (his OK of 20 Nov 2026).
   const org = guessTestOf(
     [],
-    [
+    latestInUseOf([
       { confidence: 0.6, id: "inf_shop", isOrganization: true },
       { confidence: 0.6, id: "inf_kit", isOrganization: false },
-    ]
+    ])
   );
   expect(org("person:inf_shop")).toBe(false);
   expect(org("person:inf_kit")).toBe(true);

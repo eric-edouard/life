@@ -11,7 +11,7 @@ import {
   oneMatter,
   openMatters,
 } from "./read-matters";
-import { guessTestOf } from "./who";
+import { knownTestOf } from "./ref-kinds";
 
 test("read_matters lists the open matters, of one project when asked; read_matter opens one with its steps", async () => {
   const who = await import("./who");
@@ -84,6 +84,7 @@ test("read_matters lists the open matters, of one project when asked; read_matte
   });
   const people = spyOn(who, "readPeople").mockResolvedValue({
     isGuess: () => false,
+    isKnownToHim: () => true,
     nameOf: (r: string) => r.replace("person:", ""),
     truth: {
       areas: [],
@@ -176,14 +177,21 @@ test("read_matters lists the open matters, of one project when asked; read_matte
 
 // A matter of his (his word of 20 Nov 2026): someone he knows, or a step he said himself.
 const gone = { hasOwnOpenStep: false, owedTo: [], waitingOn: [], with: [] };
-const isGuess = guessTestOf(
-  [],
-  [{ confidence: 0.8, id: `${INFERRED_PREFIX}ana`, isOrganization: false }]
-);
+const known = {
+  isKnownToHim: knownTestOf([
+    {
+      at: "2026-11-20T09:00:00.000Z",
+      kind: "this-is",
+      nameOrHandle: "Dee",
+      person: `person:${INFERRED_PREFIX}dee`,
+      schemaVersion: 1,
+    },
+  ]),
+};
 
 test("a matter made only of an unknown sender's words is not one of his", () => {
   expect(
-    isOneOfHis({ ...gone, owedTo: ["unknown:stranger@example.test"] }, isGuess)
+    isOneOfHis({ ...gone, owedTo: ["unknown:stranger@example.test"] }, known)
   ).toBe(false);
 });
 
@@ -195,22 +203,34 @@ test("the same matter with a step he said himself is", () => {
         hasOwnOpenStep: true,
         owedTo: ["unknown:stranger@example.test"],
       },
-      isGuess
+      known
     )
   ).toBe(true);
 });
 
-test("a matter with a person of his directory or of his Contacts is; a person only guessed is not", () => {
-  // Directory and Contacts people are `person:<id>` without Life's inferred prefix: no guess.
-  expect(isOneOfHis({ ...gone, with: ["person:test-bea"] }, isGuess)).toBe(
+test("a matter with a person or an organization of his directory or of his Contacts is; one only Life inferred is not, unless his word named it", () => {
+  // Directory people and organizations, and Contacts people, are `person:<id>` without Life's inferred prefix.
+  expect(isOneOfHis({ ...gone, with: ["person:test-bea"] }, known)).toBe(true);
+  expect(isOneOfHis({ ...gone, owedTo: ["person:test-bakery"] }, known)).toBe(
     true
   );
+  expect(isOneOfHis({ ...gone, waitingOn: ["person:card-cleo"] }, known)).toBe(
+    true
+  );
+  // Inferred, however sure, or an organization Life settled on its own (a promotional sender): not his.
   expect(
-    isOneOfHis({ ...gone, waitingOn: ["person:card-cleo"] }, isGuess)
-  ).toBe(true);
-  expect(
-    isOneOfHis({ ...gone, with: [`person:${INFERRED_PREFIX}ana`] }, isGuess)
+    isOneOfHis({ ...gone, with: [`person:${INFERRED_PREFIX}ana`] }, known)
   ).toBe(false);
+  expect(
+    isOneOfHis(
+      { ...gone, owedTo: [`person:${INFERRED_PREFIX}promo-shop`] },
+      known
+    )
+  ).toBe(false);
+  // His `this-is` to an inferred one makes it someone he knows.
+  expect(
+    isOneOfHis({ ...gone, with: [`person:${INFERRED_PREFIX}dee`] }, known)
+  ).toBe(true);
 });
 
 // What needs him, moved from the phone's Kit (its tests of the rule).

@@ -17,6 +17,7 @@ import {
   readReplyIndex,
   replyOf,
 } from "./read-replies";
+import { partiesOf } from "./read-truth";
 import { begin, readsOf } from "./run";
 import { dayUnitId } from "./unit-ids";
 import type { People } from "./who";
@@ -38,7 +39,8 @@ export interface With {
 }
 export const withOf = (known: string, people: People): With => ({
   name: people.nameOf(`person:${known}`),
-  relation: people.truth.people.find((p) => p.id === known)?.relation ?? null,
+  relation:
+    partiesOf(people.truth).find((p) => p.id === known)?.relation ?? null,
 });
 
 /** One call: what the model is shown, the key of each message its lines are, and where each exchange starts in them. */

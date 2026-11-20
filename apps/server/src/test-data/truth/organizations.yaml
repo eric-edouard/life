@@ -1,0 +1,10 @@
+# A made-up organization for tests (each `bun test` run reads its own copy as OWNER_DATA_DIR).
+schemaVersion: 1
+organizations:
+  - id: test-bakery
+    name: Test Bakery
+    aliases: [The Bakery]
+    relation: where Test Ana works
+    domains: [bakery.example]
+    handles: { email: [hello@bakery.example] }
+    people: [{ id: test-ana, role: baker }]

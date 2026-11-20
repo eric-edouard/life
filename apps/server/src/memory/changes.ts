@@ -46,7 +46,7 @@ import {
   type Parsed,
   readLine,
 } from "./page-format";
-import { OWNER } from "./read-truth";
+import { OWNER, partiesOf } from "./read-truth";
 import { kindOf } from "./sources";
 import {
   hasFrozen,
@@ -584,7 +584,7 @@ export async function readObservation(id: string) {
   const now = aboutNow(
     [o],
     await readUnresolvedPeople(),
-    people.truth.people,
+    partiesOf(people.truth),
     people.inferred,
     people.corrections,
     people.contacts,

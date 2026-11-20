@@ -113,13 +113,15 @@ export function isHeardAround(
  * holds: on an overlapping call; named by his answer in this conversation; heard in person in another conversation
  * (`isHeardAround`, the conversation running from `begin` to `end`); pictured in a photo of that day; in an active fact
  * dated that day that no recording is evidence of.
- * Nothing else: a person with none of these is not offered, whoever lifelog says the voice sounds like.
+ * Nothing else: a person with none of these is not offered, whoever lifelog says the voice sounds like; an organization
+ * (`isOrganization`) never is.
  */
 export function possibleSpeakersOf(
   signs: Signs,
   at: string,
   begin: string,
   end: string,
+  isOrganization: (ref: string) => boolean,
   cap = POSSIBLE_SPEAKERS
 ) {
   const heard = signs.heard
@@ -134,7 +136,9 @@ export function possibleSpeakersOf(
         ...heard,
         ...signs.pictured,
         ...signs.facts,
-      ].filter((r) => r.startsWith("person:") && r !== OWNER)
+      ].filter(
+        (r) => r.startsWith("person:") && r !== OWNER && !isOrganization(r)
+      )
     ),
   ].slice(0, cap);
 }

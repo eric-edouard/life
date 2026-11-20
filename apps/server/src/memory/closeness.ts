@@ -1,23 +1,24 @@
 import { z } from "zod";
 import { DAY, daysBefore } from "../core/clock";
-import { appendJsonl, rowsOf } from "../core/files";
+import { appendJsonl } from "../core/files";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { MadeBy } from "../records/fields";
 import { Closeness, ClosenessLevel } from "../records/observation";
 import { chatGroups, type SourceEvent } from "../records/source";
 import { type Store, withStore } from "../sources/lifelog";
 import { speakerTurns } from "../sources/lifelog-voices";
-import { CLOSENESS, latestBy, writtenPeople } from "./memory-files";
+import { CLOSENESS, writtenPeople } from "./memory-files";
 import { meContext } from "./model-context";
 import { OWNER, type Truth } from "./read-truth";
+import { readCloseness } from "./ref-kinds";
 import { begin, checkedEntries, chunks, inBatches, readsOf } from "./run";
 import { kindOf, safely, tables } from "./sources";
 import { chatPerson, isLifeOutput } from "./units";
 import { meant, type People, readPeople, voicePersonOf } from "./who";
 import { dayNow, localDate } from "./zones";
 
-/** Who a ref is now and his corrections, read once by the caller (`readPeople`). */
-type Folds = Pick<People, "canon" | "corrections">;
+/** Who a ref is now, whether it is an organization, and his corrections, read once by the caller (`readPeople`). */
+type Folds = Pick<People, "canon" | "corrections" | "isOrganization">;
 
 // Who matters to the owner, and how (docs/architecture.md, "Relationships and closeness"). Code counts what happened
 // with each person from the raw sources only: the days a 1:1 chat went both ways, the days they spoke in his
@@ -270,13 +271,13 @@ export function parseLevels(
   return { invalid, rows };
 }
 
-export const readCloseness = () =>
-  latestBy(rowsOf(CLOSENESS, Closeness), (c) => c.person);
-
-/** Each person's levels now: the model's latest judgment, then his own word (`closeness` corrections) over it. */
+/**
+ * Each person's levels now: the model's latest judgment, then his own word (`closeness` corrections) over it; `service`,
+ * whether they are an organization (`isOrganization`, the one rule).
+ */
 export function levelsNow(
   rows: Map<string, Closeness>,
-  { canon, corrections }: Folds
+  { canon, corrections, isOrganization }: Folds
 ) {
   const out = new Map<
     string,
@@ -293,7 +294,7 @@ export function levelsNow(
     if (canon(c.person) === c.person) {
       out.set(c.person, {
         personal: c.personal,
-        service: c.service,
+        service: isOrganization(c.person),
         why: c.why,
         work: c.work,
       });
@@ -304,13 +305,12 @@ export function levelsNow(
       const ref = canon(c.person);
       const was = out.get(ref) ?? {
         personal: "acquaintance" as const,
-        service: false,
         why: "",
         work: "acquaintance" as const,
       };
       out.set(ref, {
         personal: c.personal ?? was.personal,
-        service: false,
+        service: isOrganization(ref),
         why: "your word",
         work: c.work ?? was.work,
       });
@@ -372,10 +372,7 @@ export const personallyClose = (levels: ReturnType<typeof levelsNow>) =>
 
 /** Who has a page now (`pagedBy` over the ledger and his corrections). */
 export async function pagedNow(people: Folds & Pick<People, "truth">) {
-  return pagedBy(
-    levelsWith(people),
-    await waitingOf(people.truth, people.canon)
-  );
+  return pagedBy(levelsWith(people), await waitingOf(people));
 }
 
 /** Each person's levels now, from the ledger, his corrections and the folds, as read by the caller (`readPeople`). */
@@ -384,16 +381,21 @@ export const levelsWith = (people: Folds) => levelsNow(readCloseness(), people);
 /**
  * Who keeps a page until judged, and is judged at the next night even with nothing counted: everyone in his directory (he
  * said who they are) and everyone whose page is written, so a missing or empty closeness ledger never deletes a page.
- * Each as the person they are now (one folded into another is that one).
+ * Each as the person they are now (one folded into another is that one); never an organization.
  */
-export async function waitingOf(
-  truth: Pick<Truth, "people">,
-  canon: People["canon"]
-) {
-  return new Set([
-    ...truth.people.map((p) => canon(`person:${p.id}`)),
-    ...(await writtenPeople()).map(canon),
-  ]);
+export async function waitingOf({
+  canon,
+  isOrganization,
+  truth,
+}: Pick<People, "canon" | "isOrganization"> & {
+  truth: Pick<Truth, "people">;
+}) {
+  return new Set(
+    [
+      ...truth.people.map((p) => canon(`person:${p.id}`)),
+      ...(await writtenPeople()).map(canon),
+    ].filter((ref) => !isOrganization(ref))
+  );
 }
 
 /** Where the last YEARS years start: what closeness reads. */
@@ -447,7 +449,7 @@ export async function closeness({ events, failed, since }: WithPeople) {
   // stand as they were (the night goes on; `unread` and the log say which source).
   const days = chatDays(events, resolve);
   await withStore((store) => voiceDays(store, resolve, since, days));
-  const waiting = await waitingOf(truth, people.canon);
+  const waiting = await waitingOf(people);
   const judged = readCloseness();
   // Everyone waiting is judged, even with nothing counted (a relation alone can say close family).
   for (const ref of waiting) {
@@ -455,10 +457,10 @@ export async function closeness({ events, failed, since }: WithPeople) {
       days.set(ref, new Map());
     }
   }
-  const tallies = [...days].map(([ref, of]) => ({
-    ref,
-    t: closenessTally(of, today),
-  }));
+  // An organization is never judged: it is no one to be close to.
+  const tallies = [...days]
+    .filter(([ref]) => !people.isOrganization(ref))
+    .map(([ref, of]) => ({ ref, t: closenessTally(of, today) }));
   const due = dueFor(tallies, judged, waiting);
   const ctx = {
     at: step.now.toISOString(),

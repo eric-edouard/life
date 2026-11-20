@@ -40,6 +40,48 @@ export const PeopleFile = z
   .object({ people: z.array(Person), schemaVersion: z.literal(1) })
   .strict();
 
+/** His word on who is at an organization: a person's id, their role, and `until` (a year or a day) once they left; none: now. */
+export const OrganizationPerson = z
+  .object({
+    id: slug,
+    role: z.string().min(1),
+    until: z.union([z.int().min(1000).max(9999), isoDate]).optional(),
+  })
+  .strict();
+
+/**
+ * An organization (truth/organizations.yaml): a named body that is not one human (a company, a firm, a shop, a school, a
+ * team's shared account) that he deals with. Its ref is `person:<id>`, in the people's one id space; `isOrganization`
+ * on `readPeople` tells them apart. An address in its `handles.email` is the organization; another at one of its
+ * `domains` stays a person.
+ */
+export const Organization = z
+  .object({
+    aliases: z.array(z.string()).default([]),
+    domains: z
+      .array(z.string().regex(/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/))
+      .default([]),
+    handles: Handles.default({ email: [], phone: [], whatsapp: [] }),
+    id: slug,
+    name: z.string().min(1),
+    people: z.array(OrganizationPerson).default([]),
+    projects: z.array(slug).default([]),
+    relation: z.string().optional(),
+  })
+  .strict();
+
+export type Organization = z.infer<typeof Organization>;
+
+export const OrganizationsFile = z
+  .object({ organizations: z.array(Organization), schemaVersion: z.literal(1) })
+  .strict();
+
+/** A party: someone in his directory, a person or an organization, as the name and handle readers see either. */
+export type Party = Pick<
+  Person,
+  "aliases" | "birthday" | "handles" | "id" | "name" | "projects" | "relation"
+>;
+
 /** The owner's id in truth/people.yaml. */
 export const ME = "me";
 /** The owner's own entry in truth/people.yaml. */

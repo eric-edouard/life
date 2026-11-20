@@ -127,7 +127,7 @@ test("a new person he names on a name check is the one person his truth/ or Cont
     readingNow: (n: string) => readings[n] ?? null,
   } as never);
   const added: string[] = [];
-  const addPerson = (n: string) => {
+  const addDirectoryEntry = (_kind: string, n: string) => {
     added.push(n);
     const ref = `person:${n.toLowerCase().replace(" ", "-")}`;
     // Written: from now on truth/ holds the name.
@@ -136,10 +136,10 @@ test("a new person he names on a name check is the one person his truth/ or Cont
   };
   const answer = (n: string) =>
     answerWith(name, { name: n, options: ["this-is"] }, "connector", {
-      addPerson,
+      addDirectoryEntry,
     });
   try {
-    // Without `addPerson` (a session, the command line), nobody is added.
+    // Without `addDirectoryEntry` (a session, the command line), nobody is added.
     await expect(
       answerCheck(name, { name: "Nora Vidal", options: ["this-is"] })
     ).rejects.toThrow('Life knows no one called "Nora Vidal"');
@@ -157,6 +157,53 @@ test("a new person he names on a name check is the one person his truth/ or Cont
         "person:nora-vidal",
       ].flatMap((p) => [p, p])
     );
+  } finally {
+    people.mockRestore();
+  }
+});
+
+test("Organization on a name check adds it to his directory by his name for it (the card's by default) with his words as what it is, and every way it was written reads as it", async () => {
+  const readings: Record<string, object> = {
+    // Already his directory's: that organization, nothing added.
+    "Test Bakery": { by: "truth", isShared: false, ref: "person:test-bakery" },
+  };
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
+    readingNow: (n: string) => readings[n] ?? null,
+  } as never);
+  const added: unknown[] = [];
+  const answer = (a: Omit<CheckAnswer, "options">) =>
+    answerWith(name, { ...a, options: ["organization"] }, "connector", {
+      addDirectoryEntry: (kind, n, fields) => {
+        added.push([kind, n, fields]);
+        return Promise.resolve(`person:${n.toLowerCase()}`);
+      },
+    });
+  try {
+    await answer({ note: "his bike shop" });
+    await answer({ name: "Test Bakery" });
+    expect(added).toEqual([
+      ["organization", "Kit", { relation: "his bike shop" }],
+    ]);
+    expect(said()).toEqual([
+      {
+        kind: "this-is",
+        nameOrHandle: "Kit",
+        note: "his bike shop",
+        person: "person:kit",
+      },
+      {
+        kind: "this-is",
+        nameOrHandle: "kit",
+        note: "his bike shop",
+        person: "person:kit",
+      },
+      { kind: "this-is", nameOrHandle: "Kit", person: "person:test-bakery" },
+      { kind: "this-is", nameOrHandle: "kit", person: "person:test-bakery" },
+    ]);
+    // Without `addDirectoryEntry` (a session, the command line), nothing is added.
+    await expect(
+      answerCheck(name, { options: ["organization"] })
+    ).rejects.toThrow('Life knows no one called "Kit"');
   } finally {
     people.mockRestore();
   }

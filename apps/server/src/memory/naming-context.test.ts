@@ -118,7 +118,19 @@ const none = {
   pictured: [] as string[],
 };
 const possible = (signs: Partial<typeof none>) =>
-  possibleSpeakersOf({ ...none, ...signs }, FROM, FROM, TO);
+  possibleSpeakersOf({ ...none, ...signs }, FROM, FROM, TO, () => false);
+
+test("an organization is never offered as a speaker, whatever its signs", () => {
+  expect(
+    possibleSpeakersOf(
+      { ...none, onCall: ["person:test-shop", "person:ana"] },
+      FROM,
+      FROM,
+      TO,
+      (r) => r === "person:test-shop"
+    )
+  ).toEqual(["person:ana"]);
+});
 
 test("a person with none of the signs is not offered, even when lifelog named the voice by sound", () => {
   // Lifelog's name is not a sign: a person who lives elsewhere, with no call, no answer, no photo and no fact.

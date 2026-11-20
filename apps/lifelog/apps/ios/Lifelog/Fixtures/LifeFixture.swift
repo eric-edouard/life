@@ -576,7 +576,10 @@
                 check(
                     "name_marc", group: "name", urgency: "blocks", title: "A name with no person: “Marc”",
                     question: "Who is “Marc”?",
-                    options: [option("this-is", "Someone else…", takes: "person")],
+                    options: [
+                        option("this-is", "Someone else…", takes: "person or name"),
+                        option("organization", "Organization"), option("not-relevant", "Neither"),
+                    ],
                     matter: table, context: "Camille named him about the table.",
                     extra: [
                         "said": [

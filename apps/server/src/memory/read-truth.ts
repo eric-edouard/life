@@ -9,6 +9,9 @@ import {
   type Chat,
   ChatsFile,
   ME,
+  type Organization,
+  OrganizationsFile,
+  type Party,
   PeopleFile,
   type Person,
   Project,
@@ -36,9 +39,20 @@ export interface Truth {
   chats: Chat[];
   /** truth/me.md, read once: all of it, its first paragraph, his goals and what Life may keep (none: no limit). */
   me: { about?: string; goals?: string; mayKeep?: string; text: string };
+  /** truth/organizations.yaml; none when the file is not there. */
+  organizations: Organization[];
   people: Person[];
   projects: (Project & { notes: string })[];
 }
+
+/** Everyone in his directory: its people, then its organizations (`Party`). The one join of the two lists. */
+export const partiesOf = ({
+  organizations,
+  people,
+}: Pick<Truth, "organizations" | "people">): Party[] => [
+  ...people,
+  ...organizations,
+];
 
 /** His directory is new: it holds only him and no goals (the setup interview, `docs/use/connect.md`). */
 export const isDirectoryNew = (truth: Pick<Truth, "me" | "people">) =>
@@ -83,6 +97,10 @@ export async function loadTruth(data = OWNER_DATA_DIR): Promise<Truth> {
   const { people } = PeopleFile.parse(await yaml(join(dir, "people.yaml")));
   const { chats } = ChatsFile.parse(await yaml(join(dir, "chats.yaml")));
   const { areas } = AreasFile.parse(await yaml(join(dir, "areas.yaml")));
+  const orgs = join(dir, "organizations.yaml");
+  const { organizations } = existsSync(orgs)
+    ? OrganizationsFile.parse(await yaml(orgs))
+    : { organizations: [] };
   const names = (await readdir(join(dir, "projects")))
     .filter((n) => n.endsWith(".md"))
     .sort();
@@ -96,17 +114,24 @@ export async function loadTruth(data = OWNER_DATA_DIR): Promise<Truth> {
       return { ...Project.parse(head), notes: body };
     })
   );
-  return { areas, chats, me: await loadMe(data), people, projects };
+  return {
+    areas,
+    chats,
+    me: await loadMe(data),
+    organizations,
+    people,
+    projects,
+  };
 }
 
-/** A person's phones and emails (their `whatsapp`, `phone` and `email`): the handles with a contact key. */
-export function phonesAndEmailsOf(p: Person): string[] {
+/** A party's phones and emails (their `whatsapp`, `phone` and `email`): the handles with a contact key. */
+export function phonesAndEmailsOf(p: Pick<Party, "handles">): string[] {
   const { whatsapp, phone, email } = p.handles;
   return [...whatsapp, ...phone, ...email.map((h) => h.toLowerCase())];
 }
 
-/** Every handle a person has, normalized the way senders are looked up: emails lower-cased. */
-export function handlesOf(p: Person): string[] {
+/** Every handle a party has, normalized the way senders are looked up: emails lower-cased. */
+export function handlesOf(p: Pick<Party, "handles">): string[] {
   const { github, lifelog, telegram } = p.handles;
   return [
     ...phonesAndEmailsOf(p),
@@ -124,9 +149,11 @@ export function handlesOf(p: Person): string[] {
  * longer is after the cutover). Null when the directory has no such project.
  */
 export function projectPeopleAndChatsOf(
-  { chats, people, projects }: Pick<Truth, "chats" | "people" | "projects">,
+  truth: Pick<Truth, "chats" | "organizations" | "people" | "projects">,
   project: string
 ) {
+  const { chats, projects } = truth;
+  const people = partiesOf(truth);
   const p = projects.find((x) => x.id === project);
   if (!p) {
     return null;
@@ -167,10 +194,11 @@ export function projectPeopleAndChatsOf(
   };
 }
 
-function checkPeople(people: Person[], issues: string[]): Set<string> {
+/** People and organizations share one id space and their handles: a clash is refused. Gives every party's id. */
+function checkParties(truth: Truth, issues: string[]): Set<string> {
   const ids = new Set<string>();
   const owner = new Map<string, string>();
-  for (const p of people) {
+  for (const p of partiesOf(truth)) {
     if (ids.has(p.id)) {
       issues.push(`person ${p.id} is listed twice`);
     }
@@ -193,10 +221,27 @@ function checkPeople(people: Person[], issues: string[]): Set<string> {
       owner.set(h, p.id);
     }
   }
-  if (!ids.has(ME)) {
+  if (!truth.people.some((p) => p.id === ME)) {
     issues.push(`people.yaml needs the owner as id "${ME}"`);
   }
   return ids;
+}
+
+/** An organization's people are people of his directory, and its projects exist. */
+function checkOrganizations(
+  { organizations, people }: Truth,
+  projectIds: Set<string>,
+  issues: string[]
+) {
+  const personIds = new Set(people.map((p) => p.id));
+  for (const o of organizations) {
+    for (const m of o.people.filter((x) => !personIds.has(x.id))) {
+      issues.push(`organization ${o.id} names unknown person ${m.id}`);
+    }
+    for (const pr of o.projects.filter((id) => !projectIds.has(id))) {
+      issues.push(`organization ${o.id} names unknown project ${pr}`);
+    }
+  }
 }
 
 function checkRepos(projects: Truth["projects"], issues: string[]) {
@@ -232,16 +277,12 @@ function checkGoals(
 }
 
 /** Empty means the directory is consistent: every reference points at something that exists. */
-export function integrity({
-  areas,
-  people,
-  chats,
-  me,
-  projects,
-}: Truth): string[] {
+export function integrity(truth: Truth): string[] {
+  const { areas, people, chats, me, projects } = truth;
   const issues: string[] = [];
-  const personIds = checkPeople(people, issues);
+  const personIds = checkParties(truth, issues);
   const projectIds = new Set(projects.map((p) => p.id));
+  checkOrganizations(truth, projectIds, issues);
   const chatIds = new Set<string>();
   for (const c of chats) {
     if (chatIds.has(c.id)) {

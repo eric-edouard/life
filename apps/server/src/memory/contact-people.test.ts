@@ -382,7 +382,7 @@ test("one person across every channel: a card of someone in truth/ is that perso
     canon,
     outsideDirectory: peopleOutsideDirectoryOf([bea, byName, ana], inferred),
     resolve,
-    truth: { people: truth } as never,
+    truth: { organizations: [], people: truth } as never,
   });
   expect(found.known).toBe(ana.id);
   // Folded people are not listed twice.

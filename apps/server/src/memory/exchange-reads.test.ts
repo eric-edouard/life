@@ -35,7 +35,7 @@ const msg = (ms: number, fromMe: boolean, text = "hello"): SourceEvent => ({
 const people = {
   nameOf: () => "Ann",
   resolve: (s: string) => (s === "+1" ? "person:ann" : null),
-  truth: { people: [] },
+  truth: { organizations: [], people: [] },
 } as unknown as People;
 // Two exchanges a day apart, both finished by `LATER`.
 const talk = [
