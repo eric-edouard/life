@@ -1,22 +1,6 @@
 import LifeConnector
 import SwiftUI
 
-/// A person's initials on a disc (`card`, or `tile` on a sheet's flat list), small type on a small disc so they keep their
-/// margin; a network's mark sits on its corner when given.
-struct Avatar: View {
-    let name: String
-    var size: CGFloat = 64
-    var fill = Palette.card
-    var network: String?
-
-    var body: some View {
-        Text(SaidWords.initials(name)).font(size < 48 ? .smallStrong : .leadBold).foregroundStyle(Palette.fg)
-            .frame(width: size, height: size).background(fill, in: .circle)
-            .overlay(alignment: .bottomTrailing) { if network != nil { NetworkMark(network: network) } }
-            .accessibilityHidden(true)
-    }
-}
-
 /// A round 44 button holding one symbol, on the quiet fill. `isDone` shows a check in `ok` in its place (copied), same
 /// button, same size.
 struct RoundIconButton: View {

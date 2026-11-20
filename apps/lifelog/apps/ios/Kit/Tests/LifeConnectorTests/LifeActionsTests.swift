@@ -12,6 +12,9 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     var corrections = 0
     let keys = Mutex<[String]>([])
     let starts = Mutex<[AgentRequest]>([])
+    /// The ids each `read_person_pictures` asked; while `picturesDown`, it fails.
+    let pictureCalls = Mutex<[[String]]>([])
+    let picturesDown = Mutex(false)
 
     func readInbox() async throws -> String { "{}" }
     func readInbox(pushId: String) async throws -> String { "{}" }
@@ -19,7 +22,11 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     func readMatters(project: String) async throws -> String { "{}" }
     func readMatter(_ id: String) async throws -> String { matter }
     func readRegisteredAgents() async throws -> String { "{}" }
-    func readPersonPictures(_ ids: [String]) async throws -> String { "{}" }
+    func readPersonPictures(_ ids: [String]) async throws -> String {
+        pictureCalls.withLock { $0.append(ids) }
+        if picturesDown.withLock({ $0 }) { throw MCPError.unreachable }
+        return try wireText("life/read_person_pictures.json")
+    }
 
     func answerCheck(_ answer: AnswerRequest, answerKey: String, onProgress: @escaping @Sendable (Data) -> Void)
         async throws -> String

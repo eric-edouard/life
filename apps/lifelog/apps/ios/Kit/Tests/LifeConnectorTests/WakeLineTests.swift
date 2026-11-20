@@ -55,7 +55,9 @@ private struct AnyAgents: Decodable {
     let person = try waker(
         #"[{"kind":"message","party":{"ref":"person:idris","name":"Idris Benali","kind":"person"},"personAsWritten":"Idris","calls":true}]"#
     )
-    #expect(person.who == .person("Idris Benali"))
+    guard case .person(let name, let party) = person.who else { Issue.record("not a person"); return }
+    #expect(name == "Idris Benali")
+    #expect(party?.ref == "person:idris")
     #expect(person.apps.isEmpty)
     #expect(person.brokenReason == nil)
     let chat = try waker(
