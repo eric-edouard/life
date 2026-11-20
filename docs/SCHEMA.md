@@ -264,10 +264,12 @@ outside the lock, schemaVersion 3, by `kind`:
   `from`, `subject`, `cc`, with addresses as `to`. What Life stamps when asked: `chat`, the chat key it resolved (none
   on cards asked before Life could send, which send nothing); `file` as `{path (its real path), name, size, mime,
   sha256}`; `quoted` as `{sender, text}`, and for mail `subject` (the message `onMessage` names, its first 300 characters). A mail draft has no `chat`: `from`, `to`, `cc` and `subject` as given are what it sends. Life sends exactly
-  what is stored), `options` (2 to 4 `{id, label, outgoing?}`, labels one line, the
-  recommended one first; `outgoing: true` when it sends, pays, books, deletes or changes something), `context`
-  (4,000 chars), `links`, `deadline` (1 hour to 14 days after `at`, in UTC), `onSilence` (an option id, never an
-  outgoing one, or null). A `draft` needs exactly one outgoing option.
+  what is stored), `options` (2 to 4 `{id, label, outgoing?, ends?}`, labels one line, the
+  recommended one first; `outgoing: true` when it acts outside Life (sends, pays, books, deletes or changes something);
+  `ends` (`step` or `matter`, never with `outgoing`) when his pick of it alone is his word that the subject step, or
+  its whole matter, is done; lines before it have none), `context` (4,000 chars), `links`, `deadline` (1 hour to 14
+  days after `at`, in UTC), `onSilence` (an option id, never an outgoing or `ends` one, or null). A `draft` needs
+  exactly one outgoing option. An `ends` option needs a subject on an open matter: for `step`, one of its open steps.
 - `answered` (`answerDecision`): `id`, `at`, `options` (ids; none when he answered in words), `note`, `via`
   (`connector`, his app; `session`, a session's `bun life` command, which never sends), `answerKey` (optional: his app's
   key for one tap, kept on every repeat of it; lines before it have none). The first answer stands, unless its send
@@ -279,6 +281,10 @@ outside the lock, schemaVersion 3, by `kind`:
   decision is open again and the next answer is the first (`notSent` holds it, `voided` every answer one voided, each with its outcome, so a repeat of any of those taps by its `answerKey` finds its own); any other
   outcome belongs to the answer it follows. With no outcome 5 minutes after his answer, the send never ended (worked out
   when read). A lapse a late `not sent:` voided settles at that line's `at`.
+- `ended` (`answerDecision`, when his answer was an `ends` option alone, through his app): `id`, `at`, `by` (`answer`),
+  and `error` when closing failed. It closed the step or matter by his word (`endByHisWord`: its to-do items ticked,
+  its observations by an `outdated` correction); nothing left open counts as ended. With none 31 minutes after his
+  answer, it never ended (worked out when read).
 - `withdrawn` (`requestDecision`, by its asker): `id`, `at`, `why`.
 
 Where each stands is worked out when read (`decisionsNow`): open, answered, lapsed (its deadline passed) or withdrawn.
