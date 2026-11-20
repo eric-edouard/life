@@ -322,15 +322,21 @@ export async function readArrivals(
   const read = new Set([...stored.flatMap((l) => l.messages), ...waiting]);
   const pending = pendingTriggers(stored, day);
   const pendingUnits = new Set(pending.map((t) => t.unit));
-  // Words are fetched only for a unit with a turn not read yet (its last), or a confirm pending.
+  // Words are fetched only for a unit with a turn not read yet (fewer of its keys read than its turns), or a confirm
+  // pending: a conversation read whole fetches nothing again.
+  const readOfUnit = Map.groupBy(
+    stored.flatMap((l) =>
+      "unit" in l ? l.messages.map((k) => ({ k, unit: l.unit })) : []
+    ),
+    (m) => m.unit
+  );
   const fetched = (
     evidence.voice ? readableVoiceOf(evidence.voice, day) : []
   ).filter(
     (b) =>
       pendingUnits.has(b.unit.id) ||
-      !read.has(
-        eventKey({ id: b.unit.refs.at(-1) ?? "", source: b.unit.source })
-      )
+      new Set(readOfUnit.get(b.unit.id)?.map((m) => m.k)).size <
+        b.unit.stats.items
   );
   const spoken = await (o.spoken ?? spokenOf(people))(
     fetched.map((b) => b.unit)

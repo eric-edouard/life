@@ -47,7 +47,12 @@ beforeAll(async () => {
 afterAll(() => rm(dir, { force: true, recursive: true }));
 
 /** A scene: its own replies folder, Apple answering `apple`, his engine answering `confirm`, both counted. */
-const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
+const sceneOf = (
+  apple: (text: string) => FoundationAnswer,
+  confirm = true,
+  /** His engine fails its first call. */
+  failsFirst = false
+) => {
   trial += 1;
   const where = join(dir, `trial-${trial}`);
   const calls = { apple: 0, engine: 0 };
@@ -55,7 +60,9 @@ const sceneOf = (apple: (text: string) => FoundationAnswer, confirm = true) => {
     ask: (q: { input: { lines: string[] } }) => {
       shown.push(q.input.lines.join("\n"));
       calls.engine += 1;
-      return Promise.resolve({ isActionable: confirm });
+      return failsFirst && calls.engine === 1
+        ? Promise.reject(new Error("engine down"))
+        : Promise.resolve({ isActionable: confirm });
     },
     attempt: (work: () => Promise<unknown>) => work().catch(() => undefined),
     dir: join(dir, "run"),
@@ -367,6 +374,27 @@ test("voice: a conversation read whole fetches no words again", async () => {
   await s.read([], true, 0, talk);
   await s.read([], true, 0, talk);
   expect(s.fetched).toEqual([1, 0]);
+});
+
+test("voice: a chunk whose confirm failed is read again on the next pass, the others not", async () => {
+  const s = sceneOf(() => yes("unused"), true, true);
+  const thai = voiceOf("thai", {
+    chars: 3000,
+    closed: true,
+    spoke: true,
+    turns: 4,
+  });
+  for (const lines of thai.spoken.values()) {
+    for (const l of lines) {
+      l.text = `ช่วยเอาแผนมาด้วย ${l.text}`;
+    }
+  }
+  // Four chunks, the first confirm failing: the next pass asks that one again, and a third fetches nothing.
+  await s.read([], true, 0, thai);
+  await s.read([], true, 0, thai);
+  await s.read([], true, 0, thai);
+  expect(s.calls.engine).toBe(5);
+  expect(s.fetched).toEqual([1, 1, 0]);
 });
 
 test("voice: a trigger left pending past midnight (the cap spent) is the night's, never confirmed the next day", async () => {
