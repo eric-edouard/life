@@ -250,6 +250,34 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(gone.wasAnswered)
 }
 
+/// A card's context is behind one link whose words are the code's, by what the card asks; the context's `life:` links come
+/// with their kinds; a card with no context has no link. Read from the server's own inbox.
+@Test func aCardsContextLinkIsWordedByWhatItAsks() throws {
+    let all = try everyKindOfCheck()
+    let draft = try #require(all.first { $0.draft != nil })
+    #expect(draft.contextLinkTitle == "Why this reply?")
+    #expect(draft.lifeLinks == [.init(ref: "msg:whatsapp|whatsapp:155@s.whatsapp.net/M1", kind: .message)])
+    #expect(all.filter { ($0.context ?? "").isEmpty }.allSatisfy { $0.contextLinkTitle == nil })
+    let guess = try #require(draft.confirm?.first)
+    #expect(guess.contextLinkTitle?.hasPrefix("Why ") == true && guess.contextLinkTitle != "Why it asks")
+    for check in all where check.contextLinkTitle != nil && check.draft == nil {
+        switch check.group {
+        case .ending: #expect(check.contextLinkTitle == "Why done?")
+        case .newMatter: #expect(check.contextLinkTitle == "What Life saw")
+        case .decision: #expect(check.contextLinkTitle == "Why it asks")
+        default: #expect(check.contextLinkTitle?.hasSuffix("?") == true)
+        }
+    }
+}
+
+/// A `life:` link's page: a person's read by name and line, else Life's text less its data heading.
+@Test func aLifeLinksReadIsAPersonOrLifesText() {
+    #expect(
+        LifeLinkRead(#"{"kind":"person","name":"Test Ana","line":"baker","ref":"person:test-ana"}"#)
+            == .person(name: "Test Ana", line: "baker"))
+    #expect(LifeLinkRead(LifeLinkRead.heading + "\n\nMessage M1 in Kit\nhello") == .text("Message M1 in Kit\nhello"))
+}
+
 /// Every kind of check the server makes: his inbox, and the new matter's check again on its matter's page.
 private func everyKindOfCheck() throws -> [Check] {
     try decoded(Inbox.self, wireText("life/read_inbox.json")).checks
@@ -399,15 +427,18 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(lifes.askingRuntime(among: agents) == nil)
 }
 
-/// The inbox's checks, made from the server's own read: one ask per ref, with the urgency given.
+/// A whole inbox made from the server's own read: one ask per ref (its push `push-<ref>`), with the urgency given.
 private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [:]) throws -> Inbox {
     let wire = try #require(
         JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
     let first = try #require((wire["checks"] as? [[String: Any]])?.first)
     let checks = urgencies.map { ref, urgency in
-        first.merging(["ref": ref, "urgency": urgency.rawValue, "group": groups[ref] ?? first["group"] ?? ""]) { $1 }
+        first.merging([
+            "ref": ref, "pushId": "push-\(ref)", "urgency": urgency.rawValue,
+            "group": groups[ref] ?? first["group"] ?? "",
+        ]) { $1 }
     }
-    let body = wire.merging(["checks": checks]) { $1 }
+    let body = wire.merging(["checks": checks, "total": checks.count]) { $1 }
     return try decoded(Inbox.self, String(decoding: JSONSerialization.data(withJSONObject: body), as: UTF8.self))
 }
 
@@ -465,4 +496,178 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     let check = try decoded(Check.self, String(decoding: JSONSerialization.data(withJSONObject: name), as: UTF8.self))
     #expect(check.createsByName)
     #expect(check.askedName == "Sam Vale")
+}
+
+/// His answer is confirmed while a read asked before it is still on its way: that read, landing after, still lists the
+/// card, and the card stays out. A read asked after the answer wins, even one that lists it (Life kept it open).
+@Test func anAnswerConfirmedAfterAReadWasAskedStaysOutOfIt() throws {
+    let asked = Date(timeIntervalSince1970: 100)
+    var answered = AnsweredCards()
+    answered.answered("b1", at: asked.addingTimeInterval(1))
+    let read = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves)])
+    let shown = read.without(answered.newer(than: asked))
+    #expect(shown.checks.map(\.ref) == ["b2", "i1"])
+    #expect(shown.badge == read.badge - 1 && shown.total == read.total - 1)
+    #expect(answered.newer(than: asked.addingTimeInterval(2)).isEmpty)
+    // Nothing read yet (a cold start with no cache): it stays out too.
+    #expect(answered.newer(than: nil) == ["b1"])
+    // Kept for a cold start.
+    let kept = try JSONDecoder().decode(AnsweredCards.self, from: JSONEncoder().encode(answered))
+    #expect(kept == answered)
+}
+
+/// After a restart, a matter read kept from before an answer can still be opened offline: the answer is kept until
+/// every kept read was asked after it, and only then forgotten (at launch, when no read is under way).
+@Test func anAnswerIsKeptWhileAnOlderKeptReadCanStillShowItsCard() throws {
+    let at = { Date(timeIntervalSince1970: $0) }
+    let cache = ReadCache(directory: FileManager.default.temporaryDirectory.appending(path: "reads-\(UUID())"))
+    defer { cache.clear() }
+    var answered = AnsweredCards()
+    answered.answered("a", at: at(10))
+    cache.store("{}", key: "read_matter-m1", asked: at(5))
+    cache.store("{}", key: "read_inbox", asked: at(20))
+    cache.store("{}", key: "answered_cards", asked: at(30))
+    // He answers B after a restart: A stays, the matter read kept from before it can still show A.
+    answered.forget(confirmedBy: cache.oldest(except: "answered_cards"))
+    answered.answered("b", at: at(40))
+    #expect(answered.newer(than: at(5)) == ["a", "b"])
+    // Once every kept read was asked after both, they go; with none kept, all go.
+    cache.store("{}", key: "read_matter-m1", asked: at(50))
+    cache.store("{}", key: "read_inbox", asked: at(50))
+    answered.forget(confirmedBy: cache.oldest(except: "answered_cards"))
+    #expect(answered.newer(than: nil).isEmpty)
+    answered.answered("c", at: at(60))
+    cache.clear()
+    answered.forget(confirmedBy: cache.oldest(except: "answered_cards"))
+    #expect(answered.newer(than: nil).isEmpty)
+}
+
+/// The answers a phone kept before an upgrade still leave their cards out after it: the kept shape is only the times.
+@Test func answersKeptBeforeAnUpgradeStillDecode() throws {
+    let kept = #"{"confirmed":{"c1":100}}"#
+    let answered = try JSONDecoder().decode(AnsweredCards.self, from: Data(kept.utf8))
+    #expect(answered.newer(than: Date(timeIntervalSinceReferenceDate: 50)) == ["c1"])
+}
+
+/// Only a new matter's `edit-goal` keeps its card open; another kind's option of that id closes it.
+@Test func onlyANewMattersGoalEditKeepsItsCardOpen() throws {
+    let all = try everyKindOfCheck()
+    let newMatter = try #require(all.first { $0.group == .newMatter })
+    let decision = try #require(all.first { $0.group == .decision })
+    #expect(newMatter.keepsOpen(after: AnswerRequest(ref: newMatter.ref, options: ["edit-goal"], note: "A goal")))
+    #expect(!decision.keepsOpen(after: AnswerRequest(ref: decision.ref, options: ["edit-goal"])))
+    #expect(!newMatter.keepsOpen(after: AnswerRequest(ref: newMatter.ref, options: ["start"])))
+}
+
+@Test func anInboxLessItsAnsweredCardsLowersOnlyWhatTheyCounted() throws {
+    let read = try asks([("b1", .blocks), ("i1", .improves)], groups: ["i1": "ending"])
+    let shown = read.without(["i1"])
+    #expect(shown.blocking == read.blocking && shown.total == read.total - 1)
+    #expect(shown.counts["ending"] == read.counts["ending"].map { $0 - 1 })
+    #expect(read.without([]) == read)
+}
+
+/// A tapped push shows its card from the first frame: the cached inbox's, else the notification's, first in what is in
+/// hand. Only a read asked after the tap says whether it is still open.
+@Test func aPushedCardIsShownFromWhatIsInHandUntilAReadAskedAfterTheTap() throws {
+    let tapped = Date(timeIntervalSince1970: 100)
+    let cached = try asks([("b1", .blocks), ("i1", .improves)])
+    let notified = try asks([("n1", .blocks)]).checks[0]
+    // In the cache: opened from there, the inbox as cached.
+    let inCache = PushedCard(pushId: "push-i1", in: cached, notified: notified, at: tapped)
+    #expect(inCache.opening?.check?.ref == "i1" && inCache.shown(in: cached, answeredSinceTap: []) == cached)
+    // Not in the cache: the notification's card, first, counted.
+    let fresh = PushedCard(pushId: "push-n1", in: cached, notified: notified, at: tapped)
+    let shown = try #require(fresh.shown(in: cached, answeredSinceTap: []))
+    #expect(shown.checks.map(\.ref) == ["n1", "b1", "i1"] && shown.badge == cached.badge + 1)
+    // Nothing read at all: a one-card inbox.
+    #expect(fresh.shown(in: nil, answeredSinceTap: [])?.checks.map(\.ref) == ["n1"])
+    // A read asked before the tap still checks it; one asked after opens as it says.
+    #expect(fresh.checked(by: cached, askedAt: tapped.addingTimeInterval(-1)) == nil)
+    #expect(fresh.checked(by: cached, askedAt: tapped.addingTimeInterval(1))?.wasAnswered == true)
+    // A read cut off by its limit before the card says nothing of it: still open as far as the phone knows.
+    let cut = try asks([("b1", .blocks)])
+    let partial = try decoded(
+        Inbox.self, #"{"checks":[],"counts":{},"total":600,"deadlinesToday":0,"blocking":1}"#)
+    #expect(cut.isWhole && !partial.isWhole)
+    #expect(fresh.checked(by: partial, askedAt: tapped.addingTimeInterval(1)) == nil)
+    // Nothing in hand: nothing to show until the read.
+    #expect(PushedCard(pushId: "push-n1", in: nil, notified: nil, at: tapped).opening == nil)
+}
+
+/// A pushed card past the read's limit, answered: the read after the answer, cut off before it, never puts it back.
+/// Held for Undo it is out too, and back once undone; an answer that keeps the card open is never confirmed, so stays.
+@Test func aConfirmedAnswerRetiresThePushedCopyEvenWhenTheReadIsCutOff() throws {
+    let tapped = Date(timeIntervalSince1970: 100)
+    let notified = try asks([("n1", .blocks)]).checks[0]
+    let cut = try decoded(Inbox.self, #"{"checks":[],"counts":{},"total":600,"deadlinesToday":0,"blocking":1}"#)
+    let push = PushedCard(pushId: "push-n1", in: cut, notified: notified, at: tapped)
+    var answered = AnsweredCards()
+    #expect(push.shown(in: cut, answeredSinceTap: answered.newer(than: tapped))?.checks.map(\.ref) == ["n1"])
+    answered.answered("n1", at: tapped.addingTimeInterval(5))
+    // The read after his answer is cut off too: it says nothing of the card, and the card stays out.
+    #expect(push.checked(by: cut, askedAt: tapped.addingTimeInterval(6)) == nil)
+    #expect(push.shown(in: cut, answeredSinceTap: answered.newer(than: tapped))?.checks.isEmpty == true)
+    // Held for Undo (the store adds held refs): out; undone: back.
+    #expect(push.shown(in: cut, answeredSinceTap: ["n1"])?.checks.isEmpty == true)
+    #expect(push.shown(in: cut, answeredSinceTap: [])?.checks.map(\.ref) == ["n1"])
+}
+
+/// A notification's card counts only for its own push, read from the Life the phone is paired with now.
+@Test func aKeptCardCountsOnlyUnderThePairingItWasReadFrom() throws {
+    let check = try asks([("n1", .blocks)]).checks[0]
+    let wire = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    let first = try #require((wire["checks"] as? [[String: Any]])?.first)
+    let kept = String(
+        decoding: try JSONSerialization.data(withJSONObject: first.merging(["ref": "n1", "pushId": "push-n1"]) { $1 }),
+        as: UTF8.self)
+    let a = URL(string: "https://life-a.example.test")!
+    let b = URL(string: "https://life-b.example.test")!
+    // Delivered under A, opened under A: the card.
+    #expect(CardNotification.check(kept, pushId: "push-n1", life: a.absoluteString, pairedWith: a)?.ref == check.ref)
+    // Delivered under A, opened under B: nothing; the read under B opens it.
+    #expect(CardNotification.check(kept, pushId: "push-n1", life: a.absoluteString, pairedWith: b) == nil)
+    // An older notification that names no Life, or another push's card: nothing.
+    #expect(CardNotification.check(kept, pushId: "push-n1", life: nil, pairedWith: a) == nil)
+    #expect(CardNotification.check(kept, pushId: "push-x", life: a.absoluteString, pairedWith: a) == nil)
+}
+
+/// Every answer from a notification goes through one door (`CardNotification.card`): a card kept under A, answered from
+/// its button after the phone paired with B, is B's only if B's own read of its pushId holds it, and B's pushIds are not
+/// A's; a notification older than the binding is read by its pushId, past any whole read's limit.
+@Test func aNotificationsCardIsOnlyTheOneTheLifePairedNowHolds() async throws {
+    let wire = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    let first = try #require((wire["checks"] as? [[String: Any]])?.first)
+    let card = first.merging(["ref": "name:alex", "pushId": "push-a"]) { $1 }
+    let kept = String(decoding: try JSONSerialization.data(withJSONObject: card), as: UTF8.self)
+    func inbox(_ checks: [[String: Any]], total: Int) throws -> String {
+        let body = wire.merging(["checks": checks, "total": total]) { $1 }
+        return String(decoding: try JSONSerialization.data(withJSONObject: body), as: UTF8.self)
+    }
+    let a = URL(string: "https://life-a.example.test")!
+    let b = URL(string: "https://life-b.example.test")!
+    // Kept under A, its button tapped under B: B's read holds its own card of that ref, under B's pushId, never A's.
+    let bHolds = try inbox([first.merging(["ref": "name:alex", "pushId": "push-b"]) { $1 }], total: 1)
+    let crossed = await CardNotification.card(
+        pushId: "push-a", kept: kept, life: a.absoluteString, pairedWith: b
+    ) { _ in bHolds }
+    #expect(crossed == nil)
+    // Kept under A, answered under A: the kept card, with no read.
+    let bound = await CardNotification.card(pushId: "push-a", kept: kept, life: a.absoluteString, pairedWith: a) { _ in
+        Issue.record("a bound card needs no read")
+        return ""
+    }
+    #expect(bound?.ref == "name:alex")
+    // A notification from before the binding, its card the 600th open: Life's read of its pushId holds it.
+    let legacyRead = try inbox([card], total: 600)
+    let legacy = await CardNotification.card(pushId: "push-a", kept: kept, life: nil, pairedWith: a) { _ in legacyRead }
+    #expect(legacy?.ref == "name:alex")
+    // Not paired: nothing, and nothing read.
+    let unpaired = await CardNotification.card(pushId: "push-a", kept: kept, life: nil, pairedWith: nil) { _ in
+        Issue.record("no read without a pairing")
+        return ""
+    }
+    #expect(unpaired == nil)
 }
