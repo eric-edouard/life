@@ -56,3 +56,10 @@ look the same to the phone: the link drops and says nothing about why.
 The default iOS way, done with care: deliberate transitions and small delightful animations, with Reduce Motion,
 Dynamic Type, VoiceOver and Increase Contrast fully supported, and no cost to performance. Nothing on the Pendant
 screen moves while it scrolls (`stillWhileScrolling()`): any animation there redraws the whole screen every frame.
+
+Every move is a named one in `DesignSystem/Motion.swift` (the motion table of the design's `components.md`, 5b); a view
+gets its transition through `appears(_:)`, a cross-fade under Reduce Motion. What opens from something grows out of it
+and goes back into it, the system's zoom (`zoomSource`, `zooms(from:in:)`): a matter out of its row on a compact width,
+an ask's sheets out of the answer that opened them. An answered ask slides off to the left as the next comes in from
+the right, and comes back from the left on Undo (`Motion.passes`). His tap's result rises once the ask has faded
+(`Motion.result`). A read's faces (loading, content, a failure) cross-fade (`ReadScreen`).
