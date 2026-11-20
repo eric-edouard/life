@@ -56,6 +56,7 @@ create index units_date on units (date);
 create virtual table unit_search using fts5(id unindexed, title, summary, topics, ${FTS});
 create table unit_topics (unit text, topic text, primary key (unit, topic));
 create table unit_people (unit text, person text, primary key (unit, person));
+create index unit_people_person on unit_people (person);
 create index unit_topics_topic on unit_topics (topic);
 create table search_hashes (id text primary key, hash text not null);
 create table searched_texts (id text primary key, at text, text text);
