@@ -380,6 +380,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's episodes are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). An episode filed under the wrong person needs `wrong` on its `ep_` too |
 | `matter-direction` | `steps` (all of a matter's step ids, as `read_matter` lists them), `goal` and/or `nextStep` (`kind`, `text`, `waitsOn`) | His goal or next step for the matter those steps find (`directionsOf`): his goal wins over every draft; his next step until Life drafts again, once the matter has a step newer than his word |
 | `new-matter-dismissed` | `steps` (all of a matter's step ids when he answered) | His Dismiss on a new matter check: the matter those steps find (`matterFinderOf`, so a re-group keeps it) is never offered again |
+| `matter-important` | `steps` (all of a matter's step ids when he marked it), `important` (on or off) | His important mark on the matter those steps find (`importantIdsOf`; a re-group keeps it): the latest wins, read only while the matter is open; his token only, by the matter's id |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
