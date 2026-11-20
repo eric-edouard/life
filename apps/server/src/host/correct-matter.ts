@@ -16,9 +16,9 @@ import type { ToolCall } from "./http/mcp-tool";
 /** What an answer is given on top of its send, its Start and its ticks: the reads and the write. */
 export const QUICK_MS = 5000;
 
-/** The most his word on the steps `open` may take: one tick per to-do item (`TICK_LIMIT_MS`), then the write. */
-export const endLimitMsOf = (open: readonly MatterStepNow[]) =>
-  open.filter((s) => s.kind === "todo_item").length * TICK_LIMIT_MS + QUICK_MS;
+/** The most the ticks of his word on the steps `open` may take: one per to-do item (`TICK_LIMIT_MS`). */
+export const ticksLimitMsOf = (open: readonly MatterStepNow[]) =>
+  open.filter((s) => s.kind === "todo_item").length * TICK_LIMIT_MS;
 
 /**
  * His word that the steps `open` (`openStepsOf`) are done, through the writers that already exist: their to-do items
@@ -86,7 +86,7 @@ export async function correctMatter(
     throw new Error(`Not done: nothing of ${v.id} is open.`);
   }
   report({
-    limitSeconds: Math.ceil(endLimitMsOf(open) / 1000),
+    limitSeconds: Math.ceil((ticksLimitMsOf(open) + QUICK_MS) / 1000),
     plan: [
       ...(open.some((s) => s.kind === "todo_item")
         ? ["todo_items_ticked"]

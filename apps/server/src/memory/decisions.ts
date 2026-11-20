@@ -496,6 +496,55 @@ export async function requestDecision(
   return { id };
 }
 
+/** What makes an answer to `d` refused, in words; false when nothing does. An act (`actOfOption`) is his own app's alone: a send `via` the connector, an end only where host gives `end` (`canEnd`). */
+function answerProblemOf(
+  d: Omit<Decision, "state">,
+  options: string[],
+  note: string | undefined,
+  { canEnd, via }: { canEnd: boolean; via: Answered["via"] }
+) {
+  const unknown = options.filter((o) => !d.options.some((x) => x.id === o));
+  const acts = d.options
+    .filter((o) => options.includes(o.id))
+    .map((o) => actOfOption(d, o));
+  return (
+    (unknown.length > 0 &&
+      `${unknown.join(", ")} not among ${d.id}'s options.`) ||
+    (options.length === 0 &&
+      !note &&
+      "pick an option or give his words as `note`.") ||
+    (acts.includes("send") &&
+      via !== "connector" &&
+      "a draft is sent only on his own answer, through `answer_check` in his app.") ||
+    (acts.includes("end") &&
+      !canEnd &&
+      "a step is closed only on his own answer, through `answer_check` in his app.")
+  );
+}
+
+/** Closes the step or matter of the answered decision `d` by his word (`end`) and appends its `ended` line, with the error when it failed. */
+async function endOnAnswer(
+  d: Omit<Decision, "state">,
+  end: EndByHisWord,
+  onStep?: (step: string, detail?: Record<string, unknown>) => void
+) {
+  const outcome = await end(d).then(
+    () => ({}),
+    (e: Error) => ({ error: e.message })
+  );
+  const ended: Ended = {
+    at: clock().toISOString(),
+    by: "answer",
+    id: d.id,
+    kind: "ended",
+    schemaVersion: VERSION,
+    ...outcome,
+  };
+  appendJsonl(DECISIONS, Ended, [ended]);
+  onStep?.("ended", ended.error ? { error: ended.error } : undefined);
+  return ended;
+}
+
 /**
  * Records his answer to an open decision: option ids, or none with his words. The first answer stands; a second is
  * refused, unless its send ended `not sent:` (then the card is open and the next answer is the first). When it is a
@@ -525,26 +574,12 @@ export async function answerDecision(
   } = {}
 ) {
   const d = readOpenDecision(id, now);
-  const unknown = options.filter((o) => !d.options.some((x) => x.id === o));
-  if (unknown.length > 0 || (options.length === 0 && !note)) {
-    throw new Error(
-      unknown.length > 0
-        ? `Not done: ${unknown.join(", ")} not among ${id}'s options.`
-        : "Not done: pick an option or give his words as `note`."
-    );
-  }
-  const acts = d.options
-    .filter((o) => options.includes(o.id))
-    .map((o) => actOfOption(d, o));
-  if (acts.includes("send") && via !== "connector") {
-    throw new Error(
-      "Not done: a draft is sent only on his own answer, through `answer_check` in his app."
-    );
-  }
-  if (acts.includes("end") && !end) {
-    throw new Error(
-      "Not done: a step is closed only on his own answer, through `answer_check` in his app."
-    );
+  const problem = answerProblemOf(d, options, note, {
+    canEnd: Boolean(end),
+    via,
+  });
+  if (problem) {
+    throw new Error(`Not done: ${problem}`);
   }
   const line: Answered = {
     at: now.toISOString(),
@@ -564,21 +599,7 @@ export async function answerDecision(
   onStep?.("recorded");
   const act = actDueOf(stored);
   if (act === "end" && end) {
-    const outcome = await end(stored).then(
-      () => ({}),
-      (e: Error) => ({ error: e.message })
-    );
-    const ended: Ended = {
-      at: clock().toISOString(),
-      by: "answer",
-      id,
-      kind: "ended",
-      schemaVersion: VERSION,
-      ...outcome,
-    };
-    appendJsonl(DECISIONS, Ended, [ended]);
-    onStep?.("ended", ended.error ? { error: ended.error } : undefined);
-    return [line, ended];
+    return [line, await endOnAnswer(stored, end, onStep)];
   }
   if (!(act === "send" && isSendable(stored.draft))) {
     return [line];

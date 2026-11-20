@@ -29,7 +29,7 @@ import {
   START_STAGES,
   WAIT_MS,
 } from "./change-registered-agent";
-import { endByHisWord, endLimitMsOf, QUICK_MS } from "./correct-matter";
+import { endByHisWord, QUICK_MS, ticksLimitMsOf } from "./correct-matter";
 import { eventHeard, readDesk } from "./desk-read";
 import type { ToolCall } from "./http/mcp-tool";
 import { openCheckOf } from "./inbox";
@@ -262,6 +262,31 @@ async function closingOf(d: Decision, option: string) {
   return v ? openStepsOf(v, ends === "step" ? d.subject : undefined) : [];
 }
 
+/**
+ * What his answer to the decision `known` does besides being recorded (`actOf`), and the most it may take: a send's
+ * path's limit, or an end's ticks; with the steps an `ends` option closes (read now, so the limit counts their ticks)
+ * and the `end` that closes them by his word, with Life's words naming the card.
+ */
+async function decisionActOf(
+  known: Decision | undefined,
+  a: CheckAnswer,
+  report: ToolCall["report"]
+) {
+  const act =
+    known?.state === "open" ? actOf(known, a.options, a.note) : undefined;
+  const closing =
+    known && act === "end" ? await closingOf(known, a.options[0] ?? "") : [];
+  const end: EndByHisWord = (d) =>
+    endByHisWord(
+      closing,
+      `"${d.options.find((o) => o.id === a.options[0])?.label}" on "${d.title}" (${d.id})`,
+      (ticked, of, key) =>
+        report({ at: at(), done: ticked, key, of, step: "todo_items_ticked" })
+    );
+  const sendMs = act === "send" && known?.draft ? sendLimitMs(known.draft) : 0;
+  return { act, closing, end, limitMs: sendMs + ticksLimitMsOf(closing) };
+}
+
 /** What an answer says, to tell a repeat of it from another answer. */
 const saidOf = (a: CheckAnswer) =>
   JSON.stringify([a.options, a.note || null, a.person ?? null, a.name ?? null]);
@@ -297,28 +322,14 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     return remembered;
   }
   const open = await openCheckOf(ref);
-  const act =
-    known?.state === "open" ? actOf(known, a.options, a.note) : undefined;
-  const closing =
-    known && act === "end" ? await closingOf(known, a.options[0] ?? "") : [];
+  const { act, closing, end, limitMs } = await decisionActOf(known, a, report);
   const starts = open.group === "new matter" && a.options[0] === "start";
   report({
     limitSeconds: Math.ceil(
-      ((act === "send" && known?.draft ? sendLimitMs(known.draft) : 0) +
-        (starts ? WAIT_MS : 0) +
-        (act === "end" ? endLimitMsOf(closing) : QUICK_MS)) /
-        1000
+      (limitMs + (starts ? WAIT_MS : 0) + QUICK_MS) / 1000
     ),
     plan: planOf(known, act, closing, starts),
   });
-  // His pick of an `ends` option: his word that the steps read above are done, with Life's words naming the card.
-  const end: EndByHisWord = (d) =>
-    endByHisWord(
-      closing,
-      `"${d.options.find((o) => o.id === a.options[0])?.label}" on "${d.title}" (${d.id})`,
-      (ticked, of, key) =>
-        report({ at: at(), done: ticked, key, of, step: "todo_items_ticked" })
-    );
   // A new matter's Start: the desk's start, as `change_registered_agent` asks it; its own plan is in this one.
   let start: Awaited<ReturnType<typeof changeRegisteredAgent>> | null = null;
   const startAgent: StartAgent = async (c, goal) => {
