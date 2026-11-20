@@ -35,7 +35,7 @@ import {
   readPeopleOnce,
   wakeDue,
 } from "./desk-clock";
-import { type Desk, writeWait } from "./desk-store";
+import { type Desk, openDesk, writeWait } from "./desk-store";
 import { agentWakesOf, routeOf, type WakeWhy } from "./event-queue";
 import {
   ANA,
@@ -570,4 +570,64 @@ test("a fresh turn counts as shown exactly the steps its packet held, though the
   } finally {
     book.mockRestore();
   }
+});
+
+// Regression: WAL with synchronous normal can lose a commit on a crash of the Mac, so a card's owner row written before
+// the card could vanish while the card stays.
+test("the desk's store syncs every commit to disk", () => {
+  const db = openDesk(
+    join(mkdtempSync(join(tmpdir(), "life-sync-")), "d.sqlite")
+  );
+  expect(db.query("pragma synchronous").get()).toEqual({ synchronous: 2 });
+  db.close();
+});
+
+// Regression: the subject's anchor was written after the card, so a failed write left a card its sibling could take.
+// Owner and anchor are now written together before the card: when either fails, nothing is.
+test("a card whose subject's anchor cannot be written is never written, and the step stays free", async () => {
+  const { desk, id, onA, own } = await twoAssignments();
+  desk.db.run(
+    "create trigger test_no_anchor before insert on anchor begin select raise(abort, 'test: no anchor'); end"
+  );
+  await withMatters(MATTERS, async () => {
+    await expect(askDecision(desk, onA(), yesNo("obs_a2"))).rejects.toThrow(
+      "test: no anchor"
+    );
+    expect(decisionsNow().filter((d) => d.agent === id)).toEqual([]);
+    expect(desk.db.query("select * from card").all()).toEqual([]);
+    desk.db.run("drop trigger test_no_anchor");
+    const { id: card } = await askDecision(desk, onA(), yesNo("obs_a2"));
+    expect(assignmentOfCard(desk.db, { agent: id, id: card })).toBe(onA().id);
+    expect(anchorsOf(desk.db, onA().id)).toContain("obs_a2");
+    await expect(askDecision(desk, own(), yesNo("obs_a2"))).rejects.toThrow(
+      "another assignment of yours"
+    );
+  });
+});
+
+// Regression: a closed assignment kept its anchors, so it refused its agent's other assignment a step it can never ask on.
+test("a step is refused while its sibling assignment is open, and free once it closes", async () => {
+  const { desk, onA, own } = await twoAssignments();
+  await withMatters(MATTERS, async () => {
+    await expect(askDecision(desk, own(), yesNo("obs_a1"))).rejects.toThrow(
+      "another assignment of yours"
+    );
+    await closeAssignment(desk, onA().id, "test: its matter is done");
+    const { id: card } = await askDecision(desk, own(), yesNo("obs_a1"));
+    expect(openCardOf(desk.db, own())?.id).toBe(card);
+  });
+});
+
+// Regression: one open card per assignment was checked before the ask's reads, so two asks at once both got a card.
+test("two asks at once on one assignment give it exactly one card", async () => {
+  const { desk, id, onA } = await twoAssignments();
+  await withMatters(MATTERS, async () => {
+    const asks = await Promise.allSettled([
+      askDecision(desk, onA(), yesNo()),
+      askDecision(desk, onA(), yesNo()),
+    ]);
+    expect(asks.map((a) => a.status).sort()).toEqual(["fulfilled", "rejected"]);
+  });
+  expect(decisionsNow().filter((d) => d.agent === id)).toHaveLength(1);
+  expect(desk.db.query("select * from card").all()).toHaveLength(1);
 });

@@ -250,7 +250,7 @@ export const assignmentOfCard = (
       null)
     : null;
 
-/** Another assignment of `s`'s agent anchored on `step`, if one is: a card on that step is that one's to ask (`askDecision`). */
+/** Another open assignment of `s`'s agent anchored on `step`, if one is: a card on that step is that one's to ask (`askDecision`). */
 export const siblingOn = (
   db: Database,
   s: Pick<AssignmentRow, "agent_id" | "id">,
@@ -258,7 +258,7 @@ export const siblingOn = (
 ) =>
   db
     .query<{ id: string }, [string, string, string]>(
-      "select n.assignment_id as id from anchor n join assignment s on s.id = n.assignment_id where s.agent_id = ? and n.step = ? and n.assignment_id <> ? limit 1"
+      "select n.assignment_id as id from anchor n join assignment s on s.id = n.assignment_id where s.agent_id = ? and s.closed_at is null and n.step = ? and n.assignment_id <> ? limit 1"
     )
     .get(s.agent_id, step, s.id)?.id ?? null;
 
