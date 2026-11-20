@@ -68,7 +68,7 @@ the Mac's access (his files, his accounts). The risk that remains: an agent acti
 refuses, a send by a path the guard can't read included; past the guard, the gate is its instruction, not enforcement. Between that and harm stand the model's judgment, wakes
 that hand facts and never words (a payment's category, the money app's own word, is a fact; a text can choose a wake, never ride on it), and Life's own send path (a card's draft, his answer). The risk is his, accepted.
 
-A card that asks him to pay (`doneSeenBy: "payment"`) makes Life read his payments on the Mac, on his "I've paid" and every 5 minutes while the card is open, and match amounts only (money out of the card's amount in its currency, on or after the card's day; never a name or a merchant): its asker learns only which payment matched (its event id). Nothing of it leaves the Mac.
+A card that asks him to pay (`doneSeenBy: "payment"`) makes Life read his payments on the Mac, on his "I've paid" and every 5 minutes while the card is open, and match by code (money out of the card's amount in its currency, on or after the card's day, whose merchant holds every word of the card's payee): its asker learns only which payment matched (its event id). Nothing of it leaves the Mac.
 
 ## Network
 
