@@ -130,10 +130,10 @@ struct InboxScreen: View {
     }
 
     /// What blocks, then what can wait: `Inbox.ordered`, the one rule for the list, the pager, the ask on show and where
-    /// an answer leads (`only` keeps the chosen kind of it). An answer held, in flight or shown as his result is no row.
+    /// an answer leads (`only` keeps the chosen kind of it). The store already left out his answers; the one shown as
+    /// his result is no row either.
     private var all: InboxOrder {
-        life.inboxOnShow?.ordered(
-            deferred: deferred, except: life.answersUnderWay.union(notes.taken.map { [$0.check.ref] } ?? []))
+        life.inboxOnShow?.ordered(deferred: deferred, except: Set(notes.taken.map { [$0.check.ref] } ?? []))
             ?? InboxOrder()
     }
 

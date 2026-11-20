@@ -45,3 +45,21 @@ import Testing
     holds.undo("a")
     #expect(holds.latest == "z")
 }
+
+/// A released answer stays held until its send has begun, in the same step: no frame shows it neither held nor on its way.
+@MainActor @Test func aReleasedAnswerIsHeldOrOnItsWayAtEveryStep() async {
+    var sending: Set<String> = []
+    var holds: HeldAnswers!
+    holds = HeldAnswers(delay: .seconds(60)) { request in
+        sending.insert(request.ref)
+        try? await Task.sleep(for: .milliseconds(5))
+    }
+    holds.hold(AnswerRequest(ref: "c1", options: ["yes"]), as: "Yes")
+    let all = Task { await holds.sendAll() }
+    for _ in 0..<20 {
+        #expect(holds.held["c1"] != nil || sending.contains("c1"))
+        await Task.yield()
+    }
+    await all.value
+    #expect(holds.held.isEmpty && sending == ["c1"])
+}

@@ -51,11 +51,16 @@ public final class HeldAnswers {
         (held, timers, order) = ([:], [:], [])
     }
 
-    /// The held answer leaves the row and goes, in a task of its own: the timer that called is cancelled with it.
+    /// The held answer goes, in a task of its own: the timer that called is cancelled with it. It stays held until that
+    /// task starts its send, in the same step, so no frame shows it neither held nor on its way, and an Undo until then
+    /// still undoes it.
     @discardableResult private func release(_ ref: String) -> Task<Void, Never>? {
         timers.removeValue(forKey: ref)?.cancel()
-        guard let sent = held.removeValue(forKey: ref) else { return nil }
-        order.removeAll { $0 == ref }
-        return Task { await send(sent.request) }
+        guard held[ref] != nil else { return nil }
+        return Task {
+            guard let sent = held.removeValue(forKey: ref) else { return }
+            order.removeAll { $0 == ref }
+            await send(sent.request)
+        }
     }
 }

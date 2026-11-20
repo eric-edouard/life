@@ -81,9 +81,10 @@ struct MatterPage: View {
         }
     }
 
-    /// Its asks less those whose answer is held for Undo or on its way: the Inbox's rule (`answersUnderWay`).
+    /// Its asks less those his answers took out since it was read: the Inbox's rule (`answersNewer`).
     private func unanswered(_ matter: Matter) -> [Check] {
-        matter.checks.filter { !life.answersUnderWay.contains($0.ref) }
+        let answered = life.answersNewer(than: life.matter[id]?.loadedAt)
+        return matter.checks.filter { !answered.contains($0.ref) }
     }
 
     /// What waits on him here, under the name: each ask of this matter as a row that opens it; nothing when none waits.

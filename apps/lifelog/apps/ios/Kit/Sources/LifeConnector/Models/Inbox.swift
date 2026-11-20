@@ -65,8 +65,8 @@ extension [Check] {
 
 extension Inbox {
     /// What blocks, then what only improves. An ask he kept for later (`deferred`) goes after the others of its own kind,
-    /// so the heading stays where the blocking group ends. `except` are the refs not to show: an answer held for Undo
-    /// or in flight, so a list never flashes it back during a send.
+    /// so the heading stays where the blocking group ends. `except` are the refs not to show: the ask whose result is on
+    /// show in its place.
     public func ordered(deferred: [String], except: Set<String> = []) -> InboxOrder {
         func later(_ kind: [Check]) -> [Check] {
             kind.filter { !deferred.contains($0.ref) } + kind.filter { deferred.contains($0.ref) }

@@ -33,7 +33,7 @@ struct RootView: View {
             Tab("Inbox", systemImage: "tray", value: AppRouter.Tab.inbox) {
                 InboxScreen()
             }
-            .badge(life.inbox.value?.badge ?? 0)
+            .badge(life.badge)
             Tab("Matters", systemImage: "list.bullet.indent", value: AppRouter.Tab.matters) { MattersScreen() }
             // Its title and symbol are the system's; it sits apart, at the trailing end of the tabs.
             Tab(value: AppRouter.Tab.search, role: .search) {

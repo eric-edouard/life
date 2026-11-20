@@ -306,6 +306,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | read state | What one read of Life is on the phone (`ReadState`, Kit's `LifeConnector`): its last good value, when it was read, and what the latest try is doing. A screen shows `shown`: loading, loaded, empty, stale (a failed refresh after a good read), unreachable (the Mac is out of reach), failed or not paired. | |
+| read flights | How the phone runs its reads of Life (`ReadFlights`, Kit's `LifeConnector`): one read of each kind at a time, plus one more pass for every ask made while it runs, so an older read never lands last. Not a cache, and not a retry. | |
+| answered cards | The cards his answers took out, with when Life confirmed each (`AnsweredCards`, Kit's `LifeConnector`), kept with the phone's reads: every screen leaves a card out of any read asked before its answer was confirmed (`LifeStore.answersNewer`); a read asked after wins. Not Life's record of the answer, which is the decision's. | |
 | push read | The one card a tapped push reads first (`LifeStore.pushRead`: `read_inbox` by `pushId`, a `ReadState` of an inbox holding just it). The Inbox shows it at once, loading or failed or the card, never the old cards; the whole inbox is read after, and that read ends it. Not the inbox, and never put into it. | |
 | action state | Where one of his actions on Life stands on the phone (`ActionState`, Kit's `LifeConnector`): running with its steps, succeeded with its proof, or failed with the step, the reason and whether a retry is allowed. Only the server ends it. | |
 | action step | One stage of an action as Life reports it (`ActionStep`): passed with its time, or still to come. | |

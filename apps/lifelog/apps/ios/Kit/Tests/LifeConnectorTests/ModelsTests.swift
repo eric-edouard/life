@@ -463,3 +463,31 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(check.createsByName)
     #expect(check.askedName == "Sam Vale")
 }
+
+/// His answer is confirmed while a read asked before it is still on its way: that read, landing after, still lists the
+/// card, and the card stays out. A read asked after the answer wins, even one that lists it (Life kept it open).
+@Test func anAnswerConfirmedAfterAReadWasAskedStaysOutOfIt() throws {
+    let asked = Date(timeIntervalSince1970: 100)
+    var answered = AnsweredCards()
+    answered.answered("b1", at: asked.addingTimeInterval(1))
+    let read = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves)])
+    let shown = read.without(answered.newer(than: asked))
+    #expect(shown.checks.map(\.ref) == ["b2", "i1"])
+    #expect(shown.badge == read.badge - 1 && shown.total == read.total - 1)
+    #expect(answered.newer(than: asked.addingTimeInterval(2)).isEmpty)
+    // Nothing read yet (a cold start with no cache): it stays out too.
+    #expect(answered.newer(than: nil) == ["b1"])
+    // Kept for a cold start, then forgotten once every read held was asked after it.
+    let kept = try JSONDecoder().decode(AnsweredCards.self, from: JSONEncoder().encode(answered))
+    #expect(kept == answered)
+    answered.forget(confirmedBy: asked.addingTimeInterval(2))
+    #expect(answered.newer(than: nil).isEmpty)
+}
+
+@Test func anInboxLessItsAnsweredCardsLowersOnlyWhatTheyCounted() throws {
+    let read = try asks([("b1", .blocks), ("i1", .improves)], groups: ["i1": "ending"])
+    let shown = read.without(["i1"])
+    #expect(shown.blocking == read.blocking && shown.total == read.total - 1)
+    #expect(shown.counts["ending"] == read.counts["ending"].map { $0 - 1 })
+    #expect(read.without([]) == read)
+}

@@ -11,6 +11,9 @@ public struct AnswerRequest: Encodable, Sendable, Equatable {
     public init(ref: String, options: [String], note: String? = nil, person: String? = nil, name: String? = nil) {
         (self.ref, self.options, self.note, self.person, self.name) = (ref, options, note, person, name)
     }
+
+    /// A new matter's goal, edited: Life saves it and the card stays open, for Start or Dismiss.
+    public var keepsCardOpen: Bool { options == ["edit-goal"] }
 }
 
 /// His word about a registered agent (`change_registered_agent`'s arguments).
