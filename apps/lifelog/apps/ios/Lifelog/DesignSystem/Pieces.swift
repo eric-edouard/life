@@ -174,11 +174,12 @@ struct ColumnToast: View {
     }
 }
 
-/// A matter's name (a star in `ai` before it when an agent asks) on a `card` capsule 32 high, in a 44 hit area. A long
+/// A matter's name (the asking agent's mark before it, in `fg`) on a `card` capsule 32 high, in a 44 hit area. A long
 /// name is cut with an ellipsis, except at an accessibility text size, where it may take two lines.
 struct InlinePill: View {
     let name: String
-    var isAgent = false
+    /// The asking agent's mark (`RuntimeName.mark`), nil when Life asks itself.
+    var agentMark: String?
     let action: () -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -186,7 +187,7 @@ struct InlinePill: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: Metrics.Spacing.s) {
-                if isAgent { Image(systemName: "sparkle").foregroundStyle(Palette.ai).accessibilityHidden(true) }
+                if let agentMark { Image(symbol: agentMark).accessibilityHidden(true) }
                 Text(name).lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
             }
             .font(.smallStrong).foregroundStyle(Palette.fg)
@@ -528,7 +529,7 @@ enum RowState: Equatable {
 /// `RowMenu`, a `RowSwitch`, a `StateMark`, a `RowButton`). The state sets the second line and the spinner.
 struct Row<Trailing: View>: View {
     let title: String
-    /// An SF Symbol in line style, in a 28 slot before the title.
+    /// A symbol in line style (`Image(symbol:)`: the system's or an agent's mark), in a 28 slot before the title.
     var icon: String?
     var iconTint = Palette.icon
     var detail: String?
@@ -538,7 +539,7 @@ struct Row<Trailing: View>: View {
     var body: some View {
         HStack(spacing: 12) {
             if let icon {
-                Image(systemName: icon).font(.system(size: 22, weight: .regular)).foregroundStyle(iconTint)
+                Image(symbol: icon).font(.system(size: 22, weight: .regular)).foregroundStyle(iconTint)
                     .frame(width: 28).accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 2) {

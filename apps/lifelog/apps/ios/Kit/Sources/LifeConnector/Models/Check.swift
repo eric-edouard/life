@@ -184,6 +184,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let title: String
     public let question: String
     public let asker: String
+    /// The registered agent that asked a decision (its `RegisteredAgent.id`); nil for Life's own checks, an agent
+    /// asking through its own pairing, or from a Life that predates it.
+    public let agent: String?
     public let at: Date?
     public let deadline: Date?
     public let onSilence: String?
@@ -282,6 +285,12 @@ extension Check {
     public func isEnding(_ request: AnswerRequest) -> Bool {
         guard request.note == nil, request.options.count == 1 else { return false }
         return options.contains { $0.id == request.options[0] && $0.ends != nil }
+    }
+
+    /// The program of the registered agent that asked it (`agent`), while the phone still lists that agent; nil for
+    /// any other ask, which then shows no program rather than a guessed one.
+    public func askingRuntime(among agents: [RegisteredAgent]) -> RuntimeName? {
+        agent.flatMap { id in agents.first { $0.id == id }?.runtimeName }
     }
 
     /// Its draft goes to someone Life only guesses: the guess is asked beside it (`confirm`).
