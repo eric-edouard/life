@@ -32,6 +32,9 @@ export const ObservationId = z.string().regex(/^obs_[0-9a-f]{12}$/);
 /** Inferred people below this confidence are remembered but not linked to; the next day that sees them asks again. */
 export const INFERRED_USE_AT = 0.5;
 
+/** Inferred people at or above this confidence are taken as who Life says, never asked about (his decision of 20 Nov 2026). */
+export const INFERRED_SURE_AT = 0.85;
+
 /** The people outside the directory (inferred, or named by his Contacts) not folded into another (`foldsOf`): one id per person. */
 export const unfoldedOf = <P extends { id: string }>(
   people: P[],
