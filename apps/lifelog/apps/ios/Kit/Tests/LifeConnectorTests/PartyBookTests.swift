@@ -100,7 +100,11 @@ private func gate() -> (wait: @Sendable () async -> Void, open: () -> Void) {
     let parties = book(FakeLife())
     for _ in 0..<2 {
         let told = Mutex(false)
-        withObservationTracking { _ = parties.generation.current } onChange: { told.withLock { $0 = true } }
+        withObservationTracking {
+            _ = parties.generation.current
+        } onChange: {
+            told.withLock { $0 = true }
+        }
         parties.startOver()
         #expect(told.withLock { $0 })
     }
