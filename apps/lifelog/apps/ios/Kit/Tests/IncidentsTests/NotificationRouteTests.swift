@@ -10,7 +10,10 @@ import Testing
 
 @Test func aNewCardOpensItsCardAndSeveralOpenTheInbox() {
     let one: [AnyHashable: Any] = ["aps": ["thread-id": "life-cards", "badge": 4], "pushId": "9f2c41d07ab35e68"]
-    #expect(NotificationRoute(userInfo: one) == .card("9f2c41d07ab35e68"))
+    #expect(NotificationRoute(userInfo: one) == .card("9f2c41d07ab35e68", card: nil))
+    // The card the service extension kept with it comes along, so the tap shows it before any read.
+    let kept = one.merging(["card": "{\"ref\":\"c1\"}"]) { $1 }
+    #expect(NotificationRoute(userInfo: kept) == .card("9f2c41d07ab35e68", card: "{\"ref\":\"c1\"}"))
     #expect(NotificationRoute(userInfo: ["aps": ["thread-id": "life-cards"]]) == .inbox)
     #expect(NotificationRoute(userInfo: ["aps": ["thread-id": "other"]]) == nil)
 }

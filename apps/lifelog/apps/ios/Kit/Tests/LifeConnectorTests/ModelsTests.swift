@@ -396,15 +396,18 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(lifes.askingRuntime(among: agents) == nil)
 }
 
-/// The inbox's checks, made from the server's own read: one ask per ref, with the urgency given.
+/// A whole inbox made from the server's own read: one ask per ref (its push `push-<ref>`), with the urgency given.
 private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [:]) throws -> Inbox {
     let wire = try #require(
         JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
     let first = try #require((wire["checks"] as? [[String: Any]])?.first)
     let checks = urgencies.map { ref, urgency in
-        first.merging(["ref": ref, "urgency": urgency.rawValue, "group": groups[ref] ?? first["group"] ?? ""]) { $1 }
+        first.merging([
+            "ref": ref, "pushId": "push-\(ref)", "urgency": urgency.rawValue,
+            "group": groups[ref] ?? first["group"] ?? "",
+        ]) { $1 }
     }
-    let body = wire.merging(["checks": checks]) { $1 }
+    let body = wire.merging(["checks": checks, "total": checks.count]) { $1 }
     return try decoded(Inbox.self, String(decoding: JSONSerialization.data(withJSONObject: body), as: UTF8.self))
 }
 
@@ -531,4 +534,32 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(shown.blocking == read.blocking && shown.total == read.total - 1)
     #expect(shown.counts["ending"] == read.counts["ending"].map { $0 - 1 })
     #expect(read.without([]) == read)
+}
+
+/// A tapped push shows its card from the first frame: the cached inbox's, else the notification's, first in what is in
+/// hand. Only a read asked after the tap says whether it is still open.
+@Test func aPushedCardIsShownFromWhatIsInHandUntilAReadAskedAfterTheTap() throws {
+    let tapped = Date(timeIntervalSince1970: 100)
+    let cached = try asks([("b1", .blocks), ("i1", .improves)])
+    let notified = try asks([("n1", .blocks)]).checks[0]
+    // In the cache: opened from there, the inbox as cached.
+    let inCache = PushedCard(pushId: "push-i1", in: cached, notified: notified, at: tapped)
+    #expect(inCache.opening?.check?.ref == "i1" && inCache.shown(in: cached) == cached)
+    // Not in the cache: the notification's card, first, counted.
+    let fresh = PushedCard(pushId: "push-n1", in: cached, notified: notified, at: tapped)
+    let shown = try #require(fresh.shown(in: cached))
+    #expect(shown.checks.map(\.ref) == ["n1", "b1", "i1"] && shown.badge == cached.badge + 1)
+    // Nothing read at all: a one-card inbox.
+    #expect(fresh.shown(in: nil)?.checks.map(\.ref) == ["n1"])
+    // A read asked before the tap still checks it; one asked after opens as it says.
+    #expect(fresh.checked(by: cached, askedAt: tapped.addingTimeInterval(-1)) == nil)
+    #expect(fresh.checked(by: cached, askedAt: tapped.addingTimeInterval(1))?.wasAnswered == true)
+    // A read cut off by its limit before the card says nothing of it: still open as far as the phone knows.
+    let cut = try asks([("b1", .blocks)])
+    let partial = try decoded(
+        Inbox.self, #"{"checks":[],"counts":{},"total":600,"deadlinesToday":0,"blocking":1}"#)
+    #expect(cut.isWhole && !partial.isWhole)
+    #expect(fresh.checked(by: partial, askedAt: tapped.addingTimeInterval(1)) == nil)
+    // Nothing in hand: nothing to show until the read.
+    #expect(PushedCard(pushId: "push-n1", in: nil, notified: nil, at: tapped).opening == nil)
 }

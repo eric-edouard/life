@@ -60,6 +60,14 @@ public struct ReadState<Value: Sendable>: Sendable {
         }
     }
 
+    /// This read showing `shown` in place of its value (what it holds, with a card in hand added), its phase as it is: as
+    /// of `at` when nothing was read, so a failed read shows the card in hand as stale, never a blank.
+    public func showing(_ shown: Value, at: Date) -> ReadState {
+        var read = self
+        (read.value, read.loadedAt) = (shown, loadedAt ?? at)
+        return read
+    }
+
     /// A read with nothing to show and a last try that was cancelled, failed or unreachable must be tried again; a
     /// loaded one (even an empty one) and an unpaired one never.
     public var needsRetry: Bool {

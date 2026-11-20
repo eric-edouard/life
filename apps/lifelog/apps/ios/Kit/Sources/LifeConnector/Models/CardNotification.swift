@@ -61,8 +61,12 @@ public struct CardNotification: Sendable, Equatable {
 
     /// The card kept with its notification (`userInfo[userInfoKey]`, written by the service extension).
     public static func card(in userInfo: [AnyHashable: Any]) -> Check? {
-        guard let text = userInfo[userInfoKey] as? String else { return nil }
-        return try? LibraryStore.feedDecoder.decode(Check.self, from: Data(text.utf8))
+        (userInfo[userInfoKey] as? String).flatMap(check)
+    }
+
+    /// The card as kept (its JSON), if this build reads it.
+    public static func check(_ card: String) -> Check? {
+        try? LibraryStore.feedDecoder.decode(Check.self, from: Data(card.utf8))
     }
 
     /// The card's answers that take one tap, as its notification's buttons (action id, his button's words): its one-tap

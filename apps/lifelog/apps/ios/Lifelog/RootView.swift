@@ -111,17 +111,16 @@ struct RootView: View {
         presented.dismiss(animated: true, completion: then)
     }
 
-    /// Closes any sheet first, as Mail and Messages do, so what opens is in view whatever sheet was showing: the Inbox,
-    /// at the push's card.
+    /// The Inbox, at the push's card, set at once; any sheet over it closes meanwhile, as Mail and Messages do, so what
+    /// opens is in view without waiting for the sheet to go.
     private func open(_ route: NotificationRoute) {
-        dismissSheet {
-            router.tab = .inbox
-            switch route {
-            case .card(let pushId): Task { await life.open(pushId: pushId) }
-            case .inbox: Task { await life.refreshInbox() }
-            case .removed: break  // A background push: never shown, never tapped.
-            }
+        switch route {
+        case .card(let pushId, let card): Task { await life.open(pushId: pushId, card: card) }
+        case .inbox: Task { await life.refreshInbox() }
+        case .removed: return  // A background push: never shown, never tapped.
         }
+        router.tab = .inbox
+        dismissSheet {}
     }
 }
 
