@@ -238,6 +238,31 @@ test("a place gives only the places line, with where; it fires within its radius
   expect(fires(f, message())).toBe(false);
 });
 
+test("a repo gives only the GitHub line, with its repo; it fires on that repo or its owner's, never on an event with no repo", () => {
+  const activity = (repo?: string): Matchable => ({
+    channel: "github_activity",
+    isNamedOnly: true,
+    ...(repo ? { repo } : {}),
+    text: "Test release",
+  });
+  const f = filter({
+    channels: ["whatsapp", "github_activity"],
+    repo: "Acme/*",
+  });
+  expect(wakesOnOf([f], ctx())).toEqual([
+    { kind: "github_activity", repo: "Acme/*" },
+  ]);
+  expect(fires(f, activity("acme/app"))).toBe(true);
+  expect(fires(f, activity("acmeco/app"))).toBe(false);
+  expect(fires({ ...f, repo: "acme/app" }, activity("ACME/App"))).toBe(true);
+  expect(fires({ ...f, repo: "acme/app" }, activity("acme/site"))).toBe(false);
+  expect(fires(f, activity())).toBe(false);
+  expect(fires(f, message())).toBe(false);
+  expect(
+    fires(filter({ channels: ["github_activity"] }), activity("acme/app"))
+  ).toBe(false);
+});
+
 test("the lines keep the filters' order, then the open card (with its deadline), then the wide net", () => {
   const card = {
     check: "dec_000000000001",

@@ -124,14 +124,14 @@ struct AgentSheet: View {
         }
     }
 
-    /// A person or a chat: initials or the group glyph, its name, the networks at the right ("any app" for a person).
+    /// A person or a chat: their disc or the group glyph, its name, the networks at the right ("any app" for a person).
     private func wakerRow(_ waker: Waker) -> some View {
         let isBroken = waker.brokenReason != nil
         return FlatRow(
             lead: lead(of: waker), detail: waker.brokenReason, detailColor: Palette.flag, isMuted: isBroken
         ) {
             switch waker.who {
-            case .person(let name): Text(name).font(.rowName)
+            case .person(let name, _): Text(name).font(.rowName)
             case .chat(let name?, let isGroup):
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.s) {
                     Text(name).font(.rowName)
@@ -150,7 +150,7 @@ struct AgentSheet: View {
 
     private func lead(of waker: Waker) -> FlatLead {
         switch waker.who {
-        case .person(let name): .person(name)
+        case .person(let name, let party): .person(name: name, party: party)
         case .chat(_, let isGroup): .symbol(isGroup ? "person.2" : "bubble.left")
         }
     }
