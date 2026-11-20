@@ -41,9 +41,9 @@ final class LifeStore {
         let undo: Undo?
     }
     private(set) var saidBack: SaidBack?
-    /// His mark or a project's status from his tap until Life's read says it: shown at once, never flickering back.
-    private var marking: [String: Bool] = [:]
-    private var statusing: [String: ProjectStatus] = [:]
+    /// His mark or a project's status from his tap until Life's reads say it: shown at once, one tap per item at a time.
+    private let marking = PendingTaps<Bool>()
+    private let statusing = PendingTaps<ProjectStatus>()
 
     /// Every action by what it acts on: its steps as they stream, then its proof or why not.
     private(set) var actions: [ActionKey: ActionState<ActionProof>] = [:]
@@ -380,26 +380,29 @@ final class LifeStore {
     /// A project's status as stored, his tap first.
     func status(of id: String, as read: ProjectStatus) -> ProjectStatus { statusing[id] ?? read }
 
-    /// His mark on a matter, on or off, said back with Undo (the opposite mark, said back by nothing).
+    /// His mark on a matter, on or off, said back with Undo (the opposite mark, said back by nothing) once every read
+    /// that shows it (the matter, the list, the Inbox's flags and order) is read again.
     func setImportant(_ id: String, _ isOn: Bool, saysBack: Bool = true) async {
-        marking[id] = isOn
         let api = api
         let key = ActionKey.edit(matter: id, .important)
-        await perform(key) { [runner] in
-            await runner.record(emit: $0) { try await api.setImportant(matter: id, isOn, onProgress: $0) }
+        let isSent = await marking.run(id, showing: isOn) {
+            await perform(key) { [runner] in
+                await runner.record(emit: $0) { try await api.setImportant(matter: id, isOn, onProgress: $0) }
+            }
+            async let a: Void = refreshMatter(id)
+            async let b: Void = refreshMatters()
+            async let c: Void = refreshInbox()
+            _ = await (a, b, c)
         }
+        guard isSent else { return }
         say(key, saysBack ? (isOn ? "Important" : "Not important") : nil, undo: .important(matter: id, !isOn))
-        async let a: Void = refreshMatter(id)
-        async let b: Void = refreshMatters()
-        _ = await (a, b)
-        marking[id] = nil
     }
 
-    /// A project's status by his tap: `words` say it back with Undo (the status it had, said back by nothing).
+    /// A project's status by his tap: `words` say it back with Undo (the status it had, said back by nothing) once its
+    /// reads are read again.
     func setStatus(of id: String, named name: String, to status: ProjectStatus, was: ProjectStatus, words: String?)
         async
     {
-        statusing[id] = status
         let api = api
         let said =
             switch status {
@@ -408,14 +411,16 @@ final class LifeStore {
             case .waiting: "Set the project \(name) back to waiting"
             default: "Set the project \(name) underway"
             }
-        await perform(.project(id)) { [runner] in
-            await runner.record(emit: $0) { try await api.setProjectStatus(id, status, said: said, onProgress: $0) }
+        let isSent = await statusing.run(id, showing: status) {
+            await perform(.project(id)) { [runner] in
+                await runner.record(emit: $0) { try await api.setProjectStatus(id, status, said: said, onProgress: $0) }
+            }
+            async let a: Void = refreshProject(id)
+            async let b: Void = refreshMatters()
+            _ = await (a, b)
         }
+        guard isSent else { return }
         say(.project(id), words, undo: .status(project: id, name: name, was, was: status))
-        async let a: Void = refreshProject(id)
-        async let b: Void = refreshMatters()
-        _ = await (a, b)
-        statusing[id] = nil
     }
 
     /// Its Undo as a tap, none when it was not done.

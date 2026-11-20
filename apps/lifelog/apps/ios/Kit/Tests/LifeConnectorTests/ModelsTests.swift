@@ -124,7 +124,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(project.project?.name == "Shop fit-out")
     #expect(project.project?.status == .active)
     #expect(project.project?.goal == "The shop opens in spring.")
-    #expect(project.project?.parkedMatters == nil)
     #expect(project.matters.map(\.id) == ["matter_aaaaaaaaaaaa"])
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
@@ -173,7 +172,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         """#
     let list = try decoded(MatterList.self, text)
     #expect(list.areasByCount == ["Home", "Money", "Work"])
-    func ids(_ filter: MatterFilter) -> [String] { list.shown(filter: filter).map(\.id) }
+    func ids(_ filter: MatterFilter) -> [String] { list.shown(filter: filter) { _ in false }.map(\.id) }
     #expect(ids(.everything) == ["a", "b", "c", "d"])
     #expect(ids(.area("Home")) == ["a", "b"])
     #expect(ids(.needsYou) == ["a"])
@@ -192,7 +191,9 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matters.map(\.isParked) == [false, true, true, false])
     #expect(list.matters[0].project?.status.isUnderway == true)
     #expect(list.matters[3].project?.status == .unknown)
-    #expect(list.shown(filter: .important).map(\.id) == ["a"])
+    // His mark as shown filters: a tap that unmarks "a" and marks "b" moves both.
+    #expect(list.shown(filter: .important) { $0.important == true }.map(\.id) == ["a"])
+    #expect(list.shown(filter: .important) { $0.id == "b" }.map(\.id) == ["b"])
 }
 
 @Test func aRowCarriesLifesWordThatItNeedsHim() throws {

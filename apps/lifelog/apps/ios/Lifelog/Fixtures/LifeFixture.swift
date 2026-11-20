@@ -171,7 +171,6 @@
             let rows = rowsNow().filter { ($0["project"] as? [String: Any])?["id"] as? String == project }
             let status = statuses.withLock { $0[project] } ?? head["status"] as? String ?? "active"
             head["status"] = status
-            if !["active", "waiting"].contains(status) { head["parkedMatters"] = rows.count }
             return json(["project": head, "matters": rows])
         }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
@@ -219,11 +218,17 @@
                     return check
                 }
             }
+            // A card's matter carries his mark as the rows do.
+            let marked = Set(rowsNow().filter { $0["important"] as? Bool == true }.compactMap { $0["id"] as? String })
             let checks = (scenario == "empty" ? [] : shown).map { check in
                 // A guess already answered is no longer asked beside its draft.
                 var check = check
                 check["confirm"] = (check["confirm"] as? [[String: Any]] ?? []).filter {
                     !left.contains($0["ref"] as? String ?? "")
+                }
+                if var matter = check["matter"] as? [String: Any] {
+                    matter["important"] = marked.contains(matter["id"] as? String ?? "") ? true : nil
+                    check["matter"] = matter
                 }
                 return check
             }

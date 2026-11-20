@@ -2,7 +2,8 @@ import LifeConnector
 import SwiftUI
 
 /// A project's page: its name, its status as one control (underway, parked, done: one tap, said back with Undo), what
-/// that means when it is not underway, his goal for it, and its matters as the list draws them (dimmed while it waits).
+/// that means when it is not underway, his goal for it, and its matters as the list draws them (each dimmed by the
+/// project it shows under: one shared with a project underway is not).
 struct ProjectPage: View {
     let id: String
 
@@ -36,7 +37,7 @@ struct ProjectPage: View {
                         get: { status.isUnderway ? .active : status },
                         set: { choice in choose(choice, head: head, status: status) }),
                     title: \.shownWord)
-                if let line = meaning(of: status, matters: head.parkedMatters ?? matters.count) {
+                if let line = meaning(of: status) {
                     Text(line).font(.small).foregroundStyle(Palette.muted).appears()
                 }
                 if let goal = head.goal {
@@ -54,8 +55,7 @@ struct ProjectPage: View {
                             router.open(matter: row.id)
                         } label: {
                             MatterRowView(
-                                row: row, isChosen: false, isMarked: life.isImportant(row.id, as: row.important),
-                                isParked: !status.isUnderway)
+                                row: row, isChosen: false, isMarked: life.isImportant(row.id, as: row.important))
                         }
                         .buttonStyle(.plain)
                     }
@@ -76,12 +76,10 @@ struct ProjectPage: View {
         }
     }
 
-    /// What a status means for its matters, in one small line; none while it is underway.
-    private func meaning(of status: ProjectStatus, matters count: Int) -> String? {
+    /// What a status means for its matters, in one small line; none while it is underway. Parking stops new agents only.
+    private func meaning(of status: ProjectStatus) -> String? {
         switch status {
-        case .parked:
-            count == 1
-                ? "Its matter waits: no agent works on it." : "Its \(count) matters wait: no agent works on them."
+        case .parked: "No new agent starts on its matters."
         case .done: "Nothing more is asked about it."
         default: nil
         }

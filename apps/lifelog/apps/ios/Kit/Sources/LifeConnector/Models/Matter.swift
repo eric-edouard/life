@@ -93,14 +93,12 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
 
 /// `read_matters`: the running matters, most pressing first; of one project, its page's head too.
 public struct MatterList: Decodable, Sendable, Equatable {
-    /// A project's page: its name, status as stored, his goal naming it, and how many of its matters wait while it is
-    /// not underway.
+    /// A project's page: its name, status as stored and his goal naming it.
     public struct ProjectHead: Decodable, Sendable, Equatable {
         public let id: String
         public let name: String
         public let status: ProjectStatus
         public let goal: String?
-        public let parkedMatters: Int?
     }
 
     public let matters: [MatterRow]
@@ -119,9 +117,9 @@ public struct MatterList: Decodable, Sendable, Equatable {
         }
     }
 
-    /// The matters `filter` lets through, in the list's order.
-    public func shown(filter: MatterFilter) -> [MatterRow] {
-        matters.filter(filter.passes)
+    /// The matters `filter` lets through, in the list's order, by his mark as shown (`isMarked`: his tap first).
+    public func shown(filter: MatterFilter, isMarked: (MatterRow) -> Bool) -> [MatterRow] {
+        matters.filter { filter.passes($0, isMarked: isMarked($0)) }
     }
 
     /// The filter menu's areas, over every running matter, most matters first.
@@ -137,11 +135,11 @@ public enum MatterFilter: Hashable, Sendable {
     case everything, needsYou, important, agentWorking
     case area(String)
 
-    func passes(_ row: MatterRow) -> Bool {
+    func passes(_ row: MatterRow, isMarked: Bool) -> Bool {
         switch self {
         case .everything: true
         case .needsYou: row.needsYou == true
-        case .important: row.important == true
+        case .important: isMarked
         case .agentWorking: row.agent != nil
         case .area(let area): row.areas?.contains(area) == true
         }

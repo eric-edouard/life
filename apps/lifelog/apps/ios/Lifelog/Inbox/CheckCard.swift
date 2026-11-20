@@ -27,6 +27,7 @@ struct CheckCard: View {
 
     /// The card's context shows in a region of its own, so its matter row and "Why" link go: `CardArrangement` decides.
     @Environment(\.isContextBeside) private var isContextBeside
+    @Environment(LifeStore.self) private var life
     @Environment(\.dynamicTypeSize) private var typeSize
     @FocusState private var isWriting: Bool
     /// Whether the link found room beside the matter; else it moves to the deadline's line.
@@ -210,7 +211,7 @@ struct CheckCard: View {
         if let matter = check.matter {
             InlinePill(
                 name: matter.name, agentMark: check.agentMark(runtime: runtimeName),
-                isImportant: matter.important == true
+                isImportant: life.isImportant(matter.id, as: matter.important)
             ) {
                 openMatter(matter.id)
             }

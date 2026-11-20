@@ -135,7 +135,7 @@ struct MattersScreen: View {
     /// The rows in Life's order (his marked ones first); a parked or done project's matters last, under "Parked". A
     /// swipe to the right marks one, or unmarks it: the system's own swipe action, as Mail flags a message.
     private func content(_ list: MatterList) -> some View {
-        let rows = list.shown(filter: filter)
+        let rows = list.shown(filter: filter) { life.isImportant($0.id, as: $0.important) }
         let parkedFrom = rows.firstIndex(where: \.isParked)
         return List {
             if rows.isEmpty {
@@ -186,11 +186,9 @@ struct MatterRowView: View {
     let isChosen: Bool
     /// His mark, his tap first (`LifeStore.isImportant`).
     let isMarked: Bool
-    /// Its project waits, his tap first; else as read (`MatterRow.isParked`).
-    var isParked: Bool?
 
     var body: some View {
-        let parked = isParked ?? row.isParked
+        let parked = row.isParked
         return Row(
             title: row.name, icon: row.areas?.first.map(\.areaSymbol) ?? String.defaultAreaSymbol,
             iconTint: Palette.muted, detail: row.nextStep?.text, isMarked: isMarked
