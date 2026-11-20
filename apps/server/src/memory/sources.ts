@@ -353,6 +353,9 @@ const BY_NAME = new Map(SOURCES.map((s) => [s.name, s]));
 /** A stored source name's descriptor: every name has one (`sources.test.ts`). */
 export const sourceOf = (name: SourceName) => BY_NAME.get(name) as Descriptor;
 export const kindOf = (name: SourceName) => sourceOf(name).kind;
+/** Where he writes with people: a chat or mail. Only such a unit's reading is continued (`continuedFrom`). */
+export const isWithPeople = (kind: Descriptor["kind"]) =>
+  kind === "chat" || kind === "mail";
 /** Whether a chat is 1:1: not a group by its id (its source's `group`), or, for a source that cannot tell, one other sender at most. */
 export const isDirect = (name: SourceName, chat: string, others: number) => {
   const { group } = sourceOf(name);
@@ -402,7 +405,7 @@ export function tablesOf(sources: Descriptor[]) {
      * personas sample their messages, 1:1 and in groups (their recordings come from the stored units).
      */
     WITH_PEOPLE: readers(
-      (s) => s.kind === "chat" || s.kind === "mail",
+      (s) => isWithPeople(s.kind),
       (read) => read
     ),
   };
