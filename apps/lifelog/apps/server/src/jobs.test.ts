@@ -1484,3 +1484,117 @@ test("the speech service: a block it keeps failing goes to Scribe whole after it
     transcriber: "speech",
   });
 });
+
+test("one Scribe slot: a block at the speech service holds none, so dictation gets it at once", async () => {
+  const app = appWith({ ...withSpeech, ELEVENLABS_SLOTS: "1" });
+  setSwitches(env.db, { transcriber: "speech" });
+  speech.heard = {
+    durationSeconds: 10,
+    models: {},
+    turns: [turn(0, 10, "0", "en")],
+    words: [said(1, "Hello")],
+  };
+  let dictation: ReturnType<typeof app.s.worker.scribeSlot> | undefined;
+  speech.meanwhile = () => {
+    dictation = app.s.worker.scribeSlot("dictation", {
+      priority: "interactive",
+      waitMs: 0,
+    });
+  };
+  const jobId = await admitFragment(app, speechAudio(10), 1);
+  await app.s.worker.work();
+  const slot = await dictation;
+  expect(slot).toBeFunction();
+  (slot as () => void)();
+  expect(jobRow(jobId).state).toBe("completed");
+});
+
+test("one Scribe slot: dictation takes it next after the paid send under way, ahead of older work, which goes once it is done", async () => {
+  const app = appWith({ ELEVENLABS_SLOTS: "1" });
+  const first = await admitFragment(app, audio(60), 1);
+  await app.s.worker.work();
+  const older = await admitFragment(app, audio(60), 100);
+  const dictation = app.s.worker.scribeSlot("dictation", {
+    priority: "interactive",
+    waitMs: 60_000,
+  });
+  await app.s.worker.work();
+  expect(jobRow(older).state).toBe("queued");
+
+  // The send under way ends (its webhook): the slot is dictation's, not the older job's.
+  await completeByWebhook(app, jobRow(first));
+  const slot = await dictation;
+  expect(slot).toBeFunction();
+  await app.s.worker.work();
+  expect(jobRow(older).state).toBe("queued");
+  expect(uploads()).toHaveLength(1);
+
+  (slot as () => void)();
+  await app.s.worker.work();
+  expect(jobRow(older).state).toBe("submitted");
+  expect(uploads()).toHaveLength(2);
+});
+
+test("one Scribe slot: a block's routed turns wait for it while a Scribe job holds it, and go once that job is answered", async () => {
+  const app = appWith({ ...withSpeech, ELEVENLABS_SLOTS: "1" });
+  setSwitches(env.db, { transcriber: "scribe" });
+  const atScribe = await admitFragment(app, audio(60), 100);
+  await app.s.worker.work();
+  setSwitches(env.db, { transcriber: "speech" });
+  inThaiZone();
+  speech.heard = {
+    durationSeconds: 30,
+    models: {},
+    turns: [
+      turn(0, 10, "0", "en"),
+      turn(10, 14, "1", "th"),
+      turn(14, 30, "0", "fr"),
+    ],
+    words: [said(1, "Hello"), said(15, "Salut")],
+  };
+  fake.respond = thaiAnswer;
+  const jobId = await admitFragment(app, speechAudio(30), 1);
+  const working = app.s.worker.work();
+  while (speech.blocks === 0) {
+    // biome-ignore lint/performance/noAwaitInLoops: until the service heard it
+    await Bun.sleep(5);
+  }
+  await Bun.sleep(20);
+  expect(jobRow(jobId)).toMatchObject({
+    maybeBilled: false,
+    state: "submitted",
+  });
+  expect(uploads()).toHaveLength(1);
+
+  await completeByWebhook(app, jobRow(atScribe));
+  await working;
+  expect(uploads()).toHaveLength(2);
+  expect(jobRow(jobId)).toMatchObject({
+    maybeBilled: false,
+    state: "completed",
+  });
+});
+
+test("one Scribe slot: a block cut off while Scribe may have billed its turns holds it until reconcile fails it, and is never sent again", async () => {
+  const app = appWith({ ...withSpeech, ELEVENLABS_SLOTS: "1" });
+  setSwitches(env.db, { transcriber: "scribe" });
+  const billed = await admitFragment(app, speechAudio(10), 1);
+  env.db
+    .update(transcriptionJobs)
+    .set({
+      maybeBilled: true,
+      requestSentAt: new Date(Date.now() - 11 * 60_000),
+      state: "submitted",
+      transcriber: "speech",
+    })
+    .where(eq(transcriptionJobs.id, billed))
+    .run();
+  const waiting = await admitFragment(app, audio(60), 100);
+  await app.s.worker.work();
+  expect(jobRow(waiting).state).toBe("queued");
+
+  await app.s.worker.tick();
+  expect(jobRow(billed).state).toBe("failed");
+  expect(jobRow(waiting).state).toBe("submitted");
+  expect(uploads()).toHaveLength(1);
+});

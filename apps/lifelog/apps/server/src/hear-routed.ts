@@ -7,13 +7,15 @@ import { billableSeconds, type Config } from "./config";
 import { transcribeNow } from "./elevenlabs";
 import { record } from "./events";
 import { scribeRanges, transcriptOf, uncut } from "./route-turns";
+import type { Release } from "./scribe-slots";
 import type { Heard } from "./speech-service";
 
 /**
  * The audio's transcript in Scribe's shape: the speech service's words, Scribe's inside `routed`.
- * `claim` runs just before a send that may be billed; false: nothing is sent (null). `later`: Scribe
- * took nothing now and billed nothing, fine to send again. Refused or maybe billed, the routed turns
- * stay without words and are never sent again.
+ * `slot` gives a Scribe slot (scribe-slots.ts) or why none, `unsent`: nothing claimed or sent. Holding
+ * it, `claim` runs just before a send that may be billed; false: nothing is sent (null). `later`:
+ * Scribe took nothing now and billed nothing, fine to send again. Refused or maybe billed, the routed
+ * turns stay without words and are never sent again.
  */
 export async function hearRouted(
   { config, db }: { config: Config; db: Db },
@@ -24,10 +26,12 @@ export async function hearRouted(
     claim,
     keyterms,
     ref,
+    slot: take,
   }: {
     claim: () => boolean;
     keyterms: string[];
     ref: Record<string, string>;
+    slot: () => Promise<Release | string>;
   }
 ) {
   const excerpt = cutOggOpus(bytes, scribeRanges(routed));
@@ -40,14 +44,19 @@ export async function hearRouted(
       transcript: transcriptOf(heard, routed, null),
     };
   }
+  const slot = await take();
+  if (typeof slot === "string") {
+    return { error: slot, kind: "unsent" as const };
+  }
   if (!claim()) {
+    slot();
     return null;
   }
   const said = await transcribeNow(
     config,
     new Blob([excerpt.audio.slice()]),
     keyterms
-  );
+  ).finally(slot);
   record(db, `elevenlabs.${said.kind}`, { ...ref, turns: true });
   const billed = billableSeconds(oggOpusSeconds(excerpt.audio) ?? 0, {
     keyterms,

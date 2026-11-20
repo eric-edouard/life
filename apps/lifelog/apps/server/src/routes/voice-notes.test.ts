@@ -49,16 +49,16 @@ beforeEach(() => {
     .run();
 });
 
-const app = () =>
-  createApp(
-    services(
-      testConfig(`http://localhost:${scribe.server.port}`, {
-        IDENTITY_SECRET: "speech-test-secret",
-        IDENTITY_URL: `http://localhost:${speech.server.port}`,
-      }),
-      env.db
-    )
+const servicesWith = (overrides: Record<string, string> = {}) =>
+  services(
+    testConfig(`http://localhost:${scribe.server.port}`, {
+      IDENTITY_SECRET: "speech-test-secret",
+      IDENTITY_URL: `http://localhost:${speech.server.port}`,
+      ...overrides,
+    }),
+    env.db
   );
+const app = () => createApp(servicesWith());
 const note = (seconds: number) =>
   pendantOggOpus(
     Array.from(
@@ -190,4 +190,22 @@ test("a send cut off (a crash, a lost answer) is never sent again: past 5 minute
     setSystemTime();
   }
   expect(sends()).toHaveLength(0);
+});
+
+test("no Scribe slot now (dictation holds the one): busy, nothing claimed, and the note goes once it is free", async () => {
+  speech.heard = MIXED;
+  scribe.respond = thai;
+  const s = servicesWith({ ELEVENLABS_SLOTS: "1" });
+  const a = createApp(s);
+  const dictation = await s.worker.scribeSlot("dictation", {
+    priority: "interactive",
+    waitMs: 0,
+  });
+  const key = sha256Hex(randomUUID());
+  expect((await ask(a, note(60), key)).status).toBe(503);
+  expect(sends()).toHaveLength(0);
+  expect(env.db.select().from(voiceNoteHearings).all()).toHaveLength(0);
+  (dictation as () => void)();
+  expect((await (await ask(a, note(60), key)).json()).text).toContain("สวัสดี");
+  expect(sends()).toHaveLength(1);
 });

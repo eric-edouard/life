@@ -13,18 +13,7 @@ import {
   UNTIL_CREDITS,
   waitsForCredits,
 } from "@lifelog/db/schema";
-import {
-  and,
-  count,
-  eq,
-  gt,
-  inArray,
-  isNull,
-  lte,
-  ne,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import type { SQLiteUpdateSetSource } from "drizzle-orm/sqlite-core";
 import type { z } from "zod";
 import { emailOwner } from "./alert";
@@ -40,6 +29,7 @@ import {
   isTranscript,
   PARSER_VERSION,
   parseTranscript,
+  QUICK_TIMEOUT_MS,
   type SubmitOutcome,
   safeJson,
   submit,
@@ -51,7 +41,12 @@ import { markDirty, regroupAfterCommit } from "./grouping";
 import { hearRouted } from "./hear-routed";
 import { type MacSocket, macSocket } from "./mac-socket";
 import { barOf, type Route, routeTurns } from "./route-turns";
-import { speechServiceSet, transcribeBlock } from "./speech-service";
+import { type Priority, type Release, scribeSlots } from "./scribe-slots";
+import {
+  SPEECH_TIMEOUT_MS,
+  speechServiceSet,
+  transcribeBlock,
+} from "./speech-service";
 import { switches } from "./switches";
 import { rebuildTurnsIn } from "./turns";
 
@@ -304,9 +299,30 @@ function readWebhook(body: string) {
 const LOST_AFTER_MS = 30 * 60 * 1000;
 // A send ElevenLabs may have taken without giving an id to ask by waits this long for its webhook.
 const UNANSWERED_MS = 24 * 3600 * 1000;
-// A block at the speech service is done well within this (its answer, then Scribe's for the routed
-// turns); still submitted after it, a restart cut it off.
+// A block at the speech service is done well within this (its answer, a wait for a Scribe slot,
+// then Scribe's for the routed turns); still submitted after it, a restart cut it off.
 const SPEECH_CUT_OFF_MS = 10 * 60 * 1000;
+// A block heard at the speech service waits at most this for a Scribe slot, so reconcile never takes
+// a live waiter for one cut off: the service's answer, this wait and Scribe's fit in the cut-off.
+export const SLOT_WAIT_MS =
+  SPEECH_CUT_OFF_MS - SPEECH_TIMEOUT_MS - QUICK_TIMEOUT_MS - 60_000;
+
+// The submitted jobs ElevenLabs may still be working on, each holding one of its slots: a Scribe
+// send, and a speech block whose routed turns may be billed there (a send cut off by a restart
+// too, until reconcile settles it). A block heard at the speech service holds none.
+const atScribe = (db: Db) =>
+  db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.state, "submitted"),
+        gt(jobs.requestSentAt, new Date(clock().getTime() - LOST_AFTER_MS)),
+        or(eq(jobs.transcriber, "scribe"), eq(jobs.maybeBilled, true))
+      )
+    )
+    .all()
+    .map((job) => job.id);
 
 // What the 5-minute tick settles about one submitted job, without buying anything: "applied" when
 // its transcript came, "retried" or "failed" when it left submitted, null while it waits.
@@ -467,8 +483,8 @@ const levelOf = (plan: Credits | null) => {
 };
 
 // The one sender. `work()` first closes the blocks that are due (cutter.ts `cut`), then sends queued jobs
-// whose next attempt is due, at most ELEVENLABS_SLOTS at ElevenLabs at once, oldest first, each read
-// from the bucket. A stored fragment, the phone's timeline, a webhook, every state the Mac sends,
+// whose next attempt is due, oldest first, each read from the bucket: to Scribe while it has a slot
+// (scribe-slots.ts, shared with every other Scribe send), to the speech service one at a time. A stored fragment, the phone's timeline, a webhook, every state the Mac sends,
 // the switch turned back on, the 5-minute tick and the time the next block may close start it
 // (`poke`); a call while it runs makes it go round once more.
 // Nothing is sent while transcription is switched off. Credits used up, nothing goes to ElevenLabs
@@ -492,35 +508,71 @@ export function jobWorker(
   let onCompleted: OnCompleted = () => Promise.resolve();
   const completed: OnCompleted = (job) => onCompleted(job);
   const alerted: Partial<Record<"low" | "out", number>> = {};
+  const slots = scribeSlots(config.ELEVENLABS_SLOTS, () => atScribe(db));
+
+  // A Scribe slot for the send `key`, or why there is none: none came within `waitMs`, or at its grant
+  // transcription is off, the credits are used up or `excluded` says why not (each checked again then,
+  // after the wait). The caller sends, then releases it.
+  async function scribeSlot(
+    key: string,
+    {
+      excluded = () => null,
+      ...wait
+    }: {
+      excluded?: () => string | null;
+      priority: Priority;
+      signal?: AbortSignal;
+      waitMs: number;
+    }
+  ): Promise<Release | string> {
+    const release = await slots.wait(key, wait);
+    if (!release) {
+      return wait.signal?.aborted ? "canceled" : "no Scribe slot came in time";
+    }
+    let why: string | null = "transcription is switched off";
+    if (switches().transcription) {
+      why = mayScribe() ? excluded() : "ElevenLabs credits are used up";
+    }
+    if (why) {
+      release();
+      return why;
+    }
+    return release;
+  }
+
+  // A slot for a job heard at the speech service; none, the job is queued again. A quiet range that
+  // came while it was heard sends it back too, and the next claim withdraws it.
+  const jobSlot = async (job: Job) => {
+    const slot = await scribeSlot(job.id, {
+      excluded: () =>
+        job.map && touchesQuiet(db, job.map)
+          ? "a quiet range touches it"
+          : null,
+      priority: "ordinary",
+      waitMs: SLOT_WAIT_MS,
+    });
+    if (typeof slot === "string") {
+      back(db, job, `not sent to Scribe: ${slot}`);
+    }
+    return slot;
+  };
 
   // Queued jobs move to submitted, as many as there is room for; requestSentAt is set as they
   // leave, so a send cut off by a restart is known (reconcile). The one way to ElevenLabs, so its
   // gate is the last word: still queued, ending where the Mac vouches, and no quiet range touching
   // it. The cutter checks the same before a job exists, on purpose: there a late range withdraws
   // one fragment; here it withdraws the whole job, which a range coming after its block closed
-  // (the phone's playback) still needs. The speech service takes one block at a time, so it gets one.
+  // (the phone's playback) still needs. The speech service takes one block at a time, so it gets one
+  // and no Scribe slot; a Scribe job's claim is its slot, held from here until ElevenLabs answers.
   const claim = () => {
     const vouched = mac.vouchedThrough();
     const at = clock();
     const transcriber = transcriberNow(config);
+    const room = transcriber === "speech" ? 1 : slots.room();
+    if (room <= 0) {
+      return { claimed: [], quiet: [] };
+    }
     return db.transaction((tx) => {
-      const atProvider = tx
-        .select({ n: count() })
-        .from(jobs)
-        .where(
-          and(
-            eq(jobs.state, "submitted"),
-            gt(jobs.requestSentAt, new Date(at.getTime() - LOST_AFTER_MS))
-          )
-        )
-        .get();
-      const room = Math.min(
-        config.ELEVENLABS_SLOTS - (atProvider?.n ?? 0),
-        transcriber === "speech" ? 1 : Number.POSITIVE_INFINITY
-      );
-      if (room <= 0) {
-        return { claimed: [], quiet: [] };
-      }
       const due = tx
         .select({ id: jobs.id, map: jobs.map })
         .from(jobs)
@@ -616,12 +668,7 @@ export function jobWorker(
       return;
     }
     if (route.kind === "whole" || !("heard" in said)) {
-      // Only while it is still this send: a moved job is never bought again. Scribe gets its own
-      // attempts.
-      const scribe = { attempts: 0, transcriber: "scribe" as const };
-      if (onSend(db, job, scribe)) {
-        await toScribe({ ...job, ...scribe }, bytes);
-      }
+      await wholeToScribe(job, bytes);
       return;
     }
     const routed = await hearRouted(
@@ -635,9 +682,10 @@ export function jobWorker(
         claim: () => onSend(db, job, { maybeBilled: true }),
         keyterms: job.settings.keyterms,
         ref: { job: job.id },
+        slot: () => jobSlot(job),
       }
     );
-    if (!routed) {
+    if (!routed || routed.kind === "unsent") {
       return;
     }
     if (routed.kind === "later") {
@@ -654,6 +702,24 @@ export function jobWorker(
       })
       .where(eq(jobs.id, job.id))
       .run();
+  }
+
+  // A block the speech service leaves to Scribe whole, once it has a slot, and only while it is still
+  // this send: a moved job is never bought again. Scribe gets its own attempts; the slot passes to the
+  // Scribe job by its id.
+  async function wholeToScribe(job: Job, bytes: Uint8Array) {
+    const slot = await jobSlot(job);
+    if (typeof slot === "string") {
+      return;
+    }
+    const scribe = { attempts: 0, transcriber: "scribe" as const };
+    try {
+      if (onSend(db, job, scribe)) {
+        await toScribe({ ...job, ...scribe }, bytes);
+      }
+    } finally {
+      slot();
+    }
   }
 
   // Credits used up, a block that needs Scribe waits for them. True when it went back.
@@ -788,17 +854,18 @@ export function jobWorker(
     // Credits used up while Scribe transcribes: every block waits (the feed's reason). With the
     // speech service, a conversation says so only for its blocks waiting for credits.
     creditsOut: () => levelOf(plan) === "out" && scribeTranscribes(),
-    // Whether a Scribe send may go now (a chat voice note's, routes/voice-notes.ts, too).
-    mayScribe,
     // What follows every stored transcript (services.ts).
     onCompleted(then: OnCompleted) {
       onCompleted = then;
     },
     poke,
+    // A Scribe slot for a send outside the jobs (a chat voice note's, routes/voice-notes.ts).
+    scribeSlot,
     // Every 5 minutes: the credits, what reconcile settles, then whatever can go.
     tick: async () => {
       await checkCredits();
       const result = await reconcile(db, config, completed);
+      slots.wake();
       await work();
       return result;
     },
@@ -806,6 +873,7 @@ export function jobWorker(
     // whatever can go goes.
     webhook(body: string) {
       const applied = applyWebhook(db, body, completed);
+      slots.wake();
       poke();
       return applied;
     },

@@ -1,6 +1,7 @@
 // A chat voice note heard for Life: its words by the speech service, Thai turns by Scribe, as a
 // recording's block is (route-turns.ts). Nothing of the audio is kept; one row per note
 // (`voice_note_hearings`) makes its Scribe send happen once.
+import { randomUUID } from "node:crypto";
 import { createRoute, z } from "@hono/zod-openapi";
 import { clock } from "@life/server/src/core/clock";
 import { voiceNoteHearings } from "@lifelog/db/schema/voice-note-hearings";
@@ -25,6 +26,8 @@ const IN_FLIGHT_MS = 5 * 60 * 1000;
 type Said = { text: string } | { invalid: boolean; message: string };
 const busy = (message: string): Said => ({ invalid: false, message });
 const LATER = { "Retry-After": "300" };
+// Life waits 180 s for the words, most of it for the speech service: a Scribe slot now, or busy.
+const SLOT_WAIT_MS = 0;
 
 export function voiceNoteRoutes({
   config,
@@ -82,9 +85,6 @@ export function voiceNoteRoutes({
       record(db, "voice_note.heard", { route: "local", seconds });
       return { text: localText };
     }
-    if (!worker.mayScribe()) {
-      return busy("ElevenLabs credits are used up");
-    }
     const heard = await hearRouted({ config, db }, bytes, said.heard, routed, {
       claim: () =>
         db
@@ -95,9 +95,17 @@ export function voiceNoteRoutes({
           .all().length === 1,
       keyterms: blockKeyterms(db),
       ref: { voiceNote: key.slice(0, 12) },
+      slot: () =>
+        worker.scribeSlot(`voice-note:${randomUUID()}`, {
+          priority: "ordinary",
+          waitMs: SLOT_WAIT_MS,
+        }),
     });
     if (!heard) {
       return busy("this note is being heard");
+    }
+    if (heard.kind === "unsent") {
+      return busy(heard.error);
     }
     if (heard.kind === "later") {
       // Nothing was taken or billed: the claim goes, the note may be sent again.
