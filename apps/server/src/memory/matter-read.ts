@@ -8,11 +8,13 @@ import {
 } from "../records/ledger-entry";
 import {
   type DirectionPin,
+  type IconPin,
   type ImportantPin,
   LATER_SHOWN,
   type Matter,
   type NextStep,
 } from "../records/matter";
+import type { MatterIconKey } from "../records/matter-icon";
 import type { Observation } from "../records/observation";
 import { KEEP_AT, TOP_AT } from "../records/unit";
 import {
@@ -77,6 +79,8 @@ export interface MatterRecords {
   directions: readonly DirectionPin[];
   /** Each unit's episode (`readBy`). */
   episodeOf: ReadonlyMap<string, Episode>;
+  /** His icons, a key or null (Life picks again), pinned to matters' steps (`matter-icon`). */
+  icons: readonly IconPin[];
   /** His important marks, on or off, pinned to matters' steps (`matter-important`). */
   important: readonly ImportantPin[];
   /** A person ref that is a mail sender no one answers: a no-reply address or his agents' reports (`isMailerHandle`). */
@@ -148,6 +152,8 @@ export interface MatterView {
   openSteps: MatterStepNow[];
   /** Whom he owes: who asked, or whom he promised. */
   owedTo: string[];
+  /** His pick of its icon (`chosenIconsOf`); none while Life picks (`iconNow`). */
+  ownerIcon?: MatterIconKey;
   projects: string[];
   status: MatterStatus;
   steps: MatterStepNow[];
@@ -481,8 +487,8 @@ interface Found {
 /**
  * The finder of the matter `refs` name, over `book`: the one holding the most of them (as its id or its steps' ids: a
  * unit can be a step of several matters), on a tie the one with the fewest steps (a matter inside a bigger one keeps
- * its own), then the first holder of the earliest ref (an agent's anchors, a pinned direction, a single id). Pure;
- * built once for many lookups.
+ * its own), then the first holder of the earliest ref (an agent's anchors, a pinned direction, a single id). `prefer`,
+ * a pin's matter id, breaks only a tie of the most held, before the size rule. Pure; built once for many lookups.
  */
 export function matterFinderOf<V extends Found>(book: readonly V[]) {
   const holders = new Map<string, V[]>();
@@ -493,7 +499,7 @@ export function matterFinderOf<V extends Found>(book: readonly V[]) {
       holders.set(ref, held);
     }
   }
-  return (refs: readonly string[]) => {
+  return (refs: readonly string[], prefer?: string) => {
     const held = new Map<V, number>();
     for (const ref of new Set(refs)) {
       for (const v of holders.get(ref) ?? []) {
@@ -502,10 +508,14 @@ export function matterFinderOf<V extends Found>(book: readonly V[]) {
     }
     let best: [V, number] | undefined;
     for (const [v, n] of held) {
+      // On a tie of the most held: the one picked (`prefer`), then the fewest steps.
+      const byPick = Number(v.id === prefer) - Number(best?.[0].id === prefer);
       if (
         !best ||
         n > best[1] ||
-        (n === best[1] && v.steps.length < best[0].steps.length)
+        (n === best[1] &&
+          (byPick > 0 ||
+            (byPick === 0 && v.steps.length < best[0].steps.length)))
       ) {
         best = [v, n];
       }
@@ -589,16 +599,22 @@ export function laterShownOf<T extends LaterObservation>(
     .slice(-LATER_SHOWN);
 }
 
-/** Each pin of his or Life's, oldest first, with the matter of `book` its steps find (`matterFinderOf`, so a re-group keeps it); a pin no matter holds is left out. Pure. */
+/** A book's matter finder (`matterFinderOf`), built once per book read and shared by every pin kind. */
+type Finder<V> = (refs: readonly string[], prefer?: string) => V | undefined;
+
+/**
+ * Each pin of his or Life's, oldest first, with the matter `find` finds by its steps (so a re-group keeps it); the
+ * matter's id when written only breaks a tie (between matters holding as many of its steps, the one picked); a pin no
+ * matter holds is left out. Pure.
+ */
 function pinnedOf<
   V extends Found,
-  P extends { at: string; steps: readonly string[] },
->(book: readonly V[], pins: readonly P[]) {
-  const find = matterFinderOf(book);
+  P extends { at: string; matter?: string; steps: readonly string[] },
+>(find: Finder<V>, pins: readonly P[]) {
   return pins
     .toSorted((a, b) => a.at.localeCompare(b.at))
     .flatMap((p) => {
-      const v = find(p.steps);
+      const v = find(p.steps, p.matter);
       return v ? [[v, p] as const] : [];
     });
 }
@@ -610,14 +626,14 @@ function pinnedOf<
  * `isDirectionDue`. Pure.
  */
 export function directionsOf<V extends Found>(
-  book: readonly V[],
+  find: Finder<V>,
   pins: readonly DirectionPin[]
 ) {
   const out = new Map<
     V,
     Pick<MatterView, "goal" | "nextStep"> & { latest?: DirectionPin }
   >();
-  for (const [v, p] of pinnedOf(book, pins)) {
+  for (const [v, p] of pinnedOf(find, pins)) {
     const was = out.get(v) ?? {};
     out.set(v, {
       goal:
@@ -674,7 +690,7 @@ export function directionDueOf(
   rec: Pick<MatterRecords, "directions" | "observations" | "refOf">,
   today: string
 ) {
-  const directions = directionsOf(book, rec.directions);
+  const directions = directionsOf(matterFinderOf(book), rec.directions);
   const byId = new Map(book.map((v) => [v.id, v]));
   return (id: string) => {
     const v = byId.get(id);
@@ -690,32 +706,26 @@ export function directionDueOf(
   };
 }
 
-/** How many of a matter's newest steps its net compares with. */
-const NET_STEPS = 8;
+/** A matter's text in meaning: its name and goal. What its net (`netOf`) and its icon (`readLifeIcons`) compare. Pure. */
+export const matterTextOf = (v: Pick<MatterView, "goal" | "name">) =>
+  v.goal ? `${v.name}: ${v.goal.text}` : v.name;
 
-/**
- * A matter's net (the desk's wide net, `desk/matter-net.ts`): who it is with in any role, and the texts a new message
- * or recording is compared with in meaning: its name and goal, its next step, its newest steps' words. Pure.
- */
-export const netOf = (v: MatterView) => ({
-  people: new Set(matterPeopleOf(v)),
-  texts: [
-    v.goal ? `${v.name}: ${v.goal.text}` : v.name,
-    ...(v.nextStep ? [v.nextStep.text] : []),
-    ...v.steps.slice(-NET_STEPS).map((s) => s.text),
-  ],
-});
-
-/** The ids of the matters of `book` his marks hold important (`pinnedOf`): the latest for a matter wins. Pure. */
+/** The ids of the matters `find` finds that his marks hold important (`pinnedOf`): the latest for a matter wins. Pure. */
 export function importantIdsOf<V extends Found>(
-  book: readonly V[],
+  find: Finder<V>,
   pins: readonly ImportantPin[]
 ) {
   const marked = new Map(
-    pinnedOf(book, pins).map(([v, p]) => [v.id, p.important])
+    pinnedOf(find, pins).map(([v, p]) => [v.id, p.important])
   );
   return new Set([...marked].flatMap(([id, on]) => (on ? [id] : [])));
 }
+
+/** His icon for each matter `find` finds (`pinnedOf`), by id: the latest pin for a matter wins; null gives it back to Life. Pure. */
+export const chosenIconsOf = <V extends Found>(
+  find: Finder<V>,
+  pins: readonly IconPin[]
+) => new Map(pinnedOf(find, pins).map(([v, p]) => [v.id, p.icon]));
 
 /**
  * `v`'s next step as it reads now: waiting on his decision while one he has not answered is about one of its steps
@@ -781,23 +791,24 @@ export function matterBookOf(
     .filter((t) => isOpenTodoItem(t) && !held.has(t.key))
     .flatMap((t) => lone(t.key, String(t.fields.title ?? "")));
   const book = [...views, ...loneObservations, ...loneItems];
-  const directions = directionsOf(book, rec.directions);
-  const marked = importantIdsOf(book, rec.important);
+  const find = matterFinderOf(book);
+  const directions = directionsOf(find, rec.directions);
+  const marked = importantIdsOf(find, rec.important);
+  const icons = chosenIconsOf(find, rec.icons);
   return book
     .map((v) => {
       const d = directions.get(v);
-      const important = v.open && marked.has(v.id);
-      return d
-        ? {
-            ...v,
-            important,
-            ...(d.goal ? { goal: d.goal } : {}),
-            ...(d.nextStep ? { nextStep: d.nextStep } : {}),
-            ...(d.latest?.endingRecords
-              ? { endingRecords: d.latest.endingRecords }
-              : {}),
-          }
-        : { ...v, important };
+      const ownerIcon = icons.get(v.id);
+      return {
+        ...v,
+        important: v.open && marked.has(v.id),
+        ...(d?.goal ? { goal: d.goal } : {}),
+        ...(d?.nextStep ? { nextStep: d.nextStep } : {}),
+        ...(d?.latest?.endingRecords
+          ? { endingRecords: d.latest.endingRecords }
+          : {}),
+        ...(ownerIcon ? { ownerIcon } : {}),
+      };
     })
     .toSorted((a, b) =>
       (b.steps.at(-1)?.day ?? "").localeCompare(a.steps.at(-1)?.day ?? "")

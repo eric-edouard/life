@@ -3,12 +3,14 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, HOUR, iso } from "../core/clock";
-import { agentOf } from "../host/desk-read";
+import { currentAssignmentOf } from "../host/desk-read";
 import { decisionsNow } from "../memory/decisions";
+import { AgentWait } from "../records/registered-agent";
 import { readPacket, register } from "./agent-actions";
 import { doorFetch, doorOf } from "./desk-door";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
+import { on } from "./test-desk";
 
 // The door: an agent is known by its key alone; its tools reach the desk's actions. Made-up agents and briefs.
 
@@ -20,11 +22,18 @@ const desk: Desk = {
 const fetchDoor = doorFetch(desk);
 const ahead = (ms: number) => iso(clock().getTime() + ms);
 
+/** A made-up agent in a desk turn on its one assignment: the door's tools act on that turn's. */
 const agent = (brief = "Test brief: a made-up bakery's order") => {
   const id = register(desk, { brief, folder: dir, runtime: "fake" });
   desk.db.run("update agent set link = ? where id = ?", [`fake://${id}`, id]);
+  turnOn(id, on(desk, id).id);
   return id;
 };
+const turnOn = (id: string, assignment: string) =>
+  desk.db.run(
+    "insert into turn (agent_id, assignment_id, cause, started_at) values (?, ?, 'first turn', ?)",
+    [id, assignment, clock().toISOString()]
+  );
 
 async function call(id: string, key: string, name: string, args: object) {
   const res = await fetchDoor(
@@ -67,7 +76,11 @@ const ask = (question: string) => ({
 test("the door refuses a wrong key, another agent's key and an unknown agent alike", async () => {
   const id = agent();
   const other = agent();
-  const wait = { events: [], reason: "r", until: ahead(HOUR) };
+  const wait = {
+    events: [{ text_matches: "blue envelope" }],
+    reason: "A delivery update",
+    until: ahead(HOUR),
+  };
   expect((await call(id, "0".repeat(64), "set_wait", wait)).status).toBe(401);
   expect((await call(id, doorOf(other).key, "set_wait", wait)).status).toBe(
     401
@@ -78,7 +91,15 @@ test("the door refuses a wrong key, another agent's key and an unknown agent ali
   await call(id, doorOf(id).key, "request_decision", ask("Test: plan?"));
   const ok = await call(id, doorOf(id).key, "set_wait", wait);
   expect(ok.result?.isError).toBe(false);
-  expect(agentOf(desk.db, id)?.wait_reason).toBe("r");
+  expect(currentAssignmentOf(desk.db, id)?.wait_reason).toBe(wait.reason);
+  const packet = await call(id, doorOf(id).key, "read_packet", {});
+  const shown = packet.text?.split("Your wait: ")[1]?.split("\n")[0];
+  const copy = JSON.parse(shown ?? "null");
+  expect(copy).toEqual({
+    ...wait,
+    events: [{ from_me: false, text_matches: "blue envelope" }],
+  });
+  expect(AgentWait.safeParse(copy).success).toBe(true);
 });
 
 test("request_decision asks as the desk, stamped with the agent and its link; one open at a time; only its own withdrawn", async () => {
@@ -99,7 +120,7 @@ test("request_decision asks as the desk, stamped with the agent and its link; on
     why: "not mine",
     withdraw: dec,
   });
-  expect(stolen.text).toContain("another agent");
+  expect(stolen.text).toContain("is not a card of this turn's assignment");
   await call(id, key, "request_decision", { why: "done", withdraw: dec });
   expect(decisionsNow().find((d) => d.id === dec)?.state).toBe("withdrawn");
 });
@@ -128,7 +149,9 @@ test("a new agent waits or finishes only once it asked its plan", async () => {
 
 test("a handed-out agent is told to ask its card, not its plan", async () => {
   const id = agent();
-  desk.db.run("update agent set is_handed_out = 1 where id = ?", [id]);
+  desk.db.run("update assignment set opened_by = 'desk' where agent_id = ?", [
+    id,
+  ]);
   const { key } = doorOf(id);
   const wait = { events: [], reason: "r", until: ahead(HOUR) };
   const refused = (await call(id, key, "set_wait", wait)).text;
@@ -146,15 +169,24 @@ test("an agent that finished may read its packet, nothing else", async () => {
   const notes = await call(id, key, "write_notes", { text: "late" });
   expect(notes.text).toContain("not active");
   const packet = await call(id, key, "read_packet", {});
+  expect(packet.text).not.toContain("Your wait");
   expect(packet.text).toContain("a made-up bakery");
   expect(packet.text).toContain("set_wait");
   expect(packet.text).toContain("The one gate");
 });
 
+test("a stopped agent's open assignment has no current wait", async () => {
+  const id = agent();
+  const assignment = on(desk, id);
+  expect(await readPacket(desk, assignment, true)).toContain("Your wait");
+  desk.db.run("update agent set status = 'stopped' where id = ?", [id]);
+  expect(await readPacket(desk, assignment, true)).not.toContain("Your wait");
+});
+
 test("the contract: his own Life's agent is told the Mac is its own; a second Life's has its door's tools only; both keep the gate and the first-turn rule", async () => {
   const id = agent();
-  const own = await readPacket(desk, id, true);
-  const second = await readPacket(desk, id, false);
+  const own = await readPacket(desk, on(desk, id), true);
+  const second = await readPacket(desk, on(desk, id), false);
   expect(own).toContain("this Mac is yours");
   expect(own).toContain("1Password");
   expect(own).toContain("Reaching him");
@@ -167,5 +199,8 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
   for (const text of [own, second]) {
     expect(text).toContain("The one gate");
     expect(text).toContain("act only after his Go");
+    expect(text).toContain("name the matter before you act");
+    expect(text).toContain("never with a Monitor");
+    expect(text).toContain("`github` is a wait channel");
   }
 });

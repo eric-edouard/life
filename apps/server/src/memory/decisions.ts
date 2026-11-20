@@ -365,7 +365,7 @@ export const decisionsNow = (now = clock()): Decision[] =>
     return { ...o, state: stateOf(o, now) };
   });
 
-/** Registered agent `agent`'s open decision, if any: it asks one at a time (`requestDecision`), worked out from `list`, never stored. */
+/** Registered agent `agent`'s open decision, if any: the door lets each assignment ask one at a time, worked out from `list`, never stored. */
 export const openDecisionOf = (agent: string, list = decisionsNow()) =>
   list.find((d) => d.agent === agent && d.state === "open");
 
@@ -473,14 +473,17 @@ function withdrawDecision(asker: string, request: object, now: Date) {
 
 /**
  * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker. A draft's chat
- * is resolved now (`readChat`), so his card names it and nothing is sent to a chat he didn't see.
+ * is resolved now (`readChat`), so his card names it and nothing is sent to a chat he didn't see. `claim`, when given, is
+ * handed the subject Life will store and the card's id just before the card is written, and may refuse it by throwing
+ * (the desk: whose card it is).
  */
 export async function requestDecision(
   asker: string,
   // An agent's arguments arrive unchecked (`DecisionRequest` is loose where the contract grows); `Ask` checks them here.
   request: Record<string, unknown>,
   now = clock(),
-  readChat = resolveDraft
+  readChat = resolveDraft,
+  claim?: (subject: string | undefined, id: string) => void
 ): Promise<{ id: string }> {
   if (request.withdraw) {
     return withdrawDecision(asker, request, now);
@@ -499,15 +502,6 @@ export async function requestDecision(
   const problem = cardProblemOf(ask, now);
   if (problem) {
     throw new Error(`Not done: ${problem}.`);
-  }
-  // A registered agent asks him one thing at a time (an inbox rule, not a limit on its work).
-  const open = ask.agent
-    ? openDecisionOf(ask.agent, decisionsNow(now))
-    : undefined;
-  if (open) {
-    throw new Error(
-      `Not done: ${ask.agent} already asks ${open.id}; withdraw it or wait for his answer.`
-    );
   }
   // A step no open matter holds would never be listed: refused, so no question goes unseen. A matter's own id rides on
   // its newest step: a step outlives a re-group, a matter id doesn't.
@@ -538,6 +532,7 @@ export async function requestDecision(
   const draft = ask.draft && (await readChat(ask.draft, now));
   refuseSecondDraft(draft, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
+  claim?.(subject, id);
   appendJsonl(DECISIONS, Asked, [
     {
       ...ask,

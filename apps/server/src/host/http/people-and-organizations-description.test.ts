@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import { setSettings, settings } from "../../core/settings";
-import { personPageDescription } from "./mcp";
+import { peopleAndOrganizationsDescription } from "./mcp";
 
-test("read_person_page tells only of the parts whose add-on is on", () => {
+test("read_people_and_organizations tells only of the parts whose add-on is on", () => {
   const was = settings().personal ?? null;
   try {
     setSettings({ personal: null });
-    const off = personPageDescription();
-    expect(off).toContain("communication style");
+    const off = peopleAndOrganizationsDescription();
+    expect(off).toContain("communicationStyle");
     for (const word of ["persona", "story", "get along", "together or not"]) {
       expect(off).not.toContain(word);
     }
@@ -18,7 +18,7 @@ test("read_person_page tells only of the parts whose add-on is on", () => {
         relationships: {},
       },
     });
-    const on = personPageDescription();
+    const on = peopleAndOrganizationsDescription();
     for (const word of ["`persona`", "`story`", "get along"]) {
       expect(on).toContain(word);
     }

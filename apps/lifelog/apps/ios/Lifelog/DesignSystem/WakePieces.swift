@@ -1,19 +1,21 @@
 import LifeConnector
 import SwiftUI
 
-/// What leads a flat row, in the round 32 slot.
+/// What leads a flat row, in its round slot.
 enum FlatLead {
     case person(String)
     case symbol(String)
 }
 
 /// One row of a flat list (an agent's wake list, the people sheet). Not a settings `Row`: the wake list is flat (no fill, no dividers), each row 48 high
-/// with a round 32 lead, the title, a small line under it and one thing at the right. Muted when the line can never fire.
+/// with a round 32 lead (40 in the people sheet), the title, a small line under it and one thing at the right. Muted when
+/// the line can never fire.
 struct FlatRow<Title: View, Trailing: View>: View {
     let lead: FlatLead
     var detail: String?
     var detailColor = Palette.muted
     var isMuted = false
+    var slotSize = Metrics.FlatRow.slot
     @ViewBuilder var title: Title
     @ViewBuilder var trailing: Trailing
 
@@ -33,10 +35,10 @@ struct FlatRow<Title: View, Trailing: View>: View {
 
     @ViewBuilder private var slot: some View {
         switch lead {
-        case .person(let name): Avatar(name: name, size: Metrics.FlatRow.slot).opacity(isMuted ? 0.45 : 1)
+        case .person(let name): Avatar(name: name, size: slotSize, fill: Palette.tile).opacity(isMuted ? 0.45 : 1)
         case .symbol(let symbol):
             Image(systemName: symbol).font(.smallStrong).foregroundStyle(Palette.fg)
-                .frame(width: Metrics.FlatRow.slot, height: Metrics.FlatRow.slot)
+                .frame(width: slotSize, height: slotSize)
                 .background(Color.fillTint, in: .circle)
                 .opacity(isMuted ? 0.45 : 1).accessibilityHidden(true)
         }

@@ -1,15 +1,17 @@
 import LifeConnector
 import SwiftUI
 
-/// A person's initials on a `card` disc; a network's mark sits on its corner when given.
+/// A person's initials on a disc (`card`, or `tile` on a sheet's flat list), small type on a small disc so they keep their
+/// margin; a network's mark sits on its corner when given.
 struct Avatar: View {
     let name: String
     var size: CGFloat = 64
+    var fill = Palette.card
     var network: String?
 
     var body: some View {
-        Text(SaidWords.initials(name)).font(.leadBold).foregroundStyle(Palette.fg)
-            .frame(width: size, height: size).background(Palette.card, in: .circle)
+        Text(SaidWords.initials(name)).font(size < 48 ? .smallStrong : .leadBold).foregroundStyle(Palette.fg)
+            .frame(width: size, height: size).background(fill, in: .circle)
             .overlay(alignment: .bottomTrailing) { if network != nil { NetworkMark(network: network) } }
             .accessibilityHidden(true)
     }
@@ -31,5 +33,41 @@ struct RoundIconButton: View {
                 .motion(Motion.standard, value: isDone)
         }
         .buttonStyle(.plain).accessibilityLabel(label)
+    }
+}
+
+/// One row of a sheet's fields (`field_rows`): a small `muted` label, "Life's guess" after it in `ai` while the value is
+/// Life's and he is not editing it, the value under it, a pencil at the end. A tap anywhere edits the value in place,
+/// on the page's fill, with the caret in `fg`.
+struct FieldRow: View {
+    let label: String
+    var prompt = ""
+    @Binding var text: String
+    var isGuess = false
+
+    @FocusState private var isEditing: Bool
+
+    var body: some View {
+        HStack(spacing: Metrics.Spacing.m) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                HStack(spacing: Metrics.Spacing.s) {
+                    // The field carries the label for VoiceOver.
+                    Text(label).foregroundStyle(Palette.muted).accessibilityHidden(true)
+                    if isGuess && !isEditing { Text("Life’s guess").foregroundStyle(Palette.ai).appears() }
+                }
+                .font(.small)
+                TextField(prompt, text: $text, axis: .vertical).font(.rowFigure).foregroundStyle(Palette.fg)
+                    .focused($isEditing).tint(Palette.fg).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(label)
+                    .padding(isEditing ? Metrics.Spacing.m : 0)
+                    .background(isEditing ? Palette.bg : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "pencil").font(.small).foregroundStyle(Palette.muted).accessibilityHidden(true)
+        }
+        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m)
+        .contentShape(.rect).onTapGesture { isEditing = true }
+        .motion(Motion.standard, value: isEditing)
+        .motion(Motion.standard, value: isGuess)
     }
 }

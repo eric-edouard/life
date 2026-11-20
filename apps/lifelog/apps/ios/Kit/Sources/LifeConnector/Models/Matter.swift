@@ -8,6 +8,22 @@ public enum MatterStatus: String, UnknownTolerant, Sendable {
     case unknown
 }
 
+/// A project's status as stored in his directory; the app shows `active` and `waiting` as one, underway.
+public enum ProjectStatus: String, UnknownTolerant, Sendable, Encodable {
+    case active, waiting, parked, done
+    case unknown
+
+    /// Whether its matters are worked on: active or waiting (`isUnderway`, `records/truth.ts`).
+    public var isUnderway: Bool { self == .active || self == .waiting }
+}
+
+/// A matter's project as the matters read gives it.
+public struct MatterProject: Decodable, Sendable, Equatable {
+    public let id: String
+    public let name: String
+    public let status: ProjectStatus
+}
+
 public enum Author: String, UnknownTolerant, Sendable {
     case life, owner
     case unknown
@@ -36,6 +52,13 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
         public let by: Author?
     }
 
+    /// Its icon: his pick (`owner`) or Life's (`life`); the key stays text (Life may add keys: `MatterIcons.symbol` is nil
+    /// for one this app lacks).
+    public struct Icon: Decodable, Sendable, Equatable {
+        public let by: Author
+        public let key: String
+    }
+
     public struct People: Decodable, Sendable, Equatable {
         public let owedTo: [Party]?
         public let waitingOn: [Party]?
@@ -47,6 +70,8 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     public let name: String
     public let status: MatterStatus
     public let goal: Goal?
+    /// Absent when neither he nor Life picked one: the phone shows the first area's icon, then the folder.
+    public let icon: Icon?
     public let nextStep: NextStep?
     public let people: People?
     public let areas: [String]?
@@ -57,11 +82,27 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     public let blockingChecks: Int?
     /// Whether it needs him (Life decides: its next step is his, or a check about it blocks him): the row's dot and the filter.
     public let needsYou: Bool?
+    /// His one mark on it, by his word; absent when not marked. Life lists the marked ones first.
+    public let important: Bool?
+    /// The project it shows under; Life lists a parked or done project's matters last.
+    public let project: MatterProject?
+
+    /// Whether its project is parked or done: the list draws it dimmed, under "Parked".
+    public var isParked: Bool { project.map { !$0.status.isUnderway && $0.status != .unknown } ?? false }
 }
 
-/// `read_matters`: the running matters, most pressing first.
+/// `read_matters`: the running matters, most pressing first; of one project, its page's head too.
 public struct MatterList: Decodable, Sendable, Equatable {
+    /// A project's page: its name, status as stored and his goal naming it.
+    public struct ProjectHead: Decodable, Sendable, Equatable {
+        public let id: String
+        public let name: String
+        public let status: ProjectStatus
+        public let goal: String?
+    }
+
     public let matters: [MatterRow]
+    public let project: ProjectHead?
 
     /// The matters whose name, goal, next step or people hold `query` (searched on the phone: the list is every running matter).
     public func matching(_ query: String) -> [MatterRow] {
@@ -73,9 +114,9 @@ public struct MatterList: Decodable, Sendable, Equatable {
         }
     }
 
-    /// The matters `filter` lets through, in the list's order.
-    public func shown(filter: MatterFilter) -> [MatterRow] {
-        matters.filter(filter.passes)
+    /// The matters `filter` lets through, in the list's order, by his mark as shown (`isMarked`: his tap first).
+    public func shown(filter: MatterFilter, isMarked: (MatterRow) -> Bool) -> [MatterRow] {
+        matters.filter { filter.passes($0, isMarked: isMarked($0)) }
     }
 
     /// The filter menu's areas, over every running matter, most matters first.
@@ -85,15 +126,17 @@ public struct MatterList: Decodable, Sendable, Equatable {
     }
 }
 
-/// What the Matters list's filter menu chooses: everything, what needs him, what an agent works on, or one area.
+/// What the Matters list's filter menu chooses: everything, what needs him, what he marked, what an agent works on, or
+/// one area.
 public enum MatterFilter: Hashable, Sendable {
-    case everything, needsYou, agentWorking
+    case everything, needsYou, important, agentWorking
     case area(String)
 
-    func passes(_ row: MatterRow) -> Bool {
+    func passes(_ row: MatterRow, isMarked: Bool) -> Bool {
         switch self {
         case .everything: true
         case .needsYou: row.needsYou == true
+        case .important: isMarked
         case .agentWorking: row.agent != nil
         case .area(let area): row.areas?.contains(area) == true
         }

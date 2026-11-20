@@ -95,6 +95,8 @@ private func ids(_ state: State) -> [String] { state.steps.map(\.id) }
 @Test func aConnectionThatFailedIsTheSameTapAndALifeRefusalIsFinal() {
     #expect(ActionFailure(.unreachable).isSameTap)
     #expect(ActionFailure(.streamDropped).retry == .allowed)
+    #expect(ActionFailure(.streamDropped).canTryAgain)
+    #expect(!ActionFailure(reason: "?", retry: .allowed, mayHaveHappened: true).canTryAgain)
     #expect(ActionFailure(.refused("Not done: no open check")).retry == .no)
     #expect(!ActionFailure(.refused("x")).isSameTap)
     #expect(ActionFailure(.notPaired).retry == .no)

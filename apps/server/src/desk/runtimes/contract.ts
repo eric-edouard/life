@@ -16,7 +16,7 @@ export interface Run {
   ended: Promise<RunEnd>;
 }
 
-/** The turn's tokens, and the whole context of its first and last call (null when the runtime reported none): the session's growth is `growthOf`'s. */
+/** The turn's tokens, and the whole context of its first and last call (null when the runtime reported none), kept as a record: no decision reads it. */
 export interface Usage {
   contextFirst: number | null;
   contextLast: number | null;

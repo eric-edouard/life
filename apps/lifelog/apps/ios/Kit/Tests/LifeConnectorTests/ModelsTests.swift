@@ -11,6 +11,36 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 /// What Life's server tests wrote (`fixtures/wire/life/`) read with the phone's models: a read that changes shape fails
 /// there first, then here, naming the model.
+#if DEBUG
+    /// The simulator's design data, put together as the fixture answers with it (`DesignReplies`), reads with the phone's own
+    /// reply models: a reply that breaks a model (a field gone, a shape changed) fails here, not on screen.
+    @Test func theDesignDataDecodes() throws {
+        func object(_ name: String) throws -> [String: Any] {
+            try #require(JSONSerialization.jsonObject(with: Data(designText(name).utf8)) as? [String: Any])
+        }
+        func reply<V: Decodable>(_ type: V.Type, _ value: [String: Any]) throws -> V {
+            try decoded(type, String(decoding: JSONSerialization.data(withJSONObject: value), as: UTF8.self))
+        }
+        let read = try object("read_inbox")
+        let checks = try #require(read["checks"] as? [[String: Any]])
+        let inbox = try reply(Inbox.self, DesignReplies.inbox(read, checks: checks))
+        #expect(!inbox.checks.isEmpty && inbox.total == inbox.checks.count)
+        let rows = try #require(try object("read_matters")["matters"] as? [[String: Any]])
+        #expect(try reply(MatterList.self, DesignReplies.matters(rows)).matters.count == rows.count)
+        let agents = try object("read_registered_agents")
+        #expect(try !decoded(RegisteredAgents.self, designText("read_registered_agents")).agents.isEmpty)
+        let matterRead = try object("read_matter")
+        let allAgents = (agents["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])
+        for row in rows {
+            let matter = try reply(
+                Matter.self,
+                DesignReplies.matter(
+                    row, agents: allAgents, steps: matterRead["steps"] as? [String: Any] ?? [:], checks: checks))
+            #expect(!matter.steps.isEmpty, "\(matter.row.id)")
+        }
+    }
+#endif
+
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
     #expect(inbox.total == 8)
@@ -59,7 +89,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(voice.likelyPeople.first?.picture?.id == "00000000000000000000000000000a02")
     let name = try #require(inbox.checks.first { $0.group == .name })
     #expect(name.said?.by == "Gran")
-    #expect(name.around?.before.isEmpty == false)
+    #expect(name.askedName == "Sam")
     #expect(inbox.checks.first { $0.group == .ending }?.ridesOn?.matters == 1)
     let found = try #require(
         try decoded(Matter.self, wireText("life/read_matter_found.json")).checks.first)
@@ -81,10 +111,27 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.people?.with?.first?.picture == nil)
     #expect(row.agent == "agt_000000000001")
     #expect(row.blockingChecks == 1)
+    #expect(row.important == true)
+    #expect(row.project == MatterProject(id: "shop-fit-out", name: "Shop fit-out", status: .active))
+    #expect(list.matters.map(\.isParked) == [false, false, false])
     #expect(list.matters[2].goal == nil)
+    // His pick, Life's, and none (the phone shows the area's).
+    #expect(list.matters.map(\.icon?.by) == [.owner, nil, .life])
+    #expect(list.matters.map(\.icon?.key) == ["tools", nil, "key"])
+    #expect(list.matters.compactMap(\.icon?.key).allSatisfy { MatterIcons.symbol($0) != nil })
+    #expect(MatterIcons.symbol("a_new_key") == nil)
+    #expect(list.matters[2].important == nil)
+    #expect(list.project == nil)
+
+    let project = try decoded(MatterList.self, wireText("life/read_matters_project.json"))
+    #expect(project.project?.name == "Shop fit-out")
+    #expect(project.project?.status == .active)
+    #expect(project.project?.goal == "The shop opens in spring.")
+    #expect(project.matters.map(\.id) == ["matter_aaaaaaaaaaaa"])
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
     #expect(matter.row.name == "Mend Gran's watch")
+    #expect(matter.row.icon == MatterRow.Icon(by: .owner, key: "tools"))
     #expect(matter.steps.count == 2)
     #expect(matter.steps[1].ending?.by == .ticked)
     #expect(matter.checks.map(\.group) == [.decision, .ending])
@@ -128,11 +175,28 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         """#
     let list = try decoded(MatterList.self, text)
     #expect(list.areasByCount == ["Home", "Money", "Work"])
-    func ids(_ filter: MatterFilter) -> [String] { list.shown(filter: filter).map(\.id) }
+    func ids(_ filter: MatterFilter) -> [String] { list.shown(filter: filter) { _ in false }.map(\.id) }
     #expect(ids(.everything) == ["a", "b", "c", "d"])
     #expect(ids(.area("Home")) == ["a", "b"])
     #expect(ids(.needsYou) == ["a"])
     #expect(ids(.agentWorking) == ["a"])
+}
+
+@Test func aParkedOrDoneProjectsMattersAreParkedAndTheMarkFilters() throws {
+    let text = #"""
+        {"matters":[
+        {"id":"a","name":"A","status":"moving","important":true,"project":{"id":"p","name":"P","status":"waiting"}},
+        {"id":"b","name":"B","status":"moving","project":{"id":"q","name":"Q","status":"parked"}},
+        {"id":"c","name":"C","status":"moving","project":{"id":"r","name":"R","status":"done"}},
+        {"id":"d","name":"D","status":"moving","project":{"id":"s","name":"S","status":"on_ice"}}]}
+        """#
+    let list = try decoded(MatterList.self, text)
+    #expect(list.matters.map(\.isParked) == [false, true, true, false])
+    #expect(list.matters[0].project?.status.isUnderway == true)
+    #expect(list.matters[3].project?.status == .unknown)
+    // His mark as shown filters: a tap that unmarks "a" and marks "b" moves both.
+    #expect(list.shown(filter: .important) { $0.important == true }.map(\.id) == ["a"])
+    #expect(list.shown(filter: .important) { $0.id == "b" }.map(\.id) == ["b"])
 }
 
 @Test func aRowCarriesLifesWordThatItNeedsHim() throws {
@@ -222,11 +286,22 @@ private func everyKindOfCheck() throws -> [Check] {
         #expect(
             check.answer(naming: .person("person:gran"))
                 == AnswerRequest(ref: check.ref, options: [only.id], person: "person:gran"))
-        // A name he types is a new person's name ("New person: X"): the one person Life holds by it, else added (life#721).
+        // A name he types is a new person's name (the create sheet's): the one person Life holds by it, else added (life#721).
         #expect(
             check.answer(naming: .name("Gran")) == AnswerRequest(ref: check.ref, options: [only.id], name: "Gran"))
         #expect(!check.takesOwnWords)
     }
+    // The create sheet: the person through the naming option, his words only when given; the organization by its own.
+    let name = try card(.name)
+    #expect(!name.createsByName, "Life has people to suggest")
+    #expect(
+        name.answer(creating: "Sam Vale", note: nil, asOrganization: false)
+            == AnswerRequest(ref: name.ref, options: ["this-is"], name: "Sam Vale"))
+    #expect(
+        name.answer(creating: "Sam Vale", note: "A shop", asOrganization: true)
+            == AnswerRequest(ref: name.ref, options: ["organization"], note: "A shop", name: "Sam Vale"))
+    #expect(decision.answer(creating: "Lou", note: nil, asOrganization: false) == nil)
+    #expect(try card(.voice).organizationOption == nil)
     #expect(try card(.contactsCard).likelyPeople.map(\.ref) == ["person:gran", "person:partner"])
     #expect(try card(.contactsCard).networkIdentity == nil)
     #expect(try card(.contactsCard).contactsCard?.name == "Lou")
@@ -248,6 +323,33 @@ private func everyKindOfCheck() throws -> [Check] {
 
     // No button reads like the words a model is given.
     #expect(all.flatMap(\.options).allSatisfy { !$0.label.contains("`") && $0.label.count < 30 })
+}
+
+/// Only a name card opens the create sheet: a voice's new name goes to lifelog alone, and a Contacts card's `about` holds
+/// its handles, never a name to create. Its note is his words only: trimmed, and never Life's guess (life#737).
+@Test func onlyANameCardCreatesBySheet() throws {
+    let all = try everyKindOfCheck()
+    func card(_ group: CheckGroup) throws -> Check { try #require(all.first { $0.group == group }) }
+    let name = try card(.name)
+    #expect(name.createsBySheet && name.askedName != nil)
+    let organization = try #require(name.organizationOption)
+    #expect(name.createsOrganizationBySheet(organization), "\"Organization\" opens the sheet, never answers at once")
+    #expect(name.options.filter(name.createsOrganizationBySheet).map(\.id) == ["organization"])
+    for group in [CheckGroup.voice, .contactsCard] {
+        let check = try card(group)
+        #expect(!check.createsBySheet && !check.createsByName && check.askedName == nil, "\(group)")
+        #expect(check.answer(creating: "Lou", note: "Gran's friend", asOrganization: false) == nil, "\(group)")
+    }
+    let guess = "Mentioned by Nora Keller, about “Quote”"
+    let create = { (note: String) in
+        name.answer(creating: " Sam Vale ", note: note, guess: guess, asOrganization: false)
+    }
+    #expect(create(guess + " ")?.note == nil, "a whitespace edit of Life's guess is not his words")
+    #expect(
+        create(guess.replacing(" by ", with: "  by "))?.note == nil, "nor is a space doubled between its words")
+    #expect(create("  ")?.note == nil)
+    #expect(create(" Nora's architect ")?.note == "Nora's architect")
+    #expect(create("x")?.name == "Sam Vale")
 }
 
 @Test func theAskerIsNamedOnce() throws {
@@ -353,4 +455,14 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(order.only(nil) == order)
     // A kind with none waiting is no filter at all.
     #expect(order.only(.newMatter) == order)
+}
+
+/// A name card with no one to suggest offers "Create <name>", the longest name it asks about.
+@Test func aNameWithNoOneToSuggestIsCreatedByItsWholeName() throws {
+    let inbox = try JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any]
+    var name = try #require((inbox?["checks"] as? [[String: Any]])?.first { $0["group"] as? String == "name" })
+    (name["likelyPeople"], name["about"]) = ([], ["Sam", "Sam Vale"])
+    let check = try decoded(Check.self, String(decoding: JSONSerialization.data(withJSONObject: name), as: UTF8.self))
+    #expect(check.createsByName)
+    #expect(check.askedName == "Sam Vale")
 }

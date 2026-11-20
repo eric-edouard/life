@@ -1,9 +1,9 @@
-import { setSystemTime } from "bun:test";
+import { setSystemTime, spyOn } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, HOUR, iso } from "../core/clock";
-import { agentOf } from "../host/desk-read";
+import { agentOf, currentAssignmentOf } from "../host/desk-read";
 import type { Messaging } from "../host/events";
 import type { SourceEvent } from "../records/source";
 import { register, setWait } from "./agent-actions";
@@ -77,7 +77,7 @@ export function setup() {
       runtime: "fake",
     });
     await wakeDue(desk);
-    await setWait(desk, id, {
+    await setWait(desk, on(desk, id), {
       events: [ANA],
       reason: "Ana's reply",
       until: ahead(until),
@@ -93,8 +93,8 @@ export function setup() {
       .all(id);
   const queue = (id: string, eventId: string, name = "message.received") =>
     desk.db.run(
-      "insert into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, '{}', ?)",
-      [id, eventId, name, clock().toISOString()]
+      "insert into event (assignment_id, event_id, name, payload, received_at) values (?, ?, ?, '{}', ?)",
+      [asgOf(desk, id), eventId, name, clock().toISOString()]
     );
   const eventRow = (id: string, eventId: string) =>
     desk.db
@@ -106,22 +106,24 @@ export function setup() {
         },
         [string, string]
       >(
-        "select handed, consumed_at, dropped_at from event where agent_id = ? and event_id = ?"
+        "select handed, consumed_at, dropped_at from event where assignment_id = ? and event_id = ?"
       )
-      .get(id, eventId);
+      .get(asgOf(desk, id), eventId);
   return { desk, dir, end, eventRow, fake, path, queue, turns, waiting, write };
 }
 
-/** Session `ref` has grown by `by` tokens: as its first call and its turns' last would say (`growthOf`). */
-export function grow(desk: Desk, ref: string, by: number) {
-  desk.db.run("update session set context_at_first_call = 1000 where ref = ?", [
-    ref,
-  ]);
-  desk.db.run("update turn set context_used = ? where session = ?", [
-    1000 + by,
-    ref,
-  ]);
+/** The assignment row agent `id` works on (each test agent has one): what the door's tools take. */
+export function on(desk: Desk, id: string) {
+  const s = currentAssignmentOf(desk.db, id);
+  if (!s) {
+    throw new Error(`${id} holds no assignment`);
+  }
+  return s;
 }
+
+/** The assignment agent `id` works on (each test agent has one). */
+export const asgOf = (desk: Desk, id: string) =>
+  currentAssignmentOf(desk.db, id)?.id ?? "";
 
 /** A new agent on a made-up matter, its first turn launched. */
 export async function started(desk: Desk, step: string) {
@@ -133,4 +135,48 @@ export async function started(desk: Desk, step: string) {
   });
   await wakeDue(desk);
   return id;
+}
+
+/** A made-up open matter holding `steps` (each a to-do at `at`), as the matter book gives it. */
+export const matterView = (
+  id: string,
+  steps: string[],
+  at = "2026-11-18T08:00:00.000Z"
+) => ({
+  areas: [],
+  goal: { at, by: "life", text: `Goal of ${id}` },
+  hasOwnOpenStep: true,
+  id,
+  important: false,
+  lone: false,
+  name: `Matter ${id}`,
+  nextStep: { at, by: "life", kind: "do", text: `Next step of ${id}` },
+  open: true,
+  openSteps: [],
+  owedTo: [],
+  projects: [],
+  status: "moving",
+  steps: steps.map((ref) => ({
+    at,
+    day: at.slice(0, 10),
+    kind: "to_do",
+    quote: "",
+    ref,
+    text: `Step ${ref}`,
+  })),
+  waitingOn: [],
+  with: [],
+});
+
+/** Runs `f` while the matter book holds `views` (`readMatterBook`). */
+export async function withMatters<T>(views: unknown[], f: () => Promise<T>) {
+  const matters = await import("../memory/matters");
+  const book = spyOn(matters, "readMatterBook").mockResolvedValue(
+    views as never
+  );
+  try {
+    return await f();
+  } finally {
+    book.mockRestore();
+  }
 }

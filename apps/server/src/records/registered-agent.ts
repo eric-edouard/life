@@ -97,8 +97,8 @@ export type AgentWait = z.infer<typeof AgentWait>;
 /** A registered agent's status: `active` (a turn running or waiting), `stopped` (restarts on his word only), or done with. */
 export type AgentStatus = "active" | "stopped" | "handed_over" | "ended";
 
-/** Who started a registered agent: he did (`asked`: his word, his Start), or the desk did itself (`handed_out`, the hand-out). */
-export type AgentKind = "asked" | "handed_out";
+/** Who opened an assignment: he did (`owner`: his word, his Start), or the desk did itself (`desk`, the hand-out). */
+export type OpenedBy = "owner" | "desk";
 
 /** How an agent turn ended: it set a wait or finished, the desk set the default wait, or it failed (its process failed, or ended unheard). */
 export type TurnOutcome = "waited" | "finished" | "default_wait" | "failed";

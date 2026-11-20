@@ -1,7 +1,9 @@
+import type { MatterIconKey } from "../records/matter-icon";
 import { isUnderway, type Project } from "../records/truth";
 import { communicationStylesOf } from "./communication-styles";
 import { decisionsNow } from "./decisions";
 import type { AgentHold } from "./held-matters";
+import { iconNow } from "./matter-icons";
 import {
   directionDueOf,
   isRunning,
@@ -39,6 +41,8 @@ const ROLES: readonly Role[] = ["owedTo", "waitingOn", "with"];
 export interface MatterRow {
   areas?: string[];
   goal?: { by: "life" | "owner"; text: string };
+  /** Its icon (`iconNow`): his pick, else Life's; left out with neither, or when the reader asked for no Life picks. */
+  icon?: { by: "life" | "owner"; key: MatterIconKey };
   id: string;
   /** Marked important by his word (`MatterView.important`); left out when not. */
   important?: true;
@@ -70,10 +74,16 @@ const some = <T>(list: T[]) => (list.length > 0 ? list : undefined);
 const nameIn = (list: { id: string; name: string }[], id: string) =>
   list.find((x) => x.id === id)?.name ?? id;
 
+/** Life's icon picks for some matters, by id (`readLifeIcons`): the connector's reads pass it, the desk's summaries don't. */
+type LifeIconsReader = (
+  views: readonly MatterView[]
+) => Promise<ReadonlyMap<string, MatterIconKey>>;
+
 function rowOf(
   v: MatterView,
   { partyOf, truth }: Pick<People, "partyOf" | "truth">,
-  decisions: ReturnType<typeof openDecisions>
+  decisions: ReturnType<typeof openDecisions>,
+  lifeIcons: ReadonlyMap<string, MatterIconKey> = new Map()
 ): MatterRow {
   const project = projectOf(truth)(v);
   const next = nextStepNow(v, decisions);
@@ -85,6 +95,7 @@ function rowOf(
   return {
     areas: some(v.areas.map((id) => nameIn(truth.areas, id))),
     goal: v.goal && { by: v.goal.by, text: v.goal.text },
+    icon: iconNow(v, lifeIcons),
     id: v.id,
     important: v.important || undefined,
     lastStepAt: v.steps.at(-1)?.at,
@@ -182,9 +193,9 @@ async function rankedRunning<R extends { book: MatterView[] }>(
 
 /**
  * The running matters, ranked as `read_day`'s Due (those with no open step last), of one `person`, `project` or `area` when given: each
- * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one anchored on the matter, else the one holding one of its projects). Throws when a person, project or area named goes by no name known.
- * Of one project, its page's head too (`project`): its name, status as stored, the first of his goals naming it, and, when it is not
- * underway, how many of its matters are parked (`parkedMatters`, `isParkedMatterOf`).
+ * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one anchored on the matter, else the one holding one of its projects) and, given `readIcons`, Life's icon picks for the ranked list. Throws when a person, project or area named goes by no name known.
+ * Of one project, its page's head too (`project`): its name, status as stored and the first of his goals naming it; a
+ * matter is parked by the project its row shows under (`projectOf`), not by this one.
  */
 export async function openMatters(
   q: {
@@ -193,7 +204,8 @@ export async function openMatters(
     project?: string;
   },
   agentOf: (steps: string[], projects: string[]) => string | undefined = () =>
-    undefined
+    undefined,
+  readIcons?: LifeIconsReader
 ) {
   const { decisions, people, project, ranked } = await rankedRunning(
     q,
@@ -201,9 +213,9 @@ export async function openMatters(
       book: await readMatterBook(p, t),
     })
   );
+  const lifeIcons = await readIcons?.(ranked);
   const { truth } = people;
   const head = truth.projects.find((x) => x.id === project);
-  const isParked = isParkedMatterOf(truth);
   return {
     ...(head && {
       project: {
@@ -211,14 +223,11 @@ export async function openMatters(
           ?.text,
         id: head.id,
         name: head.name,
-        parkedMatters: isUnderway(head)
-          ? undefined
-          : ranked.filter(isParked).length,
         status: head.status,
       },
     }),
     matters: ranked.map((v) => ({
-      ...rowOf(v, people, decisions),
+      ...rowOf(v, people, decisions, lifeIcons),
       agent: agentOf(refsOf(v), v.projects),
     })),
   };
@@ -361,7 +370,7 @@ export const readMatterProjectIds = async (refs: readonly string[]) =>
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
  * agent anchored on records finds its matter again after a re-group): its `MatterRow`, its steps in time order (each
- * with its day, words, quote, who it was with as a party and `ending`: none while open), then `agentsOf`'s agents on it now and before, then the registered agents active on its projects (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his).
+ * with its day, words, quote, who it was with as a party and `ending`: none while open), then `agentsOf`'s agents on it now and before, then the registered agents active on its projects (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his); given `readIcons`, Life's icon pick.
  * Undefined when no matter holds them.
  */
 export async function oneMatter<A>(
@@ -370,13 +379,14 @@ export async function oneMatter<A>(
     steps: string[],
     projects: string[],
     people: People
-  ) => A[] = () => []
+  ) => A[] = () => [],
+  readIcons?: LifeIconsReader
 ) {
   const people = await readPeople();
   const v = matterOfSteps(await readMatterBook(people, dayNow()), refs);
   return (
     v && {
-      ...rowOf(v, people, openDecisions()),
+      ...rowOf(v, people, openDecisions(), await readIcons?.([v])),
       agents: agentsOf(refsOf(v), v.projects, people),
       communicationStyles: communicationStylesOf(
         knownPeopleOf(v, people),

@@ -14,6 +14,8 @@ final class LifeStore {
     private(set) var inbox = ReadState<Inbox>()
     private(set) var matters = ReadState<MatterList>()
     private(set) var matter: [String: ReadState<Matter>] = [:]
+    /// A project's page: its matters with its head, by the project's id.
+    private(set) var project: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
     /// Everyone the reads name, by ref, as the newest read gives them.
     private(set) var parties: [String: Party] = [:]
@@ -26,8 +28,26 @@ final class LifeStore {
         case start(matter: String)
         case agent(String)
         case edit(matter: String, Edit)
-        enum Edit: Hashable { case goal, next, done }
+        case project(String)
+        enum Edit: Hashable { case goal, next, done, important }
     }
+
+    /// What his last mark or project status did, said back for four seconds (`Toast`), with its Undo (the opposite
+    /// change), or why it was not done.
+    struct SaidBack: Identifiable, Equatable {
+        enum Undo: Equatable {
+            case important(matter: String, Bool)
+            case status(project: String, name: String, ProjectStatus, was: ProjectStatus)
+        }
+        let id = UUID()
+        let words: String
+        /// Nil when it was not done: the words say why.
+        let undo: Undo?
+    }
+    private(set) var saidBack: SaidBack?
+    /// His mark or a project's status from his tap until Life's reads say it: shown at once, one tap per item at a time.
+    private let marking = PendingTaps<Bool>()
+    private let statusing = PendingTaps<ProjectStatus>()
 
     /// Every action by what it acts on: its steps as they stream, then its proof or why not.
     private(set) var actions: [ActionKey: ActionState<ActionProof>] = [:]
@@ -184,6 +204,13 @@ final class LifeStore {
         }
     }
 
+    func refreshProject(_ id: String) async {
+        let key = "read_matters-project-\(id)"
+        let update = { (event: ReadState<MatterList>.Event) in self.project[id, default: ReadState()].apply(event) }
+        if project[id] == nil { restore(update, key: key) }
+        await load(update, key: key) { try await $0.readMatters(project: id) }
+    }
+
     private static let inboxKey = "read_inbox"
     private static let mattersKey = "read_matters"
     private static let agentsKey = "read_registered_agents"
@@ -265,6 +292,7 @@ final class LifeStore {
         case .start(let matter): fields["kind"] = "start"; fields["ref"] = matter
         case .agent(let agent): fields["kind"] = "agent"; fields["ref"] = agent
         case .edit(let matter, let what): fields["kind"] = "edit.\(what)"; fields["ref"] = matter
+        case .project(let id): fields["kind"] = "project"; fields["ref"] = id
         }
         if let tap { fields["key"] = String(tap.prefix(8)) }
         if let limit {
@@ -359,6 +387,88 @@ final class LifeStore {
         }
     }
 
+    // MARK: His mark, a project's status
+
+    /// Whether a matter is marked, his tap first.
+    func isImportant(_ id: String, as read: Bool?) -> Bool { marking[id] ?? (read == true) }
+
+    /// A project's status as stored, his tap first.
+    func status(of id: String, as read: ProjectStatus) -> ProjectStatus { statusing[id] ?? read }
+
+    /// His mark on a matter, on or off, said back with Undo (the opposite mark, said back by nothing) once every read
+    /// that shows it (the matter, the list, the Inbox's flags and order) is read again.
+    func setImportant(_ id: String, _ isOn: Bool, saysBack: Bool = true) async {
+        let api = api
+        let key = ActionKey.edit(matter: id, .important)
+        let isSent = await marking.run(id, showing: isOn) {
+            await perform(key) { [runner] in
+                await runner.record(emit: $0) { try await api.setImportant(matter: id, isOn, onProgress: $0) }
+            }
+            async let a: Void = refreshMatter(id)
+            async let b: Void = refreshMatters()
+            async let c: Void = refreshInbox()
+            _ = await (a, b, c)
+        }
+        guard isSent else { return }
+        say(key, saysBack ? (isOn ? "Important" : "Not important") : nil, undo: .important(matter: id, !isOn))
+    }
+
+    /// A project's status by his tap: `words` say it back with Undo (the status it had, said back by nothing) once its
+    /// reads are read again.
+    func setStatus(of id: String, named name: String, to status: ProjectStatus, was: ProjectStatus, words: String?)
+        async
+    {
+        let api = api
+        let said =
+            switch status {
+            case .parked: "Parked the project \(name)"
+            case .done: "Marked the project \(name) done"
+            case .waiting: "Set the project \(name) back to waiting"
+            default: "Set the project \(name) underway"
+            }
+        let isSent = await statusing.run(id, showing: status) {
+            await perform(.project(id)) { [runner] in
+                await runner.record(emit: $0) { try await api.setProjectStatus(id, status, said: said, onProgress: $0) }
+            }
+            async let a: Void = refreshProject(id)
+            async let b: Void = refreshMatters()
+            _ = await (a, b)
+        }
+        guard isSent else { return }
+        say(.project(id), words, undo: .status(project: id, name: name, was, was: status))
+    }
+
+    /// Its Undo as a tap, none when it was not done.
+    func undoing(_ said: SaidBack) -> (() -> Void)? {
+        said.undo == nil ? nil : { Task { await self.undo(said) } }
+    }
+
+    func undo(_ said: SaidBack) async {
+        saidBack = nil
+        switch said.undo {
+        case .important(let id, let isOn)?: await setImportant(id, isOn, saysBack: false)
+        case .status(let id, let name, let status, let was)?:
+            await setStatus(of: id, named: name, to: status, was: was, words: nil)
+        case nil: break
+        }
+    }
+
+    /// Says back how `key` ended: `words` with Undo when done, its reason when not (always), then nothing after 4 s.
+    private func say(_ key: ActionKey, _ words: String?, undo: SaidBack.Undo) {
+        let said: SaidBack? =
+            switch state(of: key) {
+            case .succeeded: words.map { SaidBack(words: $0, undo: undo) }
+            case .failed(let failure, _): SaidBack(words: failure.reason, undo: nil)
+            default: nil
+            }
+        guard let said else { return }
+        saidBack = said
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            if saidBack?.id == said.id { saidBack = nil }
+        }
+    }
+
     private func edit(
         _ id: String, _ what: ActionKey.Edit,
         _ change: @escaping @Sendable (@escaping @Sendable (Data) -> Void) async throws -> String
@@ -414,7 +524,7 @@ final class LifeStore {
         pairedOrigin = credentials.endpoint.origin
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
-        (inbox, matters, matter, agents, parties) = (ReadState(), ReadState(), [:], ReadState(), [:])
+        (inbox, matters, matter, agents, project, parties) = (ReadState(), ReadState(), [:], ReadState(), [:], [:])
         holds.clear()
         onStep(.reading)
         await refresh()

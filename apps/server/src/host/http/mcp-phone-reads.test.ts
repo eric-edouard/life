@@ -1,16 +1,22 @@
 import { expect, spyOn, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { setSettings } from "../../core/settings";
 import { nameGroupsOf } from "../../memory/check-sentences";
 import { urgencyOf } from "../../memory/check-urgency";
 import type { CheckInputs } from "../../memory/checks";
 import { nameRow } from "../../memory/checks-test-inputs";
+import { buildIndex } from "../../memory/index-writer";
+import { INDEX, UNITS } from "../../memory/memory-files";
 import {
   networkIdentityOf,
   withNetworkIdentity,
 } from "../../memory/network-identity";
 import { PERSON_PICTURES, partyOf, pictureFileOf } from "../../memory/party";
+import { unit as unitFixture } from "../../memory/record-fixtures";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as sources from "../../memory/sources";
+import type { SourceEvent } from "../../records/source";
 import type { WakeLine } from "../registered-agents";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
@@ -204,8 +210,8 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   heldByAgents: [
     {
       agent: "agt_000000000001",
-      endedAt: null,
-      kind: "asked",
+      closedAt: null,
+      openedBy: "owner",
       outcome: null,
       project: null,
       status: "active",
@@ -408,6 +414,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
   const checks = await import("../../memory/checks");
   const who = await import("../../memory/who");
   const book = await import("../../memory/matters");
+  const icons = await import("../../memory/matter-icons");
   const items = await import("../../memory/read-open-items");
   const agents = await import("../registered-agents");
   // On: the transfer's look is a payment's (`doneSeenByOf`).
@@ -533,6 +540,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       partyOf: madeUpPartyOf,
       truth: {
         areas: [],
+        me: { goals: "1. The shop opens in spring (`shop-fit-out`)." },
         projects: [
           { id: "shop-fit-out", name: "Shop fit-out", status: "active" },
         ],
@@ -561,6 +569,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
           waitsOn: "the shop",
         },
         owedTo: ["person:gran"],
+        ownerIcon: "tools",
         projects: ["shop-fit-out"],
         status: "moving",
         steps,
@@ -579,6 +588,15 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         steps: [],
       }),
     ] as never),
+    // Life's pick for the lease; none for the photo (the phone shows its area's icon).
+    spyOn(icons, "readLifeIcons").mockImplementation(
+      async (vs) =>
+        new Map(
+          vs.some((v) => v.id === "matter_bbbbbbbbbbbb")
+            ? [["matter_bbbbbbbbbbbb", "key"]]
+            : []
+        )
+    ),
     spyOn(agents, "readRegisteredAgents").mockResolvedValue({
       agents: [
         {
@@ -639,7 +657,18 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     expect(
       shown.find((c) => c.kind === "decision" && c.draft)?.networkIdentity
     ).toMatchObject({ network: "WhatsApp", newest: null, shownName: "Kit" });
-    expectWire("read_matters", await read("read_matters"));
+    const matters = await read("read_matters");
+    expectWire("read_matters", matters);
+    const rows: { icon?: object; name: string }[] = JSON.parse(matters).matters;
+    expect(Object.fromEntries(rows.map((m) => [m.name, m.icon]))).toEqual({
+      "Frame Gran's photo": undefined,
+      "Mend Gran's watch": { by: "owner", key: "tools" },
+      "Renew the lease": { by: "life", key: "key" },
+    });
+    expectWire(
+      "read_matters_project",
+      await read("read_matters", { project: "shop-fit-out" })
+    );
     expectWire(
       "read_matter",
       await read("read_matter", { id: "matter_aaaaaaaaaaaa" })
@@ -676,4 +705,96 @@ test("people's pictures go to any app he paired, never to a paired agent", async
   });
   expect(json.result.isError).toBe(true);
   expect(json.result.content[0].text).toContain("paired as an agent");
+});
+
+test("the People tab's reads: read_people_and_organizations' list, a person's and an organization's now, and latest answer as data", async () => {
+  // Test Ana's one 1:1 WhatsApp chat-day (made-up), indexed, its messages read from the source's span.
+  const chat = "33600000004@s.whatsapp.net";
+  const chatDay = unitFixture({
+    date: "2026-11-17",
+    end: "2026-11-17T09:20:00.000Z",
+    id: "unit_00000000000a",
+    key: chat,
+    people: ["person:test-ana", "person:me"],
+    source: "whatsapp",
+    start: "2026-11-17T09:14:00.000Z",
+    title: "Ana B",
+  });
+  const said = (at: string, fromMe: boolean, text: string): SourceEvent => ({
+    at,
+    chat,
+    chatName: "Ana B",
+    fromMe,
+    id: `whatsapp:${chat}/${at}`,
+    sender: fromMe ? "me" : "Test Ana",
+    source: "whatsapp",
+    text,
+  });
+  const real = sources.sourceOf;
+  const spy = spyOn(sources, "sourceOf").mockImplementation(
+    (name) =>
+      ({
+        ...real(name),
+        read: () => [
+          said("2026-11-17T09:14:00.000Z", false, "Bread for Sunday?"),
+          said("2026-11-17T09:20:00.000Z", true, "Two loaves, thanks"),
+        ],
+      }) as never
+  );
+  mkdirSync(UNITS, { recursive: true });
+  mkdirSync(dirname(INDEX), { recursive: true });
+  try {
+    writeFileSync(
+      join(UNITS, `${chatDay.date}.jsonl`),
+      `${JSON.stringify(chatDay)}\n`
+    );
+    buildIndex(
+      [],
+      INDEX,
+      {
+        corrections: [],
+        live: new Set(),
+        retired: new Map(),
+        standing: new Map(),
+      },
+      [{ unit: chatDay }]
+    );
+    const read = async (args: object) => {
+      const { json } = await rpc(
+        await token({ agent: undefined, client_id: "phone" }),
+        "tools/call",
+        { arguments: args, name: "read_people_and_organizations" }
+      );
+      expect(json.result.isError).toBe(false);
+      return json.result.content[0].text as string;
+    };
+    expectWire("read_people_and_organizations", await read({}));
+    expectWire(
+      "read_people_and_organizations_query",
+      await read({ query: "ana" })
+    );
+    const ana = await read({ name: "Test Ana" });
+    expect(JSON.parse(ana).reach[0]).toMatchObject({
+      accounts: [{ handle: "+33600000004", title: "Ana B" }],
+      network: "whatsapp",
+    });
+    expectWire("read_people_and_organizations_now", ana);
+    expectWire(
+      "read_people_and_organizations_organization",
+      await read({ name: "Test Bakery" })
+    );
+    const latest = await rpc(
+      await token({ agent: undefined, client_id: "phone" }),
+      "tools/call",
+      { arguments: { id: "person:test-ana/latest" }, name: "fetch" }
+    );
+    expectWire(
+      "read_people_and_organizations_latest",
+      latest.json.result.content[0].text
+    );
+  } finally {
+    spy.mockRestore();
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
 });

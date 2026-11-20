@@ -2,7 +2,8 @@ import LifeConnector
 import SwiftUI
 
 /// One check as the Ask panel, whatever its kind: the question first, nothing above it; the thing it is about on `tile`,
-/// which takes every point left and scrolls; one row under it (the matter, and the one link); then its answers. Its look
+/// which hugs what it holds and scrolls when that is taller than the room; one row under it (the matter, and the one
+/// link); then, at the bottom, its answers. Its look
 /// comes from what the check holds (a draft, an evidence quote, clips, a group), never from a kind of its own. His taps
 /// leave through `answer`; this view keeps nothing of the answer. At an accessibility text size the whole panel scrolls.
 struct CheckCard: View {
@@ -16,9 +17,17 @@ struct CheckCard: View {
     let isBusy: Bool
     let answer: (AnswerRequest) -> Void
     let sameAs: () -> Void
+    /// "Create <name>" or "Organization": the create sheet, with the name he would create, set to an organization or not.
+    let create: (String, _ asOrganization: Bool) -> Void
+    /// "I dropped this whole project", the one ready line over his own words when the card's matter has a project
+    /// underway: parks it.
+    var dropProject: (() -> Void)?
+    /// Where it stands among the asks paged beside it (its index, how many); nil alone.
+    var page: (current: Int, total: Int)?
 
     /// The card's context shows in a region of its own, so its matter row and "Why" link go: `CardArrangement` decides.
     @Environment(\.isContextBeside) private var isContextBeside
+    @Environment(LifeStore.self) private var life
     @Environment(\.dynamicTypeSize) private var typeSize
     @FocusState private var isWriting: Bool
     /// Whether the link found room beside the matter; else it moves to the deadline's line.
@@ -41,6 +50,11 @@ struct CheckCard: View {
                     question
                     tile(scrolls: true)
                     matterRow
+                    Spacer(minLength: 0)
+                    if let page {
+                        PagerDots(current: page.current, total: page.total).frame(
+                            maxWidth: .infinity, alignment: .trailing)
+                    }
                     actions
                 }
                 .padding(.horizontal, Metrics.Spacing.s).padding(.top, Metrics.Spacing.m)
@@ -50,9 +64,7 @@ struct CheckCard: View {
         .sheet(isPresented: $input.showsWhy) {
             WhySheet(
                 title: askLinks.first?.title ?? "Why?", context: check.context,
-                evidence: isIdentityShown ? check.evidence : nil, said: check.said, names: check.about ?? [],
-                around: check.around,
-                link: check.links.first, runtime: runtimeName
+                evidence: isIdentityShown ? check.evidence : nil, link: check.links.first, runtime: runtimeName
             )
             .sheetStack()
         }
@@ -104,12 +116,9 @@ struct CheckCard: View {
                         .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
                         .clipShape(.rect(cornerRadius: Metrics.Radius.passage))
                 }
-                Spacer(minLength: 0)
             } else {
                 thing.background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
             }
-        } else if scrolls {
-            Spacer(minLength: 0)
         }
     }
 
@@ -139,7 +148,14 @@ struct CheckCard: View {
         }
     }
 
-    private var ownWords: some View {
+    @ViewBuilder private var ownWords: some View {
+        if let dropProject, check.group != .newMatter {
+            Button("I dropped this whole project") {
+                input.isWritingOwnWords = false
+                dropProject()
+            }
+            .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
+        }
         TextField(
             check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
         )
@@ -149,14 +165,11 @@ struct CheckCard: View {
 
     // MARK: The row under the thing, and the link
 
-    /// The ask's links, by what each opens: "Before and after" when the lines around a voice or a name are known, else
-    /// "Why?" ("Why this reply?" on a draft; none on a voice); then "Tell the agent…" on an agent's question.
+    /// The ask's links, by what each opens: "Why?" ("Why this reply?" on a draft; none on a voice or a name, whose
+    /// sentence is the whole story); then "Tell the agent…" on an agent's question.
     private var askLinks: [AskLink] {
         var links: [AskLink] = []
-        let hasLines = !((check.around?.before ?? []) + (check.around?.after ?? [])).isEmpty
-        if [.voice, .name].contains(check.group), hasLines {
-            links.append(AskLink(title: "Before and after") { input.showsWhy = true })
-        } else if check.group != .voice, ![.ending, .newMatter].contains(check.group), !isContextBeside,
+        if ![.voice, .name, .ending, .newMatter].contains(check.group), !isContextBeside,
             !check.links.isEmpty || (contextThing == nil && !(check.context ?? "").isEmpty)
         {
             links.append(AskLink(title: whyTitle) { input.showsWhy = true })
@@ -196,7 +209,10 @@ struct CheckCard: View {
 
     @ViewBuilder private var matterPill: some View {
         if let matter = check.matter {
-            InlinePill(name: matter.name, agentMark: check.agentMark(runtime: runtimeName)) {
+            InlinePill(
+                name: matter.name, agentMark: check.agentMark(runtime: runtimeName),
+                isImportant: life.isImportant(matter.id, as: matter.important)
+            ) {
                 openMatter(matter.id)
             }
         }
@@ -206,7 +222,7 @@ struct CheckCard: View {
         CheckActions(
             check: check, input: $input, isBusy: isBusy,
             links: isRowShown && isLinkBesideMatter ? Array(askLinks.dropFirst()) : askLinks, answer: answer,
-            sameAs: sameAs
+            sameAs: sameAs, create: create
         )
         .padding(.bottom, Metrics.Spacing.xs)
     }
@@ -223,11 +239,6 @@ private struct WhySheet: View {
     let context: String?
     /// The words Life read a guessed person from.
     let evidence: Check.Evidence?
-    /// The sentence a name was found in, between the lines around it.
-    let said: Check.Said?
-    let names: [String]
-    /// The lines of the conversation around a voice or a name, when its ask holds them.
-    let around: Check.Around?
     let link: String?
     let runtime: RuntimeName?
 
@@ -239,28 +250,11 @@ private struct WhySheet: View {
             VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
                 SheetHeader(title: nil) { dismiss() }
                 Text(title).font(.sheetQuestion).foregroundStyle(Palette.fg)
-                if let context, !context.isEmpty, around == nil {
+                if let context, !context.isEmpty {
                     Text(context).font(.body15).foregroundStyle(Palette.fg).fixedSize(
                         horizontal: false, vertical: true)
                 }
                 if let evidence { EvidenceBlock(evidence: evidence) }
-                if let around {
-                    let lines =
-                        around.before.map { ($0, false) } + (said.map { [($0, true)] } ?? [])
-                        + around.after.map { ($0, false) }
-                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                        VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                            Text(line.0.line(channelName: Channel.name)).font(.small)
-                                .foregroundStyle(Palette.muted)
-                            NamedWords(
-                                said: line.0, names: line.1 ? names : [], regular: .body15, bold: .bodyStrong,
-                                isQuoted: false
-                            )
-                            .foregroundStyle(line.1 ? Palette.fg : Palette.muted)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading).accessibilityElement(children: .combine)
-                    }
-                }
                 if let url = link.flatMap(URL.init(string:)) {
                     TextLink("Open in \(runtime?.name ?? "its app")", isOutward: true) { openURL(url) }
                 }

@@ -12,7 +12,12 @@ import {
 import { basename, isAbsolute, join, relative } from "node:path";
 import { clock } from "../core/clock";
 import { sha256Of } from "../core/hash";
-import { LIFE_CODE_DIR, LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
+import {
+  DESK_STORE,
+  LIFE_CODE_DIR,
+  LIFE_STATE_DIR,
+  OWNER_DATA_DIR,
+} from "../core/paths";
 import { slashed } from "../core/platform";
 import { execOk } from "../core/proc";
 import { SECRETS } from "../core/secret";
@@ -29,11 +34,12 @@ import { LOCK, locked } from "../memory/memory-lock";
 import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
 import { storeFiles, WATCH } from "../sources/lifelog";
+import { notesOutsideOf } from "./desk-read";
 import { isEmpty } from "./init";
 
 // A whole copy of what Life holds, as a folder (`stage`): `bun life export <dir>`, the app's Export…, and the folder
 // the nightly backup snapshots. `data/` his data repo, `state/` Life's state, `archive/` the archive's stores and
-// media, and `manifest.json`: every file's size and sha256, and what each part holds (`inventory`). Secrets are never
+// media, `notes/` each desk assignment's notes file kept outside Life's state (`<asg>.md`), and `manifest.json`: every file's size and sha256, and what each part holds (`inventory`). Secrets are never
 // in it, only named (`leftOut`): what to give a new install by hand.
 
 export const FORMAT = 1;
@@ -67,7 +73,7 @@ export const filesUnder = (dir: string) =>
  * One SQLite file copied whole while it is written to (`VACUUM INTO`: one consistent read, the path a bound value), as a
  * file of its own (a rollback journal, no WAL beside it): it opens anywhere, read-only too, and restores as one file.
  */
-function copyDb(from: string, to: string) {
+export function copyDb(from: string, to: string) {
   const source = openReadOnly(from);
   try {
     source.run("VACUUM INTO ?", [to]);
@@ -157,6 +163,19 @@ function leftOut() {
   };
 }
 
+/** The desk's notes kept in his agents repo, as `notes/<asg>.md`: the staged store names them, so a restore puts them back where it says. */
+function stageNotes(dir: string) {
+  const desk = join(dir, "state", relative(LIFE_STATE_DIR, DESK_STORE));
+  for (const s of existsSync(desk)
+    ? notesOutsideOf(desk, LIFE_STATE_DIR)
+    : []) {
+    if (existsSync(s.notes_path)) {
+      mkdirSync(join(dir, "notes"), { recursive: true });
+      cpSync(s.notes_path, join(dir, "notes", `${s.id}.md`));
+    }
+  }
+}
+
 /**
  * Stages everything Life holds in `dir` (made, never one with anything in it), consistent: his data cloned under
  * memory's lock (an APFS clone, in ms), each store copied whole by SQLite, the watcher's cursor before its store (the
@@ -201,6 +220,7 @@ export async function stage(
       copyDb(join(LIFE_STATE_DIR, p), staged);
     }
   }
+  stageNotes(dir);
   const watch = join(dir, "state", relative(LIFE_STATE_DIR, WATCH));
   mkdirSync(watch, { recursive: true });
   const { cursor, file } = storeFiles();

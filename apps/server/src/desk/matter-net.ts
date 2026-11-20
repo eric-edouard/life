@@ -4,14 +4,17 @@ import { closestOf, type Embedder, embedAll } from "../core/embedder";
 import { readChangeStamp } from "../core/files";
 import { packed } from "../core/lists";
 import { log } from "../core/log";
-import { activeAgents, agentKindOf, anchorsOf } from "../host/desk-read";
+import { anchorsOf, openAssignments } from "../host/desk-read";
+import { isOnOrAfter } from "../host/event-channels";
 import type { MessagePayload } from "../host/events";
 import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
 import {
   endedStepsOf,
   isRunning,
+  type MatterView,
   matterFinderOf,
-  netOf,
+  matterPeopleOf,
+  matterTextOf,
 } from "../memory/matter-read";
 import { MATTER_BOOK_READS, readMatterBookAndRecords } from "../memory/matters";
 import { readUnitsOf } from "../memory/memory-files";
@@ -20,8 +23,16 @@ import { embedderNow } from "../memory/vectors";
 import type { People } from "../memory/who";
 import { spokenLines } from "../memory/words";
 import { dayNow } from "../memory/zones";
-import type { AgentKind } from "../records/registered-agent";
+import type { OpenedBy } from "../records/registered-agent";
+import { closeAssignment } from "./agent-actions";
 import type { Desk } from "./desk-store";
+import {
+  holdersOf,
+  queue,
+  type ReadPeople,
+  routeOf,
+  type WakeWhy,
+} from "./event-queue";
 
 // The wide net (his word of 18 Nov 2026, the agent asks spec's "His yes and his addition"): an agent on a matter is woken
 // by anything new related to it: a message from one of its people, or any new message or recording of his pendant whose
@@ -40,11 +51,27 @@ const CLOSE_AT = 0.55;
 const MIN_CHARS = 20;
 /** A recording's new words are compared in parts of at most this many characters (the embedder reads about 2,000 bytes). */
 const PART_CHARS = 1500;
-/** An agent's matter as the net reads it: its people, and its texts' vectors. */
+/** How many of a matter's newest steps its net compares with. */
+const NET_STEPS = 8;
+
+/**
+ * A matter's net: who it is with in any role, and the texts a new message
+ * or recording is compared with in meaning: its name and goal, its next step, its newest steps' words. Pure.
+ */
+const netOf = (v: MatterView) => ({
+  people: new Set(matterPeopleOf(v)),
+  texts: [
+    matterTextOf(v),
+    ...(v.nextStep ? [v.nextStep.text] : []),
+    ...v.steps.slice(-NET_STEPS).map((s) => s.text),
+  ],
+});
+
+/** An assignment's matter as the net reads it: its people, and its texts' vectors. */
 interface Net {
-  agent: string;
+  assignment: string;
   people: ReadonlySet<string>;
-  /** When the agent started: nothing said before is new to it. */
+  /** When the assignment was opened: nothing said before is new to it. */
   since: string;
   vectors: number[][];
 }
@@ -54,9 +81,9 @@ interface Net {
  * ponytail: never pruned; it holds the active agents' matter texts as they change, a few thousand a year at most.
  */
 const queries = new Map<string, number[]>();
-/** An agent the desk ends on its matter, and the outcome it ends with (`endOutcomeOf`). */
+/** An assignment the desk closes on its matter, and the outcome it closes with (`endOutcomeOf`). */
 interface MatterEnd {
-  agent: string;
+  assignment: string;
   outcome: string;
 }
 const kept = new WeakMap<
@@ -68,19 +95,19 @@ const kept = new WeakMap<
 export const MATTER_DONE_OUTCOME = "its matter is done";
 
 /**
- * Why the desk ends an agent on its matter, as the outcome it ends with, or null: a matter that is done ends any agent;
- * one no longer running (probably done, dormant, closed) ends only a handed-out one (`MATTER_OVER_OUTCOME`, after which
- * it holds nothing): a link's "probably" is a model's reading until his word, and an agent he started stays until he
- * stops it, or his word makes the matter done. Pure.
+ * Why the desk closes an assignment on its matter, as the outcome it closes with, or null: a matter that is done closes
+ * any; one no longer running (probably done, dormant, closed) closes only one the desk opened (`MATTER_OVER_OUTCOME`,
+ * after which it holds nothing): a link's "probably" is a model's reading until his word, and one he opened stays until
+ * he stops it, or his word makes the matter done. Pure.
  */
 export const endOutcomeOf = (
-  kind: AgentKind,
+  openedBy: OpenedBy,
   v: Parameters<typeof isRunning>[0]
 ) => {
   if (v.status === "done") {
     return MATTER_DONE_OUTCOME;
   }
-  return kind === "handed_out" && !isRunning(v) ? MATTER_OVER_OUTCOME : null;
+  return openedBy === "desk" && !isRunning(v) ? MATTER_OVER_OUTCOME : null;
 };
 
 const embedderOf = (desk: Desk) =>
@@ -107,25 +134,25 @@ async function queryVectors(embedder: Embedder | null, texts: string[]) {
 }
 
 /**
- * What the active agents on a matter (an agent on a project has none) read of it, its matter found by its anchors: the
- * nets, and the agents to end on it (`endOutcomeOf`; steps no matter holds count once every one has ended,
- * `endedStepsOf`). The matter book is read again only once the agents, their anchors, his day or what it is read from
+ * What the open assignments on a matter (an agent's own has none) read of it, its matter found by its anchors: the
+ * nets, and the assignments to close on it (`endOutcomeOf`; steps no matter holds count once every one has ended,
+ * `endedStepsOf`). The matter book is read again only once the assignments, their anchors, his day or what it is read from
  * (`MATTER_BOOK_READS`, by its change stamp: stats, no read) changed; a net whose vectors the embedder could not make
  * is not kept, so the next poll tries again.
  */
 async function readOnMatters(desk: Desk, people: People) {
   const { db } = desk;
-  const agents = activeAgents(db).flatMap((a) => {
+  const onMatters = openAssignments(db).flatMap((a) => {
     const steps = anchorsOf(db, a.id);
     return steps.length > 0 ? [{ a, steps }] : [];
   });
-  if (agents.length === 0) {
+  if (onMatters.length === 0) {
     return { ends: [], nets: [] };
   }
   const key = JSON.stringify([
     readChangeStamp(MATTER_BOOK_READS),
     dayNow(),
-    agents.map(({ a, steps }) => [a.id, steps]),
+    onMatters.map(({ a, steps }) => [a.id, steps]),
   ]);
   const was = kept.get(db);
   if (was?.key === key) {
@@ -138,12 +165,12 @@ async function readOnMatters(desk: Desk, people: People) {
   let isWhole = true;
   const nets: Net[] = [];
   const ends: MatterEnd[] = [];
-  for (const { a, steps } of agents) {
+  for (const { a, steps } of onMatters) {
     const v = find(steps);
     const ended = v ?? endedStepsOf(steps, records, today);
-    const outcome = ended && endOutcomeOf(agentKindOf(a), ended);
+    const outcome = ended && endOutcomeOf(a.opened_by, ended);
     if (outcome) {
-      ends.push({ agent: a.id, outcome });
+      ends.push({ assignment: a.id, outcome });
     }
     if (!v) {
       continue;
@@ -153,9 +180,9 @@ async function readOnMatters(desk: Desk, people: People) {
     const vectors = await queryVectors(embedder, net.texts);
     isWhole &&= vectors !== null;
     nets.push({
-      agent: a.id,
+      assignment: a.id,
       people: net.people,
-      since: a.created_at,
+      since: a.opened_at,
       vectors: vectors ?? [],
     });
   }
@@ -166,16 +193,22 @@ async function readOnMatters(desk: Desk, people: People) {
   return read;
 }
 
-/** The nets of the active agents on a matter (`readOnMatters`). */
+/** The nets of the open assignments on a matter (`readOnMatters`). */
 export const netsOf = async (desk: Desk, people: People) =>
   (await readOnMatters(desk, people)).nets;
 
-/** The active agents to end on their matter, each with its outcome (`readOnMatters`). */
+/** The open assignments to close on their matter, each with its outcome (`readOnMatters`). */
 export const matterEndsOf = async (desk: Desk, people: People) =>
   (await readOnMatters(desk, people)).ends;
 
 /** Why a text is related to a net: its person, else its meaning (with how close), else not. */
-type Why = { why: "person" } | { similarity: number; why: "meaning" };
+type Why = Exclude<WakeWhy, { why: "wait" }>;
+
+/** `why` as a wake's payload shows it: a similarity to two places (`routeOf` ranks the full one). */
+const shownOf = (why: Why) =>
+  why.why === "meaning"
+    ? { ...why, similarity: Math.round(why.similarity * 100) / 100 }
+    : why;
 
 /**
  * For each text (`person`: who wrote or said it, none for his own), each net it relates to and why: by its person, or by
@@ -204,17 +237,17 @@ async function relatedOf(
   }
   const vectorOf = new Map(compared.map((t, i) => [t, vectors[i]]));
   const related = texts.map((t) =>
-    nets.flatMap((net): (Why & { agent: string })[] => {
+    nets.flatMap((net): (Why & { assignment: string })[] => {
       if (t.person && net.people.has(t.person)) {
-        return [{ agent: net.agent, why: "person" }];
+        return [{ assignment: net.assignment, why: "person" }];
       }
       const vector = vectorOf.get(t);
       const similarity = vector ? closestOf(net.vectors, vector) : -1;
       return similarity >= CLOSE_AT
         ? [
             {
-              agent: net.agent,
-              similarity: Math.round(similarity * 100) / 100,
+              assignment: net.assignment,
+              similarity,
               why: "meaning",
             },
           ]
@@ -224,7 +257,7 @@ async function relatedOf(
   return { isWhole, related };
 }
 
-/** The new messages each net relates to (`relatedOf`): one wake each, its facts and why. */
+/** The new messages each net relates to (`relatedOf`), each from when its assignment was opened on: one wake each, its facts and why (`by`, for `routeOf`). */
 export async function relatedMessages(
   desk: Desk,
   nets: Net[],
@@ -240,16 +273,24 @@ export async function relatedMessages(
       text: x.text,
     }))
   );
+  const since = new Map(nets.map((n) => [n.assignment, n.since]));
   return messages.flatMap((x, i) =>
-    (related[i] ?? []).map(({ agent, ...why }) => ({
-      agent,
-      eventId: x.m.id,
-      payload: { ...x.m, ...why },
-    }))
+    (related[i] ?? []).flatMap(({ assignment, ...why }) =>
+      isOnOrAfter(x.m, since.get(assignment) ?? "")
+        ? [
+            {
+              assignment,
+              by: why as WakeWhy,
+              eventId: x.m.id,
+              payload: { ...x.m, ...shownOf(why) },
+            },
+          ]
+        : []
+    )
   );
 }
 
-/** Per desk, how far each recording was read (its unit's end), in this process: after a restart, read again from each agent's start. */
+/** Per desk, how far each recording was read (its unit's end), in this process: after a restart, read again from each assignment's opening. */
 const heardTo = new WeakMap<Database, Map<string, string>>();
 
 /**
@@ -306,26 +347,27 @@ export async function relatedRecordings(
         read.set(u.id, u.end);
       }
       const at = lines.at(-1)?.at ?? u.end;
-      // One wake per agent and recording's new words: by a person first, else its closest part.
+      // One wake per assignment and recording's new words: by a person first, else its closest part.
       const best = new Map<string, Why>();
       for (const r of related.flat()) {
-        const had = best.get(r.agent);
+        const had = best.get(r.assignment);
         if (
           !had ||
           (had.why === "meaning" &&
             (r.why === "person" || r.similarity > had.similarity))
         ) {
-          const { agent, ...why } = r;
-          best.set(agent, why);
+          const { assignment, ...why } = r;
+          best.set(assignment, why);
         }
       }
-      return [...best].flatMap(([agent, why]) =>
-        at > (nets.find((n) => n.agent === agent)?.since ?? "")
+      return [...best].flatMap(([assignment, why]) =>
+        at > (nets.find((n) => n.assignment === assignment)?.since ?? "")
           ? [
               {
-                agent,
+                assignment,
+                by: why as WakeWhy,
                 eventId: `${u.id}@${at}`,
-                payload: { at, id: u.id, source: u.source, ...why },
+                payload: { at, id: u.id, source: u.source, ...shownOf(why) },
               },
             ]
           : []
@@ -333,4 +375,33 @@ export async function relatedRecordings(
     })
   );
   return wakes.flat();
+}
+
+/** Queues his pendant's new recordings for one assignment of each agent on a matter they relate to (`relatedRecordings`, `routeOf`). */
+export async function pollRecordings(desk: Desk, readPeopleNow: ReadPeople) {
+  const assignments = openAssignments(desk.db);
+  if (assignments.length === 0) {
+    return;
+  }
+  const people = await readPeopleNow();
+  const wakes = routeOf(
+    await relatedRecordings(desk, await netsOf(desk, people), people),
+    holdersOf(desk.db, assignments)
+  );
+  desk.db.transaction(() => queue(desk.db, MATTER_RELATED, wakes))();
+}
+
+/** Closes each open assignment whose matter is over for it (`matterEndsOf`, `endOutcomeOf`), with why. */
+export async function endAgentsOnOverMatters(
+  desk: Desk,
+  readPeopleNow: ReadPeople
+) {
+  if (openAssignments(desk.db).length === 0) {
+    return;
+  }
+  const ends = await matterEndsOf(desk, await readPeopleNow());
+  for (const e of ends) {
+    // biome-ignore lint/performance/noAwaitInLoops: one card withdrawn at a time
+    await closeAssignment(desk, e.assignment, e.outcome);
+  }
 }

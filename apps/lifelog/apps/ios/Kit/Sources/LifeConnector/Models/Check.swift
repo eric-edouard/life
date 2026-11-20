@@ -76,15 +76,11 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let to: String?
     }
 
-    /// The lines of its conversation just before and after the sentence.
-    public struct Around: Decodable, Sendable, Equatable {
-        public let after: [Said]
-        public let before: [Said]
-    }
-
     public struct MatterRef: Decodable, Sendable, Equatable {
         public let id: String
         public let name: String
+        /// His mark on the matter: its pill carries a small flag.
+        public let important: Bool?
     }
 
     public struct Evidence: Decodable, Sendable, Equatable {
@@ -197,8 +193,6 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let said: Said?
     /// An ending: what came since the open step.
     public let since: Said?
-    /// A name: lines of its conversation before and after the sentence.
-    public let around: Around?
     /// The matters the answer rides on, by name.
     public let onMatters: [MatterRef]?
     public let options: [Option]
@@ -266,6 +260,45 @@ extension Check {
         }
     }
 
+    /// The name a name card asks about, whole: the longest of `about`, as said. Only a name card's `about` is a name (a
+    /// Contacts card's holds its handles).
+    public var askedName: String? { group == .name ? about?.max { $0.count < $1.count } : nil }
+
+    /// A name card whose new name is a party he adds (`partyNamed`): a new name opens the create sheet. A voice's new
+    /// name goes to lifelog alone, so it is answered by the name as typed.
+    public var createsBySheet: Bool { group == .name && namingOption?.takes == .personOrName }
+
+    /// A name card with no one to suggest: its answer is "Create <name>", which opens the create sheet.
+    public var createsByName: Bool { createsBySheet && likelyPeople.isEmpty && askedName != nil }
+
+    /// The option that says the name is an organization (`organization`, `memory/life-checks.ts`), on a name card.
+    public var organizationOption: Option? { group == .name ? options.first { $0.id == "organization" } : nil }
+    /// Whether his tap on `option` opens the create sheet set to an organization instead of answering: "Organization" on a
+    /// card that creates by sheet, so its name and what it is are his to see first. It takes nothing more on the wire.
+    public func createsOrganizationBySheet(_ option: Option) -> Bool {
+        createsBySheet && option.id == organizationOption?.id
+    }
+
+    /// Whether `text` is still Life's `guess`: the same words, whatever the spaces around and between them. The one
+    /// test, for the sheet's "Life's guess" and for the note it sends.
+    public static func isGuess(_ text: String, _ guess: String?) -> Bool {
+        let words = { (text: String) in text.split(whereSeparator: \.isWhitespace) }
+        guard let guess, !words(text).isEmpty else { return false }
+        return words(text) == words(guess)
+    }
+
+    /// His answer from the create sheet: the person (through the naming option that takes a name) or the organization
+    /// he named, with his words for who or what it is only when he wrote them: `note` goes, trimmed, only when it is not
+    /// empty and not Life's `guess` (`isGuess`).
+    public func answer(creating name: String, note: String?, guess: String? = nil, asOrganization: Bool)
+        -> AnswerRequest?
+    {
+        guard createsBySheet, let name = name.wordsOrNil else { return nil }
+        let note = note?.wordsOrNil.flatMap { Self.isGuess($0, guess) ? nil : $0 }
+        let option = asOrganization ? organizationOption : namingOption
+        return option.map { AnswerRequest(ref: ref, options: [$0.id], note: note, name: name) }
+    }
+
     /// His own words: a decision's note (no option), or the option that takes them (a new matter's goal).
     public func answer(words: String) -> AnswerRequest? {
         if let option = options.first(where: { $0.takes == .note }) {
@@ -316,4 +349,12 @@ extension String {
 public enum Naming: Sendable, Equatable {
     case person(String)
     case name(String)
+}
+
+extension String {
+    /// The words, trimmed; nil when there are none.
+    fileprivate var wordsOrNil: String? {
+        let words = trimmingCharacters(in: .whitespacesAndNewlines)
+        return words.isEmpty ? nil : words
+    }
 }

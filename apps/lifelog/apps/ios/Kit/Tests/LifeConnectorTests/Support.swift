@@ -9,6 +9,7 @@ struct Seen: Sendable {
     let method: String
     let headers: [String: String]
     let body: Data
+    let timeout: TimeInterval
 
     var json: [String: Any] { (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] ?? [:] }
     /// The form fields of the body.
@@ -72,7 +73,8 @@ final class Stub: URLProtocol, @unchecked Sendable {
             stream.close()
         }
         let seen = Seen(
-            url: url, method: request.httpMethod ?? "GET", headers: request.allHTTPHeaderFields ?? [:], body: body)
+            url: url, method: request.httpMethod ?? "GET", headers: request.allHTTPHeaderFields ?? [:], body: body,
+            timeout: request.timeoutInterval)
         guard let handler = Self.handlers.withLock({ $0[host] }) else { return }
         let reply = handler(seen)
         var headers = reply.headers
@@ -131,9 +133,17 @@ func resultMessage(_ text: String, isError: Bool = false) -> String {
         #"{"jsonrpc":"2.0","id":1,"result":{"content":\#(String(decoding: content, as: UTF8.self)),"isError":\#(isError)}}"#
 }
 
-private let wire = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+private let fixtures = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-    .appending(path: "fixtures/wire")
+    .appending(path: "fixtures")
 
 /// A file of `fixtures/wire/` (written by Life's server tests, or shared with the Android app).
-func wireText(_ path: String) throws -> String { try String(contentsOf: wire.appending(path: path), encoding: .utf8) }
+func wireText(_ path: String) throws -> String {
+    try String(contentsOf: fixtures.appending(path: "wire/\(path)"), encoding: .utf8)
+}
+
+/// A file of `fixtures/design/` (the simulator's design data), its zoneless instants read as UTC.
+func designText(_ name: String) throws -> String {
+    try String(contentsOf: fixtures.appending(path: "design/\(name).json"), encoding: .utf8)
+        .replacing(/(T\d\d:\d\d:\d\d)"/) { "\($0.1)Z\"" }
+}

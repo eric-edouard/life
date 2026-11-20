@@ -131,6 +131,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
         try quoted("memory/decisions.ts", /state: z\.enum\(\[([^\]]*)\]/).union(["looking"])
             == client(Check.DoneSeen.State.self))
     #expect(try quoted("memory/matter-read.ts", /const STATUSES = \[([^\]]*)\]/) == client(MatterStatus.self))
+    #expect(try quoted("records/truth.ts", /status: z\.enum\(\[([^\]]*)\]/) == client(ProjectStatus.self))
     // `wait_decision` is worked out when read (`nextStepNow`), never stored.
     #expect(
         try quoted("records/matter.ts", /NextStepKind = z\.enum\(\[([^\]]*)\]/).union(["wait_decision"])
@@ -148,6 +149,14 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(try quoted("host/registered-agents.ts", /helper: ([^;]*);/) == client(RegisteredAgents.Helper.self))
     #expect(try quoted("host/registered-agents.ts", /broken\?: ([^;]*);/) == client(WakeLine.Broken.self))
     #expect(try quoted("memory/party.ts", /kind: ([^;]*);/) == client(Party.Kind.self))
+    // The matter icon set: the server's keys, in its order, are the catalog's, nine groups of 72 distinct keys.
+    let table = try #require(
+        try source("records/matter-icon.ts").firstMatch(of: /(?s)MATTER_ICONS = \[(.*?)\] as const/))
+    let keys = table.output.1.matches(of: /\[\s*"([a-z]+)",/).map { String($0.output.1) }
+    let catalog = MatterIcons.groups.flatMap(\.icons).map(\.key)
+    #expect(keys == catalog)
+    #expect(Set(catalog).count == 72)
+    #expect(MatterIcons.groups.count == 9)
 }
 
 @Test func unknownServerValuesNeverFailTheFeedsState() throws {

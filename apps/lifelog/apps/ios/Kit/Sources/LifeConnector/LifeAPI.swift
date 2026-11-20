@@ -37,6 +37,22 @@ public struct AgentRequest: Encodable, Sendable, Equatable {
 }
 
 /// A matter's next step as `correct_memory` takes it.
+/// His icon for a matter as `correct_memory` takes it: a nil icon is sent as `null` (Life picks again), never dropped,
+/// or Life would refuse the line.
+private struct MatterIconRequest: Encodable, Sendable {
+    let matter: String
+    let icon: String?
+
+    private enum Key: String, CodingKey { case kind, matter, icon }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: Key.self)
+        try container.encode("matter-icon", forKey: .kind)
+        try container.encode(matter, forKey: .matter)
+        try container.encode(icon, forKey: .icon)
+    }
+}
+
 public struct NextStepRequest: Encodable, Sendable, Equatable {
     public var kind: String
     public var text: String
@@ -53,6 +69,8 @@ public protocol LifeAPI: Sendable {
     func readInbox() async throws -> String
     func readInbox(pushId: String) async throws -> String
     func readMatters() async throws -> String
+    /// One project's matters, with its page's head.
+    func readMatters(project: String) async throws -> String
     func readMatter(_ id: String) async throws -> String
     func readRegisteredAgents() async throws -> String
     /// The pictures these ids name (a party's `picture.id`), at most 64 (`PictureCache`).
@@ -65,8 +83,18 @@ public protocol LifeAPI: Sendable {
     func setMatterDirection(
         matter: String, goal: String?, nextStep: NextStepRequest?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String
+    /// His icon for a matter, by its id (a key of `MatterIcons`), or nil: Life picks again.
+    func setMatterIcon(matter: String, icon: String?, onProgress: @escaping @Sendable (Data) -> Void) async throws
+        -> String
     /// His word that a matter is done, by its id: Life closes what of it is open.
     func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String
+    /// His one mark on a matter, on or off, by its id: Life pins it to the matter's steps.
+    func setImportant(matter: String, _ important: Bool, onProgress: @escaping @Sendable (Data) -> Void)
+        async throws -> String
+    /// A project's status by his tap, `said` in his words: an edit of its entry in his directory.
+    func setProjectStatus(
+        _ project: String, _ status: ProjectStatus, said: String, onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String
 }
 
 public struct MCPLifeAPI: LifeAPI {
@@ -84,6 +112,9 @@ public struct MCPLifeAPI: LifeAPI {
         try await client.call("read_inbox", ["pushId": pushId])
     }
     public func readMatters() async throws -> String { try await client.call("read_matters") }
+    public func readMatters(project: String) async throws -> String {
+        try await client.call("read_matters", ["project": project])
+    }
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }
     public func readPersonPictures(_ ids: [String]) async throws -> String {
@@ -114,6 +145,12 @@ public struct MCPLifeAPI: LifeAPI {
         return try await correct(Direction(matter: matter, goal: goal, nextStep: nextStep), onProgress)
     }
 
+    public func setMatterIcon(matter: String, icon: String?, onProgress: @escaping @Sendable (Data) -> Void)
+        async throws -> String
+    {
+        try await correct(MatterIconRequest(matter: matter, icon: icon), onProgress)
+    }
+
     public func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws
         -> String
     {
@@ -123,6 +160,31 @@ public struct MCPLifeAPI: LifeAPI {
             let note: String
         }
         return try await correct(Outdated(matter: matter, note: note), onProgress)
+    }
+
+    public func setImportant(matter: String, _ important: Bool, onProgress: @escaping @Sendable (Data) -> Void)
+        async throws -> String
+    {
+        struct Mark: Encodable {
+            let kind = "matter-important"
+            let matter: String
+            let important: Bool
+        }
+        return try await correct(Mark(matter: matter, important: important), onProgress)
+    }
+
+    public func setProjectStatus(
+        _ project: String, _ status: ProjectStatus, said: String, onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String {
+        struct Edit: Encodable {
+            let kind = "project"
+            let action = "edit"
+            let id: String
+            let status: ProjectStatus
+            let said: String
+        }
+        return try await client.call(
+            "change_directory_entry", Edit(id: project, status: status, said: said), onProgress: onProgress)
     }
 
     private struct Correct<C: Encodable & Sendable>: Encodable, Sendable {

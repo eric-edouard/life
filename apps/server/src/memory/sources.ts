@@ -35,6 +35,7 @@ import { gmailSend } from "../sources/gmail";
 import {
   DB,
   handleOf,
+  imessageLinkOf,
   incomingImessage,
   isImessageGroup,
   newestImessage,
@@ -110,6 +111,7 @@ const LISTED: Descriptor[] = [
   {
     capturesOnItsOwn: true,
     chatDays: 7,
+    chatLinkOf: imessageLinkOf,
     earliest: readEarliestImessage,
     group: isImessageGroup,
     handleOf,
@@ -193,6 +195,8 @@ const LISTED: Descriptor[] = [
   },
   {
     capturesOnItsOwn: true,
+    chatLinkOf: (handle) =>
+      handle.includes("@") ? `mailto:${handle}` : undefined,
     earliest: readEarliestMail,
     incoming: incomingMail,
     kind: "mail",

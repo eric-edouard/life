@@ -29,6 +29,7 @@ import type { Check } from "./life-checks";
 import * as matters from "./matters";
 import { OBSERVATIONS, UNITS } from "./memory-files";
 import { locked } from "./memory-lock";
+import { OWNER } from "./read-truth";
 
 /** One registered agent anchored on `step`, active unless `over` says otherwise (`heldByAgents`' facts). */
 const anchored = (step: string, over: Partial<AgentHold> = {}) => [
@@ -350,9 +351,10 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
     inputs([], { voices: [...items, voice("v60", { kind: "several" })] })
   ).filter((c) => c.group === "voice");
   expect(cards).toHaveLength(60);
-  const byRef = (r: string) => cards.find((c) => c.ref === r);
+  const byRef = (r: string) => cards.find((c) => c.ref.split("~")[0] === r);
+  const dana = "voice:v0";
   // Lifelog's suggestion in use is asked as a guess; the rest are asked who.
-  expect(byRef("voice:v0")?.question).toBe("Is this Dana?");
+  expect(byRef(dana)?.question).toBe("Is this Dana?");
   expect(byRef("voice:v1")?.question).toBe("Who is this?");
   expect(byRef("voice:v1")?.about).toEqual(["Kofi"]);
   expect(byRef("voice:v2")?.question).toBe("Who is this?");
@@ -371,14 +373,14 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   ]);
   // The people it could be are buttons of their own; the answers are "Yes" (only to a guess in use), "Someone else…", "Don't name".
   const labels = (r: string) => byRef(r)?.options.map((o) => o.label);
-  expect(labels("voice:v0")).toEqual(["Yes", "Someone else…", "Don't name"]);
+  expect(labels(dana)).toEqual(["Yes", "Someone else…", "Don't name"]);
   expect(labels("voice:v1")).toEqual(["Someone else…", "Don't name"]);
   expect(labels("voice:v2")).toEqual(["Someone else…", "Don't name"]);
   expect(byRef("voice:v2")?.evidence?.quote).toBe("See you Friday");
   // Lifelog ranks likely people for every voice: only its suggestion makes a guess in use.
-  expect(
-    cards.filter((c) => urgencyOf(c) === "improves").map((c) => c.ref)
-  ).toEqual(["voice:v0"]);
+  const guesses = cards.filter((c) => urgencyOf(c) === "improves");
+  expect(guesses.map((c) => c.ref.split("~")[0])).toEqual([dana]);
+  expect(byRef(dana)?.ref.endsWith("~person:dana")).toBe(true);
 });
 
 const HEX16 = /^[0-9a-f]{16}$/;
@@ -441,7 +443,6 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
   expect(checksOf(base)).toEqual([
     {
       about: [],
-      around: null,
       asker: "life",
       at: null,
       clips: [],
@@ -523,7 +524,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
     checksOf({
       ...base,
       heldByAgents: anchored("obs_000000000071", {
-        endedAt: "2026-11-17T01:00:00.000Z",
+        closedAt: "2026-11-17T01:00:00.000Z",
       }),
     })
   ).toHaveLength(1);
@@ -539,7 +540,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
     none({ heldByAgents: anchored("unit_000000000072") }),
     none({
       heldByAgents: anchored("obs_000000000071", {
-        endedAt: "2026-11-17T09:00:00.000Z",
+        closedAt: "2026-11-17T09:00:00.000Z",
       }),
     }),
     // The hand-out is on and it is one of his: the hand-out takes it, no Start.
@@ -789,7 +790,9 @@ test("only the open endings' and the new matters' steps are read for their sente
     endings: new Map([
       ["obs_open", link],
       ["obs_closed", { later: "obs_c", quote: "x" }],
+      ["obs_his", { later: "obs_hers", quote: "y" }],
     ]),
+    lines: [{ id: "obs_hers", speaker: OWNER }],
     matters: [matter("2026-11-17", "obs_new"), matter("2026-10-01", "obs_old")],
     today: "2026-11-18",
   });

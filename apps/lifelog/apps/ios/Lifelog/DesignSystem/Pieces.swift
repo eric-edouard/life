@@ -1,34 +1,43 @@
 import LifeConnector
 import SwiftUI
 
-// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette,
-// never a border, and nothing tappable under 44 points.
+/// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette,
+/// never a border, and nothing tappable under 44 points.
+extension Color {
+    /// The quiet fill of a secondary button or a chip: the page's ink at a low strength, as the design's `--tint`.
+    static let fillTint = Palette.fg.opacity(0.08)
+    /// The one selected look of a control (his mark on): the page's ink stronger than `fillTint`, as the design's `--pick`.
+    static let pick = Palette.fg.opacity(0.16)
+}
 
-/// The pill buttons: the filled one (cream in dark) and the quiet one, in three sizes, and busy while an action runs.
-/// A label that does not fit takes a second line, and the pill grows with it.
+/// The pill buttons: the filled one (cream in dark), the quiet one, and the done one (`ok`, an action that worked), in
+/// three sizes, and busy while an action runs. A label that does not fit takes a second line, and the pill grows with it.
 struct PillStyle: ButtonStyle {
-    enum Kind { case filled, quiet }
+    enum Kind { case filled, quiet, done }
     /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row; `row` is one of several
     /// answers stacked, each on its line.
     enum Size: CGFloat { case large = 54, row = 48, compact = 44 }
 
     let kind: Kind
     var size: Size = .large
-    /// The action is running: the quiet fill, a spinner then the label, and no taps.
+    /// The action is running: its own fill, a spinner then the label, and no taps.
     var isBusy = false
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        let isFilled = kind == .filled && !isBusy
+        let isFilled = kind != .quiet
         HStack(spacing: 8) {
             if isBusy { Spinner() }
             configuration.label.multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
         }
         .font(.buttonLabel)
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)
-        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
+        // A compact pill sits beside others in a row: it keeps less to its sides.
+        .padding(.horizontal, size == .compact ? Metrics.Spacing.m : Metrics.Spacing.l)
+        .padding(.vertical, Metrics.Spacing.s)
         .frame(maxWidth: .infinity, minHeight: size.rawValue)
-        .background(isFilled ? Palette.fg : Color.fillTint, in: .capsule)
+        .background(isFilled ? (kind == .done ? Palette.ok : Palette.fg) : Color.fillTint, in: .capsule)
+        .motion(Motion.standard, value: kind == .done)
         .opacity(isBusy ? 1 : isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
         .contentShape(.capsule)
         .allowsHitTesting(!isBusy)
@@ -79,42 +88,63 @@ struct CountBadge: View {
     }
 }
 
-/// A 44-high text button: `fg` for an action, `muted` with an arrow for a jump out of the app.
+/// A 44-high text button: `fg` for an action, `muted` with an arrow for a jump out of the app, a chevron for a page of
+/// the app it opens (`isOnward`).
 struct TextLink: View {
     let title: String
     var isOutward = false
+    var isOnward = false
     var isMuted = true
     let action: () -> Void
 
-    init(_ title: String, isOutward: Bool = false, isMuted: Bool = true, action: @escaping () -> Void) {
+    init(
+        _ title: String, isOutward: Bool = false, isOnward: Bool = false, isMuted: Bool = true,
+        action: @escaping () -> Void
+    ) {
         self.title = title
         self.isOutward = isOutward
+        self.isOnward = isOnward
         self.isMuted = isMuted
         self.action = action
     }
 
+    private var label: Text {
+        if isOutward { return Text("\(title) \(Image(systemName: "arrow.up.right"))") }
+        if isOnward { return Text("\(title) \(Image(systemName: "chevron.right"))") }
+        return Text(verbatim: title)
+    }
+
     var body: some View {
         Button(action: action) {
-            (isOutward ? Text("\(title) \(Image(systemName: "arrow.up.right"))") : Text(verbatim: title))
+            label
                 .font(.smallStrong).foregroundStyle(isOutward && isMuted ? Palette.muted : Palette.fg)
                 .frame(minHeight: 44)
         }
     }
 }
 
-/// What he just answered, with Undo while it is held: 48 high on `tile`, a check in `ok`, his answer's words. It sits in
-/// a bar, so it takes no room from the answers.
+/// What he just answered or changed (the toast spec of 20 Nov): a glass capsule 44 high that hugs its content, a check
+/// in `ok` (a change that was not made: `flag`'s glyph and why), its words on one line, and Undo while it can be taken
+/// back, a `pick` capsule inside it. It sits at the top of the pane, so it takes no room from the answers.
 struct Toast: View {
     let words: String
-    let undo: () -> Void
+    var glyph = StateGlyph.ok
+    let undo: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: Metrics.Spacing.s) {
-            StateGlyph.ok
-            Text(words).font(.buttonLabel).foregroundStyle(Palette.fg).lineLimit(1)
-            TextLink("Undo", isMuted: false, action: undo).padding(.leading, Metrics.Spacing.xs)
+        HStack(spacing: 8) {
+            glyph
+            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(1)
+            if let undo {
+                Button(action: undo) {
+                    Text("Undo").font(.chip).foregroundStyle(Palette.fg).padding(.horizontal, 12).frame(height: 32)
+                        .background(Color.pick, in: .capsule).contentShape(.capsule)
+                }
+                .buttonStyle(.plain).fixedSize()
+            }
         }
-        .padding(.horizontal, 18).frame(height: 48).background(Palette.tile, in: .capsule)
+        .padding(.leading, 14).padding(.trailing, undo == nil ? 14 : 6).frame(minWidth: 120, minHeight: 44)
+        .floatingGlass()
     }
 }
 
@@ -123,6 +153,51 @@ extension View {
     /// says whether this screen names that held answer.
     func heldToast(shows: @escaping (String) -> Bool, undo: @escaping (String) -> Void) -> some View {
         modifier(HeldToast(shows: shows, undo: undo))
+    }
+}
+
+extension View {
+    /// His last mark or project status, said back (`LifeStore.saidBack`), over the top as the held answer's toast; in
+    /// the closed Duo's side column (`inSideColumn`) only a change that was not made, the column's capsule says the rest.
+    func saidBackToast(inSideColumn: Bool) -> some View { modifier(SaidBackToast(inSideColumn: inSideColumn)) }
+
+    /// A page's said-back toast, over the top of its pane (the toast spec: the closed Duo's column capsule is gone).
+    func saysBack() -> some View { saidBackToast(inSideColumn: false) }
+
+    /// A page's title steps aside while a toast is over it: on the closed Duo, where no bar holds the toast.
+    func stepsAsideForToast() -> some View { modifier(StepsAsideForToast()) }
+}
+
+private struct StepsAsideForToast: ViewModifier {
+    @Environment(LifeStore.self) private var life
+    @State private var inSideColumn = false
+
+    func body(content: Content) -> some View {
+        let isCovered = inSideColumn && life.saidBack != nil
+        content.opacity(isCovered ? 0 : 1).motion(Motion.standard, value: isCovered)
+            .reportsSideColumn($inSideColumn)
+    }
+}
+
+private struct SaidBackToast: ViewModifier {
+    let inSideColumn: Bool
+    @Environment(LifeStore.self) private var life
+    /// The closed Duo, where no bar holds the toast: its slot is 10 from the screen's top, over the stepped-aside title.
+    @State private var isClosed = false
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .top) {
+            ZStack {
+                if let said = life.saidBack, !inSideColumn || said.undo == nil {
+                    Toast(words: said.words, glyph: said.undo == nil ? .flag : .ok, undo: life.undoing(said))
+                        .appears().id(said.id)
+                }
+            }
+            .padding(.top, isClosed ? 10 : 0)
+            .ignoresSafeArea(.container, edges: isClosed ? .top : [])
+            .motion(Motion.standard, value: life.saidBack?.id)
+        }
+        .reportsSideColumn($isClosed)
     }
 }
 
@@ -176,6 +251,8 @@ struct InlinePill: View {
     let name: String
     /// The asking agent's mark (`RuntimeName.mark`), nil when Life asks itself.
     var agentMark: String?
+    /// His mark on the matter: a small flag after the name (`SmallFlag`).
+    var isImportant = false
     let action: () -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -185,6 +262,7 @@ struct InlinePill: View {
             HStack(spacing: Metrics.Spacing.s) {
                 if let agentMark { Image(symbol: agentMark).accessibilityHidden(true) }
                 Text(name).lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
+                if isImportant { SmallFlag() }
             }
             .font(.smallStrong).foregroundStyle(Palette.fg)
             .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.xs).frame(minHeight: 32)
@@ -192,15 +270,54 @@ struct InlinePill: View {
             .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Matter: \(name)")
+        .accessibilityLabel("Matter: \(name)\(isImportant ? ", important" : "")")
     }
 }
 
-/// Two or three choices in one capsule; tapping the chosen one clears it.
+/// His mark on a matter as a toolbar item, a round glass button (the system places it: in the bar left of the Pendant,
+/// or in the closed Duo's side column): off, the line flag; on, the one selected look, `pick` filled, the filled flag.
+/// Always in `fg`, never the orange `flag`.
+struct MarkItem: View {
+    let isOn: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button("Important", systemImage: isOn ? "flag.fill" : "flag", action: toggle)
+            .labelStyle(.iconOnly).foregroundStyle(Palette.fg)
+            .buttonStyle(.glassProminent).tint(isOn ? Color.pick : .clear)
+            .motion(Motion.standard, value: isOn)
+            .accessibilityAddTraits(isOn ? .isSelected : [])
+            .accessibilityIdentifier("matter.important")
+    }
+}
+
+/// Where a list's next part begins, in a small muted label: "The rest can wait" in the Inbox, "Parked" in Matters.
+struct ListLabel: View {
+    let text: String
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text).font(.small).foregroundStyle(Palette.muted)
+            .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 6)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// His mark after a matter's name: a filled flag, 12, in `fg` at 85% (never the orange `flag`, which means late).
+struct SmallFlag: View {
+    var body: some View {
+        Image(systemName: "flag.fill").font(.system(size: 12)).foregroundStyle(Palette.icon).accessibilityHidden(true)
+    }
+}
+
+/// Two or three choices in one capsule, each with its symbol before it when `icon` gives one; tapping the chosen one
+/// clears it.
 struct SegmentedChoice<Choice: Hashable>: View {
     let choices: [Choice]
     @Binding var selection: Choice?
     let title: (Choice) -> String
+    var icon: (Choice) -> String? = { _ in nil }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -209,14 +326,23 @@ struct SegmentedChoice<Choice: Hashable>: View {
                 Button {
                     selection = isChosen ? nil : choice
                 } label: {
-                    Text(title(choice)).font(.chip).foregroundStyle(isChosen ? Palette.on : Palette.fg)
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .background(isChosen ? Palette.fg : .clear, in: .capsule)
+                    HStack(spacing: 6) {
+                        if let symbol = icon(choice) {
+                            Image(systemName: symbol).font(.system(size: 16)).accessibilityHidden(true)
+                        }
+                        Text(title(choice)).font(.chip)
+                    }
+                    .foregroundStyle(isChosen ? Palette.on : Palette.fg)
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .background(isChosen ? Palette.fg : .clear, in: .capsule)
                 }
                 .buttonStyle(.plain).accessibilityAddTraits(isChosen ? .isSelected : [])
             }
         }
+        // The chosen segment sits inset in its 48 track.
+        .padding(4)
         .background(Palette.tile, in: .capsule)
+        .motion(Motion.standard, value: selection)
     }
 }
 
@@ -353,6 +479,8 @@ private struct FilterBar<Choices: View>: ViewModifier {
                             .padding(.leading, Metrics.gutter).padding(.bottom, bottom).appears()
                     }
                 }
+                // 24 from the screen's bottom, as the closed Duo's list draws it, not from its safe area.
+                .ignoresSafeArea(.container, edges: isInColumn ? .bottom : [])
                 .motion(Motion.standard, value: isInColumn)
             }
     }
@@ -530,6 +658,8 @@ struct Row<Trailing: View>: View {
     var iconTint = Palette.icon
     var detail: String?
     var state = RowState.known
+    /// His mark: `SmallFlag` after the name, on its last line.
+    var isMarked = false
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -539,7 +669,7 @@ struct Row<Trailing: View>: View {
                     .frame(width: 28).accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.rowName).foregroundStyle(Palette.fg)
+                titleText.font(.rowName).foregroundStyle(Palette.fg)
                 line
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -553,6 +683,12 @@ struct Row<Trailing: View>: View {
         .padding(.vertical, 8)
         .frame(minHeight: state == .known && detail == nil ? 56 : 64)
         .contentShape(.rect)
+    }
+
+    /// The name, and his mark after it on its last line (the flag as `SmallFlag` draws it).
+    private var titleText: Text {
+        let flag = Text(Image(systemName: "flag.fill")).font(.system(size: 12)).foregroundStyle(Palette.icon)
+        return isMarked ? Text("\(title) \(flag)") : Text(verbatim: title)
     }
 
     @ViewBuilder private var line: some View {
@@ -697,21 +833,43 @@ struct SheetHeader: View {
     var font: TypeStep = .sheetQuestion
     let close: () -> Void
 
-    /// The title in the content; Close alone in the bar the system draws over the sheet, a toolbar item, so the sheet
-    /// sits in a stack (`sheetStack()`).
+    /// One head row inside the sheet: the title at the left, Close at the right. The stack's bar (`sheetStack()`) is
+    /// hidden, so nothing sits above it.
     var body: some View {
         HStack {
             if let title { Text(title).font(font).foregroundStyle(color) }
             Spacer(minLength: 0)
+            CloseButton(close: close)
         }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) { Button(role: .close, action: close) }
+        .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+/// A sheet's Close: a flat `tile` circle with a thin x, without the system's glass and its rim (no borders).
+struct CloseButton: View {
+    let close: () -> Void
+
+    var body: some View {
+        Button(role: .close, action: close) {
+            Image(systemName: "xmark").font(.system(size: 17, weight: .light)).foregroundStyle(Palette.fg)
+                .frame(width: 44, height: 44).background(Palette.tile, in: .circle)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Close")
+    }
+}
+
+/// `CloseButton` in the bar the system draws, for a sheet whose top is its own (the pendant's).
+struct CloseItem: ToolbarContent {
+    let close: () -> Void
+
+    var body: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) { CloseButton(close: close) }.sharedBackgroundVisibility(.hidden)
     }
 }
 
 extension View {
-    /// A sheet in its own stack, so its Close (`SheetHeader`) is a toolbar item in the bar the system draws.
+    /// A sheet in its own stack, for what it pushes and the pendant's Close (`CloseItem`) in the bar the system draws.
     func sheetStack() -> some View {
         NavigationStack { self }
     }
@@ -763,5 +921,62 @@ struct LimitNote: View {
         .onChange(of: state.limit, initial: true) { _, limit in
             if seconds == nil, let limit { seconds = max(1, Int(limit.timeIntervalSinceNow.rounded(.up))) }
         }
+    }
+}
+
+/// Quiet answers in one row: equal widths when each label fits its share; else each as wide as its label plus an equal
+/// part of what is left; and when the labels together are wider than the row, each gives up width in proportion, its
+/// label shrinking (the caller's `minimumScaleFactor`, under 0.8 since a pill's sides do not shrink), never cut. Its
+/// ideal width is the narrowest it can be (80%), so a `ViewThatFits` falls back to a stack only when that does not fit.
+struct AnswerRow: Layout {
+    var spacing: CGFloat = 8  // Metrics.Spacing.s, which a Layout (not on the main actor) cannot read
+    static let smallest = 0.8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let narrowest = sizes.reduce(0) { $0 + $1.width } * Self.smallest + gaps(subviews)
+        return CGSize(width: proposal.width ?? narrowest, height: sizes.map(\.height).max() ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let ideals = subviews.map { $0.sizeThatFits(.unspecified).width }
+        let room = bounds.width - gaps(subviews)
+        let total = ideals.reduce(0, +)
+        let share = room / CGFloat(max(subviews.count, 1))
+        var x = bounds.minX
+        for (subview, ideal) in zip(subviews, ideals) {
+            let width =
+                ideals.allSatisfy({ !(share < $0) })
+                ? share
+                : total < room ? ideal + (room - total) / CGFloat(subviews.count) : ideal * room / total
+            subview.place(
+                at: CGPoint(x: x, y: bounds.midY), anchor: .leading,
+                proposal: ProposedViewSize(width: width, height: bounds.height))
+            x += width + spacing
+        }
+    }
+
+    private func gaps(_ subviews: Subviews) -> CGFloat { spacing * CGFloat(max(subviews.count - 1, 0)) }
+}
+
+/// Where an ask stands among the asks: up to 8, a dot each (6, 6 apart, the current `fg`, the others `tint`); more,
+/// the words "3 of 24" in `muted`.
+struct PagerDots: View {
+    let current: Int
+    let total: Int
+
+    var body: some View {
+        Group {
+            if total > 8 {
+                Text("\(current + 1) of \(total)").font(.small).foregroundStyle(Palette.muted)
+            } else {
+                HStack(spacing: 6) {
+                    ForEach(0..<total, id: \.self) { index in
+                        Circle().fill(index == current ? Palette.fg : Color.fillTint).frame(width: 6, height: 6)
+                    }
+                }
+            }
+        }
+        .accessibilityElement().accessibilityLabel("\(current + 1) of \(total)")
     }
 }

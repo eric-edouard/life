@@ -13,17 +13,12 @@ import type { People } from "./who";
 import { readEach, spokenLines, unitLines } from "./words";
 
 // What a name check shows of its sentence: the line of the unit that holds the name, verbatim, with who said it, to
-// whom, when; the lines before and after; for a spoken one, its clip and lifelog's word timings. One unit read per
+// whom, when; for a spoken one, its clip and lifelog's word timings. One unit read per
 // card, read when the inbox is, kept while its unit's hash is the same, so a new read of the inbox reads only the names
 // that are new or whose unit changed. A unit that cannot be read leaves the card with the observation's quote.
 
-/** How many lines of the unit show before and after the sentence. */
-const AROUND = 3;
-
 /** What a name check carries of its sentence. */
 export interface NameContext {
-  after: Said[];
-  before: Said[];
   clips: Check["clips"];
   said: Said;
 }
@@ -104,8 +99,6 @@ export async function readNameContexts(
           (await readTurnClip(turn.jobId, turn.turnIndex).catch(() => null));
         const show = (l: SourceLine) => saidOf(l, unit.source, to, people);
         const context = {
-          after: lines.slice(at + 1, at + 1 + AROUND).map(show),
-          before: lines.slice(Math.max(0, at - AROUND), at).map(show),
           clips: clip ? [clip] : [],
           said: show(found),
         };
@@ -277,26 +270,33 @@ export async function readSentences(c: {
   };
 }
 
-/** Whether an open step with an ending found is an ending check: no old doubt line holds its ref, he has not answered. */
+/**
+ * Whether an open step with an ending found is an ending check: no old doubt line holds its ref, he has not answered,
+ * and the link's later record (when it is a line) is not his own words: then it stays probably done, no card.
+ */
 export const isEndingOpen = (
   ref: string,
-  c: { answered: ReadonlySet<string>; doubted: ReadonlySet<string> }
-) => !(c.doubted.has(ref) || c.answered.has(ref));
+  c: { answered: ReadonlySet<string>; doubted: ReadonlySet<string> },
+  later?: { speaker: string }
+) => !(c.doubted.has(ref) || c.answered.has(ref) || later?.speaker === OWNER);
 
 /** The steps a card shows the sentence of: the open endings' (a step and what ended it) and the new matters' first steps; a closed ending's or an old matter's are never read. */
 export const shownStepsOf = (c: {
   answered: ReadonlySet<string>;
   doubted: ReadonlySet<string>;
   endings: ReadonlyMap<string, { later: string }>;
+  lines: readonly { id: string; speaker: string }[];
   today: string;
   matters: readonly { steps: readonly { day: string; ref: string }[] }[];
-}) =>
-  new Set([
+}) => {
+  const lineById = new Map(c.lines.map((l) => [l.id, l]));
+  return new Set([
     ...[...c.endings].flatMap(([ref, e]) =>
-      isEndingOpen(ref, c) ? [ref, e.later] : []
+      isEndingOpen(ref, c, lineById.get(e.later)) ? [ref, e.later] : []
     ),
     ...c.matters.flatMap((m) => {
       const end = offerEndOf(m);
       return end && c.today <= end && m.steps[0] ? [m.steps[0].ref] : [];
     }),
   ]);
+};

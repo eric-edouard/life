@@ -258,7 +258,7 @@ const lineChat = (text: string, deleted = false) => ({
 
 const MEET_LINE = /: meet at 10 \[id whatsapp:120@g\.us\/S2\]$/;
 
-test("chats: WhatsApp, LINE and iMessage together, deleted messages shown marked, today included", async () => {
+test("chats: WhatsApp, LINE and iMessage, deleted messages shown marked, today included; a `who` that is one person opens with their style", async () => {
   const wa = whatsappFixture();
   wa.add(1, "S1", 0, "pay the carpenter", 300);
   wa.add(2, "S2", 0, "meet at 9", 200);
@@ -287,12 +287,6 @@ test("chats: WhatsApp, LINE and iMessage together, deleted messages shown marked
   // Each line ends with the id a draft's `onMessage` takes; an unresolved sender is its own id, so nothing is added.
   expect(team).toMatch(MEET_LINE);
   expect(team).not.toContain("send the invoice");
-  // A sender found in two apps: both chats, by handle.
-  const sender = (await chatsOf({ who: "+66600000001" }, sources)) ?? "";
-  expect(sender).toContain("Team (whatsapp");
-  expect(sender).toContain("Ana (line, chat !tg)");
-  expect(sender).toContain("send the invoice (deleted)");
-  expect(sender).not.toContain("salut");
   // A `who` that is one person opens with their communication style (life#471).
   const stylePath = communicationStylePath("person:test-ana");
   await Bun.write(
@@ -322,7 +316,7 @@ test("chats: WhatsApp, LINE and iMessage together, deleted messages shown marked
   } finally {
     rmSync(stylePath, { force: true });
   }
-  const text = (await chatsOf({ who: "+33611111111" }, sources)) ?? "";
+  const text = (await chatsOf({ chat: "+33611111111" }, sources)) ?? "";
   expect(text).toContain("(imessage, chat +33611111111)");
   expect(text).toContain("salut");
   expect(await chatsOf({}, sources)).toBeNull();
@@ -581,18 +575,14 @@ test("chats never read Life's own chat with the bot", async () => {
     source: "line" as const,
     text,
   });
-  const out =
-    (await chatsOf(
-      { who: "Claude Life Assistant" },
-      {
-        line: () => [
-          event(lifeChat() as string, "Life's own answer"),
-          event("!other", "a real chat"),
-        ],
-      }
-    )) ?? "";
-  expect(out).toContain("a real chat");
-  expect(out).not.toContain("Life's own answer");
+  const line = () => [
+    event(lifeChat() as string, "Life's own answer"),
+    event("!other", "a real chat"),
+  ];
+  expect(await chatsOf({ chat: "!other" }, { line })).toContain("a real chat");
+  expect(await chatsOf({ chat: lifeChat() as string }, { line })).not.toContain(
+    "Life's own answer"
+  );
 });
 
 test("search finds a note of any age by any of its words, a long one shown by its lines holding them; a chat of any age too", async () => {

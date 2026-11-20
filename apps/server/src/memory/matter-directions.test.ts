@@ -6,9 +6,11 @@ import {
   directionDueOf,
   directionsOf,
   type MatterView,
+  matterFinderOf,
   nextStepNow,
 } from "./matter-read";
-import { MATTER_DIRECTIONS, readDirectionPins } from "./memory-files";
+import { readMatterPins } from "./matters";
+import { MATTER_DIRECTIONS } from "./memory-files";
 
 const TODAY = "2026-11-18";
 
@@ -123,11 +125,12 @@ test("the night drafts each running matter's direction, pinned to its steps; a r
       drafted: 2,
       due: 2,
     });
-    const pins = readDirectionPins();
+    const pins = readMatterPins().directions;
     expect(pins.map((p) => [p.goal, p.nextStep?.kind, p.steps])).toEqual([
       ["The refund is paid back", "do", errand.steps.map((s) => s.ref)],
       ["Gran has her watch back", "wait_event", repair.steps.map((s) => s.ref)],
     ]);
+    expect(pins.map((p) => p.matter)).toEqual([errand.id, repair.id]);
     // A re-group: new ids, the same steps in another order: each direction follows its steps.
     const regrouped = [
       {
@@ -137,7 +140,7 @@ test("the night drafts each running matter's direction, pinned to its steps; a r
       },
       { ...repair, id: "matter_00000000c002" },
     ];
-    const read = directionsOf(regrouped, pins);
+    const read = directionsOf(matterFinderOf(regrouped), pins);
     expect(read.get(regrouped[0] as MatterView)?.goal?.text).toBe(
       "The refund is paid back"
     );
@@ -204,7 +207,7 @@ test("his goal wins over every draft; his next step wins until Life drafts again
     id: "matter_000000000001",
     steps: [s1, s2, s3].map((ref) => ({ ref })),
   };
-  expect(directionsOf([whole], pins).get(whole)).toMatchObject({
+  expect(directionsOf(matterFinderOf([whole]), pins).get(whole)).toMatchObject({
     goal: { by: "owner", text: "His goal" },
     nextStep: { by: "owner", text: "His step" },
   });
@@ -218,15 +221,17 @@ test("his goal wins over every draft; his next step wins until Life drafts again
       steps: [s1, s2, s3],
     },
   ];
-  expect(directionsOf([whole], later).get(whole)).toMatchObject({
-    goal: { by: "owner", text: "His goal" },
-    nextStep: { by: "life", text: "Life two" },
-  });
+  expect(directionsOf(matterFinderOf([whole]), later).get(whole)).toMatchObject(
+    {
+      goal: { by: "owner", text: "His goal" },
+      nextStep: { by: "life", text: "Life two" },
+    }
+  );
   const [left, right] = [
     { id: "matter_000000000002", steps: [{ ref: s2 }] },
     { id: "matter_000000000003", steps: [{ ref: s1 }, { ref: s3 }] },
   ];
-  const split = directionsOf([left, right], pins.slice(0, 1));
+  const split = directionsOf(matterFinderOf([left, right]), pins.slice(0, 1));
   expect(split.get(right)?.goal?.text).toBe("Draft one");
   expect(split.has(left)).toBe(false);
 });
@@ -272,7 +277,7 @@ test("a direction goes to the matter holding most of its pinned steps, though it
     [other, mine],
     [mine, other],
   ]) {
-    const read = directionsOf(book, [pin]);
+    const read = directionsOf(matterFinderOf(book), [pin]);
     expect(read.get(mine)?.goal?.text).toBe("The parcel is home");
     expect(read.has(other)).toBe(false);
   }
@@ -282,9 +287,9 @@ test("a direction goes to the matter holding most of its pinned steps, though it
     [other, mine],
     [mine, other],
   ]) {
-    expect(directionsOf(book, [small]).get(other)?.goal?.text).toBe(
-      "The courier calls back"
-    );
+    expect(
+      directionsOf(matterFinderOf(book), [small]).get(other)?.goal?.text
+    ).toBe("The courier calls back");
   }
 });
 
@@ -380,7 +385,7 @@ test("a matter that looks over gets no next step: its draft cites only records i
     await matterDirections(people, { today: TODAY });
     // The call was shown the record, said by name.
     expect(JSON.stringify(ask.mock.calls[0])).toContain(said(17).id);
-    const [pin] = readDirectionPins();
+    const [pin] = readMatterPins().directions;
     expect(pin).toMatchObject({
       endingRecords: [said(17).id],
       goal: "Sam has answered",
@@ -388,7 +393,10 @@ test("a matter that looks over gets no next step: its draft cites only records i
     });
     expect(pin?.nextStep).toBeUndefined();
     // Read back: a Life draft with no next step clears the old one, and its records are the matter's to cite.
-    const read = directionsOf([v], [pinOf(v), ...(pin ? [pin] : [])]).get(v);
+    const read = directionsOf(matterFinderOf([v]), [
+      pinOf(v),
+      ...(pin ? [pin] : []),
+    ]).get(v);
     expect(read?.nextStep).toBeUndefined();
     expect(read?.latest?.endingRecords).toEqual([said(17).id]);
     // A draft with both, or neither, is refused whole.

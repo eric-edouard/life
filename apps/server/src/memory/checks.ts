@@ -79,7 +79,9 @@ import {
   readPeople,
   readUnresolvedPeople,
   type Shown,
+  voiceCardRefOf,
   voicePersonOf,
+  voiceSuggestionOf,
 } from "./who";
 import { dayNow, localDate } from "./zones";
 
@@ -231,7 +233,7 @@ function ctxOf(c: CheckInputs): Ctx {
 const whereOf = (l: Line): Where => `${l.source.channel}, ${plain(l.date)}`;
 
 /** What every kind that shows no sentence of its own carries in the fields of `Said`. */
-const NO_SAID = { around: null, said: null, since: null } as const;
+const NO_SAID = { said: null, since: null } as const;
 
 /** The open matters something rides on: their ids and how many. */
 const ridingOf = (matters: Iterable<MatterId> = []) => {
@@ -283,7 +285,6 @@ function ranked(
         {
           check: {
             about: fields.about,
-            around: fields.around ?? null,
             asker: LIFE_ASKER,
             at: null,
             clips: fields.clips ?? [],
@@ -363,12 +364,12 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         },
         day: d.at,
       })),
-  /** Every open step a link says ended and he has not answered. */
+  /** Every open step a link says ended and he has not answered, unless the link rests on his own later words. */
   ending: (c) =>
     [...c.endings].flatMap(([ref, link]) => {
       const o = c.byId.get(ref);
       const later = c.byId.get(link.later);
-      return o && isEndingOpen(ref, c)
+      return o && isEndingOpen(ref, c, later)
         ? ranked(
             c,
             "ending",
@@ -520,7 +521,6 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           "name",
           {
             about: as,
-            around: read && { after: read.after, before: read.before },
             clips: read?.clips,
             likelyPeople: people
               .candidatesFor(as[0] ?? key)
@@ -542,7 +542,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     c.voices
       .filter((item) => item.kind !== "several")
       .map((item) => {
-        const known = voicePersonOf(c.people.resolve, item.personId, item.name);
+        const known = voiceSuggestionOf(c.people.resolve, item);
         const likely = namingQueueGuessesOf(item)
           .flatMap((id) => {
             const ref = voicePersonOf(c.people.resolve, id, null);
@@ -552,8 +552,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           .slice(0, 5)
           .map(c.people.partyOf);
         const [first] = item.evidence;
-        const who =
-          known && item.kind !== "new_person" ? c.people.nameOf(known) : null;
+        const who = known ? c.people.nameOf(known) : null;
         return {
           check: {
             ...NO_SAID,
@@ -583,7 +582,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
               (o) => who || o.id !== "is-them"
             ),
             question: who ? `Is this ${who}?` : "Who is this?",
-            ref: `voice:${item.id}`,
+            ref: voiceCardRefOf(c.people.resolve, item),
             ridesOn: { ...ridingOf(), observations: 0, pages: 0 },
             // The person lifelog suggests, what makes it a guess in use; null: none (`urgencyOf`).
             subject: who ? known : null,
@@ -758,6 +757,7 @@ async function readChecks(
     answered,
     doubted,
     endings: records.linkEndings,
+    lines,
     matters,
     today,
   });

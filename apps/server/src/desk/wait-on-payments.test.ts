@@ -5,10 +5,11 @@ import { paymentsChannelOf } from "../host/event-channels";
 import type { Messaging } from "../host/events";
 import type { Payment, PaymentsBackend } from "../payments/contract";
 import type { EventFilter } from "../records/registered-agent";
-import { register, setWait } from "./agent-actions";
+import { openAssignment, register, setWait } from "./agent-actions";
 import { readPeopleOnce, wakeDue } from "./desk-clock";
+import { writeWait } from "./desk-store";
 import { pollChannels } from "./event-queue";
-import { advance, ahead, chatSource, setup } from "./test-desk";
+import { advance, ahead, asgOf, chatSource, on, setup } from "./test-desk";
 
 // An agent's wait on the payments channel: a made-up money app's payments wake it once, by amount or by words, and a
 // wake hands their facts, never the merchant or the note.
@@ -58,7 +59,11 @@ async function waitingOn(...filters: Partial<EventFilter>[]) {
   });
   await wakeDue(s.desk);
   const rewait = (...events: Partial<EventFilter>[]) =>
-    setWait(s.desk, id, { events, reason: "a payment", until: ahead(HOUR) });
+    setWait(s.desk, on(s.desk, id), {
+      events,
+      reason: "a payment",
+      until: ahead(HOUR),
+    });
   const set = await rewait(...filters);
   await s.end(id);
   advance(MIN);
@@ -66,7 +71,7 @@ async function waitingOn(...filters: Partial<EventFilter>[]) {
     advance(5 * MIN);
     await pollChannels(s.desk, readPeopleOnce());
   };
-  const queued = () => queuedEvents(s.desk.db, id);
+  const queued = () => queuedEvents(s.desk.db, asgOf(s.desk, id));
   return { ...s, id, list, money, poll, queued, rewait, set };
 }
 
@@ -206,5 +211,33 @@ test("a wait refuses payments off, an unknown or off channel, and keys its chann
   money.isOn = false;
   expect(await refusals({ channels: ["payments"] })).toEqual([
     "payments are off in his settings",
+  ]);
+});
+
+test("a payment the agent's own wait and its matter's both want wakes the matter's, once, poll after poll", async () => {
+  const filter: EventFilter = {
+    above: 500,
+    channels: ["payments"],
+    from_me: false,
+    quantity: "eur_out",
+  };
+  const { desk, id, list, poll, queued } = await waitingOn(filter);
+  const matter = openAssignment(desk, id, {
+    openedBy: "owner",
+    steps: ["obs_test_trip"],
+  });
+  writeWait(
+    desk.db,
+    matter,
+    { events: [filter], reason: "r", until: ahead(HOUR) },
+    false
+  );
+  advance(MIN);
+  list.push(payment({}));
+  await poll();
+  await poll();
+  expect(queued()).toEqual([]);
+  expect(queuedEvents(desk.db, matter).map((e) => e.event_id)).toEqual([
+    "payments:t1",
   ]);
 });

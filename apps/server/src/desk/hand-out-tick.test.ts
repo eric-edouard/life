@@ -11,7 +11,7 @@ import { dirname } from "node:path";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { answerWithResult } from "../host/answer-result";
-import { agentOf } from "../host/desk-read";
+import { agentOf, currentAssignmentOf } from "../host/desk-read";
 import { DECISION_ANSWERED } from "../host/events";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as checks from "../memory/checks";
@@ -35,18 +35,13 @@ import {
   finish,
   readPacket,
   register,
-  withdrawOpenDecision,
+  withdrawOpenCards,
 } from "./agent-actions";
-import {
-  endAgentsOnOverMatters,
-  pollAnswers,
-  readPeopleOnce,
-  wakeDue,
-} from "./desk-clock";
+import { pollAnswers, readPeopleOnce, wakeDue } from "./desk-clock";
 import { NO_CARD_OUTCOME } from "./hand-out";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
-import { MATTER_DONE_OUTCOME } from "./matter-net";
-import { setup } from "./test-desk";
+import { endAgentsOnOverMatters, MATTER_DONE_OUTCOME } from "./matter-net";
+import { asgOf, matterView, on, setup, withMatters } from "./test-desk";
 
 // The hand-out's step of the tick, over a fake runtime and a made-up book of matters.
 
@@ -123,7 +118,7 @@ const deskOf = () => {
 const agentsOf = (desk: ReturnType<typeof deskOf>) =>
   desk.db
     .query<{ id: string; is_handed_out: number; brief: string }, []>(
-      "select id, is_handed_out, brief from agent order by rowid"
+      "select a.id, s.opened_by = 'desk' as is_handed_out, a.brief from agent a join assignment s on s.agent_id = a.id order by a.rowid"
     )
     .all();
 
@@ -136,9 +131,9 @@ test("one agent starts on the top matter, marked handed out, and none again with
   expect(agentsOf(desk)[0]?.is_handed_out).toBe(1);
   const anchored = desk.db
     .query<{ step: string }, [string]>(
-      "select step from anchor where agent_id = ?"
+      "select step from anchor where assignment_id = ?"
     )
-    .all(id ?? "");
+    .all(asgOf(desk, id ?? ""));
   expect(anchored).toEqual([{ step: "obs_a1" }]);
   setSystemTime(new Date(clock().getTime() + 9 * MIN));
   expect(await handOutNext(desk, read)).toBeUndefined();
@@ -200,7 +195,7 @@ test("the daily count follows his day: a hand-out before his day began is not co
   const since = dayStart(dayNow(), zoneNow());
   const markAt = (id: string, at: number) =>
     desk.db.run(
-      "update agent set is_handed_out = 1, created_at = ? where id = ?",
+      "update assignment set opened_by = 'desk', opened_at = ? where agent_id = ?",
       [new Date(at).toISOString(), id]
     );
   markAt(old, since.getTime() - MIN);
@@ -210,16 +205,26 @@ test("the daily count follows his day: a hand-out before his day began is not co
   expect(reads.n).toBe(1);
 });
 
+/** A card of agent `id` on its matter (the book holds the hand-out's made-up matters). */
 const ask = (desk: ReturnType<typeof deskOf>, id: string) =>
-  askDecision(desk, id, {
-    deadline: iso(clock().getTime() + DAY),
-    options: [
-      { id: "yes", label: "Yes" },
-      { id: "no", label: "No" },
-    ],
-    question: "Test: send this?",
-    title: "a test",
-  });
+  withMatters(
+    MATTERS.map((m) =>
+      matterView(
+        m.id,
+        m.steps.map((x) => x.ref)
+      )
+    ),
+    () =>
+      askDecision(desk, on(desk, id), {
+        deadline: iso(clock().getTime() + DAY),
+        options: [
+          { id: "yes", label: "Yes" },
+          { id: "no", label: "No" },
+        ],
+        question: "Test: send this?",
+        title: "a test",
+      })
+  );
 const paced = (cardsWaiting: number) =>
   setSettings({
     desk: {
@@ -268,7 +273,7 @@ test("cards his inbox hides do not count against the pace: only the ones he is s
 test("a matter whose hand-out ended is not handed out again a week later without a new step, and is after one", async () => {
   const desk = deskOf();
   const first = (await handOutNext(desk, book().read)) ?? "";
-  await finish(desk, first, "nothing left for me");
+  await finish(desk, on(desk, first), "nothing left for me");
   MATTERS = [matterOf("mat_a")];
   try {
     setSystemTime(new Date(clock().getTime() + 8 * DAY));
@@ -288,8 +293,8 @@ test("a handed-out agent's packet carries the one-card first turn, a plain agent
     brief: "Test brief",
     runtime: "claude",
   });
-  const one = await readPacket(desk, handed ?? "", false);
-  const two = await readPacket(desk, plain, false);
+  const one = await readPacket(desk, on(desk, handed ?? ""), false);
+  const two = await readPacket(desk, on(desk, plain), false);
   expect(one).toContain("Life handed you this matter");
   // Every card of a handed-out agent lets him drop the matter: it closes in Life on his pick.
   expect(one).toContain(
@@ -298,7 +303,7 @@ test("a handed-out agent's packet carries the one-card first turn, a plain agent
   expect(one).not.toContain("Start with this plan?");
   expect(two).toContain("Start with this plan?");
   expect(two).not.toContain("Life handed you this matter");
-  expect(agentOf(desk.db, handed ?? "")?.is_handed_out).toBe(1);
+  expect(currentAssignmentOf(desk.db, handed ?? "")?.opened_by).toBe("desk");
 });
 
 /** His own to-do `id`, said today: a made-up observation. */
@@ -400,9 +405,9 @@ const readToDo = async () => {
 const queued = (desk: ReturnType<typeof deskOf>, agent: string) =>
   desk.db
     .query<{ name: string }, [string]>(
-      "select name from event where agent_id = ?"
+      "select name from event where assignment_id = ?"
     )
-    .all(agent)
+    .all(asgOf(desk, agent))
     .map((r) => r.name);
 
 // Regression, 20 Nov 2026: he answered "Done" on a handed-out agent's card about what only he could do; nothing closed
@@ -427,7 +432,7 @@ test("Done on an `ends: matter` card closes the matter: off the matters to do; i
       await wakeDue(desk);
       // The desk reads his answers from here on.
       pollAnswers(desk);
-      const { id } = await askDecision(desk, agent, {
+      const { id } = await askDecision(desk, on(desk, agent), {
         deadline: iso(clock().getTime() + DAY),
         onSilence: null,
         options: [
@@ -453,10 +458,62 @@ test("Done on an `ends: matter` card closes the matter: off the matters to do; i
       expect(agentOf(desk.db, agent)?.status).toBe("active");
       expect(queued(desk, agent)).toEqual([DECISION_ANSWERED]);
       await endAgentsOnOverMatters(desk, readPeopleOnce());
-      expect(agentOf(desk.db, agent)).toMatchObject({
-        outcome: MATTER_DONE_OUTCOME,
-        status: "ended",
+      expect(agentOf(desk.db, agent)?.status).toBe("ended");
+      expect(currentAssignmentOf(desk.db, agent)?.outcome).toBe(
+        MATTER_DONE_OUTCOME
+      );
+    }
+  );
+});
+
+// Regression, 20 Nov 2026 (the debt verdict on PR 1): until the door checks a card's subject and the fold moves matters,
+// a card stays with its asker: one agent's card on a step another agent holds fills the asker's slot, not the holder's,
+// and his answer wakes the asker.
+test("a card on a step another agent holds stays with its asker: its slot, and his answer", async () => {
+  const desk = deskOf();
+  const [mine, theirs] = ["obs_00000000f041", "obs_00000000f042"];
+  await withBook(
+    [toDo(mine, "I'll call the roofer"), toDo(theirs, "I'll send the quote")],
+    { id: "matter_00000000f041", steps: [mine, theirs] },
+    async () => {
+      const asker = register(desk, {
+        brief: "Test brief",
+        runtime: "claude",
+        steps: [mine],
       });
+      const holder = register(desk, {
+        brief: "Test brief",
+        runtime: "claude",
+        steps: [theirs],
+      });
+      pollAnswers(desk);
+      const card = (agent: string, title: string) =>
+        askDecision(desk, on(desk, agent), {
+          deadline: iso(clock().getTime() + DAY),
+          onSilence: null,
+          options: [
+            { id: "yes", label: "Yes" },
+            { id: "tell", label: "Tell the agent…" },
+          ],
+          question: "Send the quote?",
+          subject: theirs,
+          title,
+        });
+      const { id } = await card(asker, "Send the quote");
+      await expect(card(asker, "Send it again")).rejects.toThrow(
+        `${asker} already asks ${id}`
+      );
+      const { id: own } = await card(holder, "The holder's own");
+      await answerWithResult(
+        id,
+        { options: ["yes"] },
+        { report: () => undefined }
+      );
+      setSystemTime(new Date(clock().getTime() + 1000));
+      pollAnswers(desk);
+      expect(queued(desk, asker)).toEqual([DECISION_ANSWERED]);
+      expect(queued(desk, holder)).toEqual([]);
+      await withdrawOpenCards(desk.db, on(desk, holder), `test over ${own}`);
     }
   );
 });
@@ -474,7 +531,7 @@ test("a project agent's `ends: step` card answered Done wakes it and never ends 
         runtime: "claude",
       });
       pollAnswers(desk);
-      const { id } = await askDecision(desk, agent, {
+      const { id } = await askDecision(desk, on(desk, agent), {
         deadline: iso(clock().getTime() + DAY),
         onSilence: null,
         options: [
@@ -534,25 +591,25 @@ test("an agent on a lone matter that closed is ended; one on a step no matter ho
     [toDo(lone, "I'll call the bank"), toDo(open, "I'll call the school")],
     null,
     async () => {
-      const on = (step: string) =>
+      const startOn = (step: string) =>
         register(desk, {
           brief: "Test brief",
-          kind: "handed_out",
+          openedBy: "desk",
           runtime: "claude",
           steps: [step],
         });
-      const ended = on(lone);
-      const stays = on(open);
+      const ended = startOn(lone);
+      const stays = startOn(open);
       await recordCorrection({
         kind: "outdated",
         note: "test: done",
         observations: [lone],
       });
       await endAgentsOnOverMatters(desk, readPeopleOnce());
-      expect(agentOf(desk.db, ended)).toMatchObject({
-        outcome: MATTER_DONE_OUTCOME,
-        status: "ended",
-      });
+      expect(agentOf(desk.db, ended)?.status).toBe("ended");
+      expect(currentAssignmentOf(desk.db, ended)?.outcome).toBe(
+        MATTER_DONE_OUTCOME
+      );
       expect(agentOf(desk.db, stays)?.status).toBe("active");
     }
   );
@@ -569,23 +626,13 @@ const handedOut = async (desk: ReturnType<typeof deskOf>) => {
   ]);
   return id;
 };
-const cardOf = (desk: ReturnType<typeof deskOf>, id: string) =>
-  askDecision(desk, id, {
-    deadline: iso(clock().getTime() + DAY),
-    options: [
-      { id: "yes", label: "Yes" },
-      { id: "no", label: "No" },
-    ],
-    question: "Test: send this?",
-    title: "a test",
-  });
 
 test("a card asked in time keeps the agent; none at 2 hours ends it with its outcome and stops its run", async () => {
   const t = setup();
   t.desk.runtimes = { claude: t.fake.runtime };
   const { desk } = t;
   const asked = await handedOut(desk);
-  cardOf(desk, asked);
+  await ask(desk, asked);
   setSystemTime(new Date(clock().getTime() + 11 * MIN));
   const silent = await handedOut(desk);
   setSystemTime(new Date(clock().getTime() + 2 * HOUR));
@@ -593,9 +640,9 @@ test("a card asked in time keeps the agent; none at 2 hours ends it with its out
   expect(agentOf(desk.db, asked)?.status).toBe("active");
   const a = agentOf(desk.db, silent);
   expect(a?.status).toBe("ended");
-  expect(a?.outcome).toBe(NO_CARD_OUTCOME);
+  expect(currentAssignmentOf(desk.db, silent)?.outcome).toBe(NO_CARD_OUTCOME);
   expect(t.fake.stopped).toEqual([a?.session ?? ""]);
-  await withdrawOpenDecision(asked, "test over");
+  await withdrawOpenCards(desk.db, on(desk, asked), "test over");
 });
 
 test("an agent he started himself is never ended for asking no card", async () => {
@@ -616,17 +663,21 @@ test("a hand-out whose first turn never began is not picked again", async () => 
   const { read } = book();
   const first = (await handOutNext(desk, read)) ?? "";
   desk.db.run(
-    "update agent set status = 'ended', ended_at = ?, why_not_started = 'test' where id = ?",
+    "update assignment set closed_at = ?, why_not_started = 'test' where agent_id = ?",
     [clock().toISOString(), first]
   );
+  desk.db.run("update agent set status = 'ended', ended_at = ? where id = ?", [
+    clock().toISOString(),
+    first,
+  ]);
   setSystemTime(new Date(clock().getTime() + 11 * MIN));
   const second = (await handOutNext(desk, read)) ?? "";
   const steps = (id: string) =>
     desk.db
       .query<{ step: string }, [string]>(
-        "select step from anchor where agent_id = ?"
+        "select step from anchor where assignment_id = ?"
       )
-      .all(id)
+      .all(asgOf(desk, id))
       .map((r) => r.step);
   expect(steps(first)).toEqual(["obs_a1"]);
   expect(steps(second)).toEqual(["obs_b1"]);

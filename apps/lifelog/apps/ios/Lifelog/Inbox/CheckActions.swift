@@ -8,7 +8,7 @@ struct CardInput: Equatable {
     var showsWhy = false
 }
 
-/// A link on the ask and what it does: "Why?", "Before and after", or "Tell the agent…".
+/// A link on the ask and what it does: "Why?" or "Tell the agent…".
 struct AskLink {
     let title: String
     let run: () -> Void
@@ -26,6 +26,8 @@ struct CheckActions: View {
     let links: [AskLink]
     let answer: (AnswerRequest) -> Void
     let sameAs: () -> Void
+    /// The create sheet, with the name he would create, set to an organization or not.
+    let create: (String, _ asOrganization: Bool) -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(LifeStore.self) private var life
@@ -137,6 +139,15 @@ struct CheckActions: View {
                 }
             }
             others(shown.map { option in Choice(id: option.id, label: label(of: option)) { tap(option) } })
+        } else if check.createsByName, let name = check.askedName {
+            // "Create <name>" opens the create sheet: not an answer yet, so nothing is held.
+            Button {
+                create(name, false)
+            } label: {
+                Label("Create \(name)", systemImage: "person.badge.plus").lineLimit(1)
+            }
+            .buttonStyle(.pill(.filled))
+            others(shown.map { option in Choice(id: option.id, label: label(of: option)) { tap(option) } })
         } else if let first = shown.first {
             Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
             let rest = shown.dropFirst().map { option in
@@ -157,7 +168,8 @@ struct CheckActions: View {
         }
     }
 
-    /// One row of 44 when there are at most three, each of three words or fewer, and the row holds them; else rows of 48.
+    /// One row of 44 (`AnswerRow`) when there are at most three, each of three words or fewer, and the row holds them;
+    /// else rows of 48.
     @ViewBuilder private func others(_ rest: [Choice]) -> some View {
         let isShort = rest.count <= 3 && rest.allSatisfy { $0.label.split(separator: " ").count <= 3 }
         let stack = VStack(spacing: Metrics.Spacing.s) {
@@ -165,10 +177,10 @@ struct CheckActions: View {
         }
         if isShort && !typeSize.isAccessibilitySize {
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: Metrics.Spacing.s) {
+                AnswerRow {
                     ForEach(rest) { choice in
                         Button(choice.label, action: choice.run).buttonStyle(.pill(.quiet, size: .compact))
-                            .lineLimit(1)
+                            .lineLimit(1).minimumScaleFactor(0.75)
                     }
                 }
                 stack
@@ -178,8 +190,9 @@ struct CheckActions: View {
         }
     }
 
-    /// One tap answers; an option that names someone opens "Same as…".
+    /// One tap answers; an option that names someone opens "Same as…", and a name card's "Organization" its create sheet.
     private func tap(_ option: Check.Option) {
+        if check.createsOrganizationBySheet(option), let name = check.askedName { return create(name, true) }
         if let request = check.answer(option) { return answer(request) }
         switch option.takes {
         case .person?, .personOrName?: sameAs()

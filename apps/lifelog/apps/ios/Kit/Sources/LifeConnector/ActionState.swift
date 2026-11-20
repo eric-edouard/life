@@ -36,6 +36,10 @@ public struct ActionFailure: Sendable, Equatable {
         public let text: String?
     }
 
+    /// Whether the screen offers the same action again: Life allows it and nothing may have happened. The one rule, for
+    /// the result screen and the create sheet alike.
+    public var canTryAgain: Bool { retry == .allowed && !mayHaveHappened }
+
     public init(
         step: String? = nil, reason: String, retry: Retry, mayHaveHappened: Bool = false, isSameTap: Bool = false
     ) {
@@ -120,9 +124,15 @@ extension ActionFailure {
         case .refused, .notPaired, .wrongCode:
             self.init(step: step, reason: error.reason, retry: .no)
             kind = "refused"
+        case .timedOut:
+            // The tap's key stays (`isSameTap`); no button repeats it.
+            self.init(step: step, reason: error.reason, retry: .no, mayHaveHappened: true, isSameTap: true)
+            kind = "timedOut"
         default:
             self.init(step: step, reason: error.reason, retry: .allowed, isSameTap: true)
-            kind = error == .streamDropped ? "dropped" : error == .unreachable ? "unreachable" : "failed"
+            kind =
+                error == .streamDropped
+                ? "dropped" : error == .unreachable ? "unreachable" : error == .offline ? "offline" : "failed"
         }
     }
 }

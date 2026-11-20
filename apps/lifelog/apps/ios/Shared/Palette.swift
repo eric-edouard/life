@@ -19,7 +19,7 @@ nonisolated enum Palette {
     static let line = token(dark: 0x1f2024, light: 0xd8d9dc)
     static let flag = token(dark: 0xf0896f, light: 0xb3412b)
     static let ai = token(dark: 0x9aa8ec, light: 0x33468f)
-    static let ok = token(dark: 0x74c9a9, light: 0x1d6b58)
+    static let ok = token(dark: 0x30d158, light: 0x1a7f3c)
     static let on = token(dark: 0x07080a, light: 0xf3f4f5)
     /// A line icon beside a row (components.md "Settings row"): `fg` at 85%.
     static let icon = fg.opacity(0.85)

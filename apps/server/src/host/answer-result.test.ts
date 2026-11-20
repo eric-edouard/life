@@ -15,6 +15,7 @@ import {
 } from "../memory/decisions";
 import type { Check } from "../memory/life-checks";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
+import { voiceCardRefOf } from "../memory/who";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { answerWithResult } from "./answer-result";
 import { expectWire } from "./http/wire-fixture";
@@ -318,13 +319,23 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
   const { id } = await card("desk", "agt_0123456789ab");
   setSettings({ desk: { defaultRuntime: "claude", runtimes: { claude: {} } } });
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
-  // Only the two tables the answer's reader asks.
+  // Only the tables the answer's reader asks, and the columns it reads.
   mkdirSync(dirname(DESK_STORE), { recursive: true });
   const db = new Database(DESK_STORE, { create: true, strict: true });
   db.run(
-    "create table event (agent_id text, event_id text, name text, payload text, received_at text)"
+    "create table assignment (id text, agent_id text, closed_at text, opened_at text)"
   );
-  db.run("create table turn (agent_id text, cause text, started_at text)");
+  db.run("create table anchor (assignment_id text, step text)");
+  db.run("create table card (decision_id text, assignment_id text)");
+  db.run(
+    "insert into assignment values ('asg_test', 'agt_0123456789ab', null, '2026-11-18T08:00:00.000Z')"
+  );
+  db.run(
+    "create table event (assignment_id text, event_id text, name text, payload text, received_at text)"
+  );
+  db.run(
+    "create table turn (agent_id text, assignment_id text, cause text, started_at text, ended_at text)"
+  );
   try {
     const r = await call(id, ["wait"]).result;
     expect(r.asker).toMatchObject({
@@ -333,9 +344,9 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
     });
     const { id: id2 } = await card("desk", "agt_0123456789ab");
     db.run(
-      "insert into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
+      "insert into event (assignment_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
       [
-        "agt_0123456789ab",
+        "asg_test",
         `${id2}.answered`,
         "decision.answered",
         "{}",
@@ -347,20 +358,19 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
     });
     const { id: id3 } = await card("desk", "agt_0123456789ab");
     db.run(
-      "insert into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
+      "insert into event (assignment_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
       [
-        "agt_0123456789ab",
+        "asg_test",
         `${id3}.answered`,
         "decision.answered",
         "{}",
         "2026-11-18T09:00:00.000Z",
       ]
     );
-    db.run("insert into turn (agent_id, cause, started_at) values (?, ?, ?)", [
-      "agt_0123456789ab",
-      "answer",
-      "2026-11-18T09:00:05.000Z",
-    ]);
+    db.run(
+      "insert into turn (assignment_id, cause, started_at) values (?, ?, ?)",
+      ["asg_test", "answer", "2026-11-18T09:00:05.000Z"]
+    );
     expect((await call(id3, ["wait"]).result).asker).toMatchObject({
       told: "woken",
     });
@@ -376,19 +386,6 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     await import("../memory/fact-checks"),
     "recordFactCheckAnswer"
   ).mockResolvedValue({} as never);
-  guesses = [
-    asCheck({
-      group: "ending",
-      matter: { id: "matter_1", name: "Boiler" },
-      ref: "obs_000000000001",
-    }),
-    asCheck({
-      about: ["Kit", "+33600000001"],
-      group: "guessed person",
-      ref: "person:inf_kit",
-    }),
-    asCheck({ group: "voice", ref: "voice:v1" }),
-  ];
   const item: NamingQueueItem = {
     clips: [],
     conversations: 2,
@@ -405,9 +402,23 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     ],
     words: 9,
   };
+  const voiceRef = voiceCardRefOf(() => null, item);
+  guesses = [
+    asCheck({
+      group: "ending",
+      matter: { id: "matter_1", name: "Boiler" },
+      ref: "obs_000000000001",
+    }),
+    asCheck({
+      about: ["Kit", "+33600000001"],
+      group: "guessed person",
+      ref: "person:inf_kit",
+    }),
+    asCheck({ group: "voice", ref: voiceRef }),
+  ];
   const queue = spyOn(
     await import("../sources/lifelog-voices"),
-    "readNamingQueue"
+    "readNamingQueueNow"
   ).mockResolvedValue([item]);
   const send = spyOn(
     await import("../sources/lifelog-voices"),
@@ -445,7 +456,7 @@ test("each kind says what changed: an ending, a person (two parallel calls write
       },
     });
     expect(readCorrections()).toHaveLength(1);
-    const { steps, result } = call("voice:v1", ["media"]);
+    const { steps, result } = call(voiceRef, ["media"]);
     expect(await result).toMatchObject({
       changed: { answer: "media", conversations: 2, person: "p1", voices: 3 },
     });

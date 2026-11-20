@@ -1,0 +1,247 @@
+{
+  "matters": [
+    {
+      "agent": "agt_kitchen",
+      "areas": ["Home"],
+      "goal": {
+        "by": "life",
+        "text": "A kitchen quote that fits the budget."
+      },
+      "id": "matter_kitchen",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Kitchen quote, Halden house",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_event",
+        "text": "Idris sends the supplier price.",
+        "waitsOn": "a message"
+      },
+      "openedDaysAgo": 6,
+      "people": {
+        "waitingOn": [
+          {
+            "kind": "person",
+            "name": "Idris Benali",
+            "ref": "person:idris"
+          }
+        ]
+      },
+      "status": "waiting_on_someone",
+      "important": true,
+      "project": {
+        "id": "halden",
+        "name": "Halden house",
+        "status": "active"
+      }
+    },
+    {
+      "areas": ["Admin"],
+      "goal": {
+        "by": "life",
+        "text": "The new passport in hand."
+      },
+      "id": "matter_passport",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "New passport",
+      "needsYou": true,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_owner",
+        "text": "Pick it up at the town hall."
+      },
+      "openedDaysAgo": 12,
+      "people": {},
+      "status": "moving",
+      "important": true
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_gutter",
+      "lastStepAt": "2026-11-17T10:00:00",
+      "name": "Roof gutter",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "do",
+        "text": "Call the roofer back."
+      },
+      "openedDaysAgo": 8,
+      "project": {
+        "id": "halden",
+        "name": "Halden house",
+        "status": "active"
+      },
+      "status": "moving"
+    },
+    {
+      "areas": ["Papers"],
+      "id": "matter_shed",
+      "lastStepAt": "2026-11-17T10:00:00",
+      "name": "Garden shed permit",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "do",
+        "text": "Fill in the permit form."
+      },
+      "openedDaysAgo": 10,
+      "project": {
+        "id": "halden",
+        "name": "Halden house",
+        "status": "active"
+      },
+      "status": "moving",
+      "agent": "agt_shed"
+    },
+    {
+      "agent": "agt_lease",
+      "areas": ["Home", "Money"],
+      "goal": {
+        "by": "life",
+        "text": "The signed lease is back with Hélène Aubert before 30 November."
+      },
+      "id": "matter_lease",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Lease renewal, rue des Carmes",
+      "needsYou": true,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_decision",
+        "text": "Send Hélène the signed lease."
+      },
+      "openedDaysAgo": 9,
+      "people": {
+        "owedTo": [
+          {
+            "kind": "person",
+            "name": "Hélène Aubert",
+            "ref": "person:helène_aubert"
+          }
+        ],
+        "with": [
+          {
+            "kind": "person",
+            "name": "Camille Vance",
+            "ref": "person:camille_vance"
+          }
+        ]
+      },
+      "status": "moving"
+    },
+    {
+      "areas": ["Family"],
+      "goal": {
+        "by": "life",
+        "text": "A table for eight at Chez Odile on Friday 27th."
+      },
+      "id": "matter_table",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Table for Mum’s 60th",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "do",
+        "text": "Book Chez Odile for Friday 27th."
+      },
+      "openedDaysAgo": 3,
+      "people": {
+        "with": [
+          {
+            "kind": "person",
+            "name": "Camille Vance",
+            "ref": "person:camille_vance"
+          },
+          {
+            "kind": "person",
+            "name": "Idris Benali",
+            "ref": "person:idris"
+          }
+        ]
+      },
+      "status": "moving"
+    },
+    {
+      "areas": ["Work"],
+      "goal": {
+        "by": "life",
+        "text": "Quote sent and accepted."
+      },
+      "id": "matter_nora",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Quote for Nora Keller",
+      "needsYou": true,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_owner",
+        "text": "Call Nora about the start date."
+      },
+      "openedDaysAgo": 5,
+      "people": {
+        "with": [
+          {
+            "kind": "person",
+            "name": "Nora Keller",
+            "ref": "person:nora_keller"
+          }
+        ]
+      },
+      "status": "moving"
+    },
+    {
+      "areas": ["Home"],
+      "goal": {
+        "by": "life",
+        "text": "The bookshelf is in the flat."
+      },
+      "id": "matter_shelf",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Bookshelf delivery",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_event",
+        "text": "The delivery, due Saturday 21st.",
+        "waitsOn": "a delivery"
+      },
+      "openedDaysAgo": 4,
+      "people": {},
+      "status": "waiting_on_someone"
+    },
+    {
+      "areas": ["Work"],
+      "goal": {
+        "by": "life",
+        "text": "Jun’s ops lead has met Priya Nair."
+      },
+      "id": "matter_intro",
+      "lastStepAt": "2026-11-18T14:02:00",
+      "name": "Intro to Jun’s ops lead",
+      "needsYou": false,
+      "nextStep": {
+        "by": "life",
+        "kind": "wait_event",
+        "text": "Jun replies.",
+        "waitsOn": "Jun Watanabe"
+      },
+      "openedDaysAgo": 15,
+      "people": {
+        "waitingOn": [
+          {
+            "kind": "person",
+            "name": "Jun Watanabe",
+            "ref": "person:jun_watanabe"
+          }
+        ],
+        "with": [
+          {
+            "kind": "person",
+            "name": "Priya Nair",
+            "ref": "person:priya_nair"
+          }
+        ]
+      },
+      "status": "stuck"
+    }
+  ]
+}
