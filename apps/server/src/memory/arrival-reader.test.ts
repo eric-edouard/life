@@ -241,7 +241,7 @@ test("a confirm filed in last month's file (its first message's month) is still 
 
 // Last: it fills today's model log.
 test("the day's cap counts the confirm calls in the model log, failed ones included", async () => {
-  for (let i = 0; i < 99; i++) {
+  for (let i = 0; i < 99; i += 1) {
     log("model.run", {
       at: iso(clock().getTime()),
       ok: false,
