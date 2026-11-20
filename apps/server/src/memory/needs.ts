@@ -122,12 +122,25 @@ export const NEED_KINDS_LINE = NEED_KINDS.map(
 export const needPageOf = (name: string) =>
   Object.hasOwn(KINDS, name) ? KINDS[name as Kind].page : undefined;
 
-/** Titles before a name: they say nothing of who it is. A company's form is kept: "Co" may be a surname. */
+/** Titles before a name: they say nothing of who it is. */
 const TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "the"]);
+/** A company's form at a name's end, as `nameKey` words ("Co., Ltd." is `co ltd`): dropped; a bare "Co" may be a surname. */
+const COMPANY_FORMS = [
+  "co ltd",
+  "company limited",
+  "limited",
+  "ltd",
+  "inc",
+  "plc",
+];
 
-/** A name's words as names are compared (`nameKey`), less its leading titles; initials kept. */
+/** A name's words as names are compared (`nameKey`), less its leading titles and its company form; initials kept. */
 const nameWordsOf = (name: string) => {
-  const words = nameKey(name).split(" ").filter(Boolean);
+  const key = nameKey(name).trim();
+  const form = COMPANY_FORMS.find((f) => key === f || key.endsWith(` ${f}`));
+  const words = (form ? key.slice(0, -form.length) : key)
+    .split(" ")
+    .filter(Boolean);
   const from = words.findIndex((w) => !TITLES.has(w));
   return from < 0 ? [] : words.slice(from);
 };
