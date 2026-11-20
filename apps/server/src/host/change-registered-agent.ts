@@ -18,10 +18,10 @@ import {
   agentChangeOf,
   holderOf,
   modelOf,
-  projectHolderOf,
   readDesk,
   readStartFacts,
   runtimeOf,
+  standingAgents,
 } from "./desk-read";
 import type { ToolCall } from "./http/mcp-tool";
 
@@ -33,7 +33,7 @@ import type { ToolCall } from "./http/mcp-tool";
 /** What the connector takes: the change, with a matter named by any of its ids (`step`), and his words. */
 export const RegisteredAgentChange = AgentChange.omit({ steps: true }).extend({
   action: AgentChange.shape.action.describe(
-    "start (on `step` or `project`; `folder`, else its project's repo, else its own), stop, resume, re_point (a new `step` or `project`), change_model, hand_over (to another `runtime`)"
+    "start (on `step`: the matter goes to the agent that takes it, its project's, else the Personal agent; on `project`: a new agent, in `folder`, else its project's repo, else its own; or `personal`: the Personal agent, in its home), stop, resume, re_point (a new `step`, `project` or `personal`), rename (`name`), change_model"
   ),
   agent: AgentChange.shape.agent.describe("The agent (agt_…), all but start"),
   effort: AgentChange.shape.effort.describe(
@@ -44,6 +44,12 @@ export const RegisteredAgentChange = AgentChange.omit({ steps: true }).extend({
   ),
   model: AgentChange.shape.model.describe(
     "Its model (start, change_model); none: the desk's default for its runtime"
+  ),
+  name: AgentChange.shape.name.describe(
+    "Its name, his to set (start, rename): its sessions are titled \"Agent: <name>\""
+  ),
+  personal: AgentChange.shape.personal.describe(
+    "The Personal agent, as its subject (start, re_point): one at most; it takes every matter no project's agent takes"
   ),
   project: AgentChange.shape.project.describe(
     "A project id or name of his directory, as its subject"
@@ -70,7 +76,7 @@ export type RegisteredAgentChange = z.infer<typeof RegisteredAgentChange>;
 export const WAIT_MS = 20_000;
 const POLL_MS = 500;
 
-/** The matter `step` names (its id, or a step's): its anchors (that step first, then the rest of its steps), its steps as listed, its goal and its projects. */
+/** The matter `step` names (its id, or a step's): its anchors (that step first, then the rest of its steps), its steps as listed and its goal. */
 async function matterNamed(step: string) {
   const v = matterOfSteps(await readMatterBook(await readPeople(), dayNow()), [
     step,
@@ -81,7 +87,6 @@ async function matterNamed(step: string) {
   const refs = v.steps.map((s) => s.ref);
   return {
     goal: v.goal,
-    projects: v.projects,
     refs,
     steps: refs.includes(step)
       ? [step, ...refs.filter((r) => r !== step)]
@@ -90,47 +95,36 @@ async function matterNamed(step: string) {
 }
 
 /**
- * Where a new agent's sessions start when he names no folder: the first of its `projects`' repos cloned on the Mac,
- * from his directory's `repos:` only (never Life's guessed repos: an agent runs where he said the project lives), by its key as the repo map reads it (`owner/name` is on GitHub only); none: the desk
- * makes a folder of its own for it.
+ * Where a project's new agent's sessions start when he names no folder: the first of its repos cloned on the Mac, from
+ * his directory's `repos:` only (never Life's guessed repos: an agent runs where he said the project lives), by its key
+ * as the repo map reads it (`owner/name` is on GitHub only); none: the desk makes a folder of its own for it.
  */
-export function readRepoFolder(projects: string[], truth: Truth) {
+function readRepoFolder(project: Truth["projects"][number]) {
   const here = new Map(listRepos().map((r) => [r.key, r.path]));
-  return projects
-    .flatMap((id) => truth.projects.find((p) => p.id === id)?.repos ?? [])
-    .map((repo) => here.get(repo))
-    .find(Boolean);
+  return project.repos.map((repo) => here.get(repo)).find(Boolean);
 }
 
 /**
- * His change with its Life-side facts read: his project's id, the matter's anchors and, for a start with no folder,
- * the folder of its project's repo (`readRepoFolder`); and the matter named. Throws when the project or the matter is not his.
+ * His change with its Life-side facts read: his project's id, the matter's anchors and, for a project's start with no
+ * folder, the folder of its repo (`readRepoFolder`); and the matter named. Throws when the project or the matter is not his.
  */
 async function withSubject({
   step,
   ...rest
 }: Omit<RegisteredAgentChange, "said">) {
   const change: AgentChange = { ...rest };
-  const hasNoFolder = change.action === "start" && !change.folder;
-  const truth = rest.project || hasNoFolder ? await loadTruth() : undefined;
-  if (rest.project && truth) {
-    const { project } = areaFor(rest.project, truth);
+  if (rest.project) {
+    const { project } = areaFor(rest.project, await loadTruth());
     if (!project) {
       throw new Error(`Not done: no project ${rest.project}.`);
     }
     change.project = project.id;
+    if (change.action === "start" && !change.folder) {
+      change.folder = readRepoFolder(project);
+    }
   }
   const matter = step ? await matterNamed(step) : undefined;
   change.steps = matter?.steps;
-  if (hasNoFolder && truth) {
-    change.folder = readRepoFolder(
-      [
-        ...(matter?.projects ?? []),
-        ...(change.project ? [change.project] : []),
-      ],
-      truth
-    );
-  }
   return { change, matter };
 }
 
@@ -242,11 +236,12 @@ async function waitForStart(
   for (let waited = 0; ; waited += POLL_MS) {
     const read = readDesk(
       (db) => ({
-        isSubjectHeld:
-          (change.project
-            ? projectHolderOf(db, change.project)
-            : holderOf(db, change.steps ?? [])) !== null,
-        s: readStartFacts(db, line.id),
+        isSubjectHeld: change.steps
+          ? holderOf(db, change.steps) !== null
+          : standingAgents(db).some((a) =>
+              change.personal ? a.isPersonal : a.project === change.project
+            ),
+        s: readStartFacts(db, line.id, change.steps?.[0]),
       }),
       null
     );

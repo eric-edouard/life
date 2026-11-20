@@ -6,7 +6,7 @@ import { off } from "../core/outputs";
 import { DESK_STORE } from "../core/paths";
 import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
-import type { AgentHold } from "../memory/held-matters";
+import type { AgentHold, StandingAgent } from "../memory/held-matters";
 import type {
   AgentChange,
   AgentStatus,
@@ -300,17 +300,19 @@ export const holderOf = (db: Database, steps: string[]) =>
         )
         .get(...steps)?.id ?? null);
 
-/** The active agent on project `project` started on `brief`, else any active agent on it, if one is: who works on it now. */
-export const projectHolderOf = (
-  db: Database,
-  project: string,
-  brief?: string
-) =>
+/** The active agents that take matters (`agentForOf`): a project's or the Personal agent, oldest first. */
+export const standingAgents = (db: Database): StandingAgent[] =>
   db
-    .query<{ id: string }, [string, string | null]>(
-      "select id from agent where status = 'active' and project = ? order by brief = ? desc limit 1"
+    .query<Pick<AgentRow, "id" | "is_personal" | "name" | "project">, [number]>(
+      "select id, is_personal, name, project from agent where status = 'active' and (is_personal = 1 or project is not null) order by created_at limit ?"
     )
-    .get(project, brief ?? null)?.id ?? null;
+    .all(MAX_ACTIVE)
+    .map((a) => ({
+      id: a.id,
+      isPersonal: a.is_personal === 1,
+      name: a.name,
+      project: a.project,
+    }));
 
 /**
  * How long an ended agent's subject is read for the hold rule: one ended earlier holds nothing, so a try older than this
@@ -318,21 +320,21 @@ export const projectHolderOf = (
  */
 export const HOLD_DAYS = 90;
 
-/** Every subject of an agent active, stopped or ended in the last `HOLD_DAYS`: each anchor of its assignments, and each project's agent's project. */
-const HELD_ROWS = `select n.rowid as anchor, a.rowid as agent, a.id as agent_id, a.status, n.step, null as project, s.closed_at, s.opened_by, s.outcome, s.why_not_started from anchor n join assignment s on s.id = n.assignment_id join agent a on a.id = s.agent_id where s.closed_at is null or s.closed_at >= ?1
-  union all select null, a.rowid, a.id, a.status, null, a.project, s.closed_at, s.opened_by, s.outcome, s.why_not_started from agent a join assignment s on s.agent_id = a.id where a.project is not null and not exists (select 1 from anchor n where n.assignment_id = s.id) and (s.closed_at is null or s.closed_at >= ?1)`;
+/** Every anchor of an assignment open, or closed in the last `HOLD_DAYS`, of an agent active, stopped or ended. */
+const HELD_ROWS =
+  "select n.rowid as anchor, a.rowid as agent, a.id as agent_id, a.status, n.step, s.closed_at, s.opened_by, s.outcome, s.why_not_started from anchor n join assignment s on s.id = n.assignment_id join agent a on a.id = s.agent_id where s.closed_at is null or s.closed_at >= ?1";
 const heldSince = () =>
   new Date(clock().getTime() - HOLD_DAYS * DAY).toISOString();
 
-/** The subjects registered agents hold, as facts (`AgentHold`): what the hold rule (`isHeldOf`) decides "held" from, against the matter book. */
+/** The steps registered agents hold, as facts (`AgentHold`): what the hold rule (`isHeldOf`) decides "held" from, against the matter book. */
 export const heldByAgents = (db: Database): AgentHold[] =>
   db
     .query<
-      Pick<AgentRow, "project" | "status"> &
+      Pick<AgentRow, "status"> &
         Pick<
           AssignmentRow,
           "closed_at" | "opened_by" | "outcome" | "why_not_started"
-        > & { agent_id: string; step: string | null },
+        > & { agent_id: string; step: string },
       [string]
     >(`${HELD_ROWS} order by agent, anchor`)
     .all(heldSince())
@@ -341,7 +343,6 @@ export const heldByAgents = (db: Database): AgentHold[] =>
       closedAt: r.closed_at,
       openedBy: r.opened_by,
       outcome: r.outcome,
-      project: r.project,
       status: r.status,
       step: r.step,
       whyNotStarted: r.why_not_started,
@@ -352,7 +353,7 @@ export const heldStampOf = (db: Database) =>
   JSON.stringify(
     db
       .query<unknown, [string]>(
-        `select count(*), max(anchor), max(agent), max(closed_at), group_concat(project) from (${HELD_ROWS})`
+        `select count(*), max(anchor), max(agent), max(closed_at) from (${HELD_ROWS})`
       )
       .values(heldSince())
   );
@@ -368,23 +369,39 @@ export const agentChangeOf = (db: Database, ask: string) =>
 
 /**
  * What the desk did with a start (`change_registered_agent`), as facts: the ask's `agent_change` row and, for its agent,
- * its newest session, its first turn and its status, each null until written.
+ * the assignment it opened (on a matter, the one anchored on its first step `step`; else the agent's own), its agent's
+ * newest session and that assignment's first turn, each null until written.
  */
-export function readStartFacts(db: Database, ask: string) {
+export function readStartFacts(db: Database, ask: string, step?: string) {
   const change = agentChangeOf(db, ask);
   const id = change?.agent_id;
-  const one = <T>(sql: string) =>
-    (id ? db.query<T, [string]>(sql).get(id) : null) ?? null;
+  const assignment = id
+    ? step
+      ? db
+          .query<AssignmentRow, [string, string]>(
+            "select s.* from assignment s join anchor n on n.assignment_id = s.id where s.agent_id = ? and n.step = ? order by s.opened_at desc limit 1"
+          )
+          .get(id, step)
+      : currentAssignmentOf(db, id)
+    : null;
   return {
     agent: id ? agentOf(db, id) : null,
-    assignment: id ? currentAssignmentOf(db, id) : null,
+    assignment: assignment ?? null,
     change,
-    session: one<{ link: string; ref: string; started_at: string }>(
-      "select ref, link, started_at from session where agent_id = ? order by rowid desc limit 1"
-    ),
-    turn: one<{ begun_at: string | null }>(
-      "select begun_at from turn where agent_id = ? order by id limit 1"
-    ),
+    session: id
+      ? (db
+          .query<{ link: string; ref: string; started_at: string }, [string]>(
+            "select ref, link, started_at from session where agent_id = ? order by rowid desc limit 1"
+          )
+          .get(id) ?? null)
+      : null,
+    turn: assignment
+      ? (db
+          .query<{ begun_at: string | null }, [string]>(
+            "select begun_at from turn where assignment_id = ? order by id limit 1"
+          )
+          .get(assignment.id) ?? null)
+      : null,
   };
 }
 
@@ -642,26 +659,17 @@ export function agentsOnSteps(
   db: Database,
   steps: string[],
   now: number,
-  projects: string[] = [],
   isForWakes = false
 ) {
-  const rows =
-    steps.length === 0
-      ? []
-      : db
-          .query<AgentRow, (string | number)[]>(
-            `select distinct a.* from anchor n join assignment s on s.id = n.assignment_id join agent a on a.id = s.agent_id where a.status <> 'handed_over' and n.step in (${steps.map(() => "?").join(",")}) order by a.status = 'active' desc, a.created_at desc limit ?`
-          )
-          .all(...steps, MAX_ACTIVE + PAST_SHOWN);
-  // After the matter's own agents, the active agent of each of its projects (`projectHolderOf`).
-  for (const p of projects) {
-    const id = projectHolderOf(db, p);
-    const agent = id && !rows.some((a) => a.id === id) ? agentOf(db, id) : null;
-    if (agent) {
-      rows.push(agent);
-    }
+  if (steps.length === 0) {
+    return [];
   }
-  return rows.map((a) => nowOf(db, a, now, isForWakes));
+  return db
+    .query<AgentRow, (string | number)[]>(
+      `select distinct a.* from anchor n join assignment s on s.id = n.assignment_id join agent a on a.id = s.agent_id where a.status <> 'handed_over' and n.step in (${steps.map(() => "?").join(",")}) order by a.status = 'active' desc, a.created_at desc limit ?`
+    )
+    .all(...steps, MAX_ACTIVE + PAST_SHOWN)
+    .map((a) => nowOf(db, a, now, isForWakes));
 }
 
 /** The agents on any of `projects` (not those handed over), active first, then the newest past ones. */

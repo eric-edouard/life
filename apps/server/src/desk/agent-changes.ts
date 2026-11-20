@@ -1,20 +1,28 @@
 import { existsSync } from "node:fs";
-import { isAbsolute } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { DESK_AGENT } from "../core/names";
+import { DESK_AGENT_FOLDERS } from "../core/paths";
+import { settings } from "../core/settings";
 import { asksFor } from "../host/asks";
 import {
   agentChangeOf,
   agentOf,
   currentAssignmentOf,
   holderOf,
-  projectHolderOf,
   readCursor,
   runtimeOf,
+  standingAgents,
 } from "../host/desk-read";
-import { AgentChange, type OpenedBy } from "../records/registered-agent";
+import { matterFinderOf } from "../memory/matter-read";
+import { readMatterBook } from "../memory/matters";
+import { agentForMatterOf } from "../memory/read-matters";
+import { readPeople } from "../memory/who";
+import { dayNow } from "../memory/zones";
+import { AgentChange } from "../records/registered-agent";
 import {
+  openAssignment,
   register,
   stopOpenRun,
   withdrawOpenCards,
@@ -42,10 +50,18 @@ function statusRefusal(desk: Desk, id: string | undefined, allowed: string[]) {
   return allowed.includes(a.status) ? null : `${a.id} is ${a.status}`;
 }
 
-/** Why a subject is refused: not exactly one of a matter's steps or a project, or the matter held by another active agent. */
+/** Why a subject is refused: not exactly one of a matter's steps, a project or the Personal agent; another Personal agent active or stopped; the matter held by another active agent. */
 function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
-  if (!c.steps === !c.project) {
-    return "name exactly one subject: a matter (`step`) or a project";
+  if ([c.steps, c.project, c.personal].filter(Boolean).length !== 1) {
+    return "name exactly one subject: a matter (`step`), a project, or `personal`";
+  }
+  if (c.personal) {
+    const other = desk.db
+      .query<{ id: string; status: string }, [string]>(
+        "select id, status from agent where is_personal = 1 and status in ('active', 'stopped') and id <> ?"
+      )
+      .get(self ?? "");
+    return other ? `the Personal agent is ${other.id} (${other.status})` : null;
   }
   const holder = holderOf(desk.db, c.steps ?? []);
   return holder && holder !== self
@@ -53,23 +69,50 @@ function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
     : null;
 }
 
+/** Where the Personal agent's sessions start when he names no folder: its home in his agents repo (`agentHomeOf`), else under the desk's folders. */
+const personalHome = () =>
+  join(settings().desk?.agentsRepo ?? DESK_AGENT_FOLDERS, "personal");
+
 /**
- * Starts an agent on his words (`brief`): his subject, a runtime the desk drives that answers (`blocked`: why it can't
- * now), a folder that exists when one is named. A repeat (an active agent on the same subject, its matter or its
- * project, started on the same words) is that agent, not a refusal. A new agent hands over the stopped agents on its subject.
+ * Starts on his words (`brief`). On a matter: an assignment of the agent that takes it (`taker`, `agentForOf`), his words
+ * kept as `said`; an agent that holds it already answers. On a project or as the Personal agent: a new agent, on a
+ * runtime the desk drives that answers (`blocked`: why it can't now), in a folder that exists when one is named (the
+ * Personal agent's home by default). A repeat (an active agent on the same project, or the Personal agent, started on
+ * the same words) is that agent, not a refusal. A start hands over the stopped agents on its subject.
  */
 export function start(
   desk: Desk,
   c: AgentChange,
   brief: string,
-  { blocked, openedBy }: { blocked?: string; openedBy?: OpenedBy } = {}
-) {
+  { blocked, taker }: { blocked?: string; taker?: string } = {}
+): { error: string } | { id: string } {
+  const refused = subjectRefusal(desk, c);
+  if (c.steps) {
+    const holder = holderOf(desk.db, c.steps);
+    if (holder) {
+      return { id: holder };
+    }
+    if (refused) {
+      return { error: refused };
+    }
+    if (!taker) {
+      return {
+        error:
+          "no agent takes this matter: start the Personal agent, or an agent on its project",
+      };
+    }
+    openAssignment(desk, taker, { openedBy: "owner", said: brief, steps: c.steps });
+    replaceStopped(desk, c, taker);
+    return { id: taker };
+  }
   const runtime = runtimeOf(c);
-  const holder = c.project
-    ? projectHolderOf(desk.db, c.project, brief)
-    : holderOf(desk.db, c.steps ?? []);
-  if (holder && agentOf(desk.db, holder)?.brief === brief) {
-    return { id: holder };
+  const repeat = desk.db
+    .query<{ id: string }, [string, string | null, number]>(
+      "select id from agent where status = 'active' and brief = ? and (project = ? or (is_personal = 1 and ? = 1)) limit 1"
+    )
+    .get(brief, c.project ?? null, c.personal ? 1 : 0)?.id;
+  if (repeat) {
+    return { id: repeat };
   }
   if (!(runtime && desk.runtimes[runtime])) {
     return {
@@ -84,22 +127,25 @@ export function start(
   if (blocked) {
     return { error: `${runtime} does not answer: ${blocked}` };
   }
-  const refused = subjectRefusal(desk, c);
   if (refused) {
     return { error: refused };
   }
   const id = register(desk, {
     brief,
     effort: c.effort,
-    folder: c.folder,
+    folder: c.folder ?? (c.personal ? personalHome() : undefined),
+    isPersonal: c.personal,
     model: c.model,
-    openedBy,
+    name: c.name,
     project: c.project,
     runtime,
-    steps: c.steps,
   });
-  // He stopped an agent, then started this one on its subject (its project, or a step it is anchored on): its assignments
-  // close, and it is replaced.
+  replaceStopped(desk, c, id);
+  return { id };
+}
+
+/** He stopped an agent, then started `id` on its subject (its project, or a step it is anchored on): its assignments close, and it is replaced. */
+function replaceStopped(desk: Desk, c: AgentChange, id: string) {
   for (const { id: old } of desk.db
     .query<{ id: string }, [string | null, string]>(
       "select s.id from assignment s join agent a on a.id = s.agent_id where a.status = 'stopped' and s.closed_at is null and (a.project = ? or a.id in (select s2.agent_id from anchor n join assignment s2 on s2.id = n.assignment_id where n.step in (select value from json_each(?))))"
@@ -110,7 +156,6 @@ export function start(
       replaced: true,
     });
   }
-  return { id };
 }
 
 /** Applies one change in the store; what it touched, or why not. */
@@ -118,7 +163,7 @@ function apply(
   desk: Desk,
   c: AgentChange,
   brief: string,
-  blocked?: string
+  facts: { blocked?: string; taker?: string }
 ): { error: string } | { id: string } {
   const { db } = desk;
   const id = c.agent ?? "";
@@ -137,7 +182,7 @@ function apply(
   let refused: string | null;
   switch (c.action) {
     case "start":
-      return start(desk, c, brief, { blocked });
+      return start(desk, c, brief, facts);
     case "stop":
       refused = refusal(["active"]);
       if (!refused) {
@@ -162,6 +207,13 @@ function apply(
         }
       }
       break;
+    case "rename":
+      refused =
+        refusal(["active", "stopped"]) ?? (c.name ? null : "give its `name`");
+      if (!refused) {
+        db.run("update agent set name = ? where id = ?", [c.name ?? null, id]);
+      }
+      break;
     case "change_model":
       refused = refusal(["active", "stopped"]);
       if (!refused) {
@@ -173,18 +225,40 @@ function apply(
       }
       break;
     default:
-      // `hand_over` (to another runtime) is not built and always refused; it stays in `AgentChange` only so the
-      // connector's arguments stay stable until its next batch drops it (a change there forces a reconnect).
-      refused = "a handover comes with the desk's next step";
+      refused = `no action ${c.action}`;
   }
   return refused ? { error: refused } : { id };
+}
+
+/** The agent that takes the matter some refs find (`agentForMatterOf`, among the standing agents), the book read once. */
+async function readTakerOf(db: Desk["db"]) {
+  const people = await readPeople();
+  const find = matterFinderOf(await readMatterBook(people, dayNow()));
+  const take = agentForMatterOf(standingAgents(db), people.truth);
+  return (refs: readonly string[]) => {
+    const v = find(refs);
+    return v && take(v);
+  };
+}
+
+/** What a start reads before its transaction (a process, a book): on a matter, the agent that takes it (`readTakerOf`); else whether its runtime answers. */
+async function startFactsOf(desk: Desk, change: unknown) {
+  const c = AgentChange.safeParse(change);
+  if (!(c.success && c.data.action === "start")) {
+    return {};
+  }
+  if (c.data.steps) {
+    return { taker: (await readTakerOf(desk.db))(c.data.steps) };
+  }
+  const runtime = runtimeOf(c.data);
+  return { blocked: runtime ? await desk.runtimes[runtime]?.block() : undefined };
 }
 
 /** What the desk does with one ask: why it is refused (spoken, stale, or the change refused), else the change applied. */
 function applyAsk(
   desk: Desk,
   ask: ReturnType<typeof asksFor>["asks"][number],
-  blocked?: string
+  facts: { blocked?: string; taker?: string }
 ): { agent?: string; error: string } | { agent?: string; id: string } {
   const parsed = AgentChange.safeParse(ask.agentChange);
   if (!parsed.success) {
@@ -201,7 +275,7 @@ function applyAsk(
     return {
       agent: parsed.data.agent,
       ...desk.db.transaction(() =>
-        apply(desk, parsed.data, ask.quote, blocked)
+        apply(desk, parsed.data, ask.quote, facts)
       )(),
     };
   } catch (e) {
@@ -217,17 +291,13 @@ export async function applyAgentChanges(desk: Desk) {
   const { db } = desk;
   const page = asksFor(DESK_AGENT, readCursor(db, CURSOR) ?? undefined);
   for (const ask of page.asks) {
-    // A start asks its runtime first (a process, never inside the transaction).
-    const c = AgentChange.safeParse(ask.agentChange);
-    const runtime =
-      c.success && c.data.action === "start" ? runtimeOf(c.data) : undefined;
     // biome-ignore lint/performance/noAwaitInLoops: his asks apply in the order he gave them
-    const blocked = runtime ? await desk.runtimes[runtime]?.block() : undefined;
+    const facts = await startFactsOf(desk, ask.agentChange);
     const r = db.transaction(() => {
       if (agentChangeOf(db, ask.id)) {
         return null;
       }
-      const done = applyAsk(desk, ask, blocked);
+      const done = applyAsk(desk, ask, facts);
       const agent = "id" in done ? done.id : (done.agent ?? null);
       db.run(
         "insert into agent_change (ask, agent_id, error, applied_at) values (?, ?, ?, ?)",

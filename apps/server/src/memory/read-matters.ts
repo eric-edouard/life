@@ -2,7 +2,7 @@ import type { MatterIconKey } from "../records/matter-icon";
 import { isUnderway, type Project } from "../records/truth";
 import { communicationStylesOf } from "./communication-styles";
 import { decisionsNow } from "./decisions";
-import type { AgentHold } from "./held-matters";
+import { type AgentHold, agentForOf, type StandingAgent } from "./held-matters";
 import { iconNow } from "./matter-icons";
 import {
   directionDueOf,
@@ -193,7 +193,7 @@ async function rankedRunning<R extends { book: MatterView[] }>(
 
 /**
  * The running matters, ranked as `read_day`'s Due (those with no open step last), of one `person`, `project` or `area` when given: each
- * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one anchored on the matter, else the one holding one of its projects) and, given `readIcons`, Life's icon picks for the ranked list. Throws when a person, project or area named goes by no name known.
+ * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one an open assignment anchors on the matter) and, given `readIcons`, Life's icon picks for the ranked list. Throws when a person, project or area named goes by no name known.
  * Of one project, its page's head too (`project`): its name, status as stored and the first of his goals naming it; a
  * matter is parked by the project its row shows under (`projectOf`), not by this one.
  */
@@ -203,8 +203,7 @@ export async function openMatters(
     person?: string;
     project?: string;
   },
-  agentOf: (steps: string[], projects: string[]) => string | undefined = () =>
-    undefined,
+  agentOf: (steps: string[]) => string | undefined = () => undefined,
   readIcons?: LifeIconsReader
 ) {
   const { decisions, people, project, ranked } = await rankedRunning(
@@ -228,7 +227,7 @@ export async function openMatters(
     }),
     matters: ranked.map((v) => ({
       ...rowOf(v, people, decisions, lifeIcons),
-      agent: agentOf(refsOf(v), v.projects),
+      agent: agentOf(refsOf(v)),
     })),
   };
 }
@@ -287,15 +286,17 @@ export type HandOutGate =
   | "direction_due"
   | "dismissed"
   | "held"
-  | "not_his";
+  | "not_his"
+  | "no_agent";
 
 /** A matter as the hand-out reads it: what the gates read, its projects and its steps (id and instant). */
 export type HandOutMatter = Pick<MatterView, "id" | "nextStep" | "projects"> & {
   steps: readonly { at: string; ref: string }[];
 };
 
-/** What `handOutGateOf` reads besides the matter, all as data (by the matter's id, or `isHeld`: the hold that holds it, `isHeldOf`). */
+/** What `handOutGateOf` reads besides the matter, all as data (by the matter's id, or `isHeld`: the hold that holds it, `isHeldOf`; `agentFor`: the agent that takes it, `agentForMatterOf`). */
 export interface HandOutFacts {
+  agentFor: (v: HandOutMatter) => string | undefined;
   decisions: Parameters<typeof nextStepNow>[1];
   dismissed: ReadonlySet<string>;
   isDue: (id: string) => boolean;
@@ -307,8 +308,9 @@ export interface HandOutFacts {
 /**
  * The first gate a running matter fails for the hand-out, or null when it passes every one: its next step is not `do`
  * as it reads now (`nextStepNow`), its project is parked, its direction is due (news may have overtaken it), he
- * dismissed it, an agent holds it, it is not one of his (`isOneOfHis`; last, so a stranger's matter reads "not his").
- * The one rule of the hand-out, the new matter check and the report's agent coverage. Pure.
+ * dismissed it, an agent holds it, it is not one of his (`isOneOfHis`, so a stranger's matter reads "not his"), no
+ * agent takes it (`agentFor`: no agent of its project and no Personal agent). The one rule of the hand-out, the new
+ * matter check and the report's agent coverage. Pure.
  */
 export function handOutGateOf(
   v: HandOutMatter,
@@ -329,8 +331,21 @@ export function handOutGateOf(
   if (f.isHeld(v)) {
     return "held";
   }
-  return f.isHis(v.id) ? null : "not_his";
+  if (!f.isHis(v.id)) {
+    return "not_his";
+  }
+  return f.agentFor(v) ? null : "no_agent";
 }
+
+/** Which agent takes matter `v`, by id (`agentForOf`, by the project it shows under, `projectOf`), among `standing`. Pure. */
+export const agentForMatterOf = (
+  standing: readonly StandingAgent[],
+  truth: Pick<People["truth"], "projects">
+) => {
+  const take = agentForOf(standing);
+  const shown = projectOf(truth);
+  return (v: Pick<MatterView, "projects">) => take(shown(v)?.id)?.id;
+};
 
 /**
  * The running matters in his ranking (parked ones last), with the facts `handOutGateOf` needs but the hold (the desk's):
@@ -370,16 +385,12 @@ export const readMatterProjectIds = async (refs: readonly string[]) =>
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
  * agent anchored on records finds its matter again after a re-group): its `MatterRow`, its steps in time order (each
- * with its day, words, quote, who it was with as a party and `ending`: none while open), then `agentsOf`'s agents on it now and before, then the registered agents active on its projects (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his); given `readIcons`, Life's icon pick.
+ * with its day, words, quote, who it was with as a party and `ending`: none while open), then `agentsOf`'s agents on it now and before (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his); given `readIcons`, Life's icon pick.
  * Undefined when no matter holds them.
  */
 export async function oneMatter<A>(
   refs: readonly string[],
-  agentsOf: (
-    steps: string[],
-    projects: string[],
-    people: People
-  ) => A[] = () => [],
+  agentsOf: (steps: string[], people: People) => A[] = () => [],
   readIcons?: LifeIconsReader
 ) {
   const people = await readPeople();
@@ -387,7 +398,7 @@ export async function oneMatter<A>(
   return (
     v && {
       ...rowOf(v, people, openDecisions(), await readIcons?.([v])),
-      agents: agentsOf(refsOf(v), v.projects, people),
+      agents: agentsOf(refsOf(v), people),
       communicationStyles: communicationStylesOf(
         knownPeopleOf(v, people),
         people.nameOf

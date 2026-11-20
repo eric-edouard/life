@@ -54,6 +54,7 @@ const pick = (
   const matters = over.matters ?? book;
   return handOutOf({
     facts: {
+      agentFor: () => "agt_000000000001",
       decisions: [],
       dismissed: dismissedIdsOf(matters, over.dismissed ?? []),
       isDue: () => false,

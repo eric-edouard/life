@@ -221,7 +221,6 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   ],
   isDirectionDue: () => false,
   isForHandOut: () => false,
-  isHandOutOn: false,
   isParked: () => false,
   kept: new Set(lines.map((l) => l.id)),
   lines,

@@ -13,6 +13,7 @@ import {
   LATER_SHOWN,
   type Matter,
   type NextStep,
+  type ProjectPin,
 } from "../records/matter";
 import type { MatterIconKey } from "../records/matter-icon";
 import type { Observation } from "../records/observation";
@@ -92,6 +93,8 @@ export interface MatterRecords {
     { at: string; later: string; quote: string }
   >;
   observations: readonly StepObservation[];
+  /** His word of which project a matter is of, pinned to its steps (`matter-project`). */
+  projects: readonly ProjectPin[];
   /** Who a person ref is as of today (`People.refOf`). */
   refOf: (ref: string) => string;
   /** The observations that ended for sure, by id: replaced by a newer one (`replacedBy`) or said outdated (`why`, his or an agent's note); `at`, the instant of that evidence. */
@@ -721,6 +724,12 @@ export function importantIdsOf<V extends Found>(
   return new Set([...marked].flatMap(([id, on]) => (on ? [id] : [])));
 }
 
+/** His project for each matter `find` finds (`pinnedOf`), by id: the latest pin for a matter wins. Pure. */
+const chosenProjectsOf = <V extends Found>(
+  find: Finder<V>,
+  pins: readonly ProjectPin[]
+) => new Map(pinnedOf(find, pins).map(([v, p]) => [v.id, p.project]));
+
 /** His icon for each matter `find` finds (`pinnedOf`), by id: the latest pin for a matter wins; null gives it back to Life. Pure. */
 export const chosenIconsOf = <V extends Found>(
   find: Finder<V>,
@@ -795,13 +804,17 @@ export function matterBookOf(
   const directions = directionsOf(find, rec.directions);
   const marked = importantIdsOf(find, rec.important);
   const icons = chosenIconsOf(find, rec.icons);
+  const projects = chosenProjectsOf(find, rec.projects);
   return book
     .map((v) => {
       const d = directions.get(v);
       const ownerIcon = icons.get(v.id);
+      const project = projects.get(v.id);
       return {
         ...v,
         important: v.open && marked.has(v.id),
+        // His word of its project is its one project: what it shows under and the agent that takes it follow.
+        ...(project ? { projects: [project] } : {}),
         ...(d?.goal ? { goal: d.goal } : {}),
         ...(d?.nextStep ? { nextStep: d.nextStep } : {}),
         ...(d?.latest?.endingRecords

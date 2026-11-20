@@ -119,6 +119,7 @@ const records = (over: Partial<MatterRecords> = {}): MatterRecords => ({
   directions: [],
   episodeOf: new Map(episodes.flatMap((m) => m.units.map((u) => [u, m]))),
   icons: [],
+  projects: [],
   important: [],
   isMailer: (r) => MAILERS.has(r),
   ledger: [],

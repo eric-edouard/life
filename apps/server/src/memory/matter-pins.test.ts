@@ -49,6 +49,7 @@ const bookOf = (
     directions = [] as MatterRecords["directions"],
     icons = [] as MatterRecords["icons"],
     id = line.id,
+    projects = [] as MatterRecords["projects"],
     retired = new Map(),
     today = "2026-10-20",
   } = {}
@@ -65,6 +66,7 @@ const bookOf = (
       ledger: [],
       linkEndings: new Map(),
       observations: [promise],
+      projects,
       refOf: (r) => r,
       retired,
       todoItems: [],
@@ -137,6 +139,42 @@ test("his latest icon wins over older keys, by instant; a null gives it back to 
   ).toBe("tools");
 });
 
+test("his project for a matter is its one project, the latest by instant; a re-group keeps it", () => {
+  const projectPin = (day: string, project: string) => ({
+    at: `2026-10-${day}T09:00:00.000Z`,
+    project,
+    steps: [promise.id],
+  });
+  const filed = { ...promise, subjects: [...promise.subjects, "project:shop"] };
+  const of = (projects: MatterRecords["projects"], id = line.id) =>
+    matterBookOf(
+      { matters: [{ ...line, id }], offered: new Set() },
+      {
+        current: new Set(),
+        directions: [],
+        episodeOf: new Map(),
+        icons: [],
+        important: [],
+        isMailer: () => false,
+        ledger: [],
+        linkEndings: new Map(),
+        observations: [filed],
+        projects,
+        refOf: (r) => r,
+        retired: new Map(),
+        todoItems: [],
+      },
+      "2026-10-20"
+    )[0]?.projects;
+  expect(of([])).toEqual(["shop"]);
+  expect(of([projectPin("14", "growth"), projectPin("13", "admin")])).toEqual([
+    "growth",
+  ]);
+  expect(of([projectPin("13", "growth")], "matter_bbbbbbbbbbbb")).toEqual([
+    "growth",
+  ]);
+});
+
 afterEach(() => {
   rmSync(CORRECTIONS, { force: true });
   rmSync(MATTER_DIRECTIONS, { force: true });
@@ -195,6 +233,13 @@ test("one read of his corrections gives every pin: Life's drafts first, his part
       schemaVersion: 1,
       steps,
     },
+    {
+      at: at("18"),
+      kind: "matter-project",
+      project: "watches",
+      schemaVersion: 1,
+      steps,
+    },
   ]);
   const pins = readMatterPins();
   expect(pins.directions.map((d) => [d.by, d.goal, d.nextStep?.text])).toEqual([
@@ -203,11 +248,13 @@ test("one read of his corrections gives every pin: Life's drafts first, his part
   ]);
   expect(pins.important.map((p) => p.important)).toEqual([true, false]);
   expect(pins.icons.map((p) => p.icon)).toEqual(["tools", null]);
+  expect(pins.projects.map((p) => p.project)).toEqual(["watches"]);
   const v = bookOf(pins.important, { ...pins, id: "matter_bbbbbbbbbbbb" });
   expect(v?.goal).toMatchObject({ by: "owner", text: "Gran wears it again" });
   expect(v?.nextStep).toMatchObject({ by: "life", text: "Call the shop" });
   expect(v?.important).toBe(false);
   expect(v?.ownerIcon).toBe("tools");
+  expect(v?.projects).toEqual(["watches"]);
 });
 
 // #743's confirm round: the matter's id stored with a pin breaks a tie only, never outweighs its steps.

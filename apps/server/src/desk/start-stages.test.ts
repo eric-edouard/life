@@ -7,6 +7,7 @@ import { setSettings } from "../core/settings";
 import { changeRegisteredAgent } from "../host/change-registered-agent";
 import { expectWire } from "../host/http/wire-fixture";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
+import { register } from "./agent-actions";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { ticking } from "./test-ticker";
@@ -17,6 +18,7 @@ import { ticking } from "./test-ticker";
 const folder = mkdtempSync(join(tmpdir(), "life-start-"));
 const fake = fakeRuntime();
 let desk: Desk;
+let personal = "";
 const NO_ONE = {
   areas: [],
   lone: false,
@@ -51,6 +53,17 @@ beforeAll(async () => {
   rmSync(CORRECTIONS, { force: true });
   setSettings({ desk: { defaultRuntime: "claude", runtimes: {} } });
   desk = { db: openDesk(), runtimes: { claude: fake.runtime } };
+  // The Personal agent takes every matter here (none has a project); its own listening waits.
+  personal = register(desk, {
+    brief: "Test: the Personal agent",
+    folder,
+    isPersonal: true,
+    runtime: "claude",
+  });
+  desk.db.run("update assignment set wait_until = ? where agent_id = ?", [
+    "2099-01-01T00:00:00.000Z",
+    personal,
+  ]);
   spyOn(await import("../memory/matters"), "readMatterBook").mockResolvedValue([
     ...[1, 2, 3, 4].map(matter),
     { ...matter(5), goal: hisGoal },
@@ -156,7 +169,16 @@ test("a matter start whose words cannot be a goal is refused before the desk is 
 
 test("a runtime that does not answer is not_started at its stage, with nothing running", async () => {
   fake.blocked = "claude: command not found";
-  const { result } = await start(2, "Test: watch matter 2");
+  // A new agent needs its runtime (a matter's start does not): the Personal agent, while none is registered.
+  desk.db.run("update agent set status = 'ended' where id = ?", [personal]);
+  const stop = ticking(desk, 300);
+  const result = await changeRegisteredAgent(
+    { action: "start", personal: true, said: "Test: be my Personal agent" },
+    { report: () => undefined },
+    5000
+  );
+  await stop();
+  desk.db.run("update agent set status = 'active' where id = ?", [personal]);
   fake.blocked = undefined;
   expect(result).toMatchObject({
     agent: null,
@@ -171,7 +193,7 @@ test("a runtime that does not answer is not_started at its stage, with nothing r
   expectWire("change_registered_agent_not_started", result, true);
 });
 
-test("a first turn that never begins is not_started at turn_begun: its agent is ended", async () => {
+test("a first turn that never begins is not_started at turn_begun: its assignment is closed, its agent stays", async () => {
   fake.holdBegun();
   setTimeout(() => {
     // Its run ends before it began.
@@ -189,6 +211,9 @@ test("a first turn that never begins is not_started at turn_begun: its agent is 
     state: "not_started",
   });
   expect((result as { stages: unknown[] }).stages).toHaveLength(2);
+  expect(desk.db.query("select status from agent where id = ?").get(personal)).toEqual({
+    status: "active",
+  });
 });
 
 test("a desk that does not act within the limit is unconfirmed, at the stage reached", async () => {
@@ -203,14 +228,13 @@ test("a desk that does not act within the limit is unconfirmed, at the stage rea
   });
 });
 
-test("a start refused because the matter is already held says something runs there, and on which runtime", async () => {
+test("a start on a matter already held answers with the agent that holds it", async () => {
   const { result } = await start(1, "Test: other words on matter 1");
   expect(result).toMatchObject({
-    failed: { stage: "desk_accepted" },
-    nothingRunning: false,
-    // It named none: the runtime the desk took is its default (the refusal is about the matter, not the runtime).
+    agent: personal,
+    failed: null,
     runtime: "claude",
-    state: "not_started",
+    state: "started",
   });
 });
 

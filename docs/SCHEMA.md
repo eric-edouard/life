@@ -394,6 +394,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `new-matter-dismissed` | `steps` (all of a matter's step ids when he answered) | His Dismiss on a new matter check: the matter those steps find (`matterFinderOf`, so a re-group keeps it) is never offered again |
 | `matter-important` | `steps` (all of a matter's step ids when he marked it), `matter` (its id, from 21 Nov 2026), `important` (on or off) | His important mark on the matter those steps find (`importantIdsOf`; a re-group keeps it): the latest wins, read only while the matter is open; his token only, by the matter's id |
 | `matter-icon` | `steps` (all of a matter's step ids when he picked it), `matter` (its id), `icon` (a key of `MATTER_ICONS`, or null: Life picks again) | His icon for the matter those steps find (`chosenIconsOf`; a re-group keeps it): the latest wins; his token only, by the matter's id |
+| `matter-project` | `steps` (all of a matter's step ids when he said it), `matter` (its id), `project` (a project id of his directory) | His word of which project the matter those steps find is of (a re-group keeps it): the latest wins, and it is the matter's one project (`matterBookOf`), so the agent that takes it follows (`agentForOf`); his token only, by the matter's id |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)

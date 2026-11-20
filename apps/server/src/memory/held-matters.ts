@@ -1,21 +1,21 @@
 import type { AgentStatus, OpenedBy } from "../records/registered-agent";
 
-// Which matters registered agents hold (docs/tasks.md, "held"): the one rule, pure, for the hand-out (`handOutOf`) and the
-// new matter check alike. The facts come from the desk's store (host's `heldByAgents`), which memory cannot read.
+// Which matters registered agents hold, and which agent takes a matter (docs/tasks.md, "held"): the rules, pure, for
+// the hand-out (`handOutOf`), the fold and the new matter check alike. The facts come from the desk's store (host's
+// `heldByAgents`, `standingAgents`), which memory cannot read.
 
 /** How the desk ends an agent whose matter looks over (no longer running) on a model's reading: it holds nothing after. */
 export const MATTER_OVER_OUTCOME = "its matter looks over";
 
-/** One registered agent's subject, as a fact: its assignment's anchored step or its project (one of the two), when the assignment closed (null while open), who opened it, how it closed, why it never began. */
+/** One anchored step of a registered agent's assignment, as a fact: when the assignment closed (null while open), who opened it, how it closed, why it never began. */
 export interface AgentHold {
   /** The agent's id (`agt_…`). */
   agent: string;
   closedAt: string | null;
   openedBy: OpenedBy;
   outcome: string | null;
-  project: string | null;
   status: AgentStatus;
-  step: string | null;
+  step: string;
   whyNotStarted: string | null;
 }
 
@@ -28,23 +28,34 @@ const isHolding = (h: AgentHold, newest: string) =>
 
 /**
  * The test of "an agent holds this matter", over `holds`: the first hold that holds it, or undefined. One of its steps
- * is anchored by an agent that holds it (`isHolding`), or, with `isByProject`, one of its projects is that agent's
- * subject (the new matter check while the hand-out is off: his project's agent answers for its matters). Pure.
+ * is anchored by an agent that holds it (`isHolding`); a project's agent holds only what is assigned to it. Pure.
  */
-export function isHeldOf(holds: readonly AgentHold[], isByProject = false) {
-  const byStep = Map.groupBy(holds, (h) => h.step ?? "");
-  const byProject = Map.groupBy(holds, (h) => h.project ?? "");
+export function isHeldOf(holds: readonly AgentHold[]) {
+  const byStep = Map.groupBy(holds, (h) => h.step);
   return (v: {
-    projects?: readonly string[];
     steps: readonly { at: string; ref: string }[];
   }): AgentHold | undefined => {
     const newest = v.steps.at(-1)?.at ?? "";
-    const holders = [
-      ...v.steps.map((s) => byStep.get(s.ref)),
-      ...(isByProject ? (v.projects ?? []).map((p) => byProject.get(p)) : []),
-    ];
-    return holders
-      .flatMap((list) => list ?? [])
+    return v.steps
+      .flatMap((s) => byStep.get(s.ref) ?? [])
       .find((h) => isHolding(h, newest));
   };
 }
+
+/** An active agent that takes matters: a project's (its own assignment listens to `project`) or the Personal agent. */
+export interface StandingAgent {
+  id: string;
+  isPersonal: boolean;
+  name: string | null;
+  project: string | null;
+}
+
+/**
+ * The one test of which agent a matter goes to, by the project it shows under (`projectOf`, his `matter-project` first):
+ * the oldest of `standing` (oldest first) on that project, else the Personal agent, else none. A project may have several
+ * agents (overlap is fine); the oldest takes its matters. Pure.
+ */
+export const agentForOf =
+  (standing: readonly StandingAgent[]) => (project: string | undefined) =>
+    (project ? standing.find((a) => a.project === project) : undefined) ??
+    standing.find((a) => a.isPersonal);

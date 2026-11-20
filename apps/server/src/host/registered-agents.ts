@@ -11,7 +11,7 @@ import {
 } from "../memory/matter-read";
 import { readMatterBook, readMatterBookAndRecords } from "../memory/matters";
 import type { Party } from "../memory/party";
-import { readHandOutMatters } from "../memory/read-matters";
+import { agentForMatterOf, readHandOutMatters } from "../memory/read-matters";
 import { sourceOf } from "../memory/sources";
 import { meant, type People, readPeople } from "../memory/who";
 import { dayNow, localDate, localTime } from "../memory/zones";
@@ -28,8 +28,8 @@ import {
   type DeskRead,
   handedOutAgentsSince,
   heldByAgents,
+  standingAgents,
   openAssignments,
-  projectHolderOf,
   readDesk,
   refusedSince,
   reportLinesSince,
@@ -335,14 +335,10 @@ const linesOf = (read: DeskRead<AgentNow[]>) => {
   return read.state === "ok" ? read.value.map((a) => `- ${agentLine(a)}`) : [];
 };
 
-/** The Agents part of a matter's read: the agents ever anchored on its steps, active first, then the active agent of each of its `projects`; none while the desk is off or unreadable (`read_registered_agents` says which). */
-export function readAgentsOnSteps(
-  steps: string[],
-  projects: string[],
-  people: People
-) {
+/** The Agents part of a matter's read: the agents ever anchored on its steps, active first; none while the desk is off or unreadable (`read_registered_agents` says which). */
+export function readAgentsOnSteps(steps: string[], people: People) {
   const read = readDesk(
-    (db) => agentsOnSteps(db, steps, clock().getTime(), projects, true),
+    (db) => agentsOnSteps(db, steps, clock().getTime(), true),
     []
   );
   // The matter is the one read, found: an agent anchored on it has its wide net.
@@ -357,35 +353,17 @@ export const agentLinesOnProjects = (projects: string[]) =>
     readDesk((db) => agentsOnProjects(db, projects, clock().getTime()), [])
   );
 
-/** The active agent holding one of a matter's steps, else the one holding one of its projects (`projectHolderOf`), for `read_matters`: the desk read once for every matter of the call. */
+/** The active agent holding one of a matter's steps by an open assignment, for `read_matters`: the desk read once for every matter of the call. */
 export function readActiveAgentOf() {
   const read = readDesk(
-    (db) => {
-      const projects = new Set(
-        db
-          .query<{ project: string }, []>(
-            "select distinct project from agent where status = 'active' and project is not null"
-          )
-          .all()
-          .map((r) => r.project)
-      );
-      return {
-        byProject: [...projects].map(
-          (p) => [p, projectHolderOf(db, p)] as const
-        ),
-        byStep: openAssignments(db).flatMap((s) =>
-          anchorsOf(db, s.id).map((step) => [step, s.agent_id] as const)
-        ),
-      };
-    },
-    { byProject: [], byStep: [] }
+    (db) =>
+      openAssignments(db).flatMap((s) =>
+        anchorsOf(db, s.id).map((step) => [step, s.agent_id] as const)
+      ),
+    []
   );
-  const byStep = new Map(read.state === "ok" ? read.value.byStep : []);
-  const byProject = new Map(read.state === "ok" ? read.value.byProject : []);
-  return (steps: string[], projects: string[]) =>
-    steps.map((s) => byStep.get(s)).find(Boolean) ??
-    projects.map((p) => byProject.get(p)).find(Boolean) ??
-    undefined;
+  const byStep = new Map(read.state === "ok" ? read.value : []);
+  return (steps: string[]) => steps.map((s) => byStep.get(s)).find(Boolean);
 }
 
 /** The tokens of agents' turns as report rows: one per local day of his (`localDate` of the turn's end), then one per matter (`matterOf`: an agent's matter, else null: "no matter"), keyed by the matter's id. Pure; every row. */
@@ -477,7 +455,12 @@ async function readHealth(
     async () => ({ book: [...read.book], records: read.records }),
     people
   );
-  const holds = readDesk((db) => heldByAgents(db), []);
+  const desk = readDesk(
+    (db) => ({ holds: heldByAgents(db), standing: standingAgents(db) }),
+    { holds: [], standing: [] }
+  );
+  const { holds, standing } =
+    desk.state === "ok" ? desk.value : { holds: [], standing: [] };
   const needsYou = matterRowsNowOf(
     matters.map((v) => ({
       id: v.id,
@@ -494,9 +477,10 @@ async function readHealth(
       decisions: facts.decisions,
       facts: {
         ...facts,
-        isHeld: isHeldOf(holds.state === "ok" ? holds.value : []),
+        agentFor: agentForMatterOf(standing, people.truth),
+        isHeld: isHeldOf(holds),
       },
-      holds: holds.state === "ok" ? holds.value : [],
+      holds,
       lastNeedsYou,
       matters,
       needsYou,

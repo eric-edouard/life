@@ -1,6 +1,11 @@
 import { createHmac } from "node:crypto";
 import { readChangeStamp } from "../core/files";
-import { type CheckGroup, LIFE_ASKER, type SourceName } from "../core/names";
+import {
+  type CheckGroup,
+  DESK_AGENT,
+  LIFE_ASKER,
+  type SourceName,
+} from "../core/names";
 import { secretIn } from "../core/secret";
 import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
@@ -127,8 +132,6 @@ export interface CheckInputs {
   isDirectionDue: (matter: string) => boolean;
   /** Whether the hand-out takes a matter (by its id): `desk.handOut` is set and it is one of his (`isOneOfHis`); it then gets no Start. */
   isForHandOut: (matter: string) => boolean;
-  /** Whether `desk.handOut` is set: off, a project's agent still answers for its project's matters (no Start for them). */
-  isHandOutOn: boolean;
   /** Whether a matter (by its id) is of a parked or done project (`isParkedMatterOf`): the hand-out starts none, nor is one offered. */
   isParked: (matter: string) => boolean;
   /** Every observation that shows, and the ids of those that are kept: active, at or above `KEEP_AT`. */
@@ -394,7 +397,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
   /**
    * Each running matter he has not answered "Start an agent on this?" for: one that began in the last `NEW_MATTER_DAYS` (its first
    * step's day), with an open step, not stuck (a passed date), a goal and a next step to hand over (the hand-out's gates, `handOutGateOf`: not a parked project's), held
-   * by no agent (`isHeldOf`; while the hand-out is off, a project's agent holds its project's matters too), not
+   * by no agent (`isHeldOf`: a project's agent holds only what is assigned to it), not
    * dismissed, and, while the hand-out is on, not one of his own (`isOneOfHis`: the hand-out takes those); none while the desk is off or unreadable. No deadline: it never
    * outranks an agent's decision; on silence nothing starts and it leaves after its last day.
    */
@@ -402,8 +405,10 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     if (!c.heldByAgents) {
       return [];
     }
-    const isHeld = isHeldOf(c.heldByAgents, !c.isHandOutOn);
+    const isHeld = isHeldOf(c.heldByAgents);
     const facts = {
+      // His Start finds the agent that takes it, or says none does (`agentForOf`): the card does not wait on one.
+      agentFor: () => DESK_AGENT,
       decisions: c.decisions,
       dismissed: dismissedIdsOf(c.matters, c.dismissed),
       isDue: c.isDirectionDue,
@@ -777,7 +782,6 @@ async function readChecks(
     heldByAgents: held?.read() ?? null,
     isDirectionDue: directionDueOf(matters, records, dayNow()),
     isForHandOut: (id) => forHandOut.has(id),
-    isHandOutOn: Boolean(settings().desk?.handOut),
     isParked: (id) => parked.has(id),
     // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).
     kept,

@@ -75,6 +75,7 @@ const callStep = matterBookOf(
       ],
     ]),
     icons: [],
+    projects: [],
     important: [],
     isMailer: () => false,
     ledger: [],

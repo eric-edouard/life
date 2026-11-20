@@ -352,10 +352,12 @@ test("a handed-out agent whose matter is no longer running is ended as over; his
   const handed = register(desk, {
     brief: "b",
     folder: "/",
-    openedBy: "desk",
     runtime: "fake",
     steps: [STEP],
   });
+  desk.db.run("update assignment set opened_by = 'desk' where agent_id = ?", [
+    handed,
+  ]);
   for (const id of [agent, handed]) {
     desk.db.run("update assignment set wait_until = ? where agent_id = ?", [
       new Date(T0 + DAY).toISOString(),
