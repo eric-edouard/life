@@ -10,7 +10,7 @@ import {
   unfoldedOf,
 } from "../records/observation";
 import { namesOne, relationWordOf } from "../records/relation-words";
-import { firstNameOf, ME, type Party } from "../records/truth";
+import { type DirectoryParty, firstNameOf, ME } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
 import { readAgentReports } from "./agent-source";
@@ -26,7 +26,13 @@ import {
   shownOf,
 } from "./memory-files";
 import { isSameNameOrHandle, type Reading, readingOf } from "./name-reading";
-import { loadTruth, OWNER, partiesOf, phonesAndEmailsOf } from "./read-truth";
+import { partyOf, readPictureIndex } from "./party";
+import {
+  directoryPartiesOf,
+  loadTruth,
+  OWNER,
+  phonesAndEmailsOf,
+} from "./read-truth";
 import {
   guessTestOf,
   knownTestOf,
@@ -67,7 +73,7 @@ const bestOf = (loop: string[]) =>
  * person. A card whose whole name and whose handles say more than one person folds into no one (an ambiguous card: his to say).
  */
 export function foldsOf(
-  people: Party[],
+  people: DirectoryParty[],
   inferred: InferredPerson[],
   corrections: Correction[],
   contacts: ContactNow[]
@@ -156,7 +162,7 @@ function saidBy(
   c: ContactNow,
   self: string,
   read: (nameOrHandle: string, from?: HandleFrom) => string | null,
-  people: Party[],
+  people: DirectoryParty[],
   isRuledOut: (c: ContactNow, ref: string) => boolean
 ) {
   const named = read(c.name);
@@ -186,13 +192,13 @@ function saidBy(
  * of their names: only when truth/ gives them no phone or email to say otherwise. A card named as an alias ("Paul")
  * of someone whose numbers are known and differ is someone else.
  */
-function namesTheSame(ref: string, people: Party[]) {
+function namesTheSame(ref: string, people: DirectoryParty[]) {
   const person = people.find((p) => `person:${p.id}` === ref);
   return !person || phonesAndEmailsOf(person).every((h) => !contactKeyOf(h));
 }
 
 /** Whether a card has the first name and the birthday of someone in truth/: proof enough, never one alone. The first word is taken before `nameKey`, which would split "Jean-Pierre". */
-const isSameFirstNameAndBirthday = (c: ContactNow, p: Party) => {
+const isSameFirstNameAndBirthday = (c: ContactNow, p: DirectoryParty) => {
   const first = (name: string) => nameKey(firstNameOf(name));
   return (
     !!c.birthday &&
@@ -204,7 +210,7 @@ const isSameFirstNameAndBirthday = (c: ContactNow, p: Party) => {
 };
 
 /** Whether a card is named, whole, as someone in truth/: his own label for the card. */
-const isWholeNameOf = (c: ContactNow, ref: string, people: Party[]) =>
+const isWholeNameOf = (c: ContactNow, ref: string, people: DirectoryParty[]) =>
   people.some(
     (p) =>
       `person:${p.id}` === ref &&
@@ -220,7 +226,7 @@ const isWholeNameOf = (c: ContactNow, ref: string, people: Party[]) =>
 export function aboutNow(
   observations: Observation[],
   unresolved: Unresolved[],
-  people: Party[],
+  people: DirectoryParty[],
   inferred: InferredPerson[],
   corrections: Correction[],
   contacts: ContactNow[],
@@ -444,7 +450,7 @@ export async function readPeople() {
     readCorrections(),
   ]);
   const contacts = contactsNow(readContactLines());
-  const parties = partiesOf(truth);
+  const parties = directoryPartiesOf(truth);
   const { ambiguousCards, canon, readingNow, resolve } = foldsOf(
     parties,
     inferred,
@@ -478,27 +484,29 @@ export async function readPeople() {
       p.relation ? [[`person:${p.id}`, p.relation] as const] : []
     ),
   ]);
-  const relationOf = (ref: string) => relations.get(refOf(ref)) ?? null;
+  /** Last: their role now at an organization of his directory ("Founder, Atelier Morel"), the first that names them. */
+  const roles = new Map<string, string>();
+  for (const o of truth.organizations) {
+    for (const p of o.people) {
+      if (p.until === undefined && !roles.has(`person:${p.id}`)) {
+        roles.set(`person:${p.id}`, `${p.role}, ${o.name}`);
+      }
+    }
+  }
+  const relationOf = (ref: string) =>
+    relations.get(refOf(ref)) ?? roles.get(refOf(ref)) ?? null;
+  const isOrganization = (ref: string) => isOrganizationNow(refOf(ref));
+  const nameOf = (ref: string) =>
+    names.get(refOf(ref)) ?? who({ speaker: refOf(ref) });
   return {
     /** The Contacts cards Life cannot place: their whole name and their handles say more than one person (`foldsOf`). */
     ambiguousCards,
-    /**
-     * Who a name could be, as he knows them (`nearNames` over `nameable`), with what each is to him (`relationOf`).
-     */
-    candidatesFor: (
-      name: string
-    ): { line: string | null; name: string; person: string }[] =>
+    /** Who a name could be, as he knows them (`nearNames` over `nameable`): their refs as they read today. */
+    candidatesFor: (name: string): string[] =>
       nearNames(
         name,
         nameable({ canon, outsideDirectory, truth }).filter((p) => p.id !== ME)
-      ).map((p) => {
-        const person = refOf(`person:${p.id}`);
-        return {
-          line: relationOf(person),
-          name: names.get(person) ?? p.name,
-          person,
-        };
-      }),
+      ).map((p) => refOf(`person:${p.id}`)),
     canon,
     /** The people his Contacts name (`contact-people.ts`), for the folds. */
     contacts,
@@ -509,16 +517,21 @@ export async function readPeople() {
     /** Whether a person ref, as it reads today, is someone he knows (`knownTestOf`). */
     isKnownToHim: (ref: string) => isKnownNow(refOf(ref)),
     /** Whether a person ref, as it reads today, is an organization (`organizationTestOf`): personal steps skip it. */
-    isOrganization: (ref: string) => isOrganizationNow(refOf(ref)),
+    isOrganization,
     /** An episode's person ref as a reader sees it: the readable name of who it is today, else the bare id. */
-    nameOf: (ref: string) =>
-      names.get(refOf(ref)) ?? who({ speaker: refOf(ref) }),
+    nameOf,
     /** A readable name for each person (inferred ones too), project and area ref. */
     names,
     /** Everyone outside the directory (`peopleOutsideDirectoryOf`), folded or not: what every listing of people reads. */
     outsideDirectory,
     /** Whose a Contacts card is (`cardOwnerOf`). */
     ownerOfCard: cardOwnerOf({ canon, contacts, resolve }),
+    /** A ref as every app is shown it (`partyOf`); the pictures are read on the first. */
+    partyOf: partyOf(
+      { isOrganization, nameOf, refOf, relationOf },
+      parties,
+      readPictureIndex
+    ),
     /** What a name as written reads as now (`resolve`), with which source said so and whether the name is shared. */
     readingNow,
     /** Who an episode's person ref is as of today: a name since resolved, a person since folded into another. */
@@ -574,7 +587,7 @@ export async function observationsNow({
   const observations = aboutNow(
     shown,
     unresolved,
-    partiesOf(truth),
+    directoryPartiesOf(truth),
     inferred,
     corrections,
     contacts,
@@ -589,11 +602,11 @@ export async function observationsNow({
  */
 export const nameRefusalOf = (
   name: string,
-  people: Pick<People, "candidatesFor">
+  people: Pick<People, "candidatesFor" | "nameOf">
 ) => {
   const near = people
     .candidatesFor(name)
-    .map((c) => `${c.name} (${c.person.replace(PERSON, "")})`);
+    .map((ref) => `${people.nameOf(ref)} (${ref.replace(PERSON, "")})`);
   return `No one goes by ${name}${near.length > 0 ? `; near it: ${near.join(", ")}` : ""}`;
 };
 
@@ -662,7 +675,7 @@ function nameable({
   truth,
 }: Pick<People, "outsideDirectory" | "canon" | "truth">) {
   return [
-    ...partiesOf(truth),
+    ...directoryPartiesOf(truth),
     ...new Map(
       unfoldedOf(outsideDirectory, canon).map((p) => [
         p.id,

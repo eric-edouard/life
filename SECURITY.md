@@ -100,7 +100,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - To an assistant he connected, and to his agents: what they read through the connector or on the Mac; a wait's own
   coordinates (`near` in `wakesOn`) are in the reads `read_registered_agents` and `read_matter`. The question
   cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex
-  subscription (his word, 10 Nov 2026).
+  subscription (his word, 10 Nov 2026). People's pictures, to any app he paired, never to a paired agent
+  (`read_person_pictures`; his word of 20 Nov 2026).
 - By email to him (Resend), when `mail` is set: the nightly report and the alerts.
 - Into one chat of his, through Life's own bridge for that network (WhatsApp, Instagram, Messenger, LinkedIn), or through the
   Messages app (iMessage, as he would send it himself: a file is written for a moment to `~/Pictures/Life sends`; the one

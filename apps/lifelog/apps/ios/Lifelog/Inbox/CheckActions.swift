@@ -125,15 +125,15 @@ struct CheckActions: View {
     }
 
     /// The people it may be, each one tap away, when the card fills no answer of its own ("Yes"): a Contacts card, a voice, a name.
-    private var people: [Check.Person] {
+    private var people: [Party] {
         check.isNamingFilled ? check.likelyPeople : []
     }
 
     @ViewBuilder private var options: some View {
         if !people.isEmpty {
-            ForEach(people, id: \.person) { person in
+            ForEach(people, id: \.ref) { person in
                 Button {
-                    if let request = check.answer(naming: .person(person.person)) { answer(request) }
+                    if let request = check.answer(naming: .person(person.ref)) { answer(request) }
                 } label: {
                     PersonAnswer(person: person)
                 }

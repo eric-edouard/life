@@ -147,6 +147,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
             == client(RegisteredAgents.Desk.self))
     #expect(try quoted("host/registered-agents.ts", /helper: ([^;]*);/) == client(RegisteredAgents.Helper.self))
     #expect(try quoted("host/registered-agents.ts", /broken\?: ([^;]*);/) == client(WakeLine.Broken.self))
+    #expect(try quoted("memory/party.ts", /kind: ([^;]*);/) == client(Party.Kind.self))
 }
 
 @Test func unknownServerValuesNeverFailTheFeedsState() throws {

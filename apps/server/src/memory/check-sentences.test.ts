@@ -233,17 +233,13 @@ test("a name's card shows a line that holds the name, never the newest line when
     ]),
     people: {
       ...base.people,
-      candidatesFor: () => [
-        { line: "Fitter", name: "Bastien Roy", person: "person:bastien" },
-      ],
+      candidatesFor: () => ["person:bastien"],
     },
   });
   expect(read).toMatchObject({
     around: { after: [{ by: "You" }], before: [{ text: "Morning." }] },
     clips: [clip],
-    likelyPeople: [
-      { line: "Fitter", name: "Bastien Roy", person: "person:bastien" },
-    ],
+    likelyPeople: [{ ref: "person:bastien" }],
     said,
   });
 });

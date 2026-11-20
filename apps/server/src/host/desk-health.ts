@@ -3,18 +3,16 @@ import {
   isRunning,
   type MatterView,
   matterFinderOf,
-  nextStepNow,
 } from "../memory/matter-read";
 import {
   type HandOutFacts,
   type HandOutGate,
   handOutGateOf,
-  needsYouOf,
 } from "../memory/read-matters";
 
 // The desk health check (his yes of 20 Nov 2026), a report in code, no model, no action: where agents and matters
 // drift apart (the oddities), how many of the matters to do have an agent and why not the others (`coverageOf`, "agent
-// coverage"), and how many running matters need him. Each rule is pure; `readAgentSection` reads and the nightly shows
+// coverage"), and the row of how many running matters need him (`matterRowsNowOf`). Each rule is pure; `readAgentSection` reads and the nightly shows
 // every row, never capped.
 
 interface Row {
@@ -156,19 +154,6 @@ export function coverageOf(
     }),
   ];
 }
-
-/** How many of the running matters need him (`needsYouOf`), given the open decisions and each matter's blocking checks. */
-export const needsYouCountOf = (
-  matters: readonly MatterView[],
-  decisions: Parameters<typeof nextStepNow>[1],
-  blockingOf: (matter: string) => number
-) =>
-  matters.filter((v) =>
-    needsYouOf(
-      { nextStep: nextStepNow(v, decisions), status: v.status },
-      blockingOf(v.id)
-    )
-  ).length;
 
 /** The number's row, with last night's when the last `run.end` of the nightly held one (`lastNeedsYou`). */
 export const needsYouRowOf = (now: number, lastNeedsYou?: number): Row => ({

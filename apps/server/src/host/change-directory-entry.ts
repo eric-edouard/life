@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { commitMemory } from "../memory/memory-files";
-import { integrity, loadTruth, partiesOf } from "../memory/read-truth";
+import { directoryPartiesOf, integrity, loadTruth } from "../memory/read-truth";
 import { recordToldLife } from "../memory/told-life";
 import { slug } from "../records/fields";
 import { OrganizationPerson } from "../records/truth";
@@ -385,7 +385,7 @@ export async function addDirectoryEntryByHisWord(
 ) {
   // ponytail: ids read outside the queue: two adds of one name at once, the second refused as a duplicate; its retry finds
   // the name in truth/. Fine for one owner; read inside `apply` if answers ever race.
-  const taken = new Set(partiesOf(await loadTruth()).map((p) => p.id));
+  const taken = new Set(directoryPartiesOf(await loadTruth()).map((p) => p.id));
   const base = slugOf(name) || kind;
   let id = base;
   for (let n = 2; taken.has(id); n += 1) {
