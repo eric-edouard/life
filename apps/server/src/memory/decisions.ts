@@ -2,14 +2,23 @@ import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
-import { clock, DAY, HOUR, MIN } from "../core/clock";
+import { clock, MIN } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
+import { payments } from "../payments/backend";
 import { isoDateTime } from "../records/fields";
-import { isSendable, MessageDraft, oneLine, StoredDraft } from "./draft";
+import {
+  cardProblemOf,
+  endsProblemOf,
+  notBuiltOf,
+  pageHintOf,
+} from "./card-problems";
+import { Ask, type Option, Withdrawal } from "./card-request";
+import { isSendable, StoredDraft } from "./draft";
 import { resolveDraft, sendDraft, sendLimitMs } from "./draft-send";
-import { type MatterStepNow, matterOfSteps, openStepsOf } from "./matter-read";
+import { matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { MEMORY } from "./memory-files";
+import { amountOf } from "./needs";
 import { readPeople } from "./who";
 import { dayNow } from "./zones";
 
@@ -20,7 +29,10 @@ import { dayNow } from "./zones";
 // answer was a draft's outgoing option alone, the send's outcome (`sent` or `send-failed`, `draft-send.ts`), and when it
 // was an `ends` option alone, the end's outcome (`ended`: his word that the step or matter is done, `endByHisWord`). A send
 // that ended `not sent:` (nothing went) voids its answer: the card is open again and his next answer is the next first
-// (his yes of 18 Nov 2026); `may have gone:` stays answered. Where each
+// (his yes of 18 Nov 2026); `may have gone:` stays answered. A card Life sees done itself (`doneSeenBy`: a payment) gets
+// Life's outcome line `done-seen` (`recordDoneSeen`), never his answer: on his pick of its `looks` option alone, `seen` or
+// `not_found` (which voids the answer as `not sent:` does), and from the watcher's look while it is open, `seen` alone,
+// which settles the card with no answer of his (`seen`). Where each
 // stands is worked out when read (`decisionsNow`); the open ones are checks (`checks.ts`), so he sees them in the one
 // list. The file also holds earlier versions' lines: the old decisions page's (schemaVersion 1, before 2 Nov 2026) and
 // the cards before titles (schemaVersion 2, none in his data on 18 Nov 2026): kept, never read.
@@ -31,56 +43,6 @@ const PROJECT_OR_AREA = /^(?:project|area):/;
 /** The version decision lines are written at; earlier lines (the old decisions page's, the cards before titles) are skipped. */
 const VERSION = 3;
 const DecisionId = z.string().regex(/^dec_[0-9a-f]{12}$/);
-const Option = z
-  .object({
-    /** His pick of it alone is his word that the card's step (`step`: the subject, one of its matter's open steps) or its whole matter (`matter`) is done: Life closes it (`endByHisWord`). Never on an `outgoing` option, never taken on silence. */
-    ends: z.enum(["step", "matter"]).optional(),
-    id: z.string().min(1).max(40),
-    label: oneLine(120),
-    /** An act that leaves Life (it sends, pays, books, deletes or changes something others see): never taken on silence. */
-    outgoing: z.literal(true).optional(),
-  })
-  .strict();
-/** What an asker gives (`requestDecision`, the connector's `request_decision`): an `asked` line less what Life stamps. */
-export const Ask = z
-  .object({
-    /** The registered agent that asked (the desk's `agt_…`), when one did: stamped by the desk, never by the connector. */
-    agent: z
-      .string()
-      .regex(/^agt_[0-9a-f]+$/)
-      .optional(),
-    context: z.string().max(4000).default(""),
-    deadline: isoDateTime,
-    draft: MessageDraft.optional(),
-    links: z.array(z.url()).default([]),
-    onSilence: z.string().nullable().default(null),
-    /** The recommended one first. */
-    options: z.array(Option).min(2).max(4),
-    question: oneLine(120),
-    /** A matter's id or a step's (it rides on that matter: listed while the matter is open; an id is stored as its newest step), or `project:<id>` or `area:<id>`; none for a task with neither. */
-    subject: z.string().min(1).optional(),
-    title: oneLine(80),
-  })
-  .strict();
-const Withdrawal = z
-  .object({
-    agent: Ask.shape.agent,
-    why: z.string().min(1).max(300),
-    withdraw: z.string().describe("A decision id you asked, to withdraw it"),
-  })
-  .strict();
-/** What an agent gives `request_decision` (the connector's, the door's): an `Ask` less the desk's stamp, or a withdrawal; `requestDecision` checks the rest. */
-export const DecisionRequest = Ask.omit({ agent: true })
-  .partial()
-  .extend({
-    why: Withdrawal.shape.why.optional().describe("With `withdraw`: why"),
-    withdraw: Withdrawal.shape.withdraw.optional(),
-  });
-
-/** The card's rules in words, for every tool that asks one (the connector's `request_decision`, the door's). */
-export const CARD =
-  "One card: `title` (what you are trying to do, one line, 80 characters), `question` (what he decides, one line, 120, ending in a ?), `draft` (the exact message to approve, shown to him in full: `channel` the source it goes through; `to` a chat key from `read_chats`, or a person with one 1:1 chat there (for mail, addresses); `text` (written as he writes to that person: the communication style in your packet, `read_matter`, atop `read_chats` with `who`, or `read_person_page`; never a tone of your own), a `file` (an absolute path: he sees its name and size, and Life sends the bytes it reads when you ask), or a `reaction` (an emoji, which needs `onMessage` and nothing else); `onMessage` a message's id (`read_chats`, `read_new_events`; for mail, its id from `search` or `fetch`), replied to (or reacted to); `mentions` (`[{name, sender}]`: each `@name` in `text`, in its order, `sender` the sender id `read_chats` shows for that person in this chat); for mail only `from`, `subject`, `cc`; a feature the chat can't take is refused when you ask; Life sends it exactly as shown when he picks its one `outgoing` option alone (with his words added, or another option, nothing is sent), and `decision.answered` carries `send`, the sent message's id or its error; a failed send is never retried: ask a new card), `options` (2 to 4 `{id, label}`, a label at most five words, the recommended one first, `outgoing: true` on one that acts outside Life (sends, pays, books, deletes or changes something others see), `ends: \"step\"` (`subject` one of its matter's open steps) or `ends: \"matter\"` on the one that means it is done (his pick of it alone closes that step, or every open step of the matter, in Life; never with `outgoing`, never `onSilence`, and `decision.answered` carries `end`, its error if it failed)), `context` (why, what was tried, what it rests on, with links: folded, about 10 lines), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, never an outgoing or `ends` one, or null), `subject` (a matter's id or one of its steps': it leaves his list when the matter ends; or `project:<id>`, `area:<id>`). He can always answer in his own words instead (the answer's `note`).";
-
 const Asked = Ask.extend({
   asker: z.string().min(1),
   at: isoDateTime,
@@ -147,6 +109,18 @@ const Ended = z
     schemaVersion: z.literal(VERSION),
   })
   .strict();
+/** Life's outcome when it looked for the card's step done (`recordDoneSeen`): `seen` (the event, `eventId`), or `not_found` (with `error` when the look failed or never finished). Never his answer. */
+const DoneSeen = z
+  .object({
+    at: isoDateTime,
+    error: z.string().min(1).optional(),
+    eventId: z.string().min(1).optional(),
+    id: DecisionId,
+    kind: z.literal("done-seen"),
+    schemaVersion: z.literal(VERSION),
+    state: z.enum(["seen", "not_found"]),
+  })
+  .strict();
 const Line = z.discriminatedUnion("kind", [
   Asked,
   Answered,
@@ -154,6 +128,7 @@ const Line = z.discriminatedUnion("kind", [
   Sent,
   SendFailed,
   Ended,
+  DoneSeen,
 ]);
 /** A line of an earlier version: skipped. */
 const Historical = z.object({ schemaVersion: z.literal([1, 2]) }).loose();
@@ -165,31 +140,37 @@ type Withdrawn = z.infer<typeof Withdrawn>;
 type SendFailed = z.infer<typeof SendFailed>;
 type Send = z.infer<typeof Sent> | SendFailed;
 type Ended = z.infer<typeof Ended>;
+type DoneSeen = z.infer<typeof DoneSeen>;
 
-type DecisionState = "answered" | "lapsed" | "open" | "withdrawn";
+type DecisionState = "answered" | "lapsed" | "open" | "seen" | "withdrawn";
 export type Decision = Asked & {
   answer?: Answered;
+  /** Life's newest look: the one his answer's look made, a `seen` that settled the card, or a `not_found` that voided his answer (the card is open again). */
+  doneSeen?: DoneSeen;
   end?: Ended;
   /** The newest `not sent:` outcome, which voided the answer in `voided` (the card is open again). */
   notSent?: SendFailed;
   send?: Send;
   state: DecisionState;
-  /** Every answer a `not sent:` outcome voided, with that outcome, oldest first: a repeat of any of those taps (its `answerKey`) finds its own here. */
-  voided?: { answer: Answered; notSent: SendFailed }[];
+  /** Every answer a `not sent:` or `not_found` outcome voided, with that outcome, oldest first: a repeat of any of those taps (its `answerKey`) finds its own here. */
+  voided?: { answer: Answered; doneSeen?: DoneSeen; notSent?: SendFailed }[];
   withdrawn?: Withdrawn;
 };
 
-/** `d` with its answer voided by the `not sent:` outcome `l`: the card is open again, the answer kept in `voided`. */
-const voidedBy = (d: Omit<Decision, "state">, l: SendFailed) => ({
-  ...d,
-  answer: undefined,
-  notSent: l,
-  send: undefined,
-  voided: [
-    ...(d.voided ?? []),
-    ...(d.answer ? [{ answer: d.answer, notSent: l }] : []),
-  ],
-});
+/** `d` with its answer voided by the `not sent:` or `not_found` outcome `l`: the card is open again, the answer kept in `voided`. */
+const voidedBy = (d: Omit<Decision, "state">, l: SendFailed | DoneSeen) => {
+  const outcome = l.kind === "done-seen" ? { doneSeen: l } : { notSent: l };
+  return {
+    ...d,
+    ...outcome,
+    answer: undefined,
+    send: undefined,
+    voided: [
+      ...(d.voided ?? []),
+      ...(d.answer ? [{ answer: d.answer, ...outcome }] : []),
+    ],
+  };
+};
 
 /** Every decision as stored, by id, in the order asked: the first answer kept, until a `not sent:` outcome voids it. */
 const readAll = () =>
@@ -205,7 +186,16 @@ const readAll = () =>
       if (l.kind === "asked") {
         all.set(l.id, l);
       } else if (d && l.kind === "answered" && !d.answer) {
-        all.set(l.id, { ...d, answer: l });
+        // A `not_found` that voided an earlier answer is no outcome of this one.
+        const doneSeen = d.doneSeen?.state === "seen" ? d.doneSeen : undefined;
+        all.set(l.id, { ...d, answer: l, doneSeen });
+      } else if (d && l.kind === "done-seen") {
+        // The first `seen` stands; a `not_found` is the outcome of an answer's look only, and voids it.
+        if (l.state === "seen" && d.doneSeen?.state !== "seen") {
+          all.set(l.id, { ...d, doneSeen: l });
+        } else if (l.state === "not_found" && d.answer && !d.doneSeen) {
+          all.set(l.id, voidedBy(d, l));
+        }
       } else if (d && l.kind === "withdrawn" && !d.withdrawn) {
         all.set(l.id, { ...d, withdrawn: l });
       } else if (
@@ -226,28 +216,40 @@ const stateOf = (d: Omit<Decision, "state">, now: Date): DecisionState => {
   if (d.answer) {
     return "answered";
   }
+  if (d.doneSeen?.state === "seen") {
+    return "seen";
+  }
   if (d.withdrawn) {
     return "withdrawn";
   }
   return Date.parse(d.deadline) <= now.getTime() ? "lapsed" : "open";
 };
 
-type Act = "end" | "send";
+type Act = "end" | "look" | "send";
 
-/** What an option does when he picks it alone with no words: `send` the card's draft (its `outgoing` option), `end` its step or matter (`ends`), else nothing. */
+/** How Life sees `d`'s step done now: `payment` while payments are on (amendment 1: a card with no channel to look in is `tap`), else `tap`. */
+export const doneSeenByOf = (d: Pick<Decision, "doneSeenBy" | "needs">) =>
+  d.doneSeenBy === "payment" && payments() && amountOf(d.needs)
+    ? "payment"
+    : "tap";
+
+/** What an option does when he picks it alone with no words: `send` the card's draft (its `outgoing` option), `look` for its step done (`looks`, while Life can), `end` its step or matter (`ends`), else nothing. */
 const actOfOption = (
-  d: Pick<Decision, "draft">,
+  d: Pick<Decision, "doneSeenBy" | "draft" | "needs">,
   o?: z.infer<typeof Option>
 ) => {
   if (o?.outgoing && isSendable(d.draft)) {
     return "send";
+  }
+  if (o?.looks && doneSeenByOf(d) !== "tap") {
+    return "look";
   }
   return o?.ends ? "end" : undefined;
 };
 
 /** What an answer does besides being recorded: its one option picked alone, with no words of his changing it (`actOfOption`). */
 export const actOf = (
-  d: Pick<Decision, "draft" | "options">,
+  d: Pick<Decision, "doneSeenBy" | "draft" | "needs" | "options">,
   options: string[],
   note?: string
 ): Act | undefined =>
@@ -262,15 +264,19 @@ export const actOf = (
 export const actDueOf = (d: Omit<Decision, "state">) =>
   d.answer ? actOf(d, d.answer.options, d.answer.note) : undefined;
 
-/** The outcome of his answer's act, as stored: the send's, or the end's. */
-export const actOutcomeOf = (d: Pick<Decision, "end" | "send">, act: Act) =>
-  act === "send" ? d.send : d.end;
+/** The outcome of his answer's act, as stored: the send's, the look's, or the end's. */
+export const actOutcomeOf = (
+  d: Pick<Decision, "doneSeen" | "end" | "send">,
+  act: Act
+) => ({ end: d.end, look: d.doneSeen, send: d.send })[act];
 
 /** An act with no outcome this long past its own limit never ended (a crash): the reads before it and the line's write. */
 const ACT_GRACE = MIN;
 /** The most an end may take: a tick per to-do item, a minute each (`TICK_LIMIT_MS`, host).
  * ponytail: fixed; a matter of more than 29 open to-do items may read as never ended while it still ticks. */
 const END_LIMIT_MS = 30 * MIN;
+/** The most a look may take: one read of his accounts (host's payments read gives up at 20 s). */
+export const LOOK_LIMIT_MS = 30_000;
 
 /** `d` with its act's outcome as stored, or, past its limit (a send's path's own, `sendLimitMs`) and `ACT_GRACE` with none, one that never ended. */
 function withOutcomeOf(
@@ -281,8 +287,12 @@ function withOutcomeOf(
   if (!(act && d.answer) || actOutcomeOf(d, act)) {
     return d;
   }
-  const limit = act === "send" && d.draft ? sendLimitMs(d.draft) : END_LIMIT_MS;
-  const end = Date.parse(d.answer.at) + limit + ACT_GRACE;
+  const limits = {
+    end: END_LIMIT_MS,
+    look: LOOK_LIMIT_MS,
+    send: d.draft ? sendLimitMs(d.draft) : END_LIMIT_MS,
+  };
+  const end = Date.parse(d.answer.at) + limits[act] + ACT_GRACE;
   if (now.getTime() < end) {
     return d;
   }
@@ -291,6 +301,15 @@ function withOutcomeOf(
     id: d.id,
     schemaVersion: VERSION,
   };
+  // A look that never finished found nothing: the card is open again, as after any `not_found`.
+  if (act === "look") {
+    return voidedBy(d, {
+      ...line,
+      error: "the look never finished",
+      kind: "done-seen",
+      state: "not_found",
+    });
+  }
   return act === "send"
     ? {
         ...d,
@@ -317,10 +336,10 @@ export type EndByHisWord = (d: Omit<Decision, "state">) => Promise<unknown>;
 
 /** Every decision with where it stands at `now`: open, answered, lapsed (its deadline passed) or withdrawn. */
 export const decisionsNow = (now = clock()): Decision[] =>
-  [...readAll().values()].map((d) => ({
-    ...withOutcomeOf(d, now),
-    state: stateOf(d, now),
-  }));
+  [...readAll().values()].map((d) => {
+    const o = withOutcomeOf(d, now);
+    return { ...o, state: stateOf(o, now) };
+  });
 
 /** Registered agent `agent`'s open decision, if any: it asks one at a time (`requestDecision`), worked out from `list`, never stored. */
 export const openDecisionOf = (agent: string, list = decisionsNow()) =>
@@ -344,11 +363,7 @@ export const isOnMatter = (subject?: string): subject is string =>
   subject !== undefined && !PROJECT_OR_AREA.test(subject);
 
 /** Withdraws the open decision `request.withdraw`, only by the asker that asked it. */
-function withdrawDecision(
-  asker: string,
-  request: Partial<z.input<typeof Withdrawal>>,
-  now: Date
-) {
+function withdrawDecision(asker: string, request: object, now: Date) {
   const w = Withdrawal.safeParse(request);
   if (!w.success) {
     throw new Error(`Not done: ${z.prettifyError(w.error)}`);
@@ -370,77 +385,29 @@ function withdrawDecision(
   return { id: d.id };
 }
 
-const WHITESPACE = /\s+/;
-
-/** What breaks the card's rules beyond its shape, in words the agent can fix; false when nothing does. */
-function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
-  const ids = ask.options.map((o) => o.id);
-  const ahead = Date.parse(ask.deadline) - now.getTime();
-  const silence = ask.options.find((o) => o.id === ask.onSilence);
-  return (
-    (new Set(ids).size !== ids.length && "option ids repeat") ||
-    (ask.onSilence !== null &&
-      !silence &&
-      "`onSilence` must be an option id") ||
-    (silence?.outgoing &&
-      "`onSilence` never takes an `outgoing` option: on silence nothing goes out") ||
-    (ask.draft &&
-      ask.options.filter((o) => o.outgoing).length !== 1 &&
-      "a `draft` needs the one option that sends it marked `outgoing`") ||
-    (!ask.question.trim().endsWith("?") && "`question` must end in a ?") ||
-    (ask.options.find((o) => o.label.trim().split(WHITESPACE).length > 5) &&
-      "an option's `label` is at most five words") ||
-    ((ahead < HOUR || ahead > 14 * DAY) &&
-      "the deadline must be 1 hour to 14 days ahead")
-  );
-}
-
-/**
- * What breaks the rules of an `ends` option, in words the agent can fix; false when nothing does. `matter`: the open
- * matter the subject is or rides on. A step's card closes its subject, which must be one of the matter's open steps
- * (`openStepsOf`); a matter's needs one open (nothing else closes a matter by his word).
- */
-function endsProblemOf(
-  ask: z.infer<typeof Ask>,
-  matter?: { id: string; steps: readonly MatterStepNow[] }
-) {
-  const ends = ask.options.filter((o) => o.ends);
-  if (ends.length === 0) {
-    return false;
-  }
-  return (
-    (ends.some((o) => o.outgoing) &&
-      "an option acts outside Life (`outgoing`) or closes in Life (`ends`), never both") ||
-    (ends.some((o) => o.id === ask.onSilence) &&
-      "`onSilence` never takes an `ends` option: only his pick closes anything") ||
-    (!matter &&
-      "`ends` needs a `subject` on an open matter (its id or a step's)") ||
-    (ends.some((o) => o.ends === "step") &&
-      (matter?.id === ask.subject ||
-        openStepsOf(matter ?? { steps: [] }, ask.subject).length === 0) &&
-      "`ends: \"step\"` needs `subject` to be one of the matter's open steps (a to-do, promise, wait or to-do item), not the matter's id") ||
-    (openStepsOf(matter ?? { steps: [] }).length === 0 &&
-      '`ends: "matter"` needs an open to-do, promise, wait or to-do item on the matter')
-  );
-}
-
 /**
  * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker. A draft's chat
  * is resolved now (`readChat`), so his card names it and nothing is sent to a chat he didn't see.
  */
 export async function requestDecision(
   asker: string,
-  // Partial: an agent's arguments arrive unchecked; `Ask` checks them here.
-  request: Partial<z.input<typeof Ask>> | Partial<z.input<typeof Withdrawal>>,
+  // An agent's arguments arrive unchecked (`DecisionRequest` is loose where the contract grows); `Ask` checks them here.
+  request: Record<string, unknown>,
   now = clock(),
   readChat = resolveDraft
 ): Promise<{ id: string }> {
-  if ("withdraw" in request && request.withdraw) {
+  if (request.withdraw) {
     return withdrawDecision(asker, request, now);
+  }
+  const notBuilt = notBuiltOf(request);
+  if (notBuilt) {
+    throw new Error(`Not done: ${notBuilt} is not built yet.`);
   }
   const parsed = Ask.safeParse(request);
   if (!parsed.success) {
-    throw new Error(`Not done: ${z.prettifyError(parsed.error)}`);
+    throw new Error(
+      `Not done: ${z.prettifyError(parsed.error)}${pageHintOf(request, parsed.error)}`
+    );
   }
   const ask = parsed.data;
   const problem = cardProblemOf(ask, now);
@@ -501,17 +468,21 @@ export async function requestDecision(
   return { id };
 }
 
-/** What makes an answer to `d` refused, in words; false when nothing does. An act (`actOfOption`) is his own app's alone: a send `via` the connector, an end only where host gives `end` (`canEnd`). */
+/** What makes an answer to `d` refused, in words; false when nothing does. An act (`actOfOption`) is his own app's alone: a send `via` the connector, an end or a look only where host gives `end` or `look` (`canEnd`, `canLook`). */
 function answerProblemOf(
   d: Omit<Decision, "state">,
   options: string[],
   note: string | undefined,
-  { canEnd, via }: { canEnd: boolean; via: Answered["via"] }
+  {
+    canEnd,
+    canLook,
+    via,
+  }: { canEnd: boolean; canLook: boolean; via: Answered["via"] }
 ) {
   const unknown = options.filter((o) => !d.options.some((x) => x.id === o));
-  const acts = d.options
-    .filter((o) => options.includes(o.id))
-    .map((o) => actOfOption(d, o));
+  const picked = d.options.filter((o) => options.includes(o.id));
+  const acts = picked.map((o) => actOfOption(d, o));
+  const wordless = note ? undefined : picked.find((o) => o.takes);
   return (
     (unknown.length > 0 &&
       `${unknown.join(", ")} not among ${d.id}'s options.`) ||
@@ -523,9 +494,68 @@ function answerProblemOf(
       "a draft is sent only on his own answer, through `answer_check` in his app.") ||
     (acts.includes("end") &&
       !canEnd &&
-      "a step is closed only on his own answer, through `answer_check` in his app.")
+      "a step is closed only on his own answer, through `answer_check` in his app.") ||
+    (acts.includes("look") &&
+      !canLook &&
+      "Life looks for a step done only on his own answer, through `answer_check` in his app.") ||
+    (wordless && `${wordless.id} takes his words: give them as \`note\`.`)
   );
 }
+
+/** Looks once for the card `d`'s step done (host: `lookForDone`): the event seen, or none; throws when it could not look. */
+export type LookForDone = (
+  d: Omit<Decision, "state">
+) => Promise<string | undefined>;
+
+/** Appends Life's outcome of a look for `id`'s step done: `seen` with its event, or `not_found` (with the look's error). Never his answer. */
+export function recordDoneSeen(
+  id: string,
+  outcome: Pick<DoneSeen, "error" | "eventId" | "state">,
+  now = clock()
+) {
+  const line: DoneSeen = {
+    at: now.toISOString(),
+    id,
+    kind: "done-seen",
+    schemaVersion: VERSION,
+    ...outcome,
+  };
+  appendJsonl(DECISIONS, DoneSeen, [line]);
+  return line;
+}
+
+/** His answer's look (`look`): `looking`, then its outcome line (`done_seen`); a failed look found nothing, with its error. */
+async function lookOnAnswer(
+  d: Omit<Decision, "state">,
+  look: LookForDone,
+  onStep?: (step: string, detail?: Record<string, unknown>) => void
+) {
+  onStep?.("looking");
+  const outcome = await look(d).then(
+    (eventId) =>
+      eventId
+        ? { eventId, state: "seen" as const }
+        : { state: "not_found" as const },
+    (e: Error) => ({ error: e.message, state: "not_found" as const })
+  );
+  const line = recordDoneSeen(d.id, outcome);
+  onStep?.("done_seen", doneSeenShownOf(line) ?? undefined);
+  return line;
+}
+
+/** Life's outcome as his card and app show it: its state and Life's words for it; null when Life looked for nothing. */
+export const doneSeenShownOf = (l?: DoneSeen) =>
+  l
+    ? {
+        line:
+          l.state === "seen"
+            ? "Paid: Life saw it in your accounts"
+            : l.error
+              ? `Life could not look in your accounts: ${l.error}`
+              : "Not in your accounts yet",
+        state: l.state,
+      }
+    : null;
 
 /** Closes the step or matter of the answered decision `d` by his word (`end`) and appends its `ended` line, with the error when it failed. */
 async function endOnAnswer(
@@ -565,6 +595,7 @@ export async function answerDecision(
     answerKey,
     deliver = sendDraft,
     end,
+    look,
     now = clock(),
     onStep,
     via = "session",
@@ -572,6 +603,7 @@ export async function answerDecision(
     answerKey?: string;
     deliver?: typeof sendDraft;
     end?: EndByHisWord;
+    look?: LookForDone;
     now?: Date;
     onStep?: (step: string, detail?: Record<string, unknown>) => void;
     via?: Answered["via"];
@@ -580,6 +612,7 @@ export async function answerDecision(
   const d = readOpenDecision(id, now);
   const problem = answerProblemOf(d, options, note, {
     canEnd: Boolean(end),
+    canLook: Boolean(look),
     via,
   });
   if (problem) {
@@ -604,6 +637,9 @@ export async function answerDecision(
   const act = actDueOf(stored);
   if (act === "end" && end) {
     return [line, await endOnAnswer(stored, end, onStep)];
+  }
+  if (act === "look" && look) {
+    return [line, await lookOnAnswer(stored, look, onStep)];
   }
   if (!(act === "send" && isSendable(stored.draft))) {
     return [line];
@@ -645,6 +681,9 @@ export const notSentOf = (d: Decision, n = d.notSent) =>
  * (none while the act runs), else his answer's instant, or the deadline for a lapse.
  */
 export const settledAtOf = (d: Decision) => {
+  if (d.state === "seen") {
+    return d.doneSeen?.at;
+  }
   const act = actDueOf(d);
   return act
     ? actOutcomeOf(d, act)?.at
@@ -654,15 +693,17 @@ export const settledAtOf = (d: Decision) => {
 };
 
 /**
- * The decisions answered or lapsed in [`from`, `to`), by when they settled (`settledAtOf`; a withdrawal is the asker's
- * own act). Half-open, so a poll's next window starts at this one's end and none is seen twice or skipped.
+ * The decisions answered, seen done or lapsed in [`from`, `to`), by when they settled (`settledAtOf`; a withdrawal is
+ * the asker's own act). Half-open, so a poll's next window starts at this one's end and none is seen twice or skipped.
  */
 export const settledBetween = (list: Decision[], from: Date, to: Date) =>
   list
     .map((d) => ({ at: Date.parse(settledAtOf(d) ?? ""), d }))
     .filter(
       ({ at, d }) =>
-        (d.state === "answered" || d.state === "lapsed") &&
+        (d.state === "answered" ||
+          d.state === "lapsed" ||
+          d.state === "seen") &&
         at >= from.getTime() &&
         at < to.getTime()
     )

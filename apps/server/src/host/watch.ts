@@ -31,6 +31,7 @@ import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
 import { pushNewCardsIfChanged, pushNewDecisionsAtOnce } from "./card-push";
 import { describePhotos } from "./describe-photos";
+import { lookForPaymentsDone } from "./done-seen";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
@@ -494,6 +495,9 @@ function minute() {
   );
   mailStuckLock().catch((e: Error) =>
     log("run.error", { error: e.message, step: "watch.lock" })
+  );
+  lookForPaymentsDone().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "watch.done-seen" })
   );
   pushNewCardsIfChanged();
 }

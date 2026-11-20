@@ -11,7 +11,9 @@ import {
   actOutcomeOf,
   type Decision,
   decisionsNow,
+  doneSeenShownOf,
   type EndByHisWord,
+  LOOK_LIMIT_MS,
   notSentOf,
 } from "../memory/decisions";
 import { sendLimitMs, sendStepsOf } from "../memory/draft-send";
@@ -32,6 +34,7 @@ import {
 } from "./change-registered-agent";
 import { endByHisWord, QUICK_MS, ticksLimitMsOf } from "./correct-matter";
 import { eventHeard, readDesk } from "./desk-read";
+import { lookForDone } from "./done-seen";
 import type { ToolCall } from "./http/mcp-tool";
 import { openCheckOf } from "./inbox";
 
@@ -53,11 +56,7 @@ function askerOf(d: Decision) {
   }
   const act = actDueOf(d);
   if (act && !actOutcomeOf(d, act)) {
-    return {
-      name: d.asker,
-      told: "not_yet",
-      why: act === "send" ? "the send has not ended" : "the end has not ended",
-    };
+    return { name: d.asker, told: "not_yet", why: `the ${act} has not ended` };
   }
   // He asked it himself: his answer is all there is to tell.
   if (d.asker === OWNER_ASKER) {
@@ -90,15 +89,25 @@ function askerOf(d: Decision) {
   };
 }
 
-/** The tap `key` made (the newest without a key): its answer, the outcome of its send, or the one that voided it. */
+/** The tap `key` made (the newest without a key): its answer, the outcome of its send or look, or the one that voided it. */
 function tapOf(d: Decision, key?: string) {
   if (d.answer && (!key || d.answer.answerKey === key)) {
-    return { answer: d.answer, notSent: undefined, send: d.send };
+    return {
+      answer: d.answer,
+      doneSeen: d.doneSeen,
+      notSent: undefined,
+      send: d.send,
+    };
   }
   const v = key
     ? d.voided?.find((x) => x.answer.answerKey === key)
     : d.voided?.at(-1);
-  return { answer: v?.answer, notSent: v?.notSent, send: undefined };
+  return {
+    answer: v?.answer,
+    doneSeen: v?.doneSeen,
+    notSent: v?.notSent,
+    send: undefined,
+  };
 }
 
 /** What a tap's send did, as the app shows it: none when it sends nothing. */
@@ -154,7 +163,10 @@ async function decisionResult(ref: string, key?: string) {
       options: tap.answer?.options ?? [],
       state: d.state,
     },
-    done: [tap.answer, tap.notSent ?? tap.send, ended].filter(Boolean),
+    done: [tap.answer, tap.notSent ?? tap.send, tap.doneSeen, ended].filter(
+      Boolean
+    ),
+    doneSeen: doneSeenShownOf(tap.doneSeen),
     kind: "decision",
     ref,
     send: sendResultOf(d, tap),
@@ -244,6 +256,7 @@ function planOf(
         ? ["todo_items_ticked"]
         : []),
       ...(act === "end" ? ["ended"] : []),
+      ...(act === "look" ? ["looking", "done_seen"] : []),
     ];
   }
   return starts ? ["goal_saved", ...START_STAGES, "recorded"] : ["recorded"];
@@ -305,7 +318,13 @@ async function decisionActOf(
     );
   };
   const sendMs = act === "send" && known?.draft ? sendLimitMs(known.draft) : 0;
-  return { act, closing, end, limitMs: sendMs + ticksLimitMsOf(closing) };
+  const lookMs = act === "look" ? LOOK_LIMIT_MS : 0;
+  return {
+    act,
+    closing,
+    end,
+    limitMs: sendMs + lookMs + ticksLimitMsOf(closing),
+  };
 }
 
 /** What an answer says, to tell a repeat of it from another answer. */
@@ -378,6 +397,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
       addDirectoryEntryByHisWord(kind, name, `New ${kind}: ${name}`, fields),
     answerKey,
     end,
+    look: lookForDone,
     onStep: (step, detail) => report({ at: at(), step, ...detail }),
     startAgent,
   });

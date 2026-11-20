@@ -17,9 +17,9 @@ import {
 } from "../host/desk-read";
 import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
 import { matcherOf, waitChannelsOf } from "../host/events";
+import type { DecisionRequest } from "../memory/card-request";
 import { communicationStylesOf } from "../memory/communication-styles";
 import {
-  type DecisionRequest,
   decisionsNow,
   openDecisionOf,
   requestDecision,

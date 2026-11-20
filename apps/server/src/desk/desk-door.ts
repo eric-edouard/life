@@ -7,7 +7,7 @@ import { agentKindOf, agentOf } from "../host/desk-read";
 import { EVENT_CHANNELS } from "../host/event-channels";
 import { DOOR_PORT, text } from "../host/http/http";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
-import { CARD, DecisionRequest } from "../memory/decisions";
+import { CARD, DecisionRequest } from "../memory/card-request";
 import { AgentWait } from "../records/registered-agent";
 import {
   askDecision,

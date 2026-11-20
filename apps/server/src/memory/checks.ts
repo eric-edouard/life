@@ -27,6 +27,8 @@ import {
   DECISIONS,
   type Decision,
   decisionsNow,
+  doneSeenByOf,
+  doneSeenShownOf,
   isOnMatter,
   notSentOf,
 } from "./decisions";
@@ -61,6 +63,7 @@ import {
   ZONES,
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
+import { needsShownOf } from "./needs";
 import { withNetworkIdentities } from "./network-identity";
 import {
   dismissedIdsOf,
@@ -343,6 +346,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           clips: [],
           context: d.context || null,
           deadline: d.deadline,
+          doneSeen: doneSeenShownOf(d.doneSeen),
+          doneSeenBy: doneSeenByOf(d),
           draft: d.draft ?? null,
           evidence: null,
           goal: null,
@@ -350,10 +355,11 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           kind: "decision",
           likelyPeople: [],
           links: d.links,
+          needs: needsShownOf(d.needs),
           notSent: notSentOf(d),
           onMatters: [],
           onSilence: d.onSilence,
-          options: d.options.map((o) => ({ ...o, takes: null })),
+          options: d.options.map((o) => ({ ...o, takes: o.takes ?? null })),
           question: d.question,
           ref: d.id,
           ridesOn: {

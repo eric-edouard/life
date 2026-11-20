@@ -124,6 +124,12 @@ const DecisionPayload = z.object({
   at: z.iso
     .datetime()
     .describe("When he answered, or the deadline it lapsed at"),
+  doneSeen: z
+    .object({ eventId: z.string(), state: z.literal("seen") })
+    .optional()
+    .describe(
+      "Life saw its step done itself (`doneSeenBy`): the payment's event (`read_payments`); with no `answer` when Life saw it before he said"
+    ),
   end: z
     .object({ error: z.string().optional() })
     .optional()
@@ -168,8 +174,10 @@ export function pollDecisions(
     }).at
   );
   const state = name === DECISION_ANSWERED ? "answered" : "lapsed";
+  // A card Life saw done with no answer of his is told as answered: `doneSeen`, no `answer`.
   const settled = settledBetween(decisionsNow(now), from, now).filter(
-    (d) => d.asker === agent && d.state === state
+    (d) =>
+      d.asker === agent && (d.state === "seen" ? "answered" : d.state) === state
   );
   return {
     cursor: decisionCursorOf(now),
@@ -187,6 +195,9 @@ export function pollDecisions(
               }
             : {}),
           at,
+          ...(d.doneSeen?.state === "seen" && d.doneSeen.eventId
+            ? { doneSeen: { eventId: d.doneSeen.eventId, state: "seen" } }
+            : {}),
           ...(d.end ? { end: d.end.error ? { error: d.end.error } : {} } : {}),
           id: d.id,
           onSilence: d.onSilence,
@@ -229,7 +240,7 @@ export function eventTypes() {
         delivery: ["poll"],
         description:
           name === DECISION_ANSWERED
-            ? "A decision you asked (`request_decision`) got his answer: the options he picked and his words."
+            ? "A decision you asked (`request_decision`) got his answer: the options he picked and his words; or, with no answer, `doneSeen`: Life saw its step done itself."
             : "A decision you asked lapsed unanswered at its deadline: take your `onSilence` option now.",
         inputSchema: z.toJSONSchema(z.object({}).strict(), { io: "input" }),
         name,
@@ -284,18 +295,18 @@ function readNewMessages(s: Messaging, from: number | undefined) {
   };
 }
 
-/** Who `filter.person` means, as a person id: none when it names no one. */
-const wantedOf = (filter: EventFilter, people: People) =>
-  filter.person ? meant(filter.person, people).known : undefined;
+/** Who `filter.person` means, as a person id: none when it names no one (or no people are given). */
+const wantedOf = (filter: EventFilter, people?: People) =>
+  filter.person && people ? meant(filter.person, people).known : undefined;
 
 /**
  * Whether an event is one `filter` wants, decided here only (the connector's polls and the desk's agent waits), by the
  * rules of `Matchable`: by app or channel, chat, his own or others', who (a message's writer, or who was on a call,
  * whoever placed it), a pattern on its text, a quantity's range and a place: the event's own point within `radius_m`
  * of the filter's coordinates (the stay's point as lifelog gives it, unlike `read_places_visited`'s circle mode, which
- * weighs each fix's accuracy). Null when its person is no one Life knows.
+ * weighs each fix's accuracy). Null when its person is no one Life knows (none are needed for a filter with no person).
  */
-export function matcherOf(filter: EventFilter, people: People) {
+export function matcherOf(filter: EventFilter, people?: People) {
   const wanted = wantedOf(filter, people);
   if (filter.person && !wanted) {
     return null;
