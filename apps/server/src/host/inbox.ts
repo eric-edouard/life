@@ -15,7 +15,7 @@ function readHeldByAgents() {
     : null;
 }
 
-/** Every open check now (`checksNow`), of every kind: his inbox, in its order (`inboxRankOf`). The status's `left` counts them; the badge, what blocks (`blockingCountOf`). */
+/** Every open check now (`checksNow`), of every kind: his inbox, in its order (`inboxOrderOf`). The status's `left` counts them; the badge, what blocks (`blockingCountOf`). */
 export const openChecksNow = () => checksNow(readHeldByAgents());
 
 /** The open check `ref`; throws when none is open. */

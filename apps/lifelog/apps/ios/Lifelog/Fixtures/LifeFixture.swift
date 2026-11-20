@@ -451,8 +451,8 @@
                 ])
         }
 
-        /// In the server's own order (`inboxRankOf`): what blocks (decisions, voices, names, Contacts cards), then what
-        /// improves (new matters, guessed people, endings).
+        /// In the server's own order (`inboxOrderOf`): what blocks (decisions, voices, names, Contacts cards), then what
+        /// improves (guessed people, new matters, endings).
         nonisolated(unsafe) static let checks: [[String: Any]] =
             [
                 check(
@@ -512,63 +512,6 @@
                             "text": "On fait ça chez Odile ? Vendredi 27 ou samedi 28 ?",
                         ],
                         "onMatters": [table],
-                    ])
-            ]
-            + (7...12).map { number in
-                check(
-                    "dec_\(number)", group: "decision", urgency: "blocks",
-                    title: "Quote for Nora Keller, step \(number)",
-                    question: "Confirm the start date with Nora?", asker: "Codex",
-                    options: [option("yes", "Yes"), option("no", "Not yet")], matter: nora, deadline: at(20, 12))
-            }
-            + [
-                check(
-                    "voice_v1", group: "voice", urgency: "blocks", title: "A voice from Saturday, 4 minutes with Sam",
-                    question: "Who is this?",
-                    options: [
-                        option("this-is", "Someone else…", takes: "person or name"),
-                        option("not-relevant", "Don't name"),
-                    ],
-                    context: "Sam called the voice “Jun” twice in the same minute.",
-                    extra: [
-                        "likelyPeople": [
-                            ["name": "Idris Benali", "person": "person:idris", "line": "Supplier, kitchen quote"]
-                        ],
-                        "clips": [
-                            clip(
-                                at(14, 10, 2), "On se retrouve au marché samedi, vers dix heures ?", job: clipJob1,
-                                from: 1.2, to: 9.2),
-                            clip(at(14, 10, 3), "D’accord, à samedi.", job: clipJob1, from: 20.0, to: 24.0),
-                            clip(at(14, 10, 5), "Je t’envoie l’adresse.", job: clipJob1, from: 40.0, to: 43.0),
-                        ],
-                    ]),
-                check(
-                    "voice_long", group: "voice", urgency: "blocks", title: "A voice from Sunday, 12 minutes",
-                    question: "Who is this?",
-                    options: [
-                        option("this-is", "Someone else…", takes: "person or name"),
-                        option("not-relevant", "Don't name"),
-                    ],
-                    extra: [
-                        "clips": [
-                            clip(
-                                at(15, 9, 40),
-                                "Alors voilà, pour la cuisine il faudrait que je repasse mesurer le mur du fond, parce que les plans ne tiennent pas compte de la gaine, et que Idris me dit que le fournisseur ne livre pas avant mi-janvier si on ne confirme pas cette semaine.",
-                                job: clipJob3, from: 3.0, to: 24.0)
-                        ]
-                    ]),
-                check(
-                    "voice_guess", group: "voice", urgency: "blocks", title: "A voice from Sunday, 8 seconds",
-                    question: "Is this Jun Watanabe?",
-                    options: [
-                        option("this-is", "Yes"), option("not-this", "Someone else…", takes: "person or name"),
-                        option("not-relevant", "Don't name"),
-                    ],
-                    extra: [
-                        "clips": [
-                            clip(
-                                at(15, 18, 2), "Je t’envoie le plan demain.", job: clipJob2, from: 5.0, to: 13.0)
-                        ]
                     ]),
                 check(
                     "name_marc", group: "name", urgency: "blocks", title: "A name with no person: “Marc”",
@@ -606,6 +549,50 @@
                         ],
                         "onMatters": [table],
                     ]),
+            ]
+            + (7...12).map { number in
+                check(
+                    "dec_\(number)", group: "decision", urgency: "blocks",
+                    title: "Quote for Nora Keller, step \(number)",
+                    question: "Confirm the start date with Nora?", asker: "Codex",
+                    options: [option("yes", "Yes"), option("no", "Not yet")], matter: nora, deadline: at(20, 12))
+            }
+            + [
+                check(
+                    "voice_long", group: "voice", urgency: "blocks", title: "A voice from Sunday, 12 minutes",
+                    question: "Who is this?",
+                    options: [
+                        option("this-is", "Someone else…", takes: "person or name"),
+                        option("not-relevant", "Don't name"),
+                    ],
+                    extra: [
+                        "clips": [
+                            clip(
+                                at(15, 9, 40),
+                                "Alors voilà, pour la cuisine il faudrait que je repasse mesurer le mur du fond, parce que les plans ne tiennent pas compte de la gaine, et que Idris me dit que le fournisseur ne livre pas avant mi-janvier si on ne confirme pas cette semaine.",
+                                job: clipJob3, from: 3.0, to: 24.0)
+                        ]
+                    ]),
+                check(
+                    "voice_v1", group: "voice", urgency: "blocks", title: "A voice from Saturday, 4 minutes with Sam",
+                    question: "Who is this?",
+                    options: [
+                        option("this-is", "Someone else…", takes: "person or name"),
+                        option("not-relevant", "Don't name"),
+                    ],
+                    context: "Sam called the voice “Jun” twice in the same minute.",
+                    extra: [
+                        "likelyPeople": [
+                            ["name": "Idris Benali", "person": "person:idris", "line": "Supplier, kitchen quote"]
+                        ],
+                        "clips": [
+                            clip(
+                                at(14, 10, 2), "On se retrouve au marché samedi, vers dix heures ?", job: clipJob1,
+                                from: 1.2, to: 9.2),
+                            clip(at(14, 10, 3), "D’accord, à samedi.", job: clipJob1, from: 20.0, to: 24.0),
+                            clip(at(14, 10, 5), "Je t’envoie l’adresse.", job: clipJob1, from: 40.0, to: 43.0),
+                        ],
+                    ]),
                 check(
                     "person:con_marc", group: "contacts card", urgency: "blocks", title: "Place a Contacts card",
                     question: "Whose contact is this?",
@@ -621,37 +608,7 @@
                             ["name": "Marc Fenn", "person": "person:marc_fenn", "line": "Camille’s brother"],
                         ],
                     ]),
-                check(
-                    "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
-                    question: "Start an agent on this?",
-                    options: [
-                        option("start", "Start"), option("edit-goal", "Edit goal", takes: "note"),
-                        option("dismiss", "No"),
-                    ],
-                    matter: table,
-                    context: "Camille proposed Chez Odile on Saturday; you said you would handle it.",
-                    extra: [
-                        "goal": "A table for eight at Chez Odile on Friday 27th.",
-                        "said": [
-                            "at": at(14, 18), "by": "Camille Vance", "channel": "whatsapp", "to": "Camille Vance",
-                            "text": "On réserve chez Odile vendredi ?",
-                        ],
-                    ]),
                 guess("guess_idris", name: "Idris Benali", handle: "Idris B.", matter: kitchen),
-                check(
-                    "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
-                    question: "Is this Camille Vance?",
-                    options: [
-                        option("this-is", "Yes"), option("not-this-person", "No"),
-                        option("same-person", "Someone else…", takes: "person"),
-                    ],
-                    extra: [
-                        "evidence": ["from": "WhatsApp, Mon 9 Nov", "quote": "Cam: on se voit samedi au marché ?"],
-                        "likelyPeople": [
-                            ["name": "Idris Benali", "person": "person:idris"],
-                            ["name": "Nora Keller", "person": "person:nora"],
-                        ],
-                    ]),
                 check(
                     "end_done", group: "ending", title: "Idris Benali owed Sam the supplier price",
                     question: "Is this done?",
@@ -670,6 +627,49 @@
                         "evidence": [
                             "from": "Idris Benali, Messenger, Tue 17 Nov",
                             "quote": "Voilà le prix du fournisseur : 4 200 € posé.",
+                        ],
+                    ]),
+                check(
+                    "voice_guess", group: "voice", urgency: "improves", title: "A voice from Sunday, 8 seconds",
+                    question: "Is this Jun Watanabe?",
+                    options: [
+                        option("this-is", "Yes"), option("not-this", "Someone else…", takes: "person or name"),
+                        option("not-relevant", "Don't name"),
+                    ],
+                    extra: [
+                        "clips": [
+                            clip(
+                                at(15, 18, 2), "Je t’envoie le plan demain.", job: clipJob2, from: 5.0, to: 13.0)
+                        ]
+                    ]),
+                check(
+                    "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
+                    question: "Is this Camille Vance?",
+                    options: [
+                        option("this-is", "Yes"), option("not-this-person", "No"),
+                        option("same-person", "Someone else…", takes: "person"),
+                    ],
+                    extra: [
+                        "evidence": ["from": "WhatsApp, Mon 9 Nov", "quote": "Cam: on se voit samedi au marché ?"],
+                        "likelyPeople": [
+                            ["name": "Idris Benali", "person": "person:idris"],
+                            ["name": "Nora Keller", "person": "person:nora"],
+                        ],
+                    ]),
+                check(
+                    "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
+                    question: "Start an agent on this?",
+                    options: [
+                        option("start", "Start"), option("edit-goal", "Edit goal", takes: "note"),
+                        option("dismiss", "No"),
+                    ],
+                    matter: table,
+                    context: "Camille proposed Chez Odile on Saturday; you said you would handle it.",
+                    extra: [
+                        "goal": "A table for eight at Chez Odile on Friday 27th.",
+                        "said": [
+                            "at": at(14, 18), "by": "Camille Vance", "channel": "whatsapp", "to": "Camille Vance",
+                            "text": "On réserve chez Odile vendredi ?",
                         ],
                     ]),
             ]

@@ -11,7 +11,7 @@ const spread = (list: Check[]) => {
   return `Riding on: ${list.length - rest.length} on an open matter; of the other ${rest.length}, ${lines(1, 1)} on 1 line, ${lines(2, BIG)} on 2 to ${BIG} lines, ${lines(BIG + 1, Number.POSITIVE_INFINITY)} on more than ${BIG}.`;
 };
 
-/** `bun life memory checks`: the count by kind and by what rides, then every row, most load-bearing first. */
+/** `bun life memory checks`: the count by kind and by what rides, then every row, in his inbox's order (`inboxOrderOf`). */
 export function checksText(list: Check[]) {
   const groups = Map.groupBy(list, (c) => c.group);
   return [
