@@ -15,6 +15,7 @@ import {
 } from "../memory/decisions";
 import type { Check } from "../memory/life-checks";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
+import { voiceCardRefOf } from "../memory/who";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { answerWithResult } from "./answer-result";
 import { expectWire } from "./http/wire-fixture";
@@ -385,19 +386,6 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     await import("../memory/fact-checks"),
     "recordFactCheckAnswer"
   ).mockResolvedValue({} as never);
-  guesses = [
-    asCheck({
-      group: "ending",
-      matter: { id: "matter_1", name: "Boiler" },
-      ref: "obs_000000000001",
-    }),
-    asCheck({
-      about: ["Kit", "+33600000001"],
-      group: "guessed person",
-      ref: "person:inf_kit",
-    }),
-    asCheck({ group: "voice", ref: "voice:v1" }),
-  ];
   const item: NamingQueueItem = {
     clips: [],
     conversations: 2,
@@ -414,9 +402,23 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     ],
     words: 9,
   };
+  const voiceRef = voiceCardRefOf(() => null, item);
+  guesses = [
+    asCheck({
+      group: "ending",
+      matter: { id: "matter_1", name: "Boiler" },
+      ref: "obs_000000000001",
+    }),
+    asCheck({
+      about: ["Kit", "+33600000001"],
+      group: "guessed person",
+      ref: "person:inf_kit",
+    }),
+    asCheck({ group: "voice", ref: voiceRef }),
+  ];
   const queue = spyOn(
     await import("../sources/lifelog-voices"),
-    "readNamingQueue"
+    "readNamingQueueNow"
   ).mockResolvedValue([item]);
   const send = spyOn(
     await import("../sources/lifelog-voices"),
@@ -454,7 +456,7 @@ test("each kind says what changed: an ending, a person (two parallel calls write
       },
     });
     expect(readCorrections()).toHaveLength(1);
-    const { steps, result } = call("voice:v1", ["media"]);
+    const { steps, result } = call(voiceRef, ["media"]);
     expect(await result).toMatchObject({
       changed: { answer: "media", conversations: 2, person: "p1", voices: 3 },
     });
