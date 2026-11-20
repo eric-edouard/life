@@ -4,17 +4,6 @@ import process from "node:process";
 import { hold } from "@life/server/src/core/lock";
 import { hasPassed, readCleanTree, recordPassed } from "./check-trees";
 
-// A clean tree that passed once passes again: the pre-push hook passes --unless-passed to skip it.
-const tree = await readCleanTree(".");
-if (
-  tree &&
-  process.argv.includes("--unless-passed") &&
-  (await hasPassed(".", tree))
-) {
-  console.log(`✓ check: tree ${tree.slice(0, 12)} already passed`);
-  process.exit(0);
-}
-
 // One check at a time on a machine: several worktrees' gates at once load it until time-limited tests fail.
 await hold("check", process.cwd(), 5000);
 
@@ -140,12 +129,28 @@ if (process.platform !== "darwin") {
 } else if (changed && !changed.some((f) => SWIFT.test(f))) {
   why = "no change to the phone, the helper or what they read";
 }
-if (why) {
+// A clean tree that passed (with the Swift builds, when they are due now) runs again only the steps that read his data
+// outside the tree (`--unless-passed`, the pre-push hook). Read under the lock, so a second push waits for the first.
+const LIVE = ["cases", "scrub", "voice eval"];
+const tree = readCleanTree(".");
+const swift = why === null;
+const passed =
+  tree !== null &&
+  process.argv.includes("--unless-passed") &&
+  hasPassed(".", tree, swift);
+if (passed) {
+  console.log(`- tree ${tree.slice(0, 12)} passed: only ${LIVE.join(", ")}`);
+  for (const name of Object.keys(steps)) {
+    if (!LIVE.includes(name)) {
+      delete steps[name];
+    }
+  }
+} else if (swift) {
+  Object.assign(steps, macSteps);
+} else {
   for (const name of Object.keys(macSteps)) {
     console.log(`- ${name}: skipped, ${why}`);
   }
-} else {
-  Object.assign(steps, macSteps);
 }
 
 // Only the current failures stay in derived/check.
@@ -205,6 +210,6 @@ process.on("SIGINT", () => {
 await Promise.all(results);
 
 // Recorded only when nothing changed while it ran.
-if (tree && tree === (await readCleanTree("."))) {
-  await recordPassed(".", tree);
+if (!passed && tree && tree === readCleanTree(".")) {
+  recordPassed(".", tree, swift);
 }

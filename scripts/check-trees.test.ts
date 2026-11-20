@@ -1,39 +1,47 @@
-import { expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { afterAll, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { gitOut } from "@life/server/src/core/proc";
 import { hasPassed, readCleanTree, recordPassed } from "./check-trees";
 
-const SHA = /^[0-9a-f]{40}$/;
+const parent = mkdtempSync(join(tmpdir(), "check-trees-"));
+afterAll(() => rmSync(parent, { force: true, recursive: true }));
 
-test("a clean tree that passed is known to every worktree; a dirty one never is", async () => {
-  const repo = mkdtempSync(join(tmpdir(), "check-trees-"));
-  const $ = (cmd: string[], cwd = repo) => Bun.$`git ${cmd}`.cwd(cwd).quiet();
-  await $(["init", "-q"]);
+test("a clean tree that passed is known to every worktree; a dirty one never is", () => {
+  const repo = join(parent, "repo");
+  gitOut(parent, ["init", "-q", repo]);
+  gitOut(repo, ["config", "user.email", "test@example.test"]);
+  gitOut(repo, ["config", "user.name", "Test"]);
+  // Untracked files count even when status would hide them.
+  gitOut(repo, ["config", "status.showUntrackedFiles", "no"]);
   writeFileSync(join(repo, "a.txt"), "a");
-  await $(["add", "."]);
-  await $(["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "a"]);
+  gitOut(repo, ["add", "."]);
+  gitOut(repo, ["commit", "-qm", "a"]);
 
-  const tree = await readCleanTree(repo);
-  expect(tree).toMatch(SHA);
-  expect(await hasPassed(repo, tree as string)).toBe(false);
-  await recordPassed(repo, tree as string);
-  expect(await hasPassed(repo, tree as string)).toBe(true);
+  const tree = readCleanTree(repo) as string;
+  expect(tree).toBe(gitOut(repo, ["rev-parse", "HEAD^{tree}"]));
+  expect(hasPassed(repo, tree, false)).toBe(false);
+  recordPassed(repo, tree, false);
+  expect(hasPassed(repo, tree, false)).toBe(true);
+  // A pass without the Swift builds does not cover a push that needs them; one with them covers both.
+  expect(hasPassed(repo, tree, true)).toBe(false);
+  recordPassed(repo, tree, true);
+  expect(hasPassed(repo, tree, true)).toBe(true);
 
-  const other = join(repo, "..", `${repo.split("/").at(-1)}-wt`);
-  await $(["worktree", "add", "-q", other]);
-  expect(await readCleanTree(other)).toBe(tree);
-  expect(await hasPassed(other, tree as string)).toBe(true);
+  const other = join(parent, "other");
+  gitOut(repo, ["worktree", "add", "-q", other]);
+  expect(readCleanTree(other)).toBe(tree);
+  expect(hasPassed(other, tree, true)).toBe(true);
 
   writeFileSync(join(repo, "b.txt"), "b");
-  expect(await readCleanTree(repo)).toBeNull();
+  expect(readCleanTree(repo)).toBeNull();
 
   for (const i of Array.from({ length: 60 }, (_, n) => n)) {
-    // biome-ignore lint/performance/noAwaitInLoops: the list's order is the test
-    await recordPassed(repo, `t${i}`);
+    recordPassed(repo, `t${i}`, false);
   }
-  expect(await hasPassed(repo, tree as string)).toBe(false);
-  expect(await hasPassed(repo, "t59")).toBe(true);
-  expect(await hasPassed(repo, "t9")).toBe(false);
-  expect(await hasPassed(repo, "t10")).toBe(true);
+  expect(hasPassed(repo, tree, false)).toBe(false);
+  expect(hasPassed(repo, "t59", false)).toBe(true);
+  expect(hasPassed(repo, "t9", false)).toBe(false);
+  expect(hasPassed(repo, "t10", false)).toBe(true);
 });
