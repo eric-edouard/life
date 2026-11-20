@@ -217,6 +217,30 @@
           "sender": "Kit",
           "text": "Can you send the quote?"
         },
+        "recent": [
+          {
+            "at": "2026-10-12T17:00:00.000Z",
+            "file": {
+              "kind": "photo",
+              "name": "IMG_0001.HEIC",
+              "size": 1200000
+            },
+            "sender": {
+              "kind": "person",
+              "name": "Kit",
+              "ref": "person:inf_kit"
+            }
+          },
+          {
+            "at": "2026-10-12T17:01:00.000Z",
+            "sender": {
+              "kind": "person",
+              "name": "Kit",
+              "ref": "person:inf_kit"
+            },
+            "text": "Can you send the quote?"
+          }
+        ],
         "text": "Here is the signed quote.",
         "to": "Kit"
       },
@@ -350,6 +374,10 @@
           }
         }
       ],
+      "head": {
+        "name": "Kit",
+        "network": "WhatsApp"
+      },
       "networkIdentity": {
         "chat": "33600000001@s.whatsapp.net",
         "handle": "+33600000001",

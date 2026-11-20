@@ -4,7 +4,8 @@ import { basename, join } from "node:path";
 import { MIN } from "../core/clock";
 import { gogCall } from "../core/gog";
 import { exec } from "../core/proc";
-import type { Outgoing, SendPath } from "./contract";
+import { takesProblemOf } from "./chat-takes";
+import type { ChatTakes, Outgoing, SendPath } from "./contract";
 import { messageIdOfMail, readMailAddresses } from "./mail";
 
 // The one mail send: gog's Gmail does it, from an account gog holds (the only place Life names `gogCall("gmail"`,
@@ -33,6 +34,13 @@ interface Options {
 const MESSAGE_ID = /^\w[\w.#$%&'*+/=?^`~@-]*$/;
 /** Gmail takes 35 MB a message, its encoding included. ponytail: 25 MB of file; raise it if one is ever refused wrongly. */
 const FILE_MAX = 25_000_000;
+/** What a mail takes besides text: one file, a reply into the thread `onMessage` names; no reaction or mention. */
+const TAKES: ChatTakes = {
+  file: true,
+  mentions: false,
+  reaction: false,
+  reply: true,
+};
 /** How long gog is given to send: a file takes longer to upload. */
 const sendMs = (d: Outgoing) => (d.file ? 3 * MIN : 45_000);
 const ADDRESS = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
@@ -132,8 +140,9 @@ export function gmailSend({
     // Two lookups of up to gog's minute each (the refusal asked again, then the send's own), then the send.
     limitMs: (d) => 2 * MIN + sendMs(d),
     refusal: async (d) => {
-      if (d.reaction || d.mentions) {
-        return "mail sends text and one file";
+      const cannot = takesProblemOf(d, TAKES);
+      if (cannot) {
+        return cannot;
       }
       if (!(d.from && d.to && d.subject)) {
         return "a mail needs `from`, `to` and `subject`";
@@ -189,5 +198,6 @@ export function gmailSend({
         }
       }
     },
+    takes: () => TAKES,
   };
 }
