@@ -17,6 +17,7 @@ import { WATCH } from "../sources/lifelog";
 import { commitMemory, OUT } from "./memory-files";
 import {
   goalProjects,
+  goalsOf,
   integrity,
   isDirectoryNew,
   loadTruth,
@@ -281,6 +282,19 @@ test("his goals' projects, in his order", () => {
       "1. Be free (`lynx`, `life`).\n2. Earn from `shop`\n   and more."
     )
   ).toEqual([["lynx", "life"], ["shop"]]);
+});
+
+test("his goals in his words: a bracket of only project ids left out, an id inside a sentence kept as a word, on one line", () => {
+  expect(
+    goalsOf(
+      "1. Be free (`lynx`, `life`).\n2. Earn from `shop`\n   and more.\n3. Rest."
+    )
+  ).toEqual([
+    { projects: ["lynx", "life"], text: "Be free." },
+    { projects: ["shop"], text: "Earn from shop and more." },
+    { projects: [], text: "Rest." },
+  ]);
+  expect(goalsOf()).toEqual([]);
 });
 
 test("me.md's what Life may keep is the block under its heading; absent or empty, there is no limit", () => {

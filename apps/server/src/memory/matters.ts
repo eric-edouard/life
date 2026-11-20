@@ -1,12 +1,18 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { daysBefore } from "../core/clock";
-import { appendJsonl, readAppended } from "../core/files";
+import { appendJsonl, readAppended, rowsOf } from "../core/files";
 import { digest } from "../core/hash";
 import { count, packed } from "../core/lists";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
-import { type Matter, MatterBatch, type MatterStep } from "../records/matter";
+import {
+  type ImportantPin,
+  type Matter,
+  MatterBatch,
+  type MatterStep,
+} from "../records/matter";
+import { Correction } from "../records/observation";
 import { SEARCHABLE_AT } from "../records/unit";
 import {
   openTodoItemsOf,
@@ -162,6 +168,14 @@ export function mattersNow(all: MatterBatch[]) {
 const latestOf = (m: { steps: MatterStep[] }) =>
   m.steps.reduce((a, b) => (b.day >= a.day ? b : a));
 
+/** His important marks on matters, on or off, each with when he said it and the steps it was pinned to (`matter-important`). */
+const readImportantPins = (): ImportantPin[] =>
+  rowsOf(CORRECTIONS, Correction).flatMap((c) =>
+    c.kind === "matter-important"
+      ? [{ at: c.at, important: c.important, steps: c.steps }]
+      : []
+  );
+
 /**
  * The records every span of a run and every matter's steps are read from, as they stand today: all episodes, all
  * observations, the ledger (`matterBookOf`). Read once. What ended an observation for sure
@@ -203,6 +217,7 @@ export async function readMatterRecords(people: People) {
     directions: readDirectionPins(),
     episodeOf: readBy(episodes),
     episodes,
+    important: readImportantPins(),
     isMailer: (ref: string) =>
       ref.startsWith(UNKNOWN) && isMailerHandle(ref.slice(UNKNOWN.length)),
     ledger,

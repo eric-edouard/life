@@ -8,6 +8,7 @@ import {
 } from "../records/ledger-entry";
 import {
   type DirectionPin,
+  type ImportantPin,
   LATER_SHOWN,
   type Matter,
   type NextStep,
@@ -76,6 +77,8 @@ export interface MatterRecords {
   directions: readonly DirectionPin[];
   /** Each unit's episode (`readBy`). */
   episodeOf: ReadonlyMap<string, Episode>;
+  /** His important marks, on or off, pinned to matters' steps (`matter-important`). */
+  important: readonly ImportantPin[];
   /** A person ref that is a mail sender no one answers: a no-reply address or his agents' reports (`isMailerHandle`). */
   isMailer: (ref: string) => boolean;
   ledger: readonly LedgerEntry[];
@@ -131,6 +134,8 @@ export interface MatterView {
   /** An open step he said himself: his to-do item, or an observation he spoke (`isOneOfHis`). */
   hasOwnOpenStep: boolean;
   id: string;
+  /** Open and marked important by his word (`importantIdsOf`): ranks with his urgent flag, and keeps it running while open. */
+  important: boolean;
   /** A matter of one: no matter line holds its record. */
   lone: boolean;
   name: string;
@@ -408,6 +413,8 @@ export function matterOf(
       (s) => s.kind === "todo_item" || ix.byId.get(s.ref)?.speaker === OWNER
     ),
     id: line.id,
+    // Only the book reads his marks (`matterBookOf`).
+    important: false,
     lone,
     name: line.name,
     newestOpenStep,
@@ -452,9 +459,11 @@ export const matterPeopleOf = (
   v: Pick<MatterView, "owedTo" | "waitingOn" | "with">
 ) => uniq([...v.owedTo, ...v.waitingOn, ...v.with]);
 
-/** Running: open and not dormant. What `read_matters` lists. */
-export const isRunning = (v: Pick<MatterView, "open" | "status">) =>
-  v.open && v.status !== "dormant";
+/** Running: open and not dormant, or open and marked important. What `read_matters` lists. */
+export const isRunning = (
+  v: Pick<MatterView, "open" | "status"> &
+    Partial<Pick<MatterView, "important">>
+) => v.open && (v.status !== "dormant" || v.important === true);
 
 /** What a lone observation is: his own promise, wait or to-do, at the top importance. */
 const isOpenKind = (o: StepObservation) =>
@@ -688,6 +697,22 @@ export const netOf = (v: MatterView) => ({
   ],
 });
 
+/** The ids of the matters of `book` his marks hold important: each pin finds its matter by its steps (`matterFinderOf`, so a re-group keeps it), the latest for a matter wins. Pure. */
+export function importantIdsOf<V extends Found>(
+  book: readonly V[],
+  pins: readonly ImportantPin[]
+) {
+  const find = matterFinderOf(book);
+  const marked = new Map<string, boolean>();
+  for (const p of pins.toSorted((a, b) => a.at.localeCompare(b.at))) {
+    const v = find(p.steps);
+    if (v) {
+      marked.set(v.id, p.important);
+    }
+  }
+  return new Set([...marked].flatMap(([id, on]) => (on ? [id] : [])));
+}
+
 /**
  * `v`'s next step as it reads now: waiting on his decision while one he has not answered is about one of its steps
  * (`wait_decision`, never stored), else its `nextStep`. Pure.
@@ -753,19 +778,22 @@ export function matterBookOf(
     .flatMap((t) => lone(t.key, String(t.fields.title ?? "")));
   const book = [...views, ...loneObservations, ...loneItems];
   const directions = directionsOf(book, rec.directions);
+  const marked = importantIdsOf(book, rec.important);
   return book
     .map((v) => {
       const d = directions.get(v);
+      const important = v.open && marked.has(v.id);
       return d
         ? {
             ...v,
+            important,
             ...(d.goal ? { goal: d.goal } : {}),
             ...(d.nextStep ? { nextStep: d.nextStep } : {}),
             ...(d.latest?.endingRecords
               ? { endingRecords: d.latest.endingRecords }
               : {}),
           }
-        : v;
+        : { ...v, important };
     })
     .toSorted((a, b) =>
       (b.steps.at(-1)?.day ?? "").localeCompare(a.steps.at(-1)?.day ?? "")
