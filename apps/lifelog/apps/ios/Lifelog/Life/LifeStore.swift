@@ -144,11 +144,16 @@ final class LifeStore {
     }
     /// A card answered anywhere (here, in another app, by its deadline, withdrawn) leaves his notifications too: on a
     /// whole read, only one delivered before the read was asked (a card newer than the read is not in it), or on Life's
-    /// push naming the cards that left (`NotificationRoute.removed`).
-    func removeNotifications(deliveredBefore asked: Date = .distantFuture, where isGone: (String) -> Bool) async {
+    /// push naming the cards that left (`NotificationRoute.removed`), which spares the result of his answer from a
+    /// notification (`sparingResults`): every tap shows its result.
+    func removeNotifications(
+        deliveredBefore asked: Date = .distantFuture, sparingResults: Bool = false, where isGone: (String) -> Bool
+    ) async {
         let center = UNUserNotificationCenter.current()
         let gone = await center.deliveredNotifications().filter {
-            guard $0.date < asked, case .card(let pushId)? = NotificationRoute(userInfo: $0.request.content.userInfo)
+            let info = $0.request.content.userInfo
+            guard $0.date < asked, !(sparingResults && info[IncidentNotifier.resultKey] != nil),
+                case .card(let pushId)? = NotificationRoute(userInfo: info)
             else {
                 return false
             }

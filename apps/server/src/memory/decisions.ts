@@ -369,9 +369,6 @@ export function withdrawDraftsAnsweredInChat(
   const open = decisionsNow(now).flatMap((d) =>
     d.state === "open" && d.draft?.chat ? [{ d, draft: d.draft }] : []
   );
-  if (open.length === 0) {
-    return [];
-  }
   const found = wrote(
     open.map(({ d, draft }) => ({ draft, since: sinceOf(d) }))
   );
