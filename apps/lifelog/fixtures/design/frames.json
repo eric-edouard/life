@@ -1,0 +1,132 @@
+{
+  "DuoFoldNameNone": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
+  },
+  "DuoFoldOrgCreate": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_atelier",
+      "-fixtureSheet",
+      "create"
+    ],
+    "taps": ["Organization"]
+  },
+  "DuoFoldOrgCreateAsPerson": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_atelier",
+      "-fixtureSheet",
+      "create"
+    ]
+  },
+  "DuoFoldOrgCreated": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_atelier",
+      "-fixtureSheet",
+      "create"
+    ],
+    "taps": ["Organization", "Create"]
+  },
+  "DuoFoldOrgCreating": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_atelier",
+      "-fixtureSheet",
+      "create",
+      "-fixtureAnswer",
+      "sending"
+    ],
+    "taps": ["Organization", "Create"]
+  },
+  "DuoFoldOrgNameCard": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
+  },
+  "DuoFoldPeopleSheet": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "name_marc"],
+    "taps": ["Someone else…"]
+  },
+  "DuoFoldPersonCreate": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_bastien",
+      "-fixtureSheet",
+      "create"
+    ]
+  },
+  "DuoFoldPersonCreateEdit": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_bastien",
+      "-fixtureSheet",
+      "create"
+    ],
+    "taps": ["Who they are"]
+  },
+  "DuoFoldPersonCreateExists": {
+    "why": "Exists: deferred by ruling (a); Life reuses the person."
+  },
+  "DuoFoldPersonCreateHandle": {
+    "why": "A handle row: deferred by ruling (a)."
+  },
+  "DuoFoldPersonCreateOrg": {
+    "why": "Works at: deferred by ruling (a)."
+  },
+  "DuoFoldPersonCreated": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_bastien",
+      "-fixtureSheet",
+      "create"
+    ],
+    "taps": ["Create"]
+  },
+  "DuoFoldPersonCreating": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_bastien",
+      "-fixtureSheet",
+      "create",
+      "-fixtureAnswer",
+      "sending"
+    ],
+    "taps": ["Create"]
+  },
+  "DuoFoldPersonWorksEdit": {
+    "why": "Works at: deferred by ruling (a)."
+  },
+  "DuoNameNone": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
+  },
+  "DuoOrgCreate": {
+    "why": "The open Duo with a sheet: a script cannot unfold the simulator, and -fixturePose shrinks the screen but not a sheet."
+  },
+  "DuoOrgCreated": {
+    "why": "The open Duo with a sheet: a script cannot unfold the simulator, and -fixturePose shrinks the screen but not a sheet."
+  },
+  "DuoOrgNameCard": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
+  },
+  "DuoPersonCreate": {
+    "why": "The open Duo with a sheet: a script cannot unfold the simulator, and -fixturePose shrinks the screen but not a sheet."
+  },
+  "DuoPersonCreated": {
+    "why": "The open Duo with a sheet: a script cannot unfold the simulator, and -fixturePose shrinks the screen but not a sheet."
+  }
+}
