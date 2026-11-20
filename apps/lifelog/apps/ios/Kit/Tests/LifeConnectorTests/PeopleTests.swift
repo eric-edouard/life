@@ -81,7 +81,9 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     #expect(exchange.lines?.map(\.by) == [.them, .him])
     #expect(!exchange.isHeard && exchange.open != nil)
     #expect(latest.earlier(of: "person:test-ana") == nil)
-    let older = try LatestPage.parsed(#"{"latest":[{"channel":"voice","at":"2026-11-14T10:00:00Z","summary":"The cake","unit":"u1"}],"nextBefore":"2026-11-14"}"#)
+    let older = try LatestPage.parsed(
+        #"{"latest":[{"channel":"voice","at":"2026-11-14T10:00:00Z","summary":"The cake","unit":"u1"}],"nextBefore":"2026-11-14"}"#
+    )
     #expect(older.latest.first?.isHeard == true)
     #expect(older.earlier(of: "person:a") == "person:a/latest/before/2026-11-14")
 }

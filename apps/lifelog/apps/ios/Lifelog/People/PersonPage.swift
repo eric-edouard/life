@@ -80,7 +80,8 @@ private struct ReachTiles: View {
                         Section(app.label) { accounts(app) }
                     }
                 } label: {
-                    face(Image(systemName: "ellipsis").font(.body15).foregroundStyle(Palette.fg), "More", several: false)
+                    face(
+                        Image(systemName: "ellipsis").font(.body15).foregroundStyle(Palette.fg), "More", several: false)
                 }
             }
             ForEach(0..<max(0, Self.across - reach.count), id: \.self) { _ in Color.clear.frame(maxWidth: .infinity) }
@@ -93,8 +94,12 @@ private struct ReachTiles: View {
             Link(destination: url) { face(mark, app.label, several: false) }
                 .accessibilityLabel("Open \(app.label)")
         } else {
-            Menu { accounts(app) } label: { face(mark, app.label, several: true) }
-                .accessibilityLabel("Open \(app.label): choose an account")
+            Menu {
+                accounts(app)
+            } label: {
+                face(mark, app.label, several: true)
+            }
+            .accessibilityLabel("Open \(app.label): choose an account")
         }
     }
 
@@ -247,7 +252,9 @@ private struct Knows: View {
 
     var body: some View {
         let parts = now.knows.map { known in
-            KnownRow(title: now.title(of: known), first: known.first, route: .part(ref: known.ref, title: now.title(of: known)))
+            KnownRow(
+                title: now.title(of: known), first: known.first,
+                route: .part(ref: known.ref, title: now.title(of: known)))
         }
         let writing = now.communicationStyle.first.map {
             KnownRow(title: "How you write to each other", first: $0.text, route: .writing(ref))

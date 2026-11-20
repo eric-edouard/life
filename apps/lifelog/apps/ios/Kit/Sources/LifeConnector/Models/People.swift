@@ -219,8 +219,10 @@ extension PersonNow.Detail {
             let parts = text.split(separator: "-").compactMap { Int($0) }
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = .gmt
-            let date = parts.count >= 2
-                ? calendar.date(from: DateComponents(year: 2000, month: parts[parts.count - 2], day: parts[parts.count - 1]))
+            let date =
+                parts.count >= 2
+                ? calendar.date(
+                    from: DateComponents(year: 2000, month: parts[parts.count - 2], day: parts[parts.count - 1]))
                 : nil
             let day = date?.formatted(Date.FormatStyle(locale: locale, timeZone: .gmt).day().month(.wide)) ?? text
             let when = next.map { next in

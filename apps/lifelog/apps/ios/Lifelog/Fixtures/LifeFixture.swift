@@ -199,7 +199,7 @@
         }
 
         /// A part by its ref: someone's `now` (their row, with what `read_people_and_organizations_now.json` holds for
-        /// their ref) or `latest` (`read_people_and_organizations_latest.json`, by ref).
+        /// their ref), `latest` (`read_people_and_organizations_latest.json`, by ref) or a prose part.
         func readPart(_ ref: String) async throws -> String {
             try await gate()
             let parts = ref.split(separator: "/").map(String.init)
@@ -208,6 +208,10 @@
             }
             if part == "latest" {
                 return json(Self.read("read_people_and_organizations_latest", or: [:])[subject] ?? ["latest": []])
+            }
+            // A prose part, as Life writes it (`read_people_and_organizations_parts.json`, its text by ref).
+            if part != "now" {
+                return Self.read("read_people_and_organizations_parts", or: [:])[ref] as? String ?? ""
             }
             let rows = Self.people["people"] as? [[String: Any]] ?? []
             guard part == "now", let row = rows.first(where: { $0["ref"] as? String == subject }) else {
