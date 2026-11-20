@@ -80,6 +80,7 @@ import {
   readUnresolvedPeople,
   type Shown,
   voicePersonOf,
+  voiceSuggestionOf,
 } from "./who";
 import { dayNow, localDate } from "./zones";
 
@@ -542,7 +543,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     c.voices
       .filter((item) => item.kind !== "several")
       .map((item) => {
-        const known = voicePersonOf(c.people.resolve, item.personId, item.name);
+        const known = voiceSuggestionOf(c.people.resolve, item);
         const likely = namingQueueGuessesOf(item)
           .flatMap((id) => {
             const ref = voicePersonOf(c.people.resolve, id, null);
@@ -552,8 +553,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           .slice(0, 5)
           .map(c.people.partyOf);
         const [first] = item.evidence;
-        const who =
-          known && item.kind !== "new_person" ? c.people.nameOf(known) : null;
+        const who = known ? c.people.nameOf(known) : null;
         return {
           check: {
             ...NO_SAID,

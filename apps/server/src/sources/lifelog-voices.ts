@@ -221,22 +221,26 @@ let reading: Promise<NamingQueueItem[]> | undefined;
 let answered = 0;
 let isDown = false;
 
-/** One `GET /naming-queue`: kept unless an answer was sent since it started (its list may hold the answered voice); throws when it fails. */
-async function fetchQueue() {
-  const since = answered;
-  const queue = lifelogMissing()
+/** One `GET /naming-queue`, nothing kept; throws when it fails. */
+const getQueue = async () =>
+  lifelogMissing()
     ? []
     : z.array(NamingQueueItem).parse(await call("/naming-queue", 30));
-  if (since === answered) {
-    kept = queue;
-  }
-  isDown = false;
-  return queue;
-}
 
-/** One read behind the kept queue at a time; a failure is logged once while lifelog stays down, and the next read tries again. */
+/**
+ * The one writer of the kept queue: one read at a time, kept unless an answer was sent since it started (its list may
+ * hold the answered voice); a failure is logged once while lifelog stays down, and the next read tries again.
+ */
 function refresh() {
-  reading ??= fetchQueue()
+  const since = answered;
+  reading ??= getQueue()
+    .then((queue) => {
+      if (since === answered) {
+        kept = queue;
+      }
+      isDown = false;
+      return queue;
+    })
     .catch((e: Error) => {
       if (!isDown) {
         log("run.error", { error: e.message, step: "naming-queue" });
@@ -260,8 +264,17 @@ export async function readNamingQueue() {
   return kept ?? (await next);
 }
 
-/** The queue as lifelog gives it now, for an answer: never the kept list; throws when lifelog cannot be read. */
-export const readNamingQueueNow = fetchQueue;
+/** The queue as lifelog gives it now, for an answer: never the kept list, nor one an answer sent meanwhile made old; throws when lifelog cannot be read. */
+export async function readNamingQueueNow() {
+  const since = answered;
+  const queue = await getQueue();
+  if (since !== answered) {
+    throw new Error(
+      "Not done: another voice answer landed meanwhile; try again."
+    );
+  }
+  return queue;
+}
 
 /** The lifelog people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */
 export const namingQueueGuessesOf = (item: NamingQueueItem) => [
@@ -282,9 +295,9 @@ export async function answerNamingQueue(
   });
   // His answered voice leaves the kept list now, and no read started before it can put it back.
   answered += 1;
-  const sent = new Set(voices.map((v) => `${v.jobId}/${v.speakerLabel}`));
+  const sent = new Set(voices.map((v) => voiceKey(v.jobId, v.speakerLabel)));
   kept = kept?.filter(
-    (i) => !i.voices.some((v) => sent.has(`${v.jobId}/${v.speakerLabel}`))
+    (i) => !i.voices.some((v) => sent.has(voiceKey(v.jobId, v.speakerLabel)))
   );
   return done;
 }

@@ -16,7 +16,7 @@ import type { Check, LIFE_CHECKS } from "./life-checks";
 import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
-import { readPeople, voicePersonOf } from "./who";
+import { readPeople, voicePersonOf, voiceSuggestionOf } from "./who";
 import { dayNow } from "./zones";
 
 // His answer to a check (`answer_check`, `bun life memory answer-check`): one call for every kind. Each option goes to
@@ -119,13 +119,25 @@ const correct = (said: object[], a: CheckAnswer) =>
     )
   );
 
-/** The voice lifelog still asks him to name for the open check `c`, as lifelog gives it now (never a kept list). */
-async function readVoiceItem(c: Pick<Check, "ref">) {
+/**
+ * The voice lifelog still asks him to name for the open check `c`, as lifelog gives it now (never a kept list), and
+ * only while it is the card he saw: one he could be asked about, suggesting the same person.
+ */
+async function readVoiceItem(c: Pick<Check, "ref" | "subject">) {
   const item = (await readNamingQueueNow()).find(
     (i) => `voice:${i.id}` === c.ref
   );
   if (!item) {
     throw new Error(`Not done: no open check ${c.ref}`);
+  }
+  if (
+    item.kind === "several" ||
+    voiceSuggestionOf((await readPeople()).resolve, item) !==
+      (c.subject ?? null)
+  ) {
+    throw new Error(
+      `Not done: lifelog changed ${c.ref} since it was shown; read the inbox again.`
+    );
   }
   return item;
 }

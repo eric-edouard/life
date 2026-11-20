@@ -315,6 +315,15 @@ export const voicePersonOf = (
   name: string | null | undefined
 ) => (id ? resolve(id) : null) ?? (name ? resolve(name) : null);
 
+/** The person lifelog suggests for a voice it asks about, what a voice card's "Yes" names (its `subject`); none for a new person. */
+export const voiceSuggestionOf = (
+  resolve: (s: string) => string | null,
+  item: { kind: string; name: string | null; personId: string | null }
+) =>
+  item.kind === "new_person"
+    ? null
+    : voicePersonOf(resolve, item.personId, item.name);
+
 /**
  * The handle or name a fact's author came from: the one it kept (`speakerFrom`), an unknown author's label, or for a
  * fact from before `speakerFrom`, its 1:1 chat's handle (`chatHandles`); none for the owner.

@@ -306,6 +306,8 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     });
     await answerCheck(voice, { name: "Zed", options: ["this-is"] });
     // "Yes" to the guess in use: the check's subject, with nothing else given.
+    const known = { ...item, kind: "known_person" as const, personId: DANA_ID };
+    queue.mockResolvedValueOnce([known]);
     await answerCheck(
       { ...voice, subject: "person:dana" },
       { options: ["is-them"] }
@@ -328,6 +330,21 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     await expect(answerCheck(voice, { options: ["is-them"] })).rejects.toThrow(
       "give person or name"
     );
+    // The card he saw changed in lifelog (now several people, or another suggestion): nothing is sent.
+    const sent = send.mock.calls.length;
+    for (const now of [
+      { ...known, kind: "several" as const },
+      { ...known, personId: null },
+    ]) {
+      queue.mockResolvedValueOnce([now]);
+      await expect(
+        answerCheck(
+          { ...voice, subject: "person:dana" },
+          { options: ["is-them"] }
+        )
+      ).rejects.toThrow("changed voice:v1 since it was shown");
+    }
+    expect(send.mock.calls.length).toBe(sent);
     queue.mockResolvedValue([]);
     await expect(answerCheck(voice, { options: ["media"] })).rejects.toThrow(
       "Not done: no open check voice:v1"
