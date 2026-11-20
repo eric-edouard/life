@@ -3,12 +3,14 @@
 // description (`host/http/mcp.ts`), and what his answer must carry is `takes`.
 
 import type { CheckGroup } from "../core/names";
+import type { doneSeenShownOf } from "./decisions";
 import type { StoredDraft } from "./draft";
+import type { needsShownOf } from "./needs";
 
 /**
  * One answer he can give: its id, as `answer_check` takes it; its label, his button's words; whether it acts outside
- * Life, sending, paying, booking, deleting or changing something (`outgoing`), or closes the card's step or matter in
- * Life (`ends`, a decision's); and what his answer must carry besides it (`takes`): who it is as
+ * Life, sending, paying, booking, deleting or changing something (`outgoing`), closes the card's step or matter in
+ * Life (`ends`, a decision's), or makes Life look for the step done (`looks`, a decision's); and what his answer must carry besides it (`takes`): who it is as
  * `person` (`person:<id>`), someone known as `person` or a new person's `name` (a voice's, or someone he adds to his
  * directory), his words as `note`; null: nothing.
  */
@@ -16,6 +18,7 @@ export interface CheckOption {
   ends?: "matter" | "step";
   id: string;
   label: string;
+  looks?: true;
   outgoing?: true;
   takes: "note" | "person" | "person or name" | null;
 }
@@ -140,6 +143,10 @@ export interface Check {
   context: string | null;
   /** By when he answers; null: no deadline. */
   deadline: string | null;
+  /** Life's outcome on a decision whose step it looks for (`doneSeenBy`): while the card is open, only a look that found nothing (`not_found`) with Life's words; absent on every other kind or when it never looked. */
+  doneSeen?: ReturnType<typeof doneSeenShownOf>;
+  /** How Life sees a decision's step done now (`doneSeenByOf`): `payment`, or `tap` (only his word); absent on every other kind. */
+  doneSeenBy?: "payment" | "tap";
   /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none. */
   draft: StoredDraft | null;
   /** The quoted words a guess of Life's rests on, with where and when they were said; null for a card or a decision. */
@@ -154,6 +161,8 @@ export interface Check {
   links: string[];
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done), `important` when he marked it; null: none. */
   matter: CheckMatter | null;
+  /** What he needs in hand to do a decision's step, each with Life's `line` of it, in the order to show them; absent on every other kind. */
+  needs?: ReturnType<typeof needsShownOf>;
   /** A decision whose draft his last answer did not send (nothing went): when, why, and whether the same tap could work again; null: none. */
   notSent: {
     at: string;

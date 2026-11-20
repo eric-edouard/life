@@ -6,10 +6,13 @@ import {
   eventHeard,
   filtersOf,
 } from "../host/desk-read";
-import { EVENT_CHANNELS, type Matchable } from "../host/event-channels";
+import {
+  EVENT_CHANNELS,
+  isOnOrAfter,
+  type Matchable,
+} from "../host/event-channels";
 import { matcherOf } from "../host/events";
 import type { People } from "../memory/who";
-import { localDate } from "../memory/zones";
 import type { Desk } from "./desk-store";
 
 // Queueing an agent's events (the desk's clock, `desk-clock.ts`, polls): the one insert, which agents an event wakes,
@@ -57,9 +60,7 @@ export function agentWakesOf<T>(
   return agents.flatMap((a) => {
     const matchers = filtersOf(a).flatMap((f) => matcherOf(f, people) ?? []);
     return events.flatMap((e) =>
-      (e.at
-        ? e.at >= a.created_at
-        : (e.day ?? "") >= localDate(a.created_at)) &&
+      isOnOrAfter(e, a.created_at) &&
       matchers.some((isMatch) => isMatch(e.matchable)) &&
       eventHeard(db, a.id, e.eventId) === "not_yet"
         ? [{ agent: a.id, eventId: e.eventId, payload: e.payload }]

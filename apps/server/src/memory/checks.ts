@@ -26,9 +26,9 @@ import { pagedNow } from "./closeness";
 import {
   DECISIONS,
   type Decision,
+  decisionCardOf,
   decisionsNow,
   isOnMatter,
-  notSentOf,
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import type { StoredDraft } from "./draft";
@@ -346,10 +346,9 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           kind: "decision",
           likelyPeople: [],
           links: d.links,
-          notSent: notSentOf(d),
           onMatters: [],
           onSilence: d.onSilence,
-          options: d.options.map((o) => ({ ...o, takes: null })),
+          ...decisionCardOf(d),
           question: d.question,
           ref: d.id,
           ridesOn: {

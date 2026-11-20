@@ -141,7 +141,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
       )
       .sort()
   ).toEqual([
-    "answer_check(name,note,options,person,ref)",
+    "answer_check(name,note,options,person,ref,value)",
     "change_directory_entry(action,aliases,area,handles,id,kind,language,name,number,people,relation,repos,said,status,text)",
     "change_registered_agent(action,agent,effort,folder,model,project,runtime,said,step)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
@@ -163,7 +163,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
     "read_processing_runs(cursor,limit,steps)",
     "read_registered_agents()",
-    "request_decision(context,deadline,draft,links,onSilence,options,question,subject,title,why,withdraw)",
+    "request_decision(context,deadline,doneSeenBy,draft,links,needs,onSilence,options,plan,question,subject,title,why,withdraw)",
     "search(from,query,to)",
     "tell_life(asked,said)",
   ]);

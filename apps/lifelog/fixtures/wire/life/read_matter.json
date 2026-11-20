@@ -170,6 +170,8 @@
       "clips": [],
       "context": "He asked for it by Friday.",
       "deadline": "2099-01-01T09:00:00.000Z",
+      "doneSeen": null,
+      "doneSeenBy": "tap",
       "draft": {
         "channel": "whatsapp",
         "chat": "33600000001@s.whatsapp.net",
@@ -193,6 +195,7 @@
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
+      "needs": [],
       "notSent": null,
       "onMatters": [
         {

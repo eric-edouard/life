@@ -13,7 +13,12 @@ import {
   type Source,
 } from "../memory/changes";
 import { directChats } from "../memory/closeness";
-import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
+import {
+  type Decision,
+  decisionsNow,
+  settledAtOf,
+  settledBetween,
+} from "../memory/decisions";
 import { readFiles } from "../memory/memory-files";
 import { hearVoiceNotes, showFiles } from "../memory/message-files";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
@@ -43,22 +48,23 @@ export const CALLS_BACK = 12 * HOUR;
 /** Each decision event: the state it reports and what it tells its asker. */
 const DECISION_EVENT_OF: Record<
   string,
-  { about: string; state: "answered" | "lapsed" | "withdrawn" }
+  { about: string; states: readonly Decision["state"][] }
 > = {
   [DECISION_ANSWERED]: {
     about:
-      "A decision you asked (`request_decision`) got his answer: the options he picked and his words.",
-    state: "answered",
+      "A decision you asked (`request_decision`) got his answer: the options he picked and his words; or, with no answer, `doneSeen`: Life saw its step done itself.",
+    // A card Life saw done with no answer of his is told as answered: `doneSeen`, no `answer`.
+    states: ["answered", "seen"],
   },
   [DECISION_LAPSED]: {
     about:
       "A decision you asked lapsed unanswered at its deadline: take your `onSilence` option now.",
-    state: "lapsed",
+    states: ["lapsed"],
   },
   [DECISION_WITHDRAWN]: {
     about:
       "A decision you asked with a draft was withdrawn because he answered in its chat himself (`why`): read the chat again, then finish or ask something new.",
-    state: "withdrawn",
+    states: ["withdrawn"],
   },
 };
 /** The decision events, the one list (the connector's poll, the desk's wake at once). */
@@ -147,7 +153,13 @@ const DecisionPayload = z.object({
   at: z.iso
     .datetime()
     .describe(
-      "When he answered, the deadline it lapsed at, or when Life withdrew it"
+      "When he answered, the deadline it lapsed at, or when Life withdrew it or saw its step done"
+    ),
+  doneSeen: z
+    .object({ eventId: z.string(), state: z.literal("seen") })
+    .optional()
+    .describe(
+      "Life saw its step done itself (`doneSeenBy`): the payment's event (`read_payments`); with no `answer` when Life saw it before he said"
     ),
   end: z
     .object({ error: z.string().optional() })
@@ -169,6 +181,24 @@ const DecisionPayload = z.object({
     .string()
     .optional()
     .describe("Why Life withdrew it: he answered in the chat himself"),
+});
+
+/** What came of a settled decision besides his answer: Life saw its step done (`doneSeen`), its end, its send. */
+const outcomesOf = (
+  d: Decision
+): Pick<z.infer<typeof DecisionPayload>, "doneSeen" | "end" | "send"> => ({
+  ...(d.doneSeen?.state === "seen" && d.doneSeen.eventId
+    ? { doneSeen: { eventId: d.doneSeen.eventId, state: "seen" } }
+    : {}),
+  ...(d.end ? { end: d.end.error ? { error: d.end.error } : {} } : {}),
+  ...(d.send
+    ? {
+        send:
+          d.send.kind === "sent"
+            ? { eventId: d.send.eventId }
+            : { error: d.send.error },
+      }
+    : {}),
 });
 
 /** A decision events cursor: the instant the next window starts at (`request_decision` returns one at the asking instant). */
@@ -197,9 +227,10 @@ export function pollDecisions(
       at: now.getTime(),
     }).at
   );
-  const state = DECISION_EVENT_OF[name]?.state;
+  const states: readonly Decision["state"][] =
+    DECISION_EVENT_OF[name]?.states ?? [];
   const settled = settledBetween(decisionsNow(now), from, now).filter(
-    (d) => d.asker === agent && d.state === state
+    (d) => d.asker === agent && states.includes(d.state)
   );
   return {
     cursor: decisionCursorOf(now),
@@ -217,21 +248,13 @@ export function pollDecisions(
               }
             : {}),
           at,
-          ...(d.end ? { end: d.end.error ? { error: d.end.error } : {} } : {}),
+          ...outcomesOf(d),
           id: d.id,
           onSilence: d.onSilence,
           question: d.question,
           ...(d.withdrawn ? { why: d.withdrawn.why } : {}),
-          ...(d.send
-            ? {
-                send:
-                  d.send.kind === "sent"
-                    ? { eventId: d.send.eventId }
-                    : { error: d.send.error },
-              }
-            : {}),
         } satisfies z.infer<typeof DecisionPayload>,
-        eventId: `${d.id}.${state}`,
+        eventId: `${d.id}.${states[0]}`,
         name,
         timestamp: at,
       };
@@ -312,18 +335,18 @@ function readNewMessages(s: Messaging, from: number | undefined) {
   };
 }
 
-/** Who `filter.person` means, as a person id: none when it names no one. */
-const wantedOf = (filter: EventFilter, people: People) =>
-  filter.person ? meant(filter.person, people).known : undefined;
+/** Who `filter.person` means, as a person id: none when it names no one (or no people are given). */
+const wantedOf = (filter: EventFilter, people?: People) =>
+  filter.person && people ? meant(filter.person, people).known : undefined;
 
 /**
  * Whether an event is one `filter` wants, decided here only (the connector's polls and the desk's agent waits), by the
  * rules of `Matchable`: by app or channel, chat, his own or others', who (a message's writer, or who was on a call,
  * whoever placed it), a pattern on its text, a quantity's range and a place: the event's own point within `radius_m`
  * of the filter's coordinates (the stay's point as lifelog gives it, unlike `read_places_visited`'s circle mode, which
- * weighs each fix's accuracy). Null when its person is no one Life knows.
+ * weighs each fix's accuracy). Null when its person is no one Life knows (none are needed for a filter with no person).
  */
-export function matcherOf(filter: EventFilter, people: People) {
+export function matcherOf(filter: EventFilter, people?: People) {
   const wanted = wantedOf(filter, people);
   if (filter.person && !wanted) {
     return null;
