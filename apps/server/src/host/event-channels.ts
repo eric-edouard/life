@@ -1,8 +1,9 @@
-import { daysBefore, iso, MIN } from "../core/clock";
+import { daysBefore, HOUR, iso, MIN } from "../core/clock";
 import { paymentDayOf, paymentWordsOf } from "../memory/payments";
 import { localDate } from "../memory/zones";
 import { payments } from "../payments/backend";
 import type { Payment, PaymentsBackend } from "../payments/contract";
+import { type Stay, visits } from "../sources/lifelog";
 
 // Event channels: what a wait's `channels` may name besides a message app, each read by the desk only for the waits
 // that name it (`pollChannels`), and what a filter matches: one shape for every event (`Matchable`), so one matcher
@@ -11,8 +12,8 @@ import type { Payment, PaymentsBackend } from "../payments/contract";
 /**
  * An event as a filter sees it: a message, a call or a channel's event, each adapted where it is read. Its rules,
  * written once (`matcherOf`): no `fromMe` counts as not his, so `from_me: false` passes it and `from_me: true` does
- * not; a `chat`, `people`, `text` or quantity an event cannot answer matches nothing (a call has no text, a payment no
- * chat or people). An event channel's event is matched only by a filter whose `channels` names it. The text is only
+ * not; a `chat`, `people`, `text`, quantity or `point` an event cannot answer matches nothing (a call has no text, a
+ * payment no chat, people or point). An event channel's event is matched only by a filter whose `channels` names it. The text is only
  * tested: an event never carries it.
  */
 export interface Matchable {
@@ -22,6 +23,8 @@ export interface Matchable {
   /** An event channel's: matched only by a filter whose `channels` names it. */
   isNamedOnly?: boolean;
   people?: string[];
+  /** Where it happened: a filter's coordinates match it within their radius. */
+  point?: { latitude: number; longitude: number };
   quantities?: Record<string, number>;
   text?: string;
 }
@@ -44,6 +47,8 @@ export interface EventChannel {
   block: () => string | null;
   /** The event it queues. */
   event: string;
+  /** Whether its events hold a point (`Matchable.point`): only then may a filter on it take coordinates. */
+  hasPoint: boolean;
   name: string;
   /** The quantities its events hold, by name. */
   quantities: string[];
@@ -97,6 +102,7 @@ export const paymentsChannelOf = (
   beat: 5 * MIN,
   block: () => (backend() ? null : PAYMENTS_OFF),
   event: "payment.booked",
+  hasPoint: false,
   name: "payments",
   quantities: ["eur_out", "eur_in"],
   read: async (now) => {
@@ -112,4 +118,66 @@ export const paymentsChannelOf = (
   },
 });
 
-export const EVENT_CHANNELS = [paymentsChannelOf(payments)];
+/** How far back a read of stays looks. */
+const PLACES_BACK = 48 * HOUR;
+
+/**
+ * A stay as an arrival: when, and where (its point as lifelog gives it), never the place's name (Apple's short name of a
+ * fix: a third party's words, and it can be a neighbour's); the name is only tested, in Life's own line.
+ */
+function arrivalOf(s: Stay): ChannelEvent {
+  const at = iso(Date.parse(s.arrivedAt));
+  const id = `places:${s.arrivedAt}/arrived`;
+  const point = { latitude: s.latitude, longitude: s.longitude };
+  return {
+    at,
+    day: localDate(at),
+    eventId: id,
+    matchable: {
+      channel: "places",
+      isNamedOnly: true,
+      point,
+      text: s.place ? `arrived ${s.place}` : "arrived",
+    },
+    payload: {
+      arrivedAt: s.arrivedAt,
+      at,
+      id,
+      source: "places",
+      what: "arrived",
+      ...point,
+    },
+  };
+}
+
+/**
+ * The places channel over lifelog's stays (`read`): each stay that began within the last `PLACES_BACK` is one arrival. A
+ * stay that began before it is none: lifelog reads points from its own window, so such a stay's `arrivedAt` is cut at
+ * the read's edge and moves at every poll.
+ * ponytail: extra wakes for one real arrival are normal: lifelog lists a stay once an iOS visit arrives or two fixes in a
+ * row lie there (5 to 10 minutes after he arrives while the pendant is connected, else when iOS delivers its visit); an
+ * iOS visit that comes in after the fixes moves `arrivedAt` earlier, and a drift fix more than 150 m away splits one stay
+ * in two: each gives one more arrival (an extra wake, never a miss; an agent is woken by events at most once per 10
+ * minutes after its last turn). The upgrade: an id lifelog gives a stay.
+ */
+export const placesChannelOf = (
+  read: (q: { from: string; to: string }) => Promise<Stay[]> = visits
+): EventChannel => ({
+  about:
+    "each arrival at a place (`stay.arrived`), a few minutes after he gets there: name the place by `latitude`, `longitude` and `radius_m` (100 by default) as `read_places_visited` gives them, or by `text_matches` on `arrived <place>`; read it with `read_places_visited` at its `at`. Departures are not events yet",
+  // Every poll (the desk's 30 seconds), only while a wait names it.
+  beat: 0,
+  // lifelog is Life's own service on the Mac: a failing read is the poll's "could not be read" line.
+  block: () => null,
+  event: "stay.arrived",
+  hasPoint: true,
+  name: "places",
+  quantities: [],
+  read: async (now) => {
+    const from = now - PLACES_BACK;
+    const stays = await read({ from: iso(from), to: iso(now) });
+    return stays.filter((s) => Date.parse(s.arrivedAt) >= from).map(arrivalOf);
+  },
+});
+
+export const EVENT_CHANNELS = [paymentsChannelOf(payments), placesChannelOf()];
