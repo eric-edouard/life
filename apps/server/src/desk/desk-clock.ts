@@ -58,6 +58,7 @@ import {
   nextWakeOf,
   STARTS_PER_TICK,
 } from "./agent-wait";
+import { pollArrivals } from "./arrival-route";
 import { doorOf } from "./desk-door";
 import {
   closeAssignmentRow,
@@ -577,6 +578,7 @@ export async function tick(desk: Desk, isPollDue = true) {
   if (isPollDue) {
     const people = readPeopleOnce();
     await pollMessages(desk, people);
+    await pollArrivals(desk, people);
     await pollCalls(desk, people);
     await pollChannels(desk, people);
     await pollRecordings(desk, people);
