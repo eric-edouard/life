@@ -9,7 +9,7 @@ struct InboxScreen: View {
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
     @Environment(\.horizontalSizeClass) private var sizeClass
-    /// The system puts the bars in a side column (`reportsSideColumn`): the toast is a capsule there.
+    /// The bars are in a side column and the ask is one pane: the toast is then the column's capsule, the same state.
     @State private var inSideColumn = false
 
     @State private var notes = CardNotes()
@@ -39,7 +39,7 @@ struct InboxScreen: View {
                 widths.ask < widths.whole - 1 ? "Inbox" : "", hasSettings: sizeClass != .regular,
                 hasPendant: sizeClass != .regular
             )
-            .toolbar { ToolbarItem(placement: .topBarLeading) { AskFilterMenu(kinds: all.kinds, kind: $kind) } }
+            .askFilterBar(kinds: all.kinds, kind: $kind)
         } detail: {
             ReadScreen(
                 shown: shown, retry: { await life.retryInbox() },
@@ -52,7 +52,7 @@ struct InboxScreen: View {
             // Declared before the Pendant and Settings: a vertical bar stacks trailing items bottom-up, so the order puts
             // this one under them; `sharedBackgroundVisibility(.hidden)` keeps it out of their capsule.
             .toolbar {
-                if hasColumn, #available(iOS 27.1, *) {
+                if inSideColumn, #available(iOS 27.1, *) {
                     ToolbarItem(placement: .topBarTrailing) {
                         ColumnToast(answered: life.latestHeld?.held.label) { life.latestHeld.map { undo($0.ref) } }
                     }
@@ -65,7 +65,7 @@ struct InboxScreen: View {
             // What he just answered (the one held last, for 4 s), over the top of the ask: out of its layout, so nothing moves.
             .overlay(alignment: .top) {
                 ZStack {
-                    if let latest = life.latestHeld, !hasColumn {
+                    if let latest = life.latestHeld, !inSideColumn {
                         Toast(words: latest.held.label) { undo(latest.ref) }.appears().id(latest.ref)
                     }
                 }
@@ -111,9 +111,6 @@ struct InboxScreen: View {
             if case .failed = life.state(of: .answer(ref: check.ref)) { true } else { false }
         }?.ref
     }
-
-    /// The bars are in a side column and the ask is one pane: the toast is then the column's capsule, the same state.
-    private var hasColumn: Bool { inSideColumn && sizeClass != .regular }
 
     /// Undo: the ask is back where it was, and on show.
     private func undo(_ ref: String) {

@@ -91,14 +91,11 @@ extension CheckGroup {
     }
 }
 
-/// The list's Filter: Everything and the kinds that wait, one row each; it rests when there is nothing to choose between.
-struct AskFilterMenu: View {
-    let kinds: [CheckGroup]
-    @Binding var kind: CheckGroup?
-
-    var body: some View {
-        FilterMenu(isFiltered: kind != nil, identifier: "inbox.filter") {
-            Picker("Show", selection: $kind) {
+/// The list's Filter: Everything and the kinds that wait, one row each.
+extension View {
+    func askFilterBar(kinds: [CheckGroup], kind: Binding<CheckGroup?>) -> some View {
+        filterBar(isFiltered: kind.wrappedValue != nil, identifier: "inbox.filter", isResting: kinds.count < 2) {
+            Picker("Show", selection: kind) {
                 Label("Everything", systemImage: "list.bullet").tag(CheckGroup?.none)
                 ForEach(kinds, id: \.self) { kind in
                     Label(kind.filterName, systemImage: kind.symbol).tag(CheckGroup?.some(kind))
@@ -106,7 +103,5 @@ struct AskFilterMenu: View {
             }
             .pickerStyle(.inline)
         }
-        // A toolbar item that comes and goes is unreliable: the button stays and rests.
-        .disabled(kinds.count < 2)
     }
 }
