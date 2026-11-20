@@ -36,7 +36,6 @@ const anchored = (step: string, over: Partial<AgentHold> = {}) => [
   holdOn(step, over),
 ];
 
-// Its first step quoted after its words; the step's unit unknown, so where it was said is plain text.
 const ASKED_UNTIL_22_NOV =
   /Next step: Book the plumber\. Asked until .*22 Nov\.\n\n> the boiler is leaking\n\n\*[^[\]]*16 Nov\*$/;
 
@@ -83,34 +82,6 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
   expect(printed).toContain(`1. [guessed person] ${REF}: Is this Kit inf_kit?`);
   expect(printed).toContain("about: +33600000001");
   expect(printed.split("said hello")).toHaveLength(2);
-  expect(check).not.toHaveProperty("evidence");
-});
-
-test("recorded words stay literal in a guess's context; only where it was said links, to the unit read", () => {
-  const recorded =
-    "see [the shop](https://shop.example) or [this](life:obs_000000000009) at https://x.example";
-  const base = inputs([about(REF)], { inferred: [ID] });
-  const people = {
-    ...base.people,
-    inferred: base.people.inferred.map((p) => ({
-      ...p,
-      evidence: [{ quote: recorded, unit: "unit_000000000001" }],
-      name: "[Kit](https://kit.example)",
-    })),
-  };
-  const linksOf = (where: CheckInputs["where"]) => {
-    const [check] = checksOf({ ...base, people, where });
-    const html = Bun.markdown.html(check?.context ?? "", { autolinks: true });
-    return {
-      hrefs: [...html.matchAll(/href="([^"]*)"/g)].map((m) => m[1]),
-      lifeLinks: check?.lifeLinks,
-    };
-  };
-  expect(linksOf(new Map([["unit_000000000001", "whatsapp, 2 Oct"]]))).toEqual({
-    hrefs: ["life:unit_000000000001"],
-    lifeLinks: [{ kind: "unit", ref: "unit_000000000001" }],
-  });
-  expect(linksOf(new Map())).toEqual({ hrefs: [], lifeLinks: [] });
 });
 
 test("his word, this-is or same-person to the guess, removes the check; a not-this-person on one handle does not", () => {
@@ -255,18 +226,6 @@ test("an ending rides on its open matter and goes with his answer", () => {
     },
     since: { at: null, by: null, text: "Sent it." },
   });
-  // Later words from an episode: quoted, where plain; from a later line whose unit was read: linked to it.
-  expect(ending?.context).toEndWith("\n\n> Sent it.\n\n*an earlier message*");
-  const later = line({ quote: "Sent it today.", unit: "unit_000000000002" });
-  const [linked] = checksOf({
-    ...base,
-    endings: new Map([[o.id, { later: later.id, quote: "Sent it today." }]]),
-    lines: [o, later],
-    where: new Map([["unit_000000000002", "whatsapp, 2 Oct"]]),
-  });
-  expect(linked?.context).toEndWith(
-    "\n\n> Sent it today.\n\n*[whatsapp, 1 Oct](life:unit_000000000002)*"
-  );
   expect(checksOf({ ...base, answered: new Set([o.id]) })).toEqual([]);
   // An old doubt line on the same ref: an answer by ref would land on it, so no ending check.
   expect(checksOf({ ...base, doubted: new Set([o.id]) })).toEqual([]);

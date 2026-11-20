@@ -242,7 +242,8 @@ type NameLine = SaidLine & { id: string };
 
 /**
  * What the cards that show a sentence need read: each name's context, and the titles (chat or thread) of the units the
- * lines come from: a name's, the inferred people's evidence, and `steps`, the open endings' and new matters' steps.
+ * lines come from: a name's, the inferred people's evidence, and `steps`, the open endings' and new matters' steps;
+ * where each was said is read from the same units, so a card's quote links only a unit read here.
  */
 export async function readSentences(c: {
   lines: readonly NameLine[];
@@ -257,8 +258,10 @@ export async function readSentences(c: {
     c.people
   );
   const said = c.lines.filter((o) => c.steps.has(o.id)).map((o) => o.unit);
+  // ponytail: a name's unit is read again here (once by `readNameContexts`), so its quote can link it; a few units a read.
   const units = readUnitsFor([
     ...c.people.inferred.flatMap((p) => p.evidence.map((e) => e.unit)),
+    ...c.names.flatMap(({ last }) => (last ? [last.unit] : [])),
     ...said,
   ]);
   return {
