@@ -141,7 +141,6 @@ const SendFailed = Sent.omit({ eventId: true, kind: true })
 const Ended = z
   .object({
     at: isoDateTime,
-    by: z.literal("answer"),
     error: z.string().min(1).optional(),
     id: DecisionId,
     kind: z.literal("ended"),
@@ -306,7 +305,6 @@ function withOutcomeOf(
         ...d,
         end: {
           ...line,
-          by: "answer",
           error:
             "may not have ended: it started and never finished: read the matter before asking again",
           kind: "ended",
@@ -473,10 +471,13 @@ export async function requestDecision(
   if (endsProblem) {
     throw new Error(`Not done: ${endsProblem}.`);
   }
+  // An `ends` card on a matter's id rides on its newest open step (`endsProblemOf` checked one is there): its newest
+  // step may be closed, or a unit other matters share, and closing would then find another matter.
+  const newest = ask.options.some((o) => o.ends)
+    ? matter && openStepsOf(matter).at(-1)
+    : matter?.steps.at(-1);
   const subject =
-    matter && matter.id === ask.subject
-      ? matter.steps.at(-1)?.ref
-      : ask.subject;
+    matter && matter.id === ask.subject ? newest?.ref : ask.subject;
   const draft = ask.draft && (await readChat(ask.draft, now));
   const id = `dec_${randomBytes(6).toString("hex")}`;
   appendJsonl(DECISIONS, Asked, [
@@ -534,7 +535,6 @@ async function endOnAnswer(
   );
   const ended: Ended = {
     at: clock().toISOString(),
-    by: "answer",
     id: d.id,
     kind: "ended",
     schemaVersion: VERSION,

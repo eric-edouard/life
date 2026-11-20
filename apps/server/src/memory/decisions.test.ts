@@ -609,7 +609,7 @@ test("his pick of an `ends` option alone ends it once; with his words, another o
   });
   expect(done).toMatchObject([
     { kind: "answered" },
-    { by: "answer", id: first.id, kind: "ended" },
+    { id: first.id, kind: "ended" },
   ]);
   await expect(
     answerDecision(first.id, ["done"], undefined, {

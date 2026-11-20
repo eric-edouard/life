@@ -249,17 +249,31 @@ function planOf(
 }
 
 /**
- * What his pick of `d`'s `ends` option `option` closes (`openStepsOf`): the open steps of the matter its subject rides
- * on (`matterOfSteps`), or the subject alone for a step's card. Read before the plan, so its limit counts the ticks.
+ * What his pick of `d`'s `ends` option `option` closes (`openStepsOf`): the open steps of the open matter its subject
+ * rides on (`matterOfSteps` among open matters, as the ask resolved it), or the subject alone for a step's card. Read
+ * before the plan, so its limit counts the ticks. `problem`: a step's card whose step is neither open nor ended (no
+ * open matter holds it), so closing would close nothing; a step already ended by another route is no problem.
  */
 async function closingOf(d: Decision, option: string) {
+  const book = await readMatterBook(await readPeople(), dayNow());
+  const step = d.options.find((o) => o.id === option)?.ends === "step";
   const v =
     d.subject &&
-    matterOfSteps(await readMatterBook(await readPeople(), dayNow()), [
-      d.subject,
-    ]);
-  const ends = d.options.find((o) => o.id === option)?.ends;
-  return v ? openStepsOf(v, ends === "step" ? d.subject : undefined) : [];
+    matterOfSteps(
+      book.filter((m) => m.open),
+      [d.subject]
+    );
+  const closing = v ? openStepsOf(v, step ? d.subject : undefined) : [];
+  const isEnded = book.some((m) =>
+    m.steps.some((s) => s.ref === d.subject && s.ending)
+  );
+  return {
+    closing,
+    problem:
+      step && closing.length === 0 && !isEnded
+        ? `Not done: no open matter holds ${d.subject} open; nothing was closed.`
+        : undefined,
+  };
 }
 
 /**
@@ -274,15 +288,21 @@ async function decisionActOf(
 ) {
   const act =
     known?.state === "open" ? actOf(known, a.options, a.note) : undefined;
-  const closing =
-    known && act === "end" ? await closingOf(known, a.options[0] ?? "") : [];
-  const end: EndByHisWord = (d) =>
-    endByHisWord(
+  const { closing, problem } =
+    known && act === "end"
+      ? await closingOf(known, a.options[0] ?? "")
+      : { closing: [], problem: undefined };
+  const end: EndByHisWord = async (d) => {
+    if (problem) {
+      throw new Error(problem);
+    }
+    return await endByHisWord(
       closing,
       `"${d.options.find((o) => o.id === a.options[0])?.label}" on "${d.title}" (${d.id})`,
       (ticked, of, key) =>
         report({ at: at(), done: ticked, key, of, step: "todo_items_ticked" })
     );
+  };
   const sendMs = act === "send" && known?.draft ? sendLimitMs(known.draft) : 0;
   return { act, closing, end, limitMs: sendMs + ticksLimitMsOf(closing) };
 }
