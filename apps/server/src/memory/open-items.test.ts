@@ -208,9 +208,22 @@ test("a matter's open steps are one item, ranked as the most pressing; overdue b
   expect(ranked[0]?.person).toBe("person:sister");
   // In the day's Due it shows as his late promise (up to a week late), where a wait alone shows on its day only.
   const steps = [
-    item({ id: "matter_late", kind: "waiting_on_someone", when: "2026-10-16" }),
-    item({ id: "matter_late", kind: "promise", when: "2026-10-16" }),
+    item({
+      id: "matter_late",
+      kind: "waiting_on_someone",
+      line: "wait",
+      when: "2026-10-16",
+    }),
+    item({
+      at: "2026-10-10T10:00:00.000Z",
+      id: "matter_late",
+      kind: "promise",
+      line: "promise",
+      when: "2026-10-16",
+    }),
   ];
   expect(ids(steps)).toEqual(["matter_late"]);
+  // Its line is the step it ranks as.
+  expect(openItems(steps, { date: DATE })[0]?.line).toBe("promise");
   expect(ids(steps.slice(0, 1))).toEqual([]);
 });

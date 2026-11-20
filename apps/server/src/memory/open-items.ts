@@ -133,8 +133,12 @@ export function openItems(
     today?: string;
   }
 ) {
-  return rankedItems(candidates, rank).filter((c) =>
-    timely(c, rank.date, today ?? rank.date, shown.get(c.id) ?? [])
+  // Timely first: a matter shows as the most pressing of its steps due now.
+  return rankedItems(
+    candidates.filter((c) =>
+      timely(c, rank.date, today ?? rank.date, shown.get(c.id) ?? [])
+    ),
+    rank
   );
 }
 
