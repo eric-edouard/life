@@ -36,6 +36,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     // The draft's own chat, as its network shows it: stored, so no newest message.
     #expect(decision.networkIdentity?.network == "WhatsApp")
     #expect(decision.networkIdentity?.newest == nil)
+    #expect(decision.networkIdentity?.party?.ref == "person:inf_kit")
+    #expect(inbox.parties.contains { $0.ref == "person:inf_kit" })
     #expect(decision.ridesOn?.matters == 1)
     // A transfer (the asks contract): its needs in the agent's order, each with Life's line; Life's look found nothing yet.
     let transfer = inbox.checks[1]
@@ -75,6 +77,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.goal?.by == .life)
     #expect(row.nextStep?.kind == .waitEvent)
     #expect(row.people?.owedTo?.map(\.ref) == ["person:gran"])
+    #expect(list.parties.contains { $0.ref == "person:gran" })
     #expect(row.people?.with?.first?.picture == nil)
     #expect(row.agent == "agt_000000000001")
     #expect(row.blockingChecks == 1)

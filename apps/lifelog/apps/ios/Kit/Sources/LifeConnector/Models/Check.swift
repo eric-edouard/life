@@ -143,6 +143,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let newest: Newest?
         /// The network's own link that opens the chat (`wa.me` for WhatsApp); nil when it has none.
         public let openUrl: URL?
+        /// Who Life holds the account to be: a person check's person, or whoever a draft's chat resolves to.
+        public let party: Party?
 
         /// Field by field: one Life sends in a shape this build doesn't know is nil, never a failed inbox.
         public init(from decoder: any Decoder) throws {
@@ -153,10 +155,11 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
             chat = try? c.decodeIfPresent(String.self, forKey: .chat)
             newest = try? c.decodeIfPresent(Newest.self, forKey: .newest)
             openUrl = (try? c.decodeIfPresent(String.self, forKey: .openUrl)).flatMap { $0.flatMap(URL.init(string:)) }
+            party = try? c.decodeIfPresent(Party.self, forKey: .party)
         }
 
         private enum CodingKeys: String, CodingKey {
-            case network, handle, shownName, chat, newest, openUrl
+            case network, handle, shownName, chat, newest, openUrl, party
         }
     }
 
