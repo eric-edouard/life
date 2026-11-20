@@ -40,6 +40,7 @@ struct CheckCard: View {
                     VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                         question
                         tile(scrolls: false)
+                        beingFixed
                         matterRow
                         actions
                     }
@@ -49,6 +50,7 @@ struct CheckCard: View {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     question
                     tile(scrolls: true)
+                    beingFixed
                     matterRow
                     Spacer(minLength: 0)
                     if let page {
@@ -161,6 +163,17 @@ struct CheckCard: View {
         )
         .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8).focused($isWriting)
         .onAppear { isWriting = true }
+    }
+
+    /// His "Wrong…" the caretaker is at work on: its own line under the tile, the caretaker's words when it has them.
+    @ViewBuilder private var beingFixed: some View {
+        if let fixing = check.beingFixed {
+            HStack(spacing: Metrics.Spacing.s) {
+                StateGlyph.busy
+                Text(fixing.line ?? "The caretaker is fixing this").font(.small).foregroundStyle(Palette.muted)
+            }
+            .appears()
+        }
     }
 
     // MARK: The row under the thing, and the link

@@ -322,6 +322,7 @@
                 if draft == nil, LifeFixture.answer == "sending" { try await Task.sleep(for: .seconds(3_600)) }
                 onProgress(message(["step": step, "at": at(18, 14, 3)]))
             }
+            if answer.isComplaint { return json(["ask": "complaint:" + answerKey, "reached": "caretaker"]) }
             if draft != nil, Self.refused.contains(LifeFixture.answer) {
                 let send: [String: Any] =
                     switch LifeFixture.answer {

@@ -23,6 +23,8 @@ final class LifeStore {
     /// What an action acts on: the store makes every key itself, so a screen asks for the state of what it shows.
     enum ActionKey: Hashable {
         case answer(ref: String)
+        /// His "Wrong…" on a card: apart from its answers, so they stay as they are while it goes.
+        case complaint(ref: String)
         case start(matter: String)
         case agent(String)
         case edit(matter: String, Edit)
@@ -284,6 +286,7 @@ final class LifeStore {
         ]
         switch key {
         case .answer(let ref): fields["kind"] = "answer"; fields["ref"] = ref
+        case .complaint(let ref): fields["kind"] = "complaint"; fields["ref"] = ref
         case .start(let matter): fields["kind"] = "start"; fields["ref"] = matter
         case .agent(let agent): fields["kind"] = "agent"; fields["ref"] = agent
         case .edit(let matter, let what): fields["kind"] = "edit.\(what)"; fields["ref"] = matter
@@ -308,7 +311,7 @@ final class LifeStore {
     /// His answer to a check. A call that failed on the connection is repeated as the same tap; a result Life gave
     /// (a send that was not sent included) makes the next tap a new one.
     func answer(_ request: AnswerRequest) async {
-        let key = ActionKey.answer(ref: request.ref)
+        let key = request.isComplaint ? ActionKey.complaint(ref: request.ref) : .answer(ref: request.ref)
         guard actions[key]?.isRunning != true else { return }
         let tap = taps.key(for: request)
         await perform(key, tap: tap) { [runner] in await runner.answer(request, key: tap, emit: $0) }

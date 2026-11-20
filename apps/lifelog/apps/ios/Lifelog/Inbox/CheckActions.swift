@@ -6,6 +6,8 @@ struct CardInput: Equatable {
     var isWritingOwnWords = false
     var words = ""
     var showsWhy = false
+    /// His "Wrong…" sheet is open.
+    var showsWrong = false
 }
 
 /// A link on the ask and what it does: "Why?" or "Tell the agent…".
@@ -68,10 +70,25 @@ struct CheckActions: View {
                     // Seen: Life ends the card; a stale read of it offers nothing to tap.
                     options
                 }
+                wrong
             }
         }
+        .sheet(isPresented: $input.showsWrong) { WrongSheet(check: check).sheetStack() }
         .motion(Motion.standard, value: check.doneSeen?.state)
         .motion(Motion.standard, value: isBusy)
+    }
+
+    /// On Life's own asks only, the escape hatch: a compact quiet button, always the last thing at the bottom right.
+    @ViewBuilder private var wrong: some View {
+        if check.misread != nil {
+            Button {
+                input.showsWrong = true
+            } label: {
+                Label("Wrong…", systemImage: "exclamationmark.bubble").lineLimit(1)
+            }
+            .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
+            .frame(maxWidth: .infinity, alignment: .trailing)
+        }
     }
 
     /// His last answer to this ask that did not go, in one `flag` line above the same answers; a send that someone wrote

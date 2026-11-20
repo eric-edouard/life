@@ -457,3 +457,23 @@ private func answered(_ reply: @escaping @Sendable () -> Reply) async -> (Int, A
     guard case .failed(let failure, _) = state else { Issue.record("not failed"); return }
     #expect(failure.kind == "offline" && !failure.mayHaveHappened)
 }
+
+/// His "Wrong…" succeeds only on Life's word that the caretaker has it; any other answer fails, to be tried again.
+@Test func aComplaintSucceedsOnlyOnceTheCaretakerHasIt() async {
+    let wrong = AnswerRequest(
+        ref: "voice:v1", options: [], note: "Not her.",
+        value: Complaint(cause: "c", shown: "s", seal: "x", report: false))
+    let life = FakeLife()
+    life.answers = [
+        { _ in #"{"ask":"ask_1","reached":"caretaker"}"# },
+        { _ in #"{"ref":"voice:v1","kind":"voice"}"# },
+        { _ in throw MCPError.refused("Not done: the desk has not received it in 60 s.") },
+    ]
+    let actions = LifeActions(api: life, now: { at }, pause: noPause)
+    let reached = await run { await actions.answer(wrong, key: "tap-1", emit: $0) }
+    #expect(reached == .succeeded(.complaintReceipt(ask: "ask_1"), steps: []))
+    for _ in 0..<2 {
+        let state = await run { await actions.answer(wrong, key: "tap-2", emit: $0) }
+        guard case .failed = state else { Issue.record("\(state)"); continue }
+    }
+}
