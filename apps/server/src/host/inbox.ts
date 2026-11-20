@@ -25,13 +25,14 @@ export function planCardsOf(db: Database, list = decisionsNow()) {
   const plans = new Set<string>();
   for (const d of list) {
     const s = d.state === "open" ? assignmentOfCard(db, d) : null;
-    const opened =
-      s &&
-      db
-        .query<{ by: string; role: string | null }, [string]>(
-          "select s.opened_by as by, a.role from assignment s join agent a on a.id = s.agent_id where s.id = ?"
-        )
-        .get(s);
+    if (!s) {
+      continue;
+    }
+    const opened = db
+      .query<{ by: string; role: string | null }, [string]>(
+        "select s.opened_by as by, a.role from assignment s join agent a on a.id = s.agent_id where s.id = ?"
+      )
+      .get(s);
     if (opened?.by !== "owner" || opened.role === "caretaker") {
       continue;
     }
@@ -40,7 +41,7 @@ export function planCardsOf(db: Database, list = decisionsNow()) {
         .query<{ id: string }, [string]>(
           "select decision_id as id from card where assignment_id = ?"
         )
-        .all(s ?? "")
+        .all(s)
         .map((r) => r.id)
     );
     const first = list.find(
