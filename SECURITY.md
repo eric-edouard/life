@@ -53,10 +53,10 @@ send, reply or forward, `imsg send`, `osascript` telling Messages or Mail to sen
 use on a messaging site or app, and a `gh` post (an issue, a comment, a review) except on the repos he listed
 (`desk.agentPostRepos`, his word of 20 Nov 2026) with the body ending with `AGENT_POST_SIGNATURE`: there an agent's
 words reach other people in his name without his yes on the text, and the agent is told to post only facts and
-questions and to put anything that commits him on a card. A failure of the guard refuses the call. The guard is
+questions and to put anything that commits him on a card. It also refuses an agent's writes through his own Life connector, which its session carries with his token: `answer_check`, `request_decision`, `change_directory_entry`, `change_registered_agent`, `change_todo_item`, `correct_memory` and `tell_life`, on any server but its own `desk` door, named whole, and any name Codex shortened that could be one of them (the direction session's ruling, under his word of 20 Nov 2026); the reads stay free. A failure of the guard refuses the call. The guard is
 partial: it reads a call's text, so a tab already open on a messaging site, a script that builds an address or URL, `gh api`
 or `curl` to a service's API, `node_repl`, `javascript_tool`, full-screen computer use (it names no app), a shell the agent starts and then types into
-(Codex's `write_stdin`) or another program the agent starts get past it, and the agent can edit the guard's file in a
+(Codex's `write_stdin`) or another program the agent starts get past it, a turn he types himself into an agent's session in the app runs without the guard (until the Life plugin exists), and the agent can edit the guard's file in a
 checkout. It also refuses a little too much: any call that names a messaging site, reading Gmail in a browser included. Submitting a form, booking, paying, `gh pr create` and pushes stay its
 instruction only. A turn that fails keeps the adapter's last error lines in the desk's store; with his environment passed
 in, those lines may hold whatever the adapter printed. Its door
