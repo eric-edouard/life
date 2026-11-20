@@ -56,8 +56,8 @@ final class LifeStore {
 
     /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
     /// Its send ends with Life's answer, before the reads after it: a flush waits for Life, not for them.
-    @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] request in
-        await self?.send(request)
+    @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] held in
+        await self?.send(held.request, for: held.life)
         Task { await self?.refreshAfterAnswer() }
     }
     var held: [String: HeldAnswers.Held] { holds.held }
@@ -340,21 +340,35 @@ final class LifeStore {
     /// His answer to a check. A call that failed on the connection is repeated as the same tap; a result Life gave
     /// (a send that was not sent included) makes the next tap a new one.
     /// `keepsCardOpen`: Life keeps the card open after it (`Check.keepsOpen`).
-    func answer(_ request: AnswerRequest, keepsCardOpen: Bool = false) async {
-        await send(request, keepsCardOpen: keepsCardOpen)
+    /// `life`: the Life it was decided for, when his tap was not on the screen now (a notification's button); else the
+    /// one paired at this tap.
+    func answer(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife? = nil) async {
+        await send(request, keepsCardOpen: keepsCardOpen, for: life ?? pairedLife)
         await refreshAfterAnswer()
     }
 
-    /// The answer's call alone, until Life's answer to it.
-    private func send(_ request: AnswerRequest, keepsCardOpen: Bool = false) async {
+    /// The Life the phone is paired with now, as an answer decided now captures it (`PairedLife`).
+    var pairedLife: PairedLife? {
+        pairedOrigin.map { PairedLife(origin: $0, generation: parties.generation.current) }
+    }
+
+    /// The answer's call alone, until Life's answer to it, to the Life it was decided for (`life`) and no other: one
+    /// decided under an earlier pairing, or none, is refused here and never sent.
+    private func send(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife?) async {
         let key = ActionKey.answer(ref: request.ref)
         guard actions[key]?.isRunning != true else { return }
-        let (tap, pairing) = (taps.key(for: request), parties.generation.current)
+        guard let life, life.generation == parties.generation.current else {
+            return await perform(key) { emit in
+                emit(.started)
+                emit(.failed(ActionFailure(.notPaired)))
+            }
+        }
+        let tap = taps.key(for: request)
         await perform(
-            key, tap: tap, succeeded: { self.confirm(request, keepsCardOpen: keepsCardOpen, pairing: pairing) }
+            key, tap: tap, succeeded: { self.confirm(request, keepsCardOpen: keepsCardOpen, pairing: life.generation) }
         ) {
             [runner] in
-            await runner.answer(request, key: tap, emit: $0)
+            await runner.answer(request, key: tap, at: life.origin, emit: $0)
         }
         if let ended = actions[key] { taps.ended(request, as: ended) }
     }
@@ -370,7 +384,7 @@ final class LifeStore {
     // MARK: Held answers
 
     /// His answer to such a row, sent in four seconds unless he undoes it.
-    func hold(_ request: AnswerRequest, as label: String) { holds.hold(request, as: label) }
+    func hold(_ request: AnswerRequest, as label: String) { holds.hold(request, as: label, for: pairedLife) }
 
     func undo(_ ref: String) { holds.undo(ref) }
 
@@ -537,7 +551,7 @@ final class LifeStore {
         guard push.check == nil else { return await refreshInbox() }
         async let whole: Void = refreshInbox()
         if let found = await notifiedCard(pushId: pushId, kept: nil, life: nil), pushed == push {
-            pushed = PushedCard(pushId: pushId, in: nil, notified: found, at: push.tappedAt)
+            pushed = PushedCard(pushId: pushId, in: nil, notified: found.check, at: push.tappedAt)
             openedCard = pushed?.opening
         }
         await whole
@@ -545,10 +559,13 @@ final class LifeStore {
 
     /// The card a notification names, as the Life paired now has it (`CardNotification.card`): every answer from a
     /// notification's button asks it first, so none reaches another Life's card.
-    func notifiedCard(pushId: String, kept: String?, life: String?) async -> Check? {
-        await CardNotification.card(pushId: pushId, kept: kept, life: life, pairedWith: pairedOrigin) { [api] in
-            try await api.readInbox(pushId: pushId)
-        }
+    func notifiedCard(pushId: String, kept: String?, life: String?) async -> (check: Check, life: PairedLife)? {
+        guard let paired = pairedLife,
+            let check = await CardNotification.card(
+                pushId: pushId, kept: kept, life: life, pairedWith: paired.origin,
+                readPush: { [api] in try await api.readInbox(pushId: pushId, at: $0) })
+        else { return nil }
+        return (check, paired)
     }
 
     /// A read is checking the tapped push: the card's pager waits on it. A failed read shows the card as stale instead.

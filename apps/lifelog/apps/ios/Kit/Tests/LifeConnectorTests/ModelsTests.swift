@@ -624,20 +624,20 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     let bHolds = try inbox([first.merging(["ref": "name:alex", "pushId": "push-b"]) { $1 }], total: 1)
     let crossed = await CardNotification.card(
         pushId: "push-a", kept: kept, life: a.absoluteString, pairedWith: b
-    ) { bHolds }
+    ) { _ in bHolds }
     #expect(crossed == nil)
     // Kept under A, answered under A: the kept card, with no read.
-    let bound = await CardNotification.card(pushId: "push-a", kept: kept, life: a.absoluteString, pairedWith: a) {
+    let bound = await CardNotification.card(pushId: "push-a", kept: kept, life: a.absoluteString, pairedWith: a) { _ in
         Issue.record("a bound card needs no read")
         return ""
     }
     #expect(bound?.ref == "name:alex")
     // A notification from before the binding, its card the 600th open: Life's read of its pushId holds it.
     let legacyRead = try inbox([card], total: 600)
-    let legacy = await CardNotification.card(pushId: "push-a", kept: kept, life: nil, pairedWith: a) { legacyRead }
+    let legacy = await CardNotification.card(pushId: "push-a", kept: kept, life: nil, pairedWith: a) { _ in legacyRead }
     #expect(legacy?.ref == "name:alex")
     // Not paired: nothing, and nothing read.
-    let unpaired = await CardNotification.card(pushId: "push-a", kept: kept, life: nil, pairedWith: nil) {
+    let unpaired = await CardNotification.card(pushId: "push-a", kept: kept, life: nil, pairedWith: nil) { _ in
         Issue.record("no read without a pairing")
         return ""
     }

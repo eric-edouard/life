@@ -25,17 +25,14 @@ nonisolated final class NotificationService: UNNotificationServiceExtension, @un
             return contentHandler(request.content)
         }
         lock.withLock { pending = Pending(deliver: contentHandler, original: request.content) }
-        // The Life the card is read from, kept with it so a tap after another pairing never takes it as this one's: the
-        // pairing before the read and after it, when they are the same; else none, and the tap reads it by its pushId.
-        // ponytail: a pairing changed and changed back within one read stamps the first; re-pairing takes the Mac's code.
-        let before = LifeToken().load()?.endpoint.origin
+        // Read from the Life paired now and no other, and kept with that Life's origin: a tap after another pairing never
+        // takes it as this one's.
+        let paired = LifeToken().load()?.endpoint.origin
         Task {
-            let inbox = try? await Self.api.readInbox(pushId: pushId)
-            let after = LifeToken().load()?.endpoint.origin
-            finish(
-                with: inbox.flatMap {
-                    CardNotification.of(pushId: pushId, inbox: $0, asksFaceID: AppGroup.asksFaceIDToSend)
-                }, life: CardNotification.isOf(life: before?.absoluteString, pairedWith: after) ? before : nil)
+            let read = await CardNotification.read(
+                pushId: pushId, pairedWith: paired, asksFaceID: AppGroup.asksFaceIDToSend,
+                readPush: { try await Self.api.readInbox(pushId: pushId, at: $0) })
+            finish(with: read?.card, life: read?.life)
         }
     }
 

@@ -155,7 +155,7 @@
             }
             return inbox()
         }
-        func readInbox(pushId: String) async throws -> String {
+        func readInbox(pushId: String, at origin: URL?) async throws -> String {
             try await gate()
             // A push's read: just that card, none once answered.
             var one = (try? JSONSerialization.jsonObject(with: Data(inbox().utf8))) as? [String: Any] ?? [:]
@@ -283,9 +283,9 @@
         /// The `-fixtureAnswer` values where a send ends without going.
         private static let refused: Set = ["notSent", "wroteSince", "mayHaveGone"]
 
-        func answerCheck(_ answer: AnswerRequest, answerKey: String, onProgress: @escaping @Sendable (Data) -> Void)
-            async throws -> String
-        {
+        func answerCheck(
+            _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void
+        ) async throws -> String {
             try await gate()
             let check = Self.checks.first { $0["ref"] as? String == answer.ref }
             let draft = check?["draft"] as? [String: Any]

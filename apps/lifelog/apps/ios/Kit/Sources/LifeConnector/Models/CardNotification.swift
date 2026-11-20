@@ -88,16 +88,27 @@ public struct CardNotification: Sendable, Equatable {
     }
 
     /// The card a notification names, as the Life paired now has it: the one it kept (`check(_:pushId:life:pairedWith:)`),
-    /// else Life's own read of that card (`readPush`, `read_inbox` by its `pushId`, which no limit cuts off; a pushId of
-    /// another Life names nothing there). Nil when it is not open there. The one door to a notification's card: opening
-    /// it, and every answer from it, Send included.
+    /// else Life's own read of that card from that Life alone (`readPush`, `read_inbox` by its `pushId` at the origin it
+    /// is given, which no limit cuts off; a pushId of another Life names nothing there). Nil when it is not open there.
+    /// The one door to a notification's card: opening it, and every answer from it, Send included.
     public static func card(
         pushId: String, kept: String?, life: String?, pairedWith paired: URL?,
-        readPush: @Sendable () async throws -> String
+        readPush: @Sendable (URL) async throws -> String
     ) async -> Check? {
         if let check = check(kept, pushId: pushId, life: life, pairedWith: paired) { return check }
-        guard paired != nil, let read = try? await readPush() else { return nil }
+        guard let paired, let read = try? await readPush(paired) else { return nil }
         return found(pushId: pushId, in: read)?.check
+    }
+
+    /// The service extension's read of a push's card: from the Life paired when the push arrived (`paired`) and no other
+    /// (`readPush` reads at the origin it is given), so the origin it keeps with the card (`lifeKey`) is the read's own.
+    public static func read(
+        pushId: String, pairedWith paired: URL?, asksFaceID: Bool, readPush: @Sendable (URL) async throws -> String
+    ) async -> (card: CardNotification, life: URL)? {
+        guard let paired, let inbox = try? await readPush(paired),
+            let card = of(pushId: pushId, inbox: inbox, asksFaceID: asksFaceID)
+        else { return nil }
+        return (card, paired)
     }
 
     /// The card as kept (its JSON), if this build reads it.

@@ -9,6 +9,8 @@ public final class HeldAnswers {
         public let request: AnswerRequest
         /// The option he tapped, in its own words, for the row's slim line.
         public let label: String
+        /// The Life it was decided for, at his tap: it is sent there or not at all.
+        public let life: PairedLife?
     }
 
     public private(set) var held: [String: Held] = [:]
@@ -23,14 +25,15 @@ public final class HeldAnswers {
     /// Held or being sent: answers whose card no read may bring back yet.
     public var underWay: Set<String> { Set(held.keys).union(sending.values.map(\.ref)) }
     @ObservationIgnored private let delay: Duration
-    @ObservationIgnored private let send: @MainActor (AnswerRequest) async -> Void
+    @ObservationIgnored private let send: @MainActor (Held) async -> Void
 
-    public init(delay: Duration = .seconds(4), send: @escaping @MainActor (AnswerRequest) async -> Void) {
+    public init(delay: Duration = .seconds(4), send: @escaping @MainActor (Held) async -> Void) {
         (self.delay, self.send) = (delay, send)
     }
 
-    public func hold(_ request: AnswerRequest, as label: String) {
-        held[request.ref] = Held(request: request, label: label)
+    /// His answer, held for Undo, for the Life he gave it to (`life`, captured at his tap).
+    public func hold(_ request: AnswerRequest, as label: String, for life: PairedLife? = nil) {
+        held[request.ref] = Held(request: request, label: label, life: life)
         order.removeAll { $0 == request.ref }
         order.append(request.ref)
         timers[request.ref]?.cancel()
@@ -52,9 +55,11 @@ public final class HeldAnswers {
         for going in sending.values.map(\.going) { await going.value }
     }
 
-    /// Nothing held, nothing sent: a new pairing leaves no answer for the last Life. A send under way ends on its own.
+    /// Nothing held, nothing sent: a new pairing leaves no answer for the last Life. A released answer still waiting
+    /// behind another never starts; one being sent is cancelled (it went to its own Life, if anywhere).
     public func clear() {
         timers.values.forEach { $0.cancel() }
+        sending.values.forEach { $0.going.cancel() }
         (held, timers, order) = ([:], [:], [])
     }
 
@@ -73,7 +78,7 @@ public final class HeldAnswers {
             ref,
             Task {
                 for task in earlier { await task.value }
-                await send(sent.request)
+                if !Task.isCancelled { await send(sent) }
                 sending[number] = nil
             }
         )
