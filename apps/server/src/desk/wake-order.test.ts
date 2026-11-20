@@ -40,6 +40,8 @@ test("his answer starts ahead of three new agents' first turns", async () => {
       runtime: "fake",
     })
   );
+  // The answer is newer than the three first turns it must beat.
+  advance(MIN);
   queue(id, "dec_3.answered", DECISION_ANSWERED);
   await wakeDue(desk);
   expect(turns(id).at(-1)).toEqual({ cause: "answer", outcome: null });

@@ -7,6 +7,7 @@ import {
   activeAgents,
   agentWaitOf,
   anchorsOf,
+  assignmentOf,
   currentAssignmentOf,
   filtersOf,
   MAX_ACTIVE,
@@ -215,12 +216,13 @@ function subjectPartOf(
   };
 }
 
-/** Agent `a` as read now (`AgentNow`), by the assignment it works on (`currentAssignmentOf`, `subjectPartOf`): its last turn, its anchors and its events dropped in the last day. */
+/** Agent `a` as read now (`AgentNow`), by the assignment it works on (`on`, else `currentAssignmentOf`; `subjectPartOf`): its last turn, its anchors and its events dropped in the last day. */
 function nowOf(
   db: Database,
   a: AgentRow,
   now: number,
-  isForWakes: boolean
+  isForWakes: boolean,
+  on?: AssignmentRow
 ): AgentRead {
   const last =
     db
@@ -231,7 +233,7 @@ function nowOf(
   const waiting = last && !last.ended_at ? "running" : "waiting";
   const status = a.status === "active" ? waiting : a.status;
   return {
-    ...subjectPartOf(db, a, currentAssignmentOf(db, a.id) ?? undefined, {
+    ...subjectPartOf(db, a, on ?? currentAssignmentOf(db, a.id) ?? undefined, {
       isForWakes,
       last,
       now,
@@ -282,7 +284,7 @@ export function agentsNow(db: Database, now: number, isForWakes = false) {
 /** How many past agents a matter's or a project's read lists, after its active ones. */
 const PAST_SHOWN = 10;
 
-/** The agents ever on any of `steps` (a matter's; not those handed over), active first, then the newest past ones. */
+/** The agents ever on any of `steps` (a matter's; not those handed over), active first, then the newest past ones; each read by its assignment on those steps (an open one first), never another it holds. */
 export function agentsOnSteps(
   db: Database,
   steps: string[],
@@ -292,12 +294,24 @@ export function agentsOnSteps(
   if (steps.length === 0) {
     return [];
   }
-  return db
-    .query<AgentRow, (string | number)[]>(
-      `select distinct a.* from anchor n join assignment s on s.id = n.assignment_id join agent a on a.id = s.agent_id where a.status <> 'handed_over' and n.step in (${steps.map(() => "?").join(",")}) order by a.status = 'active' desc, a.created_at desc limit ?`
+  const rows = db
+    .query<AgentRow & { on_assignment: string }, string[]>(
+      `select distinct s.id as on_assignment, a.* from anchor n join assignment s on s.id = n.assignment_id join agent a on a.id = s.agent_id where a.status <> 'handed_over' and n.step in (${steps.map(() => "?").join(",")}) order by a.status = 'active' desc, a.created_at desc, s.closed_at is null desc, s.opened_at desc`
     )
-    .all(...steps, MAX_ACTIVE + PAST_SHOWN)
-    .map((a) => nowOf(db, a, now, isForWakes));
+    .all(...steps);
+  const seen = new Set<string>();
+  return rows
+    .filter((r) => !seen.has(r.id) && seen.add(r.id))
+    .slice(0, MAX_ACTIVE + PAST_SHOWN)
+    .map((r) =>
+      nowOf(
+        db,
+        r,
+        now,
+        isForWakes,
+        assignmentOf(db, r.on_assignment) ?? undefined
+      )
+    );
 }
 
 /** The agents on any of `projects` (not those handed over), active first, then the newest past ones. */

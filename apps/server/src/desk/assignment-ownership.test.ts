@@ -1,6 +1,6 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, iso, MIN } from "../core/clock";
-import { agentsNow } from "../host/agents-now";
+import { agentsNow, agentsOnSteps } from "../host/agents-now";
 import {
   agentOf,
   assignmentOf,
@@ -260,6 +260,10 @@ test("each open card is its own assignment's, so an agent holding two shows each
         own.id,
         other.id,
       ]);
+      // The matter's read shows the agent by its assignment on that matter, so its card is B's, never its own A's.
+      const [onIt] = agentsOnSteps(desk.db, [step], clock().getTime(), true);
+      expect(onIt?.assignment).toBe(other.id);
+      expect(owners[b.id]?.assignment).toBe(onIt?.assignment);
       await withdrawOpenCards(desk.db, { agent_id: id }, "test over");
     }
   );
