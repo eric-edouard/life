@@ -376,9 +376,9 @@ test("the chat's refusal is asked again at the send; a stored draft without a ch
     [ana()],
     false,
     async () => refuse,
-    async () => {
+    () => {
       sends += 1;
-      return "$ev";
+      return Promise.resolve("$ev");
     }
   );
   const stored = await resolveDraft(
