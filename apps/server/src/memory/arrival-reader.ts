@@ -8,6 +8,7 @@
 import { clock, daysBefore } from "../core/clock";
 import { newestWithin, packed } from "../core/lists";
 import { log, recentEvents } from "../core/log";
+import { errorOf } from "../core/log-line";
 import {
   askFoundationModel,
   type FoundationAnswer,
@@ -365,7 +366,7 @@ export async function readArrivals(
     )
   ).catch((e: Error) => {
     // lifelog unreadable: chats and mail are still read, voice on a later pass.
-    log("run.error", { error: e.message, step: "arrivals.voice" });
+    log("run.error", { ...errorOf(e), step: "arrivals.voice" });
     return new Map<string, SourceLine[]>();
   });
   const lineSources = { built: [...evidence.built, ...fetched], spoken };

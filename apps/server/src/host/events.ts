@@ -3,6 +3,7 @@ import { z } from "zod";
 import { clock, HOUR, iso } from "../core/clock";
 import { DEFAULT_RADIUS_M, distanceM } from "../core/distance";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import {
   decode,
   encode,
@@ -434,7 +435,7 @@ export async function readMessageEvents<T>(
         ];
       } catch (error) {
         log("source.read", {
-          error: String(error),
+          ...errorOf(error),
           ok: false,
           source: s.name,
           what: "events",
@@ -455,7 +456,7 @@ export async function readMessageEvents<T>(
     hearVoiceNotes(read.filter((e) => chats.has(e.source))),
     Bun.sleep(HEAR_VOICE_NOTES_MS),
   ]).catch((error) =>
-    log("source.read", { error: String(error), ok: false, what: "voice notes" })
+    log("source.read", { ...errorOf(error), ok: false, what: "voice notes" })
   );
   // What a filter matches is the text every reader sees: its files' lines included.
   const shown = new Map(
@@ -587,7 +588,7 @@ export function readEndedCalls(
       events = s.read(new Date(now - CALLS_BACK));
     } catch (error) {
       log("source.read", {
-        error: String(error),
+        ...errorOf(error),
         ok: false,
         source: s.name,
         what: "calls",

@@ -26,7 +26,6 @@ import { runs } from "../../memory/run-log";
 import { search } from "../../memory/search";
 import { enabledSources } from "../../memory/sources";
 import { recordToldLife } from "../../memory/told-life";
-import { clip } from "../../memory/units";
 import { chatsOf } from "../../memory/words";
 import { payments } from "../../payments/backend";
 import { personalParts } from "../../personal/person-parts";
@@ -690,10 +689,9 @@ export function buildServer(readsOnly = false) {
 export function createMcp(verify: Verify, issuer: string) {
   const { metadata, resource } = connector();
   const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="${SCOPES.join(" ")}"`;
-  // The SDK's own rejections (a request it refuses before any handler) are logged; it says which.
+  // The SDK's own rejections (a request it refuses before any handler) are logged by their class: its text can quote the request.
   const handler = createMcpHandler(() => buildServer(), {
-    onerror: (e) =>
-      log("mcp.call", { error: true, refused: clip(e.message, 300) }),
+    onerror: () => log("mcp.call", { error: true, refused: "rejected" }),
   });
   /** The owner's token (its OAuth client, for the log), or why the request is refused; with the token either way. */
   async function authorize(req: Request) {
@@ -729,8 +727,7 @@ export function createMcp(verify: Verify, issuer: string) {
       }
       // A refused token is logged, never its body; none at all is OAuth discovery or a probe.
       if (auth.token) {
-        const refused = clip(`${auth.refusal}: ${auth.why}`, 300);
-        log("mcp.call", { error: true, refused });
+        log("mcp.call", { error: true, refused: auth.refusal });
       }
       return denied(auth);
     })

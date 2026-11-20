@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { clock, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { log } from "../../core/log";
+import { errorOf } from "../../core/log-line";
 import type { RuntimeName } from "../../core/names";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { cliEnv, HOME, isOwnLife, WINDOWS } from "../../core/platform";
@@ -136,7 +137,7 @@ function readOwnAddresses() {
   try {
     return [...readMailAddresses(), ...(to ? [to] : [])];
   } catch (e) {
-    log("desk.runtime", { error: String(e), ok: false, what: "send facts" });
+    log("desk.runtime", { ...errorOf(e), ok: false, what: "send facts" });
     return to ? [to] : [];
   }
 }
