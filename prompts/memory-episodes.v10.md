@@ -119,6 +119,9 @@ small-talk. Also 1 at most:
   something of {{owner}} that is still open or {{owner}} commits to something. Family, a partner and close friends weigh more;
 - something already done or settled.
 
+A direct ask between {{owner}} and someone {{owner}} knows that is still open (they ask {{owner}} for something, or
+{{owner}} asks them and waits) is never light: 2 at least.
+
 Give 2 or 3 only when the unit carries one of: something {{owner}} must do or promised, something {{owner}} waits for, a choice,
 money that moved or is owed, health, legal or official matters, a booking, ticket or reservation (a repeat
 confirmation too: it holds the dates), news about a person or project {{owner}} cares about<!-- part:aboutMe -->, or {{owner}} saying what {{owner}}

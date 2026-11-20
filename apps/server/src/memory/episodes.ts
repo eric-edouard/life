@@ -72,7 +72,7 @@ import { localTime } from "./zones";
 // and names are (memory/people-inferred.jsonl).
 // Extraction then reads an episode's units together (extract.ts). Units are written here too (units.ts builds them).
 
-export const EPISODES_PROMPT = "memory-episodes.v9";
+export const EPISODES_PROMPT = "memory-episodes.v10";
 const TOPICS_SHOWN = 40;
 /** An episode of an earlier day is shown to the next days until the day after it ends. */
 const CARRY_DAYS = 1;
