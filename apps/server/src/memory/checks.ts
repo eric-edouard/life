@@ -73,7 +73,6 @@ import {
   isOneOfHis,
   isParkedMatterOf,
 } from "./read-matters";
-import { OWNER } from "./read-truth";
 import { sourceOf } from "./sources";
 import {
   type People,
@@ -369,8 +368,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     [...c.endings].flatMap(([ref, link]) => {
       const o = c.byId.get(ref);
       const later = c.byId.get(link.later);
-      // His own later words already say it: no card, the link keeps the step probably done (worked out when read).
-      return o && isEndingOpen(ref, c) && later?.speaker !== OWNER
+      return o && isEndingOpen(ref, c, later)
         ? ranked(
             c,
             "ending",
@@ -760,6 +758,7 @@ async function readChecks(
     answered,
     doubted,
     endings: records.linkEndings,
+    lines,
     matters,
     today,
   });
