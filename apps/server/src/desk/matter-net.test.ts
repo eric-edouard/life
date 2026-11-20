@@ -154,7 +154,7 @@ async function mocked(status = "moving") {
       refOf: (s: string) =>
         s.startsWith("person:") ? s.replace("-voice", "") : null,
       resolve: (s: string) => (s === "Test Ana" ? "person:ana" : null),
-      truth: { people: [] },
+      truth: { people: [], projects: [] },
     } as never)
   );
 }

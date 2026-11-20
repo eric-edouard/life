@@ -128,6 +128,12 @@ const deskOf = (t = setup()) => {
     iso(clock().getTime() + 30 * DAY),
     personal,
   ]);
+  // Its own first turn is done, so the next wake is a hand-out's.
+  const now = clock().toISOString();
+  t.desk.db.run(
+    "insert into turn (agent_id, assignment_id, cause, started_at, begun_at, ended_at, outcome) select agent_id, id, 'start', ?1, ?1, ?1, 'ok' from assignment where agent_id = ?2",
+    [now, personal]
+  );
   return t.desk;
 };
 /** The assignments the desk opened itself (the hand-out), oldest first. */
