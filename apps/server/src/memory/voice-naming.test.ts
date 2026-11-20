@@ -41,7 +41,7 @@ const people = {
   nameOf: (s: string) => s.replace("person:", ""),
   refOf: (s: string) => s,
   resolve: (name: string) => KNOWN[name] ?? null,
-  truth: { people: [] },
+  truth: { organizations: [], people: [] },
 } as never;
 
 let dir = "";
