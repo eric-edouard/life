@@ -1,4 +1,5 @@
 import LifeConnector
+import UniformTypeIdentifiers
 import SwiftUI
 
 // What each ask is about, one body per field Life sends (`said`, `since`, `goal`, `networkIdentity`, `contactsCard`,
@@ -270,7 +271,8 @@ struct NeedsBlock: View {
         switch action {
         case .copy(let text, let label):
             RoundIconButton(symbol: "doc.on.doc", label: label, isDone: copied?.row == row) {
-                UIPasteboard.general.string = text
+                // This phone only: an account number never rides Universal Clipboard to his other devices.
+                UIPasteboard.general.setItems([[UTType.plainText.identifier: text]], options: [.localOnly: true])
                 copied = (row, text)
                 AccessibilityNotification.Announcement("Copied \(text)").post()
                 Task {

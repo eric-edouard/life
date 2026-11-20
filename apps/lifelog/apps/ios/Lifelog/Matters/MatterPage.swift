@@ -36,7 +36,7 @@ struct MatterPage: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(matter)
-                asks(matter.checks)
+                asks(unanswered(matter))
                 if let agent {
                     AgentRow(agent: agent) { router.matterSheet = .agent(id) }
                 }
@@ -64,6 +64,11 @@ struct MatterPage: View {
     }
 
     /// What waits on him here, under the name: each ask of this matter as a row that opens it.
+    /// Its asks less those whose answer is held for Undo or on its way: the Inbox's rule (`answersUnderWay`).
+    private func unanswered(_ matter: Matter) -> [Check] {
+        matter.checks.filter { !life.answersUnderWay.contains($0.ref) }
+    }
+
     private func asks(_ checks: [Check]) -> some View {
         RowGroup {
             ForEach(checks) { check in
@@ -92,7 +97,7 @@ struct MatterPage: View {
         return VStack(alignment: .leading, spacing: 8) {
             Text(row.name).font(.screenName).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            if !matter.checks.isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
+            if !unanswered(matter).isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
             Text(open).font(.small).foregroundStyle(Palette.muted)
         }
         .padding(.top, 8)

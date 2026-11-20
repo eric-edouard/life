@@ -13,6 +13,7 @@ private func need(_ json: String) throws -> Check.Need {
     ).rows
     #expect(rows.map(\.text) == ["Bank", "012-3-45678-9", "Reef Co."])
     #expect(rows[0].action == nil)
+    #expect(rows[2].action == nil)
     #expect(rows[1].action == .copy("0123456789", label: "Copy the account number"))
     #expect(rows[1].isFigure)
 }

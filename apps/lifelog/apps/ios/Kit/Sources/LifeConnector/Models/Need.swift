@@ -59,7 +59,8 @@ extension Check {
                             action: .copy($0.filter { !$0.isWhitespace && $0 != "-" }, label: "Copy the account number")
                         )
                     },
-                    holder.map { NeedRow(glyph: .person, text: $0, action: .copy($0, label: "Copy the name")) },
+                    // The name is his to check against the bank app's, never to paste (the contract).
+                    holder.map { NeedRow(glyph: .person, text: $0) },
                 ].compactMap { $0 }
             case .amount:
                 rows =
