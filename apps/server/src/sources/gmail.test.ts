@@ -114,8 +114,9 @@ test("refused: an address that isn't his, a bad address, a search miss, an accou
     "addresses"
   );
   expect(await g.path.refusal({ ...mail, reaction: "👍" })).toContain(
-    "text and one file"
+    "takes no reactions"
   );
+  expect(g.path.takes(mail.chat)).toMatchObject({ file: true, reply: true });
   expect(
     await gog('{"messages":[]}').path.refusal({
       ...mail,
