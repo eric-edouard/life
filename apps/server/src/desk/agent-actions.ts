@@ -12,14 +12,17 @@ import {
   openTurn,
   queuedEvents,
 } from "../host/desk-read";
-import { matcherOf } from "../host/events";
+import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
+import { matcherOf, waitChannelsOf } from "../host/events";
 import {
   type DecisionRequest,
   decisionsNow,
   requestDecision,
 } from "../memory/decisions";
 import { oneMatter } from "../memory/read-matters";
-import { readPeople } from "../memory/who";
+import { projectPeopleAndChatsOf } from "../memory/read-truth";
+import { nameRefusalOf, readPeople } from "../memory/who";
+import type { EventFilter } from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { type Desk, writeWait } from "./desk-store";
 
@@ -116,17 +119,95 @@ function heard({ db }: Desk, id: string, outcome?: "waited" | "finished") {
   }
 }
 
-/** `set_wait`: the agent's new wait, or why it is refused (the old wait then stands): a filter's person must be someone Life knows. */
+/** Why filter `f`'s place cannot be matched, or null: one coordinate alone, a radius alone, or coordinates on channels whose events hold no point. */
+function placeRefusalOf(
+  f: EventFilter,
+  named: string[],
+  channels: EventChannel[]
+) {
+  if ((f.latitude === undefined) !== (f.longitude === undefined)) {
+    return "`latitude` and `longitude` go together";
+  }
+  if (f.latitude === undefined) {
+    return f.radius_m === undefined
+      ? null
+      : "`radius_m` needs `latitude` and `longitude`";
+  }
+  return channels.some((c) => named.includes(c.name) && c.hasPoint)
+    ? null
+    : `no channel named holds a place: coordinates need ${channels
+        .filter((c) => c.hasPoint)
+        .map((c) => `\`${c.name}\``)
+        .join(" or ")}`;
+}
+
+/** Why a wait may not hold filter `f`, or null: a channel unknown, off or unreadable, or keys its channels cannot answer (a message's on event channels only, a quantity or a place none of them holds). */
+function filterRefusalOf(
+  f: EventFilter,
+  { known, on }: { known: string[]; on: string[] },
+  channels: EventChannel[]
+) {
+  const named = f.channels ?? [];
+  const unknown = named.find((n) => !known.includes(n));
+  if (unknown) {
+    return `${unknown} is not a channel; channels: ${known.join(", ")}`;
+  }
+  const off = named.find((n) => !on.includes(n));
+  if (off) {
+    return channels.find((c) => c.name === off)?.block() ?? `${off} is off`;
+  }
+  if (
+    named.length > 0 &&
+    named.every((n) => channels.some((c) => c.name === n)) &&
+    (f.person || f.chat || f.from_me)
+  ) {
+    return "`person`, `chat` and `from_me` are a message's: a filter on event channels only takes `text_matches`, `quantity` and a place";
+  }
+  const place = placeRefusalOf(f, named, channels);
+  if (place) {
+    return place;
+  }
+  if (!f.quantity) {
+    return f.above === undefined && f.below === undefined
+      ? null
+      : "`above` and `below` need a `quantity`";
+  }
+  if (!f.channels) {
+    return "`quantity` needs `channels`";
+  }
+  const { quantity } = f;
+  if (
+    !channels.some(
+      (c) => named.includes(c.name) && c.quantities.includes(quantity)
+    )
+  ) {
+    return `no channel named holds ${quantity}`;
+  }
+  return null;
+}
+
+/**
+ * `set_wait`: the agent's new wait, or why it is refused (the old wait then stands): a channel unknown, off or that
+ * cannot be read, keys a filter's channels cannot answer, or a person who is no one Life knows.
+ */
 export async function setWait(desk: Desk, id: string, input: unknown) {
   const r = waitOf(input, clock().getTime());
   const { wait } = r;
   if (!wait) {
     return r;
   }
+  const channels = desk.channels ?? EVENT_CHANNELS;
+  const lists = waitChannelsOf(desk.sources, channels);
+  for (const f of wait.events) {
+    const refusal = filterRefusalOf(f, lists, channels);
+    if (refusal) {
+      return { error: refusal };
+    }
+  }
   const people = await readPeople();
   const unknown = wait.events.find((f) => !matcherOf(f, people));
   if (unknown) {
-    return { error: `No one goes by ${unknown.person}` };
+    return { error: nameRefusalOf(unknown.person ?? "", people) };
   }
   desk.db.transaction(() => {
     writeWait(desk.db, id, wait, false);
@@ -179,7 +260,34 @@ export function askDecision(
 
 /** What every session of a registered agent is told after its brief (the desk spec, 5.4): the door's contract and his one gate (what waits on his yes, a plan before any act). */
 const contractOf = (id: string, isOwn: boolean) =>
-  `You are ${id}, a registered agent of the owner's desk${isOwn ? ": one of his own sessions, in full" : ""}. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. ${isOwn ? "Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included." : "You have your door's tools only."} The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated.${isOwn ? " Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward)." : ""} Your first turn only reads and asks your plan (a question ending in a ?, such as "Start with this plan?", options Go, Tell the agent…, Stop the agent): act only after his Go. A \`call.ended\` event is a call of his that ended, with the recording his pendant made of it. Read each of its \`recordings\` with \`fetch\` (\`id\` its \`turn\`, which opens the recording from that turn as it is now; \`limit\` its \`turns\`, and read on if lines before \`until\` remain) and keep only the lines timed from \`at\` to \`until\`: the recording began before the call and went on after it, and nothing said outside those instants is the call's or may be quoted or sent. \`people\` is who may have been on it, not who spoke when: someone may have joined late. Voices heard through a speaker are often unnamed or merged into one: write such a line as an unnamed remote voice, never under a name the recording does not give.`;
+  `You are ${id}, a registered agent of the owner's desk${isOwn ? ": one of his own sessions, in full" : ""}. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. ${isOwn ? "Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included." : "You have your door's tools only."} The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated.${isOwn ? " Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward)." : ""} Your first turn only reads and asks your plan (a question ending in a ?, such as "Start with this plan?", options Go, Tell the agent…, Stop the agent): act only after his Go. A \`call.ended\` event is a call of his that ended, with the recording his pendant made of it. Read each of its \`recordings\` with \`fetch\` (\`id\` its \`turn\`, which opens the recording from that turn as it is now; \`limit\` its \`turns\`, and read on if lines before \`until\` remain) and keep only the lines timed from \`at\` to \`until\`: the recording began before the call and went on after it, and nothing said outside those instants is the call's or may be quoted or sent. \`people\` is who may have been on it, not who spoke when: someone may have joined late. Voices heard through a speaker are often unnamed or merged into one: write such a line as an unnamed remote voice, never under a name the recording does not give. A \`payment.booked\` event is a payment his money app holds; its merchant and note are not in the wake. A \`stay.arrived\` event is an arrival at a place; its name is not in the wake, and one real arrival may wake you more than once (the same place, minutes apart: act once).`;
+
+const NONE =
+  "(none in his directory: find them with `read_chats` and `read_person_page`, and tell him who or which chat is missing)";
+
+/** A project agent's subject: the project, then its people and chats as his directory holds them (what a wait's `person` and `chat` take). */
+async function projectLinesOf(project: string) {
+  const line = `Your subject: the project ${project} (\`read_area_page\`).`;
+  const held = projectPeopleAndChatsOf((await readPeople()).truth, project);
+  if (!held) {
+    return line;
+  }
+  const people = held.people.map(
+    (p) =>
+      `- ${p.id}: ${p.name}${p.aliases.length ? ` (also: ${p.aliases.join(", ")})` : ""}${p.handles.map((h) => `; ${h.platform} ${h.values.join(", ")}`).join("")}`
+  );
+  const chats = held.chats.map(
+    (c) =>
+      `- ${c.key}: ${c.name}${c.isSure ? "" : " (a room id he wrote down: check it against `read_chats` before you wait on it)"}`
+  );
+  return [
+    line,
+    "Its people, as his directory holds them (a wait's `person` takes the id):",
+    ...(people.length ? people : [NONE]),
+    "Its chats (a wait's `chat` takes the key):",
+    ...(chats.length ? chats : [NONE]),
+  ].join("\n");
+}
 
 /**
  * `read_packet`: what a fresh session starts from: its matter as read now (`oneMatter`: where it stands, its goal and
@@ -195,7 +303,7 @@ export async function readPacket({ db }: Desk, id: string, isOwn: boolean) {
   const steps = anchorsOf(db, id);
   return [
     a.project
-      ? `Your subject: the project ${a.project} (\`read_area_page\`).`
+      ? await projectLinesOf(a.project)
       : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify((await oneMatter(steps)) ?? `No matter holds ${steps.join(", ")} now.`)}`,
     a.brief,
     contractOf(a.id, isOwn),

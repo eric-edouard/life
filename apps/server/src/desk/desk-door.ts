@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isOwnLife } from "../core/platform";
 import { same, secretIn } from "../core/secret";
 import { agentOf } from "../host/desk-read";
+import { EVENT_CHANNELS } from "../host/event-channels";
 import { DOOR_PORT, text } from "../host/http/http";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
 import { CARD, DecisionRequest } from "../memory/decisions";
@@ -75,7 +76,7 @@ function doorServer(desk: Desk, id: string) {
     );
   door(
     "set_wait",
-    "Set what you wait for before you stop: `events` (messages: `person`, `channels`, `chat`, `from_me`), `until` (5 minutes to 7 days ahead, ISO), `reason`. The desk wakes you at `until`, on a matching message, or on his answer to your decision.",
+    `Set what you wait for before you stop: \`events\` (filters on new messages, any one matching wakes you: \`person\`, \`channels\`, \`chat\`, \`from_me\`, \`text_matches\`, a regular expression on the text, any case, 200 characters at most: keep it to plain words, such as \`zort|invitation\`; a filter with only \`text_matches\` matches a message from anyone but him), \`until\` (5 minutes to 7 days ahead, ISO), \`reason\`. The desk wakes you at \`until\`, on a matching message, on a call that ended in a chat or with a person a filter names, or on his answer to your decision. A wake names the message, never its text: read it yourself. Other channels wake you only when a filter names them: ${EVENT_CHANNELS.map((c) => `\`${c.name}\` (${c.quantities.length ? `quantities ${c.quantities.map((q) => `\`${q}\``).join(", ")}; ` : ""}${c.about})`).join(", ")}. \`quantity\` with \`above\` and/or \`below\` compares. A channel that is off or unknown is refused. A wake hands facts and quantities, never text.`,
     AgentWait,
     (w) => setWait(desk, id, w)
   );

@@ -14,6 +14,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     let starts = Mutex<[AgentRequest]>([])
 
     func readInbox() async throws -> String { "{}" }
+    func readInbox(pushId: String) async throws -> String { "{}" }
     func readMatters() async throws -> String { "{}" }
     func readMatter(_ id: String) async throws -> String { matter }
     func readRegisteredAgents() async throws -> String { "{}" }
@@ -87,6 +88,21 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     // Life decided: the next tap is a new one, so a new key.
     #expect(!failure.isSameTap)
     #expect(!failure.mayHaveHappened)
+}
+
+@Test func aNotSentBecauseSomeoneWroteCarriesTheMessageLifeNamed() async throws {
+    let life = FakeLife()
+    let text = try wireText("life/answer_check_not_sent.json").replacingOccurrences(
+        of: #""wrote": null"#,
+        with: #""wrote": {"at": "2026-11-18T09:52:00.000Z", "by": "Kit Moreau", "text": "Can you post it instead?"}"#)
+    life.answers = [{ _ in text }]
+    let state = await run { await LifeActions(api: life).answer(request, key: "tap-1", emit: $0) }
+    guard case .failed(let failure, _) = state else {
+        Issue.record("\(state)")
+        return
+    }
+    #expect(failure.wrote?.by == "Kit Moreau")
+    #expect(failure.wrote?.text == "Can you post it instead?")
 }
 
 @Test func aSendThatMayHaveGoneIsNeverRetried() async throws {

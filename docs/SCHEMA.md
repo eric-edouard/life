@@ -632,7 +632,7 @@ full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict
 desk (`apps/server/src/desk/`: its helper, and `life desk report-line`; `desk-store.ts` holds its schema), read only
 through `host/desk-read.ts` (host's reads read-only): table `agent` (a registered agent: `agt_…`, its
 brief, runtime, folder (named at its start, else its matter's or project's repo on the Mac, from `repos:` in his directory, else its own `desk/agents/<agt_…>` under Life's state), `project` (its subject when a project), `model` and `effort` (null: the desk's default for its
-runtime), current session and link, `status` `active`, `stopped`, `handed_over` (replaced by a newer agent on its project or matter: `ended_at` set, `outcome` "replaced by <id>") or `ended`, its agent
+runtime), current session and link, `status` `active`, `stopped`, `handed_over` (a stopped agent whose project or matter an agent was started on after: `ended_at` set, `outcome` "replaced by <id>"), or `ended`; `stopped_at` (when he stopped it; null unless stopped), its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an active agent with no
 `wait_until`), its notes; its open decision is read from `decisions.jsonl` by its id), `session` (every session it had, with its link and `context_at_first_call`, the context its first turn's usage reported; append-only), `event` (its
 queued events, one row per agent and event id, `name` `message.received`, `decision.answered`, `decision.lapsed` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its

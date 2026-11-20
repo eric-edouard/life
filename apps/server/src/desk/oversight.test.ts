@@ -1,4 +1,4 @@
-import { afterAll, expect, spyOn, test } from "bun:test";
+import { afterAll, expect, setSystemTime, spyOn, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -9,7 +9,13 @@ import { setSettings } from "../core/settings";
 import { ask } from "../host/asks";
 import { changeRegisteredAgent } from "../host/change-registered-agent";
 import { requested } from "../host/change-todo-item";
-import { agentChangeOf, agentOf, modelOf } from "../host/desk-read";
+import {
+  agentChangeOf,
+  agentOf,
+  agentsNow,
+  agentsOnProjects,
+  modelOf,
+} from "../host/desk-read";
 import {
   agentLinesOnProjects,
   readActiveAgentOf,
@@ -19,6 +25,7 @@ import {
 } from "../host/registered-agents";
 import { deskCard } from "../host/status/desk-card";
 import { CORRECTIONS } from "../memory/memory-files";
+import { readPeople } from "../memory/who";
 import type { AgentChange } from "../records/registered-agent";
 import { readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
@@ -43,19 +50,26 @@ const desk: Desk = {
 };
 
 afterAll(() => {
+  setSystemTime();
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
   // A start on a matter saves its goal.
   rmSync(CORRECTIONS, { force: true });
   setSettings({ desk: null });
 });
 
-/** His word, recorded as the connector records it (an ask of the desk), `ago` ms before now; its ask id. */
+/**
+ * His word, recorded as the connector records it (an ask of the desk), `ago` ms before now; its ask id. An ask's id is its
+ * ref's (`via:instant`), and the ledger is shared by every test file of the run: a ref of the connector's own could meet
+ * another file's ask at the same millisecond (the ask then returns that one, and its row answers this), so these are
+ * their own `via`. (The asks made through `changeRegisteredAgent` keep the connector's own ref, which production sets, and
+ * the id is the ref's alone: two files' asks there in the same millisecond share one id. That is the residual risk.)
+ */
 let n = 0;
 const said = (change: AgentChange | null, ago = 0) => {
   n += 1;
   return ask(
     requested(
-      "connector",
+      "oversight-test",
       `Test: change ${n}`,
       new Date(clock().getTime() - ago - n * 1000).toISOString()
     ),
@@ -78,6 +92,7 @@ async function applied(change: AgentChange | null, ago = 0) {
 }
 
 const STEP = "obs_00000000a101";
+const people = await readPeople();
 
 /** The agent the first test starts; the next one changes it. */
 let agent = "";
@@ -233,7 +248,9 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       project: "test-shop",
     });
 
-    expect(readAgentsOnSteps([STEP, "obs_00000000a999"])[0]).toMatchObject({
+    expect(
+      readAgentsOnSteps([STEP, "obs_00000000a999"], [], people)[0]
+    ).toMatchObject({
       id: onMatter?.id,
       status: "waiting",
     });
@@ -251,18 +268,17 @@ test("what his agents are doing: each with its matter, status, wait, link and am
     expect(readActiveAgentOf()(["obs_00000000a999"], ["test-farm"])).toBe(
       undefined
     );
-    expect(readAgentsOnSteps([STEP], ["test-shop"]).map((a) => a.id)).toEqual([
-      own,
-      worker,
-    ]);
+    expect(
+      readAgentsOnSteps([STEP], ["test-shop"], people).map((a) => a.id)
+    ).toEqual([own, worker]);
     // A stopped worker holds the project for the desk, but works on nothing: no row carries it.
     desk.db.run("update agent set status = 'stopped' where id = ?", [worker]);
     expect(
       readActiveAgentOf()(["obs_00000000a999"], ["test-shop"])
     ).toBeUndefined();
-    expect(readAgentsOnSteps([STEP], ["test-shop"]).map((a) => a.id)).toEqual([
-      own,
-    ]);
+    expect(
+      readAgentsOnSteps([STEP], ["test-shop"], people).map((a) => a.id)
+    ).toEqual([own]);
     desk.db.run("update agent set status = 'active' where id = ?", [worker]);
     // A matter of two projects, each with an active worker, gets the first project's.
     const farm =
@@ -320,7 +336,7 @@ test("the desk off breaks no read: each says so, and his word is refused", async
   setSettings({ desk: null });
   expect((await readRegisteredAgents()).desk).toBe("off");
   expect(await readAgentRows(clock().toISOString())).toEqual([]);
-  expect(readAgentsOnSteps([STEP])).toEqual([]);
+  expect(readAgentsOnSteps([STEP], [], people)).toEqual([]);
   expect(deskCard(clock().getTime())).toMatchObject({
     tone: "idle",
     word: "off",
@@ -375,7 +391,13 @@ test("change_registered_agent records his word and answers with what the desk di
     ...made,
     projects: [
       ...made.projects,
-      { id: "test-shop", name: "Test shop", repos: ["test-shop-site"] },
+      {
+        chats: [],
+        id: "test-shop",
+        name: "Test shop",
+        people: [],
+        repos: ["test-shop-site"],
+      },
     ],
   } as never);
   const repos = spyOn(
@@ -456,6 +478,68 @@ test("change_registered_agent records his word and answers with what the desk di
   }
 }, 30_000);
 
+/** Starts an agent on `subject` and returns its id; the clock is frozen so a stop time can be compared. */
+async function startedOn(subject: Partial<AgentChange>) {
+  setSystemTime(new Date(clock().getTime()));
+  const r = await applied({
+    action: "start",
+    folder,
+    runtime: "claude",
+    ...subject,
+  } as AgentChange);
+  return r?.agent_id ?? "";
+}
+const stopped = async (id: string) => {
+  await applied({ action: "stop", agent: id });
+  return agentOf(desk.db, id);
+};
+
+test("he stops an agent, then starts another on its project or matter: it is handed over at once", async () => {
+  const a = await startedOn({ project: "test-hand" });
+  expect((await stopped(a))?.stopped_at).toBe(clock().toISOString());
+  const b = await startedOn({ project: "test-hand" });
+  expect(agentOf(desk.db, a)).toMatchObject({
+    outcome: `replaced by ${b}`,
+    status: "handed_over",
+    stopped_at: null,
+  });
+  expect(agentsNow(desk.db, clock().getTime()).map((x) => x.id)).not.toContain(
+    a
+  );
+  expect(
+    agentsOnProjects(desk.db, ["test-hand"], clock().getTime()).map((x) => x.id)
+  ).toEqual([b]);
+  const m = await startedOn({ steps: ["obs_00000000a2a1"] });
+  await stopped(m);
+  const next = await startedOn({ steps: ["obs_00000000a2a1"] });
+  expect(agentOf(desk.db, m)?.outcome).toBe(`replaced by ${next}`);
+});
+
+test("a stopped agent re-pointed onto a project with an active agent stays stopped; resume clears its stop time", async () => {
+  const c = await startedOn({ project: "test-other" });
+  await stopped(c);
+  await applied({ action: "re_point", agent: c, project: "test-hand" });
+  expect(agentOf(desk.db, c)?.status).toBe("stopped");
+  expect((await applied({ action: "resume", agent: c }))?.error).toBeNull();
+  expect(agentOf(desk.db, c)?.stopped_at).toBeNull();
+  await stopped(c);
+  expect(
+    agentsNow(desk.db, clock().getTime()).find((x) => x.id === c)?.statusSince
+  ).toBe(clock().toISOString());
+});
+
+test("a start that returns the existing agent (active, same words) hands nothing over", async () => {
+  const d = await startedOn({ project: "test-repeat" });
+  const e = await startedOn({ project: "test-repeat" });
+  await stopped(e);
+  desk.db.run("update agent set brief = ? where id = ?", [
+    `Test: change ${n + 1}`,
+    d,
+  ]);
+  expect(await startedOn({ project: "test-repeat" })).toBe(d);
+  expect(agentOf(desk.db, e)?.status).toBe("stopped");
+});
+
 test("its store unreadable, the reads say so and the report still has its section", async () => {
   desk.db.close();
   for (const f of ["", "-wal", "-shm"]) {
@@ -467,7 +551,7 @@ test("its store unreadable, the reads say so and the report still has its sectio
   expect(await readAgentRows(clock().toISOString())).toEqual([
     { name: "Desk", relation: "its store could not be read" },
   ]);
-  expect(readAgentsOnSteps([STEP])).toEqual([]);
+  expect(readAgentsOnSteps([STEP], [], people)).toEqual([]);
   expect(deskCard(clock().getTime())).toMatchObject({
     tone: "bad",
     word: "unreadable",

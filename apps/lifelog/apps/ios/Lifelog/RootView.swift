@@ -19,7 +19,7 @@ struct RootView: View {
     var body: some View {
         TabView(selection: $router.tab) {
             Tab("Inbox", systemImage: "tray", value: AppRouter.Tab.inbox) {
-                NavigationStack { InboxScreen().shellBar("Inbox") }
+                InboxScreen()
             }
             .badge(life.inbox.value?.badge ?? 0)
             Tab("Matters", systemImage: "list.bullet.indent", value: AppRouter.Tab.matters) { MattersScreen() }
@@ -130,6 +130,7 @@ struct RootView: View {
             if let sheet = LifeFixture.sheet.flatMap(AppRouter.Sheet.init(rawValue:)) { router.sheet = sheet }
             // The pendant sheet's own sheets open from inside it (`PendantScreen`).
             if ["replacePendant", "pairPendant"].contains(LifeFixture.sheet) { router.sheet = .pendant }
+            if LifeFixture.sheet == "agent" { router.matterSheet = LifeFixture.matter.map { .agent($0) } }
             if ["pair", "pairing"].contains(LifeFixture.sheet) {
                 confirming = URL(string: "lifelog://pair?life=https%3A%2F%2Flife.example.test&code=ABC234").flatMap(
                     PairOffer.init)

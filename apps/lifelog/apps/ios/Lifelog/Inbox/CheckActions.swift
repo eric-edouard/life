@@ -8,23 +8,32 @@ struct CardInput: Equatable {
     var showsWhy = false
 }
 
-/// A card's answers: its options as Life labels them, "Something else" where an agent reads his words, the link to the
-/// asker's app and what happens on silence. An option that takes more than a tap asks for it: who it is ("Same as…"),
-/// or his words. Apart from the card so a wide screen can put them at the bottom of the card's region or, when the
-/// regions are stacked, of the screen.
+/// A link on the ask and what it does: "Why?", "Before and after", or "Tell the agent…".
+struct AskLink {
+    let title: String
+    let run: () -> Void
+}
+
+/// A card's answers inside its panel: the deadline's line, the first option filled, the others in one row when they are
+/// few and short and fit, else each on a row of its own. An option that takes more than a tap asks for it: who it is
+/// ("Same as…"), or his words. `links` are the ask's links that the row under the thing does not hold: at the right end
+/// of the deadline's line.
 struct CheckActions: View {
     let check: Check
-    let runtimeName: RuntimeName?
     @Binding var input: CardInput
+    /// His answer is being sent or saved: its busy pill stands in for the answers.
+    let isBusy: Bool
+    let links: [AskLink]
     let answer: (AnswerRequest) -> Void
     let sameAs: () -> Void
 
-    @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(LifeStore.self) private var life
 
     private var words: String { input.words.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Metrics.Spacing.s) {
             if input.isWritingOwnWords {
                 Button {
                     if let request = check.answer(words: words) { answer(request) }
@@ -33,67 +42,139 @@ struct CheckActions: View {
                 }
                 .buttonStyle(.pill(.filled))
                 .disabled(words.isEmpty)
-                Button("Back to the options") { input.isWritingOwnWords = false }.buttonStyle(.pill(.quiet))
+                Button("Back to the options") { input.isWritingOwnWords = false }.buttonStyle(
+                    .pill(.quiet, size: .compact))
+            } else if isBusy {
+                Button {
+                } label: {
+                    Text(check.draft != nil ? "Sending…" : "Saving…")
+                }
+                .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
             } else {
-                if let line = deadlineLine {
-                    Text(line).font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                }
+                line
+                refusal
                 options
-                HStack {
-                    if check.takesOwnWords {
-                        TextLink("Something else") { input.isWritingOwnWords = true }
-                    }
-                    Spacer(minLength: 12)
-                    if let link = check.links.first.flatMap(URL.init(string:)) {
-                        TextLink("Open in \(runtimeName?.name ?? "its app")", isOutward: true) { openURL(link) }
-                    }
-                }
             }
         }
+    }
+
+    /// His last answer to this ask that did not go, in one `flag` line above the same answers; a send that someone wrote
+    /// over names their message too (Life's own word, `wrote`: never decided here).
+    @ViewBuilder private var refusal: some View {
+        if case .failed(let failure, _) = life.state(of: .answer(ref: check.ref)) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                if let wrote = failure.wrote {
+                    let by = wrote.by ?? check.draft?.to ?? "Someone"
+                    Text("Not sent: \(by) wrote since.").font(.small).foregroundStyle(Palette.flag)
+                    if let text = wrote.text {
+                        let when = wrote.at.map { ", \($0.formatted(.dateTime.hour().minute()))" } ?? ""
+                        Text("\(by)\(when)").font(.small).foregroundStyle(Palette.muted)
+                        Text("“\(text)”").font(.body15).foregroundStyle(Palette.fg).fixedSize(
+                            horizontal: false, vertical: true)
+                    }
+                } else {
+                    // Life's own reason when Life answered; the fixed line only when the connection failed.
+                    Text(failure.isSameTap ? "Not sent to your Mac." : failure.reason)
+                        .font(.small).foregroundStyle(Palette.flag)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading).appears()
+        }
+    }
+
+    /// The deadline in one line above the answers, with the link at its right end when the row under the thing had none.
+    @ViewBuilder private var line: some View {
+        let text = check.deadlineLine()
+        if text != nil || !links.isEmpty {
+            // Under an accessibility size the links go under the words, and under each other, never cut.
+            let layout =
+                typeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading)) : AnyLayout(HStackLayout(spacing: Metrics.Spacing.m))
+            layout {
+                if let text { Text(text).font(.small).foregroundStyle(Palette.muted) }
+                if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
+                layout {
+                    ForEach(links, id: \.title) { link in TextLink(link.title, action: link.run) }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private struct Choice: Identifiable {
+        let id: String
+        let label: String
+        let run: () -> Void
+    }
+
+    /// The options the answers draw: a new matter's goal edit is the goal's pencil, never an answer.
+    private var shown: [Check.Option] {
+        check.options.filter { !(check.group == .newMatter && $0.takes == .note) }
+    }
+
+    /// The people it may be, each one tap away, when the card fills no answer of its own ("Yes"): a Contacts card, a voice, a name.
+    private var people: [Check.Person] {
+        check.isNamingFilled ? check.likelyPeople : []
     }
 
     @ViewBuilder private var options: some View {
-        if let first = check.options.first {
-            Button {
-                tap(first)
-            } label: {
-                HStack(spacing: 10) {
-                    if first.outgoing == true { Image(systemName: "arrow.up").accessibilityHidden(true) }
-                    Text(first.label)
+        if !people.isEmpty {
+            ForEach(people, id: \.person) { person in
+                Button {
+                    if let request = check.answer(naming: .person(person.person)) { answer(request) }
+                } label: {
+                    PersonAnswer(person: person)
                 }
+                .buttonStyle(PersonAnswerStyle())
             }
-            .buttonStyle(.pill(.filled))
-            let rest = Array(check.options.dropFirst())
-            if !rest.isEmpty {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible())], spacing: 8) {
-                    ForEach(rest, id: \.id) { option in
-                        Button(option.label) { tap(option) }.buttonStyle(.pill(.quiet))
-                    }
-                }
+            others(shown.map { option in Choice(id: option.id, label: label(of: option)) { tap(option) } })
+        } else if let first = shown.first {
+            Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
+            let rest = shown.dropFirst().map { option in
+                Choice(id: option.id, label: label(of: option)) { tap(option) }
             }
+            if !rest.isEmpty { others(rest) }
         }
     }
 
-    /// One tap answers; an option that takes a note opens his words (a new matter's goal, ready to edit), one that names
-    /// someone opens "Same as…".
+    /// The server's words, except the filled naming answer with no candidate drawn: "Name them…" (a voice) or
+    /// "Someone I know…" (a name).
+    private func label(of option: Check.Option) -> String {
+        guard check.isNamingFilled, people.isEmpty, option.id == check.namingOption?.id else { return option.label }
+        switch check.group {
+        case .voice: return "Name them…"
+        case .name: return "Someone I know…"
+        default: return option.label
+        }
+    }
+
+    /// One row of 44 when there are at most three, each of three words or fewer, and the row holds them; else rows of 48.
+    @ViewBuilder private func others(_ rest: [Choice]) -> some View {
+        let isShort = rest.count <= 3 && rest.allSatisfy { $0.label.split(separator: " ").count <= 3 }
+        let stack = VStack(spacing: Metrics.Spacing.s) {
+            ForEach(rest) { choice in Button(choice.label, action: choice.run).buttonStyle(.pill(.quiet, size: .row)) }
+        }
+        if isShort && !typeSize.isAccessibilitySize {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Metrics.Spacing.s) {
+                    ForEach(rest) { choice in
+                        Button(choice.label, action: choice.run).buttonStyle(.pill(.quiet, size: .compact))
+                            .lineLimit(1)
+                    }
+                }
+                stack
+            }
+        } else {
+            stack
+        }
+    }
+
+    /// One tap answers; an option that names someone opens "Same as…".
     private func tap(_ option: Check.Option) {
         if let request = check.answer(option) { return answer(request) }
         switch option.takes {
-        case .note?:
-            input.words = check.goal ?? ""
-            input.isWritingOwnWords = true
         case .person?, .personOrName?: sameAs()
-        case .unknown?, nil: break
+        case .note?, .unknown?, nil: break
         }
-    }
-
-    /// What happens when his deadline passes, above the answers: the only line a card puts near them.
-    private var deadlineLine: String? {
-        guard check.group == .decision || check.group == .unknown, let deadline = check.deadline else { return nil }
-        let when = deadline.formatted(.dateTime.weekday(.wide).hour().minute())
-        if check.draft != nil { return "No answer by \(when): nothing is sent." }
-        let chosen = check.options.first { $0.id == check.onSilence }?.label
-        return "No answer by \(when): " + (chosen.map { "“\($0)”." } ?? "nothing happens.")
     }
 }

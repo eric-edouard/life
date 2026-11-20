@@ -54,12 +54,6 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
         public let isDefault: Bool
     }
 
-    public struct Turn: Decodable, Sendable, Equatable {
-        public let startedAt: Date
-        public let endedAt: Date?
-        public let outcome: String?
-    }
-
     public struct Matter: Decodable, Sendable, Equatable {
         public let id: String
         public let name: String
@@ -70,8 +64,6 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     public let title: String
     public let status: AgentStatus
     public let runtime: String
-    public let model: String?
-    public let effort: String?
     public let link: String?
     public let notes: String
     public let outcome: String?
@@ -81,7 +73,10 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     /// The matter its first anchor finds, when its subject is one (not in a matter's own `agents`).
     public let matter: Matter?
     public let wait: Wait?
-    public let lastTurn: Turn?
+    /// Since when it has been in its status; nil when the desk has no date.
+    public let statusSince: Date?
+    /// What will wake it while it waits, in its own order; none otherwise.
+    public let wakesOn: [WakeLine]
     public let amber: [String]
 
     public var runtimeName: RuntimeName { RuntimeName(rawValue: runtime) ?? .unknown }

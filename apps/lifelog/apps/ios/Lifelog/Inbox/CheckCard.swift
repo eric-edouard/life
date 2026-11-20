@@ -1,221 +1,275 @@
 import LifeConnector
 import SwiftUI
 
-/// One check as a card, whatever its kind: its look comes from what it holds (a draft, an evidence quote, clips, a
-/// group), never from a kind of its own. His taps leave through `answer`; this view keeps nothing of the answer.
+/// One check as the Ask panel, whatever its kind: the question first, nothing above it; the thing it is about on `tile`,
+/// which takes every point left and scrolls; one row under it (the matter, and the one link); then its answers. Its look
+/// comes from what the check holds (a draft, an evidence quote, clips, a group), never from a kind of its own. His taps
+/// leave through `answer`; this view keeps nothing of the answer. At an accessibility text size the whole panel scrolls.
 struct CheckCard: View {
     let check: Check
     /// The runtime of the agent that asked, when the card's matter has one.
     let runtimeName: RuntimeName?
     let openMatter: (String) -> Void
-    /// His answer to the guess a draft rests on (`check.confirm`), sent at once; the card stays as it is.
-    let confirm: (AnswerRequest) -> Void
     /// What he has typed or opened on this card: kept by the screen, so folding the phone keeps it.
     @Binding var input: CardInput
+    /// His answer is being sent or saved.
+    let isBusy: Bool
+    let answer: (AnswerRequest) -> Void
+    let sameAs: () -> Void
 
-    /// The card's context shows in a region of its own, so its "Why" row goes: `CardArrangement` decides.
+    /// The card's context shows in a region of its own, so its matter row and "Why" link go: `CardArrangement` decides.
     @Environment(\.isContextBeside) private var isContextBeside
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @FocusState private var isWriting: Bool
+    /// Whether the link found room beside the matter; else it moves to the deadline's line.
+    @State private var isLinkBesideMatter = true
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                agentPill
-                Text(check.question).font(.cardQuestion).foregroundStyle(Palette.fg)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.bottom, 4)
-                    .accessibilityAddTraits(.isHeader)
-                matterChip
+        Group {
+            if typeSize.isAccessibilitySize {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+                        question
+                        tile(scrolls: false)
+                        matterRow
+                        actions
+                    }
+                    .padding(.horizontal, Metrics.Spacing.s).padding(.vertical, Metrics.Spacing.m).readingWidth()
+                }
+            } else {
+                VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+                    question
+                    tile(scrolls: true)
+                    matterRow
+                    actions
+                }
+                .padding(.horizontal, Metrics.Spacing.s).padding(.top, Metrics.Spacing.m)
+                .padding(.bottom, Metrics.Spacing.s).readingWidth()
+            }
+        }
+        .sheet(isPresented: $input.showsWhy) {
+            WhySheet(
+                title: askLinks.first?.title ?? "Why?", context: check.context,
+                evidence: isIdentityShown ? check.evidence : nil, said: check.said, names: check.about ?? [],
+                around: check.around,
+                link: check.links.first, runtime: runtimeName
+            )
+            .sheetStack()
+        }
+    }
+
+    private var question: some View {
+        Text(check.question).font(.cardQuestion).foregroundStyle(Palette.fg)
+            .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: Under the question
+
+    /// A guessed person with the chat the network shows them in: that is the thing, and the words Life read them from
+    /// are behind "Why <name>?".
+    private var isIdentityShown: Bool { check.group == .guessedPerson && check.networkIdentity != nil }
+
+    /// The words the ask rests on, when no sentence or identity already says them.
+    private var shownEvidence: Check.Evidence? { check.said == nil && !isIdentityShown ? check.evidence : nil }
+
+    /// Whether a field of the ask has a body of its own to draw.
+    private var hasBody: Bool {
+        check.draft != nil || shownEvidence != nil || !check.clips.isEmpty || check.said != nil || isIdentityShown
+            || check.contactsCard != nil || (check.group == .newMatter && check.goal != nil)
+    }
+
+    /// An ask with nothing of its own to show but its context shows that as the thing.
+    private var contextThing: String? {
+        guard !hasBody, !isContextBeside, let context = check.context, !context.isEmpty else { return nil }
+        return context
+    }
+
+    private var hasThing: Bool { hasBody || contextThing != nil }
+
+    /// The thing on `tile`: his own words while he writes them, else what the ask is about; no tile when it has nothing.
+    /// The tile hugs the thing and scrolls (from its start) only when the thing is taller than the room.
+    @ViewBuilder private func tile(scrolls: Bool) -> some View {
+        if input.isWritingOwnWords || hasThing {
+            let thing = VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                 if input.isWritingOwnWords { ownWords } else { content }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 16)
-            .readingWidth()
-        }
-        .scrollBounceBehavior(.basedOnSize)
-        .scrollEdgeEffectStyle(.soft, for: .bottom)
-    }
-
-    // MARK: Top
-
-    /// An agent's name, the only thing above the question; Life's own asks have none.
-    @ViewBuilder private var agentPill: some View {
-        if let name = check.agentName(runtime: runtimeName) {
-            Label(name, systemImage: "sparkle")
-                .labelStyle(.titleAndIcon).font(.chip)
-                .foregroundStyle(Palette.ai).padding(.horizontal, 14).frame(minHeight: 40)
-                .background(Color.fillTint, in: .capsule).lineLimit(1)
-        }
-    }
-
-    @ViewBuilder private var matterChip: some View {
-        HStack(spacing: 8) {
-            if let matter = check.matter {
-                Button {
-                    openMatter(matter.id)
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "list.bullet.indent").accessibilityHidden(true)
-                        Text(matter.name).lineLimit(1)
-                        Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(
-                            Palette.muted
-                        )
-                        .accessibilityHidden(true)
-                    }
-                    .font(.chip).foregroundStyle(Palette.fg)
-                    .padding(.horizontal, 14).frame(minHeight: 40).background(Color.fillTint, in: .capsule)
+            .padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
+            if scrolls {
+                ViewThatFits(in: .vertical) {
+                    thing.background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
+                    ScrollView { thing }.scrollBounceBehavior(.basedOnSize)
+                        .scrollEdgeEffectStyle(.soft, for: .vertical)
+                        .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
+                        .clipShape(.rect(cornerRadius: Metrics.Radius.passage))
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Matter: \(matter.name)")
+                Spacer(minLength: 0)
+            } else {
+                thing.background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
             }
+        } else if scrolls {
+            Spacer(minLength: 0)
         }
     }
-
-    // MARK: Body
 
     @ViewBuilder private var content: some View {
-        ForEach(check.confirm ?? []) { guess in
-            RowGroup {
-                QuestionRow(check: guess) { option in
-                    if let request = guess.answer(option) { confirm(request) }
-                }
-            }
+        if let draft = check.draft {
+            DraftBlock(
+                draft: draft, identity: check.networkIdentity, isGuess: !(check.confirm ?? []).isEmpty, isBoxed: false)
         }
-        if let draft = check.draft { DraftBlock(draft: draft) }
-        if let evidence = check.evidence { EvidenceBlock(evidence: evidence) }
-        if !check.clips.isEmpty { ClipBlock(clips: check.clips) }
-        if !isContextBeside, let context = check.context, !context.isEmpty {
-            DisclosureGroup(isExpanded: $input.showsWhy) {
-                Text(context).font(.body15).foregroundStyle(Palette.muted).frame(
-                    maxWidth: .infinity, alignment: .leading
-                )
-                .padding(.top, 6).fixedSize(horizontal: false, vertical: true)
-            } label: {
-                Text(whyLabel).font(.lead).foregroundStyle(Palette.muted)
-            }
-            .tint(Palette.muted)
-            .padding(.vertical, 12)
-            .overlay(alignment: .top) { Hairline() }
-            .overlay(alignment: .bottom) { Hairline() }
-        }
-    }
-
-    private var whyLabel: String {
         switch check.group {
-        case .contactsCard, .newMatter: "Where Life found it"
-        case .ending: "What rests on it"
-        case .voice: "Why Life thinks so"
-        default: "Why, and what it rests on"
+        case .ending: EndingBlock(said: check.said, since: check.since)
+        case .newMatter:
+            NewMatterBlock(goal: check.goal, said: check.said) {
+                input.words = check.goal ?? ""
+                input.isWritingOwnWords = true
+            }
+        case .name: NameBlock(said: check.said, names: check.about ?? [], clip: check.clips.first)
+        default:
+            if let said = check.said { SaidBlock(said: said) }
+        }
+        if isIdentityShown, let identity = check.networkIdentity { PersonIdentityBlock(identity: identity) }
+        if let card = check.contactsCard { ContactsCardBlock(card: card) }
+        if let evidence = shownEvidence { EvidenceBlock(evidence: evidence) }
+        if check.group == .voice, !check.clips.isEmpty { VoiceBlock(clips: check.clips) }
+        if let contextThing {
+            Text(contextThing).font(.quote).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private var ownWords: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Caps(check.group == .newMatter ? "Your goal" : "Your answer")
-            TextField(
-                check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
-            )
-            .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
-            .padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))
-            Text(
-                check.group == .newMatter
-                    ? "It becomes the matter's goal. Then Start or Dismiss." : "Your words go to the agent as they are."
-            ).font(.small).foregroundStyle(Palette.faint)
+        TextField(
+            check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
+        )
+        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8).focused($isWriting)
+        .onAppear { isWriting = true }
+    }
+
+    // MARK: The row under the thing, and the link
+
+    /// An agent's open question: his words go to the agent.
+    private var isAgentQuestion: Bool { check.takesOwnWords && check.draft == nil }
+
+    /// The ask's links, by what each opens: "Before and after" when the lines around a voice or a name are known, else
+    /// "Why?" ("Why this reply?" on a draft; none on a voice); then "Tell the agent…" on an agent's question.
+    private var askLinks: [AskLink] {
+        var links: [AskLink] = []
+        let hasLines = !((check.around?.before ?? []) + (check.around?.after ?? [])).isEmpty
+        if [.voice, .name].contains(check.group), hasLines {
+            links.append(AskLink(title: "Before and after") { input.showsWhy = true })
+        } else if check.group != .voice, ![.ending, .newMatter].contains(check.group), !isContextBeside,
+            !check.links.isEmpty || (contextThing == nil && !(check.context ?? "").isEmpty)
+        {
+            links.append(AskLink(title: whyTitle) { input.showsWhy = true })
         }
+        if isAgentQuestion { links.append(AskLink(title: "Tell the agent…") { input.isWritingOwnWords = true }) }
+        return links
+    }
+
+    private var whyTitle: String {
+        check.draft != nil ? "Why this reply?" : check.networkIdentity?.shownName.map { "Why \($0)?" } ?? "Why?"
+    }
+
+    private var isRowShown: Bool {
+        !input.isWritingOwnWords && !isContextBeside && (check.matter != nil || !askLinks.isEmpty)
+    }
+
+    /// The matter as a pill and, at its right, the first link; when both do not fit, the pill alone and the links move to
+    /// the deadline's line above the answers.
+    @ViewBuilder private var matterRow: some View {
+        if isRowShown {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Metrics.Spacing.m) {
+                    matterPill.fixedSize()
+                    Spacer(minLength: Metrics.Spacing.m)
+                    if let link = askLinks.first { TextLink(link.title, action: link.run).fixedSize() }
+                }
+                .preference(key: LinkBesideMatter.self, value: true)
+                HStack(spacing: 0) {
+                    matterPill
+                    Spacer(minLength: 0)
+                }
+                .preference(key: LinkBesideMatter.self, value: false)
+            }
+            .onPreferenceChange(LinkBesideMatter.self) { isLinkBesideMatter = $0 }
+        }
+    }
+
+    @ViewBuilder private var matterPill: some View {
+        if let matter = check.matter {
+            InlinePill(name: matter.name, isAgent: check.agentName(runtime: nil) != nil) {
+                openMatter(matter.id)
+            }
+        }
+    }
+
+    private var actions: some View {
+        CheckActions(
+            check: check, input: $input, isBusy: isBusy,
+            links: isRowShown && isLinkBesideMatter ? Array(askLinks.dropFirst()) : askLinks, answer: answer,
+            sameAs: sameAs
+        )
+        .padding(.bottom, Metrics.Spacing.xs)
     }
 }
 
-// MARK: Bodies
-
-/// The words a card rests on, and where they came from.
-private struct EvidenceBlock: View {
-    let evidence: Check.Evidence
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("“\(evidence.quote)”").font(.quote).foregroundStyle(Palette.fg)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(evidence.from).font(.small).foregroundStyle(Palette.muted)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .paperBox()
-        .accessibilityElement(children: .combine)
-    }
+private struct LinkBesideMatter: PreferenceKey {
+    static let defaultValue = true
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = nextValue() }
 }
 
-/// The clips of a voice to name, each played from the server's cut of its recording.
-private struct ClipBlock: View {
-    let clips: [Check.Clip]
+/// What is behind an ask: why Life asked, and the way into the asker's own app.
+private struct WhySheet: View {
+    let title: String
+    let context: String?
+    /// The words Life read a guessed person from.
+    let evidence: Check.Evidence?
+    /// The sentence a name was found in, between the lines around it.
+    let said: Check.Said?
+    let names: [String]
+    /// The lines of the conversation around a voice or a name, when its ask holds them.
+    let around: Check.Around?
+    let link: String?
+    let runtime: RuntimeName?
 
-    @Environment(PlaybackStore.self) private var playback
-    @State private var index = 0
-    /// Fetching the audio, or why it could not be had.
-    @State private var isFetching = false
-    @State private var failed = false
-    /// The clip being fetched: cancelled when the card goes, so it never plays after.
-    @State private var fetch: Task<Void, Never>?
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
-        let clip = clips[min(index, clips.count - 1)]
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 14) {
-                Button {
-                    toggle(clip)
-                } label: {
-                    Group {
-                        if isFetching {
-                            ProgressView().tint(Palette.on)
-                        } else {
-                            Image(systemName: playback.isPlaying ? "stop.fill" : "play.fill").font(.system(size: 17))
+        ScrollView {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
+                SheetHeader(title: nil) { dismiss() }
+                Text(title).font(.sheetQuestion).foregroundStyle(Palette.fg)
+                if let context, !context.isEmpty, around == nil {
+                    Text(context).font(.body15).foregroundStyle(Palette.fg).fixedSize(
+                        horizontal: false, vertical: true)
+                }
+                if let evidence { EvidenceBlock(evidence: evidence) }
+                if let around {
+                    let lines =
+                        around.before.map { ($0, false) } + (said.map { [($0, true)] } ?? [])
+                        + around.after.map { ($0, false) }
+                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                        VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                            Text(line.0.line(channelName: Channel.name)).font(.small)
+                                .foregroundStyle(Palette.muted)
+                            NamedWords(
+                                said: line.0, names: line.1 ? names : [], regular: .body15, bold: .bodyStrong,
+                                isQuoted: false
+                            )
+                            .foregroundStyle(line.1 ? Palette.fg : Palette.muted)
                         }
-                    }
-                    .foregroundStyle(Palette.on).frame(width: 48, height: 48).background(Palette.fg, in: .circle)
-                }
-                .buttonStyle(.plain).disabled(isFetching)
-                .accessibilityLabel(isFetching ? "Loading the clip" : playback.isPlaying ? "Stop" : "Play the clip")
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("“\(clip.text)”").font(.quote).foregroundStyle(Palette.fg)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(caption(clip)).font(.monoTime).foregroundStyle(Palette.muted)
-                    if failed {
-                        Text("Couldn't load the clip. Tap play to try again.").font(.small).foregroundStyle(
-                            Palette.flag)
+                        .frame(maxWidth: .infinity, alignment: .leading).accessibilityElement(children: .combine)
                     }
                 }
-            }
-            if clips.count > 1 {
-                TextLink("Another clip") {
-                    playback.stop(); index = (index + 1) % clips.count
+                if let url = link.flatMap(URL.init(string:)) {
+                    TextLink("Open in \(runtime?.name ?? "its app")", isOutward: true) { openURL(url) }
                 }
             }
+            .padding(Metrics.gutter).readingWidth()
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .paperBox()
-        .onDisappear {
-            fetch?.cancel()
-            playback.stop()
-        }
-    }
-
-    private func caption(_ clip: Check.Clip) -> String {
-        let seconds = clip.audio.map { Int(($0.end - $0.start).rounded()) } ?? 0
-        let length = "\(seconds / 60):" + String(format: "%02d", seconds % 60)
-        return "\(length) · \(min(index, clips.count - 1) + 1) of \(clips.count) clip\(clips.count == 1 ? "" : "s")"
-    }
-
-    private func toggle(_ clip: Check.Clip) {
-        if playback.isPlaying { return playback.stop() }
-        failed = false
-        guard let audio = clip.audio, let job = UUID(uuidString: audio.jobId) else { return failed = true }
-        isFetching = true
-        fetch = Task {
-            let file = await ClipAudio.file(job)
-            isFetching = false
-            guard !Task.isCancelled else { return }
-            guard let file else { return failed = true }
-            playback.play(file, from: audio.start, for: audio.end - audio.start)
-        }
+        .scrollBounceBehavior(.basedOnSize)
+        .background(Palette.sheet)
+        .presentationDetents([.medium, .large])
     }
 }

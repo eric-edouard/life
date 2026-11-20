@@ -19,6 +19,12 @@ enum Metrics {
         static let battery: CGFloat = 71
     }
 
+    /// A flat list row (the agent's wake list, the people sheet), and the round slot that leads it.
+    enum FlatRow {
+        static let row: CGFloat = 48
+        static let slot: CGFloat = 32
+    }
+
     /// Corner radii, smallest to largest.
     enum Radius {
         /// A quote inside a draft, photo tiles and thumbnails.
@@ -34,6 +40,10 @@ enum Metrics {
     /// Space between and inside elements, on a 4-point grid.
     enum Spacing {
         static let xs: CGFloat = 4
+        static let s: CGFloat = 8
+        static let m: CGFloat = 12
         static let l: CGFloat = 16
+        static let xl: CGFloat = 24
+        static let xxl: CGFloat = 48
     }
 }

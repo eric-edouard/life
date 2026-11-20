@@ -2,12 +2,34 @@ import { z } from "zod";
 
 // The desk's shapes (apps/server/src/desk/, docs/glossary.md): a registered agent's wait and what its turns report.
 
+/** Whether a client's `text_matches` compiles. */
+const isPattern = (source: string) => {
+  try {
+    return Boolean(new RegExp(source));
+  } catch {
+    return false;
+  }
+};
+
 /**
- * Which messages an agent waits for (`message.received`, `host/events.ts`): who wrote it, in which apps or chat, his own
- * or others'. Events carry no text, so no filter reads it.
+ * Which events an agent waits for: one filter for the connector's poll and a registered agent's wait, matched in one
+ * place (`matcherOf` over `Matchable`, `host/events.ts`, whose rules say what a field an event cannot answer does).
+ * Messages (`message.received`): who wrote it, in which apps or chat, his own or others', and a pattern on its text;
+ * the calls that ended in the same chats (`call.ended`); and, for a registered agent's wait, an event channel's
+ * events, by name in `channels`, by `quantity` between `above` and `below`, by a pattern (a payment's,
+ * `payment.booked`; an arrival's line, `stay.arrived`), and by a place (`latitude`, `longitude`, `radius_m`: an
+ * arrival's point within the radius). The connector's poll takes the message keys only.
  */
-export const MessageFilter = z
+export const EventFilter = z
   .object({
+    above: z
+      .number()
+      .optional()
+      .describe("With `quantity`: only when it is more than this"),
+    below: z
+      .number()
+      .optional()
+      .describe("With `quantity`: only when it is less than this"),
     channels: z
       .array(z.string())
       .optional()
@@ -20,20 +42,52 @@ export const MessageFilter = z
       .boolean()
       .default(false)
       .describe("His own messages instead of everyone else's"),
+    latitude: z
+      .number()
+      .min(-90)
+      .max(90)
+      .optional()
+      .describe("With `longitude`: only events within `radius_m` of here"),
+    longitude: z
+      .number()
+      .min(-180)
+      .max(180)
+      .optional()
+      .describe("With `latitude`: only events within `radius_m` of here"),
     person: z
       .string()
       .optional()
       .describe(
         "Who: a name, handle or person id. Matches who wrote it; on his own messages, the other side of a 1:1 chat"
       ),
+    quantity: z
+      .string()
+      .optional()
+      .describe(
+        "The name of a quantity the event holds, compared with `above` and `below`"
+      ),
+    radius_m: z
+      .number()
+      .positive()
+      .max(5000)
+      .optional()
+      .describe(
+        "With `latitude` and `longitude`: how near, in meters (100 by default, as `read_places_visited`'s `radiusM`)"
+      ),
+    text_matches: z
+      .string()
+      .max(200)
+      .refine(isPattern, "not a regular expression")
+      .optional()
+      .describe("A regular expression its text must match, any case"),
   })
   .strict();
-export type MessageFilter = z.infer<typeof MessageFilter>;
+export type EventFilter = z.infer<typeof EventFilter>;
 
 /** What an active registered agent waits for: messages, and one deadline (`until`), with its reason. */
 export const AgentWait = z
   .object({
-    events: z.array(MessageFilter).max(20),
+    events: z.array(EventFilter).max(20),
     reason: z.string().min(1).max(200),
     until: z.iso.datetime(),
   })

@@ -1,4 +1,3 @@
-import AVFoundation
 import LifeConnector
 import SwiftUI
 
@@ -42,7 +41,7 @@ import SwiftUI
 
     #Preview("Type") {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Lunch with Julien — French").font(.matterTitle)
+            Text("Lunch with Julien — French").font(.screenName)
             Text("Standup: Pendant sync bug").font(.rowName)
             Text("Conversation at 13:52").font(.cardHeadline).foregroundStyle(Palette.fg)
             Text("Pages drop when the phone sleeps; Pim retries reads with backoff by Friday.")
@@ -184,20 +183,7 @@ import SwiftUI
             .task { Self.seedAudio() }
         }
 
-        private static func seedAudio() {
-            let file = ClipAudio.folder.appending(path: "\(job.uuidString.lowercased()).ogg")
-            try? FileManager.default.createDirectory(at: ClipAudio.folder, withIntermediateDirectories: true)
-            guard !FileManager.default.fileExists(atPath: file.path),
-                let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1),
-                let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 22_050 * 6),
-                let audio = try? AVAudioFile(forWriting: file, settings: format.settings)
-            else { return }
-            buffer.frameLength = buffer.frameCapacity
-            for frame in 0..<Int(buffer.frameLength) {
-                buffer.floatChannelData?[0][frame] = 0.05 * sin(Float(frame) * 2 * .pi * 220 / 22_050)
-            }
-            try? audio.write(from: buffer)
-        }
+        private static func seedAudio() { ClipAudio.writeTone(job: job.uuidString, seconds: 6) }
     }
 
     #Preview("Spoken words") { SpokenWordsBoard() }

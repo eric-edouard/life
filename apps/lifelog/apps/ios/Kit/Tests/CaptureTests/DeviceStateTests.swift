@@ -66,21 +66,22 @@ import Testing
     }
 
     @Test func busyElsewhereIsDetectedBeforeTheReplyTimeout() async {
-        let harness = Harness(.observe, replyTimeout: .seconds(30), handshakeTimeout: .milliseconds(200))
+        let harness = Harness(.observe, replyTimeout: .seconds(3600), handshakeTimeout: .seconds(10))
         await harness.fake.record(pages: 5)
         await harness.fake.setBusyWithOtherClient(true)
         await harness.run {
+            await harness.passTime(.seconds(11), whenATimerIsDueIn: .seconds(5)...(.seconds(10)))
             #expect(
                 await eventually(.seconds(2)) { await harness.status().connection == .busyElsewhere(harness.fake.id) })
         }
     }
 
     @Test func aHealthyPendantAnswersBeforeTheHandshakeTimeout() async {
-        let harness = Harness(.observe, handshakeTimeout: .milliseconds(200))
+        let harness = Harness(.observe)
         await harness.fake.record(pages: 5)
         await harness.run {
             #expect(await eventually { await harness.status().sync.isCaughtUp })
-            await harness.advanceClock(by: .milliseconds(300))
+            await harness.advanceClock(by: .seconds(61))
             await harness.quiesce()
             #expect(await harness.status().connection == .ready(harness.fake.id))
             #expect(await harness.status().lastReply != nil)
@@ -173,16 +174,16 @@ import Testing
     }
 
     @Test func anOldDeadlineNeverFailsANewerRequest() async {
-        let harness = Harness(.observe, replyTimeout: .milliseconds(600), recordingChangeDelay: .milliseconds(100))
+        let harness = Harness(.observe, replyTimeout: .seconds(60), recordingChangeDelay: .milliseconds(100))
         await harness.run {
             #expect(await eventually { await harness.status().recording.isRecording })
             await harness.coordinator.requestPause()
             #expect(await eventually { await harness.status().recording.isPaused })
-            await harness.advanceClock(by: .milliseconds(400))
+            await harness.advanceClock(by: .seconds(40))
             await harness.fake.setIgnoresRecordingCommands(true)
             await harness.coordinator.requestResume()
             // The pause's deadline passes now; only the resume's own deadline may fail it.
-            await harness.advanceClock(by: .milliseconds(350))
+            await harness.advanceClock(by: .seconds(35))
             await harness.quiesce()
             if case .resumeRequested = await harness.status().recording {
             } else {
@@ -200,17 +201,24 @@ import Testing
         let fake = FakePendantTransport()
         await fake.record(pages: 40)
         await fake.corrupt(index: 110, as: .corrupt)
+        let clock = TestClock()
         let coordinator = DrainCoordinator(
             transport: fake, sink: store, deviceID: { _ in "pendant-test" },
-            configuration: CaptureConfiguration(pageIdleTimeout: .milliseconds(300), resyncInterval: .seconds(3600)))
+            configuration: CaptureConfiguration(pageIdleTimeout: Harness.timeout, resyncInterval: .seconds(3600)),
+            now: { clock.date }, clock: clock)
         let runner = Task { await coordinator.run() }
         defer { runner.cancel() }
         await coordinator.reconnect()
+        // Caught up once its newest page is in; no timeout needs to fire (passing one while pages stream ends it early).
         #expect(await eventually { await coordinator.status.sync.isCaughtUp })
         // Nothing is ACKed in observe mode, so the next download re-sends the page; it stays one incident.
+        guard case .caughtUp(let first) = await coordinator.status.sync else { return }
         await fake.record(pages: 1)
         await coordinator.syncNow()
-        #expect(await eventually { await coordinator.status.sync.isCaughtUp })
+        #expect(
+            await eventually {
+                if case .caughtUp(let at) = await coordinator.status.sync { at != first } else { false }
+            })
 
         let incidents = try await store.incidents().filter { $0.kind == .unreadablePage }
         let incident = try #require(incidents.first)

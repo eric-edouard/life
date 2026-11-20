@@ -14,7 +14,7 @@ enum ActionCopy {
         switch step {
         case "recorded": "Your answer is recorded"
         case "chat_checked":
-            context.to.map { "The chat is \($0)’s, and nobody wrote since the draft" } ?? "The chat is the right one"
+            context.to.map { "The chat is \($0)’s, nobody wrote since" } ?? "The chat is the right one"
         case "handed": "Sending exactly this text"
         case "confirmed": "\(Channel.name(context.channel)) confirms it"
         case "connection_retry":
@@ -22,9 +22,9 @@ enum ActionCopy {
         case "todo_items_ticked":
             detail["of"].map { "\(detail["done"] ?? "0") of \($0) to-do items ticked" } ?? "Its to-do items are ticked"
         case "goal_saved": "Your goal is saved on the matter"
-        case "desk_accepted": "The desk took the start"
+        case "desk_accepted": "Your request is taken"
         case "session_open": passed ? "Its session is open" : "Opening its session"
-        case "turn_begun": "Its first turn has begun"
+        case "turn_begun": "It has started"
         default: step.replacing("_", with: " ").capitalized
         }
     }
@@ -35,16 +35,21 @@ enum ActionCopy {
         var failure: ActionFailure?
         if case .failed(let why, _) = state { failure = why }
         var running = state.isRunning
-        return state.steps.map { step in
+        var lines = state.steps.map { step in
             let text = text(of: step.id, context, passed: step.passedAt != nil, detail: step.detail)
-            if step.passedAt != nil { return CheckLine(id: step.id, text: text, mark: .passed) }
-            if let failure {
-                return step.id == failure.step
-                    ? CheckLine(id: step.id, text: failure.reason, mark: .failed)
-                    : CheckLine(id: step.id, text: text, mark: .waiting)
+            // The step a failure names says why, even when it had passed before the failure.
+            if let failure, step.id == failure.step {
+                return CheckLine(id: step.id, text: failure.reason, mark: .failed)
             }
+            if step.passedAt != nil { return CheckLine(id: step.id, text: text, mark: .passed) }
+            if failure != nil { return CheckLine(id: step.id, text: text, mark: .waiting) }
             defer { running = false }
             return CheckLine(id: step.id, text: text, mark: running ? .running : .waiting)
         }
+        // A failure at a step the plan never listed still says why.
+        if let failure, !lines.contains(where: { $0.mark == .failed }) {
+            lines.append(CheckLine(id: failure.step ?? "failed", text: failure.reason, mark: .failed))
+        }
+        return lines
     }
 }

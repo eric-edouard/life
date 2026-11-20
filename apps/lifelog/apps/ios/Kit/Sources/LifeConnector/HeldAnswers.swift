@@ -1,7 +1,8 @@
 import Observation
 
-/// Answers on rows of Life's own questions, held for a few seconds so Undo has something to undo: Life has no undo, so
-/// nothing is sent until the time is up (or the screen goes), then it is an ordinary answer.
+/// Answers held for a few seconds so Undo has something to undo, in the Inbox (any answer but a send or a start) and on
+/// rows of Life's own questions: Life has no undo, so nothing is sent until the time is up (or the screen goes), then it
+/// is an ordinary answer.
 @MainActor @Observable
 public final class HeldAnswers {
     public struct Held: Equatable {
@@ -11,6 +12,9 @@ public final class HeldAnswers {
     }
 
     public private(set) var held: [String: Held] = [:]
+    /// The ref held last, if any: the one a toast names.
+    public var latest: String? { order.last }
+    @ObservationIgnored private var order: [String] = []
     @ObservationIgnored private var timers: [String: Task<Void, Never>] = [:]
     @ObservationIgnored private let delay: Duration
     @ObservationIgnored private let send: @MainActor (AnswerRequest) async -> Void
@@ -21,6 +25,8 @@ public final class HeldAnswers {
 
     public func hold(_ request: AnswerRequest, as label: String) {
         held[request.ref] = Held(request: request, label: label)
+        order.removeAll { $0 == request.ref }
+        order.append(request.ref)
         timers[request.ref]?.cancel()
         timers[request.ref] = Task {
             try? await Task.sleep(for: delay)
@@ -31,6 +37,7 @@ public final class HeldAnswers {
     public func undo(_ ref: String) {
         timers.removeValue(forKey: ref)?.cancel()
         held[ref] = nil
+        order.removeAll { $0 == ref }
     }
 
     /// Every held answer now, finished when each has been answered: the screen is going, or the app.
@@ -41,13 +48,14 @@ public final class HeldAnswers {
     /// Nothing held, nothing sent: a new pairing leaves no answer for the last Life.
     public func clear() {
         timers.values.forEach { $0.cancel() }
-        (held, timers) = ([:], [:])
+        (held, timers, order) = ([:], [:], [])
     }
 
     /// The held answer leaves the row and goes, in a task of its own: the timer that called is cancelled with it.
     @discardableResult private func release(_ ref: String) -> Task<Void, Never>? {
         timers.removeValue(forKey: ref)?.cancel()
         guard let sent = held.removeValue(forKey: ref) else { return nil }
+        order.removeAll { $0 == ref }
         return Task { await send(sent.request) }
     }
 }

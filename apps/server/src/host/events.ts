@@ -1,6 +1,7 @@
 import { INVALID_PARAMS, ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { clock, HOUR, iso } from "../core/clock";
+import { DEFAULT_RADIUS_M, distanceM } from "../core/distance";
 import { log } from "../core/log";
 import {
   decode,
@@ -14,12 +15,13 @@ import {
 import { directChats } from "../memory/closeness";
 import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
-import { readySources } from "../memory/sources";
+import { readySources, SOURCES } from "../memory/sources";
 import { isLifeOutput, speakerOf } from "../memory/units";
-import { meant, type People, readPeople } from "../memory/who";
-import { MessageFilter } from "../records/registered-agent";
+import { meant, nameRefusalOf, type People, readPeople } from "../memory/who";
+import { EventFilter } from "../records/registered-agent";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
+import { EVENT_CHANNELS, type Matchable } from "./event-channels";
 
 // Events: what an agent can wait for, MCP's Events extension (SEP-3415, a draft; `io.modelcontextprotocol/events`),
 // served by poll only. The agent picks its own arguments and Life matches them by code. An event is computed when it
@@ -54,31 +56,27 @@ const messaging = () =>
       (s.kind === "chat" || s.kind === "mail") && Boolean(s.incoming)
   );
 
-/** Whether a client's `text_matches` compiles. */
-const isPattern = (source: string) => {
-  try {
-    return Boolean(new RegExp(source));
-  } catch {
-    return false;
-  }
-};
-
-/** The arguments an agent polls with: a `MessageFilter` (its apps among the sources on now), and a pattern on the text. */
+/** The arguments an agent polls with: an `EventFilter` (its apps among the sources on now). */
 const argumentsOf = (channels: string[]) =>
-  MessageFilter.extend({
-    channels: z
-      .array(
-        channels.length ? z.enum(channels as [string, ...string[]]) : z.never()
-      )
-      .optional()
-      .describe("Only these apps; every one by default"),
-    text_matches: z
-      .string()
-      .max(200)
-      .refine(isPattern, "not a regular expression")
-      .optional()
-      .describe("A regular expression its text must match, any case"),
-  }).strict();
+  EventFilter.omit({
+    above: true,
+    below: true,
+    latitude: true,
+    longitude: true,
+    quantity: true,
+    radius_m: true,
+  })
+    .extend({
+      channels: z
+        .array(
+          channels.length
+            ? z.enum(channels as [string, ...string[]])
+            : z.never()
+        )
+        .optional()
+        .describe("Only these apps; every one by default"),
+    })
+    .strict();
 
 const Payload = z.object({
   at: z.iso.datetime(),
@@ -276,17 +274,17 @@ function readNewMessages(s: Messaging, from: number | undefined) {
 }
 
 /** Who `filter.person` means, as a person id: none when it names no one. */
-const wantedOf = (filter: MessageFilter, people: People) =>
+const wantedOf = (filter: EventFilter, people: People) =>
   filter.person ? meant(filter.person, people).known : undefined;
 
 /**
- * Whether a message is one `filter` wants, decided here only (the connector's polls and the desk's agent waits): null
- * when its person is no one Life knows.
+ * Whether an event is one `filter` wants, decided here only (the connector's polls and the desk's agent waits), by the
+ * rules of `Matchable`: by app or channel, chat, his own or others', who (a message's writer, or who was on a call,
+ * whoever placed it), a pattern on its text, a quantity's range and a place: the event's own point within `radius_m`
+ * of the filter's coordinates (the stay's point as lifelog gives it, unlike `read_places_visited`'s circle mode, which
+ * weighs each fix's accuracy). Null when its person is no one Life knows.
  */
-export function matcherOf(
-  filter: MessageFilter & { text_matches?: string },
-  people: People
-) {
+export function matcherOf(filter: EventFilter, people: People) {
   const wanted = wantedOf(filter, people);
   if (filter.person && !wanted) {
     return null;
@@ -294,13 +292,45 @@ export function matcherOf(
   const text = filter.text_matches
     ? new RegExp(filter.text_matches, "i")
     : undefined;
-  return (m: MessagePayload, e: SourceEvent) =>
-    e.fromMe === filter.from_me &&
-    (!filter.channels || filter.channels.includes(m.source)) &&
-    (!filter.chat || m.chat === filter.chat) &&
-    (!wanted || m.person === `person:${wanted}`) &&
-    (!text || text.test(e.text));
+  const { above, below, quantity } = filter;
+  return (x: Matchable) =>
+    (x.fromMe ?? false) === filter.from_me &&
+    (filter.channels ? filter.channels.includes(x.channel) : !x.isNamedOnly) &&
+    (!filter.chat || x.chat === filter.chat) &&
+    (!wanted || (x.people ?? []).includes(`person:${wanted}`)) &&
+    // ponytail: a backtracking pattern stalls the desk's message poll for every agent (200 characters and a compile check bound its size, not its match time; the author is his own agent or paired app). A linear-time engine at this one call if it ever bites.
+    (!text || (x.text !== undefined && text.test(x.text))) &&
+    (!quantity || isInRange(x.quantities?.[quantity], above, below)) &&
+    isNear(x.point, filter);
 }
+
+/** Whether a point lies within `radius_m` of the filter's coordinates; true when it names none. */
+const isNear = (
+  point: Matchable["point"],
+  { latitude, longitude, radius_m = DEFAULT_RADIUS_M }: EventFilter
+) =>
+  latitude === undefined ||
+  longitude === undefined ||
+  (point !== undefined &&
+    distanceM({ latitude, longitude }, point) <= radius_m);
+
+/** Whether a quantity is known and lies strictly between `above` and `below` (each optional). */
+const isInRange = (n: number | undefined, above?: number, below?: number) =>
+  n !== undefined &&
+  (above === undefined || n > above) &&
+  (below === undefined || n < below);
+
+/** A message as a filter sees it: its writer (his own: the 1:1 chat's person, `messagePayloadOf`) and its text. */
+export const messageMatchableOf = (
+  m: MessagePayload,
+  e: SourceEvent
+): Matchable => ({
+  channel: m.source,
+  chat: m.chat,
+  fromMe: e.fromMe,
+  people: m.person ? [m.person] : [],
+  text: e.text,
+});
 
 /**
  * The messages past `cursor` (none: start at now) that `item` makes something of, at most `max`, and the cursor past
@@ -380,7 +410,7 @@ export async function pollMessagesReceived(
   if (!isMatch) {
     throw new ProtocolError(
       INVALID_PARAMS,
-      `No one goes by ${parsed.data.person}`
+      nameRefusalOf(parsed.data.person ?? "", people)
     );
   }
   const read = readMessageEvents(
@@ -388,7 +418,7 @@ export async function pollMessagesReceived(
     p.maxEvents ?? PAGE,
     people,
     (m, e) =>
-      isMatch(m, e)
+      isMatch(messageMatchableOf(m, e))
         ? { data: m, eventId: m.id, name: MESSAGE_RECEIVED, timestamp: m.at }
         : null,
     sources
@@ -410,25 +440,33 @@ export interface CallPayload extends MessagePayload {
   video: boolean;
 }
 
+/** A call as a filter sees it: who was on it, never who dialed; not his own message and no text. */
+export const callMatchableOf = (c: CallPayload): Matchable => ({
+  channel: c.source,
+  chat: c.chat,
+  people: c.people,
+});
+
 /**
- * Whether a call is one `filter` wants, decided here only (the desk's waits): by chat or app, and by person against who
- * was on the call, not who dialed. `from_me` is not asked: a call of his own matches too. A filter on his own messages
- * (`from_me`) or on their words (`text_matches`) matches no call. Null when its person is no one Life knows.
+ * The channels a wait may name: those Life knows (every chat and mail app, and the event channels) and those on now
+ * (the apps whose messages or calls the desk reads, and the event channels that can be read), so "off" and "unknown"
+ * differ.
  */
-export function callMatcherOf(
-  filter: MessageFilter & { text_matches?: string },
-  people: People
-) {
-  const wanted = wantedOf(filter, people);
-  if (filter.person && !wanted) {
-    return null;
-  }
-  return (c: CallPayload) =>
-    !(filter.from_me || filter.text_matches) &&
-    (!filter.channels || filter.channels.includes(c.source)) &&
-    (!filter.chat || c.chat === filter.chat) &&
-    (!wanted || c.people.includes(`person:${wanted}`));
-}
+export const waitChannelsOf = (
+  sources: { name: string }[] = [...messaging(), ...chatSources()],
+  channels = EVENT_CHANNELS
+) => ({
+  known: [
+    ...SOURCES.filter((s) => s.kind === "chat" || s.kind === "mail").map(
+      (s) => s.name
+    ),
+    ...channels.map((c) => c.name),
+  ],
+  on: [
+    ...sources.map((s) => s.name),
+    ...channels.filter((c) => !c.block()).map((c) => c.name),
+  ],
+});
 
 /** The chat apps that are on and readable: where calls are, whether or not they say what came after a row (the phone's don't). */
 const chatSources = () =>

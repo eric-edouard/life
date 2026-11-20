@@ -81,8 +81,10 @@ public struct LifeActions: Sendable {
         guard let send = result.send else { return .succeeded(.answered(result)) }
         switch send.state {
         case .notSent:
-            return .failed(
-                ActionFailure(reason: send.reason ?? "It was not sent.", retry: send.canRetry == true ? .allowed : .no))
+            var failure = ActionFailure(
+                reason: send.reason ?? "It was not sent.", retry: send.canRetry == true ? .allowed : .no)
+            failure.wrote = send.wrote
+            return .failed(failure)
         case .mayHaveGone:
             return .failed(ActionFailure(reason: send.reason ?? "It may have gone.", retry: .no, mayHaveHappened: true))
         case .pending:

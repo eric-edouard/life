@@ -147,9 +147,12 @@ extension SourceStore {
     }
 }
 
-/// A coordinator wired to a fake Pendant and a real source store, with fast timeouts.
+/// A coordinator wired to a fake Pendant and a real source store. Its timeouts are far past what a loaded machine takes
+/// to answer, so one fires only when a test passes the time (`advanceClock`), or sets a short one itself.
 struct Harness {
     static let deviceID = "pendant-test"
+    /// Each of those timeouts by default.
+    static let timeout: Duration = .seconds(60)
 
     let fake: FakePendantTransport
     let sink = TestSink()
@@ -157,9 +160,9 @@ struct Harness {
     let clock = TestClock()
 
     init(
-        _ policy: AckPolicy, ackBatchSize: Int = 25, replyTimeout: Duration = .seconds(2),
-        handshakeTimeout: Duration = .seconds(4), confirmationPollInterval: Duration = .milliseconds(100),
-        pageIdleTimeout: Duration = .seconds(5), recordingChangeDelay: Duration = .zero,
+        _ policy: AckPolicy, ackBatchSize: Int = 25, replyTimeout: Duration = Harness.timeout,
+        handshakeTimeout: Duration = Harness.timeout, confirmationPollInterval: Duration = .milliseconds(100),
+        pageIdleTimeout: Duration = Harness.timeout, recordingChangeDelay: Duration = .zero,
         pageInterval: Duration = .zero, hasBatteryService: Bool = true, pushesSealedPages: Bool = true,
         stallTimeout: Duration = .seconds(3600)
     ) {
@@ -201,6 +204,20 @@ struct Harness {
         }
     }
 
+    /// Like `eventually`, passing `step` of the coordinator's time before each look: for a deadline that only passing
+    /// time reaches, where passing more than once changes nothing the test looks at.
+    func eventuallyAfter(_ step: Duration, _ condition: () async -> Bool) async -> Bool {
+        await clock.eventuallyAfter(step, condition)
+    }
+
+    /// Passes `duration` of the coordinator's time once one of its timers is due within `window` from now: the deadline
+    /// a test means to pass is set by then, so it is never missed (time passed before it is set would not reach it),
+    /// and no other deadline is passed more than once.
+    func passTime(_ duration: Duration, whenATimerIsDueIn window: ClosedRange<Duration>) async {
+        _ = await eventually { clock.hasTimer(dueIn: window) }
+        await advanceClock(by: duration)
+    }
+
     var acks: [UInt64] {
         get async {
             await fake.commands.compactMap {
@@ -219,6 +236,12 @@ final class TestClock: Clock, Sendable {
 
     var now: ContinuousClock.Instant { .now + state.withLock { $0.skew } }
     var minimumResolution: Duration { .milliseconds(1) }
+    /// Whether a timer is waiting that is due within `window` from now.
+    func hasTimer(dueIn window: ClosedRange<Duration>) -> Bool {
+        let current = now
+        return state.withLock { $0.sleepers.values.contains { window.contains($0 - current) } }
+    }
+
     var date: Date {
         let (seconds, attoseconds) = state.withLock { $0.skew }.components
         return Date() + Double(seconds) + Double(attoseconds) / 1e18
@@ -231,6 +254,14 @@ final class TestClock: Clock, Sendable {
         // ponytail: polls so an advance wakes it within 5 ms; a sleeper queue if tests ever need exact steps.
         while now < deadline {
             try await Task.sleep(for: min(deadline - now, .milliseconds(5)))
+        }
+    }
+
+    /// `eventually`, passing `step` of this clock's time before each look.
+    func eventuallyAfter(_ step: Duration, _ condition: () async -> Bool) async -> Bool {
+        await eventually {
+            await advance(by: step)
+            return await condition()
         }
     }
 

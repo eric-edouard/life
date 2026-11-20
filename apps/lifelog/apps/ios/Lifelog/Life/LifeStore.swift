@@ -29,10 +29,23 @@ final class LifeStore {
     private(set) var actions: [ActionKey: ActionState<ActionProof>] = [:]
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
+    /// A tapped push's own read, from the tap until its card is on show: the Inbox draws it, never the old cards.
+    private(set) var pushRead: (id: String, state: ReadState<Inbox>)?
 
     /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] in await self?.answer($0) }
     var held: [String: HeldAnswers.Held] { holds.held }
+    /// The answer held last, which the Inbox's toast names.
+    var latestHeld: (ref: String, held: HeldAnswers.Held)? {
+        holds.latest.flatMap { ref in holds.held[ref].map { (ref, $0) } }
+    }
+    /// The refs whose answer is held for Undo or on its way: the Inbox's order leaves them out, so none flashes back.
+    var answersUnderWay: Set<String> {
+        Set(held.keys).union(
+            actions.compactMap { key, state in
+                if case .answer(let ref) = key, state.isRunning { ref } else { nil }
+            })
+    }
     /// Answers that have ended: a page that draws asks from its own read reads again when it changes.
     private(set) var answersEnded = 0
 
@@ -114,6 +127,13 @@ final class LifeStore {
         let before = inbox.loadedAt
         let asked = now()
         await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
+        // A whole read ends the tapped push's own read; one whose card was gone (nothing read) opens as the inbox says,
+        // `wasAnswered`. A failed whole read ends only a read that found nothing: the inbox's own face shows then.
+        if let push = pushRead {
+            let isRead = inbox.loadedAt != before
+            if isRead, push.state.value == nil { openedCard = inbox.value?.opening(pushId: push.id) }
+            if isRead || push.state.value == nil { pushRead = nil }
+        }
         // The badge is the cards that block him.
         if let badge = inbox.value?.badge { setBadge(badge) }
         // Only a whole read made just now says what is no longer open: not a cached, failed, cancelled or cut-off one.
@@ -163,14 +183,14 @@ final class LifeStore {
     }
 
     private func load<V: Decodable & Sendable>(
-        _ update: (ReadState<V>.Event) -> Void, key: String,
+        _ update: (ReadState<V>.Event) -> Void, key: String?,
         fetch: @Sendable (any LifeAPI) async throws -> String
     ) async {
         update(.started)
         do {
             let text = try await fetch(api)
             let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(text.utf8))
-            cache.store(text, key: key)
+            if let key { cache.store(text, key: key) }
             update(.succeeded(value, now()))
         } catch _ where Task.isCancelled {
             // The screen that asked left: the read stands as it was.
@@ -327,13 +347,38 @@ final class LifeStore {
         _ = await (a, b)
     }
 
-    /// A tapped push: the inbox is read again and the card with that `pushId` is the one opened; one that already
-    /// left (answered elsewhere) opens the first card waiting, marked `wasAnswered`. Only a read that just succeeded can
-    /// say so: offline, the cached inbox cannot hold the new card, and the read's own face shows instead.
+    /// A tapped push: that one card is read alone and shown at once (`pushRead`), then the whole inbox is read, which
+    /// ends `pushRead` (`refreshInbox`). With a cached inbox, a failed one-card read gives way to it, as stale, the
+    /// tapped card open; with none, its failure stays shown, with Try again.
     func open(pushId: String) async {
+        openedCard = nil
+        pushRead = (pushId, ReadState())
+        await load({ if self.pushRead?.id == pushId { self.pushRead?.state.apply($0) } }, key: nil) {
+            try await $0.readInbox(pushId: pushId)
+        }
+        guard let state = pushRead?.state, pushRead?.id == pushId else { return }
+        let isRead = state.phase == .loaded
+        // A failed one-card read gives way to the cached inbox, if any: its card opens from there.
+        guard isRead || inbox.value != nil else { return }
+        if let found = isRead ? state.value : inbox.value, found.checks.contains(where: { $0.pushId == pushId }) {
+            openedCard = found.opening(pushId: pushId)
+            if !isRead { pushRead = nil }
+        } else {
+            // Its card is gone, or not cached: nothing to show but the wait for the whole read, which opens it.
+            pushRead?.state = ReadState()
+            pushRead?.state.apply(.started)
+        }
         await refreshInbox()
-        guard inbox.phase == .loaded else { return }
-        openedCard = inbox.value?.opening(pushId: pushId)
+    }
+
+    /// What the Inbox shows: the tapped push's one card while its read is set, else the whole inbox.
+    var inboxShown: ReadState<Inbox>.Shown { readOnShow.shown(isEmpty: { $0.checks.isEmpty }) }
+    var inboxOnShow: Inbox? { readOnShow.value }
+    private var readOnShow: ReadState<Inbox> { pushRead?.state ?? inbox }
+
+    /// Reads again what the Inbox shows: the tapped push's card while that is what it waits on, else the inbox.
+    func retryInbox() async {
+        if let push = pushRead { await open(pushId: push.id) } else { await refreshInbox() }
     }
 
     // MARK: Pairing
@@ -356,9 +401,8 @@ final class LifeStore {
     #if DEBUG
         /// Development only (`-fixtureCard`): opens the card with that ref as a tapped push does.
         func open(ref: String) async {
-            await refreshInbox()
             guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return }
-            openedCard = inbox.value?.opening(pushId: pushId)
+            await open(pushId: pushId)
         }
 
         /// Development only: launch with `LIFE_ORIGIN` and `LIFE_PAIRING_CODE` in the environment (for example
@@ -371,4 +415,12 @@ final class LifeStore {
             try? await pair(LifePairing(origin: origin, code: code))
         }
     #endif
+}
+
+extension LifeStore {
+    /// The program of the agent working on a check's matter, when one is.
+    func runtimeName(of check: Check) -> RuntimeName? {
+        guard let matter = check.matter?.id else { return nil }
+        return agents.value?.agents.first { $0.matter?.id == matter && !$0.isOver }?.runtimeName
+    }
 }

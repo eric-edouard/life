@@ -9,16 +9,20 @@ struct CardNotes: Equatable {
 }
 
 /// One ask on show, whoever hosts it (the Inbox, a matter's stack): the ask with its answers, then its result in its
-/// place. `pages` are the asks around it (and the boundary panel, "The rest can wait.", a page of its own, swiped past
-/// like a card, never an answer), paged by swipe when there are several; a tap runs through the store's action and the
-/// ask stays, as its own result, until he moves on.
+/// place. `checks` are the asks around it, paged by swipe when there are several. A send or a start runs through the
+/// store's action and the ask stays, as its own result: it moves on by itself once it worked, and waits for him when it
+/// did not. With `holdsAnswers` every other answer is held four seconds for Undo and the next ask is on show at once.
 struct CardView: View {
     let check: Check
-    let pages: [InboxPage]
+    let checks: [Check]
     /// The ask under the pager's leading edge: swiping only moves it, never answers.
     @Binding var current: String?
     @Binding var notes: CardNotes
     var notice: String?
+    /// The ask's context region beside or below it: a matter's stack gives one, the Inbox none.
+    var context: ContextRegion?
+    /// Answers that are not a send or a start are held for Undo (the Inbox draws the toast), not shown as a result.
+    var holdsAnswers = false
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
 
@@ -28,9 +32,16 @@ struct CardView: View {
     @State private var sameAsRef: String?
 
     var body: some View {
-        CardArrangement(check: check) {
-            if let taken = notes.taken {
-                AnswerResultView(taken: taken, state: life.state(of: taken.key), next: question(after: taken))
+        CardArrangement(
+            context: context,
+            bar: result.map { taken in
+                ResultButtons(
+                    taken: taken, state: life.state(of: taken.key),
+                    retry: { Task { await life.answer(taken.request) } }, keepForLater: { leave(taken, true) })
+            }
+        ) {
+            if let taken = result {
+                AnswerResultView(taken: taken, state: life.state(of: taken.key))
             } else {
                 VStack(spacing: 0) {
                     pager
@@ -43,31 +54,18 @@ struct CardView: View {
                     }
                 }
             }
-        } bar: {
-            if let taken = notes.taken {
-                ResultButtons(
-                    taken: taken, state: life.state(of: taken.key), next: question(after: taken),
-                    retry: { Task { await life.answer(taken.request) } },
-                    keepForLater: { leave(taken, true) }, nextCard: { leave(taken, false) })
-            } else if life.state(of: .answer(ref: check.ref)).isRunning {
-                // An answer still running (this screen was rebuilt while its send ran): its busy pill, no second tap.
-                Button {
-                } label: {
-                    Text(check.draft != nil ? "Sending…" : "Saving…")
-                }
-                .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
-            } else if pages.page(on: current) == .boundary {
-                EmptyView()
-            } else {
-                CheckActions(
-                    check: check, runtimeName: runtimeName(of: check), input: input(check.ref),
-                    answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
-                )
-            }
+        }
+        // A send Life refused because someone wrote since: the ask is open again, with her message by its answers.
+        .onChange(of: notes.taken != nil && result == nil) { _, isRefused in if isRefused { notes.taken = nil } }
+        // A result that worked has said so: the next ask comes by itself.
+        .task(id: isDone) {
+            guard isDone, let taken = notes.taken else { return }
+            try? await Task.sleep(for: .seconds(1.5))
+            if !Task.isCancelled { leave(taken, false) }
         }
         .sheet(item: sameAsCard) { check in
             SameAsSheet(
-                title: check.namingOption?.label ?? "Same as…", people: check.likelyPeople,
+                people: check.likelyPeople,
                 takesNewName: check.namingOption?.takes == .personOrName
             ) { choice in
                 if let request = check.answer(naming: choice) { submit(check, request) }
@@ -76,72 +74,76 @@ struct CardView: View {
         }
     }
 
-    /// The pages side by side: he swipes left for the next, right to come back, and the next one's edge shows at the right.
-    /// An ask alone has no edge to show. A page he passes stays where it was.
+    /// The asks side by side, one page each: he swipes left for the next, right to come back, and the next one's edge shows
+    /// at the right. The scroll view is one page wide and its clip is off, so a page's width is the paging step and the
+    /// edge still shows. An ask alone has no edge. An ask he passes stays where it was.
     private var pager: some View {
-        let edge = pages.count > 1 ? Pager.edge : 0
-        return ScrollViewReader { proxy in
-            ScrollView(.horizontal) {
-                HStack(spacing: 0) {
-                    ForEach(pages, id: \.id) { page in
-                        switch page {
-                        case .boundary:
-                            panel(edge: edge) { BoundaryPanel() }.id(page.id)
-                        case .ask(let check):
-                            panel(edge: edge) {
-                                CheckCard(
-                                    check: check, runtimeName: runtimeName(of: check),
-                                    openMatter: { router.open(matter: $0) },
-                                    confirm: { request in Task { await life.answer(request) } }, input: input(check.ref)
-                                )
-                            }
-                            .id(page.id)
+        let edge = checks.count > 1 ? Pager.edge : 0
+        return GeometryReader { box in
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: 0) {
+                        ForEach(checks) { check in
+                            CheckCard(
+                                check: check, runtimeName: life.runtimeName(of: check),
+                                openMatter: { router.open(matter: $0) },
+                                input: input(check.ref),
+                                isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
+                                answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref }
+                            )
+                            .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.card))
+                            .padding(.leading, Pager.gap)
+                            .containerRelativeFrame(.horizontal)
+                            .id(check.ref)
                         }
                     }
+                    .scrollTargetLayout()
                 }
-                .padding(.trailing, edge + Pager.gap)
-                .scrollTargetLayout()
+                .frame(width: box.size.width - edge - Pager.gap)
+                .scrollClipDisabled()
+                .scrollPosition(id: $current, anchor: .leading)
+                .scrollTargetBehavior(.paging)
+                .scrollIndicators(.hidden)
             }
-            .scrollPosition(id: $current, anchor: .leading)
-            .scrollTargetBehavior(.viewAligned)
-            .scrollIndicators(.hidden)
-            .endsAtColumn()
-            // A pager made after his tap's result starts on the first ask: put it on the one he is on.
-            .onAppear { if let current { proxy.scrollTo(current, anchor: .leading) } }
         }
+        .clipped()
+        .motion(Motion.standard, value: checks.map(\.ref))
     }
 
-    private func panel(edge: CGFloat, @ViewBuilder _ content: () -> some View) -> some View {
-        content()
-            .background(Palette.sheet, in: .rect(cornerRadius: Metrics.Radius.card))
-            .padding(.leading, Pager.gap)
-            .containerRelativeFrame(.horizontal) { width, _ in width - edge - Pager.gap }
+    /// His tap's result, unless it reopened the ask (a send refused because someone wrote since).
+    private var result: Taken? {
+        guard let taken = notes.taken else { return nil }
+        if case .failed(let failure, _) = life.state(of: taken.key), failure.wrote != nil { return nil }
+        return taken
+    }
+
+    private var isDone: Bool {
+        guard let taken = notes.taken, case .succeeded = life.state(of: taken.key) else { return false }
+        return true
     }
 
     private func input(_ ref: String) -> Binding<CardInput> {
         Binding(get: { notes.inputs[ref] ?? CardInput() }, set: { notes.inputs[ref] = $0 })
     }
 
-    /// The question of the ask after his tap's, when one is waiting.
-    private func question(after taken: Taken) -> String? { pages.checks.first { $0.ref == taken.nextRef }?.question }
-
     /// The ask whose "Same as…" he opened: that ask, even if the list reorders under the sheet; gone with it.
     private var sameAsCard: Binding<Check?> {
         Binding(
-            get: { sameAsRef.flatMap { ref in pages.checks.first { $0.ref == ref } } },
+            get: { sameAsRef.flatMap { ref in checks.first { $0.ref == ref } } },
             set: { if $0 == nil { sameAsRef = nil } })
     }
 
-    private func runtimeName(of check: Check) -> RuntimeName? {
-        guard let matter = check.matter?.id else { return nil }
-        return life.agents.value?.agents.first { $0.matter?.id == matter && !$0.isOver }?.runtimeName
-    }
-
     private func submit(_ check: Check, _ request: AnswerRequest) {
-        // After the last ask that blocks, the next page is the boundary, not the first that can wait.
-        notes.taken = Taken(
-            check: check, request: request, nextRef: pages.id(after: check.ref), runtimeName: runtimeName(of: check))
-        Task { await life.answer(request) }
+        let taken = Taken(
+            check: check, request: request, nextRef: checks.ref(after: check.ref),
+            runtimeName: life.runtimeName(of: check))
+        if holdsAnswers && taken.isHeld {
+            life.hold(request, as: taken.heldWords)
+            current = taken.nextRef
+        } else {
+            notes.taken = taken
+            Task { await life.answer(request) }
+        }
     }
 }
 
@@ -149,15 +151,6 @@ struct CardView: View {
 private enum Pager {
     static let gap = Metrics.Spacing.xs * 3
     static let edge = Metrics.Spacing.xs * 2.5
-}
-
-/// "The rest can wait.": between the asks that block him and the ones that only improve what Life knows.
-private struct BoundaryPanel: View {
-    var body: some View {
-        Text("The rest\ncan wait.").font(.statusWord).foregroundStyle(Palette.fg).lit()
-            .padding(Metrics.Spacing.xs * 4.5)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-    }
 }
 
 /// An ask pushed on a matter's stack: found by its ref among the checks the matter lists, or, once answered, the
@@ -173,8 +166,17 @@ struct CardPage: View {
     @State private var current: String?
 
     var body: some View {
+        page
+            // A pushed screen: Back, then the Pendant.
+            .shellBar("", hasSettings: false)
+    }
+
+    @ViewBuilder private var page: some View {
         if let check = notes.taken?.check.ref == ref ? notes.taken?.check : source.first(where: { $0.ref == ref }) {
-            CardView(check: check, pages: [.ask(check)], current: $current, notes: $notes) { taken, _ in
+            CardView(
+                check: check, checks: [check], current: $current, notes: $notes,
+                context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check))
+            ) { taken, _ in
                 // A new matter whose goal he edited still waits for Start or Dismiss: back to the ask, not the matter.
                 if taken.staysOpen {
                     life.forget(taken.key)

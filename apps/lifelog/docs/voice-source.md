@@ -64,7 +64,7 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
 - **places**: `GET /where?at=` (an instant: the stay around it) and `GET /visits` (every stay, or by `place`, or
   `latitude`, `longitude`, `radiusM`; `from`, `to`; at most 200, newest first). A day's stays are `/visits` between
   its bounds: a local day depends on where the owner was then, which only the reader knows. A stay is
-  `{ place?, latitude, longitude, arrivedAt, leftAt }`.
+  `{ place?, latitude, longitude, arrivedAt, leftAt }`; `leftAt` is null while the stay is under way. `/where` at the present instant may answer with a point that carries a time, while `/visits` gives the same stay with `leftAt` null: a reader of departures uses `/visits`.
 - **voices**: `GET /speakers/voices?from=&to=` (instants, at most 24 hours apart; a reader's token opens it). Read-only.
   One row for each speaker label of each job with a turn starting in the span: `jobId`, `speakerLabel`, `basis`
   (`owner`: he answered this voice; `recognized`: lifelog named it by sound; null: nobody named it), `status` and

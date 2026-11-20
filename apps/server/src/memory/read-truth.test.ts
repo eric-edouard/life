@@ -12,7 +12,7 @@ import {
 } from "../core/paths";
 import { git } from "../core/proc";
 import { SETTINGS } from "../core/settings";
-import { type Chat, Person } from "../records/truth";
+import { Chat, Person } from "../records/truth";
 import { WATCH } from "../sources/lifelog";
 import { commitMemory, OUT } from "./memory-files";
 import {
@@ -20,6 +20,7 @@ import {
   integrity,
   isDirectoryNew,
   loadTruth,
+  projectPeopleAndChatsOf,
   readMe,
   type Truth,
 } from "./read-truth";
@@ -69,6 +70,21 @@ describe("integrity", () => {
     expect(integrity(truth({ chats: [chat({}), chat({})] }))).toContain(
       "chat !a:matrix.local is listed twice"
     );
+  });
+
+  test("a chat's id is a room id or a WhatsApp id, and never another chat's whatsapp", () => {
+    const ok = (id: string) => Chat.safeParse({ id, name: "A" }).success;
+    expect(
+      ["!a:matrix.local", "1204@g.us", "10000000001@s.whatsapp.net"].map(ok)
+    ).toEqual([true, true, true]);
+    expect(["shop group", "iMessage;+;chat1"].map(ok)).toEqual([false, false]);
+    expect(
+      integrity(
+        truth({
+          chats: [chat({ whatsapp: "1204@g.us" }), chat({ id: "1204@g.us" })],
+        })
+      )
+    ).toContain("chat !a:matrix.local's whatsapp is another chat's id");
   });
 
   test("an area listed twice is refused", () => {
@@ -224,4 +240,54 @@ test("a directory is new while it holds only him and no goals", () => {
   expect(isDirectoryNew({ me: plain, people: [me, person("ada")] })).toBe(
     false
   );
+});
+
+describe("projectPeopleAndChatsOf", () => {
+  const project = (over: Partial<Truth["projects"][number]>) => ({
+    area: "shop",
+    chats: [],
+    deadlines: [],
+    id: "shop",
+    name: "Shop",
+    notes: "",
+    people: [],
+    repos: [],
+    schemaVersion: 1 as const,
+    status: "active" as const,
+    ...over,
+  });
+
+  test("people from both directions in order, handles per platform, chats by their key", () => {
+    const ana = { ...person("ana", ["+10000000001"]), projects: ["shop"] };
+    const t = truth({
+      chats: [
+        chat({ id: "!g:example.test", whatsapp: "1203@g.us" }),
+        chat({ id: "!r:example.test" }),
+        chat({ id: "1204@g.us" }),
+      ],
+      people: [person("me"), person("bob"), ana, person("cy")],
+      projects: [
+        project({
+          chats: [
+            "!r:example.test",
+            "!none:example.test",
+            "!g:example.test",
+            "1204@g.us",
+          ],
+          people: ["cy", "bob", "ghost"],
+        }),
+      ],
+    });
+    const held = projectPeopleAndChatsOf(t, "shop");
+    expect(held?.people.map((p) => p.id)).toEqual(["cy", "bob", "ana"]);
+    expect(held?.people[2]?.handles).toEqual([
+      { platform: "whatsapp", values: ["+10000000001"] },
+    ]);
+    expect(held?.chats).toEqual([
+      { isSure: false, key: "!r:example.test", name: "A" },
+      { isSure: true, key: "1203@g.us", name: "A" },
+      { isSure: true, key: "1204@g.us", name: "A" },
+    ]);
+    expect(projectPeopleAndChatsOf(t, "other")).toBeNull();
+  });
 });

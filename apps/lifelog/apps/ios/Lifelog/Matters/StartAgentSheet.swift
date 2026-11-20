@@ -1,7 +1,7 @@
 import LifeConnector
 import SwiftUI
 
-/// "Work on this": his goal in his words, who works on it, then the start as the desk reports it, stage by stage.
+/// "Work on this": his goal in his words, who works on it, then the start as Life reports it, stage by stage.
 /// The phone has no default of its own: a runtime is sent only when he picks one.
 struct StartAgentSheet: View {
     let matter: Matter
@@ -18,7 +18,7 @@ struct StartAgentSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                SheetHeader(title: title) { dismiss() }
+                SheetHeader(title: title, color: titleColor) { dismiss() }
                 switch state {
                 case .idle: form
                 case .running: progress
@@ -32,6 +32,15 @@ struct StartAgentSheet: View {
         .background(Palette.sheet)
         .presentationDetents([.large])
         .onAppear { if goal.isEmpty { goal = matter.row.goal?.text ?? "" } }
+        .sheetStack()
+    }
+
+    private var titleColor: Color {
+        switch state {
+        case .succeeded: Palette.ok
+        case .failed: Palette.flag
+        default: Palette.fg
+        }
     }
 
     private var title: String {
@@ -39,7 +48,7 @@ struct StartAgentSheet: View {
         case .idle: "Work on this"
         case .running: "Starting"
         case .succeeded: "Started"
-        case .failed: "Not started"
+        case .failed: AgentWords.notStarted
         }
     }
 
@@ -66,9 +75,9 @@ struct StartAgentSheet: View {
                     }
                 }
             }
-            Text("Pick none and the desk uses its own default.").font(.small).foregroundStyle(Palette.faint)
+            Text("Pick none and it uses its usual one.").font(.small).foregroundStyle(Palette.faint)
             Text(
-                "Its first step is a plan card: nothing happens before you say Go. Nothing is ever sent, paid or booked without your tap."
+                "It starts with a plan for you to approve: nothing happens before you say Go. Nothing is ever sent, paid or booked without your tap."
             )
             .font(.body15).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
             Button("Start") { start() }.buttonStyle(.pill(.filled))
@@ -105,7 +114,7 @@ struct StartAgentSheet: View {
         var took = runtimeName
         if case .agent(let result) = proof {
             link = result.stages?.compactMap(\.link).last.flatMap(URL.init(string:))
-            // The runtime the desk took: his pick, else its default.
+            // The runtime that took it: his pick, else its default.
             took = result.runtime.flatMap(RuntimeName.init(rawValue:)) ?? took
         }
         return VStack(alignment: .leading, spacing: 16) {
@@ -115,7 +124,7 @@ struct StartAgentSheet: View {
             )
             .background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.card))
             Text(
-                "It is writing its plan. The plan reaches you as a card, with a push. Nothing else happens before you say Go."
+                "It is writing its plan. Its plan comes to your inbox. Nothing else happens before you say Go."
             )
             .font(.body15).foregroundStyle(Palette.muted)
             if let link {

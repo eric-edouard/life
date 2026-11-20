@@ -5,6 +5,7 @@ import { clock } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { DESK_STORE } from "../core/paths";
 import { openWritable } from "../core/sqlite";
+import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
 import type { AgentWait } from "../records/registered-agent";
 import type { Runtime } from "./runtimes/contract";
@@ -34,6 +35,7 @@ create table if not exists agent (
   ended_at text,
   outcome text,
   why_not_started text,
+  stopped_at text,
   check (status <> 'active' or wait_until is not null)
 );
 create table if not exists session (
@@ -105,6 +107,8 @@ create index if not exists agent_change_by_applied on agent_change (applied_at);
 
 /** The desk: its store, the runtimes it drives by name, and the message sources it polls (all that are on, unless a test gives its own). */
 export interface Desk {
+  /** The event channels the desk reads; none given: `EVENT_CHANNELS`. */
+  channels?: EventChannel[];
   db: Database;
   /** The wide net's embedder (`matter-net.ts`); none given: Lifelog Host's (`embedderNow`), null: none. */
   embedder?: Embedder | null;
@@ -139,6 +143,13 @@ export function openDesk(path = DESK_STORE) {
         "update agent set why_not_started = substr(outcome, 14), outcome = null where outcome glob 'not started: *'"
       );
     })();
+  }
+  // A store made before `agent.stopped_at`: an agent stopped then has no stop time stored.
+  const hasStoppedAt = db
+    .query("select 1 from pragma_table_info('agent') where name = 'stopped_at'")
+    .get();
+  if (!hasStoppedAt) {
+    db.run("alter table agent add column stopped_at text");
   }
   // A store made before the two context columns (`growthOf`): older sessions and turns have none, so they grow 0.
   for (const [table, column] of [

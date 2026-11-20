@@ -63,6 +63,8 @@ afterAll(() => {
   setSettings({ desk: null });
 });
 
+// Its asks go through `changeRegisteredAgent`, so they carry the connector's own ref (`connector:<ms>`, set by production).
+// The ask id is that ref's alone, so another file's ask in the same millisecond (or this file's, on a frozen clock) shares it.
 /** A start on matter `n`, the desk ticking `after` ms later; the steps it reports, in order. */
 async function start(n: number, said: string, limitMs = 5000, after = 300) {
   const steps: Record<string, unknown>[] = [];

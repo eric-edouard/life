@@ -4,17 +4,12 @@
 // places.ts); otherwise coordinates stand alone.
 
 import { clock } from "@life/server/src/core/clock";
+import { DEFAULT_RADIUS_M, distanceM } from "@life/server/src/core/distance";
 import type { Db } from "@lifelog/db";
 import { locationHistory } from "@lifelog/db/schema";
 import { and, asc, gte, isNotNull, lt, sql } from "drizzle-orm";
 import { logChange } from "./change-log";
-import {
-  type Circle,
-  distanceM,
-  insidePlace,
-  placeName,
-  SLACK_MS,
-} from "./places";
+import { type Circle, insidePlace, placeName, SLACK_MS } from "./places";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -28,8 +23,6 @@ const MAX_GAP_MS = 2 * HOUR;
 const LOOKBACK_MS = 48 * HOUR;
 // ponytail: a visit iOS never closed lasts at most this long; trust later fixes over it.
 const OPEN_VISIT_MS = 24 * HOUR;
-// Coordinates alone name a place this wide.
-const DEFAULT_RADIUS_M = 100;
 
 // ---- Storing ----------------------------------------------------------------
 
@@ -247,16 +240,20 @@ export function locate(points: Point[], at: number): Located {
   };
 }
 
+// The points precise enough to say whether the owner was in the circles.
+const tellingOf = (points: Point[], circles: Circle[]) =>
+  points.filter((p) =>
+    circles.some((c) => p.accuracyM <= Math.max(c.radiusM, 100))
+  );
+
 // Each stay inside any circle; points elsewhere in between end it. A point too coarse to tell
 // says nothing either way.
 export function visitsIn(points: Point[], circles: Circle[]) {
   const inside = (p: Point) => circles.some((c) => insidePlace(p, c));
-  const telling = points.filter((p) =>
-    circles.some((c) => p.accuracyM <= Math.max(c.radiusM, 100))
-  );
-  return runs(telling, (run, p) => inside(run.best) === inside(p)).filter(
-    (r) => inside(r.best) && isStay(r)
-  );
+  return runs(
+    tellingOf(points, circles),
+    (run, p) => inside(run.best) === inside(p)
+  ).filter((r) => inside(r.best) && isStay(r));
 }
 
 // ---- Time -------------------------------------------------------------------
@@ -336,11 +333,12 @@ function placeCircles(db: Db, place: string) {
 // ---- Visits -------------------------------------------------------------------
 
 // A stay as `GET /where` and `GET /visits` give it: the phone's name for the place when it has one,
-// the most accurate point, and when the owner arrived and left.
+// the most accurate point, and when the owner arrived and left. A stay still under way has no
+// `leftAt` (null): it is the last one, with a point within MAX_GAP_MS of now.
 export interface Visit {
   arrivedAt: string;
   latitude: number;
-  leftAt: string;
+  leftAt: string | null;
   longitude: number;
   place?: string;
 }
@@ -350,25 +348,42 @@ function visitOf(
   db: Db,
   from: number,
   to: number,
-  at: { latitude: number; longitude: number }
+  at: { latitude: number; longitude: number },
+  underWay = false
 ): Visit {
   const place = placeName(db, from, to);
   return {
     arrivedAt: new Date(from).toISOString(),
     latitude: at.latitude,
-    leftAt: new Date(to).toISOString(),
+    leftAt: underWay ? null : new Date(to).toISOString(),
     longitude: at.longitude,
     ...(place ? { place } : {}),
   };
 }
 
+// A stay is under way when it has a point within MAX_GAP_MS of now and no later point outside it.
+const isUnderWay = (points: Point[], r: Run, now: number) =>
+  now - r.to <= MAX_GAP_MS &&
+  !points.some((p) => p.from >= r.to && !r.points.includes(p));
+
+// Where to stop reading points for a window ending at `end`: now when a stay there could still
+// be under way (its last point at most MAX_GAP_MS before now, so the stay's end is within
+// two gaps of the window's), else `end`.
+export const throughOf = (end: number, now: number) =>
+  end + 2 * MAX_GAP_MS >= now ? Math.max(end, now) : end;
+
 // Where the owner was at an instant: the stay around it or the nearest point within 30 minutes
 // (none otherwise).
 export function whereVisits(db: Db, at: Date): Visit[] {
   const t = at.getTime();
-  const found = locate(pointsBetween(db, t, t + 24 * HOUR), t);
+  const now = clock().getTime();
+  const points = pointsBetween(db, t, throughOf(t + 24 * HOUR, now));
+  const found = locate(points, t);
   if (found.kind === "stay") {
-    return [visitOf(db, found.run.from, found.run.to, found.run.best)];
+    const { run } = found;
+    return [
+      visitOf(db, run.from, run.to, run.best, isUnderWay(points, run, now)),
+    ];
   }
   return found.kind === "point"
     ? [visitOf(db, found.point.from, found.point.to, found.point)]
@@ -395,13 +410,19 @@ export function visitsTo(
     return null;
   }
   const from = range.from?.getTime() ?? 0;
-  const to = range.to?.getTime() ?? clock().getTime();
-  const points = pointsBetween(db, from, to + MAX_GAP_MS);
+  const now = clock().getTime();
+  const to = range.to?.getTime() ?? now;
+  // A window ending near now is read through now (`throughOf`): a stay under way ends only by a later point.
+  const points = pointsBetween(db, from, throughOf(to + MAX_GAP_MS, now));
+  // Points too coarse to tell say nothing about a departure either.
+  const heard = circles ? tellingOf(points, circles) : points;
   const found = (
     circles ? visitsIn(points, circles) : stays(points).filter(isStay)
   )
     .filter((r) => r.to >= from && r.from < to)
     .reverse()
     .slice(0, MAX_VISITS);
-  return found.map((r) => visitOf(db, r.from, r.to, r.best));
+  return found.map((r) =>
+    visitOf(db, r.from, r.to, r.best, isUnderWay(heard, r, now))
+  );
 }

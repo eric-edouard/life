@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Manrope only, the brand's one face (`docs/brand.md`): thin (250) for a title, bold (650) for what matters, 15 point
+/// Manrope only, the brand's one face (`docs/brand.md`): bold (650) for a name and a heading, thin (250) only for a state word and a card's title, 15 point
 /// body, small labels in capitals. One bundled variable font, registered in Info.plist (`UIAppFonts`), whose weight is
 /// set on its `wght` axis so 250 and 650 are real weights. Every text is one step of this scale, set with `.font(.step)`:
 /// the step is resolved in the view, so a change of Dynamic Type size shows at once. Nothing draws a size or weight of its own.
@@ -19,16 +19,20 @@ struct TypeStep: Equatable {
     static let statusWord = TypeStep(size: 40, weight: 250, style: .largeTitle)
     /// The figure on a tile: "82%".
     static let tileFigure = TypeStep(size: 26, weight: 650, style: .title2, hasFixedDigits: true)
-    /// A screen's name in a sheet.
-    static let sheetTitle = TypeStep(size: 30, weight: 250, style: .title1)
-    /// A matter's name.
-    static let matterTitle = TypeStep(size: 28, weight: 250, style: .title1)
+    /// The first line of a sheet ("Starting", "Who?"): bold.
+    static let sheetQuestion = TypeStep(size: 22, weight: 650, style: .title3)
+    /// A screen's name where the system's large title would be: "Settings", a matter's name.
+    static let screenName = TypeStep(size: 30, weight: 650, style: .title1)
     /// Words he or someone said, a message, a goal he edits.
     static let quote = TypeStep(size: 19, weight: 450, style: .title3)
+    /// A name inside a quote.
+    static let quoteBold = TypeStep(size: 19, weight: 700, style: .title3)
     /// A name in a row, a button of a row, a person.
     static let rowName = TypeStep(size: 16, weight: 600, style: .body)
     /// A line that leads a block, and the same bold.
     static let lead = TypeStep(size: 17, weight: 500, style: .body)
+    /// The figure or the quoted words inside a row's clause: the row's size at body weight.
+    static let rowFigure = TypeStep(size: 16, weight: 450, style: .body)
     static let leadBold = TypeStep(size: 17, weight: 600, style: .body)
     static let body15 = TypeStep(size: 15, weight: 450, style: .body)
     /// Text that matters inside a card or a block: the thing to do.
@@ -44,6 +48,8 @@ struct TypeStep: Equatable {
     static let smallStrong = TypeStep(size: 13, weight: 600, style: .footnote)
     /// The small label over a block.
     static let label = TypeStep(size: 13, weight: 600, style: .footnote)
+    /// The two glyphs of the column toast (`ColumnToast`).
+    static let columnGlyph = TypeStep(size: 20, weight: 600, style: .title3)
     /// The number in a badge.
     static let badge = TypeStep(size: 11, weight: 700, style: .caption2)
 

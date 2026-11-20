@@ -3043,8 +3043,9 @@
             "maximum": 90
           },
           "leftAt": {
-            "type": "string",
-            "format": "date-time"
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Null while the stay is under way"
           },
           "longitude": {
             "type": "number",

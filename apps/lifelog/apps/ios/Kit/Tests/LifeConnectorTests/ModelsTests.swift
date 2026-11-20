@@ -126,11 +126,12 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         {"matters":[
         {"id":"a","name":"A","status":"moving","blockingChecks":1,"nextStep":{"kind":"do","text":"x"}},
         {"id":"b","name":"B","status":"moving","nextStep":{"kind":"wait_owner","text":"y"}},
-        {"id":"c","name":"C","status":"moving","blockingChecks":0,"nextStep":{"kind":"do","text":"z"}}]}
+        {"id":"c","name":"C","status":"moving","blockingChecks":0,"nextStep":{"kind":"do","text":"z"}},
+        {"id":"d","name":"D","status":"stuck","nextStep":{"kind":"wait_owner","text":"w"}}]}
         """#
     let list = try decoded(MatterList.self, text)
     // A new matter's offer or an ending check improves the memory, never blocks: it counts 0 and needs nothing of him.
-    #expect(list.matters.map(\.needsYou) == [true, true, false])
+    #expect(list.matters.map(\.needsYou) == [true, true, false, false])
     #expect(list.shown(filter: .needsYou).map(\.id) == ["a", "b"])
 }
 
@@ -223,6 +224,7 @@ private func everyKindOfCheck() throws -> [Check] {
 
     let voice = try card(.voice)
     #expect(voice.namingOption?.id == "this-is")
+    #expect(voice.isNamingFilled && !guess.isNamingFilled && !found.isNamingFilled)
     #expect(voice.answer(voice.options[0]) == nil)
     #expect(
         voice.answer(naming: .person("person:gran"))
@@ -245,32 +247,59 @@ private func everyKindOfCheck() throws -> [Check] {
 }
 
 /// The inbox's checks, made from the server's own read: one ask per ref, with the urgency given.
-private func asks(_ urgencies: [(String, Urgency)]) throws -> Inbox {
+private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [:]) throws -> Inbox {
     let wire = try #require(
         JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
     let first = try #require((wire["checks"] as? [[String: Any]])?.first)
-    let checks = urgencies.map { ref, urgency in first.merging(["ref": ref, "urgency": urgency.rawValue]) { $1 } }
+    let checks = urgencies.map { ref, urgency in
+        first.merging(["ref": ref, "urgency": urgency.rawValue, "group": groups[ref] ?? first["group"] ?? ""]) { $1 }
+    }
     let body = wire.merging(["checks": checks]) { $1 }
     return try decoded(Inbox.self, String(decoding: JSONSerialization.data(withJSONObject: body), as: UTF8.self))
 }
 
-@Test func theInboxPagesRunWhatBlocksThenTheBoundaryThenWhatImproves() throws {
+@Test func theInboxRunsWhatBlocksThenWhatCanWait() throws {
     let inbox = try asks([("i1", .improves), ("b1", .blocks), ("i2", .improves), ("b2", .blocks)])
-    let pages = inbox.pages(deferred: [])
-    #expect(pages.map(\.id) == ["b1", "b2", InboxPage.boundaryId, "i1", "i2"])
-    // His answer to the last blocking ask lands on the boundary; the boundary shows the next ask's context.
-    #expect(pages.id(after: "b2") == InboxPage.boundaryId)
-    #expect(pages.check(on: InboxPage.boundaryId)?.ref == "i1")
-    #expect(pages.check(on: nil)?.ref == "b1" && pages.check(on: "gone")?.ref == "b1")
+    let order = inbox.ordered(deferred: [])
+    #expect(order.checks.map(\.ref) == ["b1", "b2", "i1", "i2"])
+    #expect(order.canWaitFrom == 2)
+    // His answer to the last blocking ask leads to the first that can wait.
+    #expect(order.checks.ref(after: "b2") == "i1" && order.checks.ref(after: "i2") == nil)
+    #expect(order.check(on: nil)?.ref == "b1" && order.check(on: "gone")?.ref == "b1")
 }
 
-@Test func withNothingBlockingTheBoundaryComesFirstAndWithNothingImprovingThereIsNone() throws {
-    #expect(try asks([("i1", .improves)]).pages(deferred: []).map(\.id) == [InboxPage.boundaryId, "i1"])
-    #expect(try asks([("b1", .blocks)]).pages(deferred: []).map(\.id) == ["b1"])
-    #expect(try asks([]).pages(deferred: []).isEmpty)
+@Test func withNothingBlockingWhatCanWaitStartsFirstAndWithNothingImprovingThereIsNoHeading() throws {
+    #expect(try asks([("i1", .improves)]).ordered(deferred: []).canWaitFrom == 0)
+    #expect(try asks([("b1", .blocks)]).ordered(deferred: []).canWaitFrom == nil)
+    #expect(try asks([]).ordered(deferred: []).checks.isEmpty)
 }
 
 @Test func anAskKeptForLaterStaysInsideItsOwnKind() throws {
     let inbox = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves), ("i2", .improves)])
-    #expect(inbox.pages(deferred: ["b1", "i1"]).map(\.id) == ["b2", "b1", InboxPage.boundaryId, "i2", "i1"])
+    #expect(inbox.ordered(deferred: ["b1", "i1"]).checks.map(\.ref) == ["b2", "b1", "i2", "i1"])
+}
+
+@Test func anAnswerHeldOrInFlightIsLeftOutSoTheListNeverFlashesItBack() throws {
+    let order = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves)]).ordered(
+        deferred: [], except: ["b1", "i1"])
+    #expect(order.checks.map(\.ref) == ["b2"] && order.canWaitFrom == nil)
+}
+
+@Test func theFilledOptionIsTheFirst() throws {
+    #expect(
+        try asks([("b1", .blocks)]).checks[0].filled?.id == #require(asks([("b1", .blocks)]).checks[0].options.first).id
+    )
+}
+
+@Test func theListsFilterKeepsTheOrderAndNeverEmptiesIt() throws {
+    let order = try asks(
+        [("b1", .blocks), ("v1", .blocks), ("i1", .improves), ("v2", .improves)],
+        groups: ["v1": "voice", "v2": "voice"]
+    ).ordered(deferred: [])
+    #expect(order.kinds.count == 2 && order.kinds.contains(.voice))
+    let voices = order.only(.voice)
+    #expect(voices.checks.map(\.ref) == ["v1", "v2"] && voices.canWaitFrom == 1)
+    #expect(order.only(nil) == order)
+    // A kind with none waiting is no filter at all.
+    #expect(order.only(.newMatter) == order)
 }

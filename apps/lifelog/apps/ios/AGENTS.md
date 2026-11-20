@@ -4,7 +4,7 @@
 Swift package with everything that doesn't need UIKit, so it builds and tests on the Mac in seconds. `Watch/` and
 `Widgets/` are the glances; `Shared/` holds code and copy that the app and its extensions share. `project.yml`
 generates the gitignored `.xcodeproj`.
-The app is Life's two tabs, Inbox (`Inbox/`: the `CheckCard`s, paged by swipe, and its `AnswerResultView`; one ask on show is `CardView`, hosted by the Inbox and by a matter's stack (`AppRouter.matterPath`); the Inbox holds every open ask, what blocks first, and one "The rest can wait." panel between that and what only improves; Life's own questions on a matter page held 4 s for Undo in `LifeStore.held`) and Matters (`Matters/`), plus
+The app is Life's two tabs, Inbox (`Inbox/`: the `CheckCard`s, paged by swipe, and its `AnswerResultView`; one ask on show is `CardView`, hosted by the Inbox and by a matter's stack (`AppRouter.matterPath`); the Inbox is a `NavigationSplitView`: the list of asks (`CheckList`: what blocks first, then "The rest can wait" over what only improves; answers held or in flight are left out; its Filter menu (`FilterMenu`, via `filterBar`: a top-leading toolbar item, or a round glass button floating at the list's bottom left in the closed Duo's side column, so the top group stays the Pendant and Settings) keeps one kind of ask (`CheckGroup`, per screen state, never stored) in the list and the pager alike: `InboxOrder.only`) beside the one ask on show, whose swipe is a paged `LazyHStack`; every answer that is not a send, a start or a goal edit held 4 s for Undo in `LifeStore.held`, in the Inbox (its toast is an overlay at the top of the ask, or a 44 x 88 capsule in the side column of the closed Duo: `ColumnToast`, by `reportsSideColumn`)) and Matters (`Matters/`), plus
 the system's search tab (`Shell/SearchScreen.swift`). The bars are two groups of system pieces, declared and never drawn
 (`Shell/TopBar.swift`): on top the Pendant's icon and the Settings gear (Settings only from Inbox and Matters; a pushed
 page has Back and the Pendant; a sheet only its Close, a toolbar item from `SheetHeader` in the sheet's `sheetStack()`),
@@ -21,7 +21,7 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
 - **Regenerate the project** after editing `project.yml`: `bun run ios:project`.
 - **Test Kit alone**, from Life's root: `swift test --package-path apps/lifelog/apps/ios/Kit --scratch-path .build/kit`.
 - **Run in the simulator.** Debug builds take `-fixtureLife <scenario>` (Life without a Mac: `Fixtures/LifeFixture.swift`, with its
-  `-fixtureCard`, `-fixtureTab matters|search`, `-fixtureMatter`, `-fixtureSheet pendant|settings|pair|pairing|replacePendant|pairPendant`, `-fixturePair ok|slow|expired`, `-fixturePage life|server|diagnostics`, `-fixtureAnswer`, `-fixtureStart`, and `-fixturePose wide|upright`, the iPhone Duo open drawn on any simulator), `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
+  `-fixtureCard`, `-fixtureTab matters|search`, `-fixtureMatter`, `-fixtureSheet pendant|settings|agent|pair|pairing|replacePendant|pairPendant`, `-fixturePair ok|slow|expired`, `-fixturePage life|server|diagnostics`, `-fixtureAnswer`, `-fixtureStart`, and `-fixturePose wide|upright`, the iPhone Duo open drawn on any simulator), `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
   (see `FakeScenario.swift`) `-offline` and `-serverFlaky` (the server times out and every other request is called off); launch with `xcrun simctl launch <udid> com.ericedouard.lifelog <args>`.
   The device token goes in through `SIMCTL_CHILD_LIFELOG_DEVICE_TOKEN` with `SIMCTL_CHILD_LIFELOG_SERVER_URL`, read from the file without printing it.
 - **Check Release before an install.** The gate builds Debug only and `install:phone` builds Release, so anything
@@ -38,6 +38,8 @@ The spec's components live in `Lifelog/DesignSystem/Pieces.swift` and screens dr
 - **iPhone Duo: layout branches on `horizontalSizeClass` only**, never device, screen size or orientation: compact is one
   pane, regular two (`CardArrangement` in the Inbox, the `NavigationSplitView` in Matters). State a fold must keep lives
   above the branch (`AppRouter`, the screen).
+  The one other input is where the system puts the bars, its `toolbarVerticalEdge` (`reportsSideColumn`), never a guess: the
+  Undo toast is a capsule in that column only on a compact width (the closed Duo); the open Duo keeps the worded toast, as designed.
 - Every bundle id, the app group and the background task derive from `LIFELOG_BUNDLE_ID` in `project.yml` (beside
   `DEVELOPMENT_TEAM`); code reads them from the bundle's Info.plist (`AppGroup`, `SyncStore.backgroundTaskID`, `Keychain`). The Keychain
   service is `<app's bundle id>.server`, named from `LifelogBundleID` in every target that reads it (`Keychain`), which

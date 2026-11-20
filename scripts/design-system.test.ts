@@ -35,35 +35,26 @@ const CAPS: Record<string, Record<string, number>> = {
     padding: 2,
   },
   "Inbox/AnswerResultView.swift": {
-    capsule: 1,
-    height: 1,
-    padding: 10,
+    padding: 9,
   },
   "Inbox/CardArrangement.swift": {
     padding: 5,
   },
-  "Inbox/CheckCard.swift": {
-    capsule: 2,
-    font: 2,
-    height: 3,
-    padding: 11,
+  "Inbox/CheckBodies.swift": {
+    font: 1,
+    height: 1,
     width: 1,
+  },
+  "Inbox/CheckList.swift": {
+    padding: 5,
   },
   "Inbox/DraftBlock.swift": {
     font: 1,
-    padding: 3,
-  },
-  "Inbox/InboxScreen.swift": {
-    padding: 1,
-  },
-  "Inbox/SameAsSheet.swift": {
-    padding: 1,
   },
   "Matters/MatterPage.swift": {
-    capsule: 1,
-    height: 3,
-    padding: 15,
-    width: 3,
+    height: 1,
+    padding: 11,
+    width: 2,
   },
   "Matters/MattersScreen.swift": {
     padding: 4,

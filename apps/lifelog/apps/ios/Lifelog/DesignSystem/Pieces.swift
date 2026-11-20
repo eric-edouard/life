@@ -1,14 +1,20 @@
 import LifeConnector
 import SwiftUI
 
-// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette
-// (`Fills.swift`), never a border, and nothing tappable under 44 points.
+/// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette,
+/// never a border, and nothing tappable under 44 points.
+extension Color {
+    /// The quiet fill of a secondary button or a chip: the page's ink at a low strength, as the design's `--tint`.
+    static let fillTint = Palette.fg.opacity(0.08)
+}
 
-/// The pill buttons: the filled one (cream in dark) and the quiet one, in two sizes, and busy while an action runs.
+/// The pill buttons: the filled one (cream in dark) and the quiet one, in three sizes, and busy while an action runs.
+/// A label that does not fit takes a second line, and the pill grows with it.
 struct PillStyle: ButtonStyle {
     enum Kind { case filled, quiet }
-    /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row.
-    enum Size: CGFloat { case large = 54, compact = 44 }
+    /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row; `row` is one of several
+    /// answers stacked, each on its line.
+    enum Size: CGFloat { case large = 54, row = 48, compact = 44 }
 
     let kind: Kind
     var size: Size = .large
@@ -20,10 +26,11 @@ struct PillStyle: ButtonStyle {
         let isFilled = kind == .filled && !isBusy
         HStack(spacing: 8) {
             if isBusy { ProgressView().controlSize(.small).tint(Palette.fg).frame(width: 18, height: 18) }
-            configuration.label
+            configuration.label.multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
         }
         .font(.buttonLabel)
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)
+        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
         .frame(maxWidth: .infinity, minHeight: size.rawValue)
         .background(isFilled ? Palette.fg : Color.fillTint, in: .capsule)
         .opacity(isBusy ? 1 : isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
@@ -52,20 +59,89 @@ struct CountBadge: View {
 struct TextLink: View {
     let title: String
     var isOutward = false
+    var isMuted = true
     let action: () -> Void
 
-    init(_ title: String, isOutward: Bool = false, action: @escaping () -> Void) {
+    init(_ title: String, isOutward: Bool = false, isMuted: Bool = true, action: @escaping () -> Void) {
         self.title = title
         self.isOutward = isOutward
+        self.isMuted = isMuted
         self.action = action
     }
 
     var body: some View {
         Button(action: action) {
             (isOutward ? Text("\(title) \(Image(systemName: "arrow.up.right"))") : Text(verbatim: title))
-                .font(.smallStrong).foregroundStyle(isOutward ? Palette.muted : Palette.fg)
+                .font(.smallStrong).foregroundStyle(isOutward && isMuted ? Palette.muted : Palette.fg)
                 .frame(minHeight: 44)
         }
+    }
+}
+
+/// What he just answered, with Undo while it is held: 48 high on `tile`, a check in `ok`, his answer's words. It sits in
+/// a bar, so it takes no room from the answers.
+struct Toast: View {
+    let words: String
+    let undo: () -> Void
+
+    var body: some View {
+        HStack(spacing: Metrics.Spacing.s) {
+            StateGlyph.ok
+            Text(words).font(.buttonLabel).foregroundStyle(Palette.fg).lineLimit(1)
+            TextLink("Undo", isMuted: false, action: undo).padding(.leading, Metrics.Spacing.xs)
+        }
+        .padding(.horizontal, 18).frame(height: 48).background(Palette.tile, in: .capsule)
+    }
+}
+
+/// The Toast in the side column of the closed Duo, where there is no top bar: a capsule two tap targets high, no words:
+/// the check in `ok`, then Undo as its glyph. It is always in the column while the bars are there, and fades with
+/// `answered` (nil: nothing held), so the column never changes shape. VoiceOver reads the answer on the capsule and
+/// "Undo" on the button. Larger than `StateGlyph.ok` (13): the capsule has no words to carry it.
+struct ColumnToast: View {
+    let answered: String?
+    let undo: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Image(systemName: "checkmark").font(.columnGlyph).foregroundStyle(Palette.ok)
+                .frame(width: Metrics.tapTarget, height: Metrics.tapTarget).accessibilityHidden(true)
+            Button(action: undo) {
+                Image(systemName: "arrow.uturn.backward").font(.columnGlyph).foregroundStyle(Palette.fg)
+                    .frame(width: Metrics.tapTarget, height: Metrics.tapTarget).contentShape(.rect)
+            }
+            .buttonStyle(.plain).accessibilityLabel("Undo")
+        }
+        .background(Palette.tile, in: .capsule)
+        .opacity(answered == nil ? 0 : 1).allowsHitTesting(answered != nil)
+        .motion(Motion.standard, value: answered)
+        .accessibilityElement(children: .contain).accessibilityLabel(answered.map { "Answered: \($0)" } ?? "")
+        .accessibilityHidden(answered == nil)
+    }
+}
+
+/// A matter's name (a star in `ai` before it when an agent asks) on a `card` capsule 32 high, in a 44 hit area. A long
+/// name is cut with an ellipsis, except at an accessibility text size, where it may take two lines.
+struct InlinePill: View {
+    let name: String
+    var isAgent = false
+    let action: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Metrics.Spacing.s) {
+                if isAgent { Image(systemName: "sparkle").foregroundStyle(Palette.ai).accessibilityHidden(true) }
+                Text(name).lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
+            }
+            .font(.smallStrong).foregroundStyle(Palette.fg)
+            .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.xs).frame(minHeight: 32)
+            .background(Palette.card, in: .rect(cornerRadius: 16))
+            .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Matter: \(name)")
     }
 }
 
@@ -90,6 +166,13 @@ struct SegmentedChoice<Choice: Hashable>: View {
             }
         }
         .background(Palette.tile, in: .capsule)
+    }
+}
+
+extension View {
+    /// A draft, a piece of evidence or a clip on paper: the `paper` fill at the passage radius (a quote sits on `tile`).
+    func paperBox() -> some View {
+        background(Palette.paper, in: .rect(cornerRadius: Metrics.Radius.passage))
     }
 }
 
@@ -157,6 +240,70 @@ struct StateDot: View {
             )
             .onAppear { isDim = isLit }
             .accessibilityHidden(true)
+    }
+}
+
+/// A list's Filter: a system menu of inline pickers (a line icon per row, a check on the chosen one), its glyph filled
+/// while a choice narrows the list. Matters and the asks draw it.
+struct FilterMenu<Choices: View>: View {
+    let isFiltered: Bool
+    let identifier: String
+    /// Floating, the round button's size: the whole circle takes the tap (a menu hit-tests its label only).
+    var diameter: CGFloat?
+    let choices: Choices
+
+    var body: some View {
+        Menu {
+            choices
+        } label: {
+            Image(systemName: isFiltered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
+                .frame(width: diameter, height: diameter).contentShape(.circle)
+        }
+        .accessibilityLabel("Filter")
+        .accessibilityIdentifier(identifier)
+    }
+}
+
+extension View {
+    /// A list's Filter, placed by where the system puts the bars: a top-leading toolbar item, or, in the side column
+    /// of the closed Duo (`reportsSideColumn`), a round glass button floating at the list's bottom left, so the top group
+    /// stays the Pendant and Settings. While it floats the list keeps a margin under its last row.
+    func filterBar<Choices: View>(
+        isFiltered: Bool, identifier: String, isResting: Bool = false, @ViewBuilder choices: () -> Choices
+    ) -> some View {
+        modifier(FilterBar(isFiltered: isFiltered, identifier: identifier, isResting: isResting, choices: choices()))
+    }
+}
+
+private struct FilterBar<Choices: View>: ViewModifier {
+    let isFiltered: Bool
+    let identifier: String
+    let isResting: Bool
+    let choices: Choices
+    @State private var isInColumn = false
+    /// The floating button and its margin from the list's bottom edge; the list keeps room for both, and more.
+    private let size: CGFloat = 48, bottom = Metrics.Spacing.xl
+
+    // A control that comes and goes is unreliable: it stays and rests when there is nothing to choose between.
+    private func menu(diameter: CGFloat? = nil) -> some View {
+        FilterMenu(isFiltered: isFiltered, identifier: identifier, diameter: diameter, choices: choices)
+            .disabled(isResting)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .reportsSideColumn($isInColumn)
+            .toolbar { if !isInColumn { ToolbarItem(placement: .topBarLeading) { menu() } } }
+            .contentMargins(.bottom, isInColumn ? size + bottom + Metrics.Spacing.l : 0, for: .scrollContent)
+            .overlay(alignment: .bottomLeading) {
+                ZStack {
+                    if isInColumn {
+                        menu(diameter: size).floatingGlass(in: .circle)
+                            .padding(.leading, Metrics.gutter).padding(.bottom, bottom).appears()
+                    }
+                }
+                .motion(Motion.standard, value: isInColumn)
+            }
     }
 }
 
@@ -490,18 +637,20 @@ struct Field: View {
     }
 }
 
-/// A sheet's top: its name in thin type, and its Close.
+/// A sheet's top: its name, and its Close.
 struct SheetHeader: View {
     /// `nil` for a sheet whose first line names itself (the pendant's big word is the state).
     var title: String?
     var color: Color = Palette.fg
+    /// A sheet's heading; a screen shown in a sheet ("Settings") passes `.screenName`.
+    var font: TypeStep = .sheetQuestion
     let close: () -> Void
 
     /// The title in the content; Close alone in the bar the system draws over the sheet, a toolbar item, so the sheet
     /// sits in a stack (`sheetStack()`).
     var body: some View {
         HStack {
-            if let title { Text(title).font(.sheetTitle).foregroundStyle(color) }
+            if let title { Text(title).font(font).foregroundStyle(color) }
             Spacer(minLength: 0)
         }
         .toolbar {
@@ -543,20 +692,6 @@ extension View {
     /// column): it fills a narrow container and stops growing in a wide one.
     func readingWidth(_ width: CGFloat = 540) -> some View {
         frame(maxWidth: width).frame(maxWidth: .infinity)
-    }
-
-    /// A scrolling region that ends at any trailing inset (the Duo's column; a phone's notch in landscape), not under
-    /// it: a scroll view's frame runs under the safe area, so the inset is taken as padding.
-    func endsAtColumn() -> some View { modifier(EndsAtColumn()) }
-}
-
-private struct EndsAtColumn: ViewModifier {
-    @State private var inset: CGFloat = 0
-
-    func body(content: Content) -> some View {
-        content
-            .padding(.trailing, inset)
-            .onGeometryChange(for: CGFloat.self, of: { $0.safeAreaInsets.trailing }) { inset = $0 }
     }
 }
 
