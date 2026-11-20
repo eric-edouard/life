@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { appendFileSync, readFileSync, rmSync } from "node:fs";
 import type { LedgerEntry } from "../records/ledger-entry";
-import { COMPLAINTS, recordComplaints } from "./complaints";
+import { COMPLAINTS, recordComplaints } from "./complaint-record";
 
 // The complaint record: one row per complaint in ledger order, a torn last line dropped first, a bad earlier one shown,
 // never rewritten. Made-up asks.

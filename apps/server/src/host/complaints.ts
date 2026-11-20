@@ -2,7 +2,7 @@ import { z } from "zod";
 import { clock } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { off } from "../core/outputs";
-import { recordComplaints } from "../memory/complaints";
+import { recordComplaints } from "../memory/complaint-record";
 import { decisionsNow } from "../memory/decisions";
 import { askOf } from "../memory/memory-files";
 import { type Complaint, complaintOf } from "../records/ledger-entry";

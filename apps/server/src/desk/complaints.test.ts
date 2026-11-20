@@ -12,7 +12,7 @@ import {
   complaintsAtWork,
   currentAssignmentOf,
 } from "../host/desk-read";
-import { COMPLAINTS } from "../memory/complaints";
+import { COMPLAINTS } from "../memory/complaint-record";
 import { LEDGER, readLedger } from "../memory/memory-files";
 import { complaintOf, isComplaint } from "../records/ledger-entry";
 import { CARETAKER_BRIEF, receiveComplaints } from "./complaint-intake";

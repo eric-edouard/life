@@ -557,7 +557,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 ## complaints.jsonl
 
 The complaint record: one row per complaint (his "Wrong…", an ask in `ledger.jsonl`), appended only by `recordComplaints`
-(`memory/complaints.ts`) after its ask, in ledger order: `{schemaVersion: 1, ask, at, kind, stage, prompt}`. `kind`: the
+(`memory/complaint-record.ts`) after its ask, in ledger order: `{schemaVersion: 1, ask, at, kind, stage, prompt}`. `kind`: the
 card's group, `unknown` when it had left; `stage` the step that makes that kind of card (`links`, `episodes`, `names`,
 `contacts`, `matters`, `voice naming`, else `unknown`) and `prompt` its prompt version then (null when none). No words,
 no card. A torn last line is dropped before the next append; a bad earlier line stops it.
