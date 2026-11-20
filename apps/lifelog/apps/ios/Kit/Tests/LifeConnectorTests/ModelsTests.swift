@@ -246,6 +246,41 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(name.agentName(runtime: nil) == nil)
 }
 
+/// An ask names the agent that asked it, so its program shows even once that agent is over; without the name, the live
+/// agent on its matter; never for Life's own checks.
+@Test func theAskingAgentsProgramIsTheOneItNames() throws {
+    func edited(_ path: String, _ change: (inout [String: Any]) -> Void) throws -> Data {
+        var json = try #require(JSONSerialization.jsonObject(with: Data(wireText(path).utf8)) as? [String: Any])
+        change(&json)
+        return try JSONSerialization.data(withJSONObject: json)
+    }
+    let decoder = LibraryStore.feedDecoder
+    let agents = try decoder.decode(
+        RegisteredAgents.self,
+        from: edited("life/read_registered_agents.json") { json in
+            var list = json["agents"] as? [[String: Any]] ?? []
+            list[0]["id"] = "agt_over"
+            list[0]["runtime"] = "codex"
+            list[0]["status"] = "ended"
+            json["agents"] = list
+        }
+    ).agents
+    let inbox = try decoder.decode(
+        Inbox.self,
+        from: edited("life/read_inbox.json") { json in
+            var checks = json["checks"] as? [[String: Any]] ?? []
+            let at = checks.firstIndex { $0["group"] as? String == "decision" } ?? 0
+            checks[at]["agent"] = "agt_over"
+            checks[at]["matter"] = NSNull()
+            json["checks"] = checks
+        })
+    let decision = try #require(inbox.checks.first { $0.group == .decision })
+    #expect(decision.askingRuntime(among: agents) == .codex)
+    #expect(decision.askingRuntime(among: []) == nil)
+    let lifes = try #require(inbox.checks.first { $0.agentName(runtime: nil) == nil })
+    #expect(lifes.askingRuntime(among: agents) == nil)
+}
+
 /// The inbox's checks, made from the server's own read: one ask per ref, with the urgency given.
 private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [:]) throws -> Inbox {
     let wire = try #require(

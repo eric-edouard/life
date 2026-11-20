@@ -418,9 +418,6 @@ final class LifeStore {
 }
 
 extension LifeStore {
-    /// The program of the agent working on a check's matter, when an agent asks it (never for Life's own checks).
-    func runtimeName(of check: Check) -> RuntimeName? {
-        guard check.agentName(runtime: nil) != nil, let matter = check.matter?.id else { return nil }
-        return agents.value?.agents.first { $0.matter?.id == matter && !$0.isOver }?.runtimeName
-    }
+    /// The program of the agent that asks a check (`Check.askingRuntime`).
+    func runtimeName(of check: Check) -> RuntimeName? { agents.value.flatMap { check.askingRuntime(among: $0.agents) } }
 }

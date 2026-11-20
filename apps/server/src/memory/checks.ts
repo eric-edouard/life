@@ -329,6 +329,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         check: {
           ...NO_SAID,
           about: [],
+          agent: d.agent ?? null,
           asker: d.asker,
           at: d.at,
           clips: [],
@@ -791,6 +792,7 @@ async function readChecks(
   });
   return (await withNetworkIdentities(checks, people)).map((c) => ({
     ...c,
+    agent: c.agent ?? null,
     contactsCard: c.contactsCard ?? null,
     pushId: pushIdOf(c.ref, key),
     urgency: urgencyOf(c),
