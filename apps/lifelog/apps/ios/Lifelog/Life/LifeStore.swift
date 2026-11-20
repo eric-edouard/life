@@ -23,6 +23,8 @@ final class LifeStore {
     /// A person's page's parts, by their ref: a page of their latest exchanges, a part of prose.
     private(set) var latest: [String: ReadState<LatestPage>] = [:]
     private(set) var prose: [String: ReadState<Prose>] = [:]
+    /// The pages of someone's `reach` part, by their ref: every account, when `now` had no room for them all.
+    private(set) var reach: [String: ReadState<ReachPage>] = [:]
     /// Everyone the reads name, and their pictures.
     let parties: PartyBook
 
@@ -214,6 +216,26 @@ final class LifeStore {
 
     func refreshLatest(_ ref: String) async {
         await load({ self.latest[ref, default: ReadState()].apply($0) }, key: nil) { try await $0.readPart(ref) }
+    }
+
+    /// Every account of theirs: the `reach` part from `first`, page after page to its end.
+    func refreshReach(from first: String) async {
+        var next: String? = first
+        while let page = next {
+            await load({ self.reach[page, default: ReadState()].apply($0) }, key: nil) { try await $0.readPart(page) }
+            next = reach[page]?.value?.next
+        }
+    }
+
+    /// The `reach` part's pages read so far, from `first` in order.
+    func reachPages(from first: String) -> [ReachPage] {
+        var pages: [ReachPage] = []
+        var next: String? = first
+        while let ref = next, let page = reach[ref]?.value {
+            pages.append(page)
+            next = page.next
+        }
+        return pages
     }
 
     func refreshProse(_ ref: String) async {
@@ -549,7 +571,7 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
-        (people, person, latest, prose) = (ReadState(), [:], [:], [:])
+        (people, person, latest, prose, reach) = (ReadState(), [:], [:], [:], [:])
         parties.startOver()
         holds.clear()
         onStep(.reading)

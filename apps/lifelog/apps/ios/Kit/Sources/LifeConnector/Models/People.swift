@@ -138,7 +138,7 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         }
         public let network: String
         public let label: String
-        public let accounts: [Account]
+        public internal(set) var accounts: [Account]
         public var id: String { network }
     }
 
@@ -157,6 +157,8 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         public let kind: Kind
         public let text: String
         public let next: Next?
+        /// Where it comes from: `reach` for an account `now` had no room for in reach.
+        public let from: String?
     }
 
     /// A part Life holds about them, the ref `fetch` opens and its first sentence.
@@ -181,8 +183,12 @@ public struct PersonNow: Decodable, Sendable, Equatable {
     public let situation: [Line]
     public let communicationStyle: [Line]
     public let more: [String: Int]
+    /// The `reach` part's ref when `now` had no room for every account (`reach/<offset>` pages them all).
+    public let moreReach: String?
 
-    private enum Key: String, CodingKey { case reach, details, knows, open, situation, communicationStyle, more }
+    private enum Key: String, CodingKey {
+        case reach, details, knows, open, situation, communicationStyle, more, moreReach
+    }
 
     public init(from decoder: any Decoder) throws {
         row = try PersonRow(from: decoder)
@@ -191,6 +197,22 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         (reach, details, knows, open) = (try list(.reach), try list(.details), try list(.knows), try list(.open))
         (situation, communicationStyle) = (try list(.situation), try list(.communicationStyle))
         more = try container.decodeIfPresent([String: Int].self, forKey: .more) ?? [:]
+        moreReach = try container.decodeIfPresent(String.self, forKey: .moreReach)
+    }
+
+    /// Reach with every account once the `reach` part's pages are read, in order, to its end (`pages`; none: `now`'s
+    /// own), and the details less the accounts `now` had put there for want of room.
+    public func withEveryAccount(_ pages: [ReachPage]?) -> (reach: [Reach], details: [Detail]) {
+        guard let pages, !pages.isEmpty, pages.last?.next == nil else { return (reach, details) }
+        var merged: [Reach] = []
+        for app in pages.flatMap(\.reach) {
+            if let at = merged.firstIndex(where: { $0.network == app.network }) {
+                merged[at].accounts += app.accounts
+            } else {
+                merged.append(app)
+            }
+        }
+        return (merged, details.filter { $0.from != "reach" })
     }
 
     /// How many matters are open with them, those Life left out included.
@@ -242,6 +264,13 @@ extension PersonNow.Detail {
 
     /// A phone or an address he may copy: a handle.
     public var isCopied: Bool { kind == .handles }
+}
+
+/// A page of the `reach` part: every account from its offset on, as many as fit, and the next page's ref.
+public struct ReachPage: Decodable, Sendable, Equatable, ParsedRead, NamesParties {
+    public let reach: [PersonNow.Reach]
+    public let next: String?
+    public var parties: [Party] { [] }
 }
 
 /// A page of their newest exchanges with him (`latest`, `readLatest`): five a page by whole days, newest first, and the

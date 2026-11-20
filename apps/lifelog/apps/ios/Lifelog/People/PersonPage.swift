@@ -23,18 +23,23 @@ struct PersonPage: View {
         .background(Palette.bg)
         .shellBar("", hasSettings: hasSettings)
         .task { await life.refreshPerson(ref) }
+        .task(id: state.value?.moreReach) {
+            if let first = state.value?.moreReach { await life.refreshReach(from: first) }
+        }
     }
 
     private func page(_ now: PersonNow) -> some View {
-        ScrollView {
+        // Every account, once `now` sent the `reach` part's ref for those it had no room for.
+        let (reach, details) = now.withEveryAccount(now.moreReach.map { life.reachPages(from: $0) })
+        return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     Who(row: now.row)
-                    if !now.reach.isEmpty { ReachTiles(reach: now.reach) }
+                    if !reach.isEmpty { ReachTiles(reach: reach) }
                 }
                 OpenWith(now: now)
                 Lately(lines: now.situation.map(\.text))
-                Details(details: now.details)
+                Details(details: details)
                 Knows(now: now, ref: ref)
                 Latest(subject: ref)
             }

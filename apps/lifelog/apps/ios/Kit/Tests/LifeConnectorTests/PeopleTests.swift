@@ -123,3 +123,22 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     #expect(prose.sections.map(\.label) == ["Now", "Earlier"])
     #expect(prose.sections[0].paragraphs == ["Camille is your partner.", "She writes every day."])
 }
+
+@Test func everyAccountReadReplacesReachAndLeavesTheDetails() throws {
+    let now = try decoded(
+        PersonNow.self,
+        #"{"ref":"person:o","name":"O","kind":"organization","moreReach":"person:o/reach","reach":[{"network":"mail","label":"Mail","accounts":[{"handle":"a@o.example","open":{"lands":"chat","url":"mailto:a@o.example"}}]}],"details":[{"from":"reach","kind":"handles","text":"Mail: b@o.example"},{"from":"truth","kind":"home","text":"Lyon"}]}"#
+    )
+    #expect(now.moreReach == "person:o/reach")
+    let first = try ReachPage.parsed(
+        #"{"reach":[{"network":"mail","label":"Mail","accounts":[{"handle":"a@o.example","open":{"lands":"chat","url":"mailto:a@o.example"}}]}],"next":"person:o/reach/1"}"#
+    )
+    let last = try ReachPage.parsed(
+        #"{"reach":[{"network":"mail","label":"Mail","accounts":[{"handle":"b@o.example","open":{"lands":"chat","url":"mailto:b@o.example"}}]},{"network":"call","label":"Call","accounts":[{"handle":"+33600000009","open":{"lands":"call","url":"tel:+33600000009"}}]}]}"#
+    )
+    #expect(now.withEveryAccount([first]).reach == now.reach)
+    let every = now.withEveryAccount([first, last])
+    #expect(every.reach.map(\.network) == ["mail", "call"])
+    #expect(every.reach[0].accounts.map(\.handle) == ["a@o.example", "b@o.example"])
+    #expect(every.details.map(\.text) == ["Lyon"])
+}
