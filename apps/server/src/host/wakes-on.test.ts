@@ -208,6 +208,25 @@ test("a filter naming a message app and payments gives a line for each side that
   expect(fires(person, message())).toBe(true);
 });
 
+test("a place gives only the places line, with where; it fires within its radius, never on an event with no point", () => {
+  const site = { latitude: 10.5, longitude: 20.5 };
+  const arrival = (north: number): Matchable => ({
+    channel: "places",
+    isNamedOnly: true,
+    point: { latitude: site.latitude + north / 111_320, longitude: 20.5 },
+    text: "arrived Test Site",
+  });
+  const f = filter({ channels: ["whatsapp", "payments", "places"], ...site });
+  expect(wakesOnOf([f], ctx())).toEqual([
+    { kind: "places", near: { ...site, radius_m: 100 } },
+  ]);
+  expect(fires(f, arrival(90))).toBe(true);
+  expect(fires(f, arrival(400))).toBe(false);
+  expect(fires({ ...f, radius_m: 500 }, arrival(400))).toBe(true);
+  expect(fires(f, payment())).toBe(false);
+  expect(fires(f, message())).toBe(false);
+});
+
 test("the lines keep the filters' order, then the open card (with its deadline), then the wide net", () => {
   const card = {
     check: "dec_000000000001",

@@ -358,6 +358,10 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
       { calls: false, fromHim: true, kind: "message", words: "quote" },
       { above: 100, kind: "payments", quantity: "eur_out", words: "shop" },
       {
+        kind: "places",
+        near: { latitude: 10.5, longitude: 20.5, radius_m: 100 },
+      },
+      {
         card: "Book the shop?",
         check: "dec_000000000001",
         deadline: "2026-10-15T09:00:00.000Z",
