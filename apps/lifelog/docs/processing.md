@@ -189,6 +189,19 @@ were heard again under it. The waiting reason `creditsOut` follows: every busy c
 service, a conversation with a block waiting for credits (`waitsForCredits`). The status counts them
 (`waiting.forCredits`) and Host's menu shows them. Dictation never reaches either: the worker's gate runs first.
 
+### Chat voice notes
+
+Life sends a chat voice note's audio (Ogg Opus, at most 10 minutes and 16 MB) to `POST /voice-notes/transcript`, with
+the instant it was sent and its original file's sha256. It is heard like a block, by the same steps: the speech
+service, then `routeTurns` by the zone the owner was in at that instant, and Scribe for the routed turns
+(`hearRouted`, `hear-routed.ts`, which the worker's blocks use too); a note mostly Thai is cut whole into one excerpt
+rather than sent as a job. The answer is its words, nothing is stored of the audio, and no job, conversation or
+turn comes of it. Before the Scribe send the note's key is claimed in `voice_note_hearings` with the Mac's words: done,
+it answers its words again; a send under way (5 minutes) answers 503; a claim older than that (a lost answer, a
+restart) answers the Mac's words and is never sent again; Scribe taking nothing now (`later`) drops the claim. The
+switch off, the speech service busy or down, or the credits used up for a note that needs Scribe: 503, and Life asks
+again later. Its token is Life's corrections token.
+
 ### No limits
 
 Nothing holds or caps transcription: every admitted job goes. Spending counts every job.
