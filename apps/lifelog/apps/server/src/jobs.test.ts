@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, mock, spyOn, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { countRows, MIGRATIONS } from "@lifelog/db";
@@ -24,6 +24,7 @@ import { jobBench } from "./job-bench";
 import { getJob, jobWorker } from "./jobs";
 import { latency, spread } from "./latency";
 import { macSocket, vouchedThrough } from "./mac-socket";
+import { creditsWatch } from "./scribe-credits";
 import { services } from "./services";
 import { setSwitches } from "./switches";
 import {
@@ -361,6 +362,30 @@ test("credits: one email under 20 % and one when out, at most once per 12 h each
   await read(0);
   await read(850);
   expect(alerts()).toEqual(["low", "out", "low"]);
+});
+
+test("credits: paid sends wait for the balance read, not for the low-credit email", async () => {
+  const config = testConfig(baseUrl, {
+    ALERT_EMAIL_FROM: "Alerts <alerts@example.com>",
+    ALERT_EMAIL_TO: "owner@example.com",
+    RESEND_API_KEY: "re_test",
+  });
+  fake.respond = () =>
+    Response.json({ character_count: 850, character_limit: 1000 });
+  // Resend never answers.
+  const real = globalThis.fetch;
+  spyOn(globalThis, "fetch").mockImplementation(((
+    url: string | URL | Request,
+    init?: RequestInit
+  ) =>
+    String(url).startsWith("https://api.resend.com")
+      ? new Promise(() => undefined)
+      : real(url, init)) as typeof fetch);
+  const credits = creditsWatch(env.db, config);
+  credits.check();
+  await credits.firstRead();
+  expect(credits.level()).toBe("low");
+  mock.restore();
 });
 
 test("lost: a job ElevenLabs doesn't know 30 min after it was sent goes again, from the bucket", async () => {

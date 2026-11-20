@@ -74,7 +74,7 @@ export function openPhoneDictation(
 }
 
 // Closes a dictation (Stop, cancel, an interruption, a failed start) at `now`, when its close
-// arrives, no later than its cap. A close again keeps the first end. The dictation as stored; null
+// arrives, between its start and its cap (the server's clock may step back). A close again keeps the first end. The dictation as stored; null
 // for an id never opened.
 export function closePhoneDictation(db: Db, id: string, now = clock()) {
   return db.transaction((tx) => {
@@ -86,7 +86,9 @@ export function closePhoneDictation(db: Db, id: string, now = clock()) {
     if (!known || known.endedAt) {
       return known ? viewOf(known) : null;
     }
-    const endedAt = new Date(Math.min(now.getTime(), capOf(known)));
+    const endedAt = new Date(
+      Math.min(Math.max(now.getTime(), known.startedAt.getTime()), capOf(known))
+    );
     tx.update(phoneDictations)
       .set({ endedAt })
       .where(eq(phoneDictations.id, id))

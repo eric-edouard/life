@@ -67,6 +67,7 @@ export function creditsWatch(
         due.map((j) => j.id)
       );
     }
+    applied?.();
     if (level === before) {
       return;
     }
@@ -87,17 +88,27 @@ export function creditsWatch(
     record(db, "elevenlabs.quota_alert", { level, status });
   }
 
-  // The first read, done or failed: unread credits count as available, so nothing paid goes
-  // before it (jobs.ts `paidSend` and `work`), whoever woke the worker first.
-  let first: Promise<unknown> | undefined;
+  // The first read applied, or failed: unread credits count as available, so nothing paid goes
+  // before it (jobs.ts `paidSend` and `work`), whoever woke the worker first. Its alert email, if
+  // any, is not waited for.
+  let first: Promise<void> | undefined;
+  let applied: (() => void) | undefined;
   const checkOnce = () => {
+    first ??= new Promise((resolve) => {
+      applied = resolve;
+    });
     const run = check();
-    first ??= run.catch(() => undefined);
+    run.then(applied, applied);
     return run;
   };
   return {
     check: checkOnce,
-    firstRead: () => first ?? checkOnce().catch(() => undefined),
+    firstRead: () => {
+      if (!first) {
+        checkOnce().catch(() => undefined);
+      }
+      return first as Promise<void>;
+    },
     level: () => levelOf(plan),
     read: () => plan,
   };

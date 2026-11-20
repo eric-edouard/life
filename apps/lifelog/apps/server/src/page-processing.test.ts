@@ -308,6 +308,77 @@ test("the VAD worker failing on a piece carried over from the batch before: it i
   expect(pieces()).toEqual(kitPieces());
 });
 
+// Labels batch after batch until none waits.
+async function labelAll(labelBatch: (sourceId: string) => Promise<boolean>) {
+  // biome-ignore lint/performance/noAwaitInLoops: batch after batch
+  while (await labelBatch(SOURCE)) {
+    // the next batch
+  }
+}
+
+// Pages 100 to 250 come late, over both spans, with a Mac quiet range at the second span's start;
+// the worker fails on the late batch's second piece when `fails`. What is stored, and every packet
+// that reached Silero for the late pages.
+async function lateOverBothSpans(fails: boolean) {
+  const audio = memoryAudioStore();
+  const labelBatch = pageLabeler(env.db, audio, {
+    batchPages: 3000,
+    now: () => Date.now() + 11 * 60_000,
+    vouched: () => Number.POSITIVE_INFINITY,
+  });
+  await store(audio, 0, 100);
+  await store(audio, 251);
+  await labelAll(labelBatch);
+  quiet([expected.pieces[1].start + 2000, expected.pieces[1].start + 5000]);
+  await store(audio, 100, 251);
+  const sent = watching((n) =>
+    fails && n === 2 ? new Error("the worker stopped") : undefined
+  );
+  if (fails) {
+    // Not `rejects`: it waits without letting the worker's answers in.
+    const error = await labelAll(labelBatch).catch((e: Error) => e);
+    expect(String(error)).toContain("the worker stopped");
+  }
+  await labelAll(labelBatch);
+  return { pieces: pieces(), sent: sent.toSorted(), timeline: timeline() };
+}
+
+test("a late batch the worker fails on part way is placed again as on one pass: the same pieces, breaks and packets, none sent twice", async () => {
+  const whole = await lateOverBothSpans(false);
+  mock.restore();
+  env.reset();
+  const resumed = await lateOverBothSpans(true);
+  expect(resumed).toEqual(whole);
+  expect(new Set(resumed.sent).size).toBe(resumed.sent.length);
+});
+
+test("a late piece the worker fails on leaves the open piece of the same source in its stream", async () => {
+  const audio = memoryAudioStore();
+  // The second span stays open, past what the Mac vouches for.
+  let vouched = expected.pieces[1].start + 5000;
+  const labelBatch = pageLabeler(env.db, audio, {
+    batchPages: 3000,
+    now: () => Date.now() + 11 * 60_000,
+    vouched: () => vouched,
+  });
+  await store(audio, 0, 40);
+  await store(audio, 50);
+  await labelAll(labelBatch);
+  await store(audio, 40, 50);
+  const calls: { continues: boolean; stream: string }[] = [];
+  watching((n, req) => {
+    calls.push({ continues: req.continues, stream: req.stream });
+    return n === 1 ? new Error("the worker stopped") : undefined;
+  });
+  await labelAll(labelBatch).catch(() => undefined);
+  vouched = Number.POSITIVE_INFINITY;
+  await labelAll(labelBatch);
+  const open = calls.find((c) =>
+    c.stream.endsWith(`#${expected.pieces[1].first}`)
+  );
+  expect(open?.continues).toBe(true);
+});
+
 test("a late page is labeled on its own, and its speech is cut", async () => {
   const { at, audio, pages } = setup();
   // The second span's first pages, just before its speech, come after labeling went past them.

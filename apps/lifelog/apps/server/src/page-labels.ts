@@ -110,6 +110,17 @@ function spansOf(tx: Db, sourceId: string, first: number, last: number) {
 }
 
 type PieceRow = typeof pagePieces.$inferSelect;
+// Where a piece fell: its pages, its place in capture time and its breaks.
+const placeKey = (
+  p: Pick<Piece, "breaks" | "end" | "first" | "last" | "start">
+) => JSON.stringify([p.first, p.last, p.start, p.end, p.breaks]);
+const pieceOf = (r: typeof pagePieces.$inferInsert) => ({
+  breaks: r.breaks ?? [],
+  end: r.endAt.getTime(),
+  first: r.firstPage,
+  last: r.lastPage,
+  start: r.startAt.getTime(),
+});
 // One span's facts from its pieces, in page order (never none: they were grouped by span). Speech
 // and audible clipped to the span, what no piece covers for a second or more unanalyzed, its
 // first piece's breaks at its start, no pauses (an Omi confirms none).
@@ -190,9 +201,16 @@ export function pageLabeler(
   }: { batchPages: number; now: () => number; vouched: () => number }
 ) {
   // Each source's open piece, its pages not marked labeled yet, and the worker life holding its
-  // stream. Lost on a restart, a worker that ended or a refused call, it is labeled again from its
-  // first page.
+  // stream. Lost on a restart, a worker that ended, or a call the worker failed on that went on
+  // from it, it is labeled again from its first page.
   const open = new Map<string, { life: number; piece: Piece }>();
+  // A late batch stopped part way (refused, or the worker failed) is labeled again whole, so its
+  // pages are placed as on one pass; the pieces it labeled are kept here by where they fell and
+  // not sent again. Lost on a restart: the batch is then labeled again from its first page.
+  const lateDone = new Map<
+    string,
+    Map<string, typeof pagePieces.$inferInsert>
+  >();
   const openPiece = (sourceId: string) => {
     const held = open.get(sourceId);
     if (held && held.life !== workerLife()) {
@@ -318,11 +336,7 @@ export function pageLabeler(
         stream: `${sourceId}#${piece.first}`,
       },
       packetsNow
-    ).catch((error: unknown) => {
-      // Its stream is gone: the piece is labeled again from its first page.
-      open.delete(sourceId);
-      throw error;
-    });
+    );
     if (!labels) {
       open.set(sourceId, { life: workerLife(), piece });
       return null;
@@ -464,11 +478,13 @@ export function pageLabeler(
     sourceId: string,
     list: Piece[],
     {
+      done,
       going,
       packets,
       runs,
       stays,
     }: {
+      done: Map<string, typeof pagePieces.$inferInsert> | undefined;
       going: Piece | undefined;
       packets: PacketsOf;
       runs: PlacedRun[];
@@ -477,6 +493,11 @@ export function pageLabeler(
   ) {
     const rows: (typeof pagePieces.$inferInsert)[] = [];
     for (const [i, piece] of list.entries()) {
+      const kept = done?.get(placeKey(piece));
+      if (kept) {
+        rows.push(kept);
+        continue;
+      }
       try {
         // biome-ignore lint/performance/noAwaitInLoops: one piece at a time, in order
         const row = await labelPiece(sourceId, piece, {
@@ -532,6 +553,7 @@ export function pageLabeler(
     );
     const stays = !batch.late && (batch.more || placed.truncated);
     const { refused, rows } = await labelAll(sourceId, list, {
+      done: batch.late ? lateDone.get(sourceId) : undefined,
       going,
       packets: placed.packets,
       runs: placed.spans.flatMap((s) => s.runs),
@@ -542,9 +564,17 @@ export function pageLabeler(
     if (refused?.carried && !refused.failed && held) {
       open.set(sourceId, held);
     }
-    const kept = batch.late ? undefined : openPiece(sourceId)?.first;
-    const end = refused?.piece.first ?? kept ?? placed.last + 1;
-    save(sourceId, rows, [going?.first ?? placed.first, end - 1], batch.late);
+    if (batch.late && refused) {
+      lateDone.set(
+        sourceId,
+        new Map(rows.map((r) => [placeKey(pieceOf(r)), r]))
+      );
+    } else {
+      lateDone.delete(sourceId);
+      const kept = batch.late ? undefined : openPiece(sourceId)?.first;
+      const end = refused?.piece.first ?? kept ?? placed.last + 1;
+      save(sourceId, rows, [going?.first ?? placed.first, end - 1], batch.late);
+    }
     if (refused?.failed) {
       throw refused.failed;
     }
