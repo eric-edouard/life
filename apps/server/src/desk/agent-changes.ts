@@ -362,7 +362,13 @@ export async function applyAgentChanges(desk: Desk) {
     if (!r) {
       continue;
     }
-    log("desk.change", { ask: ask.id, ...r });
+    // A refusal is logged by its class: its sentence can quote a runtime's output.
+    const { error: refusal, ...done } = r as typeof r & { error?: string };
+    log("desk.change", {
+      ask: ask.id,
+      ...done,
+      ...(refusal ? { refused: "refused" } : {}),
+    });
     if ("id" in r && (ask.agentChange as AgentChange).action === "stop") {
       // His stop ends the turn under way too (his yes of 20 Nov 2026): its run is stopped, the turn closes `failed`.
       await stopOpenRun(desk, r.id);

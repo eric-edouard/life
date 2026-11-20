@@ -473,6 +473,7 @@ async function listen(running: string, started: Date): Promise<number> {
   // A commit changed apps/server/src/ or prompts/: exit, the app starts the new code (old code lost a request on 15 Oct by reading a renamed prompt).
   while (codeAt(LIFE_CODE_DIR) === running) {
     let result: { cursor: string } | { error: string };
+    let failure: ReturnType<typeof errorOf> | undefined;
     try {
       // biome-ignore lint/performance/noAwaitInLoops: the poll loop is sequential
       const page = await poll(
@@ -521,12 +522,13 @@ async function listen(running: string, started: Date): Promise<number> {
       result = { cursor: page.cursor };
     } catch (e) {
       // What the status reads show: a model's error by its type, Life's own by its first line (`errorOf`).
-      result = { error: errorOf(e).error };
+      failure = errorOf(e);
+      result = { error: failure.error };
       console.error(clock().toISOString(), (e as Error).message);
     }
     health = afterPoll(health, clock(), result, started);
     if ("error" in result && health.consecutiveErrors === 1) {
-      log("run.error", { error: result.error, step: "watch" });
+      log("run.error", { ...failure, step: "watch" });
     }
     await Bun.write(HEALTH, `${JSON.stringify(health, null, 2)}\n`);
     if ("error" in result) {

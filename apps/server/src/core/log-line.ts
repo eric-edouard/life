@@ -177,7 +177,8 @@ export const logWriter = (
   writers.set(app, write);
   configure();
   return (kind: string, fields: Record<string, unknown> = {}) => {
-    const { kind: fieldKind, ...rest } = fields;
+    // The standard fields are the writer's: a caller's own `kind` or `level` is kept beside them.
+    const { kind: fieldKind, level: fieldLevel, ...rest } = fields;
     const e = {
       ...rest,
       // Every writer's error text kept to one line, as `errorOf` keeps it.
@@ -185,6 +186,7 @@ export const logWriter = (
         ? { error: firstLineOf(rest.error) }
         : {}),
       ...(fieldKind === undefined ? {} : { fieldKind }),
+      ...(fieldLevel === undefined ? {} : { fieldLevel }),
       kind,
       time: clock().toISOString(),
     };
