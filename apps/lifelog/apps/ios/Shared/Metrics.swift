@@ -25,6 +25,8 @@ enum Metrics {
         static let slot: CGFloat = 32
         /// The people sheet's larger lead.
         static let personSlot: CGFloat = 40
+        /// A person's row in the people sheet (`party_row` at 52).
+        static let personRow: CGFloat = 52
     }
 
     /// Corner radii, smallest to largest.
