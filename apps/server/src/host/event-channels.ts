@@ -120,6 +120,8 @@ export const paymentsChannelOf = (
 
 /** How far back a read of stays looks. */
 const PLACES_BACK = 48 * HOUR;
+/** A read of stays that takes longer fails, so a hanging lifelog never holds the desk's tick (read at every poll). */
+const PLACES_READ_WITHIN_S = 10;
 
 /**
  * A stay as an arrival: when, and where (its point as lifelog gives it), never the place's name (Apple's short name of a
@@ -161,7 +163,10 @@ function arrivalOf(s: Stay): ChannelEvent {
  * minutes after its last turn). The upgrade: an id lifelog gives a stay.
  */
 export const placesChannelOf = (
-  read: (q: { from: string; to: string }) => Promise<Stay[]> = visits
+  read: (
+    q: { from: string; to: string },
+    timeoutS: number
+  ) => Promise<Stay[]> = visits
 ): EventChannel => ({
   about:
     "each arrival at a place (`stay.arrived`), a few minutes after he gets there: name the place by `latitude`, `longitude` and `radius_m` (100 by default) as `read_places_visited` gives them, or by `text_matches` on `arrived <place>`; read it with `read_places_visited` at its `at`. Departures are not events yet",
@@ -175,7 +180,10 @@ export const placesChannelOf = (
   quantities: [],
   read: async (now) => {
     const from = now - PLACES_BACK;
-    const stays = await read({ from: iso(from), to: iso(now) });
+    const stays = await read(
+      { from: iso(from), to: iso(now) },
+      PLACES_READ_WITHIN_S
+    );
     return stays.filter((s) => Date.parse(s.arrivedAt) >= from).map(arrivalOf);
   },
 });

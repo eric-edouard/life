@@ -665,16 +665,16 @@ export async function whereAt(at: string) {
   return Stays.parse(await call(`/where?at=${encodeURIComponent(at)}`));
 }
 
-/** The owner's stays, newest first, at most 200, within `from`/`to` (the whole history without them): all, or by place name or coordinates. */
-export async function visits(q: Record<string, string | number | undefined>) {
+type VisitsQuery = Record<string, string | number | undefined>;
+/** The owner's stays, newest first, at most 200, within `from`/`to` (the whole history without them): all, or by place name or coordinates (none when lifelog's 404 says no place the phone named matches); given up after `timeoutS` (`call`'s default without it). */
+export async function visits(q: VisitsQuery, timeoutS?: number) {
   const query = new URLSearchParams(
     Object.entries(q).flatMap(([k, v]) =>
       v === undefined ? [] : [[k, `${v}`] as [string, string]]
     )
   );
-  // A 404 is lifelog's answer when no place the phone named matches: no stays.
   return Stays.parse(
-    await call(`/visits?${query}`).catch((e: { status?: number }) =>
+    await call(`/visits?${query}`, timeoutS).catch((e: { status?: number }) =>
       e.status === 404 ? [] : Promise.reject(e)
     )
   );

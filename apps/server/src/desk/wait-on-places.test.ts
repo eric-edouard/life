@@ -162,3 +162,12 @@ test("a failing read queues nothing and the next wake says so", async () => {
   await wakeDue(desk);
   expect(fake.said.at(-1)?.message).toMatch(UNREAD);
 });
+
+test("a read of stays gives up after 10 seconds, so a hanging lifelog never holds the desk's tick for long", async () => {
+  const asked: unknown[] = [];
+  await placesChannelOf((...args: unknown[]) => {
+    asked.push(args[1]);
+    return Promise.resolve([]);
+  }).read(clock().getTime());
+  expect(asked).toEqual([10]);
+});
