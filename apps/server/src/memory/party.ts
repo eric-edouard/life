@@ -9,8 +9,10 @@ import type { DirectoryParty } from "../records/truth";
 
 export const PERSON_PICTURES = join(MACHINE_DIR, "person-pictures");
 export const PERSON_PICTURES_INDEX = join(MACHINE_DIR, "person-pictures.json");
-/** A kept picture's file in `PERSON_PICTURES`, by its id. */
-export const pictureFileOf = (id: string) => `${id}.jpg`;
+/** A kept picture's side, in pixels. */
+export const PICTURE_PX = 216;
+/** A kept picture's file in `PERSON_PICTURES`, by its id and size (an older full-size file of the same id is never taken for it). */
+export const pictureFileOf = (id: string) => `${id}-${PICTURE_PX}.jpg`;
 
 /** Each person's pictures, by their ref as placed when kept: Contacts' first, then each source's. */
 const PictureIndex = z.object({

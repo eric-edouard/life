@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { PICTURE_PX, pictureFileOf } from "./party";
 import { personPicturesOf, pictureIdOf } from "./person-pictures";
 
 const DIGEST = /^[0-9a-f]{32}$/;
@@ -42,4 +43,10 @@ test("a picture's id is its original bytes' digest alone, whatever their format"
   expect(pictureIdOf(jpg(1))).toMatch(DIGEST);
   expect(pictureIdOf(png(1))).toMatch(DIGEST);
   expect(pictureIdOf(jpg(1))).not.toBe(pictureIdOf(jpg(2)));
+});
+
+test("a kept picture's file names its size, so an older full-size file of the same id is never served as it", () => {
+  const id = pictureIdOf(jpg(1));
+  expect(pictureFileOf(id)).toBe(`${id}-${PICTURE_PX}.jpg`);
+  expect(pictureFileOf(id)).not.toBe(`${id}.jpg`);
 });

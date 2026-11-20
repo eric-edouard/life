@@ -14,7 +14,7 @@ const PICTURE_ID = /^[0-9a-f]{32}$/;
 const MAX_IDS = 64;
 
 /** The kept pictures `ids` name, as base64 JPEGs, and the ids no picture is kept for (gone since, or never kept). */
-export function readPersonPictures(ids: readonly string[]) {
+function readPersonPictures(ids: readonly string[]) {
   const pictures: { data: string; id: string; mime: "image/jpeg" }[] = [];
   const missing: string[] = [];
   for (const id of new Set(ids)) {

@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -10,6 +9,7 @@ import {
 import { join } from "node:path";
 import { clock, iso } from "../core/clock";
 import { writeJson } from "../core/files";
+import { digest } from "../core/hash";
 import type { SourceName } from "../core/names";
 import { readContactPictures, readContactRecords } from "../sources/contacts";
 import type { Picture } from "../sources/contract";
@@ -17,6 +17,7 @@ import { toJpeg } from "./message-files";
 import {
   PERSON_PICTURES,
   PERSON_PICTURES_INDEX,
+  PICTURE_PX,
   type PictureIndex,
   pictureFileOf,
 } from "./party";
@@ -31,11 +32,10 @@ import { readPeople } from "./who";
 
 const CONTACTS = "contacts";
 /** A kept picture's long side: 72 pt at 3x, the largest the apps draw. */
-const PICTURE_PX = 216;
 
 /** A picture's id: its original bytes' digest. */
 export const pictureIdOf = (bytes: Uint8Array) =>
-  createHash("sha256").update(bytes).digest("hex").slice(0, 32);
+  digest("sha256", Buffer.from(bytes), 32);
 
 /**
  * Each person's pictures, Contacts' first then each source's in the order given, the same picture once per person, and
