@@ -9,8 +9,8 @@ extension View {
         glassEffect(.regular, in: shape)
     }
 
-    /// A screen's one floating primary action: cream glass, its label dark like every cream fill's (`PillStyle`);
-    /// left to the system, the label is light and vanishes on the cream.
+    /// A screen's one floating primary action: `fg` glass (cream in dark), its label `on` like every filled pill's
+    /// (`PillStyle`); left to the system, the label is light and vanishes on the cream.
     func primaryGlassButton() -> some View {
         buttonStyle(.glassProminent).tint(Palette.fg).foregroundStyle(Palette.on)
     }
