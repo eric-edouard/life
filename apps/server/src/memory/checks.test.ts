@@ -372,7 +372,11 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   ]);
   // The people it could be are buttons of their own; the answers are "Yes" (only to a guess in use), "Someone else…", "Don't name".
   const labels = (r: string) => byRef(r)?.options.map((o) => o.label);
-  expect(labels("voice:v0~person:dana")).toEqual(["Yes", "Someone else…", "Don't name"]);
+  expect(labels("voice:v0~person:dana")).toEqual([
+    "Yes",
+    "Someone else…",
+    "Don't name",
+  ]);
   expect(labels("voice:v1")).toEqual(["Someone else…", "Don't name"]);
   expect(labels("voice:v2")).toEqual(["Someone else…", "Don't name"]);
   expect(byRef("voice:v2")?.evidence?.quote).toBe("See you Friday");

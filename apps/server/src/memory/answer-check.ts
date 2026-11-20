@@ -147,7 +147,11 @@ async function readVoice(c: Pick<Check, "ref">): Promise<Voice> {
 async function answerVoice(
   c: Check,
   voice: Voice | undefined,
-  answerOf: (v: Voice) => Promise<Parameters<typeof answerNamingQueue>[1]>
+  answerOf: (
+    v: Voice
+  ) =>
+    | Parameters<typeof answerNamingQueue>[1]
+    | Promise<Parameters<typeof answerNamingQueue>[1]>
 ) {
   if (!voice) {
     throw new Error(`Not done: no open check ${c.ref}`);
@@ -164,7 +168,7 @@ async function answerVoice(
 }
 
 /** Who a voice's answer names: a new person by `name`, else the lifelog person that is Life's `person`, else that person by their name. */
-async function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
+function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
   if (a.name) {
     return { kind: "confirm", name: a.name } as const;
   }
