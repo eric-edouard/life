@@ -203,6 +203,8 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
     expect(text).toContain("never with a Monitor");
     expect(text).toContain("`github` is a wait channel");
     expect(text).toContain("he is here, so answer and ask him in the chat");
+    expect(text).toContain("never by his yes in the chat");
+    expect(text).toContain("every question or decision that needs his answer goes as a card");
     expect(text).toContain("never a question left in the chat");
   }
 });
