@@ -100,14 +100,11 @@ export function start(
   if (counted) {
     return { error: counted };
   }
-  const refused = subjectRefusal(desk, c);
   if (c.steps) {
+    // Held already: its holder answers (a matter's one other refusal).
     const holder = holderOf(desk.db, c.steps);
     if (holder) {
       return { id: holder };
-    }
-    if (refused) {
-      return { error: refused };
     }
     if (!taker) {
       return {
@@ -123,6 +120,7 @@ export function start(
     replaceStopped(desk, c, taker);
     return { id: taker };
   }
+  const refused = subjectRefusal(desk, c);
   const runtime = runtimeOf(c);
   const repeat = desk.db
     .query<{ id: string }, [string, string | null, number]>(
