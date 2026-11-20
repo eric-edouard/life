@@ -2,6 +2,7 @@ import { digest } from "../core/hash";
 import { inboxOf } from "../memory/check-urgency";
 import { checksAndKeyNow, checksNow, type HeldRead } from "../memory/checks";
 import {
+  cardHoldersOf,
   complaintsAtWork,
   heldByAgents,
   heldStampOf,
@@ -18,7 +19,9 @@ function readHeld(): HeldRead | null {
     return null;
   }
   const complaints = readDesk(complaintsAtWork, []);
+  const holders = readDesk(cardHoldersOf, {});
   return {
+    cardHolders: holders.state === "ok" ? holders.value : {},
     complaints: complaints.state === "ok" ? complaints.value : [],
     read: () => {
       const r = readDesk(heldByAgents, []);

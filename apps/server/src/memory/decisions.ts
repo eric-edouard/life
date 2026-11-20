@@ -363,10 +363,6 @@ export const decisionsNow = (now = clock()): Decision[] =>
     return { ...o, state: stateOf(o, now) };
   });
 
-/** Registered agent `agent`'s open decision, if any: the door lets each assignment ask one at a time, worked out from `list`, never stored. */
-export const openDecisionOf = (agent: string, list = decisionsNow()) =>
-  list.find((d) => d.agent === agent && d.state === "open");
-
 function readOpenDecision(id: string, now: Date) {
   const d = decisionsNow(now).find((x) => x.id === id);
   if (!d) {

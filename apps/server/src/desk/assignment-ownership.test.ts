@@ -1,9 +1,11 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, iso, MIN } from "../core/clock";
+import { agentsNow } from "../host/agents-now";
 import {
   agentOf,
   assignmentOf,
   assignmentOfCard,
+  cardHoldersOf,
   openAssignments,
   readStartFacts,
 } from "../host/desk-read";
@@ -178,4 +180,42 @@ test("a repeated Start reports the open assignment it found, never a newer close
     readStartFacts(desk.db, "entry_test", ["obs_test_d1", "obs_test_d2"])
       .assignment?.id
   ).toBe(open);
+});
+
+test("a fold shows its card as asked by the new holder, and the agent it emptied is still read", async () => {
+  const { desk } = setup();
+  desk.embedder = null;
+  const step = "obs_00000000f062";
+  await withBook(
+    [toDo(step, "I'll call the roofer")],
+    { id: "matter_00000000f062", steps: [step] },
+    async () => {
+      const old = register(desk, {
+        brief: "Test brief: the roof",
+        runtime: "fake",
+        steps: [step],
+      });
+      const personal = standing(desk, { role: "personal" });
+      const onMatter = openAssignments(desk.db).find((s) => s.agent_id === old);
+      if (!onMatter) {
+        throw new Error("no matter assignment");
+      }
+      const { id } = await askDecision(desk, onMatter, {
+        context: "A made-up reason to ask.",
+        deadline: iso(clock().getTime() + DAY),
+        options: [
+          { id: "yes", label: "Yes" },
+          { id: "no", label: "No" },
+        ],
+        question: "Test: call them?",
+        title: "a test",
+      });
+      await foldAssignments(desk, readPeopleOnce());
+      expect(cardHoldersOf(desk.db)[id]).toBe(personal);
+      expect(
+        agentsNow(desk.db, clock().getTime()).find((a) => a.id === old)
+      ).toMatchObject({ status: "ended", steps: [] });
+      await withdrawOpenCards(desk.db, { agent_id: personal }, "test over");
+    }
+  );
 });

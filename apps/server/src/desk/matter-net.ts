@@ -8,7 +8,6 @@ import {
   agentOf,
   anchorsOf,
   assignmentOf,
-  assignmentOfCard,
   openAssignments,
   openTurn,
   standingAgents,
@@ -35,7 +34,7 @@ import { spokenLines } from "../memory/words";
 import { dayNow } from "../memory/zones";
 import type { OpenedBy } from "../records/registered-agent";
 import { closeAssignment } from "./agent-actions";
-import { type Desk, moveAssignment } from "./desk-store";
+import { type Desk, endWhenIdle, moveAssignment } from "./desk-store";
 import {
   holdersOf,
   queue,
@@ -446,18 +445,10 @@ export async function foldAssignments(desk: Desk, readPeopleNow: ReadPeople) {
     }
     const outcome = `folded into the ${target.name ?? target.id} agent`;
     db.transaction(() => {
-      // Both agents' cards pinned to their owners first: a move changes which assignment is either agent's first.
-      for (const d of decisions) {
-        const owner =
-          (d.agent === s.agent_id || d.agent === to) && assignmentOfCard(db, d);
-        if (owner) {
-          db.run(
-            "insert or ignore into card (decision_id, assignment_id) values (?, ?)",
-            [d.id, owner]
-          );
-        }
+      const from = moveAssignment(db, s.id, to, decisions);
+      if (from) {
+        endWhenIdle(db, from, "ended", outcome);
       }
-      moveAssignment(db, s.id, to, outcome);
     })();
     log("desk.fold", { assignment, from: s.agent_id, to });
   }
