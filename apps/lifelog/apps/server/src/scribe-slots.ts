@@ -6,6 +6,32 @@
 // priority in arrival order; a send under way is never cut. Every wait is bounded, and one aborted
 // leaves the line at once.
 
+import { clock } from "@life/server/src/core/clock";
+import type { Db } from "@lifelog/db";
+import { transcriptionJobs as jobs } from "@lifelog/db/schema";
+import { and, eq, gt, or } from "drizzle-orm";
+
+// A send not answered after this was lost by ElevenLabs if it no longer knows it; until then it
+// counts as one of the transcriptions running there.
+export const LOST_AFTER_MS = 30 * 60 * 1000;
+
+// The submitted jobs ElevenLabs may still be working on, each holding one of its slots: a Scribe
+// send, and a speech block whose routed turns may be billed there (a send cut off by a restart
+// too, until reconcile settles it). A block heard at the speech service holds none.
+export const atScribe = (db: Db) =>
+  db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.state, "submitted"),
+        gt(jobs.requestSentAt, new Date(clock().getTime() - LOST_AFTER_MS)),
+        or(eq(jobs.transcriber, "scribe"), eq(jobs.maybeBilled, true))
+      )
+    )
+    .all()
+    .map((job) => job.id);
+
 export type Priority = "interactive" | "ordinary";
 // Gives the slot back; a second call does nothing.
 export type Release = () => void;
@@ -16,11 +42,11 @@ interface Waiter {
   priority: Priority;
 }
 
-export function scribeSlots(size: number, atScribe: () => string[]) {
+export function scribeSlots(size: number, submitted: () => string[]) {
   const sending = new Set<string>();
   const line: Waiter[] = [];
 
-  const free = () => size - new Set([...atScribe(), ...sending]).size;
+  const free = () => size - new Set([...submitted(), ...sending]).size;
 
   function hold(key: string): Release {
     sending.add(key);

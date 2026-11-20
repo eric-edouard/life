@@ -7,20 +7,18 @@ import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   transcriptionJobs as jobs,
-  sources,
-  speechFragments,
   transcripts,
   UNTIL_CREDITS,
   waitsForCredits,
 } from "@lifelog/db/schema";
-import { and, eq, gt, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import type { SQLiteUpdateSetSource } from "drizzle-orm/sqlite-core";
 import type { z } from "zod";
 import { emailOwner } from "./alert";
 import type { AudioStore } from "./audio-store";
 import { logChange } from "./change-log";
 import { type Config, singleFlight } from "./config";
-import { cut, touchesQuiet, withdrawRows } from "./cutter";
+import { cut, touchesQuiet, withdrawJob } from "./cutter";
 import { ownerZoneAt, reportError } from "./diagnostics";
 import {
   credits,
@@ -41,7 +39,13 @@ import { markDirty, regroupAfterCommit } from "./grouping";
 import { hearRouted } from "./hear-routed";
 import { type MacSocket, macSocket } from "./mac-socket";
 import { barOf, type Route, routeTurns } from "./route-turns";
-import { type Priority, type Release, scribeSlots } from "./scribe-slots";
+import {
+  atScribe,
+  LOST_AFTER_MS,
+  type Priority,
+  type Release,
+  scribeSlots,
+} from "./scribe-slots";
 import {
   SPEECH_TIMEOUT_MS,
   speechServiceSet,
@@ -294,9 +298,6 @@ function readWebhook(body: string) {
   };
 }
 
-// A send not answered after this was lost by ElevenLabs if it no longer knows it; until then it
-// counts as one of the transcriptions running there.
-const LOST_AFTER_MS = 30 * 60 * 1000;
 // A send ElevenLabs may have taken without giving an id to ask by waits this long for its webhook.
 const UNANSWERED_MS = 24 * 3600 * 1000;
 // A block at the speech service is done well within this (its answer, a wait for a Scribe slot,
@@ -306,23 +307,6 @@ const SPEECH_CUT_OFF_MS = 10 * 60 * 1000;
 // a live waiter for one cut off: the service's answer, this wait and Scribe's fit in the cut-off.
 export const SLOT_WAIT_MS =
   SPEECH_CUT_OFF_MS - SPEECH_TIMEOUT_MS - QUICK_TIMEOUT_MS - 60_000;
-
-// The submitted jobs ElevenLabs may still be working on, each holding one of its slots: a Scribe
-// send, and a speech block whose routed turns may be billed there (a send cut off by a restart
-// too, until reconcile settles it). A block heard at the speech service holds none.
-const atScribe = (db: Db) =>
-  db
-    .select({ id: jobs.id })
-    .from(jobs)
-    .where(
-      and(
-        eq(jobs.state, "submitted"),
-        gt(jobs.requestSentAt, new Date(clock().getTime() - LOST_AFTER_MS)),
-        or(eq(jobs.transcriber, "scribe"), eq(jobs.maybeBilled, true))
-      )
-    )
-    .all()
-    .map((job) => job.id);
 
 // What the 5-minute tick settles about one submitted job, without buying anything: "applied" when
 // its transcript came, "retried" or "failed" when it left submitted, null while it waits.
@@ -791,7 +775,7 @@ export function jobWorker(
       }
       // biome-ignore lint/performance/noAwaitInLoops: each round fills the room the last one left
       await Promise.all([
-        ...quiet.map((id) => withdraw(db, audio, id)),
+        ...quiet.map((id) => withdrawJob(db, audio, id)),
         ...claimed.map((job) =>
           send(job).catch((error: unknown) => reportError(db, "send", error))
         ),
@@ -882,68 +866,3 @@ export function jobWorker(
 }
 
 export type JobWorker = ReturnType<typeof jobWorker>;
-
-// The pages the server holds of a source: every job's, any state (a failed one's too: nothing buys
-// them again), old parts' once the handover gave them pages, and every fragment's in no job. The
-// phone sends kept speech from every other page; a reinstalled one starts from it after the
-// handover (`handedOver`) only.
-export function sourcePages(db: Db, sourceId: string) {
-  const source = db
-    .select({
-      handedOverAt: sources.handedOverAt,
-      sentThrough: sources.sentThrough,
-    })
-    .from(sources)
-    .where(eq(sources.id, sourceId))
-    .get();
-  const held = db
-    .select({ jobId: jobs.id, pages: jobs.pages })
-    .from(jobs)
-    .where(
-      and(
-        eq(jobs.sourceId, sourceId),
-        sql`json_array_length(${jobs.pages}) > 0`
-      )
-    )
-    .all();
-  const open = db
-    .select({ jobId: speechFragments.id, pages: speechFragments.pages })
-    .from(speechFragments)
-    .where(
-      and(eq(speechFragments.sourceId, sourceId), isNull(speechFragments.jobId))
-    )
-    .all();
-  return {
-    blocks: [...held, ...open].flatMap(({ jobId, pages }) =>
-      pages ? [{ jobId, pages }] : []
-    ),
-    handedOver: Boolean(source?.handedOverAt),
-    sentThrough: source?.sentThrough?.toISOString() ?? null,
-  };
-}
-
-// A job not sent yet whose audio touches a quiet range goes: nothing was bought, its audio leaves
-// the bucket, and its pages are free for the phone to send again (the feed says it went, and the
-// fragments it was made of). False when it was sent meanwhile.
-const withdraw = (db: Db, audio: AudioStore, jobId: string) =>
-  withdrawRows(db, audio, (tx) => {
-    const row = tx
-      .select({
-        key: jobs.objectKey,
-        pages: jobs.pages,
-        sourceId: jobs.sourceId,
-      })
-      .from(jobs)
-      .where(and(eq(jobs.id, jobId), eq(jobs.state, "queued")))
-      .get();
-    if (!row) {
-      return;
-    }
-    const fragments = tx
-      .delete(speechFragments)
-      .where(eq(speechFragments.jobId, jobId))
-      .returning({ id: speechFragments.id })
-      .all();
-    tx.delete(jobs).where(eq(jobs.id, jobId)).run();
-    return { ...row, ids: [jobId, ...fragments.map((f) => f.id)] };
-  });

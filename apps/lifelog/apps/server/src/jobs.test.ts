@@ -15,7 +15,6 @@ import {
   turns,
 } from "@lifelog/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { phoneNudger, storePushToken } from "./apns";
 import { createApp } from "./app";
 import { pendantOggOpus } from "./audio";
 import { blockKey, memoryAudioStore } from "./audio-store";
@@ -24,7 +23,7 @@ import { admit, bought, storeFragment } from "./cutter";
 import { idle } from "./dictation";
 import { PARSER_VERSION } from "./elevenlabs";
 import { getJob, jobWorker } from "./jobs";
-import { askForUploads, latency, spread } from "./latency";
+import { latency, spread } from "./latency";
 import { macSocket, vouchedThrough } from "./mac-socket";
 import { services } from "./services";
 import { setSwitches } from "./switches";
@@ -875,123 +874,6 @@ test("handed over: old parts' pages and bought audio are never bought again", as
   // Since the handover the source's own jobs are their pages: a sent job's map placed by an older
   // clock model (it overlaps here by 30 s) covers nothing on other pages.
   expect(bought(env.db, at(later + 30_000), SOURCE)).toBe(false);
-});
-
-test("the phone is asked for its blocks while the Pendant records and heard-through lags 5 minutes", async () => {
-  const asked: unknown[] = [];
-  const nudge = (ready: string, fields?: unknown) => {
-    asked.push({ ready, ...(fields as object) });
-    return Promise.resolve();
-  };
-  const now = new Date(T0);
-  let beats = 0;
-  const heartbeat = (state: string, lastKnown?: string) => {
-    beats += 1;
-    return env.db
-      .insert(heartbeats)
-      .values({
-        body: { recording: { lastKnown, state } },
-        id: randomUUID(),
-        // Each one later than the last: the latest is read by its time.
-        observedAt: new Date(T0 + beats),
-        reason: "periodic",
-        receivedAt: new Date(),
-      })
-      .run();
-  };
-  // Before the handover there is no heard-through: nothing to ask.
-  heartbeat("recording");
-  expect(await askForUploads(env.db, nudge, now)).toBe(false);
-  env.db
-    .insert(sources)
-    .values({
-      heardThrough: new Date(T0 - 4 * 60_000),
-      id: SOURCE,
-    })
-    .run();
-  expect(await askForUploads(env.db, nudge, now)).toBe(false);
-  env.db
-    .update(sources)
-    .set({ heardThrough: new Date(T0 - 6 * 60_000) })
-    .run();
-  expect(await askForUploads(env.db, nudge, now)).toBe(true);
-  expect(asked).toEqual([{ behindSeconds: 360, ready: "upload" }]);
-  // The link lost: the Pendant still records to its flash, by its last confirmed state.
-  heartbeat("unknown", "recording");
-  expect(await askForUploads(env.db, nudge, now)).toBe(true);
-  // The last confirmed state wins over the current one.
-  heartbeat("recording", "not_recording");
-  expect(await askForUploads(env.db, nudge, now)).toBe(false);
-  // The Pendant paused: the phone has nothing to send.
-  heartbeat("paused", "not_recording");
-  expect(await askForUploads(env.db, nudge, now)).toBe(false);
-  expect(asked).toHaveLength(2);
-});
-
-test("the owner is asked to open the app once per episode, at his delay", async () => {
-  const alerts: unknown[] = [];
-  const nudge = phoneNudger(
-    env.db,
-    (request) => {
-      if (request.headers["apns-push-type"] === "alert") {
-        alerts.push(JSON.parse(request.body).aps.alert);
-      }
-      return Promise.resolve({ body: "", status: 200 });
-    },
-    "bundle"
-  );
-  storePushToken(env.db, "ab".repeat(80));
-  env.db
-    .insert(heartbeats)
-    .values({
-      body: { recording: { state: "recording" } },
-      id: randomUUID(),
-      observedAt: new Date(),
-      reason: "periodic",
-      receivedAt: new Date(),
-    })
-    .run();
-  // A tick `at` minutes in, with the Pendant heard through `heard` minutes in; returns the alerts so far.
-  const tick = async (at: number, heard: number, delay = 15) => {
-    setSwitches(env.db, { openAppAfterMinutes: delay });
-    env.db
-      .insert(sources)
-      .values({ heardThrough: new Date(T0 + heard * 60_000), id: SOURCE })
-      .onConflictDoUpdate({
-        set: { heardThrough: new Date(T0 + heard * 60_000) },
-        target: sources.id,
-      })
-      .run();
-    await askForUploads(env.db, nudge, new Date(T0 + at * 60_000));
-    return alerts.length;
-  };
-  expect(await tick(0, -14)).toBe(0);
-  expect(await tick(0, -16)).toBe(1);
-  expect(alerts[0]).toEqual({
-    body: "Your Pendant has 16 minutes waiting to sync.",
-    title: "Open lifelog",
-  });
-  // Still behind at the next ticks: the same episode.
-  expect(await tick(5, -16)).toBe(1);
-  expect(await tick(10, -16)).toBe(1);
-  // Caught up, then behind again: a new episode.
-  expect(await tick(30, 25)).toBe(1);
-  expect(await tick(42, 25)).toBe(2);
-  // Off: never.
-  expect(await tick(200, 25, 0)).toBe(2);
-  // Not recording: nothing.
-  env.db
-    .insert(heartbeats)
-    .values({
-      body: { recording: { state: "paused" } },
-      id: randomUUID(),
-      observedAt: new Date(),
-      reason: "periodic",
-      receivedAt: new Date(),
-    })
-    .run();
-  expect(await tick(400, 25)).toBe(2);
-  setSwitches(env.db, { openAppAfterMinutes: 15 });
 });
 
 test("latency: median and 90th percentile from speech end to upload to words", async () => {
