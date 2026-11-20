@@ -2,7 +2,8 @@ import LifeConnector
 import SwiftUI
 
 /// One check as the Ask panel, whatever its kind: the question first, nothing above it; the thing it is about on `tile`,
-/// which takes every point left and scrolls; one row under it (the matter, and the one link); then its answers. Its look
+/// which hugs what it holds and scrolls when that is taller than the room; one row under it (the matter, and the one
+/// link); then, at the bottom, its answers. Its look
 /// comes from what the check holds (a draft, an evidence quote, clips, a group), never from a kind of its own. His taps
 /// leave through `answer`; this view keeps nothing of the answer. At an accessibility text size the whole panel scrolls.
 struct CheckCard: View {
@@ -18,6 +19,8 @@ struct CheckCard: View {
     let sameAs: () -> Void
     /// "Create <name>": the create sheet, with the name he would create.
     let create: (String) -> Void
+    /// Where it stands among the asks paged beside it (its index, how many); nil alone.
+    var page: (current: Int, total: Int)?
 
     /// The card's context shows in a region of its own, so its matter row and "Why" link go: `CardArrangement` decides.
     @Environment(\.isContextBeside) private var isContextBeside
@@ -43,6 +46,11 @@ struct CheckCard: View {
                     question
                     tile(scrolls: true)
                     matterRow
+                    Spacer(minLength: 0)
+                    if let page {
+                        PagerDots(current: page.current, total: page.total).frame(
+                            maxWidth: .infinity, alignment: .trailing)
+                    }
                     actions
                 }
                 .padding(.horizontal, Metrics.Spacing.s).padding(.top, Metrics.Spacing.m)
@@ -104,12 +112,9 @@ struct CheckCard: View {
                         .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
                         .clipShape(.rect(cornerRadius: Metrics.Radius.passage))
                 }
-                Spacer(minLength: 0)
             } else {
                 thing.background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
             }
-        } else if scrolls {
-            Spacer(minLength: 0)
         }
     }
 

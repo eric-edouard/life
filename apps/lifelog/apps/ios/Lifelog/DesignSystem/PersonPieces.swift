@@ -63,7 +63,8 @@ struct RoundIconButton: View {
 }
 
 /// One row of a sheet's fields (`field_rows`): a small `muted` label, "Life's guess" after it in `ai` while the value is
-/// Life's, the value under it, a pencil at the end. A tap anywhere edits the value in place, on the page's fill.
+/// Life's and he is not editing it, the value under it, a pencil at the end. A tap anywhere edits the value in place,
+/// on the page's fill, with the caret in `fg`.
 struct FieldRow: View {
     let label: String
     var prompt = ""
@@ -77,11 +78,11 @@ struct FieldRow: View {
             VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
                 HStack(spacing: Metrics.Spacing.s) {
                     Text(label).foregroundStyle(Palette.muted)
-                    if isGuess { Text("Life’s guess").foregroundStyle(Palette.ai).appears() }
+                    if isGuess && !isEditing { Text("Life’s guess").foregroundStyle(Palette.ai).appears() }
                 }
                 .font(.small)
                 TextField(prompt, text: $text, axis: .vertical).font(.rowFigure).foregroundStyle(Palette.fg)
-                    .focused($isEditing).fixedSize(horizontal: false, vertical: true)
+                    .focused($isEditing).tint(Palette.fg).fixedSize(horizontal: false, vertical: true)
                     .padding(isEditing ? Metrics.Spacing.m : 0)
                     .background(isEditing ? Palette.bg : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
             }

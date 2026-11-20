@@ -20,7 +20,7 @@ struct CreateSheet: View {
     @State private var what = ""
     /// His press, once made: the button shows its answer's state from then on, never an earlier one's.
     @State private var sent: AnswerRequest?
-    @State private var height: CGFloat = 0
+    @State private var fieldsHeight: CGFloat = 0
 
     init(check: Check, name: String, done: @escaping (AnswerRequest) -> Void) {
         (self.check, self.done) = (check, done)
@@ -42,14 +42,38 @@ struct CreateSheet: View {
     private var isFailed: Bool { if case .failed = state { true } else { false } }
 
     var body: some View {
-        ScrollView {
-            content.onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { height = $0 }
+        VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
+            SheetHeader(title: isOrganization ? "New organization" : "New person") { dismiss() }
+            if check.organizationOption != nil {
+                SegmentedChoice(
+                    choices: [Kind.person, .organization],
+                    selection: Binding(get: { kind }, set: { if let chosen = $0 { kind = chosen } }),
+                    title: { $0 == .person ? "Person" : "Organization" },
+                    icon: { $0 == .person ? "person" : "building.2" })
+            }
+            // The fields hug what they hold; with the keyboard up they scroll under the title, the rest stays put.
+            ScrollView {
+                fields.onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { fieldsHeight = $0 }
+            }
+            .frame(maxHeight: fieldsHeight == 0 ? nil : fieldsHeight)
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollEdgeEffectStyle(.soft, for: .vertical)
+            .clipShape(.rect(cornerRadius: Metrics.Radius.card))
+            if let attached {
+                Text(attached).font(.small).foregroundStyle(Palette.muted).padding(.horizontal, Metrics.Spacing.xs)
+            }
+            if case .failed(let failure, _) = state {
+                Text(failure.isSameTap ? "Your Mac did not answer." : failure.reason).font(.small)
+                    .foregroundStyle(Palette.flag).fixedSize(horizontal: false, vertical: true).appears()
+            }
+            button
+            Spacer(minLength: 0)
         }
-        .scrollBounceBehavior(.basedOnSize)
-        .defaultScrollAnchor(.bottom)
+        .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.s)
+        .readingWidth()
         .background(Palette.sheet)
-        // The sheet fits what it holds; the keyboard raises it, and what no longer fits scrolls.
-        .presentationDetents(height == 0 ? [.large] : [.height(height + Metrics.Spacing.xxl)])
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
         .motion(Motion.standard, value: kind)
         .motion(Motion.standard, value: state)
         .task(id: isDone) {
@@ -63,40 +87,20 @@ struct CreateSheet: View {
         }
     }
 
-    private var content: some View {
-        VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
-            SheetHeader(title: isOrganization ? "New organization" : "New person") { dismiss() }
-            if check.organizationOption != nil {
-                SegmentedChoice(
-                    choices: [Kind.person, .organization],
-                    selection: Binding(get: { kind }, set: { if let chosen = $0 { kind = chosen } }),
-                    title: { $0 == .person ? "Person" : "Organization" },
-                    icon: { $0 == .person ? "person" : "building.2" })
+    private var fields: some View {
+        VStack(spacing: 0) {
+            FieldRow(label: "Name", text: $name)
+            if isOrganization {
+                FieldRow(label: "What it is", prompt: "A firm, a shop, a school…", text: $what).appears()
+            } else {
+                FieldRow(label: "Who they are", prompt: "Who they are to you", text: $who, isGuess: isGuess)
+                    .appears()
             }
-            VStack(spacing: 0) {
-                FieldRow(label: "Name", text: $name)
-                if isOrganization {
-                    FieldRow(label: "What it is", prompt: "A firm, a shop, a school…", text: $what).appears()
-                } else {
-                    FieldRow(label: "Who they are", prompt: "Who they are to you", text: $who, isGuess: isGuess)
-                        .appears()
-                }
-            }
-            .padding(.vertical, Metrics.Spacing.xs)
-            .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.card))
-            // Pressed: the fields stop taking words, which also puts the keyboard away.
-            .disabled(sent != nil && !isFailed)
-            if let attached {
-                Text(attached).font(.small).foregroundStyle(Palette.muted).padding(.horizontal, Metrics.Spacing.xs)
-            }
-            if case .failed(let failure, _) = state {
-                Text(failure.isSameTap ? "Your Mac did not answer." : failure.reason).font(.small)
-                    .foregroundStyle(Palette.flag).fixedSize(horizontal: false, vertical: true).appears()
-            }
-            button
         }
-        .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.s)
-        .readingWidth()
+        .padding(.vertical, Metrics.Spacing.xs)
+        .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.card))
+        // Pressed: the fields stop taking words, which also puts the keyboard away.
+        .disabled(sent != nil && !isFailed)
     }
 
     /// What his answer attaches, from what it rides on: "3 mentions and 1 matter will be attached"; nil when nothing.

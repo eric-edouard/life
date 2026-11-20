@@ -169,6 +169,8 @@ async function main() {
       "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo"
     ));
   const booted = await boot(udid);
+  // The frames are drawn dark.
+  await execOk(["xcrun", "simctl", "ui", udid, "appearance", "dark"]);
   // The keyboard's first-use tip would cover a frame that edits a field.
   await execOk([
     ...["xcrun", "simctl", "spawn", udid, "defaults", "write"],

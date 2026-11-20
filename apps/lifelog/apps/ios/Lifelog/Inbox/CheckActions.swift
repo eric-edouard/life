@@ -170,7 +170,8 @@ struct CheckActions: View {
         }
     }
 
-    /// One row of 44 when there are at most three, each of three words or fewer, and the row holds them; else rows of 48.
+    /// One row of 44 (`AnswerRow`) when there are at most three, each of three words or fewer, and the row holds them;
+    /// else rows of 48.
     @ViewBuilder private func others(_ rest: [Choice]) -> some View {
         let isShort = rest.count <= 3 && rest.allSatisfy { $0.label.split(separator: " ").count <= 3 }
         let stack = VStack(spacing: Metrics.Spacing.s) {
@@ -178,10 +179,10 @@ struct CheckActions: View {
         }
         if isShort && !typeSize.isAccessibilitySize {
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: Metrics.Spacing.s) {
+                AnswerRow {
                     ForEach(rest) { choice in
                         Button(choice.label, action: choice.run).buttonStyle(.pill(.quiet, size: .compact))
-                            .lineLimit(1)
+                            .lineLimit(1).minimumScaleFactor(0.75)
                     }
                 }
                 stack
