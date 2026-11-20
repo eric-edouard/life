@@ -12,10 +12,12 @@ import {
   agentOf,
   anchorsOf,
   assignmentOf,
+  filtersOf,
   isFull,
   openTurn,
   queuedEvents,
   readNotes,
+  savedWaitOf,
 } from "../host/desk-read";
 import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
 import { matcherOf, waitChannelsOf } from "../host/events";
@@ -459,7 +461,7 @@ async function projectContextOf(
 /**
  * `read_packet`: what a fresh session starts from: its matter as read now (`oneMatter`: where it stands, its goal and
  * next step, its steps so far), or its project; then each project's context (`projectContextOf`), the brief, the
- * contract, its notes, its queued events (facts only) and its open decision.
+ * contract, its notes, its saved wait, its queued events (facts only) and its open decision.
  */
 export async function readPacket(
   { db }: Desk,
@@ -470,6 +472,7 @@ export async function readPacket(
   if (!a) {
     return "";
   }
+  const wait = savedWaitOf(a, s);
   const events = queuedEvents(db, s.id).map(eventLineOf);
   const steps = anchorsOf(db, s.id);
   const matter = a.project ? undefined : await oneMatter(steps);
@@ -487,6 +490,11 @@ export async function readPacket(
     a.brief,
     contractOf(a.id, isOwn, s.opened_by),
     `Your notes:\n${readNotes(s) || "(none yet)"}`,
+    ...(wait
+      ? [
+          `Your saved wait: ${JSON.stringify({ ...wait, events: filtersOf(s) })}`,
+        ]
+      : []),
     `Events waiting:\n${events.join("\n") || "(none)"}`,
     `Your open decision: ${openCardOf(s)?.id ?? "none"}`,
   ].join("\n\n");
