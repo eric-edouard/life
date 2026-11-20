@@ -237,6 +237,26 @@ function placeRefusalOf(
         .join(" or ")}`;
 }
 
+/** Why `f`'s `repo` cannot fire, or null: one with a quantity or place, one without a channel holding repos, or such a channel named without one. */
+function repoRefusalOf(
+  f: EventFilter,
+  named: string[],
+  channels: EventChannel[]
+) {
+  const withRepo = channels.filter((c) => c.hasRepo).map((c) => c.name);
+  const names = withRepo.map((n) => `\`${n}\``).join(" or ");
+  const namesOne = named.some((n) => withRepo.includes(n));
+  if (f.repo && (f.quantity || f.latitude !== undefined)) {
+    return "a filter with a `repo` takes no `quantity` or place: no event holds both";
+  }
+  if (f.repo && !namesOne) {
+    return `\`repo\` needs \`channels\` naming ${names}`;
+  }
+  return !f.repo && namesOne
+    ? `${names} needs a \`repo\`: \`owner/name\` or \`owner/*\``
+    : null;
+}
+
 /** Why a wait may not hold filter `f`, or null: a channel unknown, off or unreadable, or keys its channels cannot answer (a message's on event channels only, a quantity, a place or a repo none of them holds), or a channel holding repos named without one. */
 function filterRefusalOf(
   f: EventFilter,
@@ -259,19 +279,10 @@ function filterRefusalOf(
   ) {
     return "`person`, `chat` and `from_me` are a message's: a filter on event channels only takes `text_matches`, `quantity`, a place and a `repo`";
   }
-  const place = placeRefusalOf(f, named, channels);
-  if (place) {
-    return place;
-  }
-  const withRepo = channels.filter((c) => c.hasRepo).map((c) => c.name);
-  if (f.repo && (f.quantity || f.latitude !== undefined)) {
-    return "a filter with a `repo` takes no `quantity` or place: no event holds both";
-  }
-  if (f.repo && !named.some((n) => withRepo.includes(n))) {
-    return `\`repo\` needs \`channels\` naming ${withRepo.map((n) => `\`${n}\``).join(" or ")}`;
-  }
-  if (!f.repo && named.some((n) => withRepo.includes(n))) {
-    return `${withRepo.map((n) => `\`${n}\``).join(" or ")} needs a \`repo\`: \`owner/name\` or \`owner/*\``;
+  const keys =
+    placeRefusalOf(f, named, channels) ?? repoRefusalOf(f, named, channels);
+  if (keys) {
+    return keys;
   }
   if (!f.quantity) {
     return f.above === undefined && f.below === undefined
