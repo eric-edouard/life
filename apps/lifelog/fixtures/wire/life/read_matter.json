@@ -348,6 +348,11 @@
           "title": "Know who someone is",
           "lifeLinks": [],
           "matter": null,
+          "misread": {
+            "cause": "01b070ee5ba7f83a",
+            "seal": "3d9583390e9c79af83238cf7a4a8352f",
+            "shown": "25fe8d96124c400c"
+          },
           "confirm": [],
           "networkIdentity": {
             "chat": "33600000001@s.whatsapp.net",
@@ -387,14 +392,17 @@
           "ref": "person:inf_kit"
         }
       },
+      "contactsCard": null,
       "pushId": "a23260946067d0fe",
-      "urgency": "blocks"
+      "urgency": "blocks",
+      "misread": null
     },
     {
       "about": [],
       "asker": "life",
       "at": null,
       "clips": [],
+      "contactsCard": null,
       "context": "A later step seems to show it done.",
       "deadline": null,
       "draft": null,
@@ -461,7 +469,12 @@
       "confirm": [],
       "networkIdentity": null,
       "pushId": "c84c34823f7fa7b0",
-      "urgency": "improves"
+      "urgency": "improves",
+      "misread": {
+        "cause": "1addffdfdc12fcfa",
+        "seal": "59a8c4a7ae0010f623c8cc1b4f0741bb",
+        "shown": "c22e02368640bc0c"
+      }
     }
   ]
 }
