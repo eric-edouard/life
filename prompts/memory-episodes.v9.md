@@ -36,8 +36,8 @@ The user message is one JSON object:
 - `stays`: where {{owner}}'s phone stayed that day, in time order, each `{from, to, place}` (local times; `to` null while {{owner}} is
   still there; `place` a name with its coordinates). The phone is with {{owner}}: a stay is where {{owner}} was.
 - `unknown`: the handles (a phone number, a WhatsApp, LINE, Instagram or Telegram id) and names in today's units that are not on {{owner}}'s map,
-  each with the ids of the units it appears in, and `near`: refs of people on the map whose name is a letter or two from it. In the units' lines such a sender shows as its handle.
-- `involved`: the rest of {{owner}}'s map that today involves (its units' people, the names their words use, `earlier`'s people, `near`), `people` and `projects` shaped as in the context. A ref from `involved` is as good as one from the context.
+  each with the ids of the units it appears in, and `near`: refs of people on the map whose name is a letter or two from it. In the units' lines such a sender shows as its handle, or as the ref of Life's earlier guess for it: judge it again.
+- `involved`: the rest of {{owner}}'s map that today involves (its units' people, the names their words use, `earlier`'s people, `near`), `people` and `projects` shaped as in the context. A ref from `involved` is as good as one from the context. A person's `emails` can show that a formal name and a nickname are one person.
 - `earlier`: this day's episodes as an earlier reading left them (the stubs are their evidence), and episodes of the
   day before that may continue into this day (a trip). **They are Life's own earlier reading, written by a model, and
   may be wrong.** A new unit may add to one, change it or show it was wrong: give it again changed, or its id in `gone`.
@@ -161,7 +161,7 @@ decide, owe, wait for or should remember a month from now are 2 or 3. A unit tha
 
 For each entry of `unknown` that today's units say something about, one entry in `who`:
 
-- `key`: the handle or name, exactly as given.
+- `key`: the handle or name, exactly as given; for a name the lines write that is not in `unknown` (below), its fullest form as written.
 - `name`: its name when the lines give one (a signature, the chat's title, how {{owner}} or others address it); otherwise a
   short description in {{language}} of what it is ("the plumber changing the shop sink"). Never invent a name.
 - `relation`: how it relates to {{owner}}, in a few words ("supplier of the shop", "builder's team", "half-sister hosting
@@ -169,12 +169,16 @@ For each entry of `unknown` that today's units say something about, one entry in
 - `area`: one of `areas` (its `id`) or null; `project`: one of `projects` or `involved`'s (its `id`, without `project:`) or null.
 - `person`: when it is someone already on the map (one of its `near`, or the same first name and context: a sister
   writing in the family group from a number the map lacks, a friend lifelog names by first name only), their `ref`;
-  else null. Only a person of the context's or `involved`'s `people`, never an inferred one (`person:inf_…`). With two it could
+  else null. Any person of the context's or `involved`'s `people`, Contacts and inferred ones included, never the entry's own earlier guess. With two it could
   be (two Alices), null.
+- `isOrganization`: true for a business, a bot or a notification sender; `relation` still says what it is.
+- `otherForms`: every other form of the same person that `unknown` or the lines write, in this one entry (a nickname, a handle).
 - `confidence`: 0-1, how sure you are of who it is (with `person`: that it is them). 0.8+ when the lines say who it is;
   0.5 for a good reading of context; 0.3 or less otherwise. Code uses it from 0.5 up: {{owner}} corrects it later, so
   give your real reading, never a lower one to leave it to {{owner}}.
 - `evidence`: one to three `{unit, quote}`, the quote copied exactly from that unit's `text`.
+
+One more entry, for a name the lines write that is not in `unknown` and not on the map, when the lines themselves say who it is, with a `quote` that holds the name (`key` its fullest form as written, `otherForms` the rest). Leave out a name the lines do not explain.
 
 Do not reason from phone number prefixes. Leave out an `unknown` entry nothing today says anything about.
 
@@ -267,4 +271,4 @@ wrong or are the same as another (give the one kept, changed, in `episodes`).
 
 Reply with ONLY one JSON object, no prose, no code fence:
 
-{"verdicts":[{"id":"unit_…","type":"…","importance":0,"when":null,"area":null,"topics":["…"],"kind":"…","reason":"…"}],"episodes":[{"id":"new-1","title":"…","what":"…","start":"2026-10-16 16:20","end":null,"place":null,"within":null,"people":[{"ref":"person:…","role":"with"}],"units":["unit_…"],"copies":[],"importance":2}],"gone":[],"who":[{"key":"…","name":"…","person":null,"relation":"…","area":null,"project":null,"confidence":0.6,"evidence":[{"unit":"unit_…","quote":"…"}]}]}
+{"verdicts":[{"id":"unit_…","type":"…","importance":0,"when":null,"area":null,"topics":["…"],"kind":"…","reason":"…"}],"episodes":[{"id":"new-1","title":"…","what":"…","start":"2026-10-16 16:20","end":null,"place":null,"within":null,"people":[{"ref":"person:…","role":"with"}],"units":["unit_…"],"copies":[],"importance":2}],"gone":[],"who":[{"key":"…","name":"…","person":null,"isOrganization":false,"otherForms":[],"relation":"…","area":null,"project":null,"confidence":0.6,"evidence":[{"unit":"unit_…","quote":"…"}]}]}

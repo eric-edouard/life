@@ -166,6 +166,16 @@ test("the list holds every guessed person, ambiguous card and unplaced name that
   expect(kinds.filter((r) => r.startsWith("name:"))).toHaveLength(30);
 });
 
+test("a person two guesses fold into is asked once, through the one they fold into", () => {
+  const checks = checksOf(
+    inputs([about("person:inf_a")], {
+      folds: { "person:inf_b": "person:inf_a" },
+      inferred: ["inf_a", "inf_b"],
+    })
+  );
+  expect(checks.map((x) => x.ref)).toEqual(["person:inf_a"]);
+});
+
 test("an ending rides on its open matter and goes with his answer", () => {
   const o = line({ text: "Send the quote." });
   const matter = {

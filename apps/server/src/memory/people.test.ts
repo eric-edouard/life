@@ -56,9 +56,12 @@ test("an answer is kept only for a name or handle we asked about, with a quote i
       prompt: "memory-episodes.v3",
       run: "r",
     },
+    people: new Set(["person:claire", "person:inf_earlier"]),
     projects: new Set(["bakery"]),
+    resolve: (s: string) =>
+      s === "+33600000001" ? "person:inf_earlier" : null,
     taken: new Set(["inf_plumber"]),
-    truth: new Set(["person:claire"]),
+    units: [seen],
     unknown: new Map([["+33600000001", [seen]]]),
   };
   const say = (over: Record<string, unknown>) => ({
@@ -97,17 +100,118 @@ test("an answer is kept only for a name or handle we asked about, with a quote i
       ctx
     )
   ).toEqual([]);
-  // A link only to someone in truth/, never to another guess.
+  // A link to anyone the call was shown, but not off the map and not the key's own earlier guess.
   const linked = (person: string) =>
     checkPeople([say({ person })], ctx)[0]?.person;
   expect(linked("person:claire")).toBe("person:claire");
   expect(linked("person:inf_plumber")).toBeNull();
+  expect(linked("person:inf_earlier")).toBeNull();
+  expect(
+    checkPeople([say({ key: "Cédric", person: "person:inf_earlier" })], {
+      ...ctx,
+      unknown: new Map([["Cédric", [seen]]]),
+    })[0]?.person
+  ).toBe("person:inf_earlier");
+  // `isOrganization` is always written.
+  expect(checkPeople([say({})], ctx)[0]?.isOrganization).toBe(false);
+  expect(
+    checkPeople([say({ isOrganization: true })], ctx)[0]?.isOrganization
+  ).toBe(true);
   expect(inferredId("", "k", new Set())).toBe("inf_person");
 });
 
+test("one record per person: the other written forms join its namesAndHandles, and a later entry for one is dropped", () => {
+  const seen = chat("unit_1", "+33600000001", ["Ok ?", "Je passe demain"]);
+  const ctx = {
+    areas: new Map<string, string>(),
+    at: "2026-10-14T00:00:00.000Z",
+    madeBy: {
+      engine: "codex" as const,
+      model: "m",
+      prompt: "memory-episodes.v9",
+      run: "r",
+    },
+    people: new Set<string>(),
+    projects: new Set<string>(),
+    resolve: () => null,
+    taken: new Set<string>(),
+    units: [seen],
+    unknown: new Map([
+      ["+33600000001", [seen]],
+      ["Cédric", [seen]],
+    ]),
+  };
+  const say = (over: Record<string, unknown>) => ({
+    confidence: 0.7,
+    evidence: [{ quote: "Je passe demain", unit: "unit_1" }],
+    key: "Cédric",
+    name: "Cédric",
+    relation: "plumber",
+    ...over,
+  });
+  const records = checkPeople(
+    [
+      say({ otherForms: ["+33600000001", "Cédric"] }),
+      say({ key: "+33600000001" }),
+    ],
+    ctx
+  );
+  expect(records.map((r) => r.namesAndHandles)).toEqual([
+    ["Cédric", "+33600000001"],
+  ]);
+});
+
+test("a name the call volunteers is kept only with a quote in the day's units that holds it, and only when linked or settled", () => {
+  const seen = chat("unit_1", "+33600000001", [
+    "Ok ?",
+    "Dr Ploum du cabinet vous attend",
+  ]);
+  const ctx = {
+    areas: new Map<string, string>(),
+    at: "2026-10-14T00:00:00.000Z",
+    madeBy: {
+      engine: "codex" as const,
+      model: "m",
+      prompt: "memory-episodes.v9",
+      run: "r",
+    },
+    people: new Set(["person:claire"]),
+    projects: new Set<string>(),
+    resolve: () => null,
+    taken: new Set<string>(),
+    units: [seen],
+    unknown: new Map<string, Built[]>(),
+  };
+  const say = (over: Record<string, unknown>) => ({
+    confidence: 0.5,
+    evidence: [{ quote: "Dr Ploum du cabinet", unit: "unit_1" }],
+    key: "Ploum",
+    name: "Dr Ploum",
+    relation: "doctor",
+    ...over,
+  });
+  const kept = (over: Record<string, unknown>) =>
+    checkPeople([say(over)], ctx).length;
+  // Unsure and unlinked: not kept.
+  expect(kept({})).toBe(0);
+  expect(kept({ person: "person:claire" })).toBe(1);
+  expect(kept({ isOrganization: true })).toBe(1);
+  expect(kept({ confidence: 0.9 })).toBe(1);
+  // The quote must hold the name, and be in a unit of the day.
+  expect(
+    kept({ confidence: 0.9, evidence: [{ quote: "Ok ?", unit: "unit_1" }] })
+  ).toBe(0);
+  expect(
+    kept({
+      confidence: 0.9,
+      evidence: [{ quote: "Dr Ploum du cabinet", unit: "unit_9" }],
+    })
+  ).toBe(0);
+});
+
 test("a name or handle is asked about until it reads as someone in truth/ or as a guess judged against the directory", () => {
-  const guess = (nameOrHandle: string, person?: string | null) =>
-    ({ namesAndHandles: [nameOrHandle], person }) as InferredPerson;
+  const guess = (nameOrHandle: string, isOrganization?: boolean) =>
+    ({ isOrganization, namesAndHandles: [nameOrHandle] }) as InferredPerson;
   const reads: Record<string, string> = {
     Bob: "person:inf_bob",
     Claire: "person:claire",
@@ -116,7 +220,7 @@ test("a name or handle is asked about until it reads as someone in truth/ or as 
   };
   const answered = answeredBy(
     (s) => reads[s] ?? null,
-    [guess("Bob"), guess("Dan", null), guess("Eve", "person:claire")]
+    [guess("Bob"), guess("Dan", false), guess("Eve", true)]
   );
   expect(["Claire", "Bob", "Dan", "Eve", "Zed"].map(answered)).toEqual([
     true,

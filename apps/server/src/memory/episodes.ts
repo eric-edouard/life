@@ -39,7 +39,7 @@ import {
   type Verdicts,
   verdictOf,
 } from "./memory-files";
-import { involvedOf, refContext } from "./model-context";
+import { emailsShown, involvedOf, refContext } from "./model-context";
 import { answeredBy, checkPeople, unknownIn } from "./people";
 import { staysOf, where } from "./places";
 import { subjectOf } from "./quote-check";
@@ -60,7 +60,7 @@ import { localTime } from "./zones";
 // and names are (memory/people-inferred.jsonl).
 // Extraction then reads an episode's units together (extract.ts). Units are written here too (units.ts builds them).
 
-export const EPISODES_PROMPT = "memory-episodes.v8";
+export const EPISODES_PROMPT = "memory-episodes.v9";
 const TOPICS_SHOWN = 40;
 /** An episode of an earlier day is shown to the next days until the day after it ends. */
 const CARRY_DAYS = 1;
@@ -547,7 +547,11 @@ export async function episodes(evidence: Evidence) {
           ])
         );
         const json = await step.ask({
-          context: { ...refs.context, topics: topTopics(verdicts.values()) },
+          context: {
+            ...refs.context,
+            people: emailsShown(refs.context.people, refs),
+            topics: topTopics(verdicts.values()),
+          },
           dir: join(step.dir, day),
           input: {
             day,
@@ -574,7 +578,10 @@ export async function episodes(evidence: Evidence) {
                 within,
               })
             ),
-            involved,
+            involved: {
+              ...involved,
+              people: emailsShown(involved.people, refs),
+            },
             stays: stays
               .toSorted((a, b) => a.arrivedAt.localeCompare(b.arrivedAt))
               .map((s) => ({
@@ -622,9 +629,11 @@ export async function episodes(evidence: Evidence) {
           areas,
           at: step.now.toISOString(),
           madeBy,
+          people: new Set(refs.directory.people.map((p) => p.ref)),
           projects,
+          resolve,
           taken,
-          truth: new Set(truth.people.map((p) => `person:${p.id}`)),
+          units: shown,
           unknown,
         });
         return { ...reading, sent: texts.size, who };

@@ -76,6 +76,17 @@ export function refContext(
       status: p.status,
     })),
   };
+  // The addresses of each person, for the one call that matches a formal name to a nickname (`emailsShown`).
+  const emails = new Map<string, string[]>([
+    ...truth.people.map((p) => [`person:${p.id}`, p.handles.email] as const),
+    ...unfoldedOf(outsideDirectory, canon).map(
+      (p) =>
+        [
+          `person:${p.id}`,
+          p.namesAndHandles.filter((h) => h.includes("@")),
+        ] as const
+    ),
+  ]);
   return {
     /** Who is close to him personally as far as the calls may say: none while the `relationships` add-on is off. */
     close: kept,
@@ -85,8 +96,19 @@ export function refContext(
       projects: directory.projects.filter((p) => underway.has(p.ref)),
     },
     directory,
+    emails,
   };
 }
+
+/** People of a call's context or input with their addresses when they have any: shown by the episodes call alone. */
+export const emailsShown = <T extends { ref: string }>(
+  people: T[],
+  { emails }: Pick<ReturnType<typeof refContext>, "emails">
+) =>
+  people.map((p) => {
+    const own = emails.get(p.ref) ?? [];
+    return own.length > 0 ? { ...p, emails: own } : p;
+  });
 
 /** The directory's entries a call involves (`refs`) that its context leaves out: its input's `involved`. */
 export function involvedOf(

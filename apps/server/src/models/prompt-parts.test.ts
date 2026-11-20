@@ -28,7 +28,7 @@ const WITH_PARTS = [
   "memory-conflict.v2",
   "memory-connection.v3",
   "memory-conversation-summary.v1",
-  "memory-episodes.v8",
+  "memory-episodes.v9",
   "memory-extract.v6",
   "memory-history-month.v1",
   "memory-mentions.v1",

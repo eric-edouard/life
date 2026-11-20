@@ -5,7 +5,7 @@ import {
   peopleOutsideDirectoryOf,
 } from "../records/observation";
 import { Person, Project } from "../records/truth";
-import { involvedOf, refContext } from "./model-context";
+import { emailsShown, involvedOf, refContext } from "./model-context";
 
 const was = settings().personal;
 // His install: the relationships add-on on.
@@ -50,6 +50,49 @@ test("a call's context shows the people close now and the projects underway; the
   expect(involved.projects.map((p) => [p.ref, p.status])).toEqual([
     ["project:old", "done"],
   ]);
+});
+
+test("addresses come only to the episodes call: with a person's emails, and none for one without", () => {
+  const refs = refContext(
+    {
+      canon: (ref) => ref,
+      outsideDirectory: peopleOutsideDirectoryOf(
+        [
+          {
+            handles: ["+33600000009", "dee@mail.example"],
+            id: "con_dee",
+            name: "Dee",
+          },
+        ],
+        []
+      ),
+      truth: {
+        areas: [],
+        chats: [],
+        me: { text: "me" },
+        people: [
+          Person.parse({
+            handles: { email: ["ann@mail.example"] },
+            id: "ann",
+            name: "Ann",
+          }),
+          Person.parse({ id: "bob", name: "Bob" }),
+        ],
+        projects: [],
+      },
+    },
+    new Set(),
+    new Set()
+  );
+  const shown = emailsShown(refs.directory.people, refs);
+  expect(shown.map((p) => [p.ref, "emails" in p ? p.emails : null])).toEqual([
+    ["person:ann", ["ann@mail.example"]],
+    ["person:bob", null],
+    ["person:con_dee", ["dee@mail.example"]],
+  ]);
+  // The context and the input every other call reads carry none.
+  expect(JSON.stringify(refs.context)).not.toContain("@");
+  expect(JSON.stringify(refs.directory)).not.toContain("@");
 });
 
 test("the directory shows each person once: an inferred id folded into another is left out", () => {

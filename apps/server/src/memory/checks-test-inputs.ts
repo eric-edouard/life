@@ -7,6 +7,8 @@ type Input = Partial<Omit<CheckInputs, "people">> & {
   corrections?: Correction[];
   inferred?: string[];
   cards?: { card: string; people: string[] }[];
+  /** Person refs folded into another (`refOf`). */
+  folds?: Record<string, string>;
 };
 
 let n = 0;
@@ -73,7 +75,7 @@ function withoutGroups(
       nameOf: (r: string) =>
         r === "person:dana" ? "Dana" : r.replace("unknown:", ""),
       names: new Map(),
-      refOf: (r: string) => r,
+      refOf: (r: string) => over.folds?.[r] ?? r,
       relationOf: () => null,
       resolve: (s: string) => (s === DANA_ID ? "person:dana" : null),
     },

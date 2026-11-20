@@ -1,12 +1,16 @@
 import { z } from "zod";
 import { digest } from "../core/hash";
 import type { MadeBy } from "../records/fields";
-import { INFERRED_PREFIX, type InferredPerson } from "../records/observation";
+import {
+  INFERRED_PREFIX,
+  type InferredPerson,
+  isSettled,
+} from "../records/observation";
 import { slugOf } from "./page-format";
 import { locate } from "./quote-check";
 import { kindOf } from "./sources";
 import { areaOf } from "./tags";
-import { type Built, UNKNOWN } from "./units";
+import { type Built, nameKey, UNKNOWN } from "./units";
 
 // Who the people not in the directory are: what the episodes call is asked about a day, and its answer checked (every quote
 // must be in a unit it read). No disk, network or clock.
@@ -23,8 +27,10 @@ const Said = z.object({
   evidence: z
     .array(z.object({ quote: z.string().min(1), unit: z.string() }))
     .default([]),
+  isOrganization: z.boolean().default(false),
   key: z.string(),
   name: z.string().min(1).max(80),
+  otherForms: z.array(z.string().min(1)).default([]),
   person: z.string().nullable().default(null),
   project: z.string().nullable().default(null),
   relation: z.string().min(1).max(160),
@@ -39,10 +45,13 @@ export function inferredId(name: string, key: string, taken: Set<string>) {
 }
 
 /**
- * Who the episodes call says the day's unknown handles and names are, checked: a name or handle we asked about (`unknown`: the
- * units it appears in; the first answer for it), at least one quote found in the text of one of those units, an area
- * from the list and a project we know, else none; `person` only when it is someone in truth/. A person is recorded
- * however unsure the model is; how far to trust it is the `confidence` (`foldsOf` uses it from INFERRED_USE_AT).
+ * Who the episodes call says the day's names and handles are, checked, one record per person with every form of the name
+ * it wrote (`key`, then `otherForms`). An entry for a name or handle we asked about (`unknown`: the units it appears in)
+ * needs a quote found in one of those units; one for a name the lines write that we did not ask about (volunteered) needs
+ * a quote in one of the day's units that holds the name, and is kept only when it is linked or settled (`isSettled`).
+ * An area is from the list and a project one we know, else none; `person` is any ref of the call's map (`people`), never
+ * the key's own earlier reading (`resolve`). A person is recorded however unsure the model is; how far to trust it is
+ * the `confidence` (`foldsOf` uses it from INFERRED_USE_AT).
  */
 export function checkPeople(
   said: unknown[],
@@ -50,48 +59,63 @@ export function checkPeople(
     areas: Map<string, string>;
     at: string;
     madeBy: MadeBy;
+    /** The refs of the people the call was shown (the directory, inferred ones too). */
+    people: Set<string>;
     projects: Set<string>;
+    /** What a name as written reads as now (`readPeople`). */
+    resolve: (nameOrHandle: string) => string | null;
     taken: Set<string>;
-    /** The refs of the people in truth/. */
-    truth: Set<string>;
     unknown: Map<string, Built[]>;
+    /** The day's units as the call saw them. */
+    units: Built[];
   }
 ) {
   const records: InferredPerson[] = [];
   for (const raw of said) {
     const r = Said.safeParse(raw);
-    const seen = r.success ? ctx.unknown.get(r.data.key) : undefined;
-    if (
-      !(r.success && seen) ||
-      records.some((x) => x.namesAndHandles.includes(r.data.key))
-    ) {
+    if (!r.success) {
       continue;
     }
+    const forms = [r.data.key, ...r.data.otherForms];
+    if (records.some((x) => forms.some((f) => x.namesAndHandles.includes(f)))) {
+      continue;
+    }
+    const seen = ctx.unknown.get(r.data.key);
     const evidence = r.data.evidence.flatMap((e) => {
-      const b = seen.find((x) => x.unit.id === e.unit);
+      const b = (seen ?? ctx.units).find((x) => x.unit.id === e.unit);
       const hit = b && locate(e.quote, [b.text]);
-      return hit && b ? [{ quote: hit.verbatim, unit: b.unit.id }] : [];
+      return hit &&
+        b &&
+        (seen || nameKey(hit.verbatim).includes(nameKey(r.data.key)))
+        ? [{ quote: hit.verbatim, unit: b.unit.id }]
+        : [];
     });
-    if (evidence.length > 0) {
-      records.push({
-        area: areaOf(r.data.area, ctx.areas),
-        at: ctx.at,
-        confidence: r.data.confidence,
-        evidence,
-        id: inferredId(r.data.name, r.data.key, ctx.taken),
-        madeBy: ctx.madeBy,
-        name: r.data.name,
-        namesAndHandles: [r.data.key],
-        // Only someone in truth/: a link never leads to another guess.
-        person:
-          r.data.person && ctx.truth.has(r.data.person) ? r.data.person : null,
-        project:
-          r.data.project && ctx.projects.has(r.data.project)
-            ? r.data.project
-            : null,
-        relation: r.data.relation,
-        schemaVersion: 1,
-      });
+    const person =
+      r.data.person &&
+      ctx.people.has(r.data.person) &&
+      r.data.person !== ctx.resolve(r.data.key)
+        ? r.data.person
+        : null;
+    const record = {
+      area: areaOf(r.data.area, ctx.areas),
+      at: ctx.at,
+      confidence: r.data.confidence,
+      evidence,
+      id: inferredId(r.data.name, r.data.key, ctx.taken),
+      isOrganization: r.data.isOrganization,
+      madeBy: ctx.madeBy,
+      name: r.data.name,
+      namesAndHandles: [...new Set(forms)],
+      person,
+      project:
+        r.data.project && ctx.projects.has(r.data.project)
+          ? r.data.project
+          : null,
+      relation: r.data.relation,
+      schemaVersion: 1 as const,
+    };
+    if (evidence.length > 0 && (seen || person || isSettled(record))) {
+      records.push(record);
     }
   }
   return records;
@@ -99,15 +123,16 @@ export function checkPeople(
 
 /**
  * Whether a name or handle has its answer and is not asked about: it reads as someone in truth/ (or as his word says), or as an
- * inferred guess the call judged against the directory (`person` null or a ref). A guess made before the call could link
- * (`person` absent) is asked once more.
+ * inferred guess judged by the v9 call (`isOrganization` written, `person` null or a ref). An older guess is asked once more.
  */
 export function answeredBy(
   resolve: (s: string) => string | null,
   inferred: InferredPerson[]
 ) {
   const judged = new Set(
-    inferred.flatMap((p) => (p.person === undefined ? [] : p.namesAndHandles))
+    inferred.flatMap((p) =>
+      p.isOrganization === undefined ? [] : p.namesAndHandles
+    )
   );
   return (s: string) => {
     const ref = resolve(s);
