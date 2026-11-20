@@ -54,10 +54,12 @@ runs.
   the 5-minute tick and the instant the next block may close start it; each run closes the blocks due first.
 - It sends queued jobs that have audio in the audio store and whose `next_attempt_at` has passed, oldest
   first, at most `ELEVENLABS_SLOTS` at ElevenLabs at once (default 10; set it below your ElevenLabs plan's concurrency, a block takes one). A job
-  counts there from its send until its answer, or 30 minutes. Every Scribe send of the server shares these slots
-  (`scribe-slots.ts`): a job's, a block's routed turns, a chat voice note's. A block at the speech service takes none
-  until its turns leave for Scribe, so dictation is never held behind local work; dictation waits ahead of every other
-  send, and a send under way is never cut.
+  counts there from its POST (`request_sent_at`) until its answer, or 30 minutes; one that may have been billed until it is
+  settled. Every Scribe send of the server goes one way (`scribe-slots.ts` `send`): a job's, a block's routed turns, a chat
+  voice note's. Its audio is read first, then it takes a slot, then the switch, the credits and the quiet ranges are
+  checked again and its row records the POST, which goes. A block at the speech service takes none until its turns
+  leave for Scribe, so dictation is never held behind local work; dictation waits ahead of every other send, a send
+  under way is never cut, and a slot freed (an answer stored, dictation done) sends what is queued.
 - Nothing is sent while transcription is switched off or the credits are used up: jobs wait queued.
 - Not taken is not an attempt: a 429, a 401 or 403 (the key or the plan), a connection that never opened, or an audio
   store that can't be reached. ElevenLabs can't have billed it; it goes back to `queued`, next attempt in a minute.

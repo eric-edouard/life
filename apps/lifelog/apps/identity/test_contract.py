@@ -129,15 +129,33 @@ class Http(unittest.TestCase):
         self.assertEqual(self.status("/transcribe", **{"X-Priority": "urgent"}), 400)
 
     def test_work_past_its_wait_is_a_failure_not_busy(self):
-        replies = []
-        handler = type("H", (), {"reply": lambda self, status, body, headers=None: replies.append(status)})()
+        replies, ran = [], []
+        handler = waiting_handler(replies)
+        self.addCleanup(handler.caller.close)
+        self.addCleanup(handler.connection.close)
         wait, app.WAIT_SECONDS = app.WAIT_SECONDS, 0.05
         self.addCleanup(setattr, app, "WAIT_SECONDS", wait)
-        ran = []
         app.Handler.run(handler, lambda models: ran.append(1), lambda result: result)
         self.assertEqual(replies, [504])
         app.run_next(None)  # the worker comes to it only now: its caller is gone, so it never runs
         self.assertEqual(ran, [])
+
+    def test_work_whose_caller_hung_up_while_queued_never_runs(self):
+        replies, ran = [], []
+        handler = waiting_handler(replies)
+        self.addCleanup(handler.connection.close)
+        handler.caller.close()
+        app.Handler.run(handler, lambda models: ran.append(1), lambda result: result)
+        app.run_next(None)
+        self.assertEqual((replies, ran), ([], []))
+
+
+def waiting_handler(replies):
+    """A handler with a live connection and no worker: what it queues stays queued."""
+    handler = object.__new__(app.Handler)
+    handler.connection, handler.caller = socket.socketpair()
+    handler.reply = lambda status, body, headers=None: replies.append(status)
+    return handler
 
 
 class Admission(unittest.TestCase):

@@ -197,15 +197,22 @@ test("no Scribe slot now (dictation holds the one): busy, nothing claimed, and t
   scribe.respond = thai;
   const s = servicesWith({ ELEVENLABS_SLOTS: "1" });
   const a = createApp(s);
-  const dictation = await s.worker.scribeSlot("dictation", {
-    priority: "interactive",
-    waitMs: 0,
-  });
+  let free: () => void = () => undefined;
+  const dictation = s.worker.paidSend(
+    "dictation",
+    { priority: "interactive", waitMs: 0 },
+    () => null,
+    () =>
+      new Promise<void>((end) => {
+        free = end;
+      })
+  );
   const key = sha256Hex(randomUUID());
   expect((await ask(a, note(60), key)).status).toBe(503);
   expect(sends()).toHaveLength(0);
   expect(env.db.select().from(voiceNoteHearings).all()).toHaveLength(0);
-  (dictation as () => void)();
+  free();
+  await dictation;
   expect((await (await ask(a, note(60), key)).json()).text).toContain("สวัสดี");
   expect(sends()).toHaveLength(1);
 });

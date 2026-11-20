@@ -21,7 +21,7 @@ work not done in WAIT_SECONDS answers 504 (a failure the caller counts, so a blo
 ends at Scribe instead of coming back forever). A request with `X-Priority: interactive` (the owner
 dictating, waiting at a field) has one waiting place of its own and goes before every other waiting
 request; work under way is never cut, and each priority keeps arrival order. Work whose caller stopped
-waiting is dropped before it runs. Audio stays in memory for one request and is never written or logged.
+waiting (its wait over, or its connection closed) is dropped before it runs. Audio stays in memory for one request and is never written or logged.
 
 Parakeet has two runtimes, picked by the host with SPEECH_RUNTIME: "onnx" (onnx-asr on CPU, fp32;
 never int8, it drops words) and "mlx" (Apple silicon). The default is mlx on macOS, onnx elsewhere.
@@ -38,6 +38,7 @@ import io
 import json
 import os
 import queue
+import select
 import socket
 import sys
 import threading
@@ -87,6 +88,8 @@ PARAKEET_CHUNK_SECONDS = 600
 QUEUE_SIZE = int(os.environ.get("QUEUE_SIZE", "8"))
 RETRY_AFTER = "5"
 WAIT_SECONDS = 120
+# How often a waiting request checks that its caller is still there.
+CALLER_CHECK_SECONDS = 0.25
 
 MAX_OGG_BYTES = 16 * 1024 * 1024
 MAX_RANGES = 400
@@ -462,14 +465,29 @@ class Handler(BaseHTTPRequestHandler):
         future: Future = Future()
         if not enqueue(priority, work, future):
             return self.reply(503, {"error": "busy"}, {"Retry-After": RETRY_AFTER})
-        try:
-            result = future.result(timeout=WAIT_SECONDS)
-        except FutureTimeout:
-            future.cancel()
-            return self.reply(504, {"error": "timed out"})
-        except Exception as error:
-            return self.reply(500, {"error": type(error).__name__})
+        deadline = time.monotonic() + WAIT_SECONDS
+        while True:
+            try:
+                result = future.result(timeout=CALLER_CHECK_SECONDS)
+                break
+            except FutureTimeout:
+                if self.caller_gone():
+                    future.cancel()  # still waiting, it never runs; under way, it finishes unanswered
+                    return None
+                if time.monotonic() >= deadline:
+                    future.cancel()
+                    return self.reply(504, {"error": "timed out"})
+            except Exception as error:
+                return self.reply(500, {"error": type(error).__name__})
         self.reply(200, answer(result))
+
+    def caller_gone(self) -> bool:
+        """The caller closed its connection: it has nothing more to send, so a readable socket is its end."""
+        readable, _, _ = select.select([self.connection], [], [], 0)
+        try:
+            return bool(readable) and self.connection.recv(1, socket.MSG_PEEK) == b""
+        except OSError:
+            return True
 
     def reply(self, status: int, body: dict, headers: dict | None = None):
         data = json.dumps(body).encode()

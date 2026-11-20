@@ -19,7 +19,7 @@ const SIGNATURE_MAX_AGE_SECONDS = 30 * 60;
 // A send: the upload, and without a webhook the transcription too.
 const SEND_TIMEOUT_MS = 10 * 60 * 1000;
 // A press waits for its words: 5 minutes of audio come back in seconds.
-export const QUICK_TIMEOUT_MS = 60 * 1000;
+const QUICK_TIMEOUT_MS = 60 * 1000;
 const UNIX_SECONDS = /^\d+$/;
 // Bun fetch error codes raised before any connection exists: the request never left. A refused connection is
 // `ConnectionRefused` on macOS and `ECONNREFUSED` on Linux.

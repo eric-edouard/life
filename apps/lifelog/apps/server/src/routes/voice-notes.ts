@@ -86,24 +86,24 @@ export function voiceNoteRoutes({
       return { text: localText };
     }
     const heard = await hearRouted({ config, db }, bytes, said.heard, routed, {
-      claim: () =>
-        db
-          .insert(voiceNoteHearings)
-          .values({ key, localText })
-          .onConflictDoNothing()
-          .returning()
-          .all().length === 1,
       keyterms: blockKeyterms(db),
       ref: { voiceNote: key.slice(0, 12) },
-      slot: () =>
-        worker.scribeSlot(`voice-note:${randomUUID()}`, {
-          priority: "ordinary",
-          waitMs: SLOT_WAIT_MS,
-        }),
+      send: (post) =>
+        worker.paidSend(
+          `voice-note:${randomUUID()}`,
+          { priority: "ordinary", waitMs: SLOT_WAIT_MS },
+          () =>
+            db
+              .insert(voiceNoteHearings)
+              .values({ key, localText })
+              .onConflictDoNothing()
+              .returning()
+              .all().length === 1
+              ? null
+              : "this note is being heard",
+          post
+        ),
     });
-    if (!heard) {
-      return busy("this note is being heard");
-    }
     if (heard.kind === "unsent") {
       return busy(heard.error);
     }

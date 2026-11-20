@@ -57,9 +57,6 @@ export const speechServiceSet = (
 ): config is Config & { IDENTITY_SECRET: string; IDENTITY_URL: string } =>
   Boolean(config.IDENTITY_URL && config.IDENTITY_SECRET);
 
-// The longest a call to the service takes: its own wait (120 s) and a little more.
-export const SPEECH_TIMEOUT_MS = 130_000;
-
 // One POST of an Ogg Opus file to the service, and what its answer means. Busy while transcription
 // is switched off (the caller tries again later).
 async function post<T>(
@@ -88,7 +85,7 @@ async function post<T>(
         ...headers,
       },
       method: "POST",
-      signal: AbortSignal.timeout(SPEECH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(130_000),
     });
   } catch (error) {
     return { error: "identity_unavailable", message: String(error) };

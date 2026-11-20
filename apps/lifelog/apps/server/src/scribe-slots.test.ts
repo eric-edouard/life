@@ -1,87 +1,149 @@
 import { expect, test } from "bun:test";
-import { type Release, scribeSlots } from "./scribe-slots";
+import { type Priority, scribeSlots } from "./scribe-slots";
 
 const LONG = 60_000;
+const go = () => null;
+
+// A send that holds its slot until `free()`; `posted` once it holds it.
+function holding(
+  slots: ReturnType<typeof scribeSlots>,
+  key: string,
+  priority: Priority = "ordinary"
+) {
+  let free: () => void = () => undefined;
+  let started: () => void = () => undefined;
+  const posted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const done = slots.send(key, { priority, waitMs: LONG }, go, () => {
+    started();
+    return new Promise<void>((end) => {
+      free = end;
+    });
+  });
+  return { done, free: () => free(), posted };
+}
 
 test("dictation waits ahead of older waiters, each priority in arrival order; a send under way is never cut", async () => {
   const slots = scribeSlots(1, () => []);
-  const first = await slots.wait("a", { priority: "ordinary", waitMs: 0 });
-  expect(first).not.toBeNull();
+  const first = holding(slots, "first");
+  await first.posted;
   const order: string[] = [];
-  const queued = (key: string, priority: "interactive" | "ordinary") =>
-    slots.wait(key, { priority, waitMs: LONG }).then((release) => {
+  const queued = (key: string, priority: Priority) =>
+    slots.send(key, { priority, waitMs: LONG }, go, () => {
       order.push(key);
-      return release as Release;
+      return Promise.resolve();
     });
-  const b = queued("b", "ordinary");
-  const c = queued("c", "ordinary");
-  const d = queued("dictation", "interactive");
-  const e = queued("dictation 2", "interactive");
+  const all = [
+    queued("b", "ordinary"),
+    queued("c", "ordinary"),
+    queued("dictation", "interactive"),
+    queued("dictation 2", "interactive"),
+  ];
   await Bun.sleep(1);
   expect(order).toEqual([]);
   expect(slots.room()).toBe(0);
-  first?.();
-  for (const next of [d, e, b, c]) {
-    // biome-ignore lint/performance/noAwaitInLoops: one slot passes on at a time
-    (await next)();
-  }
+  first.free();
+  await Promise.all(all);
   expect(order).toEqual(["dictation", "dictation 2", "b", "c"]);
   expect(slots.room()).toBe(1);
 });
 
-test("a wait ends at its bound or its abort, and the slot goes to the next in line", async () => {
+test("a wait ends at its bound or its abort; an abort, a refusal or a throw before the POST gives the slot back", async () => {
   const slots = scribeSlots(1, () => []);
-  const held = (await slots.wait("a", {
-    priority: "ordinary",
-    waitMs: 0,
-  })) as Release;
-  expect(await slots.wait("late", { priority: "ordinary", waitMs: 5 })).toBe(
-    null
-  );
-  const abort = new AbortController();
-  const canceled = slots.wait("canceled", {
-    priority: "interactive",
-    signal: abort.signal,
-    waitMs: LONG,
-  });
-  const next = slots.wait("next", { priority: "ordinary", waitMs: LONG });
-  abort.abort();
-  expect(await canceled).toBeNull();
-  held();
-  held(); // a second release frees nothing more
-  expect(await next).not.toBeNull();
-  expect(slots.room()).toBe(0);
-  const aborted = new AbortController();
-  aborted.abort();
+  const posts: string[] = [];
+  const post = (key: string) => () => {
+    posts.push(key);
+    return Promise.resolve();
+  };
+  const held = holding(slots, "held");
+  await held.posted;
   expect(
-    await slots.wait("x", {
-      priority: "interactive",
-      signal: aborted.signal,
-      waitMs: LONG,
-    })
-  ).toBeNull();
+    await slots.send(
+      "late",
+      { priority: "ordinary", waitMs: 5 },
+      go,
+      post("late")
+    )
+  ).toEqual({ unsent: "no Scribe slot came in time" });
+
+  const waiting = new AbortController();
+  const canceled = slots.send(
+    "canceled",
+    { priority: "interactive", signal: waiting.signal, waitMs: LONG },
+    go,
+    post("canceled")
+  );
+  waiting.abort();
+  expect(await canceled).toEqual({ unsent: "canceled" });
+
+  // Aborted after its slot was granted, before it could go.
+  const granted = new AbortController();
+  const late = slots.send(
+    "granted",
+    { priority: "interactive", signal: granted.signal, waitMs: LONG },
+    go,
+    post("granted")
+  );
+  held.free();
+  // The held send resumes first and grants the slot; the abort lands before the waiter resumes.
+  queueMicrotask(() => granted.abort());
+  expect(await late).toEqual({ unsent: "canceled" });
+  expect(slots.room()).toBe(1);
+
+  const now = { priority: "ordinary" as const, waitMs: 0 };
+  expect(
+    await slots.send("refused", now, () => "moved", post("refused"))
+  ).toEqual({
+    unsent: "moved",
+  });
+  expect(
+    slots.send(
+      "claim throws",
+      now,
+      () => {
+        throw new Error("claim");
+      },
+      post("claim throws")
+    )
+  ).rejects.toThrow("claim");
+  await Bun.sleep(1);
+  expect(
+    slots.send("post throws", now, go, () => Promise.reject(new Error("post")))
+  ).rejects.toThrow("post");
+  await Bun.sleep(1);
+  expect(posts).toEqual([]);
+  expect(slots.room()).toBe(1);
 });
 
-test("a submitted job holds its slot until it is settled, its own send counted once; the line waits for wake", async () => {
+test("a submitted job holds its slot until settled, its own send counted once; a freed slot goes to the line, else to the worker", async () => {
   let submitted = ["job-1"];
-  const slots = scribeSlots(2, () => submitted);
+  let freed = 0;
+  const slots = scribeSlots(
+    2,
+    () => submitted,
+    () => {
+      freed += 1;
+    }
+  );
   expect(slots.room()).toBe(1);
   // Its send under way and its row: one slot.
-  const send = (await slots.wait("job-1", {
-    priority: "ordinary",
-    waitMs: 0,
-  })) as Release;
+  const send = holding(slots, "job-1");
+  await send.posted;
   expect(slots.room()).toBe(1);
   submitted = ["job-1", "job-2"];
-  const dictation = slots.wait("dictation", {
-    priority: "interactive",
-    waitMs: LONG,
-  });
-  send();
+  const dictation = holding(slots, "dictation", "interactive");
+  send.free();
+  await send.done;
   expect(slots.room()).toBe(0);
-  // Its webhook came: the next wake grants the slot.
+  expect(freed).toBe(0);
+  // Its webhook came: a wake grants the slot.
   submitted = ["job-2"];
   slots.wake();
-  expect(await dictation).not.toBeNull();
+  await dictation.posted;
   expect(slots.room()).toBe(0);
+  dictation.free();
+  await dictation.done;
+  expect(freed).toBe(1);
+  expect(slots.room()).toBe(1);
 });

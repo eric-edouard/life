@@ -178,9 +178,10 @@ and the feed show it with the switches):
 
 A job keeps the transcriber it was sent with (`transcription_jobs.transcriber`). The service busy, the block is
 queued again (not an attempt); down, failing or past its 120 s wait (504), it is an attempt, and the third goes to Scribe whole, so nothing
-loops. Its routed turns, or the whole block, wait for a Scribe slot (`scribe-slots.ts`) at most long enough to end within those 10 minutes,
-so reconcile never takes a live wait for a restart; no slot in time, the block is queued again, not an attempt. At the
-slot the switch, the credits and the quiet ranges are checked again. One cut off by a restart goes again after 10 minutes, unless its routed turns had left for Scribe: those may
+loops. Its routed turns, or the whole block, wait for a Scribe slot (`scribe-slots.ts`) for what is left of its 10 minutes since its
+claim, its audio's read included, less a minute, so reconcile never takes a live wait for a restart; no slot in time, the block is
+queued again, not an attempt. At the slot the switch, the credits and the quiet ranges are checked again, and the POST
+restarts the block's clock (`request_sent_at`). One cut off by a restart goes again after 10 minutes, unless its routed turns had left for Scribe: those may
 be billed, so it fails, holding its slot until then. Its `billableSeconds` are Scribe's price of the seconds it heard. Without `IDENTITY_URL` set,
 `speech` still sends to Scribe, and so does Host with "Recognize speakers by their voice" off: that toggle runs
 the whole speech service, transcription included. ElevenLabs credits used up, Scribe's jobs wait queued, but the speech service
