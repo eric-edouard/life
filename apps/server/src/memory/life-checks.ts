@@ -101,10 +101,10 @@ export type CheckKind =
 export interface Check {
   /** The names and handles the question is about, as his answer takes them (`nameOrHandle`); none but a person's. */
   about: string[];
-  /** A name's sentence in its unit: the lines before and after it, in order; null for every other kind, or when the unit could not be read. */
-  around: { after: Said[]; before: Said[] } | null;
   /** The registered agent that asked a decision (the desk's `agt_…`, `Decision.agent`), which tells apart the agents asking as `desk`; null for every other check. */
   agent?: string | null;
+  /** A name's sentence in its unit: the lines before and after it, in order; null for every other kind, or when the unit could not be read. */
+  around: { after: Said[]; before: Said[] } | null;
   /** Who asks: `life` for Life's own guesses, else the agent's pairing or `desk`. */
   asker: string;
   /** When it was asked; null for Life's guesses (worked out when read). */
