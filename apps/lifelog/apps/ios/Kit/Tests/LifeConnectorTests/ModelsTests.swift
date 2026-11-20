@@ -108,12 +108,23 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.people?.with?.first?.picture == nil)
     #expect(row.agent == "agt_000000000001")
     #expect(row.blockingChecks == 1)
+    #expect(row.important == true)
+    #expect(row.project == MatterProject(id: "shop-fit-out", name: "Shop fit-out", status: .active))
+    #expect(list.matters.map(\.isParked) == [false, false, false])
     #expect(list.matters[2].goal == nil)
     // His pick, Life's, and none (the phone shows the area's).
     #expect(list.matters.map(\.icon?.by) == [.owner, nil, .life])
     #expect(list.matters.map(\.icon?.key) == ["tools", nil, "key"])
     #expect(list.matters.compactMap(\.icon?.key).allSatisfy { MatterIcons.symbol($0) != nil })
     #expect(MatterIcons.symbol("a_new_key") == nil)
+    #expect(list.matters[2].important == nil)
+    #expect(list.project == nil)
+
+    let project = try decoded(MatterList.self, wireText("life/read_matters_project.json"))
+    #expect(project.project?.name == "Shop fit-out")
+    #expect(project.project?.status == .active)
+    #expect(project.project?.goal == "The shop opens in spring.")
+    #expect(project.matters.map(\.id) == ["matter_aaaaaaaaaaaa"])
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
     #expect(matter.row.name == "Mend Gran's watch")
@@ -161,11 +172,28 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         """#
     let list = try decoded(MatterList.self, text)
     #expect(list.areasByCount == ["Home", "Money", "Work"])
-    func ids(_ filter: MatterFilter) -> [String] { list.shown(filter: filter).map(\.id) }
+    func ids(_ filter: MatterFilter) -> [String] { list.shown(filter: filter) { _ in false }.map(\.id) }
     #expect(ids(.everything) == ["a", "b", "c", "d"])
     #expect(ids(.area("Home")) == ["a", "b"])
     #expect(ids(.needsYou) == ["a"])
     #expect(ids(.agentWorking) == ["a"])
+}
+
+@Test func aParkedOrDoneProjectsMattersAreParkedAndTheMarkFilters() throws {
+    let text = #"""
+        {"matters":[
+        {"id":"a","name":"A","status":"moving","important":true,"project":{"id":"p","name":"P","status":"waiting"}},
+        {"id":"b","name":"B","status":"moving","project":{"id":"q","name":"Q","status":"parked"}},
+        {"id":"c","name":"C","status":"moving","project":{"id":"r","name":"R","status":"done"}},
+        {"id":"d","name":"D","status":"moving","project":{"id":"s","name":"S","status":"on_ice"}}]}
+        """#
+    let list = try decoded(MatterList.self, text)
+    #expect(list.matters.map(\.isParked) == [false, true, true, false])
+    #expect(list.matters[0].project?.status.isUnderway == true)
+    #expect(list.matters[3].project?.status == .unknown)
+    // His mark as shown filters: a tap that unmarks "a" and marks "b" moves both.
+    #expect(list.shown(filter: .important) { $0.important == true }.map(\.id) == ["a"])
+    #expect(list.shown(filter: .important) { $0.id == "b" }.map(\.id) == ["b"])
 }
 
 @Test func aRowCarriesLifesWordThatItNeedsHim() throws {

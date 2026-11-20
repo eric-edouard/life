@@ -320,9 +320,7 @@ export function buildServer(readsOnly = false) {
       person: z.string().optional().describe("Name, alias or id"),
       project: z.string().optional().describe("Project id or name"),
     }),
-    async (q) => ({
-      matters: await readMatterRowsNow(q, readActiveAgentOf()),
-    })
+    async (q) => readMatterRowsNow(q, readActiveAgentOf())
   );
   tool(
     server,

@@ -24,17 +24,27 @@ struct MattersScreen: View {
                 content: { list in content(list) }
             )
             .background(Palette.bg)
+            // A swipe's mark, said back with Undo.
+            .saysBack()
             // Beside the matter, the Pendant and Settings are the matter column's (the list's bar keeps its title).
-            .shellBar("Matters", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
+            .shellBar(
+                "Matters", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular, isTitleLarge: true
+            )
+            // The filter on, under the title: "Important".
+            .navigationSubtitle(filter.shownName ?? "")
             .filterBar(isFiltered: filter != .everything, identifier: "matters.filter") { filterChoices }
         } detail: {
             if let id = router.matter {
                 NavigationStack(path: $router.matterPath) {
                     MatterPage(id: id, hasSettings: sizeClass == .regular).id(id)
-                        .navigationDestination(for: String.self) { ref in
-                            CardPage(
-                                ref: ref, source: life.matter[id]?.value?.checks ?? [], notes: $notes,
-                                leave: { router.matterPath = [] })
+                        .navigationDestination(for: AppRouter.MatterRoute.self) { route in
+                            switch route {
+                            case .card(let ref):
+                                CardPage(
+                                    ref: ref, source: life.matter[id]?.value?.checks ?? [], notes: $notes,
+                                    leave: { router.matterPath = [] })
+                            case .project(let project): ProjectPage(id: project)
+                            }
                         }
                 }
                 // His word that a step is done, held for Undo after he left its ask: over the top of the matter.
@@ -104,6 +114,7 @@ struct MattersScreen: View {
                 Image(systemName: "circle.fill").imageScale(.small).foregroundStyle(Palette.flag)
             }
             .tag(MatterFilter.needsYou)
+            Label("Important", systemImage: "flag").tag(MatterFilter.important)
             Label {
                 Text("Agent working")
             } icon: {
@@ -121,56 +132,105 @@ struct MattersScreen: View {
         }
     }
 
+    /// The rows in Life's order (his marked ones first); a parked or done project's matters last, under "Parked". A
+    /// swipe to the right marks one, or unmarks it: the system's own swipe action, as Mail flags a message.
     private func content(_ list: MatterList) -> some View {
-        let rows = list.shown(filter: filter)
-        return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                if rows.isEmpty {
-                    Text("No matter fits. Loosen the filter.").font(.body15).foregroundStyle(
-                        Palette.muted
-                    )
-                    .padding(20)
-                }
-                ForEach(rows) { row in
-                    let isSelected = sizeClass == .regular && router.matter == row.id
+        let rows = list.shown(filter: filter) { life.isImportant($0.id, as: $0.important) }
+        let parkedFrom = rows.firstIndex(where: \.isParked)
+        return List {
+            if rows.isEmpty {
+                Text("No matter fits. Loosen the filter.").font(.body15).foregroundStyle(Palette.muted)
+                    .padding(20).quietListRow()
+            }
+            ForEach(Array(rows.enumerated()), id: \.element.id) { at, row in
+                let isSelected = sizeClass == .regular && router.matter == row.id
+                let isMarked = life.isImportant(row.id, as: row.important)
+                VStack(alignment: .leading, spacing: 0) {
+                    if at == parkedFrom { ListLabel("Parked") }
                     Button {
                         router.open(matter: row.id)
                     } label: {
-                        MatterRowView(row: row, isChosen: isSelected)
+                        MatterRowView(row: row, isChosen: isSelected, isMarked: isMarked)
                     }
                     .buttonStyle(.plain)
-                    .appears()
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
+                .readingWidth()
+                .appears()
+                .quietListRow()
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    Button(isMarked ? "Unmark" : "Important", systemImage: isMarked ? "flag" : "flag.fill") {
+                        Task { await life.setImportant(row.id, !isMarked) }
+                    }
+                    .tint(Color.pick)
+                }
             }
-            .padding(.bottom, 24)
-            .readingWidth()
         }
+        .listStyle(.plain).scrollContentBackground(.hidden)
+        // Room under the last row, on top of the floating filter's (`filterBar`): a safe area adds, a content margin replaces.
+        .safeAreaPadding(.bottom, Metrics.Spacing.xl)
+        .motion(Motion.standard, value: rows.map(\.id))
         .scrollDismissesKeyboard(.interactively)
+    }
+}
+
+extension View {
+    /// A list row with nothing of the list's own: no inset, separator or fill, so it draws as a row of a stack.
+    func quietListRow() -> some View {
+        listRowInsets(EdgeInsets()).listRowSeparator(.hidden).listRowBackground(Color.clear)
     }
 }
 
 struct MatterRowView: View {
     let row: MatterRow
     let isChosen: Bool
+    /// His mark, his tap first (`LifeStore.isImportant`).
+    let isMarked: Bool
 
     var body: some View {
-        Row(
+        let parked = row.isParked
+        return Row(
             title: row.name, icon: row.areas?.first.map(\.areaSymbol) ?? String.defaultAreaSymbol,
-            iconTint: Palette.muted, detail: row.nextStep?.text
+            iconTint: Palette.muted, detail: row.nextStep?.text, isMarked: isMarked
         ) {
-            if row.needsYou == true {
+            // A parked project's matter waits: no dot, no agent.
+            if parked {
+                EmptyView()
+            } else if row.needsYou == true {
                 StateDot(color: Palette.flag)
             } else if row.agent != nil {
                 Spinner(size: .small).foregroundStyle(Palette.ai).accessibilityLabel("An agent is working")
             }
         }
-        .background(isChosen ? Palette.card : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
-        .padding(.horizontal, 8)
+        .opacity(parked ? 0.45 : 1)
+        // The content on the page's gutter (the row's own inset); the chosen one's fill inset from the edges.
+        .background {
+            RoundedRectangle(cornerRadius: Metrics.Radius.passage).fill(isChosen ? Palette.card : .clear)
+                .padding(.horizontal, Metrics.Spacing.s)
+        }
         .motion(Motion.standard, value: isChosen)
+        .motion(Motion.standard, value: isMarked)
         .accessibilityElement(children: .combine)
-        // The dot has its words: the combined row would drop a hidden dot's label.
-        .accessibilityValue(row.needsYou == true ? "Needs you" : "")
+        // The dot and the flag have their words: the combined row would drop a hidden glyph's label.
+        .accessibilityValue(
+            [
+                isMarked ? "Important" : nil, row.needsYou == true && !parked ? "Needs you" : nil,
+                parked ? "Parked" : nil,
+            ]
+            .compactMap(\.self).joined(separator: ", "))
+    }
+}
+
+extension MatterFilter {
+    /// Its name in the filter menu; none for everything.
+    var shownName: String? {
+        switch self {
+        case .everything: nil
+        case .needsYou: "Needs you"
+        case .important: "Important"
+        case .agentWorking: "Agent working"
+        case .area(let area): area
+        }
     }
 }
 

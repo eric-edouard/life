@@ -32,7 +32,7 @@ struct SearchScreen: View {
                     Button {
                         router.open(matter: row.id)
                     } label: {
-                        MatterRowView(row: row, isChosen: false)
+                        MatterRowView(row: row, isChosen: false, isMarked: life.isImportant(row.id, as: row.important))
                     }
                     .buttonStyle(.plain)
                     .appears()
