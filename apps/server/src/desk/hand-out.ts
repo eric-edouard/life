@@ -1,5 +1,4 @@
 import { matterFinderOf } from "../memory/matter-read";
-import { dayStart, wall } from "../memory/zones";
 
 // The hand-out: what the desk starts an agent on by itself (his word of 20 Nov 2026: agents start on their own on his
 // matters; nothing leaves without his yes). Code picks the matter from his ranking; the brief is this constant; the
@@ -14,10 +13,6 @@ export interface Pace {
   aDay: number;
   cardsWaiting: number;
 }
-
-/** The instant his local day `now` is in starts (`tz`: where he is now). */
-export const handOutDayStartOf = (now: Date, tz?: string) =>
-  dayStart(wall(now.toISOString(), tz).day, tz);
 
 /** Why the pace allows no start now, or null: enough cards wait for him, or enough started today. */
 export function paceRefusalOf(

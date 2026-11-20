@@ -2,7 +2,7 @@ import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, HOUR } from "../core/clock";
 import { handedOutSince, heldByAgents } from "../host/desk-read";
 import { register } from "./agent-actions";
-import { handOutDayStartOf, handOutOf, paceRefusalOf } from "./hand-out";
+import { handOutOf, paceRefusalOf } from "./hand-out";
 import { setup } from "./test-desk";
 
 // What the desk starts an agent on, and how fast. Made-up matters, steps and agents.
@@ -75,17 +75,6 @@ test("enough started today stop the hand-out", () => {
   expect(paceRefusalOf(pace, { cardsOpen: 0, startedToday: 2 })).toBeNull();
   expect(paceRefusalOf(pace, { cardsOpen: 0, startedToday: 3 })).toContain(
     "started"
-  );
-});
-
-test("his day starts at his midnight, not the Mac's", () => {
-  // 17:30 UTC on the 20th is 00:30 on the 21st in Bangkok, 18:30 on the 20th in Paris.
-  const now = new Date(Date.UTC(2026, 10, 20, 17, 30));
-  expect(handOutDayStartOf(now, "Asia/Bangkok").toISOString()).toBe(
-    "2026-11-20T17:00:00.000Z"
-  );
-  expect(handOutDayStartOf(now, "Europe/Paris").toISOString()).toBe(
-    "2026-11-19T23:00:00.000Z"
   );
 });
 

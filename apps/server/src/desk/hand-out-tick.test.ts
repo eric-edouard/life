@@ -3,7 +3,13 @@ import { clock, DAY, iso, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { agentOf } from "../host/desk-read";
 import { decisionsNow } from "../memory/decisions";
-import { askDecision, readPacket, withdrawOpenDecision } from "./agent-actions";
+import { dayNow, dayStart, zoneNow } from "../memory/zones";
+import {
+  askDecision,
+  readPacket,
+  register,
+  withdrawOpenDecision,
+} from "./agent-actions";
 import { handOutNext } from "./hand-out-tick";
 import { setup } from "./test-desk";
 
@@ -25,8 +31,8 @@ afterEach(() => {
 });
 
 const MATTERS = [
-  { id: "mat_a", name: "Test repair", projects: [], steps: ["obs_a1"] },
-  { id: "mat_b", name: "Test order", projects: [], steps: ["obs_b1"] },
+  { id: "mat_a", projects: [], steps: ["obs_a1"] },
+  { id: "mat_b", projects: [], steps: ["obs_b1"] },
 ];
 const book = () => {
   const reads = { n: 0 };
@@ -99,6 +105,44 @@ test("a look under the daily cap reads no matter book", async () => {
   expect(reads.n).toBe(before);
 });
 
+test("a blocked default runtime starts nothing, and the look still counts", async () => {
+  const t = setup();
+  t.desk.runtimes = { claude: t.fake.runtime };
+  t.fake.blocked = "Test: not logged in";
+  const { read, reads } = book();
+  expect(await handOutNext(t.desk, read)).toBeUndefined();
+  expect(reads.n).toBe(0);
+  t.fake.blocked = undefined;
+  setSystemTime(new Date(clock().getTime() + 9 * MIN));
+  expect(await handOutNext(t.desk, read)).toBeUndefined();
+  setSystemTime(new Date(clock().getTime() + 2 * MIN));
+  expect(await handOutNext(t.desk, read)).toBeTruthy();
+});
+
+test("the daily count follows his day: a hand-out before his day began is not counted", async () => {
+  setSettings({
+    desk: {
+      defaultRuntime: "claude",
+      handOut: { aDay: 1, cardsWaiting: 1000 },
+      runtimes: {},
+    },
+  });
+  const desk = deskOf();
+  const { read, reads } = book();
+  const old = register(desk, { brief: "Test brief", runtime: "claude" });
+  const since = dayStart(dayNow(), zoneNow());
+  const markAt = (id: string, at: number) =>
+    desk.db.run(
+      "update agent set is_handed_out = 1, created_at = ? where id = ?",
+      [new Date(at).toISOString(), id]
+    );
+  markAt(old, since.getTime() - MIN);
+  expect(await handOutNext(desk, read)).toBeTruthy();
+  setSystemTime(new Date(clock().getTime() + 11 * MIN));
+  expect(await handOutNext(desk, read)).toBeUndefined();
+  expect(reads.n).toBe(1);
+});
+
 test("a look under the cards cap reads no matter book", async () => {
   const desk = deskOf();
   const { read, reads } = book();
@@ -130,7 +174,7 @@ test("a look under the cards cap reads no matter book", async () => {
 test("a handed-out agent's packet carries the one-card first turn, a plain agent's the plan", async () => {
   const desk = deskOf();
   const handed = await handOutNext(desk, book().read);
-  const plain = (await import("./agent-actions")).register(desk, {
+  const plain = register(desk, {
     brief: "Test brief",
     runtime: "claude",
   });

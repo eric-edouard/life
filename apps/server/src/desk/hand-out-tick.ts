@@ -14,15 +14,10 @@ import { decisionsNow } from "../memory/decisions";
 import { readDismissedMatterPins } from "../memory/memory-files";
 import { mattersToDo } from "../memory/read-matters";
 import { loadTruth } from "../memory/read-truth";
-import { zoneNow } from "../memory/zones";
+import { dayNow, dayStart, zoneNow } from "../memory/zones";
 import { start } from "./agent-changes";
 import { type Desk, saveCursor } from "./desk-store";
-import {
-  HAND_OUT_BRIEF,
-  handOutDayStartOf,
-  handOutOf,
-  paceRefusalOf,
-} from "./hand-out";
+import { HAND_OUT_BRIEF, handOutOf, paceRefusalOf } from "./hand-out";
 
 // The hand-out's step of the desk's tick (`hand-out.ts` decides): at most one start per look, a look at most every
 // `LOOK_EVERY`, each gate cheaper than the next, so a look under a cap reads no matter book.
@@ -46,7 +41,11 @@ export async function handOutNext(desk: Desk, read = readHandOutBook) {
   const { db } = desk;
   const pace = settings().desk?.handOut;
   const runtime = runtimeOf({});
-  if (!(pace && runtime)) {
+  if (!pace) {
+    return;
+  }
+  if (!runtime) {
+    log("desk.hand_out", { why: "no default runtime" });
     return;
   }
   const last = readCursor(db, CURSOR);
@@ -59,7 +58,7 @@ export async function handOutNext(desk: Desk, read = readHandOutBook) {
   }
   const startedToday = handedOutSince(
     db,
-    handOutDayStartOf(clock(), zoneNow()).toISOString()
+    dayStart(dayNow(), zoneNow()).toISOString()
   );
   const cardsOpen = decisionsNow().filter(
     (d) => d.state === "open" && d.agent
@@ -69,6 +68,7 @@ export async function handOutNext(desk: Desk, read = readHandOutBook) {
   }
   const blocked = await desk.runtimes[runtime]?.block();
   if (blocked) {
+    log("desk.hand_out", { why: `${runtime} does not answer: ${blocked}` });
     return;
   }
   const book = await read();

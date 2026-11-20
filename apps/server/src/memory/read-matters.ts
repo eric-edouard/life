@@ -159,7 +159,6 @@ export async function mattersToDo() {
     .filter((v) => nextStepNow(v, decisions)?.kind === "do")
     .map((v) => ({
       id: v.id,
-      name: v.name,
       projects: v.projects,
       steps: refsOf(v),
     }));
