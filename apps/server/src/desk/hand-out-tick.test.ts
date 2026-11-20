@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
-import { agentOf } from "../host/desk-read";
+import { agentOf, NO_CARD_OUTCOME } from "../host/desk-read";
 import { decisionsNow } from "../memory/decisions";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
 import {
@@ -11,7 +11,6 @@ import {
   withdrawOpenDecision,
 } from "./agent-actions";
 import { wakeDue } from "./desk-clock";
-import { NO_CARD_OUTCOME } from "./hand-out";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import { setup } from "./test-desk";
 

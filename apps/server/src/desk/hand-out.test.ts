@@ -1,13 +1,12 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, HOUR } from "../core/clock";
-import { handedOutSince, heldByAgents } from "../host/desk-read";
-import { register } from "./agent-actions";
 import {
   CARD_WITHIN_MS,
-  handOutOf,
-  isCardOverdue,
-  paceRefusalOf,
-} from "./hand-out";
+  handedOutSince,
+  heldByAgents,
+} from "../host/desk-read";
+import { register } from "./agent-actions";
+import { handOutOf, isCardOverdue, paceRefusalOf } from "./hand-out";
 import { setup } from "./test-desk";
 
 // What the desk starts an agent on, and how fast. Made-up matters, steps and agents.

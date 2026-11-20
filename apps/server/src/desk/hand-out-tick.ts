@@ -3,11 +3,13 @@ import { log } from "../core/log";
 import { settings } from "../core/settings";
 import { readRepoFolder } from "../host/change-registered-agent";
 import {
+  CARD_WITHIN_MS,
   handedOutActiveBefore,
   handedOutSince,
   handedOutSteps,
   heldByAgents,
   isFull,
+  NO_CARD_OUTCOME,
   openTurn,
   readCursor,
   runtimeOf,
@@ -23,11 +25,9 @@ import { finish, hasAsked, stopRun } from "./agent-actions";
 import { start } from "./agent-changes";
 import { type Desk, saveCursor } from "./desk-store";
 import {
-  CARD_WITHIN_MS,
   HAND_OUT_BRIEF,
   handOutOf,
   isCardOverdue,
-  NO_CARD_OUTCOME,
   paceRefusalOf,
 } from "./hand-out";
 

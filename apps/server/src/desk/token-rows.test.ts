@@ -3,14 +3,13 @@ import { rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
-import { tokensSince } from "../host/desk-read";
+import { NO_CARD_OUTCOME, tokensSince } from "../host/desk-read";
 import {
   handOutRowsOf,
   readAgentRows,
   tokenRowsOf,
 } from "../host/registered-agents";
 import { openDesk } from "./desk-store";
-import { NO_CARD_OUTCOME } from "./hand-out";
 
 // The nightly report's token rows: turns summed by his local day and by matter, from made-up turns. The test zones
 // have him in Jakarta (UTC+7) until 6 Oct 2026.

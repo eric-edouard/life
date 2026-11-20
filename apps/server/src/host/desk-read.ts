@@ -93,6 +93,12 @@ export const handedOutSince = (db: Database, since: string) =>
     )
     .get(since)?.n ?? 0;
 
+/** How long a handed-out agent has to ask its card, from its creation. */
+export const CARD_WITHIN_MS = 2 * HOUR;
+
+/** The outcome of an agent ended for asking no card in time (the nightly report lists these). */
+export const NO_CARD_OUTCOME = `no card within ${CARD_WITHIN_MS / HOUR} hours`;
+
 /** The agents the desk started itself from `since` on: how each ended (its outcome, or why its first turn never began), none of them an agent of his. */
 export const handedOutAgentsSince = (db: Database, since: string) =>
   db

@@ -2,7 +2,6 @@ import { clock, DAY, iso } from "../core/clock";
 import { DEFAULT_RADIUS_M } from "../core/distance";
 import { holder } from "../core/lock";
 import type { SourceName } from "../core/names";
-import { NO_CARD_OUTCOME } from "../desk/hand-out";
 import { decisionsNow } from "../memory/decisions";
 import { matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
@@ -20,6 +19,7 @@ import {
   anchorsOf,
   type DeskRead,
   handedOutAgentsSince,
+  NO_CARD_OUTCOME,
   projectHolderOf,
   readDesk,
   refusedSince,
