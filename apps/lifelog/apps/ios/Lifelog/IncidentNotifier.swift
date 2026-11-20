@@ -26,6 +26,9 @@ final class IncidentNotifier: NSObject {
     var cardArrived: (() -> Void)?
     /// Answers a card from its notification, the way its screen does, and says how it went. Set by the app delegate.
     var answer: ((Check, AnswerRequest) async -> (word: String, line: String))?
+    /// The card a notification names, as the Life paired now has it (`LifeStore.notifiedCard`), asked before any
+    /// answer from it. Set by the app delegate.
+    var card: ((_ pushId: String, _ kept: String?, _ life: String?) async -> Check?)?
 
     /// Life's cards: Reply… (a decision's own words), the only action shown where the expanded notification isn't (the
     /// Watch, a collapsed one); the expanded one adds the card's one-tap answers (`NotificationContent`). Every answer
@@ -187,7 +190,11 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
     /// the notification is replaced by how it went, in the result screen's words.
     private func answer(_ response: UNNotificationResponse) async {
         let request = response.notification.request
-        let check = CardNotification.card(in: request.content.userInfo)
+        // Never the kept card as it is: it may be another pairing's (`CardNotification.card`).
+        let check: Check? =
+            if case .card(let pushId, let kept, let life)? = NotificationRoute(userInfo: request.content.userInfo) {
+                await card?(pushId, kept, life)
+            } else { nil }
         let typed = (response as? UNTextInputNotificationResponse)?.userText
         let awake = Awake()
         awake.id = UIApplication.shared.beginBackgroundTask(withName: "card answer") { awake.end() }

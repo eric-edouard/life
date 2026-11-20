@@ -573,7 +573,7 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     let push = PushedCard(pushId: "push-n1", in: cut, notified: notified, at: tapped)
     var answered = AnsweredCards()
     #expect(push.shown(in: cut, answeredSinceTap: answered.newer(than: tapped))?.checks.map(\.ref) == ["n1"])
-    answered.answered("n1", at: tapped.addingTimeInterval(5), pairing: answered.pairing)
+    answered.answered("n1", at: tapped.addingTimeInterval(5))
     // The read after his answer is cut off too: it says nothing of the card, and the card stays out.
     #expect(push.checked(by: cut, askedAt: tapped.addingTimeInterval(6)) == nil)
     #expect(push.shown(in: cut, answeredSinceTap: answered.newer(than: tapped))?.checks.isEmpty == true)
@@ -600,4 +600,43 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     // An older notification that names no Life, or another push's card: nothing.
     #expect(CardNotification.check(kept, pushId: "push-n1", life: nil, pairedWith: a) == nil)
     #expect(CardNotification.check(kept, pushId: "push-x", life: a.absoluteString, pairedWith: a) == nil)
+}
+
+/// Every answer from a notification goes through one door (`CardNotification.card`): a card kept under A, answered from
+/// its button after the phone paired with B, is B's only if B's own read of its pushId holds it, and B's pushIds are not
+/// A's; a notification older than the binding is read by its pushId, past any whole read's limit.
+@Test func aNotificationsCardIsOnlyTheOneTheLifePairedNowHolds() async throws {
+    let wire = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    let first = try #require((wire["checks"] as? [[String: Any]])?.first)
+    let card = first.merging(["ref": "name:alex", "pushId": "push-a"]) { $1 }
+    let kept = String(decoding: try JSONSerialization.data(withJSONObject: card), as: UTF8.self)
+    func inbox(_ checks: [[String: Any]], total: Int) throws -> String {
+        let body = wire.merging(["checks": checks, "total": total]) { $1 }
+        return String(decoding: try JSONSerialization.data(withJSONObject: body), as: UTF8.self)
+    }
+    let a = URL(string: "https://life-a.example.test")!
+    let b = URL(string: "https://life-b.example.test")!
+    // Kept under A, its button tapped under B: B's read holds its own card of that ref, under B's pushId, never A's.
+    let bHolds = try inbox([first.merging(["ref": "name:alex", "pushId": "push-b"]) { $1 }], total: 1)
+    let crossed = await CardNotification.card(
+        pushId: "push-a", kept: kept, life: a.absoluteString, pairedWith: b
+    ) { bHolds }
+    #expect(crossed == nil)
+    // Kept under A, answered under A: the kept card, with no read.
+    let bound = await CardNotification.card(pushId: "push-a", kept: kept, life: a.absoluteString, pairedWith: a) {
+        Issue.record("a bound card needs no read")
+        return ""
+    }
+    #expect(bound?.ref == "name:alex")
+    // A notification from before the binding, its card the 600th open: Life's read of its pushId holds it.
+    let legacyRead = try inbox([card], total: 600)
+    let legacy = await CardNotification.card(pushId: "push-a", kept: kept, life: nil, pairedWith: a) { legacyRead }
+    #expect(legacy?.ref == "name:alex")
+    // Not paired: nothing, and nothing read.
+    let unpaired = await CardNotification.card(pushId: "push-a", kept: kept, life: nil, pairedWith: nil) {
+        Issue.record("no read without a pairing")
+        return ""
+    }
+    #expect(unpaired == nil)
 }

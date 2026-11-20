@@ -87,6 +87,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             await life.answer(request, keepsCardOpen: check.keepsOpen(after: request))
             return taken.result(life.state(of: taken.key))
         }
+        capture.notifier.card = { [weak self] pushId, kept, life in
+            await self?.life.notifiedCard(pushId: pushId, kept: kept, life: life)
+        }
         let sync = sync
         AppDependencyManager.shared.add(dependency: sync)
     }

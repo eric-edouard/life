@@ -25,13 +25,18 @@ public struct CardNotification: Sendable, Equatable {
     /// The card `pushId` names in a `read_inbox` reply, as its notification; nil when it is not open (or unreadable).
     /// `asksFaceID`: his setting that Send waits for Face ID, which only the phone can ask, so the Watch gets no Send.
     public static func of(pushId: String, inbox: String, asksFaceID: Bool) -> CardNotification? {
+        found(pushId: pushId, in: inbox).map { of($0.check, card: $0.card, asksFaceID: asksFaceID) }
+    }
+
+    /// The card `pushId` names in a `read_inbox` reply, with its JSON as Life sent it.
+    private static func found(pushId: String, in inbox: String) -> (check: Check, card: String)? {
         guard
             let read = try? JSONSerialization.jsonObject(with: Data(inbox.utf8)) as? [String: Any],
             let found = (read["checks"] as? [[String: Any]])?.first(where: { $0["pushId"] as? String == pushId }),
             let data = try? JSONSerialization.data(withJSONObject: found),
             let check = try? LibraryStore.feedDecoder.decode(Check.self, from: data)
         else { return nil }
-        return of(check, card: String(decoding: data, as: UTF8.self), asksFaceID: asksFaceID)
+        return (check, String(decoding: data, as: UTF8.self))
     }
 
     static func of(_ check: Check, card: String, asksFaceID: Bool) -> CardNotification {
@@ -67,12 +72,25 @@ public struct CardNotification: Sendable, Equatable {
     }
 
     /// The card a notification kept, if it is this push's and was read from the Life the phone is paired with now
-    /// (`life`, its `lifeKey`); nil otherwise, an older notification that names no Life included: the read opens it then.
-    public static func check(_ card: String, pushId: String, life: String?, pairedWith origin: URL?) -> Check? {
-        guard let origin, life == origin.absoluteString, let check = check(card), check.pushId == pushId else {
-            return nil
-        }
+    /// (`life`, its `lifeKey`; `belongsToPairing`); nil otherwise, an older notification that names no Life included.
+    public static func check(_ card: String?, pushId: String, life: String?, pairedWith paired: URL?) -> Check? {
+        guard let card, let life, belongsToPairing(URL(string: life), now: paired), let check = check(card),
+            check.pushId == pushId
+        else { return nil }
         return check
+    }
+
+    /// The card a notification names, as the Life paired now has it: the one it kept (`check(_:pushId:life:pairedWith:)`),
+    /// else Life's own read of that card (`readPush`, `read_inbox` by its `pushId`, which no limit cuts off; a pushId of
+    /// another Life names nothing there). Nil when it is not open there. The one door to a notification's card: opening
+    /// it, and every answer from it, Send included.
+    public static func card(
+        pushId: String, kept: String?, life: String?, pairedWith paired: URL?,
+        readPush: @Sendable () async throws -> String
+    ) async -> Check? {
+        if let check = check(kept, pushId: pushId, life: life, pairedWith: paired) { return check }
+        guard paired != nil, let read = try? await readPush() else { return nil }
+        return found(pushId: pushId, in: read)?.check
     }
 
     /// The card as kept (its JSON), if this build reads it.

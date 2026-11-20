@@ -523,14 +523,29 @@ final class LifeStore {
     }
 
     /// A tapped push: its card, from the cached inbox or else the one its notification kept (`card`), is on show at once,
-    /// its answers live, while one whole read checks it (`pushed`, `refreshInbox`). With neither, the read opens it.
-    /// The notification's card counts only when it is this push's and was read from the Life paired now (`life`).
+    /// its answers live, while one whole read checks it (`pushed`, `refreshInbox`). The notification's card counts only
+    /// when it is this push's and was read from the Life paired now (`life`). With neither in hand (an older
+    /// notification, a card past what was read), Life's read of its pushId opens it beside the whole read.
     func open(pushId: String, card: String? = nil, life: String? = nil) async {
-        let notified = card.flatMap { CardNotification.check($0, pushId: pushId, life: life, pairedWith: pairedOrigin) }
-        let push = PushedCard(pushId: pushId, in: inbox.value, notified: notified, at: now())
+        let kept = CardNotification.check(card, pushId: pushId, life: life, pairedWith: pairedOrigin)
+        let push = PushedCard(pushId: pushId, in: inbox.value, notified: kept, at: now())
         pushed = push
         openedCard = push.opening
-        await refreshInbox()
+        guard push.check == nil else { return await refreshInbox() }
+        async let whole: Void = refreshInbox()
+        if let found = await notifiedCard(pushId: pushId, kept: nil, life: nil), pushed == push {
+            pushed = PushedCard(pushId: pushId, in: nil, notified: found, at: push.tappedAt)
+            openedCard = pushed?.opening
+        }
+        await whole
+    }
+
+    /// The card a notification names, as the Life paired now has it (`CardNotification.card`): every answer from a
+    /// notification's button asks it first, so none reaches another Life's card.
+    func notifiedCard(pushId: String, kept: String?, life: String?) async -> Check? {
+        await CardNotification.card(pushId: pushId, kept: kept, life: life, pairedWith: pairedOrigin) { [api] in
+            try await api.readInbox(pushId: pushId)
+        }
     }
 
     /// A read is checking the tapped push: the card's pager waits on it. A failed read shows the card as stale instead.
