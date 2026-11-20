@@ -51,7 +51,6 @@
         "text": "Here is the signed quote.",
         "to": "Kit"
       },
-      "evidence": null,
       "goal": null,
       "group": "decision",
       "kind": "decision",
@@ -109,13 +108,9 @@
           "asker": "life",
           "at": null,
           "clips": [],
-          "context": "Life read their messages as Kit, the watchmaker (70% sure).",
+          "context": "Life read their messages as Kit, the watchmaker (70% sure).\n\n> Kit here, from the shop\n\n*[whatsapp, 2 Oct](life:unit_000000000001)*",
           "deadline": null,
           "draft": null,
-          "evidence": {
-            "from": "whatsapp, 2 Oct",
-            "quote": "Kit here, from the shop"
-          },
           "goal": null,
           "group": "guessed person",
           "kind": "person",
@@ -153,12 +148,17 @@
           "since": null,
           "subject": null,
           "title": "Know who someone is",
-          "lifeLinks": [],
+          "lifeLinks": [
+            {
+              "kind": "unit",
+              "ref": "unit_000000000001"
+            }
+          ],
           "matter": null,
           "misread": {
             "cause": "01b070ee5ba7f83a",
-            "seal": "3d9583390e9c79af83238cf7a4a8352f",
-            "shown": "25fe8d96124c400c"
+            "seal": "ef85ca1a8cbc5acf81ad1caff6536606",
+            "shown": "36753a6bc8e9027f"
           },
           "confirm": [],
           "networkIdentity": {
@@ -215,7 +215,6 @@
       "context": null,
       "deadline": "2099-01-02T09:00:00.000Z",
       "draft": null,
-      "evidence": null,
       "goal": null,
       "group": "decision",
       "kind": "decision",
@@ -325,13 +324,9 @@
           ]
         }
       ],
-      "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.",
+      "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.\n\n> It's the shop, about the watch.\n\n*a recorded conversation, 14 Oct*",
       "deadline": null,
       "draft": null,
-      "evidence": {
-        "from": "a recorded conversation, 14 Oct",
-        "quote": "It's the shop, about the watch."
-      },
       "goal": null,
       "group": "voice",
       "kind": "voice",
@@ -381,8 +376,8 @@
       "urgency": "blocks",
       "misread": {
         "cause": "f094d10b549822d0",
-        "seal": "1907a584706d34dd65f52b174822961f",
-        "shown": "424c7f835736fe45"
+        "seal": "954277a1be02057b24d4af75f41fe3fa",
+        "shown": "2b9ed258ed984c9a"
       }
     },
     {
@@ -403,13 +398,9 @@
         }
       ],
       "contactsCard": null,
-      "context": null,
+      "context": "> \"Sam fixed the strap\" said Gran\n\n*[whatsapp, 12 Oct](life:unit_000000000001)*",
       "deadline": null,
       "draft": null,
-      "evidence": {
-        "from": "whatsapp, 12 Oct",
-        "quote": "\"Sam fixed the strap\" said Gran"
-      },
       "goal": null,
       "group": "name",
       "kind": "person",
@@ -468,7 +459,12 @@
       "since": null,
       "subject": null,
       "title": "Place a name",
-      "lifeLinks": [],
+      "lifeLinks": [
+        {
+          "kind": "unit",
+          "ref": "unit_000000000001"
+        }
+      ],
       "matter": null,
       "confirm": [],
       "networkIdentity": null,
@@ -476,8 +472,8 @@
       "urgency": "blocks",
       "misread": {
         "cause": "3b404043a79bbfd0",
-        "seal": "a50fe724e425673ba948ee95747f76bd",
-        "shown": "ddca4bd9c15b3225"
+        "seal": "2bb405c4a689ec81c89e2ca3b19a1014",
+        "shown": "834a471ddb92c007"
       }
     },
     {
@@ -492,7 +488,6 @@
       "context": "It is the Contacts card Lou.",
       "deadline": null,
       "draft": null,
-      "evidence": null,
       "goal": null,
       "group": "contacts card",
       "kind": "person",
@@ -543,8 +538,8 @@
       "urgency": "blocks",
       "misread": {
         "cause": "eab9c455c7fa456b",
-        "seal": "94c23b09083bee9a3734d9954830ecb6",
-        "shown": "6ce57e7f7a701da5"
+        "seal": "40ccb5518e057d06cf05d8036c9fe753",
+        "shown": "17c0d25543bac3c2"
       }
     },
     {
@@ -553,13 +548,9 @@
       "at": null,
       "clips": [],
       "contactsCard": null,
-      "context": "A later step seems to show it done.",
+      "context": "A later step seems to show it done.\n\n> Called them.\n\n*an earlier message*",
       "deadline": null,
       "draft": null,
-      "evidence": {
-        "from": "an earlier message",
-        "quote": "Called them."
-      },
       "goal": null,
       "group": "ending",
       "kind": "ending",
@@ -622,8 +613,8 @@
       "urgency": "improves",
       "misread": {
         "cause": "1addffdfdc12fcfa",
-        "seal": "59a8c4a7ae0010f623c8cc1b4f0741bb",
-        "shown": "c22e02368640bc0c"
+        "seal": "0066f68ef90e6b612b4096522ce249fd",
+        "shown": "928771774c0f909f"
       }
     },
     {
@@ -632,13 +623,9 @@
       "at": null,
       "clips": [],
       "contactsCard": null,
-      "context": "Life read their messages as Kit, the watchmaker (70% sure).",
+      "context": "Life read their messages as Kit, the watchmaker (70% sure).\n\n> Kit here, from the shop\n\n*[whatsapp, 2 Oct](life:unit_000000000001)*",
       "deadline": null,
       "draft": null,
-      "evidence": {
-        "from": "whatsapp, 2 Oct",
-        "quote": "Kit here, from the shop"
-      },
       "goal": null,
       "group": "guessed person",
       "kind": "person",
@@ -676,7 +663,12 @@
       "since": null,
       "subject": null,
       "title": "Know who someone is",
-      "lifeLinks": [],
+      "lifeLinks": [
+        {
+          "kind": "unit",
+          "ref": "unit_000000000001"
+        }
+      ],
       "matter": null,
       "confirm": [],
       "networkIdentity": {
@@ -701,8 +693,8 @@
       "urgency": "improves",
       "misread": {
         "cause": "01b070ee5ba7f83a",
-        "seal": "3d9583390e9c79af83238cf7a4a8352f",
-        "shown": "25fe8d96124c400c"
+        "seal": "ef85ca1a8cbc5acf81ad1caff6536606",
+        "shown": "36753a6bc8e9027f"
       }
     },
     {
@@ -718,13 +710,9 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote. Asked until 18 Oct.",
+      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote. Asked until 18 Oct.\n\n> Gran wants it framed\n\n*[12 Oct](life:unit_000000000002)*",
       "deadline": null,
       "draft": null,
-      "evidence": {
-        "from": "12 Oct",
-        "quote": "Gran wants it framed"
-      },
       "goal": "Gran's photo is framed.",
       "group": "new matter",
       "kind": "new matter",
@@ -765,7 +753,12 @@
       },
       "subject": null,
       "title": "Life found a new matter: Frame Gran's photo",
-      "lifeLinks": [],
+      "lifeLinks": [
+        {
+          "kind": "unit",
+          "ref": "unit_000000000002"
+        }
+      ],
       "matter": {
         "id": "matter_cccccccccccc",
         "name": "Frame Gran's photo"
@@ -777,8 +770,8 @@
       "urgency": "improves",
       "misread": {
         "cause": "e33422a9ac5b7ce7",
-        "seal": "02c9729efbc2c1ace0887bd979d3653f",
-        "shown": "f8053e6bca0bfd2b"
+        "seal": "b52ec9896fc96b0bb355125caf105f44",
+        "shown": "e8c9f69cd8eb6253"
       }
     }
   ],
@@ -794,5 +787,5 @@
   },
   "deadlinesToday": 0,
   "total": 8,
-  "version": "b0f008b27dee58e0"
+  "version": "4091d44a27f02b94"
 }

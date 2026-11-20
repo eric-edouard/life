@@ -43,7 +43,7 @@ test("“Wrong…” is on Life's own cards alone; its cause holds through a cou
     [REF, true],
   ]);
   const name = list[1] as Check;
-  expect(name.misread?.cause).toBe(causeOf(name));
+  expect(name.misread?.cause).toBe(causeOf(name, undefined, n.quote));
   // One more line riding on the name: the same cause, another card as shown.
   const more = checksOf(
     of({}, [n, guessed, line({ id: "obs_00000000dd01" })])

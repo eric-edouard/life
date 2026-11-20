@@ -4,6 +4,7 @@ import { type CheckGroup, LIFE_ASKER } from "../core/names";
 import { secretIn } from "../core/secret";
 import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
+import { UnitId } from "../records/fields";
 import type { InferredPerson } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import {
@@ -116,6 +117,13 @@ type Line = Pick<
 /** Where and when a record was said, in words: "whatsapp, 7 Sep". */
 type Where = string;
 
+/** The words a guess of Life's rests on, where they were said, and the unit they were said in when Life knows it for sure. */
+interface Quote {
+  text: string;
+  unit?: string;
+  where?: Where;
+}
+
 /** Everything the checks are worked out from; `checksNow` reads it, `checksOf` is pure over it. */
 export interface CheckInputs {
   /** Refs of the fact-check answers he gave (any answer settles that line's check). */
@@ -205,6 +213,8 @@ interface Ranked {
   check: Omit<Check, "confirm" | "lifeLinks" | "matter">;
   /** For the order (`inboxOrderOf`): when a decision was asked, else the newest day among the lines it rides on. */
   day: string;
+  /** What it rests on, quoted into its context by `checksOf`. */
+  quote?: Quote;
 }
 
 type MatterId = CheckInputs["matters"][number];
@@ -287,7 +297,7 @@ function ranked(
   fields: Pick<Check, "about" | "question" | "ref"> & Partial<Check>,
   lines: Line[],
   refs: string[],
-  evidence: { quote: string; where?: Where } | null
+  quote: Quote | null
 ): Ranked[] {
   const rides = ridesOn(c, lines, refs);
   const kind = group === "ending" ? "ending" : "person";
@@ -303,10 +313,6 @@ function ranked(
             context: fields.context ?? LIFE_CHECKS[group].context,
             deadline: null,
             draft: null,
-            evidence: evidence && {
-              from: evidence.where ?? "an earlier message",
-              quote: evidence.quote,
-            },
             goal: null,
             group,
             kind,
@@ -325,6 +331,7 @@ function ranked(
             title: LIFE_CHECKS[group].title,
           },
           day: lines.reduce((m, l) => (l.date > m ? l.date : m), ""),
+          quote: quote ?? undefined,
         },
       ]
     : [];
@@ -352,7 +359,6 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           context: d.context || null,
           deadline: d.deadline,
           draft: d.draft ?? null,
-          evidence: null,
           goal: null,
           group: "decision",
           kind: "decision",
@@ -396,7 +402,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             [o],
             [],
             {
-              quote: link.quote,
+              text: link.quote,
+              unit: later?.unit ?? link.later,
               where: later ? whereOf(later) : c.where.get(link.later),
             }
           ).map((r) => ({ ...r, basis: link.later }))
@@ -449,7 +456,6 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
                 context: `${LIFE_CHECKS["new matter"].context} Next step: ${next.text}. Asked until ${plain(lastDay)}.`,
                 deadline: null,
                 draft: null,
-                evidence: { from: plain(first.day), quote: first.quote },
                 goal: v.goal.text,
                 group: "new matter",
                 kind: "new matter",
@@ -470,6 +476,11 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
                 title: `${LIFE_CHECKS["new matter"].title}: ${v.name}`,
               },
               day: first.day,
+              quote: {
+                text: first.quote,
+                unit: firstLine?.unit ?? first.ref,
+                where: plain(first.day),
+              },
             },
           ]
         : [];
@@ -497,7 +508,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             },
             byGuess.get(ref) ?? [],
             [ref],
-            first ? { quote: first.quote, where } : null
+            first ? { text: first.quote, unit: first.unit, where } : null
           )
         : [];
     });
@@ -542,7 +553,9 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           },
           lines,
           [],
-          held ? { quote: held.quote, where: whereOf(held) } : null
+          held
+            ? { text: held.quote, unit: held.unit, where: whereOf(held) }
+            : null
         );
       }
     );
@@ -574,12 +587,6 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             context: `${LIFE_CHECKS.voice.context} Heard in ${item.conversations} conversations, ${item.words} words.`,
             deadline: null,
             draft: null,
-            evidence: first
-              ? {
-                  from: `a recorded conversation, ${first.at ? plain(localDate(first.at)) : "date unknown"}`,
-                  quote: first.text,
-                }
-              : null,
             goal: null,
             group: "voice",
             kind: "voice",
@@ -603,9 +610,35 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             (m, k) => (k.at && localDate(k.at) > m ? localDate(k.at) : m),
             ""
           ),
+          quote: first && {
+            text: first.text,
+            where: `a recorded conversation, ${first.at ? plain(localDate(first.at)) : "date unknown"}`,
+          },
         };
       }),
 };
+
+/** Recorded words as Markdown that renders as written, on one line: no link, emphasis, HTML, code or list of their own. */
+const literalOf = (s: string) =>
+  s
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[\\`*_[\]<>#~&@]|:(?=\/\/)|(?<=\bwww)\./gi, "\\$&")
+    .replace(/^(\d+)([.)])/, "$1\\$2")
+    .replace(/^[-+=]/, "\\$&");
+
+/** A check's context with the words it rests on after its own: `> quote`, then `*where*`, a `life:` link to the unit when Life is sure of it. */
+function withQuoteOf(context: string | null, q?: Quote) {
+  if (!q) {
+    return context;
+  }
+  const where = literalOf(q.where ?? "an earlier message");
+  const source =
+    q.unit && UnitId.safeParse(q.unit).success
+      ? `[${where}](life:${q.unit})`
+      : where;
+  return `${context ? `${context}\n\n` : ""}> ${literalOf(q.text)}\n\n*${source}*`;
+}
 
 /** The checks, in his inbox's order (`inboxOrderOf`). Pure over what is stored. */
 export const checksOf = (inputs: CheckInputs): Check[] => {
@@ -617,16 +650,21 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
   const found = inboxOrderOf(
     Object.values(BUILDERS)
       .flatMap((build) => build(c))
-      .map(({ basis, check, day }) => {
+      .map(({ basis, check, day, quote }) => {
+        const context = withQuoteOf(check.context, quote);
         const card = {
           ...check,
-          lifeLinks: lifeLinksOf(check.context, (id) => byId.has(id)),
+          context,
+          lifeLinks: lifeLinksOf(context, (id) => byId.has(id)),
           matter: cardMatterOf(matterOf([check.subject ?? check.ref])) ?? null,
           onMatters: check.ridesOn.matterIds.flatMap(
             (id) => cardMatterOf(byId.get(id)) ?? []
           ),
         };
-        return { ...withComplaintFields(card, inputs.fixing, basis), day };
+        return {
+          ...withComplaintFields(card, inputs.fixing, basis, quote?.text),
+          day,
+        };
       })
   ).map(({ day: _, ...check }) => check);
   return withDraftConfirms(found, c.people);

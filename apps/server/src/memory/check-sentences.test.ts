@@ -193,7 +193,7 @@ test("a name's card shows a line that holds the name, never the newest line when
   // Without the unit read: the quote of the newest line that holds the name, not the newest line.
   const [plain] = checksOf(base);
   expect(plain).toMatchObject({
-    evidence: { quote: "Bastien said he comes Thursday" },
+    context: expect.stringContaining("> Bastien said he comes Thursday\n"),
     question: 'Who is "Bastien / bastien"?',
     said: { by: "Dana", text: "Bastien said he comes Thursday" },
   });
