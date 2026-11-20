@@ -190,9 +190,9 @@ async function main() {
       ]);
     }
     for (const frame of mapped) {
-      // biome-ignore lint/performance/noAwaitInLoops: one simulator, one frame at a time
       const app = appFrames[frame.name] as AppFrame;
       // Once more on a miss: the first taps after a boot can find the app still settling.
+      // biome-ignore lint/performance/noAwaitInLoops: one simulator, one frame at a time
       const result = await shoot(udid, frame, app)
         .catch(() => shoot(udid, frame, app))
         .then(
