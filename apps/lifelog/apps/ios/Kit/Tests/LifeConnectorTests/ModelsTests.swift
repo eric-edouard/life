@@ -275,6 +275,8 @@ private func everyKindOfCheck() throws -> [Check] {
         name.answer(creating: " Sam Vale ", note: note, guess: guess, asOrganization: false)
     }
     #expect(create(guess + " ")?.note == nil, "a whitespace edit of Life's guess is not his words")
+    #expect(
+        create(guess.replacing(" by ", with: "  by "))?.note == nil, "nor is a space doubled between its words")
     #expect(create("  ")?.note == nil)
     #expect(create(" Nora's architect ")?.note == "Nora's architect")
     #expect(create("x")?.name == "Sam Vale")
