@@ -21,11 +21,18 @@ const desk: Desk = {
 const fetchDoor = doorFetch(desk);
 const ahead = (ms: number) => iso(clock().getTime() + ms);
 
+/** A made-up agent in a desk turn on its one assignment: the door's tools act on that turn's. */
 const agent = (brief = "Test brief: a made-up bakery's order") => {
   const id = register(desk, { brief, folder: dir, runtime: "fake" });
   desk.db.run("update agent set link = ? where id = ?", [`fake://${id}`, id]);
+  turnOn(id, on(desk, id).id);
   return id;
 };
+const turnOn = (id: string, assignment: string) =>
+  desk.db.run(
+    "insert into turn (agent_id, assignment_id, cause, started_at) values (?, ?, 'first turn', ?)",
+    [id, assignment, clock().toISOString()]
+  );
 
 async function call(id: string, key: string, name: string, args: object) {
   const res = await fetchDoor(
@@ -111,7 +118,7 @@ test("request_decision asks as the desk, stamped with the agent and its link; on
     why: "not mine",
     withdraw: dec,
   });
-  expect(stolen.text).toContain("another agent");
+  expect(stolen.text).toContain("is not a card of this turn's assignment");
   await call(id, key, "request_decision", { why: "done", withdraw: dec });
   expect(decisionsNow().find((d) => d.id === dec)?.state).toBe("withdrawn");
 });
@@ -201,5 +208,8 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
   for (const text of [own, second]) {
     expect(text).toContain("The one gate");
     expect(text).toContain("act only after his Go");
+    expect(text).toContain("name the matter before you act");
+    expect(text).toContain("never with a Monitor");
+    expect(text).toContain("`github` is a wait channel");
   }
 });

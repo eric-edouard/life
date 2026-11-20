@@ -660,10 +660,11 @@ export function copyBeeper(
 
 /** A bridged network as a source: its archive's copy (by `copierOf`), its reading and newest. */
 export const bridgedSource = (network: Network): Descriptor => {
-  const { label, name } = network;
+  const { chatLinkOf, label, name } = network;
   return {
     capturesOnItsOwn: true,
     chatDays: 7,
+    chatLinkOf,
     incoming: (from?: number) => incomingArchived(name, "eventId", from),
     kind: "chat",
     label,

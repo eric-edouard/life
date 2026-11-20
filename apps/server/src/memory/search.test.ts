@@ -144,7 +144,7 @@ test("a search opens with his situation when it names no one, then others' lines
     { cites: [ep], text: "Ana helps with the house." },
     { cites: [other], text: "Ana moved flats." },
   ]);
-  const live = new Set([ep, other]);
+  const live = [ep, other].map((id) => ({ id, people: [{ ref: ANA }] }));
   const header =
     "(where things stand, read each night from the 30 days up to their newest episode):";
   try {

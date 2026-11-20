@@ -54,7 +54,6 @@ export const heldOf =
 export const baseOf = (years: number[]) => {
   const months = monthsOf(years);
   return {
-    candidates: [],
     heard: [],
     held: heldOf(months),
     heldYears: years.map(String),

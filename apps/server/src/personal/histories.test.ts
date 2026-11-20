@@ -403,7 +403,9 @@ test("a history in a shape the code does not know is an error naming the file an
   let said = "";
   try {
     said = JSON.stringify(
-      await readPerson("test-unknown-shape", { part: "story" })
+      await readPerson("test-unknown-shape", { part: "story" }, () =>
+        Promise.resolve([])
+      )
     );
   } finally {
     setSettings({ personal: was ?? null });

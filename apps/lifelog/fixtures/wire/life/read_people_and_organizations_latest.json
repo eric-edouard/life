@@ -1,0 +1,22 @@
+{
+  "latest": [
+    {
+      "at": "2026-11-17T09:14:00.000Z",
+      "channel": "whatsapp",
+      "lines": [
+        {
+          "by": "them",
+          "text": "Bread for Sunday?"
+        },
+        {
+          "by": "him",
+          "text": "Two loaves, thanks"
+        }
+      ],
+      "open": {
+        "lands": "chat",
+        "url": "https://wa.me/33600000004"
+      }
+    }
+  ]
+}

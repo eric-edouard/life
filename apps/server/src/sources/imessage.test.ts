@@ -4,6 +4,7 @@ import { HOUR } from "../core/clock";
 import { handleKey } from "./contacts";
 import {
   fromAppleNs,
+  imessageLinkOf,
   incomingImessage,
   readImessage,
   textFromAttributedBody,
@@ -62,4 +63,21 @@ test("a source range excludes its end instant", () => {
   expect(
     readImessage(new Date(0), path, new Map(), new Date(event?.at ?? ""))
   ).toEqual([]);
+});
+
+test("a Messages link keeps an address's dots and drops a number's spacing", () => {
+  expect(imessageLinkOf("ann.smith@example.test")).toBe(
+    "sms:ann.smith@example.test"
+  );
+  expect(imessageLinkOf("+33 6 00-00.00.01")).toBe("sms:+33600000001");
+});
+
+test("a read a millisecond wide holds the message at its start: the bounds keep their milliseconds", () => {
+  const path = imessageFixture("hello");
+  const at = new Date("2026-10-10T12:00:00.500Z");
+  const db = new Database(path);
+  db.run("update message set date = ?", [toAppleNs(at) + 123_456n]);
+  db.close();
+  const read = readImessage(at, path, new Map(), new Date(at.getTime() + 1));
+  expect(read.map((e) => e.text)).toEqual(["hello"]);
 });

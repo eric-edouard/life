@@ -1,6 +1,12 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as icons from "../memory/matter-icons";
 import { nextStepNow } from "../memory/matter-read";
-import { matterRowsNowOf } from "./matter-rows";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as readMatters from "../memory/read-matters";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as inbox from "./inbox";
+import { matterRowsNowOf, readMatterRowsNow } from "./matter-rows";
 
 // The one matter row composition, on made-up matters and checks.
 
@@ -50,4 +56,18 @@ test("the desk's count: an open decision on a matter's step makes its next step 
     []
   );
   expect(r?.needsYou).toBe(true);
+});
+
+test("a person's read and read_matters take their rows from one reader, with Life's icons", async () => {
+  const open = spyOn(readMatters, "openMatters").mockResolvedValue({
+    matters: [],
+  } as never);
+  const checks = spyOn(inbox, "openChecksNow").mockResolvedValue([]);
+  try {
+    await readMatterRowsNow();
+    expect(open.mock.calls[0]?.[2]).toBe(icons.readLifeIcons);
+  } finally {
+    open.mockRestore();
+    checks.mockRestore();
+  }
 });

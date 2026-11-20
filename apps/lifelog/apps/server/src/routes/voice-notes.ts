@@ -1,6 +1,7 @@
 // A chat voice note heard for Life: its words by the speech service, Thai turns by Scribe, as a
 // recording's block is (route-turns.ts). Nothing of the audio is kept; one row per note
 // (`voice_note_hearings`) makes its Scribe send happen once.
+import { randomUUID } from "node:crypto";
 import { createRoute, z } from "@hono/zod-openapi";
 import { clock } from "@life/server/src/core/clock";
 import { voiceNoteHearings } from "@lifelog/db/schema/voice-note-hearings";
@@ -25,6 +26,8 @@ const IN_FLIGHT_MS = 5 * 60 * 1000;
 type Said = { text: string } | { invalid: boolean; message: string };
 const busy = (message: string): Said => ({ invalid: false, message });
 const LATER = { "Retry-After": "300" };
+// Life waits 180 s for the words, most of it for the speech service: a Scribe slot now, or busy.
+const SLOT_WAIT_MS = 0;
 
 export function voiceNoteRoutes({
   config,
@@ -62,14 +65,21 @@ export function voiceNoteRoutes({
       : { text: settle(key, claimed.localText) };
   };
 
-  /** A new note: the speech service, then Scribe for its routed turns, claimed first. */
+  /**
+   * A new note: the speech service, then Scribe for its routed turns, claimed first. Its answer is
+   * stored (or a claim Scribe surely did not bill dropped) while it holds its Scribe slot. `signal`:
+   * the caller left, so nothing more is sent for it.
+   */
   async function hearNote(
     bytes: Uint8Array,
-    at: string,
-    key: string,
-    seconds: number
+    {
+      at,
+      key,
+      seconds,
+      signal,
+    }: { at: string; key: string; seconds: number; signal: AbortSignal }
   ): Promise<Said> {
-    const said = await transcribeBlock(config, bytes);
+    const said = await transcribeBlock(config, bytes, signal);
     if ("error" in said) {
       return said.error === "invalid_audio"
         ? { invalid: true, message: said.message }
@@ -82,34 +92,43 @@ export function voiceNoteRoutes({
       record(db, "voice_note.heard", { route: "local", seconds });
       return { text: localText };
     }
-    if (!worker.mayScribe()) {
-      return busy("ElevenLabs credits are used up");
-    }
     const heard = await hearRouted({ config, db }, bytes, said.heard, routed, {
-      claim: () =>
-        db
-          .insert(voiceNoteHearings)
-          .values({ key, localText })
-          .onConflictDoNothing()
-          .returning()
-          .all().length === 1,
       keyterms: blockKeyterms(db),
       ref: { voiceNote: key.slice(0, 12) },
+      send: (post) =>
+        worker.paidSend(
+          `voice-note:${randomUUID()}`,
+          { priority: "ordinary", signal, waitMs: SLOT_WAIT_MS },
+          () =>
+            db
+              .insert(voiceNoteHearings)
+              .values({ key, localText })
+              .onConflictDoNothing()
+              .returning()
+              .all().length === 1
+              ? null
+              : "this note is being heard",
+          post
+        ),
+      settle: (outcome) => {
+        if (outcome.kind === "later") {
+          // Nothing was taken or billed: the claim goes, the note may be sent again.
+          db.delete(voiceNoteHearings)
+            .where(eq(voiceNoteHearings.key, key))
+            .run();
+          return;
+        }
+        record(db, "voice_note.heard", {
+          billableSeconds: outcome.billableSeconds,
+          route: route.kind,
+          seconds,
+        });
+        settle(key, textFrom(outcome.transcript));
+      },
     });
-    if (!heard) {
-      return busy("this note is being heard");
-    }
-    if (heard.kind === "later") {
-      // Nothing was taken or billed: the claim goes, the note may be sent again.
-      db.delete(voiceNoteHearings).where(eq(voiceNoteHearings.key, key)).run();
-      return busy(heard.error);
-    }
-    record(db, "voice_note.heard", {
-      billableSeconds: heard.billableSeconds,
-      route: route.kind,
-      seconds,
-    });
-    return { text: settle(key, textFrom(heard.transcript)) };
+    return heard.kind === "heard"
+      ? { text: textFrom(heard.transcript) }
+      : busy(heard.error);
   }
 
   return router().openapi(
@@ -158,7 +177,9 @@ export function voiceNoteRoutes({
           400
         );
       }
-      const said = replayOf(key) ?? (await hearNote(bytes, at, key, seconds));
+      const said =
+        replayOf(key) ??
+        (await hearNote(bytes, { at, key, seconds, signal: c.req.raw.signal }));
       if ("text" in said) {
         return c.json({ text: said.text }, 200);
       }

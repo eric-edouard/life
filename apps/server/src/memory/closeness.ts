@@ -81,7 +81,7 @@ export function directChats(
 }
 
 /**
- * The one-to-one messages of each person named (a name or an id, read as `read_person_page` reads it: `meant`), in
+ * The one-to-one messages of each person named (a name or an id, read as `read_people_and_organizations` reads it: `meant`), in
  * the order given; `known` is undefined, and the messages none, for a name that is no one's.
  */
 export function directOf(
@@ -319,6 +319,18 @@ export function levelsNow(
   return out;
 }
 
+/** The closer of someone's two levels, personal and work, by `ClosenessLevel`'s own order (inner first). */
+export const closerOf = (l: {
+  personal: ClosenessLevel;
+  work: ClosenessLevel;
+}): ClosenessLevel =>
+  ClosenessLevel.options[
+    Math.min(
+      ClosenessLevel.options.indexOf(l.personal),
+      ClosenessLevel.options.indexOf(l.work)
+    )
+  ] as ClosenessLevel;
+
 /** The levels that keep a page: the close, and the once close (their page stays as their history). */
 const PAGED = new Set<ClosenessLevel>(["inner", "regular", "faded"]);
 /** The levels of someone close now. */
@@ -507,15 +519,4 @@ export async function closeness({ events, failed, since }: WithPeople) {
     people: tallies.length,
     unread: failed,
   });
-}
-
-/** How close someone is to him, personal and work, and why (`closeness.jsonl`, his word over it); none when not judged. */
-export function closenessLine(ref: string, people: People) {
-  const l = levelsWith(people).get(ref);
-  return l
-    ? [
-        `Closeness: personal ${l.personal}, work ${l.work}${l.service ? " (a service, not a person)" : ""}: ${l.why}`,
-        "",
-      ]
-    : [];
 }

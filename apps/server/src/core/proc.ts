@@ -155,9 +155,46 @@ export const repoFiles = (root: string, dirs: string[], ends: string[]) =>
 export function gitOut(path: string, args: string[]) {
   const r = git(path, args);
   if (r.exitCode !== 0) {
-    throw new Error(`git ${args[0]}: ${r.stderr.toString().trim()}`);
+    // Named by its command, past any global option.
+    const command = args.find((x) => !x.startsWith("-"));
+    throw new Error(`git ${command}: ${r.stderr.toString().trim()}`);
   }
   return r.stdout.toString().trim();
+}
+
+/**
+ * Commits `paths` (relative to the repo at `repo`, each taken literally, never as a pattern) alone, when any changed:
+ * their new, changed and deleted files (a tracked folder gone whole included, staged by `git rm` or not), and nothing
+ * else staged there.
+ */
+export function commitPaths(repo: string, paths: string[], message: string) {
+  const literal = (args: string[]) =>
+    gitOut(repo, ["--literal-pathspecs", ...args]);
+  const isKnown = (p: string) =>
+    existsSync(join(repo, p)) || literal(["ls-files", "--", p]) !== "";
+  // In the last commit only: removed from the disk and the index already (`git rm`); none before a first commit.
+  const isInHead = (p: string) =>
+    git(repo, [
+      "--literal-pathspecs",
+      "ls-tree",
+      "--name-only",
+      "HEAD",
+      "--",
+      p,
+    ])
+      .stdout.toString()
+      .trim() !== "";
+  const added = paths.filter(isKnown);
+  const kept = paths.filter((p) => added.includes(p) || isInHead(p));
+  if (kept.length === 0) {
+    return;
+  }
+  if (added.length > 0) {
+    literal(["add", "-A", "--", ...added]);
+  }
+  if (literal(["status", "--porcelain", "--", ...kept])) {
+    literal(["commit", "-m", message, "--", ...kept]);
+  }
 }
 
 /** The code the checkout at `root` holds (its committed apps/server/src/, prompts/ and assets/, the pages it serves): an always-on service exits when it changes, and launchd starts the new code. */
