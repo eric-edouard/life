@@ -6,7 +6,7 @@ import {
   namingQueueGuessesOf,
   readNamingQueue,
 } from "../sources/lifelog-voices";
-import { answerDecision } from "./decisions";
+import { answerDecision, type EndByHisWord } from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
 import type { Check, LIFE_CHECKS } from "./life-checks";
 import { matterOfSteps } from "./matter-read";
@@ -17,8 +17,9 @@ import { dayNow } from "./zones";
 
 // His answer to a check (`answer_check`, `bun life memory answer-check`): one call for every kind. Each option goes to
 // the writer its kind already has, and the line written names the check it settled (the decision's id, the fact
-// check's ref, the person, card or name, the matter's steps). A new matter's Start is the one answer that acts: host
-// hands it in (`startAgent`), since only host reaches the desk.
+// check's ref, the person, card or name, the matter's steps). A new matter's Start and a decision's `ends` option are
+// the answers that act through host: it hands them in (`startAgent`, `end`), since only host reaches the desk and the
+// to-do list.
 
 export interface CheckAnswer {
   /** A voice's new person: their name. */
@@ -245,7 +246,8 @@ const WRITERS: {
  * Records his answer to the open check `check` (host finds it: `openCheckOf`) through its kind's writer (a decision's
  * draft is sent only `via` his app); returns the check, the lines written and, for a voice, its queue item. `onStep`
  * hears `recorded` once they are, and a send's or a start's own steps; `answerKey` is his app's key for this tap, kept on a
- * decision's answer; `startAgent` is a new matter's Start, given only for his own token's `answer_check`. Throws when the
+ * decision's answer; `startAgent` (a new matter's Start) and `end` (a decision's `ends` option) are given only for his
+ * own token's `answer_check`. Throws when the
  * option is not one of its own.
  */
 export async function answerCheck(
@@ -254,9 +256,13 @@ export async function answerCheck(
   via: "connector" | "session",
   {
     answerKey,
+    end,
     onStep,
     startAgent,
-  }: Omit<WriterExtras, "item"> & { answerKey?: string } = {}
+  }: Omit<WriterExtras, "item"> & {
+    answerKey?: string;
+    end?: EndByHisWord;
+  } = {}
 ) {
   const { ref } = check;
   if (check.group === "decision") {
@@ -265,6 +271,7 @@ export async function answerCheck(
       check,
       done: await answerDecision(ref, a.options, a.note, {
         answerKey,
+        end,
         onStep,
         via,
       }),

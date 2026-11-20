@@ -6,31 +6,40 @@ import {
   type StartAgent,
 } from "../memory/answer-check";
 import {
+  actDueOf,
+  actOf,
+  actOutcomeOf,
   type Decision,
   decisionsNow,
-  isSendDue,
+  type EndByHisWord,
   notSentOf,
-  sendsOn,
 } from "../memory/decisions";
 import { sendLimitMs, sendStepsOf } from "../memory/draft-send";
 import type { Check } from "../memory/life-checks";
+import {
+  type MatterStepNow,
+  matterOfSteps,
+  openStepsOf,
+} from "../memory/matter-read";
+import { readMatterBook } from "../memory/matters";
+import { readPeople } from "../memory/who";
+import { dayNow } from "../memory/zones";
 import {
   changeRegisteredAgent,
   START_STAGES,
   WAIT_MS,
 } from "./change-registered-agent";
+import { endByHisWord, QUICK_MS, ticksLimitMsOf } from "./correct-matter";
 import { eventHeard, readDesk } from "./desk-read";
 import type { ToolCall } from "./http/mcp-tool";
 import { openCheckOf } from "./inbox";
 
 // His answer to a check, with proof (`answer_check`): what was written, what changed, what a send did, whether the
 // asker was told. Nothing is stored here: each fact is read again from the store that owns it (the decisions' lines,
-// the desk's event rows), so this only composes them. It returns once the answer line, and the send's outcome if any,
-// is stored: nothing waits for the asker or the inbox (the app reads its inbox again after every answer). Steps go out
+// the desk's event rows), so this only composes them. It returns once the answer line, and its act's outcome if any
+// (a send's, or an end's: an `ends` option picked alone closes its step or matter by his word, `endByHisWord`), is stored: nothing waits for the asker or the inbox (the app reads its inbox again after every answer). Steps go out
 // as they pass (`report`, `mcp-tool.ts`) after the plan: the steps to come and the most seconds they may take.
 
-/** What an answer is given on top of its send and its Start: the reads. */
-export const QUICK_MS = 5000;
 const POLL_MS = 500;
 
 const at = () => clock().toISOString();
@@ -41,8 +50,13 @@ function askerOf(d: Decision) {
   if (!d.answer) {
     return { name: d.asker, told: "not_told" };
   }
-  if (isSendDue(d) && !d.send) {
-    return { name: d.asker, told: "not_yet", why: "the send has not ended" };
+  const act = actDueOf(d);
+  if (act && !actOutcomeOf(d, act)) {
+    return {
+      name: d.asker,
+      told: "not_yet",
+      why: act === "send" ? "the send has not ended" : "the end has not ended",
+    };
   }
   // He asked it himself: his answer is all there is to tell.
   if (d.asker === OWNER_ASKER) {
@@ -108,7 +122,7 @@ function sendResultOf(d: Decision, tap: ReturnType<typeof tapOf>) {
       state: "may_have_gone",
     };
   }
-  return tap.answer && isSendDue(d) ? { state: "pending" } : null;
+  return tap.answer && actDueOf(d) === "send" ? { state: "pending" } : null;
 }
 
 /** The answer's proof for a decision, composed from what is stored. */
@@ -116,20 +130,30 @@ async function decisionResult(ref: string, key?: string) {
   let d = decisionsNow().find((x) => x.id === ref) as Decision;
   // A repeat arrives while the first call's send still runs (a dropped stream): wait for its outcome, never send.
   const end = performance.now() + (d.draft ? sendLimitMs(d.draft) : 0);
-  while (isSendDue(d) && !d.send && performance.now() < end) {
+  while (actDueOf(d) === "send" && !d.send && performance.now() < end) {
     // biome-ignore lint/performance/noAwaitInLoops: polling the decisions' lines
     await Bun.sleep(POLL_MS);
     d = decisionsNow().find((x) => x.id === ref) as Decision;
   }
   const tap = tapOf(d, key);
+  // An end belongs to the answer that stands: one a `not sent:` outcome voided ended nothing.
+  const ended = tap.answer === d.answer ? d.end : undefined;
   return {
     asker: askerOf(d),
     changed: {
       decision: ref,
+      ...(ended
+        ? {
+            ended: {
+              at: ended.at,
+              ...(ended.error ? { error: ended.error } : {}),
+            },
+          }
+        : {}),
       options: tap.answer?.options ?? [],
       state: d.state,
     },
-    done: [tap.answer, tap.notSent ?? tap.send].filter(Boolean),
+    done: [tap.answer, tap.notSent ?? tap.send, ended].filter(Boolean),
     kind: "decision",
     ref,
     send: sendResultOf(d, tap),
@@ -204,19 +228,83 @@ function rememberTap(key: string, result: Record<string, unknown>) {
   taps.set(key, { at: t, result });
 }
 
-/** The steps an answer will report, in order: a decision's (and its send's), a new matter's Start (the desk's start stages), else Life's guesses'. */
+/** The steps an answer will report, in order: a decision's (and its send's, or its end's ticks), a new matter's Start (the desk's start stages), else Life's guesses'. */
 function planOf(
   known: Decision | undefined,
-  sends: boolean | undefined,
+  act: ReturnType<typeof actOf>,
+  closing: readonly MatterStepNow[],
   starts: boolean
 ) {
   if (known) {
     return [
       "recorded",
-      ...(sends && known.draft ? sendStepsOf(known.draft) : []),
+      ...(act === "send" && known.draft ? sendStepsOf(known.draft) : []),
+      ...(act === "end" && closing.some((s) => s.kind === "todo_item")
+        ? ["todo_items_ticked"]
+        : []),
+      ...(act === "end" ? ["ended"] : []),
     ];
   }
   return starts ? ["goal_saved", ...START_STAGES, "recorded"] : ["recorded"];
+}
+
+/**
+ * What his pick of `d`'s `ends` option `option` closes (`openStepsOf`): the open steps of the open matter its subject
+ * rides on (`matterOfSteps` among open matters, as the ask resolved it), or the subject alone for a step's card. Read
+ * before the plan, so its limit counts the ticks. `problem`: a step's card whose step is neither open nor ended (no
+ * open matter holds it), so closing would close nothing; a step already ended by another route is no problem.
+ */
+async function closingOf(d: Decision, option: string) {
+  const book = await readMatterBook(await readPeople(), dayNow());
+  const step = d.options.find((o) => o.id === option)?.ends === "step";
+  const v =
+    d.subject &&
+    matterOfSteps(
+      book.filter((m) => m.open),
+      [d.subject]
+    );
+  const closing = v ? openStepsOf(v, step ? d.subject : undefined) : [];
+  const isEnded = book.some((m) =>
+    m.steps.some((s) => s.ref === d.subject && s.ending)
+  );
+  return {
+    closing,
+    problem:
+      step && closing.length === 0 && !isEnded
+        ? `Not done: no open matter holds ${d.subject} open; nothing was closed.`
+        : undefined,
+  };
+}
+
+/**
+ * What his answer to the decision `known` does besides being recorded (`actOf`), and the most it may take: a send's
+ * path's limit, or an end's ticks; with the steps an `ends` option closes (read now, so the limit counts their ticks)
+ * and the `end` that closes them by his word, with Life's words naming the card.
+ */
+async function decisionActOf(
+  known: Decision | undefined,
+  a: CheckAnswer,
+  report: ToolCall["report"]
+) {
+  const act =
+    known?.state === "open" ? actOf(known, a.options, a.note) : undefined;
+  const { closing, problem } =
+    known && act === "end"
+      ? await closingOf(known, a.options[0] ?? "")
+      : { closing: [], problem: undefined };
+  const end: EndByHisWord = async (d) => {
+    if (problem) {
+      throw new Error(problem);
+    }
+    return await endByHisWord(
+      closing,
+      `"${d.options.find((o) => o.id === a.options[0])?.label}" on "${d.title}" (${d.id})`,
+      (ticked, of, key) =>
+        report({ at: at(), done: ticked, key, of, step: "todo_items_ticked" })
+    );
+  };
+  const sendMs = act === "send" && known?.draft ? sendLimitMs(known.draft) : 0;
+  return { act, closing, end, limitMs: sendMs + ticksLimitMsOf(closing) };
 }
 
 /** What an answer says, to tell a repeat of it from another answer. */
@@ -254,16 +342,13 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     return remembered;
   }
   const open = await openCheckOf(ref);
-  const sends = known?.state === "open" && sendsOn(known, a.options, a.note);
+  const { act, closing, end, limitMs } = await decisionActOf(known, a, report);
   const starts = open.group === "new matter" && a.options[0] === "start";
   report({
     limitSeconds: Math.ceil(
-      ((sends && known.draft ? sendLimitMs(known.draft) : 0) +
-        (starts ? WAIT_MS : 0) +
-        QUICK_MS) /
-        1000
+      (limitMs + (starts ? WAIT_MS : 0) + QUICK_MS) / 1000
     ),
-    plan: planOf(known, sends, starts),
+    plan: planOf(known, act, closing, starts),
   });
   // A new matter's Start: the desk's start, as `change_registered_agent` asks it; its own plan is in this one.
   let start: Awaited<ReturnType<typeof changeRegisteredAgent>> | null = null;
@@ -289,6 +374,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     recordedAs,
   } = await answerCheck(open, a, "connector", {
     answerKey,
+    end,
     onStep: (step, detail) => report({ at: at(), step, ...detail }),
     startAgent,
   });

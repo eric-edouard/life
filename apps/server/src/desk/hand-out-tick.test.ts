@@ -1,17 +1,41 @@
-import { afterEach, beforeEach, expect, setSystemTime, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  setSystemTime,
+  spyOn,
+  test,
+} from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
+import { answerWithResult } from "../host/answer-result";
 import { agentOf } from "../host/desk-read";
-import { decisionsNow } from "../memory/decisions";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as checks from "../memory/checks";
+import { DECISIONS, decisionsNow } from "../memory/decisions";
+import { MATTERS_PROMPT } from "../memory/matters";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as memoryFiles from "../memory/memory-files";
+import {
+  CORRECTIONS,
+  MATTERS as MATTERS_FILE,
+  readCorrections,
+  recordCorrection,
+} from "../memory/memory-files";
+import { mattersToDo } from "../memory/read-matters";
+import { OWNER } from "../memory/read-truth";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
+import type { Observation } from "../records/observation";
 import {
   askDecision,
   readPacket,
   register,
   withdrawOpenDecision,
 } from "./agent-actions";
-import { wakeDue } from "./desk-clock";
-import { NO_CARD_OUTCOME } from "./hand-out";
+import { endAgentsOnDoneMatters, readPeopleOnce, wakeDue } from "./desk-clock";
+import { handOutOf, NO_CARD_OUTCOME } from "./hand-out";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import { setup } from "./test-desk";
 
@@ -187,6 +211,137 @@ test("a handed-out agent's packet carries the one-card first turn, a plain agent
   expect(two).toContain("Start with this plan?");
   expect(two).not.toContain("Life handed you this matter");
   expect(agentOf(desk.db, handed ?? "")?.is_handed_out).toBe(1);
+});
+
+// Regression, 20 Nov 2026: he answered "Done" on a handed-out agent's card about what only he could do; nothing closed
+// in Life, so the matter stayed at the top of his ranking and the hand-out would start an agent on it again. A made-up
+// matter on the real matter book (its line, his step, his next step); only the observations' read is faked.
+test("Done on an `ends` card closes the matter: off the matters to do, skipped by the hand-out, its agent ended", async () => {
+  const desk = deskOf();
+  const day = dayNow();
+  const step = "obs_00000000f001";
+  const matterId = "matter_00000000f001";
+  const observation = {
+    area: null,
+    at: clock().toISOString(),
+    confidence: 0.9,
+    date: day,
+    id: step,
+    importance: 3,
+    madeBy: {
+      engine: "claude",
+      model: "test",
+      prompt: "test",
+      run: "test",
+      unitHash: "h",
+    },
+    quote: "I'll pay the plumber",
+    schemaVersion: 1,
+    source: { channel: "whatsapp", ref: "m1" },
+    speaker: OWNER,
+    subjects: [],
+    text: "He pays the plumber.",
+    type: "to_do",
+    tz: "UTC",
+    unit: "unit_00000000f001",
+    validFrom: null,
+    validTo: null,
+    when: null,
+  } as Observation;
+  mkdirSync(dirname(MATTERS_FILE), { recursive: true });
+  writeFileSync(
+    MATTERS_FILE,
+    `${JSON.stringify({
+      at: clock().toISOString(),
+      madeBy: {
+        engine: "claude",
+        model: "test",
+        prompt: MATTERS_PROMPT,
+        run: "t",
+      },
+      matters: [
+        {
+          areas: [],
+          id: matterId,
+          name: "Pay the plumber",
+          projects: [],
+          steps: [{ day, quote: "pay the plumber", ref: step }],
+        },
+      ],
+      offered: [step],
+      schemaVersion: 1,
+    })}\n`
+  );
+  const observations = spyOn(memoryFiles, "readObservations").mockResolvedValue(
+    [observation]
+  );
+  const live = spyOn(memoryFiles, "readLiveUnits").mockResolvedValue(
+    new Set([observation.unit])
+  );
+  const inbox = spyOn(checks, "checksNow").mockImplementation(async () =>
+    decisionsNow()
+      .filter((d) => d.state === "open")
+      .map(
+        (d) =>
+          ({
+            about: [],
+            deadline: d.deadline,
+            group: "decision",
+            matter: null,
+            pushId: "",
+            ref: d.id,
+          }) as never
+      )
+  );
+  try {
+    await recordCorrection({
+      kind: "matter-direction",
+      nextStep: { kind: "do", text: "Pay the plumber" },
+      steps: [step],
+    });
+    const read = async () => ({
+      dismissed: [],
+      matters: await mattersToDo(),
+      offered: new Set<string>(),
+    });
+    expect((await read()).matters.map((m) => m.id)).toEqual([matterId]);
+    const agent = (await handOutNext(desk, read)) ?? "";
+    const { id } = await askDecision(desk, agent, {
+      deadline: iso(clock().getTime() + DAY),
+      onSilence: null,
+      options: [
+        { ends: "matter", id: "done", label: "Done" },
+        { id: "tell", label: "Tell the agent…" },
+      ],
+      question: "Did you pay the plumber?",
+      subject: matterId,
+      title: "Pay the plumber",
+    });
+    await answerWithResult(
+      id,
+      { options: ["done"] },
+      { report: () => undefined }
+    );
+    expect(readCorrections()).toMatchObject([
+      { kind: "matter-direction" },
+      { kind: "outdated", observations: [step] },
+    ]);
+    const after = await read();
+    expect(after.matters).toEqual([]);
+    expect(handOutOf({ ...after, held: new Set() })).toBeUndefined();
+    await endAgentsOnDoneMatters(desk, readPeopleOnce());
+    expect(agentOf(desk.db, agent)).toMatchObject({
+      outcome: "its matter is done",
+      status: "ended",
+    });
+  } finally {
+    observations.mockRestore();
+    live.mockRestore();
+    inbox.mockRestore();
+    rmSync(MATTERS_FILE, { force: true });
+    rmSync(CORRECTIONS, { force: true });
+    rmSync(DECISIONS, { force: true });
+  }
 });
 
 // The give-back: a handed-out agent that asked no card in time is ended.

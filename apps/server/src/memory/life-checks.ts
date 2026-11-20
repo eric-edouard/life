@@ -6,12 +6,14 @@ import type { CheckGroup } from "../core/names";
 import type { StoredDraft } from "./draft";
 
 /**
- * One answer he can give: its id, as `answer_check` takes it; its label, his button's words; whether it sends, pays,
- * books, deletes or changes something (`outgoing`); and what his answer must carry besides it (`takes`): who it is as
+ * One answer he can give: its id, as `answer_check` takes it; its label, his button's words; whether it acts outside
+ * Life, sending, paying, booking, deleting or changing something (`outgoing`), or closes the card's step or matter in
+ * Life (`ends`, a decision's); and what his answer must carry besides it (`takes`): who it is as
  * `person` (`person:<id>`), a voice's someone known as `person` or a new person's `name`, his words as `note`; null:
  * nothing.
  */
 export interface CheckOption {
+  ends?: "matter" | "step";
   id: string;
   label: string;
   outgoing?: true;
