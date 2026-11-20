@@ -39,13 +39,12 @@ const MODEL_CALL_FILES = [
 // Files over Biome's 800 lines (off for them in biome.json), each at its line count: 8 Nov 2026 debt audit (search.ts reached 1592 lines).
 const CAPS: Record<string, number> = {
   "apps/lifelog/apps/server/src/jobs.test.ts": 1486,
-  "apps/lifelog/apps/server/src/jobs.ts": 930,
+  "apps/lifelog/apps/server/src/jobs.ts": 881,
   "apps/lifelog/apps/server/src/people.test.ts": 988,
   "apps/lifelog/apps/server/src/people.ts": 1177,
   "apps/lifelog/packages/db/src/schema/index.ts": 1077,
   "apps/server/src/host/status/snapshot.ts": 1175,
   "apps/server/src/memory/units.test.ts": 1188,
-  "apps/server/src/sources/lifelog.ts": 838,
 };
 
 const files = repoFiles(LIFE_CODE_DIR, ["apps/server/src"], [".ts"]).filter(

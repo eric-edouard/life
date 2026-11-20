@@ -88,7 +88,10 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   photo; never an image, a face or a face print of the Photos source. The images of the files in his messages (a
   photo, a PDF's pages), once each, when the message arrives or at night (his word of 19 Nov 2026). The episodes call also sees the email addresses
   of the people its day involves (his directory and Contacts cards), so a legal name can be tied to a nickname (his yes
-  of 20 Nov 2026).
+  of 20 Nov 2026). A voice note's words, as text, like the rest.
+- A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to lifelog's speech service on this Mac; the turns it hears as Thai or another
+  language it routes, cut from the audio, to ElevenLabs Scribe, as the pendant's (his yes of 20 Nov 2026;
+  [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per note: its file's sha256 is the claim.
 - To a registered agent's runtime (his Claude subscription, or his Codex subscription: OpenAI): its brief and packet
   (his words, its notes, the facts of its queued events (for a payment: its amount, in EUR too, its currency, whether it is spending, the money app's category, and when; for an arrival at a place: when he arrived, and where: its coordinates), its open decision) (his yes to the desk, 18 Nov 2026; his
   yes to Codex as a runtime, 18 Nov 2026).

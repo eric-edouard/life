@@ -32,8 +32,7 @@
         "apps/lifelog/apps/server/src/people.ts",
         "apps/lifelog/packages/db/src/schema/index.ts",
         "apps/server/src/host/status/snapshot.ts",
-        "apps/server/src/memory/units.test.ts",
-        "apps/server/src/sources/lifelog.ts"
+        "apps/server/src/memory/units.test.ts"
       ],
       "linter": {
         "rules": {

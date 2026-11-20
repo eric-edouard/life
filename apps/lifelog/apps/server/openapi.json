@@ -1316,6 +1316,15 @@
         },
         "required": ["id", "jobId", "pages"]
       },
+      "VoiceNoteWords": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": ["text"]
+      },
       "IngestState": {
         "type": "object",
         "properties": {
@@ -4014,6 +4023,84 @@
           },
           "503": {
             "description": "The audio could not be stored (audio_store_unavailable): nothing was kept",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/voice-notes/transcript": {
+      "post": {
+        "description": "A chat voice note's words (Ogg Opus, at most 10 minutes), heard like a recording's block: the speech service, and Scribe for the turns it routes as Thai by where the owner was at `at`. `key` is the sha256 of the note's original file: a note sent to Scribe is sent once, and asked again its words come back. Nothing of the audio is kept. 503 when the speech service or transcription is off or busy, or the note needs Scribe while its credits are out or Scribe takes nothing now: send it again later.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "at",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "required": true,
+            "name": "key",
+            "in": "query"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "audio/ogg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Its words; empty when nothing was heard",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceNoteWords"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not Ogg Opus, or longer than 10 minutes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Over 16 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Not now: send it again later",
             "content": {
               "application/json": {
                 "schema": {

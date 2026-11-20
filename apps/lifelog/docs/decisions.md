@@ -275,6 +275,10 @@ reverse it, change its entry here in the same commit.
 - **The Pendant's button asks no AI.** PR 595 cut the press that sent the last minute to Claude or ChatGPT. The server
   has no code for it.
 
+- **Chat voice notes are heard like blocks, and stored by Life** (20 Nov 2026, the owner's yes to Thai through Scribe).
+  One way to hear: the endpoint and the worker share `hearRouted`; the endpoint keeps no audio and makes no job, so
+  the archive stays the pendant's. Its paid send is claimed by the file's hash before it leaves.
+
 ## Apple Health
 
 - Apple Health has its own sequence cursor in `apple_health`, outside `change_log`. A day's hundreds of
