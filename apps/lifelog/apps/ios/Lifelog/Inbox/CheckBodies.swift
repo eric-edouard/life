@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 import SwiftUI
 
 // What each ask is about, one body per field Life sends (`said`, `since`, `goal`, `networkIdentity`, `contactsCard`,
-// `draft`, `evidence`), drawn on the Ask panel's `tile`. `CheckCard` picks them by what the check holds, never by its
+// `draft`), drawn on the Ask panel's `tile`. `CheckCard` picks them by what the check holds, never by its
 // group's wording. A sentence's who-and-when is never dimmed; a sentence may be.
 
 /// A sentence's words in quotes, in the body type, with each of `names` in bold.
@@ -207,21 +207,6 @@ struct ContactsCardBlock: View {
             Text(card.name).font(.leadBold).foregroundStyle(Palette.fg)
             ForEach(card.handles, id: \.self) { Text($0).font(.monoTime).foregroundStyle(Palette.muted) }
             Text("Contacts").font(.smallStrong).foregroundStyle(Palette.fg)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// The words a card rests on, and where they came from.
-struct EvidenceBlock: View {
-    let evidence: Check.Evidence
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-            Text(evidence.from).font(.small).foregroundStyle(Palette.muted)
-            Text("“\(evidence.quote)”").font(.quote).foregroundStyle(Palette.fg)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)

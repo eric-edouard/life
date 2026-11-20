@@ -104,7 +104,8 @@ struct CardView: View {
             bar: result.map { taken in
                 ResultButtons(
                     taken: taken, state: life.state(of: taken.key),
-                    retry: { Task { await life.answer(taken.request) } }, keepForLater: { leave(taken, true) })
+                    retry: { Task { await life.answer(taken.request, keepsCardOpen: taken.staysOpen) } },
+                    keepForLater: { leave(taken, true) })
             }
         ) {
             // His tap's result takes the ask's place and rises in; once he moves on it goes the way an answered ask goes.
@@ -270,7 +271,7 @@ struct CardView: View {
             leave(taken, false)
         } else {
             notes.taken = taken
-            Task { await life.answer(request) }
+            Task { await life.answer(request, keepsCardOpen: taken.staysOpen) }
         }
     }
 }

@@ -25,7 +25,11 @@ final class IncidentNotifier: NSObject {
     /// A push of Life's cards arrived while the app is in front. Set by the capture store.
     var cardArrived: (() -> Void)?
     /// Answers a card from its notification, the way its screen does, and says how it went. Set by the app delegate.
-    var answer: ((Check, AnswerRequest) async -> (word: String, line: String))?
+    /// It goes to the Life the card was found in (`PairedLife`), captured with the card.
+    var answer: ((Check, AnswerRequest, PairedLife) async -> (word: String, line: String))?
+    /// The card a notification names, as the Life paired now has it (`LifeStore.notifiedCard`), asked before any
+    /// answer from it. Set by the app delegate.
+    var card: ((_ pushId: String, _ kept: String?, _ life: String?) async -> (check: Check, life: PairedLife)?)?
 
     /// Life's cards: Reply… (a decision's own words), the only action shown where the expanded notification isn't (the
     /// Watch, a collapsed one); the expanded one adds the card's one-tap answers (`NotificationContent`). Every answer
@@ -187,18 +191,23 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
     /// the notification is replaced by how it went, in the result screen's words.
     private func answer(_ response: UNNotificationResponse) async {
         let request = response.notification.request
-        let check = CardNotification.card(in: request.content.userInfo)
+        // Never the kept card as it is: it may be another pairing's (`CardNotification.card`).
+        let found: (check: Check, life: PairedLife)? =
+            if case .card(let pushId, let kept, let life)? = NotificationRoute(userInfo: request.content.userInfo) {
+                await card?(pushId, kept, life)
+            } else { nil }
+        let check = found?.check
         let typed = (response as? UNTextInputNotificationResponse)?.userText
         let awake = Awake()
         awake.id = UIApplication.shared.beginBackgroundTask(withName: "card answer") { awake.end() }
         defer { awake.end() }
         let result: (word: String, line: String)
-        if let check, let answer,
+        if let found, let check, let answer,
             let answering = CardNotification.answer(
                 response.actionIdentifier, typed: typed, to: check, in: request.content.categoryIdentifier,
                 asksFaceID: AppGroup.asksFaceIDToSend)
         {
-            result = await answer(check, answering)
+            result = await answer(check, answering, found.life)
         } else {
             result = ("Open the card to answer.", "This answer can't be given from the notification.")
         }
