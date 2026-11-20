@@ -57,6 +57,12 @@ test("a row per complaint, once, in ledger order; a torn last line is dropped an
     ).toEqual([[two.id, "unknown", "unknown"]]);
     expect(recordComplaints([one, two])).toEqual([]);
     expect(asks()).toEqual([one.id, two.id]);
+    // A whole row cut before its newline is kept, not written twice.
+    const whole = readFileSync(COMPLAINTS, "utf8").trimEnd();
+    rmSync(COMPLAINTS);
+    appendFileSync(COMPLAINTS, whole);
+    expect(recordComplaints([one, two])).toEqual([]);
+    expect(asks()).toEqual([one.id, two.id]);
     rmSync(COMPLAINTS);
     appendFileSync(COMPLAINTS, "not json\n");
     expect(() => recordComplaints([one])).toThrow();

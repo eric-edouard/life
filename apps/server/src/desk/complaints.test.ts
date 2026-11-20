@@ -4,17 +4,26 @@ import { dirname } from "node:path";
 import { clock } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { DESK_STORE } from "../core/paths";
+import { secretIn } from "../core/secret";
 import { setSettings } from "../core/settings";
-import { asksFor } from "../host/asks";
+import { ask, asksFor } from "../host/asks";
 import { complain, type Misread } from "../host/complaints";
 import {
   agentInRole,
+  agentsNow,
+  complaintReceiptOf,
   complaintsAtWork,
   currentAssignmentOf,
 } from "../host/desk-read";
+import { cut } from "../host/http/mcp-tool";
+import {
+  type MisreadShown,
+  withMisreadSealed,
+} from "../memory/complaint-checks";
 import { COMPLAINTS } from "../memory/complaint-record";
 import { LEDGER, readLedger } from "../memory/memory-files";
 import { complaintOf, isComplaint } from "../records/ledger-entry";
+import { readPacket } from "./agent-actions";
 import { CARETAKER_BRIEF, receiveComplaints } from "./complaint-intake";
 import { doorFetch, doorOf } from "./desk-door";
 import { closeAssignmentRow, type Desk, openDesk } from "./desk-store";
@@ -26,12 +35,18 @@ import { fakeRuntime } from "./runtimes/fake-runtime";
 const fake = fakeRuntime();
 let desk: Desk;
 let inbox: { mockRestore: () => void } | undefined;
-const CARD = {
-  group: "name",
-  misread: { cause: "cause-dre", shown: "shown-dre" },
-  question: 'Who is "Dre"?',
-  ref: "name:dre",
-};
+const [CARD] = withMisreadSealed(
+  [
+    {
+      confirm: [],
+      group: "name",
+      misread: { cause: "cause-dre" },
+      question: 'Who is "Dre"?',
+      ref: "name:dre",
+    },
+  ],
+  secretIn("pushIdKey")
+);
 const AGENT_CARD = {
   group: "decision",
   misread: null,
@@ -39,18 +54,14 @@ const AGENT_CARD = {
 };
 const WORDS = "Dre is my cousin Mina, not a stranger";
 const ENTRY_ID = /^entry_/;
-const ON_CARD: Misread = {
-  cause: "cause-dre",
-  kind: "misread",
-  report: false,
-  shown: "shown-dre",
-};
+const SEALED = CARD?.misread as MisreadShown;
+const ON_CARD: Misread = { ...SEALED, kind: "misread", report: false };
 
 /** A press on `ref`, the desk receiving every 100 ms meanwhile. */
 async function press(
   key: string,
   over: Partial<Misread> = {},
-  { limitMs = 3000, ref = CARD.ref, words = WORDS } = {}
+  { limitMs = 3000, ref = "name:dre", words = WORDS } = {}
 ) {
   const timer = setInterval(() => receiveComplaints(desk), 100);
   try {
@@ -106,10 +117,10 @@ test("a press reaches the caretaker once its ask, its row and its receipt are wr
   expect(caretaker).toMatchObject({ brief: CARETAKER_BRIEF, status: "active" });
   const asg = currentAssignmentOf(desk.db, caretaker?.id ?? "")?.id ?? "";
   expect(received()).toEqual(
-    [first.ask, second.ask].map((ask) => ({
+    [first.ask, second.ask].map((id) => ({
       assignment_id: asg,
-      event_id: ask,
-      payload: JSON.stringify({ ask }),
+      event_id: id,
+      payload: JSON.stringify({ ask: id }),
     }))
   );
   const asks = readLedger().filter(isComplaint);
@@ -120,9 +131,9 @@ test("a press reaches the caretaker once its ask, its row and its receipt are wr
         card: CARD,
         cause: "cause-dre",
         isAsShown: true,
-        ref: CARD.ref,
+        ref: "name:dre",
         report,
-        shown: "shown-dre",
+        shown: SEALED.shown,
       },
     ])
   );
@@ -160,16 +171,16 @@ test("the same key with other words, tick or card, a card of an agent's, no key 
     press("key-1", {}, { words: "Dre is my neighbour" })
   ).rejects.toThrow("this key recorded another press");
   await expect(press("key-9", {}, { ref: AGENT_CARD.ref })).rejects.toThrow(
-    "Life's own cards only"
+    "a card of Life's as Life showed it"
   );
   await expect(
-    complain(CARD.ref, " ", ON_CARD, {
+    complain("name:dre", " ", ON_CARD, {
       answerKey: "key-8",
       report: () => undefined,
     })
   ).rejects.toThrow("his words");
   await expect(
-    complain(CARD.ref, WORDS, ON_CARD, { report: () => undefined })
+    complain("name:dre", WORDS, ON_CARD, { report: () => undefined })
   ).rejects.toThrow("life/answerKey");
   expect(readLedger()).toHaveLength(before);
 });
@@ -183,7 +194,8 @@ test("a stopped caretaker leaves a press unreceived, his words kept; it is recei
   desk.db.run("update agent set status = 'active' where id = ?", [caretaker]);
   const third = await press("key-3");
   expect(received().at(-1)?.event_id).toBe(third.ask);
-  // It finished: its assignment closed, the caretaker ended.
+  // It finished, every complaint handed to its turns: its assignment closed, the caretaker ended.
+  desk.db.run("update event set handed = 1");
   const asg = currentAssignmentOf(desk.db, caretaker)?.id ?? "";
   desk.db.transaction(() =>
     closeAssignmentRow(desk.db, asg, { outcome: "all three handled" })
@@ -241,7 +253,7 @@ test("the caretaker reads a complaint through its door only on the assignment th
   const mine = await call("read_complaint", { ask: fourth?.event_id });
   expect(JSON.parse(mine.content[0]?.text ?? "")).toMatchObject({
     card: CARD,
-    ref: CARD.ref,
+    ref: "name:dre",
     report: false,
     words: WORDS,
   });
@@ -255,4 +267,71 @@ test("the caretaker reads a complaint through its door only on the assignment th
     until: new Date(clock().getTime() + 3_600_000).toISOString(),
   });
   expect(wait.isError).toBeFalsy();
+});
+
+test("a caretaker that finishes while a complaint it never handed waits gives it back: received again for a caretaker that reads it, its receipt never stranded on a closed assignment", async () => {
+  // Its turn had every complaint so far: handed.
+  desk.db.run("update event set handed = 1");
+  const b = await press("key-5");
+  const before = complaintReceiptOf(desk.db, b.ask);
+  expect(before?.assignment).toBeTruthy();
+  // It finishes the complaints it handled: B came after its turn began.
+  desk.db.transaction(() =>
+    closeAssignmentRow(desk.db, before?.assignment ?? "", {
+      outcome: "handled the earlier ones",
+    })
+  )();
+  expect(complaintReceiptOf(desk.db, b.ask)).toBeNull();
+  await receiveComplaints(desk);
+  const after = complaintReceiptOf(desk.db, b.ask);
+  expect(after?.assignment).not.toBe(before?.assignment);
+  expect(
+    currentAssignmentOf(desk.db, agentInRole(desk.db, "caretaker")?.id ?? "")
+      ?.id
+  ).toBe(after?.assignment);
+  expect(await press("key-5")).toEqual(b);
+});
+
+test("a crash after the ask, before its row and receipt: the desk's next tick writes both, with no second press", async () => {
+  const asked = ask(
+    {
+      at: clock().toISOString(),
+      quote: WORDS,
+      ref: "complaint:key-crash",
+    },
+    {
+      agent: DESK_AGENT,
+      complaint: {
+        card: CARD,
+        cause: "cause-dre",
+        isAsShown: true,
+        ref: "name:dre",
+        report: false,
+        shown: SEALED.shown,
+      },
+    },
+    "connector",
+    "test"
+  );
+  expect(readFileSync(COMPLAINTS, "utf8")).not.toContain(asked.id);
+  await receiveComplaints(desk);
+  expect(readFileSync(COMPLAINTS, "utf8")).toContain(asked.id);
+  expect(complaintReceiptOf(desk.db, asked.id)).toBeTruthy();
+});
+
+test("his complaint's words stay out of the call log, the caretaker's notes out of its row; its packet names Life's data and no plan", async () => {
+  const logged = JSON.stringify(
+    cut({ note: WORDS, ref: "name:dre", value: ON_CARD })
+  );
+  expect(logged).not.toContain("cousin");
+  const id = agentInRole(desk.db, "caretaker")?.id ?? "";
+  const s = currentAssignmentOf(desk.db, id);
+  await Bun.write(s?.notes_path ?? "", "Mina is his cousin\n");
+  expect(
+    agentsNow(desk.db, clock().getTime()).find((a) => a.id === id)?.notes
+  ).toBe("");
+  const packet = await readPacket(desk, s as never, true);
+  expect(packet).toContain("Your subject: Life's data.");
+  expect(packet).toContain("ask no plan and wait for no Go");
+  expect(packet).not.toContain("asks your plan");
 });

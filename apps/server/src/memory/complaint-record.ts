@@ -1,4 +1,9 @@
-import { existsSync, readFileSync, truncateSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  readFileSync,
+  truncateSync,
+} from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { appendJsonl } from "../core/files";
@@ -16,7 +21,9 @@ import { MEMORY, readLedger } from "./memory-files";
 
 // The complaint record (`memory/complaints.jsonl`): one row per complaint (his "Wrong…", an ask in the ledger), what
 // the caretaker's later work and the developer's counts start from. It holds no words of his and no card: the ask's id,
-// the kind of card, the stage that made it and that stage's prompt at his press. Appended only here, after the ask.
+// the kind of card, the stage that made it and that stage's prompt at his press. Appended only here, by the desk as it
+// receives a complaint (`desk/complaint-intake.ts`): one process (one desk per Mac), each tick one at a time, so its
+// recording and its recovery after a crash are the same pass, before the receipt.
 
 export const COMPLAINTS = join(MEMORY, "complaints.jsonl");
 
@@ -62,9 +69,9 @@ function rowOf(a: LedgerEntry): ComplaintRow {
 }
 
 /**
- * Brings the complaint record level with the ledger: a last line cut short (a crash mid-append) is dropped first, then a
- * row is appended for each complaint that has none, in ledger order (a press whose row was lost gets it on the next).
- * A bad line before the last throws: it is shown, never rewritten. Synchronous, so nothing runs between its read and its
+ * Brings the complaint record level with the ledger: every whole line is read first (a bad one throws: shown, never
+ * rewritten); then a last line cut short by a crash is finished when it is a whole row, else dropped; then a row is
+ * appended for each complaint that has none, in ledger order. Synchronous, so nothing runs between its read and its
  * append. The rows appended.
  */
 export function recordComplaints(
@@ -72,19 +79,31 @@ export function recordComplaints(
 ) {
   const text = existsSync(COMPLAINTS) ? readFileSync(COMPLAINTS, "utf8") : "";
   const end = text.lastIndexOf("\n") + 1;
-  if (end < text.length) {
-    truncateSync(COMPLAINTS, end);
+  const rows = text
+    .slice(0, end)
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => ComplaintRow.parse(JSON.parse(l)));
+  const tail = text.slice(end);
+  if (tail) {
+    const whole = (() => {
+      try {
+        return ComplaintRow.parse(JSON.parse(tail));
+      } catch {
+        return null;
+      }
+    })();
+    if (whole) {
+      appendFileSync(COMPLAINTS, "\n");
+      rows.push(whole);
+    } else {
+      truncateSync(COMPLAINTS, end);
+    }
   }
-  const held = new Set(
-    text
-      .slice(0, end)
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => ComplaintRow.parse(JSON.parse(l)).ask)
-  );
-  const rows = ledger
+  const held = new Set(rows.map((r) => r.ask));
+  const added = ledger
     .filter((a) => isComplaint(a) && !held.has(a.id))
     .map(rowOf);
-  appendJsonl(COMPLAINTS, ComplaintRow, rows);
-  return rows;
+  appendJsonl(COMPLAINTS, ComplaintRow, added);
+  return added;
 }

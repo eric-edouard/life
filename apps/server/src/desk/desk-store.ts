@@ -5,9 +5,11 @@ import { clock } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { DESK_STORE } from "../core/paths";
 import { openWritable } from "../core/sqlite";
-import { isOldShape, NOT_MIGRATED } from "../host/desk-read";
+import { isOldShape, NOT_MIGRATED, readCursor } from "../host/desk-read";
 import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
+import { COMPLAINT_RECEIVED } from "../host/events";
+import { askPlaceOf } from "../memory/memory-files";
 import type { AgentWait } from "../records/registered-agent";
 import type { Runtime } from "./runtimes/contract";
 
@@ -170,6 +172,30 @@ export const saveCursor = (db: Database, name: string, value: string | null) =>
         [name, value]
       );
 
+/** The desk's cursor over the ledger for his complaints (`desk/complaint-intake.ts`): how many lines it has read. */
+export const COMPLAINTS_CURSOR = "complaints";
+
+/**
+ * Gives back the complaints assignment `id` received and never handed to a turn (the caretaker finished, or its first
+ * turn never began, while one came): their receipts go and the intake's cursor steps back to the first of them, so the
+ * next tick receives them again, for a caretaker that will read them. In the caller's transaction.
+ */
+function giveBackComplaints(db: Database, id: string) {
+  const back = db
+    .query<{ event_id: string }, [string, string]>(
+      "delete from event where assignment_id = ? and name = ? and handed = 0 and consumed_at is null and dropped_at is null returning event_id"
+    )
+    .all(id, COMPLAINT_RECEIVED)
+    .flatMap((e) => askPlaceOf(e.event_id) ?? []);
+  if (back.length > 0) {
+    saveCursor(
+      db,
+      COMPLAINTS_CURSOR,
+      String(Math.min(Number(readCursor(db, COMPLAINTS_CURSOR) ?? 0), ...back))
+    );
+  }
+}
+
 /** Writes assignment `id`'s wait: one its agent set, or the default one. */
 export const writeWait = (
   db: Database,
@@ -183,8 +209,9 @@ export const writeWait = (
   );
 
 /**
- * Closes assignment `id` once (`outcome`, or `whyNotStarted` for one whose first turn never began), and ends its agent
- * when it holds no open assignment after: the one way anything closes, in the caller's transaction. Its agent must be
+ * Closes assignment `id` once (`outcome`, or `whyNotStarted` for one whose first turn never began), gives back the
+ * complaints it never handed (`giveBackComplaints`), and ends its agent when it holds no open assignment after: the one
+ * way anything closes, in the caller's transaction. Its agent must be
  * active, or, for a stopped agent he replaced by a new start (`replaced`), stopped: it then ends `handed_over`.
  * Whether it closed.
  */
@@ -205,6 +232,7 @@ export function closeAssignmentRow(
     ]
   ).changes;
   if (closed > 0) {
+    giveBackComplaints(db, id);
     db.run(
       "update agent set status = ?, stopped_at = null, ended_at = ?, outcome = ? where id = (select agent_id from assignment where id = ?) and not exists (select 1 from assignment s where s.agent_id = agent.id and s.closed_at is null)",
       [end.replaced ? "handed_over" : "ended", at, end.outcome, id]
