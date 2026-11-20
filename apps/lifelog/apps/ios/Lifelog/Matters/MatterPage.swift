@@ -185,18 +185,37 @@ private struct EditableLine: View {
 private struct People: View {
     let people: MatterRow.People?
 
-    /// One small muted line: "Owed to Ana Novak, with Sam Lee".
+    /// One small line of chips: "Owed to (disc) Ana Novak, with (disc) Sam Lee".
     var body: some View {
-        let groups: [(String, [String])] = [
+        let groups: [(String, [Party])] = [
             ("Owed to", people?.owedTo ?? []), ("Waiting on", people?.waitingOn ?? []),
             ("With", people?.with ?? []), ("Told", people?.told ?? []),
-        ].map { ($0.0, $0.1.map(\.name)) }.filter { !$0.1.isEmpty }
-        let line = groups.enumerated().map { offset, group in
-            let words = "\(group.0) \(group.1.joined(separator: ", "))"
-            return offset == 0 ? words : words.prefix(1).lowercased() + words.dropFirst()
+        ].filter { !$0.1.isEmpty }
+        // Each party with the words before it: its group's, on the group's first, lowercase after the first group.
+        let chips = groups.enumerated().flatMap { offset, group in
+            group.1.enumerated().map { index, party in
+                Chip(
+                    id: group.0 + party.ref, party: party,
+                    label: index > 0 ? nil : offset == 0 ? group.0 : group.0.lowercased())
+            }
         }
-        .joined(separator: ", ")
-        if !line.isEmpty { Text(line).font(.small).foregroundStyle(Palette.muted) }
+        if !chips.isEmpty {
+            FlowLayout(spacing: Metrics.Spacing.xs) {
+                ForEach(chips) { chip in
+                    HStack(spacing: 0) {
+                        PartyChip(party: chip.party, label: chip.label)
+                        if chip.id != chips.last?.id { Text(",").foregroundStyle(Palette.muted) }
+                    }
+                }
+            }
+            .font(.small)
+        }
+    }
+
+    private struct Chip: Identifiable {
+        let id: String
+        let party: Party
+        let label: String?
     }
 }
 

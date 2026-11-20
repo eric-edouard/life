@@ -201,6 +201,7 @@ targets:
     sources:
       - NotificationContent
       - Lifelog/Inbox/DraftBlock.swift
+      - Lifelog/DesignSystem/PartyPieces.swift
       - Lifelog/DesignSystem/Typography.swift
       - Lifelog/DesignSystem/NetworkMark.swift
       - Lifelog/DesignSystem/Fonts/Manrope.ttf

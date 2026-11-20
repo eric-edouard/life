@@ -132,12 +132,9 @@ struct CheckActions: View {
     @ViewBuilder private var options: some View {
         if !people.isEmpty {
             ForEach(people, id: \.ref) { person in
-                Button {
+                PartyPick(party: person) {
                     if let request = check.answer(naming: .person(person.ref)) { answer(request) }
-                } label: {
-                    PersonAnswer(person: person)
                 }
-                .buttonStyle(PersonAnswerStyle())
             }
             others(shown.map { option in Choice(id: option.id, label: label(of: option)) { tap(option) } })
         } else if let first = shown.first {

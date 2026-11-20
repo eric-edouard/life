@@ -166,7 +166,7 @@ struct NewMatterBlock: View {
     }
 }
 
-/// Who a guessed person is as their network shows them: initials with the network's mark, the name it shows (a "~":
+/// Who a guessed person is as their network shows them: their disc (72) with the network's mark, the name it shows (a "~":
 /// only Life's guess), the number, the network, their newest message with its time, and the way into the chat.
 struct PersonIdentityBlock: View {
     let identity: Check.NetworkIdentity
@@ -178,7 +178,7 @@ struct PersonIdentityBlock: View {
         let network = identity.network.map { Channel.name($0.lowercased()) }
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             HStack(spacing: Metrics.Spacing.m) {
-                Avatar(name: name, network: identity.network?.lowercased())
+                PartyDisc(name: name, size: .page, badge: identity.network?.lowercased())
                 VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
                     Text("~ \(name)").font(.leadBold).foregroundStyle(Palette.fg)
                     if let handle = identity.handle { Text(handle).font(.monoTime).foregroundStyle(Palette.muted) }
