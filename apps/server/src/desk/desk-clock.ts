@@ -32,19 +32,19 @@ import { type People, readPeople } from "../memory/who";
 import type { TurnOutcome } from "../records/registered-agent";
 import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
-import { endAgent, readPacket, stopRun } from "./agent-actions";
+import { endAgent, readPacket, stopOpenRun } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import {
   ANSWERS,
   BEGIN_WITHIN_MS,
   defaultWaitOf,
-  dueOf,
   eventLineOf,
   failuresOf,
   GROWTH_LIMIT,
   growthOf,
   isBeginLate,
   MAX_HANDED,
+  nextWakeOf,
   STARTS_PER_TICK,
 } from "./agent-wait";
 import { doorOf } from "./desk-door";
@@ -369,7 +369,7 @@ async function wake(desk: Desk, a: AgentRow) {
     const events = queuedEvents(db, a.id);
     const due =
       fresh?.status === "active"
-        ? dueOf(fresh, lastTurns(db, a.id), events)
+        ? nextWakeOf(fresh, lastTurns(db, a.id), events)
         : null;
     if (!(fresh && due) || due.at > clock().getTime()) {
       return null;
@@ -494,7 +494,7 @@ export async function wakeDue(desk: Desk) {
   const due = activeAgents(desk.db)
     .flatMap((a) => {
       const turns = lastTurns(desk.db, a.id);
-      const d = dueOf(a, turns, queuedEvents(desk.db, a.id));
+      const d = nextWakeOf(a, turns, queuedEvents(desk.db, a.id));
       return d && d.at <= t
         ? [
             {
@@ -706,9 +706,7 @@ export async function endLostTurns(desk: Desk) {
         : "gone";
     if (state === "idle" || state === "gone") {
       await turnEnded(desk, a.id, { ok: !!t.outcome });
-      if (t.session) {
-        await stopRun(runtime, a.id, t.session);
-      }
+      await stopOpenRun(desk, a.id, t);
     }
   });
 }
@@ -728,8 +726,6 @@ export async function endUnbegunTurns(desk: Desk) {
       ok: false,
       why: `it did not begin within ${BEGIN_WITHIN_MS / MIN} minutes`,
     });
-    if (t.session) {
-      await stopRun(runtime, a.id, t.session);
-    }
+    await stopOpenRun(desk, a.id, t);
   });
 }

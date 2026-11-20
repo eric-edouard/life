@@ -97,12 +97,12 @@ test("the hand-out rows: how many started, how many have an answered card, and e
     { id: "c", status: "ended", why_not_started: "it did not begin" },
     { id: "d", status: "ended", why_not_started: null },
   ];
-  const none = { answered: new Set<string>(), asked: new Set<string>() };
+  const none = { answered: new Set<string>(), everAsked: new Set<string>() };
   expect(handOutRowsOf([], none, () => undefined)).toEqual([]);
   expect(
     handOutRowsOf(
       agents,
-      { answered: new Set(["a", "d"]), asked: new Set(["a", "d"]) },
+      { answered: new Set(["a", "d"]), everAsked: new Set(["a", "d"]) },
       (id) => ({ name: `Test matter ${id}` })
     )
   ).toEqual([

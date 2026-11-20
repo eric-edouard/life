@@ -100,7 +100,7 @@ export const isBeginLate = (t: TurnRow, now: number) =>
  * his answer (at once, or, its retries spent, the last retry's gap after the last failure), another event (10 minutes
  * after its last turn) and its deadline.
  */
-export function dueOf(a: AgentRow, turns: TurnRow[], events: EventRow[]) {
+export function nextWakeOf(a: AgentRow, turns: TurnRow[], events: EventRow[]) {
   const [last] = turns;
   if (last && !last.ended_at) {
     return null;

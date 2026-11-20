@@ -293,7 +293,7 @@ const at = (t: string) => new Date(t).getTime();
 
 /**
  * What shows amber for an agent, worked out when read, never stored: its default wait, a deadline over 10 minutes late
- * with no turn, a turn silent (no door call, no hook) for over an hour, and its dropped events.
+ * with no turn, a turn silent (no door call) for over an hour, and its dropped events.
  */
 export function flagsOf(
   a: AgentRow,
