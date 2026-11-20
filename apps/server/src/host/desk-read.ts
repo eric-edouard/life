@@ -518,20 +518,20 @@ export const reportLinesSince = (db: Database, since: string) =>
     )
     .all(since);
 
-/** One turn's tokens (a turn still running has none yet: 0). */
+/** One ended turn's tokens, written when it ended (`close()`). */
 export interface TurnTokens {
   agent_id: string;
-  started_at: string;
+  ended_at: string;
   tokens_cached: number;
   tokens_in: number;
   tokens_out: number;
 }
 
-/** The turns that started since `since` (the last report), by `turn_by_started`. */
+/** The turns that ended since `since` (the last report), by `turn_by_ended`: a turn running across a report shows in the next. */
 export const tokensSince = (db: Database, since: string) =>
   db
     .query<TurnTokens, [string]>(
-      "select agent_id, started_at, coalesce(tokens_in, 0) as tokens_in, coalesce(tokens_cached, 0) as tokens_cached, coalesce(tokens_out, 0) as tokens_out from turn where started_at > ? order by started_at"
+      "select agent_id, ended_at, coalesce(tokens_in, 0) as tokens_in, coalesce(tokens_cached, 0) as tokens_cached, coalesce(tokens_out, 0) as tokens_out from turn where ended_at > ? order by ended_at"
     )
     .all(since);
 

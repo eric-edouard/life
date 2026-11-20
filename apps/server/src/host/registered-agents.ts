@@ -356,25 +356,28 @@ export function readActiveAgentOf() {
     undefined;
 }
 
-/** The tokens of agents' turns as report rows: one per local day of his (`localDate`), then one per matter (`matterOf`: an agent's matter name, else "no matter"). Pure; every row. */
+/** The tokens of agents' turns as report rows: one per local day of his (`localDate` of the turn's end), then one per matter (`matterOf`: an agent's matter, else null: "no matter"), keyed by the matter's id. Pure; every row. */
 export function tokenRowsOf(
   turns: readonly TurnTokens[],
-  matterOf: (agentId: string) => string
+  matterOf: (agentId: string) => { id: string; name: string } | undefined
 ) {
   // The key's first character sorts days (1) before matters (2).
   const sums = new Map<string, number[]>();
+  const names = new Map<string, string>();
   const add = (key: string, t: TurnTokens) => {
     const [i = 0, c = 0, o = 0] = sums.get(key) ?? [];
     sums.set(key, [i + t.tokens_in, c + t.tokens_cached, o + t.tokens_out]);
   };
   for (const t of turns) {
-    add(`1${localDate(t.started_at)}`, t);
-    add(`2${matterOf(t.agent_id)}`, t);
+    add(`1${localDate(t.ended_at)}`, t);
+    const m = matterOf(t.agent_id);
+    names.set(`2${m?.id ?? ""}`, m?.name ?? "no matter");
+    add(`2${m?.id ?? ""}`, t);
   }
   return [...sums]
     .toSorted(([a], [b]) => (a < b ? -1 : 1))
     .map(([key, [i, c, o]]) => ({
-      name: `Tokens · ${key.slice(1)}`,
+      name: `Tokens · ${names.get(key) ?? key.slice(1)}`,
       relation: `${i} in (${c} cached) · ${o} out`,
     }));
 }
@@ -422,8 +425,5 @@ async function readTokenRows(since: string) {
   const find = matterFinderOf(
     await readMatterBook(await readPeople(), dayNow())
   );
-  return tokenRowsOf(
-    read.value.turns,
-    (id) => find(anchors.get(id) ?? [])?.name ?? "no matter"
-  );
+  return tokenRowsOf(read.value.turns, (id) => find(anchors.get(id) ?? []));
 }

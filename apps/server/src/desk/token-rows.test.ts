@@ -17,56 +17,58 @@ afterAll(() => {
   setSettings({ desk: null });
 });
 
-const turn = (
-  agent_id: string,
-  started_at: string,
-  i: number,
-  c = 0,
-  o = 0
-) => ({
+const turn = (agent_id: string, ended_at: string, i: number, c = 0, o = 0) => ({
   agent_id,
-  started_at,
+  ended_at,
   tokens_cached: c,
   tokens_in: i,
   tokens_out: o,
 });
 
-test("tokens are summed by his local day: 23:30 UTC is already the next day in Jakarta", () => {
+test("tokens are summed by his local day of the turn's end: 23:30 UTC is the next day in Jakarta; matters are keyed by id", () => {
+  const bakery = { id: "matter_1", name: "Test bakery order" };
   const rows = tokenRowsOf(
     [
       turn("a", "2026-09-10T10:00:00.000Z", 100, 40, 10),
       turn("a", "2026-09-10T23:30:00.000Z", 200, 0, 20),
       turn("b", "2026-09-10T11:00:00.000Z", 1),
+      turn("c", "2026-09-10T11:00:00.000Z", 2),
     ],
-    (id) => (id === "a" ? "Test bakery order" : "no matter")
+    (id) =>
+      id === "a"
+        ? bakery
+        : id === "b"
+          ? { id: "matter_2", name: "Test bakery order" }
+          : undefined
   );
   expect(rows).toEqual([
-    { name: "Tokens · 2026-09-10", relation: "101 in (40 cached) · 10 out" },
+    { name: "Tokens · 2026-09-10", relation: "103 in (40 cached) · 10 out" },
     { name: "Tokens · 2026-09-11", relation: "200 in (0 cached) · 20 out" },
+    { name: "Tokens · no matter", relation: "2 in (0 cached) · 0 out" },
     {
       name: "Tokens · Test bakery order",
       relation: "300 in (40 cached) · 30 out",
     },
-    { name: "Tokens · no matter", relation: "1 in (0 cached) · 0 out" },
+    { name: "Tokens · Test bakery order", relation: "1 in (0 cached) · 0 out" },
   ]);
 });
 
-test("the turns since the last report, a running turn counting 0, reach the nightly rows", async () => {
+test("a turn running across a report is not listed; once ended it shows in the next window", async () => {
   const db = openDesk();
   const run = (
     agent: string,
-    at: string,
-    tokens: [number, number, number] | null
+    ended: string | null,
+    tokens: [number, number, number]
   ) =>
     db.run(
-      "insert into turn (agent_id, cause, started_at, tokens_in, tokens_cached, tokens_out) values (?, 'start', ?, ?, ?, ?)",
-      [agent, at, ...(tokens ?? [null, null, null])]
+      "insert into turn (agent_id, cause, started_at, ended_at, tokens_in, tokens_cached, tokens_out) values (?, 'start', '2026-09-09T10:00:00.000Z', ?, ?, ?, ?)",
+      [agent, ended, ...tokens]
     );
-  run("agt_old", "2026-09-09T10:00:00.000Z", [5, 0, 5]);
+  run("agt_old", "2026-09-09T11:00:00.000Z", [5, 0, 5]);
   run("agt_one", "2026-09-10T10:00:00.000Z", [7, 3, 2]);
-  run("agt_one", "2026-09-10T12:00:00.000Z", null);
+  run("agt_one", null, [0, 0, 0]);
   const since = "2026-09-10T00:00:00.000Z";
-  expect(tokensSince(db, since).map((t) => t.tokens_in)).toEqual([7, 0]);
+  expect(tokensSince(db, since).map((t) => t.tokens_in)).toEqual([7]);
   const rows = await readAgentRows(since);
   expect(rows).toContainEqual({
     name: "Tokens · 2026-09-10",
@@ -76,4 +78,11 @@ test("the turns since the last report, a running turn counting 0, reach the nigh
     name: "Tokens · no matter",
     relation: "7 in (3 cached) · 2 out",
   });
+  // The running turn ends after that report: the next window holds it.
+  db.run(
+    "update turn set ended_at = '2026-09-11T10:00:00.000Z', tokens_in = 9 where ended_at is null"
+  );
+  expect(
+    tokensSince(db, "2026-09-10T10:00:00.000Z").map((t) => t.tokens_in)
+  ).toEqual([9]);
 });
