@@ -24,15 +24,10 @@ import {
   voiceKey,
 } from "../sources/lifelog-voices";
 import { communicationStylesOf } from "./communication-styles";
-import {
-  readInferredRepos,
-  readJudgments,
-  readUnit,
-  readUnitsFor,
-} from "./memory-files";
+import { readInferredRepos, readJudgments, readUnit } from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
-import { isWithOnly, readPersonUnits } from "./person-units";
+import { readPersonUnitFiles } from "./person-units";
 import type { SourceLine } from "./quote-check";
 import { OWNER, type Truth } from "./read-truth";
 import {
@@ -47,6 +42,7 @@ import { dayUnitId } from "./unit-ids";
 import {
   type Built,
   builtFor,
+  chatPerson,
   clip,
   isFrozen,
   isLifeOutput,
@@ -64,7 +60,14 @@ import {
 import { readNearest } from "./vectors";
 import { withGuessesShown } from "./voice-guesses";
 import { meant, nameRefusalOf, type People, readPeople } from "./who";
-import { type DayRange, dayRange, localDate, localTime, time } from "./zones";
+import {
+  type DayRange,
+  dayRange,
+  dayStart,
+  localDate,
+  localTime,
+  time,
+} from "./zones";
 
 // The words of units: for the memory steps (`voiceLines`, `chatLines`), and on demand for `bun life memory fetch|chats` and the Chats section of `search`: Life stores no transcript text, so the spoken words are fetched
 // from lifelog when asked for and printed, never written to disk; chats are read from the archives (WhatsApp and
@@ -639,7 +642,7 @@ export async function chatsOf(
   const known = o.who ? meant(o.who, people).known : undefined;
   const ref = known ? `person:${known}` : `${UNKNOWN}${o.who}`;
   const { end, events, failed, start } = o.who
-    ? personChats(ref, range, sources, people)
+    ? personChats(ref, range, sources, people, o.chat)
     : readChats(range, sources, before ? undefined : 7);
   const shown = o.chat ? events.filter((e) => e.chat === o.chat) : events;
   if (o.who && !known && shown.length === 0) {
@@ -676,55 +679,64 @@ export async function chatsOf(
 const ROUND = 40;
 
 /**
- * A person's chat messages in `range`, oldest first: every message of their one-to-one chat-days, and their own in a
- * group's, read day by day back from the range's end through their units (`readPersonUnits`), each unit's span read
- * once from its source, until more than a page is held or none is left. Never a scan of every chat.
+ * A person's chat messages in `range` (of `chat` alone when given), oldest first: every message of their one-to-one
+ * chat-days, and their own in a group's. Today is read whole once (what came after the index last listed their units,
+ * and a chat new today, are in it); earlier days back from there through their units (`readPersonUnitFiles`), each
+ * unit's span read once from its source, until more than a page of wanted messages is held or none is left. Never a
+ * scan of every chat's history.
  */
 function personChats(
   ref: string,
   range: DayRange,
   sources: Partial<Tables["CHATS"]>,
-  { refOf }: People
+  { refOf, resolve }: People,
+  chat?: string
 ) {
   const end = range.to ? new Date(range.to) : clock();
   const start = new Date(range.from ?? 0);
-  const refs = new Set([ref]);
   const isTheirs = (e: SourceEvent) =>
     !e.fromMe && refOf(`${UNKNOWN}${e.sender}`, e.source) === ref;
-  const failed = new Set<string>();
-  const events: SourceEvent[] = [];
-  let day: string | undefined = daysBefore(localDate(end.toISOString()), -1);
+  const wanted = (list: SourceEvent[]) =>
+    between(list, start, end).filter((e) => !chat || e.chat === chat);
+  const today = localDate(end.toISOString());
+  const fresh =
+    end > dayStart(today)
+      ? readChats(
+          { from: dayStart(today).toISOString(), to: range.to },
+          sources
+        )
+      : undefined;
+  const failed = new Set(fresh?.failed);
+  // Today's chats: one with them alone whole (`chatPerson`), a group's their own words.
+  const events = [...chatGroups(wanted(fresh?.events ?? [])).values()].flatMap(
+    (list) => (chatPerson(list, resolve) === ref ? list : list.filter(isTheirs))
+  );
+  let day: string | undefined = fresh ? today : daysBefore(today, -1);
   while (day && events.length <= PAGE && day > localDate(start.toISOString())) {
-    const indexed = readPersonUnits([ref], {
+    const { listed, units } = readPersonUnitFiles([ref], {
       before: day,
       count: ROUND,
       kinds: ["chat"],
     });
-    const byId = new Map(indexed.map((x) => [x.id, x]));
-    for (const u of readUnitsFor([...byId.keys()])) {
+    for (const { direct, unit: u } of units) {
       const read = sources[u.source];
-      const listed = byId.get(u.id);
-      // A chat-day with them alone is theirs whole, unless its key says a group.
-      const direct = isDirect(
-        u.source,
-        u.key,
-        listed && isWithOnly(listed, refs) ? 1 : 2
-      );
       try {
         events.push(
-          ...(read?.(new Date(u.start), new Date(Date.parse(u.end) + 1)) ?? [])
-            .filter((e) => e.chat === u.key && e.at <= u.end)
-            .filter((e) => direct || isTheirs(e))
+          ...wanted(
+            (read?.(new Date(u.start), new Date(Date.parse(u.end) + 1)) ?? [])
+              .filter((e) => e.chat === u.key && e.at <= u.end)
+              .filter((e) => direct || isTheirs(e))
+          )
         );
       } catch {
         failed.add(u.source);
       }
     }
-    day = indexed.at(-1)?.date;
+    day = listed.at(-1)?.date;
   }
   return {
     end,
-    events: between(events, start, end),
+    events: events.toSorted((a, b) => a.at.localeCompare(b.at)),
     failed: [...failed],
     start,
   };

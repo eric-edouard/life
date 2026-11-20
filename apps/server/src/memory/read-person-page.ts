@@ -9,7 +9,7 @@ import { levelsWith, pagedNow } from "./closeness";
 import { readCommunicationStyle } from "./communication-styles";
 import { conversationSummaryPart } from "./conversation-summaries";
 import { notCapturedOf, readCoverage } from "./coverage";
-import { readCardsOf, readDetailsOf } from "./details";
+import { detailsOf, readCardsOf } from "./details";
 import { readExchangeCounts } from "./exchange-counts";
 import {
   episodeLine,
@@ -261,7 +261,8 @@ export async function person(
   );
   // What each part needs, read before the index opens (nothing awaits while it is).
   const isNow = part === "now" && !!partRef;
-  const asked = isNow ? Object.keys(personal) : [part];
+  // `now` builds only the parts it offers a preview of (`knows`).
+  const asked = isNow ? offersOf(personal).map((x) => x.part) : [part];
   const built: PartInputs["personal"][] = [];
   try {
     for (const p of asked) {
@@ -318,18 +319,19 @@ export async function person(
       if (!gathered) {
         return partLines(inputs);
       }
-      const shown = gathered({
+      const more = {
         episodes: episodeTitlesOf(episodes, (r) => refOf(r) === ref),
         knows: knowsOf(nowReads(inputs), (p) =>
           knownLinesOf(p, inputs, page, personalOf)
         ),
-      });
-      return same.length > 1
-        ? {
-            candidates: same.map((p) => folks.partyOf(`person:${p.id}`)),
-            now: shown,
-          }
-        : shown;
+      };
+      if (same.length < 2) {
+        return gathered(more, PART_CHARS);
+      }
+      // A shared name: the candidates wrap the first's `now`, which keeps to the room they leave.
+      const candidates = same.map((p) => folks.partyOf(`person:${p.id}`));
+      const room = PART_CHARS - JSON.stringify({ candidates, now: {} }).length;
+      return { candidates, now: gathered(more, room) };
     });
   });
 }
@@ -375,39 +377,43 @@ function nowGathered(
   const organization = truth.organizations.find(
     (x) => `person:${x.id}` === ref
   );
-  const reach = reachOf({
-    cards: readCardsOf(people)(ref),
-    party: entry,
-    seen: readSeenAccounts(ref),
+  // His Contacts read once, for reach and details.
+  const cards = readCardsOf(people)(ref);
+  const reach = reachOf({ cards, party: entry, seen: readSeenAccounts(ref) });
+  const details = detailsOf({
+    contacts: cards,
+    person: truth.people.find((p) => `person:${p.id}` === ref),
   });
-  const details = readDetailsOf(people)(ref);
   const theirs = matters.filter((m) => isIn(m, ref));
-  return (more: Pick<NowInputs, "episodes" | "knows">) =>
-    personNowOf({
-      ...more,
-      communicationStyle: readCommunicationStyle(ref),
-      details,
-      ...(ref === OWNER && isDirectoryNew(truth)
-        ? { directoryIsNew: true as const }
-        : {}),
-      matters: theirs,
-      ...(organization
-        ? {
-            organization: {
-              domains: organization.domains,
-              people: organization.people.map((p) => ({
-                party: people.partyOf(`person:${p.id}`),
-                role: p.role,
-                ...(p.until === undefined ? {} : { until: p.until }),
-              })),
-            },
-          }
-        : {}),
-      reach,
-      row,
-      situation: readSituationNow(ref, live),
-      today: dayNow(),
-    });
+  return (more: Pick<NowInputs, "episodes" | "knows">, chars: number) =>
+    personNowOf(
+      {
+        ...more,
+        communicationStyle: readCommunicationStyle(ref),
+        details,
+        ...(ref === OWNER && isDirectoryNew(truth)
+          ? { directoryIsNew: true as const }
+          : {}),
+        matters: theirs,
+        ...(organization
+          ? {
+              organization: {
+                domains: organization.domains,
+                people: organization.people.map((p) => ({
+                  party: people.partyOf(`person:${p.id}`),
+                  role: p.role,
+                  ...(p.until === undefined ? {} : { until: p.until }),
+                })),
+              },
+            }
+          : {}),
+        reach,
+        row,
+        situation: readSituationNow(ref, live),
+        today: dayNow(),
+      },
+      chars
+    );
 }
 
 /** Each ref's levels and last exchange, from what the caller read once. */

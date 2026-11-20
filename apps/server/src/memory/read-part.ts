@@ -124,8 +124,11 @@ export const readPartRefOf = (r: ReadPartRef) =>
     .filter(Boolean)
     .join("/");
 
+/** The heading of a part's next reads: what follows it is navigation, never the part's content. */
+export const NEXT_READS = "Next reads (`fetch <ref>`):";
+
 /** The lines that end a part: each deeper read as its ref and what it holds. */
 export const nextReads = (reads: { ref: ReadPartRef; what: string }[]) => [
-  "Next reads (`fetch <ref>`):",
+  NEXT_READS,
   ...reads.map((r) => `- ${readPartRefOf(r.ref)}: ${r.what}`),
 ];

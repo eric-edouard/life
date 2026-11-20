@@ -8,6 +8,7 @@
   "details": [],
   "episodes": [],
   "knows": [],
+  "open": [],
   "domains": ["bakery.example"],
   "people": [
     {
@@ -35,6 +36,5 @@
       "network": "mail"
     }
   ],
-  "situation": [],
-  "open": []
+  "situation": []
 }

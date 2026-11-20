@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import { buildIndex } from "./index-writer";
+import { buildIndex, reindexUnits } from "./index-writer";
 import { INDEX, INFERRED, UNITS } from "./memory-files";
 import {
   firstSentenceOf,
@@ -15,6 +15,7 @@ import {
   personNowOf,
   rowOf,
 } from "./person-now";
+import { readPersonUnits } from "./person-units";
 import { PART_CHARS } from "./read-part";
 import { person } from "./read-person-page";
 import { unit as unitFixture } from "./record-fixtures";
@@ -125,8 +126,8 @@ test("`now` holds under PART_CHARS with hundreds of open matters, the top-ranked
   });
   expect(JSON.stringify(now).length).toBeLessThanOrEqual(PART_CHARS);
   expect(now.open[0]?.id).toBe(matters[0]?.id);
-  expect(now.open.length + (now.moreMatters ?? 0)).toBe(300);
-  expect(now.moreMatters).toBeGreaterThan(0);
+  expect(now.open.length + (now.more?.open ?? 0)).toBe(300);
+  expect(now.more?.open).toBeGreaterThan(0);
   // A birthday dated; a handle the reach already opens is not a detail again.
   expect(now.details).toEqual([
     {
@@ -138,7 +139,24 @@ test("`now` holds under PART_CHARS with hundreds of open matters, the top-ranked
     { from: "contacts", kind: "handles", text: "Facebook: ana.t" },
   ]);
   const few = personNowOf({ ...now, ...inputsOf(now), matters: [matter(1)] });
-  expect(few.moreMatters).toBeUndefined();
+  expect(few.more).toBeUndefined();
+  // A large list other than the matters (60 long episode titles), with a shared name's wrapper: the whole answer stays within its room, the oldest months cut and counted.
+  const episodes = Array.from({ length: 60 }, (_, n) => ({
+    month: `2021-${String(12 - (n % 12)).padStart(2, "0")}`,
+    titles: [`${"A long afternoon at the market together ".repeat(3)}${n}`],
+  }));
+  const wrapper = { candidates: [party("person:ana", "Ana")] };
+  const room = PART_CHARS - JSON.stringify({ ...wrapper, now: {} }).length;
+  const busy = personNowOf(
+    { ...now, ...inputsOf(now), episodes, matters: [] },
+    room
+  );
+  expect(JSON.stringify({ ...wrapper, now: busy }).length).toBeLessThanOrEqual(
+    PART_CHARS
+  );
+  expect(busy.episodes[0]).toEqual(episodes[0]);
+  expect(busy.episodes.length + (busy.more?.episodes ?? 0)).toBe(60);
+  expect(busy.more?.episodes).toBeGreaterThan(0);
 });
 
 /** `now`'s inputs back from a `now` (a second read of the same person). */
@@ -175,27 +193,27 @@ test("knows: each part that holds something, with its ref and first sentence; an
   ]);
 });
 
-const indexed = (units: Unit[]) => {
+/** `units` stored and indexed as the watcher indexes them (`reindexUnits`: who each is with as of today). */
+const indexed = async (units: Unit[]) => {
   mkdirSync(dirname(INDEX), { recursive: true });
   mkdirSync(UNITS, { recursive: true });
-  for (const u of units) {
-    writeFileSync(join(UNITS, `${u.date}.jsonl`), `${JSON.stringify(u)}\n`);
+  for (const [day, list] of Map.groupBy(units, (u) => u.date)) {
+    writeFileSync(
+      join(UNITS, `${day}.jsonl`),
+      list.map((u) => `${JSON.stringify(u)}\n`).join("")
+    );
   }
-  buildIndex(
-    [],
-    INDEX,
-    {
-      corrections: [],
-      live: new Set(),
-      retired: new Map(),
-      standing: new Map(),
-    },
-    units.map((unit) => ({ unit }))
-  );
+  buildIndex([], INDEX, {
+    corrections: [],
+    live: new Set(),
+    retired: new Map(),
+    standing: new Map(),
+  });
+  await reindexUnits(units);
 };
 
 test("the read with no name: his directory's people and organizations, him left out; a query's matches and its others", async () => {
-  indexed([]);
+  await indexed([]);
   writeFileSync(
     INFERRED,
     `${JSON.stringify({
@@ -238,7 +256,7 @@ test("the read with no name: his directory's people and organizations, him left 
 });
 
 test("`now` of a person and of an organization: their row, reach and open matters; an organization's people and domains", async () => {
-  indexed([]);
+  await indexed([]);
   const theirs = matter(1, {
     needsYou: true,
     people: { with: [party("person:test-ana", "Test Ana")] },
@@ -269,7 +287,7 @@ test("`now` of a person and of an organization: their row, reach and open matter
 });
 
 test("the edge cases of `now`: a name no one goes by says so with the parties near it", async () => {
-  indexed([]);
+  await indexed([]);
   expect(await person("Test Anx")).toEqual({
     near: [expect.objectContaining({ ref: "person:test-ana" })],
     noOne: "Test Anx",
@@ -297,7 +315,7 @@ test("latest: their newest 1:1 exchanges, five a page by whole days, through one
     chatName: "Ana B",
     fromMe,
     id: `whatsapp:${chat}/${d}${fromMe}`,
-    sender: fromMe ? "me" : "+33600000001",
+    sender: fromMe ? "me" : "Test Ana",
     source: "whatsapp",
     text,
   });
@@ -313,7 +331,7 @@ test("latest: their newest 1:1 exchanges, five a page by whole days, through one
       }) as never
   );
   try {
-    indexed(units);
+    await indexed(units);
     const first = (await person("Test Ana", { part: "latest" })) as {
       latest: {
         at: string;
@@ -355,8 +373,61 @@ test("latest: their newest 1:1 exchanges, five a page by whole days, through one
   }
 });
 
+test("latest: a mail thread someone else wrote in too is not theirs, though the index files it under them alone", async () => {
+  const at = (m: number) => `2026-11-10T10:0${m}:00.000Z`;
+  const mail = (m: number, sender: string, text: string): SourceEvent => ({
+    at: at(m),
+    chat: "thread-quote",
+    chatName: "The quote",
+    fromMe: sender === "me",
+    id: `mail:thread-quote/${m}`,
+    sender,
+    source: "mail",
+    text,
+  });
+  const events = [
+    mail(0, "Test Ana", "Here is the quote"),
+    mail(1, "sales@shop.example.test", "Our own quote"),
+    mail(2, "me", "Thanks"),
+  ];
+  const real = sources.sourceOf;
+  const spy = spyOn(sources, "sourceOf").mockImplementation(
+    (name) => ({ ...real(name), read: () => events }) as never
+  );
+  try {
+    await indexed([
+      unitFixture({
+        date: "2026-11-10",
+        end: at(2),
+        id: "unit_0000000000a1",
+        key: "thread-quote",
+        people: [
+          "person:me",
+          "unknown:Test Ana",
+          "unknown:sales@shop.example.test",
+        ],
+        source: "mail",
+        start: at(0),
+        title: "The quote",
+      }),
+    ]);
+    // The index leaves out the sender no one knows: the thread reads as hers alone.
+    expect(
+      readPersonUnits(["person:test-ana"], { count: 5, kinds: ["mail"] }).map(
+        (u) => u.people.toSorted()
+      )
+    ).toEqual([["person:me", "person:test-ana"]]);
+    const read = (await person("Test Ana", { part: "latest" })) as {
+      latest: unknown[];
+    };
+    expect(read.latest).toEqual([]);
+  } finally {
+    spy.mockRestore();
+  }
+});
+
 test("the edge cases of `now`: a name two go by gives them as candidates, and the first's `now`", async () => {
-  indexed([]);
+  await indexed([]);
   const file = join(OWNER_DATA_DIR, "truth", "people.yaml");
   const was = readFileSync(file, "utf8");
   writeFileSync(

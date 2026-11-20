@@ -32,8 +32,10 @@ import {
   verdictOf,
 } from "./memory-files";
 import { readPassageTexts } from "./passages";
-import { TRUTH } from "./read-truth";
+import { OWNER, TRUTH } from "./read-truth";
+import { sourceOf } from "./sources";
 import { forReaders } from "./status-inputs";
+import { UNKNOWN } from "./units";
 import { observationsNow, type People, readPeople, unitNow } from "./who";
 import { localDate } from "./zones";
 
@@ -74,12 +76,29 @@ interface IndexedUnit {
   verdict?: Verdict;
 }
 
-/** The index rows of `units`: who each is with as of today (the table keeps each once), and its verdict. */
+/**
+ * The index rows of `units`: who each is with as of today (the table keeps each once), and its verdict. A 1:1
+ * chat-day only he wrote in is with whoever its key names (`chatPerson`'s rule), so their reads find it.
+ */
 const indexedOf = (units: Unit[], people: People, verdicts: Verdicts) =>
-  units.map((unit) => ({
-    unit: unitNow(unit, people.refOf),
-    verdict: verdictOf(verdicts, unit),
-  }));
+  units.map((unit) => {
+    const now = unitNow(unit, people.refOf);
+    const keyed = sourceOf(unit.source).handleOf?.(unit.key);
+    const isHisAlone = now.people.every((p) => p === OWNER);
+    return {
+      unit:
+        keyed && isHisAlone
+          ? {
+              ...now,
+              people: [
+                ...now.people,
+                people.refOf(`${UNKNOWN}${keyed}`, unit.source),
+              ],
+            }
+          : now,
+      verdict: verdictOf(verdicts, unit),
+    };
+  });
 
 /** `insert or ignore` into `db`'s `table` of `n` columns. */
 const insertInto = (db: Database, table: string, n: number) =>

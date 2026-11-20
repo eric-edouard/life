@@ -1,11 +1,14 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { OWNER_DATA_DIR } from "../core/paths";
 import type { SourceEvent } from "../records/source";
-import { buildIndex } from "./index-writer";
+import { buildIndex, reindexUnits } from "./index-writer";
 import { INDEX, UNITS } from "./memory-files";
 import { writePassages } from "./passages";
 import { unit as unitFixture } from "./record-fixtures";
+import { messageUnits } from "./units";
+import { readPeople } from "./who";
 import { chatHits, chatsOf, mailHits } from "./words";
 
 const event = (
@@ -147,8 +150,8 @@ test("who: their one-to-one chats whole and their own words in groups, deleted o
       "10:06 Test Ana: Taken back (deleted) [id a3]",
       "09:00 Test Ana: I am in [id g1]",
     ]);
-    // Each chat-day's span read once; Zed's own chat never.
-    expect(reads).toHaveLength(2);
+    // Today read once, then each chat-day's span once; Zed's own chat never.
+    expect(reads).toHaveLength(3);
     const older = shown(
       await chatsOf(
         { before: "2001-02-02T00:00:00.000Z", who: "Test Ana" },
@@ -166,6 +169,123 @@ test("who: their one-to-one chats whole and their own words in groups, deleted o
     expect(await chatsOf({ who: "Nobody Atall" }, { line })).toContain(
       "No one goes by Nobody Atall"
     );
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});
+
+/** `events` made into units by the night's own builder, stored and indexed as the watcher indexes them. */
+async function indexedFrom(events: SourceEvent[]) {
+  const units = messageUnits(events, (await readPeople()).resolve).map(
+    (b) => b.unit
+  );
+  mkdirSync(UNITS, { recursive: true });
+  mkdirSync(dirname(INDEX), { recursive: true });
+  for (const [day, list] of Map.groupBy(units, (u) => u.date)) {
+    writeFileSync(
+      join(UNITS, `${day}.jsonl`),
+      list.map((u) => `${JSON.stringify(u)}\n`).join("")
+    );
+  }
+  buildIndex([], INDEX, {
+    corrections: [],
+    live: new Set(),
+    retired: new Map(),
+    standing: new Map(),
+  });
+  await reindexUnits(units);
+}
+
+/** Lines of a `read_chats` answer that are messages. */
+const messagesIn = (text: string | null) =>
+  (text ?? "").split("\n").filter((l) => l.includes("[id "));
+
+test("who: a 1:1 chat-day only he wrote in is theirs (its key names them), and today's message not indexed yet is read too", async () => {
+  const people = join(OWNER_DATA_DIR, "truth", "people.yaml");
+  const was = await Bun.file(people).text();
+  // Test Ana's WhatsApp number, his directory's word: the chat's key names her.
+  await Bun.write(
+    people,
+    was.replace(
+      "    name: Test Ana\n",
+      '    name: Test Ana\n    handles: { whatsapp: ["+33600000001"] }\n'
+    )
+  );
+  const chat = "33600000001@s.whatsapp.net";
+  const mine = (id: string, at: string, text: string): SourceEvent => ({
+    at,
+    chat,
+    fromMe: true,
+    id,
+    sender: "me",
+    source: "whatsapp",
+    text,
+  });
+  const sent = mine("w1", "2026-11-02T09:00:00.000Z", "Are you free Sunday?");
+  const today = mine("w2", new Date().toISOString(), "On my way");
+  const whatsapp = (from: Date, to?: Date) =>
+    [sent, today].filter(
+      (e) => e.at >= from.toISOString() && (!to || e.at < to.toISOString())
+    );
+  try {
+    await indexedFrom([sent]);
+    const found = messagesIn(await chatsOf({ who: "Test Ana" }, { whatsapp }));
+    expect(found.map((l) => l.slice(l.lastIndexOf("[")))).toEqual([
+      "[id w1]",
+      "[id w2]",
+    ]);
+  } finally {
+    await Bun.write(people, was);
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});
+
+test("who: a busy day past the cursor, or in other chats than `chat`, never hides the older messages nor ends the pages early", async () => {
+  const say = (day: string, chat: string, n: number): SourceEvent => ({
+    at: new Date(
+      Date.parse(`2001-02-${day}T10:00:00.000Z`) + n * 1000
+    ).toISOString(),
+    chat,
+    chatName: chat,
+    fromMe: false,
+    id: `${day}-${chat}-${n}`,
+    sender: "Test Ana",
+    source: "line",
+    text: `message ${n}`,
+  });
+  // 40 messages in her own chat; the next day, past the cursor, 6 of hers in each of 40 rooms (a round of units, 240 messages).
+  const older = Array.from({ length: 40 }, (_, n) => say("01", "ana-room", n));
+  const busy = Array.from({ length: 240 }, (_, n) =>
+    say("02", `room-${n % 40}`, n)
+  );
+  const all = [...older, ...busy];
+  const line = (from: Date, to?: Date) =>
+    all.filter(
+      (e) => e.at >= from.toISOString() && (!to || e.at < to.toISOString())
+    );
+  try {
+    await indexedFrom(all);
+    const page = await chatsOf(
+      { before: "2001-02-02T09:00:00.000Z", who: "Test Ana" },
+      { line }
+    );
+    expect(messagesIn(page)).toHaveLength(40);
+    expect(page).not.toContain("earlier not shown");
+    // `chat` with `who` is counted before the page is cut too.
+    expect(
+      messagesIn(
+        await chatsOf(
+          {
+            before: "2001-02-03T00:00:00.000Z",
+            chat: "ana-room",
+            who: "Test Ana",
+          },
+          { line }
+        )
+      )
+    ).toHaveLength(40);
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
     rmSync(INDEX, { force: true });

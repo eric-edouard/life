@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { setSettings, settings } from "../core/settings";
 import { exchangeCountsOf } from "../memory/exchange-counts";
 import { openById } from "../memory/open-by-id";
+import { knowsOf } from "../memory/person-now";
 import {
   ADD_ON_PARTS,
   PART_CHARS,
@@ -321,4 +322,14 @@ test("the persona's next reads name the story only when the story is offered", (
   }).join("\n");
   expect(withStory).toContain("person:ana/story");
   expect(without).not.toContain("person:ana/story");
+});
+
+test("an empty persona, as its part renders it with its next reads, is not in `now`'s knows", () => {
+  const persona = personaPartLines([], { ...base, fixed: [], part: "persona" });
+  expect(
+    knowsOf(
+      [{ ref: { part: "persona", subject: "person:ana" } }],
+      () => persona
+    )
+  ).toEqual([]);
 });

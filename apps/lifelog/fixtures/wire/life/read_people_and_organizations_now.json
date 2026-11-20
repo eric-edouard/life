@@ -8,6 +8,7 @@
   "details": [],
   "episodes": [],
   "knows": [],
+  "open": [],
   "reach": [
     {
       "accounts": [
@@ -25,6 +26,5 @@
       "network": "whatsapp"
     }
   ],
-  "situation": [],
-  "open": []
+  "situation": []
 }

@@ -8,14 +8,19 @@ import { contactKeyOf } from "../sources/contacts";
 import { closerOf } from "./closeness";
 import { type DetailLine, nextBirthday } from "./details";
 import { exchangesOf } from "./exchanges";
-import { readUnitsFor } from "./memory-files";
 import type { Party } from "./party";
-import { isWithOnly, readPersonUnits } from "./person-units";
+import { readPersonUnitFiles } from "./person-units";
 import type { Reach } from "./reach";
 import type { MatterRow } from "./read-matters";
-import { PART_CHARS, type ReadPartRef, readPartRefOf } from "./read-part";
+import {
+  NEXT_READS,
+  PART_CHARS,
+  type ReadPartRef,
+  readPartRefOf,
+} from "./read-part";
 import { OWNER } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
+import { UNKNOWN } from "./units";
 import type { People } from "./who";
 import { unitLines } from "./words";
 import { localDate } from "./zones";
@@ -119,12 +124,28 @@ export interface NowInputs {
 }
 
 /**
+ * `now`'s lists in the order they keep their room: what doesn't fit is cut from each one's end (episodes the oldest
+ * months, matters the least pressing), and `more` counts what each lost (`open`: `read_matters` with them; the rest:
+ * the parts `knows` names).
+ */
+const KEPT_FIRST = [
+  "reach",
+  "details",
+  "knows",
+  "situation",
+  "open",
+  "communicationStyle",
+  "people",
+  "episodes",
+] as const;
+
+/**
  * Someone's `now`, as data: their row, reach, details (a birthday dated; a phone or mail reach already opens is left
  * out), how each writes to the other, what their time together was about, their situation, the parts Life holds
- * (`knows`), an organization's domains and people, and their open matters, which take the room the rest leaves of
- * `PART_CHARS`, ranked first; `moreMatters` counts the rest (`read_matters` with them reads all). Pure.
+ * (`knows`), an organization's domains and people, and their open matters, ranked. The whole answer serialized stays
+ * within `chars` (`PART_CHARS`, less what wraps it): its lists are cut by `KEPT_FIRST`. Pure.
  */
-export function personNowOf(i: NowInputs) {
+export function personNowOf(i: NowInputs, chars = PART_CHARS) {
   const reached = new Set(
     i.reach.flatMap((r) =>
       r.accounts.map((a) => contactKeyOf(a.handle) ?? a.handle)
@@ -138,21 +159,45 @@ export function personNowOf(i: NowInputs) {
     .map((d) =>
       d.kind === "birthday" ? { ...d, next: nextBirthday(d.text, i.today) } : d
     );
-  const rest = {
+  const full = {
     ...i.row,
     communicationStyle: i.communicationStyle,
     details,
     ...(i.directoryIsNew ? { directoryIsNew: true as const } : {}),
     episodes: i.episodes,
     knows: i.knows,
+    open: i.matters,
     ...(i.organization ?? {}),
     reach: i.reach,
     situation: i.situation,
   };
-  const room = PART_CHARS - JSON.stringify(rest).length;
-  const open = within(i.matters, room, (m) => JSON.stringify(m).length + 1);
-  const more = i.matters.length - open.length;
-  return { ...rest, open, ...(more > 0 ? { moreMatters: more } : {}) };
+  const lists = KEPT_FIRST.filter((k) => k in full);
+  const sizeOf = (x: unknown) => JSON.stringify(x).length + 1;
+  const bare = Object.fromEntries(lists.map((k) => [k, []]));
+  // The room left once everything but the lists, and `more` at its largest, is counted.
+  let room =
+    chars -
+    sizeOf({
+      ...full,
+      ...bare,
+      more: Object.fromEntries(lists.map((k) => [k, 99_999])),
+    });
+  const kept: Record<string, unknown[]> = {};
+  const more: Record<string, number> = {};
+  for (const k of lists) {
+    const list = full[k as keyof typeof full] as unknown[];
+    const fit = within(list, room, sizeOf);
+    room -= fit.reduce((n: number, x) => n + sizeOf(x), 0);
+    kept[k] = fit;
+    if (fit.length < list.length) {
+      more[k] = list.length - fit.length;
+    }
+  }
+  return {
+    ...full,
+    ...(kept as Partial<typeof full>),
+    ...(Object.keys(more).length > 0 ? { more } : {}),
+  };
 }
 
 const SENTENCE = /^(.+?[.!?])(?:\s|$)/;
@@ -175,13 +220,17 @@ export function firstSentenceOf(lines: string[]) {
   return text ? (SENTENCE.exec(text)?.[1] ?? text).slice(0, 300) : undefined;
 }
 
-/** `knows` from the reads `now` offers: each part that holds something, its ref and its first sentence. */
+/** `knows` from the reads `now` offers: each part that holds something, its ref and the first sentence of its content (its next reads left out). */
 export const knowsOf = (
   reads: { ref: ReadPartRef }[],
   linesOf: (part: string) => string[]
 ): KnownPart[] =>
   reads.flatMap(({ ref }) => {
-    const first = firstSentenceOf(linesOf(ref.part));
+    const lines = linesOf(ref.part);
+    const navigation = lines.indexOf(NEXT_READS);
+    const first = firstSentenceOf(
+      navigation < 0 ? lines : lines.slice(0, navigation)
+    );
     return first ? [{ first, part: ref.part, ref: readPartRefOf(ref) }] : [];
   });
 
@@ -208,10 +257,15 @@ const LATEST_ROUND = 20;
 /** A line of `latest` is cut here: the whole message is in `read_chats`. */
 const LATEST_LINE = 500;
 
-/** A unit of theirs as `latest` items: a conversation in person as one, a 1:1 chat-day or mail thread as its exchanges, a group's none. */
+/**
+ * A unit of theirs as `latest` items: a conversation in person as one, a 1:1 chat-day or mail thread as its exchanges;
+ * none for a group's, or for a thread another wrote in (the index leaves out a mail's senders no one knows): every
+ * other writer must read as `ref`.
+ */
 async function latestOf(
   u: Unit,
-  isDirect: boolean,
+  direct: boolean,
+  ref: string,
   people: People
 ): Promise<(LatestExchange | LatestHeard)[]> {
   if (kindOf(u.source) === "voice") {
@@ -224,13 +278,19 @@ async function latestOf(
       },
     ];
   }
-  const source = sourceOf(u.source);
-  if (!isDirect || source.group?.(u.key)) {
+  if (!direct) {
     return [];
   }
   const messages = (await unitLines(u, people))?.built.messages ?? [];
-  const handle =
-    source.handleOf?.(u.key) ?? messages.findLast((m) => !m.fromMe)?.sender;
+  const source = sourceOf(u.source);
+  const keyed = source.handleOf?.(u.key);
+  const others = messages.filter((m) => !m.fromMe).map((m) => m.sender);
+  // `chatPerson`'s rule: every other writer reads as them; on a day only he wrote, the handle its key names.
+  const writers = others.length > 0 ? others : [keyed ?? ""];
+  if (!writers.every((h) => people.refOf(`${UNKNOWN}${h}`, u.source) === ref)) {
+    return [];
+  }
+  const handle = keyed ?? others[0];
   const url = handle && source.chatLinkOf?.(handle);
   return exchangesOf(messages).map((exchange) => ({
     at: (exchange[0] as { at: string }).at,
@@ -246,34 +306,28 @@ async function latestOf(
 /**
  * `latest`: their newest exchanges with him, newest first, five a page by whole days (`before` a day pages back):
  * each one-to-one chat-day and mail thread read from its source and cut where talk paused (`exchangesOf`); a
- * conversation in person as one item. Read through their units (`readPersonUnits`), a round of days at a time, never a
- * source whole.
+ * conversation in person as one item. Read through their units (`readPersonUnitFiles`), a round of days at a time,
+ * never a source whole.
  */
 export async function readLatest(
   ref: string,
   before: string | undefined,
   people: People
 ) {
-  const refs = new Set([ref]);
   const items: (LatestExchange | LatestHeard)[] = [];
   let day = before;
   let more = true;
   while (more && items.length <= LATEST) {
-    const listed = readPersonUnits([ref], {
+    const { listed, units } = readPersonUnitFiles([ref], {
       before: day,
       count: LATEST_ROUND,
       kinds: ["chat", "mail", "voice"],
     });
     more = listed.length > 0;
     day = listed.at(-1)?.date;
-    const direct = new Set(
-      listed.filter((u) => isWithOnly(u, refs)).map((u) => u.id)
-    );
     // biome-ignore lint/performance/noAwaitInLoops: a round reads the next days only while the page is not full
     const round = await Promise.all(
-      readUnitsFor(listed.map((x) => x.id)).map((u) =>
-        latestOf(u, direct.has(u.id), people)
-      )
+      units.map(({ direct, unit }) => latestOf(unit, direct, ref, people))
     );
     items.push(...round.flat());
   }

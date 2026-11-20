@@ -86,7 +86,8 @@ const SPACING = /[\s().-]/g;
 const NUMBER = /^\d{7,}$/;
 /** Messages' own link to a 1:1 chat with a number or an address, `sms:<handle>`; none for anything else. */
 export const imessageLinkOf = (handle: string) => {
-  const h = handle.replace(SPACING, "");
+  // Only a number loses its spacing: an address keeps its dots.
+  const h = handle.includes("@") ? handle : handle.replace(SPACING, "");
   return HANDLE.test(h) || NUMBER.test(h) ? `sms:${h}` : undefined;
 };
 

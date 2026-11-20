@@ -1,8 +1,7 @@
 import type { SourceName } from "../core/names";
 import type { DirectoryParty } from "../records/truth";
 import { type Contact, contactKeyOf, PHONE_WRITTEN } from "../sources/contacts";
-import { readUnitsFor } from "./memory-files";
-import { isWithOnly, readPersonUnits } from "./person-units";
+import { readPersonUnitFiles } from "./person-units";
 import { sourceOf } from "./sources";
 
 // How to reach someone (docs/glossary.md, "reach"): per app, the accounts Life knows for them, each with the link that
@@ -154,24 +153,20 @@ function accountOf(
  * units' files (never a source). A chat-day whose source holds no handle in its key is left out.
  */
 export function readSeenAccounts(ref: string): SeenAccount[] {
-  const refs = new Set([ref]);
-  const listed = readPersonUnits([ref], {
+  return readPersonUnitFiles([ref], {
     count: SEEN_UNITS,
     kinds: ["chat"],
-  }).filter((u) => isWithOnly(u, refs));
-  return readUnitsFor(listed.map((u) => u.id)).flatMap((u) => {
-    const source = sourceOf(u.source);
-    const handle = source.handleOf?.(u.key);
-    if (!handle || source.group?.(u.key)) {
-      return [];
-    }
-    return [
-      {
-        handle,
-        lastAt: u.end,
-        ...(u.title === u.key ? {} : { shownName: u.title }),
-        source: u.source,
-      },
-    ];
+  }).units.flatMap(({ direct, unit: u }) => {
+    const handle = direct && sourceOf(u.source).handleOf?.(u.key);
+    return handle
+      ? [
+          {
+            handle,
+            lastAt: u.end,
+            ...(u.title === u.key ? {} : { shownName: u.title }),
+            source: u.source,
+          },
+        ]
+      : [];
   });
 }

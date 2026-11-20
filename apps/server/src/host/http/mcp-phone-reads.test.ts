@@ -703,7 +703,7 @@ test("the People tab's reads: read_people_and_organizations' list, a person's an
     chatName: "Ana B",
     fromMe,
     id: `whatsapp:${chat}/${at}`,
-    sender: fromMe ? "me" : "+33600000004",
+    sender: fromMe ? "me" : "Test Ana",
     source: "whatsapp",
     text,
   });

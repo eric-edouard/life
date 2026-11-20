@@ -1,8 +1,9 @@
 import type { SourceName } from "../core/names";
+import type { Unit } from "../records/unit";
 import type { Descriptor } from "../sources/contract";
-import { readIndex } from "./memory-files";
+import { readIndex, readUnitsOf } from "./memory-files";
 import { OWNER } from "./read-truth";
-import { kindOf, SOURCES } from "./sources";
+import { isDirect, kindOf, SOURCES } from "./sources";
 
 // A person's units, as the index files them: the one way a reader finds what someone said, wrote or was heard in (the
 // network identity, a person's `latest`, `read_chats` with `who`). One query of the index, never a scan of a source.
@@ -55,13 +56,43 @@ export const readPersonUnits = (
   ) ?? [];
 
 /** Whether a unit is with one of `refs` alone (besides him), as the index can tell: a group's day only its key tells. */
-export const isWithOnly = (
+const isWithOnly = (
   u: Pick<IndexedUnit, "people">,
   refs: ReadonlySet<string>
 ) => {
   const others = u.people.filter((p) => p !== OWNER);
   return others.length === 1 && refs.has(others[0] as string);
 };
+
+/**
+ * `readPersonUnits`' units read from their files (by the days the index gave), each with whether it is with `refs`
+ * alone: the index's people say so and its key is no group's. The one test of "their 1:1 chat-day or thread" for
+ * `latest`, reach and `read_chats` with `who`; a mail's senders no one knows the index leaves out, so `latest` checks
+ * a thread's senders too.
+ */
+export function readPersonUnitFiles(
+  refs: readonly string[],
+  o: Parameters<typeof readPersonUnits>[1]
+) {
+  const listed = readPersonUnits(refs, o);
+  const byId = new Map(listed.map((x) => [x.id, x]));
+  const theirs = new Set(refs);
+  const units = readUnitsOf([...new Set(listed.map((x) => x.date))]).flatMap(
+    (unit): { direct: boolean; unit: Unit }[] => {
+      const x = byId.get(unit.id);
+      return x
+        ? [
+            {
+              direct:
+                isWithOnly(x, theirs) && isDirect(unit.source, unit.key, 1),
+              unit,
+            },
+          ]
+        : [];
+    }
+  );
+  return { listed, units };
+}
 
 /** How many of a person's newest chat-days are read to find one that is 1:1 (the index can't tell a group). */
 const TRIED = 3;
