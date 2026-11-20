@@ -46,7 +46,7 @@ import {
   type Parsed,
   readLine,
 } from "./page-format";
-import { OWNER, directoryPartiesOf } from "./read-truth";
+import { directoryPartiesOf, OWNER } from "./read-truth";
 import { kindOf } from "./sources";
 import {
   hasFrozen,

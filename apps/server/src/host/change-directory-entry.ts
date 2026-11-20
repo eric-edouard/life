@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { commitMemory } from "../memory/memory-files";
-import { integrity, loadTruth, directoryPartiesOf } from "../memory/read-truth";
+import { directoryPartiesOf, integrity, loadTruth } from "../memory/read-truth";
 import { recordToldLife } from "../memory/told-life";
 import { slug } from "../records/fields";
 import { OrganizationPerson } from "../records/truth";

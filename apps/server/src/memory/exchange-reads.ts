@@ -40,7 +40,8 @@ export interface With {
 export const withOf = (known: string, people: People): With => ({
   name: people.nameOf(`person:${known}`),
   relation:
-    directoryPartiesOf(people.truth).find((p) => p.id === known)?.relation ?? null,
+    directoryPartiesOf(people.truth).find((p) => p.id === known)?.relation ??
+    null,
 });
 
 /** One call: what the model is shown, the key of each message its lines are, and where each exchange starts in them. */

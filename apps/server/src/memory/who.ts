@@ -10,7 +10,7 @@ import {
   unfoldedOf,
 } from "../records/observation";
 import { namesOne, relationWordOf } from "../records/relation-words";
-import { firstNameOf, ME, type DirectoryParty } from "../records/truth";
+import { type DirectoryParty, firstNameOf, ME } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
 import { readAgentReports } from "./agent-source";
@@ -27,7 +27,12 @@ import {
 } from "./memory-files";
 import { isSameNameOrHandle, type Reading, readingOf } from "./name-reading";
 import { partyOf, readPictureIndex } from "./party";
-import { loadTruth, OWNER, directoryPartiesOf, phonesAndEmailsOf } from "./read-truth";
+import {
+  directoryPartiesOf,
+  loadTruth,
+  OWNER,
+  phonesAndEmailsOf,
+} from "./read-truth";
 import {
   guessTestOf,
   knownTestOf,

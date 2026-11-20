@@ -28,7 +28,7 @@ import { readInferredRepos, readJudgments, readUnit } from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
 import type { SourceLine } from "./quote-check";
-import { handlesOf, OWNER, directoryPartiesOf, type Truth } from "./read-truth";
+import { directoryPartiesOf, handlesOf, OWNER, type Truth } from "./read-truth";
 import {
   isDirect,
   kindOf,
@@ -458,7 +458,9 @@ export async function fetchOf(
  */
 function needlesOf(who: string, ref: string, people: People) {
   const { outsideDirectory, canon, corrections, truth } = people;
-  const person = directoryPartiesOf(truth).find((p) => `person:${p.id}` === ref);
+  const person = directoryPartiesOf(truth).find(
+    (p) => `person:${p.id}` === ref
+  );
   return [
     who,
     ...(person ? [person.name, ...person.aliases, ...handlesOf(person)] : []),

@@ -57,7 +57,9 @@ export function partyOf(
   directory: readonly Pick<DirectoryParty, "id" | "pictureFrom">[],
   pictures: () => PictureIndex
 ) {
-  const picks = new Map(directory.map((p) => [`person:${p.id}`, p.pictureFrom]));
+  const picks = new Map(
+    directory.map((p) => [`person:${p.id}`, p.pictureFrom])
+  );
   let index: PictureIndex | undefined;
   return (ref: string): Party => {
     const now = people.refOf(ref);

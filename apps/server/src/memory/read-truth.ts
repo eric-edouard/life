@@ -8,10 +8,10 @@ import {
   AreasFile,
   type Chat,
   ChatsFile,
+  type DirectoryParty,
   ME,
   type Organization,
   OrganizationsFile,
-  type DirectoryParty,
   PeopleFile,
   type Person,
   Project,
@@ -138,7 +138,9 @@ export async function loadTruth(data = OWNER_DATA_DIR): Promise<Truth> {
 }
 
 /** A party's phones and emails (their `whatsapp`, `phone` and `email`): the handles with a contact key. */
-export function phonesAndEmailsOf(p: Pick<DirectoryParty, "handles">): string[] {
+export function phonesAndEmailsOf(
+  p: Pick<DirectoryParty, "handles">
+): string[] {
   const { whatsapp, phone, email } = p.handles;
   return [...whatsapp, ...phone, ...email.map((h) => h.toLowerCase())];
 }

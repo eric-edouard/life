@@ -2,13 +2,13 @@ import { expect, spyOn, test } from "bun:test";
 import { setSettings } from "../../core/settings";
 import { nameGroupsOf } from "../../memory/check-sentences";
 import { urgencyOf } from "../../memory/check-urgency";
-import { partyOf } from "../../memory/party";
 import type { CheckInputs } from "../../memory/checks";
 import { nameRow } from "../../memory/checks-test-inputs";
 import {
   networkIdentityOf,
   withNetworkIdentity,
 } from "../../memory/network-identity";
+import { partyOf } from "../../memory/party";
 import type { WakeLine } from "../registered-agents";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
@@ -84,9 +84,10 @@ const madeUpPartyOf = partyOf(
     nameOf,
     refOf: (r) => r,
     relationOf: (r) =>
-      ({ "person:gran": "Your grandmother", "person:sam_lee": "The neighbour" })[
-        r
-      ] ?? null,
+      ({
+        "person:gran": "Your grandmother",
+        "person:sam_lee": "The neighbour",
+      })[r] ?? null,
   },
   [
     { id: "gran", pictureFrom: "whatsapp" },
