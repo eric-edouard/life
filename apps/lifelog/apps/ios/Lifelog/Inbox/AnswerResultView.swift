@@ -141,7 +141,7 @@ extension Taken {
         if let option = check.options.first(where: { request.options.contains($0.id) }), option.takes == nil {
             return option.label
         }
-        if let person = check.likelyPeople.first(where: { $0.person == request.person }) { return person.name }
+        if let person = check.likelyPeople.first(where: { $0.ref == request.person }) { return person.name }
         return request.name ?? (request.note == nil ? "Your answer" : "Your words")
     }
 
