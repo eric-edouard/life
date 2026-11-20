@@ -7,7 +7,7 @@ import {
   withIndex,
 } from "./index-rows";
 import { pagePath } from "./memory-files";
-import { loadTruth, type Truth } from "./read-truth";
+import { loadTruth, projectHeaderOf, type Truth } from "./read-truth";
 import { normalizeTopics } from "./tags";
 import { nameKey } from "./units";
 
@@ -48,12 +48,7 @@ export async function area(
       : truth.projects.filter((p) => p.area === id).map((p) => p.id)
   );
   return withIndex((db) => [
-    ...(project
-      ? [
-          `Project ${project.name} (${project.id}, ${project.status}), in area ${id}${project.deadlines.map((d) => `; ${d.date}: ${d.what}`).join("")}`,
-          "",
-        ]
-      : []),
+    ...(project ? [`${projectHeaderOf(project)}; in area ${id}`, ""] : []),
     ...pageAndLatest(db, text, latest(db, "where o.area = ?", id).map(line)),
     ...(agents.length > 0 ? ["", "Agents:", ...agents] : []),
   ]);
