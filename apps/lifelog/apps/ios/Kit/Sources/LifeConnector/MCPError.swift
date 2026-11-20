@@ -12,6 +12,10 @@ public enum MCPError: Error, Equatable, Sendable {
     case refused(String)
     /// A 5xx, a JSON-RPC error, an answer that is not what was asked.
     case failed(String)
+    /// No internet from here at all: nothing was sent, and trying again at once cannot help.
+    case offline
+    /// A call that acts (an answer, a change) got no byte in time: it may have run. Never repeated by itself.
+    case timedOut
     /// The stream ended with no result: the call may or may not have run.
     case streamDropped
     /// The task that asked was cancelled (its screen left): not a failure of Life's or of the connection.
@@ -21,6 +25,8 @@ public enum MCPError: Error, Equatable, Sendable {
     public var reason: String {
         switch self {
         case .unreachable: "Your Mac cannot be reached."
+        case .offline: "This iPhone has no internet connection."
+        case .timedOut: "Life did not answer in time. It may not have gone: check before answering again."
         case .notPaired: "This iPhone is not paired with Life."
         case .wrongCode: "That pairing code did not match, or it expired."
         case .refused(let why), .failed(let why): why
@@ -36,8 +42,9 @@ public enum MCPError: Error, Equatable, Sendable {
         guard let url = error as? URLError else { return .failed("\(error)") }
         switch url.code {
         case .cancelled: return .cancelled
-        case .notConnectedToInternet, .cannotFindHost, .cannotConnectToHost, .timedOut, .networkConnectionLost,
-            .dnsLookupFailed, .dataNotAllowed, .internationalRoamingOff,
+        case .notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff: return .offline
+        case .cannotFindHost, .cannotConnectToHost, .timedOut, .networkConnectionLost,
+            .dnsLookupFailed,
             .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate,
             .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid, .clientCertificateRejected,
             .clientCertificateRequired, .cannotLoadFromNetwork:
