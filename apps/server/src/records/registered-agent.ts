@@ -80,7 +80,7 @@ export const EventFilter = z
       .regex(/^[\w.-]+\/(?:[\w.-]+|\*)$/, "a repo is `owner/name` or `owner/*`")
       .optional()
       .describe(
-        "With `github_activity`: a GitHub repo, `owner/name`, or every repo of an owner, `owner/*`"
+        "With `github_activity`: a GitHub repo, `owner/name`, or an owner's repos (the first 100), `owner/*`"
       ),
     text_matches: z
       .string()

@@ -264,6 +264,9 @@ function filterRefusalOf(
     return place;
   }
   const withRepo = channels.filter((c) => c.hasRepo).map((c) => c.name);
+  if (f.repo && (f.quantity || f.latitude !== undefined)) {
+    return "a filter with a `repo` takes no `quantity` or place: no event holds both";
+  }
   if (f.repo && !named.some((n) => withRepo.includes(n))) {
     return `\`repo\` needs \`channels\` naming ${withRepo.map((n) => `\`${n}\``).join(" or ")}`;
   }

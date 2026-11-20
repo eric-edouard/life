@@ -28,16 +28,23 @@ const activity = (id: string, repo: string, words = ""): GithubActivity => ({
   words,
 });
 
-/** A desk whose GitHub holds `list`, and an agent after its first turn waiting on `filters`; `asked` keeps the repos each read was given. */
+/**
+ * A desk whose GitHub holds `list` (read only while `own.isOwn`: his own Life), and an agent after its first turn
+ * waiting on `filters`; `asked` keeps the repos each read was given.
+ */
 async function waitingOn(...filters: Partial<EventFilter>[]) {
   const s = setup();
   const list: GithubActivity[] = [];
   const asked: string[][] = [];
+  const own = { isOwn: true };
   s.desk.channels = [
-    githubActivityChannelOf((repos) => {
-      asked.push(repos);
-      return Promise.resolve(list);
-    }),
+    githubActivityChannelOf(
+      (repos) => {
+        asked.push(repos);
+        return Promise.resolve(list);
+      },
+      () => own.isOwn
+    ),
   ];
   const id = register(s.desk, {
     brief: "Test brief: watch the release",
@@ -59,7 +66,7 @@ async function waitingOn(...filters: Partial<EventFilter>[]) {
     await pollChannels(s.desk, readPeopleOnce());
   };
   const queued = () => queuedEvents(s.desk.db, asgOf(s.desk, id));
-  return { asked, list, poll, queued, rewait, set };
+  return { asked, list, own, poll, queued, rewait, set };
 }
 
 test("a wait on a repo and on an owner's repos is woken by their activity only, and reads only what it names", async () => {
@@ -124,4 +131,24 @@ test("`github_activity` needs a `repo`, and a `repo` needs `github_activity`", a
   expect(
     await rewait({ channels: ["github_activity"], repo: "acme" })
   ).toHaveProperty("error");
+  expect(
+    await rewait({
+      channels: ["github_activity"],
+      quantity: "eur_out",
+      repo: "acme/app",
+    })
+  ).toEqual({
+    error:
+      "a filter with a `repo` takes no `quantity` or place: no event holds both",
+  });
+});
+
+test("a second Life (a demo) never reads GitHub: its gh holds his login", async () => {
+  const { asked, own, poll, rewait } = await waitingOn({ text_matches: "x" });
+  own.isOwn = false;
+  expect(
+    await rewait({ channels: ["github_activity"], repo: "acme/app" })
+  ).toEqual({ error: "GitHub is read only in his own Life" });
+  await poll();
+  expect(asked).toEqual([]);
 });

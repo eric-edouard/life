@@ -51,8 +51,8 @@ const gh = (
   });
 
 /** `gh`'s output, or a throw saying why it failed. */
-async function ghOut(run: typeof exec, args: string[]) {
-  const r = await gh(run, args);
+async function ghOut(run: typeof exec, args: string[], timeout = GH_MS) {
+  const r = await gh(run, args, undefined, timeout);
   if (r.killed || r.code !== 0) {
     throw new Error(
       `gh ${r.killed ? "didn't answer" : `failed: ${r.stderr.trim().slice(-200)}`}`
@@ -470,108 +470,146 @@ function parseHttp(r: Run) {
   return { body: rest.join("\n\n"), headers, status };
 }
 
+/** How long one read may take in all: the desk's tick waits for it, and other agents with it. */
+const ACTIVITY_READ_MS = 45_000;
+
 /**
- * The reader of the repos the open waits name (`owner/name`, or every repo of an owner, `owner/*`, listed through `gh
- * repo list` once an hour, its first 100): each repo's newest 100 events, asked with the last answer's ETag and no sooner
- * than GitHub's poll interval, so a repo with nothing new gives none and costs nothing; at most `ACTIVITY_REPOS_MAX` a
- * read, the longest unread first. Its ETags and owners' lists live in this process only. A repo that fails is logged and
- * asked again next time; a read where every repo asked failed throws.
+ * The reader of the repos the open waits name (`owner/name`, or an owner's repos, `owner/*`: the first 100 `gh repo
+ * list` gives, listed once an hour): each repo's newest 100 events, asked with the last good answer's ETag and no sooner
+ * than GitHub's poll interval after its last answer, so a repo with nothing new gives none and costs nothing; at most
+ * `ACTIVITY_REPOS_MAX` repos and `ACTIVITY_READ_MS` a read, the longest unasked first (a failed ask counts as asked, so
+ * it waits its turn), the rest on the next reads. Its ETags and owners' lists live in this process only. A repo or owner
+ * that fails is logged and asked again later; a read where every ask failed throws.
  * ponytail: GitHub says its events can lag 30 s to 6 h; per-kind feeds (issues, comments, each pull request's reviews)
  * if a wait ever needs them sooner. More than 100 events in a repo between two reads drop the oldest.
  */
 export function githubActivityReader({
+  readMs = ACTIVITY_READ_MS,
   run = exec,
 }: {
+  readMs?: number;
   run?: typeof exec;
 } = {}) {
   const owners = new Map<string, { at: number; repos: string[] }>();
   const asked = new Map<string, { etag?: string; next: number }>();
-  const reposOf = async (owner: string, now: number) => {
-    const known = owners.get(owner);
-    if (known && now - known.at < OWNER_REPOS_FOR) {
-      return known.repos;
-    }
-    const repos = (
-      await ghOut(run, [
-        "repo",
-        "list",
-        owner,
-        "--no-archived",
-        "--limit",
-        "100",
-        "--json",
-        "nameWithOwner",
-        "--jq",
-        ".[].nameWithOwner",
-      ])
+  const listOwner = async (owner: string, timeout: number) =>
+    (
+      await ghOut(
+        run,
+        [
+          "repo",
+          "list",
+          owner,
+          "--no-archived",
+          "--limit",
+          "100",
+          "--json",
+          "nameWithOwner",
+          "--jq",
+          ".[].nameWithOwner",
+        ],
+        timeout
+      )
     )
       .split("\n")
       .filter(Boolean)
       .map((r) => r.toLowerCase());
-    owners.set(owner, { at: now, repos });
-    return repos;
-  };
-  const eventsOf = async (repo: string, now: number) => {
-    const last = asked.get(repo);
-    const r = parseHttp(
-      await gh(run, [
+  const askRepo = async (repo: string, timeout: number) => {
+    const etag = asked.get(repo)?.etag;
+    const r = await gh(
+      run,
+      [
         "api",
         "-i",
-        ...(last?.etag ? ["-H", `If-None-Match: ${last.etag}`] : []),
+        ...(etag ? ["-H", `If-None-Match: ${etag}`] : []),
         `repos/${repo}/events?per_page=100`,
-      ])
+      ],
+      undefined,
+      timeout
     );
-    if (r.status !== 200 && r.status !== 304) {
+    const answer = parseHttp(r);
+    if (r.killed || (answer.status !== 200 && answer.status !== 304)) {
       throw new Error(
-        `${repo}: ${r.status ? `HTTP ${r.status}` : "gh didn't answer"}`
+        `${repo}: ${answer.status && !r.killed ? `HTTP ${answer.status}` : "gh didn't answer"}`
       );
     }
+    // Decoded before its ETag is kept: a cut answer is asked again with the last good one.
+    const events =
+      answer.status === 304
+        ? []
+        : (JSON.parse(answer.body) as RepoEvent[]).flatMap(activityOf);
     const every = Math.max(
       ACTIVITY_EVERY_S,
-      Number(r.headers.get("x-poll-interval")) || 0
+      Number(answer.headers.get("x-poll-interval")) || 0
     );
-    asked.set(repo, {
-      etag: r.headers.get("etag") ?? last?.etag,
-      // A second early, so a read on the desk's minute beat is never skipped by a few milliseconds.
-      next: now + (every - 1) * 1000,
-    });
-    return r.status === 304
-      ? []
-      : (JSON.parse(r.body) as RepoEvent[]).flatMap(activityOf);
+    return { etag: answer.headers.get("etag") ?? etag, events, every };
   };
   return async (named: string[], now: number) => {
+    const started = performance.now();
+    const left = () => readMs - (performance.now() - started);
+    /** The instant now, by the time spent in this read. */
+    const at = () => now + (performance.now() - started);
+    const failed: string[] = [];
+    let answered = 0;
+    const failure = (error: string) => {
+      failed.push(error);
+      log("source.read", {
+        error,
+        ok: false,
+        source: "github",
+        what: "activity",
+      });
+    };
     const repos = new Set<string>();
     for (const n of new Set(named.map((x) => x.toLowerCase()))) {
       const [owner = "", name] = n.split("/");
-      // biome-ignore lint/performance/noAwaitInLoops: one gh at a time
-      for (const repo of name === "*" ? await reposOf(owner, now) : [n]) {
+      if (name !== "*") {
+        repos.add(n);
+        continue;
+      }
+      const known = owners.get(owner);
+      if ((!known || now - known.at >= OWNER_REPOS_FOR) && left() > 0) {
+        try {
+          // biome-ignore lint/performance/noAwaitInLoops: one gh at a time
+          const listed = await listOwner(owner, Math.min(GH_MS, left()));
+          owners.set(owner, { at: at(), repos: listed });
+          answered += 1;
+        } catch (e) {
+          failure(`${owner}/*: ${(e as Error).message}`);
+          // Its last list meanwhile, and asked again a minute on.
+          owners.set(owner, {
+            at: at() - OWNER_REPOS_FOR + ACTIVITY_EVERY_S * 1000,
+            repos: known?.repos ?? [],
+          });
+        }
+      }
+      for (const repo of owners.get(owner)?.repos ?? []) {
         repos.add(repo);
       }
     }
-    // The due repos, the longest unread first: past the cap, the rest are read on the next beats.
     const nextOf = (repo: string) => asked.get(repo)?.next ?? 0;
-    const asking = [...repos]
+    const due = [...repos]
       .filter((repo) => nextOf(repo) <= now)
       .toSorted((a, b) => nextOf(a) - nextOf(b))
       .slice(0, ACTIVITY_REPOS_MAX);
-    const failed: string[] = [];
     const read: GithubActivity[] = [];
-    for (const repo of asking) {
+    for (const repo of due) {
+      if (left() <= 0) {
+        break;
+      }
+      const etag = asked.get(repo)?.etag;
       try {
-        // biome-ignore lint/performance/noAwaitInLoops: one gh at a time
-        read.push(...(await eventsOf(repo, now)));
+        // biome-ignore lint/performance/noAwaitInLoops: one gh at a time, within the read's time
+        const a = await askRepo(repo, Math.min(GH_MS, left()));
+        asked.set(repo, { etag: a.etag, next: at() + a.every * 1000 });
+        read.push(...a.events);
+        answered += 1;
       } catch (e) {
-        const error = (e as Error).message;
-        failed.push(error);
-        log("source.read", {
-          error,
-          ok: false,
-          source: "github",
-          what: "activity",
-        });
+        asked.set(repo, { etag, next: at() + ACTIVITY_EVERY_S * 1000 });
+        failure((e as Error).message);
       }
     }
-    if (failed.length > 0 && failed.length === asking.length) {
+    if (failed.length > 0 && answered === 0) {
       throw new Error(failed.join("; "));
     }
     return read;

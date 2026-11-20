@@ -1,4 +1,5 @@
 import { daysBefore, HOUR, iso, MIN } from "../core/clock";
+import { isOwnLife } from "../core/platform";
 import { paymentDayOf, paymentWordsOf } from "../memory/payments";
 import { localDate } from "../memory/zones";
 import { payments } from "../payments/backend";
@@ -272,18 +273,21 @@ function githubEventOf(a: GithubActivity): ChannelEvent {
 
 /**
  * The GitHub activity channel over `read` (`githubActivityReader`): the issues, pull requests, comments and reviews of
- * the repos the open waits name, and of no other.
+ * the repos the open waits name, and of no other. Read only in his own Life (`isOn`): `gh` holds his login, which a
+ * second Life's agents must never reach.
  * ponytail: a repo's ETag moves on at its read, before its events are queued; a queue that fails then (the desk's own
  * store) loses them. Commit the ETag after the queue if that store ever fails alone.
  */
 export const githubActivityChannelOf = (
-  read = githubActivityReader()
+  read = githubActivityReader(),
+  isOn: () => boolean = () => isOwnLife()
 ): EventChannel => ({
   about:
-    "any activity on the GitHub repos you name, a minute or more after it (GitHub's own delay can be longer): its `kind` is `issue.<action>` (opened, closed, reopened, edited, labeled, assigned…), `pr.<action>` (opened, merged, closed…), `comment`, `review` or `review_comment`; `repo` is required, `owner/name` or `owner/*`; `text_matches` tests its title and body when GitHub gives them; read it at its `link` with `gh`",
-  beat: MIN,
+    "any activity on the GitHub repos you name, a minute or more after it (GitHub's own delay can be longer): its `kind` is `issue.<action>` (opened, closed, reopened, edited, labeled, assigned…), `pr.<action>` (opened, merged, closed…), `comment`, `review` or `review_comment`; `repo` is required, `owner/name` or `owner/*` (its first 100 repos); `text_matches` tests its title and body when GitHub gives them; read it at its `link` with `gh`",
+  // Every poll while a wait names it: the reader paces each repo by GitHub's own interval.
+  beat: 0,
   // `gh` failing is the poll's "could not be read" line.
-  block: () => null,
+  block: () => (isOn() ? null : "GitHub is read only in his own Life"),
   event: "github.activity",
   hasPoint: false,
   hasRepo: true,
