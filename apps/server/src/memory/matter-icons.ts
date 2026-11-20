@@ -116,13 +116,18 @@ async function pickAll(
  */
 export async function readLifeIcons(
   views: readonly Pick<MatterView, "goal" | "id" | "name" | "ownerIcon">[],
-  embedder = embedderNow(),
+  given?: Embedder | null,
   waitMs = ICON_WAIT_MS
 ): Promise<ReadonlyMap<string, MatterIconKey>> {
   const textOf = new Map(
     views.flatMap((v) => (v.ownerIcon ? [] : [[v.id, matterTextOf(v)]]))
   );
-  if (!embedder || textOf.size === 0) {
+  if (textOf.size === 0) {
+    return new Map();
+  }
+  // Only now: finding the embedder probes the sources (`listening`), which an owner-only read never needs.
+  const embedder = given === undefined ? embedderNow() : given;
+  if (!embedder) {
     return new Map();
   }
   const work = workOf(embedder);

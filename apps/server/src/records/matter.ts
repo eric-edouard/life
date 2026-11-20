@@ -72,6 +72,15 @@ export const NextStep = z
 export type NextStep = z.infer<typeof NextStep>;
 
 /** The parts of a direction as Life drafts it (`MatterDirectionDraft`): the goal, then a next step or the records that show the matter is over. */
+/**
+ * What pins something to a matter: all of its steps' ids (a re-group finds it by them) and, beside them, its id when
+ * written (from 21 Nov 2026; older lines lack it), which settles a tie between matters holding the same steps.
+ */
+export const PINNED = {
+  matter: z.string().min(1).optional(),
+  steps: z.array(z.string().min(1)).min(1),
+};
+
 export const MatterDirectionFields = z.object({
   /** The ids of the later records a "looks over" draft cites (a few; none when the matter's own steps show it). */
   endingRecords: z.array(z.string().min(1)).max(3).optional(),
@@ -98,7 +107,7 @@ export const ONE_OF =
  */
 export const MatterDirectionDraft = MatterDirectionFields.extend({
   laterShown: z.array(z.string().min(1)).max(LATER_SHOWN).optional(),
-  steps: z.array(z.string().min(1)).min(1),
+  ...PINNED,
 })
   .strict()
   .refine(isNextStepOrOver, ONE_OF);
@@ -115,27 +124,28 @@ export const MatterDirectionBatch = z
   .strict();
 export type MatterDirectionBatch = z.infer<typeof MatterDirectionBatch>;
 
-/** His important mark on a matter, on or off, as pinned to its steps (`matter-important`): the latest for a matter wins. */
-export interface ImportantPin {
+/** Something pinned to a matter (`pinnedOf`), with when it was written. */
+interface Pin {
   at: string;
-  important: boolean;
+  matter?: string;
   steps: readonly string[];
+}
+
+/** His important mark on a matter, on or off, as pinned to its steps (`matter-important`): the latest for a matter wins. */
+export interface ImportantPin extends Pin {
+  important: boolean;
 }
 
 /** His pick of a matter's icon, as pinned to its steps (`matter-icon`): the latest for a matter wins; null gives it back to Life. */
-export interface IconPin {
-  at: string;
+export interface IconPin extends Pin {
   icon: MatterIconKey | null;
-  steps: readonly string[];
 }
 
 /** A direction as stored, pinned to the steps of its matter: Life's draft (a goal, and a next step or the records that show it over), or his word (`matter-direction`: either or both). */
-export interface DirectionPin {
-  at: string;
+export interface DirectionPin extends Pin {
   by: "life" | "owner";
   endingRecords?: readonly string[];
   goal?: string;
   laterShown?: readonly string[];
   nextStep?: NextStep;
-  steps: readonly string[];
 }

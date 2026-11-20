@@ -1,8 +1,15 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { openStepsOf } from "../memory/matter-read";
+import {
+  chosenIconsOf,
+  directionsOf,
+  importantIdsOf,
+  matterFinderOf,
+  openStepsOf,
+} from "../memory/matter-read";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "../memory/matters";
+import { readMatterPins } from "../memory/matters";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as todo from "./change-todo-item";
@@ -264,4 +271,46 @@ test("his icon by a matter's id is pinned to every step; null gives it back; an 
     { icon: null, steps: matter.steps.map((s) => s.ref) },
   ]);
   expect(readCorrections()).toHaveLength(2);
+});
+
+// #743's verdict: two matters read from one episode both show it as their step; a pin by steps alone went to the first.
+test("a pin on the second of two matters holding the same step lands on it, and its reset too: icon, important mark and goal", async () => {
+  const one = (id: string) => ({
+    id,
+    name: id,
+    open: true,
+    steps: [step("ep_000000000009", "episode")],
+  });
+  const list = [one("matter_aaaaaaaaaaaa"), one("matter_bbbbbbbbbbbb")];
+  book.mockResolvedValue(list as never);
+  const say = (said: object) =>
+    correct({
+      correction: { ...said, matter: "matter_bbbbbbbbbbbb" },
+      kind: "memory",
+    });
+  const rows = () => {
+    const find = matterFinderOf(list);
+    const pins = readMatterPins();
+    const icons = chosenIconsOf(find, pins.icons);
+    const marked = importantIdsOf(find, pins.important);
+    const goals = directionsOf(find, pins.directions);
+    return list.map((v) => [
+      icons.get(v.id) ?? null,
+      marked.has(v.id),
+      goals.get(v)?.goal?.text ?? null,
+    ]);
+  };
+  await say({ icon: "paper", kind: "matter-icon" });
+  await say({ important: true, kind: "matter-important" });
+  await say({ goal: "The quote is signed.", kind: "matter-direction" });
+  expect(rows()).toEqual([
+    [null, false, null],
+    ["paper", true, "The quote is signed."],
+  ]);
+  await say({ icon: null, kind: "matter-icon" });
+  await say({ important: false, kind: "matter-important" });
+  expect(rows()).toEqual([
+    [null, false, null],
+    [null, false, "The quote is signed."],
+  ]);
 });

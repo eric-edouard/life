@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import type { Embedded, Embedder } from "../core/embedder";
 import { MATTER_ICONS, type MatterIconKey } from "../records/matter-icon";
 import { ICON_AT, iconNow, lifeIconOf, readLifeIcons } from "./matter-icons";
@@ -132,8 +132,10 @@ test("each query batch shows as it lands; a batch past the deadline that fails i
   expect(slow.calls).toHaveLength(calls);
 });
 
-test("matters he picked an icon for never reach the embedder; his pick wins, Life's comes next, else none", async () => {
+test("matters he picked an icon for never reach the embedder, nor its lookup; his pick wins, Life's comes next, else none", async () => {
   const fake = fakeEmbedder();
+  const vectors = await import("./vectors");
+  const lookup = spyOn(vectors, "embedderNow");
   const [first] = views(1);
   const his = {
     ...(first as NonNullable<typeof first>),
@@ -141,6 +143,9 @@ test("matters he picked an icon for never reach the embedder; his pick wins, Lif
   };
   expect((await readLifeIcons([his], fake.embedder)).size).toBe(0);
   expect(fake.calls).toHaveLength(0);
+  expect((await readLifeIcons([his])).size).toBe(0);
+  expect(lookup).not.toHaveBeenCalled();
+  lookup.mockRestore();
   const life = new Map([["matter_000000000000", "key" as const]]);
   expect(iconNow(his, life)).toEqual({ by: "owner", key: "tools" });
   expect(iconNow({ id: "matter_000000000000" }, life)).toEqual({

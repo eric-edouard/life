@@ -595,16 +595,22 @@ export function laterShownOf<T extends LaterObservation>(
     .slice(-LATER_SHOWN);
 }
 
-/** Each pin of his or Life's, oldest first, with the matter of `book` its steps find (`matterFinderOf`, so a re-group keeps it); a pin no matter holds is left out. Pure. */
+/** A book's matter finder (`matterFinderOf`), built once per book read and shared by every pin kind. */
+type Finder<V> = (refs: readonly string[]) => V | undefined;
+
+/**
+ * Each pin of his or Life's, oldest first, with the matter `find` finds by its steps (so a re-group keeps it) and the
+ * matter's id when written, one more ref (between matters holding the same steps, the one picked); a pin no matter
+ * holds is left out. Pure.
+ */
 function pinnedOf<
   V extends Found,
-  P extends { at: string; steps: readonly string[] },
->(book: readonly V[], pins: readonly P[]) {
-  const find = matterFinderOf(book);
+  P extends { at: string; matter?: string; steps: readonly string[] },
+>(find: Finder<V>, pins: readonly P[]) {
   return pins
     .toSorted((a, b) => a.at.localeCompare(b.at))
     .flatMap((p) => {
-      const v = find(p.steps);
+      const v = find(p.matter ? [p.matter, ...p.steps] : p.steps);
       return v ? [[v, p] as const] : [];
     });
 }
@@ -616,14 +622,14 @@ function pinnedOf<
  * `isDirectionDue`. Pure.
  */
 export function directionsOf<V extends Found>(
-  book: readonly V[],
+  find: Finder<V>,
   pins: readonly DirectionPin[]
 ) {
   const out = new Map<
     V,
     Pick<MatterView, "goal" | "nextStep"> & { latest?: DirectionPin }
   >();
-  for (const [v, p] of pinnedOf(book, pins)) {
+  for (const [v, p] of pinnedOf(find, pins)) {
     const was = out.get(v) ?? {};
     out.set(v, {
       goal:
@@ -680,7 +686,7 @@ export function directionDueOf(
   rec: Pick<MatterRecords, "directions" | "observations" | "refOf">,
   today: string
 ) {
-  const directions = directionsOf(book, rec.directions);
+  const directions = directionsOf(matterFinderOf(book), rec.directions);
   const byId = new Map(book.map((v) => [v.id, v]));
   return (id: string) => {
     const v = byId.get(id);
@@ -700,22 +706,22 @@ export function directionDueOf(
 export const matterTextOf = (v: Pick<MatterView, "goal" | "name">) =>
   v.goal ? `${v.name}: ${v.goal.text}` : v.name;
 
-/** The ids of the matters of `book` his marks hold important (`pinnedOf`): the latest for a matter wins. Pure. */
+/** The ids of the matters `find` finds that his marks hold important (`pinnedOf`): the latest for a matter wins. Pure. */
 export function importantIdsOf<V extends Found>(
-  book: readonly V[],
+  find: Finder<V>,
   pins: readonly ImportantPin[]
 ) {
   const marked = new Map(
-    pinnedOf(book, pins).map(([v, p]) => [v.id, p.important])
+    pinnedOf(find, pins).map(([v, p]) => [v.id, p.important])
   );
   return new Set([...marked].flatMap(([id, on]) => (on ? [id] : [])));
 }
 
-/** His icon for each matter of `book` (`pinnedOf`), by id: the latest pin for a matter wins; null gives it back to Life. Pure. */
+/** His icon for each matter `find` finds (`pinnedOf`), by id: the latest pin for a matter wins; null gives it back to Life. Pure. */
 export const chosenIconsOf = <V extends Found>(
-  book: readonly V[],
+  find: Finder<V>,
   pins: readonly IconPin[]
-) => new Map(pinnedOf(book, pins).map(([v, p]) => [v.id, p.icon]));
+) => new Map(pinnedOf(find, pins).map(([v, p]) => [v.id, p.icon]));
 
 /**
  * `v`'s next step as it reads now: waiting on his decision while one he has not answered is about one of its steps
@@ -781,9 +787,10 @@ export function matterBookOf(
     .filter((t) => isOpenTodoItem(t) && !held.has(t.key))
     .flatMap((t) => lone(t.key, String(t.fields.title ?? "")));
   const book = [...views, ...loneObservations, ...loneItems];
-  const directions = directionsOf(book, rec.directions);
-  const marked = importantIdsOf(book, rec.important);
-  const icons = chosenIconsOf(book, rec.icons);
+  const find = matterFinderOf(book);
+  const directions = directionsOf(find, rec.directions);
+  const marked = importantIdsOf(find, rec.important);
+  const icons = chosenIconsOf(find, rec.icons);
   return book
     .map((v) => {
       const d = directions.get(v);

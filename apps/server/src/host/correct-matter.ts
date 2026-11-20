@@ -76,6 +76,7 @@ export async function correctMatter(
     report({ limitSeconds: QUICK_MS / 1000, plan: ["recorded"] });
     const written = await recordCorrection({
       ...said,
+      matter: v.id,
       steps: v.steps.map((s) => s.ref),
     });
     report({ step: "recorded" });
