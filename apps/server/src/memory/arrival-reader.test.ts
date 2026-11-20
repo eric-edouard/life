@@ -163,12 +163,14 @@ test("offline, Apple's yes is stored and its confirm waits; back online, the pen
   expect(readConfirmedArrivals(ago(60), s.where)).toHaveLength(1);
 });
 
-test("a pending confirm reads the same bounded lines Apple read; with one of them gone, it is the night's", async () => {
+test("a pending confirm reads the same lines as the trigger; with one of them gone, it is the night's", async () => {
   const s = sceneOf(() => yes("send the slides"));
   const long = msg(`Can you send the slides? ${"x".repeat(6000)}`);
   await s.read([long], false);
   await s.read([long]);
-  expect(s.shown.map((t) => t.length)).toEqual([5000]);
+  // The confirm reads the long line whole, the same line as before Life went offline.
+  expect(s.shown).toHaveLength(1);
+  expect(s.shown[0]?.endsWith("x".repeat(100))).toBe(true);
   const gone = sceneOf(() => yes("send the slides"));
   const [a, b] = [msg("Can you send the slides?"), msg("Today if you can")];
   await gone.read([a, b], false);

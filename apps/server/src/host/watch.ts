@@ -6,7 +6,11 @@ import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
 import { settings } from "../core/settings";
-import { ownerNamesOf, readArrivals } from "../memory/arrival-reader";
+import {
+  ownerNamesOf,
+  readArrivals,
+  readRecentVoice,
+} from "../memory/arrival-reader";
 import { withdrawDraftsAnsweredInChat } from "../memory/decisions";
 import { gather } from "../memory/gather";
 import {
@@ -382,7 +386,18 @@ function startArrivalReader(
     return;
   }
   readingArrivals = true;
-  readArrivals(evidence, people, ownerNamesOf(people.truth))
+  readRecentVoice(dayNow(), people.truth)
+    .catch((e: Error) => {
+      // Lifelog unreadable: chats and mail are still read.
+      log("run.error", { error: e.message, step: "watch.arrivals.voice" });
+    })
+    .then((voice) =>
+      readArrivals(
+        { ...evidence, voice: voice || undefined },
+        people,
+        ownerNamesOf(people.truth)
+      )
+    )
     .catch((e: Error) =>
       log("run.error", { error: e.message, step: "watch.arrivals" })
     )
