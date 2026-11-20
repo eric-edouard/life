@@ -38,8 +38,16 @@ export async function openCheckOf(ref: string) {
   return check;
 }
 
-/** A connector read's `version`: a short digest of the key its answer was read from (the checks' `key`, for the inbox). */
-export const versionOf = (key: string) => digest("sha256", key, 16);
+/** A connector read's `version`: a short digest of what it answers from (the inbox's list, the matters' answer). */
+export const versionOf = (text: string) => digest("sha256", text, 16);
+
+/** Each list's version, worked out once: a list is read once per checks' key (every call while a run holds the lock) and never mutated. */
+const listVersions = new WeakMap<readonly object[], string>();
+const listVersionOf = (list: readonly object[]) => {
+  const version = listVersions.get(list) ?? versionOf(JSON.stringify(list));
+  listVersions.set(list, version);
+  return version;
+};
 
 /** A versioned read's answer when the caller already holds its `version` (`ifNot`). */
 export const unchangedOf = (version: string) => ({
@@ -57,14 +65,15 @@ export async function readInbox(
   limit: number,
   o: { after?: string; ifNot?: string; pushId?: string } = {}
 ) {
-  const { checks: shown, key } = await openChecksAndKeyNow();
+  const { checks: shown } = await openChecksAndKeyNow();
   const from = o.after ? shown.findIndex((c) => c.ref === o.after) + 1 : 0;
   if (from === 0 && o.after) {
     throw new Error(
       `No open check ${o.after}: the inbox changed, read it from the start.`
     );
   }
-  const version = versionOf(key);
+  // The list's own version, never the key's: under the lock a card can change under the same files' stamp (life#779).
+  const version = listVersionOf(shown);
   if (o.ifNot === version) {
     return unchangedOf(version);
   }

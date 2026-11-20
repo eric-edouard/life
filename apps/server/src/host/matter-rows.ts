@@ -31,7 +31,7 @@ async function readRows(
   return { ...answer, version: versionOf(JSON.stringify(answer)) };
 }
 
-/** The rows read for the checks' key `keptFor`, by the rest of their key (the query, the agents, the icon work ended). */
+/** The rows read for `keptFor` (the checks' key and the icon work ended: either moving drops them all), by the query and the agents. */
 let kept:
   | { keptFor: string; rows: Map<string, ReturnType<typeof readRows>> }
   | undefined;
@@ -49,9 +49,10 @@ export async function readMatterRowsNow(
   agentOf?: NonNullable<Parameters<typeof openMatters>[1]> & { stamp: string }
 ) {
   const { checks: open, key } = await openChecksAndKeyNow();
-  const rest = JSON.stringify([q, agentOf?.stamp ?? null, iconWorkEnded()]);
-  if (kept?.keptFor !== key) {
-    kept = { keptFor: key, rows: new Map() };
+  const keptFor = JSON.stringify([key, iconWorkEnded()]);
+  const rest = JSON.stringify([q, agentOf?.stamp ?? null]);
+  if (kept?.keptFor !== keptFor) {
+    kept = { keptFor, rows: new Map() };
   }
   const { rows } = kept;
   let read = rows.get(rest);
