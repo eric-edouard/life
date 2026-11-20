@@ -114,6 +114,13 @@ export const MatterDirectionBatch = z
   .strict();
 export type MatterDirectionBatch = z.infer<typeof MatterDirectionBatch>;
 
+/** His important mark on a matter, on or off, as pinned to its steps (`matter-important`): the latest for a matter wins. */
+export interface ImportantPin {
+  at: string;
+  important: boolean;
+  steps: readonly string[];
+}
+
 /** A direction as stored, pinned to the steps of its matter: Life's draft (a goal, and a next step or the records that show it over), or his word (`matter-direction`: either or both). */
 export interface DirectionPin {
   at: string;

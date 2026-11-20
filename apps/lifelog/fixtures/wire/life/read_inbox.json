@@ -37,6 +37,7 @@
       "onMatters": [
         {
           "id": "matter_aaaaaaaaaaaa",
+          "important": true,
           "name": "Mend Gran's watch"
         }
       ],
@@ -66,6 +67,7 @@
       "title": "Kit is waiting for the quote.",
       "matter": {
         "id": "matter_aaaaaaaaaaaa",
+        "important": true,
         "name": "Mend Gran's watch"
       },
       "confirm": [
@@ -362,6 +364,78 @@
       "urgency": "blocks"
     },
     {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "A later step seems to show it done.",
+      "deadline": null,
+      "draft": null,
+      "evidence": {
+        "from": "an earlier message",
+        "quote": "Called them."
+      },
+      "goal": null,
+      "group": "ending",
+      "kind": "ending",
+      "likelyPeople": [],
+      "links": [],
+      "notSent": null,
+      "onMatters": [
+        {
+          "id": "matter_aaaaaaaaaaaa",
+          "important": true,
+          "name": "Mend Gran's watch"
+        }
+      ],
+      "onSilence": null,
+      "options": [
+        {
+          "id": "outdated",
+          "label": "Yes, done",
+          "takes": null
+        },
+        {
+          "id": "false",
+          "label": "Not yet",
+          "takes": null
+        }
+      ],
+      "question": "Is this done?",
+      "ref": "obs_000000000005",
+      "ridesOn": {
+        "matterIds": ["matter_aaaaaaaaaaaa"],
+        "matters": 1,
+        "observations": 1,
+        "pages": 0
+      },
+      "said": {
+        "at": "2026-10-12",
+        "by": "Gran",
+        "channel": "whatsapp",
+        "text": "\"Call the shop\" said Gran",
+        "to": "Gran"
+      },
+      "since": {
+        "at": null,
+        "by": null,
+        "channel": null,
+        "text": "Called them.",
+        "to": null
+      },
+      "subject": null,
+      "title": "Close what is done",
+      "matter": {
+        "id": "matter_aaaaaaaaaaaa",
+        "important": true,
+        "name": "Mend Gran's watch"
+      },
+      "confirm": [],
+      "networkIdentity": null,
+      "pushId": "c84c34823f7fa7b0",
+      "urgency": "improves"
+    },
+    {
       "about": ["+33600000001"],
       "asker": "life",
       "at": null,
@@ -495,76 +569,6 @@
       "networkIdentity": null,
       "pushId": "47c2deda3a5b51cd",
       "urgency": "improves"
-    },
-    {
-      "about": [],
-      "asker": "life",
-      "at": null,
-      "clips": [],
-      "context": "A later step seems to show it done.",
-      "deadline": null,
-      "draft": null,
-      "evidence": {
-        "from": "an earlier message",
-        "quote": "Called them."
-      },
-      "goal": null,
-      "group": "ending",
-      "kind": "ending",
-      "likelyPeople": [],
-      "links": [],
-      "notSent": null,
-      "onMatters": [
-        {
-          "id": "matter_aaaaaaaaaaaa",
-          "name": "Mend Gran's watch"
-        }
-      ],
-      "onSilence": null,
-      "options": [
-        {
-          "id": "outdated",
-          "label": "Yes, done",
-          "takes": null
-        },
-        {
-          "id": "false",
-          "label": "Not yet",
-          "takes": null
-        }
-      ],
-      "question": "Is this done?",
-      "ref": "obs_000000000005",
-      "ridesOn": {
-        "matterIds": ["matter_aaaaaaaaaaaa"],
-        "matters": 1,
-        "observations": 1,
-        "pages": 0
-      },
-      "said": {
-        "at": "2026-10-12",
-        "by": "Gran",
-        "channel": "whatsapp",
-        "text": "\"Call the shop\" said Gran",
-        "to": "Gran"
-      },
-      "since": {
-        "at": null,
-        "by": null,
-        "channel": null,
-        "text": "Called them.",
-        "to": null
-      },
-      "subject": null,
-      "title": "Close what is done",
-      "matter": {
-        "id": "matter_aaaaaaaaaaaa",
-        "name": "Mend Gran's watch"
-      },
-      "confirm": [],
-      "networkIdentity": null,
-      "pushId": "c84c34823f7fa7b0",
-      "urgency": "improves"
     }
   ],
   "blocking": 4,
@@ -573,9 +577,9 @@
     "voice": 1,
     "name": 1,
     "contacts card": 1,
+    "ending": 1,
     "guessed person": 1,
-    "new matter": 1,
-    "ending": 1
+    "new matter": 1
   },
   "deadlinesToday": 0,
   "total": 7

@@ -290,7 +290,9 @@ outside the lock, schemaVersion 3, by `kind`:
   closing failed (or found nothing open on a step not ended). It closed the step or matter by his word (`endByHisWord`: its to-do items ticked,
   its observations by an `outdated` correction); nothing left open counts as ended. With none 31 minutes after his
   answer, it never ended (worked out when read).
-- `withdrawn` (`requestDecision`, by its asker): `id`, `at`, `why`.
+- `withdrawn` (`requestDecision`, by its asker; or `withdrawDraftsAnsweredInChat`, by Life, when he wrote in its draft's chat
+  himself since it was asked): `id`, `at`, `why`, and Life's `answeredInChatAt` (his message's instant, never its words;
+  the asker's own has none, and lines before it lack it).
 
 Where each stands is worked out when read (`decisionsNow`): open, answered, lapsed (its deadline passed) or withdrawn.
 The file also holds earlier versions' lines, kept and skipped for good: the old decisions page's (schemaVersion 1,
@@ -380,6 +382,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's episodes are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). An episode filed under the wrong person needs `wrong` on its `ep_` too |
 | `matter-direction` | `steps` (all of a matter's step ids, as `read_matter` lists them), `goal` and/or `nextStep` (`kind`, `text`, `waitsOn`) | His goal or next step for the matter those steps find (`directionsOf`): his goal wins over every draft; his next step until Life drafts again, once the matter has a step newer than his word |
 | `new-matter-dismissed` | `steps` (all of a matter's step ids when he answered) | His Dismiss on a new matter check: the matter those steps find (`matterFinderOf`, so a re-group keeps it) is never offered again |
+| `matter-important` | `steps` (all of a matter's step ids when he marked it), `important` (on or off) | His important mark on the matter those steps find (`importantIdsOf`; a re-group keeps it): the latest wins, read only while the matter is open; his token only, by the matter's id |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
@@ -649,7 +652,7 @@ brief, runtime, folder (named at its start, else its matter's or project's repo 
 runtime), current session and link, `status` `active`, `stopped`, `handed_over` (a stopped agent whose project or matter an agent was started on after: `ended_at` set, `outcome` "replaced by <id>"), or `ended`; `stopped_at` (when he stopped it; null unless stopped), its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an active agent with no
 `wait_until`), its notes; its open decision is read from `decisions.jsonl` by its id), `session` (every session it had, with its link and `context_at_first_call`, the context its first turn's usage reported; append-only), `event` (its
-queued events, one row per agent and event id, `name` `message.received`, `decision.answered`, `decision.lapsed` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
+queued events, one row per agent and event id, `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
 cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update), `anchor` (an agent's matter steps, in order), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
 `cursor` (where the message, answer and ask reads stopped). Never deleted by hand.

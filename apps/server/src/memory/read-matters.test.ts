@@ -10,6 +10,8 @@ import {
   needsYouOf,
   oneMatter,
   openMatters,
+  projectOf,
+  readMatterProjectIds,
 } from "./read-matters";
 import { knownTestOf } from "./ref-kinds";
 
@@ -88,6 +90,7 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     nameOf: (r: string) => r.replace("person:", ""),
     truth: {
       areas: [],
+      me: { goals: "1. Open the shop by May (`shop-fit-out`).", text: "" },
       projects: [
         { id: "shop-fit-out", name: "Shop fit-out", status: "active" },
       ],
@@ -125,15 +128,23 @@ test("read_matters lists the open matters, of one project when asked; read_matte
         owedTo: ["gran"],
         with: ["partner"],
       },
+      project: { id: "shop-fit-out", name: "Shop fit-out", status: "active" },
       projects: ["Shop fit-out"],
       status: "moving",
     };
     // Empty fields are left out of the JSON a model reads.
     expect(JSON.parse(JSON.stringify(all[0]))).toEqual(row);
     expect(all[1]?.people?.waitingOn).toEqual(["shop"]);
-    expect(
-      (await openMatters({ project: "Shop fit-out" })).matters.map((m) => m.id)
-    ).toEqual(["matter_aaaaaaaaaaaa"]);
+    const page = await openMatters({ project: "Shop fit-out" });
+    expect(page.matters.map((m) => m.id)).toEqual(["matter_aaaaaaaaaaaa"]);
+    // Its page's head: the first of his goals naming it, in his words; underway, no parked count.
+    expect(JSON.parse(JSON.stringify(page.project))).toEqual({
+      goal: "Open the shop by May.",
+      id: "shop-fit-out",
+      name: "Shop fit-out",
+      status: "active",
+    });
+    expect((await openMatters({})).project).toBeUndefined();
     await expect(openMatters({ project: "Nowhere" })).rejects.toThrow(
       "No project goes by that name."
     );
@@ -149,6 +160,11 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     expect(await oneMatter(["obs_000000000005"])).toEqual(one);
     expect(await oneMatter(["obs_gone", "obs_000000000005"])).toEqual(one);
     expect(await oneMatter(["matter_zzzzzzzzzzzz"])).toBeUndefined();
+    // The packet reads the matter's projects by id (the row names them).
+    expect(await readMatterProjectIds(["obs_000000000005"])).toEqual([
+      "shop-fit-out",
+    ]);
+    expect(await readMatterProjectIds(["matter_zzzzzzzzzzzz"])).toEqual([]);
     // Host's agents on it and its active agent, given the matter's steps.
     expect(
       (
@@ -323,9 +339,16 @@ test("a matter is parked when it has projects and none is underway; one with no 
   expect(isParked({ projects: ["shop", "farm"] })).toBe(true);
   expect(isParked({ projects: ["shop", "bakery"] })).toBe(false);
   expect(isParked({ projects: [] })).toBe(false);
+  // One project his directory does not hold: the matter shows under the one it does (`projectOf`), parked.
+  expect(isParked({ projects: ["ghost", "shop"] })).toBe(true);
+  expect(isParked({ projects: ["ghost"] })).toBe(false);
+  // It shows under the one underway, else its first.
+  expect(projectOf(truth)({ projects: ["shop", "bakery"] })?.id).toBe("bakery");
+  expect(projectOf(truth)({ projects: ["farm", "shop"] })?.id).toBe("farm");
+  expect(projectOf(truth)({ projects: ["ghost"] })).toBeUndefined();
 });
 
-test("a matter of a parked project ranks after every other, each half keeping its order", async () => {
+test("a matter he marked important comes first, with no open step too; its parked project still sinks it, first of the parked; a parked project's page counts its matters that wait", async () => {
   const who = await import("./who");
   const matters = await import("./matters");
   const items = await import("./read-open-items");
@@ -359,23 +382,48 @@ test("a matter of a parked project ranks after every other, each half keeping it
     nameOf: (r: string) => r,
     truth: {
       areas: [],
+      me: { text: "" },
       projects: [
         { id: "shop", name: "Shop", status: "parked" },
         { id: "farm", name: "Farm", status: "active" },
       ],
     },
   } as never);
+  const marked = (v: ReturnType<typeof view>) => ({ ...v, important: true });
   const book = spyOn(matters, "readMatterBook").mockResolvedValue([
     view("newest-parked", ["shop"], "2026-10-12"),
     view("plain", [], "2026-10-11"),
     view("mixed", ["shop", "farm"], "2026-10-10"),
+    marked(view("marked-parked", ["shop"], "2026-10-09")),
+    {
+      ...marked(view("marked-quiet", [], "2026-10-08")),
+      newestOpenStep: undefined,
+    },
   ] as never);
   try {
-    expect((await openMatters({})).matters.map((m) => m.id)).toEqual([
+    const all = (await openMatters({})).matters;
+    expect(all.map((m) => m.id)).toEqual([
+      "marked-quiet",
       "plain",
       "mixed",
+      "marked-parked",
       "newest-parked",
     ]);
+    expect(all.map((m) => [m.important, m.project?.id])).toEqual([
+      [true, undefined],
+      [undefined, undefined],
+      [undefined, "farm"],
+      [true, "shop"],
+      [undefined, "shop"],
+    ]);
+    // "Its 2 matters wait": the mixed one is under the farm, underway.
+    expect((await openMatters({ project: "shop" })).project).toEqual({
+      goal: undefined,
+      id: "shop",
+      name: "Shop",
+      parkedMatters: 2,
+      status: "parked",
+    });
   } finally {
     people.mockRestore();
     book.mockRestore();

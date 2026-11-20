@@ -1,4 +1,4 @@
-import { isUnderway } from "../records/truth";
+import { isUnderway, type Project } from "../records/truth";
 import { communicationStylesOf } from "./communication-styles";
 import { decisionsNow } from "./decisions";
 import type { AgentHold } from "./held-matters";
@@ -14,6 +14,7 @@ import {
 import { readMatterBook, readMatterBookAndRecords } from "./matters";
 import { readDismissedMatterPins } from "./memory-files";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
+import { goalsOf } from "./read-truth";
 import { meant, type People, readPeople } from "./who";
 import { dayNow } from "./zones";
 
@@ -38,6 +39,8 @@ export interface MatterRow {
   areas?: string[];
   goal?: { by: "life" | "owner"; text: string };
   id: string;
+  /** Marked important by his word (`MatterView.important`); left out when not. */
+  important?: true;
   lastStepAt?: string;
   name: string;
   newestOpenStep?: { day: string; text: string };
@@ -47,9 +50,14 @@ export interface MatterRow {
   >;
   /** The people by role, by their names as read now (`read_person_page` takes a name). */
   people?: Partial<Record<Role, string[]>>;
+  /** The project it shows under (`projectOf`), its status as stored (the app shows active and waiting as underway). */
+  project?: MatterProject;
   projects?: string[];
   status: MatterView["status"];
 }
+
+/** A matter's project as the readers give it: its id, name and status as stored in his directory. */
+type MatterProject = Pick<Project, "id" | "name" | "status">;
 
 /** The decisions he has not answered yet, for `nextStepNow`. */
 const openDecisions = () => decisionsNow().filter((d) => d.state === "open");
@@ -66,6 +74,7 @@ function rowOf(
   { nameOf, truth }: Pick<People, "nameOf" | "truth">,
   decisions: ReturnType<typeof openDecisions>
 ): MatterRow {
+  const project = projectOf(truth)(v);
   const next = nextStepNow(v, decisions);
   const people = Object.fromEntries(
     ROLES.flatMap((role) =>
@@ -76,6 +85,7 @@ function rowOf(
     areas: some(v.areas.map((id) => nameIn(truth.areas, id))),
     goal: v.goal && { by: v.goal.by, text: v.goal.text },
     id: v.id,
+    important: v.important || undefined,
     lastStepAt: v.steps.at(-1)?.at,
     name: v.name,
     newestOpenStep: v.newestOpenStep && {
@@ -89,6 +99,11 @@ function rowOf(
       waitsOn: next.waitsOn,
     },
     people: Object.keys(people).length > 0 ? people : undefined,
+    project: project && {
+      id: project.id,
+      name: project.name,
+      status: project.status,
+    },
     projects: some(v.projects.map((id) => nameIn(truth.projects, id))),
     status: v.status,
   };
@@ -155,6 +170,7 @@ async function rankedRunning<R extends { book: MatterView[] }>(
     ...r,
     decisions: openDecisions(),
     people,
+    project,
     // A matter of a parked or done project ranks after every other: a stable partition.
     ranked: [
       ...ranked.filter((v) => !isParked(v)),
@@ -166,6 +182,8 @@ async function rankedRunning<R extends { book: MatterView[] }>(
 /**
  * The running matters, ranked as `read_day`'s Due (those with no open step last), of one `person`, `project` or `area` when given: each
  * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one anchored on the matter, else the one holding one of its projects). Throws when a person, project or area named goes by no name known.
+ * Of one project, its page's head too (`project`): its name, status as stored, the first of his goals naming it, and, when it is not
+ * underway, how many of its matters are parked (`parkedMatters`, `isParkedMatterOf`).
  */
 export async function openMatters(
   q: {
@@ -176,13 +194,28 @@ export async function openMatters(
   agentOf: (steps: string[], projects: string[]) => string | undefined = () =>
     undefined
 ) {
-  const { decisions, people, ranked } = await rankedRunning(
+  const { decisions, people, project, ranked } = await rankedRunning(
     q,
     async (p, t) => ({
       book: await readMatterBook(p, t),
     })
   );
+  const { truth } = people;
+  const head = truth.projects.find((x) => x.id === project);
+  const isParked = isParkedMatterOf(truth);
   return {
+    ...(head && {
+      project: {
+        goal: goalsOf(truth.me.goals).find((g) => g.projects.includes(head.id))
+          ?.text,
+        id: head.id,
+        name: head.name,
+        parkedMatters: isUnderway(head)
+          ? undefined
+          : ranked.filter(isParked).length,
+        status: head.status,
+      },
+    }),
     matters: ranked.map((v) => ({
       ...rowOf(v, people, decisions),
       agent: agentOf(refsOf(v), v.projects),
@@ -207,15 +240,24 @@ const knownPeopleOf = (
 ) =>
   matterPeopleOf(v).filter((r) => r.startsWith("person:") && isKnownToHim(r));
 
-/** Whether a matter is of a parked or done project: it has projects and none is underway (`isUnderway`, in his directory); one with no project, or one project underway, is not. */
-export const isParkedMatterOf =
+/** The project a matter shows under: of its projects in his directory, the first underway (`isUnderway`), else the first; none when his directory holds none of them. */
+export const projectOf =
   ({ projects }: Pick<People["truth"], "projects">) =>
-  (v: Pick<MatterView, "projects">) =>
-    v.projects.length > 0 &&
-    v.projects.every((id) => {
-      const p = projects.find((x) => x.id === id);
-      return p !== undefined && !isUnderway(p);
-    });
+  (v: Pick<MatterView, "projects">) => {
+    const known = v.projects.flatMap(
+      (id) => projects.find((x) => x.id === id) ?? []
+    );
+    return known.find(isUnderway) ?? known[0];
+  };
+
+/** Whether a matter is of a parked or done project: the project it shows under (`projectOf`) is not underway; one with no project in his directory, or one project underway, is not. */
+export const isParkedMatterOf = (truth: Pick<People["truth"], "projects">) => {
+  const of = projectOf(truth);
+  return (v: Pick<MatterView, "projects">) => {
+    const p = of(v);
+    return p !== undefined && !isUnderway(p);
+  };
+};
 
 const ids = (list: readonly { id: string }[]) => new Set(list.map((v) => v.id));
 
@@ -309,6 +351,11 @@ export async function readHandOutMatters(
     matters: ranked,
   };
 }
+
+/** The ids of the projects of the matter `refs` find (`matterOfSteps`); none when no matter holds them. The row names them, so a reader that needs the ids (the packet) asks here. */
+export const readMatterProjectIds = async (refs: readonly string[]) =>
+  matterOfSteps(await readMatterBook(await readPeople(), dayNow()), refs)
+    ?.projects ?? [];
 
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an

@@ -275,4 +275,23 @@ test("Life's card pushes: one card names its id and can be rewritten, a badge al
   );
   expect(refused).toEqual([400, 400, 400, 400, 400]);
   expect(sent).toHaveLength(3);
+  // Cards that left his inbox: alone, a background push the phone removes their notifications on.
+  expect((await post({ removed: [pushId] })).status).toBe(200);
+  expect(last()).toEqual({
+    aps: { "content-available": 1 },
+    removed: [pushId],
+  });
+  expect(sent.at(-1)?.request.headers).toMatchObject({
+    "apns-priority": "5",
+    "apns-push-type": "background",
+  });
+  const mixed = await Promise.all(
+    [
+      { badge: 1, removed: [pushId] },
+      { removed: [] },
+      { removed: ["Kit's card"] },
+    ].map(async (bad) => (await post(bad)).status)
+  );
+  expect(mixed).toEqual([400, 400, 400]);
+  expect(sent).toHaveLength(4);
 });

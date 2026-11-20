@@ -40,6 +40,7 @@ const ask = (
   more: {
     day?: string;
     deadline?: string;
+    important?: boolean;
     matter?: string;
     matterIds?: string[];
     matters?: number;
@@ -50,7 +51,7 @@ const ask = (
     day: more.day ?? "2026-11-01",
     deadline: more.deadline ?? null,
     group,
-    matter: more.matter ? { id: more.matter } : null,
+    matter: more.matter ? { id: more.matter, important: more.important } : null,
     ref,
     ridesOn: {
       matterIds: more.matterIds ?? [],
@@ -97,4 +98,15 @@ test("the order: deadlines soonest first, decisions oldest first, unnamed asks b
     "offer-on-m1",
     "ending",
   ]);
+});
+
+// His important mark (20 Nov 2026): a marked matter's asks come first in their tier, before deadlines; what blocks stays first.
+test("a marked matter's asks lead their tier, before a sooner deadline; what blocks still comes before what improves", () => {
+  const order = inboxOrderOf([
+    ask("due-soon", "decision", { deadline: "2026-11-07" }),
+    ask("offer-marked", "new matter", { important: true, matter: "m2" }),
+    ask("marked", "decision", { important: true, matter: "m1" }),
+    ask("unmarked", "decision", { matter: "m3" }),
+  ]).map((c: { ref: string }) => c.ref);
+  expect(order).toEqual(["marked", "due-soon", "unmarked", "offer-marked"]);
 });
