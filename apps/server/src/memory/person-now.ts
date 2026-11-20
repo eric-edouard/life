@@ -157,11 +157,11 @@ export function reachPageOf(all: Reach[], skip: number, subject: string) {
   }
   // Cut the title by what the page is over (whole characters, never half a pair), measured again after each cut: an
   // escaped character can weigh more than one. A page over with no title left is as small as it gets.
-  let cut = 0;
+  let trim = 0;
   let page = pageOf(n);
   while (size(page) > PART_CHARS && page.reach[0]?.accounts[0]?.title) {
-    cut += size(page) - PART_CHARS;
-    page = pageOf(n, cut);
+    trim += size(page) - PART_CHARS;
+    page = pageOf(n, trim);
   }
   return page;
 }
