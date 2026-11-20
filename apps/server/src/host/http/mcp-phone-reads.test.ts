@@ -428,6 +428,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
       }))
     ),
     spyOn(who, "readPeople").mockResolvedValue({
+      isGuess: () => false,
       nameOf: (r: string) => r.replace("person:", ""),
       truth: {
         areas: [],
