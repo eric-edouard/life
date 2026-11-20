@@ -69,6 +69,8 @@ interface ListenLine {
   /** The filter's `person` as the agent wrote it, always beside `party`: the words to show when it no longer resolves. */
   personAsWritten?: string;
   quantity?: string;
+  /** The GitHub repo an event channel's line is limited to, `owner/name` or `owner/*`. */
+  repo?: string;
   words?: string;
 }
 
@@ -85,7 +87,10 @@ export type WakeLine = AnswerLine | ListenLine;
 /** What `wakesOnOf` reads besides the filters: the event channels, who people are, the chats the agent has heard from, its open card and whether it has a wide net. */
 export interface WakesOnContext {
   card?: { check: string; deadline: string; question: string };
-  channels: Pick<EventChannel, "hasPoint" | "name" | "quantities">[];
+  channels: Pick<
+    EventChannel,
+    "hasPoint" | "hasRepo" | "name" | "quantities"
+  >[];
   hasNet: boolean;
   people: People;
   seen: AgentRead["chatsSeen"];
@@ -114,11 +119,11 @@ const placeOf = ({ latitude, longitude, radius_m }: EventFilter) =>
     ? undefined
     : { latitude, longitude, radius_m: radius_m ?? DEFAULT_RADIUS_M };
 
-/** The message line of `f` (its messages, and calls when it covers them), none when `f` stops every message (a `quantity`, a place, or only event channels). */
+/** The message line of `f` (its messages, and calls when it covers them), none when `f` stops every message (a `quantity`, a place, a `repo`, or only event channels). */
 function messageLineOf(f: EventFilter, c: WakesOnContext): ListenLine[] {
   const { channels, people } = c;
   const apps = f.channels?.filter((n) => !channels.some((x) => x.name === n));
-  if (f.quantity || placeOf(f) || apps?.length === 0) {
+  if (f.quantity || f.repo || placeOf(f) || apps?.length === 0) {
     return [];
   }
   const known = f.person ? meant(f.person, people).known : undefined;
@@ -153,13 +158,15 @@ function eventLinesOf(
       (x) =>
         f.channels?.includes(x.name) &&
         (!f.quantity || x.quantities.includes(f.quantity)) &&
-        (!near || x.hasPoint)
+        (!near || x.hasPoint) &&
+        Boolean(f.repo) === x.hasRepo
     )
     .map((x) => ({
       ...(f.quantity ? { quantity: f.quantity } : {}),
       ...(f.quantity && f.above !== undefined ? { above: f.above } : {}),
       ...(f.quantity && f.below !== undefined ? { below: f.below } : {}),
       kind: x.name,
+      ...(f.repo ? { repo: f.repo } : {}),
       ...(near ? { near } : {}),
       ...(f.text_matches ? { words: f.text_matches } : {}),
     }));
