@@ -177,9 +177,12 @@ and the feed show it with the switches):
   feed and Life read it the same. Why these models: `docs/research/transcription-bench.md`; the router's numbers: `bench context` (`apps/stt-bench`).
 
 A job keeps the transcriber it was sent with (`transcription_jobs.transcriber`). The service busy, the block is
-queued again (not an attempt); down, failing or past its 120 s wait (504), it is an attempt, and the third goes to Scribe whole, so nothing
-loops. One cut off by a restart goes again after 10 minutes, unless its routed turns had left for Scribe: those may
-be billed, so it fails. Its `billableSeconds` are Scribe's price of the seconds it heard. Without `IDENTITY_URL` set,
+queued again (not an attempt); down, failing or past its 120 s wait (504), it is an attempt, and the third goes to Scribe whole, its attempts going on (three sends in all), so nothing
+loops. Its routed turns, or the whole block, wait for a Scribe slot (`scribe-slots.ts`) for what is left of its 10 minutes since its
+claim, its audio's read included, less a minute, so reconcile never takes a live wait for a restart; no slot in time, the block is
+queued again, not an attempt. At the slot the switch, the credits and the quiet ranges are checked again, and the POST
+restarts the block's clock (`request_sent_at`). One cut off by a restart goes again after 10 minutes, unless its routed turns had left for Scribe: those may
+be billed, so it fails, holding its slot until then. Its `billableSeconds` are Scribe's price of the seconds it heard. Without `IDENTITY_URL` set,
 `speech` still sends to Scribe, and so does Host with "Recognize speakers by their voice" off: that toggle runs
 the whole speech service, transcription included. ElevenLabs credits used up, Scribe's jobs wait queued, but the speech service
 still hears every block: one with only English and French completes; one that needs Scribe waits for the credits,
@@ -199,8 +202,9 @@ rather than sent as a job. The answer is its words, nothing is stored of the aud
 turn comes of it. Before the Scribe send the note's key is claimed in `voice_note_hearings` with the Mac's words: done,
 it answers its words again; a send under way (5 minutes) answers 503; a claim older than that (a lost answer, a
 restart) answers the Mac's words and is never sent again; Scribe taking nothing now (`later`) drops the claim. The
-switch off, the speech service busy or down, or the credits used up for a note that needs Scribe: 503, and Life asks
-again later. Its token is Life's corrections token.
+switch off, the speech service busy or down, the credits used up for a note that needs Scribe, or no Scribe slot free
+at once (Life waits 180 s, mostly for the speech service): 503, nothing claimed, and Life asks again later. The note keeps
+its slot until its words are stored or its claim dropped; Life hanging up stops it at the speech service and before Scribe. Its token is Life's corrections token.
 
 ### No limits
 

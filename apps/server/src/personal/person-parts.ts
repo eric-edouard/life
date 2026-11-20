@@ -238,8 +238,9 @@ export function personalParts(): PersonalParts {
   };
 }
 
-/** A person's read as the connector and the command give it: the core parts, and those of the add-ons that are on. */
+/** A person's read as the connector and the command give it: the core parts, those of the add-ons that are on, and the matter rows host reads (`matters`). */
 export const readPerson = (
-  name?: string,
-  o: { before?: string; byId?: boolean; part?: string; span?: string } = {}
-) => person(name, o, personalParts());
+  name: string | undefined,
+  o: Parameters<typeof person>[1],
+  matters: Parameters<typeof person>[3]
+) => person(name, o, personalParts(), matters);

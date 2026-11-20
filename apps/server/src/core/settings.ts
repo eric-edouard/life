@@ -98,8 +98,9 @@ export const Settings = z
      * only while fewer than `cardsWaiting` agent cards wait for him and fewer than `aDay` started on his day; absent means off.
      * `agentPostRepos`: the GitHub repos (`owner/name`) where an agent of his own Life may comment, open an issue or review
      * by itself, each post ending with `AGENT_POST_SIGNATURE` (`desk/send-guard.ts`); absent means none.
-     * `agentsRepo`: his agents' git repo (an absolute path): each assignment's notes file, under `assignments/`; absent,
-     * the notes files live under the desk's own folders and nothing is committed.
+     * `agentsRepo`: his agents' git repo (an absolute path): each assignment's notes file, under `assignments/`, and each
+     * agent's home, committed by the desk after each turn; absent, the notes files live under the desk's own folders and
+     * nothing is committed.
      */
     desk: z
       .object({

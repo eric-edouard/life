@@ -17,7 +17,7 @@ import { AgentChange, type OpenedBy } from "../records/registered-agent";
 import {
   register,
   stopOpenRun,
-  withdrawOpenDecision,
+  withdrawOpenCards,
   writeSubject,
 } from "./agent-actions";
 import { closeAssignmentRow, type Desk, saveCursor } from "./desk-store";
@@ -242,7 +242,8 @@ export async function applyAgentChanges(desk: Desk) {
     if ("id" in r && (ask.agentChange as AgentChange).action === "stop") {
       // His stop ends the turn under way too (his yes of 20 Nov 2026): its run is stopped, the turn closes `failed`.
       await stopOpenRun(desk, r.id);
-      await withdrawOpenDecision(
+      await withdrawOpenCards(
+        db,
         { agent_id: r.id },
         "he stopped its agent"
       ).catch((e: Error) =>

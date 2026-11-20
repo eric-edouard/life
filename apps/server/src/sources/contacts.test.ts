@@ -18,6 +18,8 @@ interface Made {
   company?: string;
   first?: string;
   handles: string[];
+  /** Contacts' label of a handle, by the handle. */
+  labels?: Record<string, string>;
   last?: string;
   title?: string;
 }
@@ -33,8 +35,12 @@ function make(
   db.run(
     "create table ZABCDRECORD (Z_PK integer primary key, ZFIRSTNAME text, ZLASTNAME text, ZORGANIZATION text, ZJOBTITLE text, ZDEPARTMENT text, ZBIRTHDAY real, ZBIRTHDAYYEAR integer, ZUNIQUEID text)"
   );
-  db.run("create table ZABCDPHONENUMBER (ZOWNER integer, ZFULLNUMBER text)");
-  db.run("create table ZABCDEMAILADDRESS (ZOWNER integer, ZADDRESS text)");
+  db.run(
+    "create table ZABCDPHONENUMBER (ZOWNER integer, ZFULLNUMBER text, ZLABEL text)"
+  );
+  db.run(
+    "create table ZABCDEMAILADDRESS (ZOWNER integer, ZADDRESS text, ZLABEL text)"
+  );
   db.run(
     "create table ZABCDPOSTALADDRESS (ZOWNER integer, ZSTREET text, ZZIPCODE text, ZCITY text, ZCOUNTRYNAME text, ZLABEL text)"
   );
@@ -59,9 +65,9 @@ function make(
     for (const h of r.handles) {
       db.run(
         h.includes("@")
-          ? "insert into ZABCDEMAILADDRESS values (?, ?)"
-          : "insert into ZABCDPHONENUMBER values (?, ?)",
-        [i + 1, h]
+          ? "insert into ZABCDEMAILADDRESS values (?, ?, ?)"
+          : "insert into ZABCDPHONENUMBER values (?, ?, ?)",
+        [i + 1, h, r.labels?.[h] ?? null]
       );
     }
   }
@@ -125,7 +131,7 @@ test("Contacts read: names from the Mac's and each account's database, a person'
   expect(readContacts(join(dir, "none")).size).toBe(0);
 });
 
-test("Contacts records: read whole (work, birthday, addresses, family, profiles); one with no handle is left out", () => {
+test("Contacts records: read whole (work, birthday, addresses, family, profiles, the labels of phones and mails); one with no handle is left out", () => {
   const dir = mkdtempSync(join(tmpdir(), "ab-"));
   make(
     join(dir, "AddressBook-v22.abcddb"),
@@ -136,6 +142,11 @@ test("Contacts records: read whole (work, birthday, addresses, family, profiles)
         first: "Claire",
         // A phone app's invisible direction marks around the number.
         handles: ["\u202d+33 6 11 11 11 11\u202c", "claire@example.com"],
+        // A label Contacts names, and one he typed.
+        labels: {
+          "\u202d+33 6 11 11 11 11\u202c": "_$!<Mobile>!$_",
+          "claire@example.com": "Studio",
+        },
         title: "Designer",
       },
       { first: "Nobody", handles: [] },
@@ -165,6 +176,7 @@ test("Contacts records: read whole (work, birthday, addresses, family, profiles)
       birthday: "1990-01-05",
       handles: ["+33 6 11 11 11 11", "claire@example.com"],
       id: "card-1",
+      labels: { "+33 6 11 11 11 11": "Mobile", "claire@example.com": "Studio" },
       name: "Claire",
       profiles: ["Facebook: claire.d", "https://claire.example"],
       related: ["Mother: Anne"],

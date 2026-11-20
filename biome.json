@@ -27,7 +27,6 @@
     {
       "includes": [
         "apps/lifelog/apps/server/src/jobs.test.ts",
-        "apps/lifelog/apps/server/src/jobs.ts",
         "apps/lifelog/apps/server/src/people.test.ts",
         "apps/lifelog/apps/server/src/people.ts",
         "apps/lifelog/packages/db/src/schema/index.ts",

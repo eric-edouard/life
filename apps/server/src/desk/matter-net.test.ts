@@ -17,14 +17,18 @@ import { CORRECTIONS, recordCorrection } from "../memory/memory-files";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { openAssignment, register } from "./agent-actions";
+import { pollMessages, readPeopleOnce, tick } from "./desk-clock";
 import {
-  pollMessages,
+  closeAssignmentRow,
+  type Desk,
+  openDesk,
+  writeWait,
+} from "./desk-store";
+import {
+  endOutcomeOf,
+  MATTER_DONE_OUTCOME,
   pollRecordings,
-  readPeopleOnce,
-  tick,
-} from "./desk-clock";
-import { type Desk, openDesk, writeWait } from "./desk-store";
-import { endOutcomeOf, MATTER_DONE_OUTCOME } from "./matter-net";
+} from "./matter-net";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { asgOf } from "./test-desk";
 
@@ -391,4 +395,66 @@ test("a poll with nothing changed does not read the matter book again", async ()
   setSystemTime(new Date(T0 + MIN));
   await tick(desk);
   expect(book).toHaveBeenCalledTimes(1);
+});
+
+test("one agent's two assignments on the matter a message relates to: one wake, for the first opened", async () => {
+  await mocked();
+  const { agent, desk, write } = setup();
+  const second = openAssignment(desk, agent, {
+    openedBy: "owner",
+    steps: [STEP],
+  });
+  await pollMessages(desk, readPeopleOnce());
+  const fromAna = write("Test Ana", "ok");
+  await pollMessages(desk, readPeopleOnce());
+  expect(
+    queuedEvents(desk.db, asgOf(desk, agent)).map((e) => e.event_id)
+  ).toEqual([fromAna]);
+  expect(queuedEvents(desk.db, second)).toEqual([]);
+});
+
+// Regression: the recordings' read mark lives in the process; read again after a restart, a recording whose first
+// assignment had closed went to the agent's other assignment on the matter.
+test("a recording read again after a restart, the assignment it woke closed, wakes no other assignment of its agent", async () => {
+  await mocked();
+  const words = await import("../memory/words");
+  const memoryFiles = await import("../memory/memory-files");
+  const { agent, desk } = setup(fakeEmbedder([]));
+  openAssignment(desk, agent, { openedBy: "owner", steps: [STEP] });
+  const at = new Date(T0 + 10 * MIN).toISOString();
+  const said = "I still have to get the pickup day for the beads from the shop";
+  spies.push(
+    spyOn(memoryFiles, "readUnitsOf").mockImplementation(() => [
+      {
+        end: at,
+        hash: at,
+        id: "unit_00000000e002",
+        source: "lifelog",
+      } as unknown as Unit,
+    ]),
+    spyOn(words, "spokenLines").mockImplementation(() =>
+      Promise.resolve(
+        new Map([
+          [
+            "unit_00000000e002",
+            [{ at, ref: at, speaker: "person:me", text: said }],
+          ],
+        ])
+      )
+    )
+  );
+  setSystemTime(new Date(T0 + 11 * MIN));
+  await pollRecordings(desk, readPeopleOnce());
+  const queued = desk.db
+    .query<{ assignment_id: string }, []>("select assignment_id from event")
+    .all();
+  expect(queued).toHaveLength(1);
+  closeAssignmentRow(desk.db, queued[0]?.assignment_id ?? "", {
+    outcome: "test",
+  });
+  desk.db = openDesk(desk.db.filename);
+  await pollRecordings(desk, readPeopleOnce());
+  expect(desk.db.query("select assignment_id from event").all()).toEqual(
+    queued
+  );
 });

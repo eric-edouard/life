@@ -1,11 +1,10 @@
-import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { countRows, MIGRATIONS } from "@lifelog/db";
 import {
   conversations,
   events,
-  heartbeats,
   macWatch,
   people,
   quietRanges,
@@ -15,179 +14,53 @@ import {
   turns,
 } from "@lifelog/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { phoneNudger, storePushToken } from "./apns";
 import { createApp } from "./app";
-import { pendantOggOpus } from "./audio";
-import { blockKey, memoryAudioStore } from "./audio-store";
+import { memoryAudioStore } from "./audio-store";
 import { sha256Hex } from "./config";
-import { admit, bought, storeFragment } from "./cutter";
+import { admit, bought } from "./cutter";
 import { idle } from "./dictation";
 import { PARSER_VERSION } from "./elevenlabs";
+import { jobBench } from "./job-bench";
 import { getJob, jobWorker } from "./jobs";
-import { askForUploads, latency, spread } from "./latency";
+import { latency, spread } from "./latency";
 import { macSocket, vouchedThrough } from "./mac-socket";
 import { services } from "./services";
 import { setSwitches } from "./switches";
 import {
-  fakeElevenLabs,
-  fakeSpeechService,
-  OWNER_TOKEN,
-  oggOpus,
   providerTranscript,
   seedTranscript,
   signature,
   testConfig,
-  testDb,
 } from "./testing";
 import { rebuildTurns } from "./turns";
 import { blockKeyterms } from "./vocabulary";
 
-const fake = fakeElevenLabs();
-const baseUrl = `http://localhost:${fake.server.port}`;
-const speech = fakeSpeechService();
-const withSpeech = {
-  IDENTITY_SECRET: "speech-test-secret",
-  IDENTITY_URL: `http://localhost:${speech.server.port}`,
-};
-let env: Awaited<ReturnType<typeof testDb>>;
-
-beforeAll(() => {
-  env = testDb();
-});
-afterAll(() => {
-  env.drop();
-  fake.server.stop(true);
-  speech.server.stop(true);
-});
-const accept = () =>
-  Response.json(
-    {
-      message: "ok",
-      request_id: `req_${randomUUID()}`,
-      transcription_id: `tr_${randomUUID()}`,
-    },
-    { status: 202 }
-  );
-beforeEach(() => {
-  env.reset();
-  fake.calls.length = 0;
-  fake.respond = accept;
-  speech.blocks = 0;
-  speech.busy = false;
-  speech.failing = false;
-  speech.meanwhile = () => undefined;
-});
-
-// The app with its own bucket and worker; `s.worker.work()` waits for what it sends.
-const appWith = (
-  overrides: Record<string, string | undefined> = {},
-  bucket = memoryAudioStore()
-) => {
-  const s = services(testConfig(baseUrl, overrides), env.db, {
-    audio: bucket,
-  });
-  return Object.assign(createApp(s), { audio: bucket, s });
-};
-// The audio of the last upload ElevenLabs got.
-const sentAudio = () => {
-  const file = uploads().at(-1)?.form?.get("file");
-  return file instanceof Blob ? file.bytes() : null;
-};
-type App = ReturnType<typeof appWith>;
-const auth = { Authorization: `Bearer ${OWNER_TOKEN}` };
-// What was sent to be transcribed (the usage summary posts a query too).
-const uploads = () =>
-  fake.calls.filter(
-    (c) => c.method === "POST" && c.path.endsWith("/speech-to-text")
-  );
-const jobRow = (id: string) => {
-  const job = getJob(env.db, id);
-  if (!job) {
-    throw new Error(`no job ${id}`);
-  }
-  return job;
-};
-const due = (id: string) =>
-  env.db.run(
-    sql`update transcription_jobs set next_attempt_at = ${Date.now() - 1000} where id = ${id}`
-  );
-
-function audio(seconds = 600) {
-  const data = oggOpus(seconds);
-  return { data, seconds, sha: sha256Hex(data) };
-}
-
-const T0 = Date.parse("2026-10-12T10:00:00Z");
-const SOURCE = "pendant-1";
-
-// `a` as the phone sends speech: one fragment of pages `firstPage`…+9, its audio a minute a page
-// from T0 (page 1) unless `segments` say. Its row, or why it wasn't kept.
-function keep(
-  app: App,
-  a: ReturnType<typeof audio>,
-  firstPage: number,
-  segments?: [number, number][]
-) {
-  const start = T0 + (firstPage - 1) * 60_000;
-  const map = {
-    segments: segments ?? [[start, start + a.seconds * 1000]],
-    separatorMs: 400,
-  };
-  const pages: [number, number][] = [[firstPage, firstPage + 9]];
-  const upload = { audioSha256: a.sha, map, pages, sourceId: SOURCE };
-  return storeFragment(env.db, app.audio, upload, a.data);
-}
-
-// The job of that fragment alone, admitted as the cutter does but with its audio as it is (the
-// cutter's join needs real Opus packets: cutter.test.ts). Queued: `worker.work()` sends it.
-async function admitFragment(...args: Parameters<typeof keep>) {
-  const [app, a] = args;
-  const fragment = await keep(...args);
-  if (typeof fragment === "string") {
-    throw new Error(fragment);
-  }
-  if (fragment.jobId) {
-    return fragment.jobId;
-  }
-  const objectKey = blockKey(SOURCE, fragment.pages[0]?.[0] ?? 0, a.sha);
-  await app.audio.put(objectKey, a.data);
-  await app.audio.delete(fragment.objectKey ?? "");
-  const settings = { keyterms: blockKeyterms(env.db) };
-  const job = admit(
-    env.db,
-    {
-      ...fragment,
-      endedOnSilence: true,
-      objectKey,
-      preparedDurationSeconds: a.seconds,
-      settings: { ...settings, languageCode: null, numSpeakers: null },
-    },
-    [fragment.id]
-  );
-  return job.id;
-}
-
-const deliver = (app: App, payload: unknown) => {
-  const body = JSON.stringify(payload);
-  return app.request("/webhooks/elevenlabs", {
-    body,
-    headers: { "ElevenLabs-Signature": signature(body) },
-    method: "POST",
-  });
-};
-
-const completeByWebhook = (
-  app: App,
-  job: { id: string; providerRequestId: string | null }
-) =>
-  deliver(app, {
-    data: {
-      request_id: job.providerRequestId,
-      transcription: providerTranscript,
-      webhook_metadata: JSON.stringify({ jobId: job.id }),
-    },
-    type: "speech_to_text_transcription",
-  });
+const {
+  accept,
+  admitFragment,
+  appWith,
+  audio,
+  auth,
+  baseUrl,
+  completeByWebhook,
+  deliver,
+  due,
+  env,
+  fake,
+  inThaiZone,
+  jobRow,
+  keep,
+  said,
+  sentAudio,
+  SOURCE,
+  speech,
+  speechAudio,
+  T0,
+  thaiAnswer,
+  turn,
+  uploads,
+  withSpeech,
+} = jobBench();
 
 test("owner token is required except for health and webhook", async () => {
   const app = appWith();
@@ -610,7 +483,7 @@ test("a refusal fails the job at once; a 5xx may be billed: it waits for its web
   await deliver(app, {
     data: {
       error: "failed after all",
-      webhook_metadata: JSON.stringify({ attempt: 0, jobId: maybe }),
+      webhook_metadata: uploads()[1]?.form?.get("webhook_metadata"),
     },
     type: "speech_to_text_transcription",
   });
@@ -644,77 +517,6 @@ test("a refused connection never left: queued again, not an attempt, not maybe b
     state: "queued",
   });
   expect(job.error).toMatch(REFUSED);
-});
-
-test("webhooks: a reported failure is an attempt, with null fields too; an unreadable one is kept for reconcile", async () => {
-  const app = appWith();
-  const reported = await admitFragment(app, audio(60), 1);
-  const garbled = await admitFragment(app, audio(60), 100);
-  await app.s.worker.work();
-
-  // Oct 13–14: ~650-byte failure webhooks with null fields were ignored unseen.
-  const failed = await deliver(app, {
-    data: {
-      error: { message: "audio could not be decoded" },
-      request_id: null,
-      status: null,
-      transcription: null,
-      webhook_metadata: JSON.stringify({ jobId: reported }),
-    },
-    type: "speech_to_text_transcription",
-  });
-  expect(await failed.json()).toEqual({ result: "retried" });
-  expect(jobRow(reported)).toMatchObject({
-    attempts: 1,
-    error: "refused by the provider: audio could not be decoded",
-    state: "queued",
-  });
-  // Sent again; a late failure of the first send changes nothing.
-  due(reported);
-  await app.s.worker.work();
-  const late = await deliver(app, {
-    data: {
-      error: "late",
-      webhook_metadata: JSON.stringify({ attempt: 0, jobId: reported }),
-    },
-    type: "speech_to_text_transcription",
-  });
-  expect(await late.json()).toEqual({ result: "stale" });
-  expect(jobRow(reported).state).toBe("submitted");
-  // The third failure fails it, its pages kept: a failure that repeats never loops.
-  const failure = (attempt: number) =>
-    deliver(app, {
-      data: {
-        error: "again",
-        webhook_metadata: JSON.stringify({ attempt, jobId: reported }),
-      },
-      type: "speech_to_text_transcription",
-    });
-  await failure(1);
-  expect(jobRow(reported)).toMatchObject({
-    attempts: 2,
-    state: "queued",
-  });
-  due(reported);
-  await app.s.worker.work();
-  expect(await (await failure(2)).json()).toEqual({ result: "failed" });
-  expect(jobRow(reported)).toMatchObject({
-    attempts: 3,
-    pages: [[1, 10]],
-    state: "failed",
-  });
-  expect(uploads()).toHaveLength(4);
-
-  const { providerRequestId } = jobRow(garbled);
-  const unreadable = await deliver(app, {
-    data: {
-      request_id: providerRequestId,
-      transcription: { nonsense: true },
-    },
-    type: "speech_to_text_transcription",
-  });
-  expect(await unreadable.json()).toEqual({ result: "kept" });
-  expect(jobRow(garbled).state).toBe("submitted");
 });
 
 test("the Mac's watermark cases", async () => {
@@ -875,123 +677,6 @@ test("handed over: old parts' pages and bought audio are never bought again", as
   // Since the handover the source's own jobs are their pages: a sent job's map placed by an older
   // clock model (it overlaps here by 30 s) covers nothing on other pages.
   expect(bought(env.db, at(later + 30_000), SOURCE)).toBe(false);
-});
-
-test("the phone is asked for its blocks while the Pendant records and heard-through lags 5 minutes", async () => {
-  const asked: unknown[] = [];
-  const nudge = (ready: string, fields?: unknown) => {
-    asked.push({ ready, ...(fields as object) });
-    return Promise.resolve();
-  };
-  const now = new Date(T0);
-  let beats = 0;
-  const heartbeat = (state: string, lastKnown?: string) => {
-    beats += 1;
-    return env.db
-      .insert(heartbeats)
-      .values({
-        body: { recording: { lastKnown, state } },
-        id: randomUUID(),
-        // Each one later than the last: the latest is read by its time.
-        observedAt: new Date(T0 + beats),
-        reason: "periodic",
-        receivedAt: new Date(),
-      })
-      .run();
-  };
-  // Before the handover there is no heard-through: nothing to ask.
-  heartbeat("recording");
-  expect(await askForUploads(env.db, nudge, now)).toBe(false);
-  env.db
-    .insert(sources)
-    .values({
-      heardThrough: new Date(T0 - 4 * 60_000),
-      id: SOURCE,
-    })
-    .run();
-  expect(await askForUploads(env.db, nudge, now)).toBe(false);
-  env.db
-    .update(sources)
-    .set({ heardThrough: new Date(T0 - 6 * 60_000) })
-    .run();
-  expect(await askForUploads(env.db, nudge, now)).toBe(true);
-  expect(asked).toEqual([{ behindSeconds: 360, ready: "upload" }]);
-  // The link lost: the Pendant still records to its flash, by its last confirmed state.
-  heartbeat("unknown", "recording");
-  expect(await askForUploads(env.db, nudge, now)).toBe(true);
-  // The last confirmed state wins over the current one.
-  heartbeat("recording", "not_recording");
-  expect(await askForUploads(env.db, nudge, now)).toBe(false);
-  // The Pendant paused: the phone has nothing to send.
-  heartbeat("paused", "not_recording");
-  expect(await askForUploads(env.db, nudge, now)).toBe(false);
-  expect(asked).toHaveLength(2);
-});
-
-test("the owner is asked to open the app once per episode, at his delay", async () => {
-  const alerts: unknown[] = [];
-  const nudge = phoneNudger(
-    env.db,
-    (request) => {
-      if (request.headers["apns-push-type"] === "alert") {
-        alerts.push(JSON.parse(request.body).aps.alert);
-      }
-      return Promise.resolve({ body: "", status: 200 });
-    },
-    "bundle"
-  );
-  storePushToken(env.db, "ab".repeat(80));
-  env.db
-    .insert(heartbeats)
-    .values({
-      body: { recording: { state: "recording" } },
-      id: randomUUID(),
-      observedAt: new Date(),
-      reason: "periodic",
-      receivedAt: new Date(),
-    })
-    .run();
-  // A tick `at` minutes in, with the Pendant heard through `heard` minutes in; returns the alerts so far.
-  const tick = async (at: number, heard: number, delay = 15) => {
-    setSwitches(env.db, { openAppAfterMinutes: delay });
-    env.db
-      .insert(sources)
-      .values({ heardThrough: new Date(T0 + heard * 60_000), id: SOURCE })
-      .onConflictDoUpdate({
-        set: { heardThrough: new Date(T0 + heard * 60_000) },
-        target: sources.id,
-      })
-      .run();
-    await askForUploads(env.db, nudge, new Date(T0 + at * 60_000));
-    return alerts.length;
-  };
-  expect(await tick(0, -14)).toBe(0);
-  expect(await tick(0, -16)).toBe(1);
-  expect(alerts[0]).toEqual({
-    body: "Your Pendant has 16 minutes waiting to sync.",
-    title: "Open lifelog",
-  });
-  // Still behind at the next ticks: the same episode.
-  expect(await tick(5, -16)).toBe(1);
-  expect(await tick(10, -16)).toBe(1);
-  // Caught up, then behind again: a new episode.
-  expect(await tick(30, 25)).toBe(1);
-  expect(await tick(42, 25)).toBe(2);
-  // Off: never.
-  expect(await tick(200, 25, 0)).toBe(2);
-  // Not recording: nothing.
-  env.db
-    .insert(heartbeats)
-    .values({
-      body: { recording: { state: "paused" } },
-      id: randomUUID(),
-      observedAt: new Date(),
-      reason: "periodic",
-      receivedAt: new Date(),
-    })
-    .run();
-  expect(await tick(400, 25)).toBe(2);
-  setSwitches(env.db, { openAppAfterMinutes: 15 });
 });
 
 test("latency: median and 90th percentile from speech end to upload to words", async () => {
@@ -1165,66 +850,6 @@ test("a parser bump gives stored words their spacing from raw and leaves turns a
     [" ", "Bonjour!"],
   ]);
 });
-
-// Real Opus packets, so a cut can be made of them: 20 ms each (TOC 8), marked by their index and
-// the file's `mark`.
-function speechAudio(seconds: number, mark = 0) {
-  const packets = Array.from(
-    { length: seconds * 50 },
-    (_, i) => new Uint8Array([8, i % 256, Math.floor(i / 256), mark])
-  );
-  const data = pendantOggOpus(packets, seconds * 1000);
-  return { data, seconds, sha: sha256Hex(data) };
-}
-// VoxLingua's scores as it gives them for a clear turn of English, French or Thai.
-const SCORES: Record<string, { en: number; fr: number; th: number }> = {
-  en: { en: 0.95, fr: 0.02, th: 0.001 },
-  fr: { en: 0.02, fr: 0.95, th: 0.001 },
-  th: { en: 0.02, fr: 0.01, th: 0.9 },
-};
-const turn = (
-  start: number,
-  end: number,
-  speaker: string,
-  language: string | null
-) => ({
-  end,
-  language,
-  scores: language ? (SCORES[language] ?? null) : null,
-  speaker,
-  start,
-});
-// The phone named a zone where Thai is spoken, before any block: the router's bar there.
-const inThaiZone = () =>
-  env.db
-    .insert(heartbeats)
-    .values({
-      body: { timeZone: "Asia/Bangkok" },
-      id: randomUUID(),
-      observedAt: new Date(0),
-      reason: "periodic",
-      receivedAt: new Date(0),
-    })
-    .run();
-const said = (start: number, text: string) => ({
-  end: start + 0.3,
-  start,
-  text,
-});
-const thaiAnswer = () =>
-  Response.json({
-    language_code: "tha",
-    language_probability: 0.9,
-    words: [
-      {
-        end: 0.8,
-        speaker_id: "speaker_0",
-        start: 0.5,
-        text: "สวัสดี",
-        type: "word",
-      },
-    ],
-  });
 
 test("the speech service: English and French stay with it, other turns go to Scribe cut from the block, once", async () => {
   const app = appWith(withSpeech);
@@ -1451,7 +1076,7 @@ test("the speech service: a block it keeps failing goes to Scribe whole after it
   await app.s.worker.work();
   expect(uploads()).toHaveLength(1);
   expect(jobRow(jobId)).toMatchObject({
-    attempts: 0,
+    attempts: 2,
     state: "submitted",
     transcriber: "scribe",
   });

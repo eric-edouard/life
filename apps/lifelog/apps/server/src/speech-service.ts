@@ -64,7 +64,10 @@ async function post<T>(
   path: string,
   ogg: Uint8Array,
   schema: z.ZodType<T>,
-  headers: Record<string, string> = {}
+  {
+    headers = {},
+    signal,
+  }: { headers?: Record<string, string>; signal?: AbortSignal } = {}
 ): Promise<{ answer: T } | Unanswered> {
   if (!switches().transcription) {
     return { error: "identity_busy", retryAfter: "3600" };
@@ -85,7 +88,11 @@ async function post<T>(
         ...headers,
       },
       method: "POST",
-      signal: AbortSignal.timeout(130_000),
+      // A caller that left closes the connection: the service drops its work before it runs.
+      signal: AbortSignal.any([
+        AbortSignal.timeout(130_000),
+        ...(signal ? [signal] : []),
+      ]),
     });
   } catch (error) {
     return { error: "identity_unavailable", message: String(error) };
@@ -131,7 +138,9 @@ export async function embedRanges(
   for (let i = 0; i < ranges.length; i += RANGES_PER_CALL) {
     // biome-ignore lint/performance/noAwaitInLoops: the service has one worker
     const said = await post(config, "/embed-ranges", ogg, Ranges, {
-      "X-Ranges": JSON.stringify(ranges.slice(i, i + RANGES_PER_CALL)),
+      headers: {
+        "X-Ranges": JSON.stringify(ranges.slice(i, i + RANGES_PER_CALL)),
+      },
     });
     if (!("answer" in said)) {
       return said;
@@ -142,11 +151,13 @@ export async function embedRanges(
   return { embeddings };
 }
 
-// A block's turns, languages and words (route-turns.ts decides what goes to Scribe).
+// A block's turns, languages and words (route-turns.ts decides what goes to Scribe). `signal`: its
+// caller left.
 export async function transcribeBlock(
   config: Config,
-  ogg: Uint8Array
+  ogg: Uint8Array,
+  signal?: AbortSignal
 ): Promise<{ heard: Heard } | Unanswered> {
-  const said = await post(config, "/transcribe", ogg, Heard);
+  const said = await post(config, "/transcribe", ogg, Heard, { signal });
   return "answer" in said ? { heard: said.answer } : said;
 }
