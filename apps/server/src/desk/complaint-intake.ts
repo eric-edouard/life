@@ -1,3 +1,4 @@
+import { readLinesFrom } from "../core/files";
 import { log } from "../core/log";
 import {
   type AssignmentRow,
@@ -10,7 +11,12 @@ import {
 } from "../host/desk-read";
 import { COMPLAINT_RECEIVED } from "../host/events";
 import { recordComplaints } from "../memory/complaint-record";
-import { askOf, readLedger } from "../memory/memory-files";
+import {
+  askOf,
+  LEDGER,
+  parseLedgerEntry,
+  readLedger,
+} from "../memory/memory-files";
 import { complaintOf, isComplaint } from "../records/ledger-entry";
 import { register } from "./agent-actions";
 import { COMPLAINTS_CURSOR, type Desk, saveCursor } from "./desk-store";
@@ -90,9 +96,12 @@ function startFailureOf(db: Desk["db"]) {
 export async function receiveComplaints(desk: Desk) {
   const { db } = desk;
   const from = Number(readCursor(db, COMPLAINTS_CURSOR) ?? 0);
-  const rows = readLedger().slice(from, from + ROWS_PER_TICK);
+  // Its page's lines only (`readLinesFrom`): a tick parses no more of the ledger than it reads.
+  const rows = readLinesFrom(LEDGER, from, ROWS_PER_TICK).map(parseLedgerEntry);
   const pending = rows.flatMap((a, i) =>
-    isComplaint(a) && !complaintReceiptOf(db, a.id) ? [{ a, n: from + i }] : []
+    a && isComplaint(a) && !complaintReceiptOf(db, a.id)
+      ? [{ a, n: from + i }]
+      : []
   );
   try {
     recordComplaints(pending.map((p) => p.a));

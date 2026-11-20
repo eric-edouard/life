@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { clock } from "../core/clock";
-import { filesIn, linesOf, readLineCount } from "../core/files";
+import { filesIn, linesOf, readLineCount, readLinesFrom } from "../core/files";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import { FactCheckAnswer } from "../records/fact-check";
@@ -111,11 +111,12 @@ export const listSource = <R>(name: string, list: R[]): Source<R> => ({
   name,
   rows: (from) => list.slice(from).map((r, i) => [from + i, r]),
 });
-/** An append-only file as a feed source. */
+/** An append-only file as a feed source: a page reads only its own lines (`readLinesFrom`). */
 export const fileSource = (path: string, name: string): Source<string> => ({
   end: readLineCount(path),
   name,
-  rows: (from) => listSource(name, linesOf(path)).rows(from),
+  rows: (from) =>
+    readLinesFrom(path, from).map((line, i) => [from + i, line] as const),
 });
 
 /**
