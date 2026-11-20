@@ -46,6 +46,7 @@ const hasOwnOpenStep = (...list: Observation[]) =>
       ledger: [],
       linkEndings: new Map(),
       observations: list,
+      projects: [],
       refOf: (r) => r,
       retired: new Map(),
       todoItems: [],

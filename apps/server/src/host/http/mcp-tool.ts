@@ -60,10 +60,19 @@ async function answer(run: () => ReturnType<Tool<z.ZodObject>>) {
 const IDS =
   /\b(?:obs|ep|unit|entry|matter)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
 
-/** The arguments with every string clipped to 200 chars. */
+/** Whether a call's arguments are his complaint (`answer_check`'s `misread`): its words are never logged. */
+const isComplaint = (args: unknown) =>
+  (args as { value?: { kind?: unknown } } | null)?.value?.kind === "misread";
+
+/** The arguments with every string clipped to 200 chars; his complaint's words (`note`) left out. */
 export const cut = (args: unknown) =>
   JSON.parse(
-    JSON.stringify(args, (_, v) => (typeof v === "string" ? clip(v, 200) : v))
+    JSON.stringify(
+      isComplaint(args)
+        ? { ...(args as object), note: "(his complaint)" }
+        : args,
+      (_, v) => (typeof v === "string" ? clip(v, 200) : v)
+    )
   );
 
 /** Who asked, on every `mcp.call` line: the OAuth client and its grant's agent claim. */

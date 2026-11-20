@@ -54,23 +54,33 @@ final class LifeStore {
     private(set) var actions: [ActionKey: ActionState<ActionProof>] = [:]
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
-    /// A tapped push's own read, from the tap until its card is on show: the Inbox draws it, never the old cards.
-    private(set) var pushRead: (id: String, state: ReadState<Inbox>)?
+    /// A tapped push, from the tap until a whole read asked after it lands: its card, as in hand, is shown meanwhile.
+    private(set) var pushed: PushedCard?
 
     /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
-    @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] in await self?.answer($0) }
+    /// Its send ends with Life's answer, before the reads after it: a flush waits for Life, not for them.
+    @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] held in
+        await self?.send(held.request, for: held.life)
+        Task { await self?.refreshAfterAnswer() }
+    }
     var held: [String: HeldAnswers.Held] { holds.held }
+    /// Whether an answer is held or still being sent: the app going waits for it.
+    var hasAnswersUnderWay: Bool { !holds.underWay.isEmpty }
     /// The answer held last, which the Inbox's toast names.
     var latestHeld: (ref: String, held: HeldAnswers.Held)? {
         holds.latest.flatMap { ref in holds.held[ref].map { (ref, $0) } }
     }
-    /// The refs whose answer is held for Undo or on its way: the Inbox's order leaves them out, so none flashes back.
-    var answersUnderWay: Set<String> {
-        Set(held.keys).union(
+    /// The asks a read asked at `asked` (nil: none yet) may still list though his answer took them out: held for Undo, on
+    /// their way, or confirmed after it was asked. Every screen leaves them out of that read (`inboxOnShow`, a matter's
+    /// asks), so none flashes back; a read asked later says what is open.
+    func answersNewer(than asked: Date?) -> Set<String> {
+        holds.underWay.union(answered.newer(than: asked)).union(
             actions.compactMap { key, state in
                 if case .answer(let ref) = key, state.isRunning { ref } else { nil }
             })
     }
+    /// His answers Life confirmed, kept with the reads for a cold start.
+    private var answered = AnsweredCards()
     /// Answers that have ended: a page that draws asks from its own read reads again when it changes.
     private(set) var answersEnded = 0
 
@@ -87,6 +97,8 @@ final class LifeStore {
     private let runner: LifeActions
     private let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
+    /// One read of each kind at a time, plus one more pass.
+    @ObservationIgnored private let flights = ReadFlights()
     /// The key of a tap whose call may have run (its connection failed): the same tap repeats with it, so Life sends nothing twice.
     private var taps = AnswerTaps()
 
@@ -114,6 +126,11 @@ final class LifeStore {
         restore({ self.matters.apply($0) }, key: Self.mattersKey)
         restore({ self.agents.apply($0) }, key: Self.agentsKey)
         restore({ self.people.apply($0) }, key: Self.peopleKey)
+        if let kept = cache.load(Self.answeredKey) {
+            answered = (try? JSONDecoder().decode(AnsweredCards.self, from: Data(kept.text.utf8))) ?? answered
+        }
+        // No read is under way yet: an answer every kept read was asked after can show nowhere.
+        answered.forget(confirmedBy: cache.oldest(except: Self.answeredKey))
     }
 
     var isPaired: Bool { pairedOrigin != nil }
@@ -153,19 +170,19 @@ final class LifeStore {
 
     func refreshInbox() async {
         let before = inbox.loadedAt
-        let asked = now()
         await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
-        // A whole read ends the tapped push's own read; one whose card was gone (nothing read) opens as the inbox says,
-        // `wasAnswered`. A failed whole read ends only a read that found nothing: the inbox's own face shows then.
-        if let push = pushRead {
-            let isRead = inbox.loadedAt != before
-            if isRead, push.state.value == nil { openedCard = inbox.value?.opening(pushId: push.id) }
-            if isRead || push.state.value == nil { pushRead = nil }
+        // A read asked after the tap ends its check: a card that was not in hand opens now, one answered elsewhere gives
+        // way to the next with a notice. One he answered here since stays as he left it.
+        if let push = pushed, inbox.loadedAt != before, let read = inbox.value, let asked = inbox.loadedAt,
+            let opening = push.checked(by: read, askedAt: asked)
+        {
+            pushed = nil
+            let isHis = push.check.map { answersNewer(than: push.tappedAt).contains($0.ref) } ?? false
+            if push.check == nil || (opening.wasAnswered && !isHis) { openedCard = opening }
         }
-        // The badge is the cards that block him.
-        if let badge = inbox.value?.badge { setBadge(badge) }
+        if inbox.value != nil { setBadge(badge) }
         // Only a whole read made just now says what is no longer open: not a cached, failed, cancelled or cut-off one.
-        if inbox.loadedAt != before, let read = inbox.value, !(read.checks.count < read.total) {
+        if inbox.loadedAt != before, let asked = inbox.loadedAt, let read = inbox.value, read.isWhole {
             let open = Set(read.checks.compactMap(\.pushId))
             await removeNotifications(deliveredBefore: asked) { !open.contains($0) }
         }
@@ -181,7 +198,7 @@ final class LifeStore {
         let gone = await center.deliveredNotifications().filter {
             let info = $0.request.content.userInfo
             guard $0.date < asked, !(sparingResults && info[IncidentNotifier.resultKey] != nil),
-                case .card(let pushId)? = NotificationRoute(userInfo: info)
+                case .card(let pushId, _, _)? = NotificationRoute(userInfo: info)
             else {
                 return false
             }
@@ -230,6 +247,18 @@ final class LifeStore {
     private static let mattersKey = "read_matters"
     private static let agentsKey = "read_registered_agents"
     private static let peopleKey = "read_people_and_organizations"
+    private static let answeredKey = "answered_cards"
+
+    /// His answer, confirmed: its card leaves every read asked before now, the badge with it, unless it keeps its card
+    /// open or was begun under another pairing (`pairing`, its `PairingGeneration` when it began). Kept for a cold start.
+    private func confirm(_ request: AnswerRequest, keepsCardOpen: Bool, pairing: Int) {
+        guard !keepsCardOpen, pairing == parties.generation.current else { return }
+        answered.answered(request.ref, at: now())
+        if let data = try? JSONEncoder().encode(answered) {
+            cache.store(String(decoding: data, as: UTF8.self), key: Self.answeredKey)
+        }
+        if inbox.value != nil { setBadge(badge) }
+    }
 
     private func restore<V: Decodable & Sendable & NamesParties>(_ update: (ReadState<V>.Event) -> Void, key: String) {
         guard let kept = cache.load(key),
@@ -239,37 +268,39 @@ final class LifeStore {
         update(.succeeded(value, kept.at))
     }
 
+    /// The read `key`, one pass at a time (`ReadFlights`): its value applies as of when its pass began, and is kept for a
+    /// cold start. A read of the Life paired before this one applies nothing, not even its failure: no save, no screen,
+    /// no reset (`PairingGeneration`).
     private func load<V: Decodable & Sendable & NamesParties>(
-        _ update: (ReadState<V>.Event) -> Void, key: String?,
-        fetch: @Sendable (any LifeAPI) async throws -> String
+        _ update: @escaping (ReadState<V>.Event) -> Void, key: String,
+        fetch: @escaping @Sendable (any LifeAPI) async throws -> String
     ) async {
-        update(.started)
-        let pairing = parties.generation.current
-        // A read of the Life paired before this one applies nothing, not even its failure: no save, no screen, no reset.
-        guard let answer = await parties.generation.answer({ try await fetch(api) }) else { return }
-        do {
-            let text = try answer.get()
-            let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(text.utf8))
-            if let key { cache.store(text, key: key) }
-            let at = now()
-            parties.remember(value.parties, at: at, pairing: pairing)
-            update(.succeeded(value, at))
-        } catch _ where Task.isCancelled {
-            // The screen that asked left: the read stands as it was.
-            update(.failed(.cancelled))
-        } catch let error as MCPError {
-            if error == .notPaired { pairedOrigin = nil }
-            update(.failed(error))
-        } catch {
-            update(.failed(.failed("Life's answer was not what this app reads.")))
+        await flights.run(key) { [self] in
+            let (asked, pairing) = (now(), parties.generation.current)
+            update(.started)
+            guard let text = await parties.generation.answer({ try await fetch(api) }) else { return }
+            do {
+                let read = try text.get()
+                let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(read.utf8))
+                cache.store(read, key: key, asked: asked)
+                parties.remember(value.parties, at: asked, pairing: pairing)
+                update(.succeeded(value, asked))
+            } catch let error as MCPError {
+                if error == .notPaired { pairedOrigin = nil }
+                update(.failed(error))
+            } catch {
+                update(.failed(.failed("Life's answer was not what this app reads.")))
+            }
         }
     }
 
     // MARK: Actions
 
-    /// Runs one action under `key`: its events are applied in the order they came, and a second tap while it runs is ignored.
+    /// Runs one action under `key`: its events are applied in the order they came, and a second tap while it runs is
+    /// ignored. `succeeded` runs in the step that applies its success, so no frame shows it neither running nor done.
     private func perform(
-        _ key: ActionKey, tap: String? = nil, _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void
+        _ key: ActionKey, tap: String? = nil, succeeded: @escaping () -> Void = {},
+        _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void
     ) async {
         guard actions[key]?.isRunning != true else { return }
         let (events, emit) = AsyncStream.makeStream(of: ActionState<ActionProof>.Event.self)
@@ -279,6 +310,7 @@ final class LifeStore {
         let consumer = Task {
             for await event in events {
                 actions[key, default: .idle].apply(event)
+                if case .succeeded = event { succeeded() }
                 limit = actions[key]?.limit ?? limit
             }
         }
@@ -325,13 +357,38 @@ final class LifeStore {
 
     /// His answer to a check. A call that failed on the connection is repeated as the same tap; a result Life gave
     /// (a send that was not sent included) makes the next tap a new one.
-    func answer(_ request: AnswerRequest) async {
+    /// `keepsCardOpen`: Life keeps the card open after it (`Check.keepsOpen`).
+    /// `life`: the Life it was decided for, when his tap was not on the screen now (a notification's button); else the
+    /// one paired at this tap.
+    func answer(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife? = nil) async {
+        await send(request, keepsCardOpen: keepsCardOpen, for: life ?? pairedLife)
+        await refreshAfterAnswer()
+    }
+
+    /// The Life the phone is paired with now, as an answer decided now captures it (`PairedLife`).
+    var pairedLife: PairedLife? {
+        pairedOrigin.map { PairedLife(origin: $0, generation: parties.generation.current) }
+    }
+
+    /// The answer's call alone, until Life's answer to it, to the Life it was decided for (`life`) and no other: one
+    /// decided under an earlier pairing, or none, is refused here and never sent.
+    private func send(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife?) async {
         let key = ActionKey.answer(ref: request.ref)
         guard actions[key]?.isRunning != true else { return }
+        guard let life, life.generation == parties.generation.current else {
+            return await perform(key) { emit in
+                emit(.started)
+                emit(.failed(ActionFailure(.notPaired)))
+            }
+        }
         let tap = taps.key(for: request)
-        await perform(key, tap: tap) { [runner] in await runner.answer(request, key: tap, emit: $0) }
+        await perform(
+            key, tap: tap, succeeded: { self.confirm(request, keepsCardOpen: keepsCardOpen, pairing: life.generation) }
+        ) {
+            [runner] in
+            await runner.answer(request, key: tap, at: life.origin, emit: $0)
+        }
         if let ended = actions[key] { taps.ended(request, as: ended) }
-        await refreshAfterAnswer()
     }
 
     /// What an answer changes, read again: the inbox and the matters. The matter page on show reads itself again when `answersEnded` changes.
@@ -345,7 +402,7 @@ final class LifeStore {
     // MARK: Held answers
 
     /// His answer to such a row, sent in four seconds unless he undoes it.
-    func hold(_ request: AnswerRequest, as label: String) { holds.hold(request, as: label) }
+    func hold(_ request: AnswerRequest, as label: String) { holds.hold(request, as: label, for: pairedLife) }
 
     func undo(_ ref: String) { holds.undo(ref) }
 
@@ -492,39 +549,60 @@ final class LifeStore {
         _ = await (a, b)
     }
 
-    /// A tapped push: that one card is read alone and shown at once (`pushRead`), then the whole inbox is read, which
-    /// ends `pushRead` (`refreshInbox`). With a cached inbox, a failed one-card read gives way to it, as stale, the
-    /// tapped card open; with none, its failure stays shown, with Try again.
-    func open(pushId: String) async {
-        openedCard = nil
-        pushRead = (pushId, ReadState())
-        await load({ if self.pushRead?.id == pushId { self.pushRead?.state.apply($0) } }, key: nil) {
-            try await $0.readInbox(pushId: pushId)
-        }
-        guard let state = pushRead?.state, pushRead?.id == pushId else { return }
-        let isRead = state.phase == .loaded
-        // A failed one-card read gives way to the cached inbox, if any: its card opens from there.
-        guard isRead || inbox.value != nil else { return }
-        if let found = isRead ? state.value : inbox.value, found.checks.contains(where: { $0.pushId == pushId }) {
-            openedCard = found.opening(pushId: pushId)
-            if !isRead { pushRead = nil }
-        } else {
-            // Its card is gone, or not cached: nothing to show but the wait for the whole read, which opens it.
-            pushRead?.state = ReadState()
-            pushRead?.state.apply(.started)
-        }
-        await refreshInbox()
+    /// A matter's asks less those his answers took out since it was read: the Inbox's rule (`answersNewer`), for its
+    /// page's rows and the ask pushed from them alike.
+    func asks(ofMatter id: String) -> [Check] {
+        let read = matter[id]
+        let answered = answersNewer(than: read?.loadedAt)
+        return read?.value?.checks.filter { !answered.contains($0.ref) } ?? []
     }
 
-    /// What the Inbox shows: the tapped push's one card while its read is set, else the whole inbox.
-    var inboxShown: ReadState<Inbox>.Shown { readOnShow.shown(isEmpty: { $0.checks.isEmpty }) }
-    var inboxOnShow: Inbox? { readOnShow.value }
-    private var readOnShow: ReadState<Inbox> { pushRead?.state ?? inbox }
-
-    /// Reads again what the Inbox shows: the tapped push's card while that is what it waits on, else the inbox.
-    func retryInbox() async {
-        if let push = pushRead { await open(pushId: push.id) } else { await refreshInbox() }
+    /// A tapped push: its card, from the cached inbox or else the one its notification kept (`card`), is on show at once,
+    /// its answers live, while one whole read checks it (`pushed`, `refreshInbox`). The notification's card counts only
+    /// when it is this push's and was read from the Life paired now (`life`). With neither in hand (an older
+    /// notification, a card past what was read), Life's read of its pushId opens it beside the whole read.
+    func open(pushId: String, card: String? = nil, life: String? = nil) async {
+        let kept = CardNotification.check(card, pushId: pushId, life: life, pairedWith: pairedOrigin)
+        let push = PushedCard(pushId: pushId, in: inbox.value, notified: kept, at: now())
+        pushed = push
+        openedCard = push.opening
+        guard push.check == nil else { return await refreshInbox() }
+        async let whole: Void = refreshInbox()
+        if let found = await notifiedCard(pushId: pushId, kept: nil, life: nil), pushed == push {
+            pushed = PushedCard(pushId: pushId, in: nil, notified: found.check, at: push.tappedAt)
+            openedCard = pushed?.opening
+        }
+        await whole
     }
+
+    /// The card a notification names, as the Life paired now has it (`CardNotification.card`): every answer from a
+    /// notification's button asks it first, so none reaches another Life's card.
+    func notifiedCard(pushId: String, kept: String?, life: String?) async -> (check: Check, life: PairedLife)? {
+        guard let paired = pairedLife,
+            let check = await CardNotification.card(
+                pushId: pushId, kept: kept, life: life, pairedWith: paired.origin,
+                readPush: { [api] in try await api.readInbox(pushId: pushId, at: $0) })
+        else { return nil }
+        return (check, paired)
+    }
+
+    /// A read is checking the tapped push: the card's pager waits on it. A failed read shows the card as stale instead.
+    var isCheckingPush: Bool { pushed != nil && inbox.phase == .loading }
+
+    /// What the Inbox shows: the inbox read, with a tapped push's card in hand (`PushedCard`), less the asks his answers
+    /// took out (`answersNewer`). The card in hand shows even before anything was read, with the read's own faces.
+    var inboxShown: ReadState<Inbox>.Shown {
+        readOnShow.shown(isEmpty: { $0.without(answersNewer(than: inbox.loadedAt)).checks.isEmpty })
+    }
+    var inboxOnShow: Inbox? { readOnShow.value?.without(answersNewer(than: inbox.loadedAt)) }
+    private var readOnShow: ReadState<Inbox> {
+        guard let pushed,
+            let shown = pushed.shown(in: inbox.value, answeredSinceTap: answersNewer(than: pushed.tappedAt))
+        else { return inbox }
+        return inbox.showing(shown, at: pushed.tappedAt)
+    }
+    /// The asks that block him, less those he answered: the tab's badge and the app's.
+    var badge: Int { inbox.value?.without(answersNewer(than: inbox.loadedAt)).badge ?? 0 }
 
     // MARK: Pairing
 
@@ -539,6 +617,7 @@ final class LifeStore {
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
         (people, person) = (ReadState(), [:])
+        (answered, pushed) = (AnsweredCards(), nil)
         parties.startOver()
         holds.clear()
         onStep(.reading)

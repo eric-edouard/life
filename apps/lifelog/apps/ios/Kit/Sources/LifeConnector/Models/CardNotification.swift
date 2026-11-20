@@ -25,13 +25,18 @@ public struct CardNotification: Sendable, Equatable {
     /// The card `pushId` names in a `read_inbox` reply, as its notification; nil when it is not open (or unreadable).
     /// `asksFaceID`: his setting that Send waits for Face ID, which only the phone can ask, so the Watch gets no Send.
     public static func of(pushId: String, inbox: String, asksFaceID: Bool) -> CardNotification? {
+        found(pushId: pushId, in: inbox).map { of($0.check, card: $0.card, asksFaceID: asksFaceID) }
+    }
+
+    /// The card `pushId` names in a `read_inbox` reply, with its JSON as Life sent it.
+    private static func found(pushId: String, in inbox: String) -> (check: Check, card: String)? {
         guard
             let read = try? JSONSerialization.jsonObject(with: Data(inbox.utf8)) as? [String: Any],
             let found = (read["checks"] as? [[String: Any]])?.first(where: { $0["pushId"] as? String == pushId }),
             let data = try? JSONSerialization.data(withJSONObject: found),
             let check = try? LibraryStore.feedDecoder.decode(Check.self, from: data)
         else { return nil }
-        return of(check, card: String(decoding: data, as: UTF8.self), asksFaceID: asksFaceID)
+        return (check, String(decoding: data, as: UTF8.self))
     }
 
     static func of(_ check: Check, card: String, asksFaceID: Bool) -> CardNotification {
@@ -58,11 +63,57 @@ public struct CardNotification: Sendable, Equatable {
     private static let optionPrefix = "option:"
     /// Where the service extension keeps the card in its notification's `userInfo`.
     public static let userInfoKey = "card"
+    /// Where it keeps the origin of the Life the card was read from.
+    public static let lifeKey = "cardLife"
 
     /// The card kept with its notification (`userInfo[userInfoKey]`, written by the service extension).
     public static func card(in userInfo: [AnyHashable: Any]) -> Check? {
-        guard let text = userInfo[userInfoKey] as? String else { return nil }
-        return try? LibraryStore.feedDecoder.decode(Check.self, from: Data(text.utf8))
+        (userInfo[userInfoKey] as? String).flatMap(check)
+    }
+
+    /// The card a notification kept, if it is this push's and was read from the Life the phone is paired with now
+    /// (`life`, its `lifeKey`; `isOf`); nil otherwise, an older notification that names no Life included.
+    public static func check(_ card: String?, pushId: String, life: String?, pairedWith paired: URL?) -> Check? {
+        guard let card, isOf(life: life, pairedWith: paired), let check = check(card),
+            check.pushId == pushId
+        else { return nil }
+        return check
+    }
+
+    /// Whether what was read from the Life at `life` (an origin, as a notification keeps it) is of the Life the phone is
+    /// paired with now (`paired`): across processes and launches, a pairing is its Life's origin; within the app it is
+    /// its `PairingGeneration`.
+    public static func isOf(life: String?, pairedWith paired: URL?) -> Bool {
+        life != nil && life == paired?.absoluteString
+    }
+
+    /// The card a notification names, as the Life paired now has it: the one it kept (`check(_:pushId:life:pairedWith:)`),
+    /// else Life's own read of that card from that Life alone (`readPush`, `read_inbox` by its `pushId` at the origin it
+    /// is given, which no limit cuts off; a pushId of another Life names nothing there). Nil when it is not open there.
+    /// The one door to a notification's card: opening it, and every answer from it, Send included.
+    public static func card(
+        pushId: String, kept: String?, life: String?, pairedWith paired: URL?,
+        readPush: @Sendable (URL) async throws -> String
+    ) async -> Check? {
+        if let check = check(kept, pushId: pushId, life: life, pairedWith: paired) { return check }
+        guard let paired, let read = try? await readPush(paired) else { return nil }
+        return found(pushId: pushId, in: read)?.check
+    }
+
+    /// The service extension's read of a push's card: from the Life paired when the push arrived (`paired`) and no other
+    /// (`readPush` reads at the origin it is given), so the origin it keeps with the card (`lifeKey`) is the read's own.
+    public static func read(
+        pushId: String, pairedWith paired: URL?, asksFaceID: Bool, readPush: @Sendable (URL) async throws -> String
+    ) async -> (card: CardNotification, life: URL)? {
+        guard let paired, let inbox = try? await readPush(paired),
+            let card = of(pushId: pushId, inbox: inbox, asksFaceID: asksFaceID)
+        else { return nil }
+        return (card, paired)
+    }
+
+    /// The card as kept (its JSON), if this build reads it.
+    public static func check(_ card: String) -> Check? {
+        try? LibraryStore.feedDecoder.decode(Check.self, from: Data(card.utf8))
     }
 
     /// The card's answers that take one tap, as its notification's buttons (action id, his button's words): its one-tap

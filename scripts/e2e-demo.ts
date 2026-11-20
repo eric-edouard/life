@@ -115,6 +115,7 @@ const demo = join(root, "demo");
 // The demo's services and its agent get no secret of his: the variables a CLI needs and the demo's own.
 const env = {
   ...cliEnv(),
+  LIFE_DEMO_RUNTIME: process.env.LIFE_DEMO_RUNTIME ?? "claude",
   LIFE_MACHINE_DIR: join(demo, "machine"),
   LIFE_OWNER_DATA_DIR: join(demo, "data"),
   LIFE_PORT: String(PORT),
@@ -139,6 +140,20 @@ async function setUp() {
     throw new Error(`port ${PORT} is taken: set LIFE_PORT`);
   }
   await execOk(["bun", join(REPO, "scripts/demo.ts"), demo], { env });
+  // A matter's Start goes to the agent that takes it: the demo's Personal agent stands first, its own first turn waiting.
+  const src = join(REPO, "apps/server/src/desk");
+  await execOk(
+    [
+      "bun",
+      "-e",
+      `import { register } from "${src}/agent-actions";
+import { openDesk } from "${src}/desk-store";
+const db = openDesk();
+const id = register({ db, runtimes: {} }, { brief: "Demo: the Personal agent", name: "Personal", role: "personal", runtime: "${process.env.LIFE_DEMO_RUNTIME ?? "claude"}" });
+db.run("update assignment set wait_until = '2099-01-01T00:00:00.000Z' where agent_id = ?", [id]);`,
+    ],
+    { env }
+  );
   for (const service of ["watch", "desk"]) {
     const log = openSync(join(root, `${service}.log`), "w");
     services.push(
