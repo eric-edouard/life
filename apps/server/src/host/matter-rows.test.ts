@@ -82,6 +82,10 @@ test("a person's read and read_matters take their rows from one reader, with Lif
     } as never);
     expect((await readMatterRowsNow()).version).not.toBe(first.version);
     expect(open).toHaveBeenCalledTimes(3);
+    // life#780: icon work that ended drops the rows kept before it, never one entry per attempt.
+    ended.mockReturnValue(0);
+    await readMatterRowsNow();
+    expect(open).toHaveBeenCalledTimes(4);
   } finally {
     open.mockRestore();
     checks.mockRestore();

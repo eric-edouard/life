@@ -1,4 +1,4 @@
-import { clock, HOUR } from "../core/clock";
+import { clock, daysBefore, HOUR } from "../core/clock";
 import {
   type AssignmentRow,
   anchorsOf,
@@ -111,13 +111,16 @@ export async function pollArrivals(
     return;
   }
   const people = await readPeopleNow();
+  // A confirm since `since` (made that day or the next) reads a unit of its day or the day before (yesterday's voice).
+  const first = localDate(since);
+  const days = [
+    daysBefore(first, 2),
+    daysBefore(first, 1),
+    first,
+    localDate(now.toISOString()),
+  ];
   const units = new Map(
-    (
-      o.units ??
-      readUnitsOf([
-        ...new Set([localDate(since), localDate(now.toISOString())]),
-      ])
-    ).map((u) => [u.id, u])
+    (o.units ?? readUnitsOf([...new Set(days)])).map((u) => [u.id, u])
   );
   const facts = arrivals.flatMap(
     (a) => arrivalFactsOf(a, units.get(a.unit), people.refOf) ?? []
