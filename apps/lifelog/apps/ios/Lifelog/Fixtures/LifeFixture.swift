@@ -151,6 +151,18 @@
         }
         func readMatters() async throws -> String { try await gate(); return matters() }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
+        /// The made-up cast's pictures (`apps/lifelog/fixtures/design/pictures/<id>.jpg`), as Life sends them.
+        func readPersonPictures(_ ids: [String]) async throws -> String {
+            try await gate()
+            let folder = URL(filePath: #filePath).deletingLastPathComponent()
+                .appending(path: "../../../../fixtures/design/pictures")
+            let found = ids.compactMap { id in
+                (try? Data(contentsOf: folder.appending(path: id + ".jpg"))).map {
+                    ["id": id, "mime": "image/jpeg", "data": $0.base64EncodedString()]
+                }
+            }
+            return json(["pictures": found, "missing": ids.filter { id in !found.contains { $0["id"] == id } }])
+        }
 
         func readMatter(_ id: String) async throws -> String {
             try await gate()

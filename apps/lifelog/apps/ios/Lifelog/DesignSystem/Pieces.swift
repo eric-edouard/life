@@ -1,12 +1,8 @@
 import LifeConnector
 import SwiftUI
 
-/// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette,
-/// never a border, and nothing tappable under 44 points.
-extension Color {
-    /// The quiet fill of a secondary button or a chip: the page's ink at a low strength, as the design's `--tint`.
-    static let fillTint = Palette.fg.opacity(0.08)
-}
+// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette,
+// never a border, and nothing tappable under 44 points.
 
 /// The pill buttons: the filled one (cream in dark) and the quiet one, in three sizes, and busy while an action runs.
 /// A label that does not fit takes a second line, and the pill grows with it.
