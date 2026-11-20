@@ -115,6 +115,7 @@ const demo = join(root, "demo");
 // The demo's services and its agent get no secret of his: the variables a CLI needs and the demo's own.
 const env = {
   ...cliEnv(),
+  LIFE_DEMO_RUNTIME: process.env.LIFE_DEMO_RUNTIME ?? "claude",
   LIFE_MACHINE_DIR: join(demo, "machine"),
   LIFE_OWNER_DATA_DIR: join(demo, "data"),
   LIFE_PORT: String(PORT),

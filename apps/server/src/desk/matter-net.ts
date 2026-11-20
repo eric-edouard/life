@@ -446,11 +446,14 @@ export async function foldAssignments(desk: Desk, readPeopleNow: ReadPeople) {
     }
     const outcome = `folded into the ${target.name ?? target.id} agent`;
     db.transaction(() => {
+      // Both agents' cards pinned to their owners first: a move changes which assignment is either agent's first.
       for (const d of decisions) {
-        if (d.agent === s.agent_id && assignmentOfCard(db, d) === s.id) {
+        const owner =
+          (d.agent === s.agent_id || d.agent === to) && assignmentOfCard(db, d);
+        if (owner) {
           db.run(
             "insert or ignore into card (decision_id, assignment_id) values (?, ?)",
-            [d.id, s.id]
+            [d.id, owner]
           );
         }
       }

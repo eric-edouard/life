@@ -636,6 +636,38 @@ test("a stopped agent re-pointed onto a project with an active agent stays stopp
   ).toBe(clock().toISOString());
 });
 
+// The confirming round on #810: a resume at the cap hid another agent's assignments from the clock.
+test("a resume while 50 agents are active is refused, saying why", async () => {
+  const c = await startedOn({ project: "test-capped" });
+  await stopped(c);
+  const active = () =>
+    desk.db
+      .query<{ n: number }, []>(
+        "select count(*) as n from agent where status = 'active'"
+      )
+      .get()?.n ?? 0;
+  const filler: string[] = [];
+  while (active() < 50) {
+    const id = `agt_${(0xf_00 + filler.length).toString(16).padStart(12, "0")}`;
+    desk.db.run(
+      "insert into agent (id, brief, runtime, folder, status, created_at) values (?, 'Test brief', 'claude', ?, 'active', ?)",
+      [id, folder, clock().toISOString()]
+    );
+    filler.push(id);
+  }
+  try {
+    expect((await applied({ action: "resume", agent: c }))?.error).toBe(
+      "the desk keeps 50 agents active at most"
+    );
+    expect(agentOf(desk.db, c)?.status).toBe("stopped");
+  } finally {
+    desk.db.run(
+      `delete from agent where id in (${filler.map(() => "?").join(",")})`,
+      filler
+    );
+  }
+});
+
 test("a start that returns the existing agent (active, same words) hands nothing over", async () => {
   const d = await startedOn({ project: "test-repeat" });
   const e = await startedOn({ project: "test-repeat" });

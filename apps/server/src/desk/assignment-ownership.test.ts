@@ -1,15 +1,22 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
-import { clock, DAY } from "../core/clock";
+import { clock, DAY, iso, MIN } from "../core/clock";
 import {
   agentOf,
   assignmentOf,
   assignmentOfCard,
   openAssignments,
+  readStartFacts,
 } from "../host/desk-read";
-import { openAssignment, register } from "./agent-actions";
+import {
+  askDecision,
+  openAssignment,
+  register,
+  withdrawOpenCards,
+} from "./agent-actions";
 import { start } from "./agent-changes";
-import { wakeDue } from "./desk-clock";
-import { setup } from "./test-desk";
+import { readPeopleOnce, wakeDue } from "./desk-clock";
+import { foldAssignments } from "./matter-net";
+import { advance, setup, toDo, withBook } from "./test-desk";
 
 // The debt verdict on PR 3 (#810, 21 Nov 2026): an agent and its assignments are not one thing. Each test is one of its
 // findings, made up.
@@ -100,4 +107,75 @@ test("a card asked before the desk kept its owner stays its agent's first assign
     [id, second, clock().toISOString()]
   );
   expect(assignmentOfCard(desk.db, card)).toBe(first);
+});
+
+test("a fold onto an agent leaves its own older card on its own assignment", async () => {
+  const { desk } = setup();
+  desk.embedder = null;
+  const step = "obs_00000000f061";
+  await withBook(
+    [toDo(step, "I'll book the piano tuner")],
+    { id: "matter_00000000f061", steps: [step] },
+    async () => {
+      // The matter's assignment is older than the Personal agent's own: after the move it is the agent's first.
+      const old = register(desk, {
+        brief: "Test brief: the piano",
+        runtime: "fake",
+        steps: [step],
+      });
+      advance(MIN);
+      const personal = standing(desk, { role: "personal" });
+      const own = openAssignments(desk.db).find((s) => s.agent_id === personal);
+      if (!own) {
+        throw new Error("no own assignment");
+      }
+      const { id } = await askDecision(desk, own, {
+        context: "A made-up reason to ask.",
+        deadline: iso(clock().getTime() + DAY),
+        options: [
+          { id: "yes", label: "Yes" },
+          { id: "no", label: "No" },
+        ],
+        question: "Test: go on?",
+        title: "a test",
+      });
+      // Asked before the desk kept owners.
+      desk.db.run("delete from card where decision_id = ?", [id]);
+      const card = { agent: personal, id };
+      expect(assignmentOfCard(desk.db, card)).toBe(own.id);
+      await foldAssignments(desk, readPeopleOnce());
+      expect(
+        openAssignments(desk.db).filter((s) => s.agent_id === personal)
+      ).toHaveLength(2);
+      expect(agentOf(desk.db, old)?.status).toBe("ended");
+      expect(assignmentOfCard(desk.db, card)).toBe(own.id);
+      await withdrawOpenCards(desk.db, own, "test over");
+    }
+  );
+});
+
+test("a repeated Start reports the open assignment it found, never a newer closed one on another of its steps", () => {
+  const { desk } = setup();
+  const id = standing(desk, {});
+  const open = openAssignment(desk, id, {
+    openedBy: "owner",
+    steps: ["obs_test_d1"],
+  });
+  advance(MIN);
+  const closed = openAssignment(desk, id, {
+    openedBy: "owner",
+    steps: ["obs_test_d2"],
+  });
+  desk.db.run(
+    "update assignment set closed_at = ?, outcome = 'test' where id = ?",
+    [clock().toISOString(), closed]
+  );
+  desk.db.run(
+    "insert into agent_change (ask, agent_id, applied_at) values ('entry_test', ?, ?)",
+    [id, clock().toISOString()]
+  );
+  expect(
+    readStartFacts(desk.db, "entry_test", ["obs_test_d1", "obs_test_d2"])
+      .assignment?.id
+  ).toBe(open);
 });

@@ -404,12 +404,12 @@ export const agentChangeOf = (db: Database, ask: string) =>
 export function readStartFacts(db: Database, ask: string, steps?: string[]) {
   const change = agentChangeOf(db, ask);
   const id = change?.agent_id;
-  // On a matter, its agent's newest assignment anchored on any of `steps`; else the agent's own.
+  // On a matter, its agent's assignment anchored on any of `steps` (open first, as Start found it, then newest); else its own.
   const assignment =
     (id &&
       db
         .query<AssignmentRow, [string, string | null]>(
-          "select * from assignment s where agent_id = ?1 and iif(?2 is null, id not in (select assignment_id from anchor), id in (select assignment_id from anchor where step in (select value from json_each(?2)))) order by opened_at desc limit 1"
+          "select * from assignment s where agent_id = ?1 and iif(?2 is null, id not in (select assignment_id from anchor), id in (select assignment_id from anchor where step in (select value from json_each(?2)))) order by closed_at is not null, opened_at desc limit 1"
         )
         .get(id, steps ? JSON.stringify(steps) : null)) ||
     null;

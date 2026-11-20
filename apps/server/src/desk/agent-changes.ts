@@ -11,6 +11,7 @@ import {
   agentOf,
   currentAssignmentOf,
   holderOf,
+  isFull,
   readCursor,
   runtimeOf,
   standingAgents,
@@ -49,6 +50,11 @@ function statusRefusal(desk: Desk, id: string | undefined, allowed: string[]) {
   }
   return allowed.includes(a.status) ? null : `${a.id} is ${a.status}`;
 }
+
+/** Why a resume is refused: not stopped, or the desk at its cap (a resume then would hide another agent's work from the clock, `openAssignments`). */
+const resumeRefusal = (desk: Desk, id: string | undefined) =>
+  statusRefusal(desk, id, ["stopped"]) ??
+  (isFull(desk.db) ? "the desk keeps 50 agents active at most" : null);
 
 /** Why a change names not exactly one subject: a matter's steps, a project, or the Personal agent. */
 const subjectCountRefusal = (c: AgentChange) =>
@@ -248,7 +254,7 @@ function apply(
       }
       break;
     case "resume":
-      refused = refusal(["stopped"]);
+      refused = resumeRefusal(desk, c.agent);
       if (!refused) {
         due("resumed");
       }
