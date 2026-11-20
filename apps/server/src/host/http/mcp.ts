@@ -372,7 +372,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_chats",
-    "Read chats (WhatsApp, Telegram, LINE, Instagram, iMessage, messages deleted for everyone included), as far back as the archive goes. `who` (a person, or a handle no one is known by: their one-to-one chats, and what they wrote in groups) or `chat`: the latest 200 messages from `from` (without it, all of `who`'s history, 7 days of a `chat`); `before` pages back (each answer names the next). A `who` that is one person opens with their communication style: draft his message in it. Read the thread before drafting a reply in it. To find messages by their words, use `search`.",
+    "Read chats (WhatsApp, Telegram, LINE, Instagram, iMessage, messages deleted for everyone included), as far back as the archive goes. `who` (a person, or a handle no one is known by: their one-to-one chats, and what they wrote in groups; a chat's title: that chat) or `chat`: the latest 200 messages from `from` (without it, all of `who`'s history, 7 days of a `chat`); `before` pages back (each answer names the next). A `who` that is one person opens with their communication style: draft his message in it. Read the thread before drafting a reply in it. To find messages by their words, use `search`.",
     z.object({
       before: z.iso
         .datetime({ offset: true })
