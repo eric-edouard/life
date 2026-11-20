@@ -16,9 +16,12 @@ POST /transcribe    body: one block's audio, as above. Header X-Identity-Secret.
                   words: Parakeet Ultra's over the whole block. Routing them is the caller's.
 GET  /health  -> {ok: true}
 
-One worker thread runs the models behind a bounded queue; a full queue answers 503 with
-Retry-After, and work not done in WAIT_SECONDS answers 504 (a failure the caller counts, so a block
-that is always slow ends at Scribe instead of coming back forever). Audio stays in memory for one request and is never written or logged.
+One worker thread runs the models behind bounded queues; a full queue answers 503 with Retry-After, and
+work not done in WAIT_SECONDS answers 504 (a failure the caller counts, so a block that is always slow
+ends at Scribe instead of coming back forever). A request with `X-Priority: interactive` (the owner
+dictating, waiting at a field) has one waiting place of its own and goes before every other waiting
+request; work under way is never cut, and each priority keeps arrival order. Work whose caller stopped
+waiting (its wait over, or its connection closed) is dropped before it runs. Audio stays in memory for one request and is never written or logged.
 
 Parakeet has two runtimes, picked by the host with SPEECH_RUNTIME: "onnx" (onnx-asr on CPU, fp32;
 never int8, it drops words) and "mlx" (Apple silicon). The default is mlx on macOS, onnx elsewhere.
@@ -35,10 +38,12 @@ import io
 import json
 import os
 import queue
+import select
 import socket
 import sys
 import threading
-from concurrent.futures import Future
+import time
+from concurrent.futures import CancelledError, Future
 from concurrent.futures import TimeoutError as FutureTimeout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -83,12 +88,18 @@ PARAKEET_CHUNK_SECONDS = 600
 QUEUE_SIZE = int(os.environ.get("QUEUE_SIZE", "8"))
 RETRY_AFTER = "5"
 WAIT_SECONDS = 120
+# How often a waiting request checks that its caller is still there.
+CALLER_CHECK_SECONDS = 0.25
 
 MAX_OGG_BYTES = 16 * 1024 * 1024
 MAX_RANGES = 400
 
-# One request's work for the worker: a function of the loaded models.
-jobs: queue.Queue = queue.Queue(maxsize=QUEUE_SIZE)
+# The requests waiting for the worker, by priority, highest first: each item is the work (a function of
+# the loaded models), its future, the monotonic time its caller stops waiting, and whether its caller
+# hung up. `waiting_count`
+# counts what the queues hold, so the worker sleeps on it, never on one queue.
+waiting = {"interactive": queue.Queue(maxsize=1), "ordinary": queue.Queue(maxsize=QUEUE_SIZE)}
+waiting_count = threading.Semaphore(0)
 
 
 def model_path(name: str) -> str:
@@ -368,14 +379,43 @@ def self_check(models: Models):
     assert set(heard) == {"durationSeconds", "models", "turns", "words"}, heard.keys()
 
 
+def enqueue(priority: str, work, future: Future, gone=lambda: False) -> bool:
+    """False when that priority's queue is full."""
+    try:
+        waiting[priority].put_nowait((work, future, time.monotonic() + WAIT_SECONDS, gone))
+    except queue.Full:
+        return False
+    waiting_count.release()
+    return True
+
+
+def next_work():
+    """The highest priority's oldest waiting request; blocks while there is none."""
+    waiting_count.acquire()
+    for line in waiting.values():  # one worker takes: what was counted is there
+        try:
+            return line.get_nowait()
+        except queue.Empty:
+            continue
+    raise AssertionError("counted work missing")
+
+
+def run_next(models: Models):
+    """Runs the next waiting request, or drops it when its caller stopped waiting or hung up. Nothing of
+    it (its samples, its answer) outlives the call, so the idle worker holds none."""
+    work, future, deadline, gone = next_work()
+    if gone() or time.monotonic() >= deadline:
+        future.cancel()
+    elif future.set_running_or_notify_cancel():
+        try:
+            future.set_result(work(models))
+        except Exception as error:  # reported to the waiting request
+            future.set_exception(error)
+
+
 def worker(models: Models):
     while True:
-        work, future = jobs.get()
-        if future.set_running_or_notify_cancel():
-            try:
-                future.set_result(work(models))
-            except Exception as error:  # reported to the waiting request
-                future.set_exception(error)
+        run_next(models)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -396,11 +436,14 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         if length > MAX_OGG_BYTES:
             return self.reply(413, {"error": "body too large"})
+        priority = self.headers.get("X-Priority", "ordinary")
+        if priority not in waiting:
+            return self.reply(400, {"error": "X-Priority must be interactive or ordinary"})
         body = self.rfile.read(length)
         try:
             if self.path == "/transcribe":
                 samples = read_audio(body)
-                return self.run(lambda models: transcribe(models, samples), lambda heard: heard)
+                return self.run(lambda models: transcribe(models, samples), lambda heard: heard, priority)
             clips = clips_of(read_audio(body), parse_ranges(self.headers.get("X-Ranges", "")))
         except ValueError as error:
             return self.reply(400, {"error": str(error)})
@@ -418,23 +461,39 @@ class Handler(BaseHTTPRequestHandler):
                 "modelRevision": revision,
             }
 
-        self.run(lambda models: [embed(models, c) for c in kept], answer)
+        self.run(lambda models: [embed(models, c) for c in kept], answer, priority)
 
-    def run(self, work, answer):
+    def run(self, work, answer, priority="ordinary"):
         """`work` on the worker; its result through `answer` to the caller."""
         future: Future = Future()
-        try:
-            jobs.put_nowait((work, future))
-        except queue.Full:
+        if not enqueue(priority, work, future, self.caller_gone):
             return self.reply(503, {"error": "busy"}, {"Retry-After": RETRY_AFTER})
-        try:
-            result = future.result(timeout=WAIT_SECONDS)
-        except FutureTimeout:
-            future.cancel()
-            return self.reply(504, {"error": "timed out"})
-        except Exception as error:
-            return self.reply(500, {"error": type(error).__name__})
+        deadline = time.monotonic() + WAIT_SECONDS
+        while True:
+            try:
+                result = future.result(timeout=CALLER_CHECK_SECONDS)
+                break
+            except FutureTimeout:
+                if self.caller_gone():
+                    future.cancel()  # still waiting, it never runs; under way, it finishes unanswered
+                    return None
+                if time.monotonic() >= deadline:
+                    future.cancel()
+                    return self.reply(504, {"error": "timed out"})
+            except CancelledError:  # the worker found it past its wait, or its caller gone
+                return None if self.caller_gone() else self.reply(504, {"error": "timed out"})
+            except Exception as error:
+                return self.reply(500, {"error": type(error).__name__})
         self.reply(200, answer(result))
+
+    def caller_gone(self) -> bool:
+        """The caller closed its connection: it has nothing more to send, so a readable socket is its end.
+        A socket its handler already closed is gone too (select raises ValueError on it)."""
+        try:
+            readable, _, _ = select.select([self.connection], [], [], 0)
+            return bool(readable) and self.connection.recv(1, socket.MSG_PEEK) == b""
+        except (OSError, ValueError):
+            return True
 
     def reply(self, status: int, body: dict, headers: dict | None = None):
         data = json.dumps(body).encode()
