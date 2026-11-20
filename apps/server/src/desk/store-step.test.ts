@@ -6,9 +6,11 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { APP_FOLDERS } from "../core/platform";
 import { gitOut } from "../core/proc";
 import {
@@ -193,18 +195,61 @@ test("the step carries every agent to its assignment: waits, anchors, events, tu
   db.close();
 });
 
-test("a step that fails leaves the old store, which openDesk and the reads refuse, saying why", () => {
-  const { dir, path } = oldDesk();
-  // Not a git repo: the notes cannot be committed.
-  const notRepo = mkdtempSync(join(tmpdir(), "life-step-"));
-  mkdirSync(join(notRepo, "project-test-house"));
-  mkdirSync(join(notRepo, "personal"));
-  expect(() => stepStore(path, dir, notRepo)).toThrow();
+test("a step that fails leaves the old store, refused by openDesk; two failed starts then a success keep one copy and commit only its notes", () => {
+  const { dir, path, repo } = oldDesk();
+  const unrelated = join(repo, "assignments", "unrelated", "NOTES.md");
+  mkdirSync(dirname(unrelated), { recursive: true });
+  writeFileSync(unrelated, "Test: someone else's work");
+  // Its repo gone for two starts: the notes cannot be committed.
+  renameSync(join(repo, ".git"), join(dir, "git-aside"));
+  for (const _ of [1, 2]) {
+    expect(() => stepStore(path, dir, repo)).toThrow("git add");
+    expect(() => openDesk(path)).toThrow(NOT_MIGRATED);
+  }
   const db = new Database(path, { readonly: true });
   expect(isOldShape(db)).toBe(true);
   expect(db.query("select count(*) as n from agent").get()).toEqual({ n: 4 });
   db.close();
-  expect(() => openDesk(path)).toThrow(NOT_MIGRATED);
+  renameSync(join(dir, "git-aside"), join(repo, ".git"));
+  expect(stepStore(path, dir, repo)).toBe("migrated");
+  expect(readdirSync(dir).filter((f) => f.startsWith("desk-before-"))).toEqual([
+    expect.stringMatching(/^desk-before-assignments-.*\.sqlite$/),
+  ]);
+  expect(gitOut(repo, ["status", "--porcelain"])).toBe(
+    "?? assignments/unrelated/"
+  );
+  expect(readFileSync(unrelated, "utf8")).toBe("Test: someone else's work");
+});
+
+test("a store from before the late columns (begun_at, context_used, why_not_started…) migrates with their old backfills", () => {
+  const { dir, path, repo } = oldDesk();
+  const db = new Database(path);
+  db.run("drop index turn_by_agent");
+  for (const [table, column] of [
+    ["turn", "begun_at"],
+    ["turn", "context_used"],
+    ["agent", "why_not_started"],
+    ["agent", "stopped_at"],
+    ["agent", "is_handed_out"],
+    ["session", "context_at_first_call"],
+  ]) {
+    db.run(`alter table ${table} drop column ${column}`);
+  }
+  db.run(
+    "update agent set outcome = 'not started: it did not begin' where id = 'agt_000000000003'"
+  );
+  db.close();
+  expect(stepStore(path, dir, repo)).toBe("migrated");
+  const after = openDesk(path);
+  expect(currentAssignmentOf(after, "agt_000000000003")).toMatchObject({
+    opened_by: "owner",
+    outcome: null,
+    why_not_started: "it did not begin",
+  });
+  expect(after.query("select begun_at, context_used from turn").all()).toEqual([
+    { begun_at: T, context_used: null },
+  ]);
+  after.close();
 });
 
 test("the step is refused without an agents repo, or with a project agent's home missing, naming it; skipped on the app's state", () => {

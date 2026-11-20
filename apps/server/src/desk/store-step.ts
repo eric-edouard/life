@@ -1,5 +1,12 @@
 import type { Database } from "bun:sqlite";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { clock } from "../core/clock";
 import { DESK_STORE, LIFE_STATE_DIR } from "../core/paths";
@@ -8,6 +15,7 @@ import { gitOut } from "../core/proc";
 import { settings } from "../core/settings";
 import { openWritable } from "../core/sqlite";
 import { agentHomeOf, isOldShape } from "../host/desk-read";
+import { copyDb } from "../host/export";
 import { SCHEMA } from "./desk-store";
 
 // The desk's store step of the agents and matters plan (PR 1; AGENTS.md, "A rename or a new field backfills"): an agent
@@ -59,37 +67,97 @@ function refusalOf(db: Database, agentsRepo: string | undefined) {
   return missing.length > 0 ? `missing: ${missing.join(", ")}` : null;
 }
 
-/** Writes each agent's notes to its assignment's file in `agentsRepo` and commits them there (nothing to commit on a second run). */
+/**
+ * The columns a store made before them lacks, each with what its older rows held (the old `ensureColumn` steps, carried
+ * here once): an older store migrates like a newer one.
+ */
+const LATE_COLUMNS = [
+  ["turn", "begun_at", "text", "update turn set begun_at = started_at"],
+  // An agent never started was its outcome's "not started: " prefix (`glob` keeps case: its own words stay its outcome).
+  [
+    "agent",
+    "why_not_started",
+    "text",
+    "update agent set why_not_started = substr(outcome, 14), outcome = null where outcome glob 'not started: *'",
+  ],
+  ["agent", "stopped_at", "text"],
+  ["agent", "is_handed_out", "integer not null default 0"],
+  ["session", "context_at_first_call", "integer"],
+  ["turn", "context_used", "integer"],
+] as const;
+
+function addLateColumns(db: Database) {
+  for (const [table, column, ddl, backfill] of LATE_COLUMNS) {
+    if (
+      !db
+        .query(`select 1 from pragma_table_info('${table}') where name = ?`)
+        .get(column)
+    ) {
+      db.run(`alter table ${table} add column ${column} ${ddl}`);
+      if (backfill) {
+        db.run(backfill);
+      }
+    }
+  }
+}
+
+/** Writes each agent's notes to its assignment's file in `agentsRepo` and commits those files alone there (nothing to commit on a second run). */
 function writeNotesFiles(db: Database, agentsRepo: string) {
   const notes = db
-    .query<{ notes: string; path: string }, [string]>(
-      `select notes, ?1 || '/assignments/' || ${asgOf("id")} || '/NOTES.md' as path from agent where notes <> ''`
+    .query<{ notes: string; path: string }, []>(
+      `select notes, 'assignments/' || ${asgOf("id")} || '/NOTES.md' as path from agent where notes <> ''`
     )
-    .all(agentsRepo);
+    .all();
   for (const n of notes) {
-    mkdirSync(dirname(n.path), { recursive: true });
-    writeFileSync(n.path, n.notes);
+    mkdirSync(dirname(join(agentsRepo, n.path)), { recursive: true });
+    writeFileSync(join(agentsRepo, n.path), n.notes);
   }
-  if (notes.length === 0) {
+  const paths = notes.map((n) => n.path);
+  if (paths.length === 0) {
     return;
   }
-  gitOut(agentsRepo, ["add", "assignments"]);
-  if (gitOut(agentsRepo, ["status", "--porcelain", "assignments"])) {
+  gitOut(agentsRepo, ["add", "--", ...paths]);
+  if (gitOut(agentsRepo, ["status", "--porcelain", "--", ...paths])) {
     gitOut(agentsRepo, [
       "commit",
       "-m",
       "desk: each agent's notes as its assignment's file",
       "--",
-      "assignments",
+      ...paths,
     ]);
   }
 }
 
 /**
+ * The store's copy before the step, beside it: one per step, dated, published only once whole (written under `.partial`,
+ * then renamed), and reused by every later try. `VACUUM INTO` (`copyDb`, as the export copies every store) is one
+ * consistent read of the store, its WAL included: the same rows as `sqlite3 .backup`, as one file, with no sqlite3
+ * program (Windows has none), while the desk's lock keeps any other writer out.
+ */
+function backUp(path: string) {
+  const dir = dirname(path);
+  const done = readdirSync(dir).find(
+    (f) => f.startsWith(BACKUP) && f.endsWith(".sqlite")
+  );
+  if (done) {
+    return join(dir, done);
+  }
+  const to = join(
+    dir,
+    `${BACKUP}${clock().toISOString().replaceAll(":", "-")}.sqlite`
+  );
+  rmSync(`${to}.partial`, { force: true });
+  copyDb(path, `${to}.partial`);
+  renameSync(`${to}.partial`, to);
+  return to;
+}
+const BACKUP = "desk-before-assignments-";
+
+/**
  * Reshapes the desk's store at `path` once: nothing for a store already in the new shape, none at all, or a checkout on
- * the app's state; refused (throws, nothing changed) without `agentsRepo` or a project agent's home. Before it, a
- * dated copy beside the store; then the notes files, committed; then the tables, in one transaction (a failure rolls
- * back to the old shape, which `openDesk` refuses). What it did.
+ * the app's state; refused (throws, nothing changed) without `agentsRepo` or a project agent's home. Before it, the
+ * dated copy (`backUp`, one per step); then, in one transaction, its late columns, the notes files (committed), then the
+ * tables (a failure rolls back to the old shape, which `openDesk` refuses). What it did.
  */
 export function stepStore(
   path = DESK_STORE,
@@ -108,13 +176,9 @@ export function stepStore(
     if (refused || !agentsRepo) {
       throw new Error(`desk store step refused: ${refused}`);
     }
-    db.run("vacuum into ?", [
-      join(
-        dirname(path),
-        `desk-before-assignments-${clock().toISOString().replaceAll(":", "-")}.sqlite`
-      ),
-    ]);
+    backUp(path);
     db.transaction(() => {
+      addLateColumns(db);
       writeNotesFiles(db, agentsRepo);
       for (const t of REBUILT) {
         db.run(`alter table ${t} rename to old_${t}`);

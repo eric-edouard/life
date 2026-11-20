@@ -67,7 +67,7 @@ export const filesUnder = (dir: string) =>
  * One SQLite file copied whole while it is written to (`VACUUM INTO`: one consistent read, the path a bound value), as a
  * file of its own (a rollback journal, no WAL beside it): it opens anywhere, read-only too, and restores as one file.
  */
-function copyDb(from: string, to: string) {
+export function copyDb(from: string, to: string) {
   const source = openReadOnly(from);
   try {
     source.run("VACUUM INTO ?", [to]);
