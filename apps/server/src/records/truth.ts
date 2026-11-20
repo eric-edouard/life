@@ -77,7 +77,7 @@ export const OrganizationsFile = z
   .strict();
 
 /** A party: someone in his directory, a person or an organization, as the name and handle readers see either. */
-export type Party = Pick<
+export type DirectoryParty = Pick<
   Person,
   "aliases" | "birthday" | "handles" | "id" | "name" | "projects" | "relation"
 >;

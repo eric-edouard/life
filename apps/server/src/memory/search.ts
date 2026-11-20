@@ -23,7 +23,7 @@ import {
   withIndex,
 } from "./index-rows";
 import { episodesWhere, readIndex } from "./memory-files";
-import { OWNER, partiesOf } from "./read-truth";
+import { OWNER, directoryPartiesOf } from "./read-truth";
 import { readSituationNow, situated, situationBlock } from "./situations";
 import { listening } from "./sources";
 import { holdsName } from "./units";
@@ -287,7 +287,7 @@ export async function readSituationsOf(
 ) {
   const { names, nameOf, truth } = await readPeople();
   const aliases = (ref: string) =>
-    partiesOf(truth).find((p) => `person:${p.id}` === ref)?.aliases ?? [];
+    directoryPartiesOf(truth).find((p) => `person:${p.id}` === ref)?.aliases ?? [];
   const refs = await situated();
   const mentioned = refs.filter(
     (ref) =>

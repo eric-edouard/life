@@ -11,7 +11,7 @@ import {
   ME,
   type Organization,
   OrganizationsFile,
-  type Party,
+  type DirectoryParty,
   PeopleFile,
   type Person,
   Project,
@@ -58,11 +58,11 @@ export const projectHeaderOf = (
 ) =>
   `Project ${p.name} (${p.id}, ${p.status})${p.deadlines.map((d) => `; ${d.date}: ${d.what}`).join("")}`;
 
-/** Everyone in his directory: its people, then its organizations (`Party`). The one join of the two lists. */
-export const partiesOf = ({
+/** Everyone in his directory: its people, then its organizations (`DirectoryParty`). The one join of the two lists. */
+export const directoryPartiesOf = ({
   organizations,
   people,
-}: Pick<Truth, "organizations" | "people">): Party[] => [
+}: Pick<Truth, "organizations" | "people">): DirectoryParty[] => [
   ...people,
   ...organizations,
 ];
@@ -138,13 +138,13 @@ export async function loadTruth(data = OWNER_DATA_DIR): Promise<Truth> {
 }
 
 /** A party's phones and emails (their `whatsapp`, `phone` and `email`): the handles with a contact key. */
-export function phonesAndEmailsOf(p: Pick<Party, "handles">): string[] {
+export function phonesAndEmailsOf(p: Pick<DirectoryParty, "handles">): string[] {
   const { whatsapp, phone, email } = p.handles;
   return [...whatsapp, ...phone, ...email.map((h) => h.toLowerCase())];
 }
 
 /** Every handle a party has, normalized the way senders are looked up: emails lower-cased. */
-export function handlesOf(p: Pick<Party, "handles">): string[] {
+export function handlesOf(p: Pick<DirectoryParty, "handles">): string[] {
   const { github, lifelog, telegram } = p.handles;
   return [
     ...phonesAndEmailsOf(p),
@@ -166,7 +166,7 @@ export function projectPeopleAndChatsOf(
   project: string
 ) {
   const { chats, projects } = truth;
-  const people = partiesOf(truth);
+  const people = directoryPartiesOf(truth);
   const p = projects.find((x) => x.id === project);
   if (!p) {
     return null;
@@ -211,7 +211,7 @@ export function projectPeopleAndChatsOf(
 function checkParties(truth: Truth, issues: string[]): Set<string> {
   const ids = new Set<string>();
   const owner = new Map<string, string>();
-  for (const p of partiesOf(truth)) {
+  for (const p of directoryPartiesOf(truth)) {
     if (ids.has(p.id)) {
       issues.push(`person ${p.id} is listed twice`);
     }

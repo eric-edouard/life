@@ -10,7 +10,7 @@ import {
   unfoldedOf,
 } from "../records/observation";
 import { namesOne, relationWordOf } from "../records/relation-words";
-import { firstNameOf, ME, type Party } from "../records/truth";
+import { firstNameOf, ME, type DirectoryParty } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
 import { readAgentReports } from "./agent-source";
@@ -26,7 +26,7 @@ import {
   shownOf,
 } from "./memory-files";
 import { isSameNameOrHandle, type Reading, readingOf } from "./name-reading";
-import { loadTruth, OWNER, partiesOf, phonesAndEmailsOf } from "./read-truth";
+import { loadTruth, OWNER, directoryPartiesOf, phonesAndEmailsOf } from "./read-truth";
 import {
   guessTestOf,
   knownTestOf,
@@ -67,7 +67,7 @@ const bestOf = (loop: string[]) =>
  * person. A card whose whole name and whose handles say more than one person folds into no one (an ambiguous card: his to say).
  */
 export function foldsOf(
-  people: Party[],
+  people: DirectoryParty[],
   inferred: InferredPerson[],
   corrections: Correction[],
   contacts: ContactNow[]
@@ -156,7 +156,7 @@ function saidBy(
   c: ContactNow,
   self: string,
   read: (nameOrHandle: string, from?: HandleFrom) => string | null,
-  people: Party[],
+  people: DirectoryParty[],
   isRuledOut: (c: ContactNow, ref: string) => boolean
 ) {
   const named = read(c.name);
@@ -186,13 +186,13 @@ function saidBy(
  * of their names: only when truth/ gives them no phone or email to say otherwise. A card named as an alias ("Paul")
  * of someone whose numbers are known and differ is someone else.
  */
-function namesTheSame(ref: string, people: Party[]) {
+function namesTheSame(ref: string, people: DirectoryParty[]) {
   const person = people.find((p) => `person:${p.id}` === ref);
   return !person || phonesAndEmailsOf(person).every((h) => !contactKeyOf(h));
 }
 
 /** Whether a card has the first name and the birthday of someone in truth/: proof enough, never one alone. The first word is taken before `nameKey`, which would split "Jean-Pierre". */
-const isSameFirstNameAndBirthday = (c: ContactNow, p: Party) => {
+const isSameFirstNameAndBirthday = (c: ContactNow, p: DirectoryParty) => {
   const first = (name: string) => nameKey(firstNameOf(name));
   return (
     !!c.birthday &&
@@ -204,7 +204,7 @@ const isSameFirstNameAndBirthday = (c: ContactNow, p: Party) => {
 };
 
 /** Whether a card is named, whole, as someone in truth/: his own label for the card. */
-const isWholeNameOf = (c: ContactNow, ref: string, people: Party[]) =>
+const isWholeNameOf = (c: ContactNow, ref: string, people: DirectoryParty[]) =>
   people.some(
     (p) =>
       `person:${p.id}` === ref &&
@@ -220,7 +220,7 @@ const isWholeNameOf = (c: ContactNow, ref: string, people: Party[]) =>
 export function aboutNow(
   observations: Observation[],
   unresolved: Unresolved[],
-  people: Party[],
+  people: DirectoryParty[],
   inferred: InferredPerson[],
   corrections: Correction[],
   contacts: ContactNow[],
@@ -444,7 +444,7 @@ export async function readPeople() {
     readCorrections(),
   ]);
   const contacts = contactsNow(readContactLines());
-  const parties = partiesOf(truth);
+  const parties = directoryPartiesOf(truth);
   const { ambiguousCards, canon, readingNow, resolve } = foldsOf(
     parties,
     inferred,
@@ -574,7 +574,7 @@ export async function observationsNow({
   const observations = aboutNow(
     shown,
     unresolved,
-    partiesOf(truth),
+    directoryPartiesOf(truth),
     inferred,
     corrections,
     contacts,
@@ -662,7 +662,7 @@ function nameable({
   truth,
 }: Pick<People, "outsideDirectory" | "canon" | "truth">) {
   return [
-    ...partiesOf(truth),
+    ...directoryPartiesOf(truth),
     ...new Map(
       unfoldedOf(outsideDirectory, canon).map((p) => [
         p.id,
