@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
-import { LedgerEntry } from "../records/ledger-entry";
+import { isListed, LedgerEntry } from "../records/ledger-entry";
 import { changeFeed, feedPage, listSource, matchesFilter } from "./changes";
 import { LEDGER } from "./memory-files";
 import { action } from "./record-fixtures";
@@ -124,6 +124,22 @@ test("changes about task:<id> is one task's history: its ask, updates and replie
       "ledger.update",
       "ledger.reply",
     ]);
+  } finally {
+    rmSync(LEDGER, { force: true });
+  }
+});
+
+test("his complaint is never fed, nor listed: its words and card reach the caretaker alone", async () => {
+  const complaint = action({
+    after: { agent: "desk", complaint: { card: null, ref: "name:dre" } },
+    id: "entry_00000000000c",
+    kind: "ask",
+    target: AGENT_WORD,
+  });
+  try {
+    appendJsonl(LEDGER, LedgerEntry, [complaint]);
+    expect((await changeFeed()).items).toEqual([]);
+    expect(isListed(complaint)).toBe(false);
   } finally {
     rmSync(LEDGER, { force: true });
   }

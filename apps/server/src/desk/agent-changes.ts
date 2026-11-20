@@ -154,7 +154,11 @@ function apply(
       }
       break;
     case "re_point":
-      refused = refusal(["active", "stopped"]) ?? subjectRefusal(desk, c, id);
+      refused =
+        refusal(["active", "stopped"]) ??
+        (agentOf(db, id)?.role === "caretaker"
+          ? "the caretaker takes no other subject"
+          : subjectRefusal(desk, c, id));
       if (!refused) {
         writeSubject(desk, id, currentAssignmentOf(db, id)?.id ?? "", c);
         if (agentOf(db, id)?.status === "active") {

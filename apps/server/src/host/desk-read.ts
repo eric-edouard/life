@@ -357,6 +357,14 @@ export const heldStampOf = (db: Database) =>
       .values(heldSince())
   );
 
+/** The agent in standing role `role` (active or stopped: one at most), if any. */
+export const agentInRole = (db: Database, role: AgentRole) =>
+  db
+    .query<AgentRow, [string]>(
+      "select * from agent where role = ? and status in ('active', 'stopped')"
+    )
+    .get(role);
+
 /** The caretaker's assignments, of every caretaker it ever had: a complaint received by one is received for good. */
 const CARETAKER_EVENTS = `select e.*, s.closed_at, s.plan_now, s.id as assignment from event e join assignment s on s.id = e.assignment_id join agent a on a.id = s.agent_id where a.role = 'caretaker' and e.name = '${COMPLAINT_RECEIVED}'`;
 

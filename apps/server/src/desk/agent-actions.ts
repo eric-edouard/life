@@ -40,7 +40,11 @@ import {
 } from "../memory/read-truth";
 import { clip } from "../memory/units";
 import { nameRefusalOf, readPeople } from "../memory/who";
-import type { EventFilter, OpenedBy } from "../records/registered-agent";
+import type {
+  AgentRole,
+  EventFilter,
+  OpenedBy,
+} from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
 
@@ -144,8 +148,8 @@ export function openAssignment(
 
 /**
  * Registers an agent, on his words or the hand-out's (`openedBy`, his by default), with its one assignment: active, its
- * first turn due now, in `folder`, else in a folder of its own (`DESK_AGENT_FOLDERS`). Refused while the desk keeps its
- * most agents.
+ * first turn due now, in `folder`, else in a folder of its own (`DESK_AGENT_FOLDERS`), in its standing `role` when it has
+ * one. Refused while the desk keeps its most agents.
  */
 export function register(
   desk: Desk,
@@ -156,6 +160,7 @@ export function register(
     model?: string;
     openedBy?: OpenedBy;
     project?: string;
+    role?: AgentRole;
     runtime: string;
     steps?: string[];
   }
@@ -168,7 +173,7 @@ export function register(
   const folder = a.folder ?? join(DESK_AGENT_FOLDERS, id);
   db.transaction(() => {
     db.run(
-      "insert into agent (id, brief, runtime, folder, model, effort, project, status, created_at) values (?, ?, ?, ?, ?, ?, ?, 'active', ?)",
+      "insert into agent (id, brief, runtime, folder, model, effort, project, role, status, created_at) values (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)",
       [
         id,
         a.brief,
@@ -177,6 +182,7 @@ export function register(
         a.model ?? null,
         a.effort ?? null,
         a.project ?? null,
+        a.role ?? null,
         clock().toISOString(),
       ]
     );

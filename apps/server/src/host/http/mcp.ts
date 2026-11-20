@@ -38,6 +38,7 @@ import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
 import { answerWithResult } from "../answer-result";
 import { asksFor } from "../asks";
+import { complain, Misread } from "../complaints";
 import {
   changeDirectoryEntry,
   DirectoryEntryChange,
@@ -498,7 +499,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "answer_check",
-    'Record the owner\'s answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life\'s own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim; on a new matter\'s `start`, the goal he saw), and what the option `takes`: `person` (`person:<id>`, or a name Life knows), for a voice `person` or `name` (a new person\'s name), or `note`. Life acts on it at once and returns the lines written. A decision: its asker is told, and his pick of a draft\'s one outgoing option alone sends that draft, exactly, into its chat (only on his own answer in this chat). His pick of an option marked `ends` alone is his word that the card\'s step, or its whole matter, is done: Life closes it (its to-do items ticked, its facts outdated). His pick of an option marked `looks` alone is his word that he did the card\'s step: Life looks for it done now (a payment in his accounts): seen, the card ends (`doneSeen`); not found, it is open again for a later check. An ending ("Is this done?"): `outdated` ("Yes, done") closes the step, `false` removes the link and the step stays open. A guessed person: `this-is` keeps Life\'s guess as his word, `not-this-person` drops it, `same-person` makes the two one. A `contacts card` (`same-person`) or a name (`this-is`): it is that person from now on. A voice: `is-them` ("Yes", to "Is this X?") names every turn of it as the guessed person, `this-is` ("Someone else…") names every turn of it in lifelog, `not-relevant` ("Don\'t name") is not worth naming; `not-anyone-i-know` and `media` are still accepted, no longer offered. A new matter: `start` makes the goal he saw his and asks the desk to start an agent with it as its brief (its start stages come as it starts), `edit-goal` makes his `note` the goal and keeps the card for Start or Dismiss, `dismiss` never asks again for this matter.',
+    'Record the owner\'s answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life\'s own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim; on a new matter\'s `start`, the goal he saw), and what the option `takes`: `person` (`person:<id>`, or a name Life knows), for a voice `person` or `name` (a new person\'s name), or `note`. Life acts on it at once and returns the lines written. A decision: its asker is told, and his pick of a draft\'s one outgoing option alone sends that draft, exactly, into its chat (only on his own answer in this chat). His pick of an option marked `ends` alone is his word that the card\'s step, or its whole matter, is done: Life closes it (its to-do items ticked, its facts outdated). His pick of an option marked `looks` alone is his word that he did the card\'s step: Life looks for it done now (a payment in his accounts): seen, the card ends (`doneSeen`); not found, it is open again for a later check. An ending ("Is this done?"): `outdated` ("Yes, done") closes the step, `false` removes the link and the step stays open. A guessed person: `this-is` keeps Life\'s guess as his word, `not-this-person` drops it, `same-person` makes the two one. A `contacts card` (`same-person`) or a name (`this-is`): it is that person from now on. A voice: `is-them` ("Yes", to "Is this X?") names every turn of it as the guessed person, `this-is` ("Someone else…") names every turn of it in lifelog, `not-relevant` ("Don\'t name") is not worth naming; `not-anyone-i-know` and `media` are still accepted, no longer offered. A new matter: `start` makes the goal he saw his and asks the desk to start an agent with it as its brief (its start stages come as it starts), `edit-goal` makes his `note` the goal and keeps the card for Start or Dismiss, `dismiss` never asks again for this matter. His "Wrong…" on a card with `misread` (Life\'s own cards only): `value` {kind `misread`, the card\'s `misread.cause` and `misread.shown`, `report` his tick on the anonymized report}, his words as `note`, no option, the press\'s `life/answerKey`; returns {ask, reached: "caretaker"} once the caretaker received it (a retry under the same key resumes it, never asks twice).',
     z.object({
       name: z
         .string()
@@ -520,6 +521,12 @@ export function buildServer(readsOnly = false) {
     ({ ref, value, ...a }, agent, call) => {
       if (agent) {
         throw new Error(NOT_HIS);
+      }
+      if (value?.kind === "misread") {
+        if (a.options.length > 0 || a.person || a.name) {
+          throw new Error("Not done: a complaint takes his words alone.");
+        }
+        return complain(ref, a.note, Misread.parse(value), call);
       }
       // Declared once with the asks contract, so a typed answer (a person, a channel switch) never changes the arguments.
       if (value) {
