@@ -4,7 +4,7 @@
       "said": null,
       "since": null,
       "about": [],
-      "agent": "agt_000000000001",
+      "agent": null,
       "asker": "Orbit",
       "at": "2026-10-13T09:00:00.000Z",
       "clips": [],
@@ -54,7 +54,7 @@
       "evidence": null,
       "goal": null,
       "group": "decision",
-      "isPlan": true,
+      "isPlan": false,
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
@@ -209,7 +209,7 @@
       "said": null,
       "since": null,
       "about": [],
-      "agent": null,
+      "agent": "agt_000000000001",
       "asker": "Orbit",
       "at": "2026-10-14T09:00:00.000Z",
       "clips": [],
@@ -219,7 +219,7 @@
       "evidence": null,
       "goal": null,
       "group": "decision",
-      "isPlan": false,
+      "isPlan": true,
       "kind": "decision",
       "likelyPeople": [],
       "links": [],
@@ -796,5 +796,5 @@
   },
   "deadlinesToday": 0,
   "total": 8,
-  "version": "d9556873870f1ca9"
+  "version": "a97dd98a1a76ca7d"
 }
