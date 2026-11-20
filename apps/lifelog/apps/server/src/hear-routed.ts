@@ -10,11 +10,25 @@ import { scribeRanges, transcriptOf, uncut } from "./route-turns";
 import type { Unsent } from "./scribe-slots";
 import type { Heard } from "./speech-service";
 
+// What hearing the routed turns came to: `heard`, the transcript (`maybeBilled` when Scribe may have
+// billed turns that came back without words), or `later`: Scribe took nothing now and billed nothing,
+// fine to send again.
+type Routed =
+  | {
+      billableSeconds: number;
+      error: string | null;
+      kind: "heard";
+      maybeBilled: boolean;
+      transcript: ReturnType<typeof transcriptOf>;
+    }
+  | { error: string; kind: "later" };
+
 /**
  * The audio's transcript in Scribe's shape: the speech service's words, Scribe's inside `routed`.
- * `send` is the caller's paid send around the POST (`scribe-slots.ts`: a slot, then its claim).
- * `unsent`: nothing was claimed or sent. `later`: Scribe took nothing now and billed nothing, fine to
- * send again. Refused or maybe billed, the routed turns stay without words and are never sent again.
+ * `send` is the caller's paid send around the POST (`scribe-slots.ts`: a slot, then its claim);
+ * `settle` stores what it came to, inside that send, so its slot is freed only once it is stored
+ * (and for a transcript with no Scribe turns, with no slot). `unsent`: nothing was claimed or sent.
+ * Refused or maybe billed, the routed turns stay without words and are never sent again.
  */
 export async function hearRouted(
   { config, db }: { config: Config; db: Db },
@@ -25,53 +39,67 @@ export async function hearRouted(
     keyterms,
     ref,
     send,
+    settle,
   }: {
     keyterms: string[];
     ref: Record<string, string>;
     send: <T>(post: () => Promise<T>) => Promise<T | Unsent>;
+    settle: (routed: Routed) => void;
   }
-) {
+): Promise<Routed | { error: string; kind: "unsent" }> {
   const excerpt = cutOggOpus(bytes, scribeRanges(routed));
   if (!excerpt) {
-    return {
+    const local = {
       billableSeconds: 0,
       error: null,
       kind: "heard" as const,
       maybeBilled: false,
       transcript: transcriptOf(heard, routed, null),
     };
+    settle(local);
+    return local;
   }
-  const said = await send(() =>
-    transcribeNow(config, new Blob([excerpt.audio.slice()]), keyterms)
-  );
-  if ("unsent" in said) {
-    return { error: said.unsent, kind: "unsent" as const };
-  }
-  record(db, `elevenlabs.${said.kind}`, { ...ref, turns: true });
-  const billed = billableSeconds(oggOpusSeconds(excerpt.audio) ?? 0, {
-    keyterms,
+  const sent = await send(async () => {
+    const said = await transcribeNow(
+      config,
+      new Blob([excerpt.audio.slice()]),
+      keyterms
+    );
+    record(db, `elevenlabs.${said.kind}`, { ...ref, turns: true });
+    const outcome = routedOf(said, excerpt);
+    settle(outcome);
+    return outcome;
   });
-  if (said.kind === "done") {
-    const words = uncut(said.transcript.words, excerpt.spans);
+  return "unsent" in sent ? { error: sent.unsent, kind: "unsent" } : sent;
+
+  function routedOf(
+    said: Awaited<ReturnType<typeof transcribeNow>>,
+    cut: NonNullable<ReturnType<typeof cutOggOpus>>
+  ): Routed {
+    const billed = billableSeconds(oggOpusSeconds(cut.audio) ?? 0, {
+      keyterms,
+    });
+    if (said.kind === "done") {
+      return {
+        billableSeconds: billed,
+        error: null,
+        kind: "heard",
+        maybeBilled: false,
+        transcript: transcriptOf(heard, routed, {
+          languageCode: said.transcript.languageCode,
+          words: uncut(said.transcript.words, cut.spans),
+        }),
+      };
+    }
+    if (said.later) {
+      return { error: said.error, kind: "later" };
+    }
     return {
-      billableSeconds: billed,
-      error: null,
-      kind: "heard" as const,
-      maybeBilled: false,
-      transcript: transcriptOf(heard, routed, {
-        languageCode: said.transcript.languageCode,
-        words,
-      }),
+      billableSeconds: said.billed ? billed : 0,
+      error: `its Thai turns are missing: ${said.error.slice(0, 200)}`,
+      kind: "heard",
+      maybeBilled: said.billed,
+      transcript: transcriptOf(heard, routed, null),
     };
   }
-  if (said.later) {
-    return { error: said.error, kind: "later" as const };
-  }
-  return {
-    billableSeconds: said.billed ? billed : 0,
-    error: `its Thai turns are missing: ${said.error.slice(0, 200)}`,
-    kind: "heard" as const,
-    maybeBilled: said.billed,
-    transcript: transcriptOf(heard, routed, null),
-  };
 }

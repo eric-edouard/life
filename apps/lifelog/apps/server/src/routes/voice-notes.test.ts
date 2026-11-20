@@ -67,7 +67,12 @@ const note = (seconds: number) =>
     ),
     seconds * 1000
   );
-const ask = (a: ReturnType<typeof app>, audio: Uint8Array, key: string) =>
+const ask = (
+  a: ReturnType<typeof app>,
+  audio: Uint8Array,
+  key: string,
+  signal?: AbortSignal
+) =>
   a.request(`/voice-notes/transcript?at=2026-11-19T10:50:37Z&key=${key}`, {
     body: audio as BodyInit,
     headers: {
@@ -75,6 +80,7 @@ const ask = (a: ReturnType<typeof app>, audio: Uint8Array, key: string) =>
       "Content-Type": "audio/ogg",
     },
     method: "POST",
+    signal,
   });
 const SCORES = {
   en: { en: 0.95, fr: 0.02, th: 0.001 },
@@ -215,4 +221,47 @@ test("no Scribe slot now (dictation holds the one): busy, nothing claimed, and t
   await dictation;
   expect((await (await ask(a, note(60), key)).json()).text).toContain("สวัสดี");
   expect(sends()).toHaveLength(1);
+});
+
+test("a note keeps its Scribe slot until its words are stored: the next grant sees them", async () => {
+  speech.heard = MIXED;
+  const s = servicesWith({ ELEVENLABS_SLOTS: "1" });
+  const a = createApp(s);
+  const key = sha256Hex(randomUUID());
+  let next: Promise<unknown> = Promise.resolve();
+  const seen: (Date | null)[] = [];
+  scribe.respond = () => {
+    next = s.worker.paidSend(
+      "dictation",
+      { priority: "interactive", waitMs: 5000 },
+      () => {
+        seen.push(
+          env.db.select().from(voiceNoteHearings).get()?.doneAt ?? null
+        );
+        return null;
+      },
+      () => Promise.resolve()
+    );
+    return thai();
+  };
+  expect((await ask(a, note(60), key)).status).toBe(200);
+  await next;
+  expect(seen).toHaveLength(1);
+  expect(seen[0]).toBeInstanceOf(Date);
+});
+
+test("a note whose caller left while the speech service heard it is never sent to Scribe", async () => {
+  speech.heard = MIXED;
+  scribe.respond = thai;
+  const left = new AbortController();
+  speech.meanwhile = () => left.abort();
+  try {
+    await Promise.resolve(
+      ask(app(), note(60), sha256Hex(randomUUID()), left.signal)
+    ).catch(() => undefined);
+  } finally {
+    speech.meanwhile = () => undefined;
+  }
+  expect(sends()).toHaveLength(0);
+  expect(env.db.select().from(voiceNoteHearings).all()).toHaveLength(0);
 });

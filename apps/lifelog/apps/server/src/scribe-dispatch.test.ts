@@ -1,17 +1,25 @@
 // Paid sends through the job worker with one ElevenLabs slot: dictation beside the pendant's blocks,
 // the POST's own clock, and slots freed by what settles them (scribe-slots.ts holds the order rules).
 import { expect, setSystemTime, test } from "bun:test";
+import { randomUUID } from "node:crypto";
+import { join } from "node:path";
+import { MIGRATIONS } from "@lifelog/db";
 import { transcriptionJobs } from "@lifelog/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { memoryAudioStore } from "./audio-store";
 import { jobBench } from "./job-bench";
+import { getJob } from "./jobs";
+import { addQuietRange } from "./quiet-ranges";
 import { setSwitches } from "./switches";
+import { providerTranscript } from "./testing";
 
 const {
   admitFragment,
   appWith,
   audio,
   completeByWebhook,
+  deliver,
+  due,
   env,
   fake,
   inThaiZone,
@@ -19,6 +27,7 @@ const {
   said,
   speech,
   speechAudio,
+  T0,
   thaiAnswer,
   turn,
   uploads,
@@ -289,4 +298,198 @@ test("a block cut off while Scribe may have billed its turns holds the slot unti
   expect(jobRow(billed).state).toBe("failed");
   expect(jobRow(waiting).state).toBe("submitted");
   expect(uploads()).toHaveLength(1);
+});
+
+// A submitted row as the worker stores it, `minutes` after its POST.
+const submittedAgo = (
+  id: string,
+  minutes: number,
+  set: Partial<typeof transcriptionJobs.$inferInsert> = {}
+) =>
+  env.db
+    .update(transcriptionJobs)
+    .set({
+      requestSentAt: new Date(Date.now() - minutes * MIN),
+      state: "submitted",
+      transcriber: "scribe",
+      ...set,
+    })
+    .where(eq(transcriptionJobs.id, id))
+    .run();
+const failure = (requestId: string | null, metadata: unknown) => ({
+  data: {
+    error: "it could not be transcribed",
+    request_id: requestId,
+    status: "failed",
+    webhook_metadata: metadata,
+  },
+  type: "speech_to_text_transcription",
+});
+
+test("a failure after the job's transcript changes nothing: a completed job is never sent again", async () => {
+  const app = appWith(oneSlot);
+  setSwitches(env.db, { transcriber: "scribe" });
+  const jobId = await admitFragment(app, audio(60), 1);
+  await app.s.worker.work();
+  const sent = jobRow(jobId);
+  await completeByWebhook(app, sent);
+  const metadata = uploads()[0]?.form?.get("webhook_metadata");
+  await deliver(app, failure(sent.providerRequestId, metadata));
+  due(jobId);
+  await app.s.worker.work();
+  expect(jobRow(jobId).state).toBe("completed");
+  expect(uploads()).toHaveLength(1);
+});
+
+test("a whole block sent to Scribe again is a new send: a late failure of the first never touches the second", async () => {
+  const app = appWith(oneSlot);
+  setSwitches(env.db, { transcriber: "speech" });
+  inThaiZone();
+  speech.heard = ALL_THAI;
+  const jobId = await admitFragment(app, speechAudio(10), 1);
+  await app.s.worker.work();
+  const first = jobRow(jobId);
+  const firstFailure = failure(
+    first.providerRequestId,
+    uploads()[0]?.form?.get("webhook_metadata")
+  );
+  expect(await (await deliver(app, firstFailure)).json()).toMatchObject({
+    result: "retried",
+  });
+  // Heard again on the Mac, it goes to Scribe whole again, its attempts started again at 0.
+  due(jobId);
+  await app.s.worker.work();
+  const second = jobRow(jobId);
+  expect(second).toMatchObject({ attempts: 0, state: "submitted" });
+  expect(await (await deliver(app, firstFailure)).json()).toMatchObject({
+    result: "stale",
+  });
+  expect(jobRow(jobId)).toMatchObject({
+    providerRequestId: second.providerRequestId,
+    state: "submitted",
+  });
+  await app.s.worker.work();
+  expect(uploads()).toHaveLength(2);
+});
+
+test("a Scribe send with no transcription id (cut off before its answer was stored) holds its slot until settled", async () => {
+  const app = appWith(oneSlot);
+  setSwitches(env.db, { transcriber: "scribe" });
+  const cutOff = await admitFragment(app, audio(60), 1);
+  submittedAgo(cutOff, 31);
+  const waiting = await admitFragment(app, audio(60), 100);
+  await app.s.worker.tick();
+  expect(jobRow(cutOff)).toMatchObject({
+    maybeBilled: false,
+    state: "submitted",
+  });
+  expect(jobRow(waiting).state).toBe("queued");
+  expect(uploads()).toHaveLength(0);
+});
+
+test("a send stamped at its claim before 20 Nov is moved to its latest POST: ElevenLabs not knowing it 31 minutes after its claim does not send it again", async () => {
+  const app = appWith(oneSlot);
+  setSwitches(env.db, { transcriber: "scribe" });
+  const legacy = await admitFragment(app, audio(60), 1);
+  submittedAgo(legacy, 31, {
+    providerRequestId: "req_legacy",
+    providerTranscriptionId: "tr_legacy",
+  });
+  env.db.run(
+    sql.raw(
+      await Bun.file(join(MIGRATIONS, "20261120141310_post_clock.sql")).text()
+    )
+  );
+  fake.respond = (call) =>
+    call.method === "GET" && call.path.includes("/transcripts/")
+      ? new Response("not found", { status: 404 })
+      : Response.json({ detail: "no" }, { status: 500 });
+  await app.s.worker.tick();
+  expect(jobRow(legacy).state).toBe("submitted");
+  expect(uploads()).toHaveLength(0);
+});
+
+test("reconcile frees each slot as it settles it, not after the slowest", async () => {
+  const app = appWith({ ...withSpeech, ELEVENLABS_SLOTS: "2" });
+  setSwitches(env.db, { transcriber: "scribe" });
+  const answered = await admitFragment(app, audio(60), 1);
+  const slow = await admitFragment(app, audio(60), 100);
+  submittedAgo(answered, 1, { providerTranscriptionId: "tr_answered" });
+  submittedAgo(slow, 1, { providerTranscriptionId: "tr_slow" });
+  let answer: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    answer = resolve;
+  });
+  fake.respond = async (call) => {
+    if (call.path.endsWith("/tr_answered")) {
+      return Response.json(providerTranscript);
+    }
+    if (call.path.endsWith("/tr_slow")) {
+      await held;
+      return Response.json(providerTranscript);
+    }
+    return Response.json({ detail: "no" }, { status: 500 });
+  };
+  const dictation = dictate(app);
+  const ticking = app.s.worker.tick();
+  expect(await within(1000, dictation.posted)).toBe(true);
+  expect(jobRow(answered).state).toBe("completed");
+  expect(jobRow(slow).state).toBe("submitted");
+  answer();
+  dictation.free();
+  await ticking;
+});
+
+test("a quiet range that comes while a block's audio is read keeps it from the speech service", async () => {
+  const bucket = memoryAudioStore();
+  const reading = {
+    ...bucket,
+    get: (key: string) => {
+      addQuietRange(env.db, {
+        endedAt: new Date(T0 + 5000).toISOString(),
+        id: randomUUID(),
+        source: "playback",
+        startedAt: new Date(T0).toISOString(),
+      });
+      return bucket.get(key);
+    },
+  };
+  const app = appWith(oneSlot, reading);
+  setSwitches(env.db, { transcriber: "speech" });
+  const jobId = await admitFragment(app, speechAudio(10), 1);
+  await app.s.worker.work();
+  expect(speech.blocks).toBe(0);
+  expect(jobRow(jobId)).toMatchObject({ attempts: 0, state: "queued" });
+  // Due again, the claim withdraws it, unsent.
+  due(jobId);
+  await app.s.worker.work();
+  expect(speech.blocks).toBe(0);
+  expect(getJob(env.db, jobId)).toBeUndefined();
+});
+
+test("the transcriber switched to the speech service while a Scribe job's audio is read: it goes there, not to Scribe", async () => {
+  const bucket = memoryAudioStore();
+  const reading = {
+    ...bucket,
+    get: (key: string) => {
+      setSwitches(env.db, { transcriber: "speech" });
+      return bucket.get(key);
+    },
+  };
+  const app = appWith(oneSlot, reading);
+  setSwitches(env.db, { transcriber: "scribe" });
+  speech.heard = {
+    durationSeconds: 10,
+    models: {},
+    turns: [turn(0, 10, "0", "en")],
+    words: [said(1, "Hello")],
+  };
+  const jobId = await admitFragment(app, speechAudio(10), 1);
+  await app.s.worker.work();
+  expect(uploads()).toHaveLength(0);
+  expect(speech.blocks).toBe(1);
+  expect(jobRow(jobId)).toMatchObject({
+    state: "completed",
+    transcriber: "speech",
+  });
 });

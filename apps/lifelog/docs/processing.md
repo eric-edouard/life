@@ -203,7 +203,8 @@ turn comes of it. Before the Scribe send the note's key is claimed in `voice_not
 it answers its words again; a send under way (5 minutes) answers 503; a claim older than that (a lost answer, a
 restart) answers the Mac's words and is never sent again; Scribe taking nothing now (`later`) drops the claim. The
 switch off, the speech service busy or down, the credits used up for a note that needs Scribe, or no Scribe slot free
-at once (Life waits 180 s, mostly for the speech service): 503, nothing claimed, and Life asks again later. Its token is Life's corrections token.
+at once (Life waits 180 s, mostly for the speech service): 503, nothing claimed, and Life asks again later. The note keeps
+its slot until its words are stored or its claim dropped; Life hanging up stops it at the speech service and before Scribe. Its token is Life's corrections token.
 
 ### No limits
 

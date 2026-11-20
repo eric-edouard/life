@@ -54,20 +54,24 @@ runs.
   the 5-minute tick and the instant the next block may close start it; each run closes the blocks due first.
 - It sends queued jobs that have audio in the audio store and whose `next_attempt_at` has passed, oldest
   first, at most `ELEVENLABS_SLOTS` at ElevenLabs at once (default 10; set it below your ElevenLabs plan's concurrency, a block takes one). A job
-  counts there from its POST (`request_sent_at`) until its answer, or 30 minutes; one that may have been billed until it is
-  settled. Every Scribe send of the server goes one way (`scribe-slots.ts` `send`): a job's, a block's routed turns, a chat
-  voice note's. Its audio is read first, then it takes a slot, then the switch, the credits and the quiet ranges are
-  checked again and its row records the POST, which goes. A block at the speech service takes none until its turns
-  leave for Scribe, so dictation is never held behind local work; dictation waits ahead of every other send, a send
-  under way is never cut, and a slot freed (an answer stored, dictation done) sends what is queued.
+  counts there from its POST (`request_sent_at`) until its answer, or 30 minutes once ElevenLabs gave it a transcription
+  id; one without an id, or that may have been billed, until it is settled. Sends stamped at their claim before 20 Nov 2026
+  had their clock moved 10 minutes on, the latest their POST can have been (migration `post_clock`). Every Scribe send of
+  the server goes one way (`scribe-slots.ts` `send`): a job's, a block's routed turns, a chat voice note's. Its audio is
+  read first and checked again (a quiet range that came meanwhile, the transcriber switched), then it takes a slot,
+  then the switch, the credits and the quiet ranges are checked again and its row records the POST, which goes; its
+  answer is stored before the slot is freed. A block at the speech service takes none until its turns leave for
+  Scribe, so dictation is never held behind local work; dictation waits ahead of every other send, a send under way is
+  never cut, and a slot freed (an answer stored, a job reconcile settled, dictation done) sends what is queued.
 - Nothing is sent while transcription is switched off or the credits are used up: jobs wait queued.
 - Not taken is not an attempt: a 429, a 401 or 403 (the key or the plan), a connection that never opened, or an audio
   store that can't be reached. ElevenLabs can't have billed it; it goes back to `queued`, next attempt in a minute.
 - Taken but bought nothing (a failure webhook for this send, a job ElevenLabs answers 404 for 30 minutes after it was
   sent): an attempt. `attempts + 1`, provider ids cleared, back to `queued` after 1, then 2 minutes; the third
   attempt that fails fails the job, so a failure that repeats never loops. ElevenLabs bills only the transcripts it
-  makes: lost jobs are missing from its usage. A webhook names its send (`attempt` in
-  its metadata), so a late failure of an earlier send changes nothing.
+  makes: lost jobs are missing from its usage. A webhook names its send (`sentAt`, its POST, in its metadata; `attempt`
+  before 20 Nov 2026), so a late failure of an earlier send changes nothing, and a failure never reopens a job that is no
+  longer submitted.
 - A send that may have been billed (a 5xx, a timeout, a dropped connection, a 202 without a request id, a send cut off
   by a restart) is never sent again: it stays `submitted`, marked `maybe_billed`, for its webhook. A failure webhook
   fails it; unanswered for a day, it is `failed`. Without a webhook nothing answers it, so it fails after that day.

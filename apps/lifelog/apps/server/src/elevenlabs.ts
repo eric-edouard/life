@@ -51,7 +51,12 @@ const Accepted = z.object({
 
 export function submit(
   config: Config,
-  job: { attempts: number; id: string; settings: TranscriptionSettings },
+  job: {
+    attempts: number;
+    id: string;
+    requestSentAt: Date | null;
+    settings: TranscriptionSettings;
+  },
   audio: Blob
 ): Promise<SubmitOutcome> {
   const { languageCode, numSpeakers, keyterms } = job.settings;
@@ -64,6 +69,7 @@ export function submit(
         webhook_metadata: JSON.stringify({
           attempt: job.attempts,
           jobId: job.id,
+          sentAt: job.requestSentAt?.getTime(),
         }),
         ...(webhookId ? { webhook_id: webhookId } : {}),
       }
@@ -282,17 +288,23 @@ export function failureReason(data: { error?: unknown; message?: unknown }) {
   );
 }
 
-// The job and which of its sends (`attempts` when it went; absent before Oct 15).
+// The job and which of its sends: its POST's instant (`sentAt`, since 20 Nov 2026), `attempts` when
+// it went (absent before Oct 15).
 const WebhookMetadata = z.object({
   attempt: z.int().min(0).optional(),
   jobId: z.uuid(),
+  sentAt: z.int().optional(),
 });
 
 // webhook_metadata is sent as a JSON string; accept it echoed as a string or an object.
 export function webhookMetadata(metadata: unknown) {
   const value = typeof metadata === "string" ? safeJson(metadata) : metadata;
   const parsed = WebhookMetadata.safeParse(value).data;
-  return { attempt: parsed?.attempt ?? null, jobId: parsed?.jobId ?? null };
+  return {
+    attempt: parsed?.attempt ?? null,
+    jobId: parsed?.jobId ?? null,
+    sentAt: parsed?.sentAt ?? null,
+  };
 }
 
 const ProviderToken = z.object({

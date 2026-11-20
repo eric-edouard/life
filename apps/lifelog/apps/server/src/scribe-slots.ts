@@ -9,16 +9,17 @@
 import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { transcriptionJobs as jobs } from "@lifelog/db/schema";
-import { and, eq, gt, or } from "drizzle-orm";
+import { and, eq, gt, isNull, or } from "drizzle-orm";
 
 // A send not answered after this was lost by ElevenLabs if it no longer knows it; until then it
 // counts as one of the transcriptions running there.
 export const LOST_AFTER_MS = 30 * 60 * 1000;
 
-// The submitted jobs ElevenLabs may still be working on, each holding one of its slots: a Scribe
-// send from its POST, for LOST_AFTER_MS, and any send that may have been billed (a routed excerpt
-// under way, one cut off by a restart, an unanswered POST) until it is settled. A block heard at the
-// speech service holds none.
+// The submitted jobs ElevenLabs may still be working on, each holding one of its slots until it is
+// settled: a Scribe send it knows by a transcription id for LOST_AFTER_MS from its POST (then it was
+// lost), one without (a POST cut off before its answer was stored, a 202 without ids) and any send
+// that may have been billed (a routed excerpt under way, one cut off by a restart). A block heard
+// at the speech service holds none.
 export const atScribe = (db: Db) =>
   db
     .select({ id: jobs.id })
@@ -30,7 +31,13 @@ export const atScribe = (db: Db) =>
           eq(jobs.maybeBilled, true),
           and(
             eq(jobs.transcriber, "scribe"),
-            gt(jobs.requestSentAt, new Date(clock().getTime() - LOST_AFTER_MS))
+            or(
+              isNull(jobs.providerTranscriptionId),
+              gt(
+                jobs.requestSentAt,
+                new Date(clock().getTime() - LOST_AFTER_MS)
+              )
+            )
           )
         )
       )

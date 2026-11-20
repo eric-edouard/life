@@ -65,14 +65,21 @@ export function voiceNoteRoutes({
       : { text: settle(key, claimed.localText) };
   };
 
-  /** A new note: the speech service, then Scribe for its routed turns, claimed first. */
+  /**
+   * A new note: the speech service, then Scribe for its routed turns, claimed first. Its answer is
+   * stored (or a claim Scribe surely did not bill dropped) while it holds its Scribe slot. `signal`:
+   * the caller left, so nothing more is sent for it.
+   */
   async function hearNote(
     bytes: Uint8Array,
-    at: string,
-    key: string,
-    seconds: number
+    {
+      at,
+      key,
+      seconds,
+      signal,
+    }: { at: string; key: string; seconds: number; signal: AbortSignal }
   ): Promise<Said> {
-    const said = await transcribeBlock(config, bytes);
+    const said = await transcribeBlock(config, bytes, signal);
     if ("error" in said) {
       return said.error === "invalid_audio"
         ? { invalid: true, message: said.message }
@@ -91,7 +98,7 @@ export function voiceNoteRoutes({
       send: (post) =>
         worker.paidSend(
           `voice-note:${randomUUID()}`,
-          { priority: "ordinary", waitMs: SLOT_WAIT_MS },
+          { priority: "ordinary", signal, waitMs: SLOT_WAIT_MS },
           () =>
             db
               .insert(voiceNoteHearings)
@@ -103,21 +110,25 @@ export function voiceNoteRoutes({
               : "this note is being heard",
           post
         ),
+      settle: (outcome) => {
+        if (outcome.kind === "later") {
+          // Nothing was taken or billed: the claim goes, the note may be sent again.
+          db.delete(voiceNoteHearings)
+            .where(eq(voiceNoteHearings.key, key))
+            .run();
+          return;
+        }
+        record(db, "voice_note.heard", {
+          billableSeconds: outcome.billableSeconds,
+          route: route.kind,
+          seconds,
+        });
+        settle(key, textFrom(outcome.transcript));
+      },
     });
-    if (heard.kind === "unsent") {
-      return busy(heard.error);
-    }
-    if (heard.kind === "later") {
-      // Nothing was taken or billed: the claim goes, the note may be sent again.
-      db.delete(voiceNoteHearings).where(eq(voiceNoteHearings.key, key)).run();
-      return busy(heard.error);
-    }
-    record(db, "voice_note.heard", {
-      billableSeconds: heard.billableSeconds,
-      route: route.kind,
-      seconds,
-    });
-    return { text: settle(key, textFrom(heard.transcript)) };
+    return heard.kind === "heard"
+      ? { text: textFrom(heard.transcript) }
+      : busy(heard.error);
   }
 
   return router().openapi(
@@ -166,7 +177,9 @@ export function voiceNoteRoutes({
           400
         );
       }
-      const said = replayOf(key) ?? (await hearNote(bytes, at, key, seconds));
+      const said =
+        replayOf(key) ??
+        (await hearNote(bytes, { at, key, seconds, signal: c.req.raw.signal }));
       if ("text" in said) {
         return c.json({ text: said.text }, 200);
       }
