@@ -21,7 +21,6 @@ import {
   isEndingCheck,
 } from "../records/fact-check";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
-import { type DirectionPin, MatterDirectionBatch } from "../records/matter";
 import {
   ContactPerson,
   Correction,
@@ -711,33 +710,6 @@ export const lastUpdate = (t: Task) =>
   t.lines.findLast((l) => l.kind === "update");
 
 export const readInferred = () => rowsOf(INFERRED, InferredPerson);
-
-/** The matters' directions as pinned to their steps (`directionsOf`): Life's drafts, then his word (`matter-direction`), each with when it was written. */
-export const readDirectionPins = (): DirectionPin[] => [
-  ...readAppended(
-    MATTER_DIRECTIONS,
-    MatterDirectionBatch,
-    (last?: DirectionPin[]) => [...(last ?? [])],
-    (all, b) => {
-      for (const d of b.directions) {
-        all.push({ at: b.at, by: "life", ...d });
-      }
-    }
-  ),
-  ...rowsOf(CORRECTIONS, Correction).flatMap((c) =>
-    c.kind === "matter-direction"
-      ? [
-          {
-            at: c.at,
-            by: "owner" as const,
-            steps: c.steps,
-            ...(c.goal ? { goal: c.goal } : {}),
-            ...(c.nextStep ? { nextStep: c.nextStep } : {}),
-          },
-        ]
-      : []
-  ),
-];
 
 /** The matters he dismissed as new matter checks, each as the steps it was pinned to (`new-matter-dismissed`). */
 export const readDismissedMatterPins = () =>

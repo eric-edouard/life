@@ -13,6 +13,7 @@ import { CARD, DecisionRequest } from "../../memory/card-request";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
 import { checksOnMatterOf } from "../../memory/checks";
 import { requestDecision } from "../../memory/decisions";
+import { readLifeIcons } from "../../memory/matter-icons";
 import { recordCorrection } from "../../memory/memory-files";
 import { openById } from "../../memory/open-by-id";
 import { paymentsOf } from "../../memory/payments";
@@ -191,7 +192,10 @@ const Correct = Fix.extend({
 const NOT_HIS =
   "Not done: this app was paired as an agent, and an agent's words are not his.";
 
-/** Applies one correction the owner asked for: a Life memory correction (one on a whole matter by its id, and any important mark: his token only), or one of lifelog's four. */
+/** The corrections only his own token writes, whatever they name: his marks on a matter. */
+const HIS_ONLY_KINDS = new Set(["matter-icon", "matter-important"]);
+
+/** Applies one correction the owner asked for: a Life memory correction (one on a whole matter by its id, and any important mark or icon: his token only), or one of lifelog's four. */
 export async function correct(
   a: z.infer<typeof Correct>,
   agent?: string,
@@ -199,8 +203,9 @@ export async function correct(
 ) {
   if (
     a.kind === "memory" &&
-    (a.correction?.matter !== undefined ||
-      a.correction?.kind === "matter-important")
+    a.correction &&
+    (a.correction.matter !== undefined ||
+      HIS_ONLY_KINDS.has(String(a.correction.kind)))
   ) {
     if (agent) {
       throw new Error(NOT_HIS);
@@ -309,14 +314,14 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matters",
-    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `blockingChecks` (how many open checks about it block him: an agent's decision, an unnamed voice, a name nobody is; `read_matter` lists every one), `needsYou` (whether it needs him: its next step is his decision or something only he does, unless it is stuck, or a check about it blocks him), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: parties, each `ref`, `name`, `kind` person or organization, `line` (what they are to him) and `picture` (`id`, for `read_person_pictures`), from its open steps), `areas` and `projects` (names), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area. `read_matter` opens one.",
+    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `blockingChecks` (how many open checks about it block him: an agent's decision, an unnamed voice, a name nobody is; `read_matter` lists every one), `needsYou` (whether it needs him: its next step is his decision or something only he does, unless it is stuck, or a check about it blocks him), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: parties, each `ref`, `name`, `kind` person or organization, `line` (what they are to him) and `picture` (`id`, for `read_person_pictures`), from its open steps), `areas` and `projects` (names), `icon` (`key`, one of the matter icon set; `by` life: Life's pick, owner: his; absent: none, show the area's), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area. `read_matter` opens one.",
     z.object({
       area: z.string().optional().describe("Area id or name"),
       person: z.string().optional().describe("Name, alias or id"),
       project: z.string().optional().describe("Project id or name"),
     }),
     async (q) => ({
-      matters: await readMatterRowsNow(q, readActiveAgentOf()),
+      matters: await readMatterRowsNow(q, readActiveAgentOf(), readLifeIcons),
     })
   );
   tool(
@@ -332,7 +337,7 @@ export function buildServer(readsOnly = false) {
         ),
     }),
     async ({ id }) => {
-      const matter = await oneMatter([id], readAgentsOnSteps);
+      const matter = await oneMatter([id], readAgentsOnSteps, readLifeIcons);
       if (!matter) {
         throw new Error(`No matter ${id}.`);
       }
@@ -435,7 +440,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "correct_memory",
-    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: kind `outdated` with `matter`, its id (Life closes every open step: its observations, and its to-do items ticked); his goal or next step for a matter: kind `matter-direction`, `matter` its id, `goal` (text) and/or `nextStep` ({kind, text, waitsOn})), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
+    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: kind `outdated` with `matter`, its id (Life closes every open step: its observations, and its to-do items ticked); his goal or next step for a matter: kind `matter-direction`, `matter` its id, `goal` (text) and/or `nextStep` ({kind, text, waitsOn}); his icon for a matter: kind `matter-icon`, `matter` its id, `icon` a key or null (Life picks again), his token only), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
     correct,
     WRITES

@@ -414,6 +414,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
   const checks = await import("../../memory/checks");
   const who = await import("../../memory/who");
   const book = await import("../../memory/matters");
+  const icons = await import("../../memory/matter-icons");
   const items = await import("../../memory/read-open-items");
   const agents = await import("../registered-agents");
   // On: the transfer's look is a payment's (`doneSeenByOf`).
@@ -567,6 +568,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
           waitsOn: "the shop",
         },
         owedTo: ["person:gran"],
+        ownerIcon: "tools",
         projects: ["shop-fit-out"],
         status: "moving",
         steps,
@@ -585,6 +587,15 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         steps: [],
       }),
     ] as never),
+    // Life's pick for the lease; none for the photo (the phone shows its area's icon).
+    spyOn(icons, "readLifeIcons").mockImplementation(
+      async (vs) =>
+        new Map(
+          vs.some((v) => v.id === "matter_bbbbbbbbbbbb")
+            ? [["matter_bbbbbbbbbbbb", "key"]]
+            : []
+        )
+    ),
     spyOn(agents, "readRegisteredAgents").mockResolvedValue({
       agents: [
         {
@@ -645,7 +656,19 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     expect(
       shown.find((c) => c.kind === "decision" && c.draft)?.networkIdentity
     ).toMatchObject({ network: "WhatsApp", newest: null, shownName: "Kit" });
-    expectWire("read_matters", await read("read_matters"));
+    const matters = await read("read_matters");
+    expectWire("read_matters", matters);
+    expect(
+      Object.fromEntries(
+        (JSON.parse(matters).matters as { icon?: object; name: string }[]).map(
+          (m) => [m.name, m.icon]
+        )
+      )
+    ).toEqual({
+      "Frame Gran's photo": undefined,
+      "Mend Gran's watch": { by: "owner", key: "tools" },
+      "Renew the lease": { by: "life", key: "key" },
+    });
     expectWire(
       "read_matter",
       await read("read_matter", { id: "matter_aaaaaaaaaaaa" })

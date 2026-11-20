@@ -20,13 +20,14 @@ export const matterRowsNowOf = <
     return { ...m, blockingChecks, needsYou: needsYouOf(m, blockingChecks) };
   });
 
-/** The running matters as rows now (`openMatters`, of one person, project or area when given), over his open checks read once; each with `agentOf`'s agent. */
+/** The running matters as rows now (`openMatters`, of one person, project or area when given), over his open checks read once; each with `agentOf`'s agent and `iconsOf`'s icon. */
 export async function readMatterRowsNow(
   q: Parameters<typeof openMatters>[0] = {},
-  agentOf?: Parameters<typeof openMatters>[1]
+  agentOf?: Parameters<typeof openMatters>[1],
+  iconsOf?: Parameters<typeof openMatters>[2]
 ) {
   const [{ matters }, open] = await Promise.all([
-    openMatters(q, agentOf),
+    openMatters(q, agentOf, iconsOf),
     openChecksNow(),
   ]);
   return matterRowsNowOf(matters, open);
