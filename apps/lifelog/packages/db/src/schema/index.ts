@@ -1063,17 +1063,6 @@ export const vocabulary = sqliteTable("vocabulary", {
   term: text("term").primaryKey(),
 });
 
-// A chat voice note heard for Life (POST /voice-notes/transcript), by its original file's sha256: the
-// claim taken before any Scribe send, so a note is paid for once. `localText` is the speech service's
-// words, kept before the send; `text` and `doneAt` are its answer once settled.
-export const voiceNoteHearings = sqliteTable("voice_note_hearings", {
-  claimedAt: instant("claimed_at").notNull().$defaultFn(clock),
-  doneAt: instant("done_at"),
-  key: text("key").primaryKey(),
-  localText: text("local_text").notNull(),
-  text: text("text"),
-});
-
 // Every change the feed carries, in commit order; GET /changes reads it by `seq`. Written in the
 // same transaction as the change (change-log.ts `logChange`).
 export const changeLog = sqliteTable(

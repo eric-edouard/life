@@ -1,5 +1,6 @@
 import { log } from "../core/log";
-import { lifelogMissing, writeLifelog } from "./lifelog";
+import { writeLifelog } from "./lifelog";
+import { lifelogMissing } from "./lifelog-call";
 
 /** How a push interrupts him: Apple's `interruption-level` (passive: Notification Center only, no sound). */
 export type PushLevel = "passive" | "active" | "time-sensitive";

@@ -41,7 +41,7 @@ import {
   readEarliestImessage,
   readImessage,
 } from "../sources/imessage";
-import { lifelogMissing } from "../sources/lifelog";
+import { lifelogMissing } from "../sources/lifelog-call";
 import {
   incomingMail,
   mailRoot,

@@ -61,7 +61,7 @@ const note = (seconds: number) =>
   );
 const ask = (a: ReturnType<typeof app>, audio: Uint8Array, key: string) =>
   a.request(`/voice-notes/transcript?at=2026-11-19T10:50:37Z&key=${key}`, {
-    body: audio,
+    body: audio as BodyInit,
     headers: {
       Authorization: `Bearer ${OWNER_TOKEN}`,
       "Content-Type": "audio/ogg",

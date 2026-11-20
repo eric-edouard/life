@@ -2,7 +2,7 @@ import { readOwnerName } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { entryLine, isListed, type LedgerEntry } from "../records/ledger-entry";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
-import { lifelogMissing } from "../sources/lifelog";
+import { lifelogMissing } from "../sources/lifelog-call";
 import { currentSummaries, summaryLine } from "./conversation-summaries";
 import { readCoverage, type SourceDay } from "./coverage";
 import { BIRTHDAY_DAYS, readBirthdaysNear } from "./details";

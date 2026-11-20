@@ -111,7 +111,7 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
       return isMatch ? [{ id: a.id, isMatch }] : [];
     })
   );
-  const read = readMessageEvents(
+  const read = await readMessageEvents(
     readCursor(db, MESSAGE_RECEIVED),
     MAX_PAGE,
     people,

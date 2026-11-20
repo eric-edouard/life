@@ -6,6 +6,7 @@ import { HOUR } from "../core/clock";
 import { digest } from "../core/hash";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as logs from "../core/log";
+import { setSettings, settings } from "../core/settings";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as models from "../models/llm";
 import type { SourceEvent, SourceFile } from "../records/source";
@@ -391,3 +392,67 @@ test.skipIf(!(Bun.which("sips") && Bun.which("textutil")))(
     }
   }
 );
+
+test("a voice note is heard by lifelog, offline too: its words, an empty line for audio it cannot hear, nothing while busy and asked again on the next arrival", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "voice-"));
+  const note = (name: string, bytes: string): SourceFile => {
+    writeFileSync(join(dir, name), bytes);
+    return { mime: "audio/ogg", name, path: join(dir, name), ref: `t:${name}` };
+  };
+  const files = [
+    note("heard.ogg", "OggS heard"),
+    note("noise.ogg", "OggS noise"),
+    note("busy.ogg", "OggS busy"),
+  ];
+  const answers = new Map([
+    [
+      digest("sha256", "OggS heard", 64),
+      Response.json({ text: "See you  at eight" }),
+    ],
+    [digest("sha256", "OggS noise", 64), new Response("", { status: 400 })],
+  ]);
+  const asked: string[] = [];
+  const old = settings().lifelog;
+  const token = process.env.LIFELOG_TOKEN;
+  setSettings({ lifelog: { url: "https://lifelog.example" } });
+  process.env.LIFELOG_TOKEN = "made-up-token";
+  const fetch = spyOn(globalThis, "fetch").mockImplementation(((
+    input: string | URL | Request
+  ) => {
+    const url = new URL(String(input));
+    expect(url.pathname).toBe("/voice-notes/transcript");
+    expect(url.searchParams.get("at")).toBe("2026-10-17T04:01:00.000Z");
+    const key = url.searchParams.get("key") ?? "";
+    asked.push(key);
+    return Promise.resolve(
+      answers.get(key)?.clone() ?? new Response("", { status: 503 })
+    );
+  }) as typeof globalThis.fetch);
+  const online = spyOn(models, "isOnline").mockResolvedValue(false);
+  try {
+    await describeFilesOnArrival([event(...files)]);
+    const known = readFiles();
+    expect(known.get("t:heard.ogg")?.text).toBe("See you at eight");
+    expect(known.get("t:noise.ogg")?.text).toBeUndefined();
+    expect(known.has("t:noise.ogg")).toBe(true);
+    expect(known.has("t:busy.ogg")).toBe(false);
+    expect(showFiles([event(...files)], known)[0]?.text).toBe(
+      "[audio heard.ogg | text: See you at eight]\n[audio noise.ogg]\n[audio busy.ogg]"
+    );
+    await describeFilesOnArrival([event(...files)]);
+    expect(
+      asked.filter((k) => k === digest("sha256", "OggS busy", 64))
+    ).toHaveLength(2);
+    expect(asked).toHaveLength(4);
+  } finally {
+    fetch.mockRestore();
+    online.mockRestore();
+    setSettings({ lifelog: old ?? null });
+    if (token === undefined) {
+      delete process.env.LIFELOG_TOKEN;
+    } else {
+      process.env.LIFELOG_TOKEN = token;
+    }
+    rmSync(dir, { force: true, recursive: true });
+  }
+});

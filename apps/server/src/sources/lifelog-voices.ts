@@ -1,14 +1,8 @@
 import { z } from "zod";
 import { DAY } from "../core/clock";
 import { log } from "../core/log";
-import {
-  call,
-  LIVE,
-  lifelogMissing,
-  parseTurnRef,
-  type Store,
-  writeLifelog,
-} from "./lifelog";
+import { LIVE, parseTurnRef, type Store, writeLifelog } from "./lifelog";
+import { call, lifelogMissing } from "./lifelog-call";
 
 // What lifelog says of the voices of its recordings: how a conversation's voices were heard (`readVoiceKinds`) and who
 // answered or recognised each (`readVoices`). Read-only.

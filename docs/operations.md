@@ -167,6 +167,16 @@ subscription per run. `LIFE_DEMO_RUNTIME=codex bun run e2e:demo` runs the same s
   wait for it, shown as "can't read". The report's Actions section and the files step (`describeFiles`: a failed call
   leaves its files as tags until the next night) never fail the night.
 
+## Voice notes
+
+```sh
+bun life memory hear-voice-notes --from 2026-01-01 --to 2026-01-31
+```
+
+Hears the chat voice notes of those days through lifelog (no model call, no memory lock: each line is one synchronous
+append to `memory/files.jsonl`); Thai turns cost Scribe's price, once per note. `historical-units` over the same months
+then shows their words in older units; the nightly window shows them on its own.
+
 ## Historical collection
 
 ```sh

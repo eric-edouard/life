@@ -3,7 +3,7 @@
 // (`voice_note_hearings`) makes its Scribe send happen once.
 import { createRoute, z } from "@hono/zod-openapi";
 import { clock } from "@life/server/src/core/clock";
-import { voiceNoteHearings } from "@lifelog/db/schema";
+import { voiceNoteHearings } from "@lifelog/db/schema/voice-note-hearings";
 import { eq } from "drizzle-orm";
 import { oggOpusSeconds } from "../audio";
 import { Sha256 } from "../config";

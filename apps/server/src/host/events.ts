@@ -14,12 +14,14 @@ import {
 } from "../memory/changes";
 import { directChats } from "../memory/closeness";
 import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
+import { readFiles } from "../memory/memory-files";
+import { hearVoiceNotes, showFiles } from "../memory/message-files";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
 import { readySources, SOURCES } from "../memory/sources";
 import { isLifeOutput, speakerOf } from "../memory/units";
 import { meant, nameRefusalOf, type People, readPeople } from "../memory/who";
 import { EventFilter } from "../records/registered-agent";
-import type { SourceEvent } from "../records/source";
+import { eventKey, type SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
 import { EVENT_CHANNELS, type Matchable } from "./event-channels";
 
@@ -40,6 +42,8 @@ export const CALLS_BACK = 12 * HOUR;
 const DECISION_EVENTS = [DECISION_ANSWERED, DECISION_LAPSED];
 /** How often an agent should poll when nothing is waiting. */
 const NEXT_POLL_MS = 30_000;
+/** How long a poll waits for its page's voice notes to be heard. */
+const HEAR_VOICE_NOTES_MS = 60_000;
 // The extension's provisional error code for an unknown event name.
 const NOT_FOUND = -32_023;
 
@@ -344,7 +348,7 @@ export const messageMatchableOf = (
  * them: one read for the connector's polls and the desk's. A source that cannot be read keeps its place, so nothing it
  * wrote meanwhile is skipped.
  */
-export function readMessageEvents<T>(
+export async function readMessageEvents<T>(
   cursor: string | null | undefined,
   max: number,
   people: People,
@@ -381,12 +385,27 @@ export function readMessageEvents<T>(
     feeds,
     { ...at, ...Object.fromEntries(feeds.map((f) => [f.name, f.from])) },
     max,
-    (_s, e) => item(messagePayloadOf(e, people), e)
+    (_s, e) => e
+  );
+  // A voice note is heard before it is matched, so a wait on words sees them; past the bound it goes as it is.
+  await Promise.race([
+    hearVoiceNotes(page.items),
+    Bun.sleep(HEAR_VOICE_NOTES_MS),
+  ]).catch((error) =>
+    log("source.read", { error: String(error), ok: false, what: "voice notes" })
+  );
+  // What a filter matches is the text every reader sees: its files' lines included.
+  const shown = new Map(
+    showFiles(page.items, readFiles()).map((e) => [eventKey(e), e])
   );
   return {
     cursor: page.cursor,
     hasMore: page.remaining > 0 || isCut,
-    items: page.items,
+    items: page.items.flatMap((raw) => {
+      const e = shown.get(eventKey(raw)) ?? raw;
+      const got = item(messagePayloadOf(e, people), e);
+      return got === null ? [] : [got];
+    }),
     truncated,
   };
 }
@@ -420,7 +439,7 @@ export async function pollMessagesReceived(
       nameRefusalOf(parsed.data.person ?? "", people)
     );
   }
-  const read = readMessageEvents(
+  const read = await readMessageEvents(
     p.cursor,
     p.maxEvents ?? PAGE,
     people,

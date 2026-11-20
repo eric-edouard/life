@@ -3,7 +3,7 @@ import { clock, daysBefore } from "../core/clock";
 import { readJson, writeJson } from "../core/files";
 import { log } from "../core/log";
 import { isoDateTime } from "../records/fields";
-import { lifelogMissing } from "../sources/lifelog";
+import { lifelogMissing } from "../sources/lifelog-call";
 import { type Recorded, readRecorded } from "../sources/lifelog-recorded";
 import { RECORDED_DAYS } from "./memory-files";
 import { localDate } from "./zones";

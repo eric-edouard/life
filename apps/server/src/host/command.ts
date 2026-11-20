@@ -17,7 +17,7 @@ import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
-import { DAYS, gather } from "../memory/gather";
+import { DAYS, gather, readSourceEvents } from "../memory/gather";
 import { collectHistorical } from "../memory/historical-collection";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
@@ -32,6 +32,7 @@ import {
 import { recordCorrection } from "../memory/memory-files";
 import { locked } from "../memory/memory-lock";
 import { readMentions } from "../memory/mentions";
+import { hearVoiceNotes } from "../memory/message-files";
 import { openById } from "../memory/open-by-id";
 import { pages } from "../memory/pages";
 import { rebuildPassages } from "../memory/passage-rebuild";
@@ -54,7 +55,13 @@ import {
 } from "../memory/voice-naming";
 import { placementOf, readPeople } from "../memory/who";
 import { chatsOf } from "../memory/words";
-import { dayNow, isDay, lastDays, type Window } from "../memory/zones";
+import {
+  dayNow,
+  dayStart,
+  isDay,
+  lastDays,
+  type Window,
+} from "../memory/zones";
 import { histories, readHistoryWork } from "../personal/histories";
 import { readPerson } from "../personal/person-parts";
 import { personaReadingsOf, personas } from "../personal/personas";
@@ -293,6 +300,26 @@ const HANDLERS: Record<string, Handler> = {
           )
         : null
     ),
+  /**
+   * `hear-voice-notes --from d --to d`: the chat voice notes of those days heard (lifelog, no model). No lock: a line
+   * of memory/files.jsonl is a synchronous append. `historical-units` for those months then shows the words in older units.
+   */
+  "hear-voice-notes": async (v) => {
+    const to = v.to ?? v.from;
+    if (!(v.from && isDay(v.from) && to && isDay(to))) {
+      throw new Error("--from is a day (YYYY-MM-DD), --to too or left out");
+    }
+    const { read } = await readSourceEvents(
+      dayStart(v.from),
+      dayStart(daysBefore(to, -1)),
+      (await readPeople()).truth
+    );
+    const heard = await hearVoiceNotes(
+      read.flatMap(({ events, s }) => (s.kind === "chat" ? events : []))
+    );
+    console.log(JSON.stringify(heard ?? { read: 0 }));
+    return 0;
+  },
   "historical-units": step((v) => collectHistorical(v)),
   /**
    * `histories [--from YYYY-MM] [--force]`: what the histories would read (people, months, calls and a token ceiling),
@@ -484,7 +511,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [--force] | matters [list] [--force] [--since YYYY-MM-DD] | matter-directions [--force] [--all] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | source-use [--days 7] [--json] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | hear-voice-notes --from d [--to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [--force] | matters [list] [--force] [--since YYYY-MM-DD] | matter-directions [--force] [--all] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | source-use [--days 7] [--json] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }
