@@ -18,6 +18,7 @@ type LogKind =
   | "calendar.write"
   | "desk.change"
   | "desk.complaints"
+  | "desk.fold"
   | "desk.hand_out"
   | "desk.net"
   | "desk.runtime"

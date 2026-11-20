@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { type AgentHold, isHeldOf, MATTER_OVER_OUTCOME } from "./held-matters";
+import {
+  type AgentHold,
+  agentForOf,
+  isHeldOf,
+  MATTER_OVER_OUTCOME,
+} from "./held-matters";
 
 // The one rule of "held", for the hand-out and the new matter check alike. Made-up steps and agents.
 
@@ -11,7 +16,6 @@ const hold = (over: Partial<AgentHold> = {}): AgentHold => ({
   closedAt: END,
   openedBy: "desk",
   outcome: "nothing left for me",
-  project: null,
   status: "ended",
   step: "obs_h1",
   whyNotStarted: null,
@@ -61,4 +65,23 @@ test("the rule returns the hold that holds, with its agent and status, or undefi
   expect(
     isHeldOf([hold({ outcome: MATTER_OVER_OUTCOME })])(matter(BEFORE))
   ).toBe(undefined);
+});
+
+test("a matter goes to the oldest agent of its project, else the Personal agent, else none", () => {
+  const agent = (id: string, project: string | null, isPersonal = false) => ({
+    id,
+    name: null,
+    project,
+    role: isPersonal ? ("personal" as const) : null,
+  });
+  const standing = [
+    agent("agt_000000000001", null, true),
+    agent("agt_000000000002", "test-shop"),
+    agent("agt_000000000003", "test-shop"),
+  ];
+  const take = agentForOf(standing);
+  expect(take("test-shop")?.id).toBe("agt_000000000002");
+  expect(take("test-farm")?.id).toBe("agt_000000000001");
+  expect(take(undefined)?.id).toBe("agt_000000000001");
+  expect(agentForOf(standing.slice(1))("test-farm")).toBeUndefined();
 });

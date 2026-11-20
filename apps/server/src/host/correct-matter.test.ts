@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
+import { chosenIconsOf, importantIdsOf } from "../memory/matter-pins";
 import {
-  chosenIconsOf,
   directionsOf,
-  importantIdsOf,
   matterFinderOf,
   openStepsOf,
 } from "../memory/matter-read";

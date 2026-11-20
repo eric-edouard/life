@@ -46,7 +46,6 @@ const hold = (
   closedAt: null,
   openedBy: "owner" as const,
   outcome: null,
-  project: null,
   status: "active" as AgentStatus,
   step,
   whyNotStarted: null,
@@ -130,15 +129,18 @@ test("an open decision on a matter that is not running is an oddity", () => {
   ]);
 });
 
-test("coverage counts the matters to do and those an active agent holds, then names the first gate each other fails, not_his last", () => {
+test("coverage counts the matters to do and those an active agent holds, then names the first gate each other fails, no_agent last", () => {
   const wait = matter("w", { nextStep: { kind: "wait_owner" } as never });
   const ids = (...x: string[]) => new Set(x);
-  const matters = ["p", "d", "x", "h", "s", "r", "v"].map((id) => matter(id));
+  const matters = ["p", "d", "x", "h", "s", "r", "v", "n"].map((id) =>
+    matter(id)
+  );
   const HOLDS: Record<string, AgentHold> = {
     h: hold("agt_1", "obs_h"),
     s: hold("agt_2", "obs_s", { status: "stopped" }),
   };
   const facts: HandOutFacts = {
+    agentFor: (v) => (v.id === "n" ? undefined : "agt_1"),
     decisions: [],
     dismissed: ids("x"),
     isDue: (id) => id === "d" || id === "p",
@@ -151,7 +153,7 @@ test("coverage counts the matters to do and those an active agent holds, then na
     {
       name: "Agent coverage",
       relation:
-        "7 of 8 running matters have a next step to do · 1 held by an active agent",
+        "8 of 9 running matters have a next step to do · 1 held by an active agent",
     },
     { name: "Agent coverage · project parked", relation: "1: Matter p" },
     { name: "Agent coverage · direction due", relation: "1: Matter d" },
@@ -161,6 +163,10 @@ test("coverage counts the matters to do and those an active agent holds, then na
       relation: "1: Matter s",
     },
     { name: "Agent coverage · not one of his", relation: "1: Matter v" },
+    {
+      name: "Agent coverage · no agent takes it: no agent of its project, no Personal agent",
+      relation: "1: Matter n",
+    },
     {
       name: "Agent coverage · ready: waits for the hand-out's pace or his Start",
       relation: "1: Matter r",
