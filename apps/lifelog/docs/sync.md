@@ -51,6 +51,7 @@ the top; nothing is lost or sent twice.
 | A conversation's place | Server (its most accurate named fix) | Phone cache | Feed (`place`) |
 | Quiet ranges from the Mac | Server (made from the events on the Mac's socket) | Phone cache, left out of fragments | Feed |
 | Quiet ranges from playback | Phone | Server `quiet_ranges` (source `playback`) | Left out of fragments on the phone; a closed span goes through the outbox to `POST /quiet-ranges`, in pieces |
+| Quiet ranges from dictation on the phone | Server (`open_quiet_ranges` while open, then `quiet_ranges`) | Phone RAM, for the one dictation | `POST /dictation/ranges` before the microphone opens; `POST /dictation/ranges/{id}/close` at Stop, cancel or a failed start; never the outbox. A close lost ends at the cap (`docs/processing.md`) |
 | Mac watermark, Mac LLM state, dictating | Server, live | Phone cache (`feed_state`) | Kept from the last page of a complete pull, with when it ended (`pulledAt`, the last sync the status shows) |
 | Transcription and AI switches, engine, transcriber, minutes before the app asks to be opened | Server (`processing_switches`) | Phone cache | Every feed page; the phone sets them with `PUT /switches`, through the outbox |
 | The owner's vocabulary | Server (`vocabulary`) | Phone cache (`feed_state`) | Every feed page, as one value; the phone sets the whole list with `PUT /vocabulary`, through the outbox |

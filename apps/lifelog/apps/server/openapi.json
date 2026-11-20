@@ -2494,6 +2494,53 @@
         },
         "required": ["endedAt", "id", "source", "startedAt"]
       },
+      "OpenDictationRange": {
+        "type": "object",
+        "properties": {
+          "endsBy": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Its cap, 10 minutes after startedAt: the phone stops taking sound before it"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The start as first opened"
+          }
+        },
+        "required": ["endsBy", "id", "startedAt"]
+      },
+      "DictationRangeInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "phoneId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The phone dictating"
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The bundle id of the app the owner dictates in"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The tap, by the phone's clock; within a minute of the server's"
+          }
+        },
+        "required": ["id", "phoneId", "source", "startedAt"]
+      },
       "Conversation": {
         "type": "object",
         "properties": {
@@ -5156,6 +5203,108 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/QuietRange"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dictation/ranges": {
+      "post": {
+        "description": "A dictation on the phone starts, before its microphone opens: from `startedAt` (less a clock margin) no pendant audio is labeled, cut or sent until it closes, or until its cap when the close never comes. Only this answer lets the phone open its microphone. Idempotent by id: a retry answers the range as first opened; one already closed is never opened again (409).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DictationRangeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The range, open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenDictationRange"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid, or `startedAt` more than a minute from the server's clock",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "This range was closed already",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dictation/ranges/{id}/close": {
+      "post": {
+        "description": "A dictation on the phone ends (Stop, cancel, an interruption, a failed start): its range, widened by the clock margin at both edges and no longer than its cap, becomes a quiet range, and the pendant's audio around it goes on. A close again keeps the first end.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "endedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": ["endedAt"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The quiet range, as stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuietRange"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No dictation opened with this id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }

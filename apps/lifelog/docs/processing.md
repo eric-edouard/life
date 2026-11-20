@@ -79,6 +79,11 @@ What never reaches ElevenLabs:
   pages again with the range cut out. Every word from the Mac (and every range its events close) starts the worker, so a
   block held for the Mac goes as soon as it vouches. It shows `macAway` while a refused event blocks it. The raw packs and the fragments waiting for
   their block do hold the dictation: they are stored, never processed.
+- **Dictation on the phone.** Its range opens on the server before the microphone (`POST /dictation/ranges`) and
+  closes at Stop (`POST /dictation/ranges/{id}/close`), or at its cap, 10 minutes after its start. While it is open,
+  the processing limit (`quiet-ranges.ts` `processingLimit`: the Mac's watermark, held back to the start of the
+  earliest open dictation less 2 s) stops page labeling, the cutter and the worker's claim and sends, for every
+  uploader; its close stores the range widened by 2 s at both edges and starts them again.
 - **Recordings the app plays out loud** (speaker, AirPlay, a car or a Bluetooth speaker; not headphones, told from
   Bluetooth speakers by name only): the phone stores the span, padded 2 seconds and stored again every 30 s while it
   plays, as a quiet range of its own, and cuts it out of fragments. Once closed, the span goes to the server through the

@@ -15,6 +15,12 @@ import { memoryAudioStore } from "./audio-store";
 import { sha256Hex } from "./config";
 import { admit, blockFrom, cut, QUIET_RANGES_FROM, type Span } from "./cutter";
 import type { Job } from "./jobs";
+import {
+  closeQuietRange,
+  DICTATION_CAP_MS,
+  openQuietRange,
+  settleOpenQuietRanges,
+} from "./quiet-ranges";
 import { services } from "./services";
 import { fakeElevenLabs, OWNER_TOKEN, testConfig, testDb } from "./testing";
 
@@ -667,6 +673,65 @@ test("a range that comes after the block closed withdraws its job in the worker,
   const withdrawn = { firstPage: 1, kind: "job", sourceId: SOURCE };
   expect(feed.removed).toContainEqual({ ...withdrawn, ref: job?.id });
   expect(feed.removed).toContainEqual({ ...withdrawn, ref: fragment?.id });
+});
+
+// A dictation on the iPhone opened at `at` (by the phone's clock, as the server took it).
+const dictate = (at: number) => {
+  const id = randomUUID();
+  openQuietRange(
+    env.db,
+    {
+      id,
+      phoneId: "iphone-test",
+      source: "app.example.notes",
+      startedAt: new Date(at).toISOString(),
+    },
+    new Date(at)
+  );
+  return id;
+};
+
+test("a Limitless block waits while the iPhone dictates; the close withdraws the fragment its range touches and the rest goes", async () => {
+  const app = appWith();
+  for (const piece of [a, b, c]) {
+    // biome-ignore lint/performance/noAwaitInLoops: in order
+    await putFragment(app, piece);
+  }
+  await app.s.worker.work.idle();
+  heard(lastEnd(c) + 50_000);
+  const [from = 0] = b.map.segments[0] ?? [];
+  const id = dictate(from + 100);
+  await app.s.worker.work();
+  expect(jobs()).toHaveLength(0);
+  expect(uploads()).toHaveLength(0);
+
+  closeQuietRange(env.db, id, new Date(from + 500));
+  await app.s.worker.work();
+  expect(jobs().map((j) => j.pages)).toEqual([
+    [
+      [1, 10],
+      [21, 30],
+    ],
+  ]);
+  expect(await sentAudio()).toEqual(joinOggOpus([a, c])?.audio);
+});
+
+test("a job closed before a dictation opened over it waits at the claim; at the cap the range withdraws it, never sent", async () => {
+  const app = appWith();
+  await putFragment(app, a);
+  await app.s.worker.work.idle();
+  heard(lastEnd(a) + 50_000);
+  await cut(env.db, app.audio, new Date(), Date.now());
+  const [from = 0] = a.map.segments[0] ?? [];
+  dictate(from + 100);
+  await app.s.worker.work();
+  expect(uploads()).toHaveLength(0);
+  expect(jobs().map((j) => j.state)).toEqual(["queued"]);
+
+  settleOpenQuietRanges(env.db, new Date(from + 100 + DICTATION_CAP_MS));
+  await app.s.worker.work();
+  expect(uploads()).toHaveLength(0);
+  expect(jobs()).toHaveLength(0);
 });
 
 test("an open fragment counts as uploaded for its conversation", async () => {

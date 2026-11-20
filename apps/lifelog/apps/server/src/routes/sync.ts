@@ -23,7 +23,7 @@ import { SwitchesView } from "./switches";
 // travel on it.
 export const MAC_SOCKET_PATH = "/quiet-ranges/socket";
 
-const QuietRange = z
+export const QuietRange = z
   .object({
     endedAt: z.iso.datetime({ offset: true }),
     id: z.uuid(),

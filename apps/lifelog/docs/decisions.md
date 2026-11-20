@@ -200,13 +200,21 @@ reverse it, change its entry here in the same commit.
   classifier would have heard as noise. Fragments are the original Opus packets, not re-encoded as the iPhone does:
   no encoder to carry, no second loss, a few tens of ms at a stretch's edge rounded inward to whole packets, so nothing
   a quiet range covers is ever kept.
-- **The server's VAD never hears dictation.** A page source is labeled only up to the Mac's watermark, and a packet a
+- **The server's VAD never hears dictation.** A page source is labeled only up to the processing limit, and a packet a
   quiet range touches is never decoded: Silero hears silence there. The iPhone labels on the phone, which is the
   owner's own device; the server is not, so the rule holds with no exception for speech detection.
 - **Dictation is stored, never processed.** The Mac helper reports when the owner dictates to the Mac; the ranges
   the server makes of it are cut from every job before ElevenLabs, `apps/identity` or a model sees it, checked in the cutter and again in the
   worker's `claim`. The raw backup holds everything the Pendant heard. No exception: the Pendant's button no longer
   sends anything to an AI.
+- **Dictation on the phone opens its range before its microphone (20 Nov 2026).** The phone asks the server to open
+  the range at the tap and opens the microphone only on its answer: no server, no dictation. From the range's start
+  less 2 s, no pendant's audio is labeled, cut or sent, whichever phone uploads it, until the close; the stored range
+  is widened by 2 s at both edges, since an Omi's whole-second stamps come from another phone's clock. A close lost
+  (the phone gone) ends the range at its cap, 10 minutes after its start, timed by the server and settled at its
+  start after a restart: at most 10 minutes of pendant speech is left unprocessed, kept in the raw backup, and the
+  speech around it goes on with no word from the phone. An open again never moves the cap; a closed range never
+  reopens.
 
 ## People, places and search
 

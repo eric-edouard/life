@@ -416,6 +416,8 @@ const upgradeFrom = async (ran: "post_clock" | "neither") => {
       ? sql`delete from __drizzle_migrations where created_at > ${postClock}`
       : sql`delete from __drizzle_migrations where created_at >= ${postClock}`
   );
+  // The tables made after it, which its migrations make again.
+  env.db.run(sql`drop table open_quiet_ranges`);
   migrateDb(env.db);
 };
 

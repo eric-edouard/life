@@ -120,6 +120,13 @@
       "when": 1795185579550,
       "tag": "20261120143939_legacy_scribe_sends",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1795192519680,
+      "tag": "20261120163519_open_quiet_ranges",
+      "breakpoints": true
     }
   ]
 }

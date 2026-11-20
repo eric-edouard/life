@@ -20,6 +20,14 @@ import { label, stopWorker } from "./page-audio";
 import { pageLabeler } from "./page-labels";
 import { pageProcessor } from "./page-processing";
 import { ingestState, storePages } from "./pages";
+import {
+  CLOCK_MARGIN_MS,
+  closeQuietRange,
+  DICTATION_CAP_MS,
+  openQuietRange,
+  processingLimit,
+  settleOpenQuietRanges,
+} from "./quiet-ranges";
 import { storeTranscript, testDb } from "./testing";
 import { loadTurns, startsOf } from "./transcript";
 import { rebuildTurns } from "./turns";
@@ -46,10 +54,10 @@ afterEach(() => {
   env.drop();
 });
 
-// A processor over a fresh archive; its clock and the Mac's watermark move with the test.
+// A processor over a fresh archive; its clock and the processing limit move with the test.
 function setup(batchPages = 3000) {
   const audio = memoryAudioStore();
-  const at = { clock: Date.now(), pokes: 0, vouched: Number.POSITIVE_INFINITY };
+  const at = { clock: Date.now(), limit: Number.POSITIVE_INFINITY, pokes: 0 };
   const pages = pageProcessor(
     env.db,
     audio,
@@ -58,7 +66,7 @@ function setup(batchPages = 3000) {
         at.pokes += 1;
       },
     },
-    { batchPages, now: () => at.clock, vouched: () => at.vouched }
+    { batchPages, limit: () => at.limit, now: () => at.clock }
   );
   return { at, audio, pages };
 }
@@ -194,15 +202,98 @@ test("dictation is never decoded: a quiet range known before labeling is silence
   ).toBe(false);
 });
 
-test("only audio the Mac vouched for is labeled", async () => {
+// The iPhone dictates (its own phone, apart from the Android phone uploading the Omi's pages) from
+// `start`, at the end of the second span's first sentence; the Mac vouches for everything.
+function dictating(start: number) {
+  const { audio } = setup();
+  const pages = pageProcessor(
+    env.db,
+    audio,
+    { poke: () => undefined },
+    {
+      limit: () =>
+        processingLimit(env.db, {
+          vouchedThrough: () => new Date(8.64e15),
+        })().getTime(),
+      now: () => start + 11 * 60_000,
+    }
+  );
+  const id = crypto.randomUUID();
+  const opened = openQuietRange(
+    env.db,
+    {
+      id,
+      phoneId: "iphone-test",
+      source: "app.example.notes",
+      startedAt: new Date(start).toISOString(),
+    },
+    new Date(start)
+  );
+  expect(opened).toMatchObject({ id });
+  return { audio, id, pages };
+}
+const speechIn = ([from, to]: [number, number]) =>
+  pieces()
+    .flatMap((p) => p.speech)
+    .some(([s, e]) => s < to - 1000 && e > from + 1000);
+
+test("an Omi uploading while the iPhone dictates: nothing from the dictation is labeled until it closes, then its range is silence and the speech around it goes on", async () => {
+  const start = expected.pieces[1].start + 6000;
+  const { audio, id, pages } = dictating(start);
+  await store(audio);
+  await pages.run();
+  expect(
+    Date.parse(ingestState(env.db, SOURCE).labeledUntil ?? "")
+  ).toBeLessThanOrEqual(start - CLOCK_MARGIN_MS);
+  expect(pieces().every((p) => p.end <= start - CLOCK_MARGIN_MS)).toBe(true);
+
+  closeQuietRange(env.db, id, new Date(start + 1000));
+  await pages.run();
+  const range: [number, number] = [
+    start - CLOCK_MARGIN_MS,
+    start + 1000 + CLOCK_MARGIN_MS,
+  ];
+  expect(speechIn(range)).toBe(false);
+  expect(speechIn([expected.pieces[1].start, range[0]])).toBe(true);
+  expect(speechIn([range[1], expected.pieces[1].end])).toBe(true);
+  for (const f of fragments()) {
+    expect(
+      f.map.segments.every(([s, e]) => e <= range[0] || s >= range[1])
+    ).toBe(true);
+  }
+});
+
+test("an Omi uploading while the iPhone's close is lost: its cap ends the dictation and the speech before it goes on", async () => {
+  const start = expected.pieces[1].start + 6000;
+  const { audio, pages } = dictating(start);
+  await store(audio);
+  await pages.run();
+  expect(pieces().every((p) => p.end <= start - CLOCK_MARGIN_MS)).toBe(true);
+  // The phone never comes back: at its cap the range ends there.
+  expect(
+    settleOpenQuietRanges(env.db, new Date(start + DICTATION_CAP_MS)).ended
+  ).toBe(1);
+  await pages.run();
+  expect(
+    env.db.select().from(rawPages).where(eq(rawPages.labeled, false)).all()
+  ).toEqual([]);
+  expect(speechIn([start - CLOCK_MARGIN_MS, expected.pieces[1].end])).toBe(
+    false
+  );
+  expect(speechIn([expected.pieces[1].start, start - CLOCK_MARGIN_MS])).toBe(
+    true
+  );
+});
+
+test("only audio before the processing limit is labeled", async () => {
   const { at, audio, pages } = setup();
   await store(audio);
-  at.vouched = spanEnd(0) + 1000;
+  at.limit = spanEnd(0) + 1000;
   await pages.run();
   expect(ingestState(env.db, SOURCE).labeledUntil).toBe(
     new Date(spanEnd(0)).toISOString()
   );
-  at.vouched = Number.POSITIVE_INFINITY;
+  at.limit = Number.POSITIVE_INFINITY;
   await pages.run();
   expect(pieces()).toEqual(kitPieces());
 });
@@ -370,8 +461,8 @@ test("a worker that dies mid-piece loses nothing: the piece is labeled again fro
   await store(audio);
   const labelBatch = pageLabeler(env.db, audio, {
     batchPages: 100,
+    limit: () => Number.POSITIVE_INFINITY,
     now: () => Date.now(),
-    vouched: () => Number.POSITIVE_INFINITY,
   });
   // Pages 0 to 99 are an open piece in the worker; then the worker ends.
   expect(await labelBatch(SOURCE)).toBe(true);

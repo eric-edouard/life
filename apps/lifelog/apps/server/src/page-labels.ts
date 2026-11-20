@@ -1,6 +1,6 @@
 // Labels a raw-page source's speech (page-processing.ts runs it): the next stored pages, in index
 // order, are placed in time, cut into pieces and labeled by Silero in the VAD worker; each piece is
-// a `page_pieces` row and its pages are `labeled`. Only audio the Mac vouched for is labeled, and
+// a `page_pieces` row and its pages are `labeled`. Only audio before the processing limit is labeled, and
 // no packet a quiet range touches is ever decoded: the server's VAD never hears dictation. A piece
 // still growing when a batch ends stays open in the worker and goes on with the next batch, as one
 // piece would on the phone. A page stored after labeling passed it (a late page) is labeled on its
@@ -179,9 +179,9 @@ export function pageLabeler(
   audio: AudioStore,
   {
     batchPages,
+    limit,
     now,
-    vouched,
-  }: { batchPages: number; now: () => number; vouched: () => number }
+  }: { batchPages: number; limit: () => number; now: () => number }
 ) {
   // Each source's open piece, its pages not marked labeled yet, and the worker life holding its
   // stream. Lost on a restart, a worker that ended or a refused call, it is labeled again from its
@@ -254,13 +254,13 @@ export function pageLabeler(
     };
   }
 
-  // Runs only through what the Mac vouched for: the batch stops before the first page past it.
+  // Runs only through the processing limit: the batch stops before the first page past it.
   // `truncated`: the span going on past the stop stays open.
-  function vouchedOnly(take: Row[], spans: CaptureSpan[]) {
-    const limit = vouched();
+  function withinLimit(take: Row[], spans: CaptureSpan[]) {
+    const until = limit();
     const stop = spans
       .flatMap((s) => s.runs)
-      .find((r) => runEnd(r) > limit)?.page;
+      .find((r) => runEnd(r) > until)?.page;
     if (stop === undefined) {
       return { spans, take, truncated: false };
     }
@@ -417,7 +417,7 @@ export function pageLabeler(
     save(sourceId, row ? [row] : [], [piece.first, piece.last], false);
   }
 
-  // A batch's pages read and placed, through what the Mac vouched for. Null when none may go.
+  // A batch's pages read and placed, through the processing limit. Null when none may go.
   async function place(sourceId: string, batch: Batch) {
     const bytes = await pageBytes(audio, batch.take);
     if (!bytes) {
@@ -427,7 +427,7 @@ export function pageLabeler(
     }
     const read = records(batch.take, bytes);
     const seed = seedOf(sourceId, batch.late);
-    const placed = vouchedOnly(batch.take, placeOmi(read, seed));
+    const placed = withinLimit(batch.take, placeOmi(read, seed));
     const [head] = placed.take;
     const tail = placed.take.at(-1);
     return head && tail

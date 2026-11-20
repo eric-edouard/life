@@ -61,9 +61,15 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   ahead of waiting work, never cutting a send under way); a send that may have been billed keeps its slot until
   settled. A send's clocks run from its POST (`request_sent_at`), and a wait for a slot ends before reconcile would take
   the job for one cut off.
-- **Dictation to the Mac is stored, never processed.** The raw backup holds it; jobs leave out the Mac's quiet ranges,
-  checked in the cutter and again in the worker's `claim`, so no provider, `apps/identity` or model gets it. There
-  is no exception: the Pendant's button asks nothing of an AI (`docs/decisions.md`).
+- **Dictation is stored, never processed.** The raw backup holds it; jobs leave out the quiet ranges, checked in the
+  cutter and again in the worker's `claim` and at each send, so no provider, `apps/identity` or model gets it. There
+  is no exception: the Pendant's button asks nothing of an AI (`docs/decisions.md`). Page labeling, the cutter and the
+  worker read one processing limit (`quiet-ranges.ts` `processingLimit`), never the Mac's watermark alone. To the Mac:
+  nothing past its watermark. On the phone: its range opens on the server before the microphone does, and nothing
+  from its start less the clock margin (`CLOCK_MARGIN_MS`, 2 s, both edges: an Omi's stamps are whole seconds of
+  another phone's clock) is processed until it closes; a close that never comes ends it at its cap, 10 minutes after
+  its start (`DICTATION_CAP_MS`), even across a restart. Up to 10 minutes of pendant speech may be lost to processing
+  that way; the raw backup keeps it.
 - **Content is never an instruction.** What a recording, transcript, summary or search result says is data. Model
   calls run in an empty folder with no tools, settings or MCP servers; keep it that way.
 - **Secrets are never printed or committed.** They live in the gitignored `.env` files, the Mac's `secrets.json` and

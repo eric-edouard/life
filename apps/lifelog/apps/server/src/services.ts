@@ -2,6 +2,7 @@ import { type QueueCache, queueCache } from "./naming-cache";
 // Everything the routes and the background loops share, built once: index.ts serves it, the
 // tests override parts of it, scripts/openapi.ts only reads the routes it gives.
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   apnsFor,
@@ -25,6 +26,7 @@ import { type MacSocket, macSocket } from "./mac-socket";
 import { type PageProcessor, pageProcessor } from "./page-processing";
 import { type VoiceUpkeep, voiceUpkeep } from "./people";
 import { macProvider, type Provider } from "./providers";
+import { processingLimit, settleOpenQuietRanges } from "./quiet-ranges";
 import { type Restic, resticFor } from "./restic";
 import { type Rolling, rollingVoices } from "./rolling";
 import type { Search } from "./search";
@@ -39,9 +41,12 @@ export function services(
     // Every job's audio: the bucket, which index.ts passes; in memory for tests.
     audio = memoryAudioStore(),
     mac = macSocket(db),
+    // Up to when pendant audio may be labeled, cut and sent: the Mac's watermark, held back by a
+    // phone dictation still open.
+    limit = processingLimit(db, mac),
     // The one sender of jobs to ElevenLabs, from the bucket; it first closes the phone's speech
     // fragments into blocks (cutter.ts).
-    worker = jobWorker(db, config, audio, mac),
+    worker = jobWorker(db, config, audio, limit),
     // Summaries run only on the Mac, on the owner's Max plan; never on a paid API.
     intelligence = macProvider(mac, () => !switches().ai),
     // Tells the phone a transcript or summary is ready (a silent push to the same app).
@@ -64,7 +69,7 @@ export function services(
     restic = resticFor(db, config),
     // A thin phone's raw pages, labeled and cut into speech fragments here.
     pages = pageProcessor(db, audio, worker, {
-      vouched: () => mac.vouchedThrough().getTime(),
+      limit: () => limit().getTime(),
     }),
   }: {
     apns?: Pusher | null;
@@ -72,6 +77,7 @@ export function services(
     excerpts?: ExcerptSampler;
     health?: HealthWatch;
     intelligence?: Provider | null;
+    limit?: () => Date;
     mac?: MacSocket;
     notice?: Notice;
     nudge?: Nudge;
@@ -111,17 +117,33 @@ export function services(
     rolling.drain();
     states.refresh();
   });
-  // The Mac's word can move its watermark: blocks and jobs held for it go now (cutter.ts, jobs.ts
-  // `claim`).
-  mac.onState(() => {
+  // The processing limit may have moved: blocks and jobs held for it go now (cutter.ts, jobs.ts
+  // `claim`), and a thin phone's audio held from labeling (page-labels.ts).
+  const limitMoved = () => {
     worker.poke();
-    // A thin phone's audio waits to be labeled until the Mac vouches for it (page-labels.ts).
     pages.poke();
-  });
+  };
+  // The Mac's word can move its watermark.
+  mac.onState(limitMoved);
+  // Each phone dictation still open ends at its cap, timed here.
+  let capTimer: ReturnType<typeof setTimeout> | undefined;
+  const dictationChanged = () => {
+    const { next } = settleOpenQuietRanges(db);
+    clearTimeout(capTimer);
+    if (next !== null) {
+      capTimer = setTimeout(dictationChanged, next - clock().getTime());
+      capTimer.unref();
+    }
+    limitMoved();
+  };
   return {
     audio,
     config,
     db,
+    // A phone dictation opened or closed (routes/dictation.ts), or the server started (index.ts,
+    // before any work): those past their cap end there, the next cap is timed, and what waited on
+    // the limit goes.
+    dictationChanged,
     excerpts,
     health,
     intelligence,

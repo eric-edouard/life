@@ -1,9 +1,9 @@
 // The server cuts the blocks (docs/timeline.md, "Fragments and blocks"). The phone sends its kept
 // speech as fragments of whole Pendant pages (`storeFragment`); a source's open fragments, in
 // capture order, close into blocks on the server's own clock (`blockFrom`); a closed block passes
-// the Mac's gate, the quiet ranges and what is bought already, is joined into one Ogg (audio.ts
+// the processing limit, the quiet ranges and what is bought already, is joined into one Ogg (audio.ts
 // `joinOggOpus`) and admitted as one job (`admit`), the only way a job is made. The job
-// worker's `claim` stays the one way to ElevenLabs and checks the Mac and the quiet ranges again: a
+// worker's `claim` stays the one way to ElevenLabs and checks the limit and the quiet ranges again: a
 // range that comes late withdraws one fragment here, the whole job there. A page is in one
 // fragment, and in one job that isn't failed. A fragment is open while it has audio, in a job
 // once it has a job, and covered (its pages held, nothing sent) with neither. The rules the worker
@@ -142,15 +142,11 @@ function closesNow(seen: number, silent: number, kept: number, waited: number) {
 }
 
 // Closes every block that is due into a job, oldest first, and says when the server's clock may
-// close the next. A block ending past what the Mac vouches for waits, with those after it: every
-// state the Mac sends runs the worker again. A block that fails is recorded and the next goes on;
+// close the next. A block ending past the processing limit (quiet-ranges.ts `processingLimit`)
+// waits, with those after it: every state the Mac sends and every phone dictation closed runs the
+// worker again. A block that fails is recorded and the next goes on;
 // its third failure withdraws its fragments, so the phone sends their pages again.
-export async function cut(
-  db: Db,
-  audio: AudioStore,
-  vouched: Date,
-  now: number
-) {
+export async function cut(db: Db, audio: AudioStore, limit: Date, now: number) {
   const rows = db
     .select({
       fragment: speechFragments,
@@ -165,7 +161,7 @@ export async function cut(
   const wakes: number[] = [];
   for (const group of Map.groupBy(rows, (r) => r.fragment.sourceId).values()) {
     // biome-ignore lint/performance/noAwaitInLoops: one source after the other
-    const wakeAt = await cutSource(db, audio, group, vouched.getTime(), now);
+    const wakeAt = await cutSource(db, audio, group, limit.getTime(), now);
     wakes.push(...(wakeAt === null ? [] : [wakeAt]));
   }
   return wakes.length > 0 ? Math.min(...wakes) : null;
@@ -176,7 +172,7 @@ async function cutSource(
   db: Db,
   audio: AudioStore,
   group: { fragment: Fragment; heard: Date | null; sent: Date | null }[],
-  vouched: number,
+  limit: number,
   now: number
 ) {
   const fragments = group.map((r) => r.fragment);
@@ -195,7 +191,7 @@ async function cutSource(
       return wakeAt;
     }
     const block = fragments.slice(from, last + 1);
-    if (Math.max(...spans.slice(from, last + 1).map((s) => s.end)) > vouched) {
+    if (Math.max(...spans.slice(from, last + 1).map((s) => s.end)) > limit) {
       return null;
     }
     // biome-ignore lint/performance/noAwaitInLoops: blocks in order
@@ -516,8 +512,23 @@ function holderOf(
   return holder ? { ...holder, same: Boolean(holder.same) } : null;
 }
 
-// Whether a map keeps audio inside a quiet range (the owner dictating to the Mac, or the phone
-// playing a recording back): that audio is never sent anywhere.
+// Why a job may not be sent now, read at its claim and again at each send after any wait: a quiet
+// range touches it, or it ends past the processing limit (a dictation opened since). Null when it may.
+export function heldBack(
+  db: Db,
+  job: { captureEnd: Date | null; map: JobMap | null },
+  limit: Date
+) {
+  if (job.map && touchesQuiet(db, job.map)) {
+    return "a quiet range touches it";
+  }
+  return job.captureEnd && job.captureEnd > limit
+    ? "it ends past the processing limit"
+    : null;
+}
+
+// Whether a map keeps audio inside a quiet range (the owner dictating to the Mac or on the phone,
+// or the phone playing a recording back): that audio is never sent anywhere.
 export function touchesQuiet(db: Db, map: JobMap) {
   const range = captureRange(map);
   if (!range) {
