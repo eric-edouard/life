@@ -25,9 +25,11 @@ const RANK: Record<CheckGroup, number> = {
  * new matter's offer, and last "is this done?". What blocks, and the inbox's order (`inboxOrderOf`), go by it.
  */
 export const inboxRankOf = (c: Rankable) =>
-  c.group === "voice" && c.subject !== null ? 2 : RANK[c.group];
+  c.group === "voice" && c.subject !== null
+    ? RANK["guessed person"]
+    : RANK[c.group];
 
-const LAST_BLOCKING_RANK = 1;
+const LAST_BLOCKING_RANK = RANK.name;
 export const urgencyOf = (c: Rankable): Urgency =>
   inboxRankOf(c) <= LAST_BLOCKING_RANK ? "blocks" : "improves";
 
@@ -53,7 +55,8 @@ const before = (a: Orderable, b: Orderable) =>
   (inboxRankOf(a) === RANK.decision
     ? a.day.localeCompare(b.day)
     : b.ridesOn.matters - a.ridesOn.matters ||
-      (inboxRankOf(a) === RANK.voice
+      // Voices, names and cards share a rank: by matters, then newest only.
+      (inboxRankOf(a) === RANK.name
         ? 0
         : b.ridesOn.observations - a.ridesOn.observations ||
           b.ridesOn.pages - a.ridesOn.pages) ||

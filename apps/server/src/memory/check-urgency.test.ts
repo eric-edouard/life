@@ -68,7 +68,7 @@ test("the order: deadlines soonest first, decisions oldest first, unnamed asks b
     ask("guess-many-lines", "guessed person", { observations: 3 }),
     ask("guess-one-matter", "guessed person", { matters: 1 }),
     ask("name-new", "name", { day: "2026-11-05" }),
-    ask("voice-old", "voice", { day: "2026-11-02" }),
+    ask("voice-old", "voice", { day: "2026-11-02", observations: 5 }),
     ask("card-on-matter", "contacts card", { matter: "m1", matters: 2 }),
     ask("decision-new", "decision", { day: "2026-11-03" }),
     ask("decision-old", "decision", { day: "2026-11-01" }),

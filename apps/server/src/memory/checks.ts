@@ -176,7 +176,7 @@ export interface CheckInputs {
 
 interface Ranked {
   check: Omit<Check, "confirm" | "matter">;
-  /** The newest day among the lines it rides on, for the order. */
+  /** For the order (`inboxOrderOf`): when a decision was asked, else the newest day among the lines it rides on. */
   day: string;
 }
 
