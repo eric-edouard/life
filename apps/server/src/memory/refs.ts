@@ -29,7 +29,20 @@ const MESSAGE = "msg:";
 const TODO_ITEM = /^entry_[0-9a-f]{12}$/;
 const FILE = "file:";
 
-/** A ref's kind and parts, or why it is malformed. A message is `msg:<source>|<id>` (`eventKey`), split at the first `|`. */
+/** The kinds told by their id's form alone. */
+const BY_FORM: {
+  is: (id: string) => boolean;
+  kind: "matter" | "observation" | "unit";
+}[] = [
+  {
+    is: (id) => MatterId.safeParse(id).success || TODO_ITEM.test(id),
+    kind: "matter",
+  },
+  { is: (id) => ObservationId.safeParse(id).success, kind: "observation" },
+  { is: (id) => UnitId.safeParse(id).success, kind: "unit" },
+];
+
+/** A ref's kind and parts, or why it is malformed. */
 export function parseRef(id: string): Ref | { error: string } {
   if (isAskPage(id)) {
     return { id, kind: "ask" };
@@ -39,30 +52,33 @@ export function parseRef(id: string): Ref | { error: string } {
     return "error" in read ? read : { id, kind: "person", read: read.ref };
   }
   if (id.startsWith(MESSAGE)) {
-    const at = id.indexOf("|");
-    const source = SourceName.safeParse(id.slice(MESSAGE.length, at));
-    return at > 0 && source.success && at < id.length - 1
-      ? { id, kind: "message", message: id.slice(at + 1), source: source.data }
-      : { error: `"${id}" is not a message ref (msg:<source>|<message id>)` };
+    return parseMessageRef(id);
   }
   if (id.startsWith(FILE)) {
     return id.length > FILE.length
       ? { file: id.slice(FILE.length), id, kind: "file" }
       : { error: `"${id}" is not a file ref (file:<ref>)` };
   }
+  const form = BY_FORM.find((f) => f.is(id));
+  if (form) {
+    return { id, kind: form.kind };
+  }
   const turn = parseTurnRef(id);
-  return (
-    ((MatterId.safeParse(id).success || TODO_ITEM.test(id)) && {
-      id,
-      kind: "matter",
-    }) ||
-    (ObservationId.safeParse(id).success && { id, kind: "observation" }) ||
-    (UnitId.safeParse(id).success && { id, kind: "unit" }) ||
-    (turn && { id, kind: "turn", ...turn }) ||
-    (id.trim() === id && id !== ""
-      ? { id, kind: "conversation" }
-      : { error: `"${id}" is not a ref` })
-  );
+  if (turn) {
+    return { id, kind: "turn", ...turn };
+  }
+  return id.trim() === id && id !== ""
+    ? { id, kind: "conversation" }
+    : { error: `"${id}" is not a ref` };
+}
+
+/** A message ref: `msg:<source>|<id>` (`eventKey`), split at the first `|`, so the message id may hold anything. */
+function parseMessageRef(id: string): Ref | { error: string } {
+  const at = id.indexOf("|");
+  const source = SourceName.safeParse(id.slice(MESSAGE.length, at));
+  return at > 0 && source.success && at < id.length - 1
+    ? { id, kind: "message", message: id.slice(at + 1), source: source.data }
+    : { error: `"${id}" is not a message ref (msg:<source>|<message id>)` };
 }
 
 /** The `life:` link destinations of a Markdown text, as a Markdown reader finds them (never in code), percent-decoded, each once. */
