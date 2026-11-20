@@ -57,6 +57,9 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   (`cutter.ts` `holderOf`); a send that may have been billed is never sent again. A new prompt or policy version
   reaches new conversations, failed runs and the owner's Generate, never the whole archive. `holdsPages` seeks by the
   generated `first_page`/`last_page` of a job's or fragment's `pages`, which hold only if `pages` stays sorted.
+  Every Scribe send takes a slot of `scribe-slots.ts` before it leaves (local work takes none; dictation goes next,
+  ahead of waiting work, never cutting a send under way); a send that may have been billed keeps its slot until
+  settled. A wait for a slot ends before reconcile would take the job for one cut off.
 - **Dictation to the Mac is stored, never processed.** The raw backup holds it; jobs leave out the Mac's quiet ranges,
   checked in the cutter and again in the worker's `claim`, so no provider, `apps/identity` or model gets it. There
   is no exception: the Pendant's button asks nothing of an AI (`docs/decisions.md`).

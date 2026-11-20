@@ -96,6 +96,12 @@ reverse it, change its entry here in the same commit.
   speaking, and closes on the same constant. The 45-second quiet, the 500-metre move and the 60-minute cap cut pieces
   that were not conversations; they are gone. Conversations begun before `PIECES_BEFORE` keep their starts as
   boundaries so their ids, which Life cites, never change (`docs/timeline.md`).
+- **Paid slots are taken where they are spent (20 Nov 2026, for dictation).** ElevenLabs' concurrency is one count of
+  every Scribe send (`scribe-slots.ts`): a submitted Scribe job, a send that may be billed, and the sends under way, each
+  counted once by its key. Reading audio and the speech service take none. Dictation waits ahead of everything, at the
+  speech service (its own waiting place) and at Scribe; work under way is never cut, it goes next. Waits are bounded so
+  reconcile never mistakes a live one for a send cut off, and a send that may have been billed keeps its slot until
+  it is settled, never sent again.
 - **The server keeps the audio and cuts the blocks.** The phone sends speech fragments of whole pages; the server
   keeps them and closes blocks of up to 2 minutes on its own clock, so a retry never needs the phone. The cutter is the
   only way a job is made (`docs/transcription-server.md`).
