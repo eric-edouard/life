@@ -341,7 +341,7 @@ test("a failure after the job's transcript changes nothing: a completed job is n
   expect(uploads()).toHaveLength(1);
 });
 
-test("a whole block sent to Scribe again is a new send: a late failure of the first never touches the second", async () => {
+test("a whole block sent to Scribe again is a new send: a late failure of the first never touches the second, and it goes at most three times", async () => {
   const app = appWith(oneSlot);
   setSwitches(env.db, { transcriber: "speech" });
   inThaiZone();
@@ -356,11 +356,11 @@ test("a whole block sent to Scribe again is a new send: a late failure of the fi
   expect(await (await deliver(app, firstFailure)).json()).toMatchObject({
     result: "retried",
   });
-  // Heard again on the Mac, it goes to Scribe whole again, its attempts started again at 0.
+  // Heard again on the Mac, it goes to Scribe whole again, its attempts going on.
   due(jobId);
   await app.s.worker.work();
   const second = jobRow(jobId);
-  expect(second).toMatchObject({ attempts: 0, state: "submitted" });
+  expect(second).toMatchObject({ attempts: 1, state: "submitted" });
   expect(await (await deliver(app, firstFailure)).json()).toMatchObject({
     result: "stale",
   });
@@ -370,6 +370,21 @@ test("a whole block sent to Scribe again is a new send: a late failure of the fi
   });
   await app.s.worker.work();
   expect(uploads()).toHaveLength(2);
+  // Each later failure is an attempt; the third fails it, never sent a fourth time.
+  for (const sent of [2, 3]) {
+    // biome-ignore lint/performance/noAwaitInLoops: one send after the other
+    await deliver(
+      app,
+      failure(
+        jobRow(jobId).providerRequestId,
+        uploads()[sent - 1]?.form?.get("webhook_metadata")
+      )
+    );
+    due(jobId);
+    await app.s.worker.work();
+  }
+  expect(jobRow(jobId)).toMatchObject({ attempts: 3, state: "failed" });
+  expect(uploads()).toHaveLength(3);
 });
 
 test("a Scribe send with no transcription id (cut off before its answer was stored) holds its slot until settled", async () => {
@@ -387,26 +402,35 @@ test("a Scribe send with no transcription id (cut off before its answer was stor
   expect(uploads()).toHaveLength(0);
 });
 
-test("a send stamped at its claim before 20 Nov is moved to its latest POST: ElevenLabs not knowing it 31 minutes after its claim does not send it again", async () => {
+test("a send submitted before 20 Nov has no POST clock: ElevenLabs not knowing it never sends it again, and it fails only after a day", async () => {
   const app = appWith(oneSlot);
   setSwitches(env.db, { transcriber: "scribe" });
   const legacy = await admitFragment(app, audio(60), 1);
-  submittedAgo(legacy, 31, {
+  submittedAgo(legacy, 41, {
     providerRequestId: "req_legacy",
     providerTranscriptionId: "tr_legacy",
   });
-  env.db.run(
-    sql.raw(
-      await Bun.file(join(MIGRATIONS, "20261120141310_post_clock.sql")).text()
-    )
-  );
+  const migration = await Bun.file(
+    join(MIGRATIONS, "20261120141310_legacy_scribe_sends.sql")
+  ).text();
+  env.db.run(sql.raw(migration));
+  env.db.run(sql.raw(migration)); // run twice, it changes nothing more
   fake.respond = (call) =>
     call.method === "GET" && call.path.includes("/transcripts/")
       ? new Response("not found", { status: 404 })
       : Response.json({ detail: "no" }, { status: 500 });
+  const waiting = await admitFragment(app, audio(60), 100);
   await app.s.worker.tick();
-  expect(jobRow(legacy).state).toBe("submitted");
-  expect(uploads()).toHaveLength(0);
+  expect(jobRow(legacy)).toMatchObject({
+    attempts: 0,
+    maybeBilled: true,
+    state: "submitted",
+  });
+  expect(jobRow(waiting).state).toBe("queued"); // it still holds the one slot
+  submittedAgo(legacy, 25 * 60, { maybeBilled: true });
+  await app.s.worker.tick();
+  expect(jobRow(legacy)).toMatchObject({ attempts: 0, state: "failed" });
+  expect(uploads()).toHaveLength(1); // only the waiting job, sent once the slot came free
 });
 
 test("reconcile frees each slot as it settles it, not after the slowest", async () => {
@@ -492,4 +516,90 @@ test("the transcriber switched to the speech service while a Scribe job's audio 
     state: "completed",
     transcriber: "speech",
   });
+});
+
+test("webhooks: a reported failure is an attempt, with null fields too; an unreadable one is kept for reconcile", async () => {
+  const app = appWith();
+  const reported = await admitFragment(app, audio(60), 1);
+  const garbled = await admitFragment(app, audio(60), 100);
+  await app.s.worker.work();
+  // The metadata of the job's latest POST.
+  const sentFor = (id: string) =>
+    uploads()
+      .map((call) => call.form?.get("webhook_metadata"))
+      .findLast((metadata) => String(metadata).includes(id));
+
+  // Oct 13–14: ~650-byte failure webhooks with null fields were ignored unseen.
+  const failed = await deliver(app, {
+    data: {
+      error: { message: "audio could not be decoded" },
+      request_id: null,
+      status: null,
+      transcription: null,
+      webhook_metadata: sentFor(reported),
+    },
+    type: "speech_to_text_transcription",
+  });
+  expect(await failed.json()).toEqual({ result: "retried" });
+  expect(jobRow(reported)).toMatchObject({
+    attempts: 1,
+    error: "refused by the provider: audio could not be decoded",
+    state: "queued",
+  });
+  // Sent again; a late failure of the first send changes nothing.
+  const firstSend = sentFor(reported);
+  due(reported);
+  await app.s.worker.work();
+  const late = await deliver(app, {
+    data: { error: "late", webhook_metadata: firstSend },
+    type: "speech_to_text_transcription",
+  });
+  expect(await late.json()).toEqual({ result: "stale" });
+  // One from before 20 Nov names no POST: under another request id it changes nothing either.
+  const legacy = (requestId: string | null) =>
+    deliver(app, {
+      data: {
+        error: "again",
+        request_id: requestId,
+        webhook_metadata: JSON.stringify({ attempt: 1, jobId: reported }),
+      },
+      type: "speech_to_text_transcription",
+    });
+  expect(await (await legacy("req_of_an_earlier_send")).json()).toEqual({
+    result: "stale",
+  });
+  expect(jobRow(reported).state).toBe("submitted");
+  // Under the job's own request id it is that send's: an attempt.
+  expect(
+    await (await legacy(jobRow(reported).providerRequestId)).json()
+  ).toEqual({ result: "retried" });
+  expect(jobRow(reported)).toMatchObject({
+    attempts: 2,
+    state: "queued",
+  });
+  // The third failure fails it, its pages kept: a failure that repeats never loops.
+  due(reported);
+  await app.s.worker.work();
+  const third = await deliver(app, {
+    data: { error: "again", webhook_metadata: sentFor(reported) },
+    type: "speech_to_text_transcription",
+  });
+  expect(await third.json()).toEqual({ result: "failed" });
+  expect(jobRow(reported)).toMatchObject({
+    attempts: 3,
+    pages: [[1, 10]],
+    state: "failed",
+  });
+  expect(uploads()).toHaveLength(4);
+
+  const { providerRequestId } = jobRow(garbled);
+  const unreadable = await deliver(app, {
+    data: {
+      request_id: providerRequestId,
+      transcription: { nonsense: true },
+    },
+    type: "speech_to_text_transcription",
+  });
+  expect(await unreadable.json()).toEqual({ result: "kept" });
+  expect(jobRow(garbled).state).toBe("submitted");
 });

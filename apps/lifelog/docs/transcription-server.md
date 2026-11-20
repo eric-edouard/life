@@ -55,8 +55,8 @@ runs.
 - It sends queued jobs that have audio in the audio store and whose `next_attempt_at` has passed, oldest
   first, at most `ELEVENLABS_SLOTS` at ElevenLabs at once (default 10; set it below your ElevenLabs plan's concurrency, a block takes one). A job
   counts there from its POST (`request_sent_at`) until its answer, or 30 minutes once ElevenLabs gave it a transcription
-  id; one without an id, or that may have been billed, until it is settled. Sends stamped at their claim before 20 Nov 2026
-  had their clock moved 10 minutes on, the latest their POST can have been (migration `post_clock`). Every Scribe send of
+  id; one without an id, or that may have been billed, until it is settled. Sends still submitted from before 20 Nov 2026,
+  stamped at their claim, are marked maybe billed (migration `legacy_scribe_sends`): no POST clock says them lost. Every Scribe send of
   the server goes one way (`scribe-slots.ts` `send`): a job's, a block's routed turns, a chat voice note's. Its audio is
   read first and checked again (a quiet range that came meanwhile, the transcriber switched), then it takes a slot,
   then the switch, the credits and the quiet ranges are checked again and its row records the POST, which goes; its
@@ -69,9 +69,9 @@ runs.
 - Taken but bought nothing (a failure webhook for this send, a job ElevenLabs answers 404 for 30 minutes after it was
   sent): an attempt. `attempts + 1`, provider ids cleared, back to `queued` after 1, then 2 minutes; the third
   attempt that fails fails the job, so a failure that repeats never loops. ElevenLabs bills only the transcripts it
-  makes: lost jobs are missing from its usage. A webhook names its send (`sentAt`, its POST, in its metadata; `attempt`
-  before 20 Nov 2026), so a late failure of an earlier send changes nothing, and a failure never reopens a job that is no
-  longer submitted.
+  makes: lost jobs are missing from its usage. A webhook names its send (`sentAt`, its POST, in its metadata), so a late
+  failure of an earlier send changes nothing, and a failure never reopens a job that is no longer submitted. One from
+  before 20 Nov 2026 names no POST: it counts only under the job's current request id, else reconcile settles the job.
 - A send that may have been billed (a 5xx, a timeout, a dropped connection, a 202 without a request id, a send cut off
   by a restart) is never sent again: it stays `submitted`, marked `maybe_billed`, for its webhook. A failure webhook
   fails it; unanswered for a day, it is `failed`. Without a webhook nothing answers it, so it fails after that day.

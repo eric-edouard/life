@@ -54,12 +54,9 @@ export const getJob = (db: Db, id: string) =>
   db.query.transcriptionJobs.findFirst({ where: eq(jobs.id, id) }).sync();
 
 interface ProviderMatch {
-  // The send the webhook answers: its POST's instant (`sentAt`), before 20 Nov 2026 its `attempts`
-  // when it went (a whole block from the speech service started those again at 0), absent before
-  // Oct 15.
-  attempt?: number | null;
   jobId?: string | null;
   requestId?: string | undefined;
+  // The send the webhook answers: its POST's instant, absent before 20 Nov 2026.
   sentAt?: number | null;
 }
 
@@ -140,8 +137,9 @@ function complete(
 
 // A callback without a usable transcript. A reported failure of the job's current send is an
 // attempt; one of an earlier send (its POST is not the job's) changes nothing, so a late
-// failure never sends again a job already back at ElevenLabs. A send that may have been billed is
-// never sent again: its failure fails it.
+// failure never sends again a job already back at ElevenLabs. One from before 20 Nov names no POST:
+// it counts only under the job's current request id; in doubt it changes nothing, and reconcile
+// settles the job. A send that may have been billed is never sent again: its failure fails it.
 function noTranscript(db: Db, match: ProviderMatch, failed: string | null) {
   const job = findJob(db, match);
   if (!job) {
@@ -150,11 +148,11 @@ function noTranscript(db: Db, match: ProviderMatch, failed: string | null) {
   if (!failed) {
     return "kept";
   }
-  const earlier =
+  const current =
     typeof match.sentAt === "number"
-      ? match.sentAt !== job.requestSentAt?.getTime()
-      : typeof match.attempt === "number" && match.attempt !== job.attempts;
-  if (earlier) {
+      ? match.sentAt === job.requestSentAt?.getTime()
+      : Boolean(match.requestId) && match.requestId === job.providerRequestId;
+  if (!current) {
     return "stale";
   }
   if (job.maybeBilled) {
@@ -239,7 +237,8 @@ const SLOT_WAIT_MARGIN_MS = 60 * 1000;
 // its transcript came, "retried" or "failed" when it left submitted, null while it waits.
 // - With a transcription id, it is fetched. One ElevenLabs doesn't know LOST_AFTER_MS after it was
 //   sent was lost there (it bills only the transcripts it makes: Oct 13, 3 lost jobs, 44 min,
-//   absent from its usage) and goes again.
+//   absent from its usage) and goes again. One sent before 20 Nov has no POST clock to say so
+//   (marked maybe billed by the migration `legacy_scribe_sends`): it waits the day below instead.
 // - Without one (a send cut off by a restart, a 5xx, a timeout, a 202 without ids), ElevenLabs may
 //   have it, and only its webhook can say: it is never sent again. A day without a webhook fails
 //   it, marked maybe billed; a webhook after that still completes it. A host without a webhook
@@ -255,21 +254,24 @@ async function settle(
   if (job.transcriber === "speech") {
     return settleSpeech(db, job, age);
   }
-  if (!job.providerTranscriptionId) {
-    if (age <= UNANSWERED_MS) {
-      return null;
-    }
-    return onSend(db, job, {
+  const unanswered = () =>
+    age > UNANSWERED_MS &&
+    onSend(db, job, {
       error:
         "no answer from ElevenLabs in a day: it may have billed it, so it is not sent again",
       maybeBilled: true,
       state: "failed",
     })
-      ? "failed"
+      ? ("failed" as const)
       : null;
+  if (!job.providerTranscriptionId) {
+    return unanswered();
   }
   const raw = await fetchTranscript(config, job.providerTranscriptionId);
   if (raw === "not_found") {
+    if (job.maybeBilled) {
+      return unanswered();
+    }
     return age > LOST_AFTER_MS
       ? retry(db, job, "lost by the provider: no transcript and no callback")
       : null;
@@ -559,27 +561,23 @@ export function jobWorker(
       await hear(job, bytes);
       return;
     }
-    await toScribe(job, bytes, {});
+    await toScribe(job, bytes);
   }
 
-  // A block to Scribe whole, through the one paid path, as a Scribe job (`set`: a block the speech
-  // service left gets Scribe's own attempts). Not sent, a block heard there is queued again (not an
-  // attempt); a queued one is left as it is.
-  async function toScribe(
-    job: Job,
-    bytes: Uint8Array,
-    set: { attempts?: number }
-  ) {
+  // A block to Scribe whole, through the one paid path, as a Scribe job; its attempts go on from the
+  // speech service's, so a block never gets more than MAX_ATTEMPTS sends. Not sent, a block heard
+  // there is queued again (not an attempt); a queued one is left as it is.
+  async function toScribe(job: Job, bytes: Uint8Array) {
     let sent = job;
     const outcome = await paidSend(
       job.id,
       { priority: "ordinary", waitMs: slotWaitOf(job) },
       () => {
-        const left = dispatch(job, { ...set, transcriber: "scribe" });
+        const left = dispatch(job, { transcriber: "scribe" });
         if (typeof left === "string") {
           return left;
         }
-        sent = { ...left, ...set, transcriber: "scribe" };
+        sent = { ...left, transcriber: "scribe" };
         return null;
       },
       () => submitWhole(sent, bytes)
@@ -629,7 +627,7 @@ export function jobWorker(
       return;
     }
     if (route.kind === "whole" || !("heard" in said)) {
-      await toScribe(job, bytes, { attempts: 0 });
+      await toScribe(job, bytes);
       return;
     }
     let sent = job;

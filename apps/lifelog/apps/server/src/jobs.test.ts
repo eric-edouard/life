@@ -483,7 +483,7 @@ test("a refusal fails the job at once; a 5xx may be billed: it waits for its web
   await deliver(app, {
     data: {
       error: "failed after all",
-      webhook_metadata: JSON.stringify({ attempt: 0, jobId: maybe }),
+      webhook_metadata: uploads()[1]?.form?.get("webhook_metadata"),
     },
     type: "speech_to_text_transcription",
   });
@@ -517,77 +517,6 @@ test("a refused connection never left: queued again, not an attempt, not maybe b
     state: "queued",
   });
   expect(job.error).toMatch(REFUSED);
-});
-
-test("webhooks: a reported failure is an attempt, with null fields too; an unreadable one is kept for reconcile", async () => {
-  const app = appWith();
-  const reported = await admitFragment(app, audio(60), 1);
-  const garbled = await admitFragment(app, audio(60), 100);
-  await app.s.worker.work();
-
-  // Oct 13–14: ~650-byte failure webhooks with null fields were ignored unseen.
-  const failed = await deliver(app, {
-    data: {
-      error: { message: "audio could not be decoded" },
-      request_id: null,
-      status: null,
-      transcription: null,
-      webhook_metadata: JSON.stringify({ jobId: reported }),
-    },
-    type: "speech_to_text_transcription",
-  });
-  expect(await failed.json()).toEqual({ result: "retried" });
-  expect(jobRow(reported)).toMatchObject({
-    attempts: 1,
-    error: "refused by the provider: audio could not be decoded",
-    state: "queued",
-  });
-  // Sent again; a late failure of the first send changes nothing.
-  due(reported);
-  await app.s.worker.work();
-  const late = await deliver(app, {
-    data: {
-      error: "late",
-      webhook_metadata: JSON.stringify({ attempt: 0, jobId: reported }),
-    },
-    type: "speech_to_text_transcription",
-  });
-  expect(await late.json()).toEqual({ result: "stale" });
-  expect(jobRow(reported).state).toBe("submitted");
-  // The third failure fails it, its pages kept: a failure that repeats never loops.
-  const failure = (attempt: number) =>
-    deliver(app, {
-      data: {
-        error: "again",
-        webhook_metadata: JSON.stringify({ attempt, jobId: reported }),
-      },
-      type: "speech_to_text_transcription",
-    });
-  await failure(1);
-  expect(jobRow(reported)).toMatchObject({
-    attempts: 2,
-    state: "queued",
-  });
-  due(reported);
-  await app.s.worker.work();
-  expect(await (await failure(2)).json()).toEqual({ result: "failed" });
-  expect(jobRow(reported)).toMatchObject({
-    attempts: 3,
-    pages: [[1, 10]],
-    state: "failed",
-  });
-  expect(uploads()).toHaveLength(4);
-
-  const { providerRequestId } = jobRow(garbled);
-  const unreadable = await deliver(app, {
-    data: {
-      request_id: providerRequestId,
-      transcription: { nonsense: true },
-    },
-    type: "speech_to_text_transcription",
-  });
-  expect(await unreadable.json()).toEqual({ result: "kept" });
-  expect(jobRow(garbled).state).toBe("submitted");
 });
 
 test("the Mac's watermark cases", async () => {
@@ -1147,7 +1076,7 @@ test("the speech service: a block it keeps failing goes to Scribe whole after it
   await app.s.worker.work();
   expect(uploads()).toHaveLength(1);
   expect(jobRow(jobId)).toMatchObject({
-    attempts: 0,
+    attempts: 2,
     state: "submitted",
     transcriber: "scribe",
   });

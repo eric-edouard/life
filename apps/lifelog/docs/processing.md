@@ -177,7 +177,7 @@ and the feed show it with the switches):
   feed and Life read it the same. Why these models: `docs/research/transcription-bench.md`; the router's numbers: `bench context` (`apps/stt-bench`).
 
 A job keeps the transcriber it was sent with (`transcription_jobs.transcriber`). The service busy, the block is
-queued again (not an attempt); down, failing or past its 120 s wait (504), it is an attempt, and the third goes to Scribe whole, so nothing
+queued again (not an attempt); down, failing or past its 120 s wait (504), it is an attempt, and the third goes to Scribe whole, its attempts going on (three sends in all), so nothing
 loops. Its routed turns, or the whole block, wait for a Scribe slot (`scribe-slots.ts`) for what is left of its 10 minutes since its
 claim, its audio's read included, less a minute, so reconcile never takes a live wait for a restart; no slot in time, the block is
 queued again, not an attempt. At the slot the switch, the credits and the quiet ranges are checked again, and the POST
