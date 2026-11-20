@@ -203,13 +203,13 @@ function withWakesOn(
   hasMatter: (steps: string[]) => boolean,
   decisions = decisionsNow()
 ) {
-  return agents.map(({ chatsSeen, filters, ...a }) => {
+  return agents.map(({ chatsSeen, ...a }) => {
     const d = openDecisionOf(a.id, decisions);
     return {
       ...a,
       wakesOn:
         a.status === "waiting"
-          ? wakesOnOf(filters, {
+          ? wakesOnOf(a.wait?.events ?? [], {
               card: d && {
                 check: d.id,
                 deadline: d.deadline,

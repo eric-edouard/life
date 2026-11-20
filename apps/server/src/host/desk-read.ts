@@ -10,6 +10,7 @@ import type { AgentHold } from "../memory/held-matters";
 import type {
   AgentChange,
   AgentStatus,
+  AgentWait,
   EventFilter,
   OpenedBy,
 } from "../records/registered-agent";
@@ -199,18 +200,19 @@ export const queuedEvents = (db: Database, id: string) =>
 export const isWaiting = (a: AgentRow, s: AssignmentRow) =>
   a.status === "active" && s.closed_at === null;
 
-/** The wait an active agent still holds for this assignment. */
-export const savedWaitOf = (a: AgentRow, s: AssignmentRow) =>
+export const filtersOf = (s: Pick<AssignmentRow, "wait_events">) =>
+  JSON.parse(s.wait_events) as EventFilter[];
+
+/** The agent wait an active agent still holds for this assignment, flagged when it is the default. */
+export const agentWaitOf = (a: AgentRow, s: AssignmentRow) =>
   isWaiting(a, s) && s.wait_until
     ? {
+        events: filtersOf(s),
         isDefault: s.wait_is_default === 1,
         reason: s.wait_reason ?? "",
         until: s.wait_until,
       }
     : null;
-
-export const filtersOf = (s: Pick<AssignmentRow, "wait_events">) =>
-  JSON.parse(s.wait_events) as EventFilter[];
 
 /** An assignment's notes, as its file holds them; none before the agent wrote any. */
 export const readNotes = (s: Pick<AssignmentRow, "notes_path">) =>
@@ -471,13 +473,12 @@ export interface AgentNow {
   steps: string[];
   /** The first line of his brief. */
   title: string;
-  wait: { isDefault: boolean; reason: string; until: string } | null;
+  wait: (AgentWait & { isDefault: boolean }) | null;
 }
 
-/** What `wakesOn` is made of, beside an agent as read: its wait's filters, and for each chat they name the name and app of the agent's own newest event there (`seenChatsOf`). Not on the wire. */
+/** What `wakesOn` is made of, beside an agent as read: for each chat its wait's filters name the name and app of the agent's own newest event there (`seenChatsOf`). Not on the wire. */
 export type AgentRead = AgentNow & {
   chatsSeen: Record<string, { name: string | null; source: string | null }>;
-  filters: EventFilter[];
 };
 
 /**
@@ -581,7 +582,6 @@ function nowOf(
     amber,
     ...modelOf(a),
     chatsSeen: isForWakes && status === "waiting" ? seenChatsOf(db, s) : {},
-    filters: filtersOf(s),
     id: a.id,
     lastTurn: last
       ? {
@@ -601,7 +601,7 @@ function nowOf(
     statusSince: statusSinceOf(a, status, last ?? undefined),
     steps: anchorsOf(db, s.id),
     title: headOf(a.brief),
-    wait: savedWaitOf(a, s),
+    wait: agentWaitOf(a, s),
   };
 }
 

@@ -454,6 +454,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     statusSince: "2026-10-14T09:00:00.000Z",
     steps: [],
     wait: {
+      events: [],
       isDefault: false,
       reason: "his answer",
       until: "2026-10-16T09:00:00.000Z",

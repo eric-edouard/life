@@ -51,6 +51,7 @@
       "steps": [],
       "title": "Get Gran's watch mended",
       "wait": {
+        "events": [],
         "isDefault": false,
         "reason": "his answer",
         "until": "2026-10-16T09:00:00.000Z"
