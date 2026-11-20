@@ -32,7 +32,7 @@ import { type People, readPeople } from "../memory/who";
 import type { TurnOutcome } from "../records/registered-agent";
 import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
-import { finish, readPacket, stopRun } from "./agent-actions";
+import { endAgent, readPacket, stopRun } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import {
   ANSWERS,
@@ -226,7 +226,7 @@ export async function endAgentsOnDoneMatters(
   const nets = await netsOf(desk, await readPeopleNow());
   for (const n of nets.filter((x) => x.isDone)) {
     // biome-ignore lint/performance/noAwaitInLoops: one agent's decision withdrawn at a time
-    await finish(desk, n.agent, "its matter is done");
+    await endAgent(desk, n.agent, "its matter is done");
   }
 }
 

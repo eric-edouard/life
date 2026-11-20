@@ -19,7 +19,6 @@ import {
   anchorsOf,
   type DeskRead,
   handedOutAgentsSince,
-  NO_CARD_OUTCOME,
   projectHolderOf,
   readDesk,
   refusedSince,
@@ -411,14 +410,14 @@ export async function readAgentRows(since: string) {
   ];
 }
 
-/** The hand-outs since the last report as rows: how many started and how many of their cards he answered, then each that ended with no card or never began, by its matter's name. Pure; every row; none when nothing was handed out. */
+/** The hand-outs since the last report as rows: how many started and how many have an answered card, then each that never began, or ended having asked no card, by its matter's name. Pure; every row; none when nothing was handed out. */
 export function handOutRowsOf(
   agents: readonly {
     id: string;
-    outcome: string | null;
+    status: string;
     why_not_started: string | null;
   }[],
-  answered: ReadonlySet<string>,
+  cards: { answered: ReadonlySet<string>; asked: ReadonlySet<string> },
   matterOf: (agentId: string) => { name: string } | undefined
 ) {
   if (agents.length === 0) {
@@ -427,12 +426,14 @@ export function handOutRowsOf(
   return [
     {
       name: "Hand-outs",
-      relation: `${agents.length} started · ${agents.filter((a) => answered.has(a.id)).length} cards answered`,
+      relation: `${agents.length} started · ${agents.filter((a) => cards.answered.has(a.id)).length} with an answered card`,
     },
     ...agents.flatMap((a) => {
       const why =
         a.why_not_started === null
-          ? a.outcome === NO_CARD_OUTCOME && a.outcome
+          ? a.status === "ended" &&
+            !cards.asked.has(a.id) &&
+            "ended with no card"
           : `never began: ${a.why_not_started}`;
       return why
         ? [
@@ -473,13 +474,17 @@ async function readDeskRows(since: string) {
     await readMatterBook(await readPeople(), dayNow())
   );
   const matterOf = (id: string) => find(anchors.get(id) ?? []);
-  const answered = new Set(
-    decisionsNow().flatMap((d) =>
-      d.state === "answered" && d.agent ? [d.agent] : []
-    )
+  const decisions = decisionsNow().flatMap((d) =>
+    d.agent ? [{ agent: d.agent, state: d.state }] : []
   );
+  const cards = {
+    answered: new Set(
+      decisions.filter((d) => d.state === "answered").map((d) => d.agent)
+    ),
+    asked: new Set(decisions.map((d) => d.agent)),
+  };
   return [
-    ...handOutRowsOf(read.value.handed, answered, matterOf),
+    ...handOutRowsOf(read.value.handed, cards, matterOf),
     ...tokenRowsOf(read.value.turns, matterOf),
   ];
 }

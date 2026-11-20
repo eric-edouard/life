@@ -93,36 +93,21 @@ export const handedOutSince = (db: Database, since: string) =>
     )
     .get(since)?.n ?? 0;
 
-/** How long a handed-out agent has to ask its card, from its creation. */
-export const CARD_WITHIN_MS = 2 * HOUR;
-
-/** The outcome of an agent ended for asking no card in time (the nightly report lists these). */
-export const NO_CARD_OUTCOME = `no card within ${CARD_WITHIN_MS / HOUR} hours`;
-
-/** The agents the desk started itself from `since` on: how each ended (its outcome, or why its first turn never began), none of them an agent of his. */
+/** The agents the desk started itself from `since` on, as facts: whether it ended, and why its first turn never began. */
 export const handedOutAgentsSince = (db: Database, since: string) =>
   db
-    .query<Pick<AgentRow, "id" | "outcome" | "why_not_started">, [string]>(
-      "select id, outcome, why_not_started from agent where is_handed_out = 1 and created_at >= ? order by created_at"
+    .query<Pick<AgentRow, "id" | "status" | "why_not_started">, [string]>(
+      "select id, status, why_not_started from agent where is_handed_out = 1 and created_at >= ? order by created_at"
     )
     .all(since);
 
-/** The anchored steps of the agents the desk started itself from `since` on, ended or not: a hand-out that never began holds nothing in `heldByAgents`, yet its try counts. */
-export const handedOutSteps = (db: Database, since: string) =>
+/** The active agents the desk started itself, each with when its first turn began (`first_begun_at`, null before). */
+export const handedOutActive = (db: Database) =>
   db
-    .query<{ step: string }, [string]>(
-      "select distinct n.step from anchor n join agent a on a.id = n.agent_id where a.is_handed_out = 1 and a.created_at >= ?"
+    .query<AgentRow & { first_begun_at: string | null }, []>(
+      "select a.*, (select min(t.begun_at) from turn t where t.agent_id = a.id) as first_begun_at from agent a where a.is_handed_out = 1 and a.status = 'active'"
     )
-    .all(since)
-    .map((r) => r.step);
-
-/** The active agents the desk started itself, created by `createdBy` (an ISO instant), with whether their first turn began. */
-export const handedOutActiveBefore = (db: Database, createdBy: string) =>
-  db
-    .query<AgentRow & { begun: number }, [string]>(
-      "select a.*, exists (select 1 from turn t where t.agent_id = a.id and t.begun_at is not null) as begun from agent a where a.is_handed_out = 1 and a.status = 'active' and a.created_at <= ?"
-    )
-    .all(createdBy);
+    .all();
 
 export const activeAgents = (db: Database) =>
   db
@@ -210,7 +195,7 @@ export function heldByAgents(db: Database) {
     clock().getTime() - NEW_MATTER_DAYS * DAY
   ).toISOString();
   const held =
-    "a.why_not_started is null and (a.ended_at is null or a.ended_at >= ?)";
+    "(a.why_not_started is null or a.is_handed_out = 1) and (a.ended_at is null or a.ended_at >= ?)";
   return {
     projects: db
       .query<{ project: string }, [string]>(

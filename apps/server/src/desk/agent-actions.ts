@@ -251,6 +251,19 @@ export const stopRun = (
     })
   );
 
+/** Ends agent `id` as `finish` does, then stops the run of its open turn, if any: the one way the tick ends an agent. */
+export async function endAgent(desk: Desk, id: string, outcome: string) {
+  const open = openTurn(desk.db, id);
+  await finish(desk, id, outcome);
+  if (open?.session) {
+    await stopRun(
+      desk.runtimes[agentOf(desk.db, id)?.runtime ?? ""],
+      id,
+      open.session
+    );
+  }
+}
+
 /** `write_notes`: replaces the agent's notes, which open its next packet. */
 export function writeNotes(desk: Desk, id: string, text: string) {
   desk.db.run("update agent set notes = ? where id = ?", [

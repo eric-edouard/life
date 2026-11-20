@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
-import { agentOf, NO_CARD_OUTCOME } from "../host/desk-read";
+import { agentOf } from "../host/desk-read";
 import { decisionsNow } from "../memory/decisions";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
 import {
@@ -11,6 +11,7 @@ import {
   withdrawOpenDecision,
 } from "./agent-actions";
 import { wakeDue } from "./desk-clock";
+import { NO_CARD_OUTCOME } from "./hand-out";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import { setup } from "./test-desk";
 
@@ -260,4 +261,21 @@ test("a hand-out whose first turn never began is not picked again", async () => 
       .map((r) => r.step);
   expect(steps(first)).toEqual(["obs_a1"]);
   expect(steps(second)).toEqual(["obs_b1"]);
+});
+
+test("the 2 hours run from the first turn's beginning, not the agent's creation", async () => {
+  const desk = deskOf();
+  const id = (await handOutNext(desk, book().read)) ?? "";
+  setSystemTime(new Date(clock().getTime() + HOUR));
+  await wakeDue(desk);
+  desk.db.run("update turn set begun_at = ? where agent_id = ?", [
+    clock().toISOString(),
+    id,
+  ]);
+  setSystemTime(new Date(clock().getTime() + HOUR + 30 * MIN));
+  await endAgentsWithoutCard(desk);
+  expect(agentOf(desk.db, id)?.status).toBe("active");
+  setSystemTime(new Date(clock().getTime() + 31 * MIN));
+  await endAgentsWithoutCard(desk);
+  expect(agentOf(desk.db, id)?.status).toBe("ended");
 });

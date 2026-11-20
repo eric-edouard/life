@@ -3,7 +3,7 @@ import { rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
-import { NO_CARD_OUTCOME, tokensSince } from "../host/desk-read";
+import { tokensSince } from "../host/desk-read";
 import {
   handOutRowsOf,
   readAgentRows,
@@ -90,21 +90,24 @@ test("a turn running across a report is not listed; once ended it shows in the n
   ).toEqual([9]);
 });
 
-test("the hand-out rows: how many started, how many cards answered, and each that ended with no card or never began", () => {
+test("the hand-out rows: how many started, how many have an answered card, and each that never began or ended having asked no card", () => {
   const agents = [
-    { id: "a", outcome: null, why_not_started: null },
-    { id: "b", outcome: NO_CARD_OUTCOME, why_not_started: null },
-    { id: "c", outcome: null, why_not_started: "it did not begin" },
-    { id: "d", outcome: "its matter is done", why_not_started: null },
+    { id: "a", status: "active", why_not_started: null },
+    { id: "b", status: "ended", why_not_started: null },
+    { id: "c", status: "ended", why_not_started: "it did not begin" },
+    { id: "d", status: "ended", why_not_started: null },
   ];
-  expect(handOutRowsOf([], new Set(), () => undefined)).toEqual([]);
+  const none = { answered: new Set<string>(), asked: new Set<string>() };
+  expect(handOutRowsOf([], none, () => undefined)).toEqual([]);
   expect(
-    handOutRowsOf(agents, new Set(["a", "d"]), (id) => ({
-      name: `Test matter ${id}`,
-    }))
+    handOutRowsOf(
+      agents,
+      { answered: new Set(["a", "d"]), asked: new Set(["a", "d"]) },
+      (id) => ({ name: `Test matter ${id}` })
+    )
   ).toEqual([
-    { name: "Hand-outs", relation: "4 started · 2 cards answered" },
-    { name: "Hand-out · Test matter b", relation: NO_CARD_OUTCOME },
+    { name: "Hand-outs", relation: "4 started · 2 with an answered card" },
+    { name: "Hand-out · Test matter b", relation: "ended with no card" },
     {
       name: "Hand-out · Test matter c",
       relation: "never began: it did not begin",
