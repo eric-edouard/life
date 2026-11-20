@@ -25,11 +25,17 @@ final class IncidentNotifier: NSObject {
     /// Answers a card from its notification, the way its screen does, and says how it went. Set by the app delegate.
     var answer: ((Check, AnswerRequest) async -> (word: String, line: String))?
 
-    /// Life's cards: Reply… (a decision's own words, the only button the Watch shows); the expanded notification
-    /// adds the card's own one-tap answers (`NotificationContent`). Every answer asks for the phone to be unlocked.
+    /// Life's cards: Reply… (a decision's own words), the only action shown where the expanded notification isn't (the
+    /// Watch, a collapsed one); the expanded one adds the card's one-tap answers (`NotificationContent`). Every answer
+    /// asks for an unlocked phone or Watch.
     private static let cardCategory = UNNotificationCategory(
         identifier: CardNotification.category, actions: [CardNotification.replyAction], intentIdentifiers: [],
         options: [.hiddenPreviewsShowTitle])
+    /// A card it can send from, whole draft as its text (`NotificationService`): Send and Reply…, on the Watch too.
+    private static let sendCategory = UNNotificationCategory(
+        identifier: CardNotification.sendCategory,
+        actions: [CardNotification.sendAction, CardNotification.replyAction],
+        intentIdentifiers: [], options: [.hiddenPreviewsShowTitle])
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -43,7 +49,7 @@ final class IncidentNotifier: NSObject {
         super.init()
         // Must be set before launch finishes so a response that relaunched the app is delivered.
         center.delegate = self
-        center.setNotificationCategories([Self.cardCategory])
+        center.setNotificationCategories([Self.cardCategory, Self.sendCategory])
     }
 
     /// Asks once; iOS never shows the prompt again after the owner answers.
@@ -186,7 +192,9 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
         defer { awake.end() }
         let result: (word: String, line: String)
         if let check, let answer,
-            let answering = CardNotification.answer(response.actionIdentifier, typed: typed, to: check)
+            let answering = CardNotification.answer(
+                response.actionIdentifier, typed: typed, to: check, in: request.content.categoryIdentifier,
+                asksFaceID: AppGroup.asksFaceIDToSend)
         {
             result = await answer(check, answering)
         } else {

@@ -254,6 +254,8 @@ extension Check {
     /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their
     /// options (a new matter's goal comes through its option that takes a note).
     public var takesOwnWords: Bool { group == .decision }
+    /// Its draft goes to someone Life only guesses: the guess is asked beside it (`confirm`).
+    public var isRecipientGuessed: Bool { !(confirm ?? []).isEmpty }
 }
 
 extension String {

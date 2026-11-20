@@ -144,8 +144,8 @@ extension Taken {
     }
 
     /// Held for Undo: any answer that is not a send, a start or a goal edit (Life has no undo for those).
-    var isGuess: Bool { !(check.confirm ?? []).isEmpty }
     var isHeld: Bool { !isSend && !isStart && !staysOpen }
+    var isGuess: Bool { check.isRecipientGuessed }
 
     var doneWord: String {
         if isSend { return "Sent." }
@@ -164,7 +164,7 @@ extension Taken {
     func summary(_ proof: ActionProof) -> String {
         guard case .answered(let result) = proof else { return "" }
         if let send = result.send {
-            let to = [check.draft?.to, send.channel.map(ActionCopy.channel)].compactMap(\.self)
+            let to = [check.draft?.to, send.channel.map(Channel.name)].compactMap(\.self)
             let when = send.at.map { ", at \($0.formatted(.dateTime.hour().minute()))" } ?? ""
             return "To \(to.joined(separator: " on "))\(when)."
         }

@@ -8,17 +8,6 @@ nonisolated struct LifeToken: TokenStore {
     private static let endpointKey = "lifeEndpoint"
     private static let account = "life-tokens"
 
-    init() {
-        // ponytail: the endpoint moved from the app's own defaults to the group's; drop this copy in rich notifications'
-        // PR 5, once his phone has run this build.
-        if AppGroup.defaults.data(forKey: Self.endpointKey) == nil,
-            let old = UserDefaults.standard.data(forKey: Self.endpointKey)
-        {
-            AppGroup.defaults.set(old, forKey: Self.endpointKey)
-            UserDefaults.standard.removeObject(forKey: Self.endpointKey)
-        }
-    }
-
     func load() -> LifeCredentials? {
         guard let data = AppGroup.defaults.data(forKey: Self.endpointKey),
             let endpoint = try? JSONDecoder().decode(LifeEndpoint.self, from: data),

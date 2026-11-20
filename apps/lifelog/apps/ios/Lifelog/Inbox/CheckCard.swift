@@ -115,7 +115,7 @@ struct CheckCard: View {
     @ViewBuilder private var content: some View {
         if let draft = check.draft {
             DraftBlock(
-                draft: draft, identity: check.networkIdentity, isGuess: !(check.confirm ?? []).isEmpty, isBoxed: false)
+                draft: draft, identity: check.networkIdentity, isGuess: check.isRecipientGuessed, isBoxed: false)
         }
         switch check.group {
         case .ending: EndingBlock(said: check.said, since: check.since)
@@ -251,7 +251,7 @@ private struct WhySheet: View {
                         + around.after.map { ($0, false) }
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                            Text(line.0.line(channelName: ActionCopy.channel)).font(.small)
+                            Text(line.0.line(channelName: Channel.name)).font(.small)
                                 .foregroundStyle(Palette.muted)
                             NamedWords(
                                 said: line.0, names: line.1 ? names : [], regular: .body15, bold: .bodyStrong,

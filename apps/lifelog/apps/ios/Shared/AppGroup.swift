@@ -13,6 +13,8 @@ nonisolated enum AppGroup {
     /// UserDefaults is thread-safe; the SDK just doesn't mark it Sendable.
     nonisolated(unsafe) static let defaults = UserDefaults(suiteName: id) ?? .standard
 
+    static var asksFaceIDToSend: Bool { defaults.bool(forKey: Key.asksFaceIDToSend) }
+
     /// Every key the app shares with its widgets and the Watch. Never rename one: a reader on the old name finds nothing.
     enum Key {
         /// `PendantSnapshot`: widgets, the control and Shortcuts.
@@ -21,5 +23,7 @@ nonisolated enum AppGroup {
         static let recordingGlance = "recordingGlance"
         /// The Watch face's note (`FaceNote`).
         static let faceNote = "faceNote"
+        /// His setting: Send from a notification waits for Face ID (off: the phone or Watch unlocked is enough).
+        static let asksFaceIDToSend = "asksFaceIDToSend"
     }
 }
