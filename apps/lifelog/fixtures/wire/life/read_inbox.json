@@ -11,6 +11,8 @@
       "clips": [],
       "context": "He asked for it by Friday.",
       "deadline": "2099-01-01T09:00:00.000Z",
+      "doneSeen": null,
+      "doneSeenBy": "tap",
       "draft": {
         "channel": "whatsapp",
         "chat": "33600000001@s.whatsapp.net",
@@ -34,6 +36,7 @@
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
+      "needs": [],
       "notSent": null,
       "onMatters": [
         {
@@ -145,6 +148,99 @@
         "shownName": "Kit"
       },
       "pushId": "a23260946067d0fe",
+      "urgency": "blocks"
+    },
+    {
+      "around": null,
+      "said": null,
+      "since": null,
+      "about": [],
+      "agent": null,
+      "asker": "Orbit",
+      "at": "2026-10-14T09:00:00.000Z",
+      "clips": [],
+      "context": null,
+      "deadline": "2099-01-02T09:00:00.000Z",
+      "doneSeen": {
+        "line": "Not in your accounts yet",
+        "state": "not_found"
+      },
+      "doneSeenBy": "payment",
+      "draft": null,
+      "evidence": null,
+      "goal": null,
+      "group": "decision",
+      "kind": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "needs": [
+        {
+          "bank": "Test Bank",
+          "holder": "Blue Reef Test Co.",
+          "kind": "account",
+          "number": "012-3-45678-9",
+          "line": "Test Bank 012-3-45678-9, Blue Reef Test Co."
+        },
+        {
+          "currency": "THB",
+          "kind": "amount",
+          "value": 4500,
+          "line": "4,500 THB"
+        },
+        {
+          "kind": "link",
+          "url": "https://pay.example.test/i/12",
+          "vendor": "Reef Pay",
+          "line": "Reef Pay: pay.example.test"
+        },
+        {
+          "copy": true,
+          "kind": "text",
+          "label": "Reference",
+          "text": "DEP-12",
+          "line": "Reference: DEP-12"
+        },
+        {
+          "kind": "qr",
+          "source": "Reef's WhatsApp of 14 Oct",
+          "line": "QR code from Reef's WhatsApp of 14 Oct"
+        }
+      ],
+      "notSent": null,
+      "onMatters": [],
+      "onSilence": null,
+      "options": [
+        {
+          "id": "paid",
+          "label": "I've paid",
+          "looks": true,
+          "takes": null
+        },
+        {
+          "id": "other",
+          "label": "Paid another way",
+          "takes": "note"
+        },
+        {
+          "id": "drop",
+          "label": "Drop it",
+          "takes": null
+        }
+      ],
+      "question": "Pay the dive course deposit?",
+      "ref": "dec_000000000002",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 0,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Pay the deposit",
+      "matter": null,
+      "confirm": [],
+      "networkIdentity": null,
+      "pushId": "cdc5e5e8356ed8a6",
       "urgency": "blocks"
     },
     {
@@ -594,9 +690,9 @@
       "urgency": "improves"
     }
   ],
-  "blocking": 4,
+  "blocking": 5,
   "counts": {
-    "decision": 1,
+    "decision": 2,
     "voice": 1,
     "name": 1,
     "contacts card": 1,
@@ -605,5 +701,5 @@
     "ending": 1
   },
   "deadlinesToday": 0,
-  "total": 7
+  "total": 8
 }

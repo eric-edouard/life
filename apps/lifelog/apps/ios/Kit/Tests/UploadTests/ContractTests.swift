@@ -121,7 +121,14 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(try quoted("memory/check-urgency.ts", /export type Urgency = ([^;]*);/) == client(Urgency.self))
     // On Life's own checks and on a decision's options alike.
     #expect(try quoted("memory/life-checks.ts", /ends\?: ([^;]*);/) == client(Check.Option.Ends.self))
-    #expect(try quoted("memory/decisions.ts", /ends: z\.enum\(\[([^\]]*)\]/) == client(Check.Option.Ends.self))
+    #expect(try quoted("memory/card-request.ts", /ends: z\.enum\(\[([^\]]*)\]/) == client(Check.Option.Ends.self))
+    // A need's kinds; `qr` shows its line until the phone draws the code.
+    let kinds = Set(try source("memory/needs.ts").matches(of: /kind: z\.literal\("([a-z]+)"\)/).map { String($0.output.1) })
+    #expect(kinds.subtracting(["qr"]) == client(Check.Need.Kind.self))
+    // Life's stored outcome; `looking` is the phone's while `answer_check` runs (its live step).
+    #expect(
+        try quoted("memory/decisions.ts", /state: z\.enum\(\[([^\]]*)\]/).union(["looking"])
+            == client(Check.DoneSeen.State.self))
     #expect(try quoted("memory/matter-read.ts", /const STATUSES = \[([^\]]*)\]/) == client(MatterStatus.self))
     // `wait_decision` is worked out when read (`nextStepNow`), never stored.
     #expect(

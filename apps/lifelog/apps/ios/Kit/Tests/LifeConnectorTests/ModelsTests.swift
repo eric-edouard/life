@@ -13,11 +13,12 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 /// there first, then here, naming the model.
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 7)
-    #expect(inbox.blocking == 4)
-    #expect(inbox.badge == 4)
-    #expect(inbox.counts.values.reduce(0, +) == 7)
-    #expect(inbox.checks.map(\.urgency) == [.blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves])
+    #expect(inbox.total == 8)
+    #expect(inbox.blocking == 5)
+    #expect(inbox.badge == 5)
+    #expect(inbox.counts.values.reduce(0, +) == 8)
+    #expect(
+        inbox.checks.map(\.urgency) == [.blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
     #expect(decision.options.first?.outgoing == true)
@@ -36,6 +37,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.networkIdentity?.network == "WhatsApp")
     #expect(decision.networkIdentity?.newest == nil)
     #expect(decision.ridesOn?.matters == 1)
+    // A transfer (the asks contract): its needs in the agent's order, each with Life's line; Life's look found nothing yet.
+    let transfer = inbox.checks[1]
+    #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .unknown])
+    #expect(transfer.needs?.map { $0.rows.count } == [3, 1, 1, 1, 1])
+    #expect(transfer.needs?.last?.rows == [NeedRow(glyph: .note, text: "QR code from Reef's WhatsApp of 14 Oct")])
+    #expect(transfer.doneSeen == Check.DoneSeen(state: .notFound, line: "Not in your accounts yet"))
+    #expect(transfer.options.map(\.takes) == [nil, .note, nil])
 
     #expect(inbox.checks.map(\.group).contains(.newMatter))
     let voice = try #require(inbox.checks.first { $0.group == .voice })
@@ -137,6 +145,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let found = try decoded(AnswerResult.self, wireText("life/answer_check_new_matter_started.json"))
     #expect(found.start?.state == .started)
     #expect(found.start?.stages?.count == 3)
+    // "I've paid": Life's look, seen or not found yet, beside the answer.
+    struct Looked: Decodable { let doneSeen: Check.DoneSeen? }
+    for (file, state) in [("answer_check_done_seen", Check.DoneSeen.State.seen), ("answer_check_not_found", .notFound)] {
+        let text = try wireText("life/\(file).json")
+        #expect(try decoded(AnswerResult.self, text).send == nil)
+        #expect(try decoded(Looked.self, text).doneSeen?.state == state)
+    }
     let edited = try decoded(AnswerResult.self, wireText("life/answer_check_new_matter_goal_edited.json"))
     #expect(edited.start == nil)
     let started = try decoded(AgentChangeResult.self, wireText("life/change_registered_agent_started.json"))

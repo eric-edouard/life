@@ -1,4 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
+import { setSettings } from "../../core/settings";
 import { nameGroupsOf } from "../../memory/check-sentences";
 import { urgencyOf } from "../../memory/check-urgency";
 import type { CheckInputs } from "../../memory/checks";
@@ -101,6 +102,50 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       state: "open",
       subject: "obs_000000000005",
       title: "Kit is waiting for the quote.",
+    },
+    // A transfer whose "I've paid" Life looked for and did not find yet: open again.
+    {
+      asker: "Orbit",
+      at: "2026-10-14T09:00:00.000Z",
+      context: "",
+      deadline: "2099-01-02T09:00:00.000Z",
+      doneSeen: {
+        at: "2026-10-14T10:00:00.000Z",
+        id: "dec_000000000002",
+        kind: "done-seen",
+        schemaVersion: 3,
+        state: "not_found",
+      },
+      doneSeenBy: "payment",
+      id: "dec_000000000002",
+      kind: "asked",
+      links: [],
+      needs: [
+        {
+          bank: "Test Bank",
+          holder: "Blue Reef Test Co.",
+          kind: "account",
+          number: "012-3-45678-9",
+        },
+        { currency: "THB", kind: "amount", value: 4500 },
+        {
+          kind: "link",
+          url: "https://pay.example.test/i/12",
+          vendor: "Reef Pay",
+        },
+        { copy: true, kind: "text", label: "Reference", text: "DEP-12" },
+        { kind: "qr", source: "Reef's WhatsApp of 14 Oct" },
+      ],
+      onSilence: null,
+      options: [
+        { id: "paid", label: "I've paid", looks: true },
+        { id: "other", label: "Paid another way", takes: "note" },
+        { id: "drop", label: "Drop it" },
+      ],
+      question: "Pay the dive course deposit?",
+      schemaVersion: 3,
+      state: "open",
+      title: "Pay the deposit",
     },
   ],
   dismissed: [],
@@ -332,6 +377,8 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
   const book = await import("../../memory/matters");
   const items = await import("../../memory/read-open-items");
   const agents = await import("../registered-agents");
+  // On: the transfer's look is a payment's (`doneSeenByOf`).
+  setSettings({ payments: { backend: "money" } });
   const agent = {
     amber: [],
     effort: "medium",
@@ -554,6 +601,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     );
     expectWire("read_registered_agents", await read("read_registered_agents"));
   } finally {
+    setSettings({ payments: null });
     for (const spy of spies) {
       spy.mockRestore();
     }
