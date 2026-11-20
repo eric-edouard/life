@@ -162,14 +162,13 @@ function channelReadsIn(db: Desk["db"]) {
 export async function pollChannels(desk: Desk, readPeopleNow: ReadPeople) {
   const { db } = desk;
   const assignments = openAssignments(db);
-  const named = new Set(
-    assignments.flatMap((s) => filtersOf(s).flatMap((f) => f.channels ?? []))
-  );
+  const filters = assignments.flatMap(filtersOf);
   const reads = channelReadsIn(db);
   const t = clock().getTime();
   for (const c of desk.channels ?? EVENT_CHANNELS) {
     const last = reads.get(c.name);
-    if (!named.has(c.name) || (last && t - last.at < c.beat)) {
+    const naming = filters.filter((f) => f.channels?.includes(c.name));
+    if (naming.length === 0 || (last && t - last.at < c.beat)) {
       continue;
     }
     const failed = (why: string) =>
@@ -186,7 +185,7 @@ export async function pollChannels(desk: Desk, readPeopleNow: ReadPeople) {
     // biome-ignore lint/performance/noAwaitInLoops: one channel at a time, each read bounded by its own timeout
     const people = await readPeopleNow();
     try {
-      const events = await c.read(t);
+      const events = await c.read(t, naming);
       reads.set(c.name, { at: t });
       const wakes = agentWakesOf(db, assignments, people, events);
       db.transaction(() => queue(db, c.event, wakes))();
