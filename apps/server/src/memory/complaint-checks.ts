@@ -87,17 +87,16 @@ export function withMisreadSealed<
   }));
 }
 
-/** A card's "Wrong…" (`misread`) and his complaint at work on its cause (`beingFixed`): on Life's own cards alone, never an agent's (the caretaker's included). */
-export function complaintFieldsOf(
-  c: Pick<
+/** Card `c` with its "Wrong…" (`misread`) and his complaint at work on its cause (`beingFixed`): on Life's own cards alone, never an agent's (the caretaker's included). */
+export function withComplaintFields<
+  C extends Pick<
     Check,
     "asker" | "evidence" | "group" | "question" | "ref" | "subject"
   >,
-  fixing?: ReadonlyMap<string, BeingFixed>,
-  basis?: string
-) {
+>(c: C, fixing?: ReadonlyMap<string, BeingFixed>, basis?: string) {
   const cause = c.asker === LIFE_ASKER ? causeOf(c, basis) : null;
   return {
+    ...c,
     beingFixed: (cause && fixing?.get(cause)) || undefined,
     misread: cause ? { cause } : null,
   };

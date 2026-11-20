@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { readChangeStamp } from "../core/files";
-import { type CheckGroup, LIFE_ASKER, type SourceName } from "../core/names";
+import { type CheckGroup, LIFE_ASKER } from "../core/names";
 import { secretIn } from "../core/secret";
 import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
@@ -25,8 +25,8 @@ import { inboxOrderOf, type Urgency, urgencyOf } from "./check-urgency";
 import { pagedNow } from "./closeness";
 import {
   type ComplaintsAtWork,
-  complaintFieldsOf,
   fixingOf,
+  withComplaintFields,
   withMisreadSealed,
 } from "./complaint-checks";
 import {
@@ -37,7 +37,7 @@ import {
   isOnMatter,
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
-import type { StoredDraft } from "./draft";
+import { draftPersonOf } from "./draft-send";
 import { type AgentHold, isHeldOf } from "./held-matters";
 import {
   type BeingFixed,
@@ -74,13 +74,13 @@ import {
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
 import { withNetworkIdentities } from "./network-identity";
+import { PERSON_PICTURES_INDEX } from "./party";
 import {
   dismissedIdsOf,
   handOutGateOf,
   isOneOfHis,
   isParkedMatterOf,
 } from "./read-matters";
-import { sourceOf } from "./sources";
 import {
   type People,
   readPeople,
@@ -619,18 +619,11 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
       .flatMap((build) => build(c))
       .map(({ basis, check, day }) => {
         const m = matterOf([check.subject ?? check.ref]);
-        const built = {
-          ...check,
-          matter: cardMatterOf(m) ?? null,
-          onMatters: check.ridesOn.matterIds.flatMap(
-            (id) => cardMatterOf(byId.get(id)) ?? []
-          ),
-        };
-        return {
-          ...built,
-          ...complaintFieldsOf(built, inputs.fixing, basis),
-          day,
-        };
+        const onMatters = check.ridesOn.matterIds.flatMap(
+          (id) => cardMatterOf(byId.get(id)) ?? []
+        );
+        const card = { ...check, matter: cardMatterOf(m) ?? null, onMatters };
+        return { ...withComplaintFields(card, inputs.fixing, basis), day };
       })
   ).map(({ day: _, ...check }) => check);
   const guessed = new Map(
@@ -639,25 +632,11 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
       .map((x) => [c.people.refOf(x.ref), { ...x, confirm: [] }])
   );
   return found.map((x) => {
-    const person = x.draft && draftPersonOf(c, x.draft);
+    const person = x.draft && draftPersonOf(c.people, x.draft);
     const guess = person && guessed.get(c.people.refOf(person));
     return { ...x, confirm: guess ? [guess] : [] };
   });
 };
-
-/**
- * Who a decision's draft goes to, as a person ref: its stored chat's handle (its source's `handleOf`), or a mail's `to`,
- * read through `resolve`. Null for a source whose chat keys hold no handle, a draft not yet resolved to a chat, or a
- * handle no one has.
- */
-function draftPersonOf(c: Ctx, d: StoredDraft) {
-  const source = d.channel ? sourceOf(d.channel as SourceName) : undefined;
-  const handle =
-    source?.kind === "mail" ? d.to : d.chat && source?.handleOf?.(d.chat);
-  return handle && d.channel
-    ? c.people.resolve(handle, d.channel as SourceName)
-    : null;
-}
 
 /** The checks about matter `id`: every kind, open matters they ride on and the one holding their subject (an ending is about a matter that reads probably done). */
 export const checksOnMatterOf = <C extends Pick<Check, "matter" | "ridesOn">>(
@@ -676,11 +655,15 @@ export type InboxCheck = Check & { pushId: string; urgency: Urgency };
 /** The last list `checksNow` read, and what it was read from (`checksKeyOf`). */
 let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
 
-/**
- * Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write
- * those every few minutes, and the checks don't read them but for an inferred person's evidence (where it was said).
- */
-const CHECKS_READ = [...MATTER_BOOK_READS, CLOSENESS, DECISIONS, PAGES, ZONES];
+/** Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write those every few minutes, and the checks don't read them but for an inferred person's evidence; the pictures' index. */
+const CHECKS_READ = [
+  ...MATTER_BOOK_READS,
+  CLOSENESS,
+  DECISIONS,
+  PAGES,
+  PERSON_PICTURES_INDEX,
+  ZONES,
+];
 
 /** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
 export interface HeldRead {
@@ -689,10 +672,7 @@ export interface HeldRead {
   stamp: string;
 }
 
-/**
- * What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open
- * decisions (one lapses), the stamp of what agents hold and the voices lifelog queues. The same key, the same list.
- */
+/** What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open decisions (one lapses), the stamp of what agents hold and the voices lifelog queues. The same key, the same list. */
 const checksKeyOf = (
   held: HeldRead | null,
   voices: readonly NamingQueueItem[],
@@ -706,29 +686,27 @@ const checksKeyOf = (
     voices,
   ]);
 
-/**
- * What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from
- * the desk): read-only, no model call. Read again only when what it is read from changed (`checksKeyOf`), and always
- * while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
- */
-export async function checksNow(held: HeldRead | null): Promise<InboxCheck[]> {
+/** What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from the desk), and its `key` (`checksKeyOf`): read-only, no model call. Read again only when the key changed, and always while a run holds the lock, then under a key never given twice (its list may change under the same files' stamp): every reader of the inbox shares one read per change, and never mutates the list. */
+export async function checksAndKeyNow(held: HeldRead | null) {
   const voices = await readNamingQueue();
   const decisions = decisionsNow().filter((d) => d.state === "open");
-  if (isLocked()) {
-    return await readChecks(held, voices, decisions);
-  }
   const key = checksKeyOf(held, voices, decisions);
-  if (last?.key !== key) {
+  if (isLocked() || last?.key !== key) {
     const list = readChecks(held, voices, decisions);
-    last = { key, list };
+    last = { key: isLocked() ? `${key} ${crypto.randomUUID()}` : key, list };
     list.catch(() => {
       if (last?.list === list) {
         last = undefined;
       }
     });
   }
-  return await last.list;
+  const read = last;
+  return { checks: await read.list, key: read.key };
 }
+
+/** What waits on his word now (`checksAndKeyNow`), without its key. */
+export const checksNow = async (held: HeldRead | null) =>
+  (await checksAndKeyNow(held)).checks;
 
 async function readChecks(
   held: HeldRead | null,

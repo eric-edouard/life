@@ -585,11 +585,20 @@ function projectContextOf({ projects }: Pick<Truth, "projects">, id: string) {
     : [];
 }
 
-/** A standing role's subject (the caretaker's: Life's data), never a matter or a project; null for every other agent. */
-const subjectLineOf = (a: Pick<AgentRow, "role">) =>
-  a.role === "caretaker"
-    ? "Your subject: Life's data. Your work is his complaints, each a `complaint.received` event naming one (`read_complaint`); you hold no matter."
-    : null;
+/** An assignment's subject as its packet opens: a standing role's (the caretaker's: Life's data, never a matter), else its project's lines on its own assignment, else its matter as read now. */
+async function subjectLineOf(
+  a: Pick<AgentRow, "project" | "role">,
+  isOnProject: boolean,
+  matter: unknown,
+  steps: readonly string[]
+) {
+  if (a.role === "caretaker") {
+    return "Your subject: Life's data. Your work is his complaints, each a `complaint.received` event naming one (`read_complaint`); you hold no matter.";
+  }
+  return isOnProject && a.project
+    ? await projectLinesOf(a.project)
+    : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify(matter ?? `No matter holds ${steps.join(", ")} now.`)}`;
+}
 
 /**
  * `read_packet`: what a fresh session starts from: its one matter as read now (`oneMatter`: where it stands, its goal and
@@ -627,10 +636,7 @@ export async function readPacket(
     ]),
   ].map((p) => projectContextOf(truth, p));
   return [
-    subjectLineOf(a) ??
-      (isOnProject && a.project
-        ? await projectLinesOf(a.project)
-        : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify(matter ?? `No matter holds ${steps.join(", ")} now.`)}`),
+    await subjectLineOf(a, isOnProject, matter, steps),
     ...projects.flat(),
     a.brief,
     contractOf(a.id, isOwn, firstTurnOf(a, s.opened_by)),

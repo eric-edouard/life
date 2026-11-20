@@ -13,9 +13,9 @@ import {
   type StoredDraft,
 } from "./draft";
 import { OWNER } from "./read-truth";
-import { enabledSources } from "./sources";
+import { enabledSources, sourceOf } from "./sources";
 import { oneLineOf } from "./units";
-import { readPeople } from "./who";
+import { type People, readPeople } from "./who";
 
 // A card's draft, sent (AGENTS.md, "Life sends only…"): which chat a draft names and what of it the chat takes, checked
 // and stamped when the card is asked, and the send itself, on his answer to its outgoing option (`answerDecision`, the
@@ -357,4 +357,18 @@ export function sendLimitMs(draft: StoredDraft, sources = enabledSources()) {
       .find((x) => x.name === draft.channel)
       ?.send?.limitMs(outgoingOf(draft, draft.file && new Uint8Array())) ?? 0
   );
+}
+
+/**
+ * Who a decision's draft goes to, as a person ref: its stored chat's handle (its source's `handleOf`), or a mail's `to`,
+ * read through `resolve`. Null for a source whose chat keys hold no handle, a draft not yet resolved to a chat, or a
+ * handle no one has.
+ */
+export function draftPersonOf(people: Pick<People, "resolve">, d: StoredDraft) {
+  const source = d.channel ? sourceOf(d.channel as SourceName) : undefined;
+  const handle =
+    source?.kind === "mail" ? d.to : d.chat && source?.handleOf?.(d.chat);
+  return handle && d.channel
+    ? people.resolve(handle, d.channel as SourceName)
+    : null;
 }
