@@ -82,7 +82,9 @@ async function shoot(udid: string, frame: Frame, app: AppFrame) {
   ]);
   await Bun.sleep(5000);
   for (const label of app.taps ?? []) {
+    // A sheet may still be coming: wait for the label before pressing it.
     // biome-ignore lint/performance/noAwaitInLoops: the taps run in order
+    await device(["wait", "text", label, "15000"]);
     await device(["press", `label="${label}"`]);
     await Bun.sleep(1500);
   }
@@ -189,19 +191,23 @@ async function main() {
     }
     for (const frame of mapped) {
       // biome-ignore lint/performance/noAwaitInLoops: one simulator, one frame at a time
-      const result = await shoot(
-        udid,
-        frame,
-        appFrames[frame.name] as AppFrame
-      ).then(
-        () => "shot",
-        (e: Error) => `failed: ${e.message}`
-      );
+      const app = appFrames[frame.name] as AppFrame;
+      // Once more on a miss: the first taps after a boot can find the app still settling.
+      const result = await shoot(udid, frame, app)
+        .catch(() => shoot(udid, frame, app))
+        .then(
+          () => "shot",
+          (e: Error) => `failed: ${e.message}`
+        );
       outcome.set(frame.name, result);
       console.log(`${frame.name}: ${result}`);
     }
   } finally {
-    await exec(["agent-device", "close", "--session", SESSION]);
+    // agent-device's runner boots the simulator again unless its close shuts it down.
+    await exec([
+      ...["agent-device", "close", "--session", SESSION],
+      ...(booted ? ["--shutdown"] : []),
+    ]);
     if (booted) {
       await shutdown(udid);
     }

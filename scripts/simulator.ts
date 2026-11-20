@@ -79,9 +79,7 @@ export async function boot(udid: string) {
   const isBooted = (await execOk(["xcrun", "simctl", "list", "devices"]))
     .split("\n")
     .some((line) => line.includes(udid) && line.includes("(Booted)"));
-  if (!isBooted) {
-    await execOk(["xcrun", "simctl", "boot", udid]);
-  }
+  // `-b` boots it when it isn't, and waits out one still shutting down.
   await execOk(["xcrun", "simctl", "bootstatus", udid, "-b"], {
     timeout: 300_000,
   });
