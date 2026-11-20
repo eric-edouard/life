@@ -115,7 +115,7 @@ struct CheckCard: View {
     @ViewBuilder private var content: some View {
         if let draft = check.draft {
             DraftBlock(
-                draft: draft, identity: check.networkIdentity, isGuess: !(check.confirm ?? []).isEmpty, isBoxed: false)
+                draft: draft, identity: check.networkIdentity, isGuess: check.isRecipientGuessed, isBoxed: false)
         }
         switch check.group {
         case .ending: EndingBlock(said: check.said, since: check.since)

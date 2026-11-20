@@ -41,7 +41,7 @@ private func check(
         CardNotification.of(
             pushId: "0123456789abcdef", inbox: inbox([check(pushId: "0123456789abcdef", extra: file)]),
             asksFaceID: false))
-    #expect(sent.body == "To Maya: quote.pdf")
+    #expect(sent.body == "To Maya\nFile quote.pdf (2 kB)")
 }
 
 @Test func lifesOwnCheckWithNoMatterIsLifesInLifesThread() throws {
@@ -79,30 +79,47 @@ private let options =
         ]))
     #expect(CardNotification.buttons(check).map(\.label) == ["Not yet"])
     #expect(
-        CardNotification.answer("option:later", typed: nil, to: check)
+        CardNotification.answer("option:later", typed: nil, to: check, in: CardNotification.category, asksFaceID: false)
             == AnswerRequest(ref: check.ref, options: ["later"]))
     // Send is offered only under a draft; one that takes a person opens the card.
-    #expect(CardNotification.answer("option:send", typed: nil, to: check) == nil)
-    #expect(CardNotification.answer("option:who", typed: nil, to: check) == nil)
-    #expect(CardNotification.answer("option:gone", typed: nil, to: check) == nil)
+    #expect(
+        CardNotification.answer("option:send", typed: nil, to: check, in: CardNotification.category, asksFaceID: false)
+            == nil)
+    #expect(
+        CardNotification.answer("option:who", typed: nil, to: check, in: CardNotification.category, asksFaceID: false)
+            == nil)
+    #expect(
+        CardNotification.answer("option:gone", typed: nil, to: check, in: CardNotification.category, asksFaceID: false)
+            == nil)
 }
 
 @Test func aReplyIsADecisionsOwnWords() throws {
     let decision = try #require(CardNotification.card(in: ["card": check(pushId: "0123456789abcdef")]))
     #expect(
-        CardNotification.answer(CardNotification.reply, typed: "After Friday", to: decision)
+        CardNotification.answer(
+            CardNotification.reply, typed: "After Friday", to: decision, in: CardNotification.category,
+            asksFaceID: false)
             == AnswerRequest(ref: decision.ref, options: [], note: "After Friday"))
-    #expect(CardNotification.answer(CardNotification.reply, typed: nil, to: decision) == nil)
-    #expect(CardNotification.answer(CardNotification.reply, typed: "  ", to: decision) == nil)
+    #expect(
+        CardNotification.answer(
+            CardNotification.reply, typed: nil, to: decision, in: CardNotification.category, asksFaceID: false) == nil)
+    #expect(
+        CardNotification.answer(
+            CardNotification.reply, typed: "  ", to: decision, in: CardNotification.category, asksFaceID: false) == nil)
     let voice = check(pushId: "0123456789abcdef").replacingOccurrences(
         of: #""group":"decision""#, with: #""group":"voice""#)
     let named = try #require(CardNotification.card(in: ["card": voice]))
-    #expect(CardNotification.answer(CardNotification.reply, typed: "Maya", to: named) == nil)
+    #expect(
+        CardNotification.answer(
+            CardNotification.reply, typed: "Maya", to: named, in: CardNotification.category, asksFaceID: false) == nil)
     // The Watch shows Reply… on every card; on a new matter it would edit the goal, so it gives nothing there.
     let matter = check(pushId: "0123456789abcdef").replacingOccurrences(
         of: #""group":"decision""#, with: #""group":"new matter""#)
     let newMatter = try #require(CardNotification.card(in: ["card": matter]))
-    #expect(CardNotification.answer(CardNotification.reply, typed: "Finish by May", to: newMatter) == nil)
+    #expect(
+        CardNotification.answer(
+            CardNotification.reply, typed: "Finish by May", to: newMatter, in: CardNotification.category,
+            asksFaceID: false) == nil)
     #expect(CardNotification.card(in: [:]) == nil)
 }
 
@@ -113,15 +130,20 @@ private let drafted = check(pushId: "0123456789abcdef", extra: #","draft":{"to":
     let card = try #require(CardNotification.card(in: ["card": drafted]))
     #expect(CardNotification.buttons(card).map(\.label) == ["Send", "Not yet"])
     #expect(
-        CardNotification.answer(CardNotification.send, typed: nil, to: card)
+        CardNotification.answer(
+            CardNotification.send, typed: nil, to: card, in: CardNotification.category, asksFaceID: false)
             == AnswerRequest(ref: card.ref, options: ["send"]))
     // An outward option is never answered by its own id: only Send names it.
-    #expect(CardNotification.answer("option:send", typed: nil, to: card) == nil)
+    #expect(
+        CardNotification.answer("option:send", typed: nil, to: card, in: CardNotification.category, asksFaceID: false)
+            == nil)
     let asking = drafted.replacingOccurrences(
         of: #""draft":"#, with: #""confirm":[\#(check(pushId: "fedcba9876543210"))],"draft":"#)
     let unsure = try #require(CardNotification.card(in: ["card": asking]))
     #expect(CardNotification.buttons(unsure).map(\.label) == ["Not yet"])
-    #expect(CardNotification.answer(CardNotification.send, typed: nil, to: unsure) == nil)
+    #expect(
+        CardNotification.answer(
+            CardNotification.send, typed: nil, to: unsure, in: CardNotification.category, asksFaceID: false) == nil)
 }
 
 @Test func aDraftCardsNotificationShowsTheWholeDraftAndSendsFromTheWatchUnlessFaceIDIsAsked() throws {
@@ -139,12 +161,53 @@ private let drafted = check(pushId: "0123456789abcdef", extra: #","draft":{"to":
     #expect(plain.category == CardNotification.category)
 }
 
-@Test func sendGoesOnOnlyOnceItsProofSaysSoAndOtherAnswersNeverAsk() async throws {
-    let check = try #require(CardNotification.card(in: ["card": drafted]))
-    #expect(await !CardNotification.isAnswerAllowed(CardNotification.send, of: check) { false })
-    #expect(await CardNotification.isAnswerAllowed(CardNotification.send, of: check) { true })
+@Test func sendGoesOnOnlyOnceItsProofSaysSoAndOtherAnswersNeverAsk() async {
+    #expect(await !CardNotification.isAnswerAllowed(CardNotification.send) { false })
+    #expect(await CardNotification.isAnswerAllowed(CardNotification.send) { true })
     #expect(
-        await CardNotification.isAnswerAllowed("option:later", of: check) {
+        await CardNotification.isAnswerAllowed("option:later") {
             Issue.record("asked Face ID"); return false
         })
+}
+
+@Test func aDraftsNotificationTextHoldsEveryPartThatGoes() throws {
+    let parts =
+        #","draft":{"to":"Maya","channel":"whatsapp","text":"Here it is","file":{"name":"quote.pdf","size":2048},"#
+        + #""quoted":{"sender":"Maya","text":"Can you send the quote?"}}"#
+    let note = try #require(
+        CardNotification.of(
+            pushId: "0123456789abcdef", inbox: inbox([check(pushId: "0123456789abcdef", extra: parts)]),
+            asksFaceID: false))
+    #expect(
+        note.body == """
+            To Maya on WhatsApp: "Here it is"
+            File quote.pdf (2 kB)
+            Reply to Maya: "Can you send the quote?"
+            """)
+    let mail =
+        #","draft":{"to":"sam@example.test","channel":"gmail","text":"Signed.","from":"me@example.test","#
+        + #""cc":"lee@example.test","subject":"Lease"}"#
+    let mailed = try #require(
+        CardNotification.of(
+            pushId: "0123456789abcdef", inbox: inbox([check(pushId: "0123456789abcdef", extra: mail)]),
+            asksFaceID: false))
+    #expect(
+        mailed.body == """
+            To sam@example.test on Mail: "Signed."
+            From me@example.test
+            Cc lee@example.test
+            Subject Lease
+            """)
+}
+
+@Test func aSendFromANotificationDeliveredBeforeFaceIDWasAskedIsRefused() throws {
+    let card = try #require(CardNotification.card(in: ["card": drafted]))
+    #expect(
+        CardNotification.answer(
+            CardNotification.send, typed: nil, to: card, in: CardNotification.sendCategory, asksFaceID: true) == nil)
+    // Delivered after: its category is the plain one, and the phone asked Face ID before forwarding it.
+    #expect(
+        CardNotification.answer(
+            CardNotification.send, typed: nil, to: card, in: CardNotification.category, asksFaceID: true)
+            == AnswerRequest(ref: card.ref, options: ["send"]))
 }

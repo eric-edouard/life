@@ -144,8 +144,8 @@ extension Taken {
     }
 
     /// Held for Undo: any answer that is not a send, a start or a goal edit (Life has no undo for those).
-    var isGuess: Bool { !(check.confirm ?? []).isEmpty }
     var isHeld: Bool { !isSend && !isStart && !staysOpen }
+    var isGuess: Bool { check.isRecipientGuessed }
 
     var doneWord: String {
         if isSend { return "Sent." }

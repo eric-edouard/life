@@ -78,21 +78,20 @@ public struct CardNotification: Sendable, Equatable {
 
     /// Sends the card's draft, shown whole above it; never on a card that asks who its recipient is (`confirm`).
     private static func isSend(_ option: Check.Option, of check: Check) -> Bool {
-        option.outgoing == true && option.takes == nil && check.draft != nil && (check.confirm ?? []).isEmpty
+        option.outgoing == true && option.takes == nil && check.draft != nil && !check.isRecipientGuessed
     }
 
     private static func sendOption(_ check: Check) -> Check.Option? { check.options.first { isSend($0, of: check) } }
 
     /// Whether a tapped action may go on to be answered: Send only once `prove` says so (Face ID or his passcode at
     /// that tap, when his setting asks for it); any other at once.
-    public static func isAnswerAllowed(
-        _ action: String, of check: Check, prove: @Sendable () async -> Bool
-    ) async -> Bool {
+    public static func isAnswerAllowed(_ action: String, prove: @Sendable () async -> Bool) async -> Bool {
         guard action == send else { return true }
         return await prove()
     }
 
-    /// Send: the Watch's and the expanded notification's, for the phone or Watch unlocked.
+    /// The send category's Send (the Watch shows it), for the phone or Watch unlocked; the expanded view builds its own
+    /// from `buttons`.
     public static var sendAction: UNNotificationAction {
         UNNotificationAction(identifier: send, title: "Send", options: [.authenticationRequired])
     }
@@ -114,23 +113,40 @@ public struct CardNotification: Sendable, Equatable {
     }
 
     /// The answer a tapped action gives: one of `buttons`, or his words through `reply`; nil when the card can't be
-    /// answered that way from its notification.
-    public static func answer(_ action: String, typed: String?, to check: Check) -> AnswerRequest? {
+    /// answered that way from its notification. A Send from the send category while he asks Face ID is refused: that
+    /// notification came before the setting, and its Send (the Watch's) never asked.
+    public static func answer(
+        _ action: String, typed: String?, to check: Check, in category: String, asksFaceID: Bool
+    ) -> AnswerRequest? {
         if action == reply {
             guard check.takesOwnWords, let typed, !typed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 return nil
             }
             return check.answer(words: typed)
         }
-        if action == send { return sendOption(check).flatMap(check.answer) }
+        if action == send {
+            return asksFaceID && category == sendCategory ? nil : sendOption(check).flatMap(check.answer)
+        }
         guard let option = check.options.first(where: { "\(optionPrefix)\($0.id)" == action }), isOneTap(option)
         else { return nil }
         return check.answer(option)
     }
 
+    /// Every part of the draft, one per line, as Life's nightly report writes it (`draftWords`): on the Watch it is all
+    /// he sees before Send.
     private static func drafted(_ draft: Check.Draft) -> String {
-        let what = draft.text.map { "\"\($0)\"" } ?? draft.reaction ?? draft.file?.name ?? ""
-        return "To \(draft.to): \(what)"
+        let to = "To \(draft.to)" + (draft.channel.map { " on \(Channel.name($0))" } ?? "")
+        let reacts = draft.reaction.map { "Reaction \($0)" }
+        return
+            ([to + (draft.text.map { ": \"\($0)\"" } ?? "")]
+            + [draft.file.map { "File \($0.name) (\($0.size.formatted(.byteCount(style: .file))))" }]
+            + [
+                draft.quoted.map { "\(reacts.map { "\($0) to" } ?? "Reply to") \($0.sender): \"\($0.text)\"" }
+                    ?? reacts
+            ]
+            + [draft.mentions.flatMap { $0.isEmpty ? nil : "Mentions " + $0.map(\.name).joined(separator: ", ") }]
+            + [draft.from.map { "From \($0)" }, draft.cc.map { "Cc \($0)" }, draft.subject.map { "Subject \($0)" }])
+            .compactMap(\.self).joined(separator: "\n")
     }
 
     /// `text` on one line, cut at a word to at most `limit` characters with "…".

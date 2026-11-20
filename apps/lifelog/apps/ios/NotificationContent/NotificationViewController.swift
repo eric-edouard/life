@@ -27,7 +27,13 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
     func didReceive(_ notification: UNNotification) {
         let check = CardNotification.card(in: notification.request.content.userInfo)
         extensionContext?.notificationActions = check.map(CardNotification.actions) ?? []
-        draft.rootView = check?.draft.map { AnyView(DraftBlock(draft: $0).padding(16)) }
+        draft.rootView = check.flatMap { check in
+            check.draft.map {
+                AnyView(
+                    DraftBlock(draft: $0, identity: check.networkIdentity, isGuess: check.isRecipientGuessed)
+                        .padding(16))
+            }
+        }
         preferredContentSize =
             check?.draft == nil
             ? .zero : draft.sizeThatFits(in: CGSize(width: view.bounds.width, height: .greatestFiniteMagnitude))
@@ -37,12 +43,8 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
         _ response: UNNotificationResponse,
         completionHandler completion: @escaping (UNNotificationContentExtensionResponseOption) -> Void
     ) {
-        // The card the app will answer, read from the response itself, never from what was shown before.
-        guard let check = CardNotification.card(in: response.notification.request.content.userInfo) else {
-            return completion(.dismissAndForwardAction)
-        }
         Task {
-            let proven = await CardNotification.isAnswerAllowed(response.actionIdentifier, of: check) {
+            let proven = await CardNotification.isAnswerAllowed(response.actionIdentifier) {
                 await AppGroup.asksFaceIDToSend ? Self.askOwner() : true
             }
             completion(proven ? .dismissAndForwardAction : .doNotDismiss)

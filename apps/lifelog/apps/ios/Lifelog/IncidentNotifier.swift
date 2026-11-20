@@ -192,7 +192,9 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
         defer { awake.end() }
         let result: (word: String, line: String)
         if let check, let answer,
-            let answering = CardNotification.answer(response.actionIdentifier, typed: typed, to: check)
+            let answering = CardNotification.answer(
+                response.actionIdentifier, typed: typed, to: check, in: request.content.categoryIdentifier,
+                asksFaceID: AppGroup.asksFaceIDToSend)
         {
             result = await answer(check, answering)
         } else {
