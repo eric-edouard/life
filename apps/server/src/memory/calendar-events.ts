@@ -85,18 +85,25 @@ const pointOf = (p: MapPlace) =>
     ? null
     : `${p.latitude.toFixed(6)},${p.longitude.toFixed(6)}`;
 
-/** The name a link may carry: well-formed (a lone surrogate would throw in `encodeURIComponent`), none when `redact` would hide part of it. */
-const nameOf = (p: MapPlace) => {
-  const name = p.name?.toWellFormed();
-  return name && redact(name) === name ? name : null;
+/** The most of a name a link carries: links stay under about 1,500 characters, so a description always holds them. */
+const LINK_NAME_MAX = 80;
+
+/** A name as Life shows it: well-formed (a lone surrogate would throw in `encodeURIComponent`), none when `redact` would hide part of it. */
+const shownOf = (name: string | null | undefined) => {
+  const n = name?.toWellFormed();
+  return n && redact(n) === n ? n : null;
 };
 
+/** The name a link carries: its first `LINK_NAME_MAX` characters, of a name shown whole. */
+const linkNameOf = (p: MapPlace) =>
+  shownOf(p.name) && shownOf(p.name?.slice(0, LINK_NAME_MAX));
+
 /** The event's location: the place's name, else its coordinates. */
-export const locationOf = (p: MapPlace) => nameOf(p) ?? pointOf(p);
+export const locationOf = (p: MapPlace) => shownOf(p.name) ?? pointOf(p);
 
 /** Google Maps on a place: its coordinates when Life has them, else its name; null with neither. */
 export const googleMapsUrlOf = (p: MapPlace) => {
-  const q = pointOf(p) ?? nameOf(p);
+  const q = pointOf(p) ?? linkNameOf(p);
   return (
     q &&
     `https://www.google.com/maps/search/?api=1&query=${pointOf(p) ? q : encodeURIComponent(q)}`
@@ -105,7 +112,7 @@ export const googleMapsUrlOf = (p: MapPlace) => {
 
 /** The one-tap map lines of an event's description (Google Maps, Apple Maps); none with no place. */
 export function mapLinksOf(p: MapPlace): string[] {
-  const [q, google] = [locationOf(p), googleMapsUrlOf(p)];
+  const [q, google] = [linkNameOf(p) ?? pointOf(p), googleMapsUrlOf(p)];
   if (!(q && google)) {
     return [];
   }

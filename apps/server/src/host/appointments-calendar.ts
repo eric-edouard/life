@@ -16,6 +16,7 @@ import {
 } from "../memory/calendar-events";
 import { span } from "../memory/episode-span";
 import { APPOINTMENT_EVENTS } from "../memory/memory-files";
+import { clip } from "../memory/units";
 import { dayNow, dayStart } from "../memory/zones";
 import { type Appointment, AppointmentEvent } from "../records/appointment";
 import { type GoogleCalendar, googleCalendar } from "./google-calendar";
@@ -39,7 +40,7 @@ export function appointmentDraft(
     { day: a.start.slice(0, 10), end: a.end, start: a.start },
     a.zone ?? undefined
   );
-  const text = [
+  const lines = [
     isConfirmed
       ? "Added by Life from your messages, confirmed."
       : "Added by Life from your messages, not confirmed yet.",
@@ -47,6 +48,8 @@ export function appointmentDraft(
     ...mapLinksOf({ name: a.place }),
     `Appointment ${a.id}, read from ${a.observations.join(", ")}.`,
   ].join("\n");
+  // Google takes 8,192 characters: a long list of facts is cut, never the links above it.
+  const text = clip(lines, 7500);
   const draft = {
     ...when,
     isConfirmed,
