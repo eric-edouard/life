@@ -76,10 +76,8 @@ struct AnswerResultView: View {
 
     /// The action's steps as they pass; "Asking Life" until Life names them, never once it answered.
     private var stepLines: some View {
-        CheckLines(
-            lines: lines.isEmpty && state.isWaitingOnLife
-                ? [CheckLine(id: "asking", text: "Asking Life", mark: .running)] : lines)
-            .padding(.top, 8)
+        let asking = [CheckLine(id: "asking", text: "Asking Life", mark: .running)]
+        return CheckLines(lines: lines.isEmpty && state.isWaitingOnLife ? asking : lines).padding(.top, 8)
     }
 
     /// A send, from his tap to its proof: the draft in its chat, its ticks as the send's steps pass, then Life's word.
