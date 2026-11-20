@@ -220,7 +220,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     await expect(ask()).rejects.toThrow("served by Experiential Labs");
     // Refused, yet spent: its tokens are in the log, its words never (a model's error keeps its type).
     expect(lastLine()).toContain('"error":"Error"');
-    expect(lastLine()).not.toContain("Experiential Labs");
+    expect(lastLine()).not.toContain("served by");
     expect(lastLine()).toContain('"input":30');
     // What another host would answer the same way is final.
     expect(hostsAsked()).toEqual(["refuseless"]);

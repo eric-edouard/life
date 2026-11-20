@@ -62,7 +62,7 @@ export const categoryOf = (kind: string, e: Record<string, unknown>) => {
     const step = (word(e.step) ?? "run").split(".");
     return PROCESSES.has(step[0] ?? "") ? step : ["memory", ...step];
   }
-  const step = word(e.tool) ?? word(e.source) ?? rest;
+  const step = word(e.tool) ?? word(e.source) ?? word(e.prompt) ?? rest;
   return [PROCESS_OF[head] ?? head, ...(step ? [step] : [])];
 };
 
