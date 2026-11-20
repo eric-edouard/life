@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Appointment } from "./appointment";
 import { isoDateTime, MadeBy, UnitId } from "./fields";
 
 // A stored read reply (memory/read-replies/<YYYY-MM>.jsonl, the month of its first message, docs/SCHEMA.md): what a model answered when it read
@@ -15,13 +16,16 @@ export const VOICE_NAMING_READ = "voice_naming" as const;
 /** The arrival reader's two reads (`memory/arrival-reader.ts`): Apple's on-device trigger, then his engine's confirm. */
 export const ARRIVAL_TRIGGER_READ = "arrival_trigger" as const;
 export const ARRIVAL_CONFIRM_READ = "arrival_confirm" as const;
+/** The arrival reader's read of an appointment agreed in new lines (`memory/arrival-appointments.ts`). */
+export const ARRIVAL_APPOINTMENT_READ = "arrival_appointment" as const;
 /** Every read whose replies are stored. */
 export type ReadName =
   | MoveRead
   | typeof SUMMARY_READ
   | typeof VOICE_NAMING_READ
   | typeof ARRIVAL_TRIGGER_READ
-  | typeof ARRIVAL_CONFIRM_READ;
+  | typeof ARRIVAL_CONFIRM_READ
+  | typeof ARRIVAL_APPOINTMENT_READ;
 
 /**
  * One call's reply, a line of the file: the reply as given, except a voice naming's, stored after `checkedVoices` (a moves read only needs its `exchanges` list,
@@ -104,11 +108,43 @@ export const ArrivalConfirmReply = z
     unit: UnitId,
   })
   .strict();
+/**
+ * His engine's read of whether new lines agree an appointment, stored after its check: agreed, with what goes in his
+ * calendar (a meeting link copied exactly, https only; the people as the lines name them, never guests); or not, with
+ * why the check refused the reply (`refused`), so it is not asked again.
+ */
+export const ArrivalAppointmentReply = z
+  .object({
+    ...stored,
+    read: z.literal(ARRIVAL_APPOINTMENT_READ),
+    reply: z.union([
+      z
+        .object({
+          agreed: z.literal(true),
+          allDay: Appointment.shape.allDay,
+          end: Appointment.shape.end,
+          link: z.url({ protocol: /^https$/ }).nullable(),
+          people: z.array(z.string().min(1)).max(10),
+          place: Appointment.shape.place,
+          quote: z.string().min(1),
+          start: Appointment.shape.start,
+          title: z.string().min(1).max(80),
+          zone: Appointment.shape.zone,
+        })
+        .strict(),
+      z
+        .object({ agreed: z.literal(false), refused: z.string().optional() })
+        .strict(),
+    ]),
+    unit: UnitId,
+  })
+  .strict();
 export const ReadReply = z.discriminatedUnion("read", [
   MoveReply,
   SummaryReply,
   VoiceNamingReply,
   ArrivalTriggerReply,
   ArrivalConfirmReply,
+  ArrivalAppointmentReply,
 ]);
 export type ReadReply = z.infer<typeof ReadReply>;

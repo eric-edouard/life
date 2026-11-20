@@ -264,6 +264,24 @@ test("Life's card pushes: one card names its id and can be rewritten, a badge al
     },
   });
   expect(sent).toHaveLength(3);
+  // An appointment Life added: its own category, no badge, its kind beside `aps`.
+  await post({
+    body: "Added to your calendar",
+    kind: "calendar.added",
+    level: "passive",
+    pushId,
+    title: "Life",
+  });
+  expect(last()).toEqual({
+    aps: {
+      alert: { body: "Added to your calendar", title: "Life" },
+      category: "life.calendar",
+      "interruption-level": "passive",
+      "mutable-content": 1,
+    },
+    kind: "calendar.added",
+    pushId,
+  });
   const refused = await Promise.all(
     [
       { title: "Life" },
@@ -271,10 +289,11 @@ test("Life's card pushes: one card names its id and can be rewritten, a badge al
       { badge: -1 },
       { badge: 1, pushId: "Kit's card" },
       { badge: 1, level: "critical" },
+      { badge: 1, kind: "card.added" },
     ].map(async (bad) => (await post(bad)).status)
   );
-  expect(refused).toEqual([400, 400, 400, 400, 400]);
-  expect(sent).toHaveLength(3);
+  expect(refused).toEqual([400, 400, 400, 400, 400, 400]);
+  expect(sent).toHaveLength(4);
   // Cards that left his inbox: alone, a background push the phone removes their notifications on.
   expect((await post({ removed: [pushId] })).status).toBe(200);
   expect(last()).toEqual({
@@ -293,5 +312,5 @@ test("Life's card pushes: one card names its id and can be rewritten, a badge al
     ].map(async (bad) => (await post(bad)).status)
   );
   expect(mixed).toEqual([400, 400, 400]);
-  expect(sent).toHaveLength(4);
+  expect(sent).toHaveLength(5);
 });

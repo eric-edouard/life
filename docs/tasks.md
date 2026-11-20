@@ -183,16 +183,22 @@ His request of 8 Nov 2026: what he is due at, from any channel, in his own calen
 week. Each night `appointments` (`apps/server/src/memory/appointments.ts`) reads his active facts ahead (plans and
 bookings, never a hypothesis; recent undated plans too) with the appointments held, and writes `memory/appointments.json`: a trip and the dinner in it are two;
 a later message (his tickets) moves the same appointment, which keeps its id by the facts it shares; a guessed time
-says so. `syncAppointments`
-(`apps/server/src/host/appointments-calendar.ts`, the `appointmentsCalendar` setting: account and calendar) brings that
-calendar in line each tick, through the client the Past calendar shares (`google-calendar.ts`, `reconcile` in
+says so. By day, an appointment agreed in new lines (his word of 21 Nov 2026: the arrival reader's `arrival_appointment`
+read, `memory/arrival-appointments.ts`) joins them within minutes; the night takes over its id when its facts cite the
+same messages. `syncAppointments`
+(`apps/server/src/host/appointments-calendar.ts`, the `appointmentsCalendar` setting: account and calendar), run only by
+the watcher, every 30 minutes, brings that calendar in line, through the client the Past calendar shares (`google-calendar.ts`, `reconcile` in
 `calendar-events.ts`), touching only events with `lifeOutput=appointments`:
 
-- Until confirmed an event is titled `(Life) …` and shown as free. An agent confirms one with him by setting the
+- Until confirmed an event is titled `(Life) …` and shown as free; one he agreed in new lines (the arrival's) is busy
+  at once (his word of 21 Nov 2026). An agent confirms one with him by setting the
   private property `lifeConfirmed=yes` (`gog calendar update <cal> <id> --private-prop=lifeConfirmed=yes`); Life keeps
   amending it, without the mark, as busy.
 - One deleted by him or an agent is his no: recorded `refused` (`appointment-events.jsonl`); no appointment citing all
   its facts is written again. One Life deletes is recorded `removed`, so it may come back.
+- Its first event pushes `calendar.added` (his `notifications` setting's `calendar`, quiet by default) with an opaque id;
+  the phone reads the event from the connector and writes the words. An arrival's event names the
+  unit it was read from and a meeting link copied exactly (https only), and stays until it ends.
 - Times are the place's (`zone`, when it is not where he will be); a reading that forgets a held appointment keeps it
   while its facts hold and no new one cites them. An event turning all-day or timed is written again (Google cannot
   change it in place). The Past calendar never touches an event with `lifeOutput`, so both may share a calendar.

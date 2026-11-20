@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { clock, DAY, iso } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
@@ -9,6 +10,10 @@ import {
   readAppointments,
 } from "../memory/appointments";
 import {
+  type ArrivalAppointment,
+  readArrivalAppointments,
+} from "../memory/arrival-appointments";
+import {
   DESCRIPTION_MAX,
   type Draft,
   heldOf,
@@ -16,27 +21,37 @@ import {
   reconcile,
 } from "../memory/calendar-events";
 import { span } from "../memory/episode-span";
-import { APPOINTMENT_EVENTS } from "../memory/memory-files";
+import { APPOINTMENT_EVENTS, APPOINTMENTS } from "../memory/memory-files";
 import { clip } from "../memory/units";
 import { dayNow, dayStart } from "../memory/zones";
 import { type Appointment, AppointmentEvent } from "../records/appointment";
+import { notifyPhone, pushIdOf } from "../sources/lifelog-push";
+import { levelOf, NOTIFY_DEFAULTS } from "./card-push";
 import { type GoogleCalendar, googleCalendar } from "./google-calendar";
 
-// The appointments in his calendar (his request, 8 Nov 2026): `memory/appointments.json` brought into the
-// `appointments` setting's calendar, his own, so his agents plan around them. Life touches only its own events there
+// The appointments in his calendar (his request, 8 Nov 2026): `memory/appointments.json` and the appointments agreed
+// in new lines (`memory/arrival-appointments.ts`, his word of 21 Nov 2026) brought into the `appointments` setting's
+// calendar, his own, so his agents plan around them. Only the watcher syncs, one sync at a time (`inTurn`): every
+// 30 minutes. An appointment's first event pushes `calendar.added`. Life touches only its own events there
 // (found by `lifeOutput=appointments`) and reads back of them only `lifeConfirmed`, which an agent sets once he
-// confirms one. An event he or an agent removed is his no: recorded as `refused`, it is never written again. One Life
-// removes (its appointment gone) is recorded as `removed`, so the same appointment coming back is written again.
+// confirms one. An event he or an agent removed is his no: recorded as `refused`, it is never
+// written again, until he lifts it (`restored`). One Life removes (its appointment gone) is recorded as `removed`, so the
+// same appointment coming back is written again.
 
 const OUTPUT = { lifeOutput: "appointments" } as const;
 /** How far ahead Life lists its events. */
 const AHEAD = 400 * DAY;
 
+/** What the sync writes: one of the night's appointments, or one agreed in new lines. */
+type Planned = Appointment | ArrivalAppointment;
+const isArrival = (a: Planned): a is ArrivalAppointment => "messages" in a;
+
+/** What an appointment was read from, as its event lines name it: its facts, or its messages. */
+const citesOf = (a: Planned) =>
+  isArrival(a) ? { messages: a.messages } : { observations: a.observations };
+
 /** One appointment as its event: marked `(Life)` and shown as free until confirmed. */
-export function appointmentDraft(
-  a: Appointment,
-  isConfirmed: boolean
-): Draft & { isConfirmed: boolean; observations: string[] } {
+export function appointmentDraft(a: Planned, isConfirmed: boolean) {
   const when = span(
     { day: a.start.slice(0, 10), end: a.end, start: a.start },
     a.zone ?? undefined
@@ -45,16 +60,19 @@ export function appointmentDraft(
     isConfirmed
       ? "Added by Life from your messages, confirmed."
       : "Added by Life from your messages, not confirmed yet.",
-    ...(a.timeGuessed ? ["The time is Life's guess."] : []),
+    ...(!isArrival(a) && a.timeGuessed ? ["The time is Life's guess."] : []),
     ...mapLinksOf({ name: a.place }),
-    `Appointment ${a.id}, read from ${a.observations.join(", ")}.`,
+    ...(isArrival(a) && a.link ? [`Meeting link: ${a.link}`] : []),
+    isArrival(a)
+      ? `Appointment ${a.id}, read from ${a.unit}.`
+      : `Appointment ${a.id}, read from ${a.observations.join(", ")}.`,
   ].join("\n");
   // A long list of facts is cut, never the links above it.
   const text = clip(lines, DESCRIPTION_MAX);
   const draft = {
     ...when,
     isConfirmed,
-    observations: a.observations,
+    ...citesOf(a),
     of: a.id,
     place: a.place,
     summary: isConfirmed ? a.title : `(Life) ${a.title}`,
@@ -62,10 +80,12 @@ export function appointmentDraft(
   };
   return { ...draft, hash: digest("sha1", JSON.stringify(draft), 12) };
 }
+type AppointmentDraft = ReturnType<typeof appointmentDraft> & Draft;
 
-const fieldsOf = (d: ReturnType<typeof appointmentDraft>) => ({
+const fieldsOf = (d: AppointmentDraft) => ({
   ...d,
-  busy: d.isConfirmed,
+  // One he agreed in new lines is busy at once (his word of 21 Nov 2026); one Life only read is free until confirmed.
+  busy: d.isConfirmed || "messages" in d,
   description: d.text,
   location: d.place,
   // A reminder on screen only: a mail would come back into memory as a message.
@@ -77,14 +97,19 @@ const appendEvent = (
   op: AppointmentEvent["op"],
   e: Pick<
     AppointmentEvent,
-    "appointment" | "calendar" | "event" | "observations"
+    "appointment" | "calendar" | "event" | "messages" | "observations"
   >,
   now: Date
 ) => {
   appendJsonl(APPOINTMENT_EVENTS, AppointmentEvent, [
     AppointmentEvent.parse({
-      ...e,
+      appointment: e.appointment,
       at: now.toISOString(),
+      calendar: e.calendar,
+      event: e.event,
+      ...(e.messages
+        ? { messages: e.messages }
+        : { observations: e.observations }),
       op,
       schemaVersion: 1,
     }),
@@ -94,25 +119,26 @@ const appendEvent = (
 
 /**
  * The appointments to draft now in `calendar`: each one not refused whose event is listed, or was never written there
- * (another calendar's event is not his no), or Life removed. One Life wrote there and no longer lists is looked up by
- * its id: gone is a refusal (recorded); still there (outside the listing) or a failed lookup leaves it for the next
- * tick.
+ * (another calendar's event is not his no), or Life removed, or he restored. One Life wrote there and no longer lists
+ * is looked up by its id: gone is a refusal (recorded); still there (outside the listing) or a failed lookup leaves it
+ * for the next tick.
  */
-export async function drafted(
-  list: Appointment[],
+export async function drafted<A extends Planned>(
+  list: A[],
   held: ReadonlyMap<string, unknown>,
   cal: Pick<GoogleCalendar, "exists">,
   calendar: string,
   now: Date
 ) {
   const { byAppointment } = readAppointmentEvents();
-  const kept: Appointment[] = [];
+  const kept: A[] = [];
   for (const a of list) {
     const last = byAppointment.get(a.id);
     if (
       held.has(a.id) ||
       !last ||
       last.op === "removed" ||
+      last.op === "restored" ||
       last.calendar !== calendar
     ) {
       kept.push(a);
@@ -127,17 +153,49 @@ export async function drafted(
   return kept;
 }
 
-/** Brings his calendar in line with the appointments; null when it is not set up or there are none yet. */
-export async function syncAppointments(now = clock()) {
+/** The push for an appointment's first event: an opaque id; the phone reads the event from the connector and writes the words. */
+async function pushAdded(d: AppointmentDraft, now: Date) {
+  const setting = settings().notifications.calendar ?? NOTIFY_DEFAULTS.calendar;
+  if (setting !== "off") {
+    await notifyPhone({
+      body: "Added to your calendar",
+      kind: "calendar.added",
+      level: levelOf(setting, d.from, now),
+      pushId: pushIdOf(d.of),
+      title: "Life",
+    });
+  }
+}
+
+let turn: Promise<unknown> = Promise.resolve();
+/** One sync at a time: the watcher's ticks share this chain (and his Remove and Undo, next). */
+function inTurn<T>(run: () => Promise<T>) {
+  const next = turn.then(run);
+  turn = next.catch(() => undefined);
+  return next;
+}
+
+/** Brings his calendar in line with the appointments; null when it is not set up, or the night is rewriting its file. */
+async function sync(now: Date) {
   const { appointmentsCalendar: appointments } = settings();
-  const file = readAppointments();
-  if (!(appointments && isOn("appointmentsCalendar") && file)) {
+  if (!(appointments && isOn("appointmentsCalendar"))) {
     return null;
   }
+  const file = readAppointments();
+  if (!file && existsSync(APPOINTMENTS)) {
+    return null;
+  }
+  const today = dayNow(now);
+  const night = file?.appointments ?? [];
+  const nightIds = new Set(night.map((a) => a.id));
+  // The night's own id wins (it took the arrival's over); one already over is never written again.
+  const arrivals = readArrivalAppointments(now).filter(
+    (a) => !nightIds.has(a.id) && a.end.slice(0, 10) >= today
+  );
   const cal = googleCalendar(appointments.calendar, appointments.account);
   // From the start of his day: an event that ended before is never touched.
   const listed = await cal.list(
-    dayStart(dayNow(now)).toISOString(),
+    dayStart(today).toISOString(),
     iso(now.getTime() + AHEAD),
     `lifeOutput=${OUTPUT.lifeOutput}`
   );
@@ -154,18 +212,25 @@ export async function syncAppointments(now = clock()) {
       e.props.lifeConfirmed === "yes" ? [e.props.lifeAppointment ?? ""] : []
     )
   );
-  const list = await drafted(
-    file.appointments,
+  const list = await drafted<Planned>(
+    [...night, ...arrivals],
     held,
     cal,
     appointments.calendar,
     now
   );
+  const events = readAppointmentEvents();
+  // An arrival's event stays until it ends, past the window it is read in.
+  const isKept = (of: string) => {
+    const last = events.byAppointment.get(of);
+    return last?.op === "created" && last.messages !== undefined;
+  };
   const { create, remove, update } = reconcile(
     list.map((a) => appointmentDraft(a, confirmed.has(a.id))),
-    held
+    held,
+    isKept
   );
-  const props = (d: ReturnType<typeof appointmentDraft>) => ({
+  const props = (d: AppointmentDraft) => ({
     ...OUTPUT,
     lifeAppointment: d.of,
     lifeHash: d.hash,
@@ -173,8 +238,9 @@ export async function syncAppointments(now = clock()) {
   });
   for (const e of remove) {
     // Recorded first: a crash before the delete leaves an event the next tick removes again, never a false refusal.
+    // Only over `created`: his no (`refused`) is never written over.
     const last = readAppointmentEvents().byAppointment.get(e.of);
-    if (last?.event === e.id) {
+    if (last?.event === e.id && last.op === "created") {
       appendEvent("removed", last, now);
     }
     // biome-ignore lint/performance/noAwaitInLoops: one call at a time, Google's rate limit
@@ -190,14 +256,12 @@ export async function syncAppointments(now = clock()) {
     const event = await cal.create(fieldsOf(d), props(d));
     appendEvent(
       "created",
-      {
-        appointment: d.of,
-        calendar: appointments.calendar,
-        event,
-        observations: d.observations,
-      },
+      { ...d, appointment: d.of, calendar: appointments.calendar, event },
       now
     );
+    if (!events.created.has(d.of)) {
+      await pushAdded(d, now);
+    }
   }
   return {
     appointments: list.length,
@@ -206,3 +270,6 @@ export async function syncAppointments(now = clock()) {
     updated: update.length,
   };
 }
+
+/** The watcher's sync, in turn. */
+export const syncAppointments = (now = clock()) => inTurn(() => sync(now));

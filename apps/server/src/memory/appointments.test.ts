@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { type Appointment, Appointments } from "../records/appointment";
 import type { Observation } from "../records/observation";
 import {
+  arrivalsCitedBy,
   checkedAppointments,
   heldIdsOf,
   observationsAheadOf,
@@ -242,4 +243,25 @@ test("a new reading that cites a held one's fact replaces it; his no holds for a
       ctx
     ).invalid
   ).toBe(1);
+});
+
+test("the night takes over an arrival's id when its facts cite the arrival's messages, so one meeting is one event", () => {
+  const facts = [
+    fact("obs_000000000002", {
+      source: { channel: "whatsapp", ref: "m1" },
+    }),
+    fact("obs_000000000001", { source: { channel: "whatsapp", ref: "m9" } }),
+  ];
+  const arrivals = arrivalsCitedBy(facts, [
+    { id: "apt_0000000000aa", messages: ["whatsapp|m1", "whatsapp|m2"] },
+    { id: "apt_0000000000bb", messages: ["whatsapp|m7"] },
+  ]);
+  expect(arrivals).toEqual([
+    { facts: ["obs_000000000002"], id: "apt_0000000000aa" },
+  ]);
+  const { appointments } = checkedAppointments(
+    { appointments: [reply({ facts: ["obs_000000000002"] })] },
+    { ...ctx, arrivals, held: [] }
+  );
+  expect(appointments.map((a) => a.id)).toEqual(["apt_0000000000aa"]);
 });

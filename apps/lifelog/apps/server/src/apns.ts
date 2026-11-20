@@ -192,11 +192,12 @@ function reasonOf(body: string) {
 
 const PUSH_ID = /^[0-9a-f]{16}$/;
 
-/** What another app of the owner's asks to push: words (`title` and `body` together), a badge, how it interrupts (`level`), a card's opaque `pushId`; or, alone, the `pushId`s of cards that left his inbox (`removed`). */
+/** What another app of the owner's asks to push: words (`title` and `body` together), a badge, how it interrupts (`level`), a card's opaque `pushId` (an appointment's, with `kind` `calendar.added`); or, alone, the `pushId`s of cards that left his inbox (`removed`). */
 export const NoticeRequest = z
   .object({
     badge: z.number().int().min(0).optional(),
     body: z.string().min(1).max(500).optional(),
+    kind: z.literal("calendar.added").optional(),
     level: z.enum(["passive", "active", "time-sensitive"]).optional(),
     pushId: z.string().regex(PUSH_ID).optional(),
     removed: z.array(z.string().regex(PUSH_ID)).min(1).max(100).optional(),
@@ -216,8 +217,8 @@ export type NoticeRequest = z.infer<typeof NoticeRequest>;
 
 // A visible push, the one composer: what the owner reads (none for a badge alone), and any of the app's own fields
 // beside `aps`. A badge marks Life's card pushes: they join the thread `life-cards`. One card's `pushId` (which the
-// phone routes on) lets the phone rewrite it (`mutable-content`, its category `life.card`) and names it among his
-// notifications (`apns-collapse-id`). `level` is Apple's `interruption-level`; a passive one makes no sound.
+// phone routes on) lets the phone rewrite it (`mutable-content`, its category `life.card`, or `life.calendar` for an
+// appointment Life added, `kind` `calendar.added`, beside `aps`) and names it among his notifications (`apns-collapse-id`). `level` is Apple's `interruption-level`; a passive one makes no sound.
 // Badge-only ones go at priority 5, as Apple asks of what need not wake him; the rest at 10, never held.
 export const alertOf = (
   bundleId: string,
@@ -225,9 +226,10 @@ export const alertOf = (
   body: string | undefined,
   {
     badge,
+    kind,
     level,
     pushId,
-  }: Pick<NoticeRequest, "badge" | "level" | "pushId"> = {}
+  }: Pick<NoticeRequest, "badge" | "kind" | "level" | "pushId"> = {}
 ): Omit<PushRequest, "path"> => ({
   body: JSON.stringify({
     aps: {
@@ -238,11 +240,17 @@ export const alertOf = (
             badge,
             "thread-id": "life-cards",
           }),
-      ...(pushId ? { category: "life.card", "mutable-content": 1 } : {}),
+      ...(pushId
+        ? {
+            category: kind ? "life.calendar" : "life.card",
+            "mutable-content": 1,
+          }
+        : {}),
       ...(level ? { "interruption-level": level } : {}),
       ...(title && level !== "passive" ? { sound: "default" } : {}),
     },
     ...(pushId ? { pushId } : {}),
+    ...(kind ? { kind } : {}),
   }),
   headers: {
     ...(pushId ? { "apns-collapse-id": pushId } : {}),

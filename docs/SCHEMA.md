@@ -350,7 +350,7 @@ its steps) is worked out when read (`nextStepNow`), never stored.
 ## read-replies/<YYYY-MM>.jsonl
 
 What a model answered when it read exchanges of a one-to-one chat (`memory/read-replies.ts`), one line per call,
-append-only, in the file of the month of its first message (`messages[0]`'s instant, UTC, so a file never moves and old history is never touched again), not of `at` (when it was made): `read` (`connection`, `mentions`, `conflict`, `conversation_summary`, `voice_naming`, `arrival_trigger` or `arrival_confirm`; the arrival reads also store `unit`, the unit their lines are of, and the trigger's `madeBy` is `{model: "apple-on-device", os, prompt, run}`, its `reply` `{author, quote}` or `{refused}`, the confirm's `{isActionable}` with `people`, who wrote the lines read, as read, never him), `reply` (the object
+append-only, in the file of the month of its first message (`messages[0]`'s instant, UTC, so a file never moves and old history is never touched again), not of `at` (when it was made): `read` (`connection`, `mentions`, `conflict`, `conversation_summary`, `voice_naming`, `arrival_trigger`, `arrival_confirm` or `arrival_appointment`; the arrival reads also store `unit`, the unit their lines are of, and the trigger's `madeBy` is `{model: "apple-on-device", os, prompt, run}`, its `reply` `{author, quote}` or `{refused}`, the confirm's `{isActionable}` with `people`, who wrote the lines read, as read, never him, the appointment's, stored after its check, `{agreed: true, quote, title, start, end, allDay, zone, place, link, people}` (`link` https only, copied exactly) or `{agreed: false, refused?}`), `reply` (the object
 the model gave, as given (except `voice_naming`, stored after `checkedVoices`): only its `exchanges` list is required, the rest is checked when read; for `conversation_summary`, `summary` is required and `subjects` (`label`, `line`), `quotes` (`line`, `quote`) and `doubts` are checked when read: a subject whose line is not one of the lines read and a quote not on its line are dropped; for `voice_naming`, `voices` is required, a list of `{voice, person, lines, confidence}` kept only after it was checked against the call's input, so a stored entry names an offered ref, `me` or `unknown`, and cites lines of that voice), `messages` (the
 `eventKey` of every message the call showed, in order; for a conversation summary the key of each turn it read, `<turn ref> <owner or author>`, so a voice given to someone else changes it; for a voice naming, a turn nobody named is `<turn ref> voice:<label>`, `unnamedTurnKey`), `starts` (where each exchange begins in them), `madeBy` (its
 `prompt` is the prompt's versioned name), `promptDigest` (a 16-hex digest of the prompt's text, kept beside the name and
@@ -513,11 +513,10 @@ else its id is its facts' hash. One the reply forgets stays while its facts hold
 
 ## appointment-events.jsonl
 
-The calendar sync's lines (`appointments-calendar.ts`), appended outside the lock, one tick at a time:
-`{schemaVersion: 1, at, appointment, calendar, event, observations, op}`, `op` `created` (its event's id in that
-calendar; one written in another calendar counts as never written),
-`removed` (Life deleted it, its appointment gone) or `refused` (that event gone by his hand or an agent's). No
-appointment citing every fact of a refused one is written again.
+The calendar sync's lines (`appointments-calendar.ts`), appended outside the lock, one at a time in the watcher: `{schemaVersion: 1, at, appointment, calendar, event, observations | messages, op}` (the night's
+appointment's facts, or the message keys an appointment agreed in new lines was read from), `op` `created` (its event's
+id in that calendar; one written in another calendar counts as never written), `removed` (Life deleted it, its
+appointment gone), `refused` (that event gone by his hand or an agent's) or `restored` (his word lifting the refusal). No appointment citing every fact of a refused one is written again.
 
 ## ledger.jsonl
 
