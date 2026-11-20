@@ -24,7 +24,7 @@ const UTC_DAY = /toISOString\(\)\.slice\(0, ?10\)/;
 const LINE_BREAK = /\r?\n/;
 const DESK_IMPORT = /from "[^"]*\/desk\//;
 const MODEL_SPAWN =
-  /"claude",\s*"-p"|"codex",\s*"exec"|CODEX_BIN,\s*"exec"|\[\s*process\.execPath|\/chat\/completions/;
+  /"claude",\s*"-p"|"codex",\s*"exec"|CODEX_BIN,\s*"exec"|\[\s*process\.execPath|\/chat\/completions|process\.env\.LIFE_FOUNDATION_MODEL/;
 // A call's reads written by hand: a literal keyed by a source or `memory`.
 const READS_LITERAL = new RegExp(
   `\\breads:\\s*\\{\\s*"?(${[...SourceName.options, "memory"].join("|")})"?\\s*:`
@@ -33,6 +33,7 @@ const READS_LITERAL = new RegExp(
 const MODEL_CALL_FILES = [
   "apps/server/src/desk/runtimes/runtime-rows.ts",
   "apps/server/src/models/describer.ts",
+  "apps/server/src/models/foundation-model.ts",
   "apps/server/src/models/llm.ts",
   "apps/server/src/models/routers.ts",
 ];
@@ -271,6 +272,9 @@ test("every model call is made in a known file, and every memory call goes throu
   expect(importers(["startDescriber"], "describer", withScripts)).toEqual([
     "apps/server/src/host/describe-photos.ts",
   ]);
+  expect(
+    importers(["askFoundationModel"], "foundation-model", withScripts)
+  ).toEqual(["apps/server/src/memory/arrival-reader.ts"]);
   expect(running(MODEL_SPAWN, withScripts).toSorted()).toEqual(
     MODEL_CALL_FILES
   );

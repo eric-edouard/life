@@ -12,9 +12,9 @@ public struct LifeOAuth: Sendable {
     private let now: @Sendable () -> Date
 
     public init(
-        session: URLSession = URLSession(configuration: .ephemeral), now: @escaping @Sendable () -> Date = { Date() }
+        session: URLSession? = nil, now: @escaping @Sendable () -> Date = { Date() }
     ) {
-        http = LifeHTTP(session: session)
+        http = LifeHTTP(session: session ?? MCPClient.makeURLSession())
         self.now = now
     }
 

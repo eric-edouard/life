@@ -58,6 +58,7 @@ import {
   nextWakeOf,
   STARTS_PER_TICK,
 } from "./agent-wait";
+import { pollArrivals } from "./arrival-route";
 import { doorOf } from "./desk-door";
 import {
   closeAssignmentRow,
@@ -113,14 +114,15 @@ export function readPeopleOnce(): ReadPeople {
  * Reads the new messages once and queues each for one open assignment of each agent it concerns (`routeOf`): one waiting
  * for it (`message.received`), else one on a matter it relates to (`relatedMessages`, `matter.related`), in the
  * transaction that saves the cursor (its name, `message.received`): delivered at least once, never twice. With none
- * open, nothing is read, and the next read starts at that time.
+ * open, nothing is read, and the next read starts at that time. Whether it has caught up (no message left unread):
+ * only then may a confirmed arrival fall back to another agent (`pollArrivals`).
  */
 export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
   const { db, sources } = desk;
   const assignments = openAssignments(db);
   if (assignments.length === 0) {
     saveCursor(db, MESSAGE_RECEIVED, null);
-    return;
+    return true;
   }
   const people = await readPeopleNow();
   const nets = await netsOf(desk, people);
@@ -177,6 +179,7 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
     }
     saveCursor(db, MESSAGE_RECEIVED, read.cursor);
   })();
+  return !read.hasMore;
 }
 
 /**
@@ -577,7 +580,10 @@ export async function tick(desk: Desk, isPollDue = true) {
   await wakeDue(desk);
   if (isPollDue) {
     const people = readPeopleOnce();
-    await pollMessages(desk, people);
+    // A message a wait wants gets its `message.received` before any arrival falls back to another agent.
+    if (await pollMessages(desk, people)) {
+      await pollArrivals(desk, people);
+    }
     await pollCalls(desk, people);
     await pollChannels(desk, people);
     await pollRecordings(desk, people);
