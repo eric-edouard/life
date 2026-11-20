@@ -4,9 +4,18 @@ import { AGENT_WORD } from "../core/names";
 import { startDetached } from "../core/proc";
 import { settings } from "../core/settings";
 import { feedPage, fileSource, PAGE, parseCursor } from "../memory/changes";
-import { LEDGER, parseLedgerEntry, tasksOf } from "../memory/memory-files";
+import {
+  askOf,
+  LEDGER,
+  parseLedgerEntry,
+  tasksOf,
+} from "../memory/memory-files";
 import { clip } from "../memory/units";
-import { type Instruction, LedgerEntry } from "../records/ledger-entry";
+import {
+  type Instruction,
+  isComplaint,
+  LedgerEntry,
+} from "../records/ledger-entry";
 import { notifyPhone } from "../sources/lifelog-push";
 import { entryId } from "./change-todo-item";
 
@@ -43,7 +52,7 @@ export function ask(
     ...(timing ? { timing } : {}),
     why,
   } satisfies LedgerEntry;
-  const old = tasksOf().find((t) => t.ask.id === line.id)?.ask;
+  const old = askOf(line.id);
   if (!old) {
     appendJsonl(LEDGER, LedgerEntry, [line]);
     const onAsk = settings().agents?.[after.agent]?.onAsk;
@@ -64,7 +73,7 @@ export function ask(
 
 /**
  * A page of `agent`'s asks past `cursor`, in the order recorded (`read_agent_asks`): the ledger's own cursor, so an
- * ask appended late is never skipped and none comes twice.
+ * ask appended late is never skipped and none comes twice. His complaints are never pulled: the desk reads them itself.
  */
 export function asksFor(agent: string, cursor?: string, limit = PAGE) {
   const page = feedPage(
@@ -73,7 +82,10 @@ export function asksFor(agent: string, cursor?: string, limit = PAGE) {
     limit,
     (_, line) => {
       const a = parseLedgerEntry(line);
-      return a?.kind === "ask" && a.instruction && a.after.agent === agent
+      return a?.kind === "ask" &&
+        a.instruction &&
+        a.after.agent === agent &&
+        !isComplaint(a)
         ? {
             agentChange: a.after.agentChange,
             at: a.at,

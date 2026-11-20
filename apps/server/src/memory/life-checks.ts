@@ -119,6 +119,8 @@ export interface CheckMatter {
 export interface Check {
   /** The names and handles the question is about, as his answer takes them (`nameOrHandle`); none but a person's. */
   about: string[];
+  /** His complaint on this card's cause at work with the caretaker (received, its assignment open, its event not dropped): the complaint (an ask id), since when, and the caretaker's own line when only this complaint is its work; null: none. Such a card no longer blocks (`urgencyOf`). */
+  beingFixed?: BeingFixed | null;
   /** The registered agent that asked a decision (the desk's `agt_…`, `Decision.agent`), which tells apart the agents asking as `desk`; null for every other check. */
   agent?: string | null;
   /** Who asks: `life` for Life's own guesses, else the agent's pairing or `desk`. */
@@ -158,6 +160,8 @@ export interface Check {
   likelyPeople: Party[];
   /** Where to look or act (the agent's link first). */
   links: string[];
+  /** On Life's own cards only (none of an agent's, the caretaker's included): what his "Wrong…" (`answer_check`'s `misread`) sends back, `cause` (what its guess rests on, `causeOf`) and `shown` (the card as built, `shownOf`), each a digest; null on an agent's. */
+  misread?: { cause: string; shown: string } | null;
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done), `important` when he marked it; null: none. */
   matter: CheckMatter | null;
   /** What he needs in hand to do a decision's step, each with Life's `line` of it, in the order to show them; absent on every other kind. */
@@ -197,6 +201,13 @@ export interface Check {
   subject: string | null;
   /** What it is trying to do, in one line. */
   title: string;
+}
+
+/** A card whose cause his complaint is at work on (`Check.beingFixed`). */
+export interface BeingFixed {
+  ask: string;
+  line: string | null;
+  since: string;
 }
 
 /** The guess an ending check's answer stores in the fact-check line (the card asks "Is this done?" with the step's own sentence). */

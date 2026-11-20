@@ -14,7 +14,7 @@ import type {
   EventFilter,
   OpenedBy,
 } from "../records/registered-agent";
-import { CALL_ENDED, MESSAGE_RECEIVED } from "./events";
+import { CALL_ENDED, COMPLAINT_RECEIVED, MESSAGE_RECEIVED } from "./events";
 
 // Every read of the desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`), its rows' shapes and the rules worked out from
 // them: the desk reads through these, and host reads the store read-only (`readDesk`), so the desk off or its store
@@ -356,6 +356,29 @@ export const heldStampOf = (db: Database) =>
       )
       .values(heldSince())
   );
+
+/** The caretaker's assignments, of every caretaker it ever had: a complaint received by one is received for good. */
+const CARETAKER_EVENTS = `select e.*, s.closed_at, s.plan_now, s.id as assignment from event e join assignment s on s.id = e.assignment_id join agent a on a.id = s.agent_id where a.role = 'caretaker' and e.name = '${COMPLAINT_RECEIVED}'`;
+
+/** Where complaint `ask` was received (its receipt: the event row the desk queued for a caretaker's assignment), or null before. */
+export const complaintReceiptOf = (db: Database, ask: string) =>
+  db
+    .query<{ assignment: string; received_at: string }, [string]>(
+      `${CARETAKER_EVENTS} and e.event_id = ?`
+    )
+    .get(ask);
+
+/**
+ * His complaints the caretaker is at work on, in the order received: each received for an assignment still open, its
+ * event not dropped; with its assignment's line (`plan_now`) only when this complaint is all that assignment holds, so
+ * a line is never shown on a complaint it is not about. Bounded: the caretaker's open assignments.
+ */
+export const complaintsAtWork = (db: Database) =>
+  db
+    .query<{ ask: string; line: string | null; since: string }, []>(
+      `select e.event_id as ask, e.received_at as since, case when (select count(*) from event x where x.assignment_id = e.assignment and x.name = '${COMPLAINT_RECEIVED}') = 1 then e.plan_now end as line from (${CARETAKER_EVENTS} and s.closed_at is null and e.dropped_at is null) e order by e.received_at, e.event_id`
+    )
+    .all();
 
 /** What the desk did with an ask of his (`change_registered_agent`): the agent it touched, or why it refused; null until applied. */
 export const agentChangeOf = (db: Database, ask: string) =>

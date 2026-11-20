@@ -690,6 +690,10 @@ export const readLedger = (): readonly LedgerEntry[] =>
     }
   );
 
+/** The ask `id` in the actions ledger, if recorded. */
+export const askOf = (id: string) =>
+  readLedger().find((e) => e.kind === "ask" && e.id === id);
+
 /** One actions ledger line, null for a blank one. */
 export const parseLedgerEntry = (line: string) =>
   line ? LedgerEntry.parse(JSON.parse(line)) : null;
