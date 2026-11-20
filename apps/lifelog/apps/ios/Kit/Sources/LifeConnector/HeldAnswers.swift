@@ -16,8 +16,12 @@ public final class HeldAnswers {
     public var latest: String? { order.last }
     @ObservationIgnored private var order: [String] = []
     @ObservationIgnored private var timers: [String: Task<Void, Never>] = [:]
-    /// Each held answer's one release, from its timer or a flush, until its send ended: a second asks for the same.
-    @ObservationIgnored private var releases: [String: Task<Void, Never>] = [:]
+    /// Each released answer's send, by its release, until it ended: what still hides its card, and what every flush
+    /// waits for.
+    private var sending: [Int: (ref: String, going: Task<Void, Never>)] = [:]
+    @ObservationIgnored private var releases = 0
+    /// Held or being sent: answers whose card no read may bring back yet.
+    public var underWay: Set<String> { Set(held.keys).union(sending.values.map(\.ref)) }
     @ObservationIgnored private let delay: Duration
     @ObservationIgnored private let send: @MainActor (AnswerRequest) async -> Void
 
@@ -42,31 +46,36 @@ public final class HeldAnswers {
         order.removeAll { $0 == ref }
     }
 
-    /// Every held answer now, finished when each has been answered: the screen is going, or the app.
+    /// Every held answer now, finished when every send under way has ended: the screen is going, or the app.
     public func sendAll() async {
-        for send in held.keys.compactMap(release) { await send.value }
+        Array(held.keys).forEach(release)
+        for going in sending.values.map(\.going) { await going.value }
     }
 
-    /// Nothing held, nothing sent: a new pairing leaves no answer for the last Life.
+    /// Nothing held, nothing sent: a new pairing leaves no answer for the last Life. A send under way ends on its own.
     public func clear() {
         timers.values.forEach { $0.cancel() }
         (held, timers, order) = ([:], [:], [])
     }
 
-    /// The held answer goes, in a task of its own: the timer that called is cancelled with it. It stays held until that
-    /// task starts its send, in the same step, so no frame shows it neither held nor on its way, and an Undo until then
-    /// still undoes it.
-    @discardableResult private func release(_ ref: String) -> Task<Void, Never>? {
+    /// The one release of a held answer, from its timer or a flush: in the same step it leaves `held` for `sending`, so
+    /// no frame shows it neither, and it goes after any earlier send of the same ref has ended. Its own task: the timer
+    /// that called is cancelled with it.
+    private func release(_ ref: String) {
         timers.removeValue(forKey: ref)?.cancel()
-        if let going = releases[ref] { return going }
-        guard held[ref] != nil else { return nil }
-        let going = Task {
-            defer { releases[ref] = nil }
-            guard let sent = held.removeValue(forKey: ref) else { return }
-            order.removeAll { $0 == ref }
-            await send(sent.request)
-        }
-        releases[ref] = going
-        return going
+        guard let sent = held.removeValue(forKey: ref) else { return }
+        order.removeAll { $0 == ref }
+        let earlier = sending.values.filter { $0.ref == ref }.map(\.going)
+        let number = releases
+        releases += 1
+        // Set before the task runs: it starts on this actor, after this step.
+        sending[number] = (
+            ref,
+            Task {
+                for task in earlier { await task.value }
+                await send(sent.request)
+                sending[number] = nil
+            }
+        )
     }
 }

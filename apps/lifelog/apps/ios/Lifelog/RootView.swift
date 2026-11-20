@@ -93,9 +93,9 @@ struct RootView: View {
         .tint(Palette.fg)
     }
 
-    /// Held answers go now, and the app is kept awake until they are answered: a suspended app would lose them.
+    /// Held answers go now, and the app is kept awake until they and those already going are answered: a suspended app would lose them.
     private func sendHeldInBackground() async {
-        guard !life.held.isEmpty else { return }
+        guard life.hasAnswersUnderWay else { return }
         let app = UIApplication.shared
         let awake = Awake()
         awake.id = app.beginBackgroundTask(withName: "held answers") { awake.end() }

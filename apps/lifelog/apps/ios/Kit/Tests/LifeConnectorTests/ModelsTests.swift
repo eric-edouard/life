@@ -469,7 +469,7 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
 @Test func anAnswerConfirmedAfterAReadWasAskedStaysOutOfIt() throws {
     let asked = Date(timeIntervalSince1970: 100)
     var answered = AnsweredCards()
-    answered.answered("b1", at: asked.addingTimeInterval(1), pairing: answered.pairing)
+    answered.answered("b1", at: asked.addingTimeInterval(1))
     let read = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves)])
     let shown = read.without(answered.newer(than: asked))
     #expect(shown.checks.map(\.ref) == ["b2", "i1"])
@@ -489,33 +489,30 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     let cache = ReadCache(directory: FileManager.default.temporaryDirectory.appending(path: "reads-\(UUID())"))
     defer { cache.clear() }
     var answered = AnsweredCards()
-    answered.answered("a", at: at(10), pairing: answered.pairing)
+    answered.answered("a", at: at(10))
     cache.store("{}", key: "read_matter-m1", asked: at(5))
     cache.store("{}", key: "read_inbox", asked: at(20))
     cache.store("{}", key: "answered_cards", asked: at(30))
     // He answers B after a restart: A stays, the matter read kept from before it can still show A.
     answered.forget(confirmedBy: cache.oldest(except: "answered_cards"))
-    answered.answered("b", at: at(40), pairing: answered.pairing)
+    answered.answered("b", at: at(40))
     #expect(answered.newer(than: at(5)) == ["a", "b"])
     // Once every kept read was asked after both, they go; with none kept, all go.
     cache.store("{}", key: "read_matter-m1", asked: at(50))
     cache.store("{}", key: "read_inbox", asked: at(50))
     answered.forget(confirmedBy: cache.oldest(except: "answered_cards"))
     #expect(answered.newer(than: nil).isEmpty)
-    answered.answered("c", at: at(60), pairing: answered.pairing)
+    answered.answered("c", at: at(60))
     cache.clear()
     answered.forget(confirmedBy: cache.oldest(except: "answered_cards"))
     #expect(answered.newer(than: nil).isEmpty)
 }
 
-/// An answer begun under one pairing that Life confirms after a new pairing adds nothing to the new one.
-@Test func anAnswerBegunBeforeARepairingAddsNothingAfterIt() {
-    let old = AnsweredCards()
-    var new = AnsweredCards()
-    let late = new.answered("a", at: Date(), pairing: old.pairing)
-    #expect(!late && new.newer(than: nil).isEmpty)
-    let current = new.answered("b", at: Date(), pairing: new.pairing)
-    #expect(current && new.newer(than: nil) == ["b"])
+/// The answers a phone kept before an upgrade still leave their cards out after it: the kept shape is only the times.
+@Test func answersKeptBeforeAnUpgradeStillDecode() throws {
+    let kept = #"{"confirmed":{"c1":100}}"#
+    let answered = try JSONDecoder().decode(AnsweredCards.self, from: Data(kept.utf8))
+    #expect(answered.newer(than: Date(timeIntervalSinceReferenceDate: 50)) == ["c1"])
 }
 
 /// Only a new matter's `edit-goal` keeps its card open; another kind's option of that id closes it.

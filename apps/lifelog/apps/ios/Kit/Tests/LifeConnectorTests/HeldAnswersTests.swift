@@ -46,25 +46,54 @@ import Testing
     #expect(holds.latest == "z")
 }
 
-/// A released answer stays held until its send has begun, in the same step: no frame shows it neither held nor on its way.
-@MainActor @Test func aReleasedAnswerIsHeldOrOnItsWayAtEveryStep() async {
-    var sending: Set<String> = []
-    var holds: HeldAnswers!
-    holds = HeldAnswers(delay: .seconds(60)) { request in
-        sending.insert(request.ref)
+/// A released answer is held or being sent at every step, until its send ended: no frame brings its card back.
+@MainActor @Test func aReleasedAnswerIsUnderWayUntilItsSendEnded() async {
+    var sent = false
+    let holds = HeldAnswers(delay: .seconds(60)) { _ in
         try? await Task.sleep(for: .milliseconds(5))
+        sent = true
     }
     holds.hold(AnswerRequest(ref: "c1", options: ["yes"]), as: "Yes")
     let all = Task { await holds.sendAll() }
-    for _ in 0..<20 {
-        #expect(holds.held["c1"] != nil || sending.contains("c1"))
+    while !sent {
+        #expect(holds.underWay == ["c1"])
         await Task.yield()
     }
     await all.value
-    #expect(holds.held.isEmpty && sending == ["c1"])
+    #expect(holds.held.isEmpty)
 }
 
-/// Two flushes of the same held answer (its timer's and the background's) share its one release: each waits for the send.
+/// A flush that comes once the timer has released the answer (the app going while it is sent) waits for that send.
+@MainActor @Test func aFlushAfterTheTimerWaitsForTheSendUnderWay() async throws {
+    var sent = 0
+    let holds = HeldAnswers(delay: .milliseconds(10)) { _ in
+        try? await Task.sleep(for: .milliseconds(80))
+        sent += 1
+    }
+    holds.hold(AnswerRequest(ref: "c1", options: ["yes"]), as: "Yes")
+    while !holds.held.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(holds.underWay == ["c1"])
+    await holds.sendAll()
+    #expect(sent == 1)
+}
+
+/// An answer held again under the same ref while the first is still being sent has its own timer and its own send.
+@MainActor @Test func anAnswerHeldAgainWhileTheFirstIsSentIsSentToo() async throws {
+    var sent: [[String]] = []
+    let holds = HeldAnswers(delay: .milliseconds(10)) { request in
+        try? await Task.sleep(for: .milliseconds(40))
+        sent.append(request.options)
+    }
+    holds.hold(AnswerRequest(ref: "c1", options: ["yes"]), as: "Yes")
+    while !holds.held.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    holds.hold(AnswerRequest(ref: "c1", options: ["no"]), as: "No")
+    try await Task.sleep(for: .milliseconds(30))
+    await holds.sendAll()
+    #expect(sent == [["yes"], ["no"]])
+    #expect(holds.underWay.isEmpty)
+}
+
+/// Two flushes of the same held answer share its one send, and each waits for it.
 @MainActor @Test func everyFlushWaitsForTheOneRealSend() async {
     var sent = 0
     let holds = HeldAnswers(delay: .seconds(60)) { _ in
