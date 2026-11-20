@@ -52,10 +52,17 @@ const KINDS: [string, string][] = [
 ];
 const SPACE = /\s+/g;
 
+/** What a file is, by its mime: photo, video, audio, pdf, else document. */
+export const fileKindOf = (mime: string) =>
+  KINDS.find(([prefix]) => mime.startsWith(prefix))?.[1] ?? "document";
+
+/** A message's own words: its text less the U+FFFC a file leaves in it. */
+export const messageWordsOf = (text: string) =>
+  text.replaceAll(PLACEHOLDER, "").trim();
+
 /** A file as a line of its message: `[photo IMG_2910.HEIC, described by Life: … | text: …]`, `[video …, not on this Mac]`. */
 function fileLine(f: SourceFile, e: FileEntry | undefined) {
-  const kind =
-    KINDS.find(([mime]) => f.mime.startsWith(mime))?.[1] ?? "document";
+  const kind = fileKindOf(f.mime);
   const read = `${e?.description ? `, described by Life: ${e.description}` : ""}${e?.text ? ` | text: ${e.text}` : ""}`;
   return `[${kind}${f.name ? ` ${f.name}` : ""}${read || (f.path ? "" : ", not on this Mac")}]`;
 }
@@ -71,7 +78,7 @@ export const showFiles = (
 ) =>
   events.flatMap(({ files = [], ...e }) => {
     const text = [
-      e.text.replaceAll(PLACEHOLDER, "").trim(),
+      messageWordsOf(e.text),
       ...files.map((f) => fileLine(f, known.get(f.ref))),
     ]
       .filter(Boolean)
