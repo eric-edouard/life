@@ -162,6 +162,14 @@ test("a new person he names on a name check is the one person his truth/ or Cont
   }
 });
 
+test("Don't name on a name check: every way it was written is never asked again (life#724)", async () => {
+  await answerCheck(name, { options: ["not-relevant"] });
+  expect(said()).toEqual([
+    { kind: "not-worth-naming", nameOrHandle: "Kit" },
+    { kind: "not-worth-naming", nameOrHandle: "kit" },
+  ]);
+});
+
 test("an ending goes to its fact-check answer", async () => {
   const record = spyOn(
     await import("./fact-checks"),

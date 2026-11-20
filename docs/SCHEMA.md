@@ -372,6 +372,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `keep-mine` | `page`, `section` (`now`, `earlier`; on the owner's own page also `views`, `health`; on a close person's `between_us`), `text` | The line stays on the page as written |
 | `this-is` | `nameOrHandle`, `person: person:<id>` | A handle or name is that person (beats `truth/`) |
 | `not-this-person` | `nameOrHandle`, `person` | Never resolve that handle or name to that person |
+| `not-worth-naming` | `nameOrHandle` | His "Don't name" on a name check: that name is never asked (`nameGroupsOf`); a later `this-is` still places it |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
 | `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's episodes are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). An episode filed under the wrong person needs `wrong` on its `ep_` too |
 | `matter-direction` | `steps` (all of a matter's step ids, as `read_matter` lists them), `goal` and/or `nextStep` (`kind`, `text`, `waitsOn`) | His goal or next step for the matter those steps find (`directionsOf`): his goal wins over every draft; his next step until Life drafts again, once the matter has a step newer than his word |

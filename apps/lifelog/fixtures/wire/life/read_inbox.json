@@ -291,6 +291,11 @@
           "id": "this-is",
           "label": "Someone else…",
           "takes": "person or name"
+        },
+        {
+          "id": "not-relevant",
+          "label": "Don't name",
+          "takes": null
         }
       ],
       "question": "Who is \"Sam\"?",

@@ -4,7 +4,7 @@ import { type CheckGroup, LIFE_ASKER, type SourceName } from "../core/names";
 import { secretIn } from "../core/secret";
 import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
-import type { InferredPerson, Unresolved } from "../records/observation";
+import type { InferredPerson } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import {
   type NamingQueueItem,
@@ -57,6 +57,7 @@ import {
   readDismissedMatterPins,
   readFactCheckAnswers,
   readFactChecks,
+  readUnitsWithHisWords,
   ZONES,
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
@@ -175,7 +176,6 @@ export interface CheckInputs {
   titles: ReadonlyMap<string, string>;
   /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
   today: string;
-  unresolved: readonly Pick<Unresolved, "nameAsWritten" | "observation">[];
   /** The voices lifelog asks him to name (`readNamingQueue`). */
   voices: readonly NamingQueueItem[];
   /** Where a record that is not a line was said: units and episodes, by id. */
@@ -756,7 +756,13 @@ async function readChecks(
       .filter((s) => !isEndingCheck(s))
       .map((s) => s.ref)
   );
-  const nameGroups = nameGroupsOf({ kept, lines, people, unresolved });
+  const nameGroups = nameGroupsOf({
+    hisUnitsOf: readUnitsWithHisWords,
+    kept,
+    lines,
+    people,
+    unresolved,
+  });
   const today = dayNow();
   const steps = shownStepsOf({
     answered,
@@ -793,7 +799,6 @@ async function readChecks(
     people,
     titles,
     today,
-    unresolved,
     voices,
     where: new Map([
       ...units.map((u): [string, Where] => [

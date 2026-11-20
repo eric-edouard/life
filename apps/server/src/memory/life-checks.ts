@@ -59,6 +59,7 @@ export const LIFE_CHECKS = {
     context: null,
     options: [
       { id: "this-is", label: "Someone else…", takes: "person or name" },
+      { id: "not-relevant", label: "Don't name", takes: null },
     ],
     title: "Place a name",
   },

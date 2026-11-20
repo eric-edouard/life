@@ -1,11 +1,14 @@
 import type { Correction } from "../records/observation";
-import { nameGroupsOf } from "./check-sentences";
+import { type NameRow, nameGroupsOf } from "./check-sentences";
 import type { CheckInputs } from "./checks";
 import type { AgentHold } from "./held-matters";
 import { guessTestOf } from "./who";
 
 type Input = Partial<Omit<CheckInputs, "people">> & {
   corrections?: Correction[];
+  /** The names Life cannot place (`nameGroupsOf`); each spoke in a unit holding his words unless `hisUnitsOf` says. */
+  unresolved?: NameRow[];
+  hisUnitsOf?: (units: readonly string[]) => ReadonlySet<string>;
   inferred?: string[];
   cards?: { card: string; people: string[] }[];
   /** Person refs folded into another (`refOf`). */
@@ -29,6 +32,20 @@ export const line = (over: Partial<CheckInputs["lines"][number]> = {}) => {
     ...over,
   };
 };
+/** A name Life could not place, said by its own speaker on 1 Oct in a unit of the test (`hasHisWords` decides the exchange). */
+export const nameRow = (
+  nameAsWritten: string,
+  observation: string,
+  over: Partial<NameRow> = {}
+): NameRow => ({
+  date: "2026-10-01",
+  nameAsWritten,
+  observation,
+  unit: "unit_000000000001",
+  via: "speaker",
+  ...over,
+});
+
 export const about = (ref: string, over = {}) =>
   line({ subjects: [ref], ...over });
 
@@ -58,7 +75,6 @@ function withoutGroups(
     paged: new Set(),
     titles: new Map(),
     today: "2026-11-18",
-    unresolved: [],
     voices: [],
     where: new Map(),
     ...over,
@@ -102,7 +118,15 @@ export function inputs(
   over: Input = {}
 ): CheckInputs {
   const base = withoutGroups(lines, over);
-  return { ...base, nameGroups: nameGroupsOf(base) };
+  return {
+    ...base,
+    nameGroups: nameGroupsOf({
+      ...base,
+      hisUnitsOf: over.hisUnitsOf ?? ((units) => new Set(units)),
+      people: { ...base.people, corrections: over.corrections ?? [] },
+      unresolved: over.unresolved ?? [],
+    }),
+  };
 }
 
 /** One registered agent's hold on `step`: active, asked by him, unless `over` says otherwise (`heldByAgents`' facts). */
