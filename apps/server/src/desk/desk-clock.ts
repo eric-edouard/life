@@ -56,6 +56,7 @@ import {
   type ReadPeople,
   unreadLinesOf,
 } from "./event-queue";
+import { handOutNext } from "./hand-out-tick";
 import {
   MATTER_RELATED,
   netsOf,
@@ -505,12 +506,13 @@ export async function wakeDue(desk: Desk) {
 }
 
 /**
- * One tick of the clock: his word about his agents, his answers, the turns that never began, then the turns due (a new
+ * One tick of the clock: his word about his agents, the hand-out (at most one start, a look every 10 minutes), his answers, the turns that never began, then the turns due (a new
  * agent's first turn never waits behind the polls), then, when their poll is due, the messages, the calls that ended, the recordings, the
  * agents whose matter is done and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst; the event channels a wait names after the calls (`pollChannels`).
  */
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
+  await handOutNext(desk);
   pollAnswers(desk);
   await endUnbegunTurns(desk);
   await wakeDue(desk);

@@ -1,5 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
-import { oneMatter, openMatters } from "./read-matters";
+import { INFERRED_PREFIX } from "../records/observation";
+import { isOneOfHis, oneMatter, openMatters } from "./read-matters";
+import { guessTestOf } from "./who";
 
 test("read_matters lists the open matters, of one project when asked; read_matter opens one with its steps", async () => {
   const who = await import("./who");
@@ -156,4 +158,43 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     book.mockRestore();
     rank.mockRestore();
   }
+});
+
+// A matter of his (his word of 20 Nov 2026): someone he knows, or a step he said himself.
+const gone = { hasOwnOpenStep: false, owedTo: [], waitingOn: [], with: [] };
+const isGuess = guessTestOf(
+  [],
+  [{ confidence: 0.8, id: `${INFERRED_PREFIX}ana`, isOrganization: false }]
+);
+
+test("a matter made only of an unknown sender's words is not one of his", () => {
+  expect(
+    isOneOfHis({ ...gone, owedTo: ["unknown:stranger@example.test"] }, isGuess)
+  ).toBe(false);
+});
+
+test("the same matter with a step he said himself is", () => {
+  expect(
+    isOneOfHis(
+      {
+        ...gone,
+        hasOwnOpenStep: true,
+        owedTo: ["unknown:stranger@example.test"],
+      },
+      isGuess
+    )
+  ).toBe(true);
+});
+
+test("a matter with a person of his directory or of his Contacts is; a person only guessed is not", () => {
+  // Directory and Contacts people are `person:<id>` without Life's inferred prefix: no guess.
+  expect(isOneOfHis({ ...gone, with: ["person:test-bea"] }, isGuess)).toBe(
+    true
+  );
+  expect(
+    isOneOfHis({ ...gone, waitingOn: ["person:card-cleo"] }, isGuess)
+  ).toBe(true);
+  expect(
+    isOneOfHis({ ...gone, with: [`person:${INFERRED_PREFIX}ana`] }, isGuess)
+  ).toBe(false);
 });

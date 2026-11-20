@@ -126,6 +126,18 @@ test("a new agent waits or finishes only once it asked its plan", async () => {
   expect((await call(id, key, "set_wait", wait)).result?.isError).toBe(false);
 });
 
+test("a handed-out agent is told to ask its card, not its plan", async () => {
+  const id = agent();
+  desk.db.run("update agent set is_handed_out = 1 where id = ?", [id]);
+  const { key } = doorOf(id);
+  const wait = { events: [], reason: "r", until: ahead(HOUR) };
+  const refused = (await call(id, key, "set_wait", wait)).text;
+  expect(refused).toContain("ask your card first");
+  expect(refused).not.toContain("plan");
+  await call(id, key, "request_decision", ask("Test: send this?"));
+  expect((await call(id, key, "set_wait", wait)).result?.isError).toBe(false);
+});
+
 test("an agent that finished may read its packet, nothing else", async () => {
   const id = agent();
   const { key } = doorOf(id);

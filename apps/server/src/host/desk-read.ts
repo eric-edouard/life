@@ -26,6 +26,8 @@ export interface AgentRow {
   ended_at: string | null;
   folder: string;
   id: string;
+  /** 1 when the desk started it itself on a matter from the top of his ranking (`desk/hand-out.ts`), 0 when he asked. */
+  is_handed_out: number;
   link: string | null;
   model: string | null;
   notes: string;
@@ -82,6 +84,14 @@ export const isFull = (db: Database) =>
       "select count(*) as n from agent where status = 'active'"
     )
     .get()?.n ?? 0) >= MAX_ACTIVE;
+
+/** How many agents the desk started itself (`is_handed_out`) from `since` on (an ISO instant). */
+export const handedOutSince = (db: Database, since: string) =>
+  db
+    .query<{ n: number }, [string]>(
+      "select count(*) as n from agent where is_handed_out = 1 and created_at >= ?"
+    )
+    .get(since)?.n ?? 0;
 
 export const activeAgents = (db: Database) =>
   db

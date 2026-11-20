@@ -3,6 +3,7 @@ import {
   isRunning,
   type MatterView,
   matterOfSteps,
+  matterPeopleOf,
   nextStepNow,
 } from "./matter-read";
 import { readMatterBook } from "./matters";
@@ -90,19 +91,12 @@ function rowOf(
 /** A matter's steps' ids: what an agent working on it is anchored on. */
 const refsOf = (v: MatterView) => v.steps.map((s) => s.ref);
 
-/**
- * The running matters (open, not dormant), ranked as `read_day`'s Due (`rankedMattersOf`, those with no open step last), of one `person`, `project` or `area` when given: each
- * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one anchored on the matter, else the one holding one of its projects). Throws when a person, project or area named goes by no name known.
- */
-export async function openMatters(
-  q: {
-    area?: string;
-    person?: string;
-    project?: string;
-  },
-  agentOf: (steps: string[], projects: string[]) => string | undefined = () =>
-    undefined
-) {
+/** The running matters (open, not dormant), ranked as `read_day`'s Due (`rankedMattersOf`), of one `person`, `project` or `area` when given; with what rows are read from. Throws when a name goes by no one known. */
+async function rankedRunning(q: {
+  area?: string;
+  person?: string;
+  project?: string;
+}) {
   const people = await readPeople();
   const { truth } = people;
   const known = q.person ? meant(q.person, people).known : undefined;
@@ -125,18 +119,66 @@ export async function openMatters(
       (!area || v.areas.includes(area)) &&
       (!project || v.projects.includes(project))
   );
-  const decisions = openDecisions();
   return {
-    matters: rankedMattersOf(
+    decisions: openDecisions(),
+    people,
+    ranked: rankedMattersOf(
       running,
       people.nameOf,
       today,
       rankContextOf(people)
-    ).map((v) => ({
+    ),
+  };
+}
+
+/**
+ * The running matters, ranked as `read_day`'s Due (those with no open step last), of one `person`, `project` or `area` when given: each
+ * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one anchored on the matter, else the one holding one of its projects). Throws when a person, project or area named goes by no name known.
+ */
+export async function openMatters(
+  q: {
+    area?: string;
+    person?: string;
+    project?: string;
+  },
+  agentOf: (steps: string[], projects: string[]) => string | undefined = () =>
+    undefined
+) {
+  const { decisions, people, ranked } = await rankedRunning(q);
+  return {
+    matters: ranked.map((v) => ({
       ...rowOf(v, people, decisions),
       agent: agentOf(refsOf(v), v.projects),
     })),
   };
+}
+
+/**
+ * Whether a matter is one of his (his word of 20 Nov 2026): it involves someone he knows (his directory, his Contacts,
+ * or a guess his word settled: a `person:` ref that is not `isGuess`, never an `unknown:` one) or holds an open step he said himself. One
+ * made only of an unknown sender's words waits for his own Start.
+ */
+export const isOneOfHis = (
+  v: Pick<MatterView, "hasOwnOpenStep" | "owedTo" | "waitingOn" | "with">,
+  isGuess: (ref: string) => boolean
+) =>
+  v.hasOwnOpenStep ||
+  matterPeopleOf(v).some((r) => r.startsWith("person:") && !isGuess(r));
+
+/** The running matters in his ranking, one of his (`isOneOfHis`), whose next step is one to do (`nextStepNow`): what the desk may hand to an agent, each with its steps' ids and its projects' ids. */
+export async function mattersToDo() {
+  const { decisions, people, ranked } = await rankedRunning({});
+  return ranked
+    .filter(
+      (v) =>
+        isOneOfHis(v, people.isGuess) &&
+        nextStepNow(v, decisions)?.kind === "do"
+    )
+    .map((v) => ({
+      id: v.id,
+      projects: v.projects,
+      steps: refsOf(v),
+    }));
 }
 
 /**

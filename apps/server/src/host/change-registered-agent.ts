@@ -94,7 +94,7 @@ async function matterNamed(step: string) {
  * from his directory's `repos:` only (never Life's guessed repos: an agent runs where he said the project lives), by its key as the repo map reads it (`owner/name` is on GitHub only); none: the desk
  * makes a folder of its own for it.
  */
-function readRepoFolder(projects: string[], truth: Truth) {
+export function readRepoFolder(projects: string[], truth: Truth) {
   const here = new Map(listRepos().map((r) => [r.key, r.path]));
   return projects
     .flatMap((id) => truth.projects.find((p) => p.id === id)?.repos ?? [])

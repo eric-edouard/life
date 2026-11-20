@@ -94,10 +94,19 @@ export const Settings = z
      * The desk (`apps/server/src/desk/`): Life starts and wakes his registered agents. Absent means off: the app starts
      * no desk helper and no desk code runs. `runtimes`: per runtime, the model (and effort) a registered agent runs
      * with when it names none; none given, the runtime's own default. `defaultRuntime`: a start that names none.
+     * `handOut`: the desk starts an agent itself on a running matter from the top of his ranking (`desk/hand-out.ts`),
+     * only while fewer than `cardsWaiting` agent cards wait for him and fewer than `aDay` started on his day; absent means off.
      */
     desk: z
       .object({
         defaultRuntime: RuntimeName.optional(),
+        handOut: z
+          .object({
+            aDay: z.number().int().positive(),
+            cardsWaiting: z.number().int().positive(),
+          })
+          .strict()
+          .optional(),
         runtimes: z
           .partialRecord(
             RuntimeName,
