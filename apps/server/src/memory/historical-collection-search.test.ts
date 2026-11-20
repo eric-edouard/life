@@ -406,3 +406,24 @@ test("who: in a LINE group, a `from` after another member spoke never makes the 
     rmSync(INDEX, { force: true });
   }
 });
+
+test("who: today's 1:1 LINE chat her name titles is hers whole, though Life does not know her handle there", async () => {
+  const at = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+  const chat = [
+    lineSaid("n1", at(3), "!room-new", "@line_u0000000000000001", "Test Ana"),
+    lineSaid("n2", at(2), "!room-new", "me", "Test Ana"),
+  ];
+  try {
+    await indexedFrom([]);
+    const found = messagesIn(
+      await chatsOf({ who: "Test Ana" }, { line: sourceOver(chat) })
+    );
+    expect(found.map((l) => l.slice(l.lastIndexOf("[")))).toEqual([
+      "[id n1]",
+      "[id n2]",
+    ]);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});

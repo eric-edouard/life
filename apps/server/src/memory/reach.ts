@@ -31,9 +31,6 @@ export interface SeenAccount {
   source: SourceName;
 }
 
-/** How many accounts an app shows, the newest exchange first: the others his directory or Contacts hold stay in `now`'s `details`. */
-const REACH_ACCOUNTS = 3;
-
 /** How many of their newest chat-days are read for the accounts they write from. */
 const SEEN_UNITS = 60;
 
@@ -110,9 +107,9 @@ export function reachOf({
         found.set(key, account);
       }
     }
-    const accounts = [...found.values()]
-      .toSorted((a, b) => (b.lastAt ?? "").localeCompare(a.lastAt ?? ""))
-      .slice(0, REACH_ACCOUNTS);
+    const accounts = [...found.values()].toSorted((a, b) =>
+      (b.lastAt ?? "").localeCompare(a.lastAt ?? "")
+    );
     return accounts.length > 0
       ? [
           {

@@ -116,21 +116,3 @@ test("reach: nothing that opens, no app at all; an account with no title is show
     },
   ]);
 });
-
-test("reach shows three accounts an app, the newest exchange first", () => {
-  const phones = Array.from({ length: 6 }, (_, n) => `+3360000001${n}`);
-  const [whatsapp] = reachOf({
-    cards: [],
-    party: { handles: { email: [], phone: [], whatsapp: phones } },
-    seen: phones.slice(0, 4).map((handle, n) => ({
-      handle,
-      lastAt: `2026-11-1${n}T09:00:00.000Z`,
-      source: "whatsapp" as const,
-    })),
-  });
-  expect(whatsapp?.accounts.map((a) => a.handle)).toEqual([
-    "+33600000013",
-    "+33600000012",
-    "+33600000011",
-  ]);
-});

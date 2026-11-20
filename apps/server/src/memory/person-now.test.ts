@@ -1,10 +1,16 @@
+import { Database } from "bun:sqlite";
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import { buildIndex, reindex, reindexUnits } from "./index-writer";
+import {
+  buildIndex,
+  readStaleness,
+  reindex,
+  reindexUnits,
+} from "./index-writer";
 import { EPISODES, INDEX, INFERRED, UNITS } from "./memory-files";
 import {
   firstSentenceOf,
@@ -16,6 +22,7 @@ import {
   rowOf,
 } from "./person-now";
 import { readPersonUnits } from "./person-units";
+import { reachOf } from "./reach";
 import { PART_CHARS } from "./read-part";
 import { person } from "./read-person-page";
 import { madeBy, unit as unitFixture } from "./record-fixtures";
@@ -497,16 +504,19 @@ test("now reads only the episode files the index names for them: an earlier line
       file("2026-10-01"),
       line("2026-10-01", "ep_00000000000a", "Lunch", ["person:test-ana"])
     );
-    writeFileSync(
-      file("2026-10-02"),
-      line("2026-10-02", "ep_00000000000b", "Errands", [])
-    );
     // The lunch read again a day later, now a walk too: its latest line.
     writeFileSync(
       file("2026-10-03"),
       line("2026-10-01", "ep_00000000000a", "Lunch, then a walk", [
         "person:test-ana",
-      ])
+      ]) +
+        // A coffee she was in until its latest line, read a day later, left her out.
+        line("2026-10-03", "ep_00000000000c", "Coffee", [])
+    );
+    writeFileSync(
+      file("2026-10-02"),
+      line("2026-10-02", "ep_00000000000b", "Errands", []) +
+        line("2026-10-02", "ep_00000000000c", "Coffee", ["person:test-ana"])
     );
     await reindex();
     // A day of no episode of hers, unreadable: reading it would throw.
@@ -517,7 +527,78 @@ test("now reads only the episode files the index names for them: an earlier line
     expect(now.episodes.flatMap((m) => m.titles)).toEqual([
       "Lunch, then a walk",
     ]);
+    // An index from before `episode_people`: the read still answers (every episode read), and the index is stale.
+    const db = new Database(INDEX);
+    db.run("drop table episode_people");
+    db.close();
+    writeFileSync(
+      file("2026-10-02"),
+      line("2026-10-02", "ep_00000000000b", "Errands", [])
+    );
+    const old = (await person("Test Ana")) as typeof now;
+    expect(old.episodes.flatMap((m) => m.titles)).toEqual([
+      "Lunch, then a walk",
+    ]);
+    expect(readStaleness()).toBe("index");
   } finally {
     rmSync(EPISODES, { force: true, recursive: true });
   }
+});
+
+test("reach keeps to its room with long Contacts labels; every account it has no room for is in details; an organization's four addresses all show", () => {
+  const phones = Array.from(
+    { length: 40 },
+    (_, n) => `+336000001${String(n).padStart(2, "0")}`
+  );
+  const label = "A very long Contacts label for this number ".repeat(4);
+  const reach = reachOf({
+    cards: [
+      {
+        addresses: [],
+        birthday: null,
+        handles: phones,
+        id: "card-many",
+        labels: Object.fromEntries(phones.map((p) => [p, label])),
+        name: "Test Ana",
+        profiles: [],
+        related: [],
+        work: null,
+      },
+    ],
+    seen: [],
+  });
+  const now = personNowOf({
+    communicationStyle: [],
+    details: [],
+    episodes: [],
+    knows: [],
+    matters: [],
+    reach,
+    row: row("person:test-ana"),
+    situation: [],
+    today: "2026-03-10",
+  });
+  expect(JSON.stringify(now).length).toBeLessThanOrEqual(PART_CHARS);
+  const inReach = new Set(
+    now.reach.flatMap((r) => r.accounts.map((a) => a.handle))
+  );
+  const inDetails = now.details.map((d) => d.text).join("\n");
+  for (const phone of phones) {
+    expect(inReach.has(phone) || inDetails.includes(phone)).toBe(true);
+  }
+  expect(inReach.size).toBeLessThan(phones.length);
+  const mails = ["a", "b", "c", "d"].map((x) => `${x}@bakery.example.test`);
+  const org = reachOf({
+    cards: [],
+    party: { handles: { email: mails, phone: [], whatsapp: [] } },
+    seen: [],
+  });
+  expect(
+    personNowOf({
+      ...now,
+      ...inputsOf(now),
+      matters: [],
+      reach: org,
+    }).reach.flatMap((r) => r.accounts.map((a) => a.handle))
+  ).toEqual(mails);
 });

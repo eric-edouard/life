@@ -233,7 +233,7 @@ export async function search(words: string, o: DayRange = {}) {
   );
   const situations = await readSituationsOf(
     words,
-    new Set(all.map((m) => m.id)),
+    all,
     new Set(found.map((m) => m.id)),
     !(o.from || o.to)
   );
@@ -277,15 +277,15 @@ export async function search(words: string, o: DayRange = {}) {
 /**
  * The situations a search opens with, so its hits are read knowing where things stand: whole, those of the people
  * `words` name (him aside), else his own when the search is about now (`isNow`: no days bound it); then, from every
- * other situation, the lines citing an episode the search shows (`shown`). `live`: the episodes there are.
+ * other situation, the lines citing an episode the search shows (`shown`). `episodes`: those there are.
  */
 export async function readSituationsOf(
   words: string,
-  live: ReadonlySet<string>,
+  episodes: Parameters<typeof readSituationNow>[1],
   shown: ReadonlySet<string>,
   isNow: boolean
 ) {
-  const { names, nameOf, truth } = await readPeople();
+  const { names, nameOf, refOf, truth } = await readPeople();
   const aliases = (ref: string) =>
     directoryPartiesOf(truth).find((p) => `person:${p.id}` === ref)?.aliases ??
     [];
@@ -301,14 +301,14 @@ export async function readSituationsOf(
       : `Situation with ${nameOf(ref)}`;
   return [
     ...whole.flatMap((ref) =>
-      situationBlock(title(ref), readSituationNow(ref, live))
+      situationBlock(title(ref), readSituationNow(ref, episodes, refOf))
     ),
     ...refs
       .filter((ref) => !whole.includes(ref))
       .flatMap((ref) =>
         situationBlock(
           `${title(ref)}, on the episodes below`,
-          readSituationNow(ref, live).filter((l) =>
+          readSituationNow(ref, episodes, refOf).filter((l) =>
             l.cites.some((id) => shown.has(id))
           )
         )

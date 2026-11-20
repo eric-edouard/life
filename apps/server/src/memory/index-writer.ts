@@ -73,11 +73,11 @@ function retirement(o: Observation, statusInputs: ObservationStatusInputs) {
   return s.state === "retired" ? s : null;
 }
 
-/** An episode line, the day of the file holding it, and who it is with as of today: `episode_people`'s rows. */
-interface EpisodeFileLine {
+/** `episode_people`'s rows: who a standing episode is with as of today, once for each day file holding a line of it. */
+interface EpisodePerson {
   day: string;
-  line: Episode;
-  people: string[];
+  episode: string;
+  person: string;
 }
 
 /** A unit and its verdict, as the index holds them. */
@@ -180,7 +180,7 @@ export function buildIndex(
   builtAt = clock(),
   episodes: Episode[] = [],
   summaries: HeldSummary[] = [],
-  episodeLines: EpisodeFileLine[] = []
+  episodePeople: EpisodePerson[] = []
 ) {
   const unique = new Map(observations.map((o) => [o.id, o]));
   writeIndex(path, (db) => {
@@ -198,10 +198,8 @@ export function buildIndex(
     const hash = insertInto(db, "search_hashes", 2);
     const textRow = insertInto(db, "searched_texts", 3);
     const episodePerson = insertInto(db, "episode_people", 3);
-    for (const { day, line, people } of episodeLines) {
-      for (const person of people) {
-        episodePerson.run(line.id, person, day);
-      }
+    for (const { day, episode, person } of episodePeople) {
+      episodePerson.run(episode, person, day);
     }
     for (const episode of episodes) {
       const words = episodeTextNow(episode);
@@ -270,6 +268,23 @@ export function readSearchedTexts(db: Database): boolean {
   return hasIndex && wholePassages;
 }
 
+/**
+ * `episode_people`: each standing episode's people as its latest line has them (`episodesNow`), read as of today, on
+ * every day file holding a line of it (its earlier lines add their units). Pure.
+ */
+const episodePeopleOf = (
+  episodes: readonly Episode[],
+  files: readonly { day: string; line: Pick<Episode, "id"> }[],
+  refOf: (ref: string) => string
+): EpisodePerson[] => {
+  const days = Map.groupBy(files, (x) => x.line.id);
+  return episodes.flatMap((m) =>
+    [...new Set(days.get(m.id)?.map((x) => x.day))].flatMap((day) =>
+      m.people.map((p) => ({ day, episode: m.id, person: refOf(p.ref) }))
+    )
+  );
+};
+
 /** Rebuilds the index from the ledger and the units; what the owner said is wrong or unimportant is not searchable. */
 export async function reindex() {
   const at = clock();
@@ -278,18 +293,16 @@ export async function reindex() {
   const { observations, statusInputs: computed } =
     await observationsNow(people);
   const statusInputs = await forReaders(computed);
+  const episodes = await episodesWhere(() => true);
   const n = buildIndex(
     observations,
     INDEX,
     statusInputs,
     units,
     at,
-    await episodesWhere(() => true),
+    episodes,
     await currentSummaries(),
-    (await readEpisodeFiles()).map((x) => ({
-      ...x,
-      people: x.line.people.map((p) => people.refOf(p.ref)),
-    }))
+    episodePeopleOf(episodes, await readEpisodeFiles(), people.refOf)
   );
   // On stderr: the app reads a command's stdout as its answer, and the first command after an update may rebuild.
   console.error(
@@ -343,6 +356,8 @@ export function readStaleness(path = INDEX): "truth" | "index" | null {
       db.query("select subject from observation_subjects limit 0").all();
       // One built before the units held their items a day (`source-use.ts`).
       db.query("select items from units limit 0").all();
+      // One built before a person's episodes were indexed (`readEpisodesWith`).
+      db.query("select episode from episode_people limit 0").all();
     } finally {
       db.close();
     }

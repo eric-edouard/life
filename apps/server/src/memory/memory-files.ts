@@ -805,29 +805,6 @@ export const episodesWhere = async (keep: (m: Episode) => boolean) => {
     .toSorted((a, b) => daysOf(a)[0].localeCompare(daysOf(b)[0]));
 };
 
-/**
- * The episodes with `ref` as they stand, oldest first, a bounded read: the index names the day files holding a line of
- * one of theirs (`episode_people`), and only those are read; `refOf` reads each episode's people as of today.
- */
-export async function readEpisodesWith(
-  ref: string,
-  refOf: (ref: string) => string
-) {
-  const days =
-    readIndex((db) =>
-      db
-        .query<{ day: string }, [string]>(
-          "select distinct day from episode_people where episode in (select episode from episode_people where person = ?)"
-        )
-        .all(ref)
-        .map((r) => r.day)
-    ) ?? [];
-  const lines = (await readEpisodeFiles(days.toSorted())).map((x) => x.line);
-  return episodesNow(lines, readCorrections())
-    .filter((m) => m.people.some((p) => refOf(p.ref) === ref))
-    .toSorted((a, b) => daysOf(a)[0].localeCompare(daysOf(b)[0]));
-}
-
 /** Commits the given paths of the data repo (only those that exist), with a plain message. Nothing to commit is fine. */
 export function commitMemory(all: string[], message: string) {
   const dir = OWNER_DATA_DIR;

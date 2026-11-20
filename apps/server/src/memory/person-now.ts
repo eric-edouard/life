@@ -86,10 +86,31 @@ export const peopleListOf = (rows: PersonRow[]) =>
       a.name.localeCompare(b.name)
   );
 
-/** A detail as `now` gives it: a birthday with its next date, the days left and the age then. */
-export type DetailNow = DetailLine & {
+/** A detail as `now` gives it: a birthday with its next date, the days left and the age then; an account reach had no room for (`reach`). */
+export type DetailNow = Omit<DetailLine, "from"> & {
+  from: DetailLine["from"] | "reach";
   next?: ReturnType<typeof nextBirthday>;
 };
+
+/** Reach's room in `now`: what does not fit goes to `details`. */
+const REACH_CHARS = PART_CHARS / 3;
+
+/** Reach within `REACH_CHARS`, app by app, each app's accounts newest first; `left`, the accounts that did not fit. Pure. */
+function reachWithin(all: Reach[]) {
+  let used = 0;
+  const left: { handle: string; label: string }[] = [];
+  const reach = all.flatMap((r) => {
+    const accounts = r.accounts.filter((a) => {
+      used += JSON.stringify(a).length + 1;
+      if (used > REACH_CHARS) {
+        left.push({ handle: a.handle, label: r.label });
+      }
+      return used <= REACH_CHARS;
+    });
+    return accounts.length > 0 ? [{ ...r, accounts }] : [];
+  });
+  return { left, reach };
+}
 
 /** A part that holds something, as `now` offers it: the ref `fetch` opens and its first sentence. */
 export interface KnownPart {
@@ -125,8 +146,8 @@ export interface NowInputs {
 /**
  * `now`'s lists in the order they keep their room: what doesn't fit is cut from each one's end (episodes the oldest
  * months, matters the least pressing), and `more` counts what each lost (`open`: `read_matters` with them;
- * `episodes`: the `evidence` part). Reach is never cut: it holds at most three accounts an app (`reachOf`), the others
- * left in `details`.
+ * `episodes`: the `evidence` part). Reach is not among them: it keeps to its own room (`reachWithin`), the accounts it
+ * has no room for given in `details`.
  */
 const KEPT_FIRST = [
   "details",
@@ -146,19 +167,27 @@ const KEPT_FIRST = [
  * within `chars` (`PART_CHARS`, less what wraps it): its lists are cut by `KEPT_FIRST`. Pure.
  */
 export function personNowOf(i: NowInputs, chars = PART_CHARS) {
+  const keyOf = (h: string) => contactKeyOf(h) ?? h;
+  const { left, reach } = reachWithin(i.reach);
   const reached = new Set(
-    i.reach.flatMap((r) =>
-      r.accounts.map((a) => contactKeyOf(a.handle) ?? a.handle)
-    )
+    reach.flatMap((r) => r.accounts.map((a) => keyOf(a.handle)))
   );
-  const details: DetailNow[] = i.details
-    .filter(
-      (d) =>
-        d.kind !== "handles" || !reached.has(contactKeyOf(d.text) ?? d.text)
-    )
-    .map((d) =>
-      d.kind === "birthday" ? { ...d, next: nextBirthday(d.text, i.today) } : d
-    );
+  const held = new Set(i.details.map((d) => keyOf(d.text)));
+  const details: DetailNow[] = [
+    ...i.details.filter(
+      (d) => d.kind !== "handles" || !reached.has(keyOf(d.text))
+    ),
+    // An account reach had no room for: a handle here.
+    ...left
+      .filter((a) => !held.has(keyOf(a.handle)))
+      .map((a) => ({
+        from: "reach" as const,
+        kind: "handles" as const,
+        text: `${a.label}: ${a.handle}`,
+      })),
+  ].map((d) =>
+    d.kind === "birthday" ? { ...d, next: nextBirthday(d.text, i.today) } : d
+  );
   const full = {
     ...i.row,
     communicationStyle: i.communicationStyle,
@@ -168,7 +197,7 @@ export function personNowOf(i: NowInputs, chars = PART_CHARS) {
     knows: i.knows,
     open: i.matters,
     ...(i.organization ?? {}),
-    reach: i.reach,
+    reach,
     situation: i.situation,
   };
   const lists = KEPT_FIRST.filter((k) => k in full);

@@ -1,6 +1,7 @@
 import { blockingCountOf } from "../memory/check-urgency";
 import { checksOnMatterOf } from "../memory/checks";
 import type { Check } from "../memory/life-checks";
+import { readLifeIcons } from "../memory/matter-icons";
 import { needsYouOf, openMatters } from "../memory/read-matters";
 import { readPerson } from "../personal/person-parts";
 import { openChecksNow } from "./inbox";
@@ -20,14 +21,16 @@ export const matterRowsNowOf = <
     return { ...m, blockingChecks, needsYou: needsYouOf(m, blockingChecks) };
   });
 
-/** The running matters as rows now (`openMatters`, of one person, project or area when given), over his open checks read once; each with `agentOf`'s agent and `iconsOf`'s icon. */
+/**
+ * The running matters as rows now (`openMatters`, of one person, project or area when given), over his open checks read
+ * once; each with Life's icon (`readLifeIcons`) and `agentOf`'s agent: `read_matters` and a person's read alike.
+ */
 export async function readMatterRowsNow(
   q: Parameters<typeof openMatters>[0] = {},
-  agentOf?: Parameters<typeof openMatters>[1],
-  iconsOf?: Parameters<typeof openMatters>[2]
+  agentOf?: Parameters<typeof openMatters>[1]
 ) {
   const [{ matters }, open] = await Promise.all([
-    openMatters(q, agentOf, iconsOf),
+    openMatters(q, agentOf, readLifeIcons),
     openChecksNow(),
   ]);
   return matterRowsNowOf(matters, open);

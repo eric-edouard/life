@@ -128,20 +128,31 @@ export const chatHeldOf = (list: readonly SourceEvent[]) => {
 };
 
 /**
- * Whether a chat-day or thread is with `ref` alone, by its messages: every other writer (`senders`) reads as them and
- * its key is no group's; on a day only he wrote, it is theirs (`onlyHisWithOf`). The test of the messages themselves:
- * `latest` checks the index by it (which leaves out a mail's senders no one knows), today's `read_chats` with `who`
- * applies it before cutting to the range asked.
+ * Whether a chat-day or thread is with `ref` alone, by its messages: its key is no group's, every other writer Life
+ * knows reads as them, and one it doesn't know only where the chat's own name places them (`oneToOnePersonOf`: never a
+ * mail's subject, so a thread a stranger wrote in is not theirs); on a day only he wrote, it is theirs by
+ * `onlyHisWithOf`. `latest` checks the index by it (which leaves out a mail's senders no one knows), today's
+ * `read_chats` with `who` applies it before cutting to the range asked.
  */
 export function isWithThemAlone(
   o: ChatHeld & { senders: readonly string[] },
   ref: string,
   { refOf, resolve }: Pick<People, "refOf" | "resolve">
 ) {
-  return o.senders.length > 0
-    ? isDirect(o.source, o.chat, 1) &&
-        o.senders.every((h) => refOf(`${UNKNOWN}${h}`, o.source) === ref)
-    : onlyHisWithOf(o, resolve) === ref;
+  if (o.senders.length === 0) {
+    return onlyHisWithOf(o, resolve) === ref;
+  }
+  const strangers = new Set(
+    o.senders
+      .map((h) => refOf(`${UNKNOWN}${h}`, o.source))
+      .filter((r) => r !== ref)
+  );
+  return (
+    isDirect(o.source, o.chat, 1) &&
+    [...strangers].every((r) => r.startsWith(UNKNOWN)) &&
+    (strangers.size === 0 ||
+      oneToOnePersonOf({ ...o, others: strangers }, resolve) === ref)
+  );
 }
 
 /** How many of a person's newest chat-days are read to find one that is 1:1 (the index can't tell a group). */

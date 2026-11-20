@@ -45,14 +45,27 @@ const readSituation = (ref: string) => {
 };
 
 /**
- * A situation's lines a reader may show: those whose every cited episode is still live (`episodesNow`), and only when
- * it was made by the prompt variant the add-ons choose now, so switching one hides what it wrote at once (the next night
- * rebuilds it, `situationInputOf`).
+ * A situation's lines a reader may show (search and a person's read alike): those whose every cited episode stands
+ * among `episodes` (`episodesNow`) and, for anyone but him, is still with them (`refOf` reads its people as of today;
+ * his episodes leave him out of their people, so his own may cite any), and only when it was made by the prompt
+ * variant the add-ons choose now, so switching one hides what it wrote at once (the next night rebuilds it,
+ * `situationInputOf`).
  */
 const situationNameNow = (mayKeep = readMayKeep()) =>
   promptNameOf(SITUATION_PROMPT, mayKeep === undefined ? [] : [MAY_KEEP]);
 
-export const readSituationNow = (ref: string, live: ReadonlySet<string>) => {
+export const readSituationNow = (
+  ref: string,
+  episodes: readonly { id: string; people: readonly { ref: string }[] }[],
+  refOf: (ref: string) => string
+) => {
+  const live = new Set(
+    episodes
+      .filter(
+        (m) => ref === OWNER || m.people.some((p) => refOf(p.ref) === ref)
+      )
+      .map((m) => m.id)
+  );
   const situation = readSituation(ref);
   return situation?.madeBy.prompt === situationNameNow()
     ? situation.lines.filter((l) => l.cites.every((id) => live.has(id)))

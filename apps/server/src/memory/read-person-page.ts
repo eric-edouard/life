@@ -19,9 +19,10 @@ import {
   section,
   withIndex,
 } from "./index-rows";
-import { daysOf, pagePath, readEpisodesWith } from "./memory-files";
+import { daysOf, episodesWhere, pagePath } from "./memory-files";
 import { slugOf } from "./page-format";
 import { episodeTitlesOf } from "./person-episode-titles";
+import { readEpisodesWith } from "./person-episodes";
 import {
   isIn,
   isOnTheList,
@@ -255,8 +256,6 @@ export async function person(
   const mapped = truth.people.find((p) => p.id === id);
   const lifelog = mapped?.handles.lifelog;
   const episodes = await readEpisodesWith(ref, refOf);
-  // A situation cites episodes with them: those still standing are theirs.
-  const live = new Set(episodes.map((m) => m.id));
   // What each part needs, read before the index opens (nothing awaits while it is).
   const isNow = part === "now" && !!partRef;
   // `now` builds only the parts it offers a preview of (`knows`).
@@ -272,7 +271,13 @@ export async function person(
   }
   const personalOf = (p: string) => built[asked.indexOf(p)];
   const gathered = isNow
-    ? nowGathered(ref, folks, await matters(), live)
+    ? nowGathered(
+        ref,
+        folks,
+        await matters(),
+        // His own situation may cite any episode (his leave him out of their people); anyone else's, theirs.
+        ref === OWNER ? await episodesWhere(() => true) : episodes
+      )
     : undefined;
   return withStore((store) => {
     // A name on no page nor directory entry: the lifelog speakers it is part of.
@@ -373,7 +378,7 @@ function nowGathered(
   ref: string,
   people: People,
   matters: MatterRowNow[],
-  live: ReadonlySet<string>
+  standing: Parameters<typeof readSituationNow>[1]
 ) {
   const { truth } = people;
   const row = rowOf(
@@ -417,7 +422,7 @@ function nowGathered(
           : {}),
         reach,
         row,
-        situation: readSituationNow(ref, live),
+        situation: readSituationNow(ref, standing, people.refOf),
         today: dayNow(),
       },
       chars
