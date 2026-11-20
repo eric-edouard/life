@@ -79,7 +79,7 @@ export interface TurnRow {
   /** When its runtime reported it under way; null before, and for turns older than the column. */
   begun_at: string | null;
   cause: string;
-  /** The context of its last call, in tokens (`growthOf`); null when its runtime gave none. */
+  /** The context of its last call, in tokens, kept as a record (no decision reads it); null when its runtime gave none. */
   context_used: number | null;
   ended_at: string | null;
   heard_at: string | null;
