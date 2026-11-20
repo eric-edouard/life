@@ -630,7 +630,10 @@
                     context: "Sam called the voice “Jun” twice in the same minute.",
                     extra: [
                         "likelyPeople": [
-                            ["name": "Idris Benali", "person": "person:idris", "line": "Supplier, kitchen quote"]
+                            [
+                                "ref": "person:idris", "name": "Idris Benali", "kind": "person",
+                                "line": "Supplier, kitchen quote",
+                            ]
                         ],
                         "clips": [
                             clip(
@@ -649,10 +652,13 @@
                         "contactsCard": ["name": "Marc", "handles": ["+33 6 39 98 02 14"]],
                         "likelyPeople": [
                             [
-                                "name": "Marc Delmas", "person": "person:marc",
+                                "ref": "person:marc", "name": "Marc Delmas", "kind": "person",
                                 "line": "Fitter, works with Idris Benali",
                             ],
-                            ["name": "Marc Fenn", "person": "person:marc_fenn", "line": "Camille’s brother"],
+                            [
+                                "ref": "person:marc_fenn", "name": "Marc Fenn", "kind": "person",
+                                "line": "Camille’s brother",
+                            ],
                         ],
                     ]),
                 guess("guess_idris", name: "Idris Benali", handle: "Idris B.", matter: kitchen),
@@ -699,8 +705,8 @@
                     extra: [
                         "evidence": ["from": "WhatsApp, Mon 9 Nov", "quote": "Cam: on se voit samedi au marché ?"],
                         "likelyPeople": [
-                            ["name": "Idris Benali", "person": "person:idris"],
-                            ["name": "Nora Keller", "person": "person:nora"],
+                            ["ref": "person:idris", "name": "Idris Benali", "kind": "person"],
+                            ["ref": "person:nora", "name": "Nora Keller", "kind": "person"],
                         ],
                     ]),
                 check(
@@ -758,6 +764,11 @@
                 people: ["waitingOn": ["Jun Watanabe"], "with": ["Priya Nair"]], opened: 15),
         ]
 
+        /// A made-up party, its ref from its name.
+        private static func party(_ name: String) -> [String: Any] {
+            ["ref": "person:" + name.lowercased().replacing(" ", with: "_"), "name": name, "kind": "person"]
+        }
+
         private static func row(
             _ id: String, _ name: String, status: String, goal: String, next: (String, String), waitsOn: String? = nil,
             areas: [String], people: [String: [String]], agent: String? = nil, opened: Int
@@ -767,7 +778,7 @@
             var row: [String: Any] = [
                 "id": id, "name": name, "status": status, "goal": ["by": "life", "text": goal], "nextStep": step,
                 "areas": areas,
-                "people": people, "lastStepAt": at(18, 14, 2), "openedDaysAgo": opened,
+                "people": people.mapValues { $0.map(party) }, "lastStepAt": at(18, 14, 2), "openedDaysAgo": opened,
                 "needsYou": status != "stuck" && ["wait_decision", "wait_owner"].contains(next.0),
             ]
             if let agent { row["agent"] = agent }
@@ -784,15 +795,15 @@
                 "wait": ["isDefault": false, "reason": "Hélène sends the signed lease.", "until": at(21, 18)],
                 "statusSince": at(19, 14, 2),
                 "wakesOn": [
-                    ["kind": "message", "person": "Hélène Aubert", "calls": true],
-                    ["kind": "message", "person": "Camille Vidal", "calls": true, "apps": ["whatsapp"]],
+                    ["kind": "message", "personAsWritten": "Hélène Aubert", "calls": true],
+                    ["kind": "message", "personAsWritten": "Camille Vidal", "calls": true, "apps": ["whatsapp"]],
                     [
                         "kind": "message", "calls": true, "apps": ["whatsapp"],
                         "chat": ["name": "Carmes building", "app": "whatsapp", "group": true],
                     ],
-                    ["kind": "message", "person": "Léa Marchetti", "calls": true, "broken": "unknown_person"],
+                    ["kind": "message", "personAsWritten": "Léa Marchetti", "calls": true, "broken": "unknown_person"],
                     ["kind": "message", "calls": true, "chat": ["name": NSNull(), "app": "line", "group": NSNull()]],
-                    ["kind": "message", "person": "Hélène Aubert", "words": "bail", "calls": false],
+                    ["kind": "message", "personAsWritten": "Hélène Aubert", "words": "bail", "calls": false],
                     ["kind": "message", "words": "devis", "calls": false, "apps": ["mail"]],
                     [
                         "kind": "message", "fromHim": true, "calls": false,
@@ -810,7 +821,7 @@
                 "wait": ["isDefault": true, "reason": "a message", "until": at(20, 18)],
                 "statusSince": at(19, 14, 2),
                 "wakesOn": [
-                    ["kind": "message", "person": "Idris Benali", "calls": true],
+                    ["kind": "message", "personAsWritten": "Idris Benali", "calls": true],
                     ["kind": "message", "words": "devis", "calls": false, "apps": ["mail"]],
                     ["kind": "payments", "quantity": "eur_out", "above": 500],
                     ["kind": "places", "where": "Halden house"],
@@ -853,7 +864,7 @@
                     "ref": ref, "at": at(day, hour), "day": "2026-11-\(day)", "kind": kind, "text": text,
                     "quote": quote,
                 ]
-                if let with { step["with"] = with }
+                if let with { step["with"] = party(with) }
                 if ended { step["ending"] = ["at": at(day, hour + 1), "by": "ticked"] }
                 return step
             }

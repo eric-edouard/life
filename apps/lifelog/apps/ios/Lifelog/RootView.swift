@@ -108,6 +108,7 @@ struct RootView: View {
             switch route {
             case .card(let pushId): Task { await life.open(pushId: pushId) }
             case .inbox: Task { await life.refreshInbox() }
+            case .removed: break  // A background push: never shown, never tapped.
             }
         }
     }

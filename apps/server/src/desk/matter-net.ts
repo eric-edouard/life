@@ -10,7 +10,6 @@ import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
 import {
   endedStepsOf,
   isRunning,
-  type MatterView,
   matterFinderOf,
   netOf,
 } from "../memory/matter-read";
@@ -76,7 +75,7 @@ export const MATTER_DONE_OUTCOME = "its matter is done";
  */
 export const endOutcomeOf = (
   kind: AgentKind,
-  v: Pick<MatterView, "open" | "status">
+  v: Parameters<typeof isRunning>[0]
 ) => {
   if (v.status === "done") {
     return MATTER_DONE_OUTCOME;

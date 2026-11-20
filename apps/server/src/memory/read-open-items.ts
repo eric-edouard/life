@@ -81,6 +81,7 @@ export const matterItems = (
     const people = matterPeopleOf(v);
     const item = {
       id: v.id,
+      important: v.important,
       people,
       priority: open.find((s) => s.priority)?.priority,
       projects: v.projects,
@@ -202,8 +203,9 @@ export const rankContextOf = (people: People) => ({
 });
 
 /**
- * The running matters in the order the rank gives their open step (`matterItems`, `rankedItems`: his urgent flag and
- * priority, overdue first, kind, his goals, closeness, then age), those with no open step after them, newest first.
+ * The running matters, those he marked important first, in the order the rank gives their open step (`matterItems`,
+ * `rankedItems`: his urgent flag or mark and priority, overdue first, kind, his goals, closeness, then age), those with
+ * no open step after them, newest first.
  */
 export function rankedMattersOf(
   book: MatterView[],
@@ -220,6 +222,7 @@ export function rankedMattersOf(
   const newest = (v: MatterView) => v.steps.at(-1)?.at ?? "";
   return book.toSorted(
     (a, b) =>
+      Number(!a.important) - Number(!b.important) ||
       (rank.get(a.id) ?? book.length) - (rank.get(b.id) ?? book.length) ||
       newest(b).localeCompare(newest(a))
   );

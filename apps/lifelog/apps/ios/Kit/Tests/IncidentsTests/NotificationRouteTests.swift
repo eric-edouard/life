@@ -14,3 +14,10 @@ import Testing
     #expect(NotificationRoute(userInfo: ["aps": ["thread-id": "life-cards"]]) == .inbox)
     #expect(NotificationRoute(userInfo: ["aps": ["thread-id": "other"]]) == nil)
 }
+
+@Test func cardsThatLeftTheInboxAreRemoved() {
+    let gone: [AnyHashable: Any] = [
+        "aps": ["content-available": 1], "removed": ["9f2c41d07ab35e68", "0123456789abcdef"],
+    ]
+    #expect(NotificationRoute(userInfo: gone) == .removed(["9f2c41d07ab35e68", "0123456789abcdef"]))
+}

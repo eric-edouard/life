@@ -5,6 +5,7 @@ import {
   answerDecision,
   DECISIONS,
   requestDecision,
+  withdrawDraftsAnsweredInChat,
 } from "../memory/decisions";
 import { readPeople } from "../memory/who";
 import type { SourceEvent } from "../records/source";
@@ -12,6 +13,7 @@ import {
   callMatchableOf,
   DECISION_ANSWERED,
   DECISION_LAPSED,
+  DECISION_WITHDRAWN,
   MESSAGE_RECEIVED,
   type Messaging,
   matcherOf,
@@ -325,6 +327,82 @@ test("his answer that sends a card's draft wakes its asker with the send's outco
     expect(answered.events).toMatchObject([
       { data: { id, send: { eventId: "$event1" } } },
     ]);
+  } finally {
+    setSystemTime();
+    rmSync(DECISIONS, { force: true });
+  }
+});
+
+test("a draft card withdrawn because he answered in its chat wakes its asker once, with why; its asker's own withdrawal makes no event", async () => {
+  rmSync(DECISIONS, { force: true });
+  const start = new Date("2026-11-18T09:00:00.000Z");
+  setSystemTime(start);
+  const card = (
+    asker: string,
+    draft?: { channel: "whatsapp"; text: string; to: string }
+  ) =>
+    requestDecision(
+      asker,
+      {
+        deadline: new Date(start.getTime() + 2 * HOUR).toISOString(),
+        ...(draft ? { draft } : {}),
+        onSilence: null,
+        options: [
+          {
+            id: "send",
+            label: "Send it",
+            ...(draft ? { outgoing: true as const } : {}),
+          },
+          { id: "no", label: "Don't" },
+        ],
+        question: "Send Kit this?",
+        title: "Confirm Friday",
+      },
+      start,
+      () =>
+        Promise.resolve({
+          channel: "whatsapp",
+          chat: "155@s.whatsapp.net",
+          text: "Friday works",
+          to: "Kit",
+        })
+    );
+  try {
+    const { id } = await card("planner", {
+      channel: "whatsapp",
+      text: "Friday works",
+      to: "Kit",
+    });
+    const own = await card("atlas");
+    await requestDecision(
+      "atlas",
+      { why: "not needed", withdraw: own.id },
+      start
+    );
+    const poll = (agent: string, cursor: string | null) =>
+      pollEvents({ arguments: {}, cursor, name: DECISION_WITHDRAWN }, agent);
+    const first = await poll("planner", null);
+    const atlas = await poll("atlas", null);
+    const mine = message("whatsapp", {
+      at: new Date(start.getTime() + 60_000).toISOString(),
+      chat: "155@s.whatsapp.net",
+      fromMe: true,
+    });
+    setSystemTime(new Date(start.getTime() + 2 * 60_000));
+    withdrawDraftsAnsweredInChat(undefined, (cards) =>
+      cards.map(({ since }) => [mine].filter((e) => e.at > since.toISOString()))
+    );
+    setSystemTime(new Date(start.getTime() + 3 * 60_000));
+    const withdrawn = await poll("planner", first.cursor);
+    expect(withdrawn.events).toMatchObject([
+      {
+        data: { id, why: "he answered in the chat himself" },
+        eventId: `${id}.withdrawn`,
+        name: DECISION_WITHDRAWN,
+      },
+    ]);
+    expect((await poll("planner", withdrawn.cursor)).events).toEqual([]);
+    expect((await poll("atlas", atlas.cursor)).events).toEqual([]);
   } finally {
     setSystemTime();
     rmSync(DECISIONS, { force: true });

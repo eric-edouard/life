@@ -420,10 +420,13 @@ test("change_registered_agent records his word and answers with what the desk di
       ...made.projects,
       {
         chats: [],
+        deadlines: [],
         id: "test-shop",
         name: "Test shop",
+        notes: "",
         people: [],
         repos: ["test-shop-site"],
+        status: "active",
       },
     ],
   } as never);

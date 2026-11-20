@@ -6,6 +6,7 @@
         "text": "Gran has her watch back"
       },
       "id": "matter_aaaaaaaaaaaa",
+      "important": true,
       "lastStepAt": "2026-10-12T10:00:00.000Z",
       "name": "Mend Gran's watch",
       "newestOpenStep": {
@@ -19,8 +20,29 @@
         "waitsOn": "the shop"
       },
       "people": {
-        "owedTo": ["gran"],
-        "with": ["partner"]
+        "owedTo": [
+          {
+            "kind": "person",
+            "line": "Your grandmother",
+            "name": "Gran",
+            "picture": {
+              "id": "00000000000000000000000000000a02"
+            },
+            "ref": "person:gran"
+          }
+        ],
+        "with": [
+          {
+            "kind": "person",
+            "name": "Robin",
+            "ref": "person:partner"
+          }
+        ]
+      },
+      "project": {
+        "id": "shop-fit-out",
+        "name": "Shop fit-out",
+        "status": "active"
       },
       "projects": ["Shop fit-out"],
       "status": "moving",

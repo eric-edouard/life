@@ -195,3 +195,39 @@ test("his word on one step closes that step alone: a step a link ended still wai
     await endByHisWord(openStepsOf(matter as never, "obs_000000000003"), "x")
   ).toEqual([]);
 });
+
+// His important mark (20 Nov 2026): his word only, by a matter's id; the line written is the new state, for his toast.
+test("his important mark by a matter's id is pinned to every step and answers with the new state; an agent, or no matter id, is refused", async () => {
+  const mark = (important: boolean, id?: string) => ({
+    correction: { important, kind: "matter-important", matter: id },
+    kind: "memory" as const,
+  });
+  expect(await correct(mark(true, matter.id))).toMatchObject({
+    done: [{ important: true, kind: "matter-important" }],
+  });
+  // Undo is the opposite word.
+  expect(await correct(mark(false, matter.id))).toMatchObject({
+    done: [{ important: false }],
+  });
+  expect(readCorrections()).toMatchObject([
+    { important: true, steps: matter.steps.map((s) => s.ref) },
+    { important: false, steps: matter.steps.map((s) => s.ref) },
+  ]);
+  await expect(
+    correct(mark(true, matter.id), "agt_000000000001")
+  ).rejects.toThrow("an agent's words are not his");
+  // Pinned straight to steps, by an agent or by him: refused, never recorded.
+  const bySteps = {
+    correction: {
+      important: true,
+      kind: "matter-important",
+      steps: ["obs_000000000001"],
+    },
+    kind: "memory" as const,
+  };
+  await expect(correct(bySteps, "agt_000000000001")).rejects.toThrow(
+    "an agent's words are not his"
+  );
+  await expect(correct(bySteps)).rejects.toThrow("give a matter's id");
+  expect(readCorrections()).toHaveLength(2);
+});

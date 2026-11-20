@@ -9,7 +9,6 @@ import {
   decisionOnIdleMatterOf,
   heldByTwoOf,
   lastNeedsYouOf,
-  needsYouCountOf,
   needsYouRowOf,
   splitAnchorsOf,
   stoppedOnRunningOf,
@@ -167,24 +166,6 @@ test("coverage counts the matters to do and those an active agent holds, then na
       relation: "1: Matter r",
     },
   ]);
-});
-
-test("the number counts the running matters that need him, from their next step, an open decision or a blocking check", () => {
-  const owner = matter("o", { nextStep: { kind: "wait_owner" } as never });
-  const stuck = matter("s", {
-    nextStep: { kind: "wait_owner" } as never,
-    status: "stuck",
-  });
-  const ruled = matter("r");
-  const blocked = matter("k");
-  const decisions = [{ question: "Which?", subject: "obs_r" }];
-  expect(
-    needsYouCountOf(
-      [owner, stuck, ruled, blocked, matter("n")],
-      decisions,
-      (id) => (id === "k" ? 1 : 0)
-    )
-  ).toBe(3);
 });
 
 test("the number's row shows last night's only when one was written", () => {

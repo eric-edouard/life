@@ -1,0 +1,38 @@
+{
+  "asker": {
+    "name": "planner",
+    "told": "on_its_next_poll"
+  },
+  "changed": {
+    "decision": "dec_000000000001",
+    "options": ["paid"],
+    "state": "answered"
+  },
+  "done": [
+    {
+      "answerKey": "tap-1",
+      "at": "2026-11-18T10:00:00.000Z",
+      "id": "dec_000000000001",
+      "kind": "answered",
+      "options": ["paid"],
+      "schemaVersion": 3,
+      "via": "connector"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "eventId": "payments:p1",
+      "id": "dec_000000000001",
+      "kind": "done-seen",
+      "schemaVersion": 3,
+      "state": "seen"
+    }
+  ],
+  "doneSeen": {
+    "line": "Paid: Life saw it in your accounts",
+    "state": "seen"
+  },
+  "kind": "decision",
+  "ref": "dec_000000000001",
+  "send": null,
+  "start": null
+}

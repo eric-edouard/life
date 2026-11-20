@@ -7,7 +7,7 @@ import { agentKindOf, agentOf } from "../host/desk-read";
 import { EVENT_CHANNELS } from "../host/event-channels";
 import { DOOR_PORT, text } from "../host/http/http";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
-import { CARD, DecisionRequest } from "../memory/decisions";
+import { CARD, DecisionRequest } from "../memory/card-request";
 import { AgentWait } from "../records/registered-agent";
 import {
   askDecision,
@@ -73,7 +73,7 @@ function doorServer(desk: Desk, id: string) {
     );
   door(
     "set_wait",
-    `Set what you wait for before you stop: \`events\` (filters on new messages, any one matching wakes you: \`person\`, \`channels\`, \`chat\`, \`from_me\`, \`text_matches\`, a regular expression on the text, any case, 200 characters at most: keep it to plain words, such as \`zort|invitation\`; a filter with only \`text_matches\` matches a message from anyone but him), \`until\` (5 minutes to 7 days ahead, ISO), \`reason\`. The desk wakes you at \`until\`, on a matching message, on a call that ended in a chat or with a person a filter names, or on his answer to your decision. A wake names the message, never its text: read it yourself. Other channels wake you only when a filter names them: ${EVENT_CHANNELS.map((c) => `\`${c.name}\` (${c.quantities.length ? `quantities ${c.quantities.map((q) => `\`${q}\``).join(", ")}; ` : ""}${c.about})`).join(", ")}. \`quantity\` with \`above\` and/or \`below\` compares. A channel that is off or unknown is refused. A wake hands facts and quantities, never text.`,
+    `Set what you wait for before you stop: \`events\` (filters on new messages, any one matching wakes you: \`person\`, \`channels\`, \`chat\`, \`from_me\`, \`text_matches\`, a regular expression on the text, any case, 200 characters at most: keep it to plain words, such as \`zort|invitation\`; a filter with only \`text_matches\` matches a message from anyone but him), \`until\` (5 minutes to 7 days ahead, ISO), \`reason\`. The desk wakes you at \`until\`, on a matching message, on a call that ended in a chat or with a person a filter names, on his answer to your decision, or on its withdrawal when he answered in its draft's chat himself (read the chat again). A wake names the message, never its text: read it yourself. Other channels wake you only when a filter names them: ${EVENT_CHANNELS.map((c) => `\`${c.name}\` (${c.quantities.length ? `quantities ${c.quantities.map((q) => `\`${q}\``).join(", ")}; ` : ""}${c.about})`).join(", ")}. \`quantity\` with \`above\` and/or \`below\` compares. A channel that is off or unknown is refused. A wake hands facts and quantities, never text.`,
     AgentWait,
     (w) => setWait(desk, id, w)
   );
@@ -97,7 +97,7 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "read_packet",
-    "Your brief, your notes, the events waiting for you and your open decision.",
+    "Your subject (your matter or your project), your project's context (its line, his notes, its other running matters), your brief, your notes, the events waiting for you and your open decision.",
     z.object({}),
     () => readPacket(desk, id, isOwnLife())
   );

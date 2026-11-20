@@ -19,6 +19,7 @@ import {
 import {
   CALL_ENDED,
   callMatchableOf,
+  DECISION_EVENTS,
   MESSAGE_RECEIVED,
   matcherOf,
   messageMatchableOf,
@@ -35,7 +36,6 @@ import { recordingsOf } from "../sources/lifelog-speech";
 import { endAgent, readPacket, stopOpenRun } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import {
-  ANSWERS,
   BEGIN_WITHIN_MS,
   defaultWaitOf,
   eventLineOf,
@@ -232,12 +232,12 @@ export async function endAgentsOnOverMatters(
 }
 
 /**
- * Queues his answers to the agents' decisions, and their lapses, for the active agent that asked each, in the
+ * Queues his answers to the agents' decisions, their lapses and their withdrawals (he answered in the chat), for the active agent that asked each, in the
  * transaction that saves each cursor: read through `pollDecisions`, as the desk (every registered agent asks as it).
  */
 export function pollAnswers({ db }: Desk) {
   const active = new Set(activeAgents(db).map((a) => a.id));
-  const reads = ANSWERS.map((name) => ({
+  const reads = DECISION_EVENTS.map((name) => ({
     name,
     read: pollDecisions(name, readCursor(db, name), DESK_AGENT),
   }));

@@ -4,6 +4,7 @@
     "text": "Gran has her watch back"
   },
   "id": "matter_aaaaaaaaaaaa",
+  "important": true,
   "lastStepAt": "2026-10-12T10:00:00.000Z",
   "name": "Mend Gran's watch",
   "newestOpenStep": {
@@ -17,8 +18,29 @@
     "waitsOn": "the shop"
   },
   "people": {
-    "owedTo": ["gran"],
-    "with": ["partner"]
+    "owedTo": [
+      {
+        "kind": "person",
+        "line": "Your grandmother",
+        "name": "Gran",
+        "picture": {
+          "id": "00000000000000000000000000000a02"
+        },
+        "ref": "person:gran"
+      }
+    ],
+    "with": [
+      {
+        "kind": "person",
+        "name": "Robin",
+        "ref": "person:partner"
+      }
+    ]
+  },
+  "project": {
+    "id": "shop-fit-out",
+    "name": "Shop fit-out",
+    "status": "active"
   },
   "projects": ["Shop fit-out"],
   "status": "moving",
@@ -77,7 +99,16 @@
         {
           "calls": true,
           "kind": "message",
-          "person": "Gran"
+          "party": {
+            "kind": "person",
+            "line": "Your grandmother",
+            "name": "Gran",
+            "picture": {
+              "id": "00000000000000000000000000000a02"
+            },
+            "ref": "person:gran"
+          },
+          "personAsWritten": "Gran"
         },
         {
           "apps": ["whatsapp"],
@@ -93,7 +124,7 @@
           "broken": "unknown_person",
           "calls": true,
           "kind": "message",
-          "person": "Kit"
+          "personAsWritten": "Kit"
         },
         {
           "calls": false,
@@ -148,10 +179,15 @@
         "at": "2026-10-14T10:00:00.000Z",
         "by": "ticked"
       },
-      "with": "partner"
+      "with": {
+        "kind": "person",
+        "name": "Robin",
+        "ref": "person:partner"
+      }
     }
   ],
   "blockingChecks": 1,
+  "needsYou": true,
   "checks": [
     {
       "said": null,
@@ -186,14 +222,18 @@
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
-      "notSent": null,
       "onMatters": [
         {
           "id": "matter_aaaaaaaaaaaa",
+          "important": true,
           "name": "Mend Gran's watch"
         }
       ],
       "onSilence": "no",
+      "doneSeen": null,
+      "doneSeenBy": "tap",
+      "needs": [],
+      "notSent": null,
       "options": [
         {
           "id": "yes",
@@ -219,6 +259,7 @@
       "title": "Kit is waiting for the quote.",
       "matter": {
         "id": "matter_aaaaaaaaaaaa",
+        "important": true,
         "name": "Mend Gran's watch"
       },
       "confirm": [
@@ -283,7 +324,13 @@
               "text": "Kit here, from the shop"
             },
             "openUrl": "https://wa.me/33600000001",
-            "shownName": "Kit Watches"
+            "shownName": "Kit Watches",
+            "party": {
+              "kind": "person",
+              "line": "the watchmaker",
+              "name": "Kit",
+              "ref": "person:inf_kit"
+            }
           }
         }
       ],
@@ -293,7 +340,13 @@
         "network": "WhatsApp",
         "newest": null,
         "openUrl": "https://wa.me/33600000001",
-        "shownName": "Kit"
+        "shownName": "Kit",
+        "party": {
+          "kind": "person",
+          "line": "the watchmaker",
+          "name": "Kit",
+          "ref": "person:inf_kit"
+        }
       },
       "pushId": "a23260946067d0fe",
       "urgency": "blocks"
@@ -319,6 +372,7 @@
       "onMatters": [
         {
           "id": "matter_aaaaaaaaaaaa",
+          "important": true,
           "name": "Mend Gran's watch"
         }
       ],
@@ -361,6 +415,7 @@
       "title": "Close what is done",
       "matter": {
         "id": "matter_aaaaaaaaaaaa",
+        "important": true,
         "name": "Mend Gran's watch"
       },
       "confirm": [],
@@ -368,6 +423,5 @@
       "pushId": "c84c34823f7fa7b0",
       "urgency": "improves"
     }
-  ],
-  "needsYou": true
+  ]
 }

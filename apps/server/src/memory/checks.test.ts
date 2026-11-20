@@ -357,7 +357,7 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   expect(byRef("voice:v1")?.about).toEqual(["Kofi"]);
   expect(byRef("voice:v2")?.question).toBe("Who is this?");
   expect(byRef("voice:v2")?.likelyPeople).toEqual([
-    { line: null, name: "Dana", person: "person:dana" },
+    { kind: "person", name: "Dana", ref: "person:dana" },
   ]);
   expect(byRef("voice:v2")?.clips[0]?.audio).toEqual({
     end: 4,

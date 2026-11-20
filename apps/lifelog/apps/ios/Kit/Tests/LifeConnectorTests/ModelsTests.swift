@@ -13,11 +13,12 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 /// there first, then here, naming the model.
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 7)
-    #expect(inbox.blocking == 4)
-    #expect(inbox.badge == 4)
-    #expect(inbox.counts.values.reduce(0, +) == 7)
-    #expect(inbox.checks.map(\.urgency) == [.blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves])
+    #expect(inbox.total == 8)
+    #expect(inbox.blocking == 5)
+    #expect(inbox.badge == 5)
+    #expect(inbox.counts.values.reduce(0, +) == 8)
+    #expect(
+        inbox.checks.map(\.urgency) == [.blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
     #expect(decision.options.first?.outgoing == true)
@@ -36,6 +37,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.networkIdentity?.network == "WhatsApp")
     #expect(decision.networkIdentity?.newest == nil)
     #expect(decision.ridesOn?.matters == 1)
+    // A transfer (the asks contract): its needs in the agent's order, each with Life's line; Life's look found nothing yet.
+    let transfer = inbox.checks[1]
+    #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .unknown])
+    #expect(transfer.needs?.map { $0.rows.count } == [3, 1, 1, 1, 1])
+    #expect(transfer.needs?.last?.rows == [NeedRow(glyph: .note, text: "QR code from Reef's WhatsApp of 14 Oct")])
+    #expect(transfer.doneSeen == Check.DoneSeen(state: .notFound, line: "Not in your accounts yet"))
+    #expect(transfer.options.map(\.takes) == [nil, .note, nil])
 
     #expect(inbox.checks.map(\.group).contains(.newMatter))
     let voice = try #require(inbox.checks.first { $0.group == .voice })
@@ -45,6 +53,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(words.spokenIndex(at: 400).flatMap { words.ranges(in: clip.text)?[$0] } == NSRange(location: 5, length: 3))
     #expect(voice.likelyPeople.first?.name == "Gran")
     #expect(voice.likelyPeople.first?.line == "Your grandmother")
+    #expect(voice.likelyPeople.first?.kind == .person)
+    #expect(voice.likelyPeople.first?.picture?.id == "00000000000000000000000000000a02")
     let name = try #require(inbox.checks.first { $0.group == .name })
     #expect(name.said?.by == "Gran")
     #expect(name.askedName == "Sam")
@@ -64,7 +74,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.status == .moving)
     #expect(row.goal?.by == .life)
     #expect(row.nextStep?.kind == .waitEvent)
-    #expect(row.people?.owedTo == ["gran"])
+    #expect(row.people?.owedTo?.map(\.ref) == ["person:gran"])
+    #expect(row.people?.with?.first?.picture == nil)
     #expect(row.agent == "agt_000000000001")
     #expect(row.blockingChecks == 1)
     #expect(list.matters[2].goal == nil)
@@ -137,6 +148,15 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let found = try decoded(AnswerResult.self, wireText("life/answer_check_new_matter_started.json"))
     #expect(found.start?.state == .started)
     #expect(found.start?.stages?.count == 3)
+    // "I've paid": Life's look, seen or not found yet, beside the answer.
+    let looks: [(String, Check.DoneSeen.State)] = [
+        ("answer_check_done_seen", .seen), ("answer_check_not_found", .notFound),
+    ]
+    for (file, state) in looks {
+        let text = try wireText("life/\(file).json")
+        #expect(try decoded(AnswerResult.self, text).send == nil)
+        #expect(try decoded(AnswerResult.self, text).doneSeen?.state == state)
+    }
     let edited = try decoded(AnswerResult.self, wireText("life/answer_check_new_matter_goal_edited.json"))
     #expect(edited.start == nil)
     let started = try decoded(AgentChangeResult.self, wireText("life/change_registered_agent_started.json"))
@@ -215,7 +235,7 @@ private func everyKindOfCheck() throws -> [Check] {
             == AnswerRequest(ref: name.ref, options: ["organization"], note: "A shop", name: "Sam Vale"))
     #expect(decision.answer(creating: "Lou", note: nil, asOrganization: false) == nil)
     #expect(try card(.voice).organizationOption == nil)
-    #expect(try card(.contactsCard).likelyPeople.map(\.person) == ["person:gran", "person:partner"])
+    #expect(try card(.contactsCard).likelyPeople.map(\.ref) == ["person:gran", "person:partner"])
     #expect(try card(.contactsCard).networkIdentity == nil)
     #expect(try card(.contactsCard).contactsCard?.name == "Lou")
     #expect(try card(.contactsCard).contactsCard?.handles == ["+33600000009"])

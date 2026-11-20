@@ -2,18 +2,21 @@ import { clock, DAY, iso } from "../core/clock";
 import { DEFAULT_RADIUS_M } from "../core/distance";
 import { holder } from "../core/lock";
 import type { SourceName } from "../core/names";
-import { blockingCountOf } from "../memory/check-urgency";
-import { checksOnMatterOf } from "../memory/checks";
 import { decisionsNow, openDecisionOf } from "../memory/decisions";
 import { isHeldOf } from "../memory/held-matters";
-import { type MatterView, matterFinderOf } from "../memory/matter-read";
+import {
+  type MatterView,
+  matterFinderOf,
+  nextStepNow,
+} from "../memory/matter-read";
 import { readMatterBook, readMatterBookAndRecords } from "../memory/matters";
+import type { Party } from "../memory/party";
 import { readHandOutMatters } from "../memory/read-matters";
 import { sourceOf } from "../memory/sources";
 import { meant, type People, readPeople } from "../memory/who";
 import { dayNow, localDate, localTime } from "../memory/zones";
 import type { EventFilter } from "../records/registered-agent";
-import { healthRowsOf, needsYouCountOf } from "./desk-health";
+import { healthRowsOf } from "./desk-health";
 import {
   type AgentNow,
   type AgentRead,
@@ -35,6 +38,7 @@ import {
 import { EVENT_CHANNELS, type EventChannel } from "./event-channels";
 import { matcherOf } from "./events";
 import { openChecksNow } from "./inbox";
+import { matterRowsNowOf } from "./matter-rows";
 
 // "What are my agents doing?": every registered agent as read now, as one typed answer (`readRegisteredAgents`) that
 // the connector (`read_registered_agents`), the nightly report and his apps (through the connector) share; and the Agents
@@ -50,7 +54,7 @@ interface ListenLine {
   /** The apps a message line is limited to; none: every app. */
   apps?: string[];
   below?: number;
-  /** Why the line can never fire, as a code the app words: `unknown_person` (the filter's `person`, kept as written, no longer resolves). */
+  /** Why the line can never fire, as a code the app words: `unknown_person` (the filter's `person`, `personAsWritten`, no longer resolves). */
   broken?: "unknown_person";
   /** Whether the line also covers calls (a call has no text and is never his own). */
   calls?: boolean;
@@ -59,7 +63,10 @@ interface ListenLine {
   kind: string;
   /** The place an event channel's line is limited to (a channel whose events hold a point). */
   near?: { latitude: number; longitude: number; radius_m: number };
-  person?: string;
+  /** Who the filter's `person` is now, when it resolves (`partyOf`). */
+  party?: Party;
+  /** The filter's `person` as the agent wrote it, always beside `party`: the words to show when it no longer resolves. */
+  personAsWritten?: string;
   quantity?: string;
   words?: string;
 }
@@ -124,9 +131,8 @@ function messageLineOf(f: EventFilter, c: WakesOnContext): ListenLine[] {
       ...(f.chat ? { chat: chatOf(f.chat, apps, c) } : {}),
       ...(f.from_me ? { fromHim: true as const } : {}),
       kind: "message",
-      ...(f.person
-        ? { person: known ? people.nameOf(`person:${known}`) : f.person }
-        : {}),
+      ...(known ? { party: people.partyOf(`person:${known}`) } : {}),
+      ...(f.person ? { personAsWritten: f.person } : {}),
       ...(f.text_matches ? { words: f.text_matches } : {}),
     },
   ];
@@ -465,10 +471,14 @@ async function readHealth(
     people
   );
   const holds = readDesk((db) => heldByAgents(db), []);
-  const open = await openChecksNow();
-  const needsYou = needsYouCountOf(matters, facts.decisions, (id) =>
-    blockingCountOf(checksOnMatterOf(open, id))
-  );
+  const needsYou = matterRowsNowOf(
+    matters.map((v) => ({
+      id: v.id,
+      nextStep: nextStepNow(v, facts.decisions),
+      status: v.status,
+    })),
+    await openChecksNow()
+  ).filter((row) => row.needsYou).length;
   return {
     needsYou,
     rows: healthRowsOf({

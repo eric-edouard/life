@@ -28,6 +28,8 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 - **Organization** (`truth/organizations.yaml`, optional): `id`, `name`, `aliases`, `relation`, `handles` (as a
   person's), `domains` (host names: an address in `handles.email` is it, another at a domain stays a person), `people`
   (`[{ id, role, until? }]`, `until` a year or a `YYYY-MM-DD` once they left; none: there now) and `projects`.
+- **Picture pick**: a person or an organization may carry `pictureFrom`, the source whose picture shows (`contacts`, a
+  source's name, or `none`); none: the first they show.
 - **Birthday**: a person in `truth/people.yaml` may carry `birthday`, `--MM-DD` or `YYYY-MM-DD` when the year is
   known.
 - **Called**: the owner may carry `called`, what Life calls them in every prompt and in what it writes, when it isn't
@@ -274,7 +276,9 @@ outside the lock, schemaVersion 3, by `kind`:
   `ends` (`step` or `matter`, never with `outgoing`) when his pick of it alone is his word that the subject step, or
   its whole matter, is done (on a matter's id, stored as its newest open step); lines before it have none), `context` (4,000 chars), `links`, `deadline` (1 hour to 14
   days after `at`, in UTC), `onSilence` (an option id, never an outgoing or `ends` one, or null). A `draft` needs
-  exactly one outgoing option. An `ends` option needs a subject on an open matter: for `step`, one of its open steps.
+  exactly one outgoing option. A payment card adds `needs` (typed facts he needs in hand, `memory/needs.ts`; one is an
+  `amount`), `doneSeenBy` (`payment` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
+  Life look for the step done) and `takes: "note"` on an option (it needs his words). An `ends` option needs a subject on an open matter: for `step`, one of its open steps.
 - `answered` (`answerDecision`): `id`, `at`, `options` (ids; none when he answered in words), `note`, `via`
   (`connector`, his app; `session`, a session's `bun life` command, which never sends), `answerKey` (optional: his app's
   key for one tap, kept on every repeat of it; lines before it have none). The first answer stands, unless its send
@@ -290,9 +294,16 @@ outside the lock, schemaVersion 3, by `kind`:
   closing failed (or found nothing open on a step not ended). It closed the step or matter by his word (`endByHisWord`: its to-do items ticked,
   its observations by an `outdated` correction); nothing left open counts as ended. With none 31 minutes after his
   answer, it never ended (worked out when read).
-- `withdrawn` (`requestDecision`, by its asker): `id`, `at`, `why`.
+- `done-seen` (`recordDoneSeen`): `id`, `at`, `state` (`seen` with the payment's `eventId`, or `not_found`, with `error`
+  when the look failed), Life's outcome of looking for the card's step done, never his answer. A `not_found` voids the
+  answer it follows: the card is open again. A `seen` settles the card even with no answer of his. A look with no outcome
+  30 seconds past his answer (and a minute's grace) never finished: worked out when read as a `not_found`, and written
+  before his next answer so that one is kept.
+- `withdrawn` (`requestDecision`, by its asker; or `withdrawDraftsAnsweredInChat`, by Life, when he wrote in its draft's chat
+  himself since it was asked): `id`, `at`, `why`, and Life's `answeredInChatAt` (his message's instant, never its words;
+  the asker's own has none, and lines before it lack it).
 
-Where each stands is worked out when read (`decisionsNow`): open, answered, lapsed (its deadline passed) or withdrawn.
+Where each stands is worked out when read (`decisionsNow`): open, answered, seen (a `seen` look and no answer of his), lapsed (its deadline passed) or withdrawn.
 The file also holds earlier versions' lines, kept and skipped for good: the old decisions page's (schemaVersion 1,
 before 2 Nov 2026: Life's old fact checks, what he answered on that page, his loops' decisions) and the cards before
 titles (schemaVersion 2, with `recommended` and `why`; none in his data on 18 Nov 2026).
@@ -380,6 +391,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's episodes are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). An episode filed under the wrong person needs `wrong` on its `ep_` too |
 | `matter-direction` | `steps` (all of a matter's step ids, as `read_matter` lists them), `goal` and/or `nextStep` (`kind`, `text`, `waitsOn`) | His goal or next step for the matter those steps find (`directionsOf`): his goal wins over every draft; his next step until Life drafts again, once the matter has a step newer than his word |
 | `new-matter-dismissed` | `steps` (all of a matter's step ids when he answered) | His Dismiss on a new matter check: the matter those steps find (`matterFinderOf`, so a re-group keeps it) is never offered again |
+| `matter-important` | `steps` (all of a matter's step ids when he marked it), `important` (on or off) | His important mark on the matter those steps find (`importantIdsOf`; a re-group keeps it): the latest wins, read only while the matter is open; his token only, by the matter's id |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
@@ -649,7 +661,7 @@ brief, runtime, folder (named at its start, else its matter's or project's repo 
 runtime), current session and link, `status` `active`, `stopped`, `handed_over` (a stopped agent whose project or matter an agent was started on after: `ended_at` set, `outcome` "replaced by <id>"), or `ended`; `stopped_at` (when he stopped it; null unless stopped), its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an active agent with no
 `wait_until`), its notes; its open decision is read from `decisions.jsonl` by its id), `session` (every session it had, with its link and `context_at_first_call`, the context its first turn's usage reported; append-only), `event` (its
-queued events, one row per agent and event id, `name` `message.received`, `decision.answered`, `decision.lapsed` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
+queued events, one row per agent and event id, `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
 cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update), `anchor` (an agent's matter steps, in order), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
 `cursor` (where the message, answer and ask reads stopped). Never deleted by hand.

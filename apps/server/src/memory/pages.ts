@@ -58,9 +58,14 @@ import {
   settle,
   wordsOf,
 } from "./page-format";
-import { OWNER, type Truth } from "./read-truth";
+import {
+  OWNER,
+  PROJECT_NOTES_MAX,
+  projectHeaderOf,
+  type Truth,
+} from "./read-truth";
 import { begin, inBatches, readsOf, type Step } from "./run";
-import { nameKey } from "./units";
+import { clip, nameKey } from "./units";
 import {
   observationsNow,
   type People,
@@ -77,7 +82,6 @@ import {
 // its word budget. Code checks every citation. Nothing is sent.
 
 const PAGES_PROMPT = "memory-pages.v6";
-const HOLD_MAX = 1500;
 /** "Often talk about" counts the topics of the units of this many days. */
 const OFTEN_DAYS = 90;
 interface Target {
@@ -123,17 +127,11 @@ export function areaHold(a: Area, projects: Truth["projects"]) {
   }
   const underway = projects.filter(isUnderway);
   const rest = projects.length - underway.length;
-  const each = underway.map((project) => {
-    const head = [
-      `**${project.name}** · ${project.status}`,
-      ...project.deadlines.map((d) => `- ${d.date}: ${d.what}`),
-      "",
-      project.notes.trim(),
-    ].join("\n");
-    return head.length > HOLD_MAX
-      ? `${head.slice(0, HOLD_MAX)}…`
-      : head.trimEnd();
-  });
+  const each = underway.map((p) =>
+    [projectHeaderOf(p), clip(p.notes.trim(), PROJECT_NOTES_MAX)]
+      .filter(Boolean)
+      .join("\n\n")
+  );
   if (rest > 0) {
     each.push(`${rest} parked or done (truth/projects/).`);
   }
