@@ -24,8 +24,8 @@ test("an area page holds its underway projects in full and only counts the parke
     ...Array.from({ length: 40 }, (_, i) => project(`old-${i}`, "done")),
     project("band", "parked"),
   ]);
-  expect(hold).toContain("**Project shop** · active");
-  expect(hold).toContain("**Project visa** · waiting");
+  expect(hold).toContain("Project Project shop (shop, active)");
+  expect(hold).toContain("Project Project visa (visa, waiting)");
   expect(hold).not.toContain("Project old-1");
   expect(hold).toContain("41 parked or done");
   expect(hold).toContain("truth/projects/shop.md, truth/projects/visa.md");

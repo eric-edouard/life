@@ -49,6 +49,15 @@ export interface Truth {
   projects: (Project & { notes: string })[];
 }
 
+/** How much of a project's notes (the body of `truth/projects/<id>.md`) an area page's hold and an agent's packet show, cut at a word (`clip`). */
+export const PROJECT_NOTES_MAX = 1500;
+
+/** A project's one line, as the area read, an area page's hold and an agent's packet show it: name, id, status, deadlines. */
+export const projectHeaderOf = (
+  p: Pick<Project, "deadlines" | "id" | "name" | "status">
+) =>
+  `Project ${p.name} (${p.id}, ${p.status})${p.deadlines.map((d) => `; ${d.date}: ${d.what}`).join("")}`;
+
 /** Everyone in his directory: its people, then its organizations (`Party`). The one join of the two lists. */
 export const partiesOf = ({
   organizations,

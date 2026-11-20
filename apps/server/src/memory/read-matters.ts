@@ -352,6 +352,11 @@ export async function readHandOutMatters(
   };
 }
 
+/** The ids of the projects of the matter `refs` find (`matterOfSteps`); none when no matter holds them. The row names them, so a reader that needs the ids (the packet) asks here. */
+export const readMatterProjectIds = async (refs: readonly string[]) =>
+  matterOfSteps(await readMatterBook(await readPeople(), dayNow()), refs)
+    ?.projects ?? [];
+
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
  * agent anchored on records finds its matter again after a re-group): its `MatterRow`, its steps in time order (each
