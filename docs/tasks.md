@@ -170,7 +170,7 @@ A one-way projection of the episodes (`apps/server/src/memory/past-events.ts`), 
 one event per episode, overlapping as they happened (a big episode holds smaller ones), found by its private
 properties `lifeEpisode` and `lifeHash`. A changed episode is updated in place, a gone one deleted; events without
 `lifeHash` are never touched; one with no `lifeEpisode` (an older Life's) is deleted. An event's location is where he
-stayed most of it (else the episode's place), with one-tap Google and Apple Maps links under its text (`mapLinksOf`,
+stayed most of it (else the episode's place), with one-tap Google and Apple Maps links at the end of its description, never clipped (`mapLinksOf`,
 `calendar-events.ts`: by coordinates when Life has them, else by name); a new description layout (`LAYOUT`) writes
 every event again, one call at a time. It reads nothing back and never alerts. If that calendar ever becomes a source, its
 events with `lifeEpisode` are Life's output and must be dropped.

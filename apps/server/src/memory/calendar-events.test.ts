@@ -85,3 +85,14 @@ test("map links point at the coordinates when Life has them, else at the place's
   );
   expect(mapLinksOf({ name: null })).toEqual([]);
 });
+
+test("a name redact would hide never reaches a link, nor does a lone surrogate break one", () => {
+  const card = "Locker 4111 1111 1111 1111";
+  expect(mapLinksOf({ name: card })).toEqual([]);
+  expect(
+    mapLinksOf({ latitude: 1, longitude: 2, name: card }).join("\n")
+  ).not.toContain("4111");
+  expect(mapLinksOf({ name: "Caf\uD800" })[0]).toBe(
+    "Google Maps: https://www.google.com/maps/search/?api=1&query=Caf%EF%BF%BD"
+  );
+});

@@ -194,6 +194,14 @@ test("a Past event at a place carries its map links, from the stay's coordinates
   expect(at.description).toContain(
     "Apple Maps: https://maps.apple.com/?q=Seaside%20Bistro&ll=10.500000,20.250000"
   );
+  // A busy episode's text is clipped, never its links.
+  const long = writtenOf(
+    { ...d, text: "word ".repeat(3000) },
+    { latitude: 10.5, longitude: 20.25, name: "Seaside Bistro" },
+    []
+  );
+  expect(long.description.length).toBeLessThan(8192);
+  expect(long.description).toContain("&ll=10.500000,20.250000\n");
   const nowhere = writtenOf(d, { name: null }, []);
   expect(nowhere.location).toBeNull();
   expect(nowhere.description).not.toContain("maps");

@@ -123,7 +123,7 @@ async function located(
             "Where he was (lifelog):",
             ...stays.map(
               (s) =>
-                `- ${time(s.arrivedAt)}–${s.leftAt ? time(s.leftAt) : "…"} ${where(s)} ${googleMapsUrlOf(stayPlaceOf(s))}`
+                `- ${time(s.arrivedAt)}–${s.leftAt ? time(s.leftAt) : "…"} ${where(s)} ${googleMapsUrlOf(stayPlaceOf(s)) ?? ""}`
             ),
           ]
         : []),
@@ -200,17 +200,20 @@ export async function* described(fresh: Draft[]) {
   }
 }
 
-/** The description and location an event is written with: its text, the map links of its place, then `lines`. */
+/**
+ * The description and location an event is written with: its text and `lines`, clipped to leave room for the map
+ * links of its place, then those links whole.
+ */
 export function writtenOf(d: Draft, place: MapPlace, lines: string[]) {
-  const maps = mapLinksOf(place);
+  const maps = mapLinksOf(place)
+    .map((l) => `\n${l}`)
+    .join("");
   const body = clip(
-    redact(
-      [d.text, ...(maps.length > 0 ? ["", ...maps] : []), ...lines].join("\n")
-    ),
-    DESCRIPTION_MAX
+    redact([d.text, ...lines].join("\n")),
+    DESCRIPTION_MAX - maps.length
   );
   return {
-    description: `${body}\n\nEpisode ${d.of}, written by Life.`,
+    description: `${body}${maps ? `\n${maps}` : ""}\n\nEpisode ${d.of}, written by Life.`,
     location: locationOf(place),
   };
 }

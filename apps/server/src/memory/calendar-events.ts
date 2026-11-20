@@ -1,3 +1,5 @@
+import { redact } from "../core/redact";
+
 // Life's events in a calendar, as both its calendars draft them (the Past calendar's episodes, `past-events.ts`; the
 // appointments, `host/appointments-calendar.ts`), and the one rule that brings a calendar in line with its drafts.
 
@@ -83,20 +85,31 @@ const pointOf = (p: MapPlace) =>
     ? null
     : `${p.latitude.toFixed(6)},${p.longitude.toFixed(6)}`;
 
-/** The event's location: the place's name, else its coordinates. */
-export const locationOf = (p: MapPlace) => p.name ?? pointOf(p);
+/** The name a link may carry: well-formed (a lone surrogate would throw in `encodeURIComponent`), none when `redact` would hide part of it. */
+const nameOf = (p: MapPlace) => {
+  const name = p.name?.toWellFormed();
+  return name && redact(name) === name ? name : null;
+};
 
-/** Google Maps on a place: its coordinates when Life has them, else its name. */
-export const googleMapsUrlOf = (p: MapPlace) =>
-  `https://www.google.com/maps/search/?api=1&query=${pointOf(p) ?? encodeURIComponent(p.name ?? "")}`;
+/** The event's location: the place's name, else its coordinates. */
+export const locationOf = (p: MapPlace) => nameOf(p) ?? pointOf(p);
+
+/** Google Maps on a place: its coordinates when Life has them, else its name; null with neither. */
+export const googleMapsUrlOf = (p: MapPlace) => {
+  const q = pointOf(p) ?? nameOf(p);
+  return (
+    q &&
+    `https://www.google.com/maps/search/?api=1&query=${pointOf(p) ? q : encodeURIComponent(q)}`
+  );
+};
 
 /** The one-tap map lines of an event's description (Google Maps, Apple Maps); none with no place. */
 export function mapLinksOf(p: MapPlace): string[] {
-  const q = locationOf(p);
-  if (!q) {
+  const [q, google] = [locationOf(p), googleMapsUrlOf(p)];
+  if (!(q && google)) {
     return [];
   }
   const point = pointOf(p);
   const apple = `https://maps.apple.com/?q=${encodeURIComponent(q)}${point ? `&ll=${point}` : ""}`;
-  return [`Google Maps: ${googleMapsUrlOf(p)}`, `Apple Maps: ${apple}`];
+  return [`Google Maps: ${google}`, `Apple Maps: ${apple}`];
 }
