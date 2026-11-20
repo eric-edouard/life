@@ -75,16 +75,9 @@ test("the holder yields: once its card is withdrawn, the waiting card is asked",
   expect(of(waiting.id, later(2 * MIN))?.replaces).toBeUndefined();
 });
 
-test("the holder keeps: the waiting card waits past 10 minutes, until the held card settles; only the holder may keep", async () => {
+test("the holder keeps: the waiting card waits past 10 minutes, until the held card settles (only its holder: the door checks)", async () => {
   const held = await ask(HOLDER);
   const waiting = await ask(ASKER);
-  await expect(
-    requestDecision(
-      "desk",
-      { agent: ASKER, keep: waiting.id, why: "mine" },
-      later(MIN)
-    )
-  ).rejects.toThrow("no card waiting on one of yours");
   await requestDecision(
     "desk",
     { agent: HOLDER, keep: waiting.id, why: "mine answers first" },
@@ -173,4 +166,46 @@ test("while his Send of the held card runs, the waiting card keeps waiting past 
     state: "open",
   });
   expect(of(waiting.id, later(CONTEST_WAIT + MIN))?.replaces).toBeUndefined();
+});
+
+test("a card asked while his Send of the held card runs waits on it; a merged card stays withdrawn past its deadline", async () => {
+  const held = await ask(HOLDER);
+  let during: string | undefined;
+  await answerDecision(held.id, ["send"], undefined, {
+    deliver: async () => {
+      const w = await ask(ASKER, later(MIN));
+      during = `${of(w.id, later(2 * MIN))?.state} on ${of(w.id, later(2 * MIN))?.contests}`;
+      return "$sent";
+    },
+    now: later(MIN),
+    via: "connector",
+  });
+  expect(during).toBe(`waiting on ${held.id}`);
+  rmSync(DECISIONS);
+  const a = await ask(HOLDER);
+  const w = await ask(ASKER);
+  const m = await ask(HOLDER, later(MIN), { merges: w.id });
+  expect(of(w.id, later(3 * DAY))).toMatchObject({
+    state: "withdrawn",
+    withdrawn: { replacedBy: m.id },
+  });
+  expect(of(a.id, later(2 * MIN))?.state).toBe("withdrawn");
+});
+
+test("three askers in turn: his Send withdraws every other open card into the chat", async () => {
+  const a = await ask(HOLDER);
+  const b = await ask(ASKER);
+  // Past 10 minutes both are open; a third asker contests the newest.
+  const c = await ask("agt_0c0c", later(CONTEST_WAIT));
+  const at = later(2 * CONTEST_WAIT);
+  expect(of(c.id, at)).toMatchObject({ replaces: b.id, state: "open" });
+  await answerDecision(c.id, ["send"], undefined, {
+    deliver: () => Promise.resolve("$sent"),
+    now: at,
+    via: "connector",
+  });
+  const list = decisionsNow(later(2 * CONTEST_WAIT + MIN));
+  for (const id of [a.id, b.id]) {
+    expect(list.find((d) => d.id === id)?.withdrawn?.replacedBy).toBe(c.id);
+  }
 });

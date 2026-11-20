@@ -31,6 +31,7 @@ import { isSendable } from "./draft";
 import {
   contestOf,
   heldChatOf,
+  isSameChat,
   mergeWithdrawalsOf,
   waitingOnOf,
   waitsOf,
@@ -276,13 +277,19 @@ export function decisionsNow(now = clock()): Decision[] {
   );
   return own.map((d) => {
     const held = byId.get(d.contests ?? "");
-    const isSending =
-      held?.state === "answered" && actDueOf(held) === "send" && !held.send;
-    return d.contests && d.state === "open"
-      ? contestOf(d, held, mergers.get(d.id), isSending, now)
+    const merger = mergers.get(d.id);
+    // A merge is final: the card it settled never lapses after it.
+    const isContested =
+      d.state === "open" || (merger !== undefined && d.state === "lapsed");
+    return d.contests && isContested
+      ? contestOf(d, held, merger, Boolean(held && isSendingOf(held)), now)
       : d;
   });
 }
+
+/** Whether his answer to `d` started sending its draft and its outcome is not in: its chat is still held. */
+const isSendingOf = (d: Decision) =>
+  d.state === "answered" && actDueOf(d) === "send" && !d.send;
 
 /** Registered agent `agent`'s open decision, if any: the door lets each assignment ask one at a time, worked out from `list`, never stored. */
 export const openDecisionOf = (agent: string, list = decisionsNow()) =>
@@ -470,7 +477,8 @@ export async function requestDecision(
     all,
     draft,
     by,
-    merged ? [merged.held.id, merged.waiting.id] : []
+    merged ? [merged.held.id, merged.waiting.id] : [],
+    isSendingOf
   );
   const id = `dec_${randomBytes(6).toString("hex")}`;
   claim?.(subject, id, merged?.held.id);
@@ -686,19 +694,22 @@ export async function answerDecision(
   if (!(act === "send" && isSendable(stored.draft))) {
     return [line];
   }
-  // His Send of a card that replaces an older one withdraws that one first: one draft per chat when it goes.
-  if (d.replaces) {
-    appendJsonl(DECISIONS, Withdrawn, [
-      {
+  // His Send withdraws every other open card into its chat first (the one it `replaces`, and any another contest
+  // opened): one draft per chat when it goes.
+  appendJsonl(
+    DECISIONS,
+    Withdrawn,
+    decisionsNow(now)
+      .filter((x) => x.id !== id && x.state === "open" && isSameChat(x, d))
+      .map((x) => ({
         at: now.toISOString(),
-        id: d.replaces,
-        kind: "withdrawn",
+        id: x.id,
+        kind: "withdrawn" as const,
         replacedBy: id,
         schemaVersion: DECISIONS_VERSION,
         why: "he sent a newer draft into its chat instead",
-      },
-    ]);
-  }
+      }))
+  );
   const outcome = await deliver(stored.draft, id, {
     onStep,
     since: sinceOf(stored),

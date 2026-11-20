@@ -287,14 +287,21 @@ export function pollAnswers({ db }: Desk) {
       queue(
         db,
         name,
-        read.events.flatMap((e) =>
-          wakesOf([e.data.id, cards.get(e.data.id)?.merges], e.eventId, e.data)
-        )
+        read.events.flatMap((e) => [
+          ...wakesOf([e.data.id], e.eventId, e.data),
+          // The merged card's agent hears his answer, never the holder's words.
+          ...wakesOf([cards.get(e.data.id)?.merges], e.eventId, {
+            ...e.data,
+            question: undefined,
+          }),
+        ])
       );
       saveCursor(db, name, read.cursor);
     })();
   }
   const waiting = [...cards.values()].filter((d) => d.state === "waiting");
+  // A keep is heard even when its card settled before this poll.
+  const kept = [...cards.values()].filter((d) => d.kept);
   db.transaction(() => {
     queue(
       db,
@@ -315,13 +322,8 @@ export function pollAnswers({ db }: Desk) {
     queue(
       db,
       DRAFT_KEPT,
-      waiting.flatMap((d) =>
-        d.kept
-          ? wakesOf([d.id], `${d.id}.${DRAFT_KEPT}`, {
-              held: d.contests,
-              id: d.id,
-            })
-          : []
+      kept.flatMap((d) =>
+        wakesOf([d.id], `${d.id}.${DRAFT_KEPT}`, { held: d.contests, id: d.id })
       )
     );
   })();

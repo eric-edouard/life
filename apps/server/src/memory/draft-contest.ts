@@ -1,4 +1,5 @@
 import { MIN } from "../core/clock";
+import { DESK_AGENT } from "../core/names";
 import {
   DECISIONS_VERSION,
   type Decision,
@@ -24,6 +25,15 @@ export const isPending = (d: Pick<Decision, "state">) =>
 /** Whether `a` and `b` were asked by the same asker: every registered agent asks as `desk`, its own `agent` tells them apart. */
 const isSameAsker = (a: Asker, b: Asker) =>
   a.asker === b.asker && a.agent === b.agent;
+
+/** Whether `a`'s and `b`'s drafts go into the same chat (a chat key: a mail or a new 1:1 chat has none). */
+export const isSameChat = (
+  a: Pick<Decision, "draft">,
+  b: Pick<Decision, "draft">
+) =>
+  Boolean(a.draft?.chat) &&
+  a.draft?.channel === b.draft?.channel &&
+  a.draft?.chat === b.draft?.chat;
 
 /**
  * Card `d`, open by its own lines, as its contest leaves it: withdrawn when the holder's card `merger` merges it; else
@@ -57,25 +67,23 @@ export function contestOf(
 }
 
 /**
- * One open draft per chat, among `list`: the newest pending card of another asker whose draft goes into `draft`'s chat,
- * which a new card of `asker`'s contests (it waits on it), if any. Throws when `asker`'s own card holds the chat, or a
- * card already waits on it. The cards a merge settles (`merging`) are out of the way.
+ * One open draft per chat, among `list`: the newest card of another asker holding `draft`'s chat (pending, or its send
+ * running: `isSending`), which a new card of `asker`'s contests (it waits on it), if any. Throws when `asker`'s own card
+ * holds the chat, or a card already waits on it. The cards a merge settles (`merging`) are out of the way.
  */
 export function heldChatOf(
   list: Decision[],
   draft: StoredDraft | undefined,
   asker: Asker,
-  merging: string[]
+  merging: string[],
+  isSending: (d: Decision) => boolean
 ) {
-  const same = draft?.chat
-    ? list.filter(
-        (d) =>
-          isPending(d) &&
-          !merging.includes(d.id) &&
-          d.draft?.channel === draft.channel &&
-          d.draft?.chat === draft.chat
-      )
-    : [];
+  const same = list.filter(
+    (d) =>
+      (isPending(d) || isSending(d)) &&
+      !merging.includes(d.id) &&
+      isSameChat(d, { draft })
+  );
   const blocking =
     same.find((d) => d.state === "waiting") ??
     same.find((d) => isSameAsker(d, asker));
@@ -91,7 +99,13 @@ export function heldChatOf(
 export function waitingOnOf(list: Decision[], id: string, asker: Asker) {
   const waiting = list.find((d) => d.id === id && d.state === "waiting");
   const held = waiting && list.find((d) => d.id === waiting.contests);
-  if (!(waiting && held && isSameAsker(held, asker))) {
+  // The desk checks its agents' cards at its door (an assignment's, folds included): its agents ask as `desk`.
+  const isHolder =
+    held &&
+    (asker.asker === DESK_AGENT
+      ? held.asker === DESK_AGENT
+      : isSameAsker(held, asker));
+  if (!(waiting && isHolder)) {
     throw new Error(`Not done: ${id} is no card waiting on one of yours.`);
   }
   return { held, waiting };

@@ -176,6 +176,12 @@ const DecisionPayload = z.object({
     .nullable()
     .describe("The option you said you take if he doesn't answer"),
   question: z.string(),
+  replacedBy: z
+    .string()
+    .optional()
+    .describe(
+      "Withdrawn because another card took its place: the newer card he sent, or the holder's card that merged yours"
+    ),
   send: z
     .object({ error: z.string().optional(), eventId: z.string().optional() })
     .optional()
