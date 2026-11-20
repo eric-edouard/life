@@ -36,7 +36,7 @@ struct MatterPage: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(matter)
-                asks(matter.checks)
+                asks(unanswered(matter))
                 if let agent {
                     AgentRow(agent: agent) { router.matterSheet = .agent(id) }
                 }
@@ -63,21 +63,28 @@ struct MatterPage: View {
         }
     }
 
-    /// What waits on him here, under the name: each ask of this matter as a row that opens it.
-    private func asks(_ checks: [Check]) -> some View {
-        RowGroup {
-            ForEach(checks) { check in
-                Button {
-                    router.matterPath.append(check.ref)
-                } label: {
-                    Row(title: check.question, detail: check.deadline.map { DeadlineWords.by($0) }) {
-                        StateDot(color: Palette.flag)
-                        RowValue()
+    /// Its asks less those whose answer is held for Undo or on its way: the Inbox's rule (`answersUnderWay`).
+    private func unanswered(_ matter: Matter) -> [Check] {
+        matter.checks.filter { !life.answersUnderWay.contains($0.ref) }
+    }
+
+    /// What waits on him here, under the name: each ask of this matter as a row that opens it; nothing when none waits.
+    @ViewBuilder private func asks(_ checks: [Check]) -> some View {
+        if !checks.isEmpty {
+            RowGroup {
+                ForEach(checks) { check in
+                    Button {
+                        router.matterPath.append(check.ref)
+                    } label: {
+                        Row(title: check.question, detail: check.deadline.map { DeadlineWords.by($0) }) {
+                            StateDot(color: Palette.flag)
+                            RowValue()
+                        }
                     }
+                    .buttonStyle(.plain)
+                    // The dot has its words.
+                    .accessibilityValue(needsYourAnswer)
                 }
-                .buttonStyle(.plain)
-                // The dot has its words.
-                .accessibilityValue(needsYourAnswer)
             }
         }
     }
@@ -92,7 +99,7 @@ struct MatterPage: View {
         return VStack(alignment: .leading, spacing: 8) {
             Text(row.name).font(.screenName).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            if !matter.checks.isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
+            if !unanswered(matter).isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
             Text(open).font(.small).foregroundStyle(Palette.muted)
         }
         .padding(.top, 8)

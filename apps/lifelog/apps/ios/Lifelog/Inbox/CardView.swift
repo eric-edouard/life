@@ -22,6 +22,7 @@ struct CardView: View {
     /// The ask's context region beside or below it: a matter's stack gives one, the Inbox none.
     var context: ContextRegion?
     /// Answers that are not a send or a start are held for Undo (the Inbox draws the toast), not shown as a result.
+    /// Without it, only his word that a step is done is held (`Taken.isEnding`); the host draws its toast.
     var holdsAnswers = false
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
@@ -140,6 +141,10 @@ struct CardView: View {
         if holdsAnswers && taken.isHeld {
             life.hold(request, as: taken.heldWords)
             current = taken.nextRef
+        } else if taken.isEnding {
+            // Off the Inbox too (a matter's stack): held for Undo, which the host's toast offers, then sent.
+            life.hold(request, as: taken.heldWords)
+            leave(taken, false)
         } else {
             notes.taken = taken
             Task { await life.answer(request) }

@@ -37,6 +37,11 @@ struct MattersScreen: View {
                                 leave: { router.matterPath = [] })
                         }
                 }
+                // His word that a step is done, held for Undo after he left its ask: over the top of the matter.
+                .heldToast(
+                    shows: { ref in life.matter[id]?.value?.checks.contains { $0.ref == ref } == true },
+                    undo: { life.undo($0) }
+                )
                 // Back to the matter, by his Done or the system's back: the result he read is forgotten, so the next ask
                 // opens on its own question.
                 .onChange(of: router.matterPath) { _, path in
