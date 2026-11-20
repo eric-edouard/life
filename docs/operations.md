@@ -325,6 +325,7 @@ first.
 - It says which days it read, counts as new only observations whose source line was first cited since the last good
   night (`newSince`: a re-read announces nothing again), and has Done (the matters that ended on its day, and how:
   `doneOf`, also in `read_day`), Actions, Code (yesterday's commits by project) and "Last backup" sections.
+- Its Agents section ends with the tokens of the agents' turns that ended since the last report (`tokensSince`, every row): one row per day of his (`localDate`) and one per matter (by its id), "no matter" for an agent anchored on none.
 
 ## Measuring
 
