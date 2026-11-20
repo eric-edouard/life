@@ -374,6 +374,8 @@ test("W16: a wake into a session grown by 130,000 tokens starts a fresh one from
   expect(now?.session).not.toBe(old?.session);
   expect(fake.said.at(-1)?.message).toContain("Test brief");
   expect(fake.said.at(-1)?.message).toContain("Ana may answer Friday");
+  // The fresh session carries the agent's title, the brief's first line, as the first one did.
+  expect(fake.said.at(-1)?.title).toBe("Test brief: follow up with Ana");
   expect(
     desk.db
       .query(
