@@ -13,8 +13,6 @@ public final class PictureCache {
     @ObservationIgnored private let api: (any LifeAPI)?
     /// Ids asked of Life since launch, so a picture Life does not have is asked once, not on every read.
     @ObservationIgnored private var asked: Set<String> = []
-    /// Bumped by `startOver`: a want begun before it asks nothing more.
-    @ObservationIgnored private var pairing = 0
 
     /// At most this many ids in one call (`MAX_IDS`, `host/http/mcp-people.ts`).
     static let batch = 64
@@ -25,22 +23,22 @@ public final class PictureCache {
     }
 
     /// Puts the pictures `ids` name on hand: from disk, else from Life, in as few calls as the batch allows. A call that
-    /// fails leaves its ids to the next want. A want begun under the last pairing (`startOver`) stops asking.
-    public func want(_ ids: some Sequence<String>) async {
-        let pairing = pairing
+    /// fails leaves its ids to the next want. Once `isCurrent` is false (the pairing it was asked under was replaced), it
+    /// asks nothing more and leaves what is asked alone.
+    public func want(_ ids: some Sequence<String>, while isCurrent: () -> Bool = { true }) async {
         var missing: [String] = []
         for id in Set(ids) where shown[id] == nil && !asked.contains(id) && Self.isPictureID(id) {
             if let data = try? Data(contentsOf: file(id)) { shown[id] = data } else { missing.append(id) }
         }
-        guard let api, !missing.isEmpty else { return }
+        guard let api, !missing.isEmpty, isCurrent() else { return }
         asked.formUnion(missing)
         for start in stride(from: 0, to: missing.count, by: Self.batch) {
             let ids = Array(missing[start..<min(start + Self.batch, missing.count)])
-            guard pairing == self.pairing else { return }
+            guard isCurrent() else { return }
             guard let text = try? await api.readPersonPictures(ids),
                 let read = try? JSONDecoder().decode(Read.self, from: Data(text.utf8))
             else {
-                asked.subtract(ids)
+                if isCurrent() { asked.subtract(ids) }
                 continue
             }
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -51,12 +49,9 @@ public final class PictureCache {
         }
     }
 
-    /// Another Life is paired: what was asked of the last one is asked again, and its wants stop. The files stay: an id
-    /// names the bytes, whichever Life sent them.
-    public func startOver() {
-        pairing += 1
-        asked = []
-    }
+    /// Another Life is paired: what was asked of the last one is asked again. The files stay: an id names the bytes,
+    /// whichever Life sent them.
+    public func forgetAsked() { asked = [] }
 
     private func file(_ id: String) -> URL { directory.appending(path: id + ".jpg") }
 

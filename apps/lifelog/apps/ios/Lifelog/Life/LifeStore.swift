@@ -101,7 +101,7 @@ final class LifeStore {
         self.approve = approve
         let api = api ?? MCPLifeAPI(client: MCPClient(session: LifeSession(store: tokens)))
         self.api = api
-        parties = PartyBook(pictures: PictureCache(directory: pictures, api: api))
+        parties = PartyBook(pictures: PictureCache(directory: pictures, api: api), generation: PairingGeneration())
         runner = LifeActions(api: api, now: now)
         self.cache = cache
         self.now = now
@@ -217,7 +217,7 @@ final class LifeStore {
         guard let kept = cache.load(key),
             let value = try? LibraryStore.feedDecoder.decode(V.self, from: Data(kept.text.utf8))
         else { return }
-        parties.remember(value.parties, at: kept.at, pairing: parties.pairing)
+        parties.remember(value.parties, at: kept.at, pairing: parties.generation.current)
         update(.succeeded(value, kept.at))
     }
 
@@ -226,9 +226,11 @@ final class LifeStore {
         fetch: @Sendable (any LifeAPI) async throws -> String
     ) async {
         update(.started)
-        let pairing = parties.pairing
+        let pairing = parties.generation.current
+        // A read of the Life paired before this one applies nothing, not even its failure: no save, no screen, no reset.
+        guard let answer = await parties.generation.answer({ try await fetch(api) }) else { return }
         do {
-            let text = try await fetch(api)
+            let text = try answer.get()
             let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(text.utf8))
             if let key { cache.store(text, key: key) }
             let at = now()
