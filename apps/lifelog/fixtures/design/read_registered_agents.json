@@ -26,13 +26,21 @@
         {
           "calls": true,
           "kind": "message",
-          "person": "Hélène Aubert"
+          "party": {
+            "kind": "person",
+            "name": "Hélène Aubert",
+            "ref": "person:helène_aubert"
+          }
         },
         {
           "apps": ["whatsapp"],
           "calls": true,
           "kind": "message",
-          "person": "Camille Vidal"
+          "party": {
+            "kind": "person",
+            "name": "Camille Vidal",
+            "ref": "person:camille_vidal"
+          }
         },
         {
           "apps": ["whatsapp"],
@@ -48,7 +56,7 @@
           "broken": "unknown_person",
           "calls": true,
           "kind": "message",
-          "person": "Léa Marchetti"
+          "personAsWritten": "Léa Marchetti"
         },
         {
           "calls": true,
@@ -62,7 +70,11 @@
         {
           "calls": false,
           "kind": "message",
-          "person": "Hélène Aubert",
+          "party": {
+            "kind": "person",
+            "name": "Hélène Aubert",
+            "ref": "person:helène_aubert"
+          },
           "words": "bail"
         },
         {
@@ -128,7 +140,11 @@
         {
           "calls": true,
           "kind": "message",
-          "person": "Idris Benali"
+          "party": {
+            "kind": "person",
+            "name": "Idris Benali",
+            "ref": "person:idris"
+          }
         },
         {
           "apps": ["mail"],

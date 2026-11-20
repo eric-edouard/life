@@ -495,29 +495,34 @@
       "group": "name",
       "likelyPeople": [
         {
+          "kind": "person",
           "line": "Fitter, works with Idris Benali",
           "name": "Marc Delmas",
-          "person": "person:marc_delmas"
+          "ref": "person:marc_delmas"
         },
         {
+          "kind": "person",
           "line": "Camille's brother",
           "name": "Marc Fenn",
-          "person": "person:marc_fenn"
+          "ref": "person:marc_fenn"
         },
         {
+          "kind": "person",
           "line": "Partner",
           "name": "Camille Vance",
-          "person": "person:camille_vance"
+          "ref": "person:camille_vance"
         },
         {
+          "kind": "person",
           "line": "Landlord",
           "name": "Hélène Aubert",
-          "person": "person:helène_aubert"
+          "ref": "person:helène_aubert"
         },
         {
+          "kind": "person",
           "line": "Client",
           "name": "Nora Keller",
-          "person": "person:nora_keller"
+          "ref": "person:nora_keller"
         }
       ],
       "links": [],
@@ -902,9 +907,10 @@
       "group": "voice",
       "likelyPeople": [
         {
+          "kind": "person",
           "line": "Supplier, kitchen quote",
           "name": "Idris Benali",
-          "person": "person:idris"
+          "ref": "person:idris"
         }
       ],
       "links": [],
@@ -942,14 +948,16 @@
       "group": "contacts card",
       "likelyPeople": [
         {
+          "kind": "person",
           "line": "Fitter, works with Idris Benali",
           "name": "Marc Delmas",
-          "person": "person:marc"
+          "ref": "person:marc"
         },
         {
+          "kind": "person",
           "line": "Camille’s brother",
           "name": "Marc Fenn",
-          "person": "person:marc_fenn"
+          "ref": "person:marc_fenn"
         }
       ],
       "links": [],
@@ -1144,12 +1152,14 @@
       "group": "guessed person",
       "likelyPeople": [
         {
+          "kind": "person",
           "name": "Idris Benali",
-          "person": "person:idris"
+          "ref": "person:idris"
         },
         {
+          "kind": "person",
           "name": "Nora Keller",
-          "person": "person:nora"
+          "ref": "person:nora"
         }
       ],
       "links": [],

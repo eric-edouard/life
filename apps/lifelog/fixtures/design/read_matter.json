@@ -50,7 +50,11 @@
         "quote": "Bonjour, avez-vous pu signer le bail ?",
         "ref": "ep_l7",
         "text": "She asks again",
-        "with": "Hélène Aubert, WhatsApp"
+        "with": {
+          "kind": "person",
+          "name": "Hélène Aubert",
+          "ref": "person:helène_aubert"
+        }
       },
       {
         "at": "2026-11-12T11:00:00",
@@ -58,8 +62,7 @@
         "kind": "todo_item",
         "quote": "",
         "ref": "obs_l8",
-        "text": "Sign the lease and send it back",
-        "with": "your to-do list"
+        "text": "Sign the lease and send it back"
       },
       {
         "at": "2026-11-18T14:00:00",
@@ -67,8 +70,7 @@
         "kind": "agent",
         "quote": "",
         "ref": "obs_l9",
-        "text": "Drafted the reply and asked to send it",
-        "with": "Claude Code"
+        "text": "Drafted the reply and asked to send it"
       }
     ],
     "matter_table": [
@@ -79,7 +81,11 @@
         "quote": "Vendredi c’est bon pour nous.",
         "ref": "ep_t2",
         "text": "He agrees",
-        "with": "Idris Benali, WhatsApp"
+        "with": {
+          "kind": "person",
+          "name": "Idris Benali",
+          "ref": "person:idris"
+        }
       },
       {
         "at": "2026-11-14T12:00:00",
@@ -88,7 +94,11 @@
         "quote": "On fait ça chez Odile ? Vendredi 27 ?",
         "ref": "ep_t3",
         "text": "She proposes",
-        "with": "Camille Vance, WhatsApp"
+        "with": {
+          "kind": "person",
+          "name": "Camille Vance",
+          "ref": "person:camille_vance"
+        }
       },
       {
         "at": "2026-11-15T09:00:00",
@@ -96,8 +106,7 @@
         "kind": "promise",
         "quote": "Je m’occupe du resto pour les 60 ans de maman.",
         "ref": "obs_t4",
-        "text": "Your promise",
-        "with": "heard by the pendant"
+        "text": "Your promise"
       }
     ]
   }

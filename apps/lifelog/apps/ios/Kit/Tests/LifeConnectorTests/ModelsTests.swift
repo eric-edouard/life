@@ -11,6 +11,20 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 /// What Life's server tests wrote (`fixtures/wire/life/`) read with the phone's models: a read that changes shape fails
 /// there first, then here, naming the model.
+/// The simulator's design data reads with the phone's models: a Kit change that breaks it fails here, not on screen.
+@Test func theDesignDataDecodes() throws {
+    struct Inbox: Decodable { let checks: [Check] }
+    struct Matters: Decodable { let matters: [MatterRow] }
+    struct Matter: Decodable {
+        let steps: [String: [MatterStep]]
+        let agents: [RegisteredAgent]
+    }
+    #expect(try !decoded(Inbox.self, designText("read_inbox")).checks.isEmpty)
+    #expect(try !decoded(Matters.self, designText("read_matters")).matters.isEmpty)
+    #expect(try !decoded(Matter.self, designText("read_matter")).steps.isEmpty)
+    #expect(try !decoded(RegisteredAgents.self, designText("read_registered_agents")).agents.isEmpty)
+}
+
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
     #expect(inbox.total == 8)
