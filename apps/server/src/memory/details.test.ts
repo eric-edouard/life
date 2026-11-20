@@ -4,6 +4,7 @@ import type { Contact } from "../sources/contacts";
 import {
   birthdaysNear,
   birthdayText,
+  detailRefOf,
   detailsOf,
   nextBirthday,
   readDetailsOf,
@@ -148,4 +149,31 @@ test("birthdays: the next date, days left and age; day lists this day and the ne
     "- born",
     "",
   ]);
+});
+
+test("a work line opens the organization of his directory its company names; a family line, the person its name resolves to", () => {
+  const known: Record<string, string> = {
+    Anne: "person:anne",
+    "Atelier Test": "person:atelier-test",
+    "Shop Test": "person:shop-test",
+  };
+  const people = {
+    isOrganization: (r: string) => r.startsWith("person:atelier"),
+    resolve: (name: string) => known[name] ?? null,
+    truth: { organizations: [{ id: "atelier-test" }] },
+  } as unknown as Parameters<typeof detailRefOf>[1];
+  const ref = (kind: "family" | "home" | "work", text: string) =>
+    detailRefOf({ from: "contacts", kind, text }, people);
+  expect(ref("work", "Founder, Architect, Atelier Test")).toBe(
+    "person:atelier-test"
+  );
+  // A company Life knows but not of his directory, or none: no ref.
+  expect(ref("work", "Baker, Shop Test")).toBeNull();
+  expect(ref("work", "Baker")).toBeNull();
+  expect(ref("family", "Mother: Anne")).toBe("person:anne");
+  expect(ref("family", "Anne")).toBe("person:anne");
+  // A part of a name never counts; an organization is no family.
+  expect(ref("family", "Sister: Anne-Marie")).toBeNull();
+  expect(ref("family", "Atelier Test")).toBeNull();
+  expect(ref("home", "Anne")).toBeNull();
 });

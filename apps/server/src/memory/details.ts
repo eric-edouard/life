@@ -29,10 +29,12 @@ type Detail = keyof typeof LABELS;
 /** Contacts' own label for a work address. */
 const WORK_ADDRESS = "(Work)";
 
-/** One line of a person's details: what kind, what it says (a birthday: `YYYY-MM-DD` or `--MM-DD`), and from where. */
+/** One line of a person's details: what kind, what it says (a birthday: `YYYY-MM-DD` or `--MM-DD`), from where, and whom it names (`detailRefOf`). */
 export interface DetailLine {
   from: "contacts" | "truth";
   kind: Detail;
+  /** The party a work or family line names, whose page it opens; absent when it names no one Life has. */
+  ref?: string;
   text: string;
 }
 
@@ -104,6 +106,35 @@ export function detailsOf({
       (l.kind !== "birthday" || l === born) &&
       lines.findIndex((m) => m.kind === l.kind && m.text === l.text) === i
   );
+}
+
+/**
+ * Whom a detail names: a work line, the organization of his directory one of its parts names whole (the company is its
+ * last); a family line ("Mother: Anne"), the person its name resolves to (`resolve`, never a part of a name); null for
+ * every other line, or a name no one goes by.
+ */
+export function detailRefOf(
+  l: DetailLine,
+  people: Pick<People, "isOrganization" | "resolve" | "truth">
+) {
+  if (l.kind === "work") {
+    const ours = new Set(
+      people.truth.organizations.map((o) => `person:${o.id}`)
+    );
+    return (
+      l.text
+        .split(", ")
+        .toReversed()
+        .map((part) => people.resolve(part))
+        .find((r) => r !== null && ours.has(r)) ?? null
+    );
+  }
+  if (l.kind === "family") {
+    // Contacts writes "<label>: <name>", or the name alone.
+    const r = people.resolve(l.text.split(": ").at(-1) ?? l.text);
+    return r && !people.isOrganization(r) ? r : null;
+  }
+  return null;
 }
 
 /** Someone's birthday by their details. */

@@ -9,7 +9,7 @@ import { levelsWith, pagedNow } from "./closeness";
 import { readCommunicationStyle } from "./communication-styles";
 import { conversationSummaryPart } from "./conversation-summaries";
 import { notCapturedOf, readCoverage } from "./coverage";
-import { detailsOf, readCardsOf } from "./details";
+import { detailRefOf, detailsOf, readCardsOf } from "./details";
 import { readExchangeCounts } from "./exchange-counts";
 import {
   episodeLine,
@@ -21,6 +21,7 @@ import {
 } from "./index-rows";
 import { daysOf, pagePath } from "./memory-files";
 import { slugOf } from "./page-format";
+import { readPictureIndex } from "./party";
 import { episodeTitlesOf } from "./person-episode-titles";
 import { readEpisodesWith, readStandingEpisodes } from "./person-episodes";
 import {
@@ -396,6 +397,9 @@ function nowGathered(
   const details = detailsOf({
     contacts: cards,
     person: truth.people.find((p) => `person:${p.id}` === ref),
+  }).map((l) => {
+    const named = detailRefOf(l, people);
+    return named ? { ...l, ref: named } : l;
   });
   const theirs = matters.filter((m) => isIn(m, ref));
   return (more: Pick<NowInputs, "episodes" | "knows">, chars: number) =>
@@ -408,6 +412,7 @@ function nowGathered(
           ? { directoryIsNew: true as const }
           : {}),
         matters: theirs,
+        pictures: readPictureIndex()[row.ref] ?? [],
         ...(organization
           ? {
               organization: {

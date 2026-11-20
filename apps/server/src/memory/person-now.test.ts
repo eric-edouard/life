@@ -7,6 +7,15 @@ import { OWNER_DATA_DIR } from "../core/paths";
 import { promptNameOf } from "../models/prompt-parts";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
+import { apply } from "../sources/lifelog";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as voices from "../sources/lifelog-voices";
+import {
+  conversation,
+  lifelogStore,
+  pageFixture,
+  turnFixture,
+} from "../sources/store-fixtures";
 import {
   buildIndex,
   readStaleness,
@@ -21,6 +30,8 @@ import {
   UNITS,
 } from "./memory-files";
 import { openById } from "./open-by-id";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as kept from "./party";
 import {
   firstSentenceOf,
   knowsOf,
@@ -29,6 +40,7 @@ import {
   peopleListOf,
   personNowOf,
   reachPageOf,
+  readHeardAudio,
   rowOf,
 } from "./person-now";
 import { readPersonUnits } from "./person-units";
@@ -126,6 +138,7 @@ test("`now` holds under PART_CHARS with hundreds of open matters, the top-ranked
     episodes: [{ month: "2026-11", titles: ["A walk"] }],
     knows: [],
     matters,
+    pictures: [],
     reach: [
       {
         accounts: [
@@ -196,6 +209,7 @@ const inputsOf = (now: ReturnType<typeof personNowOf>) => ({
   details: [],
   episodes: now.episodes,
   knows: now.knows,
+  pictures: [],
   reach: now.reach,
   row: row(now.ref),
   situation: now.situation,
@@ -315,6 +329,25 @@ test("`now` of a person and of an organization: their row, reach and open matter
       },
     ],
   });
+});
+
+test("`now` lists every picture kept of them, one per source; the one in use is their `picture`", async () => {
+  await indexed([]);
+  const shown = [
+    { id: "pic-contacts", source: "contacts" },
+    { id: "pic-whatsapp", source: "whatsapp" },
+  ];
+  const spy = spyOn(kept, "readPictureIndex").mockReturnValue({
+    "person:test-ana": shown,
+  });
+  try {
+    expect(await person("Test Ana")).toMatchObject({
+      picture: { id: "pic-contacts" },
+      pictures: shown,
+    });
+  } finally {
+    spy.mockRestore();
+  }
 });
 
 test("the edge cases of `now`: a name no one goes by says so with the parties near it", async () => {
@@ -580,6 +613,7 @@ test("reach keeps to its room with long Contacts labels; every account it has no
     episodes: [],
     knows: [],
     matters: [],
+    pictures: [],
     reach,
     row: row("person:test-ana"),
     situation: [],
@@ -630,6 +664,7 @@ test("an organization's 120 addresses: following `moreReach` and each `next` thr
     episodes: [],
     knows: [],
     matters: [],
+    pictures: [],
     reach,
     row: row(`person:${subject}`),
     situation: [],
@@ -687,5 +722,62 @@ test("his own situation is checked against the episodes the index holds, by the 
   } finally {
     rmSync(EPISODES, { force: true, recursive: true });
     rmSync(situationPath(OWNER), { force: true });
+  }
+});
+
+test("a conversation in person plays one span per recording, from its first turn's clip to its last's; a recording lifelog lost is left out", async () => {
+  const store = lifelogStore();
+  const at = (m: number) => `2026-10-14T10:0${m}:00.000Z`;
+  const turn = (job: string, i: number, m: number) => ({
+    ...turnFixture(i, at(m), null, null, "talk-a"),
+    jobId: job,
+  });
+  apply(
+    store,
+    pageFixture({
+      conversations: [conversation("talk-a")],
+      turns: [
+        turn("job-1", 0, 1),
+        turn("job-1", 1, 2),
+        turn("job-1", 2, 3),
+        turn("job-2", 0, 4),
+        turn("job-3", 0, 5),
+      ],
+    })
+  );
+  const asked: string[] = [];
+  const spy = spyOn(voices, "readTurnClip").mockImplementation((job, i) => {
+    asked.push(`${job}:${i}`);
+    return Promise.resolve(
+      job === "job-3"
+        ? null
+        : {
+            at: null,
+            audio: { end: i * 10 + 5, jobId: job, start: i * 10 },
+            text: "",
+            until: null,
+            words: [],
+          }
+    );
+  });
+  try {
+    const u = unitFixture({
+      end: at(9),
+      key: "talk-a",
+      source: "lifelog",
+      start: at(0),
+    });
+    expect(await readHeardAudio(u, () => store)).toEqual([
+      { end: 25, jobId: "job-1", start: 0 },
+      { end: 5, jobId: "job-2", start: 0 },
+    ]);
+    expect(asked.toSorted()).toEqual([
+      "job-1:0",
+      "job-1:2",
+      "job-2:0",
+      "job-3:0",
+    ]);
+  } finally {
+    spy.mockRestore();
   }
 });
