@@ -8,6 +8,7 @@ import {
   type AssignmentRow,
   activeAgents,
   agentOf,
+  anchorsOf,
   assignmentOf,
   assignmentOfCard,
   type EventRow,
@@ -38,7 +39,12 @@ import { type People, readPeople } from "../memory/who";
 import type { TurnOutcome } from "../records/registered-agent";
 import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
-import { closeAssignment, readPacket, stopOpenRun } from "./agent-actions";
+import {
+  commitAgentFiles,
+  matterRecordOf,
+  readPacket,
+  stopOpenRun,
+} from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import {
   BEGIN_WITHIN_MS,
@@ -61,18 +67,21 @@ import {
 } from "./desk-store";
 import {
   agentWakesOf,
+  holdersOf,
   pollChannels,
   queue,
   type ReadPeople,
+  routeOf,
   unreadLinesOf,
+  type WakeWhy,
 } from "./event-queue";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import {
+  endAgentsOnOverMatters,
   MATTER_RELATED,
-  matterEndsOf,
   netsOf,
+  pollRecordings,
   relatedMessages,
-  relatedRecordings,
 } from "./matter-net";
 import type {
   Run,
@@ -101,10 +110,10 @@ export function readPeopleOnce(): ReadPeople {
 }
 
 /**
- * Reads the new messages once and queues each for every open assignment waiting for it, then for every assignment on a
- * matter it relates to (`relatedMessages`, `matter.related`: a message its wait already queued is not queued again), in
- * the transaction that saves the cursor (its name, `message.received`): delivered at least once, never twice (an event
- * id is kept once per assignment). With none open, nothing is read, and the next read starts at that time.
+ * Reads the new messages once and queues each for one open assignment of each agent it concerns (`routeOf`): one waiting
+ * for it (`message.received`), else one on a matter it relates to (`relatedMessages`, `matter.related`), in the
+ * transaction that saves the cursor (its name, `message.received`): delivered at least once, never twice. With none
+ * open, nothing is read, and the next read starts at that time.
  */
 export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
   const { db, sources } = desk;
@@ -140,20 +149,32 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
     },
     sources
   );
-  const related = await relatedMessages(desk, nets, read.items);
-  db.transaction(() => {
-    queue(
-      db,
-      MESSAGE_RECEIVED,
-      read.items.flatMap(({ ids, m }) =>
+  const wakes = routeOf(
+    [
+      ...read.items.flatMap(({ ids, m }) =>
         [...ids].map((assignment) => ({
           assignment,
+          by: { why: "wait" } as WakeWhy,
           eventId: m.id,
-          payload: m,
+          name: MESSAGE_RECEIVED,
+          payload: m as unknown,
         }))
-      )
-    );
-    queue(db, MATTER_RELATED, related);
+      ),
+      ...(await relatedMessages(desk, nets, read.items)).map((w) => ({
+        ...w,
+        name: MATTER_RELATED,
+      })),
+    ],
+    holdersOf(db, assignments)
+  );
+  db.transaction(() => {
+    for (const name of [MESSAGE_RECEIVED, MATTER_RELATED]) {
+      queue(
+        db,
+        name,
+        wakes.filter((w) => w.name === name)
+      );
+    }
     saveCursor(db, MESSAGE_RECEIVED, read.cursor);
   })();
 }
@@ -226,35 +247,6 @@ export async function pollCalls(
   }
 }
 
-/** Queues his pendant's new recordings for every assignment on a matter they relate to (`relatedRecordings`). */
-export async function pollRecordings(desk: Desk, readPeopleNow: ReadPeople) {
-  if (openAssignments(desk.db).length === 0) {
-    return;
-  }
-  const people = await readPeopleNow();
-  const wakes = await relatedRecordings(
-    desk,
-    await netsOf(desk, people),
-    people
-  );
-  desk.db.transaction(() => queue(desk.db, MATTER_RELATED, wakes))();
-}
-
-/** Closes each open assignment whose matter is over for it (`matterEndsOf`, `endOutcomeOf`), with why. */
-export async function endAgentsOnOverMatters(
-  desk: Desk,
-  readPeopleNow: ReadPeople
-) {
-  if (openAssignments(desk.db).length === 0) {
-    return;
-  }
-  const ends = await matterEndsOf(desk, await readPeopleNow());
-  for (const e of ends) {
-    // biome-ignore lint/performance/noAwaitInLoops: one card withdrawn at a time
-    await closeAssignment(desk, e.assignment, e.outcome);
-  }
-}
-
 /**
  * Queues his answers to the agents' decisions, their lapses and their withdrawals (he answered in the chat), for the
  * open assignment that owns each (`assignmentOfCard`), in the transaction that saves each cursor: read through
@@ -286,7 +278,7 @@ export function pollAnswers({ db }: Desk) {
   }
 }
 
-/** A deadline wake's one line of facts: since when to sweep (`since`: when its last turn ended); none for another cause or a first turn. */
+/** A deadline wake of an agent's own assignment: since when to sweep (`since`: when its last turn ended); none for another cause or a first turn. A matter's wake carries its record instead (`matterRecordOf`). */
 const sinceLineOf = (since?: string) =>
   since
     ? [
@@ -294,16 +286,16 @@ const sinceLineOf = (since?: string) =>
       ]
     : [];
 
-/** The message that wakes a session: why, `sinceLineOf`, the channels it waits on that cannot be read (`unreadLinesOf`), and each queued event's facts (who, where, when, the id to read). */
+/** The message that wakes a session: why, what it is woken on (its matter's record, or `sinceLineOf`), the channels it waits on that cannot be read (`unreadLinesOf`), and each queued event's facts (who, where, when, the id to read). */
 const wakeMessageOf = (
   cause: string,
   events: EventRow[],
-  since: string | undefined,
+  on: string[],
   unread: string[]
 ) =>
   [
     `Woken by the desk: ${cause}.`,
-    ...sinceLineOf(since),
+    ...on,
     ...unread,
     ...events.map(eventLineOf),
   ].join("\n");
@@ -442,8 +434,9 @@ async function launch(
 ) {
   const { db } = desk;
   const runtime = desk.runtimes[a.runtime];
+  const isOwn = anchorsOf(db, s.id).length === 0;
   const since =
-    cause === "deadline"
+    isOwn && cause === "deadline"
       ? (lastTurns(db, s.id).find((t) => t.id < turn && t.ended_at)?.ended_at ??
         undefined)
       : undefined;
@@ -499,7 +492,12 @@ async function launch(
         await runtime.send(
           sessionAgentOf(a),
           a.session,
-          wakeMessageOf(cause, events, since, unreadLinesOf(db, s))
+          wakeMessageOf(
+            cause,
+            events,
+            isOwn ? sinceLineOf(since) : [await matterRecordOf(desk, s)],
+            unreadLinesOf(db, s)
+          )
         )
       );
     }
@@ -673,7 +671,6 @@ export async function turnEnded(desk: Desk, id: string, end: RunEnd) {
   const t = openTurn(db, id);
   const a = agentOf(db, id);
   const s = t && assignmentOf(db, t.assignment_id);
-  const runtime = a && desk.runtimes[a.runtime];
   if (!(t && a && s)) {
     return;
   }
@@ -698,38 +695,45 @@ export async function turnEnded(desk: Desk, id: string, end: RunEnd) {
         afterFailure(desk, a, s);
       }
     })();
-    return;
-  }
-  if (t.outcome === "waited" || t.outcome === "finished") {
+  } else if (t.outcome === "waited" || t.outcome === "finished") {
     close(desk, t, t.outcome, usage);
+  } else if (await isReminded(desk, t, a)) {
     return;
+  } else {
+    db.transaction(() => {
+      if (close(desk, t, "default_wait", usage) && isWaiting(a, s)) {
+        writeWait(db, s.id, defaultWaitOf(s, clock().getTime()), true);
+      }
+    })();
   }
+  commitAgentFiles(a, s);
+}
+
+/** Reminds turn `t` of `a` once to set a wait or finish, when it ended with neither: whether it was (the turn then runs on). */
+async function isReminded(desk: Desk, t: TurnRow, a: AgentRow) {
+  const runtime = desk.runtimes[a.runtime];
   // Only an agent still active is reminded: one he stopped mid-turn gets no extra run.
   if (!t.reminded_at && a.status === "active" && a.session && runtime) {
     // Marked before it is sent, so a turn ending at once is never reminded twice.
-    db.run("update turn set reminded_at = ? where id = ?", [now(), t.id]);
+    desk.db.run("update turn set reminded_at = ? where id = ?", [now(), t.id]);
     try {
       watch(
         desk,
-        id,
+        a.id,
         t.id,
         await runtime.send(sessionAgentOf(a), a.session, REMINDER)
       );
-      return;
+      return true;
     } catch (error) {
       log("desk.runtime", {
-        agent: id,
+        agent: a.id,
         error: String(error),
         ok: false,
         what: "remind",
       });
     }
   }
-  db.transaction(() => {
-    if (close(desk, t, "default_wait", usage) && isWaiting(a, s)) {
-      writeWait(db, s.id, defaultWaitOf(s, clock().getTime()), true);
-    }
-  })();
+  return false;
 }
 
 /** Runs `f` on each active agent's open desk turn, with its runtime, all at once. */

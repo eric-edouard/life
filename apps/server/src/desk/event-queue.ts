@@ -2,8 +2,9 @@ import { clock, iso } from "../core/clock";
 import { log } from "../core/log";
 import {
   type AssignmentRow,
-  eventHeard,
+  anchorsOf,
   filtersOf,
+  isQueuedForAgent,
   openAssignments,
 } from "../host/desk-read";
 import {
@@ -15,8 +16,8 @@ import { matcherOf } from "../host/events";
 import type { People } from "../memory/who";
 import type { Desk } from "./desk-store";
 
-// Queueing an agent's events (the desk's clock, `desk-clock.ts`, polls): the one insert, which agents an event wakes,
-// and the poll of the event channels a wait names.
+// Queueing an agent's events (the desk's clock, `desk-clock.ts`, polls): the one insert, which assignment of each agent an
+// event wakes (`routeOf`), and the poll of the event channels a wait names.
 
 /** Who his people are, read when a poll first needs them: once per poll (`readPeopleOnce`). */
 export type ReadPeople = () => Promise<People>;
@@ -41,10 +42,71 @@ export function queue(
   }
 }
 
+/** Why an event wakes an assignment: its wait matches, else the wide net (`matter-net.ts`) by a person or by meaning. */
+export type WakeWhy =
+  | { why: "wait" }
+  | { why: "person" }
+  | { similarity: number; why: "meaning" };
+
+/** An assignment an event may wake, as `routeOf` ranks it: its agent, whether it is the agent's own (no anchors), when it was opened. */
+export interface Holder {
+  agent: string;
+  isOwn: boolean;
+  openedAt: string;
+}
+
+/** Each of `assignments` as `routeOf` ranks it, by its id. */
+export const holdersOf = (db: Desk["db"], assignments: AssignmentRow[]) =>
+  new Map<string, Holder>(
+    assignments.map((s) => [
+      s.id,
+      {
+        agent: s.agent_id,
+        isOwn: anchorsOf(db, s.id).length === 0,
+        openedAt: s.opened_at,
+      },
+    ])
+  );
+
+/** A wake's rank: a matter's wait, the agent's own wait, then the net by a person, then by meaning. */
+const rankOf = (w: WakeWhy, h: Holder | undefined) => {
+  if (w.why === "wait") {
+    return h?.isOwn ? 1 : 0;
+  }
+  return w.why === "person" ? 2 : 3;
+};
+const similarityOf = (w: WakeWhy) => (w.why === "meaning" ? w.similarity : 0);
+
+/**
+ * Of `wakes`, one per event and agent, in their order (pure): a wait beats the wide net; among waits a matter's beats the
+ * agent's own listening; among nets a person beats meaning, then the closer meaning; a tie left goes to the assignment
+ * opened first. Two agents an event wakes are both woken (his ruling: overlapping listening is fine).
+ */
+export function routeOf<
+  T extends { assignment: string; by: WakeWhy; eventId: string },
+>(wakes: T[], holders: Map<string, Holder>): T[] {
+  const of = (w: T) => holders.get(w.assignment);
+  const picked = new Set<T>();
+  const seen = new Set<string>();
+  for (const w of wakes.toSorted(
+    (x, y) =>
+      rankOf(x.by, of(x)) - rankOf(y.by, of(y)) ||
+      similarityOf(y.by) - similarityOf(x.by) ||
+      (of(x)?.openedAt ?? "").localeCompare(of(y)?.openedAt ?? "")
+  )) {
+    const key = JSON.stringify([w.eventId, of(w)?.agent ?? w.assignment]);
+    if (!seen.has(key)) {
+      seen.add(key);
+      picked.add(w);
+    }
+  }
+  return wakes.filter((w) => picked.has(w));
+}
+
 /**
  * Each open assignment's wakes by `events`: those its wait wants (`matcherOf`), from after it was opened (by the event's
- * instant, else by its day against the local day it was opened): nothing before is new to it; not queued for it yet
- * (`eventHeard`).
+ * instant, else by its day against the local day it was opened): nothing before is new to it; never queued for its agent
+ * yet (`isQueuedForAgent`); one assignment per agent (`routeOf`).
  */
 export function agentWakesOf<T>(
   db: Desk["db"],
@@ -58,16 +120,24 @@ export function agentWakesOf<T>(
     payload: T;
   }[]
 ) {
-  return assignments.flatMap((s) => {
+  const wakes = assignments.flatMap((s) => {
     const matchers = filtersOf(s).flatMap((f) => matcherOf(f, people) ?? []);
     return events.flatMap((e) =>
       isOnOrAfter(e, s.opened_at) &&
       matchers.some((isMatch) => isMatch(e.matchable)) &&
-      eventHeard(db, s.id, e.eventId) === "not_yet"
-        ? [{ assignment: s.id, eventId: e.eventId, payload: e.payload }]
+      !isQueuedForAgent(db, s.agent_id, e.eventId)
+        ? [
+            {
+              assignment: s.id,
+              by: { why: "wait" } as WakeWhy,
+              eventId: e.eventId,
+              payload: e.payload,
+            },
+          ]
         : []
     );
   });
+  return routeOf(wakes, holdersOf(db, assignments)).map(({ by, ...w }) => w);
 }
 
 /** Each event channel's last read, and since when it has failed and why, in this process (never stored). */

@@ -218,12 +218,34 @@ export function agentHomeOf(
 }
 
 /**
- * Which assignment owns card `d`: its asker's (`d.agent`) one assignment, so a card stays with its asker; none for a card
- * no registered agent asked. A card follows its matter to another agent only once the door checks its subject and the
- * fold moves matters (the agents and matters plan, PR 2 and 3).
+ * Which assignment owns card `d`: of its asker's (`d.agent`), the one anchored on its subject (the door sets a matter's
+ * card's subject to one of its steps, `askDecision`), else its own (no anchors), else its first open, else its first;
+ * none for a card no registered agent asked. A card stays with its asker; it follows its matter to another agent only
+ * with the fold (the agents and matters plan, PR 3).
  */
-export const assignmentOfCard = (db: Database, d: { agent?: string }) =>
-  d.agent ? (currentAssignmentOf(db, d.agent)?.id ?? null) : null;
+export const assignmentOfCard = (
+  db: Database,
+  d: { agent?: string; subject?: string }
+) =>
+  d.agent
+    ? (db
+        .query<{ id: string }, [string, string | null]>(
+          "select s.id from assignment s where s.agent_id = ?1 order by exists (select 1 from anchor n where n.assignment_id = s.id and n.step = ?2) desc, s.closed_at is not null, exists (select 1 from anchor n where n.assignment_id = s.id), s.opened_at limit 1"
+        )
+        .get(d.agent, d.subject ?? null)?.id ?? null)
+    : null;
+
+/** Whether event `eventId` was ever queued for an assignment of agent `agent`: an event goes to one of an agent's assignments (`routeOf`). */
+export const isQueuedForAgent = (
+  db: Database,
+  agent: string,
+  eventId: string
+) =>
+  db
+    .query(
+      "select 1 from event e join assignment s on s.id = e.assignment_id where s.agent_id = ? and e.event_id = ?"
+    )
+    .get(agent, eventId) !== null;
 
 export const readCursor = (db: Database, name: string) =>
   db

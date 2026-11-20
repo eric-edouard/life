@@ -22,7 +22,15 @@ import type { People } from "../memory/who";
 import { spokenLines } from "../memory/words";
 import { dayNow } from "../memory/zones";
 import type { OpenedBy } from "../records/registered-agent";
+import { closeAssignment } from "./agent-actions";
 import type { Desk } from "./desk-store";
+import {
+  holdersOf,
+  queue,
+  type ReadPeople,
+  routeOf,
+  type WakeWhy,
+} from "./event-queue";
 
 // The wide net (his word of 18 Nov 2026, the agent asks spec's "His yes and his addition"): an agent on a matter is woken
 // by anything new related to it: a message from one of its people, or any new message or recording of his pendant whose
@@ -176,7 +184,7 @@ export const matterEndsOf = async (desk: Desk, people: People) =>
   (await readOnMatters(desk, people)).ends;
 
 /** Why a text is related to a net: its person, else its meaning (with how close), else not. */
-type Why = { why: "person" } | { similarity: number; why: "meaning" };
+type Why = Exclude<WakeWhy, { why: "wait" }>;
 
 /**
  * For each text (`person`: who wrote or said it, none for his own), each net it relates to and why: by its person, or by
@@ -225,7 +233,7 @@ async function relatedOf(
   return { isWhole, related };
 }
 
-/** The new messages each net relates to (`relatedOf`), each from when its assignment was opened on: one wake each, its facts and why. */
+/** The new messages each net relates to (`relatedOf`), each from when its assignment was opened on: one wake each, its facts and why (`by`, for `routeOf`). */
 export async function relatedMessages(
   desk: Desk,
   nets: Net[],
@@ -245,7 +253,14 @@ export async function relatedMessages(
   return messages.flatMap((x, i) =>
     (related[i] ?? []).flatMap(({ assignment, ...why }) =>
       isOnOrAfter(x.m, since.get(assignment) ?? "")
-        ? [{ assignment, eventId: x.m.id, payload: { ...x.m, ...why } }]
+        ? [
+            {
+              assignment,
+              by: why as WakeWhy,
+              eventId: x.m.id,
+              payload: { ...x.m, ...why },
+            },
+          ]
         : []
     )
   );
@@ -326,6 +341,7 @@ export async function relatedRecordings(
           ? [
               {
                 assignment,
+                by: why as WakeWhy,
                 eventId: `${u.id}@${at}`,
                 payload: { at, id: u.id, source: u.source, ...why },
               },
@@ -335,4 +351,33 @@ export async function relatedRecordings(
     })
   );
   return wakes.flat();
+}
+
+/** Queues his pendant's new recordings for one assignment of each agent on a matter they relate to (`relatedRecordings`, `routeOf`). */
+export async function pollRecordings(desk: Desk, readPeopleNow: ReadPeople) {
+  const assignments = openAssignments(desk.db);
+  if (assignments.length === 0) {
+    return;
+  }
+  const people = await readPeopleNow();
+  const wakes = routeOf(
+    await relatedRecordings(desk, await netsOf(desk, people), people),
+    holdersOf(desk.db, assignments)
+  );
+  desk.db.transaction(() => queue(desk.db, MATTER_RELATED, wakes))();
+}
+
+/** Closes each open assignment whose matter is over for it (`matterEndsOf`, `endOutcomeOf`), with why. */
+export async function endAgentsOnOverMatters(
+  desk: Desk,
+  readPeopleNow: ReadPeople
+) {
+  if (openAssignments(desk.db).length === 0) {
+    return;
+  }
+  const ends = await matterEndsOf(desk, await readPeopleNow());
+  for (const e of ends) {
+    // biome-ignore lint/performance/noAwaitInLoops: one card withdrawn at a time
+    await closeAssignment(desk, e.assignment, e.outcome);
+  }
 }
