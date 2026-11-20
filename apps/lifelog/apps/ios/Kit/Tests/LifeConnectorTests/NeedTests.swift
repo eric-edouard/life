@@ -51,7 +51,7 @@ private func need(_ json: String) throws -> Check.Need {
 @Test func aTextCopiesOnlyWhenAsked() throws {
     let copied = try need(#"{"kind":"text","line":"Reference: R-7","label":"Reference","text":"R-7","copy":true}"#).rows
     #expect(copied.map(\.text) == ["Reference: R-7"])
-    #expect(copied[0].action == .copy("R-7", label: "Copy reference"))
+    #expect(copied[0].action == .copy("R-7", label: "Copy Reference"))
     #expect(try need(#"{"kind":"text","line":"Bring the receipt","text":"Bring the receipt"}"#).rows[0].action == nil)
 }
 
@@ -81,4 +81,16 @@ private func need(_ json: String) throws -> Check.Need {
     #expect(check.options[0].takes == .unknown)
     #expect(check.answer(check.options[0]) == nil)
     #expect(check.takesOwnWords)
+}
+
+@Test func hisWordThatAStepIsDoneIsHeldAndNeverANotificationButton() throws {
+    let card =
+        #"{"ref":"dec_1","group":"decision","title":"t","question":"Is it done?","asker":"a","options":[{"id":"done","label":"It’s done","ends":"step"},{"id":"later","label":"Later"}],"clips":[],"likelyPeople":[],"links":[]}"#
+    let check = try JSONDecoder().decode(Check.self, from: Data(card.utf8))
+    #expect(check.options[0].ends == .step)
+    #expect(check.isEnding(AnswerRequest(ref: "dec_1", options: ["done"])))
+    #expect(!check.isEnding(AnswerRequest(ref: "dec_1", options: ["done"], note: "and paid")))
+    #expect(!check.isEnding(AnswerRequest(ref: "dec_1", options: ["later"])))
+    #expect(!CardNotification.actions(check).map(\.identifier).contains("done"))
+    #expect(CardNotification.answer("done", typed: nil, to: check, in: "", asksFaceID: false) == nil)
 }

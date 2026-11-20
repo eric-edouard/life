@@ -34,6 +34,14 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         /// Choosing it sends, pays, books, deletes or changes something.
         public let outgoing: Bool?
         public let takes: Takes?
+        /// His pick of it, alone and with no words, is his word that the card's step or matter is done: Life writes an
+        /// `outdated` correction no code unsays, so the phone holds it for Undo wherever the card is shown.
+        public let ends: Ends?
+
+        public enum Ends: String, UnknownTolerant, Sendable {
+            case step, matter
+            case unknown
+        }
     }
 
     public struct Clip: Decodable, Sendable, Equatable {
@@ -270,6 +278,12 @@ extension Check {
     /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their
     /// options (a new matter's goal comes through its option that takes a note).
     public var takesOwnWords: Bool { group == .decision }
+    /// Whether `request` is his word that the step or matter is done: one option that `ends`, alone, with no words.
+    public func isEnding(_ request: AnswerRequest) -> Bool {
+        guard request.note == nil, request.options.count == 1 else { return false }
+        return options.contains { $0.id == request.options[0] && $0.ends != nil }
+    }
+
     /// Its draft goes to someone Life only guesses: the guess is asked beside it (`confirm`).
     public var isRecipientGuessed: Bool { !(confirm ?? []).isEmpty }
 }

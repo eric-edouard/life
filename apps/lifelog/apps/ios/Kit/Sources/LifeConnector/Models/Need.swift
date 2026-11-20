@@ -15,16 +15,16 @@ extension Check {
         public let kind: Kind
         /// Life's plain words of it: what a phone that doesn't know the kind draws.
         public let line: String
-        public let bank: String?
-        public let number: String?
-        public let holder: String?
-        public let value: Double?
-        public let label: String?
-        public let text: String?
-        public let url: URL?
-        public let vendor: String?
+        let bank: String?
+        let number: String?
+        let holder: String?
+        let value: Double?
+        let label: String?
+        let text: String?
+        let url: URL?
+        let vendor: String?
         /// A text need he copies (a reference, a code).
-        public let copy: Bool?
+        let copy: Bool?
 
         public init(from decoder: any Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -85,8 +85,8 @@ extension Check {
                     text.map { text in
                         [
                             NeedRow(
-                                glyph: .note, text: label.map { "\($0): \(text)" } ?? text,
-                                action: copy == true ? .copy(text, label: "Copy \(label?.lowercased() ?? "it")") : nil)
+                                glyph: .note, text: line,
+                                action: copy == true ? .copy(text, label: "Copy \(label ?? "it")") : nil)
                         ]
                     } ?? []
             case .unknown:

@@ -37,6 +37,17 @@ struct MattersScreen: View {
                                 leave: { router.matterPath = [] })
                         }
                 }
+                // His word that a step is done, held for Undo after he left its ask: over the top of the matter.
+                .overlay(alignment: .top) {
+                    ZStack {
+                        if let latest = life.latestHeld,
+                            life.matter[id]?.value?.checks.contains(where: { $0.ref == latest.ref }) == true
+                        {
+                            Toast(words: latest.held.label) { life.undo(latest.ref) }.appears().id(latest.ref)
+                        }
+                    }
+                    .motion(Motion.standard, value: life.latestHeld?.ref)
+                }
                 // Back to the matter, by his Done or the system's back: the result he read is forgotten, so the next ask
                 // opens on its own question.
                 .onChange(of: router.matterPath) { _, path in

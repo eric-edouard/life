@@ -251,8 +251,9 @@ struct NeedsBlock: View {
                         Text(row.text).font(row.isFigure ? .rowFigure : .body15).foregroundStyle(Palette.fg)
                             .fontWeight(row.isFigure ? .semibold : nil).lineLimit(2)
                         if let detail = copied?.row == index ? "Copied \(copied?.text ?? "")" : row.detail {
-                            Text(detail).font(.small).foregroundStyle(Palette.muted).lineLimit(1)
-                                .truncationMode(.middle)
+                            // A link's host in full, on as many lines as it takes: the trust boundary.
+                            Text(detail).font(.small).foregroundStyle(Palette.muted)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     Spacer(minLength: 0)
@@ -268,7 +269,7 @@ struct NeedsBlock: View {
     @ViewBuilder private func button(_ action: NeedRow.Action, row: Int) -> some View {
         switch action {
         case .copy(let text, let label):
-            RoundAction(systemImage: "doc.on.doc", label: label, isDone: copied?.row == row) {
+            RoundIconButton(symbol: "doc.on.doc", label: label, isDone: copied?.row == row) {
                 UIPasteboard.general.string = text
                 copied = (row, text)
                 AccessibilityNotification.Announcement("Copied \(text)").post()
@@ -278,7 +279,7 @@ struct NeedsBlock: View {
                 }
             }
         case .open(let url, let label):
-            RoundAction(systemImage: "arrow.up.right", label: label) { openURL(url) }
+            RoundIconButton(symbol: "arrow.up.right", label: label) { openURL(url) }
         }
     }
 

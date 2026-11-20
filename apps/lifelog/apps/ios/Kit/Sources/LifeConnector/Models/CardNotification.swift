@@ -74,7 +74,10 @@ public struct CardNotification: Sendable, Equatable {
     }
 
     /// Needs nothing more than the tap, and acts on nothing outward.
-    private static func isOneTap(_ option: Check.Option) -> Bool { option.takes == nil && option.outgoing != true }
+    /// A tap that is his word a step is done waits for Undo in the app: never a notification's button.
+    private static func isOneTap(_ option: Check.Option) -> Bool {
+        option.takes == nil && option.outgoing != true && option.ends == nil
+    }
 
     /// Sends the card's draft, shown whole above it; never on a card that asks who its recipient is (`confirm`).
     private static func isSend(_ option: Check.Option, of check: Check) -> Bool {

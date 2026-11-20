@@ -61,7 +61,8 @@ struct CheckActions: View {
                         Text(check.doneSeen?.line ?? "Checking…")
                     }
                     .buttonStyle(.pill(.filled, isBusy: true)).disabled(true)
-                } else {
+                } else if check.doneSeen?.state != .seen {
+                    // Seen: Life ends the card; a stale read of it offers nothing to tap.
                     options
                 }
             }

@@ -355,12 +355,13 @@
 
         // MARK: Made-up data
 
-        private static func option(_ id: String, _ label: String, outgoing: Bool = false, takes: String? = nil)
-            -> [String: Any]
-        {
+        private static func option(
+            _ id: String, _ label: String, outgoing: Bool = false, takes: String? = nil, ends: String? = nil
+        ) -> [String: Any] {
             var option: [String: Any] = ["id": id, "label": label]
             if outgoing { option["outgoing"] = true }
             if let takes { option["takes"] = takes }
+            if let ends { option["ends"] = ends }
             return option
         }
 
@@ -473,6 +474,12 @@
                     ],
                     "doneSeenBy": "payment",
                 ]),
+            // His word that a step is done (`ends`): held for Undo in the Inbox and on the matter's page alike.
+            check(
+                "dec_gear", group: "decision", urgency: "blocks", title: "Book the dive gear",
+                question: "Is the dive gear booked?", asker: "Claude Code",
+                options: [option("done", "It’s done", ends: "step"), option("not-yet", "Not yet")], matter: dive,
+                deadline: at(25, 12), context: "Blue Reef rents gear only to those who book it a week ahead."),
         ]
 
         /// A guess Life asks beside a draft to a person it only guesses (`confirm`), and about a matter's person: the
