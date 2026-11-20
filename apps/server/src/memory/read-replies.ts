@@ -5,7 +5,11 @@ import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import type { CallReads } from "../models/model-call";
 import { isPromptVersion, MAY_KEEP, promptText } from "../models/prompt-parts";
-import { type ReadName, ReadReply } from "../records/read-reply";
+import {
+  ARRIVAL_CONFIRM_READ,
+  type ReadName,
+  ReadReply,
+} from "../records/read-reply";
 import { READ_REPLIES, readReplyPath } from "./memory-files";
 import { inBatches, type Step } from "./run";
 
@@ -15,6 +19,8 @@ import { inBatches, type Step } from "./run";
 
 /** The prompt of each read; the moves reads' shape is `MOVES`, `memory/moves.ts`, the summary's is `memory/conversation-summaries.ts`, the voice naming's `memory/voice-naming.ts`. */
 export const READS = {
+  arrival_confirm: { prompt: "memory-arrival-confirm.v1" },
+  arrival_trigger: { prompt: "memory-arrival-trigger.v1" },
   conflict: { prompt: "memory-conflict.v2" },
   connection: { prompt: "memory-connection.v3" },
   conversation_summary: { prompt: "memory-conversation-summary.v1" },
@@ -34,6 +40,8 @@ interface Call {
   /** What the call is shown, counted per source (`readsOf`). */
   reads: CallReads;
   starts: number[];
+  /** The unit its lines are of, for the reads that store it (the arrival reader's). */
+  unit?: string;
 }
 
 /** A call to make, with the instant of its newest exchange (the night asks the newest first). */
@@ -63,6 +71,53 @@ export const readReplies = (where = READ_REPLIES) =>
         all.push(line);
       }
     )
+  );
+
+/**
+ * The stored lines of the month files an instant window touches (replies are filed by their first message's UTC
+ * month): a reader of recent replies never reads every year.
+ */
+export function readRepliesSince(since: string, where = READ_REPLIES) {
+  const from = readReplyPath(since, where);
+  return filesOf(where)
+    .filter((f) => f >= from)
+    .flatMap((file) =>
+      readAppended(
+        file,
+        ReadReply,
+        (last?: ReadReply[]) => [...(last ?? [])],
+        (all, line) => {
+          all.push(line);
+        }
+      )
+    );
+}
+
+/** A confirmed arrival: new lines of a unit his engine confirmed hold an ask, a promise or a wait for him. */
+export interface ConfirmedArrival {
+  at: string;
+  /** The keys of the messages the confirm read, oldest first. */
+  messages: string[];
+  unit: string;
+}
+
+/**
+ * The one rule of what is a confirmed arrival: a confirm line of the current prompt that says `isActionable`. Read by
+ * extraction's choice of units and the desk's wake, never decided twice.
+ */
+export const confirmedArrivalsOf = (lines: ReadReply[]): ConfirmedArrival[] =>
+  lines.flatMap((l) =>
+    l.read === ARRIVAL_CONFIRM_READ &&
+    l.reply.isActionable === true &&
+    isPromptVersion(l.madeBy.prompt, READS.arrival_confirm.prompt)
+      ? [{ at: l.at, messages: l.messages, unit: l.unit }]
+      : []
+  );
+
+/** The confirmed arrivals stored since the instant `since`. */
+export const readConfirmedArrivals = (since: string, where = READ_REPLIES) =>
+  confirmedArrivalsOf(readRepliesSince(since, where)).filter(
+    (a) => a.at >= since
   );
 
 /** A stored exchange: its place in the line that read it, and the keys of its messages. */
@@ -187,6 +242,7 @@ export async function makeReplies(
             reply,
             schemaVersion: 1,
             starts: call.starts,
+            ...(call.unit && { unit: call.unit }),
           } as ReadReply,
           call.firstAt,
           where

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { MIN } from "../core/clock";
-import type { SourceEvent } from "../records/source";
+import { eventKey, type SourceEvent } from "../records/source";
 import type { LifelogConversation } from "../sources/lifelog";
 import { type ArrivalReads, arrivalsDue } from "./arrival-gate";
 import { unread } from "./episodes";
@@ -30,16 +30,15 @@ const msg = (over: Partial<SourceEvent> = {}): SourceEvent => ({
 });
 
 const reads = (over: Partial<ArrivalReads> = {}): ArrivalReads => ({
-  draftChats: new Set(),
-  lines: new Map(),
   ownerNames: ["Ozren"],
+  read: new Set(),
   ...over,
 });
 
 /** The gate's word on the units of `events`: "due" or the rule that holds them. */
 const gate = (events: SourceEvent[], read = reads()) =>
   arrivalsDue(
-    { built: applyRules(messageUnits(events, known)), conversations: [] },
+    { built: applyRules(messageUnits(events, known)) },
     read,
     new Date(NOW)
   ).map((a) => ("wait" in a ? a.wait : "due"));
@@ -66,7 +65,7 @@ const talk = (
 });
 const heard = (c: LifelogConversation) =>
   arrivalsDue(
-    { built: lifelogUnits([c], new Set()), conversations: [c] },
+    { built: lifelogUnits([c], new Set()) },
     reads(),
     new Date(NOW)
   ).map((a) => ("wait" in a ? a.wait : "due"));
@@ -74,25 +73,15 @@ const heard = (c: LifelogConversation) =>
 test("a quiet 1:1 chat with someone he knows is due; once read, it waits until a new line comes", () => {
   const first = msg();
   expect(gate([first])).toEqual(["due"]);
-  const [b] = messageUnits([first], known);
-  const read = reads({ lines: new Map([[b?.unit.id ?? "", 1]]) });
+  const read = reads({ read: new Set([eventKey(first)]) });
   expect(gate([first], read)).toEqual(["nothing-new"]);
   expect(
     gate([first, msg({ at: ago(3), text: "And the slides" })], read)
   ).toEqual(["due"]);
 });
 
-test("a recording waits while lifelog has not closed it, when he did not speak, and when it is small talk; a closed talk of his is due", () => {
-  expect(heard(talk(8, { closed: false }))).toEqual(["open-conversation"]);
-  const marked = talk(8, { closed: false });
-  marked.turns[0] = {
-    ...marked.turns[0],
-    marks: ["job-1:0@x"],
-  } as (typeof marked.turns)[number];
-  expect(heard(marked)).toEqual(["open-conversation"]);
-  expect(heard(talk(8, { him: false }))).toEqual(["he-did-not-speak"]);
-  expect(heard(talk(5))).toEqual(["small-talk"]);
-  expect(heard(talk(6))).toEqual(["due"]);
+test("a recording is the night's: voice waits for a measured cut of its own", () => {
+  expect(heard(talk(8))).toEqual(["night-only"]);
 });
 
 test("a chat still being written waits, unless its first unread line has waited 10 minutes", () => {
@@ -129,38 +118,18 @@ test("a receipt or a message from no one he knows waits; a newsletter is the cod
   ).toEqual(["stranger"]);
 });
 
-test("with layer 2 measured, a chat whose new lines are near no ask waits; one near an ask is due", () => {
-  const line = msg();
-  expect(gate([line], reads({ nearAnAsk: new Set() }))).toEqual([
-    "not-near-an-ask",
-  ]);
-  expect(gate([line], reads({ nearAnAsk: new Set([line.id]) }))).toEqual([
-    "due",
-  ]);
-});
-
 test("notes wait for the night whatever they say", () => {
   expect(
     gate([msg({ chat: "note-1", id: "notes:1", source: "notes" })])
   ).toEqual(["night-only"]);
 });
 
-test("his words to Life, an agent's report and a chat a draft was just sent in are always through", () => {
+test("his words to Life and an agent's report are always through", () => {
   const stranger = {
     chat: "33600000002@s.whatsapp.net",
     sender: "33600000002",
   };
   expect(gate([msg({ ...stranger, marked: true })])).toEqual(["due"]);
-  expect(
-    gate([
-      msg({
-        chat: "agent-1",
-        id: "agent:1",
-        sender: "agent-1",
-        source: "agent",
-      }),
-    ])
-  ).toEqual(["due"]);
   expect(
     gate([
       msg({
@@ -171,12 +140,6 @@ test("his words to Life, an agent's report and a chat a draft was just sent in a
         source: "mail",
       }),
     ])
-  ).toEqual(["due"]);
-  expect(
-    gate(
-      [msg(stranger)],
-      reads({ draftChats: new Set(["33600000002@s.whatsapp.net"]) })
-    )
   ).toEqual(["due"]);
 });
 
