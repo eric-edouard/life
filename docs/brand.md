@@ -24,7 +24,7 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   filled button, `card` a fill (never a border), `tile` a block inside a sheet, `sheet` a bottom sheet, `paper` a draft
   or a quote, `muted` secondary text, `faint` small labels on the page, `line` hairlines between rows, `on` text on a
   filled button, and three that mean something: `flag` needs him, a deadline or a failure, `ai` an agent or a guess of
-  Life's, `ok` it worked. Most of a screen is black and cream (dark `bg` `#07080a`, `fg` `#fff8ea`; light `bg`
+  Life's, `ok` it worked (a vivid green: his ask of 20 Nov 2026, "a bit more vivid … to really describe success"). Most of a screen is black and cream (dark `bg` `#07080a`, `fg` `#fff8ea`; light `bg`
   `#f3f4f5`, `fg` `#0d0e11`). Never a hex in a screen; the values are tokens.css's.
 - **Type.** Manrope only. Bold (650) for what the person reads or answers, which is the largest text on the screen;
   thin (250) only for a single state word ("Sent.", "Recording."); 15 px body. A heading in a list is small (13 px,
