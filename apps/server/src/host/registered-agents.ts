@@ -1,4 +1,5 @@
 import { clock, DAY, iso } from "../core/clock";
+import { DEFAULT_RADIUS_M } from "../core/distance";
 import { holder } from "../core/lock";
 import type { SourceName } from "../core/names";
 import { decisionsNow } from "../memory/decisions";
@@ -31,7 +32,7 @@ import { matcherOf } from "./events";
 
 /**
  * One line of what will wake an agent (`wakesOnOf`), beside its deadline (`wait.until`): `kind` is `message` (a message,
- * and with `calls` the calls of the same people or chat), an event channel's name (`payments`), `answer` (his answer to
+ * and with `calls` the calls of the same people or chat), an event channel's name (`payments`, `places`), `answer` (his answer to
  * its open card, or its deadline) or `wide_net` (anything new close to its matter). Only the fields a kind has.
  */
 interface ListenLine {
@@ -46,6 +47,8 @@ interface ListenLine {
   chat?: { app: string | null; group: boolean | null; name: string | null };
   fromHim?: true;
   kind: string;
+  /** The place an event channel's line is limited to (a channel whose events hold a point). */
+  near?: { latitude: number; longitude: number; radius_m: number };
   person?: string;
   quantity?: string;
   words?: string;
@@ -64,7 +67,7 @@ export type WakeLine = AnswerLine | ListenLine;
 /** What `wakesOnOf` reads besides the filters: the event channels, who people are, the chats the agent has heard from, its open card and whether it has a wide net. */
 export interface WakesOnContext {
   card?: { check: string; deadline: string; question: string };
-  channels: Pick<EventChannel, "name" | "quantities">[];
+  channels: Pick<EventChannel, "hasPoint" | "name" | "quantities">[];
   hasNet: boolean;
   people: People;
   seen: AgentRead["chatsSeen"];
@@ -87,11 +90,17 @@ function chatOf(
   };
 }
 
-/** The message line of `f` (its messages, and calls when it covers them), none when `f` stops every message (a `quantity`, or only event channels). */
+/** The place `f` names, or none. */
+const placeOf = ({ latitude, longitude, radius_m }: EventFilter) =>
+  latitude === undefined || longitude === undefined
+    ? undefined
+    : { latitude, longitude, radius_m: radius_m ?? DEFAULT_RADIUS_M };
+
+/** The message line of `f` (its messages, and calls when it covers them), none when `f` stops every message (a `quantity`, a place, or only event channels). */
 function messageLineOf(f: EventFilter, c: WakesOnContext): ListenLine[] {
   const { channels, people } = c;
   const apps = f.channels?.filter((n) => !channels.some((x) => x.name === n));
-  if (f.quantity || apps?.length === 0) {
+  if (f.quantity || placeOf(f) || apps?.length === 0) {
     return [];
   }
   const known = f.person ? meant(f.person, people).known : undefined;
@@ -113,38 +122,47 @@ function messageLineOf(f: EventFilter, c: WakesOnContext): ListenLine[] {
   ];
 }
 
+/** The event channel lines of `f`: one per channel it names whose events can match it (a quantity it holds, a point when `f` names a place); none when `f` names a message's keys. */
+function eventLinesOf(
+  f: EventFilter,
+  channels: WakesOnContext["channels"]
+): ListenLine[] {
+  const near = placeOf(f);
+  if (f.person || f.chat || f.from_me) {
+    return [];
+  }
+  return channels
+    .filter(
+      (x) =>
+        f.channels?.includes(x.name) &&
+        (!f.quantity || x.quantities.includes(f.quantity)) &&
+        (!near || x.hasPoint)
+    )
+    .map((x) => ({
+      ...(f.quantity ? { quantity: f.quantity } : {}),
+      ...(f.quantity && f.above !== undefined ? { above: f.above } : {}),
+      ...(f.quantity && f.below !== undefined ? { below: f.below } : {}),
+      kind: x.name,
+      ...(near ? { near } : {}),
+      ...(f.text_matches ? { words: f.text_matches } : {}),
+    }));
+}
+
 /**
  * What will wake an agent waiting on `filters`, one line per filter that can fire (a filter naming message apps and an
  * event channel gives a line for each side), in its order, then its open card, then its wide net. The rules are
- * `matcherOf`'s over `Matchable`: a `quantity` stops every message, a `person`, `chat` or `from_me` every event channel's
- * event, and a person no one goes by never matches (`broken`).
+ * `matcherOf`'s over `Matchable`: a `quantity` or a place stops every message (a place, every event with no point), a
+ * `person`, `chat` or `from_me` every event channel's event, and a person no one goes by never matches (`broken`).
  */
 export function wakesOnOf(
   filters: EventFilter[],
   c: WakesOnContext
 ): WakeLine[] {
   const { card, channels, hasNet } = c;
-  const lines = filters.flatMap((f): ListenLine[] => {
-    const message = messageLineOf(f, c);
-    const events =
-      f.person || f.chat || f.from_me
-        ? []
-        : channels.filter(
-            (x) =>
-              f.channels?.includes(x.name) &&
-              (!f.quantity || x.quantities.includes(f.quantity))
-          );
-    return [
-      ...message,
-      ...events.map((x) => ({
-        ...(f.quantity ? { quantity: f.quantity } : {}),
-        ...(f.quantity && f.above !== undefined ? { above: f.above } : {}),
-        ...(f.quantity && f.below !== undefined ? { below: f.below } : {}),
-        kind: x.name,
-        ...(f.text_matches ? { words: f.text_matches } : {}),
-      })),
-    ];
-  });
+  const lines = filters.flatMap((f): ListenLine[] => [
+    ...messageLineOf(f, c),
+    ...eventLinesOf(f, channels),
+  ]);
   return [
     ...lines,
     ...(card

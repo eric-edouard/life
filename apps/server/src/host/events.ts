@@ -1,6 +1,7 @@
 import { INVALID_PARAMS, ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { clock, HOUR, iso } from "../core/clock";
+import { DEFAULT_RADIUS_M, distanceM } from "../core/distance";
 import { log } from "../core/log";
 import {
   decode,
@@ -57,7 +58,14 @@ const messaging = () =>
 
 /** The arguments an agent polls with: an `EventFilter` (its apps among the sources on now). */
 const argumentsOf = (channels: string[]) =>
-  EventFilter.omit({ above: true, below: true, quantity: true })
+  EventFilter.omit({
+    above: true,
+    below: true,
+    latitude: true,
+    longitude: true,
+    quantity: true,
+    radius_m: true,
+  })
     .extend({
       channels: z
         .array(
@@ -272,7 +280,9 @@ const wantedOf = (filter: EventFilter, people: People) =>
 /**
  * Whether an event is one `filter` wants, decided here only (the connector's polls and the desk's agent waits), by the
  * rules of `Matchable`: by app or channel, chat, his own or others', who (a message's writer, or who was on a call,
- * whoever placed it), a pattern on its text and a quantity's range. Null when its person is no one Life knows.
+ * whoever placed it), a pattern on its text, a quantity's range and a place: the event's own point within `radius_m`
+ * of the filter's coordinates (the stay's point as lifelog gives it, unlike `read_places_visited`'s circle mode, which
+ * weighs each fix's accuracy). Null when its person is no one Life knows.
  */
 export function matcherOf(filter: EventFilter, people: People) {
   const wanted = wantedOf(filter, people);
@@ -290,8 +300,19 @@ export function matcherOf(filter: EventFilter, people: People) {
     (!wanted || (x.people ?? []).includes(`person:${wanted}`)) &&
     // ponytail: a backtracking pattern stalls the desk's message poll for every agent (200 characters and a compile check bound its size, not its match time; the author is his own agent or paired app). A linear-time engine at this one call if it ever bites.
     (!text || (x.text !== undefined && text.test(x.text))) &&
-    (!quantity || isInRange(x.quantities?.[quantity], above, below));
+    (!quantity || isInRange(x.quantities?.[quantity], above, below)) &&
+    isNear(x.point, filter);
 }
+
+/** Whether a point lies within `radius_m` of the filter's coordinates; true when it names none. */
+const isNear = (
+  point: Matchable["point"],
+  { latitude, longitude, radius_m = DEFAULT_RADIUS_M }: EventFilter
+) =>
+  latitude === undefined ||
+  longitude === undefined ||
+  (point !== undefined &&
+    distanceM({ latitude, longitude }, point) <= radius_m);
 
 /** Whether a quantity is known and lies strictly between `above` and `below` (each optional). */
 const isInRange = (n: number | undefined, above?: number, below?: number) =>

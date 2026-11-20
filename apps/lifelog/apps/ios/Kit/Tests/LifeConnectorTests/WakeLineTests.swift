@@ -32,14 +32,14 @@ private func waker(_ json: String) throws -> Waker {
     for name in ["read_registered_agents", "read_matter", "read_matter_found"] {
         let text = try wireText("life/\(name).json")
         let all = try LibraryStore.feedDecoder.decode(AnyAgents.self, from: Data(text.utf8)).agents
-        #expect(all.contains { $0.wakesOn.count == 7 }, "\(name)")
+        #expect(all.contains { $0.wakesOn.count == 8 }, "\(name)")
     }
     let agents = try LibraryStore.feedDecoder.decode(
         RegisteredAgents.self, from: Data(wireText("life/read_registered_agents.json").utf8))
     #expect(agents.agents[0].wakesOn.isEmpty)
     #expect(agents.agents[0].statusSince != nil)
-    // A person, a chat, a broken person (left out of the row line), then 4 other lines.
-    #expect(agents.agents[1].rowLine(locale: english, timeZone: utc) == "Gran, Shop fit-out +4, or Fri 09:00")
+    // A person, a chat, a broken person (left out of the row line), then 5 other lines.
+    #expect(agents.agents[1].rowLine(locale: english, timeZone: utc) == "Gran, Shop fit-out +5, or Fri 09:00")
 }
 
 /// `read_registered_agents` and `read_matter` both carry `agents`.

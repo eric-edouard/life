@@ -280,6 +280,26 @@ test("circle mode: a fix too coarse to tell does not end a stay under way", () =
   expect(found?.map((v) => v.leftAt)).toEqual([null]);
 });
 
+test("a window far in the past reads one gap past its end, never through now", () => {
+  const home = (minute: number) => ({
+    accuracyM: 10,
+    ...HOME,
+    observedAt: at(minute),
+  });
+  // 100 is within one gap of the window's end (30 + 120); 200 is past it, so unread.
+  storeHistory(env.db, {
+    fixes: [home(0), home(5), home(100), home(200)],
+    visits: [],
+  });
+  setSystemTime(START + 1000 * HOUR);
+  expect(
+    visitsTo(env.db, undefined, {
+      from: new Date(START),
+      to: new Date(START + 30 * MIN),
+    })?.map((v) => v.leftAt)
+  ).toEqual([at(100)]);
+});
+
 test("reads go through now only when a stay at the window's end could still be under way", () => {
   const now = START + 1000 * HOUR;
   expect(throughOf(now - 3 * HOUR, now)).toBe(now);

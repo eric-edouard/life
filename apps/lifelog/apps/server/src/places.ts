@@ -2,28 +2,12 @@
 // taken (`placeName`, reverse-geocoded on the phone). A conversation's place, and a stay's, is the
 // name of its most accurate named fix. Never from upload time.
 
+import { distanceM } from "@life/server/src/core/distance";
 import type { Db } from "@lifelog/db";
 import { locationHistory } from "@lifelog/db/schema";
 import { and, asc, gte, isNotNull, lte } from "drizzle-orm";
 
 // ---- Geometry ---------------------------------------------------------------
-
-const EARTH_RADIUS_M = 6_371_000;
-
-export function distanceM(
-  a: { latitude: number; longitude: number },
-  b: { latitude: number; longitude: number }
-) {
-  const rad = Math.PI / 180;
-  const dLat = (b.latitude - a.latitude) * rad;
-  const dLon = (b.longitude - a.longitude) * rad;
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(a.latitude * rad) *
-      Math.cos(b.latitude * rad) *
-      Math.sin(dLon / 2) ** 2;
-  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
-}
 
 interface Point {
   accuracyM: number;
