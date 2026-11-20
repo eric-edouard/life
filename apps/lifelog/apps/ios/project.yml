@@ -66,6 +66,8 @@ targets:
         product: Health
       - package: LifelogKit
         product: LifeConnector
+      - package: LifelogKit
+        product: ContextMarkdown
     # The build's commit (a `+` when the tree is dirty), written to `build-stamp.txt` in the app's resources, which
     # Settings shows beside the version and build date: every build and install carries it, and the file is signed with the bundle. The sandbox is off for
     # this target because git reads `.git`, which sits outside the source folder in a worktree.

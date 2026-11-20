@@ -27,14 +27,16 @@ final class LifeStore {
         case agent(String)
         case edit(matter: String, Edit)
         case project(String)
-        enum Edit: Hashable { case goal, next, done, important }
+        enum Edit: Hashable { case goal, next, done, important, icon }
     }
 
-    /// What his last mark or project status did, said back for four seconds (`Toast`), with its Undo (the opposite
-    /// change), or why it was not done.
+    /// What his last mark, project status or matter icon did, said back for four seconds (`Toast`), with its Undo (the
+    /// opposite change), or why it was not done.
     struct SaidBack: Identifiable, Equatable {
         enum Undo: Equatable {
             case important(matter: String, Bool)
+            /// His icon to put back (nil: Life's pick), and the one it replaces.
+            case icon(matter: String, String?, was: String?)
             case status(project: String, name: String, ProjectStatus, was: ProjectStatus)
         }
         let id = UUID()
@@ -46,6 +48,10 @@ final class LifeStore {
     /// His mark or a project's status from his tap until Life's reads say it: shown at once, one tap per item at a time.
     private let marking = PendingTaps<Bool>()
     private let statusing = PendingTaps<ProjectStatus>()
+    /// His icon pick on a matter (a key, or nil: Life picks again) from his tap until Life's reads after it.
+    private let iconing = PendingTaps<String?>()
+    /// His icon picks Life took, until a read of the matter shows them.
+    private var writtenIcons = WrittenIcons()
 
     /// Every action by what it acts on: its steps as they stream, then its proof or why not.
     private(set) var actions: [ActionKey: ActionState<ActionProof>] = [:]
@@ -207,6 +213,16 @@ final class LifeStore {
     }
     func refreshAgents() async {
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
+    }
+
+    /// A `life:` link's page (`fetch`): read when opened, kept by the page that shows it.
+    func fetch(_ ref: String, _ update: (ReadState<LifeLinkRead>.Event) -> Void) async {
+        update(.started)
+        guard let event = await LifeLinkRead.read(ref, api: api, generation: parties.generation, now: now) else {
+            return
+        }
+        if case .failed(.notPaired) = event { pairedOrigin = nil }
+        update(event)
     }
 
     func refreshMatter(_ id: String) async {
@@ -439,6 +455,29 @@ final class LifeStore {
         }
     }
 
+    /// His icon pick on `id` under way, from his tap until Life's reads say it: the key, or nil (Life picks again);
+    /// none (the outer nil) when no pick is under way.
+    func iconPicking(_ id: String) -> String?? { iconing[id] }
+
+    /// His pick on `row` before the next one, which that one's Undo puts back: the pick last written until a read
+    /// shows it, so a read that failed after the write never hands Undo the row from before it.
+    func earlierIconPick(of row: MatterRow) -> String? {
+        writtenIcons.earlierPick(of: row, loadedAt: matter[row.id]?.loadedAt)
+    }
+
+    /// His icon for a matter (a key of `MatterIcons`, or nil: Life picks again), said back with Undo, which puts back
+    /// his pick it replaced (`was`, nil when the icon was Life's or none). One pick per matter at a time, through its
+    /// reads: a second one before them would take its `was` from the read before the first.
+    func setMatterIcon(of id: String, _ icon: String?, was: String?, saysBack: Bool = true) async {
+        let api = api
+        let isSent = await iconing.run(id, showing: icon) {
+            await edit(id, .icon) { try await api.setMatterIcon(matter: id, icon: icon, onProgress: $0) }
+            if case .succeeded = state(of: .edit(matter: id, .icon)) { writtenIcons.wrote(icon, on: id, at: now()) }
+        }
+        guard isSent else { return }
+        say(.edit(matter: id, .icon), saysBack ? "Icon changed" : nil, undo: .icon(matter: id, was, was: icon))
+    }
+
     // MARK: His mark, a project's status
 
     /// Whether a matter is marked, his tap first.
@@ -499,6 +538,7 @@ final class LifeStore {
         saidBack = nil
         switch said.undo {
         case .important(let id, let isOn)?: await setImportant(id, isOn, saysBack: false)
+        case .icon(let id, let icon, let was)?: await setMatterIcon(of: id, icon, was: was, saysBack: false)
         case .status(let id, let name, let status, let was)?:
             await setStatus(of: id, named: name, to: status, was: was, words: nil)
         case nil: break
