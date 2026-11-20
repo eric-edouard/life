@@ -172,6 +172,10 @@ const writeColumns = ({ db }: Desk, id: string, c: AgentChange) =>
         id,
       ]);
 
+/** The assignment a re-point rewrites: on a matter, the one it works on; on a project or as the Personal agent, none (the agent's own subject: its matters' assignments keep their anchors). */
+const rePointedOf = (db: Desk["db"], id: string, c: AgentChange) =>
+  c.steps ? (currentAssignmentOf(db, id)?.id ?? "") : "";
+
 /** Applies one change in the store; what it touched, or why not. */
 function apply(
   desk: Desk,
@@ -215,9 +219,7 @@ function apply(
     case "re_point":
       refused = refusal(["active", "stopped"]) ?? subjectRefusal(desk, c, id);
       if (!refused) {
-        // A project or the Personal agent is the agent's own subject: its matters' assignments keep their anchors.
-        const on = c.steps ? currentAssignmentOf(db, id)?.id : undefined;
-        writeSubject(desk, id, on ?? "", c);
+        writeSubject(desk, id, rePointedOf(db, id, c), c);
         if (agentOf(db, id)?.status === "active") {
           due("its subject changed");
         }

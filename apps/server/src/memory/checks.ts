@@ -1,11 +1,6 @@
 import { createHmac } from "node:crypto";
 import { readChangeStamp } from "../core/files";
-import {
-  type CheckGroup,
-  DESK_AGENT,
-  LIFE_ASKER,
-  type SourceName,
-} from "../core/names";
+import { type CheckGroup, LIFE_ASKER, type SourceName } from "../core/names";
 import { secretIn } from "../core/secret";
 import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
@@ -408,8 +403,6 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     }
     const isHeld = isHeldOf(c.heldByAgents);
     const facts = {
-      // His Start finds the agent that takes it, or says none does (`agentForOf`): the card does not wait on one.
-      agentFor: () => DESK_AGENT,
       decisions: c.decisions,
       dismissed: dismissedIdsOf(c.matters, c.dismissed),
       isDue: c.isDirectionDue,

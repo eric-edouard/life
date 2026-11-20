@@ -294,9 +294,9 @@ export type HandOutMatter = Pick<MatterView, "id" | "nextStep" | "projects"> & {
   steps: readonly { at: string; ref: string }[];
 };
 
-/** What `handOutGateOf` reads besides the matter, all as data (by the matter's id, or `isHeld`: the hold that holds it, `isHeldOf`; `agentFor`: the agent that takes it, `agentForMatterOf`). */
+/** What `handOutGateOf` reads besides the matter, all as data (by the matter's id, or `isHeld`: the hold that holds it, `isHeldOf`; `agentFor`: the agent that takes it, `agentForMatterOf`, absent for the new matter check, which waits on none). */
 export interface HandOutFacts {
-  agentFor: (v: HandOutMatter) => string | undefined;
+  agentFor?: (v: HandOutMatter) => string | undefined;
   decisions: Parameters<typeof nextStepNow>[1];
   dismissed: ReadonlySet<string>;
   isDue: (id: string) => boolean;
@@ -334,7 +334,7 @@ export function handOutGateOf(
   if (!f.isHis(v.id)) {
     return "not_his";
   }
-  return f.agentFor(v) ? null : "no_agent";
+  return !f.agentFor || f.agentFor(v) ? null : "no_agent";
 }
 
 /** Which agent takes matter `v`, by id (`agentForOf`, by the project it shows under, `projectOf`), among `standing`. Pure. */
