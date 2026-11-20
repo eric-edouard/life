@@ -21,6 +21,7 @@ export const TODO_CHANGE_KINDS = [
  * writes. `ref` is where his words are; `before` and `after` the to-do item's fields; `target` what was touched. An ask
  * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {agent, confidence, conversation?, turns?, title?, parent?}: the agent pulls it (`read_agent_asks`);
  * one for the desk (`agent` `DESK_AGENT`) from `change_registered_agent` also has `agentChange` (`AgentChange`), which the desk applies.
+ * His complaint (`isComplaint`) is one for the desk with `complaint` instead: the desk hands it to the caretaker.
  * `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies until 2 Nov 2026, Life's nudges and his steers until 20 Oct; they only parse now.
  * A reply (`after` {text}) is what the agent told him; one on no task targets `chat`.
  */
@@ -95,9 +96,41 @@ export const isTaskLine = (a: LedgerEntry) =>
 export const isBookkeeping = (a: LedgerEntry) =>
   a.result === "intent" || a.kind === "import";
 
-/** What the day's and the nightly's Actions list: neither a task's own line nor bookkeeping. */
+/**
+ * His complaint: his "Wrong…" on a card of Life's (`answer_check`'s `misread`), an ask of the desk with `after.complaint`
+ * (the card's ref and cause, the card as Life read it then, his `report` tick), which the desk hands to the caretaker.
+ * The one rule of its visibility: never listed (`isListed`: a day, the nightly, a matter's steps), fed (the change feed)
+ * or pulled (`asksFor`); his words and the card reach the caretaker alone, through its door.
+ */
+export const isComplaint = (a: LedgerEntry) =>
+  a.kind === "ask" && a.after.complaint !== undefined;
+
+/**
+ * What his complaint names besides his words (`after.complaint`): the card's `ref`, the `cause` and the card he saw
+ * (`shown`), each as his app sent their digests (`Check.misread`); the card as Life read it at his press (`card`; null
+ * when it had left), and whether that was the one he saw (`isAsShown`); his tick on "Send an anonymized report to the
+ * developer" (`report`).
+ */
+export interface Complaint {
+  card: unknown;
+  cause: string;
+  isAsShown: boolean;
+  /** The card's kind, the stage that made it and that stage's prompt, frozen at his press (`stageOf`). */
+  kind: string;
+  prompt: string | null;
+  ref: string;
+  report: boolean;
+  shown: string;
+  stage: string;
+}
+
+/** His complaint's own fields, or undefined for any other line. */
+export const complaintOf = (a: LedgerEntry) =>
+  isComplaint(a) ? (a.after.complaint as Complaint) : undefined;
+
+/** What the day's and the nightly's Actions list: neither a task's own line, bookkeeping nor his complaint. */
 export const isListed = (a: LedgerEntry) =>
-  !(isTaskLine(a) || isBookkeeping(a));
+  !(isTaskLine(a) || isBookkeeping(a) || isComplaint(a));
 
 /** A line whose outcome stands: done, or found already done. */
 export const stands = (a: LedgerEntry) =>

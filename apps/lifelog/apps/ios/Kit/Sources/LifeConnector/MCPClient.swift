@@ -28,15 +28,19 @@ public struct MCPClient: Sendable {
 
     /// The tool's answer text (JSON, as the tool wrote it). `onProgress` gets each progress message of the stream. `answerKey`
     /// is the one key of one tap of his, the same on every repeat of it: Life then answers a repeat with the first answer's result.
+    /// `origin`: the Life the call was decided for (`PairedLife`); it goes there with that Life's bearer or not at all.
+    /// Nil: the Life paired now.
     public func call(
         _ tool: String, _ arguments: some Encodable & Sendable = [String: String](), answerKey: String? = nil,
-        onProgress: (@Sendable (Data) -> Void)? = nil
+        at origin: URL? = nil, onProgress: (@Sendable (Data) -> Void)? = nil
     ) async throws -> String {
         let token = onProgress == nil ? nil : UUID().uuidString
         let body = try JSONEncoder().encode(
             Envelope(tool: tool, arguments: arguments, progressToken: token, answerKey: answerKey))
-        let url = try await session.origin().appending(path: "mcp")
-        var bearer = try await session.bearer()
+        // One Life for the whole call, its retry included: its URL and its bearer.
+        let origin = if let origin { origin } else { try await session.origin() }
+        let url = origin.appending(path: "mcp")
+        var bearer = try await session.bearer(at: origin)
         for attempt in 0...1 {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
@@ -49,7 +53,7 @@ public struct MCPClient: Sendable {
             ] { request.setValue(value, forHTTPHeaderField: name) }
             do { return try await send(request, progressToken: token, onProgress: onProgress) } catch is Unauthorized {
                 guard attempt == 0 else { throw MCPError.notPaired }
-                bearer = try await session.refreshed(rejecting: bearer)
+                bearer = try await session.refreshed(rejecting: bearer, at: origin)
             }
         }
         throw MCPError.notPaired

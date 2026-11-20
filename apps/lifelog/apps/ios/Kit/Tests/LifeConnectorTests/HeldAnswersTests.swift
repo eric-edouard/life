@@ -10,7 +10,8 @@ import Testing
 /// The timer's own task must not carry the send: a cancelled send fails and the answer is lost.
 @MainActor @Test func aHeldAnswerIsSentWhenItsTimeIsUpAndNotCancelled() async throws {
     let sent = Sent()
-    let holds = HeldAnswers(delay: .milliseconds(20)) { request in
+    let holds = HeldAnswers(delay: .milliseconds(20)) { held in
+        let request = held.request
         sent.wasCancelled = Task.isCancelled
         try? await Task.sleep(for: .milliseconds(5))
         sent.wasCancelled = sent.wasCancelled || Task.isCancelled
@@ -25,7 +26,7 @@ import Testing
 
 @MainActor @Test func undoSendsNothingAndSendAllSendsEverythingHeld() async throws {
     let sent = Sent()
-    let holds = HeldAnswers(delay: .seconds(60)) { sent.requests.append($0) }
+    let holds = HeldAnswers(delay: .seconds(60)) { sent.requests.append($0.request) }
     holds.hold(AnswerRequest(ref: "a", options: ["yes"]), as: "Yes")
     holds.hold(AnswerRequest(ref: "b", options: ["no"]), as: "No")
     holds.hold(AnswerRequest(ref: "c", options: ["no"]), as: "No")
@@ -80,7 +81,8 @@ import Testing
 /// An answer held again under the same ref while the first is still being sent has its own timer and its own send.
 @MainActor @Test func anAnswerHeldAgainWhileTheFirstIsSentIsSentToo() async throws {
     var sent: [[String]] = []
-    let holds = HeldAnswers(delay: .milliseconds(10)) { request in
+    let holds = HeldAnswers(delay: .milliseconds(10)) { held in
+        let request = held.request
         try? await Task.sleep(for: .milliseconds(40))
         sent.append(request.options)
     }
@@ -107,4 +109,22 @@ import Testing
     #expect(sent == 1)
     await first.value
     #expect(sent == 1 && holds.held.isEmpty)
+}
+
+/// A release waiting behind an earlier send of its card never starts once the phone is paired with another Life.
+@MainActor @Test func aReleaseQueuedBehindASendNeverStartsAfterARepairing() async throws {
+    var sent: [[String]] = []
+    let holds = HeldAnswers(delay: .milliseconds(10)) { held in
+        try? await Task.sleep(for: .milliseconds(60))
+        sent.append(held.request.options)
+    }
+    holds.hold(AnswerRequest(ref: "c1", options: ["yes"]), as: "Yes")
+    while !holds.held.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    holds.hold(AnswerRequest(ref: "c1", options: ["no"]), as: "No")
+    // Released, and waiting behind the first send.
+    while !holds.held.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    holds.clear()
+    await holds.sendAll()
+    #expect(!sent.contains(["no"]))
+    #expect(holds.underWay.isEmpty)
 }

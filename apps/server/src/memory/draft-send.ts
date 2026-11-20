@@ -2,20 +2,25 @@ import { realpath, stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { digest } from "../core/hash";
+import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
-import type { SourceEvent } from "../records/source";
+import type { SourceEvent, SourceFile } from "../records/source";
+import { takesWordsOf } from "../sources/chat-takes";
 import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
 import { directOf } from "./closeness";
 import {
   draftProblemOf,
+  isOneEmoji,
   isSendable,
   type MessageDraft,
+  type RecentMessage,
   type StoredDraft,
 } from "./draft";
+import { fileKindOf, messageWordsOf } from "./message-files";
 import { OWNER } from "./read-truth";
-import { enabledSources } from "./sources";
-import { oneLineOf } from "./units";
-import { readPeople } from "./who";
+import { enabledSources, sourceOf } from "./sources";
+import { oneLineOf, speakerOf } from "./units";
+import { type People, readPeople } from "./who";
 
 // A card's draft, sent (AGENTS.md, "Life sends only…"): which chat a draft names and what of it the chat takes, checked
 // and stamped when the card is asked, and the send itself, on his answer to its outgoing option (`answerDecision`, the
@@ -23,6 +28,75 @@ import { readPeople } from "./who";
 
 /** How far back a draft's chat is looked for. ponytail: a chat silent for a year is unknown; widen it if one bites. */
 const KNOWN_FOR = 365 * DAY;
+
+/** How far back his card shows a chat's last messages (`recent`), and how many. */
+const RECENT_FOR = 90 * DAY;
+const RECENT = 3;
+
+/** A recent message's file as his card shows it: its kind, its name, its size when it is on this Mac. */
+const recentFileOf = async (f: SourceFile) => {
+  const size = f.path
+    ? await stat(f.path).then(
+        (x) => x.size,
+        () => undefined
+      )
+    : undefined;
+  return {
+    kind: fileKindOf(f.mime),
+    name: redact(f.name ?? basename(f.path ?? f.ref)),
+    ...(size === undefined ? {} : { size }),
+  };
+};
+
+/**
+ * The last messages before a card is asked, as his card shows them above the draft (`recent`), oldest first: a chat's
+ * last 3 within 90 days, as they stood then (none later, none deleted for everyone), its words and first file; a
+ * mail's, the one message it replies to (a thread Mail can't name may mix subjects), its first body line. Redacted
+ * like every line Life shows, before any cut.
+ */
+function recentOf(
+  events: SourceEvent[],
+  mail: boolean,
+  people: People,
+  now: Date
+): Promise<RecentMessage[]> {
+  const since = new Date(now.getTime() - RECENT_FOR).toISOString();
+  return Promise.all(
+    events
+      .filter(
+        (e) =>
+          (mail || (e.at >= since && e.at <= now.toISOString())) &&
+          !(e.phoneCall || e.deleted) &&
+          (messageWordsOf(e.text) || e.files?.length)
+      )
+      .toSorted((a, b) => a.at.localeCompare(b.at))
+      .slice(-RECENT)
+      .map(async (e) => {
+        const words = messageWordsOf(e.text);
+        // The body line is chosen, then redacted whole, then cut.
+        const text = mail
+          ? oneLineOf(redact(bodyOf(words, e.chatName)), 200)
+          : redact(words);
+        const file = !mail && e.files?.[0];
+        return {
+          at: e.at,
+          ...(file ? { file: await recentFileOf(file) } : {}),
+          sender: people.partyOf(speakerOf(e.source, e, people.resolve)),
+          ...(text ? { text } : {}),
+        };
+      })
+  );
+}
+
+/** A mail's first body line: its text opens with its subject line when it has one. */
+const bodyOf = (text: string, subject?: string) => {
+  const [first = "", ...rest] = text.split("\n");
+  return (
+    (subject && first.includes(subject) ? rest : [first, ...rest]).find((l) =>
+      l.trim()
+    ) ?? ""
+  );
+};
 
 /**
  * The largest file a draft may carry. It is read whole into memory, twice (asked, then sent), and a send with one
@@ -193,16 +267,21 @@ async function readWhere(
   }
   const quoted = found && {
     sender: found.sender,
-    ...(mail && found.chatName ? { subject: found.chatName } : {}),
-    text: found.text.slice(0, 300),
+    ...(mail && found.chatName ? { subject: redact(found.chatName) } : {}),
+    // A reaction's message is shown whole (it is all he sees); a reply's, its first 300 characters.
+    text: draft.reaction
+      ? redact(found.text)
+      : redact(found.text).slice(0, 300),
   };
-  return { chat, name, quoted };
+  const shown = mail ? [found].filter((e) => e !== undefined) : there;
+  const recent = await recentOf(shown, mail, await readPeople(), now);
+  return { chat, name, quoted, recent };
 }
 
 /**
  * The draft as it is stored when its card is asked: the one chat it names, on the source `channel` names (`to` a chat
  * key there, or a person with exactly one 1:1 chat there the source can send into, else a chat the source can open: a
- * new 1:1 chat by its id), the message it replies to or reacts to, its file as read now, the chat's own refusal of
+ * new 1:1 chat by its id), the message it replies to or reacts to, the chat's last messages (`recentOf`), its file as read now, the chat's own refusal of
  * anything it can't take. Throws `Not done: …` in words the asking agent can fix.
  */
 export async function resolveDraft(
@@ -232,7 +311,7 @@ export async function resolveDraft(
   if (block) {
     throw new Error(`Not done: ${block}.`);
   }
-  const { chat, name, quoted } = await readWhere(draft, s, s.send, now);
+  const { chat, name, quoted, recent } = await readWhere(draft, s, s.send, now);
   const { file: path, ...fields } = draft;
   const file = path ? await stampFile(path) : undefined;
   const stored: StoredDraft = {
@@ -241,6 +320,7 @@ export async function resolveDraft(
     ...(chat ? { chat } : {}),
     ...(file ? { file: file.stamp } : {}),
     ...(quoted ? { quoted } : {}),
+    recent,
     to: name,
   };
   const refusal = await s.send.refusal(outgoingOf(stored, file?.bytes));
@@ -248,6 +328,24 @@ export async function resolveDraft(
     throw new Error(`Not done: ${s.label} can't send this: ${refusal}.`);
   }
   return stored;
+}
+
+/**
+ * What a draft into `chat` takes, by the send path of each source that holds it (`holds`, `takes`), whatever messages
+ * were read; none when no source can send into it, or one can't tell now.
+ */
+export function chatTakesLinesOf(chat?: string, sources = enabledSources()) {
+  const lines = sources.flatMap((s) => {
+    try {
+      return chat && s.send?.holds([chat]).length
+        ? [`${s.label}: ${takesWordsOf(s.send.takes(chat))}`]
+        : [];
+    } catch {
+      // A send path that can't read its store now (Messages without access): it says nothing.
+      return [];
+    }
+  });
+  return lines.length > 0 ? [`(${lines.join("; ")})`] : [];
 }
 
 type OnStep = (step: string, detail?: Record<string, unknown>) => void;
@@ -300,7 +398,10 @@ async function readySend(
     draft,
     draft.file && (await readVerifiedFile(draft.file))
   );
-  const refusal = await s.send.refusal(outgoing);
+  const refusal =
+    draft.reaction && !isOneEmoji(draft.reaction)
+      ? "a reaction is one emoji"
+      : await s.send.refusal(outgoing);
   if (refusal) {
     throw never(refusal);
   }
@@ -357,4 +458,34 @@ export function sendLimitMs(draft: StoredDraft, sources = enabledSources()) {
       .find((x) => x.name === draft.channel)
       ?.send?.limitMs(outgoingOf(draft, draft.file && new Uint8Array())) ?? 0
   );
+}
+
+/**
+ * Who a decision's draft goes to, as a person ref: its stored chat's handle (its source's `handleOf`), or a mail's `to`,
+ * read through `resolve`. Null for a source whose chat keys hold no handle, a draft not yet resolved to a chat, or a
+ * handle no one has.
+ */
+function draftPersonOf(people: Pick<People, "resolve">, d: StoredDraft) {
+  const source = d.channel ? sourceOf(d.channel as SourceName) : undefined;
+  const handle =
+    source?.kind === "mail" ? d.to : d.chat && source?.handleOf?.(d.chat);
+  return handle && d.channel
+    ? people.resolve(handle, d.channel as SourceName)
+    : null;
+}
+
+/** Each card with its `confirm`: on a decision whose draft goes to someone Life only guesses (`draftPersonOf`), that guess's card, one check asked beside it; none on every other card. */
+export function withDraftConfirms<
+  C extends { draft?: StoredDraft | null; group: string; ref: string },
+>(cards: C[], people: Pick<People, "refOf" | "resolve">) {
+  const guessed = new Map(
+    cards
+      .filter((x) => x.group === "guessed person")
+      .map((x) => [people.refOf(x.ref), { ...x, confirm: [] }])
+  );
+  return cards.map((x) => {
+    const person = x.draft && draftPersonOf(people, x.draft);
+    const guess = person && guessed.get(people.refOf(person));
+    return { ...x, confirm: guess ? [guess] : [] };
+  });
 }

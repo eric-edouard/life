@@ -25,6 +25,9 @@ import type { StoredDraft } from "./draft";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as draftSend from "./draft-send";
 
+/** A chat that takes everything besides text. */
+const ALL = { file: true, mentions: true, reaction: true, reply: true };
+
 const DECISION_ID = /^dec_[0-9a-f]{12}$/;
 const NOW = new Date("2026-11-18T09:00:00.000Z");
 const later = (ms: number) => new Date(NOW.getTime() + ms);
@@ -704,6 +707,7 @@ const kitChat = (messages: { fromMe: boolean; min: number }[]) => {
       limitMs: () => 1000,
       refusal: async () => undefined,
       send: async () => "$sent",
+      takes: () => ALL,
     },
     silentAfter: 0,
   } satisfies Descriptor as Descriptor;

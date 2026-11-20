@@ -190,3 +190,14 @@ private func shown(_ state: ReadState<[Int]>) -> String {
     #expect(reads.started == 3)
     #expect(Set(done) == ["first", "second", "third", "other"])
 }
+
+/// A card in hand (a tapped push's) shows with the read's own faces: loaded while it reads, stale when it failed.
+@Test func aValueInHandShowsWithTheReadsOwnPhase() {
+    var state = ReadState<[Int]>()
+    state.apply(.started)
+    #expect(shown(state.showing([7], at: then)) == "loaded [7]")
+    state.apply(.failed(.unreachable))
+    #expect(shown(state.showing([7], at: then)) == "stale [7] 1000 unreachable")
+    state.apply(.succeeded([1], then.addingTimeInterval(5)))
+    #expect(state.showing([7, 1], at: then).loadedAt == then.addingTimeInterval(5))
+}
