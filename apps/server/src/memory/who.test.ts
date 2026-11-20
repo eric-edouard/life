@@ -10,7 +10,6 @@ import { Person } from "../records/truth";
 import { readAgent } from "./agent-source";
 import { LEDGER, UNRESOLVED } from "./memory-files";
 import { inferredId } from "./people";
-import { candidateLines } from "./read-person-page";
 import { action, inferred, people as mapped, said } from "./record-fixtures";
 import { messageUnits, nameKey } from "./units";
 import {
@@ -49,16 +48,6 @@ test("person: a name two people go by lists both, with relation and count", () =
   expect(matches.map((p) => p.id)).toEqual(["claire", "claire-friend"]);
   expect(namedLike("claire-friend", people)).toHaveLength(1);
   expect(namedLike("Zoe", people)).toHaveLength(1);
-  const lines = candidateLines("claire", matches, (id) =>
-    id === "claire" ? 4 : 9
-  );
-  expect(lines).toContain(
-    "- claire: Claire Dupont, half-sister, 4 observations"
-  );
-  expect(lines).toContain(
-    "- claire-friend: Claire (friend), ex (casual), friend, 9 observations"
-  );
-  expect(candidateLines("zoe", namedLike("zoe", people), () => 0)).toEqual([]);
 });
 
 test("person: a misheard or misspelled name lists the names near it, never a guess", () => {

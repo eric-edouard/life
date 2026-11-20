@@ -421,7 +421,7 @@ Sections, in order:
 - **Health** (the owner's own page only): as Now, but a line ages into Earlier after 60 days.
 - **Between us** (the page of someone close to the owner personally, now or once, `personallyClose`): what lasts between them, the
   relationship, agreements, boundaries, turning points, each view in its speaker's name; ages into Earlier after 365
-  days. `read_person_page` shows each line's first and latest evidence day. A page that loses it (a service, or the owner lowers them) moves its lines
+  days. Their `page` part (`fetch person:<id>/page`) shows each line's first and latest evidence day. A page that loses it (a service, or the owner lowers them) moves its lines
   to Earlier.
 - **Now**: where things stand, `- <text> [obs_…, …]`. Every line cites observations and at least one is under 21 days
   old (`SECTION` in `page-format.ts`); with none it ages into Earlier.
@@ -651,7 +651,9 @@ the settings' keys and the log's `run.phase` as `run.entered`. "Memory: before t
 table `observations` (with `superseded_by` and its end date in `valid_to` for retired ones, its `home` page and the
 `detail` it states), full-text table
 `search` (text and quote, accent-insensitive) and table `observation_subjects` (observation, subject: who or what each is about); and the units: table `units`,
-full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict topics), `unit_topics` and `unit_people`. Delete it (with its
+full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict topics), `unit_topics` and `unit_people`; and
+`episode_people` (episode, person as of today, the day file holding that line), so a person's read opens only their
+episodes' day files (`readEpisodesWith`, `memory/person-episodes.ts`). Delete it (with its
 `-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|checks|chats|places` (read-only).
 
 ## The desk's store (not in memory/)

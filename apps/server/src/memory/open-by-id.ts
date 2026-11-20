@@ -1,7 +1,6 @@
 import { SUBJECT_PREFIX } from "../records/fields";
 import { askPageOf, isAskPage } from "./card-request";
 import { parseReadPartRef } from "./read-part";
-import type { person } from "./read-person-page";
 import { asData, fetchOf } from "./words";
 
 /**
@@ -13,8 +12,11 @@ export function openById(
   id: string,
   from: number | undefined,
   limit: number | undefined,
-  readPerson: typeof person
-): Promise<string> {
+  readPerson: (
+    name: string,
+    o: { before?: string; byId: true; part: string; span?: string }
+  ) => Promise<string | Record<string, unknown>>
+): Promise<string | Record<string, unknown>> {
   if (isAskPage(id)) {
     return Promise.resolve(asData([askPageOf(id)]));
   }

@@ -4,7 +4,6 @@ import type { Contact } from "../sources/contacts";
 import {
   birthdaysNear,
   birthdayText,
-  detailsBlock,
   detailsOf,
   nextBirthday,
   readDetailsOf,
@@ -17,6 +16,7 @@ const contact = (over: Partial<Contact> = {}): Contact => ({
   birthday: null,
   handles: ["+33 6 11 11 11 11"],
   id: "card-ana",
+  labels: {},
   name: "Ana Test",
   profiles: [],
   related: [],
@@ -55,22 +55,22 @@ test("details: his directory, then Contacts; one birthday (his directory's first
     ],
     person: ana,
   });
-  expect(detailsBlock(lines, "2026-03-10")).toEqual([
-    "Details:",
-    "- Birthday: 12 Mar (in 2 days) (the directory)",
-    "- Lives in: 12 rue Neuve, 44000 Nantes (Home) (Contacts)",
-    "- Work: Designer, Acme (Contacts)",
-    "- Handles: +33611111111 (the directory)",
-    "- Handles: Ana@Example.com, Facebook: ana.t (Contacts)",
-    "",
+  expect(lines).toEqual([
+    { from: "truth", kind: "birthday", text: "--03-12" },
+    {
+      from: "contacts",
+      kind: "home",
+      text: "12 rue Neuve, 44000 Nantes (Home)",
+    },
+    { from: "contacts", kind: "work", text: "Designer, Acme" },
+    { from: "truth", kind: "handles", text: "+33611111111" },
+    { from: "contacts", kind: "handles", text: "Ana@Example.com" },
+    { from: "contacts", kind: "handles", text: "Facebook: ana.t" },
   ]);
-  // No map birthday: Contacts' is the one, with her age.
+  // No map birthday: Contacts' is the one.
   expect(
-    detailsBlock(
-      detailsOf({ contacts: [contact({ birthday: "1990-04-01" })] }),
-      "2026-03-10"
-    )[1]
-  ).toBe("- Birthday: 1 Apr (in 22 days, turns 36) (Contacts)");
+    detailsOf({ contacts: [contact({ birthday: "1990-04-01" })] })[0]
+  ).toEqual({ from: "contacts", kind: "birthday", text: "1990-04-01" });
   expect(detailsOf({ contacts: [] })).toEqual([]);
   // The same card in two accounts: each line once.
   const card = contact({ addresses: ["5 rue Haute, Lyon"], work: "Pilot" });

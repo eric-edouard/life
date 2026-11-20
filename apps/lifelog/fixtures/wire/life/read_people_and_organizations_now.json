@@ -1,0 +1,30 @@
+{
+  "kind": "person",
+  "line": "baker, Test Bakery",
+  "name": "Test Ana",
+  "ref": "person:test-ana",
+  "needsYou": false,
+  "communicationStyle": [],
+  "details": [],
+  "episodes": [],
+  "knows": [],
+  "open": [],
+  "reach": [
+    {
+      "accounts": [
+        {
+          "handle": "+33600000004",
+          "lastAt": "2026-11-17T09:20:00.000Z",
+          "open": {
+            "lands": "chat",
+            "url": "https://wa.me/33600000004"
+          },
+          "title": "Ana B"
+        }
+      ],
+      "label": "WhatsApp",
+      "network": "whatsapp"
+    }
+  ],
+  "situation": []
+}
