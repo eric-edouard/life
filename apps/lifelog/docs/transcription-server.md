@@ -56,7 +56,7 @@ runs.
   first, at most `ELEVENLABS_SLOTS` at ElevenLabs at once (default 10; set it below your ElevenLabs plan's concurrency, a block takes one). A job
   counts there from its POST (`request_sent_at`) until its answer, or 30 minutes once ElevenLabs gave it a transcription
   id; one without an id, or that may have been billed, until it is settled. Sends still submitted from before 20 Nov 2026,
-  stamped at their claim, are marked maybe billed (migration `legacy_scribe_sends`): no POST clock says them lost. Every Scribe send of
+  stamped at their claim, are marked maybe billed (migration `legacy_scribe_sends`, after `post_clock`, which moved their clock 10 minutes on): no POST clock says them lost. Every Scribe send of
   the server goes one way (`scribe-slots.ts` `send`): a job's, a block's routed turns, a chat voice note's. Its audio is
   read first and checked again (a quiet range that came meanwhile, the transcriber switched), then it takes a slot,
   then the switch, the credits and the quiet ranges are checked again and its row records the POST, which goes; its

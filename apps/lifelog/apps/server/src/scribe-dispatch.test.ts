@@ -3,7 +3,7 @@
 import { expect, setSystemTime, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import { MIGRATIONS } from "@lifelog/db";
+import { MIGRATIONS, migrateDb } from "@lifelog/db";
 import { transcriptionJobs } from "@lifelog/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { memoryAudioStore } from "./audio-store";
@@ -402,36 +402,52 @@ test("a Scribe send with no transcription id (cut off before its answer was stor
   expect(uploads()).toHaveLength(0);
 });
 
-test("a send submitted before 20 Nov has no POST clock: ElevenLabs not knowing it never sends it again, and it fails only after a day", async () => {
-  const app = appWith(oneSlot);
-  setSwitches(env.db, { transcriber: "scribe" });
-  const legacy = await admitFragment(app, audio(60), 1);
-  submittedAgo(legacy, 41, {
-    providerRequestId: "req_legacy",
-    providerTranscriptionId: "tr_legacy",
-  });
-  const migration = await Bun.file(
-    join(MIGRATIONS, "20261120141310_legacy_scribe_sends.sql")
-  ).text();
-  env.db.run(sql.raw(migration));
-  env.db.run(sql.raw(migration)); // run twice, it changes nothing more
-  fake.respond = (call) =>
-    call.method === "GET" && call.path.includes("/transcripts/")
-      ? new Response("not found", { status: 404 })
-      : Response.json({ detail: "no" }, { status: 500 });
-  const waiting = await admitFragment(app, audio(60), 100);
-  await app.s.worker.tick();
-  expect(jobRow(legacy)).toMatchObject({
-    attempts: 0,
-    maybeBilled: true,
-    state: "submitted",
-  });
-  expect(jobRow(waiting).state).toBe("queued"); // it still holds the one slot
-  submittedAgo(legacy, 25 * 60, { maybeBilled: true });
-  await app.s.worker.tick();
-  expect(jobRow(legacy)).toMatchObject({ attempts: 0, state: "failed" });
-  expect(uploads()).toHaveLength(1); // only the waiting job, sent once the slot came free
-});
+// The upgrade as a server runs it (`migrateDb`), from a database that ran `post_clock` or one from before it.
+const upgradeFrom = async (ran: "post_clock" | "neither") => {
+  const { entries } = await Bun.file(
+    join(MIGRATIONS, "meta/_journal.json")
+  ).json();
+  const postClock = entries.find((entry: { tag: string }) =>
+    entry.tag.endsWith("_post_clock")
+  ).when;
+  // What its own migrations table says it ran: up to post_clock, or up to the one before it.
+  env.db.run(
+    ran === "post_clock"
+      ? sql`delete from __drizzle_migrations where created_at > ${postClock}`
+      : sql`delete from __drizzle_migrations where created_at >= ${postClock}`
+  );
+  migrateDb(env.db);
+};
+
+test.each(["post_clock", "neither"] as const)(
+  "a send submitted before 20 Nov has no POST clock: ElevenLabs not knowing it never sends it again, and it fails only after a day (upgraded from a database that ran %s)",
+  async (ran) => {
+    const app = appWith(oneSlot);
+    setSwitches(env.db, { transcriber: "scribe" });
+    const legacy = await admitFragment(app, audio(60), 1);
+    submittedAgo(legacy, 41, {
+      providerRequestId: "req_legacy",
+      providerTranscriptionId: "tr_legacy",
+    });
+    await upgradeFrom(ran);
+    fake.respond = (call) =>
+      call.method === "GET" && call.path.includes("/transcripts/")
+        ? new Response("not found", { status: 404 })
+        : Response.json({ detail: "no" }, { status: 500 });
+    const waiting = await admitFragment(app, audio(60), 100);
+    await app.s.worker.tick();
+    expect(jobRow(legacy)).toMatchObject({
+      attempts: 0,
+      maybeBilled: true,
+      state: "submitted",
+    });
+    expect(jobRow(waiting).state).toBe("queued"); // it still holds the one slot
+    submittedAgo(legacy, 25 * 60, { maybeBilled: true });
+    await app.s.worker.tick();
+    expect(jobRow(legacy)).toMatchObject({ attempts: 0, state: "failed" });
+    expect(uploads()).toHaveLength(1); // only the waiting job, sent once the slot came free
+  }
+);
 
 test("reconcile frees each slot as it settles it, not after the slowest", async () => {
   const app = appWith({ ...withSpeech, ELEVENLABS_SLOTS: "2" });
