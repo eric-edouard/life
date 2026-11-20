@@ -91,6 +91,8 @@ private func need(_ json: String) throws -> Check.Need {
     #expect(check.isEnding(AnswerRequest(ref: "dec_1", options: ["done"])))
     #expect(!check.isEnding(AnswerRequest(ref: "dec_1", options: ["done"], note: "and paid")))
     #expect(!check.isEnding(AnswerRequest(ref: "dec_1", options: ["later"])))
-    #expect(!CardNotification.actions(check).map(\.identifier).contains("done"))
-    #expect(CardNotification.answer("done", typed: nil, to: check, in: "", asksFaceID: false) == nil)
+    let ids = CardNotification.actions(check).map(\.identifier)
+    #expect(ids.contains("option:later") && !ids.contains("option:done"))
+    #expect(CardNotification.answer("option:done", typed: nil, to: check, in: "", asksFaceID: false) == nil)
+    #expect(CardNotification.answer("option:later", typed: nil, to: check, in: "", asksFaceID: false) != nil)
 }
