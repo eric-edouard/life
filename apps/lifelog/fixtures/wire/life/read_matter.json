@@ -326,8 +326,8 @@
           "matter": null,
           "misread": {
             "cause": "01b070ee5ba7f83a",
-            "seal": "ef25c79d9e19d966a1be5453309f9070",
-            "shown": "528f6c9ad7f0456d"
+            "seal": "3d9583390e9c79af83238cf7a4a8352f",
+            "shown": "25fe8d96124c400c"
           },
           "confirm": [],
           "networkIdentity": {
@@ -444,8 +444,8 @@
       "urgency": "improves",
       "misread": {
         "cause": "1addffdfdc12fcfa",
-        "seal": "a23e972e9b4d28abb226361e43ae28b4",
-        "shown": "5db4104f95193516"
+        "seal": "59a8c4a7ae0010f623c8cc1b4f0741bb",
+        "shown": "c22e02368640bc0c"
       }
     }
   ]
