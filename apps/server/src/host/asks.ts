@@ -103,11 +103,16 @@ export function asksFor(agent: string, cursor?: string, limit = PAGE) {
 /**
  * Where each ask's time went, in the order recorded (`bun life asks`): when he spoke, his words ended, lifelog's feed
  * had all of them, Life recorded the ask; null where unknown (not speech, or before 20 Oct). An old split's parts are
- * left out: they share their parent's times.
+ * left out (they share their parent's times), and his complaints (`isComplaint`).
  */
 export function timings(from = "", to = "9999", tasks = tasksOf()) {
   return tasks
-    .filter((t) => !t.ask.after.parent && t.ask.at >= from && t.ask.at < to)
+    .filter(
+      (t) =>
+        !(t.ask.after.parent || isComplaint(t.ask)) &&
+        t.ask.at >= from &&
+        t.ask.at < to
+    )
     .map(({ ask: a }) => ({
       id: a.id,
       // In order (an array: the formatter sorts object keys).

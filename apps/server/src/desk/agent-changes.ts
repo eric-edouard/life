@@ -42,8 +42,11 @@ function statusRefusal(desk: Desk, id: string | undefined, allowed: string[]) {
   return allowed.includes(a.status) ? null : `${a.id} is ${a.status}`;
 }
 
-/** Why a subject is refused: not exactly one of a matter's steps or a project, or the matter held by another active agent. */
+/** Why a subject is refused: not exactly one of a matter's steps or a project, the matter held by another active agent, or a re-point of the caretaker (`self`), which takes no other subject. */
 function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
+  if (self && agentOf(desk.db, self)?.role === "caretaker") {
+    return "the caretaker takes no other subject";
+  }
   if (!c.steps === !c.project) {
     return "name exactly one subject: a matter (`step`) or a project";
   }
@@ -154,11 +157,7 @@ function apply(
       }
       break;
     case "re_point":
-      refused =
-        refusal(["active", "stopped"]) ??
-        (agentOf(db, id)?.role === "caretaker"
-          ? "the caretaker takes no other subject"
-          : subjectRefusal(desk, c, id));
+      refused = refusal(["active", "stopped"]) ?? subjectRefusal(desk, c, id);
       if (!refused) {
         writeSubject(desk, id, currentAssignmentOf(db, id)?.id ?? "", c);
         if (agentOf(db, id)?.status === "active") {
