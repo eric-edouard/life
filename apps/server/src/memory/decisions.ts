@@ -7,7 +7,7 @@ import { appendJsonl, readAppended } from "../core/files";
 import { isoDateTime } from "../records/fields";
 import { isSendable, MessageDraft, oneLine, StoredDraft } from "./draft";
 import { resolveDraft, sendDraft, sendLimitMs } from "./draft-send";
-import { matterOfSteps } from "./matter-read";
+import { type MatterStepNow, matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { MEMORY } from "./memory-files";
 import { readPeople } from "./who";
@@ -17,7 +17,8 @@ import { dayNow } from "./zones";
 // draft he approves when there is one, 2 to 4 options (the recommended one first), its context folded, a deadline.
 // Append-only, one synchronous line each, outside the lock like a correction: `asked` (`requestDecision`), his
 // `answered` (the first wins; his own words alone are his "something else"), the asker's `withdrawn`, and, when his
-// answer was a draft's outgoing option alone, the send's outcome (`sent` or `send-failed`, `draft-send.ts`). A send
+// answer was a draft's outgoing option alone, the send's outcome (`sent` or `send-failed`, `draft-send.ts`), and when it
+// was an `ends` option alone, the end's outcome (`ended`: his word that the step or matter is done, `endByHisWord`). A send
 // that ended `not sent:` (nothing went) voids its answer: the card is open again and his next answer is the next first
 // (his yes of 18 Nov 2026); `may have gone:` stays answered. Where each
 // stands is worked out when read (`decisionsNow`); the open ones are checks (`checks.ts`), so he sees them in the one
@@ -32,9 +33,11 @@ const VERSION = 3;
 const DecisionId = z.string().regex(/^dec_[0-9a-f]{12}$/);
 const Option = z
   .object({
+    /** His pick of it alone is his word that the card's step (`step`: the subject, one of its matter's open steps) or its whole matter (`matter`) is done: Life closes it (`endByHisWord`). Never on an `outgoing` option, never taken on silence. */
+    ends: z.enum(["step", "matter"]).optional(),
     id: z.string().min(1).max(40),
     label: oneLine(120),
-    /** It sends, pays, books, deletes or changes something: never taken on silence. */
+    /** An act that leaves Life (it sends, pays, books, deletes or changes something others see): never taken on silence. */
     outgoing: z.literal(true).optional(),
   })
   .strict();
@@ -76,7 +79,7 @@ export const DecisionRequest = Ask.omit({ agent: true })
 
 /** The card's rules in words, for every tool that asks one (the connector's `request_decision`, the door's). */
 export const CARD =
-  "One card: `title` (what you are trying to do, one line, 80 characters), `question` (what he decides, one line, 120, ending in a ?), `draft` (the exact message to approve, shown to him in full: `channel` the source it goes through; `to` a chat key from `read_chats`, or a person with one 1:1 chat there (for mail, addresses); `text`, a `file` (an absolute path: he sees its name and size, and Life sends the bytes it reads when you ask), or a `reaction` (an emoji, which needs `onMessage` and nothing else); `onMessage` a message's id (`read_chats`, `read_new_events`; for mail, its id from `search` or `fetch`), replied to (or reacted to); `mentions` (`[{name, sender}]`: each `@name` in `text`, in its order, `sender` the sender id `read_chats` shows for that person in this chat); for mail only `from`, `subject`, `cc`; a feature the chat can't take is refused when you ask; Life sends it exactly as shown when he picks its one `outgoing` option alone (with his words added, or another option, nothing is sent), and `decision.answered` carries `send`, the sent message's id or its error; a failed send is never retried: ask a new card), `options` (2 to 4 `{id, label}`, a label at most five words, the recommended one first, `outgoing: true` on one that sends, pays, books, deletes or changes something), `context` (why, what was tried, what it rests on, with links: folded, about 10 lines), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, never an outgoing one, or null), `subject` (a matter's id or one of its steps': it leaves his list when the matter ends; or `project:<id>`, `area:<id>`). He can always answer in his own words instead (the answer's `note`).";
+  "One card: `title` (what you are trying to do, one line, 80 characters), `question` (what he decides, one line, 120, ending in a ?), `draft` (the exact message to approve, shown to him in full: `channel` the source it goes through; `to` a chat key from `read_chats`, or a person with one 1:1 chat there (for mail, addresses); `text`, a `file` (an absolute path: he sees its name and size, and Life sends the bytes it reads when you ask), or a `reaction` (an emoji, which needs `onMessage` and nothing else); `onMessage` a message's id (`read_chats`, `read_new_events`; for mail, its id from `search` or `fetch`), replied to (or reacted to); `mentions` (`[{name, sender}]`: each `@name` in `text`, in its order, `sender` the sender id `read_chats` shows for that person in this chat); for mail only `from`, `subject`, `cc`; a feature the chat can't take is refused when you ask; Life sends it exactly as shown when he picks its one `outgoing` option alone (with his words added, or another option, nothing is sent), and `decision.answered` carries `send`, the sent message's id or its error; a failed send is never retried: ask a new card), `options` (2 to 4 `{id, label}`, a label at most five words, the recommended one first, `outgoing: true` on one that acts outside Life (sends, pays, books, deletes or changes something others see), `ends: \"step\"` (`subject` one of its matter's open steps) or `ends: \"matter\"` on the one that means it is done (his pick of it alone closes that step, or every open step of the matter, in Life; never with `outgoing`, never `onSilence`, and `decision.answered` carries `end`, its error if it failed)), `context` (why, what was tried, what it rests on, with links: folded, about 10 lines), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, never an outgoing or `ends` one, or null), `subject` (a matter's id or one of its steps': it leaves his list when the matter ends; or `project:<id>`, `area:<id>`). He can always answer in his own words instead (the answer's `note`).";
 
 const Asked = Ask.extend({
   asker: z.string().min(1),
@@ -134,12 +137,24 @@ const SendFailed = Sent.omit({ eventId: true, kind: true })
       .optional(),
   })
   .strict();
+/** What his answer's `ends` option closed (`endByHisWord`): `error` when it failed, or never finished. */
+const Ended = z
+  .object({
+    at: isoDateTime,
+    by: z.literal("answer"),
+    error: z.string().min(1).optional(),
+    id: DecisionId,
+    kind: z.literal("ended"),
+    schemaVersion: z.literal(VERSION),
+  })
+  .strict();
 const Line = z.discriminatedUnion("kind", [
   Asked,
   Answered,
   Withdrawn,
   Sent,
   SendFailed,
+  Ended,
 ]);
 /** A line of an earlier version: skipped. */
 const Historical = z.object({ schemaVersion: z.literal([1, 2]) }).loose();
@@ -150,10 +165,12 @@ type Answered = z.infer<typeof Answered>;
 type Withdrawn = z.infer<typeof Withdrawn>;
 type SendFailed = z.infer<typeof SendFailed>;
 type Send = z.infer<typeof Sent> | SendFailed;
+type Ended = z.infer<typeof Ended>;
 
 type DecisionState = "answered" | "lapsed" | "open" | "withdrawn";
 export type Decision = Asked & {
   answer?: Answered;
+  end?: Ended;
   /** The newest `not sent:` outcome, which voided the answer in `voided` (the card is open again). */
   notSent?: SendFailed;
   send?: Send;
@@ -200,6 +217,8 @@ const readAll = () =>
         all.set(l.id, voidedBy(d, l));
       } else if (d && (l.kind === "sent" || l.kind === "send-failed")) {
         all.set(l.id, { ...d, send: l });
+      } else if (d && l.kind === "ended" && !d.end) {
+        all.set(l.id, { ...d, end: l });
       }
     }
   );
@@ -214,50 +233,94 @@ const stateOf = (d: Omit<Decision, "state">, now: Date): DecisionState => {
   return Date.parse(d.deadline) <= now.getTime() ? "lapsed" : "open";
 };
 
-/** Whether an answer sends the card's draft: its one outgoing option picked alone, with no words of his changing it. */
-export const sendsOn = (
-  d: Omit<Decision, "state">,
+type Act = "end" | "send";
+
+/** What an option does when he picks it alone with no words: `send` the card's draft (its `outgoing` option), `end` its step or matter (`ends`), else nothing. */
+const actOfOption = (
+  d: Pick<Decision, "draft">,
+  o?: z.infer<typeof Option>
+) => {
+  if (o?.outgoing && isSendable(d.draft)) {
+    return "send";
+  }
+  return o?.ends ? "end" : undefined;
+};
+
+/** What an answer does besides being recorded: its one option picked alone, with no words of his changing it (`actOfOption`). */
+export const actOf = (
+  d: Pick<Decision, "draft" | "options">,
   options: string[],
   note?: string
-) =>
-  Boolean(
-    isSendable(d.draft) &&
-      !note &&
-      options.length === 1 &&
-      d.options.find((o) => o.id === options[0])?.outgoing
-  );
+): Act | undefined =>
+  note || options.length !== 1
+    ? undefined
+    : actOfOption(
+        d,
+        d.options.find((o) => o.id === options[0])
+      );
 
-/** Whether his answer sends the card's draft (`sendsOn`). */
-export const isSendDue = (d: Omit<Decision, "state">) =>
-  Boolean(d.answer && sendsOn(d, d.answer.options, d.answer.note));
+/** What his answer is due to do (`actOf`), if anything. */
+export const actDueOf = (d: Omit<Decision, "state">) =>
+  d.answer ? actOf(d, d.answer.options, d.answer.note) : undefined;
 
-/** A send with no outcome this long past its path's own limit (`sendLimitMs`) never ended (a crash): the reads before the hand-off and the line's write. */
-const SEND_GRACE = MIN;
+/** The outcome of his answer's act, as stored: the send's, or the end's. */
+export const actOutcomeOf = (d: Pick<Decision, "end" | "send">, act: Act) =>
+  act === "send" ? d.send : d.end;
 
-/** The send's outcome as stored, or, past its path's limit and `SEND_GRACE` with none, one that never ended. */
-function sendOf(d: Omit<Decision, "state">, now: Date): Send | undefined {
-  if (d.send || !(d.answer && d.draft && isSendDue(d))) {
-    return d.send;
+/** An act with no outcome this long past its own limit never ended (a crash): the reads before it and the line's write. */
+const ACT_GRACE = MIN;
+/** The most an end may take: a tick per to-do item, a minute each (`TICK_LIMIT_MS`, host).
+ * ponytail: fixed; a matter of more than 29 open to-do items may read as never ended while it still ticks. */
+const END_LIMIT_MS = 30 * MIN;
+
+/** `d` with its act's outcome as stored, or, past its limit (a send's path's own, `sendLimitMs`) and `ACT_GRACE` with none, one that never ended. */
+function withOutcomeOf(
+  d: Omit<Decision, "state">,
+  now: Date
+): Omit<Decision, "state"> {
+  const act = actDueOf(d);
+  if (!(act && d.answer) || actOutcomeOf(d, act)) {
+    return d;
   }
-  const end = Date.parse(d.answer.at) + sendLimitMs(d.draft) + SEND_GRACE;
+  const limit = act === "send" && d.draft ? sendLimitMs(d.draft) : END_LIMIT_MS;
+  const end = Date.parse(d.answer.at) + limit + ACT_GRACE;
   if (now.getTime() < end) {
-    return;
+    return d;
   }
-  return {
+  const line: Pick<Ended, "at" | "id" | "schemaVersion"> = {
     at: new Date(end).toISOString(),
-    error:
-      "may have gone: a send started and never ended: read the chat before asking again",
     id: d.id,
-    kind: "send-failed",
     schemaVersion: VERSION,
   };
+  return act === "send"
+    ? {
+        ...d,
+        send: {
+          ...line,
+          error:
+            "may have gone: a send started and never ended: read the chat before asking again",
+          kind: "send-failed",
+        },
+      }
+    : {
+        ...d,
+        end: {
+          ...line,
+          by: "answer",
+          error:
+            "may not have ended: it started and never finished: read the matter before asking again",
+          kind: "ended",
+        },
+      };
 }
+
+/** Closes the step or matter of the decision `d` by his word (host: `endByHisWord`); throws when it could not. */
+export type EndByHisWord = (d: Omit<Decision, "state">) => Promise<unknown>;
 
 /** Every decision with where it stands at `now`: open, answered, lapsed (its deadline passed) or withdrawn. */
 export const decisionsNow = (now = clock()): Decision[] =>
   [...readAll().values()].map((d) => ({
-    ...d,
-    send: sendOf(d, now),
+    ...withOutcomeOf(d, now),
     state: stateOf(d, now),
   }));
 
@@ -331,6 +394,35 @@ function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
 }
 
 /**
+ * What breaks the rules of an `ends` option, in words the agent can fix; false when nothing does. `matter`: the open
+ * matter the subject is or rides on. A step's card closes its subject, which must be one of the matter's open steps
+ * (`openStepsOf`); a matter's needs one open (nothing else closes a matter by his word).
+ */
+function endsProblemOf(
+  ask: z.infer<typeof Ask>,
+  matter?: { id: string; steps: readonly MatterStepNow[] }
+) {
+  const ends = ask.options.filter((o) => o.ends);
+  if (ends.length === 0) {
+    return false;
+  }
+  return (
+    (ends.some((o) => o.outgoing) &&
+      "an option acts outside Life (`outgoing`) or closes in Life (`ends`), never both") ||
+    (ends.some((o) => o.id === ask.onSilence) &&
+      "`onSilence` never takes an `ends` option: only his pick closes anything") ||
+    (!matter &&
+      "`ends` needs a `subject` on an open matter (its id or a step's)") ||
+    (ends.some((o) => o.ends === "step") &&
+      (matter?.id === ask.subject ||
+        openStepsOf(matter ?? { steps: [] }, ask.subject).length === 0) &&
+      "`ends: \"step\"` needs `subject` to be one of the matter's open steps (a to-do, promise, wait or to-do item), not the matter's id") ||
+    (openStepsOf(matter ?? { steps: [] }).length === 0 &&
+      '`ends: "matter"` needs an open to-do, promise, wait or to-do item on the matter')
+  );
+}
+
+/**
  * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker. A draft's chat
  * is resolved now (`readChat`), so his card names it and nothing is sent to a chat he didn't see.
  */
@@ -377,6 +469,10 @@ export async function requestDecision(
       `Not done: no open matter is or holds ${ask.subject}; give its id or a step's, \`project:<id>\`, \`area:<id>\` or no subject.`
     );
   }
+  const endsProblem = endsProblemOf(ask, matter);
+  if (endsProblem) {
+    throw new Error(`Not done: ${endsProblem}.`);
+  }
   const subject =
     matter && matter.id === ask.subject
       ? matter.steps.at(-1)?.ref
@@ -404,8 +500,9 @@ export async function requestDecision(
  * Records his answer to an open decision: option ids, or none with his words. The first answer stands; a second is
  * refused, unless its send ended `not sent:` (then the card is open and the next answer is the first). When it is a
  * draft's outgoing option alone, through his app (`via` connector), Life sends the draft once (`deliver`) and records
- * the outcome: the answer is written first, so a repeated or concurrent answer never sends again. `onStep` hears
- * `recorded` and then the send's own steps.
+ * the outcome: the answer is written first, so a repeated or concurrent answer never sends again. When it is an `ends`
+ * option alone, `end` (host's `endByHisWord`, given only for his own token's `answer_check`) closes its step or matter
+ * once, and the `ended` line records it. `onStep` hears `recorded` and then the act's own steps (an end's: `ended`).
  */
 export async function answerDecision(
   id: string,
@@ -414,12 +511,14 @@ export async function answerDecision(
   {
     answerKey,
     deliver = sendDraft,
+    end,
     now = clock(),
     onStep,
     via = "session",
   }: {
     answerKey?: string;
     deliver?: typeof sendDraft;
+    end?: EndByHisWord;
     now?: Date;
     onStep?: (step: string, detail?: Record<string, unknown>) => void;
     via?: Answered["via"];
@@ -434,13 +533,17 @@ export async function answerDecision(
         : "Not done: pick an option or give his words as `note`."
     );
   }
-  if (
-    via !== "connector" &&
-    isSendable(d.draft) &&
-    d.options.some((o) => o.outgoing && options.includes(o.id))
-  ) {
+  const acts = d.options
+    .filter((o) => options.includes(o.id))
+    .map((o) => actOfOption(d, o));
+  if (acts.includes("send") && via !== "connector") {
     throw new Error(
       "Not done: a draft is sent only on his own answer, through `answer_check` in his app."
+    );
+  }
+  if (acts.includes("end") && !end) {
+    throw new Error(
+      "Not done: a step is closed only on his own answer, through `answer_check` in his app."
     );
   }
   const line: Answered = {
@@ -459,7 +562,25 @@ export async function answerDecision(
     throw new Error(`Not done: ${id} was answered already.`);
   }
   onStep?.("recorded");
-  if (!(isSendDue(stored) && isSendable(stored.draft))) {
+  const act = actDueOf(stored);
+  if (act === "end" && end) {
+    const outcome = await end(stored).then(
+      () => ({}),
+      (e: Error) => ({ error: e.message })
+    );
+    const ended: Ended = {
+      at: clock().toISOString(),
+      by: "answer",
+      id,
+      kind: "ended",
+      schemaVersion: VERSION,
+      ...outcome,
+    };
+    appendJsonl(DECISIONS, Ended, [ended]);
+    onStep?.("ended", ended.error ? { error: ended.error } : undefined);
+    return [line, ended];
+  }
+  if (!(act === "send" && isSendable(stored.draft))) {
     return [line];
   }
   // "Someone wrote since" counts from his last attempt that went nowhere, else from the card.
@@ -495,15 +616,17 @@ export const notSentOf = (d: Decision, n = d.notSent) =>
     : null;
 
 /**
- * When a decision settled, as its asker hears it: the send's outcome when his answer sent its draft (none while the
- * send runs), else his answer's instant, or the deadline for a lapse.
+ * When a decision settled, as its asker hears it: its act's outcome when his answer sent its draft or ended its step
+ * (none while the act runs), else his answer's instant, or the deadline for a lapse.
  */
-export const settledAtOf = (d: Decision) =>
-  d.answer && isSendDue(d)
-    ? d.send?.at
+export const settledAtOf = (d: Decision) => {
+  const act = actDueOf(d);
+  return act
+    ? actOutcomeOf(d, act)?.at
     : (d.answer?.at ??
-      // A lapse whose answer a `not sent:` voided after the deadline settles then, so a poll past the deadline still sees it.
-      (d.notSent && d.notSent.at > d.deadline ? d.notSent.at : d.deadline));
+        // A lapse whose answer a `not sent:` voided after the deadline settles then, so a poll past the deadline still sees it.
+        (d.notSent && d.notSent.at > d.deadline ? d.notSent.at : d.deadline));
+};
 
 /**
  * The decisions answered or lapsed in [`from`, `to`), by when they settled (`settledAtOf`; a withdrawal is the asker's

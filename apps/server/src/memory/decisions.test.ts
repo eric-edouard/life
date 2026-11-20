@@ -515,3 +515,156 @@ test("settled in a half-open window: an answer at a window's end comes in the ne
     { id, state: "answered" },
   ]);
 });
+
+// 20 Nov 2026: "Done" on an agent's card ended nothing in Life; an option marked `ends` is his word that it is done.
+const OPEN_MATTER = {
+  id: "matter_aaaaaaaaaaaa",
+  open: true,
+  steps: [
+    { kind: "episode", ref: "ep_000000000001" },
+    { kind: "to_do", ref: "obs_000000000001" },
+    {
+      ending: { at: NOW.toISOString(), by: "record", why: "done" },
+      kind: "promise",
+      ref: "obs_000000000002",
+    },
+  ],
+};
+const DONE = { ends: "step", id: "done", label: "Done" };
+const withMatter = async <T>(run: () => Promise<T>) => {
+  const book = spyOn(
+    await import("./matters"),
+    "readMatterBook"
+  ).mockResolvedValue([OPEN_MATTER] as never);
+  try {
+    return await run();
+  } finally {
+    book.mockRestore();
+  }
+};
+const endsAsk = (over = {}) =>
+  ask({
+    onSilence: null,
+    options: [DONE, { id: "later", label: "Not yet" }],
+    subject: "obs_000000000001",
+    ...over,
+  });
+
+test("an `ends` option is checked when asked: on an open step or matter, never outgoing, never on silence", async () => {
+  const refused = (over: object, why: string) =>
+    expect(
+      withMatter(() => requestDecision("planner", endsAsk(over), NOW))
+    ).rejects.toThrow(why);
+  await refused({ subject: undefined }, "needs a `subject` on an open matter");
+  await refused({ subject: "project:boiler" }, "on an open matter");
+  await refused({ subject: "matter_aaaaaaaaaaaa" }, "not the matter's id");
+  // A step already ended, or one that can't be open (an episode), is no step to close.
+  await refused({ subject: "obs_000000000002" }, "open steps");
+  await refused({ subject: "ep_000000000001" }, "open steps");
+  await refused({ onSilence: "done" }, "never takes an `ends` option");
+  await refused(
+    { options: [{ ...DONE, outgoing: true }, { id: "no", label: "No" }] },
+    "never both"
+  );
+  const matter = { ...DONE, ends: "matter" };
+  await withMatter(() =>
+    requestDecision(
+      "planner",
+      endsAsk({
+        options: [matter, { id: "no", label: "No" }],
+        subject: "matter_aaaaaaaaaaaa",
+      }),
+      NOW
+    )
+  );
+  await withMatter(() => requestDecision("planner", endsAsk(), NOW));
+  expect(decisionsNow(NOW).map((d) => d.options[0]?.ends)).toEqual([
+    "matter",
+    "step",
+  ]);
+});
+
+test("his pick of an `ends` option alone ends it once; with his words, another option or from a session, nothing ends", async () => {
+  const ended: string[] = [];
+  const end = (d: Omit<Decision, "state">) => {
+    ended.push(d.id);
+    return Promise.resolve();
+  };
+  const card = () =>
+    withMatter(() => requestDecision("planner", endsAsk(), NOW));
+  const first = await card();
+  // A session (or the desk) has no `end`: refused, nothing written.
+  await expect(
+    answerDecision(first.id, ["done"], undefined, { now: later(HOUR) })
+  ).rejects.toThrow("only on his own answer");
+  const done = await answerDecision(first.id, ["done"], undefined, {
+    end,
+    now: later(HOUR),
+    via: "connector",
+  });
+  expect(done).toMatchObject([
+    { kind: "answered" },
+    { by: "answer", id: first.id, kind: "ended" },
+  ]);
+  await expect(
+    answerDecision(first.id, ["done"], undefined, {
+      end,
+      now: later(HOUR),
+      via: "connector",
+    })
+  ).rejects.toThrow("answered");
+  expect(ended).toEqual([first.id]);
+  const second = await card();
+  await answerDecision(second.id, ["done"], "Only half of it", {
+    end,
+    now: later(HOUR),
+    via: "connector",
+  });
+  const third = await card();
+  await answerDecision(third.id, ["done", "later"], undefined, {
+    end,
+    now: later(HOUR),
+    via: "connector",
+  });
+  expect(ended).toEqual([first.id]);
+  const byId = new Map(decisionsNow(later(2 * HOUR)).map((d) => [d.id, d]));
+  expect(byId.get(first.id)?.end).toMatchObject({ kind: "ended" });
+  expect(byId.get(second.id)?.end).toBeUndefined();
+});
+
+test("the asker hears of an end once its outcome is in: a failure carries its error; one that never ended is told so past its limit", async () => {
+  const { id } = await withMatter(() =>
+    requestDecision("planner", endsAsk(), NOW)
+  );
+  await answerDecision(id, ["done"], undefined, {
+    end: () => Promise.reject(new Error("Not done: the list app is off.")),
+    now: later(HOUR),
+    via: "connector",
+  });
+  // The outcome is stamped at the real clock, after `now`: a window to the far future holds it.
+  const ever = new Date("2100-01-01T00:00:00.000Z");
+  expect(settledBetween(decisionsNow(later(DAY)), NOW, ever)).toEqual([
+    expect.objectContaining({
+      end: expect.objectContaining({ error: "Not done: the list app is off." }),
+      id,
+    }),
+  ]);
+  rmSync(DECISIONS, { force: true });
+  const hung = await withMatter(() =>
+    requestDecision("planner", endsAsk(), NOW)
+  );
+  const never = answerDecision(hung.id, ["done"], undefined, {
+    end: () => new Promise(() => undefined),
+    now: later(HOUR),
+    via: "connector",
+  });
+  expect(never).toBeInstanceOf(Promise);
+  await Bun.sleep(10);
+  // Answered, its end still running: not settled yet; past its limit with no outcome, settled as never ended.
+  expect(
+    settledBetween(decisionsNow(later(HOUR + 10 * MIN)), NOW, later(DAY))
+  ).toEqual([]);
+  expect(
+    decisionsNow(later(DAY)).find((d) => d.id === hung.id)?.end?.error
+  ).toStartWith("may not have ended");
+});
