@@ -8,7 +8,7 @@ import type { EventFilter } from "../records/registered-agent";
 import { register, setWait } from "./agent-actions";
 import { readPeopleOnce, wakeDue } from "./desk-clock";
 import { pollChannels } from "./event-queue";
-import { advance, ahead, chatSource, setup } from "./test-desk";
+import { advance, ahead, asgOf, chatSource, on, setup } from "./test-desk";
 
 // An agent's wait on the payments channel: a made-up money app's payments wake it once, by amount or by words, and a
 // wake hands their facts, never the merchant or the note.
@@ -58,7 +58,11 @@ async function waitingOn(...filters: Partial<EventFilter>[]) {
   });
   await wakeDue(s.desk);
   const rewait = (...events: Partial<EventFilter>[]) =>
-    setWait(s.desk, id, { events, reason: "a payment", until: ahead(HOUR) });
+    setWait(s.desk, on(s.desk, id), {
+      events,
+      reason: "a payment",
+      until: ahead(HOUR),
+    });
   const set = await rewait(...filters);
   await s.end(id);
   advance(MIN);
@@ -66,7 +70,7 @@ async function waitingOn(...filters: Partial<EventFilter>[]) {
     advance(5 * MIN);
     await pollChannels(s.desk, readPeopleOnce());
   };
-  const queued = () => queuedEvents(s.desk.db, id);
+  const queued = () => queuedEvents(s.desk.db, asgOf(s.desk, id));
   return { ...s, id, list, money, poll, queued, rewait, set };
 }
 

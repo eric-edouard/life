@@ -318,13 +318,22 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
   const { id } = await card("desk", "agt_0123456789ab");
   setSettings({ desk: { defaultRuntime: "claude", runtimes: { claude: {} } } });
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
-  // Only the two tables the answer's reader asks.
+  // Only the four tables the answer's reader asks, and the columns it reads.
   mkdirSync(dirname(DESK_STORE), { recursive: true });
   const db = new Database(DESK_STORE, { create: true, strict: true });
   db.run(
-    "create table event (agent_id text, event_id text, name text, payload text, received_at text)"
+    "create table assignment (id text, agent_id text, closed_at text, opened_at text)"
   );
-  db.run("create table turn (agent_id text, cause text, started_at text)");
+  db.run("create table anchor (assignment_id text, step text)");
+  db.run(
+    "insert into assignment values ('asg_test', 'agt_0123456789ab', null, '2026-11-18T08:00:00.000Z')"
+  );
+  db.run(
+    "create table event (assignment_id text, event_id text, name text, payload text, received_at text)"
+  );
+  db.run(
+    "create table turn (agent_id text, assignment_id text, cause text, started_at text, ended_at text)"
+  );
   try {
     const r = await call(id, ["wait"]).result;
     expect(r.asker).toMatchObject({
@@ -333,9 +342,9 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
     });
     const { id: id2 } = await card("desk", "agt_0123456789ab");
     db.run(
-      "insert into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
+      "insert into event (assignment_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
       [
-        "agt_0123456789ab",
+        "asg_test",
         `${id2}.answered`,
         "decision.answered",
         "{}",
@@ -347,20 +356,19 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
     });
     const { id: id3 } = await card("desk", "agt_0123456789ab");
     db.run(
-      "insert into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
+      "insert into event (assignment_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
       [
-        "agt_0123456789ab",
+        "asg_test",
         `${id3}.answered`,
         "decision.answered",
         "{}",
         "2026-11-18T09:00:00.000Z",
       ]
     );
-    db.run("insert into turn (agent_id, cause, started_at) values (?, ?, ?)", [
-      "agt_0123456789ab",
-      "answer",
-      "2026-11-18T09:00:05.000Z",
-    ]);
+    db.run(
+      "insert into turn (assignment_id, cause, started_at) values (?, ?, ?)",
+      ["asg_test", "answer", "2026-11-18T09:00:05.000Z"]
+    );
     expect((await call(id3, ["wait"]).result).asker).toMatchObject({
       told: "woken",
     });

@@ -5,17 +5,22 @@ import { DESK_AGENT } from "../core/names";
 import { isOwnLife } from "../core/platform";
 import {
   type AgentRow,
+  type AssignmentRow,
   activeAgents,
   agentOf,
+  assignmentOf,
+  assignmentOfCard,
   type EventRow,
   filtersOf,
   lastTurns,
   modelOf,
+  openAssignments,
   openTurn,
   queuedEvents,
   readCursor,
   type TurnRow,
 } from "../host/desk-read";
+import { isOnOrAfter } from "../host/event-channels";
 import {
   CALL_ENDED,
   callMatchableOf,
@@ -33,7 +38,7 @@ import { type People, readPeople } from "../memory/who";
 import type { TurnOutcome } from "../records/registered-agent";
 import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
-import { endAgent, readPacket, stopOpenRun } from "./agent-actions";
+import { closeAssignment, readPacket, stopOpenRun } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import {
   BEGIN_WITHIN_MS,
@@ -48,7 +53,12 @@ import {
   STARTS_PER_TICK,
 } from "./agent-wait";
 import { doorOf } from "./desk-door";
-import { type Desk, saveCursor, writeWait } from "./desk-store";
+import {
+  closeAssignmentRow,
+  type Desk,
+  saveCursor,
+  writeWait,
+} from "./desk-store";
 import {
   agentWakesOf,
   pollChannels,
@@ -91,24 +101,24 @@ export function readPeopleOnce(): ReadPeople {
 }
 
 /**
- * Reads the new messages once and queues each for every active agent waiting for it, then for every agent on a matter
- * it relates to (`relatedMessages`, `matter.related`: a message its wait already queued is not queued again), in the
- * transaction that saves the cursor (its name, `message.received`): delivered at least once, never twice (an event id
- * is kept once per agent). With no agent active, nothing is read, and the next read starts at that time.
+ * Reads the new messages once and queues each for every open assignment waiting for it, then for every assignment on a
+ * matter it relates to (`relatedMessages`, `matter.related`: a message its wait already queued is not queued again), in
+ * the transaction that saves the cursor (its name, `message.received`): delivered at least once, never twice (an event
+ * id is kept once per assignment). With none open, nothing is read, and the next read starts at that time.
  */
 export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
   const { db, sources } = desk;
-  const agents = activeAgents(db);
-  if (agents.length === 0) {
+  const assignments = openAssignments(db);
+  if (assignments.length === 0) {
     saveCursor(db, MESSAGE_RECEIVED, null);
     return;
   }
   const people = await readPeopleNow();
   const nets = await netsOf(desk, people);
-  const matchers = agents.flatMap((a) =>
+  const matchers = assignments.flatMap((a) =>
     filtersOf(a).flatMap((f) => {
       const isMatch = matcherOf(f, people);
-      return isMatch ? [{ id: a.id, isMatch }] : [];
+      return isMatch ? [{ id: a.id, isMatch, since: a.opened_at }] : [];
     })
   );
   const read = await readMessageEvents(
@@ -118,7 +128,10 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
     (m, e) => {
       const ids = new Set(
         matchers
-          .filter((x) => x.isMatch(messageMatchableOf(m, e)))
+          .filter(
+            (x) =>
+              isOnOrAfter(m, x.since) && x.isMatch(messageMatchableOf(m, e))
+          )
           .map((x) => x.id)
       );
       return ids.size || nets.length
@@ -133,7 +146,11 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
       db,
       MESSAGE_RECEIVED,
       read.items.flatMap(({ ids, m }) =>
-        [...ids].map((agent) => ({ agent, eventId: m.id, payload: m }))
+        [...ids].map((assignment) => ({
+          assignment,
+          eventId: m.id,
+          payload: m,
+        }))
       )
     );
     queue(db, MATTER_RELATED, related);
@@ -142,11 +159,12 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
 }
 
 /**
- * Queues `call.ended` for each active agent whose wait wants a call that ended in the last 12 hours (`readEndedCalls`),
- * once lifelog holds the call's words (`recordingsOf`): the chat, the span, who was on it and where its turns are, never
- * a word. A call with no turn inside (the pendant was off) queues nothing and is looked at again next poll until it is
- * 12 hours old; one already queued for an agent is not looked at (`eventHeard`), and the queue keeps it once per agent
- * and call, so no cursor is kept. `at` is the time the polls look back from, passed so a replay can set the evening.
+ * Queues `call.ended` for each open assignment whose wait wants a call that ended in the last 12 hours
+ * (`readEndedCalls`), once lifelog holds the call's words (`recordingsOf`): the chat, the span, who was on it and where
+ * its turns are, never a word. A call with no turn inside (the pendant was off) queues nothing and is looked at again
+ * next poll until it is 12 hours old; one already queued for an assignment is not looked at (`eventHeard`), and the
+ * queue keeps it once per assignment and call, so no cursor is kept. `at` is the time the polls look back from, passed
+ * so a replay can set the evening.
  */
 export async function pollCalls(
   desk: Desk,
@@ -155,14 +173,14 @@ export async function pollCalls(
   watchDir = WATCH
 ) {
   const { db } = desk;
-  const agents = activeAgents(db);
-  if (agents.length === 0 || !existsSync(storeFiles(watchDir).file)) {
+  const assignments = openAssignments(db);
+  if (assignments.length === 0 || !existsSync(storeFiles(watchDir).file)) {
     return;
   }
   const people = await readPeopleNow();
   const wakes = agentWakesOf(
     db,
-    agents,
+    assignments,
     people,
     readEndedCalls(people, desk.sources, at).map((call) => ({
       at: call.until,
@@ -189,10 +207,16 @@ export async function pollCalls(
       queue(
         db,
         CALL_ENDED,
-        wakes.flatMap(({ agent, eventId, payload: call }) => {
+        wakes.flatMap(({ assignment, eventId, payload: call }) => {
           const found = recordings.get(call.id);
           return found
-            ? [{ agent, eventId, payload: { ...call, recordings: found } }]
+            ? [
+                {
+                  assignment,
+                  eventId,
+                  payload: { ...call, recordings: found },
+                },
+              ]
             : [];
         })
       )
@@ -202,9 +226,9 @@ export async function pollCalls(
   }
 }
 
-/** Queues his pendant's new recordings for every agent on a matter they relate to (`relatedRecordings`). */
+/** Queues his pendant's new recordings for every assignment on a matter they relate to (`relatedRecordings`). */
 export async function pollRecordings(desk: Desk, readPeopleNow: ReadPeople) {
-  if (activeAgents(desk.db).length === 0) {
+  if (openAssignments(desk.db).length === 0) {
     return;
   }
   const people = await readPeopleNow();
@@ -216,42 +240,44 @@ export async function pollRecordings(desk: Desk, readPeopleNow: ReadPeople) {
   desk.db.transaction(() => queue(desk.db, MATTER_RELATED, wakes))();
 }
 
-/** Ends each active agent whose matter is over for it (`matterEndsOf`, `endOutcomeOf`), with why. */
+/** Closes each open assignment whose matter is over for it (`matterEndsOf`, `endOutcomeOf`), with why. */
 export async function endAgentsOnOverMatters(
   desk: Desk,
   readPeopleNow: ReadPeople
 ) {
-  if (activeAgents(desk.db).length === 0) {
+  if (openAssignments(desk.db).length === 0) {
     return;
   }
   const ends = await matterEndsOf(desk, await readPeopleNow());
   for (const e of ends) {
-    // biome-ignore lint/performance/noAwaitInLoops: one agent's decision withdrawn at a time
-    await endAgent(desk, e.agent, e.outcome);
+    // biome-ignore lint/performance/noAwaitInLoops: one card withdrawn at a time
+    await closeAssignment(desk, e.assignment, e.outcome);
   }
 }
 
 /**
- * Queues his answers to the agents' decisions, their lapses and their withdrawals (he answered in the chat), for the active agent that asked each, in the
- * transaction that saves each cursor: read through `pollDecisions`, as the desk (every registered agent asks as it).
+ * Queues his answers to the agents' decisions, their lapses and their withdrawals (he answered in the chat), for the
+ * open assignment that owns each (`assignmentOfCard`), in the transaction that saves each cursor: read through
+ * `pollDecisions`, as the desk (every registered agent asks as it).
  */
 export function pollAnswers({ db }: Desk) {
-  const active = new Set(activeAgents(db).map((a) => a.id));
+  const open = new Set(openAssignments(db).map((s) => s.id));
   const reads = DECISION_EVENTS.map((name) => ({
     name,
     read: pollDecisions(name, readCursor(db, name), DESK_AGENT),
   }));
   // Read after the polls, so every decision they return is known.
-  const askedBy = new Map(decisionsNow().map((d) => [d.id, d.agent]));
+  const cards = new Map(decisionsNow().map((d) => [d.id, d]));
   for (const { name, read } of reads) {
     db.transaction(() => {
       queue(
         db,
         name,
         read.events.flatMap((e) => {
-          const agent = askedBy.get(e.data.id);
-          return agent && active.has(agent)
-            ? [{ agent, eventId: e.eventId, payload: e.data }]
+          const card = cards.get(e.data.id);
+          const assignment = card && assignmentOfCard(db, card);
+          return assignment && open.has(assignment)
+            ? [{ assignment, eventId: e.eventId, payload: e.data }]
             : [];
         })
       );
@@ -306,8 +332,8 @@ function watchedIn(db: Desk["db"]) {
 const markBegun = (db: Desk["db"], turn: number) =>
   db.transaction(() => {
     const t = db
-      .query<Pick<TurnRow, "agent_id" | "started_at">, [number]>(
-        "select agent_id, started_at from turn where id = ? and begun_at is null"
+      .query<Pick<TurnRow, "assignment_id" | "started_at">, [number]>(
+        "select assignment_id, started_at from turn where id = ? and begun_at is null"
       )
       .get(turn);
     if (!t) {
@@ -315,8 +341,8 @@ const markBegun = (db: Desk["db"], turn: number) =>
     }
     db.run("update turn set begun_at = ? where id = ?", [now(), turn]);
     db.run(
-      "update event set handed = handed + 1 where agent_id = ? and received_at <= ? and consumed_at is null and dropped_at is null",
-      [t.agent_id, t.started_at]
+      "update event set handed = handed + 1 where assignment_id = ? and received_at <= ? and consumed_at is null and dropped_at is null",
+      [t.assignment_id, t.started_at]
     );
   })();
 
@@ -345,13 +371,13 @@ function watch(desk: Desk, id: string, turn: number, run: Run) {
 }
 
 /**
- * Starts a turn for `a`, or leaves a session running a turn of his alone (false: the wake comes after it). The turn is
- * written before the runtime is called, so the turn's end, however soon, finds it; its queued events count a try once it
- * begins (`markBegun`). It
- * runs into its session while that has grown under `GROWTH_LIMIT`, else in a fresh session from its packet (the old
- * one's link kept). A runtime that fails ends it failed, tried again later.
+ * Starts a turn of `a` on its assignment `s`, or leaves a session running a turn of his alone (false: the wake comes
+ * after it). The turn is written before the runtime is called, so the turn's end, however soon, finds it; its queued
+ * events count a try once it begins (`markBegun`). It runs into its session while that has grown under
+ * `GROWTH_LIMIT`, else in a fresh session from its packet (the old one's link kept). A runtime that fails ends it
+ * failed, tried again later.
  */
-async function wake(desk: Desk, a: AgentRow) {
+async function wake(desk: Desk, a: AgentRow, s: AssignmentRow) {
   const { db } = desk;
   const runtime = desk.runtimes[a.runtime];
   // null: the runtime can't say; the send then tells.
@@ -363,22 +389,31 @@ async function wake(desk: Desk, a: AgentRow) {
     return false;
   }
   // Read again as its turn is written: since the tick listed it, the agent may have finished, set a later wait or been
-  // woken (a runtime's start can take 30 s).
+  // woken (a runtime's start can take 30 s); its session takes one turn at a time.
   const woken = db.transaction(() => {
     const fresh = agentOf(db, a.id);
-    const events = queuedEvents(db, a.id);
+    const freshS = assignmentOf(db, s.id);
+    const events = queuedEvents(db, s.id);
     const due =
-      fresh?.status === "active"
-        ? nextWakeOf(fresh, lastTurns(db, a.id), events)
+      fresh?.status === "active" &&
+      freshS?.closed_at === null &&
+      !openTurn(db, a.id)
+        ? nextWakeOf(freshS, lastTurns(db, s.id), events)
         : null;
-    if (!(fresh && due) || due.at > clock().getTime()) {
+    if (!(fresh && freshS && due) || due.at > clock().getTime()) {
       return null;
     }
     const id = db.run(
-      "insert into turn (agent_id, session, cause, started_at) values (?, ?, ?, ?)",
-      [a.id, fresh.session, due.cause, now()]
+      "insert into turn (agent_id, assignment_id, session, cause, started_at) values (?, ?, ?, ?, ?)",
+      [a.id, s.id, fresh.session, due.cause, now()]
     ).lastInsertRowid;
-    return { a: fresh, cause: due.cause, events, turn: Number(id) };
+    return {
+      a: fresh,
+      cause: due.cause,
+      events,
+      s: freshS,
+      turn: Number(id),
+    };
   })();
   if (!woken) {
     return false;
@@ -387,22 +422,29 @@ async function wake(desk: Desk, a: AgentRow) {
   return true;
 }
 
-/** Launches turn `turn` of `a` in its runtime, as `wake` wrote it; a launch that fails ends the turn failed. */
+/** Launches turn `turn` of `a` on `s` in its runtime, as `wake` wrote it; a launch that fails ends the turn failed. */
 async function launch(
   desk: Desk,
   {
     a,
     cause,
     events,
+    s,
     turn,
-  }: { a: AgentRow; cause: string; events: EventRow[]; turn: number },
+  }: {
+    a: AgentRow;
+    cause: string;
+    events: EventRow[];
+    s: AssignmentRow;
+    turn: number;
+  },
   state: "running" | "idle" | "gone" | null
 ) {
   const { db } = desk;
   const runtime = desk.runtimes[a.runtime];
   const since =
     cause === "deadline"
-      ? (lastTurns(db, a.id).find((t) => t.id < turn && t.ended_at)?.ended_at ??
+      ? (lastTurns(db, s.id).find((t) => t.id < turn && t.ended_at)?.ended_at ??
         undefined)
       : undefined;
   try {
@@ -411,16 +453,16 @@ async function launch(
     }
     const grown = a.session && state === "idle" ? readGrowth(db, a.session) : 0;
     if (!a.session || state === "gone" || grown >= GROWTH_LIMIT) {
-      const s = await runtime.start(
+      const started = await runtime.start(
         sessionAgentOf(a),
         [
-          await readPacket(desk, a.id, isOwnLife()),
+          await readPacket(desk, s, isOwnLife()),
           ...sinceLineOf(since),
-          ...unreadLinesOf(db, a),
+          ...unreadLinesOf(db, s),
         ].join("\n\n")
       );
       // Watched first: its process runs, so a failed write below never ends it as not started.
-      watch(desk, a.id, turn, s);
+      watch(desk, a.id, turn, started);
       try {
         db.transaction(() => {
           db.run(
@@ -429,14 +471,17 @@ async function launch(
           );
           db.run(
             "insert into session (agent_id, runtime, ref, link, started_at) values (?, ?, ?, ?, ?)",
-            [a.id, a.runtime, s.ref, s.link, now()]
+            [a.id, a.runtime, started.ref, started.link, now()]
           );
           db.run("update agent set session = ?, link = ? where id = ?", [
-            s.ref,
-            s.link,
+            started.ref,
+            started.link,
             a.id,
           ]);
-          db.run("update turn set session = ? where id = ?", [s.ref, turn]);
+          db.run("update turn set session = ? where id = ?", [
+            started.ref,
+            turn,
+          ]);
         })();
       } catch (error) {
         log("desk.runtime", {
@@ -454,7 +499,7 @@ async function launch(
         await runtime.send(
           sessionAgentOf(a),
           a.session,
-          wakeMessageOf(cause, events, since, unreadLinesOf(db, a))
+          wakeMessageOf(cause, events, since, unreadLinesOf(db, s))
         )
       );
     }
@@ -485,22 +530,27 @@ const readGrowth = (db: Desk["db"], ref: string) =>
   );
 
 /**
- * Starts the turns due now: his answers and new agents' first turns first, then the oldest deadline, until 3 have
- * started this tick (an agent whose session runs a turn of his, or whose runtime is blocked, takes no place). Each is
- * read again as its turn is written.
+ * Starts the turns due now: his answers and new assignments' first turns first, then the oldest deadline, until 3 have
+ * started this tick (an agent whose session runs a turn, of the desk's or his, or whose runtime is blocked, takes no
+ * place). Each is read again as its turn is written.
  */
 export async function wakeDue(desk: Desk) {
   const t = clock().getTime();
-  const due = activeAgents(desk.db)
-    .flatMap((a) => {
-      const turns = lastTurns(desk.db, a.id);
-      const d = nextWakeOf(a, turns, queuedEvents(desk.db, a.id));
-      return d && d.at <= t
+  const due = openAssignments(desk.db)
+    .flatMap((s) => {
+      const a = agentOf(desk.db, s.agent_id);
+      const turns = lastTurns(desk.db, s.id);
+      const d =
+        a && !openTurn(desk.db, a.id)
+          ? nextWakeOf(s, turns, queuedEvents(desk.db, s.id))
+          : null;
+      return a && d && d.at <= t
         ? [
             {
               a,
               at: d.at,
               isAtOnce: d.cause === "answer" || turns.length === 0,
+              s,
             },
           ]
         : [];
@@ -523,7 +573,7 @@ export async function wakeDue(desk: Desk) {
     }
     // biome-ignore lint/performance/noAwaitInLoops: whether one started decides whether the next may
     if (!(await blockOf(d.a.runtime))) {
-      started += (await wake(desk, d.a)) ? 1 : 0;
+      started += (await wake(desk, d.a, d.s)) ? 1 : 0;
     }
   }
 }
@@ -580,32 +630,37 @@ function close(
   }
   db.run(
     outcome === "waited" || outcome === "finished"
-      ? "update event set consumed_at = ? where agent_id = ? and handed > 0 and consumed_at is null and dropped_at is null"
-      : `update event set dropped_at = ? where agent_id = ? and handed >= ${MAX_HANDED} and consumed_at is null and dropped_at is null`,
-    [now(), t.agent_id]
+      ? "update event set consumed_at = ? where assignment_id = ? and handed > 0 and consumed_at is null and dropped_at is null"
+      : `update event set dropped_at = ? where assignment_id = ? and handed >= ${MAX_HANDED} and consumed_at is null and dropped_at is null`,
+    [now(), t.assignment_id]
   );
   return true;
 }
 
 /**
- * An agent whose first turn failed before it began is ended, not retried, with why (`why_not_started`): nothing is left
- * running, its matter is free for a new start. Its only turn is `t`, which never began.
+ * An assignment whose first turn failed before it began is closed, not retried, with why (`why_not_started`; its agent
+ * ended when it has no other open): nothing is left running, its matter is free for a new start. Its only turn is `t`,
+ * which never began.
  */
 function endNotStarted({ db }: Desk, t: TurnRow, why: string) {
-  if (lastTurns(db, t.agent_id, 2).length !== 1 || t.begun_at) {
+  if (lastTurns(db, t.assignment_id, 2).length !== 1 || t.begun_at) {
     return false;
   }
-  db.run(
-    "update agent set status = 'ended', ended_at = ?, why_not_started = ? where id = ? and status = 'active'",
-    [now(), why, t.agent_id]
-  );
+  closeAssignmentRow(db, t.assignment_id, {
+    outcome: null,
+    whyNotStarted: why,
+  });
   return true;
 }
 
-/** After a failed turn: once the retries are spent, the default wait stands. */
-function afterFailure({ db }: Desk, a: AgentRow) {
-  if (a.status === "active" && failuresOf(lastTurns(db, a.id)) >= MAX_HANDED) {
-    writeWait(db, a.id, defaultWaitOf(a, clock().getTime()), true);
+/** Whether `a` is active and its assignment `s` open: only then does a wait of `s` stand. */
+const isWaiting = (a: AgentRow, s: AssignmentRow) =>
+  a.status === "active" && s.closed_at === null;
+
+/** After a failed turn of `s`: once its retries are spent, the default wait stands. */
+function afterFailure({ db }: Desk, a: AgentRow, s: AssignmentRow) {
+  if (isWaiting(a, s) && failuresOf(lastTurns(db, s.id)) >= MAX_HANDED) {
+    writeWait(db, s.id, defaultWaitOf(s, clock().getTime()), true);
   }
 }
 
@@ -617,8 +672,9 @@ export async function turnEnded(desk: Desk, id: string, end: RunEnd) {
   const { db } = desk;
   const t = openTurn(db, id);
   const a = agentOf(db, id);
+  const s = t && assignmentOf(db, t.assignment_id);
   const runtime = a && desk.runtimes[a.runtime];
-  if (!(t && a)) {
+  if (!(t && a && s)) {
     return;
   }
   const { usage } = end;
@@ -639,7 +695,7 @@ export async function turnEnded(desk: Desk, id: string, end: RunEnd) {
           end.why ?? "its first turn ended before it began"
         )
       ) {
-        afterFailure(desk, a);
+        afterFailure(desk, a, s);
       }
     })();
     return;
@@ -670,8 +726,8 @@ export async function turnEnded(desk: Desk, id: string, end: RunEnd) {
     }
   }
   db.transaction(() => {
-    if (close(desk, t, "default_wait", usage) && a.status === "active") {
-      writeWait(db, id, defaultWaitOf(a, clock().getTime()), true);
+    if (close(desk, t, "default_wait", usage) && isWaiting(a, s)) {
+      writeWait(db, s.id, defaultWaitOf(s, clock().getTime()), true);
     }
   })();
 }

@@ -1,10 +1,10 @@
 import { clock, iso } from "../core/clock";
 import { log } from "../core/log";
 import {
-  type AgentRow,
-  activeAgents,
+  type AssignmentRow,
   eventHeard,
   filtersOf,
+  openAssignments,
 } from "../host/desk-read";
 import {
   EVENT_CHANNELS,
@@ -21,17 +21,17 @@ import type { Desk } from "./desk-store";
 /** Who his people are, read when a poll first needs them: once per poll (`readPeopleOnce`). */
 export type ReadPeople = () => Promise<People>;
 
-/** Queues `wakes` (one event each, kept once per agent and id) as `name`. */
+/** Queues `wakes` (one event each, kept once per assignment and id) as `name`. */
 export function queue(
   db: Desk["db"],
   name: string,
-  wakes: { agent: string; eventId: string; payload: unknown }[]
+  wakes: { assignment: string; eventId: string; payload: unknown }[]
 ) {
   for (const w of wakes) {
     db.run(
-      "insert or ignore into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
+      "insert or ignore into event (assignment_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
       [
-        w.agent,
+        w.assignment,
         w.eventId,
         name,
         JSON.stringify(w.payload),
@@ -42,12 +42,13 @@ export function queue(
 }
 
 /**
- * Each active agent's wakes by `events`: those its wait wants (`matcherOf`), from after it was created (by the event's
- * instant, else by its day against the agent's local day), not queued for it yet (`eventHeard`).
+ * Each open assignment's wakes by `events`: those its wait wants (`matcherOf`), from after it was opened (by the event's
+ * instant, else by its day against the local day it was opened): nothing before is new to it; not queued for it yet
+ * (`eventHeard`).
  */
 export function agentWakesOf<T>(
   db: Desk["db"],
-  agents: AgentRow[],
+  assignments: AssignmentRow[],
   people: People,
   events: {
     at?: string;
@@ -57,13 +58,13 @@ export function agentWakesOf<T>(
     payload: T;
   }[]
 ) {
-  return agents.flatMap((a) => {
-    const matchers = filtersOf(a).flatMap((f) => matcherOf(f, people) ?? []);
+  return assignments.flatMap((s) => {
+    const matchers = filtersOf(s).flatMap((f) => matcherOf(f, people) ?? []);
     return events.flatMap((e) =>
-      isOnOrAfter(e, a.created_at) &&
+      isOnOrAfter(e, s.opened_at) &&
       matchers.some((isMatch) => isMatch(e.matchable)) &&
-      eventHeard(db, a.id, e.eventId) === "not_yet"
-        ? [{ agent: a.id, eventId: e.eventId, payload: e.payload }]
+      eventHeard(db, s.id, e.eventId) === "not_yet"
+        ? [{ assignment: s.id, eventId: e.eventId, payload: e.payload }]
         : []
     );
   });
@@ -81,16 +82,16 @@ function channelReadsIn(db: Desk["db"]) {
 }
 
 /**
- * Reads each event channel some active agent's wait names, when its beat is due, and queues its events for every agent
- * whose wait wants one (`agentWakesOf`: once per agent and event, the queue the dedupe). A channel no wait names is never
+ * Reads each event channel some open assignment's wait names, when its beat is due, and queues its events for every
+ * assignment whose wait wants one (`agentWakesOf`: once per assignment and event, the queue the dedupe). A channel no wait names is never
  * read; one that is off (its `block`) is not read, and one that is off or fails queues nothing, stalls nothing, and is said
  * in the next wakes (`unreadLinesOf`).
  */
 export async function pollChannels(desk: Desk, readPeopleNow: ReadPeople) {
   const { db } = desk;
-  const agents = activeAgents(db);
+  const assignments = openAssignments(db);
   const named = new Set(
-    agents.flatMap((a) => filtersOf(a).flatMap((f) => f.channels ?? []))
+    assignments.flatMap((s) => filtersOf(s).flatMap((f) => f.channels ?? []))
   );
   const reads = channelReadsIn(db);
   const t = clock().getTime();
@@ -115,7 +116,7 @@ export async function pollChannels(desk: Desk, readPeopleNow: ReadPeople) {
     try {
       const events = await c.read(t);
       reads.set(c.name, { at: t });
-      const wakes = agentWakesOf(db, agents, people, events);
+      const wakes = agentWakesOf(db, assignments, people, events);
       db.transaction(() => queue(db, c.event, wakes))();
     } catch (error) {
       const why = (error as Error).message;
@@ -125,10 +126,13 @@ export async function pollChannels(desk: Desk, readPeopleNow: ReadPeople) {
   }
 }
 
-/** The lines a wake of `a` carries for each channel its wait names that cannot be read now: since when, and why. */
-export const unreadLinesOf = (db: Desk["db"], a: AgentRow) => {
+/** The lines a wake of assignment `s` carries for each channel its wait names that cannot be read now: since when, and why. */
+export const unreadLinesOf = (
+  db: Desk["db"],
+  s: Pick<AssignmentRow, "wait_events">
+) => {
   const reads = channelReadsIn(db);
-  return [...new Set(filtersOf(a).flatMap((f) => f.channels ?? []))].flatMap(
+  return [...new Set(filtersOf(s).flatMap((f) => f.channels ?? []))].flatMap(
     (name) => {
       const r = reads.get(name);
       return r?.failedSince

@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { clock, MIN } from "../core/clock";
+import { clock, HOUR, MIN } from "../core/clock";
 import { hold } from "../core/lock";
+import { log } from "../core/log";
 import type { RuntimeName } from "../core/names";
 import { off } from "../core/outputs";
 import { dayNow } from "../memory/zones";
@@ -10,6 +11,7 @@ import { type Desk, openDesk, postReportLine } from "./desk-store";
 import { acpRuntime } from "./runtimes/acp-runtime";
 import type { Runtime } from "./runtimes/contract";
 import { runtimeRowsOf } from "./runtimes/runtime-rows";
+import { stepStore } from "./store-step";
 
 // The desk's helper, `life desk`: its own process (Life.app's supervisor keeps it while `desk` is set), its own lock in
 // `MACHINE_DIR`, its own store and its door; never the memory lock. Off, it returns before any of them.
@@ -51,6 +53,15 @@ export async function desk() {
     return 0;
   }
   await hold("desk");
+  // The store's shape, before anything opens it. A refusal or a failure leaves the desk off, saying why, and the helper
+  // idle until the app starts it again (its next start, or a change of his settings): one try per start, never a loop.
+  try {
+    log("desk.store_step", { done: stepStore() });
+  } catch (error) {
+    log("desk.store_step", { error: String(error), ok: false });
+    console.error(`${clock().toISOString()} desk: ${String(error)}`);
+    await new Promise(() => setInterval(() => undefined, HOUR));
+  }
   const d: Desk = { db: openDesk(), runtimes: RUNTIMES };
   openDoor(d);
   let since = performance.now();
