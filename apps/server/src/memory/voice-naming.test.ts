@@ -340,7 +340,9 @@ test("the hidden run shows a voice he answered as an unnamed V with no likeness,
 const strangerRow = (job: string) =>
   row(job, { basis: "owner", status: "unknown" });
 const storedVoices = (where: string) =>
-  readReplies(where).flatMap((f) => f.map((l) => l.reply.voices));
+  readReplies(where).flatMap((f) =>
+    f.map((l) => ("voices" in l.reply ? l.reply.voices : undefined))
+  );
 
 test('a voice he answered "A stranger" is stored unknown, whatever the model said or left out', async () => {
   const named = sceneOf({ voices: (job) => [strangerRow(job)] });
