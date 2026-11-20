@@ -7,10 +7,11 @@ import {
   type LookForDone,
   recordDoneSeen,
 } from "../memory/decisions";
-import { amountOf } from "../memory/needs";
+import { amountOf, isToPayee, payeeWordsOf } from "../memory/needs";
 import { dayStart, localDate } from "../memory/zones";
 import type { EventFilter } from "../records/registered-agent";
 import {
+  type ChannelEvent,
   EVENT_CHANNELS,
   type EventChannel,
   isOnOrAfter,
@@ -31,10 +32,8 @@ const PAYMENTS = EVENT_CHANNELS.find(
   (c) => c.name === "payments"
 ) as EventChannel;
 
-/** The filter that sees `d`'s payment: money out of exactly its `amount` need, in its own currency. */
-export function doneSeenFilterOf(
-  d: Pick<Decision, "needs">
-): EventFilter | undefined {
+/** The filter that sees `d`'s payment by its amount: money out of exactly its `amount` need, in its own currency. */
+function doneSeenFilterOf(d: Pick<Decision, "needs">): EventFilter | undefined {
   const amount = amountOf(d.needs);
   return (
     amount && {
@@ -44,6 +43,24 @@ export function doneSeenFilterOf(
       from_me: false,
       quantity: `${amount.currency.toLowerCase()}_out`,
     }
+  );
+}
+
+/**
+ * Whether `e` is `d`'s payment: its amount by the one matcher, paid in the card's own currency (`eur_out` also holds
+ * every payment's EUR value), to its payee by the bank's name of it alone (`ChannelEvent.payee`, never his note).
+ */
+function paymentTestOf(d: Pick<Decision, "needs">) {
+  const filter = doneSeenFilterOf(d);
+  const isMatch = filter && matcherOf(filter);
+  const currency = amountOf(d.needs)?.currency;
+  const words = payeeWordsOf(d.needs);
+  return (
+    isMatch &&
+    ((e: ChannelEvent) =>
+      isMatch(e.matchable) &&
+      e.payload.currency === currency &&
+      isToPayee(e.payee ?? "", words))
   );
 }
 
@@ -62,16 +79,13 @@ export async function readSeenDone(
   );
   return new Map(
     cards.flatMap((d) => {
-      const filter = doneSeenFilterOf(d);
-      const isMatch = filter && matcherOf(filter);
+      const isPayment = paymentTestOf(d);
       const since = dayStart(localDate(d.at)).toISOString();
       const seen =
-        isMatch &&
+        isPayment &&
         events.find(
           (e) =>
-            !claimed.has(e.eventId) &&
-            isOnOrAfter(e, since) &&
-            isMatch(e.matchable)
+            !claimed.has(e.eventId) && isOnOrAfter(e, since) && isPayment(e)
         );
       if (seen) {
         claimed.add(seen.eventId);

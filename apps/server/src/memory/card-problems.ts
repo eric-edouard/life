@@ -2,7 +2,7 @@ import type { z } from "zod";
 import { DAY, HOUR } from "../core/clock";
 import type { Ask, Option } from "./card-request";
 import { type MatterStepNow, openStepsOf } from "./matter-read";
-import { NEED_KINDS } from "./needs";
+import { NEED_KINDS, payeeWordsOf } from "./needs";
 
 // What breaks a card's rules beyond its shape (`requestDecision`), in words the asking agent can fix, each naming the
 // ask page that explains it (`fetch("ask/<name>")`, `card-request.ts`).
@@ -94,7 +94,10 @@ function lookProblemOf(
       'a `looks` option needs `doneSeenBy: "payment"` (fetch("ask/payment"))') ||
     (ask.doneSeenBy === "payment" &&
       ask.needs?.filter((n) => n.kind === "amount").length !== 1 &&
-      '`doneSeenBy: "payment"` needs one `amount` need (fetch("ask/payment"))')
+      '`doneSeenBy: "payment"` needs one `amount` need (fetch("ask/payment"))') ||
+    (ask.doneSeenBy === "payment" &&
+      payeeWordsOf(ask.needs).length === 0 &&
+      '`doneSeenBy: "payment"` needs the payee\'s name as the bank shows it: the `account`\'s `holder` or the `link`\'s `vendor` (fetch("ask/payment"))')
   );
 }
 

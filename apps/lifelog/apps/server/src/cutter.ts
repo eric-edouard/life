@@ -629,3 +629,68 @@ export async function withdrawRows(
   }
   return gone !== undefined;
 }
+
+// The pages the server holds of a source: every job's, any state (a failed one's too: nothing buys
+// them again), old parts' once the handover gave them pages, and every fragment's in no job. The
+// phone sends kept speech from every other page; a reinstalled one starts from it after the
+// handover (`handedOver`) only.
+export function sourcePages(db: Db, sourceId: string) {
+  const source = db
+    .select({
+      handedOverAt: sources.handedOverAt,
+      sentThrough: sources.sentThrough,
+    })
+    .from(sources)
+    .where(eq(sources.id, sourceId))
+    .get();
+  const held = db
+    .select({ jobId: jobs.id, pages: jobs.pages })
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.sourceId, sourceId),
+        sql`json_array_length(${jobs.pages}) > 0`
+      )
+    )
+    .all();
+  const open = db
+    .select({ jobId: speechFragments.id, pages: speechFragments.pages })
+    .from(speechFragments)
+    .where(
+      and(eq(speechFragments.sourceId, sourceId), isNull(speechFragments.jobId))
+    )
+    .all();
+  return {
+    blocks: [...held, ...open].flatMap(({ jobId, pages }) =>
+      pages ? [{ jobId, pages }] : []
+    ),
+    handedOver: Boolean(source?.handedOverAt),
+    sentThrough: source?.sentThrough?.toISOString() ?? null,
+  };
+}
+
+// A job not sent yet whose audio touches a quiet range goes: nothing was bought, its audio leaves
+// the bucket, and its pages are free for the phone to send again (the feed says it went, and the
+// fragments it was made of). False when it was sent meanwhile.
+export const withdrawJob = (db: Db, audio: AudioStore, jobId: string) =>
+  withdrawRows(db, audio, (tx) => {
+    const row = tx
+      .select({
+        key: jobs.objectKey,
+        pages: jobs.pages,
+        sourceId: jobs.sourceId,
+      })
+      .from(jobs)
+      .where(and(eq(jobs.id, jobId), eq(jobs.state, "queued")))
+      .get();
+    if (!row) {
+      return;
+    }
+    const fragments = tx
+      .delete(speechFragments)
+      .where(eq(speechFragments.jobId, jobId))
+      .returning({ id: speechFragments.id })
+      .all();
+    tx.delete(jobs).where(eq(jobs.id, jobId)).run();
+    return { ...row, ids: [jobId, ...fragments.map((f) => f.id)] };
+  });

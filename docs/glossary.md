@@ -297,6 +297,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | router | A service that sends one API call to the host Life names: OpenRouter or allmodels.io (`ROUTERS`, `models/routers.ts`). Not an engine: an API engine may use several. | |
 | route | One host an API engine asks, in order: a router, the model on it, the host (`routesOf`). | |
 | embedder | The local model that turns a text into a vector for search by meaning (`core/embedder.ts`): EmbeddingGemma under llama.cpp, a Lifelog Host child. | |
+| Scribe slot | One of the sends ElevenLabs takes at once (`ELEVENLABS_SLOTS`), counted by lifelog's one allocator (`apps/lifelog/apps/server/src/scribe-slots.ts`): a submitted Scribe job, a send that may be billed and each send under way, once by its key. Reading audio and the speech service take none; dictation waits ahead of every other send. Not the speech service's waiting place (`X-Priority`). | |
 | record | One of the zod schemas of what Life writes, in `apps/server/src/records/`, one file per record (`unit.ts`, `episode.ts`, `ledger-entry.ts`…). | |
 
 ## The phone
