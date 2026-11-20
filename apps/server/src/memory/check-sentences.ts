@@ -295,19 +295,15 @@ export const shownStepsOf = (c: {
   lines: readonly { id: string; speaker: string }[];
   today: string;
   matters: readonly { steps: readonly { day: string; ref: string }[] }[];
-}) =>
-  new Set([
+}) => {
+  const lineById = new Map(c.lines.map((l) => [l.id, l]));
+  return new Set([
     ...[...c.endings].flatMap(([ref, e]) =>
-      isEndingOpen(
-        ref,
-        c,
-        c.lines.find((l) => l.id === e.later)
-      )
-        ? [ref, e.later]
-        : []
+      isEndingOpen(ref, c, lineById.get(e.later)) ? [ref, e.later] : []
     ),
     ...c.matters.flatMap((m) => {
       const end = offerEndOf(m);
       return end && c.today <= end && m.steps[0] ? [m.steps[0].ref] : [];
     }),
   ]);
+};
