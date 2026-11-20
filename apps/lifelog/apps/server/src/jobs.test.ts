@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { countRows, MIGRATIONS } from "@lifelog/db";
@@ -20,6 +20,7 @@ import { sha256Hex } from "./config";
 import { admit, bought } from "./cutter";
 import { idle } from "./dictation";
 import { PARSER_VERSION } from "./elevenlabs";
+import { listEvents } from "./events";
 import { jobBench } from "./job-bench";
 import { getJob, jobWorker } from "./jobs";
 import { latency, spread } from "./latency";
@@ -459,9 +460,17 @@ test("reconcile fetches a submitted job by its transcription id; one cut off mid
 
 test("a refusal fails the job at once; a 5xx may be billed: it waits for its webhook, never sent again", async () => {
   const app = appWith();
-  fake.respond = () => new Response('{"detail":"bad"}', { status: 422 });
+  fake.respond = () =>
+    new Response('{"detail":"Mia said hi"}', { status: 422 });
+  const printed = spyOn(console, "log");
   const jobId = await admitFragment(app, audio(60), 1);
   await app.s.worker.work();
+  // The provider's words reach neither the server's log nor its events: the refusal's kind says what happened.
+  expect(JSON.stringify(printed.mock.calls)).not.toContain("Mia");
+  expect(
+    JSON.stringify(listEvents(env.db, { limit: 500, since: "2000-01-01" }))
+  ).not.toContain("Mia");
+  printed.mockRestore();
   due(jobId);
   await app.s.worker.work();
   expect(jobRow(jobId)).toMatchObject({ attempts: 0, state: "failed" });

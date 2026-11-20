@@ -333,7 +333,7 @@ function applyAsk(
       )(),
     };
   } catch (e) {
-    return { agent: parsed.data.agent, error: (e as Error).message };
+    return { agent: parsed.data.agent, error: (e as Error).message, failed: e };
   }
 }
 
@@ -363,11 +363,20 @@ export async function applyAgentChanges(desk: Desk) {
       continue;
     }
     // A refusal is logged by its class: its sentence can quote a runtime's output.
-    const { error: refusal, ...done } = r as typeof r & { error?: string };
+    // A refusal by its class (its sentence can quote a runtime's output); a change that threw is an error, by `errorOf`.
+    const {
+      error: refusal,
+      failed,
+      ...done
+    } = r as typeof r & {
+      error?: string;
+      failed?: unknown;
+    };
+    const why = refusal ? { refused: "refused" } : {};
     log("desk.change", {
       ask: ask.id,
       ...done,
-      ...(refusal ? { refused: "refused" } : {}),
+      ...(failed ? errorOf(failed) : why),
     });
     if ("id" in r && (ask.agentChange as AgentChange).action === "stop") {
       // His stop ends the turn under way too (his yes of 20 Nov 2026): its run is stopped, the turn closes `failed`.
