@@ -195,6 +195,20 @@ export const queuedEvents = (db: Database, id: string) =>
     )
     .all(id);
 
+/** Whether `a` is active and its assignment `s` open: only then does a wait of `s` stand. */
+export const isWaiting = (a: AgentRow, s: AssignmentRow) =>
+  a.status === "active" && s.closed_at === null;
+
+/** The wait an active agent still holds for this assignment. */
+export const savedWaitOf = (a: AgentRow, s: AssignmentRow) =>
+  isWaiting(a, s) && s.wait_until
+    ? {
+        isDefault: s.wait_is_default === 1,
+        reason: s.wait_reason ?? "",
+        until: s.wait_until,
+      }
+    : null;
+
 export const filtersOf = (s: Pick<AssignmentRow, "wait_events">) =>
   JSON.parse(s.wait_events) as EventFilter[];
 
@@ -527,7 +541,6 @@ function nowOf(
       )
       .get(s.id, new Date(now - DAY).toISOString())?.n ?? 0;
   const amber = amberOf(a, s, last ?? undefined, open, dropped, now);
-  const isActive = a.status === "active";
   const waiting = open ? "running" : "waiting";
   const status = a.status === "active" ? waiting : a.status;
   return {
@@ -554,14 +567,7 @@ function nowOf(
     statusSince: statusSinceOf(a, status, last ?? undefined),
     steps: anchorsOf(db, s.id),
     title: headOf(a.brief),
-    wait:
-      isActive && s.wait_until
-        ? {
-            isDefault: s.wait_is_default === 1,
-            reason: s.wait_reason ?? "",
-            until: s.wait_until,
-          }
-        : null,
+    wait: savedWaitOf(a, s),
   };
 }
 
