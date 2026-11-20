@@ -25,9 +25,10 @@ const RETRIES = [5 * MIN, 10 * MIN, 20 * MIN];
 export const MAX_HANDED = RETRIES.length + 1;
 /**
  * A wake sends into the session while it has grown less than this since its first turn; past it, a fresh session
- * starts from the packet. Growth, not size: a new session already holds 28,000 to 78,000 tokens (the runtime proofs).
+ * starts from the packet. Growth, not size: a new session already holds 28,000 to 78,000 tokens (the runtime proofs),
+ * and one event turn's reads add 15,000 to 70,000 (measured 20 Nov 2026): at 30,000 every second wake went fresh.
  */
-export const GROWTH_LIMIT = 30_000;
+export const GROWTH_LIMIT = 120_000;
 /**
  * How much a session has grown since its first call: the context of its newest call that a turn kept, less its first
  * call's (`session.context_at_first_call`). With either missing it is 0: the wake then sends into the session.
