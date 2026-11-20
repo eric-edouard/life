@@ -281,6 +281,7 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
   expect(twiceCard && (await lookForDone(twiceCard))).toBe("payments:lili");
   // A card with no payee's name is refused when asked.
   for (const holder of ["Mr.", "Co., Ltd."]) {
+    // biome-ignore lint/performance/noAwaitInLoops: cases run in order
     await expect(
       transfer({ needs: [{ ...NEEDS[0], holder }, NEEDS[1]] })
     ).rejects.toThrow("needs the payee's name");
