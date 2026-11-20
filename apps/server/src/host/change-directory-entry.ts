@@ -299,6 +299,18 @@ const peopleWith = (
   ...people,
 ];
 
+/** An organization's own fields as they will read: its domains, projects and people, his word over what was there. */
+const organizationFieldsOf = (a: Change, was: Entry) => ({
+  ...(a.domains && { domains: union(was.domains, a.domains) }),
+  ...(a.people && {
+    people: peopleWith(
+      was.people,
+      peopleOf(a, isMember, "each an id with a role") ?? []
+    ),
+  }),
+  ...(a.projects && { projects: union(was.projects, a.projects) }),
+});
+
 /** A person's, an organization's or an area's entry as it will read: what was there, with his changes (lists added to, never replaced). */
 function entryWrite(a: Change, read: Read) {
   const key = LISTS[a.kind as keyof typeof LISTS];
@@ -327,16 +339,7 @@ function entryWrite(a: Change, read: Read) {
     entry.language = a.language;
   }
   if (a.kind === "organization") {
-    Object.assign(entry, {
-      ...(a.domains && { domains: union(was.domains, a.domains) }),
-      ...(a.people && {
-        people: peopleWith(
-          was.people,
-          peopleOf(a, isMember, "each an id with a role") ?? []
-        ),
-      }),
-      ...(a.projects && { projects: union(was.projects, a.projects) }),
-    });
+    Object.assign(entry, organizationFieldsOf(a, was));
   }
   return [file, withEntry(text, key, entry, isAdd ? undefined : id)] as const;
 }

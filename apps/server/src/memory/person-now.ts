@@ -88,7 +88,7 @@ export type DetailNow = DetailLine & {
 };
 
 /** A part that holds something, as `now` offers it: the ref `fetch` opens and its first sentence. */
-export interface Known {
+export interface KnownPart {
   first: string;
   part: string;
   ref: string;
@@ -108,7 +108,7 @@ export interface NowInputs {
   /** His directory holds only him: the setup interview is due. */
   directoryIsNew?: true;
   episodes: { month: string; titles: string[] }[];
-  knows: Known[];
+  knows: KnownPart[];
   /** The running matters with them, ranked (`read_matters`' order). */
   matters: MatterRowNow[];
   organization?: { domains: string[]; people: Member[] };
@@ -154,7 +154,6 @@ export function personNowOf(i: NowInputs) {
   const more = i.matters.length - open.length;
   return { ...rest, open, ...(more > 0 ? { moreMatters: more } : {}) };
 }
-export type PersonNow = ReturnType<typeof personNowOf>;
 
 const SENTENCE = /^(.+?[.!?])(?:\s|$)/;
 const LEAD = /^(?:[-*]\s+|#+\s*)/;
@@ -180,7 +179,7 @@ export function firstSentenceOf(lines: string[]) {
 export const knowsOf = (
   reads: { ref: ReadPartRef }[],
   linesOf: (part: string) => string[]
-): Known[] =>
+): KnownPart[] =>
   reads.flatMap(({ ref }) => {
     const first = firstSentenceOf(linesOf(ref.part));
     return first ? [{ first, part: ref.part, ref: readPartRefOf(ref) }] : [];

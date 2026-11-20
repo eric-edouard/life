@@ -480,6 +480,17 @@ export function focus(text: string, query: string, max: number) {
   return clip(held.join("\n") || text, max);
 }
 
+/** The messages from `start` to `end` (exclusive), Life's own output left out, oldest first. */
+const between = (events: SourceEvent[], start: Date, end: Date) =>
+  events
+    .filter(
+      (e) =>
+        e.at >= start.toISOString() &&
+        e.at < end.toISOString() &&
+        !isLifeOutput(e)
+    )
+    .sort((a, b) => a.at.localeCompare(b.at));
+
 /** Source-backed chat reads: the explicit end is exclusive, including backward pagination. */
 function readChats(
   range: DayRange,
@@ -493,23 +504,15 @@ function readChats(
         days === undefined ? 0 : Math.max(0, end.getTime() - days * DAY)
       );
   const failed: string[] = [];
-  const events = Object.entries(sources)
-    .flatMap(([name, read]) => {
-      try {
-        return read?.(start, end) ?? [];
-      } catch {
-        failed.push(name);
-        return [];
-      }
-    })
-    .filter(
-      (e) =>
-        e.at >= start.toISOString() &&
-        e.at < end.toISOString() &&
-        !isLifeOutput(e)
-    )
-    .sort((a, b) => a.at.localeCompare(b.at));
-  return { end, events, failed, start };
+  const events = Object.entries(sources).flatMap(([name, read]) => {
+    try {
+      return read?.(start, end) ?? [];
+    } catch {
+      failed.push(name);
+      return [];
+    }
+  });
+  return { end, events: between(events, start, end), failed, start };
 }
 
 /** Stored source-backed passages, ranked by the same text hashes for words and meaning. */
@@ -721,14 +724,7 @@ function personChats(
   }
   return {
     end,
-    events: events
-      .filter(
-        (e) =>
-          e.at >= start.toISOString() &&
-          e.at < end.toISOString() &&
-          !isLifeOutput(e)
-      )
-      .sort((a, b) => a.at.localeCompare(b.at)),
+    events: between(events, start, end),
     failed: [...failed],
     start,
   };
