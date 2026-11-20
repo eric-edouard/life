@@ -20,7 +20,7 @@ import {
   saidOfQuote,
   shownStepsOf,
 } from "./check-sentences";
-import { inboxRankOf, type Urgency, urgencyOf } from "./check-urgency";
+import { inboxOrderOf, type Urgency, urgencyOf } from "./check-urgency";
 import { pagedNow } from "./closeness";
 import {
   DECISIONS,
@@ -594,35 +594,27 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       }),
 };
 
-/** The checks: in his inbox's order (`inboxRankOf`); inside a rank, those with a deadline first (an agent's decisions), soonest first; then most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */
+/** The checks, in his inbox's order (`inboxOrderOf`). Pure over what is stored. */
 export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
   const matterOf = matterFinderOf(inputs.matters);
   const matterNames = new Map(inputs.matters.map((m) => [m.id, m.name]));
-  const found = Object.values(BUILDERS)
-    .flatMap((build) => build(c))
-    .toSorted(
-      (a, b) =>
-        inboxRankOf(a.check) - inboxRankOf(b.check) ||
-        Number(b.check.deadline !== null) - Number(a.check.deadline !== null) ||
-        (a.check.deadline ?? "").localeCompare(b.check.deadline ?? "") ||
-        b.check.ridesOn.matters - a.check.ridesOn.matters ||
-        b.check.ridesOn.observations - a.check.ridesOn.observations ||
-        b.check.ridesOn.pages - a.check.ridesOn.pages ||
-        b.day.localeCompare(a.day) ||
-        a.check.ref.localeCompare(b.check.ref)
-    )
-    .map(({ check }) => {
-      const m = matterOf([check.subject ?? check.ref]);
-      return {
-        ...check,
-        matter: m ? { id: m.id, name: m.name } : null,
-        onMatters: check.ridesOn.matterIds.flatMap((id) => {
-          const name = matterNames.get(id);
-          return name ? [{ id, name }] : [];
-        }),
-      };
-    });
+  const found = inboxOrderOf(
+    Object.values(BUILDERS)
+      .flatMap((build) => build(c))
+      .map(({ check, day }) => {
+        const m = matterOf([check.subject ?? check.ref]);
+        return {
+          ...check,
+          day,
+          matter: m ? { id: m.id, name: m.name } : null,
+          onMatters: check.ridesOn.matterIds.flatMap((id) => {
+            const name = matterNames.get(id);
+            return name ? [{ id, name }] : [];
+          }),
+        };
+      })
+  ).map(({ day: _, ...check }) => check);
   const guessed = new Map(
     found
       .filter((x) => x.group === "guessed person")
