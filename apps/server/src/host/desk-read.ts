@@ -195,9 +195,13 @@ export const queuedEvents = (db: Database, id: string) =>
     )
     .all(id);
 
+/** Whether `a` is active and its assignment `s` open: only then does a wait of `s` stand. */
+export const isWaiting = (a: AgentRow, s: AssignmentRow) =>
+  a.status === "active" && s.closed_at === null;
+
 /** The wait an active agent still holds for this assignment. */
 export const savedWaitOf = (a: AgentRow, s: AssignmentRow) =>
-  a.status === "active" && s.closed_at === null && s.wait_until
+  isWaiting(a, s) && s.wait_until
     ? {
         isDefault: s.wait_is_default === 1,
         reason: s.wait_reason ?? "",

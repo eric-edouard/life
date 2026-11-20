@@ -166,6 +166,25 @@ test("an agent that finished may read its packet, nothing else", async () => {
   expect(packet.text).toContain("The one gate");
 });
 
+test("a stopped agent's open assignment and an active agent's closed assignment have no current wait", async () => {
+  const id = agent();
+  const assignment = on(desk, id);
+  expect(await readPacket(desk, assignment, true)).toContain(
+    "Your saved wait:"
+  );
+  expect(
+    await readPacket(
+      desk,
+      { ...assignment, closed_at: clock().toISOString() },
+      true
+    )
+  ).not.toContain("Your saved wait:");
+  desk.db.run("update agent set status = 'stopped' where id = ?", [id]);
+  expect(await readPacket(desk, assignment, true)).not.toContain(
+    "Your saved wait:"
+  );
+});
+
 test("the contract: his own Life's agent is told the Mac is its own; a second Life's has its door's tools only; both keep the gate and the first-turn rule", async () => {
   const id = agent();
   const own = await readPacket(desk, on(desk, id), true);
