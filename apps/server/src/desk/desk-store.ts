@@ -118,64 +118,59 @@ export interface Desk {
   sources?: Messaging[];
 }
 
+/** Adds `column` (`ddl` its type and default) to `table` in a store made before it, and `backfill`s its older rows, in one transaction. */
+function ensureColumn(
+  db: Database,
+  table: string,
+  column: string,
+  ddl: string,
+  backfill?: string
+) {
+  if (
+    db
+      .query(`select 1 from pragma_table_info('${table}') where name = ?`)
+      .get(column)
+  ) {
+    return;
+  }
+  db.transaction(() => {
+    db.run(`alter table ${table} add column ${column} ${ddl}`);
+    if (backfill) {
+      db.run(backfill);
+    }
+  })();
+}
+
 /** Opens (and makes) the desk's store. */
 export function openDesk(path = DESK_STORE) {
   mkdirSync(dirname(path), { recursive: true });
   const db = openWritable(path, 5000, { strict: true });
   db.run(SCHEMA);
-  // A store made before `turn.begun_at`: its old turns were under way, so they begin when they started (null means never began).
-  const hasBegun = db
-    .query("select 1 from pragma_table_info('turn') where name = 'begun_at'")
-    .get();
-  if (!hasBegun) {
-    db.run("alter table turn add column begun_at text");
-    db.run("update turn set begun_at = started_at");
-  }
-  // A store made before `agent.why_not_started`, when an agent never started was its outcome's "not started: " prefix.
-  const hasWhy = db
-    .query(
-      "select 1 from pragma_table_info('agent') where name = 'why_not_started'"
-    )
-    .get();
-  if (!hasWhy) {
-    // One transaction; `glob`, which keeps case: an agent's own "Not started: …" stays its outcome.
-    db.transaction(() => {
-      db.run("alter table agent add column why_not_started text");
-      db.run(
-        "update agent set why_not_started = substr(outcome, 14), outcome = null where outcome glob 'not started: *'"
-      );
-    })();
-  }
-  // A store made before `agent.stopped_at`: an agent stopped then has no stop time stored.
-  const hasStoppedAt = db
-    .query("select 1 from pragma_table_info('agent') where name = 'stopped_at'")
-    .get();
-  if (!hasStoppedAt) {
-    db.run("alter table agent add column stopped_at text");
-  }
-  // A store made before `agent.is_handed_out`: every older agent was started on his word.
-  const hasHandedOut = db
-    .query(
-      "select 1 from pragma_table_info('agent') where name = 'is_handed_out'"
-    )
-    .get();
-  if (!hasHandedOut) {
-    db.run(
-      "alter table agent add column is_handed_out integer not null default 0"
-    );
-  }
-  // A store made before the two context columns (`growthOf`): older sessions and turns have none, so they grow 0.
-  for (const [table, column] of [
-    ["session", "context_at_first_call"],
-    ["turn", "context_used"],
-  ] as const) {
-    const has = db
-      .query(`select 1 from pragma_table_info('${table}') where name = ?`)
-      .get(column);
-    if (!has) {
-      db.run(`alter table ${table} add column ${column} integer`);
-    }
-  }
+  // Each column a store made before it lacks, with what its older rows hold.
+  // `turn.begun_at`: its old turns were under way, so they begin when they started (null means never began).
+  ensureColumn(
+    db,
+    "turn",
+    "begun_at",
+    "text",
+    "update turn set begun_at = started_at"
+  );
+  // `agent.why_not_started`: an agent never started was its outcome's "not started: " prefix (`glob` keeps case: an
+  // agent's own "Not started: …" stays its outcome).
+  ensureColumn(
+    db,
+    "agent",
+    "why_not_started",
+    "text",
+    "update agent set why_not_started = substr(outcome, 14), outcome = null where outcome glob 'not started: *'"
+  );
+  // `agent.stopped_at`: an agent stopped then has no stop time stored.
+  ensureColumn(db, "agent", "stopped_at", "text");
+  // `agent.is_handed_out`: every older agent was started on his word.
+  ensureColumn(db, "agent", "is_handed_out", "integer not null default 0");
+  // The two context columns (`growthOf`): older sessions and turns have none, so they grow 0.
+  ensureColumn(db, "session", "context_at_first_call", "integer");
+  ensureColumn(db, "turn", "context_used", "integer");
   return db;
 }
 

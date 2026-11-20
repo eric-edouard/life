@@ -282,6 +282,10 @@ test("a handed-out agent's packet carries the one-card first turn, a plain agent
   const one = await readPacket(desk, handed ?? "", false);
   const two = await readPacket(desk, plain, false);
   expect(one).toContain("Life handed you this matter");
+  // Every card of a handed-out agent lets him drop the matter: it closes in Life on his pick.
+  expect(one).toContain(
+    'Every card also offers Drop it, marked `ends: "matter"`'
+  );
   expect(one).not.toContain("Start with this plan?");
   expect(two).toContain("Start with this plan?");
   expect(two).not.toContain("Life handed you this matter");
