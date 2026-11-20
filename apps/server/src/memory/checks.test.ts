@@ -15,11 +15,24 @@ import {
 } from "./checks";
 import { about, DANA_ID, inputs, line, stepsOf } from "./checks-test-inputs";
 import { checksText } from "./checks-text";
+import type { AgentHold } from "./held-matters";
 import type { Check } from "./life-checks";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "./matters";
 import { OBSERVATIONS, UNITS } from "./memory-files";
 import { locked } from "./memory-lock";
+
+/** One registered agent anchored on `step`, active unless `over` says otherwise (`heldByAgents`' facts). */
+const anchored = (step: string, over: Partial<AgentHold> = {}): AgentHold[] => [
+  {
+    endedAt: null,
+    kind: "asked",
+    outcome: null,
+    step,
+    whyNotStarted: null,
+    ...over,
+  },
+];
 
 const ASKED_UNTIL_22_NOV =
   /Next step: Book the plumber\. Asked until .*22 Nov\.$/;
@@ -380,11 +393,17 @@ test("a push id is 16 hex, stable for a ref, and differs under another key", () 
 test("a new matter an agent could move asks 'Start an agent on this?' for 7 days from its first step, with no deadline, until he answers it", () => {
   const steps = [
     {
+      at: "2026-11-16T09:00:00.000Z",
       day: "2026-11-16",
       quote: "the boiler is leaking",
       ref: "obs_000000000071",
     },
-    { day: "2026-11-17", quote: "call the plumber", ref: "unit_000000000072" },
+    {
+      at: "2026-11-17T09:00:00.000Z",
+      day: "2026-11-17",
+      quote: "call the plumber",
+      ref: "unit_000000000072",
+    },
   ];
   const matter = {
     goal: {
@@ -483,12 +502,17 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
   );
   // Its last day is the 7th from its first step; it never outranks an agent's decision.
   expect(checksOf({ ...base, today: "2026-11-22" })).toHaveLength(1);
-  // A worker on another project holds nothing of this matter.
+  // Finding 4 of the action pipeline review (20 Nov 2026): a project's agent holds none of its project's matters (it has
+  // no anchor), so the hand-out and this check agree; an agent that ended holds its matter until a newer step.
+  expect(
+    checksOf({ ...base, matters: [{ ...matter, projects: ["test-shop"] }] })
+  ).toHaveLength(1);
   expect(
     checksOf({
       ...base,
-      heldByAgents: { projects: new Set(["test-farm"]), steps: new Set() },
-      matters: [{ ...matter, projects: ["test-shop"] }],
+      heldByAgents: anchored("obs_000000000071", {
+        endedAt: "2026-11-17T01:00:00.000Z",
+      }),
     })
   ).toHaveLength(1);
   const none = (over: Partial<CheckInputs>) => checksOf({ ...base, ...over });
@@ -500,21 +524,14 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
   for (const list of [
     none({ today: "2026-11-23" }),
     none({ heldByAgents: null }),
+    none({ heldByAgents: anchored("unit_000000000072") }),
     none({
-      heldByAgents: {
-        projects: new Set(),
-        steps: new Set(["unit_000000000072"]),
-      },
+      heldByAgents: anchored("obs_000000000071", {
+        endedAt: "2026-11-17T09:00:00.000Z",
+      }),
     }),
-    // Its project is held by a worker: no second asker.
-    none({
-      heldByAgents: { projects: new Set(["test-shop"]), steps: new Set() },
-      matters: [{ ...matter, projects: ["test-shop"] }],
-    }),
-    none({
-      heldByAgents: { projects: new Set(["test-shop"]), steps: new Set() },
-      matters: [{ ...matter, projects: ["test-farm", "test-shop"] }],
-    }),
+    // The hand-out is on and it is one of his: the hand-out takes it, no Start.
+    none({ isForHandOut: (id) => id === matter.id }),
     none({ dismissed: [["obs_000000000071"]] }),
     none({ matters: [{ ...matter, goal: undefined }] }),
     none({ matters: [{ ...matter, nextStep: wait }] }),
@@ -552,7 +569,12 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
     id: "matter_000000000008",
     steps: [
       ...steps,
-      { day: "2026-11-18", quote: "plumber booked", ref: "obs_000000000073" },
+      {
+        at: "2026-11-18T09:00:00.000Z",
+        day: "2026-11-18",
+        quote: "plumber booked",
+        ref: "obs_000000000073",
+      },
     ],
   };
   expect(
@@ -590,17 +612,15 @@ test("the inbox is read again only when what it reads changed: not a unit sync; 
     writeFileSync(day, "");
     await checksNow(null);
     expect(reads).toHaveBeenCalledTimes(1);
-    const held = {
-      projects: new Set<string>(),
-      steps: new Set(["obs_000000000001"]),
-    };
+    const held = anchored("obs_000000000001");
     await checksNow(held);
     expect(reads).toHaveBeenCalledTimes(2);
-    // Same steps, another project held: read again; the same projects in another order: not.
-    const { steps } = held;
-    await checksNow({ projects: new Set(["test-a", "test-b"]), steps });
-    expect(reads).toHaveBeenCalledTimes(3);
-    await checksNow({ projects: new Set(["test-b", "test-a"]), steps });
+    // The same facts: not read again; its agent ended: read again.
+    await checksNow([...held]);
+    expect(reads).toHaveBeenCalledTimes(2);
+    await checksNow(
+      anchored("obs_000000000001", { endedAt: "2026-11-19T09:00:00.000Z" })
+    );
     expect(reads).toHaveBeenCalledTimes(3);
     setSystemTime(new Date(clock().getTime() + DAY));
     await checksNow(held);
@@ -646,6 +666,7 @@ test("a matter whose direction looks over, or is not checked against what happen
     status: "moving" as const,
     steps: [
       {
+        at: "2026-11-17T09:00:00.000Z",
         day: "2026-11-17",
         quote: "waiting for the landlord",
         ref: "obs_000000000081",

@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { readChangeStamp } from "../core/files";
 import { type CheckGroup, LIFE_ASKER, type SourceName } from "../core/names";
 import { secretIn } from "../core/secret";
+import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
@@ -31,6 +32,7 @@ import {
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import type { StoredDraft } from "./draft";
+import { type AgentHold, isHeldOf } from "./held-matters";
 import { type Check, type CheckKind, LIFE_CHECKS } from "./life-checks";
 import {
   directionDueOf,
@@ -40,7 +42,6 @@ import {
   matterBookOf,
   matterFinderOf,
   matterPeopleOf,
-  nextStepNow,
   offerEndOf,
 } from "./matter-read";
 import {
@@ -59,6 +60,7 @@ import {
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
 import { withNetworkIdentities } from "./network-identity";
+import { isOneOfHis, nextToDoOf } from "./read-matters";
 import { sourceOf } from "./sources";
 import {
   type People,
@@ -93,12 +95,6 @@ type Line = Pick<
 /** Where and when a record was said, in words: "whatsapp, 7 Sep". */
 type Where = string;
 
-/** What registered agents hold now (host's `heldByAgents`): the matter steps they are anchored on and the projects they work on. */
-export interface HeldByAgents {
-  projects: ReadonlySet<string>;
-  steps: ReadonlySet<string>;
-}
-
 /** Everything the checks are worked out from; `checksNow` reads it, `checksOf` is pure over it. */
 export interface CheckInputs {
   /** Refs of the fact-check answers he gave (any answer settles that line's check). */
@@ -111,10 +107,12 @@ export interface CheckInputs {
   doubted: ReadonlySet<string>;
   /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
   endings: ReadonlyMap<string, { later: string; quote: string }>;
-  /** The steps registered agents are anchored on and the projects they work on, in any status (from host); null while the desk is off or unreadable: then no new matter is offered. */
-  heldByAgents: HeldByAgents | null;
+  /** Every registered agent's anchors as facts (host's `heldByAgents`), for the hold rule (`isHeldOf`); null while the desk is off or unreadable: then no new matter is offered. */
+  heldByAgents: readonly AgentHold[] | null;
   /** Whether a matter's next step is not checked yet (`directionDueOf`, by the matter's id): none is offered while it is due. */
   isDirectionDue: (matter: string) => boolean;
+  /** Whether the hand-out takes a matter (by its id): `desk.handOut` is set and it is one of his (`isOneOfHis`); it then gets no Start. */
+  isForHandOut: (matter: string) => boolean;
   /** Every observation that shows, and the ids of those that are kept: active, at or above `KEEP_AT`. */
   kept: ReadonlySet<string>;
   lines: readonly Line[];
@@ -133,7 +131,7 @@ export interface CheckInputs {
     | "waitingOn"
     | "with"
   > & {
-    steps: Pick<MatterStepNow, "day" | "quote" | "ref">[];
+    steps: Pick<MatterStepNow, "at" | "day" | "quote" | "ref">[];
   })[];
   /** What each name check shows of its sentence, by the name's key (`readNameContexts`); a name whose unit could not be read has none. */
   nameContexts: ReadonlyMap<string, NameContext>;
@@ -388,21 +386,21 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     }),
   /**
    * Each running matter he has not answered "Start an agent on this?" for: one that began in the last `NEW_MATTER_DAYS` (its first
-   * step's day), with an open step, not stuck (a passed date), a goal and a next step he could hand over (`do`, read
-   * through `nextStepNow`) that is checked (not `isDirectionDue`: a step an outside record may have overtaken waits for
-   * its redraft), no registered agent anchored on it or holding its project, and not dismissed; none while the desk is off or unreadable. No deadline: it never outranks an agent's decision; on silence nothing starts and it leaves after its
-   * last day.
+   * step's day), with an open step, not stuck (a passed date), a goal and a next step to hand over (`nextToDoOf`), held
+   * by no agent (`isHeldOf`: a project's agent holds none), not dismissed, and, while the hand-out is on, not one of his
+   * own (`isOneOfHis`: the hand-out takes those); none while the desk is off or unreadable. No deadline: it never
+   * outranks an agent's decision; on silence nothing starts and it leaves after its last day.
    */
   "new matter": (c) => {
-    const held = c.heldByAgents;
-    if (!held) {
+    if (!c.heldByAgents) {
       return [];
     }
+    const isHeld = isHeldOf(c.heldByAgents);
     const find = matterFinderOf(c.matters);
     const dismissed = new Set(c.dismissed.map(find));
     return c.matters.flatMap((v) => {
       const [first] = v.steps;
-      const next = nextStepNow(v, c.decisions);
+      const next = nextToDoOf(v, c.decisions, c.isDirectionDue);
       const lastDay = offerEndOf(v);
       const firstLine = first && c.byId.get(first.ref);
       return first &&
@@ -411,13 +409,12 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         v.newestOpenStep &&
         v.status !== "stuck" &&
         v.goal &&
-        next?.kind === "do" &&
+        next &&
         !v.lone &&
         isRunning(v) &&
         !dismissed.has(v) &&
-        !v.steps.some((s) => held.steps.has(s.ref)) &&
-        !v.projects.some((p) => held.projects.has(p)) &&
-        !c.isDirectionDue(v.id)
+        !isHeld(v) &&
+        !c.isForHandOut(v.id)
         ? [
             {
               check: {
@@ -665,10 +662,10 @@ const CHECKS_READ = [...MATTER_BOOK_READS, CLOSENESS, DECISIONS, PAGES, ZONES];
 
 /**
  * What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open
- * decisions (one lapses), what agents hold (their steps and projects) and the voices lifelog queues. The same key, the same list.
+ * decisions (one lapses), what agents hold (their anchors as facts) and the voices lifelog queues. The same key, the same list.
  */
 const checksKeyOf = (
-  held: HeldByAgents | null,
+  held: readonly AgentHold[] | null,
   voices: readonly NamingQueueItem[],
   decisions: readonly Decision[]
 ) =>
@@ -676,7 +673,7 @@ const checksKeyOf = (
     readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
-    held && [[...held.steps].sort(), [...held.projects].sort()],
+    held,
     voices,
   ]);
 
@@ -686,7 +683,7 @@ const checksKeyOf = (
  * while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
  */
 export async function checksNow(
-  held: HeldByAgents | null
+  held: readonly AgentHold[] | null
 ): Promise<InboxCheck[]> {
   const voices = await readNamingQueue();
   const decisions = decisionsNow().filter((d) => d.state === "open");
@@ -707,7 +704,7 @@ export async function checksNow(
 }
 
 async function readChecks(
-  held: HeldByAgents | null,
+  held: readonly AgentHold[] | null,
   voices: NamingQueueItem[],
   decisions: Decision[]
 ): Promise<InboxCheck[]> {
@@ -718,6 +715,11 @@ async function readChecks(
     pagedNow(people),
   ]);
   const matters = matterBookOf(mattersNow(readMatters()), records, dayNow());
+  const forHandOut = new Set(
+    settings().desk?.handOut
+      ? matters.filter((v) => isOneOfHis(v, people.isGuess)).map((v) => v.id)
+      : []
+  );
   const lines = records.observations;
   const kept = new Set(
     lines
@@ -756,6 +758,7 @@ async function readChecks(
     endings: records.linkEndings,
     heldByAgents: held,
     isDirectionDue: directionDueOf(matters, records, dayNow()),
+    isForHandOut: (id) => forHandOut.has(id),
     // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).
     kept,
     lines,

@@ -107,8 +107,17 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   endings: new Map([
     ["obs_000000000005", { later: "ep_000000000001", quote: "Called them." }],
   ]),
-  heldByAgents: { projects: new Set(), steps: new Set(["obs_000000000005"]) },
+  heldByAgents: [
+    {
+      endedAt: null,
+      kind: "asked",
+      outcome: null,
+      step: "obs_000000000005",
+      whyNotStarted: null,
+    },
+  ],
   isDirectionDue: () => false,
+  isForHandOut: () => false,
   kept: new Set(lines.map((l) => l.id)),
   lines,
   matters: [
@@ -117,7 +126,12 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       id: "matter_aaaaaaaaaaaa",
       name: "Mend Gran's watch",
       steps: [
-        { day: "2026-10-12", quote: "Call the shop", ref: "obs_000000000005" },
+        {
+          at: "2026-10-12T09:00:00.000Z",
+          day: "2026-10-12",
+          quote: "Call the shop",
+          ref: "obs_000000000005",
+        },
       ],
     },
     {
@@ -145,6 +159,7 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       },
       steps: [
         {
+          at: "2026-10-12T09:00:00.000Z",
           day: "2026-10-12",
           quote: "Gran wants it framed",
           ref: "unit_000000000002",
