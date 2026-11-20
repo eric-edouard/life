@@ -586,15 +586,15 @@ test("an agent on a lone matter that closed is ended; one on a step no matter ho
     [toDo(lone, "I'll call the bank"), toDo(open, "I'll call the school")],
     null,
     async () => {
-      const on = (step: string) =>
+      const startOn = (step: string) =>
         register(desk, {
           brief: "Test brief",
           openedBy: "desk",
           runtime: "claude",
           steps: [step],
         });
-      const ended = on(lone);
-      const stays = on(open);
+      const ended = startOn(lone);
+      const stays = startOn(open);
       await recordCorrection({
         kind: "outdated",
         note: "test: done",
