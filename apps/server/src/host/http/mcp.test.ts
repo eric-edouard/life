@@ -21,6 +21,7 @@ import {
   turnFixture,
 } from "../../sources/store-fixtures";
 import { ask } from "../asks";
+import { versionOf } from "../inbox";
 import { buildServer } from "./mcp";
 import {
   mcpConnector as connector,
@@ -153,10 +154,10 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_area_page(name)",
     "read_chats(before,chat,from,to,who)",
     "read_day(date)",
-    "read_inbox(limit,pushId)",
+    "read_inbox(after,ifNot,limit,pushId)",
     "read_life_status()",
     "read_matter(id)",
-    "read_matters(area,person,project)",
+    "read_matters(area,ifNot,person,project)",
     "read_memory_changes(about,cursor,limit,run,since,types)",
     "read_new_events(arguments,cursor,event,limit)",
     "read_observation(id)",
@@ -547,23 +548,44 @@ test("read_inbox: every open ask; counts by group, those that block, those due b
     ref,
   });
   const now = clock().toISOString();
-  const spy = spyOn(checks, "checksNow").mockResolvedValue([
-    check("a", "decision", now),
-    check("b", "guessed person"),
-    check("c", "decision", "2099-01-01T09:00:00.000Z"),
-  ] as never);
+  const spy = spyOn(checks, "checksAndKeyNow").mockResolvedValue({
+    checks: [
+      check("a", "decision", now),
+      check("b", "guessed person"),
+      check("c", "decision", "2099-01-01T09:00:00.000Z"),
+    ],
+    key: "three checks",
+  } as never);
+  const read = async (arguments_: object) =>
+    (
+      await rpc(await token(), "tools/call", {
+        arguments: arguments_,
+        name: "read_inbox",
+      })
+    ).json.result;
   try {
-    const { json } = await rpc(await token(), "tools/call", {
-      arguments: { limit: 2 },
-      name: "read_inbox",
-    });
-    expect(JSON.parse(json.result.content[0].text)).toEqual({
+    const first = JSON.parse((await read({ limit: 2 })).content[0].text);
+    expect(first).toEqual({
       blocking: 2,
       checks: [check("a", "decision", now), check("b", "guessed person")],
       counts: { decision: 2, "guessed person": 1 },
       deadlinesToday: 1,
       total: 3,
+      version: versionOf("three checks"),
     });
+    // The next page, after the last card shown; one that left the inbox is refused (read from the start).
+    const next = JSON.parse((await read({ after: "b" })).content[0].text);
+    expect(next.checks).toEqual([
+      check("c", "decision", "2099-01-01T09:00:00.000Z"),
+    ]);
+    expect((await read({ after: "gone" })).isError).toBe(true);
+    // Nothing changed since his version: only that; another version: the inbox.
+    expect(
+      JSON.parse((await read({ ifNot: first.version })).content[0].text)
+    ).toEqual({ unchanged: true, version: first.version });
+    expect(
+      JSON.parse((await read({ ifNot: "older" })).content[0].text).total
+    ).toBe(3);
   } finally {
     spy.mockRestore();
   }
@@ -579,7 +601,10 @@ test("read_inbox with a pushId: that one card or none, the whole inbox's counts;
   });
   const second = card("b", "guessed person");
   const list = [card("a", "decision"), second];
-  const spy = spyOn(checks, "checksNow").mockResolvedValue(list as never);
+  const spy = spyOn(checks, "checksAndKeyNow").mockResolvedValue({
+    checks: list,
+    key: "two cards",
+  } as never);
   const read = async (arguments_: object) =>
     (
       await rpc(await token(), "tools/call", {
@@ -597,6 +622,7 @@ test("read_inbox with a pushId: that one card or none, the whole inbox's counts;
       counts: { decision: 1, "guessed person": 1 },
       deadlinesToday: 0,
       total: 2,
+      version: versionOf("two cards"),
     });
     const none = JSON.parse(
       (await read({ pushId: "f".repeat(16) })).content[0].text

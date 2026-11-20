@@ -16,8 +16,6 @@ import { embedderNow } from "./vectors";
  * lowest still right 9 times in 10), 40 of 44, two vague ones among the wrong. French scores lower: 8 of 20 above.
  */
 export const ICON_AT = 0.4;
-/** The most a connector read waits for icon work: what is not ready by then shows next read. */
-export const ICON_WAIT_MS = 2000;
 
 /** The nearest key to `vector` among `lines` (the fallback `folder` never picked), when at `ICON_AT` or above; else null. Pure. */
 export function lifeIconOf(
@@ -44,6 +42,10 @@ interface IconWork {
 // ponytail: a settled text is never pruned (a key or null each, a few hundred a year); prune if a process outlives that.
 const works = new WeakMap<Embedder, IconWork>();
 let hasLogged = false;
+let picksSettled = 0;
+
+/** How many batches of picks have settled in this process: a reader keyed by it reads again once a pick lands. */
+export const iconPicksSettled = () => picksSettled;
 
 const workOf = (embedder: Embedder) => {
   const work = works.get(embedder) ?? {
@@ -97,6 +99,7 @@ async function pickAll(
         work.settled.set(text, lifeIconOf(vectors[i] ?? [], lines));
         release(text);
       }
+      picksSettled++;
     }
   } catch (error) {
     for (const text of texts) {
@@ -112,12 +115,13 @@ async function pickAll(
 /**
  * Life's pick for each of `views` his own pick does not cover, by matter id (`lifeIconOf`; a matter with none is left
  * out). A text picked before is reused; one under way for another read is joined; the rest is reserved at once, so
- * overlapping reads share it. Waits `waitMs` at most: what lands later is kept for the next read.
+ * overlapping reads share it. Waits `waitMs` at most, by default not at all (a read never waits on the embedder): what
+ * lands later is kept for the next read (`iconPicksSettled`).
  */
 export async function readLifeIcons(
   views: readonly Pick<MatterView, "goal" | "id" | "name" | "ownerIcon">[],
   given?: Embedder | null,
-  waitMs = ICON_WAIT_MS
+  waitMs = 0
 ): Promise<ReadonlyMap<string, MatterIconKey>> {
   const textOf = new Map(
     views.flatMap((v) => (v.ownerIcon ? [] : [[v.id, matterTextOf(v)]]))

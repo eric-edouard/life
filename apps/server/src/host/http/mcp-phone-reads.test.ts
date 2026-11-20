@@ -519,20 +519,23 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     with: [],
     ...over,
   });
+  // Every kind of check, as Life's own builders make them over made-up records (`checksOf`), never by hand.
+  const madeUpChecks = checks.checksOf(madeUpInbox).map((c) => ({
+    // Kit's guess, as its newest WhatsApp chat shows it (`networkIdentityOf` over a made-up chat-day).
+    ...withNetworkIdentity(c, kitOnWhatsapp, {
+      nameOf: () => "Dana",
+      partyOf: madeUpPartyOf,
+      resolve: madeUpBase.people.resolve,
+    }),
+    pushId: checks.pushIdOf(c.ref, "0".repeat(64)),
+    urgency: urgencyOf(c),
+  }));
   const spies = [
-    // Every kind of check, as Life's own builders make them over made-up records (`checksOf`), never by hand.
-    spyOn(checks, "checksNow").mockResolvedValue(
-      checks.checksOf(madeUpInbox).map((c) => ({
-        // Kit's guess, as its newest WhatsApp chat shows it (`networkIdentityOf` over a made-up chat-day).
-        ...withNetworkIdentity(c, kitOnWhatsapp, {
-          nameOf: () => "Dana",
-          partyOf: madeUpPartyOf,
-          resolve: madeUpBase.people.resolve,
-        }),
-        pushId: checks.pushIdOf(c.ref, "0".repeat(64)),
-        urgency: urgencyOf(c),
-      }))
-    ),
+    spyOn(checks, "checksNow").mockResolvedValue(madeUpChecks),
+    spyOn(checks, "checksAndKeyNow").mockResolvedValue({
+      checks: madeUpChecks,
+      key: "the phone's reads",
+    }),
     spyOn(who, "readPeople").mockResolvedValue({
       isGuess: () => false,
       isKnownToHim: () => true,
@@ -613,8 +616,12 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       helper: "running",
       refused: [],
     }),
-    spyOn(agents, "readActiveAgentOf").mockReturnValue((s: string[]) =>
-      s.includes("obs_000000000005") ? "agt_000000000001" : undefined
+    spyOn(agents, "readActiveAgentOf").mockReturnValue(
+      Object.assign(
+        (s: string[]) =>
+          s.includes("obs_000000000005") ? "agt_000000000001" : undefined,
+        { stamp: "made-up" }
+      )
     ),
     spyOn(agents, "readAgentsOnSteps").mockReturnValue([
       agent,
@@ -657,6 +664,17 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     expect(
       shown.find((c) => c.kind === "decision" && c.draft)?.networkIdentity
     ).toMatchObject({ network: "WhatsApp", newest: null, shownName: "Kit" });
+    // Paged by `after`, in the version's order; nothing changed since a version: only that.
+    const { version } = JSON.parse(inbox);
+    const firstTwo = JSON.parse(await read("read_inbox", { limit: 2 })).checks;
+    const next = JSON.parse(
+      await read("read_inbox", { after: firstTwo[1].ref, limit: 2 })
+    ).checks;
+    expect([...firstTwo, ...next]).toEqual(shown.slice(0, 4));
+    expect(JSON.parse(await read("read_inbox", { ifNot: version }))).toEqual({
+      unchanged: true,
+      version,
+    });
     const matters = await read("read_matters");
     expectWire("read_matters", matters);
     const rows: { icon?: object; name: string }[] = JSON.parse(matters).matters;
@@ -665,6 +683,13 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       "Mend Gran's watch": { by: "owner", key: "tools" },
       "Renew the lease": { by: "life", key: "key" },
     });
+    const matterVersion = JSON.parse(matters).version;
+    expect(
+      JSON.parse(await read("read_matters", { ifNot: matterVersion }))
+    ).toEqual({ unchanged: true, version: matterVersion });
+    expect(
+      JSON.parse(await read("read_matters", { ifNot: version })).matters
+    ).toEqual(rows);
     expectWire(
       "read_matters_project",
       await read("read_matters", { project: "shop-fit-out" })

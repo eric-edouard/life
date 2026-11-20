@@ -62,10 +62,19 @@ test("a person's read and read_matters take their rows from one reader, with Lif
   const open = spyOn(readMatters, "openMatters").mockResolvedValue({
     matters: [],
   } as never);
-  const checks = spyOn(inbox, "openChecksNow").mockResolvedValue([]);
+  const checks = spyOn(inbox, "openChecksAndKeyNow").mockResolvedValue({
+    checks: [],
+    key: "one reader",
+  });
   try {
-    await readMatterRowsNow();
+    const first = await readMatterRowsNow();
     expect(open.mock.calls[0]?.[2]).toBe(icons.readLifeIcons);
+    // Read once per key: the same key reads nothing again and keeps its version; a new key reads again.
+    expect(await readMatterRowsNow()).toEqual(first);
+    expect(open).toHaveBeenCalledTimes(1);
+    checks.mockResolvedValue({ checks: [], key: "a new reader" });
+    expect((await readMatterRowsNow()).version).not.toBe(first.version);
+    expect(open).toHaveBeenCalledTimes(2);
   } finally {
     open.mockRestore();
     checks.mockRestore();

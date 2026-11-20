@@ -60,5 +60,6 @@
     "id": "shop-fit-out",
     "name": "Shop fit-out",
     "status": "active"
-  }
+  },
+  "version": "efd11b23f6cb5d8b"
 }

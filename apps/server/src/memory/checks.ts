@@ -67,6 +67,7 @@ import {
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
 import { withNetworkIdentities } from "./network-identity";
+import { PERSON_PICTURES_INDEX } from "./party";
 import {
   dismissedIdsOf,
   handOutGateOf,
@@ -664,8 +665,16 @@ let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
 /**
  * Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write
  * those every few minutes, and the checks don't read them but for an inferred person's evidence (where it was said).
+ * The pictures' index too: a party carries its picture's id.
  */
-const CHECKS_READ = [...MATTER_BOOK_READS, CLOSENESS, DECISIONS, PAGES, ZONES];
+const CHECKS_READ = [
+  ...MATTER_BOOK_READS,
+  CLOSENESS,
+  DECISIONS,
+  PAGES,
+  PERSON_PICTURES_INDEX,
+  ZONES,
+];
 
 /** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. */
 export interface HeldRead {
@@ -692,16 +701,19 @@ const checksKeyOf = (
 
 /**
  * What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from
- * the desk): read-only, no model call. Read again only when what it is read from changed (`checksKeyOf`), and always
- * while a run holds the lock: every reader of the inbox shares one read per change, and never mutates the list.
+ * the desk): read-only, no model call, with `key`, what it was read from (`checksKeyOf`; the connector's reads version
+ * their answers by it). Read again only when the key changed, and always while a run holds the lock: every reader of
+ * the inbox shares one read per change, and never mutates the list.
  */
-export async function checksNow(held: HeldRead | null): Promise<InboxCheck[]> {
+export async function checksAndKeyNow(
+  held: HeldRead | null
+): Promise<{ checks: InboxCheck[]; key: string }> {
   const voices = await readNamingQueue();
   const decisions = decisionsNow().filter((d) => d.state === "open");
-  if (isLocked()) {
-    return await readChecks(held, voices, decisions);
-  }
   const key = checksKeyOf(held, voices, decisions);
+  if (isLocked()) {
+    return { checks: await readChecks(held, voices, decisions), key };
+  }
   if (last?.key !== key) {
     const list = readChecks(held, voices, decisions);
     last = { key, list };
@@ -711,8 +723,12 @@ export async function checksNow(held: HeldRead | null): Promise<InboxCheck[]> {
       }
     });
   }
-  return await last.list;
+  return { checks: await last.list, key };
 }
+
+/** What waits on his word now (`checksAndKeyNow`), without its key. */
+export const checksNow = async (held: HeldRead | null) =>
+  (await checksAndKeyNow(held)).checks;
 
 async function readChecks(
   held: HeldRead | null,
