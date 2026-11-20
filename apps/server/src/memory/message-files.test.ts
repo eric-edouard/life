@@ -1,8 +1,8 @@
-import { expect, spyOn, test } from "bun:test";
+import { expect, setSystemTime, spyOn, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HOUR } from "../core/clock";
+import { HOUR, MIN } from "../core/clock";
 import { digest } from "../core/hash";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as logs from "../core/log";
@@ -393,7 +393,7 @@ test.skipIf(!(Bun.which("sips") && Bun.which("textutil")))(
   }
 );
 
-test("a voice note is heard by lifelog, offline too: its words, an empty line for audio it cannot hear, nothing while busy and asked again on the next arrival", async () => {
+test("a voice note is heard by lifelog, offline too: its words, an empty line for audio it cannot hear, nothing while busy, asked again once 5 minutes passed", async () => {
   const dir = mkdtempSync(join(tmpdir(), "voice-"));
   const note = (name: string, bytes: string): SourceFile => {
     writeFileSync(join(dir, name), bytes);
@@ -440,11 +440,15 @@ test("a voice note is heard by lifelog, offline too: its words, an empty line fo
       "[audio heard.ogg | text: See you at eight]\n[audio noise.ogg]\n[audio busy.ogg]"
     );
     await describeFilesOnArrival([event(...files)]);
+    expect(asked).toHaveLength(3);
+    setSystemTime(Date.now() + 5 * MIN);
+    await describeFilesOnArrival([event(...files)]);
     expect(
       asked.filter((k) => k === digest("sha256", "OggS busy", 64))
     ).toHaveLength(2);
     expect(asked).toHaveLength(4);
   } finally {
+    setSystemTime();
     fetch.mockRestore();
     online.mockRestore();
     setSettings({ lifelog: old ?? null });

@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { z } from "zod";
-import { daysBefore } from "../core/clock";
+import { clock, daysBefore, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
@@ -12,6 +12,7 @@ import { isOnline } from "../models/llm";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
+import { lifelogMissing } from "../sources/lifelog-call";
 import { emlxPart } from "../sources/mail";
 import { readVoiceNoteWords, toOggOpus } from "../sources/voice-notes";
 import { FILES, readFiles, runAt } from "./memory-files";
@@ -109,12 +110,30 @@ interface Content {
 type Read = { image: string } | { text: string };
 
 const isVoiceNote = (f: SourceFile) => f.mime.startsWith("audio/");
+/** A voice note lifelog did not answer is asked again after this, by whichever pass meets it. */
+const VOICE_RETRY_AFTER = 5 * MIN;
+/** When each voice note lifelog did not answer was last asked, in this process. */
+const voiceAskedAt = new Map<string, number>();
+const isVoiceDue = (ref: string) =>
+  clock().getTime() - (voiceAskedAt.get(ref) ?? 0) >= VOICE_RETRY_AFTER;
 
-/** Whether a file is worth reading: on this Mac, and an image, a PDF, a document or a voice note (never a video). */
+/**
+ * A chat event as the readers of its files take it: a source that is not a chat (mail, Notes) keeps its audio a tag,
+ * never heard (his yes is for voice messages). Its callers know the source's kind.
+ */
+export const asChatOrNot = (e: SourceEvent, isChat: boolean): SourceEvent =>
+  isChat || !e.files?.some(isVoiceNote)
+    ? e
+    : { ...e, files: e.files.filter((f) => !isVoiceNote(f)) };
+
+/**
+ * Whether a file is worth reading: on this Mac, and an image, a PDF, a document or a voice note while lifelog is set up
+ * and the note not asked in the last minutes (never a video).
+ */
 const readable = (f: SourceFile): f is Readable =>
   !!f.path &&
   (f.mime.startsWith("image/") ||
-    isVoiceNote(f) ||
+    (isVoiceNote(f) && !lifelogMissing() && isVoiceDue(f.ref)) ||
     f.mime === "application/pdf" ||
     DOCUMENT.test(f.mime));
 
@@ -160,7 +179,7 @@ export async function toJpeg(src: string, out: string, px: number) {
  * so a note is paid for once; nothing while it is busy). Else the JPEG a model is shown: a photo, a scan's first page.
  */
 async function prepare(
-  { at, file: f }: Content,
+  { at, file: f, refs }: Content,
   base: string
 ): Promise<Read | undefined> {
   const bytes = await bytesOf(f);
@@ -174,7 +193,13 @@ async function prepare(
     const heard =
       ogg &&
       (await readVoiceNoteWords(ogg, { at, key: digest("sha256", bytes, 64) }));
-    return heard ? { text: words(heard.text, VOICE_TEXT_MAX) } : undefined;
+    if (!heard) {
+      for (const ref of refs) {
+        voiceAskedAt.set(ref, clock().getTime());
+      }
+      return;
+    }
+    return { text: words(heard.text, VOICE_TEXT_MAX) };
   }
   if (DOCUMENT.test(f.mime)) {
     const out = await run(["textutil", "-convert", "txt", "-stdout", src]);
@@ -205,11 +230,10 @@ export async function triage(
   const byHash = new Map(known.map((e) => [e.hash, e]));
   const copies: FileEntry[] = [];
   const fresh = new Map<string, Content>();
-  const atOfRef = new Map(
-    events.flatMap((e) => (e.files ?? []).map((f) => [f.ref, e.at] as const))
+  const files = events.flatMap((e) =>
+    (e.files ?? []).filter(readable).map((f) => ({ ...f, at: e.at }))
   );
-  const files = events.flatMap((e) => e.files ?? []).filter(readable);
-  for (const f of new Map(files.map((x) => [x.ref, x])).values()) {
+  for (const { at, ...f } of new Map(files.map((x) => [x.ref, x])).values()) {
     // biome-ignore lint/performance/noAwaitInLoops: one file in memory at a time
     const bytes = refs.has(f.ref) ? undefined : await open(f);
     const hash = bytes && digest("sha256", bytes, 16);
@@ -219,7 +243,7 @@ export async function triage(
     } else if (hash) {
       const same = fresh.get(hash);
       fresh.set(hash, {
-        at: same?.at ?? atOfRef.get(f.ref) ?? "",
+        at: same?.at ?? at,
         file: same?.file ?? f,
         hash,
         refs: [...(same?.refs ?? []), f.ref],

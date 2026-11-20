@@ -381,31 +381,35 @@ export async function readMessageEvents<T>(
       }
     }
   );
-  const page = feedPage(
-    feeds,
-    { ...at, ...Object.fromEntries(feeds.map((f) => [f.name, f.from])) },
-    max,
-    (_s, e) => e
+  const read = feeds.flatMap((f) => f.rows(f.from).map(([, e]) => e));
+  // A chat's voice note is heard before it is matched, so a wait on words sees what was said; past the bound it goes
+  // as it is (the arrival pass hears it).
+  const chats = new Set(
+    sources.filter((s) => s.kind === "chat").map((s) => s.name)
   );
-  // A voice note is heard before it is matched, so a wait on words sees them; past the bound it goes as it is.
   await Promise.race([
-    hearVoiceNotes(page.items),
+    hearVoiceNotes(read.filter((e) => chats.has(e.source))),
     Bun.sleep(HEAR_VOICE_NOTES_MS),
   ]).catch((error) =>
     log("source.read", { error: String(error), ok: false, what: "voice notes" })
   );
   // What a filter matches is the text every reader sees: its files' lines included.
   const shown = new Map(
-    showFiles(page.items, readFiles()).map((e) => [eventKey(e), e])
+    showFiles(read, readFiles()).map((e) => [eventKey(e), e])
+  );
+  const page = feedPage(
+    feeds,
+    { ...at, ...Object.fromEntries(feeds.map((f) => [f.name, f.from])) },
+    max,
+    (_s, raw) => {
+      const e = shown.get(eventKey(raw)) ?? raw;
+      return item(messagePayloadOf(e, people), e);
+    }
   );
   return {
     cursor: page.cursor,
     hasMore: page.remaining > 0 || isCut,
-    items: page.items.flatMap((raw) => {
-      const e = shown.get(eventKey(raw)) ?? raw;
-      const got = item(messagePayloadOf(e, people), e);
-      return got === null ? [] : [got];
-    }),
+    items: page.items,
     truncated,
   };
 }

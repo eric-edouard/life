@@ -166,7 +166,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   (`docs/tasks.md`, "The only sends").
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
 - **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, records a decision an agent or his own app requests (`request_decision`) and his answer to any check (`answer_check`, through each kind's own writer; his pick of a draft's outgoing option sends that draft; his Start on a new matter check asks the desk, as `change_registered_agent`'s start does), records his word about a registered agent as an ask of the desk (`change_registered_agent`), acts only through `change_todo_item` and his word that a matter is done (`correct_memory` with `matter`, his token only: `correctMatter` ticks its to-do items through `changeTodoItem`; and his pick of a decision's option marked `ends`, which is his word that its step or matter is done, through `endByHisWord`), and writes his `truth/` only through `change_directory_entry` (by his words).** Never add a
-  tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
+  tool that sends or edits anything else. Its message poll, like the desk's, first hears a chat's voice notes that have
+  no line (`hearVoiceNotes`: a line of `memory/files.jsonl`, Thai turns through Scribe once per note); that is Life
+  reading what was said, not an act. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
 - **Life serves no page.** Only `/mcp`, its OAuth, the app's status reads behind the local key, and the desk's door,
   on loopback only, one key per registered agent. Never take the local key on the public port (`docs/architecture.md`, "Pages").

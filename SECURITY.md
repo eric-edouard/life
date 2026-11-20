@@ -89,7 +89,7 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   photo, a PDF's pages), once each, when the message arrives or at night (his word of 19 Nov 2026). The episodes call also sees the email addresses
   of the people its day involves (his directory and Contacts cards), so a legal name can be tied to a nickname (his yes
   of 20 Nov 2026). A voice note's words, as text, like the rest.
-- A message's voice note (its audio) to lifelog's speech service on this Mac; the turns it hears as Thai or another
+- A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to lifelog's speech service on this Mac; the turns it hears as Thai or another
   language it routes, cut from the audio, to ElevenLabs Scribe, as the pendant's (his yes of 20 Nov 2026;
   [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per note: its file's sha256 is the claim.
 - To a registered agent's runtime (his Claude subscription, or his Codex subscription: OpenAI): its brief and packet

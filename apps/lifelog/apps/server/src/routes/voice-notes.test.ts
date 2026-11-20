@@ -1,6 +1,14 @@
-import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  expect,
+  setSystemTime,
+  test,
+} from "bun:test";
 import { randomUUID } from "node:crypto";
 import { heartbeats } from "@lifelog/db/schema";
+import { voiceNoteHearings } from "@lifelog/db/schema/voice-note-hearings";
 import { createApp } from "../app";
 import { pendantOggOpus } from "../audio";
 import { sha256Hex } from "../config";
@@ -163,4 +171,23 @@ test("the speech service busy: 503; not Ogg Opus: 400", async () => {
   speech.busy = false;
   const res = await ask(app(), new Uint8Array([1, 2, 3]), sha256Hex("b"));
   expect(res.status).toBe(400);
+});
+
+test("a send cut off (a crash, a lost answer) is never sent again: past 5 minutes the Mac's words stand", async () => {
+  speech.heard = MIXED;
+  scribe.respond = thai;
+  const key = sha256Hex(randomUUID());
+  env.db
+    .insert(voiceNoteHearings)
+    .values({ claimedAt: new Date(), key, localText: LOCAL })
+    .run();
+  const a = app();
+  expect((await ask(a, note(60), key)).status).toBe(503);
+  setSystemTime(Date.now() + 6 * 60 * 1000);
+  try {
+    expect(await (await ask(a, note(60), key)).json()).toEqual({ text: LOCAL });
+  } finally {
+    setSystemTime();
+  }
+  expect(sends()).toHaveLength(0);
 });
