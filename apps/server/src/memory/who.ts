@@ -1,3 +1,4 @@
+import { digest } from "../core/hash";
 import { isSameBirthday } from "../records/fields";
 import {
   CONTACT_PREFIX,
@@ -314,6 +315,37 @@ export const voicePersonOf = (
   id: string | null | undefined,
   name: string | null | undefined
 ) => (id ? resolve(id) : null) ?? (name ? resolve(name) : null);
+
+/** The person lifelog suggests for a voice it asks about, what a voice card's "Yes" names (its `subject`); none for a new person. */
+export const voiceSuggestionOf = (
+  resolve: (s: string) => string | null,
+  item: { kind: string; name: string | null; personId: string | null }
+) =>
+  item.kind === "new_person"
+    ? null
+    : voicePersonOf(resolve, item.personId, item.name);
+
+/**
+ * A voice card's ref: its lifelog group, the recordings his answer would change (a digest of its voices) and the person
+ * it suggests, so an answer reaches only the card he saw (`voiceSuggestionOf`): a group that grew or changed its
+ * suggestion is another card.
+ */
+export const voiceCardRefOf = (
+  resolve: (s: string) => string | null,
+  item: {
+    id: string;
+    kind: string;
+    name: string | null;
+    personId: string | null;
+    voices: { jobId: string; speakerLabel: string }[];
+  }
+) => {
+  const voices = [
+    ...new Set(item.voices.map((v) => `${v.jobId} ${v.speakerLabel}`)),
+  ].sort();
+  const suggested = voiceSuggestionOf(resolve, item);
+  return `voice:${item.id}~${digest("sha256", voices.join("\n"), 8)}${suggested ? `~${suggested}` : ""}`;
+};
 
 /**
  * The handle or name a fact's author came from: the one it kept (`speakerFrom`), an unknown author's label, or for a
