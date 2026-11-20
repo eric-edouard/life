@@ -514,7 +514,10 @@
           "kind": "person",
           "line": "Partner",
           "name": "Camille Vance",
-          "ref": "person:camille_vance"
+          "ref": "person:camille_vance",
+          "picture": {
+            "id": "0c1dd147dc5331bb52324d0ec0661d2e"
+          }
         },
         {
           "kind": "person",
@@ -526,7 +529,10 @@
           "kind": "person",
           "line": "Client",
           "name": "Nora Keller",
-          "ref": "person:nora_keller"
+          "ref": "person:nora_keller",
+          "picture": {
+            "id": "9d80c65fa3d41f254bfbde4054864eba"
+          }
         }
       ],
       "links": [],
@@ -914,7 +920,10 @@
           "kind": "person",
           "line": "Supplier, kitchen quote",
           "name": "Idris Benali",
-          "ref": "person:idris"
+          "ref": "person:idris",
+          "picture": {
+            "id": "59400481f8a16e09515dc886a44c1393"
+          }
         }
       ],
       "links": [],
@@ -1158,12 +1167,18 @@
         {
           "kind": "person",
           "name": "Idris Benali",
-          "ref": "person:idris"
+          "ref": "person:idris",
+          "picture": {
+            "id": "59400481f8a16e09515dc886a44c1393"
+          }
         },
         {
           "kind": "person",
           "name": "Nora Keller",
-          "ref": "person:nora"
+          "ref": "person:nora",
+          "picture": {
+            "id": "9d80c65fa3d41f254bfbde4054864eba"
+          }
         }
       ],
       "links": [],

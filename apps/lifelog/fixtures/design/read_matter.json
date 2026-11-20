@@ -84,7 +84,10 @@
         "with": {
           "kind": "person",
           "name": "Idris Benali",
-          "ref": "person:idris"
+          "ref": "person:idris",
+          "picture": {
+            "id": "59400481f8a16e09515dc886a44c1393"
+          }
         }
       },
       {
@@ -97,7 +100,10 @@
         "with": {
           "kind": "person",
           "name": "Camille Vance",
-          "ref": "person:camille_vance"
+          "ref": "person:camille_vance",
+          "picture": {
+            "id": "0c1dd147dc5331bb52324d0ec0661d2e"
+          }
         }
       },
       {
