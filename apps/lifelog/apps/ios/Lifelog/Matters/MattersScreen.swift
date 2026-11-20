@@ -83,6 +83,7 @@ struct MattersScreen: View {
         .sheet(item: matterSheetBinding) { sheet in
             switch sheet {
             case .agent(let id): AgentSheet(matter: id)
+            case .icon(let id): MatterIconSheet(matter: id)
             case .start(let id):
                 if let matter = life.matter[id]?.value {
                     StartAgentSheet(matter: matter)
@@ -129,7 +130,7 @@ struct MattersScreen: View {
         if let areas = life.matters.value?.areasByCount, !areas.isEmpty {
             Picker("Area", selection: $filter) {
                 ForEach(areas, id: \.self) { area in
-                    Label(area, systemImage: area.areaSymbol).tag(MatterFilter.area(area))
+                    Label(area, systemImage: MatterIcons.areaSymbol(area)).tag(MatterFilter.area(area))
                 }
             }
             .pickerStyle(.inline)
@@ -195,7 +196,7 @@ struct MatterRowView: View {
     var body: some View {
         let parked = row.isParked
         return Row(
-            title: row.name, icon: row.areas?.first.map(\.areaSymbol) ?? String.defaultAreaSymbol,
+            title: row.name, icon: row.symbol,
             iconTint: Palette.muted, detail: row.nextStep?.text, isMarked: isMarked
         ) {
             // A parked project's matter waits: no dot, no agent.
@@ -235,23 +236,6 @@ extension MatterFilter {
         case .important: "Important"
         case .agentWorking: "Agent working"
         case .area(let area): area
-        }
-    }
-}
-
-extension String {
-    /// What a matter with no area shows.
-    static let defaultAreaSymbol = "folder"
-
-    /// The line icon of an area, by its meaning; an area it has no icon for gets the plain one.
-    var areaSymbol: String {
-        switch lowercased() {
-        case "home": "house"
-        case "work": "briefcase"
-        case "family": "heart"
-        case "papers", "admin": "doc"
-        case "money": "banknote"
-        default: Self.defaultAreaSymbol
         }
     }
 }

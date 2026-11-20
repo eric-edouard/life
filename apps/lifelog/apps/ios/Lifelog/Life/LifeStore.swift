@@ -27,14 +27,16 @@ final class LifeStore {
         case agent(String)
         case edit(matter: String, Edit)
         case project(String)
-        enum Edit: Hashable { case goal, next, done, important }
+        enum Edit: Hashable { case goal, next, done, important, icon }
     }
 
-    /// What his last mark or project status did, said back for four seconds (`Toast`), with its Undo (the opposite
-    /// change), or why it was not done.
+    /// What his last mark, project status or matter icon did, said back for four seconds (`Toast`), with its Undo (the
+    /// opposite change), or why it was not done.
     struct SaidBack: Identifiable, Equatable {
         enum Undo: Equatable {
             case important(matter: String, Bool)
+            /// His icon to put back (nil: Life's pick), and the one it replaces.
+            case icon(matter: String, String?, was: String?)
             case status(project: String, name: String, ProjectStatus, was: ProjectStatus)
         }
         let id = UUID()
@@ -382,6 +384,14 @@ final class LifeStore {
         }
     }
 
+    /// His icon for a matter (a key of `MatterIcons`, or nil: Life picks again), said back with Undo, which puts back
+    /// his pick it replaced (`was`, nil when the icon was Life's or none).
+    func setMatterIcon(of id: String, _ icon: String?, was: String?, saysBack: Bool = true) async {
+        let api = api
+        await edit(id, .icon) { try await api.setMatterIcon(matter: id, icon: icon, onProgress: $0) }
+        say(.edit(matter: id, .icon), saysBack ? "Icon changed" : nil, undo: .icon(matter: id, was, was: icon))
+    }
+
     // MARK: His mark, a project's status
 
     /// Whether a matter is marked, his tap first.
@@ -442,6 +452,7 @@ final class LifeStore {
         saidBack = nil
         switch said.undo {
         case .important(let id, let isOn)?: await setImportant(id, isOn, saysBack: false)
+        case .icon(let id, let icon, let was)?: await setMatterIcon(of: id, icon, was: was, saysBack: false)
         case .status(let id, let name, let status, let was)?:
             await setStatus(of: id, named: name, to: status, was: was, words: nil)
         case nil: break
