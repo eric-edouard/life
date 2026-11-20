@@ -51,7 +51,8 @@ its work: the agent keeps its own list.
   whose ask it is: a retry resumes it, the key with anything else is refused, and so is a ref or cause Life did not seal.
   Then the desk writes its complaint record row and receives it for the caretaker (`receiveComplaints`: its `complaint.received` event on the caretaker's assignment, registering the caretaker
   when none is active or stopped). The answer is `{ask, reached: "caretaker"}` only once all three are written; a
-  stopped caretaker, a full desk or a runtime that does not answer leaves it waiting, and the answer says so. The
+  stopped caretaker, a full desk, a runtime that does not answer, or a caretaker whose first turn never began since
+  his last press, leaves it waiting (his next press tries once more), and the answer says so. The
   caretaker reads it through its door (`read_complaint`, only on the assignment that received it); while it holds it, the
   card with that cause shows `beingFixed` and stops blocking. An assignment that closes gives back the complaints it
   never handed to a turn: the desk receives them again.
