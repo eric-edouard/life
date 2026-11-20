@@ -166,7 +166,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   words handed to the agent, never acted on by Life; the desk is the one agent built in (`DESK_AGENT`): it applies his
   asks of it that name a change (`after.agentChange`) in code and keeps its own list. Details: `docs/tasks.md`. The one other write, his request of 8 Nov
   2026: Life's own events in his calendar, the Past calendar and the appointments it reads from his messages (marked
-  `(Life)`, free, until an agent confirms one with him; one he deletes is never written again). They are its reading,
+  `(Life)`, free, until an agent confirms one with him; one he deletes is never written again), each at a place with its Google and Apple Maps links (`mapLinksOf`, his word of 21 Nov 2026). They are its reading,
   never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments"). The one
   other act is a card's draft, sent on his answer (below).
 - **Life sends only a card's draft exactly as shown, on his answer to its outgoing option, into the one chat named

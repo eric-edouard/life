@@ -8,9 +8,16 @@ import {
   readAppointmentEvents,
   readAppointments,
 } from "../memory/appointments";
-import { type Draft, heldOf, reconcile } from "../memory/calendar-events";
+import {
+  DESCRIPTION_MAX,
+  type Draft,
+  heldOf,
+  mapLinksOf,
+  reconcile,
+} from "../memory/calendar-events";
 import { span } from "../memory/episode-span";
 import { APPOINTMENT_EVENTS } from "../memory/memory-files";
+import { clip } from "../memory/units";
 import { dayNow, dayStart } from "../memory/zones";
 import { type Appointment, AppointmentEvent } from "../records/appointment";
 import { type GoogleCalendar, googleCalendar } from "./google-calendar";
@@ -34,13 +41,16 @@ export function appointmentDraft(
     { day: a.start.slice(0, 10), end: a.end, start: a.start },
     a.zone ?? undefined
   );
-  const text = [
+  const lines = [
     isConfirmed
       ? "Added by Life from your messages, confirmed."
       : "Added by Life from your messages, not confirmed yet.",
     ...(a.timeGuessed ? ["The time is Life's guess."] : []),
+    ...mapLinksOf({ name: a.place }),
     `Appointment ${a.id}, read from ${a.observations.join(", ")}.`,
   ].join("\n");
+  // A long list of facts is cut, never the links above it.
+  const text = clip(lines, DESCRIPTION_MAX);
   const draft = {
     ...when,
     isConfirmed,
