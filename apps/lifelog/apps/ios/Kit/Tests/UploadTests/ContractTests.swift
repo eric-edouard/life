@@ -151,6 +151,9 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(try quoted("memory/party.ts", /kind: ([^;]*);/) == client(Party.Kind.self))
     #expect(
         try quoted("records/observation.ts", /ClosenessLevel = z\.enum\(\[([^\]]*)\]/) == client(ClosenessLevel.self))
+    #expect(try quoted("memory/refs.ts", /(?s)export type Ref = (.*?)\n\);/) == client(Check.LifeLink.Kind.self))
+    // The heading a `life:` link's page leaves out (`LifeLinkRead`).
+    #expect(try source("memory/words.ts").contains(#"const HEADER = "\#(LifeLinkRead.heading)";"#))
     // The matter icon set: the server's keys, in its order, are the catalog's, nine groups of 72 distinct keys.
     let table = try #require(
         try source("records/matter-icon.ts").firstMatch(of: /(?s)MATTER_ICONS = \[(.*?)\] as const/))

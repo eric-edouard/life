@@ -16,11 +16,14 @@ final class AppRouter {
         case agent(String)
         /// "Start an agent" on the matter.
         case start(String)
+        /// The grid that changes the matter's icon.
+        case icon(String)
 
         var id: String {
             switch self {
             case .agent(let id): "agent-\(id)"
             case .start(let id): "start-\(id)"
+            case .icon(let id): "icon-\(id)"
             }
         }
     }
