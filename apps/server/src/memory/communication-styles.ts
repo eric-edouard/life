@@ -58,6 +58,19 @@ export const communicationStyleBlock = (lines: CommunicationStyleLine[]) =>
       ]
     : [];
 
+/**
+ * The communication styles of `refs` (people), each headed by the person's name (`nameOf`): what an agent drafting to
+ * them follows (a matter's read, an agent's packet, `read_chats` with one `who`). Nothing for one with no style.
+ */
+export const communicationStylesOf = (
+  refs: readonly string[],
+  nameOf: (ref: string) => string
+) =>
+  refs.flatMap((ref) => {
+    const block = communicationStyleBlock(readCommunicationStyle(ref));
+    return block.length > 0 ? [`With ${nameOf(ref)}:`, ...block] : [];
+  });
+
 /** One message of a sample as the call is shown it. */
 interface Shown {
   at: string;
