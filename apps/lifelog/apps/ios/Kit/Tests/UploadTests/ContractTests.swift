@@ -119,6 +119,9 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(try quoted("core/names.ts", /CheckGroup = z\.enum\(\[([^\]]*)\]/) == client(CheckGroup.self))
     #expect(try quoted("memory/life-checks.ts", /takes: ([^;]*);/) == client(Check.Option.Takes.self))
     #expect(try quoted("memory/check-urgency.ts", /export type Urgency = ([^;]*);/) == client(Urgency.self))
+    // A recent message's file: `KINDS`' kinds, else a document.
+    #expect(
+        try quoted("memory/message-files.ts", /const KINDS([^;]*);/).union(["document"]) == client(FileKind.self))
     // On Life's own checks and on a decision's options alike.
     #expect(try quoted("memory/life-checks.ts", /ends\?: ([^;]*);/) == client(Check.Option.Ends.self))
     #expect(try quoted("memory/card-request.ts", /ends: z\.enum\(\[([^\]]*)\]/) == client(Check.Option.Ends.self))
@@ -128,7 +131,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(kinds.subtracting(["qr"]) == client(Check.Need.Kind.self))
     // Life's stored outcome; `looking` is the phone's while `answer_check` runs (its live step).
     #expect(
-        try quoted("memory/decisions.ts", /state: z\.enum\(\[([^\]]*)\]/).union(["looking"])
+        try quoted("memory/decision-lines.ts", /state: z\.enum\(\[([^\]]*)\]/).union(["looking"])
             == client(Check.DoneSeen.State.self))
     #expect(try quoted("memory/matter-read.ts", /const STATUSES = \[([^\]]*)\]/) == client(MatterStatus.self))
     #expect(try quoted("records/truth.ts", /status: z\.enum\(\[([^\]]*)\]/) == client(ProjectStatus.self))
@@ -155,6 +158,9 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     let labels = try #require(try source("memory/details.ts").firstMatch(of: /(?s)const LABELS = \{(.*?)\};/)).output.1
     #expect(Set(labels.matches(of: /(\w+):/).map { String($0.output.1) }) == client(PersonNow.Detail.Kind.self))
     #expect(try quoted("memory/person-now.ts", /by: ([^;]*);/) == client(LatestPage.Item.Said.By.self))
+    #expect(try quoted("memory/refs.ts", /(?s)export type Ref = (.*?)\n\);/) == client(Check.LifeLink.Kind.self))
+    // The heading a `life:` link's page leaves out (`LifeLinkRead`).
+    #expect(try source("memory/words.ts").contains(#"const HEADER = "\#(LifeLinkRead.heading)";"#))
     // The matter icon set: the server's keys, in its order, are the catalog's, nine groups of 72 distinct keys.
     let table = try #require(
         try source("records/matter-icon.ts").firstMatch(of: /(?s)MATTER_ICONS = \[(.*?)\] as const/))

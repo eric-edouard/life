@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { MIN } from "../core/clock";
+import { timedLocalModel } from "../core/log";
 import { exec } from "../core/proc";
 
 /** One field of the answer: its name, what it holds, and the only values it may take, if any. */
@@ -54,12 +55,29 @@ export async function askFoundationModel(
   if (!helper) {
     return requests.map(() => unavailable("no helper (LIFE_FOUNDATION_MODEL)"));
   }
-  const r = await exec(["taskpolicy", "-b", helper], {
-    stdin: requests.map((q) => `${JSON.stringify(q)}\n`).join(""),
-    timeout: requests.length * MIN,
-  });
+  return await timedLocalModel(
+    "foundation",
+    requests.length,
+    async () =>
+      answersOf(
+        requests.length,
+        await exec(["taskpolicy", "-b", helper], {
+          stdin: requests.map((q) => `${JSON.stringify(q)}\n`).join(""),
+          timeout: requests.length * MIN,
+        })
+      ),
+    // Answered: a reply for every request, whatever the helper's exit.
+    (answers) => answers.every((a) => "reply" in a)
+  );
+}
+
+/** The helper's lines, one per request in order; a missing or bad one is unavailable. */
+function answersOf(
+  count: number,
+  r: { code: number; stderr: string; stdout: string }
+): FoundationAnswer[] {
   const lines = r.stdout.split("\n").filter(Boolean);
-  return requests.map((_, i) => {
+  return Array.from({ length: count }, (_, i) => {
     const parsed = Line.safeParse(
       (() => {
         try {

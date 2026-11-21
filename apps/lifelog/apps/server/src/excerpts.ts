@@ -21,8 +21,9 @@ import {
 import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { type AudioStore, isBlockKey } from "./audio-store";
 import { type Config, EXCERPTS } from "./config";
-import { touchesQuiet } from "./cutter";
+import { heldBack, touchesQuiet } from "./cutter";
 import { record } from "./events";
+import { macSocket } from "./mac-socket";
 import {
   holdingConversations,
   isRejected,
@@ -88,11 +89,12 @@ export const mayHear = (
   !!job.map &&
   !touchesQuiet(db, job.map);
 
-// The bucket key of a job's audio identity may hear (`mayHear`). "never" for any other (an old job's, or one
+// The job whose audio identity may hear (`mayHear`). "never" for any other (an old job's, or one
 // with dictation or playback in it); null when there is nothing to cut (no audio, or cut already).
 function audioToCut(db: Db, jobId: string) {
   const row = db
     .select({
+      captureEnd: transcriptionJobs.captureEnd,
       cutAt: transcripts.excerptsAt,
       map: transcriptionJobs.map,
       objectKey: transcriptionJobs.objectKey,
@@ -104,12 +106,18 @@ function audioToCut(db: Db, jobId: string) {
   if (!row?.objectKey || row.cutAt) {
     return null;
   }
-  return mayHear(db, row) ? row.objectKey : "never";
+  return mayHear(db, row) ? { ...row, objectKey: row.objectKey } : "never";
 }
 
 // ponytail: in-process, one replica, like the other loops; `busy` keeps a webhook and the tick
 // from cutting one job twice.
-export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
+export function excerptSampler(
+  db: Db,
+  config: Config,
+  audio: AudioStore,
+  // What the Mac vouches for: nothing past it is heard.
+  vouched: () => Date = () => macSocket(db).vouchedThrough()
+) {
   const busy = new Set<string>();
   let draining = false;
   // How the identity service last answered, for `GET /status/live`: no probe per poll.
@@ -128,13 +136,19 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
     jobId: string,
     conversationId: string,
     wanted: Wanted,
-    ogg: Uint8Array
+    ogg: Uint8Array,
+    isHeld: () => boolean
   ) {
     const result = await embedRanges(
       config,
       ogg,
-      wanted.map(({ turn }) => excerptRange(turn))
+      wanted.map(({ turn }) => excerptRange(turn)),
+      isHeld
     );
+    // Held back as it left: the next try finds whether it may ever go.
+    if (result === null) {
+      return null;
+    }
     if (!("embeddings" in result)) {
       if (result.error === "identity_unavailable") {
         lastError = result.message;
@@ -183,11 +197,11 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
   // Cuts one job's clean turns. The number of samples stored, or null when it must be tried
   // again (identity busy or down, the bucket unreachable, no conversation holds the job yet).
   async function cut(jobId: string): Promise<number | null> {
-    const key = audioToCut(db, jobId);
-    if (key === null) {
+    const cuttable = audioToCut(db, jobId);
+    if (cuttable === null) {
       return 0;
     }
-    if (key === "never") {
+    if (cuttable === "never") {
       return done(jobId);
     }
     const transcript = loadTranscript(db, jobId);
@@ -199,7 +213,7 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
     if (wanted.length === 0) {
       return done(jobId);
     }
-    const ogg = await audio.get(key).catch(() => undefined);
+    const ogg = await audio.get(cuttable.objectKey).catch(() => undefined);
     if (ogg === undefined) {
       return null;
     }
@@ -207,7 +221,14 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
       record(db, "excerpts.skipped", { job: jobId, reason: "no_audio" });
       return done(jobId);
     }
-    return embedAndKeep(jobId, conversationId, wanted, ogg);
+    // Read again before each call to identity: a range that came, or the watermark that moved, since.
+    return embedAndKeep(
+      jobId,
+      conversationId,
+      wanted,
+      ogg,
+      () => heldBack(db, cuttable, vouched) !== null
+    );
   }
 
   const job = async (jobId: string) => {

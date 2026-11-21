@@ -124,6 +124,7 @@ const records = (over: Partial<MatterRecords> = {}): MatterRecords => ({
   ledger: [],
   linkEndings: new Map(),
   observations,
+  projects: [],
   refOf: (r) => r,
   retired: new Map(),
   todoItems: [],

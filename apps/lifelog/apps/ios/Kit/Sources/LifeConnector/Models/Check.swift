@@ -83,9 +83,15 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let important: Bool?
     }
 
-    public struct Evidence: Decodable, Sendable, Equatable {
-        public let from: String
-        public let quote: String
+    /// A `life:` link in `context`: exactly the ref `fetch` opens, and what it names, for its glyph.
+    public struct LifeLink: Decodable, Sendable, Equatable {
+        /// What a ref names (`RefKind`, `memory/refs.ts`).
+        public enum Kind: String, UnknownTolerant, Sendable {
+            case ask, conversation, file, matter, message, observation, person, turn, unit
+            case unknown
+        }
+        public let ref: String
+        public let kind: Kind
     }
 
     /// The exact message he approves.
@@ -113,6 +119,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let from: String?
         public let cc: String?
         public let subject: String?
+        /// The chat's last messages when the card was asked, oldest first (`[]` for a new chat; a mail's: the one it
+        /// answers); nil on a card asked before Life stamped them, which then shows the draft alone.
+        public let recent: [Recent]?
     }
 
     /// A Contacts card as Life holds it (`contactsCard`, `memory/check-asks.ts`): never a network identity, a card has no chat.
@@ -182,11 +191,13 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let at: Date?
     public let deadline: Date?
     public let onSilence: String?
+    /// Why it asks, in Markdown (the context sheet), with `life:` links to Life's own things (`lifeLinks`).
     public let context: String?
     /// A new matter's goal, the one Start hands the agent.
     public let goal: String?
-    public let evidence: Evidence?
     public let draft: Draft?
+    /// A draft card's chat as the card heads it; nil for other cards.
+    public let head: Head?
     /// The names a name check asks about, as they were said: shown in bold in `said`.
     public let about: [String]?
     /// The sentence the question is about (a name's line, a step's own sentence), verbatim.
@@ -199,6 +210,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let clips: [Clip]
     public let likelyPeople: [Party]
     public let links: [String]
+    /// The `life:` links of `context`, each with its kind; empty from a Life that predates them.
+    public let lifeLinks: [LifeLink]?
     public let matter: MatterRef?
     public let subject: String?
     public let ridesOn: RidesOn?
@@ -232,6 +245,21 @@ extension Check {
     public func agentName(runtime: RuntimeName?) -> String? {
         if let runtime { return runtime.name }
         return asker.caseInsensitiveCompare("life") == .orderedSame ? nil : asker
+    }
+
+    /// The words of the link that opens its context: the code's, by what it asks, never the agent's (the context
+    /// sheet's table, decision 81); nil with no context, so a card with none has no link.
+    public var contextLinkTitle: String? {
+        guard let context, !context.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        if draft != nil { return "Why this reply?" }
+        switch group {
+        case .ending: return "Why done?"
+        case .newMatter: return "What Life saw"
+        case .guessedPerson, .name, .voice, .contactsCard:
+            let name = networkIdentity?.shownName ?? askedName ?? contactsCard?.name ?? likelyPeople.first?.name
+            return name.map { "Why \($0)?" } ?? "Why this person?"
+        case .decision, .unknown: return "Why it asks"
+        }
     }
 
     /// The option the card fills (the first): the one answer it asks for, the others sit quieter.
@@ -310,6 +338,12 @@ extension Check {
     /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their
     /// options (a new matter's goal comes through its option that takes a note).
     public var takesOwnWords: Bool { group == .decision }
+    /// Whether `request` leaves this card open: a new matter's goal, edited (Life saves it; Start or Dismiss still wait).
+    /// Another kind's option of the same id closes it like any answer.
+    public func keepsOpen(after request: AnswerRequest) -> Bool {
+        group == .newMatter && request.options == ["edit-goal"]
+    }
+
     /// Whether `request` is his word that the step or matter is done: one option that `ends`, alone, with no words.
     public func isEnding(_ request: AnswerRequest) -> Bool {
         guard request.note == nil, request.options.count == 1 else { return false }

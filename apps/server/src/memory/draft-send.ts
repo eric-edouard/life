@@ -2,6 +2,8 @@ import { realpath, stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { digest } from "../core/hash";
+import { log } from "../core/log";
+import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { takesWordsOf } from "../sources/chat-takes";
@@ -17,7 +19,7 @@ import {
 } from "./draft";
 import { fileKindOf, messageWordsOf } from "./message-files";
 import { OWNER } from "./read-truth";
-import { enabledSources } from "./sources";
+import { enabledSources, sourceOf } from "./sources";
 import { oneLineOf, speakerOf } from "./units";
 import { type People, readPeople } from "./who";
 
@@ -438,16 +440,36 @@ export async function sendDraft(
   steps: { onStep?: OnStep; since: Date },
   sources = enabledSources()
 ) {
-  const { outgoing, path } = await readySend(draft, steps, sources).catch(
-    (e: Error) => {
-      throw e.message.startsWith("not sent:")
-        ? e
-        : new Error(`not sent: ${e.message}`);
-    }
-  );
-  const id = await path.send(outgoing, txn, () => steps.onStep?.(STEP.handed));
-  steps.onStep?.(STEP.confirmed, { eventId: id });
-  return id;
+  const sent = (outcome: string) =>
+    log("draft.send", {
+      channel: draft.channel,
+      id: txn,
+      ok: outcome === "sent",
+      outcome,
+    });
+  try {
+    const { outgoing, path } = await readySend(draft, steps, sources).catch(
+      (e: Error) => {
+        throw e.message.startsWith("not sent:")
+          ? e
+          : new Error(`not sent: ${e.message}`);
+      }
+    );
+    const id = await path.send(outgoing, txn, () =>
+      steps.onStep?.(STEP.handed)
+    );
+    sent("sent");
+    steps.onStep?.(STEP.confirmed, { eventId: id });
+    return id;
+  } catch (e) {
+    // Its class only (the error's words name the chat): anything but `not sent:` may have gone, as the app shows it.
+    sent(
+      (e as Error).message.startsWith("not sent:")
+        ? "not sent"
+        : "may have gone"
+    );
+    throw e;
+  }
 }
 
 /** How long sending this card's draft may take, at most (its send path's own waits), 0 for a source that doesn't send. */
@@ -457,4 +479,34 @@ export function sendLimitMs(draft: StoredDraft, sources = enabledSources()) {
       .find((x) => x.name === draft.channel)
       ?.send?.limitMs(outgoingOf(draft, draft.file && new Uint8Array())) ?? 0
   );
+}
+
+/**
+ * Who a decision's draft goes to, as a person ref: its stored chat's handle (its source's `handleOf`), or a mail's `to`,
+ * read through `resolve`. Null for a source whose chat keys hold no handle, a draft not yet resolved to a chat, or a
+ * handle no one has.
+ */
+function draftPersonOf(people: Pick<People, "resolve">, d: StoredDraft) {
+  const source = d.channel ? sourceOf(d.channel as SourceName) : undefined;
+  const handle =
+    source?.kind === "mail" ? d.to : d.chat && source?.handleOf?.(d.chat);
+  return handle && d.channel
+    ? people.resolve(handle, d.channel as SourceName)
+    : null;
+}
+
+/** Each card with its `confirm`: on a decision whose draft goes to someone Life only guesses (`draftPersonOf`), that guess's card, one check asked beside it; none on every other card. */
+export function withDraftConfirms<
+  C extends { draft?: StoredDraft | null; group: string; ref: string },
+>(cards: C[], people: Pick<People, "refOf" | "resolve">) {
+  const guessed = new Map(
+    cards
+      .filter((x) => x.group === "guessed person")
+      .map((x) => [people.refOf(x.ref), { ...x, confirm: [] }])
+  );
+  return cards.map((x) => {
+    const person = x.draft && draftPersonOf(people, x.draft);
+    const guess = person && guessed.get(people.refOf(person));
+    return { ...x, confirm: guess ? [guess] : [] };
+  });
 }

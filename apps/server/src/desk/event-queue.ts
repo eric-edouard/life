@@ -1,5 +1,6 @@
 import { clock, iso } from "../core/clock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import {
   type AssignmentRow,
   anchorsOf,
@@ -32,7 +33,7 @@ export function queue(
   wakes: { assignment: string; eventId: string; payload: unknown }[]
 ) {
   for (const w of wakes) {
-    db.run(
+    const { changes } = db.run(
       "insert or ignore into event (assignment_id, event_id, name, payload, received_at) select ?1, ?2, ?3, ?4, ?5 where not exists (select 1 from event e join assignment s on s.id = e.assignment_id where e.event_id = ?2 and s.agent_id = (select agent_id from assignment where id = ?1))",
       [
         w.assignment,
@@ -42,6 +43,13 @@ export function queue(
         clock().toISOString(),
       ]
     );
+    if (changes > 0) {
+      log("desk.queued", {
+        assignment: w.assignment,
+        event: name,
+        eventId: w.eventId,
+      });
+    }
   }
 }
 
@@ -190,9 +198,9 @@ export async function pollChannels(desk: Desk, readPeopleNow: ReadPeople) {
       const wakes = agentWakesOf(db, assignments, people, events);
       db.transaction(() => queue(db, c.event, wakes))();
     } catch (error) {
-      const why = (error as Error).message;
-      failed(why);
-      log("desk.runtime", { error: why, ok: false, what: c.name });
+      const why = errorOf(error);
+      failed(why.error);
+      log("desk.runtime", { ...why, ok: false, what: c.name });
     }
   }
 }

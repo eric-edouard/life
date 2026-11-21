@@ -2,6 +2,7 @@
 import { rm } from "node:fs/promises";
 import process from "node:process";
 import { hold } from "@life/server/src/core/lock";
+import { hasPassed, readCleanTree, recordPassed } from "./check-trees";
 
 // One check at a time on a machine: several worktrees' gates at once load it until time-limited tests fail.
 await hold("check", process.cwd(), 5000);
@@ -128,12 +129,28 @@ if (process.platform !== "darwin") {
 } else if (changed && !changed.some((f) => SWIFT.test(f))) {
   why = "no change to the phone, the helper or what they read";
 }
-if (why) {
+// A clean tree that passed (with the Swift builds, when they are due now) runs again only the steps that read his data
+// outside the tree (`--unless-passed`, the pre-push hook). Read under the lock, so a second push waits for the first.
+const LIVE = ["cases", "scrub", "voice eval"];
+const tree = readCleanTree(".");
+const swift = why === null;
+const passed =
+  tree !== null &&
+  process.argv.includes("--unless-passed") &&
+  hasPassed(".", tree, swift);
+if (passed) {
+  console.log(`- tree ${tree.slice(0, 12)} passed: only ${LIVE.join(", ")}`);
+  for (const name of Object.keys(steps)) {
+    if (!LIVE.includes(name)) {
+      delete steps[name];
+    }
+  }
+} else if (swift) {
+  Object.assign(steps, macSteps);
+} else {
   for (const name of Object.keys(macSteps)) {
     console.log(`- ${name}: skipped, ${why}`);
   }
-} else {
-  Object.assign(steps, macSteps);
 }
 
 // Only the current failures stay in derived/check.
@@ -142,6 +159,7 @@ await rm("derived/check", { force: true, recursive: true });
 // Output is drained while the step runs, so a chatty step never blocks on a full pipe.
 // Each step leads its own process group, so killing it reaches the processes it started
 // (sh -> xcodebuild) and none is left holding a lock for the next run.
+const started = performance.now();
 const procs = Object.entries(steps).map(([name, cmd]) => {
   const proc = Bun.spawn(cmd, {
     detached: true,
@@ -168,7 +186,9 @@ function killAll() {
 const results = procs.map(async ({ name, output, proc }) => {
   const code = await proc.exited;
   if (code === 0) {
-    console.log(`✓ ${name}`);
+    console.log(
+      `✓ ${name} (${((performance.now() - started) / 1000).toFixed(1)} s)`
+    );
     return;
   }
   const out = await output;
@@ -188,3 +208,8 @@ process.on("SIGINT", () => {
 });
 
 await Promise.all(results);
+
+// Recorded only when nothing changed while it ran.
+if (!passed && tree && tree === readCleanTree(".")) {
+  recordPassed(".", tree, swift);
+}

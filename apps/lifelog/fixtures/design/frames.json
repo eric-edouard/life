@@ -351,6 +351,9 @@
     ],
     "taps": ["Open Mail: choose an account"]
   },
+  "MatterIcon": {
+    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_lease -fixtureSheet icon."
+  },
   "ProjectFromMatter": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen."
   },

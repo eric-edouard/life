@@ -126,6 +126,8 @@ export interface Check {
   asker: string;
   /** When it was asked; null for Life's guesses (worked out when read). */
   at: string | null;
+  /** His complaint on this card's cause at work with the caretaker (received, its assignment open, its event not dropped): the complaint (an ask id), since when, and the caretaker's own line when only this complaint is its work; absent: none. Such a card no longer blocks (`urgencyOf`). */
+  beingFixed?: BeingFixed;
   /** The spans of recording a card plays (`audio` is what the app plays from lifelog): a voice's, newest first as lifelog gives them, or a spoken name's one clip of its sentence (`check-sentences.ts`); none for every other kind. */
   clips: {
     at: string | null;
@@ -139,7 +141,7 @@ export interface Check {
   confirm: Check[];
   /** A Contacts card's own name and handles, from the one `ContactNow`; null for every other kind. Never a network identity (a card has no chat). */
   contactsCard?: { handles: string[]; name: string } | null;
-  /** Why it asks, what was tried, what it rests on: folded on his card. An agent's words, or Life's own for its guesses. */
+  /** Why it asks, what was tried, what it rests on: folded on his card, in Markdown. An agent's words, or Life's own for its guesses, with the words a guess rests on quoted (`checksOf`). */
   context: string | null;
   /** By when he answers; null: no deadline. */
   deadline: string | null;
@@ -149,8 +151,6 @@ export interface Check {
   doneSeenBy?: "payment" | "tap";
   /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none. */
   draft: StoredDraft | null;
-  /** The quoted words a guess of Life's rests on, with where and when they were said; null for a card or a decision. */
-  evidence: { from: string; quote: string } | null;
   /** A new matter's goal, the one his Start hands the agent (the question words it too); null for every other kind. */
   goal: string | null;
   group: CheckGroup;
@@ -165,6 +165,8 @@ export interface Check {
   links: string[];
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done), `important` when he marked it; null: none. */
   matter: CheckMatter | null;
+  /** On Life's own cards only (none of an agent's, the caretaker's included): what his "Wrong…" (`answer_check`'s `misread`) sends back: `cause` (what its guess rests on, `causeOf`) and, on the inbox's cards, `shown` (the card as shown, a digest) and `seal` (`withMisreadSealed`); null on an agent's. */
+  misread?: { cause: string; seal?: string; shown?: string } | null;
   /** What he needs in hand to do a decision's step, each with Life's `line` of it, in the order to show them; absent on every other kind. */
   needs?: ReturnType<typeof needsShownOf>;
   /** A decision whose draft his last answer did not send (nothing went): when, why, and whether the same tap could work again; null: none. */
@@ -179,12 +181,14 @@ export interface Check {
   onMatters: CheckMatter[];
   /** The option the agent takes when he does not answer; null: none is taken (Life keeps using its guess, never writing it). */
   onSilence: string | null;
-  /** What he can answer (`CheckOption`: his button's label and what his answer takes); with two or more, the first is the one recommended (Life: its guess). Besides them he can always answer in his own words (a decision's `note`, else `tell_life`). */
+  /** What he can answer (`CheckOption`: his button's label and what his answer takes); with two or more, the first is the one recommended (Life: its guess). Besides them he can always answer in his own words (a decision's `note`; on Life's own cards, his complaint, `misread`). */
   options: CheckOption[];
   /** What he decides, in one sentence (a guess's worded by a template, no model). */
   question: string;
   /** What his answer acts on: a decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
   ref: string;
+  /** A decision asked after another agent's card held its draft's chat for `CONTEST_WAIT`: that older card's id ("Replaces an older draft"; his Send withdraws it); null: none. Absent on every other kind. */
+  replaces?: string | null;
   /** What uses it today, counted from what is stored. */
   ridesOn: {
     /** The ids of those matters (`matters` counts them): `checksOnMatterOf` finds a matter's checks by them. */
@@ -204,12 +208,16 @@ export interface Check {
   title: string;
 }
 
+/** A card whose cause his complaint is at work on (`Check.beingFixed`). */
+export interface BeingFixed {
+  ask: string;
+  line: string | null;
+  since: string;
+}
+
 /** The guess an ending check's answer stores in the fact-check line (the card asks "Is this done?" with the step's own sentence). */
 export const endingGuessOf = (step: string) =>
   `Life thinks this is done: ${step}`;
 
-/** An ending check always has its evidence: the later step's words. */
-export const isEndingKind = (
-  c: Check
-): c is Check & { evidence: NonNullable<Check["evidence"]> } =>
-  c.kind === "ending";
+/** Whether a check asks if a step is done (never in the nightly email). */
+export const isEndingKind = (c: Pick<Check, "kind">) => c.kind === "ending";
