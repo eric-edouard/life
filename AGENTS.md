@@ -23,6 +23,7 @@ reopens the memory's layers), `docs/releasing.md`,
 bun install                      # also points git hooks at .githooks (pre-push runs the check)
 bun run check                    # the gate: lint, types, fallow, tests, scrub, cases, voice eval. Must pass before every commit
                                  # a clean tree that passed is recorded in the git common dir; its next push runs only scrub, cases, voice eval
+                                 # LIFE_CHECK_SWIFT=at-landing skips the Swift builds on a branch's earlier pushes; its landing push runs them
 bun test apps/server/src/memory/units.test.ts   # one test file
 bun run fix                      # format and lint fixes
 bun life <command>               # the CLI (apps/server/src/desk/life-entry.ts, host/cli.ts); `bun life memory …` for the pipeline and reads
