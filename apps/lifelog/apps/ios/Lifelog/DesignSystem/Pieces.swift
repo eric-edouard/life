@@ -359,18 +359,36 @@ extension View {
     /// One row of a list as a grouped inset card (decision 98, rule 17): at least `Metrics.listRow` high on the card
     /// fill, the group's first row rounded at its top and its last at its foot, no divider, inset from the column's edges;
     /// the open row lit with `pick`. Rows of one group stack with no gap, so they read as one card; a label or a gap
-    /// starts the next. The same in a `List` row (its swipe actions and letter index kept) as in a stack.
+    /// starts the next. The same in a `List` row (its swipe actions and letter index kept) as in a stack. A row he taps
+    /// takes it as its button style (`.buttonStyle(.groupedRow(…))`), so the whole 60 is the tap.
     func groupedRow(at index: Int, of count: Int, isChosen: Bool = false) -> some View {
         let top = index == 0 ? Metrics.Radius.card : 0
         let foot = index == count - 1 ? Metrics.Radius.card : 0
         let shape = UnevenRoundedRectangle(
             topLeadingRadius: top, bottomLeadingRadius: foot, bottomTrailingRadius: foot, topTrailingRadius: top)
-        return frame(minHeight: Metrics.listRow)
+        return frame(minHeight: Metrics.listRow).contentShape(.rect)
             .background(Color.pick.opacity(isChosen ? 1 : 0), in: shape)
             .background(Palette.card, in: shape)
             .padding(.horizontal, Metrics.Spacing.m)
             .motion(Motion.standard, value: isChosen)
             .accessibilityAddTraits(isChosen ? .isSelected : [])
+    }
+}
+
+/// A tapped row of a grouped inset list: its label in `groupedRow`, the whole row the tap.
+struct GroupedRowStyle: ButtonStyle {
+    let index: Int
+    let count: Int
+    var isChosen = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.groupedRow(at: index, of: count, isChosen: isChosen)
+    }
+}
+
+extension ButtonStyle where Self == GroupedRowStyle {
+    static func groupedRow(at index: Int, of count: Int, isChosen: Bool = false) -> GroupedRowStyle {
+        GroupedRowStyle(index: index, count: count, isChosen: isChosen)
     }
 }
 

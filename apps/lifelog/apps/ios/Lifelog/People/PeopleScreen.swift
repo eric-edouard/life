@@ -116,7 +116,9 @@ private struct PeopleColumns: View {
                         VStack(alignment: .leading, spacing: 0) {
                             if at == 0, let label = group.label { ListLabel(label) }
                             PersonRowButton(row: row) { router.select(person: row.id) }
-                                .groupedRow(at: at, of: group.rows.count, isChosen: isSplit && router.person == row.id)
+                                .buttonStyle(
+                                    .groupedRow(
+                                        at: at, of: group.rows.count, isChosen: isSplit && router.person == row.id))
                         }
                         .readingWidth()
                         .appears()
@@ -134,7 +136,7 @@ private struct PeopleColumns: View {
 }
 
 /// One person or organization as a row of a list that opens their page: `PartyRow`, the flag dot when something with
-/// them waits on him. Its list sets it in its card (`groupedRow`).
+/// them waits on him. Its list sets it in its card (`.buttonStyle(.groupedRow(…))`).
 struct PersonRowButton: View {
     let row: PersonRow
     let open: () -> Void
@@ -145,9 +147,7 @@ struct PersonRowButton: View {
                 if row.needsYou { StateDot(color: Palette.flag) }
             }
             .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
-            .contentShape(.rect)
         }
-        .buttonStyle(.plain)
         .accessibilityValue(row.needsYou ? "Needs you" : "")
     }
 }

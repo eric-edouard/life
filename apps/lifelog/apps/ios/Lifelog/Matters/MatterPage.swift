@@ -96,8 +96,7 @@ struct MatterPage: View {
                             RowValue()
                         }
                     }
-                    .buttonStyle(.plain)
-                    .groupedRow(at: at, of: checks.count)
+                    .buttonStyle(.groupedRow(at: at, of: checks.count))
                     // The dot has its words.
                     .accessibilityValue(needsYourAnswer)
                 }

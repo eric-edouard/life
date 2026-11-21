@@ -14,7 +14,14 @@ struct AgentSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let agent { content(agent) }
+            if let agent {
+                content(agent)
+                // A refused Stop or Resume says why in the scroll, which holds any length; the bar keeps the buttons.
+                if case .failed(let failure, _) = life.state(of: .agent(agent.id)) {
+                    Text(failure.reason).font(.small).foregroundStyle(Palette.flag).padding(.top, Metrics.Spacing.l)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
         .sheetScroll {
             if let agent { head(agent) }
@@ -215,7 +222,6 @@ struct AgentSheet: View {
                 nil
             }
         return VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-            if case .failed(let failure, _) = state { Text(failure.reason).font(.small).foregroundStyle(Palette.flag) }
             // One full-width button (the sheet closes from its own Close), then the session's quiet link.
             Group {
                 if let primary {

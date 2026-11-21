@@ -56,8 +56,7 @@ struct ProjectPage: View {
                         } label: {
                             MatterRowView(row: row, isMarked: life.isImportant(row.id, as: row.important))
                         }
-                        .buttonStyle(.plain)
-                        .groupedRow(at: at, of: matters.count)
+                        .buttonStyle(.groupedRow(at: at, of: matters.count))
                     }
                 }
                 // The card on the page's gutter: a grouped row keeps a list's inset from its column's edges.

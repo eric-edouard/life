@@ -189,8 +189,7 @@ struct OpenMatters: View {
                         } label: {
                             MatterRowView(row: row, isMarked: life.isImportant(row.id, as: row.important))
                         }
-                        .buttonStyle(.plain)
-                        .groupedRow(at: at, of: rows.count)
+                        .buttonStyle(.groupedRow(at: at, of: rows.count))
                         .appears()
                     }
                 }
@@ -328,8 +327,7 @@ private struct Knows: View {
                             .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
                             .contentShape(.rect)
                         }
-                        .buttonStyle(.plain)
-                        .groupedRow(at: at, of: rows.count)
+                        .buttonStyle(.groupedRow(at: at, of: rows.count))
                     }
                 }
             }

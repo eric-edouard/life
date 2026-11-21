@@ -52,8 +52,7 @@ struct CheckList: View {
             .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
             .accessibilityElement(children: .combine)
         }
-        .buttonStyle(.plain)
-        .groupedRow(at: index, of: count, isChosen: isChosen)
+        .buttonStyle(.groupedRow(at: index, of: count, isChosen: isChosen))
         .appears()
     }
 

@@ -159,10 +159,12 @@ struct MattersScreen: View {
                     } label: {
                         MatterRowView(row: row, isMarked: isMarked)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(
+                        .groupedRow(
+                            at: isParked ? at - split : at, of: isParked ? rows.count - split : split,
+                            isChosen: isSelected)
+                    )
                     .zoomSource(row.id, in: matterZoom)
-                    .groupedRow(
-                        at: isParked ? at - split : at, of: isParked ? rows.count - split : split, isChosen: isSelected)
                 }
                 .readingWidth()
                 .appears()

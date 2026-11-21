@@ -62,7 +62,7 @@ struct SearchScreen: View {
                         empty: { if asked.isEmpty { NoMattersNotice() } },
                         content: { _ in
                             matterRows(
-                                results.matterRows ?? [], isLabelled: results.people?.onScreen?.people.isEmpty == false)
+                                results.matterRows ?? [], isLabelled: results.people?.onScreen?.isNoOne == false)
                         }
                     )
                 }
@@ -127,8 +127,7 @@ struct SearchScreen: View {
                 } label: {
                     MatterRowView(row: row, isMarked: life.isImportant(row.id, as: row.important))
                 }
-                .buttonStyle(.plain)
-                .groupedRow(at: at, of: rows.count)
+                .buttonStyle(.groupedRow(at: at, of: rows.count))
                 .appears()
             }
         }
@@ -139,7 +138,8 @@ struct SearchScreen: View {
         if !rows.isEmpty {
             ListLabel(label)
             ForEach(Array(rows.enumerated()), id: \.element.id) { at, row in
-                PersonRowButton(row: row) { router.open(party: row.id) }.groupedRow(at: at, of: rows.count).appears()
+                PersonRowButton(row: row) { router.open(party: row.id) }
+                    .buttonStyle(.groupedRow(at: at, of: rows.count)).appears()
             }
         }
     }
