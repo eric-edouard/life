@@ -44,7 +44,7 @@ struct PersonPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                    Who(row: now.row)
+                    Who(row: now.row, now: now)
                     reach
                 }
                 OpenMatters(label: "Open with \(now.firstName)", now: now)
@@ -102,10 +102,12 @@ private struct PersonPlaceholder: View {
 /// exchange ("Partner · Close · last exchange Tue 17 Nov", `DuoFoldPerson`).
 private struct Who: View {
     let row: PersonRow
+    /// Their read, once it landed: its pictures make the disc open the picture sheet.
+    var now: PersonNow?
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.l) {
-            PartyDisc(row.party, size: .head)
+            HeadPicture(party: row.party, now: now)
             VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
                 Text(row.party.name).font(.screenName).foregroundStyle(Palette.fg)
                     .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)

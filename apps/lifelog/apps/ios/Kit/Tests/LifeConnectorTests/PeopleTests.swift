@@ -32,6 +32,22 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     #expect(now.parties.map(\.ref) == ["person:test-ana"])
 }
 
+@Test func hisPicturePickReadsOffThePartyLifeSent() throws {
+    let now = try decoded(PersonNow.self, wireText("life/read_people_and_organizations_now.json"))
+    #expect(now.pictures.map(\.source) == ["contacts", "whatsapp"])
+    // She shows no picture although she has some: his pick is "none".
+    #expect(now.pictureInUse == PersonNow.noPicture)
+    #expect(now.picturesFrom == "From Contacts and WhatsApp")
+    let shown = try decoded(
+        PersonNow.self,
+        #"{"ref":"person:kim","name":"Kim","kind":"person","picture":{"id":"b2"},"pictures":[{"id":"b1","source":"contacts"},{"id":"b2","source":"whatsapp"},{"id":"b3","source":"instagram"}]}"#
+    )
+    #expect(shown.pictureInUse == "whatsapp")
+    #expect(shown.picturesFrom == "From Contacts, WhatsApp and Instagram")
+    #expect(shown.row.party.showing("b3").picture?.id == "b3")
+    #expect(shown.row.party.showing(nil).picture == nil)
+}
+
 @Test func byClosenessTheGroupsFollowLifesOrderTheFirstUnlabelled() throws {
     let list = try decoded(
         PeopleList.self,

@@ -36,9 +36,30 @@ export function readPictureIndex(): PictureIndex {
   }
 }
 
-/** What he can pick from for someone (`pictureFrom` names a source): the first picture of each source, in the index's order. */
-export const pictureChoicesOf = (shown: PictureIndex[string]) =>
-  shown.filter((p, i) => shown.findIndex((q) => q.source === p.source) === i);
+/** His picks in his directory (`pictureFrom`), by ref: the one place a pick can be written. */
+const picksOf = (
+  directory: readonly Pick<DirectoryParty, "id" | "pictureFrom">[]
+) => new Map(directory.map((p) => [`person:${p.id}`, p.pictureFrom]));
+
+/**
+ * What he can pick from for a ref as it reads today (`pictureFrom` names a source): the first picture of each source, in
+ * the index's order; none for anyone outside his directory, where no pick can be written.
+ */
+export function pictureChoicesOf(
+  directory: readonly Pick<DirectoryParty, "id" | "pictureFrom">[],
+  pictures: () => PictureIndex
+) {
+  const picks = picksOf(directory);
+  return (ref: string) => {
+    if (!picks.has(ref)) {
+      return [];
+    }
+    const shown = pictures()[ref] ?? [];
+    return shown.filter(
+      (p, i) => shown.findIndex((q) => q.source === p.source) === i
+    );
+  };
+}
 
 /** Someone Life has a ref for, as an app shows them: `line` is what they are to him (`relationOf`), `picture` the one they show (his pick, else their first). */
 export const Party = z
@@ -68,9 +89,7 @@ export function partyOf(
   directory: readonly Pick<DirectoryParty, "id" | "pictureFrom">[],
   pictures: () => PictureIndex
 ) {
-  const picks = new Map(
-    directory.map((p) => [`person:${p.id}`, p.pictureFrom])
-  );
+  const picks = picksOf(directory);
   return (ref: string): Party => {
     const now = people.refOf(ref);
     const pick = picks.get(now);
