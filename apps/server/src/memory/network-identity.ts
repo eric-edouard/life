@@ -67,10 +67,13 @@ export function networkIdentityOf(
   ownerName: string
 ): NetworkIdentity {
   const source = sourceOf(unit.source);
+  // The chat's handle, else its last sender's; of the two, one the network opens first (a WhatsApp `@lid` opens nothing).
+  const handles = [
+    source.handleOf?.(unit.key),
+    messages.findLast((m) => !m.fromMe)?.sender,
+  ].filter((h): h is string => !!h);
   const handle =
-    source.handleOf?.(unit.key) ??
-    messages.findLast((m) => !m.fromMe)?.sender ??
-    null;
+    handles.find((h) => source.chatLinkOf?.(h)) ?? handles[0] ?? null;
   // A chat-day's title is its chat's name, else its key: a key is no name.
   const shownName = unit.title === unit.key ? null : unit.title;
   const last = messages.at(-1);
