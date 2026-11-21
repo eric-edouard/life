@@ -36,6 +36,10 @@ export function readPictureIndex(): PictureIndex {
   }
 }
 
+/** What he can pick from for someone (`pictureFrom` names a source): the first picture of each source, in the index's order. */
+export const pictureChoicesOf = (shown: PictureIndex[string]) =>
+  shown.filter((p, i) => shown.findIndex((q) => q.source === p.source) === i);
+
 /** Someone Life has a ref for, as an app shows them: `line` is what they are to him (`relationOf`), `picture` the one they show (his pick, else their first). */
 export const Party = z
   .object({

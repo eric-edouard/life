@@ -41,14 +41,17 @@ export interface DetailLine {
 /**
  * Someone's details, in page order (birthday, home, work, family, handles), each kind from his directory first, then his
  * Contacts. One birthday: his directory's, else the first in Contacts. A Contacts address labelled Work is not a home. A line
- * two Contacts cards repeat shows once; each handle is a line of its own, once however it is written.
+ * two Contacts cards repeat shows once; each handle is a line of its own, once however it is written. A work line carries
+ * the ref `refOf` gives its company, a family line the ref it gives the relation's name, each as Contacts holds it.
  */
 export function detailsOf({
   contacts,
   person,
+  refOf = () => null,
 }: {
   contacts: Contact[];
   person?: Person;
+  refOf?: (kind: "family" | "work", name: string) => string | null;
 }): DetailLine[] {
   // A phone or an email once however written (its contact key, kept apart from exact ids), any other handle as written.
   const phoneOrEmailKeyOf = (h: string) => {
@@ -66,6 +69,14 @@ export function detailsOf({
     kind: Detail,
     texts: (string | null | undefined)[]
   ) => texts.flatMap((text) => (text ? [{ from, kind, text }] : []));
+  const named = (
+    kind: "family" | "work",
+    text: string,
+    name: string | null
+  ): DetailLine[] => {
+    const ref = name ? refOf(kind, name) : null;
+    return [{ from: "contacts", kind, text, ...(ref ? { ref } : {}) }];
+  };
   const lines: DetailLine[] = [
     ...line("truth", "birthday", [person?.birthday]),
     ...line(
@@ -80,15 +91,13 @@ export function detailsOf({
         .flatMap((c) => c.addresses)
         .filter((a) => !a.endsWith(WORK_ADDRESS))
     ),
-    ...line(
-      "contacts",
-      "work",
-      contacts.map((c) => c.work)
+    ...contacts.flatMap((c) =>
+      c.work ? named("work", c.work, c.company) : []
     ),
-    ...line(
-      "contacts",
-      "family",
-      contacts.flatMap((c) => c.related)
+    ...contacts.flatMap((c) =>
+      c.related.flatMap((r) =>
+        named("family", r.label ? `${r.label}: ${r.name}` : r.name, r.name)
+      )
     ),
     ...line("truth", "handles", mapped),
     ...line(
@@ -109,32 +118,22 @@ export function detailsOf({
 }
 
 /**
- * Whom a detail names: a work line, the organization of his directory one of its parts names whole (the company is its
- * last); a family line ("Mother: Anne"), the person its name resolves to (`resolve`, never a part of a name); null for
- * every other line, or a name no one goes by.
+ * Whom a work or family detail names, by Contacts' own field: a company, the organization of his directory it names
+ * whole; a relation's name, the person it resolves to (`resolve`), never an organization; else null.
  */
 export function detailRefOf(
-  l: DetailLine,
   people: Pick<People, "isOrganization" | "resolve" | "truth">
 ) {
-  if (l.kind === "work") {
-    const ours = new Set(
-      people.truth.organizations.map((o) => `person:${o.id}`)
-    );
-    return (
-      l.text
-        .split(", ")
-        .toReversed()
-        .map((part) => people.resolve(part))
-        .find((r) => r !== null && ours.has(r)) ?? null
-    );
-  }
-  if (l.kind === "family") {
-    // Contacts writes "<label>: <name>", or the name alone.
-    const r = people.resolve(l.text.split(": ").at(-1) ?? l.text);
-    return r && !people.isOrganization(r) ? r : null;
-  }
-  return null;
+  const ours = new Set(people.truth.organizations.map((o) => `person:${o.id}`));
+  return (kind: "family" | "work", name: string) => {
+    const r = people.resolve(name);
+    if (!r) {
+      return null;
+    }
+    return (kind === "work" ? ours.has(r) : !people.isOrganization(r))
+      ? r
+      : null;
+  };
 }
 
 /** Someone's birthday by their details. */

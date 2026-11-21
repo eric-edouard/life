@@ -5,8 +5,6 @@ import { ClosenessLevel } from "../records/observation";
 import type { SituationLine } from "../records/situation";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
-import { openStore, turnsBetween, withStore } from "../sources/lifelog";
-import { readTurnClip } from "../sources/lifelog-voices";
 import { closerOf } from "./closeness";
 import { type DetailLine, nextBirthday } from "./details";
 import { exchangesOf } from "./exchanges";
@@ -193,7 +191,7 @@ export interface NowInputs {
   /** The running matters with them, ranked (`read_matters`' order). */
   matters: MatterRowNow[];
   organization?: { domains: string[]; people: Member[] };
-  /** Every picture Life kept of them, one per source (the index's order); the one in use is the row's `picture`. */
+  /** The pictures he can pick from for them (`pictureChoicesOf`: one per source); the one in use is the row's `picture`. */
   pictures: PictureIndex[string];
   reach: Reach[];
   row: PersonRow;
@@ -220,7 +218,7 @@ const KEPT_FIRST = [
 
 /**
  * Someone's `now`, as data: their row, reach, details (a birthday dated; a phone or mail reach already opens is left
- * out; a work or family line with whom it names), every picture kept of them, how each writes to the other, what their time together was about, their situation, the parts Life holds
+ * out; a work or family line with whom it names), the pictures he can pick from, how each writes to the other, what their time together was about, their situation, the parts Life holds
  * (`knows`), an organization's domains and people, and their open matters, ranked. The whole answer serialized stays
  * within `chars` (`PART_CHARS`, less what wraps it): its lists are cut by `KEPT_FIRST`. Pure.
  */
@@ -334,11 +332,9 @@ export interface LatestExchange {
   open?: { lands: "chat"; url: string };
 }
 
-/** A conversation in person, as `latest` lists it: when, what it was about, the unit `fetch` opens, and what plays it. */
+/** A conversation in person, as `latest` lists it: when, what it was about, and the unit `fetch` opens. */
 export interface LatestHeard {
   at: string;
-  /** The spans of recording it plays, in order, one per recording it was cut into (`audio` as a card's clip gives it: seconds into lifelog's audio of that job); none when lifelog has none. */
-  audio: { end: number; jobId: string; start: number }[];
   channel: "voice";
   summary: string;
   unit: string;
@@ -366,7 +362,6 @@ async function latestOf(
     return [
       {
         at: u.start,
-        audio: [],
         channel: "voice",
         summary: u.summary ?? u.title,
         unit: u.id,
@@ -413,23 +408,19 @@ export async function readLatest(
   people: People
 ) {
   const items: (LatestExchange | LatestHeard)[] = [];
-  const units = new Map<string, Unit>();
   let day = before;
   let more = true;
   while (more && items.length <= LATEST) {
-    const { listed, units: found } = readPersonUnitFiles([ref], {
+    const { listed, units } = readPersonUnitFiles([ref], {
       before: day,
       count: LATEST_ROUND,
       kinds: ["chat", "mail", "voice"],
     });
     more = listed.length > 0;
     day = listed.at(-1)?.date;
-    for (const { unit } of found) {
-      units.set(unit.id, unit);
-    }
     // biome-ignore lint/performance/noAwaitInLoops: a round reads the next days only while the page is not full
     const round = await Promise.all(
-      found.map(({ direct, unit }) => latestOf(unit, direct, ref, people))
+      units.map(({ direct, unit }) => latestOf(unit, direct, ref, people))
     );
     items.push(...round.flat());
   }
@@ -441,40 +432,7 @@ export async function readLatest(
   const oldest = taken.at(-1);
   const nextBefore =
     next ?? (more && oldest ? localDate(oldest.at) : undefined);
-  const latest = await Promise.all(
-    taken.map(async (x) =>
-      "unit" in x
-        ? { ...x, audio: await readHeardAudio(units.get(x.unit) as Unit) }
-        : x
-    )
-  );
-  return { latest, ...(nextBefore ? { nextBefore } : {}) };
-}
-
-/**
- * What a conversation in person plays: its turns (the watcher's store, as `spokenLines` reads them) by recording, each
- * from its first turn's clip to its last's (`readTurnClip`). A recording lifelog no longer has, or lifelog not
- * answering, leaves that span out. ponytail: two clip reads per recording, on loopback; a span read when they cost.
- */
-export async function readHeardAudio(u: Unit, open = openStore) {
-  const turns = await withStore(
-    (store) => turnsBetween(store, u.key, u.start, u.end),
-    open
-  );
-  const spans = await Promise.all(
-    [...Map.groupBy(turns, (t) => t.jobId)].map(async ([jobId, said]) => {
-      const clipOf = (t: (typeof said)[number]) =>
-        readTurnClip(jobId, t.turnIndex).catch(() => null);
-      const [first, last] = await Promise.all([
-        clipOf(said[0] as (typeof said)[number]),
-        said.length > 1 ? clipOf(said.at(-1) as (typeof said)[number]) : null,
-      ]);
-      const from = first?.audio;
-      const to = said.length > 1 ? last?.audio : from;
-      return from && to ? [{ end: to.end, jobId, start: from.start }] : [];
-    })
-  );
-  return spans.flat();
+  return { latest: taken, ...(nextBefore ? { nextBefore } : {}) };
 }
 
 /** The owner is never on his own list of people. */

@@ -128,6 +128,7 @@ function library(assets: Asset[], faces: [string, number][] = []) {
 const card = (over: Partial<Contact>): Contact => ({
   addresses: [],
   birthday: null,
+  company: null,
   handles: [],
   id: "card-1:ABPerson",
   labels: {},

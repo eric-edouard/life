@@ -21,7 +21,6 @@ import {
 } from "./index-rows";
 import { daysOf, pagePath } from "./memory-files";
 import { slugOf } from "./page-format";
-import { readPictureIndex } from "./party";
 import { episodeTitlesOf } from "./person-episode-titles";
 import { readEpisodesWith, readStandingEpisodes } from "./person-episodes";
 import {
@@ -397,9 +396,7 @@ function nowGathered(
   const details = detailsOf({
     contacts: cards,
     person: truth.people.find((p) => `person:${p.id}` === ref),
-  }).map((l) => {
-    const named = detailRefOf(l, people);
-    return named ? { ...l, ref: named } : l;
+    refOf: detailRefOf(people),
   });
   const theirs = matters.filter((m) => isIn(m, ref));
   return (more: Pick<NowInputs, "episodes" | "knows">, chars: number) =>
@@ -412,7 +409,7 @@ function nowGathered(
           ? { directoryIsNew: true as const }
           : {}),
         matters: theirs,
-        pictures: readPictureIndex()[row.ref] ?? [],
+        pictures: people.pictureChoicesOf(row.ref),
         ...(organization
           ? {
               organization: {
