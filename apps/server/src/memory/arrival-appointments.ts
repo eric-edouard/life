@@ -143,8 +143,8 @@ const hourAfter = (local: string) =>
 
 const TIMED = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/;
 const DAY_ONLY = /^\d{4}-\d{2}-\d{2}$/;
-const URLS = /https:\/\/\S+/g;
-const TRAILING = /[).,;:!?'"\]]+$/;
+const URLS = /https:\/\/[^\s<>"]+/g;
+const TRAILING = /[.,;:!?'"\]>]+$/;
 
 /** Whether `local` is a real calendar day (`YYYY-MM-DD`), or a real day and time (`YYYY-MM-DD HH:MM`) when `timed`. */
 const isLocalTime = (local: string, timed: boolean) => {
@@ -160,26 +160,19 @@ const isLocalTime = (local: string, timed: boolean) => {
   );
 };
 
-/** Whether `zone` is a time zone the platform knows. */
-const isZone = (zone: string) => {
-  try {
-    return (
-      new Intl.DateTimeFormat("en", { timeZone: zone }).resolvedOptions()
-        .timeZone !== ""
-    );
-  } catch {
-    return false;
-  }
-};
+/** The https addresses the lines hold, each whole: trailing punctuation and a closing bracket it did not open left out. */
+const urlsOf = (lines: string[]) =>
+  (lines.join("\n").match(URLS) ?? []).map((u) => {
+    const trimmed = u.replace(TRAILING, "");
+    const isOpen = (trimmed.match(/\(/g) ?? []).length;
+    return trimmed.endsWith(")") && (trimmed.match(/\)/g) ?? []).length > isOpen
+      ? trimmed.slice(0, -1)
+      : trimmed;
+  });
 
-/** A link kept only when the lines hold it whole: an https address ending where the source's does. */
+/** A link kept only when the lines hold that https address whole and it parses; else none (the appointment kept). */
 const linkOf = (link: string | null, lines: string[]) =>
-  link?.startsWith("https://") &&
-  (lines.join("\n").match(URLS) ?? []).some(
-    (u) => u === link || u.replace(TRAILING, "") === link
-  )
-    ? link
-    : null;
+  link && URL.canParse(link) && urlsOf(lines).includes(link) ? link : null;
 
 /** Why a reply that agrees is not kept, or null: its quote, its days and times, its zone. */
 function problemOf(
@@ -190,17 +183,15 @@ function problemOf(
   }
 ) {
   const timed = !a.allDay;
-  if (locate(a.quote, read.lines) === null) {
-    return "its quote is not in the lines";
+  const at = locate(a.quote, read.lines);
+  if (at === null || at.line !== at.lastLine) {
+    return "its quote is not in one line";
   }
   if (
     !isLocalTime(a.start, timed) ||
     (a.end !== null && !isLocalTime(a.end, timed))
   ) {
     return "its days and times are not real ones, or disagree";
-  }
-  if (a.zone !== null && !isZone(a.zone)) {
-    return "its zone is unknown";
   }
   if (a.start.slice(0, 10) < read.firstDay) {
     return "it starts before the lines";
@@ -235,14 +226,16 @@ export function checkedAppointmentReply(
   if (why) {
     return { agreed: false, refused: why };
   }
-  const stored = Stored.safeParse({
+  const kept = {
     ...a,
     end: a.end ?? (a.allDay ? a.start : hourAfter(a.start)),
     link: linkOf(a.link, read.lines),
     people: a.people.slice(0, 10),
     quote: locate(a.quote, read.lines)?.verbatim ?? a.quote,
-  });
-  return stored.success
-    ? stored.data
-    : { agreed: false, refused: "a field out of bounds" };
+  };
+  // A link the stored shape refuses is dropped alone.
+  const stored =
+    Stored.safeParse(kept).data ??
+    Stored.safeParse({ ...kept, link: null }).data;
+  return stored ?? { agreed: false, refused: "a field out of bounds" };
 }

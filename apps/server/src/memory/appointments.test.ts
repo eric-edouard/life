@@ -470,7 +470,7 @@ test("an appointment read's reply is kept only as the lines say it: quote found,
     checkedAppointmentReply({ ...said, quote: "Dinner on Friday" }, read)
   ).toEqual({
     agreed: false,
-    refused: "its quote is not in the lines",
+    refused: "its quote is not in one line",
   });
   expect(
     checkedAppointmentReply({ ...said, start: "2026-11-30 15:00" }, read)
@@ -522,6 +522,42 @@ test("an appointment read's reply is kept only as the lines say it: quote found,
       cafe
     )
   ).toMatchObject({ link: "https://meet.example.com/room?key=abcdef" });
+  // A quote across two messages is not one line's.
+  const two = {
+    firstDay: "2026-12-01",
+    lines: ["10:02 Lee: see you in the room", "10:03 Lee: at three"],
+  };
+  expect(
+    checkedAppointmentReply(
+      { ...said, quote: "the room\n10:03 Lee: at three" },
+      two
+    )
+  ).toMatchObject({ agreed: false });
+  // Links as the lines hold them whole: inside brackets, with its own parentheses; a broken one dropped alone.
+  const links = (line: string, link: string) =>
+    checkedAppointmentReply(
+      { ...said, link, quote: "Call at three" },
+      { firstDay: "2026-12-01", lines: [`10:02 Sam: Call at three ${line}`] }
+    );
+  expect(
+    links("<https://meet.example.com/a-b>", "https://meet.example.com/a-b")
+  ).toMatchObject({ link: "https://meet.example.com/a-b" });
+  expect(
+    links(
+      "(https://meet.example.com/room(foo))",
+      "https://meet.example.com/room(foo)"
+    )
+  ).toMatchObject({ link: "https://meet.example.com/room(foo)" });
+  expect(
+    links(
+      "https://meet.example.com/room(foo)",
+      "https://meet.example.com/room(foo"
+    )
+  ).toMatchObject({ agreed: true, link: null });
+  expect(links("https://?", "https://?")).toMatchObject({
+    agreed: true,
+    link: null,
+  });
   expect(checkedAppointmentReply({ agreed: false }, read)).toEqual({
     agreed: false,
   });

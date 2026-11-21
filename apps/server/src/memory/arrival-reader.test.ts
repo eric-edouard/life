@@ -642,8 +642,12 @@ const twoAsks = () => [
 ];
 test("an appointment read that fails is not counted, and is asked again on its own lines alone, new lines read apart", async () => {
   let fails = true;
+  // Apple's answer this pass: none at first, then back.
+  const apple: FoundationAnswer[] = [
+    { detail: "no helper", error: "unavailable" },
+  ];
   const s = sceneOf(
-    () => ({ detail: "no helper", error: "unavailable" }),
+    () => apple[0] as FoundationAnswer,
     true,
     false,
     () => {
@@ -657,9 +661,15 @@ test("an appointment read that fails is not counted, and is asked again on its o
   const a = msg("Your table for 2 is booked at Riverside, 19:30");
   expect(await s.read([a])).toBe(0);
   expect(s.lines().map((l) => l.read)).toEqual(["arrival_confirm"]);
-  // A new line in the same chat: the failed read is asked on the first line's keys, the new line read on its own.
+  // A new line in the same chat, Apple back and saying it sets no meeting: the failed read is asked on the first
+  // line's keys alone, once; the new line is Apple's alone.
+  apple[0] = {
+    os: "27.2",
+    reply: { author: "person", event: "no", quote: "" },
+  };
   const b = msg("See you there");
-  expect(await s.read([a, b])).toBe(2);
+  expect(await s.read([a, b])).toBe(1);
+  expect(await s.read([a, b])).toBe(0);
   expect(
     s
       .lines()
@@ -668,9 +678,8 @@ test("an appointment read that fails is not counted, and is asked again on its o
   ).toEqual(
     [
       `arrival_appointment whatsapp|${a.id}`,
-      `arrival_appointment whatsapp|${b.id}`,
       `arrival_confirm whatsapp|${a.id}`,
-      `arrival_confirm whatsapp|${b.id}`,
+      `arrival_trigger whatsapp|${b.id}`,
     ].toSorted()
   );
 });

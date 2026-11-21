@@ -260,15 +260,27 @@ const isTriggered = (
 const isEventTriggered = (reply: { refused: string } | { event?: string }) =>
   "refused" in reply || reply.event === "yes";
 
-/** The reads of his engine a stored trigger goes on to: the confirm, the appointment read, both or none. */
+/** His engine's two reads of a read: each by its name, and how it is asked. */
+const BOTH_READS = [
+  { ask: (r: ArrivalRead) => confirmOf(r), read: ARRIVAL_CONFIRM_READ },
+  { ask: (r: ArrivalRead) => appointmentOf(r), read: ARRIVAL_APPOINTMENT_READ },
+] as const;
+
+/**
+ * The one routing rule: the reads of his engine a read goes on to. After Apple's trigger, the confirm, the appointment
+ * read, both or none, by its answer; sent straight to his engine (no trigger: Thai, no Apple model), both.
+ */
 const readsAfterOf = (
-  reply: Parameters<typeof isTriggered>[0] &
-    Parameters<typeof isEventTriggered>[0],
-  r: ArrivalRead
-) => [
-  ...(isTriggered(reply) ? [confirmOf(r)] : []),
-  ...(isEventTriggered(reply) ? [appointmentOf(r)] : []),
-];
+  reply?: Parameters<typeof isTriggered>[0] &
+    Parameters<typeof isEventTriggered>[0]
+) =>
+  reply
+    ? BOTH_READS.filter((x) =>
+        x.read === ARRIVAL_CONFIRM_READ
+          ? isTriggered(reply)
+          : isEventTriggered(reply)
+      )
+    : BOTH_READS;
 
 /** The appointment read of a read, for `makeReplies`: its reply stored after `checkedAppointmentReply`. */
 function appointmentOf(r: ArrivalRead): Asked {
@@ -453,7 +465,7 @@ export async function readArrivals(
   // Thai lines go to both of his engine's reads.
   const toConfirm: Asked[] = due
     .filter((r) => !forApple.includes(r))
-    .flatMap((r) => [confirmOf(r), appointmentOf(r)]);
+    .flatMap((r) => readsAfterOf().map((x) => x.ask(r)));
   const digest = promptDigestOf(promptText(TRIGGER));
   for (const [i, r] of forApple.entries()) {
     const answer = answers[i] as FoundationAnswer;
@@ -463,7 +475,7 @@ export async function readArrivals(
     }
     // No Apple model on this Mac: nothing stored, his engine reads it.
     if ("error" in answer && answer.error !== "refused") {
-      toConfirm.push(confirmOf(r), appointmentOf(r));
+      toConfirm.push(...readsAfterOf().map((x) => x.ask(r)));
       continue;
     }
     const reply = triggerReplyOf(answer);
@@ -487,7 +499,7 @@ export async function readArrivals(
       confirmOf(r).call.firstAt,
       where
     );
-    toConfirm.push(...readsAfterOf(reply, r));
+    toConfirm.push(...readsAfterOf(reply).map((x) => x.ask(r)));
   }
   toConfirm.push(...pendingConfirms(pending, lineSources, people));
   const room =
@@ -528,29 +540,18 @@ const sameKeys = (a: string[], b: string[]) =>
 function pendingReadsOf(stored: ReadReply[], day: string) {
   const isMade = (read: string, keys: string[]) =>
     stored.some((c) => c.read === read && sameKeys(c.messages, keys));
-  const isTriggerOf = (keys: string[]) => isMade(ARRIVAL_TRIGGER_READ, keys);
   return stored.flatMap((t) => {
     if (!("unit" in t) || localDate(t.at) !== day) {
       return [];
     }
-    const missing = (read: string, ask: (r: ArrivalRead) => Asked) =>
-      isMade(read, t.messages) ? [] : [{ ask, t }];
-    if (t.read === ARRIVAL_TRIGGER_READ) {
-      return [
-        ...(isTriggered(t.reply)
-          ? missing(ARRIVAL_CONFIRM_READ, confirmOf)
-          : []),
-        ...(isEventTriggered(t.reply)
-          ? missing(ARRIVAL_APPOINTMENT_READ, appointmentOf)
-          : []),
-      ];
-    }
-    if (isTriggerOf(t.messages)) {
+    const isTrigger = t.read === ARRIVAL_TRIGGER_READ;
+    // A straight read's other read is anchored on the one made; a trigger's on the trigger.
+    if (!isTrigger && isMade(ARRIVAL_TRIGGER_READ, t.messages)) {
       return [];
     }
-    return t.read === ARRIVAL_CONFIRM_READ
-      ? missing(ARRIVAL_APPOINTMENT_READ, appointmentOf)
-      : missing(ARRIVAL_CONFIRM_READ, confirmOf);
+    return readsAfterOf(isTrigger ? t.reply : undefined)
+      .filter((x) => !isMade(x.read, t.messages))
+      .map((x) => ({ ask: x.ask, t }));
   });
 }
 
