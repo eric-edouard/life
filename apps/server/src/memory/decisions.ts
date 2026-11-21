@@ -313,10 +313,6 @@ function contestOfAsk(
 const isSendingOf = (d: Decision) =>
   d.state === "answered" && actDueOf(d) === "send" && !d.send;
 
-/** Registered agent `agent`'s open decision, if any: the door lets each assignment ask one at a time, worked out from `list`, never stored. */
-export const openDecisionOf = (agent: string, list = decisionsNow()) =>
-  list.find((d) => d.agent === agent && d.state === "open");
-
 /** Decision `id` while it is open (`isWaitingToo`: or waiting); throws otherwise. */
 function readOpenDecision(id: string, now: Date, isWaitingToo = false) {
   const d = decisionsNow(now).find((x) => x.id === id);
