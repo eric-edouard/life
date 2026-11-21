@@ -1,9 +1,9 @@
 import { expect, setSystemTime, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { HOUR } from "../core/clock";
+import { DECISIONS } from "../memory/decision-lines";
 import {
   answerDecision,
-  DECISIONS,
   requestDecision,
   withdrawDraftsAnsweredInChat,
 } from "../memory/decisions";

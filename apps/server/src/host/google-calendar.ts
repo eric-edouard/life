@@ -4,7 +4,7 @@ import { redact } from "../core/redact";
 import type { Draft } from "../memory/calendar-events";
 
 // One Google calendar through `gog` (as `account`), for Life's own events in it: the Past calendar
-// (`past-calendar.ts`) and the appointments (`appointments-calendar.ts`). Life finds its events by their private
+// (`past-calendar.ts`), the appointments (`appointments-calendar.ts`) and an agent's event on his yes (`card-event-calendar.ts`). Life finds its events by their private
 // properties and reads nothing else of a calendar.
 
 /** One of Life's events: its id, whether it is all-day, and its private properties. */

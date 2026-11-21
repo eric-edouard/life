@@ -5,7 +5,8 @@ import { logEvents, logFileOf } from "../core/log";
 import { setSettings } from "../core/settings";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as checks from "../memory/checks";
-import { DECISIONS, requestDecision } from "../memory/decisions";
+import { DECISIONS } from "../memory/decision-lines";
+import { requestDecision } from "../memory/decisions";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as memoryLock from "../memory/memory-lock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions

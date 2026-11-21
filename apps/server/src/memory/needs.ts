@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDateTime } from "../records/fields";
 import { oneLine } from "./draft";
 import { nameKey } from "./units";
 
@@ -36,6 +37,17 @@ const App = z
     name: oneLine(60),
     /** An https link into the app (a universal link or its store page), opened by his own tap. */
     url: https.optional(),
+  })
+  .strict();
+const Event = z
+  .object({
+    end: isoDateTime,
+    kind: z.literal("event"),
+    place: oneLine(200).optional(),
+    /** Popup minutes before it starts, 1 to 3: written with the event on his yes (never a mail). */
+    reminders: z.array(z.int().min(0).max(40_320)).min(1).max(3),
+    start: isoDateTime,
+    title: oneLine(120),
   })
   .strict();
 const Link = z
@@ -77,6 +89,7 @@ export const Need = z.discriminatedUnion("kind", [
   Account,
   Amount,
   App,
+  Event,
   Link,
   Place,
   Text,
@@ -112,6 +125,11 @@ const KINDS: {
     about: "an app (name, link)",
     line: (n) => `In ${n.name}`,
     page: '`{kind: "app", name, url?}`: a step he does in another app (a bank app, a booking app). `name` as the app is called; `url` an `https` link into it (a universal link or its store page), opened by his own tap (his phone shows its host), never a custom scheme. Never guess a link. Example: `{"kind":"app","name":"Grab","url":"https://grab.example.com/open"}`.',
+  },
+  event: {
+    about: "a calendar event (title, times)",
+    line: (n) => `${n.title}, ${n.start.slice(0, 16).replace("T", " ")}`,
+    page: '`{kind: "event", title, start, end, reminders, place?}`: an event he may add to his calendar. `start` and `end` RFC 3339 with an offset, `end` after `start`, ahead; `reminders` 1 to 3 popup times in minutes before the start (`[30, 1440]`); `place` where, as written somewhere. With one option marked `adds: true` ("Add to calendar"), his pick of it alone makes Life write this one event, with those reminders, into his calendar, once: never guests, never a mail; an event he deletes is never written again; the answer carries `added` (the event\'s id, or the error). The card is the ask: an agent\'s event is never one Life is sure of, so Life never adds it unasked (what Life itself reads as agreed reaches his calendar as an appointment). Give no `adds` option without this need, nor this need without it. Example: `{"kind":"event","title":"Dive course, day 1","start":"2026-12-01T08:00:00+07:00","end":"2026-12-01T12:00:00+07:00","reminders":[60,1440],"place":"Blue Reef Diving, Chalong"}`.',
   },
   link: {
     about: "a web page (url, vendor)",
@@ -204,6 +222,10 @@ export const isToPayee = (name: string, words: readonly string[]) => {
 /** The refs a card's needs name (a QR's message): each must open, like its `context`'s links. */
 export const needRefsOf = (needs: readonly Need[] = []) =>
   needs.flatMap((n) => (n.kind === "qr" && n.ref ? [n.ref] : []));
+
+/** The event a card's `adds` option writes: its one `event` need. */
+export const eventOf = (needs: readonly Need[] = []) =>
+  needs.find((n): n is Of<"event"> => n.kind === "event");
 
 /** The amount a card's payment is looked for by: its one `amount` need. */
 export const amountOf = (needs: readonly Need[] = []) =>
