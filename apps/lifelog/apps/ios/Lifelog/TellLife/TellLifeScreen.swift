@@ -78,33 +78,33 @@ struct TellLifeScreen: View {
     }
 
     @ViewBuilder private var answer: some View {
-        switch tell.answer {
-        case nil:
+        if let answer = tell.answer {
+            TellAnswerView(answer: answer, again: again, open: open, tell: say)
+        } else {
             TellLightLine(kind: .ready)
             note("Tap or hold the microphone. Swipe up from it, or tap Send.")
-        case .reply(let words)?:
-            TellLightLine(kind: .answer)
-            head(words)
-        case .error(let what)?:
-            TellLightLine(kind: .broken)
-            head(what)
-            note("Your words are kept.")
-            QuietChip("Try again", symbol: "arrow.clockwise") {
-                Task { await tell.sendAgain(screen: router.tellScreen) }
-            }
-        case .unknown?:
-            TellLightLine(kind: .broken)
-            head("Life answered in a way this app can't show yet.")
         }
     }
 
-    private func head(_ words: String) -> some View {
-        Text(words).font(.tellAnswer).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
+    private func again() { Task { await tell.sendAgain(screen: router.tellScreen) } }
+    /// An answer's own chip or button gives words: they go as his, like any others.
+    private func say(_ words: String) { Task { await tell.send(words, screen: router.tellScreen) } }
+
+    /// What an answer's chip points at, by ref: a person or an organization, a card in the Inbox, else a matter.
+    private func open(_ ref: String) {
+        router.isTellLifeOpen = false
+        if ref.hasPrefix("person:") {
+            router.open(party: ref)
+        } else if ref.hasPrefix("dec_") {
+            router.tab = .inbox
+            Task { await life.open(ref: ref) }
+        } else {
+            router.open(matter: ref)
+        }
     }
 
-    private func note(_ words: String) -> some View {
-        Text(words).font(.note).foregroundStyle(Palette.muted)
-    }
+    private func head(_ words: String) -> some View { TellAnswerView.head(words) }
+    private func note(_ words: String) -> some View { TellAnswerView.note(words) }
 
     /// The foot, chat style: his words, the microphone, Send; every element keeps its place.
     private var composer: some View {

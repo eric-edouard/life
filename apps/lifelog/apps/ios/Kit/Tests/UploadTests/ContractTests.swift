@@ -137,7 +137,11 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     // Tell Life's wire: every kind of line and of answer the session sends is one the phone draws or says it can't.
     let wire = try source("records/main-session-wire.ts")
     let sent = Set(wire.matches(of: /kind: "([a-z]+)"/).map { String($0.output.1) })
-    #expect(sent == ["reply", "error", "thinking", "working", "words", "answer"])
+    // The phone reads the design's whole list of answers ahead of the server's, so what the server sends is a subset.
+    #expect(
+        sent.isSubset(of: [
+            "reply", "error", "done", "agent", "card", "fix", "question", "thinking", "working", "words", "answer",
+        ]))
     #expect(try quoted("memory/matter-read.ts", /const STATUSES = \[([^\]]*)\]/) == client(MatterStatus.self))
     #expect(
         try quoted("host/appointments-calendar.ts", /(?s)type Changed =(.*?)\};/)
