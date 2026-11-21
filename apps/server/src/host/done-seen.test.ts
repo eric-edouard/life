@@ -4,9 +4,9 @@ import { DAY, iso } from "../core/clock";
 import { setSettings } from "../core/settings";
 import { CARD } from "../memory/card-request";
 import type { InboxCheck } from "../memory/checks";
+import { DECISIONS } from "../memory/decision-lines";
 import {
   answerDecision,
-  DECISIONS,
   decisionsNow,
   doneSeenByOf,
   requestDecision,
@@ -376,7 +376,7 @@ test("a card's parts are checked when asked, each refusal pointing at its page; 
     transfer({ needs: [{ currency: "baht", kind: "amount", value: 4500 }] })
   ).rejects.toThrow('Read fetch("ask/amount")');
   await expect(transfer({ needs: [{ kind: "iban" }] })).rejects.toThrow(
-    "Expected 'account' | 'amount' | 'app' | 'link' | 'place' | 'text' | 'qr'"
+    "Expected 'account' | 'amount' | 'app' | 'event' | 'link' | 'place' | 'text' | 'qr'"
   );
   await expect(
     transfer({ needs: [{ kind: "link", url: "shopapp://pay/1" }] })

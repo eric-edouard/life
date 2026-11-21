@@ -150,6 +150,12 @@ export function messagePayloadOf(
 }
 
 const DecisionPayload = z.object({
+  added: z
+    .object({ error: z.string().optional(), eventId: z.string().optional() })
+    .optional()
+    .describe(
+      "Its event, written into his calendar on his pick of an `adds` option: the calendar event's id, or why not"
+    ),
   answer: z
     .object({
       at: z.iso.datetime(),
@@ -202,7 +208,17 @@ const DecisionPayload = z.object({
 /** What came of a settled decision besides his answer: Life saw its step done (`doneSeen`), its end, its send. */
 const outcomesOf = (
   d: Decision
-): Pick<z.infer<typeof DecisionPayload>, "doneSeen" | "end" | "send"> => ({
+): Pick<
+  z.infer<typeof DecisionPayload>,
+  "added" | "doneSeen" | "end" | "send"
+> => ({
+  ...(d.added
+    ? {
+        added: d.added.error
+          ? { error: d.added.error }
+          : { eventId: d.added.eventId },
+      }
+    : {}),
   ...(d.doneSeen?.state === "seen" && d.doneSeen.eventId
     ? { doneSeen: { eventId: d.doneSeen.eventId, state: "seen" } }
     : {}),

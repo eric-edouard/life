@@ -1,16 +1,11 @@
 import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
-import {
-  doneOnOf,
-  isEnded,
-  type MatterRecords,
-  matterBookOf,
-} from "./matter-read";
+import { isEnded, type MatterRecords, matterBookOf } from "./matter-read";
 import { outdatedBy } from "./memory-files";
 import { openItems } from "./open-items";
 import { dayLines } from "./read-day";
-import { doneOf, matterItems } from "./read-open-items";
+import { doneOf, doneOnOf, matterItems } from "./read-open-items";
 import { OWNER } from "./read-truth";
 import { isMailerHandle } from "./units";
 

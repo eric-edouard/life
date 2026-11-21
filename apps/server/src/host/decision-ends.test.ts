@@ -2,7 +2,8 @@ import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { DAY } from "../core/clock";
 import type { InboxCheck } from "../memory/checks";
-import { DECISIONS, decisionsNow, requestDecision } from "../memory/decisions";
+import { DECISIONS } from "../memory/decision-lines";
+import { decisionsNow, requestDecision } from "../memory/decisions";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import { answerWithResult } from "./answer-result";
 
