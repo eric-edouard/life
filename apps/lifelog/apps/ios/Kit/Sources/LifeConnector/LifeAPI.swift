@@ -11,6 +11,7 @@ public struct AnswerRequest: Encodable, Sendable, Equatable {
     public init(ref: String, options: [String], note: String? = nil, person: String? = nil, name: String? = nil) {
         (self.ref, self.options, self.note, self.person, self.name) = (ref, options, note, person, name)
     }
+
 }
 
 /// His word about a registered agent (`change_registered_agent`'s arguments).
@@ -67,17 +68,22 @@ public struct NextStepRequest: Encodable, Sendable, Equatable {
 /// the models and `ReadCache` keeps as it came. An action gives its progress messages to `onProgress` and takes the key of his tap.
 public protocol LifeAPI: Sendable {
     func readInbox() async throws -> String
-    func readInbox(pushId: String) async throws -> String
+    /// The card a push names, from the Life at `origin` (nil: the one paired now).
+    func readInbox(pushId: String, at origin: URL?) async throws -> String
     func readMatters() async throws -> String
     /// One project's matters, with its page's head.
     func readMatters(project: String) async throws -> String
     func readMatter(_ id: String) async throws -> String
     func readRegisteredAgents() async throws -> String
+    /// What a `life:` link names, opened by its ref: Life's text, or a person's read as JSON (`LifeLinkRead`).
+    func fetch(_ ref: String) async throws -> String
     /// The pictures these ids name (a party's `picture.id`), at most 64 (`PictureCache`).
     func readPersonPictures(_ ids: [String]) async throws -> String
 
-    func answerCheck(_ answer: AnswerRequest, answerKey: String, onProgress: @escaping @Sendable (Data) -> Void)
-        async throws -> String
+    /// His answer, to the Life it was decided for (`origin`, a `PairedLife`'s) and no other.
+    func answerCheck(
+        _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String
     func changeAgent(_ change: AgentRequest, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String
     /// His goal and/or next step for a matter, by its id: Life pins it to the matter's steps.
     func setMatterDirection(
@@ -108,8 +114,8 @@ public struct MCPLifeAPI: LifeAPI {
     public func readInbox() async throws -> String { try await client.call("read_inbox", ["limit": 500]) }
     /// Only the card a push names (none once answered), with the inbox's counts: what a notification reads, and what the
     /// app reads first when a push is tapped.
-    public func readInbox(pushId: String) async throws -> String {
-        try await client.call("read_inbox", ["pushId": pushId])
+    public func readInbox(pushId: String, at origin: URL?) async throws -> String {
+        try await client.call("read_inbox", ["pushId": pushId], at: origin)
     }
     public func readMatters() async throws -> String { try await client.call("read_matters") }
     public func readMatters(project: String) async throws -> String {
@@ -117,14 +123,15 @@ public struct MCPLifeAPI: LifeAPI {
     }
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }
+    public func fetch(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
     public func readPersonPictures(_ ids: [String]) async throws -> String {
         try await client.call("read_person_pictures", ["ids": ids])
     }
 
     public func answerCheck(
-        _ answer: AnswerRequest, answerKey: String, onProgress: @escaping @Sendable (Data) -> Void
+        _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String {
-        try await client.call("answer_check", answer, answerKey: answerKey, onProgress: onProgress)
+        try await client.call("answer_check", answer, answerKey: answerKey, at: origin, onProgress: onProgress)
     }
 
     public func changeAgent(_ change: AgentRequest, onProgress: @escaping @Sendable (Data) -> Void) async throws

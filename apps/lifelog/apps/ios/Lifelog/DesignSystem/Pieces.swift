@@ -873,22 +873,31 @@ extension View {
     }
 }
 
-/// The quiet placeholder of a read still loading: a few bars where the content will be, no spinner.
+/// The quiet placeholder of a read still loading: a few shapes where the content will be, no spinner, in the quiet fill
+/// with a slow shimmer crossing it (2.6 s), still with Reduce Motion. A capsule unless given its corner `radius`.
 struct Placeholder: View {
     var width: CGFloat? = nil
     var height: CGFloat = 14
+    var radius: CGFloat? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var dim = false
+    @State private var crossed = false
 
     var body: some View {
-        RoundedRectangle(cornerRadius: height / 2)
+        // The band runs the shape's width twice over, from past its right edge to past its left.
+        let band = LinearGradient(
+            stops: [
+                .init(color: .clear, location: 0.35), .init(color: Palette.fg.opacity(0.09), location: 0.5),
+                .init(color: .clear, location: 0.65),
+            ],
+            startPoint: UnitPoint(x: crossed ? -2 : 1, y: 0), endPoint: UnitPoint(x: crossed ? 0 : 3, y: 0))
+        RoundedRectangle(cornerRadius: radius ?? height / 2)
             .fill(Color.fillTint)
+            .overlay { if !reduceMotion { RoundedRectangle(cornerRadius: radius ?? height / 2).fill(band) } }
             .frame(width: width, height: height)
-            .opacity(dim ? 0.5 : 1)
             .onAppear {
                 guard !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { dim = true }
+                withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: false)) { crossed = true }
             }
             .accessibilityHidden(true)
     }

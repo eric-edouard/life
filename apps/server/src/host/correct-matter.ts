@@ -52,8 +52,8 @@ export async function endByHisWord(
 
 /**
  * `outdated`: the matter is done, and every step still open, or ended only by a link (until his word), closes
- * (`endByHisWord`). `matter-direction` (his goal or next step), `matter-important` (his mark, on or off) and
- * `matter-icon` (his icon, or null: Life picks again): pinned to
+ * (`endByHisWord`). `matter-direction` (his goal or next step), `matter-important` (his mark, on or off),
+ * `matter-icon` (his icon, or null: Life picks again) and `matter-project` (a project of his directory): pinned to
  * every step the matter holds; the line written is the new state. Returns what was written, reporting its plan and steps
  * (`report`, `mcp-tool.ts`): one per to-do item ticked, then `recorded`.
  */
@@ -62,16 +62,24 @@ export async function correctMatter(
   report: ToolCall["report"] = () => undefined
 ) {
   const { matter, ...said } = correction;
-  const book = await readMatterBook(await readPeople(), dayNow());
+  const people = await readPeople();
+  const book = await readMatterBook(people, dayNow());
   const v = matterOfSteps(book, [String(matter)]);
   // Only the matter's own id: a step's would mark the whole matter holding it.
   if (!v || v.id !== matter) {
     throw new Error(`Not done: no matter ${matter}; give a matter's id.`);
   }
   if (
+    said.kind === "matter-project" &&
+    !people.truth.projects.some((p) => p.id === said.project)
+  ) {
+    throw new Error(`Not done: no project ${said.project} in his directory.`);
+  }
+  if (
     said.kind === "matter-direction" ||
     said.kind === "matter-important" ||
-    said.kind === "matter-icon"
+    said.kind === "matter-icon" ||
+    said.kind === "matter-project"
   ) {
     report({ limitSeconds: QUICK_MS / 1000, plan: ["recorded"] });
     const written = await recordCorrection({
@@ -84,7 +92,7 @@ export async function correctMatter(
   }
   if (said.kind !== "outdated") {
     throw new Error(
-      "Not done: `matter` goes with kind `outdated` (it is done), `matter-direction`, `matter-important` or `matter-icon`."
+      "Not done: `matter` goes with kind `outdated` (it is done), `matter-direction`, `matter-important`, `matter-icon` or `matter-project`."
     );
   }
   const open = openStepsOf(v);

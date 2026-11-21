@@ -1,5 +1,10 @@
+import { redact } from "../core/redact";
+
 // Life's events in a calendar, as both its calendars draft them (the Past calendar's episodes, `past-events.ts`; the
 // appointments, `host/appointments-calendar.ts`), and the one rule that brings a calendar in line with its drafts.
+
+/** The most of a description Life writes: Google takes 8,192 characters. */
+export const DESCRIPTION_MAX = 7500;
 
 /** One event Life wants in a calendar, before the IO-bound part of its description. */
 export interface Draft {
@@ -68,4 +73,53 @@ export function reconcile<D extends Draft>(
     }
   }
   return { create, remove, update };
+}
+
+/** A place an event is at: its name (with its address when Life knows it), its coordinates when Life has them. */
+export interface MapPlace {
+  latitude?: number;
+  longitude?: number;
+  name: string | null;
+}
+
+/** "lat,lng" to 6 decimals (a tenth of a metre): longer runs of digits read as a card number to `redact`. */
+const pointOf = (p: MapPlace) =>
+  p.latitude === undefined || p.longitude === undefined
+    ? null
+    : `${p.latitude.toFixed(6)},${p.longitude.toFixed(6)}`;
+
+/** The most of a name a link carries: links stay under about 1,500 characters, so a description always holds them. */
+const LINK_NAME_MAX = 80;
+
+/** A name as Life shows it: well-formed (a lone surrogate would throw in `encodeURIComponent`), none when `redact` would hide part of it. */
+const shownOf = (name: string | null | undefined) => {
+  const n = name?.toWellFormed();
+  return n && redact(n) === n ? n : null;
+};
+
+/** The name a link carries: its first `LINK_NAME_MAX` characters, of a name shown whole (redact reads it whole). */
+const linkNameOf = (p: MapPlace) =>
+  shownOf(p.name)?.slice(0, LINK_NAME_MAX).toWellFormed() ?? null;
+
+/** The event's location: the place's name, else its coordinates. */
+export const locationOf = (p: MapPlace) => shownOf(p.name) ?? pointOf(p);
+
+/** Google Maps on a place: its coordinates when Life has them, else its name; null with neither. */
+export const googleMapsUrlOf = (p: MapPlace) => {
+  const q = pointOf(p) ?? linkNameOf(p);
+  return (
+    q &&
+    `https://www.google.com/maps/search/?api=1&query=${pointOf(p) ? q : encodeURIComponent(q)}`
+  );
+};
+
+/** The one-tap map lines of an event's description (Google Maps, Apple Maps); none with no place. */
+export function mapLinksOf(p: MapPlace): string[] {
+  const [q, google] = [linkNameOf(p) ?? pointOf(p), googleMapsUrlOf(p)];
+  if (!(q && google)) {
+    return [];
+  }
+  const point = pointOf(p);
+  const apple = `https://maps.apple.com/?q=${encodeURIComponent(q)}${point ? `&ll=${point}` : ""}`;
+  return [`Google Maps: ${google}`, `Apple Maps: ${apple}`];
 }

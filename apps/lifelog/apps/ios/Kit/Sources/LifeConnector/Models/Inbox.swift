@@ -10,6 +10,8 @@ public struct Inbox: Decodable, Sendable, Equatable {
     public let blocking: Int?
     /// The badge: the cards that block him (every card in a read kept before Life sent `blocking`).
     public var badge: Int { blocking ?? total }
+    /// Every open card is in it, none cut off by the read's limit: only then does a card it lacks no longer wait.
+    public var isWhole: Bool { checks.count >= total }
 }
 
 /// The card a tapped push opens.
@@ -17,6 +19,48 @@ public struct InboxOpening: Sendable, Equatable {
     public let check: Check?
     /// The push's card is no longer open: `check` is the first one waiting instead, and the screen says so.
     public let wasAnswered: Bool
+}
+
+/// A tapped push, from the tap until a whole read asked after it lands: its card as the phone holds it (the cached
+/// inbox's, else the one its notification kept), on show at once while that read checks it.
+public struct PushedCard: Sendable, Equatable {
+    public let pushId: String
+    /// Nil when neither the cache nor the notification held it: the read opens it.
+    public let check: Check?
+    public let tappedAt: Date
+
+    public init(pushId: String, in read: Inbox?, notified: Check?, at tappedAt: Date) {
+        self.pushId = pushId
+        check = read?.checks.first { $0.pushId == pushId } ?? notified
+        self.tappedAt = tappedAt
+    }
+
+    /// Where it opens before any read: its card, when one is in hand.
+    public var opening: InboxOpening? { check.map { InboxOpening(check: $0, wasAnswered: false) } }
+
+    /// The inbox while it is checked: the read, with the card first when the read does not list it (a one-card inbox
+    /// when nothing was read), unless his answer took it out since the tap (`answeredSinceTap`): a read cut off by its
+    /// limit never puts an answered card back.
+    public func shown(in read: Inbox?, answeredSinceTap: Set<String>) -> Inbox? {
+        guard let check, !answeredSinceTap.contains(check.ref),
+            read?.checks.contains(where: { $0.ref == check.ref }) != true
+        else { return read }
+        let read = read ?? Inbox(checks: [], counts: [:], total: 0, deadlinesToday: 0, blocking: 0)
+        var counts = read.counts
+        counts[check.group.rawValue, default: 0] += 1
+        return Inbox(
+            checks: [check] + read.checks, counts: counts, total: read.total + 1,
+            deadlinesToday: read.deadlinesToday, blocking: read.blocking.map { $0 + (check.urgency == .blocks ? 1 : 0) }
+        )
+    }
+
+    /// What a read asked at `asked` makes of it: nil while it says nothing yet (asked before the tap, or cut off by its
+    /// limit before the card), else where the push opens: its card, or the first one waiting when it was answered
+    /// elsewhere.
+    public func checked(by read: Inbox, askedAt asked: Date) -> InboxOpening? {
+        let opening = read.opening(pushId: pushId)
+        return asked > tappedAt && (read.isWhole || !opening.wasAnswered) ? opening : nil
+    }
 }
 
 extension Inbox {
@@ -65,8 +109,8 @@ extension [Check] {
 
 extension Inbox {
     /// What blocks, then what only improves. An ask he kept for later (`deferred`) goes after the others of its own kind,
-    /// so the heading stays where the blocking group ends. `except` are the refs not to show: an answer held for Undo
-    /// or in flight, so a list never flashes it back during a send.
+    /// so the heading stays where the blocking group ends. `except` are the refs not to show: the ask whose result is on
+    /// show in its place.
     public func ordered(deferred: [String], except: Set<String> = []) -> InboxOrder {
         func later(_ kind: [Check]) -> [Check] {
             kind.filter { !deferred.contains($0.ref) } + kind.filter { deferred.contains($0.ref) }
