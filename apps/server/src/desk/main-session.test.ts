@@ -1,6 +1,11 @@
 import { afterAll, beforeEach, expect, test } from "bun:test";
+import { clock } from "../core/clock";
+import { DESK_AGENT } from "../core/names";
 import { setSettings } from "../core/settings";
+import { ask } from "../host/asks";
+import { requested } from "../host/change-todo-item";
 import {
+  agentChangeOf,
   agentInRole,
   agentWaitOf,
   currentAssignmentOf,
@@ -8,7 +13,10 @@ import {
 } from "../host/desk-read";
 import { MAIN_SESSION_PATH } from "../host/http/http";
 import { localKey } from "../host/http/local-key";
+import { MOVE_REASONS } from "../host/move-read";
 import type { MainSessionLine } from "../records/main-session-wire";
+import type { AgentChange } from "../records/registered-agent";
+import { applyAgentChanges } from "./agent-changes";
 import { wakeDue } from "./desk-clock";
 import { doorFetch } from "./desk-door";
 import { doorOf } from "./door-keys";
@@ -284,4 +292,40 @@ test("presence registers nothing; a turn launching is never ended by the lost tu
   t.fake.hear(first.ref, { kind: "words", text: "Ok." });
   t.fake.exit(first.ref);
   expect(await again).toEqual({ kind: "reply", words: "Ok." });
+});
+
+test("presence of a stopped main session, or one whose runtime can't run, says why and keeps nothing", async () => {
+  await asked("Hello", (r) => t.fake.hear(r, { kind: "words", text: "Hi." }));
+  const id = main()?.id ?? "";
+  // Its runtime is gone from the desk.
+  t.desk.runtimes = {};
+  expect(await keepMainSession(t.desk)).toBe(MOVE_REASONS.blocked("claude"));
+  t.desk.runtimes = { claude: t.fake.runtime };
+  t.desk.db.run("update agent set status = 'stopped' where id = ?", [id]);
+  expect(await keepMainSession(t.desk)).toBe("Life's main session is stopped.");
+  expect(t.fake.kept).toEqual([]);
+});
+
+test("his word never re-points the main session: it takes no other subject", async () => {
+  await asked("Hello", (r) => t.fake.hear(r, { kind: "words", text: "Hi." }));
+  const agent = main()?.id ?? "";
+  const refused = async (agentChange: AgentChange) => {
+    const { id } = ask(
+      requested("main-re-point", "Test: re-point", clock().toISOString()),
+      { agent: DESK_AGENT, agentChange, confidence: "high" },
+      "connector",
+      "asked in a chat",
+      clock().getTime()
+    );
+    await applyAgentChanges(t.desk);
+    return agentChangeOf(t.desk.db, id)?.error;
+  };
+  const error = "the main agent takes no other subject";
+  expect(await refused({ action: "re_point", agent, project: "test-p" })).toBe(
+    error
+  );
+  expect(
+    await refused({ action: "re_point", agent, steps: ["obs_00000000a101"] })
+  ).toBe(error);
+  expect(main()?.project).toBeNull();
 });
