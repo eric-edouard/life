@@ -4,7 +4,7 @@ import SwiftUI
 /// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette,
 /// never a border, and nothing tappable under 44 points.
 /// The pill buttons: the filled one (cream in dark), the quiet one, and the done one (`ok`, an action that worked), in
-/// three sizes, and busy while an action runs. A label that does not fit takes a second line, and the pill grows with it.
+/// three sizes, and busy while an action runs. A label that does not fit wraps and the pill grows with it, to 3 lines (a compact pill keeps one).
 struct PillStyle: ButtonStyle {
     enum Kind { case filled, quiet, done }
     /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row; `row` is one of several
@@ -22,6 +22,8 @@ struct PillStyle: ButtonStyle {
         HStack(spacing: 8) {
             if isBusy { Spinner() }
             configuration.label.multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                // A long label stops at 3 lines, so the answer bar stays bounded (compact pills hold one).
+                .lineLimit(size == .compact ? 1 : 3)
         }
         .font(.buttonLabel)
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)
@@ -336,7 +338,8 @@ struct ListLabel<Action: View>: View {
             Spacer(minLength: 0)
             action
         }
-        .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 6)
+        // Over its card's text: the list's inset and a little more.
+        .padding(.horizontal, Metrics.gutter + Metrics.Spacing.xs).padding(.top, 16).padding(.bottom, 6)
     }
 }
 
@@ -346,7 +349,7 @@ extension ListLabel where Action == EmptyView {
 
 extension View {
     /// One row of a list as a grouped inset card (decision 98, rule 17): at least `Metrics.listRow` high on the card
-    /// fill, the group's first row rounded at its top and its last at its foot, no divider, inset from the column's edges;
+    /// fill, the group's first row rounded at its top and its last at its foot, no divider, inset by the gutter (`Metrics.gutter`, as the frames draw it);
     /// the open row lit with `pick`. Rows of one group stack with no gap, so they read as one card; a label or a gap
     /// starts the next. The same in a `List` row (its swipe actions and letter index kept) as in a stack. A row he taps
     /// takes it as its button style (`.buttonStyle(.groupedRow(…))`), so the whole 60 is the tap.
@@ -358,7 +361,7 @@ extension View {
         return frame(minHeight: Metrics.listRow).contentShape(.rect)
             .background(Color.pick.opacity(isChosen ? 1 : 0), in: shape)
             .background(Palette.card, in: shape)
-            .padding(.horizontal, Metrics.Spacing.m)
+            .padding(.horizontal, Metrics.gutter)
             .motion(Motion.standard, value: isChosen)
             .accessibilityAddTraits(isChosen ? .isSelected : [])
     }
@@ -1027,7 +1030,7 @@ struct RowsPlaceholder: View {
             }
         }
         .card()
-        .padding(.horizontal, Metrics.Spacing.m)
+        .padding(.horizontal, Metrics.gutter)
         .frame(maxHeight: .infinity, alignment: .top)
         .readingWidth()
         .accessibilityElement().accessibilityLabel(label)

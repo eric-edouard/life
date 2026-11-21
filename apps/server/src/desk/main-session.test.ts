@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, expect, test } from "bun:test";
+import { afterAll, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { clock } from "../core/clock";
@@ -19,6 +19,8 @@ import { MAIN_SESSION_PATH } from "../host/http/http";
 import { localKey } from "../host/http/local-key";
 import { MOVE_REASONS } from "../host/move-read";
 import { decisionsNow } from "../memory/decisions";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as matters from "../memory/matters";
 import { LEDGER, readLedger } from "../memory/memory-files";
 import { complaintOf, isComplaint } from "../records/ledger-entry";
 import type { MainSessionLine } from "../records/main-session-wire";
@@ -563,4 +565,79 @@ test("an answer's kind is its turn's last act: an agent told, a card asked as hi
     kind: "card",
     words: "**On it**.",
   });
+  // life#1103: a matter marked by his word answers `done` with its matter.
+  const matter = {
+    id: "matter_aaaaaaaaaaaa",
+    name: "Mend the test boiler",
+    open: true,
+    steps: [
+      {
+        at: "2026-11-10T10:00:00.000Z",
+        day: "2026-11-10",
+        kind: "promise",
+        quote: "it",
+        ref: "obs_000000000001",
+        text: "it",
+      },
+    ],
+  };
+  const book = spyOn(matters, "readMatterBook").mockResolvedValue([
+    matter,
+  ] as never);
+  try {
+    const marked = await asked(
+      "Mark the boiler as important",
+      play("correct_memory", {
+        correction: {
+          important: true,
+          kind: "matter-important",
+          matter: matter.id,
+        },
+        said: "Mark the boiler as important",
+      })
+    );
+    expect(marked.answer).toEqual({
+      kind: "done",
+      matter: matter.id,
+      words: "**On it**.",
+    });
+  } finally {
+    book.mockRestore();
+  }
+});
+
+// life#1103: an agent holding several matters gets his words on the one he means.
+test("`tell_agent` on an assignment the agent holds open puts his words there; one it does not hold is refused", async () => {
+  const other = register(t.desk, {
+    brief: "Test agent of two matters",
+    folder: t.dir,
+    runtime: "claude",
+  });
+  openAssignment(t.desk, other, { openedBy: "owner", steps: ["obs_test_one"] });
+  const second = openAssignment(t.desk, other, {
+    openedBy: "owner",
+    steps: ["obs_test_two"],
+  });
+  const results: string[] = [];
+  await asked("Tell it to call the second test garage", async (r) => {
+    const id = main()?.id ?? "";
+    results.push(
+      await callDoor(id, "tell_agent", {
+        agent: other,
+        said: "call the second test garage",
+        to: second,
+      }),
+      await callDoor(id, "tell_agent", {
+        agent: other,
+        said: "call the second test garage",
+        to: "asg_not_its_own",
+      })
+    );
+    t.fake.hear(r, { kind: "words", text: "**On it**." });
+  });
+  expect(results[0]).toContain(`\\"assignment\\":\\"${second}\\"`);
+  expect(
+    readLedger().find((a) => a.after.to === second)?.instruction?.quote
+  ).toBe("call the second test garage");
+  expect(results[1]).toContain("is not an open assignment of");
 });

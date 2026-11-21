@@ -143,8 +143,8 @@ struct MatterPage: View {
                     .buttonStyle(.groupedRow(at: at, of: checks.count))
                 }
             }
-            // The card on the page's gutter: a list keeps its inset from its column's edges.
-            .padding(.horizontal, -Metrics.Spacing.m)
+            // The card on the page's gutter: the list's own inset (the gutter) cancels the column's.
+            .padding(.horizontal, -Metrics.gutter)
         }
     }
 

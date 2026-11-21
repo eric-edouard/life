@@ -31,7 +31,7 @@ struct SpendingPage: View {
         ScrollView {
             // A list screen (decision 98): its parts are grouped inset cards under their `ListLabel`, no dividers.
             VStack(alignment: .leading, spacing: 0) {
-                SpendFigures(spending: spending).padding(.horizontal, Metrics.Spacing.m)
+                SpendFigures(spending: spending).padding(.horizontal, Metrics.gutter)
                 ForEach(spending.sections, id: \.label) { section in
                     ListLabel(section.label).padding(.top, Metrics.Spacing.s)
                     ForEach(Array(section.lines.enumerated()), id: \.element.id) { at, line in

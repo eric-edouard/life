@@ -71,6 +71,9 @@ public final class Dictation {
 
     /// The stream draws one bar per sample.
     public static let sampleEvery = Duration.milliseconds(60)
+    /// How long the spinner may last: the Mac's answer, or the recording's close, past this is a failure (`notWritten`
+    /// for the answer: it may have been heard, so it is said again). Under the request's 300 s, over a normal hearing.
+    var answerWithin = Duration.seconds(120)
     static let samplesKept = 120
 
     public private(set) var phase = Phase.rest
@@ -168,7 +171,7 @@ public final class Dictation {
         guard run == current, let run = opened else { return nil }
         opened = nil
         do {
-            let ogg = try await run.finish()
+            let ogg = try await bounded { try await run.finish() }
             return self.run == current ? ogg : nil
         } catch {
             if self.run == current { fail(.notWritten) }
@@ -213,12 +216,30 @@ public final class Dictation {
 
     private func write(_ ogg: Data, _ current: Int) async {
         do {
-            let text = try await words(ogg)
+            let words = words
+            let text = try await bounded { try await words(ogg) }
             guard run == current else { return }
             (phase, landed, sendsWhenLanded) = (.rest, Landed(words: text, sends: sendsWhenLanded), false)
         } catch {
             guard run == current else { return }
             fail(DictationFailure(error) == .notReached ? .notReached(ogg) : .notWritten)
+        }
+    }
+
+    private struct TimedOut: Error {}
+
+    /// `work`'s result, or `TimedOut` once `answerWithin` has passed (the work is cancelled).
+    private func bounded<T: Sendable>(_ work: @escaping @Sendable () async throws -> T) async throws -> T {
+        let limit = answerWithin
+        return try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await work() }
+            group.addTask {
+                try await Task.sleep(for: limit)
+                throw TimedOut()
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next() else { throw TimedOut() }
+            return first
         }
     }
 

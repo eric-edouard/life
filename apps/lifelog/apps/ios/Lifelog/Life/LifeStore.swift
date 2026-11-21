@@ -555,7 +555,11 @@ final class LifeStore {
     func answer(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife? = nil) async {
         if life == nil, await refusedOutOfReach(.answer(ref: request.ref)) { return }
         let matter = matterOf(card: request.ref)
+        // Leaving the app mid-request does not stop the send.
+        let awake = Awake()
+        awake.id = UIApplication.shared.beginBackgroundTask(withName: "answer") { awake.end() }
         await send(request, keepsCardOpen: keepsCardOpen, for: life ?? pairedLife)
+        awake.end()
         await refreshAfterAnswer(on: matter)
     }
 
@@ -632,6 +636,9 @@ final class LifeStore {
     /// with its own state until the last has ended; then Life's word is said in the toast. True when every one was taken.
     @discardableResult
     func answerRows(_ requests: [AnswerRequest], as label: String) async -> Bool {
+        // A row already answering is left to its own tap: no second send, no word of its own.
+        let requests = requests.filter { !state(of: .answer(ref: $0.ref)).isRunning }
+        guard !requests.isEmpty else { return false }
         let refs = Set(requests.map(\.ref))
         lingering.formUnion(refs)
         let sends = requests.map { request in Task { await self.answer(request) } }
@@ -685,12 +692,20 @@ final class LifeStore {
     func setMatterIcon(of id: String, _ icon: String?, was: String?, saysBack: Bool = true) async {
         if await refusedOutOfReach(.edit(matter: id, .icon), saysBack: true) { return }
         let api = api
-        let isSent = await iconing.run(id, showing: icon) {
-            await edit(id, .icon) { try await api.setMatterIcon(matter: id, icon: icon, onProgress: $0) }
-            if case .succeeded = state(of: .edit(matter: id, .icon)) { writtenIcons.wrote(icon, on: id, at: now()) }
+        _ = await iconing.run(id, showing: icon) {
+            await edit(
+                id, .icon,
+                then: {
+                    if case .succeeded = state(of: .edit(matter: id, .icon)) {
+                        writtenIcons.wrote(icon, on: id, at: now())
+                    }
+                    // Said as soon as Life took it; the reads that show it come after.
+                    say(
+                        .edit(matter: id, .icon), saysBack ? "Icon changed" : nil,
+                        undo: .icon(matter: id, was, was: icon))
+                }
+            ) { try await api.setMatterIcon(matter: id, icon: icon, onProgress: $0) }
         }
-        guard isSent else { return }
-        say(.edit(matter: id, .icon), saysBack ? "Icon changed" : nil, undo: .icon(matter: id, was, was: icon))
     }
 
     // MARK: His mark, a project's status
@@ -736,18 +751,18 @@ final class LifeStore {
             default: "Set the project \(name) underway"
             }
         if await refusedOutOfReach(.project(id), saysBack: true) { return }
-        let isSent = await statusing.run(id, showing: status) {
+        _ = await statusing.run(id, showing: status) {
             await perform(.project(id)) { [runner] in
                 await runner.record(emit: $0) { try await api.setProjectStatus(id, status, said: said, onProgress: $0) }
             }
+            // Said as soon as Life took it; the reads that show it come after.
+            say(.project(id), words, undo: .status(project: id, name: name, was, was: status))
             async let a: Void = refreshProjects()
             async let b: Void = refreshProjectHead(id)
             async let c: Void = refreshScopedMatters(.project, id)
             async let d: Void = refreshMatters()
             _ = await (a, b, c, d)
         }
-        guard isSent else { return }
-        say(.project(id), words, undo: .status(project: id, name: name, was, was: status))
     }
 
     /// Its Undo as a tap, none when it was not done.
@@ -759,16 +774,23 @@ final class LifeStore {
         saidBack = nil
         switch said.undo {
         case .important(let id, let isOn)?:
-            // Said back before its reads land (`setImportant`): Undo waits for them, else the tap would be refused.
-            // ponytail: a 100 ms poll; a continuation on `PendingTaps` if another tap needs it.
-            while marking[id] != nil {
-                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
-            }
+            await waitForReads { marking[id] != nil }
             await setImportant(id, isOn, saysBack: false)
-        case .icon(let id, let icon, let was)?: await setMatterIcon(of: id, icon, was: was, saysBack: false)
+        case .icon(let id, let icon, let was)?:
+            await waitForReads { iconing[id] != nil }
+            await setMatterIcon(of: id, icon, was: was, saysBack: false)
         case .status(let id, let name, let status, let was)?:
+            await waitForReads { statusing[id] != nil }
             await setStatus(of: id, named: name, to: status, was: was, words: nil)
         case nil: break
+        }
+    }
+
+    /// A change is said back before its reads land: Undo waits for them, else the tap would be refused.
+    /// ponytail: a 100 ms poll; a continuation on `PendingTaps` if another tap needs it.
+    private func waitForReads(while isPending: () -> Bool) async {
+        while isPending() {
+            do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
         }
     }
 
@@ -803,11 +825,12 @@ final class LifeStore {
     }
 
     private func edit(
-        _ id: String, _ what: ActionKey.Edit,
+        _ id: String, _ what: ActionKey.Edit, then said: () -> Void = {},
         _ change: @escaping @Sendable (@escaping @Sendable (Data) -> Void) async throws -> String
     ) async {
         if await refusedOutOfReach(.edit(matter: id, what)) { return }
         await perform(.edit(matter: id, what)) { [runner] in await runner.record(emit: $0, change) }
+        said()
         async let a: Void = refreshMatter(id)
         async let b: Void = refreshListsOf(id)
         _ = await (a, b)
