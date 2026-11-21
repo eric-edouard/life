@@ -147,6 +147,27 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matters[2].important == nil)
     #expect(list.project == nil)
 
+    let chips = try decoded(ProjectChips.self, wireText("life/read_projects.json"))
+    #expect(chips.all.needYou == 1)
+    #expect(chips.chips.map(\.kind) == [.project])
+    #expect(chips.chips.first?.status == .active)
+    #expect(chips.chips.first?.area == "home")
+    #expect(chips.chips.first?.agentAtWork == true)
+    // An area and a project can share an id: the chips' identity tells them apart.
+    let sameText =
+        #"{"all":{"needYou":0,"open":0},"chips":[{"kind":"area","id":"home","name":"Home","#
+        + #""needYou":0,"agentAtWork":false,"matters":0},{"kind":"project","id":"home","#
+        + #""name":"Home","needYou":0,"agentAtWork":false,"matters":0}],"version":"v"}"#
+    let same = try decoded(ProjectChips.self, sameText)
+    #expect(Set(same.chips.map(\.identity)).count == 2)
+    let header = try decoded(ProjectHeader.self, wireText("life/read_project.json"))
+    #expect(header.project.goal?.rank == 1)
+    #expect(header.project.ask?.ref.hasPrefix("dec_") == true)
+    #expect(header.project.ask?.matter?.name == "Mend Gran's watch")
+    #expect(header.project.agents.map(\.status) == ["running"])
+    #expect(header.project.repos.map(\.folder) == ["/Users/owner/Work/shop-site", nil])
+    #expect(header.parties.map(\.name) == ["Robin"])
+
     let project = try decoded(MatterList.self, wireText("life/read_matters_project.json"))
     #expect(project.project?.name == "Shop fit-out")
     #expect(project.project?.status == .active)

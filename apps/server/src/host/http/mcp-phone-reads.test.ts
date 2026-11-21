@@ -2,6 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readChangeStamp, writeJson } from "../../core/files";
+import { HOME } from "../../core/platform";
 import { setSettings } from "../../core/settings";
 import { isSealed, type MisreadShown } from "../../memory/complaint-checks";
 import { withNetworkIdentity } from "../../memory/network-identity";
@@ -161,10 +162,29 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       nameOf: (r: string) => r.replace("person:", ""),
       partyOf: madeUpPartyOf,
       truth: {
-        areas: [],
+        areas: [{ id: "home", name: "Home" }],
+        chats: [{ id: "shop-group", name: "Shop group", whatsapp: "1@g.us" }],
         me: { goals: "1. The shop opens in spring (`shop-fit-out`)." },
+        organizations: [],
+        people: [
+          {
+            aliases: [],
+            handles: {},
+            id: "partner",
+            name: "Partner",
+            projects: [],
+          },
+        ],
         projects: [
-          { id: "shop-fit-out", name: "Shop fit-out", status: "active" },
+          {
+            area: "home",
+            chats: ["shop-group"],
+            id: "shop-fit-out",
+            name: "Shop fit-out",
+            people: ["partner"],
+            repos: ["shop-site", "owner/shop-notes"],
+            status: "active",
+          },
         ],
       },
     } as never),
@@ -274,7 +294,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
           "mcp-protocol-version": "2026-07-28",
         }
       );
-      expect(json.result.isError).toBe(false);
+      expect(json.result.isError, JSON.stringify(json.result)).toBe(false);
       return json.result.content[0].text as string;
     };
     const inbox = await read("read_inbox");
@@ -355,6 +375,14 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       },
     ]);
     expectWire("read_matters_project", withSituation);
+    const chips = JSON.parse(await read("read_projects"));
+    expectWire("read_projects", chips);
+    mkdirSync(join(HOME, "Work", "shop-site", ".git"), { recursive: true });
+    // The folders are under his home (a test's is temporary), and the version hashes them: both held fixed.
+    const headerText = await read("read_project", { project: "shop-fit-out" });
+    const headerVersion = JSON.parse(headerText).version;
+    const header = JSON.parse(headerText.replaceAll(HOME, "/Users/owner"));
+    expectWire("read_project", { ...header, version: "fixed" });
     // A phone that held the empty head hears the new situation.
     expect(
       JSON.parse(
@@ -385,6 +413,22 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         ids: [GRAN_PICTURE, ROBIN_PICTURE],
       })
     );
+    // The agent's turn ends with its assignment still open: the desk's stamp is the same, yet both reads move.
+    const gone = { ...agent, status: "waiting" as const };
+    spyOn(agents, "readRegisteredAgents").mockResolvedValue({
+      agents: [{ ...gone, matter: null }],
+      desk: "ok",
+      helper: "running",
+      refused: [],
+    });
+    spyOn(agents, "readAgentsOnSteps").mockReturnValue([gone] as never);
+    const heldChips = await read("read_projects", { ifNot: chips.version });
+    expect(JSON.parse(heldChips).unchanged).toBeUndefined();
+    const heldHeader = await read("read_project", {
+      ifNot: headerVersion,
+      project: "shop-fit-out",
+    });
+    expect(JSON.parse(heldHeader).unchanged).toBeUndefined();
   } finally {
     setSettings({ payments: null });
     for (const spy of spies) {
