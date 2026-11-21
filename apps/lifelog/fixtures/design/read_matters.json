@@ -300,8 +300,8 @@
         "waitingOn": [
           {
             "kind": "person",
-            "name": "Inès Roux",
-            "ref": "person:ines_roux"
+            "name": "Inès Fabre",
+            "ref": "person:ines_fabre"
           }
         ],
         "with": [
@@ -527,8 +527,8 @@
         "waitingOn": [
           {
             "kind": "person",
-            "name": "Inès Roux",
-            "ref": "person:ines_roux"
+            "name": "Inès Fabre",
+            "ref": "person:ines_fabre"
           }
         ]
       },
