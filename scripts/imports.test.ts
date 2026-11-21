@@ -31,6 +31,7 @@ const READS_LITERAL = new RegExp(
 );
 // Every file that calls a model (a spawn or a router's endpoint), in one list: the desk's runtimes may change shape.
 const MODEL_CALL_FILES = [
+  "apps/server/src/desk/runtimes/pi-runtime.ts",
   "apps/server/src/desk/runtimes/runtime-rows.ts",
   "apps/server/src/models/describer.ts",
   "apps/server/src/models/foundation-model.ts",

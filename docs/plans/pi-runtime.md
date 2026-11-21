@@ -193,13 +193,13 @@ saw it"), and a line for pi; SECURITY.md's "Agents" (the guard as a hook, the ag
 
 | PR | What | Tier |
 |---|---|---|
-| 1 | `life-pi.ts`: the guard in `tool_call`, the door, the routing check, codemode off; its tests through a fake provider | hard (strict path) |
-| 2 | `pi-runtime.ts` over RPC, its row and agent dir, pi pinned and bundled; tests with a fake pi like `fake-acp-agent.ts` | hard (strict path) |
-| 3 | `pi` in `RuntimeName`, the Kit enum, a move that names its target, spending as `billed` from OpenRouter with its desk store step | hard (strict path: a store step) |
-| 4 | parity extensions: `web_fetch`, `web_search`, subagents, the owner's Claude hooks, the Life connector grant | standard |
-| 5 | SECURITY.md ("What leaves the Mac") and AGENTS.md's model provider invariant, on the owner's yes; the runtime lines of section 4 land with PRs 1 to 3 | small |
+| 1 | `pi-extension.ts`: the guard in `tool_call`, the door, Life's provider with its routing on every request, a repo's `.pi` never trusted; tests in a real pi (#1173) | hard (strict path) |
+| 2 | `pi-runtime.ts` over RPC behind the one runtime (`session-runtime.ts`, split from ACP's), pi pinned and bundled, `pi` in `RuntimeName` and the phone's list, SECURITY.md's and AGENTS.md's lines (decision 3) | hard (strict path) |
+| 3 | a move that names its target, spending as `billed` from OpenRouter with its desk store step | hard (strict path: a store step) |
+| 4 | parity extensions: `web_fetch`, `web_search`, subagents, the owner's Claude hooks, the Life connector grant, the global `AGENTS.md` | standard |
+| 5 | folded into PR 2 | |
 | 6 | the read-only view of a pi agent's session in Life's app (decision 2) | standard |
-| 7 | `desk.defaultRuntime: "pi"` in the owner's settings, once PRs 1 to 5 have landed and their tests pass | small |
+| 7 | `desk.defaultRuntime: "pi"` in the owner's settings, once PRs 1 to 4 have landed and their tests pass | small |
 
 Existing agents keep their runtime: only agents started after PR 7 run on pi by default.
 
