@@ -1,0 +1,12 @@
+{
+  "name": "life",
+  "version": "1.0.0",
+  "description": "Life on this Mac: its connector, and in a registered agent's session you open by hand, the agent's door, packet and send guard.",
+  "userConfig": {
+    "connector_url": {
+      "type": "string",
+      "title": "Life's address",
+      "description": "The address Life shows under Reaching Life, ending in /mcp."
+    }
+  }
+}

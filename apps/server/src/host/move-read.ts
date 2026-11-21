@@ -10,6 +10,7 @@ import {
   agentOf,
   anchorsOf,
   openAssignmentOfMatter,
+  openAssignmentsOf,
   type TurnRow,
 } from "./desk-read";
 
@@ -101,12 +102,7 @@ export const moveOn = (
 export const moveScopeOf = (db: Database, m: MoveRow) =>
   m.assignment_id
     ? [m.assignment_id]
-    : db
-        .query<{ id: string }, [string]>(
-          "select id from assignment where agent_id = ? and closed_at is null"
-        )
-        .all(m.agent_id)
-        .map((r) => r.id);
+    : openAssignmentsOf(db, m.agent_id).map((r) => r.id);
 
 /** A move's notes turns (cause `move_notes`, the old agent's, one per assignment). */
 export const notesTurnsOf = (db: Database, m: MoveRow) =>

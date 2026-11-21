@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "life": { "type": "http", "url": "${user_config.connector_url}" }
+  }
+}
