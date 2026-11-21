@@ -205,7 +205,8 @@
                 ($0["needYou"] as? Int ?? 0) > ($1["needYou"] as? Int ?? 0)
             }
             let loose = rows.filter { Self.projectOf($0) == nil }
-            let areas = NSOrderedSet(array: loose.flatMap { $0["areas"] as? [String] ?? [] }).array as? [String] ?? []
+            let named: [String] = loose.flatMap { (row: [String: Any]) -> [String] in row["areas"] as? [String] ?? [] }
+            let areas = NSOrderedSet(array: named).array as? [String] ?? []
             let chips =
                 underway
                 + areas.map { name in chip("area", name.lowercased(), name, loose.filter { Self.isIn(name, $0) }) }
@@ -229,26 +230,26 @@
             }
             let ask = checksNow().first { $0["group"] as? String == "decision" && onIt($0) }
             let isUnderway = ["active", "waiting"].contains(status)
-            head.merge([
-                "status": status,
-                "goal": head["goal"].map { ["text": $0, "rank": 1, "of": 1] as Any } ?? NSNull(),
-                "situation": head["situation"] ?? [Any](),
-                "ask": ask.map { check in
-                    (["deadline": NSNull(), "matter": NSNull()] as [String: Any]).merging(
-                        check.filter { ["ref", "question", "deadline", "matter"].contains($0.key) }
-                    ) { $1 } as Any
-                } ?? NSNull(),
-                // Its live line: what it waits for.
-                "agents": !isUnderway
-                    ? []
-                    : Self.allAgents.filter(onIt).map { agent in
-                        agent.filter { ["id", "title", "status"].contains($0.key) }.merging([
-                            "line": (agent["wait"] as? [String: Any])?["reason"] ?? agent["title"] ?? ""
-                        ]) { $1 }
-                    },
-                "people": head["people"] ?? [Any](), "chats": head["chats"] ?? [Any](),
+            let goal: Any = head["goal"].map { ["text": $0, "rank": 1, "of": 1] as [String: Any] } ?? NSNull()
+            let asked: Any =
+                ask.map { (check: [String: Any]) -> [String: Any] in
+                    let shown = check.filter { ["ref", "question", "deadline", "matter"].contains($0.key) }
+                    return (["deadline": NSNull(), "matter": NSNull()] as [String: Any]).merging(shown) { $1 }
+                } ?? NSNull()
+            // Its live line: what it waits for.
+            let agents: [[String: Any]] =
+                !isUnderway
+                ? []
+                : Self.allAgents.filter(onIt).map { (agent: [String: Any]) -> [String: Any] in
+                    let line: Any = (agent["wait"] as? [String: Any])?["reason"] ?? agent["title"] ?? ""
+                    return agent.filter { ["id", "title", "status"].contains($0.key) }.merging(["line": line]) { $1 }
+                }
+            let shown: [String: Any] = [
+                "status": status, "goal": goal, "situation": head["situation"] ?? [Any](), "ask": asked,
+                "agents": agents, "people": head["people"] ?? [Any](), "chats": head["chats"] ?? [Any](),
                 "repos": head["repos"] ?? [Any](),
-            ]) { $1 }
+            ]
+            head.merge(shown) { $1 }
             return json(["project": head, "version": "fixture"])
         }
         private static func projectOf(_ row: [String: Any]) -> [String: Any]? { row["project"] as? [String: Any] }
