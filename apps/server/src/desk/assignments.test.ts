@@ -400,8 +400,8 @@ test("a card stays its asking assignment's when its subject is later anchored on
         .filter((e) => !planIds.some((p) => e === `${p}.answered`));
     expect(answered(own().id)).toEqual([`${card}.answered`]);
     expect(answered(onA().id)).toEqual([]);
-    // onA asked only its plan: the card is not its.
-    expect(pendingCardOf(desk.db, onA())).toBeUndefined();
+    // onA asked only its plan: the card stays the asker's.
+    expect(assignmentOfCard(desk.db, { agent: t.id, id: card })).toBe(b.id);
   });
 });
 
