@@ -19,12 +19,11 @@ import {
   anchorsOf,
   currentAssignmentOf,
   heldByAgents,
-  isOldShape,
-  NOT_MIGRATED,
 } from "../host/desk-read";
+import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
 import { AgentWait } from "../records/registered-agent";
 import { openDesk, SCHEMA } from "./desk-store";
-import { stepRoles, stepStore } from "./store-step";
+import { stepRoles, stepStore, stepTurnModel } from "./store-step";
 
 // The desk's store step (agents and matters, PR 1) on a made-up store of the old shape: same agents, each wait, anchor,
 // event, turn and note found on its assignment, the holds unchanged; run twice; refused, rolled back, or skipped.
@@ -43,6 +42,7 @@ create index event_dropped on event (agent_id, dropped_at) where dropped_at is n
 const T = "2026-11-18T09:00:00.000Z";
 const BACKUP_FILE = /^desk-before-assignments-.*\.sqlite$/;
 const ROLES_BACKUP_FILE = /^desk-before-roles-.*\.sqlite$/;
+const TURN_MODEL_BACKUP_FILE = /^desk-before-turn-model-.*\.sqlite$/;
 const WAIT = JSON.stringify([{ chat: "Test Ana" }]);
 
 /** A made-up store of the old shape, and an agents repo (a git repo) with the project agents' homes. */
@@ -329,4 +329,65 @@ test("a store from before roles is refused by openDesk; the roles step carries t
     ])
   ).toThrow("UNIQUE");
   after.close();
+});
+
+test("a store from before turn models is refused by openDesk; the step adds `turn.model` behind its own copy, once, older turns null; skipped on a checkout's app state", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-step-"));
+  const path = join(dir, "desk.sqlite");
+  const db = new Database(path);
+  db.run(
+    SCHEMA.replace(
+      "context_used integer,\n  model text",
+      "context_used integer"
+    )
+  );
+  db.run(
+    "insert into turn (agent_id, assignment_id, cause, started_at, tokens_in) values ('agt_000000000001', 'asg_000000000001', 'start', ?, 10)",
+    [T]
+  );
+  db.close();
+  expect(() => openDesk(path)).toThrow(NOT_MIGRATED);
+  expect(stepTurnModel(path, APP_FOLDERS.state)).toBe("skipped");
+  expect(stepTurnModel(path, dir)).toBe("migrated");
+  expect(stepTurnModel(path, dir)).toBe("in shape");
+  expect(readdirSync(dir).filter((f) => f.startsWith("desk-before-"))).toEqual([
+    expect.stringMatching(TURN_MODEL_BACKUP_FILE),
+  ]);
+  const after = openDesk(path);
+  expect(after.query("select tokens_in, model from turn").all()).toEqual([
+    { model: null, tokens_in: 10 },
+  ]);
+  after.close();
+});
+
+test("the later steps, run in any order on a store from before all of them, end in one shape", () => {
+  const beforeAll = SCHEMA.replace(
+    "role text check (role in ('personal', 'caretaker')),",
+    "is_personal integer not null default 0,"
+  )
+    .replace(
+      "one_agent_per_role on agent (role) where role is not null",
+      "one_personal_agent on agent (is_personal) where is_personal = 1"
+    )
+    .replace("context_used integer,\n  model text", "context_used integer");
+  const steps = [stepRoles, stepTurnModel];
+  const shapeAfter = (order: typeof steps) => {
+    const dir = mkdtempSync(join(tmpdir(), "life-step-"));
+    const path = join(dir, "desk.sqlite");
+    const db = new Database(path);
+    db.run(beforeAll);
+    db.close();
+    for (const step of order) {
+      expect(step(path, dir)).toBe("migrated");
+    }
+    const after = openDesk(path);
+    const shape = after
+      .query<{ sql: string }, []>(
+        "select m.name || ':' || group_concat(c.name || ' ' || c.type, ',') as sql from sqlite_master m, pragma_table_info(m.name) c where m.type = 'table' group by m.name order by m.name"
+      )
+      .all();
+    after.close();
+    return shape;
+  };
+  expect(shapeAfter(steps.toReversed())).toEqual(shapeAfter(steps));
 });

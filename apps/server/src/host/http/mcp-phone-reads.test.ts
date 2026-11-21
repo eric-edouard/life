@@ -165,8 +165,9 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       subject: "obs_000000000005",
       title: "Kit is waiting for the quote.",
     },
-    // A transfer whose "I've paid" Life looked for and did not find yet: open again.
+    // A transfer whose "I've paid" Life looked for and did not find yet: open again. A registered agent's plan (`planCardsOf`).
     {
+      agent: "agt_000000000001",
       asker: "Orbit",
       at: "2026-10-14T09:00:00.000Z",
       context: "",
@@ -367,6 +368,7 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
         }) as Record<string, string>
       )[s] ?? null,
   },
+  plans: new Set(["dec_000000000002"]),
   titles: new Map([["unit_000000000001", "Gran"]]),
   today: "2026-10-14",
   voices: [

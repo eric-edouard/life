@@ -70,7 +70,8 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
     const { command, env } = await row.spawn(a);
     const child = spawn(command[0] ?? "", command.slice(1), {
       cwd: a.folder,
-      env: { ...cliEnv(), ...env },
+      // `LIFE_DESK_AGENT`: the resource sample sums the runtime and every tool it runs under its agent (`agentPidsOf`).
+      env: { ...cliEnv(), ...env, LIFE_DESK_AGENT: a.id },
       // Its stderr goes to the desk's own process log (~/Library/Logs), never the event log: it quotes the agent.
       stdio: ["pipe", "pipe", "inherit"],
     });

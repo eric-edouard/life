@@ -59,9 +59,9 @@ const resumeRefusal = (desk: Desk, id: string | undefined) =>
 
 /** Why a change names not exactly one subject: a matter's steps, a project, or the Personal agent. */
 const subjectCountRefusal = (c: AgentChange) =>
-  [c.steps, c.project, c.personal].filter(Boolean).length === 1
+  [c.steps, c.project, c.role].filter(Boolean).length === 1
     ? null
-    : "name exactly one subject: a matter (`step`), a project, or `personal`";
+    : 'name exactly one subject: a matter (`step`), a project, or `role: "personal"`';
 
 /** Why a subject is refused: not exactly one (`subjectCountRefusal`); a re-point of the caretaker (`self`), which takes no other subject; another Personal agent active or stopped; the matter held by another active agent. */
 function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
@@ -72,7 +72,7 @@ function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
   if (counted) {
     return counted;
   }
-  if (c.personal) {
+  if (c.role === "personal") {
     const other = desk.db
       .query<{ id: string; status: string }, [string]>(
         "select id, status from agent where role = 'personal' and status in ('active', 'stopped') and id <> ?"
@@ -130,10 +130,10 @@ export function start(
   const refused = subjectRefusal(desk, c);
   const runtime = runtimeOf(c);
   const repeat = desk.db
-    .query<{ id: string }, [string, string | null, number]>(
-      "select id from agent where status = 'active' and brief = ? and (project = ? or (role = 'personal' and ? = 1)) limit 1"
+    .query<{ id: string }, [string, string | null, string | null]>(
+      "select id from agent where status = 'active' and brief = ? and (project = ? or role = ?) limit 1"
     )
-    .get(brief, c.project ?? null, c.personal ? 1 : 0)?.id;
+    .get(brief, c.project ?? null, c.role ?? null)?.id;
   if (repeat) {
     return { id: repeat };
   }
@@ -156,11 +156,11 @@ export function start(
   const id = register(desk, {
     brief,
     effort: c.effort,
-    folder: c.folder ?? (c.personal ? personalHome() : undefined),
+    folder: c.folder ?? (c.role === "personal" ? personalHome() : undefined),
     model: c.model,
     name: c.name,
     project: c.project,
-    role: c.personal ? "personal" : undefined,
+    role: c.role,
     runtime,
   });
   replaceStopped(desk, c, id);
@@ -318,7 +318,16 @@ function applyAsk(
   | { agent?: string; id: string } {
   const parsed = AgentChange.safeParse(ask.agentChange);
   if (!parsed.success) {
-    return { error: "only a change from `change_registered_agent` is applied" };
+    // One the connector took before the Personal agent was named by its role: never applied, his to ask again.
+    const isOldForm =
+      typeof ask.agentChange === "object" &&
+      ask.agentChange !== null &&
+      "personal" in ask.agentChange;
+    return {
+      error: isOldForm
+        ? 'asked in an old form: ask again with role "personal"'
+        : "only a change from `change_registered_agent` is applied",
+    };
   }
   if (clock().getTime() - Date.parse(ask.at) > STALE_AFTER) {
     return {

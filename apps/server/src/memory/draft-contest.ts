@@ -4,6 +4,7 @@ import {
   DECISIONS_VERSION,
   type Decision,
   type Withdrawn,
+  withdrawnOf,
 } from "./decision-lines";
 import type { StoredDraft } from "./draft";
 
@@ -21,6 +22,10 @@ type Asker = Pick<Decision, "agent" | "asker">;
 /** Whether `d` is still to be settled: open, or waiting on another card. */
 export const isPending = (d: Pick<Decision, "state">) =>
   d.state === "open" || d.state === "waiting";
+
+/** Whether `d` counts as asked: not withdrawn, or withdrawn because another card took its place (`replacedBy`). An assignment's first such card is its plan (`hasAsked`, `planCardsOf`). */
+export const isAsked = (d: Pick<Decision, "state" | "withdrawn">) =>
+  d.state !== "withdrawn" || !!d.withdrawn?.replacedBy;
 
 /** Whether `a` and `b` were asked by the same asker: every registered agent asks as `desk`, its own `agent` tells them apart. */
 const isSameAsker = (a: Asker, b: Asker) =>
@@ -119,13 +124,11 @@ export const mergeWithdrawalsOf = (
 ): Withdrawn[] =>
   merged
     ? [
-        {
-          at: now.toISOString(),
-          id: merged.held.id,
-          kind: "withdrawn",
-          schemaVersion: DECISIONS_VERSION,
-          why: `merged with ${merged.waiting.id} into ${id}`,
-        },
+        withdrawnOf(
+          merged.held.id,
+          now,
+          `merged with ${merged.waiting.id} into ${id}`
+        ),
       ]
     : [];
 
