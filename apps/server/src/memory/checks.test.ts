@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
+import { pushIdOf } from "../sources/lifelog-push";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { shownStepsOf } from "./check-sentences";
 import { urgencyOf } from "./check-urgency";
@@ -11,7 +12,6 @@ import {
   checksNow,
   checksOf,
   checksOnMatterOf,
-  pushIdOf,
 } from "./checks";
 import {
   about,
@@ -613,6 +613,7 @@ test("the inbox is read again only when what it reads changed: not a unit sync; 
     expect(reads).toHaveBeenCalledTimes(1);
     // What agents hold keys on its stamp alone: the facts are read only when the list is.
     const held = (stamp: string) => ({
+      plans: () => new Set<string>(),
       read: () => anchored("obs_000000000001"),
       stamp,
     });

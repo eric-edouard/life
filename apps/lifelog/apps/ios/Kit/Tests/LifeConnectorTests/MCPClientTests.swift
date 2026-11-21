@@ -213,10 +213,13 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     _ = try await api.setImportant(matter: "matter_1", false) { _ in }
     _ = try await api.setProjectStatus("halden", .parked, said: "Parked the project Halden house") { _ in }
     _ = try await api.readMatters(project: "halden")
+    _ = try await api.readMatters(person: "person:test-ana")
     let calls = try sent.withLock {
         try $0.map { ($0.0, try #require(JSONSerialization.jsonObject(with: $0.1) as? [String: Any])) }
     }
-    #expect(calls.map(\.0) == ["correct_memory", "change_directory_entry", "read_matters"])
+    #expect(calls.map(\.0) == ["correct_memory", "change_directory_entry", "read_matters", "read_matters"])
+    // Life resolves a person by id (`test-ana`), never by the ref the phone holds.
+    #expect(calls[3].1["person"] as? String == "test-ana")
     let mark = try #require(calls[0].1["correction"] as? [String: Any])
     #expect(calls[0].1["kind"] as? String == "memory")
     #expect(mark["kind"] as? String == "matter-important")
@@ -250,4 +253,30 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     _ = try await mcp.call("answer_check", ["ref": "dec_1"], answerKey: "k") { _ in }
     #expect(seen.withLock { $0["/auth/oauth2/token"] } == MCPClient.readTimeoutSeconds)
     #expect(seen.withLock { $0["/mcp"] } == MCPClient.actionIdleTimeoutSeconds)
+}
+
+/// A call that Life refused (401) after the phone was paired again with the Life at the same address: its resend never
+/// takes the new pairing's bearer, it ends not paired (#818).
+@Test func a401AfterARepairingAtTheSameAddressIsNeverResentWithTheNewBearer() async throws {
+    let host = newHost()
+    let store = MemoryStore(credentials(host: host))
+    let bearers = Mutex<[String]>([])
+    let session = Stub.session(host: host) { request in
+        if request.url.path.hasSuffix("/token") { return tokenReply(access: "access-2") }
+        bearers.withLock { $0.append(request.headers.first { $0.key.lowercased() == "authorization" }?.value ?? "") }
+        store.save(
+            LifeCredentials(
+                endpoint: LifeEndpoint(
+                    origin: testURL("https://\(host)"), clientID: "client-new",
+                    tokenEndpoint: testURL("https://\(host)/auth/oauth2/token"), resource: "https://\(host)/mcp"),
+                tokens: LifeTokens(
+                    access: "access-new", refresh: "refresh-new", expiresAt: epoch.addingTimeInterval(3600))))
+        return Reply(status: 401)
+    }
+    let life = LifeSession(store: store, oauth: LifeOAuth(session: session, now: { epoch }), now: { epoch })
+    await #expect(throws: MCPError.notPaired) {
+        try await MCPClient(session: life, urlSession: session).call("read_inbox")
+    }
+    #expect(bearers.withLock { $0 } == ["Bearer access-1"])
+    #expect(store.load()?.tokens.access == "access-new")
 }

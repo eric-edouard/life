@@ -246,6 +246,7 @@
       },
       "goal": null,
       "group": "decision",
+      "isPlan": false,
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],

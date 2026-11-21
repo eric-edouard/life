@@ -38,6 +38,7 @@ import type { Unit } from "../records/unit";
 import { syncAppleHealth } from "../sources/apple-health";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
+import { syncAppointments } from "./appointments-calendar";
 import { pushNewCardsIfChanged, pushNewDecisionsAtOnce } from "./card-push";
 import { describePhotos } from "./describe-photos";
 import { lookForPaymentsDone } from "./done-seen";
@@ -57,7 +58,7 @@ import { sampleResources } from "./resource-sample";
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `SPEECH_WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`). Each minute, on its own timer, `tick` reads his to-do list: lifelog
-// down never stops it (1 Nov: 20 h without one). Every 10 minutes, on another, what search ranks by meaning is embedded, and on a third the photos with no description are described.
+// down never stops it (1 Nov: 20 h without one). Every 30 minutes his calendar follows the appointments. Every 10 minutes, on another, what search ranks by meaning is embedded, and on a third the photos with no description are described.
 
 let ticking = false;
 let syncingMeasurements = false;
@@ -445,6 +446,7 @@ export async function watch(): Promise<number> {
   embedEvery();
   describeEvery();
   picturesEvery();
+  appointmentsEvery();
   const timers = [
     setInterval(minute, MIN),
     setInterval(pushNewDecisionsAtOnce, DECISIONS_EVERY),
@@ -453,6 +455,7 @@ export async function watch(): Promise<number> {
     setInterval(describeEvery, DESCRIBE_EVERY),
     setInterval(todayEvery, TODAY_EVERY),
     setInterval(picturesEvery, HOUR),
+    setInterval(appointmentsEvery, APPOINTMENTS_EVERY),
   ];
   try {
     return await (listening() ? listen(running, started) : quiet(running));
@@ -606,6 +609,14 @@ function picturesEvery() {
     .finally(() => {
       keepingPictures = false;
     });
+}
+
+/** How often his calendar is brought in line with the appointments (the only sync of them, `appointments-calendar.ts`). */
+const APPOINTMENTS_EVERY = 30 * MIN;
+function appointmentsEvery() {
+  syncAppointments().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "watch.appointments" })
+  );
 }
 
 function embedEvery() {

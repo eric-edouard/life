@@ -5,11 +5,12 @@ import { clock } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { DESK_STORE } from "../core/paths";
 import { openWritable } from "../core/sqlite";
-import { readCursor } from "../host/desk-read";
+import { assignmentOfCard, readCursor } from "../host/desk-read";
 import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
 import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
 import { COMPLAINT_RECEIVED } from "../host/events";
+import type { Decision } from "../memory/decision-lines";
 import { askPlaceOf } from "../memory/memory-files";
 import type { AgentWait } from "../records/registered-agent";
 import type { Runtime } from "./runtimes/contract";
@@ -215,7 +216,7 @@ export const writeWait = (
   );
 
 /** Ends agent `agent` (`status`, `outcome`) when it holds no open assignment: the one ending rule, after a close or a move. */
-const endWhenIdle = (
+export const endWhenIdle = (
   db: Database,
   agent: string,
   status: "ended" | "handed_over",
@@ -261,15 +262,17 @@ export function closeAssignmentRow(
 }
 
 /**
- * Moves open assignment `id` to agent `to` (the fold), with its anchors, wait, times, events and notes file, and ends
- * the agent it leaves when that holds no open assignment after (`outcome`). What the old agent's sessions were shown of
- * it is shown again to the new one (`handed_step`). In the caller's transaction.
+ * Moves open assignment `id` to agent `to`, with its anchors, wait, times, events, notes file and cards: both agents'
+ * cards asked before the desk kept owners are pinned to their owners first (`assignmentOfCard` over `decisions`), since
+ * a move changes which assignment is either agent's first. What the old agent's sessions were shown of it is shown
+ * again to the new one (`handed_step`). The agent it leaves is the caller's to end (`endWhenIdle`). In the caller's
+ * transaction. The agent it left, or null when nothing moved.
  */
 export function moveAssignment(
   db: Database,
   id: string,
   to: string,
-  outcome: string
+  decisions: readonly Pick<Decision, "agent" | "id">[]
 ) {
   const from = db
     .query<{ agent_id: string }, [string]>(
@@ -277,11 +280,21 @@ export function moveAssignment(
     )
     .get(id)?.agent_id;
   if (!from || from === to) {
-    return;
+    return null;
+  }
+  for (const d of decisions) {
+    const owner =
+      (d.agent === from || d.agent === to) && assignmentOfCard(db, d);
+    if (owner) {
+      db.run(
+        "insert or ignore into card (decision_id, assignment_id) values (?, ?)",
+        [d.id, owner]
+      );
+    }
   }
   db.run("update assignment set agent_id = ? where id = ?", [to, id]);
   db.run("delete from handed_step where assignment_id = ?", [id]);
-  endWhenIdle(db, from, "ended", outcome);
+  return from;
 }
 
 /** Posts a line for the report (`life desk report-line`): one per source per day, a second that day replacing it. */
