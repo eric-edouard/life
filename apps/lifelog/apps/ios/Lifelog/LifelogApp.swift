@@ -57,15 +57,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     /// can't be opened (written by a newer app, an unreadable file): it fails closed, and screens say so.
     let library: LibraryStore?
     /// The one processing driver: uploads, the outbox, the feed, the status every tab shows.
-    lazy var sync = SyncStore(capture: capture, library: library)
+    lazy var sync = SyncStore(capture: capture, library: library, path: path)
+    /// The phone's network path, followed once: the pendant's sync and Life's store read it.
+    let path = NetworkPath()
     private let location = LocationRecorder()
     let appleHealth = AppleHealthReader()
     /// Life's reads (inbox, matters, agents) and its pairing: the phone is one more app of Life's connector.
     lazy var life: LifeStore = {
         #if DEBUG
-            if LifeFixture.isRequested { return LifeFixture.store() }
+            if LifeFixture.isRequested { return LifeFixture.store(path: path) }
         #endif
-        return LifeStore()
+        return LifeStore(path: path)
     }()
     /// Plays recorded audio and marks it quiet for the Pendant.
     lazy var playback = PlaybackStore(library: library, sync: sync)
@@ -137,7 +139,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         appEvent("app.launch", launch)
         startLocation()
         appleHealth.start()
-        Task { [sync] in await sync.followNetwork() }
+        // Back online, the pendant's run goes at once; Life's read screens read again themselves (`ReadScreen`).
+        Task { [path, sync] in await path.follow { sync.run() } }
         application.registerForRemoteNotifications()
         // Handlers must be registered before launch ends. `.main` delivers the task on the main actor.
         BGTaskScheduler.shared.register(forTaskWithIdentifier: SyncStore.backgroundTaskID, using: .main) {

@@ -61,7 +61,7 @@
             }
         }
 
-        @MainActor static func store() -> LifeStore {
+        @MainActor static func store(path: NetworkPath) -> LifeStore {
             let scenario = scenario ?? "ok"
             let directory = URL.temporaryDirectory.appending(path: "life-fixture-reads", directoryHint: .isDirectory)
             let cache = ReadCache(directory: directory)
@@ -75,7 +75,7 @@
             return LifeStore(
                 tokens: FixtureTokens(isPaired: scenario != "notPaired"), api: api,
                 approve: { _ in try await approve() },
-                cache: cache, setBadge: { _ in })
+                cache: cache, path: path, setBadge: { _ in })
         }
     }
 

@@ -81,6 +81,7 @@ struct CheckActions: View {
         }
         .motion(Motion.standard, value: check.doneSeen?.state)
         .motion(Motion.standard, value: isBusy)
+        .offWhileOutOfReach()
     }
 
     /// On Life's own asks only, the escape hatch: a compact quiet button, always the last thing at the bottom right.

@@ -245,3 +245,47 @@ private func shown(_ state: ReadState<[Int]>) -> String {
     await fresh.value
     #expect(ran.withLock { $0 } == ["old running", "new"])
 }
+
+private let later = then.addingTimeInterval(5)
+
+@Test func noPathMeansNoInternetWhateverTheReads() {
+    var connection = LifeConnection()
+    #expect(connection.whyNot(hasPath: true) == nil)
+    #expect(connection.whyNot(hasPath: false) == MCPError.offline.reason)
+    connection.note(ReadState<[Int]>.Event.succeeded([], then), asked: then)
+    #expect(connection.whyNot(hasPath: false) == MCPError.offline.reason)
+}
+
+@Test func aReadWithNoWayToLifeHoldsUntilLifeAnswers() {
+    var connection = LifeConnection()
+    connection.note(ReadState<[Int]>.Event.failed(.unreachable), asked: then)
+    #expect(connection.whyNot(hasPath: true) == MCPError.unreachable.reason)
+    // A retry under way, one called off, a phone with no pairing, a tunnel's 5xx or a timeout learn nothing about Life.
+    for nothing in [
+        ReadState<[Int]>.Event.started, .failed(.cancelled), .failed(.notPaired), .failed(.failed("502")),
+        .failed(.timedOut),
+    ] {
+        connection.note(nothing, asked: later)
+    }
+    #expect(connection.lost == .unreachable)
+    // The phone's own "no internet", with a path that says otherwise, stays the phone's.
+    connection.note(ReadState<[Int]>.Event.failed(.offline), asked: later)
+    #expect(connection.whyNot(hasPath: true) == MCPError.offline.reason)
+    connection.note(ReadState<[Int]>.Event.succeeded([1], later), asked: later)
+    #expect(connection.whyNot(hasPath: true) == nil)
+    // Life refusing is still Life answering.
+    connection.note(ReadState<[Int]>.Event.failed(.unreachable), asked: later.addingTimeInterval(1))
+    connection.note(ReadState<[Int]>.Event.failed(.refused("no")), asked: later.addingTimeInterval(2))
+    #expect(connection.lost == nil)
+}
+
+/// Reads of two kinds overlap: a matter's read asked first times out after the inbox's, asked later, landed.
+@Test func anOlderReadLandingLateChangesNothing() {
+    var connection = LifeConnection()
+    connection.note(ReadState<[Int]>.Event.succeeded([1], later), asked: later)
+    connection.note(ReadState<[Int]>.Event.failed(.unreachable), asked: then)
+    #expect(connection.whyNot(hasPath: true) == nil)
+    connection.note(ReadState<[Int]>.Event.failed(.unreachable), asked: later.addingTimeInterval(1))
+    connection.note(ReadState<[Int]>.Event.succeeded([1], later), asked: later)
+    #expect(connection.lost == .unreachable)
+}
