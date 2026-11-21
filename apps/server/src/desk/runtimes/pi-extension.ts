@@ -24,7 +24,7 @@ export const PI_EXTENSION_ENV = {
 const GUARDED = new RegExp(`^(${SEND_GUARD_HOOK.matcher})$`);
 
 /** A pi tool call as the guard reads Claude's: pi's `bash` is Claude's `Bash`; MCP tools share the `mcp__<server>__<tool>` shape. */
-export const guardedCallOf = (toolName: string, input: unknown) => ({
+const guardedCallOf = (toolName: string, input: unknown) => ({
   tool_input: input,
   tool_name: toolName === "bash" ? "Bash" : toolName,
 });
