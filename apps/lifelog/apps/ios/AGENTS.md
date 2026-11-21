@@ -9,7 +9,7 @@ the system's search tab (`Shell/SearchScreen.swift`). The bars are two groups of
 (`Shell/TopBar.swift`): on top the Pendant's icon and the Settings gear (Settings only from Inbox and Matters; a pushed
 page has Back and the Pendant; a sheet only its Close: one head row in the content, its title left and Close right (`SheetHeader`, `CloseButton`), the
 bar of its `sheetStack()` hidden, and `CloseItem` in the bar only for the Pendant sheet),
-at the bottom the tabs. A screen's answers stay in its content, never in a bar. Sheets are centred, the system's
+at the bottom the tabs. A screen's answers stay in its content, never in a bar. A list screen's name is its `screenTitle` (`DesignSystem/ScreenTitle.swift`, decision 84): the name and one muted state word ("Matters 7 running"), never a sentence, on the system's `safeAreaBar` with its soft scroll edge, never a navigation title; on Inbox, Matters, People and Search, and on Agents, Notifications, Last night, Live logs and Spending when they are built. A page whose first line is its name (a matter, a person, an agent) and a sheet have none. Sheets are centred, the system's
 default: no `presentationPlacement` (`.leading` is missing on iOS 27.0 and crashes). The old Library, Conversation, Presses and
 Spending screens are cut. Nothing in the app needs an agent's session: what waits on him comes to the app, and a session's link is only ever a quiet link (his word, 20 Nov). Every screen reads through `ReadScreen` (loading, empty, stale, unreachable, failed, not paired) and every
 action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSystem/Typography.swift`). `Shared/Palette.swift` is the phone's one copy of Life's brand (`assets/brand/tokens.css`), checked by

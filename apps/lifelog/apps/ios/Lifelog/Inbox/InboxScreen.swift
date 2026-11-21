@@ -34,11 +34,9 @@ struct InboxScreen: View {
             }
             .background(Palette.bg)
             .navigationSplitViewColumnWidth(min: 280, ideal: 455, max: 455)
+            .screenTitle("Inbox", state: waiting)
             // The Pendant and Settings are the ask column's when it is beside the list; the list alone (compact) has them.
-            .shellBar(
-                widths.ask < widths.whole - 1 ? "Inbox" : "", hasSettings: sizeClass != .regular,
-                hasPendant: sizeClass != .regular
-            )
+            .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
             .askFilterBar(kinds: all.kinds, kind: $kind)
         } detail: {
             ReadScreen(
@@ -49,7 +47,9 @@ struct InboxScreen: View {
             // The first card cross-fades in over the skeleton.
             .motion(Motion.standard, value: life.inboxOnShow == nil)
             .background(Palette.bg)
-            // Nothing above the question: no title; the gear and the Pendant are the list's when it is beside.
+            // Alone, the ask has the screen's title over it (the question stays the biggest line); beside the list, the
+            // list has it, and the gear and the Pendant.
+            .screenTitle(widths.ask < widths.whole - 1 ? nil : "Inbox", state: waiting)
             .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.ask = $0 }
             // Declared before the Pendant and Settings: a vertical bar stacks trailing items bottom-up, so the order puts
             // this one under them; `sharedBackgroundVisibility(.hidden)` keeps it out of their capsule.
@@ -108,6 +108,9 @@ struct InboxScreen: View {
         guard notes.taken != nil || notes.creating != nil, let inbox = life.inboxOnShow else { return life.inboxShown }
         return .loaded(inbox)
     }
+
+    /// The title's state, "4 waiting": every open ask, less his answers (`Inbox.total`, not the rows read).
+    private var waiting: String? { life.inboxOnShow.flatMap { $0.total > 0 ? "\($0.total) waiting" : nil } }
 
     /// The ask whose answer Life refused, back in the order.
     private var refusedRef: String? {

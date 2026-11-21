@@ -29,12 +29,10 @@ struct MattersScreen: View {
             .background(Palette.bg)
             // A swipe's mark, said back with Undo.
             .saysBack()
-            // Beside the matter, the Pendant and Settings are the matter column's (the list's bar keeps its title).
-            .shellBar(
-                "Matters", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular, isTitleLarge: true
-            )
-            // The filter on, under the title: "Important".
-            .navigationSubtitle(filter.shownName ?? "")
+            // The filter on is the title's state word ("Important"), else how many run.
+            .screenTitle("Matters", state: filter.shownName ?? life.matters.value.map { "\($0.matters.count) running" })
+            // Beside the matter, the Pendant and Settings are the matter column's.
+            .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
             .filterBar(isFiltered: filter != .everything, identifier: "matters.filter") { filterChoices }
         } detail: {
             if let id = router.matter {

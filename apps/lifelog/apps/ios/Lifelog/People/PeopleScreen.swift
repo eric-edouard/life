@@ -29,11 +29,9 @@ struct PeopleScreen: View {
                 content: { list in content(list) }
             )
             .background(Palette.bg)
-            // Beside a person, the Pendant and Settings are the person's column (the list's bar keeps its title).
-            .shellBar(
-                "People", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular, isTitleLarge: true
-            )
-            .navigationSubtitle(order == .alphabet ? "A to Z" : "")
+            .screenTitle("People", state: order == .alphabet ? "A to Z" : nil)
+            // Beside a person, the Pendant and Settings are the person's column.
+            .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
             .filterBar(isFiltered: order != .closeness, identifier: "people.sort") { orderChoices }
         } detail: {
             if let ref = router.person {

@@ -11,13 +11,19 @@ struct SearchScreen: View {
     @Environment(AppRouter.self) private var router
 
     var body: some View {
+        let found = life.matters.value?.matching(query)
         ReadScreen(
             shown: life.matters.shown(isEmpty: { $0.matters.isEmpty }), retry: { await life.refreshMatters() },
             loading: { Placeholder().padding(Metrics.gutter) },
             empty: { NoMattersNotice() },
-            content: { list in results(list.matching(query)) }
+            content: { _ in results(found ?? []) }
         )
         .background(Palette.bg)
+        // How many hold what he typed; nothing while he typed nothing.
+        .screenTitle(
+            "Search",
+            state: query.trimmingCharacters(in: .whitespaces).isEmpty
+                ? nil : found.map { $0.count == 1 ? "1 result" : "\($0.count) results" })
     }
 
     private func results(_ rows: [MatterRow]) -> some View {
