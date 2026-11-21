@@ -50,15 +50,17 @@ public protocol VersionedRead {
 extension VersionedRead {
     /// Whether `text`, read with `ifNot` this read's version, says nothing changed: this read holds.
     public func isUnchanged(by text: String) -> Bool {
-        struct Unchanged: Decodable {
-            let unchanged: Bool
-            let version: String
-        }
         guard let version, let answer = try? JSONDecoder().decode(Unchanged.self, from: Data(text.utf8)) else {
             return false
         }
         return answer.unchanged && answer.version == version
     }
+}
+
+/// Life's answer to a versioned read asked `ifNot` its version, while nothing changed.
+private struct Unchanged: Decodable {
+    let unchanged: Bool
+    let version: String
 }
 
 extension Inbox: ParsedRead, VersionedRead {}
