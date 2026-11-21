@@ -4,6 +4,8 @@ import SwiftUI
 /// What he has typed or opened on a card.
 struct CardInput: Equatable {
     var isWritingOwnWords = false
+    /// The option that took him to his words, when one did: his words go with it; none for a general reply.
+    var option: String?
     var words = ""
     /// The context sheet is open (`ContextSheet`).
     var showsContext = false
@@ -42,7 +44,7 @@ struct CheckActions: View {
         VStack(spacing: Metrics.Spacing.s) {
             if input.isWritingOwnWords {
                 Button {
-                    if let request = check.answer(words: words) { answer(request) }
+                    if let request = check.answer(words: words, option: input.option) { answer(request) }
                 } label: {
                     // His words go to whoever hears them, never "Send": that is only ever the message itself.
                     Text(
@@ -194,17 +196,14 @@ struct CheckActions: View {
         }
     }
 
-    /// The server's words (`shownLabel`), except an option that takes his words ("Tell the agent…") and the filled
-    /// naming answer with no candidate drawn: "Name them…" (a voice) or "Someone I know…" (a name).
+    /// The server's words, except the filled naming answer with no candidate drawn: "Name them…" (a voice) or
+    /// "Someone I know…" (a name).
     private func label(of option: Check.Option) -> String {
-        if option.takes == .note, check.takesOwnWords { return check.tellTitle }
-        guard check.isNamingFilled, people.isEmpty, option.id == check.namingOption?.id else {
-            return option.shownLabel
-        }
+        guard check.isNamingFilled, people.isEmpty, option.id == check.namingOption?.id else { return option.label }
         switch check.group {
         case .voice: return "Name them…"
         case .name: return "Someone I know…"
-        default: return option.shownLabel
+        default: return option.label
         }
     }
 
@@ -242,7 +241,10 @@ struct CheckActions: View {
         case nil:
             if let request = check.answer(option) { return answer(request) }
             // A note, or what this build doesn't know yet: his own words go back, never a dead button.
-            if [.note, .unknown].contains(option.takes), check.takesOwnWords { input.isWritingOwnWords = true }
+            if [.note, .unknown].contains(option.takes), check.takesOwnWords {
+                input.option = option.takes == .note ? option.id : nil
+                input.isWritingOwnWords = true
+            }
         }
     }
 }

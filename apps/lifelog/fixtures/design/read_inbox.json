@@ -132,10 +132,6 @@
           "outgoing": true
         },
         {
-          "id": "edit",
-          "label": "Edit"
-        },
-        {
           "id": "no",
           "label": "Don’t send"
         }

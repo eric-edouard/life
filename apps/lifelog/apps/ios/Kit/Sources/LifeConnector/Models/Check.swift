@@ -42,12 +42,6 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
             case step, matter
             case unknown
         }
-
-        /// Its words on a card: his word that a step he did is done is "Mark as done", whatever the asker wrote
-        /// (decision 75); any other, the asker's.
-        public var shownLabel: String { ends != nil ? "Mark as done" : label }
-        /// The same answer once given, as it is said back: "Marked done", else the asker's words.
-        public var givenLabel: String { ends != nil ? "Marked done" : label }
     }
 
     public struct Clip: Decodable, Sendable, Equatable {
@@ -271,8 +265,10 @@ extension Check {
         return asker.caseInsensitiveCompare("life") == .orderedSame ? nil : asker
     }
 
-    /// Life asks it itself: no agent hears his words on it.
-    public var isLifesOwn: Bool { agent == nil && agentName(runtime: nil) == nil }
+    /// Life asks it itself, or he asked it through his own app: no agent hears his words on it.
+    public var isLifesOwn: Bool {
+        agent == nil && ["life", "owner"].contains { asker.caseInsensitiveCompare($0) == .orderedSame }
+    }
 
     /// Who hears his own words on it (decision 75), as the answer names it ("Tell the Personal agent"): its holder by
     /// its standing role, any other agent "the agent"; Life on Life's own question.
@@ -368,10 +364,12 @@ extension Check {
         return option.map { AnswerRequest(ref: ref, options: [$0.id], note: note, name: name) }
     }
 
-    /// His own words: a decision's note (no option), or the option that takes them (a new matter's goal).
-    public func answer(words: String) -> AnswerRequest? {
-        if let option = options.first(where: { $0.takes == .note }) {
-            return AnswerRequest(ref: ref, options: [option.id], note: words)
+    /// His own words: with the option he picked that takes them (`option`), else a decision's note (no option); a new
+    /// matter's goal goes with its own option that takes them.
+    public func answer(words: String, option: String? = nil) -> AnswerRequest? {
+        let picked = options.first { $0.takes == .note && (group == .decision ? $0.id == option : true) }
+        if let picked {
+            return AnswerRequest(ref: ref, options: [picked.id], note: words)
         }
         return group == .decision ? AnswerRequest(ref: ref, options: [], note: words) : nil
     }

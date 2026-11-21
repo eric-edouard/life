@@ -167,15 +167,18 @@ struct CheckCard: View {
     // MARK: The row under the thing, and the link
 
     /// The ask's links, by what each opens: its context, in the code's words for what it asks ("Why this reply?"), when
-    /// it has one and it is not shown beside it; then "Tell the agent…" (or "Tell Life…") on a question, unless one of its
-    /// answers already opens his words.
+    /// it has one and it is not shown beside it; then "Tell the agent…" (or "Tell Life…") on a question: a general reply.
     private var askLinks: [AskLink] {
         var links: [AskLink] = []
         if !isContextBeside, let title = check.contextLinkTitle {
             links.append(AskLink(title: title) { input.showsContext = true })
         }
-        if check.takesOwnWords, !check.options.contains(where: { $0.takes == .note }) {
-            links.append(AskLink(title: check.tellTitle) { input.isWritingOwnWords = true })
+        if check.takesOwnWords {
+            links.append(
+                AskLink(title: check.tellTitle) {
+                    input.option = nil
+                    input.isWritingOwnWords = true
+                })
         }
         return links
     }
