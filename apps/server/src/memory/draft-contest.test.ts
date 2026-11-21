@@ -209,6 +209,17 @@ test("three askers in turn: his Send withdraws every other open card into the ch
   for (const id of [a.id, b.id]) {
     expect(list.find((d) => d.id === id)?.withdrawn?.replacedBy).toBe(c.id);
   }
+  // One `decision.withdrawn` line for each card his Send withdrew.
+  const logged = logEvents(
+    logFileOf(clock().toISOString()),
+    "decision.withdrawn"
+  ).filter((l) => l.id === a.id || l.id === b.id);
+  expect(logged.map((l) => [l.id, l.by]).sort()).toEqual(
+    [
+      [a.id, "send"],
+      [b.id, "send"],
+    ].sort()
+  );
 });
 
 test("no merge happens while the held card's send runs", async () => {

@@ -375,10 +375,15 @@ export function withdrawDraftsAnsweredInChat(
 /** Withdrawals appended in one write, each one `decision.withdrawn` line by `by` (who withdrew it). */
 function appendWithdrawals(lines: Withdrawn[], by: string) {
   appendJsonl(DECISIONS, Withdrawn, lines);
-  for (const l of lines) {
-    log("decision.withdrawn", { by, id: l.id });
-  }
+  logWithdrawn(by, lines);
 }
+
+/** One `decision.withdrawn` line for each card withdrawn, by `by` (who withdrew it). */
+const logWithdrawn = (by: string, cards: { id: string }[]) => {
+  for (const { id } of cards) {
+    log("decision.withdrawn", { by, id });
+  }
+};
 
 /** The holder's keep (`request.keep`): the card waiting on its open card stays waiting until that one settles, and its asker hears why. */
 function keepDraft(asker: string, request: object, now: Date) {
@@ -535,9 +540,7 @@ function logAsked(
   hasDraft: boolean,
   merged?: { held: Decision; waiting: Decision }
 ) {
-  for (const was of merged ? [merged.held, merged.waiting] : []) {
-    log("decision.withdrawn", { by: "merge", id: was.id });
-  }
+  logWithdrawn("merge", merged ? [merged.held, merged.waiting] : []);
   const options = ask.options.length;
   log("decision.asked", {
     agent: ask.agent,
