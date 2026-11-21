@@ -10,7 +10,6 @@ import { openReadOnly } from "../core/sqlite";
 import type { Decision } from "../memory/decision-lines";
 import type { AgentHold, StandingAgent } from "../memory/held-matters";
 import type { BeingFixed } from "../memory/life-checks";
-import type { TurnSpent } from "../memory/spends";
 import type {
   AgentChange,
   AgentRole,
@@ -557,35 +556,6 @@ export const reportLinesSince = (db: Database, since: string) =>
       "select source, day, line, link from report_line where posted_at > ? order by day, source"
     )
     .all(since);
-
-/** One ended turn's tokens, written when it ended (`close()`). */
-export interface TurnTokens {
-  agent_id: string;
-  ended_at: string;
-  tokens_cached: number;
-  tokens_in: number;
-  tokens_out: number;
-}
-
-/** The turns that ended since `since` (the last report), by `turn_by_ended`: a turn running across a report shows in the next. */
-export const tokensSince = (db: Database, since: string) =>
-  db
-    .query<TurnTokens, [string]>(
-      "select agent_id, ended_at, coalesce(tokens_in, 0) as tokens_in, coalesce(tokens_cached, 0) as tokens_cached, coalesce(tokens_out, 0) as tokens_out from turn where ended_at > ? order by ended_at"
-    )
-    .all(since);
-
-/**
- * The turns that ended from `from` to `to` (instants, `to` excluded), by `turn_by_ended`, as spends read them: a turn
- * from before `turn.model` names its session's runtime, looked up in one pass over the sessions (`session.ref` has no
- * index).
- */
-export const turnsEndedIn = (db: Database, from: string, to: string) =>
-  db
-    .query<TurnSpent, [string, string]>(
-      "with legacy as (select ref, min(runtime) as runtime from session where ref in (select session from turn where model is null and ended_at >= ?1 and ended_at < ?2) group by ref) select agent_id, assignment_id, ended_at, model, tokens_cached, tokens_in, tokens_out, legacy.runtime as runtime from turn left join legacy on turn.model is null and legacy.ref = turn.session where ended_at >= ?1 and ended_at < ?2 order by ended_at"
-    )
-    .all(from, to);
 
 /**
  * Each assignment's notes file kept outside `state` (his agents repo, `desk.agentsRepo`), read from the store at `path`
