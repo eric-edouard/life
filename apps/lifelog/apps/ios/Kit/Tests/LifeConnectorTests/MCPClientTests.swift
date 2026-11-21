@@ -213,10 +213,13 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     _ = try await api.setImportant(matter: "matter_1", false) { _ in }
     _ = try await api.setProjectStatus("halden", .parked, said: "Parked the project Halden house") { _ in }
     _ = try await api.readMatters(project: "halden")
+    _ = try await api.readMatters(person: "person:test-ana")
     let calls = try sent.withLock {
         try $0.map { ($0.0, try #require(JSONSerialization.jsonObject(with: $0.1) as? [String: Any])) }
     }
-    #expect(calls.map(\.0) == ["correct_memory", "change_directory_entry", "read_matters"])
+    #expect(calls.map(\.0) == ["correct_memory", "change_directory_entry", "read_matters", "read_matters"])
+    // Life resolves a person by id (`test-ana`), never by the ref the phone holds.
+    #expect(calls[3].1["person"] as? String == "test-ana")
     let mark = try #require(calls[0].1["correction"] as? [String: Any])
     #expect(calls[0].1["kind"] as? String == "memory")
     #expect(mark["kind"] as? String == "matter-important")

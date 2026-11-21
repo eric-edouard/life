@@ -220,12 +220,15 @@ final class LifeStore {
         await load({ self.latest[ref, default: ReadState()].apply($0) }, key: nil) { try await $0.readPart(ref) }
     }
 
-    /// Every account of theirs: the `reach` part from `first`, page after page to its end; a page that fails stops it
-    /// there, and the next call reads it again.
-    func refreshReach(from first: String) async {
-        while let ref = reachChain(from: first).toRead {
+    /// Every account of theirs: the `reach` part page after page to its end, from `first` on a visit (the accounts may
+    /// have changed on the Mac since), or from the page that failed on Try again (`isRetry`). A page that fails stops
+    /// it there; the pages read before stand until their new read lands.
+    func refreshReach(from first: String, isRetry: Bool = false) async {
+        var next = isRetry ? reachChain(from: first).toRead : first
+        while let ref = next {
             await load({ self.reach[ref, default: ReadState()].apply($0) }, key: nil) { try await $0.readPart(ref) }
-            if reach[ref]?.value == nil { return }
+            guard reach[ref]?.phase == .loaded else { return }
+            next = reach[ref]?.value?.next
         }
     }
 
