@@ -3,6 +3,7 @@ import { digest } from "../core/hash";
 import { inboxOf } from "../memory/check-urgency";
 import { checksAndKeyNow, checksNow } from "../memory/checks";
 import type { Decision } from "../memory/decision-lines";
+import { isAsked } from "../memory/draft-contest";
 import type { HeldRead } from "../memory/life-checks";
 import {
   agentOf,
@@ -20,23 +21,26 @@ import {
 
 /**
  * The plan cards among the open decisions of `list` (every decision, in the order asked): an assignment he opened, its
- * first card not withdrawn (the door's `hasAsked`); never the caretaker's, whose plan is his complaint, nor a hand-out's
+ * first card asked (`isAsked`, as the door's `hasAsked`); never the caretaker's, whose plan is his complaint, nor a hand-out's
  * one card (the desk opened it: what it found, not a plan). Worked out when read, never stored.
  */
 export function planCardsOf(db: Database, list: readonly Decision[]) {
-  // One pass in the order asked: each assignment's first card not withdrawn, kept when open and his.
-  const firsts = new Map<string, Decision>();
-  for (const d of list) {
-    const s = d.state === "withdrawn" ? null : assignmentOfCard(db, d);
-    if (s && !firsts.has(s)) {
-      firsts.set(s, d);
+  const owners = new Map<string, string | null>();
+  const ownerOf = (d: Decision) => {
+    if (!owners.has(d.id)) {
+      owners.set(d.id, assignmentOfCard(db, d));
     }
-  }
+    return owners.get(d.id) ?? null;
+  };
+  // ponytail: each candidate scans the history before it, each owner looked up once per read; a `card` index by assignment if it grows.
   return new Set(
-    [...firsts].flatMap(([s, d]) => {
-      const opened = d.state === "open" ? assignmentOf(db, s) : null;
-      return opened?.opened_by === "owner" &&
-        agentOf(db, opened.agent_id)?.role !== "caretaker"
+    list.flatMap((d) => {
+      const s = d.state === "open" ? ownerOf(d) : null;
+      const opened = s ? assignmentOf(db, s) : null;
+      const isHis =
+        opened?.opened_by === "owner" &&
+        agentOf(db, opened.agent_id)?.role !== "caretaker";
+      return isHis && list.find((e) => isAsked(e) && ownerOf(e) === s) === d
         ? [d.id]
         : [];
     })

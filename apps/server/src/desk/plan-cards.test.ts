@@ -25,7 +25,13 @@ test("an open card is a plan when it is the first card not withdrawn of an assig
     runtime: "fake",
   });
   const changes = on(desk, caretaker).id;
+  const replaced = openAssignment(desk, shop, {
+    openedBy: "owner",
+    steps: ["obs_test_replaced"],
+  });
   const cards: [string, string, string, Decision["state"]][] = [
+    ["dec_test_replaced", shop, replaced, "withdrawn"],
+    ["dec_test_follow_up", shop, replaced, "open"],
     ["dec_test_withdrawn", shop, own, "withdrawn"],
     ["dec_test_plan", shop, own, "open"],
     ["dec_test_answered", shop, asked, "answered"],
@@ -40,7 +46,15 @@ test("an open card is a plan when it is the first card not withdrawn of an assig
     ]);
   }
   const list = cards.map(
-    ([id, agent, , state]) => ({ agent, id, state }) as Decision
+    ([id, agent, , state]) =>
+      ({
+        agent,
+        id,
+        state,
+        ...(id === "dec_test_replaced"
+          ? { withdrawn: { replacedBy: "dec_test_other" } }
+          : {}),
+      }) as Decision
   );
   expect([...planCardsOf(desk.db, list)]).toEqual(["dec_test_plan"]);
   setSystemTime();
