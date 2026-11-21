@@ -930,3 +930,16 @@ private func asks(
     #expect(!inbox.without([inbox.checks[0].ref]).isUnchanged(by: unchanged))
     #expect(try decoded(MatterList.self, wireText("life/read_matters.json")).version != nil)
 }
+
+@Test func aCutInboxKeepsWhatBlocksFirstAndACutPeopleListKeepsLifesOrder() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json")).ordered(deferred: [])
+    let refs = inbox.checks.map(\.ref)
+    try #require(refs.count >= 2)
+    let cut = ShownList(kind: .checks, refs: [refs[1], refs[0], "gone"], label: "x")
+    #expect(inbox.cut(to: cut).checks.map(\.ref) == [refs[0], refs[1]])
+    #expect(inbox.cut(to: nil).checks.map(\.ref) == refs)
+    let people = try decoded(PeopleList.self, wireText("life/read_people_and_organizations.json"))
+    let named = people.people.map(\.id).reversed()
+    #expect(people.cut(to: ShownList(kind: .people, refs: Array(named), label: "x")).people.map(\.id) == Array(named))
+    #expect(people.cut(to: nil) == people)
+}

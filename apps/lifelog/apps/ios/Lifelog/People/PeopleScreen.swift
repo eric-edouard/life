@@ -83,7 +83,7 @@ private struct PeopleColumns: View {
         .onChange(of: isSplit, initial: true) { fillSelection() }
         .onChange(of: life.people.value) { fillSelection() }
         .onChange(of: kind) { fillSelection() }
-        // Back from someone opened elsewhere (a matter, Search) goes back there, not to this list.
+        // Back from someone opened elsewhere (a matter, a card) goes back there, not to this list.
         .onChange(of: router.personColumn) { _, column in if column == .sidebar, !isSplit { router.closePerson() } }
         .task(id: life.parties.generation.current) { await life.refreshPeople() }
     }
@@ -107,7 +107,7 @@ private struct PeopleColumns: View {
     /// The control, then the groups: by closeness each under its small label (the first has none), A to Z under its
     /// letter with the system's index of letters down the edge.
     private func content(_ list: PeopleList) -> some View {
-        let groups = list.groups(order, kind)
+        let groups = list.cut(to: router.cut(of: .people)).groups(order, kind)
         return List {
             SegmentedChoice(
                 choices: PeopleList.Kind.allCases,
@@ -143,6 +143,7 @@ private struct PeopleColumns: View {
         .listSectionIndexVisibility(order == .alphabet ? .visible : .hidden)
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
         .motion(Motion.standard, value: groups.flatMap(\.rows).map(\.id))
+        .cutToast(.people)
     }
 }
 

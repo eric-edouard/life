@@ -95,3 +95,32 @@ private func line(_ text: String) -> Data { Data(text.utf8) }
             == .fix(words: "The caretaker has it."))
     #expect(AskLifeAnswer(#"{"kind":"later"}"#) == .unknown)
 }
+
+/// Ask Life's `show`: a page or a tab's list cut to Life's rows rides on the answer; each answer that shows counts
+/// once, so the same show asked twice applies twice; a shape this build doesn't know shows nothing.
+@MainActor @Test func anAnswerThatShowsCarriesItsPageOrItsCutList() async {
+    let life = FakeLife()
+    let list = #"{"kind":"list","list":"matters","refs":["m2","m1"],"label":"Your 2 most important today"}"#
+    life.asked = { _ in #"{"kind":"reply","words":"These two.","show":\#(list)}"# }
+    let ask = AskLife(api: life)
+    await ask.send("Show my 2 most important matters", screen: MainSessionScreen())
+    let cut = ShownList(kind: .matters, refs: ["m2", "m1"], label: "Your 2 most important today")
+    #expect(ask.shown == AskLifeShown(show: .list(cut), answer: 1))
+    await ask.send("Again", screen: MainSessionScreen())
+    #expect(ask.shown?.answer == 2)
+    life.asked = { _ in
+        #"{"kind":"done","matter":"m1","words":"Paid.","show":{"kind":"page","page":"matter","id":"m1"}}"#
+    }
+    await ask.send("I paid the lawyer", screen: MainSessionScreen())
+    #expect(ask.shown?.show == .page(.matter, id: "m1"))
+    #expect(ask.answer == .done(words: "Paid.", matter: "m1"))
+    // An answer that shows nothing keeps the last show; a kind this build doesn't know is nothing.
+    life.asked = { _ in #"{"kind":"reply","words":"Hm.","show":{"kind":"map","id":"x"}}"# }
+    await ask.send("Where?", screen: MainSessionScreen())
+    #expect(ask.shown?.answer == 3)
+}
+
+@Test func aCutListKeepsLifesRowsInItsOrderAndLeavesOutRowsGoneSince() {
+    let cut = ShownList(kind: .matters, refs: ["c", "a", "gone"], label: "x")
+    #expect(cut.cut(["a", "b", "c"], ref: { $0 }) == ["c", "a"])
+}

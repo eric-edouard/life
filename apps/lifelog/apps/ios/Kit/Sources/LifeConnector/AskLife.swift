@@ -90,6 +90,64 @@ public enum AskLifeAnswer: Sendable, Equatable {
     }
 }
 
+/// What the answer puts before his eyes (`show`, `MainSessionShow`): one page, or a tab's list cut to the rows Life
+/// named, under its words. It changes no data; the app applies it (`AppRouter.show`). Nil for a shape this build
+/// doesn't know: nothing shows, never a guess.
+public enum AskLifeShow: Sendable, Equatable {
+    public enum Page: String, Sendable { case matter, person, project, agent }
+    case page(Page, id: String)
+    case list(ShownList)
+
+    init?(_ text: String) {
+        let o = (try? JSONSerialization.jsonObject(with: Data(text.utf8))) as? [String: Any]
+        guard let show = o?["show"] as? [String: Any] else { return nil }
+        switch show["kind"] as? String {
+        case "page":
+            guard let page = (show["page"] as? String).flatMap(Page.init), let id = show["id"] as? String else {
+                return nil
+            }
+            self = .page(page, id: id)
+        case "list":
+            guard let list = (show["list"] as? String).flatMap(ShownList.Kind.init),
+                let refs = show["refs"] as? [String], let label = show["label"] as? String
+            else { return nil }
+            self = .list(ShownList(kind: list, refs: refs, label: label))
+        default: return nil
+        }
+    }
+}
+
+/// A tab's list cut to the rows Life named (`refs`), under `label`, its words, until he closes it.
+public struct ShownList: Sendable, Equatable {
+    public enum Kind: String, Sendable { case matters, checks, people }
+    public let kind: Kind
+    public let refs: [String]
+    public let label: String
+
+    public init(kind: Kind, refs: [String], label: String) {
+        (self.kind, self.refs, self.label) = (kind, refs, label)
+    }
+
+    /// The rows it names, in its order; a row gone since Life named it is left out.
+    public func cut<Row>(_ rows: [Row], ref: (Row) -> String) -> [Row] {
+        let byRef = Dictionary(rows.map { (ref($0), $0) }, uniquingKeysWith: { first, _ in first })
+        return refs.compactMap { byRef[$0] }
+    }
+}
+
+extension PeopleList {
+    /// Only the people Ask Life named, in its order (the groups then sort them as ever); nil is everyone.
+    public func cut(to cut: ShownList?) -> PeopleList {
+        cut.map { PeopleList(people: $0.cut(people, ref: \.id)) } ?? self
+    }
+}
+
+/// An answer's `show`, once per answer: the same show asked twice still applies twice.
+public struct AskLifeShown: Sendable, Equatable {
+    public let show: AskLifeShow
+    public let answer: Int
+}
+
 extension String {
     /// The words with the key word's marks (`**`) taken out.
     public var withoutMarks: String { replacing("**", with: "") }
@@ -116,6 +174,8 @@ public final class AskLife {
     /// The answer's words as they arrive; empty again when a piece of work starts after them.
     public private(set) var words = ""
     public private(set) var answer: AskLifeAnswer?
+    /// What the last answer that showed something put before his eyes.
+    public private(set) var shown: AskLifeShown?
     /// What he last said (the caption), and, after a call that did not go through, the words waiting to go again.
     public private(set) var said = ""
     public private(set) var waiting: String?
@@ -149,6 +209,7 @@ public final class AskLife {
             await drawing.value
             pending = nil
             (answer, stage) = (AskLifeAnswer(result), .ready)
+            if let show = AskLifeShow(result) { shown = AskLifeShown(show: show, answer: (shown?.answer ?? 0) + 1) }
         } catch {
             feed.finish()
             await drawing.value

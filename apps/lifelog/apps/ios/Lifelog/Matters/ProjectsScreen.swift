@@ -185,7 +185,8 @@ struct ProjectsScreen: View {
                 ProjectHead(id: chip.id) { router.projectAsk = OpenAsk(ask: $0) }.readingWidth().quietListRow()
             }
             if let list = shown.onScreen {
-                rows(list.matters, chip: chip)
+                // Ask Life's cut is of All: Life's rows, the ones it named, in its order.
+                rows(router.cut(of: .matters).map { $0.cut(list.matters, ref: \.id) } ?? list.matters, chip: chip)
             } else {
                 ReadScreen(
                     shown: shown, retry: { await refresh(chip) },
@@ -198,6 +199,7 @@ struct ProjectsScreen: View {
         .listStyle(.plain).scrollContentBackground(.hidden)
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
         .staleToast(staleNote(shown), retry: { await refresh(chip) })
+        .cutToast(.matters)
         .motion(Motion.standard, value: shown.onScreen?.matters.map(\.id))
         .scrollDismissesKeyboard(.interactively)
     }
@@ -254,7 +256,7 @@ struct ProjectsScreen: View {
             ScrollView(.horizontal) {
                 HStack(spacing: Metrics.Spacing.s) {
                     // All is on too when Life no longer lists the chip chosen (a project marked done).
-                    FilterChip(name: "All", isOn: chosen == nil) { router.chip = nil }.id("")
+                    FilterChip(name: "All", isOn: chosen == nil) { (router.chip, router.cut) = (nil, nil) }.id("")
                     // Life's chips could not be read: their retry, in their place.
                     if life.projects.hasFailed {
                         QuietChip("Retry", symbol: "arrow.clockwise", isBusy: isRetrying) {

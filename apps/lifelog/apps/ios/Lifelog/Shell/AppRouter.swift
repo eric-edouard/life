@@ -65,8 +65,14 @@ final class AppRouter {
     /// The Projects tab's chosen chip, by its identity (`ProjectChips.Chip.identity`); nil is All. Choosing one lets
     /// its list choose the matter on show again.
     var chip: String? {
-        didSet { isMatterFromElsewhere = false }
+        didSet {
+            isMatterFromElsewhere = false
+            // A chip is another list: Ask Life's cut of the matters ends.
+            if chip != nil, cut?.kind == .matters { cut = nil }
+        }
     }
+    /// A tab's list as Ask Life cut it (`AskLifeShow.list`), under its words, until he closes it: one at a time.
+    var cut: ShownList?
     /// The detail column's one page, and which column a compact width shows: the list or that page.
     private(set) var detail: Detail?
     /// The matter on show in the Projects tab, by id.
@@ -93,6 +99,33 @@ final class AppRouter {
     var isAskLifeSmall = false
     /// What his words are about when he opens Ask Life from a card ("Wrong…"): the card's ref and its question.
     var askLifeContext: (ref: String, question: String)?
+
+    /// What Ask Life's answer shows: the tab of a cut list, on All for the matters, or a page opened as a tap on it
+    /// would; Ask Life gets small, so what it shows is in view under its strip.
+    func show(_ show: AskLifeShow) {
+        switch show {
+        case .list(let list):
+            sheet = nil
+            switch list.kind {
+            case .matters:
+                (tab, chip, matterColumn) = (.projects, nil, .sidebar)
+            case .checks:
+                (tab, inboxColumn) = (.inbox, .sidebar)
+            case .people:
+                tab = .people
+                select(person: nil)
+            }
+            cut = list
+        case .page(.matter, let id): open(matter: id)
+        case .page(.person, let id): open(party: id)
+        case .page(.agent, let id): open(agent: id)
+        case .page(.project, let id): open(project: ProjectChips.Chip.identity(.project, id))
+        }
+        (isAskLifeOpen, isAskLifeSmall) = (false, true)
+    }
+
+    /// The cut list on show on `kind`'s tab, if Ask Life cut that one.
+    func cut(of kind: ShownList.Kind) -> ShownList? { cut?.kind == kind ? cut : nil }
 
     /// Ask Life on a card: his words go with that card on screen.
     func askLife(about ref: String, question: String) {

@@ -176,28 +176,64 @@ struct AddRow: View {
 /// What he just answered or changed (the toast spec of 20 Nov): a glass capsule 44 high that hugs its content, a check
 /// in `ok` (a change that was not made: `flag`'s glyph and why), its words on one line (a flag's on up to 3, so Life's
 /// reason reads whole), and Undo while it can be taken back, a `pick` capsule inside it. It sits at the top of the
-/// pane, so it takes no room from the answers.
+/// pane, so it takes no room from the answers. Ask Life's cut list keeps one until he closes it: its words, no glyph,
+/// and an X (`symbol`) in a `pick` circle.
 struct Toast: View {
     let words: String
-    var glyph = StateGlyph.ok
-    /// The capsule's one action: Undo, or Retry on a read that failed (`StaleNote`).
+    var glyph: StateGlyph? = .ok
+    /// The capsule's one action: Undo, or Retry on a read that failed (`StaleNote`), or "Show all" with an X.
     var action = "Undo"
+    /// The action drawn as this symbol instead of its word (which VoiceOver says).
+    var symbol: String?
     let undo: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 8) {
-            glyph
+            if let glyph { glyph }
             Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .ok ? 1 : 3)
             if let undo {
                 Button(action: undo) {
-                    Text(action).font(.chip).foregroundStyle(Palette.fg).padding(.horizontal, 12).frame(height: 32)
-                        .background(Color.pick, in: .capsule).contentShape(.capsule)
+                    Group {
+                        if let symbol {
+                            Image(systemName: symbol).font(.chip).frame(width: 32, height: 32)
+                        } else {
+                            Text(action).font(.chip).padding(.horizontal, 12).frame(height: 32)
+                        }
+                    }
+                    .foregroundStyle(Palette.fg).background(Color.pick, in: .capsule).contentShape(.capsule)
+                    // The circle's tap reaches the toast's whole height.
+                    .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
                 }
-                .buttonStyle(.plain).fixedSize()
+                .buttonStyle(.plain).fixedSize().accessibilityLabel(action)
             }
         }
-        .padding(.leading, 14).padding(.trailing, undo == nil ? 14 : 6).frame(minWidth: 120, minHeight: 44)
+        .padding(.leading, 14).padding(.trailing, undo == nil ? 14 : symbol == nil ? 6 : 0)
+        .frame(minWidth: 120, minHeight: 44)
         .floatingGlass()
+    }
+}
+
+extension View {
+    /// Ask Life's cut of this tab's list (`AppRouter.cut`), as a toast at the top of the pane that stays until his X,
+    /// which gives the whole list back.
+    func cutToast(_ kind: ShownList.Kind) -> some View { modifier(CutToast(kind: kind)) }
+}
+
+private struct CutToast: ViewModifier {
+    let kind: ShownList.Kind
+    @Environment(AppRouter.self) private var router
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .top) {
+            ZStack {
+                if let cut = router.cut(of: kind) {
+                    Toast(words: cut.label, glyph: nil, action: "Show all", symbol: "xmark") { router.cut = nil }
+                        .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
+                        .appears().id(cut.refs)
+                }
+            }
+            .motion(Motion.standard, value: router.cut(of: kind))
+        }
     }
 }
 

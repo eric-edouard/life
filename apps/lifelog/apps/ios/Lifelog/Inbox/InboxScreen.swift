@@ -46,6 +46,7 @@ struct InboxScreen: View {
             // The Pendant and Settings are the ask column's when it is beside the list; the list alone (compact) has them.
             .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
             .askFilterBar(kinds: all.kinds, kind: $kind)
+            .cutToast(.checks)
         } detail: {
             ReadScreen(
                 shown: shown, retry: { await life.refreshInbox() },
@@ -162,7 +163,7 @@ struct InboxScreen: View {
     /// `all` as shown: of the kind he keeps to, with each kind Life pre-ticks folded into one bulk card unless he goes
     /// through it one by one.
     private func shownOrder(_ kind: CheckGroup?) -> InboxOrder {
-        all.only(kind).folded(except: notes.unfolded, working: notes.working)
+        all.only(kind).cut(to: router.cut(of: .checks)).folded(except: notes.unfolded, working: notes.working)
     }
 
     /// The ask on show, or his tap's result in its place: one arrangement for both, so the ask's context region stays
