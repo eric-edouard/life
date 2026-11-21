@@ -284,7 +284,7 @@ struct ColumnToast: View {
             }
             .buttonStyle(.plain).accessibilityLabel("Undo")
         }
-        .background(Palette.tile, in: .capsule)
+        .floatingGlass()
         .opacity(answered == nil ? 0 : 1).allowsHitTesting(answered != nil)
         .motion(Motion.standard, value: answered)
         .accessibilityElement(children: .contain).accessibilityLabel(answered.map { "Answered: \($0)" } ?? "")
@@ -329,12 +329,15 @@ struct MarkItem: View {
     let toggle: () -> Void
 
     var body: some View {
-        Button("Important", systemImage: isOn ? "flag.fill" : "flag", action: toggle)
+        let button = Button("Important", systemImage: isOn ? "flag.fill" : "flag", action: toggle)
             .labelStyle(.iconOnly).foregroundStyle(Palette.fg)
-            .buttonStyle(.glassProminent).tint(isOn ? Color.pick : .clear)
-            .motion(Motion.standard, value: isOn)
-            .accessibilityAddTraits(isOn ? .isSelected : [])
-            .accessibilityIdentifier("matter.important")
+        // Off, the bar's own glass like its neighbours; on, the one selected look.
+        Group {
+            if isOn { button.buttonStyle(.glassProminent).tint(Color.pick) } else { button }
+        }
+        .motion(Motion.standard, value: isOn)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+        .accessibilityIdentifier("matter.important")
     }
 }
 

@@ -57,9 +57,17 @@ struct RootView: View {
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
-        // Tell Life: always within reach, in the rail's free middle, on every screen.
-        .overlay(alignment: .trailing) {
-            if life.isPaired { TellLifeButton().padding(.trailing, Metrics.Spacing.m) }
+        // Tell Life: always within reach, in the rail's free middle, on every screen: on the Pendant's vertical line, so it
+        // stands in the closed Duo's side column with the other controls (decision 89), at the bar's end elsewhere.
+        .overlay {
+            if life.isPaired {
+                GeometryReader { window in
+                    let x = router.trailingControlsX.map { $0 - window.frame(in: .global).minX }
+                    TellLifeButton()
+                        .position(x: x ?? window.size.width - Metrics.Spacing.m - 28, y: window.size.height / 2)
+                }
+                .ignoresSafeArea()
+            }
         }
         .fullScreenCover(isPresented: $router.isTellLifeOpen) { TellLifeScreen() }
         .sheet(item: $router.appointment) { AppointmentSheet(key: $0) }

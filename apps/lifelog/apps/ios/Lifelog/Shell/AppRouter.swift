@@ -77,6 +77,9 @@ final class AppRouter {
     var sheet: Sheet?
     /// Tell Life, full screen over whatever he was on.
     var isTellLifeOpen = false
+    /// Where the system put the top group (the Pendant's centre, in the window): the side column of the closed Duo, or
+    /// the top bar's trailing end. Tell Life stands on that line; nil before the Pendant is drawn.
+    var trailingControlsX: CGFloat?
     /// The person or organization on show in the People tab, by ref, what is pushed on them, and which column a compact
     /// width shows.
     private var people = PageStack<PersonRoute>()
