@@ -107,17 +107,19 @@ struct TextLink: View {
     }
 }
 
-/// An action, or what opens a sheet, as a quiet chip (decision 85): a 14 glyph then its words, 13 / 600, on a `fillTint`
-/// capsule 32 high in a 44 tap area, no border; `isMuted` for a line that says where something came from.
+/// An action, or what opens a sheet, as a quiet chip (decision 85): a 14 glyph (when it has one: a label row's chip has
+/// none, "Select", "Close 20") then its words, 13 / 600, on a `fillTint` capsule 32 high in a 44 tap area, no border;
+/// `isMuted` for a line that says where something came from.
 struct QuietChip: View {
     let title: String
-    let symbol: String
+    let symbol: String?
     var isMuted = false
     var isBusy = false
     let action: () -> Void
 
     init(
-        _ title: String, symbol: String, isMuted: Bool = false, isBusy: Bool = false, action: @escaping () -> Void
+        _ title: String, symbol: String? = nil, isMuted: Bool = false, isBusy: Bool = false,
+        action: @escaping () -> Void
     ) {
         self.title = title
         self.symbol = symbol
@@ -131,7 +133,7 @@ struct QuietChip: View {
             HStack(spacing: 6) {
                 if isBusy {
                     Spinner(size: .small)
-                } else {
+                } else if let symbol {
                     Image(systemName: symbol).font(.chip).accessibilityHidden(true)
                 }
                 Text(title).font(.smallStrong)
@@ -811,9 +813,9 @@ struct Row<Trailing: View>: View {
 extension Row where Trailing == EmptyView {
     init(
         title: String, icon: String? = nil, iconTint: Color = Palette.icon, detail: String? = nil,
-        state: RowState = .known
+        state: RowState = .known, isInList: Bool = false
     ) {
-        self.init(title: title, icon: icon, iconTint: iconTint, detail: detail, state: state) {}
+        self.init(title: title, icon: icon, iconTint: iconTint, detail: detail, state: state, isInList: isInList) {}
     }
 }
 
@@ -1024,6 +1026,35 @@ struct Placeholder: View {
                 withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: false)) { crossed = true }
             }
             .accessibilityHidden(true)
+    }
+}
+
+/// A list still loading, in its own shape: one grouped card of rows (`groupedRow`), each its leading slot (a 28 icon, or
+/// a 40 disc for people) and two lines, so the list fades in over it.
+struct RowsPlaceholder: View {
+    var rows = 6
+    var hasDisc = false
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<rows, id: \.self) { _ in
+                HStack(spacing: Metrics.Spacing.m) {
+                    Placeholder(width: hasDisc ? PartyDisc.Size.row.rawValue : 28, height: hasDisc ? 40 : 22)
+                    VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+                        Placeholder(width: 170, height: 14)
+                        Placeholder(width: 230, height: 11)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, Metrics.Spacing.l).frame(minHeight: Metrics.listRow)
+            }
+        }
+        .card()
+        .padding(.horizontal, Metrics.Spacing.m)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .readingWidth()
+        .accessibilityElement().accessibilityLabel(label)
     }
 }
 
