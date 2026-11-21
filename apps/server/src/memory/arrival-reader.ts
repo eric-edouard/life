@@ -7,7 +7,7 @@
 
 import { clock, daysBefore } from "../core/clock";
 import { newestWithin, packed } from "../core/lists";
-import { log, recentEvents } from "../core/log";
+import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import {
   askFoundationModel,
@@ -42,6 +42,7 @@ import {
 } from "./read-replies";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, readsOf } from "./run";
+import { readCallsToday } from "./run-log";
 import { isDirect } from "./sources";
 import { voiceUnitId } from "./unit-ids";
 import {
@@ -323,20 +324,6 @@ function confirmOf(r: ArrivalRead): Asked {
   };
 }
 
-/** His engine's calls the model log holds for today (confirms and appointment reads), failed ones included: a failing read cannot spin past the cap. */
-async function readConfirmsToday() {
-  const day = dayNow();
-  return (
-    await recentEvents<{ at: string; prompt?: string }>(2, "model.run")
-  ).filter(
-    (e) =>
-      e.prompt !== undefined &&
-      (isPromptVersion(e.prompt, READS.arrival_confirm.prompt) ||
-        isPromptVersion(e.prompt, READS.arrival_appointment.prompt)) &&
-      localDate(e.at) === day
-  ).length;
-}
-
 /**
  * One pass: Apple reads the due reads (one spawn), its answers are stored, and the confirms due (its yeses and
  * refusals, Thai, no Apple model, and any trigger whose confirm is still pending) are asked of his engine within the
@@ -366,7 +353,11 @@ export async function readArrivals(
 ) {
   const {
     apple = askFoundationModel,
-    confirmsToday = readConfirmsToday,
+    confirmsToday = () =>
+      readCallsToday([
+        READS.arrival_confirm.prompt,
+        READS.arrival_appointment.prompt,
+      ]),
     online = isOnline,
     where = READ_REPLIES,
   } = o;

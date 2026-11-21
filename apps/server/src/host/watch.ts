@@ -11,6 +11,7 @@ import { rotateProcessLogs } from "../core/service";
 import { settings } from "../core/settings";
 import {
   ownerNamesOf,
+  type RecentVoice,
   readArrivals,
   readRecentVoice,
 } from "../memory/arrival-reader";
@@ -26,9 +27,11 @@ import { LEDGER, readLedger } from "../memory/memory-files";
 import { isLocked, locked, lockedSince } from "../memory/memory-lock";
 import { describeFilesOnArrival } from "../memory/message-files";
 import { writePersonPictures } from "../memory/person-pictures";
+import type { Truth } from "../memory/read-truth";
 import { listening, quietly, readySources } from "../memory/sources";
 import { publishTodayUnits, syncLifelogUnits } from "../memory/unit-writer";
 import { embedderNow, embedNew } from "../memory/vectors";
+import { nameVoicesOnArrival } from "../memory/voice-naming-on-arrival";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import { isOnline } from "../models/llm";
@@ -52,8 +55,9 @@ import { sampleResources } from "./resource-sample";
 // `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rewrites the lifelog units from where it touched and their index rows; the whole index when a unit went
 // or a code rule dropped or took one back, or what the full rebuild reads changed (not while the nightly holds the lock). Every 5 minutes it
-// builds today's units from every other source the same way (`gather`); its one model call describes today's new files
-// (`describeFilesOnArrival`), never awaited by the tick. Health is in
+// builds today's units from every other source the same way (`gather`); its model calls describe today's new files
+// (`describeFilesOnArrival`), read what arrived (`readArrivals`) and name the voices of a conversation under way or just
+// closed (`nameVoicesOnArrival`), never awaited by the tick. Health is in
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey Life": once a conversation's speech is complete (`speechIn`, `SPEECH_WAIT_MS`), `hear` records its asks
@@ -353,10 +357,29 @@ async function syncToday() {
     });
     await locked(async () => reindexFor(await publishTodayUnits(evidence)));
     startFileDescriptions(evidence.fileEvents);
-    startArrivalReader(evidence, people);
+    const voice = voiceOnce(people.truth);
+    startArrivalReader(evidence, people, voice);
+    startVoiceNaming(people, voice);
   } finally {
     syncing = false;
   }
+}
+
+/**
+ * The pass's one read of the watcher's store (`readRecentVoice`), made only when a reader asks for it and shared by
+ * both; none while voice is not a source he turned on (`listening`), or when lifelog is unreadable (chats and mail are
+ * still read).
+ */
+function voiceOnce(truth: Truth) {
+  let read: Promise<RecentVoice | undefined> | undefined;
+  return () => {
+    read ??= listening()
+      ? readRecentVoice(dayNow(), truth).catch((e: Error): undefined => {
+          log("run.error", { ...errorOf(e), step: "watch.arrivals.voice" });
+        })
+      : Promise.resolve(undefined);
+    return read;
+  };
 }
 
 let describingFiles = false;
@@ -385,24 +408,17 @@ let readingArrivals = false;
  */
 function startArrivalReader(
   evidence: Awaited<ReturnType<typeof gather>>,
-  people: Awaited<ReturnType<typeof readPeople>>
+  people: Awaited<ReturnType<typeof readPeople>>,
+  voice: () => Promise<RecentVoice | undefined>
 ) {
   if (readingArrivals) {
     return;
   }
   readingArrivals = true;
-  // Voice only while it is a source he turned on (`listening`).
-  (listening()
-    ? readRecentVoice(dayNow(), people.truth)
-    : Promise.resolve(undefined)
-  )
-    .catch((e: Error) => {
-      // Lifelog unreadable: chats and mail are still read.
-      log("run.error", { ...errorOf(e), step: "watch.arrivals.voice" });
-    })
-    .then((voice) =>
+  voice()
+    .then((v) =>
       readArrivals(
-        { ...evidence, voice: voice || undefined },
+        { ...evidence, voice: v },
         people,
         ownerNamesOf(people.truth)
       )
@@ -414,6 +430,31 @@ function startArrivalReader(
     )
     .finally(() => {
       readingArrivals = false;
+    });
+}
+
+let naming = false;
+/** The closed conversations the day's voice naming already read, this process (`nameVoicesOnArrival`). */
+const examined = new Set<string>();
+/**
+ * Starts the day's voice naming (`nameVoicesOnArrival`) on the pass's voice read, un-awaited, one pass at a time, behind his
+ * `voiceNaming` setting like the night's. A failure is logged and stops nothing; the night reads what it missed.
+ */
+function startVoiceNaming(
+  people: Awaited<ReturnType<typeof readPeople>>,
+  voice: () => Promise<RecentVoice | undefined>
+) {
+  if (naming || !settings().voiceNaming) {
+    return;
+  }
+  naming = true;
+  voice()
+    .then((v) => v && nameVoicesOnArrival(v, people, examined))
+    .catch((e: Error) =>
+      log("run.error", { ...errorOf(e), step: "watch.voice-naming" })
+    )
+    .finally(() => {
+      naming = false;
     });
 }
 
