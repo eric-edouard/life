@@ -1,10 +1,9 @@
-import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { log } from "../../core/log";
 import { LIFE_CODE_DIR, LIFE_STATE_DIR } from "../../core/paths";
-import { cliEnv, HOME, isOwnLife } from "../../core/platform";
+import { HOME, isOwnLife } from "../../core/platform";
 import { exec } from "../../core/proc";
 import { piRouteOf } from "../../models/llm";
 import { routingOf } from "../../models/routers";
@@ -18,11 +17,11 @@ import {
 import { loginEnvLess, readSendFacts, type SessionState } from "./runtime-rows";
 import {
   type Connection,
-  EXIT_WITHIN_MS,
   LAUNCH_WITHIN_MS,
   type Open,
   type SessionRow,
   sessionRuntime,
+  spawnFor,
 } from "./session-runtime";
 
 // The pi runtime (the owner's decisions of 22 Nov 2026, `docs/plans/pi-runtime.md`): the pinned pi
@@ -293,25 +292,12 @@ const openOf =
   async (a, resume, opening) => {
     const ref = resume ?? crypto.randomUUID();
     const { command, env } = await row.spawn(a, ref, !resume);
-    const child = spawn(command[0] ?? "", command.slice(1), {
-      cwd: a.folder,
-      // `LIFE_DESK_AGENT`: the resource sample sums the runtime and every tool it runs under its agent (`agentPidsOf`).
-      env: { ...cliEnv(), ...env, LIFE_DESK_AGENT: a.id },
-      // Its stderr goes to the desk's own process log (~/Library/Logs), never the event log: it quotes the agent.
-      stdio: ["pipe", "pipe", "inherit"],
-    });
-    opening.kill = () => {
-      opening.isKilled = true;
-      child.kill("SIGKILL");
-    };
-    if (opening.isKilled) {
-      child.kill("SIGKILL");
-    }
-    child.stdin.on("error", () => undefined);
-    const exited = new Promise<void>((resolve) => {
-      child.once("exit", () => resolve());
-      child.once("error", () => resolve());
-    });
+    const { child, close, exited, stopping } = spawnFor(
+      a,
+      command,
+      env,
+      opening
+    );
     const answers = new Map<string, (l: PiLine) => void>();
     let current: Current | undefined;
     let asked = 0;
@@ -366,14 +352,6 @@ const openOf =
       }
     });
     exited.then(() => settle({ ok: false, why: "pi exited" }));
-    const close = async () => {
-      child.stdin.end();
-      await Promise.race([exited, Bun.sleep(EXIT_WITHIN_MS)]);
-      if (child.exitCode === null && child.signalCode === null) {
-        child.kill("SIGKILL");
-        await exited;
-      }
-    };
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const listed = await Promise.race([
@@ -454,8 +432,7 @@ const openOf =
         return;
       }
       send({ type: "abort" });
-      const kill = setTimeout(() => child.kill("SIGKILL"), EXIT_WITHIN_MS);
-      await ended?.finally(() => clearTimeout(kill));
+      await stopping(ended);
     };
     return { close, exited, prompt, ref, stop };
   };

@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { Readable, Writable } from "node:stream";
 import {
   client,
@@ -10,14 +9,13 @@ import {
 } from "@agentclientprotocol/sdk";
 import { log } from "../../core/log";
 import { errorOf, fromModel } from "../../core/log-line";
-import { cliEnv } from "../../core/platform";
 import type { Run, RunEnd, Runtime, Update, Usage } from "./contract";
 import type { Row } from "./runtime-rows";
 import {
-  EXIT_WITHIN_MS,
   LAUNCH_WITHIN_MS,
   type Open,
   sessionRuntime,
+  spawnFor,
 } from "./session-runtime";
 
 // The ACP connection (`Open`, `session-runtime.ts`): a row's program (`runtime-rows.ts`) driven over the Agent Client
@@ -115,28 +113,12 @@ const openOf =
   (row: Row, launchWithin: number): Open =>
   async (a, resume, opening) => {
     const { command, env } = await row.spawn(a);
-    const child = spawn(command[0] ?? "", command.slice(1), {
-      cwd: a.folder,
-      // `LIFE_DESK_AGENT`: the resource sample sums the runtime and every tool it runs under its agent (`agentPidsOf`).
-      env: { ...cliEnv(), ...env, LIFE_DESK_AGENT: a.id },
-      // Its stderr goes to the desk's own process log (~/Library/Logs), never the event log: it quotes the agent.
-      stdio: ["pipe", "pipe", "inherit"],
-    });
-    // A stop while it opens kills it: the open fails.
-    opening.kill = () => {
-      opening.isKilled = true;
-      child.kill("SIGKILL");
-    };
-    if (opening.isKilled) {
-      child.kill("SIGKILL");
-    }
-    // A pipe closed under a write is the run's end, never a crash.
-    child.stdin.on("error", () => undefined);
-    // Bun fires `error` and never `exit` for a spawn that fails (a missing folder).
-    const exited = new Promise<void>((resolve) => {
-      child.once("exit", () => resolve());
-      child.once("error", () => resolve());
-    });
+    const {
+      child,
+      close: closeProcess,
+      exited,
+      stopping,
+    } = spawnFor(a, command, env, opening);
     const notStarted = new Promise<never>((_, reject) =>
       child.once("error", reject)
     );
@@ -235,12 +217,7 @@ const openOf =
     };
     const close = async () => {
       conn.close();
-      child.stdin.end();
-      await Promise.race([exited, Bun.sleep(EXIT_WITHIN_MS)]);
-      if (child.exitCode === null && child.signalCode === null) {
-        child.kill("SIGKILL");
-        await exited;
-      }
+      await closeProcess();
     };
     let ref = resume ?? "";
     let ended: Promise<RunEnd> | undefined;
@@ -335,8 +312,7 @@ const openOf =
         return; // nothing runs on it
       }
       await conn.agent.notify(methods.agent.session.cancel, { sessionId: ref });
-      const kill = setTimeout(() => child.kill("SIGKILL"), EXIT_WITHIN_MS);
-      await ended?.finally(() => clearTimeout(kill));
+      await stopping(ended);
     };
     return { close, exited, prompt, ref, stop };
   };

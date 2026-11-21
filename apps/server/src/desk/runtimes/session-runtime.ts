@@ -1,4 +1,6 @@
+import { spawn } from "node:child_process";
 import { MIN } from "../../core/clock";
+import { cliEnv } from "../../core/platform";
 import {
   type Agent,
   type Run,
@@ -65,6 +67,53 @@ export interface Connection {
   ref: string;
   /** Cancels the running prompt and waits for its end, its process killed after `EXIT_WITHIN_MS`; never prompted, nothing. */
   stop: () => Promise<void>;
+}
+
+/**
+ * A runtime's process for agent `a`'s session, in its folder: a stop while it opens kills it (the open fails); `exited`
+ * settles when it is gone; `close` ends its input and kills it past `EXIT_WITHIN_MS`; `stopping` waits for a stopped
+ * run's end and kills it past `EXIT_WITHIN_MS`.
+ */
+export function spawnFor(
+  a: Agent,
+  command: string[],
+  env: Record<string, string>,
+  opening: Opening
+) {
+  const child = spawn(command[0] ?? "", command.slice(1), {
+    cwd: a.folder,
+    // `LIFE_DESK_AGENT`: the resource sample sums the runtime and every tool it runs under its agent (`agentPidsOf`).
+    env: { ...cliEnv(), ...env, LIFE_DESK_AGENT: a.id },
+    // Its stderr goes to the desk's own process log (~/Library/Logs), never the event log: it quotes the agent.
+    stdio: ["pipe", "pipe", "inherit"],
+  });
+  opening.kill = () => {
+    opening.isKilled = true;
+    child.kill("SIGKILL");
+  };
+  if (opening.isKilled) {
+    child.kill("SIGKILL");
+  }
+  // A pipe closed under a write is the run's end, never a crash.
+  child.stdin.on("error", () => undefined);
+  // Bun fires `error` and never `exit` for a spawn that fails (a missing folder).
+  const exited = new Promise<void>((resolve) => {
+    child.once("exit", () => resolve());
+    child.once("error", () => resolve());
+  });
+  const close = async () => {
+    child.stdin.end();
+    await Promise.race([exited, Bun.sleep(EXIT_WITHIN_MS)]);
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill("SIGKILL");
+      await exited;
+    }
+  };
+  const stopping = async (ended: Promise<unknown> | undefined) => {
+    const kill = setTimeout(() => child.kill("SIGKILL"), EXIT_WITHIN_MS);
+    await ended?.finally(() => clearTimeout(kill));
+  };
+  return { child, close, exited, stopping };
 }
 
 /** What the one runtime reads of a runtime's row: whether it can run, a session's state when no run of the desk holds it, its link, its hand-off. */
