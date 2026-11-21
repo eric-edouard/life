@@ -1,0 +1,1 @@
+ALTER TABLE `processing_switches` ADD `dictation_heard` text DEFAULT 'mac' NOT NULL;

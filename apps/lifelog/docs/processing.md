@@ -208,11 +208,14 @@ switch off, the speech service busy or down, the credits used up for a note that
 at once (Life waits 180 s, mostly for the speech service): 503, nothing claimed, and Life asks again later. The note keeps
 its slot until its words are stored or its claim dropped; Life hanging up stops it at the speech service and before Scribe. Its token is Life's corrections token.
 
-### Live words
+### Instant dictation
 
-While he holds Tell Life, the phone streams his live audio straight to ElevenLabs Scribe (realtime). `POST /live-words/token`
+While his `dictationHeard` switch is `instant` (`PUT /switches`, the app's Settings, Dictation; `mac` by default), the
+phone streams a field's dictation straight to ElevenLabs Scribe (realtime) and shows the words as they come; at the
+pause the committed words land, and a stream that failed is heard on the Mac instead (below). `POST /live-words/token`
 (device token only) mints ElevenLabs' single-use token for that socket (15 minutes, spent on connect) with the key that
-stays on the Mac; nothing is kept or logged (`live_words.token_failed` when ElevenLabs refuses: 502). The phone's
+stays on the Mac, and answers 503 `transcription_off` while the switch is `mac`; nothing is kept or logged
+(`live_words.token_failed` when ElevenLabs refuses: 502). The phone's
 socket sits outside `scribe-slots.ts`'s count and `GET /spending`.
 
 ### A field's dictation
