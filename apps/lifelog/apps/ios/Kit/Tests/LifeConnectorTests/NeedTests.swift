@@ -117,5 +117,6 @@ private func need(_ json: String) throws -> Check.Need {
         result.changed?.snoozed(locale: Locale(identifier: "en_GB"), timeZone: .gmt) == "Snoozed until Tue 24 Nov.")
     // Held in the Inbox, its card gone, the toast says the same.
     let held = ActionState<ActionProof>.succeeded(.answered(result), steps: [])
-    #expect(held.heldAnswerWords == result.changed?.snoozed())
+    let said = try #require(held.heldAnswerWords)
+    #expect(said.words == result.changed?.snoozed() && said.isDone)
 }
