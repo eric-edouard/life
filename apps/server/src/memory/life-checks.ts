@@ -231,6 +231,9 @@ export interface Check {
 /** A card whose cause his complaint is at work on (`Check.beingFixed`). */
 export interface BeingFixed {
   ask: string;
+  /** The caretaker's open card's `context`, beside its question (`line`); null with no card. */
+  context: string | null;
+  /** The caretaker's open card's question on that complaint's assignment; null with none (the plain "fixing this"). */
   line: string | null;
   since: string;
 }
@@ -242,10 +245,10 @@ export const endingGuessOf = (step: string) =>
 /** Whether a check asks if a step is done (never in the nightly email). */
 export const isEndingKind = (c: Pick<Check, "kind">) => c.kind === "ending";
 
-/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
+/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the stamp), as cards show them over the decisions read (host's `beingFixedOf`). */
 export interface HeldRead {
   cardHolders?: Readonly<Record<string, { agent: string; links: string[] }>>;
-  complaints?: readonly BeingFixed[];
+  complaints?: (decisions: readonly Decision[]) => readonly BeingFixed[];
   plans: (decisions: readonly Decision[]) => ReadonlySet<string>;
   read: () => readonly AgentHold[] | null;
   stamp: string;

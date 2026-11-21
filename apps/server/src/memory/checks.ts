@@ -647,7 +647,7 @@ const checksKeyOf = (
     readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
-    held && [held.stamp, held.complaints, held.cardHolders],
+    held && [held.stamp, held.cardHolders],
     voices,
   ]);
 
@@ -737,7 +737,7 @@ async function readChecks(
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,
-    fixing: fixingOf(held?.complaints ?? []),
+    fixing: fixingOf(held?.complaints?.(all) ?? []),
     heldByAgents: held?.read() ?? null,
     isDirectionDue: directionDueOf(matters, records, dayNow()),
     isForHandOut: (id) => forHandOut.has(id),

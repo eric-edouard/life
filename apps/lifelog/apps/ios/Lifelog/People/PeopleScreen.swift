@@ -43,11 +43,9 @@ private struct PeopleColumns: View {
                 content: { list in content(list) }
             )
             .background(Palette.bg)
-            // Beside a person, the Pendant and Settings are the person's column (the list's bar keeps its title).
-            .shellBar(
-                "People", hasSettings: !isSplit, hasPendant: !isSplit, isTitleLarge: true
-            )
-            .navigationSubtitle(order == .alphabet ? "A to Z" : "")
+            .screenTitle("People", state: order == .alphabet ? "A to Z" : nil)
+            // Beside a person, the Pendant and Settings are the person's column.
+            .shellBar("", hasSettings: !isSplit, hasPendant: !isSplit)
             .filterBar(isFiltered: order != .closeness, identifier: "people.sort", label: "Sort") { orderChoices }
         } detail: {
             if let ref = router.person {

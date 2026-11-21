@@ -487,6 +487,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     notStarted: null,
     outcome: null,
     project: null,
+    role: "personal" as const,
     runtime: "claude",
     status: "running" as const,
     statusSince: "2026-10-13T09:00:00.000Z",
@@ -502,6 +503,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     link: null,
     model: null,
     project: "shop-fit-out",
+    role: null,
     status: "waiting" as const,
     statusSince: "2026-10-14T09:00:00.000Z",
     steps: [],
@@ -619,6 +621,8 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         nextStep: {
           at: "2026-10-13T09:00:00.000Z",
           by: "owner",
+          // His word's context: on read_matter only, never in read_matters' list.
+          context: "The shop said Friday ([the call](life:obs_000000000005)).",
           kind: "wait_event",
           text: "The shop's quote",
           waitsOn: "the shop",

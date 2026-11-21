@@ -98,7 +98,7 @@ struct StaleNote: View {
             Text("Read at \(since.formatted(.dateTime.hour().minute())). \(because)")
                 .font(.small).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-            TextLink("Retry") { Task { await retry() } }
+            QuietChip("Retry", symbol: "arrow.clockwise") { Task { await retry() } }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 2)

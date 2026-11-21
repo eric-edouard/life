@@ -17,6 +17,7 @@
   },
   "nextStep": {
     "by": "owner",
+    "context": "The shop said Friday ([the call](life:obs_000000000005)).",
     "kind": "wait_event",
     "text": "The shop's quote",
     "waitsOn": "the shop"
@@ -65,6 +66,7 @@
       "notStarted": null,
       "outcome": null,
       "project": null,
+      "role": "personal",
       "runtime": "claude",
       "status": "running",
       "statusSince": "2026-10-13T09:00:00.000Z",
@@ -89,6 +91,7 @@
       "notStarted": null,
       "outcome": null,
       "project": "shop-fit-out",
+      "role": null,
       "runtime": "claude",
       "status": "waiting",
       "statusSince": "2026-10-14T09:00:00.000Z",

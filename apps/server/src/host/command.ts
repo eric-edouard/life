@@ -29,7 +29,6 @@ import {
   readMatterRecords,
   readMatterWork,
 } from "../memory/matters";
-import { recordCorrection } from "../memory/memory-files";
 import { locked } from "../memory/memory-lock";
 import { readMentions } from "../memory/mentions";
 import { hearVoiceNotes } from "../memory/message-files";
@@ -64,6 +63,7 @@ import {
 } from "../memory/zones";
 import { histories, readHistoryWork } from "../personal/histories";
 import { personaReadingsOf, personas } from "../personal/personas";
+import { recordHisCorrection } from "./correct-matter";
 import { openCheckOf, openChecksNow } from "./inbox";
 import { readPeopleAndOrganizations } from "./matter-rows";
 import { nightly } from "./nightly";
@@ -249,7 +249,7 @@ const HANDLERS: Record<string, Handler> = {
   /** `correct '<json>'`: appends what the owner said to memory/corrections.jsonl (checked, stamped). */
   async correct(_values, rest) {
     try {
-      const said = await recordCorrection(JSON.parse(rest.join(" ")));
+      const said = await recordHisCorrection(JSON.parse(rest.join(" ")));
       console.log(`recorded ${said.kind} in memory/corrections.jsonl`);
       return 0;
     } catch (e) {
