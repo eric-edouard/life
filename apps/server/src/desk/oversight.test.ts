@@ -12,14 +12,13 @@ import { clock, DAY, MIN } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS, DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
+import { agentsNow, agentsOnProjects } from "../host/agents-now";
 import { ask, asksFor } from "../host/asks";
 import { changeRegisteredAgent } from "../host/change-registered-agent";
 import { requested } from "../host/change-todo-item";
 import {
   agentChangeOf,
   agentOf,
-  agentsNow,
-  agentsOnProjects,
   currentAssignmentOf,
   modelOf,
 } from "../host/desk-read";

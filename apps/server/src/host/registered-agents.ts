@@ -2,7 +2,7 @@ import { clock, DAY, iso } from "../core/clock";
 import { DEFAULT_RADIUS_M } from "../core/distance";
 import { holder } from "../core/lock";
 import type { SourceName } from "../core/names";
-import { decisionsNow, openDecisionOf } from "../memory/decisions";
+import { decisionsNow } from "../memory/decisions";
 import {
   lastExchangeAtOf,
   readExchangeCounts,
@@ -23,16 +23,19 @@ import { sourceOf } from "../memory/sources";
 import { meant, type People, readPeople } from "../memory/who";
 import { dayNow, localDate, localTime } from "../memory/zones";
 import type { EventFilter } from "../records/registered-agent";
-import { healthRowsOf, peopleRowsOf } from "./desk-health";
 import {
   type AgentNow,
   type AgentRead,
-  type AssignmentRow,
   agentsNow,
   agentsOnProjects,
   agentsOnSteps,
+} from "./agents-now";
+import { healthRowsOf, peopleRowsOf } from "./desk-health";
+import {
+  type AssignmentRow,
   anchorsOf,
   assignmentOfCard,
+  cardOwnersOf,
   currentAssignmentOf,
   type DeskRead,
   handOutsSince,
@@ -214,13 +217,19 @@ export function wakesOnOf(
 
 /** `agents` without what only `wakesOn` is made of, with it: its lines while it waits, none otherwise (running, stopped, ended). `people` is read once by the caller; the wide net is only for an agent whose matter is found (`hasMatter`, as `netsOf` decides). */
 function withWakesOn(
-  agents: AgentRead[],
+  {
+    agents,
+    owners,
+  }: { agents: AgentRead[]; owners: ReturnType<typeof cardOwnersOf> },
   people: People,
   hasMatter: (steps: string[]) => boolean,
-  decisions = decisionsNow()
+  decisions: ReturnType<typeof decisionsNow>
 ) {
-  return agents.map(({ chatsSeen, filters, ...a }) => {
-    const d = openDecisionOf(a.id, decisions);
+  return agents.map(({ assignment, chatsSeen, filters, ...a }) => {
+    // Its open card: the one its assignment owns now (`cardOwnersOf`), whoever asked it.
+    const d = decisions.find(
+      (x) => x.state === "open" && owners[x.id]?.assignment === assignment
+    );
     return {
       ...a,
       wakesOn:
@@ -268,12 +277,15 @@ export async function readRegisteredAgents(
     people: People;
   }
 ): Promise<RegisteredAgents> {
+  const decisions = given?.decisions ?? decisionsNow();
+  const openDecisions = decisions.filter((d) => d.state === "open");
   const read = readDesk(
     (db) => ({
       agents: agentsNow(db, now.getTime(), true),
+      owners: cardOwnersOf(db, openDecisions),
       refused: refusedSince(db, iso(now.getTime() - DAY)),
     }),
-    { agents: [], refused: [] }
+    { agents: [], owners: {}, refused: [] }
   );
   const helper = holder("desk") ? "running" : "not running";
   if (read.state !== "ok") {
@@ -294,10 +306,10 @@ export async function readRegisteredAgents(
       : []);
   const find = matterFinderOf(book);
   const agents = withWakesOn(
-    read.value.agents,
+    read.value,
     people,
     (steps) => Boolean(find(steps)),
-    given?.decisions
+    decisions
   );
   return {
     agents: agents.map((a) => {
@@ -353,13 +365,18 @@ const linesOf = (read: DeskRead<AgentNow[]>) => {
 
 /** The Agents part of a matter's read: the agents ever anchored on its steps, active first; none while the desk is off or unreadable (`read_registered_agents` says which). */
 export function readAgentsOnSteps(steps: string[], people: People) {
+  const decisions = decisionsNow();
+  const openDecisions = decisions.filter((d) => d.state === "open");
   const read = readDesk(
-    (db) => agentsOnSteps(db, steps, clock().getTime(), true),
-    []
+    (db) => ({
+      agents: agentsOnSteps(db, steps, clock().getTime(), true),
+      owners: cardOwnersOf(db, openDecisions),
+    }),
+    null
   );
   // The matter is the one read, found: an agent anchored on it has its wide net.
-  return read.state === "ok"
-    ? withWakesOn(read.value, people, (s) => s.length > 0)
+  return read.state === "ok" && read.value
+    ? withWakesOn(read.value, people, (s) => s.length > 0, decisions)
     : [];
 }
 
