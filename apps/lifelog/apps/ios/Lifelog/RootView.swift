@@ -68,15 +68,19 @@ struct RootView: View {
             }
         }
         // The column's tab group stands above Tell Life: the screen keeps their room (the button and its margin).
-        .safeAreaPadding(.bottom, router.isBarsInColumn && life.isPaired ? 48 + 35 + Metrics.Spacing.s : 0)
+        .safeAreaPadding(
+            .bottom,
+            router.isBarsInColumn && life.isPaired
+                ? TellMetrics.column.size + TellMetrics.column.bottom(regular: false) + Metrics.Spacing.s : 0
+        )
         // Tell Life: one round glass button in the bottom-right corner of the root, whatever the pose, so a fold or a
         // rotation never moves it off the corner (the spec's 52 on the phone, 48 and centred in the Duo's 84-wide column).
         .overlay(alignment: .bottomTrailing) {
             if life.isPaired {
-                let inColumn = router.isBarsInColumn
-                TellLifeButton(running: life.tell.strands.filter { !$0.isDone }.count, size: inColumn ? 48 : 52)
-                    .padding(.trailing, inColumn ? 18 : 20)
-                    .padding(.bottom, inColumn ? (sizeClass == .regular ? 24 : 35) : 29)
+                let place = router.isBarsInColumn ? TellMetrics.column : TellMetrics.phone
+                TellLifeButton(running: life.tell.strands.filter { !$0.isDone }.count, size: place.size)
+                    .padding(.trailing, place.trailing)
+                    .padding(.bottom, place.bottom(regular: sizeClass == .regular))
                     // Past the system's safe areas (the column's, the bar's): the screen's own corner.
                     .ignoresSafeArea()
             }
@@ -238,4 +242,14 @@ private struct TabLabel: View {
     init(_ title: String, _ symbol: String) { (self.title, self.symbol) = (title, symbol) }
 
     var body: some View { Label(title, systemImage: symbol).environment(\.symbolVariants, .none) }
+}
+
+/// Where Tell Life sits (the placement spec): its size and its margins from the root's bottom-right corner.
+private struct TellMetrics {
+    let size: CGFloat, trailing: CGFloat, bottomCompact: CGFloat, bottomRegular: CGFloat
+
+    func bottom(regular: Bool) -> CGFloat { regular ? bottomRegular : bottomCompact }
+
+    static let phone = TellMetrics(size: 52, trailing: 20, bottomCompact: 29, bottomRegular: 29)
+    static let column = TellMetrics(size: 48, trailing: 18, bottomCompact: 35, bottomRegular: 24)
 }
