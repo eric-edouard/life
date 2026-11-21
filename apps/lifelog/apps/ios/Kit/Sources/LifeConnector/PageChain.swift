@@ -43,6 +43,11 @@ public struct PageChain<Page: Sendable> {
         }
     }
 
+    /// The next page was asked and not read: asking again retries it.
+    public var isFailed: Bool {
+        if case .failed = next { true } else { false }
+    }
+
     /// Every page, once the last arrived; nil while some are still to read.
     public var whole: [Page]? { next == .end ? pages : nil }
 }

@@ -72,6 +72,9 @@
   "DuoFoldOrgNameCard": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
   },
+  "DuoFoldOrgPage": {
+    "why": "Its organization (person:atelier_morel) is not in the design data yet; once the designer adds it to read_people_and_organizations.json: -fixtureLife ok -fixtureTab people -fixturePerson person:atelier_morel."
+  },
   "DuoFoldPeople": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
   },
@@ -295,12 +298,18 @@
   "DuoOrgNameCard": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
   },
+  "DuoOrgPage": {
+    "why": "Its organization (person:atelier_morel) is not in the design data yet; once the designer adds it to read_people_and_organizations.json: -fixtureLife ok -fixtureTab people -fixturePerson person:atelier_morel."
+  },
   "DuoPeople": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
   },
   "DuoPeopleAZ": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
     "taps": ["Filter", "A to Z"]
+  },
+  "DuoPeopleOrg": {
+    "why": "Its organization (person:atelier_morel) is not in the design data yet; once the designer adds it to read_people_and_organizations.json: -fixtureLife ok -fixtureTab people -fixturePerson person:atelier_morel."
   },
   "DuoPeopleSearch": {
     "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
