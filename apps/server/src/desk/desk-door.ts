@@ -11,11 +11,13 @@ import {
   openTurn,
 } from "../host/desk-read";
 import { EVENT_CHANNELS } from "../host/event-channels";
-import { DOOR_PORT, text } from "../host/http/http";
+import { DOOR_PORT, MAIN_SESSION_PATH, text } from "../host/http/http";
+import { keyRefusal } from "../host/http/local-key";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
 import { isHisWordsPlanOf } from "../host/inbox";
 import { MOVE_NOTES } from "../host/move-read";
 import { CARD, DecisionRequest } from "../memory/card-request";
+import { MainSessionAsk, type MainSessionLine } from "../records/main-session";
 import { AgentWait } from "../records/registered-agent";
 import {
   askDecision,
@@ -29,11 +31,13 @@ import {
 } from "./agent-actions";
 import { readComplaint } from "./complaint-intake";
 import type { Desk } from "./desk-store";
+import { askMainSession, keepMainSession, MAIN_ASK } from "./main-session";
 import { readSpokenAsk } from "./spoken-ask-intake";
 
 // The door (the desk spec, 5.2): the desk's MCP server for its registered agents, on loopback only, at `/mcp/<agt_…>`.
 // An agent is known by its key alone, `HMAC(deskKey, its id)`: derived, never stored, given to its session only in the
-// runtime's environment. Eight tools, each one of `agent-actions.ts` (the caretaker's `read_complaint`, of
+// runtime's environment. Its one other path is the main session's (`MAIN_SESSION_PATH`, `main-session.ts`), for the
+// connector, by the local key. Eight tools, each one of `agent-actions.ts` (the caretaker's `read_complaint`, of
 // `complaint-intake.ts`; `read_spoken_ask`, of `spoken-ask-intake.ts`); everything else an agent does with its own tools.
 
 const BEARER = /^Bearer /;
@@ -67,6 +71,10 @@ function turnRefusalOf(
     name !== "read_packet"
   ) {
     return "Not done: this turn only writes your notes before the move (`write_notes`), then stops.";
+  }
+  // Read-only for now (Tell Life, slice 1): the main session answers him and calls none of the door's tools.
+  if (cause === MAIN_ASK) {
+    return "Not done: the main session only reads and answers him for now; it changes nothing.";
   }
   const isEnd = name === "set_wait" || name === "finish";
   return isEnd && !isHisWordsPlanOf(desk.db, a, s) && !hasAsked(desk.db, s)
@@ -169,12 +177,65 @@ function doorServer(desk: Desk, id: string) {
 }
 
 /**
+ * His words to the main session (`MAIN_SESSION_PATH`), from the connector, by the local key: a POST of `MainSessionAsk`.
+ * With words, its lines as NDJSON, the last its `answer`, the request never timed out while it runs; with none, his
+ * presence: the session kept open, `{kept}` and why not.
+ */
+async function mainSessionFetch(
+  desk: Desk,
+  req: Request,
+  server?: Bun.Server<undefined>
+) {
+  const refused = req.method === "POST" ? await keyRefusal()(req) : null;
+  if (req.method !== "POST" || refused) {
+    return refused ?? text("POST only", 405);
+  }
+  const ask = MainSessionAsk.safeParse(await req.json().catch(() => null));
+  if (!ask.success) {
+    return text("not an ask", 400);
+  }
+  if (!ask.data.words) {
+    const why = await keepMainSession(desk);
+    return Response.json({ kept: !why, why });
+  }
+  server?.timeout(req, 0);
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(c) {
+      const say = (l: MainSessionLine) => {
+        try {
+          c.enqueue(encoder.encode(`${JSON.stringify(l)}\n`));
+        } catch {
+          // The connector went: the turn runs on, and a retry under its key hears it.
+        }
+      };
+      say({
+        answer: await askMainSession(desk, ask.data, say),
+        kind: "answer",
+      });
+      try {
+        c.close();
+      } catch {
+        // already closed by the connector
+      }
+    },
+  });
+  return new Response(stream, {
+    headers: { "content-type": "application/x-ndjson" },
+  });
+}
+
+/**
  * The door's requests: `/mcp/<agt_…>` with that agent's key as a bearer, else 401, the same for an unknown agent and a
- * wrong key; 404 for any other path.
+ * wrong key; `MAIN_SESSION_PATH` by the local key; 404 for any other path.
  */
 export function doorFetch(desk: Desk) {
-  return (req: Request) => {
-    const id = AGENT_PATH.exec(new URL(req.url).pathname)?.[1];
+  return (req: Request, server?: Bun.Server<undefined>) => {
+    const path = new URL(req.url).pathname;
+    if (path === MAIN_SESSION_PATH) {
+      return mainSessionFetch(desk, req, server);
+    }
+    const id = AGENT_PATH.exec(path)?.[1];
     if (!id) {
       return text("not found", 404);
     }

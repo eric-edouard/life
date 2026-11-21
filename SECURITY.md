@@ -40,7 +40,7 @@ per 10 minutes after its last turn. An
 agent on a matter is also woken by anything new related to it (the wide net, his word of 18 Nov 2026): a message from
 one of the matter's people, or a message or recording of his close to the matter in meaning, as the Mac's embedder
 reads it (`desk/matter-net.ts`: no model call, nothing leaves the Mac). His spoken ask ("hey Life") goes the same way
-to one agent: the matter assignment closest in meaning, else the Personal agent (`desk/spoken-ask-intake.ts`). The wake hands it only the facts (which
+to one agent: the matter assignment closest in meaning, else the Personal agent (`desk/spoken-ask-intake.ts`). His words through Tell Life go to the main session alone (`desk/main-session.ts`), as his own prompt, by the connector over the door's loopback with the local key; it only reads and answers for now: the door refuses it every tool on its turn, and the guard its connector's writes, as any agent's. The wake hands it only the facts (which
 message or recording, or which payment, with its amount, in EUR too, its currency, whether it is spending and the money app's category, or which arrival, with its time and coordinates, when, why), never the text, a matched one included; it reads the words itself, as data. A wake on a matter also opens with Life's own record of it (its steps as Life derived them, its goal and next step, the assignment's notes; never a quote): Life's reading, never an event's text. On
 his Mac and the web an agent of his own Life is free (his decision of 19 Nov 2026): the desk runs it in the runtime's
 no-ask mode, approves every ask, and gives it his login environment. It can run any command, read, change or delete any

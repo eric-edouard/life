@@ -707,6 +707,10 @@ export async function readPacket(
   if (!a) {
     return "";
   }
+  // The main session holds no subject, wait, events or notes: it starts from its brief (`main-session.ts`).
+  if (a.role === "main") {
+    return a.brief;
+  }
   const held = agentWaitOf(a, s);
   const events = queuedEvents(db, s.id).map(eventLineOf);
   const steps = anchorsOf(db, s.id);
