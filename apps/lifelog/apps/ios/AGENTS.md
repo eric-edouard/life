@@ -38,7 +38,7 @@ The fixture's content is the design data (`apps/lifelog/fixtures/design/`, one J
 
 ## Worth knowing
 
-- **Tell Life** (`Lifelog/TellLife/`, Kit's `TellLife`): the glass button over every screen opens a full-screen cover; his words (the one microphone, `DictationField` with a Send) go through `LifeAPI.askMainSession` (`ask_main_session`), one call whose progress lines (`thinking`, `working`, `words`) `TellLife` draws and whose answer ends it; a call that did not reach Life leaves his words waiting under one key. The screen sends refs only (`AppRouter.tellScreen`); `keepWarm` (no words) runs while the screen is open.
+- **Tell Life** (`Lifelog/TellLife/`, Kit's `TellLife`): its tab in the bar (a tap leaves the tab on show; the system places it in every pose, no position code of ours) opens a full-screen cover; his words (the one microphone, `DictationField` with a Send) go through `LifeAPI.askMainSession` (`ask_main_session`), one call whose progress lines (`thinking`, `working`, `words`) `TellLife` draws and whose answer ends it; a call that did not reach Life leaves his words waiting under one key. The screen sends refs only (`AppRouter.tellScreen`); `keepWarm` (no words) runs while the screen is open.
 
 - **iPhone Duo: layout branches on `horizontalSizeClass` only**, never device, screen size or orientation: compact is one
   pane, regular two (`CardArrangement` in the Inbox, the `NavigationSplitView` in Projects and People). One exception, his
@@ -102,7 +102,7 @@ The fixture's content is the design data (`apps/lifelog/fixtures/design/`, one J
 - A server enum decodes unknown values as `unknown` (`UnknownTolerant`) and belongs in the mirror list of
   `ContractTests.swift` (lifelog's against its `openapi.json` in `mirroredEnumsMatchTheSpec`, Life's against `apps/server/src` in `lifesEnumsAreTheServers`), which also checks
   every path the client calls.
-- The top group is one `ToolbarItem` per control, never a `ToolbarItemGroup`: the closed Duo's side column took a group's first item only and left the gear in a bar of its own over the screen's title. Tell Life stands on the Pendant's vertical line (`AppRouter.pendantFrame`), so it is in that column too.
+- The top group is one `ToolbarItem` per control, never a `ToolbarItemGroup`: the closed Duo's side column took a group's first item only and left the gear in a bar of its own over the screen's title. On a pushed page in that column Back is ours, declared after the Pendant and gear (Pendant, gear, Back, then the tabs).
 - The toolbar API is `toolbarMinimizationBehavior(_:for:)`; the WWDC docs' `toolbarMinimizeBehavior` doesn't compile.
 - A read that failed after one landed, or Life out of reach, is said by the designed `Toast` over the pane (`StaleNote`, `staleToast`), Retry in its capsule; never a band in the layout. A matter's agent spins only while its turn runs (`AgentStatus.running`); waiting, it is its program's mark, still. A call (`tel:`, FaceTime) asks first; a chat opens at once. Back from a person opened from elsewhere returns to the tab he came from (`AppRouter.closePerson`).
 - An Omi drains through the same `DrainCoordinator` as the Limitless Pendant, by its `DeviceCodec`. **Any work on the
