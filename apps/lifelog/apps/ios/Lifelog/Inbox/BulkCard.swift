@@ -130,7 +130,7 @@ struct BulkCard: View {
                 // A voice's sign is its Play; any other row opens its own card.
                 if kind != .voice {
                     Spacer(minLength: Metrics.Spacing.s)
-                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
+                    Image(systemName: "chevron.right").font(.smallStrong)
                         .foregroundStyle(Palette.muted)
                 }
             }

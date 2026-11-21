@@ -554,16 +554,5 @@
   },
   "DuoFoldMatterSpend": {
     "why": "The line needs the matter's spending in read_matter.json (the designer's to write), and the frame is the page at its end. By hand, once written: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen, then scroll to the end."
-  },
-  "DuoFoldStackVoices": {
-    "args": ["-fixtureLife", "ok", "-fixtureCard", "bulk_v0"]
-  },
-  "DuoFoldStackEndings": {
-    "args": ["-fixtureLife", "ok", "-fixtureCard", "bulk_e0"]
-  },
-  "DuoFoldStackBulkDone": {
-    "args": ["-fixtureLife", "ok", "-fixtureCard", "bulk_v0"],
-    "taps": ["Answer 15"]
-  },
-  "DuoFoldInboxBulk": { "args": ["-fixtureLife", "ok"] }
+  }
 }
