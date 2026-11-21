@@ -70,8 +70,8 @@ And without being asked:
   already look ahead. Life can also put the appointments it reads in your messages into your Google calendar, marked
   as Life's. Both are settings ([the agent, the connector and actions](docs/tasks.md)).
 - If a source stops reading (WhatsApp signed out, a bridge down), one notice that day saying which.
-- Say "hey Orbit, book the dentist" near your recorder, Orbit being an agent of yours: Life hears it and Orbit picks
-  it up. Optional: [set up your agent](docs/use/agent.md).
+- Say "hey Life, book the dentist" near your recorder: Life hands it to the agent working on it, else your Personal
+  agent. Optional: [your agents](docs/use/agent.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/person-dark.png">
@@ -222,7 +222,7 @@ Use Life:
 - [Connect your assistant](docs/use/connect.md)
 - [Set up voice](docs/use/voice.md)
 - [Set up bridges](docs/use/bridges.md)
-- [Set up your agent](docs/use/agent.md)
+- [Your agents](docs/use/agent.md)
 - [Settings with no screen yet](docs/use/settings.md): email, code, Screen Time devices, older months, add-ons, past
   assistant chats
 - [Back up and restore](docs/use/backup.md)

@@ -1,11 +1,5 @@
 {
   "agentReportSenders": ["alerts@agents.example.test"],
-  "agents": {
-    "Orbit": {
-      "misheard": ["or bit", "Zorba"],
-      "wake": ["orbit"]
-    }
-  },
   "backup": {
     "password": "echo made-up",
     "repository": "~/made-up-backup"

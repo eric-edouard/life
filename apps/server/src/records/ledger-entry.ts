@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DESK_AGENT } from "../core/names";
 import { isoDateTime, MadeBy } from "./fields";
 
 // The actions ledger (memory/ledger.jsonl, docs/SCHEMA.md): what Life did on his request, his changes read back,
@@ -19,8 +20,9 @@ export const TODO_CHANGE_KINDS = [
 /**
  * One thing Life did outside itself on the owner's clear request (memory/ledger.jsonl): the only history of its
  * writes. `ref` is where his words are; `before` and `after` the to-do item's fields; `target` what was touched. An ask
- * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {agent, confidence, conversation?, turns?, title?, parent?}: the agent pulls it (`read_agent_asks`);
- * one for the desk (`agent` `DESK_AGENT`) from `change_registered_agent` also has `agentChange` (`AgentChange`), which the desk applies.
+ * (`kind` ask, `target` `AGENT_WORD`) has `after` {agent, confidence, conversation?, turns?, title?, parent?}; its agent is
+ * the desk (`DESK_AGENT`; another agent's name on asks until 21 Nov 2026): his spoken ask has `conversation`
+ * (`isSpokenAsk`); one from `change_registered_agent` has `agentChange` (`AgentChange`), which the desk applies.
  * His complaint (`isComplaint`) is one for the desk with `complaint` instead: the desk hands it to the caretaker.
  * `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies until 2 Nov 2026, Life's nudges and his steers until 20 Oct; they only parse now.
  * A reply (`after` {text}) is what the agent told him; one on no task targets `chat`.
@@ -65,7 +67,7 @@ export const LedgerEntry = z
       })
       .strict()
       .optional(),
-    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey <agent>" heard; a nudge or a steer until 20 Oct);
+    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey Life" heard, a "hey <agent>" until 21 Nov 2026; a nudge or a steer until 20 Oct);
     // "todo_list": his own change read back from Reminders (apps/server/src/host/inbound.ts), state only, never his words.
     via: z.union([
       MadeBy,
@@ -104,6 +106,16 @@ export const isBookkeeping = (a: LedgerEntry) =>
  */
 export const isComplaint = (a: LedgerEntry) =>
   a.kind === "ask" && a.after.complaint !== undefined;
+
+/**
+ * His spoken ask: a "hey Life" span the hearing recorded (`host/hear.ts`), an ask of the desk with the `conversation` it
+ * was said in, which the desk routes to one agent (`desk/spoken-ask-intake.ts`). Never pulled (`asksFor`): the desk
+ * reads it itself, as it does his complaints.
+ */
+export const isSpokenAsk = (a: LedgerEntry) =>
+  a.kind === "ask" &&
+  a.after.agent === DESK_AGENT &&
+  a.after.conversation !== undefined;
 
 /**
  * What his complaint names besides his words (`after.complaint`): the card's `ref`, the `cause` and the card he saw

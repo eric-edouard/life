@@ -87,6 +87,12 @@ export const readRepliesSince = (since: string, where = READ_REPLIES) =>
     .filter((f) => f >= readReplyPath(since, where))
     .flatMap(readReplyFile);
 
+/** The stored lines of the month files of `months` (`YYYY-MM`), one list each as `readReplies` gives it (none: empty). */
+export const readRepliesOfMonths = (
+  months: readonly string[],
+  where = READ_REPLIES
+) => [...new Set(months)].map((m) => readReplyFile(readReplyPath(m, where)));
+
 /** A confirmed arrival: new lines of a unit his engine confirmed hold an ask, a promise or a wait for him. */
 export interface ConfirmedArrival {
   at: string;

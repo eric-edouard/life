@@ -329,6 +329,13 @@ const item: NamingQueueItem = {
   words: 9,
 };
 
+/** The people a voice card's ref is read with, of a made-up `resolve`. */
+const whoOf = (resolve: (s: string) => string | null) => ({
+  names: new Map<string, string>(),
+  refOf: (r: string) => r,
+  resolve,
+});
+
 // Voice answers released together (the phone's held answers): each reads lifelog's queue after the one before it
 // landed, so all land, and one that fails does not stop the next.
 test("voice answers given at once are read and answered one at a time, and all land", async () => {
@@ -350,7 +357,7 @@ test("voice answers given at once are read and answered one at a time, and all l
     }
   );
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
-    resolve,
+    ...whoOf(resolve),
   } as never);
   const send = spyOn(voices, "answerNamingQueue").mockImplementation(
     async ([v]) => {
@@ -368,7 +375,7 @@ test("voice answers given at once are read and answered one at a time, and all l
   try {
     const answers = await Promise.allSettled(
       items.map((i) =>
-        answerCheck(check(voiceCardRefOf(resolve, i), "voice"), {
+        answerCheck(check(voiceCardRefOf(whoOf(resolve), i), "voice"), {
           options: ["not-relevant"],
         })
       )
@@ -396,7 +403,7 @@ test("voice answers given at once are read and answered one at a time, and all l
 // life#765: a typed name is resolved with the people the voice answer already read: one read, not two.
 test("a voice answer naming someone by a typed name reads his people once", async () => {
   const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);
-  const voice = check(voiceCardRefOf(resolve, item), "voice");
+  const voice = check(voiceCardRefOf(whoOf(resolve), item), "voice");
   const queue = spyOn(
     await import("../sources/lifelog-voices"),
     "readNamingQueueNow"
@@ -407,7 +414,7 @@ test("a voice answer naming someone by a typed name reads his people once", asyn
       typed === "Dana"
         ? { by: "his word", isShared: false, ref: "person:dana" }
         : undefined,
-    resolve,
+    ...whoOf(resolve),
   } as never);
   const send = spyOn(
     await import("../sources/lifelog-voices"),
@@ -431,14 +438,14 @@ test("a voice answer naming someone by a typed name reads his people once", asyn
 
 test("a voice's answer goes to lifelog for every turn of it: a known person is assigned, an unknown one confirmed by name, nothing is written", async () => {
   const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);
-  const voice = check(voiceCardRefOf(resolve, item), "voice");
+  const voice = check(voiceCardRefOf(whoOf(resolve), item), "voice");
   const queue = spyOn(
     await import("../sources/lifelog-voices"),
     "readNamingQueueNow"
   ).mockResolvedValue([item]);
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
     nameOf: (r: string) => (r === "person:dana" ? "Dana" : "Kofi"),
-    resolve,
+    ...whoOf(resolve),
   } as never);
   const send = spyOn(
     await import("../sources/lifelog-voices"),
@@ -460,7 +467,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     queue.mockResolvedValueOnce([known]);
     const dana = {
       ...voice,
-      ref: voiceCardRefOf(resolve, known),
+      ref: voiceCardRefOf(whoOf(resolve), known),
       subject: "person:dana",
     };
     // "Yes" names the person on the card only: a typed name goes with "Someone else…".
