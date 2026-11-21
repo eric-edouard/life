@@ -149,7 +149,7 @@ test("no Personal agent is registered while the start is blocked or the desk is 
   expect(place("the runtime is signed out")).toEqual({
     why: "the runtime is signed out",
   });
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 50; i += 1) {
     insertAgent(s.desk.db, { brief: "b", runtime: "claude" });
   }
   expect(place()).toEqual({ why: "the desk keeps 50 agents active at most" });
