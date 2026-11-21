@@ -36,6 +36,22 @@
       "agents"
     ]
   },
+  "AskBannerArmedPhone": {
+    "args": ["-fixtureLife", "ok", "-fixtureDictation", "armed"],
+    "taps": ["Tell Life"]
+  },
+  "AskBannerHoldingPhone": {
+    "args": ["-fixtureLife", "ok", "-fixtureDictation", "holding"],
+    "taps": ["Tell Life"]
+  },
+  "AskBannerListeningPhone": {
+    "args": ["-fixtureLife", "ok", "-fixtureDictation", "listening"],
+    "taps": ["Tell Life"]
+  },
+  "AskBannerSendingPhone": {
+    "args": ["-fixtureLife", "ok", "-fixtureDictation", "sending"],
+    "taps": ["Tell Life"]
+  },
   "AskNameNone": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
   },

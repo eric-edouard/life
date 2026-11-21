@@ -70,7 +70,7 @@ struct StartAgentSheet: View {
     private var form: some View {
         VStack(alignment: .leading, spacing: 16) {
             Caps("The goal, in your words")
-            // The goal's own Send (or a swipe up from the microphone) starts it: the one submit is the field's.
+            // The goal's own Send (or a hold slid up from the microphone) starts it: the one submit is the field's.
             DictationField(prompt: "Goal", text: $goal, axis: .vertical, send: start).font(.quote)
                 .foregroundStyle(Palette.fg)
                 .lineLimit(2...).padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))

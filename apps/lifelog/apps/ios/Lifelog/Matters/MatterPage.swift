@@ -261,7 +261,7 @@ private struct EditableLine: View {
                 }
             }
             if isEditing {
-                // The field's Send (or a swipe up from the microphone) saves: the one submit is the field's.
+                // The field's Send (or a hold slid up from the microphone) saves: the one submit is the field's.
                 DictationField(prompt: name, text: $draft, axis: .vertical, focused: $focused) {
                     let words = draft.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !state.isRunning, !words.isEmpty else { return }
