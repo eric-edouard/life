@@ -11,7 +11,7 @@ import {
 } from "../memory/matter-read";
 import { readMatterBook, readMatterBookAndRecords } from "../memory/matters";
 import type { Party } from "../memory/party";
-import { readHandOutMatters } from "../memory/read-matters";
+import { agentForMatterOf, readHandOutMatters } from "../memory/read-matters";
 import { sourceOf } from "../memory/sources";
 import { meant, type People, readPeople } from "../memory/who";
 import { dayNow, localDate, localTime } from "../memory/zones";
@@ -20,19 +20,21 @@ import { healthRowsOf } from "./desk-health";
 import {
   type AgentNow,
   type AgentRead,
+  type AssignmentRow,
   agentsNow,
   agentsOnProjects,
   agentsOnSteps,
   anchorsOf,
+  assignmentOfCard,
   currentAssignmentOf,
   type DeskRead,
-  handedOutAgentsSince,
+  handOutsSince,
   heldByAgents,
   openAssignments,
-  projectHolderOf,
   readDesk,
   refusedSince,
   reportLinesSince,
+  standingAgents,
   type TurnTokens,
   tokensSince,
 } from "./desk-read";
@@ -342,14 +344,10 @@ const linesOf = (read: DeskRead<AgentNow[]>) => {
   return read.state === "ok" ? read.value.map((a) => `- ${agentLine(a)}`) : [];
 };
 
-/** The Agents part of a matter's read: the agents ever anchored on its steps, active first, then the active agent of each of its `projects`; none while the desk is off or unreadable (`read_registered_agents` says which). */
-export function readAgentsOnSteps(
-  steps: string[],
-  projects: string[],
-  people: People
-) {
+/** The Agents part of a matter's read: the agents ever anchored on its steps, active first; none while the desk is off or unreadable (`read_registered_agents` says which). */
+export function readAgentsOnSteps(steps: string[], people: People) {
   const read = readDesk(
-    (db) => agentsOnSteps(db, steps, clock().getTime(), projects, true),
+    (db) => agentsOnSteps(db, steps, clock().getTime(), true),
     []
   );
   // The matter is the one read, found: an agent anchored on it has its wide net.
@@ -364,37 +362,19 @@ export const agentLinesOnProjects = (projects: string[]) =>
     readDesk((db) => agentsOnProjects(db, projects, clock().getTime()), [])
   );
 
-/** The active agent holding one of a matter's steps, else the one holding one of its projects (`projectHolderOf`), for `read_matters`: the desk read once for every matter of the call, with a `stamp` of what it read. */
+/** The active agent holding one of a matter's steps by an open assignment, for `read_matters`: the desk read once for every matter of the call, with a `stamp` of what it read. */
 export function readActiveAgentOf() {
   const read = readDesk(
-    (db) => {
-      const projects = new Set(
-        db
-          .query<{ project: string }, []>(
-            "select distinct project from agent where status = 'active' and project is not null"
-          )
-          .all()
-          .map((r) => r.project)
-      );
-      return {
-        byProject: [...projects].map(
-          (p) => [p, projectHolderOf(db, p)] as const
-        ),
-        byStep: openAssignments(db).flatMap((s) =>
-          anchorsOf(db, s.id).map((step) => [step, s.agent_id] as const)
-        ),
-      };
-    },
-    { byProject: [], byStep: [] }
+    (db) =>
+      openAssignments(db).flatMap((s) =>
+        anchorsOf(db, s.id).map((step) => [step, s.agent_id] as const)
+      ),
+    []
   );
   const value = read.state === "ok" ? read.value : null;
-  const byStep = new Map(value?.byStep);
-  const byProject = new Map(value?.byProject);
+  const byStep = new Map(value);
   return Object.assign(
-    (steps: string[], projects: string[]) =>
-      steps.map((s) => byStep.get(s)).find(Boolean) ??
-      projects.map((p) => byProject.get(p)).find(Boolean) ??
-      undefined,
+    (steps: string[]) => steps.map((s) => byStep.get(s)).find(Boolean),
     { stamp: JSON.stringify(value) }
   );
 }
@@ -488,7 +468,12 @@ async function readHealth(
     async () => ({ book: [...read.book], records: read.records }),
     people
   );
-  const holds = readDesk((db) => heldByAgents(db), []);
+  const desk = readDesk(
+    (db) => ({ holds: heldByAgents(db), standing: standingAgents(db) }),
+    { holds: [], standing: [] }
+  );
+  const { holds, standing } =
+    desk.state === "ok" ? desk.value : { holds: [], standing: [] };
   const needsYou = matterRowsNowOf(
     matters.map((v) => ({
       id: v.id,
@@ -505,9 +490,10 @@ async function readHealth(
       decisions: facts.decisions,
       facts: {
         ...facts,
-        isHeld: isHeldOf(holds.state === "ok" ? holds.value : []),
+        agentFor: agentForMatterOf(standing, people.truth),
+        isHeld: isHeldOf(holds),
       },
-      holds: holds.state === "ok" ? holds.value : [],
+      holds,
       lastNeedsYou,
       matters,
       needsYou,
@@ -515,35 +501,34 @@ async function readHealth(
   };
 }
 
-/** The hand-outs since the last report as rows: how many started and how many have an answered card, then each that never began, or ended having never asked a card (`everAsked`: a card withdrawn at its end still counts, unlike the door's `hasAsked`), by its matter's name. Pure; every row; none when nothing was handed out. */
+/** The hand-outs since the last report as rows, by assignment: how many started and how many have an answered card, then each that never began, or closed having never asked a card (`everAsked`: a card withdrawn at its end still counts, unlike the door's `hasAsked`), by its matter's name. Pure; every row; none when nothing was handed out. */
 export function handOutRowsOf(
-  agents: readonly {
-    id: string;
-    status: string;
-    why_not_started: string | null;
-  }[],
+  handOuts: readonly Pick<
+    AssignmentRow,
+    "closed_at" | "id" | "why_not_started"
+  >[],
   cards: { answered: ReadonlySet<string>; everAsked: ReadonlySet<string> },
-  matterOf: (agentId: string) => { name: string } | undefined
+  matterOf: (assignment: string) => { name: string } | undefined
 ) {
-  if (agents.length === 0) {
+  if (handOuts.length === 0) {
     return [];
   }
   return [
     {
       name: "Hand-outs",
-      relation: `${agents.length} started · ${agents.filter((a) => cards.answered.has(a.id)).length} with an answered card`,
+      relation: `${handOuts.length} started · ${handOuts.filter((s) => cards.answered.has(s.id)).length} with an answered card`,
     },
-    ...agents.flatMap((a) => {
+    ...handOuts.flatMap((s) => {
       const why =
-        a.why_not_started === null
-          ? a.status === "ended" &&
-            !cards.everAsked.has(a.id) &&
+        s.why_not_started === null
+          ? s.closed_at !== null &&
+            !cards.everAsked.has(s.id) &&
             "ended with no card"
-          : `never began: ${a.why_not_started}`;
+          : `never began: ${s.why_not_started}`;
       return why
         ? [
             {
-              name: `Hand-out · ${matterOf(a.id)?.name ?? "no matter"}`,
+              name: `Hand-out · ${matterOf(s.id)?.name ?? "no matter"}`,
               relation: why,
             },
           ]
@@ -560,16 +545,21 @@ function readDeskRows(
 ) {
   const read = readDesk((db) => {
     const turns = tokensSince(db, since);
-    const handed = handedOutAgentsSince(db, since);
-    const agents = new Set([
-      ...turns.map((t) => t.agent_id),
-      ...handed.map((a) => a.id),
-    ]);
+    const handed = handOutsSince(db, since);
     return {
-      anchors: [...agents].map(
-        (id) =>
-          [id, anchorsOf(db, currentAssignmentOf(db, id)?.id ?? "")] as const
-      ),
+      // An agent's turns by the assignment it works on now; a hand-out by its own.
+      anchors: [
+        ...[...new Set(turns.map((t) => t.agent_id))].map(
+          (id) =>
+            [id, anchorsOf(db, currentAssignmentOf(db, id)?.id ?? "")] as const
+        ),
+        ...handed.map((s) => [s.id, anchorsOf(db, s.id)] as const),
+      ],
+      // Each card by the assignment that asked it (`assignmentOfCard`).
+      cards: all.flatMap((d) => {
+        const s = assignmentOfCard(db, d);
+        return s ? [{ assignment: s, state: d.state }] : [];
+      }),
       handed,
       turns,
     };
@@ -584,14 +574,12 @@ function readDeskRows(
   const anchors = new Map(read.value.anchors);
   const find = matterFinderOf(book);
   const matterOf = (id: string) => find(anchors.get(id) ?? []);
-  const decisions = all.flatMap((d) =>
-    d.agent ? [{ agent: d.agent, state: d.state }] : []
-  );
+  const owned = read.value.cards;
   const cards = {
     answered: new Set(
-      decisions.filter((d) => d.state === "answered").map((d) => d.agent)
+      owned.filter((d) => d.state === "answered").map((d) => d.assignment)
     ),
-    everAsked: new Set(decisions.map((d) => d.agent)),
+    everAsked: new Set(owned.map((d) => d.assignment)),
   };
   return [
     ...handOutRowsOf(read.value.handed, cards, matterOf),

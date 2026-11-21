@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, expect, setSystemTime, test } from "bun:test";
+import { rmSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,13 +10,24 @@ import { stamp } from "../models/llm";
 import type { ReadReply } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import { turnRef } from "../sources/lifelog";
-import { CONFIRMS_A_DAY, readArrivals } from "./arrival-reader";
+import { apply, openStore, turnRef, WATCH } from "../sources/lifelog";
+import {
+  conversation as feedConversation,
+  lifelogServer,
+  pageFixture,
+  turnFixture,
+} from "../sources/store-fixtures";
+import {
+  CONFIRMS_A_DAY,
+  type RecentVoice,
+  readArrivals,
+  readRecentVoice,
+} from "./arrival-reader";
 import type { SourceLine } from "./quote-check";
 import { readConfirmedArrivals, readReplies, storeReply } from "./read-replies";
-import { OWNER } from "./read-truth";
+import { OWNER, type Truth } from "./read-truth";
 import { voiceUnitId } from "./unit-ids";
-import { applyRules, type Built, messageUnits } from "./units";
+import { applyRules, messageUnits } from "./units";
 import { dayNow, dayStart, localDate } from "./zones";
 
 // Made-up chats with Sam, someone he knows; Apple and his engine are fakes counting their calls.
@@ -94,8 +106,8 @@ const sceneOf = (
       {
         ...(voice
           ? {
-              spoken: (units: Unit[]) => {
-                fetched.push(units.length);
+              spoken: (turns: Map<string, unknown>) => {
+                fetched.push(turns.size);
                 return voice.fails
                   ? Promise.reject(new Error("lifelog unreachable"))
                   : Promise.resolve(voice.spoken);
@@ -117,10 +129,8 @@ const sceneOf = (
   const lines = () => readReplies(where).flat();
   return { calls, fetched, lines, read, shown, where };
 };
-/** Today's voice as the reader is given it: units, the conversations lifelog closed, and each unit's turns. */
-interface Voice {
-  built: Built[];
-  closed: Set<string>;
+/** Today's voice as the reader is given it, and the words its turns' fetch gives back. */
+interface Voice extends RecentVoice {
   /** Fetching the turns' words fails (lifelog unreachable). */
   fails?: boolean;
   spoken: Map<string, SourceLine[]>;
@@ -166,6 +176,7 @@ const voiceOf = (
     built: [{ messages: [], text: "", unit }],
     closed: new Set(o.closed ? [conversation] : []),
     spoken: new Map([[unit.id, lines]]),
+    turns: new Map([[unit.id, []]]),
   };
 };
 const yes = (quote: string): FoundationAnswer => ({
@@ -188,15 +199,20 @@ test("Apple's yes goes to his engine; a confirmed yes is a confirmed arrival; a 
   expect(s.calls).toEqual({ apple: 1, engine: 1 });
 });
 
-test("automated lines with no ask quoted ask his engine nothing; a person's lines go on", async () => {
-  const no = sceneOf(() => ({
+test("only a person's lines with an ask quoted go on: small talk and automated lines ask his engine nothing", async () => {
+  const automated = sceneOf(() => ({
     os: "27.2",
-    reply: { author: "automated", quote: "" },
+    reply: { author: "automated", quote: "pay your invoice" },
   }));
-  await no.read([msg("Your parcel has shipped")]);
-  const person = sceneOf(() => yes(""));
-  await person.read([msg("Lovely evening, thanks again")]);
-  expect([no.calls.engine, person.calls.engine]).toEqual([0, 1]);
+  await automated.read([msg("Your invoice is ready: pay your invoice")]);
+  // Apple calls small talk a person's with no quote (seen on made-up chats, 21 Nov 2026): it once sent nearly all on.
+  const smallTalk = sceneOf(() => yes(""));
+  await smallTalk.read([msg("Lovely evening, thanks again")]);
+  const ask = sceneOf(() => yes("send me the lease"));
+  await ask.read([msg("Can you send me the lease?")]);
+  expect([automated, smallTalk, ask].map((s) => s.calls.engine)).toEqual([
+    0, 0, 1,
+  ]);
 });
 
 test("Thai lines and no Apple model go straight to his engine; a refusal is stored, then confirmed", async () => {
@@ -322,6 +338,7 @@ test("voice: a conversation across midnight he spoke in before it is read after 
     built: [...before.built, ...after.built],
     closed: before.closed,
     spoken: new Map([...before.spoken, ...after.spoken]),
+    turns: new Map([...before.turns, ...after.turns]),
   });
   expect(s.calls).toEqual({ apple: 2, engine: 2 });
 });
@@ -360,12 +377,75 @@ test("voice: a pending confirm whose conversation turns out not his asks his eng
   expect(s.calls).toEqual({ apple: 1, engine: 0 });
 });
 
-test("voice: a speaker corrected within one pass (his turn gone from the words) is not read", async () => {
-  const s = sceneOf(() => yes("bring the plans"));
-  const claimed = voiceOf("fix", { closed: true, spoke: true, turns: 2 });
-  const words = voiceOf("fix", { closed: true, spoke: false, turns: 2 });
-  await s.read([], true, 0, { ...claimed, spoken: words.spoken });
-  expect(s.calls).toEqual({ apple: 0, engine: 0 });
+test("voice: a conversation reopened or a speaker corrected within one pass is read as the store's one read saw it", async () => {
+  // A made-up closed conversation in the watcher's store: his turn, then Sam's; the words from a fake lifelog.
+  const [first, last, late] = [ago(20), ago(12), ago(16)];
+  const server = lifelogServer({
+    "/transcription-jobs/job-r/transcript": () => ({
+      turns: ["I'll bring the plans", "Thanks", "And the keys?"].map(
+        (text) => ({ speakerId: null, text })
+      ),
+    }),
+  });
+  const store = openStore();
+  const feed = (closed: boolean, turns: ReturnType<typeof turnFixture>[]) =>
+    apply(
+      store,
+      pageFixture({
+        conversations: [
+          feedConversation("talk-r", {
+            closed,
+            endAt: ago(10),
+            startAt: first,
+          }),
+        ],
+        turns: turns.map((t) => ({ ...t, jobId: "job-r" })),
+      })
+    );
+  try {
+    feed(true, [
+      turnFixture(0, first, null, null, "talk-r", true),
+      turnFixture(1, last, null, "Sam", "talk-r"),
+    ]);
+    // The truth the watcher passes, made up.
+    const withTruth = { ...people, truth: { people: [] } as unknown as Truth };
+    const voice = await readRecentVoice(dayNow(), withTruth.truth);
+    // Before the words are fetched: reopened, a turn added inside its span, and his turn given to Sam.
+    feed(false, [
+      turnFixture(0, first, null, "Sam", "talk-r"),
+      turnFixture(2, late, null, "Sam", "talk-r"),
+    ]);
+    const shown: string[] = [];
+    await readArrivals(
+      { built: [], fileEvents: [], voice },
+      withTruth,
+      ["Ozren"],
+      {
+        apple: (requests) => {
+          shown.push(...requests.map((r) => r.text));
+          return Promise.resolve(requests.map(() => yes("")));
+        },
+        confirmsToday: () => Promise.resolve(0),
+        online: () => Promise.resolve(false),
+        step: () =>
+          Promise.resolve({
+            end: (c: object) => c,
+            llm: { engine: "codex", model: "test" },
+            run: "r1",
+          } as never),
+        where: join(dir, "reopened"),
+      }
+    );
+    // His turn and Sam's, as that read saw them; the reopened conversation's new turn is a later pass's.
+    expect(shown.join("\n").split("\n")).toEqual([
+      expect.stringContaining(`${OWNER}: I'll bring the plans`),
+      expect.stringContaining("Thanks"),
+    ]);
+  } finally {
+    store.db.close();
+    server.close();
+    rmSync(WATCH, { force: true, recursive: true });
+  }
 });
 
 test("voice: a conversation read whole fetches no words again", async () => {
@@ -439,6 +519,20 @@ test("voice: yesterday's first turns filed under last month are seen as read the
   } finally {
     setSystemTime();
   }
+});
+
+test("Apple failing (an outage) stores nothing and asks no confirm: the read is due again on the next pass", async () => {
+  const answers: FoundationAnswer[] = [
+    { detail: "ModelManagerError 1013", error: "failed" },
+    yes("send the slides"),
+  ];
+  const s = sceneOf(() => answers.shift() ?? yes(""));
+  const events = [msg("Can you send the slides?")];
+  await s.read(events);
+  expect(s.calls).toEqual({ apple: 1, engine: 0 });
+  expect(s.lines()).toEqual([]);
+  await s.read(events);
+  expect(s.calls).toEqual({ apple: 2, engine: 1 });
 });
 
 test("his engine's no is stored and confirms nothing", async () => {

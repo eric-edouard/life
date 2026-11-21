@@ -145,7 +145,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
   ).toEqual([
     "answer_check(name,note,options,person,ref,value)",
     "change_directory_entry(action,aliases,area,domains,handles,id,kind,language,name,number,people,pictureFrom,projects,relation,repos,said,status,text)",
-    "change_registered_agent(action,agent,effort,folder,model,project,runtime,said,step)",
+    "change_registered_agent(action,agent,effort,folder,model,name,personal,project,runtime,said,step)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
     "fetch(fromTurn,id,limit)",
@@ -166,7 +166,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
     "read_processing_runs(cursor,limit,steps)",
     "read_registered_agents()",
-    "request_decision(context,deadline,doneSeenBy,draft,links,needs,onSilence,options,plan,question,subject,title,why,withdraw)",
+    "request_decision(context,deadline,doneSeenBy,draft,keep,links,merges,needs,onSilence,options,plan,question,subject,title,why,withdraw)",
     "search(from,query,to)",
     "tell_life(asked,said)",
   ]);
@@ -243,31 +243,34 @@ test("Events: `events/poll` and `read_new_events` are one poll; an unknown event
   expect(unknown.json.result).toMatchObject({ isError: true });
 });
 
-test("a call logs who asked, the arguments, and what surfaced without its text", async () => {
-  const logged = async (asked: string) => {
-    await rpc(await token(), "tools/call", {
-      arguments: { id: asked },
-      name: "read_observation",
-    });
+// 21 Nov 2026: the log promised metadata only, yet kept a call's arguments (his words in `tell_life`, a card's draft)
+// and a refusal's text (which can quote them).
+test("a call logs who asked, its arguments' names, and what surfaced without its text", async () => {
+  const logged = async (name: string, args: object) => {
+    await rpc(await token(), "tools/call", { arguments: args, name });
     return linesOf(
       join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.jsonl`)
     )
       .map((l) => JSON.parse(l))
       .findLast((l) => l.kind === "mcp.call");
   };
-  expect((await logged("x".repeat(300))).args.id).toBe(`${"x".repeat(199)}…`);
   const id = "obs_0123456789ab";
-  expect(await logged(id)).toMatchObject({
+  const line = await logged("read_observation", { id });
+  expect(line).toMatchObject({
     agent: "Orbit",
-    args: { id },
+    args: ["id"],
     chars: `no observation ${id}`.length,
     client: "chatgpt-client",
     error: true,
     ids: [id],
     kind: "mcp.call",
-    refused: `no observation ${id}`,
+    refused: "error",
     tool: "read_observation",
   });
+  const words = "Tell Mia I'm at Lyon station at 6";
+  const told = await logged("tell_life", { asked: "x", said: words });
+  expect(told).toMatchObject({ args: ["asked", "said"], refused: "not_done" });
+  expect(JSON.stringify(told)).not.toContain("Lyon");
 });
 
 const logged = () =>
@@ -295,16 +298,17 @@ test("a refused token, invalid arguments and the SDK's own rejections are logged
   });
   expect(
     await last(await token({ sub: "someone-else" }), "tools/list")
-  ).toMatchObject({ ...asker, refused: "forbidden: not the owner" });
-  expect((await last(await token({}, -60), "tools/list")).refused).toContain(
-    "exp"
+  ).toMatchObject({ ...asker, refused: "forbidden" });
+  // A refusal is logged by its class, never its reason's words.
+  expect((await last(await token({}, -60), "tools/list")).refused).toBe(
+    "invalid"
   );
   const before = logged().length;
   await rpc(null, "tools/list");
   expect(logged()).toHaveLength(before);
   // A 2026-07-28 call missing its Mcp-Name header is refused by the SDK before any tool.
   await modern("tools/call", { arguments: {}, name: "read_observation" });
-  expect(logged().at(-1)?.refused).toContain("name-header-missing");
+  expect(logged().at(-1)?.refused).toBe("rejected");
 });
 
 test("a streamed request (subscriptions/listen) answers at once: nothing waits on its stream", async () => {

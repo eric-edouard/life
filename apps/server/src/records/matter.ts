@@ -136,6 +136,11 @@ export interface ImportantPin extends Pin {
   important: boolean;
 }
 
+/** His word of which project a matter is of, as pinned to its steps (`matter-project`): the latest for a matter wins. */
+export interface ProjectPin extends Pin {
+  project: string;
+}
+
 /** His pick of a matter's icon, as pinned to its steps (`matter-icon`): the latest for a matter wins; null gives it back to Life. */
 export interface IconPin extends Pin {
   icon: MatterIconKey | null;

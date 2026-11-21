@@ -54,6 +54,7 @@ const pick = (
   const matters = over.matters ?? book;
   return handOutOf({
     facts: {
+      agentFor: () => "agt_000000000001",
       decisions: [],
       dismissed: dismissedIdsOf(matters, over.dismissed ?? []),
       isDue: () => false,
@@ -82,10 +83,8 @@ test("his stopped agent holds its matter; a project's agent holds none", () => {
   desk.db.run("update agent set status = 'stopped' where id = ?", [stopped]);
   own({ project: "test-bakery" });
   const holds = heldByAgents(desk.db);
-  expect(holds.map((h) => h.step ?? h.project)).toEqual([
-    "obs_a1",
-    "test-bakery",
-  ]);
+  // A project's agent's own listening holds nothing.
+  expect(holds.map((h) => h.step)).toEqual(["obs_a1"]);
   expect(pick({ isHeld: isHeldOf(holds) })).toBe("mat_b");
 });
 

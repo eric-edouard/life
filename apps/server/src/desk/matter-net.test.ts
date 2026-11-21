@@ -10,6 +10,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, iso, MIN } from "../core/clock";
 import type { Embedder } from "../core/embedder";
+import { DESK_AGENT } from "../core/names";
+import { asksFor } from "../host/asks";
 import { agentOf, currentAssignmentOf, queuedEvents } from "../host/desk-read";
 import type { Messaging } from "../host/events";
 import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
@@ -22,6 +24,7 @@ import {
   closeAssignmentRow,
   type Desk,
   openDesk,
+  saveCursor,
   writeWait,
 } from "./desk-store";
 import {
@@ -105,6 +108,12 @@ function setup(embedder: Embedder | null = fakeEmbedder([])) {
       } as Messaging,
     ],
   };
+  // The ledger is every test file's: this desk applies none of the asks made before it.
+  let page = asksFor(DESK_AGENT);
+  while (page.asks.length > 0) {
+    page = asksFor(DESK_AGENT, page.cursor);
+  }
+  saveCursor(desk.db, "asks", page.cursor);
   const agent = register(desk, {
     brief: "b",
     folder: "/",
@@ -154,7 +163,7 @@ async function mocked(status = "moving") {
       refOf: (s: string) =>
         s.startsWith("person:") ? s.replace("-voice", "") : null,
       resolve: (s: string) => (s === "Test Ana" ? "person:ana" : null),
-      truth: { people: [] },
+      truth: { people: [], projects: [] },
     } as never)
   );
 }
@@ -352,10 +361,12 @@ test("a handed-out agent whose matter is no longer running is ended as over; his
   const handed = register(desk, {
     brief: "b",
     folder: "/",
-    openedBy: "desk",
     runtime: "fake",
     steps: [STEP],
   });
+  desk.db.run("update assignment set opened_by = 'desk' where agent_id = ?", [
+    handed,
+  ]);
   for (const id of [agent, handed]) {
     desk.db.run("update assignment set wait_until = ? where agent_id = ?", [
       new Date(T0 + DAY).toISOString(),

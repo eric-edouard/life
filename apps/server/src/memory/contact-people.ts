@@ -1,6 +1,7 @@
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import type { SourceName } from "../core/names";
 import { ContactPerson, contactIdOf } from "../records/observation";
 import {
@@ -191,7 +192,7 @@ export function writeContactPeople() {
     return { added: lines.length, failed: 0 };
   } catch (e) {
     log("run.error", {
-      error: (e as Error).message,
+      ...errorOf(e),
       step: "memory.contact-people",
     });
     return { added: 0, failed: 1 };

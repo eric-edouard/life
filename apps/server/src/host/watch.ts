@@ -2,6 +2,7 @@ import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { hold } from "../core/lock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
@@ -324,7 +325,7 @@ function withdrawAnsweredEvery() {
   try {
     withdrawDraftsAnsweredInChat();
   } catch (e) {
-    log("run.error", { error: String(e), step: "watch.withdraw" });
+    log("run.error", { ...errorOf(e), step: "watch.withdraw" });
   }
 }
 /**
@@ -366,7 +367,7 @@ export function startFileDescriptions(events: SourceEvent[]) {
   describingFiles = true;
   describeFilesOnArrival(events)
     .catch((e: Error) =>
-      log("run.error", { error: e.message, step: "watch.files" })
+      log("run.error", { ...errorOf(e), step: "watch.files" })
     )
     .finally(() => {
       describingFiles = false;
@@ -393,7 +394,7 @@ function startArrivalReader(
   )
     .catch((e: Error) => {
       // Lifelog unreadable: chats and mail are still read.
-      log("run.error", { error: e.message, step: "watch.arrivals.voice" });
+      log("run.error", { ...errorOf(e), step: "watch.arrivals.voice" });
     })
     .then((voice) =>
       readArrivals(
@@ -403,7 +404,7 @@ function startArrivalReader(
       )
     )
     .catch((e: Error) =>
-      log("run.error", { error: e.message, step: "watch.arrivals" })
+      log("run.error", { ...errorOf(e), step: "watch.arrivals" })
     )
     .finally(() => {
       readingArrivals = false;
@@ -412,7 +413,7 @@ function startArrivalReader(
 
 function todayEvery() {
   syncToday().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.today" })
+    log("run.error", { ...errorOf(e), step: "watch.today" })
   );
 }
 
@@ -434,7 +435,7 @@ export async function watch(): Promise<number> {
     serve();
   } catch (e) {
     // The watcher matters more than its server: it keeps polling and says why the server is off.
-    log("run.error", { error: String(e), step: "watch.serve" });
+    log("run.error", { ...errorOf(e), step: "watch.serve" });
   }
   sayActions();
   minute();
@@ -472,6 +473,7 @@ async function listen(running: string, started: Date): Promise<number> {
   // A commit changed apps/server/src/ or prompts/: exit, the app starts the new code (old code lost a request on 15 Oct by reading a renamed prompt).
   while (codeAt(LIFE_CODE_DIR) === running) {
     let result: { cursor: string } | { error: string };
+    let failure: ReturnType<typeof errorOf> | undefined;
     try {
       // biome-ignore lint/performance/noAwaitInLoops: the poll loop is sequential
       const page = await poll(
@@ -499,7 +501,7 @@ async function listen(running: string, started: Date): Promise<number> {
           },
           (e: Error) => {
             const lost = h.tries + 1 >= TRIES;
-            log("run.error", { error: e.message, lost, step: "watch.hear" });
+            log("run.error", { ...errorOf(e), lost, step: "watch.hear" });
             return lost ? null : h.tries + 1;
           }
         );
@@ -519,12 +521,14 @@ async function listen(running: string, started: Date): Promise<number> {
       }
       result = { cursor: page.cursor };
     } catch (e) {
-      result = { error: (e as Error).message };
-      console.error(clock().toISOString(), result.error);
+      // What the status reads show: a model's error by its type, Life's own by its first line (`errorOf`).
+      failure = errorOf(e);
+      result = { error: failure.error };
+      console.error(clock().toISOString(), (e as Error).message);
     }
     health = afterPoll(health, clock(), result, started);
     if ("error" in result && health.consecutiveErrors === 1) {
-      log("run.error", { error: result.error, step: "watch" });
+      log("run.error", { ...failure, step: "watch" });
     }
     await Bun.write(HEALTH, `${JSON.stringify(health, null, 2)}\n`);
     if ("error" in result) {
@@ -549,16 +553,16 @@ async function quiet(running: string) {
 
 function minute() {
   syncMeasurements().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.apple-health" })
+    log("run.error", { ...errorOf(e), step: "watch.apple-health" })
   );
   tick().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "todo.tick" })
+    log("run.error", { ...errorOf(e), step: "todo.tick" })
   );
   mailStuckLock().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.lock" })
+    log("run.error", { ...errorOf(e), step: "watch.lock" })
   );
   lookForPaymentsDone().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.done-seen" })
+    log("run.error", { ...errorOf(e), step: "watch.done-seen" })
   );
   pushNewCardsIfChanged();
 }
@@ -588,7 +592,7 @@ function picturesEvery() {
   keepingPictures = true;
   writePersonPictures()
     .catch((e: Error) =>
-      log("run.error", { error: e.message, step: "watch.pictures" })
+      log("run.error", { ...errorOf(e), step: "watch.pictures" })
     )
     .finally(() => {
       keepingPictures = false;
@@ -597,13 +601,13 @@ function picturesEvery() {
 
 function embedEvery() {
   embedSearched().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.embed" })
+    log("run.error", { ...errorOf(e), step: "watch.embed" })
   );
 }
 
 function describeEvery() {
   describeNew().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.describe" })
+    log("run.error", { ...errorOf(e), step: "watch.describe" })
   );
 }
 

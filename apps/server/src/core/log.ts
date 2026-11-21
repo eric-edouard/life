@@ -1,32 +1,41 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { clock } from "./clock";
 import { filesIn, linesOf } from "./files";
+import { logWriter } from "./log-line";
 import { LIFE_STATE_DIR } from "./paths";
 import { agentNames } from "./settings";
 
 // One structured event log for everything Life does, so any failure can be traced for a year (the nightly drops older days):
-// derived/log/YYYY-MM-DD.jsonl, one JSON object per line. Metadata only: counts, ids, durations, statuses,
-// error messages. Never message text or quotes (those live in the sources and memory/), with two exceptions:
-// `mcp.call` logs the client's question (its arguments, strings clipped to 200 chars) or why it was refused, never the
-// answer's text, and
-// `lifelog.write` logs each write to lifelog (a correction, a voice answer, a push's fixed text) and lifelog's answer.
+// derived/log/YYYY-MM-DD.jsonl, one JSON object per line, written through LogTape (`@logtape/logtape`): `time`, `level`,
+// `category` (`["life", process, step…]`), `msg` (LogTape's raw template, its placeholders the line's own fields) and the
+// fields. Metadata only: counts, ids, kinds, durations, statuses, an error as `errorOf` keeps it. Never message text,
+// quotes, a call's argument values, a body sent or an answer (those live in the sources and memory/); fields named for
+// content are dropped before the line is written (`CONTENT`, LogTape's redaction) as a net under every writer.
 
 export const LOG_DIR = join(LIFE_STATE_DIR, "log");
 
 type LogKind =
   | "calendar.write"
+  | "card.push_accepted"
+  | "decision.answered"
+  | "decision.asked"
+  | "decision.withdrawn"
   | "desk.change"
   | "desk.complaints"
+  | "desk.fold"
   | "desk.hand_out"
   | "desk.net"
+  | "desk.queued"
   | "desk.runtime"
   | "desk.store_step"
+  | "desk.turn"
+  | "draft.send"
   | "email.sent"
   | "file.read"
   | "lifelog.write"
   | "matter.icons"
   | "mcp.call"
+  | "model.retry"
   | "model.run"
   | "offline"
   | "photos.describe"
@@ -75,7 +84,9 @@ export const logEvents = <T = Record<string, unknown> & { at: string }>(
     .filter((l) => l.includes(`"kind":"${kind}`))
     .flatMap((l) => {
       try {
-        return [JSON.parse(l) as T];
+        const e = JSON.parse(l);
+        // A line written through LogTape names its instant `time`; older ones `at`.
+        return [{ ...e, at: e.at ?? e.time } as T];
       } catch {
         return [];
       }
@@ -95,17 +106,21 @@ export const recentEvents = async <T = LogEvent>(
 /** The log file an instant's lines go to: one per UTC day. */
 export const logFileOf = (at: string) => `${at.slice(0, 10)}.jsonl`;
 
-export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
-  const at = clock().toISOString();
-  const line = JSON.stringify({ at, kind, ...fields });
+const lifeLine = logWriter("life", (line, time) => {
   try {
     mkdirSync(LOG_DIR, { recursive: true });
-    appendFileSync(join(LOG_DIR, logFileOf(at)), `${line}\n`);
+    appendFileSync(join(LOG_DIR, logFileOf(time)), `${line}\n`);
   } catch {
     // Logging must never take the system down; stderr still has it.
     console.error(line);
   }
+});
+
+/** One line of Life's: to the day file of its own instant. */
+export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
+  lifeLine(kind, fields);
 }
+
 /** Whether a connector call came from one of his agents: its grant's agent claim names one (`mcp.call`'s `agent`). */
 const isAgent = (agent: unknown) =>
   typeof agent === "string" && agentNames().includes(agent);
