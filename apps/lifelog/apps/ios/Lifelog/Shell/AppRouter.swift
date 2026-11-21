@@ -80,13 +80,11 @@ final class AppRouter {
     /// Tell Life made small: its strip shows over the rail while there is something to keep in sight.
     var isTellLifeSmall = false
     /// What his words are about when he opens Tell Life from a card ("Wrong…"): the card's ref and its question.
-    var tellContext: String?
-    private(set) var tellContextRef: String?
+    var tellContext: (ref: String, question: String)?
 
     /// Tell Life on a card: his words go with that card on screen.
     func tellLife(about ref: String, question: String) {
-        tellContextRef = ref
-        tellContext = question
+        tellContext = (ref, question)
         isTellLifeOpen = true
     }
     /// The person or organization on show in the People tab, by ref, what is pushed on them, and which column a compact
@@ -118,7 +116,7 @@ final class AppRouter {
             }
         return TellScreen(
             tab: tab,
-            open: tellContext != nil ? tellContextRef : tab == "projects" ? matter : tab == "people" ? person : nil)
+            open: tellContext?.ref ?? tab == "projects" ? matter : tab == "people" ? person : nil)
     }
 
     func open(matter id: String) {

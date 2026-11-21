@@ -68,7 +68,10 @@ struct RootView: View {
             if life.isPaired, router.isTellLifeSmall, !router.isTellLifeOpen {
                 TellStrip(
                     line: life.tell.answer?.line ?? "Working on it…", open: { router.isTellLifeOpen = true },
-                    close: { router.isTellLifeSmall = false }
+                    close: {
+                        router.isTellLifeSmall = false
+                        router.tellContext = nil
+                    }
                 )
                 .appears(Motion.fade)
             }

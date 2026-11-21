@@ -203,9 +203,20 @@ struct TellHead: View {
 
     var body: some View {
         Group {
-            if look == .grotesk { Text(.init(words)) } else { Text(words.withoutMarks) }
+            if look == .grotesk { bolded } else { Text(words.withoutMarks) }
         }
         .font(.tellAnswer).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Only the `**` marks are read: words are data, never Markdown (no links).
+    private var bolded: Text {
+        var out = AttributedString()
+        for (index, part) in words.components(separatedBy: "**").enumerated() {
+            var run = AttributedString(part)
+            if !index.isMultiple(of: 2) { run.inlinePresentationIntent = .stronglyEmphasized }
+            out += run
+        }
+        return Text(out)
     }
 }
 

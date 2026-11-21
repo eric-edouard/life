@@ -30,7 +30,7 @@ struct TellLifeScreen: View {
                 }
             }
             if let context = router.tellContext {
-                QuietChip(context, symbol: "xmark", isMuted: true) { router.tellContext = nil }
+                QuietChip(context.question, symbol: "xmark", isMuted: true) { router.tellContext = nil }
             }
             if !tell.said.isEmpty {
                 Text(tell.said).font(.small).foregroundStyle(Palette.muted).lineLimit(2).multilineTextAlignment(.center)
