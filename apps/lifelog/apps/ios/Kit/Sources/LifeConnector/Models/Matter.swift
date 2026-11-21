@@ -112,7 +112,7 @@ public struct MatterList: Decodable, Sendable, Equatable {
 /// One step of a matter, in time order: an episode, an observation or a to-do item.
 public struct MatterStep: Decodable, Sendable, Equatable, Identifiable {
     public enum Ended: String, UnknownTolerant, Sendable {
-        case record, ticked, link
+        case record, todoItem = "todo_item", link
         case unknown
     }
 

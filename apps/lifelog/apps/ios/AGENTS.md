@@ -38,6 +38,8 @@ The fixture's content is the design data (`apps/lifelog/fixtures/design/`, one J
 
 ## Worth knowing
 
+- **Tell Life** (`Lifelog/TellLife/`, Kit's `TellLife`): the glass button over every screen opens a full-screen cover; his words (the one microphone, `DictationField` with a Send) go through `LifeAPI.askMainSession` (`ask_main_session`), one call whose progress lines (`thinking`, `working`, `words`) `TellLife` draws and whose answer ends it; a call that did not reach Life leaves his words waiting under one key. The screen sends refs only (`AppRouter.tellScreen`); `keepWarm` (no words) runs while the screen is open.
+
 - **iPhone Duo: layout branches on `horizontalSizeClass` only**, never device, screen size or orientation: compact is one
   pane, regular two (`CardArrangement` in the Inbox, the `NavigationSplitView` in Projects and People). One exception, his
   decision 93: People open upright (taller than wide) stacks as folded, the list full screen and a tap pushing the page

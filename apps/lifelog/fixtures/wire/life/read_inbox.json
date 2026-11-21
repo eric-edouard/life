@@ -644,6 +644,86 @@
       "asker": "life",
       "at": null,
       "clips": [],
+      "context": "A step of yours is open on this matter.\n\n> I must sign the lease\n\n*11 Oct*",
+      "deadline": null,
+      "draft": null,
+      "goal": "Renew the lease",
+      "group": "your move",
+      "kind": "your move",
+      "likelyPeople": [],
+      "links": [],
+      "needs": [],
+      "notSent": null,
+      "onMatters": [
+        {
+          "id": "matter_bbbbbbbbbbbb",
+          "name": "Renew the lease"
+        }
+      ],
+      "onSilence": null,
+      "options": [
+        {
+          "ends": "step",
+          "id": "done",
+          "label": "Mark as done",
+          "takes": null
+        },
+        {
+          "id": "start",
+          "label": "Hand to an agent",
+          "takes": null
+        },
+        {
+          "id": "not-now",
+          "label": "Not now",
+          "takes": null
+        },
+        {
+          "ends": "step",
+          "id": "drop",
+          "label": "Drop",
+          "takes": null
+        }
+      ],
+      "question": "Sign the lease renewal",
+      "ref": "move:matter_bbbbbbbbbbbb/obs_000000000010",
+      "ridesOn": {
+        "matterIds": ["matter_bbbbbbbbbbbb"],
+        "matters": 1,
+        "observations": 0,
+        "pages": 0
+      },
+      "said": {
+        "at": "2026-10-11",
+        "by": null,
+        "channel": null,
+        "text": "I must sign the lease",
+        "to": null
+      },
+      "since": null,
+      "subject": "obs_000000000010",
+      "title": "Renew the lease",
+      "lifeLinks": [],
+      "matter": {
+        "id": "matter_bbbbbbbbbbbb",
+        "name": "Renew the lease"
+      },
+      "confirm": [],
+      "networkIdentity": null,
+      "contactsCard": null,
+      "pushId": "f686b7df91114fb8",
+      "urgency": "blocks",
+      "misread": {
+        "cause": "3f8aa0d63fc5994e",
+        "seal": "8e97cc12be4aa72b998e513dc335e211",
+        "shown": "fd7b20dc38d18e17"
+      }
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
       "contactsCard": null,
       "context": "A later step seems to show it done.\n\n> Called them.\n\n*an earlier message*",
       "deadline": null,
@@ -713,86 +793,6 @@
         "cause": "1addffdfdc12fcfa",
         "seal": "e21321a5e0f38ca459ff1815d7677715",
         "shown": "92b74ff9de2dc75c"
-      }
-    },
-    {
-      "about": [],
-      "asker": "life",
-      "at": null,
-      "clips": [],
-      "context": "A step of yours is open on this matter.\n\n> I must sign the lease\n\n*11 Oct*",
-      "deadline": null,
-      "draft": null,
-      "goal": "Renew the lease",
-      "group": "your move",
-      "kind": "your move",
-      "likelyPeople": [],
-      "links": [],
-      "needs": [],
-      "notSent": null,
-      "onMatters": [
-        {
-          "id": "matter_bbbbbbbbbbbb",
-          "name": "Renew the lease"
-        }
-      ],
-      "onSilence": null,
-      "options": [
-        {
-          "ends": "step",
-          "id": "done",
-          "label": "Mark as done",
-          "takes": null
-        },
-        {
-          "id": "start",
-          "label": "Hand to an agent",
-          "takes": null
-        },
-        {
-          "id": "not-now",
-          "label": "Not now",
-          "takes": null
-        },
-        {
-          "ends": "step",
-          "id": "drop",
-          "label": "Drop",
-          "takes": null
-        }
-      ],
-      "question": "Sign the lease renewal",
-      "ref": "move:matter_bbbbbbbbbbbb/obs_000000000010",
-      "ridesOn": {
-        "matterIds": ["matter_bbbbbbbbbbbb"],
-        "matters": 1,
-        "observations": 0,
-        "pages": 0
-      },
-      "said": {
-        "at": "2026-10-11",
-        "by": null,
-        "channel": null,
-        "text": "I must sign the lease",
-        "to": null
-      },
-      "since": null,
-      "subject": "obs_000000000010",
-      "title": "Renew the lease",
-      "lifeLinks": [],
-      "matter": {
-        "id": "matter_bbbbbbbbbbbb",
-        "name": "Renew the lease"
-      },
-      "confirm": [],
-      "networkIdentity": null,
-      "contactsCard": null,
-      "pushId": "f686b7df91114fb8",
-      "urgency": "improves",
-      "misread": {
-        "cause": "3f8aa0d63fc5994e",
-        "seal": "5cb44713b9242068464b6762ebfed699",
-        "shown": "c17a6dda60bbeded"
       }
     },
     {
@@ -1069,14 +1069,14 @@
       }
     }
   ],
-  "blocking": 6,
+  "blocking": 7,
   "counts": {
     "decision": 3,
     "voice": 1,
     "name": 1,
     "contacts card": 1,
-    "ending": 1,
     "your move": 1,
+    "ending": 1,
     "same person": 1,
     "at organization": 1,
     "guessed person": 1,
@@ -1084,5 +1084,5 @@
   },
   "deadlinesToday": 0,
   "total": 12,
-  "version": "b21a2912dda5d864"
+  "version": "aa43f8d9881af1d0"
 }

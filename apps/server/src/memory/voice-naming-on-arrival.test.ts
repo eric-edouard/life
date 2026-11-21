@@ -5,6 +5,9 @@ import { unnamedTurnKey } from "./units";
 import {
   isGroupDue,
   LIVE_GROUP_WORDS,
+  NAMINGS_A_DAY,
+  nameVoicesOnArrival,
+  type Outside,
   recentConversationsOf,
 } from "./voice-naming-on-arrival";
 
@@ -97,4 +100,80 @@ test("the watcher's voice read is cut as the night cuts it, closed only when lif
   expect(talks[0]?.ref).toBe(
     "job-1:0@2026-11-21T01:00:00.000Z job-2:0@2026-11-21T01:02:00.000Z"
   );
+});
+
+// The pass itself, with every outside read and call injected: made-up recording job-1, one voice group in its queue.
+const AT = "2026-11-21T01:00:00.000Z";
+const turn = {
+  at: AT,
+  end: AT,
+  jobId: "job-1",
+  name: null,
+  owner: false,
+  personId: null,
+  seen: AT,
+  turnIndex: 0,
+};
+const voiceRead = (isClosed: boolean) =>
+  ({
+    built: [{ unit: { id: "u1", key: "c1" } }],
+    closed: new Set(isClosed ? ["c1"] : []),
+    turns: new Map([["u1", [turn]]]),
+  }) as unknown as Parameters<typeof nameVoicesOnArrival>[0];
+
+/** The pass with a group of `count` words, the day's calls so far `today`; `made` counts the model's calls. */
+function pass(
+  voice: Parameters<typeof nameVoicesOnArrival>[0],
+  count: number,
+  examined: Set<string>,
+  { today = 0 }: { today?: number } = {}
+) {
+  const made = { calls: 0 };
+  const outside: Partial<Outside> = {
+    callsToday: () => Promise.resolve(today),
+    isOnline: () => Promise.resolve(true),
+    isWorthNaming: () => true,
+    near: () =>
+      Promise.resolve({ events: [], failed: [], since: new Date(AT) }),
+    queue: () => Promise.resolve([itemOf([["job-1", "speaker_1"]])]),
+    spoken: () =>
+      Promise.resolve([partOf("job-1", [["speaker_1", words(count)]])]),
+    voiceNaming: () => {
+      made.calls += 1;
+      return Promise.resolve({ calls: 1, stored: 1 }) as never;
+    },
+    work: () => Promise.resolve({ asked: [{}], counts: {} }) as never,
+  };
+  const people = { resolve: () => null } as never;
+  return {
+    made,
+    run: () => nameVoicesOnArrival(voice, people, examined, "unused", outside),
+  };
+}
+
+test("a closed conversation is asked once, however many passes see it", async () => {
+  const examined = new Set<string>();
+  const first = pass(voiceRead(true), 10, examined);
+  expect(await first.run()).toBe(1);
+  expect(examined.size).toBe(1);
+  const again = pass(voiceRead(true), 10, examined);
+  expect(await again.run()).toBe(0);
+  expect(again.made.calls).toBe(0);
+});
+
+test("a conversation still open makes no call under LIVE_GROUP_WORDS, and one at it", async () => {
+  const short = pass(voiceRead(false), LIVE_GROUP_WORDS - 1, new Set());
+  expect(await short.run()).toBe(0);
+  expect(short.made.calls).toBe(0);
+  const long = pass(voiceRead(false), LIVE_GROUP_WORDS, new Set());
+  expect(await long.run()).toBe(1);
+  expect(long.made.calls).toBe(1);
+});
+
+test("at the day's cap no call is made, and the conversation stays unexamined for the next pass", async () => {
+  const examined = new Set<string>();
+  const capped = pass(voiceRead(true), 10, examined, { today: NAMINGS_A_DAY });
+  expect(await capped.run()).toBe(0);
+  expect(capped.made.calls).toBe(0);
+  expect(examined.size).toBe(0);
 });

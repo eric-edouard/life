@@ -57,6 +57,11 @@ struct RootView: View {
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
+        // Tell Life: always within reach, in the rail's free middle, on every screen.
+        .overlay(alignment: .trailing) {
+            if life.isPaired { TellLifeButton().padding(.trailing, Metrics.Spacing.m) }
+        }
+        .fullScreenCover(isPresented: $router.isTellLifeOpen) { TellLifeScreen() }
         .sheet(item: $router.appointment) { AppointmentSheet(key: $0) }
         // Below the sheets, so their pages read them too: Settings' Live logs page (its `ReadScreen`) reads the router.
         .environment(router)

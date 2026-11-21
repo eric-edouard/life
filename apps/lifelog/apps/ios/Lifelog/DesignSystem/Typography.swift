@@ -15,6 +15,8 @@ struct TypeStep: Equatable {
 
     /// A card's title: thin.
     static let cardHeadline = TypeStep(size: 24, weight: 250, style: .title2)
+    /// What Life says in Tell Life (the lit line look): one weight, centred.
+    static let tellAnswer = TypeStep(size: 28, weight: 650, style: .title1)
     /// The question a card puts to him, first on it: bold.
     static let cardQuestion = TypeStep(size: 26, weight: 650, style: .title2)
     /// A big word that says where something stands: "Recording.", "Sent.".

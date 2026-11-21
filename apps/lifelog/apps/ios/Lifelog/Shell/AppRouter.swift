@@ -75,6 +75,8 @@ final class AppRouter {
     /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
     var inboxColumn = NavigationSplitViewColumn.detail
     var sheet: Sheet?
+    /// Tell Life, full screen over whatever he was on.
+    var isTellLifeOpen = false
     /// The person or organization on show in the People tab, by ref, what is pushed on them, and which column a compact
     /// width shows.
     private var people = PageStack<PersonRoute>()
@@ -92,6 +94,18 @@ final class AppRouter {
     var matterSheet: MatterSheet?
     /// The event sheet of an appointment Life added to his calendar, over the tab he was on: from its push, or its row.
     var appointment: AppointmentKey?
+
+    /// What is on his screen for Tell Life: refs only, the tab and the matter or person on show.
+    var tellScreen: TellScreen {
+        let tab =
+            switch tab {
+            case .inbox: "inbox"
+            case .projects: "projects"
+            case .people: "people"
+            case .search: "search"
+            }
+        return TellScreen(tab: tab, open: tab == "projects" ? matter : tab == "people" ? person : nil)
+    }
 
     func open(matter id: String) {
         sheet = nil
