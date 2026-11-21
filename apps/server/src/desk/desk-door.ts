@@ -387,7 +387,7 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "show",
-    'The main session only, on a turn of his words: what his phone shows with your answer; it changes no data, so it needs no `said`. `show`: one `page` (`page` `matter`, `person` (a person or organization, `person:<id>`), `project` or `agent`, by `id`), or a `list` cut to the rows you pick from Life\'s own reads, in your order, under `label` (a few words of what it shows, like "Your 3 most important today"): `matters` (ids from `read_matters`, of any project, person or area), `checks` (refs from `read_inbox`) or `people` (refs from `read_people_and_organizations`). A row its tab does not show, or a page that opens nothing, is refused. A later call replaces it.',
+    'The main session only, on a turn of his words: what his phone shows with your answer; it changes no data, so it needs no `said`. `show`: one `page` (`page` `matter`, `person` (a person or organization, `person:<id>`), `project` or `agent`, by `id`), or a `list` cut to the rows you pick from Life\'s own reads, in your order, under `label` (a few words of what it shows, like "Your 3 most important today"): `matters` (ids from `read_matters`, of any project, person or area), `checks` (refs from `read_inbox`) or `people` (refs of the `people` of `read_people_and_organizations`, never its `others`). A row its tab does not show, or a page that opens nothing, is refused. A later call replaces it.',
     z.object({ show: MainSessionShow }),
     async ({ show }, _, turn) => {
       const problem = await showProblemOf(desk, show);

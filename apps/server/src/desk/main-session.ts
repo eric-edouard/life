@@ -145,10 +145,12 @@ const LIST_ROWS = {
   checks: async () => (await openChecksNow()).map((c) => c.ref),
   matters: async () =>
     (await readMatterRowsNow({}, readActiveAgentOf())).matters.map((m) => m.id),
-  people: async () =>
-    (
-      (await readPeopleAndOrganizations()) as { people: { ref: string }[] }
-    ).people.map((p) => p.ref),
+  people: async () => {
+    // The list read (no name) is `{ people: PersonRow[] }`; `person()` types its parts loosely.
+    const list = await readPeopleAndOrganizations();
+    const rows = typeof list === "string" ? [] : list.people;
+    return Array.isArray(rows) ? rows.map((p: { ref: string }) => p.ref) : [];
+  },
 } as const;
 
 /**
@@ -190,7 +192,11 @@ export async function showProblemOf(desk: Desk, show: MainSessionShow) {
  */
 function answerOf(
   words: string,
-  { act, extras: { answers, sources, why } = {}, show }: Partial<TurnState>
+  {
+    act,
+    extras: { answers, sources, why } = {},
+    show,
+  }: Partial<Omit<TurnState, "words">>
 ): MainSessionAnswer {
   const shown = show ? { show } : {};
   // ponytail: one kind per answer, the last act's; a list of acts when the phone should show each of several.

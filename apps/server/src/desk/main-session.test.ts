@@ -729,6 +729,10 @@ test("`show` carries a list cut to rows Life shows, or a page, with the answer; 
           list: "people",
           refs: ["person:test-ana", "person:test-nobody"],
         });
+        // A person or organization Life knows opens; a later call replaces it.
+        expect(
+          await show({ id: "person:test-ana", kind: "page", page: "person" })
+        ).not.toContain("Not done");
         refused.person = await show({
           id: "matter_cccccccccccc",
           kind: "page",
