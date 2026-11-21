@@ -120,14 +120,18 @@ struct MatterPage: View {
                     } label: {
                         HStack(spacing: Metrics.Spacing.m) {
                             VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                                HStack(spacing: 6) {
-                                    StateDot(color: Palette.flag)
-                                    Text(
-                                        [needsYourAnswer, check.deadline.map { DeadlineWords.by($0) }]
-                                            .compactMap(\.self).joined(separator: " · ")
-                                    )
+                                // Said once, on the first; the others keep only their deadline.
+                                let line = [
+                                    at == 0 ? needsYourAnswer : nil, check.deadline.map { DeadlineWords.by($0) },
+                                ]
+                                .compactMap(\.self).joined(separator: " · ")
+                                if !line.isEmpty {
+                                    HStack(spacing: 6) {
+                                        StateDot(color: Palette.flag)
+                                        Text(line)
+                                    }
+                                    .font(.small).foregroundStyle(Palette.flag)
                                 }
-                                .font(.small).foregroundStyle(Palette.flag)
                                 Text(check.question).font(.rowName).foregroundStyle(Palette.fg)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
