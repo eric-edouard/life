@@ -1,0 +1,344 @@
+{
+  "month": {
+    "amount": 8.96,
+    "basis": "billed",
+    "currency": "USD"
+  },
+  "today": {
+    "amount": 0.42,
+    "basis": "billed",
+    "currency": "USD"
+  },
+  "days": [
+    {
+      "day": "2026-11-01",
+      "billed": {
+        "amount": 0.31,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-02",
+      "billed": {
+        "amount": 0.44,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-03",
+      "billed": {
+        "amount": 0.28,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-04",
+      "billed": {
+        "amount": 0.52,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-05",
+      "billed": {
+        "amount": 0.39,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-06",
+      "billed": {
+        "amount": 0.61,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-07",
+      "billed": {
+        "amount": 0.35,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-08",
+      "billed": {
+        "amount": 0.29,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-09",
+      "billed": {
+        "amount": 0.47,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-10",
+      "billed": {
+        "amount": 0.83,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-11",
+      "billed": {
+        "amount": 0.41,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-12",
+      "billed": {
+        "amount": 0.38,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-13",
+      "billed": {
+        "amount": 0.33,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-14",
+      "billed": {
+        "amount": 0.56,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-15",
+      "billed": {
+        "amount": 0.44,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-16",
+      "billed": {
+        "amount": 0.37,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-17",
+      "billed": {
+        "amount": 0.49,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-18",
+      "billed": {
+        "amount": 0.36,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-19",
+      "billed": {
+        "amount": 0.4,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-20",
+      "billed": {
+        "amount": 0.31,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "day": "2026-11-21",
+      "billed": {
+        "amount": 0.42,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    }
+  ],
+  "byProvider": [
+    {
+      "provider": "openrouter",
+      "billed": {
+        "amount": 5.5,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "tokens": 9200000,
+      "reported": true
+    },
+    {
+      "provider": "allmodels",
+      "billed": {
+        "amount": 2.04,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "tokens": 3100000,
+      "reported": true
+    },
+    {
+      "provider": "elevenlabs",
+      "billed": {
+        "amount": 1.42,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "reported": true
+    },
+    {
+      "provider": "describer",
+      "billed": {
+        "amount": 0,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "reported": true
+    },
+    {
+      "provider": "apple",
+      "billed": {
+        "amount": 0,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "reported": true
+    },
+    {
+      "provider": "claude",
+      "equivalent": {
+        "amount": 61,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "tokens": 4100000,
+      "reported": true
+    },
+    {
+      "provider": "codex",
+      "equivalent": {
+        "amount": 17,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "tokens": 1300000,
+      "reported": true
+    }
+  ],
+  "byKind": [
+    {
+      "kind": "night",
+      "billed": {
+        "amount": 6.07,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "tokens": 10400000
+    },
+    {
+      "kind": "daytime",
+      "billed": {
+        "amount": 1.47,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "tokens": 1900000
+    },
+    {
+      "kind": "agents",
+      "tokens": 5200000
+    },
+    {
+      "kind": "voice",
+      "billed": {
+        "amount": 1.42,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    }
+  ],
+  "unsettled": 0,
+  "topAgents": [
+    {
+      "agent": "Personal agent",
+      "id": "agt_000000000001",
+      "equivalent": {
+        "amount": 41,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "reported": true,
+      "tokens": 3000000
+    },
+    {
+      "agent": "Halden house agent",
+      "id": "agt_000000000002",
+      "equivalent": {
+        "amount": 30,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "reported": true,
+      "tokens": 2200000
+    }
+  ],
+  "topMatters": [
+    {
+      "matter": "Kitchen quote, Halden house",
+      "id": "matter_000000000001",
+      "equivalent": {
+        "amount": 19,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "reported": true,
+      "tokens": 1400000
+    },
+    {
+      "matter": "Table for Mum's 60th",
+      "id": "matter_000000000002",
+      "equivalent": {
+        "amount": 12,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "reported": true,
+      "tokens": 900000
+    },
+    {
+      "matter": "Bookshelf delivery",
+      "id": "matter_000000000003",
+      "equivalent": {
+        "amount": 3,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "reported": true,
+      "tokens": 200000
+    }
+  ],
+  "observedAt": "2026-11-21T10:00:00.000Z"
+}

@@ -1,16 +1,27 @@
 import LifeConnector
 import SwiftUI
 
-/// What wakes an agent, read as one sentence down the page, or the one state word of an agent that does not wait.
+/// What wakes an agent, read as one sentence down the page, or the one state word of an agent that does not wait; what its
+/// session spent last.
 struct AgentSheet: View {
     let matter: String
+    /// The agent shown; nil: the matter's first.
+    var agentID: String?
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
-    private var agent: RegisteredAgent? { life.matter[matter]?.value?.agents.first }
+    /// The agent named, in the matter's read or else in `read_registered_agents`; none named, the matter's first.
+    private var agent: RegisteredAgent? {
+        let ones = life.matter[matter]?.value?.agents
+        guard let agentID else { return ones?.first }
+        return ones?.first { $0.id == agentID } ?? registered(agentID)
+    }
+
+    /// The agent as `read_registered_agents` has it: only that read carries its spending.
+    private func registered(_ id: String) -> RegisteredAgent? { life.agents.value?.agents.first { $0.id == id } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -21,6 +32,7 @@ struct AgentSheet: View {
                     Text(failure.reason).font(.small).foregroundStyle(Palette.flag).padding(.top, Metrics.Spacing.l)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                if let line = registered(agent.id)?.spendingLine() { SpendingLine(text: line) }
             }
         }
         .sheetScroll {
