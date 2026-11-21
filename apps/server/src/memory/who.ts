@@ -570,6 +570,7 @@ export async function readPeople() {
     pictureIndex ??= readPictureIndex();
     return pictureIndex;
   };
+  const choicesOf = pictureChoicesOf(parties, readPicturesOnce);
   const { ambiguousCards, canon, readingNow, resolve } = foldsOf(
     parties,
     inferred,
@@ -653,8 +654,7 @@ export async function readPeople() {
       readPicturesOnce
     ),
     /** The pictures he can pick from for a ref as it reads today (`pictureChoicesOf`), from the index `partyOf` reads. */
-    pictureChoicesOf: (ref: string) =>
-      pictureChoicesOf(readPicturesOnce()[refOf(ref)] ?? []),
+    pictureChoicesOf: (ref: string) => choicesOf(refOf(ref)),
     /** What a name as written reads as now (`resolve`), with which source said so and whether the name is shared. */
     readingNow,
     /** Who an episode's person ref is as of today: a name since resolved, a person since folded into another. */
