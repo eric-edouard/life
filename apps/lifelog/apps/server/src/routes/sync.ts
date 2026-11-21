@@ -27,6 +27,8 @@ const QuietRange = z
   .object({
     endedAt: z.iso.datetime({ offset: true }),
     id: z.uuid(),
+    // The phone's own dictation (#802): a restored phone holds back speech whose clock nothing bounds.
+    isPhoneDictation: z.boolean(),
     startedAt: z.iso.datetime({ offset: true }),
   })
   .openapi("QuietRange");

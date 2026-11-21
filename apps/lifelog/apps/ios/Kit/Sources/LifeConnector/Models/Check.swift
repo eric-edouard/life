@@ -43,6 +43,14 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
             case step, matter
             case unknown
         }
+
+        /// What a plan card's option is to his app (`role`): the start of the plan, or its decline.
+        public let role: Role?
+
+        public enum Role: String, UnknownTolerant, Sendable {
+            case start, decline
+            case unknown
+        }
     }
 
     public struct Clip: Decodable, Sendable, Equatable {
@@ -204,6 +212,42 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// A decision that is its assignment's plan card (the first one of an assignment he opened, `planCardsOf`); nil on
     /// other kinds, or from a Life that predates it.
     public let isPlan: Bool?
+    /// A plan card's steps, in order; nil on an older plan card, which shows as any decision.
+    public let plan: [PlanStep]?
+    /// A plan card's one line on what its plan rests on: the source chip that opens `context`.
+    public let gathered: Gathered?
+
+    /// One step of a plan (`PlanStep`, `memory/card-request.ts`): who does it, its words, when (a muted second line),
+    /// and where it happens: a source as a draft's `channel`, or `payment`, `place`, `file`.
+    public struct PlanStep: Decodable, Sendable, Equatable {
+        public enum By: String, UnknownTolerant, Sendable {
+            case agent, owner
+            case unknown
+        }
+        public let text: String
+        public let by: By
+        public let when: String?
+        public let channel: String?
+
+        /// The row as VoiceOver reads it: who does it, when known, its words, when and where.
+        public var spoken: String {
+            let who: String? =
+                switch by {
+                case .owner: "You"
+                case .agent: "The agent"
+                case .unknown: nil
+                }
+            return ([who.map { "\($0): \(text)" } ?? text] + [when, channel].compactMap(\.self)).joined(separator: ", ")
+        }
+    }
+
+    public struct Gathered: Decodable, Sendable, Equatable {
+        public let text: String
+    }
+
+    /// The steps the card draws, whenever it holds them: `isPlan` is false while Life can't read its desk, and a card
+    /// with no steps (an older plan card too) draws as any decision.
+    public var planSteps: [PlanStep] { plan ?? [] }
     /// The names a name check asks about, as they were said: shown in bold in `said`.
     public let about: [String]?
     /// The sentence the question is about (a name's line, a step's own sentence), verbatim.
@@ -317,8 +361,14 @@ extension Check {
         }
     }
 
-    /// The option the card fills (the first): the one answer it asks for, the others sit quieter.
-    public var filled: Option? { options.first }
+    /// The options in the order the answers draw them: a plan's start first (its asker may send decline first), the
+    /// rest as sent.
+    public var optionsInOrder: [Option] {
+        options.filter { $0.role == .start } + options.filter { $0.role != .start }
+    }
+
+    /// The option the card fills (the first in order): the one answer it asks for, the others sit quieter.
+    public var filled: Option? { optionsInOrder.first }
 
     /// The option he picks by naming someone (`takes` a person, or a person or a name), when the card has one.
     public var namingOption: Option? { options.first { $0.takes == .person || $0.takes == .personOrName } }

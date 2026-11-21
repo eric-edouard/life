@@ -7,7 +7,9 @@ import { DESK_STORE } from "../core/paths";
 import { pathInside } from "../core/platform";
 import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
+import type { Decision } from "../memory/decision-lines";
 import type { AgentHold, StandingAgent } from "../memory/held-matters";
+import type { BeingFixed } from "../memory/life-checks";
 import type {
   AgentChange,
   AgentRole,
@@ -65,7 +67,6 @@ export interface AssignmentRow {
   /** How it closed, in the agent's words (`finish`) or the desk's ("its matter is done"); null for one never started. */
   outcome: string | null;
   plan_done: number | null;
-  plan_now: string | null;
   plan_total: number | null;
   /** His words when he gave it, when he did. */
   said: string | null;
@@ -402,7 +403,7 @@ export const agentInRole = (db: Database, role: AgentRole) =>
     .get(role);
 
 /** The caretaker's assignments, of every caretaker it ever had: a complaint received by one is received for good. */
-const CARETAKER_EVENTS = `select e.*, s.closed_at, s.plan_now, s.id as assignment from event e join assignment s on s.id = e.assignment_id join agent a on a.id = s.agent_id where a.role = 'caretaker' and e.name = '${COMPLAINT_RECEIVED}'`;
+const CARETAKER_EVENTS = `select e.*, s.closed_at, s.id as assignment from event e join assignment s on s.id = e.assignment_id join agent a on a.id = s.agent_id where a.role = 'caretaker' and e.name = '${COMPLAINT_RECEIVED}'`;
 
 /** Where complaint `ask` was received (its receipt: the event row the desk queued for a caretaker's assignment), or null before. */
 export const complaintReceiptOf = (db: Database, ask: string) =>
@@ -414,15 +415,52 @@ export const complaintReceiptOf = (db: Database, ask: string) =>
 
 /**
  * His complaints the caretaker is at work on, in the order received: each received for an assignment still open, its
- * event not dropped; with its assignment's line (`plan_now`) only when this complaint is all that assignment holds, so
- * a line is never shown on a complaint it is not about. Bounded: the caretaker's open assignments.
+ * event not dropped, with that assignment and whether it is all that assignment holds. Bounded: the caretaker's open
+ * assignments. A few rows: the inbox's key holds them.
  */
 export const complaintsAtWork = (db: Database) =>
   db
-    .query<{ ask: string; line: string | null; since: string }, []>(
-      `select e.event_id as ask, e.received_at as since, case when (select count(*) from event x where x.assignment_id = e.assignment and x.name = '${COMPLAINT_RECEIVED}') = 1 then e.plan_now end as line from (${CARETAKER_EVENTS} and s.closed_at is null and e.dropped_at is null) e order by e.received_at, e.event_id`
+    .query<
+      { alone: number; ask: string; assignment: string; since: string },
+      []
+    >(
+      `select e.event_id as ask, e.received_at as since, e.assignment, (select count(*) from event x where x.assignment_id = e.assignment and x.name = '${COMPLAINT_RECEIVED}') = 1 as alone from (${CARETAKER_EVENTS} and s.closed_at is null and e.dropped_at is null) e order by e.received_at, e.event_id`
     )
     .all();
+
+/**
+ * His complaints at work (`complaintsAtWork`) as cards show them (`BeingFixed`): each with the newest open card of
+ * `cards` its assignment owns (`cardOwnersOf`), its question as the line and its `context`, only when the complaint is
+ * all that assignment holds, so a card is never shown on a complaint it may not be about; else both null. The rows and
+ * the owners are read in one transaction: one moment of the desk.
+ */
+export function beingFixedOf(
+  db: Database,
+  cards: readonly Pick<
+    Decision,
+    "agent" | "assignment" | "context" | "id" | "question" | "state"
+  >[]
+): BeingFixed[] {
+  const open = cards.filter((d) => d.state === "open");
+  const [atWork, owners] = db.transaction(() => {
+    const rows = complaintsAtWork(db);
+    return [
+      rows,
+      rows.some((w) => w.alone) ? cardOwnersOf(db, open) : {},
+    ] as const;
+  })();
+  return atWork.map(({ alone, ask, assignment, since }) => {
+    const card = alone
+      ? open.findLast((d) => owners[d.id]?.assignment === assignment)
+      : undefined;
+    return {
+      ask,
+      context: card?.context || null,
+      line: card?.question ?? null,
+      since,
+    };
+  });
+}
 
 /** What the desk did with an ask of his (`change_registered_agent`): the agent it touched, or why it refused; null until applied. */
 export const agentChangeOf = (db: Database, ask: string) =>
@@ -519,23 +557,6 @@ export const reportLinesSince = (db: Database, since: string) =>
     )
     .all(since);
 
-/** One ended turn's tokens, written when it ended (`close()`). */
-export interface TurnTokens {
-  agent_id: string;
-  ended_at: string;
-  tokens_cached: number;
-  tokens_in: number;
-  tokens_out: number;
-}
-
-/** The turns that ended since `since` (the last report), by `turn_by_ended`: a turn running across a report shows in the next. */
-export const tokensSince = (db: Database, since: string) =>
-  db
-    .query<TurnTokens, [string]>(
-      "select agent_id, ended_at, coalesce(tokens_in, 0) as tokens_in, coalesce(tokens_cached, 0) as tokens_cached, coalesce(tokens_out, 0) as tokens_out from turn where ended_at > ? order by ended_at"
-    )
-    .all(since);
-
 /**
  * Each assignment's notes file kept outside `state` (his agents repo, `desk.agentsRepo`), read from the store at `path`
  * of the new shape: what an export carries beside Life's state and a restore puts back (`stage`, `restore`). None for a
@@ -567,8 +588,13 @@ export type DeskRead<T> =
  * Reads the desk's store read-only with `read`; `empty` when the desk has made none yet. Never throws: the desk off or
  * its store unreadable is a state its reader shows.
  */
-export function readDesk<T>(read: (db: Database) => T, empty: T): DeskRead<T> {
-  if (off("desk")) {
+export function readDesk<T>(
+  read: (db: Database) => T,
+  empty: T,
+  // A history read (spending) reads the store even while the desk is off.
+  isEvenOff = false
+): DeskRead<T> {
+  if (off("desk") && !isEvenOff) {
     return { state: "off" };
   }
   if (!existsSync(DESK_STORE)) {

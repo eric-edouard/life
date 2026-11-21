@@ -79,8 +79,8 @@ What never reaches ElevenLabs:
   pages again with the range cut out. Every word from the Mac (and every range its events close) starts the worker, so a
   block held for the Mac goes as soon as it vouches. It shows `macAway` while a refused event blocks it. The raw packs and the fragments waiting for
   their block do hold the dictation: they are stored, never processed.
-- **Dictation on the phone.** Pending #802: once its iPhone side lands, the iPhone drops pendant audio heard during a
-  dictation before upload, by its own clock, so it never reaches the server. Until then it is processed like any other.
+- **Dictation on the phone** (#802): the iPhone drops pendant audio heard during a dictation before upload, by its own
+  clock, so it never reaches the server (`docs/sync.md`, quiet ranges from dictation).
 - **Recordings the app plays out loud** (speaker, AirPlay, a car or a Bluetooth speaker; not headphones, told from
   Bluetooth speakers by name only): the phone stores the span, padded 2 seconds and stored again every 30 s while it
   plays, as a quiet range of its own, and cuts it out of fragments. Once closed, the span goes to the server through the
@@ -207,6 +207,21 @@ restart) answers the Mac's words and is never sent again; Scribe taking nothing 
 switch off, the speech service busy or down, the credits used up for a note that needs Scribe, or no Scribe slot free
 at once (Life waits 180 s, mostly for the speech service): 503, nothing claimed, and Life asks again later. The note keeps
 its slot until its words are stored or its claim dropped; Life hanging up stops it at the speech service and before Scribe. Its token is Life's corrections token.
+
+### A field's dictation
+
+The phone sends what the owner dictated into a field (Ogg Opus, at most 10 minutes and 16 MB) to
+`POST /dictation/transcript`, device token only. It is heard like a voice note (`hearOnTheMac`, then `hearRouted`),
+routed by where the owner is now, and ahead of everything else: the speech service's interactive place
+(`X-Priority: interactive`) and Scribe's (`interactive`, waiting up to 60 s for a slot). lifelog keeps no audio and no
+words, only operational events (`dictation.heard`: its length, route, billable seconds and turns left unheard;
+`elevenlabs.done` or `.failed`); the answer is `no-store`. Words come back only whole:
+any routed turn Scribe had to hear (one the router judged, or one whose speech-service words the merge drops) left
+without Scribe's words (Scribe failed, answered nothing for it, or its audio could not be cut)
+answers 502, and the owner says it again; busy, off or out of credits answers 503 with nothing billed. A lost answer is
+never asked of Scribe again: the phone shows "Not written. Please say it again." ElevenLabs keeps what Scribe is sent
+(the Thai turns, or all of it when mostly Thai, with vocabulary hints that can name people) under its policy (zero
+retention, `enable_logging=false`, is for enterprise accounts only, so it is not asked).
 
 ### No limits
 

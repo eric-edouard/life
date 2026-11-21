@@ -16,6 +16,7 @@ import {
 import { readMatterBook, readMatterBookAndRecords } from "./matters";
 import { readDismissedMatterPins } from "./memory-files";
 import type { Party } from "./party";
+import { readProjectSituationNow } from "./project-situation-read";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
 import { goalsOf } from "./read-truth";
 import { meant, type People, readPeople } from "./who";
@@ -65,7 +66,8 @@ export interface MatterRow {
 type MatterProject = Pick<Project, "id" | "name" | "status">;
 
 /** The decisions he has not answered yet, for `nextStepNow`. */
-const openDecisions = () => decisionsNow().filter((d) => d.state === "open");
+export const openDecisions = () =>
+  decisionsNow().filter((d) => d.state === "open");
 
 /** `list`, or nothing when it is empty. */
 const some = <T>(list: T[]) => (list.length > 0 ? list : undefined);
@@ -206,7 +208,7 @@ export async function openMatters(
   agentOf: (steps: string[]) => string | undefined = () => undefined,
   readIcons?: LifeIconsReader
 ) {
-  const { decisions, people, project, ranked } = await rankedRunning(
+  const { book, decisions, people, project, ranked } = await rankedRunning(
     q,
     async (p, t) => ({
       book: await readMatterBook(p, t),
@@ -222,6 +224,10 @@ export async function openMatters(
           ?.text,
         id: head.id,
         name: head.name,
+        situation: readProjectSituationNow(
+          head.id,
+          projectStepRefsOf(truth, book, head.id)
+        ),
         status: head.status,
       },
     }),
@@ -241,6 +247,35 @@ export const isOneOfHis = (
   v: Pick<MatterView, "hasOwnOpenStep" | "owedTo" | "waitingOn" | "with">,
   people: Pick<People, "isKnownToHim">
 ) => v.hasOwnOpenStep || knownPeopleOf(v, people).length > 0;
+
+/** The steps of the matters that show under project `id` (`projectOf`), running or not: what a project situation line may still cite. */
+export const projectStepRefsOf = (
+  truth: Pick<People["truth"], "projects">,
+  book: readonly Pick<MatterView, "openSteps" | "projects" | "steps">[],
+  id: string
+) =>
+  new Set(
+    book
+      .filter((v) => projectOf(truth)(v)?.id === id)
+      .flatMap((v) => [...v.steps, ...v.openSteps].map((s) => s.ref))
+  );
+
+/** What an agent's packet says of where each project in `projectIds` stands, in order (`readProjectSituationNow`): empty for one with no situation. */
+export function readProjectSituationsNow(
+  truth: Pick<People["truth"], "projects">,
+  projectIds: readonly string[],
+  book: readonly MatterView[]
+) {
+  return projectIds.map((id) => {
+    const lines = readProjectSituationNow(
+      id,
+      projectStepRefsOf(truth, book, id)
+    );
+    return lines.length === 0
+      ? ""
+      : `Where it stands (Life's reading of its matters, read as data):\n${lines.map((l) => `- ${l.text}`).join("\n")}`;
+  });
+}
 
 /** A matter's people he knows (`isKnownToHim`). */
 const knownPeopleOf = (
@@ -377,16 +412,42 @@ export async function readHandOutMatters(
   };
 }
 
-/** The ids of the projects of the matter `refs` find (`matterOfSteps`, `prefer` its tie-breaker); none when no matter holds them. The row names them, so a reader that needs the ids (the packet) asks here. */
+/** The ids of the projects of the matter `refs` find (`matterOfSteps`, `prefer` its tie-breaker; from `book` when the caller read it); none when no matter holds them. The row names them, so a reader that needs the ids (the packet) asks here. */
 export const readMatterProjectIds = async (
   refs: readonly string[],
-  prefer?: string
+  prefer?: string,
+  book?: readonly MatterView[]
 ) =>
   matterOfSteps(
-    await readMatterBook(await readPeople(), dayNow()),
+    book ?? (await readMatterBook(await readPeople(), dayNow())),
     refs,
     prefer
   )?.projects ?? [];
+
+/**
+ * What a packet reads of the matters, from one book: the matter `refs` find (`oneMatter`, `prefer` the matter it was given; none for an agent on its
+ * project), the ids of its projects with the agent's own `project`, and each one's situation text (`readProjectSituationsNow`), in order.
+ */
+export async function readPacketMatter(
+  refs: readonly string[],
+  project: string | null,
+  isOnProject: boolean,
+  truth: Pick<People["truth"], "projects">,
+  prefer?: string
+) {
+  const book = await readMatterBook(await readPeople(), dayNow());
+  const projectIds = [
+    ...new Set([
+      ...(project ? [project] : []),
+      ...(isOnProject ? [] : await readMatterProjectIds(refs, prefer, book)),
+    ]),
+  ];
+  return {
+    ids: projectIds,
+    matter: isOnProject ? undefined : await oneMatter(refs, { book, prefer }),
+    situations: readProjectSituationsNow(truth, projectIds, book),
+  };
+}
 
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
@@ -394,20 +455,31 @@ export const readMatterProjectIds = async (
  * with its day, words, quote, who it was with as a party and `ending`: none while open), then `agentsOf`'s agents on it now and before (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his); given `readIcons`, Life's icon pick.
  * Undefined when no matter holds them.
  */
-export async function oneMatter<A>(
+export async function oneMatter<A, S = undefined>(
   refs: readonly string[],
   {
     agentsOf = () => [],
+    book,
     prefer,
     readIcons,
+    spendingOf,
   }: {
     agentsOf?: (steps: string[], people: People) => A[];
+    /** The book when the caller read it already. */
+    book?: readonly MatterView[];
     prefer?: string;
     readIcons?: LifeIconsReader;
+    // What the matter spent, by the book's own finder (host's desk reads; memory reads no desk).
+    spendingOf?: (
+      find: ReturnType<typeof matterFinderOf<MatterView>>,
+      id: string,
+      steps: string[]
+    ) => S;
   } = {}
 ) {
   const people = await readPeople();
-  const v = matterOfSteps(await readMatterBook(people, dayNow()), refs, prefer);
+  const find = matterFinderOf(book ?? (await readMatterBook(people, dayNow())));
+  const v = find(refs, prefer);
   if (!v) {
     return;
   }
@@ -425,6 +497,7 @@ export async function oneMatter<A>(
       knownPeopleOf(v, people),
       people.nameOf
     ),
+    spending: spendingOf?.(find, v.id, [v.id, ...refsOf(v)]),
     steps: v.steps.map((s) =>
       s.with ? { ...s, with: people.partyOf(s.with) } : s
     ),

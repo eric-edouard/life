@@ -10,6 +10,7 @@ import {
   type NamingQueueItem,
   readNamingQueue,
 } from "../sources/lifelog-voices";
+import { planRoleOf } from "./card-problems";
 import { cardAskOf, guessAskOf } from "./check-asks";
 import { literalOf, type Quote, withQuoteOf } from "./check-quotes";
 import {
@@ -31,9 +32,11 @@ import {
 import type { Decision } from "./decision-lines";
 import {
   DECISIONS,
-  decisionCardOf,
   decisionsNow,
+  doneSeenByOf,
+  doneSeenShownOf,
   isOnMatter,
+  notSentOf,
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import { withDraftConfirms } from "./draft-send";
@@ -74,8 +77,10 @@ import {
   ZONES,
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
+import { needsShownOf } from "./needs";
 import { withNetworkIdentities } from "./network-identity";
 import { PERSON_PICTURES_INDEX } from "./party";
+import { PROJECT_SITUATIONS } from "./project-situation-read";
 import {
   dismissedIdsOf,
   handOutGateOf,
@@ -330,6 +335,21 @@ function ranked(
       ]
     : [];
 }
+
+/** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
+export const decisionCardOf = (d: Decision) => ({
+  doneSeen: doneSeenShownOf(d.doneSeen),
+  doneSeenBy: doneSeenByOf(d),
+  gathered: d.gathered ?? null,
+  needs: needsShownOf(d.needs),
+  notSent: notSentOf(d),
+  options: d.options.map((o) => {
+    const role = d.plan && planRoleOf(o.id);
+    return { ...o, ...(role ? { role } : {}), takes: o.takes ?? null };
+  }),
+  plan: d.plan ?? null,
+  replaces: d.replaces ?? null,
+});
 
 /** Each kind of check, from what is stored. A new kind (a voice, a tie, an appointment, a line with a doubt of its own) is one more entry. */
 const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
@@ -616,13 +636,14 @@ export type InboxCheck = Check & { pushId: string; urgency: Urgency };
 /** The last list `checksNow` read, and what it was read from (`checksKeyOf`). */
 let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
 
-/** Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write those every few minutes, and the checks don't read them but for an inferred person's evidence; the pictures' index. */
+/** Every file the checks read as stored (truth/ included; the project situations: a project head's answer is kept under this key), never units or their publications: the watcher's syncs write those every few minutes, and the checks don't read them but for an inferred person's evidence; the pictures' index. */
 const CHECKS_READ = [
   ...MATTER_BOOK_READS,
   CLOSENESS,
   DECISIONS,
   PAGES,
   PERSON_PICTURES_INDEX,
+  PROJECT_SITUATIONS,
   ZONES,
 ];
 
@@ -637,7 +658,7 @@ const checksKeyOf = (
     readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
-    held && [held.stamp, held.complaints, holders],
+    held && [held.stamp, holders],
     voices,
   ]);
 
@@ -732,7 +753,7 @@ async function readChecks(
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,
-    fixing: fixingOf(held?.complaints ?? []),
+    fixing: fixingOf(held?.complaints?.(all) ?? []),
     heldByAgents: held?.read() ?? null,
     isDirectionDue: directionDueOf(matters, records, dayNow()),
     isForHandOut: (id) => forHandOut.has(id),

@@ -86,10 +86,11 @@ test("a retried post is stored once and answers the same", async () => {
   expect(rows.length).toBe(1);
 });
 
-test("Mac dictation marks the Pendant's grouping dirty; playback doesn't", () => {
+test("Mac dictation marks the Pendant's grouping dirty; playback and the phone's dictation copy don't", () => {
   env.db.insert(sources).values({ id: "dev1" }).run();
   const dirty = () => env.db.select().from(sources).all()[0]?.dirtyFrom ?? null;
   addQuietRange(env.db, { ...range(1000, 5000), source: "playback" });
+  addQuietRange(env.db, { ...range(1000, 5000), source: "dictation" });
   expect(dirty()).toBeNull();
   addQuietRange(env.db, {
     ...range(6000, 9000),
@@ -103,13 +104,30 @@ test("a range that ends first or lasts over 11 minutes is refused", async () => 
   expect((await post(range(0, 12 * 60_000))).status).toBe(400);
 });
 
-test("the feed carries new quiet ranges", async () => {
+test("the feed carries new quiet ranges, the phone's own dictation marked for a restored phone", async () => {
   const body = range(2000, 9000);
+  const phone = { ...range(10_000, 12_000), source: "dictation" };
   await post(body);
+  await post(phone);
   const res = await app.request("/changes", { headers: headers(OWNER_TOKEN) });
-  const feed = (await res.json()) as { quietRanges: object[] };
-  expect(feed.quietRanges).toEqual([
-    { endedAt: body.endedAt, id: body.id, startedAt: body.startedAt },
+  const feed = (await res.json()) as {
+    quietRanges: (Record<string, unknown> & { startedAt: string })[];
+  };
+  expect(
+    feed.quietRanges.toSorted((a, b) => a.startedAt.localeCompare(b.startedAt))
+  ).toEqual([
+    {
+      endedAt: body.endedAt,
+      id: body.id,
+      isPhoneDictation: false,
+      startedAt: body.startedAt,
+    },
+    {
+      endedAt: phone.endedAt,
+      id: phone.id,
+      isPhoneDictation: true,
+      startedAt: phone.startedAt,
+    },
   ]);
 });
 

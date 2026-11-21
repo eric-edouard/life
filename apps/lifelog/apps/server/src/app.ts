@@ -10,12 +10,14 @@ import { appleHealthRoutes } from "./routes/apple-health";
 import { backupRoutes } from "./routes/backup";
 import type { ApiEnv } from "./routes/common";
 import { conversationRoutes } from "./routes/conversations";
+import { dictationRoutes } from "./routes/dictation";
 import { healthRoutes } from "./routes/health";
 import { pageRoutes } from "./routes/pages";
 import { placeRoutes } from "./routes/places";
 import { searchRoutes } from "./routes/search";
 import { speakerRoutes } from "./routes/speakers";
 import { speechRoutes } from "./routes/speech";
+import { spendingRoutes } from "./routes/spending";
 import { switchRoutes } from "./routes/switches";
 import { MAC_SOCKET_PATH, syncRoutes } from "./routes/sync";
 import { timelineRoutes } from "./routes/timeline";
@@ -39,6 +41,7 @@ const READS = [
   "GET /conversations/{id}",
   "GET /recorded",
   "GET /speakers/voices",
+  "GET /spending",
   "GET /status",
   "GET /transcription-jobs/{id}/transcript",
   "GET /visits",
@@ -74,6 +77,8 @@ const UNSEARCHED = new Set([
   "/health/heartbeat",
   "/events",
   "/diagnostics",
+  // Nothing of it is kept.
+  "/dictation/transcript",
   // It sweeps itself when AI comes back on.
   "/switches",
 ]);
@@ -173,6 +178,7 @@ export function createApp(s: Services) {
     .route("/", transcriptionRoutes(s))
     .route("/", speechRoutes(s))
     .route("/", voiceNoteRoutes(s))
+    .route("/", dictationRoutes(s))
     .route("/", pageRoutes(s))
     .route("/", backupRoutes(s))
     .route("/", speakerRoutes(s))
@@ -181,6 +187,7 @@ export function createApp(s: Services) {
     .route("/", placeRoutes(s))
     .route("/", searchRoutes(s))
     .route("/", switchRoutes(s))
+    .route("/", spendingRoutes(s))
     .route("/", timelineRoutes(s));
   app.get("/openapi.json", (c) => c.json(openApiDocument(app, config)));
   return app;

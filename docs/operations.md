@@ -96,7 +96,7 @@ are never touched. Both are refused with his own data (`isOwnLife`: the app's da
 never takes the tailnet name (`bun life connect`). It builds the app in Debug, installs it on a fresh simulator
 (the newest iOS runtime's first iPhone), pairs it by its link (loopback HTTP, which the phone takes only for a Life on its own loopback) and drives a
 scenario's steps with agent-device. `found-to-closed`, the one so far: the matter's page offers the new matter, Start, the
-agent's plan card, Go, its work, Mark as done, the matter and its cards gone. Each step writes a numbered screenshot and a
+agent's plan card, Start the plan, its work, Mark as done, the matter and its cards gone. Each step writes a numbered screenshot and a
 PASS or FAIL line to the folder it prints; the services, the agent, the simulator and the transcripts are removed, on
 failure, Ctrl-C or SIGTERM too. A scenario is a list of steps in the script: add one beside it.
 
@@ -119,6 +119,7 @@ subscription per run. `LIFE_DEMO_RUNTIME=codex bun run e2e:demo` runs the same s
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
   By hand, `bun life memory episodes` and `extract` read the last `--days` days (7), or `--from YYYY-MM-DD [--to …]`: the
   units behind a fact lost to a bug are read again by their days, never a whole backfill.
+  After the matter directions the night writes the project situations (`bun life memory project-situations`: one call per project underway with a running matter, only when its matters' words or its entry changed, never on the clock or a rename, over the records the directions step read; at 10 years still those projects alone, 30,000 characters each).
   It reads his chats and mail of every year once (about a minute and a half, old mail mostly) and counts every
   exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`), keeps the mentions of the stored replies (`mentions/<month>.json`, derived; `bun life memory mentions` counts them by how they are placed, never a word), and asks lifelog
   which days the pendant recorded on (`recorded-days.json`, derived, for coverage; by hand: `bun life memory
@@ -278,11 +279,19 @@ late with harm), or spoken asks above about one a day for a month.
   asks only the first router. allmodels (`ALLMODELS_API_KEY`) runs the abliterated one alone; it ignores `zdr`, so its
   host list is the guarantee. Every host takes images (the files step sends them).
 - Every call logs its tokens, what it read (`reads`: units by source, `readsOf`) and, through a router, what each router
-  it tried took (`spentByRouter`: dollars, tokens, and whether every try sent its cost; one that didn't is unpriced, its
+  it tried took (`spentByRouter`: dollars, tokens, and whether every try sent its cost; one that didn't is not reported, its
   dollars a floor) on its `model.run` line, with its run.
   Each line is read as spends (`memory/spends.ts`). A run's use is the sum of its calls and every step nested in it (`modelCallsOf`, `useOf`, run-log.ts: every logged run is assembled, whatever a reader
   shows). The nightly email lists every run of the last 24 h that called a model, a processing run's steps under it,
   then the spend by source; the quota lines appear only for an engine that has one (`hasQuota`).
+- Model spending (decision 83): every record that used a paid or metered resource is read as a spend where it is
+  logged (`memory/spends.ts`): `model.run`, `model.local`, the desk's turns, Voice's `GET /spending`. Two bases, never
+  added: `billed` (a provider's dollars; the Mac's models at $0) and `equivalent` (his plans' tokens at list price,
+  `core/prices.ts`). The night's `spending` step writes each closed local day with no file yet
+  (`LIFE_STATE_DIR/spending/<day>.json`), newest first, at most 7 tried a night; a day whose desk or Voice read fails is
+  tried again, one with Voice jobs unsettled waits up to a week. A night reads per day its 2 or 3 UTC log files, the
+  desk's turns ended that day (`turn_by_ended`) and one Voice call (indexed): nothing grows with the years. The night's
+  `run.end` carries its own `spending`, and the email shows billed and equivalent apart.
 - `bun life memory source-use [--days 7] [--json]`: what each source costs a day (items and units, readers, model
   reads per unit, tokens, dollars), from the window's log days and one indexed query. The desk's agent turns are not
   in it (his subscriptions).

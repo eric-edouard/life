@@ -3,7 +3,7 @@ import { rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
-import { tokensSince } from "../host/desk-read";
+import { tokensSince } from "../host/desk-turn-reads";
 import {
   handOutRowsOf,
   readAgentSection,
@@ -23,6 +23,7 @@ afterAll(() => {
 
 const turn = (agent_id: string, ended_at: string, i: number, c = 0, o = 0) => ({
   agent_id,
+  assignment_id: agent_id,
   ended_at,
   tokens_cached: c,
   tokens_in: i,

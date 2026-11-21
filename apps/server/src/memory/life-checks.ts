@@ -2,7 +2,9 @@
 // label is his app's button, a few words for him; what choosing it does, in words a model reads, is in `answer_check`'s
 // description (`host/http/mcp.ts`), and what his answer must carry is `takes`.
 
+import type { z } from "zod";
 import type { CheckGroup } from "../core/names";
+import type { PlanStep } from "./card-request";
 import type { Decision } from "./decision-lines";
 import type { doneSeenShownOf } from "./decisions";
 import type { StoredDraft } from "./draft";
@@ -24,6 +26,8 @@ export interface CheckOption {
   label: string;
   looks?: true;
   outgoing?: true;
+  /** On a plan card's two options: `start` the plan, or `decline` it (the option role). */
+  role?: "decline" | "start";
   takes: "note" | "person" | "person or name" | null;
 }
 
@@ -161,6 +165,8 @@ export interface Check {
   doneSeenBy?: "payment" | "tap";
   /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none. */
   draft: StoredDraft | null;
+  /** On a plan card: what its plan was gathered from, one line (the source chip), which opens its `context`; null on a decision with none; absent on every other kind. */
+  gathered?: { text: string } | null;
   /** A new matter's goal, the one his Start hands the agent (the question words it too); null for every other kind. */
   goal: string | null;
   group: CheckGroup;
@@ -195,6 +201,8 @@ export interface Check {
   onSilence: string | null;
   /** What he can answer (`CheckOption`: his button's label and what his answer takes); with two or more, the first is the one recommended (Life: its guess). Besides them he can always answer in his own words (a decision's `note`; on Life's own cards, his complaint, `misread`). */
   options: CheckOption[];
+  /** A plan card's steps, in order (`PlanStep`); null on a decision with none (an older plan card: its plan is in `context`); absent on every other kind. */
+  plan?: z.infer<typeof PlanStep>[] | null;
   /** What he decides, in one sentence (a guess's worded by a template, no model). */
   question: string;
   /** What his answer acts on: a decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
@@ -225,6 +233,9 @@ export interface Check {
 /** A card whose cause his complaint is at work on (`Check.beingFixed`). */
 export interface BeingFixed {
   ask: string;
+  /** The caretaker's open card's `context`, beside its question (`line`); null with no card. */
+  context: string | null;
+  /** The caretaker's open card's question on that complaint's assignment; null with none (the plain "fixing this"). */
   line: string | null;
   since: string;
 }
@@ -241,11 +252,11 @@ export type CardHolders = Readonly<
   Record<string, { agent: string; session?: string }>
 >;
 
-/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
+/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the stamp), as cards show them over the decisions read (host's `beingFixedOf`). */
 export interface HeldRead {
   /** Each of the open `decisions` a registered agent asked, as its holder's, with that agent's session now (host's `cardHoldersOf`): given the one list the inbox reads, so a card asked meanwhile is never shown without it. */
   cardHolders?: (decisions: readonly Decision[]) => CardHolders;
-  complaints?: readonly BeingFixed[];
+  complaints?: (decisions: readonly Decision[]) => readonly BeingFixed[];
   plans: (decisions: readonly Decision[]) => ReadonlySet<string>;
   read: () => readonly AgentHold[] | null;
   stamp: string;

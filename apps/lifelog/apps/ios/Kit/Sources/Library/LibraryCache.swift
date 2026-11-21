@@ -158,6 +158,13 @@ extension LibraryStore {
         try db.query("SELECT json FROM feed_state") { $0.blob(0) }.first
     }
 
+    /// Whether a pull ever reached the feed's end. Until one does, a restored phone may lack quiet ranges the server
+    /// holds for it (#802).
+    public func hasPulledWholeFeed() throws -> Bool {
+        let state = try feedState().flatMap { try JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        return state?["pulledAt"] != nil
+    }
+
     // MARK: Reads
 
     /// Live conversations the library lists (`listed`), newest first, starting

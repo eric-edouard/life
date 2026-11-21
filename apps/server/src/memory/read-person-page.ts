@@ -9,7 +9,7 @@ import { levelsWith, pagedNow } from "./closeness";
 import { readCommunicationStyle } from "./communication-styles";
 import { conversationSummaryPart } from "./conversation-summaries";
 import { notCapturedOf, readCoverage } from "./coverage";
-import { detailsOf, readCardsOf } from "./details";
+import { detailRefOf, detailsOf, readCardsOf } from "./details";
 import { lastExchangeAtOf, readExchangeCounts } from "./exchange-counts";
 import {
   episodeLine,
@@ -396,6 +396,7 @@ function nowGathered(
   const details = detailsOf({
     contacts: cards,
     person: truth.people.find((p) => `person:${p.id}` === ref),
+    refOf: detailRefOf(people),
   });
   const theirs = matters.filter((m) => isIn(m, ref));
   return (more: Pick<NowInputs, "episodes" | "knows">, chars: number) =>
@@ -408,6 +409,7 @@ function nowGathered(
           ? { directoryIsNew: true as const }
           : {}),
         matters: theirs,
+        pictures: people.pictureChoicesOf(row.ref),
         ...(organization
           ? {
               organization: {

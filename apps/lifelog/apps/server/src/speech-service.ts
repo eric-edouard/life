@@ -3,12 +3,13 @@
 // stored; only what comes back is kept, with its provenance.
 import { z } from "zod";
 import type { Config } from "./config";
+import type { Priority } from "./scribe-slots";
 import { switches } from "./switches";
 
 export const EMBEDDING_DIMENSIONS = 192;
 
 // Why a call can't be answered now.
-type Unanswered =
+export type Unanswered =
   | { error: "identity_busy"; retryAfter: string }
   | { error: "invalid_audio" | "identity_unavailable"; message: string };
 
@@ -111,10 +112,16 @@ async function answerOf<T>(
       retryAfter: res.headers.get("Retry-After") ?? "5",
     };
   }
+  // A body cut off or not JSON reads as no answer.
   if (res.status === 400 || res.status === 413) {
-    return { error: "invalid_audio", message: await res.text() };
+    return {
+      error: "invalid_audio",
+      message: await res.text().catch(() => "unreadable"),
+    };
   }
-  const parsed = schema.safeParse(res.ok ? await res.json() : null);
+  const parsed = schema.safeParse(
+    res.ok ? await res.json().catch(() => null) : null
+  );
   return parsed.success
     ? { answer: parsed.data }
     : {
@@ -161,8 +168,13 @@ export async function embedRanges(
 export async function transcribeBlock(
   config: Config,
   ogg: Uint8Array,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  priority: Priority = "ordinary"
 ): Promise<{ heard: Heard } | Unanswered> {
-  const said = await post(config, "/transcribe", ogg, Heard, { signal });
+  const said = await post(config, "/transcribe", ogg, Heard, {
+    // The owner waiting at a field: the service's own waiting place, ahead of every other request.
+    headers: priority === "interactive" ? { "X-Priority": "interactive" } : {},
+    signal,
+  });
   return "answer" in said ? { heard: said.answer } : said;
 }

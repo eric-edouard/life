@@ -61,6 +61,10 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
 - **recorded**: `GET /recorded?from=&to=` (instants, at most 31 days apart): the stretches a Pendant recorded in
   between (`startAt`, `endAt`, pauses under a minute joined), and `since`, the start of the first recording held. No
   stretch after `since` is the Pendant off or out of reach, never a quiet day.
+- **spending**: `GET /spending?from=&to=` (instants, at most 31 days apart): what Voice spent in between, for Life's
+  model spending: its transcription jobs by admission (`billed` once done; `maybe_billed`, a send it may have been
+  billed for, never counted as billed; `unsettled`, seconds still an estimate), the chat voice notes it heard (no
+  seconds: an answer lost, maybe billed) and its model runs on the Mac. Scribe's price is Life's `core/prices.ts`.
 - **places**: `GET /where?at=` (an instant: the stay around it) and `GET /visits` (every stay, or by `place`, or
   `latitude`, `longitude`, `radiusM`; `from`, `to`; at most 200, newest first). A day's stays are `/visits` between
   its bounds: a local day depends on where the owner was then, which only the reader knows. A stay is

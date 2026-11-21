@@ -54,6 +54,7 @@ import { locked } from "../memory/memory-lock";
 import { writeMentions } from "../memory/mentions";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
+import { projectSituations } from "../memory/project-situations";
 import { doneOf } from "../memory/read-open-items";
 import { writeRecordedDays } from "../memory/recorded-days";
 import { codeOn, mapRepos } from "../memory/repos";
@@ -115,6 +116,7 @@ import {
   sendReport,
   successReport,
 } from "./report";
+import { writeSpendingDays } from "./spending";
 import { snapshot } from "./status/snapshot";
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
@@ -454,13 +456,21 @@ async function spent(rec: Metered, now: Quota | undefined) {
     recent.push(...page.items);
     ({ cursor } = page);
   } while (cursor && (recent.at(-1)?.startedAt ?? "") >= since);
-  return [
-    ...spendLines(recent, since, {
-      id: `memory.nightly/${rec.run}`,
-      quota: now,
-    }),
-    ...sourceUseLine(await readSourceUse(1)),
-  ];
+  const id = `memory.nightly/${rec.run}`;
+  const use = recent.find((r) => r.id === id)?.use;
+  return {
+    lines: [
+      ...spendLines(recent, since, { id, quota: now }),
+      ...sourceUseLine(await readSourceUse(1)),
+    ],
+    // The night's own spending for its `run.end`: dollars billed and his plans' tokens at list price, apart.
+    spending: use && {
+      billedUsd: use.billedUsd,
+      equivalentUsd: use.equivalentUsd,
+      notReported: use.notReported,
+      tokens: use.tokens.input + use.tokens.output,
+    },
+  };
 }
 
 /**
@@ -502,6 +512,7 @@ export async function runNight(
   // The observations the report lists, in the run record: an audit can tell what he was told.
   let listed: string[] = [];
   let needsYou: number | undefined;
+  let spending: Awaited<ReturnType<typeof spent>>["spending"];
   let failure: ReturnType<typeof steps.failed> | undefined;
   try {
     const repos = await steps.step("repos", () => mapRepos());
@@ -527,8 +538,16 @@ export async function runNight(
     // Where each running matter is going and what moves it now, drafted again only for a matter with a new step. A
     // failure is logged and never stops the night.
     steps.at = "matter directions";
-    await matterDirections(await readPeople()).catch((e: Error) =>
+    // The matter records are read once for both steps; a failure of the read stops neither (each reads them itself).
+    const people = await readPeople();
+    const records = await readMatterRecords(people).catch(() => undefined);
+    await matterDirections(people, { records }).catch((e: Error) =>
       log("run.error", { ...errorOf(e), step: "memory.matter-directions" })
+    );
+    // Where each project underway stands, read from its matters as they now read; redone only when what it was shown changed.
+    steps.at = "project situations";
+    await projectSituations(people, records).catch((e: Error) =>
+      log("run.error", { ...errorOf(e), step: "memory.project-situations" })
     );
     // Who is close decides who has a page: judged before the pages and the report's homes.
     // The days the pendant recorded, for coverage (derived; a failure is logged and the last file stands).
@@ -594,8 +613,12 @@ export async function runNight(
     const archive = await archiveLine(since);
     steps.at = "commit";
     commitMemory(["memory", "truth"], `Memory: ${day}`);
+    steps.at = "spending";
+    await writeSpendingDays();
     await dropOld(now);
     const q = await quota();
+    const used = await spent(rec, q);
+    ({ spending } = used);
     const agents = await readAgentsFor(rec, since);
     ({ needsYou } = agents);
     mail = successReport(day, rec.ms(), {
@@ -620,7 +643,7 @@ export async function runNight(
       quota: hasQuota() ? quotaLine(q) : undefined,
       repos,
       retired,
-      spent: await spent(rec, q),
+      spent: used.lines,
     });
     listed = keyObservations.map((f) => f.id);
   } catch (e) {
@@ -641,6 +664,7 @@ export async function runNight(
     attempts,
     listed,
     needsYou,
+    spending,
     ...(failure ?? { outcome: "ok" }),
   });
   if (!failure || force || isOutOfTries(attempts)) {

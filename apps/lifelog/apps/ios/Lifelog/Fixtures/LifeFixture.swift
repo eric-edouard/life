@@ -189,6 +189,19 @@
             return json(["matters": rows])
         }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
+        /// The design data's log (`read_log_lines.json`, one page), by level and process; an empty log until the
+        /// designer writes it. Polled every 2 s, it adds nothing: the page shows what the frames draw.
+        func readLogLines(_ query: LogQuery) async throws -> String {
+            try await gate()
+            let order = ["info", "warn", "error"]
+            let least = order.firstIndex(of: query.minLevel?.rawValue ?? "info") ?? 0
+            let lines = (Self.log["lines"] as? [[String: Any]] ?? []).filter { line in
+                (order.firstIndex(of: line["level"] as? String ?? "") ?? 0) >= least
+                    && (query.process == nil || (line["category"] as? [String])?.first == query.process?.rawValue)
+            }
+            // The design data is one page, all written before its head: a poll after it reads nothing new.
+            return json(["lines": query.after == nil ? lines : [], "cursor": NSNull(), "head": "end"])
+        }
         /// A `life:` link's page: what Life read of it, as its text reads.
         func fetch(_ ref: String) async throws -> String {
             try await gate()
@@ -530,6 +543,7 @@
         /// the steps.
         nonisolated(unsafe) private static let matterRead = read("read_matter")
         nonisolated(unsafe) private static let people = read("read_people_and_organizations", or: [:])
+        nonisolated(unsafe) private static let log = read("read_log_lines", or: [:])
         /// Every agent, by its matter; `-fixtureAgent` says how Nora's went.
         nonisolated(unsafe) private static let allAgents: [[String: Any]] =
             ((registered["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])).map {

@@ -282,7 +282,8 @@ outside the lock, schemaVersion 3, by `kind`:
   its whole matter, is done (on a matter's id, stored as its newest open step); lines before it have none), `context` (4,000 chars), `links`, `deadline` (1 hour to 14
   days after `at`, in UTC), `onSilence` (an option id, never an outgoing or `ends` one, or null), `contests` (Life's stamp:
   the open card of another asker that held the draft's chat when asked, which this one waits on, `memory/draft-contest.ts`),
-  `merges` (the waiting card this one, the holder's, asks for both: that card is withdrawn for it, worked out when read). A `draft` needs
+  `merges` (the waiting card this one, the holder's, asks for both: that card is withdrawn for it, worked out when read),
+  `plan` and `gathered` (an assignment's plan card only: its plan steps, each `{text, by, when?, channel?}`, and `{text}`, the line its source chip shows; its options are then `start` and `decline`; cards before 21 Nov 2026 have none, which is true of them). A `draft` needs
   exactly one outgoing option. A payment card adds `needs` (typed facts he needs in hand, `memory/needs.ts`; one is an
   `amount`), `doneSeenBy` (`payment` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
   Life look for the step done) and `takes: "note"` on an option (it needs his words). An `ends` option needs a subject on an open matter: for `step`, one of its open steps.
@@ -474,6 +475,10 @@ night when its inputs changed: `page` (`person:<id>`), `lines` (each `text` and 
 rests on), `inputs` (a hash of the prompt's variant name (`madeBy.prompt`) and what was shown: the episodes of importance 2 or more with them in the 30 days ending at their newest, a digest of the page and, while the `personas` add-on is on, the persona's readings; never the date), `built`, `madeBy`,
 `schemaVersion`. Rewritten whole, never from its own last version; removed when the person has no recent episode or
 no page. A reader drops a line whose episode is no longer live, and the whole situation when `madeBy.prompt` is not the variant now. His correction is a line on the page.
+
+## project-situations/<project>.json
+
+Where a project underway stands now, written by `project-situations.ts` each night when its inputs changed: `project` (its directory id), `lines` (each `text` and `cites`, the refs of the matter steps it rests on), `inputs` (a hash of the prompt's variant name and what was shown: the directory entry's deadlines, name, status and notes, and each running matter's name, goal, next step, open steps and newest 12 steps; never the date and never a matter's status, which follows the clock), `built`, `madeBy`, `schemaVersion`. Kept apart from `situations/`, whose files are all people's. Rewritten whole, never from its own last version; removed when the project is no longer underway or shows no running matter. A reader drops a line whose step no matter of the project holds any more, and the whole situation when `madeBy.prompt` is not the variant now.
 
 ## personas/<id>.json
 
@@ -690,7 +695,7 @@ runtime), current session and link, `status` `active`, `stopped`, `handed_over` 
 `agent_id`, `opened_at`, `opened_by` (`owner` or `desk`, the hand-out), `said` (his words, when he gave it), its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an open assignment with no
 `wait_until`), `notes_path` (its notes file, in `desk.agentsRepo`, else under the desk's folders), `plan_done`,
-`plan_total`, `plan_now` (its runtime's plan, overwritten; null when none), `closed_at`, `outcome`, `why_not_started`,
+`plan_total`, `plan_now` (never written, never read: it goes with the next store step), `closed_at`, `outcome`, `why_not_started`,
 `matter_id` (the matter he chose for it, by Start or the hand-out, which the finder takes on a tie among its anchors'
 matters; null on rows before `stepMatterIds` and for an agent's own);
 its cards are `card`'s), `session` (every session it had, with its link, `context_at_first_call`, the context its first turn's usage reported, and `rules_digest`; append-only), `event` (an assignment's

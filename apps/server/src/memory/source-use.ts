@@ -29,16 +29,16 @@ export interface SourceUse {
   model: { calls: number; step: string }[];
   /** What reads it with no model: `gather`, the tables it is in, the events poll. */
   modelFree: string[];
+  /** Spends of the calls reading it whose amount is not reported (`reported`). */
+  notReported: number;
   /** Units the calls read, over the units it formed (null with no unit). */
   readsPerUnit: number | null;
   source: Row;
-  /** Mean a day, each call's tokens and dollars split over its sources by their share of its units. */
+  /** Mean a day, each call's tokens and billed dollars split over its sources by their share of its units. */
   tokensADay: number;
   units: Spread;
   /** Units the calls read, summed over its calls. */
   unitsRead: number;
-  /** Calls reading it with no cost from their provider. */
-  unpriced: number;
   usdADay: number;
   usdWorstDay: number;
 }
@@ -73,7 +73,7 @@ function stepNamesOf(events: LogEvent[]) {
 
 type Spent = Omit<SourceUse, "items" | "units" | "modelFree" | "readsPerUnit">;
 
-/** The calls' `model.run` lines folded by source, each split by its units' share; `usdOn` by source and local day. */
+/** The calls' `model.run` lines folded by source, each call split by its own units' share; `usdOn` by source and local day. */
 function spentOf(events: LogEvent[], days: number) {
   const stepOf = stepNamesOf(events);
   const rows = new Map<Row, Spent>();
@@ -81,26 +81,24 @@ function spentOf(events: LogEvent[], days: number) {
   const rowOf = (source: Row) => {
     const row = rows.get(source) ?? {
       model: [],
+      notReported: 0,
       source,
       tokensADay: 0,
       unitsRead: 0,
-      unpriced: 0,
       usdADay: 0,
       usdWorstDay: 0,
     };
     rows.set(source, row);
     return row;
   };
-  // A step's calls of one day that read the same sources are split together by their units' share, so a call that
-  // read one source is charged to it alone. ponytail: calls over several sources split by units, not characters.
-  const byStepDay = modelCallsOf(
-    events,
-    (e) =>
-      `${e.run}|${localDate(e.at)}|${Object.keys(e.reads ?? {})
-        .toSorted()
-        .join(",")}`
-  );
-  for (const [key, c] of byStepDay) {
+  // Each call is split by its own units' share, so a call that read one source is charged to it alone.
+  // ponytail: calls over several sources split by units, not characters.
+  let call = 0;
+  const byCall = modelCallsOf(events, (e) => {
+    call += 1;
+    return `${e.run}|${localDate(e.at)}|${call}`;
+  });
+  for (const [key, c] of byCall) {
     const [run = "", date = ""] = key.split("|");
     const reads = Object.entries(c.reads) as [Row, number][];
     const total = reads.reduce((n, [, x]) => n + x, 0);
@@ -110,10 +108,10 @@ function spentOf(events: LogEvent[], days: number) {
       const share = n / total;
       row.unitsRead += n;
       row.tokensADay += ((c.tokens.input + c.tokens.output) * share) / days;
-      row.usdADay += (c.costUsd * share) / days;
-      row.unpriced += c.unpriced;
+      row.usdADay += (c.billedUsd * share) / days;
+      row.notReported += c.notReported;
       const day = `${source} ${date}`;
-      usdOn.set(day, (usdOn.get(day) ?? 0) + c.costUsd * share);
+      usdOn.set(day, (usdOn.get(day) ?? 0) + c.billedUsd * share);
       const read = row.model.find((m) => m.step === step);
       if (read) {
         read.calls += c.calls;
@@ -209,7 +207,7 @@ export function sourceUseText(use: SourceUse[], days: number) {
         16
       ),
       `${kTokens(u.tokensADay)} tokens/day`.padEnd(17),
-      `${usd(u.usdADay)}/day (worst ${usd(u.usdWorstDay)})${u.unpriced > 0 ? `, ${u.unpriced} unpriced` : ""}`,
+      `${usd(u.usdADay)}/day (worst ${usd(u.usdWorstDay)})${u.notReported > 0 ? `, ${u.notReported} not reported` : ""}`,
     ].join(" "),
     `    model-free: ${u.modelFree.join(", ") || "-"}`,
     `    model: ${u.model.map((m) => `${m.step} ×${m.calls}`).join(", ") || "-"}`,
@@ -230,7 +228,7 @@ export function sourceUseLine(use: SourceUse[]) {
         `By source, last 24 h: ${read
           .map(
             (u) =>
-              `${u.source} ${usd(u.usdADay)} (${u.unitsRead} units read${u.unpriced > 0 ? `, ${u.unpriced} calls unpriced` : ""})`
+              `${u.source} ${usd(u.usdADay)} (${u.unitsRead} units read${u.notReported > 0 ? `, ${u.notReported} not reported` : ""})`
           )
           .join(", ")}`,
       ];

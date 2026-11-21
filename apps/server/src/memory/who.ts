@@ -32,7 +32,12 @@ import {
   shownOf,
 } from "./memory-files";
 import { isSameNameOrHandle, type Reading, readingOf } from "./name-reading";
-import { partyOf, readPictureIndex } from "./party";
+import {
+  type PictureIndex,
+  partyOf,
+  pictureChoicesOf,
+  readPictureIndex,
+} from "./party";
 import {
   directoryPartiesOf,
   loadTruth,
@@ -503,6 +508,12 @@ export async function readPeople() {
   const contacts = contactsNow(readContactLines());
   const lidPhones = lidPhonesNow();
   const parties = directoryPartiesOf(truth);
+  // The pictures, read once for every party and picture choice this read gives.
+  let pictureIndex: PictureIndex | undefined;
+  const readPicturesOnce = () => {
+    pictureIndex ??= readPictureIndex();
+    return pictureIndex;
+  };
   const { ambiguousCards, canon, readingNow, resolve } = foldsOf(
     parties,
     inferred,
@@ -579,12 +590,15 @@ export async function readPeople() {
     outsideDirectory,
     /** Whose a Contacts card is (`cardOwnerOf`). */
     ownerOfCard: cardOwnerOf({ canon, contacts, resolve }),
-    /** A ref as every app is shown it (`partyOf`); the pictures are read on the first. */
+    /** A ref as every app is shown it (`partyOf`), over the pictures read once. */
     partyOf: partyOf(
       { isOrganization, nameOf, refOf, relationOf },
       parties,
-      readPictureIndex
+      readPicturesOnce
     ),
+    /** The pictures he can pick from for a ref as it reads today (`pictureChoicesOf`), from the index `partyOf` reads. */
+    pictureChoicesOf: (ref: string) =>
+      pictureChoicesOf(readPicturesOnce()[refOf(ref)] ?? []),
     /** What a name as written reads as now (`resolve`), with which source said so and whether the name is shared. */
     readingNow,
     /** Who an episode's person ref is as of today: a name since resolved, a person since folded into another. */

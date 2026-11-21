@@ -134,7 +134,7 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
   const refusals: string[] = [];
   let tokens: Tokens | undefined;
   // What each router tried took, in the order tried: its hosts' dollars and tokens, and whether every try sent its cost
-  // (a try that threw may have billed: unpriced). Its reported dollars still count: a floor.
+  // (a try that threw may have billed: not priced). Its reported dollars still count: a floor.
   const spentByRouter: Partial<Record<Router, RouterSpent>> = {};
   let answer: Answer = { text: "" };
   const skipped = new Set<Router>();
@@ -200,7 +200,7 @@ export interface RouterSpent {
   tokens: Tokens;
 }
 
-/** A router's take with one more try: its dollars and tokens added; unpriced once a try sent no cost. */
+/** A router's take with one more try: its dollars and tokens added; not priced once a try sent no cost. */
 const withTry = (
   was: RouterSpent | undefined,
   cost: number | undefined,

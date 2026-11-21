@@ -9,6 +9,7 @@ import { clock } from "@life/server/src/core/clock";
 import { connect, type Db, migrateDb } from "@lifelog/db";
 import {
   conversations,
+  heartbeats,
   ownerEdits,
   type Turn,
   transcriptionJobs,
@@ -16,12 +17,14 @@ import {
   type Word,
 } from "@lifelog/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { pendantOggOpus } from "./audio";
 import { logChange } from "./change-log";
 import { type Config, loadConfig, sha256Hex } from "./config";
 import { PARSER_VERSION } from "./elevenlabs";
 import { markDirty, pendantSources, regroupAfterCommit } from "./grouping";
 import { requestRoll } from "./intelligence";
 import type { ModelCall, Provider } from "./providers";
+import { services } from "./services";
 import type { Heard } from "./speech-service";
 import { rebuildTurns } from "./turns";
 
@@ -31,6 +34,21 @@ export const WEBHOOK_SECRET = "whsec-test";
 // The archive, migrated, in a file of its own; `reset` empties every table between tests. The
 // change log's seq keeps growing across them, as in production, so a reader's cursor held by a
 // service built once per file never points past the newest change.
+/**
+ * Undoes the `spending` migration's schema on a disposable DB, for a test that runs the migrations after an earlier one
+ * again: its indexes and the voice note hearings' seconds (`isTableKept` false: the test drops that table itself).
+ */
+export function undoSpendingMigration(db: Db, isTableKept = true) {
+  db.run(sql.raw("drop index if exists intelligence_runs_created"));
+  db.run(sql.raw("drop index if exists transcription_jobs_admitted"));
+  if (isTableKept) {
+    db.run(sql.raw("drop index if exists voice_note_hearings_done"));
+    for (const column of ["billable_seconds", "route", "seconds"]) {
+      db.run(sql.raw(`alter table voice_note_hearings drop column ${column}`));
+    }
+  }
+}
+
 export function testDb() {
   const dir = mkdtempSync(join(tmpdir(), "lifelog-test-"));
   const db = connect(join(dir, "archive.sqlite"));
@@ -268,11 +286,13 @@ export function fakeElevenLabs() {
 
 // A stand-in for apps/identity. The "excerpt" is a JSON vector, returned as its embedding. For
 // /embed-ranges, `cut` says what each range holds (null: unusable), and `ranges` records every call.
-// /transcribe answers `heard` (500 while `failing`), after `meanwhile`; `blocks` counts its calls.
+// /transcribe answers `heard` (500 while `failing`, a 200 cut off mid-body while `cutOff`), after
+// `meanwhile`; `blocks` counts its calls.
 export function fakeSpeechService() {
   const fake: {
     blocks: number;
     busy: boolean;
+    cutOff: boolean;
     failing: boolean;
     meanwhile: () => void;
     cut: (range: [number, number]) => {
@@ -280,6 +300,8 @@ export function fakeSpeechService() {
       embedding: number[];
     } | null;
     heard: Heard;
+    /** Each block's `X-Priority`. */
+    priorities: string[];
     ranges: [number, number][][];
   } = {
     blocks: 0,
@@ -288,9 +310,11 @@ export function fakeSpeechService() {
       durationSeconds: to - from,
       embedding: Array.from({ length: 192 }, (_, i) => (i === 5 ? 1 : 0)),
     }),
+    cutOff: false,
     failing: false,
     heard: { durationSeconds: 0, models: {}, turns: [], words: [] },
     meanwhile: () => undefined,
+    priorities: [],
     ranges: [],
   };
   const server = Bun.serve({
@@ -303,7 +327,13 @@ export function fakeSpeechService() {
       }
       if (new URL(req.url).pathname === "/transcribe") {
         fake.blocks += 1;
+        fake.priorities.push(req.headers.get("X-Priority") ?? "ordinary");
         fake.meanwhile();
+        if (fake.cutOff) {
+          return new Response(JSON.stringify(fake.heard).slice(0, 20), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
         return fake.failing
           ? new Response("RuntimeError", { status: 500 })
           : Response.json(fake.heard);
@@ -325,6 +355,89 @@ export function fakeSpeechService() {
   });
   return Object.assign(fake, { server });
 }
+
+// The speech routes' shared world (routes/voice-notes.ts, routes/dictation.ts): the fakes' services,
+// the owner where Thai is spoken (the router's lower bar), turns as the speech service hears them,
+// Scribe's Thai answer, and pendant-shaped audio Scribe's excerpts can be cut from.
+export const speechServices = (
+  scribe: ReturnType<typeof fakeElevenLabs>,
+  speech: ReturnType<typeof fakeSpeechService>,
+  db: Db,
+  overrides: Record<string, string> = {}
+) =>
+  services(
+    testConfig(`http://localhost:${scribe.server.port}`, {
+      IDENTITY_SECRET: "speech-test-secret",
+      IDENTITY_URL: `http://localhost:${speech.server.port}`,
+      ...overrides,
+    }),
+    db
+  );
+export const heardInBangkok = (db: Db) =>
+  db
+    .insert(heartbeats)
+    .values({
+      body: { timeZone: "Asia/Bangkok" },
+      id: randomUUID(),
+      observedAt: new Date(0),
+      reason: "periodic",
+      receivedAt: new Date(0),
+    })
+    .run();
+const SCORES = {
+  en: { en: 0.95, fr: 0.02, th: 0.001 },
+  fr: { en: 0.02, fr: 0.95, th: 0.001 },
+  th: { en: 0.02, fr: 0.01, th: 0.9 },
+};
+export const spokenTurn = (
+  start: number,
+  end: number,
+  language: keyof typeof SCORES
+) => ({
+  end,
+  language,
+  scores: SCORES[language],
+  speaker: language === "th" ? "1" : "0",
+  start,
+});
+export const spokenWord = (start: number, text: string) => ({
+  end: start + 0.3,
+  start,
+  text,
+});
+// English, a Thai turn, French: only the Thai turn goes to Scribe.
+export const MIXED_HEARD = {
+  durationSeconds: 60,
+  models: {},
+  turns: [
+    spokenTurn(0, 10, "en"),
+    spokenTurn(10, 14, "th"),
+    spokenTurn(14, 60, "fr"),
+  ],
+  words: [spokenWord(1, "Hello"), spokenWord(15, "Salut")],
+};
+export const scribeThai = () =>
+  Response.json({
+    language_code: "tha",
+    language_probability: 0.9,
+    words: [
+      {
+        end: 0.8,
+        speaker_id: "speaker_0",
+        start: 0.5,
+        text: "สวัสดี",
+        type: "word",
+      },
+    ],
+  });
+export const pendantOgg = (seconds: number) =>
+  pendantOggOpus(
+    Array.from(
+      { length: seconds * 50 },
+      (_, i) => new Uint8Array([8, i % 256, Math.floor(i / 256)])
+    ),
+    seconds * 1000
+  );
 
 // A minimal Ogg Opus file (RFC 7845) lasting `seconds`: OpusHead, then one page of random
 // packet bytes (so every file hashes differently) whose granule position ends the stream.

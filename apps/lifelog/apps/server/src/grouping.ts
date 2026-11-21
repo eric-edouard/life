@@ -38,6 +38,7 @@ import {
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { logChange, logPlacedIn } from "./change-log";
 import { reportError } from "./diagnostics";
+import { PHONE_DICTATION, processedQuiet } from "./dictation";
 import { record } from "./events";
 
 // Epoch milliseconds, [start, end).
@@ -364,6 +365,7 @@ const dictationRanges = (db: Pick<Db, "select">, after: number) =>
     .where(
       and(
         ne(quietRanges.source, "playback"),
+        processedQuiet,
         Number.isFinite(after)
           ? gt(quietRanges.endedAt, new Date(after))
           : undefined
@@ -666,7 +668,7 @@ function closeAndClassify(
       select l.id,
         ${closeBy} is not null and l.capture_ended_at <= ${closeBy} as closed,
         case
-          when exists (select 1 from quiet_ranges q where q.source <> 'playback'
+          when exists (select 1 from quiet_ranges q where q.source not in ('playback', ${PHONE_DICTATION})
             and q.started_at <= l.capture_started_at and q.ended_at >= l.capture_ended_at)
             then 'dictation'
           when exists (select 1 from transcription_jobs j where j.source_id = ${sourceId}
