@@ -49,6 +49,15 @@ struct RootView: View {
             } label: {
                 TabLabel("People", "person.2")
             }
+            // Tell Life is a tab of the bar, so the system places it in every pose; a tap opens it and leaves the tab on show
+            // (`tabs`). Not paired: no tab.
+            Tab(value: AppRouter.Tab.tellLife) {
+                Color.clear
+            } label: {
+                TabLabel("Tell Life", "waveform")
+            }
+            .badge(life.tell.strands.filter { !$0.isDone }.count)
+            .hidden(!life.isPaired)
             // Its title and symbol are the system's; it sits apart, at the trailing end of the tabs.
             Tab(value: AppRouter.Tab.search, role: .search) {
                 // The field belongs to this tab alone: on the tabs it would show on Inbox and Projects too.
@@ -68,26 +77,6 @@ struct RootView: View {
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
-        // Tell Life: always within reach, in the rail's free middle, on every screen: on the Pendant's vertical line, so it
-        // stands in the closed Duo's side column with the other controls (decision 89), at the bar's end elsewhere; at
-        // mid-height, or under the top group when that reaches lower (a page's Back and flag above the Pendant).
-        .overlay {
-            if life.isPaired {
-                GeometryReader { window in
-                    let origin = window.frame(in: .global).origin
-                    let pendant = router.pendantFrame?.offsetBy(dx: -origin.x, dy: -origin.y)
-                    let gear = router.settingsFrame?.offsetBy(dx: -origin.x, dy: -origin.y)
-                    // The top group's foot: the gear's when it stands on the Pendant's line, under it.
-                    let foot = max(
-                        pendant?.maxY ?? 0, gear.map { abs($0.midX - (pendant?.midX ?? 0)) < 4 ? $0.maxY : 0 } ?? 0)
-                    TellLifeButton(running: life.tell.strands.filter { !$0.isDone }.count)
-                        .position(
-                            x: pendant?.midX ?? window.size.width - Metrics.Spacing.m - 28,
-                            y: max(window.size.height / 2, foot + Metrics.Spacing.l + 28))
-                }
-                .ignoresSafeArea()
-            }
-        }
         .overlay(alignment: .bottom) {
             if life.isPaired, router.isTellLifeSmall, !router.isTellLifeOpen {
                 TellStrip(
@@ -150,6 +139,10 @@ struct RootView: View {
         Binding(
             get: { router.tab },
             set: { tab in
+                guard tab != .tellLife else {
+                    router.isTellLifeOpen = true
+                    return
+                }
                 if tab == .projects, router.tab == .projects { router.chip = nil }
                 router.tab = tab
             })
