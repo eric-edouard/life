@@ -47,7 +47,7 @@ import { CONTEST_WAIT, cardsHearingOf } from "../memory/draft-contest";
 import { type People, readPeople } from "../memory/who";
 import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
-import { firstTurnOf, matterRecordOf, readPacket } from "./agent-actions";
+import { matterRecordOf, readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import {
   advanceMoves,
@@ -69,6 +69,7 @@ import {
   unreadLinesOf,
   type WakeWhy,
 } from "./event-queue";
+import { firstTurnOf } from "./first-turns";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import {
   endAgentsOnOverMatters,
@@ -523,7 +524,7 @@ async function launch(
         ? null
         : [
             await matterRecordOf(desk, s, turn),
-            ...(isFirst ? [firstTurnOf(a, s.opened_by).trim()] : []),
+            ...(isFirst ? [firstTurnOf(db, a, s).trim()] : []),
           ].join("\n");
     if (isFresh) {
       const started = await runtime.start(

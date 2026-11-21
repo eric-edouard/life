@@ -560,7 +560,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   the to-do item's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
   `lost` (gone from the owner's lists and not in Recently Deleted: purged, or on a shared list) and, in `before`, the old
   `id` of a to-do item whose move gave it a new one. An ask's
-  `after`: `agent` (the agent it is for, a key of the `agents` setting, or `desk`, the built-in agent his word about a registered agent goes to, with `agentChange`: the change `change_registered_agent` names, `AgentChange`; or his complaint, with `complaint`: `{ref, cause, shown, card, isAsShown, report, kind, stage, prompt}`, `Complaint`: the last three the card's kind, the stage that made it and its prompt at his press, its `instruction.ref` `complaint:<his press's key>`), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
+  `after`: `agent` (`desk`, the built-in agent his asks go to; before 21 Nov 2026 also an agent of the old `agents` setting: his spoken ask of the desk has `conversation`; his word about a registered agent has `agentChange`: the change `change_registered_agent` names, `AgentChange`; or his complaint, with `complaint`: `{ref, cause, shown, card, isAsShown, report, kind, stage, prompt}`, `Complaint`: the last three the card's kind, the stage that made it and its prompt at his press, its `instruction.ref` `complaint:<his press's key>`), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
   event carries only that); on an ask the agent recorded before 2 Nov 2026, `title` and, for a split, `parent` (the ask it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (the owner's last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
@@ -568,7 +568,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 - `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once),
   `duplicate` (an open to-do item had the title; nothing written) or `intent` (written by `changeTodoItem` just before a Reminders
   write, with the same `id` as the outcome line after it: a value it tried is Life's, never the owner's). `via`: `session`
-  (a Claude session), `connector` (the agent's chats, updates and replies, until 2 Nov 2026), `watch` (the watcher: a `hey <agent>` heard; a
+  (a Claude session), `connector` (the agent's chats, updates and replies, until 2 Nov 2026), `watch` (the watcher: a "hey Life" heard, a `hey <agent>` until 21 Nov 2026; a
   nudge or a steer until 20 Oct) or `todo_list` (the owner's own change in his to-do list, with no `instruction`: state, never the owner's
   words). Intents, imports and his complaints are left out
   of `read_day`'s and the nightly's Actions and of the change feed (`isListed`, `isComplaint`).
