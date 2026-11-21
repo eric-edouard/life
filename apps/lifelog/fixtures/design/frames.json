@@ -192,6 +192,9 @@
   "DuoFoldImportantFilter": {
     "why": "Its Filter menu is gone: the Projects tab's chips filter the list in place (decision 95)."
   },
+  "DuoFoldAskLifeShown": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "projects", "-fixtureShow", "matters"]
+  },
   "DuoFoldImportantList": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "projects"]
   },

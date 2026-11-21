@@ -191,6 +191,11 @@ struct RootView: View {
             if ["replacePendant", "pairPendant"].contains(LifeFixture.sheet) { router.sheet = .pendant }
             if LifeFixture.sheet == "agent" { router.matterSheet = LifeFixture.matter.map { .agent($0) } }
             if LifeFixture.sheet == "agents" { router.show(.agents) }
+            if LifeFixture.show == "matters" {
+                await life.refreshMatters()
+                let refs = (life.matters.value?.matters ?? []).prefix(3).map(\.id)
+                router.show(.list(ShownList(kind: .matters, refs: Array(refs), label: "Your 3 most important today")))
+            }
             // The page of the matter's agent, pushed on the matter.
             if LifeFixture.sheet == "agentPage", let id = LifeFixture.matter {
                 await life.refreshAgents()
