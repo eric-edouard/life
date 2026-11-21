@@ -72,20 +72,25 @@ const omit = (e: LogEvent | undefined) => {
     : rest;
 };
 
-/** What model calls spent and read, summed (`modelCallsOf`): how many, tokens, dollars, the calls with no cost (unpriced), units read by source. */
+/**
+ * What model calls spent and read, summed over their spends (`modelCallsOf`): how many, tokens, dollars billed and the
+ * list-price equivalent of his plans' tokens (two bases, never added), the spends not reported, units read by source.
+ */
 export interface Calls {
+  billedUsd: number;
   calls: number;
-  costUsd: number;
+  equivalentUsd: number;
+  notReported: number;
   reads: ReadCounts;
   tokens: Tokens;
-  unpriced: number;
 }
 const NO_CALLS: Calls = {
+  billedUsd: 0,
   calls: 0,
-  costUsd: 0,
+  equivalentUsd: 0,
+  notReported: 0,
   reads: {},
   tokens: NONE,
-  unpriced: 0,
 };
 const addReads = (a: ReadCounts, b: ReadCounts): ReadCounts => {
   const sum = { ...a };
@@ -95,11 +100,12 @@ const addReads = (a: ReadCounts, b: ReadCounts): ReadCounts => {
   return sum;
 };
 const addCalls = (a: Calls, b: Calls): Calls => ({
+  billedUsd: a.billedUsd + b.billedUsd,
   calls: a.calls + b.calls,
-  costUsd: a.costUsd + b.costUsd,
+  equivalentUsd: a.equivalentUsd + b.equivalentUsd,
+  notReported: a.notReported + b.notReported,
   reads: addReads(a.reads, b.reads),
   tokens: add(a.tokens, b.tokens),
-  unpriced: a.unpriced + b.unpriced,
 });
 
 /** What a run spent: its calls' sum, and for a metered run on an engine with a quota the quota read around it (`useOf`). */
@@ -142,15 +148,19 @@ const tokensText = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}k`;
 
 /**
- * A run's use in words: "+1% of the quota, 2.1M tokens (1.4M cached), $0.12, 3 unpriced"; under 1% when the whole
- * percent didn't move; its tokens alone when it read no quota (a step, or an engine without one).
+ * A run's use in words: "+1% of the quota, 2.1M tokens (1.4M cached), $0.12 billed, ≈ $3.40 at list price, not billed,
+ * 3 not reported", the two bases apart; under 1% when the whole percent didn't move; its tokens alone when it read no
+ * quota (a step, or an engine without one).
  */
 export function useText(u: Use | null) {
   const t = u?.tokens ?? NONE;
   const tokens = [
     `${tokensText(t.input + t.output)} tokens (${tokensText(t.cached)} cached)`,
-    ...(u?.costUsd ? [`$${u.costUsd.toFixed(2)}`] : []),
-    ...(u?.unpriced ? [`${u.unpriced} unpriced`] : []),
+    ...(u?.billedUsd ? [`$${u.billedUsd.toFixed(2)} billed`] : []),
+    ...(u?.equivalentUsd
+      ? [`≈ $${u.equivalentUsd.toFixed(2)} at list price, not billed`]
+      : []),
+    ...(u?.notReported ? [`${u.notReported} not reported`] : []),
   ].join(", ");
   if (!u?.quota) {
     return tokens;
@@ -351,7 +361,7 @@ export function assembleRuns(events: LogEvent[], lockSince: Date | null) {
 
 /**
  * The model calls (`model.run` lines, read as spends: `spendsOfLine`) summed by run id, or by `groupOf` (the source-use
- * table's run and day): the one fold of what calls spent and read. A billed spend with no cost is unpriced.
+ * table's run and day): the one fold of what calls spent and read. A call with a spend whose amount is unknown is not reported, once.
  */
 export function modelCallsOf(
   events: LogEvent[],
@@ -361,17 +371,18 @@ export function modelCallsOf(
   for (const e of events) {
     const key = e.kind === "model.run" && e.run && groupOf(e);
     const spends = key ? spendsOfLine(e, "daytime") : [];
-    // A call is unpriced once, whichever of its routers' tries sent no cost.
-    const isUnpriced = spends.some((s) => s.basis === "billed" && !s.reported);
+    // A call is not reported once, whichever of its routers' tries sent no cost.
+    const isNotReported = spends.some((s) => !s.reported);
     for (const s of spends) {
       by.set(
         key as string,
         addCalls(by.get(key as string) ?? NO_CALLS, {
+          billedUsd: s.basis === "billed" ? (s.usd ?? 0) : 0,
           calls: s.calls,
-          costUsd: s.usd ?? 0,
+          equivalentUsd: s.equivalentUsd ?? 0,
+          notReported: isNotReported && s.calls > 0 ? 1 : 0,
           reads: s.reads ?? {},
           tokens: s.tokens ?? NONE,
-          unpriced: isUnpriced && s.calls > 0 ? 1 : 0,
         })
       );
     }

@@ -10,6 +10,7 @@ import { openReadOnly } from "../core/sqlite";
 import type { Decision } from "../memory/decision-lines";
 import type { AgentHold, StandingAgent } from "../memory/held-matters";
 import type { BeingFixed } from "../memory/life-checks";
+import type { TurnSpent } from "../memory/spends";
 import type {
   AgentChange,
   AgentRole,
@@ -573,6 +574,14 @@ export const tokensSince = (db: Database, since: string) =>
       "select agent_id, ended_at, coalesce(tokens_in, 0) as tokens_in, coalesce(tokens_cached, 0) as tokens_cached, coalesce(tokens_out, 0) as tokens_out from turn where ended_at > ? order by ended_at"
     )
     .all(since);
+
+/** The turns that ended from `from` to `to` (instants, `to` excluded), by `turn_by_ended`, as spends read them: a turn from before `turn.model` names its session's runtime. */
+export const turnsEndedIn = (db: Database, from: string, to: string) =>
+  db
+    .query<TurnSpent, [string, string]>(
+      "select agent_id, assignment_id, ended_at, model, tokens_cached, tokens_in, tokens_out, (select runtime from session where ref = turn.session limit 1) as runtime from turn where ended_at >= ? and ended_at < ? order by ended_at"
+    )
+    .all(from, to);
 
 /**
  * Each assignment's notes file kept outside `state` (his agents repo, `desk.agentsRepo`), read from the store at `path`

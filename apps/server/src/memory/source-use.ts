@@ -29,16 +29,16 @@ export interface SourceUse {
   model: { calls: number; step: string }[];
   /** What reads it with no model: `gather`, the tables it is in, the events poll. */
   modelFree: string[];
+  /** Spends of the calls reading it whose amount is not reported (`reported`). */
+  notReported: number;
   /** Units the calls read, over the units it formed (null with no unit). */
   readsPerUnit: number | null;
   source: Row;
-  /** Mean a day, each call's tokens and dollars split over its sources by their share of its units. */
+  /** Mean a day, each call's tokens and billed dollars split over its sources by their share of its units. */
   tokensADay: number;
   units: Spread;
   /** Units the calls read, summed over its calls. */
   unitsRead: number;
-  /** Calls reading it with no cost from their provider. */
-  unpriced: number;
   usdADay: number;
   usdWorstDay: number;
 }
@@ -81,10 +81,10 @@ function spentOf(events: LogEvent[], days: number) {
   const rowOf = (source: Row) => {
     const row = rows.get(source) ?? {
       model: [],
+      notReported: 0,
       source,
       tokensADay: 0,
       unitsRead: 0,
-      unpriced: 0,
       usdADay: 0,
       usdWorstDay: 0,
     };
@@ -110,10 +110,10 @@ function spentOf(events: LogEvent[], days: number) {
       const share = n / total;
       row.unitsRead += n;
       row.tokensADay += ((c.tokens.input + c.tokens.output) * share) / days;
-      row.usdADay += (c.costUsd * share) / days;
-      row.unpriced += c.unpriced;
+      row.usdADay += (c.billedUsd * share) / days;
+      row.notReported += c.notReported;
       const day = `${source} ${date}`;
-      usdOn.set(day, (usdOn.get(day) ?? 0) + c.costUsd * share);
+      usdOn.set(day, (usdOn.get(day) ?? 0) + c.billedUsd * share);
       const read = row.model.find((m) => m.step === step);
       if (read) {
         read.calls += c.calls;
@@ -209,7 +209,7 @@ export function sourceUseText(use: SourceUse[], days: number) {
         16
       ),
       `${kTokens(u.tokensADay)} tokens/day`.padEnd(17),
-      `${usd(u.usdADay)}/day (worst ${usd(u.usdWorstDay)})${u.unpriced > 0 ? `, ${u.unpriced} unpriced` : ""}`,
+      `${usd(u.usdADay)}/day (worst ${usd(u.usdWorstDay)})${u.notReported > 0 ? `, ${u.notReported} not reported` : ""}`,
     ].join(" "),
     `    model-free: ${u.modelFree.join(", ") || "-"}`,
     `    model: ${u.model.map((m) => `${m.step} ×${m.calls}`).join(", ") || "-"}`,
@@ -230,7 +230,7 @@ export function sourceUseLine(use: SourceUse[]) {
         `By source, last 24 h: ${read
           .map(
             (u) =>
-              `${u.source} ${usd(u.usdADay)} (${u.unitsRead} units read${u.unpriced > 0 ? `, ${u.unpriced} calls unpriced` : ""})`
+              `${u.source} ${usd(u.usdADay)} (${u.unitsRead} units read${u.notReported > 0 ? `, ${u.notReported} not reported` : ""})`
           )
           .join(", ")}`,
       ];

@@ -78,10 +78,10 @@ test("source use: items and units a day as median and max, reads per unit, a cal
     items: { max: 40, median: 10 },
     model: [{ calls: 1, step: "extract (nightly)" }],
     modelFree: ["gather", "CHATS", "SEARCHED", "WITH_PEOPLE", "events"],
+    notReported: 0,
     readsPerUnit: 0.5,
     units: { max: 4, median: 2 },
     unitsRead: 3,
-    unpriced: 0,
   });
   expect(of("whatsapp")?.usdADay).toBeCloseTo(0.1);
   expect(of("whatsapp")?.usdWorstDay).toBeCloseTo(0.3);
@@ -98,15 +98,15 @@ test("source use: items and units a day as median and max, reads per unit, a cal
   expect(of("memory")).toMatchObject({
     model: [{ calls: 1, step: "closeness (alone)" }],
     modelFree: [],
+    notReported: 1,
     unitsRead: 5,
-    unpriced: 1,
     usdADay: 0,
   });
   const text = sourceUseText(use, 3);
   expect(text).toContain("model: extract (nightly) ×1");
   expect(text).toContain("Agent turns: not counted here");
   expect(sourceUseLine(use)).toEqual([
-    "By source, last 24 h: whatsapp $0.10 (3 units read), lifelog $0.03 (1 units read), memory $0.00 (5 units read, 1 calls unpriced)",
+    "By source, last 24 h: whatsapp $0.10 (3 units read), lifelog $0.03 (1 units read), memory $0.00 (5 units read, 1 not reported)",
   ]);
 });
 

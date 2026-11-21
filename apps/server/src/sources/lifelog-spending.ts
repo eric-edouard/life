@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { call } from "./lifelog-call";
 
 // What Voice spent (its `GET /spending`, at most 31 days a call): its transcription jobs, the chat voice notes it
 // heard and its model runs on the Mac. Read into spends by `spendsOfVoice` (memory/spends.ts).
@@ -34,3 +35,9 @@ export const VoiceSpending = z.object({
   ),
 });
 export type VoiceSpending = z.infer<typeof VoiceSpending>;
+
+/** Voice's spending from `from` to `to` (instants, at most 31 days: Life bounds the day). */
+export const readVoiceSpending = async (from: string, to: string) =>
+  VoiceSpending.parse(
+    await call(`/spending?${new URLSearchParams({ from, to })}`)
+  );
