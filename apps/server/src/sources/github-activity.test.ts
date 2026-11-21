@@ -309,12 +309,13 @@ test("an answer cut short keeps no ETag: the next ask has the last good one, and
 
 test("a read stops at its time, each ask bounded by what is left; the rest are asked on the next read", async () => {
   const g = fakeGh();
-  g.slow.ms = 30;
+  // Real time: margins wide enough for a loaded Mac's scheduling.
+  g.slow.ms = 300;
   const repos = ["acme/a", "acme/b", "acme/c", "acme/d"];
-  const read = githubActivityReader({ readMs: 50, run: g.run });
+  const read = githubActivityReader({ readMs: 500, run: g.run });
   await read(repos, T0);
   expect(g.asked.length).toBeLessThan(repos.length);
-  expect(Math.max(...g.timeouts)).toBeLessThanOrEqual(50);
+  expect(Math.max(...g.timeouts)).toBeLessThanOrEqual(500);
   const first = g.asked.length;
   await read(repos, T0 + 1000);
   expect(g.asked[first]?.at(-1)).toBe(

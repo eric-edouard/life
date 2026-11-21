@@ -1,7 +1,7 @@
 // The job worker's test bench (jobs.test.ts, scribe-dispatch.test.ts): a fake ElevenLabs and
 // speech service, a test database reset before each test, and the helpers that admit a block and
 // read its job. Call it once at the top of a test file.
-import { afterAll, beforeEach } from "bun:test";
+import { afterAll, afterEach, beforeEach } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
 import { heartbeats } from "@lifelog/db/schema";
@@ -11,7 +11,7 @@ import { pendantOggOpus } from "./audio";
 import { blockKey, memoryAudioStore } from "./audio-store";
 import { sha256Hex } from "./config";
 import { admit, storeFragment } from "./cutter";
-import { getJob } from "./jobs";
+import { getJob, type JobWorker } from "./jobs";
 import { services } from "./services";
 import {
   fakeElevenLabs,
@@ -48,6 +48,12 @@ export function jobBench() {
       },
       { status: 202 }
     );
+  // Every test's app shares the one db, and a job worker is one per db: each test's stop, their rounds settled, before
+  // the next test resets it.
+  const workers: JobWorker[] = [];
+  afterEach(() =>
+    Promise.all(workers.splice(0).map((worker) => worker.stop()))
+  );
   beforeEach(() => {
     env.reset();
     fake.calls.length = 0;
@@ -66,6 +72,7 @@ export function jobBench() {
     const s = services(testConfig(baseUrl, overrides), env.db, {
       audio: bucket,
     });
+    workers.push(s.worker);
     return Object.assign(createApp(s), { audio: bucket, s });
   };
   // The audio of the last upload ElevenLabs got.
