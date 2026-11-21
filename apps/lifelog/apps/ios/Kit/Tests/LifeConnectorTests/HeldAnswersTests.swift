@@ -149,11 +149,11 @@ import Testing
     holds.hold(AnswerRequest(ref: "dec_000000000002", options: ["done"]), as: "Done")
     await holds.sendAll()
     let ended = state.withLock { $0 }
-    #expect(ended.heldAnswerWarning == "Your answer was recorded. Reminders did not take the change.")
+    #expect(ended.heldAnswerWords == "Your answer was recorded. Reminders did not take the change.")
     guard case .succeeded = ended else {
         Issue.record("expected it answered, got \(ended)")
         return
     }
     #expect(life.keys.withLock { $0 } == ["tap-1"])
-    #expect(ActionState<ActionProof>.succeeded(.recorded, steps: []).heldAnswerWarning == nil)
+    #expect(ActionState<ActionProof>.succeeded(.recorded, steps: []).heldAnswerWords == nil)
 }

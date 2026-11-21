@@ -79,9 +79,9 @@ final class LifeStore {
     /// Its send ends with Life's answer, before the reads after it: a flush waits for Life, not for them.
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] held in
         await self?.send(held.request, for: held.life)
-        // Its card is gone by now: what Life could not do on it is said back here.
-        if let warning = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWarning {
-            self?.show(SaidBack(words: warning, undo: nil))
+        // Its card is gone by now: what Life could not do on it, or when it comes back, is said back here.
+        if let words = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWords {
+            self?.show(SaidBack(words: words, undo: nil))
         }
         Task { await self?.refreshAfterAnswer() }
     }

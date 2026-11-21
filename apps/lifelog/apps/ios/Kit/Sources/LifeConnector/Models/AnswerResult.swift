@@ -41,9 +41,11 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
         /// "Not now" on a your move card: the local day (`YYYY-MM-DD`) it is back in his inbox. Any other answer: absent.
         public let until: String?
 
-        /// The day "Not now" brings the card back, in his words: "Tue 24 Nov".
-        public var backOn: String? {
-            until.flatMap { SaidWords.parse($0, timeZone: .current) }.map { SaidWords.day($0.date) }
+        /// What "Not now" says back: "Snoozed until Tue 24 Nov." (a new step on its matter can bring it back sooner).
+        public func snoozed(locale: Locale = .current, timeZone: TimeZone = .current) -> String? {
+            until.flatMap { SaidWords.parse($0, timeZone: timeZone) }.map {
+                "Snoozed until \(SaidWords.day($0.date, locale: locale, timeZone: timeZone))."
+            }
         }
     }
 

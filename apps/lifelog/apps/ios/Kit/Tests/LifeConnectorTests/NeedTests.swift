@@ -113,6 +113,9 @@ private func need(_ json: String) throws -> Check.Need {
         from: Data(
             #"{"ref":"move:m/s","kind":"your move","changed":{"answer":"not-now","matter":"m","step":"s","until":"2026-11-24"}}"#
                 .utf8))
-    #expect(result.changed?.until == "2026-11-24")
-    #expect(result.changed?.backOn?.isEmpty == false)
+    #expect(
+        result.changed?.snoozed(locale: Locale(identifier: "en_GB"), timeZone: .gmt) == "Snoozed until Tue 24 Nov.")
+    // Held in the Inbox, its card gone, the toast says the same.
+    let held = ActionState<ActionProof>.succeeded(.answered(result), steps: [])
+    #expect(held.heldAnswerWords == result.changed?.snoozed())
 }

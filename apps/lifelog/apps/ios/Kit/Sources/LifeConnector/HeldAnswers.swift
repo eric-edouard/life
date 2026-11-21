@@ -87,11 +87,9 @@ public final class HeldAnswers {
 
 extension ActionState where Proof == ActionProof {
     /// What a held answer's end says back on its own, its card gone by then: that Life recorded it but did not end its
-    /// step as asked, and Life's reason. Nil: nothing to say.
-    public var heldAnswerWarning: String? {
-        guard case .succeeded(.answered(let result), _) = self, let reason = result.changed?.ended?.error else {
-            return nil
-        }
-        return "Your answer was recorded. \(reason)"
+    /// step as asked, and Life's reason; or the day a Not now brings its card back. Nil: nothing to say.
+    public var heldAnswerWords: String? {
+        guard case .succeeded(.answered(let result), _) = self, let changed = result.changed else { return nil }
+        return changed.ended?.error.map { "Your answer was recorded. \($0)" } ?? changed.snoozed()
     }
 }

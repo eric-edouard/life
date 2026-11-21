@@ -204,7 +204,7 @@ extension Taken {
             return "To \(to.joined(separator: " on "))\(when)."
         }
         if isStart { return "An agent works toward the goal." }
-        if let back = result.changed?.backOn { return "Back in your inbox on \(back)." }
+        if let snoozed = result.changed?.snoozed() { return snoozed }
         if check.group == .newMatter {
             return staysOpen
                 ? "The goal is yours now. Start or Dismiss is still waiting." : "Never asked again for this matter."
