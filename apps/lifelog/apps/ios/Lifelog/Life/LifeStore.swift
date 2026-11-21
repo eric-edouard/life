@@ -810,13 +810,20 @@ final class LifeStore {
             scopedMatters[$0.identity]?.value?.matters.contains { $0.id == id } == true
         }
         // Its project's header, if on show, read with or without its rows.
-        let project = (matter[id]?.value?.row ?? matters.value?.matters.first { $0.id == id })?.project?.id
+        let project = (matter[id]?.value?.row ?? listedRow(of: id))?.project?.id
         let head = project.flatMap { projectHead[$0] == nil ? nil : $0 }
         async let all: Void = refreshMatters()
         async let chips: Void = refreshProjects()
         for chip in held { await refreshScopedMatters(chip.kind, chip.id) }
         if let head { await refreshProjectHead(head) }
         _ = await (all, chips)
+    }
+
+    /// Matter `id`'s row as a list on hand has it (every running matter's, or a chip's): its page draws from it until
+    /// the matter's own read lands.
+    func listedRow(of id: String) -> MatterRow? {
+        let lists = [matters] + Array(scopedMatters.values)
+        return lists.lazy.compactMap { $0.value?.matters.first { $0.id == id } }.first
     }
 
     /// A matter's asks less those his answers took out since it was read: the Inbox's rule (`answersNewer`), for its
