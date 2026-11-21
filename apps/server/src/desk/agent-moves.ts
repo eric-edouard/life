@@ -103,8 +103,11 @@ function toAgentRefusalOf(to: AgentRow | null, from: AgentRow) {
   if (to?.status === "stopped") {
     return MOVE_REASONS.stopped;
   }
-  if (to?.status !== "active" || hasFixedSubject(to.role)) {
+  if (to?.status !== "active") {
     return MOVE_REASONS.agentEnded(to ? shortNameOf(to) : "other");
+  }
+  if (hasFixedSubject(to.role)) {
+    return MOVE_REASONS.fixedSubject(shortNameOf(to));
   }
   return to.id === from.id ? MOVE_REASONS.withAgent(shortNameOf(to)) : null;
 }

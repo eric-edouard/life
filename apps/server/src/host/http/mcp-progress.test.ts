@@ -3,9 +3,9 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { DAY } from "../../core/clock";
+import { clock, DAY } from "../../core/clock";
 import { linesOf } from "../../core/files";
-import { LOG_DIR } from "../../core/log";
+import { LOG_DIR, logFileOf } from "../../core/log";
 import {
   DECISIONS,
   decisionsNow,
@@ -140,9 +140,7 @@ test("the mcp.call line keeps a run of one step (a streamed answer's words) as o
       method: "POST",
     })
   );
-  const line = linesOf(
-    join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.jsonl`)
-  )
+  const line = linesOf(join(LOG_DIR, logFileOf(clock().toISOString())))
     .map((l) => JSON.parse(l))
     .findLast((l) => l.kind === "mcp.call" && l.tool === "repeat");
   expect(

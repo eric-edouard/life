@@ -157,7 +157,10 @@ test("an ask its session would not take keeps no retry key: the retry asks again
     Promise.reject(new SessionLive("session is running"));
   expect(
     await askMainSession(t.desk, { key: "k", words: "Again" }, () => undefined)
-  ).toEqual({ kind: "error", what: "The main session is open elsewhere." });
+  ).toEqual({
+    kind: "error",
+    what: "Life's main session is busy or closed: send your words again.",
+  });
   t.fake.runtime.talk = talk;
   const again = askMainSession(
     t.desk,
@@ -241,7 +244,7 @@ test("the door: his words by the local key stream NDJSON lines then the answer; 
 
 test("presence registers nothing; a turn launching is never ended by the lost turns' sweep; a busy ask is not kept by its key, and a key with other words is refused", async () => {
   expect(await keepMainSession(t.desk)).toBe(
-    "no main session open yet: his next words start one"
+    "Life's main session opens on your first words."
   );
   expect(main()).toBeFalsy();
   const first = await asked("Hello", (r) =>

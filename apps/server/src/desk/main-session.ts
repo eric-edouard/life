@@ -80,9 +80,12 @@ export async function keepMainSession(desk: Desk) {
   const a = standingAgentOf(desk.db, "main");
   const runtime = a && desk.runtimes[a.runtime];
   if (!(a?.status === "active" && a.session && runtime)) {
-    return a?.status === "stopped"
-      ? `the main session ${a.id} is stopped`
-      : "no main session open yet: his next words start one";
+    if (a?.status === "stopped") {
+      return "Life's main session is stopped.";
+    }
+    return a?.session && !runtime
+      ? `Life can't run ${a.runtime} right now.`
+      : "Life's main session opens on your first words.";
   }
   try {
     await runtime.keep(sessionAgentOf(a), a.session);
@@ -188,7 +191,10 @@ async function answer(
     // Nothing ran: a session his app holds deletes the turn, any other failure ends it failed.
     if (error instanceof SessionLive) {
       db.run("delete from turn where id = ? and begun_at is null", [turn]);
-      return { kind: "error", what: "The main session is open elsewhere." };
+      return {
+        kind: "error",
+        what: "Life's main session is busy or closed: send your words again.",
+      };
     }
     await turnEnded(desk, turn, { ok: false, why: errorOf(error).error });
     return { kind: "error", what: errorOf(error).error };

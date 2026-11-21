@@ -68,6 +68,7 @@ export const MOVE_REASONS = {
   blocked: (runtime: string) =>
     `${runtimeWordOf(runtime)} can't run on your Mac right now.`,
   closed: "The matter closed before it moved.",
+  fixedSubject: (name: string) => `The ${name} agent takes no other matter.`,
   full: "Too many agents are at work.",
   noHolder: "No agent holds this matter.",
   notStarted: (to: string) => `${to} did not start.`,

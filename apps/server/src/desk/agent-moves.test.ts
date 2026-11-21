@@ -210,7 +210,7 @@ test("a matter never moves to an agent that takes no other subject (the main ses
     runtime: "fake",
   });
   expect(move(desk, { agent: main, steps: [STEP] })).toEqual({
-    error: MOVE_REASONS.agentEnded("Test brief: main"),
+    error: MOVE_REASONS.fixedSubject("Test brief: main"),
   });
 });
 
