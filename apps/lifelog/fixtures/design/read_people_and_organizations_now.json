@@ -1,0 +1,401 @@
+{
+  "person:camille": {
+    "reach": [
+      {
+        "network": "whatsapp",
+        "label": "WhatsApp",
+        "accounts": [
+          {
+            "handle": "+33 6 00 00 00 01",
+            "open": {
+              "lands": "chat",
+              "url": "https://wa.me/33600000001"
+            },
+            "title": "Camille",
+            "lastAt": "2026-11-17T09:14:00"
+          },
+          {
+            "handle": "+33 7 00 00 00 02",
+            "open": {
+              "lands": "chat",
+              "url": "https://wa.me/33700000002"
+            },
+            "title": "Camille Vance · Studio",
+            "lastAt": "2026-11-02T10:00:00"
+          }
+        ]
+      },
+      {
+        "network": "imessage",
+        "label": "Messages",
+        "accounts": [
+          {
+            "handle": "+33 6 00 00 00 01",
+            "open": {
+              "lands": "chat",
+              "url": "sms:+33600000001"
+            },
+            "lastAt": "2026-11-16T22:40:00"
+          }
+        ]
+      },
+      {
+        "network": "instagram",
+        "label": "Instagram",
+        "accounts": [
+          {
+            "handle": "camille.vance",
+            "open": {
+              "lands": "chat",
+              "url": "https://instagram.com/camille.vance"
+            },
+            "lastAt": "2026-11-12T21:30:00"
+          }
+        ]
+      },
+      {
+        "network": "mail",
+        "label": "Mail",
+        "accounts": [
+          {
+            "handle": "camille@vance.example",
+            "open": {
+              "lands": "chat",
+              "url": "mailto:camille@vance.example"
+            },
+            "title": "Personal",
+            "lastAt": "2026-11-10T08:00:00"
+          },
+          {
+            "handle": "camille@studiolune.example",
+            "open": {
+              "lands": "chat",
+              "url": "mailto:camille@studiolune.example"
+            },
+            "title": "Work",
+            "lastAt": "2026-10-20T08:00:00"
+          },
+          {
+            "handle": "c.vance@mail.example",
+            "open": {
+              "lands": "chat",
+              "url": "mailto:c.vance@mail.example"
+            },
+            "title": "Old",
+            "lastAt": "2025-03-01T08:00:00"
+          }
+        ]
+      },
+      {
+        "network": "call",
+        "label": "Call",
+        "accounts": [
+          {
+            "handle": "+33 6 00 00 00 01",
+            "open": {
+              "lands": "chat",
+              "url": "tel:+33600000001"
+            }
+          }
+        ]
+      }
+    ],
+    "open": [
+      {
+        "agent": "agt_lease",
+        "areas": ["Home", "Money"],
+        "goal": {
+          "by": "life",
+          "text": "The signed lease is back with Hélène Aubert before 30 November."
+        },
+        "icon": {
+          "by": "life",
+          "key": "key"
+        },
+        "id": "matter_lease",
+        "lastStepAt": "2026-11-18T14:02:00",
+        "name": "Lease renewal, rue des Carmes",
+        "needsYou": true,
+        "nextStep": {
+          "by": "life",
+          "kind": "wait_decision",
+          "text": "Send Hélène the signed lease."
+        },
+        "openedDaysAgo": 9,
+        "people": {
+          "owedTo": [
+            {
+              "kind": "person",
+              "name": "Hélène Aubert",
+              "ref": "person:helène_aubert"
+            }
+          ],
+          "with": [
+            {
+              "kind": "person",
+              "name": "Camille Vance",
+              "ref": "person:camille_vance",
+              "picture": {
+                "id": "0c1dd147dc5331bb52324d0ec0661d2e"
+              }
+            }
+          ]
+        },
+        "status": "moving"
+      },
+      {
+        "areas": ["Family"],
+        "goal": {
+          "by": "life",
+          "text": "A table for eight at Chez Odile on Friday 27th."
+        },
+        "icon": {
+          "by": "life",
+          "key": "food"
+        },
+        "id": "matter_table",
+        "lastStepAt": "2026-11-18T14:02:00",
+        "name": "Table for Mum’s 60th",
+        "needsYou": false,
+        "nextStep": {
+          "by": "life",
+          "kind": "do",
+          "text": "Book Chez Odile for Friday 27th."
+        },
+        "openedDaysAgo": 3,
+        "people": {
+          "with": [
+            {
+              "kind": "person",
+              "name": "Camille Vance",
+              "ref": "person:camille_vance",
+              "picture": {
+                "id": "0c1dd147dc5331bb52324d0ec0661d2e"
+              }
+            },
+            {
+              "kind": "person",
+              "name": "Idris Benali",
+              "ref": "person:idris",
+              "picture": {
+                "id": "59400481f8a16e09515dc886a44c1393"
+              }
+            }
+          ]
+        },
+        "status": "moving"
+      },
+      {
+        "areas": ["Home"],
+        "goal": {
+          "by": "life",
+          "text": "The bookshelf is in the flat."
+        },
+        "icon": {
+          "by": "life",
+          "key": "box"
+        },
+        "id": "matter_shelf",
+        "lastStepAt": "2026-11-18T14:02:00",
+        "name": "Bookshelf delivery",
+        "needsYou": false,
+        "nextStep": {
+          "by": "life",
+          "kind": "wait_event",
+          "text": "The delivery was due Wednesday 18th.",
+          "waitsOn": "a delivery"
+        },
+        "openedDaysAgo": 4,
+        "people": {},
+        "status": "waiting_on_someone"
+      }
+    ],
+    "more": {
+      "open": 2
+    },
+    "situation": [
+      {
+        "text": "You are planning Mum’s 60th with her: she wants the table at Chez Odile on Friday 27th, and has asked twice this week whether the signed lease has gone to Hélène. She is away in Lyon until Sunday, and the cake has to be ordered before Thursday."
+      }
+    ],
+    "knows": [
+      {
+        "part": "page",
+        "ref": "person:camille/page",
+        "first": "Camille is your partner. You live together, and the one open thing between you is the lease on rue des Carmes, which goes back to Hélène before 30 November."
+      }
+    ]
+  },
+  "person:marc_fenn": {
+    "reach": [
+      {
+        "network": "imessage",
+        "label": "Messages",
+        "accounts": [
+          {
+            "handle": "+33 6 55 01 02 03",
+            "open": {
+              "lands": "chat",
+              "url": "sms:+33655010203"
+            },
+            "lastAt": "2026-11-09T20:15:00"
+          }
+        ]
+      },
+      {
+        "network": "call",
+        "label": "Call",
+        "accounts": [
+          {
+            "handle": "+33 6 55 01 02 03",
+            "open": {
+              "lands": "chat",
+              "url": "tel:+33655010203"
+            }
+          }
+        ]
+      }
+    ],
+    "details": [
+      {
+        "kind": "handles",
+        "text": "Mobile: +33 6 55 01 02 03"
+      },
+      {
+        "kind": "family",
+        "text": "Camille Vance, sister"
+      }
+    ]
+  },
+  "person:atelier_morel": {
+    "reach": [
+      {
+        "network": "mail",
+        "label": "Mail",
+        "accounts": [
+          {
+            "handle": "bastien@ateliermorel.example",
+            "open": {
+              "lands": "chat",
+              "url": "mailto:bastien@ateliermorel.example"
+            },
+            "title": "Bastien Morel",
+            "lastAt": "2026-11-16T09:10:00"
+          }
+        ]
+      }
+    ],
+    "open": [
+      {
+        "areas": ["Work"],
+        "goal": {
+          "by": "life",
+          "text": "Quote sent and accepted."
+        },
+        "icon": {
+          "by": "life",
+          "key": "paper"
+        },
+        "id": "matter_nora",
+        "lastStepAt": "2026-11-18T14:02:00",
+        "name": "Quote for Nora Keller",
+        "needsYou": true,
+        "nextStep": {
+          "by": "life",
+          "kind": "wait_owner",
+          "text": "Call Nora about the start date."
+        },
+        "openedDaysAgo": 5,
+        "people": {
+          "with": [
+            {
+              "kind": "person",
+              "name": "Nora Keller",
+              "ref": "person:nora_keller",
+              "picture": {
+                "id": "9d80c65fa3d41f254bfbde4054864eba"
+              }
+            }
+          ]
+        },
+        "status": "moving"
+      },
+      {
+        "agent": "agt_kitchen",
+        "areas": ["Home"],
+        "goal": {
+          "by": "life",
+          "text": "A kitchen quote that fits the budget."
+        },
+        "icon": {
+          "by": "life",
+          "key": "hammer"
+        },
+        "id": "matter_kitchen",
+        "lastStepAt": "2026-11-18T14:02:00",
+        "name": "Kitchen quote, Halden house",
+        "needsYou": false,
+        "nextStep": {
+          "by": "life",
+          "kind": "wait_event",
+          "text": "Idris sends the supplier price.",
+          "waitsOn": "a message"
+        },
+        "openedDaysAgo": 6,
+        "people": {
+          "waitingOn": [
+            {
+              "kind": "person",
+              "name": "Idris Benali",
+              "ref": "person:idris",
+              "picture": {
+                "id": "59400481f8a16e09515dc886a44c1393"
+              }
+            }
+          ]
+        },
+        "status": "waiting_on_someone",
+        "important": true,
+        "project": {
+          "id": "halden",
+          "name": "Halden house",
+          "status": "active"
+        }
+      }
+    ],
+    "people": [
+      {
+        "party": {
+          "kind": "person",
+          "name": "Bastien Morel",
+          "ref": "person:bastien",
+          "line": "Founder, Atelier Morel",
+          "picture": {
+            "id": "04f62921efb80bf5e97b0bb91b04e881"
+          }
+        },
+        "role": "Founder, architect"
+      },
+      {
+        "party": {
+          "kind": "person",
+          "name": "Inès Carvalho",
+          "ref": "person:ines",
+          "line": "Site manager, Atelier Morel"
+        },
+        "role": "Site manager"
+      },
+      {
+        "party": {
+          "kind": "person",
+          "name": "Marc Delmas",
+          "ref": "person:marc_delmas",
+          "line": "Fitter, works with Idris Benali"
+        },
+        "role": "Fitter",
+        "until": 2025
+      }
+    ],
+    "domains": ["ateliermorel.example", "@ateliermorel.example"]
+  }
+}

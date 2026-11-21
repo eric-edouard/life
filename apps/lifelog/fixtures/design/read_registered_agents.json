@@ -123,7 +123,10 @@
         "reported": true,
         "since": "2026-11-17T10:12:00",
         "tokens": 640000
-      }
+      },
+      "name": "Personal agent",
+      "short": "Personal",
+      "role": "personal"
     },
     {
       "amber": [],
@@ -136,7 +139,7 @@
       },
       "notes": "Kitchen quote.",
       "outcome": null,
-      "project": null,
+      "project": "halden",
       "runtime": "codex",
       "status": "waiting",
       "statusSince": "2026-11-19T14:02:00",
@@ -195,7 +198,9 @@
         "reported": true,
         "since": "2026-11-14T09:00:00",
         "tokens": 2200000
-      }
+      },
+      "name": "Halden house agent",
+      "short": "Halden house"
     }
   ],
   "desk": "ok",

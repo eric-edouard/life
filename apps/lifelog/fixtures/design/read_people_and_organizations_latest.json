@@ -1,0 +1,141 @@
+{
+  "person:camille/latest": {
+    "latest": [
+      {
+        "channel": "whatsapp",
+        "at": "2026-11-17T09:14:00",
+        "lines": [
+          {
+            "by": "them",
+            "text": "Tu peux envoyer le bail signé à Hélène aujourd’hui ? Elle me relance."
+          }
+        ],
+        "open": {
+          "url": "https://wa.me/33600000001"
+        }
+      },
+      {
+        "channel": "imessage",
+        "at": "2026-11-16T22:40:00",
+        "lines": [
+          {
+            "by": "him",
+            "text": "Je demande à Chez Odile demain matin, et je te dis."
+          }
+        ],
+        "open": {
+          "url": "sms:+33600000001"
+        }
+      },
+      {
+        "channel": "imessage",
+        "at": "2026-11-16T22:31:00",
+        "lines": [
+          {
+            "by": "them",
+            "text": "On dîne où vendredi, chez ta mère ou chez nous ?"
+          }
+        ],
+        "open": {
+          "url": "sms:+33600000001"
+        }
+      },
+      {
+        "channel": "voice",
+        "at": "2026-11-14T18:05:00",
+        "summary": "On commande le gâteau avant jeudi, sinon il n’y en aura plus pour vendredi."
+      },
+      {
+        "channel": "whatsapp",
+        "at": "2026-11-13T19:02:00",
+        "lines": [
+          {
+            "by": "them",
+            "text": "J’ai pris les billets pour Lyon, on part samedi matin."
+          }
+        ],
+        "open": {
+          "url": "https://wa.me/33600000001"
+        }
+      },
+      {
+        "channel": "whatsapp",
+        "at": "2026-11-13T12:48:00",
+        "lines": [
+          {
+            "by": "him",
+            "text": "Merci pour les billets, tu es un amour."
+          }
+        ],
+        "open": {
+          "url": "https://wa.me/33600000001"
+        }
+      },
+      {
+        "channel": "instagram",
+        "at": "2026-11-12T21:30:00",
+        "lines": [
+          {
+            "by": "them",
+            "text": "Regarde cette lampe, pour le salon ?"
+          }
+        ],
+        "open": {
+          "url": "https://instagram.com/camille.vance"
+        }
+      }
+    ],
+    "nextBefore": "2026-11-12"
+  },
+  "person:camille/latest/before/2026-11-12": {
+    "latest": [
+      {
+        "channel": "whatsapp",
+        "at": "2026-11-11T08:30:00",
+        "lines": [
+          {
+            "by": "them",
+            "text": "Bonne journée, à ce soir !"
+          }
+        ],
+        "open": {
+          "url": "https://wa.me/33600000001"
+        }
+      }
+    ]
+  },
+  "person:atelier_morel": {
+    "latest": [
+      {
+        "channel": "mail",
+        "at": "2026-11-16T09:10:00",
+        "lines": [
+          {
+            "by": "them",
+            "text": "Le devis est en pièce jointe."
+          }
+        ],
+        "open": {
+          "url": "mailto:bastien@ateliermorel.example"
+        }
+      }
+    ]
+  },
+  "person:atelier_morel/latest": {
+    "latest": [
+      {
+        "channel": "mail",
+        "at": "2026-11-16T09:10:00",
+        "lines": [
+          {
+            "by": "them",
+            "text": "Le devis est en pièce jointe."
+          }
+        ],
+        "open": {
+          "url": "mailto:bastien@ateliermorel.example"
+        }
+      }
+    ]
+  }
+}

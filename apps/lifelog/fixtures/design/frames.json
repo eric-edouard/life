@@ -637,13 +637,20 @@
     "taps": ["Sort", "A to Z"]
   },
   "DuoPeopleOrg": {
-    "why": "Its organization (person:atelier_morel) is not in the design data yet; once the designer adds it to read_people_and_organizations.json: -fixtureLife ok -fixtureTab people -fixturePerson person:atelier_morel."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:atelier_morel"
+    ]
   },
   "DuoPeopleSearch": {
     "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
   },
   "DuoPeopleTall": {
-    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and its tap have no rows to draw; design:shots supplies the upright pose from the frame map."
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
   },
   "DuoPersonCreate": {
     "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
@@ -658,7 +665,14 @@
     "why": "Not built: the person read names no pictures by source yet (life#812)."
   },
   "DuoPersonTall": {
-    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and a person's page have no rows to draw; design:shots supplies the upright pose from the frame map."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille"
+    ]
   },
   "ImportantCard": {
     "why": "The switched stack (StackOnlyYou) is not built, and Life sends no whyNow: of this frame only the pill's flag is built."
