@@ -901,7 +901,8 @@ struct RowGroup<Content: View>: View {
     }
 }
 
-/// A one-line field: 48 high capsule, no outline, its fill by the surface it sits on.
+/// A one-line field with the microphone (`DictationField`): 48 high capsule, no outline, its fill by the surface it
+/// sits on.
 struct Field: View {
     let prompt: String
     @Binding var text: String
@@ -912,7 +913,7 @@ struct Field: View {
     var body: some View {
         HStack(spacing: 12) {
             if let icon { Image(systemName: icon).foregroundStyle(Palette.muted).accessibilityHidden(true) }
-            TextField(prompt, text: $text).font(.body15).foregroundStyle(Palette.fg)
+            DictationField(prompt: prompt, text: $text).font(.body15).foregroundStyle(Palette.fg)
         }
         .padding(.horizontal, 20)
         .frame(minHeight: 48)
