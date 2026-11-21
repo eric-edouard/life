@@ -4,6 +4,7 @@
 
 import type { z } from "zod";
 import type { CheckGroup } from "../core/names";
+import type { NamingQueueItem } from "../sources/lifelog-voices";
 import type { PlanStep } from "./card-request";
 import type { Decision } from "./decision-lines";
 import type { doneSeenShownOf } from "./decisions";
@@ -259,25 +260,23 @@ export const endingGuessOf = (step: string) =>
 
 /**
  * The pre-ticked answer (`Check.preTicked`): the option a bulk card starts a row ticked with; he unticks the wrong ones.
- * An ending reads probably done; a voice whose guess in use is the one known person its heard name is, "Yes"
- * (ponytail: lifelog's likeness replaces the heard name once its queue gives one); a voice heard in one conversation
- * with no name heard, "Don't name"; null for anything else. `voice`: its conversations, the name heard for it and who
- * that name resolves to.
+ * An ending reads probably done; a voice of no one Life knows (lifelog's `new_person`: a known person's own name is
+ * never in `name`), heard in one conversation with no name heard, "Don't name"; null for anything else. "Yes"
+ * (`is-them`) comes with lifelog's likeness on its queue item, which it does not give yet.
  */
 export function preTickedOf(
-  c: Pick<Check, "kind" | "subject">,
-  voice?: { conversations: number; heardAs: string | null; name: string | null }
+  c: Pick<Check, "kind">,
+  voice?: Pick<NamingQueueItem, "conversations" | "kind" | "name">
 ): string | null {
   if (c.kind === "ending") {
     return "outdated";
   }
-  if (c.kind !== "voice" || !voice) {
-    return null;
-  }
-  if (c.subject && voice.heardAs === c.subject) {
-    return "is-them";
-  }
-  return voice.conversations === 1 && !voice.name ? "not-relevant" : null;
+  return c.kind === "voice" &&
+    voice?.kind === "new_person" &&
+    voice.conversations === 1 &&
+    !voice.name
+    ? "not-relevant"
+    : null;
 }
 
 /** Whether a check asks if a step is done (never in the nightly email). */

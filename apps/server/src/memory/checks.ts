@@ -330,7 +330,7 @@ function ranked(
             onMatters: [],
             onSilence: null,
             options: [...LIFE_CHECKS[group].options],
-            preTicked: preTickedOf({ kind, subject: null }),
+            preTicked: preTickedOf({ kind }),
             question: fields.question,
             ref: fields.ref,
             ridesOn: rides,
