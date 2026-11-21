@@ -2,7 +2,7 @@ import { DAY } from "../core/clock";
 import { chatGroups, type SourceEvent } from "../records/source";
 import type { DetailLine } from "./details";
 import { OWNER } from "./read-truth";
-import { callLine, chatPerson, clip } from "./units";
+import { callLine, callSpanOf, chatPerson, clip } from "./units";
 import type { People } from "./who";
 import { offsetAt } from "./zones";
 
@@ -31,14 +31,14 @@ export function overlappingPhoneCallsOf(
   people: Pick<People, "nameOf" | "resolve">
 ) {
   const [start, end] = [Date.parse(from), Date.parse(to)];
-  const overlaps = ({ at, phoneCall }: SourceEvent) => {
-    const began = Date.parse(at);
-    if (!phoneCall || phoneCall.seconds === 0) {
+  const overlaps = (e: SourceEvent) => {
+    const began = Date.parse(e.at);
+    if (!e.phoneCall || e.phoneCall.seconds === 0) {
       return false;
     }
-    return phoneCall.seconds === undefined
+    return e.phoneCall.seconds === undefined
       ? began >= start && began < end
-      : began < end && began + phoneCall.seconds * 1000 > start;
+      : began < end && Date.parse(callSpanOf(e).until) > start;
   };
   const found = [...chatGroups(events).values()].flatMap((chat) => {
     const calls = chat.filter(overlaps);

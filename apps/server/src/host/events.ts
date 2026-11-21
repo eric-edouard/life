@@ -1,6 +1,6 @@
 import { INVALID_PARAMS, ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { clock, HOUR, iso } from "../core/clock";
+import { clock, HOUR } from "../core/clock";
 import { DEFAULT_RADIUS_M, distanceM } from "../core/distance";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
@@ -20,7 +20,7 @@ import { readFiles } from "../memory/memory-files";
 import { hearVoiceNotes, showFiles } from "../memory/message-files";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
 import { readySources, SOURCES } from "../memory/sources";
-import { isLifeOutput, speakerOf } from "../memory/units";
+import { callSpanOf, isLifeOutput, speakerOf } from "../memory/units";
 import { meant, nameRefusalOf, type People, readPeople } from "../memory/who";
 import { EventFilter } from "../records/registered-agent";
 import { eventKey, type SourceEvent } from "../records/source";
@@ -610,10 +610,7 @@ export function readEndedCalls(
       if (!e.phoneCall?.seconds) {
         return [];
       }
-      const [at, until] = [
-        iso(Date.parse(e.at)),
-        iso(Date.parse(e.at) + e.phoneCall.seconds * 1000),
-      ];
+      const { at, until } = callSpanOf(e);
       return [
         {
           ...messagePayloadOf(e, people),
