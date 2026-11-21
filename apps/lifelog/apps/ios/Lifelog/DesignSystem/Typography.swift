@@ -41,6 +41,8 @@ struct TypeStep: Equatable {
     static let rowFigure = TypeStep(size: 16, weight: 450, style: .body)
     static let leadBold = TypeStep(size: 17, weight: 600, style: .body)
     static let body15 = TypeStep(size: 15, weight: 450, style: .body)
+    /// A step's fact in a timeline.
+    static let bodyMedium = TypeStep(size: 15, weight: 500, style: .body)
     /// A name in bold inside running text: the name an ask is about, in the sentence it was said in.
     static let bodyBold = TypeStep(size: 15, weight: 700, style: .body)
     /// Text that matters inside a card or a block: the thing to do.
