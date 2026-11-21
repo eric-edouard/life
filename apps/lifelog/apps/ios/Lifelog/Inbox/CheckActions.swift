@@ -367,7 +367,7 @@ struct CheckActions: View {
                     Text(pressed.doneWord(proof).trimmingCharacters(in: CharacterSet(charactersIn: ".")))
                 }
             } else {
-                Text("Saving…")
+                Text(pressed.isStart ? "Starting…" : "Saving…")
             }
         }
         .buttonStyle(.pill(state.isDone(isSend: false) ? .done : kind, size: size, isBusy: state.isRunning))

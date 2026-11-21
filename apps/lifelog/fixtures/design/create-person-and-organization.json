@@ -14,7 +14,7 @@
       "matter": "Quote for Nora Keller",
       "answers": {
         "main": "Create Bastien Morel",
-        "quiet": ["Someone I know…", "Organization", "Neither"]
+        "quiet": ["Someone I know…", "Organization", "I don't care"]
       },
       "badge": {
         "inbox": 2
@@ -121,7 +121,7 @@
       "matter": "Kitchen quote, Halden house",
       "answers": {
         "main": "Create Atelier Morel",
-        "quiet": ["Someone I know…", "Organization", "Neither"]
+        "quiet": ["Someone I know…", "Organization", "I don't care"]
       },
       "badge": {
         "inbox": 2
