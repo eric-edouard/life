@@ -167,7 +167,7 @@ test("a merged card's answer wakes both agents", async () => {
   expect(
     agents
       .find((a) => a.id === asker)
-      ?.wakesOn.flatMap((l) => (l.kind === "answer" ? [l.check] : []))
+      ?.wakesOn.flatMap((l) => ("check" in l ? [l.check] : []))
   ).toEqual([merged.id, later.id]);
   await answerDecision(merged.id, ["skip"]);
   advance(MIN);
