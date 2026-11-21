@@ -1,4 +1,6 @@
 import { readChangeStamp } from "../core/files";
+import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { type CheckGroup, LIFE_ASKER } from "../core/names";
 import { secretIn } from "../core/secret";
 import { settings } from "../core/settings";
@@ -647,7 +649,12 @@ const checksKeyOf = (
 
 /** What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from the desk), and its `key` (`checksKeyOf`): read-only, no model call. Read again only when the key changed, and always while a run holds the lock, then under a key never given twice (its list may change under the same files' stamp): every reader of the inbox shares one read per change, and never mutates the list. */
 export async function checksAndKeyNow(held: HeldRead | null) {
-  const voices = withVoiceGuesses(await readNamingQueue());
+  const queue = await readNamingQueue();
+  // Guesses that cannot be read leave the cards as lifelog suggests; the answer reads them again and refuses then.
+  const voices = await withVoiceGuesses(queue).catch((e) => {
+    log("run.error", { ...errorOf(e), step: "voice.guesses" });
+    return queue;
+  });
   const all = decisionsNow();
   // Each open card as its holder's, read from this one list (`HeldRead.cardHolders`).
   const decisions = all.filter((d) => d.state === "open");

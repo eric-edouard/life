@@ -266,19 +266,27 @@ test("a guess shows in fetch only: the lines the other steps read never carry it
   }
 });
 
-test("a voice card asks about the one person lifelog's suggestion and the group's sure or likely guesses agree on", () => {
+test("a voice card asks about the one person lifelog's suggestion and the group's sure or likely guesses agree on, known to lifelog by an id", async () => {
   const folder = mkdtempSync(join(tmpdir(), "voice-card-guesses-"));
   try {
     line([entry()], "2026-10-11T00:00:00.000Z", folder);
-    // speaker_2's part is filed in an earlier month than the card's clips: still read.
+    // speaker_2's part is filed in an earlier month, as its recording's conversation began then: still read.
     line(
-      [entry({ confidence: "weak", lines: [2], voice: "V2" })],
+      [
+        entry({
+          confidence: "likely",
+          lines: [2],
+          person: "person:kofi",
+          voice: "V2",
+        }),
+      ],
       "2026-10-11T00:00:00.000Z",
       folder,
       "2026-08-01T00:00:00.000Z"
     );
     const item = {
-      clips: [{ at: at(1) }],
+      clips: [],
+      likely: ["lf-dana", "lf-kofi"],
       name: null,
       personId: null,
       voices: [
@@ -286,28 +294,35 @@ test("a voice card asks about the one person lifelog's suggestion and the group'
         { jobId: "job-1", speakerLabel: "speaker_2" },
       ],
     } as unknown as NamingQueueItem;
-    const [guessed] = withVoiceGuesses([item], folder);
-    // The weak guess on speaker_2 counts for nothing.
-    expect(guessed?.guessed).toEqual(["person:dana"]);
+    const months = async () => ["2026-08", "2026-10"];
+    const [guessed] = await withVoiceGuesses([item], folder, months);
+    expect(guessed?.guessed).toEqual(["person:dana", "person:kofi"]);
+    // Only the months its recordings can be filed under are read.
+    const [one] = await withVoiceGuesses([item], folder, async () => [
+      "2026-10",
+    ]);
+    expect(one?.guessed).toEqual(["person:dana"]);
+    const ids: Record<string, string> = {
+      Dana: "person:dana",
+      Kofi: "person:kofi",
+      "lf-dana": "person:dana",
+      "lf-kofi": "person:kofi",
+    };
     const who = {
       names: new Map([...NAMES, ["person:kofi", "Kofi"]]),
       refOf: (r: string) => r,
-      resolve: (s: string) =>
-        ({
-          Dana: "person:dana",
-          Kofi: "person:kofi",
-          "lf-dana": "person:dana",
-        })[s] ?? null,
+      resolve: (s: string) => ids[s] ?? null,
     };
     const card = (o: Record<string, unknown>) =>
-      voiceSuggestionOf(who, { ...(guessed as NamingQueueItem), ...o });
+      voiceSuggestionOf(who, { ...item, guessed: ["person:dana"], ...o });
+    // Two people guessed: no one.
+    expect(voiceSuggestionOf(who, guessed as NamingQueueItem)).toBeNull();
     expect(card({})).toBe("person:dana");
     // Lifelog's heard name agrees, a new person's too; its person or name naming someone else leaves no one.
     expect(card({ kind: "new_person", name: "Dana" })).toBe("person:dana");
     expect(card({ name: "Kofi" })).toBeNull();
     expect(card({ personId: "lf-dana" })).toBe("person:dana");
-    // Two people guessed: no one; a guess of someone not known today counts for nothing.
-    expect(card({ guessed: ["person:dana", "person:kofi"] })).toBeNull();
+    // A guess of someone not known today counts for nothing.
     expect(card({ guessed: ["person:dana", "person:zed"] })).toBe(
       "person:dana"
     );
@@ -315,9 +330,11 @@ test("a voice card asks about the one person lifelog's suggestion and the group'
     expect(card({ guessed: [], kind: "new_person", name: "Dana" })).toBe(
       "person:dana"
     );
-    // A month file torn mid-line: no guesses, and the inbox still reads.
+    // Someone lifelog knows by no id: no name, so "Yes" never names a person by name.
+    expect(card({ likely: [] })).toBeNull();
+    // A month file torn mid-line: the read throws (the inbox keeps lifelog's suggestion, an answer refuses).
     appendFileSync(join(folder, "2026-08.jsonl"), "{not json\n");
-    expect(withVoiceGuesses([item], folder)[0]?.guessed).toEqual([]);
+    await expect(withVoiceGuesses([item], folder, months)).rejects.toThrow();
   } finally {
     rmSync(folder, { force: true, recursive: true });
   }

@@ -330,13 +330,15 @@ export const voicePersonOf = (
 /**
  * The person a voice card asks about, what its "Yes" names (its `subject`): the one person lifelog's suggestion (its
  * person, else the name it heard, as `resolve` reads it, a new person's too) and the voice naming's guesses for its
- * voices (`guessed`, `withVoiceGuesses`; only someone known today) agree on; none when they disagree or name no one. Only
- * ever a question to him ("Is this X?"): his tap is the answer.
+ * voices (`guessed`, `withVoiceGuesses`; only someone known today) agree on, and only when lifelog knows them by an id
+ * (its person or one of its `likely`), so "Yes" assigns that id, never a name; none otherwise. Only ever a question to
+ * him ("Is this X?"): his tap is the answer.
  */
 export function voiceSuggestionOf(
   people: Pick<People, "names" | "refOf" | "resolve">,
   item: {
     guessed?: readonly string[];
+    likely: readonly string[];
     name: string | null;
     personId: string | null;
   }
@@ -349,7 +351,13 @@ export function voiceSuggestionOf(
         .filter((r) => people.names.has(r)),
     ].filter((r) => r !== null)
   );
-  return named.size === 1 ? ([...named][0] as string) : null;
+  const [one] = named;
+  return named.size === 1 &&
+    [item.personId, ...item.likely].some(
+      (id) => id && voicePersonOf(people.resolve, id, null) === one
+    )
+    ? (one as string)
+    : null;
 }
 
 /**
@@ -362,6 +370,7 @@ export const voiceCardRefOf = (
   item: {
     guessed?: readonly string[];
     id: string;
+    likely: readonly string[];
     name: string | null;
     personId: string | null;
     voices: { jobId: string; speakerLabel: string }[];

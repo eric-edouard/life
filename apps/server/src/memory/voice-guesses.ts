@@ -1,11 +1,13 @@
-import { log } from "../core/log";
-import { errorOf } from "../core/log-line";
 import { settings } from "../core/settings";
 import { isPromptVersion } from "../models/prompt-parts";
 import { NamedVoice, type ReadReply } from "../records/read-reply";
-import { type NamingQueueItem, voiceKey } from "../sources/lifelog-voices";
+import {
+  type NamingQueueItem,
+  readJobMonths,
+  voiceKey,
+} from "../sources/lifelog-voices";
 import { READ_REPLIES } from "./memory-files";
-import { READS, readReplies } from "./read-replies";
+import { READS, readReplies, readRepliesOfMonths } from "./read-replies";
 import { UNKNOWN, unnamedTurnKey, voiceOfKey, voiceTokensOf } from "./units";
 import type { People } from "./who";
 
@@ -62,7 +64,7 @@ export function voiceGuessesOf(line: ReadReply): VoiceGuess[] {
 }
 
 /** The newest guess of each unnamed turn key in `lines`, from the lines of the voice naming's current prompt. */
-function newestGuessesOf(lines: ReadReply[]) {
+function newestGuessesOf(lines: readonly ReadReply[]) {
   const now = new Map<string, VoiceGuess>();
   for (const line of lines) {
     if (isPromptVersion(line.madeBy.prompt, READS.voice_naming.prompt)) {
@@ -84,10 +86,10 @@ const guessesOfFile = new WeakMap<
   Map<string, VoiceGuess>
 >();
 
-/** The newest stored guess of each unnamed turn key, over every month file, each read again only when it grew. */
-function readNewestGuesses(where: string) {
+/** The newest stored guess of each unnamed turn key in these month files, a file's worked out again only when it grew. */
+function newestOfFiles(files: readonly (readonly ReadReply[])[]) {
   const now = new Map<string, VoiceGuess>();
-  for (const lines of readReplies(where)) {
+  for (const lines of files) {
     const held = guessesOfFile.get(lines) ?? newestGuessesOf(lines);
     guessesOfFile.set(lines, held);
     for (const [key, g] of held) {
@@ -108,7 +110,7 @@ export function voiceGuessesNow(
   people: Pick<People, "names" | "refOf">,
   where = READ_REPLIES
 ) {
-  const now = readNewestGuesses(where);
+  const now = newestOfFiles(readReplies(where));
   // The newest guess of a key is the one that counts: when its person is not known today the key has none, never an older guess.
   for (const [key, g] of now) {
     if (
@@ -162,20 +164,19 @@ export function withGuessesShown<
 
 /**
  * Each queue item with who the voice naming guessed its voices are (`guessed`, for `voiceSuggestionOf`): the person of
- * the newest sure or likely guess of each of its turns, `me` and `unknown` left out, as stored. When the guesses cannot
- * be read (a torn month file), none: the cards ask as lifelog suggests, and an answer to a card shown with a guess no
- * longer finds it (`readVoice`), so nothing is named on a guess Life cannot read again.
+ * the newest sure or likely guess of each of its turns, `me` and `unknown` left out, as stored. Reads only the month
+ * files its voices' recordings can be filed under (`readJobMonths`); throws when one cannot be read.
  */
-export function withVoiceGuesses<I extends NamingQueueItem>(
+export async function withVoiceGuesses<I extends NamingQueueItem>(
   items: readonly I[],
-  where = READ_REPLIES
+  where = READ_REPLIES,
+  monthsOf = readJobMonths
 ) {
-  let guesses = new Map<string, VoiceGuess>();
-  try {
-    guesses = readNewestGuesses(where);
-  } catch (e) {
-    log("run.error", { ...errorOf(e), step: "voice.guesses" });
-  }
+  const jobs = [...new Set(items.flatMap((i) => i.voices.map((v) => v.jobId)))];
+  const guesses =
+    jobs.length > 0
+      ? newestOfFiles(readRepliesOfMonths(await monthsOf(jobs), where))
+      : new Map<string, VoiceGuess>();
   const byVoice = Map.groupBy(
     [...guesses.values()].filter(
       (g) =>

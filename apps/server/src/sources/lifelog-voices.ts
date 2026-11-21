@@ -2,7 +2,13 @@ import { z } from "zod";
 import { DAY } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
-import { LIVE, parseTurnRef, type Store, writeLifelog } from "./lifelog";
+import {
+  LIVE,
+  parseTurnRef,
+  type Store,
+  withStore,
+  writeLifelog,
+} from "./lifelog";
 import { call, lifelogMissing } from "./lifelog-call";
 
 // What lifelog says of the voices of its recordings: how a conversation's voices were heard (`readVoiceKinds`) and who
@@ -293,3 +299,35 @@ export async function answerNamingQueue(
   );
   return done;
 }
+
+/**
+ * The UTC months (`YYYY-MM`) a read of these jobs' speech can be filed under (a reply goes in its first message's month):
+ * from their conversation's start to their last turn. A job the store does not hold has none.
+ */
+export const readJobMonths = (jobIds: readonly string[]) =>
+  withStore((store) => {
+    const span = store.db.query<
+      { from: string | null; to: string | null },
+      [string]
+    >(
+      `select c.start_at as "from", max(t.start_at) as "to" from turns t
+        join conversations c on c.id = t.conversation_id where t.job_id = ?`
+    );
+    return [
+      ...new Set(
+        jobIds.flatMap((job) => {
+          const { from, to } = span.get(job) ?? {};
+          const months: string[] = [];
+          for (let m = from?.slice(0, 7); m && to && m <= to.slice(0, 7); ) {
+            months.push(m);
+            const [y, mo] = m.split("-").map(Number) as [number, number];
+            m =
+              mo === 12
+                ? `${y + 1}-01`
+                : `${y}-${String(mo + 1).padStart(2, "0")}`;
+          }
+          return months;
+        })
+      ),
+    ];
+  });

@@ -146,7 +146,13 @@ interface Voice {
  */
 async function readVoice(c: Pick<Check, "ref">): Promise<Voice> {
   const people = await readPeople();
-  const queue = withVoiceGuesses(await readNamingQueueNow());
+  const queue = await withVoiceGuesses(await readNamingQueueNow()).catch(
+    (e: Error) => {
+      throw new Error(
+        `Not done: the voice guesses behind ${c.ref} cannot be read now (${e.message}).`
+      );
+    }
+  );
   const item = queue.find(
     (i) => i.kind !== "several" && voiceCardRefOf(people, i) === c.ref
   );
