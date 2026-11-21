@@ -34,7 +34,7 @@
         /// `-fixtureAgent notStarted|running`: Nora's agent never began (its runtime refused), for the Try again swap, or works.
         nonisolated static let agent = value(of: "-fixtureAgent")
         /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).
-        /// `-fixturePage life|server|diagnostics`: Settings opens that page.
+        /// `-fixturePage life|server|diagnostics|apps`: Settings opens that page.
         nonisolated static let page = value(of: "-fixturePage")
         nonisolated static let pair = value(of: "-fixturePair") ?? "ok"
         nonisolated static let pose = value(of: "-fixturePose")
@@ -117,6 +117,8 @@
     nonisolated private final class FixtureAPI: LifeAPI, Sendable {
         let scenario: String
         private let answered = Mutex(Set<String>())
+        /// His "Wrong…" the caretaker received, by card: the card stays, being fixed.
+        private let fixing = Mutex([String: String]())
         private let started = Mutex(false)
         private let wholeReads = Mutex(0)
         /// His marks and the projects' statuses as he set them here, over the design data.
@@ -176,6 +178,16 @@
             head["status"] = status
             return json(["project": head, "matters": rows])
         }
+        /// The matters whose people name `person`, by any role.
+        func readMatters(person: String) async throws -> String {
+            try await gate()
+            let rows = rowsNow().filter { row in
+                (row["people"] as? [String: [[String: Any]]] ?? [:]).values.joined().contains {
+                    $0["ref"] as? String == person
+                }
+            }
+            return json(["matters": rows])
+        }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
         /// A `life:` link's page: what Life read of it, as its text reads.
         func fetch(_ ref: String) async throws -> String {
@@ -205,15 +217,27 @@
         }
 
         /// A part by its ref: someone's `now` (their row, with what `read_people_and_organizations_now.json` holds for
-        /// their ref) or `latest` (`read_people_and_organizations_latest.json`, by ref).
+        /// their ref), a page of `latest` or `reach` (`read_people_and_organizations_latest.json`, `…_reach.json`, by
+        /// ref) or a prose part.
         func readPart(_ ref: String) async throws -> String {
             try await gate()
             let parts = ref.split(separator: "/").map(String.init)
             guard let subject = parts.first, let part = parts.dropFirst().first else {
                 throw MCPError.failed("No such part.")
             }
-            if part == "latest" {
-                return json(Self.read("read_people_and_organizations_latest", or: [:])[subject] ?? ["latest": []])
+            // A page of `latest` or `reach`, by its whole ref (`person:camille/latest/before/2026-11-10`); `latest`
+            // alone may be keyed by its subject.
+            if part == "latest" || part == "reach" {
+                let pages = Self.read("read_people_and_organizations_\(part)", or: [:])
+                guard let page = pages[ref] ?? (ref == subject + "/latest" ? pages[subject] : nil) else {
+                    if part == "latest", ref == subject + "/latest" { return json(["latest": []]) }
+                    throw MCPError.failed("No such page.")
+                }
+                return json(page)
+            }
+            // A prose part, as Life writes it (`read_people_and_organizations_parts.json`, its text by ref).
+            if part != "now" {
+                return Self.read("read_people_and_organizations_parts", or: [:])[ref] as? String ?? ""
             }
             let rows = Self.people["people"] as? [[String: Any]] ?? []
             guard part == "now", let row = rows.first(where: { $0["ref"] as? String == subject }) else {
@@ -230,23 +254,32 @@
             }
             // The table's agent exists only once he started one; every open check about it, of every kind.
             let isStarted = started.withLock { $0 }
-            let left = answered.withLock { $0 }
             var matter = DesignReplies.matter(
                 row, agents: Self.allAgents.filter { $0["id"] as? String != "agt_table" || isStarted },
-                steps: Self.matterRead["steps"] as? [String: Any] ?? [:],
-                checks: Self.checks.filter { !left.contains($0["ref"] as? String ?? "") })
+                steps: Self.matterRead["steps"] as? [String: Any] ?? [:], checks: checksNow())
             if id == "matter_table", isStarted { matter["agent"] = "agt_table" }
             // Nora's page stays short, so the agent's row shows above the fold.
             if id == "matter_nora" { matter["checks"] = Array((matter["checks"] as? [[String: Any]] ?? []).prefix(1)) }
             return json(matter)
         }
 
+        /// The open asks as Life holds them now: less those he answered; one whose "Wrong…" the caretaker has no longer blocks.
+        private func checksNow() -> [[String: Any]] {
+            let (left, fixing) = (answered.withLock { $0 }, fixing.withLock { $0 })
+            return Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }.map { check in
+                guard let ask = fixing[check["ref"] as? String ?? ""] else { return check }
+                var check = check
+                check["beingFixed"] = ["ask": ask, "since": at(18, 14, 3), "line": NSNull()]
+                check["urgency"] = "improves"
+                return check
+            }
+        }
+
         /// Every open ask, what blocks first, as `read_inbox` sends it; `improves` holds only what can wait (the list's
         /// "The rest can wait" first), `empty` nothing.
         func inbox() -> String {
             let left = answered.withLock { $0 }
-            var open = Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
-                .filter { scenario != "improves" || $0["urgency"] as? String == "improves" }
+            var open = checksNow().filter { scenario != "improves" || $0["urgency"] as? String == "improves" }
             // `groups`: a few that block, so the list shows "The rest can wait" and what only improves, in a screen.
             if scenario == "groups" {
                 var blocking = 0
@@ -359,6 +392,11 @@
                 if draft == nil, LifeFixture.answer == "failed" { throw MCPError.refused("Your Mac did not take it.") }
                 if draft == nil, LifeFixture.answer == "sending" { try await Task.sleep(for: .seconds(3_600)) }
                 onProgress(message(["step": step, "at": at(18, 14, 3)]))
+            }
+            if answer.isComplaint {
+                let ask = "complaint:" + answerKey
+                fixing.withLock { $0[answer.ref] = ask }
+                return json(["ask": ask, "reached": "caretaker"])
             }
             if draft != nil, Self.refused.contains(LifeFixture.answer) {
                 let send: [String: Any] =

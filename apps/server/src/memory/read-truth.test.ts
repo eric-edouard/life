@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { cpSync, readdirSync, rmSync } from "node:fs";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LOG_DIR } from "../core/log";
@@ -22,6 +29,7 @@ import {
   isDirectoryNew,
   loadTruth,
   projectPeopleAndChatsOf,
+  readDirectoryChangesSince,
   readMe,
   type Truth,
 } from "./read-truth";
@@ -369,4 +377,58 @@ describe("projectPeopleAndChatsOf", () => {
     ]);
     expect(projectPeopleAndChatsOf(t, "other")).toBeNull();
   });
+});
+
+test("what of his directory changed since a night: each person, organization and link added or edited after the last commit before it, never one left as it was", () => {
+  const data = mkdtempSync(join(tmpdir(), "directory-changes-"));
+  mkdirSync(join(data, "truth"));
+  const write = (people: string, organizations: string) => {
+    writeFileSync(join(data, "truth", "people.yaml"), people);
+    writeFileSync(join(data, "truth", "organizations.yaml"), organizations);
+  };
+  const env = {
+    GIT_AUTHOR_DATE: "2026-11-19T10:00:00Z",
+    GIT_COMMITTER_DATE: "2026-11-19T10:00:00Z",
+  };
+  try {
+    write(
+      "people:\n  - id: ann\n    name: Ann\n  - id: bob\n    name: Bob\n",
+      "organizations:\n  - id: acme\n    name: Acme\n    people:\n      - id: ann\n        role: Founder\n      - id: bob\n        role: Engineer\n"
+    );
+    // Not a repo: a failure, never "everything changed".
+    expect(() =>
+      readDirectoryChangesSince("2026-11-20T00:00:00Z", data)
+    ).toThrow();
+    for (const args of [
+      ["init", "-q"],
+      ["add", "."],
+      [
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "-qm",
+        "a",
+      ],
+    ]) {
+      Bun.spawnSync(["git", "-C", data, ...args], {
+        env: { ...process.env, ...env },
+      });
+    }
+    // No commit before the night: everything is new.
+    expect(readDirectoryChangesSince("2026-11-18T00:00:00Z", data)).toEqual(
+      new Set(["ann", "bob", "acme", "acme|ann", "acme|bob"])
+    );
+    // Bob's role edited and Cid added after the night: Ann and her link are left as they were.
+    write(
+      "people:\n  - id: ann\n    name: Ann\n  - id: bob\n    name: Bob\n  - id: cid\n    name: Cid\n",
+      "organizations:\n  - id: acme\n    name: Acme\n    people:\n      - id: ann\n        role: Founder\n      - id: bob\n        role: CTO\n"
+    );
+    expect(readDirectoryChangesSince("2026-11-20T00:00:00Z", data)).toEqual(
+      new Set(["cid", "acme", "acme|bob"])
+    );
+  } finally {
+    rmSync(data, { force: true, recursive: true });
+  }
 });

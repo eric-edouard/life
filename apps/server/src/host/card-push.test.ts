@@ -247,7 +247,7 @@ test("while a run holds the lock a new decision still pushes, from its own lines
         badge: 3,
         body: "1 new card",
         level: "active",
-        pushId: checks.pushIdOf(id),
+        pushId: lifelog.pushIdOf(id),
         title: "Life",
       },
     ],
@@ -255,7 +255,7 @@ test("while a run holds the lock a new decision still pushes, from its own lines
   // The lock is released with the decision open: the full look finds it seen, and pushes nothing more.
   open = [
     ...cards(2),
-    { group: "decision", kind: "decision", pushId: checks.pushIdOf(id) },
+    { group: "decision", kind: "decision", pushId: lifelog.pushIdOf(id) },
   ] as checks.InboxCheck[];
   held.mockReturnValue(false);
   await pushNewCardsIfChanged();

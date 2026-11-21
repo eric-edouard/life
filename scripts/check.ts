@@ -1,4 +1,5 @@
 // `bun run check`: the single quality gate. Runs every step concurrently and fails fast.
+import { readFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import process from "node:process";
 import { hold } from "@life/server/src/core/lock";
@@ -60,7 +61,15 @@ const steps: Record<string, string[]> = {
   ],
   // Vendored skills are upstream text.
   scrub: ["bun", "scripts/scrub-check.ts", ":!.claude/skills"],
-  test: ["bun", "test", "./apps/server/src/", "./scripts/", "./apps/edge/"],
+  // 8 workers: 34 s instead of 84 s one file at a time (21 Nov); more would only load the Mac further.
+  test: [
+    "bun",
+    "test",
+    "--parallel=8",
+    "./apps/server/src/",
+    "./scripts/",
+    "./apps/edge/",
+  ],
   types: ["bun", "x", "--bun", "tsc", "--noEmit"],
   // Replays his answered voices (on his Mac only) against the committed counts.
   "voice eval": [
@@ -115,6 +124,18 @@ const macSteps: Record<string, string[]> = {
 // The phone's and the helper's Swift, and what they read from the server (its wire fixtures and openapi.json).
 const SWIFT =
   /^apps\/lifelog\/(apps\/ios|apps\/mac-quiet|fixtures|apps\/server\/openapi\.json)/;
+// And every server file the phone's tests read by path (ContractTests' mirrored enums): a change there can break them.
+const testReads = new Set(
+  Array.from(new Bun.Glob(`${ios}/Kit/Tests/**/*.swift`).scanSync())
+    .flatMap((f) => [
+      ...readFileSync(f, "utf8").matchAll(
+        /"([\w.-]+\/[\w./-]+\.(?:ts|json))"/g
+      ),
+    ])
+    .map((m) => m[1])
+);
+const isSwiftRead = (f: string) =>
+  SWIFT.test(f) || [...testReads].some((r) => f.endsWith(`/${r}`));
 // Without main to compare with (a clone with no origin), every step runs.
 const base = await Bun.$`git merge-base origin/main HEAD`.nothrow().quiet();
 const changed =
@@ -126,8 +147,11 @@ const changed =
 let why: string | null = null;
 if (process.platform !== "darwin") {
   why = "needs macOS";
-} else if (changed && !changed.some((f) => SWIFT.test(f))) {
+} else if (changed && !changed.some(isSwiftRead)) {
   why = "no change to the phone, the helper or what they read";
+} else if (process.env.LIFE_CHECK_SWIFT === "at-landing") {
+  // A branch's pushes before it lands (his yes of 21 Nov): the Swift builds run once, on the landing push.
+  why = "runs on the landing push (LIFE_CHECK_SWIFT=at-landing)";
 }
 // A clean tree that passed (with the Swift builds, when they are due now) runs again only the steps that read his data
 // outside the tree (`--unless-passed`, the pre-push hook). Read under the lock, so a second push waits for the first.
@@ -146,7 +170,23 @@ if (passed) {
     }
   }
 } else if (swift) {
-  Object.assign(steps, macSteps);
+  // The two swift tests and xcodebuild each take every core: one after another, so they and the server tests are not
+  // all starved at once (load 188 with 0% idle at a landing, 21 Nov).
+  const SERIAL = ["swift test", "swift test mac", "xcodebuild"];
+  const quoted = (cmd: string[]) =>
+    cmd.map((a) => `'${a.replaceAll("'", "'\\''")}'`).join(" ");
+  for (const [name, cmd] of Object.entries(macSteps)) {
+    if (!SERIAL.includes(name)) {
+      steps[name] = cmd;
+    }
+  }
+  steps["swift builds"] = [
+    "sh",
+    "-c",
+    SERIAL.map((n) => `echo '== ${n}' && ${quoted(macSteps[n] ?? [])}`).join(
+      " && "
+    ),
+  ];
 } else {
   for (const name of Object.keys(macSteps)) {
     console.log(`- ${name}: skipped, ${why}`);

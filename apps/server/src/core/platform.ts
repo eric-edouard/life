@@ -1,6 +1,6 @@
 import { existsSync, readlinkSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, sep } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import {
   LIFE_CODE_DIR,
   LIFE_STATE_DIR,
@@ -18,6 +18,22 @@ export const WINDOWS = process.platform === "win32";
 
 /** A relative path with `/` between its parts, as git, an export and a test name it on every system. */
 export const slashed = (p: string) => p.split(sep).join("/");
+
+/**
+ * `path` relative to `root` when it sits inside it (`""` for `root` itself), else null: above it, or on another Windows
+ * drive, where `relative` gives an absolute path. `paths` is this system's; a test passes `win32`.
+ */
+export function pathInside(
+  root: string,
+  path: string,
+  paths = { isAbsolute, relative, sep }
+) {
+  const r = paths.relative(root, path);
+  // Above it is `..` as a whole part: `..agents` is a child.
+  return r === ".." || r.startsWith(`..${paths.sep}`) || paths.isAbsolute(r)
+    ? null
+    : r;
+}
 
 /**
  * The home folder every store path starts from. A test run has one of its own, inside its copy of the data, so no test

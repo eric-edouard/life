@@ -19,6 +19,7 @@ const RANK: Record<CheckGroup, number> = {
   "guessed person": 2,
   name: 1,
   "new matter": 3,
+  "same person": 2,
   voice: 1,
 };
 /**

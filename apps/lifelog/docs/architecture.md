@@ -110,7 +110,7 @@ On the phone, each piece of state has one owner, and only that owner writes it:
 | `Outbox` | `SyncStore`, feature stores | `library.sqlite` | The owner's edits (`OwnerIntent`) waiting for the server, in order, and the refused ones |
 | `LifeToken` | `LifeStore` | defaults + Keychain | The pairing with Life (not the lifelog server): its origin and client id, its access and refresh tokens |
 | `ReadCache` | `LifeStore` | `life-reads/` (Application Support) | The last good answer of each of Life's reads, as the tool's JSON text, out of backups |
-| `PictureCache` | `PartyBook` (`LifeStore.parties`) | `person-pictures/` (the app group's caches) | People's pictures by id (`read_person_pictures`), kept for good; the notification extension reads the ones the app kept |
+| `PictureCache` | `PartyBook` (`LifeStore.parties`) | `person-pictures/` (the app group's caches) | People's pictures by id (`read_person_pictures`), kept for good |
 
 **Life.** `LifeStore` (built at launch, in the environment) is the phone's side of Life's connector: the inbox, the
 matters, a matter in full and the agents, each a `ReadState` (`LifeConnector`, in Kit). The phone is paired to Life by
@@ -119,7 +119,8 @@ are written by Life's server tests (`fixtures/wire/life/`). His actions (answer,
 `ActionState`s in `LifeStore.actions`, run by `LifeActions`; a push opens its card by `pushId` and sets the badge.
 Everyone a read names is a `Party`, kept by ref in `LifeStore.parties` (a `PartyBook`: the newest read of each wins,
 and a read begun before a new pairing changes nothing), whose pictures `PictureCache` fetches in batches; every screen draws a person or an organization with `DesignSystem/PartyPieces.swift` (`PartyDisc` and the
-row, pick, chip and draft head built on it), never initials of its own.
+row, pick and chip built on it), never initials of its own; a draft's chat strip names its senders and marks its
+network the chat's way (`DesignSystem/DraftBlock.swift`).
 
 **Databases.** `source.sqlite` is the audio itself and gates ACK: losing a row there loses recordings.
 `library.sqlite` is what the owner sees and edits. `timeline.sqlite` is the scanned timeline, and `upload.sqlite` how far uploads went: one cursor;

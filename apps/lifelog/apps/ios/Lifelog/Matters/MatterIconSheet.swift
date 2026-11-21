@@ -52,7 +52,7 @@ struct MatterIconSheet: View {
             if isRunning {
                 Spinner(size: .small).foregroundStyle(Palette.muted)
             } else if row.knownIcon?.by == .owner {
-                TextLink("Let Life pick", isMuted: false) { choose(nil, row: row) }
+                QuietChip("Let Life pick", symbol: "arrow.uturn.backward") { choose(nil, row: row) }
             }
         }
         .font(.small).foregroundStyle(Palette.muted)
