@@ -211,7 +211,7 @@ const linesOf = (
     .filter((l) => keys.has(l.key));
 
 /** Apple's request for a read: the trigger prompt's instructions, and its fields' guides. */
-export function triggerRequest(lines: string[]): FoundationRequest {
+function triggerRequest(lines: string[]): FoundationRequest {
   const [instructions = "", ...fields] = promptText(TRIGGER).split("\n## ");
   const guide = (name: string) =>
     (fields.find((f) => f.startsWith(`${name}\n`)) ?? "")

@@ -14,4 +14,4 @@ yes: the lines set a meeting, call, appointment, booking or event {{owner}} will
 
 ## together
 
-yes: someone writing or speaking here is about to be in the same place as {{owner}}, today or tonight: they agree to meet now or later today, say they are on the way, give an arrival time, or say they have arrived. no: otherwise, and when it is only a wish, a maybe, a plan for another day, or cancelled.
+yes: a person {{owner}} knows is about to be in the same place as {{owner}} within the next few hours: they agree to meet today or tonight, say they are on the way, give an arrival time, or say they have arrived. no: otherwise; a meeting set for tomorrow, a weekday or a later date is no; a wish, a maybe or a cancelled plan is no; a venue, shop or brand announcing an event is no.
