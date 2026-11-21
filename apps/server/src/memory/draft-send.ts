@@ -366,7 +366,7 @@ export function wroteSince(
 ) {
   const read = new Map<string | undefined, SourceEvent[]>(
     sources
-      .filter((s) => isChat(s) || s.kind === "mail")
+      .filter((s): s is Sending => isChat(s) || s.kind === "mail")
       .flatMap((s) => {
         const since = cards
           .filter((c) => c.draft.channel === s.name && c.draft.chat)
