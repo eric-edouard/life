@@ -8,7 +8,7 @@ import { partyOf } from "../../memory/party";
 
 /** Gran's person in lifelog, a voice's likely speaker. */
 const GRAN_VOICE = "00000000-0000-4000-8000-000000000001";
-export const line = (id: string, text: string, over = {}) => ({
+const line = (id: string, text: string, over = {}) => ({
   about: undefined,
   confidence: 0.9,
   date: "2026-10-12",
@@ -21,7 +21,7 @@ export const line = (id: string, text: string, over = {}) => ({
   unit: "unit_000000000001",
   ...over,
 });
-export const lines = [
+const lines = [
   line("obs_000000000005", "Call the shop"),
   line("obs_000000000006", "Kit sends the quote", {
     subjects: ["person:inf_kit"],
@@ -31,7 +31,7 @@ export const lines = [
   }),
   line("obs_000000000008", "Sam fixed the strap"),
 ];
-export const matter = {
+const matter = {
   lone: false,
   open: true,
   owedTo: [],
@@ -44,7 +44,7 @@ const KIT_CHAT = "33600000001@s.whatsapp.net";
 /** Gran's WhatsApp picture, his pick for her; Robin's, which he hides. */
 export const GRAN_PICTURE = "00000000000000000000000000000a02";
 export const ROBIN_PICTURE = "00000000000000000000000000000b01";
-export const nameOf = (r: string) =>
+const nameOf = (r: string) =>
   (
     ({
       "person:con_lou": "Lou",
