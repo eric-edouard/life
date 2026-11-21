@@ -30,16 +30,6 @@ test("a routed call is billed per router, each its own dollars and tokens, the c
     {
       at: AT,
       basis: "billed",
-      calls: 0,
-      kind: "night",
-      provider: "openrouter",
-      reported: false,
-      tokens: half,
-      usd: 0.25,
-    },
-    {
-      at: AT,
-      basis: "billed",
       calls: 1,
       kind: "night",
       provider: "allmodels",
@@ -48,6 +38,16 @@ test("a routed call is billed per router, each its own dollars and tokens, the c
       run: "r1",
       tokens: half,
       usd: 0.1,
+    },
+    {
+      at: AT,
+      basis: "billed",
+      calls: 0,
+      kind: "night",
+      provider: "openrouter",
+      reported: false,
+      tokens: half,
+      usd: 0.25,
     },
   ]);
   expect(
@@ -108,9 +108,13 @@ test("a turn is its runtime's tokens at its model's list price, its cache reads 
   expect(
     spendOfTurn({ ...turn, tokens_cached: 1000, tokens_in: 100 }).equivalentUsd
   ).toBeCloseTo(0.0003);
-  expect(
-    spendOfTurn({ ...turn, tokens_cached: null, tokens_in: null })
-  ).toMatchObject({ reported: false, tokens: undefined });
+  const unknown = spendOfTurn({
+    ...turn,
+    tokens_cached: null,
+    tokens_in: null,
+  });
+  expect(unknown.reported).toBe(false);
+  expect(unknown.tokens).toBeUndefined();
   expect(spendOfTurn(turn)).toMatchObject({
     agent: "agt_000000000001",
     basis: "equivalent",
