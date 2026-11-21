@@ -787,7 +787,7 @@ final class LifeStore {
         let said =
             source == PersonNow.noPicture
             ? "No picture for \(name)"
-            : "Show \(name)'s \(source == "contacts" ? "Contacts" : Channel.name(source)) picture"
+            : "Show \(name)'s \(Channel.name(source)) picture"
         _ = await picturing.run(ref, showing: source) {
             await perform(key) { [runner] in
                 await runner.record(emit: $0) {

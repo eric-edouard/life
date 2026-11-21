@@ -269,7 +269,7 @@ public struct PersonNow: Decodable, Sendable, Equatable {
 
     /// Where the pictures come from, said under them: "From Contacts, WhatsApp and Instagram".
     public var picturesFrom: String {
-        let names = pictures.map { $0.source == "contacts" ? "Contacts" : Channel.name($0.source) }
+        let names = pictures.map { Channel.name($0.source) }
         guard let last = names.last else { return "" }
         let first = names.dropLast().joined(separator: ", ")
         return "From " + (first.isEmpty ? last : first + " and " + last)

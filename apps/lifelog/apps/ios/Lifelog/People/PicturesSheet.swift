@@ -64,14 +64,15 @@ struct PicturesSheet: View {
                 .overlay(alignment: .topTrailing) {
                     if isInUse, !isWorking {
                         Image(systemName: "checkmark").font(.small).fontWeight(.bold).foregroundStyle(Palette.sheet)
-                            .frame(width: 24, height: 24).background(Palette.ok, in: .circle)
-                            .offset(x: 4, y: -4)
+                            .frame(width: Metrics.Spacing.xl, height: Metrics.Spacing.xl)
+                            .background(Palette.ok, in: .circle)
+                            .offset(x: Metrics.Spacing.xs, y: -Metrics.Spacing.xs)
                     }
                 }
                 .contentShape(.circle)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(picture.map { "\(Self.sourceName($0.source)) picture" } ?? "No picture")
+        .accessibilityLabel(picture.map { "\(Channel.name($0.source)) picture" } ?? "No picture")
         .accessibilityAddTraits(isInUse ? .isSelected : [])
     }
 
@@ -84,10 +85,6 @@ struct PicturesSheet: View {
             await life.setPicture(of: party.ref, name: party.name, kind: party.kind, from: source, was: was)
             if case .succeeded = life.state(of: .picture(party.ref)) { dismiss() }
         }
-    }
-
-    static func sourceName(_ source: String) -> String {
-        source == "contacts" ? "Contacts" : Channel.name(source)
     }
 }
 
