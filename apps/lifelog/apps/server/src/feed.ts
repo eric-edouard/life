@@ -15,7 +15,6 @@ import {
   transcriptionJobs as jobs,
   macWatch,
   ownerEdits,
-  PHONE_DICTATION,
   people,
   quietRanges,
   speakerAssignments,
@@ -30,12 +29,12 @@ import {
   isNull,
   lt,
   lte,
-  ne,
   or,
   sql,
 } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { type ChangeKind, latestSeq, turnRef } from "./change-log";
+import { processedQuiet } from "./dictation";
 import { textOf } from "./elevenlabs";
 import type { MacView } from "./mac-socket";
 import { assignmentsByJob, personRow, speakerOf, voiceId } from "./people";
@@ -435,7 +434,7 @@ function loadTurns(
     .from(quietRanges)
     .where(
       and(
-        ne(quietRanges.source, PHONE_DICTATION),
+        processedQuiet,
         lt(quietRanges.startedAt, to),
         gt(quietRanges.endedAt, from)
       )

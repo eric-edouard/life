@@ -14,7 +14,6 @@ import {
   isPendant,
   transcriptionJobs as jobs,
   ownerEdits,
-  PHONE_DICTATION,
   quietRanges,
   sources,
   timelineSpans,
@@ -39,6 +38,7 @@ import {
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { logChange, logPlacedIn } from "./change-log";
 import { reportError } from "./diagnostics";
+import { processedQuiet } from "./dictation";
 import { record } from "./events";
 
 // Epoch milliseconds, [start, end).
@@ -365,7 +365,7 @@ const dictationRanges = (db: Pick<Db, "select">, after: number) =>
     .where(
       and(
         ne(quietRanges.source, "playback"),
-        ne(quietRanges.source, PHONE_DICTATION),
+        processedQuiet,
         Number.isFinite(after)
           ? gt(quietRanges.endedAt, new Date(after))
           : undefined

@@ -6,13 +6,8 @@
 import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
-import {
-  type Dictation,
-  macWatch,
-  PHONE_DICTATION,
-  quietRanges,
-} from "@lifelog/db/schema";
-import { and, eq, gt, lt, ne } from "drizzle-orm";
+import { type Dictation, macWatch, quietRanges } from "@lifelog/db/schema";
+import { and, eq, gt, lt } from "drizzle-orm";
 import { z } from "zod";
 import { logChange, logPlacedIn } from "./change-log";
 import {
@@ -21,6 +16,8 @@ import {
   heldFrom,
   idle,
   type MacReport,
+  PHONE_DICTATION,
+  processedQuiet,
   settle,
   step,
   unblocked,
@@ -233,9 +230,6 @@ export function macView(
     ).toISOString(),
   };
 }
-
-// What the server's processing leaves out: every quiet range but the phone's copy of its own dictation.
-export const processedQuiet = ne(quietRanges.source, PHONE_DICTATION);
 
 // The quiet ranges processing leaves out touching [start, end), as epoch-ms intervals.
 export const quietIn = (
