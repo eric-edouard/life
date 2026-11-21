@@ -2,7 +2,7 @@
 
 Plan (explanation and reference): run the owner's registered agents on pi with DeepSeek V4.1 Flash, through
 OpenRouter's zero-retention hosts, as the desk's default runtime. Claude Code and Codex stay as options. Nothing here
-is built; every step waits for the owner's yes on the questions at the end.
+is built yet; the owner's decisions are in section 7.
 
 ```text
 today     desk ─ACP─ claude-agent-acp ─ claude CLI ─ Anthropic (subscription)       guard: PreToolUse hook script
@@ -38,7 +38,7 @@ outcome. Better: pi does more or does it more cheaply. Gap: missing until the na
 | Login environment | `readLoginEnv` less Anthropic's keys | the same `readLoginEnv`, plus the OpenRouter key Life's engine already uses (pi's `bash` inherits it, as it inherits every other key today) | on par |
 | Session titles | `--name` through `_meta` | `--name` at the first run, `set_session_name` after a rename | on par |
 | `isHeld`, a live process of the owner's | Claude's `~/.claude/sessions/<pid>.json`, then `pgrep` | the desk's own runs are in its `live` map; any other pi on the session is found by `pgrep -f "pi .*--session <id>"`. No app holds pi sessions open between turns, so wakes stop waiting on a forgotten window | better |
-| Link to open a session | `claude://…/local_<ref>` opens it in the Claude app; `handOff` lists it there | no app. See question 2 | gap |
+| Link to open a session | `claude://…/local_<ref>` opens it in the Claude app; `handOff` lists it there | no app. Life's app shows the session read-only (decision 2, PR 6) | gap |
 | Model per agent | `modelOf`: Claude's aliases | `--provider openrouter --model <slug>` per run, `set_model` mid-session; any OpenRouter model on the same ZDR routing | better |
 | Effort | Claude's effort config | `set_thinking_level` (DeepSeek's thinking through OpenRouter) | on par |
 | Usage and context (decision 83) | prompt reply's tokens (unstable ACP field) and `usage_update` context; spend is an `equivalent` at list price | each `message_end` carries input, output, cache read and write and its cost in dollars; `get_session_stats` gives the turn's context. Spend becomes `billed`, exact | better |
@@ -55,7 +55,7 @@ outcome. Better: pi does more or does it more cheaply. Gap: missing until the na
 | Stopping a run | ACP `session/cancel`, then kill | RPC `abort`, then kill | on par |
 | Turn begun | first ACP answer update | first `message_update` | on par |
 
-Counted: 14 on par, 7 better, 8 gap. The PRs below close six; question 2 settles the link; the claude.ai connectors stay out of reach and the CLIs stand in for them.
+Counted: 14 on par, 7 better, 8 gap. The PRs below close seven, the link included; the claude.ai connectors stay out of reach and the CLIs stand in for them.
 
 ## 2. What owning the pipeline adds
 
@@ -180,11 +180,11 @@ saw it"), and a line for pi; SECURITY.md's "Agents" (the guard as a hook, the ag
   guard's `isConnectorWrite` learns that shape before the first run, and an MCP name it cannot read is refused.
 - A weaker model with full power. Flash acting unattended on what it reads is the risk the owner accepted for
   Claude, with less judgment behind it. The guard covers sending only; paying, submitting a form or booking stay the
-  model's instruction. See question 4.
+  model's instruction. The guard stays as it is (decision 4).
 - Nothing leaves the Mac beyond SECURITY.md. Today the agents' line names the Claude and Codex subscriptions. An
   agent on pi sends its brief, its packet and everything it reads (files, mail, shell output) to OpenRouter and its
   ZDR hosts. SECURITY.md's "What leaves the Mac" gains that destination, and AGENTS.md's model provider invariant names
-  agents, both on the owner's yes (question 3). OpenRouter's web plugin stays off: ZDR does not cover it.
+  agents, both on the owner's yes (decision 3). OpenRouter's web plugin stays off: ZDR does not cover it.
 - Keys in the process. The OpenRouter key sits in the agent's env, readable by its shell, like every other key the
   owner's agents already hold. A spend cap on that key bounds a runaway loop.
 - The owner's own hooks stop running until the hook shim lands (PR 4); work-on-code's gate is one of them.
@@ -198,25 +198,25 @@ saw it"), and a line for pi; SECURITY.md's "Agents" (the guard as a hook, the ag
 | 3 | `pi` in `RuntimeName`, the Kit enum, a move that names its target, spending as `billed` from OpenRouter with its desk store step | hard (strict path: a store step) |
 | 4 | parity extensions: `web_fetch`, `web_search`, subagents, the owner's Claude hooks, the Life connector grant | standard |
 | 5 | SECURITY.md ("What leaves the Mac") and AGENTS.md's model provider invariant, on the owner's yes; the runtime lines of section 4 land with PRs 1 to 3 | small |
-| 6 | `desk.defaultRuntime: "pi"` in the owner's settings, after the trial passes | small |
+| 6 | the read-only view of a pi agent's session in Life's app (decision 2) | standard |
+| 7 | `desk.defaultRuntime: "pi"` in the owner's settings, once PRs 1 to 5 have landed and their tests pass | small |
 
-The trial, before PR 6, has two parts, about $1 in all.
+Existing agents keep their runtime: only agents started after PR 7 run on pi by default.
 
-1. A replay: 10 past wake turns from the desk's store, each turn's packet run on pi in a second Life (door only, its
-   cards recorded, never shown). One fresh reviewer compares each card with the one Claude asked.
-2. A live day: the Personal agent moved to pi (`hand_over`) for 24 hours. Compared with its last Claude day: turns,
-   failed turns, time to begun, cards asked, cards answered against withdrawn or marked "Wrong…", guard refusals,
-   context, dollars. It passes when failed turns and "Wrong…" are no higher than Claude's.
+Measuring the first day, after PR 7 (no gate before it, decision 1): the first pi agents' turns, failed turns, time
+to begun, cards asked, cards answered against withdrawn or marked "Wrong…", guard refusals, context and dollars, set
+against the Claude agents' same day. A replay of 10 past wake turns on pi in a second Life (door only, cards recorded,
+never shown), judged by one fresh reviewer against the cards Claude asked, adds a side-by-side for about $1.
 
-## 7. Questions for the owner
+## 7. The owner's decisions
 
-1. The default. (a) pi for every new agent once the trial passes, Claude and Codex chosen per agent; (b) pi for
-   project agents and Personal, the main session kept on Claude; (c) pi for new agents only after a week on one agent.
-2. Opening an agent's chat, now done in the Claude app. (a) Life's app shows the session read-only, and the owner
-   writes to it through Tell Life; (b) a link opens it with pi in Terminal; (c) no way to open it.
-3. Agents' data through OpenRouter. (a) Yes, on the same ZDR hosts as the memory (DeepInfra, Morph); (b) yes, with
-   more hosts for uptime; (c) no: keep agents on the subscriptions.
-4. The guard with a cheaper model. (a) Unchanged: it refuses sending only; (b) it also refuses paying and
-   submitting forms on sites the owner has not listed; (c) unchanged now, revisited after the trial.
+Answered on 22 Nov 2026, relayed by the orchestrator session.
 
-Next: the owner's answers, then PR 1.
+1. The default: now. pi with DeepSeek V4.1 Flash becomes the default for new agents as soon as it is built and its
+   tests pass; no trial gate, the first day measured.
+2. An agent's chat: read-only in Life's app.
+3. Agents' data through OpenRouter: yes, on the memory's zero-retention hosts only (DeepInfra, Morph). This is the
+   yes for SECURITY.md's line (PR 5).
+4. The send guard: unchanged; revisited after watching pi agents.
+
+Next: PR 1.
