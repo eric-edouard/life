@@ -28,6 +28,16 @@
         "id": "matter_aaaaaaaaaaaa",
         "name": "Mend Gran's watch",
         "status": "moving"
+      },
+      "spending": {
+        "equivalent": {
+          "amount": 0,
+          "basis": "equivalent",
+          "currency": "USD"
+        },
+        "tokens": 0,
+        "provider": "claude",
+        "since": null
       }
     },
     {
@@ -118,7 +128,17 @@
           "kind": "wide_net"
         }
       ],
-      "matter": null
+      "matter": null,
+      "spending": {
+        "equivalent": {
+          "amount": 0,
+          "basis": "equivalent",
+          "currency": "USD"
+        },
+        "tokens": 0,
+        "provider": "claude",
+        "since": null
+      }
     }
   ],
   "desk": "ok",

@@ -182,8 +182,11 @@ export async function readSpending(month = dayNow().slice(0, 7)) {
   );
   const { from = "", to } = dayRange(`${month}-01`, end);
   return {
+    // The agents run on his plans: their kind is shown in tokens only, never a billed $0.
     byKind: kinds.map((k) => ({
-      billed: amountOf(k.billedUsd, "billed"),
+      ...(k.kind === "agents"
+        ? {}
+        : { billed: amountOf(k.billedUsd, "billed") }),
       kind: k.kind as SpendKind,
       ...(k.tokens > 0 ? { tokens: k.tokens } : {}),
     })),

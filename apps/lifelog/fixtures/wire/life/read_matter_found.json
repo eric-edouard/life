@@ -195,5 +195,13 @@
         "shown": "fbb39df191312464"
       }
     }
-  ]
+  ],
+  "spending": {
+    "equivalent": {
+      "amount": 0,
+      "basis": "equivalent",
+      "currency": "USD"
+    },
+    "tokens": 0
+  }
 }

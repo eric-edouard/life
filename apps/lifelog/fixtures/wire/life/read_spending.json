@@ -1,0 +1,107 @@
+{
+  "byKind": [
+    {
+      "billed": {
+        "amount": 0.25,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "kind": "night",
+      "tokens": 1000
+    },
+    {
+      "kind": "agents",
+      "tokens": 500000
+    },
+    {
+      "billed": {
+        "amount": 0.1,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "kind": "voice"
+    }
+  ],
+  "byProvider": [
+    {
+      "provider": "openrouter",
+      "billed": {
+        "amount": 0.25,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "tokens": 1000,
+      "reported": true
+    },
+    {
+      "provider": "claude",
+      "equivalent": {
+        "amount": 1.5,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "tokens": 500000,
+      "reported": true
+    },
+    {
+      "provider": "elevenlabs",
+      "billed": {
+        "amount": 0.1,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "reported": false
+    }
+  ],
+  "days": [
+    {
+      "billed": {
+        "amount": 0.25,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "day": "2020-02-01"
+    },
+    {
+      "billed": {
+        "amount": 0.1,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "day": "2020-02-03"
+    }
+  ],
+  "month": {
+    "amount": 0.35,
+    "basis": "billed",
+    "currency": "USD"
+  },
+  "observedAt": "2026-11-18T10:00:00.000Z",
+  "today": {
+    "amount": 0.05,
+    "basis": "billed",
+    "currency": "USD"
+  },
+  "topAgents": [
+    {
+      "agent": "Test shop agent",
+      "equivalent": {
+        "amount": 3.6,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "tokens": 500000
+    }
+  ],
+  "topMatters": [
+    {
+      "matter": "Test shop fit-out",
+      "equivalent": {
+        "amount": 3.6,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "tokens": 500000
+    }
+  ]
+}

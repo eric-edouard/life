@@ -92,7 +92,8 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
         {
           agent_id: "agt_000000000001",
           assignment_id: "asg_000000000001",
-          ended_at: "2020-02-01T10:00:00.000Z",
+          // Priced on its own day: a day the price table holds (the desk read is mocked).
+          ended_at: "2026-11-10T10:00:00.000Z",
           model: "claude:opus",
           runtime: "claude",
           tokens_cached: 0,
