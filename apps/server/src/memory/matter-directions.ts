@@ -9,7 +9,6 @@ import {
   ONE_OF,
 } from "../records/matter";
 import { type Observation, ObservationId } from "../records/observation";
-import { contextProblemOf, readsOnce } from "./find-refs";
 import {
   directionDueOf,
   laterShownOf,
@@ -24,6 +23,7 @@ import {
 import { MATTER_DIRECTIONS } from "./memory-files";
 import { meContext } from "./model-context";
 import { OWNER } from "./read-truth";
+import { lifeRefsOf } from "./refs";
 import { begin, checkedEntries, inBatches, readsOf } from "./run";
 import { clip } from "./units";
 import type { People } from "./who";
@@ -62,6 +62,31 @@ export async function dueDirectionsOf(
 /** A step's `id` for the next step's context to link (`life:`), when it is an observation's. */
 const linkOf = (ref: string) =>
   ObservationId.safeParse(ref).success ? { id: ref } : {};
+
+/**
+ * Whether a drafted next step's context holds only what its matter's call was shown: every `life:` link one of its
+ * steps' or later records' ids, and no quote (`> …`: the call sees clipped lines, never the checked quotes). Else it is
+ * dropped and the next step kept.
+ */
+const isGroundedContext = (
+  context: string,
+  shown: {
+    later: { id: string }[];
+    open: { id?: string }[];
+    steps: { id?: string }[];
+  }
+) => {
+  const ids = new Set(
+    [...shown.steps, ...shown.open, ...shown.later].flatMap((s) =>
+      s.id ? [s.id] : []
+    )
+  );
+  return (
+    context.trim() !== "" &&
+    !/^\s*>/m.test(context) &&
+    [...lifeRefsOf(context)].every((id) => ids.has(id))
+  );
+};
 
 /** A matter as a call is shown it: a call-local id, its name, people, projects, newest steps, what is open, its goal now. */
 const shownOf = (
@@ -153,7 +178,6 @@ export async function matterDirections(
     size
   );
   const step = await begin("matter-directions", "fast", { prompt: PROMPT });
-  const reads = { ...readsOnce(), people: async () => people };
   let drafted = 0;
   await inBatches(calls, step, async (call, dir) => {
     await step.attempt(async () => {
@@ -174,14 +198,15 @@ export async function matterDirections(
         ),
       });
       const list = (reply as { directions?: unknown } | null)?.directions;
-      const checked = checkedEntries(
+      const directions = checkedEntries(
         Array.isArray(list) ? list : [],
         Drafted,
         (d) => d.matter,
         (id) => byId.has(id)
-      ).entries.map(({ matter, ...d }) => {
+      ).entries.map(({ matter, nextStep, ...d }) => {
         const m = byId.get(matter);
         const shownIds = m?.later.map((o) => o.id) ?? [];
+        const context = nextStep?.context;
         return {
           ...d,
           // Only records the call was shown can be cited.
@@ -194,18 +219,20 @@ export async function matterDirections(
             : {}),
           laterShown: shownIds,
           ...(m ? { matter: m.v.id } : {}),
+          ...(nextStep
+            ? {
+                nextStep: {
+                  ...nextStep,
+                  context:
+                    context && m && isGroundedContext(context, m.shown)
+                      ? context
+                      : undefined,
+                },
+              }
+            : {}),
           steps: m?.v.steps.map((s) => s.ref) ?? [],
         };
       });
-      // A context whose `life:` links open nothing is dropped, by a card's rule; its next step stays.
-      const directions = await Promise.all(
-        checked.map(async (d) =>
-          d.nextStep?.context !== undefined &&
-          (await contextProblemOf(d.nextStep.context, reads))
-            ? { ...d, nextStep: { ...d.nextStep, context: undefined } }
-            : d
-        )
-      );
       appendJsonl(MATTER_DIRECTIONS, MatterDirectionBatch, [
         {
           at: step.now.toISOString(),

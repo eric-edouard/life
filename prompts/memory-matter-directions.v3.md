@@ -28,7 +28,7 @@ The user message is one JSON object, `matters`, each `{id, name, goal?, people, 
 - `goal`: where the matter is going, as one short line in {{language}}: the state of things once it is over, not the
   next step ("The refund for the broken kettle is paid back", "Gran has her watch back, mended", "The flat in Lyon is
   booked for the March trip"). Name the people and things as the steps do.
-- `nextStep`: what moves the matter now, `{kind, text, waitsOn?}`:
+- `nextStep`: what moves the matter now, `{kind, text, waitsOn?, context}`:
   - `text`: one short line in {{language}}, an action or a wait, concrete and from the steps ("Ask the shop for the
     total and the pickup day", "The shop's quote for the strap", "Call the landlord about the deposit").
   - `kind`, one of:
@@ -41,8 +41,7 @@ The user message is one JSON object, `matters`, each `{id, name, goal?, people, 
     "{{owner}}'s visit to the bank"); none for `do`.
   - `context`: why this is the next step, in Markdown, in {{language}}, at most 5 short lines: what it rests on and
     what was already tried. Link a step or a `later` record only by its `id`, as `[its words](life:<id>)`; never an id
-    you were not given. Quote someone's words only as given, as `> the words` on one line then `*[who, day](life:<id>)*`
-    on the next. No heading; nothing the steps do not show.
+    you were not given. Say it in your own words: no quotes, no heading, nothing the steps do not show.
 - `endingRecords`, instead of `nextStep`, when the matter looks over: what its `open` things were for has happened,
   or it has moved on (settled another way, replaced by a later plan, a later stage under way). Give the ids, at most
   3, of the `later` records whose own words show it; none when the matter's own steps show it. Never because time

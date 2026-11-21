@@ -445,44 +445,58 @@ test("a stored line of v1 (a next step, no laterShown) still parses; a draft wit
   ).toBe(false);
 });
 
-// life#817: Life's draft carries a context; one whose `life:` link opens nothing is dropped, its next step kept.
-test("a drafted next step keeps its context; a dead link drops the context only", async () => {
+// life#817: Life's draft carries a context, kept only when it links its own matter's shown ids and quotes nothing; else the context goes, its next step stays.
+test("a drafted context links only its matter's shown ids and quotes nothing, or only the context is dropped", async () => {
   const matters = await import("./matters");
   const models = await import("../models/llm");
-  const v = waiting("00000000e004");
+  const a = waiting("00000000e004");
+  const b = waiting("00000000e005");
   const book = spyOn(matters, "readMatterBookAndRecords").mockResolvedValue({
-    book: [v],
+    book: [a, b],
     records: recordsOf([], []),
   } as never);
-  const ask = spyOn(models, "askOnce");
-  const drafted = async (context: string) => {
+  const draft = (matter: string, context: string) => ({
+    goal: "Sam answers",
+    matter,
+    nextStep: { context, kind: "do", text: "Ask Sam again" },
+  });
+  const ask = spyOn(models, "askOnce").mockResolvedValue({
+    directions: [
+      // Its own step, never in any index: kept.
+      draft(
+        "m1",
+        "Sam has not [answered](life:obs_00000000e004) since the 16th."
+      ),
+      // The other matter's step: dropped.
+      draft("m2", "See [this](life:obs_00000000e004)."),
+    ],
+  } as never);
+  try {
+    rmSync(MATTER_DIRECTIONS, { force: true });
+    await matterDirections(people, { all: true, today: TODAY });
+    // The call is shown each step's id to link.
+    expect(JSON.stringify(ask.mock.calls[0])).toContain(
+      `"id":"obs_00000000e005"`
+    );
+    const next = () => readMatterPins().directions.map((d) => d.nextStep);
+    expect(next()).toEqual([
+      {
+        context:
+          "Sam has not [answered](life:obs_00000000e004) since the 16th.",
+        kind: "do",
+        text: "Ask Sam again",
+      },
+      { kind: "do", text: "Ask Sam again" },
+    ]);
+    // A quote the call made up: dropped too.
     ask.mockResolvedValue({
       directions: [
-        {
-          goal: "Sam answers",
-          matter: "m1",
-          nextStep: { context, kind: "do", text: "Ask Sam again" },
-        },
+        draft("m1", "> The parcel arrived\n*[Sam](life:obs_00000000e004)*"),
       ],
     } as never);
     rmSync(MATTER_DIRECTIONS, { force: true });
     await matterDirections(people, { all: true, today: TODAY });
-    return readMatterPins().directions[0]?.nextStep;
-  };
-  try {
-    await drafted("Sam has not answered since the 16th.");
-    // The call is shown the step's id to link.
-    expect(JSON.stringify(ask.mock.calls[0])).toContain(
-      `"id":"obs_00000000e004"`
-    );
-    expect(await drafted("Sam has not answered since the 16th.")).toMatchObject(
-      {
-        context: "Sam has not answered since the 16th.",
-      }
-    );
-    const dead = await drafted("[asked](life:obs_00000000dead)");
-    expect(dead).toMatchObject({ kind: "do", text: "Ask Sam again" });
-    expect(dead?.context).toBeUndefined();
+    expect(next()[0]).toEqual({ kind: "do", text: "Ask Sam again" });
   } finally {
     book.mockRestore();
     ask.mockRestore();
