@@ -43,6 +43,15 @@ export interface Said {
 
 /** Each kind of Life's guesses: what it is trying to do (its title), why it asks (its context), and what he can answer, its guess first (`answerCheck` writes it). */
 export const LIFE_CHECKS = {
+  // His Yes adds the person to the organization in his directory, with the role the question shows; his No is never asked again.
+  "at organization": {
+    context: null,
+    options: [
+      { id: "yes", label: "Yes", takes: null },
+      { id: "not-at-organization", label: "No", takes: null },
+    ],
+    title: "Link someone to an organization",
+  },
   "contacts card": {
     context: null,
     options: [

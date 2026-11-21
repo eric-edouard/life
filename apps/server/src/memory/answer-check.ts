@@ -8,6 +8,10 @@ import {
   readVoiceNames,
 } from "../sources/lifelog-voices";
 import {
+  atOrganizationRefOf,
+  readAtOrganizationPairs,
+} from "./at-organization";
+import {
   answerDecision,
   type EndByHisWord,
   type LookForDone,
@@ -49,12 +53,20 @@ export type AddDirectoryEntry = (
   fields?: { relation?: string }
 ) => Promise<string>;
 
+/** Adds a person of his directory to an organization of it with a role, by his Yes on an at organization card (host: `addOrganizationPersonByHisWord`); gives what was done. */
+export type AddOrganizationPerson = (
+  organization: string,
+  person: string,
+  role: string
+) => Promise<string>;
+
 /** Closes by his word the steps a your move card's Mark as done, or Drop, closes (`yourMoveClosingOf`, read by host before the plan with the option he picked: host's `endByHisWord`); gives the lines written. */
 export type EndYourMove = () => Promise<unknown[]>;
 
 /** What a writer is given besides the check and his answer: a voice's queue item with the people it was read with, the steps to report, the desk's start and a your move's end (his own token's `answer_check` only). */
 interface WriterExtras {
   addDirectoryEntry?: AddDirectoryEntry;
+  addOrganizationPerson?: AddOrganizationPerson;
   endYourMove?: EndYourMove;
   onStep?: (step: string, detail?: Record<string, unknown>) => void;
   startAgent?: StartAgent;
@@ -233,6 +245,17 @@ async function newMatterOf(c: Pick<Check, "ref">) {
   return { goal: v.goal, steps: v.steps.map((s) => s.ref) };
 }
 
+/** The pair an at organization card asks about, while Life still finds it as he saw it, its role too (its ref). */
+async function atOrganizationNow(c: Pick<Check, "ref">) {
+  const found = readAtOrganizationPairs(await readPeople()).find(
+    (p) => atOrganizationRefOf(p) === c.ref
+  );
+  if (!found) {
+    throw new Error(`Not done: no open check ${c.ref} (read the inbox again).`);
+  }
+  return found;
+}
+
 /** How long his "Not now" hides a your move card: it is back on the third day after. */
 export const NOT_NOW_DAYS = 3;
 
@@ -280,6 +303,26 @@ const WRITERS: {
     Writer
   >;
 } = {
+  // Bound to the pair he saw, while Life still finds it (`readAtOrganizationPairs`): Yes adds the link to his directory
+  // (his own token's answer_check only), No is his `not-at-organization`, so the pair is never asked again.
+  "at organization": {
+    "not-at-organization": async (c, a) => {
+      const { organization, person } = await atOrganizationNow(c);
+      return correct(
+        [{ kind: "not-at-organization", organization, person }],
+        a
+      );
+    },
+    yes: async (c, _a, x) => {
+      if (!x.addOrganizationPerson) {
+        throw new Error(
+          "Not done: Yes comes only through his own answer_check."
+        );
+      }
+      const { organization, person, role } = await atOrganizationNow(c);
+      return [await x.addOrganizationPerson(organization, person, role)];
+    },
+  },
   "contacts card": {
     "same-person": async (c, a, x) =>
       correct(
@@ -459,7 +502,7 @@ const WRITERS: {
  * draft is sent only `via` his app); returns the check, the lines written and, for a voice, its queue item. `onStep`
  * hears `recorded` once they are, and a send's or a start's own steps; `answerKey` is his app's key for this tap, kept on a
  * decision's answer; `startAgent` (a new matter's Start), `end` (a decision's `ends` option), `look` (its `looks` option) and `addDirectoryEntry` (a new
- * person or organization he names, `partyNamed`) are given only for his own token's `answer_check`. Throws when the
+ * person or organization he names, `partyNamed`) and `addOrganizationPerson` (an at organization card's Yes) are given only for his own token's `answer_check`. Throws when the
  * option is not one of its own.
  */
 export async function answerCheck(
@@ -468,6 +511,7 @@ export async function answerCheck(
   via: "connector" | "session",
   {
     addDirectoryEntry,
+    addOrganizationPerson,
     answerKey,
     end,
     endYourMove,
@@ -510,6 +554,7 @@ export async function answerCheck(
     const typed = await typedPersonOf(a, read?.people);
     const done = await write(check, typed.a, {
       addDirectoryEntry,
+      addOrganizationPerson,
       endYourMove,
       onStep,
       startAgent,

@@ -8,6 +8,8 @@ public enum CheckGroup: String, UnknownTolerant, Sendable {
     case guessedPerson = "guessed person"
     case newMatter = "new matter"
     case samePerson = "same person"
+    /// Someone of his directory whose Contacts card names an organization of it: "Is X at <organization>?"
+    case atOrganization = "at organization"
     /// A matter's open step that is his: it stays in his inbox until done, handed over or put off.
     case yourMove = "your move"
     case unknown
@@ -387,7 +389,7 @@ extension Check {
         switch group {
         case .ending: return "Why done?"
         case .newMatter, .yourMove: return "What Life saw"
-        case .guessedPerson, .name, .voice, .contactsCard, .samePerson:
+        case .guessedPerson, .name, .voice, .contactsCard, .samePerson, .atOrganization:
             let name = networkIdentity?.shownName ?? askedName ?? contactsCard?.name ?? likelyPeople.first?.name
             return name.map { "Why \($0)?" } ?? "Why this person?"
         case .decision, .unknown: return "Why it asks"
