@@ -1,0 +1,15 @@
+# Helper speed rules (owner, 21 Nov) — every helper follows all of these
+- No visuals: no design:shots, agent-device, simctl screenshots or driving the simulator. Visuals happen once, in the final pass.
+- Phone PRs: one app compile right before "ready" (owner, 21 Nov evening: catches compile errors before a train), through heavy.sh: `bun run ios:project && HEAVY_LANE= tools/heavy.sh xcodebuild -project apps/lifelog/apps/ios/Lifelog.xcodeproj -scheme Lifelog -destination generic/platform=iOS -configuration Debug build CODE_SIGNING_ALLOWED=NO -quiet`. No other app builds, no install:phone. Plus the Kit tests you touched + `swift-format lint --strict`.
+- Heavy commands go through tools/heavy.sh. No stress or load scripts.
+- Reviews on Claude via tools/claude-verdict.sh, never Codex. Fast mode unless the change touches a strict path.
+- Never land alone. Report "ready" with PR number; the orchestrator lands trains. A PR a train skips merges main and rejoins the next train.
+- Conflicts on generated files (wire fixtures like read_inbox.json): take main's copy and regenerate; never hand-merge. Merge origin/main right before reporting "ready".
+- The conveyor may merge main into your branch on its own: `git pull --no-rebase` before every push. Report "ready" by putting the verdict block in the PR body; the conveyor lands every passing PR within minutes, you never wait on me.
+- Verdicts: start the Claude verdict right after the push, backgrounded; several PRs = several verdicts in parallel. Never wait for one PR to land before reviewing the next.
+- Review rounds, hard cap: one review + at most one confirming round (only for non-mechanical blocking fixes). No third round. After merging main: no review if the merge was clean or only generated files/docs; one base round only for a real code conflict, once.
+- Server PRs that change anything the phone mirrors (core/names.ts enums, wire fixtures, connector shapes) also run Kit ContractTests (`swift test --filter ContractTests` via heavy.sh) before ready: the Swift check otherwise only runs at landing and fails the whole train.
+- Reviews (from 18:40, 21 Nov): the `claude -p` account is out of weekly quota until 25 Nov, so claude-verdict.sh fails. Run each review as a fresh subagent with the Agent tool instead (model sonnet for fast/confirm, opus for full), giving it the same prompt claude-verdict.sh builds (read the script). Never Codex.
+- Deleting a remote branch: `gh api -X DELETE repos/eric-edouard/life/git/refs/heads/<branch>`, never a push (and never `--no-verify`).
+- Before every push: `bun run fix` (format + lint), so the pre-push check never fails on formatting.
+- Every push of yours: `LIFE_CHECK_SWIFT=at-landing` (skips Swift builds; the landing train runs them once). Phone PRs still compile the app once before ready.

@@ -247,7 +247,7 @@ test("an app need takes an https link only, and its line names the app", () => {
   ).toBe("In Grab");
 });
 
-test("your move comes after every agent's decision, by deadline then the longest waiting, whatever the matter's mark; the badge counts it only with a deadline", () => {
+test("your move comes after every agent's decision, by deadline then the longest waiting, whatever the matter's mark; the badge always counts it", () => {
   const card = (
     ref: string,
     group: Check["group"],
@@ -292,15 +292,15 @@ test("your move comes after every agent's decision, by deadline then the longest
     "guess",
   ]);
   expect(list.map((c) => urgencyOf(c))).toEqual([
-    "improves",
-    "improves",
+    "blocks",
+    "blocks",
     "blocks",
     "blocks",
     "improves",
     "blocks",
     "blocks",
   ]);
-  expect(blockingCountOf(list)).toBe(4);
+  expect(blockingCountOf(list)).toBe(6);
 });
 
 test("Mark as done closes only the card's step, never its siblings", async () => {

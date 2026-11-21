@@ -122,7 +122,7 @@ extension Check {
                     name.map {
                         [
                             NeedRow(
-                                glyph: .link, text: $0,
+                                glyph: .link, text: $0, detail: open?.host(),
                                 action: open.map { .open($0, label: "Open \($0.host() ?? "the app")") })
                         ]
                     } ?? []

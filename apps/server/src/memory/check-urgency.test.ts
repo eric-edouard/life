@@ -9,7 +9,7 @@ import {
 const check = (group: string, subject: string | null = null) =>
   ({ group, subject }) as never;
 
-test("by kind: decision, unnamed voice, name and card together (these block), then his move, one person held twice, a guess in use, a new matter, an ending", () => {
+test("by kind: decision, unnamed voice, name and card together (these block), then his move (it blocks too, with or without a deadline), one person held twice, a guess in use, a new matter, an ending", () => {
   const list = [
     check("decision"),
     check("voice"),
@@ -28,14 +28,14 @@ test("by kind: decision, unnamed voice, name and card together (these block), th
     "blocks",
     "blocks",
     "blocks",
-    "improves",
+    "blocks",
     "improves",
     "improves",
     "improves",
     "improves",
     "improves",
   ]);
-  expect(blockingCountOf(list)).toBe(4);
+  expect(blockingCountOf(list)).toBe(5);
 });
 
 const ask = (
