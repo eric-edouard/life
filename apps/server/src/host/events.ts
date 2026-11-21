@@ -16,6 +16,7 @@ import {
 import { directChats } from "../memory/closeness";
 import type { Decision } from "../memory/decision-lines";
 import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
+import { cardsHearingOf } from "../memory/draft-contest";
 import { readFiles } from "../memory/memory-files";
 import { hearVoiceNotes, showFiles } from "../memory/message-files";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
@@ -176,7 +177,10 @@ const DecisionPayload = z.object({
     .string()
     .nullable()
     .describe("The option you said you take if he doesn't answer"),
-  question: z.string(),
+  question: z
+    .string()
+    .optional()
+    .describe("The card's question: absent on the card that merged yours"),
   replacedBy: z
     .string()
     .optional()
@@ -215,7 +219,7 @@ const outcomesOf = (
 export const decisionCursorOf = (at: Date) => encode({ at: at.getTime() });
 
 /**
- * The decisions `agent` asked that got his answer (`decision.answered`), lapsed (`decision.lapsed`) or were withdrawn
+ * The decisions `agent` asked, or that merged one it asked (`cardsHearingOf`), that got his answer (`decision.answered`), lapsed (`decision.lapsed`) or were withdrawn
  * because he answered in the chat (`decision.withdrawn`) since `cursor`
  * (none: from now), all of them: an agent has few, so one page. The new cursor is now, the window half-open, so an
  * answer recorded in the same instant comes on the next poll.
@@ -239,13 +243,19 @@ export function pollDecisions(
   );
   const states: readonly Decision["state"][] =
     DECISION_EVENT_OF[name]?.states ?? [];
-  const settled = settledBetween(decisionsNow(now), from, now).filter(
-    (d) => d.asker === agent && states.includes(d.state)
+  const all = decisionsNow(now);
+  // Its own cards, and the cards that merged one of its own: their answer is its too.
+  const settled = settledBetween(all, from, now).filter(
+    (d) =>
+      states.includes(d.state) &&
+      cardsHearingOf(d, all).some((c) => c.asker === agent)
   );
   return {
     cursor: decisionCursorOf(now),
     events: settled.map((d) => {
       const at = d.answer?.at ?? settledAtOf(d) ?? d.deadline;
+      // A merged card's asker hears his answer, never the holder's words or its `onSilence`.
+      const isOwn = d.asker === agent;
       return {
         data: {
           ...(d.answer
@@ -260,8 +270,8 @@ export function pollDecisions(
           at,
           ...outcomesOf(d),
           id: d.id,
-          onSilence: d.onSilence,
-          question: d.question,
+          onSilence: isOwn ? d.onSilence : null,
+          question: isOwn ? d.question : undefined,
           ...(d.withdrawn?.replacedBy
             ? { replacedBy: d.withdrawn.replacedBy }
             : {}),

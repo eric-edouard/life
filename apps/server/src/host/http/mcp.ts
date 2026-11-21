@@ -15,7 +15,6 @@ import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
 import { checksOnMatterOf } from "../../memory/checks";
 import { requestDecision } from "../../memory/decisions";
 import { readLifeIcons } from "../../memory/matter-icons";
-import { recordCorrection } from "../../memory/memory-files";
 import { openById } from "../../memory/open-by-id";
 import { paymentsOf } from "../../memory/payments";
 import { placesOf } from "../../memory/places";
@@ -55,7 +54,7 @@ import {
   changeAskedTodoItem,
 } from "../change-todo-item";
 import { complain, Misread } from "../complaints";
-import { correctMatter } from "../correct-matter";
+import { correctMatter, recordHisCorrection } from "../correct-matter";
 import {
   DECISION_ANSWERED,
   DECISION_LAPSED,
@@ -226,7 +225,7 @@ export async function correct(
     return { done: await correctMatter(a.correction, call?.report) };
   }
   await (a.kind === "memory"
-    ? recordCorrection(a.correction)
+    ? recordHisCorrection(a.correction)
     : forward(a.kind, a));
   return `Done: ${a.kind}.`;
 }
@@ -381,7 +380,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matter",
-    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them (`blockingChecks` included), then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, `with` (a party), and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link). Each agent has `wakesOn`: what will wake it, exhaustively (each message or call it listens for, by person, chat, app or words; a payment; his answer to its open card; anything near its matter), and `statusSince`; then `communicationStyles`: how he writes with each of its people he knows (lines; none when none has one): a draft to them follows it.",
+    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them (`blockingChecks` included; `nextStep` also has `context`, Markdown with `life:<ref>` links, when his word gave one), then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, `with` (a party), and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link). Each agent has `wakesOn`: what will wake it, exhaustively (each message or call it listens for, by person, chat, app or words; a payment; his answer to its open card; anything near its matter), and `statusSince`; then `communicationStyles`: how he writes with each of its people he knows (lines; none when none has one): a draft to them follows it.",
     z.object({
       id: z
         .string()
@@ -498,7 +497,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "correct_memory",
-    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: kind `outdated` with `matter`, its id (Life closes every open step: its observations, and its to-do items ticked); his goal or next step for a matter: kind `matter-direction`, `matter` its id, `goal` (text) and/or `nextStep` ({kind, text, waitsOn}); his icon for a matter: kind `matter-icon`, `matter` its id, `icon` a key or null (Life picks again), his token only; which project of his a matter is of: kind `matter-project`, `matter` its id, `project` a project id, his token only: the matter goes to that project's agent), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
+    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: kind `outdated` with `matter`, its id (Life closes every open step: its observations, and its to-do items ticked); his goal or next step for a matter: kind `matter-direction`, `matter` its id, `goal` (text) and/or `nextStep` ({kind, text, waitsOn, context}: `context` optional, Markdown as a card's, each `life:` link must open); his icon for a matter: kind `matter-icon`, `matter` its id, `icon` a key or null (Life picks again), his token only; which project of his a matter is of: kind `matter-project`, `matter` its id, `project` a project id, his token only: the matter goes to that project's agent), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
     correct,
     WRITES

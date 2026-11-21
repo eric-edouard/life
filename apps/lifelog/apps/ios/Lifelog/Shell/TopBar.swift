@@ -11,14 +11,13 @@ private struct ShellBar: ViewModifier {
     let label: String
     let hasSettings: Bool
     let hasPendant: Bool
-    let isTitleLarge: Bool
 
     @Environment(AppRouter.self) private var router
 
     func body(content: Content) -> some View {
         content
             .navigationTitle(label)
-            .navigationBarTitleDisplayMode(isTitleLarge ? .large : .inline)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if hasPendant || hasSettings {
                     ToolbarItemGroup(placement: .topBarTrailing) {
@@ -35,11 +34,10 @@ private struct ShellBar: ViewModifier {
 
 extension View {
     /// The top group of a screen in a tab: Settings only on Inbox and Matters, the Pendant everywhere but in a side
-    /// column (the matter's page beside it has it). A list's title is large (`isTitleLarge`), as the frames draw it.
-    func shellBar(_ label: String, hasSettings: Bool = true, hasPendant: Bool = true, isTitleLarge: Bool = false)
-        -> some View
-    {
-        modifier(ShellBar(label: label, hasSettings: hasSettings, hasPendant: hasPendant, isTitleLarge: isTitleLarge))
+    /// column (the matter's page beside it has it). The bar's own title is always inline: a list screen's name is its
+    /// `screenTitle`, a page's its first line.
+    func shellBar(_ label: String, hasSettings: Bool = true, hasPendant: Bool = true) -> some View {
+        modifier(ShellBar(label: label, hasSettings: hasSettings, hasPendant: hasPendant))
     }
 }
 
