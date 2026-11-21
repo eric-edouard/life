@@ -8,6 +8,7 @@ import {
   logDays,
   logEvents,
   logFileOf,
+  recentEvents,
 } from "../core/log";
 import {
   LOG_LEVELS,
@@ -17,14 +18,28 @@ import {
 } from "../core/log-line";
 import type { Quota } from "../models/llm";
 import { add, NONE, type ReadCounts, type Tokens } from "../models/model-call";
+import { isPromptVersion } from "../models/prompt-parts";
 import { decode, encode, PAGE } from "./changes";
 import { runAt } from "./memory-files";
 import { lockedSince } from "./memory-lock";
 import { spendsOfLine } from "./spends";
-import { lastDays, localDate, localTime } from "./zones";
+import { dayNow, lastDays, localDate, localTime } from "./zones";
 
 // Life's processing as recorded, as JSON for the status reads: `read_processing_runs` (the history in derived/log: processing runs, their steps,
 // outcomes, counts, errors); `lifeStatus` (host/status/life.ts) reads it. Read-only, like changes.ts.
+
+/** The model calls of these prompts (any variant) made on his day today, failures included: a daytime step's cap. */
+export async function readCallsToday(prompts: string[]) {
+  const day = dayNow();
+  return (
+    await recentEvents<{ at: string; prompt?: string }>(2, "model.run")
+  ).filter(
+    (e) =>
+      e.prompt !== undefined &&
+      prompts.some((p) => isPromptVersion(e.prompt as string, p)) &&
+      localDate(e.at) === day
+  ).length;
+}
 
 // --- runs ----------------------------------------------------------------------------------------------------------
 

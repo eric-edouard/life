@@ -180,6 +180,12 @@ function readOwnAddresses() {
   }
 }
 
+/** What the guard reads beside a call (`SendFacts`): the hook's environment at each spawn, the door's `/guard`. */
+export const readSendFacts = (): SendFacts => ({
+  ownAddresses: readOwnAddresses(),
+  postRepos: settings().desk?.agentPostRepos ?? [],
+});
+
 /** The environment the guard's hook reads (`send-guard-hook.ts`), read at each spawn. Throws with no script: no agent starts unguarded. */
 function guardEnv() {
   if (!SEND_GUARD) {
@@ -187,10 +193,7 @@ function guardEnv() {
   }
   return {
     LIFE_BUN: process.execPath,
-    LIFE_SEND_FACTS: JSON.stringify({
-      ownAddresses: readOwnAddresses(),
-      postRepos: settings().desk?.agentPostRepos ?? [],
-    } satisfies SendFacts),
+    LIFE_SEND_FACTS: JSON.stringify(readSendFacts()),
     LIFE_SEND_GUARD: SEND_GUARD,
   };
 }

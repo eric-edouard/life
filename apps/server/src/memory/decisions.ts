@@ -40,7 +40,7 @@ import {
   waitsOf,
 } from "./draft-contest";
 import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
-import { contextProblemOf, readsOnce } from "./find-refs";
+import { cardRefsProblemOf, readsOnce } from "./find-refs";
 import { matterOfSteps, openStepsOf } from "./matter-read";
 import { MEMORY } from "./memory-files";
 import { amountOf } from "./needs";
@@ -485,7 +485,7 @@ async function askCard(
   // A step no open matter holds would never be listed: refused, so no question goes unseen. A matter's own id rides on
   // its newest step: a step outlives a re-group, a matter id doesn't.
   const reads = readsOnce();
-  const contextProblem = await contextProblemOf(ask.context, reads);
+  const contextProblem = await cardRefsProblemOf(ask, reads);
   if (contextProblem) {
     throw new Error(`Not done: ${contextProblem}.`);
   }

@@ -398,7 +398,7 @@ first.
   likeness apart; `me` guesses; the talking words named right; guesses on voices he answered not relevant; how many voices he answered "A stranger" were guessed a person or him, at sure and at likely; the doubted
   names (named by sound, shown unnamed by rule 3, as now recognised) and how many the model named as the same
   person; mixed voices and voices he answered turn by turn (no answer on the voice) are left out and counted apart.
-  The calls are the night's (`voiceNaming`, `inBatches`, the engine in settings). Show him the numbers before
+  The calls are the night's and the watcher's (`voiceNaming`, `inBatches`, the engine in settings). Show him the numbers before
   switching on `voiceGuessesShown`, the setting that shows a sure or likely guess as "probably X" when a
   conversation's words are opened (`fetch`) and nowhere else; absent means off, like `voiceNaming`.
 - **Question cases:** `bun scripts/question-cases.ts [--only id,…] [--run]` asks his question cases

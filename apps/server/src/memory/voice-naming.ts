@@ -187,7 +187,7 @@ export function checkedVoices(
 }
 
 /** The recording a turn key is of. */
-const jobOf = (key: string) => parseTurnRef(turnRefOf(key))?.jobId ?? "";
+export const jobOf = (key: string) => parseTurnRef(turnRefOf(key))?.jobId ?? "";
 
 /** What every part is read against, read once for a run. */
 interface Context {
@@ -433,7 +433,11 @@ const turnAtOf = (key: string) =>
   Date.parse(turnRefOf(key).split("@")[1] ?? "");
 
 /** The phone calls near [from, to), with `CALL_SLACK` either side (the phone's clock and the pendant's differ). */
-const callsNear = (c: Context, from: string, to: string) =>
+const callsNear = (
+  c: Pick<Context, "events" | "people">,
+  from: string,
+  to: string
+) =>
   overlappingPhoneCallsOf(
     c.events,
     iso(Date.parse(from) - CALL_SLACK),
@@ -445,7 +449,10 @@ const callsNear = (c: Context, from: string, to: string) =>
  * Whether a spoken conversation is worth a naming read: a long one (`isSummarised`) always; a short one only when a call
  * is near it (`callsNear`) or a one-to-one message came in the `PLANNED_WITHIN` before it began (someone on the way).
  */
-function isWorthNaming(parts: SpokenPart[], c: Context) {
+export function isWorthNaming(
+  parts: SpokenPart[],
+  c: Pick<Context, "direct" | "events" | "people">
+) {
   const [began, ended] = [parts[0]?.at ?? "", parts.at(-1)?.until ?? ""];
   return (
     isSummarised(parts) ||
@@ -741,7 +748,7 @@ function namingsOf(
  * as a whole voice and not mixed, are shown as unnamed (`namingOf`'s `hidden`), and only the parts holding one are asked.
  */
 export async function readVoiceNamingWork(
-  found: ConversationSummaryWork,
+  found: Pick<ConversationSummaryWork, "parts">,
   people: People,
   where = READ_REPLIES,
   open = openStore,
