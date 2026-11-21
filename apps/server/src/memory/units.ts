@@ -1,4 +1,4 @@
-import { daysBefore } from "../core/clock";
+import { daysBefore, iso, SECOND } from "../core/clock";
 import { digest } from "../core/hash";
 import { count } from "../core/lists";
 import type { SourceName } from "../core/names";
@@ -388,18 +388,24 @@ const lengthOf = (seconds: number) => {
  * The line Life writes for a phone call (`SourceEvent.phoneCall`), its text in its chat: its kind and span, so a model
  * reads what was said in the room against it, or that no one picked up. Its times make two calls' lines differ.
  */
-export function callLine({ at, phoneCall }: SourceEvent) {
-  const kind = phoneCall?.video ? "video call" : "audio call";
-  const seconds = phoneCall?.seconds;
+export function callLine(e: SourceEvent) {
+  const kind = e.phoneCall?.video ? "video call" : "audio call";
+  const seconds = e.phoneCall?.seconds;
   if (seconds === undefined) {
-    return `(${kind} from ${time(at)}, no end seen)`;
+    return `(${kind} from ${time(e.at)}, no end seen)`;
   }
   if (seconds === 0) {
-    return `(${kind} at ${time(at)}, not picked up)`;
+    return `(${kind} at ${time(e.at)}, not picked up)`;
   }
-  const end = new Date(Date.parse(at) + seconds * 1000).toISOString();
-  return `(${kind} ${time(at)}–${time(end)}, ${lengthOf(seconds)})`;
+  const span = callSpanOf(e);
+  return `(${kind} ${time(span.at)}–${time(span.until)}, ${lengthOf(seconds)})`;
 }
+
+/** A call's exact span, to the second, as ISO instants: its start and its start plus its length (none when unseen). */
+export const callSpanOf = ({ at, phoneCall }: SourceEvent) => ({
+  at: iso(Date.parse(at)),
+  until: iso(Date.parse(at) + (phoneCall?.seconds ?? 0) * SECOND),
+});
 
 /** A message's text as every reader shows it: a phone call is its call line. */
 export const textOf = (e: SourceEvent) => (e.phoneCall ? callLine(e) : e.text);

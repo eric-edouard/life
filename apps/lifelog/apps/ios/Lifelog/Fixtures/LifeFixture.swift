@@ -34,7 +34,7 @@
         /// `-fixtureAgent notStarted|running`: Nora's agent never began (its runtime refused), for the Try again swap, or works.
         nonisolated static let agent = value(of: "-fixtureAgent")
         /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).
-        /// `-fixturePage life|server|diagnostics`: Settings opens that page.
+        /// `-fixturePage life|server|diagnostics|apps`: Settings opens that page.
         nonisolated static let page = value(of: "-fixturePage")
         nonisolated static let pair = value(of: "-fixturePair") ?? "ok"
         nonisolated static let pose = value(of: "-fixturePose")

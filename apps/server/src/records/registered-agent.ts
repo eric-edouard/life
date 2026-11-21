@@ -136,6 +136,8 @@ export const AgentChange = z
       .optional(),
     effort: z.string().min(1).optional(),
     folder: z.string().min(1).optional(),
+    /** The matter he named, by its id, beside its `steps`: kept on the assignment (`matter_id`), it settles a tie between matters sharing steps. */
+    matter: z.string().min(1).optional(),
     model: z.string().min(1).optional(),
     name: z.string().min(1).max(60).optional(),
     project: z.string().min(1).optional(),

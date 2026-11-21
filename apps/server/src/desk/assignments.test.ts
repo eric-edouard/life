@@ -249,7 +249,7 @@ test("an assignment whose deadline passes gets a deadline turn naming its matter
   });
 });
 
-test("a matter's card takes its first step as subject, refuses another matter's, and his answer is queued for that assignment", async () => {
+test("a matter's card takes its matter as subject (stored as its newest step), refuses another matter's, and his answer is queued for that assignment", async () => {
   const { desk, waiting } = setup();
   const id = await waiting();
   const a = onMatter(desk, id, "a", HOUR);
@@ -274,7 +274,7 @@ test("a matter's card takes its first step as subject, refuses another matter's,
     );
     const { id: asked } = await askDecision(desk, row, card());
     const d = decisionsNow().find((x) => x.id === asked);
-    expect(d?.subject).toBe("obs_a1");
+    expect(d?.subject).toBe("obs_a2");
     expect(assignmentOfCard(desk.db, d ?? { id: asked })).toBe(a);
     // The agent's own assignment has no card yet: its own first card is its own.
     expect(pendingCardOf(desk.db, on(desk, id))).toBeUndefined();
@@ -613,6 +613,51 @@ test("a card whose subject's anchor cannot be written is never written, and the 
   });
 });
 
+// Regression (life#764): a card whose write failed took back its owner row and anchor later, after an await, so another
+// ask's anchor on the same step could go with it, and the desk stopping between its commit and the card left an anchor
+// with no card. Owner, anchor and card are now one transaction: a failed write takes back only its own rows, at once.
+test("a card whose write fails leaves neither its owner nor its anchor, and the next ask on that step holds it", async () => {
+  const { desk, id, onA, own } = await twoAssignments();
+  const files = await import("../core/files");
+  const write = spyOn(files, "appendJsonl").mockImplementationOnce(() => {
+    throw new Error("test: disk full");
+  });
+  try {
+    await withMatters(MATTERS, async () => {
+      await expect(askDecision(desk, onA(), yesNo("obs_a2"))).rejects.toThrow(
+        "test: disk full"
+      );
+      expect(desk.db.query("select * from card").all()).toEqual([]);
+      expect(anchorsOf(desk.db, onA().id)).not.toContain("obs_a2");
+      const { id: card } = await askDecision(desk, onA(), yesNo("obs_a2"));
+      expect(assignmentOfCard(desk.db, { agent: id, id: card })).toBe(onA().id);
+      expect(anchorsOf(desk.db, onA().id)).toContain("obs_a2");
+      // Its own assignment's ask on that step is filed under A, which holds it and already asks.
+      await expect(askDecision(desk, own(), yesNo("obs_a2"))).rejects.toThrow(
+        "already asks"
+      );
+    });
+  } finally {
+    write.mockRestore();
+  }
+});
+
+// Catch-up review of PR 841: a card on a step of an assignment's matter found the smaller matter sharing that step, so
+// it was refused or filed elsewhere. A subject on a matter the agent holds is that matter.
+test("a card on a step its assignment's matter shares with a smaller matter is filed there, on that matter", async () => {
+  const { desk, id, onA } = await twoAssignments();
+  desk.db.run(
+    "insert into anchor (assignment_id, step, added_at) values (?, 'obs_a2', ?)",
+    [onA().id, clock().toISOString()]
+  );
+  const matters = [...MATTERS, matterView("mat_small", ["obs_a2"])];
+  await withMatters(matters, async () => {
+    const { id: card } = await askDecision(desk, onA(), yesNo("obs_a2"));
+    expect(assignmentOfCard(desk.db, { agent: id, id: card })).toBe(onA().id);
+    expect(decisionsNow().find((d) => d.id === card)?.matter).toBe("mat_a");
+  });
+});
+
 // Regression: a closed assignment kept its anchors, so it refused its agent's other assignment a step it can never ask on.
 test("a step goes to its sibling assignment while that one is open, and is free once it closes", async () => {
   const { desk, id, onA, own } = await twoAssignments();
@@ -621,6 +666,10 @@ test("a step goes to its sibling assignment while that one is open, and is free 
   await withMatters(MATTERS, async () => {
     const { id: first } = await askDecision(desk, own(), yesNo("obs_a1"));
     expect(assignmentOfCard(desk.db, { agent: id, id: first })).toBe(onA().id);
+    // Its line names the assignment it is filed under, not the one that asked.
+    expect(decisionsNow().find((d) => d.id === first)?.assignment).toBe(
+      onA().id
+    );
     await closeAssignment(desk, onA().id, "test: its matter is done");
     const { id: card } = await askDecision(desk, own(), yesNo("obs_a1"));
     expect(pendingCardOf(desk.db, own())?.id).toBe(card);
