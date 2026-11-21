@@ -10,6 +10,7 @@ import {
 } from "../host/desk-read";
 import { MOVE_REASONS } from "../host/move-read";
 import type {
+  AnswerExtras,
   MainSessionAnswer,
   MainSessionAsk,
   MainSessionLine,
@@ -34,7 +35,7 @@ import {
 // `main`, registered by the desk on his first words, woken only by them (never by the clock: `dueOf`). Each ask is one
 // desk turn (cause `main_ask`, outcome `replied` from its start: `turnEnded` closes it with its usage, no reminder, no
 // wait) on one session the runtime keeps open across asks (`Runtime.talk`), so his next words pay no start; his presence
-// on the Tell Life screen keeps it open (`keepMainSession`). It only answers in this slice: its door refuses it every tool
+// on the Tell Life screen keeps it open (`keepMainSession`). It only answers in this slice: its door refuses it every tool but `answer`
 // on its turn (`desk-door.ts`) and the send guard its connector's writes; the rest (it runs as one of his own sessions,
 // shell and files included) rests on its brief.
 
@@ -43,7 +44,7 @@ export const MAIN_ASK = "main_ask";
 
 /** The main session's brief: what it is, how it answers. His words come in each message after it. */
 export const MAIN_BRIEF =
-  "You are Life's main session. He talks to you from his phone (Tell Life): each message holds his words and the refs on his screen. Read Life through your Life connector (`fetch` opens a ref) and answer him in two short sentences at most, in his language, with no preamble and no emoji: your text is shown to him as you write it, and your text after your last tool call is your answer. For now you only read and answer: change nothing and send nothing; anything for someone else stays a card he taps.";
+  "You are Life's main session. He talks to you from his phone (Tell Life): each message holds his words and the refs on his screen. Read Life through your Life connector (`fetch` opens a ref) and answer him in two short sentences at most, in his language, with no preamble and no emoji: your text is shown to him as you write it, and your text after your last tool call is your answer, the one word that matters marked in `**`. Right before that text, call your door's `answer` to add a line of why and the refs it rests on, or the likely answers when you ask him something. For now you only read and answer: change nothing and send nothing; anything for someone else stays a card he taps.";
 
 /** How many asks are kept by his app's key: a retry of one replays its lines and ends as it does, never asks twice. */
 const ASKS_KEPT = 20;
@@ -55,6 +56,36 @@ interface Heard {
   words?: string;
 }
 const asksOf = new WeakMap<Desk["db"], Map<string, Heard>>();
+/** What each running turn's session added to its answer at its door (`answer`), read when its run ends. */
+const extrasOf = new WeakMap<Desk["db"], Map<number, AnswerExtras>>();
+const extrasIn = (db: Desk["db"]) => {
+  const byTurn = extrasOf.get(db) ?? new Map<number, AnswerExtras>();
+  extrasOf.set(db, byTurn);
+  return byTurn;
+};
+
+/** The main session's `answer` on its turn `turn`: what it adds to its words; a later call replaces it. */
+export function keepAnswerExtras(
+  desk: Desk,
+  turn: number,
+  extras: AnswerExtras
+) {
+  extrasIn(desk.db).set(turn, extras);
+}
+
+/** Its answer: its words with what it added; a question when it gave likely answers. */
+const answerOf = (
+  words: string,
+  { answers, sources, why }: AnswerExtras = {}
+): MainSessionAnswer =>
+  answers
+    ? { answers, kind: "question", question: words }
+    : {
+        kind: "reply",
+        words,
+        ...(why ? { why } : {}),
+        ...(sources?.length ? { sources } : {}),
+      };
 
 /** The main session's agent and its own assignment: registered when none stands, else why there is none. */
 async function mainOf(desk: Desk) {
@@ -186,7 +217,7 @@ async function answer(
       return { kind: "error", what: end.why ?? "the session failed" };
     }
     return words.trim()
-      ? { kind: "reply", words: words.trim() }
+      ? answerOf(words.trim(), extrasIn(db).get(turn))
       : { kind: "error", what: "Life gave no answer." };
   } catch (error) {
     // Nothing ran: a session his app holds deletes the turn, any other failure ends it failed.
@@ -199,6 +230,8 @@ async function answer(
     }
     await turnEnded(desk, turn, { ok: false, why: errorOf(error).error });
     return { kind: "error", what: errorOf(error).error };
+  } finally {
+    extrasIn(db).delete(turn);
   }
 }
 

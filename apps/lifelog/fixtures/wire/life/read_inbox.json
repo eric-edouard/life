@@ -532,7 +532,7 @@
         },
         {
           "id": "not-relevant",
-          "label": "Neither",
+          "label": "I don't care",
           "takes": null
         }
       ],
@@ -568,8 +568,8 @@
       "urgency": "blocks",
       "misread": {
         "cause": "3b404043a79bbfd0",
-        "seal": "8d9536fffa9a5425876e0107d59581c0",
-        "shown": "9a27c302925f6934"
+        "seal": "6cf1a321892c3def9766c1fd06256ec7",
+        "shown": "151c312895ca3052"
       }
     },
     {
@@ -1084,5 +1084,5 @@
   },
   "deadlinesToday": 0,
   "total": 12,
-  "version": "aa43f8d9881af1d0"
+  "version": "2607bdac29d94056"
 }

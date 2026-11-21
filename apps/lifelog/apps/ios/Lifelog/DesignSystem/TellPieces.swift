@@ -32,8 +32,14 @@ struct TellLightLine: View {
     let kind: Kind
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(TellLook.key) private var look = TellLook.lit
 
     var body: some View {
+        // The Grotesk look has no line: the words stand alone.
+        if look == .lit { line }
+    }
+
+    private var line: some View {
         ZStack {
             switch kind {
             case .ready:
@@ -125,12 +131,18 @@ struct TellStrandRow: View {
 /// every screen. It sinks under his thumb; a tap opens Tell Life.
 struct TellLifeButton: View {
     @Environment(AppRouter.self) private var router
+    /// Pieces of work running, shown as a ring in `ai` and their count.
+    var running = 0
 
     var body: some View {
         Button {
             router.isTellLifeOpen = true
         } label: {
             TellMark(size: 22).frame(width: 56, height: 56)
+                .overlay { if running > 0 { Circle().stroke(Palette.ai, lineWidth: 2) } }
+                .overlay(alignment: .topTrailing) {
+                    if running > 0 { Text("\(running)").font(.chip).foregroundStyle(Palette.ai).padding(4) }
+                }
         }
         .buttonStyle(SinkStyle())
         .floatingGlass(in: Circle())
@@ -181,5 +193,78 @@ extension View {
     func tellComposer() -> some View {
         padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.xs)
             .background(Color.fillTint, in: .rect(cornerRadius: 28))
+    }
+}
+
+/// An answer's words: Grotesk, large; in the Grotesk look their key words (marked `**`) are bold.
+struct TellHead: View {
+    let words: String
+    @AppStorage(TellLook.key) private var look = TellLook.lit
+
+    var body: some View {
+        Group {
+            if look == .grotesk { bolded } else { Text(words.withoutMarks) }
+        }
+        .font(.tellAnswer).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Only the `**` marks are read: words are data, never Markdown (no links).
+    private var bolded: Text {
+        var out = AttributedString()
+        for (index, part) in words.components(separatedBy: "**").enumerated() {
+            var run = AttributedString(part)
+            if !index.isMultiple(of: 2) { run.inlinePresentationIntent = .stronglyEmphasized }
+            out += run
+        }
+        return Text(out)
+    }
+}
+
+/// A quiet line under the words.
+struct TellNote: View {
+    let words: String
+
+    var body: some View { Text(words).font(.note).foregroundStyle(Palette.muted) }
+}
+
+/// Tell Life made small: one line over the rail, the present answer or the work, tap to open, a cross to put it away.
+struct TellStrip: View {
+    let line: String
+    let open: () -> Void
+    let close: () -> Void
+
+    var body: some View {
+        HStack(spacing: Metrics.Spacing.m) {
+            Button(action: open) {
+                HStack(spacing: Metrics.Spacing.s) {
+                    TellMark(size: 16)
+                    Text(line.withoutMarks).font(.small).foregroundStyle(Palette.fg).lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+            }
+            .buttonStyle(.plain)
+            Button(role: .close, action: close) {
+                Image(systemName: "xmark").font(.chip).foregroundStyle(Palette.muted).frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain).accessibilityLabel("Put away")
+        }
+        .padding(.horizontal, Metrics.Spacing.l).frame(height: 48)
+        .floatingGlass(in: Capsule())
+        // Above the rail.
+        .padding(.horizontal, Metrics.gutter).padding(.bottom, 84)
+        .accessibilityIdentifier("tell.strip")
+    }
+}
+
+/// Makes Tell Life small: the chevron, where the cross is on the other side.
+struct TellSmallButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "chevron.down").font(.system(size: 17, weight: .light)).foregroundStyle(Palette.fg)
+                .frame(width: 44, height: 44).background(Palette.tile, in: .circle)
+        }
+        .buttonStyle(.plain).accessibilityLabel("Make small").accessibilityIdentifier("tell.small")
     }
 }

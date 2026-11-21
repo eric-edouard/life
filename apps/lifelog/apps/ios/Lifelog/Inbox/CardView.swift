@@ -9,8 +9,6 @@ struct CardNotes: Equatable {
     /// The create sheet open over an ask: kept by the host, above its list of asks, so a read that takes the ask away
     /// (his answer) never closes it before it closes itself.
     var creating: Creating?
-    /// The card his "Wrong…" sheet is open on, kept by the host the same way; his draft is the store's.
-    var wrong: Check?
     /// On a bulk card: the rows he unticked, the answers he chose on a row's own card (sent with the others), the rows
     /// its "Answer N" sent, and the kinds he goes through one by one (`InboxOrder.folded`).
     var unticked: Set<String> = []
@@ -74,7 +72,6 @@ private struct AskSheetsHost: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.askSheetZoom, zoom)
-            .sheet(item: $notes.wrong) { check in WrongSheet(ref: check.ref).sheetStack() }
             .sheet(item: $notes.creating) { creating in
                 CreateSheet(check: creating.check, name: creating.name, isOrganization: creating.isOrganization) {
                     request in
@@ -234,10 +231,7 @@ struct CardView: View {
             isBusy: pressed == nil && life.state(of: .answer(ref: check.ref)).isRunning,
             answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
             create: { notes.creating = creating(check, $0, asOrganization: $1) },
-            wrong: {
-                life.openComplaint(on: check)
-                notes.wrong = check
-            },
+            wrong: { router.tellLife(about: check.ref, question: check.question) },
             dropProject: dropProject(of: check),
             page: page,
             pressed: pressed

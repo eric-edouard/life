@@ -97,11 +97,13 @@ test("a dormant matter whose open step is his shows one your move card: his step
   ).toEqual(["your move"]);
 });
 
-test("a pure wait on someone, a closed matter, a parked project or an open decision show no your move card", () => {
+test("a pure wait on someone, a closed matter, one Life reads over, a parked project or an open decision show no your move card", () => {
   for (const list of [
     moves({ matters: [{ ...MATTER, openSteps: [WAIT] }] }),
     moves({ matters: [{ ...MATTER, open: false, status: "done" as const }] }),
     moves({ isParked: () => true }),
+    // Life's latest direction reads it over (his word of 21 Nov 2026: a matter long done leaves his inbox).
+    moves({ matters: [{ ...MATTER, endingRecords: [], nextStep: undefined }] }),
     moves({
       decisions: [
         {
@@ -234,6 +236,17 @@ test("a place need takes only https links, and its line names it with its addres
       }),
     ])[0]?.line
   ).toBe("Paint shop, 1 Main Rd");
+});
+
+test("an app need takes an https link only, and its line names the app", () => {
+  expect(
+    Need.safeParse({ kind: "app", name: "Grab", url: "grab://x" }).success
+  ).toBe(false);
+  expect(
+    needsShownOf([
+      Need.parse({ kind: "app", name: "Grab", url: "https://g.example.com/a" }),
+    ])[0]?.line
+  ).toBe("In Grab");
 });
 
 test("your move comes after every agent's decision, by deadline then the longest waiting, whatever the matter's mark; the badge always counts it", () => {

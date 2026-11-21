@@ -201,7 +201,8 @@ struct CheckActions: View {
     }
 
     /// The answers float in the card's bottom bar (decision 97) when they are one short zone: no people to pick, and
-    /// the quiet ones fit one row (`isOneRow`); a taller group stays at the end of the card's scroll.
+    /// at most three quiet ones under the lead (`isOneRow`: a row when they fit, else rows of 48); a taller group stays
+    /// at the end of the card's scroll.
     static func fitsBar(_ check: Check) -> Bool {
         let options = shown(check)
         let quiet: [Check.Option]
@@ -213,10 +214,9 @@ struct CheckActions: View {
         return isOneRow((check.takesOwnWords ? [check.tellTitle] : []) + quiet.map(\.label))
     }
 
-    /// At most three answers, each of three words or fewer.
-    private static func isOneRow(_ labels: [String]) -> Bool {
-        labels.count <= 3 && labels.allSatisfy { $0.split(separator: " ").count <= 3 }
-    }
+    /// At most three answers: one row when they fit the width (`others`' `ViewThatFits` decides), never a count of
+    /// words, so "Hand to an agent", "Not now", "Drop" collapse into one row as designed.
+    private static func isOneRow(_ labels: [String]) -> Bool { labels.count <= 3 }
 
     /// His own words, the first quiet answer on a question: "Tell the agent…", or "Tell Life…".
     private var tell: Choice? {
@@ -312,8 +312,8 @@ struct CheckActions: View {
         }
     }
 
-    /// His own words first, then `rest`: one row of 44 (`AnswerRow`) when there are at most three, each of three words or
-    /// fewer, and the row holds them; else rows of 48; nothing when there are none.
+    /// His own words first, then `rest`: one row of 44 (`AnswerRow`) when there are at most three and the row holds
+    /// them; else rows of 48; nothing when there are none.
     @ViewBuilder private func others(_ answers: [Choice]) -> some View {
         let rest = (tell.map { [$0] } ?? []) + answers
         let isShort = Self.isOneRow(rest.map(\.label))
