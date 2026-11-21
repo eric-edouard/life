@@ -14,6 +14,7 @@ const item = {
   conversations: 2,
   evidence: [],
   id: "job-1:speaker_1",
+  isLikely: false,
   kind: "known_person",
   likely: [DANA, KOFI],
   name: null,
