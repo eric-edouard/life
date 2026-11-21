@@ -8,7 +8,7 @@ extension Check {
     /// the read.
     public struct Need: Decodable, Sendable, Equatable {
         public enum Kind: String, UnknownTolerant, Sendable {
-            case account, amount, link, text, qr
+            case account, amount, link, place, text, qr
             case unknown
         }
 
@@ -37,6 +37,10 @@ extension Check {
         /// A QR code's text, and where the payee sent it.
         let payload: String?
         let source: String?
+        /// A place's links, each opened only by his tap: Bolt's only when Life or the agent gave one.
+        let googleMapsUrl: URL?
+        let appleMapsUrl: URL?
+        let boltUrl: URL?
 
         public init(from decoder: any Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -50,16 +54,22 @@ extension Check {
             currency = try? c.decodeIfPresent(String.self, forKey: .currency)
             label = try? c.decodeIfPresent(String.self, forKey: .label)
             text = try? c.decodeIfPresent(String.self, forKey: .text)
-            url = (try? c.decodeIfPresent(String.self, forKey: .url)).flatMap { $0.flatMap(URL.init(string:)) }
             vendor = try? c.decodeIfPresent(String.self, forKey: .vendor)
             copy = try? c.decodeIfPresent(Bool.self, forKey: .copy)
             payload = try? c.decodeIfPresent(String.self, forKey: .payload)
             source = try? c.decodeIfPresent(String.self, forKey: .source)
+            func link(_ key: CodingKeys) -> URL? {
+                (try? c.decodeIfPresent(String.self, forKey: key)).flatMap { $0.flatMap(URL.init(string:)) }
+            }
+            url = link(.url)
+            googleMapsUrl = link(.googleMapsUrl)
+            appleMapsUrl = link(.appleMapsUrl)
+            boltUrl = link(.boltUrl)
         }
 
         private enum CodingKeys: String, CodingKey {
             case kind, line, bank, number, holder, scheme, value, currency, label, text, url, vendor, copy, payload,
-                source
+                source, googleMapsUrl, appleMapsUrl, boltUrl
         }
 
         /// The rows the card draws, decided here once: the view only draws them. A need whose fields say nothing
@@ -98,6 +108,15 @@ extension Check {
                 } else {
                     rows = []
                 }
+            case .place:
+                // Its line, then each link it has, https only, its host in full under it.
+                let links = [("Google Maps", googleMapsUrl), ("Apple Maps", appleMapsUrl), ("Ride with Bolt", boltUrl)]
+                    .compactMap { name, url -> NeedRow? in
+                        guard let url, url.scheme?.lowercased() == "https", let host = url.host() else { return nil }
+                        return NeedRow(
+                            glyph: .link, text: name, detail: host, action: .open(url, label: "Open \(name)"))
+                    }
+                rows = [NeedRow(glyph: .place, text: line)] + links
             case .text:
                 rows =
                     text.map { text in
@@ -123,7 +142,7 @@ extension Check {
 
 /// One row of a need: a glyph, the fact, and at most one press.
 public struct NeedRow: Sendable, Equatable {
-    public enum Glyph: Sendable { case bank, card, person, amount, link, note }
+    public enum Glyph: Sendable { case bank, card, person, amount, link, note, place }
     public enum Action: Sendable, Equatable {
         /// What goes on the pasteboard, and the button's spoken label.
         case copy(String, label: String)

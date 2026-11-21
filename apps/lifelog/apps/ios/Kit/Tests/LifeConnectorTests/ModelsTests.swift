@@ -378,6 +378,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         switch check.group {
         case .ending: #expect(check.contextLinkTitle == "Why done?")
         case .newMatter: #expect(check.contextLinkTitle == "What Life saw")
+        case .yourMove: #expect(check.contextLinkTitle == "Where it stands")
         case .decision: #expect(check.contextLinkTitle == "Why it asks")
         default: #expect(check.contextLinkTitle?.hasSuffix("?") == true)
         }
@@ -404,7 +405,9 @@ private func everyKindOfCheck() throws -> [Check] {
 @Test func everyKindOfCardAnswersAsLifeTakesIt() throws {
     let all = try everyKindOfCheck()
     func card(_ group: CheckGroup) throws -> Check { try #require(all.first { $0.group == group }) }
-    #expect(Set(all.map(\.group)) == Set(CheckGroup.allCases).subtracting([.unknown]))
+    // ponytail: Life's phone-reads test holds no matter with a step of his yet, so no your move card; drop `.yourMove`
+    // here once its wire fixture has one (its decode and answers: `aYourMoveCardDrawsItsPlace…`, NeedTests).
+    #expect(Set(all.map(\.group)) == Set(CheckGroup.allCases).subtracting([.unknown, .yourMove]))
 
     let decision = try card(.decision)
     #expect(decision.answer(decision.options[0]) == AnswerRequest(ref: decision.ref, options: ["yes"]))
@@ -423,7 +426,7 @@ private func everyKindOfCheck() throws -> [Check] {
     let edit = try #require(found.options.first { $0.id == "edit-goal" })
     #expect(found.answer(edit) == nil)
     #expect(found.answer(words: "Framed") == AnswerRequest(ref: found.ref, options: ["edit-goal"], note: "Framed"))
-    #expect(found.answer(found.options[0]) == AnswerRequest(ref: found.ref, options: ["start"]))
+    #expect(found.answer(found.options[0]) == AnswerRequest(ref: found.ref, options: ["start"], note: found.goal))
 
     for group in [CheckGroup.name, .contactsCard] {
         let check = try card(group)

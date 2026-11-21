@@ -38,6 +38,13 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
         public let recordedAs: String?
         /// An `ends` answer's end of its step or matter: `error`, Life's reason when it did not end as asked. No end: absent.
         public let ended: Ended?
+        /// "Not now" on a your move card: the local day (`YYYY-MM-DD`) it is back in his inbox. Any other answer: absent.
+        public let until: String?
+
+        /// The day "Not now" brings the card back, in his words: "Tue 24 Nov".
+        public var backOn: String? {
+            until.flatMap { SaidWords.parse($0, timeZone: .current) }.map { SaidWords.day($0.date) }
+        }
     }
 
     public struct Ended: Decodable, Sendable, Equatable {

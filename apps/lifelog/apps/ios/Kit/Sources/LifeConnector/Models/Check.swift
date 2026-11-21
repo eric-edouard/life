@@ -8,6 +8,8 @@ public enum CheckGroup: String, UnknownTolerant, Sendable {
     case guessedPerson = "guessed person"
     case newMatter = "new matter"
     case samePerson = "same person"
+    /// A matter's open step that is his: it stays in his inbox until done, handed over or put off.
+    case yourMove = "your move"
     case unknown
 }
 
@@ -380,6 +382,7 @@ extension Check {
         switch group {
         case .ending: return "Why done?"
         case .newMatter: return "What Life saw"
+        case .yourMove: return "Where it stands"
         case .guessedPerson, .name, .voice, .contactsCard, .samePerson:
             let name = networkIdentity?.shownName ?? askedName ?? contactsCard?.name ?? likelyPeople.first?.name
             return name.map { "Why \($0)?" } ?? "Why this person?"
@@ -403,8 +406,16 @@ extension Check {
     public var isNamingFilled: Bool { namingOption != nil && filled?.id == namingOption?.id }
 
     /// His answer by one tap on `option`: nil when that option needs more than the tap (a person, a name or his words).
+    /// A your move card's "Hand to an agent" hands over the goal it shows, as a new matter's Start does.
     public func answer(_ option: Option) -> AnswerRequest? {
-        option.takes == nil ? AnswerRequest(ref: ref, options: [option.id]) : nil
+        guard option.takes == nil else { return nil }
+        let goal = isHandOver(option) ? self.goal : nil
+        return AnswerRequest(ref: ref, options: [option.id], note: goal)
+    }
+
+    /// Whether `option` starts an agent on the card's matter: a new matter's Start, a your move's Hand to an agent.
+    public func isHandOver(_ option: Option) -> Bool {
+        option.id == "start" && (group == .newMatter || group == .yourMove)
     }
 
     /// His answer naming who it is, through the option that takes it: a person Life knows, or a typed name, which is a

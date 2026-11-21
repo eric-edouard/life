@@ -15,7 +15,7 @@ struct Taken: Equatable {
     var staysOpen: Bool { check.keepsOpen(after: request) }
     /// He picked the option that sends the draft; another answer on a draft's card sends nothing.
     var isSend: Bool { check.options.contains { $0.outgoing == true && request.options.contains($0.id) } }
-    var isStart: Bool { check.group == .newMatter && request.options == ["start"] }
+    var isStart: Bool { check.options.contains { request.options == [$0.id] && check.isHandOver($0) } }
     /// His word that the step or matter is done: held for Undo wherever the card is shown.
     var isEnding: Bool { check.isEnding(request) }
     var context: ActionCopy.Context {
@@ -190,6 +190,7 @@ extension Taken {
         case .newMatter:
             staysOpen
                 ? "Goal saved." : request.options == ["dismiss"] ? "Dismissed." : "Started."
+        case .yourMove: isStart ? "Started." : request.options == ["not-now"] ? "Not now." : "Done."
         case .name, .guessedPerson, .samePerson: "Saved."
         case .decision, .unknown: "Answered."
         }
@@ -202,11 +203,11 @@ extension Taken {
             let when = send.at.map { ", at \($0.formatted(.dateTime.hour().minute()))" } ?? ""
             return "To \(to.joined(separator: " on "))\(when)."
         }
+        if isStart { return "An agent works toward the goal." }
+        if let back = result.changed?.backOn { return "Back in your inbox on \(back)." }
         if check.group == .newMatter {
-            return request.options == ["start"]
-                ? "An agent works toward the goal."
-                : staysOpen
-                    ? "The goal is yours now. Start or Dismiss is still waiting." : "Never asked again for this matter."
+            return staysOpen
+                ? "The goal is yours now. Start or Dismiss is still waiting." : "Never asked again for this matter."
         }
         if request.options.isEmpty { return "Your words went to \(context.asker ?? "the asker")." }
         let label = check.options.first { request.options.contains($0.id) }?.label
