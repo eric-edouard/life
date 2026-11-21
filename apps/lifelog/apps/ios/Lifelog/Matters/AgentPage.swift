@@ -92,7 +92,7 @@ struct AgentPage: View {
                     .buttonStyle(.plain)
                 }
                 // Inset as the list's rows are (`groupedRow`).
-                .padding(.horizontal, Metrics.Spacing.m).padding(.top, Metrics.Spacing.l)
+                .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.l)
                 .readingWidth().quietListRow()
                 if let line = agent.spendingLine() {
                     SpendingLine(text: line).padding(.horizontal, Metrics.gutter).quietListRow()

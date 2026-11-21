@@ -326,7 +326,7 @@ struct CheckActions: View {
             ViewThatFits(in: .horizontal) {
                 AnswerRow {
                     ForEach(rest) { choice in
-                        answerButton(choice, kind: .quiet, size: .compact).lineLimit(1).minimumScaleFactor(0.75)
+                        answerButton(choice, kind: .quiet, size: .compact).minimumScaleFactor(0.75)
                     }
                 }
                 stack

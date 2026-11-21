@@ -358,30 +358,34 @@ export const tellLifeRefOf = (turn: number, act: string, args: unknown) =>
 
 /**
  * His words `said` (found in his ask) to agent `agent`, from the main session's `tell_agent`: one ask of the desk in the
- * ledger with the assignment they go `to` (its own, else the one it works on now), which the spoken-ask intake places
- * there (`toldPlaceOf`) and the agent reads as data (`read_spoken_ask`). Refused for an agent not active, or the main
- * session itself.
+ * ledger with the assignment they go `to` (`to` when given, one of its open ones; else its own, else the one it
+ * works on now), which the spoken-ask intake places there (`toldPlaceOf`) and the agent reads as data
+ * (`read_spoken_ask`). Refused for an agent not active, the main session itself, or an assignment it does not hold open.
  */
 export function tellAgent(
   desk: Desk,
   agent: string,
   said: string,
-  ref: string
+  ref: string,
+  to?: string
 ) {
   const a = agentOf(desk.db, agent);
   if (a?.status !== "active" || a.role === "main") {
     return { error: `Not done: ${agent} is not an active agent of his.` };
   }
-  const to =
-    ownAssignmentOf(desk.db, agent) ?? openAssignmentsOf(desk.db, agent)[0]?.id;
-  if (!to) {
+  const open = openAssignmentsOf(desk.db, agent);
+  if (to && !open.some((s) => s.id === to)) {
+    return { error: `Not done: ${to} is not an open assignment of ${agent}.` };
+  }
+  const place = to ?? ownAssignmentOf(desk.db, agent) ?? open[0]?.id;
+  if (!place) {
     return { error: `Not done: ${agent} holds no open assignment.` };
   }
   const line = recordAsk(
     { at: clock().toISOString(), quote: said, ref },
-    { agent: DESK_AGENT, to },
+    { agent: DESK_AGENT, to: place },
     "connector",
     "his words through Tell Life to one agent"
   );
-  return { agent, ask: line.id, assignment: to, state: "handed" };
+  return { agent, ask: line.id, assignment: place, state: "handed" };
 }

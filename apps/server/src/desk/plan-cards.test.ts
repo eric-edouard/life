@@ -1,9 +1,14 @@
 import { expect, setSystemTime, test } from "bun:test";
 import { DAY } from "../core/clock";
+import { DESK_AGENT } from "../core/names";
 import { planCardsOf } from "../host/inbox";
 import { decisionCardOf } from "../memory/checks";
 import type { Decision } from "../memory/decision-lines";
-import { answerDecision, decisionsNow } from "../memory/decisions";
+import {
+  answerDecision,
+  decisionsNow,
+  requestDecision,
+} from "../memory/decisions";
 import { askDecision, openAssignment, register } from "./agent-actions";
 import { ahead, on, setup } from "./test-desk";
 
@@ -162,5 +167,41 @@ test("a plan card without `plan` is refused, its steps asked for", async () => {
       title: "Mend the watch",
     })
   ).rejects.toThrow("first card is its plan card: give `plan`");
+  setSystemTime();
+});
+
+// life#1114: plan cards asked before `plan` was required (21 Nov 2026) are still in his store: they read as plan cards,
+// their plan in `context`, `plan` null.
+test("a plan card stored before `plan` was required still reads as his plan card", async () => {
+  const { desk } = setup();
+  const agent = register(desk, { brief: "Test brief", runtime: "fake" });
+  const s = on(desk, agent);
+  // Written as the store holds it, past the door's rule.
+  const { id } = await requestDecision(DESK_AGENT, {
+    agent,
+    context: "## Plan\n1. Ask Kit",
+    deadline: ahead(DAY),
+    onSilence: null,
+    options: [
+      { id: "start", label: "Go" },
+      { id: "stop", label: "Stop the agent" },
+    ],
+    question: "Start with this plan?",
+    title: "Mend the watch",
+  });
+  desk.db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
+    id,
+    s.id,
+  ]);
+  const d = decisionsNow().find((x) => x.id === id);
+  expect(d && [...planCardsOf(desk.db, [d])]).toEqual([id]);
+  expect(d && decisionCardOf(d)).toMatchObject({
+    gathered: null,
+    options: [
+      { id: "start", takes: null },
+      { id: "stop", takes: null },
+    ],
+    plan: null,
+  });
   setSystemTime();
 });
