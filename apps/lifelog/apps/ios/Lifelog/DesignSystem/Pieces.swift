@@ -813,9 +813,9 @@ struct Row<Trailing: View>: View {
 extension Row where Trailing == EmptyView {
     init(
         title: String, icon: String? = nil, iconTint: Color = Palette.icon, detail: String? = nil,
-        state: RowState = .known
+        state: RowState = .known, isInList: Bool = false
     ) {
-        self.init(title: title, icon: icon, iconTint: iconTint, detail: detail, state: state) {}
+        self.init(title: title, icon: icon, iconTint: iconTint, detail: detail, state: state, isInList: isInList) {}
     }
 }
 
