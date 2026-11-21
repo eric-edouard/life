@@ -7,13 +7,12 @@ import {
   yourMoveClosingOf,
 } from "../memory/answer-check";
 import { atOrganizationPairOf } from "../memory/at-organization";
-import type { Decision } from "../memory/decision-lines";
+import { type Decision, doneSeenShownOf } from "../memory/decision-lines";
 import {
   actDueOf,
   actOf,
   actOutcomeOf,
   decisionsNow,
-  doneSeenShownOf,
   type EndByHisWord,
   LOOK_LIMIT_MS,
   notSentOf,
@@ -187,7 +186,7 @@ async function decisionResult(ref: string, key?: string) {
     done: [tap.answer, tap.notSent ?? tap.send, tap.doneSeen, ended].filter(
       Boolean
     ),
-    doneSeen: doneSeenShownOf(tap.doneSeen),
+    doneSeen: doneSeenShownOf(tap.doneSeen, d.needs),
     kind: "decision",
     ref,
     send: sendResultOf(d, tap),

@@ -141,7 +141,10 @@ test("his I've paid finds the payment: Life looks, the card ends, the asker hear
   expect(steps.at(-1)).toMatchObject({ state: "seen" });
   expect(r).toMatchObject({
     changed: { options: ["paid"], state: "answered" },
-    doneSeen: { state: "seen" },
+    doneSeen: {
+      paid: { currency: "THB", value: 4500 },
+      state: "seen",
+    },
   });
   expect((await eventsOf(from))[0]?.data).toMatchObject({
     answer: { options: ["paid"] },
