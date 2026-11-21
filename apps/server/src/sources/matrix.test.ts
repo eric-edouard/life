@@ -440,7 +440,7 @@ test("a room's people are its joined ghosts, him included; his account, the bot 
   const db = new Database(synapse);
   db.run("alter table current_state_events add column state_key text");
   db.run("alter table current_state_events add column membership text");
-  for (const [user, membership] of [
+  for (const [user, membership] of <[string, string][]>[
     ["@net_ana:life.local", "join"],
     ["@net_kit:life.local", "join"],
     ["@net_him:life.local", "join"],
