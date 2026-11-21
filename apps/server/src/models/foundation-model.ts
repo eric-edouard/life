@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { MIN } from "../core/clock";
+import { timedLocalModel } from "../core/log";
 import { exec } from "../core/proc";
 
 /** One field of the answer: its name, what it holds, and the only values it may take, if any. */
@@ -54,10 +55,16 @@ export async function askFoundationModel(
   if (!helper) {
     return requests.map(() => unavailable("no helper (LIFE_FOUNDATION_MODEL)"));
   }
-  const r = await exec(["taskpolicy", "-b", helper], {
-    stdin: requests.map((q) => `${JSON.stringify(q)}\n`).join(""),
-    timeout: requests.length * MIN,
-  });
+  const r = await timedLocalModel(
+    "foundation",
+    requests.length,
+    () =>
+      exec(["taskpolicy", "-b", helper], {
+        stdin: requests.map((q) => `${JSON.stringify(q)}\n`).join(""),
+        timeout: requests.length * MIN,
+      }),
+    (done) => done.code === 0
+  );
   const lines = r.stdout.split("\n").filter(Boolean);
   return requests.map((_, i) => {
     const parsed = Line.safeParse(

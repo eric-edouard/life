@@ -46,6 +46,7 @@ import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
 import { inbound } from "./inbound";
 import { lockReport, sendReport } from "./report";
+import { sampleResources } from "./resource-sample";
 
 // `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rewrites the lifelog units from where it touched and their index rows; the whole index when a unit went
@@ -569,6 +570,9 @@ function minute() {
   pushNewCardsIfChanged();
   if (isOwnLife()) {
     rotateProcessLogs();
+    sampleResources().catch((e: Error) =>
+      log("run.error", { ...errorOf(e), step: "watch.resources" })
+    );
   }
 }
 

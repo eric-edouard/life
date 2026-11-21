@@ -1,8 +1,15 @@
+import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { clock, daysBefore } from "../core/clock";
+import { clock, daysBefore, HOUR } from "../core/clock";
 import { linesOf } from "../core/files";
-import { LOG_DIR, type LogEvent, logDays, logEvents } from "../core/log";
+import {
+  LOG_DIR,
+  type LogEvent,
+  logDays,
+  logEvents,
+  logFileOf,
+} from "../core/log";
 import {
   LOG_LEVELS,
   type LogLevel,
@@ -532,3 +539,84 @@ const logPage = (
   lines,
   observedAt: clock().toISOString(),
 });
+
+// --- resource samples ----------------------------------------------------------------------------------------------
+
+const BLOCK = 64 * 1024;
+const NEWLINE = 10;
+
+/** A file's lines from its end, newest first, read back a block at a time; a torn last line comes too (callers skip it). */
+function* linesFromEnd(path: string) {
+  let fd: number;
+  try {
+    fd = openSync(path, "r");
+  } catch {
+    return;
+  }
+  try {
+    let pos = fstatSync(fd).size;
+    let rest = Buffer.alloc(0);
+    const block = Buffer.alloc(BLOCK);
+    while (pos > 0) {
+      const n = Math.min(BLOCK, pos);
+      pos -= n;
+      readSync(fd, block, 0, n, pos);
+      // A newline byte is never inside a UTF-8 character, so a cut between blocks never splits one wrongly.
+      const buf = Buffer.concat([block.subarray(0, n), rest]);
+      let end = buf.length;
+      let i = buf.lastIndexOf(NEWLINE, end - 1);
+      while (i >= 0) {
+        if (end > i + 1) {
+          yield buf.toString("utf8", i + 1, end);
+        }
+        end = i;
+        i = end > 0 ? buf.lastIndexOf(NEWLINE, end - 1) : -1;
+      }
+      rest = buf.subarray(0, end);
+    }
+    if (rest.length > 0) {
+      yield rest.toString("utf8");
+    }
+  } finally {
+    closeSync(fd);
+  }
+}
+
+const LINE_TIME = /"(?:time|at)":"([^"]+)"/;
+const SAMPLE = '"kind":"resource.sample"';
+
+/**
+ * The resource samples of the last hour (`sampleResources`), oldest first, and the latest: read back from the end of
+ * today's log file (and yesterday's, across midnight) until a line older than the hour, never a whole day.
+ */
+export function readResourceSamples(now = clock(), dir = LOG_DIR) {
+  const since = new Date(now.getTime() - HOUR).toISOString();
+  const files = [now, new Date(now.getTime() - HOUR)]
+    .map((d) => logFileOf(d.toISOString()))
+    .filter((f, i, all) => all.indexOf(f) === i);
+  const back: Record<string, unknown>[] = [];
+  for (const file of files) {
+    for (const line of linesFromEnd(join(dir, file))) {
+      const at = line.match(LINE_TIME)?.[1];
+      if (at !== undefined && at < since) {
+        break;
+      }
+      if (line.includes(SAMPLE)) {
+        try {
+          const {
+            category: _c,
+            kind: _k,
+            level: _l,
+            msg: _m,
+            ...sample
+          } = JSON.parse(line);
+          back.push(sample);
+        } catch {
+          // A torn last line: the next read has it whole.
+        }
+      }
+    }
+  }
+  const hour = back.reverse();
+  return { hour, latest: hour.at(-1) ?? null, observedAt: now.toISOString() };
+}
