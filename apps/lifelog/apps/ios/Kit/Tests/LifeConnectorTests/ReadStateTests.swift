@@ -238,6 +238,7 @@ private func shown(_ state: ReadState<[Int]>) -> String {
         tries += 1
         await Task.yield()
     }
+    #expect(ran.withLock { $0.contains("new") }, "the new pairing's read began while the old one was still held")
     await reads.finishNext()
     await running.value
     await queued.value
