@@ -6,13 +6,12 @@ import {
   type StartAgent,
   yourMoveClosingOf,
 } from "../memory/answer-check";
-import type { Decision } from "../memory/decision-lines";
+import { type Decision, doneSeenShownOf } from "../memory/decision-lines";
 import {
   actDueOf,
   actOf,
   actOutcomeOf,
   decisionsNow,
-  doneSeenShownOf,
   type EndByHisWord,
   LOOK_LIMIT_MS,
   notSentOf,

@@ -20,6 +20,7 @@ import {
   type Decision,
   type DecisionState,
   DoneSeen,
+  doneSeenShownOf,
   Ended,
   Kept,
   Line,
@@ -43,7 +44,7 @@ import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
 import { cardRefsProblemOf, readsOnce } from "./find-refs";
 import { matterOfSteps, openStepsOf } from "./matter-read";
 import { MEMORY } from "./memory-files";
-import { amountOf, type Need } from "./needs";
+import { amountOf } from "./needs";
 
 // The decisions: a question an agent puts to him, as one card: a title and a question of one line each, the exact
 // draft he approves when there is one, 2 to 4 options (the recommended one first), its context folded, a deadline.
@@ -633,24 +634,6 @@ async function lookOnAnswer(
   const line = recordDoneSeen(d.id, outcome);
   onStep?.("done_seen", doneSeenShownOf(line, d.needs) ?? undefined);
   return line;
-}
-
-/** Life's outcome as his card and app show it: its state and Life's words for it; when seen, `paid` (the card's amount, which the look matched exactly, and when Life saw it); null when Life looked for nothing. */
-export function doneSeenShownOf(l?: DoneSeen, needs?: readonly Need[]) {
-  if (!l) {
-    return null;
-  }
-  const notFound = l.error
-    ? `Life could not look in your accounts: ${l.error}`
-    : "Not in your accounts yet";
-  const amount = amountOf(needs);
-  return {
-    line: l.state === "seen" ? "Paid: Life saw it in your accounts" : notFound,
-    ...(l.state === "seen" && amount
-      ? { paid: { at: l.at, currency: amount.currency, value: amount.value } }
-      : {}),
-    state: l.state,
-  };
 }
 
 /** Closes the step or matter of the answered decision `d` by his word (`end`) and appends its `ended` line, with the error when it failed. */

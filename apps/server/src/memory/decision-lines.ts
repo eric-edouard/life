@@ -2,6 +2,7 @@ import { z } from "zod";
 import { isoDateTime } from "../records/fields";
 import { Ask } from "./card-request";
 import { StoredDraft } from "./draft";
+import { amountOf, type Need } from "./needs";
 
 // The decisions' stored lines (`decisions.jsonl`, `decisions.ts` reads and writes them) and a decision as read: one
 // `asked` line and the lines after it, each kind's shape here.
@@ -163,3 +164,21 @@ export type Decision = Asked & {
   voided?: { answer: Answered; doneSeen?: DoneSeen; notSent?: SendFailed }[];
   withdrawn?: Withdrawn;
 };
+
+/** Life's outcome as his card and app show it: its state and Life's words for it; when seen, `paid` (the card's amount, which the look matched exactly, and when Life saw it); null when Life looked for nothing. */
+export function doneSeenShownOf(l?: DoneSeen, needs?: readonly Need[]) {
+  if (!l) {
+    return null;
+  }
+  const notFound = l.error
+    ? `Life could not look in your accounts: ${l.error}`
+    : "Not in your accounts yet";
+  const amount = l.state === "seen" ? amountOf(needs) : undefined;
+  return {
+    line: l.state === "seen" ? "Paid: Life saw it in your accounts" : notFound,
+    ...(amount && {
+      paid: { at: l.at, currency: amount.currency, value: amount.value },
+    }),
+    state: l.state,
+  };
+}

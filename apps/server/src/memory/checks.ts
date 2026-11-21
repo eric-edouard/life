@@ -29,12 +29,11 @@ import {
   withComplaintFields,
   withMisreadSealed,
 } from "./complaint-checks";
-import type { Decision } from "./decision-lines";
+import { type Decision, doneSeenShownOf } from "./decision-lines";
 import {
   DECISIONS,
   decisionsNow,
   doneSeenByOf,
-  doneSeenShownOf,
   isOnMatter,
   notSentOf,
 } from "./decisions";
