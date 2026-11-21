@@ -34,11 +34,11 @@ export const entryId = (ref: string, kind: string, title: string) =>
   `entry_${digest("sha1", `${ref}|${kind}|${normalize(title)}`, 12)}`;
 
 /** What a client passes (a Claude session through the CLI, a chat through the connector): a change, his words that asked for it, and why. */
-export const Asked = Change.extend({
+export const AskedChange = Change.extend({
   said: z.string().min(3).describe("The owner's own words that asked for it"),
   why: z.string().default("asked in a Claude session"),
 });
-export type Asked = z.infer<typeof Asked>;
+export type AskedChange = z.infer<typeof AskedChange>;
 
 interface InstructedChange {
   change: Change;
@@ -151,7 +151,7 @@ export const requested = (
 
 /** `changeTodoItem` for a request that comes from a client (`requested`). */
 export function changeAskedTodoItem(
-  { said, why, ...change }: Asked,
+  { said, why, ...change }: AskedChange,
   via: "connector" | "session"
 ) {
   return changeTodoItem({

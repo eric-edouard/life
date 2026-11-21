@@ -7,6 +7,7 @@ import {
   yourMoveClosingOf,
 } from "../memory/answer-check";
 import { atOrganizationPairOf } from "../memory/at-organization";
+import { ADD_LIMIT_MS } from "../memory/decision-add";
 import { type Decision, doneSeenShownOf } from "../memory/decision-lines";
 import {
   actDueOf,
@@ -28,6 +29,7 @@ import { readMatterBook } from "../memory/matters";
 import { samePersonPairOf } from "../memory/same-person";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
+import { addEventByHisWord } from "./card-event-calendar";
 import {
   addDirectoryEntryByHisWord,
   addOrganizationPersonByHisWord,
@@ -168,10 +170,20 @@ async function decisionResult(ref: string, key?: string) {
   const tap = tapOf(d, key);
   // An end belongs to the answer that stands: one a `not sent:` outcome voided ended nothing.
   const ended = tap.answer === d.answer ? d.end : undefined;
+  const added = tap.answer === d.answer ? d.added : undefined;
   return {
     asker: askerOf(d),
     changed: {
       decision: ref,
+      ...(added
+        ? {
+            added: {
+              at: added.at,
+              ...(added.error ? { error: added.error } : {}),
+              ...(added.eventId ? { eventId: added.eventId } : {}),
+            },
+          }
+        : {}),
       ...(ended
         ? {
             ended: {
@@ -183,9 +195,13 @@ async function decisionResult(ref: string, key?: string) {
       options: tap.answer?.options ?? [],
       state: d.state,
     },
-    done: [tap.answer, tap.notSent ?? tap.send, tap.doneSeen, ended].filter(
-      Boolean
-    ),
+    done: [
+      tap.answer,
+      tap.notSent ?? tap.send,
+      tap.doneSeen,
+      ended,
+      added,
+    ].filter(Boolean),
     doneSeen: doneSeenShownOf(tap.doneSeen, d.needs),
     kind: "decision",
     ref,
@@ -294,6 +310,7 @@ function planOf(
         : []),
       ...(act === "end" ? ["ended"] : []),
       ...(act === "look" ? ["looking", "done_seen"] : []),
+      ...(act === "add" ? ["added"] : []),
     ];
   }
   if (starts) {
@@ -372,11 +389,12 @@ async function decisionActOf(
   };
   const sendMs = act === "send" && known?.draft ? sendLimitMs(known.draft) : 0;
   const lookMs = act === "look" ? LOOK_LIMIT_MS : 0;
+  const addMs = act === "add" ? ADD_LIMIT_MS : 0;
   return {
     act,
     closing,
     end,
-    limitMs: sendMs + lookMs + ticksLimitMsOf(closing),
+    limitMs: sendMs + lookMs + addMs + ticksLimitMsOf(closing),
   };
 }
 
@@ -460,6 +478,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     item,
     recordedAs,
   } = await answerCheck(open, a, "connector", {
+    add: addEventByHisWord,
     addDirectoryEntry: (kind, name, fields) =>
       addDirectoryEntryByHisWord(kind, name, `New ${kind}: ${name}`, fields),
     addOrganizationPerson: (organization, person, role) =>

@@ -9,8 +9,9 @@ public final class DictationRecording {
     private let encoder: OpusPacketEncoder
     private let writer: OggOpusWriter
     private var samples = 0
-    /// The loudness of the last samples appended, 0 to 1 (root mean square): the field's stream reads it.
-    public private(set) var level: Float = 0
+    /// What was heard since the stream last took a level, and that level.
+    private var heard: (squares: Float, count: Int) = (0, 0)
+    private var level: Float = 0
 
     public init() throws {
         encoder = try OpusPacketEncoder(bitRate: PreparedAudio.bitRate)
@@ -28,7 +29,14 @@ public final class DictationRecording {
         try writer.append(encoder.encode(taken))
         // Counted only once encoded.
         samples += taken.count
-        level = (taken.reduce(0) { $0 + $1 * $1 } / Float(taken.count)).squareRoot()
+        heard = (heard.squares + taken.reduce(0) { $0 + $1 * $1 }, heard.count + taken.count)
+    }
+
+    /// The loudness of everything appended since the last take, 0 to 1 (root mean square), so each of the field's
+    /// bars is its whole moment, not only the buffer that came last; the last level again when nothing came since.
+    public func takeLevel() -> Float {
+        if heard.count > 0 { (level, heard) = ((heard.squares / Float(heard.count)).squareRoot(), (0, 0)) }
+        return level
     }
 
     /// The whole stream, trimmed to the samples taken.

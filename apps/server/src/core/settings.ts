@@ -20,7 +20,7 @@ export const SETTINGS = join(LIFE_STATE_DIR, "settings.json");
 
 export const Settings = z
   .object({
-    /** Who mails him his agents' reports: their mail is judged, not dropped as `not-a-person`. */
+    /** Who mails him his agents' reports: the night judges them; the arrival reader skips them, message by message. */
     agentReportSenders: z.array(z.email()).default([]),
     /** His calendar (Google's, through `gog` as `account`) that Life keeps its appointments in, marked unconfirmed (`host/appointments-calendar.ts`). */
     appointmentsCalendar: z

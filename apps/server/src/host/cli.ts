@@ -38,7 +38,11 @@ import {
   changeDirectoryEntry,
   DirectoryEntryChange,
 } from "./change-directory-entry";
-import { Asked, changeAskedTodoItem, setAutoAdd } from "./change-todo-item";
+import {
+  AskedChange,
+  changeAskedTodoItem,
+  setAutoAdd,
+} from "./change-todo-item";
 import { memoryCommand, step } from "./command";
 import { stage } from "./export";
 import { LOCAL_PORT } from "./http/http";
@@ -199,9 +203,9 @@ const commands: Record<string, () => number | Promise<number>> = {
       console.log(problems.join("\n") || "ready");
       return problems.length > 0 ? 1 : 0;
     }
-    let asked: Asked;
+    let asked: AskedChange;
     try {
-      asked = Asked.parse(JSON.parse(arg ?? ""));
+      asked = AskedChange.parse(JSON.parse(arg ?? ""));
     } catch (e) {
       console.error(
         `usage: bun life change-todo-item '<json>' | --check\n${(e as Error).message}`

@@ -11,6 +11,7 @@ import {
   atOrganizationRefOf,
   readAtOrganizationPairs,
 } from "./at-organization";
+import type { AddEventByHisWord } from "./decision-add";
 import {
   answerDecision,
   type EndByHisWord,
@@ -512,6 +513,7 @@ export async function answerCheck(
   {
     addDirectoryEntry,
     addOrganizationPerson,
+    add,
     answerKey,
     end,
     endYourMove,
@@ -519,6 +521,7 @@ export async function answerCheck(
     onStep,
     startAgent,
   }: Omit<WriterExtras, "voice"> & {
+    add?: AddEventByHisWord;
     answerKey?: string;
     end?: EndByHisWord;
     look?: LookForDone;
@@ -530,6 +533,7 @@ export async function answerCheck(
       answer: a,
       check,
       done: await answerDecision(ref, a.options, a.note, {
+        add,
         answerKey,
         end,
         look,
