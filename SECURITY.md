@@ -27,7 +27,7 @@ cases' agent (`scripts/question-cases.ts`, his word of 10 Nov 2026), Codex on hi
 as its only tools, serving its reads and none of its writes. It has no shell, no web and a read-only sandbox, so
 recorded content it reads can steer it to read more, and to nothing else. The text goes to the provider the owner chose (his subscriptions, or
 OpenRouter and allmodels.io with his keys, through the hosts he chose; OpenRouter's only when it lists them as keeping no data). Photos of his Photos library are described on the Mac by
-a local model (llama.cpp, `describePhotos` setting): none of those images goes to a provider. Today's arriving chat and mail lines, and the turns of a closed voice conversation he spoke in, are read first by Apple's on-device model (Foundation Models, never Private Cloud Compute): nothing leaves the Mac for it. The lines it says hold an ask, any it refuses, Thai lines, and every line when this Mac has no Apple model (or its helper fails) go to his provider, like the night's. A file inside a
+a local model (llama.cpp, `describePhotos` setting): none of those images goes to a provider. Today's arriving mail is sieved first by Apple's on-device model (Foundation Models, never Private Cloud Compute): nothing leaves the Mac for it, and a mail it calls automated goes no further by day. The rest (a person's mail, any it refuses, Thai mail, every mail when this Mac has no Apple model), today's arriving chat lines with their sitting, and the turns of a closed voice conversation he spoke in go to his provider, like the night's. A file inside a
 message (a photo, a PDF's pages) is described by the provider's fast model: that image goes to the provider, once,
 when its message arrives or at night (his word of 19 Nov 2026).
 
