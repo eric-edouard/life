@@ -90,8 +90,15 @@ private final class Pages: Sendable {
     ])
     let new = try await LogFeed.newer(after: feed.head, read: pages.read)
     #expect(new.lines.count == LogFeed.cap && new.cursor == "c2")
+    var paused = feed
     feed.add(newer: new)
     #expect(feed.rows.count == LogFeed.cap && !lines(feed).contains("old") && feed.earlier == "c2")
+    // Paused, they wait as new lines; the rows shown go, as the cap takes them.
+    paused.pause()
+    paused.add(newer: new)
+    #expect(paused.rows.isEmpty && paused.newCount == LogFeed.cap && paused.earlier == "c2")
+    paused.follow()
+    #expect(paused.rows.count == LogFeed.cap && paused.isFollowing)
 }
 
 @Test func pausedLinesWaitThenGoOnTop() {

@@ -25,10 +25,10 @@ final class LiveLogs {
 
     var query: LogQuery { LogQuery(minLevel: isProblems ? .warn : nil, process: process) }
 
-    /// Life did not answer the last read: the lines shown are dimmed and following stops.
+    /// Life did not answer the last read, or the pairing is gone: the lines shown are dimmed and following stops.
     var isDown: Bool {
         switch read.phase {
-        case .unreachable, .failed: read.value != nil
+        case .unreachable, .failed, .notPaired: read.value != nil
         default: false
         }
     }
@@ -88,7 +88,8 @@ final class LiveLogs {
             // Life answered: a failure shown before (and Follow held back by it) ends here too.
             read.apply(.succeeded(feed, Date()))
         } catch let error as MCPError {
-            fail(error, number)
+            // A read for a cursor the feed has moved past says nothing about the feed now.
+            if read.value?.earlier == cursor { fail(error, number) }
         } catch {}
     }
 

@@ -48,11 +48,14 @@ public struct LogFeed: Sendable, Equatable {
 
     /// What the live poll read (`newer`): on top while following, else held until he follows; its head is the next
     /// poll's. `backAt` puts a "Back at" row under them (Life answers again), even over no new line. A page with a
-    /// cursor left new lines unread under it: its lines take the feed's place, and older lines are read from there.
+    /// cursor left new lines unread under it: its lines take the feed's place (held while paused, the rows shown go, as
+    /// the cap would take them), and older lines are read from there.
     public mutating func add(newer page: LogPage, backAt: Date? = nil) {
         head = page.head ?? head
         if let cursor = page.cursor {
-            (rows, pending, earlier) = (page.lines.map(Row.line), [], cursor)
+            let new = page.lines.map(Row.line)
+            (rows, pending) = isFollowing ? (new, []) : ([], new)
+            earlier = cursor
             return
         }
         let hasRows = !rows.isEmpty || !pending.isEmpty
