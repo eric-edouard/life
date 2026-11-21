@@ -8,6 +8,7 @@ import {
   openTurn,
   turnModelOf,
 } from "../host/desk-read";
+import { MOVE_REASONS } from "../host/move-read";
 import type {
   MainSessionAnswer,
   MainSessionAsk,
@@ -84,7 +85,7 @@ export async function keepMainSession(desk: Desk) {
       return "Life's main session is stopped.";
     }
     return a?.session && !runtime
-      ? `Life can't run ${a.runtime} right now.`
+      ? MOVE_REASONS.blocked(a.runtime)
       : "Life's main session opens on your first words.";
   }
   try {
