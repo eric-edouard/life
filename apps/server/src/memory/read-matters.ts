@@ -515,7 +515,7 @@ export async function oneMatter<A, S = undefined>(
     return;
   }
   const row = rowOf(v, people, openDecisions(), await readIcons?.([v]));
-  // His next step's context, on one matter's read only (never in the list); none on a wait for his decision.
+  // The next step's context (his or Life's), on one matter's read only (never in the list); none on a wait for his decision.
   const context =
     row.nextStep?.kind === "wait_decision" ? undefined : v.nextStep?.context;
   return {

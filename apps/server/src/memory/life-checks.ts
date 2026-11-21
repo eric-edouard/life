@@ -260,21 +260,24 @@ export const endingGuessOf = (step: string) =>
 
 /**
  * The pre-ticked answer (`Check.preTicked`): the option a bulk card starts a row ticked with; he unticks the wrong ones.
- * An ending reads probably done; a voice of no one Life knows (lifelog's `new_person`: a known person's own name is
- * never in `name`), heard in one conversation with no name heard, "Don't name"; null for anything else. "Yes"
- * (`is-them`) comes with lifelog's likeness on its queue item, which it does not give yet.
+ * An ending reads probably done; a voice whose guess is in use (`subject`) and whose sound alone names them (lifelog's
+ * `isLikely`), "Yes"; a voice of no one Life knows (lifelog's `new_person`: a known person's own name is never in `name`), heard in
+ * one conversation with no name heard, "Don't name"; null for anything else.
  */
 export function preTickedOf(
-  c: Pick<Check, "kind">,
-  voice?: Pick<NamingQueueItem, "conversations" | "kind" | "name">
+  c: Pick<Check, "kind"> & Partial<Pick<Check, "subject">>,
+  voice?: Pick<NamingQueueItem, "conversations" | "isLikely" | "kind" | "name">
 ): string | null {
   if (c.kind === "ending") {
     return "outdated";
   }
-  return c.kind === "voice" &&
-    voice?.kind === "new_person" &&
-    voice.conversations === 1 &&
-    !voice.name
+  if (c.kind !== "voice" || !voice) {
+    return null;
+  }
+  if (c.subject && voice.isLikely) {
+    return "is-them";
+  }
+  return voice.kind === "new_person" && voice.conversations === 1 && !voice.name
     ? "not-relevant"
     : null;
 }
