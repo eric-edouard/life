@@ -66,6 +66,8 @@ export const CONFIRMS_A_DAY = 1000;
 /** The most characters one read shows: under Apple's 8k-token context. */
 const READ_CHARS = 5000;
 const THAI = /\p{Script=Thai}/u;
+/** How much of each new mail Apple's sieve is shown: its start. */
+const SIEVE_CHARS = 600;
 const TRIGGER = READS.arrival_trigger.prompt;
 
 /** His names as a group's line may say them: his name, its first word, what he is called and his aliases. */
@@ -172,7 +174,7 @@ function voiceReadsDue(
 /**
  * The one cutter, for fresh reads and a pending confirm's alike: `lines` (oldest first) packed in order into chunks of
  * whole lines within `READ_CHARS` (`packed`; a line over it is a chunk alone), every chunk read in the same pass. A
- * line keeps its one key: Apple is shown a long line cut to fit (`triggerRequest`), the confirm the whole line. Each
+ * line keeps its one key: Apple is shown a mail's start (`triggerRequest`), the confirm the whole line. Each
  * chunk is dated by its newest line, with the people who wrote or said it (his own lines alone in a one-to-one chat:
  * the other person).
  */
@@ -254,8 +256,12 @@ const linesOf = (
     .map((l) => readLineOf(b, l, nameOf))
     .filter((l) => !keys || keys.has(l.key));
 
-/** Apple's request for a mail's read: the trigger prompt's instructions, and its three fields' guides. */
-function triggerRequest(lines: string[]): FoundationRequest {
+/** Apple's request for a mail's read: each new mail's sender and start, the trigger prompt's instructions, and its three fields' guides. */
+function triggerRequest(r: ArrivalRead): FoundationRequest {
+  const keys = new Set(r.keys);
+  const mails = r.b.messages.filter((m) =>
+    keys.has(eventKey({ id: m.id, source: r.b.unit.source }))
+  );
   const [instructions = "", ...fields] = promptText(TRIGGER).split("\n## ");
   const guide = (name: string) =>
     (fields.find((f) => f.startsWith(`${name}\n`)) ?? "")
@@ -265,15 +271,17 @@ function triggerRequest(lines: string[]): FoundationRequest {
     fields: [
       {
         anyOf: ["person", "automated"],
-        description: guide("author"),
-        name: "author",
+        description: guide("writer"),
+        name: "writer",
       },
       { anyOf: ["yes", "no"], description: guide("needs"), name: "needs" },
       { anyOf: ["yes", "no"], description: guide("event"), name: "event" },
     ],
     instructions: instructions.trim(),
-    // A line over `READ_CHARS` is cut for Apple's context alone; the confirm reads it whole.
-    text: lines.map((l) => l.slice(0, READ_CHARS)).join("\n"),
+    // Its start only: who sent it and how it opens is what tells a person from a system (34 of 90 sieved on 21 Nov 2026).
+    text: mails
+      .map((m) => `From: ${m.sender}\n${m.text.slice(0, SIEVE_CHARS)}`)
+      .join("\n\n"),
   };
 }
 
@@ -282,9 +290,9 @@ function triggerReplyOf(answer: FoundationAnswer) {
   if (!("reply" in answer)) {
     return { refused: answer.error };
   }
-  const { author, event, needs } = answer.reply;
+  const { event, needs, writer } = answer.reply;
   return {
-    author: author === "person" ? "person" : "automated",
+    author: writer === "person" ? "person" : "automated",
     event: event === "yes" ? "yes" : "no",
     needs: needs === "yes" ? "yes" : "no",
   };
@@ -494,7 +502,7 @@ export async function readArrivals(
       }))
   )();
   const forApple = due.filter(isSieved);
-  const requests = forApple.map((r) => triggerRequest(r.lines));
+  const requests = forApple.map(triggerRequest);
   const appleStart = performance.now();
   const answers = await apple(requests);
   // Apple's own time, apart from the confirms: guided generation slows down on macOS 27 (Apple's open bug).

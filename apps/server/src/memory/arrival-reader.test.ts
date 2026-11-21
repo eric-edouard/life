@@ -215,7 +215,7 @@ const voiceOf = (
 };
 const yes = (quote: string): FoundationAnswer => ({
   os: "27.2",
-  reply: { author: "person", quote },
+  reply: { quote, writer: "person" },
 });
 
 test("Apple's yes on a mail goes to his engine; a confirmed yes is a confirmed arrival; a second pass asks nothing", async () => {
@@ -235,7 +235,7 @@ test("Apple's yes on a mail goes to his engine; a confirmed yes is a confirmed a
 
 test("Apple sieves mail: an automated mail needing nothing asks his engine nothing; one that needs him, or a person's, goes on", async () => {
   const automatedOf = (needs: string) =>
-    sceneOf(() => ({ os: "27.2", reply: { author: "automated", needs } }));
+    sceneOf(() => ({ os: "27.2", reply: { needs, writer: "automated" } }));
   const notice = automatedOf("no");
   await notice.read([mail("Your order has shipped")]);
   const bill = automatedOf("yes");
@@ -306,7 +306,7 @@ test("a meeting goes to the appointment read alone, apart from the ask rule: an 
   const s = sceneOf(
     () => ({
       os: "27.2",
-      reply: { author: "automated", event: "yes", quote: "" },
+      reply: { event: "yes", writer: "automated" },
     }),
     ASK,
     false,
@@ -329,7 +329,7 @@ test("an ask and a meeting in one read go to both reads; offline, both wait and 
   const s = sceneOf(
     () => ({
       os: "27.2",
-      reply: { author: "person", event: "yes", quote: "bring the plans" },
+      reply: { event: "yes", needs: "yes", writer: "person" },
     }),
     ASK,
     false,
@@ -691,7 +691,7 @@ test("an appointment read that fails is not counted, and is asked again on its o
   // the first line's keys alone, once; the new line is Apple's alone.
   apple[0] = {
     os: "27.2",
-    reply: { author: "automated", event: "no", quote: "" },
+    reply: { event: "no", writer: "automated" },
   };
   const b = mail("See you there");
   expect(await s.read([a, b])).toBe(1);
@@ -715,7 +715,7 @@ test("the day's cap counts both reads: one short of it, an ask and a meeting in 
   const s = sceneOf(
     () => ({
       os: "27.2",
-      reply: { author: "person", event: "yes", quote: "send it" },
+      reply: { event: "yes", needs: "yes", writer: "person" },
     }),
     ASK,
     false,
