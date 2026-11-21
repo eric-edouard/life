@@ -73,6 +73,8 @@ export interface SendPath {
   opensHint?: string;
   /** A chat it opens takes the draft's `subject` (a new issue's title). */
   opensWithSubject?: true;
+  /** How many people a chat holds, him included, as its network keeps them (a draft's "N people"); none when it can't say. */
+  people?: (chat: string) => number | undefined;
   /** What of this draft its chat can't take (what `takes` says no to, by `takesProblemOf`, then its own limits: a file of this kind or size…), asked again just before the send; none when it takes all. */
   refusal: (draft: Outgoing) => Promise<string | undefined>;
   /** Sends once per `txn`; the sent message's id once confirmed (Life's own event id where it knows it). `onHanded` is called when the network or the app has taken it, before the wait to see it. Throws `not sent: …` (nothing went) or `may have gone: …`. */

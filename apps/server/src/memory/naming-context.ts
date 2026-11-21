@@ -1,8 +1,8 @@
-import { DAY } from "../core/clock";
+import { DAY, HOUR, MIN } from "../core/clock";
 import { chatGroups, type SourceEvent } from "../records/source";
 import type { DetailLine } from "./details";
 import { OWNER } from "./read-truth";
-import { callLine, callSpanOf, chatPerson, clip } from "./units";
+import { callLine, callSpanOf, chatPerson, clip, holdsName } from "./units";
 import type { People } from "./who";
 import { offsetAt } from "./zones";
 
@@ -17,6 +17,14 @@ export const BRIEF_CHARS = 300;
 export const POSSIBLE_SPEAKERS = 12;
 /** A person heard in person counts as a possible speaker for this long afterwards. */
 export const HEARD_WITHIN = 90 * DAY;
+/** A call this near a recording is near it: a phone's clock and the pendant's can be minutes apart. */
+export const CALL_SLACK = 5 * MIN;
+/** The expected company: his one-to-one chats and calls from this long before a conversation to its end. */
+const EXPECTED_BEFORE = 6 * HOUR;
+/** A one-to-one message this long before a voice starts is a plan to meet: a signal, and what makes a short conversation worth a read. */
+const PLANNED_WITHIN = 2 * HOUR;
+/** A likeness this strong is Voice's own bar for "sounds like them" (its `isLikely`). */
+export const SOUNDS_LIKE = 0.65;
 
 /**
  * His first rule: the phone calls that overlap [from, to), the ones that matter to who is in the room. A picked-up
@@ -71,10 +79,61 @@ export function overlappingPhoneCallsOf(
   return { lines, people: [...new Set(found.flatMap((f) => f.who))] };
 }
 
+/** The expected company's window of a conversation running from `began` to `ended`, as instants: from `EXPECTED_BEFORE` before it to its end. */
+export const expectedWindowOf = (began: string, ended: string) =>
+  [Date.parse(began) - EXPECTED_BEFORE, Date.parse(ended)] as const;
+
+/** Whether one of `events` (one-to-one) is a message, not a call, in the `PLANNED_WITHIN` up to `at` (ms): a plan to meet. */
+export const isPlannedBefore = (events: readonly SourceEvent[], at: number) =>
+  events.some((e) => {
+    const t = Date.parse(e.at);
+    return !e.phoneCall && t >= at - PLANNED_WITHIN && t <= at;
+  });
+
+/**
+ * The expected company of a conversation running from `began` to `ended`: everyone (a person ref, `direct`'s key) with a
+ * one-to-one message or call from `EXPECTED_BEFORE` before it to its end, nearest to its start first, with the titles of
+ * those chats.
+ */
+export function expectedCompanyOf(
+  direct: Map<string, SourceEvent[]>,
+  began: string,
+  ended: string
+) {
+  const [from, to] = expectedWindowOf(began, ended);
+  const start = Date.parse(began);
+  return [...direct]
+    .flatMap(([ref, events]) => {
+      const near = events.filter((e) => {
+        const at = Date.parse(e.at);
+        return at >= from && at <= to;
+      });
+      const away = Math.min(
+        ...near.map((e) => Math.abs(Date.parse(e.at) - start))
+      );
+      return near.length > 0
+        ? [
+            {
+              away,
+              chats: [
+                ...new Set(
+                  near.flatMap((e) => (e.chatName ? [e.chatName] : []))
+                ),
+              ],
+              ref,
+            },
+          ]
+        : [];
+    })
+    .toSorted((a, b) => a.away - b.away || a.ref.localeCompare(b.ref));
+}
+
 /** What shows that a person could be in the room: each is a list of person refs. */
 export interface Signs {
   /** Named by his answer in this conversation (lifelog's `owner` basis). */
   answered: string[];
+  /** His expected company (`expectedCompanyOf`), nearest first. */
+  expected: string[];
   /** In an active fact dated that day whose evidence is not a recording. */
   facts: string[];
   /** Spoke in person in one of his recordings, the voice named by his own answer and not heard over a phone (any time: `isHeardAround` keeps the 90 days either side). */
@@ -109,8 +168,8 @@ export function isHeardAround(
 }
 
 /**
- * His third rule: who could be there, at most `POSSIBLE_SPEAKERS`, those on a call first. A person is in when any sign
- * holds: on an overlapping call; named by his answer in this conversation; heard in person in another conversation
+ * His third rule: who could be there, at most `POSSIBLE_SPEAKERS`, in this order: on an overlapping call; named by his
+ * answer in this conversation; his expected company; heard in person in another conversation
  * (`isHeardAround`, the conversation running from `begin` to `end`); pictured in a photo of that day; in an active fact
  * dated that day that no recording is evidence of.
  * Nothing else: a person with none of these is not offered, whoever lifelog says the voice sounds like; an organization
@@ -133,6 +192,7 @@ export function possibleSpeakersOf(
       [
         ...signs.onCall,
         ...signs.answered,
+        ...signs.expected,
         ...heard,
         ...signs.pictured,
         ...signs.facts,
@@ -183,4 +243,62 @@ export function namingBriefOf(b: Brief) {
       .join("; "),
     BRIEF_CHARS
   );
+}
+
+/**
+ * How sure a guess is, decided by code (the design of 21 Nov 2026, section 2): the model's word is one signal, `signals`
+ * counts the independent ones code found for that voice and person (planned, a name said, on a call, sounds like them),
+ * `elsewhere` whether one points to someone else. Sure: the model says sure, 2 signals or more, nothing elsewhere.
+ * Likely: the model says sure or likely, with 1 signal or more. Weak: the rest.
+ */
+export function namingConfidenceOf(
+  said: "sure" | "likely" | "weak",
+  signals: number,
+  elsewhere: boolean
+) {
+  if (said === "sure" && signals >= 2 && !elsewhere) {
+    return "sure" as const;
+  }
+  return said !== "weak" && signals >= 1
+    ? ("likely" as const)
+    : ("weak" as const);
+}
+
+const NOT_WORD = /[^\p{L}\p{N}]+/u;
+
+/** Whether one of `lines` (spoken by others than the voice) says a word of `names` (a person's name, their chat titles), of 3 letters or more. */
+export const isNameSaid = (
+  lines: readonly string[],
+  names: readonly string[]
+) => {
+  const words = names
+    .flatMap((n) => n.split(NOT_WORD))
+    .filter((w) => w.length >= 3);
+  return lines.some((l) => holdsName(l, words));
+};
+
+/**
+ * The voices of a part as the voice naming shows them: Voice's groups (a naming queue item, across recordings), not each
+ * recording's labels. `unnamed` is each line's voice (`voiceKey`) when nobody named it, else null; `groupOf` a voice's
+ * group id, none for a voice in no group (its own). Returns each line's group `V` (V1, V2… by first line) and each
+ * group's recording voices with their lines, for storing a group's guess under the voices it is made of.
+ */
+export function voiceGroupsOf(
+  unnamed: readonly (string | null)[],
+  groupOf: (voice: string) => string | undefined
+) {
+  const tokens = new Map<string, string>();
+  const members = new Map<string, Map<string, number[]>>();
+  const lineTokens = unnamed.map((voice, n) => {
+    if (!voice) {
+      return null;
+    }
+    const group = groupOf(voice) ?? voice;
+    const token = tokens.get(group) ?? `V${tokens.size + 1}`;
+    tokens.set(group, token);
+    const voices = members.get(token) ?? new Map<string, number[]>();
+    members.set(token, voices.set(voice, [...(voices.get(voice) ?? []), n]));
+    return token;
+  });
+  return { lineTokens, members };
 }
