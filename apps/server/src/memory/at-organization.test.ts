@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { Organization, Person } from "../records/truth";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as contacts from "../sources/contacts";
 import { answerCheck } from "./answer-check";
 import {
@@ -35,9 +36,9 @@ const pairsOf = (
 ) =>
   atOrganizationPairsOf(
     {
-      canon: (r) => r,
+      canon: (r: string) => r,
       corrections: over.corrections ?? [],
-      isOrganization: (r) => r === "person:test-garage",
+      isOrganization: (r: string) => r === "person:test-garage",
       resolve: () => null,
       truth: {
         organizations: [
@@ -49,7 +50,7 @@ const pairsOf = (
         people: [lou],
       },
     } as never,
-    (ref) => (ref === "person:lou" ? cards : [])
+    (r) => (r === "person:lou" ? cards : [])
   );
 
 test("a Contacts card naming an organization of his directory, by its name or an alias, with a job title: one pair, its role the title, its ref bound to both", () => {
@@ -65,7 +66,11 @@ test("a Contacts card naming an organization of his directory, by its name or an
   ]);
   expect(
     atOrganizationPairOf(
-      atOrganizationRefOf("person:test-garage", "person:lou")
+      atOrganizationRefOf({
+        organization: "person:test-garage",
+        person: "person:lou",
+        role: "Mechanic",
+      })
     )
   ).toEqual({ organization: "person:test-garage", person: "person:lou" });
 });
@@ -102,7 +107,7 @@ test("the card: asked while the person matters, with the role it writes; it impr
     ])
   ).toEqual([
     [
-      atOrganizationRefOf("person:test-garage", "person:dana"),
+      atOrganizationRefOf(pair),
       "Is Dana at person:test-garage as Mechanic?",
       ["yes", "not-at-organization"],
       "improves",
@@ -117,13 +122,18 @@ test("the card: asked while the person matters, with the role it writes; it impr
 });
 
 // The test data's owner (owner@example.com) and Test Bakery; his card says he is its owner.
-const ref = atOrganizationRefOf("person:test-bakery", "person:me");
-const asked = {
-  about: [],
-  group: "at organization",
-  kind: "person",
-  ref,
-} as unknown as InboxCheck;
+const shown = (role: string) =>
+  ({
+    about: [],
+    group: "at organization",
+    kind: "person",
+    ref: atOrganizationRefOf({
+      organization: "person:test-bakery",
+      person: "person:me",
+      role,
+    }),
+  }) as unknown as InboxCheck;
+const asked = shown("Owner");
 beforeEach(() => {
   rmSync(CORRECTIONS, { force: true });
   spyOn(contacts, "readContactRecords").mockReturnValue([
@@ -160,5 +170,18 @@ test("Yes adds the link through his directory's door, only on his own answer_che
   ]);
   await expect(
     answerCheck(asked, { options: ["not-at-organization"] }, "session")
-  ).rejects.toThrow(`no open check ${ref}`);
+  ).rejects.toThrow(`no open check ${asked.ref}`);
+});
+
+test("a Yes on a role he did not see (the card changed since it was shown) is refused, writing nothing", async () => {
+  const added: string[][] = [];
+  await expect(
+    answerCheck(shown("Baker"), { options: ["yes"] }, "connector", {
+      addOrganizationPerson: (...a) => {
+        added.push(a);
+        return Promise.resolve("Done");
+      },
+    })
+  ).rejects.toThrow("no open check");
+  expect(added).toEqual([]);
 });

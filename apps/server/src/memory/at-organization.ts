@@ -1,3 +1,4 @@
+import { digest } from "../core/hash";
 import type { Contact } from "../sources/contacts";
 import { detailRefOf, readCardsOf } from "./details";
 import type { People } from "./who";
@@ -7,10 +8,11 @@ import type { People } from "./who";
 // at <organization> as <role>?"), never decided by Life; worked out when the inbox is read and again at his answer,
 // never stored.
 
-const REF = /^at:(person:[^~]+)~(person:[^~]+)$/;
-/** A card's ref, bound to both, so a tap answers only the pair he saw. */
-export const atOrganizationRefOf = (organization: string, person: string) =>
-  `at:${organization}~${person}`;
+const REF = /^at:(person:[^~]+)~(person:[^~]+)~/;
+/** A card's ref, bound to both and to the role it shows (a digest), so a tap answers only the pair and role he saw. */
+export const atOrganizationRefOf = (
+  p: Pick<AtOrganization, "organization" | "person" | "role">
+) => `at:${p.organization}~${p.person}~${digest("sha1", p.role, 8)}`;
 /** The organization and the person a card's ref names; none for another ref. */
 export const atOrganizationPairOf = (ref: string) => {
   const [, organization = "", person = ""] = ref.match(REF) ?? [];
@@ -95,6 +97,6 @@ export const atOrganizationAsksOf = (
     /** The kept lines about the person: the card is asked only while they matter. */
     linesOf: <L>(byRef: ReadonlyMap<string, L[]>) => byRef.get(p.person) ?? [],
     question: `Is ${people.nameOf(p.person)} at ${people.nameOf(p.organization)} as ${p.role}?`,
-    ref: atOrganizationRefOf(p.organization, p.person),
+    ref: atOrganizationRefOf(p),
     refs: [p.person],
   }));

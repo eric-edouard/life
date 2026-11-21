@@ -236,10 +236,10 @@ async function newMatterOf(c: Pick<Check, "ref">) {
   return { goal: v.goal, steps: v.steps.map((s) => s.ref) };
 }
 
-/** The pair an at organization card asks about, while Life still finds it as he saw it (its ref). */
+/** The pair an at organization card asks about, while Life still finds it as he saw it, its role too (its ref). */
 async function atOrganizationNow(c: Pick<Check, "ref">) {
   const found = readAtOrganizationPairs(await readPeople()).find(
-    (p) => atOrganizationRefOf(p.organization, p.person) === c.ref
+    (p) => atOrganizationRefOf(p) === c.ref
   );
   if (!found) {
     throw new Error(`Not done: no open check ${c.ref} (read the inbox again).`);
