@@ -36,6 +36,7 @@ const STAGES: Record<CheckGroup, { prompt: string | null; stage: string }> = {
   "guessed person": { prompt: null, stage: "episodes" },
   name: { prompt: null, stage: "names" },
   "new matter": { prompt: MATTERS_PROMPT, stage: "matters" },
+  "same person": { prompt: null, stage: "names" },
   voice: { prompt: null, stage: "voice naming" },
 };
 

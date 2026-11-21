@@ -8,6 +8,10 @@ import { openStore, turnPlace, withStore } from "../sources/lifelog";
 import { askPageOf, noAskPageOf } from "./card-request";
 import { readMatterBook } from "./matters";
 import { readFiles, readIndex, readUnit } from "./memory-files";
+import {
+  type AppointmentSheet,
+  readAppointmentSheet,
+} from "./read-appointments";
 import { partErrorOf, type ReadPartRef } from "./read-part";
 import { lifeRefsOf, parseRef, type Ref } from "./refs";
 import { enabledSources } from "./sources";
@@ -44,6 +48,7 @@ export function readsOnce(): SharedReads {
 
 /** What a hit holds, by its kind (a person's and a conversation's nothing: their readers open them). */
 export type Hit =
+  | { appointment: AppointmentSheet; kind: "appointment" }
   | { kind: "ask"; page: string }
   | { kind: "conversation" }
   | { event: SourceEvent; kind: "message" }
@@ -102,12 +107,13 @@ export async function findRef(
       return findMatterOrObservation(ref.id, ref.kind, reads);
     case "unit":
       return findUnit(ref.id);
-    case "message": {
-      // Only a source he turned on is read; one with a reader of chat or mail.
-      const d = enabledSources().find((x) => x.name === ref.source);
-      return d && (d.kind === "chat" || d.kind === "mail")
-        ? findMessageIn(d, ref.message)
-        : miss(`${ref.source} is off or holds no messages`);
+    case "message":
+      return findMessage(ref);
+    case "appointment": {
+      const appointment = await openAppointment({ appointment: ref.id }, reads);
+      return appointment
+        ? hit({ appointment, kind: "appointment" })
+        : miss(`no appointment ${ref.id}`);
     }
     case "file": {
       const file = readFiles().get(ref.file);
@@ -130,6 +136,29 @@ export async function findRef(
       return ref satisfies never;
   }
 }
+
+/** A message by its ref: only from a source he turned on, one with a reader of chat or mail. */
+function findMessage(ref: { message: string; source: string }) {
+  const d = enabledSources().find((x) => x.name === ref.source);
+  return d && (d.kind === "chat" || d.kind === "mail")
+    ? findMessageIn(d, ref.message)
+    : miss(`${ref.source} is off or holds no messages`);
+}
+
+/** An appointment as its event sheet shows it (`read_appointments`, `fetch`), its message opened by `findMessage`. */
+export const openAppointment = (
+  q: { appointment?: string; pushId?: string },
+  reads: SharedReads
+) =>
+  readAppointmentSheet(q, {
+    ...reads,
+    message: (key) => {
+      const ref = parseRef(`msg:${key}`);
+      const found =
+        "error" in ref || ref.kind !== "message" ? null : findMessage(ref);
+      return found?.found ? found.event : null;
+    },
+  });
 
 /** The parts a link may name: always there (an add-on's go with it, a conversation summary is his alone). */
 const LINKED_PARTS = ["now", "page", "evidence", "latest"];

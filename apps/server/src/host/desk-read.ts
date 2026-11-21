@@ -1,9 +1,10 @@
 import type { Database } from "bun:sqlite";
 import { existsSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { off } from "../core/outputs";
 import { DESK_STORE } from "../core/paths";
+import { pathInside } from "../core/platform";
 import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
 import type { AgentHold, StandingAgent } from "../memory/held-matters";
@@ -14,6 +15,7 @@ import type {
   EventFilter,
   OpenedBy,
 } from "../records/registered-agent";
+import { isBeforeAssignments, isOldShape, NOT_MIGRATED } from "./desk-shape";
 import { COMPLAINT_RECEIVED } from "./events";
 
 // Every read of the desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`), its rows' shapes and the rules worked out from
@@ -85,6 +87,8 @@ export interface TurnRow {
   ended_at: string | null;
   heard_at: string | null;
   id: number;
+  /** The model it ran on, as `<runtime>:<model>` (`default`: the runtime's own), snapshotted at its start; null before the column. */
+  model: string | null;
   outcome: string | null;
   reminded_at: string | null;
   session: string | null;
@@ -229,8 +233,7 @@ export function agentHomeOf(
   agentsRepo: string,
   a: Pick<AgentRow, "folder" | "project">
 ) {
-  const inRepo = relative(agentsRepo, a.folder);
-  if (inRepo && !inRepo.startsWith("..") && !inRepo.startsWith("/")) {
+  if (pathInside(agentsRepo, a.folder)) {
     return a.folder;
   }
   return a.project ? join(agentsRepo, `project-${a.project}`) : null;
@@ -479,6 +482,11 @@ export function modelOf(a: Pick<AgentRow, "effort" | "model" | "runtime">) {
   };
 }
 
+/** What a turn of agent `a` runs on, as the price table names it (`core/prices.ts`): `<runtime>:<model>`, `default` for the runtime's own. */
+export const turnModelOf = (
+  a: Pick<AgentRow, "effort" | "model" | "runtime">
+) => `${a.runtime}:${modelOf(a).model ?? "default"}`;
+
 /** A line a scheduled task or a session posted for the report (`bun life desk report-line`): one per source per day. */
 export interface ReportLine {
   day: string;
@@ -527,32 +535,11 @@ export function notesOutsideOf(path: string, state: string) {
             "select id, notes_path from assignment"
           )
           .all()
-          .filter((s) => relative(state, s.notes_path).startsWith(".."));
+          .filter((s) => pathInside(state, s.notes_path) === null);
   } finally {
     db.close();
   }
 }
-
-const hasColumn = (db: Database, table: string, column: string) =>
-  db
-    .query(`select 1 from pragma_table_info('${table}') where name = ?`)
-    .get(column) !== null;
-
-/** Whether the store predates assignments (`desk/store-step.ts`'s `stepStore` reshapes it). */
-export const isBeforeAssignments = (db: Database) =>
-  hasColumn(db, "agent", "wait_events");
-
-/** Whether the store's agents predate roles (`stepRoles` reshapes it): a store that has agents and no `role`. */
-export const isBeforeRoles = (db: Database) =>
-  hasColumn(db, "agent", "id") && !hasColumn(db, "agent", "role");
-
-/** Whether the store at `db` is of an old shape: only the desk helper's store steps (`desk/store-step.ts`) change it. */
-export const isOldShape = (db: Database) =>
-  isBeforeAssignments(db) || isBeforeRoles(db);
-
-/** Why a store of the old shape is not read: the desk helper's store step has not run on it (its log says why). */
-export const NOT_MIGRATED =
-  "not migrated: the desk helper's store step has not run on it (its log says why)";
 
 /** What reading the desk's store gave: nothing while the desk is off, why when it could not be read. */
 export type DeskRead<T> =

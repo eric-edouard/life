@@ -128,6 +128,9 @@ if (process.platform !== "darwin") {
   why = "needs macOS";
 } else if (changed && !changed.some((f) => SWIFT.test(f))) {
   why = "no change to the phone, the helper or what they read";
+} else if (process.env.LIFE_CHECK_SWIFT === "at-landing") {
+  // A branch's pushes before it lands (his yes of 21 Nov): the Swift builds run once, on the landing push.
+  why = "runs on the landing push (LIFE_CHECK_SWIFT=at-landing)";
 }
 // A clean tree that passed (with the Swift builds, when they are due now) runs again only the steps that read his data
 // outside the tree (`--unless-passed`, the pre-push hook). Read under the lock, so a second push waits for the first.

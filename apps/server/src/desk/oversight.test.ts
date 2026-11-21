@@ -14,7 +14,10 @@ import { DESK_AGENT_FOLDERS, DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import { agentsNow, agentsOnProjects } from "../host/agents-now";
 import { ask, asksFor } from "../host/asks";
-import { changeRegisteredAgent } from "../host/change-registered-agent";
+import {
+  changeRegisteredAgent,
+  RegisteredAgentChange,
+} from "../host/change-registered-agent";
 import { requested } from "../host/change-todo-item";
 import {
   agentChangeOf,
@@ -116,7 +119,7 @@ test("his word starts the Personal agent once, named, in its home with placehold
   const started = await applied({
     action: "start",
     name: "Personal",
-    personal: true,
+    role: "personal",
   });
   personal = started?.agent_id ?? "";
   expect(started?.error).toBeNull();
@@ -132,7 +135,7 @@ test("his word starts the Personal agent once, named, in its home with placehold
   );
   // The runtime's default model, from the desk's settings, until his word changes it.
   expect(a && modelOf(a)).toEqual({ effort: null, model: "test-model" });
-  expect((await applied({ action: "start", personal: true }))?.error).toBe(
+  expect((await applied({ action: "start", role: "personal" }))?.error).toBe(
     `the Personal agent is ${personal} (active)`
   );
   // Its own listening waits: the matter tests below wake only matters.
@@ -235,7 +238,7 @@ test("his word stops, resumes, re-points, renames and changes the model of an ag
   expect(agentOf(desk.db, agent)?.status).toBe("active");
   // Re-pointed as the Personal agent while one is: refused.
   expect(
-    (await applied({ action: "re_point", agent, personal: true }))?.error
+    (await applied({ action: "re_point", agent, role: "personal" }))?.error
   ).toBe(`the Personal agent is ${personal} (active)`);
   await applied({ action: "re_point", agent, steps: [STEP] });
   expect(agentOf(desk.db, agent)?.project).toBeNull();
@@ -687,7 +690,8 @@ test("a start that returns the existing agent (active, same words) hands nothing
 });
 
 // His word of 21 Nov 2026: an agent he started himself becomes the Personal agent through his word, never an edit of the store.
-test("re_point with personal marks an existing agent as the Personal agent, a second refused; the fold then gives it the matters of no project", async () => {
+// Regression: the boolean `personal` (a cached schema sent "true"); the role is a string, as the store holds it.
+test("re_point with role personal marks an existing agent as the Personal agent, a second refused, the old boolean refused; the fold then gives it the matters of no project", async () => {
   desk.embedder = null;
   // This file's Personal agent is ended for the test, so none holds the role.
   desk.db.run("update agent set status = 'ended' where id = ?", [personal]);
@@ -718,8 +722,28 @@ test("re_point with personal marks an existing agent as the Personal agent, a se
             .get(step)?.agent_id;
         // No Personal agent yet: nothing takes the matter.
         expect(holderOf()).toBe(old);
+        // The old boolean and the string a cached schema sent: refused by the connector; by the desk in words he acts on.
+        const oldFlag = (flag: unknown) => ({
+          action: "re_point",
+          agent: mine,
+          personal: flag,
+        });
+        for (const flag of [true, "true"]) {
+          expect(
+            RegisteredAgentChange.safeParse({
+              ...oldFlag(flag),
+              said: "Test: be my Personal agent",
+            }).success
+          ).toBe(false);
+        }
+        for (const flag of [true, "true"]) {
+          // biome-ignore lint/performance/noAwaitInLoops: his asks apply in the order he gave them
+          expect((await applied(oldFlag(flag) as never))?.error).toBe(
+            'asked in an old form: ask again with role "personal"'
+          );
+        }
         expect(
-          (await applied({ action: "re_point", agent: mine, personal: true }))
+          (await applied({ action: "re_point", agent: mine, role: "personal" }))
             ?.error
         ).toBeNull();
         expect(agentOf(desk.db, mine)).toMatchObject({
@@ -739,8 +763,13 @@ test("re_point with personal marks an existing agent as the Personal agent, a se
         expect(assignmentsOf(mine)).toEqual([0, 1]);
         const other = await startedOn({ project: "test-other-mine" });
         expect(
-          (await applied({ action: "re_point", agent: other, personal: true }))
-            ?.error
+          (
+            await applied({
+              action: "re_point",
+              agent: other,
+              role: "personal",
+            })
+          )?.error
         ).toBe(`the Personal agent is ${mine} (active)`);
         await foldAssignments(desk, readPeopleOnce());
         expect(holderOf()).toBe(mine);

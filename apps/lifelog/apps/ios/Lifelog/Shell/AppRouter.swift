@@ -42,6 +42,8 @@ final class AppRouter {
         case latest(String)
         /// How each writes to the other, from their `now`, by the person's ref.
         case writing(String)
+        /// Another party's page, pushed on this one: someone at the organization on show.
+        case party(String)
     }
 
     var tab = Tab.inbox
@@ -62,6 +64,9 @@ final class AppRouter {
         set { people.path = newValue }
     }
     var personColumn = NavigationSplitViewColumn.sidebar
+    /// Whether he opened the person on show from elsewhere (a matter's chip, an agent's wake row), not from the list's
+    /// rows: beside the list they then stay through a segment or a read that leaves them out (`PeopleList.selectionOf`).
+    private(set) var isPersonFromElsewhere = false
     /// The sheet open over a matter, by its id: here, not in the matter's page, so a fold that collapses the page keeps the
     /// sheet and the start it shows. One value, so one sheet replaces the other (Try again) in a single update.
     var matterSheet: MatterSheet?
@@ -79,12 +84,14 @@ final class AppRouter {
         matterSheet = nil
         tab = .people
         select(person: ref)
+        isPersonFromElsewhere = true
     }
 
-    /// The one way the person on show changes: their page starts bare, even when they were on show, and a compact width
-    /// then shows them too, so a fold keeps them on screen.
+    /// The one way the person on show changes, from the list unless `open(party:)` says otherwise: their page starts
+    /// bare, even when they were on show, and a compact width then shows them too, so a fold keeps them on screen.
     func select(person ref: String?) {
         people.open(ref)
+        isPersonFromElsewhere = false
         personColumn = ref == nil ? .sidebar : .detail
     }
 

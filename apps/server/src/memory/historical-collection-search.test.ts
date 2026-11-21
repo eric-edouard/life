@@ -1,11 +1,13 @@
+import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
 import type { SourceEvent } from "../records/source";
-import { buildIndex, reindexUnits } from "./index-writer";
+import { buildIndex, readStaleness, reindexUnits } from "./index-writer";
 import { INDEX, UNITS } from "./memory-files";
 import { writePassages } from "./passages";
+import { readChatsTitled } from "./person-units";
 import { unit as unitFixture } from "./record-fixtures";
 import { lifeChat, messageUnits } from "./units";
 import { readPeople } from "./who";
@@ -310,6 +312,13 @@ const lineSaid = (
   text: `said ${id}`,
 });
 
+/** The message ids `chatsOf` shows for `o`, read from `sources`. */
+const idsOf = async (
+  o: { chat?: string; who: string },
+  sources: Parameters<typeof chatsOf>[1]
+) =>
+  messagesIn(await chatsOf(o, sources)).map((l) => l.slice(l.lastIndexOf("[")));
+
 /** A source reading `all` between its bounds. */
 const sourceOver =
   (all: SourceEvent[]) =>
@@ -453,17 +462,109 @@ test("who: a name no one is known by but a chat's title finds that chat, as `cha
     lineSaid("c1", at(5), "!room-garden", "Zed Moss", "Garden Club"),
     lineSaid("c2", at(4), "!room-garden", "me", "Garden Club"),
     lineSaid("c3", at(3), "!room-chess", "Zed Moss", "Chess"),
-    // Life's own chat under the same title: its day is no unit, and its messages are never read.
+    // Life's own chat under the same title: indexed as built here (before the rules), so it must be left out when read.
     lineSaid("c4", at(2), lifeChat() as string, "me", "Garden Club"),
   ];
   try {
     await indexedFrom(all);
-    const ids = async (o: { chat?: string; who: string }) =>
-      messagesIn(await chatsOf(o, { line: sourceOver(all) })).map((l) =>
-        l.slice(l.lastIndexOf("["))
-      );
+    const ids = (o: { chat?: string; who: string }) =>
+      idsOf(o, { line: sourceOver(all) });
     expect(await ids({ who: "garden club" })).toEqual(["[id c1]", "[id c2]"]);
     expect(await ids({ chat: "!room-chess", who: "garden club" })).toEqual([]);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});
+
+test("who: a title two rooms hold names both, a room once however many days, only the newest five; `chat` is applied before that cap", async () => {
+  const day = (n: number) =>
+    new Date(Date.now() - n * 86_400_000).toISOString();
+  const rooms = [1, 2, 3, 4, 5, 6].map((n) =>
+    lineSaid(`r${n}`, day(n), `!room-${n}`, "Zed Moss", "Garden Club")
+  );
+  // Room 1 has a second day: still one chat, so it takes one of the five slots.
+  const all = [
+    ...rooms,
+    lineSaid("r1b", day(2), "!room-1", "Zed Moss", "Garden Club"),
+  ];
+  try {
+    await indexedFrom(all);
+    const ids = (o: { chat?: string; who: string }) =>
+      idsOf(o, { line: sourceOver(all) });
+    expect(await ids({ who: "garden club" })).toEqual([
+      "[id r5]",
+      "[id r4]",
+      "[id r3]",
+      "[id r2]",
+      "[id r1b]",
+      "[id r1]",
+    ]);
+    expect(await ids({ chat: "!room-6", who: "garden club" })).toEqual([
+      "[id r6]",
+    ]);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});
+
+test("who: a title's rooms the call cannot read, or Life's own, never take the five slots from a readable one", async () => {
+  const day = (n: number) =>
+    new Date(Date.now() - n * 86_400_000).toISOString();
+  const said = (
+    id: string,
+    n: number,
+    chat: string,
+    source: "line" | "whatsapp"
+  ) => ({ ...lineSaid(id, day(n), chat, "Zed Moss", "Garden Club"), source });
+  // Five newer LINE rooms, which this call cannot read, and one older WhatsApp room that it can.
+  const unreadable = [1, 2, 3, 4, 5].map((n) =>
+    said(`u${n}`, n, `!u${n}`, "line")
+  );
+  const mine = said("w1", 6, "!w1", "whatsapp");
+  // Five readable rooms, and Life's own, the newest of all.
+  const five = [2, 3, 4, 5, 6].map((n) =>
+    said(`f${n}`, n, `!f${n}`, "whatsapp")
+  );
+  const life = said("l1", 1, lifeChat() as string, "whatsapp");
+  try {
+    await indexedFrom([...unreadable, mine]);
+    expect(
+      await idsOf({ who: "garden club" }, { whatsapp: sourceOver([mine]) })
+    ).toEqual(["[id w1]"]);
+    await indexedFrom([...five, life]);
+    expect(
+      await idsOf(
+        { who: "garden club" },
+        { whatsapp: sourceOver([...five, life]) }
+      )
+    ).toEqual(["[id f6]", "[id f5]", "[id f4]", "[id f3]", "[id f2]"]);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
+});
+
+test("who: an index from before units.chat answers a title with a retry message, and reads stale", async () => {
+  try {
+    await indexedFrom([
+      lineSaid(
+        "o1",
+        new Date().toISOString(),
+        "!old",
+        "Zed Moss",
+        "Garden Club"
+      ),
+    ]);
+    expect(readStaleness()).not.toBe("index");
+    const db = new Database(INDEX);
+    db.run("alter table units drop column chat");
+    db.close(true);
+    expect(readStaleness()).toBe("index");
+    expect(() => readChatsTitled("garden club", ["line"])).toThrow(
+      "read again in a minute"
+    );
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
     rmSync(INDEX, { force: true });
