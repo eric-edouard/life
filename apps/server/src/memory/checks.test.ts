@@ -333,7 +333,6 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   items[0] = guessed("v0", { personId: DANA_ID });
   items[1] = voice("v1", { name: "Kofi" });
   items[3] = voice("v3", { conversations: 1 });
-  // A sure guess of Dana backs "Yes" with no likeness from lifelog.
   items[4] = guessed("v4", {
     conversations: 1,
     personId: DANA_ID,
@@ -390,7 +389,7 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   ]);
   expect(byRef(dana)?.ref.endsWith("~person:dana")).toBe(true);
   // Heard in one conversation, no name heard: the bulk card starts it ticked "Don't name"; a guess in use lifelog
-  // calls likely or a sure guess backs, "Yes"; the others unticked.
+  // calls likely or a sure guess backs (v4, no likeness), "Yes"; the others unticked.
   expect(byRef("voice:v3")?.preTicked).toBe("not-relevant");
   expect(byRef("voice:v4")?.preTicked).toBe("is-them");
   expect(byRef("voice:v5")?.preTicked).toBe("is-them");

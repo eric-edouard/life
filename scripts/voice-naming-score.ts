@@ -233,8 +233,8 @@ export function reportOf(s: ReturnType<typeof scoreOf>) {
     ...LEVELS.map((c) => {
       const { n, right } = s.byGroup[c];
       const per = n === 0 ? null : Math.round((right / n) * 100);
-      const holds = per === null ? "-" : per >= BARS[c] ? "holds" : "under";
-      return `by group ${c}: ${right} right of ${n} (${per ?? "-"} in 100), bar ${BARS[c]}: ${holds}`;
+      const holds = per !== null && per >= BARS[c] ? "holds" : "under";
+      return `by group ${c}: ${right} right of ${n} (${per ?? "-"} in 100), bar ${BARS[c]}: ${per === null ? "-" : holds}`;
     }),
     ...at("no likeness, by voice", s.noLikeness),
     `me guesses (sure or likely, all wrong on a person he answered): ${s.meGuesses}`,
