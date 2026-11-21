@@ -17,7 +17,8 @@ import {
 import { dayNow, dayRange, dayStart } from "../memory/zones";
 import { lifelogMissing } from "../sources/lifelog-call";
 import { readVoiceSpending } from "../sources/lifelog-spending";
-import { readDesk, turnsEndedIn } from "./desk-read";
+import { readDesk } from "./desk-read";
+import { turnsEndedIn } from "./desk-turn-reads";
 
 // Model spending rolled up by his local day (decision 83): `LIFE_STATE_DIR/spending/<day>.json`, written whole by the
 // night for closed days that have none, never edited, so ten years of spending outlive the log's year. A day is read

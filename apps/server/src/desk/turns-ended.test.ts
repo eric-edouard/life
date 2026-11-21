@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { turnsEndedIn } from "../host/desk-read";
+import { turnsEndedIn } from "../host/desk-turn-reads";
 import { SCHEMA } from "./desk-store";
 
 test("a turn's runtime: its model's, else (before turn.model) its session's, each turn once", () => {

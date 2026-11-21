@@ -117,6 +117,20 @@ It reads back from the end of today's log file (and yesterday's across midnight)
 never a whole day. A local model's run is its own line, `model.local` (`describer`, `foundation`: duration, requests,
 whether the model ran for every request: Apple's from its replies, a refusal counted as run).
 
+## model spending
+
+`read_spending {month?}`, his token only (an agent's is refused; the tokenless server has none): what Life costs in one
+month (default his current one), decision 83's wire. Two bases, never added: `billed` (a provider's dollars; the Mac's
+models at $0) and `equivalent` (his Claude and Codex plans' tokens at list price, `core/prices.ts`). An amount is
+`{amount, currency: "USD", basis}`. `today` and `month` are billed; `days` each day held (the current month: the 1st to
+today, read live until the night rolls a day up into `LIFE_STATE_DIR/spending/<day>.json`; a past month: its day files
+only); `byProvider` (`billed` or `equivalent`, `tokens`, `reported`: false when one of its spends came without its
+amount, what was reported still counting); `byKind` (`night`, `daytime`, `agents`, `voice`); `topAgents` and
+`topMatters`, at most 5 each by tokens, with `tokens` and `equivalent` (a turn's matter is its assignment's). Reads at
+most one month: its day files, live days and the desk's turns ended in it (`turn_by_ended`). `read_registered_agents`
+gives each agent its current session's `spending` (`since`, `tokens`, `equivalent`, `provider`), `read_matter` its
+agents' turns' (`tokens`, `equivalent`).
+
 ## changes
 
 Every change to the memory, past a cursor: `{items, count, remaining, cursor, observedAt}`. `count` is the items
