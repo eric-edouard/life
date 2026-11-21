@@ -62,6 +62,33 @@ interface Active {
   stop: () => Promise<void>;
 }
 
+/** A way to kill an adapter while `open` runs: a kill asked before its spawn kills it at its spawn. */
+interface Opening {
+  isKilled: boolean;
+  kill: () => void;
+}
+const openingOf = (): Opening => {
+  const o: Opening = {
+    isKilled: false,
+    kill: () => {
+      o.isKilled = true;
+    },
+  };
+  return o;
+};
+
+/** A session kept open across prompts (`talk`, `keep`), reserved in `kept` and `live` before it opens (`ready`). */
+interface Kept {
+  active: Active;
+  c?: Connection;
+  id: string;
+  isPrompting: boolean;
+  opening: Opening;
+  ready: Promise<Connection>;
+  ref?: string;
+  timer?: Timer;
+}
+
 /** One adapter process on one session (`open`): a prompt at a time on it, until `close`. */
 interface Connection {
   close: () => Promise<void>;
@@ -70,7 +97,7 @@ interface Connection {
   /** Sends `message` as one run on the session; `onUpdate` hears what its model says and does. */
   prompt: (message: string, onUpdate?: (u: Update) => void) => Run;
   ref: string;
-  /** Cancels the running prompt and waits for its end, its process killed after `EXIT_WITHIN_MS`; still launching, the process is killed. */
+  /** Cancels the running prompt and waits for its end, its process killed after `EXIT_WITHIN_MS`; never prompted, nothing. */
   stop: () => Promise<void>;
 }
 
@@ -142,10 +169,7 @@ export function acpRuntime(
 ): Runtime {
   const live = new Map<string, Active>();
   /** The sessions kept open across prompts (`talk`), by agent, each closed after `KEEP_WARM_MS` without a prompt. */
-  const kept = new Map<
-    string,
-    { c: Connection; isPrompting: boolean; timer?: Timer }
-  >();
+  const kept = new Map<string, Kept>();
 
   /**
    * Spawns the adapter in `a.folder` and makes or resumes the session, its model, effort and mode set: all within
@@ -153,7 +177,8 @@ export function acpRuntime(
    */
   async function open(
     a: Parameters<Runtime["send"]>[0],
-    resume?: string
+    resume: string | undefined,
+    opening: Opening
   ): Promise<Connection> {
     const { command, env } = await row.spawn(a);
     const child = spawn(command[0] ?? "", command.slice(1), {
@@ -163,6 +188,14 @@ export function acpRuntime(
       // Its stderr goes to the desk's own process log (~/Library/Logs), never the event log: it quotes the agent.
       stdio: ["pipe", "pipe", "inherit"],
     });
+    // A stop while it opens kills it: the open fails.
+    opening.kill = () => {
+      opening.isKilled = true;
+      child.kill("SIGKILL");
+    };
+    if (opening.isKilled) {
+      child.kill("SIGKILL");
+    }
     // A pipe closed under a write is the run's end, never a crash.
     child.stdin.on("error", () => undefined);
     // Bun fires `error` and never `exit` for a spawn that fails (a missing folder).
@@ -365,8 +398,7 @@ export function acpRuntime(
     };
     const stop = async () => {
       if (!isPrompted) {
-        child.kill("SIGKILL"); // still launching: the launch fails
-        return;
+        return; // nothing runs on it
       }
       await conn.agent.notify(methods.agent.session.cancel, { sessionId: ref });
       const kill = setTimeout(() => child.kill("SIGKILL"), EXIT_WITHIN_MS);
@@ -385,22 +417,21 @@ export function acpRuntime(
     resume?: string
   ) {
     let c: Connection | undefined;
-    let isStopped = false;
+    const opening = openingOf();
     const active: Active = {
       stop: () => {
-        isStopped = !c;
-        return c?.stop() ?? Promise.resolve();
+        if (c) {
+          return c.stop();
+        }
+        opening.kill(); // still launching: the launch fails
+        return Promise.resolve();
       },
     };
     if (resume) {
       live.set(resume, active);
     }
     try {
-      c = await open(a, resume);
-      if (isStopped) {
-        await c.close();
-        throw new Error("stopped while it launched"); // still launching: the launch fails
-      }
+      c = await open(a, resume, opening);
     } catch (error) {
       live.delete(resume ?? "");
       throw error;
@@ -416,68 +447,99 @@ export function acpRuntime(
     return { begun: run.begun, ended, ref: c.ref };
   }
 
-  /** Closes agent `id`'s kept session once it has had no prompt for `keepWarm`. */
-  const keepFor = (id: string) => {
-    const k = kept.get(id);
-    if (!k) {
+  /** Forgets kept session `k`, if it is still the one kept: its timer, its place in `kept` and in `live`. */
+  const forget = (k: Kept) => {
+    clearTimeout(k.timer);
+    if (kept.get(k.id) === k) {
+      kept.delete(k.id);
+    }
+    if (k.ref && live.get(k.ref) === k.active) {
+      live.delete(k.ref);
+    }
+  };
+
+  /** Closes kept session `k`: forgotten first, its prompt stopped, its process closed (killed while it opens). */
+  const closeKept = async (k: Kept) => {
+    forget(k);
+    if (!k.c) {
+      k.opening.kill();
+      await k.ready.catch(() => undefined);
       return;
     }
+    await k.c.stop();
+    await k.c.close();
+  };
+
+  /** Closes kept session `k` once it has had no prompt for `keepWarm`. */
+  const keepFor = (k: Kept) => {
     clearTimeout(k.timer);
     k.timer = setTimeout(() => {
       if (!k.isPrompting) {
-        kept.delete(id);
-        live.delete(k.c.ref);
-        k.c.close().catch(() => undefined);
+        closeKept(k).catch(() => undefined);
       }
     }, keepWarm);
   };
 
   /**
-   * Agent `a`'s kept session on `ref` (a new one when null), opened when none is kept: a session live elsewhere is
-   * refused as `send` refuses it, before any process of its own runs it. A kept session on another ref is closed first.
+   * Agent `a`'s kept session on `ref` (null: the one kept, else a new one), opened when none is kept. It is reserved in
+   * `kept` and `live` in the same synchronous step as the checks, so a `send`, a `keep` or a `talk` racing it waits on
+   * it or is refused; a session his app runs is refused, as `send` refuses it. A kept session on another ref is closed,
+   * unless it is answering.
    */
   async function keptOf(a: Parameters<Runtime["send"]>[0], ref: string | null) {
     const k = kept.get(a.id);
-    if (k && (ref === null || k.c.ref === ref)) {
+    if (k && (ref === null || k.ref === ref)) {
+      await k.ready;
       return k;
     }
-    if (k) {
-      kept.delete(a.id);
-      live.delete(k.c.ref);
-      await k.c.close();
+    if (k?.isPrompting) {
+      throw new SessionLive(`session ${k.ref} is answering`);
     }
-    if (ref && (live.has(ref) || (await runtime.state(ref)) === "running")) {
+    if (ref && live.has(ref)) {
       throw new SessionLive(`session ${ref} is running`);
     }
-    const c = await open(a, ref ?? undefined);
-    const made: { c: Connection; isPrompting: boolean; timer?: Timer } = {
-      c,
+    const made = {
+      id: a.id,
       isPrompting: false,
-    };
+      opening: openingOf(),
+      ref: ref ?? undefined,
+    } as Kept;
+    made.active = { stop: () => closeKept(made) };
     kept.set(a.id, made);
-    live.set(c.ref, {
-      stop: async () => {
-        await c.stop();
-        kept.delete(a.id);
-        live.delete(c.ref);
-        await c.close();
-      },
-    });
-    // A process that dies (a crash, a kill) is no longer kept: the next talk opens another.
-    c.exited.then(() => {
-      if (kept.get(a.id) === made) {
-        kept.delete(a.id);
-        live.delete(c.ref);
+    if (ref) {
+      live.set(ref, made.active);
+    }
+    if (k) {
+      closeKept(k).catch(() => undefined);
+    }
+    made.ready = (async () => {
+      if (ref && (await row.readSessionState(ref)) === "running") {
+        throw new SessionLive(`session ${ref} is running`);
       }
-    });
+      const c = await open(a, ref ?? undefined, made.opening);
+      made.c = c;
+      made.ref = c.ref;
+      if (kept.get(a.id) !== made) {
+        await c.close();
+        throw new SessionLive(`session ${c.ref} was closed while it opened`);
+      }
+      live.set(c.ref, made.active);
+      // A process that dies (a crash, a kill) is no longer kept: the next talk opens another.
+      c.exited.then(() => forget(made));
+      return c;
+    })();
+    made.ready.catch(() => forget(made));
+    await made.ready;
     return made;
   }
 
   const runtime: Runtime = {
     block: row.block,
     async keep(a, ref) {
-      await keptOf(a, ref);
-      keepFor(a.id);
+      const k = await keptOf(a, ref);
+      if (!k.isPrompting) {
+        keepFor(k);
+      }
     },
     async send(a, ref, message) {
       // A turn running beside his would branch the conversation. After the awaited read, `live` is looked at again and
@@ -511,18 +573,21 @@ export function acpRuntime(
     },
     async talk(a, ref, message, onUpdate) {
       const k = await keptOf(a, ref);
-      if (k.isPrompting) {
-        throw new SessionLive(`session ${k.c.ref} is answering`);
+      const { c } = k;
+      if (!c || k.isPrompting) {
+        throw new SessionLive(`session ${k.ref} is answering`);
       }
       k.isPrompting = true;
       clearTimeout(k.timer);
-      const run = k.c.prompt(message, onUpdate);
+      const run = c.prompt(message, onUpdate);
       const ended = run.ended.then((end) => {
         k.isPrompting = false;
-        keepFor(a.id);
+        if (kept.get(k.id) === k) {
+          keepFor(k);
+        }
         return end;
       });
-      return { begun: run.begun, ended, link: row.link(k.c.ref), ref: k.c.ref };
+      return { begun: run.begun, ended, link: row.link(c.ref), ref: c.ref };
     },
   };
   return runtime;

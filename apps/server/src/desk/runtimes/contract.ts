@@ -62,7 +62,7 @@ export interface Runtime {
   /** Stops the desk's own run of the session, if one runs (never his app's process), and closes it if kept. */
   stop: (ref: string) => Promise<void>;
   /**
-   * Launches `message` on session `ref` (a new one when null) kept open across prompts, never handed to his app: the main
+   * Launches `message` on session `ref` (null: the one kept, else a new one) kept open across prompts, never handed to his app: the main
    * session's (Tell Life). `onUpdate` hears the run as it goes. Refused with `SessionLive` while anything else runs it, or
    * while its last prompt runs.
    */
