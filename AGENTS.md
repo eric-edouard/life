@@ -92,7 +92,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   anything opens it, behind a dated copy beside it and in one transaction, skipped on the app's state from a checkout
   (`isAppState`); `openDesk` never migrates and refuses a store of the old shape. Today `desk/store-step.ts`: `stepStore`
   (agents and matters, PR 1: assignments), then `stepRoles` (the Personal flag becomes `agent.role`, his yes of 20 Nov
-  2026), each with its own check and its own dated copy, each deleted once it has run on his store.
+  2026), then `stepTurnModel` (`turn.model`, what a turn ran on, for model spending; decision 83), each with its own
+  check and its own dated copy, each deleted once it has run on his store.
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
   correction, and his answer to a check with the check as it was shown (its text and source; the later step's words are not stored), written just before it: `recordFactCheckAnswer`), `told-life.jsonl` (what he told Life, one synchronous append: `recordToldLife`), `decisions.jsonl`'s lines (one synchronous append), `files.jsonl`'s lines (one synchronous append; one line per ref and prompt version), the arrival reader's `read-replies/` lines (one synchronous append each), `appointment-events.jsonl` (the calendar sync's lines, each tick, one at a time in the watcher: `inTurn`), `complaints.jsonl` (one synchronous append per complaint: `recordComplaints`) and `ledger.jsonl`'s writers above. One Life per Mac: the archive, the watcher and the desk each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`); the desk never takes the memory lock.

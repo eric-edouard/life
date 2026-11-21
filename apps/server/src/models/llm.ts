@@ -278,7 +278,8 @@ async function askClaude({ dir, images, input, llm, system }: ModelCall) {
     JSON.parse(stdout.trim().split("\n").at(-1) ?? "")
   );
   const fields = {
-    tokens: claudeTokens(res.usage),
+    // No usage, no tokens: a spend without them is not reported, never zero.
+    tokens: res.usage ? claudeTokens(res.usage) : undefined,
     turns: res.num_turns,
     usage: res.usage,
   };
@@ -338,7 +339,11 @@ async function askCodex({ dir, images, input, llm, system, tools }: ModelCall) {
     { env: modelEnv({ CODEX_HOME }), stdin: JSON.stringify(input) }
   );
   return {
-    fields: { tokens: codexTokens(events) },
+    fields: {
+      tokens: events.includes('"turn.completed"')
+        ? codexTokens(events)
+        : undefined,
+    },
     text: await Bun.file(reply).text(),
   };
 }
@@ -536,7 +541,7 @@ export const hasQuota = (engine?: Engine) =>
  * The input and the reply are kept in `dir`, so anything made from a call can be checked against exactly what the
  * model read. `images` (JPEG or PNG paths) follow the input, in order. Returns the reply's JSON; every call, failed or
  * not, is one `model.run` line, with what it read (`reads`, by source: a call that names none is refused before it is
- * made) and, when its provider says, what it cost (`costUsd`; a call without it is unpriced).
+ * made) and, through a router, what each router it tried took (`spentByRouter`: dollars, tokens, whether every try was priced).
  */
 export async function askOnce(opts: {
   context?: unknown;

@@ -133,7 +133,9 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
   const deadline = AbortSignal.timeout(MODEL_TIMEOUT_MS);
   const refusals: string[] = [];
   let tokens: Tokens | undefined;
-  let costUsd: number | undefined;
+  // What each router tried took, in the order tried: its hosts' dollars and tokens, and whether every try sent its cost
+  // (a try that threw may have billed: unpriced). Its reported dollars still count: a floor.
+  const spentByRouter: Partial<Record<Router, RouterSpent>> = {};
   let answer: Answer = { text: "" };
   const skipped = new Set<Router>();
   let failed: Route | undefined;
@@ -166,13 +168,18 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
       answer = { refusal: (e as Error).message, text: "" };
       isForAnother = (e as { isForAnother?: boolean }).isForAnother === true;
     }
-    const spent = answer.fields?.tokens as Tokens | undefined;
+    const { costUsd, ...fields } = answer.fields ?? {};
+    const spent = fields.tokens as Tokens | undefined;
     tokens = spent ? add(tokens ?? NONE, spent) : tokens;
-    const cost = answer.fields?.costUsd as number | undefined;
-    costUsd = cost === undefined ? costUsd : (costUsd ?? 0) + cost;
+    spentByRouter[router] = withTry(
+      spentByRouter[router],
+      costUsd as number | undefined,
+      spent
+    );
     answer = {
       ...answer,
-      fields: { ...answer.fields, costUsd, effort, tokens },
+      // `router`: the last tried, which answered or failed last: the call's own (a key's order is not kept).
+      fields: { ...fields, effort, router, spentByRouter, tokens },
     };
     if (!answer.refusal) {
       return answer;
@@ -185,6 +192,24 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
   }
   return { ...answer, refusal: refusals.join("; ") };
 }
+
+/** What one router took over a call's tries (`spentByRouter` on its `model.run` line). */
+export interface RouterSpent {
+  costUsd: number;
+  isPriced: boolean;
+  tokens: Tokens;
+}
+
+/** A router's take with one more try: its dollars and tokens added; unpriced once a try sent no cost. */
+const withTry = (
+  was: RouterSpent | undefined,
+  cost: number | undefined,
+  spent: Tokens | undefined
+): RouterSpent => ({
+  costUsd: (was?.costUsd ?? 0) + (cost ?? 0),
+  isPriced: (was?.isPriced ?? true) && cost !== undefined,
+  tokens: add(was?.tokens ?? NONE, spent ?? NONE),
+});
 
 /** A `model.retry` line as the next host is asked after `failed`; never the refusal's text: it can be the model's words. */
 function logRetry(failed: Route | undefined) {
