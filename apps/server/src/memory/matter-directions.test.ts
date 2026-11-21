@@ -240,8 +240,12 @@ test("his next step with no context keeps the earlier step's context while its k
   const steps = ["obs_000000000001", "unit_000000000002"];
   const v = { id: "matter_000000000001", steps: steps.map((ref) => ({ ref })) };
   let hour = 0;
+  const nextHour = () => {
+    hour += 1;
+    return new Date(Date.UTC(2026, 10, 10, hour)).toISOString();
+  };
   const pin = (by: "life" | "owner", nextStep: DirectionPin["nextStep"]) => ({
-    at: `2026-11-10T${String(hour++).padStart(2, "0")}:00:00.000Z`,
+    at: nextHour(),
     by,
     ...(by === "life" ? { goal: "The strap is mended" } : {}),
     nextStep,
