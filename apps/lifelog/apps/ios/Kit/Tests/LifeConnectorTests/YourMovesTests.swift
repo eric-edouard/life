@@ -71,3 +71,10 @@ private func matters() throws -> [MatterRow] {
     #expect(all.people().map(\.ref) == ["person:camille"])
     #expect(all.people(limit: 0).isEmpty)
 }
+
+@Test func a_move_carries_its_matters_symbol_or_none() throws {
+    let checks = [try move("c1", matter: "a", day: "2026-11-16"), try move("c2", matter: "gone", day: "2026-11-15")]
+    let moves = YourMoves(checks: checks, matters: try matters(), now: now, timeZone: utc).moves
+    #expect(moves.first { $0.id == "c1" }?.symbol == MatterIcons.fallback)
+    #expect(moves.first { $0.id == "c2" }?.symbol == nil)
+}

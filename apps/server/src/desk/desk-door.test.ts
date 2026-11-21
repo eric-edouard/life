@@ -95,6 +95,16 @@ const ask = (question: string) => ({
   title: "a test",
 });
 
+/** An assignment's plan card: its steps, and the two options a plan card has. */
+const planAsk = (question: string) => ({
+  ...ask(question),
+  options: [
+    { id: "start", label: "Start the plan" },
+    { id: "decline", label: "Not this plan" },
+  ],
+  plan: [{ by: "agent", text: "Do the one step" }],
+});
+
 test("the door refuses a wrong key, another agent's key and an unknown agent alike", async () => {
   const id = agent();
   const other = agent();
@@ -110,7 +120,7 @@ test("the door refuses a wrong key, another agent's key and an unknown agent ali
   expect(
     (await call("agt_000000000000", doorOf(id).key, "set_wait", wait)).status
   ).toBe(401);
-  await call(id, doorOf(id).key, "request_decision", ask("Test: plan?"));
+  await call(id, doorOf(id).key, "request_decision", planAsk("Test: plan?"));
   const ok = await call(id, doorOf(id).key, "set_wait", wait);
   expect(ok.result?.isError).toBe(false);
   expect(currentAssignmentOf(desk.db, id)?.wait_reason).toBe(wait.reason);
@@ -128,7 +138,7 @@ test("request_decision asks as the desk, stamped with the agent and its link; on
   const id = agent();
   const other = agent();
   const { key } = doorOf(id);
-  const first = await call(id, key, "request_decision", ask("Test: bake?"));
+  const first = await call(id, key, "request_decision", planAsk("Test: bake?"));
   const dec = JSON.parse(first.text ?? "{}").id as string;
   const asked = decisionsNow().find((d) => d.id === dec);
   expect(asked).toMatchObject({
@@ -136,7 +146,12 @@ test("request_decision asks as the desk, stamped with the agent and its link; on
     asker: "desk",
     links: [`fake://${id}`],
   });
-  const second = await call(id, key, "request_decision", ask("Test: again?"));
+  const second = await call(
+    id,
+    key,
+    "request_decision",
+    planAsk("Test: again?")
+  );
   expect(second.result?.isError).toBe(true);
   const stolen = await call(other, doorOf(other).key, "request_decision", {
     why: "not mine",
@@ -157,7 +172,12 @@ test("a new agent waits or finishes only once it asked its plan", async () => {
   expect(
     (await call(id, key, "finish", { outcome: "Test: done" })).text
   ).toContain("ask your plan first");
-  const withdrawn = await call(id, key, "request_decision", ask("Test: plan?"));
+  const withdrawn = await call(
+    id,
+    key,
+    "request_decision",
+    planAsk("Test: plan?")
+  );
   await call(id, key, "request_decision", {
     why: "Test: rethought",
     withdraw: JSON.parse(withdrawn.text ?? "{}").id,
@@ -165,7 +185,7 @@ test("a new agent waits or finishes only once it asked its plan", async () => {
   expect((await call(id, key, "set_wait", wait)).text).toContain(
     "ask your plan first"
   );
-  await call(id, key, "request_decision", ask("Test: go with the plan?"));
+  await call(id, key, "request_decision", planAsk("Test: go with the plan?"));
   expect((await call(id, key, "set_wait", wait)).result?.isError).toBe(false);
 });
 
@@ -235,7 +255,7 @@ test("a handed-out agent is told to ask its card, not its plan", async () => {
 test("an agent that finished may read its packet, nothing else", async () => {
   const id = agent();
   const { key } = doorOf(id);
-  await call(id, key, "request_decision", ask("Test: plan?"));
+  await call(id, key, "request_decision", planAsk("Test: plan?"));
   await call(id, key, "finish", { outcome: "Test: done" });
   const notes = await call(id, key, "write_notes", { text: "late" });
   expect(notes.text).toContain("not active");

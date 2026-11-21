@@ -29,7 +29,7 @@ import { EVENT_CHANNELS } from "../host/event-channels";
 import { DOOR_PORT, MAIN_SESSION_PATH, text } from "../host/http/http";
 import { keyRefusal } from "../host/http/local-key";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
-import { isHisWordsPlanOf } from "../host/inbox";
+import { isHisWordsPlanOf, opensWithPlan } from "../host/inbox";
 import { MOVE_NOTES, shortNameOf } from "../host/move-read";
 import { CARD, DecisionRequest } from "../memory/card-request";
 import { requestDecision } from "../memory/decisions";
@@ -114,7 +114,7 @@ function turnRefusalOf(
   }
   const isEnd = name === "set_wait" || name === "finish";
   return isEnd && !isHisWordsPlanOf(desk.db, a, s) && !hasAsked(desk.db, s)
-    ? askFirstMessageOf(s.opened_by)
+    ? askFirstMessageOf(opensWithPlan(desk.db, s))
     : null;
 }
 

@@ -236,3 +236,12 @@ private final class Recording: Sendable {
     #expect(Dictation.bar(0, after: 1) == 0.5, "a pause falls by half")
     #expect(Dictation.bar(0, after: 0.5) == 0.25)
 }
+
+@MainActor @Test func aListeningRunSamplesItsMicrophoneIntoTheStream() async {
+    let rig = Rig()  // its microphone hears 0.1: a full bar
+    rig.dictation.tap()
+    await rig.until { rig.begins.count == 1 }
+    rig.begins[0].resume()
+    await rig.until { rig.dictation.levels.last == 1 }
+    rig.dictation.cancel()
+}

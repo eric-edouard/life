@@ -155,14 +155,17 @@ function lookProblemOf(
 export const planRoleOf = (id: string) =>
   PLAN_OPTIONS.find((o) => o.id === id)?.id;
 
-/** What breaks the plan card's rules (`fetch("ask/plan")`): `plan` and `gathered` on it alone, and with `plan`, its two options, `start` and `decline`; false when nothing does. A plan card without them reads as before: its plan in `context`. */
+/** What breaks the plan card's rules (`fetch("ask/plan")`): `plan` and `gathered` on it alone, `plan` always on it (a plan in `context` alone drew an empty card on his phone, 21 Nov 2026), and its two options, `start` and `decline`; false when nothing does. */
 function planProblemOf(
   ask: z.infer<typeof Ask>,
   isPlan: boolean,
   silence?: z.infer<typeof Option>
 ) {
   if (!(ask.plan || ask.gathered)) {
-    return false;
+    return (
+      isPlan &&
+      'an assignment\'s first card is its plan card: give `plan`, its steps, with options exactly `start` and `decline` (fetch("ask/plan"))'
+    );
   }
   return (
     (!isPlan &&
