@@ -13,6 +13,18 @@ import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import type { Desk } from "./desk-store";
 
+/** Whether a matter (`isOnMatter`) was moved by him from `agent` to another agent (decision 78): that agent's alone, whoever's project it is, its holder stopped too. */
+function isMovedAwayOf(
+  db: Desk["db"],
+  agent: string,
+  isOnMatter: (a: AssignmentRow) => boolean
+) {
+  return [...pinnedAssignmentsOf(db)].some((id) => {
+    const a = assignmentOf(db, id);
+    return a?.closed_at === null && a.agent_id !== agent && isOnMatter(a);
+  });
+}
+
 /**
  * Where agent `s.agent_id`'s card on `given` goes (his rule of 21 Nov 2026: on any matter it holds): its open assignment
  * whose anchors find the subject's matter (found as the card's writer finds it: `matterFinderOf` over the open matters), else, on one it takes
@@ -48,25 +60,16 @@ export async function cardHomeOf(
   );
   const v = held?.w ?? find([given]);
   const own = mine.find((m) => anchorsOf(db, m.a.id).length === 0)?.a;
-  // A matter he moved to another agent is that agent's alone (decision 78), whoever's project it is, its holder stopped too.
-  const isMovedAway =
-    v &&
-    [...pinnedAssignmentsOf(db)].some((id) => {
-      const a = assignmentOf(db, id);
-      return (
-        a &&
-        a.closed_at === null &&
-        a.agent_id !== s.agent_id &&
-        find(anchorsOf(db, a.id), pick(a))?.id === v.id
-      );
-    });
+  // Its agent takes the matter, unless he moved the matter away from it.
+  const isTakenBy = (w: NonNullable<typeof v>) =>
+    !isMovedAwayOf(
+      db,
+      s.agent_id,
+      (a) => find(anchorsOf(db, a.id), pick(a))?.id === w.id
+    ) && agentForMatterOf(standingAgents(db), people.truth)(w) === s.agent_id;
   const home =
     held?.a ??
-    (v &&
-    !isMovedAway &&
-    agentForMatterOf(standingAgents(db), people.truth)(v) === s.agent_id
-      ? own
-      : undefined) ??
+    (v && isTakenBy(v) ? own : undefined) ??
     (!v && own === s ? s : undefined);
   if (!home) {
     throw new Error(

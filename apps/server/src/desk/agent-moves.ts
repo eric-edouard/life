@@ -3,6 +3,7 @@ import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import {
   type AgentRow,
+  type AssignmentRow,
   agentOf,
   anchorsOf,
   assignmentOf,
@@ -134,6 +135,28 @@ function toRuntimeRefusalOf(
   return m.assignment_id && isFull(desk.db) ? MOVE_REASONS.full : null;
 }
 
+/** What his `hand_over` moves: a matter's assignment (`steps` with a `runtime` or an `agent`), none for a switch (`agent` with a `runtime`), or why not. */
+function movedAssignmentOf(
+  db: Desk["db"],
+  c: AgentChange,
+  facts: HandOverFacts
+): { error: string } | { assignment: AssignmentRow | null } {
+  const isMatter = Boolean(c.steps) && Boolean(c.runtime) !== Boolean(c.agent);
+  const isSwitch = !c.steps && Boolean(c.agent && c.runtime);
+  if (!(isMatter || isSwitch)) {
+    return { error: MOVE_REASONS.shape };
+  }
+  if (!c.steps) {
+    return { assignment: null };
+  }
+  const assignment = assignmentOnMatter(
+    db,
+    { id: facts.matter, steps: c.steps },
+    facts.matterOf ?? (() => undefined)
+  );
+  return assignment ? { assignment } : { error: MOVE_REASONS.noHolder };
+}
+
 /**
  * Applies his `hand_over` (`ask`), in apply's transaction: a matter's `steps` to a `runtime` or to the `agent` he names,
  * or an `agent` to a `runtime`. The move's row is written whether or not it is refused (reads find it by its matter or
@@ -146,21 +169,11 @@ export function applyHandOver(
   facts: HandOverFacts
 ): { error: string } | { id: string } {
   const { db } = desk;
-  const isMatter = Boolean(c.steps) && Boolean(c.runtime) !== Boolean(c.agent);
-  const isSwitch = !c.steps && Boolean(c.agent && c.runtime);
-  if (!(isMatter || isSwitch)) {
-    return { error: MOVE_REASONS.shape };
+  const found = movedAssignmentOf(db, c, facts);
+  if ("error" in found) {
+    return found;
   }
-  const s = c.steps
-    ? assignmentOnMatter(
-        db,
-        { id: facts.matter, steps: c.steps },
-        facts.matterOf ?? (() => undefined)
-      )
-    : null;
-  if (c.steps && !s) {
-    return { error: MOVE_REASONS.noHolder };
-  }
+  const s = found.assignment;
   const from = agentOf(db, s?.agent_id ?? c.agent ?? "");
   if (!from) {
     return { error: `no registered agent ${c.agent ?? "named"}` };
