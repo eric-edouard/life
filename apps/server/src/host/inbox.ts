@@ -49,12 +49,19 @@ export function planCardsOf(db: Database, list: readonly Decision[]) {
   );
 }
 
-/** A card's links as its holder's: the asker's session link (`was`) becomes the holder's (`now`); with none, the links stay (a supporting link never takes the session's place). */
-export const holderLinksOf = (
-  links: string[],
-  was?: string | null,
-  now?: string | null
-) => (now ? links.map((l) => (l === was ? now : l)) : links);
+/** Each open card the desk holds, as its holder's (its assignment's agent), when that is not its asker: the phone opens that agent's session. */
+export const cardHoldersOf = (
+  db: Database,
+  open: readonly Pick<Decision, "agent" | "id">[]
+) => {
+  const owners = cardOwnersOf(db, open);
+  return open.flatMap((d) => {
+    const holder = owners[d.id]?.holder;
+    return holder && holder !== d.agent
+      ? [[d.id, { agent: holder }] as const]
+      : [];
+  });
+};
 
 /** What agents hold (`HeldRead`); null while the desk is off or unreadable (then no new matter is offered). */
 function readHeld(): HeldRead | null {
@@ -64,22 +71,7 @@ function readHeld(): HeldRead | null {
   }
   const complaints = readDesk(complaintsAtWork, []);
   const open = decisionsNow().filter((d) => d.state === "open");
-  // Each card as its holder's: its id, and its session link in place of the asker's (stamped first when asked).
-  const holders = readDesk((db) => {
-    const owners = cardOwnersOf(db, open);
-    return open.flatMap((d) => {
-      const holder = owners[d.id]?.holder;
-      if (!holder || holder === d.agent) {
-        return [];
-      }
-      const links = holderLinksOf(
-        d.links,
-        d.agent ? agentOf(db, d.agent)?.link : undefined,
-        agentOf(db, holder)?.link
-      );
-      return [[d.id, { agent: holder, links }] as const];
-    });
-  }, []);
+  const holders = readDesk((db) => cardHoldersOf(db, open), []);
   return {
     cardHolders: Object.fromEntries(
       holders.state === "ok" ? holders.value : []

@@ -173,7 +173,7 @@ export interface Check {
   lifeLinks: { kind: RefKind; ref: string }[];
   /** Who it may be, as parties (`partyOf`): a voice's likely people, a Contacts card's candidates, the people who go by a name; none for other kinds. */
   likelyPeople: Party[];
-  /** Where to look or act (the agent's link first). */
+  /** Where to look, as asked (a registered agent's: the session it asked from first, never what the phone opens: that is its `agent`'s session now). */
   links: string[];
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done), `important` when he marked it; null: none. */
   matter: CheckMatter | null;
@@ -236,7 +236,7 @@ export const isEndingKind = (c: Pick<Check, "kind">) => c.kind === "ending";
 
 /** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
 export interface HeldRead {
-  cardHolders?: Readonly<Record<string, { agent: string; links: string[] }>>;
+  cardHolders?: Readonly<Record<string, { agent: string }>>;
   complaints?: readonly BeingFixed[];
   plans: (decisions: readonly Decision[]) => ReadonlySet<string>;
   read: () => readonly AgentHold[] | null;

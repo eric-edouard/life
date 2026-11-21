@@ -9,7 +9,7 @@ import {
   openAssignments,
   readStartFacts,
 } from "../host/desk-read";
-import { holderLinksOf } from "../host/inbox";
+import { cardHoldersOf } from "../host/inbox";
 import {
   askDecision,
   openAssignment,
@@ -270,13 +270,24 @@ test("each open card is its own assignment's, so an agent holding two shows each
   );
 });
 
-test("a card shown as its holder's opens the holder's session, not the asker's", () => {
-  const claude = "https://claude.ai/code/session_test";
-  const codex = "codex://threads/test";
+test("a folded card is shown as its holder's, whatever session it was asked from; its links stay as asked", () => {
+  const { desk } = setup();
+  const asker = standing(desk, {});
+  const holder = standing(desk, { project: "test-shop" });
+  const held = openAssignment(desk, holder, {
+    openedBy: "owner",
+    steps: ["obs_test_fold"],
+  });
+  desk.db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
+    "dec_test_fold",
+    held,
+  ]);
+  const links = ["fake://asker-old", "https://example.com/doc"];
+  // The holder names the card; the phone opens that agent's session now (`Check.sessionLink`), or none.
   expect(
-    holderLinksOf([claude, "https://example.com/doc"], claude, codex)
-  ).toEqual([codex, "https://example.com/doc"]);
-  expect(
-    holderLinksOf([claude, "https://example.com/doc"], claude, undefined)
-  ).toEqual([claude, "https://example.com/doc"]);
+    cardHoldersOf(desk.db, [
+      { agent: asker, id: "dec_test_fold", links },
+      { agent: holder, id: "dec_test_own", links },
+    ])
+  ).toEqual([["dec_test_fold", { agent: holder }]]);
 });

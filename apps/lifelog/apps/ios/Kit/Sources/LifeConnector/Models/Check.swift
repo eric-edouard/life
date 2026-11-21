@@ -383,6 +383,14 @@ extension Check {
         agent.flatMap { id in agents.first { $0.id == id }?.runtimeName }
     }
 
+    /// The session its "Open in" opens. A registered agent's card: the session of the agent holding it now (`agent`),
+    /// as the phone lists it, or none; never a link it was asked with (the asker's session, maybe replaced since or
+    /// another agent's). Any other ask: its first link.
+    public func sessionLink(among agents: [RegisteredAgent]) -> URL? {
+        guard let agent else { return links.first.flatMap(URL.init(string:)) }
+        return agents.first { $0.id == agent }?.link.flatMap(URL.init(string:))
+    }
+
     /// Its draft goes to someone Life only guesses: the guess is asked beside it (`confirm`).
     public var isRecipientGuessed: Bool { !(confirm ?? []).isEmpty }
 }
