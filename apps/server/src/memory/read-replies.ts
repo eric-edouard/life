@@ -26,7 +26,7 @@ export const READS = {
   connection: { prompt: "memory-connection.v3" },
   conversation_summary: { prompt: "memory-conversation-summary.v1" },
   mentions: { prompt: "memory-mentions.v1" },
-  voice_naming: { prompt: "memory-voice-naming.v1" },
+  voice_naming: { prompt: "memory-voice-naming.v2" },
 } satisfies Record<ReadName, { prompt: string }>;
 /** The digest of a prompt's text, stored beside its name and never matched on. */
 export const promptDigestOf = (text: string) => digest("sha256", text, 16);

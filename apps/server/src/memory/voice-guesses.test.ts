@@ -57,7 +57,8 @@ const line = (
   voices: unknown[],
   when: string,
   folder = where,
-  firstAt = at(0)
+  firstAt = at(0),
+  prompt = READS.voice_naming.prompt
 ) => {
   made += 1;
   storeReply(
@@ -66,7 +67,7 @@ const line = (
       madeBy: {
         engine: "codex",
         model: "test",
-        prompt: READS.voice_naming.prompt,
+        prompt,
         run: `r${made}`,
       },
       messages: MESSAGES,
@@ -105,6 +106,24 @@ test("a guess is kept for each turn of its voice, the newest wins, and an entry 
     line([bad], "2026-10-13T00:00:00.000Z");
     expect(guessOf(MESSAGES[1] as string)).toBe("me");
   }
+});
+
+test("a guess an older prompt made stays one until a newer line replaces it", () => {
+  const folder = `${where}-older`;
+  line(
+    [entry()],
+    "2026-10-11T00:00:00.000Z",
+    folder,
+    at(0),
+    "memory-voice-naming.v1"
+  );
+  expect(
+    voiceGuessesNow(people, folder).get(MESSAGES[1] as string)?.person
+  ).toBe("person:dana");
+  line([entry({ person: "me" })], "2026-10-12T00:00:00.000Z", folder);
+  expect(
+    voiceGuessesNow(people, folder).get(MESSAGES[1] as string)?.person
+  ).toBe("me");
 });
 
 test("when the newest guess names a person not known now the key has none, never an older guess", () => {
@@ -266,7 +285,7 @@ test("a guess shows in fetch only: the lines the other steps read never carry it
   }
 });
 
-test("a voice card asks about the one person lifelog's suggestion and the group's sure or likely guesses agree on, known to lifelog by an id", async () => {
+test("a voice card asks about the one person the group's sure or likely guesses name and lifelog's suggestion does not contradict, known to lifelog by an id", async () => {
   const folder = mkdtempSync(join(tmpdir(), "voice-card-guesses-"));
   try {
     line([entry()], "2026-10-11T00:00:00.000Z", folder);
@@ -334,10 +353,10 @@ test("a voice card asks about the one person lifelog's suggestion and the group'
     expect(card({ guessed: ["person:dana", "person:zed"] })).toBe(
       "person:dana"
     );
-    // A heard name alone, nothing guessed.
-    expect(card({ guessed: [], kind: "new_person", name: "Dana" })).toBe(
-      "person:dana"
-    );
+    // Lifelog's suggestion alone, nothing guessed, names no one: its sound or a name heard says nothing of who could be
+    // there (a friend living far away, matched by sound to a recording made where he was): "Who is this?".
+    expect(card({ guessed: [], kind: "new_person", name: "Dana" })).toBeNull();
+    expect(card({ guessed: [], personId: "lf-dana" })).toBeNull();
     // Someone lifelog knows by no id: no name, so "Yes" never names a person by name.
     expect(card({ likely: [] })).toBeNull();
     // An id his directory does not know is who lifelog names it (life#963): "Is this Dana?", by that id.
