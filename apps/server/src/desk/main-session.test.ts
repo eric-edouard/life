@@ -79,6 +79,7 @@ async function asked(
   await play(ref);
   t.fake.exit(ref, true, {
     usage: {
+      billedUsd: 0.002,
       contextFirst: 10,
       contextLast: 20,
       tokensCached: 1,
@@ -89,7 +90,7 @@ async function asked(
   return { answer: await answer, lines, ref };
 }
 
-test("his first words register the main session and start its session from its brief and his words; the answer is its text after its last tool call; the turn ends replied with its tokens", async () => {
+test("his first words register the main session and start its session from its brief and his words; the answer is its text after its last tool call; the turn ends replied with its tokens and its billed cost", async () => {
   const { answer, lines, ref } = await asked("Where is my passport?", (r) => {
     t.fake.hear(r, { kind: "words", text: "Let me look." });
     t.fake.hear(r, {
@@ -121,7 +122,10 @@ test("his first words register the main session and start its session from its b
   expect(turnsOf(a?.id ?? "")).toEqual([
     { cause: "main_ask", ended_at: expect.any(String), outcome: "replied" },
   ]);
-  expect(t.desk.db.query("select tokens_out from turn").get()).toEqual({
+  expect(
+    t.desk.db.query("select tokens_out, cost_usd from turn").get()
+  ).toEqual({
+    cost_usd: 0.002,
     tokens_out: 3,
   });
 });

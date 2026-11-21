@@ -34,6 +34,10 @@ export const isBeforeMatterIds = (db: Database) =>
 export const isBeforeTurnModel = (db: Database) =>
   hasColumn(db, "turn", "id") && !hasColumn(db, "turn", "model");
 
+/** Whether the store's turns predate their billed cost (`stepTurnCost` adds it): a store that has turns and no `turn.cost_usd`. */
+export const isBeforeTurnCost = (db: Database) =>
+  hasColumn(db, "turn", "id") && !hasColumn(db, "turn", "cost_usd");
+
 /** Whether the store's agents predate moves (`stepMoves` reshapes it, decision 78): agents, and no `move` table or no `turn.move`. */
 export const isBeforeMoves = (db: Database) =>
   hasColumn(db, "agent", "id") &&
@@ -52,7 +56,8 @@ export const isOldShape = (db: Database) =>
   isBeforeRoleCheck(db) ||
   isBeforeTurnModel(db) ||
   isBeforeMatterIds(db) ||
-  isBeforeMoves(db);
+  isBeforeMoves(db) ||
+  isBeforeTurnCost(db);
 
 /** Why a store of the old shape is not read: the desk helper's store step has not run on it (its log says why). */
 export const NOT_MIGRATED =

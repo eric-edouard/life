@@ -19,6 +19,7 @@ import {
   stepRoleCheck,
   stepRoles,
   stepStore,
+  stepTurnCost,
   stepTurnModel,
 } from "./store-step";
 
@@ -77,6 +78,7 @@ export async function desk() {
     log("desk.store_step", { done: stepMatterIds(), step: "matter ids" });
     log("desk.store_step", { done: stepMoves(), step: "moves" });
     log("desk.store_step", { done: stepRoleCheck(), step: "role check" });
+    log("desk.store_step", { done: stepTurnCost(), step: "turn cost" });
   } catch (error) {
     log("desk.store_step", { ...errorOf(error), ok: false });
     console.error(`${clock().toISOString()} desk: ${String(error)}`);
