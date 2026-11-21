@@ -114,15 +114,22 @@ export function tool<S extends z.ZodObject>(
       // The steps go in order, and all before the result.
       let sent = Promise.resolve();
       let progress = 0;
-      // Every step reported, with its ms from the call's start: where a slow action spent its time.
-      const steps: { ms: number; step: unknown }[] = [];
+      // Every step reported, with its ms from the call's start: where a slow action spent its time; a run of one step (a
+      // streamed answer's `words`) is one entry with its `count`.
+      const steps: { count?: number; ms: number; step: unknown }[] = [];
       const call: ToolCall = {
         ...(typeof key === "string" ? { answerKey: key } : {}),
         report: (step) => {
-          steps.push({
-            ms: Math.round(performance.now() - started),
-            step: step.step ?? "plan",
-          });
+          const name = step.step ?? "plan";
+          const last = steps.at(-1);
+          if (last?.step === name) {
+            last.count = (last.count ?? 1) + 1;
+          } else {
+            steps.push({
+              ms: Math.round(performance.now() - started),
+              step: name,
+            });
+          }
           if (progressToken !== undefined) {
             progress += 1;
             const params = {

@@ -80,7 +80,9 @@ export async function keepMainSession(desk: Desk) {
   const a = standingAgentOf(desk.db, "main");
   const runtime = a && desk.runtimes[a.runtime];
   if (!(a?.status === "active" && a.session && runtime)) {
-    return;
+    return a?.status === "stopped"
+      ? `the main session ${a.id} is stopped`
+      : "no main session open yet: his next words start one";
   }
   try {
     await runtime.keep(sessionAgentOf(a), a.session);
@@ -145,7 +147,6 @@ async function answer(
     return { kind: "error", what: "Life is still answering your last words." };
   }
   claimTurn(desk, turn);
-  asked();
   // A session gone (deleted) is made again from its packet; a kept one reads running, and is talked on.
   const state = a.session
     ? await runtime.state(a.session).catch(() => null)
@@ -170,6 +171,8 @@ async function answer(
       ].join("\n\n"),
       hear
     );
+    // His words reached the session only now: a failure before keeps no retry key, so a retry asks again.
+    asked();
     watch(desk, turn, run);
     if (isFresh) {
       recordSession(desk, a, turn, run);
@@ -195,7 +198,8 @@ async function answer(
 /**
  * His words to the main session (`ask.words`), its lines heard by `hear` as they come; its answer. A retry under the same
  * key (one of the last `ASKS_KEPT` that reached the session) replays the lines so far and ends with the same answer: never
- * asked twice; the key with other words is refused. An ask refused before its turn (busy, no place) is not kept.
+ * asked twice; the key with other words is refused. An ask that never reached the session (busy, no place, a session
+ * that would not take it) is not kept.
  */
 export function askMainSession(
   desk: Desk,
