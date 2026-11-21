@@ -116,13 +116,16 @@ const handleIndex = (people: Person[]) => ({
  * contact person alone goes by it), then its latest confident inferred guess (the person in truth/ it links to, else
  * the guess). His Contacts are his word on a number: no guess outranks a card. A `not-this-person` correction blocks
  * that match. Each reading says which of those it came from (`by`) and whether more than one person in truth/ or his
- * Contacts goes by that name (`isShared`), so an answer by a typed name can refuse a guess or a shared name.
+ * Contacts goes by that name (`isShared`), so an answer by a typed name can refuse a guess or a shared name. A
+ * WhatsApp `@lid` its bridge knows the phone of (`lidPhones`, `readLidPhones`) reads as that phone, his word on the lid
+ * itself first.
  */
 export function readingOf(
   people: Person[],
   inferred: InferredPerson[],
   corrections: Correction[],
-  contacts: ContactNow[]
+  contacts: ContactNow[],
+  lidPhones: ReadonlyMap<string, string> = new Map()
 ) {
   const handles = handleIndex(people);
   const names = nameIndex(people);
@@ -178,7 +181,7 @@ export function readingOf(
       : ks.map((k) => index.exact.get(k)).find(Boolean);
   // A phone or an email (it has a contact key) meets only truth/'s and a card's phones and emails, anything else only
   // their exact handles and names; his word and Life's guesses hold no kind, so they meet by `kindKeysOf`.
-  return (nameOrHandle: string, from?: HandleFrom): Reading | null => {
+  const read = (nameOrHandle: string, from?: HandleFrom): Reading | null => {
     const key = contactKeyFrom(nameOrHandle, from);
     const ks = keysOf(nameOrHandle);
     const words = kindKeysOf(nameOrHandle, key);
@@ -203,6 +206,15 @@ export function readingOf(
       ([, r]) => r && !words.some((k) => not.has(`${k}|${r}`))
     );
     return found?.[1] ? { by: found[0], isShared, ref: found[1] } : null;
+  };
+  return (nameOrHandle: string, from?: HandleFrom): Reading | null => {
+    const own = read(nameOrHandle, from);
+    const phone = lidPhones.get(nameOrHandle.trim());
+    const byPhone = phone && own?.by !== "his word" ? read(phone) : null;
+    return byPhone &&
+      !keysOf(nameOrHandle).some((k) => not.has(`${k}|${byPhone.ref}`))
+      ? byPhone
+      : own;
   };
 }
 

@@ -3,6 +3,7 @@ import type { AgentHold } from "../memory/held-matters";
 import { type MatterView, matterFinderOf } from "../memory/matter-read";
 import type { HandOutFacts } from "../memory/read-matters";
 import type { AgentStatus } from "../records/registered-agent";
+import { Organization, Person } from "../records/truth";
 import {
   activeOnIdleMatterOf,
   coverageOf,
@@ -10,11 +11,12 @@ import {
   heldByTwoOf,
   lastNeedsYouOf,
   needsYouRowOf,
+  peopleRowsOf,
   splitAnchorsOf,
   stoppedOnRunningOf,
 } from "./desk-health";
 
-// The desk health rules, each pure. Made-up matters, agents and decisions.
+// The desk health rules, each pure. Made-up matters, agents, decisions and people.
 
 const matter = (id: string, over: Partial<MatterView> = {}) =>
   ({
@@ -189,4 +191,61 @@ test("the number's row shows last night's only when one was written", () => {
   expect(lastNeedsYouOf([end()])).toBeUndefined();
   expect(lastNeedsYouOf([end(2), end(4, "memory.extract"), end()])).toBe(2);
   expect(lastNeedsYouOf([end(2), end(0)])).toBe(0);
+});
+
+test("the people rows: a guess with no live evidence, a changed person with no handle, a changed organization with nobody, a link that turned a year old or changed and is", () => {
+  const truth = {
+    organizations: [
+      Organization.parse({ id: "acme", name: "Acme", people: [] }),
+      Organization.parse({
+        id: "bolt",
+        name: "Bolt",
+        people: [
+          { id: "ann", role: "Founder" },
+          { id: "bob", role: "Engineer" },
+          { id: "cid", role: "Engineer" },
+          { id: "dan", role: "Engineer", until: 2024 },
+        ],
+      }),
+    ],
+    people: [
+      Person.parse({ id: "me", name: "Jean" }),
+      Person.parse({ id: "ann", name: "Ann" }),
+      Person.parse({
+        handles: { phone: ["+66600000009"] },
+        id: "bob",
+        name: "Bob",
+      }),
+      Person.parse({ id: "cid", name: "Cid" }),
+      Person.parse({ id: "dan", name: "Dan" }),
+    ],
+  };
+  const now = new Date("2026-11-21T00:00:00.000Z");
+  const last: Record<string, string> = {
+    // Turned a year old since the last night.
+    "person:ann": "2025-11-20T12:00:00.000Z",
+    // Long ago, but nothing about the link changed: shown the night it turned, not again.
+    "person:bob": "2024-01-01T00:00:00.000Z",
+    // Ended, by his word: never shown.
+    "person:dan": "2020-01-01T00:00:00.000Z",
+  };
+  const rows = peopleRowsOf({
+    changed: new Set(["acme", "ann", "bob", "bolt|cid", "me"]),
+    guesses: [
+      { evidence: ["unit_gone"], id: "inf_x", name: "X" },
+      { evidence: ["unit_gone", "unit_live"], id: "inf_y", name: "Y" },
+    ],
+    lastExchangeAt: (ref) => last[ref],
+    live: new Set(["unit_live"]),
+    now,
+    since: "2026-11-20T00:00:00.000Z",
+    truth,
+  });
+  expect(rows.map((r) => `${r.name}: ${r.relation}`)).toEqual([
+    "People · X: a guess (inf_x) with no evidence left",
+    "People · Ann: in his directory with no handle",
+    "People · Acme: an organization with nobody linked",
+    "People · Ann: at Bolt: no counted exchange in a year, and the link has no end",
+    "People · Cid: at Bolt: no counted exchange in a year, and the link has no end",
+  ]);
 });

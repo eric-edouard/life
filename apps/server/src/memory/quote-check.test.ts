@@ -127,9 +127,14 @@ test("an observation is about its subjects, folded, plus the names that resolve 
     { nameAsWritten: "Plombier" },
   ] as unknown as Unresolved[];
   expect(
-    aboutNow(obs, rows, people, inferredPeople, [fold], []).map(
-      (o) => o.subjects
-    )
+    aboutNow(
+      obs,
+      rows,
+      people,
+      inferredPeople,
+      [],
+      foldsOf(people, inferredPeople, [fold], [])
+    ).map((o) => o.subjects)
   ).toEqual([
     ["person:gaston", "project:shop"],
     ["person:gaston"],
@@ -140,7 +145,9 @@ test("an observation is about its subjects, folded, plus the names that resolve 
     { nameAsWritten: "Ghost", observation: "obs_2" },
   ] as Unresolved[];
   expect(
-    aboutNow(obs, ghost, people, [], [], []).map((o) => o.unmapped)
+    aboutNow(obs, ghost, people, [], [], foldsOf(people, [], [], [])).map(
+      (o) => o.unmapped
+    )
   ).toEqual([false, true, false]);
 });
 
@@ -185,7 +192,15 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
     },
   ] as unknown as Observation[];
   const chats = new Map([["unit_000000000002", "+66600000001"]]);
-  const now = aboutNow(facts, [], people, [], [], [], chats);
+  const now = aboutNow(
+    facts,
+    [],
+    people,
+    [],
+    [],
+    foldsOf(people, [], [], []),
+    chats
+  );
   expect(now.map((o) => o.speaker)).toEqual([
     "person:dad",
     "person:dad",
@@ -249,7 +264,7 @@ test("a move stays out of a unit where that person still writes as themself, and
       unit: "unit_000000000008",
     },
   ] as unknown as Observation[];
-  const now = aboutNow(facts, [], people, [], [], []);
+  const now = aboutNow(facts, [], people, [], [], foldsOf(people, [], [], []));
   expect(now.map((o) => o.speaker)).toEqual([
     "person:dad",
     "person:gaston",
@@ -290,7 +305,7 @@ test("two authors filed as one person who now resolve to two different people: n
       unit: "unit_000000000006",
     },
   ] as unknown as Observation[];
-  const now = aboutNow(facts, [], people, [], [], []);
+  const now = aboutNow(facts, [], people, [], [], foldsOf(people, [], [], []));
   // Each author is who they are now, but Gaston as named in the unit stays Gaston: two people claim the name.
   expect(now.map((o) => o.speaker)).toEqual([
     "person:dad",
@@ -314,7 +329,7 @@ test("a voice kept by lifelog's id resolves by the name lifelog gave it when the
       unit: "unit_000000000007",
     },
   ] as unknown as Observation[];
-  const [o] = aboutNow(facts, [], people, [], [], []);
+  const [o] = aboutNow(facts, [], people, [], [], foldsOf(people, [], [], []));
   expect(o?.speaker).toBe("person:dad");
   expect(o?.speakerName).toBeUndefined();
 });
@@ -376,8 +391,8 @@ test("a fact whose subjects changed since it was written is marked refiled", () 
       [],
       people,
       [inferred("inf_plumber", ["Plombier"])],
-      [fold],
-      []
+      [],
+      foldsOf(people, [inferred("inf_plumber", ["Plombier"])], [fold], [])
     ).map((o) => o.refiled)
   ).toEqual([true, false]);
 });

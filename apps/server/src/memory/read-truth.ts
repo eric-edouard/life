@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
+import { git } from "../core/proc";
 import { CONTACT_PREFIX, INFERRED_PREFIX } from "../records/observation";
 import {
   type Area,
@@ -352,4 +353,69 @@ export function integrity(truth: Truth): string[] {
   }
   checkGoals(me.goals, projectIds, issues);
   return issues;
+}
+
+interface Entry {
+  id: string;
+  people?: { id: string }[];
+}
+
+/** A directory file's entries as written (no defaults), by id; none when it is absent. */
+const entriesOf = (text: string, key: string) =>
+  ((text ? Bun.YAML.parse(text) : null) as Record<string, Entry[]> | null)?.[
+    key
+  ] ?? [];
+
+/**
+ * What of his directory was added or changed since `since`: each person's and organization's id, and each
+ * organization's link to a person as `<organization>|<person>`, compared with the data repo's last commit before
+ * `since` (every one when there is none). Two `git show`s of one commit: the directory's size, never its history.
+ */
+export function readDirectoryChangesSince(
+  since: string,
+  data = OWNER_DATA_DIR
+) {
+  const before = git(data, [
+    "log",
+    "-1",
+    "--format=%H",
+    `--before=${since}`,
+    "--",
+    "truth",
+  ])
+    .stdout.toString()
+    .trim();
+  const keyed = (entries: Entry[]) =>
+    new Map(
+      entries.flatMap((e) => [
+        [e.id, JSON.stringify(e)] as const,
+        ...(e.people ?? []).map(
+          (l) => [`${e.id}|${l.id}`, JSON.stringify(l)] as const
+        ),
+      ])
+    );
+  const changed = new Set<string>();
+  for (const [file, key] of [
+    ["people.yaml", "people"],
+    ["organizations.yaml", "organizations"],
+  ] as const) {
+    const path = join(data, "truth", file);
+    const now = keyed(
+      entriesOf(existsSync(path) ? readFileSync(path, "utf8") : "", key)
+    );
+    const was = keyed(
+      entriesOf(
+        before
+          ? git(data, ["show", `${before}:truth/${file}`]).stdout.toString()
+          : "",
+        key
+      )
+    );
+    for (const [k, v] of now) {
+      if (was.get(k) !== v) {
+        changed.add(k);
+      }
+    }
+  }
+  return changed;
 }

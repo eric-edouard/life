@@ -15,6 +15,7 @@ import { type DirectoryParty, firstNameOf, ME } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
 import { voiceKey } from "../sources/lifelog-voices";
+import { readLidPhones } from "../sources/whatsapp";
 import { readAgentReports } from "./agent-source";
 import { type ContactNow, contactsNow } from "./contact-people";
 import {
@@ -73,14 +74,16 @@ const bestOf = (loop: string[]) =>
  * the one person it reads as. A contact person folds too: into whoever its whole name is in truth/, else by a handle
  * it shares with someone, else by its name (`namesTheSame`); and a guess made for one of its handles is the contact
  * person. A card whose whole name and whose handles say more than one person folds into no one (an ambiguous card: his to say).
+ * A WhatsApp `@lid` reads as the phone its bridge maps it to (`lidPhones`), so a guess made for it is that phone's person.
  */
 export function foldsOf(
   people: DirectoryParty[],
   inferred: InferredPerson[],
   corrections: Correction[],
-  contacts: ContactNow[]
+  contacts: ContactNow[],
+  lidPhones?: ReadonlyMap<string, string>
 ) {
-  const reading = readingOf(people, inferred, corrections, contacts);
+  const reading = readingOf(people, inferred, corrections, contacts, lidPhones);
   const read = (nameOrHandle: string, from?: HandleFrom) =>
     reading(nameOrHandle, from)?.ref ?? null;
   // His word that a handle is not someone: a card holding that handle is not them by its name either.
@@ -222,7 +225,7 @@ const isWholeNameOf = (c: ContactNow, ref: string, people: DirectoryParty[]) =>
 
 /**
  * What each observation is about today: the subjects it was filed with, plus the names Life could not map when it was
- * read and can now, folded (`foldsOf`); `unmapped` when it still names someone Life cannot map.
+ * read and can now, folded (`canon` and `resolve`, `readPeople`'s); `unmapped` when it still names someone Life cannot map.
  * The pages and the search index both go by this.
  */
 export function aboutNow(
@@ -230,11 +233,10 @@ export function aboutNow(
   unresolved: Unresolved[],
   people: DirectoryParty[],
   inferred: InferredPerson[],
-  corrections: Correction[],
   contacts: ContactNow[],
+  { canon, resolve }: Pick<People, "canon" | "resolve">,
   chatOf: Map<string, string> = new Map()
 ) {
-  const { canon, resolve } = foldsOf(people, inferred, corrections, contacts);
   const found = unresolved.flatMap((u) =>
     u.observation
       ? [{ observation: u.observation, ref: resolve(u.nameAsWritten) }]
@@ -483,12 +485,14 @@ export async function readPeople() {
     readCorrections(),
   ]);
   const contacts = contactsNow(readContactLines());
+  const lidPhones = readLidPhones();
   const parties = directoryPartiesOf(truth);
   const { ambiguousCards, canon, readingNow, resolve } = foldsOf(
     parties,
     inferred,
     corrections,
-    contacts
+    contacts,
+    lidPhones
   );
   const outsideDirectory = peopleOutsideDirectoryOf(contacts, inferred);
   const latest = latestInUseOf(inferred);
@@ -596,12 +600,8 @@ export async function readUnresolvedPeople() {
  * The observations the pages and the index go by, those that show (`observationStatusOf`: neither hidden everywhere nor replaced),
  * filed as they read today; with the ledgers that say where each stands, and every observation in the ledger.
  */
-export async function observationsNow({
-  contacts,
-  corrections,
-  inferred,
-  truth,
-}: People) {
+export async function observationsNow(people: People) {
+  const { contacts, corrections, inferred, truth } = people;
   const read = readObservations();
   const [all, statusInputs, unresolved] = await Promise.all([
     read,
@@ -622,8 +622,8 @@ export async function observationsNow({
     unresolved,
     directoryPartiesOf(truth),
     inferred,
-    corrections,
     contacts,
+    people,
     chatHandles(units)
   );
   return { all, observations, statusInputs };

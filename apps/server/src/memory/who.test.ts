@@ -252,6 +252,40 @@ test("a loop of folds reads as its best ref by tier, a chain as its end, and non
   expect(chain("person:inf_g")).toBe("person:ann");
 });
 
+test("a WhatsApp lid its bridge maps to a phone reads as that phone's person, and a guess made for it folds into them; his word on the lid still wins", () => {
+  const lid = "70001@lid";
+  const lidPhones = new Map([[lid, "+66600000001"]]);
+  const guess = inferred("inf_lid", [lid]);
+  const folds = foldsOf(mapped, [guess], [], [], lidPhones);
+  expect(folds.resolve(lid)).toBe("person:dad");
+  expect(folds.canon("person:inf_lid")).toBe("person:dad");
+  // A phone no one goes by: the lid stays its guess.
+  expect(
+    foldsOf(mapped, [guess], [], [], new Map([[lid, "+66600000777"]])).resolve(
+      lid
+    )
+  ).toBe("person:inf_lid");
+  // No map: the lid is only its guess.
+  expect(foldsOf(mapped, [guess], [], []).resolve(lid)).toBe("person:inf_lid");
+  // His word on the lid, either way, beats the bridge's phone.
+  const isGaston = said({
+    kind: "this-is",
+    nameOrHandle: lid,
+    person: "person:gaston",
+  });
+  expect(foldsOf(mapped, [guess], [isGaston], [], lidPhones).resolve(lid)).toBe(
+    "person:gaston"
+  );
+  const notDad = said({
+    kind: "not-this-person",
+    nameOrHandle: lid,
+    person: "person:dad",
+  });
+  expect(foldsOf(mapped, [guess], [notDad], [], lidPhones).resolve(lid)).toBe(
+    "person:inf_lid"
+  );
+});
+
 test("one bridged user in Beeper's form and in Life's own bridge's reads as one key", () => {
   const guess = inferred("inf_kit", ["@line__u91_abc:beeper.local"]);
   const { resolve } = foldsOf([], [guess], [], []);
