@@ -23,17 +23,19 @@ private struct ShellBar: ViewModifier {
                 // One item each, never a group: the closed Duo's side column took the group's first item only. Each is
                 // said to fit the column: a button the zoom wraps reads as a custom view, which the system keeps in a
                 // bar of its own over the screen's title (the "huge black header", seen in `design:shots`).
-                if hasPendant {
-                    if #available(iOS 27.1, *) { pendant.axisBehavior(.verticalPreferred) } else { pendant }
-                }
-                if hasSettings {
-                    if #available(iOS 27.1, *) { settings.axisBehavior(.verticalPreferred) } else { settings }
-                }
+                if hasPendant { fitted(pendant) }
+                if hasSettings { fitted(settings) }
             }
     }
 }
 
 extension ShellBar {
+    /// One item said to fit the column (drop this once the deployment target is 27.1).
+    @ToolbarContentBuilder
+    private func fitted(_ item: some ToolbarContent) -> some ToolbarContent {
+        if #available(iOS 27.1, *) { item.axisBehavior(.verticalPreferred) } else { item }
+    }
+
     private var pendant: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             PendantItem { router.sheet = .pendant }.zoomSource(AppRouter.Sheet.pendant, in: topBarZoom)
