@@ -57,11 +57,20 @@ struct RootView: View {
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
-        // Tell Life: always within reach, in the rail's free middle, on every screen.
-        .overlay(alignment: .trailing) {
+        // Tell Life: always within reach, in the rail's free middle, on every screen: on the Pendant's vertical line, so it
+        // stands in the closed Duo's side column with the other controls (decision 89), at the bar's end elsewhere; at
+        // mid-height, or under the top group when that reaches lower (a page's Back and flag above the Pendant).
+        .overlay {
             if life.isPaired {
-                TellLifeButton(running: life.tell.strands.filter { !$0.isDone }.count)
-                    .padding(.trailing, Metrics.Spacing.m)
+                GeometryReader { window in
+                    let origin = window.frame(in: .global).origin
+                    let pendant = router.pendantFrame?.offsetBy(dx: -origin.x, dy: -origin.y)
+                    TellLifeButton(running: life.tell.strands.filter { !$0.isDone }.count)
+                        .position(
+                            x: pendant?.midX ?? window.size.width - Metrics.Spacing.m - 28,
+                            y: max(window.size.height / 2, (pendant?.maxY ?? 0) + Metrics.Spacing.l + 28))
+                }
+                .ignoresSafeArea()
             }
         }
         .overlay(alignment: .bottom) {
