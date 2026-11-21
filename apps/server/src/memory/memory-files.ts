@@ -357,7 +357,7 @@ export function newSince(all: Observation[], at?: string) {
 }
 
 /** A supersession as `observationStatusOf` reads it: a line of supersessions.jsonl, or one his `outdated` correction retires (`outdatedBy`). */
-type Retirement = Omit<Supersession, "madeBy">;
+type Retirement = Omit<Supersession, "madeBy"> & { dropped?: true };
 
 /**
  * Observations a newer one replaced (memory/supersessions.jsonl), or he said are outdated (`by` itself): id -> the first
@@ -433,7 +433,8 @@ export const answeredFactCheckCorrections = (
 
 /**
  * What his `outdated` corrections retire (true then, not anymore), as extraction retires a fact later evidence closed:
- * kept as history, not wrong. `by` is the observation itself (no successor: readers of `by` skip it); `why` his words.
+ * kept as history, not wrong. `by` is the observation itself (no successor: readers of `by` skip it); `why` his words;
+ * `dropped` his Drop (`outcome`).
  */
 export const outdatedBy = (corrections: Correction[]): Retirement[] =>
   corrections.flatMap((c) =>
@@ -445,6 +446,7 @@ export const outdatedBy = (corrections: Correction[]): Retirement[] =>
           schemaVersion: 1 as const,
           validTo: c.at.slice(0, 10), // his word's UTC day (a local day needs zones.ts, which imports this file)
           why: c.note ?? "outdated",
+          ...(c.outcome === "dropped" ? { dropped: true as const } : {}),
         }))
       : []
   );

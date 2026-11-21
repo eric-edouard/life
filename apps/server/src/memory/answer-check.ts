@@ -49,7 +49,7 @@ export type AddDirectoryEntry = (
   fields?: { relation?: string }
 ) => Promise<string>;
 
-/** Closes by his word the steps a your move card's Mark as done closes (`yourMoveClosingOf`, read by host before the plan: host's `endByHisWord`); gives the lines written. */
+/** Closes by his word the steps a your move card's Mark as done, or Drop, closes (`yourMoveClosingOf`, read by host before the plan with the option he picked: host's `endByHisWord`); gives the lines written. */
 export type EndYourMove = () => Promise<unknown[]>;
 
 /** What a writer is given besides the check and his answer: a voice's queue item with the people it was read with, the steps to report, the desk's start and a your move's end (his own token's `answer_check` only). */
@@ -234,7 +234,7 @@ async function yourMoveMatterOf(c: Pick<Check, "matter" | "ref" | "subject">) {
   return v;
 }
 
-/** What a your move card's Mark as done closes: its step, while it is still open on its matter (`openStepsOf`). */
+/** What a your move card's Mark as done, or Drop, closes: its step, while it is still open on its matter (`openStepsOf`). */
 export async function yourMoveClosingOf(
   c: Pick<Check, "matter" | "ref" | "subject">
 ) {
@@ -243,6 +243,16 @@ export async function yourMoveClosingOf(
     throw new Error(`Not done: ${c.subject} is no longer open.`);
   }
   return closing;
+}
+
+/** Mark as done or Drop on a your move card: only through his own answer_check, which gives `endYourMove`. */
+function endYourMoveOf(x: WriterExtras) {
+  if (!x.endYourMove) {
+    throw new Error(
+      "Not done: Mark as done and Drop come only through his own answer_check."
+    );
+  }
+  return x.endYourMove();
 }
 
 /** What each option of Life's guesses writes, by group; typed by `LIFE_CHECKS`, so every option has its writer. */
@@ -399,16 +409,10 @@ const WRITERS: {
     "this-is": (c, a, { voice }) =>
       answerVoice(c, voice, (v) => thisIs(v, c, a)),
   },
-  // Done and Hand to an agent act through host (`endYourMove`, `startAgent`), only as the card offers them now.
+  // Done, Drop and Hand to an agent act through host (`endYourMove`, `startAgent`), only as the card offers them now.
   "your move": {
-    done: (_c, _a, x) => {
-      if (!x.endYourMove) {
-        throw new Error(
-          "Not done: Mark as done comes only through his own answer_check."
-        );
-      }
-      return x.endYourMove();
-    },
+    done: (_c, _a, x) => endYourMoveOf(x),
+    drop: (_c, _a, x) => endYourMoveOf(x),
     "not-now": async (c, a) => {
       const v = await yourMoveMatterOf(c);
       return correct(

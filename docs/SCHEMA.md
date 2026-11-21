@@ -396,7 +396,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 |---|---|---|
 | `wrong` | `observations: [obs_…, ep_…]`, optional `page` | Never shown (pages, search; an episode: every read, and the next days' reading; its day is read again, shown it with `note`), or off that page only |
 | `not-important` | `observations`, optional `page` | Same; a true fact the owner does not want |
-| `outdated` | `observations: [obs_…]` | Retired by itself, as history (true then, not anymore: a promise kept, a to-do done); `note` holds his words. His fact-check `outdated` answers read as these |
+| `outdated` | `observations: [obs_…]`, `outcome?: "dropped"` | Retired by itself, as history (true then, not anymore: a promise kept, a to-do done; `outcome` `dropped`: his Drop on a your move card, it won't be done; absent, the reason is not said, as on every line before it); `note` holds his words. His fact-check `outdated` answers read as these |
 | `keep-mine` | `page`, `section` (`now`, `earlier`; on the owner's own page also `views`, `health`; on a close person's `between_us`), `text` | The line stays on the page as written |
 | `this-is` | `nameOrHandle`, `person: person:<id>` | A handle or name is that person (beats `truth/`) |
 | `not-this-person` | `nameOrHandle`, `person` | Never resolve that handle or name to that person |
