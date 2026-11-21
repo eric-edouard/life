@@ -8,7 +8,7 @@ import { BEGIN_WITHIN_MS } from "../agent-wait";
 import { tick, wakeDue } from "../desk-clock";
 import { doorOf } from "../door-keys";
 import { advance, setup } from "../test-desk";
-import { acpRuntime, LAUNCH_WITHIN_MS } from "./acp-runtime";
+import { acpRuntime } from "./acp-runtime";
 import type { Agent } from "./contract";
 import type { Row } from "./runtime-rows";
 
@@ -17,6 +17,10 @@ import type { Row } from "./runtime-rows";
 
 // Each case starts a process: a loaded Mac needs more than the default 5 s.
 setDefaultTimeout(30_000);
+
+// The cases that launch twice, each in its 30 s: a launch bounded at 10 s, so one that stalls fails there, with its
+// reason, never as the case's timeout (#1150).
+const LAUNCH_BOUND_MS = 10_000;
 
 const FAKE = join(import.meta.dir, "fake-acp-agent.ts");
 
@@ -356,7 +360,7 @@ test("talk: one process kept across prompts, its updates heard as they come, the
         return Promise.resolve();
       },
     }),
-    LAUNCH_WITHIN_MS,
+    LAUNCH_BOUND_MS,
     300
   );
   const heard: unknown[] = [];
@@ -393,35 +397,20 @@ test("talk: one process kept across prompts, its updates heard as they come, the
   expect(await rt.state(first.ref)).toBe("idle");
 });
 
-// A launch bound well under the test's 30 s, so a two-launch case that stalls fails at its launch, named, never as a
-// test timeout (#1150).
-const LAUNCH_BOUND_MS = 10_000;
-
-test("talk and keep racing open one process; a ref switch while answering is refused", async () => {
-  const dir = made();
-  const rt = acpRuntime(rowFor(dir), LAUNCH_BOUND_MS, 300);
-  const [, run] = await Promise.all([
-    rt.keep(agentIn(), null),
-    rt.talk(agentIn(), null, "[hang]", () => undefined),
-  ]);
-  expect(kindsOf(dir).filter((k) => k === "initialize")).toHaveLength(1);
-  await expect(rt.keep(agentIn(), "another-session")).rejects.toThrow(
-    "is answering"
-  );
-  await Bun.sleep(600); // past the keep's timer: the talk cleared it
-  expect(await rt.state(run.ref)).toBe("running");
-  await rt.stop(run.ref);
-  expect(await run.ended).toEqual({ ok: false, why: "cancelled" });
-});
-
-test("a stopped kept session's old timer never drops the next one mid-answer", async () => {
+test("talk and keep racing open one process; a stopped kept session's old timer never drops the next one mid-answer; a ref switch while answering is refused", async () => {
   const dir = made();
   const rt = acpRuntime(rowFor(dir), LAUNCH_BOUND_MS, 300);
   const first = await rt.talk(agentIn(), null, "[answer]", () => undefined);
   await first.ended;
   await rt.stop(first.ref);
-  const run = await rt.talk(agentIn(), first.ref, "[hang]", () => undefined);
+  const [, run] = await Promise.all([
+    rt.keep(agentIn(), first.ref),
+    rt.talk(agentIn(), first.ref, "[hang]", () => undefined),
+  ]);
   expect(logOf(dir).filter((l) => l.resume)).toHaveLength(1);
+  await expect(rt.keep(agentIn(), "another-session")).rejects.toThrow(
+    "is answering"
+  );
   await Bun.sleep(600);
   expect(await rt.state(first.ref)).toBe("running");
   await rt.stop(first.ref);
