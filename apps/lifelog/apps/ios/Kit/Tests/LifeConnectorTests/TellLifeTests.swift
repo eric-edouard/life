@@ -59,3 +59,15 @@ private func line(_ text: String) -> Data { Data(text.utf8) }
     #expect(tell.stage == .ready && tell.answer == nil && tell.waiting == nil)
     #expect(life.askedKeys.withLock { $0.count } == 1)
 }
+
+@MainActor @Test func otherWordsAfterADropAreAnotherAsk() async {
+    let life = FakeLife()
+    life.asked = { _ in throw MCPError.timedOut }
+    let tell = TellLife(api: life)
+    await tell.send("A", screen: TellScreen())
+    life.asked = { _ in #"{"kind":"reply","words":"B."}"# }
+    await tell.send("B", screen: TellScreen())
+    let keys = life.askedKeys.withLock { $0 }
+    #expect(keys.count == 2 && keys[0] != keys[1])
+    #expect(tell.answer == .reply(words: "B."))
+}

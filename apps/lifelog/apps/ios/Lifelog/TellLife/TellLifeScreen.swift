@@ -48,12 +48,12 @@ struct TellLifeScreen: View {
         VStack(spacing: Metrics.Spacing.l) {
             switch tell.stage {
             case .thinking:
-                TellLine(kind: .point)
+                TellLightLine(kind: .point)
                 note("Thinking…")
             case .working:
                 working
             case .offline:
-                TellLine(kind: .waiting)
+                TellLightLine(kind: .waiting)
                 head("Your Mac is offline")
                 note("This goes as soon as it's back.")
                 if let waiting = tell.waiting { TellWaitingPill(words: waiting) }
@@ -68,7 +68,11 @@ struct TellLifeScreen: View {
 
     private var working: some View {
         VStack(spacing: Metrics.Spacing.l) {
-            if tell.words.isEmpty { TellLine(kind: .point) } else { TellLine(kind: .answer); head(tell.words) }
+            if tell.words.isEmpty {
+                TellLightLine(kind: .point)
+            } else {
+                TellLightLine(kind: .answer); head(tell.words)
+            }
             ForEach(tell.strands) { TellStrandRow(title: $0.title, isDone: $0.isDone) }
         }
     }
@@ -76,20 +80,20 @@ struct TellLifeScreen: View {
     @ViewBuilder private var answer: some View {
         switch tell.answer {
         case nil:
-            TellLine(kind: .ready)
+            TellLightLine(kind: .ready)
             note("Tap or hold the microphone. Swipe up from it, or tap Send.")
         case .reply(let words)?:
-            TellLine(kind: .answer)
+            TellLightLine(kind: .answer)
             head(words)
         case .error(let what)?:
-            TellLine(kind: .broken)
+            TellLightLine(kind: .broken)
             head(what)
             note("Your words are kept.")
             QuietChip("Try again", symbol: "arrow.clockwise") {
                 Task { await tell.sendAgain(screen: router.tellScreen) }
             }
         case .unknown?:
-            TellLine(kind: .broken)
+            TellLightLine(kind: .broken)
             head("Life answered in a way this app can't show yet.")
         }
     }
@@ -109,6 +113,8 @@ struct TellLifeScreen: View {
     }
 
     private func submit() {
+        // His words are never dropped: while Life works, they stay in the field.
+        guard !tell.isBusy else { return }
         let words = draft
         draft = ""
         Task { await tell.send(words, screen: router.tellScreen) }

@@ -49,7 +49,9 @@ struct DictationField: View {
                     .overlay(alignment: .top) {
                         if send != nil, isRecording, rise == nil { SwipeHint().offset(y: -Metrics.tapTarget) }
                     }
-                if let send { SendButton(isHidden: isRecording, isLit: hasWords, send: send) }
+                if let send {
+                    SendButton(isHidden: isRecording, isLit: hasWords && dictation.phase == .rest, send: send)
+                }
             }
         }
         .motion(Motion.standard, value: dictation.phase)

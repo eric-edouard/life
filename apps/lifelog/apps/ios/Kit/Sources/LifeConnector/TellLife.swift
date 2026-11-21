@@ -6,10 +6,9 @@ import Observation
 public struct TellScreen: Encodable, Sendable, Equatable {
     public var tab: String?
     public var open: String?
-    public var visible: [String]?
 
-    public init(tab: String? = nil, open: String? = nil, visible: [String]? = nil) {
-        (self.tab, self.open, self.visible) = (tab, open, visible)
+    public init(tab: String? = nil, open: String? = nil) {
+        (self.tab, self.open) = (tab, open)
     }
 }
 
@@ -25,7 +24,7 @@ public struct TellStrand: Sendable, Equatable, Identifiable {
 
 /// A line the session streams before its answer (`MainSessionLine`): that it thinks, a piece of work and its state, a
 /// chunk of its words. A `working` line after words starts the words again: the answer is its text after its last tool call.
-enum TellLine: Equatable {
+enum TellStreamLine: Equatable {
     case thinking
     case working(TellStrand)
     case words(String)
@@ -89,8 +88,8 @@ public final class TellLife {
     public private(set) var waiting: String?
 
     private let api: any LifeAPI
-    /// The key of the call whose outcome he doesn't know (its connection failed): the same words go again under it.
-    private var pendingKey: String?
+    /// The key of the call whose outcome he doesn't know (its connection failed), with the words it was minted for.
+    private var pending: (key: String, words: String)?
     private var isAsking = false
 
     public init(api: any LifeAPI) { self.api = api }
@@ -105,16 +104,17 @@ public final class TellLife {
         isAsking = true
         defer { isAsking = false }
         (said, words, answer, strands, waiting, stage) = (text, "", nil, [], nil, .thinking)
-        let key = pendingKey ?? UUID().uuidString
+        // Only the same words go again under the old key: other words are another ask.
+        let key = pending.flatMap { $0.words == text ? $0.key : nil } ?? UUID().uuidString
         let (lines, feed) = AsyncStream.makeStream(of: Data.self)
         // Lines are drawn in order, here, never from the call's own thread.
-        let drawing = Task { for await data in lines { if let line = TellLine(data) { apply(line) } } }
+        let drawing = Task { for await data in lines { if let line = TellStreamLine(data) { apply(line) } } }
         do {
             let result = try await api.askMainSession(
                 words: text, screen: screen, answerKey: key, onProgress: { feed.yield($0) })
             feed.finish()
             await drawing.value
-            pendingKey = nil
+            pending = nil
             (answer, stage) = (TellAnswer(result), .ready)
         } catch {
             feed.finish()
@@ -122,13 +122,13 @@ public final class TellLife {
             let failure = MCPError.of(error)
             switch failure {
             case .cancelled:
-                (stage, waiting) = (.ready, text)
+                (pending, stage, waiting) = ((key, text), .ready, text)
             case .offline, .unreachable, .timedOut, .streamDropped:
                 // It may have gone: the same key goes with the same words, so Life asks once.
-                if failure == .timedOut || failure == .streamDropped { pendingKey = key }
+                if failure == .timedOut || failure == .streamDropped { pending = (key, text) }
                 (stage, waiting) = (.offline, text)
             case .notPaired, .wrongCode, .refused, .failed:
-                pendingKey = nil
+                pending = nil
                 (answer, stage, waiting) = (.error(what: failure.reason), .ready, text)
             }
         }
@@ -146,7 +146,7 @@ public final class TellLife {
         _ = try? await api.askMainSession(words: nil, screen: nil, answerKey: nil, onProgress: { _ in })
     }
 
-    private func apply(_ line: TellLine) {
+    private func apply(_ line: TellStreamLine) {
         switch line {
         case .thinking:
             if stage == .thinking { return }

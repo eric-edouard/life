@@ -27,7 +27,7 @@ struct TellMark: View {
 /// The line of light (the lit look): the stage's one drawing, which changes between states and never cuts. Ready: a
 /// breathing hairline. Thinking: drawn into one dot, two rings leaving it. Answer: a short bar over the words. Error:
 /// broken in `flag`. Offline: dots.
-struct TellLine: View {
+struct TellLightLine: View {
     enum Kind { case ready, point, answer, broken, waiting }
     let kind: Kind
 
