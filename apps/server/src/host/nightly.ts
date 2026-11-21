@@ -5,6 +5,7 @@ import { clock, DAY, daysBefore, iso } from "../core/clock";
 import { filesIn } from "../core/files";
 import { holder, isOtherLife } from "../core/lock";
 import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { isOn } from "../core/outputs";
 import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
@@ -124,7 +125,7 @@ async function acted(now: Date, rec: Pick<RunRecorder, "error">) {
   } catch (e) {
     const { message } = e as Error;
     problems.push(`ledger.jsonl: ${message}`);
-    rec.error(message, { step: "memory.nightly.actions" });
+    rec.error(e, { step: "memory.nightly.actions" });
   }
   return {
     actions: actions.filter(
@@ -146,7 +147,7 @@ export async function readDoneFor(
       relation: how,
     }));
   } catch (e) {
-    rec.error((e as Error).message, { step: "memory.nightly.done" });
+    rec.error(e, { step: "memory.nightly.done" });
     return [];
   }
 }
@@ -159,7 +160,7 @@ export async function readChecksFor(rec: Pick<RunRecorder, "error">) {
   try {
     return (await openChecksNow()).filter((c) => !isEndingKind(c));
   } catch (e) {
-    rec.error((e as Error).message, { step: "memory.nightly.checks" });
+    rec.error(e, { step: "memory.nightly.checks" });
     return [];
   }
 }
@@ -172,7 +173,7 @@ async function readAgentsFor(rec: Pick<RunRecorder, "error">, since: string) {
       lastNeedsYouOf(await recentEvents(ARCHIVE_LOOKBACK))
     );
   } catch (e) {
-    rec.error((e as Error).message, { step: "memory.nightly.agents" });
+    rec.error(e, { step: "memory.nightly.agents" });
     return { needsYou: undefined, rows: [] };
   }
 }
@@ -180,7 +181,7 @@ async function readAgentsFor(rec: Pick<RunRecorder, "error">, since: string) {
 /** Yesterday's Code rows. Never fails the night: a failure is logged and there are no rows. */
 function coded(day: string, rec: Pick<RunRecorder, "error">) {
   return codeOn(daysBefore(day, 1)).catch((e: Error) => {
-    rec.error(e.message, { step: "memory.nightly.code" });
+    rec.error(e, { step: "memory.nightly.code" });
     return [];
   });
 }
@@ -248,7 +249,7 @@ export async function nightly(days: number, force = false) {
   // Google's rate limit before them.
   await syncAppointments(now).then(
     (r) => r && console.log(JSON.stringify({ appointments: r })),
-    (e) => log("run.error", { error: String(e), step: "appointments" })
+    (e) => log("run.error", { ...errorOf(e), step: "appointments" })
   );
   // The Past calendar follows the episodes each tick, those ending in the last 3 days, and the whole of it after the
   // night (past-calendar.ts); a failure only logs, the next tick tries again.
@@ -257,7 +258,7 @@ export async function nightly(days: number, force = false) {
     now
   ).then(
     (r) => r && console.log(JSON.stringify({ past: r })),
-    (e) => log("run.error", { error: String(e), step: "past" })
+    (e) => log("run.error", { ...errorOf(e), step: "past" })
   );
   // The bridges' daily restart (`healBridges`), before the source alert judges them; a failure only logs.
   const { bridges, night } = states();
@@ -265,7 +266,7 @@ export async function nightly(days: number, force = false) {
     const healed = await healBridges().then(
       () => true,
       (e) => {
-        log("run.error", { error: String(e), step: "bridges" });
+        log("run.error", { ...errorOf(e), step: "bridges" });
         return false;
       }
     );
@@ -282,7 +283,7 @@ export async function nightly(days: number, force = false) {
       );
     }
   } catch (e) {
-    log("run.error", { error: String(e), step: "alert" });
+    log("run.error", { ...errorOf(e), step: "alert" });
   }
   const { backup: was, night: state } = states();
   if (force || !afterNightDue(now.getHours(), day, state, was)) {
@@ -316,7 +317,7 @@ async function readYears(now: Date, from: string) {
         from: history.from,
         today: localDate(now.toISOString()),
       }).catch((e: Error) => {
-        log("run.error", { error: e.message, step: "memory.history" });
+        log("run.error", { ...errorOf(e), step: "memory.history" });
         return null;
       })
     : null;
@@ -326,7 +327,7 @@ async function readYears(now: Date, from: string) {
     reads = readExchangeReadWork(everyYear, people, now, from);
   } catch (e) {
     log("run.error", {
-      error: (e as Error).message,
+      ...errorOf(e),
       step: "memory.exchange-reads",
     });
   }
@@ -345,17 +346,14 @@ export async function readSpokenConversations(now: Date, chats: SourceEvent[]) {
     found = await readConversationSummaryWork(now, people);
     await conversationSummaries(found);
   } catch (e) {
-    log("run.error", {
-      error: (e as Error).message,
-      step: "memory.conversation-summaries",
-    });
+    log("run.error", { ...errorOf(e), step: "memory.conversation-summaries" });
   }
   if (found && settings().voiceNaming) {
     // Reading the work (lifelog's voices) is inside the catch: a Lifelog Host without the route costs this step only.
     await readVoiceNamingWork(found, people, undefined, undefined, { chats })
       .then((work) => voiceNaming(work))
       .catch((e: Error) =>
-        log("run.error", { error: e.message, step: "memory.voice-naming" })
+        log("run.error", { ...errorOf(e), step: "memory.voice-naming" })
       );
   }
 }
@@ -529,13 +527,13 @@ export async function runNight(
     // The running things of his life. A failure is logged and never stops the night.
     steps.at = "matters";
     await placeMatters(window, evidence.failed).catch((e: Error) =>
-      log("run.error", { error: e.message, step: "memory.matters" })
+      log("run.error", { ...errorOf(e), step: "memory.matters" })
     );
     // Where each running matter is going and what moves it now, drafted again only for a matter with a new step. A
     // failure is logged and never stops the night.
     steps.at = "matter directions";
     await matterDirections(await readPeople()).catch((e: Error) =>
-      log("run.error", { error: e.message, step: "memory.matter-directions" })
+      log("run.error", { ...errorOf(e), step: "memory.matter-directions" })
     );
     // Who is close decides who has a page: judged before the pages and the report's homes.
     // The days the pendant recorded, for coverage (derived; a failure is logged and the last file stands).
@@ -555,7 +553,7 @@ export async function runNight(
     // night goes on.
     steps.at = "communication styles";
     await communicationStyles(everyYear).catch((e: Error) =>
-      log("run.error", { error: e.message, step: "memory.communication-style" })
+      log("run.error", { ...errorOf(e), step: "memory.communication-style" })
     );
     // Derived and rebuilt each night: a failed call is logged and retried, never stops the night.
     steps.at = "situations";
@@ -574,14 +572,14 @@ export async function runNight(
     if (pending) {
       steps.at = "histories";
       await histories(pending).catch((e: Error) =>
-        log("run.error", { error: e.message, step: "memory.history" })
+        log("run.error", { ...errorOf(e), step: "memory.history" })
       );
     }
     // The exchange reads not stored yet: a failure is logged and never stops the night.
     if (reads) {
       steps.at = "exchange reads";
       await exchangeReads(reads).catch((e: Error) =>
-        log("run.error", { error: e.message, step: "memory.exchange-reads" })
+        log("run.error", { ...errorOf(e), step: "memory.exchange-reads" })
       );
     }
     // The long conversations recorded in person: their summaries, and their voice namings while `voiceNaming` is on.
@@ -593,7 +591,7 @@ export async function runNight(
     // the night.
     steps.at = "links";
     await judgeLinks().catch((e: Error) =>
-      log("run.error", { error: e.message, step: "memory.links" })
+      log("run.error", { ...errorOf(e), step: "memory.links" })
     );
     steps.at = "actions";
     const report = await acted(now, rec);

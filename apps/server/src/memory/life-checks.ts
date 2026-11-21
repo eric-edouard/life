@@ -193,6 +193,8 @@ export interface Check {
   question: string;
   /** What his answer acts on: a decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
   ref: string;
+  /** A decision asked after another agent's card held its draft's chat for `CONTEST_WAIT`: that older card's id ("Replaces an older draft"; his Send withdraws it); null: none. Absent on every other kind. */
+  replaces?: string | null;
   /** What uses it today, counted from what is stored. */
   ridesOn: {
     /** The ids of those matters (`matters` counts them): `checksOnMatterOf` finds a matter's checks by them. */

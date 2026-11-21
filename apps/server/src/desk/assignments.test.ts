@@ -22,7 +22,7 @@ import {
   closeAssignment,
   hasAsked,
   openAssignment,
-  openCardOf,
+  pendingCardOf,
   register,
   setWait,
   withdrawOpenCards,
@@ -277,7 +277,7 @@ test("a matter's card takes its first step as subject, refuses another matter's,
     expect(d?.subject).toBe("obs_a1");
     expect(assignmentOfCard(desk.db, d ?? { id: asked })).toBe(a);
     // The agent's own assignment has no card yet: its own first card is its own.
-    expect(openCardOf(desk.db, on(desk, id))).toBeUndefined();
+    expect(pendingCardOf(desk.db, on(desk, id))).toBeUndefined();
     await withdrawOpenCards(desk.db, row, "test over");
   });
 });
@@ -616,7 +616,7 @@ test("a step is refused while its sibling assignment is open, and free once it c
     );
     await closeAssignment(desk, onA().id, "test: its matter is done");
     const { id: card } = await askDecision(desk, own(), yesNo("obs_a1"));
-    expect(openCardOf(desk.db, own())?.id).toBe(card);
+    expect(pendingCardOf(desk.db, own())?.id).toBe(card);
   });
 });
 

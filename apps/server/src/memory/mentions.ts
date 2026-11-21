@@ -3,6 +3,7 @@ import { z } from "zod";
 import { clock } from "../core/clock";
 import { readJson, writeJson } from "../core/files";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { isoDateTime } from "../records/fields";
@@ -110,7 +111,7 @@ export function writeMentions({
     return { failed: 0, mentions: mentions.length };
   } catch (e) {
     log("run.error", {
-      error: (e as Error).message,
+      ...errorOf(e),
       step: "memory.mentions",
     });
     return { failed: 1, mentions: 0 };

@@ -72,9 +72,24 @@
   "DuoFoldOrgNameCard": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
   },
+  "DuoFoldPeople": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
+  },
+  "DuoFoldPeopleAZ": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
+    "taps": ["Filter", "A to Z"]
+  },
+  "DuoFoldPeopleOrgs": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
+    "taps": ["Organizations"]
+  },
   "DuoFoldPeopleSheet": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_marc"],
     "taps": ["Someone else…"]
+  },
+  "DuoFoldPeopleSort": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
+    "taps": ["Filter"]
   },
   "DuoFoldPersonCreate": {
     "args": [
@@ -203,6 +218,13 @@
   },
   "DuoOrgNameCard": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
+  },
+  "DuoPeople": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
+  },
+  "DuoPeopleAZ": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
+    "taps": ["Filter", "A to Z"]
   },
   "DuoPersonCreate": {
     "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."

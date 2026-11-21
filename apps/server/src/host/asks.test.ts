@@ -87,7 +87,7 @@ test("a new ask starts its agent's onAsk command once, a repeat never, another a
 
 test("a new voice ask pushes 'heard' to his phone once; a repeat and a session ask don't; his words stay off it", () => {
   rmSync(LEDGER, { force: true });
-  const push = spyOn(lifelog, "notifyPhone").mockResolvedValue(undefined);
+  const push = spyOn(lifelog, "notifyPhone").mockResolvedValue(true);
   try {
     const heard = () =>
       ask(

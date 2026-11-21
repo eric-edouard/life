@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { clock, DAY } from "../core/clock";
+import { logEvents, logFileOf } from "../core/log";
 import { setSettings } from "../core/settings";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as checks from "../memory/checks";
@@ -51,7 +52,7 @@ beforeEach(() => {
   look = spyOn(checks, "checksNow").mockImplementation(() =>
     Promise.resolve(open)
   );
-  push = spyOn(lifelog, "notifyPhone").mockResolvedValue(undefined);
+  push = spyOn(lifelog, "notifyPhone").mockResolvedValue(true);
 });
 afterEach(() => {
   look.mockRestore();
@@ -87,6 +88,13 @@ test("Life's own checks push too: the first 5 alone, the rest as one push that n
   expect(push.mock.calls.map(([p]) => p)).toEqual([
     ...[3, 4, 5, 6, 7].map((n) => ({ badge: 2, ...alone(n, "person") })),
     { badge: 2, body: "3 more new cards", level: "active", title: "Life" },
+  ]);
+  // Each push lifelog took is a line: a card's by its push id, the rest by count.
+  expect(
+    logEvents(logFileOf(clock().toISOString()), "card.push_accepted").slice(-2)
+  ).toMatchObject([
+    { cards: 1, loudness: "active", pushId: card(7).pushId },
+    { cards: 3, loudness: "active" },
   ]);
 });
 

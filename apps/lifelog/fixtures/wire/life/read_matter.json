@@ -276,6 +276,7 @@
           "takes": null
         }
       ],
+      "replaces": null,
       "question": "Send Kit the signed quote?",
       "ref": "dec_000000000001",
       "ridesOn": {
