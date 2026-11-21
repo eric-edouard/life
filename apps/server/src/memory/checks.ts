@@ -9,10 +9,7 @@ import type { InferredPerson } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import { readContactStores } from "../sources/contacts";
 import { pushIdOf } from "../sources/lifelog-push";
-import {
-  type NamingQueueItem,
-  readNamingQueue,
-} from "../sources/lifelog-voices";
+import { readNamingQueue } from "../sources/lifelog-voices";
 import {
   type AtOrganization,
   atOrganizationAsksOf,
@@ -97,7 +94,7 @@ import {
 import { lifeLinksOf } from "./refs";
 import { samePersonAsksOf, samePersonPairsOf } from "./same-person";
 import { voiceChecksOf } from "./voice-checks";
-import { withVoiceGuesses } from "./voice-guesses";
+import { type GuessedQueueItem, withVoiceGuesses } from "./voice-guesses";
 import {
   type People,
   readPeople,
@@ -219,7 +216,7 @@ export interface CheckInputs {
   /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
   today: string;
   /** The voices lifelog asks him to name (`readNamingQueue`), with the voice naming's guesses (`withVoiceGuesses`). */
-  voices: readonly (NamingQueueItem & { guessed?: readonly string[] })[];
+  voices: readonly GuessedQueueItem[];
   /** Where a record that is not a line was said: units and episodes, by id. */
   where: ReadonlyMap<string, Where>;
 }

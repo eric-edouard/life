@@ -26,6 +26,7 @@ import {
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as google from "./google-calendar";
 import { rpc, token } from "./http/mcp-test-harness";
+import { expectWire } from "./http/wire-fixture";
 
 const appointment = (over: Partial<Appointment> = {}): Appointment => ({
   allDay: false,
@@ -500,7 +501,9 @@ test("his Remove deletes the event and is never written over; his Undo writes it
   const [event, e] = [...events][0] ?? [];
   const id = e?.props.lifeAppointment ?? "";
   failDelete = true;
-  expect(await removeAppointment(id, NOW)).toMatchObject({ result: "failed" });
+  const failed = await removeAppointment(id, NOW);
+  expect(failed).toMatchObject({ result: "failed" });
+  expectWire("change_appointment_failed", failed);
   expect(lastOp(id)).toBe("created");
   failDelete = false;
   // Still listed by Google a moment after his Remove: the sync's delete never writes over his no.
@@ -630,6 +633,12 @@ test("change_appointment is his token's only; read_appointments finds one by its
     removedAt: null,
     title: "Coffee with Kit",
   });
+  // Its push's id is keyed by this run's secret: the fixture holds a steady one.
+  const steadyPush = (text: string) => ({
+    ...JSON.parse(text),
+    pushId: "0123456789abcdef",
+  });
+  expectWire("read_appointments", steadyPush(read.content[0].text), true);
   expect(
     (
       await call("read_appointments", {
@@ -644,4 +653,12 @@ test("change_appointment is his token's only; read_appointments finds one by its
     { agent: undefined }
   );
   expect(JSON.parse(mine.content[0].text)).toEqual({ result: "removed" });
+  expectWire("change_appointment_removed", mine.content[0].text);
+  // Removed from the push: its sheet opens as removed.
+  const removed = await call("read_appointments", { appointment: id });
+  expectWire(
+    "read_appointments_removed",
+    steadyPush(removed.content[0].text),
+    true
+  );
 });

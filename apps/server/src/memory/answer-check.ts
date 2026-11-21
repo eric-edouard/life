@@ -4,9 +4,8 @@ import type { CheckGroup } from "../core/names";
 import { PersonRef } from "../records/fields";
 import {
   answerNamingQueue,
-  type NamingQueueItem,
-  namingQueueGuessesOf,
   readNamingQueueNow,
+  readVoiceNames,
 } from "../sources/lifelog-voices";
 import {
   atOrganizationRefOf,
@@ -23,8 +22,8 @@ import { matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
 import { samePersonPairOf } from "./same-person";
-import { withVoiceGuesses } from "./voice-guesses";
-import { type People, readPeople, voiceCardRefOf, voicePersonOf } from "./who";
+import { type GuessedQueueItem, withVoiceGuesses } from "./voice-guesses";
+import { type People, readPeople, voiceCardRefOf, voiceIdOf } from "./who";
 import { dayNow } from "./zones";
 
 // His answer to a check (`answer_check`, `bun life memory answer-check`): one call for every kind. Each option goes to
@@ -148,7 +147,7 @@ const correct = (said: object[], a: CheckAnswer) =>
 
 /** A voice's queue item, as lifelog gives it now, and the people it was read with. */
 interface Voice {
-  item: NamingQueueItem;
+  item: GuessedQueueItem;
   people: People;
 }
 
@@ -208,8 +207,11 @@ async function answerVoice(
   ];
 }
 
-/** Who a voice's answer names: a new person by `name`, else the lifelog person that is Life's `person`, else that person by their name. */
-function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
+/**
+ * Who a voice's answer names: a new person by `name`, else the lifelog id of Life's `person` (`voiceIdOf`: the card's
+ * own, else the one id lifelog gives one of their names), else that person by their name.
+ */
+async function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
   if (a.name) {
     return { kind: "confirm", name: a.name } as const;
   }
@@ -217,9 +219,16 @@ function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
     throw new Error(`Not done: give person or name for ${c.ref}.`);
   }
   const ref = personIn(a);
-  const id = namingQueueGuessesOf(item).find(
-    (x) => x && voicePersonOf(people.resolve, x, null) === ref
-  );
+  const aliases =
+    people.truth.people.find((p) => `person:${p.id}` === ref)?.aliases ?? [];
+  const id =
+    voiceIdOf(people, item, ref) ??
+    voiceIdOf(
+      people,
+      item,
+      ref,
+      await readVoiceNames([], [people.nameOf(ref), ...aliases])
+    );
   return id
     ? ({ kind: "assign", personId: id } as const)
     : ({ kind: "confirm", name: people.nameOf(ref) } as const);

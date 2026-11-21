@@ -90,6 +90,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         capture.notifier.card = { [weak self] pushId, kept, life in
             await self?.life.notifiedCard(pushId: pushId, kept: kept, life: life)
         }
+        capture.notifier.removeAppointment = { [weak self] id in
+            guard case .succeeded? = await self?.life.changeAppointment(id, isOn: false) else { return false }
+            return true
+        }
         let sync = sync
         AppDependencyManager.shared.add(dependency: sync)
         // A dictation a crash left open is closed and queued for the server before any upload reads it.
