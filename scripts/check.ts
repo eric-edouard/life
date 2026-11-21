@@ -170,7 +170,23 @@ if (passed) {
     }
   }
 } else if (swift) {
-  Object.assign(steps, macSteps);
+  // The two swift tests and xcodebuild each take every core: one after another, so they and the server tests are not
+  // all starved at once (load 188 with 0% idle at a landing, 21 Nov).
+  const {
+    "swift test": kit,
+    "swift test mac": helper,
+    xcodebuild,
+    ...light
+  } = macSteps;
+  const quoted = (cmd: string[]) =>
+    cmd.map((a) => `'${a.replaceAll("'", "'\\''")}'`).join(" ");
+  Object.assign(steps, light, {
+    "swift builds": [
+      "sh",
+      "-c",
+      [kit, helper, xcodebuild].map((cmd) => quoted(cmd ?? [])).join(" && "),
+    ],
+  });
 } else {
   for (const name of Object.keys(macSteps)) {
     console.log(`- ${name}: skipped, ${why}`);
