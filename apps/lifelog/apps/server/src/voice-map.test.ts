@@ -267,6 +267,7 @@ function seedMap() {
     evidence: [],
     exchanges: 12,
     id: "group",
+    isLikely: false,
     kind: "new_person" as const,
     likely: [],
     name: null,

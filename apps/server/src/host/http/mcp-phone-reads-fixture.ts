@@ -455,6 +455,7 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
         },
       ],
       id: "v1",
+      isLikely: false,
       kind: "new_person",
       likely: [GRAN_VOICE],
       name: null,
