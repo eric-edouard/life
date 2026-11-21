@@ -523,18 +523,29 @@ async function askCard(
       schemaVersion: DECISIONS_VERSION,
     },
   ]);
-  if (merged) {
-    log("decision.withdrawn", { by: "merge", id: merged.held.id });
+  logAsked(ask, asker, id, !!draft, merged);
+  return { id, ...waitsOf(contests, draft, now) };
+}
+
+/** A card's `decision.asked` line, after the `decision.withdrawn` lines of both cards a merge withdraws. */
+function logAsked(
+  ask: z.infer<typeof Ask>,
+  asker: string,
+  id: string,
+  hasDraft: boolean,
+  merged?: { held: Decision; waiting: Decision }
+) {
+  for (const was of merged ? [merged.held, merged.waiting] : []) {
+    log("decision.withdrawn", { by: "merge", id: was.id });
   }
   const options = ask.options.length;
   log("decision.asked", {
     agent: ask.agent,
     asker,
-    draft: !!draft,
+    draft: hasDraft,
     id,
     options,
   });
-  return { id, ...waitsOf(contests, draft, now) };
 }
 
 /** What makes an answer to `d` refused, in words; false when nothing does. An act (`actOfOption`) is his own app's alone: a send `via` the connector, an end or a look only where host gives `end` or `look` (`canEnd`, `canLook`). */
