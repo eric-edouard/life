@@ -43,3 +43,29 @@ struct AgentLabel: View {
         .foregroundStyle(Palette.ai)
     }
 }
+
+/// One agent in the Agents list (AgentsList): its program's mark in a 40 disc, its name, one muted line (what it holds
+/// in words), the flag dot when something it holds needs him. Pressed through `groupedRow`.
+struct AgentListRow: View {
+    let runtime: RuntimeName
+    let name: String
+    let line: String
+    let needsYou: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(symbol: runtime.mark).font(.system(size: 20)).foregroundStyle(Palette.fg)
+                .frame(width: 40, height: 40).background(Circle().fill(Palette.tile)).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name).font(.rowName).foregroundStyle(Palette.fg)
+                Text(line).font(.small).foregroundStyle(Palette.muted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if needsYou { StateDot(color: Palette.flag) }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(needsYou ? "Needs you" : "")
+    }
+}

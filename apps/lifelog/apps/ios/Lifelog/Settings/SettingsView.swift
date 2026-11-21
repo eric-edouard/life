@@ -18,6 +18,7 @@ struct SettingsView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(AppleHealthReader.self) private var appleHealth
     @Environment(LifeStore.self) private var life
+    @Environment(AppRouter.self) private var router
     @Environment(\.openURL) private var openURL
     @AppStorage("appearance") private var appearance = Appearance.auto
     @AppStorage(AppGroup.Key.asksFaceIDToSend, store: AppGroup.defaults) private var asksFaceIDToSend = false
@@ -37,6 +38,7 @@ struct SettingsView: View {
                 needsYou
                 connections
                 allows
+                agents
                 sending
                 cards
                 pendant
@@ -266,6 +268,22 @@ struct SettingsView: View {
 
     private func openSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+    }
+
+    // MARK: Agents
+
+    /// His agents: the Agents page, in the Projects tab (the sheet closes).
+    private var agents: some View {
+        RowGroup(label: "Agents", surface: .sheet) {
+            Button {
+                router.openAgents()
+            } label: {
+                let count = (life.agents.value?.agents ?? []).filter { !$0.isOver }.count
+                Row(title: "Your agents", icon: "cpu", detail: count == 0 ? nil : "\(count) at work") { RowValue() }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("settings.agents")
+        }
     }
 
     // MARK: Sending
