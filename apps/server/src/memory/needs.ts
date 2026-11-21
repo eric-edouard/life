@@ -59,6 +59,8 @@ const Qr = z
   .object({
     kind: z.literal("qr"),
     payload: z.string().min(1).max(1000).optional(),
+    /** The message holding the code, as a ref `fetch` opens: his card's source chip opens it. */
+    ref: oneLine(300).optional(),
     source: oneLine(200),
   })
   .strict();
@@ -110,7 +112,7 @@ const KINDS: {
   qr: {
     about: "a payee's QR code (source)",
     line: (n) => `QR code from ${n.source}${n.payload ? `: ${n.payload}` : ""}`,
-    page: '`{kind: "qr", source, payload?}`: a QR code the payee sent. `source` where it is, in a few words with the message\'s id (`"Kit\'s WhatsApp of 20 Nov, <id>"`); `payload` the code\'s text when you read it. His phone draws the code from `payload` (its amount too, for a PromptPay code) and saves it to his photos for his bank app; without `payload` it shows `source` as words. Give the `account` (its `scheme` picks the bank app, its `holder` is the name shown under the code) and the `amount` beside it.',
+    page: '`{kind: "qr", source, ref?, payload?}`: a QR code the payee sent. `source` where it is, in a few words (`"Kit\'s WhatsApp of 20 Nov"`); `ref` the message holding it as `fetch` opens it (`msg:<source>|<message id>`, from `read_chats`), which must open: his card\'s source chip opens it; `payload` the code\'s text when you read it. His phone draws the code from `payload` (its amount too, for a PromptPay code) and saves it to his photos for his bank app; without `payload` it shows `source` as words. Give the `account` (its `scheme` picks the bank app, its `holder` is the name shown under the code) and the `amount` beside it.',
   },
   text: {
     about: "a reference or code (text, label, copy)",
@@ -184,6 +186,10 @@ export const isToPayee = (name: string, words: readonly string[]) => {
     })
   );
 };
+
+/** The refs a card's needs name (a QR's message): each must open, like its `context`'s links. */
+export const needRefsOf = (needs: readonly Need[] = []) =>
+  needs.flatMap((n) => (n.kind === "qr" && n.ref ? [n.ref] : []));
 
 /** The amount a card's payment is looked for by: its one `amount` need. */
 export const amountOf = (needs: readonly Need[] = []) =>

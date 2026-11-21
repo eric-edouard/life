@@ -12,6 +12,7 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var router = AppRouter()
+    @Namespace private var topBarZoom
     @AppStorage("appearance") private var appearance = Appearance.auto
     /// A pairing link the owner is asked to confirm, once any sheet is out of the way: the lifelog server, Life, or both.
     @State private var confirming: PairOffer?
@@ -51,14 +52,15 @@ struct RootView: View {
         }
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
-            case .pendant: PendantView().sheetStack()
-            case .settings: SettingsSheet()
+            case .pendant: PendantView().sheetStack().zooms(from: sheet, in: topBarZoom)
+            case .settings: SettingsSheet().zooms(from: sheet, in: topBarZoom)
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
         .sheet(item: $router.appointment) { AppointmentSheet(key: $0) }
         // Below the sheets, so their pages read them too: Settings' Live logs page (its `ReadScreen`) reads the router.
         .environment(router)
+        .environment(\.topBarZoom, topBarZoom)
         .environment(\.windowSizeClass, sizeClass)
         .preferredColorScheme(appearance.scheme)
         // A tapped notification, from a cold launch, the background or the foreground.
@@ -70,9 +72,9 @@ struct RootView: View {
             capture.routeToOpen = nil
             open(route)
         }
-        // A card's push while the app is in front: the inbox is read again, as on coming back to it.
+        // A card's push while the app is in front: the inbox alone is read again.
         .task(id: capture.cardPushes) {
-            if capture.cardPushes > 0 { await life.refresh() }
+            if capture.cardPushes > 0 { await life.refreshInbox() }
         }
         .task(id: scenePhase == .active) {
             // An answer held for Undo goes now: nothing waits in the background.
@@ -82,7 +84,7 @@ struct RootView: View {
             #if DEBUG
                 await life.importFromEnvironment()
             #endif
-            await life.refresh()
+            await life.refreshOnForeground()
             // A first read that did not land tries again while the scene is active; leaving cancels the sleep.
             var attempt = 0
             while life.needsRetry {

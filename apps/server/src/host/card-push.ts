@@ -12,6 +12,7 @@ import type { InboxCheck } from "../memory/checks";
 import { DECISIONS, decisionsNow } from "../memory/decisions";
 import type { StoredDraft } from "../memory/draft";
 import { isLocked } from "../memory/memory-lock";
+import { cardSubjectOf } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import { WATCH } from "../sources/lifelog";
 import {
@@ -28,7 +29,8 @@ import { openChecksNow } from "./inbox";
 // that never leaves the Mac). Never a title, a question, a name or a ref: it goes through Apple (SECURITY.md). The
 // phone reads the card from `read_inbox` and writes the notification's text. A card that left his inbox (answered
 // anywhere, withdrawn, lapsed) goes as its `pushId` in a background push, and the phone removes its notification. What
-// was seen is a small state file of the watcher's, outside `memory/`.
+// was seen is a small state file of the watcher's, outside `memory/`. A card notifies once per subject (`cardSubjectOf`):
+// one whose ref changes with its question (a voice card's suggested person) is new to the inbox, never to his phone.
 
 export const SEEN = join(WATCH, "seen-cards.json");
 /** A card not open for this many days is forgotten, so one that returns is new again. */
@@ -37,6 +39,7 @@ const FORGET_DAYS = 30;
 const ALONE = 5;
 /** Life's level for a kind he left out of `notifications`: full push, an agent's decision urgent, an appointment added quiet. */
 export const NOTIFY_DEFAULTS: Record<NotifyKind, NotifyLevel> = {
+  "at organization": "normal",
   calendar: "quiet",
   "contacts card": "normal",
   decision: "urgent",
@@ -58,13 +61,21 @@ interface Seen {
   badge: number;
   /** The `pushId`s open at the last whole look (`total` given): one gone since is removed from his phone. */
   open?: string[];
-  /** Each card's `pushId` and the last day it was seen open. */
+  /** Each card's `pushId` and its subject's (`subjectIdOf`), and the last day it was seen open. */
   seen: Record<string, string>;
 }
 
-type Open = Pick<InboxCheck, "deadline" | "group" | "pushId"> & {
+type Open = Pick<InboxCheck, "deadline" | "group" | "pushId" | "ref"> & {
   draft?: StoredDraft | null;
 };
+
+/** The id a card's subject is seen under: its `pushId` when the subject is its ref. */
+const subjectIdOf = (c: Open) => {
+  const subject = cardSubjectOf(c.ref);
+  return subject === c.ref ? c.pushId : pushIdOf(subject);
+};
+const isSeen = (c: Open, seen: Seen["seen"]) =>
+  c.pushId in seen || subjectIdOf(c) in seen;
 
 /** The kind his notification settings name a card by. */
 export const notifyKindOf = (c: Pick<Open, "draft" | "group">): NotifyKind =>
@@ -104,10 +115,13 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
   const badge =
     total ??
     (before?.badge ?? 0) +
-      open.filter((c) => !(c.pushId in (before?.seen ?? {}))).length;
+      open.filter((c) => !isSeen(c, before?.seen ?? {})).length;
   const seen = Object.fromEntries([
     ...Object.entries(before?.seen ?? {}).filter(([, day]) => day > cutoff),
-    ...open.map((c) => [c.pushId, today]),
+    ...open.flatMap((c) => [
+      [c.pushId, today],
+      [subjectIdOf(c), today],
+    ]),
   ]);
   const looked = total === undefined ? before?.open : open.map((c) => c.pushId);
   const next: Seen = { badge, ...(looked ? { open: looked } : {}), seen };
@@ -130,7 +144,7 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
   const fresh = open.flatMap((c) => {
     const kind = notifyKindOf(c);
     const setting = levels[kind] ?? NOTIFY_DEFAULTS[kind];
-    return c.pushId in before.seen || setting === "off"
+    return isSeen(c, before.seen) || setting === "off"
       ? []
       : [{ ...c, level: levelOf(setting, c.deadline, now) }];
   });
@@ -190,6 +204,7 @@ const pushNewDecisions = () =>
         draft: d.draft,
         group: "decision" as const,
         pushId: pushIdOf(d.id),
+        ref: d.id,
       }))
   );
 

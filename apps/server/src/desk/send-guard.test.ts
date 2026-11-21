@@ -6,7 +6,7 @@ import { AGENT_POST_SIGNATURE } from "../core/names";
 import { CODEX } from "../core/platform";
 import { exec } from "../core/proc";
 import { readCodexGuardTrust } from "./runtimes/runtime-rows";
-import { SEND_GUARD_HOOK, sendRefusalOf, type ToolCall } from "./send-guard";
+import { type GuardedCall, SEND_GUARD_HOOK, sendRefusalOf } from "./send-guard";
 
 const SHA256 = /^sha256:[0-9a-f]{64}$/;
 
@@ -16,16 +16,16 @@ const facts = {
   ownAddresses: ["owner@example.com", "owner@work.example"],
   postRepos: ["acme/hub"],
 };
-const bash = (command: string): ToolCall => ({
+const bash = (command: string): GuardedCall => ({
   tool_input: { command },
   tool_name: "Bash",
 });
-const mcp = (name: string, input: unknown = {}): ToolCall => ({
+const mcp = (name: string, input: unknown = {}): GuardedCall => ({
   tool_input: input,
   tool_name: `mcp__${name}`,
 });
 
-const REFUSED: [string, ToolCall][] = [
+const REFUSED: [string, GuardedCall][] = [
   ...[
     "claude_ai_Life__answer_check",
     "2dc4e169_2994__request_decision",
@@ -41,7 +41,7 @@ const REFUSED: [string, ToolCall][] = [
     "codex_apps__a_long_life_connector_name__change_registe_0123456789ab",
     "codex_apps__life__tell_life_abcdef012345",
     "codex_apps__a_very_long_connector_name_cut_short__0123456789ab",
-  ].map((n): [string, ToolCall] => [`his connector's write ${n}`, mcp(n)]),
+  ].map((n): [string, GuardedCall] => [`his connector's write ${n}`, mcp(n)]),
   ["a mail connector's send", mcp("0f00__send_message", { to: ["a@b.co"] })],
   ["a mail connector's reply", mcp("0f00__reply", { body: "ok" })],
   ["a mail connector's forward", mcp("0f00__forward")],
@@ -134,7 +134,7 @@ const REFUSED: [string, ToolCall][] = [
   ],
 ];
 
-const LET_THROUGH: [string, ToolCall][] = [
+const LET_THROUGH: [string, GuardedCall][] = [
   ["a mail search", mcp("0f00__search_threads", { query: "from:x" })],
   ["a draft", mcp("0f00__create_draft", { body: "hi", to: ["a@b.co"] })],
   ["an event of his own", mcp("cal__create_event", { summary: "Gym" })],
@@ -190,7 +190,7 @@ test("a refused GitHub post says what to fix", () => {
 });
 
 test("the hook's own command: exit 2 with the reason for a send, 0 for a read, 2 when its facts are missing (fails closed)", async () => {
-  const run = (call: ToolCall, env: Record<string, string>) =>
+  const run = (call: GuardedCall, env: Record<string, string>) =>
     exec(["sh", "-c", SEND_GUARD_HOOK.command], {
       env: {
         LIFE_BUN: process.execPath,

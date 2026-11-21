@@ -248,8 +248,10 @@ struct CheckActions: View {
             } label: {
                 HStack(spacing: Metrics.Spacing.s) {
                     Text(
-                        check.payCode != nil && !input.bankTrip.isCodeSaved
-                            ? "Save QR and open \(app.name)" : "Open \(app.name)"
+                        input.bankTrip.isUnderWay
+                            ? "Opening \(app.name)…"
+                            : check.payCode != nil && !input.bankTrip.isCodeSaved
+                                ? "Save QR and open \(app.name)" : "Open \(app.name)"
                     )
                     Image(systemName: "arrow.up.right").font(.smallStrong)
                 }
@@ -341,6 +343,8 @@ struct CheckActions: View {
             if [.note, .unknown].contains(option.takes), check.takesOwnWords {
                 input.option = option.takes == .note ? option.id : nil
                 input.isWritingOwnWords = true
+            } else {
+                life.show(.init(words: "This version of the app can’t answer that yet.", undo: nil, isDone: false))
             }
         }
     }

@@ -167,9 +167,11 @@ struct LightBrightnessRow: View {
                 state = .refused("That didn't reach the Pendant. Try again in a moment.")
                 return
             }
-            state = .known
+            state = .saved
             settings.lightBrightnessLevel = step.rawValue
             if settings.lightBrightnessCheck == .unasked { asksIfChanged = true }
+            try? await Task.sleep(for: .seconds(2))
+            if state == .saved { state = .known }
         }
     }
 

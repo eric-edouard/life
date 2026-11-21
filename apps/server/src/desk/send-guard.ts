@@ -8,7 +8,7 @@
 import { AGENT_POST_SIGNATURE, CONNECTOR_WRITES } from "../core/names";
 
 /** A tool call as both runtimes hand it to a `PreToolUse` hook. */
-export interface ToolCall {
+export interface GuardedCall {
   tool_input?: unknown;
   tool_name: string;
 }
@@ -70,7 +70,7 @@ const CARD =
   "Ask him with a card instead (`request_decision` with the message as its draft): Life sends it on his yes.";
 
 /** A call's text: a shell call's command, else its whole input. */
-const textOf = (c: ToolCall) => {
+const textOf = (c: GuardedCall) => {
   const input = c.tool_input as { command?: unknown } | undefined;
   return c.tool_name === "Bash" && typeof input?.command === "string"
     ? input.command
@@ -105,7 +105,7 @@ function ghRefusalOf(command: string, f: SendFacts) {
 /** Each rule: why it refuses the call, or undefined when it doesn't. */
 const SEND_RULES: {
   name: string;
-  why: (c: ToolCall, text: string, f: SendFacts) => string | undefined;
+  why: (c: GuardedCall, text: string, f: SendFacts) => string | undefined;
 }[] = [
   {
     name: "a messaging site",
@@ -188,7 +188,7 @@ const SEND_RULES: {
 ];
 
 /** Why the call is refused (the first rule that refuses it), or undefined when it may run. Pure. */
-export function sendRefusalOf(c: ToolCall, f: SendFacts) {
+export function sendRefusalOf(c: GuardedCall, f: SendFacts) {
   const text = textOf(c);
   for (const rule of SEND_RULES) {
     const why = rule.why(c, text, f);
