@@ -85,3 +85,48 @@ test("an older prompt's confirm still keeps its unit for the night (a bump befor
     ["unit_00000000eeee", 2],
   ]);
 });
+
+test("a confirm counts when something is left for him; one left only low is kept but does not wake, an empty one is not confirmed", () => {
+  const where = join(dir, "left");
+  const confirm = (chat: string, priorities: string[]) =>
+    storeReply(
+      {
+        at: "2026-11-01T01:00:00.000Z",
+        madeBy: stamp(
+          { engine: "codex", model: "test" },
+          READS.arrival_confirm.prompt,
+          "r1"
+        ),
+        messages: [`whatsapp|whatsapp:${chat}`],
+        people: [],
+        promptDigest: "0123456789abcdef",
+        read: "arrival_confirm",
+        reply: {
+          event: "no",
+          inProgress: [],
+          left: priorities.map((priority) => ({
+            kind: "ask",
+            priority,
+            what: "send it",
+          })),
+        },
+        schemaVersion: 1,
+        starts: [0],
+        unit: `unit_00000000${chat}`,
+      } as ReadReply,
+      "2026-11-01T01:00:00.000Z",
+      where
+    );
+  confirm("aaaa", ["low"]);
+  confirm("bbbb", ["low", "high"]);
+  confirm("cccc", []);
+  expect(
+    readConfirmedArrivals("2026-11-01T00:00:00.000Z", where).map((a) => [
+      a.unit,
+      a.wakes,
+    ])
+  ).toEqual([
+    ["unit_00000000aaaa", false],
+    ["unit_00000000bbbb", true],
+  ]);
+});
