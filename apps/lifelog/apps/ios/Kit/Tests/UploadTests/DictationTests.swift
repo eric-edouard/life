@@ -65,6 +65,8 @@ import Testing
     var recordings = 0
     var ended: (@MainActor () -> Void)?
     var refused = false
+    /// What instant dictation heard of each run; nil: heard on the Mac.
+    var heard: String?
     /// The last run's recording, alive only while something keeps the run.
     weak var recording: Recording?
 
@@ -76,10 +78,12 @@ import Testing
             self.recordings += 1
             let recording = Recording(Data("run \(self.recordings)".utf8))
             self.recording = recording
-            return DictationRun(level: { 0.1 }) {
-                self.finished += 1
-                return recording.bytes
-            }
+            return DictationRun(
+                level: { 0.1 },
+                finish: {
+                    self.finished += 1
+                    return recording.bytes
+                }, heard: { self.heard })
         },
         words: { ogg in
             try await withCheckedContinuation { continuation in
@@ -208,13 +212,75 @@ private final class Recording: Sendable {
     #expect(
         LiveWordsMessage(#"{"message_type":"committed_transcript","text":"hello world"}"#) == .committed("hello world"))
     #expect(LiveWordsMessage(#"{"message_type":"quota_exceeded","error":"x"}"#) == .failed)
+    #expect(LiveWordsMessage(#"{"message_type":"commit_throttled","error":"x"}"#) == .nothingToCommit)
     #expect(LiveWordsMessage(#"{"message_type":"session_started"}"#) == nil)
     let live = LiveWords()
+    let text = { live.words.map(\.text).joined(separator: " ") }
     live.apply(.committed("one two"))
     live.apply(.partial("three"))
-    #expect(live.text == "one two three")
+    #expect(text() == "one two three")
     live.apply(.committed("three"))
-    #expect(live.text == "one two three")
+    #expect(text() == "one two three")
+    live.apply(.failed)
+    #expect(live.hasFailed)
+    live.clear()
+    #expect(live.words.isEmpty && !live.hasFailed)
+}
+
+/// A partial corrected in place, or replaced by its final, keeps its word's time: it never fades in again or moves. New
+/// words come after, one `stagger` apart, left to right.
+@Test func aWordKeepsItsTimeWhenItsPartialIsReplacedAndNewWordsComeInLeftToRight() {
+    let t0 = Date(timeIntervalSince1970: 0)
+    let t1 = t0.addingTimeInterval(1)
+    let first = LiveWords.merged([], with: "Hello, life. Please remind-", at: t0)
+    #expect(first.map(\.text) == ["Hello,", "life.", "Please", "remind-"])
+    #expect(first.map(\.at) == (0..<4).map { t0.addingTimeInterval(Double($0) * LiveWords.stagger) })
+    let final = LiveWords.merged(first, with: "Hello, Life. Please remind me to call", at: t1)
+    #expect(final.map(\.text) == ["Hello,", "Life.", "Please", "remind", "me", "to", "call"])
+    #expect(Array(final.prefix(4).map(\.at)) == first.map(\.at), "the shown words keep their times")
+    #expect(final[4].at == t1 && final[6].at == t1.addingTimeInterval(2 * LiveWords.stagger))
+    let shorter = LiveWords.merged(final, with: "Hello, Life.", at: t1)
+    #expect(shorter == Array(final.prefix(2)), "a partial that shrinks drops its tail, never moving the rest")
+    #expect(LiveWords.merged(final, with: "  ", at: t1).isEmpty)
+}
+
+/// Each word sweeps in from the left: its first glyph starts at its time, each next one `perGlyph` later, each over
+/// `fade`.
+@Test func aWordFadesInGlyphByGlyphFromTheLeft() {
+    let t0 = Date(timeIntervalSince1970: 0)
+    let word = LiveWord(text: "keys", at: t0)
+    #expect(LiveWords.opacity(of: word, glyph: 0, at: t0) == 0)
+    #expect(LiveWords.opacity(of: word, glyph: 0, at: t0.addingTimeInterval(LiveWords.fade)) == 1)
+    let mid = t0.addingTimeInterval(LiveWords.fade / 2)
+    #expect(LiveWords.opacity(of: word, glyph: 0, at: mid) > LiveWords.opacity(of: word, glyph: 3, at: mid))
+    #expect(LiveWords.opacity(of: word, glyph: 0, at: t0.addingTimeInterval(-1)) == 0, "never below 0")
+    #expect(!LiveWords.isSettled([word], at: t0.addingTimeInterval(LiveWords.fade)))
+    #expect(LiveWords.isSettled([word], at: t0.addingTimeInterval(LiveWords.fade + 4 * LiveWords.perGlyph)))
+}
+
+/// Instant dictation's words land at the pause and the Mac is never asked; without them (heard on the Mac, or the
+/// stream failed) the Mac hears the same recording.
+@MainActor @Test func instantWordsLandWithoutTheMacAndAFailedStreamFallsBackToIt() async {
+    let rig = Rig()
+    rig.heard = "the keys"
+    rig.dictation.tap()
+    await rig.until { rig.begins.count == 1 }
+    rig.begins[0].resume()
+    await rig.until { rig.dictation.phase == .listening }
+    rig.dictation.tap()
+    await rig.until { rig.dictation.landed != nil }
+    #expect(rig.dictation.landed?.words == "the keys" && rig.asks.isEmpty && rig.dictation.phase == .rest)
+
+    rig.heard = nil
+    rig.dictation.tap()
+    await rig.until { rig.begins.count == 2 }
+    rig.begins[1].resume()
+    await rig.until { rig.dictation.phase == .listening }
+    rig.dictation.tap()
+    await rig.until { rig.asks.count == 1 }
+    #expect(rig.asks[0].ogg == Data("run 2".utf8))
+    rig.asks[0].answer.resume(returning: .success("on the Mac"))
+    await rig.until { rig.dictation.landed?.words == "on the Mac" }
 }
 
 @Test func anAudioChunkIsLittleEndianPcmInTheSocketsMessage() throws {

@@ -5,9 +5,10 @@ import SwiftUI
 
 /// Every free-text field of the app: typing, and the one microphone (decision 87; the dictation spec of 20 Nov). A tap
 /// on the microphone starts a run, a tap pauses it and a tap goes on; a hold records while held. At each pause the
-/// run's words land where the caret was (the Mac's recognition doesn't stream). While listening, a one-line field's
-/// text line holds the cancel, the time and the stream; a tall field takes them on a line under its text. A field's
-/// font, colour, line limit, padding and fill stay its caller's.
+/// run's words land where the caret was. While listening, a one-line field's text line holds the cancel, the time and
+/// the stream; a tall field takes them on a line under its text. Heard instantly (his `dictationHeard` switch), the
+/// words show as they come, fading in (`LiveWordsText`): in a tall field's text at the caret, in a one-line field's line
+/// in place of the stream. A field's font, colour, line limit, padding and fill stay its caller's.
 struct DictationField: View {
     let prompt: String
     /// What VoiceOver calls the field, when its prompt doesn't say it (a row's label).
@@ -34,6 +35,7 @@ struct DictationField: View {
     @State private var caret: (text: String, selection: TextSelection?)?
     /// How far up his thumb is from the microphone while he holds, nil when he isn't holding (the track).
     @State private var rise: CGFloat?
+    private let live = LiveWords.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
@@ -41,9 +43,21 @@ struct DictationField: View {
             HStack(alignment: axis == .vertical ? .bottom : .center, spacing: Metrics.Spacing.s) {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
                     let isOneLineBusy = axis == .horizontal && dictation.phase != .rest
-                    field.opacity(isOneLineBusy ? 0 : 1)
-                        .overlay(alignment: .leading) { if isOneLineBusy { ListeningLine(dictation: dictation) } }
-                    if axis == .vertical, dictation.phase != .rest { ListeningLine(dictation: dictation).appears() }
+                    let isTallLive = axis == .vertical && isLive
+                    // Both stay in the stack: the field keeps its height, the live text grows it as words come.
+                    ZStack(alignment: .topLeading) {
+                        field.opacity(isOneLineBusy || isTallLive ? 0 : 1)
+                        if isTallLive {
+                            let (head, tail) = DictatedText.parts(in: text, at: keptCaret)
+                            LiveWordsText(head: head, words: live.words, tail: tail)
+                        }
+                    }
+                    .overlay(alignment: .leading) {
+                        if isOneLineBusy { ListeningLine(dictation: dictation, live: isLive ? live : nil) }
+                    }
+                    if axis == .vertical, dictation.phase != .rest {
+                        ListeningLine(dictation: dictation, live: nil).appears()
+                    }
                 }
                 DictationMic(dictation: dictation, canSend: send != nil, rise: $rise, start: start)
                     .overlay(alignment: .bottom) { if let rise { SendTrack(rise: rise) } }
@@ -74,6 +88,9 @@ struct DictationField: View {
     }
 
     private var isRecording: Bool { dictation.phase == .starting || dictation.phase == .listening }
+    /// This field's run is heard instantly and has words (a stream that failed keeps them until the Mac's land): only
+    /// one microphone runs at a time.
+    private var isLive: Bool { dictation.phase != .rest && !live.words.isEmpty }
     private var hasWords: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     @ViewBuilder private var field: some View {
@@ -95,12 +112,17 @@ struct DictationField: View {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
-    /// The words at the caret he left, then, on a swipe up, the Send, which reads the text with them.
-    private func land(_ landed: Dictation.Landed) {
+    /// The text and caret when the run started, as `DictatedText` reads them.
+    private var keptCaret: (text: String, selection: Range<String.Index>?)? {
         var picked: Range<String.Index>?
         if case .selection(let range)? = caret?.selection?.indices { picked = range }
-        let kept = caret.map { (text: $0.text, selection: picked) }
-        guard let landing = DictatedText.inserting(landed.words, into: text, at: kept) else { return }
+        return caret.map { (text: $0.text, selection: picked) }
+    }
+
+    /// The words at the caret he left, then, on a swipe up, the Send, which reads the text with them.
+    private func land(_ landed: Dictation.Landed) {
+        live.clear()
+        guard let landing = DictatedText.inserting(landed.words, into: text, at: keptCaret) else { return }
         text = landing.text
         selection = TextSelection(insertionPoint: landing.caret)
         AccessibilityNotification.Announcement(landed.words).post()
@@ -291,9 +313,11 @@ private struct SendTrack: View {
 }
 
 /// While listening: cancel, the run's time and the stream; while writing: cancel, "Writing…" and the stream, still
-/// and dim.
+/// and dim. An instant run's words (`live`, a one-line field's) take the stream's place; a stream that failed says the
+/// Mac writes this run.
 private struct ListeningLine: View {
     let dictation: Dictation
+    let live: LiveWords?
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
@@ -305,12 +329,21 @@ private struct ListeningLine: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Cancel dictation")
             TimelineView(.periodic(from: dictation.runStarted, by: 1)) { context in
-                Text(dictation.phase == .writing ? "Writing…" : elapsed(at: context.date))
-                    .font(.small).monospacedDigit().foregroundStyle(Palette.muted)
+                Text(status(at: context.date)).font(.small).monospacedDigit().foregroundStyle(Palette.muted)
             }
             .fixedSize()
-            DictationStream(dictation: dictation).opacity(dictation.phase == .writing ? 0.35 : 1)
+            if let live, !live.words.isEmpty, !live.hasFailed {
+                LiveWordsText(words: live.words).lineLimit(1).truncationMode(.head)
+            } else {
+                DictationStream(dictation: dictation).opacity(dictation.phase == .writing ? 0.35 : 1)
+            }
         }
+    }
+
+    private func status(at now: Date) -> String {
+        let onTheMac = LiveWords.shared.hasFailed
+        if dictation.phase == .writing { return onTheMac ? "Writing on your Mac…" : "Writing…" }
+        return onTheMac ? "\(elapsed(at: now)) · On your Mac" : elapsed(at: now)
     }
 
     private func elapsed(at now: Date) -> String {
@@ -351,5 +384,56 @@ private struct DictationStream: View {
         }
         .frame(height: 22)
         .accessibilityHidden(true)
+    }
+}
+
+/// Instant dictation's words between the field's own text (`head`, `tail`), each glyph fading in from the left as its
+/// word lands (`LiveWords.opacity`); a word already shown never fades again, so a partial turning final doesn't flicker.
+/// With Reduce Motion they appear at once.
+struct LiveWordsText: View {
+    var head = ""
+    let words: [LiveWord]
+    var tail = ""
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        // The clock runs only while a glyph is still fading: when the last settles it stops until new words come.
+        TimelineView(.animation(paused: reduceMotion || LiveWords.isSettled(words, at: .now))) { context in
+            text.textRenderer(WordFade(words: words, now: reduceMotion ? .distantFuture : context.date))
+        }
+    }
+
+    private var text: Text {
+        let spoken = words.indices.reduce(Text(verbatim: head)) { line, i in
+            let word = Text(verbatim: (i == 0 ? "" : " ") + words[i].text).customAttribute(SpokenWord(index: i))
+            return Text("\(line)\(word)")
+        }
+        return Text("\(spoken)\(Text(verbatim: tail))")
+    }
+}
+
+/// Which live word a run of text is.
+private struct SpokenWord: TextAttribute {
+    let index: Int
+}
+
+/// Draws a live word glyph by glyph at its opacity now; the field's own text as it is.
+private struct WordFade: TextRenderer {
+    let words: [LiveWord]
+    let now: Date
+
+    func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+        for run in layout.flatMap({ $0 }) {
+            guard let index = run[SpokenWord.self]?.index, words.indices.contains(index) else {
+                context.draw(run)
+                continue
+            }
+            for (glyph, slice) in run.enumerated() {
+                var faded = context
+                faded.opacity = LiveWords.opacity(of: words[index], glyph: glyph, at: now)
+                faded.draw(slice)
+            }
+        }
     }
 }

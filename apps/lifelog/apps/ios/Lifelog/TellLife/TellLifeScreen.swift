@@ -10,8 +10,6 @@ struct TellLifeScreen: View {
     @Environment(AppRouter.self) private var router
     @Environment(LifeStore.self) private var life
     @State private var draft = ""
-    @AppStorage(TellWords.key) private var words = TellWords.live
-    private let live = LiveWords.shared
 
     private var tell: TellLife { life.tell }
 
@@ -39,10 +37,6 @@ struct TellLifeScreen: View {
                 Text(tell.said).font(.small).foregroundStyle(Palette.muted).lineLimit(2).multilineTextAlignment(.center)
                     .appears(Motion.fade)
             }
-            if !live.text.isEmpty {
-                Text(live.text).font(.small).foregroundStyle(Palette.muted).lineLimit(3).multilineTextAlignment(.center)
-                    .accessibilityLabel("Your words, live")
-            }
             Spacer(minLength: 0)
             stage.frame(maxWidth: .infinity)
             Spacer(minLength: 0)
@@ -50,13 +44,7 @@ struct TellLifeScreen: View {
         }
         .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
         .background(TellRoom())
-        .onAppear {
-            router.isTellLifeSmall = false
-            live.isOn = words == .live
-        }
-        .onChange(of: words) { _, new in live.isOn = new == .live }
-        .onChange(of: draft) { live.clear() }
-        .onDisappear { live.isOn = false }
+        .onAppear { router.isTellLifeSmall = false }
         // Swipe down makes it small.
         .gesture(DragGesture().onEnded { if $0.translation.height > 120 { makeSmall() } })
         .motion(Motion.standard, value: tell.stage)

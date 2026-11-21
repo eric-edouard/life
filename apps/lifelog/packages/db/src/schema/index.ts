@@ -102,6 +102,12 @@ export const unfinishedJobStates = ["queued", "submitted"] as const;
 // it routes (route-turns.ts). The owner's switch picks it; a job keeps the one it was sent with.
 export const transcribers = ["scribe", "speech"] as const;
 export type Transcriber = (typeof transcribers)[number];
+// Where a field's dictation on the phone is heard: on the Mac after each pause (`POST
+// /dictation/transcript`), or instantly, the phone streaming it to ElevenLabs' realtime Scribe with a
+// token the Mac mints only then (`POST /live-words/token`). Not `transcriber`: that routes the
+// Pendant's jobs.
+export const dictationHearings = ["mac", "instant"] as const;
+export type DictationHeard = (typeof dictationHearings)[number];
 
 export interface TranscriptionSettings {
   keyterms: string[];
@@ -604,6 +610,9 @@ export const subscriptionUsage = sqliteTable("subscription_usage", {
 
 export const processingSwitches = sqliteTable("processing_switches", {
   ai: boolean("ai").notNull(),
+  dictationHeard: text("dictation_heard", { enum: dictationHearings })
+    .notNull()
+    .default("mac"),
   engine: text("engine", { enum: macEngines }).notNull().default("claude"),
   id: integer("id").primaryKey().default(1),
   // Minutes the Pendant's audio may wait on the phone before the server asks the owner to open

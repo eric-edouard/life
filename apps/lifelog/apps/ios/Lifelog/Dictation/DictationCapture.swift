@@ -26,6 +26,9 @@ final class DictationCapture {
     private var lease: AudioSessionOwner.Lease?
     private var deadline: Task<Void, Never>?
     private var closing: Task<Data, any Error>?
+    /// Whether this run is heard instantly (his `dictationHeard` switch), and, once closed, its words coming back.
+    private var isInstant = false
+    private var instantWords: Task<String?, Never>?
     /// Told once when it stopped on its own; the caller then takes the words with `finish`.
     private let ended: @MainActor () -> Void
 
@@ -70,9 +73,12 @@ final class DictationCapture {
             try Task.checkCancellation()
             guard ContinuousClock.now < opened + cap else { throw Failure.tooLate }
             capture.lease = try AudioSessionOwner.shared.take(.recording) { [weak capture] in capture?.stopOnItsOwn() }
-            if LiveWords.shared.isOn {
+            capture.isInstant = sync?.switches?.dictationHeard == .instant
+            if capture.isInstant {
                 capture.mic.onSamples = { LiveWords.shared.feed($0) }
                 LiveWords.shared.begin { try await ServerClient.production.liveWordsToken() }
+            } else {
+                LiveWords.shared.clear()
             }
             try capture.mic.start { [weak capture] in capture?.stopOnItsOwn() }
         } catch {
@@ -108,7 +114,7 @@ final class DictationCapture {
                 // The stretch's write, the encoder: nothing a call explains.
                 throw Dictation.StartFailure.notStarted
             }
-            return DictationRun(level: capture.level, finish: capture.finish)
+            return DictationRun(level: capture.level, finish: capture.finish, heard: capture.heard)
         }
     }
 
@@ -127,6 +133,9 @@ final class DictationCapture {
         return try await closing.value
     }
 
+    /// Instant dictation's words, once the microphone closed; nil when heard on the Mac or the stream failed.
+    func heard() async -> String? { await instantWords?.value }
+
     /// The microphone closes itself before the field, or playback taking the session, hears of it.
     private func stopOnItsOwn() {
         guard closing == nil else { return }
@@ -139,8 +148,8 @@ final class DictationCapture {
         deadline?.cancel()
         let heard: Result<Data, any Error>
         do { heard = .success(try await mic.stop()) } catch { heard = .failure(error) }
-        // After the microphone's last samples have gone to the socket.
-        LiveWords.shared.end()
+        // After the microphone's last samples have gone to the socket; it runs to its end even when nobody waits.
+        if isInstant { instantWords = Task { await LiveWords.shared.finish() } }
         lease.map(AudioSessionOwner.shared.release)
         lease = nil
         // From the monotonic clock: a wall clock set back can't make the stretch end before it starts.

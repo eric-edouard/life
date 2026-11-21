@@ -11,42 +11,60 @@ extension ServerClient {
 
 /// One message of ElevenLabs' realtime speech-to-text, as far as the phone reads it.
 enum LiveWordsMessage: Equatable {
-    case partial(String), committed(String), failed
+    case partial(String), committed(String), nothingToCommit, failed
 
     init?(_ text: String) {
         let o = (try? JSONSerialization.jsonObject(with: Data(text.utf8))) as? [String: Any] ?? [:]
         switch o["message_type"] as? String {
         case "partial_transcript": self = .partial(o["text"] as? String ?? "")
         case "committed_transcript": self = .committed(o["text"] as? String ?? "")
+        // The last commit found under 0.3 s of audio left (all of it committed already): the words are complete.
+        case "commit_throttled", "insufficient_audio_activity": self = .nothingToCommit
         case "session_started", "warning", nil: return nil
         default: self = .failed  // error, auth_error, quota_exceeded, rate_limited, ...
         }
     }
 }
 
-/// His words as he speaks them: the 16 kHz microphone stream goes to ElevenLabs' realtime Scribe over one socket per
-/// press (a fresh token each time), and what comes back shows live. Only a display: the words that land in the field
-/// are still the Mac's, at the pause. Any failure just stops it, silently.
+/// One word of instant dictation as the field shows it, and when it began to show: its fade starts then.
+public struct LiveWord: Equatable, Sendable {
+    public let text: String
+    public let at: Date
+}
+
+/// Instant dictation: while his `dictationHeard` switch is `instant`, the 16 kHz microphone stream goes to ElevenLabs'
+/// realtime Scribe over one socket per run (a fresh single-use token each time), its words show in the field as they
+/// come, and at the pause they are the ones that land (`finish`). Any failure stops it; the Mac then hears the run's
+/// recording, today's path. One microphone at a time, so one stream.
 @MainActor @Observable
 public final class LiveWords {
     public static let shared = LiveWords()
 
-    /// Whether the next recording streams (his "Your words, as you speak" setting, set by Tell Life while it is open).
-    public var isOn = false
-    /// What he has said so far in this press: the stable words, then the one still changing.
-    public private(set) var text = ""
+    /// What he has said so far in this run, word by word: the committed words, then the ones still changing.
+    public private(set) var words: [LiveWord] = []
+    /// The stream stopped (no token, the socket or ElevenLabs failed): the Mac hears this run.
+    public private(set) var hasFailed = false
 
     private var committed = ""
     private var socket: URLSessionWebSocketTask?
     private var session: Task<Void, Never>?
     private var queue: [String] = []
     private var isOpen = false
-    /// Which press the socket serves: a press that ended or was replaced changes it.
+    /// Which run the socket serves: a run that ended or was replaced changes it.
     private var generation = 0
+    /// The pause waiting for its last words.
+    private var ending: CheckedContinuation<String?, Never>?
 
     nonisolated static let rate = 16_000
     /// About 10 minutes of audio, the dictation cap: more is never held while the socket opens.
     private static let queued = 6_000
+    /// How long the last words may take after the pause before the Mac hears the run instead (a commit takes ~0.3 s).
+    static let finishWithin = Duration.seconds(3)
+    /// Between two words that arrive together, so a batch reads in left to right.
+    nonisolated static let stagger = 0.06
+    /// One glyph's fade, and how much later each next glyph of a word starts it: the word sweeps in from the left.
+    nonisolated static let fade = 0.25
+    nonisolated static let perGlyph = 0.02
 
     /// One audio chunk as the socket takes it: 16-bit mono little endian, base 64.
     nonisolated static func chunk(_ samples: [Float], commit: Bool = false) -> String {
@@ -63,18 +81,43 @@ public final class LiveWords {
         return String(decoding: (try? JSONSerialization.data(withJSONObject: body)) ?? Data(), as: UTF8.self)
     }
 
-    /// His words landed in the field: the live line has done its job.
-    public func clear() { (text, committed) = ("", "") }
+    /// The words of `text`, from those shown: a word at a place already shown keeps its time, so a final replacing its
+    /// partial (or a partial correcting itself) never fades or moves again; new words come after, `stagger` apart.
+    nonisolated static func merged(_ shown: [LiveWord], with text: String, at now: Date) -> [LiveWord] {
+        let next = text.split(whereSeparator: \.isWhitespace).map(String.init)
+        return next.indices.map { i in
+            LiveWord(
+                text: next[i],
+                at: i < shown.count ? shown[i].at : now.addingTimeInterval(Double(i - shown.count) * stagger))
+        }
+    }
 
-    /// A press opens: a token, then the socket; audio fed meanwhile waits for it.
+    /// A glyph's opacity, 0 to 1, at `now`: its word's fade, begun `perGlyph` later for each glyph before it.
+    public nonisolated static func opacity(of word: LiveWord, glyph: Int, at now: Date) -> Double {
+        min(max((now.timeIntervalSince(word.at) - Double(glyph) * perGlyph) / fade, 0), 1)
+    }
+
+    /// Whether every glyph of `words` is fully in at `now` (nothing left to draw over time).
+    public nonisolated static func isSettled(_ words: [LiveWord], at now: Date) -> Bool {
+        words.allSatisfy { opacity(of: $0, glyph: $0.text.count, at: now) >= 1 }
+    }
+
+    /// His words landed in the field, or this run is heard on the Mac: nothing live to show.
+    public func clear() { (words, committed, hasFailed) = ([], "", false) }
+
+    /// A run opens: a token, then the socket; audio fed meanwhile waits for it.
     public func begin(token: @escaping @Sendable () async throws -> String) {
-        end()
-        (text, committed) = ("", "")
-        generation += 1
+        close()
+        clear()
         let mine = generation
         session = Task { [weak self] in
-            guard let token = try? await token(), !Task.isCancelled else { return }
-            await self?.open(token: token, generation: mine)
+            do {
+                let token = try await token()
+                guard !Task.isCancelled else { return }
+                await self?.open(token: token, generation: mine)
+            } catch {
+                if self?.generation == mine { self?.hasFailed = true }
+            }
         }
     }
 
@@ -84,20 +127,39 @@ public final class LiveWords {
         send(Self.chunk(samples))
     }
 
-    /// He let go and the mic has given its last samples: voice-activity detection commits what is left, so the socket
-    /// only waits a moment for it, then closes. A token that has not come yet is never used.
-    public func end() {
-        guard let running = session else { return }
-        running.cancel()
+    /// He paused and the microphone gave its last samples: what is left is committed (a moment of silence sent with
+    /// `commit`), and the run's words come back once ElevenLabs committed them. Nil when the stream failed, never
+    /// opened, or took past `finishWithin`: the Mac then hears the recording. The socket closes either way.
+    public func finish() async -> String? {
+        guard session != nil else { return nil }
+        var words: String?
+        if isOpen, !hasFailed {
+            let mine = generation
+            words = await withCheckedContinuation { ending in
+                self.ending = ending
+                send(Self.chunk([Float](repeating: 0, count: Self.rate / 10), commit: true))
+                Task { [weak self] in
+                    try? await Task.sleep(for: Self.finishWithin)
+                    if self?.generation == mine { self?.settle(nil) }
+                }
+            }
+        }
+        close()
+        return words
+    }
+
+    private func close() {
+        session?.cancel()
         session = nil
         generation += 1
-        let closing = socket
-        socket = nil
-        isOpen = false
-        queue = []
-        Task {
-            try? await Task.sleep(for: .seconds(2)); closing?.cancel(with: .normalClosure, reason: nil)
-        }
+        settle(nil)
+        socket?.cancel(with: .normalClosure, reason: nil)
+        (socket, isOpen, queue) = (nil, false, [])
+    }
+
+    private func settle(_ words: String?) {
+        ending?.resume(returning: words)
+        ending = nil
     }
 
     private func send(_ message: String) {
@@ -121,22 +183,34 @@ public final class LiveWords {
         isOpen = true
         for message in queue { socket.send(.string(message)) { _ in } }
         queue = []
-        // Messages of a press that has ended, or been replaced, are never shown.
+        // Messages of a run that has ended, or been replaced, are never shown.
         while mine == generation, let message = try? await socket.receive() {
             guard mine == generation, case .string(let line) = message, let parsed = LiveWordsMessage(line) else {
                 continue
             }
             apply(parsed)
         }
+        // The socket closed under a run still current: the Mac hears it.
+        if mine == generation { fail() }
     }
 
-    func apply(_ message: LiveWordsMessage) {
+    func apply(_ message: LiveWordsMessage, at now: Date = .now) {
         switch message {
-        case .committed(let words):
-            committed = [committed, words].filter { !$0.isEmpty }.joined(separator: " ")
-            text = committed
-        case .partial(let words): text = [committed, words].filter { !$0.isEmpty }.joined(separator: " ")
-        case .failed: socket?.cancel(with: .goingAway, reason: nil)
+        case .committed(let said):
+            committed = [committed, said].filter { !$0.isEmpty }.joined(separator: " ")
+            words = Self.merged(words, with: committed, at: now)
+            // ponytail: a commit voice detection made just before the pause's own one ends the wait with it; only the
+            // silence after it is lost. Count commits if a word ever goes missing.
+            settle(committed)
+        case .partial(let said): words = Self.merged(words, with: [committed, said].joined(separator: " "), at: now)
+        case .nothingToCommit: settle(committed)
+        case .failed: fail()
         }
+    }
+
+    private func fail() {
+        hasFailed = true
+        settle(nil)
+        socket?.cancel(with: .goingAway, reason: nil)
     }
 }
