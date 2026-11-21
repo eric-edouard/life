@@ -30,16 +30,6 @@
         "ref": "person:partner"
       }
     ],
-    "repos": [
-      {
-        "folder": "/Users/owner/Work/shop-site",
-        "name": "shop-site"
-      },
-      {
-        "folder": null,
-        "name": "owner/shop-notes"
-      }
-    ],
     "situation": [
       {
         "cites": ["obs_000000000005"],
@@ -53,12 +43,16 @@
         "line": "Gran's watch: the shop quotes by Friday.",
         "status": "running",
         "title": "Get Gran's watch mended"
+      }
+    ],
+    "repos": [
+      {
+        "folder": "/Users/owner/Work/shop-site",
+        "name": "shop-site"
       },
       {
-        "id": "agt_000000000002",
-        "line": "Waiting for his answer",
-        "status": "waiting",
-        "title": "Get Gran's watch mended"
+        "folder": null,
+        "name": "owner/shop-notes"
       }
     ]
   },

@@ -499,4 +499,10 @@ test("a project is found by its id or its name, accents and case aside", () => {
   expect(idOf(list, "Cafe co")).toBe("cafe-co");
   expect(idOf(list, "cafe-co")).toBe("cafe-co");
   expect(idOf(list, "nope")).toBeUndefined();
+  // An exact id beats another project's name that reads alike.
+  const two = [
+    { id: "a", name: "Cafe" },
+    { id: "cafe", name: "Other" },
+  ];
+  expect(idOf(two, "cafe")).toBe("cafe");
 });

@@ -28,7 +28,10 @@ import { dayNow } from "./zones";
 
 /** The id of the project or area `query` is, by id or name; undefined when it is neither. */
 export const idOf = (list: { id: string; name: string }[], query: string) =>
-  list.find((x) => x.id === query || nameKey(x.name) === nameKey(query))?.id;
+  (
+    list.find((x) => x.id === query) ??
+    list.find((x) => nameKey(x.name) === nameKey(query))
+  )?.id;
 
 type Role = "owedTo" | "waitingOn" | "with";
 const ROLES: readonly Role[] = ["owedTo", "waitingOn", "with"];

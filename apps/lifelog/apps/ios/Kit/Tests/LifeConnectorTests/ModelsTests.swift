@@ -154,7 +154,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(header.project.goal?.rank == 1)
     #expect(header.project.ask?.ref.hasPrefix("dec_") == true)
     #expect(header.project.ask?.matter?.name == "Mend Gran's watch")
-    #expect(header.project.agents.map(\.status) == ["running", "waiting"])
+    #expect(header.project.agents.map(\.status) == ["running"])
     #expect(header.project.repos.map(\.folder) == ["/Users/owner/Work/shop-site", nil])
     #expect(header.parties.map(\.name) == ["Robin"])
 

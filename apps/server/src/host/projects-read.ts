@@ -15,7 +15,11 @@ import { isUnderway } from "../records/truth";
 import { listRepos } from "../sources/git";
 import { openChecksAndKeyNow, unchangedOf, versionOf } from "./inbox";
 import { matterRowsNowOf } from "./matter-rows";
-import { readActiveAgentOf, readRegisteredAgents } from "./registered-agents";
+import {
+  readActiveAgentOf,
+  readAgentsOnSteps,
+  readRegisteredAgents,
+} from "./registered-agents";
 
 // `read_projects` and `read_project` (life#712): the Projects tab's chip row and a project chip's header with its
 // Details. The list under a chip is `read_matters` (`project`, or `area` with `noProject`); a chip's counts and that list
@@ -137,8 +141,9 @@ async function finishChips(m: Awaited<ReturnType<typeof readChipsFromMemory>>) {
       ...chip,
       agentAtWork:
         !isParked &&
-        onProject(chip.kind === "project" ? chip.id : undefined, held).length >
-          0,
+        onProject(chip.kind === "project" ? chip.id : undefined, held).some(
+          (a) => a.status === "running"
+        ),
     })),
   };
   return { ...answer, version: versionOf(JSON.stringify(answer)) };
@@ -164,7 +169,6 @@ async function readHeaderFromMemory(name: string, open: Open) {
       .find(Boolean);
     return c.kind === "decision" && matter ? [{ c, matter }] : [];
   });
-  const here = new Map(listRepos().map((r) => [r.key, r.path]));
   return {
     book,
     decisions: openDecisions(),
@@ -194,11 +198,6 @@ async function readHeaderFromMemory(name: string, open: Open) {
       people: (entry?.people ?? []).map((x) =>
         people.partyOf(`person:${x.id}`)
       ),
-      // A repo's folder is where it is cloned on the Mac (`listRepos`), none for one that is not.
-      repos: project.repos.map((r) => ({
-        folder: here.get(r) ?? null,
-        name: r,
-      })),
       situation: readProjectSituationNow(
         project.id,
         projectStepRefsOf(truth, book, project.id)
@@ -209,23 +208,44 @@ async function readHeaderFromMemory(name: string, open: Open) {
 }
 
 /** One project's header: memory's part kept per key, its agents at work read now (none while it is not underway). */
-async function finishHeader(
-  m: Awaited<ReturnType<typeof readHeaderFromMemory>>
-) {
-  const onProject = await readAtWork(m.people, m.book, m.decisions);
+function finishHeader(m: Awaited<ReturnType<typeof readHeaderFromMemory>>) {
+  const holder = readActiveAgentOf();
+  const held = new Set(
+    m.own.flatMap((v) => holder(v.steps.map((s) => s.ref)) ?? [])
+  );
+  // Each agent as its assignment on the project's steps reads (an open one first), those holding one of them open now.
   const agents = isUnderway(m.project)
-    ? onProject(m.project.id, m.own).map((a) => ({
-        id: a.id,
-        // Its turn says which: a waiting agent says what for; one at work, what it took its subject to be.
-        line:
-          a.status === "waiting" && a.wait
-            ? `Waiting for ${a.wait.reason}`
-            : a.notes || a.title,
-        status: a.status,
-        title: a.title,
-      }))
+    ? readAgentsOnSteps(
+        m.own.flatMap((v) => v.steps.map((s) => s.ref)),
+        m.people
+      )
+        .filter(
+          (a) =>
+            held.has(a.id) && (a.status === "running" || a.status === "waiting")
+        )
+        .map((a) => ({
+          id: a.id,
+          // Its turn says which: a waiting agent says what for; one at work, what it took its subject to be.
+          line:
+            a.status === "waiting" && a.wait
+              ? `Waiting for ${a.wait.reason}`
+              : a.notes || a.title,
+          status: a.status,
+          title: a.title,
+        }))
     : [];
-  const answer = { project: { ...m.shown, agents } };
+  // A repo's folder is where it is cloned on the Mac now (`listRepos`), none for one that is not.
+  const here = new Map(listRepos().map((r) => [r.key, r.path]));
+  const answer = {
+    project: {
+      ...m.shown,
+      agents,
+      repos: m.project.repos.map((r) => ({
+        folder: here.get(r) ?? null,
+        name: r,
+      })),
+    },
+  };
   return { ...answer, version: versionOf(JSON.stringify(answer)) };
 }
 
@@ -234,7 +254,7 @@ let kept: { for: string; reads: Map<string, Promise<unknown>> } | undefined;
 async function keptRead<M, A extends { version: string }>(
   rest: string,
   read: (open: Open) => Promise<M>,
-  finish: (m: M) => Promise<A>,
+  finish: (m: M) => A | Promise<A>,
   ifNot?: string
 ) {
   const { checks, key } = await openChecksAndKeyNow();
