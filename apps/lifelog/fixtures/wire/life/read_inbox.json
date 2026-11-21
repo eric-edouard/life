@@ -264,6 +264,7 @@
         },
         {
           "kind": "qr",
+          "ref": "msg:whatsapp|whatsapp:155@s.whatsapp.net/M7",
           "source": "Reef's WhatsApp of 14 Oct",
           "line": "QR code from Reef's WhatsApp of 14 Oct"
         }
@@ -1083,5 +1084,5 @@
   },
   "deadlinesToday": 0,
   "total": 12,
-  "version": "9756ba2d2bd1398a"
+  "version": "52fd3552cd49e32b"
 }
