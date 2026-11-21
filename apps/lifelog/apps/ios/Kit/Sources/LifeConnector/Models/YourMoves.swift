@@ -19,9 +19,9 @@ public struct YourMoves: Equatable, Sendable {
 
         public var id: String { check.ref }
         public var isOverMonth: Bool { ageDays.map { $0 > YourMoves.monthDays } ?? false }
-        /// "Roof gutter · 41 days": the matter, then the age.
+        /// "Call the roofer back · 41 days": the step, then the age (the row's title is the matter).
         public var detail: String {
-            [check.matter?.name, ageDays.map { $0 == 1 ? "1 day" : "\($0) days" }].compactMap(\.self).joined(
+            [check.question, ageDays.map { $0 == 1 ? "1 day" : "\($0) days" }].compactMap(\.self).joined(
                 separator: " · ")
         }
         /// The one-tap answer of the option `id`, nil when this card does not offer it (an older server has no `drop`).
