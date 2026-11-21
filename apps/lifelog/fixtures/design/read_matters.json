@@ -83,7 +83,11 @@
         "name": "Halden house",
         "status": "active"
       },
-      "status": "moving"
+      "status": "moving",
+      "icon": {
+        "by": "life",
+        "key": "hammer"
+      }
     },
     {
       "areas": ["Papers"],
@@ -103,7 +107,11 @@
         "status": "active"
       },
       "status": "moving",
-      "agent": "agt_shed"
+      "agent": "agt_shed",
+      "icon": {
+        "by": "life",
+        "key": "hammer"
+      }
     },
     {
       "agent": "agt_lease",
@@ -332,6 +340,10 @@
         "id": "home",
         "name": "Home",
         "status": "active"
+      },
+      "icon": {
+        "by": "life",
+        "key": "car"
       }
     },
     {
@@ -355,6 +367,10 @@
         "id": "home",
         "name": "Home",
         "status": "active"
+      },
+      "icon": {
+        "by": "life",
+        "key": "key"
       }
     },
     {
@@ -370,6 +386,10 @@
         "id": "home",
         "name": "Home",
         "status": "active"
+      },
+      "icon": {
+        "by": "life",
+        "key": "key"
       }
     },
     {
