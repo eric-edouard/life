@@ -44,7 +44,7 @@ extension SyncStore {
     var summary: ConnectionSummary {
         ConnectionSummary(
             isPaired: isPaired, isRefused: tokenRefused,
-            network: pull.isEstablished && network != .none ? .none : network,
+            network: pull.isEstablished && path.network != .none ? .none : path.network,
             uploading: (uploads?.unsent ?? .zero) > .zero || uploads?.lastError != nil,
             editsWaiting: pending.waiting.count, lastPull: feed.pulledAt)
     }

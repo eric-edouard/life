@@ -89,7 +89,7 @@ struct StartAgentSheet: View {
             switch state {
             case .idle:
                 Button("Start") { start() }.buttonStyle(.pill(.filled))
-                    .disabled(goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).offWhileOutOfReach()
             case .running:
                 Button {
                 } label: {
