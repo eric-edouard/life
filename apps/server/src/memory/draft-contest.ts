@@ -27,6 +27,15 @@ export const isPending = (d: Pick<Decision, "state">) =>
 export const isAsked = (d: Pick<Decision, "state" | "withdrawn">) =>
   d.state !== "withdrawn" || !!d.withdrawn?.replacedBy;
 
+/**
+ * The cards whose askers hear card `d` settle (his answer, its lapse, its withdrawal), `d`'s own first: `d`, and the card
+ * it merged (`merges`), whose asker hears it too, never its words. The one rule for the polls and `wakesOn`.
+ */
+export const cardsHearingOf = (d: Decision, list: readonly Decision[]) => {
+  const merged = d.merges ? list.find((x) => x.id === d.merges) : undefined;
+  return merged ? [d, merged] : [d];
+};
+
 /** Whether `a` and `b` were asked by the same asker: every registered agent asks as `desk`, its own `agent` tells them apart. */
 const isSameAsker = (a: Asker, b: Asker) =>
   a.asker === b.asker && a.agent === b.agent;

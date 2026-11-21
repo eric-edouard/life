@@ -226,7 +226,7 @@ export const toDo = (id: string, quote: string): Observation =>
  */
 export async function withBook(
   observations: Observation[],
-  line: { id: string; steps: string[] } | null,
+  line: { id: string; projects?: string[]; steps: string[] } | null,
   f: () => Promise<void>
 ) {
   mkdirSync(dirname(MATTERS_FILE), { recursive: true });
@@ -246,7 +246,7 @@ export async function withBook(
               areas: [],
               id: line.id,
               name: "Pay the plumber",
-              projects: [],
+              projects: line.projects ?? [],
               steps: line.steps.map((ref) => ({
                 day: dayNow(),
                 quote: "pay the plumber",

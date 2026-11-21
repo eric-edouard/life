@@ -1,6 +1,10 @@
 import type { Database } from "bun:sqlite";
 import { DAY, HOUR, MIN } from "../core/clock";
-import type { AgentStatus, EventFilter } from "../records/registered-agent";
+import type {
+  AgentRole,
+  AgentStatus,
+  EventFilter,
+} from "../records/registered-agent";
 import {
   type AgentRow,
   type AssignmentRow,
@@ -69,6 +73,8 @@ export interface AgentNow {
     startedAt: string;
   } | null;
   link: string | null;
+  /** The matter he chose for its current assignment (`matter_id`), which the finder takes on a tie among its steps' matters; null: none chosen. */
+  matterId: string | null;
   model: string | null;
   /** The first line of its notes: what it took its subject to be; none for the caretaker (its notes are about his complaints). */
   notes: string;
@@ -77,6 +83,8 @@ export interface AgentNow {
   /** How it ended, when it did. */
   outcome: string | null;
   project: string | null;
+  /** Its standing role (`personal`, `caretaker`): what the app calls it ("the Personal agent"); null for any other. */
+  role: AgentRole | null;
   runtime: string;
   status: Exclude<AgentStatus, "active"> | "running" | "waiting";
   /** When its current status began: its open turn's start (running), its last turn's end (waiting), its end (ended, handed over), its stop (stopped); null for a stopped agent stopped before its stop time was stored, or one with no turn yet. */
@@ -190,6 +198,7 @@ function subjectPartOf(
       assignment: null,
       chatsSeen: {},
       filters: [],
+      matterId: null,
       notes: "",
       notStarted: null,
       steps: [],
@@ -208,6 +217,7 @@ function subjectPartOf(
     assignment: s.id,
     chatsSeen: isForWakes && status === "waiting" ? seenChatsOf(db, s) : {},
     filters: filtersOf(s),
+    matterId: s.matter_id,
     // The caretaker's notes are about his complaints: they stay with it, never in a read or the nightly.
     notes: a.role === "caretaker" ? "" : headOf(readNotes(s)),
     notStarted: s.why_not_started,
@@ -252,6 +262,7 @@ function nowOf(
     link: a.link,
     outcome: a.outcome,
     project: a.project,
+    role: a.role,
     runtime: a.runtime,
     status,
     statusSince: statusSinceOf(a, status, last),

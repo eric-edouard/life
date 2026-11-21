@@ -1,12 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { writeWhole } from "../core/files";
 import { setSettings, settings } from "../core/settings";
 import { LEDGER } from "../memory/memory-files";
 import type { LedgerEntry } from "../records/ledger-entry";
@@ -255,7 +250,7 @@ test("a matter's to-do items are ticked only when they are all this install's li
     tickTodoItems(["entry_00000000feed"], "It is done.")
   ).rejects.toThrow("isn't an item of");
   expect(readFileSync(LEDGER, "utf8")).toBe(written);
-  writeFileSync(LEDGER, before);
+  writeWhole(LEDGER, before);
 });
 
 // A review of 20 Nov 2026: a tick the list app refused came back as a `failed` ledger line, so his `ends` answer wrote
@@ -282,6 +277,6 @@ test("a tick the list app refused is no tick: the ticks throw with its error, so
   } finally {
     refused.mockRestore();
     reported.mockRestore();
-    writeFileSync(LEDGER, before);
+    writeWhole(LEDGER, before);
   }
 });

@@ -195,9 +195,12 @@ the watcher, every 30 minutes, brings that calendar in line, through the client 
   private property `lifeConfirmed=yes` (`gog calendar update <cal> <id> --private-prop=lifeConfirmed=yes`); Life keeps
   amending it, without the mark, as busy.
 - One deleted by him or an agent is his no: recorded `refused` (`appointment-events.jsonl`); no appointment citing all
-  its facts is written again. One Life deletes is recorded `removed`, so it may come back.
+  its facts is written again. One Life deletes is recorded `removed`, so it may come back. His phone's Remove
+  (`change_appointment`, his token only) deletes it and records `refused`; its Undo records `restored` and writes it
+  again, while Life still holds the appointment (confirmed if he had confirmed it; restored once its own event is
+  written, whatever else the sync failed on). His Remove holds in any calendar the setting later names.
 - Its first event pushes `calendar.added` (his `notifications` setting's `calendar`, quiet by default) with an opaque id;
-  the phone reads the event from the connector and writes the words. An arrival's event names the
+  the phone reads the event sheet with `read_appointments` (`pushId` or `appointment`). An arrival's event names the
   unit it was read from and a meeting link copied exactly (https only), and stays until it ends.
 - Times are the place's (`zone`, when it is not where he will be); a reading that forgets a held appointment keeps it
   while its facts hold and no new one cites them. An event turning all-day or timed is written again (Google cannot

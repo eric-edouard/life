@@ -120,6 +120,7 @@ export function start(
       };
     }
     openAssignment(desk, taker, {
+      matter: c.matter,
       openedBy: "owner",
       said: brief,
       steps: c.steps,
@@ -287,8 +288,8 @@ async function readTakerOf(db: Desk["db"]) {
   const people = await readPeople();
   const find = matterFinderOf(await readMatterBook(people, dayNow()));
   const take = agentForMatterOf(standingAgents(db), people.truth);
-  return (refs: readonly string[]) => {
-    const v = find(refs);
+  return (refs: readonly string[], prefer?: string) => {
+    const v = find(refs, prefer);
     return v && take(v);
   };
 }
@@ -300,7 +301,9 @@ async function startFactsOf(desk: Desk, change: unknown) {
     return {};
   }
   if (c.data.steps) {
-    return { taker: (await readTakerOf(desk.db))(c.data.steps) };
+    return {
+      taker: (await readTakerOf(desk.db))(c.data.steps, c.data.matter),
+    };
   }
   const runtime = runtimeOf(c.data);
   return {
