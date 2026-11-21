@@ -25,6 +25,9 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     func readInbox(pushId: String, at origin: URL?) async throws -> String { "{}" }
     func readMatters() async throws -> String { "{}" }
     func readMatters(project: String) async throws -> String { "{}" }
+    func readMatters(area: String) async throws -> String { "{}" }
+    func readProjects() async throws -> String { "{}" }
+    func readProject(_ id: String) async throws -> String { "{}" }
     func readMatters(person: String) async throws -> String { "{}" }
     func readMatter(_ id: String) async throws -> String { matter }
     func readRegisteredAgents() async throws -> String { "{}" }

@@ -290,8 +290,8 @@ private enum Pager {
     static let edge = Metrics.Spacing.xs * 2.5
 }
 
-/// An ask pushed on a matter's stack: found by its ref among the checks the matter lists, or, once answered, the
-/// result he is still reading. Gone from both: said so.
+/// An ask pushed on a matter's stack, or in a project's sheet: found by its ref among the checks the matter lists, or,
+/// once answered, the result he is still reading. Gone from both: said so.
 struct CardPage: View {
     let ref: String
     let source: [Check]
@@ -303,9 +303,8 @@ struct CardPage: View {
     @State private var current: String?
 
     var body: some View {
+        // Its bar is its host's: Back and the Pendant on a matter's stack, Close in a sheet.
         page
-            // A pushed screen: Back, then the Pendant.
-            .shellBar("", hasSettings: false)
             // Above the ask, so the matter's read that takes it away (his answer) never closes it before it does.
             .askSheets($notes) { _ in leave() }
     }

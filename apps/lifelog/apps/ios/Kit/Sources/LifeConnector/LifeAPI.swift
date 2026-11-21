@@ -92,8 +92,14 @@ public protocol LifeAPI: Sendable {
     /// The card a push names, from the Life at `origin` (nil: the one paired now).
     func readInbox(pushId: String, at origin: URL?) async throws -> String
     func readMatters() async throws -> String
-    /// One project's matters, with its page's head.
+    /// A project chip's matters.
     func readMatters(project: String) async throws -> String
+    /// An area chip's matters: those of the area in no project.
+    func readMatters(area: String) async throws -> String
+    /// The Projects tab's chips (`ProjectChips`).
+    func readProjects() async throws -> String
+    /// A project chip's header and Details (`ProjectHeader`).
+    func readProject(_ id: String) async throws -> String
     /// The matters open with one person or organization, by their ref (`person:ana`), every one.
     func readMatters(person: String) async throws -> String
     func readMatter(_ id: String) async throws -> String
@@ -151,6 +157,13 @@ public struct MCPLifeAPI: LifeAPI {
     public func readMatters() async throws -> String { try await client.call("read_matters") }
     public func readMatters(project: String) async throws -> String {
         try await client.call("read_matters", ["project": project])
+    }
+    public func readMatters(area: String) async throws -> String {
+        try await client.call("read_matters", MattersOfArea(area: area))
+    }
+    public func readProjects() async throws -> String { try await client.call("read_projects") }
+    public func readProject(_ id: String) async throws -> String {
+        try await client.call("read_project", ["project": id])
     }
     public func readMatters(person: String) async throws -> String {
         // Life's `person` takes a name, alias or id: the ref's id (`ana`), never the ref itself.
@@ -236,6 +249,11 @@ public struct MCPLifeAPI: LifeAPI {
         }
         return try await client.call(
             "change_directory_entry", Edit(id: project, status: status, said: said), onProgress: onProgress)
+    }
+
+    private struct MattersOfArea: Encodable, Sendable {
+        let area: String
+        let noProject = true
     }
 
     private struct Correct<C: Encodable & Sendable>: Encodable, Sendable {

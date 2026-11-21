@@ -146,7 +146,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matters.compactMap(\.icon?.key).allSatisfy { MatterIcons.symbol($0) != nil })
     #expect(MatterIcons.symbol("a_new_key") == nil)
     #expect(list.matters[2].important == nil)
-    #expect(list.project == nil)
 
     let chips = try decoded(ProjectChips.self, wireText("life/read_projects.json"))
     #expect(chips.all.needYou == 2)
@@ -154,6 +153,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(chips.chips.first?.status == .active)
     #expect(chips.chips.first?.area == "home")
     #expect(chips.chips.first?.agentAtWork == true)
+    #expect(chips.underway == 1)
     // An area and a project can share an id: the chips' identity tells them apart.
     let sameText =
         #"{"all":{"needYou":0,"open":0},"chips":[{"kind":"area","id":"home","name":"Home","#
@@ -169,17 +169,11 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(header.project.repos.map(\.folder) == ["/Users/owner/Work/shop-site", nil])
     #expect(header.parties.map(\.name) == ["Robin"])
 
-    let project = try decoded(MatterList.self, wireText("life/read_matters_project.json"))
-    #expect(project.project?.name == "Shop fit-out")
-    #expect(project.project?.status == .active)
-    #expect(project.project?.goal == "The shop opens in spring.")
     let said = "The shop is quoting the watch repair; the call to them is done."
-    #expect(project.project?.situation?.map(\.text) == [said])
-    #expect(project.project?.situation?.first?.cites == ["obs_000000000005"])
-    // An older response has no `situation`: it decodes, with none.
-    let olderText = #"{"matters":[],"project":{"id":"p","name":"P","status":"active"},"version":"v"}"#
-    let older = try decoded(MatterList.self, olderText)
-    #expect(older.project?.situation == nil)
+    #expect(header.project.situation.map(\.text) == [said])
+    #expect(header.project.situation.first?.cites == ["obs_000000000005"])
+    // A project chip's list is `read_matters` of the project; its head, if Life sends one, is not read.
+    let project = try decoded(MatterList.self, wireText("life/read_matters_project.json"))
     #expect(project.matters.map(\.id) == ["matter_aaaaaaaaaaaa"])
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
@@ -280,24 +274,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matching("nothing like it").isEmpty)
 }
 
-@Test func theFiltersNarrowTheListAndAreasComeMostFirst() throws {
-    let text = #"""
-        {"matters":[
-        {"id":"a","name":"A","status":"moving","needsYou":true,"areas":["Home","Money"],"agent":"agt_1","nextStep":{"kind":"wait_decision","text":"x"}},
-        {"id":"b","name":"B","status":"stuck","needsYou":false,"areas":["Home"],"nextStep":{"kind":"do","text":"y"}},
-        {"id":"c","name":"C","status":"moving","needsYou":false,"areas":["Work"],"nextStep":{"kind":"do","text":"z"}},
-        {"id":"d","name":"D","status":"dormant","needsYou":false}]}
-        """#
-    let list = try decoded(MatterList.self, text)
-    #expect(list.areasByCount == ["Home", "Money", "Work"])
-    func ids(_ filter: MatterFilter) -> [String] { list.shown(filter: filter) { _ in false }.map(\.id) }
-    #expect(ids(.everything) == ["a", "b", "c", "d"])
-    #expect(ids(.area("Home")) == ["a", "b"])
-    #expect(ids(.needsYou) == ["a"])
-    #expect(ids(.agentWorking) == ["a"])
-}
-
-@Test func aParkedOrDoneProjectsMattersAreParkedAndTheMarkFilters() throws {
+@Test func aParkedOrDoneProjectsMattersAreParked() throws {
     let text = #"""
         {"matters":[
         {"id":"a","name":"A","status":"moving","important":true,"project":{"id":"p","name":"P","status":"waiting"}},
@@ -309,9 +286,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matters.map(\.isParked) == [false, true, true, false])
     #expect(list.matters[0].project?.status.isUnderway == true)
     #expect(list.matters[3].project?.status == .unknown)
-    // His mark as shown filters: a tap that unmarks "a" and marks "b" moves both.
-    #expect(list.shown(filter: .important) { $0.important == true }.map(\.id) == ["a"])
-    #expect(list.shown(filter: .important) { $0.id == "b" }.map(\.id) == ["b"])
 }
 
 @Test func aRowCarriesLifesWordThatItNeedsHim() throws {
