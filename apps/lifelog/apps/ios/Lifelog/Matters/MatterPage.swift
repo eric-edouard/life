@@ -148,8 +148,8 @@ struct MatterPage: View {
             HStack(spacing: 6) {
                 MetaIconButton(symbol: row.symbol, label: "Change the icon") { router.matterSheet = .icon(id) }
                 HStack(spacing: 0) {
-                    Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small).foregroundStyle(
-                        Palette.muted)
+                    Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small)
+                        .foregroundStyle(Palette.muted).lineLimit(1)
                     if let project = row.project {
                         TextLink(project.name, to: .page) {
                             // A done project has no chip: its Details, then.
@@ -159,6 +159,7 @@ struct MatterPage: View {
                                 router.open(project: ProjectChips.Chip.identity(.project, project.id))
                             }
                         }
+                        .lineLimit(1).layoutPriority(1)
                     }
                 }
             }

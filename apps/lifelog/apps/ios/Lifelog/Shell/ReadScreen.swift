@@ -35,12 +35,9 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
         }
     }
 
-    /// Out of reach, what shows is what was last read and nothing can be done on it: said above it, in place.
+    /// Out of reach, what shows is what was last read and nothing can be done on it: said in the toast over it.
     private func withOutOfReach(_ shown: some View) -> some View {
-        VStack(spacing: 0) {
-            if let why = life.whyOutOfReach { StaleNote(since: nil, because: why, retry: retry) }
-            shown
-        }
+        shown.staleToast(life.whyOutOfReach.map { (nil, $0) }, retry: retry)
     }
 
     @ViewBuilder private var face: some View {
@@ -49,10 +46,7 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
         case .loaded(let value): withOutOfReach(content(value))
         case .empty: withOutOfReach(empty)
         case .stale(let value, let since, let why):
-            VStack(spacing: 0) {
-                StaleNote(since: since, because: why.words, retry: retry)
-                content(value)
-            }
+            content(value).staleToast((since, why.words), retry: retry)
         case .unreachable:
             Notice(
                 title: "Your Mac is out of reach.",
@@ -113,7 +107,8 @@ private struct OffWhileOutOfReach: ViewModifier {
     func body(content: Content) -> some View { content.disabled(life.isOutOfReach) }
 }
 
-/// What was read last, when the latest try failed or Life is out of reach (`since` unknown): the old value stays below.
+/// What was read last, when the latest try failed or Life is out of reach (`since` unknown): the designed `Toast` at
+/// the top of the pane, over the old value, which stays whole under it; Retry in its capsule, the spinner while it runs.
 struct StaleNote: View {
     let since: Date?
     let because: String
@@ -121,21 +116,29 @@ struct StaleNote: View {
     @State private var isRetrying = false
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "clock.arrow.circlepath").foregroundStyle(Palette.muted).accessibilityHidden(true)
-            Text((since.map { "Read at \($0.formatted(.dateTime.hour().minute())). " } ?? "") + because)
-                .font(.small).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-            QuietChip("Retry", symbol: "arrow.clockwise", isBusy: isRetrying) {
-                Task {
-                    isRetrying = true
-                    await retry()
-                    isRetrying = false
-                }
+        Toast(
+            words: (since.map { "Read at \($0.formatted(.dateTime.hour().minute())). " } ?? "") + because,
+            glyph: isRetrying ? .busy : .flag, action: "Retry"
+        ) {
+            guard !isRetrying else { return }
+            Task {
+                isRetrying = true
+                await retry()
+                isRetrying = false
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 2)
-        .background(Color.fillTint)
+        .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
+    }
+}
+
+extension View {
+    /// `note` (when it was read, why it is old) as the stale toast over the top of this pane; nothing when nil.
+    func staleToast(_ note: (since: Date?, because: String)?, retry: @escaping () async -> Void) -> some View {
+        overlay(alignment: .top) {
+            ZStack {
+                if let note { StaleNote(since: note.since, because: note.because, retry: retry).appears() }
+            }
+            .motion(Motion.standard, value: note?.because)
+        }
     }
 }

@@ -171,7 +171,8 @@ export async function matterDirections(
   const calls = packed(
     all
       ? due
-      : newestWithin(due, NIGHT_CHARS, {
+      : // ponytail: newest first, so on a full night a stale dated matter is the first dropped; today's ~60k of 120k leaves room.
+        newestWithin(due, NIGHT_CHARS, {
           // A matter with no direction yet sorts before any drafted one: "~" is after every digit. Then the newest of its last step and its newest later record.
           at: (m) =>
             `${m.v.goal ? "" : "~"}${[m.v.steps.at(-1)?.at ?? "", m.later.at(-1)?.at ?? ""].toSorted().at(-1)}`,
