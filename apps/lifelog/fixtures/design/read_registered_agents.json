@@ -112,7 +112,18 @@
         {
           "kind": "wide_net"
         }
-      ]
+      ],
+      "spending": {
+        "equivalent": {
+          "amount": 8.6,
+          "basis": "equivalent",
+          "currency": "USD"
+        },
+        "provider": "claude",
+        "reported": true,
+        "since": "2026-11-17T10:12:00",
+        "tokens": 640000
+      }
     },
     {
       "amber": [],
@@ -173,7 +184,18 @@
         {
           "kind": "wide_net"
         }
-      ]
+      ],
+      "spending": {
+        "equivalent": {
+          "amount": 30.0,
+          "basis": "equivalent",
+          "currency": "USD"
+        },
+        "provider": "codex",
+        "reported": true,
+        "since": "2026-11-14T09:00:00",
+        "tokens": 2200000
+      }
     }
   ],
   "desk": "ok",

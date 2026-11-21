@@ -7,7 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import {
   DESIGN_DATA,
   FRAME_MAP,
@@ -61,10 +61,7 @@ test.skipIf(!existsSync(FRAME_MAP))(
   }
 );
 
-const CREATE_FLOW = join(
-  dirname(FRAME_MAP),
-  "fixtures-draft/create-person-and-organization.json"
-);
+const CREATE_FLOW = join(DESIGN_DATA, "create-person-and-organization.json");
 
 interface WireCheck {
   about?: string[];
@@ -81,39 +78,36 @@ interface CreateFrame {
   question: string;
 }
 
-test.skipIf(!existsSync(CREATE_FLOW))(
-  "the create flow's answers and Life's guess read as the designer's extract, from the same data",
-  () => {
-    const { frames } = JSON.parse(readFileSync(CREATE_FLOW, "utf8")) as {
-      frames: Record<string, CreateFrame>;
-    };
-    const frameOf = (name: string) => frames[name] as CreateFrame;
-    const { checks } = JSON.parse(
-      readFileSync(join(DESIGN_DATA, "read_inbox.json"), "utf8")
-    ) as { checks: WireCheck[] };
-    const cardOf = (question: string) =>
-      checks.find((c) => c.question === question) as WireCheck;
-    for (const name of ["AskNameNone", "OrgNameCard"]) {
-      const frame = frameOf(name);
-      const card = cardOf(frame.question);
-      // The app's words: "Create <name>", and "Someone I know…" for the naming option with no one to suggest (CheckActions).
-      expect(`Create ${card.about?.at(-1)}`).toBe(frame.answers.main);
-      expect(
-        card.options.map((o) =>
-          o.takes === "person or name" ? "Someone I know…" : o.label
-        )
-      ).toEqual(frame.answers.quiet);
-    }
-    // Life's guess of who they are, as CreateSheet's `guessOf` builds it from the card.
-    const card = cardOf(frameOf("AskNameNone").question);
-    const who = frameOf("PersonCreate").fields.find(
-      (f) => f.label === "Who they are"
-    );
+test("the create flow's answers and Life's guess read as the designer's extract, from the same data", () => {
+  const { frames } = JSON.parse(readFileSync(CREATE_FLOW, "utf8")) as {
+    frames: Record<string, CreateFrame>;
+  };
+  const frameOf = (name: string) => frames[name] as CreateFrame;
+  const { checks } = JSON.parse(
+    readFileSync(join(DESIGN_DATA, "read_inbox.json"), "utf8")
+  ) as { checks: WireCheck[] };
+  const cardOf = (question: string) =>
+    checks.find((c) => c.question === question) as WireCheck;
+  for (const name of ["AskNameNone", "OrgNameCard"]) {
+    const frame = frameOf(name);
+    const card = cardOf(frame.question);
+    // The app's words: "Create <name>", and "Someone I know…" for the naming option with no one to suggest (CheckActions).
+    expect(`Create ${card.about?.at(-1)}`).toBe(frame.answers.main);
     expect(
-      `Mentioned by ${card.said?.by}, about “${card.onMatters?.[0]?.name}”`
-    ).toBe(who?.value as string);
+      card.options.map((o) =>
+        o.takes === "person or name" ? "Someone I know…" : o.label
+      )
+    ).toEqual(frame.answers.quiet);
   }
-);
+  // Life's guess of who they are, as CreateSheet's `guessOf` builds it from the card.
+  const card = cardOf(frameOf("AskNameNone").question);
+  const who = frameOf("PersonCreate").fields.find(
+    (f) => f.label === "Who they are"
+  );
+  expect(
+    `Mentioned by ${card.said?.by}, about “${card.onMatters?.[0]?.name}”`
+  ).toBe(who?.value as string);
+});
 
 test("the simulator stays booted unless --shutdown; a built app is taken as given", () => {
   expect(parseArgs(["A", "--app", "/x/lifelog.app", "B"])).toEqual({
