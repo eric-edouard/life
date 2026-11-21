@@ -85,8 +85,10 @@ let n = 0;
 const said = (change: AgentChange | null, ago = 0) => {
   n += 1;
   return ask(
+    // Its own `via` per ask: a ref of time alone met an earlier ask's whenever the clock moved on by whole seconds
+    // between them (`at` steps back 1 s per ask), and the ask then answered as that one (a flake in the train of 21 Nov).
     requested(
-      "oversight-test",
+      `oversight-test-${n}`,
       `Test: change ${n}`,
       new Date(clock().getTime() - ago - n * 1000).toISOString()
     ),
