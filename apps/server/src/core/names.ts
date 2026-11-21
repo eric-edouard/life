@@ -80,6 +80,12 @@ export type NotifyLevel = z.infer<typeof NotifyLevel>;
 export const RuntimeName = z.enum(["claude", "codex"]);
 export type RuntimeName = z.infer<typeof RuntimeName>;
 
+/** A runtime as he reads it, by its name: the program, as its maker calls it. */
+export const RUNTIME_WORDS: Record<RuntimeName, string> = {
+  claude: "Claude Code",
+  codex: "Codex",
+};
+
 /** Where a unit or an observation comes from. */
 export const SourceName = z.enum([
   "lifelog",
