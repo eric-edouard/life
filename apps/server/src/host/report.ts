@@ -226,7 +226,7 @@ export function successReport(day: string, ms: number, n: Night) {
           kind: "pairs",
           list: checks.map((c) => ({
             name: c.question,
-            relation: `${c.context ? `${c.context} · ` : ""}${c.evidence ? `“${c.evidence.quote}” (${c.evidence.from}) · ` : ""}${ridesText(c.ridesOn)}`,
+            relation: `${c.context ? `${c.context} · ` : ""}${ridesText(c.ridesOn)}`,
           })),
           title: "Checks",
         },
