@@ -42,14 +42,17 @@ struct InboxScreen: View {
             ReadScreen(
                 shown: shown, retry: { await life.refreshInbox() },
                 loading: { InboxSkeleton() }, empty: { InboxZero() },
-                content: { _ in card(order) }
+                content: { _ in
+                    // The Filter's "Your moves" is a list to sort, not cards.
+                    if kind == .yourMove { MovesList(checks: all.only(.yourMove).checks) } else { card(order) }
+                }
             )
             // The first card cross-fades in over the skeleton.
             .motion(Motion.standard, value: life.inboxOnShow == nil)
             .background(Palette.bg)
             // Alone, the ask has the screen's title over it (the question stays the biggest line); beside the list, the
             // list has it, and the gear and the Pendant.
-            .screenTitle(widths.ask < widths.whole - 1 ? nil : "Inbox", state: waiting)
+            .screenTitle(widths.ask < widths.whole - 1 || kind == .yourMove ? nil : "Inbox", state: waiting)
             .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.ask = $0 }
             // Declared before the Pendant and Settings: a vertical bar stacks trailing items bottom-up, so the order puts
             // this one under them; `sharedBackgroundVisibility(.hidden)` keeps it out of their capsule.
@@ -83,6 +86,8 @@ struct InboxScreen: View {
         .navigationSplitViewStyle(.balanced)
         // Above the asks, so a read that takes his ask away (his answer was the last) never closes it before it does.
         .askSheets($notes) { leave($0, keep: false) }
+        // The moves' list is the ask column's, which a compact width then shows.
+        .onChange(of: kind) { _, kind in if kind == .yourMove { router.inboxColumn = .detail } }
         // The chosen kind has no ask left: the whole list again, so the filter never rests on a kind that is gone.
         .onChange(of: all.kinds) { _, kinds in if let kind, !kinds.contains(kind) { self.kind = nil } }
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }

@@ -194,3 +194,13 @@ private func qr(_ payload: String?) -> String {
         }, appName: "K PLUS")
     #expect(trip.opens == 0 && !trip.state.isCodeSaved && trip.state.problem == "Not saved to your photos.")
 }
+
+@Test func theAmountSplitsIntoItsFigureAndItsCurrency() throws {
+    func code(_ amount: String?) -> PayCode {
+        PayCode(payload: "p", source: "s", amount: amount, invoiceAmount: nil, payee: nil)
+    }
+    #expect(code("4,500 THB").figure?.number == "4,500")
+    #expect(code("4,500 THB").figure?.currency == "THB")
+    #expect(code("120").figure?.currency == nil)
+    #expect(code(nil).figure == nil)
+}
