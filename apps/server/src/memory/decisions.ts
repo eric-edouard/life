@@ -11,7 +11,6 @@ import {
   endsProblemOf,
   notBuiltOf,
   pageHintOf,
-  planRoleOf,
 } from "./card-problems";
 import { Ask, Keep, type Option, Withdrawal } from "./card-request";
 import {
@@ -44,7 +43,7 @@ import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
 import { contextProblemOf, readsOnce } from "./find-refs";
 import { matterOfSteps, openStepsOf } from "./matter-read";
 import { MEMORY } from "./memory-files";
-import { amountOf, needsShownOf } from "./needs";
+import { amountOf } from "./needs";
 
 // The decisions: a question an agent puts to him, as one card: a title and a question of one line each, the exact
 // draft he approves when there is one, 2 to 4 options (the recommended one first), its context folded, a deadline.
@@ -650,21 +649,6 @@ export function doneSeenShownOf(l?: DoneSeen) {
     state: l.state,
   };
 }
-
-/** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
-export const decisionCardOf = (d: Decision) => ({
-  doneSeen: doneSeenShownOf(d.doneSeen),
-  doneSeenBy: doneSeenByOf(d),
-  gathered: d.gathered ?? null,
-  needs: needsShownOf(d.needs),
-  notSent: notSentOf(d),
-  options: d.options.map((o) => {
-    const role = d.plan && planRoleOf(o.id);
-    return { ...o, ...(role ? { role } : {}), takes: o.takes ?? null };
-  }),
-  plan: d.plan ?? null,
-  replaces: d.replaces ?? null,
-});
 
 /** Closes the step or matter of the answered decision `d` by his word (`end`) and appends its `ended` line, with the error when it failed. */
 async function endOnAnswer(

@@ -351,14 +351,18 @@ test("a failed read is not found with its error; a look that never finished (a c
 
 test("a card's parts are checked when asked, each refusal pointing at its page; what is not built yet says so", async () => {
   // Regression (the plan card's wire): a card asked outside an assignment's plan card refuses its parts.
-  for (const over of [
+  const plans = [
     { plan: [{ by: "owner", text: "Pay" }] },
     { gathered: { text: "From the quote" } },
-  ]) {
-    await expect(transfer(over)).rejects.toThrow(
-      "only on an assignment's plan card"
-    );
-  }
+  ];
+  const refused = await Promise.allSettled(plans.map((over) => transfer(over)));
+  expect(
+    refused.map((r) => r.status === "rejected" && String(r.reason))
+  ).toEqual(
+    plans.map(() =>
+      expect.stringContaining("only on an assignment's plan card")
+    )
+  );
   await expect(
     transfer({ options: [{ ...OPTIONS[0], takes: "file" }, OPTIONS[1]] })
   ).rejects.toThrow('`takes: "file"` (only `note`) is not built yet');

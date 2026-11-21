@@ -1,12 +1,9 @@
 import { expect, setSystemTime, test } from "bun:test";
 import { DAY } from "../core/clock";
 import { planCardsOf } from "../host/inbox";
+import { decisionCardOf } from "../memory/checks";
 import type { Decision } from "../memory/decision-lines";
-import {
-  answerDecision,
-  decisionCardOf,
-  decisionsNow,
-} from "../memory/decisions";
+import { answerDecision, decisionsNow } from "../memory/decisions";
 import { askDecision, openAssignment, register } from "./agent-actions";
 import { ahead, on, setup } from "./test-desk";
 
@@ -96,7 +93,7 @@ test("a plan card's `plan` and `gathered` reach his card, and only the plan card
     title: "Mend the watch",
     ...over,
   });
-  for (const options of [
+  const wrongOptions = [
     [
       { id: "go", label: "Go" },
       { id: "decline", label: "Not this plan" },
@@ -105,11 +102,17 @@ test("a plan card's `plan` and `gathered` reach his card, and only the plan card
       { id: "start", label: "Start the plan" },
       { id: "stop", label: "Stop" },
     ],
-  ]) {
-    await expect(askDecision(desk, s, card({ options }))).rejects.toThrow(
-      "exactly two: `start` and `decline`"
-    );
-  }
+  ];
+  const refusals = await Promise.allSettled(
+    wrongOptions.map((options) => askDecision(desk, s, card({ options })))
+  );
+  expect(
+    refusals.map((r) => r.status === "rejected" && String(r.reason))
+  ).toEqual(
+    wrongOptions.map(() =>
+      expect.stringContaining("exactly two: `start` and `decline`")
+    )
+  );
   await expect(
     askDecision(desk, s, card({ onSilence: "start" }))
   ).rejects.toThrow("on silence no plan starts");
