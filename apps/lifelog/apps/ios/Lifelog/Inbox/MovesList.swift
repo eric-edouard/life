@@ -33,12 +33,12 @@ struct MovesList: View {
             ForEach(sections(of: rows, in: moves), id: \.heading) { section in
                 ListLabel(section.heading) {
                     if isSelecting {
-                        QuietChip(allTicked(section.moves) ? "Untick all" : "Tick all", symbol: "checkmark") {
+                        QuietChip(allTicked(section.moves) ? "Untick all" : "Tick all") {
                             toggle(section.moves)
                         }
                     }
                 }
-                .padding(.horizontal, Metrics.gutter).quietListRow()
+                .quietListRow()
                 ForEach(Array(section.moves.enumerated()), id: \.element.id) { at, move in
                     row(move, at: at, of: section.moves.count).quietListRow()
                 }
@@ -48,7 +48,15 @@ struct MovesList: View {
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
         .safeAreaBar(edge: .bottom, spacing: 0) { if isSelecting { actions(rows) } }
         .motion(Motion.standard, value: rows.map(\.id))
-        .screenTitle("Your move", state: "\(moves.moves.count)")
+        // Select on the title's row, at its right (DuoFoldMoves).
+        .screenTitle("Your move", state: "\(moves.moves.count)") {
+            QuietChip(isSelecting ? "Cancel" : "Select") {
+                isSelecting.toggle()
+                // A filter already chosen is a pick: Select ticks what it shows.
+                ticked = isSelecting && filter != .all ? Set(moves.shown(filter).map(\.id)) : []
+                sent = []
+            }
+        }
         .sheet(
             isPresented: Binding(get: { opened != nil }, set: { if !$0 { opened = nil } }),
             onDismiss: { openedNotes = CardNotes() }
@@ -76,20 +84,7 @@ struct MovesList: View {
     // MARK: Header
 
     private func header(_ moves: YourMoves) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-            HStack {
-                Spacer(minLength: 0)
-                QuietChip(isSelecting ? "Cancel" : "Select", symbol: isSelecting ? "xmark" : "checkmark.circle") {
-                    isSelecting.toggle()
-                    // A filter already chosen is a pick: Select ticks what it shows.
-                    ticked = isSelecting && filter != .all ? Set(moves.shown(filter).map(\.id)) : []
-                    sent = []
-                }
-            }
-            .padding(.horizontal, Metrics.gutter)
-            chips(moves)
-        }
-        .padding(.bottom, Metrics.Spacing.s)
+        chips(moves).padding(.bottom, Metrics.Spacing.s)
     }
 
     /// All, Over a month, then the projects and people the moves are in.
@@ -100,7 +95,12 @@ struct MovesList: View {
                 FilterChip(name: "All", isOn: filter == .all) { choose(.all) }
                 FilterChip(name: "Over a month", isOn: filter == .overMonth) { choose(.overMonth) }
                 ForEach(moves.projects(in: order), id: \.project.id) { entry in
-                    FilterChip(name: entry.project.name, isOn: filter == .project(entry.project.id)) {
+                    // The project's own icon, as its chip shows it in Projects.
+                    let chip = life.projects.value?.chips.first { $0.kind == .project && $0.id == entry.project.id }
+                    FilterChip(
+                        name: entry.project.name, icon: chip.map { MatterIcons.areaSymbol($0.area ?? $0.id) },
+                        isOn: filter == .project(entry.project.id)
+                    ) {
                         choose(.project(entry.project.id))
                     }
                 }
@@ -121,7 +121,7 @@ struct MovesList: View {
         VStack(alignment: .leading, spacing: 0) {
             ListLabel("Looks dead") {
                 if moves.dead.contains(where: { $0.answer("drop") != nil }) {
-                    QuietChip("Close \(moves.dead.count)", symbol: "xmark") {
+                    QuietChip("Close \(moves.dead.count)") {
                         act(moves.dead, "drop", words: "\(moves.dead.count) dropped")
                     }
                 }
@@ -144,7 +144,6 @@ struct MovesList: View {
                 }
             }
         }
-        .padding(.horizontal, Metrics.gutter)
     }
 
     // MARK: Rows
@@ -179,35 +178,28 @@ struct MovesList: View {
 
     private func row(_ move: YourMoves.Move, at index: Int, of count: Int) -> some View {
         let refused = failure(of: move)
-        let content = VStack(alignment: .leading, spacing: 2) {
-            Text(move.check.said?.text ?? move.check.question).font(.leadBold).foregroundStyle(Palette.fg)
-                .lineLimit(2)
-            if let refused {
-                Text(refused.reason).font(.small).foregroundStyle(Palette.flag)
-            } else {
-                Text(move.detail).font(.small).foregroundStyle(Palette.muted).lineLimit(1)
-            }
-        }
+        // The list's one row (`Row`): its matter's icon in the 28 slot (as Projects draws it), the step, then the matter
+        // and its age, or why Life refused it, in `flag`.
+        let symbol = move.check.matter.flatMap { id in life.matters.value?.matters.first { $0.id == id.id } }?.symbol
+        let content = Row(
+            title: move.check.said?.text ?? move.check.question, icon: isSelecting ? nil : symbol,
+            iconTint: Palette.muted, detail: move.detail, state: refused.map { .refused($0.reason) } ?? .known,
+            isInList: true)
         return Group {
             if isSelecting {
                 TickRow(isTicked: ticked.contains(move.id), tick: { tick(move) }, open: { opened = move.id }) {
                     content
                 }
-                .padding(.horizontal, Metrics.Spacing.s)
+                .padding(.leading, Metrics.Spacing.s)
                 .groupedRow(at: index, of: count)
             } else {
                 Button {
                     opened = move.id
                 } label: {
-                    HStack {
-                        content; Spacer(minLength: 0)
-                    }.padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.s)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.groupedRow(at: index, of: count))
+                    content
+                }.buttonStyle(.groupedRow(at: index, of: count))
             }
         }
-        .padding(.horizontal, Metrics.gutter)
         .accessibilityElement(children: .combine)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             if move.answer("done") != nil {
@@ -256,15 +248,24 @@ struct MovesList: View {
                     act(hand, "start", words: "\(hand.count) handed to \(projectName(of: hand))")
                 }
                 .buttonStyle(.pill(.filled)).disabled(hand.isEmpty)
-                Button("Done") { act(picked, "done", words: "\(picked.count) done") }
-                    .buttonStyle(.pill(.quiet)).disabled(picked.isEmpty)
+                // The check in `ok`: the answer that closes something (decision 98, rule 13).
+                Button {
+                    act(picked, "done", words: "\(picked.count) done")
+                } label: {
+                    Label {
+                        Text("Done")
+                    } icon: {
+                        Image(systemName: "checkmark").foregroundStyle(Palette.ok)
+                    }
+                }
+                .buttonStyle(.pill(.quiet)).disabled(picked.isEmpty)
                 if picked.contains(where: { $0.answer("drop") != nil }) {
                     Button("Drop") { act(picked, "drop", words: "\(picked.count) dropped") }
                         .buttonStyle(.pill(.quiet))
                 }
             }
         }
-        .padding(.horizontal, Metrics.Spacing.s).padding(.bottom, Metrics.Spacing.s).readingWidth()
+        .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.s).readingWidth()
     }
 
     /// The one project the moves belong to, else "an agent".
