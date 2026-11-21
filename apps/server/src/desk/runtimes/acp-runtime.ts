@@ -32,7 +32,7 @@ import type { Row } from "./runtime-rows";
 /** Everything from the spawn to the prompt being sent must finish within this, else the adapter is killed and the launch fails. */
 export const LAUNCH_WITHIN_MS = 30_000;
 /** How long a session kept open by `talk` or `keep` stays open without a prompt (the study's presence, 21 Nov 2026). */
-export const KEEP_WARM_MS = 5 * MIN;
+const KEEP_WARM_MS = 5 * MIN;
 /** A closed run's adapter has this long to exit before it is killed. */
 const EXIT_WITHIN_MS = 5000;
 /** The stop reasons of a turn that ran its course; anything else (`cancelled`, `refusal`) is a failed turn. */
