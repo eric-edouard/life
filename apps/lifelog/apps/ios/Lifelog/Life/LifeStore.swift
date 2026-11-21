@@ -17,15 +17,25 @@ final class LifeStore {
     /// A project's page: its matters with its head, by the project's id.
     private(set) var project: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
-    /// The People tab: everyone Life knows, closest first, and one of them read in full, by ref.
+    /// The People tab: everyone Life knows, closest first; one of them read in full, by ref; and what a search found.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
+    private(set) var peopleFound: (query: String, state: ReadState<PeopleList>)?
+    /// A person's page's parts, by their ref: a page of their latest exchanges, a part of prose.
+    private(set) var latest: [String: ReadState<LatestPage>] = [:]
+    private(set) var prose: [String: ReadState<Prose>] = [:]
+    /// The pages of someone's `reach` part, by their ref: every account, when `now` had no room for them all.
+    private(set) var reach: [String: ReadState<ReachPage>] = [:]
+    /// Every matter open with someone, by their ref: read on All once their `now` left some out.
+    private(set) var openWith: [String: ReadState<MatterList>] = [:]
     /// Everyone the reads name, and their pictures.
     let parties: PartyBook
 
     /// What an action acts on: the store makes every key itself, so a screen asks for the state of what it shows.
-    enum ActionKey: Hashable {
+    nonisolated enum ActionKey: Hashable, Sendable {
         case answer(ref: String)
+        /// His "Wrong…" on a card: apart from its answers, so they stay as they are while it goes.
+        case complaint(ref: String)
         case start(matter: String)
         case agent(String)
         case edit(matter: String, Edit)
@@ -57,7 +67,7 @@ final class LifeStore {
     private var writtenIcons = WrittenIcons()
 
     /// Every action by what it acts on: its steps as they stream, then its proof or why not.
-    private(set) var actions: [ActionKey: ActionState<ActionProof>] = [:]
+    private(set) var actions = ActionBook<ActionKey>()
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
     /// A tapped push, from the tap until a whole read asked after it lands: its card, as in hand, is shown meanwhile.
@@ -81,7 +91,7 @@ final class LifeStore {
     /// asks), so none flashes back; a read asked later says what is open.
     func answersNewer(than asked: Date?) -> Set<String> {
         holds.underWay.union(answered.newer(than: asked)).union(
-            actions.compactMap { key, state in
+            actions.states.compactMap { key, state in
                 if case .answer(let ref) = key, state.isRunning { ref } else { nil }
             })
     }
@@ -147,7 +157,7 @@ final class LifeStore {
 
     /// Forgets an action's result once the screen has shown it (the next card is up, the sheet is closed).
     func forget(_ key: ActionKey) {
-        if actions[key]?.isRunning != true { actions[key] = nil }
+        actions.forget(key)
     }
 
     /// The card a tapped push opened has been shown.
@@ -232,6 +242,50 @@ final class LifeStore {
         await load(update, key: key) { try await $0.readPart(ref + "/now") }
     }
 
+    func refreshLatest(_ ref: String) async {
+        await load({ self.latest[ref, default: ReadState()].apply($0) }, key: ref, isKept: false) {
+            try await $0.readPart(ref)
+        }
+    }
+
+    /// Every account of theirs: the `reach` part page after page to its end, from `first` on a visit (the accounts may
+    /// have changed on the Mac since), or from the page that failed on Try again (`isRetry`). A page that fails stops
+    /// it there; the pages read before stand until their new read lands.
+    func refreshReach(from first: String, isRetry: Bool = false) async {
+        var next = isRetry ? reachChain(from: first).toRead : first
+        while let ref = next {
+            await load({ self.reach[ref, default: ReadState()].apply($0) }, key: ref, isKept: false) {
+                try await $0.readPart(ref)
+            }
+            guard reach[ref]?.phase == .loaded else { return }
+            next = reach[ref]?.value?.next
+        }
+    }
+
+    /// The `reach` part's pages read so far, from `first`, and what comes next.
+    func reachChain(from first: String) -> PageChain<ReachPage> {
+        PageChain(from: first, states: reach, next: \.next)
+    }
+
+    /// Their `latest` pages read so far, from the first, paging back, and what comes next.
+    func latestChain(of subject: String) -> PageChain<LatestPage> {
+        PageChain(from: subject + "/latest", states: latest) { $0.earlier(of: subject) }
+    }
+
+    func refreshOpenWith(_ ref: String) async {
+        await load(
+            { self.openWith[ref, default: ReadState()].apply($0) }, key: "read_matters-person-\(ref)", isKept: false
+        ) {
+            try await $0.readMatters(person: ref)
+        }
+    }
+
+    func refreshProse(_ ref: String) async {
+        await load({ self.prose[ref, default: ReadState()].apply($0) }, key: ref, isKept: false) {
+            try await $0.readPart(ref)
+        }
+    }
+
     /// A `life:` link's page (`fetch`): read when opened, kept by the page that shows it.
     func fetch(_ ref: String, _ update: (ReadState<LifeLinkRead>.Event) -> Void) async {
         update(.started)
@@ -240,6 +294,18 @@ final class LifeStore {
         }
         if case .failed(.notPaired) = event { pairedOrigin = nil }
         update(event)
+    }
+
+    /// The people and organizations `query` matches, and the others Life has seen by that name; a newer query's read
+    /// replaces this one's, which then applies nothing.
+    func findPeople(_ query: String) async {
+        if peopleFound?.query != query { peopleFound = (query, ReadState()) }
+        await load(
+            { if self.peopleFound?.query == query { self.peopleFound?.state.apply($0) } },
+            key: "read_people_and_organizations-query-\(query)", isKept: false
+        ) {
+            try await $0.readPeopleAndOrganizations(query: query)
+        }
     }
 
     func refreshMatter(_ id: String) async {
@@ -276,19 +342,19 @@ final class LifeStore {
         if inbox.value != nil { setBadge(badge) }
     }
 
-    private func restore<V: Decodable & Sendable & NamesParties>(_ update: (ReadState<V>.Event) -> Void, key: String) {
+    private func restore<V: ParsedRead & NamesParties>(_ update: (ReadState<V>.Event) -> Void, key: String) {
         guard let kept = cache.load(key),
-            let value = try? LibraryStore.feedDecoder.decode(V.self, from: Data(kept.text.utf8))
+            let value = try? V.parsed(kept.text)
         else { return }
         parties.remember(value.parties, at: kept.at, pairing: parties.generation.current)
         update(.succeeded(value, kept.at))
     }
 
     /// The read `key`, one pass at a time (`ReadFlights`): its value applies as of when its pass began, and is kept for a
-    /// cold start. A read of the Life paired before this one applies nothing, not even its failure: no save, no screen,
+    /// cold start unless `isKept` is false (a part of a page, read again on each visit). A read of the Life paired before this one applies nothing, not even its failure: no save, no screen,
     /// no reset (`PairingGeneration`).
-    private func load<V: Decodable & Sendable & NamesParties>(
-        _ update: @escaping (ReadState<V>.Event) -> Void, key: String,
+    private func load<V: ParsedRead & NamesParties>(
+        _ update: @escaping (ReadState<V>.Event) -> Void, key: String, isKept: Bool = true,
         fetch: @escaping @Sendable (any LifeAPI) async throws -> String
     ) async {
         await flights.run(key) { [self] in
@@ -297,8 +363,8 @@ final class LifeStore {
             guard let text = await parties.generation.answer({ try await fetch(api) }) else { return }
             do {
                 let read = try text.get()
-                let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(read.utf8))
-                cache.store(read, key: key, asked: asked)
+                let value = try V.parsed(read)
+                if isKept { cache.store(read, key: key, asked: asked) }
                 parties.remember(value.parties, at: asked, pairing: pairing)
                 update(.succeeded(value, asked))
             } catch let error as MCPError {
@@ -318,14 +384,14 @@ final class LifeStore {
         _ key: ActionKey, tap: String? = nil, succeeded: @escaping () -> Void = {},
         _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void
     ) async {
-        guard actions[key]?.isRunning != true else { return }
+        guard actions.begin(key) else { return }
         let (events, emit) = AsyncStream.makeStream(of: ActionState<ActionProof>.Event.self)
-        let began = now()
+        let (began, pairing) = (now(), actions.pairing)
         var limit: Date?
-        actions[key] = .running(steps: [], limit: nil)
         let consumer = Task {
+            // Applied only within its pairing: after another, its key may be a new tap's, on that Life's card.
             for await event in events {
-                actions[key, default: .idle].apply(event)
+                guard actions.apply(event, to: key, begunIn: pairing) else { continue }
                 if case .succeeded = event { succeeded() }
                 limit = actions[key]?.limit ?? limit
             }
@@ -333,6 +399,7 @@ final class LifeStore {
         await body { emit.yield($0) }
         emit.finish()
         await consumer.value
+        guard pairing == actions.pairing else { return }
         if let ended = actions[key] { traceOf(key, tap: tap, ended, began: began, limit: limit) }
     }
 
@@ -350,6 +417,7 @@ final class LifeStore {
         ]
         switch key {
         case .answer(let ref): fields["kind"] = "answer"; fields["ref"] = ref
+        case .complaint(let ref): fields["kind"] = "complaint"; fields["ref"] = ref
         case .start(let matter): fields["kind"] = "start"; fields["ref"] = matter
         case .agent(let agent): fields["kind"] = "agent"; fields["ref"] = agent
         case .edit(let matter, let what): fields["kind"] = "edit.\(what)"; fields["ref"] = matter
@@ -389,22 +457,49 @@ final class LifeStore {
     /// The answer's call alone, until Life's answer to it, to the Life it was decided for (`life`) and no other: one
     /// decided under an earlier pairing, or none, is refused here and never sent.
     private func send(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife?) async {
-        let key = ActionKey.answer(ref: request.ref)
+        let key = request.isComplaint ? ActionKey.complaint(ref: request.ref) : .answer(ref: request.ref)
         guard actions[key]?.isRunning != true else { return }
-        guard let life, life.generation == parties.generation.current else {
-            return await perform(key) { emit in
-                emit(.started)
-                emit(.failed(ActionFailure(.notPaired)))
-            }
-        }
-        let tap = taps.key(for: request)
+        guard let life, life.generation == parties.generation.current else { return await refuseUnpaired(key) }
+        let (tap, generation) = (taps.key(for: request), parties.generation)
         await perform(
             key, tap: tap, succeeded: { self.confirm(request, keepsCardOpen: keepsCardOpen, pairing: life.generation) }
         ) {
             [runner] in
-            await runner.answer(request, key: tap, at: life.origin, emit: $0)
+            await runner.answer(
+                request, key: tap, at: life.origin, whilePaired: { generation.current == life.generation }, emit: $0)
         }
-        if let ended = actions[key] { taps.ended(request, as: ended) }
+        if life.generation == actions.pairing, let ended = actions[key] { taps.ended(request, as: ended) }
+    }
+
+    /// An action with no Life to go to: refused before anything leaves the phone, as not paired.
+    private func refuseUnpaired(_ key: ActionKey) async {
+        await perform(key) { emit in
+            emit(.started)
+            emit(.failed(ActionFailure(.notPaired)))
+        }
+    }
+
+    // MARK: His "Wrong…"
+
+    /// His "Wrong…" on each card, above every read, until Life's complaint receipt (`ComplaintDrafts`).
+    let complaints = ComplaintDrafts()
+
+    /// The sheet opens on `check`: his draft on it, else a new one, whose sheet starts at rest.
+    func openComplaint(on check: Check) {
+        if complaints.open(check) { forget(.complaint(ref: check.ref)) }
+    }
+
+    /// His "Wrong…" on the card `ref` as its draft stands: the press as first sent while his words and tick are
+    /// unchanged (its seal, its key, its Life), else a new one to the Life paired now. Its card stays (Life keeps it
+    /// open, being fixed); the receipt is the draft's only while it still holds that press.
+    func complain(_ ref: String) async {
+        guard let life = pairedLife else { return await refuseUnpaired(.complaint(ref: ref)) }
+        guard let press = complaints.press(ref, to: life) else { return }
+        await send(press.request, keepsCardOpen: true, for: press.life)
+        if case .succeeded(.complaintReceipt(let ask), _) = state(of: .complaint(ref: ref)) {
+            complaints.received(ask, for: press)
+        }
+        await refreshAfterAnswer()
     }
 
     /// What an answer changes, read again: the inbox and the matters. The matter page on show reads itself again when `answersEnded` changes.
@@ -656,10 +751,14 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
-        (people, person) = (ReadState(), [:])
+        (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
         (answered, pushed) = (AnsweredCards(), nil)
         parties.startOver()
         holds.clear()
+        // His actions, "Wrong…" presses and their keys were the last Life's: none goes on to this one.
+        actions.startOver(pairing: parties.generation.current)
+        taps = AnswerTaps()
+        complaints.clear()
         onStep(.reading)
         await refresh()
     }

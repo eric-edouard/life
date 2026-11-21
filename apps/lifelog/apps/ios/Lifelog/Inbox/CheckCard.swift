@@ -19,6 +19,8 @@ struct CheckCard: View {
     let sameAs: () -> Void
     /// "Create <name>" or "Organization": the create sheet, with the name he would create, set to an organization or not.
     let create: (String, _ asOrganization: Bool) -> Void
+    /// "Wrong…" on a card of Life's: its sheet, hosted with the asks' sheets.
+    let wrong: () -> Void
     /// "I dropped this whole project", the one ready line over his own words when the card's matter has a project
     /// underway: parks it.
     var dropProject: (() -> Void)?
@@ -40,6 +42,7 @@ struct CheckCard: View {
                     VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                         question
                         tile(scrolls: false)
+                        beingFixed
                         matterRow
                         actions
                     }
@@ -49,6 +52,7 @@ struct CheckCard: View {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     question
                     tile(scrolls: true)
+                    beingFixed
                     matterRow
                     Spacer(minLength: 0)
                     // While a tapped push is checked, how many asks wait is not known yet: the spinner, then the dots.
@@ -149,6 +153,17 @@ struct CheckCard: View {
         .onAppear { isWriting = true }
     }
 
+    /// His "Wrong…" the caretaker is at work on: its own line under the tile, the caretaker's words when it has them.
+    @ViewBuilder private var beingFixed: some View {
+        if let fixing = check.beingFixed {
+            HStack(spacing: Metrics.Spacing.s) {
+                StateGlyph.busy
+                Text(fixing.line ?? "The caretaker is fixing this").font(.small).foregroundStyle(Palette.muted)
+            }
+            .appears()
+        }
+    }
+
     // MARK: The row under the thing, and the link
 
     /// The ask's links, by what each opens: its context, in the code's words for what it asks ("Why this reply?"), when
@@ -202,7 +217,7 @@ struct CheckCard: View {
         CheckActions(
             check: check, input: $input, isBusy: isBusy,
             links: isRowShown && isLinkBesideMatter ? Array(askLinks.dropFirst()) : askLinks, answer: answer,
-            sameAs: sameAs, create: create
+            sameAs: sameAs, create: create, wrong: wrong
         )
         .padding(.bottom, Metrics.Spacing.xs)
     }

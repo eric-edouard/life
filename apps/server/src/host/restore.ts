@@ -1,4 +1,6 @@
 import {
+  constants,
+  copyFileSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -26,7 +28,7 @@ import {
 import { isEmpty } from "./init";
 
 // A Life export (`stage`, export.ts) put back: a new install's data, state and archive, and the desk's notes files at the
-// paths its store names (never over a file there). All or nothing: refused at
+// paths its store names (refused over a different file there). All or nothing: refused at
 // once over anything there (his data, an install's state, an archive short of the export's rows: the archive is never
 // written to), every listed file checked, copied beside its place and counted, then moved in, his data last: his data
 // there means a whole install (`started`). Files the manifest doesn't list are never copied. The manifest itself is
@@ -66,22 +68,80 @@ const partOf = (p: string) => {
   return { part: part as Part | "notes", path: rest.join("/") };
 };
 
-/** Puts each desk notes file of the export (`dir`) back where the restored store (`state`, aside) names it, never over a file there. */
-function putNotesBack(dir: string, m: Manifest, state: string) {
-  const desk = join(state, pathIn(LIFE_STATE_DIR, DESK_STORE));
+/**
+ * Where each desk notes file of the export (`dir`) goes, as its staged store (`store`, verified) names it, outside the
+ * state folder it goes to (`state`): refused when a note names no such assignment, or a different file is there
+ * already; one there with the same bytes is still listed, so `putNotes` finds it again.
+ */
+async function notesPlacesOf(
+  dir: string,
+  m: Manifest,
+  store: string,
+  state: string
+) {
   const names = m.files.filter((f) => partOf(f.path).part === "notes");
-  if (names.length === 0 || !existsSync(desk)) {
-    return;
+  if (names.length === 0) {
+    return [];
   }
   const at = new Map(
-    notesOutsideOf(desk, LIFE_STATE_DIR).map((s) => [s.id, s.notes_path])
+    existsSync(store)
+      ? notesOutsideOf(store, state).map((s) => [s.id, s.notes_path])
+      : []
   );
+  const places: { from: string; sha256: string; to: string }[] = [];
   for (const f of names) {
     const to = at.get(basename(f.path, ".md"));
-    if (to && !existsSync(to)) {
-      mkdirSync(dirname(to), { recursive: true });
-      cpSync(join(dir, f.path), to);
+    if (!to) {
+      throw new Error(
+        `${f.path} is no assignment's notes outside ${state}: nothing was changed`
+      );
     }
+    // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed
+    if (existsSync(to) && (await sha256Of(to)) !== f.sha256) {
+      throw new Error(`${to} holds other notes: nothing was changed`);
+    }
+    places.push({ from: join(dir, f.path), sha256: f.sha256, to });
+  }
+  return places;
+}
+
+/**
+ * Puts each note in place, never over another file: made only where nothing is (`COPYFILE_EXCL`), one there with the
+ * same bytes kept as it is. Any failure (another writer's note there meanwhile, a folder it cannot make, a read that
+ * fails) refuses the import and takes back the notes this call made, but only those still holding its bytes: a note
+ * someone edited since is theirs, and stays.
+ */
+// ponytail: a note edited between its hash and its removal is lost; a rename aside, then a check, if that bites.
+export async function putNotes(
+  places: readonly { from: string; sha256: string; to: string }[]
+) {
+  const made: (typeof places)[number][] = [];
+  try {
+    for (const n of places) {
+      mkdirSync(dirname(n.to), { recursive: true });
+      try {
+        copyFileSync(n.from, n.to, constants.COPYFILE_EXCL);
+        made.push(n);
+      } catch (e) {
+        if ((e as { code?: string }).code !== "EEXIST") {
+          throw e;
+        }
+        // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed
+        if ((await sha256Of(n.to)) !== n.sha256) {
+          throw new Error(`${n.to} holds other notes: nothing was changed`, {
+            cause: e,
+          });
+        }
+      }
+    }
+  } catch (e) {
+    for (const n of made) {
+      // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed
+      if ((await sha256Of(n.to).catch(() => null)) === n.sha256) {
+        rmSync(n.to, { force: true });
+      }
+    }
+    throw e;
   }
 }
 
@@ -188,7 +248,14 @@ export async function restore(dir: string, to: Install = HERE) {
       }
     }
     await recount(m, at, kept);
-    putNotesBack(dir, m, side.state);
+    await putNotes(
+      await notesPlacesOf(
+        dir,
+        m,
+        join(side.state, pathIn(LIFE_STATE_DIR, DESK_STORE)),
+        to.state
+      )
+    );
     // In place: Life's state file by file (its folder may hold this install's own key), the archive, his data last.
     for (const f of m.files.filter((x) => partOf(x.path).part === "state")) {
       const { path } = partOf(f.path);

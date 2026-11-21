@@ -3,16 +3,30 @@ import SwiftUI
 
 /// The People tab: everyone Life knows (his directory's people and organizations and everyone with a page), closest first
 /// or A to Z, with one control for all, people or organizations; beside them, or over them on a compact width, the one
-/// on show. The groups and the order are Kit's (`PeopleList.groups`); this draws them.
+/// on show. The groups and the order are Kit's (`PeopleList.groups`); this draws them. The pose is measured before
+/// anything is drawn, so nothing is chosen for him on a pose that is not his.
 struct PeopleScreen: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    var body: some View {
+        GeometryReader { window in
+            PeopleColumns(
+                isSplit: PeopleList.isSplit(
+                    isRegularWidth: sizeClass == .regular, width: window.size.width, height: window.size.height))
+        }
+    }
+}
+
+/// The list and the one on show: beside it (`isSplit`), or pushed over it as folded (compact, or the open Duo upright:
+/// decision 93).
+private struct PeopleColumns: View {
+    let isSplit: Bool
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
 
     @State private var order = PeopleList.Order.closeness
     @State private var kind = PeopleList.Kind.all
     @State private var visibility = NavigationSplitViewVisibility.all
-    @Environment(\.horizontalSizeClass) private var sizeClass
-
     var body: some View {
         @Bindable var router = router
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.personColumn) {
@@ -31,32 +45,45 @@ struct PeopleScreen: View {
             .background(Palette.bg)
             // Beside a person, the Pendant and Settings are the person's column (the list's bar keeps its title).
             .shellBar(
-                "People", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular, isTitleLarge: true
+                "People", hasSettings: !isSplit, hasPendant: !isSplit, isTitleLarge: true
             )
             .navigationSubtitle(order == .alphabet ? "A to Z" : "")
-            .filterBar(isFiltered: order != .closeness, identifier: "people.sort") { orderChoices }
+            .filterBar(isFiltered: order != .closeness, identifier: "people.sort", label: "Sort") { orderChoices }
         } detail: {
             if let ref = router.person {
-                NavigationStack {
-                    PersonPage(ref: ref, hasSettings: sizeClass == .regular).id(ref)
+                NavigationStack(path: $router.personPath) {
+                    PersonPage(ref: ref, hasSettings: isSplit).id(ref)
+                        .navigationDestination(for: AppRouter.PersonRoute.self) { route in
+                            switch route {
+                            case .part(let part, let title): ProsePage(ref: part, title: title)
+                            case .latest(let subject): LatestScreen(subject: subject)
+                            case .writing(let subject): WritingPage(subject: subject)
+                            case .party(let ref): PersonPage(ref: ref)
+                            }
+                        }
                 }
             } else {
                 Notice(title: "No one chosen.", detail: "Pick someone from the list.").background(Palette.bg)
-                    .shellBar("", hasSettings: sizeClass == .regular)
+                    .shellBar("", hasSettings: isSplit)
             }
         }
         .navigationSplitViewStyle(.balanced)
+        // Stacked, the split view collapses as on a compact width: the list full screen, a tap pushes the page.
+        .environment(\.horizontalSizeClass, isSplit ? .regular : .compact)
         // The tabs hide while a person fills a compact width and come back with the list (as in Matters).
-        .toolbarVisibility(sizeClass != .regular && router.personColumn == .detail ? .hidden : .automatic, for: .tabBar)
-        // A regular width always shows someone.
-        .onChange(of: sizeClass, initial: true) { fillSelection() }
+        .toolbarVisibility(!isSplit && router.personColumn == .detail ? .hidden : .automatic, for: .tabBar)
+        // Beside the list there is always someone, one of the rows on show unless opened from elsewhere.
+        .onChange(of: isSplit, initial: true) { fillSelection() }
         .onChange(of: life.people.value) { fillSelection() }
+        .onChange(of: kind) { fillSelection() }
         .task(id: life.parties.generation.current) { await life.refreshPeople() }
     }
 
     private func fillSelection() {
-        guard sizeClass == .regular, router.person == nil else { return }
-        router.select(person: life.people.value?.groups(order, kind).first?.rows.first?.id)
+        guard let list = life.people.value else { return }
+        let ref = list.selectionOf(
+            router.person, isFromElsewhere: router.isPersonFromElsewhere, kind: kind, order: order, isSplit: isSplit)
+        if ref != router.person { router.select(person: ref) }
     }
 
     /// The system menu of the bar's leading button: Life's order, or A to Z.
@@ -90,7 +117,7 @@ struct PeopleScreen: View {
                     ForEach(Array(group.rows.enumerated()), id: \.element.id) { at, row in
                         VStack(alignment: .leading, spacing: 0) {
                             if at == 0, let label = group.label { ListLabel(label) }
-                            PersonRowButton(row: row, isChosen: sizeClass == .regular && router.person == row.id) {
+                            PersonRowButton(row: row, isChosen: isSplit && router.person == row.id) {
                                 router.select(person: row.id)
                             }
                         }

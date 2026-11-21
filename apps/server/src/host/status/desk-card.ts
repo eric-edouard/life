@@ -1,5 +1,6 @@
 import { holder } from "../../core/lock";
-import { agentsNow, readDesk } from "../desk-read";
+import { agentsNow } from "../agents-now";
+import { readDesk } from "../desk-read";
 import { agentLine } from "../registered-agents";
 import { ASK, type Card, firstOf } from "./card";
 

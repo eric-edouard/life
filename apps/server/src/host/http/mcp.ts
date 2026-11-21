@@ -518,7 +518,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "change_registered_agent",
-    "Only for what he asked in this chat, `said` his own words verbatim: start on a matter (`step`: the matter's id or a step's; it goes to the agent that takes it: its project's, else the Personal agent; his words, verbatim, are its goal, saved as his), or start a new agent on a project (in `folder`, else its project's repo, else a folder of its own) or as the Personal agent (`personal`, one at most), with `name`, `runtime`, `model`, `effort`, else the desk's defaults, his words its brief; `stop` or `resume` one; `re_point` it to another subject (`personal`: an agent he started becomes the Personal agent, refused while another is); `rename` it (`name`); `change_model`. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
+    "Only for what he asked in this chat, `said` his own words verbatim: start on a matter (`step`: the matter's id or a step's; it goes to the agent that takes it: its project's, else the Personal agent; his words, verbatim, are its goal, saved as his), or start a new agent on a project (in `folder`, else its project's repo, else a folder of its own) or as the Personal agent (`role` `personal`, one at most), with `name`, `runtime`, `model`, `effort`, else the desk's defaults, his words its brief; `stop` or `resume` one; `re_point` it to another subject (`role` `personal`: an agent he started becomes the Personal agent, refused while another is); `rename` it (`name`); `change_model`. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
     RegisteredAgentChange,
     (a, agent, call) => {
       if (agent) {

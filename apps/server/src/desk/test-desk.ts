@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { clock, HOUR, iso } from "../core/clock";
-import { agentOf, currentAssignmentOf } from "../host/desk-read";
+import { agentOf, currentAssignmentOf, openTurn } from "../host/desk-read";
 import type { Messaging } from "../host/events";
 import { MATTERS_PROMPT } from "../memory/matters";
 // biome-ignore lint/performance/noNamespaceImport: a helper spies on its functions
@@ -15,9 +15,10 @@ import type { Observation } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import { TOP_AT } from "../records/unit";
 import { register, setWait } from "./agent-actions";
-import { turnEnded, wakeDue } from "./desk-clock";
+import { wakeDue } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
+import { turnEnded } from "./turn-ends";
 
 // The desk's tests' helpers: a fake runtime, the clock faked, a made-up chat (`wait-contract.test.ts`), a made-up book.
 
@@ -75,7 +76,7 @@ export function setup() {
     if (s) {
       s.running = false;
     }
-    await turnEnded(desk, id, { ok: !failed });
+    await turnEnded(desk, openTurn(desk.db, id)?.id ?? 0, { ok: !failed });
   };
   /** A registered agent after its first turn: waiting for Ana's messages until `until`. */
   const waiting = async (until = HOUR) => {

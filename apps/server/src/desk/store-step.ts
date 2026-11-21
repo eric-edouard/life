@@ -14,18 +14,21 @@ import { isAppState } from "../core/platform";
 import { commitPaths } from "../core/proc";
 import { settings } from "../core/settings";
 import { openWritable } from "../core/sqlite";
+import { agentHomeOf } from "../host/desk-read";
 import {
-  agentHomeOf,
+  hasColumn,
   isBeforeAssignments,
   isBeforeRoles,
-} from "../host/desk-read";
+  isBeforeTurnModel,
+} from "../host/desk-shape";
 import { copyDb } from "../host/export";
-import { SCHEMA } from "./desk-store";
+import { ONE_AGENT_PER_ROLE, SCHEMA } from "./desk-store";
 
 // The desk's store steps (AGENTS.md, "A rename or a new field backfills"), each with its own check and its own dated
 // copy. `stepStore`, of the agents and matters plan (PR 1): an agent becomes an identity and a session, and its subject,
 // wait, notes and end become its one assignment; anchors, turns and events are keyed by it. `stepRoles`, of the
-// caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). Only the desk helper runs them, at its
+// caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). `stepTurnModel`, of model spending: a
+// turn keeps the model it ran on (`turn.model`; older turns null). Only the desk helper runs them, at its
 // start, in that order; `openDesk` never migrates. Delete each once it has run on his store.
 
 /** The tables rebuilt: renamed aside, made again in the new shape (`SCHEMA`), filled, then dropped. */
@@ -93,11 +96,7 @@ const LATE_COLUMNS = [
 
 function addLateColumns(db: Database) {
   for (const [table, column, ddl, backfill] of LATE_COLUMNS) {
-    if (
-      !db
-        .query(`select 1 from pragma_table_info('${table}') where name = ?`)
-        .get(column)
-    ) {
+    if (!hasColumn(db, table, column)) {
       db.run(`alter table ${table} add column ${column} ${ddl}`);
       if (backfill) {
         db.run(backfill);
@@ -197,31 +196,48 @@ export function stepStore(
 }
 
 /**
- * Gives the store at `path` its agents' roles once: nothing for a store that has them, none at all, or a checkout on the
- * app's state. Behind its own dated copy, in one transaction: `role` added, the Personal agent's flag carried into it,
- * the flag and its index dropped, the role index made (`SCHEMA`). What it did.
+ * Runs one later store step on the store at `path`, once: nothing for a store past it (`isBefore` false), none at all,
+ * or a checkout on the app's state. Behind its own dated copy (`backUp`, `prefix`), then `change` in one transaction.
+ * A step making an index makes its own: the whole `SCHEMA` names columns a later step adds, so the steps run in any order.
+ * What it did.
  */
-export function stepRoles(path = DESK_STORE, state = LIFE_STATE_DIR) {
+function stepOnce(
+  path: string,
+  state: string,
+  isBefore: (db: Database) => boolean,
+  prefix: string,
+  change: (db: Database) => void
+) {
   if (!existsSync(path) || isAppState(state)) {
     return "skipped";
   }
   const db = openWritable(path, 5000, { strict: true });
   try {
-    if (!isBeforeRoles(db)) {
+    if (!isBefore(db)) {
       return "in shape";
     }
-    backUp(path, "desk-before-roles-");
-    db.transaction(() => {
-      db.run("drop index if exists one_personal_agent");
-      db.run(
-        "alter table agent add column role text check (role in ('personal', 'caretaker'))"
-      );
-      db.run("update agent set role = 'personal' where is_personal = 1");
-      db.run("alter table agent drop column is_personal");
-      db.run(SCHEMA);
-    })();
+    backUp(path, prefix);
+    db.transaction(() => change(db))();
     return "migrated";
   } finally {
     db.close();
   }
 }
+
+/** Gives the store's agents their roles (`stepOnce`): `role` added, the Personal agent's flag carried into it, the flag and its index dropped. */
+export const stepRoles = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
+  stepOnce(path, state, isBeforeRoles, "desk-before-roles-", (db) => {
+    db.run("drop index if exists one_personal_agent");
+    db.run(
+      "alter table agent add column role text check (role in ('personal', 'caretaker'))"
+    );
+    db.run("update agent set role = 'personal' where is_personal = 1");
+    db.run("alter table agent drop column is_personal");
+    db.run(ONE_AGENT_PER_ROLE);
+  });
+
+/** Gives the store's turns their model (`stepOnce`): `turn.model` added, null on every older turn (what they ran on was not kept: they have no `equivalent`). */
+export const stepTurnModel = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
+  stepOnce(path, state, isBeforeTurnModel, "desk-before-turn-model-", (db) =>
+    db.run("alter table turn add column model text")
+  );
