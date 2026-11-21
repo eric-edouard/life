@@ -244,6 +244,24 @@
   "DuoFoldMovedCard": {
     "why": "A card's pill follows its holder already (read_inbox's agent is the holder); the design data has no moved matter to show it on."
   },
+  "DuoFoldMoves": {
+    "why": "The design data (read_inbox.json, read_matters.json) holds no your move checks, ages or matter people yet (the designer's to write: about 12 across 2 projects and Camille, 20 on dormant matters), so the fixture draws no list: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMovesHanded": {
+    "why": "The design data (read_inbox.json, read_matters.json) holds no your move checks, ages or matter people yet (the designer's to write: about 12 across 2 projects and Camille, 20 on dormant matters), so the fixture draws no list: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMovesNotHanded": {
+    "why": "The design data (read_inbox.json, read_matters.json) holds no your move checks, ages or matter people yet (the designer's to write: about 12 across 2 projects and Camille, 20 on dormant matters), so the fixture draws no list: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMovesPerson": {
+    "why": "The design data (read_inbox.json, read_matters.json) holds no your move checks, ages or matter people yet (the designer's to write: about 12 across 2 projects and Camille, 20 on dormant matters), so the fixture draws no list: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMovesSelect": {
+    "why": "The design data (read_inbox.json, read_matters.json) holds no your move checks, ages or matter people yet (the designer's to write: about 12 across 2 projects and Camille, 20 on dormant matters), so the fixture draws no list: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMovesSwipe": {
+    "why": "The design data (read_inbox.json, read_matters.json) holds no your move checks, ages or matter people yet (the designer's to write: about 12 across 2 projects and Camille, 20 on dormant matters), so the fixture draws no list: built from the frame, reviewed by hand."
+  },
   "DuoFoldNameNone": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
   },
