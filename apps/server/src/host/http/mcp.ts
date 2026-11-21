@@ -83,11 +83,13 @@ import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
 import { appointmentTools } from "./mcp-appointments";
 import { personPicturesTool } from "./mcp-people";
+import { projectTools } from "./mcp-projects";
 import { spendingTool } from "./mcp-spending";
 import {
   agentIn,
   argNamesOf,
   callerOf,
+  IfNot,
   NOT_HIS,
   READERS,
   REVERSIBLE,
@@ -106,14 +108,6 @@ import {
 /** A push's card or appointment id: 16 hex (`pushIdOf`). */
 
 const SCOPES = [SCOPE, "offline_access"];
-
-/** A versioned read's `ifNot`: the `version` of the caller's last answer. */
-const IfNot = z
-  .string()
-  .optional()
-  .describe(
-    "The `version` of your last answer: when nothing changed since, only `{version, unchanged: true}`"
-  );
 
 const ICONS: Record<string, string> = {
   "/icon-512.png": "image/png",
@@ -373,10 +367,16 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matters",
-    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `blockingChecks` (how many open checks about it block him: an agent's decision, an unnamed voice, a name nobody is; `read_matter` lists every one), `needsYou` (whether it needs him: its next step is his decision or something only he does, unless it is stuck, or a check about it blocks him), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: parties, each `ref`, `name`, `kind` person or organization, `line` (what they are to him) and `picture` (`id`, for `read_person_pictures`), from its open steps), `areas` and `projects` (names), `icon` (`key`, one of the matter icon set; `by` life: Life's pick, owner: his; absent: none, show the area's), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area; of one project, `project` also carries `situation`: where it stands now, lines of `text` each citing the matter steps it rests on (`cites`; Life's reading of its matters, empty until it is made). `version`: pass it back as `ifNot` to get only `{version, unchanged: true}` while nothing changed. `read_matter` opens one.",
+    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `blockingChecks` (how many open checks about it block him: an agent's decision, an unnamed voice, a name nobody is; `read_matter` lists every one), `needsYou` (whether it needs him: its next step is his decision or something only he does, unless it is stuck, or a check about it blocks him), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: parties, each `ref`, `name`, `kind` person or organization, `line` (what they are to him) and `picture` (`id`, for `read_person_pictures`), from its open steps), `areas` and `projects` (names), `icon` (`key`, one of the matter icon set; `by` life: Life's pick, owner: his; absent: none, show the area's), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area (`noProject`: only those that sit in no project, with an area); of one project, `project` also carries `situation`: where it stands now, lines of `text` each citing the matter steps it rests on (`cites`; Life's reading of its matters, empty until it is made). `version`: pass it back as `ifNot` to get only `{version, unchanged: true}` while nothing changed. `read_matter` opens one.",
     z.object({
       area: z.string().optional().describe("Area id or name"),
       ifNot: IfNot,
+      noProject: z
+        .boolean()
+        .optional()
+        .describe(
+          "Only the matters that sit in no project (an area chip's list)"
+        ),
       person: z.string().optional().describe("Name, alias or id"),
       project: z.string().optional().describe("Project id or name"),
     }),
@@ -417,6 +417,7 @@ export function buildServer(readsOnly = false) {
     }
   );
   appointmentTools(server);
+  projectTools(server);
   tool(
     server,
     "read_area_page",
