@@ -19,13 +19,11 @@ export const samePersonPairOf = (ref: string) => {
 /** A chat's handle (a network's id, a bridge's sender, a phone, an address), not a name: what his "Different people" is written against. */
 const HANDLE = /^[@+_\d]|@/;
 const SPACES = /\s+/;
+/** A whole name: two words or more, as written ("Jean-Pierre" is one). */
+const isWholeName = (n: string) => n.trim().split(SPACES).length > 1;
 const LOWER = /^\p{Ll}/u;
-/** A whole name: two words or more as written ("Jean-Pierre" is one), none starting in lower case (a guess's description, "the shop plumber", is no name). */
-const isWholeName = (n: string) => {
-  const words = n.trim().split(SPACES);
-  return words.length > 1 && !words.some((w) => LOWER.test(w));
-};
-
+/** A guess's description, not a name: it starts in lower case ("the shop plumber"); its name field holds one when the messages gave no name. */
+const isDescription = (n: string) => LOWER.test(n.trim());
 /**
  * Each guess in use (`isGuess`: not settled, not his word), not folded, not an organization, with a handle, and someone
  * else going by its whole name: his directory (a name or an alias), his Contacts, or another such guess (one card for
@@ -72,7 +70,9 @@ export function samePersonPairsOf(
         [p.name, ...p.aliases].map((n) => ({ n, ref: `person:${p.id}` }))
       ),
       ...people.contacts.map((c) => ({ n: c.name, ref: `person:${c.id}` })),
-      ...[...guesses].map(([ref, g]) => ({ n: g.name, ref })),
+      ...[...guesses].flatMap(([ref, g]) =>
+        isDescription(g.name) ? [] : [{ n: g.name, ref }]
+      ),
     ].filter(({ n }) => isWholeName(n)),
     ({ n }) => nameKey(n)
   );
@@ -93,7 +93,7 @@ export function samePersonPairsOf(
     { guess: string; handles: string[]; lines: [string, string]; other: string }
   >();
   for (const [guess, g] of guesses) {
-    for (const { ref } of isWholeName(g.name)
+    for (const { ref } of isWholeName(g.name) && !isDescription(g.name)
       ? (byName.get(nameKey(g.name)) ?? [])
       : []) {
       const other = canon(ref);

@@ -47,6 +47,11 @@ const pairsOf = (
 
 test("a guess Life uses and someone in his directory going by its whole name make one pair, bound to both in its ref", () => {
   expect(pairsOf()).toEqual(["person:inf_kit ~ person:kit-lee"]);
+  // A name with a particle is still a name.
+  const anna = Person.parse({ id: "anna", name: "Anna de Vries" });
+  expect(
+    pairsOf({ directory: [anna], guesses: [{ ...kit, name: "Anna de Vries" }] })
+  ).toEqual(["person:inf_kit ~ person:anna"]);
   expect(
     samePersonPairOf(samePersonRefOf("person:inf_kit", "person:kit-lee"))
   ).toEqual({
