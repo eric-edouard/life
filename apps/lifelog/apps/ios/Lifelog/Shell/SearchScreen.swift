@@ -17,8 +17,9 @@ enum SearchScope: Hashable, CaseIterable {
 /// The system's search tab, the one search: the people and organizations Life knows whose name or line holds what he
 /// typed (`read_people_and_organizations` with a query), the running matters that hold it (`MatterList.matching`), then,
 /// last, the others Life has seen by that name, only there. With the field empty it lists every matter, or everyone
-/// when the scope is People. Each source stands alone (`SearchPart`): one still reading or failed never hides the
-/// other's rows, and "Nothing holds" waits for every source asked. A result opens in its own tab, where its page lives.
+/// when the scope is People. Each source is read on its own and shows through its own `ReadScreen` (loading, stale,
+/// failed, unpaired, each with its way back), so one never waits on or hides the other; "Nothing holds" waits for
+/// every source asked to have read nothing. A result opens in its own tab, where its page lives.
 struct SearchScreen: View {
     let query: String
     let scope: SearchScope
@@ -29,39 +30,56 @@ struct SearchScreen: View {
     private var asked: String { query.trimmingCharacters(in: .whitespaces) }
 
     var body: some View {
-        let matters = scope == .people ? nil : SearchPart(life.matters) { $0.matching(query) }
-        let people = peopleRead.map { state in SearchPart(state) { $0.people } }
+        let people = peopleRead
+        let isNothing =
+            !asked.isEmpty && (people == nil || people?.value?.isNoOne == true)
+            && (scope == .people || life.matters.value?.matching(query).isEmpty == true)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                if !asked.isEmpty, [matters?.isNothing, people?.isNothing].allSatisfy({ $0 != false }) {
+                if isNothing {
                     Text("Nothing holds “\(asked)”.").font(.body15).foregroundStyle(Palette.muted)
                         .padding(Metrics.gutter)
                         .appears()
                 }
-                if let people { peopleRows(people) }
-                if let matters { matterRows(matters, isLabelled: people != nil) }
-                // Only seen by Life (in his Contacts, named by someone): quieter, and never a page to open.
-                if let others = peopleRead?.value?.others, !others.isEmpty {
-                    ListLabel("Others Life has seen")
-                    ForEach(others, id: \.ref) { party in
-                        PartyRow(party, isDim: true)
-                            .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.m)
-                            .appears()
-                    }
+                if let people {
+                    ReadScreen(
+                        shown: people.shown(isEmpty: \.isNoOne), retry: { await readPeople() },
+                        loading: { Placeholder().padding(Metrics.gutter) },
+                        empty: {
+                            if asked.isEmpty {
+                                Notice(
+                                    title: "No one yet.",
+                                    detail: "The people and organizations in your directory show here.")
+                            }
+                        },
+                        content: { list in peopleRows(list) }
+                    )
+                }
+                // Unpaired, one notice says so: the people's.
+                if scope != .people, people == nil || life.isPaired {
+                    ReadScreen(
+                        shown: life.matters.shown(isEmpty: { $0.matching(query).isEmpty }),
+                        retry: { await life.refreshMatters() },
+                        loading: { Placeholder().padding(Metrics.gutter) },
+                        empty: { if asked.isEmpty { NoMattersNotice() } },
+                        content: { list in
+                            matterRows(list.matching(query), isLabelled: people?.value?.people.isEmpty == false)
+                        }
+                    )
                 }
             }
-            .motion(Motion.standard, value: (people?.found?.map(\.id) ?? []) + (matters?.found?.map(\.id) ?? []))
             .padding(.bottom, Metrics.Spacing.l)
             .readingWidth()
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Palette.bg)
-        // What he typed, read a moment after he stops; a newer query replaces the read under way, and a new pairing
-        // reads it again.
-        .task(id: [asked, "\(scope)", "\(life.parties.generation.current)"]) {
-            if scope != .people, life.matters.value == nil { await life.refreshMatters() }
-            guard scope != .matters else { return }
-            guard !asked.isEmpty else {
+        // Each source on its own: the matters once per pairing, the people a moment after he stops typing (a newer
+        // query replaces the read under way), and again on a new pairing.
+        .task(id: life.parties.generation.current) {
+            if life.matters.value == nil { await life.refreshMatters() }
+        }
+        .task(id: [AnyHashable(PeopleQuery(text: asked, pairing: life.parties.generation.current)), scope]) {
+            guard scope != .matters, !asked.isEmpty else {
                 if scope == .people, life.people.value == nil { await life.refreshPeople() }
                 return
             }
@@ -78,26 +96,29 @@ struct SearchScreen: View {
         return life.peopleFound.flatMap { $0.query == asked ? $0.state : nil } ?? ReadState()
     }
 
-    @ViewBuilder private func peopleRows(_ part: SearchPart<[PersonRow]>) -> some View {
-        switch part {
-        case .reading: Placeholder().padding(Metrics.gutter)
-        case .failed:
-            PartRetry(what: "People") {
-                if asked.isEmpty { await life.refreshPeople() } else { await life.findPeople(asked) }
-            }
-            .padding(Metrics.gutter)
-        case .found(let rows):
-            section("People", rows.filter { $0.party.kind != .organization })
-            section("Organizations", rows.filter { $0.party.kind == .organization })
-        }
+    private func readPeople() async {
+        if asked.isEmpty { await life.refreshPeople() } else { await life.findPeople(asked) }
     }
 
-    @ViewBuilder private func matterRows(_ part: SearchPart<[MatterRow]>, isLabelled: Bool) -> some View {
-        switch part {
-        case .reading: Placeholder().padding(Metrics.gutter)
-        case .failed: PartRetry(what: "Matters") { await life.refreshMatters() }.padding(Metrics.gutter)
-        case .found(let rows) where rows.isEmpty && asked.isEmpty: NoMattersNotice()
-        case .found(let rows):
+    private func peopleRows(_ list: PeopleList) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            section("People", list.people.filter { $0.party.kind != .organization })
+            section("Organizations", list.people.filter { $0.party.kind == .organization })
+            // Only seen by Life (in his Contacts, named by someone): quieter, and never a page to open.
+            if let others = list.others, !others.isEmpty {
+                ListLabel("Others Life has seen")
+                ForEach(others, id: \.ref) { party in
+                    PartyRow(party, isDim: true)
+                        .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.m)
+                        .appears()
+                }
+            }
+        }
+        .motion(Motion.standard, value: list.people.map(\.id) + (list.others ?? []).map(\.ref))
+    }
+
+    private func matterRows(_ rows: [MatterRow], isLabelled: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             if !rows.isEmpty, isLabelled { ListLabel("Matters") }
             ForEach(rows) { row in
                 Button {
@@ -109,6 +130,7 @@ struct SearchScreen: View {
                 .appears()
             }
         }
+        .motion(Motion.standard, value: rows.map(\.id))
     }
 
     @ViewBuilder private func section(_ label: String, _ rows: [PersonRow]) -> some View {
