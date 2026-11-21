@@ -21,6 +21,8 @@ import {
   UNITS,
 } from "./memory-files";
 import { openById } from "./open-by-id";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as kept from "./party";
 import {
   firstSentenceOf,
   knowsOf,
@@ -126,6 +128,7 @@ test("`now` holds under PART_CHARS with hundreds of open matters, the top-ranked
     episodes: [{ month: "2026-11", titles: ["A walk"] }],
     knows: [],
     matters,
+    pictures: [],
     reach: [
       {
         accounts: [
@@ -196,6 +199,7 @@ const inputsOf = (now: ReturnType<typeof personNowOf>) => ({
   details: [],
   episodes: now.episodes,
   knows: now.knows,
+  pictures: [],
   reach: now.reach,
   row: row(now.ref),
   situation: now.situation,
@@ -315,6 +319,28 @@ test("`now` of a person and of an organization: their row, reach and open matter
       },
     ],
   });
+});
+
+test("`now` offers the first picture of each source, from the one index read that picks the one in use", async () => {
+  await indexed([]);
+  const first = { id: "pic-contacts-1", source: "contacts" };
+  const whatsapp = { id: "pic-whatsapp", source: "whatsapp" };
+  const spy = spyOn(kept, "readPictureIndex").mockReturnValue({
+    "person:test-ana": [
+      first,
+      { id: "pic-contacts-2", source: "contacts" },
+      whatsapp,
+    ],
+  });
+  try {
+    expect(await person("Test Ana")).toMatchObject({
+      picture: { id: "pic-contacts-1" },
+      pictures: [first, whatsapp],
+    });
+    expect(spy).toHaveBeenCalledTimes(1);
+  } finally {
+    spy.mockRestore();
+  }
 });
 
 test("the edge cases of `now`: a name no one goes by says so with the parties near it", async () => {
@@ -563,6 +589,7 @@ test("reach keeps to its room with long Contacts labels; every account it has no
       {
         addresses: [],
         birthday: null,
+        company: null,
         handles: phones,
         id: "card-many",
         labels: Object.fromEntries(phones.map((p) => [p, label])),
@@ -580,6 +607,7 @@ test("reach keeps to its room with long Contacts labels; every account it has no
     episodes: [],
     knows: [],
     matters: [],
+    pictures: [],
     reach,
     row: row("person:test-ana"),
     situation: [],
@@ -630,6 +658,7 @@ test("an organization's 120 addresses: following `moreReach` and each `next` thr
     episodes: [],
     knows: [],
     matters: [],
+    pictures: [],
     reach,
     row: row(`person:${subject}`),
     situation: [],

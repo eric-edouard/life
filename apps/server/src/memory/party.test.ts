@@ -21,7 +21,6 @@ test("a person in his directory with no relation of their own reads as their rol
 });
 
 test("his pick shows that source's picture; a pick no longer shown falls back to the first; `none` shows none", () => {
-  let reads = 0;
   const party = partyOf(
     {
       isOrganization: () => false,
@@ -34,18 +33,15 @@ test("his pick shows that source's picture; a pick no longer shown falls back to
       { id: "lee", pictureFrom: "instagram" },
       { id: "max", pictureFrom: "none" },
     ],
-    () => {
-      reads += 1;
-      return {
-        "person:kim": [
-          { id: "k1", source: "contacts" },
-          { id: "k2", source: "whatsapp" },
-        ],
-        "person:lee": [{ id: "l1", source: "contacts" }],
-        "person:max": [{ id: "m1", source: "contacts" }],
-        "person:noa": [{ id: "n1", source: "imessage" }],
-      };
-    }
+    () => ({
+      "person:kim": [
+        { id: "k1", source: "contacts" },
+        { id: "k2", source: "whatsapp" },
+      ],
+      "person:lee": [{ id: "l1", source: "contacts" }],
+      "person:max": [{ id: "m1", source: "contacts" }],
+      "person:noa": [{ id: "n1", source: "imessage" }],
+    })
   );
   // A folded ref reads as who it is now, with their picture.
   expect(party("person:old")).toEqual({
@@ -58,5 +54,4 @@ test("his pick shows that source's picture; a pick no longer shown falls back to
   expect(party("person:max").picture).toBeUndefined();
   expect(party("person:noa").picture).toEqual({ id: "n1" });
   expect(party("person:zed").picture).toBeUndefined();
-  expect(reads).toBe(1);
 });

@@ -23,6 +23,7 @@ const AT = "2026-11-12T03:00:00.000Z";
 const card = (id: string, name: string | null, handles: string[]): Contact => ({
   addresses: [],
   birthday: null,
+  company: null,
   handles,
   id,
   labels: {},
@@ -525,6 +526,7 @@ test("a card whose whole name says one person and whose number says another is n
   const mixedRecord: Contact = {
     addresses: [],
     birthday: null,
+    company: null,
     handles: mixed.handles,
     id: mixed.card,
     labels: {},

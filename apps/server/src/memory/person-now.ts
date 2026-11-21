@@ -8,7 +8,7 @@ import { contactKeyOf } from "../sources/contacts";
 import { closerOf } from "./closeness";
 import { type DetailLine, nextBirthday } from "./details";
 import { exchangesOf } from "./exchanges";
-import type { Party } from "./party";
+import type { Party, PictureIndex } from "./party";
 import { isWithThemAlone, readPersonUnitFiles } from "./person-units";
 import type { Reach } from "./reach";
 import type { MatterRow } from "./read-matters";
@@ -191,6 +191,8 @@ export interface NowInputs {
   /** The running matters with them, ranked (`read_matters`' order). */
   matters: MatterRowNow[];
   organization?: { domains: string[]; people: Member[] };
+  /** The pictures he can pick from for them (`pictureChoicesOf`: one per source); the one in use is the row's `picture`. */
+  pictures: PictureIndex[string];
   reach: Reach[];
   row: PersonRow;
   situation: SituationLine[];
@@ -216,7 +218,7 @@ const KEPT_FIRST = [
 
 /**
  * Someone's `now`, as data: their row, reach, details (a birthday dated; a phone or mail reach already opens is left
- * out), how each writes to the other, what their time together was about, their situation, the parts Life holds
+ * out; a work or family line with whom it names), the pictures he can pick from, how each writes to the other, what their time together was about, their situation, the parts Life holds
  * (`knows`), an organization's domains and people, and their open matters, ranked. The whole answer serialized stays
  * within `chars` (`PART_CHARS`, less what wraps it): its lists are cut by `KEPT_FIRST`. Pure.
  */
@@ -251,6 +253,7 @@ export function personNowOf(i: NowInputs, chars = PART_CHARS) {
     knows: i.knows,
     open: i.matters,
     ...(i.organization ?? {}),
+    pictures: i.pictures,
     // Accounts reach had no room for are in `details`, cut there too: all of them, paged, are the `reach` part.
     ...(left.length > 0
       ? { moreReach: readPartRefOf({ part: "reach", subject: i.row.ref }) }
