@@ -107,6 +107,7 @@
         "important": true,
         "name": "Mend Gran's watch"
       },
+      "misread": null,
       "confirm": [
         {
           "about": ["+33600000001"],
@@ -162,9 +163,7 @@
           ],
           "matter": null,
           "misread": {
-            "cause": "01b070ee5ba7f83a",
-            "seal": "757398c9279ffc48760eab15b8f32ca9",
-            "shown": "0e530fc2d7921f15"
+            "cause": "01b070ee5ba7f83a"
           },
           "confirm": [],
           "networkIdentity": {
@@ -207,8 +206,7 @@
       },
       "contactsCard": null,
       "pushId": "a23260946067d0fe",
-      "urgency": "blocks",
-      "misread": null
+      "urgency": "blocks"
     },
     {
       "said": null,
@@ -302,12 +300,12 @@
       "title": "Pay the deposit",
       "lifeLinks": [],
       "matter": null,
+      "misread": null,
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "cdc5e5e8356ed8a6",
-      "urgency": "blocks",
-      "misread": null
+      "urgency": "blocks"
     },
     {
       "said": null,
@@ -385,12 +383,12 @@
         }
       ],
       "matter": null,
+      "misread": null,
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "f0bf086db1fae378",
-      "urgency": "blocks",
-      "misread": null
+      "urgency": "blocks"
     },
     {
       "about": [],
@@ -464,16 +462,14 @@
       "title": "Name a voice",
       "lifeLinks": [],
       "matter": null,
+      "misread": {
+        "cause": "f094d10b549822d0"
+      },
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "0ec1de1a26d04e58",
-      "urgency": "blocks",
-      "misread": {
-        "cause": "f094d10b549822d0",
-        "seal": "42a5e8f78ece8af1b5aeba6ab16d3132",
-        "shown": "86274fa91b8f9d39"
-      }
+      "urgency": "blocks"
     },
     {
       "about": ["Sam"],
@@ -562,15 +558,13 @@
         }
       ],
       "matter": null,
+      "misread": {
+        "cause": "3b404043a79bbfd0"
+      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "134bc106744b3159",
-      "urgency": "blocks",
-      "misread": {
-        "cause": "3b404043a79bbfd0",
-        "seal": "6cf1a321892c3def9766c1fd06256ec7",
-        "shown": "151c312895ca3052"
-      }
+      "urgency": "blocks"
     },
     {
       "about": ["+33600000009"],
@@ -629,15 +623,13 @@
       "title": "Place a Contacts card",
       "lifeLinks": [],
       "matter": null,
+      "misread": {
+        "cause": "eab9c455c7fa456b"
+      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "82723bbf297c00df",
-      "urgency": "blocks",
-      "misread": {
-        "cause": "eab9c455c7fa456b",
-        "seal": "e2f83acc4e8268f776a5d35d9ed56188",
-        "shown": "8f3df0eb9c85e59d"
-      }
+      "urgency": "blocks"
     },
     {
       "about": [],
@@ -708,16 +700,14 @@
         "id": "matter_bbbbbbbbbbbb",
         "name": "Renew the lease"
       },
+      "misread": {
+        "cause": "3f8aa0d63fc5994e"
+      },
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "f686b7df91114fb8",
-      "urgency": "blocks",
-      "misread": {
-        "cause": "3f8aa0d63fc5994e",
-        "seal": "8e97cc12be4aa72b998e513dc335e211",
-        "shown": "fd7b20dc38d18e17"
-      }
+      "urgency": "blocks"
     },
     {
       "about": [],
@@ -785,15 +775,13 @@
         "important": true,
         "name": "Mend Gran's watch"
       },
+      "misread": {
+        "cause": "1addffdfdc12fcfa"
+      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "c84c34823f7fa7b0",
-      "urgency": "improves",
-      "misread": {
-        "cause": "1addffdfdc12fcfa",
-        "seal": "e21321a5e0f38ca459ff1815d7677715",
-        "shown": "92b74ff9de2dc75c"
-      }
+      "urgency": "improves"
     },
     {
       "about": ["+33600000001"],
@@ -845,15 +833,13 @@
       "title": "Join one person",
       "lifeLinks": [],
       "matter": null,
+      "misread": {
+        "cause": "6c04307dd5deaa49"
+      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "87f3c9ef6bcd1334",
-      "urgency": "improves",
-      "misread": {
-        "cause": "6c04307dd5deaa49",
-        "seal": "c0110a633575370f23297e76720d0968",
-        "shown": "78ae0f244152c578"
-      }
+      "urgency": "improves"
     },
     {
       "about": [],
@@ -905,15 +891,13 @@
       "title": "Link someone to an organization",
       "lifeLinks": [],
       "matter": null,
+      "misread": {
+        "cause": "a2fc300ae36cf927"
+      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "e17351fad95db35b",
-      "urgency": "improves",
-      "misread": {
-        "cause": "a2fc300ae36cf927",
-        "seal": "231a4eecef6ba66ff43fabee2359463f",
-        "shown": "bc3ffe5c57de4fb9"
-      }
+      "urgency": "improves"
     },
     {
       "about": ["+33600000001"],
@@ -969,6 +953,9 @@
         }
       ],
       "matter": null,
+      "misread": {
+        "cause": "01b070ee5ba7f83a"
+      },
       "confirm": [],
       "networkIdentity": {
         "chat": "33600000001@s.whatsapp.net",
@@ -989,12 +976,7 @@
         }
       },
       "pushId": "a789ea3107eed39b",
-      "urgency": "improves",
-      "misread": {
-        "cause": "01b070ee5ba7f83a",
-        "seal": "757398c9279ffc48760eab15b8f32ca9",
-        "shown": "0e530fc2d7921f15"
-      }
+      "urgency": "improves"
     },
     {
       "said": {
@@ -1057,16 +1039,14 @@
         "id": "matter_cccccccccccc",
         "name": "Frame Gran's photo"
       },
+      "misread": {
+        "cause": "e33422a9ac5b7ce7"
+      },
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "47c2deda3a5b51cd",
-      "urgency": "improves",
-      "misread": {
-        "cause": "e33422a9ac5b7ce7",
-        "seal": "78325163f18215a3cc69046d1c766cd8",
-        "shown": "fbb39df191312464"
-      }
+      "urgency": "improves"
     }
   ],
   "blocking": 7,
@@ -1084,5 +1064,5 @@
   },
   "deadlinesToday": 0,
   "total": 12,
-  "version": "2607bdac29d94056"
+  "version": "27d0539a865fcc51"
 }
