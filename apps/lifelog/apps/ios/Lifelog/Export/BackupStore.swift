@@ -73,6 +73,9 @@ final class BackupStore {
         }
     }
 
+    /// The folder picker could not read what he chose: said where the other failures are.
+    func fail(_ error: Error) { state = .failed(report(error)) }
+
     func cancel() {
         task?.cancel()
     }

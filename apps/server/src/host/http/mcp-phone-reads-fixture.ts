@@ -106,6 +106,14 @@ export const kitOnWhatsapp = new Map([
 /** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice, a same person. */
 export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   answered: new Set(),
+  atOrganizations: [
+    {
+      evidence: "Their Contacts card says “Owner, Test Bakery”.",
+      organization: "person:test-bakery",
+      person: "person:inf_kit",
+      role: "Owner",
+    },
+  ],
   decisions: [
     {
       asker: "Orbit",

@@ -40,7 +40,7 @@ struct CheckList: View {
             // A kind answered in bulk is one row, its card's question and how many it holds.
             let bulk = order.bulk[check.ref]
             Row(
-                title: bulk == nil ? check.question : check.group.bulkQuestion, icon: symbol(of: check),
+                title: bulk == nil ? check.question : check.bulkKind.bulkQuestion, icon: symbol(of: check),
                 detail: bulk.map { "\($0.count) waiting" }
                     ?? (check.beingFixed == nil ? check.listLine() : "Being fixed"),
                 isInList: true
@@ -79,7 +79,7 @@ extension CheckGroup {
         case .ending: "checkmark"
         case .newMatter: "plus"
         case .yourMove: "arrow.right.circle"
-        case .unknown: "circle"
+        case .atOrganization, .unknown: "circle"
         }
     }
 
@@ -95,7 +95,7 @@ extension CheckGroup {
         case .ending: "Is this done?"
         case .newMatter: "New matters"
         case .yourMove: "Your moves"
-        case .unknown: "Other"
+        case .atOrganization, .unknown: "Other"
         }
     }
 }

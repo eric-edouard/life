@@ -12,6 +12,7 @@ public struct Inbox: Decodable, Sendable, Equatable {
     public var badge: Int { blocking ?? total }
     /// Every open card is in it, none cut off by the read's limit: only then does a card it lacks no longer wait.
     public var isWhole: Bool { checks.count >= total }
+    public let version: String?
 }
 
 /// The card a tapped push opens.
@@ -45,13 +46,14 @@ public struct PushedCard: Sendable, Equatable {
         guard let check, !answeredSinceTap.contains(check.ref),
             read?.checks.contains(where: { $0.ref == check.ref }) != true
         else { return read }
-        let read = read ?? Inbox(checks: [], counts: [:], total: 0, deadlinesToday: 0, blocking: 0)
+        let read = read ?? Inbox(checks: [], counts: [:], total: 0, deadlinesToday: 0, blocking: 0, version: nil)
         var counts = read.counts
         counts[check.group.rawValue, default: 0] += 1
         return Inbox(
             checks: [check] + read.checks, counts: counts, total: read.total + 1,
-            deadlinesToday: read.deadlinesToday, blocking: read.blocking.map { $0 + (check.urgency == .blocks ? 1 : 0) }
-        )
+            deadlinesToday: read.deadlinesToday,
+            blocking: read.blocking.map { $0 + (check.urgency == .blocks ? 1 : 0) },
+            version: nil)
     }
 
     /// What a read asked at `asked` makes of it: nil while it says nothing yet (asked before the tap, or cut off by its
@@ -91,28 +93,30 @@ public struct InboxOrder: Equatable, Sendable {
     }
 
     /// Each kind with 2 or more asks Life pre-ticks (`preTicked`) folded into its first ask, which stands for all of
-    /// them (`bulk`), unless he chose to go through it one by one (`unfolded`).
-    public func folded(except unfolded: Set<CheckGroup> = []) -> InboxOrder {
+    /// them (`bulk`), unless he chose to go through it one by one (`unfolded`). A kind he is answering row by row
+    /// (`working`) stays one card down to its last row, never turning into a single ask under his finger.
+    public func folded(except unfolded: Set<CheckGroup> = [], working: Set<CheckGroup> = []) -> InboxOrder {
         let inBulk = kinds.filter { kind in
-            !unfolded.contains(kind) && checks.count(where: { $0.group == kind && $0.preTicked != nil }) > 1
+            let pre = checks.count(where: { $0.bulkKind == kind && $0.preTicked != nil })
+            return !unfolded.contains(kind) && (pre > 1 || (pre > 0 && working.contains(kind)))
         }
         let bulk = Dictionary(
             uniqueKeysWithValues: inBulk.compactMap { kind in
-                let all = checks.filter { $0.group == kind }
+                let all = checks.filter { $0.bulkKind == kind }
                 return all.first.map { ($0.ref, all) }
             })
-        let kept = checks.filter { !inBulk.contains($0.group) || bulk[$0.ref] != nil }
+        let kept = checks.filter { !inBulk.contains($0.bulkKind) || bulk[$0.ref] != nil }
         return InboxOrder(checks: kept, canWaitFrom: kept.canWaitFrom, bulk: bulk)
     }
 
     /// The kinds of ask that wait, in the order they first appear: what the list's filter offers.
-    public var kinds: [CheckGroup] { checks.map(\.group).reduce(into: []) { if !$0.contains($1) { $0.append($1) } } }
+    public var kinds: [CheckGroup] { checks.map(\.bulkKind).reduce(into: []) { if !$0.contains($1) { $0.append($1) } } }
 
     /// Only the asks of one kind, in the same order, with the heading where its own can-wait part starts. Nil, or a kind
     /// with none waiting, is the whole order: a filter never leaves him an empty list.
     public func only(_ kind: CheckGroup?) -> InboxOrder {
         guard let kind, kinds.contains(kind) else { return self }
-        let kept = checks.filter { $0.group == kind }
+        let kept = checks.filter { $0.bulkKind == kind }
         return InboxOrder(checks: kept, canWaitFrom: kept.canWaitFrom)
     }
 }

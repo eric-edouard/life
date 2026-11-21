@@ -11,6 +11,14 @@ test("the pre-ticked answer: an ending is done; a likely guess in use is them; a
   const asked = { kind: "voice" as const };
   expect(preTickedOf({ kind: "ending" })).toBe("outdated");
   expect(preTickedOf({ kind: "person" })).toBeNull();
+  // Yes on a guess in use and on two accounts that may be one person; a name Life cannot place has no guess to affirm.
+  expect(preTickedOf({ group: "guessed person", kind: "person" })).toBe(
+    "this-is"
+  );
+  expect(preTickedOf({ group: "same person", kind: "person" })).toBe(
+    "same-person"
+  );
+  expect(preTickedOf({ group: "name", kind: "person" })).toBeNull();
   expect(preTickedOf(asked, heard("new_person", 1, null))).toBe("not-relevant");
   expect(preTickedOf(asked, heard("new_person", 1, "Zed"))).toBeNull();
   expect(preTickedOf(asked, heard("new_person", 2, null))).toBeNull();
