@@ -201,8 +201,9 @@ interface Ranked {
   /** What the guess also rests on, for its cause (`causeOf`): an ending's later step. */
   basis?: string;
   check: Omit<Check, "confirm" | "lifeLinks" | "matter">;
-  /** For the order (`inboxOrderOf`): when a decision was asked, else the newest day among the lines it rides on. */
+  /** For the order (`inboxOrderOf`): when a decision was asked, else the newest day among the lines it rides on; a decision's `matter` as its ask resolved it, the finder's pick on a tie. */
   day: string;
+  matter?: string;
 }
 
 type MatterId = CheckInputs["matters"][number];
@@ -372,6 +373,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           title: d.title,
         },
         day: d.at,
+        matter: d.matter,
       })),
   /** Every open step a link says ended and he has not answered, unless the link rests on his own later words. */
   ending: (c) =>
@@ -615,11 +617,12 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
   const found = inboxOrderOf(
     Object.values(BUILDERS)
       .flatMap((build) => build(c))
-      .map(({ basis, check, day }) => {
+      .map(({ basis, check, day, matter: pick }) => {
+        const matter = matterOf([check.subject ?? check.ref], pick);
         const card = {
           ...check,
           lifeLinks: lifeLinksOf(check.context, (id) => byId.has(id)),
-          matter: cardMatterOf(matterOf([check.subject ?? check.ref])) ?? null,
+          matter: cardMatterOf(matter) ?? null,
           onMatters: check.ridesOn.matterIds.flatMap(
             (id) => cardMatterOf(byId.get(id)) ?? []
           ),

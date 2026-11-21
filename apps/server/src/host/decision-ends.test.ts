@@ -196,3 +196,49 @@ test("a step card whose step no open matter holds any more, and that never ended
     book.mockRestore();
   }
 });
+
+// Verdict on PR 841: a card on a matter whose newest step another open matter shares closed the other one (the
+// answer found the matter again from that step alone). The ask keeps the matter it resolved, and the answer takes it.
+test("an `ends` card on a matter sharing its newest step with another closes the matter it was asked on, exactly its steps", async () => {
+  const todo = (ref: string) => ({ kind: "to_do", ref });
+  const shared = todo("obs_0000000000ab");
+  const book = spyOn(
+    await import("../memory/matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    {
+      id: "matter_aaaaaaaaaaaa",
+      open: true,
+      steps: [todo("obs_00000000000a"), shared],
+    },
+    {
+      id: "matter_bbbbbbbbbbbb",
+      open: true,
+      steps: [todo("obs_00000000000b"), shared],
+    },
+  ] as never);
+  try {
+    const { id } = await requestDecision("planner", {
+      context: "A made-up reason to ask.",
+      deadline: new Date(Date.now() + 2 * DAY).toISOString(),
+      onSilence: null,
+      options: [
+        { ends: "matter", id: "done", label: "Done" },
+        { id: "later", label: "Not yet" },
+      ],
+      question: "Is the fence painted?",
+      subject: "matter_bbbbbbbbbbbb",
+      title: "Paint the fence",
+    });
+    expect(decisionsNow().find((d) => d.id === id)).toMatchObject({
+      matter: "matter_bbbbbbbbbbbb",
+      subject: shared.ref,
+    });
+    await call(id, ["done"]).result;
+    expect(readCorrections()).toMatchObject([
+      { kind: "outdated", observations: ["obs_00000000000b", shared.ref] },
+    ]);
+  } finally {
+    book.mockRestore();
+  }
+});

@@ -462,9 +462,10 @@ export function writeNotes(desk: Desk, s: AssignmentRow, text: string) {
 }
 
 /**
- * Assignment `s`'s card subject on its matter (found by its anchors, `steps`, and the matter chosen): the one given when
- * it is the matter's id or one of its steps, else none given, the matter's id (its first anchor when no matter holds
- * them); another is refused. None for an agent's own assignment (its subject stays the agent's to give).
+ * Assignment `s`'s card subject on its matter (found by its anchors, `steps`, and the matter chosen), with that matter's
+ * id: the subject given when it is the matter's id or one of its steps, else none given, the matter's id (its first
+ * anchor when no matter holds them); another is refused. None for an agent's own assignment (its subject stays the
+ * agent's to give).
  */
 async function subjectOf(
   s: Pick<AssignmentRow, "matter_id">,
@@ -472,14 +473,14 @@ async function subjectOf(
   given: string | undefined
 ) {
   if (steps.length === 0) {
-    return given;
+    return { subject: given };
   }
   const m = await oneMatter(steps, { prefer: s.matter_id ?? undefined });
   if (given === undefined) {
-    return m?.id ?? steps[0];
+    return { matter: m?.id, subject: m?.id ?? steps[0] };
   }
   if (m && (m.id === given || m.steps.some((x) => x.ref === given))) {
-    return given;
+    return { matter: m.id, subject: given };
   }
   throw new Error(
     `Not done: ${given} is not your matter's (${m?.id ?? steps[0]}): a card's subject is your matter or one of its steps; another matter is another assignment's.`
@@ -493,8 +494,9 @@ async function subjectOf(
  * card's write to the desk's claim, which writes it inside one transaction with the row saying it is this assignment's
  * (`card`, read by `assignmentOfCard`) and, on a matter, the anchor on the subject Life stores (a matter's id is stored
  * as one of its steps): all of them or, when any fails, none, rolled back at once, so no other ask's anchor is ever
- * taken back. The desk stopping between the card's line and the commit leaves the card with neither, owned as a card
- * asked before owners were kept; never an anchor without its card.
+ * taken back. The card's line carries the asking assignment and its matter, so the desk stopping between the line and
+ * the commit leaves a card still owned by its assignment (`assignmentOfCard`) and on its matter; never an anchor
+ * without its card.
  */
 export async function askDecision(
   desk: Desk,
@@ -514,12 +516,12 @@ export async function askDecision(
     return requestDecision(DESK_AGENT, { agent: card.agent, why, withdraw });
   }
   const steps = anchorsOf(db, s.id);
-  const subject = await subjectOf(s, steps, ask.subject);
+  const { matter, subject } = await subjectOf(s, steps, ask.subject);
   const link = agentOf(db, id)?.link;
   const claim = (
     on: string | undefined,
     decision: string,
-    write: () => void
+    write: (stamps: { assignment: string }) => void
   ) => {
     // One card at a time per assignment (an inbox rule, not a limit on its work), checked after every await.
     const open = openCardOf(db, s);
@@ -545,7 +547,7 @@ export async function askDecision(
           [s.id, on, clock().toISOString()]
         );
       }
-      write();
+      write({ assignment: s.id });
     })();
   };
   return requestDecision(
@@ -558,7 +560,8 @@ export async function askDecision(
     },
     undefined,
     undefined,
-    claim
+    claim,
+    matter
   );
 }
 

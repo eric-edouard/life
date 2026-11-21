@@ -112,7 +112,7 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "request_decision",
-    `Ask the owner one decision (one open at a time per matter). ${CARD} On a matter, the subject is your matter or one of its steps (none given: its first step); another is refused. Or \`withdraw\` (your decision's id) with \`why\`. His answer wakes you.`,
+    `Ask the owner one decision (one open at a time per matter). ${CARD} On a matter, the subject is your matter or one of its steps (none given: your matter's id, so for \`ends: "step"\` name the open step); another is refused. Or \`withdraw\` (your decision's id) with \`why\`. His answer wakes you.`,
     DecisionRequest,
     (ask, s) => askDecision(desk, s, ask)
   );

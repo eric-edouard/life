@@ -294,7 +294,7 @@ export async function readRegisteredAgents(
   );
   return {
     agents: agents.map((a) => {
-      const v = find(a.steps);
+      const v = find(a.steps, a.matterId ?? undefined);
       return {
         ...a,
         matter: v ? { id: v.id, name: v.name, status: v.status } : null,

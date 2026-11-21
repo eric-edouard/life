@@ -236,10 +236,10 @@ export function agentHomeOf(
   return a.project ? join(agentsRepo, `project-${a.project}`) : null;
 }
 
-/** Which assignment owns card `d`: the one that asked it, written once when asked (`card`, `askDecision`), never worked out from anchors that move; one asked before the desk kept owners (20 Nov 2026), its asker's first assignment (its one then); none for a card no registered agent asked. */
+/** Which assignment owns card `d`: the one that asked it, written once when asked (`card`, `askDecision`), never worked out from anchors that move; with no row (the desk stopped before it committed), the assignment its line names; one asked before the desk kept owners (20 Nov 2026), its asker's first assignment (its one then); none for a card no registered agent asked. */
 export const assignmentOfCard = (
   db: Database,
-  d: { agent?: string; id: string }
+  d: { agent?: string; assignment?: string; id: string }
 ) =>
   d.agent
     ? (db
@@ -247,6 +247,7 @@ export const assignmentOfCard = (
           "select assignment_id as id from card where decision_id = ?"
         )
         .get(d.id)?.id ??
+      d.assignment ??
       db
         .query<{ id: string }, [string]>(
           "select id from assignment where agent_id = ? order by opened_at, rowid limit 1"
@@ -419,13 +420,13 @@ export function readStartFacts(
 ) {
   const change = agentChangeOf(db, ask);
   const id = change?.agent_id;
-  // On a matter, its agent's assignment anchored on any of `steps` (the one on the matter he chose first, then open, as
-  // Start found it, then newest); else its own.
+  // On a matter, its agent's assignment anchored on any of `steps` (an open one first, as Start found it, then the one
+  // on the matter he chose, then newest): a closed one's past never answers today's Start; else its own.
   const assignment =
     (id &&
       db
         .query<AssignmentRow, [string, string | null, string | null]>(
-          "select * from assignment s where agent_id = ?1 and iif(?2 is null, id not in (select assignment_id from anchor), id in (select assignment_id from anchor where step in (select value from json_each(?2)))) order by matter_id is not ?3, closed_at is not null, opened_at desc limit 1"
+          "select * from assignment s where agent_id = ?1 and iif(?2 is null, id not in (select assignment_id from anchor), id in (select assignment_id from anchor where step in (select value from json_each(?2)))) order by closed_at is not null, matter_id is not ?3, opened_at desc limit 1"
         )
         .get(id, steps ? JSON.stringify(steps) : null, matter ?? null)) ||
     null;
@@ -520,6 +521,8 @@ export interface AgentNow {
     startedAt: string;
   } | null;
   link: string | null;
+  /** The matter he chose for its current assignment (`matter_id`), which the finder takes on a tie among its steps' matters; null: none chosen. */
+  matterId: string | null;
   model: string | null;
   /** The first line of its notes: what it took its subject to be; none for the caretaker (its notes are about his complaints). */
   notes: string;
@@ -657,6 +660,7 @@ function nowOf(
         }
       : null,
     link: a.link,
+    matterId: s.matter_id,
     // The caretaker's notes are about his complaints: they stay with it, never in a read or the nightly.
     notes: a.role === "caretaker" ? "" : headOf(readNotes(s)),
     notStarted: s.why_not_started,

@@ -23,12 +23,17 @@ interface Row {
 /** An agent as the oddities read it: its id and status as `read_registered_agents` gives them, and its anchors. */
 export interface HealthAgent {
   id: string;
+  /** The matter chosen for its current assignment, the finder's pick on a tie (`AgentNow.matterId`). */
+  matterId?: string | null;
   project: string | null;
   status: string;
   steps: readonly string[];
 }
 
-type Find = (refs: readonly string[]) => MatterView | undefined;
+type Find = (
+  refs: readonly string[],
+  prefer?: string
+) => MatterView | undefined;
 
 /** Whether the desk counts the agent as at work (`running` or `waiting`: `active` in its store). */
 const isActive = (a: Pick<HealthAgent, "status">) =>
@@ -45,7 +50,7 @@ export const activeOnIdleMatterOf = (
   find: Find
 ) =>
   agents.flatMap((a) => {
-    const v = isActive(a) ? find(a.steps) : undefined;
+    const v = isActive(a) ? find(a.steps, a.matterId ?? undefined) : undefined;
     return v && !isRunning(v)
       ? [oddity(a.id, `active, but its matter "${v.name}" is not running`)]
       : [];
@@ -76,7 +81,7 @@ export const splitAnchorsOf = (agents: readonly HealthAgent[], find: Find) =>
     if (a.status === "ended" || a.steps.length === 0) {
       return [];
     }
-    const v = find(a.steps);
+    const v = find(a.steps, a.matterId ?? undefined);
     const refs = new Set([v?.id, ...(v?.steps.map((s) => s.ref) ?? [])]);
     return a.steps.every((r) => refs.has(r))
       ? []
@@ -89,7 +94,10 @@ export const stoppedOnRunningOf = (
   find: Find
 ) =>
   agents.flatMap((a) => {
-    const v = a.status === "stopped" ? find(a.steps) : undefined;
+    const v =
+      a.status === "stopped"
+        ? find(a.steps, a.matterId ?? undefined)
+        : undefined;
     return v && isRunning(v)
       ? [oddity(a.id, `stopped, yet it holds the running matter "${v.name}"`)]
       : [];
@@ -97,11 +105,16 @@ export const stoppedOnRunningOf = (
 
 /** Each open decision on a matter that is not running: a card on a closed matter. */
 export const decisionOnIdleMatterOf = (
-  decisions: readonly { id: string; question: string; subject?: string }[],
+  decisions: readonly {
+    id: string;
+    matter?: string;
+    question: string;
+    subject?: string;
+  }[],
   find: Find
 ) =>
   decisions.flatMap((d) => {
-    const v = d.subject ? find([d.subject]) : undefined;
+    const v = d.subject ? find([d.subject], d.matter) : undefined;
     return v && !isRunning(v)
       ? [
           oddity(
@@ -166,7 +179,12 @@ export const needsYouRowOf = (now: number, lastNeedsYou?: number): Row => ({
 export function healthRowsOf(i: {
   agents: readonly HealthAgent[];
   book: readonly MatterView[];
-  decisions: readonly { id: string; question: string; subject?: string }[];
+  decisions: readonly {
+    id: string;
+    matter?: string;
+    question: string;
+    subject?: string;
+  }[];
   facts: HandOutFacts;
   holds: readonly AgentHold[];
   lastNeedsYou?: number;

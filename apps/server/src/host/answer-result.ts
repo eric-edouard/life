@@ -264,7 +264,8 @@ function planOf(
 
 /**
  * What his pick of `d`'s `ends` option `option` closes (`openStepsOf`): the open steps of the open matter its subject
- * rides on (`matterOfSteps` among open matters, as the ask resolved it), or the subject alone for a step's card. Read
+ * rides on (`matterOfSteps` among open matters, the one the ask resolved, `matter`, on a tie), or the subject alone for
+ * a step's card. Read
  * before the plan, so its limit counts the ticks. `problem`: a step's card whose step is neither open nor ended (no
  * open matter holds it), so closing would close nothing; a step already ended by another route is no problem.
  */
@@ -275,7 +276,8 @@ async function closingOf(d: Decision, option: string) {
     d.subject &&
     matterOfSteps(
       book.filter((m) => m.open),
-      [d.subject]
+      [d.subject],
+      d.matter
     );
   const closing = v ? openStepsOf(v, step ? d.subject : undefined) : [];
   const isEnded = book.some((m) =>

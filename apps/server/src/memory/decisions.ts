@@ -44,11 +44,15 @@ const VERSION = 3;
 const DecisionId = z.string().regex(/^dec_[0-9a-f]{12}$/);
 const Asked = Ask.extend({
   asker: z.string().min(1),
+  /** The desk's assignment that asked it (`askDecision`), which owns it when the desk's own row of it is missing; cards before it have none. */
+  assignment: z.string().min(1).optional(),
   at: isoDateTime,
   /** The draft as Life stored it when asked (`resolveDraft`): `to` the chat's name, `chat` and the stamps; a card asked before Life could send has none, and sends nothing. */
   draft: StoredDraft.optional(),
   id: DecisionId,
   kind: z.literal("asked"),
+  /** The matter it was asked on, as the ask resolved it: the finder's pick (`prefer`) among the matters its `subject` step rides on; cards before it, or off a matter, have none. */
+  matter: z.string().min(1).optional(),
   schemaVersion: z.literal(VERSION),
 }).strict();
 const Answered = z
@@ -481,8 +485,13 @@ export async function requestDecision(
   request: Record<string, unknown>,
   now = clock(),
   readChat = resolveDraft,
-  claim = (_subject: string | undefined, _id: string, write: () => void) =>
-    write()
+  claim = (
+    _subject: string | undefined,
+    _id: string,
+    write: (stamps?: Pick<Asked, "assignment">) => void
+  ) => write(),
+  // The matter the asker works on (the desk's assignment's), which the finder takes on a tie among the subject's matters.
+  prefer?: string
 ): Promise<{ id: string }> {
   if (request.withdraw) {
     return withdrawDecision(asker, request, now);
@@ -512,7 +521,8 @@ export async function requestDecision(
   const matter = isOnMatter(ask.subject)
     ? matterOfSteps(
         (await reads.book()).filter((m) => m.open),
-        [ask.subject]
+        [ask.subject],
+        prefer
       )
     : undefined;
   if (isOnMatter(ask.subject) && !matter) {
@@ -534,11 +544,13 @@ export async function requestDecision(
   const draft = ask.draft && (await readChat(ask.draft, now));
   refuseSecondDraft(draft, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
-  const write = () =>
+  const write = (stamps: Pick<Asked, "assignment"> = {}) =>
     appendJsonl(DECISIONS, Asked, [
       {
         ...ask,
+        ...stamps,
         ...(draft ? { draft } : {}),
+        ...(matter ? { matter: matter.id } : {}),
         ...(subject ? { subject } : {}),
         asker,
         at: now.toISOString(),

@@ -7,6 +7,7 @@ import {
   openAssignments,
   readStartFacts,
 } from "../host/desk-read";
+import { decisionsNow } from "../memory/decisions";
 import {
   askDecision,
   openAssignment,
@@ -109,6 +110,33 @@ test("a card asked before the desk kept its owner stays its agent's first assign
   expect(assignmentOfCard(desk.db, card)).toBe(first);
 });
 
+// Verdict on PR 841: the card's line is written before the desk's row of it commits; the desk stopping between them
+// left the card to its agent's first assignment. The line names the assignment that asked it.
+test("a card whose owner row never committed stays with the assignment that asked it, not its agent's first", async () => {
+  const { desk } = setup();
+  const id = standing(desk, {});
+  const second = openAssignment(desk, id, { openedBy: "owner" });
+  const s = assignmentOf(desk.db, second);
+  if (!s) {
+    throw new Error("no second assignment");
+  }
+  const asked = await askDecision(desk, s, {
+    context: "A made-up reason to ask.",
+    deadline: iso(clock().getTime() + DAY),
+    options: [
+      { id: "yes", label: "Yes" },
+      { id: "no", label: "No" },
+    ],
+    question: "Test: go on?",
+    title: "a test",
+  });
+  desk.db.run("delete from card where decision_id = ?", [asked.id]);
+  const card = decisionsNow().find((d) => d.id === asked.id);
+  expect(card?.assignment).toBe(second);
+  expect(assignmentOfCard(desk.db, card ?? { id: "" })).toBe(second);
+  await withdrawOpenCards(desk.db, s, "test over");
+});
+
 test("a fold onto an agent leaves its own older card on its own assignment", async () => {
   const { desk } = setup();
   desk.embedder = null;
@@ -154,15 +182,17 @@ test("a fold onto an agent leaves its own older card on its own assignment", asy
   );
 });
 
-test("a repeated Start reports the open assignment it found, never a newer closed one on another of its steps", () => {
+test("a repeated Start reports the open assignment it found, never a newer closed one on another of its steps, even on the matter he chose", () => {
   const { desk } = setup();
   const id = standing(desk, {});
   const open = openAssignment(desk, id, {
+    matter: "matter_00000000b001",
     openedBy: "owner",
     steps: ["obs_test_d1"],
   });
   advance(MIN);
   const closed = openAssignment(desk, id, {
+    matter: "matter_00000000a001",
     openedBy: "owner",
     steps: ["obs_test_d2"],
   });
@@ -174,9 +204,12 @@ test("a repeated Start reports the open assignment it found, never a newer close
     "insert into agent_change (ask, agent_id, applied_at) values ('entry_test', ?, ?)",
     [id, clock().toISOString()]
   );
-  expect(
-    readStartFacts(desk.db, "entry_test", {
-      steps: ["obs_test_d1", "obs_test_d2"],
-    }).assignment?.id
-  ).toBe(open);
+  for (const matter of [undefined, "matter_00000000a001"]) {
+    expect(
+      readStartFacts(desk.db, "entry_test", {
+        matter,
+        steps: ["obs_test_d1", "obs_test_d2"],
+      }).assignment?.id
+    ).toBe(open);
+  }
 });

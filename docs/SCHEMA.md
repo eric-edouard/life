@@ -263,8 +263,10 @@ detail, madeBy, at}`); read by nothing since (docs/architecture.md, "Details"). 
 The decisions: a question an agent puts to him (`memory/decisions.ts`), append-only, one synchronous line each,
 outside the lock, schemaVersion 3, by `kind`:
 - `asked` (`requestDecision`), one card: `id` (`dec_` + 12 hex), `at`, `asker` (the agent's pairing, `desk`, or `owner` from his own app),
-  `agent` (`agt_…`, a registered agent's, optional), `subject` (a matter step's id, `project:<id>` or `area:<id>`,
-  optional), `title` (one line, 80 chars), `question` (one line, 120 chars), `draft` (optional, `memory/draft.ts`. What the
+  `agent` (`agt_…`, a registered agent's, optional), `assignment` (the desk's `asg_…` that asked it, which owns it when
+  the desk's `card` row is missing; optional), `subject` (a matter step's id, `project:<id>` or `area:<id>`,
+  optional), `matter` (the matter it was asked on, as the ask resolved it: the finder's pick on a tie among the
+  matters its subject step rides on, which the inbox and his answer take; optional, cards before it have none), `title` (one line, 80 chars), `question` (one line, 120 chars), `draft` (optional, `memory/draft.ts`. What the
   agent gives: `channel`, the source it goes through; `to`, the chat's name once stored; one of `text`, `file` (an
   absolute path) or `reaction` (an emoji, with `onMessage` and nothing else); `onMessage`, a message's id as `read_chats`
   gives it (replied to, or reacted to); `mentions` (`[{name, sender}]`, each an `@name` of `text`, in order); for mail,
@@ -679,9 +681,11 @@ runtime), current session and link, `status` `active`, `stopped`, `handed_over` 
 `agent_id`, `opened_at`, `opened_by` (`owner` or `desk`, the hand-out), `said` (his words, when he gave it), its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an open assignment with no
 `wait_until`), `notes_path` (its notes file, in `desk.agentsRepo`, else under the desk's folders), `plan_done`,
-`plan_total`, `plan_now` (its runtime's plan, overwritten; null when none), `closed_at`, `outcome`, `why_not_started`;
+`plan_total`, `plan_now` (its runtime's plan, overwritten; null when none), `closed_at`, `outcome`, `why_not_started`,
+`matter_id` (the matter he chose for it, by Start or the hand-out, which the finder takes on a tie among its anchors'
+matters; null on rows before `stepMatterIds` and for an agent's own);
 its cards are `card`'s), `session` (every session it had, with its link, `context_at_first_call`, the context its first turn's usage reported, and `rules_digest`; append-only), `event` (an assignment's
 queued events, one row per assignment and event id, an event id queued once per agent (`queue`), `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn`, `complaint.received` (his complaint for the caretaker, its ask's id as `event_id` and `{ask}` as payload: the complaint's receipt) or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn, on one assignment: its
-cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update), `anchor` (an assignment's matter steps, in order, and its cards' subjects; none for an agent's own), `card` (which assignment asked each card, `decision_id`, `assignment_id`: written once, just before the card is written (dropped when it is not), `assignmentOfCard`; a card asked before has none and is its asker's one assignment then), `handed_step` (the matter steps an assignment was shown by a turn that ended unfailed, `keepHanded`: what its next record leaves out; emptied on a re-point), `agent_change` (each of his asks
+cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update), `anchor` (an assignment's matter steps, in order, and its cards' subjects; none for an agent's own), `card` (which assignment asked each card, `decision_id`, `assignment_id`: written in one transaction with the card's line, `assignmentOfCard`; with no row, the assignment the line names; a card asked before either is its asker's one assignment then), `handed_step` (the matter steps an assignment was shown by a turn that ended unfailed, `keepHanded`: what its next record leaves out; emptied on a re-point), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
 `cursor` (where the message, answer, ask and complaint reads stopped; `complaints`: a count of ledger lines). Never deleted by hand.

@@ -7,6 +7,7 @@ import { setSettings } from "../core/settings";
 import { asksFor } from "../host/asks";
 import { changeRegisteredAgent } from "../host/change-registered-agent";
 import { agentOf, openAssignmentOfMatter } from "../host/desk-read";
+import { readRegisteredAgents } from "../host/registered-agents";
 import { CORRECTIONS } from "../memory/memory-files";
 import { register } from "./agent-actions";
 import { start } from "./agent-changes";
@@ -102,6 +103,11 @@ test("a Start on a matter sharing its step with another reaches its own project'
       expect(done.agent).toBe(bakery);
       const s = openAssignmentOfMatter(desk.db, "matter_00000000b826");
       expect(s?.agent_id).toBe(bakery);
+      // His agent list shows the matter he chose, not the other holder of its step.
+      expect(
+        (await readRegisteredAgents()).agents.find((a) => a.id === bakery)
+          ?.matter?.id
+      ).toBe("matter_00000000b826");
       expect(
         readFileSync(CORRECTIONS, "utf8").trim().split("\n").at(-1)
       ).toContain('"matter":"matter_00000000b826"');
