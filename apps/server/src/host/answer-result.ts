@@ -34,7 +34,12 @@ import {
   START_STAGES,
   WAIT_MS,
 } from "./change-registered-agent";
-import { endByHisWord, QUICK_MS, ticksLimitMsOf } from "./correct-matter";
+import {
+  closedStepOf,
+  endByHisWord,
+  QUICK_MS,
+  ticksLimitMsOf,
+} from "./correct-matter";
 import {
   assignmentOf,
   assignmentOfCard,
@@ -266,19 +271,20 @@ function rememberTap(key: string, result: Record<string, unknown>) {
   taps.set(key, { at: t, result });
 }
 
-/** The steps an answer will report, in order: a decision's (and its send's, or its end's ticks), a new matter's Start (the desk's start stages), else Life's guesses'. */
+/** The steps an answer will report, in order: a decision's (and its send's, or its end's ticks), a new matter's Start (the desk's start stages), else Life's guesses' (a your move's ticks, or removals on Drop: `isDropped`). */
 function planOf(
   known: Decision | undefined,
   act: ReturnType<typeof actOf>,
   closing: readonly MatterStepNow[],
-  starts: boolean
+  starts: boolean,
+  isDropped: boolean
 ) {
   if (known) {
     return [
       "recorded",
       ...(act === "send" && known.draft ? sendStepsOf(known.draft) : []),
       ...(act === "end" && closing.some((s) => s.kind === "todo_item")
-        ? ["todo_items_ticked"]
+        ? [closedStepOf(false)]
         : []),
       ...(act === "end" ? ["ended"] : []),
       ...(act === "look" ? ["looking", "done_seen"] : []),
@@ -287,10 +293,10 @@ function planOf(
   if (starts) {
     return ["goal_saved", ...START_STAGES, "recorded"];
   }
-  // A your move's Mark as done: its ticks, then the answer recorded.
+  // A your move's Mark as done or Drop: its ticks or removals, then the answer recorded.
   return [
     ...(closing.some((s) => s.kind === "todo_item")
-      ? ["todo_items_ticked"]
+      ? [closedStepOf(isDropped)]
       : []),
     "recorded",
   ];
@@ -355,7 +361,7 @@ async function decisionActOf(
       closing,
       `"${d.options.find((o) => o.id === a.options[0])?.label}" on "${d.title}" (${d.id})`,
       (ticked, of, key) =>
-        report({ at: at(), done: ticked, key, of, step: "todo_items_ticked" })
+        report({ at: at(), done: ticked, key, of, step: closedStepOf(false) })
     );
   };
   const sendMs = act === "send" && known?.draft ? sendLimitMs(known.draft) : 0;
@@ -408,9 +414,10 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
   const starts =
     (open.group === "new matter" || open.group === "your move") &&
     a.options[0] === "start";
-  // A your move's Mark as done closes its step, read before the plan so its limit counts the tick.
+  // A your move's Mark as done or Drop closes its step, read before the plan so its limit counts the tick.
+  const isDropped = open.group === "your move" && a.options[0] === "drop";
   const moveClosing =
-    open.group === "your move" && a.options[0] === "done"
+    open.group === "your move" && (a.options[0] === "done" || isDropped)
       ? await yourMoveClosingOf(open)
       : [];
   report({
@@ -421,7 +428,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
         QUICK_MS) /
         1000
     ),
-    plan: planOf(known, act, known ? closing : moveClosing, starts),
+    plan: planOf(known, act, known ? closing : moveClosing, starts, isDropped),
   });
   // A new matter's Start: the desk's start, as `change_registered_agent` asks it; its own plan is in this one.
   let start: Awaited<ReturnType<typeof changeRegisteredAgent>> | null = null;
@@ -454,9 +461,16 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     endYourMove: () =>
       endByHisWord(
         moveClosing,
-        `"Mark as done" on "${open.title}" (${open.ref})`,
-        (ticked, of, key) =>
-          report({ at: at(), done: ticked, key, of, step: "todo_items_ticked" })
+        `"${isDropped ? "Drop" : "Mark as done"}" on "${open.title}" (${open.ref})`,
+        (closed, of, key) =>
+          report({
+            at: at(),
+            done: closed,
+            key,
+            of,
+            step: closedStepOf(isDropped),
+          }),
+        isDropped
       ),
     look: lookForDone,
     onStep: (step, detail) => report({ at: at(), step, ...detail }),

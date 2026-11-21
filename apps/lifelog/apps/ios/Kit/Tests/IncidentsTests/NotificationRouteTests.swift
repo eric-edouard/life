@@ -26,3 +26,12 @@ import Testing
     ]
     #expect(NotificationRoute(userInfo: gone) == .removed(["9f2c41d07ab35e68", "0123456789abcdef"]))
 }
+
+@Test func anAppointmentLifeAddedOpensItsEventSheet() {
+    // As lifelog's `alertOf` sends it: `kind` and `pushId` beside `aps`, category `life.calendar`, no badge.
+    let added: [AnyHashable: Any] = [
+        "aps": ["alert": ["title": "Life", "body": "Added to your calendar"], "category": "life.calendar"],
+        "kind": "calendar.added", "pushId": "0123456789abcdef",
+    ]
+    #expect(NotificationRoute(userInfo: added) == .appointment("0123456789abcdef"))
+}

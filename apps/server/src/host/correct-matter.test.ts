@@ -52,7 +52,7 @@ let tick: ReturnType<typeof spyOn>;
 beforeEach(() => {
   rmSync(CORRECTIONS, { force: true });
   book = spyOn(matters, "readMatterBook").mockResolvedValue([matter] as never);
-  tick = spyOn(todo, "tickTodoItems").mockResolvedValue([]);
+  tick = spyOn(todo, "closeTodoItems").mockResolvedValue([]);
 });
 afterEach(() => {
   book.mockRestore();
@@ -72,6 +72,7 @@ test("a matter marked done by its id closes every open step as Life reads it: ob
   expect(tick).toHaveBeenCalledWith(
     ["entry_000000000001"],
     "Marked done in the Life app.",
+    "done",
     expect.any(Function)
   );
   expect(readCorrections()).toMatchObject([
@@ -91,16 +92,18 @@ test("two to-do items ticked: a plan with a limit, one report per tick, then rec
       steps: [...matter.steps, step("entry_000000000002", "todo_item")],
     },
   ] as never);
-  tick.mockImplementation((keys: string[], _said: string, onTicked: never) => {
-    for (const [i, k] of keys.entries()) {
-      (onTicked as (a: number, b: number, c: string) => void)(
-        i + 1,
-        keys.length,
-        k
-      );
+  tick.mockImplementation(
+    (keys: string[], _said: string, _kind: string, onTicked: never) => {
+      for (const [i, k] of keys.entries()) {
+        (onTicked as (a: number, b: number, c: string) => void)(
+          i + 1,
+          keys.length,
+          k
+        );
+      }
+      return Promise.resolve([]);
     }
-    return Promise.resolve([]);
-  });
+  );
   const reported: Record<string, unknown>[] = [];
   await correct(
     {
@@ -177,6 +180,7 @@ test("with no words of his, the to-do items' ask says the words are Life's, and 
   expect(tick).toHaveBeenCalledWith(
     ["entry_000000000001"],
     "Marked done (Life's words: he gave none).",
+    "done",
     expect.any(Function)
   );
   expect(readCorrections()[0]?.note).toBeUndefined();
@@ -200,6 +204,25 @@ test("his word on one step closes that step alone: a step a link ended still wai
   expect(
     await endByHisWord(openStepsOf(matter as never, "obs_000000000003"), "x")
   ).toEqual([]);
+});
+
+// His Drop (21 Nov 2026): its to-do items removed from his list, never ticked; its observations outdated as dropped.
+test("his Drop removes the step's to-do items and records the observations as dropped", async () => {
+  await endByHisWord(
+    openStepsOf(matter as never),
+    "Drop on its card.",
+    undefined,
+    true
+  );
+  expect(tick).toHaveBeenCalledWith(
+    ["entry_000000000001"],
+    "Drop on its card.",
+    "remove",
+    undefined
+  );
+  expect(readCorrections()).toMatchObject([
+    { kind: "outdated", outcome: "dropped" },
+  ]);
 });
 
 // His important mark (20 Nov 2026): his word only, by a matter's id; the line written is the new state, for his toast.

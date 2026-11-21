@@ -41,6 +41,7 @@ struct ProjectDetails: View {
                         set: { choice in choose(choice, head: head, status: status) }),
                     title: \.shownWord
                 )
+                .offWhileOutOfReach()
                 .padding(.horizontal, Metrics.Spacing.m)
                 if let goal = head.goal {
                     ListLabel("The goal it serves")

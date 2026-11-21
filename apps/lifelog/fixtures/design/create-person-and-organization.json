@@ -1,0 +1,337 @@
+{
+  "note": "Made-up content of the frames, as the frames show it (design side). A draft for the shared data set: the builder turns it into the connector's wire shape in the repo; the frame generator will then read that file instead of its own copies. Nothing here is real.",
+  "frames": {
+    "AskNameNone": {
+      "pose": "phone 390x844",
+      "question": "Who is “Bastien Morel”?",
+      "said": {
+        "by": "Nora Keller",
+        "channel": "mail",
+        "at": "Mon 16 Nov",
+        "text": "Bastien Morel m'a dit qu'il passerait jeudi pour le devis.",
+        "name": "Bastien Morel"
+      },
+      "matter": "Quote for Nora Keller",
+      "answers": {
+        "main": "Create Bastien Morel",
+        "quiet": ["Someone I know…", "Organization", "Neither"]
+      },
+      "badge": {
+        "inbox": 2
+      }
+    },
+    "PersonCreate": {
+      "over": "AskNameNone",
+      "sheet": "New person",
+      "fields": [
+        {
+          "label": "Name",
+          "value": "Bastien Morel"
+        },
+        {
+          "label": "Also called",
+          "value": "Bastien"
+        },
+        {
+          "label": "Who they are",
+          "value": "Mentioned by Nora Keller, about “Quote for Nora Keller”",
+          "guessed": true
+        },
+        {
+          "label": "Language",
+          "value": "French"
+        }
+      ],
+      "addRow": "Add a phone, a mail or a handle",
+      "attaches": "3 mentions and 1 matter will be attached",
+      "button": "Create"
+    },
+    "PersonCreateHandle": {
+      "as": "PersonCreate",
+      "extraField": {
+        "label": "Mail",
+        "value": "bastien@morel.example",
+        "after": "Language"
+      }
+    },
+    "PersonCreateEdit": {
+      "as": "PersonCreate",
+      "editing": "Who they are",
+      "typed": "Nora's architect",
+      "keyboard": true,
+      "addRowHidden": true
+    },
+    "PersonCreating": {
+      "as": "PersonCreate",
+      "button": {
+        "state": "working",
+        "words": "Attaching 3 mentions…"
+      }
+    },
+    "PersonCreated": {
+      "as": "PersonCreate",
+      "button": {
+        "state": "done",
+        "words": "Created"
+      }
+    },
+    "PersonCreateExists": {
+      "as": "PersonCreate",
+      "reason": "Bastien Morel is already in your people.",
+      "quietAnswer": "It's them"
+    },
+    "AskPeople": {
+      "question": "Who is “Marc”?",
+      "sheet": "Who?",
+      "searchPrompt": "Search or type a name",
+      "firstRow": "Create “Marc”",
+      "people": [
+        {
+          "name": "Marc Delmas",
+          "line": "Fitter, works with Idris Benali"
+        },
+        {
+          "name": "Marc Fenn",
+          "line": "Camille's brother"
+        },
+        {
+          "name": "Camille Vance",
+          "line": "Partner"
+        },
+        {
+          "name": "Hélène Aubert",
+          "line": "Landlord"
+        },
+        {
+          "name": "Nora Keller",
+          "line": "Client"
+        }
+      ]
+    },
+    "OrgNameCard": {
+      "pose": "phone 390x844",
+      "question": "Who is “Atelier Morel”?",
+      "said": {
+        "by": "Camille",
+        "channel": "WhatsApp",
+        "at": "Thu 19 Nov",
+        "text": "On passe à l'Atelier Morel jeudi ?",
+        "name": "Atelier Morel"
+      },
+      "matter": "Kitchen quote, Halden house",
+      "answers": {
+        "main": "Create Atelier Morel",
+        "quiet": ["Someone I know…", "Organization", "Neither"]
+      },
+      "badge": {
+        "inbox": 2
+      }
+    },
+    "OrgCreate": {
+      "over": "OrgNameCard",
+      "sheet": "New organization",
+      "control": {
+        "segments": ["Person", "Organization"],
+        "on": "Organization"
+      },
+      "fields": [
+        {
+          "label": "Name",
+          "value": "Atelier Morel"
+        },
+        {
+          "label": "Also called",
+          "value": "Morel"
+        },
+        {
+          "label": "What it is",
+          "value": "Architects on Nora Keller's house",
+          "guessed": true
+        },
+        {
+          "label": "People you know there",
+          "guessed": true,
+          "people": [
+            {
+              "name": "Bastien Morel",
+              "role": "Founder, architect"
+            },
+            {
+              "name": "Inès Carvalho",
+              "role": "Site manager"
+            }
+          ]
+        },
+        {
+          "label": "Site or mail",
+          "value": "ateliermorel.example"
+        }
+      ],
+      "addRow": "Add a person, a site or a phone",
+      "attaches": "5 mentions and 2 matters will be attached",
+      "button": "Create"
+    },
+    "OrgCreateAsPerson": {
+      "over": "OrgNameCard",
+      "sheet": "New person",
+      "control": {
+        "segments": ["Person", "Organization"],
+        "on": "Person"
+      },
+      "fields": [
+        {
+          "label": "Name",
+          "value": "Atelier Morel"
+        },
+        {
+          "label": "Also called",
+          "value": "Morel"
+        },
+        {
+          "label": "Who they are",
+          "value": "Mentioned by Camille Vance, about “Kitchen quote, Halden house”",
+          "guessed": true
+        },
+        {
+          "label": "Language",
+          "value": "French"
+        }
+      ],
+      "addRow": "Add a phone, a mail or a handle",
+      "attaches": "5 mentions and 2 matters will be attached",
+      "button": "Create"
+    },
+    "OrgCreating": {
+      "as": "OrgCreate",
+      "button": {
+        "state": "working",
+        "words": "Attaching 5 mentions…"
+      }
+    },
+    "OrgCreated": {
+      "as": "OrgCreate",
+      "button": {
+        "state": "done",
+        "words": "Created"
+      }
+    },
+    "PersonCreateOrg": {
+      "as": "PersonCreate",
+      "control": {
+        "segments": ["Person", "Organization"],
+        "on": "Person"
+      },
+      "extraField": {
+        "label": "Works at",
+        "value": "Atelier Morel · Founder, architect",
+        "guessed": true,
+        "after": "Who they are"
+      }
+    },
+    "PersonWorksEdit": {
+      "as": "PersonCreateOrg",
+      "editing": "Works at",
+      "typedOrganization": "Atelier M",
+      "suggestions": [
+        "Create “Atelier M…”",
+        "Atelier Morel · Architecture firm"
+      ],
+      "role": "Founder, architect",
+      "keyboard": true
+    },
+    "DuoFoldNameNone": {
+      "as": "AskNameNone",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldPersonCreate": {
+      "as": "PersonCreate",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldPersonCreateHandle": {
+      "as": "PersonCreateHandle",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldPersonCreateEdit": {
+      "as": "PersonCreateEdit",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldPersonCreating": {
+      "as": "PersonCreating",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldPersonCreated": {
+      "as": "PersonCreated",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldPersonCreateExists": {
+      "as": "PersonCreateExists",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldPeopleSheet": {
+      "as": "AskPeople",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldOrgNameCard": {
+      "as": "OrgNameCard",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldOrgCreate": {
+      "as": "OrgCreate",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldOrgCreateAsPerson": {
+      "as": "OrgCreateAsPerson",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldOrgCreating": {
+      "as": "OrgCreating",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldOrgCreated": {
+      "as": "OrgCreated",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldPersonCreateOrg": {
+      "as": "PersonCreateOrg",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoFoldPersonWorksEdit": {
+      "as": "PersonWorksEdit",
+      "pose": "closed Duo 466x678"
+    },
+    "DuoNameNone": {
+      "as": "AskNameNone",
+      "pose": "open Duo, wide 951x669",
+      "list": "the inbox list at the left with this ask chosen"
+    },
+    "DuoPersonCreate": {
+      "as": "PersonCreate",
+      "pose": "open Duo, wide 951x669",
+      "list": "the inbox list at the left with this ask chosen",
+      "sheetPlacement": "centred on the screen"
+    },
+    "DuoPersonCreated": {
+      "as": "PersonCreated",
+      "pose": "open Duo, wide 951x669",
+      "list": "the inbox list at the left with this ask chosen",
+      "sheetPlacement": "centred on the screen"
+    },
+    "DuoOrgNameCard": {
+      "as": "OrgNameCard",
+      "pose": "open Duo, wide 951x669",
+      "list": "the inbox list at the left with this ask chosen"
+    },
+    "DuoOrgCreate": {
+      "as": "OrgCreate",
+      "pose": "open Duo, wide 951x669",
+      "list": "the inbox list at the left with this ask chosen",
+      "sheetPlacement": "centred on the screen"
+    },
+    "DuoOrgCreated": {
+      "as": "OrgCreated",
+      "pose": "open Duo, wide 951x669",
+      "list": "the inbox list at the left with this ask chosen",
+      "sheetPlacement": "centred on the screen"
+    }
+  }
+}

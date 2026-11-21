@@ -269,7 +269,7 @@ export async function readMatterRecords(people: People) {
     [...statusInputs.retired].map(([id, r]) => [
       id,
       r.by === id
-        ? { at: r.at, why: r.why }
+        ? { at: r.at, why: r.why, ...(r.dropped ? { dropped: r.dropped } : {}) }
         : { at: atOf.get(r.by) ?? r.at, replacedBy: r.by, why: r.why },
     ])
   );

@@ -7,9 +7,10 @@ import {
   type MatterRecords,
   matterBookOf,
 } from "./matter-read";
+import { outdatedBy } from "./memory-files";
 import { openItems } from "./open-items";
 import { dayLines } from "./read-day";
-import { matterItems } from "./read-open-items";
+import { doneOf, matterItems } from "./read-open-items";
 import { OWNER } from "./read-truth";
 import { isMailerHandle } from "./units";
 
@@ -727,6 +728,64 @@ test("what got done on a day: closed matters by the instant their last step ende
     "2026-10-20"
   );
   expect(doneOnOf(open, "2026-10-19", day)).toEqual([]);
+});
+
+// His Drop on a your move card (21 Nov 2026): the step ends as Mark as done ends it, recorded as dropped.
+test("a dropped step closes its matter as done would, and reads as dropped", () => {
+  const [ask, promise] = [obs(1, "", {}).id, obs(5, "", {}).id];
+  const [drop] = outdatedBy([
+    {
+      at: "2026-10-18T15:00:00.000Z",
+      kind: "outdated",
+      note: "Drop on its card",
+      observations: [promise],
+      outcome: "dropped",
+      schemaVersion: 1,
+    },
+  ]);
+  expect(drop).toMatchObject({ dropped: true, observation: promise });
+  const ended = matterBookOf(
+    stored([line]),
+    records({
+      retired: new Map([
+        [ask, { at: "2026-10-17T08:00:00Z", why: "outdated" }],
+        [promise, { at: "2026-10-18T15:00:00Z", dropped: true, why: "Drop" }],
+      ]),
+    }),
+    "2026-10-20"
+  );
+  expect(ended[0]).toMatchObject({ open: false, status: "done" });
+  const [done] = doneOnOf(ended, "2026-10-18", (at) => at.slice(0, 10));
+  expect(done?.last.ending).toMatchObject({ by: "record", dropped: true });
+  expect(doneOf(ended, "2026-10-18")[0]?.how).toContain("(dropped 2026-10-18");
+});
+
+test("a to-do item removed unticked reads as dropped; one ticked, then cleared from his list, stays done", () => {
+  const item = (n: number, over: object) => ({
+    at: "2026-10-18T12:00:00.000Z",
+    closedAt: "2026-10-18T13:00:00.000Z",
+    fields: { title: `Item ${n}`, ...over },
+    key: `entry_${pad(n)}`,
+  });
+  const [v] = matterBookOf(
+    stored([
+      {
+        ...line,
+        steps: [{ ref: `entry_${pad(31)}` }, { ref: `entry_${pad(32)}` }],
+      },
+    ]),
+    records({
+      todoItems: [
+        item(31, { deleted: true }),
+        item(32, { completed: true, deleted: true }),
+      ],
+    }),
+    "2026-10-20"
+  );
+  expect(v?.steps.map((s) => s.ending)).toEqual([
+    { at: "2026-10-18T13:00:00.000Z", by: "ticked", dropped: true },
+    { at: "2026-10-18T13:00:00.000Z", by: "ticked" },
+  ]);
 });
 
 test("read_day lists what got done that day after what is due", () => {

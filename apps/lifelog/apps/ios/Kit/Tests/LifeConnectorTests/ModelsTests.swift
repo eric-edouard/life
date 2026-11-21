@@ -402,7 +402,7 @@ private func everyKindOfCheck() throws -> [Check] {
 
     // Mark as done is his word that the step is done; Hand to an agent hands over the goal shown, as Start does.
     let move = try card(.yourMove)
-    #expect(move.options.map(\.id) == ["done", "start", "not-now"] && move.filled?.id == "done")
+    #expect(move.options.map(\.id) == ["done", "start", "not-now", "drop"] && move.filled?.id == "done")
     #expect(move.isEnding(try #require(move.answer(move.options[0]))))
     #expect(move.answer(move.options[1]) == AnswerRequest(ref: move.ref, options: ["start"], note: move.goal))
     #expect(move.isHandOver(move.options[1]) && !move.isHandOver(move.options[2]))

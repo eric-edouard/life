@@ -35,11 +35,12 @@ struct MatterPage: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     let isOn = life.isImportant(id, as: row.important)
                     MarkItem(isOn: isOn) { Task { await life.setImportant(id, !isOn) } }
+                        .offWhileOutOfReach()
                 }
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
             }
         }
-        .task(id: life.answersEnded) { await life.refreshMatter(id) }
+        .task(id: life.answersEnded[id]) { await life.refreshMatter(id) }
     }
 
     private func page(_ matter: Matter) -> some View {
@@ -59,7 +60,7 @@ struct MatterPage: View {
                         router.matterSheet = .agent(id, agent: matter.holder?.agent.id ?? agent.id)
                     }
                 }
-                GoalAndNext(row: row)
+                GoalAndNext(row: row).offWhileOutOfReach()
                 People(people: row.people)
                 Steps(steps: matter.steps)
                 if let line = matter.spendingLine { SpendingLine(text: line) }
@@ -83,6 +84,7 @@ struct MatterPage: View {
                     DoneButton(id: id)
                 }
                 .controlSize(.large)
+                .offWhileOutOfReach()
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth()
             .padding(.top, Metrics.Spacing.m).frame(maxWidth: .infinity)

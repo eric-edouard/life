@@ -115,5 +115,14 @@
         "text": "Your promise"
       }
     ]
+  },
+  "spending": {
+    "equivalent": {
+      "amount": 19.0,
+      "basis": "equivalent",
+      "currency": "USD"
+    },
+    "reported": true,
+    "tokens": 1400000
   }
 }

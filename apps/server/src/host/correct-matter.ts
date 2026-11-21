@@ -14,7 +14,7 @@ import { recordCorrection } from "../memory/memory-files";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import { Correction } from "../records/observation";
-import { TICK_LIMIT_MS, tickTodoItems } from "./change-todo-item";
+import { closeTodoItems, TICK_LIMIT_MS } from "./change-todo-item";
 import type { ToolCall } from "./http/mcp-tool";
 
 // His word on a whole matter, by its id (`correct_memory` with `matter`): Life reads which of its steps he means as
@@ -45,32 +45,47 @@ export async function recordHisCorrection(
   return recordCorrection(said);
 }
 
+/** The action step of one to-do item closed by his word: ticked, or removed on his Drop. */
+export const closedStepOf = (isDropped: boolean) =>
+  isDropped ? "todo_items_removed" : "todo_items_ticked";
+
 /**
- * His word that the steps `open` (`openStepsOf`) are done, through the writers that already exist: their to-do items
- * ticked (`tickTodoItems`, with `note`, else Life's words saying he gave none), then their observations by one
- * `outdated` correction. Returns the lines written; none when nothing is open any more.
+ * His word that the steps `open` (`openStepsOf`) are done, or with `isDropped` won't be done (his Drop), through the
+ * writers that already exist: their to-do items ticked, or removed from his list when dropped (`closeTodoItems`, with
+ * `note`, else Life's words saying he gave none), then their observations by one `outdated` correction (`outcome`
+ * `dropped` when dropped). Returns the lines written; none when nothing is open any more.
  */
 export async function endByHisWord(
   open: readonly MatterStepNow[],
   note: string | undefined,
-  onTicked?: (done: number, of: number, key: string) => void
+  onClosed?: (done: number, of: number, key: string) => void,
+  isDropped = false
 ) {
   const items = open.filter((s) => s.kind === "todo_item").map((s) => s.ref);
   const observations = open
     .filter((s) => s.kind !== "todo_item")
     .map((s) => s.ref);
-  const ticked =
+  const closed =
     items.length > 0
-      ? await tickTodoItems(
+      ? await closeTodoItems(
           items,
-          note ?? "Marked done (Life's words: he gave none).",
-          onTicked
+          note ??
+            `${isDropped ? "Dropped" : "Marked done"} (Life's words: he gave none).`,
+          isDropped ? "remove" : "done",
+          onClosed
         )
       : [];
   return [
-    ...ticked,
+    ...closed,
     ...(observations.length > 0
-      ? [await recordCorrection({ kind: "outdated", note, observations })]
+      ? [
+          await recordCorrection({
+            kind: "outdated",
+            note,
+            observations,
+            ...(isDropped ? { outcome: "dropped" } : {}),
+          }),
+        ]
       : []),
   ];
 }
@@ -127,7 +142,7 @@ export async function correctMatter(
     limitSeconds: Math.ceil((ticksLimitMsOf(open) + QUICK_MS) / 1000),
     plan: [
       ...(open.some((s) => s.kind === "todo_item")
-        ? ["todo_items_ticked"]
+        ? [closedStepOf(false)]
         : []),
       "recorded",
     ],
@@ -135,7 +150,7 @@ export async function correctMatter(
   const written = await endByHisWord(
     open,
     typeof said.note === "string" ? said.note : undefined,
-    (done, of, key) => report({ done, key, of, step: "todo_items_ticked" })
+    (done, of, key) => report({ done, key, of, step: closedStepOf(false) })
   );
   report({ step: "recorded" });
   return written;

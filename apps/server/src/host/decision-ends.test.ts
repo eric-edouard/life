@@ -65,9 +65,9 @@ test("an `ends` option: the plan counts the ticks, the matter closes by his word
   ).mockResolvedValue([matter] as never);
   const tick = spyOn(
     await import("./change-todo-item"),
-    "tickTodoItems"
-  ).mockImplementation((keys, _said, onTicked) => {
-    onTicked?.(1, keys.length, keys[0] ?? "");
+    "closeTodoItems"
+  ).mockImplementation((keys, _said, _kind, onClosed) => {
+    onClosed?.(1, keys.length, keys[0] ?? "");
     return Promise.resolve([]);
   });
   try {
@@ -97,6 +97,7 @@ test("an `ends` option: the plan counts the ticks, the matter closes by his word
     expect(tick).toHaveBeenCalledWith(
       ["entry_000000000001"],
       note,
+      "done",
       expect.any(Function)
     );
     expect(readCorrections()).toMatchObject([

@@ -32,8 +32,11 @@ struct ProjectsScreen: View {
                 .screenTitle("Projects", state: life.projects.shown().onScreen.map { "\($0.underway) underway" })
                 // Beside a matter, the Pendant and Settings are the matter column's.
                 .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
-                // The chosen chip's list and header, again after any answer (and once Life's chips name the chip chosen).
-                .task(id: [chip?.identity ?? "", "\(life.answersEnded)"]) { await refresh(chip) }
+                // The chosen chip's list and header, again after an answer on a matter (and once Life's chips name the chip
+                // chosen). All's list is the matters' read, which that answer reads again itself.
+                .task(id: [chip?.identity ?? "", chip == nil ? "" : "\(life.answersEnded.values.reduce(0, +))"]) {
+                    await refresh(chip)
+                }
         } detail: {
             detail
         }
@@ -209,6 +212,7 @@ struct ProjectsScreen: View {
                     Task { await life.setImportant(row.id, !isMarked) }
                 }
                 .tint(Color.pick)
+                .offWhileOutOfReach()
             }
         }
     }
