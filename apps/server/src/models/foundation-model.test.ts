@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { MIN } from "../core/clock";
 import { askFoundationModel } from "./foundation-model";
 
 // A made-up helper: answers its first request, refuses its second, then exits before the third.
@@ -27,8 +28,8 @@ test("answers each request in order: a reply with its OS, a refusal, and unavail
   expect(a).toEqual({ os: "Version 27.2", reply: { author: "person" } });
   expect(b).toEqual({ detail: "sensitive", error: "refused" });
   expect(c).toMatchObject({ error: "unavailable" });
-  // Background priority (`taskpolicy -b`) is slow on a loaded Mac.
-}, 30_000);
+  // Background priority (`taskpolicy -b`) is slow on a loaded Mac: wait as long as the code does (a minute a request).
+}, 4 * MIN);
 
 test("no helper answers every request unavailable, never a throw", async () => {
   expect(await askFoundationModel([ask], "")).toEqual([
@@ -61,4 +62,4 @@ test("its model.local line says whether every request was answered, from the rep
   );
   // Answers one, refuses one, then exits before the third: a mixed batch.
   expect(await okOf(helper, [ask, ask, ask])).toBe(false);
-}, 60_000);
+}, 10 * MIN);
