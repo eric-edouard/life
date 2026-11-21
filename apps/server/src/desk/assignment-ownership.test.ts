@@ -270,7 +270,7 @@ test("each open card is its own assignment's, so an agent holding two shows each
   );
 });
 
-test("a folded card is shown as its holder's, whatever session it was asked from; its links stay as asked", () => {
+test("a folded card opens its holder's session now, or none: never a session it was asked from", () => {
   const { desk } = setup();
   const asker = standing(desk, {});
   const holder = standing(desk, { project: "test-shop" });
@@ -282,12 +282,23 @@ test("a folded card is shown as its holder's, whatever session it was asked from
     "dec_test_fold",
     held,
   ]);
-  const links = ["fake://asker-old", "https://example.com/doc"];
-  // The holder names the card; the phone opens that agent's session now (`Check.sessionLink`), or none.
-  expect(
-    cardHoldersOf(desk.db, [
-      { agent: asker, id: "dec_test_fold", links },
-      { agent: holder, id: "dec_test_own", links },
-    ])
-  ).toEqual([["dec_test_fold", { agent: holder }]]);
+  // The asker's session was replaced since it asked (its old link stays on its cards).
+  desk.db.run("update agent set link = 'fake://asker-new' where id = ?", [
+    asker,
+  ]);
+  const cards = [
+    { agent: asker, id: "dec_test_fold" },
+    { agent: asker, id: "dec_test_own" },
+  ];
+  const shown = () => Object.fromEntries(cardHoldersOf(desk.db, cards));
+  // The holder has no session yet: none, never the asker's.
+  expect(shown()).toEqual({
+    dec_test_fold: { agent: holder },
+    dec_test_own: { agent: asker, session: "fake://asker-new" },
+  });
+  desk.db.run("update agent set link = 'fake://holder' where id = ?", [holder]);
+  expect(shown().dec_test_fold).toEqual({
+    agent: holder,
+    session: "fake://holder",
+  });
 });

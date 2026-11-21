@@ -794,6 +794,4 @@ final class LifeStore {
 extension LifeStore {
     /// The program of the agent that asks a check (`Check.askingRuntime`).
     func runtimeName(of check: Check) -> RuntimeName? { agents.value.flatMap { check.askingRuntime(among: $0.agents) } }
-    /// The session a check's "Open in" opens (`Check.sessionLink`).
-    func sessionLink(of check: Check) -> URL? { check.sessionLink(among: agents.value?.agents ?? []) }
 }

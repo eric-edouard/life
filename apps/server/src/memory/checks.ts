@@ -118,8 +118,8 @@ type Where = string;
 export interface CheckInputs {
   /** Refs of the fact-check answers he gave (any answer settles that line's check). */
   answered: ReadonlySet<string>;
-  /** The open decisions (`decisionsNow`), each as asked by the agent holding it now (`HeldRead.cardHolders`). */
-  decisions: readonly Decision[];
+  /** The open decisions (`decisionsNow`), each as asked by the agent holding it now, with its session (`HeldRead.cardHolders`). */
+  decisions: readonly (Decision & { session?: string })[];
   /** The matters he dismissed as new matter checks, each as the steps it was pinned to (`readDismissedMatterPins`). */
   dismissed: readonly (readonly string[])[];
   /** Refs of the old doubt lines drawn before 14 Nov 2026 (stored fact checks that are not ending checks): an answer by ref would land on them. */
@@ -357,6 +357,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           kind: "decision",
           likelyPeople: [],
           links: d.links,
+          ...sessionOf(d),
           onMatters: [],
           onSilence: d.onSilence,
           ...decisionCardOf(d),
@@ -558,6 +559,12 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
   voice: (c) => voiceChecksOf(c.people, c.voices),
 };
 
+/** A decision's session (`Check.session`): a desk agent's card, its holder's now, or none; any other ask, its first link. */
+const sessionOf = (d: Decision & { session?: string }) => {
+  const session = d.agent ? d.session : d.links[0];
+  return session ? { session } : {};
+};
+
 /** The checks, in his inbox's order (`inboxOrderOf`). Pure over what is stored. */
 export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
@@ -707,7 +714,7 @@ async function readChecks(
     steps,
   });
   const key = secretIn("pushIdKey");
-  // Each card as asked by the agent holding it now (host's `cardHoldersOf`), whoever asked it.
+  // Each card as asked by the agent holding it now, with its session (host's `cardHoldersOf`), whoever asked it.
   const by = held?.cardHolders ?? {};
   const checks = checksOf({
     answered,

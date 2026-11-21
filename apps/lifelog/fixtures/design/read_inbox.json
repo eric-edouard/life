@@ -8,6 +8,7 @@
       "group": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
+      "session": "https://agents.example.test/s/1",
       "matter": {
         "id": "matter_lease",
         "name": "Lease renewal, rue des Carmes"
@@ -108,6 +109,7 @@
       "group": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
+      "session": "https://agents.example.test/s/1",
       "matter": {
         "id": "matter_lease",
         "name": "Lease renewal, rue des Carmes"

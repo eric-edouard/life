@@ -49,16 +49,22 @@ export function planCardsOf(db: Database, list: readonly Decision[]) {
   );
 }
 
-/** Each open card the desk holds, as its holder's (its assignment's agent), when that is not its asker: the phone opens that agent's session. */
+/** Each desk agent's open card as its holder's (its assignment's agent, else its asker): who, and that agent's session now, if any (never a link the card was asked with). */
 export const cardHoldersOf = (
   db: Database,
   open: readonly Pick<Decision, "agent" | "id">[]
 ) => {
   const owners = cardOwnersOf(db, open);
   return open.flatMap((d) => {
-    const holder = owners[d.id]?.holder;
-    return holder && holder !== d.agent
-      ? [[d.id, { agent: holder }] as const]
+    const holder = owners[d.id]?.holder ?? d.agent;
+    const agent = holder ? agentOf(db, holder) : null;
+    return agent
+      ? [
+          [
+            d.id,
+            { agent: agent.id, ...(agent.link ? { session: agent.link } : {}) },
+          ] as const,
+        ]
       : [];
   });
 };

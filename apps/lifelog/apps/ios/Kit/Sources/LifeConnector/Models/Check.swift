@@ -211,6 +211,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let clips: [Clip]
     public let likelyPeople: [Party]
     public let links: [String]
+    /// What its "Open in" opens: a registered agent's card, the session of the agent holding it now; any other ask, its
+    /// first link; nil when none, or from a Life that predates it.
+    public let session: String?
     /// The `life:` links of `context`, each with its kind; empty from a Life that predates them.
     public let lifeLinks: [LifeLink]?
     public let matter: MatterRef?
@@ -381,14 +384,6 @@ extension Check {
     /// any other ask, which then shows no program rather than a guessed one.
     public func askingRuntime(among agents: [RegisteredAgent]) -> RuntimeName? {
         agent.flatMap { id in agents.first { $0.id == id }?.runtimeName }
-    }
-
-    /// The session its "Open in" opens. A registered agent's card: the session of the agent holding it now (`agent`),
-    /// as the phone lists it, or none; never a link it was asked with (the asker's session, maybe replaced since or
-    /// another agent's). Any other ask: its first link.
-    public func sessionLink(among agents: [RegisteredAgent]) -> URL? {
-        guard let agent else { return links.first.flatMap(URL.init(string:)) }
-        return agents.first { $0.id == agent }?.link.flatMap(URL.init(string:))
     }
 
     /// Its draft goes to someone Life only guesses: the guess is asked beside it (`confirm`).

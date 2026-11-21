@@ -442,30 +442,6 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(lifes.askingRuntime(among: agents) == nil)
 }
 
-/// A registered agent's card opens the session of the agent holding it now, or none: never the link it was asked with,
-/// whose session may be gone or the asker's after a fold. Any other ask opens its first link.
-@Test func aCardOpensItsHoldersSessionNow() throws {
-    let wire = try #require(
-        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
-    var card = try #require((wire["checks"] as? [[String: Any]])?.first { $0["group"] as? String == "decision" })
-    card["links"] = ["https://agents.example.test/s/asker-old", "https://docs.example.test/brief"]
-    let unnamed = try decoded(Check.self, String(decoding: JSONSerialization.data(withJSONObject: card), as: UTF8.self))
-    #expect(unnamed.sessionLink(among: [])?.absoluteString == "https://agents.example.test/s/asker-old")
-    card["agent"] = "agt_000000000002"
-    let held = try decoded(Check.self, String(decoding: JSONSerialization.data(withJSONObject: card), as: UTF8.self))
-    let agents = try LibraryStore.feedDecoder.decode(
-        RegisteredAgents.self, from: Data(wireText("life/read_registered_agents.json").utf8)
-    ).agents
-    // Its holder has no session yet: none, never the asker's, and never its supporting link.
-    #expect(agents.first { $0.id == "agt_000000000002" }?.link == nil)
-    #expect(held.sessionLink(among: agents) == nil)
-    // Its holder's session now, whatever it was asked with.
-    card["agent"] = "agt_000000000001"
-    let now = try decoded(Check.self, String(decoding: JSONSerialization.data(withJSONObject: card), as: UTF8.self))
-    #expect(now.sessionLink(among: agents)?.absoluteString == "https://agents.example.test/s/1")
-    #expect(now.links.last == "https://docs.example.test/brief")
-}
-
 /// A whole inbox made from the server's own read: one ask per ref (its push `push-<ref>`), with the urgency given.
 private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [:]) throws -> Inbox {
     let wire = try #require(
