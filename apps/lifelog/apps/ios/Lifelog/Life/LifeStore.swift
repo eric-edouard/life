@@ -46,6 +46,8 @@ final class LifeStore {
         case move(String)
         case edit(matter: String, Edit)
         case project(String)
+        /// His Remove or Undo of an appointment Life added to his calendar, by its id.
+        case appointment(String)
         enum Edit: Hashable { case goal, next, done, important, icon }
     }
 
@@ -323,6 +325,28 @@ final class LifeStore {
         }
         if case .failed(.notPaired) = event { pairedOrigin = nil }
         update(event)
+    }
+
+    /// An appointment Life added to his calendar (`read_appointments`): read when its sheet opens, kept by the sheet.
+    func readAppointment(_ key: AppointmentKey, _ update: @escaping (ReadState<Appointment>.Event) -> Void) async {
+        await load(update, key: "read_appointments-\(key.id)", isKept: false) {
+            try await $0.readAppointment(key, at: nil)
+        }
+    }
+
+    /// His Remove (`isOn` false) or Undo of one, from its sheet or its notification: Life's `failed` fails it, with
+    /// Life's reason.
+    @discardableResult
+    func changeAppointment(_ id: String, isOn: Bool) async -> ActionState<ActionProof> {
+        let api = api
+        await perform(.appointment(id)) { [runner] in
+            await runner.record(emit: $0) { _ in
+                let text = try await api.changeAppointment(id, isOn: isOn, at: nil)
+                try AppointmentChange.checked(text, isOn: isOn)
+                return text
+            }
+        }
+        return state(of: .appointment(id))
     }
 
     /// The people and organizations `query` matches, and the others Life has seen by that name; a newer query's read

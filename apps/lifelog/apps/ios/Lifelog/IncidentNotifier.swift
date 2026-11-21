@@ -30,6 +30,9 @@ final class IncidentNotifier: NSObject {
     /// The card a notification names, as the Life paired now has it (`LifeStore.notifiedCard`), asked before any
     /// answer from it. Set by the app delegate.
     var card: ((_ pushId: String, _ kept: String?, _ life: String?) async -> (check: Check, life: PairedLife)?)?
+    /// His Remove of an appointment Life added, from its notification, by its id: whether Life removed it. Set by the app
+    /// delegate.
+    var removeAppointment: ((String) async -> Bool)?
 
     /// Life's cards: Reply… (a decision's own words), the only action shown where the expanded notification isn't (the
     /// Watch, a collapsed one); the expanded one adds the card's one-tap answers (`NotificationContent`). Every answer
@@ -43,6 +46,10 @@ final class IncidentNotifier: NSObject {
         actions: [CardNotification.sendAction, CardNotification.replyAction],
         intentIdentifiers: [], options: [.hiddenPreviewsShowTitle])
 
+    /// An appointment Life added: Remove (in the background) and Open in Calendar, under the expanded notification.
+    private static let calendarCategory = UNNotificationCategory(
+        identifier: CalendarNotification.category, actions: CalendarNotification.actions, intentIdentifiers: [])
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         reducer =
@@ -55,7 +62,7 @@ final class IncidentNotifier: NSObject {
         super.init()
         // Must be set before launch finishes so a response that relaunched the app is delivered.
         center.delegate = self
-        center.setNotificationCategories([Self.cardCategory, Self.sendCategory])
+        center.setNotificationCategories([Self.cardCategory, Self.sendCategory, Self.calendarCategory])
     }
 
     /// Asks once; iOS never shows the prompt again after the owner answers.
@@ -169,7 +176,10 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
     func userNotificationCenter(
         _ center: UNUserNotificationCenter, willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        if NotificationRoute(userInfo: notification.request.content.userInfo) != nil { cardArrived?() }
+        switch NotificationRoute(userInfo: notification.request.content.userInfo) {
+        case nil, .appointment?: break
+        default: cardArrived?()
+        }
         return [.banner, .list, .sound]
     }
 
@@ -183,8 +193,34 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
         case UNNotificationDefaultActionIdentifier:
             NotificationRoute(userInfo: request.content.userInfo).map { open?($0) }
         case UNNotificationDismissActionIdentifier: break
+        case CalendarNotification.remove, CalendarNotification.openInCalendar: await calendar(response)
         default: await answer(response)
         }
+    }
+
+    /// An appointment's Open in Calendar (the app is in front: Calendar on its day), or its Remove, in the background:
+    /// the notification is replaced by how it went, and a tap still opens its sheet. With no appointment kept (Life's
+    /// read failed when it came), nothing is removed: it says so.
+    private func calendar(_ response: UNNotificationResponse) async {
+        let request = response.notification.request
+        let kept = (request.content.userInfo[CalendarNotification.appointmentKey] as? String)
+            .flatMap { try? Appointment.parsed($0) }
+        guard response.actionIdentifier == CalendarNotification.remove else {
+            if let url = kept?.calendarURL { await UIApplication.shared.open(url) }
+            return
+        }
+        let awake = Awake()
+        awake.id = UIApplication.shared.beginBackgroundTask(withName: "appointment remove") { awake.end() }
+        defer { awake.end() }
+        var isRemoved = false
+        if let kept, let removeAppointment { isRemoved = await removeAppointment(kept.id) }
+        let words = CalendarNotification.afterRemove(isRemoved: isRemoved, line: kept?.line() ?? request.content.body)
+        let content = UNMutableNotificationContent()
+        (content.title, content.body) = words
+        content.userInfo = request.content.userInfo
+        content.categoryIdentifier = isRemoved ? "" : request.content.categoryIdentifier
+        content.interruptionLevel = .passive
+        try? await center.add(UNNotificationRequest(identifier: request.identifier, content: content, trigger: nil))
     }
 
     /// A card answered from its notification, with the app in the background: the same answer as its screen's, then

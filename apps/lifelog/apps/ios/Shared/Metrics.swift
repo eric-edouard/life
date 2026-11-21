@@ -27,6 +27,8 @@ enum Metrics {
     enum FlatRow {
         static let row: CGFloat = 48
         static let slot: CGFloat = 32
+        /// A bulk card's row: a tick or a Yes and No, and two lines.
+        static let bulkRow: CGFloat = 64
         /// The people sheet's larger lead.
         static let personSlot: CGFloat = 40
         /// A person's row in the people sheet (`party_row` at 52).
