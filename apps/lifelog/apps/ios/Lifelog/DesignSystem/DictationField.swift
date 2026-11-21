@@ -125,10 +125,12 @@ struct DictationField: View {
     /// The words at the caret he left, then, for a run stopped by Send, the Send, which reads the text with them.
     private func land(_ landed: Dictation.Landed) {
         live.clear()
-        guard let landing = DictatedText.inserting(landed.words, into: text, at: keptCaret) else { return }
-        text = landing.text
-        selection = TextSelection(insertionPoint: landing.caret)
-        AccessibilityNotification.Announcement(landed.words).post()
+        // A run that heard nothing still sends what the field holds, when it was stopped by Send.
+        if let landing = DictatedText.inserting(landed.words, into: text, at: keptCaret) {
+            text = landing.text
+            selection = TextSelection(insertionPoint: landing.caret)
+            AccessibilityNotification.Announcement(landed.words).post()
+        }
         if landed.sends { send?() }
     }
 
@@ -162,7 +164,6 @@ private struct DictationKeys: View {
     let send: (() -> Void)?
     let start: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var press: DictationPress
 
     init(dictation: Dictation, hasWords: Bool, send: (() -> Void)?, start: @escaping () -> Void) {
@@ -175,7 +176,10 @@ private struct DictationKeys: View {
             HStack(spacing: Metrics.Spacing.s) {
                 DictationMic(dictation: dictation, press: $press, start: start)
                 if let send {
-                    SendKey(dictation: dictation, isLit: (hasWords || isRunning) && !press.isArmed, send: send)
+                    // Off while a run's words are written: they land first.
+                    SendKey(
+                        dictation: dictation,
+                        isLit: (isRunning || hasWords && dictation.phase == .rest) && !press.isArmed, send: send)
                 }
             }
         }
@@ -283,12 +287,12 @@ private struct DictationMic: View {
     }
 
     private var glass: Glass {
-        if press.isArmed { return .regular.tint(Palette.fg).interactive() }
+        if press.isArmed || flight != nil { return .regular.tint(Palette.fg).interactive() }
         return isRunning ? .regular.tint(Palette.ai).interactive() : .regular.interactive()
     }
 
     @ViewBuilder private var glyph: some View {
-        if press.isArmed {
+        if press.isArmed || flight != nil {
             Image(systemName: "arrow.up").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.on)
         } else {
             switch dictation.phase {

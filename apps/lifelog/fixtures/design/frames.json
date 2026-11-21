@@ -1011,5 +1011,9 @@
       "matter_kitchen"
     ],
     "taps": ["Important"]
+  },
+  "AskBannerWritingPhone": {
+    "args": ["-fixtureLife", "ok", "-fixtureDictation", "writing"],
+    "taps": ["Tell Life"]
   }
 }

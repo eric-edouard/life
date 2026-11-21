@@ -126,7 +126,7 @@ public final class Dictation {
         guard phase == .rest else { return }
         run += 1
         let current = run
-        (problem, levels, runStarted, sampledAt, isRefused) = (nil, [], .now, .now, refused())
+        (problem, levels, runStarted, sampledAt, isRefused, isSending) = (nil, [], .now, .now, refused(), false)
         guard !isRefused else {
             problem = .refused
             return
@@ -152,7 +152,7 @@ public final class Dictation {
             } catch {
                 guard run == current else { return }
                 isRefused = refused()
-                (problem, phase) = ((error as? StartFailure).map(Problem.init) ?? .notStarted, .rest)
+                (problem, phase, isSending) = ((error as? StartFailure).map(Problem.init) ?? .notStarted, .rest, false)
             }
         }
     }

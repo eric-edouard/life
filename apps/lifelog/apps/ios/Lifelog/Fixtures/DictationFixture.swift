@@ -7,12 +7,7 @@
     /// the microphone), `armed` (slid up past the mark), `writing` (stopped, the words never come), `sending` (stopped by
     /// Send) and `failed` (the words could not be written).
     @MainActor enum DictationFixture {
-        static let state: String? = {
-            let arguments = ProcessInfo.processInfo.arguments
-            return arguments.firstIndex(of: "-fixtureDictation").flatMap {
-                arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
-            }
-        }()
+        static let state = LifeFixture.dictation
 
         /// Drives the field's run into the state asked; false when none was (the field goes on as usual).
         static func drive(_ dictation: Dictation, start: () -> Void) -> Bool {
@@ -28,13 +23,11 @@
                     })
             }
             start()
-            Task {
-                try? await Task.sleep(for: .seconds(2))
-                switch state {
-                case "writing", "failed": dictation.pause()
-                case "sending": dictation.send()
-                default: break
-                }
+            // Stopped at once (the microphone closes as soon as it opens): the shot is taken within a second.
+            switch state {
+            case "writing", "failed": dictation.pause()
+            case "sending": dictation.send()
+            default: break
             }
             return true
         }
