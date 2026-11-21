@@ -64,8 +64,9 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
         #expect(Set(groups.map(\.id)).count == groups.count)
         #expect(groups.flatMap(\.rows).map(\.party.name).sorted() == names.sorted())
     }
-    #expect(list.groups(.alphabet, .all).map(\.label) == ["A", "Æ", "H"])
-    #expect(list.groups(.alphabet, .all).first?.rows.map(\.party.name) == ["Ada", "Afton"])
+    // Which letter Æ sorts after is the locale's: only that each letter is one section.
+    #expect(Set(list.groups(.alphabet, .all).map(\.label)) == ["A", "Æ", "H"])
+    #expect(list.groups(.alphabet, .all).first { $0.label == "A" }?.rows.map(\.party.name) == ["Ada", "Afton"])
 }
 
 @Test func standingSaysHowCloseAndTheLastExchange() throws {
@@ -80,6 +81,38 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     #expect(unjudged.standing(locale: english, timeZone: paris) == "Last exchange Tue 17 Nov")
     let unknown = try decoded(PersonRow.self, #"{"ref":"person:y","name":"Y","kind":"person","level":"soulmate"}"#)
     #expect(unknown.level == .unknown && unknown.standing() == nil)
+}
+
+@Test func besideTheListThePageOnShowIsOneOfTheRowsUnlessHeOpenedItFromElsewhere() throws {
+    let list = try decoded(
+        PeopleList.self,
+        #"{"people":[\#(row("Idris", "inner")),\#(row("Atelier", "regular", kind: "organization")),\#(row("Nora", "faded"))]}"#
+    )
+    let beside = { (shown: String?, isFromElsewhere: Bool, kind: PeopleList.Kind) in
+        list.selectionOf(shown, isFromElsewhere: isFromElsewhere, kind: kind, order: .closeness, isSplit: true)
+    }
+    // The same listed person: tapped in the list, a segment that leaves them out picks its first row; opened from a
+    // matter's chip or a wake row, they stay through any segment.
+    #expect(beside("person:idris", false, .organizations) == "person:atelier")
+    #expect(beside("person:idris", true, .organizations) == "person:idris")
+    #expect(beside("person:idris", false, .people) == "person:idris")
+    // A read that dropped the person tapped picks the first row.
+    let fewer = try decoded(PeopleList.self, #"{"people":[\#(row("Nora", "faded"))]}"#)
+    #expect(
+        fewer.selectionOf("person:idris", isFromElsewhere: false, kind: .all, order: .closeness, isSplit: true)
+            == "person:nora")
+    // No one on show: the first row of the order.
+    #expect(
+        list.selectionOf(nil, isFromElsewhere: false, kind: .all, order: .alphabet, isSplit: true) == "person:atelier")
+}
+
+@Test func theOpenDuoUprightChoosesNoOneBeforeATap() throws {
+    let cached = try decoded(PeopleList.self, #"{"people":[\#(row("Idris", "inner"))]}"#)
+    // Its first appearance, measured: a regular width taller than wide stacks, so nothing is chosen for him.
+    let upright = PeopleList.isSplit(isRegularWidth: true, width: 1_000, height: 1_300)
+    #expect(!upright && PeopleList.isSplit(isRegularWidth: true, width: 1_300, height: 1_000))
+    #expect(!PeopleList.isSplit(isRegularWidth: false, width: 1_300, height: 1_000))
+    #expect(cached.selectionOf(nil, isFromElsewhere: false, kind: .all, order: .closeness, isSplit: upright) == nil)
 }
 
 @Test func aPersonsNowGivesReachAndLatestPagesBack() throws {
