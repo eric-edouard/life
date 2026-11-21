@@ -35,10 +35,14 @@ export const WEBHOOK_SECRET = "whsec-test";
 // change log's seq keeps growing across them, as in production, so a reader's cursor held by a
 // service built once per file never points past the newest change.
 /**
- * Undoes the `spending` migration's schema on a disposable DB, for a test that runs the migrations after an earlier one
- * again: its indexes and the voice note hearings' seconds (`isTableKept` false: the test drops that table itself).
+ * Undoes the newest migrations' schema on a disposable DB, for a test that runs the migrations after an earlier one
+ * again: `spending`'s indexes and the voice note hearings' seconds (`isTableKept` false: the test drops that table
+ * itself), and `dictation_heard`'s switch.
  */
-export function undoSpendingMigration(db: Db, isTableKept = true) {
+export function undoNewestMigrations(db: Db, isTableKept = true) {
+  db.run(
+    sql.raw("alter table processing_switches drop column dictation_heard")
+  );
   db.run(sql.raw("drop index if exists intelligence_runs_created"));
   db.run(sql.raw("drop index if exists transcription_jobs_admitted"));
   if (isTableKept) {

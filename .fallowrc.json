@@ -9,6 +9,7 @@
     "apps/lifelog/scripts/*.ts",
     "apps/server/src/desk/runtimes/fake-acp-agent.ts",
     "apps/server/src/desk/send-guard-hook.ts",
+    "apps/server/src/desk/runtimes/pi-extension.ts",
     "apps/claude-plugin/hooks/life.ts"
   ],
   "ignoreUnresolvedImports": ["./tokens.css", "./cloud.js", "./plotly.js"],

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createApp } from "./app";
 import { services } from "./services";
+import { setSwitches } from "./switches";
 import { fakeElevenLabs, OWNER_TOKEN, testConfig, testDb } from "./testing";
 
 const fake = fakeElevenLabs();
@@ -9,8 +10,12 @@ afterAll(() => fake.server.stop(true));
 let store: ReturnType<typeof testDb>;
 beforeAll(() => {
   store = testDb();
+  setSwitches(store.db, { dictationHeard: "instant" });
 });
-afterAll(() => store.drop());
+afterAll(() => {
+  setSwitches(store.db, { dictationHeard: "mac" });
+  store.drop();
+});
 
 const ask = () =>
   createApp(
@@ -28,6 +33,18 @@ test("hands the phone ElevenLabs' single-use token, asked with the Mac's key", a
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ token: "sutkn_made_up" });
   expect(fake.calls.at(-1)?.path).toBe("/v1/single-use-token/realtime_scribe");
+});
+
+test("refuses a token while dictation is heard on the Mac, asking ElevenLabs nothing", async () => {
+  setSwitches(store.db, { dictationHeard: "mac" });
+  const before = fake.calls.length;
+  const res = await ask();
+  setSwitches(store.db, { dictationHeard: "instant" });
+  expect(res.status).toBe(503);
+  expect(((await res.json()) as { error: string }).error).toBe(
+    "transcription_off"
+  );
+  expect(fake.calls.length).toBe(before);
 });
 
 test("a refusal from ElevenLabs is a 502, never a token", async () => {

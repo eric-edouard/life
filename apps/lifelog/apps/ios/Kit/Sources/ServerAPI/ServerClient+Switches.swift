@@ -15,15 +15,25 @@ extension ServerClient {
         /// Minutes the Pendant's audio may wait on the phone, while it records, before a notification asks him to open
         /// the app; 0 is never.
         public var openAppAfterMinutes: Int
+        /// Where a field's dictation is heard: on the Mac after each pause (the default), or instantly by ElevenLabs'
+        /// realtime Scribe as he speaks (`LiveWords`), whose token the Mac mints only then.
+        public enum DictationHeard: String, Sendable, Codable, UnknownTolerant { case mac, instant, unknown }
+        public var dictationHeard: DictationHeard
 
-        public init(transcription: Bool, ai: Bool, engine: Engine = .claude, openAppAfterMinutes: Int) {
+        public init(
+            transcription: Bool, ai: Bool, engine: Engine = .claude, openAppAfterMinutes: Int,
+            dictationHeard: DictationHeard = .mac
+        ) {
             self.transcription = transcription
             self.ai = ai
             self.engine = engine
             self.openAppAfterMinutes = openAppAfterMinutes
+            self.dictationHeard = dictationHeard
         }
 
-        private enum CodingKeys: String, CodingKey { case transcription, ai, engine, openAppAfterMinutes }
+        private enum CodingKeys: String, CodingKey {
+            case transcription, ai, engine, openAppAfterMinutes, dictationHeard
+        }
 
         public init(from decoder: any Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -31,6 +41,7 @@ extension ServerClient {
             ai = try values.decode(Bool.self, forKey: .ai)
             engine = try values.decodeIfPresent(Engine.self, forKey: .engine) ?? .claude
             openAppAfterMinutes = try values.decode(Int.self, forKey: .openAppAfterMinutes)
+            dictationHeard = try values.decodeIfPresent(DictationHeard.self, forKey: .dictationHeard) ?? .mac
         }
 
     }

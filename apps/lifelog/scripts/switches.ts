@@ -2,10 +2,12 @@
 // the app's Settings.
 //   bun run switches                        what they are now
 //   bun run switches transcription off      transcription | ai | all, then on | off
-//   bun run switches transcriber speech     engine claude | codex, transcriber scribe | speech
+//   bun run switches transcriber speech     engine claude | codex, transcriber scribe | speech,
+//                                           dictationHeard mac | instant
 import { serverFetch } from "./server";
 
 const choices: Record<string, string[]> = {
+  dictationHeard: ["mac", "instant"],
   engine: ["claude", "codex"],
   transcriber: ["scribe", "speech"],
 };
@@ -22,7 +24,7 @@ if (which) {
     body = which === "all" ? { ai: on, transcription: on } : { [which]: on };
   } else {
     throw new Error(
-      "usage: bun run switches [transcription|ai|all on|off | engine claude|codex | transcriber scribe|speech]"
+      "usage: bun run switches [transcription|ai|all on|off | engine claude|codex | transcriber scribe|speech | dictationHeard mac|instant]"
     );
   }
 }
@@ -33,6 +35,7 @@ const res = await serverFetch(
 );
 const now = (await res.json()) as {
   ai: boolean;
+  dictationHeard: string;
   engine: string;
   transcriber: string;
   transcription: boolean;
@@ -41,3 +44,4 @@ console.log(`transcription ${now.transcription ? "on" : "off"}`);
 console.log(`ai            ${now.ai ? "on" : "off"}`);
 console.log(`engine        ${now.engine}`);
 console.log(`transcriber   ${now.transcriber}`);
+console.log(`dictation     ${now.dictationHeard}`);

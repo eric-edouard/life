@@ -52,7 +52,6 @@ struct AnswerResultView: View {
         }
         .scrollPosition($position)
         .scrollBounceBehavior(.basedOnSize)
-        .scrollEdgeEffectStyle(.soft, for: .bottom)
     }
 
     private var lines: [CheckLine] {

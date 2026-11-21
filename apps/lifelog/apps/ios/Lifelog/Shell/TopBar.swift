@@ -23,7 +23,8 @@ private struct ShellBar: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .navigationTitle(label)
+            // An empty label leaves the title to the screen's `screenTitle`, the inline one on the open Duo.
+            .titled(label)
             .navigationBarTitleDisplayMode(.inline)
             .reportsSideColumn(Bindable(router).isBarsInColumn, includingRegular: true)
             // Back joins the Pendant and Gear's group: first in a row, last in a column (ours, the system's is hidden;
@@ -45,6 +46,12 @@ private struct ShellBar: ViewModifier {
 @ToolbarContentBuilder
 func fitted(_ item: some ToolbarContent) -> some ToolbarContent {
     if #available(iOS 27.1, *) { item.axisBehavior(.verticalPreferred) } else { item }
+}
+
+extension View {
+    @ViewBuilder fileprivate func titled(_ label: String) -> some View {
+        if label.isEmpty { self } else { navigationTitle(label) }
+    }
 }
 
 extension ShellBar {
