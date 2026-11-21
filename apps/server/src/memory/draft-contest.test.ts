@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { DAY, MIN } from "../core/clock";
+import { clock, DAY, MIN } from "../core/clock";
+import { logEvents, logFileOf } from "../core/log";
 import {
   answerDecision,
   DECISIONS,
@@ -114,6 +115,15 @@ test("the holder merges: one card for both withdraws its own, and the waiting ca
   expect(settledBetween(list, NOW, later(2 * MIN)).map((d) => d.id)).toEqual([
     waiting.id,
   ]);
+  // One `decision.withdrawn` line for each card the merge withdrew.
+  const withdrawn = logEvents(
+    logFileOf(clock().toISOString()),
+    "decision.withdrawn"
+  ).filter((l) => l.id === held.id || l.id === waiting.id);
+  expect(withdrawn.map((l) => [l.id, l.by])).toEqual([
+    [held.id, "merge"],
+    [waiting.id, "merge"],
+  ]);
   await expect(ask(ASKER, later(MIN), { merges: merged.id })).rejects.toThrow(
     "no card waiting on one of yours"
   );
@@ -199,6 +209,17 @@ test("three askers in turn: his Send withdraws every other open card into the ch
   for (const id of [a.id, b.id]) {
     expect(list.find((d) => d.id === id)?.withdrawn?.replacedBy).toBe(c.id);
   }
+  // One `decision.withdrawn` line for each card his Send withdrew.
+  const logged = logEvents(
+    logFileOf(clock().toISOString()),
+    "decision.withdrawn"
+  ).filter((l) => l.id === a.id || l.id === b.id);
+  expect(logged.map((l) => [l.id, l.by]).sort()).toEqual(
+    [
+      [a.id, "send"],
+      [b.id, "send"],
+    ].sort()
+  );
 });
 
 test("no merge happens while the held card's send runs", async () => {
