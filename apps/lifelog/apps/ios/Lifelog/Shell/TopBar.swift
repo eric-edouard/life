@@ -14,17 +14,25 @@ private struct ShellBar: ViewModifier {
 
     @Environment(AppRouter.self) private var router
     @Environment(\.topBarZoom) private var topBarZoom
+    @Environment(\.isPresented) private var isPushed
+    @Environment(\.dismiss) private var dismiss
+    @State private var isInColumn = false
 
     func body(content: Content) -> some View {
         content
             .navigationTitle(label)
             .navigationBarTitleDisplayMode(.inline)
+            .reportsSideColumn($isInColumn)
+            // In the closed Duo's column Back is ours, declared after the Pendant and gear so it stands under them and
+            // above Tell Life (the system's stands first). Its edge swipe goes with it; the column has no edge to swipe.
+            .navigationBarBackButtonHidden(isInColumn && isPushed)
             .toolbar {
                 // One item each, never a group: the closed Duo's side column took the group's first item only. Each is
                 // said to fit the column: a button the zoom wraps reads as a custom view, which the system keeps in a
                 // bar of its own over the screen's title (the "huge black header", seen in `design:shots`).
                 if hasPendant { fitted(pendant) }
                 if hasSettings { fitted(settings) }
+                if isInColumn && isPushed { fitted(back) }
             }
     }
 }
@@ -42,17 +50,20 @@ extension ShellBar {
         }
     }
 
+    private var back: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button("Back", systemImage: "chevron.backward") { dismiss() }
+                .labelStyle(.iconOnly)
+                .accessibilityIdentifier("top.back")
+        }
+    }
+
     private var settings: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
                 .labelStyle(.iconOnly)
                 .zoomSource(AppRouter.Sheet.settings, in: topBarZoom)
                 .accessibilityIdentifier("top.settings")
-                // Under the Pendant in the column: Tell Life stands below the lower of the two.
-                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) {
-                    if $0.width > 0, $0.minX > 0 { router.settingsFrame = $0 }
-                }
-                .onDisappear { router.settingsFrame = nil }
         }
     }
 }
@@ -92,12 +103,6 @@ struct PendantItem: View {
         }
         .accessibilityLabel("Pendant, \(face.spoken)")
         .accessibilityIdentifier("top.pendant")
-        // Where the system put it, so Tell Life stands on its vertical line, below it (`AppRouter.pendantFrame`). Only an
-        // item on screen: a collapsed split view keeps its hidden column's item laid out at the leading edge, which drew
-        // Tell Life over the content's left edge (seen in `design:shots`, the Inbox's moves).
-        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) {
-            if $0.width > 0, $0.minX > 0 { router.pendantFrame = $0 }
-        }
     }
 
     /// One thing, the most pressing first: something that needs him, a low battery, then the state.
