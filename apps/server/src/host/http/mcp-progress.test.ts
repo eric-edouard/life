@@ -6,11 +6,8 @@ import { z } from "zod";
 import { clock, DAY } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { LOG_DIR, logFileOf } from "../../core/log";
-import {
-  DECISIONS,
-  decisionsNow,
-  requestDecision,
-} from "../../memory/decisions";
+import { DECISIONS } from "../../memory/decision-lines";
+import { decisionsNow, requestDecision } from "../../memory/decisions";
 import { buildServer } from "./mcp";
 import { tool } from "./mcp-tool";
 

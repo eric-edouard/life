@@ -442,7 +442,7 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
   ]);
 });
 
-test("mail reaches memory only from someone Jean knows, in a thread he wrote in, or as a transaction; login codes and Life's own mail never; his agents' reports always", () => {
+test("mail reaches memory unless automated (a no-reply sender, a bulk header, a login code) with no transaction in it, whoever sent it; Life's own mail never; his agents' reports always", () => {
   const mail = (
     id: string,
     sender: string,
@@ -519,14 +519,14 @@ test("mail reaches memory only from someone Jean knows, in a thread he wrote in,
   );
   expect(built.map((b) => b.unit.drop ?? null)).toEqual([
     "one-time-code",
-    "not-a-person",
-    "not-a-person",
+    "automated",
+    "automated",
     null,
     "life-output",
     null,
     null,
     null,
-    "not-a-person",
+    null,
     null,
     "newsletter",
   ]);

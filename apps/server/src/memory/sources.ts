@@ -189,6 +189,7 @@ const LISTED: Descriptor[] = [
     // Every issue is a thread of many: never a 1:1 chat.
     group: () => true,
     incoming: (from?: number) => incomingArchived("github", "eventId", from),
+    isWorkTracker: true,
     kind: "chat",
     label: "GitHub",
     messageAt: (id) => readArchivedMessageAt("github", id),

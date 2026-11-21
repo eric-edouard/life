@@ -7,12 +7,8 @@ import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import type { InboxCheck } from "../memory/checks";
 import type { Decision } from "../memory/decision-lines";
-import {
-  DECISIONS,
-  decisionsNow,
-  notSentOf,
-  requestDecision,
-} from "../memory/decisions";
+import { DECISIONS } from "../memory/decision-lines";
+import { decisionsNow, notSentOf, requestDecision } from "../memory/decisions";
 import type { Check } from "../memory/life-checks";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import { voiceCardRefOf } from "../memory/who";
