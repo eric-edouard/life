@@ -88,14 +88,8 @@ struct SettingsView: View {
     .localizedString(forLanguageCode: Locale.current.language.languageCode?.identifier ?? "en") ?? "English"
   @State private var engine = "claude"
   @State private var keys: [String: String] = [:]
-  @State private var agentName = ""
-  @State private var wake = ""
-  /// The agents as saved, so a save keeps what this form doesn't show (other agents, `misheard`).
-  @State private var agentsSaved: [String: [String: Any]] = [:]
   /// The personal add-ons as saved (`personal`): a switch writes the whole object back.
   @State private var personal: [String: Any] = [:]
-  /// The agent this form shows (the first saved), so renaming it keeps the rest of it.
-  @State private var agentShown = ""
   /// remctl's download and installer, or an import, are under way: the controls they touch wait.
   @State private var installing = false
   @State private var lifelogURL = ""
@@ -191,10 +185,6 @@ struct SettingsView: View {
             Text(a.caption).caption()
           }
         }
-        Section("Your agent") {
-          TextField("Its name (\"hey …\" wakes it)", text: $agentName)
-          TextField("Wake word, as heard", text: $wake)
-        }
         Section("Reaching Life") {
           Text(origin.isEmpty ? "Not on your tailnet yet" : "\(origin)/mcp").textSelection(.enabled)
           HStack {
@@ -243,11 +233,7 @@ struct SettingsView: View {
     let out = await Helper.run(["settings"]).out
     let settings = (try? JSONSerialization.jsonObject(with: Data(out.utf8))) as? [String: Any] ?? [:]
     engine = settings["engine"] as? String ?? "claude"
-    agentsSaved = settings["agents"] as? [String: [String: Any]] ?? [:]
     personal = settings["personal"] as? [String: Any] ?? [:]
-    agentShown = agentsSaved.keys.sorted().first ?? ""
-    agentName = agentShown
-    wake = (agentsSaved[agentShown]?["wake"] as? [String])?.first ?? ""
     lifelogURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
     origin = (settings["connector"] as? [String: Any])?["origin"] as? String ?? ""
     lifelogToken = Keychain.read("LIFELOG_TOKEN") ?? ""
@@ -279,13 +265,6 @@ struct SettingsView: View {
     }
     Keychain.write("LIFELOG_TOKEN", lifelogToken)
     var parts: [String: Any] = ["engine": engine]
-    if !agentName.isEmpty {
-      let words = wake.isEmpty ? agentName.lowercased() : wake
-      var agents = agentsSaved
-      let agent = agents.removeValue(forKey: agentShown) ?? [:]
-      agents[agentName] = agent.merging(["wake": [words]]) { _, new in new }
-      parts["agents"] = agents
-    }
     if !lifelogURL.isEmpty { parts["lifelog"] = ["url": lifelogURL] }
     await set(parts)
     await supervisor.restart()

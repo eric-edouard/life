@@ -3,29 +3,19 @@
 Developer reference: how Life acts, hands work to the agent and serves the connector.
 
 Life is a memory: it reads. It acts in a few narrow ways, each logged in `memory/ledger.jsonl`, and hands deep work
-to the owner's agent by recording his asks for it to pull. Life has no instructions for the agent and keeps no state of
-its work: the agent keeps its own list.
+to his agents through the desk, which starts and wakes them.
 
 ## The agent
 
-- His agents are the `agents` setting, by name: wake words and misheard forms. No two share a word. "hey <word>"
-  makes an ask for the agent the turn's first wake word names (`after.agent`); `bun life ask <agent>` makes one for that agent. An agent is known on the
-  connector by its pairing (`bun life pair <agent>`, the grant's agent claim): it pulls only its own asks; a grant with
-  no claim (a plain app, `bun life pair` alone) reads only. Wherever Life names an agent, it writes its name; the word stored for its source (the ledger's `target`, its source's name, its units' sender)
+- His agents are the desk's registered agents. An app paired as an agent (`bun life pair <name>`, any name but a role's,
+  `ROLE_ASKERS`; the grant's agent claim) asks decisions as itself; a grant with no claim (a plain app, `bun life pair`
+  alone) reads only. The word stored for an agent's source (the ledger's `target`, its source's name, its units' sender)
   is one constant, `AGENT_WORD` (`core/names.ts`), kept as first written because stored data is append-only.
-- **How asks reach it:** the agent pulls its own with `read_agent_asks` (`cursor`, `limit`; it returns `asks`, `cursor`,
-  `remaining`), and keeps its own list; Life tracks no state of an ask past its line. Life starts no agent (beside the question cases' headless agent,
-  a developer's benchmark: `docs/operations.md`, "Measuring"), except the
-  agent's own `onAsk` command (`agents.<name>.onAsk` in the settings), once per new ask, detached, with no argument: it
-  only tells the agent to pull. Two asks close together start it twice, so the command takes its own lock. Each ask has
-  its `id`, `at` (recorded), `spoke`, `quote` and `confidence`. The cursor counts ledger lines, so an ask recorded late
-  is never skipped and none comes twice.
 - **The agent is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send
   from every account. This is a known, accepted risk (`SECURITY.md`, "Agents"): an unattended run reads others' text with full
   access, within his grants. Its rules (when it asks him first, what it may send) are its own, not Life's.
-- Only these become asks: a `hey <agent>` turn that isn't someone else's, and `bun life ask`. Nothing else Life reads ever does.
-- What the owner pastes into the agent is up to him ([Set up your agent](use/agent.md)); the connector's instructions
-  (512 characters at most) are about the memory, not the agent.
+- Only these become asks: a "hey Life" turn that isn't someone else's, his word about a registered agent and his
+  complaint, all asks of the desk. Nothing else Life reads ever does.
 
 - **Not built yet: a client that reopens an agent's chat** (`docs/plans/2026-11-20-codex-reopen.md` is the record).
   When he types in a chat that holds several matters, the agent works out from his words which matter he means, names
@@ -34,14 +24,13 @@ its work: the agent keeps its own list.
 
 ## Asks
 
-- An ask is the owner's words handed over, never acted on by Life. It comes from a `hey <agent>` turn (`apps/server/src/host/hear.ts`:
-  the two words, no model call), or from `bun life ask` in a Claude session.
-  - The owner's turn is `confidence: "high"`. An unattributed turn is `"low"`. The owner's own "hey" plus the word lifelog
-    hears for the agent's name (the `misheard` setting: a real name, or "at last") is `"low"`. A turn lifelog gives to
-    someone else is dropped before the ledger.
+- An ask is the owner's words handed over, never acted on by Life's own code. A spoken one comes from a "hey Life" turn
+  (`apps/server/src/host/hear.ts`: the two words, no model call), and the desk hands it to one agent ("Marks", below).
+  - The owner's turn is `confidence: "high"`. An unattributed turn is `"low"`, and so is the owner's own "hey live"
+    (lifelog's mishearing). A turn lifelog gives to someone else is dropped before the ledger.
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
 - `ask` (`apps/server/src/host/asks.ts`) records it in `memory/ledger.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`), once
-  per `ref`; `asksFor` is what `read_agent_asks` returns.
+  per `ref`; `asksFor` is how the desk reads his changes of it.
 - An ask line's `instruction.quote` keeps the owner's words whole (clipped at 50,000 characters). This is the one place memory
   stores more than a short quote of speech.
 - `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded.
@@ -53,7 +42,7 @@ its work: the agent keeps its own list.
   when none is active or stopped). The answer is `{ask, reached: "caretaker"}` only once all three are written; a
   stopped caretaker, a full desk, a runtime that does not answer, or a caretaker whose first turn never began since
   his last press, leaves it waiting (his next press tries once more), and the answer says so. The
-  caretaker reads it through its door (`read_complaint`, only on the assignment that received it); while it holds it, the
+  caretaker reads it through its door (`read_complaint`, only on the assignment that received it; an agent reads a spoken ask routed to it the same way, `read_spoken_ask`); while it holds it, the
   card with that cause shows `beingFixed` and stops blocking. An assignment that closes gives back the complaints it
   never handed to a turn: the desk receives them again.
 - Old ledger lines of an agent's updates and replies (`TASK_LINES`) are history, parsed and never written; `read_memory_changes`
@@ -219,7 +208,7 @@ A mark is his words to Life, to keep: the unit is always read, every fact extrac
 which hands it to one agent (`desk/spoken-ask-intake.ts`: the matter assignment its words are closest to in meaning, else
 the Personal agent, which it starts when none stands; its `ask.spoken` event holds where his words are, never them, and
 wakes the agent at once; his phone hears "<agent> heard you" when that agent's turn begins); agents
-may not use "life" or "live" as wake or misheard words. A message to himself (mail he sent only to his own addresses; every
+A message to himself (mail he sent only to his own addresses; every
 message of a chat with himself, `chatPerson` in `units.ts`) is marked by its reader. What he tells Life in a chat
 (`tell_life`) is the source `told-life`. The unit carries its marks (`marked`) and says so in its text (`MARKED`), so only its
 hash moves and only it is read again, with no prompt change. Extraction shows its lines `(marked)`. The nightly lists
@@ -228,10 +217,10 @@ each once read, with the observations citing it ("Told Life").
 ## The connector
 
 `apps/server/src/host/http/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections and fact-check answers, appends his words (`tell_life`), changes his directory in `truth/` by his words (`change_directory_entry`) and acts
-only on the owner's explicit request (in the chat, or in an ask through the agent's `change_todo_item`) or on the auto-add
+only on the owner's explicit request (in the chat, or through an agent's `change_todo_item`) or on the auto-add
 permission.
 
-- **Tools:** read-only: `read_agent_asks` (the paired agent's own asks, above); `read_new_events` (Events, below); `read_open_todo_items`, read from Reminders; the status reads
+- **Tools:** read-only: `read_new_events` (Events, below); `read_open_todo_items`, read from Reminders; the status reads
   `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; `read_inbox` (what waits on his word, from host's `openChecksNow`: every open ask in one shape (his agents' decisions, who a voice or a person is, whether a step is done), what blocks first, `limit` cards (default 50) from the first or `after` a card's ref (or, with a push's `pushId`, just that card, none once answered), with counts by group and `blocking`, each check's `urgency`, and its read version (`ifNot` it: only `{version, unchanged: true}` while nothing changed; `read_matters` too, which never waits on the embedder for icons); a voice lifelog asks him to name is among them (`voice`, answered through `answer_check` and forwarded to lifelog); a new matter's check is also on `read_matter`'s `checks`) and the memory reads. Writes: `correct_memory` (a memory correction, lifelog
   writes all go through `writeLifelog`, `apps/server/src/sources/lifelog.ts`) and `change_todo_item` (through `changeTodoItem`, with the owner's words
   in `said`, or an `obs` for the auto-add permission) and `change_directory_entry` (`host/change-directory-entry.ts`: `said` his words, one `kind` (person, organization, project, area, goal, may_keep) and `action` (add, edit), a person's or an organization's picture pick (`pictureFrom`); checked by `integrity` on a copy of `truth/` first, then written, committed in his data repo with his words and kept as told-life (`said` only); owner's token only; never deletes, reorders goals or edits a person's birthday, projects or chats) `request_decision` (an agent's question to him as one card, or from his own app's token one asked as `owner` (`OWNER_ASKER`), the one way a session sends a message for him (his word of 19 Nov 2026), `memory/decisions.ts`'s `requestDecision` (its rules: `CARD`, short, each part's details a `fetch("ask/<name>")` page, `memory/card-request.ts`; a question ends in a ?, a label is at most five words, else it is refused with the reason and the page to read; its `context` is required Markdown (20,000 characters at most) and each of its `life:<ref>` links must name something `fetch` opens (`contextProblemOf`), and `read_inbox` gives each card's links with their kinds (`lifeLinks`); `needs`, `doneSeenBy`, `plan`'s steps and an option's marks are published loose and checked by `Ask`, so a new kind never changes the arguments; `plan` and `gathered` only on an assignment's plan card (`fetch("ask/plan")`); `cost`, `effect`, `pick` and a `takes` other than `note` are refused as not built yet), returning its id and, to an agent, an events cursor; or its withdrawal, by the agent that asked) and `answer_check` (`{ref, options, note?, person?, value?}`, owner's token only: his answer to any check, `memory/answer-check.ts`; `value` is refused as not built yet; a decision's first answer stands; his pick of its `looks` option alone makes Life look in his accounts for the card's amount (`host/done-seen.ts`): seen, the card ends; not found, it is open again, its `doneSeen` saying so, and the watcher looks every 5 minutes while it is open; no option with `note` is his own answer, sent to its agent; Start on a new matter check asks the desk to start an agent with the goal he saw (`note`) as the brief, through `change_registered_agent`'s start, which saves it as his `matter-direction`) and `tell_life` (`{said, asked?}`: appends his verbatim words to `memory/told-life.jsonl`, `memory/told-life.ts`; offered only while the `told-life` source is on, refused for an agent's token). `change_todo_item` exists only while the to-do list is on.
