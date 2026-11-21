@@ -37,6 +37,8 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   stroke around any surface or control. A card, a panel, an option or a field stands out from the page by its `card`
   fill only, and a field inside a card takes the page's `bg` (owner, 31 Oct 2026); a chosen one is filled (`fg`). A
   rule line separates rows of a list, never draws a box. Urgency is a `flag` dot and `flag` words, never a ring.
+  His one exception (decision 82, 21 Nov 2026): every drafted part of a draft card (its bubble, reaction, file, mail block)
+  wears a dashed outline, 1.5 px, that fades once it is sent.
 - **Parked (30 Oct 2026).** The Mac app's UI is the exception to the type, shape and wording rules of this page until
   it is unparked: it keeps its old layout, fonts, capital labels and strokes (`Brand.swift`), with the colours above.
   Android keeps the old look (`Brand.kt`, lifelog's `docs/design.md`).

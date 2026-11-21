@@ -1,12 +1,20 @@
 import { expect, test } from "bun:test";
 import { type Appointment, Appointments } from "../records/appointment";
 import type { Observation } from "../records/observation";
+import type { ReadReply } from "../records/read-reply";
 import {
+  arrivalsCitedBy,
   checkedAppointments,
   heldIdsOf,
   observationsAheadOf,
 } from "./appointments";
+import {
+  arrivalAppointmentsOf,
+  isSameMeeting,
+  meetingKeyOf,
+} from "./arrival-appointments";
 import type { ObservationStatusInputs } from "./memory-files";
+import { READS } from "./read-replies";
 
 const UNIT = "unit_000000000001";
 const NEW_ID = /^apt_[0-9a-f]{12}$/;
@@ -242,4 +250,185 @@ test("a new reading that cites a held one's fact replaces it; his no holds for a
       ctx
     ).invalid
   ).toBe(1);
+});
+
+test("the night takes over an arrival's id when its facts cite the arrival's messages, so one meeting is one event", () => {
+  const facts = [
+    fact("obs_000000000002", {
+      source: { channel: "whatsapp", ref: "m1" },
+    }),
+    fact("obs_000000000001", { source: { channel: "whatsapp", ref: "m9" } }),
+  ];
+  const meeting = {
+    allDay: false,
+    end: "2026-12-01 11:00",
+    start: "2026-12-01 10:00",
+    zone: null,
+  };
+  const arrivals = arrivalsCitedBy(facts, [
+    {
+      id: "apt_0000000000aa",
+      messages: ["whatsapp|m1", "whatsapp|m2"],
+      ...meeting,
+    },
+    { id: "apt_0000000000bb", messages: ["whatsapp|m7"], ...meeting },
+  ]);
+  expect(arrivals.map((a) => [a.id, a.facts])).toEqual([
+    ["apt_0000000000aa", ["obs_000000000002"]],
+    ["apt_0000000000bb", []],
+  ]);
+  const { appointments } = checkedAppointments(
+    { appointments: [reply({ facts: ["obs_000000000002"] })] },
+    { ...ctx, arrivals, held: [] }
+  );
+  expect(appointments.map((a) => a.id)).toEqual(["apt_0000000000aa"]);
+});
+
+test("on a tie with a held appointment, the reading keeps the held id, whose event is there", () => {
+  const { appointments } = checkedAppointments(
+    { appointments: [reply({ facts: ["obs_000000000001"] })] },
+    {
+      ...ctx,
+      arrivals: [
+        {
+          facts: ["obs_000000000001"],
+          id: "apt_0000000000aa",
+          meeting: {
+            allDay: false,
+            end: "2026-11-11 17:00",
+            start: "2026-11-11 16:00",
+            zone: null,
+          },
+        },
+      ],
+    }
+  );
+  expect(appointments.map((a) => a.id)).toEqual(["apt_000000000001"]);
+});
+
+test("a new reading of an arrival's meeting takes its id; the same hour in another zone is another meeting", () => {
+  const meeting = {
+    allDay: false,
+    end: "2026-11-11 17:00",
+    start: "2026-11-11 16:00",
+    zone: null,
+  };
+  const arrivals = [
+    {
+      facts: [],
+      id: "apt_0000000000aa",
+      meeting: { ...meeting, zone: "Asia/Tokyo" },
+    },
+    { facts: [], id: "apt_0000000000bb", meeting },
+  ];
+  const { appointments } = checkedAppointments(
+    { appointments: [reply({ facts: ["obs_000000000002"] })] },
+    { ...ctx, arrivals, held: [] }
+  );
+  expect(appointments.map((a) => a.id)).toEqual(["apt_0000000000bb"]);
+});
+
+test("two calls at the same hour in two zones are two arrival appointments; two replies of one meeting are one", () => {
+  const line = (zone: string, message: string) =>
+    ({
+      at: "2026-11-08T08:00:00.000Z",
+      madeBy: {
+        engine: "codex",
+        model: "m",
+        prompt: READS.arrival_appointment.prompt,
+        run: "r",
+      },
+      messages: [message],
+      promptDigest: "0123456789abcdef",
+      read: "arrival_appointment",
+      reply: {
+        agreed: true,
+        allDay: false,
+        end: "2026-12-01 11:00",
+        link: null,
+        people: [],
+        place: null,
+        quote: "10:00 it is",
+        start: "2026-12-01 10:00",
+        title: "Call",
+        zone,
+      },
+      schemaVersion: 1,
+      starts: [0],
+      unit: "unit_0000000000aa",
+    }) as ReadReply;
+  const found = arrivalAppointmentsOf([
+    line("Asia/Tokyo", "whatsapp|m1"),
+    line("America/New_York", "whatsapp|m2"),
+    line("Asia/Tokyo", "whatsapp|m3"),
+  ]);
+  expect(found.map((a) => a.zone)).toEqual(["Asia/Tokyo", "America/New_York"]);
+  expect(new Set(found.map((a) => a.id)).size).toBe(2);
+});
+
+test("a held id with no event gives way to the arrival's of the same start, so the id holds past the window", () => {
+  const { appointments } = checkedAppointments(
+    { appointments: [reply({})] },
+    {
+      ...ctx,
+      arrivals: [
+        {
+          facts: [],
+          id: "apt_0000000000aa",
+          meeting: {
+            allDay: false,
+            end: "2026-11-11 17:00",
+            start: "2026-11-11 16:00",
+            zone: null,
+          },
+        },
+      ],
+      hasEvent: () => false,
+    }
+  );
+  expect(appointments.map((a) => a.id)).toEqual(["apt_0000000000aa"]);
+});
+
+test("two names of one zone are one meeting", () => {
+  const call = {
+    allDay: false,
+    end: "2026-12-01 11:00",
+    start: "2026-12-01 10:00",
+  };
+  expect(meetingKeyOf({ ...call, zone: "US/Eastern" })).toBe(
+    meetingKeyOf({ ...call, zone: "America/New_York" })
+  );
+});
+
+test("a whole day: two names of one zone are one meeting, the same day in two zones two; a reading with no zone joins either", () => {
+  const day = { allDay: true, end: "2027-06-01", start: "2027-06-01" };
+  const ny = { ...day, zone: "America/New_York" };
+  expect(meetingKeyOf({ ...day, zone: "US/Eastern" })).toBe(meetingKeyOf(ny));
+  expect(meetingKeyOf({ ...day, zone: "Asia/Tokyo" })).not.toBe(
+    meetingKeyOf(ny)
+  );
+  expect(isSameMeeting({ ...day, zone: "US/Eastern" }, ny)).toBe(true);
+  expect(isSameMeeting({ ...day, zone: "Asia/Tokyo" }, ny)).toBe(false);
+  expect(isSameMeeting({ ...day, zone: null }, ny)).toBe(true);
+  expect(isSameMeeting({ ...day, start: "2027-06-02", zone: null }, ny)).toBe(
+    false
+  );
+});
+
+test("a held appointment the night keeps as it was takes the arrival's id while it has no event, so the id holds past the window", () => {
+  const meeting = {
+    allDay: false,
+    end: "2026-11-11 17:00",
+    start: "2026-11-11 16:00",
+    zone: null,
+  };
+  const arrivals = [{ facts: [], id: "apt_0000000000aa", meeting }];
+  // The reply leaves the held one out: it stays, under the arrival's id when its own has no event.
+  const read = (hasEvent: boolean) =>
+    checkedAppointments(
+      { appointments: [] },
+      { ...ctx, arrivals, hasEvent: () => hasEvent }
+    ).appointments.map((a) => a.id);
+  expect(read(false)).toEqual(["apt_0000000000aa"]);
+  expect(read(true)).toEqual(["apt_000000000001"]);
 });

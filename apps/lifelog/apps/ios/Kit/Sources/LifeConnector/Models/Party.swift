@@ -1,3 +1,4 @@
+import Foundation
 import Library
 
 /// Someone Life has a ref for, a person or an organization, as every read names them (`Party`, `memory/party.ts`).
@@ -18,12 +19,33 @@ public struct Party: Decodable, Sendable, Equatable {
     /// What they are to him, one line, when Life knows it.
     public let line: String?
     public let picture: Picture?
+
+    /// The owner himself, as every read names him (`OWNER`, `memory/read-truth.ts`).
+    public var isOwner: Bool { ref == "person:me" }
 }
 
 /// A read that names parties: the phone keeps each by its ref (`LifeStore.parties`) and fetches their pictures.
 public protocol NamesParties {
     var parties: [Party] { get }
 }
+
+/// A read's answer text as its value: JSON (`feedDecoder`) for every read but a prose part (`Prose`).
+public protocol ParsedRead: Sendable {
+    static func parsed(_ text: String) throws -> Self
+}
+
+extension ParsedRead where Self: Decodable {
+    public static func parsed(_ text: String) throws -> Self {
+        try LibraryStore.feedDecoder.decode(Self.self, from: Data(text.utf8))
+    }
+}
+
+extension Inbox: ParsedRead {}
+extension MatterList: ParsedRead {}
+extension Matter: ParsedRead {}
+extension RegisteredAgents: ParsedRead {}
+extension PeopleList: ParsedRead {}
+extension PersonNow: ParsedRead {}
 
 extension Check: NamesParties {
     public var parties: [Party] {

@@ -16,6 +16,7 @@ struct RootView: View {
     /// A pairing link the owner is asked to confirm, once any sheet is out of the way: the lifelog server, Life, or both.
     @State private var confirming: PairOffer?
     @State private var query = ""
+    @State private var scope = SearchScope.all
 
     init() {
         // The Inbox's count is `flag` (it needs him), not the system's red; SwiftUI's `badge` takes no colour.
@@ -40,8 +41,11 @@ struct RootView: View {
             Tab(value: AppRouter.Tab.search, role: .search) {
                 // The field belongs to this tab alone: on the tabs it would show on Inbox and Matters too.
                 NavigationStack {
-                    SearchScreen(query: query).shellBar("", hasSettings: false)
-                        .searchable(text: $query, prompt: "Search matters")
+                    SearchScreen(query: query, scope: scope).shellBar("", hasSettings: false)
+                        .searchable(text: $query, prompt: "Search")
+                        .searchScopes($scope, activation: .onSearchPresentation) {
+                            ForEach(SearchScope.allCases, id: \.self) { Text($0.word).tag($0) }
+                        }
                 }
             }
         }

@@ -82,7 +82,7 @@ struct InboxScreen: View {
         }
         .navigationSplitViewStyle(.balanced)
         // Above the asks, so a read that takes his ask away (his answer was the last) never closes it before it does.
-        .createSheet($notes) { leave($0, keep: false) }
+        .askSheets($notes) { leave($0, keep: false) }
         // The chosen kind has no ask left: the whole list again, so the filter never rests on a kind that is gone.
         .onChange(of: all.kinds) { _, kinds in if let kind, !kinds.contains(kind) { self.kind = nil } }
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }

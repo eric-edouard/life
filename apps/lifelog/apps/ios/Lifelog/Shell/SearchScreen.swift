@@ -1,55 +1,156 @@
 import LifeConnector
 import SwiftUI
 
-/// The system's search tab: the running matters whose name, goal, next step or people hold what he typed
-/// (`MatterList.matching`), every one while the field is empty. A result opens in the Matters tab, where a matter's
-/// page and its sheets live.
+/// What the search's scope control keeps: everything, the matters, or the people and organizations.
+enum SearchScope: Hashable, CaseIterable {
+    case all, matters, people
+
+    var word: String {
+        switch self {
+        case .all: "All"
+        case .matters: "Matters"
+        case .people: "People"
+        }
+    }
+}
+
+/// The system's search tab, the one search: the people and organizations Life knows whose name or line holds what he
+/// typed (`read_people_and_organizations` with a query), the running matters that hold it (`MatterList.matching`), then,
+/// last, the others Life has seen by that name, only there. With the field empty it lists every matter, or everyone
+/// when the scope is People. Each source is read on its own and shows through its own `ReadScreen` (loading, stale,
+/// failed, unpaired, each with its way back), so one never waits on or hides the other; "Nothing holds" waits for
+/// every source asked to have read nothing. A result opens in its own tab, where its page lives.
 struct SearchScreen: View {
     let query: String
+    let scope: SearchScope
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
 
-    var body: some View {
-        let shown = life.matters.shown(isEmpty: { $0.matters.isEmpty })
-        // The matters on screen only: a read the screen hides (a lost pairing) counts nothing.
-        let found = shown.onScreen?.matching(query)
-        ReadScreen(
-            shown: shown, retry: { await life.refreshMatters() },
-            loading: { Placeholder().padding(Metrics.gutter) },
-            empty: { NoMattersNotice() },
-            content: { _ in results(found ?? []) }
-        )
-        .background(Palette.bg)
-        // How many hold what he typed; nothing while he typed nothing.
-        .screenTitle(
-            "Search",
-            state: query.trimmingCharacters(in: .whitespaces).isEmpty
-                ? nil : found.map { $0.count == 1 ? "1 result" : "\($0.count) results" })
-    }
+    private var asked: String { query.trimmingCharacters(in: .whitespaces) }
 
-    private func results(_ rows: [MatterRow]) -> some View {
+    var body: some View {
+        let people = peopleRead
+        let isNothing =
+            !asked.isEmpty && (people == nil || people?.value?.isNoOne == true)
+            && (scope == .people || life.matters.value?.matching(query).isEmpty == true)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                if rows.isEmpty {
-                    Text("No matter holds “\(query)”.").font(.body15).foregroundStyle(Palette.muted)
+                if isNothing {
+                    Text("Nothing holds “\(asked)”.").font(.body15).foregroundStyle(Palette.muted)
                         .padding(Metrics.gutter)
                         .appears()
                 }
-                ForEach(rows) { row in
-                    Button {
-                        router.open(matter: row.id)
-                    } label: {
-                        MatterRowView(row: row, isChosen: false, isMarked: life.isImportant(row.id, as: row.important))
-                    }
-                    .buttonStyle(.plain)
-                    .appears()
+                if let people {
+                    ReadScreen(
+                        shown: people.shown(isEmpty: \.isNoOne), retry: { await readPeople() },
+                        loading: { Placeholder().padding(Metrics.gutter) },
+                        empty: {
+                            if asked.isEmpty {
+                                Notice(
+                                    title: "No one yet.",
+                                    detail: "The people and organizations in your directory show here.")
+                            }
+                        },
+                        content: { list in peopleRows(list) }
+                    )
+                }
+                // Unpaired, one notice says so: the people's.
+                if scope != .people, people == nil || life.isPaired {
+                    ReadScreen(
+                        shown: life.matters.shown(isEmpty: { $0.matching(query).isEmpty }),
+                        retry: { await life.refreshMatters() },
+                        loading: { Placeholder().padding(Metrics.gutter) },
+                        empty: { if asked.isEmpty { NoMattersNotice() } },
+                        content: { list in
+                            matterRows(list.matching(query), isLabelled: people?.value?.people.isEmpty == false)
+                        }
+                    )
                 }
             }
-            .motion(Motion.standard, value: rows.map(\.id))
             .padding(.bottom, Metrics.Spacing.l)
             .readingWidth()
         }
         .scrollDismissesKeyboard(.interactively)
+        .background(Palette.bg)
+        .screenTitle("Search", state: resultsWord(people: people))
+        // Each source on its own: the matters once per pairing, the people a moment after he stops typing (a newer
+        // query replaces the read under way), and again on a new pairing.
+        .task(id: life.parties.generation.current) {
+            if life.matters.value == nil { await life.refreshMatters() }
+        }
+        .task(id: [AnyHashable(PeopleQuery(text: asked, pairing: life.parties.generation.current)), scope]) {
+            guard scope != .matters, !asked.isEmpty else {
+                if scope == .people, life.people.value == nil { await life.refreshPeople() }
+                return
+            }
+            guard (try? await Task.sleep(for: .milliseconds(250))) != nil else { return }
+            await life.findPeople(asked)
+        }
+    }
+
+    /// The read of people this search shows, nil when it asks none: everyone with the field empty on People, else
+    /// what `asked` found (not read yet: a read to come).
+    private var peopleRead: ReadState<PeopleList>? {
+        guard scope != .matters else { return nil }
+        guard !asked.isEmpty else { return scope == .people ? life.people : nil }
+        return life.peopleFound.flatMap { $0.query == asked ? $0.state : nil } ?? ReadState()
+    }
+
+    /// The title's state, "4 results": the rows that hold what he typed, from the reads on screen only (none while he
+    /// typed nothing, nor from a read the screen hides, as once unpaired).
+    private func resultsWord(people: ReadState<PeopleList>?) -> String? {
+        guard !asked.isEmpty else { return nil }
+        let found = people?.shown(isEmpty: \.isNoOne).onScreen.map { $0.people.count + ($0.others?.count ?? 0) }
+        let matters = scope == .people ? nil : life.matters.shown().onScreen?.matching(query).count
+        guard found != nil || matters != nil else { return nil }
+        let count = (found ?? 0) + (matters ?? 0)
+        return count == 1 ? "1 result" : "\(count) results"
+    }
+
+    private func readPeople() async {
+        if asked.isEmpty { await life.refreshPeople() } else { await life.findPeople(asked) }
+    }
+
+    private func peopleRows(_ list: PeopleList) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            section("People", list.people.filter { $0.party.kind != .organization })
+            section("Organizations", list.people.filter { $0.party.kind == .organization })
+            // Only seen by Life (in his Contacts, named by someone): quieter, and never a page to open.
+            if let others = list.others, !others.isEmpty {
+                ListLabel("Others Life has seen")
+                ForEach(others, id: \.ref) { party in
+                    PartyRow(party, isDim: true)
+                        .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.m)
+                        .appears()
+                }
+            }
+        }
+        .motion(Motion.standard, value: list.people.map(\.id) + (list.others ?? []).map(\.ref))
+    }
+
+    private func matterRows(_ rows: [MatterRow], isLabelled: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if !rows.isEmpty, isLabelled { ListLabel("Matters") }
+            ForEach(rows) { row in
+                Button {
+                    router.open(matter: row.id)
+                } label: {
+                    MatterRowView(row: row, isChosen: false, isMarked: life.isImportant(row.id, as: row.important))
+                }
+                .buttonStyle(.plain)
+                .appears()
+            }
+        }
+        .motion(Motion.standard, value: rows.map(\.id))
+    }
+
+    @ViewBuilder private func section(_ label: String, _ rows: [PersonRow]) -> some View {
+        if !rows.isEmpty {
+            ListLabel(label)
+            ForEach(rows) { row in
+                PersonRowButton(row: row) { router.open(party: row.id) }.appears()
+            }
+        }
     }
 }

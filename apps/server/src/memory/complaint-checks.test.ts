@@ -43,15 +43,15 @@ test("“Wrong…” is on Life's own cards alone; its cause holds through a cou
     [REF, true],
   ]);
   const name = list[1] as Check;
-  expect(name.misread?.cause).toBe(causeOf(name));
+  expect(name.misread?.cause).toBe(causeOf(name, undefined, n.quote));
   // One more line riding on the name: the same cause, another card as shown.
   const more = checksOf(
     of({}, [n, guessed, line({ id: "obs_00000000dd01" })])
   ).find((c) => c.ref === "name:dre");
   expect(more?.misread?.cause).toBe(name.misread?.cause);
-  expect(causeOf({ ...name, question: 'Who is "Dee"?' })).not.toBe(
-    name.misread?.cause
-  );
+  expect(
+    causeOf({ ...name, question: 'Who is "Dee"?' }, undefined, n.quote)
+  ).not.toBe(name.misread?.cause);
   // A new matter's goal he edits is another cause.
   expect(causeOf({ ...name, goal: "The watch is mended" })).not.toBe(
     causeOf({ ...name, goal: "Gran has her watch back" })

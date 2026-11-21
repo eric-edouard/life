@@ -115,8 +115,14 @@ export function googleCalendar(calendar: string, account: string) {
       } while (page);
       return held;
     },
+    /** Deletes event `id`; one Google says is gone already counts as deleted. */
     async remove(id: string) {
-      await run(["delete", calendar, id, "--force"]);
+      const r = await exec(
+        ...gogCall("calendar", account, ["delete", calendar, id, "--force"])
+      );
+      if (r.code !== 0 && !GONE.test(r.stderr)) {
+        throw new Error(`gog calendar delete: ${r.stderr.trim().slice(-400)}`);
+      }
     },
     async update(id: string, f: EventFields, props: Record<string, string>) {
       await run(["update", calendar, id, ...flagsOf(f, props, true)]);

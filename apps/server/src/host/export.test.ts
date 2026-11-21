@@ -16,7 +16,7 @@ import { PASSAGES } from "../memory/memory-files";
 import { LOCK } from "../memory/memory-lock";
 import { writePassages } from "../memory/passages";
 import { DESCRIPTIONS } from "../sources/photo-descriptions";
-import { stage } from "./export";
+import { stage, stateInDataOf } from "./export";
 
 const SECRET = /oauth|local\.key|\.bak$/;
 
@@ -145,4 +145,34 @@ test("a store in Life's state that is being written, in WAL, is exported whole a
     db.close();
     rmSync(DESCRIPTIONS, { force: true });
   }
+});
+
+// Verdict on PR 831: with Life's state as its data folder, the data's copy (unfiltered) kept the state's secrets. A
+// Life of its own (a made-up folder, not a test run's copy) exports from one folder holding a made-up secret.
+test("an export whose state is its data folder is refused before anything is staged; a state inside the data is cut out", () => {
+  const root = mkdtempSync(join(tmpdir(), "life-one-root-"));
+  const out = join(mkdtempSync(join(tmpdir(), "life-one-root-out-")), "export");
+  writeFileSync(join(root, ".env"), "TEST_SECRET=made-up\n");
+  try {
+    const run = Bun.spawnSync(
+      ["bun", join(import.meta.dir, "../desk/life-entry.ts"), "export", out],
+      {
+        env: {
+          ...process.env,
+          LIFE_MACHINE_DIR: join(root, "machine"),
+          LIFE_OWNER_DATA_DIR: root,
+          LIFE_STATE_DIR: root,
+          NODE_ENV: "production",
+        },
+      }
+    );
+    expect(run.exitCode).not.toBe(0);
+    expect(run.stderr.toString()).toContain("nothing was staged");
+    expect(existsSync(out)).toBe(false);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+  expect(stateInDataOf("/test/life", "/test/life/state")).toBe("state");
+  expect(stateInDataOf("/test/life", "/test/life/..state")).toBe("..state");
+  expect(stateInDataOf("/test/life", "/test/state")).toBeNull();
 });

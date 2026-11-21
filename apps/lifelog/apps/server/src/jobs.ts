@@ -17,7 +17,7 @@ import type { z } from "zod";
 import type { AudioStore } from "./audio-store";
 import { logChange } from "./change-log";
 import { type Config, singleFlight } from "./config";
-import { cut, touchesQuiet, withdrawJob } from "./cutter";
+import { cut, heldBack, touchesQuiet, withdrawJob } from "./cutter";
 import { ownerZoneAt, reportError } from "./diagnostics";
 import {
   failureReason,
@@ -402,6 +402,7 @@ export function jobWorker(
   now = () => clock().getTime()
 ) {
   let wake: ReturnType<typeof setTimeout> | undefined;
+  const vouched = () => mac.vouchedThrough();
   const plan = creditsWatch(db, config, now);
   // Scribe takes sends while its credits last.
   const mayScribe = () => plan.level() !== "out";
@@ -415,24 +416,26 @@ export function jobWorker(
     () => poke()
   );
 
-  // Every paid send of the server (and of dictation): `slots.send`, with the switch and the credits
-  // checked again once it holds its slot, before the caller's own claim (`claimSend`).
-  const paidSend = <T>(
+  // Every paid send (the server's and dictation's): `slots.send` once the credits were first read, the switch
+  // and the credits checked again once it holds its slot, before the caller's own claim (`claimSend`).
+  const paidSend = async <T>(
     key: string,
     until: { priority: Priority; signal?: AbortSignal; waitMs: number },
     claimSend: () => string | null,
     post: () => Promise<T>
   ) =>
-    slots.send(
-      key,
-      until,
-      () => {
-        if (!switches().transcription) {
-          return "transcription is switched off";
-        }
-        return mayScribe() ? claimSend() : "ElevenLabs credits are used up";
-      },
-      post
+    await plan.firstRead().then(() =>
+      slots.send(
+        key,
+        until,
+        () => {
+          if (!switches().transcription) {
+            return "transcription is switched off";
+          }
+          return mayScribe() ? claimSend() : "ElevenLabs credits are used up";
+        },
+        post
+      )
     );
 
   // How long a job may wait for its slot: a block heard at the speech service, what is left of its
@@ -449,12 +452,13 @@ export function jobWorker(
         )
       : 0;
 
-  // A job's send to Scribe leaves now, holding its slot: still the job that was read and no quiet range
-  // touching it, its row records the POST (`requestSentAt`, which reconcile's clocks run from), with
+  // A job's send to Scribe leaves now, holding its slot: still the job that was read and nothing
+  // holding it back (`heldBack`, read again after the wait), its row records the POST (`requestSentAt`, which reconcile's clocks run from), with
   // `set`. The send to use from here, or why not.
   function dispatch(job: Job, set: SQLiteUpdateSetSource<typeof jobs>) {
-    if (job.map && touchesQuiet(db, job.map)) {
-      return "a quiet range touches it";
+    const held = heldBack(db, job, vouched);
+    if (held) {
+      return held;
     }
     const sent = {
       ...job,
@@ -478,7 +482,6 @@ export function jobWorker(
   // withdraws one fragment; here it withdraws the whole job, which a range coming after its block
   // closed (the phone's playback) still needs.
   const claim = () => {
-    const vouched = mac.vouchedThrough();
     const at = clock();
     const transcriber = transcriberNow(config);
     const room = transcriber === "speech" ? 1 : slots.room();
@@ -494,7 +497,7 @@ export function jobWorker(
             eq(jobs.state, "queued"),
             // Jobs from before the bucket have no audio to send.
             sql`${jobs.objectKey} is not null`,
-            or(isNull(jobs.captureEnd), lte(jobs.captureEnd, vouched)),
+            or(isNull(jobs.captureEnd), lte(jobs.captureEnd, vouched())),
             or(isNull(jobs.nextAttemptAt), lte(jobs.nextAttemptAt, at))
           )
         )
@@ -545,12 +548,11 @@ export function jobWorker(
     }
     // Checked again once read: a quiet range that came meanwhile keeps it from the speech service
     // too, and a switched transcriber sends it the new way (a queued job is left for the next claim).
-    let why: string | null = null;
-    if (job.map && touchesQuiet(db, job.map)) {
-      why = "a quiet range touches it";
-    } else if (transcriberNow(config) !== transcriber) {
-      why = "the transcriber changed";
-    }
+    const why =
+      heldBack(db, job, vouched) ??
+      (transcriberNow(config) === transcriber
+        ? null
+        : "the transcriber changed");
     if (why) {
       if (job.state === "submitted") {
         back(db, job, why);
@@ -728,7 +730,7 @@ export function jobWorker(
   // (the bucket down) is logged and never holds back a send.
   async function closeDue() {
     try {
-      const at = await cut(db, audio, mac.vouchedThrough(), now());
+      const at = await cut(db, audio, vouched, now());
       clearTimeout(wake);
       if (at !== null) {
         wake = setTimeout(poke, at - now());
