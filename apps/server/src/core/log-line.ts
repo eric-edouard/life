@@ -51,6 +51,7 @@ const PROCESS_OF: Record<string, string> = {
   offline: "watch",
   photos: "model",
   quota: "model",
+  resource: "watch",
   sync: "watch",
 };
 const word = (v: unknown) => (typeof v === "string" && v ? v : undefined);
