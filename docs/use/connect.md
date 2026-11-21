@@ -40,6 +40,16 @@ claude mcp add --transport http life https://your-mac.your-tailnet.ts.net/mcp
 
 Run `/mcp` in Claude Code, pick life and authenticate: the approval page opens in your browser.
 
+Or install Life's plugin for Claude, which carries the same connector (it asks for the address once) and, in a session
+of one of your agents that you open yourself, gives the agent its door, its packet and the send guard:
+
+```sh
+claude plugin marketplace add <your Life checkout>/apps/claude-plugin
+claude plugin install life@life
+```
+
+Use one or the other, not both.
+
 ## Check it works
 
 Ask about something from the last week.
