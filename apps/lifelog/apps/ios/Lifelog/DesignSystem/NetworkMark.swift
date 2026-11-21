@@ -15,6 +15,9 @@ struct NetworkMark: View {
         Group {
             if let asset {
                 Image(asset).resizable().scaledToFit()
+            } else if network == "contacts" {
+                // His Contacts card: the person-in-a-card glyph.
+                Image(systemName: "person.text.rectangle").resizable().scaledToFit().foregroundStyle(Palette.fg)
             } else {
                 Image(systemName: network == "phone" ? "phone" : "bubble.left").resizable().scaledToFit()
                     .foregroundStyle(Palette.muted)
