@@ -104,7 +104,8 @@ test("lines from any line, across the kept blocks, after appends, a partial line
   expect(page(path, 0, 2)).toEqual([line(0), line(1)]);
   expect(page(path, 1023, 3)).toEqual([line(1023), line(1024), line(1025)]);
   expect(page(path, 2990)).toEqual(lines.slice(2990));
-  expect(page(path, 3000)).toEqual([]);
+  // Caught up: nothing read.
+  expect(largestRead(() => expect(page(path, 3000)).toEqual([]))).toBe(0);
   // An unaligned line reads its one block.
   const block = Buffer.byteLength(`${lines.slice(1024, 2048).join("\n")}\n`);
   expect(largestRead(() => page(path, 1500, 1))).toBe(block);
@@ -180,6 +181,28 @@ test("a failed read keeps the last result and folds nothing; a retry adds each n
   expect(read()).toEqual([1, 2, 3]);
   expect(read()).toEqual([1, 2, 3]);
   expect(added).toBe(3);
+});
+
+// Regression (#852's second verdict): a file cut after its stat read zero bytes, and the scan asked again forever.
+test("a file that ends before its stat said throws and keeps the last result; a retry reads it", () => {
+  const path = tempFile();
+  const read = () =>
+    readAppended(
+      path,
+      z.number(),
+      (last?: number[]) => [...(last ?? [])],
+      (all, n) => {
+        all.push(n);
+      }
+    );
+  writeFileSync(path, "1\n");
+  const first = read();
+  appendFileSync(path, "2\n");
+  const spy = spyOn(fs, "readSync").mockImplementationOnce(() => 0);
+  expect(read).toThrow("file ended at byte 2");
+  spy.mockRestore();
+  expect(first).toEqual([1]);
+  expect(read()).toEqual([1, 2]);
 });
 
 test("a scan through one descriptor reads the file as it was opened, though it is replaced meanwhile", () => {

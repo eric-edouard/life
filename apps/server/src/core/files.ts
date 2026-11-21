@@ -118,18 +118,18 @@ function openIfThere(path: string) {
   }
 }
 
-/** Bytes `from` to `to` of the open file `fd` (fewer when it is shorter). */
+/** Bytes `from` to `to` of the open file `fd`; a file that ends before `to` (cut since its stat) throws, keeping the last read. */
 function readBytes(fd: number, from: number, to: number) {
   const bytes = Buffer.alloc(Math.max(0, to - from));
   let n = 0;
   while (n < bytes.length) {
     const got = readSync(fd, bytes, n, bytes.length - n, from + n);
     if (got === 0) {
-      break;
+      throw new Error(`file ended at byte ${from + n}, before ${to}`);
     }
     n += got;
   }
-  return bytes.subarray(0, n);
+  return bytes;
 }
 
 /** How many bytes a scan reads at once (more only for a longer line). */
@@ -261,6 +261,9 @@ export function* readLines(
   try {
     const { acc: ix, end } = readLineIndex(path, fd);
     const stop = Math.min(to, ix.count);
+    if (from >= stop) {
+      return;
+    }
     for (let k = Math.floor(from / LINE_STEP); k * LINE_STEP < stop; k += 1) {
       const block = readBytes(fd, ix.starts[k] ?? 0, ix.starts[k + 1] ?? end)
         .toString("utf8")
