@@ -107,17 +107,19 @@ struct TextLink: View {
     }
 }
 
-/// An action, or what opens a sheet, as a quiet chip (decision 85): a 14 glyph then its words, 13 / 600, on a `fillTint`
-/// capsule 32 high in a 44 tap area, no border; `isMuted` for a line that says where something came from.
+/// An action, or what opens a sheet, as a quiet chip (decision 85): a 14 glyph (when it has one: a label row's chip has
+/// none, "Select", "Close 20") then its words, 13 / 600, on a `fillTint` capsule 32 high in a 44 tap area, no border;
+/// `isMuted` for a line that says where something came from.
 struct QuietChip: View {
     let title: String
-    let symbol: String
+    let symbol: String?
     var isMuted = false
     var isBusy = false
     let action: () -> Void
 
     init(
-        _ title: String, symbol: String, isMuted: Bool = false, isBusy: Bool = false, action: @escaping () -> Void
+        _ title: String, symbol: String? = nil, isMuted: Bool = false, isBusy: Bool = false,
+        action: @escaping () -> Void
     ) {
         self.title = title
         self.symbol = symbol
@@ -131,7 +133,7 @@ struct QuietChip: View {
             HStack(spacing: 6) {
                 if isBusy {
                     Spinner(size: .small)
-                } else {
+                } else if let symbol {
                     Image(systemName: symbol).font(.chip).accessibilityHidden(true)
                 }
                 Text(title).font(.smallStrong)
