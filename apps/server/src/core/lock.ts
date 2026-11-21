@@ -97,10 +97,14 @@ export function release(name: Service) {
  * calls sharing it never overlap. Each resource keeps its own (`const inTurn = oneAtATime()`); nothing across processes.
  */
 export function oneAtATime() {
-  let turn: Promise<unknown> = Promise.resolve();
+  let turn: Promise<void> = Promise.resolve();
   return <T>(run: () => Promise<T>) => {
     const next = turn.then(run);
-    turn = next.catch(() => undefined);
+    // The tail keeps no result: an idle chain holds nothing its last call returned.
+    turn = next.then(
+      () => undefined,
+      () => undefined
+    );
     return next;
   };
 }
