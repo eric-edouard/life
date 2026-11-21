@@ -39,11 +39,14 @@ struct WrongSheet: View {
                     .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
                     .padding(.top, Metrics.Spacing.l)
                 Group {
-                    DictationField(prompt: "Say what is true…", text: words, axis: .vertical, focused: $isWriting)
-                        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...)
-                        .padding(Metrics.Spacing.l)
-                        .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
-                        .padding(.top, Metrics.Spacing.m)
+                    // Grows with his words, then scrolls, so the report box and the button stay in view.
+                    ScrollView {
+                        DictationField(prompt: "Say what is true…", text: words, axis: .vertical, focused: $isWriting)
+                            .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...)
+                            .padding(Metrics.Spacing.l)
+                            .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
+                    }
+                    .scrollBounceBehavior(.basedOnSize).padding(.top, Metrics.Spacing.m)
                     Spacer(minLength: Metrics.Spacing.l)
                     reportBox(isOn: draft.report)
                 }

@@ -51,11 +51,8 @@ struct CheckCard: View {
         .safeAreaBar(edge: .bottom, spacing: 0) {
             if isAnswersInBar {
                 // Taller than the screen allows (a row of wide labels stacks), the bar scrolls rather than grows.
-                let bar = answers.padding(.horizontal, Metrics.Spacing.s).readingWidth()
-                ViewThatFits(in: .vertical) {
-                    bar
-                    ScrollView { bar }.scrollBounceBehavior(.basedOnSize)
-                }
+                ScrollView { answers.padding(.horizontal, Metrics.Spacing.s).readingWidth() }
+                    .scrollBounceBehavior(.basedOnSize).frame(maxHeight: 320)
             }
         }
         .sheet(item: $input.context) { context in
