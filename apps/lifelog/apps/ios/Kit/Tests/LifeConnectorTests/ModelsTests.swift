@@ -48,13 +48,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 10)
+    #expect(inbox.total == 11)
     #expect(inbox.blocking == 6)
     #expect(inbox.badge == 6)
-    #expect(inbox.counts.values.reduce(0, +) == 10)
+    #expect(inbox.counts.values.reduce(0, +) == 11)
     #expect(
         inbox.checks.map(\.urgency) == [
-            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
+            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves, .improves,
         ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
@@ -149,7 +149,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.project == nil)
 
     let chips = try decoded(ProjectChips.self, wireText("life/read_projects.json"))
-    #expect(chips.all.needYou == 1)
+    #expect(chips.all.needYou == 2)
     #expect(chips.chips.map(\.kind) == [.project])
     #expect(chips.chips.first?.status == .active)
     #expect(chips.chips.first?.area == "home")
@@ -316,7 +316,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func aRowCarriesLifesWordThatItNeedsHim() throws {
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
-    #expect(list.matters.map(\.needsYou) == [true, false, false])
+    #expect(list.matters.map(\.needsYou) == [true, false, true])
 }
 
 @Test func theActionsResultsDecode() throws {
@@ -378,7 +378,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     for check in all where check.contextLinkTitle != nil && check.draft == nil {
         switch check.group {
         case .ending: #expect(check.contextLinkTitle == "Why done?")
-        case .newMatter: #expect(check.contextLinkTitle == "What Life saw")
+        case .newMatter, .yourMove: #expect(check.contextLinkTitle == "What Life saw")
         case .decision: #expect(check.contextLinkTitle == "Why it asks")
         default: #expect(check.contextLinkTitle?.hasSuffix("?") == true)
         }

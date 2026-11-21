@@ -739,3 +739,51 @@ test("a voice card's tap: refused with no write once its group grew, accepted wh
     send.mockRestore();
   }
 });
+
+test("your move: Mark as done closes only its step, never a sibling; each fresh Not now press is its own answer, the same press retried writes once", async () => {
+  const step = (ref: string) => ({
+    at: "2026-11-01T09:00:00.000Z",
+    day: "2026-11-01",
+    kind: "to_do",
+    quote: "it",
+    ref,
+    text: "Paint the gate",
+  });
+  const [mine, sibling] = [step("obs_000000000071"), step("obs_000000000072")];
+  const move = asCheck({
+    group: "your move",
+    matter: { id: "matter_000000000007", name: "Garden gate" },
+    options: [
+      { ends: "step", id: "done", label: "Mark as done", takes: null },
+      { id: "not-now", label: "Not now", takes: null },
+    ],
+    ref: `move:matter_000000000007/${mine.ref}`,
+    subject: mine.ref,
+    title: "Garden gate",
+  });
+  guesses = [move];
+  const people = spyOn(
+    await import("../memory/who"),
+    "readPeople"
+  ).mockResolvedValue({} as never);
+  const book = spyOn(
+    await import("../memory/matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    { id: "matter_000000000007", open: true, steps: [mine, sibling] },
+  ] as never);
+  try {
+    await call(move.ref, ["done"], "tap-done").result;
+    await call(move.ref, ["not-now"], "tap-1").result;
+    await call(move.ref, ["not-now"], "tap-1").result;
+    await call(move.ref, ["not-now"], "tap-2").result;
+    expect(
+      readCorrections().map((c) =>
+        c.kind === "outdated" ? c.observations : c.kind
+      )
+    ).toEqual([[mine.ref], "your-move-not-now", "your-move-not-now"]);
+  } finally {
+    book.mockRestore();
+    people.mockRestore();
+  }
+});

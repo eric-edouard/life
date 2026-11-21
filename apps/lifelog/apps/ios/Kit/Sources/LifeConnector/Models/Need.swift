@@ -8,7 +8,7 @@ extension Check {
     /// the read.
     public struct Need: Decodable, Sendable, Equatable {
         public enum Kind: String, UnknownTolerant, Sendable {
-            case account, amount, link, text, qr
+            case account, amount, link, place, text, qr
             case unknown
         }
 
@@ -37,6 +37,10 @@ extension Check {
         /// A QR code's text, and where the payee sent it.
         let payload: String?
         let source: String?
+        /// A place's map and ride links (https, each opened by his tap).
+        let googleMapsUrl: URL?
+        let appleMapsUrl: URL?
+        let boltUrl: URL?
 
         public init(from decoder: any Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -55,11 +59,17 @@ extension Check {
             copy = try? c.decodeIfPresent(Bool.self, forKey: .copy)
             payload = try? c.decodeIfPresent(String.self, forKey: .payload)
             source = try? c.decodeIfPresent(String.self, forKey: .source)
+            func link(_ key: CodingKeys) -> URL? {
+                (try? c.decodeIfPresent(String.self, forKey: key)).flatMap { $0.flatMap(URL.init(string:)) }
+            }
+            googleMapsUrl = link(.googleMapsUrl)
+            appleMapsUrl = link(.appleMapsUrl)
+            boltUrl = link(.boltUrl)
         }
 
         private enum CodingKeys: String, CodingKey {
             case kind, line, bank, number, holder, scheme, value, currency, label, text, url, vendor, copy, payload,
-                source
+                source, googleMapsUrl, appleMapsUrl, boltUrl
         }
 
         /// The rows the card draws, decided here once: the view only draws them. A need whose fields say nothing
@@ -107,6 +117,17 @@ extension Check {
                                 action: copy == true ? .copy(text, label: "Copy \(label ?? "it")") : nil)
                         ]
                     } ?? []
+            case .place:
+                // Its name, then each link Life gave, https only.
+                let links = [("Google Maps", googleMapsUrl), ("Apple Maps", appleMapsUrl), ("Bolt", boltUrl)]
+                    .compactMap { name, url in
+                        url.flatMap {
+                            $0.scheme?.lowercased() == "https"
+                                ? NeedRow(
+                                    glyph: .link, text: name, action: .open($0, label: "Open in \(name)")) : nil
+                        }
+                    }
+                rows = [NeedRow(glyph: .note, text: line)] + links
             // The code itself is the card's hero (`Check.payCode`); without its text, its line.
             case .qr, .unknown:
                 rows = []

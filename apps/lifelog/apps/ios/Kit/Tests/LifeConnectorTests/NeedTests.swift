@@ -97,3 +97,11 @@ private func need(_ json: String) throws -> Check.Need {
     #expect(CardNotification.answer("option:done", typed: nil, to: check, in: "", asksFaceID: false) == nil)
     #expect(CardNotification.answer("option:later", typed: nil, to: check, in: "", asksFaceID: false) != nil)
 }
+
+@Test func aPlaceShowsItsNameThenEachHttpsLinkByATap() throws {
+    let rows = try need(
+        #"{"kind":"place","line":"Paint shop","name":"Paint shop","googleMapsUrl":"https://maps.example.test/g","boltUrl":"http://ride.example.test/r"}"#
+    ).rows
+    #expect(rows.map(\.text) == ["Paint shop", "Google Maps"])
+    #expect(rows[1].action == .open(URL(string: "https://maps.example.test/g")!, label: "Open in Google Maps"))
+}
