@@ -34,23 +34,21 @@ struct PairPendantSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            SheetHeader(title: title, color: color) { dismiss() }
-            ScrollView { content }.scrollBounceBehavior(.basedOnSize)
-            VStack(spacing: 10) { buttons }
-        }
-        .padding(.horizontal, Metrics.gutter)
-        .padding(.top, Metrics.Spacing.l)
-        .padding(.bottom, Metrics.Spacing.l)
-        .readingWidth()
-        .background(Palette.sheet)
-        .presentationBackground(Palette.sheet)
-        .accessibilityIdentifier("pendant.pairSheet")
-        .task { await start() }
-        .task(id: startedAt) {
-            try? await Task.sleep(for: .seconds(CaptureCondition.noPendantAfter))
-            if case .looking = phase { hasGivenUp = true }
-        }
+        content
+            .sheetScroll {
+                SheetHeader(title: title, color: color) { dismiss() }
+            } buttons: {
+                VStack(spacing: 10) { buttons }
+            }
+            .readingWidth()
+            .background(Palette.sheet)
+            .presentationBackground(Palette.sheet)
+            .accessibilityIdentifier("pendant.pairSheet")
+            .task { await start() }
+            .task(id: startedAt) {
+                try? await Task.sleep(for: .seconds(CaptureCondition.noPendantAfter))
+                if case .looking = phase { hasGivenUp = true }
+            }
     }
 
     private func start() async {

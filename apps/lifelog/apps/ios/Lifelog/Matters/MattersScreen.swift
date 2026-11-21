@@ -146,19 +146,25 @@ struct MattersScreen: View {
                 Text("No matter fits. Loosen the filter.").font(.body15).foregroundStyle(Palette.muted)
                     .padding(20).quietListRow()
             }
+            // Two cards: the running matters, then the parked ones.
+            let split = parkedFrom ?? rows.count
             ForEach(Array(rows.enumerated()), id: \.element.id) { at, row in
                 let isSelected = sizeClass == .regular && router.matter == row.id
                 let isMarked = life.isImportant(row.id, as: row.important)
+                let isParked = at >= split
                 VStack(alignment: .leading, spacing: 0) {
                     if at == parkedFrom { ListLabel("Parked") }
                     Button {
                         router.open(matter: row.id)
                     } label: {
-                        MatterRowView(row: row, isChosen: isSelected, isMarked: isMarked)
+                        MatterRowView(row: row, isMarked: isMarked)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(
+                        .groupedRow(
+                            at: isParked ? at - split : at, of: isParked ? rows.count - split : split,
+                            isChosen: isSelected)
+                    )
                     .zoomSource(row.id, in: matterZoom)
-                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
                 .readingWidth()
                 .appears()
@@ -188,7 +194,6 @@ extension View {
 
 struct MatterRowView: View {
     let row: MatterRow
-    let isChosen: Bool
     /// His mark, his tap first (`LifeStore.isImportant`).
     let isMarked: Bool
 
@@ -196,7 +201,7 @@ struct MatterRowView: View {
         let parked = row.isParked
         return Row(
             title: row.name, icon: row.symbol,
-            iconTint: Palette.muted, detail: row.nextStep?.text, isMarked: isMarked
+            iconTint: Palette.muted, detail: row.nextStep?.text, isMarked: isMarked, isInList: true
         ) {
             // A parked project's matter waits: no dot, no agent.
             if parked {
@@ -208,12 +213,6 @@ struct MatterRowView: View {
             }
         }
         .opacity(parked ? 0.45 : 1)
-        // The content on the page's gutter (the row's own inset); the chosen one's fill inset from the edges.
-        .background {
-            RoundedRectangle(cornerRadius: Metrics.Radius.passage).fill(isChosen ? Palette.card : .clear)
-                .padding(.horizontal, Metrics.Spacing.s)
-        }
-        .motion(Motion.standard, value: isChosen)
         .motion(Motion.standard, value: isMarked)
         .accessibilityElement(children: .combine)
         // The dot and the flag have their words: the combined row would drop a hidden glyph's label.

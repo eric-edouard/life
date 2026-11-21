@@ -16,19 +16,19 @@ struct StartAgentSheet: View {
     private var state: ActionState<ActionProof> { life.state(of: .start(matter: matter.row.id)) }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                SheetHeader(title: title, color: titleColor) { dismiss() }
-                switch state {
-                case .idle: form
-                case .running: progress
-                case .succeeded(let proof, _): started(proof)
-                case .failed(let failure, _): notStarted(failure)
-                }
+        VStack(alignment: .leading, spacing: 16) {
+            switch state {
+            case .idle: form
+            case .running: progress
+            case .succeeded(let proof, _): started(proof)
+            case .failed(let failure, _): notStarted(failure)
             }
-            .padding(20)
         }
-        .scrollBounceBehavior(.basedOnSize)
+        .sheetScroll {
+            SheetHeader(title: title, color: titleColor) { dismiss() }
+        } buttons: {
+            buttons
+        }
         .background(Palette.sheet)
         .presentationDetents([.large])
         .onAppear { if goal.isEmpty { goal = matter.row.goal?.text ?? "" } }
@@ -61,7 +61,7 @@ struct StartAgentSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             Caps("The goal, in your words")
             TextField("Goal", text: $goal, axis: .vertical).font(.quote).foregroundStyle(Palette.fg)
-                .lineLimit(2...6).padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))
+                .lineLimit(2...).padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))
             Caps("Who works on it")
             SegmentedChoice(choices: RuntimeName.offered, selection: $runtimeName, title: \.name)
                 .onChange(of: runtimeName) { model = nil }
@@ -80,8 +80,34 @@ struct StartAgentSheet: View {
                 "It starts with a plan for you to approve: nothing happens before you say Go. Nothing is ever sent, paid or booked without your tap."
             )
             .font(.body15).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
-            Button("Start") { start() }.buttonStyle(.pill(.filled))
-                .disabled(goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+    }
+
+    /// The answers of each state, in the bottom bar: Start; Starting…; Done; Try again (and the other program) or Close.
+    @ViewBuilder private var buttons: some View {
+        VStack(spacing: 10) {
+            switch state {
+            case .idle:
+                Button("Start") { start() }.buttonStyle(.pill(.filled))
+                    .disabled(goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            case .running:
+                Button {
+                } label: {
+                    Text("Starting…")
+                }.buttonStyle(.pill(.quiet, isBusy: true))
+            case .succeeded: Button("Done") { dismiss() }.buttonStyle(.pill(.filled))
+            case .failed(let failure, _):
+                if failure.canTryAgain {
+                    Button("Try again") { start() }.buttonStyle(.pill(.filled))
+                    if let other = RuntimeName.offered.first(where: { $0 != runtimeName }), runtimeName != nil {
+                        Button("Use \(other.name)") {
+                            runtimeName = other; model = nil; start()
+                        }.buttonStyle(.pill(.quiet))
+                    }
+                } else {
+                    Button("Close") { dismiss() }.buttonStyle(.pill(.filled))
+                }
+            }
         }
     }
 
@@ -102,10 +128,6 @@ struct StartAgentSheet: View {
                     + ". If one fails you are told here, and nothing is left half started."
             }
             .font(.body15).foregroundStyle(Palette.muted)
-            Button {
-            } label: {
-                Text("Starting…")
-            }.buttonStyle(.pill(.quiet, isBusy: true))
         }
     }
 
@@ -130,7 +152,6 @@ struct StartAgentSheet: View {
             if let link {
                 TextLink("Open in \(took?.name ?? "its app")", to: .outside) { openURL(link) }
             }
-            Button("Done") { dismiss() }.buttonStyle(.pill(.filled))
         }
     }
 
@@ -148,16 +169,6 @@ struct StartAgentSheet: View {
                         + (isGoalSaved ? " Your goal is kept." : "")
             )
             .font(.body15).foregroundStyle(Palette.muted)
-            if failure.canTryAgain {
-                Button("Try again") { start() }.buttonStyle(.pill(.filled))
-                if let other = RuntimeName.offered.first(where: { $0 != runtimeName }), runtimeName != nil {
-                    Button("Use \(other.name)") {
-                        runtimeName = other; model = nil; start()
-                    }.buttonStyle(.pill(.quiet))
-                }
-            } else {
-                Button("Close") { dismiss() }.buttonStyle(.pill(.filled))
-            }
         }
     }
 

@@ -62,7 +62,7 @@ struct SearchScreen: View {
                         empty: { if asked.isEmpty { NoMattersNotice() } },
                         content: { _ in
                             matterRows(
-                                results.matterRows ?? [], isLabelled: results.people?.onScreen?.people.isEmpty == false)
+                                results.matterRows ?? [], isLabelled: results.people?.onScreen?.isNoOne == false)
                         }
                     )
                 }
@@ -107,9 +107,10 @@ struct SearchScreen: View {
             // Only seen by Life (in his Contacts, named by someone): quieter, and never a page to open.
             if let others = list.others, !others.isEmpty {
                 ListLabel("Others Life has seen")
-                ForEach(others, id: \.ref) { party in
+                ForEach(Array(others.enumerated()), id: \.element.ref) { at, party in
                     PartyRow(party, isDim: true)
-                        .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.m)
+                        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
+                        .groupedRow(at: at, of: others.count)
                         .appears()
                 }
             }
@@ -120,13 +121,13 @@ struct SearchScreen: View {
     private func matterRows(_ rows: [MatterRow], isLabelled: Bool) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if !rows.isEmpty, isLabelled { ListLabel("Matters") }
-            ForEach(rows) { row in
+            ForEach(Array(rows.enumerated()), id: \.element.id) { at, row in
                 Button {
                     router.open(matter: row.id)
                 } label: {
-                    MatterRowView(row: row, isChosen: false, isMarked: life.isImportant(row.id, as: row.important))
+                    MatterRowView(row: row, isMarked: life.isImportant(row.id, as: row.important))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.groupedRow(at: at, of: rows.count))
                 .appears()
             }
         }
@@ -136,8 +137,9 @@ struct SearchScreen: View {
     @ViewBuilder private func section(_ label: String, _ rows: [PersonRow]) -> some View {
         if !rows.isEmpty {
             ListLabel(label)
-            ForEach(rows) { row in
-                PersonRowButton(row: row) { router.open(party: row.id) }.appears()
+            ForEach(Array(rows.enumerated()), id: \.element.id) { at, row in
+                PersonRowButton(row: row) { router.open(party: row.id) }
+                    .buttonStyle(.groupedRow(at: at, of: rows.count)).appears()
             }
         }
     }

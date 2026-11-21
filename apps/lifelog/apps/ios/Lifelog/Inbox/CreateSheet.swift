@@ -20,7 +20,6 @@ struct CreateSheet: View {
     @State private var what = ""
     /// His press, once made: the button shows its answer's state from then on, never an earlier one's.
     @State private var sent: AnswerRequest?
-    @State private var fieldsHeight: CGFloat = 0
 
     init(check: Check, name: String, isOrganization: Bool = false, done: @escaping (AnswerRequest) -> Void) {
         (self.check, self.done) = (check, done)
@@ -49,7 +48,6 @@ struct CreateSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
-            SheetHeader(title: isOrganization ? "New organization" : "New person") { dismiss() }
             if check.organizationOption != nil {
                 SegmentedChoice(
                     choices: [Kind.person, .organization],
@@ -59,14 +57,7 @@ struct CreateSheet: View {
                 )
                 .disabled(isLocked)
             }
-            // The fields hug what they hold; with the keyboard up they scroll under the title, the rest stays put.
-            ScrollView {
-                fields.onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { fieldsHeight = $0 }
-            }
-            .frame(maxHeight: fieldsHeight == 0 ? nil : fieldsHeight)
-            .scrollBounceBehavior(.basedOnSize)
-            .scrollEdgeEffectStyle(.soft, for: .vertical)
-            .clipShape(.rect(cornerRadius: Metrics.Radius.card))
+            fields
             if let attached {
                 Text(attached).font(.small).foregroundStyle(Palette.muted).padding(.horizontal, Metrics.Spacing.xs)
             }
@@ -74,10 +65,14 @@ struct CreateSheet: View {
                 Text(failure.isSameTap ? "Your Mac did not answer." : failure.reason).font(.small)
                     .foregroundStyle(Palette.flag).fixedSize(horizontal: false, vertical: true).appears()
             }
-            button
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.s)
+        // One scroll (decision 97): the title in the top bar, the button in the bottom bar; with the keyboard up the
+        // fields scroll under the title.
+        .sheetScroll {
+            SheetHeader(title: isOrganization ? "New organization" : "New person") { dismiss() }
+        } buttons: {
+            button
+        }
         .readingWidth()
         .background(Palette.sheet)
         .presentationDetents([.large])
