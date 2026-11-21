@@ -330,16 +330,47 @@ struct MarkItem: View {
     }
 }
 
-/// Where a list's next part begins, in a small muted label: "The rest can wait" in the Inbox, "Parked" in Matters.
-struct ListLabel: View {
+/// Where a list's next part begins, in a small muted label: "The rest can wait" in the Inbox, "Parked" in Matters. Its
+/// one action, when it has one, is a chip at the right ("All 5", "More": the label row, decision 98).
+struct ListLabel<Action: View>: View {
     let text: String
+    @ViewBuilder var action: Action
 
-    init(_ text: String) { self.text = text }
+    init(_ text: String, @ViewBuilder action: () -> Action) {
+        self.text = text
+        self.action = action()
+    }
 
     var body: some View {
-        Text(text).font(.small).foregroundStyle(Palette.muted)
-            .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 6)
-            .accessibilityAddTraits(.isHeader)
+        HStack(spacing: Metrics.Spacing.s) {
+            Text(text).font(.small).foregroundStyle(Palette.muted).accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 0)
+            action
+        }
+        .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 6)
+    }
+}
+
+extension ListLabel where Action == EmptyView {
+    init(_ text: String) { self.init(text) {} }
+}
+
+extension View {
+    /// One row of a list as a grouped inset card (decision 98, rule 17): at least `Metrics.listRow` high on the card
+    /// fill, the group's first row rounded at its top and its last at its foot, no divider, inset from the column's edges;
+    /// the open row lit with `pick`. Rows of one group stack with no gap, so they read as one card; a label or a gap
+    /// starts the next. The same in a `List` row (its swipe actions and letter index kept) as in a stack.
+    func groupedRow(at index: Int, of count: Int, isChosen: Bool = false) -> some View {
+        let top = index == 0 ? Metrics.Radius.card : 0
+        let foot = index == count - 1 ? Metrics.Radius.card : 0
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: top, bottomLeadingRadius: foot, bottomTrailingRadius: foot, topTrailingRadius: top)
+        return frame(minHeight: Metrics.listRow)
+            .background(Color.pick.opacity(isChosen ? 1 : 0), in: shape)
+            .background(Palette.card, in: shape)
+            .padding(.horizontal, Metrics.Spacing.m)
+            .motion(Motion.standard, value: isChosen)
+            .accessibilityAddTraits(isChosen ? .isSelected : [])
     }
 }
 
@@ -705,6 +736,8 @@ struct Row<Trailing: View>: View {
     var state = RowState.known
     /// His mark: `SmallFlag` after the name, on its last line.
     var isMarked = false
+    /// A list's row takes its height from its list (`groupedRow`); a settings row keeps 56, or 64 with a second line.
+    var isInList = false
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -726,7 +759,7 @@ struct Row<Trailing: View>: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .frame(minHeight: state == .known && detail == nil ? 56 : 64)
+        .frame(minHeight: isInList ? nil : (state == .known && detail == nil ? 56 : 64))
         .contentShape(.rect)
     }
 
@@ -887,6 +920,25 @@ struct SheetHeader: View {
             CloseButton(close: close)
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+extension View {
+    /// A sheet on the one-scroll rule (decision 97): this view is the one scroll's content, at the gutter; `head` (its
+    /// `SheetHeader`) sits in the top bar and `buttons` in the bottom bar, each over the system's soft edge, so nothing
+    /// scrolls inside and the content's end scrolls clear of the buttons.
+    func sheetScroll<Head: View, Buttons: View>(
+        @ViewBuilder head: () -> Head, @ViewBuilder buttons: () -> Buttons
+    ) -> some View {
+        let content = self.padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.l)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        let top = head().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+        let bottom = buttons().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+        return ScrollView { content }
+            .scrollBounceBehavior(.basedOnSize)
+            .safeAreaBar(edge: .top, spacing: 0) { top }
+            .safeAreaBar(edge: .bottom, spacing: 0) { bottom }
+            .scrollEdgeEffectStyle(.soft, for: .vertical)
     }
 }
 

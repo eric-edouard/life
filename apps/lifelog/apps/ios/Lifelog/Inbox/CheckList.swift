@@ -17,11 +17,14 @@ struct CheckList: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
+                // Two cards: what waits on him, then the rest.
+                let split = min(order.canWaitFrom ?? order.checks.count, order.checks.count)
                 ForEach(Array(order.checks.enumerated()), id: \.element.ref) { at, check in
-                    if at == order.canWaitFrom {
+                    if at == split {
                         ListLabel("The rest can wait")
                     }
-                    row(check)
+                    let isRest = at >= split
+                    row(check, at: isRest ? at - split : at, of: isRest ? order.checks.count - split : split)
                 }
             }
             .padding(.bottom, 24).readingWidth()
@@ -29,14 +32,14 @@ struct CheckList: View {
         .motion(Motion.standard, value: order.checks.map(\.ref))
     }
 
-    private func row(_ check: Check) -> some View {
+    private func row(_ check: Check, at index: Int, of count: Int) -> some View {
         let isChosen = check.ref == chosen
         return Button {
             choose(check.ref)
         } label: {
             Row(
                 title: check.question, icon: symbol(of: check),
-                detail: check.beingFixed == nil ? check.listLine() : "Being fixed"
+                detail: check.beingFixed == nil ? check.listLine() : "Being fixed", isInList: true
             ) {
                 // The caretaker is at work on it: it no longer waits on him, so no deadline.
                 if check.beingFixed != nil {
@@ -47,14 +50,11 @@ struct CheckList: View {
                 }
             }
             .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
-            .background(isChosen ? Palette.card : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
-            .padding(.horizontal, 8)
-            .motion(Motion.standard, value: isChosen)
             .accessibilityElement(children: .combine)
         }
         .buttonStyle(.plain)
+        .groupedRow(at: index, of: count, isChosen: isChosen)
         .appears()
-        .accessibilityAddTraits(isChosen ? .isSelected : [])
     }
 
     /// An agent asks (its program's mark), or Life asks about its own reading (the kind's icon).

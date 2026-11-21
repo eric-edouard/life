@@ -84,21 +84,26 @@ struct MatterPage: View {
     /// What waits on him here, under the name: each ask of this matter as a row that opens it; nothing when none waits.
     @ViewBuilder private func asks(_ checks: [Check]) -> some View {
         if !checks.isEmpty {
-            RowGroup {
-                ForEach(checks) { check in
+            VStack(spacing: 0) {
+                ForEach(Array(checks.enumerated()), id: \.element.ref) { at, check in
                     Button {
                         router.matterPath.append(.card(check.ref))
                     } label: {
-                        Row(title: check.question, detail: check.deadline.map { DeadlineWords.by($0) }) {
+                        Row(
+                            title: check.question, detail: check.deadline.map { DeadlineWords.by($0) }, isInList: true
+                        ) {
                             StateDot(color: Palette.flag)
                             RowValue()
                         }
                     }
                     .buttonStyle(.plain)
+                    .groupedRow(at: at, of: checks.count)
                     // The dot has its words.
                     .accessibilityValue(needsYourAnswer)
                 }
             }
+            // The card on the page's gutter: a list keeps its inset from its column's edges.
+            .padding(.horizontal, -Metrics.Spacing.m)
         }
     }
 
@@ -182,7 +187,7 @@ private struct EditableLine: View {
             }
             if isEditing {
                 TextField(label, text: $draft, axis: .vertical).focused($focused).font(.lead)
-                    .foregroundStyle(Palette.fg).lineLimit(1...6)
+                    .foregroundStyle(Palette.fg).lineLimit(1...)
                 HStack(spacing: 8) {
                     Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, size: .compact))
                     Button(state.isRunning ? "Saving…" : "Save") {

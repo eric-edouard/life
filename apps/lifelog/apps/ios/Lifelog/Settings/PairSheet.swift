@@ -52,18 +52,13 @@ struct PairSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
+            if phase == .confirming { confirm } else { progress }
+        }
+        .sheetScroll {
             SheetHeader(title: title, close: { dismiss() })
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    if phase == .confirming { confirm } else { progress }
-                }
-            }
-            .scrollBounceBehavior(.basedOnSize)
+        } buttons: {
             VStack(spacing: 10) { buttons }
         }
-        .padding(.horizontal, Metrics.gutter)
-        .padding(.top, Metrics.Spacing.l)
-        .padding(.bottom, Metrics.Spacing.l)
         .readingWidth()
         .background(Palette.sheet)
         .presentationBackground(Palette.sheet)
