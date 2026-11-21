@@ -236,7 +236,7 @@
         },
         {
           "id": "not-relevant",
-          "label": "Neither"
+          "label": "I don't care"
         }
       ],
       "pushId": "push_name_bastien",
@@ -555,7 +555,7 @@
         },
         {
           "id": "not-relevant",
-          "label": "Neither"
+          "label": "I don't care"
         }
       ],
       "pushId": "push_name_atelier",
@@ -667,7 +667,7 @@
         },
         {
           "id": "not-relevant",
-          "label": "Neither"
+          "label": "I don't care"
         }
       ],
       "pushId": "push_name_marc",
