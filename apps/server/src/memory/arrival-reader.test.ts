@@ -533,11 +533,12 @@ test("voice: a chunk whose confirm failed is read again on the next pass, the ot
       l.text = `ช่วยเอาแผนมาด้วย ${l.text}`;
     }
   }
-  // Four chunks, the first confirm failing: the next pass asks that one again, and a third fetches nothing.
+  // Four chunks, each to both of his engine's reads, the first confirm failing: the next pass asks that one again,
+  // never its appointment read made, and a third fetches nothing.
   await s.read([], true, 0, thai);
   await s.read([], true, 0, thai);
   await s.read([], true, 0, thai);
-  expect(s.calls.engine).toBe(5);
+  expect(s.calls.engine).toBe(9);
   expect(s.fetched).toEqual([1, 1, 0]);
 });
 

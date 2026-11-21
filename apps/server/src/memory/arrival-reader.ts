@@ -379,14 +379,33 @@ export async function readArrivals(
     evidence.fileLines ?? readFiles(),
     new Set()
   ).due.map(eventKey);
-  const read = new Set([...stored.flatMap((l) => l.messages), ...waiting]);
+  // A line is read once Apple's trigger read it, or once both of his engine's reads did (Thai, no Apple model): a
+  // failed read is asked again on the next pass, the one made never.
+  const keysOf = (r: ReadReply["read"]) =>
+    new Set(stored.flatMap((l) => (l.read === r ? l.messages : [])));
+  const confirmedKeys = keysOf(ARRIVAL_CONFIRM_READ);
+  const appointmentKeys = keysOf(ARRIVAL_APPOINTMENT_READ);
+  const read = new Set([
+    ...keysOf(ARRIVAL_TRIGGER_READ),
+    ...[...confirmedKeys].filter((k) => appointmentKeys.has(k)),
+    ...waiting,
+  ]);
+  /** His engine's reads of a read sent straight to it, less the ones already made. */
+  const straightOf = (r: ArrivalRead) => [
+    ...(r.keys.every((k) => confirmedKeys.has(k)) ? [] : [confirmOf(r)]),
+    ...(r.keys.every((k) => appointmentKeys.has(k)) ? [] : [appointmentOf(r)]),
+  ];
   const pending = pendingTriggers(stored, day);
   const pendingUnits = new Set(pending.map(({ t }) => t.unit));
   // Words are fetched only for a unit with a turn not read yet (fewer of its keys read than its turns), or a confirm
   // pending: a conversation read whole fetches nothing again.
   const readOfUnit = Map.groupBy(
     stored.flatMap((l) =>
-      "unit" in l ? l.messages.map((k) => ({ k, unit: l.unit })) : []
+      "unit" in l
+        ? l.messages
+            .filter((k) => read.has(k))
+            .map((k) => ({ k, unit: l.unit }))
+        : []
     ),
     (m) => m.unit
   );
@@ -453,7 +472,7 @@ export async function readArrivals(
   // Thai lines go to both of his engine's reads.
   const toConfirm: Asked[] = due
     .filter((r) => !forApple.includes(r))
-    .flatMap((r) => [confirmOf(r), appointmentOf(r)]);
+    .flatMap(straightOf);
   const digest = promptDigestOf(promptText(TRIGGER));
   for (const [i, r] of forApple.entries()) {
     const answer = answers[i] as FoundationAnswer;
@@ -463,7 +482,7 @@ export async function readArrivals(
     }
     // No Apple model on this Mac: nothing stored, his engine reads it.
     if ("error" in answer && answer.error !== "refused") {
-      toConfirm.push(confirmOf(r), appointmentOf(r));
+      toConfirm.push(...straightOf(r));
       continue;
     }
     const reply = triggerReplyOf(answer);
