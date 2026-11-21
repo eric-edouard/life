@@ -139,7 +139,7 @@ test("never asked: one name, a guess with no handle, a guess Life is sure of, a 
 });
 
 test("two guesses going by one whole name are one card whichever comes first, asked of the smaller id; a native handle counts; a Contacts card counts too", () => {
-  const twin = { ...inferred("inf_kit-2", ["_u91_abc"]), name: "kit lee" };
+  const twin = { ...inferred("inf_kit-2", ["_u91_abc"]), name: "Kit Lee" };
   expect(pairsOf({ directory: [], guesses: [twin, kit] })).toEqual([
     "person:inf_kit ~ person:inf_kit-2",
   ]);
