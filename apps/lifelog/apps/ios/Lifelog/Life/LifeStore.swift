@@ -47,6 +47,8 @@ final class LifeStore {
         case project(String)
         /// His Remove or Undo of an appointment Life added to his calendar, by its id.
         case appointment(String)
+        /// His picture pick for a person or an organization of his directory, by their ref.
+        case picture(String)
         enum Edit: Hashable { case goal, next, done, important, icon }
     }
 
@@ -58,6 +60,8 @@ final class LifeStore {
             /// His icon to put back (nil: Life's pick), and the one it replaces.
             case icon(matter: String, String?, was: String?)
             case status(project: String, name: String, ProjectStatus, was: ProjectStatus)
+            /// The picture source to put back (`none`: no picture), and the one it replaces.
+            case picture(ref: String, name: String, Party.Kind, String, was: String)
         }
         let id = UUID()
         let words: String
@@ -72,6 +76,8 @@ final class LifeStore {
     private let statusing = PendingTaps<ProjectStatus>()
     /// His icon pick on a matter (a key, or nil: Life picks again) from his tap until Life's reads after it.
     private let iconing = PendingTaps<String?>()
+    /// His picture pick on a person or an organization (a source, or `none`) from his tap until Life's reads after it.
+    private let picturing = PendingTaps<String>()
     /// His icon picks Life took, until a read of the matter shows them.
     private var writtenIcons = WrittenIcons()
 
@@ -765,6 +771,40 @@ final class LifeStore {
         }
     }
 
+    /// His picture pick under way on `ref` (a source, or `none`); nil when none is.
+    func picturePicking(_ ref: String) -> String? { picturing[ref] }
+
+    /// His picture pick for a person or an organization of his directory (a source, or `none`: no picture), an edit of
+    /// their entry `said` as the tap's words; said back "Picture changed" with Undo (`was`: the source showing before,
+    /// written back explicitly, which shows the same) once their read and the list are read again. One pick per ref at
+    /// a time; a failure says Life's reason.
+    func setPicture(
+        of ref: String, name: String, kind: Party.Kind, from source: String, was: String, saysBack: Bool = true
+    ) async {
+        let api = api
+        let key = ActionKey.picture(ref)
+        if await refusedOutOfReach(key, saysBack: true) { return }
+        let said =
+            source == PersonNow.noPicture
+            ? "No picture for \(name)"
+            : "Show \(name)'s \(Channel.name(source)) picture"
+        _ = await picturing.run(ref, showing: source) {
+            await perform(key) { [runner] in
+                await runner.record(emit: $0) {
+                    try await api.setPicture(of: ref, kind: kind, from: source, said: said, onProgress: $0)
+                }
+            }
+            if case .succeeded = state(of: key) {
+                async let a: Void = refreshPerson(ref)
+                async let b: Void = refreshPeople()
+                _ = await (a, b)
+            }
+            say(
+                key, saysBack ? "Picture changed" : nil,
+                undo: .picture(ref: ref, name: name, kind, was, was: source))
+        }
+    }
+
     /// Its Undo as a tap, none when it was not done.
     func undoing(_ said: SaidBack) -> (() -> Void)? {
         said.undo == nil ? nil : { Task { await self.undo(said) } }
@@ -783,6 +823,9 @@ final class LifeStore {
         case .status(let id, let name, let status, let was)?:
             await statusing.settled(id)
             await setStatus(of: id, named: name, to: status, was: was, words: nil)
+        case .picture(let ref, let name, let kind, let source, let was)?:
+            await picturing.settled(ref)
+            await setPicture(of: ref, name: name, kind: kind, from: source, was: was, saysBack: false)
         case nil: break
         }
     }
