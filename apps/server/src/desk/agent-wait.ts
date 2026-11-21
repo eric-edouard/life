@@ -6,7 +6,12 @@ import {
   filtersOf,
   type TurnRow,
 } from "../host/desk-read";
-import { DECISION_EVENTS, DRAFT_CONTESTED, DRAFT_KEPT } from "../host/events";
+import {
+  ASK_SPOKEN,
+  DECISION_EVENTS,
+  DRAFT_CONTESTED,
+  DRAFT_KEPT,
+} from "../host/events";
 import { AgentWait } from "../records/registered-agent";
 
 // The wait contract's rules (docs: the desk spec, section 6), pure: rows and the time in, a decision out. The clock
@@ -45,9 +50,9 @@ export function waitOf(input: unknown, now: number) {
     : { wait: parsed.data };
 }
 
-/** A queued event as an agent reads it: its name and its facts. */
+/** A queued event as an agent reads it: its name and its facts; a spoken ask heard with low confidence says to confirm it. */
 export const eventLineOf = (e: Pick<EventRow, "name" | "payload">) =>
-  `${e.name} ${e.payload}`;
+  `${e.name} ${e.payload}${e.name === ASK_SPOKEN && JSON.parse(e.payload).confidence === "low" ? " (heard with low confidence: confirm it with him on a card before acting)" : ""}`;
 
 /** An assignment's default wait: its old filters, 24 hours, flagged. */
 export const defaultWaitOf = (
@@ -81,7 +86,7 @@ export const BEGIN_WITHIN_MS = 5 * MIN;
 export const isBeginLate = (t: TurnRow, now: number) =>
   !(t.begun_at || t.ended_at) && now - at(t.started_at) > BEGIN_WITHIN_MS;
 
-const AT_ONCE = [...DECISION_EVENTS, DRAFT_CONTESTED, DRAFT_KEPT];
+const AT_ONCE = [...DECISION_EVENTS, DRAFT_CONTESTED, DRAFT_KEPT, ASK_SPOKEN];
 
 /**
  * When an assignment's next turn is due and why, from its own turns and events, or null while its turn runs: a failed
@@ -105,7 +110,8 @@ export function nextWakeOf(
       cause: "retry",
     };
   }
-  // His answer to its decision, its lapse or its withdrawal, and a card's contest (`draft.contested`, 10 minutes to act): each wakes the agent at once.
+  // His answer to its decision, its lapse or its withdrawal, a card's contest (`draft.contested`, 10 minutes to act) and
+  // his spoken ask: each wakes the agent at once.
   const answer = events.find((e) => AT_ONCE.includes(e.name));
   if (answer) {
     // Its retries spent (turns that never began drop nothing), his answer is tried again at the last retry's gap, never at once.

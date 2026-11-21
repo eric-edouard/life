@@ -214,8 +214,11 @@ the watcher, every 30 minutes, brings that calendar in line, through the client 
 ## Marks
 
 A mark is his words to Life, to keep: the unit is always read, every fact extracted, each at its own importance (at least
-`KEEP_AT`). Three ways in, none of which acts, asks or sends. "hey Life" in a recording is Life's own wake word
-(`LIFE_WAKE`, `host/hear.ts`): the hearing records the span (`spansIn`, `writeMarks`, refs only) and makes no ask; agents
+`KEEP_AT`). Three ways in, none of which acts or sends. "hey Life" in a recording is Life's own wake word
+(`LIFE_WAKE`, `host/hear.ts`): the hearing records the span (`spansIn`, `writeMarks`, refs only) and an ask of the desk,
+which hands it to one agent (`desk/spoken-ask-intake.ts`: the matter assignment its words are closest to in meaning, else
+the Personal agent, which it starts when none stands; its `ask.spoken` event holds where his words are, never them, and
+wakes the agent at once; his phone hears "<agent> heard you" when that agent's turn begins); agents
 may not use "life" or "live" as wake or misheard words. A message to himself (mail he sent only to his own addresses; every
 message of a chat with himself, `chatPerson` in `units.ts`) is marked by its reader. What he tells Life in a chat
 (`tell_life`) is the source `told-life`. The unit carries its marks (`marked`) and says so in its text (`MARKED`), so only its
