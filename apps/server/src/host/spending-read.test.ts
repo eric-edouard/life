@@ -80,7 +80,7 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
   const read = spyOn(desk, "readDesk").mockReturnValue({
     state: "ok",
     value: {
-      anchors: [["asg_000000000001", ["obs_000000000001"]]],
+      anchors: [["asg_000000000001", { steps: ["obs_000000000001"] }]],
       names: [
         {
           brief: "Test brief",
@@ -154,16 +154,27 @@ test("a matter's turns are its assignments' whose anchors name it: an anchor sha
     asg_000000000001: ["obs_shared", "obs_a"],
     asg_000000000002: ["obs_shared"],
   };
-  // The finder: both anchors name A; the shared one alone names B (fewer steps).
-  const find = (refs: readonly string[]) =>
-    refs.includes("obs_a")
+  // The finder: both anchors name A; the shared one alone names B (fewer steps), unless he chose A.
+  const find = (refs: readonly string[], prefer?: string) =>
+    refs.includes("obs_a") || prefer === "matter_a"
       ? { id: "matter_a", name: "A" }
       : { id: "matter_b", name: "B" };
   const turns = [turn("asg_000000000001"), turn("asg_000000000002")];
   const of = (id: string) =>
-    matterTurnsOf(turns, (a) => anchors[a] ?? [], find, id).map(
-      (t) => t.assignment_id
-    );
+    matterTurnsOf(
+      turns,
+      (a) => ({
+        prefer: a === chosen ? "matter_a" : undefined,
+        steps: anchors[a] ?? [],
+      }),
+      find,
+      id
+    ).map((t) => t.assignment_id);
+  let chosen = "";
   expect(of("matter_a")).toEqual(["asg_000000000001"]);
   expect(of("matter_b")).toEqual(["asg_000000000002"]);
+  // He chose A for the second: its turns are A's, as the nightly's token rows count them.
+  chosen = "asg_000000000002";
+  expect(of("matter_a")).toEqual(["asg_000000000001", "asg_000000000002"]);
+  expect(of("matter_b")).toEqual([]);
 });

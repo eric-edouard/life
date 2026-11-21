@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import { clock, daysBefore } from "../core/clock";
 import { matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
@@ -10,7 +11,7 @@ import {
 } from "../memory/spends";
 import { readPeople } from "../memory/who";
 import { dayNow, dayRange } from "../memory/zones";
-import { anchorsOf, type DeskRead, readDesk } from "./desk-read";
+import { anchorsOf, assignmentOf, type DeskRead, readDesk } from "./desk-read";
 import { sessionTurnsOf, stepTurnsOf, turnsEndedIn } from "./desk-turn-reads";
 import type { RegisteredAgents } from "./registered-agents";
 import {
@@ -130,8 +131,19 @@ function topOf(
 }
 
 type Finder = (
-  refs: readonly string[]
+  refs: readonly string[],
+  prefer?: string
 ) => { id: string; name: string } | undefined;
+
+/** What finds an assignment's matter: its anchors, and the matter he chose for it on a tie (`assignment.matter_id`). */
+interface Chosen {
+  prefer?: string;
+  steps: string[];
+}
+const chosenOf = (db: Database, id: string): Chosen => ({
+  prefer: assignmentOf(db, id)?.matter_id ?? undefined,
+  steps: anchorsOf(db, id),
+});
 
 /**
  * The month's agents and matters by their turns' tokens, by id, named last: an agent by its name (else its id), a
@@ -146,7 +158,7 @@ async function readTops(from: string, to: string) {
         const ids = [...new Set(ended.map((t) => t.agent_id))];
         return {
           anchors: [...new Set(ended.map((t) => t.assignment_id))].map(
-            (id) => [id, anchorsOf(db, id)] as const
+            (id) => [id, chosenOf(db, id)] as const
           ),
           names:
             ids.length === 0
@@ -165,14 +177,14 @@ async function readTops(from: string, to: string) {
     { anchors: [], names: [], turns: [] }
   );
   const nameOf = new Map(names.map((a) => [a.id, a.name ?? a.id]));
-  const anchored = anchors.filter(([, refs]) => refs.length > 0);
+  const anchored = anchors.filter(([, c]) => c.steps.length > 0);
   const find: Finder =
     anchored.length > 0
       ? matterFinderOf(await readMatterBook(await readPeople(), dayNow()))
       : () => undefined;
   const matterOf = new Map(
-    anchored.flatMap(([asg, refs]) => {
-      const m = find(refs);
+    anchored.flatMap(([asg, c]) => {
+      const m = find(c.steps, c.prefer);
       return m ? [[asg, m] as const] : [];
     })
   );
@@ -279,10 +291,10 @@ export function withAgentSpending(read: RegisteredAgents) {
   };
 }
 
-/** The turns of `id`'s matter: those whose assignment's anchors `find` names it (the one rule), each assignment looked up once. Pure. */
+/** The turns of `id`'s matter: those whose assignment's anchors `find` names it, his chosen matter first on a tie (the one rule), each assignment looked up once. Pure. */
 export function matterTurnsOf(
   turns: TurnSpent[],
-  anchorsOfAssignment: (id: string) => string[],
+  chosenOfAssignment: (id: string) => Chosen,
   find: Finder,
   id: string
 ) {
@@ -292,7 +304,8 @@ export function matterTurnsOf(
     if (known !== undefined) {
       return known;
     }
-    const is = find(anchorsOfAssignment(t.assignment_id))?.id === id;
+    const c = chosenOfAssignment(t.assignment_id);
+    const is = find(c.steps, c.prefer)?.id === id;
     isHers.set(t.assignment_id, is);
     return is;
   });
@@ -302,7 +315,7 @@ export function matterTurnsOf(
 export function readMatterSpending(find: Finder, id: string, steps: string[]) {
   const desk = readDesk(
     (db) =>
-      matterTurnsOf(stepTurnsOf(db, steps), (a) => anchorsOf(db, a), find, id),
+      matterTurnsOf(stepTurnsOf(db, steps), (a) => chosenOf(db, a), find, id),
     [],
     true
   );

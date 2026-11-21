@@ -478,9 +478,7 @@ export async function oneMatter<A, S = undefined>(
   } = {}
 ) {
   const people = await readPeople();
-  const find = matterFinderOf(
-    book ?? (await readMatterBook(people, dayNow()))
-  );
+  const find = matterFinderOf(book ?? (await readMatterBook(people, dayNow())));
   const v = find(refs, prefer);
   if (!v) {
     return;
