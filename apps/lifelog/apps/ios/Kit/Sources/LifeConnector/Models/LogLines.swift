@@ -76,12 +76,18 @@ public struct LogLine: Decodable, Sendable, Equatable, Hashable, Identifiable {
 public struct LogPage: Decodable, Sendable, Equatable {
     public let lines: [LogLine]
     public let cursor: String?
+    /// The log's end as this read found it (a read with no cursor): the next poll reads only what came after it.
+    public let head: String?
 
-    public init(lines: [LogLine], cursor: String?) { (self.lines, self.cursor) = (lines, cursor) }
+    public init(lines: [LogLine], cursor: String?, head: String? = nil) {
+        (self.lines, self.cursor, self.head) = (lines, cursor, head)
+    }
 }
 
 /// `read_log_lines`' arguments.
 public struct LogQuery: Encodable, Sendable, Equatable, Hashable {
+    /// A page's `head`: only the lines written after it.
+    public var after: String?
     public var cursor: String?
     public var limit: Int?
     /// Nil: every level; `.warn`: the problems.
@@ -92,10 +98,11 @@ public struct LogQuery: Encodable, Sendable, Equatable, Hashable {
         (self.cursor, self.limit, self.minLevel, self.process) = (cursor, limit, minLevel, process)
     }
 
-    private enum Key: String, CodingKey { case cursor, limit, minLevel = "min_level", process }
+    private enum Key: String, CodingKey { case after, cursor, limit, minLevel = "min_level", process }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: Key.self)
+        try container.encodeIfPresent(after, forKey: .after)
         try container.encodeIfPresent(cursor, forKey: .cursor)
         try container.encodeIfPresent(limit, forKey: .limit)
         try container.encodeIfPresent(minLevel?.rawValue, forKey: .minLevel)
@@ -106,6 +113,13 @@ public struct LogQuery: Encodable, Sendable, Equatable, Hashable {
     public func before(_ cursor: String?) -> LogQuery {
         var query = self
         query.cursor = cursor
+        return query
+    }
+
+    /// The same query, reading only what was written after `head`.
+    public func after(_ head: String?) -> LogQuery {
+        var query = self
+        query.after = head
         return query
     }
 }

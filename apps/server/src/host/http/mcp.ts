@@ -335,18 +335,22 @@ export function buildServer(readsOnly = false) {
     tool(
       server,
       "read_log_lines",
-      'His token only. For his app\'s live log, not for questions about his life: Life\'s event log, newest first (JSON): `lines`, each `at`, `level` (`info`, `warn`, `error`), `category` (the part of Life, then what it is about: `["desk","turn"]`; its first word one of desk, mcp, model, source, decision, draft, card, memory, watch, archive, or a crashed command), `message` (one line, at most 160 characters, ids masked) and `parts` (the message as text and values, for display); never arguments, bodies or words. `cursor`: pass it back for older lines, until it is null; a page may hold fewer than `limit` when the days it read had fewer.',
+      'His token only. For his app\'s live log, not for questions about his life: Life\'s event log, newest first (JSON): `lines`, each `at`, `level` (`info`, `warn`, `error`), `category` (the part of Life, then what it is about: `["desk","turn"]`; its first word one of desk, mcp, model, source, decision, draft, card, memory, watch, archive, or a crashed command), `message` (one line, at most 160 characters, ids masked) and `parts` (the message as text and values, for display); never arguments, bodies or words. `cursor`: pass it back for older lines, until it is null; a page may hold fewer than `limit` when the days it read had fewer. `head` (a read with no cursor): the log\'s end as read; pass it back as `after` to read only the lines written since.',
       z.object({
+        after: z
+          .string()
+          .optional()
+          .describe("A head: only the lines written after it"),
         cursor: z.string().optional(),
         limit: z.int().min(1).max(100).optional().describe("Default 50"),
         min_level: z.enum(LOG_LEVELS).optional().describe("Default info"),
         process: z.string().optional().describe("A category's first word"),
       }),
-      ({ cursor, limit, min_level: minLevel, process }, agent) => {
+      ({ after, cursor, limit, min_level: minLevel, process }, agent) => {
         if (agent) {
           throw new Error(NOT_HIS);
         }
-        return readLogLines({ cursor, limit, minLevel, process });
+        return readLogLines({ after, cursor, limit, minLevel, process });
       }
     );
     tool(

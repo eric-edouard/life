@@ -77,7 +77,7 @@ processing run writes nothing itself: open its `children`.
 ## log lines
 
 `read_log_lines`, his token only (an agent's is refused; the question cases' tokenless server has none): the event
-log's lines, newest first, `{lines, cursor, observedAt}`, for his app's live log. Each line is worked out when read
+log's lines, newest first, `{lines, cursor, head, observedAt}`, for his app's live log. Each line is worked out when read
 from the stored one (`shownLineOf`, `core/log-line.ts`), never its other fields (arguments, bodies, error words):
 
 | Field | What |
@@ -95,7 +95,8 @@ its kind and step, its message its kind, step and why as a class (a refusal's, a
 `limit` 1-100 (default 50), `min_level` (`info`, `warn`, `error`), `process` (a category's first word). The cursor is a
 day's file and a byte in it, so lines appended meanwhile never shift it; a page reads at most 2 days, so it may be
 short with a cursor still set; null when nothing older is left. With no cursor, the first page is the newest lines,
-newest first. The log's own reads that went through (`mcp.call` of `read_log_lines`, info) are left out, or the
+newest first, and `head` is the log's end as read (a torn last line waits until whole). Passed back as `after`, a poll
+reads only the lines written since, in one call when nothing came, however far back its filter last matched. The log's own reads that went through (`mcp.call` of `read_log_lines`, info) are left out, or the
 phone's live log, polling, would show its own polling.
 
 ## resource samples

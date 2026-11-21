@@ -162,7 +162,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_day(date)",
     "read_inbox(after,ifNot,limit,pushId)",
     "read_life_status()",
-    "read_log_lines(cursor,limit,min_level,process)",
+    "read_log_lines(after,cursor,limit,min_level,process)",
     "read_matter(id)",
     "read_matters(area,ifNot,person,project)",
     "read_memory_changes(about,cursor,limit,run,since,types)",

@@ -26,6 +26,8 @@ public struct LogFeed: Sendable, Equatable {
     public private(set) var pending: [Row] = []
     /// Where older lines are read from; nil once none is left.
     public private(set) var earlier: String?
+    /// The log's end as last read: the live poll reads only what came after it.
+    public private(set) var head: String?
     public private(set) var isFollowing = true
     /// The newest rows dropped to make room for older ones he read back to: the live poll reads nothing, and following
     /// again starts the feed over.
@@ -34,7 +36,7 @@ public struct LogFeed: Sendable, Equatable {
     /// The feed of a first page.
     public init(first page: LogPage) {
         rows = page.lines.map(Row.line)
-        earlier = page.cursor
+        (earlier, head) = (page.cursor, page.head)
         trim()
     }
 
@@ -44,14 +46,18 @@ public struct LogFeed: Sendable, Equatable {
     /// The lines that came while paused.
     public var newCount: Int { pending.count { $0.line != nil } }
 
-    /// The newest line held: where the live poll reads back to.
-    public var top: LogLine? { (pending + rows).lazy.compactMap(\.line).first }
-
-    /// Lines newer than `top`, newest first: on top while following, else held until he follows. `backAt` puts a
-    /// "Back at" row under them (Life answers again).
-    public mutating func add(newer lines: [LogLine], backAt: Date? = nil) {
-        guard !lines.isEmpty else { return }
-        let added = lines.map(Row.line) + (backAt.map { [.back($0)] } ?? [])
+    /// What the live poll read (`newer`): on top while following, else held until he follows; its head is the next
+    /// poll's. `backAt` puts a "Back at" row under them (Life answers again), even over no new line. A page with a
+    /// cursor left new lines unread under it: its lines take the feed's place, and older lines are read from there.
+    public mutating func add(newer page: LogPage, backAt: Date? = nil) {
+        head = page.head ?? head
+        if let cursor = page.cursor {
+            (rows, pending, earlier) = (page.lines.map(Row.line), [], cursor)
+            return
+        }
+        let hasRows = !rows.isEmpty || !pending.isEmpty
+        guard !page.lines.isEmpty || (backAt != nil && hasRows) else { return }
+        let added = page.lines.map(Row.line) + (backAt.map { [.back($0)] } ?? [])
         if isFollowing { rows = added + rows } else { pending = added + pending }
         trim()
     }
@@ -91,23 +97,26 @@ public struct LogFeed: Sendable, Equatable {
         earlier = (pending + rows).last { $0.line != nil }?.id
     }
 
-    /// The live poll's one rule: the lines newer than `top`, reading newest pages back until one holds it (by id: the
-    /// log's order is the file's, never the lines' times, which writers stamp before appending), so the gap after Life
-    /// did not answer loads whole; at most `cap` lines.
+    /// The live poll's one rule: the lines written after `head`, newest first, reading pages until none is left, at most
+    /// `cap` (the log's order is the file's, never the lines' times, which writers stamp before appending), so the gap
+    /// after Life did not answer loads whole, and a quiet poll is one read however far back the filter last matched.
+    /// Its `cursor` is set when new lines were left unread under the ones read (over the cap; or no head yet, one page
+    /// only); its `head` is the next poll's.
     public static func newer(
-        than top: LogLine?, read: @Sendable (_ cursor: String?) async throws -> LogPage
-    ) async throws -> [LogLine] {
+        after head: String?, read: @Sendable (_ cursor: String?) async throws -> LogPage
+    ) async throws -> LogPage {
+        var page = try await read(nil)
+        let next = page.head
         var found: [LogLine] = []
-        var cursor: String?
-        repeat {
-            let page = try await read(cursor)
+        while true {
             for line in page.lines {
-                if line.id == top?.id { return found }
                 found.append(line)
-                if found.count == cap { return found }
+                if found.count == cap { return LogPage(lines: found, cursor: line.id, head: next) }
             }
-            cursor = page.cursor
-        } while top != nil && cursor != nil
-        return found
+            guard head != nil, let cursor = page.cursor else {
+                return LogPage(lines: found, cursor: head == nil ? page.cursor : nil, head: next)
+            }
+            page = try await read(cursor)
+        }
     }
 }

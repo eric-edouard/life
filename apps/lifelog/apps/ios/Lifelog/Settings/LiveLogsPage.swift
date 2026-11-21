@@ -13,9 +13,13 @@ final class LiveLogs {
     private(set) var read = ReadState<LogFeed>()
     /// Lines that just came, tinted for 1 s.
     private(set) var tinted: Set<String> = []
-    private(set) var isLoadingEarlier = false
     /// The feed a poll is under way for: one at a time (Retry and the loop share it).
     @ObservationIgnored private var polling: Int?
+    /// The feed and cursor an older page is being read for: one at a time for each, so a read begun for another feed or
+    /// cursor never holds up the one the list's end now asks.
+    @ObservationIgnored private var loadingEarlier: String?
+    /// Life did not answer since the last poll that read: the next one marks where it answered again ("Back at").
+    @ObservationIgnored private var isGap = false
     /// Which feed a read was begun for: a read for an older one applies nothing.
     @ObservationIgnored private var feedNumber = 0
 
@@ -38,47 +42,60 @@ final class LiveLogs {
         }
     }
 
-    /// The newest lines: the first page, or every line newer than the top (the gap too, after Life did not answer).
+    /// The newest lines: the first page, or every line written after the feed's head (the gap too, after Life did not
+    /// answer).
     func poll(_ life: LifeStore) async {
-        let (number, query, wasDown) = (feedNumber, query, isDown)
+        let (number, query) = (feedNumber, query)
         guard polling != number else { return }
         polling = number
         defer { if polling == number { polling = nil } }
         // Only the first try shows loading: a retry after a failure keeps its face until Life answers.
         if read.phase == .idle { read.apply(.started) }
         do {
-            guard let shown = read.value, !shown.isCut else {
-                // A feed cut at its top reads nothing new until he follows again, which starts it over.
-                guard read.value == nil else { return }
-                let page = try await page(life, query, number)
-                read.apply(.succeeded(LogFeed(first: page), Date()))
+            guard let shown = read.value else {
+                read.apply(.succeeded(LogFeed(first: try await page(life, query, number)), Date()))
                 return
             }
-            let lines = try await LogFeed.newer(than: shown.top) { try await self.page(life, query.before($0), number) }
+            // A feed cut at its top reads nothing new until he follows again, which starts it over.
+            guard !shown.isCut else { return }
+            let head = shown.head
+            let new = try await LogFeed.newer(after: head) {
+                try await self.page(life, query.after(head).before($0), number)
+            }
             guard number == feedNumber, var feed = read.value, !feed.isCut else { return }
             let isShown = feed.isFollowing
-            feed.add(newer: lines, backAt: wasDown ? Date() : nil)
+            feed.add(newer: new, backAt: isGap ? Date() : nil)
+            isGap = false
             read.apply(.succeeded(feed, Date()))
-            if isShown { tint(lines.map(\.id)) }
+            if isShown { tint(new.lines.map(\.id)) }
         } catch let error as MCPError {
-            if number == feedNumber { read.apply(.failed(error)) }
+            fail(error, number)
         } catch {}
     }
 
     /// Older lines, while the list's end shows; a short page leaves the end in view, which loads the next.
     func loadEarlier(_ life: LifeStore) async {
-        guard !isLoadingEarlier, let cursor = read.value?.earlier else { return }
-        isLoadingEarlier = true
-        defer { isLoadingEarlier = false }
+        guard let cursor = read.value?.earlier else { return }
         let number = feedNumber
+        let key = "\(number) \(cursor)"
+        guard loadingEarlier != key else { return }
+        loadingEarlier = key
+        defer { if loadingEarlier == key { loadingEarlier = nil } }
         do {
             let page = try await page(life, query.before(cursor), number)
             guard var feed = read.value, feed.earlier == cursor else { return }
             feed.add(earlier: page)
-            change(to: feed)
+            // Life answered: a failure shown before (and Follow held back by it) ends here too.
+            read.apply(.succeeded(feed, Date()))
         } catch let error as MCPError {
-            if number == feedNumber { read.apply(.failed(error)) }
+            fail(error, number)
         } catch {}
+    }
+
+    private func fail(_ error: MCPError, _ number: Int) {
+        guard number == feedNumber else { return }
+        read.apply(.failed(error))
+        if error != .cancelled, read.value != nil { isGap = true }
     }
 
     func pause() { change { $0.pause() } }
@@ -94,16 +111,15 @@ final class LiveLogs {
         feedNumber += 1
         read = ReadState()
         tinted = []
+        isGap = false
     }
 
+    /// A change of the feed that is no read of Life: its phase stays (Life still answers, or still does not).
     private func change(_ body: (inout LogFeed) -> Void) {
         guard var feed = read.value else { return }
         body(&feed)
-        change(to: feed)
+        read = read.showing(feed, at: Date())
     }
-
-    /// A change of the feed that is no read of the newest: its phase stays (Life still answers, or still does not).
-    private func change(to feed: LogFeed) { read = read.showing(feed, at: Date()) }
 
     /// One page for the feed `number`: none once another pairing or feed began (`CancellationError`).
     private func page(_ life: LifeStore, _ query: LogQuery, _ number: Int) async throws -> LogPage {
@@ -152,7 +168,7 @@ struct LiveLogsPage: View {
         .padding(.top, Metrics.Spacing.s)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(Palette.sheet)
-        .navigationTitle("Live logs")
+        .screenTitle("Live logs", state: logs.read.value?.isFollowing == true && !logs.isDown ? "Following" : nil)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 let isFollowing = logs.read.value?.isFollowing ?? true

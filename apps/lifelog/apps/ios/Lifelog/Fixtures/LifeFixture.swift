@@ -199,7 +199,8 @@
                 (order.firstIndex(of: line["level"] as? String ?? "") ?? 0) >= least
                     && (query.process == nil || (line["category"] as? [String])?.first == query.process?.rawValue)
             }
-            return json(["lines": lines, "cursor": NSNull()])
+            // The design data is one page, all written before its head: a poll after it reads nothing new.
+            return json(["lines": query.after == nil ? lines : [], "cursor": NSNull(), "head": "end"])
         }
         /// A `life:` link's page: what Life read of it, as its text reads.
         func fetch(_ ref: String) async throws -> String {
