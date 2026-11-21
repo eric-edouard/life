@@ -4,7 +4,7 @@ import SwiftUI
 /// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette,
 /// never a border, and nothing tappable under 44 points.
 /// The pill buttons: the filled one (cream in dark), the quiet one, and the done one (`ok`, an action that worked), in
-/// three sizes, and busy while an action runs. A label that does not fit takes a second line, and the pill grows with it.
+/// three sizes, and busy while an action runs. A label that does not fit wraps and the pill grows with it, to 3 lines (a compact pill keeps one).
 struct PillStyle: ButtonStyle {
     enum Kind { case filled, quiet, done }
     /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row; `row` is one of several
@@ -22,6 +22,8 @@ struct PillStyle: ButtonStyle {
         HStack(spacing: 8) {
             if isBusy { Spinner() }
             configuration.label.multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                // A long label stops at 3 lines, so the answer bar stays bounded (compact pills hold one).
+                .lineLimit(size == .compact ? 1 : 3)
         }
         .font(.buttonLabel)
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)

@@ -50,8 +50,8 @@ struct BulkCard: View {
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .vertical)
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            (kind == .guessedPerson ? AnyView(guessAnswers) : AnyView(answers)).padding(.horizontal, Metrics.Spacing.s)
-                .readingWidth()
+            Group { if kind == .guessedPerson { guessAnswers } else { answers } }
+                .padding(.horizontal, Metrics.Spacing.s).readingWidth()
         }
         .onChange(of: rows, initial: true) { _, rows in
             guard kind == .guessedPerson else { return }
@@ -118,12 +118,13 @@ struct BulkCard: View {
 
     private func row(_ check: Check) -> some View {
         let isTicked = ticked.contains { $0.check.ref == check.ref }
+        let isTickable = check.preTickedOption != nil || notes.chosen[check.ref] != nil
         return TickRow(
-            isTicked: isTicked, isTickable: check.preTickedOption != nil || notes.chosen[check.ref] != nil,
+            isTicked: isTicked, isTickable: isTickable,
             tick: {
                 if isTicked {
                     notes.unticked.insert(check.ref)
-                } else if check.preTickedOption != nil || notes.chosen[check.ref] != nil {
+                } else if isTickable {
                     notes.unticked.remove(check.ref)
                 } else {
                     // Life reads no answer for it: his own card says who.
@@ -134,7 +135,7 @@ struct BulkCard: View {
         ) {
             // A voice's sign is its Play, centred on the row; any other row opens its own card.
             if kind == .voice, let clip = check.clips.first {
-                VoiceLine(clip: clip, below: AnyView(detail(of: check)))
+                VoiceLine(clip: clip, below: detail(of: check))
             } else {
                 HStack(spacing: Metrics.Spacing.s) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -299,10 +300,10 @@ struct BulkCard: View {
 }
 
 /// A voice row's first words, lit as they play, with its Play at the right (`SpokenWords`, one clip at a time).
-private struct VoiceLine: View {
+private struct VoiceLine<Below: View>: View {
     let clip: Check.Clip
     /// The row's muted line under the words.
-    let below: AnyView
+    let below: Below
 
     var body: some View {
         if let audio = clip.audio, let job = UUID(uuidString: audio.jobId) {
