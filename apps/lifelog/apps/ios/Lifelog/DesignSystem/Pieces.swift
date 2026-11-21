@@ -117,8 +117,9 @@ struct TextLink: View {
 }
 
 /// What he just answered or changed (the toast spec of 20 Nov): a glass capsule 44 high that hugs its content, a check
-/// in `ok` (a change that was not made: `flag`'s glyph and why), its words on one line, and Undo while it can be taken
-/// back, a `pick` capsule inside it. It sits at the top of the pane, so it takes no room from the answers.
+/// in `ok` (a change that was not made: `flag`'s glyph and why), its words on one line (a flag's on up to 3, so Life's
+/// reason reads whole), and Undo while it can be taken back, a `pick` capsule inside it. It sits at the top of the
+/// pane, so it takes no room from the answers.
 struct Toast: View {
     let words: String
     var glyph = StateGlyph.ok
@@ -127,7 +128,7 @@ struct Toast: View {
     var body: some View {
         HStack(spacing: 8) {
             glyph
-            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(1)
+            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .flag ? 3 : 1)
             if let undo {
                 Button(action: undo) {
                     Text("Undo").font(.chip).foregroundStyle(Palette.fg).padding(.horizontal, 12).frame(height: 32)

@@ -45,6 +45,7 @@ export const NOTIFY_DEFAULTS: Record<NotifyKind, NotifyLevel> = {
   "guessed person": "normal",
   name: "normal",
   "new matter": "normal",
+  "same person": "normal",
   voice: "normal",
 };
 const URGENT_WITHIN = 3 * HOUR;

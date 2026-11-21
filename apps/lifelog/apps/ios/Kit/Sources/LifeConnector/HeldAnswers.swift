@@ -84,3 +84,14 @@ public final class HeldAnswers {
         )
     }
 }
+
+extension ActionState where Proof == ActionProof {
+    /// What a held answer's end says back on its own, its card gone by then: that Life recorded it but did not end its
+    /// step as asked, and Life's reason. Nil: nothing to say.
+    public var heldAnswerWarning: String? {
+        guard case .succeeded(.answered(let result), _) = self, let reason = result.changed?.ended?.error else {
+            return nil
+        }
+        return "Your answer was recorded. \(reason)"
+    }
+}
