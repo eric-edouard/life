@@ -125,7 +125,7 @@ export async function pollArrivals(
 ) {
   const now = o.now ?? clock();
   const since = new Date(now.getTime() - LOOK_BACK).toISOString();
-  // A low-priority one is kept for the night alone: it wakes no one.
+  // A low-priority one wakes no one (his decision of 21 Nov 2026); the night still reads its unit.
   const arrivals = (o.arrivals ?? readConfirmedArrivals(since)).filter(
     (a) => a.wakes
   );

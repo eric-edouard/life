@@ -141,9 +141,10 @@ const sceneOf = (
           ? {
               spoken: (turns: Map<string, unknown>) => {
                 fetched.push(turns.size);
+                const spoken = voice.spoken ?? new Map();
                 return voice.fails
                   ? Promise.reject(new Error("lifelog unreachable"))
-                  : Promise.resolve(voice.spoken);
+                  : Promise.resolve(spoken);
               },
             }
           : {}),
@@ -763,6 +764,26 @@ test("a chat read shows the confirm the whole sitting, an answered line of the o
     expect.stringContaining("And the budget?"),
   ]);
   expect(s.nows).toEqual([time(clock().toISOString())]);
+});
+
+test("two unread lines 7 hours apart are two reads, each shown its own sitting: a stored line is always one the confirm saw", async () => {
+  const base = dayStart(dayNow()).getTime() + HOUR;
+  setSystemTime(new Date(base + 8 * HOUR));
+  try {
+    const s = sceneOf(() => yes("unused"));
+    await s.read([
+      msg("Can you call me about the lease?", { at: iso(base) }),
+      msg("Also, the budget is due Friday", { at: iso(base + 7 * HOUR) }),
+    ]);
+    expect(s.calls).toEqual({ apple: 0, engine: 2 });
+    expect(s.shown.toSorted()).toEqual([
+      expect.stringContaining("Can you call me about the lease?"),
+      expect.stringContaining("Also, the budget is due Friday"),
+    ]);
+    expect(s.shown.every((t) => t.split("\n").length === 1)).toBe(true);
+  } finally {
+    setSystemTime();
+  }
 });
 
 test("a confirm leaving only a low thing is stored and kept, but does not wake", async () => {

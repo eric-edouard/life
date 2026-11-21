@@ -190,14 +190,17 @@ function chunksOf(
       p.startsWith(UNKNOWN) ? (resolve(p.slice(UNKNOWN.length)) ?? p) : p
     );
   const isOneToOne = isDirect(b.unit.source, b.unit.key, others.length);
-  return packed(lines, READ_CHARS, (l) => l.text.length + 1).map((shown) => {
+  // Cut by sitting first: a chunk never spans two, so its sitting shows every line it stores as read.
+  const size = (l: ReadLine) => l.text.length + 1;
+  const chunks = exchangesOf(lines).flatMap((x) => packed(x, READ_CHARS, size));
+  return chunks.map((shown) => {
     const writers = [
       ...new Set(shown.map((l) => l.speaker).filter((p) => p !== OWNER)),
     ];
     return {
       at: shown.at(-1)?.at ?? b.unit.end,
       b,
-      context: sittingOf(all, shown.at(-1)?.key),
+      context: sittingOf(all, shown),
       firstAt: shown[0]?.at ?? b.unit.start,
       keys: shown.map((l) => l.key),
       lines: shown.map((l) => l.text),
@@ -207,17 +210,25 @@ function chunksOf(
 }
 
 /**
- * The lines of the sitting (an exchange, `EXCHANGE_ENDS_AFTER`) that holds the line `key`, up to it, cut to its last
- * `READ_CHARS`: the conversation as it stood when that line came, other people's answered lines and his own included.
+ * What the confirm is shown for `shown` (one sitting's lines, oldest first): every line of the unit from its first to
+ * its last, then the sitting's earlier lines (an exchange, `EXCHANGE_ENDS_AFTER`) while they fit `READ_CHARS`: the
+ * conversation as it stood when its newest line came, other people's answered lines and his own included.
  */
-function sittingOf(all: ReadLine[], key?: string) {
-  const upTo = all.slice(0, all.findIndex((l) => l.key === key) + 1);
-  const sitting = exchangesOf(upTo).at(-1) ?? [];
-  return (
-    packed(sitting.toReversed(), READ_CHARS, (l) => l.text.length + 1)[0]
-      ?.toReversed()
-      .map((l) => l.text) ?? []
-  );
+function sittingOf(all: ReadLine[], shown: ReadLine[]) {
+  const first = all.findIndex((l) => l.key === shown[0]?.key);
+  const last = all.findIndex((l) => l.key === shown.at(-1)?.key);
+  const sitting = exchangesOf(all.slice(0, last + 1)).at(-1) ?? [];
+  const span = all.slice(first, last + 1);
+  let room = READ_CHARS - span.reduce((n, l) => n + l.text.length + 1, 0);
+  const before = sitting
+    .slice(0, sitting.length - span.length)
+    .toReversed()
+    .filter((l) => {
+      room -= l.text.length + 1;
+      return room >= 0;
+    })
+    .toReversed();
+  return [...before, ...span].map((l) => l.text);
 }
 
 /** A source line as the reads show it: `HH:MM <who>: <text>`. */
