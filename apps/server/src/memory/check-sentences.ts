@@ -3,6 +3,7 @@ import type { Unresolved } from "../records/observation";
 import type { Unit } from "../records/unit";
 import { parseTurnRef } from "../sources/lifelog";
 import { readTurnClip } from "../sources/lifelog-voices";
+import { plain } from "./doubts";
 import type { Check, Said } from "./life-checks";
 import { offerEndOf } from "./matter-read";
 import { readUnitsFor } from "./memory-files";
@@ -266,7 +267,8 @@ export async function readSentences(c: {
     titles: new Map(
       units.flatMap((u) => (u.title === u.key ? [] : [[u.id, u.title]]))
     ),
-    units,
+    /** Where each unit read was said: what a card's quote links (`CheckInputs.where`). */
+    where: new Map(units.map((u) => [u.id, `${u.source}, ${plain(u.date)}`])),
   };
 }
 

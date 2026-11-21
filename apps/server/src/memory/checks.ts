@@ -703,7 +703,7 @@ async function readChecks(
     matters,
     today,
   });
-  const { nameContexts, titles, units } = await readSentences({
+  const { nameContexts, titles, where } = await readSentences({
     lines,
     names: nameGroups,
     people,
@@ -733,10 +733,7 @@ async function readChecks(
     today,
     voices,
     where: new Map([
-      ...units.map((u): [string, Where] => [
-        u.id,
-        `${u.source}, ${plain(u.date)}`,
-      ]),
+      ...where,
       ...records.episodes.map((m): [string, Where] => [
         m.id,
         `an episode, ${plain(m.day)}`,

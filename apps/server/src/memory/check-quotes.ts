@@ -3,8 +3,8 @@
 
 const SPACES = /\s+/g;
 const LINE_BREAK = /\r?\n/;
-/** Markdown's marks, an autolink's `://` and `www.`. */
-const MARKS = /[\\`*_[\]<>#~&@]|:(?=\/\/)|(?<=\bwww)\./gi;
+/** Markdown's marks (a table's `|` too), an autolink's `://` and `www.`. */
+const MARKS = /[\\`*_[\]<>#~&@|]|:(?=\/\/)|(?<=\bwww)\./gi;
 const LIST_NUMBER = /^(\d+)([.)])/;
 const LIST_MARK = /^[-+=]/;
 
@@ -36,11 +36,11 @@ export function withQuoteOf(
   const where = literalOf(q.where ?? "an earlier message");
   const source =
     q.unit && isUnitRead(q.unit) ? `[${where}](life:${q.unit})` : where;
-  // Each recorded line stays a line of the quote, and literal.
+  // Each recorded line stays a line of the quote (a hard break, `\` at its end), and literal.
   const quoted = q.text
     .trim()
     .split(LINE_BREAK)
     .map((l) => `>${l.trim() ? ` ${literalOf(l)}` : ""}`)
-    .join("\n");
+    .join("\\\n");
   return `${context ? `${context}\n\n` : ""}${quoted}\n\n*${source}*`;
 }
