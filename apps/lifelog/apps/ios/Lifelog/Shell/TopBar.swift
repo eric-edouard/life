@@ -20,7 +20,8 @@ private struct ShellBar: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .navigationTitle(label)
+            // An empty label leaves the title to the screen's `screenTitle`, the inline one on the open Duo.
+            .titled(label)
             .navigationBarTitleDisplayMode(.inline)
             .reportsSideColumn($isInColumn)
             // In the closed Duo's column Back is ours, declared after the Pendant and gear so it stands under them and
@@ -34,6 +35,12 @@ private struct ShellBar: ViewModifier {
                 if hasSettings { fitted(settings) }
                 if isInColumn && isPushed { fitted(back) }
             }
+    }
+}
+
+extension View {
+    @ViewBuilder fileprivate func titled(_ label: String) -> some View {
+        if label.isEmpty { self } else { navigationTitle(label) }
     }
 }
 
