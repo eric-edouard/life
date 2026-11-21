@@ -62,7 +62,22 @@ interface Orderable extends Rankable {
   };
 }
 
-const rankOf = (c: Orderable) => c.rank ?? Number.MAX_SAFE_INTEGER;
+/** Two your move cards: by their matters' place in his ranking (`rank`; an unranked one after); any other pair ties. */
+const byMatterRank = (a: Orderable, b: Orderable) =>
+  isMove(a) && isMove(b)
+    ? (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER)
+    : 0;
+
+/** Two asks of one kind: decisions and moves asked longest ago first; voices, names and cards by matters, then newest only; the rest by matters, lines, pages, then newest. */
+const withinKind = (a: Orderable, b: Orderable) =>
+  inboxRankOf(a) === RANK.decision || isMove(a)
+    ? a.day.localeCompare(b.day)
+    : b.ridesOn.matters - a.ridesOn.matters ||
+      (inboxRankOf(a) === RANK.name
+        ? 0
+        : b.ridesOn.observations - a.ridesOn.observations ||
+          b.ridesOn.pages - a.ridesOn.pages) ||
+      b.day.localeCompare(a.day);
 
 const before = (a: Orderable, b: Orderable) =>
   Number(urgencyOf(a) === "improves") - Number(urgencyOf(b) === "improves") ||
@@ -70,19 +85,11 @@ const before = (a: Orderable, b: Orderable) =>
   Number(isMove(a) && inboxRankOf(b) < RANK["your move"]) -
     Number(isMove(b) && inboxRankOf(a) < RANK["your move"]) ||
   Number(!isImportant(a)) - Number(!isImportant(b)) ||
-  (isMove(a) && isMove(b) ? rankOf(a) - rankOf(b) : 0) ||
+  byMatterRank(a, b) ||
   Number(b.deadline !== null) - Number(a.deadline !== null) ||
   (a.deadline ?? "").localeCompare(b.deadline ?? "") ||
   inboxRankOf(a) - inboxRankOf(b) ||
-  (inboxRankOf(a) === RANK.decision || isMove(a)
-    ? a.day.localeCompare(b.day)
-    : b.ridesOn.matters - a.ridesOn.matters ||
-      // Voices, names and cards share a rank: by matters, then newest only.
-      (inboxRankOf(a) === RANK.name
-        ? 0
-        : b.ridesOn.observations - a.ridesOn.observations ||
-          b.ridesOn.pages - a.ridesOn.pages) ||
-      b.day.localeCompare(a.day)) ||
+  withinKind(a, b) ||
   a.ref.localeCompare(b.ref);
 
 /** A matter's place among its tier's asks: those the caretaker is fixing, and its your move card, keep to their own group, never pulled ahead with its other asks. */
