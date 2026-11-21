@@ -22,6 +22,8 @@ struct PillStyle: ButtonStyle {
         HStack(spacing: 8) {
             if isBusy { Spinner() }
             configuration.label.multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                // A long label stops at 3 lines, so the answer bar stays bounded (compact pills hold one).
+                .lineLimit(size == .compact ? 1 : 3)
         }
         .font(.buttonLabel)
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)

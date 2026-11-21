@@ -4,7 +4,7 @@ import SwiftUI
 /// Words that come from a recording, with their Play: while it plays, the words said so far and the one being said are
 /// `fg` and the words to come `muted`, in colour only so no line moves. Tap a word to play from it. One recording plays
 /// at a time (`PlaybackStore`), and the one that leaves the screen stops it. The host sets the font and the box.
-struct SpokenWords: View {
+struct SpokenWords<Below: View>: View {
     enum Style {
         /// A 48 round Play at the left of the words.
         case box
@@ -30,7 +30,7 @@ struct SpokenWords: View {
     /// Told when the recording plays to its end (not when it is stopped).
     var onEnded: (() -> Void)?
     /// `line` only: the row's muted line under the words, so the Play centres on both.
-    var below: AnyView?
+    let below: Below
 
     /// Each word as shown (with the space after it) and whether it is part of a name, made once: `body` runs about
     /// 10 times a second while it plays.
@@ -39,7 +39,7 @@ struct SpokenWords: View {
     init(
         text: String, words: [[Int64]]?, job: UUID, start: Double, end: Double, style: Style = .box,
         autoplay: Bool = false, emphasis: [String] = [], caption: String? = nil,
-        onEnded: (() -> Void)? = nil, below: AnyView? = nil
+        onEnded: (() -> Void)? = nil, below: Below
     ) {
         self.below = below
         self.text = text
@@ -188,5 +188,16 @@ struct SpokenWords: View {
                 return
             }
         }
+    }
+}
+
+extension SpokenWords where Below == EmptyView {
+    init(
+        text: String, words: [[Int64]]?, job: UUID, start: Double, end: Double, style: Style = .box,
+        autoplay: Bool = false, emphasis: [String] = [], caption: String? = nil, onEnded: (() -> Void)? = nil
+    ) {
+        self.init(
+            text: text, words: words, job: job, start: start, end: end, style: style, autoplay: autoplay,
+            emphasis: emphasis, caption: caption, onEnded: onEnded, below: EmptyView())
     }
 }
