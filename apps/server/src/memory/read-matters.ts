@@ -455,27 +455,31 @@ export async function readPacketMatter(
  * with its day, words, quote, who it was with as a party and `ending`: none while open), then `agentsOf`'s agents on it now and before (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his); given `readIcons`, Life's icon pick.
  * Undefined when no matter holds them.
  */
-export async function oneMatter<A>(
+export async function oneMatter<A, S = undefined>(
   refs: readonly string[],
   {
     agentsOf = () => [],
     book,
     prefer,
     readIcons,
+    spendingOf,
   }: {
     agentsOf?: (steps: string[], people: People) => A[];
     /** The book when the caller read it already. */
     book?: readonly MatterView[];
     prefer?: string;
     readIcons?: LifeIconsReader;
+    // What the matter spent, by the book's own finder (host's desk reads; memory reads no desk).
+    spendingOf?: (
+      find: ReturnType<typeof matterFinderOf<MatterView>>,
+      id: string,
+      steps: string[]
+    ) => S;
   } = {}
 ) {
   const people = await readPeople();
-  const v = matterOfSteps(
-    book ?? (await readMatterBook(people, dayNow())),
-    refs,
-    prefer
-  );
+  const find = matterFinderOf(book ?? (await readMatterBook(people, dayNow())));
+  const v = find(refs, prefer);
   if (!v) {
     return;
   }
@@ -493,6 +497,7 @@ export async function oneMatter<A>(
       knownPeopleOf(v, people),
       people.nameOf
     ),
+    spending: spendingOf?.(find, v.id, [v.id, ...refsOf(v)]),
     steps: v.steps.map((s) =>
       s.with ? { ...s, with: people.partyOf(s.with) } : s
     ),

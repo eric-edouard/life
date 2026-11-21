@@ -116,6 +116,7 @@ import {
   sendReport,
   successReport,
 } from "./report";
+import { writeSpendingDays } from "./spending";
 import { snapshot } from "./status/snapshot";
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
@@ -455,13 +456,21 @@ async function spent(rec: Metered, now: Quota | undefined) {
     recent.push(...page.items);
     ({ cursor } = page);
   } while (cursor && (recent.at(-1)?.startedAt ?? "") >= since);
-  return [
-    ...spendLines(recent, since, {
-      id: `memory.nightly/${rec.run}`,
-      quota: now,
-    }),
-    ...sourceUseLine(await readSourceUse(1)),
-  ];
+  const id = `memory.nightly/${rec.run}`;
+  const use = recent.find((r) => r.id === id)?.use;
+  return {
+    lines: [
+      ...spendLines(recent, since, { id, quota: now }),
+      ...sourceUseLine(await readSourceUse(1)),
+    ],
+    // The night's own spending for its `run.end`: dollars billed and his plans' tokens at list price, apart.
+    spending: use && {
+      billedUsd: use.billedUsd,
+      equivalentUsd: use.equivalentUsd,
+      notReported: use.notReported,
+      tokens: use.tokens.input + use.tokens.output,
+    },
+  };
 }
 
 /**
@@ -503,6 +512,7 @@ export async function runNight(
   // The observations the report lists, in the run record: an audit can tell what he was told.
   let listed: string[] = [];
   let needsYou: number | undefined;
+  let spending: Awaited<ReturnType<typeof spent>>["spending"];
   let failure: ReturnType<typeof steps.failed> | undefined;
   try {
     const repos = await steps.step("repos", () => mapRepos());
@@ -603,8 +613,12 @@ export async function runNight(
     const archive = await archiveLine(since);
     steps.at = "commit";
     commitMemory(["memory", "truth"], `Memory: ${day}`);
+    steps.at = "spending";
+    await writeSpendingDays();
     await dropOld(now);
     const q = await quota();
+    const used = await spent(rec, q);
+    ({ spending } = used);
     const agents = await readAgentsFor(rec, since);
     ({ needsYou } = agents);
     mail = successReport(day, rec.ms(), {
@@ -629,7 +643,7 @@ export async function runNight(
       quota: hasQuota() ? quotaLine(q) : undefined,
       repos,
       retired,
-      spent: await spent(rec, q),
+      spent: used.lines,
     });
     listed = keyObservations.map((f) => f.id);
   } catch (e) {
@@ -650,6 +664,7 @@ export async function runNight(
     attempts,
     listed,
     needsYou,
+    spending,
     ...(failure ?? { outcome: "ok" }),
   });
   if (!failure || force || isOutOfTries(attempts)) {

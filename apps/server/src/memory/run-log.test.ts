@@ -221,20 +221,27 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
   const spent = { cached: 2000, input: 4000, output: 20 };
   // Its calls summed: tokens, dollars, the calls with no cost, the units read by source.
   const calls = {
+    billedUsd: 0.25,
     calls: 2,
-    costUsd: 0.25,
+    equivalentUsd: 0,
+    notReported: 1,
     reads: { memory: 1, whatsapp: 3 },
     tokens: spent,
-    unpriced: 1,
   };
   expect(by("memory.episodes")?.use).toEqual({ ...calls, quota: null });
   const use = by("memory.nightly")?.use;
   expect(use).toEqual({ ...calls, quota: { after: q(43), before: q(40) } });
   expect(use && percentOf(use)).toBe(3);
   expect(useText(use ?? null)).toBe(
-    "+3% of the quota, 4k tokens (2k cached), $0.25, 1 unpriced"
+    "+3% of the quota, 4k tokens (2k cached), $0.25 billed, 1 not reported"
   );
-  const none = { calls: 0, costUsd: 0, reads: {}, unpriced: 0 };
+  const none = {
+    billedUsd: 0,
+    calls: 0,
+    equivalentUsd: 0,
+    notReported: 0,
+    reads: {},
+  };
   expect(
     useText({
       ...none,
@@ -252,7 +259,7 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
   ).toBe("the quota reset during it, 0k tokens (0k cached)");
   // A step, or a run on an engine with no quota (allmodels): its tokens alone, no "quota not read".
   expect(useText(by("memory.episodes")?.use ?? null)).toBe(
-    "4k tokens (2k cached), $0.25, 1 unpriced"
+    "4k tokens (2k cached), $0.25 billed, 1 not reported"
   );
 });
 
@@ -279,12 +286,13 @@ const IMPORT_LINE = /^Model use, import of .*: 3k tokens \(0k cached\)$/;
 
 test("spend lines: every run of the window that called a model, oldest first, a processing run's steps under it", () => {
   const t = (input: number) => ({
+    billedUsd: 0,
     calls: 1,
-    costUsd: 0,
+    equivalentUsd: 0,
+    notReported: 0,
     quota: null,
     reads: {},
     tokens: { cached: 0, input, output: 0 },
-    unpriced: 0,
   });
   const runOf = (
     ref: string,

@@ -1,6 +1,7 @@
-import { listUsdOf } from "../core/prices";
+import { HOUR_PRICES, listUsdOf, priceOn } from "../core/prices";
 import type { ReadCounts, Tokens } from "../models/model-call";
 import type { RouterSpent } from "../models/routers";
+import type { VoiceSpending } from "../sources/lifelog-spending";
 
 // Model spending (decision 83): each record that used a paid or metered resource read as one spend, where it is
 // logged. A `model.run` line (every model call), a `model.local` line (the describer, Apple's model), a desk turn (an
@@ -168,6 +169,72 @@ export function spendOfTurn(t: TurnSpent): Spend {
       ? equivalentOf(t.model, t.ended_at, tokens)
       : { reported: false }),
   };
+}
+
+/** Scribe's seconds as a billed spend at its rate on the day; a send that may have been billed (no seconds) is not reported. */
+function scribeOf(at: string, billableSeconds: number | null): Spend {
+  const rate = priceOn(HOUR_PRICES, "scribe", at.slice(0, 10))?.usdPerHour;
+  return {
+    at,
+    basis: "billed",
+    calls: 1,
+    kind: "voice",
+    provider: "elevenlabs",
+    ...(billableSeconds === null || rate === undefined
+      ? { reported: false }
+      : { reported: true, usd: (billableSeconds / 3600) * rate }),
+  };
+}
+
+/**
+ * Voice's spends (its `GET /spending`): a settled job's Scribe seconds billed and a speech job's own work at $0; a send
+ * that may have been billed not reported; a heard note's Scribe seconds; its model runs on his plans, at list price.
+ * What is not settled yet is only Voice's count (`unsettled`): its day waits.
+ */
+export function spendsOfVoice(v: VoiceSpending): Spend[] {
+  return [
+    ...v.jobs.flatMap((j): Spend[] => {
+      const speech: Spend[] =
+        j.transcriber === "speech"
+          ? [
+              {
+                at: j.at,
+                basis: "billed",
+                calls: 1,
+                kind: "voice",
+                provider: "speech",
+                reported: true,
+                usd: 0,
+              },
+            ]
+          : [];
+      const seconds = j.outcome === "maybe_billed" ? null : j.billableSeconds;
+      const scribe = seconds === 0 ? [] : [scribeOf(j.at, seconds)];
+      return [...speech, ...scribe];
+    }),
+    ...v.voiceNotes
+      .filter((n) => n.billableSeconds !== 0)
+      .map((n) => scribeOf(n.at, n.billableSeconds)),
+    ...v.modelRuns.map((r): Spend => {
+      const runtime = r.provider === "codex" ? "codex" : "claude";
+      // ponytail: Voice keeps no cache split (its input excludes cache reads), so this is an approximation; split cache reads in Voice if it matters.
+      const tokens = {
+        cached: 0,
+        input: r.inputTokens,
+        output: r.outputTokens,
+      };
+      return {
+        at: r.at,
+        basis: "equivalent",
+        calls: 1,
+        kind: "voice",
+        ms: r.latencyMs ?? undefined,
+        provider: runtime,
+        tokens,
+        ...equivalentOf(`${runtime}:${r.model}`, r.at, tokens),
+      };
+    }),
+  ];
 }
 
 /**

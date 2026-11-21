@@ -557,23 +557,6 @@ export const reportLinesSince = (db: Database, since: string) =>
     )
     .all(since);
 
-/** One ended turn's tokens, written when it ended (`close()`). */
-export interface TurnTokens {
-  agent_id: string;
-  ended_at: string;
-  tokens_cached: number;
-  tokens_in: number;
-  tokens_out: number;
-}
-
-/** The turns that ended since `since` (the last report), by `turn_by_ended`: a turn running across a report shows in the next. */
-export const tokensSince = (db: Database, since: string) =>
-  db
-    .query<TurnTokens, [string]>(
-      "select agent_id, ended_at, coalesce(tokens_in, 0) as tokens_in, coalesce(tokens_cached, 0) as tokens_cached, coalesce(tokens_out, 0) as tokens_out from turn where ended_at > ? order by ended_at"
-    )
-    .all(since);
-
 /**
  * Each assignment's notes file kept outside `state` (his agents repo, `desk.agentsRepo`), read from the store at `path`
  * of the new shape: what an export carries beside Life's state and a restore puts back (`stage`, `restore`). None for a
@@ -605,8 +588,13 @@ export type DeskRead<T> =
  * Reads the desk's store read-only with `read`; `empty` when the desk has made none yet. Never throws: the desk off or
  * its store unreadable is a state its reader shows.
  */
-export function readDesk<T>(read: (db: Database) => T, empty: T): DeskRead<T> {
-  if (off("desk")) {
+export function readDesk<T>(
+  read: (db: Database) => T,
+  empty: T,
+  // A history read (spending) reads the store even while the desk is off.
+  isEvenOff = false
+): DeskRead<T> {
+  if (off("desk") && !isEvenOff) {
     return { state: "off" };
   }
   if (!existsSync(DESK_STORE)) {
