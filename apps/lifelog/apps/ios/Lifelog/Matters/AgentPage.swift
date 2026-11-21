@@ -43,7 +43,12 @@ struct AgentsScreen: View {
             ForEach(Array(agents.enumerated()), id: \.element.id) { at, agent in
                 let held = HeldMatters(of: agent.id, in: rows)
                 Button {
-                    if isBeside { router.agentShown = agent.id } else { router.open(agent: agent.id) }
+                    if isBeside {
+                        router.agentShown = agent.id
+                        router.matterPath = []
+                    } else {
+                        router.open(agent: agent.id)
+                    }
                 } label: {
                     AgentListRow(
                         runtime: agent.runtimeName, name: agent.name ?? agent.title,

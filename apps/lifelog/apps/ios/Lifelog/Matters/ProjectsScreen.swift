@@ -53,6 +53,13 @@ struct ProjectsScreen: View {
         // The split view can drop the selection when it expands: a regular width always shows a page.
         .onChange(of: sizeClass, initial: true) { fillSelection() }
         .onChange(of: list(of: chosen).value) { fillSelection() }
+        .onChange(of: router.detail) { fillSelection() }
+        // An agent named from elsewhere is the one on show beside the agents, not a page pushed over it.
+        .onChange(of: router.matterPath) { _, path in
+            guard isAgentsBeside, case .agent(let id)? = path.last else { return }
+            router.agentShown = id
+            router.matterPath = []
+        }
         // Here, above both columns, so a fold that collapses the matter's page keeps the sheet and its running start.
         .sheet(item: matterSheetBinding) { sheet in
             switch sheet {
