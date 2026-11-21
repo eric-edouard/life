@@ -328,6 +328,12 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   const items = Array.from({ length: 60 }, (_, i) => voice(`v${i}`));
   items[0] = voice("v0", { kind: "known_person", personId: DANA_ID });
   items[1] = voice("v1", { name: "Kofi" });
+  items[3] = voice("v3", { conversations: 1 });
+  items[4] = voice("v4", {
+    conversations: 1,
+    kind: "known_person",
+    personId: DANA_ID,
+  });
   // One he called several people is not asked in v1: one answer would give all its turns to one person.
   const cards = checksOf(
     inputs([], { voices: [...items, voice("v60", { kind: "several" })] })
@@ -363,8 +369,13 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   );
   // Lifelog ranks likely people for every voice: only its suggestion makes a guess in use.
   const guesses = cards.filter((c) => urgencyOf(c) === "improves");
-  expect(guesses.map((c) => c.ref.split("~")[0])).toEqual([dana]);
+  expect(guesses.map((c) => c.ref.split("~")[0])).toEqual([dana, "voice:v4"]);
   expect(byRef(dana)?.ref.endsWith("~person:dana")).toBe(true);
+  // Heard in one conversation, no name heard: the bulk card starts it ticked "Don't name"; the others unticked.
+  expect(byRef("voice:v3")?.preTicked).toBe("not-relevant");
+  expect(
+    [dana, "voice:v1", "voice:v2", "voice:v4"].map((r) => byRef(r)?.preTicked)
+  ).toEqual([null, null, null, null]);
 });
 
 const HEX16 = /^[0-9a-f]{16}$/;
