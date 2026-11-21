@@ -109,6 +109,7 @@ private struct PeopleColumns: View {
     private func content(_ list: PeopleList) -> some View {
         let groups = list.cut(to: router.cut(of: .people)).groups(order, kind)
         return List {
+            CutToast(kind: .people).quietListRow()
             SegmentedChoice(
                 choices: PeopleList.Kind.allCases,
                 selection: Binding(get: { kind }, set: { kind = $0 ?? .all }),
@@ -143,7 +144,6 @@ private struct PeopleColumns: View {
         .listSectionIndexVisibility(order == .alphabet ? .visible : .hidden)
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
         .motion(Motion.standard, value: groups.flatMap(\.rows).map(\.id))
-        .cutToast(.people)
     }
 }
 

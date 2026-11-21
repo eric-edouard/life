@@ -180,7 +180,12 @@ struct ProjectsScreen: View {
     private func content(_ chip: ProjectChips.Chip?) -> some View {
         let shown = list(of: chip).shown()
         return List {
-            chipRow.quietListRow()
+            // Ask Life's cut is of All: its toast stands in the chips' place until his X.
+            if router.cut(of: .matters) == nil {
+                chipRow.quietListRow()
+            } else {
+                CutToast(kind: .matters).quietListRow()
+            }
             if let chip, chip.kind == .project {
                 ProjectHead(id: chip.id) { router.projectAsk = OpenAsk(ask: $0) }.readingWidth().quietListRow()
             }
@@ -199,7 +204,6 @@ struct ProjectsScreen: View {
         .listStyle(.plain).scrollContentBackground(.hidden)
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
         .staleToast(staleNote(shown), retry: { await refresh(chip) })
-        .cutToast(.matters)
         .motion(Motion.standard, value: shown.onScreen?.matters.map(\.id))
         .scrollDismissesKeyboard(.interactively)
     }

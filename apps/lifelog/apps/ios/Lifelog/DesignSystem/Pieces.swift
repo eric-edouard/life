@@ -213,27 +213,22 @@ struct Toast: View {
     }
 }
 
-extension View {
-    /// Ask Life's cut of this tab's list (`AppRouter.cut`), as a toast at the top of the pane that stays until his X,
-    /// which gives the whole list back.
-    func cutToast(_ kind: ShownList.Kind) -> some View { modifier(CutToast(kind: kind)) }
-}
-
-private struct CutToast: ViewModifier {
+/// Ask Life's cut of a tab's list (`AppRouter.cut`): the toast, first in the list, in the place of the list's own
+/// filter, kept until his X, which gives the whole list back. Nothing while that list is whole.
+struct CutToast: View {
     let kind: ShownList.Kind
     @Environment(AppRouter.self) private var router
 
-    func body(content: Content) -> some View {
-        content.overlay(alignment: .top) {
-            ZStack {
-                if let cut = router.cut(of: kind) {
-                    Toast(words: cut.label, glyph: nil, action: "Show all", symbol: "xmark") { router.cut = nil }
-                        .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
-                        .appears().id(cut.refs)
-                }
+    var body: some View {
+        ZStack {
+            if let cut = router.cut(of: kind) {
+                Toast(words: cut.label, glyph: nil, action: "Show all", symbol: "xmark") { router.cut = nil }
+                    .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.s)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .appears().id(cut.refs)
             }
-            .motion(Motion.standard, value: router.cut(of: kind))
         }
+        .motion(Motion.standard, value: router.cut(of: kind))
     }
 }
 
