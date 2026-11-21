@@ -1,6 +1,10 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { type DirectionPin, MatterDirectionBatch } from "../records/matter";
+import {
+  type DirectionPin,
+  MatterDirectionBatch,
+  MatterDirectionFields,
+} from "../records/matter";
 import { matterDirections } from "./matter-directions";
 import {
   directionDueOf,
@@ -111,12 +115,6 @@ test("the night drafts each running matter's direction, pinned to its steps; a r
         goal: "Never asked",
         matter: "m9",
         nextStep: { kind: "do", text: "x" },
-      },
-      // A context is his word's alone: a draft carrying one is dropped.
-      {
-        goal: "Bad",
-        matter: "m1",
-        nextStep: { context: "Because.", kind: "do", text: "z" },
       },
       // A wait that says not what it waits on is dropped.
       {
@@ -448,5 +446,16 @@ test("a stored line of v1 (a next step, no laterShown) still parses; a draft wit
   expect(
     MatterDirectionBatch.safeParse(line({ ...draft, endingRecords: [] }))
       .success
+  ).toBe(false);
+});
+
+// life#817: a next step's context is his word's alone; Life's drafts carry none.
+test("a drafted next step carrying a context is refused", () => {
+  const draft = (nextStep: object) =>
+    MatterDirectionFields.safeParse({ goal: "Gran has her watch", nextStep })
+      .success;
+  expect(draft({ kind: "do", text: "Call the shop" })).toBe(true);
+  expect(
+    draft({ context: "Because.", kind: "do", text: "Call the shop" })
   ).toBe(false);
 });
