@@ -20,6 +20,11 @@ public struct Party: Decodable, Sendable, Equatable {
     public let line: String?
     public let picture: Picture?
 
+    /// The same party showing another of their pictures (none: their initials), as his picture sheet draws each.
+    public func showing(_ pictureID: String?) -> Party {
+        Party(ref: ref, name: name, kind: kind, line: line, picture: pictureID.map(Picture.init))
+    }
+
     /// The owner himself, as every read names him (`OWNER`, `memory/read-truth.ts`).
     public var isOwner: Bool { ref == "person:me" }
 }

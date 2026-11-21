@@ -9,7 +9,16 @@
   "episodes": [],
   "knows": [],
   "open": [],
-  "pictures": [],
+  "pictures": [
+    {
+      "id": "00000000000000000000000000000a01",
+      "source": "contacts"
+    },
+    {
+      "id": "00000000000000000000000000000a02",
+      "source": "whatsapp"
+    }
+  ],
   "reach": [
     {
       "accounts": [
