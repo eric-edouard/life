@@ -408,6 +408,10 @@ export const voiceCardRefOf = (
   return `voice:${item.id}~${digest("sha256", voices.join("\n"), 8)}${suggested ? `~${suggested}` : ""}`;
 };
 
+/** What a card asks about, its ref less what binds it to the question shown: a voice card's group (`voiceCardRefOf`), else the ref. A push notifies once per subject (`pushNewCards`). */
+export const cardSubjectOf = (ref: string) =>
+  ref.startsWith("voice:") ? (ref.split("~")[0] ?? ref) : ref;
+
 /**
  * The handle or name a fact's author came from: the one it kept (`speakerFrom`), an unknown author's label, or for a
  * fact from before `speakerFrom`, its 1:1 chat's handle (`chatHandles`); none for the owner.
