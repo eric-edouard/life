@@ -59,7 +59,6 @@ struct PersonPage: View {
     }
 }
 
-/// Who: their picture (72) beside the name and who they are to him, then how close and their last exchange.
 /// The page before its read: the person as the list read them, else their placeholder; then the reach tiles, what is
 /// open and lately in their places, so the read's page fades in over its own shape.
 private struct PersonPlaceholder: View {
@@ -99,6 +98,7 @@ private struct PersonPlaceholder: View {
     }
 }
 
+/// Who: their picture (72) beside the name and who they are to him, then how close and their last exchange.
 private struct Who: View {
     let row: PersonRow
 

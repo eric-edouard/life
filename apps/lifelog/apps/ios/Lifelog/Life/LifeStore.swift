@@ -804,7 +804,9 @@ final class LifeStore {
         case .important(let id, let isOn)?:
             // Said back before its reads land (`setImportant`): Undo waits for them, else the tap would be refused.
             // ponytail: a 100 ms poll; a continuation on `PendingTaps` if another tap needs it.
-            while marking[id] != nil { try? await Task.sleep(for: .milliseconds(100)) }
+            while marking[id] != nil {
+                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+            }
             await setImportant(id, isOn, saysBack: false)
         case .icon(let id, let icon, let was)?: await setMatterIcon(of: id, icon, was: was, saysBack: false)
         case .status(let id, let name, let status, let was)?:
