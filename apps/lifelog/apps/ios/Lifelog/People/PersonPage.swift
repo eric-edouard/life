@@ -38,7 +38,9 @@ struct PersonPage: View {
                     Who(row: now.row)
                     if !reach.isEmpty { ReachTiles(reach: reach) }
                     if case .failed = chain?.next, let first = now.moreReach {
-                        PartRetry(what: "Some of their accounts") { await life.refreshReach(from: first, isRetry: true) }
+                        PartRetry(what: "Some of their accounts") {
+                            await life.refreshReach(from: first, isRetry: true)
+                        }
                     }
                 }
                 OpenWith(now: now)
