@@ -61,16 +61,16 @@ final class PlaybackStore {
 
     /// Plays `file` from `start` seconds, and for `length` seconds when given (a clip is a span of its job's audio).
     /// `id` names the recording for whoever shows where it is (`playingID`).
-    func play(
+    @discardableResult func play(
         _ file: URL, from start: Double = 0, for length: Double? = nil, id: String? = nil, onEnd: (() -> Void)? = nil
-    ) {
+    ) -> Bool {
         // The app's one session, shared with dictation (the Pendant's capture is Bluetooth, not AVAudioSession).
         // Without its turn at the session nothing plays.
         do {
             lease = try AudioSessionOwner.shared.take(.playback) { [weak self] in self?.stop() }
         } catch {
             _ = report(error)
-            return
+            return false
         }
         let item = AVPlayerItem(url: file)
         itemEnd.map(NotificationCenter.default.removeObserver)
@@ -86,6 +86,7 @@ final class PlaybackStore {
         spanEnd = length.map { start + $0 }
         onEnded = onEnd
         endSpan(after: length)
+        return true
     }
 
     /// Stops the clip `seconds` from now (`nil`: it plays to the file's end).

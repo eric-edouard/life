@@ -61,6 +61,7 @@ private struct IncidentCard: View {
 
     @State private var choice: IncidentResolution?
     @State private var error: String?
+    @State private var isResolving = false
 
     private var pages: Int { incident.ids.count }
 
@@ -73,9 +74,11 @@ private struct IncidentCard: View {
                     + (incident.kind.holdsPendant
                         ? " Until you decide, lifelog keeps these pages on the Pendant and clears nothing past them."
                         : "")
-                    + (error.map { " That didn't work: \($0)" } ?? "")
             )
             .font(.note).foregroundStyle(Palette.muted)
+            if let error {
+                Text("That didn't work: \(error)").font(.note).foregroundStyle(Palette.flag)
+            }
             Text(
                 "Found \(incident.recordedAt.moment) · "
                     + (pages == 1 ? "page \(incident.index)" : "pages \(incident.index)–\(incident.lastIndex)")
@@ -83,7 +86,8 @@ private struct IncidentCard: View {
             .font(.small).foregroundStyle(Palette.faint)
             ForEach(incident.kind.choices, id: \.self) { resolution in
                 Button(resolution.action(pages: pages)) { choice = resolution }
-                    .buttonStyle(.pill(.quiet, size: .compact))
+                    .buttonStyle(.pill(.quiet, size: .compact, isBusy: isResolving))
+                    .disabled(isResolving)
                     .accessibilityIdentifier("pendant.incident.\(resolution)")
             }
         }
@@ -94,6 +98,7 @@ private struct IncidentCard: View {
             Button("Cancel", role: .cancel) {}
                 .accessibilityIdentifier("pendant.incident.cancel")
             Button(resolution.action(pages: pages)) {
+                isResolving = true
                 Task {
                     do {
                         try await resolve(resolution)
@@ -101,6 +106,7 @@ private struct IncidentCard: View {
                     } catch {
                         self.error = report(error)
                     }
+                    isResolving = false
                 }
             }
             .accessibilityIdentifier("pendant.incident.confirm")
