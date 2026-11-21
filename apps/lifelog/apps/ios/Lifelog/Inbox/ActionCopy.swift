@@ -21,6 +21,9 @@ enum ActionCopy {
             "The connection dropped; trying again (\(detail["try"] ?? "2") of \(detail["of"] ?? "3"))"
         case "todo_items_ticked":
             detail["of"].map { "\(detail["done"] ?? "0") of \($0) to-do items ticked" } ?? "Its to-do items are ticked"
+        case "todo_items_removed":
+            detail["of"].map { "\(detail["done"] ?? "0") of \($0) to-do items removed from your list" }
+                ?? "Its to-do items are removed from your list"
         case "goal_saved": "Your goal is saved on the matter"
         case "desk_accepted": "Your request is taken"
         case "session_open": passed ? "Its session is open" : "Opening its session"
