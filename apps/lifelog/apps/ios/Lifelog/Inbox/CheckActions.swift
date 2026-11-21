@@ -198,7 +198,9 @@ struct CheckActions: View {
     /// naming answer with no candidate drawn: "Name them…" (a voice) or "Someone I know…" (a name).
     private func label(of option: Check.Option) -> String {
         if option.takes == .note, check.takesOwnWords { return check.tellTitle }
-        guard check.isNamingFilled, people.isEmpty, option.id == check.namingOption?.id else { return option.shownLabel }
+        guard check.isNamingFilled, people.isEmpty, option.id == check.namingOption?.id else {
+            return option.shownLabel
+        }
         switch check.group {
         case .voice: return "Name them…"
         case .name: return "Someone I know…"
