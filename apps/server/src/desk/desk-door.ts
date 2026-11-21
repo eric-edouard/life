@@ -28,6 +28,7 @@ import {
 } from "./agent-actions";
 import { readComplaint } from "./complaint-intake";
 import type { Desk } from "./desk-store";
+import { isHisWordsPlanOf } from "./first-turns";
 
 // The door (the desk spec, 5.2): the desk's MCP server for its registered agents, on loopback only, at `/mcp/<agt_…>`.
 // An agent is known by its key alone, `HMAC(deskKey, its id)`: derived, never stored, given to its session only in the
@@ -50,7 +51,7 @@ export const doorOf = (id: string) => ({
 /**
  * Why the door refuses tool `name` on a turn of cause `cause` of `a` on `s`: a move's notes turn only writes its notes
  * (`agent-moves.ts`); and his rule, an assignment's first turn ends on its plan (or card), asked, so it waits or
- * finishes only after (not the caretaker's: his words are its plan, his yes of 20 Nov 2026). Null: it may go.
+ * finishes only after (not when his words are its plan, `isHisWordsPlanOf`). Null: it may go.
  */
 function turnRefusalOf(
   desk: Desk,
@@ -67,7 +68,7 @@ function turnRefusalOf(
     return "Not done: this turn only writes your notes before the move (`write_notes`), then stops.";
   }
   const isEnd = name === "set_wait" || name === "finish";
-  return isEnd && a?.role !== "caretaker" && !hasAsked(desk.db, s)
+  return isEnd && !isHisWordsPlanOf(desk.db, a, s) && !hasAsked(desk.db, s)
     ? askFirstMessageOf(s.opened_by)
     : null;
 }
