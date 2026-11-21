@@ -1570,6 +1570,9 @@
           "id": {
             "type": "string"
           },
+          "isLikely": {
+            "type": "boolean"
+          },
           "kind": {
             "type": "string",
             "enum": ["new_person", "known_person", "several"]
@@ -1621,6 +1624,7 @@
           "evidence",
           "exchanges",
           "id",
+          "isLikely",
           "kind",
           "likely",
           "name",

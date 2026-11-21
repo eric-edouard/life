@@ -9,7 +9,7 @@ import { assignmentOfCard, readCursor } from "../host/desk-read";
 import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
 import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
-import { COMPLAINT_RECEIVED } from "../host/events";
+import { ASK_SPOKEN, COMPLAINT_RECEIVED } from "../host/events";
 import type { Decision } from "../memory/decision-lines";
 import { askPlaceOf } from "../memory/memory-files";
 import type { AgentWait } from "../records/registered-agent";
@@ -212,23 +212,50 @@ export const saveCursor = (db: Database, name: string, value: string | null) =>
 export const COMPLAINTS_CURSOR = "complaints";
 
 /**
- * Gives back the complaints assignment `id` received and never handed to a turn (the caretaker finished, or its first
- * turn never began, while one came): their receipts go and the intake's cursor steps back to the first of them, so the
- * next tick receives them again, for a caretaker that will read them. In the caller's transaction.
+ * The desk's cursor over the ledger for his spoken asks (`desk/spoken-ask-intake.ts`): how many lines it has read, and
+ * the asks read that still wait for a place (`waiting`), so one that waits never holds the scan.
  */
-function giveBackComplaints(db: Database, id: string) {
+const SPOKEN_ASKS_CURSOR = "spoken-asks";
+export interface SpokenAsksCursor {
+  line: number;
+  waiting: string[];
+}
+export const readSpokenAsksCursor = (db: Database): SpokenAsksCursor =>
+  JSON.parse(readCursor(db, SPOKEN_ASKS_CURSOR) ?? '{"line":0,"waiting":[]}');
+export const saveSpokenAsksCursor = (db: Database, c: SpokenAsksCursor) =>
+  saveCursor(db, SPOKEN_ASKS_CURSOR, JSON.stringify(c));
+
+/**
+ * Gives back what assignment `id` received from an intake and never handed to a turn (its agent finished, or its first
+ * turn never began, while one came): his complaints and his spoken asks. Their receipts (the event rows) go, and each
+ * intake takes them again on its next tick, for an agent that will read them: the complaints' cursor steps back to the
+ * first of them, the spoken asks join the asks that wait. In the caller's transaction.
+ */
+function giveBack(db: Database, id: string) {
   const back = db
-    .query<{ event_id: string }, [string, string]>(
-      "delete from event where assignment_id = ? and name = ? and handed = 0 and consumed_at is null and dropped_at is null returning event_id"
+    .query<{ event_id: string; name: string }, [string, string, string]>(
+      "delete from event where assignment_id = ? and name in (?, ?) and handed = 0 and consumed_at is null and dropped_at is null returning event_id, name"
     )
-    .all(id, COMPLAINT_RECEIVED)
-    .flatMap((e) => askPlaceOf(e.event_id) ?? []);
-  if (back.length > 0) {
+    .all(id, COMPLAINT_RECEIVED, ASK_SPOKEN);
+  const complaints = back.flatMap((e) =>
+    e.name === COMPLAINT_RECEIVED ? (askPlaceOf(e.event_id) ?? []) : []
+  );
+  if (complaints.length > 0) {
     saveCursor(
       db,
       COMPLAINTS_CURSOR,
-      String(Math.min(Number(readCursor(db, COMPLAINTS_CURSOR) ?? 0), ...back))
+      String(
+        Math.min(Number(readCursor(db, COMPLAINTS_CURSOR) ?? 0), ...complaints)
+      )
     );
+  }
+  const asks = back.flatMap((e) => (e.name === ASK_SPOKEN ? e.event_id : []));
+  if (asks.length > 0) {
+    const c = readSpokenAsksCursor(db);
+    saveSpokenAsksCursor(db, {
+      ...c,
+      waiting: [...new Set([...c.waiting, ...asks])],
+    });
   }
 }
 
@@ -266,7 +293,7 @@ export const endWhenIdle = (
 
 /**
  * Closes assignment `id` once (`outcome`, or `whyNotStarted` for one whose first turn never began), gives back the
- * complaints it never handed (`giveBackComplaints`), and ends its agent when it holds no open assignment after: the one
+ * complaints and spoken asks it never handed (`giveBack`), and ends its agent when it holds no open assignment after: the one
  * way anything closes, in the caller's transaction. Its agent must be
  * active, or, for a stopped agent he replaced by a new start (`replaced`), stopped: it then ends `handed_over`.
  * Whether it closed.
@@ -288,7 +315,7 @@ export function closeAssignmentRow(
     "update assignment set closed_at = ?, outcome = ?, why_not_started = ? where id = ?",
     [clock().toISOString(), end.outcome, end.whyNotStarted ?? null, id]
   );
-  giveBackComplaints(db, id);
+  giveBack(db, id);
   endWhenIdle(
     db,
     s.agent_id,

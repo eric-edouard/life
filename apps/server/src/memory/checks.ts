@@ -204,7 +204,7 @@ export interface CheckInputs {
   places?: YourMoveInputs["places"];
   /** The decisions that are an agent's plan card (host's `planCardsOf`), by id; none while the desk is off or unreadable. */
   plans?: ReadonlySet<string>;
-  /** The guesses that may be someone going by their whole name (`samePersonPairsOf`), worked out once by the reader. */
+  /** The guesses that may be someone else (`samePersonPairsOf`), worked out once by the reader. */
   samePersons: ReturnType<typeof samePersonPairsOf>;
   /** The chat or thread a unit is in, by unit id: where a step was said (`to`); only the units the steps of endings and new matters are in. */
   titles: ReadonlyMap<string, string>;

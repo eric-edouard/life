@@ -320,6 +320,7 @@ const item: NamingQueueItem = {
   conversations: 1,
   evidence: [],
   id: "v1",
+  isLikely: false,
   kind: "new_person",
   likely: [DANA_ID],
   name: null,

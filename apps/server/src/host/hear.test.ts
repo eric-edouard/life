@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
+import { DESK_AGENT } from "../core/names";
 import { setSettings, settings } from "../core/settings";
 import { LEDGER, tasksOf } from "../memory/memory-files";
 import { apply, readConversations, whose } from "../sources/lifelog";
@@ -117,7 +118,7 @@ test("his wake is high confidence, an unattributed one low, someone else's is no
   });
 });
 
-test('"hey Life" is a span for Life to keep, with no agent: a mark, never an ask', () => {
+test('"hey Life" is a span for Life to keep, with no agent of its own: the desk routes it', () => {
   const [kept, asked] = spansIn(
     [
       turn(0, "me", "hey Life, remember the neighbour's cat is Pixel"),
@@ -399,6 +400,32 @@ test("his ask heard in a conversation is also marked, its whole span; heard agai
     expect(tasksOf().map((t) => t.ask.instruction.quote)).toEqual([
       "hey Orbit, the stones are for Nina and the vote is Sunday",
     ]);
+  } finally {
+    server.close();
+    rmSync(LEDGER, { force: true });
+  }
+});
+
+test('"hey Life" heard is one ask of the desk, from the conversation it was said in', async () => {
+  const server = lifelogServer({
+    "/transcription-jobs/job-1/transcript": () => ({
+      turns: [{ speakerId: null, text: "hey Life, book the test dentist" }],
+    }),
+  });
+  const store = lifelogStore();
+  apply(
+    store,
+    pageFixture({
+      conversations: [conversation("c1")],
+      turns: [fed(0, "2026-10-19T10:00:00.000Z", "p-me", "Me", "c1", true)],
+    }),
+    "2026-10-19T10:00:30.000Z"
+  );
+  try {
+    await hear(store, "c1", "", Date.parse("2026-10-19T10:05:00Z"));
+    expect(
+      tasksOf().map((t) => [t.ask.after.agent, t.ask.after.conversation])
+    ).toEqual([[DESK_AGENT, "c1"]]);
   } finally {
     server.close();
     rmSync(LEDGER, { force: true });

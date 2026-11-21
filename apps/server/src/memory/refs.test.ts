@@ -57,4 +57,8 @@ test("lifeRefsOf: link destinations as Markdown reads them, never in code, perce
     { kind: "matter", ref: "obs_0123456789ab" },
   ]);
   expect(lifeLinksOf(null)).toEqual([]);
+  // An image's destination too: the phone opens it as a link.
+  expect(lifeRefsOf("![a record](life:obs_0123456789ab)")).toEqual([
+    "obs_0123456789ab",
+  ]);
 });

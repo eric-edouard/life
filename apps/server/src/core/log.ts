@@ -21,6 +21,7 @@ type LogKind =
   | "decision.asked"
   | "decision.withdrawn"
   | "desk.arrivals"
+  | "desk.asks"
   | "desk.change"
   | "desk.complaints"
   | "desk.fold"

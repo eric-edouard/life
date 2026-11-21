@@ -1,10 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
-import {
-  type DirectionPin,
-  MatterDirectionBatch,
-  MatterDirectionFields,
-} from "../records/matter";
+import { type DirectionPin, MatterDirectionBatch } from "../records/matter";
 import { matterDirections } from "./matter-directions";
 import {
   directionDueOf,
@@ -449,13 +445,76 @@ test("a stored line of v1 (a next step, no laterShown) still parses; a draft wit
   ).toBe(false);
 });
 
-// life#817: a next step's context is his word's alone; Life's drafts carry none.
-test("a drafted next step carrying a context is refused", () => {
-  const draft = (nextStep: object) =>
-    MatterDirectionFields.safeParse({ goal: "Gran has her watch", nextStep })
-      .success;
-  expect(draft({ kind: "do", text: "Call the shop" })).toBe(true);
-  expect(
-    draft({ context: "Because.", kind: "do", text: "Call the shop" })
-  ).toBe(false);
+// life#817: Life's draft carries a context, kept only when it links its own matter's shown ids and quotes nothing; else the context goes, its next step stays.
+test("a drafted context links only its matter's shown ids and quotes nothing, or only the context is dropped", async () => {
+  const matters = await import("./matters");
+  const models = await import("../models/llm");
+  const a = waiting("00000000e004");
+  const b = waiting("00000000e005");
+  const book = spyOn(matters, "readMatterBookAndRecords").mockResolvedValue({
+    book: [a, b],
+    records: recordsOf([], []),
+  } as never);
+  const draft = (matter: string, context: string) => ({
+    goal: "Sam answers",
+    matter,
+    nextStep: { context, kind: "do", text: "Ask Sam again" },
+  });
+  const ask = spyOn(models, "askOnce").mockResolvedValue({
+    directions: [
+      // Its own step, never in any index: kept.
+      draft(
+        "m1",
+        "Sam has not [answered](life:obs_00000000e004) since the 16th."
+      ),
+      // The other matter's step: dropped.
+      draft("m2", "See [this](life:obs_00000000e004)."),
+    ],
+  } as never);
+  try {
+    rmSync(MATTER_DIRECTIONS, { force: true });
+    await matterDirections(people, { all: true, today: TODAY });
+    // The call is shown each step's id to link.
+    expect(JSON.stringify(ask.mock.calls[0])).toContain(
+      `"id":"obs_00000000e005"`
+    );
+    const next = () => readMatterPins().directions.map((d) => d.nextStep);
+    expect(next()).toEqual([
+      {
+        context:
+          "Sam has not [answered](life:obs_00000000e004) since the 16th.",
+        kind: "do",
+        text: "Ask Sam again",
+      },
+      { kind: "do", text: "Ask Sam again" },
+    ]);
+    // A quote the call made up: dropped too.
+    ask.mockResolvedValue({
+      directions: [
+        draft("m1", "> The parcel arrived\n*[Sam](life:obs_00000000e004)*"),
+      ],
+    } as never);
+    rmSync(MATTER_DIRECTIONS, { force: true });
+    await matterDirections(people, { all: true, today: TODAY });
+    expect(next()[0]).toEqual({ kind: "do", text: "Ask Sam again" });
+    // So is one inline, and a sibling's id behind an image (the phone opens it as a link).
+    ask.mockResolvedValue({
+      directions: [
+        draft(
+          "m1",
+          "Sam said “The parcel arrived” [here](life:obs_00000000e004)."
+        ),
+        draft("m2", "![record](life:obs_00000000e004)"),
+      ],
+    } as never);
+    rmSync(MATTER_DIRECTIONS, { force: true });
+    await matterDirections(people, { all: true, today: TODAY });
+    expect(next()).toEqual([
+      { kind: "do", text: "Ask Sam again" },
+      { kind: "do", text: "Ask Sam again" },
+    ]);
+  } finally {
+    book.mockRestore();
+    ask.mockRestore();
+  }
 });

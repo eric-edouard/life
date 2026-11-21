@@ -207,6 +207,7 @@ export const NamingQueueItem = z.object({
     })
   ),
   id: z.string(),
+  isLikely: z.boolean(),
   kind: z.enum(["new_person", "known_person", "several"]),
   likely: z.array(z.string()),
   name: z.string().nullable(),

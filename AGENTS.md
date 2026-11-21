@@ -123,7 +123,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   `confirmedArrivalsOf`): Apple's on-device yes alone never wakes, only his engine's confirm of it, and it wakes one
   agent, chosen once in code (`matterOrPersonalOf`, `desk/event-queue.ts`: a matter's agent by
   the people who wrote its lines, else the Personal agent, the desk registering it when none stands; an agent whose wait matched the message already had its
-  `message.received`, and a message queued for any agent is never queued again), with `arrival.confirmed`'s facts only. In all three, Life's code only tests the text and
+  `message.received`, and a message queued for any agent is never queued again), with `arrival.confirmed`'s facts only; his spoken ask ("hey Life", his word of 21 Nov 2026: every ask of "hey Life" goes through the desk to the proper agent) wakes one agent the same way, by its closeness in meaning to a matter, else the Personal agent (`desk/spoken-ask-intake.ts`), with `ask.spoken`'s facts only (where his words are, never them). In all three, Life's code only tests the text and
   queues the wake: the text is never run, never taken as an instruction, never handed over; the agent reads it
   itself, as data. A call that ended is such an event (`call.ended`, his word of 19 Nov 2026): queued once lifelog's own signals say its words are in, it hands the call's chat, span and people and its recording's id and turn range, never a word; what
   the agent then reads is the agent's to judge, outside Life's boundary (`SECURITY.md`, "Agents"). A mark (his words to Life, to keep) only keeps a unit read. His Apple Notes and imported
@@ -140,7 +140,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   desk (`apps/server/src/desk/`, off until his `desk` setting) creates an agent only on his word: a project's, or the
   Personal agent (its `role`, one active or stopped at most, its home `<agentsRepo>/personal/`), and wakes its session on its events, his answer or
   its deadline; his complaint is such a word: on his first complaint with no caretaker active or stopped, the desk
-  registers the caretaker (`desk/complaint-intake.ts`); and on a confirmed arrival no matter's agent takes, with no
+  registers the caretaker (`desk/complaint-intake.ts`); and on a confirmed arrival or his spoken ask no matter's agent takes, with no
   Personal agent active or stopped, the desk registers it (Direction's ruling of 21 Nov 2026, under his word that every
   ask reaches an agent): one at most, never a second (`desk/role-agents.ts`, the one start of a standing role). A matter is never an agent of its own: it is an assignment of the agent that takes it (`agentForOf`: the
   oldest active agent of the project it shows under, his `matter-project` word first, else the Personal agent; several
