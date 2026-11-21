@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import {
   appendFileSync,
   copyFileSync,
@@ -195,4 +195,48 @@ test("a note another writer puts in place after the check is kept, and the notes
     { from: ours, sha256, to: second },
   ]);
   expect(readFileSync(first, "utf8")).toBe("Test notes: ours");
+});
+
+// Confirm on PR 831: the rollback took back a note by its path, someone's edit with it, and a failure other than a
+// conflict (a folder it could not make) left the notes made before it.
+test("a failed note placement takes back only the notes it made that still hold its bytes, whatever failed", async () => {
+  const at = temp("rollback");
+  const ours = join(at, "ours.md");
+  writeFileSync(ours, "Test notes: ours");
+  const sha256 = await sha256Of(ours);
+  const note = (asg: string) => join(at, "agents", asg, "NOTES.md");
+  // A folder it cannot make: a file stands where it would be.
+  writeFileSync(join(at, "agents-file"), "");
+  await expect(
+    putNotes([
+      { from: ours, sha256, to: note("asg_1") },
+      { from: ours, sha256, to: join(at, "agents-file", "NOTES.md") },
+    ])
+  ).rejects.toThrow();
+  expect(existsSync(note("asg_1"))).toBe(false);
+  // The first note edited by someone while the second is checked: the edit stays.
+  mkdirSync(dirname(note("asg_3")), { recursive: true });
+  writeFileSync(note("asg_3"), "Test notes: another writer's");
+  const hash = await import("../core/hash");
+  const real = hash.sha256Of;
+  const spy = spyOn(hash, "sha256Of").mockImplementationOnce((p) => {
+    writeFileSync(note("asg_2"), "Test notes: edited meanwhile");
+    return real(p);
+  });
+  try {
+    await expect(
+      putNotes([
+        { from: ours, sha256, to: note("asg_2") },
+        { from: ours, sha256, to: note("asg_3") },
+      ])
+    ).rejects.toThrow("holds other notes");
+  } finally {
+    spy.mockRestore();
+  }
+  expect(readFileSync(note("asg_2"), "utf8")).toBe(
+    "Test notes: edited meanwhile"
+  );
+  expect(readFileSync(note("asg_3"), "utf8")).toBe(
+    "Test notes: another writer's"
+  );
 });

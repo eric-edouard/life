@@ -107,30 +107,41 @@ async function notesPlacesOf(
 
 /**
  * Puts each note in place, never over another file: made only where nothing is (`COPYFILE_EXCL`), one there with the
- * same bytes kept as it is. One another writer put there meanwhile with other bytes is kept, the notes this call made
- * are taken back, and the import refused.
+ * same bytes kept as it is. Any failure (another writer's note there meanwhile, a folder it cannot make, a read that
+ * fails) refuses the import and takes back the notes this call made, but only those still holding its bytes: a note
+ * someone edited since is theirs, and stays.
  */
+// ponytail: a note edited between its hash and its removal is lost; a rename aside, then a check, if that bites.
 export async function putNotes(
   places: readonly { from: string; sha256: string; to: string }[]
 ) {
-  const made: string[] = [];
-  for (const n of places) {
-    mkdirSync(dirname(n.to), { recursive: true });
-    try {
-      copyFileSync(n.from, n.to, constants.COPYFILE_EXCL);
-      made.push(n.to);
-    } catch (e) {
-      const isThere = (e as { code?: string }).code === "EEXIST";
-      // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed
-      if (!isThere || (await sha256Of(n.to)) !== n.sha256) {
-        for (const p of made) {
-          rmSync(p, { force: true });
+  const made: (typeof places)[number][] = [];
+  try {
+    for (const n of places) {
+      mkdirSync(dirname(n.to), { recursive: true });
+      try {
+        copyFileSync(n.from, n.to, constants.COPYFILE_EXCL);
+        made.push(n);
+      } catch (e) {
+        if ((e as { code?: string }).code !== "EEXIST") {
+          throw e;
         }
-        throw isThere
-          ? new Error(`${n.to} holds other notes: nothing was changed`)
-          : e;
+        // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed
+        if ((await sha256Of(n.to)) !== n.sha256) {
+          throw new Error(`${n.to} holds other notes: nothing was changed`, {
+            cause: e,
+          });
+        }
       }
     }
+  } catch (e) {
+    for (const n of made) {
+      // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed
+      if ((await sha256Of(n.to).catch(() => null)) === n.sha256) {
+        rmSync(n.to, { force: true });
+      }
+    }
+    throw e;
   }
 }
 
