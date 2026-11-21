@@ -15,6 +15,7 @@ import { queuedEvents } from "../host/desk-read";
 import { UNITS } from "../memory/memory-files";
 import { dayStart, localDate } from "../memory/zones";
 import type { Unit } from "../records/unit";
+import { insertAgent } from "./agent-actions";
 import {
   ARRIVAL_CONFIRMED,
   type ArrivalFacts,
@@ -24,7 +25,11 @@ import {
 } from "./arrival-route";
 import { readPeopleOnce } from "./desk-clock";
 import { matterOrPersonalOf, queue } from "./event-queue";
-import { PERSONAL_BRIEF, standingAgentOf } from "./role-agents";
+import {
+  PERSONAL_BRIEF,
+  roleAssignmentOf,
+  standingAgentOf,
+} from "./role-agents";
 import { advance, asgOf, setup } from "./test-desk";
 
 // A confirmed arrival's one wake. Made-up chat with Ana; the confirmed arrivals and units are given, not read.
@@ -135,6 +140,20 @@ test("the first arrival no matter's agent takes, with no agent at all, starts th
   } finally {
     setSettings({ desk: null });
   }
+});
+
+test("no Personal agent is registered while the start is blocked or the desk is full", () => {
+  const s = setup();
+  const place = (blocked?: string) =>
+    roleAssignmentOf(s.desk, "personal", PERSONAL_BRIEF, blocked);
+  expect(place("the runtime is signed out")).toEqual({
+    why: "the runtime is signed out",
+  });
+  for (let i = 0; i < 50; i++) {
+    insertAgent(s.desk.db, { brief: "b", runtime: "claude" });
+  }
+  expect(place()).toEqual({ why: "the desk keeps 50 agents active at most" });
+  expect(standingAgentOf(s.desk.db, "personal")).toBeUndefined();
 });
 
 const unitOf = (): Unit =>
