@@ -26,15 +26,15 @@ import { observationStatusOf, READ_REPLIES, readUnitsOf } from "./memory-files";
 import {
   type Brief,
   CALL_SLACK,
-  EXPECTED_BEFORE,
   expectedCompanyOf,
+  expectedWindowOf,
   HEARD_WITHIN,
   isHeardAround,
   isNameSaid,
+  isPlannedBefore,
   namingBriefOf,
   namingConfidenceOf,
   overlappingPhoneCallsOf,
-  PLANNED_WITHIN,
   possibleSpeakersOf,
   SOUNDS_LIKE,
   voiceGroupsOf,
@@ -393,7 +393,7 @@ function messagesAround(
   [began, ended]: [string, string],
   c: Context
 ) {
-  const [from, to] = [Date.parse(began) - EXPECTED_BEFORE, Date.parse(ended)];
+  const [from, to] = expectedWindowOf(began, ended);
   const near = offered
     .flatMap((ref) =>
       (c.direct.get(ref) ?? []).flatMap((e) => {
@@ -447,15 +447,11 @@ const callsNear = (c: Context, from: string, to: string) =>
  */
 function isWorthNaming(parts: SpokenPart[], c: Context) {
   const [began, ended] = [parts[0]?.at ?? "", parts.at(-1)?.until ?? ""];
-  const start = Date.parse(began);
   return (
     isSummarised(parts) ||
     callsNear(c, began, ended).lines.length > 0 ||
     [...c.direct.values()].some((list) =>
-      list.some((e) => {
-        const at = Date.parse(e.at);
-        return !e.phoneCall && at >= start - PLANNED_WITHIN && at <= start;
-      })
+      isPlannedBefore(list, Date.parse(began))
     )
   );
 }
@@ -498,10 +494,7 @@ function evidenceOf(
       )
     );
     for (const person of o.possible) {
-      const planned = (c.direct.get(person) ?? []).some((e) => {
-        const at = Date.parse(e.at);
-        return !e.phoneCall && at >= first - PLANNED_WITHIN && at <= first;
-      });
+      const planned = isPlannedBefore(c.direct.get(person) ?? [], first);
       const named = isNameSaid(others, [
         c.people.nameOf(person),
         ...(o.chats.get(person) ?? []),

@@ -20,9 +20,9 @@ export const HEARD_WITHIN = 90 * DAY;
 /** A call this near a recording is near it: a phone's clock and the pendant's can be minutes apart. */
 export const CALL_SLACK = 5 * MIN;
 /** The expected company: his one-to-one chats and calls from this long before a conversation to its end. */
-export const EXPECTED_BEFORE = 6 * HOUR;
+const EXPECTED_BEFORE = 6 * HOUR;
 /** A one-to-one message this long before a voice starts is a plan to meet: a signal, and what makes a short conversation worth a read. */
-export const PLANNED_WITHIN = 2 * HOUR;
+const PLANNED_WITHIN = 2 * HOUR;
 /** A likeness this strong is Voice's own bar for "sounds like them" (its `isLikely`). */
 export const SOUNDS_LIKE = 0.65;
 
@@ -79,6 +79,17 @@ export function overlappingPhoneCallsOf(
   return { lines, people: [...new Set(found.flatMap((f) => f.who))] };
 }
 
+/** The expected company's window of a conversation running from `began` to `ended`, as instants: from `EXPECTED_BEFORE` before it to its end. */
+export const expectedWindowOf = (began: string, ended: string) =>
+  [Date.parse(began) - EXPECTED_BEFORE, Date.parse(ended)] as const;
+
+/** Whether one of `events` (one-to-one) is a message, not a call, in the `PLANNED_WITHIN` up to `at` (ms): a plan to meet. */
+export const isPlannedBefore = (events: readonly SourceEvent[], at: number) =>
+  events.some((e) => {
+    const t = Date.parse(e.at);
+    return !e.phoneCall && t >= at - PLANNED_WITHIN && t <= at;
+  });
+
 /**
  * The expected company of a conversation running from `began` to `ended`: everyone (a person ref, `direct`'s key) with a
  * one-to-one message or call from `EXPECTED_BEFORE` before it to its end, nearest to its start first, with the titles of
@@ -89,12 +100,13 @@ export function expectedCompanyOf(
   began: string,
   ended: string
 ) {
-  const [start, end] = [Date.parse(began), Date.parse(ended)];
+  const [from, to] = expectedWindowOf(began, ended);
+  const start = Date.parse(began);
   return [...direct]
     .flatMap(([ref, events]) => {
       const near = events.filter((e) => {
         const at = Date.parse(e.at);
-        return at >= start - EXPECTED_BEFORE && at <= end;
+        return at >= from && at <= to;
       });
       const away = Math.min(
         ...near.map((e) => Math.abs(Date.parse(e.at) - start))
