@@ -1,4 +1,4 @@
-import { afterEach, expect, setSystemTime, test } from "bun:test";
+import { afterEach, expect, setSystemTime, spyOn, test } from "bun:test";
 import {
   appendFileSync,
   existsSync,
@@ -10,20 +10,29 @@ import {
 import { join } from "node:path";
 import { clock, daysBefore, MIN } from "../core/clock";
 import { logEvents, logFileOf } from "../core/log";
+import { setSettings } from "../core/settings";
 import { queuedEvents } from "../host/desk-read";
 import { UNITS } from "../memory/memory-files";
 import { dayStart, localDate } from "../memory/zones";
 import type { Unit } from "../records/unit";
+import { insertAgent } from "./agent-actions";
 import {
   ARRIVAL_CONFIRMED,
   type ArrivalFacts,
   arrivalFactsOf,
-  arrivalRouteOf,
+  arrivalNetsOf,
   pollArrivals,
 } from "./arrival-route";
 import { readPeopleOnce } from "./desk-clock";
-import { queue } from "./event-queue";
-import { advance, asgOf, setup } from "./test-desk";
+import { matterOrPersonalOf, queue } from "./event-queue";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as matterNet from "./matter-net";
+import {
+  PERSONAL_BRIEF,
+  roleAssignmentOf,
+  standingAgentOf,
+} from "./role-agents";
+import { advance, ahead, asgOf, setup } from "./test-desk";
 
 // A confirmed arrival's one wake. Made-up chat with Ana; the confirmed arrivals and units are given, not read.
 
@@ -58,16 +67,180 @@ test("an arrival of two people resolves each by its ref alone (regression: map's
 });
 
 test("one assignment: a matter's whose people wrote the lines (the lowest id), else Personal, else none", () => {
-  const netPeople = [
+  const nets = [
     { assignment: "m2", people: new Set(["person:ana"]) },
     { assignment: "m1", people: new Set(["person:bo"]) },
     { assignment: "m3", people: new Set(["person:ana"]) },
   ];
-  expect(arrivalRouteOf(facts, { netPeople, personal: "p" })).toBe("m2");
-  expect(arrivalRouteOf(facts, { netPeople: [], personal: "p" })).toBe("p");
+  expect(matterOrPersonalOf(arrivalNetsOf(facts, nets), "p")).toBe("m2");
+  expect(matterOrPersonalOf(arrivalNetsOf(facts, []), "p")).toBe("p");
   expect(
-    arrivalRouteOf(facts, { netPeople: [], personal: undefined })
+    matterOrPersonalOf(arrivalNetsOf(facts, []), undefined)
   ).toBeUndefined();
+  // A person beats meaning; among meanings the closest.
+  expect(
+    matterOrPersonalOf(
+      [
+        { assignment: "a", by: { similarity: 0.7, why: "meaning" } },
+        { assignment: "b", by: { similarity: 0.9, why: "meaning" } },
+      ],
+      "p"
+    )
+  ).toBe("b");
+  expect(
+    matterOrPersonalOf(
+      [
+        { assignment: "b", by: { similarity: 0.9, why: "meaning" } },
+        { assignment: "c", by: { why: "person" } },
+      ],
+      "p"
+    )
+  ).toBe("c");
+});
+
+test("the first arrival no matter's agent takes, with no agent at all, starts the Personal agent once; a stopped one is never doubled and holds it back", async () => {
+  const s = setup();
+  s.desk.runtimes.claude = s.fake.runtime;
+  setSettings({ desk: { defaultRuntime: "claude", runtimes: {} } });
+  try {
+    const poll = (id: string) =>
+      pollArrivals(s.desk, readPeopleOnce(), {
+        arrivals: [
+          {
+            at: clock().toISOString(),
+            messages: [`whatsapp|${id}`],
+            people: ["person:ana"],
+            unit: "unit_0000000000a1",
+          },
+        ],
+        units: [unitOf()],
+      });
+    await poll("whatsapp:1");
+    await poll("whatsapp:2");
+    const personal = standingAgentOf(s.desk.db, "personal");
+    expect(personal?.brief).toBe(PERSONAL_BRIEF);
+    const asg = asgOf(s.desk, personal?.id ?? "");
+    expect(
+      queuedEvents(s.desk.db, asg)
+        .filter((e) => e.name === ARRIVAL_CONFIRMED)
+        .map((e) => e.event_id)
+    ).toEqual(["whatsapp:1", "whatsapp:2"]);
+    s.desk.db.run("update agent set status = 'stopped' where id = ?", [
+      personal?.id ?? "",
+    ]);
+    await poll("whatsapp:3");
+    expect(
+      s.desk.db
+        .query<{ n: number }, []>(
+          "select count(*) as n from agent where role = 'personal'"
+        )
+        .get()?.n
+    ).toBe(1);
+    expect(
+      s.desk.db.query("select 1 from event where event_id = 'whatsapp:3'").all()
+    ).toEqual([]);
+  } finally {
+    setSettings({ desk: null });
+  }
+});
+
+test("no Personal agent is registered while the start is blocked or the desk is full", () => {
+  const s = setup();
+  const place = (blocked?: string) =>
+    roleAssignmentOf(s.desk, "personal", PERSONAL_BRIEF, blocked);
+  expect(place("the runtime is signed out")).toEqual({
+    why: "the runtime is signed out",
+  });
+  for (let i = 0; i < 50; i += 1) {
+    insertAgent(s.desk.db, { brief: "b", runtime: "claude" });
+  }
+  expect(place()).toEqual({ why: "the desk keeps 50 agents active at most" });
+  expect(standingAgentOf(s.desk.db, "personal")).toBeUndefined();
+});
+
+/** A desk with one matter's agent whose net holds Ana, polled with arrivals of `[id, people, at]`; Personal runs on `claude`. */
+async function matterDesk(agentsRepo?: string) {
+  const s = setup();
+  const agent = await s.waiting();
+  const asg = asgOf(s.desk, agent);
+  s.desk.runtimes.claude = s.fake.runtime;
+  setSettings({
+    desk: { agentsRepo, defaultRuntime: "claude", runtimes: {} },
+  });
+  const nets = spyOn(matterNet, "netsOf").mockResolvedValue([
+    { assignment: asg, people: new Set(["person:ana"]), vectors: [] },
+  ] as never);
+  const poll = (list: [string, string, string][]) =>
+    pollArrivals(s.desk, readPeopleOnce(), {
+      arrivals: list.map(([id, person, at]) => ({
+        at,
+        messages: [`whatsapp|${id}`],
+        people: [person],
+        unit: "unit_0000000000a1",
+      })),
+      units: [unitOf()],
+    });
+  const queuedIds = () =>
+    s.desk.db
+      .query<{ event_id: string }, []>("select event_id from event")
+      .all()
+      .map((r) => r.event_id);
+  const done = () => {
+    nets.mockRestore();
+    setSettings({ desk: null });
+  };
+  return { asg, done, poll, queuedIds, s };
+}
+
+test("in one poll, a matter's arrival is queued though the Personal agent cannot be registered, whose arrival waits; none goes onto a closed assignment", async () => {
+  // Personal's home cannot be made: its registration throws.
+  const d = await matterDesk("/dev/null/agents");
+  try {
+    const now = clock().toISOString();
+    await d.poll([
+      ["whatsapp:1", "person:ana", now],
+      ["whatsapp:2", "person:bo", now],
+    ]);
+    expect(d.queuedIds()).toEqual(["whatsapp:1"]);
+    expect(standingAgentOf(d.s.desk.db, "personal")).toBeUndefined();
+    d.s.desk.db.run("update assignment set closed_at = ? where id = ?", [
+      now,
+      d.asg,
+    ]);
+    await d.poll([["whatsapp:3", "person:ana", now]]);
+    expect(d.queuedIds()).toEqual(["whatsapp:1"]);
+  } finally {
+    d.done();
+  }
+});
+
+test("a Personal agent that never began is tried again only for a Personal arrival newer than its end, never for a matter's", async () => {
+  const d = await matterDesk();
+  try {
+    const { db } = d.s.desk;
+    const ended = clock().toISOString();
+    const failed = insertAgent(db, {
+      brief: "b",
+      role: "personal",
+      runtime: "claude",
+    }).id;
+    db.run("update agent set status = 'ended', ended_at = ? where id = ?", [
+      ended,
+      failed,
+    ]);
+    db.run(
+      "insert into assignment (id, agent_id, opened_at, opened_by, wait_until, wait_reason, notes_path, closed_at, why_not_started) values ('asg_failed', ?1, ?2, 'owner', ?2, 'first turn', 'n', ?2, 'signed out')",
+      [failed, ended]
+    );
+    await d.poll([
+      ["whatsapp:1", "person:bo", ahead(-MIN)],
+      ["whatsapp:2", "person:ana", ahead(MIN)],
+    ]);
+    expect(d.queuedIds()).toEqual(["whatsapp:2"]);
+    expect(standingAgentOf(db, "personal")).toBeUndefined();
+  } finally {
+    d.done();
+  }
 });
 
 const unitOf = (): Unit =>

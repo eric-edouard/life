@@ -47,7 +47,7 @@ export const LIFE_STATE_DIR = real(
 );
 /** The desk's store (`apps/server/src/desk/`): his registered agents, their waits, turns and queued events. Host reads it read-only. */
 export const DESK_STORE = join(LIFE_STATE_DIR, "desk", "desk.sqlite");
-/** When he last pressed "Wrong…" again under a press's key (`complain`): a press, for `startFailureOf`, as a new complaint is. */
+/** When he last pressed "Wrong…" again under a press's key (`complain`): a press, for `roleStartBlockOf`, as a new complaint is. */
 export const COMPLAINT_RETRIED = join(
   LIFE_STATE_DIR,
   "desk",
