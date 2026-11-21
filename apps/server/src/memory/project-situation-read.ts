@@ -4,7 +4,7 @@ import { MAY_KEEP, promptNameOf } from "../models/prompt-parts";
 import { ProjectSituation } from "../records/situation";
 import { MEMORY } from "./memory-files";
 import { readMayKeep } from "./read-truth";
-import { liveLines } from "./situations";
+import { linesCitingOnly } from "./situations";
 
 // Reading a project's stored situation (written by `memory/project-situations.ts`).
 
@@ -34,6 +34,6 @@ export function readProjectSituationNow(
 ) {
   const stored = readStored(project);
   return stored?.madeBy.prompt === promptNameNow()
-    ? liveLines(stored.lines, held)
+    ? linesCitingOnly(stored.lines, held)
     : [];
 }

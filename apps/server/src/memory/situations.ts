@@ -78,11 +78,11 @@ export const readSituationNow = (
       )
       .map((m) => m.id)
   );
-  return liveLines(situation.lines, live);
+  return linesCitingOnly(situation.lines, live);
 };
 
 /** The lines whose every cited step or episode is among `live`: a person's situation and a project's alike. */
-export const liveLines = <L extends { cites: readonly string[] }>(
+export const linesCitingOnly = <L extends { cites: readonly string[] }>(
   lines: readonly L[],
   live: ReadonlySet<string>
 ) => lines.filter((l) => l.cites.every((id) => live.has(id)));
@@ -109,7 +109,7 @@ export const shownLines = <L extends { cites: readonly string[] }>(
   reply: unknown,
   shown: ReadonlySet<string>,
   schema: z.ZodType<L> = SituationLine as unknown as z.ZodType<L>
-) => liveLines(replyLines(reply, schema), shown);
+) => linesCitingOnly(replyLines(reply, schema), shown);
 
 /**
  * The episodes a subject's situation reads: those of weight (`KEEP_AT`) with them, in the `DAYS` days ending at the
