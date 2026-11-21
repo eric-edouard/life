@@ -332,7 +332,6 @@ struct CardView: View {
     }
 }
 
-/// The pager's measures: 12 from the sides and between asks, and the edge it stops short of its box.
 extension View {
     /// Clips left and right only: an ask's scroll runs on under the floating title and tab bar, top and bottom of the
     /// device, softened by its own scroll edge (a plain `clipped()` cut it at the bars, a band over the content, 22 Nov).
@@ -344,6 +343,7 @@ nonisolated private struct SidewaysClip: Shape {
     func path(in rect: CGRect) -> Path { Path(rect.insetBy(dx: 0, dy: -10_000)) }
 }
 
+/// The pager's measures: 12 from the sides and between asks, and the edge it stops short of its box.
 private enum Pager {
     static let gap = Metrics.Spacing.xs * 3
     static let edge = Metrics.Spacing.xs * 2.5
