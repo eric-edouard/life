@@ -8,18 +8,9 @@ enum TellLook: String, CaseIterable {
     var title: String { self == .lit ? "Lit line" : "Grotesk" }
 }
 
-/// Where his words are heard as he speaks: live by ElevenLabs, or on his Mac after he stops. The choice is kept here;
-/// live words arrive with their own change.
-enum TellWords: String, CaseIterable {
-    case live, mac
-    static let key = "tellWords"
-    var title: String { self == .live ? "Live" : "On your Mac" }
-}
-
-/// Settings, Tell Life: the two choices, in his words.
+/// Settings, Tell Life: its look. (Where his words are heard is Settings' Dictation, for every field.)
 struct TellSettingsPage: View {
     @AppStorage(TellLook.key) private var look = TellLook.lit
-    @AppStorage(TellWords.key) private var words = TellWords.live
 
     var body: some View {
         ScrollView {
@@ -27,13 +18,6 @@ struct TellSettingsPage: View {
                 RowGroup(label: "Look", surface: .sheet) {
                     SegmentedChoice(
                         choices: TellLook.allCases, selection: Binding(get: { look }, set: { look = $0 ?? look }),
-                        title: \.title
-                    )
-                    .padding(Metrics.Spacing.s)
-                }
-                RowGroup(label: "Your words, as you speak", surface: .sheet) {
-                    SegmentedChoice(
-                        choices: TellWords.allCases, selection: Binding(get: { words }, set: { words = $0 ?? words }),
                         title: \.title
                     )
                     .padding(Metrics.Spacing.s)

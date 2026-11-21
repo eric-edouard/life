@@ -103,7 +103,7 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   hears as Thai, or all of it when mostly Thai, with vocabulary hints that can name people, to ElevenLabs Scribe under
   its ordinary retention (his decision, 21 Nov 2026; [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per
   dictation; lifelog keeps no audio and no words.
-- His live words while he holds Tell Life: the phone streams his live audio straight to ElevenLabs Scribe (realtime) with a single-use token this Mac mints (`POST /live-words/token`); the ElevenLabs key never leaves the Mac, and lifelog keeps no audio and no words (his yes, 21 Nov 2026; [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)).
+- Instant dictation, only while his `dictationHeard` switch is `instant` (Settings, Dictation: "Instant (ElevenLabs)"; off by default): the phone streams a field's dictation straight to ElevenLabs Scribe (realtime) with a single-use token this Mac mints only then (`POST /live-words/token`); the ElevenLabs key never leaves the Mac, and lifelog keeps no audio and no words. A run whose stream fails is heard on the Mac as above, so its Thai turns may reach Scribe a second time (his ask, 22 Nov 2026; [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)).
 - To a registered agent's runtime (his Claude subscription, or his Codex subscription: OpenAI): its brief and packet
   (his words, its notes, the facts of its queued events (for a payment: its amount, in EUR too, its currency, whether it is spending, the money app's category, and when; for an arrival at a place: when he arrived, and where: its coordinates), its open decision) (his yes to the desk, 18 Nov 2026; his
   yes to Codex as a runtime, 18 Nov 2026).

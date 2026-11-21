@@ -41,11 +41,12 @@ struct SettingsView: View {
                 sending
                 cards
                 pendant
+                dictation
                 RowGroup(label: "Tell Life", surface: .sheet) {
                     NavigationLink {
                         TellSettingsPage()
                     } label: {
-                        Row(title: "Tell Life", icon: "waveform", detail: "Its look, and how your words are heard") {
+                        Row(title: "Tell Life", icon: "waveform", detail: "Its look") {
                             RowValue()
                         }
                     }
@@ -311,6 +312,42 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("settings.apps")
+        }
+    }
+
+    // MARK: Dictation
+
+    /// Where his words are heard when he talks into any field: one choice, each with what it means.
+    private static let dictationChoices: [(heard: ServerClient.Switches.DictationHeard, title: String, line: String)] =
+        [
+            (.mac, "On your Mac", "Words appear when you pause, heard on your Mac."),
+            (.instant, "Instant (ElevenLabs)", "Words appear as you speak. Your audio goes to ElevenLabs."),
+        ]
+
+    private var dictation: some View {
+        let heard = serverValue(.dictationHeard, feed: sync.feed.switches, pending: sync.pending)
+        return RowGroup(label: "Dictation", surface: .sheet) {
+            ForEach(Self.dictationChoices, id: \.heard) { choice in
+                let isChosen = heard.shown == choice.heard
+                Button {
+                    guard !isChosen else { return }
+                    Task { await sync.perform(.switches(dictationHeard: choice.heard)) }
+                } label: {
+                    // The chosen row carries where the change stands; the other keeps its line.
+                    ServerRow(
+                        title: choice.title, detail: choice.line,
+                        value: isChosen || heard.shown == nil ? heard : .known(choice.heard)
+                    ) { shown in
+                        if isChosen, shown == choice.heard {
+                            Image(systemName: "checkmark").font(.smallStrong).foregroundStyle(Palette.fg)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(heard.shown == nil)
+                .accessibilityAddTraits(isChosen ? .isSelected : [])
+                .accessibilityIdentifier("settings.dictation.\(choice.heard.rawValue)")
+            }
         }
     }
 
