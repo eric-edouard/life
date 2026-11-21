@@ -15,6 +15,7 @@ import { runtimeRowsOf } from "./runtimes/runtime-rows";
 import {
   stepMatterIds,
   stepMoves,
+  stepRoleCheck,
   stepRoles,
   stepStore,
   stepTurnModel,
@@ -68,6 +69,7 @@ export async function desk() {
     log("desk.store_step", { done: stepTurnModel(), step: "turn-model" });
     log("desk.store_step", { done: stepMatterIds(), step: "matter ids" });
     log("desk.store_step", { done: stepMoves(), step: "moves" });
+    log("desk.store_step", { done: stepRoleCheck(), step: "role check" });
   } catch (error) {
     log("desk.store_step", { ...errorOf(error), ok: false });
     console.error(`${clock().toISOString()} desk: ${String(error)}`);
