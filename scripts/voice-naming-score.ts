@@ -86,23 +86,20 @@ const newestPerVoice = (list: Guessed[]) => [
 ];
 
 /**
- * By group, as a voice card would ask (who.ts `voiceSuggestionOf`): his answered voices of one part with the same
- * answer, a person or no one, as one card; the name it shows is the one person every sure or likely guess of the group
- * names (none when two disagree). Lifelog's own name for a card is not known for a voice since answered.
+ * By group, as a voice card would ask (who.ts `voiceSuggestionOf`): his answered voices, each by its newest guess, of
+ * one part with the same answer, a person or no one, as one card; the name it shows is the one person every sure or
+ * likely guess of the group names (none when two disagree). Lifelog's own name for a voice since answered is not known.
  */
 function byGroupOf(kept: Guessed[]) {
+  // Each voice by its newest guess, as the card reads it, in the part that guess was made in.
   const groups = [
     ...Map.groupBy(
-      kept.filter((g) => g.answer),
+      newestPerVoice(kept.filter((g) => g.answer)),
       (g) => `${g.part} ${g.answer}`
     ).values(),
   ];
   const shown = groups.flatMap((list) => {
-    const named = new Set(
-      newestPerVoice(list)
-        .filter(namesOther)
-        .map((g) => g.person)
-    );
+    const named = new Set(list.filter(namesOther).map((g) => g.person));
     return named.size === 1
       ? [{ answer: list[0]?.answer, person: [...named][0] }]
       : [];

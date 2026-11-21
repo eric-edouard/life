@@ -119,6 +119,8 @@ test("by group: one card per part and answer, its name the one person its sure o
     g("e", { part: 2, person: "person:bob" }),
     // Part 3, a voice he said is no one he cares about, guessed Bob: shown, wrong.
     g("f", { answer: "not_relevant", part: 3, person: "person:bob" }),
+    // An older guess of a voice in another part counts for nothing: its newest is in part 1.
+    g("b", { at: "2026-10-09T00:00:00.000Z", part: 5, person: "person:bob" }),
     // Part 4, only "unknown" and me: nothing shown.
     g("g", { part: 4, person: "unknown" }),
     g("h", { part: 4, person: "me" }),
