@@ -377,7 +377,10 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
     });
     // Folded or moved to another agent: the receipt names the agent holding its card now.
     const { id: id4 } = await card("desk", "agt_0123456789ab");
-    db.run("insert into card values (?, 'asg_test')", [id4]);
+    db.run("insert into card values (?, 'asg_test'), (?, 'asg_test')", [
+      id3,
+      id4,
+    ]);
     db.run("update assignment set agent_id = 'agt_00000000fe11'");
     // The one that woke on it stays the one told, after its card moved on.
     expect((await call(id3, ["wait"]).result).asker).toMatchObject({
