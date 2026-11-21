@@ -116,6 +116,7 @@ export const LIFE_CHECKS = {
       { ends: "step", id: "done", label: "Mark as done", takes: null },
       { id: "start", label: "Hand to an agent", takes: null },
       { id: "not-now", label: "Not now", takes: null },
+      { ends: "step", id: "drop", label: "Drop", takes: null },
     ],
     title: "Your move",
   },

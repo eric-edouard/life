@@ -752,6 +752,12 @@
           "id": "not-now",
           "label": "Not now",
           "takes": null
+        },
+        {
+          "ends": "step",
+          "id": "drop",
+          "label": "Drop",
+          "takes": null
         }
       ],
       "question": "Sign the lease renewal",
@@ -784,8 +790,8 @@
       "urgency": "improves",
       "misread": {
         "cause": "3f8aa0d63fc5994e",
-        "seal": "c19022c99aed8381216d4fd6996bbec8",
-        "shown": "93d796e1f5113d66"
+        "seal": "5cb44713b9242068464b6762ebfed699",
+        "shown": "c17a6dda60bbeded"
       }
     },
     {
@@ -1016,5 +1022,5 @@
   },
   "deadlinesToday": 0,
   "total": 11,
-  "version": "4ab51ae9ffdfffd5"
+  "version": "a16c9ce43608f0c8"
 }
