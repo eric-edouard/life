@@ -146,7 +146,8 @@ struct CheckCard: View {
         }
         TextField(
             check.group == .newMatter
-                ? "The goal" : check.draft != nil ? "Tell the agent what to change…" : "Say it in your own words",
+                ? "The goal"
+                : check.draft != nil ? "\(check.tellTitle.dropLast()) what to change…" : "Say it in your own words",
             text: $input.words, axis: .vertical
         )
         .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8).focused($isWriting)

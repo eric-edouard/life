@@ -190,6 +190,12 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         card.answer(words: "By bank", option: note.id)
             == AnswerRequest(ref: card.ref, options: [note.id], note: "By bank"))
     #expect(card.answer(words: "x", option: "no such") == AnswerRequest(ref: card.ref, options: [], note: "x"))
+    let two =
+        #"{"ref":"dec_2","group":"decision","title":"t","question":"q","asker":"a","options":[{"id":"cash","label":"Paid in cash","takes":"note"},{"id":"bank","label":"Paid by bank","takes":"note"},{"id":"step","label":"It’s done","ends":"step"},{"id":"all","label":"Drop it","ends":"matter"}],"clips":[],"likelyPeople":[],"links":[]}"#
+    let check = try JSONDecoder().decode(Check.self, from: Data(two.utf8))
+    #expect(check.answer(words: "On Tuesday", option: "bank")?.options == ["bank"])
+    #expect(check.options.map(\.label) == ["Paid in cash", "Paid by bank", "It’s done", "Drop it"])
+    #expect(check.options.compactMap(\.ends) == [.step, .matter])
 }
 
 @Test func aValueOrAFieldLifeAddsNeverBreaksARead() throws {
