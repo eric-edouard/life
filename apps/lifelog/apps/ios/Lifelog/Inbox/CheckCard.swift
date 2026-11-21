@@ -50,11 +50,9 @@ struct CheckCard: View {
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .vertical)
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            if isAnswersInBar {
-                // Taller than the screen allows (a row of wide labels stacks), the bar scrolls rather than grows.
-                ScrollView { answers.padding(.horizontal, Metrics.Spacing.s).readingWidth() }
-                    .scrollBounceBehavior(.basedOnSize).frame(maxHeight: Metrics.answerBarMax)
-            }
+            // The answers themselves, never a scroll view of them: one at the screen's bottom edge took the bar's soft
+            // edge as its own, blurred the answers and kept his taps (21 Nov). `fitsBar` keeps the bar short.
+            if isAnswersInBar { answers.padding(.horizontal, Metrics.Spacing.s).readingWidth() }
         }
         .sheet(item: $input.context) { context in
             ContextSheet(
