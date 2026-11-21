@@ -98,7 +98,7 @@ test("a token signed with a key the issuer lacks is the token's fault", async ()
   );
 });
 
-test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `change_registered_agent` ask for approval, `change_directory_entry`, `change_todo_item` and `tell_life` write but are not destructive", async () => {
+test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `change_registered_agent` ask for approval, `change_directory_entry`, `change_todo_item`, `tell_life` and `ask_main_session` write but are not destructive", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
@@ -106,6 +106,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
   }[] = json.result.tools;
   expect(tools.map((t) => t.name).sort()).toEqual([
     "answer_check",
+    "ask_main_session",
     "change_appointment",
     "change_directory_entry",
     "change_registered_agent",
@@ -150,6 +151,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
       .sort()
   ).toEqual([
     "answer_check(name,note,options,person,ref,value)",
+    "ask_main_session(screen,words)",
     "change_appointment(action,appointment)",
     "change_directory_entry(action,aliases,area,domains,handles,id,kind,language,name,number,people,pictureFrom,projects,relation,repos,said,status,text)",
     "change_registered_agent(action,agent,effort,folder,model,name,project,role,runtime,said,step)",
