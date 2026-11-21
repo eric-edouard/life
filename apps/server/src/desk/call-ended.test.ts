@@ -12,6 +12,7 @@ import {
   turnFixture,
 } from "../sources/store-fixtures";
 import { openAssignment } from "./agent-actions";
+import { EVENTS_SETTLE } from "./agent-wait";
 import { pollCalls, pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
 import { openDesk, writeWait } from "./desk-store";
 import { ANA, advance, ahead, asgOf, chatSource, setup, T0 } from "./test-desk";
@@ -161,6 +162,7 @@ test("a message and the call that ended make one turn that says both", async () 
   await pollMessages(desk, readPeopleOnce());
   await poll();
   expect(queued()).toHaveLength(1);
+  advance(EVENTS_SETTLE);
   await wakeDue(desk);
   const said = fake.said.at(-1)?.message ?? "";
   expect(said).toContain("message.received");

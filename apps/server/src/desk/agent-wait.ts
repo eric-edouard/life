@@ -19,6 +19,11 @@ const WAIT_TO = 7 * DAY;
 const DEFAULT_WAIT = DAY;
 /** An event other than his answer wakes an agent once this has passed since its last turn. */
 const EVENT_GAP = 10 * MIN;
+/**
+ * An event wakes an agent once its queue has been quiet this long (at most `EVENT_GAP` after the first), so a burst of
+ * messages, or his own reply in the chat, is in before the agent drafts.
+ */
+export const EVENTS_SETTLE = 5 * MIN;
 /** A failed turn is tried again after each of these, then the default wait stands. */
 const RETRIES = [5 * MIN, 10 * MIN, 20 * MIN];
 /** An event is handed to this many turns that began and did not consume it (once, then again 3 times at most), then dropped. */
@@ -81,8 +86,8 @@ const AT_ONCE = [...DECISION_EVENTS, DRAFT_CONTESTED, DRAFT_KEPT];
 /**
  * When an assignment's next turn is due and why, from its own turns and events, or null while its turn runs: a failed
  * turn's retry; else the soonest of his answer (at once, or, its retries spent, the last retry's gap after the last
- * failure), another event (10 minutes after its last turn) and its deadline. Whether its agent's session runs another
- * turn is the clock's to check.
+ * failure), another event (5 minutes after the newest, at most 10 after the first, and 10 after its last turn) and its
+ * deadline. Whether its agent's session runs another turn is the clock's to check.
  */
 export function nextWakeOf(
   s: Pick<AssignmentRow, "opened_at" | "wait_until">,
@@ -115,9 +120,10 @@ export function nextWakeOf(
   if (!first) {
     return deadline;
   }
+  const newest = Math.max(...events.map((e) => at(e.received_at)));
   const event = {
     at: Math.max(
-      at(first.received_at),
+      Math.min(newest + EVENTS_SETTLE, at(first.received_at) + EVENT_GAP),
       last?.ended_at ? at(last.ended_at) + EVENT_GAP : 0
     ),
     cause: "event",
