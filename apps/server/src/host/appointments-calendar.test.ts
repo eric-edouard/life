@@ -348,6 +348,25 @@ test("one draft per meeting: the night's and the arrival's of one start are one,
   expect(draft.hash).not.toBe(
     appointmentDraft(night[0] as Appointment, false).hash
   );
+  // A whole day: the same day in another zone is another meeting, never joined.
+  const day = { allDay: true, end: "2031-06-01", start: "2031-06-01" };
+  const apart = plannedOf(
+    [appointment({ ...day, id: "apt_000000000012", zone: "Asia/Tokyo" })],
+    [
+      {
+        ...arrival("apt_0000000000cc", "", ""),
+        ...day,
+        zone: "America/New_York",
+      },
+    ],
+    new Map(),
+    () => false,
+    NOW
+  );
+  expect(apart.map((a) => a.id)).toEqual([
+    "apt_000000000012",
+    "apt_0000000000cc",
+  ]);
 });
 
 test("with no night file yet, no event Life wrote is removed", async () => {

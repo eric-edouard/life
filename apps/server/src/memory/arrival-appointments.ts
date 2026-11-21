@@ -9,6 +9,7 @@ import {
 import { span } from "./episode-span";
 import { READ_REPLIES } from "./memory-files";
 import { READS, readRepliesSince } from "./read-replies";
+import { dayStart } from "./zones";
 
 // The appointments agreed in new lines (the arrival reader's `arrival_appointment` read, his word of 21 Nov 2026):
 // worked out when read from its stored replies, never stored apart. The calendar sync (`host/appointments-calendar.ts`)
@@ -32,7 +33,7 @@ export type ArrivalAppointment = Omit<
   unit: string;
 };
 
-type Meeting = Pick<Appointment, "allDay" | "end" | "start" | "zone">;
+export type Meeting = Pick<Appointment, "allDay" | "end" | "start" | "zone">;
 
 /** When a meeting starts: an instant (in its zone, else where he is then), or its first day when it is all-day. */
 export const meetingStartOf = (a: Meeting) =>
@@ -41,12 +42,37 @@ export const meetingStartOf = (a: Meeting) =>
     a.zone ?? undefined
   ).from;
 
+/** A whole day's start where it is: its zone's midnight (two names of one zone are one). */
+const dayAtOf = (a: Meeting) =>
+  dayStart(a.start.slice(0, 10), a.zone ?? undefined).toISOString();
+
 /**
- * One meeting's key, for its id: its start instant when its zone is named (two names of one zone are one meeting; two
- * calls at 10:00 in two zones are two), else its local start, which no move of his changes.
+ * One meeting's key, for its id: when its zone is named, its start instant, or its day's midnight there when whole (two
+ * names of one zone are one meeting; two calls at 10:00, or two days, in two zones are two); else its local start,
+ * which no move of his changes.
  */
-export const meetingKeyOf = (a: Meeting) =>
-  a.zone && !a.allDay ? meetingStartOf(a) : `${a.start} ${a.zone ?? ""}`;
+export const meetingKeyOf = (a: Meeting) => {
+  if (!a.zone) {
+    return `${a.start} `;
+  }
+  return a.allDay ? `day ${dayAtOf(a)}` : meetingStartOf(a);
+};
+
+/**
+ * Whether two readings are one meeting, the one rule of the sync's join and the night's takeover: one start instant
+ * when timed; one day when whole, and one midnight when both name a zone (a reading without a zone is where he is).
+ */
+export const isSameMeeting = (a: Meeting, b: Meeting) => {
+  if (a.allDay !== b.allDay) {
+    return false;
+  }
+  if (!a.allDay) {
+    return meetingStartOf(a) === meetingStartOf(b);
+  }
+  return (
+    a.start === b.start && (!(a.zone && b.zone) || dayAtOf(a) === dayAtOf(b))
+  );
+};
 
 /** The one rule of what is an arrival appointment: an agreed line of the current prompt, the first one per meeting (`meetingKeyOf`: one meeting, one id). */
 export function arrivalAppointmentsOf(lines: ReadReply[]) {

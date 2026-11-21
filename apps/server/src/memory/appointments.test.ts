@@ -10,8 +10,8 @@ import {
 } from "./appointments";
 import {
   arrivalAppointmentsOf,
+  isSameMeeting,
   meetingKeyOf,
-  meetingStartOf,
 } from "./arrival-appointments";
 import type { ObservationStatusInputs } from "./memory-files";
 import { READS } from "./read-replies";
@@ -290,7 +290,16 @@ test("on a tie with a held appointment, the reading keeps the held id, whose eve
     {
       ...ctx,
       arrivals: [
-        { facts: ["obs_000000000001"], id: "apt_0000000000aa", start: "x" },
+        {
+          facts: ["obs_000000000001"],
+          id: "apt_0000000000aa",
+          meeting: {
+            allDay: false,
+            end: "2026-11-11 17:00",
+            start: "2026-11-11 16:00",
+            zone: null,
+          },
+        },
       ],
     }
   );
@@ -308,9 +317,9 @@ test("a new reading of an arrival's meeting takes its id; the same hour in anoth
     {
       facts: [],
       id: "apt_0000000000aa",
-      start: meetingStartOf({ ...meeting, zone: "Asia/Tokyo" }),
+      meeting: { ...meeting, zone: "Asia/Tokyo" },
     },
-    { facts: [], id: "apt_0000000000bb", start: meetingStartOf(meeting) },
+    { facts: [], id: "apt_0000000000bb", meeting },
   ];
   const { appointments } = checkedAppointments(
     { appointments: [reply({ facts: ["obs_000000000002"] })] },
@@ -366,12 +375,12 @@ test("a held id with no event gives way to the arrival's of the same start, so t
         {
           facts: [],
           id: "apt_0000000000aa",
-          start: meetingStartOf({
+          meeting: {
             allDay: false,
             end: "2026-11-11 17:00",
             start: "2026-11-11 16:00",
             zone: null,
-          }),
+          },
         },
       ],
       hasEvent: () => false,
@@ -389,4 +398,37 @@ test("two names of one zone are one meeting", () => {
   expect(meetingKeyOf({ ...call, zone: "US/Eastern" })).toBe(
     meetingKeyOf({ ...call, zone: "America/New_York" })
   );
+});
+
+test("a whole day: two names of one zone are one meeting, the same day in two zones two; a reading with no zone joins either", () => {
+  const day = { allDay: true, end: "2027-06-01", start: "2027-06-01" };
+  const ny = { ...day, zone: "America/New_York" };
+  expect(meetingKeyOf({ ...day, zone: "US/Eastern" })).toBe(meetingKeyOf(ny));
+  expect(meetingKeyOf({ ...day, zone: "Asia/Tokyo" })).not.toBe(
+    meetingKeyOf(ny)
+  );
+  expect(isSameMeeting({ ...day, zone: "US/Eastern" }, ny)).toBe(true);
+  expect(isSameMeeting({ ...day, zone: "Asia/Tokyo" }, ny)).toBe(false);
+  expect(isSameMeeting({ ...day, zone: null }, ny)).toBe(true);
+  expect(isSameMeeting({ ...day, start: "2027-06-02", zone: null }, ny)).toBe(
+    false
+  );
+});
+
+test("a held appointment the night keeps as it was takes the arrival's id while it has no event, so the id holds past the window", () => {
+  const meeting = {
+    allDay: false,
+    end: "2026-11-11 17:00",
+    start: "2026-11-11 16:00",
+    zone: null,
+  };
+  const arrivals = [{ facts: [], id: "apt_0000000000aa", meeting }];
+  // The reply leaves the held one out: it stays, under the arrival's id when its own has no event.
+  const read = (hasEvent: boolean) =>
+    checkedAppointments(
+      { appointments: [] },
+      { ...ctx, arrivals, hasEvent: () => hasEvent }
+    ).appointments.map((a) => a.id);
+  expect(read(false)).toEqual(["apt_0000000000aa"]);
+  expect(read(true)).toEqual(["apt_000000000001"]);
 });

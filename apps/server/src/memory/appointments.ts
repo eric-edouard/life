@@ -12,7 +12,8 @@ import { ObservationId } from "../records/observation";
 import { eventKey } from "../records/source";
 import {
   type ArrivalAppointment,
-  meetingStartOf,
+  isSameMeeting,
+  type Meeting,
   readArrivalAppointments,
 } from "./arrival-appointments";
 import {
@@ -154,7 +155,7 @@ export function checkedAppointments(
     arrivals?: readonly {
       facts: readonly string[];
       id: string;
-      start: string;
+      meeting: Meeting;
     }[];
     /** Whether an id has calendar event lines: a held id without one gives way to the arrival's of the same start. */
     hasEvent?: (id: string) => boolean;
@@ -210,9 +211,9 @@ export function checkedAppointments(
   };
   // A new reading of an arrival's meeting takes its id, so the id holds once the arrival is past its window.
   const taken = new Set(ids.filter(Boolean));
-  const arrivalOf = (a: Parameters<typeof meetingStartOf>[0]) => {
+  const arrivalOf = (a: Meeting) => {
     const id = ctx.arrivals?.find(
-      (x) => x.start === meetingStartOf(a) && !taken.has(x.id)
+      (x) => isSameMeeting(x.meeting, a) && !taken.has(x.id)
     )?.id;
     if (id) {
       taken.add(id);
@@ -231,13 +232,18 @@ export function checkedAppointments(
   );
   const keptIds = new Set(kept.map((a) => a.id));
   const cited = new Set(kept.flatMap((a) => a.observations));
-  const stays = ctx.held.filter(
-    (h) =>
-      !keptIds.has(h.id) &&
-      h.observations.every((f) => ctx.shown.has(f) && !cited.has(f)) &&
-      !isRefused(h.observations, ctx.refused) &&
-      h.end.slice(0, 10) >= ctx.today
-  );
+  // A held one kept as it was takes an arrival's id the same way, so its id holds past the arrival's window too.
+  const stays = ctx.held
+    .filter(
+      (h) =>
+        !keptIds.has(h.id) &&
+        h.observations.every((f) => ctx.shown.has(f) && !cited.has(f)) &&
+        !isRefused(h.observations, ctx.refused) &&
+        h.end.slice(0, 10) >= ctx.today
+    )
+    .map((h) =>
+      ctx.hasEvent?.(h.id) === false ? { ...h, id: arrivalOf(h) ?? h.id } : h
+    );
   return { appointments: [...kept, ...stays], invalid };
 }
 
@@ -258,7 +264,7 @@ export const arrivalsCitedBy = (
       )
       .map((o) => o.id),
     id: a.id,
-    start: meetingStartOf(a),
+    meeting: { allDay: a.allDay, end: a.end, start: a.start, zone: a.zone },
   }));
 
 /** The nightly step: the appointments ahead of him, read again when their facts, the held ones or his day changed. */
