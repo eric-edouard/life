@@ -3,25 +3,24 @@ import LifeConnector
 import SwiftUI
 
 /// What Life costs (Settings, decision 83), for looking only: this month's billed dollars and a bar a day, then its lists
-/// (`ModelSpending.sections`: billed and his plans' tokens never added). A top agent opens its sheet over its matter, a
-/// top matter its page.
+/// (`ModelSpending.sections`: billed and his plans' tokens never added). A top agent opens its page, a top matter its
+/// page. Opened from Settings into the Projects tab's detail column, with the tabs (DuoFoldSpending).
 struct SpendingPage: View {
-    /// Settings' Life page, for "Pair with Life".
-    let pair: () -> Void
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ReadScreen(
-            shown: life.spending.shown(), retry: { await life.refreshSpending() }, pair: pair,
+            shown: life.spending.shown(), retry: { await life.refreshSpending() }, pair: { router.sheet = .settings },
             loading: { Spinner().foregroundStyle(Palette.fg).frame(maxHeight: .infinity) },
             empty: { EmptyView() },
             content: page
         )
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(Palette.sheet)
+        .background(Palette.bg)
         .screenTitle("Spending")
+        .shellBar("", hasSettings: false)
         // On entry, on a new pairing, and back in front: "Today" is never yesterday's.
         .task(id: [AnyHashable(life.parties.generation.current), AnyHashable(scenePhase == .active)]) {
             if scenePhase == .active { await life.refreshSpending() }

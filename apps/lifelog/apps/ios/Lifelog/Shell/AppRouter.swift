@@ -37,12 +37,13 @@ final class AppRouter {
         case matter(String)
     }
 
-    /// What the Projects tab's detail column shows: a matter, or a project's Details (decision 95), by id, or the
-    /// agents (`AgentsScreen`); one at a time.
+    /// What the Projects tab's detail column shows: a matter, or a project's Details (decision 95), by id, the agents
+    /// (`AgentsScreen`) or Spending (`SpendingPage`), both from Settings; one at a time.
     enum Detail: Hashable {
         case matter(String)
         case project(String)
         case agents
+        case spending
     }
 
     /// What is pushed on the person on show: a part of what Life holds about them (prose, by its ref, with its
@@ -158,12 +159,12 @@ final class AppRouter {
         matterColumn = .detail
     }
 
-    /// The agents, from Settings' "Your agents": the Projects tab's detail column.
-    func openAgents() {
+    /// A page Settings opens (the agents, Spending) in the Projects tab's detail column, with the tabs: the sheet closes.
+    func show(_ page: Detail) {
         sheet = nil
         tab = .projects
         matterPath = []
-        detail = .agents
+        detail = page
         matterColumn = .detail
     }
 
@@ -172,7 +173,7 @@ final class AppRouter {
     func open(agent: String) {
         sheet = nil
         matterSheet = nil
-        if tab != .projects || detail == nil || matterColumn != .detail { openAgents() }
+        if tab != .projects || detail == nil || matterColumn != .detail { show(.agents) }
         matterPath.append(.agent(agent))
     }
 

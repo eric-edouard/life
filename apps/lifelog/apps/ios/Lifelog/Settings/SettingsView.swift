@@ -26,7 +26,6 @@ struct SettingsView: View {
     @State private var page: Connection?
     @State private var isDiagnosticsOpen = false
     @State private var isLiveLogsOpen = false
-    @State private var isSpendingOpen = false
     /// The problems (warn, error) Life logged in the last hour, as the Live logs row says them; nil until read.
     @State private var problems: String?
     @State private var isAppsOpen = false
@@ -76,7 +75,6 @@ struct SettingsView: View {
         .navigationDestination(item: $page) { ConnectionPage(connection: $0) }
         .navigationDestination(isPresented: $isDiagnosticsOpen) { DiagnosticsView() }
         .navigationDestination(isPresented: $isLiveLogsOpen) { LiveLogsPage { page = .life } }
-        .navigationDestination(isPresented: $isSpendingOpen) { SpendingPage { page = .life } }
         .task(id: life.parties.generation.current) { problems = await problemsLastHour() }
         .navigationDestination(isPresented: $isAppsOpen) { AppsPage() }
         #if DEBUG
@@ -86,7 +84,7 @@ struct SettingsView: View {
                 case "server": page = .server
                 case "diagnostics": isDiagnosticsOpen = true
                 case "logs": isLiveLogsOpen = true
-                case "spending": isSpendingOpen = true
+                case "spending": router.show(.spending)
                 case "apps": isAppsOpen = true
                 default: break
                 }
@@ -276,7 +274,7 @@ struct SettingsView: View {
     private var agents: some View {
         RowGroup(label: "Agents", surface: .sheet) {
             Button {
-                router.openAgents()
+                router.show(.agents)
             } label: {
                 let count = (life.agents.value?.agents ?? []).filter { !$0.isOver }.count
                 Row(title: "Your agents", icon: "cpu", detail: count == 0 ? nil : "\(count) at work") { RowValue() }
@@ -427,7 +425,7 @@ struct SettingsView: View {
     private var spending: some View {
         RowGroup(surface: .sheet) {
             Button {
-                isSpendingOpen = true
+                router.show(.spending)
             } label: {
                 Row(title: "Spending", icon: "chart.bar") { RowValue() }
             }
