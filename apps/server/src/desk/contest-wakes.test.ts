@@ -7,11 +7,18 @@ import {
   test,
 } from "bun:test";
 import { rmSync } from "node:fs";
-import { DAY, MIN } from "../core/clock";
-import { DECISION_ANSWERED, DRAFT_CONTESTED, DRAFT_KEPT } from "../host/events";
+import { clock, DAY, MIN } from "../core/clock";
+import {
+  DECISION_ANSWERED,
+  DRAFT_CONTESTED,
+  DRAFT_KEPT,
+  decisionCursorOf,
+  pollDecisions,
+} from "../host/events";
 import {
   answerDecision,
   DECISIONS,
+  openDecisionOf,
   requestDecision,
 } from "../memory/decisions";
 import { CONTEST_WAIT } from "../memory/draft-contest";
@@ -142,6 +149,8 @@ test("a merged card's answer wakes both agents", async () => {
     merges: w.id,
   } as never);
   advance(MIN);
+  // The merged card's agent waits on the combined card.
+  expect(openDecisionOf(asker)?.id).toBe(merged.id);
   await answerDecision(merged.id, ["skip"]);
   advance(MIN);
   pollAnswers(desk);
@@ -152,5 +161,69 @@ test("a merged card's answer wakes both agents", async () => {
       .filter((e) => e.name === DECISION_ANSWERED)
       .map((e) => e.event_id)
   ).toEqual([answered]);
+  resolved.mockRestore();
+});
+
+// A paired agent asks as itself, with no registered agent.
+const PAIRED = "planner";
+const askPaired = (over = {}) => {
+  const { agent: _, ...paired } = card("");
+  return requestDecision(PAIRED, { ...paired, ...over }, undefined, readChat);
+};
+/** The answers a paired agent's poll from `from` hears, with their words. */
+const pairedHears = (from: Date) =>
+  pollDecisions(DECISION_ANSWERED, decisionCursorOf(from), PAIRED).events.map(
+    (e) => [e.eventId, e.data.question, e.data.onSilence]
+  );
+const answersOf = (desk: ReturnType<typeof setup>["desk"], agent: string) =>
+  eventsOf(desk, agent)
+    .filter((e) => e.name === DECISION_ANSWERED)
+    .map((e) => [e.event_id, JSON.parse(e.payload).question]);
+
+test("a paired holder's merge: his answer wakes the desk agent whose card it merged, once, and the holder hears it", async () => {
+  const { desk, waiting } = setup();
+  const asker = await waiting(DAY);
+  pollAnswers(desk);
+  const from = clock();
+  await askPaired();
+  const w = await ask(asker);
+  advance(MIN);
+  const merged = await askPaired({ merges: w.id });
+  advance(MIN);
+  await answerDecision(merged.id, ["skip"]);
+  advance(MIN);
+  pollAnswers(desk);
+  pollAnswers(desk);
+  const answered = `${merged.id}.answered`;
+  expect(answersOf(desk, asker)).toEqual([[answered, undefined]]);
+  expect(pairedHears(from)).toEqual([
+    [answered, "Send this to the group?", null],
+  ]);
+});
+
+test("a desk holder's merge: the paired agent whose card it merged hears his answer, without the holder's words", async () => {
+  const resolved = spyOn(draftSend, "resolveDraft").mockImplementation(
+    readChat as never
+  );
+  const { desk, waiting } = setup();
+  const holder = await waiting(DAY);
+  pollAnswers(desk);
+  const from = clock();
+  await askDecision(desk, on(desk, holder), card(holder) as never);
+  const w = await askPaired();
+  advance(MIN);
+  const merged = await askDecision(desk, on(desk, holder), {
+    ...card(holder),
+    merges: w.id,
+  } as never);
+  advance(MIN);
+  await answerDecision(merged.id, ["skip"]);
+  advance(MIN);
+  pollAnswers(desk);
+  const answered = `${merged.id}.answered`;
+  expect(pairedHears(from)).toEqual([[answered, undefined, null]]);
+  expect(answersOf(desk, holder)).toEqual([
+    [answered, "Send this to the group?"],
+  ]);
   resolved.mockRestore();
 });

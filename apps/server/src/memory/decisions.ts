@@ -312,9 +312,22 @@ function contestOfAsk(
 const isSendingOf = (d: Decision) =>
   d.state === "answered" && actDueOf(d) === "send" && !d.send;
 
-/** Registered agent `agent`'s open decision, if any: the door lets each assignment ask one at a time, worked out from `list`, never stored. */
+/**
+ * The cards whose askers hear card `d` settle (his answer, its lapse, its withdrawal), `d`'s own first: `d`, and the card
+ * it merged (`merges`), whose asker hears it too, never its words. The one rule for the polls and `wakesOn`.
+ */
+export const cardsHearingOf = (d: Decision, list: readonly Decision[]) => [
+  d,
+  ...list.filter((x) => d.merges !== undefined && x.id === d.merges),
+];
+
+/** The open card registered agent `agent` waits on, if any: its own (the door lets each assignment ask one at a time), or the one that merged its card (`cardsHearingOf`), worked out from `list`, never stored. */
 export const openDecisionOf = (agent: string, list = decisionsNow()) =>
-  list.find((d) => d.agent === agent && d.state === "open");
+  list.find(
+    (d) =>
+      d.state === "open" &&
+      cardsHearingOf(d, list).some((c) => c.agent === agent)
+  );
 
 /** Decision `id` while it is open (`isWaitingToo`: or waiting); throws otherwise. */
 function readOpenDecision(id: string, now: Date, isWaitingToo = false) {
