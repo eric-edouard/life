@@ -1,4 +1,5 @@
 import { SourceName } from "../core/names";
+import { AppointmentId } from "../records/appointment";
 import { SUBJECT_PREFIX, UnitId } from "../records/fields";
 import { LedgerEntry } from "../records/ledger-entry";
 import { MatterId } from "../records/matter";
@@ -12,6 +13,7 @@ import { parseReadPartRef, type ReadPartRef } from "./read-part";
 
 /** A ref `fetch` takes, by kind; any other id is a conversation's (a lifelog conversation or an imported one). */
 export type Ref = { id: string } & (
+  | { kind: "appointment" }
   | { kind: "ask" }
   | { kind: "conversation" }
   | { kind: "file"; file: string }
@@ -31,8 +33,9 @@ const FILE = "file:";
 /** The kinds told by their id's form alone. */
 const BY_FORM: {
   is: (id: string) => boolean;
-  kind: "matter" | "observation" | "unit";
+  kind: "appointment" | "matter" | "observation" | "unit";
 }[] = [
+  { is: (id) => AppointmentId.safeParse(id).success, kind: "appointment" },
   {
     is: (id) =>
       MatterId.safeParse(id).success ||
