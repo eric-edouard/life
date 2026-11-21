@@ -238,7 +238,8 @@ public final class Dictation {
                 throw TimedOut()
             }
             defer { group.cancelAll() }
-            return try await group.next()!
+            guard let first = try await group.next() else { throw TimedOut() }
+            return first
         }
     }
 
