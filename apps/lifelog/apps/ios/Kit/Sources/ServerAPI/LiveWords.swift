@@ -52,8 +52,9 @@ public final class LiveWords {
     private var isOpen = false
     /// Which run the socket serves: a run that ended or was replaced changes it.
     private var generation = 0
-    /// The pause waiting for its last words.
+    /// The pause waiting for its last words, and whether one began (ElevenLabs then closes the socket itself).
     private var ending: CheckedContinuation<String?, Never>?
+    private var isFinishing = false
 
     nonisolated static let rate = 16_000
     /// About 10 minutes of audio, the dictation cap: more is never held while the socket opens.
@@ -135,6 +136,7 @@ public final class LiveWords {
         var words: String?
         if isOpen, !hasFailed {
             let mine = generation
+            isFinishing = true
             words = await withCheckedContinuation { ending in
                 self.ending = ending
                 send(Self.chunk([Float](repeating: 0, count: Self.rate / 10), commit: true))
@@ -154,7 +156,7 @@ public final class LiveWords {
         generation += 1
         settle(nil)
         socket?.cancel(with: .normalClosure, reason: nil)
-        (socket, isOpen, queue) = (nil, false, [])
+        (socket, isOpen, queue, isFinishing) = (nil, false, [], false)
     }
 
     private func settle(_ words: String?) {
@@ -190,8 +192,8 @@ public final class LiveWords {
             }
             apply(parsed)
         }
-        // The socket closed under a run still current: the Mac hears it.
-        if mine == generation { fail() }
+        // The socket closed under a run still current, unless after the pause's words came: the Mac hears it.
+        if mine == generation, !isFinishing || ending != nil { fail() }
     }
 
     func apply(_ message: LiveWordsMessage, at now: Date = .now) {
