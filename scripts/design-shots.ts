@@ -33,7 +33,7 @@ const PIXEL_WIDTH = /pixelWidth: (\d+)/;
 interface Frame {
   name: string;
   png: string;
-  /** `phone`, `closed` (the iPhone Duo folded) or `open wide|upright`. */
+  /** `phone` (drawn on the folded iPhone Duo's screen), `closed` (the Duo folded) or `open wide|upright`. */
   pose: string;
   size: [number, number];
   state?: Record<string, unknown>;
@@ -62,12 +62,12 @@ export const readAppFrames = () =>
  * system's clock at the top of the side column: the shot keeps that part.
  */
 function poseOf(frame: Frame) {
-  if (frame.pose === "closed") {
+  if (frame.pose === "closed" || frame.pose === "phone") {
     return { args: [] };
   }
   const [open, way = "wide"] = frame.pose.split(" ");
   if (open !== "open") {
-    throw new Error(`${frame.pose}: only the iPhone Duo's frames are shot`);
+    throw new Error(`${frame.pose}: only the phone and Duo frames are shot`);
   }
   return { args: ["-fixturePose", way], ratio: frame.size[1] / frame.size[0] };
 }
