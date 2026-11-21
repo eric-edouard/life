@@ -7,7 +7,7 @@ struct TellMetrics: Equatable {
     func bottom(regular: Bool) -> CGFloat { regular ? bottomRegular : bottomCompact }
 
     static let phone = TellMetrics(size: 52, trailing: 20, bottomCompact: 29, bottomRegular: 29)
-    static let column = TellMetrics(size: 48, trailing: 18, bottomCompact: 35, bottomRegular: 24)
+    static let column = TellMetrics(size: 48, trailing: 23, bottomCompact: 191, bottomRegular: 191)
 }
 
 /// Ask Life: the round button at rest, a wide banner along the bottom when open. One glass that morphs between them
@@ -29,10 +29,9 @@ struct AskLife: View {
             } else {
                 TellLifeButton(running: running, size: place.size)
                     .glassEffectID("ask", in: glass)
-                    .padding(.trailing, place.trailing)
+                    .padding(.trailing, place.trailing).padding(.bottom, place.bottom(regular: isRegular))
             }
         }
-        .padding(.bottom, place.bottom(regular: isRegular))
         .frame(maxWidth: .infinity, alignment: .trailing)
     }
 
@@ -60,13 +59,14 @@ struct AskLife: View {
         .padding(.horizontal, Metrics.Spacing.l).frame(height: place.size + 8)
         .glassEffect(.regular, in: Capsule())
         .glassEffectID("ask", in: glass)
-        // The content column's edges: the column's right 98 stays clear for the tabs and the button that morphed.
+        // The root spans the Duo's side column too: the banner keeps its right 98 clear for the column (its tabs).
         .padding(.leading, place == .column ? 14 : 20).padding(.trailing, place == .column ? 98 : 20)
         .gesture(
             DragGesture(minimumDistance: 24).onEnded { drag in
                 if drag.translation.height > 24 { withAnimation(Motion.standard) { router.isAskOpen = false } }
             }
         )
+        .padding(.bottom, TellMetrics.phone.bottomCompact)
         .accessibilityIdentifier("ask.banner")
     }
 }

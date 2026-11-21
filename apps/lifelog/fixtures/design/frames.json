@@ -36,6 +36,22 @@
       "agents"
     ]
   },
+  "AskBannerArmedPhone": {
+    "args": ["-fixtureLife", "ok", "-fixtureAsk", "open"],
+    "why": "The banner's dictation is the dictation helper's slot: the frame shows the shell open."
+  },
+  "AskBannerHoldingPhone": {
+    "args": ["-fixtureLife", "ok", "-fixtureAsk", "open"],
+    "why": "The banner's dictation is the dictation helper's slot: the frame shows the shell open."
+  },
+  "AskBannerListeningPhone": {
+    "args": ["-fixtureLife", "ok", "-fixtureAsk", "open"],
+    "why": "The banner's dictation is the dictation helper's slot: the frame shows the shell open."
+  },
+  "AskBannerSendingPhone": {
+    "args": ["-fixtureLife", "ok", "-fixtureAsk", "open"],
+    "why": "The banner's dictation is the dictation helper's slot: the frame shows the shell open."
+  },
   "AskNameNone": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
   },
