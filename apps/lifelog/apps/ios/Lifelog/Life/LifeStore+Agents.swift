@@ -106,7 +106,7 @@ extension LifeStore {
             case .gone: if !isMatter || id == matterRead { moveReceipts[id] = nil }
             case .failed(let say):
                 moveReceipts[id] = nil
-                if let say { show(SaidBack(words: say, undo: nil)) }
+                if let say { show(SaidBack(words: say, undo: nil, isDone: false)) }
             case .done:
                 moveReceipts[id] = nil
                 show(SaidBack(words: movedWords(id), undo: nil, isDone: true))

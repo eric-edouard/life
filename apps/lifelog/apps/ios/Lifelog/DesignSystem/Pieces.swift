@@ -228,7 +228,7 @@ private struct SaidBackToast: ViewModifier {
         content.overlay(alignment: .top) {
             ZStack {
                 if let said = life.saidBack, !inSideColumn || said.undo == nil {
-                    Toast(words: said.words, glyph: said.undo == nil && !said.isDone ? .flag : .ok, undo: life.undoing(said))
+                    Toast(words: said.words, glyph: said.isDone ? .ok : .flag, undo: life.undoing(said))
                         .appears().id(said.id)
                 }
             }

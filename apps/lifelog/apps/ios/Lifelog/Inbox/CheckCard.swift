@@ -70,7 +70,8 @@ struct CheckCard: View {
     private var hasThing: Bool {
         !check.planSteps.isEmpty || check.draft != nil || !(check.needs ?? []).isEmpty || !check.clips.isEmpty
             || check.said != nil
-            || identity != nil || check.contactsCard != nil || (check.group == .newMatter && check.goal != nil)
+            || identity != nil || check.contactsCard != nil
+            || ([.newMatter, .yourMove].contains(check.group) && check.goal != nil)
     }
 
     /// A guessed person, or a same person card's guess, with the chat the network shows them in: that is the thing.
@@ -109,6 +110,7 @@ struct CheckCard: View {
                 input.words = check.goal ?? ""
                 input.isWritingOwnWords = true
             }
+        case .yourMove: NewMatterBlock(goal: check.goal, said: check.said)
         case .name: NameBlock(said: check.said, names: check.about ?? [], clip: check.clips.first)
         default:
             if let said = check.said { SaidBlock(said: said) }
