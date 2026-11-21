@@ -1,10 +1,11 @@
 import { expect, spyOn, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../../core/clock";
 import { lifelogServer } from "../../sources/store-fixtures";
+import { redCards } from "../report";
+import { crashCard } from "./crash-card";
 import {
   processingStepsOf,
   quietestAt,
-  redCards,
   snapshot,
   toneOf,
   waking,
@@ -284,3 +285,24 @@ test(
   },
   MIN
 );
+
+// A loop between two ticks: amber by the 11:00 tick, still mailed once that day.
+test("a crash loop that fell between two ticks is still in the alert", () => {
+  const crashes = ["10:27", "10:28", "10:29", "10:31", "10:32"].map((t) => ({
+    at: `2026-11-20T${t}:00.000Z`,
+    command: "desk",
+    kind: "run.error",
+    step: "crash",
+  }));
+  const at = (t: string) => Date.parse(`2026-11-20T${t}:00.000Z`);
+  expect(crashCard(crashes.slice(0, 3), at("10:30")).tone).toBe("warn");
+  expect(redCards([crashCard(crashes.slice(0, 3), at("10:30"))])).toEqual([]);
+  expect(crashCard(crashes, at("10:32")).tone).toBe("bad");
+  const later = crashCard(crashes, at("11:00"));
+  expect(later).toMatchObject({
+    at: crashes[4]?.at,
+    headline: "desk crashed 5 times in 30 min",
+    tone: "warn",
+  });
+  expect(redCards([later])).toEqual([later]);
+});

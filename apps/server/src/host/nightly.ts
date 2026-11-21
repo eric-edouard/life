@@ -109,12 +109,13 @@ import { readAgentSection } from "./registered-agents";
 import {
   failureReport,
   type Mail,
+  redCards,
   redReport,
   reportKey,
   sendReport,
   successReport,
 } from "./report";
-import { redCards, snapshot } from "./status/snapshot";
+import { snapshot } from "./status/snapshot";
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
 async function acted(now: Date, rec: Pick<RunRecorder, "error">) {

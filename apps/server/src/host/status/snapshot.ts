@@ -1111,15 +1111,6 @@ const RANK: Record<Tone, number> = {
   warn: 2,
 };
 
-/**
- * The cards in red, something of Life's broken now: the alert mails them (`redReport`); amber and idle don't. A run's
- * (pipeline) counts its own tries and mails once out of them; the Mac's repeats the archive's and the watcher's.
- */
-export const redCards = (cards: Card[]) =>
-  cards.filter(
-    (c) => c.tone === "bad" && c.group !== "pipeline" && c.group !== "mac"
-  );
-
 /** Everything in the status snapshot now. */
 export async function snapshot(now = clock()) {
   const r = await reads(now);

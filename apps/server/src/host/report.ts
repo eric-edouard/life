@@ -26,6 +26,8 @@ import { localDate, localTime, time, when } from "../memory/zones";
 import type { LedgerEntry } from "../records/ledger-entry";
 import { entryLine } from "../records/ledger-entry";
 import { polling, readHealth } from "./health";
+import type { Card } from "./status/card";
+import { isCrashLoopCard } from "./status/crash-card";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
 // (no model). `sendReport` also carries the alerts (a failed action or delivery, the lock, a card in red).
@@ -350,6 +352,18 @@ export const actFailedReport = (a: LedgerEntry) =>
     subject: `could not ${a.kind}: ${a.after.title ?? a.target}`,
     verdict: "FAILED",
   });
+
+/**
+ * The cards in red, something of Life's broken now: the alert mails them (`redReport`); amber and idle don't. A run's
+ * (pipeline) counts its own tries and mails once out of them; the Mac's repeats the archive's and the watcher's. A
+ * crash loop earlier in the day counts too, so one between two ticks is still mailed.
+ */
+const QUIET_GROUPS = new Set(["mac", "pipeline"]);
+export const redCards = (cards: Card[]) =>
+  cards.filter(
+    (c) =>
+      isCrashLoopCard(c) || (c.tone === "bad" && !QUIET_GROUPS.has(c.group))
+  );
 
 /** The alert for the cards in red (`redCards`): what is broken, each in its card's words. */
 export const redReport = (

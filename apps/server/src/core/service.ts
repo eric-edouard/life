@@ -1,10 +1,16 @@
 import {
-  copyFileSync,
-  lstatSync,
+  closeSync,
+  constants,
+  fstatSync,
+  ftruncateSync,
   mkdirSync,
+  openSync,
   readdirSync,
-  truncateSync,
+  readSync,
+  renameSync,
+  rmSync,
   writeFileSync,
+  writeSync,
 } from "node:fs";
 import { join } from "node:path";
 import { log } from "./log";
@@ -71,28 +77,67 @@ export function rotateProcessLogs(dir = join(HOME, "Library", "Logs")) {
   let names: string[];
   try {
     names = readdirSync(dir).filter((n) => PROCESS_LOG.test(n));
-  } catch {
+  } catch (e) {
+    log("run.error", { ...errorOf(e), step: "watch.logs" });
     return [];
   }
   return names.filter((n) => {
-    const path = join(dir, n);
     try {
-      const at = lstatSync(path, { throwIfNoEntry: false });
-      // Mostly holes: a writer that doesn't append wrote on past an earlier truncate (an app not rebuilt since); its
-      // own restart rotates it.
-      if (
-        !at?.isFile() ||
-        at.size <= LOG_CAP ||
-        at.blocks * 512 < at.size / 2
-      ) {
-        return false;
-      }
-      copyFileSync(path, join(dir, n.replace(LOG_END, ".old.log")));
-      truncateSync(path, 0);
-      return true;
+      return rotateLog(join(dir, n));
     } catch (e) {
       log("run.error", { ...errorOf(e), file: n, step: "watch.logs" });
       return false;
     }
   });
+}
+
+/**
+ * One log, through one descriptor from its check to its truncate, so a file put in its place meanwhile is never
+ * emptied; the backup is written beside it first and replaces the kept one only once whole.
+ */
+function rotateLog(path: string) {
+  let fd: number;
+  try {
+    // biome-ignore lint/suspicious/noBitwiseOperators: open's flags are bits.
+    fd = openSync(path, constants.O_RDWR | constants.O_NOFOLLOW);
+  } catch (e) {
+    // Gone since the listing, or a link.
+    if (["ELOOP", "ENOENT"].includes((e as NodeJS.ErrnoException).code ?? "")) {
+      return false;
+    }
+    throw e;
+  }
+  try {
+    const at = fstatSync(fd);
+    // Mostly holes: a writer that doesn't append wrote on past an earlier truncate (an app not rebuilt since); its
+    // own restart rotates it.
+    if (!at.isFile() || at.size <= LOG_CAP || at.blocks * 512 < at.size / 2) {
+      return false;
+    }
+    const next = `${path}.rotating`;
+    rmSync(next, { force: true });
+    copyFrom(fd, next);
+    renameSync(next, path.replace(LOG_END, ".old.log"));
+    ftruncateSync(fd, 0);
+    return true;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** A whole file, read through its descriptor, into a new file at `to` (`copyFileSync` takes no descriptor). */
+function copyFrom(fd: number, to: string) {
+  const out = openSync(to, "wx");
+  try {
+    const chunk = Buffer.allocUnsafe(1_048_576);
+    let at = 0;
+    let read = readSync(fd, chunk, 0, chunk.length, at);
+    while (read > 0) {
+      writeSync(out, chunk, 0, read);
+      at += read;
+      read = readSync(fd, chunk, 0, chunk.length, at);
+    }
+  } finally {
+    closeSync(out);
+  }
 }
