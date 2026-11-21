@@ -107,22 +107,22 @@ struct SpokenWords: View {
                 }
                 .lineLimit(1).accessibilityLabel(text)
             } else {
-            FlowLayout {
-                // A word's position is its identity: the text is fixed for the view's life.
-                ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
-                    Group {
-                        if piece.isBold { Text(piece.text).font(.quoteBold) } else { Text(piece.text) }
+                FlowLayout {
+                    // A word's position is its identity: the text is fixed for the view's life.
+                    ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
+                        Group {
+                            if piece.isBold { Text(piece.text).font(.quoteBold) } else { Text(piece.text) }
+                        }
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.3)
+                        .foregroundStyle(isLit(index) ? Palette.fg : Palette.muted)
+                        .motion(.easeOut(duration: 0.12), value: isLit(index))
+                        .contentShape(.rect)
+                        .onTapGesture { begin(at: Double(words[index][0]) / 1000) }
                     }
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.3)
-                    .foregroundStyle(isLit(index) ? Palette.fg : Palette.muted)
-                    .motion(.easeOut(duration: 0.12), value: isLit(index))
-                    .contentShape(.rect)
-                    .onTapGesture { begin(at: Double(words[index][0]) / 1000) }
                 }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(text)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(text)
             }
         } else if style == .line {
             Text("“\(text)”").lineLimit(1).foregroundStyle(Palette.fg)
