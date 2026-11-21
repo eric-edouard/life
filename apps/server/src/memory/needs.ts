@@ -109,17 +109,17 @@ const KINDS: {
     page: '`{kind: "amount", value, currency}`: `value` a positive number, `currency` its ISO code (`THB`, `EUR`). He copies the plain number. With `doneSeenBy: "payment"`, Life looks for a payment of exactly this amount in this currency to the payee (`fetch("ask/payment")`). Example: `{"kind":"amount","value":4500,"currency":"THB"}`.',
   },
   app: {
-    about: "an app to do the step in (name, link)",
+    about: "an app (name, link)",
     line: (n) => `In ${n.name}`,
     page: '`{kind: "app", name, url?}`: a step he does in another app (a bank app, a booking app). `name` as the app is called; `url` an `https` link into it (a universal link or its store page), opened by his own tap (his phone shows its host), never a custom scheme. Never guess a link. Example: `{"kind":"app","name":"Grab","url":"https://grab.example.com/open"}`.',
   },
   link: {
-    about: "a web page to open (url, vendor)",
+    about: "a web page (url, vendor)",
     line: (n) => `${n.vendor ? `${n.vendor}: ` : ""}${new URL(n.url).host}`,
     page: '`{kind: "link", url, vendor?}`: a page he opens by his own tap (a checkout, a login, a form), `https` or `http` only; `vendor` who runs it. His phone shows the page\'s host in full and never opens it by itself. Example: `{"kind":"link","url":"https://pay.example.com/i/123","vendor":"Fibrenet"}`.',
   },
   place: {
-    about: "a place to go (name, links)",
+    about: "a place (name, links)",
     line: (n) => (n.address ? `${n.name}, ${n.address}` : n.name),
     page: '`{kind: "place", name, address?, googleMapsUrl?, appleMapsUrl?, boltUrl?}`: where he goes to do the step. `name` as the place is known; `address` only as written somewhere; the links `https` only, each opened by his own tap: Google Maps, Apple Maps, and a Bolt ride there. Never guess one. Example: `{"kind":"place","name":"Chatuchak vehicle office","googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Chatuchak%20vehicle%20office"}`.',
   },
