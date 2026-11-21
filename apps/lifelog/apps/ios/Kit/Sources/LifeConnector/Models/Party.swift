@@ -18,6 +18,9 @@ public struct Party: Decodable, Sendable, Equatable {
     /// What they are to him, one line, when Life knows it.
     public let line: String?
     public let picture: Picture?
+
+    /// The owner himself, as every read names him (`OWNER`, `memory/read-truth.ts`).
+    public var isOwner: Bool { ref == "person:me" }
 }
 
 /// A read that names parties: the phone keeps each by its ref (`LifeStore.parties`) and fetches their pictures.

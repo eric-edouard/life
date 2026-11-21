@@ -211,7 +211,9 @@ private struct EditableLine: View {
 private struct People: View {
     let people: MatterRow.People?
 
-    /// One small line of chips: "Owed to (disc) Ana Novak, with (disc) Sam Lee".
+    @Environment(AppRouter.self) private var router
+
+    /// One small line of chips, each opening that person's page: "Owed to (disc) Ana Novak, with (disc) Sam Lee".
     var body: some View {
         let groups: [(String, [Party])] = [
             ("Owed to", people?.owedTo ?? []), ("Waiting on", people?.waitingOn ?? []),
@@ -229,7 +231,12 @@ private struct People: View {
             FlowLayout(spacing: Metrics.Spacing.xs) {
                 ForEach(chips) { chip in
                     HStack(spacing: 0) {
-                        PartyChip(party: chip.party, label: chip.label)
+                        Button {
+                            router.open(party: chip.party.ref)
+                        } label: {
+                            PartyChip(party: chip.party, label: chip.label)
+                        }
+                        .buttonStyle(.plain)
                         if chip.id != chips.last?.id { Text(",").foregroundStyle(Palette.muted) }
                     }
                 }
