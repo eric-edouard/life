@@ -170,6 +170,21 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     #expect(prose.sections[0].paragraphs == ["Camille is your partner.", "She writes every day."])
 }
 
+@Test func anOrganizationsNowGivesItsPeopleThenThoseWhoLeft() throws {
+    let bakery = try decoded(PersonNow.self, wireText("life/read_people_and_organizations_organization.json"))
+    #expect(bakery.row.party.kind == .organization)
+    #expect(bakery.members.map(\.line) == ["baker"])
+    #expect(bakery.domains == ["bakery.example"])
+    #expect(bakery.parties.map(\.ref) == ["person:test-bakery", "person:test-ana"])
+    let atelier = try decoded(
+        PersonNow.self,
+        #"{"ref":"person:atelier","name":"Atelier","kind":"organization","people":[{"party":{"ref":"person:b","name":"B","kind":"person"},"role":"Founder"},{"party":{"ref":"person:m","name":"M","kind":"person"},"role":"Fitter","until":2025},{"party":{"ref":"person:j","name":"J","kind":"person"},"role":"Intern","until":"2024-06-30"}]}"#
+    )
+    let (now, before) = atelier.membersNowThenBefore
+    #expect(now.map(\.line) == ["Founder"])
+    #expect(before.map(\.line) == ["Fitter · until 2025", "Intern · until 2024-06-30"])
+}
+
 @Test func everyAccountReadReplacesReachAndLeavesTheDetails() throws {
     let now = try decoded(
         PersonNow.self,
@@ -264,4 +279,30 @@ private func latestPage(_ texts: [String], from day: Int, before: String?) -> St
     people.path.append("person:atelier/page")
     people.open(nil)
     #expect(people.page == nil && people.path.isEmpty)
+}
+
+@Test func aFindHoldingOnlyOthersIsSomeoneAndANewPairingAsksTheQueryAgain() throws {
+    // A match only among the others Life has seen is a match: search never says nothing holds above it.
+    let others = try decoded(
+        PeopleList.self, #"{"people":[],"others":[{"ref":"unknown:mara","name":"Mara","kind":"person"}]}"#)
+    #expect(!others.isNoOne)
+    #expect(try decoded(PeopleList.self, #"{"people":[],"others":[]}"#).isNoOne)
+    #expect(try decoded(PeopleList.self, #"{"people":[]}"#).isNoOne)
+    // The search's read of the people is its query and its pairing: the same query on a new pairing is a new read.
+    #expect(PeopleQuery(text: "mar", pairing: 1) != PeopleQuery(text: "mar", pairing: 2))
+    #expect(PeopleQuery(text: "mar", pairing: 2) == PeopleQuery(text: "mar", pairing: 2))
+}
+
+@Test func anOrganizationSaysWhatItsReadLeftOut() throws {
+    // Nothing fit: its people, domains and matters still count, so the page says how many rather than nothing.
+    let none = try decoded(
+        PersonNow.self,
+        #"{"ref":"person:atelier","name":"Atelier","kind":"organization","more":{"people":3,"domains":2,"open":2}}"#)
+    #expect(none.members.isEmpty && none.membersLeftOut == 3)
+    #expect(none.domains.isEmpty && none.domainsLeftOut == 2)
+    #expect(none.openCount == 2 && none.isOpenCut && none.openShown(isAll: false, all: nil).isEmpty)
+    // Nothing left out: no count.
+    let whole = try decoded(
+        PersonNow.self, #"{"ref":"person:a","name":"A","kind":"organization","domains":["a.example"]}"#)
+    #expect(whole.membersLeftOut == 0 && whole.domainsLeftOut == 0 && !whole.isOpenCut)
 }

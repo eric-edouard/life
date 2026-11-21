@@ -58,6 +58,7 @@ private struct PeopleColumns: View {
                             case .part(let part, let title): ProsePage(ref: part, title: title)
                             case .latest(let subject): LatestScreen(subject: subject)
                             case .writing(let subject): WritingPage(subject: subject)
+                            case .party(let ref): PersonPage(ref: ref)
                             }
                         }
                 }

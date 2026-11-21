@@ -192,6 +192,32 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         public let text: String
     }
 
+    /// Someone at an organization, his word in its entry: their party, role, and the year or day they left.
+    public struct Member: Decodable, Sendable, Equatable, Identifiable {
+        public let party: Party
+        public let role: String
+        /// When they left (a year or a day), as written; none while they are there.
+        public let until: String?
+        public var id: String { party.ref }
+
+        private enum Key: String, CodingKey { case party, role, until }
+
+        public init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: Key.self)
+            party = try container.decode(Party.self, forKey: .party)
+            role = try container.decode(String.self, forKey: .role)
+            // A year is a number, a day a string.
+            if let year = try? container.decodeIfPresent(Int.self, forKey: .until) {
+                until = String(year)
+            } else {
+                until = try container.decodeIfPresent(String.self, forKey: .until)
+            }
+        }
+
+        /// Their line on the organization's page: the role, and when they left ("Fitter · until 2025").
+        public var line: String { until.map { "\(role) · until \($0)" } ?? role }
+    }
+
     public let row: PersonRow
     public let reach: [Reach]
     public let details: [Detail]
@@ -203,9 +229,13 @@ public struct PersonNow: Decodable, Sendable, Equatable {
     public let more: [String: Int]
     /// The `reach` part's ref when `now` had no room for every account (`reach/<offset>` pages them all).
     public let moreReach: String?
+    /// An organization's: the people he knows there, and its mail and web domains.
+    public let members: [Member]
+    public let domains: [String]
 
     private enum Key: String, CodingKey {
-        case reach, details, knows, open, situation, communicationStyle, more, moreReach
+        case reach, details, knows, open, situation, communicationStyle, more, moreReach, domains
+        case members = "people"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -216,6 +246,7 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         (situation, communicationStyle) = (try list(.situation), try list(.communicationStyle))
         more = try container.decodeIfPresent([String: Int].self, forKey: .more) ?? [:]
         moreReach = try container.decodeIfPresent(String.self, forKey: .moreReach)
+        (members, domains) = (try list(.members), try list(.domains))
     }
 
     /// Reach with every account once the `reach` part's pages are read, in order, to its end (`pages`; none: `now`'s
@@ -244,6 +275,15 @@ public struct PersonNow: Decodable, Sendable, Equatable {
     public func openShown(isAll: Bool, all: [MatterRow]?) -> [MatterRow] {
         guard isAll else { return Array(open.prefix(3)) }
         return isOpenCut ? all ?? open : open
+    }
+
+    /// How many of an organization's people, and of its domains, `now` had no room for (none read them on the phone).
+    public var membersLeftOut: Int { more["people"] ?? 0 }
+    public var domainsLeftOut: Int { more["domains"] ?? 0 }
+
+    /// An organization's people now, then those who left (`until`), each in his directory's order.
+    public var membersNowThenBefore: (now: [Member], before: [Member]) {
+        (members.filter { $0.until == nil }, members.filter { $0.until != nil })
     }
 
     /// Their first name, as a page's labels say it ("Open with Camille").
@@ -368,10 +408,26 @@ public struct Prose: Sendable, Equatable, ParsedRead, NamesParties {
         return Prose(sections: sections)
     }
 }
+extension PeopleList {
+    /// A find that holds no one: no row, and no other Life has seen by that name.
+    public var isNoOne: Bool { people.isEmpty && (others ?? []).isEmpty }
+}
+
+/// What search reads of the people: one query, read again on each new pairing (`PairingGeneration`), so a query on
+/// show is asked of the new Life too.
+public struct PeopleQuery: Hashable, Sendable {
+    public let text: String
+    public let pairing: Int
+
+    public init(text: String, pairing: Int) {
+        (self.text, self.pairing) = (text, pairing)
+    }
+}
+
 extension PeopleList: NamesParties {
     public var parties: [Party] { people.map(\.party) + (others ?? []) }
 }
 
 extension PersonNow: NamesParties {
-    public var parties: [Party] { [row.party] + open.flatMap(\.parties) }
+    public var parties: [Party] { [row.party] + open.flatMap(\.parties) + members.map(\.party) }
 }

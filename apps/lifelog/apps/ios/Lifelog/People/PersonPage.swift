@@ -2,9 +2,10 @@ import LifeConnector
 import SwiftUI
 import UIKit
 
-/// A person's or an organization's page, from the one read of them (`now`), in the order he looks: who they are to him
-/// and how close, how to reach them, what is open with them, lately, their details, what Life knows (each a page of its
-/// own), and their latest exchanges. Only what exists shows: nothing says empty.
+/// A person's or an organization's page, from the one read of them (`now`). A person's in the order he looks: who they
+/// are to him and how close, how to reach them, what is open with them, lately, their details, what Life knows (each a
+/// page of its own), and their latest exchanges; an organization's is `OrgPage`. Only what exists shows: nothing says
+/// empty.
 struct PersonPage: View {
     let ref: String
     /// Settings beside the Pendant: on a regular width the list's bar has neither, so the page carries both.
@@ -18,7 +19,18 @@ struct PersonPage: View {
             shown: state.shown(), retry: { await life.refreshPerson(ref) },
             loading: { PagePlaceholder() },
             empty: { EmptyView() },
-            content: { now in page(now) }
+            content: { now in
+                // Every account, once `now` sent the `reach` part's ref for those it had no room for and every page
+                // arrived; a person's or an organization's page alike.
+                let chain = now.moreReach.map { life.reachChain(from: $0) }
+                let (reach, details) = now.withEveryAccount(chain?.whole)
+                let tiles = ReachTiles(reach: reach, retryFrom: chain?.isFailed == true ? now.moreReach : nil)
+                if now.row.party.kind == .organization {
+                    OrgPage(now: now, reach: tiles)
+                } else {
+                    page(now, reach: tiles, details: details)
+                }
+            }
         )
         .background(Palette.bg)
         .shellBar("", hasSettings: hasSettings)
@@ -28,22 +40,14 @@ struct PersonPage: View {
         }
     }
 
-    private func page(_ now: PersonNow) -> some View {
-        // Every account, once `now` sent the `reach` part's ref for those it had no room for and every page arrived.
-        let chain = now.moreReach.map { life.reachChain(from: $0) }
-        let (reach, details) = now.withEveryAccount(chain?.whole)
-        return ScrollView {
+    private func page(_ now: PersonNow, reach: ReachTiles, details: [PersonNow.Detail]) -> some View {
+        ScrollView {
             VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     Who(row: now.row)
-                    if !reach.isEmpty { ReachTiles(reach: reach) }
-                    if case .failed = chain?.next, let first = now.moreReach {
-                        PartRetry(what: "Some of their accounts") {
-                            await life.refreshReach(from: first, isRetry: true)
-                        }
-                    }
+                    reach
                 }
-                OpenWith(now: now)
+                OpenMatters(label: "Open with \(now.firstName)", now: now)
                 Lately(lines: now.situation.map(\.text))
                 Details(details: details)
                 Knows(now: now, ref: ref)
@@ -76,14 +80,27 @@ private struct Who: View {
 
 /// Reach: five equal tiles at most, each an app's mark over its name, one tap to their chat or a call. An app with
 /// several accounts carries a chevron and opens the system menu of them (their name there over the handle, newest
-/// first); past five, the fifth is More.
-private struct ReachTiles: View {
+/// first); past five, the fifth is More. Then Try again, when some accounts did not load.
+struct ReachTiles: View {
     let reach: [PersonNow.Reach]
+    /// The `reach` part's first ref when one of its pages failed: Try again reads the rest.
+    var retryFrom: String?
     private static let across = 5
 
+    @Environment(LifeStore.self) private var life
+
     var body: some View {
+        if !reach.isEmpty { tiles }
+        if let retryFrom {
+            PartRetry(what: "Some of their accounts") {
+                await life.refreshReach(from: retryFrom, isRetry: true)
+            }
+        }
+    }
+
+    private var tiles: some View {
         let shown = reach.count > Self.across ? Array(reach.prefix(Self.across - 1)) : reach
-        HStack(spacing: Metrics.Spacing.s) {
+        return HStack(spacing: Metrics.Spacing.s) {
             ForEach(shown) { app in tile(app) }
             if reach.count > Self.across {
                 Menu {
@@ -145,9 +162,10 @@ private struct ReachTiles: View {
     }
 }
 
-/// What is open with them: at most three rows of the Matters list; "All n" shows every one, read whole once `now` left
-/// some out.
-private struct OpenWith: View {
+/// What is open with them, under `label`: at most three rows of the Matters list; "All n" shows every one, read whole
+/// once `now` left some out.
+struct OpenMatters: View {
+    let label: String
     let now: PersonNow
     @State private var isAll = false
 
@@ -159,7 +177,7 @@ private struct OpenWith: View {
         let rows = now.openShown(isAll: isAll, all: life.openWith[ref]?.value?.matters)
         if now.openCount > 0 {
             VStack(alignment: .leading, spacing: 0) {
-                Text("Open with \(now.firstName)").font(.small).foregroundStyle(Palette.muted)
+                Text(label).font(.small).foregroundStyle(Palette.muted)
                     .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xs)
                 ForEach(rows) { row in
                     Button {
@@ -321,8 +339,11 @@ private struct KnownRow {
 }
 
 /// Latest, the bottom of the page: their newest exchanges across every channel, then Earlier, which pages back.
-private struct Latest: View {
+struct Latest: View {
     let subject: String
+    /// "Latest" on a person's page, five exchanges and Earlier; "Last exchange" on an organization's, one.
+    var label = "Latest"
+    var count: Int?
 
     @Environment(LifeStore.self) private var life
 
@@ -333,9 +354,11 @@ private struct Latest: View {
                 PartRetry(what: "Their latest exchanges") { await life.refreshLatest(ref) }
             } else if let page = life.latest[ref]?.value, !page.latest.isEmpty {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
-                    Text("Latest").font(.small).foregroundStyle(Palette.muted)
-                    ForEach(page.latest) { item in ExchangeView(item: item, when: SaidWords.moment(item.at)) }
-                    if page.nextBefore != nil {
+                    Text(label).font(.small).foregroundStyle(Palette.muted)
+                    ForEach(page.latest.prefix(count ?? page.latest.count)) { item in
+                        ExchangeView(item: item, when: SaidWords.moment(item.at))
+                    }
+                    if count == nil, page.nextBefore != nil {
                         NavigationLink(value: AppRouter.PersonRoute.latest(subject)) {
                             Text("Earlier \(Image(systemName: "chevron.right"))").font(.smallStrong)
                                 .foregroundStyle(Palette.fg)

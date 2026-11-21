@@ -72,6 +72,9 @@
   "DuoFoldOrgNameCard": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
   },
+  "DuoFoldOrgPage": {
+    "why": "Its organization (person:atelier_morel) is not in the design data yet; once the designer adds it to read_people_and_organizations.json: -fixtureLife ok -fixtureTab people -fixturePerson person:atelier_morel."
+  },
   "DuoFoldPeople": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
   },
@@ -82,6 +85,9 @@
   "DuoFoldPeopleOrgs": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
     "taps": ["Organizations"]
+  },
+  "DuoFoldPeopleSearch": {
+    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
   },
   "DuoFoldPeopleSheet": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_marc"],
@@ -292,12 +298,21 @@
   "DuoOrgNameCard": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
   },
+  "DuoOrgPage": {
+    "why": "Its organization (person:atelier_morel) is not in the design data yet; once the designer adds it to read_people_and_organizations.json: -fixtureLife ok -fixtureTab people -fixturePerson person:atelier_morel."
+  },
   "DuoPeople": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
   },
   "DuoPeopleAZ": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
     "taps": ["Sort", "A to Z"]
+  },
+  "DuoPeopleOrg": {
+    "why": "Its organization (person:atelier_morel) is not in the design data yet; once the designer adds it to read_people_and_organizations.json: -fixtureLife ok -fixtureTab people -fixturePerson person:atelier_morel."
+  },
+  "DuoPeopleSearch": {
+    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
   },
   "DuoPersonCreate": {
     "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
