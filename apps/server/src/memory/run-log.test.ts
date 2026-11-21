@@ -435,9 +435,11 @@ test("log lines page back newest first by day and byte, none lost or repeated; f
     },
   ]);
   // A line's id is its place: as a cursor it reads the lines before it, on that day and the older ones.
-  const [, second, third] = first.lines;
-  const before = await readLogLines({ cursor: second?.id, limit: 1 }, dir);
-  expect(before.lines.map((l) => l.at)).toEqual([third?.at]);
+  const before = await readLogLines(
+    { cursor: first.lines[1]?.id, limit: 1 },
+    dir
+  );
+  expect(before.lines).toEqual(first.lines.slice(2, 3));
   // His app's live log never shows its own reads; a refused one stays.
   appendFileSync(
     join(dir, "2026-11-20.jsonl"),
