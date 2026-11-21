@@ -47,31 +47,6 @@
   "DuoFoldImportantSwipe": {
     "why": "A swipe: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab matters, then a swipe to the right on Table for Mum’s 60th (the system's own swipe action)."
   },
-  "DuoFoldLogDetail": {
-    "why": "Its lines are not in the design data yet (read_log_lines.json, the designer's to write): until then the page shows the empty log."
-  },
-  "DuoFoldLogs": {
-    "why": "Its lines are not in the design data yet (read_log_lines.json, the designer's to write): until then the page shows the empty log."
-  },
-  "DuoFoldLogsEmpty": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureSheet",
-      "settings",
-      "-fixturePage",
-      "logs"
-    ]
-  },
-  "DuoFoldLogsOffline": {
-    "why": "The Mac stops answering after lines were read: the fixture has no way to fail a read once it answered."
-  },
-  "DuoFoldLogsPaused": {
-    "why": "Its lines are not in the design data yet (read_log_lines.json, the designer's to write): until then the page shows the empty log."
-  },
-  "DuoFoldLogsProblems": {
-    "why": "Its lines are not in the design data yet (read_log_lines.json, the designer's to write): until then the page shows the empty log."
-  },
   "DuoFoldNameNone": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
   },
@@ -309,9 +284,6 @@
   },
   "DuoFoldProjectTellLife": {
     "why": "Its card (StackPlan, the kitchen's plan) is not in the design data: the ready line stands over his words on a decision whose matter has a project underway."
-  },
-  "DuoFoldSettingsLogs": {
-    "why": "Settings scrolled to its Help group, a problem in the last hour: needs warn lines in read_log_lines.json (the designer's to write) and a scroll, which design:shots does not do."
   },
   "DuoFoldStackPay": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "dec_pay"]
