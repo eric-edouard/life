@@ -68,6 +68,7 @@ import {
   readMatterRowsNow,
   readPeopleAndOrganizations,
 } from "../matter-rows";
+import { readProjectNow, readProjectsNow } from "../projects-read";
 import {
   agentLinesOnProjects,
   readActiveAgentOf,
@@ -327,10 +328,16 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matters",
-    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `blockingChecks` (how many open checks about it block him: an agent's decision, an unnamed voice, a name nobody is; `read_matter` lists every one), `needsYou` (whether it needs him: its next step is his decision or something only he does, unless it is stuck, or a check about it blocks him), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: parties, each `ref`, `name`, `kind` person or organization, `line` (what they are to him) and `picture` (`id`, for `read_person_pictures`), from its open steps), `areas` and `projects` (names), `icon` (`key`, one of the matter icon set; `by` life: Life's pick, owner: his; absent: none, show the area's), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area; of one project, `project` also carries `situation`: where it stands now, lines of `text` each citing the matter steps it rests on (`cites`; Life's reading of its matters, empty until it is made). `version`: pass it back as `ifNot` to get only `{version, unchanged: true}` while nothing changed. `read_matter` opens one.",
+    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `blockingChecks` (how many open checks about it block him: an agent's decision, an unnamed voice, a name nobody is; `read_matter` lists every one), `needsYou` (whether it needs him: its next step is his decision or something only he does, unless it is stuck, or a check about it blocks him), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: parties, each `ref`, `name`, `kind` person or organization, `line` (what they are to him) and `picture` (`id`, for `read_person_pictures`), from its open steps), `areas` and `projects` (names), `icon` (`key`, one of the matter icon set; `by` life: Life's pick, owner: his; absent: none, show the area's), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area (`noProject`: only those that sit in no project, with an area); of one project, `project` also carries `situation`: where it stands now, lines of `text` each citing the matter steps it rests on (`cites`; Life's reading of its matters, empty until it is made). `version`: pass it back as `ifNot` to get only `{version, unchanged: true}` while nothing changed. `read_matter` opens one.",
     z.object({
       area: z.string().optional().describe("Area id or name"),
       ifNot: IfNot,
+      noProject: z
+        .boolean()
+        .optional()
+        .describe(
+          "Only the matters that sit in no project (an area chip's list)"
+        ),
       person: z.string().optional().describe("Name, alias or id"),
       project: z.string().optional().describe("Project id or name"),
     }),
@@ -338,6 +345,23 @@ export function buildServer(readsOnly = false) {
       const answer = await readMatterRowsNow(q, readActiveAgentOf());
       return answer.version === ifNot ? unchangedOf(ifNot) : answer;
     }
+  );
+  tool(
+    server,
+    "read_projects",
+    "The Projects tab's chip row (JSON): `all` (`open` running matters, `needYou` of them), then `chips` in the order to show: the underway projects (those with a matter that needs him first, then in the order of his goals), the areas that hold a running matter in no project, then the parked projects. Each chip: `kind` (project or area), `id`, `name`, for a project its `status` and `area` (id), `needYou` (its running matters that need him, as `read_matters` says), `agentAtWork` (a registered agent is running on it or on one of its matters; never for a parked project) and `matters` (how many it holds). A chip's list is `read_matters` with its `project`, or its `area` and `noProject`: the same rule gives both. `version`: pass it back as `ifNot` to get only `{version, unchanged: true}` while nothing changed. `read_project` opens one project's header.",
+    z.object({ ifNot: IfNot }),
+    ({ ifNot }) => readProjectsNow(ifNot)
+  );
+  tool(
+    server,
+    "read_project",
+    "One project's header and details (JSON, `project`): `id`, `name`, `status` (active, waiting, parked, done), `goal` (`text`, its `rank` among his `of` goals; null when none names it), `situation` (where it stands: lines of `text` citing matter steps in `cites`; empty until made), `ask` (the most pressing open decision about one of its matters: `ref` (the card, as `read_inbox` gives it), `question`, `deadline`, `matter`; null when none), `agents` (registered agents running or waiting on it or its matters, none while it is parked or done: `id`, `title`, `status`, `line`), and its directory entry: `people` (parties), `chats` (`key`, `name`) and `repos` (`name`, and `folder`, its main worktree on the Mac; null for one only on GitHub). Its matters are `read_matters` of the project. `version`: pass it back as `ifNot`.",
+    z.object({
+      ifNot: IfNot,
+      project: z.string().min(1).describe("Project id or name"),
+    }),
+    ({ ifNot, project }) => readProjectNow(project, ifNot)
   );
   tool(
     server,

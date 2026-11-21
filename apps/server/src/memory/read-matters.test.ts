@@ -7,6 +7,7 @@ import {
   type HandOutFacts,
   type HandOutMatter,
   handOutGateOf,
+  isInScope,
   isOneOfHis,
   isParkedMatterOf,
   needsYouOf,
@@ -470,4 +471,21 @@ test("a matter he marked important comes first, with no open step too; its parke
     book.mockRestore();
     rank.mockRestore();
   }
+});
+
+test("a scope holds the matters of an area, of a project, or of an area in no project: the one rule of the list and the chips' counts", () => {
+  const truth = {
+    projects: [{ id: "shop" }, { id: "old" }],
+  } as unknown as Parameters<typeof isInScope>[0];
+  const home = { areas: ["home"], projects: [] as string[] };
+  const homeShop = { areas: ["home"], projects: ["shop"] };
+  const work = { areas: ["work"], projects: [] as string[] };
+  const unknown = { areas: ["home"], projects: ["not-in-directory"] };
+  const all = [home, homeShop, work, unknown];
+  const of = (s: Parameters<typeof isInScope>[1]) =>
+    all.filter(isInScope(truth, s));
+  expect(of({})).toEqual(all);
+  expect(of({ area: "home" })).toEqual([home, homeShop, unknown]);
+  expect(of({ project: "shop" })).toEqual([homeShop]);
+  expect(of({ area: "home", noProject: true })).toEqual([home, unknown]);
 });

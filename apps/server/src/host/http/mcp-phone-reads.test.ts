@@ -2,6 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { writeJson } from "../../core/files";
+import { HOME } from "../../core/platform";
 import { setSettings } from "../../core/settings";
 import { nameGroupsOf } from "../../memory/check-sentences";
 import type { CheckInputs } from "../../memory/checks";
@@ -553,10 +554,29 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       nameOf: (r: string) => r.replace("person:", ""),
       partyOf: madeUpPartyOf,
       truth: {
-        areas: [],
+        areas: [{ id: "home", name: "Home" }],
+        chats: [{ id: "shop-group", name: "Shop group", whatsapp: "1@g.us" }],
         me: { goals: "1. The shop opens in spring (`shop-fit-out`)." },
+        organizations: [],
+        people: [
+          {
+            aliases: [],
+            handles: {},
+            id: "partner",
+            name: "Partner",
+            projects: [],
+          },
+        ],
         projects: [
-          { id: "shop-fit-out", name: "Shop fit-out", status: "active" },
+          {
+            area: "home",
+            chats: ["shop-group"],
+            id: "shop-fit-out",
+            name: "Shop fit-out",
+            people: ["partner"],
+            repos: ["shop-site", "owner/shop-notes"],
+            status: "active",
+          },
         ],
       },
     } as never),
@@ -714,14 +734,15 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     ).toEqual(rows);
     // The project head with its situation (made-up): a stored one is shown while a matter of the project still holds
     // the step it cites (a new one moves the checks' key, which `checks-key.test.ts` holds).
+    const shownLine = {
+      cites: ["obs_000000000005"],
+      text: "The shop is quoting the watch repair; the call to them is done.",
+    };
     writeJson(projectSituationPath("shop-fit-out"), {
       built: "2026-10-14T00:00:00.000Z",
       inputs: "0123456789abcdef",
       lines: [
-        {
-          cites: ["obs_000000000005"],
-          text: "The shop is quoting the watch repair; the call to them is done.",
-        },
+        shownLine,
         { cites: ["obs_gonegonegone"], text: "A step no matter holds." },
       ],
       madeBy: {
@@ -736,13 +757,18 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     const withSituation = await read("read_matters", {
       project: "shop-fit-out",
     });
-    expect(JSON.parse(withSituation).project.situation).toEqual([
-      {
-        cites: ["obs_000000000005"],
-        text: "The shop is quoting the watch repair; the call to them is done.",
-      },
-    ]);
+    expect(JSON.parse(withSituation).project.situation).toEqual([shownLine]);
     expectWire("read_matters_project", withSituation);
+
+    expectWire("read_projects", await read("read_projects"));
+    // The folders are under his home (a test's is temporary), and the version hashes them: both held fixed.
+    const header = JSON.parse(
+      (await read("read_project", { project: "shop-fit-out" })).replaceAll(
+        HOME,
+        "/Users/owner"
+      )
+    );
+    expectWire("read_project", { ...header, version: "fixed" });
     rmSync(projectSituationPath("shop-fit-out"), { force: true });
     expectWire(
       "read_matter",
