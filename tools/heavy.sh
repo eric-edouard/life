@@ -24,6 +24,9 @@ else
     done
     if [ "$first" = "$me" ]; then
       load=$(sysctl -n vm.loadavg | awk '{print int($2)}')
+      # Crash guard (his ask, 21 Nov): no new heavy job while memory is short or swap is large; treat it as full load.
+      memf=$(memory_pressure | awk -F': ' '/free percentage/{print int($2)}'); swapm=$(sysctl -n vm.swapusage | awk '{print int($6)}')
+      { [ "${memf:-100}" -lt 10 ] || [ "${swapm:-0}" -gt 20000 ]; } && load=999
       [ "$load" -lt 60 ] && mkdir "$D/check.lock" 2>/dev/null && L="$D/check.lock"
       # second slot while the Mac is idle enough (velocity tick, 21 Nov evening)
       [ -z "$L" ] && [ "$load" -lt 30 ] && mkdir "$D/check.lock.2" 2>/dev/null && L="$D/check.lock.2"
@@ -38,4 +41,4 @@ trap 'rmdir "$L"' EXIT
 [ -n "${HEAVY_NO_CACHE:-}" ] || export XCODE_XCCONFIG_FILE="$(cd "$(dirname "$0")" && pwd)/compile-cache.xcconfig"
 # Swift builds run once per branch, on its landing push (his yes of 21 Nov); every other push skips them.
 [ "${HEAVY_LANE:-}" = land ] || export LIFE_CHECK_SWIFT=at-landing
-"$@"
+nice -n 10 "$@"   # builds never starve his live Life (dictation took 10 s under load, 21 Nov)

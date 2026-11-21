@@ -1,5 +1,5 @@
 # Helper speed rules (owner, 21 Nov) — every helper follows all of these
-- No visuals: no design:shots, agent-device, simctl screenshots or driving the simulator. Visuals happen once, in the final pass.
+- Visuals: `bun run design:shots <Frame>` through heavy.sh is allowed (final pass, 22 Nov) to check a UI change; never drive the simulator by hand or agent-device.
 - Phone PRs: one app compile right before "ready" (owner, 21 Nov evening: catches compile errors before a train), through heavy.sh: `bun run ios:project && HEAVY_LANE= tools/heavy.sh xcodebuild -project apps/lifelog/apps/ios/Lifelog.xcodeproj -scheme Lifelog -destination generic/platform=iOS -configuration Debug build CODE_SIGNING_ALLOWED=NO -quiet`. No other app builds, no install:phone. Plus the Kit tests you touched + `swift-format lint --strict`.
 - Heavy commands go through tools/heavy.sh. No stress or load scripts.
 - Reviews on Claude via tools/claude-verdict.sh, never Codex. Fast mode unless the change touches a strict path.
@@ -13,3 +13,10 @@
 - Deleting a remote branch: `gh api -X DELETE repos/eric-edouard/life/git/refs/heads/<branch>`, never a push (and never `--no-verify`).
 - Before every push: `bun run fix` (format + lint), so the pre-push check never fails on formatting.
 - Every push of yours: `LIFE_CHECK_SWIFT=at-landing` (skips Swift builds; the landing train runs them once). Phone PRs still compile the app once before ready.
+- Never kill a process you did not start (no pkill/killall on bun, check, git or xcodebuild): two landing checks were SIGTERMed this way on 21 Nov.
+- Never search the whole disk (`find /`, `bfs /`): search the repo, ~/.claude or ~/.agents only.
+- Edit code with the Edit tool, not sed (macOS sed -i silently does nothing without `-i ''`); after any scripted edit, `git diff` to confirm it applied before rerunning tests.
+- The PR body's verdict lines start the line exactly: `Verdict: no debt added|debt reduced|rework needed …` and `Reviewed: <sha>` (no bullet, no "pass"): the conveyor reads only that.
+- Never `git stash`: stashes are shared across worktrees (another session's stash got applied, 21 Nov). Commit WIP on your branch instead.
+- A verdict of "debt added" never lands: pay the debt in the same PR (or split it), then re-verdict "no debt added" or "debt reduced".
+- Swift changed? Before pushing with LIFE_CHECK_SWIFT=at-landing, run `swift format --in-place --recursive --parallel apps/lifelog/apps/ios` (the train lints it strictly; an unformatted file fails the whole train).
