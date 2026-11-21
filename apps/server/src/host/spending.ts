@@ -48,7 +48,7 @@ export interface DaySpending {
   byKind: KindSpending[];
   byProvider: ProviderSpending[];
   day: string;
-  /** Voice jobs still unsettled when the day was written (after `SETTLE_DAYS`): not counted. */
+  /** Voice jobs and runs still unsettled when the day was written (after `SETTLE_DAYS`): not counted. */
   unsettled: number;
 }
 
@@ -103,16 +103,16 @@ function linesIn(names: string[], from: string, to: string) {
   };
 }
 
-/**
- * One local day's spends and Voice's unsettled jobs, from its records. Throws when the desk or Voice can't be read
- * (the day is tried again, never written as zero); the desk off or Voice not set up hold nothing.
- */
 /** Voice's spending, or none while Voice is not set up. */
 const voiceSpending = (from: string, to: string) =>
   lifelogMissing()
-    ? Promise.resolve({ jobs: [], modelRuns: [], voiceNotes: [] })
+    ? Promise.resolve({ jobs: [], modelRuns: [], unsettled: 0, voiceNotes: [] })
     : readVoiceSpending(from, to);
 
+/**
+ * One local day's spends and Voice's unsettled jobs and runs, from its records. Throws when the desk or Voice can't be
+ * read (the day is tried again, never written as zero); the desk off or Voice not set up hold nothing.
+ */
 export async function readDaySpends(
   day: string,
   names?: string[],
@@ -130,7 +130,7 @@ export async function readDaySpends(
       ...spendsOf(lines, runs, desk.state === "ok" ? desk.value : []),
       ...spendsOfVoice(voice),
     ],
-    unsettled: voice.jobs.filter((j) => j.outcome === "unsettled").length,
+    unsettled: voice.unsettled,
   };
 }
 
@@ -142,7 +142,7 @@ export const readSpendingDay = (day: string) =>
 
 /**
  * The night's step: each closed day of the log's year with no day file, newest first, at most `DAYS_A_NIGHT` tried, each on
- * its own (one failing is logged and tried the next night). A day still holding unsettled Voice jobs waits, up to
+ * its own (one failing is logged and tried the next night). A day still holding unsettled Voice work waits, up to
  * `SETTLE_DAYS`. A day with no log file left has no record to read: it stays absent. What it wrote.
  */
 export async function writeSpendingDays(
@@ -158,7 +158,8 @@ export async function writeSpendingDays(
     first && day >= first && tries < DAYS_A_NIGHT;
     day = daysBefore(day, 1)
   ) {
-    if (isThere(fileOf(day))) {
+    // A day already written, or with no log file of its own (no record left to read), is skipped.
+    if (isThere(fileOf(day)) || !names.includes(`${day}.jsonl`)) {
       continue;
     }
     try {

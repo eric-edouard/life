@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { LOG_DIR } from "../core/log";
 import { readSpendingDay, writeSpendingDays } from "./spending";
@@ -15,6 +15,7 @@ const line = (at: string, more: Record<string, unknown>) =>
     time: at,
     ...more,
   });
+mkdirSync(LOG_DIR, { recursive: true });
 afterAll(() => {
   for (const d of DAYS) {
     rmSync(join(LOG_DIR, `${d}.jsonl`), { force: true });
@@ -34,7 +35,7 @@ test("the night writes each closed day once from its records, billed and equival
           },
         },
       }),
-      line("2020-01-03T13:00:00.000Z", {
+      line("2020-01-03T12:15:00.000Z", {
         engine: "claude",
         model: "sonnet",
         tokens: { cached: 0, input: 1000, output: 0 },
@@ -44,25 +45,15 @@ test("the night writes each closed day once from its records, billed and equival
         kind: "model.local",
         model: "describer",
         ms: 50,
-        time: "2020-01-03T14:00:00.000Z",
+        time: "2020-01-03T12:30:00.000Z",
       }),
+      "",
     ].join("\n")
   );
   writeFileSync(join(LOG_DIR, "2020-01-02.jsonl"), "");
   writeFileSync(join(LOG_DIR, "2020-01-04.jsonl"), "");
-  const none = { jobs: [], modelRuns: [], voiceNotes: [] };
-  const unsettled = {
-    ...none,
-    jobs: [
-      {
-        at: "2020-01-04T10:00:00.000Z",
-        billableSeconds: 60,
-        outcome: "unsettled" as const,
-        seconds: 60,
-        transcriber: "scribe" as const,
-      },
-    ],
-  };
+  const none = { jobs: [], modelRuns: [], unsettled: 0, voiceNotes: [] };
+  const unsettled = { ...none, unsettled: 1 };
   let isDown = true;
   const voice = (from: string) =>
     from.startsWith("2020-01-02") && isDown
