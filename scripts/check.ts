@@ -61,7 +61,15 @@ const steps: Record<string, string[]> = {
   ],
   // Vendored skills are upstream text.
   scrub: ["bun", "scripts/scrub-check.ts", ":!.claude/skills"],
-  test: ["bun", "test", "./apps/server/src/", "./scripts/", "./apps/edge/"],
+  // 8 workers: 34 s instead of 84 s one file at a time (21 Nov); more would only load the Mac further.
+  test: [
+    "bun",
+    "test",
+    "--parallel=8",
+    "./apps/server/src/",
+    "./scripts/",
+    "./apps/edge/",
+  ],
   types: ["bun", "x", "--bun", "tsc", "--noEmit"],
   // Replays his answered voices (on his Mac only) against the committed counts.
   "voice eval": [
