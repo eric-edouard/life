@@ -40,20 +40,20 @@ export type AnswerExtras = z.infer<typeof AnswerExtras>;
 /**
  * What the main session did on a turn, by its door's acts, recorded by the door from what each act wrote (never declared
  * by the session): `done` (a correction, on matter `matter` when it named one), `agent` (his word about an agent, or his
- * words to it: its name and his words), `card` (a card asked as his: its id), `fix` (his complaint to the caretaker:
- * its ask).
+ * words to it: its name and his words), `card` (a card asked as his: its id), `fix` (his complaint, received by the
+ * caretaker).
  */
 export type MainSessionAct =
   | { kind: "done"; matter?: string }
   | { agent: string; kind: "agent"; told: string }
   | { card: string; kind: "card" }
-  | { ask: string; kind: "fix" };
+  | { kind: "fix" };
 
 /**
  * The answer, one kind of a closed list the phone draws natively: `reply` (its words, a line of why, the refs it rests
  * on), `question` (its words, with likely answers he may tap), `error` (what failed; his words are kept on the phone),
- * and, when the turn acted, its last act's kind with its words (`MainSessionAct`). `offline` is the phone's own state,
- * never on the wire.
+ * and, when the turn acted, its last act's kind with its words (`MainSessionAct`; a question still wins: it waits on him).
+ * `offline` is the phone's own state, never on the wire.
  */
 export type MainSessionAnswer =
   | { kind: "reply"; sources?: string[]; why?: string; words: string }

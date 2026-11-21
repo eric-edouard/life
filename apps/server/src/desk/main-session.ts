@@ -111,14 +111,14 @@ export function keepAct(desk: Desk, turn: number, act: MainSessionAct) {
   }
 }
 
-/** Its answer: its last act's kind with its words, else its words as a reply, or a question when it gave likely answers. */
+/** Its answer: a question when it gave likely answers, else its last act's kind with its words, else its words as a reply. */
 function answerOf(
   words: string,
   { answers, sources, why }: AnswerExtras = {},
   // ponytail: one kind per answer, the last act's; a list of acts when the phone should show each of several.
   act?: MainSessionAct
 ): MainSessionAnswer {
-  if (act) {
+  if (act && !answers) {
     return { ...act, words };
   }
   return answers

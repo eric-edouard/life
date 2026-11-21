@@ -515,7 +515,6 @@ test("on his words the main session acts through its door: each act's `said` mus
   });
   // Its answer is its last act's kind, from what the act wrote, with its words.
   expect(answered).toEqual({
-    ask: complaint?.id,
     kind: "fix",
     words: "**Done**.",
   });
