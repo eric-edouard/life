@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
-import type { z } from "zod";
 import { hasAddOn } from "../core/add-ons";
 import { daysBefore } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
@@ -105,11 +104,8 @@ export const situated = async () =>
     .toSorted();
 
 /** The reply's lines that cite only episodes the call was shown. */
-export const shownLines = <L extends { cites: readonly string[] }>(
-  reply: unknown,
-  shown: ReadonlySet<string>,
-  schema: z.ZodType<L> = SituationLine as unknown as z.ZodType<L>
-) => linesCitingOnly(replyLines(reply, schema), shown);
+export const shownLines = (reply: unknown, shown: ReadonlySet<string>) =>
+  linesCitingOnly(replyLines(reply, SituationLine), shown);
 
 /**
  * The episodes a subject's situation reads: those of weight (`KEEP_AT`) with them, in the `DAYS` days ending at the

@@ -17,8 +17,8 @@ import {
 } from "./project-situation-read";
 import { projectOf } from "./read-matters";
 import { readMayKeep } from "./read-truth";
-import { begin, inBatches, inputsOf, readsOf } from "./run";
-import { shownLines } from "./situations";
+import { begin, inBatches, inputsOf, readsOf, replyLines } from "./run";
+import { linesCitingOnly } from "./situations";
 import { clip } from "./units";
 import type { People } from "./who";
 
@@ -129,10 +129,9 @@ export async function projectSituations(people: People) {
             shownRefs.map((s) => ({ source: "memory", unit: s.ref }))
           ),
         });
-        const lines = shownLines(
-          reply,
-          new Set(shownRefs.map((s) => s.ref)),
-          ProjectSituationLine
+        const lines = linesCitingOnly(
+          replyLines(reply, ProjectSituationLine),
+          new Set(shownRefs.map((s) => s.ref))
         );
         // A reply with no line citing what it was shown is a failed call: the last situation stays, the next run retries.
         if (lines.length === 0) {

@@ -10,8 +10,7 @@ import {
 } from "./project-situation-read";
 import { projectInputOf, projectTargetsOf } from "./project-situations";
 import { projectStepRefsOf } from "./read-matters";
-import { inputsOf } from "./run";
-import { shownLines } from "./situations";
+import { inputsOf, replyLines } from "./run";
 import type { People } from "./who";
 
 const ID = "test-harbor";
@@ -23,7 +22,7 @@ afterEach(() => rm(projectSituationPath(ID), { force: true }));
 const step = (ref: string, text = "Quote sent") => ({
   at: "2026-11-10T09:00:00Z",
   day: "2026-11-10",
-  kind: "promise",
+  kind: "promise" as const,
   quote: "",
   ref,
   text,
@@ -111,6 +110,9 @@ test("only a project underway with a running matter gets a situation", () => {
 test("the digest moves with the matters' words and the entry, never with a status that follows the clock", () => {
   const digestOf = (m: MatterView, notes = "") => {
     const [t] = projectTargetsOf([m], people(project("active", notes)));
+    if (!t) {
+      throw new Error("no target");
+    }
     return inputsOf(
       "p",
       projectInputOf(t, (r) => r)
@@ -135,6 +137,8 @@ test("a reply keeps only lines citing steps the call was shown", () => {
     ],
   };
   expect(
-    shownLines(reply, new Set([S1]), ProjectSituationLine).map((l) => l.text)
+    linesCitingOnly(replyLines(reply, ProjectSituationLine), new Set([S1])).map(
+      (l) => l.text
+    )
   ).toEqual(["Kept."]);
 });
