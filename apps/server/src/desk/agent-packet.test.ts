@@ -3,6 +3,7 @@ import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, iso } from "../core/clock";
+import { writeJson } from "../core/files";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { agentOf } from "../host/desk-read";
 import {
@@ -10,7 +11,9 @@ import {
   messageMatchableOf,
   messagePayloadOf,
 } from "../host/events";
+import { projectSituationPath } from "../memory/project-situation-read";
 import { readPeople } from "../memory/who";
+import { promptNameOf } from "../models/prompt-parts";
 import type { SourceEvent } from "../records/source";
 import { openAssignment, readPacket, register } from "./agent-actions";
 import { wakeDue } from "./desk-clock";
@@ -130,6 +133,27 @@ test("an agent on a project's matter, and the project's agent, get the project's
       expect(text).not.toContain("Flour talk. ".repeat(130));
       expect(text).toContain('"id":"mine"');
       expect(text).not.toContain('"id":"two"');
+      // Where the project stands (Life's reading, nightly): a line whose cited step a matter of the project holds shows; one whose step is gone does not.
+      writeJson(projectSituationPath("test-bakery"), {
+        built: "2026-11-10T00:00:00.000Z",
+        inputs: "0123456789abcdef",
+        lines: [
+          { cites: ["obs_mine"], text: "The oven quote went out on 10 Nov." },
+          { cites: ["obs_gone"], text: "A step since re-grouped away." },
+        ],
+        madeBy: {
+          engine: "claude",
+          model: "m",
+          prompt: promptNameOf("memory-project-situation.v1"),
+          run: "r",
+        },
+        project: "test-bakery",
+        schemaVersion: 1,
+      });
+      const standing = await onMatter("obs_mine");
+      expect(standing).toContain("- The oven quote went out on 10 Nov.");
+      expect(standing).not.toContain("re-grouped away");
+      rmSync(projectSituationPath("test-bakery"), { force: true });
       // The project's agent gets the same line.
       expect(await packet("test-bakery")).toContain(
         'Its running matters: `read_matters` with `project: "test-bakery"`.'

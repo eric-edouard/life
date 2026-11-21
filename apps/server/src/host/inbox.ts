@@ -4,9 +4,9 @@ import { inboxOf } from "../memory/check-urgency";
 import { checksAndKeyNow, checksNow } from "../memory/checks";
 import type { Decision } from "../memory/decision-lines";
 import { decisionsNow } from "../memory/decisions";
-import { isAsked } from "../memory/draft-contest";
 import type { HeldRead } from "../memory/life-checks";
 import {
+  type AssignmentRow,
   agentOf,
   assignmentOf,
   assignmentOfCard,
@@ -17,6 +17,7 @@ import {
   heldStampOf,
   readDesk,
 } from "./desk-read";
+import { countsAsAskedOf } from "./move-read";
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
 // `checksNow` over what registered agents hold, read from the desk's store, which memory cannot read: a cheap stamp for
@@ -25,7 +26,7 @@ import {
 
 /**
  * The plan cards among the open decisions of `list` (every decision, in the order asked): an assignment he opened, its
- * first card asked (`isAsked`, as the door's `hasAsked`); never the caretaker's, whose plan is his complaint, nor a hand-out's
+ * first card asked (`countsAsAskedOf`, as the door's `hasAsked`); never the caretaker's, whose plan is his complaint, nor a hand-out's
  * one card (the desk opened it: what it found, not a plan). Worked out when read, never stored.
  */
 export function planCardsOf(db: Database, list: readonly Decision[]) {
@@ -41,15 +42,21 @@ export function planCardsOf(db: Database, list: readonly Decision[]) {
     list.flatMap((d) => {
       const s = d.state === "open" ? ownerOf(d) : null;
       const opened = s ? assignmentOf(db, s) : null;
-      const isHis =
-        opened?.opened_by === "owner" &&
-        agentOf(db, opened.agent_id)?.role !== "caretaker";
-      return isHis && list.find((e) => isAsked(e) && ownerOf(e) === s) === d
+      return opened &&
+        opensWithPlan(db, opened) &&
+        list.find((e) => ownerOf(e) === s && countsAsAskedOf(db, opened)(e)) ===
+          d
         ? [d.id]
         : [];
     })
   );
 }
+
+/** Whether assignment `s`'s first card is its plan (`planCardsOf` when read, the door's `asksPlanOf` when asked): one he opened, not the caretaker's. */
+export const opensWithPlan = (
+  db: Database,
+  s: Pick<AssignmentRow, "agent_id" | "opened_by">
+) => s.opened_by === "owner" && agentOf(db, s.agent_id)?.role !== "caretaker";
 
 /** A card's links as its holder's: the asker's session link (`was`) becomes the holder's (`now`); with none, the links stay (a supporting link never takes the session's place). */
 export const holderLinksOf = (

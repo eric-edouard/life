@@ -1,6 +1,8 @@
 import type { Database } from "bun:sqlite";
 import { HOUR } from "../core/clock";
 import { RUNTIME_WORDS, RuntimeName } from "../core/names";
+import type { Decision } from "../memory/decision-lines";
+import { isAsked } from "../memory/draft-contest";
 import {
   type AgentRow,
   type AssignmentRow,
@@ -213,6 +215,26 @@ export const movedInOf = (
   const from = m && agentOf(db, m.agent_id);
   return m && from ? { at: m.moved_at, from } : null;
 };
+
+/**
+ * Which of assignment `s`'s cards count as asked (`isAsked`): for a holder that got it by his move (`movedInOf`), only a
+ * card still open at the move or asked after, so its first card is the open one it inherited, else its own plan. The one
+ * rule for the door's `hasAsked` and the inbox's `planCardsOf`.
+ */
+export function countsAsAskedOf(
+  db: Database,
+  s: Pick<AssignmentRow, "agent_id" | "id">
+) {
+  const since = movedInOf(db, s)?.at;
+  return (d: Decision) =>
+    isAsked(d) && (!since || d.at >= since || (endedAtOf(d) ?? since) >= since);
+}
+
+/** When card `d` stopped waiting on him: his answer, its withdrawal, its lapse (its deadline); none while open. */
+const endedAtOf = (d: Decision) =>
+  d.answer?.at ??
+  d.withdrawn?.at ??
+  (d.state === "lapsed" ? d.deadline : undefined);
 
 /** The assignments a matter move holds with their new agent (not failed): the fold leaves them (his answer 3 of decision 78). */
 export const pinnedAssignmentsOf = (db: Database) =>

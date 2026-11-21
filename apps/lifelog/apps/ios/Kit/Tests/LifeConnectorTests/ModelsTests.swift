@@ -47,13 +47,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 9)
-    #expect(inbox.blocking == 5)
-    #expect(inbox.badge == 5)
-    #expect(inbox.counts.values.reduce(0, +) == 9)
+    #expect(inbox.total == 10)
+    #expect(inbox.blocking == 6)
+    #expect(inbox.badge == 6)
+    #expect(inbox.counts.values.reduce(0, +) == 10)
     #expect(
         inbox.checks.map(\.urgency) == [
-            .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
+            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
         ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
@@ -141,6 +141,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(project.project?.name == "Shop fit-out")
     #expect(project.project?.status == .active)
     #expect(project.project?.goal == "The shop opens in spring.")
+    let said = "The shop is quoting the watch repair; the call to them is done."
+    #expect(project.project?.situation?.map(\.text) == [said])
+    #expect(project.project?.situation?.first?.cites == ["obs_000000000005"])
+    // An older response has no `situation`: it decodes, with none.
+    let olderText = #"{"matters":[],"project":{"id":"p","name":"P","status":"active"},"version":"v"}"#
+    let older = try decoded(MatterList.self, olderText)
+    #expect(older.project?.situation == nil)
     #expect(project.matters.map(\.id) == ["matter_aaaaaaaaaaaa"])
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))

@@ -54,6 +54,7 @@ import { locked } from "../memory/memory-lock";
 import { writeMentions } from "../memory/mentions";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
+import { projectSituations } from "../memory/project-situations";
 import { doneOf } from "../memory/read-open-items";
 import { writeRecordedDays } from "../memory/recorded-days";
 import { codeOn, mapRepos } from "../memory/repos";
@@ -527,8 +528,16 @@ export async function runNight(
     // Where each running matter is going and what moves it now, drafted again only for a matter with a new step. A
     // failure is logged and never stops the night.
     steps.at = "matter directions";
-    await matterDirections(await readPeople()).catch((e: Error) =>
+    // The matter records are read once for both steps; a failure of the read stops neither (each reads them itself).
+    const people = await readPeople();
+    const records = await readMatterRecords(people).catch(() => undefined);
+    await matterDirections(people, { records }).catch((e: Error) =>
       log("run.error", { ...errorOf(e), step: "memory.matter-directions" })
+    );
+    // Where each project underway stands, read from its matters as they now read; redone only when what it was shown changed.
+    steps.at = "project situations";
+    await projectSituations(people, records).catch((e: Error) =>
+      log("run.error", { ...errorOf(e), step: "memory.project-situations" })
     );
     // Who is close decides who has a page: judged before the pages and the report's homes.
     // The days the pendant recorded, for coverage (derived; a failure is logged and the last file stands).

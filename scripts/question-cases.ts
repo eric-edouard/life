@@ -225,7 +225,6 @@ async function runAll(
     // biome-ignore lint/performance/noAwaitInLoops: cases run in order
     await spareQuota(AGENT);
     let calls: ToolCall[] = [];
-    // biome-ignore lint/performance/noAwaitInLoops: cases run in order
     const row = await runCase(c, {
       ask: async (x, d) => {
         const asked = await askAgent(x, d, run);
