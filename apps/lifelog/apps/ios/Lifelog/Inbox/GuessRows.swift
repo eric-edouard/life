@@ -1,10 +1,10 @@
 import LifeConnector
 import SwiftUI
 
-/// Where a guess row stands: both answers on offer, its answer held for Undo, or answered (and sent, or on its way).
+/// Where a guess row stands: both answers on offer, its answer going to Life, or answered (and sent, or on its way).
 enum GuessState: Equatable {
     case rest
-    case held(yes: Bool)
+    case sending(yes: Bool)
     case answered(yes: Bool)
 }
 
@@ -16,7 +16,6 @@ struct GuessRow: View {
     /// Why its last answer did not land, when it did not.
     let failure: String?
     let answer: (_ yes: Bool) -> Void
-    let undo: () -> Void
     let open: () -> Void
 
     var body: some View {
@@ -28,7 +27,7 @@ struct GuessRow: View {
                 if let failure { Text("Not saved: \(failure)").font(.small).foregroundStyle(Palette.flag) }
             }
             .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect).onTapGesture(perform: open)
-            YesNo(state: state, answer: answer, undo: undo)
+            YesNo(state: state, answer: answer)
         }
         .frame(minHeight: Metrics.FlatRow.bulkRow)
         .opacity(isDimmed ? 0.6 : 1)
@@ -40,12 +39,10 @@ struct GuessRow: View {
     }
 }
 
-/// The two chips of a row: Yes and No at rest; after a tap its answer alone (Yes with a check), or Undo with a ring
-/// while Life holds it.
+/// The two chips of a row: Yes and No at rest; after a tap its answer alone (Yes with a check), or a ring while Life takes it.
 struct YesNo: View {
     let state: GuessState
     let answer: (_ yes: Bool) -> Void
-    let undo: () -> Void
 
     var body: some View {
         switch state {
@@ -54,8 +51,8 @@ struct YesNo: View {
                 chip("Yes", fill: Color.fillTint) { answer(true) }
                 chip("No", fill: Color.fillTint) { answer(false) }
             }
-        case .held:
-            chip("Undo", fill: Color.pick, isHeld: true, action: undo)
+        case .sending:
+            chip("Saving…", fill: Color.pick, isBusy: true) {}.disabled(true)
         case .answered(let yes):
             HStack(spacing: 6) {
                 if yes {
@@ -67,10 +64,10 @@ struct YesNo: View {
         }
     }
 
-    private func chip(_ label: String, fill: Color, isHeld: Bool = false, action: @escaping () -> Void) -> some View {
+    private func chip(_ label: String, fill: Color, isBusy: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                if isHeld { Spinner(size: .small) }
+                if isBusy { Spinner(size: .small) }
                 Text(label).font(.chip).foregroundStyle(Palette.fg)
             }
             .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
@@ -88,7 +85,6 @@ struct SamePersonTile: View {
     let state: GuessState
     let failure: String?
     let answer: (_ yes: Bool) -> Void
-    let undo: () -> Void
     let open: () -> Void
 
     /// The second account, as its network names it.
@@ -108,7 +104,7 @@ struct SamePersonTile: View {
                     if let failure { Text("Not saved: \(failure)").font(.small).foregroundStyle(Palette.flag) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect).onTapGesture(perform: open)
-                YesNo(state: state, answer: answer, undo: undo)
+                YesNo(state: state, answer: answer)
             }
             .opacity({ if case .answered = state { 0.6 } else { 1 } }())
         }

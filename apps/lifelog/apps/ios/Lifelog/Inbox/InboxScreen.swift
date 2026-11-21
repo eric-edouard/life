@@ -68,12 +68,10 @@ struct InboxScreen: View {
                 // Only while there is something to undo: an empty capsule still took the column's room, and the column
                 // put the Pendant's neighbours in an overflow menu (seen in `design:shots`).
                 let said = life.saidBack?.undo == nil ? nil : life.saidBack
-                if inSideColumn, life.latestHeld != nil || said != nil, #available(iOS 27.1, *) {
+                if inSideColumn, let said, #available(iOS 27.1, *) {
                     ToolbarItem(placement: .topBarTrailing) {
-                        // A held answer, else a project he parked from a card (`saidBack`).
-                        ColumnToast(answered: life.latestHeld?.held.label ?? said?.words) {
-                            if let held = life.latestHeld { undo(held.ref) } else { said.flatMap(life.undoing)?() }
-                        }
+                        // A project he parked from a card (`saidBack`).
+                        ColumnToast(answered: said.words) { life.undoing(said)?() }
                     }
                     .sharedBackgroundVisibility(.hidden).axisBehavior(.verticalPreferred)
                 }
@@ -81,9 +79,7 @@ struct InboxScreen: View {
             .shellBar("")
             .reportsSideColumn($inSideColumn)
             .navigationBarBackButtonHidden()
-            // In the side column, the toast is the column's capsule.
-            .heldToast(shows: { _ in !inSideColumn }, undo: undo)
-            // A project parked from a card's "Tell the agent…", said back with Undo.
+            // What he just answered or parked, said back; in the side column, the toast is the column's capsule.
             .saidBackToast(inSideColumn: inSideColumn)
             .toolbar {
                 // Back to the list of asks: the one Back of a list and its detail (his word, 21 Nov), never a sidebar's toggle.
@@ -153,12 +149,6 @@ struct InboxScreen: View {
         if keep { deferred.append(taken.check.ref) }
         // A new matter whose goal he edited still waits for Start or Dismiss: back to its card.
         (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : taken.nextRef)
-    }
-
-    /// Undo: the ask is back where it was, and on show.
-    private func undo(_ ref: String) {
-        life.undo(ref)
-        current = shownOrder(kind).check(on: ref)?.ref
     }
 
     /// What blocks, then what can wait: `Inbox.ordered`, the one rule for the list, the pager, the ask on show and where

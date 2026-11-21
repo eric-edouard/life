@@ -100,7 +100,7 @@ struct CardView: View {
     var notice: String?
     /// The ask's context region beside or below it: a matter's stack gives one, the Inbox none.
     var context: ContextRegion?
-    /// A bulk card's row: an answer held for Undo is handed back to the row, nothing sent (`isHeld`).
+    /// A bulk card's row: its answer is handed back to the row, nothing sent (`isHeld`).
     var takes: ((Taken) -> Void)?
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
@@ -302,14 +302,14 @@ struct CardView: View {
             asks: checks, source: source ?? .create(ref: check.ref, asOrganization: asOrganization))
     }
 
-    /// A bulk card's answers, held as one for one Undo; the next ask is on show at once.
+    /// A bulk card's answers, sent at once: its rows stay, working, until Life has answered them all, then the next ask.
     private func submit(all requests: [AnswerRequest], from head: Check) {
         guard !requests.isEmpty, !life.saysOutOfReach() else { return }
         // A new attempt: an earlier answer's failure on these rows is no longer theirs.
         requests.forEach { life.forget(.answer(ref: $0.ref)) }
         notes.sentInBulk.formUnion(requests.map(\.ref))
-        life.hold(requests, as: "\(requests.count) answered")
-        current = checks.ref(after: head.ref)
+        let next = checks.ref(after: head.ref)
+        Task { if await life.answerRows(requests, as: "\(requests.count) answered") { current = next } }
     }
 
     private func submit(_ check: Check, _ request: AnswerRequest) {

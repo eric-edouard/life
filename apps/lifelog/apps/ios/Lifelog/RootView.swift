@@ -121,8 +121,7 @@ struct RootView: View {
             if capture.cardPushes > 0 { await life.refreshInbox() }
         }
         .task(id: scenePhase == .active) {
-            // An answer held for Undo goes now: nothing waits in the background.
-            guard scenePhase == .active else { return await sendHeldInBackground() }
+            guard scenePhase == .active else { return }
             // Here rather than on the scene's phase change, which a cold launch in the foreground never sends.
             sync.becameActive()
             #if DEBUG
@@ -154,16 +153,6 @@ struct RootView: View {
                 if tab == .projects, router.tab == .projects { router.chip = nil }
                 router.tab = tab
             })
-    }
-
-    /// Held answers go now, and the app is kept awake until they and those already going are answered: a suspended app would lose them.
-    private func sendHeldInBackground() async {
-        guard life.hasAnswersUnderWay else { return }
-        let app = UIApplication.shared
-        let awake = Awake()
-        awake.id = app.beginBackgroundTask(withName: "held answers") { awake.end() }
-        await life.sendHeld()
-        awake.end()
     }
 
     /// Runs `then` once no sheet is up, dismissing the one that is.

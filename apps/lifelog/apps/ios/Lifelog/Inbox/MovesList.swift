@@ -3,8 +3,8 @@ import SwiftUI
 
 /// The "your move" asks as a list to sort, not cards (the Inbox's Filter, "Your moves"): filtered by age, project or
 /// person, each row answered by swipe (Done, Hand, Drop) or many at once from Select, every answer that card's own
-/// option through `HeldAnswers` (one toast and one Undo per tap). Life decides what is open and what an option does;
-/// this only joins the checks to their matters (`YourMoves`) and sends. A row Life refused shows why on the row.
+/// option sent at once, each row working until Life answers, then one toast per tap. Life decides what is open and what
+/// an option does; this only joins the checks to their matters (`YourMoves`) and sends. A row Life refused shows why on the row.
 struct MovesList: View {
     /// The your move asks open now, in the inbox's order.
     let checks: [Check]
@@ -67,7 +67,7 @@ struct MovesList: View {
                         check: check, checks: [check], current: $openedCurrent, notes: $openedNotes,
                         context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check)),
                         takes: { taken in
-                            life.hold(taken.request, as: taken.heldWords)
+                            Task { await life.answerRows([taken.request], as: taken.heldWords) }
                             opened = nil
                         }
                     ) { _, _ in opened = nil }
@@ -182,7 +182,9 @@ struct MovesList: View {
         let symbol = move.check.matter.flatMap { id in life.matters.value?.matters.first { $0.id == id.id } }?.symbol
         let content = Row(
             title: move.check.said?.text ?? move.check.question, icon: isSelecting ? nil : symbol,
-            iconTint: Palette.muted, detail: move.detail, state: refused.map { .refused($0.reason) } ?? .known,
+            iconTint: Palette.muted, detail: move.detail,
+            state: refused.map { .refused($0.reason) }
+                ?? (life.state(of: .answer(ref: move.id)).isRunning ? .saving : .known),
             isInList: true)
         return Group {
             if isSelecting {
@@ -273,7 +275,7 @@ struct MovesList: View {
         return names.count == 1 ? names.first ?? "an agent" : "an agent"
     }
 
-    /// The option `id` on each of `moves` that offers it, held as one (one toast, one Undo).
+    /// The option `id` on each of `moves` that offers it, sent at once: the rows work until Life has answered them all.
     private func act(_ moves: [YourMoves.Move], _ id: String, words: String) {
         let requests = moves.compactMap { $0.answer(id) }
         guard !requests.isEmpty, !life.saysOutOfReach() else { return }
@@ -281,7 +283,7 @@ struct MovesList: View {
         requests.forEach { life.forget(.answer(ref: $0.ref)) }
         sent.formUnion(requests.map(\.ref))
         ticked.subtract(requests.map(\.ref))
-        life.hold(requests, as: words)
+        Task { await life.answerRows(requests, as: words) }
     }
 
     private func failure(of move: YourMoves.Move) -> ActionFailure? {

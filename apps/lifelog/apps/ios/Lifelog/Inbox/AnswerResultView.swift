@@ -175,7 +175,7 @@ extension Taken {
     }
 
     /// Any answer that is not a send, a start, a goal edit or a new person's name (Life reads who that is, or adds them
-    /// to his directory: its result, or why not, shows on its card first): held for Undo on a bulk card's row and in the
+    /// to his directory: its result, or why not, shows on its card first): sent on a bulk card's row and in the
     /// moves list, shown on its button on its own card.
     var isHeld: Bool { !isSend && !isStart && !staysOpen && request.name == nil }
 
