@@ -29,6 +29,7 @@ import type { Push } from "./lifelog-push";
 import { Recorded } from "./lifelog-recorded";
 import { Hits, searchVoice } from "./lifelog-search";
 import { endedOnSilence, isConversationClosed } from "./lifelog-speech";
+import { VoiceSpending } from "./lifelog-spending";
 import {
   Clip,
   ConversationAnswer,
@@ -533,6 +534,7 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
     ...drift(ours(Clip), answer("/turns/clip", "get"), defs, "turns-clip"),
     ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
     ...drift(ours(Recorded), answer("/recorded", "get"), defs, "recorded"),
+    ...drift(ours(VoiceSpending), answer("/spending", "get"), defs, "spending"),
     ...drift(
       ours(VoiceNoteWords),
       answer("/voice-notes/transcript", "post"),

@@ -9,12 +9,13 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { HOME } from "../../core/platform";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { doorOf } from "../desk-door";
 import { SEND_GUARD_HOOK } from "../send-guard";
 import {
+  isHeld,
   isRolloutTurnOpen,
-  isTurnOpen,
   readProgram,
   runtimeRowsOf,
 } from "./runtime-rows";
@@ -182,51 +183,62 @@ test("his login shell's environment goes to his own Life's agents only, less the
   }
 });
 
-test("a session held by an idle process is not running: only an open last turn is", () => {
-  const said = (stop: string | null) => ({
-    message: { content: [{ type: "text" }], stop_reason: stop },
-    type: "assistant",
-  });
-  const prompt = { message: { content: "Woken" }, type: "user" };
-  const transcript = (...entries: object[]) =>
-    entries.map((e) => JSON.stringify(e)).join("\n");
-  // The Claude app's warm process after a finished turn: the desk may wake the agent.
-  expect(isTurnOpen(transcript(prompt, said("end_turn")))).toBe(false);
-  expect(isTurnOpen(transcript(prompt, said("stop_sequence")))).toBe(false);
-  expect(
-    isTurnOpen(
-      transcript(prompt, said("end_turn"), {
-        isSidechain: true,
-        ...said("tool_use"),
-      })
-    )
-  ).toBe(false);
-  expect(
-    isTurnOpen(
-      transcript(prompt, said("tool_use"), {
-        message: {
-          content: [{ text: "[Request interrupted by user]", type: "text" }],
-        },
-        type: "user",
-      })
-    )
-  ).toBe(false);
-  // His turn, still running: a prompt, a tool call, a tool's result, a message with no stop reason yet.
-  expect(isTurnOpen(transcript(said("end_turn"), prompt))).toBe(true);
-  expect(isTurnOpen(transcript(prompt, said("tool_use")))).toBe(true);
-  expect(
-    isTurnOpen(
-      transcript(prompt, said("tool_use"), {
-        message: { content: [{ type: "tool_result" }] },
-        type: "user",
-      })
-    )
-  ).toBe(true);
-  expect(isTurnOpen(transcript(prompt, said(null)))).toBe(true);
-  expect(
-    isTurnOpen(`${transcript(prompt, said("end_turn"))}\n{"type":"us`)
-  ).toBe(true);
-  expect(isTurnOpen("")).toBe(false);
+test("a claude session is running while Claude's own record names a live process, even between his turns", async () => {
+  const ref = `ref-${crypto.randomUUID()}`;
+  // His last turn ended: the case the desk once took for idle and resumed beside his app.
+  const projects = join(HOME, ".claude", "projects", "made-up");
+  mkdirSync(projects, { recursive: true });
+  writeFileSync(
+    join(projects, `${ref}.jsonl`),
+    `${JSON.stringify({ message: { content: [{ type: "text" }], stop_reason: "end_turn" }, type: "assistant" })}\n`
+  );
+  const records = join(HOME, ".claude", "sessions");
+  mkdirSync(records, { recursive: true });
+  const record = (pid: number) =>
+    writeFileSync(
+      join(records, `${pid}.json`),
+      JSON.stringify({ pid, sessionId: ref })
+    );
+  // Made-up processes: `sh -c` shows its next word in the command line (`; :` keeps sh alive).
+  const sleeper = (word: string) =>
+    Bun.spawn(["sh", "-c", "sleep 30; :", word]);
+  const app = sleeper("made-up-app");
+  const others = [
+    sleeper(`made-up/other --resume=${ref}`),
+    sleeper(`/made-up/${ref}/serve.ts`),
+  ];
+  const row = runtimeRowsOf(false).claude;
+  try {
+    record(app.pid);
+    expect(await row.readSessionState(ref)).toBe("running");
+    app.kill();
+    await app.exited;
+    // A stale record: its process is gone. Neither a non-Claude flag nor a path holds it.
+    expect(await isHeld(ref)).toBe(false);
+    expect(await row.readSessionState(ref)).toBe("idle");
+    expect(await row.readSessionState(`ref-${crypto.randomUUID()}`)).toBe(
+      "gone"
+    );
+  } finally {
+    for (const p of [app, ...others]) {
+      p.kill();
+    }
+  }
+});
+
+test("a Claude command line resuming the session holds it with no record", async () => {
+  const ref = `ref-${crypto.randomUUID()}`;
+  const resumed = Bun.spawn([
+    "sh",
+    "-c",
+    "sleep 30; :",
+    `made-up/claude --resume ${ref}`,
+  ]);
+  try {
+    expect(await isHeld(ref)).toBe(true);
+  } finally {
+    resumed.kill();
+  }
 });
 
 test("a codex session is running while its rollout's last turn is open and fresh (his own turn in the app); a compressed rollout is not gone", async () => {

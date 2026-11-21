@@ -72,6 +72,8 @@ export interface Contact {
   addresses: string[];
   /** `YYYY-MM-DD`, or `--MM-DD` when Contacts has no year. */
   birthday: string | null;
+  /** A person's company as written ("Acme, Inc."); null for a company's own record. */
+  company: string | null;
   /** Its phone numbers and emails, as written. */
   handles: string[];
   /** The card's own id, which Photos' People link to (`ZUNIQUEID`). */
@@ -82,8 +84,8 @@ export interface Contact {
   name: string | null;
   /** Social profiles ("Facebook: claire.d") and web addresses. */
   profiles: string[];
-  /** Named relations ("Mother: Anne"). */
-  related: string[];
+  /** Named relations: Contacts' label ("Mother"), if any, and the name as written ("Anne"). */
+  related: { label: string | null; name: string }[];
   /** Job title, department and company of a person; null for a company's own record. */
   work: string | null;
 }
@@ -214,6 +216,7 @@ function readFrom(file: string): Contact[] {
             return line ? [label ? `${line} (${label})` : line] : [];
           }),
           birthday: birthdayOf(r.birthday, r.year),
+          company: person ? r.company : null,
           handles: own.map((h) => h.line),
           id: r.uid,
           labels: Object.fromEntries(
@@ -227,7 +230,7 @@ function readFrom(file: string): Contact[] {
             SITE_ONLY.test(p.line as string) ? [] : [p.line as string]
           ),
           related: (kin.get(r.id) ?? []).flatMap((k) =>
-            k.name ? [joined([labelOf(k.label), k.name], ": ") as string] : []
+            k.name ? [{ label: labelOf(k.label), name: k.name }] : []
           ),
           work: person ? joined([r.title, r.department, r.company]) : null,
         },
