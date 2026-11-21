@@ -15,7 +15,7 @@ struct Taken: Equatable {
     var staysOpen: Bool { check.keepsOpen(after: request) }
     /// He picked the option that sends the draft; another answer on a draft's card sends nothing.
     var isSend: Bool { check.options.contains { $0.outgoing == true && request.options.contains($0.id) } }
-    var isStart: Bool { check.group == .newMatter && request.options == ["start"] }
+    var isStart: Bool { [.newMatter, .yourMove].contains(check.group) && request.options == ["start"] }
     /// His word that the step or matter is done: held for Undo wherever the card is shown.
     var isEnding: Bool { check.isEnding(request) }
     var context: ActionCopy.Context {
