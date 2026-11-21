@@ -1,7 +1,11 @@
 // The owner's switches for paid processing (switches.ts), from the app or `bun run switches`, and
 // the words he wants spelled right (vocabulary.ts).
 import { createRoute, z } from "@hono/zod-openapi";
-import { macEngines, transcribers } from "@lifelog/db/schema";
+import {
+  dictationHearings,
+  macEngines,
+  transcribers,
+} from "@lifelog/db/schema";
 import type { Services } from "../services";
 import { setSwitches, switches } from "../switches";
 import { Keyterm, setVocabulary } from "../vocabulary";
@@ -13,6 +17,13 @@ export const SwitchesView = z
       .boolean()
       .describe(
         "Summaries and titles on the Mac, off by default. Off: they wait"
+      ),
+    dictationHeard: z
+      .enum(dictationHearings)
+      .describe(
+        "Where a field's dictation on the phone is heard: `mac` (the default), on the Mac after each " +
+          "pause; `instant`, the phone streams it to ElevenLabs' realtime Scribe as he speaks, with a " +
+          "single-use token the Mac mints only then"
       ),
     engine: z
       .enum(macEngines)
@@ -72,7 +83,7 @@ export function switchRoutes({
     .openapi(
       createRoute({
         description:
-          "Turns transcription or AI on or off, picks who transcribes, or sets when the app asks to be opened. Turned back on, what waited goes on: the phone " +
+          "Turns transcription or AI on or off, picks who transcribes and where dictation is heard, or sets when the app asks to be opened. Turned back on, what waited goes on: the phone " +
           "is nudged to send its waiting audio, summaries due run on the Mac.",
         method: "put",
         path: "/switches",
