@@ -254,7 +254,7 @@ const linesOf = (
     .map((l) => readLineOf(b, l, nameOf))
     .filter((l) => !keys || keys.has(l.key));
 
-/** Apple's request for a read: the trigger prompt's instructions, and its two fields' guides. */
+/** Apple's request for a mail's read: the trigger prompt's instructions, and its three fields' guides. */
 function triggerRequest(lines: string[]): FoundationRequest {
   const [instructions = "", ...fields] = promptText(TRIGGER).split("\n## ");
   const guide = (name: string) =>
@@ -268,7 +268,7 @@ function triggerRequest(lines: string[]): FoundationRequest {
         description: guide("author"),
         name: "author",
       },
-      { description: guide("quote"), name: "quote" },
+      { anyOf: ["yes", "no"], description: guide("needs"), name: "needs" },
       { anyOf: ["yes", "no"], description: guide("event"), name: "event" },
     ],
     instructions: instructions.trim(),
@@ -277,16 +277,16 @@ function triggerRequest(lines: string[]): FoundationRequest {
   };
 }
 
-/** Apple's answer as stored: its author and quote with the quote check, or why it gave none. */
+/** Apple's answer as stored: who wrote the mail, whether it needs him, whether it sets a meeting, or why it gave none. */
 function triggerReplyOf(answer: FoundationAnswer) {
   if (!("reply" in answer)) {
     return { refused: answer.error };
   }
-  const { author, event, quote = "" } = answer.reply;
+  const { author, event, needs } = answer.reply;
   return {
     author: author === "person" ? "person" : "automated",
     event: event === "yes" ? "yes" : "no",
-    quote,
+    needs: needs === "yes" ? "yes" : "no",
   };
 }
 
@@ -302,7 +302,7 @@ const APPOINTMENT = {
 
 /**
  * The one routing rule: the reads of his engine a read goes on to. With no answer yet (a conversation, Thai mail, no
- * Apple model), the confirm. After Apple's sieve of a mail: the confirm unless Apple called it automated, the
+ * Apple model), the confirm. After Apple's sieve of a mail: the confirm unless Apple called it automated and needing nothing, the
  * appointment read when it sets a meeting (a booking mail is automated and still read), both on a refusal. After a
  * confirm asked straight: the appointment read when it sets a meeting.
  */
@@ -314,7 +314,10 @@ const readsAfterOf = (reply?: object) => {
     return [CONFIRM, APPOINTMENT];
   }
   return [
-    ...("author" in reply && reply.author === "person" ? [CONFIRM] : []),
+    ...("author" in reply &&
+    !(reply.author === "automated" && "needs" in reply && reply.needs === "no")
+      ? [CONFIRM]
+      : []),
     ...("event" in reply && reply.event === "yes" ? [APPOINTMENT] : []),
   ];
 };

@@ -92,7 +92,10 @@ export const ArrivalTriggerReply = z
           author: z.enum(["person", "automated"]),
           /** Whether the lines set a meeting or an appointment (trigger v3 on; v2's lines lack it). */
           event: z.enum(["yes", "no"]).optional(),
-          quote: z.string(),
+          /** Whether the mail needs him to do something (trigger v4 on, a mail sieve). */
+          needs: z.enum(["yes", "no"]).optional(),
+          /** The ask quoted (before trigger v4). */
+          quote: z.string().optional(),
         })
         .strict(),
       z.object({ refused: z.string() }).strict(),

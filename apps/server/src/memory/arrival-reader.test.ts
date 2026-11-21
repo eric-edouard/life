@@ -233,15 +233,16 @@ test("Apple's yes on a mail goes to his engine; a confirmed yes is a confirmed a
   expect(s.calls).toEqual({ apple: 1, engine: 1 });
 });
 
-test("an automated mail asks his engine nothing; a person's mail goes on without a quote", async () => {
-  const automated = sceneOf(() => ({
-    os: "27.2",
-    reply: { author: "automated", quote: "pay your invoice" },
-  }));
-  await automated.read([mail("Your invoice is ready: pay your invoice")]);
+test("Apple sieves mail: an automated mail needing nothing asks his engine nothing; one that needs him, or a person's, goes on", async () => {
+  const automatedOf = (needs: string) =>
+    sceneOf(() => ({ os: "27.2", reply: { author: "automated", needs } }));
+  const notice = automatedOf("no");
+  await notice.read([mail("Your order has shipped")]);
+  const bill = automatedOf("yes");
+  await bill.read([mail("Your invoice is due: pay it by Friday")]);
   const person = sceneOf(() => yes(""));
   await person.read([mail("Lovely evening, thanks again")]);
-  expect([automated, person].map((s) => s.calls.engine)).toEqual([0, 1]);
+  expect([notice, bill, person].map((s) => s.calls.engine)).toEqual([0, 1, 1]);
 });
 
 test("chats go straight to his engine's confirm alone, never to Apple; a chat that sets a meeting is read by the appointment read on the next pass", async () => {
