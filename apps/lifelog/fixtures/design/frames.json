@@ -1,6 +1,56 @@
 {
+  "AgentPage": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen",
+      "-fixtureSheet",
+      "agent"
+    ]
+  },
+  "AgentPageNoProgress": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen",
+      "-fixtureSheet",
+      "agent"
+    ]
+  },
   "AgentProgramMenu": {
     "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "AgentsList": { "why": "The app has no Agents list yet." },
+  "AskNameNone": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
+  },
+  "AskNewMatter": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "card_found"]
+  },
+  "AskNewMatterDone": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "card_found"],
+    "taps": ["Start"]
+  },
+  "AskNewMatterWorking": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "card_found",
+      "-fixtureStart",
+      "starting"
+    ],
+    "taps": ["Start"]
+  },
+  "AskPeople": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "name_marc"],
+    "taps": ["Someone else…"]
   },
   "CfgPlaces": {
     "args": [
@@ -12,8 +62,30 @@
       "apps"
     ]
   },
+  "DictListening": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoAgents": { "why": "The app has no Agents list yet." },
+  "DuoDictListening": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldAgentPage": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen",
+      "-fixtureSheet",
+      "agent"
+    ]
+  },
   "DuoFoldAgentProgramMenu": {
     "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldAgentSpend": {
+    "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen -fixtureSheet agent, then scroll to the end."
   },
   "DuoFoldAgentSwitchAsk": {
     "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
@@ -27,8 +99,49 @@
   "DuoFoldAgentSwitching": {
     "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
   },
-  "DuoFoldAgentsListMoved": {
-    "why": "The app has no Agents list yet."
+  "DuoFoldAgentsList": { "why": "The app has no Agents list yet." },
+  "DuoFoldAgentsListMoved": { "why": "The app has no Agents list yet." },
+  "DuoFoldDictAgain": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictAsk": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictBusy": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictDenied": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictDraft": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictFailed": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictFilled": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictListening": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictNoMic": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictRest": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictSearch": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictSheet": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictSilence": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
+  },
+  "DuoFoldDictWriting": {
+    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
   },
   "DuoFoldImportantCard": {
     "why": "Its card (Return Jun’s drill, the switched stack) is not in the design data, and Life sends no reason a card is first: of this frame only the pill's flag is built."
@@ -91,6 +204,21 @@
   },
   "DuoFoldLogsProblems": {
     "why": "Its lines are not in the design data yet (read_log_lines.json, the designer's to write): until then the page shows the empty log."
+  },
+  "DuoFoldMatterIcon": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_lease",
+      "-fixtureSheet",
+      "icon"
+    ]
+  },
+  "DuoFoldMatterSpend": {
+    "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen, then scroll to the end."
   },
   "DuoFoldMoveAsk": {
     "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
@@ -172,9 +300,7 @@
   "DuoFoldOrgPage": {
     "why": "Its organization (person:atelier_morel) is not in the design data yet; once the designer adds it to read_people_and_organizations.json: -fixtureLife ok -fixtureTab people -fixturePerson person:atelier_morel."
   },
-  "DuoFoldPeople": {
-    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
-  },
+  "DuoFoldPeople": { "args": ["-fixtureLife", "ok", "-fixtureTab", "people"] },
   "DuoFoldPeopleAZ": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
     "taps": ["Sort", "A to Z"]
@@ -242,9 +368,7 @@
   "DuoFoldPersonCreateHandle": {
     "why": "A handle row: deferred by ruling (a)."
   },
-  "DuoFoldPersonCreateOrg": {
-    "why": "Works at: deferred by ruling (a)."
-  },
+  "DuoFoldPersonCreateOrg": { "why": "Works at: deferred by ruling (a)." },
   "DuoFoldPersonCreated": {
     "args": [
       "-fixtureLife",
@@ -321,9 +445,7 @@
       "person:marc_fenn"
     ]
   },
-  "DuoFoldPersonWorksEdit": {
-    "why": "Works at: deferred by ruling (a)."
-  },
+  "DuoFoldPersonWorksEdit": { "why": "Works at: deferred by ruling (a)." },
   "DuoFoldProject": {
     "why": "Replaced by decision 95: a project is its chip (DuoFoldProjectsOne), and its page is Details (DuoFoldProjectDetails)."
   },
@@ -388,6 +510,25 @@
   "DuoFoldSettingsLogs": {
     "why": "Settings scrolled to its Help group, a problem in the last hour: needs warn lines in read_log_lines.json (the designer's to write) and a scroll, which design:shots does not do."
   },
+  "DuoFoldSettingsSpending": {
+    "why": "Settings scrolled to its Spending row, after Your data: a scroll, which design:shots does not do. By hand: -fixtureLife ok -fixtureSheet settings, then scroll to the row."
+  },
+  "DuoFoldSpending": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureSheet",
+      "settings",
+      "-fixturePage",
+      "spending"
+    ]
+  },
+  "DuoFoldSpendingEnd": {
+    "why": "A scroll: by hand, as DuoFoldSpendingLower, scrolled to the end."
+  },
+  "DuoFoldSpendingLower": {
+    "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureSheet settings -fixturePage spending, then scroll to By kind."
+  },
   "DuoFoldStackPay": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "dec_pay"]
   },
@@ -396,6 +537,30 @@
   },
   "DuoFoldStackPlan": {
     "why": "Its card (the kitchen’s plan, its steps) is not in the design data: the read_inbox.json the designer writes holds no plan of steps yet."
+  },
+  "DuoFoldStart": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_table"
+    ],
+    "taps": ["Start an agent"]
+  },
+  "DuoFoldStarted": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_table",
+      "-fixtureStart",
+      "started"
+    ],
+    "taps": ["Start an agent", "Start"]
   },
   "DuoFoldToastImportantOff": {
     "args": [
@@ -423,9 +588,7 @@
   "DuoOrgPage": {
     "why": "Its organization (person:atelier_morel) is not in the design data yet; once the designer adds it to read_people_and_organizations.json: -fixtureLife ok -fixtureTab people -fixturePerson person:atelier_morel."
   },
-  "DuoPeople": {
-    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
-  },
+  "DuoPeople": { "args": ["-fixtureLife", "ok", "-fixtureTab", "people"] },
   "DuoPeopleAZ": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
     "taps": ["Sort", "A to Z"]
@@ -461,19 +624,91 @@
     "why": "Replaced by decision 95: the Projects tab has no Filter menu; its chips filter the list in place."
   },
   "ImportantList": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects."
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "projects"]
   },
   "ImportantPage": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen, then Important twice (the toast lasts 4 s)."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen",
+      "-fixtureUnmarked",
+      "matter_kitchen"
+    ],
+    "taps": ["Important"]
   },
   "ImportantPageOff": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen, then Important."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen",
+      "-fixtureUnmarked",
+      "matter_kitchen"
+    ]
   },
   "ImportantSwipe": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects, then a swipe to the right on Table for Mum’s 60th (the system's own swipe action)."
   },
   "MatterIcon": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_lease -fixtureSheet icon."
+  },
+  "MatterIconScrolled": {
+    "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_lease -fixtureSheet icon, then scroll the grid to its end."
+  },
+  "MatterStart": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_table"
+    ],
+    "taps": ["Start an agent"]
+  },
+  "MatterStartFailed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_table",
+      "-fixtureStart",
+      "failed"
+    ],
+    "taps": ["Start an agent", "Start"]
+  },
+  "MatterStarted": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_table",
+      "-fixtureStart",
+      "started"
+    ],
+    "taps": ["Start an agent", "Start"]
+  },
+  "MatterStarting": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_table",
+      "-fixtureStart",
+      "starting"
+    ],
+    "taps": ["Start an agent", "Start"]
   },
   "MoveMenu": {
     "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
@@ -483,6 +718,98 @@
   },
   "Moved": {
     "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "OrgCreate": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"],
+    "taps": ["Organization"]
+  },
+  "OrgCreateAsPerson": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_atelier",
+      "-fixtureSheet",
+      "create"
+    ]
+  },
+  "OrgCreated": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"],
+    "taps": ["Organization", "Create"]
+  },
+  "OrgCreating": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_atelier",
+      "-fixtureAnswer",
+      "sending"
+    ],
+    "taps": ["Organization", "Create"]
+  },
+  "OrgNameCard": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
+  },
+  "OverNoProgress": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen"
+    ]
+  },
+  "PersonCreate": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_bastien",
+      "-fixtureSheet",
+      "create"
+    ]
+  },
+  "PersonCreateEdit": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_bastien",
+      "-fixtureSheet",
+      "create"
+    ],
+    "fill": ["Who they are", "Nora's architect"]
+  },
+  "PersonCreateExists": {
+    "why": "Exists: deferred by ruling (a); Life reuses the person."
+  },
+  "PersonCreateHandle": { "why": "A handle row: deferred by ruling (a)." },
+  "PersonCreateOrg": { "why": "Works at: deferred by ruling (a)." },
+  "PersonCreated": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_bastien",
+      "-fixtureSheet",
+      "create"
+    ],
+    "taps": ["Create"]
+  },
+  "PersonCreating": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "name_bastien",
+      "-fixtureSheet",
+      "create",
+      "-fixtureAnswer",
+      "sending"
+    ],
+    "taps": ["Create"]
   },
   "PersonReachMenu": {
     "args": [
@@ -506,17 +833,38 @@
     ],
     "taps": ["Open Mail: choose an account"]
   },
+  "PersonWorksEdit": { "why": "Works at: deferred by ruling (a)." },
   "ProjectFromMatter": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen"
+    ]
   },
   "ProjectInList": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureParked halden."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureParked",
+      "halden"
+    ]
+  },
+  "ProjectNoAgent": {
+    "why": "The app has no project-level agent start yet: a project's head shows its agents only, with no \"Start an agent for\" row or New agent sheet."
   },
   "ProjectPage": {
     "why": "Replaced by decision 95: a project is its chip, and its page is Details."
   },
   "ProjectParked": {
     "why": "Replaced by decision 95: a project is parked from its chip's menu or its Details."
+  },
+  "ProjectStartAgent": {
+    "why": "The app has no project-level agent start yet: a project's head shows its agents only, with no \"Start an agent for\" row or New agent sheet."
   },
   "ProjectTellLife": {
     "why": "Its card (StackPlan, the kitchen's plan) is not in the design data and the stack's sheet is not built: Tell the agent… is written on the card, and the ready line stands over his words there on a decision whose matter has a project underway."
@@ -546,31 +894,14 @@
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its card (the kitchen’s plan of eight steps) is not in the design data either."
   },
   "ToastImportantOff": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen, then Important (the toast lasts 4 s)."
-  },
-  "DuoFoldSpending": {
     "args": [
       "-fixtureLife",
       "ok",
-      "-fixtureSheet",
-      "settings",
-      "-fixturePage",
-      "spending"
-    ]
-  },
-  "DuoFoldSettingsSpending": {
-    "why": "Settings scrolled to its Spending row, after Your data: a scroll, which design:shots does not do. By hand: -fixtureLife ok -fixtureSheet settings, then scroll to the row."
-  },
-  "DuoFoldSpendingLower": {
-    "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureSheet settings -fixturePage spending, then scroll to By kind."
-  },
-  "DuoFoldSpendingEnd": {
-    "why": "A scroll: by hand, as DuoFoldSpendingLower, scrolled to the end."
-  },
-  "DuoFoldAgentSpend": {
-    "why": "The line needs the agents' spending in read_registered_agents.json (the designer's to write), and the frame is the agent's page at its end. By hand, once written: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen -fixtureSheet agent, then scroll to the end."
-  },
-  "DuoFoldMatterSpend": {
-    "why": "The line needs the matter's spending in read_matter.json (the designer's to write), and the frame is the page at its end. By hand, once written: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen, then scroll to the end."
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen"
+    ],
+    "taps": ["Important"]
   }
 }
