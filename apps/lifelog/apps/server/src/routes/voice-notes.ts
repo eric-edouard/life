@@ -41,7 +41,11 @@ export function voiceNoteRoutes({
   const settle = (
     key: string,
     text: string,
-    spent: { billableSeconds: number; route: string; seconds: number } | {} = {}
+    spent: Partial<{
+      billableSeconds: number;
+      route: string;
+      seconds: number;
+    }> = {}
   ) => {
     db.update(voiceNoteHearings)
       .set({ ...spent, doneAt: clock(), text })
