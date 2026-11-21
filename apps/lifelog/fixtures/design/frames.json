@@ -470,10 +470,31 @@
     "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab people -fixturePerson person:camille, then scroll to the end."
   },
   "DuoFoldPersonPictureChanged": {
-    "why": "Not built: the person read names no pictures by source yet (life#812)."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille",
+      "-fixtureSheet",
+      "pictures"
+    ],
+    "taps": ["WhatsApp picture"],
+    "ready": "From Contacts, WhatsApp and Instagram"
   },
   "DuoFoldPersonPictures": {
-    "why": "Not built: the person read names no pictures by source yet (life#812)."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille",
+      "-fixtureSheet",
+      "pictures"
+    ],
+    "ready": "From Contacts, WhatsApp and Instagram"
   },
   "DuoFoldPersonReachMenu": {
     "args": [
@@ -682,7 +703,7 @@
     "why": "A scroll: by hand, as DuoFoldPersonLower, the Duo open."
   },
   "DuoPersonPictures": {
-    "why": "Not built: the person read names no pictures by source yet (life#812)."
+    "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
   },
   "DuoPersonTall": {
     "args": [

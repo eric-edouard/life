@@ -94,6 +94,10 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     func setProjectStatus(
         _ project: String, _ status: ProjectStatus, said: String, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String { "{}" }
+    func setPicture(
+        of ref: String, kind: Party.Kind, from source: String, said: String,
+        onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String { "{}" }
 }
 
 private let at = Date(timeIntervalSince1970: 1_800_000_000)

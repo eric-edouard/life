@@ -125,6 +125,12 @@ public protocol LifeAPI: Sendable {
     func setProjectStatus(
         _ project: String, _ status: ProjectStatus, said: String, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String
+    /// His picture pick for a person's or an organization's entry in his directory (`ref`, `person:<id>`): a source's
+    /// name, `contacts` or `none`, `said` in his words: an edit of that entry.
+    func setPicture(
+        of ref: String, kind: Party.Kind, from source: String, said: String,
+        onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String
     /// An appointment Life added to his calendar, by its push's `pushId` or its own id (one of the two), from the Life at
     /// `origin` (nil: the one paired now).
     func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String
@@ -265,6 +271,23 @@ public struct MCPLifeAPI: LifeAPI {
         }
         return try await client.call(
             "change_directory_entry", Edit(id: project, status: status, said: said), onProgress: onProgress)
+    }
+
+    public func setPicture(
+        of ref: String, kind: Party.Kind, from source: String, said: String,
+        onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String {
+        struct Edit: Encodable {
+            let kind: String
+            let action = "edit"
+            let id: String
+            let pictureFrom: String
+            let said: String
+        }
+        let edit = Edit(
+            kind: kind == .organization ? "organization" : "person", id: String(ref.trimmingPrefix("person:")),
+            pictureFrom: source, said: said)
+        return try await client.call("change_directory_entry", edit, onProgress: onProgress)
     }
 
     public func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String {
