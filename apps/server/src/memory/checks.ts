@@ -20,7 +20,6 @@ import {
   type Ctx,
   ctxOf,
   keptBy,
-  type Line,
   type MatterId,
   NO_SAID,
   type Ranked,
@@ -99,8 +98,6 @@ import { dayNow } from "./zones";
 // shown with its evidence while something rides on it (Life uses its guess meanwhile), a decision an agent asks, or a
 // new matter Life offers an agent for. Derived when read, never stored: his answer (`answerCheck`) goes to its kind's own
 // store: a correction, a fact-check answer, the decision's answer, lifelog's naming queue, or the desk (a Start).
-
-export type { CheckInputs, Line };
 
 /** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
 export const decisionCardOf = (d: Decision) => ({
