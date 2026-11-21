@@ -215,10 +215,10 @@ test("presence registers nothing; a turn launching is never ended by the lost tu
   );
   // The sweep runs while the next ask reads its session's state, after its turn is written.
   const { state } = t.fake.runtime;
-  t.fake.runtime.state = async (ref) => {
+  t.fake.runtime.state = (async (ref: string) => {
     await endLostTurns(t.desk);
     return await state(ref);
-  };
+  }) as typeof state;
   const next = askMainSession(
     t.desk,
     { key: "k2", words: "Again" },
