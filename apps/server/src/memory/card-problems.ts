@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import { DAY, HOUR } from "../core/clock";
+import { isOn } from "../core/outputs";
 import { type Ask, type Option, PLAN_OPTIONS } from "./card-request";
 import { type MatterStepNow, openStepsOf } from "./matter-read";
 import { eventOf, NEED_KINDS, payeeWordsOf } from "./needs";
@@ -65,7 +66,7 @@ export function cardProblemOf(
     (silence?.outgoing &&
       "`onSilence` never takes an `outgoing` option: on silence nothing goes out") ||
     lookProblemOf(ask, silence) ||
-    addsProblemOf(ask, silence, now) ||
+    addsProblemOf(ask, silence) ||
     planProblemOf(ask, isPlan, silence) ||
     (ask.draft &&
       ask.options.filter((o) => o.outgoing).length !== 1 &&
@@ -81,8 +82,7 @@ export function cardProblemOf(
 /** What breaks the rules of an `adds` option and the `event` need it writes, in words the agent can fix; false when nothing does. */
 function addsProblemOf(
   ask: z.infer<typeof Ask>,
-  silence: z.infer<typeof Option> | undefined,
-  now: Date
+  silence: z.infer<typeof Option> | undefined
 ) {
   const adds = ask.options.filter((o) => o.adds);
   const events = ask.needs?.filter((n) => n.kind === "event") ?? [];
@@ -99,9 +99,12 @@ function addsProblemOf(
     (event &&
       !(
         Date.parse(event.end) > Date.parse(event.start) &&
-        Date.parse(event.start) > now.getTime()
+        Date.parse(event.start) > Date.parse(ask.deadline)
       ) &&
-      'an `event` starts ahead and ends after it starts (fetch("ask/event"))')
+      'an `event` starts after the card\'s `deadline` and ends after it starts (fetch("ask/event"))') ||
+    (event &&
+      !isOn("appointmentsCalendar") &&
+      "an `event` card needs his calendar set up: it is off in his settings")
   );
 }
 

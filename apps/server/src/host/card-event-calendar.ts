@@ -1,4 +1,3 @@
-import { isOn } from "../core/outputs";
 import { settings } from "../core/settings";
 import { DESCRIPTION_MAX, mapLinksOf } from "../memory/calendar-events";
 import type { AddEventByHisWord } from "../memory/decision-add";
@@ -14,7 +13,7 @@ import { googleCalendar } from "./google-calendar";
 export const addEventByHisWord: AddEventByHisWord = async (d) => {
   const { appointmentsCalendar: s } = settings();
   const event = eventOf(d.needs);
-  if (!(s && isOn("appointmentsCalendar"))) {
+  if (!s) {
     throw new Error("the calendar is off in his settings");
   }
   if (!event) {
@@ -28,7 +27,6 @@ export const addEventByHisWord: AddEventByHisWord = async (d) => {
         [
           "Added by Life on your yes to an agent's card.",
           ...(event.place ? mapLinksOf({ name: event.place }) : []),
-          `Card ${d.id}.`,
         ].join("\n"),
         DESCRIPTION_MAX
       ),

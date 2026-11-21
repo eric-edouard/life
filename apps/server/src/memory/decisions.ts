@@ -15,7 +15,6 @@ import { Ask, Keep, type Option, Withdrawal } from "./card-request";
 import {
   ADD_LIMIT_MS,
   type AddEventByHisWord,
-  addedLineOf,
   addNeverEndedOf,
 } from "./decision-add";
 import { readAll, voidedBy } from "./decision-fold";
@@ -580,26 +579,27 @@ async function lookOnAnswer(
   return line;
 }
 
-/** Closes the step or matter of the answered decision `d` by his word (`end`) and appends its `ended` line, with the error when it failed. */
-async function endOnAnswer(
+/** Runs the act of his answer that writes outside Life (`end` closes the step or matter, `add` writes the calendar event) and appends its outcome line, `ended` or `added`, with the error when it failed. Never retried. */
+async function settleOnAnswer(
+  kind: "added" | "ended",
   d: Omit<Decision, "state">,
-  end: EndByHisWord,
+  run: () => Promise<unknown>,
   onStep?: (step: string, detail?: Record<string, unknown>) => void
 ) {
-  const outcome = await end(d).then(
-    () => ({}),
+  const outcome = await run().then(
+    (r) => (typeof r === "string" ? { eventId: r } : {}),
     (e: Error) => ({ error: e.message })
   );
-  const ended: Ended = {
+  const line = {
     at: clock().toISOString(),
     id: d.id,
-    kind: "ended",
+    kind,
     schemaVersion: DECISIONS_VERSION,
     ...outcome,
-  };
-  appendJsonl(DECISIONS, Ended, [ended]);
-  onStep?.("ended", ended.error ? { error: ended.error } : undefined);
-  return ended;
+  } as Added | Ended;
+  appendJsonl(DECISIONS, z.union([Added, Ended]), [line]);
+  onStep?.(kind, "error" in line ? { error: line.error } : undefined);
+  return line;
 }
 
 /**
@@ -667,13 +667,16 @@ export async function answerDecision(
   onStep?.("recorded");
   const act = actDueOf(stored);
   if (act === "add" && add) {
-    const added = await addedLineOf(stored, () => add(stored));
-    appendJsonl(DECISIONS, Added, [added]);
-    onStep?.("added", added.error ? { error: added.error } : undefined);
-    return [line, added];
+    return [
+      line,
+      await settleOnAnswer("added", stored, () => add(stored), onStep),
+    ];
   }
   if (act === "end" && end) {
-    return [line, await endOnAnswer(stored, end, onStep)];
+    return [
+      line,
+      await settleOnAnswer("ended", stored, () => end(stored), onStep),
+    ];
   }
   if (act === "look" && look) {
     return [line, await lookOnAnswer(stored, look, onStep)];

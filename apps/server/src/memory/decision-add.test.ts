@@ -1,6 +1,7 @@
-import { beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { DAY, HOUR } from "../core/clock";
+import { DAY, HOUR, MIN } from "../core/clock";
+import { setSettings, settings } from "../core/settings";
 import { DECISIONS } from "./decision-lines";
 import { answerDecision, decisionsNow, requestDecision } from "./decisions";
 import { Need } from "./needs";
@@ -28,7 +29,15 @@ const card = (over = {}) => ({
   title: "Add the dive course",
   ...over,
 });
-beforeEach(() => rmSync(DECISIONS, { force: true }));
+const before = settings();
+beforeEach(() => {
+  rmSync(DECISIONS, { force: true });
+  setSettings({
+    ...before,
+    appointmentsCalendar: { account: "me@example.com", calendar: "primary" },
+  });
+});
+afterEach(() => setSettings(before));
 
 test("an `event` card is checked when asked: one event with one `adds` option, ahead, never on silence or with another mark", async () => {
   const refused = (over: object, why: string) =>
@@ -39,7 +48,7 @@ test("an `event` card is checked when asked: one event with one `adds` option, a
   );
   await refused(
     { needs: [{ ...EVENT, start: "2026-11-01T08:00:00+07:00" }] },
-    "starts ahead"
+    "starts after the card"
   );
   await refused({ needs: [{ ...EVENT, reminders: [] }] }, "event");
   await refused({ onSilence: "add" }, "never takes an `adds`");
@@ -115,4 +124,35 @@ test("a failed write is recorded as the outcome and never retried", async () => 
     kind: "added",
   });
   expect(decisionsNow(NOW).find((d) => d.id === id)?.state).toBe("answered");
+});
+
+test("the card refuses what he cannot act on: an event starting before the deadline, or with the calendar off", async () => {
+  await expect(
+    requestDecision(
+      "planner",
+      card({ deadline: new Date("2026-12-02T00:00:00Z").toISOString() }),
+      NOW
+    )
+  ).rejects.toThrow("after the card's `deadline`");
+  setSettings({ ...before, appointmentsCalendar: undefined });
+  await expect(requestDecision("planner", card(), NOW)).rejects.toThrow(
+    "calendar set up"
+  );
+});
+
+test("an add that never ended reads as an error line after its limit, stays answered and is never retried", async () => {
+  const { id } = await requestDecision("planner", card(), NOW);
+  const hang = Promise.withResolvers<string>();
+  const pending = answerDecision(id, ["add"], undefined, {
+    add: () => hang.promise,
+    now: new Date(NOW.getTime() + HOUR),
+    via: "connector",
+  });
+  const read = decisionsNow(new Date(NOW.getTime() + HOUR + 3 * MIN)).find(
+    (d) => d.id === id
+  );
+  expect(read?.added?.error).toContain("may not have been added");
+  expect(read?.state).toBe("answered");
+  hang.resolve("late");
+  await pending;
 });

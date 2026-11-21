@@ -170,10 +170,20 @@ async function decisionResult(ref: string, key?: string) {
   const tap = tapOf(d, key);
   // An end belongs to the answer that stands: one a `not sent:` outcome voided ended nothing.
   const ended = tap.answer === d.answer ? d.end : undefined;
+  const added = tap.answer === d.answer ? d.added : undefined;
   return {
     asker: askerOf(d),
     changed: {
       decision: ref,
+      ...(added
+        ? {
+            added: {
+              at: added.at,
+              ...(added.error ? { error: added.error } : {}),
+              ...(added.eventId ? { eventId: added.eventId } : {}),
+            },
+          }
+        : {}),
       ...(ended
         ? {
             ended: {
@@ -185,9 +195,13 @@ async function decisionResult(ref: string, key?: string) {
       options: tap.answer?.options ?? [],
       state: d.state,
     },
-    done: [tap.answer, tap.notSent ?? tap.send, tap.doneSeen, ended].filter(
-      Boolean
-    ),
+    done: [
+      tap.answer,
+      tap.notSent ?? tap.send,
+      tap.doneSeen,
+      ended,
+      added,
+    ].filter(Boolean),
     doneSeen: doneSeenShownOf(tap.doneSeen, d.needs),
     kind: "decision",
     ref,
