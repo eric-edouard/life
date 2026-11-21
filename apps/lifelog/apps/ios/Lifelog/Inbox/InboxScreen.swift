@@ -47,9 +47,10 @@ struct InboxScreen: View {
             // The first card cross-fades in over the skeleton.
             .motion(Motion.standard, value: life.inboxOnShow == nil)
             .background(Palette.bg)
-            // Alone, the ask has the screen's title over it (the question stays the biggest line); beside the list, the
-            // list has it, and the gear and the Pendant.
-            .screenTitle(widths.ask < widths.whole - 1 ? nil : "Inbox", state: waiting)
+            // Alone, the ask has the screen's title over it (the question stays the biggest line), in the card's own bar
+            // (`CardView.title`) so the card scrolls under it; here only while no card shows. Beside the list, the list
+            // has it, and the gear and the Pendant.
+            .screenTitle(isCardOnShow(order) ? nil : askTitle?.name, state: askTitle?.state)
             .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.ask = $0 }
             // Declared before the Pendant and Settings: a vertical bar stacks trailing items bottom-up, so the order puts
             // this one under them; `sharedBackgroundVisibility(.hidden)` keeps it out of their capsule.
@@ -112,6 +113,17 @@ struct InboxScreen: View {
     /// The title's state, "4 waiting": as the inbox read last said, less his answers (`LifeStore.waiting`).
     private var waiting: String? { life.waiting.flatMap { $0 > 0 ? "\($0) waiting" : nil } }
 
+    /// The title over the ask, while the ask is alone in its column; beside the list, the list has it.
+    private var askTitle: ScreenTitle? {
+        widths.ask < widths.whole - 1 ? nil : ScreenTitle(name: "Inbox", state: waiting)
+    }
+
+    /// A card is on show (it carries the title itself): a read on screen and an ask or his result in it.
+    private func isCardOnShow(_ order: InboxOrder) -> Bool { shown.onScreen != nil && cardCheck(order) != nil }
+
+    /// The ask on show: his tap's result's, else the one the pager is on.
+    private func cardCheck(_ order: InboxOrder) -> Check? { notes.shownCheck ?? order.check(on: current) }
+
     /// The ask whose answer Life refused, back in the order.
     private var refusedRef: String? {
         all.checks.first { check in
@@ -145,10 +157,10 @@ struct InboxScreen: View {
     /// The ask on show, or his tap's result in its place: one arrangement for both, so the ask's context region stays
     /// as it was until the next ask.
     @ViewBuilder private func card(_ order: InboxOrder) -> some View {
-        if let check = notes.shownCheck ?? order.check(on: current) {
+        if let check = cardCheck(order) {
             CardView(
                 check: check, checks: order.checks, current: $current, notes: $notes, notice: notice,
-                holdsAnswers: true, leave: leave)
+                holdsAnswers: true, title: askTitle, leave: leave)
         } else {
             InboxZero()
         }

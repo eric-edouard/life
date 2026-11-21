@@ -1,11 +1,11 @@
 import LifeConnector
 import SwiftUI
 
-/// One check as the Ask panel, whatever its kind: the question first, nothing above it; the thing it is about on `tile`,
-/// which hugs what it holds and scrolls when that is taller than the room; one row under it (the matter, and the one
-/// link, to its context sheet); then, at the bottom, its answers. Its look
-/// comes from what the check holds (a draft, a sentence, clips, a group), never from a kind of its own. His taps
-/// leave through `answer`; this view keeps nothing of the answer. At an accessibility text size the whole panel scrolls.
+/// One check as the Ask panel, whatever its kind, one scroll view (decision 97): the question first, under the screen's
+/// title when it has one; the thing it is about on `tile`, at its full length; one row under it (the matter, and the one
+/// link, to its context sheet); then its answers, floating over the foot. Its look comes from what the check holds (a
+/// draft, a sentence, clips, a group), never from a kind of its own. His taps leave through `answer`; this view keeps
+/// nothing of the answer.
 struct CheckCard: View {
     let check: Check
     /// The runtime of the agent that asked, when the card's matter has one.
@@ -26,6 +26,8 @@ struct CheckCard: View {
     var dropProject: (() -> Void)?
     /// Where it stands among the asks paged beside it (its index, how many); nil alone.
     var page: (current: Int, total: Int)?
+    /// The screen's title over its question (the Inbox's alone), in the card's own top bar so the card scrolls under it.
+    var title: ScreenTitle?
 
     /// The card's context shows in a region of its own, so its matter row and "Why" link go: `CardArrangement` decides.
     @Environment(\.isContextBeside) private var isContextBeside
@@ -36,41 +38,29 @@ struct CheckCard: View {
     @State private var isLinkBesideMatter = true
 
     var body: some View {
-        Group {
-            if typeSize.isAccessibilitySize {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                        question
-                        tile(scrolls: false)
-                        beingFixed
-                        matterRow
-                        actions
-                    }
-                    .padding(.horizontal, Metrics.Spacing.s).padding(.vertical, Metrics.Spacing.m).readingWidth()
-                }
-            } else {
-                VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                    question
-                    tile(scrolls: true)
-                    beingFixed
-                    matterRow
-                    Spacer(minLength: 0)
-                    // While a tapped push is checked, how many asks wait is not known yet: the spinner, then the dots.
-                    Group {
-                        if life.isCheckingPush {
-                            Spinner(size: .small).foregroundStyle(Palette.fg)
-                        } else if let page {
-                            PagerDots(current: page.current, total: page.total)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .motion(Motion.standard, value: life.isCheckingPush)
-                    actions
-                }
-                .padding(.horizontal, Metrics.Spacing.s).padding(.top, Metrics.Spacing.m)
-                .padding(.bottom, Metrics.Spacing.s).readingWidth()
+        // One scroll view, nothing scrolling inside it (decision 97); the answers float over its foot in the system's
+        // bar, so its soft edge shows under them and the content's end scrolls clear. At an accessibility text size they
+        // close the content instead, so the bar never covers the screen.
+        let isAnswersBarred = !typeSize.isAccessibilitySize
+        ScrollView {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+                question
+                tile
+                beingFixed
+                matterRow
+                if !input.isWritingOwnWords { RefusedAnswer(check: check) }
+                if !isAnswersBarred { answers }
+            }
+            .padding(.horizontal, Metrics.Spacing.s).padding(.vertical, Metrics.Spacing.m).readingWidth()
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .safeAreaBar(edge: .bottom, spacing: 0) {
+            if isAnswersBarred {
+                answers.padding(.horizontal, Metrics.Spacing.s).padding(.bottom, Metrics.Spacing.s).readingWidth()
             }
         }
+        .scrollEdgeEffectStyle(.soft, for: .bottom)
+        .screenTitle(title?.name, state: title?.state)
         .sheet(isPresented: $input.showsContext) {
             ContextSheet(
                 title: check.contextLinkTitle ?? "", markdown: check.context ?? "", lifeLinks: check.lifeLinks ?? [],
@@ -95,25 +85,15 @@ struct CheckCard: View {
     /// A guessed person with the chat the network shows them in: that is the thing.
     private var identity: Check.NetworkIdentity? { check.group == .guessedPerson ? check.networkIdentity : nil }
 
-    /// The thing on `tile`: his own words while he writes them, else what the ask is about; no tile when it has nothing.
-    /// The tile hugs the thing and scrolls (from its start) only when the thing is taller than the room.
-    @ViewBuilder private func tile(scrolls: Bool) -> some View {
+    /// The thing on `tile`: his own words while he writes them, else what the ask is about, at its full length (the card
+    /// scrolls, never the tile); no tile when it has nothing.
+    @ViewBuilder private var tile: some View {
         if input.isWritingOwnWords || hasThing {
-            let thing = VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                 if input.isWritingOwnWords { ownWords } else { content }
             }
             .padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
-            if scrolls {
-                ViewThatFits(in: .vertical) {
-                    thing.background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
-                    ScrollView { thing }.scrollBounceBehavior(.basedOnSize)
-                        .scrollEdgeEffectStyle(.soft, for: .vertical)
-                        .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
-                        .clipShape(.rect(cornerRadius: Metrics.Radius.passage))
-                }
-            } else {
-                thing.background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
-            }
+            .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
         }
     }
 
@@ -147,7 +127,7 @@ struct CheckCard: View {
         TextField(
             check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
         )
-        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8).focused($isWriting)
+        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...).focused($isWriting)
         .onAppear { isWriting = true }
     }
 
@@ -208,6 +188,23 @@ struct CheckCard: View {
             ) {
                 openMatter(matter.id)
             }
+        }
+    }
+
+    /// Where it stands among the asks (the dots), then its answers.
+    private var answers: some View {
+        VStack(spacing: Metrics.Spacing.m) {
+            // While a tapped push is checked, how many asks wait is not known yet: the spinner, then the dots.
+            Group {
+                if life.isCheckingPush {
+                    Spinner(size: .small).foregroundStyle(Palette.fg)
+                } else if let page {
+                    PagerDots(current: page.current, total: page.total)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .motion(Motion.standard, value: life.isCheckingPush)
+            actions
         }
     }
 

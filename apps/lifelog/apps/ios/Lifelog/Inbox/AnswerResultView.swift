@@ -29,6 +29,8 @@ struct Taken: Equatable {
 struct AnswerResultView: View {
     let taken: Taken
     let state: ActionState<ActionProof>
+    /// The screen's title, as over the ask it replaces (`CardView.title`).
+    var title: ScreenTitle?
     /// Each new state shows from its top (a long draft scrolled while sending would hide "Not sent"); a step ticking
     /// within one state keeps where he scrolled.
     @State private var position = ScrollPosition(edge: .top)
@@ -53,6 +55,7 @@ struct AnswerResultView: View {
         .scrollPosition($position)
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
+        .screenTitle(title?.name, state: title?.state)
     }
 
     private var lines: [CheckLine] {

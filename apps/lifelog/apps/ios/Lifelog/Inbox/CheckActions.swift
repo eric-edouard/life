@@ -58,7 +58,6 @@ struct CheckActions: View {
                 .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
             } else {
                 line
-                refusal
                 DoneSeenLine(doneSeen: check.doneSeen)
                 // While Life looks, its answer stands busy in the filled answer's place: nothing to tap.
                 if check.doneSeen?.state == .looking {
@@ -86,30 +85,6 @@ struct CheckActions: View {
             }
             .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
             .frame(maxWidth: .infinity, alignment: .trailing)
-        }
-    }
-
-    /// His last answer to this ask that did not go, in one `flag` line above the same answers; a send that someone wrote
-    /// over names their message too (Life's own word, `wrote`: never decided here).
-    @ViewBuilder private var refusal: some View {
-        if case .failed(let failure, _) = life.state(of: .answer(ref: check.ref)) {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                if let wrote = failure.wrote {
-                    let by = wrote.by ?? check.draft?.to ?? "Someone"
-                    Text("Not sent: \(by) wrote since.").font(.small).foregroundStyle(Palette.flag)
-                    if let text = wrote.text {
-                        let when = wrote.at.map { ", \($0.formatted(.dateTime.hour().minute()))" } ?? ""
-                        Text("\(by)\(when)").font(.small).foregroundStyle(Palette.muted)
-                        Text("“\(text)”").font(.body15).foregroundStyle(Palette.fg).fixedSize(
-                            horizontal: false, vertical: true)
-                    }
-                } else {
-                    // Life's own reason when Life answered; the fixed line only when the connection failed.
-                    Text(failure.isSameTap ? "Not sent to your Mac." : failure.reason)
-                        .font(.small).foregroundStyle(Palette.flag)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading).appears()
         }
     }
 
@@ -237,6 +212,37 @@ struct CheckActions: View {
             if let request = check.answer(option) { return answer(request) }
             // A note, or what this build doesn't know yet: his own words go back, never a dead button.
             if [.note, .unknown].contains(option.takes), check.takesOwnWords { input.isWritingOwnWords = true }
+        }
+    }
+}
+
+/// His last answer to an ask that did not go, in one `flag` line at the end of the card's content, just above the same
+/// answers (in the card's scroll, never its answer bar, since the message can be long); a send that someone wrote over
+/// names their message too (Life's own word, `wrote`: never decided here).
+struct RefusedAnswer: View {
+    let check: Check
+
+    @Environment(LifeStore.self) private var life
+
+    var body: some View {
+        if case .failed(let failure, _) = life.state(of: .answer(ref: check.ref)) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                if let wrote = failure.wrote {
+                    let by = wrote.by ?? check.draft?.to ?? "Someone"
+                    Text("Not sent: \(by) wrote since.").font(.small).foregroundStyle(Palette.flag)
+                    if let text = wrote.text {
+                        let when = wrote.at.map { ", \($0.formatted(.dateTime.hour().minute()))" } ?? ""
+                        Text("\(by)\(when)").font(.small).foregroundStyle(Palette.muted)
+                        Text("“\(text)”").font(.body15).foregroundStyle(Palette.fg).fixedSize(
+                            horizontal: false, vertical: true)
+                    }
+                } else {
+                    // Life's own reason when Life answered; the fixed line only when the connection failed.
+                    Text(failure.isSameTap ? "Not sent to your Mac." : failure.reason)
+                        .font(.small).foregroundStyle(Palette.flag)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading).appears()
         }
     }
 }

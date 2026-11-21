@@ -232,7 +232,7 @@ struct NeedsBlock: View {
                         .frame(width: Metrics.FlatRow.slot).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
                         Text(row.text).font(row.isFigure ? .rowFigure : .body15).foregroundStyle(Palette.fg)
-                            .fontWeight(row.isFigure ? .semibold : nil).lineLimit(2)
+                            .fontWeight(row.isFigure ? .semibold : nil).fixedSize(horizontal: false, vertical: true)
                         if let detail = copied?.row == index ? "Copied \(copied?.text ?? "")" : row.detail {
                             // A link's host in full, on as many lines as it takes: the trust boundary.
                             Text(detail).font(.small).foregroundStyle(Palette.muted)

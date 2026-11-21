@@ -91,6 +91,9 @@ struct CardView: View {
     /// Answers that are not a send or a start are held for Undo (the Inbox draws the toast), not shown as a result.
     /// Without it, only his word that a step is done is held (`Taken.isEnding`); the host draws its toast.
     var holdsAnswers = false
+    /// The screen's title over the ask and its result (the Inbox's, alone in its column): in their own top bar, so what
+    /// scrolls passes under it. None on a matter's stack, whose page names it.
+    var title: ScreenTitle?
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
 
@@ -116,7 +119,7 @@ struct CardView: View {
             ZStack {
                 if let taken = result {
                     // A step ticking changes in place.
-                    AnswerResultView(taken: taken, state: life.state(of: taken.key))
+                    AnswerResultView(taken: taken, state: life.state(of: taken.key), title: title)
                         .motion(Motion.standard, value: life.state(of: taken.key))
                         .appears(Motion.result)
                 } else {
@@ -185,7 +188,7 @@ struct CardView: View {
                                     notes.wrong = check
                                 },
                                 dropProject: dropProject(of: check),
-                                page: checks.count > 1 ? (index, checks.count) : nil
+                                page: checks.count > 1 ? (index, checks.count) : nil, title: title
                             )
                             .padding(.leading, Pager.gap)
                             .containerRelativeFrame(.horizontal)
