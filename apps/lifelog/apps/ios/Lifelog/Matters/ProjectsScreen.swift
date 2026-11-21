@@ -160,9 +160,6 @@ struct ProjectsScreen: View {
                 ProjectHead(id: chip.id) { router.projectAsk = OpenAsk(ask: $0) }.readingWidth().quietListRow()
             }
             if let list = shown.onScreen {
-                if case .stale(_, let since, let why) = shown {
-                    StaleNote(since: since, because: why.words, retry: { await refresh(chip) }).quietListRow()
-                }
                 rows(list.matters, chip: chip)
             } else {
                 ReadScreen(
@@ -174,8 +171,14 @@ struct ProjectsScreen: View {
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
+        .staleToast(staleNote(shown), retry: { await refresh(chip) })
         .motion(Motion.standard, value: shown.onScreen?.matters.map(\.id))
         .scrollDismissesKeyboard(.interactively)
+    }
+
+    /// When the list on show was read and why it is old, while its latest read failed.
+    private func staleNote(_ shown: ReadState<MatterList>.Shown) -> (since: Date?, because: String)? {
+        if case .stale(_, let since, let why) = shown { (since, why.words) } else { nil }
     }
 
     /// The rows in Life's order (his marked ones first); on All, a parked or done project's matters last, under
@@ -290,11 +293,13 @@ extension View {
 
 struct MatterRowView: View {
     let row: MatterRow
+    @Environment(LifeStore.self) private var life
     /// His mark, his tap first (`LifeStore.isImportant`).
     let isMarked: Bool
 
     var body: some View {
         let parked = row.isParked
+        let agent = row.agent.flatMap { id in life.agents.value?.agents.first { $0.id == id } }
         return Row(
             title: row.name, icon: row.symbol,
             iconTint: Palette.muted, detail: row.nextStep?.text, isMarked: isMarked, isInList: true
@@ -304,8 +309,12 @@ struct MatterRowView: View {
                 EmptyView()
             } else if row.needsYou == true {
                 StateDot(color: Palette.flag)
-            } else if row.agent != nil {
+            } else if agent?.status == .running {
                 Spinner(size: .small).foregroundStyle(Palette.ai).accessibilityLabel("An agent is working")
+            } else if row.agent != nil {
+                // Idle until something new touches the matter: its mark, still, never the working spinner.
+                Image(symbol: (agent?.runtimeName ?? .unknown).mark).font(.small)
+                    .foregroundStyle(Palette.muted).accessibilityLabel("An agent is waiting")
             }
         }
         .opacity(parked ? 0.45 : 1)
