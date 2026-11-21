@@ -418,7 +418,7 @@ test("log lines page back newest first by day and byte, none lost or repeated; f
     "2026-11-20T03:00:00.000Z",
     "2026-11-20T02:00:00.000Z",
   ]);
-  expect(first.lines.slice(0, 2).map(({ id, ...l }) => l)).toEqual([
+  expect(first.lines.slice(0, 2)).toMatchObject([
     {
       at: "2026-11-20T04:00:00.000Z",
       category: ["watch", "crash"],
@@ -435,13 +435,16 @@ test("log lines page back newest first by day and byte, none lost or repeated; f
     },
   ]);
   // A line's id is its place: as a cursor it reads the lines before it, on that day and the older ones.
-  const second = first.lines[1];
+  const [, second, third] = first.lines;
   const before = await readLogLines({ cursor: second?.id, limit: 1 }, dir);
-  expect(before.lines.map((l) => l.at)).toEqual([first.lines[2]?.at]);
+  expect(before.lines.map((l) => l.at)).toEqual([third?.at]);
   // His app's live log never shows its own reads; a refused one stays.
   appendFileSync(
     join(dir, "2026-11-20.jsonl"),
-    line("2026-11-20T04:30:00.000Z", { kind: "mcp.call", tool: "read_log_lines" }) +
+    line("2026-11-20T04:30:00.000Z", {
+      kind: "mcp.call",
+      tool: "read_log_lines",
+    }) +
       line("2026-11-20T04:31:00.000Z", {
         error: true,
         kind: "mcp.call",

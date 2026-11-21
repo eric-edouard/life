@@ -65,9 +65,9 @@ struct TypeStep: Equatable {
 
     /// A heading in a context (`#`, `##`): the sheet's head is its only top level.
     static let contextHeading = TypeStep(size: 17, weight: 700, style: .headline)
-    /// Code inside a context's sentence.
+    /// Code inside a context's sentence, and a log line's message in full (its detail).
     static let codeInline = TypeStep(size: 14, weight: 450, style: .footnote, isMono: true)
-    /// A context's code block.
+    /// A context's code block, and a line of the live log.
     static let codeBlock = TypeStep(size: 13, weight: 450, style: .footnote, isMono: true)
 
     /// The step at a Dynamic Type size.

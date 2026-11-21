@@ -91,6 +91,6 @@ private func lines(_ feed: LogFeed) -> [String] { feed.rows.compactMap(\.line?.m
     #expect(!feed.isEmpty)
     feed.add(earlier: LogPage(lines: [], cursor: "b"))
     feed.add(earlier: LogPage(lines: [line(1, "old")], cursor: nil))
-    #expect(lines(feed) == ["old"] && feed.earlier == nil && !feed.isTrimmed)
+    #expect(lines(feed) == ["old"] && feed.earlier == nil && !feed.isCut)
     #expect(LogFeed(first: LogPage(lines: [], cursor: nil)).isEmpty)
 }
