@@ -91,26 +91,9 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     public var isParked: Bool { project.map { !$0.status.isUnderway && $0.status != .unknown } ?? false }
 }
 
-/// `read_matters`: the running matters, most pressing first; of one project, its page's head too.
+/// `read_matters`: the running matters, most pressing first.
 public struct MatterList: Decodable, Sendable, Equatable {
-    /// A project's page: its name, status as stored, his goal naming it and where it stands now.
-    public struct ProjectHead: Decodable, Sendable, Equatable {
-        /// One line of where a project stands: Life's reading of its matters, with the matter steps it cites (`cites`).
-        public struct SituationLine: Decodable, Sendable, Equatable {
-            public let text: String
-            public let cites: [String]
-        }
-
-        public let id: String
-        public let name: String
-        public let status: ProjectStatus
-        public let goal: String?
-        /// Absent in a response from a server that does not read it yet; empty until Life has made it.
-        public let situation: [SituationLine]?
-    }
-
     public let matters: [MatterRow]
-    public let project: ProjectHead?
 
     /// The matters whose name, goal, next step or people hold `query` (searched on the phone: the list is every running matter).
     public func matching(_ query: String) -> [MatterRow] {
@@ -119,34 +102,6 @@ public struct MatterList: Decodable, Sendable, Equatable {
         return matters.filter { row in
             ([row.name, row.goal?.text, row.nextStep?.text].compactMap(\.self) + row.parties.map(\.name))
                 .contains { $0.localizedStandardContains(query) }
-        }
-    }
-
-    /// The matters `filter` lets through, in the list's order, by his mark as shown (`isMarked`: his tap first).
-    public func shown(filter: MatterFilter, isMarked: (MatterRow) -> Bool) -> [MatterRow] {
-        matters.filter { filter.passes($0, isMarked: isMarked($0)) }
-    }
-
-    /// The filter menu's areas, over every running matter, most matters first.
-    public var areasByCount: [String] {
-        let counts = matters.flatMap { $0.areas ?? [] }.reduce(into: [String: Int]()) { $0[$1, default: 0] += 1 }
-        return counts.sorted { ($1.value, $0.key) < ($0.value, $1.key) }.map(\.key)
-    }
-}
-
-/// What the Matters list's filter menu chooses: everything, what needs him, what he marked, what an agent works on, or
-/// one area.
-public enum MatterFilter: Hashable, Sendable {
-    case everything, needsYou, important, agentWorking
-    case area(String)
-
-    func passes(_ row: MatterRow, isMarked: Bool) -> Bool {
-        switch self {
-        case .everything: true
-        case .needsYou: row.needsYou == true
-        case .important: isMarked
-        case .agentWorking: row.agent != nil
-        case .area(let area): row.areas?.contains(area) == true
         }
     }
 }

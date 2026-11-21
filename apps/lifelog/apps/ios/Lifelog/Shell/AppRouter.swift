@@ -2,11 +2,11 @@ import LifeConnector
 import Observation
 import SwiftUI
 
-/// Where the app is: the tab, the asks pushed on a matter, and the sheet over them. One place, so a card's matter chip, a push and
+/// Where the app is: the tab, the chosen project chip, the asks pushed on a matter, and the sheet over them. One place, so a card's matter chip, a push and
 /// a tapped ask all go the same way, and a fold keeps them.
 @MainActor @Observable
 final class AppRouter {
-    enum Tab: Hashable { case inbox, matters, people, search }
+    enum Tab: Hashable { case inbox, projects, people, search }
     enum Sheet: String, Identifiable {
         case pendant, settings
         var id: String { rawValue }
@@ -29,9 +29,14 @@ final class AppRouter {
         }
     }
 
-    /// What is pushed on the matter on show: one of its asks, by check ref, or the page of its project, by id.
+    /// What is pushed on the matter on show: one of its asks, by check ref.
     enum MatterRoute: Hashable {
         case card(String)
+    }
+
+    /// What the Projects tab's detail column shows: a matter, or a project's Details (decision 95), by id; one at a time.
+    enum Detail: Hashable {
+        case matter(String)
         case project(String)
     }
 
@@ -47,10 +52,16 @@ final class AppRouter {
     }
 
     var tab = Tab.inbox
-    /// The matter on show in the Matters tab, by id, and which column a compact width shows: the list or the matter.
-    var matter: String?
+    /// The Projects tab's chosen chip, by its identity (`ProjectChips.Chip.identity`); nil is All.
+    var chip: String?
+    /// The detail column's one page, and which column a compact width shows: the list or that page.
+    private(set) var detail: Detail?
+    /// The matter on show in the Projects tab, by id.
+    var matter: String? {
+        if case .matter(let id) = detail { id } else { nil }
+    }
     var matterColumn = NavigationSplitViewColumn.sidebar
-    /// What is pushed on the matter on show (`MatterRoute`): Back returns to the matter, the tab stays on Matters.
+    /// What is pushed on the matter on show (`MatterRoute`): Back returns to the matter, the tab stays on Projects.
     var matterPath: [MatterRoute] = []
     /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
     var inboxColumn = NavigationSplitViewColumn.detail
@@ -73,9 +84,25 @@ final class AppRouter {
 
     func open(matter id: String) {
         sheet = nil
-        tab = .matters
+        tab = .projects
         matterPath = []
         select(matter: id)
+    }
+
+    /// A project, from a matter that names it: the Projects tab's list on its chip (decision 95: the filtered list is
+    /// the project).
+    func open(project chip: String) {
+        sheet = nil
+        tab = .projects
+        self.chip = chip
+        matterColumn = .sidebar
+    }
+
+    /// A project's Details, beside the list or pushed over it on a compact width.
+    func openDetails(of project: String) {
+        matterPath = []
+        detail = .project(project)
+        matterColumn = .detail
     }
 
     /// A person's or an organization's page, from wherever one is named: the People tab, on them.
@@ -98,7 +125,7 @@ final class AppRouter {
     /// The one way the matter on show changes: a compact width then shows it too, so a fold keeps it on screen.
     func select(matter id: String?) {
         if matter != id { matterPath = [] }
-        matter = id
+        detail = id.map { .matter($0) }
         matterColumn = id == nil ? .sidebar : .detail
     }
 }

@@ -10,7 +10,7 @@
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (every whole read after the first takes 5 s: a tapped push's card is checked), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused; `sending`: it never ends); `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters|people|search`, `-fixtureMatter <id>`, `-fixtureProject <id>` (its page, pushed on the matter), `-fixturePerson <ref>`, `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|icon|pair|pairing|replacePendant|pairPendant|create`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab projects|people|search`, `-fixtureMatter <id>`, `-fixturePerson <ref>`, `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|icon|pair|pairing|replacePendant|pairPendant|create`
     /// open the screen to show (`create` holds Created, to be photographed). `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -23,7 +23,6 @@
         /// `-fixtureOnly <ref>`: the inbox holds that one card, for a screenshot of a card that is not the first.
         nonisolated static let tab = value(of: "-fixtureTab")
         nonisolated static let matter = value(of: "-fixtureMatter")
-        nonisolated static let project = value(of: "-fixtureProject")
         /// `-fixturePerson <ref>`: the People tab opens on that person's or organization's page.
         nonisolated static let person = value(of: "-fixturePerson")
         /// `-fixtureUnmarked <matter id>`: that matter starts without his mark; `-fixtureParked <project id>`: that
@@ -171,12 +170,90 @@
         func readMatters() async throws -> String { try await gate(); return matters() }
         func readMatters(project: String) async throws -> String {
             try await gate()
+            return json(DesignReplies.matters(rowsNow().filter { Self.projectOf($0)?["id"] as? String == project }))
+        }
+        /// An area's matters in no project; the design data names areas, so its id is the name in lower case.
+        func readMatters(area: String) async throws -> String {
+            try await gate()
+            return json(DesignReplies.matters(rowsNow().filter { Self.projectOf($0) == nil && Self.isIn(area, $0) }))
+        }
+        /// The chips as Life orders them: the underway projects, those needing him first; the areas holding a matter in
+        /// no project; then the parked or done projects. Worked out from the rows, as the server does from its matters.
+        func readProjects() async throws -> String {
+            try await gate()
+            let rows = rowsNow()
+            func chip(_ kind: String, _ id: String, _ name: String, _ of: [[String: Any]]) -> [String: Any] {
+                [
+                    "kind": kind, "id": id, "name": name, "matters": of.count,
+                    "needYou": of.count { $0["needsYou"] as? Bool == true },
+                    "agentAtWork": of.contains { $0["agent"] != nil },
+                ]
+            }
+            var projects = [String: [String: Any]]()
+            for row in rows {
+                guard let project = Self.projectOf(row), let id = project["id"] as? String, projects[id] == nil else {
+                    continue
+                }
+                let of = rows.filter { Self.projectOf($0)?["id"] as? String == id }
+                let area = (of.first?["areas"] as? [String])?.first?.lowercased()
+                projects[id] = chip("project", id, project["name"] as? String ?? id, of).merging([
+                    "status": project["status"] ?? "active", "area": area.map { $0 as Any } ?? NSNull(),
+                ]) { $1 }
+            }
+            let isUnderway = { (chip: [String: Any]) in ["active", "waiting"].contains(chip["status"] as? String) }
+            let underway = projects.values.filter(isUnderway).sorted {
+                ($0["needYou"] as? Int ?? 0) > ($1["needYou"] as? Int ?? 0)
+            }
+            let loose = rows.filter { Self.projectOf($0) == nil }
+            let areas = NSOrderedSet(array: loose.flatMap { $0["areas"] as? [String] ?? [] }).array as? [String] ?? []
+            let chips =
+                underway
+                + areas.map { name in chip("area", name.lowercased(), name, loose.filter { Self.isIn(name, $0) }) }
+                + projects.values.filter { !isUnderway($0) }.map { $0.merging(["agentAtWork": false]) { $1 } }
+            return json([
+                "all": ["open": rows.count, "needYou": rows.count { $0["needsYou"] as? Bool == true }],
+                "chips": chips, "version": "fixture",
+            ])
+        }
+        /// A project's header: the design data's head, its first open decision on one of its matters, and the agents
+        /// working on them (none while it is parked or done).
+        func readProject(_ id: String) async throws -> String {
+            try await gate()
             var head = Self.projectRead["project"] as? [String: Any] ?? [:]
-            guard head["id"] as? String == project else { throw MCPError.failed("No such project.") }
-            let rows = rowsNow().filter { ($0["project"] as? [String: Any])?["id"] as? String == project }
-            let status = statuses.withLock { $0[project] } ?? head["status"] as? String ?? "active"
-            head["status"] = status
-            return json(["project": head, "matters": rows])
+            guard head["id"] as? String == id else { throw MCPError.failed("No such project.") }
+            let status = statuses.withLock { $0[id] } ?? head["status"] as? String ?? "active"
+            let matters = Set(
+                rowsNow().filter { Self.projectOf($0)?["id"] as? String == id }.compactMap { $0["id"] as? String })
+            let onIt = { (thing: [String: Any]) in
+                matters.contains((thing["matter"] as? [String: Any])?["id"] as? String ?? "")
+            }
+            let ask = checksNow().first { $0["group"] as? String == "decision" && onIt($0) }
+            let isUnderway = ["active", "waiting"].contains(status)
+            head.merge([
+                "status": status,
+                "goal": head["goal"].map { ["text": $0, "rank": 1, "of": 1] as Any } ?? NSNull(),
+                "situation": head["situation"] ?? [Any](),
+                "ask": ask.map { check in
+                    (["deadline": NSNull(), "matter": NSNull()] as [String: Any]).merging(
+                        check.filter { ["ref", "question", "deadline", "matter"].contains($0.key) }
+                    ) { $1 } as Any
+                } ?? NSNull(),
+                // Its live line: what it waits for.
+                "agents": !isUnderway
+                    ? []
+                    : Self.allAgents.filter(onIt).map { agent in
+                        agent.filter { ["id", "title", "status"].contains($0.key) }.merging([
+                            "line": (agent["wait"] as? [String: Any])?["reason"] ?? agent["title"] ?? ""
+                        ]) { $1 }
+                    },
+                "people": head["people"] ?? [Any](), "chats": head["chats"] ?? [Any](),
+                "repos": head["repos"] ?? [Any](),
+            ]) { $1 }
+            return json(["project": head, "version": "fixture"])
+        }
+        private static func projectOf(_ row: [String: Any]) -> [String: Any]? { row["project"] as? [String: Any] }
+        private static func isIn(_ area: String, _ row: [String: Any]) -> Bool {
+            (row["areas"] as? [String] ?? []).contains { $0.lowercased() == area.lowercased() }
         }
         /// The matters whose people name `person`, by any role.
         func readMatters(person: String) async throws -> String {
@@ -536,7 +613,7 @@
             return $0.merging(["doneSeen": ["state": state]]) { $1 }
         }
         nonisolated(unsafe) static let rows = read("read_matters")["matters"] as? [[String: Any]] ?? []
-        /// A project's page head (`read_matters` of one project): its matters are the rows that name it.
+        /// A project's head (`read_matters` of one project), which its header (`read_project`) is made from.
         nonisolated(unsafe) private static let projectRead = read("read_matters_project")
         nonisolated(unsafe) private static let registered = read("read_registered_agents")
         /// What only a matter's own read shows: the agents not registered (the table's, once started; Nora's, stopped) and

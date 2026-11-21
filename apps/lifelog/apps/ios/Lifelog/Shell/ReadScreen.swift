@@ -57,7 +57,7 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
         case .notPaired:
             Notice(
                 title: "Not paired with Life.",
-                detail: "Inbox and Matters need Life on your Mac.",
+                detail: "Inbox and Projects need Life on your Mac.",
                 action: ("Pair with Life", { router.sheet = .settings }))
         }
     }

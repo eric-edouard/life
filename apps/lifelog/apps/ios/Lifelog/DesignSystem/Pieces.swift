@@ -580,27 +580,6 @@ private struct FilterBar<Choices: View>: ViewModifier {
     }
 }
 
-/// A filter chip: its name; filled when it holds a choice.
-struct FilterChip: View {
-    let name: String
-    var isOn = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(name)
-                .font(.chip)
-                .foregroundStyle(isOn ? Palette.on : Palette.fg)
-                .padding(.horizontal, 15)
-                .frame(minHeight: 40)
-                .background(isOn ? Palette.fg : Palette.card, in: .capsule)
-                .contentShape(.capsule)
-        }
-        .buttonStyle(.plain)
-        .fixedSize()
-    }
-}
-
 /// One line of proof or progress: a check that passed, one under way, one waiting, one that failed.
 struct CheckLine: Identifiable, Equatable {
     enum Mark { case passed, running, waiting, failed }

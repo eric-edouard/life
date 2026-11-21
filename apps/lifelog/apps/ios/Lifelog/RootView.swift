@@ -3,7 +3,7 @@ import LifeConnector
 import SwiftUI
 import UIKit
 
-/// The bottom group, all system pieces: the Inbox (home), Matters and People tabs and the system's search tab, with the
+/// The bottom group, all system pieces: the Inbox (home), Projects and People tabs and the system's search tab, with the
 /// Settings and Pendant sheets over them. Every sheet is centred, the system's default, and closes from inside itself.
 struct RootView: View {
     @Environment(CaptureStore.self) private var capture
@@ -30,16 +30,16 @@ struct RootView: View {
     }
 
     var body: some View {
-        TabView(selection: $router.tab) {
+        TabView(selection: tabs) {
             Tab("Inbox", systemImage: "tray", value: AppRouter.Tab.inbox) {
                 InboxScreen()
             }
             .badge(life.badge)
-            Tab("Matters", systemImage: "list.bullet.indent", value: AppRouter.Tab.matters) { MattersScreen() }
+            Tab("Projects", systemImage: "list.bullet.indent", value: AppRouter.Tab.projects) { ProjectsScreen() }
             Tab("People", systemImage: "person.2", value: AppRouter.Tab.people) { PeopleScreen() }
             // Its title and symbol are the system's; it sits apart, at the trailing end of the tabs.
             Tab(value: AppRouter.Tab.search, role: .search) {
-                // The field belongs to this tab alone: on the tabs it would show on Inbox and Matters too.
+                // The field belongs to this tab alone: on the tabs it would show on Inbox and Projects too.
                 NavigationStack {
                     SearchScreen(query: query, scope: scope).shellBar("", hasSettings: false)
                         .searchable(text: $query, prompt: "Search")
@@ -98,6 +98,16 @@ struct RootView: View {
         .tint(Palette.fg)
     }
 
+    /// The tabs, where tapping Projects again goes back to All.
+    private var tabs: Binding<AppRouter.Tab> {
+        Binding(
+            get: { router.tab },
+            set: { tab in
+                if tab == .projects, router.tab == .projects { router.chip = nil }
+                router.tab = tab
+            })
+    }
+
     /// Held answers go now, and the app is kept awake until they and those already going are answered: a suspended app would lose them.
     private func sendHeldInBackground() async {
         guard life.hasAnswersUnderWay else { return }
@@ -131,19 +141,18 @@ struct RootView: View {
 
 #if DEBUG
     extension RootView {
-        /// `-fixtureTab matters|people|search`, `-fixtureCard`, `-fixtureMatter`, `-fixtureProject`, `-fixturePerson`, `-fixtureSheet`: open the screen a launch
+        /// `-fixtureTab projects|people|search`, `-fixtureCard`, `-fixtureMatter`, `-fixturePerson`, `-fixtureSheet`: open the screen a launch
         /// asked to see.
         fileprivate func showFixtureScreen() async {
             try? await Task.sleep(for: .milliseconds(1_200))
             switch LifeFixture.tab {
-            case "matters": router.tab = .matters
+            case "projects": router.tab = .projects
             case "people": router.tab = .people
             case "search": router.tab = .search
             default: break
             }
             if let id = LifeFixture.matter { router.open(matter: id) }
             if let ref = LifeFixture.person { router.open(party: ref) }
-            if let project = LifeFixture.project { router.matterPath.append(.project(project)) }
             // On a matter, the card is the ask pushed on it; alone, the Inbox opens at it, as a push does.
             if let ref = LifeFixture.card {
                 if LifeFixture.matter == nil { await life.open(ref: ref) } else { router.matterPath = [.card(ref)] }

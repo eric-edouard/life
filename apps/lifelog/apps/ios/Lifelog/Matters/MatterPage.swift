@@ -107,7 +107,7 @@ struct MatterPage: View {
     }
 
     /// The name is the head; under it what he must do (one phrase), then its icon (a tap changes it), how long it has
-    /// been open, and its project, a link to the project's page (else its areas).
+    /// been open, and its project, a link to its chip in the Projects tab (else its areas).
     private func header(_ matter: Matter) -> some View {
         let row = matter.row
         let days = matter.steps.first.map { Calendar.current.dateComponents([.day], from: $0.at, to: .now).day ?? 0 }
@@ -126,7 +126,7 @@ struct MatterPage: View {
                         Palette.muted)
                     if let project = row.project {
                         TextLink(project.name, to: .page) {
-                            router.matterPath.append(.project(project.id))
+                            router.open(project: ProjectChips.Chip.identity(.project, project.id))
                         }
                     }
                 }
