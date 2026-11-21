@@ -22,6 +22,9 @@ export const isSameBirthday = (a: string, b: string) =>
 
 export const isoDateTime = z.iso.datetime({ offset: true });
 
+/** A context in Markdown, as an asker or he writes it: a card's, his next step's (`contextProblemOf` checks its `life:` links). */
+export const ContextMarkdown = z.string().max(20_000);
+
 export const Importance = z.int().min(0).max(3);
 
 /** A unit id anywhere in a text (global: `text.match(UNIT_ID)` lists them). */

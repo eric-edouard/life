@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { clock } from "../core/clock";
-import { filesIn, linesOf, readLineCount } from "../core/files";
+import { filesIn, linesOf, readLineCount, readLines } from "../core/files";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import { FactCheckAnswer } from "../records/fact-check";
@@ -103,7 +103,7 @@ export const parseCursor = (s: string | undefined): Cursor =>
 export interface Source<R> {
   end: number;
   name: string;
-  rows: (from: number) => [number, R][];
+  rows: (from: number) => Iterable<[number, R]>;
 }
 /** A list as a feed source, each item at its index. */
 export const listSource = <R>(name: string, list: R[]): Source<R> => ({
@@ -111,12 +111,21 @@ export const listSource = <R>(name: string, list: R[]): Source<R> => ({
   name,
   rows: (from) => list.slice(from).map((r, i) => [from + i, r]),
 });
-/** An append-only file as a feed source. */
-export const fileSource = (path: string, name: string): Source<string> => ({
-  end: readLineCount(path),
-  name,
-  rows: (from) => listSource(name, linesOf(path)).rows(from),
-});
+/** An append-only file as a feed source, up to its end when made: a page holds one block of its lines at a time (`readLines`). */
+export function fileSource(path: string, name: string): Source<string> {
+  const end = readLineCount(path);
+  return {
+    end,
+    name,
+    *rows(from) {
+      let n = from;
+      for (const line of readLines(path, from, end)) {
+        yield [n, line];
+        n += 1;
+      }
+    },
+  };
+}
 
 /**
  * One page of a feed: the items `item` makes of the rows past `cursor`, source by source in the given order, at most

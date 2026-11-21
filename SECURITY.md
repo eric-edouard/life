@@ -131,7 +131,7 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   withdrawn, lapsed), a background push carries their same opaque ids alone, and the phone removes their notifications.
   An appointment Life added to his calendar is pushed the same way (his word of 21 Nov 2026): the words "Added to
   your calendar", its kind `calendar.added`, its level and its opaque id alone; the phone reads the event from the
-  connector.
+  connector (`read_appointments`).
 - The encrypted backup, when `backup` is set, to the folder he chose.
 - Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
 

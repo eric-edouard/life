@@ -73,6 +73,8 @@ export interface AgentNow {
     startedAt: string;
   } | null;
   link: string | null;
+  /** The matter he chose for its current assignment (`matter_id`), which the finder takes on a tie among its steps' matters; null: none chosen. */
+  matterId: string | null;
   model: string | null;
   /** The first line of its notes: what it took its subject to be; none for the caretaker (its notes are about his complaints). */
   notes: string;
@@ -196,6 +198,7 @@ function subjectPartOf(
       assignment: null,
       chatsSeen: {},
       filters: [],
+      matterId: null,
       notes: "",
       notStarted: null,
       steps: [],
@@ -214,6 +217,7 @@ function subjectPartOf(
     assignment: s.id,
     chatsSeen: isForWakes && status === "waiting" ? seenChatsOf(db, s) : {},
     filters: filtersOf(s),
+    matterId: s.matter_id,
     // The caretaker's notes are about his complaints: they stay with it, never in a read or the nightly.
     notes: a.role === "caretaker" ? "" : headOf(readNotes(s)),
     notStarted: s.why_not_started,

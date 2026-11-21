@@ -17,6 +17,7 @@
   },
   "nextStep": {
     "by": "owner",
+    "context": "The shop said Friday ([the call](life:obs_000000000005)).",
     "kind": "wait_event",
     "text": "The shop's quote",
     "waitsOn": "the shop"

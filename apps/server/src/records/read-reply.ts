@@ -90,6 +90,8 @@ export const ArrivalTriggerReply = z
       z
         .object({
           author: z.enum(["person", "automated"]),
+          /** Whether the lines set a meeting or an appointment (trigger v3 on; v2's lines lack it). */
+          event: z.enum(["yes", "no"]).optional(),
           quote: z.string(),
         })
         .strict(),

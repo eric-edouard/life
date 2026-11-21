@@ -11,6 +11,8 @@ export const DECISIONS_VERSION = 3;
 const DecisionId = z.string().regex(/^dec_[0-9a-f]{12}$/);
 export const Asked = Ask.extend({
   asker: z.string().min(1),
+  /** The desk's assignment that asked it (`askDecision`), which owns it when the desk's own row of it is missing; cards before it have none. */
+  assignment: z.string().min(1).optional(),
   at: isoDateTime,
   /** The open card of another asker that held the draft's chat when this one was asked: this one waits on it (`contestOf`). */
   contests: DecisionId.optional(),
@@ -18,6 +20,8 @@ export const Asked = Ask.extend({
   draft: StoredDraft.optional(),
   id: DecisionId,
   kind: z.literal("asked"),
+  /** The matter it was asked on, as the ask resolved it: the finder's pick (`prefer`) among the matters its `subject` step rides on; cards before it, or off a matter, have none. */
+  matter: z.string().min(1).optional(),
   schemaVersion: z.literal(DECISIONS_VERSION),
 }).strict();
 export const Answered = z
