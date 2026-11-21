@@ -80,7 +80,7 @@ struct LatestScreen: View {
                         if at == 0 || SaidWords.day(items[at - 1].at) != day {
                             Text(day).font(.small).foregroundStyle(Palette.muted).padding(.top, Metrics.Spacing.s)
                         }
-                        ExchangeView(item: item, when: SaidWords.time(item.at))
+                        ExchangeView(item: item, when: SaidWords.time(item.at)).appears()
                     }
                     switch chain.next {
                     case .more(let ref):
@@ -92,6 +92,7 @@ struct LatestScreen: View {
                     case .end: EmptyView()
                     }
                 }
+                .motion(Motion.standard, value: life.latestChain(of: subject).pages.count)
             }
         )
         .background(Palette.bg)

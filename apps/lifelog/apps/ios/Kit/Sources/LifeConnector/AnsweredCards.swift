@@ -26,7 +26,8 @@ public struct AnsweredCards: Codable, Sendable, Equatable {
 }
 
 extension Inbox {
-    /// The inbox less these cards, its counts and badge with them.
+    /// The inbox less these cards, its counts and badge with them; no longer Life's version of it, so the next read is
+    /// whole.
     public func without(_ refs: Set<String>) -> Inbox {
         let gone = checks.filter { refs.contains($0.ref) }
         guard !gone.isEmpty else { return self }
@@ -34,6 +35,7 @@ extension Inbox {
         for check in gone { counts[check.group.rawValue]? -= 1 }
         return Inbox(
             checks: checks.filter { !refs.contains($0.ref) }, counts: counts, total: total - gone.count,
-            deadlinesToday: deadlinesToday, blocking: blocking.map { $0 - gone.count { $0.urgency == .blocks } })
+            deadlinesToday: deadlinesToday, blocking: blocking.map { $0 - gone.count { $0.urgency == .blocks } },
+            version: nil)
     }
 }

@@ -14,6 +14,8 @@ struct BulkCard: View {
     /// The rows he unticked and the kinds he goes through one by one: the screen's, so a fold or a read keeps them.
     @Binding var notes: CardNotes
     var page: (current: Int, total: Int)?
+    /// On from this card (the guesses' "Done").
+    var finish: () -> Void = {}
     /// His answers, one per ticked row.
     let answer: ([AnswerRequest]) -> Void
 
@@ -28,7 +30,8 @@ struct BulkCard: View {
             VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                 Text(kind.bulkQuestion).font(.cardQuestion).foregroundStyle(Palette.fg)
                     .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-                ForEach(Check.bulkGroups(shown), id: \.first?.ref) { group in
+                if kind == .guessedPerson { guessRows }
+                ForEach(kind == .guessedPerson ? [] : Check.bulkGroups(shown), id: \.first?.ref) { group in
                     if let heading = kind.bulkHeading(group[0].preTicked) {
                         HStack {
                             Text(heading).accessibilityAddTraits(.isHeader)
@@ -46,7 +49,15 @@ struct BulkCard: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .vertical)
-        .safeAreaBar(edge: .bottom, spacing: 0) { answers.padding(.horizontal, Metrics.Spacing.s).readingWidth() }
+        .safeAreaBar(edge: .bottom, spacing: 0) {
+            (kind == .guessedPerson ? AnyView(guessAnswers) : AnyView(answers)).padding(.horizontal, Metrics.Spacing.s)
+                .readingWidth()
+        }
+        .onChange(of: rows, initial: true) { _, rows in
+            guard kind == .guessedPerson else { return }
+            notes.working.insert(kind)
+            notes.guesses += rows.filter { row in !notes.guesses.contains { $0.ref == row.ref } }
+        }
         .motion(Motion.standard, value: shown.map(\.ref))
         .sheet(
             isPresented: Binding(get: { opened != nil }, set: { if !$0 { opened = nil } }),
@@ -58,8 +69,12 @@ struct BulkCard: View {
                         check: check, checks: [check], current: $openedCurrent, notes: $openedNotes,
                         context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check)),
                         takes: { taken in
-                            notes.chosen[check.ref] = taken
-                            notes.unticked.remove(check.ref)
+                            if kind == .guessedPerson {
+                                send(taken.request, as: taken.heldWords, on: check)
+                            } else {
+                                notes.chosen[check.ref] = taken
+                                notes.unticked.remove(check.ref)
+                            }
                             opened = nil
                         }
                     ) { _, _ in opened = nil }
@@ -179,6 +194,88 @@ struct BulkCard: View {
         return who.map { ("\(option.label),", $0, nil) } ?? (nil, nil, "\(check.question) \(option.label)")
     }
 
+    // MARK: Guesses: Yes or No on each row, each answer its own
+
+    /// The rows he has met on this card: the same person ask first, then the guesses, answered ones kept.
+    private var guessRows: some View {
+        let all = notes.guesses + rows.filter { row in !notes.guesses.contains { $0.ref == row.ref } }
+        let same = all.filter { $0.group == .samePerson }
+        return VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+            ForEach(same) { check in
+                SamePersonTile(
+                    check: check, state: guessState(check), failure: guessFailure(check),
+                    answer: { send(check, yes: $0) }, undo: { undo(check) }, open: { opened = check.ref })
+            }
+            let rest = all.filter { $0.group != .samePerson }
+            if !rest.isEmpty {
+                Text("Is this them?").font(.small).foregroundStyle(Palette.muted).padding(.leading, Metrics.Spacing.s)
+                VStack(spacing: 0) {
+                    ForEach(rest) { check in
+                        GuessRow(
+                            check: check, state: guessState(check), failure: guessFailure(check),
+                            answer: { send(check, yes: $0) }, undo: { undo(check) }, open: { opened = check.ref })
+                    }
+                }
+                .padding(.horizontal, Metrics.Spacing.s)
+                .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
+            }
+        }
+    }
+
+    private func guessState(_ check: Check) -> GuessState {
+        let yes = notes.guessed[check.ref] == "Yes"
+        if life.held[check.ref] != nil { return .held(yes: yes) }
+        return !rows.contains { $0.ref == check.ref } && notes.guessed[check.ref] != nil ? .answered(yes: yes) : .rest
+    }
+
+    /// Life's reason when its last answer on the row did not land (a row back at rest only).
+    private func guessFailure(_ check: Check) -> String? {
+        guard case .failed(let failure, _) = life.state(of: .answer(ref: check.ref)) else { return nil }
+        return failure.isSameTap && !failure.mayHaveHappened ? "your Mac did not answer" : failure.reason
+    }
+
+    /// Yes is the option Life pre-ticked, No the one that drops the guess (`not-this-person`).
+    private func send(_ check: Check, yes: Bool) {
+        let option = yes ? check.preTickedOption : check.options.first { $0.id == "not-this-person" }
+        guard let request = option.flatMap({ check.answer($0) }) else {
+            opened = check.ref
+            return
+        }
+        send(request, as: yes ? "Yes" : "No", on: check)
+    }
+
+    private func send(_ request: AnswerRequest, as words: String, on check: Check) {
+        guard !life.saysOutOfReach() else { return }
+        life.forget(.answer(ref: check.ref))
+        notes.guessed[check.ref] = words
+        life.hold(request, as: words)
+    }
+
+    private func undo(_ check: Check) {
+        life.undo(check.ref)
+        notes.guessed[check.ref] = nil
+    }
+
+    private var guessAnswers: some View {
+        VStack(spacing: Metrics.Spacing.s) {
+            HStack {
+                Text("Each answer saves on its own").font(.small).foregroundStyle(Palette.muted)
+                Spacer(minLength: 0)
+                if let page { PagerDots(current: page.current, total: page.total) }
+            }
+            Button {
+                notes.working.remove(kind)
+                (notes.guesses, notes.guessed) = ([], [:])
+                finish()
+            } label: {
+                Label("Done", systemImage: "checkmark")
+            }
+            .buttonStyle(.pill(.filled))
+            Button("Go one by one") { notes.unfolded.insert(kind) }.buttonStyle(.pill(.quiet, size: .compact))
+        }
+        .padding(.bottom, Metrics.Spacing.s)
+    }
+
     private var answers: some View {
         VStack(spacing: Metrics.Spacing.s) {
             if let page {
@@ -229,6 +326,7 @@ extension CheckGroup {
         switch self {
         case .ending: "Are these done?"
         case .voice: "Who are these voices?"
+        case .guessedPerson: "Are these the right people?"
         default: "Answer these?"
         }
     }

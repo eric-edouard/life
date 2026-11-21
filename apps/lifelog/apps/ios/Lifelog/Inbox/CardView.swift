@@ -17,6 +17,12 @@ struct CardNotes: Equatable {
     var chosen: [String: Taken] = [:]
     var sentInBulk: Set<String> = []
     var unfolded: Set<CheckGroup> = []
+    /// On the guesses' card: each row's answer in its own words ("Yes", "No"), kept for the row after its ask leaves.
+    var guessed: [String: String] = [:]
+    /// The rows it has shown, kept so an answered one stays (dimmed) after its ask left the inbox; and that it is
+    /// being answered row by row (`InboxOrder.folded`'s `working`).
+    var guesses: [Check] = []
+    var working: Set<CheckGroup> = []
 
     /// The ask the host keeps on show whatever the read says: his result's, else the one the create sheet answers.
     var shownCheck: Check? { taken?.check ?? creating?.check }
@@ -186,7 +192,10 @@ struct CardView: View {
                             let page: (current: Int, total: Int)? = checks.count > 1 ? (index, checks.count) : nil
                             Group {
                                 if let rows = bulk[check.ref] {
-                                    BulkCard(kind: check.group, rows: rows, notes: $notes, page: page) {
+                                    BulkCard(
+                                        kind: check.bulkKind, rows: rows, notes: $notes, page: page,
+                                        finish: { current = checks.ref(after: check.ref) }
+                                    ) {
                                         submit(all: $0, from: check)
                                     }
                                 } else {

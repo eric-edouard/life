@@ -197,7 +197,7 @@ extension Taken {
             default: isStart ? "Started." : "Done."
             }
         case .name, .guessedPerson, .samePerson: "Saved."
-        case .decision, .unknown: "Answered."
+        case .decision, .atOrganization, .unknown: "Answered."
         }
     }
 

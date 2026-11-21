@@ -22,12 +22,14 @@ import {
   loadTruth,
 } from "../memory/read-truth";
 import { recordToldLife } from "../memory/told-life";
+import { PERSON } from "../memory/units";
 import { slug } from "../records/fields";
 import { OrganizationPerson, PictureFrom } from "../records/truth";
 import { listRow } from "./init";
 
 // Changes his directory (docs/glossary.md: his people, organizations, projects, areas and goals, in truth/) by his own
-// words, through the connector's `change_directory_entry`, his card's tap (`addDirectoryEntryByHisWord`) or `bun life
+// words, through the connector's `change_directory_entry`, his card's tap (`addDirectoryEntryByHisWord`,
+// `addOrganizationPersonByHisWord`) or `bun life
 // change-directory-entry`: the one place code writes truth/ for him. It edits text, never reserializes a
 // file: a person, an organization or an area is one entry of its list (added at the end, or that one entry replaced), a project is its
 // own file (new, or its frontmatter lines that change; the notes below are never touched), a goal is one numbered line
@@ -399,6 +401,31 @@ export async function addDirectoryEntryByHisWord(
     ...fields,
   });
   return `person:${id}`;
+}
+
+/**
+ * Adds a person of his directory to an organization of it with a role, by his Yes on an at organization card
+ * (life#874): that one member of its `people`, through `changeDirectoryEntry`; refused when they are there already.
+ */
+export async function addOrganizationPersonByHisWord(
+  organization: string,
+  person: string,
+  role: string,
+  said: string
+) {
+  const id = organization.replace(PERSON, "");
+  const member = person.replace(PERSON, "");
+  const o = (await loadTruth()).organizations.find((x) => x.id === id);
+  if (o?.people.some((m) => m.id === member)) {
+    refuse(`${member} is already at ${id}.`);
+  }
+  return changeDirectoryEntry({
+    action: "edit",
+    id,
+    kind: "organization",
+    people: [{ id: member, role }],
+    said,
+  });
 }
 
 /** An empty organizations.yaml: the one list file a directory may not hold yet. */
