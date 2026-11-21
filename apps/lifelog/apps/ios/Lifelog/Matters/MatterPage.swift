@@ -397,10 +397,15 @@ struct PagePlaceholder: View {
     }
 }
 
+extension Date {
+    /// "Tue 17 Nov".
+    var dayAndMonth: String { formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)) }
+}
+
 extension MatterStep {
     /// A step's day and who or what it came from, as the matter page and the card's context both show it.
     var whenAndWith: String {
-        [at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), with?.name].compactMap(\.self)
+        [at.dayAndMonth, with?.name].compactMap(\.self)
             .joined(separator: " · ")
     }
 }
