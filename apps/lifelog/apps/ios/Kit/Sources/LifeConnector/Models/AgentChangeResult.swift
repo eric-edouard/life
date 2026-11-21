@@ -1,11 +1,11 @@
 import Foundation
 import Library
 
-/// What `change_registered_agent` returns (`host/change-registered-agent.ts`): a start's stages and how it ended, or
-/// another change's `done` / `unconfirmed`.
+/// What `change_registered_agent` returns (`host/change-registered-agent.ts`): a start's stages and how it ended,
+/// another change's `done` / `unconfirmed`, or a move's `asked` (its phase is then read on `read_matter`).
 public struct AgentChangeResult: Decodable, Sendable, Equatable {
     public enum State: String, UnknownTolerant, Sendable {
-        case started, done, unconfirmed
+        case started, done, unconfirmed, asked
         case notStarted = "not_started"
         case unknown
     }

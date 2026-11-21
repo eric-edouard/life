@@ -29,10 +29,11 @@ import {
 import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
 import { matcherOf, waitChannelsOf } from "../host/events";
 import { opensWithPlan } from "../host/inbox";
+import { countsAsAskedOf } from "../host/move-read";
 import { askPageOf, type DecisionRequest } from "../memory/card-request";
 import { communicationStylesOf } from "../memory/communication-styles";
 import { decisionsNow, requestDecision } from "../memory/decisions";
-import { isAsked, isPending } from "../memory/draft-contest";
+import { isPending } from "../memory/draft-contest";
 import { oneMatter, readPacketMatter } from "../memory/read-matters";
 import {
   loadTruth,
@@ -93,12 +94,12 @@ export const pendingCardOf = (
   list = decisionsNow()
 ) => cardsOf(db, s, list).find(isPending);
 
-/** Whether assignment `s` has a card he was asked and not withdrawn (one another card took the place of counts): its first card is its plan, so the door lets its agent wait or finish only after. */
+/** Whether assignment `s` has a card he was asked (`countsAsAskedOf`): its first card is its plan, so the door lets its agent wait or finish only after. */
 export const hasAsked = (
   db: Desk["db"],
   s: Pick<AssignmentRow, "agent_id" | "id">,
   list = decisionsNow()
-) => cardsOf(db, s, list).some(isAsked);
+) => cardsOf(db, s, list).some(countsAsAskedOf(db, s));
 
 /** Whether the card assignment `s` asks now is its plan card: one that opens with a plan (`opensWithPlan`), nothing asked yet (`hasAsked`), as `planCardsOf` reads it. */
 const asksPlanOf = (db: Desk["db"], s: AssignmentRow) =>
@@ -174,14 +175,9 @@ export function openAssignment(
 const PERSONAL_RULES_PLACEHOLDER =
   "The rules of this agent are being written.\n";
 
-/**
- * Registers an agent on his words, with its own assignment (`steps`: on a matter instead): active, its first turn due
- * now, in `folder`, else in a folder of its own (`DESK_AGENT_FOLDERS`), in its standing `role` when it has one (one
- * active or stopped of each: the store refuses a second). The Personal agent gets a placeholder `AGENTS.md` in its
- * folder when none is there. Refused while the desk keeps its most agents.
- */
-export function register(
-  desk: Desk,
+/** Writes a new active agent's row, in `folder`, else a folder of its own (`DESK_AGENT_FOLDERS`), made: the one insert of an agent (`register`, a move's new agent). Its id and folder. */
+export function insertAgent(
+  db: Desk["db"],
   a: {
     brief: string;
     effort?: string;
@@ -191,34 +187,48 @@ export function register(
     project?: string;
     role?: AgentRole;
     runtime: string;
-    steps?: string[];
   }
+) {
+  const id = `agt_${randomBytes(6).toString("hex")}`;
+  const folder = a.folder ?? join(DESK_AGENT_FOLDERS, id);
+  db.run(
+    "insert into agent (id, brief, runtime, folder, model, effort, project, name, role, status, created_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)",
+    [
+      id,
+      a.brief,
+      a.runtime,
+      folder,
+      a.model ?? null,
+      a.effort ?? null,
+      a.project ?? null,
+      a.name ?? null,
+      a.role ?? null,
+      clock().toISOString(),
+    ]
+  );
+  mkdirSync(folder, { recursive: true });
+  return { folder, id };
+}
+
+/**
+ * Registers an agent on his words (`insertAgent`), with its own assignment (`steps`: on a matter instead): active, its
+ * first turn due now, in its standing `role` when it has one (one active or stopped of each: the store refuses a
+ * second). The Personal agent gets a placeholder `AGENTS.md` in its folder when none is there. Refused while the desk
+ * keeps its most agents.
+ */
+export function register(
+  desk: Desk,
+  a: Parameters<typeof insertAgent>[1] & { steps?: string[] }
 ) {
   const { db } = desk;
   if (isFull(db)) {
     throw new Error("Not done: the desk keeps 50 agents active at most.");
   }
-  const id = `agt_${randomBytes(6).toString("hex")}`;
-  const folder = a.folder ?? join(DESK_AGENT_FOLDERS, id);
-  db.transaction(() => {
-    db.run(
-      "insert into agent (id, brief, runtime, folder, model, effort, project, name, role, status, created_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)",
-      [
-        id,
-        a.brief,
-        a.runtime,
-        folder,
-        a.model ?? null,
-        a.effort ?? null,
-        a.project ?? null,
-        a.name ?? null,
-        a.role ?? null,
-        clock().toISOString(),
-      ]
-    );
-    openAssignment(desk, id, { openedBy: "owner", steps: a.steps });
+  const { folder, id } = db.transaction(() => {
+    const made = insertAgent(db, a);
+    openAssignment(desk, made.id, { openedBy: "owner", steps: a.steps });
+    return made;
   })();
-  mkdirSync(folder, { recursive: true });
   const rules = join(folder, "AGENTS.md");
   if (a.role === "personal" && !existsSync(rules)) {
     writeFileSync(rules, PERSONAL_RULES_PLACEHOLDER);

@@ -49,16 +49,16 @@ struct RootView: View {
                 }
             }
         }
-        .environment(router)
-        .environment(\.windowSizeClass, sizeClass)
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
             case .pendant: PendantView().sheetStack()
-            // A sheet is outside the tabs' environment: Settings' pages open matters and agents too.
-            case .settings: SettingsSheet().environment(router)
+            case .settings: SettingsSheet()
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
+        // Below the sheets, so their pages read them too: Settings' Live logs page (its `ReadScreen`) reads the router.
+        .environment(router)
+        .environment(\.windowSizeClass, sizeClass)
         .preferredColorScheme(appearance.scheme)
         // A tapped notification, from a cold launch, the background or the foreground.
         #if DEBUG

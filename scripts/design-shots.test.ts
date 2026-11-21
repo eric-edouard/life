@@ -22,6 +22,22 @@ test("every flag a frame launches with is one the app's fixture reads", () => {
   expect(flags.filter((flag) => !read.has(flag))).toEqual([]);
 });
 
+test("the live-logs and plan frames stay named (a merge once dropped seven)", () => {
+  const kept = [
+    "DuoFoldSettingsLogs",
+    "DuoFoldLogs",
+    "DuoFoldLogsPaused",
+    "DuoFoldLogsProblems",
+    "DuoFoldLogDetail",
+    "DuoFoldLogsEmpty",
+    "DuoFoldLogsOffline",
+    "DuoFoldStackPlan",
+    "StackPlan",
+    "StackPlanLong",
+  ];
+  expect(kept.filter((name) => !appFrames[name])).toEqual([]);
+});
+
 test.skipIf(!existsSync(FRAME_MAP))(
   "every frame named is one the designer's frame map holds",
   () => {

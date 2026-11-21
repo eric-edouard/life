@@ -52,6 +52,7 @@ import { EVENT_CHANNELS, type EventChannel } from "./event-channels";
 import { matcherOf } from "./events";
 import { openChecksNow } from "./inbox";
 import { matterRowsNowOf } from "./matter-rows";
+import { agentMoveReadOf, matterMoveReadOf } from "./move-read";
 
 // "What are my agents doing?": every registered agent as read now, as one typed answer (`readRegisteredAgents`) that
 // the connector (`read_registered_agents`), the nightly report and his apps (through the connector) share; and the Agents
@@ -260,9 +261,10 @@ function withWakesOn(
 export type RegisteredAgent = Omit<
   ReturnType<typeof withWakesOn>[number],
   "matterId"
-> & {
-  matter: { id: string; name: string; status: string } | null;
-};
+> &
+  ReturnType<typeof agentMoveReadOf> & {
+    matter: { id: string; name: string; status: string } | null;
+  };
 
 /**
  * Every registered agent worth showing (`agentsNow`), his changes the desk refused in the last day, whether the desk is
@@ -289,12 +291,19 @@ export async function readRegisteredAgents(
   const decisions = given?.decisions ?? decisionsNow();
   const openDecisions = openCardsHeardOf(decisions);
   const read = readDesk(
-    (db) => ({
-      agents: agentsNow(db, now.getTime(), true),
-      owners: cardOwnersOf(db, openDecisions),
-      refused: refusedSince(db, iso(now.getTime() - DAY)),
-    }),
-    { agents: [], owners: {}, refused: [] }
+    (db) => {
+      const agents = agentsNow(db, now.getTime(), true);
+      return {
+        agents,
+        // Each agent's names and runtime switch (decision 78), by id.
+        moves: Object.fromEntries(
+          agents.map((a) => [a.id, agentMoveReadOf(db, a.id, now.getTime())])
+        ),
+        owners: cardOwnersOf(db, openDecisions),
+        refused: refusedSince(db, iso(now.getTime() - DAY)),
+      };
+    },
+    { agents: [], moves: {}, owners: {}, refused: [] }
   );
   const helper = holder("desk") ? "running" : "not running";
   if (read.state !== "ok") {
@@ -325,6 +334,7 @@ export async function readRegisteredAgents(
       const v = find(a.steps, matterId ?? undefined);
       return {
         ...a,
+        ...read.value.moves[a.id],
         matter: v ? { id: v.id, name: v.name, status: v.status } : null,
       };
     }),
@@ -391,6 +401,28 @@ export function readAgentsOnSteps(steps: string[], people: People) {
         ({ matterId: _, ...a }) => a
       )
     : [];
+}
+
+/** Who holds a matter's `steps` and its move (`matterMoveReadOf`); while the desk is off or unreadable, no holder. */
+export async function readMatterMove(view: {
+  id: string;
+  steps: { ref: string }[];
+}) {
+  const matter = { id: view.id, steps: view.steps.map((s) => s.ref) };
+  const find = matterFinderOf(
+    (await readMatterBook(await readPeople(), dayNow())).filter((m) => m.open)
+  );
+  const read = readDesk(
+    (db) =>
+      matterMoveReadOf(
+        db,
+        matter,
+        clock().getTime(),
+        (refs, prefer) => find(refs, prefer)?.id
+      ),
+    null
+  );
+  return (read.state === "ok" && read.value) || { holder: null };
 }
 
 /** The agents on a project (or each project of an area), active first. */

@@ -169,3 +169,11 @@ export function tool<S extends z.ZodObject>(
     }
   );
 }
+
+/** A versioned read's `ifNot`: the `version` of the caller's last answer. */
+export const IfNot = z
+  .string()
+  .optional()
+  .describe(
+    "The `version` of your last answer: when nothing changed since, only `{version, unchanged: true}`"
+  );

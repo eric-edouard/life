@@ -26,13 +26,20 @@ struct AgentSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let agent {
-                head(agent)
                 content(agent)
+                // A refused Stop or Resume says why in the scroll, which holds any length; the bar keeps the buttons.
+                if case .failed(let failure, _) = life.state(of: .agent(agent.id)) {
+                    Text(failure.reason).font(.small).foregroundStyle(Palette.flag).padding(.top, Metrics.Spacing.l)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if let line = registered(agent.id)?.spendingLine() { SpendingLine(text: line) }
             }
         }
-        .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s).padding(.bottom, Metrics.Spacing.m)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .sheetScroll {
+            if let agent { head(agent) }
+        } buttons: {
+            if let agent { buttons(agent) }
+        }
         .background(Palette.sheet)
         .sheetStack()
         .motion(Motion.standard, value: agent?.status)
@@ -49,22 +56,16 @@ struct AgentSheet: View {
     @ViewBuilder private func content(_ agent: RegisteredAgent) -> some View {
         if let why = agent.notStarted {
             word(agent, color: Palette.flag, note: why)
-            buttons(agent, primary: ("Try again", { router.matterSheet = .start(matter) }))
         } else {
             switch agent.status {
             case .waiting, .unknown: waiting(agent)
-            case .running:
-                word(agent, note: agent.statusSince.map { "Since \(SaidWords.time($0))" })
-                buttons(agent, primary: nil)
-            case .stopped:
-                word(agent, note: agent.statusSince.map { "Since \(SaidWords.moment($0))" })
-                buttons(agent, primary: ("Resume", { Task { await life.resumeAgent(agent.id) } }))
+            case .running: word(agent, note: agent.statusSince.map { "Since \(SaidWords.time($0))" })
+            case .stopped: word(agent, note: agent.statusSince.map { "Since \(SaidWords.moment($0))" })
             case .ended, .handedOver:
                 word(agent, color: Palette.ok, note: agent.statusSince.map { SaidWords.moment($0) })
                 if let outcome = agent.outcome {
                     Text(outcome).font(.body15).foregroundStyle(Palette.fg).padding(.top, Metrics.Spacing.l)
                 }
-                buttons(agent, primary: nil)
             }
         }
     }
@@ -98,33 +99,29 @@ struct AgentSheet: View {
                 Text("Since \(SaidWords.moment(since))").font(.small).foregroundStyle(Palette.muted)
                     .padding(.top, Metrics.Spacing.xs)
             }
-            ScrollView {
-                VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
-                    if !wakers.isEmpty {
-                        group("Wakes on a message or a call from") {
-                            ForEach(Array(wakers.enumerated()), id: \.offset) { wakerButton($1) }
-                        }
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
+                if !wakers.isEmpty {
+                    group("Wakes on a message or a call from") {
+                        ForEach(Array(wakers.enumerated()), id: \.offset) { wakerButton($1) }
                     }
-                    if !clauses.isEmpty {
-                        group(wakers.isEmpty ? "Wakes when" : "or when") {
-                            ForEach(Array(clauses.enumerated()), id: \.offset) { clauseRow($1) }
-                        }
+                }
+                if !clauses.isEmpty {
+                    group(wakers.isEmpty ? "Wakes when" : "or when") {
+                        ForEach(Array(clauses.enumerated()), id: \.offset) { clauseRow($1) }
                     }
-                    if let until = agent.wait?.until {
-                        group("At the latest") {
-                            FlatRow(lead: .symbol("clock")) {
-                                Text(SaidWords.moment(until)).font(.leadBold)
-                            } trailing: {
-                                Text(until.formatted(.relative(presentation: .numeric, unitsStyle: .wide)))
-                                    .font(.note).foregroundStyle(Palette.muted)
-                            }
+                }
+                if let until = agent.wait?.until {
+                    group("At the latest") {
+                        FlatRow(lead: .symbol("clock")) {
+                            Text(SaidWords.moment(until)).font(.leadBold)
+                        } trailing: {
+                            Text(until.formatted(.relative(presentation: .numeric, unitsStyle: .wide)))
+                                .font(.note).foregroundStyle(Palette.muted)
                         }
                     }
                 }
-                .padding(.top, Metrics.Spacing.xl)
             }
-            .scrollBounceBehavior(.basedOnSize).scrollEdgeEffectStyle(.soft, for: .bottom)
-            buttons(agent, primary: nil)
+            .padding(.top, Metrics.Spacing.xl)
         }
     }
 
@@ -226,10 +223,17 @@ struct AgentSheet: View {
 
     /// Stop while it works or waits, a state's own action first; under them, a quiet link to its session in Claude Code or
     /// Codex, never needed (his word of 20 Nov: anything waiting on him comes back to the app).
-    private func buttons(_ agent: RegisteredAgent, primary: (String, () -> Void)?) -> some View {
+    private func buttons(_ agent: RegisteredAgent) -> some View {
         let state = life.state(of: .agent(agent.id))
+        let primary: (String, () -> Void)? =
+            if agent.notStarted != nil {
+                ("Try again", { router.matterSheet = .start(matter) })
+            } else if agent.status == .stopped {
+                ("Resume", { Task { await life.resumeAgent(agent.id) } })
+            } else {
+                nil
+            }
         return VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-            if case .failed(let failure, _) = state { Text(failure.reason).font(.small).foregroundStyle(Palette.flag) }
             // One full-width button (the sheet closes from its own Close), then the session's quiet link.
             Group {
                 if let primary {
@@ -246,6 +250,5 @@ struct AgentSheet: View {
                     .padding(.top, Metrics.Spacing.xs).frame(maxWidth: .infinity)
             }
         }
-        .padding(.top, Metrics.Spacing.l)
     }
 }

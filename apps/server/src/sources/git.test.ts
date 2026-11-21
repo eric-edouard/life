@@ -234,3 +234,7 @@ test("a month reads the lines of its own commits only: a later commit whose diff
     ["January draft", 1],
   ]);
 }, 20_000);
+
+test("a repos folder that does not exist holds no repos", () => {
+  expect(listRepos(join(tmpdir(), "life-test-no-such-folder"))).toEqual([]);
+});
