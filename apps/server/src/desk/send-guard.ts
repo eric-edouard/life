@@ -19,6 +19,9 @@ export interface SendFacts {
   postRepos: string[];
 }
 
+/** The environment variable that carries `SendFacts` to the guard outside the desk's process (the hook, pi's extension). */
+export const SEND_FACTS_ENV = "LIFE_SEND_FACTS";
+
 /**
  * The hook both runtimes run: a shell command, the same text everywhere (Codex trusts it by its hash), any failure a
  * refusal (exit 2). The script is checked first: `bun` given no file prints its help and exits 0.
@@ -53,10 +56,11 @@ const GH_REPO = /(?:--repo|-R)[=\s]+["']?([\w.-]+\/[\w.-]+)/g;
 const ENDS_BODY = /^\s*(["']|\n|$)/;
 
 /**
- * A tool name Codex shortened to fit or to tell twins apart: what is left of the tool's own name, then `_` and 12 hex
- * (`fit_callable_parts_with_hash`, codex-mcp's `tools.rs`); left: none when Codex cut it all.
+ * A tool name shortened to fit or to tell twins apart: what is left, then `_` and a hash, 12 hex from Codex
+ * (`fit_callable_parts_with_hash`, codex-mcp's `tools.rs`) or 8 from pi (`createMcpToolName`, pi-mcp's `naming.js`);
+ * left: none when the tool's own name was cut whole.
  */
-const SHORTENED = /^(\w*?)_?[0-9a-f]{12}$/;
+const SHORTENED = /^(\w*?)_?[0-9a-f]{8}(?:[0-9a-f]{4})?$/;
 
 /** Whether `tool` (a call's last `__` part) is one of his connector's writes, or what Codex left of one. */
 function isConnectorWrite(tool: string) {
@@ -136,11 +140,14 @@ const SEND_RULES: {
   {
     name: "his connector's writes",
     why: (c) => {
-      const tool = c.tool_name.split("__").at(-1) ?? "";
+      const parts = c.tool_name.split("__");
+      const tool = parts.at(-1) ?? "";
+      // pi cuts the whole `mcp__<server>__<tool>`: cut inside the server's id, nothing of the tool is left to read.
+      const isCutInServer = parts.length < 3 && SHORTENED.test(tool);
       // The door is `desk` (`acp-runtime.ts`), named whole: a server id that only starts with `desk__` is not it.
       return c.tool_name.startsWith("mcp__") &&
         c.tool_name !== `mcp__desk__${tool}` &&
-        isConnectorWrite(tool)
+        (isCutInServer || isConnectorWrite(tool))
         ? "Agents don't write as him through his Life connector. Ask him through your desk door (`request_decision` there). If your door is missing, say so in one line and stop."
         : undefined;
     },

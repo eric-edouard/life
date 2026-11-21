@@ -12,7 +12,7 @@ import { settings } from "../../core/settings";
 import { mailedTo } from "../../host/report";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { readMailAddresses } from "../../sources/mail";
-import { SEND_GUARD_HOOK, type SendFacts } from "../send-guard";
+import { SEND_FACTS_ENV, SEND_GUARD_HOOK, type SendFacts } from "../send-guard";
 import type { Agent } from "./contract";
 
 // The runtime rows: each runtime's own facts, the one place they live (`acp-runtime.ts` names no runtime). A row is its
@@ -193,7 +193,7 @@ function guardEnv() {
   }
   return {
     LIFE_BUN: process.execPath,
-    LIFE_SEND_FACTS: JSON.stringify(readSendFacts()),
+    [SEND_FACTS_ENV]: JSON.stringify(readSendFacts()),
     LIFE_SEND_GUARD: SEND_GUARD,
   };
 }
